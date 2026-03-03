@@ -27,6 +27,10 @@ function cleanName(raw: string) {
 function looksLikeEmployeeName(s: string): boolean {
   const t = asText(s);
   if (!t) return false;
+
+  // Primary signal: "Default - #N" suffix is unambiguous — always an employee name row
+  if (/Default\s*-\s*#\d+/i.test(t)) return true;
+
   const low = t.toLowerCase();
   if (low.includes("payroll register")) return false;
   if (low.includes("report totals")) return false;
@@ -34,6 +38,10 @@ function looksLikeEmployeeName(s: string): boolean {
   if (low.includes("deductions")) return false;
   if (low.includes("taxes")) return false;
   if (low === "totals:" || low.startsWith("totals")) return false;
+  if (low.includes("er totals")) return false;
+  if (low.includes("all tax")) return false;
+  if (low.startsWith("net pay")) return false;
+  if (low.includes("direct deposit")) return false;
 
   const hasLetters = /[A-Za-z]/.test(t);
   const parts = t.replace(",", " ").split(/\s+/).filter(Boolean);
@@ -94,13 +102,16 @@ export function parsePayrollRegisterExcel(buf: Buffer): PayrollParseResult {
     }
 
     const name = cleanName(nameCell);
+    // Employee ID is in column L (index 11) on the same row as the name
+    const rawId = asText(grid[r]?.[11]);
+    const employeeId = rawId || undefined;
 
     let salaryAmt = 0;
     let overtimeAmt = 0;
     let overtimeHours = 0;
     let holAmt = 0;
     let holHours = 0;
-    let er401k = 0;
+    let er401kAmt = 0;
 
     type Mode = "NONE" | "PAY" | "ER";
     let mode: Mode = "NONE";
@@ -167,35 +178,35 @@ export function parsePayrollRegisterExcel(buf: Buffer): PayrollParseResult {
         const isLoan = low.includes("loan");
         const isEE = low.includes(" ee") || low.includes("(ee") || low.includes("employee");
         if (is401 && !isLoan && !isEE) {
-          er401k += amt;
+          er401kAmt += amt;
         }
         if (isTotals(label) || isTaxesHeader(label)) mode = "NONE";
         continue;
       }
     }
 
-    employees.push({ name, salaryAmt, overtimeAmt, overtimeHours, holAmt, holHours, er401k });
+    employees.push({ name, employeeId, salaryAmt, overtimeAmt, overtimeHours, holAmt, holHours, er401kAmt });
   }
 
-  const reportTotals = employees.reduce(
+  const totals = employees.reduce(
     (acc, e) => {
-      acc.salaryTotal += e.salaryAmt;
-      acc.overtimeAmtTotal += e.overtimeAmt;
-      acc.overtimeHoursTotal += e.overtimeHours ?? 0;
-      acc.holAmtTotal += e.holAmt;
-      acc.holHoursTotal += e.holHours ?? 0;
-      acc.er401kTotal += e.er401k;
+      acc.salaryAmt += e.salaryAmt;
+      acc.overtimeAmt += e.overtimeAmt;
+      acc.overtimeHours += e.overtimeHours ?? 0;
+      acc.holAmt += e.holAmt;
+      acc.holHours += e.holHours ?? 0;
+      acc.er401kAmt += e.er401kAmt;
       return acc;
     },
     {
-      salaryTotal: 0,
-      overtimeAmtTotal: 0,
-      overtimeHoursTotal: 0,
-      holHoursTotal: 0,
-      holAmtTotal: 0,
-      er401kTotal: 0,
+      salaryAmt: 0,
+      overtimeAmt: 0,
+      overtimeHours: 0,
+      holHours: 0,
+      holAmt: 0,
+      er401kAmt: 0,
     }
   );
 
-  return { payDate, reportTotals, employees };
+  return { payDate, totals, employees };
 }

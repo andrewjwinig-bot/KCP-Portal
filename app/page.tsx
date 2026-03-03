@@ -30,7 +30,7 @@ type EmployeeSummary = {
   overtimeHours: number;
   holAmt: number;
   holHours: number;
-  er401k: number;
+  er401kAmt: number;
   total: number;
   allocations: Record<string, number>;
 };
@@ -84,7 +84,7 @@ export default function Page() {
       t.salary += e.salaryAmt ?? 0;
       t.overtime += e.overtimeAmt ?? 0;
       t.hol += e.holAmt ?? 0;
-      t.er401k += e.er401k ?? 0;
+      t.er401k += e.er401kAmt ?? 0;
       t.total += e.total ?? 0;
     }
     return t;
@@ -166,7 +166,7 @@ export default function Page() {
         const salary = (e.salaryAmt ?? 0) * pct;
         const overtime = (e.overtimeAmt ?? 0) * pct;
         const hol = (e.holAmt ?? 0) * pct;
-        const er401k = (e.er401k ?? 0) * pct;
+        const er401k = (e.er401kAmt ?? 0) * pct;
         const total = salary + overtime + hol + er401k;
         return { propertyKey, propertyName, pct, salary, overtime, hol, er401k, total };
       })
@@ -201,10 +201,10 @@ export default function Page() {
         />
         {payroll && (
           <div className="pills">
-            <span className="pill"><span className="muted">Salary</span><b>{money(payroll.reportTotals?.salaryTotal ?? 0)}</b></span>
-            <span className="pill"><span className="muted">Overtime</span><b>{num(payroll.reportTotals?.overtimeHoursTotal ?? 0)} hrs</b><span className="muted small">({money(payroll.reportTotals?.overtimeAmtTotal ?? 0)})</span></span>
-            <span className="pill"><span className="muted">HOL</span><b>{num(payroll.reportTotals?.holHoursTotal ?? 0)} hrs</b><span className="muted small">({money(payroll.reportTotals?.holAmtTotal ?? 0)})</span></span>
-            <span className="pill"><span className="muted">401K ER</span><b>{money(payroll.reportTotals?.er401kTotal ?? 0)}</b></span>
+            <span className="pill"><span className="muted">Salary</span><b>{money(payroll.totals?.salaryAmt ?? 0)}</b></span>
+            <span className="pill"><span className="muted">Overtime</span><b>{num(payroll.totals?.overtimeHours ?? 0)} hrs</b><span className="muted small">({money(payroll.totals?.overtimeAmt ?? 0)})</span></span>
+            <span className="pill"><span className="muted">HOL</span><b>{num(payroll.totals?.holHours ?? 0)} hrs</b><span className="muted small">({money(payroll.totals?.holAmt ?? 0)})</span></span>
+            <span className="pill"><span className="muted">401K ER</span><b>{money(payroll.totals?.er401kAmt ?? 0)}</b></span>
           </div>
         )}
       </div>
@@ -313,7 +313,7 @@ export default function Page() {
                     <td style={{ textAlign: "right" }}>{money(e.salaryAmt)}</td>
                     <td style={{ textAlign: "right" }}>{money(e.overtimeAmt)} <span className="muted small">({num(e.overtimeHours)} hrs)</span></td>
                     <td style={{ textAlign: "right" }}>{money(e.holAmt)} <span className="muted small">({num(e.holHours)} hrs)</span></td>
-                    <td style={{ textAlign: "right" }}>{money(e.er401k)}</td>
+                    <td style={{ textAlign: "right" }}>{money(e.er401kAmt)}</td>
                     <td style={{ textAlign: "right" }}><b>{money(e.total)}</b></td>
                   </tr>
                 ))
@@ -380,7 +380,7 @@ export default function Page() {
             <div className="modalHeader">
               <div>
                 <div className="modalTitle">{empModal.employee.name}</div>
-                <div className="muted">Salary {money(empModal.employee.salaryAmt)} · Overtime {money(empModal.employee.overtimeAmt)} · HOL {money(empModal.employee.holAmt)} · 401K ER {money(empModal.employee.er401k)}</div>
+                <div className="muted">Salary {money(empModal.employee.salaryAmt)} · Overtime {money(empModal.employee.overtimeAmt)} · HOL {money(empModal.employee.holAmt)} · 401K ER {money(empModal.employee.er401kAmt)}</div>
               </div>
               <button className="btn" onClick={() => setEmpModal(null)}>Close</button>
             </div>

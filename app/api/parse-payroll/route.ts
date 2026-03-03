@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
+import { readFile } from "fs/promises";
+import path from "path";
 
 import { parseAllocationWorkbook } from "../../../lib/allocation/parseAllocationWorkbook";
 import { parsePayrollRegisterExcel } from "../../../lib/payroll/parsePayrollRegisterExcel";
 import { buildInvoices } from "../../../lib/invoicing/buildInvoices";
-import type { AllocationEmployee, PayrollParseResult } from "../../../lib/types";
+import type { AllocationEmployee } from "../../../lib/types";
 
 /**
  * POST /api/parse-payroll
@@ -14,53 +16,70 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
     const fileBase64 = body?.fileBase64 as string | undefined;
-    const filename = (body?.filename as string | undefined) ?? "payroll.xlsx";
 
     if (!fileBase64) {
       return NextResponse.json({ error: "Missing fileBase64" }, { status: 400 });
     }
 
-    const payroll: PayrollParseResult = await parsePayrollRegisterExcel(fileBase64, filename);
-    const allocation = await parseAllocationWorkbook();
+    // Convert base64-encoded file to Buffer for XLSX parsing
+    const payrollBuf = Buffer.from(fileBase64, "base64");
+    const payroll = parsePayrollRegisterExcel(payrollBuf);
 
-    // Merge allocation rows with parsed payroll employees. Prefer employeeId match (if present),
-    // fall back to case-insensitive name containment.
-    const payrollEmployees = payroll?.employees ?? [];
-    const mergedEmployees: AllocationEmployee[] = (allocation?.employees ?? []).map((ae: any) => {
+    // Load allocation workbook from the fixed location on disk
+    const allocPath = path.join(process.cwd(), "data", "allocation.xlsx");
+    const allocBuf = await readFile(allocPath);
+    const allocation = parseAllocationWorkbook(allocBuf);
+
+    // Build invoices: matching is done internally by buildInvoices
+    const invoices = buildInvoices(payroll, allocation);
+
+    // Also build a merged employee list for the UI (shows match status + amounts per employee)
+    const payrollEmployees = payroll.employees;
+    const mergedEmployees: (AllocationEmployee & { total: number })[] = allocation.employees.map((ae) => {
       const aId = ae.employeeId ?? ae.id ?? null;
 
       const pe =
-        payrollEmployees.find((p: any) => aId != null && String(p.employeeId ?? "").trim() === String(aId).trim()) ??
-        payrollEmployees.find((p: any) => {
+        payrollEmployees.find((p) => aId != null && String(p.employeeId ?? "").trim() === String(aId).trim()) ??
+        payrollEmployees.find((p) => {
           const pn = String(p.name ?? "").toLowerCase();
           const an = String(ae.name ?? "").toLowerCase();
           return pn && an && (pn.includes(an) || an.includes(pn));
         }) ??
         null;
 
+      const salaryAmt = pe?.salaryAmt ?? 0;
+      const overtimeAmt = pe?.overtimeAmt ?? 0;
+      const holAmt = pe?.holAmt ?? 0;
+      const er401kAmt = pe?.er401kAmt ?? 0;
+
       return {
         ...ae,
-        employeeId: aId ?? pe?.employeeId ?? ae.employeeId,
         payrollName: pe?.name ?? null,
-        salaryAmt: pe?.salaryAmt ?? 0,
-        overtimeAmt: pe?.overtimeAmt ?? 0,
+        salaryAmt,
+        overtimeAmt,
         overtimeHours: pe?.overtimeHours ?? 0,
-        holAmt: pe?.holAmt ?? 0,
+        holAmt,
         holHours: pe?.holHours ?? 0,
-        er401kAmt: pe?.er401kAmt ?? 0,
-        // normalize allocations shape for downstream
+        er401kAmt,
+        total: salaryAmt + overtimeAmt + holAmt + er401kAmt,
         allocations: ae.allocations ?? ae.top ?? {},
       };
     });
 
-    const invoices = buildInvoices(mergedEmployees as any, allocation?.properties ?? []);
+    const properties = Object.values(allocation.propertyMeta).map((m) => ({
+      key: m.code || m.label,
+      label: m.label,
+    }));
 
     return NextResponse.json({
-      payDate: payroll?.payDate ?? null,
-      payrollTotals: payroll?.totals ?? null,
+      payroll: {
+        payDate: payroll.payDate ?? null,
+        employees: payroll.employees,
+        totals: payroll.totals,
+      },
       employees: mergedEmployees,
       invoices,
-      properties: allocation?.properties ?? [],
+      properties,
     });
   } catch (err: any) {
     return NextResponse.json({ error: err?.message ?? String(err) }, { status: 500 });

@@ -26,9 +26,9 @@ export type AllocationEmployee = {
   top?: Record<string, number>;
 
   /**
-   * Optional grouping map (kept for back-compat)
+   * Optional grouping map: group name -> fraction (how marketing alloc splits across groups)
    */
-  marketingToGroups?: Record<string, Record<string, number>>;
+  marketingToGroups?: Record<string, number>;
 
   // These fields are attached after merging with payroll parse results
   payrollName?: string | null;
@@ -42,7 +42,12 @@ export type AllocationEmployee = {
 
 export type AllocationTable = {
   employees: AllocationEmployee[];
-  properties: PropertyRef[];
+  properties?: PropertyRef[];
+  prs: {
+    salaryREC: Record<string, Record<string, number>>;
+    salaryNR: Record<string, Record<string, number>>;
+  };
+  propertyMeta: Record<string, { code?: string; label: string }>;
 };
 
 export type PayrollEmployee = {
@@ -82,6 +87,9 @@ export type PropertyInvoice = {
   propertyKey: string;
   propertyLabel: string;
   propertyName?: string;
+  propertyCode?: string;
+  payDate?: string | null;
+  lines?: Array<{ description: string; accCode: string; amount: number }>;
   salaryREC: number;
   salaryNR: number;
   overtime: number;

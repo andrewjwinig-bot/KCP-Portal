@@ -18,7 +18,8 @@ export function buildInvoices(payroll: PayrollParseResult, alloc: AllocationTabl
   const empAllocById = new Map<string, AllocationEmployee>();
   const empAllocByName = new Map<string, AllocationEmployee>();
   for (const e of alloc.employees) {
-    if (e.id) empAllocById.set(String(e.id).trim(), e);
+    const allocId = String(e.employeeId ?? e.id ?? "").trim();
+    if (allocId) empAllocById.set(allocId, e);
     empAllocByName.set(String(e.name).toLowerCase().trim(), e);
   }
 
@@ -33,7 +34,16 @@ export function buildInvoices(payroll: PayrollParseResult, alloc: AllocationTabl
   }
 
   for (const emp of payroll.employees) {
-    const a = (emp.id ? empAllocById.get(String(emp.id).trim()) : undefined) || empAllocByName.get(String(emp.name).toLowerCase().trim());
+    const empId = String(emp.employeeId ?? "").trim();
+    const a =
+      (empId ? empAllocById.get(empId) : undefined) ??
+      empAllocByName.get(String(emp.name).toLowerCase().trim()) ??
+      // Partial name match fallback (handles "Last, First" vs "First Last" differences)
+      alloc.employees.find((ae) => {
+        const pn = String(emp.name ?? "").toLowerCase();
+        const an = String(ae.name ?? "").toLowerCase();
+        return pn && an && (pn.includes(an) || an.includes(pn));
+      });
     if (!a) continue;
 
     // Base top allocations include direct properties + groups + marketing
