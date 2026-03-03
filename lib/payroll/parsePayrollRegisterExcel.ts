@@ -2,51 +2,6 @@ import * as XLSX from "xlsx";
 import { PayrollEmployee, PayrollParseResult } from "../types";
 import { toNumber } from "../utils";
 
-/**
- * Column-based parser tailored to your payroll export layout:
- * - Employee name appears in column B (index 1), e.g. at B9, B36, ...
- * - Inside an employee block, line-item labels are in column B (index 1)
- * - Amounts are in column D (index 3)
- * - Blocks are separated by blank rows in column B
- *
- * This approach is intentionally simple/stable and avoids "smart scanning"
- * that can accidentally zero-out the whole sheet.
- */
-
-function asText(v: any): string {
-  return String(v ?? "").trim();
-}
-
-function cleanName(raw: string) {
-  return (raw || "")
-    .replace(/\s*Default\s*-\s*#\d+\s*$/i, "")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function looksLikeEmployeeName(s: string): boolean {
-  const t = asText(s);
-  if (!t) return false;
-  const low = t.toLowerCase();
-  if (low.includes("payroll register")) return false;
-  if (low.includes("report totals")) return false;
-  if (low.includes("pay type")) return false;
-  if (low === "regular pay" || low.startsWith("regular pay")) return false;
-  if (low === "overtime" || low.startsWith("overtime")) return false;
-  if (low === "hol" || low.startsWith("hol")) return false;
-  if (low.includes("deductions")) return false;
-  if (low.includes("taxes")) return false;
-
-  // typical: "FIRST LAST" OR "LAST, FIRST" OR "ANDREW WINIG  Default - #10"
-  const hasLetters = /[A-Za-z]/.test(t);
-  const parts = t.replace(",", " ").split(/\s+/).filter(Boolean);
-  return hasLetters && parts.length >= 2;
-}
-
-function labelMatches(label: string, needle: RegExp) {
-  return needle.test(label.toLowerCase());
-}
-
 function findFirstDate(grid: any[][]): string | undefined {
   for (const row of grid) {
     for (const cell of row) {
@@ -58,76 +13,165 @@ function findFirstDate(grid: any[][]): string | undefined {
   return undefined;
 }
 
+function norm(s: any) {
+  return String(s ?? "").trim().toLowerCase();
+}
+
+function findCellIndex(row: any[] | undefined, containsText: string): number {
+  if (!row) return -1;
+  const needle = containsText.toLowerCase();
+  for (let c = 0; c < row.length; c++) {
+    if (norm(row[c]).includes(needle)) return c;
+  }
+  return -1;
+}
+
+function isOvertimeLabel(label: string) {
+  const s = label.toLowerCase().trim();
+  return s === "overtime" || s.startsWith("overtime") || /^ot\b/.test(s) || s.includes("over time");
+}
+
+function isHolLabel(label: string) {
+  const s = label.toLowerCase().trim();
+  return s === "hol" || s.startsWith("hol") || s.includes("holiday");
+}
+
+function isProbablyEmployeeName(s: string) {
+  const t = (s || "").trim();
+  if (!t) return false;
+  const low = t.toLowerCase();
+  if (
+    low.includes("payroll register") ||
+    low.includes("report totals") ||
+    low.includes("company") ||
+    low.includes("department") ||
+    low.includes("pay type") ||
+    low.includes("totals") ||
+    low === "taxes" ||
+    low.includes("deductions")
+  ) return false;
+
+  if (!/[a-zA-Z]/.test(t)) return false;
+
+  const parts = t.split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) return true;
+  if (parts.length === 1 && parts[0].length >= 4 && /^[A-Za-z][A-Za-z\-']+$/.test(parts[0])) return true;
+
+  return false;
+}
+
+function findEmployeeNameAbove(grid: any[][], payTypeRowIndex: number, nameCol: number): string | undefined {
+  for (let r = payTypeRowIndex - 1; r >= 0 && r >= payTypeRowIndex - 30; r--) {
+    const cand = String(grid[r]?.[nameCol] ?? "").trim();
+    if (isProbablyEmployeeName(cand)) return cand;
+  }
+  return undefined;
+}
+
+function findNextRowIndexWithText(grid: any[][], startRow: number, text: string): { row: number; col: number } | null {
+  const needle = text.toLowerCase();
+  for (let r = startRow; r < grid.length; r++) {
+    const row = grid[r] || [];
+    for (let c = 0; c < row.length; c++) {
+      if (norm(row[c]).includes(needle)) return { row: r, col: c };
+    }
+  }
+  return null;
+}
+
 export function parsePayrollRegisterExcel(buf: Buffer): PayrollParseResult {
   const wb = XLSX.read(buf, { type: "buffer", cellDates: true });
-  const ws = wb.Sheets[wb.SheetNames[0]];
+  const sheetName = wb.SheetNames[0];
+  const ws = wb.Sheets[sheetName];
   const grid = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false }) as any[][];
 
   const payDate = findFirstDate(grid);
 
   const employees: PayrollEmployee[] = [];
+  const seen = new Set<string>();
 
-  let r = 0;
-  while (r < grid.length) {
-    const nameCell = asText(grid[r]?.[1]); // column B
-    if (!looksLikeEmployeeName(nameCell)) {
-      r++;
+  let i = 0;
+  while (i < grid.length) {
+    const payTypeCol = findCellIndex(grid[i], "pay type");
+    if (payTypeCol === -1) {
+      i++;
       continue;
     }
 
-    const name = cleanName(nameCell);
+    // The label column is the same column that contains "Pay Type"
+    const labelCol = payTypeCol;
+    const hoursCol = labelCol + 1;
+    const amtCol = labelCol + 2;
+
+    const name = findEmployeeNameAbove(grid, i, labelCol);
+    if (!name) {
+      i++;
+      continue;
+    }
+
+    const key = name.toLowerCase();
+    if (seen.has(key)) {
+      i++;
+      continue;
+    }
 
     let salaryAmt = 0;
     let overtimeAmt = 0;
-    let overtimeHours = 0; // if present, usually col C, but keep 0 if not reliable
+    let overtimeHours = 0;
     let holAmt = 0;
     let holHours = 0;
+
+    // Pay type rows start immediately after "Pay Type" header
+    let j = i + 1;
+    for (; j < grid.length; j++) {
+      const r = grid[j];
+      const label = String(r?.[labelCol] ?? "").trim();
+      const low = label.toLowerCase().trim();
+      if (!label) continue;
+
+      // Stop conditions
+      if (/^totals?:\s*$/i.test(label)) break;
+      if (low.includes("deductions")) break;
+      if (low.includes("taxes")) break;
+
+      const hours = toNumber(r?.[hoursCol]);
+      const amt = toNumber(r?.[amtCol]);
+
+      if (isOvertimeLabel(label)) {
+        overtimeAmt += amt;
+        overtimeHours += hours;
+      } else if (isHolLabel(label)) {
+        holAmt += amt;
+        holHours += hours;
+      } else {
+        salaryAmt += amt;
+      }
+    }
+
+    // Find Deductions (ER) section after pay types (could be in any column)
+    const erHeader = findNextRowIndexWithText(grid, j, "deductions (er)");
     let er401k = 0;
+    let k = j;
 
-    // scan down until next employee name or we hit a long blank gap
-    let blankRun = 0;
-    r++; // start after the name row
-    for (; r < grid.length; r++) {
-      const label = asText(grid[r]?.[1]); // column B label
-      const amount = toNumber(grid[r]?.[3]); // column D amount
+    if (erHeader) {
+      const erLabelCol = erHeader.col;
+      const erAmtCol = erLabelCol + 2; // label, (blank/hrs), amount matches pattern
 
-      const possibleNextName = asText(grid[r]?.[1]);
-      // if a new employee name appears, stop block
-      if (looksLikeEmployeeName(possibleNextName) && possibleNextName !== label) {
-        break;
-      }
+      k = erHeader.row + 1;
+      for (; k < grid.length; k++) {
+        const r = grid[k];
+        const label = String(r?.[erLabelCol] ?? "").trim();
+        const low = label.toLowerCase();
 
-      if (!label) {
-        blankRun++;
-        if (blankRun >= 6) break;
-        continue;
-      }
-      blankRun = 0;
+        if (!label) continue;
+        if (low.startsWith("taxes") || low.includes("taxes")) break;
+        if (/^totals?:\s*$/i.test(label)) break;
 
-      // Pay lines
-      if (labelMatches(label, /^regular pay\b/)) {
-        salaryAmt += amount;
-        continue;
-      }
-      if (labelMatches(label, /^overtime\b/) || labelMatches(label, /^ot\b/)) {
-        overtimeAmt += amount;
-        // hours sometimes in column C (index 2)
-        const hrs = toNumber(grid[r]?.[2]);
-        overtimeHours += hrs;
-        continue;
-      }
-      if (labelMatches(label, /^hol\b/) || labelMatches(label, /holiday/)) {
-        holAmt += amount;
-        const hrs = toNumber(grid[r]?.[2]);
-        holHours += hrs;
-        continue;
-      }
+        const amt = toNumber(r?.[erAmtCol]);
 
-      // 401K ER: look for any label containing "401" and "ER"/"Employer"
-      const low = label.toLowerCase();
-      if (low.includes("401") && (low.includes(" er") || low.includes("(er") || low.includes("employer")) && !low.includes(" ee") && !low.includes("(ee")) {
-        er401k += amount;
-        continue;
+        if (/401k/i.test(label) && /(er|employer)/i.test(label) && !/loan/i.test(label)) {
+          er401k += amt;
+        }
       }
     }
 
@@ -140,6 +184,9 @@ export function parsePayrollRegisterExcel(buf: Buffer): PayrollParseResult {
       holHours,
       er401k,
     });
+    seen.add(key);
+
+    i = Math.max(i + 1, k);
   }
 
   const reportTotals = employees.reduce(
