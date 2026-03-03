@@ -3,14 +3,23 @@ import { PayrollEmployee, PayrollParseResult } from "../types";
 import { toNumber } from "../utils";
 
 /**
- * Payroll Register parser (stable + specific to your export):
- * - Employee name is in column B
- * - "Pay Type" section lists pay lines (labels in B, hours in C, amount in D)
- * - Deductions (ER) section exists but the 401K ER line label is just "401k" (no "ER" text)
+ * Payroll Register (.xls/.xlsx) parser for the "By Pay Statements" export you shared.
  *
- * Fixes:
- * - Andrew/Charles show $0 because their pay line is "Salary" (not "Regular pay")
- * - 401K ER was 0 because we required "ER" text in the label; in this export ER lines are under the ER header.
+ * Key behaviors:
+ * - Employee name rows are in column B (index 1) and typically look like:
+ *     "ANDREW WINIG  Default - #10"
+ *     "Charles Loiseau  Default - #33"
+ * - Within an employee block:
+ *     - "Pay Type" header appears, then pay lines until "Totals:" (or until a new section)
+ *       * Any line containing "Overtime" -> overtimeAmt (+ hours if present in col C)
+ *       * Any line containing "HOL" or "Holiday" -> holAmt (+ hours if present in col C)
+ *       * All other pay lines with an amount -> salaryAmt  (this catches "Salary", "Auto Allowance", etc.)
+ *     - "Deductions (ER)" header appears, then deduction lines until the next header/block
+ *       * Any line containing "401" (e.g., "401k") counts toward er401k
+ *       * Excludes "EE" and "Loan"
+ *
+ * This is intentionally column-focused (B label, D amount) but section-aware,
+ * so it won't miss employees whose pay label isn't exactly "Regular Pay".
  */
 
 function asText(v: any): string {
@@ -28,13 +37,17 @@ function looksLikeEmployeeName(s: string): boolean {
   const t = asText(s);
   if (!t) return false;
   const low = t.toLowerCase();
+
+  // exclude common headers
   if (low.includes("payroll register")) return false;
   if (low.includes("report totals")) return false;
+  if (low.includes("pay date")) return false;
   if (low.includes("pay type")) return false;
   if (low.includes("deductions")) return false;
   if (low.includes("taxes")) return false;
   if (low === "totals:" || low.startsWith("totals")) return false;
-  // name-like string: has letters and at least 2 tokens
+
+  // needs at least 2 words with letters
   const hasLetters = /[A-Za-z]/.test(t);
   const parts = t.replace(",", " ").split(/\s+/).filter(Boolean);
   return hasLetters && parts.length >= 2;
@@ -51,16 +64,22 @@ function findFirstDate(grid: any[][]): string | undefined {
   return undefined;
 }
 
-function isOvertime(label: string) {
+type Section = "none" | "pay" | "ded_er";
+
+function isHeader(label: string): boolean {
   const low = label.toLowerCase();
-  return low.startsWith("overtime") || /^ot\b/.test(low);
-}
-function isHol(label: string) {
-  const low = label.toLowerCase();
-  return low === "hol" || low.startsWith("hol") || low.includes("holiday");
-}
-function isTotals(label: string) {
-  return label.toLowerCase().startsWith("totals");
+  return (
+    low === "pay type" ||
+    low.startsWith("pay type") ||
+    low === "deductions (er)" ||
+    low.startsWith("deductions (er)") ||
+    low === "deductions" ||
+    low.startsWith("deductions") ||
+    low === "taxes" ||
+    low.startsWith("taxes") ||
+    low === "totals:" ||
+    low.startsWith("totals")
+  );
 }
 
 export function parsePayrollRegisterExcel(buf: Buffer): PayrollParseResult {
@@ -69,7 +88,6 @@ export function parsePayrollRegisterExcel(buf: Buffer): PayrollParseResult {
   const grid = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false }) as any[][];
 
   const payDate = findFirstDate(grid);
-
   const employees: PayrollEmployee[] = [];
 
   let r = 0;
@@ -89,80 +107,95 @@ export function parsePayrollRegisterExcel(buf: Buffer): PayrollParseResult {
     let holHours = 0;
     let er401k = 0;
 
-    // state machine inside the employee block
-    type Mode = "NONE" | "PAY" | "ER";
-    let mode: Mode = "NONE";
-
-    r++; // start scanning after name row
+    let section: Section = "none";
     let blankRun = 0;
 
+    // walk forward through this employee's block
+    r++; // start after name row
     for (; r < grid.length; r++) {
-      const label = asText(grid[r]?.[1]); // column B label
-      const hrs = toNumber(grid[r]?.[2]); // column C
-      const amt = toNumber(grid[r]?.[3]); // column D
+      const label = asText(grid[r]?.[1]); // column B
+      const amount = toNumber(grid[r]?.[3]); // column D
+      const hours = toNumber(grid[r]?.[2]); // column C (sometimes)
 
-      // If we hit another employee name, end current block
-      if (looksLikeEmployeeName(label) && label !== nameCell) break;
+      // stop if next employee starts
+      if (looksLikeEmployeeName(label)) {
+        break;
+      }
 
       if (!label) {
         blankRun++;
-        if (blankRun >= 8) break;
+        if (blankRun >= 8) {
+          // long blank gap ends the block
+          break;
+        }
         continue;
       }
       blankRun = 0;
 
       const low = label.toLowerCase();
 
-      if (low === "pay type") {
-        mode = "PAY";
+      // Switch sections
+      if (low === "pay type" || low.startsWith("pay type")) {
+        section = "pay";
         continue;
       }
-      if (low === "deductions (er)") {
-        mode = "ER";
+      if (low === "deductions (er)" || low.startsWith("deductions (er)")) {
+        section = "ded_er";
         continue;
       }
-      if (low.startsWith("taxes")) {
-        mode = "NONE";
+      if (low === "totals:" || low.startsWith("totals")) {
+        // totals ends pay section; keep scanning in case Deductions(ER) follows
+        section = "none";
         continue;
       }
-      if (low.startsWith("deductions (ee)")) {
-        mode = "NONE"; // ignore EE deductions
+      // Other headers reset section
+      if (isHeader(label) && section !== "ded_er" && section !== "pay") {
+        section = "none";
+      }
+
+      // Parse by active section
+      if (section === "pay") {
+        // Overtime / HOL explicit
+        if (low.includes("overtime") || low === "ot" || low.startsWith("ot ")) {
+          overtimeAmt += amount;
+          if (hours) overtimeHours += hours;
+          continue;
+        }
+        if (low.startsWith("hol") || low.includes("holiday")) {
+          holAmt += amount;
+          if (hours) holHours += hours;
+          continue;
+        }
+
+        // Everything else with a numeric amount counts as "salary" bucket (base pay)
+        if (amount) {
+          salaryAmt += amount;
+        }
         continue;
       }
 
-      if (mode === "PAY") {
-        if (isTotals(label)) {
-          mode = "NONE";
-          continue;
+      if (section === "ded_er") {
+        // Count 401K ER lines even if label is just "401k"
+        // Exclude employee deductions and loans
+        const is401 = low.includes("401");
+        const isLoan = low.includes("loan");
+        const isEE = low.includes(" ee") || low.includes("(ee") || low.includes("employee");
+        if (is401 && !isLoan && !isEE) {
+          er401k += amount;
         }
-        if (isOvertime(label)) {
-          overtimeAmt += amt;
-          overtimeHours += hrs;
-          continue;
-        }
-        if (isHol(label)) {
-          holAmt += amt;
-          holHours += hrs;
-          continue;
-        }
-
-        // Everything else in Pay Type gets treated as Salary (includes "Salary", "Regular Pay", allowances, etc.)
-        if (amt) salaryAmt += amt;
-        continue;
-      }
-
-      if (mode === "ER") {
-        // In your export, the ER 401k line label is just "401k" (no ER text)
-        if (low.includes("401") && low.includes("k") && !low.includes("loan")) {
-          er401k += amt;
-        }
-        // stop ER mode when totals or taxes start
-        if (isTotals(label) || low.startsWith("taxes")) mode = "NONE";
         continue;
       }
     }
 
-    employees.push({ name, salaryAmt, overtimeAmt, overtimeHours, holAmt, holHours, er401k });
+    employees.push({
+      name,
+      salaryAmt,
+      overtimeAmt,
+      overtimeHours,
+      holAmt,
+      holHours,
+      er401k,
+    });
   }
 
   const reportTotals = employees.reduce(
