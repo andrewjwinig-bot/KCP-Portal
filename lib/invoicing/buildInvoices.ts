@@ -12,28 +12,25 @@ function norm(s: string) {
   return cleanPayrollName(s).toLowerCase();
 }
 
-// canonical key "last|first"
+/**
+ * Canonical "last|first" key using letters only.
+ * Examples:
+ *  - "ANDREW WINIG  Default - #10" -> "winig|andrew"
+ *  - "Charles Loiseau Default - #33" -> "loiseau|charles"
+ */
 function keyFromName(raw: string): string {
   const cleaned = cleanPayrollName(raw);
-  const tokens = cleaned.split(/\s+/).filter(Boolean);
-  if (tokens.length === 0) return "";
-  const first = tokens[0].toLowerCase();
-  const last = tokens[tokens.length - 1].toLowerCase();
+  const parts = cleaned.toLowerCase().split(/[^a-z]+/).filter(Boolean);
+  if (parts.length < 2) return "";
+  const first = parts[0];
+  const last = parts[parts.length - 1];
   return `${last}|${first}`;
 }
 
-function lastFromName(raw: string): string {
-  const cleaned = cleanPayrollName(raw);
-  const tokens = cleaned.split(/\s+/).filter(Boolean);
-  return (tokens[tokens.length - 1] || "").toLowerCase();
-}
-
 function normalizeKey(k: string) {
-  // reduce to letters + separator, same canonicalization as allocation parser
-  const lower = (k || "").toLowerCase();
-  const parts = lower.split(/[^a-z]+/).filter(Boolean);
+  const parts = (k || "").toLowerCase().split(/[^a-z]+/).filter(Boolean);
   if (parts.length >= 2) return `${parts[0]}|${parts[1]}`;
-  return lower.replace(/\s+/g, "");
+  return (k || "").toLowerCase().trim();
 }
 
 function pickPct(raw: number): number {
@@ -69,23 +66,27 @@ export function buildInvoices(payroll: PayrollParseResult, allocation: Allocatio
   }
 
   function findAlloc(empName: string) {
-    // 1) key match
+    // 1) employeeKey match (preferred)
     const k = normalizeKey(keyFromName(empName));
     const byKey = byEmployeeKey.get(k);
     if (byKey) return byKey;
 
-    // 2) normalized name match
+    // 2) exact normalized name match
     const byName = byNormName.get(norm(empName));
     if (byName) return byName;
 
-    // 3) unique last-name match (safe when last name is unique)
-    const last = lastFromName(empName);
-    if (last) {
-      const candidates = (allocation.employees ?? []).filter((x) => lastFromName(x.name) === last);
-      if (candidates.length === 1) {
-        const ae = candidates[0] as any;
-        return { recoverable: !!ae.recoverable, allocations: ae.allocations ?? {}, name: ae.name };
-      }
+    // 3) keyword fallback if unique
+    const cleaned = norm(empName);
+    const toks = cleaned.split(" ").filter(Boolean);
+    const first = toks[0];
+    const last = toks[toks.length - 1];
+    const candidates = (allocation.employees ?? []).filter((x) => {
+      const n = norm(x.name);
+      return (first && n.includes(first)) || (last && n.includes(last));
+    });
+    if (candidates.length === 1) {
+      const ae = candidates[0] as any;
+      return { recoverable: !!ae.recoverable, allocations: ae.allocations ?? {}, name: ae.name };
     }
 
     return null;
