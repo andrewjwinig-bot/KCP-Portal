@@ -1,118 +1,147 @@
 import * as XLSX from "xlsx";
-import { AllocationEmployee, AllocationTable, Property } from "../types";
+import { AllocationEmployee, AllocationTable } from "../types";
+import { toNumber } from "../utils";
 
 /**
- * Allocation workbook layout:
- * EmployeeName | EmployeeKey | Recoverable | <property codes...>
- * Later: Property Code | Property Name mapping table.
+ * Parses the allocation workbook used by the Payroll Invoicer.
+ *
+ * Expected layout (based on your 2026 workbook screenshot):
+ * - Header row contains: EmployeeID (optional), EmployeeName, EmployeeKey (optional), Recoverable,
+ *   followed by one column per Property Code (e.g. 2010, 3610, ...).
+ * - Values are percentages (either 0..1 or 0..100).
+ * - A second table lower on the sheet maps Property Code -> Property Name.
  */
+export function parseAllocationWorkbook(buf: ArrayBuffer | Buffer): AllocationTable {
+  const wb = XLSX.read(buf, {
+    type: buf instanceof ArrayBuffer ? "array" : "buffer",
+    cellText: false,
+    cellDates: false,
+    raw: false,
+  });
 
-function asText(v: any): string {
-  return String(v ?? "").trim();
-}
+  const sheet = wb.Sheets[wb.SheetNames[0]];
+  const rows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: "" });
 
-function isPropHeader(s: string): boolean {
-  if (!s) return false;
-  const up = s.toUpperCase();
-  if (["MARKETING","MIDDLETOWN","EASTWICK","0800","40A0","40B0","40C0"].includes(up)) return true;
-  return /^\d{3,4}$/.test(s);
-}
+  const norm = (v: any) => String(v ?? "").trim();
+  const normLower = (v: any) => norm(v).toLowerCase();
 
-function readPct(v: any): number {
-  if (v == null) return 0;
-  if (typeof v === "number" && isFinite(v)) return v > 1.5 ? v / 100 : v;
-  const s = asText(v);
-  if (!s || s === "-" || s === "—") return 0;
-  const pm = s.match(/^(-?\d+(?:\.\d+)?)\s*%$/);
-  if (pm) return parseFloat(pm[1]) / 100;
-  const n = Number(s.replace(/[$,]/g, ""));
-  if (!isFinite(n)) return 0;
-  return n > 1.5 ? n / 100 : n;
-}
-
-function toRecoverable(v: any): boolean {
-  const s = asText(v).toUpperCase();
-  return s === "REC" || s === "TRUE" || s === "YES" || s === "Y" || s === "1" || s === "X" || s === "✓" || s === "☑";
-}
-
-/**
- * Canonicalize keys to "last|first" using only letters.
- * This avoids invisible Excel whitespace / unicode pipe issues.
- */
-function normalizeEmployeeKey(v: any): string | undefined {
-  const raw = asText(v);
-  if (!raw) return undefined;
-  const parts = raw.toLowerCase().split(/[^a-z]+/).filter(Boolean);
-  if (parts.length >= 2) return `${parts[0]}|${parts[1]}`;
-  return undefined;
-}
-
-export function parseAllocationWorkbook(buf: Buffer): AllocationTable {
-  const wb = XLSX.read(buf, { type: "buffer" });
-  const ws = wb.Sheets[wb.SheetNames[0]];
-  const grid = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false }) as any[][];
-
-  let headerRow = -1;
-  for (let r = 0; r < Math.min(grid.length, 60); r++) {
-    const row = grid[r] || [];
-    const a = asText(row[0]).toLowerCase();
-    const b = asText(row[1]).toLowerCase();
-    if (a === "employeename" && b === "employeekey") {
-      headerRow = r;
+  // -------------------------
+  // 1) Locate allocation header row
+  // -------------------------
+  let headerRowIdx = -1;
+  for (let r = 0; r < rows.length; r++) {
+    const row = rows[r] || [];
+    const hasEmployeeName = row.some((c) => normLower(c) === "employeename");
+    const hasRecoverable = row.some((c) => normLower(c) === "recoverable");
+    if (hasEmployeeName && hasRecoverable) {
+      headerRowIdx = r;
       break;
     }
   }
-  if (headerRow === -1) throw new Error("Could not locate allocation header row (expected EmployeeName / EmployeeKey).");
+  if (headerRowIdx < 0) throw new Error("Could not locate allocation header row");
 
-  const header = grid[headerRow] || [];
+  const header = (rows[headerRowIdx] || []).map(norm);
+  const colIndex = (name: string) => header.findIndex((h) => h.toLowerCase() === name.toLowerCase());
 
-  const employeeNameCol = 0;
-  const employeeKeyCol = 1;
-  let recoverableCol = -1;
+  const employeeNameCol = colIndex("EmployeeName");
+  const employeeIdCol = colIndex("EmployeeID"); // optional
+  const employeeKeyCol = colIndex("EmployeeKey"); // optional
+  const recoverableCol = colIndex("Recoverable");
 
-  const propCols: { key: string; col: number }[] = [];
-  for (let c = 0; c < header.length; c++) {
-    const h = asText(header[c]);
-    if (!h) continue;
-    if (h.toLowerCase() === "recoverable") recoverableCol = c;
-    if (isPropHeader(h)) propCols.push({ key: h, col: c });
+  if (employeeNameCol < 0 || recoverableCol < 0) {
+    throw new Error("Could not locate EmployeeName/Recoverable columns in allocation header row");
   }
 
-  // Property Code -> Property Name mapping
-  const nameMap: Record<string, string> = {};
-  for (let r = headerRow + 1; r < grid.length; r++) {
-    if (asText(grid[r]?.[0]) === "Property Code" && asText(grid[r]?.[1]) === "Property Name") {
-      for (let k = r + 1; k < grid.length; k++) {
-        const code = asText(grid[k]?.[0]);
-        const nm = asText(grid[k]?.[1]);
-        if (!code) break;
-        nameMap[code] = nm;
-      }
-      break;
-    }
+  // Any columns to the right of Recoverable that look like property keys.
+  const propertyCols: Array<{ key: string; col: number }> = [];
+  for (let c = recoverableCol + 1; c < header.length; c++) {
+    const key = norm(header[c]);
+    if (!key) continue;
+    // Skip obvious non-property columns
+    if (["total", ""].includes(key.toLowerCase())) continue;
+    propertyCols.push({ key, col: c });
   }
 
-  const properties: Property[] = propCols.map((p) => ({
-    key: p.key,
-    label: p.key,
-    name: nameMap[p.key] || "",
-  })) as any;
-
+  // -------------------------
+  // 2) Parse employee rows
+  // -------------------------
   const employees: AllocationEmployee[] = [];
-  for (let r = headerRow + 1; r < grid.length; r++) {
-    const row = grid[r] || [];
-    const empName = asText(row[employeeNameCol]);
-    if (!empName) continue;
-    if (empName === "Property Code") break;
+  for (let r = headerRowIdx + 1; r < rows.length; r++) {
+    const row = rows[r] || [];
+    const name = norm(row[employeeNameCol]);
+    if (!name) break; // end of allocation table
 
-    const employeeKey = normalizeEmployeeKey(row[employeeKeyCol]);
-    const recoverable = recoverableCol >= 0 ? toRecoverable(row[recoverableCol]) : false;
+    const idRaw = employeeIdCol >= 0 ? norm(row[employeeIdCol]) : "";
+    const id = idRaw ? String(toNumber(idRaw) ?? idRaw).trim() : undefined;
 
-    const allocations: Record<string, number> = {};
-    for (const pc of propCols) allocations[pc.key] = readPct(row[pc.col]);
+    const employeeKey = employeeKeyCol >= 0 ? norm(row[employeeKeyCol]) : "";
 
-    employees.push({ name: empName, employeeKey, recoverable, allocations });
+    const recRaw = norm(row[recoverableCol]).toUpperCase();
+    const recoverable = recRaw === "REC" || recRaw === "Y" || recRaw === "YES" || recRaw === "TRUE";
+
+    const top: Record<string, number> = {};
+    for (const pc of propertyCols) {
+      const rawVal = row[pc.col];
+      const s = norm(rawVal);
+      if (!s || s === "-" || s === "—") continue;
+      let v = toNumber(s);
+      if (v == null || Number.isNaN(v)) continue;
+      // normalize percent
+      if (v > 1) v = v / 100;
+      if (v <= 0) continue;
+      top[pc.key] = v;
+    }
+
+    employees.push({
+      id,
+      name,
+      employeeKey: employeeKey || undefined,
+      recoverable,
+      top,
+      marketingToGroups: {},
+    });
   }
 
-  return { properties, employees };
+  // -------------------------
+  // 3) Parse Property Code -> Property Name mapping table
+  // -------------------------
+  const propertyMeta: Record<string, { code?: string; label: string }> = {};
+  let mapHeaderIdx = -1;
+  let codeCol = -1;
+  let nameCol = -1;
+  for (let r = 0; r < rows.length; r++) {
+    const row = rows[r] || [];
+    const idxCode = row.findIndex((c) => normLower(c) === "property code");
+    const idxName = row.findIndex((c) => normLower(c) === "property name");
+    if (idxCode >= 0 && idxName >= 0) {
+      mapHeaderIdx = r;
+      codeCol = idxCode;
+      nameCol = idxName;
+      break;
+    }
+  }
+
+  if (mapHeaderIdx >= 0) {
+    for (let r = mapHeaderIdx + 1; r < rows.length; r++) {
+      const row = rows[r] || [];
+      const code = norm(row[codeCol]);
+      const label = norm(row[nameCol]);
+      if (!code) break;
+      if (!label) continue;
+      propertyMeta[code] = { code, label };
+    }
+  }
+
+  // Ensure we at least have meta entries for any allocation keys.
+  for (const e of employees) {
+    for (const key of Object.keys(e.top)) {
+      if (!propertyMeta[key]) propertyMeta[key] = { code: key, label: key };
+    }
+  }
+
+  return {
+    employees,
+    prs: { salaryREC: {}, salaryNR: {} },
+    propertyMeta,
+  };
 }
