@@ -17,8 +17,13 @@ function norm(s: any) {
   return String(s ?? "").trim().toLowerCase();
 }
 
-function isPayTypeRow(row: any[]) {
-  return norm(row?.[1]).includes("pay type");
+function findCellIndex(row: any[] | undefined, containsText: string): number {
+  if (!row) return -1;
+  const needle = containsText.toLowerCase();
+  for (let c = 0; c < row.length; c++) {
+    if (norm(row[c]).includes(needle)) return c;
+  }
+  return -1;
 }
 
 function isOvertimeLabel(label: string) {
@@ -35,7 +40,6 @@ function isProbablyEmployeeName(s: string) {
   const t = (s || "").trim();
   if (!t) return false;
   const low = t.toLowerCase();
-  // Exclude common report headers
   if (
     low.includes("payroll register") ||
     low.includes("report totals") ||
@@ -47,24 +51,32 @@ function isProbablyEmployeeName(s: string) {
     low.includes("deductions")
   ) return false;
 
-  // Must contain at least one letter
   if (!/[a-zA-Z]/.test(t)) return false;
 
-  // Heuristic: two tokens is common ("First Last") OR all caps names
   const parts = t.split(/\s+/).filter(Boolean);
   if (parts.length >= 2) return true;
-  // Sometimes single-token last names; allow if it's alphabetic and not too short
   if (parts.length === 1 && parts[0].length >= 4 && /^[A-Za-z][A-Za-z\-']+$/.test(parts[0])) return true;
 
   return false;
 }
 
-function findEmployeeNameAbove(grid: any[][], payTypeRowIndex: number): string | undefined {
-  for (let r = payTypeRowIndex - 1; r >= 0 && r >= payTypeRowIndex - 25; r--) {
-    const cand = String(grid[r]?.[1] ?? "").trim();
+function findEmployeeNameAbove(grid: any[][], payTypeRowIndex: number, nameCol: number): string | undefined {
+  for (let r = payTypeRowIndex - 1; r >= 0 && r >= payTypeRowIndex - 30; r--) {
+    const cand = String(grid[r]?.[nameCol] ?? "").trim();
     if (isProbablyEmployeeName(cand)) return cand;
   }
   return undefined;
+}
+
+function findNextRowIndexWithText(grid: any[][], startRow: number, text: string): { row: number; col: number } | null {
+  const needle = text.toLowerCase();
+  for (let r = startRow; r < grid.length; r++) {
+    const row = grid[r] || [];
+    for (let c = 0; c < row.length; c++) {
+      if (norm(row[c]).includes(needle)) return { row: r, col: c };
+    }
+  }
+  return null;
 }
 
 export function parsePayrollRegisterExcel(buf: Buffer): PayrollParseResult {
@@ -80,18 +92,23 @@ export function parsePayrollRegisterExcel(buf: Buffer): PayrollParseResult {
 
   let i = 0;
   while (i < grid.length) {
-    if (!isPayTypeRow(grid[i])) {
+    const payTypeCol = findCellIndex(grid[i], "pay type");
+    if (payTypeCol === -1) {
       i++;
       continue;
     }
 
-    const name = findEmployeeNameAbove(grid, i);
+    // The label column is the same column that contains "Pay Type"
+    const labelCol = payTypeCol;
+    const hoursCol = labelCol + 1;
+    const amtCol = labelCol + 2;
+
+    const name = findEmployeeNameAbove(grid, i, labelCol);
     if (!name) {
       i++;
       continue;
     }
 
-    // Avoid double-parsing the same employee if the report repeats blocks
     const key = name.toLowerCase();
     if (seen.has(key)) {
       i++;
@@ -108,18 +125,17 @@ export function parsePayrollRegisterExcel(buf: Buffer): PayrollParseResult {
     let j = i + 1;
     for (; j < grid.length; j++) {
       const r = grid[j];
-      const label = String(r?.[1] ?? "").trim();
+      const label = String(r?.[labelCol] ?? "").trim();
       const low = label.toLowerCase().trim();
       if (!label) continue;
 
-      // Stop conditions: section headers or totals
+      // Stop conditions
       if (/^totals?:\s*$/i.test(label)) break;
       if (low.includes("deductions")) break;
       if (low.includes("taxes")) break;
 
-      // Hours in col C, Amount in col D
-      const hours = toNumber(r?.[2]);
-      const amt = toNumber(r?.[3]);
+      const hours = toNumber(r?.[hoursCol]);
+      const amt = toNumber(r?.[amtCol]);
 
       if (isOvertimeLabel(label)) {
         overtimeAmt += amt;
@@ -128,28 +144,31 @@ export function parsePayrollRegisterExcel(buf: Buffer): PayrollParseResult {
         holAmt += amt;
         holHours += hours;
       } else {
-        // Treat everything else in this section as "salary / regular earnings"
         salaryAmt += amt;
       }
     }
 
-    // Find Deductions (ER) section after pay types
-    let k = j;
-    while (k < grid.length && !norm(grid[k]?.[1]).includes("deductions (er)")) k++;
-
+    // Find Deductions (ER) section after pay types (could be in any column)
+    const erHeader = findNextRowIndexWithText(grid, j, "deductions (er)");
     let er401k = 0;
-    if (k < grid.length) {
-      k++;
+    let k = j;
+
+    if (erHeader) {
+      const erLabelCol = erHeader.col;
+      const erAmtCol = erLabelCol + 2; // label, (blank/hrs), amount matches pattern
+
+      k = erHeader.row + 1;
       for (; k < grid.length; k++) {
         const r = grid[k];
-        const label = String(r?.[1] ?? "").trim();
+        const label = String(r?.[erLabelCol] ?? "").trim();
         const low = label.toLowerCase();
+
         if (!label) continue;
         if (low.startsWith("taxes") || low.includes("taxes")) break;
+        if (/^totals?:\s*$/i.test(label)) break;
 
-        const amt = toNumber(r?.[3]);
+        const amt = toNumber(r?.[erAmtCol]);
 
-        // Only employer 401k (ER)
         if (/401k/i.test(label) && /(er|employer)/i.test(label) && !/loan/i.test(label)) {
           er401k += amt;
         }
@@ -167,7 +186,6 @@ export function parsePayrollRegisterExcel(buf: Buffer): PayrollParseResult {
     });
     seen.add(key);
 
-    // Continue after ER section, but ensure forward progress
     i = Math.max(i + 1, k);
   }
 
