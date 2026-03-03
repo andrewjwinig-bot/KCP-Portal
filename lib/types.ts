@@ -1,64 +1,53 @@
-export type Property = {
-  key: string;
-  label: string;
-  name?: string;
-};
-
-export type AllocationEmployee = {
-  name: string;
-  employeeKey?: string;                  // lastname|firstname (preferred match key)
-  recoverable?: boolean;
-  allocations: Record<string, number>;   // propertyKey -> pct (0..1)
-};
-
-export type AllocationTable = {
-  properties: Property[];
-  employees: AllocationEmployee[];
-};
-
 export type PayrollEmployee = {
+  id?: string;
   name: string;
   salaryAmt: number;
   overtimeAmt: number;
-  overtimeHours: number;
-  holAmt: number;
   holHours: number;
-  er401k: number;
+  holAmt: number;
+  er401kAmt: number;
 };
 
 export type PayrollParseResult = {
   payDate?: string;
-  employees: PayrollEmployee[];
   reportTotals?: {
     salaryTotal?: number;
     overtimeAmtTotal?: number;
     overtimeHoursTotal?: number;
-    holAmtTotal?: number;
     holHoursTotal?: number;
+    holAmtTotal?: number;
     er401kTotal?: number;
   };
+  employees: PayrollEmployee[];
 };
 
-export type InvoiceLineKey =
-  | "salaryREC"
-  | "salaryNR"
-  | "overtime"
-  | "holREC"
-  | "holNR"
-  | "er401k"
-  | "total";
+export type AllocationTable = {
+  employees: AllocationEmployee[];
+  prs: {
+    salaryREC: Record<string, Record<string, number>>;
+    salaryNR: Record<string, Record<string, number>>;
+  };
+  propertyMeta: Record<string, { code?: string; label: string }>;
+};
 
-export type Contribution = {
-  employee: string;
-  amount: number;
-  allocPct?: number;
-  baseAmount?: number;
+export type AllocationEmployee = {
+  /** Employee ID from payroll register column L (preferred matching key). */
+  id?: string;
+  name: string;
+  /** Optional helper key (e.g. "last|first") for fuzzy matching. */
+  employeeKey?: string;
+  recoverable: boolean;
+  // percent allocations to properties and groups, normalized 0..1
+  top: Record<string, number>;
+  marketingToGroups: Record<string, number>;
 };
 
 export type PropertyInvoice = {
   propertyKey: string;
   propertyLabel: string;
-  propertyName?: string;
+  propertyCode?: string;
+  payDate?: string;
+  lines: Array<{ description: string; accCode: string; amount: number }>;
   salaryREC: number;
   salaryNR: number;
   overtime: number;
@@ -66,5 +55,4 @@ export type PropertyInvoice = {
   holNR: number;
   er401k: number;
   total: number;
-  breakdown?: Partial<Record<InvoiceLineKey, Contribution[]>>;
 };
