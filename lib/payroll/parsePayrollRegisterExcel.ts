@@ -27,6 +27,10 @@ function cleanName(raw: string) {
 function looksLikeEmployeeName(s: string): boolean {
   const t = asText(s);
   if (!t) return false;
+
+  // Primary signal: "Default - #N" suffix is unambiguous — always an employee name row
+  if (/Default\s*-\s*#\d+/i.test(t)) return true;
+
   const low = t.toLowerCase();
   if (low.includes("payroll register")) return false;
   if (low.includes("report totals")) return false;
@@ -34,6 +38,10 @@ function looksLikeEmployeeName(s: string): boolean {
   if (low.includes("deductions")) return false;
   if (low.includes("taxes")) return false;
   if (low === "totals:" || low.startsWith("totals")) return false;
+  if (low.includes("er totals")) return false;
+  if (low.includes("all tax")) return false;
+  if (low.startsWith("net pay")) return false;
+  if (low.includes("direct deposit")) return false;
 
   const hasLetters = /[A-Za-z]/.test(t);
   const parts = t.replace(",", " ").split(/\s+/).filter(Boolean);
@@ -94,6 +102,9 @@ export function parsePayrollRegisterExcel(buf: Buffer): PayrollParseResult {
     }
 
     const name = cleanName(nameCell);
+    // Employee ID is in column L (index 11) on the same row as the name
+    const rawId = asText(grid[r]?.[11]);
+    const employeeId = rawId || undefined;
 
     let salaryAmt = 0;
     let overtimeAmt = 0;
@@ -174,7 +185,7 @@ export function parsePayrollRegisterExcel(buf: Buffer): PayrollParseResult {
       }
     }
 
-    employees.push({ name, salaryAmt, overtimeAmt, overtimeHours, holAmt, holHours, er401kAmt });
+    employees.push({ name, employeeId, salaryAmt, overtimeAmt, overtimeHours, holAmt, holHours, er401kAmt });
   }
 
   const totals = employees.reduce(
