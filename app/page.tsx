@@ -24,6 +24,7 @@ type DrillState = { title: string; total: number; rows: DrillRow[]; isTotal: boo
 type EmployeeSummary = {
   name: string;
   employeeNumber?: string;
+  payrollIndex?: number;
   recoverable: boolean;
   salaryAmt: number;
   overtimeAmt: number;
@@ -34,6 +35,9 @@ type EmployeeSummary = {
   total: number;
   allocations: Record<string, number>;
 };
+
+type PropAllocRow = { employee: string; allocPct: number; salary: number; overtime: number; hol: number; er401k: number; total: number };
+type PropAllocModal = { propertyKey: string; propertyLabel: string; rows: PropAllocRow[] };
 
 type EmpModalRow = {
   propertyKey: string;
@@ -72,6 +76,7 @@ export default function Page() {
   const [error, setError] = useState<string | null>(null);
   const [drill, setDrill] = useState<DrillState | null>(null);
   const [empModal, setEmpModal] = useState<EmpModal | null>(null);
+  const [propAllocModal, setPropAllocModal] = useState<PropAllocModal | null>(null);
   const [invoicesOpen, setInvoicesOpen] = useState(true);
   const [employeesOpen, setEmployeesOpen] = useState(true);
 
@@ -115,7 +120,10 @@ export default function Page() {
       if (!res.ok) throw new Error(j?.error ?? "Failed to parse payroll");
       setPayroll(j.payroll);
       setInvoices(j.invoices ?? []);
-      setEmployees(j.employees ?? []);
+      // Sort by position in payroll register so the table matches the report order
+      setEmployees((j.employees ?? []).slice().sort(
+        (a: EmployeeSummary, b: EmployeeSummary) => (a.payrollIndex ?? 9999) - (b.payrollIndex ?? 9999)
+      ));
     } catch (e: any) {
       setPayroll(null);
       setInvoices([]);
@@ -165,6 +173,30 @@ export default function Page() {
       rows: [...rows].sort((a, b) => (b.amount ?? 0) - (a.amount ?? 0)),
       isTotal,
     });
+  }
+
+  function openPropAlloc(inv: any) {
+    // Aggregate per-employee amounts across all drilldown fields for this property
+    const empMap = new Map<string, PropAllocRow>();
+    const drilldown: Record<string, DrillRow[]> = inv.drilldown ?? {};
+    for (const [field, rows] of Object.entries(drilldown)) {
+      if (field === "total") continue;
+      for (const row of rows) {
+        if (!empMap.has(row.employee)) {
+          empMap.set(row.employee, { employee: row.employee, allocPct: row.allocPct ?? 0, salary: 0, overtime: 0, hol: 0, er401k: 0, total: 0 });
+        }
+        const e = empMap.get(row.employee)!;
+        if (e.allocPct === 0 && row.allocPct) e.allocPct = row.allocPct;
+        const amt = row.amount ?? 0;
+        if (field === "salaryREC" || field === "salaryNR") e.salary += amt;
+        else if (field === "overtime") e.overtime += amt;
+        else if (field === "holREC" || field === "holNR") e.hol += amt;
+        else if (field === "er401k") e.er401k += amt;
+        e.total += amt;
+      }
+    }
+    const rows = Array.from(empMap.values()).sort((a, b) => b.total - a.total);
+    setPropAllocModal({ propertyKey: inv.propertyKey, propertyLabel: inv.propertyLabel ?? inv.propertyKey, rows });
   }
 
   function openEmployee(e: EmployeeSummary) {
@@ -325,7 +357,11 @@ export default function Page() {
                     invoices.map((r) => (
                       <tr key={r.propertyKey}>
                         <td>{r.propertyCode || r.propertyKey}</td>
-                        <td className="muted">{r.propertyLabel || "—"}</td>
+                        <td>
+                          <button className="linkBtn left" onClick={() => openPropAlloc(r)}>
+                            {r.propertyLabel || r.propertyKey}
+                          </button>
+                        </td>
                         <td><button className="linkBtn" onClick={() => openDrill(r, "salaryREC", "Salary REC")}>{money(r.salaryREC)}</button></td>
                         <td><button className="linkBtn" onClick={() => openDrill(r, "salaryNR", "Salary NR")}>{money(r.salaryNR)}</button></td>
                         <td><button className="linkBtn" onClick={() => openDrill(r, "overtime", "Overtime")}>{money(r.overtime)}</button></td>
@@ -426,6 +462,61 @@ export default function Page() {
           </div>
         )}
       </div>
+
+      {/* ── Property allocation modal ── */}
+      {propAllocModal && (
+        <div className="modalOverlay" onClick={() => setPropAllocModal(null)}>
+          <div className="modal wide" onClick={(e) => e.stopPropagation()}>
+            <div className="modalHeader">
+              <div>
+                <div className="modalTitle">{propAllocModal.propertyLabel}</div>
+                <div className="muted small">Employee allocations to this property</div>
+              </div>
+              <button className="btn" onClick={() => setPropAllocModal(null)}>Close</button>
+            </div>
+            {propAllocModal.rows.length === 0 ? (
+              <div className="muted" style={{ marginTop: 12 }}>No allocation data — upload a payroll file first.</div>
+            ) : (
+              <table className="modalTable">
+                <thead>
+                  <tr>
+                    <th style={{ textAlign: "left" }}>Employee</th>
+                    <th style={{ textAlign: "right" }}>Alloc %</th>
+                    <th style={{ textAlign: "right" }}>Salary</th>
+                    <th style={{ textAlign: "right" }}>Overtime</th>
+                    <th style={{ textAlign: "right" }}>HOL</th>
+                    <th style={{ textAlign: "right" }}>401K ER</th>
+                    <th style={{ textAlign: "right" }}>Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {propAllocModal.rows.map((r, i) => (
+                    <tr key={i}>
+                      <td>{r.employee}</td>
+                      <td style={{ textAlign: "right" }}>{fmtPct(r.allocPct)}</td>
+                      <td style={{ textAlign: "right" }}>{money(r.salary)}</td>
+                      <td style={{ textAlign: "right" }}>{money(r.overtime)}</td>
+                      <td style={{ textAlign: "right" }}>{money(r.hol)}</td>
+                      <td style={{ textAlign: "right" }}>{money(r.er401k)}</td>
+                      <td style={{ textAlign: "right" }}><b>{money(r.total)}</b></td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr style={{ fontWeight: 700 }}>
+                    <td colSpan={2}>Totals</td>
+                    <td style={{ textAlign: "right" }}>{money(propAllocModal.rows.reduce((s, r) => s + r.salary, 0))}</td>
+                    <td style={{ textAlign: "right" }}>{money(propAllocModal.rows.reduce((s, r) => s + r.overtime, 0))}</td>
+                    <td style={{ textAlign: "right" }}>{money(propAllocModal.rows.reduce((s, r) => s + r.hol, 0))}</td>
+                    <td style={{ textAlign: "right" }}>{money(propAllocModal.rows.reduce((s, r) => s + r.er401k, 0))}</td>
+                    <td style={{ textAlign: "right" }}>{money(propAllocModal.rows.reduce((s, r) => s + r.total, 0))}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ── Invoice drilldown modal ── */}
       {drill && (

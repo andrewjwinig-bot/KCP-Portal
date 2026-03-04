@@ -61,6 +61,9 @@ export async function POST(req: Request) {
         }) ??
         null;
 
+      // Position of this employee in the payroll register (for sort order)
+      const payrollIndex = pe ? payrollEmployees.indexOf(pe) : 9999;
+
       const salaryAmt = pe?.salaryAmt ?? 0;
       const overtimeAmt = pe?.overtimeAmt ?? 0;
       const holAmt = pe?.holAmt ?? 0;
@@ -70,6 +73,7 @@ export async function POST(req: Request) {
         ...ae,
         name: displayName,
         employeeNumber,
+        payrollIndex,
         payrollName: pe?.name ?? null,
         salaryAmt,
         overtimeAmt,
