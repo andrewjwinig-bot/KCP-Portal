@@ -116,6 +116,26 @@ export function buildInvoices(payroll: PayrollParseResult, alloc: AllocationTabl
     }
   }
 
+  // Build a money-format helper for footnotes
+  const moneyFmt = (n: number) =>
+    n.toLocaleString("en-US", { style: "currency", currency: "USD" });
+
+  // For each property, find which payroll employees contributed (via drilldown names)
+  // and collect footnotes for any excluded pay items they had.
+  const footnotesByProp: Record<string, string[]> = {};
+  for (const emp of payroll.employees) {
+    if (!emp.exclusions?.length) continue;
+    for (const [prop, fieldDrills] of Object.entries(byPropDrill)) {
+      const empNames = new Set(Object.values(fieldDrills).flatMap((rows) => rows.map((r) => r.employee)));
+      if (!empNames.has(emp.name)) continue;
+      if (!footnotesByProp[prop]) footnotesByProp[prop] = [];
+      for (const exc of emp.exclusions) {
+        const note = `Salary does not include ${moneyFmt(exc.amount)} in ${exc.label} paid to ${emp.name} during this period.`;
+        if (!footnotesByProp[prop].includes(note)) footnotesByProp[prop].push(note);
+      }
+    }
+  }
+
   const invoices: PropertyInvoice[] = [];
   for (const [propLabel, acc] of Object.entries(byProp)) {
     const meta = alloc.propertyMeta[propLabel] || { label: propLabel, code: undefined };
@@ -162,6 +182,7 @@ export function buildInvoices(payroll: PayrollParseResult, alloc: AllocationTabl
       er401k: acc.er401k,
       total,
       drilldown: drill,
+      footnotes: footnotesByProp[propLabel]?.length ? footnotesByProp[propLabel] : undefined,
     });
   }
 

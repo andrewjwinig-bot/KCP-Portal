@@ -59,6 +59,8 @@ export type PayrollEmployee = {
   holAmt: number;
   holHours: number;
   er401kAmt: number;
+  /** Pay items excluded from salary (Commission, Bonus, Auto Allowance, etc.) */
+  exclusions?: Array<{ label: string; amount: number }>;
 };
 
 export type PayrollTotals = {
@@ -98,4 +100,6 @@ export type PropertyInvoice = {
   er401k: number;
   total: number;
   drilldown?: Record<string, DrilldownRow[]>;
+  /** Footnotes about excluded pay items (commissions, bonuses, auto allowance) */
+  footnotes?: string[];
 };

@@ -34,6 +34,7 @@ type EmployeeSummary = {
   er401kAmt: number;
   total: number;
   allocations: Record<string, number>;
+  exclusions?: Array<{ label: string; amount: number }>;
 };
 
 type PropAllocRow = { employee: string; allocPct: number; salary: number; overtime: number; hol: number; er401k: number; total: number };
@@ -575,6 +576,13 @@ export default function Page() {
               <button className="btn" onClick={() => setEmpModal(null)}>Close</button>
             </div>
 
+            {empModal.employee.exclusions?.length ? (
+              <div style={{ margin: "10px 0 6px", fontSize: 12, color: "#555" }}>
+                {empModal.employee.exclusions.map((exc, i) => (
+                  <div key={i}>* Salary does not include <b>{money(exc.amount)}</b> in {exc.label} paid during this period.</div>
+                ))}
+              </div>
+            ) : null}
             {empModal.rows.length === 0 ? (
               <div className="muted" style={{ marginTop: 12 }}>No property data — amounts may not yet be parsed from the payroll file.</div>
             ) : (
