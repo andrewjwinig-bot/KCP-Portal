@@ -128,6 +128,12 @@ function isEeHeader(label: string) {
   if (/^employee\s+deductions?/i.test(t)) return true;
   return false;
 }
+/** "Taxes (ER)" — the employer tax section; FUTA/FICA/MEDI/SUTA live here */
+function isTaxesErHeader(label: string) {
+  const t = label.trim();
+  return /^taxes?\s*[\-(]\s*er/i.test(t);
+}
+/** Any other Taxes header (EE, or generic) — skip the contents */
 function isTaxesHeader(label: string) {
   return /^taxes?\b/i.test(label.trim());
 }
@@ -214,9 +220,14 @@ export function parsePayrollRegisterExcel(buf: Buffer): PayrollParseResult {
         mode = "NONE";
         continue;
       }
-      if (isTaxesHeader(label)) {
-        console.log(`[payroll]   → entering TAXES mode`);
+      if (isTaxesErHeader(label)) {
+        console.log(`[payroll]   → entering TAXES (ER) mode`);
         mode = "TAXES";
+        continue;
+      }
+      // "Taxes (EE)" or any other non-ER taxes header → exit to NONE (don't capture EE taxes)
+      if (isTaxesHeader(label)) {
+        mode = "NONE";
         continue;
       }
 
