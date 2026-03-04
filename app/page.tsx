@@ -18,7 +18,7 @@ function fileToBase64(file: File): Promise<string> {
   });
 }
 
-type DrillRow = { employee: string; amount: number; allocPct?: number; baseAmount?: number };
+type DrillRow = { employee: string; amount: number; allocPct?: number; baseAmount?: number; category?: string };
 type DrillState = { title: string; total: number; rows: DrillRow[]; isTotal: boolean };
 
 type EmployeeSummary = {
@@ -32,21 +32,31 @@ type EmployeeSummary = {
   holAmt: number;
   holHours: number;
   er401kAmt: number;
+  otherAmt: number;
+  otherBreakdown?: Array<{ label: string; amount: number }>;
+  taxesErAmt: number;
+  taxesErBreakdown?: Array<{ label: string; amount: number }>;
   total: number;
   allocations: Record<string, number>;
   exclusions?: Array<{ label: string; amount: number }>;
 };
 
-type PropAllocRow = { employee: string; allocPct: number; salary: number; overtime: number; hol: number; er401k: number; total: number };
-type PropAllocModal = { propertyKey: string; propertyLabel: string; rows: PropAllocRow[] };
+type PropAllocRow = {
+  employee: string; allocPct: number;
+  salary: number; overtime: number; hol: number; er401k: number; other: number; taxesEr: number; total: number;
+};
+type PropAllocModal = { propertyKey: string; propertyLabel: string; rows: PropAllocRow[]; showOther: boolean; showTaxesEr: boolean };
 
 type EmpModalRow = {
   propertyKey: string;
   propertyName: string;
+  allocPct?: number;
   salary: number;
   overtime: number;
   hol: number;
   er401k: number;
+  other: number;
+  taxesEr: number;
   total: number;
   isSubtotal?: boolean;
 };
@@ -54,7 +64,9 @@ type EmpModalRow = {
 type EmpModal = {
   employee: EmployeeSummary;
   rows: EmpModalRow[];
-  colTotals: { salary: number; overtime: number; hol: number; er401k: number; total: number };
+  colTotals: { salary: number; overtime: number; hol: number; er401k: number; other: number; taxesEr: number; total: number; allocPct: number };
+  showOther: boolean;
+  showTaxesEr: boolean;
 };
 
 // Group membership: which properties roll up into each group subtotal
@@ -82,30 +94,44 @@ export default function Page() {
   const [employeesOpen, setEmployeesOpen] = useState(true);
 
   const totals = useMemo(() => {
-    const t = { salaryREC: 0, salaryNR: 0, overtime: 0, holREC: 0, holNR: 0, er401k: 0, total: 0 };
+    const t = { salaryREC: 0, salaryNR: 0, overtime: 0, holREC: 0, holNR: 0, er401k: 0, other: 0, taxesEr: 0, total: 0 };
     for (const i of invoices) {
       t.salaryREC += i.salaryREC ?? 0;
-      t.salaryNR += i.salaryNR ?? 0;
-      t.overtime += i.overtime ?? 0;
-      t.holREC += i.holREC ?? 0;
-      t.holNR += i.holNR ?? 0;
-      t.er401k += i.er401k ?? 0;
-      t.total += i.total ?? 0;
+      t.salaryNR  += i.salaryNR  ?? 0;
+      t.overtime  += i.overtime  ?? 0;
+      t.holREC    += i.holREC    ?? 0;
+      t.holNR     += i.holNR     ?? 0;
+      t.er401k    += i.er401k    ?? 0;
+      t.other     += i.other     ?? 0;
+      t.taxesEr   += i.taxesEr   ?? 0;
+      t.total     += i.total     ?? 0;
     }
     return t;
   }, [invoices]);
 
+  // Dynamic column visibility for Invoices card
+  const showInvOther   = totals.other   > 0;
+  const showInvTaxesEr = totals.taxesEr > 0;
+  const invColCount = 9 + (showInvOther ? 1 : 0) + (showInvTaxesEr ? 1 : 0);
+
   const employeeTotals = useMemo(() => {
-    const t = { salary: 0, overtime: 0, hol: 0, er401k: 0, total: 0 };
+    const t = { salary: 0, overtime: 0, hol: 0, er401k: 0, other: 0, taxesEr: 0, total: 0 };
     for (const e of employees) {
-      t.salary += e.salaryAmt ?? 0;
+      t.salary   += e.salaryAmt   ?? 0;
       t.overtime += e.overtimeAmt ?? 0;
-      t.hol += e.holAmt ?? 0;
-      t.er401k += e.er401kAmt ?? 0;
-      t.total += e.total ?? 0;
+      t.hol      += e.holAmt      ?? 0;
+      t.er401k   += e.er401kAmt   ?? 0;
+      t.other    += e.otherAmt    ?? 0;
+      t.taxesEr  += e.taxesErAmt  ?? 0;
+      t.total    += e.total       ?? 0;
     }
     return t;
   }, [employees]);
+
+  // Dynamic column visibility for Employees card
+  const showEmpOther   = employeeTotals.other   > 0;
+  const showEmpTaxesEr = employeeTotals.taxesEr > 0;
+  const empColCount = 7 + (showEmpOther ? 1 : 0) + (showEmpTaxesEr ? 1 : 0);
 
   async function importPayroll(file: File) {
     setError(null);
@@ -176,15 +202,23 @@ export default function Page() {
     });
   }
 
+  /** Open drill modal showing a simple label→amount breakdown (employee's own Other or TaxesEr). */
+  function openBreakdownDrill(title: string, total: number, breakdown: Array<{ label: string; amount: number }>) {
+    const rows: DrillRow[] = breakdown.map((b) => ({
+      employee: b.label,
+      amount: b.amount,
+    }));
+    setDrill({ title, total, rows, isTotal: true });
+  }
+
   function openPropAlloc(inv: any) {
-    // Aggregate per-employee amounts across all drilldown fields for this property
     const empMap = new Map<string, PropAllocRow>();
     const drilldown: Record<string, DrillRow[]> = inv.drilldown ?? {};
     for (const [field, rows] of Object.entries(drilldown)) {
       if (field === "total") continue;
       for (const row of rows) {
         if (!empMap.has(row.employee)) {
-          empMap.set(row.employee, { employee: row.employee, allocPct: row.allocPct ?? 0, salary: 0, overtime: 0, hol: 0, er401k: 0, total: 0 });
+          empMap.set(row.employee, { employee: row.employee, allocPct: row.allocPct ?? 0, salary: 0, overtime: 0, hol: 0, er401k: 0, other: 0, taxesEr: 0, total: 0 });
         }
         const e = empMap.get(row.employee)!;
         if (e.allocPct === 0 && row.allocPct) e.allocPct = row.allocPct;
@@ -193,37 +227,47 @@ export default function Page() {
         else if (field === "overtime") e.overtime += amt;
         else if (field === "holREC" || field === "holNR") e.hol += amt;
         else if (field === "er401k") e.er401k += amt;
+        else if (field === "other") e.other += amt;
+        else if (field === "taxesEr") e.taxesEr += amt;
         e.total += amt;
       }
     }
     const rows = Array.from(empMap.values()).sort((a, b) => b.total - a.total);
-    setPropAllocModal({ propertyKey: inv.propertyKey, propertyLabel: inv.propertyLabel ?? inv.propertyKey, rows });
+    const showOther   = rows.some((r) => r.other   > 0);
+    const showTaxesEr = rows.some((r) => r.taxesEr > 0);
+    setPropAllocModal({ propertyKey: inv.propertyKey, propertyLabel: inv.propertyLabel ?? inv.propertyKey, rows, showOther, showTaxesEr });
   }
 
   function openEmployee(e: EmployeeSummary) {
     const eName = e.name.toLowerCase();
 
-    // Collect per-property amounts from invoice drilldowns (includes group allocations
-    // already resolved to individual properties by buildInvoices).
-    type PropData = { propertyKey: string; propertyName: string; salary: number; overtime: number; hol: number; er401k: number; total: number };
+    type PropData = {
+      propertyKey: string; propertyName: string; allocPct: number;
+      salary: number; overtime: number; hol: number; er401k: number; other: number; taxesEr: number; total: number;
+    };
     const propMap = new Map<string, PropData>();
 
     for (const inv of invoices) {
       const drilldown: Record<string, DrillRow[]> = inv.drilldown ?? {};
       let found = false;
-      const row: PropData = { propertyKey: inv.propertyKey, propertyName: inv.propertyLabel ?? "", salary: 0, overtime: 0, hol: 0, er401k: 0, total: 0 };
+      const row: PropData = { propertyKey: inv.propertyKey, propertyName: inv.propertyLabel ?? "", allocPct: 0, salary: 0, overtime: 0, hol: 0, er401k: 0, other: 0, taxesEr: 0, total: 0 };
 
       for (const [field, rows] of Object.entries(drilldown)) {
         if (field === "total") continue;
-        const empRow = rows.find((r) => String(r.employee).toLowerCase() === eName);
-        if (!empRow) continue;
-        found = true;
-        const amt = empRow.amount ?? 0;
-        if (field === "salaryREC" || field === "salaryNR") row.salary += amt;
-        else if (field === "overtime") row.overtime += amt;
-        else if (field === "holREC" || field === "holNR") row.hol += amt;
-        else if (field === "er401k") row.er401k += amt;
-        row.total += amt;
+        for (const r of rows) {
+          if (String(r.employee).toLowerCase() !== eName) continue;
+          found = true;
+          const amt = r.amount ?? 0;
+          if (field === "salaryREC" || field === "salaryNR") row.salary += amt;
+          else if (field === "overtime") row.overtime += amt;
+          else if (field === "holREC" || field === "holNR") row.hol += amt;
+          else if (field === "er401k") row.er401k += amt;
+          else if (field === "other") row.other += amt;
+          else if (field === "taxesEr") row.taxesEr += amt;
+          row.total += amt;
+          // Use allocPct from any non-category row (category rows share the same allocPct)
+          if (!row.allocPct && r.allocPct) row.allocPct = r.allocPct;
+        }
       }
 
       if (found) propMap.set(inv.propertyKey, row);
@@ -234,11 +278,8 @@ export default function Page() {
     const standalone: PropData[] = [];
     for (const row of propMap.values()) {
       const g = PROP_TO_GROUP[row.propertyKey];
-      if (g) {
-        (byGroup[g] = byGroup[g] ?? []).push(row);
-      } else {
-        standalone.push(row);
-      }
+      if (g) (byGroup[g] = byGroup[g] ?? []).push(row);
+      else standalone.push(row);
     }
 
     // Build display rows: grouped sections first, then standalone
@@ -248,32 +289,40 @@ export default function Page() {
       if (!rows?.length) continue;
       rows.sort((a, b) => a.propertyKey.localeCompare(b.propertyKey));
       for (const r of rows) displayRows.push(r);
-      // Bold subtotal row for the group
       displayRows.push({
         propertyKey: groupName,
         propertyName: `Total: ${groupName}`,
-        salary: rows.reduce((s, r) => s + r.salary, 0),
+        allocPct: rows.reduce((s, r) => s + r.allocPct, 0),
+        salary:   rows.reduce((s, r) => s + r.salary,   0),
         overtime: rows.reduce((s, r) => s + r.overtime, 0),
-        hol: rows.reduce((s, r) => s + r.hol, 0),
-        er401k: rows.reduce((s, r) => s + r.er401k, 0),
-        total: rows.reduce((s, r) => s + r.total, 0),
+        hol:      rows.reduce((s, r) => s + r.hol,      0),
+        er401k:   rows.reduce((s, r) => s + r.er401k,   0),
+        other:    rows.reduce((s, r) => s + r.other,    0),
+        taxesEr:  rows.reduce((s, r) => s + r.taxesEr,  0),
+        total:    rows.reduce((s, r) => s + r.total,    0),
         isSubtotal: true,
       });
     }
     standalone.sort((a, b) => a.propertyKey.localeCompare(b.propertyKey));
     for (const r of standalone) displayRows.push(r);
 
-    // Column totals (sum non-subtotal rows only)
+    // Column totals and grand-total allocPct (sum non-subtotal rows only)
     const nonSub = displayRows.filter((r) => !r.isSubtotal);
     const colTotals = {
-      salary: nonSub.reduce((s, r) => s + r.salary, 0),
+      salary:   nonSub.reduce((s, r) => s + r.salary,   0),
       overtime: nonSub.reduce((s, r) => s + r.overtime, 0),
-      hol: nonSub.reduce((s, r) => s + r.hol, 0),
-      er401k: nonSub.reduce((s, r) => s + r.er401k, 0),
-      total: nonSub.reduce((s, r) => s + r.total, 0),
+      hol:      nonSub.reduce((s, r) => s + r.hol,      0),
+      er401k:   nonSub.reduce((s, r) => s + r.er401k,   0),
+      other:    nonSub.reduce((s, r) => s + r.other,    0),
+      taxesEr:  nonSub.reduce((s, r) => s + r.taxesEr,  0),
+      total:    nonSub.reduce((s, r) => s + r.total,    0),
+      allocPct: nonSub.reduce((s, r) => s + (r.allocPct ?? 0), 0),
     };
 
-    setEmpModal({ employee: e, rows: displayRows, colTotals });
+    const showOther   = nonSub.some((r) => r.other   > 0);
+    const showTaxesEr = nonSub.some((r) => r.taxesEr > 0);
+
+    setEmpModal({ employee: e, rows: displayRows, colTotals, showOther, showTaxesEr });
   }
 
   return (
@@ -348,12 +397,14 @@ export default function Page() {
                     <th>HOL REC</th>
                     <th>HOL NR</th>
                     <th>401K ER</th>
+                    {showInvOther   && <th>Other</th>}
+                    {showInvTaxesEr && <th>Taxes (ER)</th>}
                     <th>Total</th>
                   </tr>
                 </thead>
                 <tbody>
                   {invoices.length === 0 ? (
-                    <tr><td colSpan={9} className="muted">Import a payroll file to see invoice summaries.</td></tr>
+                    <tr><td colSpan={invColCount} className="muted">Import a payroll file to see invoice summaries.</td></tr>
                   ) : (
                     invoices.map((r) => (
                       <tr key={r.propertyKey}>
@@ -369,6 +420,8 @@ export default function Page() {
                         <td><button className="linkBtn" onClick={() => openDrill(r, "holREC", "HOL REC")}>{money(r.holREC)}</button></td>
                         <td><button className="linkBtn" onClick={() => openDrill(r, "holNR", "HOL NR")}>{money(r.holNR)}</button></td>
                         <td><button className="linkBtn" onClick={() => openDrill(r, "er401k", "401K ER")}>{money(r.er401k)}</button></td>
+                        {showInvOther   && <td><button className="linkBtn" onClick={() => openDrill(r, "other", "Other Pay")}>{money(r.other)}</button></td>}
+                        {showInvTaxesEr && <td><button className="linkBtn" onClick={() => openDrill(r, "taxesEr", "Taxes (ER)")}>{money(r.taxesEr)}</button></td>}
                         <td><button className="linkBtn" onClick={() => openDrill(r, "total", "Total")}><b>{money(r.total)}</b></button></td>
                       </tr>
                     ))
@@ -384,6 +437,8 @@ export default function Page() {
                     <td>{money(totals.holREC)}</td>
                     <td>{money(totals.holNR)}</td>
                     <td>{money(totals.er401k)}</td>
+                    {showInvOther   && <td>{money(totals.other)}</td>}
+                    {showInvTaxesEr && <td>{money(totals.taxesEr)}</td>}
                     <td>{money(totals.total)}</td>
                   </tr>
                 </tfoot>
@@ -426,12 +481,14 @@ export default function Page() {
                   <th style={{ textAlign: "right" }}>Overtime</th>
                   <th style={{ textAlign: "right" }}>HOL</th>
                   <th style={{ textAlign: "right" }}>401K ER</th>
+                  {showEmpOther   && <th style={{ textAlign: "right" }}>Other</th>}
+                  {showEmpTaxesEr && <th style={{ textAlign: "right" }}>Taxes (ER)</th>}
                   <th style={{ textAlign: "right" }}>Total</th>
                 </tr>
               </thead>
               <tbody>
                 {employees.length === 0 ? (
-                  <tr><td colSpan={7} className="muted">Import a payroll file to see employees.</td></tr>
+                  <tr><td colSpan={empColCount} className="muted">Import a payroll file to see employees.</td></tr>
                 ) : (
                   employees.map((e) => (
                     <tr key={e.name}>
@@ -443,6 +500,20 @@ export default function Page() {
                       <td style={{ textAlign: "right" }}>{money(e.overtimeAmt)}</td>
                       <td style={{ textAlign: "right" }}>{money(e.holAmt)}</td>
                       <td style={{ textAlign: "right" }}>{money(e.er401kAmt)}</td>
+                      {showEmpOther && (
+                        <td style={{ textAlign: "right" }}>
+                          {e.otherAmt > 0
+                            ? <button className="linkBtn" onClick={() => openBreakdownDrill(`${e.name} — Other Pay`, e.otherAmt, e.otherBreakdown ?? [])}>{money(e.otherAmt)}</button>
+                            : money(0)}
+                        </td>
+                      )}
+                      {showEmpTaxesEr && (
+                        <td style={{ textAlign: "right" }}>
+                          {e.taxesErAmt > 0
+                            ? <button className="linkBtn" onClick={() => openBreakdownDrill(`${e.name} — Taxes (ER)`, e.taxesErAmt, e.taxesErBreakdown ?? [])}>{money(e.taxesErAmt)}</button>
+                            : money(0)}
+                        </td>
+                      )}
                       <td style={{ textAlign: "right" }}><b>{money(e.total)}</b></td>
                     </tr>
                   ))
@@ -456,10 +527,12 @@ export default function Page() {
                   <td style={{ textAlign: "right" }}>{money(employeeTotals.overtime)}</td>
                   <td style={{ textAlign: "right" }}>{money(employeeTotals.hol)}</td>
                   <td style={{ textAlign: "right" }}>{money(employeeTotals.er401k)}</td>
+                  {showEmpOther   && <td style={{ textAlign: "right" }}>{money(employeeTotals.other)}</td>}
+                  {showEmpTaxesEr && <td style={{ textAlign: "right" }}>{money(employeeTotals.taxesEr)}</td>}
                   <td style={{ textAlign: "right" }}>{money(employeeTotals.total)}</td>
                 </tr>
                 <tr>
-                  <td colSpan={7} className="muted" style={{ fontSize: "0.78em", paddingTop: "4px" }}>
+                  <td colSpan={empColCount} className="muted" style={{ fontSize: "0.78em", paddingTop: "4px" }}>
                     * Salary includes Regular, Salary, and VAC pay.
                   </td>
                 </tr>
@@ -492,6 +565,8 @@ export default function Page() {
                     <th style={{ textAlign: "right" }}>Overtime</th>
                     <th style={{ textAlign: "right" }}>HOL</th>
                     <th style={{ textAlign: "right" }}>401K ER</th>
+                    {propAllocModal.showOther   && <th style={{ textAlign: "right" }}>Other</th>}
+                    {propAllocModal.showTaxesEr && <th style={{ textAlign: "right" }}>Taxes (ER)</th>}
                     <th style={{ textAlign: "right" }}>Total</th>
                   </tr>
                 </thead>
@@ -504,6 +579,8 @@ export default function Page() {
                       <td style={{ textAlign: "right" }}>{money(r.overtime)}</td>
                       <td style={{ textAlign: "right" }}>{money(r.hol)}</td>
                       <td style={{ textAlign: "right" }}>{money(r.er401k)}</td>
+                      {propAllocModal.showOther   && <td style={{ textAlign: "right" }}>{money(r.other)}</td>}
+                      {propAllocModal.showTaxesEr && <td style={{ textAlign: "right" }}>{money(r.taxesEr)}</td>}
                       <td style={{ textAlign: "right" }}><b>{money(r.total)}</b></td>
                     </tr>
                   ))}
@@ -515,6 +592,8 @@ export default function Page() {
                     <td style={{ textAlign: "right" }}>{money(propAllocModal.rows.reduce((s, r) => s + r.overtime, 0))}</td>
                     <td style={{ textAlign: "right" }}>{money(propAllocModal.rows.reduce((s, r) => s + r.hol, 0))}</td>
                     <td style={{ textAlign: "right" }}>{money(propAllocModal.rows.reduce((s, r) => s + r.er401k, 0))}</td>
+                    {propAllocModal.showOther   && <td style={{ textAlign: "right" }}>{money(propAllocModal.rows.reduce((s, r) => s + r.other, 0))}</td>}
+                    {propAllocModal.showTaxesEr && <td style={{ textAlign: "right" }}>{money(propAllocModal.rows.reduce((s, r) => s + r.taxesEr, 0))}</td>}
                     <td style={{ textAlign: "right" }}>{money(propAllocModal.rows.reduce((s, r) => s + r.total, 0))}</td>
                   </tr>
                 </tfoot>
@@ -536,26 +615,33 @@ export default function Page() {
               <button className="btn" onClick={() => setDrill(null)}>Close</button>
             </div>
 
-            <table className="modalTable">
-              <thead>
-                <tr>
-                  <th style={{ textAlign: "left" }}>Employee</th>
-                  {!drill.isTotal && <th style={{ textAlign: "right" }}>Base $</th>}
-                  {!drill.isTotal && <th style={{ textAlign: "right" }}>Alloc %</th>}
-                  <th style={{ textAlign: "right" }}>Amount</th>
-                </tr>
-              </thead>
-              <tbody>
-                {drill.rows.map((row, idx) => (
-                  <tr key={idx}>
-                    <td>{row.employee}</td>
-                    {!drill.isTotal && <td style={{ textAlign: "right" }}>{row.baseAmount == null ? "—" : money(row.baseAmount)}</td>}
-                    {!drill.isTotal && <td style={{ textAlign: "right" }}>{row.allocPct == null ? "—" : fmtPct(row.allocPct)}</td>}
-                    <td style={{ textAlign: "right" }}>{money(row.amount)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            {(() => {
+              const hasCategory = drill.rows.some((r) => r.category);
+              return (
+                <table className="modalTable">
+                  <thead>
+                    <tr>
+                      <th style={{ textAlign: "left" }}>Employee</th>
+                      {hasCategory && <th style={{ textAlign: "left" }}>Type</th>}
+                      {!drill.isTotal && <th style={{ textAlign: "right" }}>Base $</th>}
+                      {!drill.isTotal && <th style={{ textAlign: "right" }}>Alloc %</th>}
+                      <th style={{ textAlign: "right" }}>Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {drill.rows.map((row, idx) => (
+                      <tr key={idx}>
+                        <td>{row.employee}</td>
+                        {hasCategory && <td style={{ color: "#555" }}>{row.category ?? ""}</td>}
+                        {!drill.isTotal && <td style={{ textAlign: "right" }}>{row.baseAmount == null ? "—" : money(row.baseAmount)}</td>}
+                        {!drill.isTotal && <td style={{ textAlign: "right" }}>{row.allocPct == null ? "—" : fmtPct(row.allocPct)}</td>}
+                        <td style={{ textAlign: "right" }}>{money(row.amount)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              );
+            })()}
           </div>
         </div>
       )}
@@ -596,10 +682,13 @@ export default function Page() {
                   <tr>
                     <th style={{ textAlign: "left" }}>Property</th>
                     <th style={{ textAlign: "left" }}>Name</th>
+                    <th style={{ textAlign: "right" }}>Alloc %</th>
                     <th style={{ textAlign: "right" }}>Salary</th>
                     <th style={{ textAlign: "right" }}>Overtime</th>
                     <th style={{ textAlign: "right" }}>HOL</th>
                     <th style={{ textAlign: "right" }}>401K ER</th>
+                    {empModal.showOther   && <th style={{ textAlign: "right" }}>Other</th>}
+                    {empModal.showTaxesEr && <th style={{ textAlign: "right" }}>Taxes (ER)</th>}
                     <th style={{ textAlign: "right" }}>Total</th>
                   </tr>
                 </thead>
@@ -608,21 +697,27 @@ export default function Page() {
                     <tr key={i} style={r.isSubtotal ? { fontWeight: 700, borderTop: "1px solid #ccc" } : {}}>
                       <td style={r.isSubtotal ? { color: "#0b4a7d" } : {}}>{r.isSubtotal ? "" : r.propertyKey}</td>
                       <td style={r.isSubtotal ? { color: "#0b4a7d" } : { color: "#666" }}>{r.propertyName}</td>
+                      <td style={{ textAlign: "right" }}>{r.allocPct ? fmtPct(r.allocPct) : ""}</td>
                       <td style={{ textAlign: "right" }}>{money(r.salary)}</td>
                       <td style={{ textAlign: "right" }}>{money(r.overtime)}</td>
                       <td style={{ textAlign: "right" }}>{money(r.hol)}</td>
                       <td style={{ textAlign: "right" }}>{money(r.er401k)}</td>
+                      {empModal.showOther   && <td style={{ textAlign: "right" }}>{money(r.other)}</td>}
+                      {empModal.showTaxesEr && <td style={{ textAlign: "right" }}>{money(r.taxesEr)}</td>}
                       <td style={{ textAlign: "right" }}><b>{money(r.total)}</b></td>
                     </tr>
                   ))}
                 </tbody>
                 <tfoot>
                   <tr style={{ fontWeight: 700 }}>
-                    <td colSpan={2}>Totals</td>
+                    <td colSpan={2}>Grand Total</td>
+                    <td style={{ textAlign: "right" }}>{fmtPct(empModal.colTotals.allocPct)}</td>
                     <td style={{ textAlign: "right" }}>{money(empModal.colTotals.salary)}</td>
                     <td style={{ textAlign: "right" }}>{money(empModal.colTotals.overtime)}</td>
                     <td style={{ textAlign: "right" }}>{money(empModal.colTotals.hol)}</td>
                     <td style={{ textAlign: "right" }}>{money(empModal.colTotals.er401k)}</td>
+                    {empModal.showOther   && <td style={{ textAlign: "right" }}>{money(empModal.colTotals.other)}</td>}
+                    {empModal.showTaxesEr && <td style={{ textAlign: "right" }}>{money(empModal.colTotals.taxesEr)}</td>}
                     <td style={{ textAlign: "right" }}>{money(empModal.colTotals.total)}</td>
                   </tr>
                 </tfoot>

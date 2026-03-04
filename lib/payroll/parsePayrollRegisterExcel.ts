@@ -46,8 +46,9 @@ function looksLikeEmployeeName(s: string): boolean {
   if (low.startsWith("employer")) return false;
   if (low.startsWith("employee")) return false;
   // "ER Deductions", "ER Contributions", "ER:" etc. — but NOT names starting with "Er" (Ernest…)
-  // \b after "er" ensures it's a standalone token: "ER Deductions" matches, "Ernest Smith" doesn't
   if (/^er\b/.test(low)) return false;
+  // Payroll tax line items
+  if (low.startsWith("futa") || low.startsWith("fica") || low.startsWith("medi") || low.startsWith("suta") || low.startsWith("sui")) return false;
 
   const hasLetters = /[A-Za-z]/.test(t);
   const parts = t.replace(",", " ").split(/\s+/).filter(Boolean);
@@ -78,15 +79,33 @@ function isTotals(label: string) {
 }
 
 /**
- * Returns the canonical exclusion category name if this pay-type label should be
- * noted but NOT counted toward salary (Commission, Bonus, Auto Allowance).
- * Returns null for normal pay items.
+ * Bonus or Auto Allowance — tracked in the "Other" column, allocated to properties.
+ * Returns the canonical category name, or null for regular pay.
  */
-function excludedCategory(label: string): string | null {
+function isOtherPay(label: string): string | null {
   const low = label.toLowerCase();
-  if (low.includes("commission")) return "Commission";
   if (low.includes("bonus")) return "Bonus";
   if (low.includes("auto allow")) return "Auto Allowance";
+  return null;
+}
+
+/**
+ * Commission — tracked as an exclusion (not in salary, not in Other column).
+ */
+function isCommission(label: string): boolean {
+  return label.toLowerCase().includes("commission");
+}
+
+/**
+ * Returns true for ER payroll tax line items: FUTA, FICA, MEDI, SUTA/SUI variants.
+ * Returns the canonical label to use in the breakdown.
+ */
+function erTaxLabel(label: string): string | null {
+  const low = label.toLowerCase().trim();
+  if (low.startsWith("futa") || low.startsWith("fui")) return "FUTA";
+  if (low.startsWith("fica") || low.startsWith("ss:er") || /^soc\s/.test(low)) return "FICA";
+  if (low.startsWith("medi")) return "MEDI";
+  if (low.startsWith("suta") || low.startsWith("sui")) return label.trim(); // preserve "SUTA:PA" etc.
   return null;
 }
 
@@ -110,7 +129,7 @@ function isEeHeader(label: string) {
   return false;
 }
 function isTaxesHeader(label: string) {
-  return /^taxes\b/i.test(label.trim());
+  return /^taxes?\b/i.test(label.trim());
 }
 
 export function parsePayrollRegisterExcel(buf: Buffer): PayrollParseResult {
@@ -140,9 +159,13 @@ export function parsePayrollRegisterExcel(buf: Buffer): PayrollParseResult {
     let holAmt = 0;
     let holHours = 0;
     let er401kAmt = 0;
+    let otherAmt = 0;
+    let taxesErAmt = 0;
+    const otherBreakdown: Array<{ label: string; amount: number }> = [];
+    const taxesErBreakdown: Array<{ label: string; amount: number }> = [];
     const exclusions: Array<{ label: string; amount: number }> = [];
 
-    type Mode = "NONE" | "PAY" | "ER";
+    type Mode = "NONE" | "PAY" | "ER" | "TAXES";
     let mode: Mode = "NONE";
 
     console.log(`[payroll] Found employee: "${name}" (id=${employeeId ?? "none"}) at row ${r}`);
@@ -167,8 +190,7 @@ export function parsePayrollRegisterExcel(buf: Buffer): PayrollParseResult {
       if (/Default\s*-\s*#\d+/i.test(label) && cleanName(label) !== name) break;
 
       // Weaker signal: in NONE mode (between sections) a name-like label is the next employee.
-      // We only do this outside PAY/ER mode so pay-type labels ("Regular Pay", etc.) don't
-      // accidentally end the current employee's block while we're still accumulating amounts.
+      // We only do this outside PAY/ER/TAXES mode so pay-type labels don't accidentally end the block.
       if (mode === "NONE" && looksLikeEmployeeName(label) && cleanName(label) !== name) break;
 
       if (!label) {
@@ -193,7 +215,8 @@ export function parsePayrollRegisterExcel(buf: Buffer): PayrollParseResult {
         continue;
       }
       if (isTaxesHeader(label)) {
-        mode = "NONE";
+        console.log(`[payroll]   → entering TAXES mode`);
+        mode = "TAXES";
         continue;
       }
 
@@ -212,18 +235,29 @@ export function parsePayrollRegisterExcel(buf: Buffer): PayrollParseResult {
           holHours += hrs;
           continue;
         }
-        // Commission / Bonus / Auto Allowance: track separately, exclude from salary
-        const excCat = excludedCategory(label);
-        if (excCat) {
+        // Bonus / Auto Allowance → "Other" column, allocated to properties
+        const otherCat = isOtherPay(label);
+        if (otherCat) {
           if (amt) {
-            const existing = exclusions.find((e) => e.label === excCat);
+            otherAmt += amt;
+            const existing = otherBreakdown.find((e) => e.label === otherCat);
             if (existing) existing.amount += amt;
-            else exclusions.push({ label: excCat, amount: amt });
-            console.log(`[payroll]   → excluded from salary: "${label}" (${excCat}) amt=${amt}`);
+            else otherBreakdown.push({ label: otherCat, amount: amt });
+            console.log(`[payroll]   → other pay: "${label}" (${otherCat}) amt=${amt}`);
           }
           continue;
         }
-        // everything else in pay section counts as salary bucket
+        // Commission → exclusion only (not in salary, not in Other column)
+        if (isCommission(label)) {
+          if (amt) {
+            const existing = exclusions.find((e) => e.label === "Commission");
+            if (existing) existing.amount += amt;
+            else exclusions.push({ label: "Commission", amount: amt });
+            console.log(`[payroll]   → excluded commission: "${label}" amt=${amt}`);
+          }
+          continue;
+        }
+        // everything else in pay section counts as salary
         if (amt) salaryAmt += amt;
         continue;
       }
@@ -231,8 +265,6 @@ export function parsePayrollRegisterExcel(buf: Buffer): PayrollParseResult {
       if (mode === "ER") {
         const low = label.toLowerCase();
         // 401K ER: any 401* line under ER header; exclude loan lines and pure EE lines.
-        // Use word boundary for "ee" so "employee" (in a label like "401K Employee Contribution ER")
-        // does NOT falsely exclude the ER contribution.
         const is401 = low.includes("401");
         const isLoan = low.includes("loan");
         const isEE = /\bee\b/i.test(low) || low.includes("(ee)");
@@ -240,15 +272,30 @@ export function parsePayrollRegisterExcel(buf: Buffer): PayrollParseResult {
           console.log(`[payroll]   → 401K ER line "${label}" amt=${amt}`);
           er401kAmt += amt;
         }
-        // Exit ER mode only on a new section header (taxes, EE deductions, pay types).
-        // Do NOT exit on generic "Totals:" — the ER total summary can appear before individual
-        // 401K ER line items in some Excel exports, and we must not skip those items.
+        continue;
+      }
+
+      if (mode === "TAXES") {
+        // Capture only ER-specific tax items (FUTA, FICA, MEDI, SUTA, SUI)
+        const taxLabel = erTaxLabel(label);
+        if (taxLabel && amt) {
+          taxesErAmt += amt;
+          const existing = taxesErBreakdown.find((e) => e.label === taxLabel);
+          if (existing) existing.amount += amt;
+          else taxesErBreakdown.push({ label: taxLabel, amount: amt });
+          console.log(`[payroll]   → taxes ER: "${label}" → ${taxLabel} amt=${amt}`);
+        }
         continue;
       }
     }
 
-    console.log(`[payroll]   salary=${salaryAmt} ot=${overtimeAmt} hol=${holAmt} er401k=${er401kAmt} exclusions=${JSON.stringify(exclusions)}`);
-    employees.push({ name, employeeId, salaryAmt, overtimeAmt, overtimeHours, holAmt, holHours, er401kAmt, exclusions: exclusions.length ? exclusions : undefined });
+    console.log(`[payroll]   salary=${salaryAmt} ot=${overtimeAmt} hol=${holAmt} er401k=${er401kAmt} other=${otherAmt} taxesEr=${taxesErAmt} exclusions=${JSON.stringify(exclusions)}`);
+    employees.push({
+      name, employeeId, salaryAmt, overtimeAmt, overtimeHours, holAmt, holHours, er401kAmt,
+      otherAmt, otherBreakdown: otherBreakdown.length ? otherBreakdown : undefined,
+      taxesErAmt, taxesErBreakdown: taxesErBreakdown.length ? taxesErBreakdown : undefined,
+      exclusions: exclusions.length ? exclusions : undefined,
+    });
   }
 
   const totals = employees.reduce(
@@ -259,6 +306,8 @@ export function parsePayrollRegisterExcel(buf: Buffer): PayrollParseResult {
       acc.holAmt += e.holAmt;
       acc.holHours += e.holHours ?? 0;
       acc.er401kAmt += e.er401kAmt;
+      acc.otherAmt += e.otherAmt;
+      acc.taxesErAmt += e.taxesErAmt;
       return acc;
     },
     {
@@ -268,6 +317,8 @@ export function parsePayrollRegisterExcel(buf: Buffer): PayrollParseResult {
       holHours: 0,
       holAmt: 0,
       er401kAmt: 0,
+      otherAmt: 0,
+      taxesErAmt: 0,
     }
   );
 

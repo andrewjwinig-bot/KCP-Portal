@@ -27,6 +27,8 @@ function buildLines(inv: PropertyInvoice): Line[] {
   pushIf(inv.holREC,    "HOL REC",    ACC_REC);
   pushIf(inv.holNR,     "HOL NR",     ACC_NR);
   pushIf(inv.er401k,    "401K ER",    ACC_NR);
+  pushIf(inv.other,     "Other Pay",  ACC_NR);
+  pushIf(inv.taxesEr,   "Taxes (ER)", ACC_REC);
   return lines;
 }
 
@@ -188,17 +190,7 @@ export async function renderInvoicePdf(input: InvoicePdfInput): Promise<Uint8Arr
     rowY += 20;
   }
 
-  // ── 7. Footnotes (excluded pay items) ────────────────────────────────────────
-  if (invoice.footnotes?.length) {
-    rowY += 6;
-    for (const note of invoice.footnotes) {
-      drawText(page, `* ${note}`, margin, rowY, regular, 8, rgb(0.35, 0.35, 0.35));
-      rowY += 12;
-    }
-    rowY += 4;
-  }
-
-  // ── 8. Footer ────────────────────────────────────────────────────────────────
+  // ── 7. Footer ────────────────────────────────────────────────────────────────
   const footY = 740;
   drawText(page, "Payable to LIKM4",      margin, footY,      bold,    10, black);
   drawText(page, "LIK Management Inc",    margin, footY + 14, regular, 10, dark);

@@ -68,6 +68,8 @@ export async function POST(req: Request) {
       const overtimeAmt = pe?.overtimeAmt ?? 0;
       const holAmt = pe?.holAmt ?? 0;
       const er401kAmt = pe?.er401kAmt ?? 0;
+      const otherAmt = pe?.otherAmt ?? 0;
+      const taxesErAmt = pe?.taxesErAmt ?? 0;
 
       return {
         ...ae,
@@ -81,8 +83,12 @@ export async function POST(req: Request) {
         holAmt,
         holHours: pe?.holHours ?? 0,
         er401kAmt,
+        otherAmt,
+        otherBreakdown: pe?.otherBreakdown ?? [],
+        taxesErAmt,
+        taxesErBreakdown: pe?.taxesErBreakdown ?? [],
         exclusions: pe?.exclusions ?? [],
-        total: salaryAmt + overtimeAmt + holAmt + er401kAmt,
+        total: salaryAmt + overtimeAmt + holAmt + er401kAmt + otherAmt + taxesErAmt,
         allocations: ae.allocations ?? ae.top ?? {},
       };
     });

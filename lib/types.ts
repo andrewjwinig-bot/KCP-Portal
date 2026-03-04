@@ -59,7 +59,13 @@ export type PayrollEmployee = {
   holAmt: number;
   holHours: number;
   er401kAmt: number;
-  /** Pay items excluded from salary (Commission, Bonus, Auto Allowance, etc.) */
+  /** Bonus + Auto Allowance — tracked separately, allocated to properties */
+  otherAmt: number;
+  otherBreakdown?: Array<{ label: string; amount: number }>;
+  /** Employer payroll taxes: FUTA, FICA, MEDI, SUTA */
+  taxesErAmt: number;
+  taxesErBreakdown?: Array<{ label: string; amount: number }>;
+  /** Pay items excluded from salary — currently only Commission */
   exclusions?: Array<{ label: string; amount: number }>;
 };
 
@@ -70,6 +76,8 @@ export type PayrollTotals = {
   holAmt: number;
   holHours: number;
   er401kAmt: number;
+  otherAmt: number;
+  taxesErAmt: number;
 };
 
 export type PayrollParseResult = {
@@ -83,6 +91,8 @@ export type DrilldownRow = {
   baseAmount: number;
   allocPct: number;
   amount: number;
+  /** Category label for sub-type rows: "Bonus", "Auto Allowance", "FUTA", "FICA", etc. */
+  category?: string;
 };
 
 export type PropertyInvoice = {
@@ -98,8 +108,10 @@ export type PropertyInvoice = {
   holREC: number;
   holNR: number;
   er401k: number;
+  other: number;
+  taxesEr: number;
   total: number;
   drilldown?: Record<string, DrilldownRow[]>;
-  /** Footnotes about excluded pay items (commissions, bonuses, auto allowance) */
+  /** Footnotes about excluded pay items (commissions) — not shown on PDFs */
   footnotes?: string[];
 };
