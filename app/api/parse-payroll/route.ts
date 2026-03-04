@@ -81,6 +81,7 @@ export async function POST(req: Request) {
         holAmt,
         holHours: pe?.holHours ?? 0,
         er401kAmt,
+        exclusions: pe?.exclusions ?? [],
         total: salaryAmt + overtimeAmt + holAmt + er401kAmt,
         allocations: ae.allocations ?? ae.top ?? {},
       };

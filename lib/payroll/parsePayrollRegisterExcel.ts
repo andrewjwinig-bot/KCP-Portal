@@ -74,6 +74,19 @@ function isTotals(label: string) {
   return label.toLowerCase().startsWith("totals");
 }
 
+/**
+ * Returns the canonical exclusion category name if this pay-type label should be
+ * noted but NOT counted toward salary (Commission, Bonus, Auto Allowance).
+ * Returns null for normal pay items.
+ */
+function excludedCategory(label: string): string | null {
+  const low = label.toLowerCase();
+  if (low.includes("commission")) return "Commission";
+  if (low.includes("bonus")) return "Bonus";
+  if (low.includes("auto allow")) return "Auto Allowance";
+  return null;
+}
+
 // Header detectors (regex so ":" or extra spaces don't break)
 function isPayTypeHeader(label: string) {
   return /^pay\s*type\b/i.test(label.trim());
@@ -116,6 +129,7 @@ export function parsePayrollRegisterExcel(buf: Buffer): PayrollParseResult {
     let holAmt = 0;
     let holHours = 0;
     let er401kAmt = 0;
+    const exclusions: Array<{ label: string; amount: number }> = [];
 
     type Mode = "NONE" | "PAY" | "ER";
     let mode: Mode = "NONE";
@@ -187,6 +201,17 @@ export function parsePayrollRegisterExcel(buf: Buffer): PayrollParseResult {
           holHours += hrs;
           continue;
         }
+        // Commission / Bonus / Auto Allowance: track separately, exclude from salary
+        const excCat = excludedCategory(label);
+        if (excCat) {
+          if (amt) {
+            const existing = exclusions.find((e) => e.label === excCat);
+            if (existing) existing.amount += amt;
+            else exclusions.push({ label: excCat, amount: amt });
+            console.log(`[payroll]   → excluded from salary: "${label}" (${excCat}) amt=${amt}`);
+          }
+          continue;
+        }
         // everything else in pay section counts as salary bucket
         if (amt) salaryAmt += amt;
         continue;
@@ -211,8 +236,8 @@ export function parsePayrollRegisterExcel(buf: Buffer): PayrollParseResult {
       }
     }
 
-    console.log(`[payroll]   salary=${salaryAmt} ot=${overtimeAmt} hol=${holAmt} er401k=${er401kAmt}`);
-    employees.push({ name, employeeId, salaryAmt, overtimeAmt, overtimeHours, holAmt, holHours, er401kAmt });
+    console.log(`[payroll]   salary=${salaryAmt} ot=${overtimeAmt} hol=${holAmt} er401k=${er401kAmt} exclusions=${JSON.stringify(exclusions)}`);
+    employees.push({ name, employeeId, salaryAmt, overtimeAmt, overtimeHours, holAmt, holHours, er401kAmt, exclusions: exclusions.length ? exclusions : undefined });
   }
 
   const totals = employees.reduce(
