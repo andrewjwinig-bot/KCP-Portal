@@ -130,8 +130,9 @@ function isEeHeader(label: string) {
 }
 /** "Taxes (ER)" — the employer tax section; FUTA/FICA/MEDI/SUTA live here */
 function isTaxesErHeader(label: string) {
-  const t = label.trim();
-  return /^taxes?\s*[\-(]\s*er/i.test(t);
+  const low = label.toLowerCase().trim();
+  // Match "Taxes (ER)", "Tax (ER)", "Taxes - ER", "Taxes ER", "ER Taxes", etc.
+  return /^taxes?\b/.test(low) && /\ber\b/.test(low);
 }
 /** Any other Taxes header (EE, or generic) — skip the contents */
 function isTaxesHeader(label: string) {
@@ -205,6 +206,11 @@ export function parsePayrollRegisterExcel(buf: Buffer): PayrollParseResult {
         continue;
       }
       blankRun = 0;
+
+      // Diagnostic: log any row whose label contains "tax" so we can see the exact text
+      if (/tax/i.test(label)) {
+        console.log(`[payroll]   TAX-ROW row=${r} label="${label}" mode=${mode} isErHeader=${isTaxesErHeader(label)}`);
+      }
 
       if (isPayTypeHeader(label)) {
         console.log(`[payroll]   → entering PAY mode`);
