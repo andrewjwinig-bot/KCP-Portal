@@ -109,10 +109,16 @@ export default function Page() {
     return t;
   }, [invoices]);
 
-  // Dynamic column visibility for Invoices card
-  const showInvOther   = totals.other   > 0;
-  const showInvTaxesEr = totals.taxesEr > 0;
-  const invColCount = 9 + (showInvOther ? 1 : 0) + (showInvTaxesEr ? 1 : 0);
+  // Dynamic column visibility for Invoices card — hide any column whose total is $0
+  const showInvSalaryREC = totals.salaryREC > 0;
+  const showInvSalaryNR  = totals.salaryNR  > 0;
+  const showInvOvertime  = totals.overtime  > 0;
+  const showInvHolREC    = totals.holREC    > 0;
+  const showInvHolNR     = totals.holNR     > 0;
+  const showInvEr401k    = totals.er401k    > 0;
+  const showInvOther     = totals.other     > 0;
+  const showInvTaxesEr   = totals.taxesEr   > 0;
+  const invColCount = 3 + [showInvSalaryREC, showInvSalaryNR, showInvOvertime, showInvHolREC, showInvHolNR, showInvEr401k, showInvOther, showInvTaxesEr].filter(Boolean).length;
 
   const employeeTotals = useMemo(() => {
     const t = { salary: 0, overtime: 0, hol: 0, er401k: 0, other: 0, taxesEr: 0, total: 0 };
@@ -128,10 +134,14 @@ export default function Page() {
     return t;
   }, [employees]);
 
-  // Dynamic column visibility for Employees card
-  const showEmpOther   = employeeTotals.other   > 0;
-  const showEmpTaxesEr = employeeTotals.taxesEr > 0;
-  const empColCount = 7 + (showEmpOther ? 1 : 0) + (showEmpTaxesEr ? 1 : 0);
+  // Dynamic column visibility for Employees card — hide any column whose total is $0
+  const showEmpSalary   = employeeTotals.salary   > 0;
+  const showEmpOvertime = employeeTotals.overtime  > 0;
+  const showEmpHol      = employeeTotals.hol       > 0;
+  const showEmpEr401k   = employeeTotals.er401k    > 0;
+  const showEmpOther    = employeeTotals.other     > 0;
+  const showEmpTaxesEr  = employeeTotals.taxesEr   > 0;
+  const empColCount = 3 + [showEmpSalary, showEmpOvertime, showEmpHol, showEmpEr401k, showEmpOther, showEmpTaxesEr].filter(Boolean).length;
 
   async function importPayroll(file: File) {
     setError(null);
@@ -393,14 +403,14 @@ export default function Page() {
                   <tr>
                     <th>Property</th>
                     <th>Property Name</th>
-                    <th>Salary REC</th>
-                    <th>Salary NR</th>
-                    <th>Overtime</th>
-                    <th>HOL REC</th>
-                    <th>HOL NR</th>
-                    <th>401K ER</th>
-                    {showInvOther   && <th>Other</th>}
-                    {showInvTaxesEr && <th>Taxes (ER)</th>}
+                    {showInvSalaryREC && <th>Salary REC</th>}
+                    {showInvSalaryNR  && <th>Salary NR</th>}
+                    {showInvOvertime  && <th>Overtime</th>}
+                    {showInvHolREC    && <th>HOL REC</th>}
+                    {showInvHolNR     && <th>HOL NR</th>}
+                    {showInvEr401k    && <th>401K ER</th>}
+                    {showInvOther     && <th>Other</th>}
+                    {showInvTaxesEr   && <th>Taxes (ER)</th>}
                     <th>Total</th>
                   </tr>
                 </thead>
@@ -416,14 +426,14 @@ export default function Page() {
                             {r.propertyLabel || r.propertyKey}
                           </button>
                         </td>
-                        <td><button className="linkBtn" onClick={() => openDrill(r, "salaryREC", "Salary REC")}>{money(r.salaryREC)}</button></td>
-                        <td><button className="linkBtn" onClick={() => openDrill(r, "salaryNR", "Salary NR")}>{money(r.salaryNR)}</button></td>
-                        <td><button className="linkBtn" onClick={() => openDrill(r, "overtime", "Overtime")}>{money(r.overtime)}</button></td>
-                        <td><button className="linkBtn" onClick={() => openDrill(r, "holREC", "HOL REC")}>{money(r.holREC)}</button></td>
-                        <td><button className="linkBtn" onClick={() => openDrill(r, "holNR", "HOL NR")}>{money(r.holNR)}</button></td>
-                        <td><button className="linkBtn" onClick={() => openDrill(r, "er401k", "401K ER")}>{money(r.er401k)}</button></td>
-                        {showInvOther   && <td><button className="linkBtn" onClick={() => openDrill(r, "other", "Other Pay")}>{money(r.other)}</button></td>}
-                        {showInvTaxesEr && <td><button className="linkBtn" onClick={() => openDrill(r, "taxesEr", "Taxes (ER)")}>{money(r.taxesEr)}</button></td>}
+                        {showInvSalaryREC && <td><button className="linkBtn" onClick={() => openDrill(r, "salaryREC", "Salary REC")}>{money(r.salaryREC)}</button></td>}
+                        {showInvSalaryNR  && <td><button className="linkBtn" onClick={() => openDrill(r, "salaryNR", "Salary NR")}>{money(r.salaryNR)}</button></td>}
+                        {showInvOvertime  && <td><button className="linkBtn" onClick={() => openDrill(r, "overtime", "Overtime")}>{money(r.overtime)}</button></td>}
+                        {showInvHolREC    && <td><button className="linkBtn" onClick={() => openDrill(r, "holREC", "HOL REC")}>{money(r.holREC)}</button></td>}
+                        {showInvHolNR     && <td><button className="linkBtn" onClick={() => openDrill(r, "holNR", "HOL NR")}>{money(r.holNR)}</button></td>}
+                        {showInvEr401k    && <td><button className="linkBtn" onClick={() => openDrill(r, "er401k", "401K ER")}>{money(r.er401k)}</button></td>}
+                        {showInvOther     && <td><button className="linkBtn" onClick={() => openDrill(r, "other", "Other Pay")}>{money(r.other)}</button></td>}
+                        {showInvTaxesEr   && <td><button className="linkBtn" onClick={() => openDrill(r, "taxesEr", "Taxes (ER)")}>{money(r.taxesEr)}</button></td>}
                         <td><button className="linkBtn" onClick={() => openDrill(r, "total", "Total")}><b>{money(r.total)}</b></button></td>
                       </tr>
                     ))
@@ -433,14 +443,14 @@ export default function Page() {
                   <tr>
                     <td>Totals</td>
                     <td></td>
-                    <td>{money(totals.salaryREC)}</td>
-                    <td>{money(totals.salaryNR)}</td>
-                    <td>{money(totals.overtime)}</td>
-                    <td>{money(totals.holREC)}</td>
-                    <td>{money(totals.holNR)}</td>
-                    <td>{money(totals.er401k)}</td>
-                    {showInvOther   && <td>{money(totals.other)}</td>}
-                    {showInvTaxesEr && <td>{money(totals.taxesEr)}</td>}
+                    {showInvSalaryREC && <td>{money(totals.salaryREC)}</td>}
+                    {showInvSalaryNR  && <td>{money(totals.salaryNR)}</td>}
+                    {showInvOvertime  && <td>{money(totals.overtime)}</td>}
+                    {showInvHolREC    && <td>{money(totals.holREC)}</td>}
+                    {showInvHolNR     && <td>{money(totals.holNR)}</td>}
+                    {showInvEr401k    && <td>{money(totals.er401k)}</td>}
+                    {showInvOther     && <td>{money(totals.other)}</td>}
+                    {showInvTaxesEr   && <td>{money(totals.taxesEr)}</td>}
                     <td>{money(totals.total)}</td>
                   </tr>
                 </tfoot>
@@ -479,12 +489,12 @@ export default function Page() {
                 <tr>
                   <th>Employee</th>
                   <th>REC/NR</th>
-                  <th style={{ textAlign: "right" }}>Salary *</th>
-                  <th style={{ textAlign: "right" }}>Overtime</th>
-                  <th style={{ textAlign: "right" }}>HOL</th>
-                  <th style={{ textAlign: "right" }}>401K ER</th>
-                  {showEmpOther   && <th style={{ textAlign: "right" }}>Other</th>}
-                  {showEmpTaxesEr && <th style={{ textAlign: "right" }}>Taxes (ER)</th>}
+                  {showEmpSalary   && <th style={{ textAlign: "right" }}>Salary *</th>}
+                  {showEmpOvertime && <th style={{ textAlign: "right" }}>Overtime</th>}
+                  {showEmpHol      && <th style={{ textAlign: "right" }}>HOL</th>}
+                  {showEmpEr401k   && <th style={{ textAlign: "right" }}>401K ER</th>}
+                  {showEmpOther    && <th style={{ textAlign: "right" }}>Other</th>}
+                  {showEmpTaxesEr  && <th style={{ textAlign: "right" }}>Taxes (ER)</th>}
                   <th style={{ textAlign: "right" }}>Total</th>
                 </tr>
               </thead>
@@ -498,10 +508,10 @@ export default function Page() {
                         <button className="linkBtn left" onClick={() => openEmployee(e)}>{e.name}</button>
                       </td>
                       <td><span className={e.recoverable ? "tag rec" : "tag nr"}>{e.recoverable ? "REC" : "NR"}</span></td>
-                      <td style={{ textAlign: "right" }}>{money(e.salaryAmt)}</td>
-                      <td style={{ textAlign: "right" }}>{money(e.overtimeAmt)}</td>
-                      <td style={{ textAlign: "right" }}>{money(e.holAmt)}</td>
-                      <td style={{ textAlign: "right" }}>{money(e.er401kAmt)}</td>
+                      {showEmpSalary   && <td style={{ textAlign: "right" }}>{money(e.salaryAmt)}</td>}
+                      {showEmpOvertime && <td style={{ textAlign: "right" }}>{money(e.overtimeAmt)}</td>}
+                      {showEmpHol      && <td style={{ textAlign: "right" }}>{money(e.holAmt)}</td>}
+                      {showEmpEr401k   && <td style={{ textAlign: "right" }}>{money(e.er401kAmt)}</td>}
                       {showEmpOther && (
                         <td style={{ textAlign: "right" }}>
                           {e.otherAmt > 0
@@ -525,12 +535,12 @@ export default function Page() {
                 <tr>
                   <td>Totals</td>
                   <td></td>
-                  <td style={{ textAlign: "right" }}>{money(employeeTotals.salary)}</td>
-                  <td style={{ textAlign: "right" }}>{money(employeeTotals.overtime)}</td>
-                  <td style={{ textAlign: "right" }}>{money(employeeTotals.hol)}</td>
-                  <td style={{ textAlign: "right" }}>{money(employeeTotals.er401k)}</td>
-                  {showEmpOther   && <td style={{ textAlign: "right" }}>{money(employeeTotals.other)}</td>}
-                  {showEmpTaxesEr && <td style={{ textAlign: "right" }}>{money(employeeTotals.taxesEr)}</td>}
+                  {showEmpSalary   && <td style={{ textAlign: "right" }}>{money(employeeTotals.salary)}</td>}
+                  {showEmpOvertime && <td style={{ textAlign: "right" }}>{money(employeeTotals.overtime)}</td>}
+                  {showEmpHol      && <td style={{ textAlign: "right" }}>{money(employeeTotals.hol)}</td>}
+                  {showEmpEr401k   && <td style={{ textAlign: "right" }}>{money(employeeTotals.er401k)}</td>}
+                  {showEmpOther    && <td style={{ textAlign: "right" }}>{money(employeeTotals.other)}</td>}
+                  {showEmpTaxesEr  && <td style={{ textAlign: "right" }}>{money(employeeTotals.taxesEr)}</td>}
                   <td style={{ textAlign: "right" }}>{money(employeeTotals.total)}</td>
                 </tr>
                 <tr>

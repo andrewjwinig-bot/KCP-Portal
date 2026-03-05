@@ -18,6 +18,12 @@ function extractEmpNumber(raw: string): string | undefined {
   return raw.match(/Default\s*-\s*#(\d+)/i)?.[1];
 }
 
+/** Normalize ADP "LAST, FIRST" format → "first last" for name matching. */
+function normalizePayrollName(name: string): string {
+  const m = name.match(/^([^,]+),\s*(.+)$/);
+  return m ? `${m[2].trim()} ${m[1].trim()}`.toLowerCase() : name.toLowerCase();
+}
+
 /**
  * POST /api/parse-payroll
  *
@@ -59,7 +65,7 @@ export async function POST(req: Request) {
       const pe =
         payrollEmployees.find((p) => aId != null && String(p.employeeId ?? "").trim() === String(aId).trim()) ??
         payrollEmployees.find((p) => {
-          const pn = String(p.name ?? "").toLowerCase();
+          const pn = normalizePayrollName(String(p.name ?? ""));
           const an = rawName.toLowerCase();
           return pn && an && (pn.includes(an) || an.includes(pn));
         }) ??

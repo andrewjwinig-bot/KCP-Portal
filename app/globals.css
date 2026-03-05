@@ -117,6 +117,10 @@ tfoot td {
   font-weight: 900;
 }
 
+tbody tr:hover {
+  background: rgba(15, 23, 42, 0.04);
+}
+
 hr {
   border: 0;
   border-top: 1px solid rgba(15, 23, 42, 0.10);

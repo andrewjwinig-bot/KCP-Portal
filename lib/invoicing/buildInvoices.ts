@@ -1,5 +1,11 @@
 import { AllocationEmployee, AllocationTable, PayrollParseResult, PropertyInvoice } from "../types";
 
+/** Normalize ADP "LAST, FIRST" → "first last" for name matching. */
+function normalizePayrollName(name: string): string {
+  const m = name.match(/^([^,]+),\s*(.+)$/);
+  return m ? `${m[2].trim()} ${m[1].trim()}`.toLowerCase() : name.toLowerCase();
+}
+
 function sum(obj: Record<string, number>): number {
   return Object.values(obj).reduce((a, b) => a + (b || 0), 0);
 }
@@ -54,9 +60,9 @@ export function buildInvoices(payroll: PayrollParseResult, alloc: AllocationTabl
     const a =
       (empId ? empAllocById.get(empId) : undefined) ??
       empAllocByName.get(String(emp.name).toLowerCase().trim()) ??
-      // Partial name match fallback (handles "Last, First" vs "First Last" differences)
+      // Partial name match fallback — normalizes "LAST, FIRST" → "first last" before comparing
       alloc.employees.find((ae) => {
-        const pn = String(emp.name ?? "").toLowerCase();
+        const pn = normalizePayrollName(String(emp.name ?? ""));
         const an = String(ae.name ?? "").toLowerCase();
         return pn && an && (pn.includes(an) || an.includes(pn));
       });
