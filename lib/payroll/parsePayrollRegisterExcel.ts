@@ -36,12 +36,12 @@ function looksLikeEmployeeName(s: string): boolean {
   if (low.includes("report totals")) return false;
   if (/^pay\s*type\b/.test(low)) return false;
   if (low.includes("deduct")) return false;        // "Deductions", "Deduction", "Deductn"
-  if (low.includes("taxes")) return false;
+  if (low.includes("tax")) return false;           // "Taxes", "Federal Income Tax", "EIT: Bensalem", etc.
   if (low === "totals:" || low.startsWith("totals")) return false;
   if (low.includes("er totals")) return false;
-  if (low.includes("all tax")) return false;
   if (low.startsWith("net pay")) return false;
   if (low.includes("direct deposit")) return false;
+  if (low.startsWith("social")) return false;      // "Social Security", "Social Security EE"
   // Employer/employee section labels (not person names)
   if (low.startsWith("employer")) return false;
   if (low.startsWith("employee")) return false;
@@ -52,6 +52,8 @@ function looksLikeEmployeeName(s: string): boolean {
 
   const hasLetters = /[A-Za-z]/.test(t);
   const parts = t.replace(",", " ").split(/\s+/).filter(Boolean);
+  // "EIT: Bensalem", "LST: Bensalem" — abbreviation: city labels are not names
+  if (parts[0]?.endsWith(":")) return false;
   return hasLetters && parts.length >= 2;
 }
 
@@ -304,6 +306,13 @@ export function parsePayrollRegisterExcel(buf: Buffer): PayrollParseResult {
       }
 
       if (mode === "TAXES") {
+        const labelLow = label.toLowerCase();
+        // End-of-ER-taxes signals: switch back to NONE so the next employee's name
+        // can trigger the looksLikeEmployeeName break guard.
+        if (labelLow.startsWith("net pay") || /^er\s+totals/i.test(label) || labelLow.includes("all tax")) {
+          mode = "NONE";
+          continue;
+        }
         // Capture only ER-specific tax items (FUTA, FICA, MEDI, SUTA, SUI)
         const taxLabel = erTaxLabel(label);
         if (taxLabel && amt) {
