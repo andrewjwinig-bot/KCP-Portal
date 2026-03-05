@@ -185,7 +185,7 @@ export function parsePayrollRegisterExcel(buf: Buffer): PayrollParseResult {
     const taxesErBreakdown: Array<{ label: string; amount: number }> = [];
     const exclusions: Array<{ label: string; amount: number }> = [];
 
-    type Mode = "NONE" | "PAY" | "ER" | "TAXES";
+    type Mode = "NONE" | "EE" | "PAY" | "ER" | "TAXES";
     let mode: Mode = "NONE";
 
     r++; // scan after name row
@@ -230,16 +230,19 @@ export function parsePayrollRegisterExcel(buf: Buffer): PayrollParseResult {
         continue;
       }
       if (isEeHeader(label)) {
-        mode = "NONE";
+        mode = "EE";
         continue;
       }
       if (isTaxesErHeader(label)) {
         mode = "TAXES";
         continue;
       }
-      // "Taxes (EE)" — employee-side only, skip contents entirely
+      // "Taxes (EE)" / EE deductions — employee-side only, skip contents entirely.
+      // Use "EE" mode (not "NONE") so name-like labels inside the section
+      // (e.g. "Federal Income Tax", "Social Security EE") don't trigger the
+      // NONE-mode break guard and kill the loop before the "Taxes (ER)" section.
       if (isTaxesEeHeader(label)) {
-        mode = "NONE";
+        mode = "EE";
         continue;
       }
       // Generic "Taxes:" with no EE/ER marker → enter TAXES mode; erTaxLabel will skip EE items
