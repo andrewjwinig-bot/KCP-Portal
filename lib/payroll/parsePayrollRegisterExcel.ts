@@ -102,6 +102,8 @@ function isCommission(label: string): boolean {
  */
 function erTaxLabel(label: string): string | null {
   const low = label.toLowerCase().trim();
+  // Skip items explicitly marked as employee-side — can appear in mixed "Taxes:" sections
+  if (/\bee\b/.test(low) || low.includes("(ee)") || low.endsWith(":ee")) return null;
   if (low.startsWith("futa") || low.startsWith("fui")) return "FUTA";
   if (low.startsWith("fica") || low.startsWith("ss:er") || /^soc\s/.test(low)) return "FICA";
   if (low.startsWith("medi")) return "MEDI";
@@ -131,10 +133,14 @@ function isEeHeader(label: string) {
 /** "Taxes (ER)" — the employer tax section; FUTA/FICA/MEDI/SUTA live here */
 function isTaxesErHeader(label: string) {
   const low = label.toLowerCase().trim();
-  // Match "Taxes (ER)", "Tax (ER)", "Taxes - ER", "Taxes ER", "ER Taxes", etc.
   return /^taxes?\b/.test(low) && /\ber\b/.test(low);
 }
-/** Any other Taxes header (EE, or generic) — skip the contents */
+/** "Taxes (EE)" — employee-only tax section; skip all contents */
+function isTaxesEeHeader(label: string) {
+  const low = label.toLowerCase().trim();
+  return /^taxes?\b/.test(low) && /\bee\b/.test(low);
+}
+/** Generic "Taxes:" header (no EE/ER marker) — enter TAXES mode; erTaxLabel filters out EE items */
 function isTaxesHeader(label: string) {
   return /^taxes?\b/i.test(label.trim());
 }
@@ -227,13 +233,19 @@ export function parsePayrollRegisterExcel(buf: Buffer): PayrollParseResult {
         continue;
       }
       if (isTaxesErHeader(label)) {
-        console.log(`[payroll]   → entering TAXES (ER) mode`);
+        console.log(`[payroll]   → entering TAXES (ER) mode (dedicated ER section)`);
         mode = "TAXES";
         continue;
       }
-      // "Taxes (EE)" or any other non-ER taxes header → exit to NONE (don't capture EE taxes)
-      if (isTaxesHeader(label)) {
+      // "Taxes (EE)" — employee-side only, skip contents entirely
+      if (isTaxesEeHeader(label)) {
         mode = "NONE";
+        continue;
+      }
+      // Generic "Taxes:" with no EE/ER marker → enter TAXES mode; erTaxLabel will skip EE items
+      if (isTaxesHeader(label)) {
+        console.log(`[payroll]   → entering TAXES mode (generic section)`);
+        mode = "TAXES";
         continue;
       }
 
