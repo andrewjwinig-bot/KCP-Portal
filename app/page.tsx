@@ -354,6 +354,8 @@ export default function Page() {
             <span className="pill"><span className="muted">Overtime</span><b>{money(payroll.totals?.overtimeAmt ?? 0)}</b></span>
             <span className="pill"><span className="muted">HOL</span><b>{money(payroll.totals?.holAmt ?? 0)}</b></span>
             <span className="pill"><span className="muted">401K ER</span><b>{money(payroll.totals?.er401kAmt ?? 0)}</b></span>
+            <span className="pill"><span className="muted">Other</span><b>{money(payroll.totals?.otherAmt ?? 0)}</b></span>
+            <span className="pill"><span className="muted">Taxes (ER)</span><b>{money(payroll.totals?.taxesErAmt ?? 0)}</b></span>
           </div>
         )}
       </div>

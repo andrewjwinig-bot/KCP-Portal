@@ -102,12 +102,16 @@ function isCommission(label: string): boolean {
  */
 function erTaxLabel(label: string): string | null {
   const low = label.toLowerCase().trim();
-  // Skip items explicitly marked as employee-side — can appear in mixed "Taxes:" sections
+  // Skip items explicitly employee-side — can appear in mixed "Taxes:" sections
   if (/\bee\b/.test(low) || low.includes("(ee)") || low.endsWith(":ee")) return null;
-  if (low.startsWith("futa") || low.startsWith("fui")) return "FUTA";
-  if (low.startsWith("fica") || low.startsWith("ss:er") || /^soc\s/.test(low)) return "FICA";
-  if (low.startsWith("medi")) return "MEDI";
-  if (low.startsWith("suta") || low.startsWith("sui")) return label.trim(); // preserve "SUTA:PA" etc.
+  // Federal Unemployment (FUTA / FUI)
+  if (low.startsWith("futa") || low.startsWith("fui") || /\bfuta\b/.test(low) || low.includes("federal unemp")) return "FUTA";
+  // Social Security / FICA (ER)
+  if (low.startsWith("fica") || /^ss[: (]/.test(low) || low.startsWith("ss:er") || low.includes("social sec")) return "FICA";
+  // Medicare
+  if (low.startsWith("medi") || low.startsWith("medicare")) return "MEDI";
+  // State Unemployment (SUTA / SUI) — preserve full label e.g. "SUTA:PA"
+  if (low.startsWith("suta") || low.startsWith("sui") || low.includes("state unemp")) return label.trim();
   return null;
 }
 
@@ -130,10 +134,13 @@ function isEeHeader(label: string) {
   if (/^employee\s+deductions?/i.test(t)) return true;
   return false;
 }
-/** "Taxes (ER)" — the employer tax section; FUTA/FICA/MEDI/SUTA live here */
+/** "Taxes (ER)" / "ER Taxes" / "Employer Taxes" — the employer tax section */
 function isTaxesErHeader(label: string) {
   const low = label.toLowerCase().trim();
-  return /^taxes?\b/.test(low) && /\ber\b/.test(low);
+  if (/^taxes?\b/.test(low) && /\ber\b/.test(low)) return true;  // "Taxes (ER)", "Taxes - ER"
+  if (/^er\s+tax/i.test(low)) return true;                         // "ER Taxes:", "ER Tax:"
+  if (/^employer\s+tax/i.test(low)) return true;                   // "Employer Taxes:"
+  return false;
 }
 /** "Taxes (EE)" — employee-only tax section; skip all contents */
 function isTaxesEeHeader(label: string) {
