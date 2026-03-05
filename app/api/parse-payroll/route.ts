@@ -35,6 +35,8 @@ export async function POST(req: Request) {
     // Convert base64-encoded file to Buffer for XLSX parsing
     const payrollBuf = Buffer.from(fileBase64, "base64");
     const payroll = parsePayrollRegisterExcel(payrollBuf);
+    // Single diagnostic log — Vercel shows this as the message for the request
+    console.log(`[parse] emp=${payroll.employees.length} salary=${payroll.totals.salaryAmt} er401k=${payroll.totals.er401kAmt} other=${payroll.totals.otherAmt} taxesEr=${payroll.totals.taxesErAmt} perEmp=${JSON.stringify(payroll.employees.map(e=>({n:e.name,taxesEr:e.taxesErAmt,other:e.otherAmt})))}`);
 
     // Load allocation workbook from the fixed location on disk
     const allocPath = path.join(process.cwd(), "data", "allocation.xlsx");

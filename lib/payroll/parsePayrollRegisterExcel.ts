@@ -188,8 +188,6 @@ export function parsePayrollRegisterExcel(buf: Buffer): PayrollParseResult {
     type Mode = "NONE" | "PAY" | "ER" | "TAXES";
     let mode: Mode = "NONE";
 
-    console.log(`[payroll] Found employee: "${name}" (id=${employeeId ?? "none"}) at row ${r}`);
-
     r++; // scan after name row
     let blankRun = 0;
     let rowsLogged = 0; // log first 12 rows of each block so we can see the column layout
@@ -202,7 +200,6 @@ export function parsePayrollRegisterExcel(buf: Buffer): PayrollParseResult {
       // Log first 12 rows of this block with full column A-F content
       if (rowsLogged < 12) {
         const cols = [0,1,2,3,4,5].map(i => `[${i}]=${JSON.stringify(asText(grid[r]?.[i]))}`).join(" ");
-        console.log(`[payroll]   row${r} ${cols}`);
         rowsLogged++;
       }
 
@@ -222,16 +219,13 @@ export function parsePayrollRegisterExcel(buf: Buffer): PayrollParseResult {
 
       // Diagnostic: log any row whose label contains "tax" so we can see the exact text
       if (/tax/i.test(label)) {
-        console.log(`[payroll]   TAX-ROW row=${r} label="${label}" mode=${mode} isErHeader=${isTaxesErHeader(label)}`);
       }
 
       if (isPayTypeHeader(label)) {
-        console.log(`[payroll]   → entering PAY mode`);
         mode = "PAY";
         continue;
       }
       if (isErHeader(label)) {
-        console.log(`[payroll]   → entering ER mode`);
         mode = "ER";
         continue;
       }
@@ -240,7 +234,6 @@ export function parsePayrollRegisterExcel(buf: Buffer): PayrollParseResult {
         continue;
       }
       if (isTaxesErHeader(label)) {
-        console.log(`[payroll]   → entering TAXES (ER) mode (dedicated ER section)`);
         mode = "TAXES";
         continue;
       }
@@ -251,7 +244,6 @@ export function parsePayrollRegisterExcel(buf: Buffer): PayrollParseResult {
       }
       // Generic "Taxes:" with no EE/ER marker → enter TAXES mode; erTaxLabel will skip EE items
       if (isTaxesHeader(label)) {
-        console.log(`[payroll]   → entering TAXES mode (generic section)`);
         mode = "TAXES";
         continue;
       }
@@ -279,7 +271,6 @@ export function parsePayrollRegisterExcel(buf: Buffer): PayrollParseResult {
             const existing = otherBreakdown.find((e) => e.label === otherCat);
             if (existing) existing.amount += amt;
             else otherBreakdown.push({ label: otherCat, amount: amt });
-            console.log(`[payroll]   → other pay: "${label}" (${otherCat}) amt=${amt}`);
           }
           continue;
         }
@@ -289,7 +280,6 @@ export function parsePayrollRegisterExcel(buf: Buffer): PayrollParseResult {
             const existing = exclusions.find((e) => e.label === "Commission");
             if (existing) existing.amount += amt;
             else exclusions.push({ label: "Commission", amount: amt });
-            console.log(`[payroll]   → excluded commission: "${label}" amt=${amt}`);
           }
           continue;
         }
@@ -305,7 +295,6 @@ export function parsePayrollRegisterExcel(buf: Buffer): PayrollParseResult {
         const isLoan = low.includes("loan");
         const isEE = /\bee\b/i.test(low) || low.includes("(ee)");
         if (is401 && !isLoan && !isEE) {
-          console.log(`[payroll]   → 401K ER line "${label}" amt=${amt}`);
           er401kAmt += amt;
         }
         continue;
@@ -319,13 +308,11 @@ export function parsePayrollRegisterExcel(buf: Buffer): PayrollParseResult {
           const existing = taxesErBreakdown.find((e) => e.label === taxLabel);
           if (existing) existing.amount += amt;
           else taxesErBreakdown.push({ label: taxLabel, amount: amt });
-          console.log(`[payroll]   → taxes ER: "${label}" → ${taxLabel} amt=${amt}`);
         }
         continue;
       }
     }
 
-    console.log(`[payroll]   salary=${salaryAmt} ot=${overtimeAmt} hol=${holAmt} er401k=${er401kAmt} other=${otherAmt} taxesEr=${taxesErAmt} exclusions=${JSON.stringify(exclusions)}`);
     employees.push({
       name, employeeId, salaryAmt, overtimeAmt, overtimeHours, holAmt, holHours, er401kAmt,
       otherAmt, otherBreakdown: otherBreakdown.length ? otherBreakdown : undefined,
