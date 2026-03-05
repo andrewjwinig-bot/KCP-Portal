@@ -36,7 +36,9 @@ export async function POST(req: Request) {
     const payrollBuf = Buffer.from(fileBase64, "base64");
     const payroll = parsePayrollRegisterExcel(payrollBuf);
     // Single diagnostic log — Vercel shows this as the message for the request
-    console.log(`[parse] emp=${payroll.employees.length} salary=${payroll.totals.salaryAmt} er401k=${payroll.totals.er401kAmt} other=${payroll.totals.otherAmt} taxesEr=${payroll.totals.taxesErAmt} perEmp=${JSON.stringify(payroll.employees.map(e=>({n:e.name,taxesEr:e.taxesErAmt,other:e.otherAmt})))}`);
+    // Two short logs so neither gets truncated before the key values
+    console.log(`[parse1] taxesEr=${payroll.totals.taxesErAmt} other=${payroll.totals.otherAmt} er401k=${payroll.totals.er401kAmt} salary=${payroll.totals.salaryAmt} emp=${payroll.employees.length}`);
+    console.log(`[parse2] ${payroll.employees.map(e=>`${e.name}:tEr=${e.taxesErAmt}`).join(' | ')}`);
 
     // Load allocation workbook from the fixed location on disk
     const allocPath = path.join(process.cwd(), "data", "allocation.xlsx");
