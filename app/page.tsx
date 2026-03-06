@@ -358,14 +358,15 @@ export default function Page() {
             if (f) importPayroll(f);
           }}
         />
-        {payroll && (
+        {employees.length > 0 && (
           <div className="pills">
-            <span className="pill"><span className="muted">Salary</span><b>{money(payroll.totals?.salaryAmt ?? 0)}</b></span>
-            <span className="pill"><span className="muted">Overtime</span><b>{money(payroll.totals?.overtimeAmt ?? 0)}</b></span>
-            <span className="pill"><span className="muted">HOL</span><b>{money(payroll.totals?.holAmt ?? 0)}</b></span>
-            <span className="pill"><span className="muted">401K ER</span><b>{money(payroll.totals?.er401kAmt ?? 0)}</b></span>
-            <span className="pill"><span className="muted">Other</span><b>{money(payroll.totals?.otherAmt ?? 0)}</b></span>
-            <span className="pill"><span className="muted">Taxes (ER)</span><b>{money(payroll.totals?.taxesErAmt ?? 0)}</b></span>
+            {employeeTotals.salary   > 0 && <span className="pill"><b>{money(employeeTotals.salary)}</b><span className="muted small">Salary</span></span>}
+            {employeeTotals.overtime > 0 && <span className="pill"><b>{money(employeeTotals.overtime)}</b><span className="muted small">Overtime</span></span>}
+            {employeeTotals.hol      > 0 && <span className="pill"><b>{money(employeeTotals.hol)}</b><span className="muted small">HOL</span></span>}
+            {employeeTotals.er401k   > 0 && <span className="pill"><b>{money(employeeTotals.er401k)}</b><span className="muted small">401K ER</span></span>}
+            {employeeTotals.other    > 0 && <span className="pill"><b>{money(employeeTotals.other)}</b><span className="muted small">Other</span></span>}
+            {employeeTotals.taxesEr  > 0 && <span className="pill"><b>{money(employeeTotals.taxesEr)}</b><span className="muted small">Taxes (ER)</span></span>}
+            {employeeTotals.total    > 0 && <span className="pill pill-total"><b>{money(employeeTotals.total)}</b><span className="muted small">Total</span></span>}
           </div>
         )}
       </div>

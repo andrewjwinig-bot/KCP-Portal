@@ -52,18 +52,32 @@ p { margin: 0; }
 
 .pills {
   display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-top: 12px;
+  gap: 8px;
+  flex-wrap: nowrap;
+  margin-top: 14px;
+  overflow-x: auto;
 }
 
 .pill {
   border: 1px solid var(--border);
-  border-radius: 999px;
-  padding: 10px 14px;
+  border-radius: 12px;
+  padding: 10px 16px;
   display: inline-flex;
-  gap: 10px;
-  align-items: baseline;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.pill b {
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.pill-total {
+  border-color: var(--brand);
+  background: rgba(11, 74, 125, 0.05);
 }
 
 .btn {
