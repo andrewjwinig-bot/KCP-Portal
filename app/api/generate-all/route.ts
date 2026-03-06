@@ -88,6 +88,30 @@ function formatPayDateForFilename(payDate: string): string {
   return payDate.replace(/[/\\?%*:|"<>]/g, "-");
 }
 
+const CURRENCY_FMT = '"$"#,##0.00';
+
+/** Apply currency number format to all numeric cells in a worksheet starting at column index `numStartCol` (0-based). */
+function applyCurrencyFormat(ws: XLSX.WorkSheet, totalRows: number, totalCols: number, numStartCol: number) {
+  for (let r = 1; r < totalRows; r++) {       // skip header row (row 0 = row 1 in XLSX)
+    for (let c = numStartCol; c < totalCols; c++) {
+      const addr = XLSX.utils.encode_cell({ r, c });
+      if (ws[addr] && typeof ws[addr].v === "number") {
+        ws[addr].z = CURRENCY_FMT;
+      }
+    }
+  }
+}
+
+/** Set column widths. widths is array of character widths per column. */
+function setColWidths(ws: XLSX.WorkSheet, widths: number[]) {
+  ws["!cols"] = widths.map((w) => ({ wch: w }));
+}
+
+function toTitleCaseXl(s: string): string {
+  if (!s) return s;
+  return s.toLowerCase().replace(/(?:^|[\s-])(\S)/g, (m) => m.toUpperCase());
+}
+
 function buildMasterExcel(invoices: any[], employees: any[]): Buffer {
   const wb = XLSX.utils.book_new();
 
@@ -112,8 +136,10 @@ function buildMasterExcel(invoices: any[], employees: any[]): Buffer {
   if (invHasTaxesEr)  invCols.push("Taxes (ER)");
   invCols.push("Total");
 
+  const invNumStart = 2;
+
   const invDataRows = invoices.map((r) => {
-    const row: (string | number)[] = [r.propertyCode || r.propertyKey, r.propertyLabel || r.propertyKey];
+    const row: (string | number)[] = [r.propertyCode || r.propertyKey, toTitleCaseXl(r.propertyLabel || r.propertyKey)];
     if (invHasSalREC)   row.push(r.salaryREC ?? 0);
     if (invHasSalNR)    row.push(r.salaryNR  ?? 0);
     if (invHasOvertime) row.push(r.overtime  ?? 0);
@@ -126,14 +152,16 @@ function buildMasterExcel(invoices: any[], employees: any[]): Buffer {
     return row;
   });
 
-  // Totals row (sum numeric columns only)
-  const numericStart = 2;
   const invTotalsRow: (string | number)[] = ["Totals", ""];
-  for (let ci = numericStart; ci < invCols.length; ci++) {
+  for (let ci = invNumStart; ci < invCols.length; ci++) {
     invTotalsRow.push(invDataRows.reduce((s, r) => s + (Number(r[ci]) || 0), 0));
   }
 
-  const invWs = XLSX.utils.aoa_to_sheet([invCols, ...invDataRows, invTotalsRow]);
+  const invAllRows = [invCols, ...invDataRows, invTotalsRow];
+  const invWs = XLSX.utils.aoa_to_sheet(invAllRows);
+  applyCurrencyFormat(invWs, invAllRows.length, invCols.length, invNumStart);
+  // Column widths: Property code (~10), Property Name (~30), numeric cols (~14 each)
+  setColWidths(invWs, [10, 30, ...Array(invCols.length - 2).fill(14)]);
   XLSX.utils.book_append_sheet(wb, invWs, "Invoices");
 
   // ── Employees sheet ──
@@ -153,8 +181,10 @@ function buildMasterExcel(invoices: any[], employees: any[]): Buffer {
   if (empHasTaxesEr)  empCols.push("Taxes (ER)");
   empCols.push("Total");
 
+  const empNumStart = 2;
+
   const empDataRows = employees.map((e) => {
-    const row: (string | number)[] = [e.name, e.recoverable ? "REC" : "NR"];
+    const row: (string | number)[] = [toTitleCaseXl(e.name), e.recoverable ? "REC" : "NR"];
     if (empHasSalary)   row.push(e.salaryAmt   ?? 0);
     if (empHasOvertime) row.push(e.overtimeAmt ?? 0);
     if (empHasHol)      row.push(e.holAmt      ?? 0);
@@ -165,13 +195,16 @@ function buildMasterExcel(invoices: any[], employees: any[]): Buffer {
     return row;
   });
 
-  const empNumStart = 2;
   const empTotalsRow: (string | number)[] = ["Totals", ""];
   for (let ci = empNumStart; ci < empCols.length; ci++) {
     empTotalsRow.push(empDataRows.reduce((s, r) => s + (Number(r[ci]) || 0), 0));
   }
 
-  const empWs = XLSX.utils.aoa_to_sheet([empCols, ...empDataRows, empTotalsRow]);
+  const empAllRows = [empCols, ...empDataRows, empTotalsRow];
+  const empWs = XLSX.utils.aoa_to_sheet(empAllRows);
+  applyCurrencyFormat(empWs, empAllRows.length, empCols.length, empNumStart);
+  // Column widths: Employee name (~28), REC/NR (~8), numeric cols (~14 each)
+  setColWidths(empWs, [28, 8, ...Array(empCols.length - 2).fill(14)]);
   XLSX.utils.book_append_sheet(wb, empWs, "Employees");
 
   return XLSX.write(wb, { type: "buffer", bookType: "xlsx" }) as Buffer;

@@ -3,6 +3,30 @@
 import { useMemo, useState } from "react";
 import { money, num, pct as fmtPct } from "../lib/utils";
 
+function toTitleCase(s: string): string {
+  if (!s) return s;
+  return s
+    .toLowerCase()
+    .replace(/(?:^|[\s-])(\S)/g, (match) => match.toUpperCase());
+}
+
+function formatDateForZip(payDate: string): string {
+  if (!payDate) return "";
+  const mdy = payDate.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (mdy) {
+    const [, m, d, y] = mdy;
+    return `${d.padStart(2, "0")}-${m.padStart(2, "0")}-${y.slice(2)} `;
+  }
+  const dt = new Date(payDate);
+  if (!isNaN(dt.getTime())) {
+    const dd = String(dt.getDate()).padStart(2, "0");
+    const mm = String(dt.getMonth() + 1).padStart(2, "0");
+    const yy = String(dt.getFullYear()).slice(2);
+    return `${dd}-${mm}-${yy} `;
+  }
+  return "";
+}
+
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const r = new FileReader();
@@ -189,7 +213,7 @@ export default function Page() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = "payroll-invoices.zip";
+      a.download = `${formatDateForZip(payroll?.payDate ?? "")}payroll-invoices.zip`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -205,7 +229,7 @@ export default function Page() {
     const isTotal = field === "total";
     const rows: DrillRow[] = inv?.drilldown?.[field] ?? [];
     setDrill({
-      title: `${inv.propertyLabel ?? inv.propertyKey} — ${label}`,
+      title: `${toTitleCase(inv.propertyLabel ?? inv.propertyKey)} — ${label}`,
       total: inv?.[field] ?? 0,
       rows: [...rows].sort((a, b) => (b.amount ?? 0) - (a.amount ?? 0)),
       isTotal,
@@ -491,7 +515,6 @@ export default function Page() {
               <div className="small muted" style={{ marginTop: 4 }}>Every employee from the allocation workbook. Click a name to see their property breakdown.</div>
             </div>
           </div>
-          <div className="small muted">Total: <b>{money(employeeTotals.total)}</b></div>
         </div>
 
         {employeesOpen && (
@@ -517,7 +540,7 @@ export default function Page() {
                   employees.map((e) => (
                     <tr key={e.name}>
                       <td>
-                        <button className="linkBtn left" onClick={() => openEmployee(e)}>{e.name}</button>
+                        <button className="linkBtn left" onClick={() => openEmployee(e)}>{toTitleCase(e.name)}</button>
                       </td>
                       <td><span className={e.recoverable ? "tag rec" : "tag nr"}>{e.recoverable ? "REC" : "NR"}</span></td>
                       {showEmpSalary   && <td style={{ textAlign: "right" }}>{money(e.salaryAmt)}</td>}
@@ -527,14 +550,14 @@ export default function Page() {
                       {showEmpOther && (
                         <td style={{ textAlign: "right" }}>
                           {e.otherAmt > 0
-                            ? <button className="linkBtn" onClick={() => openBreakdownDrill(`${e.name} — Other Pay`, e.otherAmt, e.otherBreakdown ?? [])}>{money(e.otherAmt)}</button>
+                            ? <button className="linkBtn" onClick={() => openBreakdownDrill(`${toTitleCase(e.name)} — Other Pay`, e.otherAmt, e.otherBreakdown ?? [])}>{money(e.otherAmt)}</button>
                             : money(0)}
                         </td>
                       )}
                       {showEmpTaxesEr && (
                         <td style={{ textAlign: "right" }}>
                           {e.taxesErAmt > 0
-                            ? <button className="linkBtn" onClick={() => openBreakdownDrill(`${e.name} — Taxes (ER)`, e.taxesErAmt, e.taxesErBreakdown ?? [])}>{money(e.taxesErAmt)}</button>
+                            ? <button className="linkBtn" onClick={() => openBreakdownDrill(`${toTitleCase(e.name)} — Taxes (ER)`, e.taxesErAmt, e.taxesErBreakdown ?? [])}>{money(e.taxesErAmt)}</button>
                             : money(0)}
                         </td>
                       )}
@@ -572,7 +595,7 @@ export default function Page() {
           <div className="modal wide" onClick={(e) => e.stopPropagation()}>
             <div className="modalHeader">
               <div>
-                <div className="modalTitle">{propAllocModal.propertyLabel}</div>
+                <div className="modalTitle">{toTitleCase(propAllocModal.propertyLabel)}</div>
                 <div className="muted small">Employee allocations to this property</div>
               </div>
               <button className="btn" onClick={() => setPropAllocModal(null)}>Close</button>
@@ -597,7 +620,14 @@ export default function Page() {
                 <tbody>
                   {propAllocModal.rows.map((r, i) => (
                     <tr key={i}>
-                      <td>{r.employee}</td>
+                      <td>
+                        {(() => {
+                          const emp = employees.find((e) => e.name.toLowerCase() === r.employee.toLowerCase());
+                          return emp
+                            ? <button className="linkBtn left" onClick={() => { setPropAllocModal(null); openEmployee(emp); }}>{toTitleCase(r.employee)}</button>
+                            : toTitleCase(r.employee);
+                        })()}
+                      </td>
                       <td style={{ textAlign: "right" }}>{fmtPct(r.allocPct)}</td>
                       <td style={{ textAlign: "right" }}>{money(r.salary)}</td>
                       <td style={{ textAlign: "right" }}>{money(r.overtime)}</td>
@@ -655,7 +685,7 @@ export default function Page() {
                   <tbody>
                     {drill.rows.map((row, idx) => (
                       <tr key={idx}>
-                        <td>{row.employee}</td>
+                        <td>{toTitleCase(row.employee)}</td>
                         {hasCategory && <td style={{ color: "#555" }}>{row.category ?? ""}</td>}
                         {!drill.isTotal && <td style={{ textAlign: "right" }}>{row.baseAmount == null ? "—" : money(row.baseAmount)}</td>}
                         {!drill.isTotal && <td style={{ textAlign: "right" }}>{row.allocPct == null ? "—" : fmtPct(row.allocPct)}</td>}
@@ -677,7 +707,7 @@ export default function Page() {
             <div className="modalHeader">
               <div>
                 <div className="modalTitle">
-                  {empModal.employee.name}
+                  {toTitleCase(empModal.employee.name)}
                   {empModal.employee.employeeNumber && (
                     <span className="muted" style={{ fontSize: 13, fontWeight: 400, marginLeft: 8 }}>
                       Employee #{empModal.employee.employeeNumber}
@@ -720,7 +750,7 @@ export default function Page() {
                   {empModal.rows.map((r, i) => (
                     <tr key={i} style={r.isSubtotal ? { fontWeight: 700, borderTop: "1px solid #ccc" } : {}}>
                       <td style={r.isSubtotal ? { color: "#0b4a7d" } : {}}>{r.isSubtotal ? "" : r.propertyKey}</td>
-                      <td style={r.isSubtotal ? { color: "#0b4a7d" } : { color: "#666" }}>{r.propertyName}</td>
+                      <td style={r.isSubtotal ? { color: "#0b4a7d" } : { color: "#666" }}>{toTitleCase(r.propertyName)}</td>
                       <td style={{ textAlign: "right" }}>{r.allocPct ? fmtPct(r.allocPct) : ""}</td>
                       <td style={{ textAlign: "right" }}>{money(r.salary)}</td>
                       <td style={{ textAlign: "right" }}>{money(r.overtime)}</td>
