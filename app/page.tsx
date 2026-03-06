@@ -179,7 +179,7 @@ export default function Page() {
       const res = await fetch("/api/generate-all", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ payroll }),
+        body: JSON.stringify({ payroll, invoices, employees }),
       });
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
@@ -338,14 +338,16 @@ export default function Page() {
   return (
     <main style={{ display: "grid", gap: 14 }}>
       <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
-        <div style={{ display: "grid", gap: 6 }}>
-          <h1>Payroll Invoicer</h1>
-          <p className="muted">
-            Import the <b>Payroll Register</b> Excel file (.xls or .xlsx). Allocation is fixed on the backend.
-          </p>
+        <h1>Payroll Invoicer</h1>
+        {/* Korman Commercial Properties logo */}
+        <div style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
+          <span style={{ fontFamily: "'Arial Black', 'Arial Bold', Arial, sans-serif", fontWeight: 900, fontSize: 30, letterSpacing: "-0.5px", lineHeight: 1 }}>KORMAN</span>
+          <div style={{ width: 1, height: 36, background: "#000", flexShrink: 0 }} />
+          <div style={{ fontSize: 11, letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}>
+            <div>COMMERCIAL</div>
+            <div>PROPERTIES</div>
+          </div>
         </div>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/korman-logo.svg" alt="Korman Commercial Properties" style={{ height: 40, flexShrink: 0 }} />
       </header>
 
       <div className="card">
@@ -354,8 +356,11 @@ export default function Page() {
             <b>Import Payroll Register</b>
             <span className="muted small" style={{ marginLeft: 12 }}>{payroll?.payDate ? `Pay Date: ${payroll.payDate}` : ""}</span>
           </div>
-          <button className="btn primary" disabled={!payroll || !!busy} onClick={generateAll}>Generate All PDFs</button>
+          <button className="btn primary large" disabled={!payroll || !!busy} onClick={generateAll}>Generate All PDFs</button>
         </div>
+        <p className="muted small" style={{ marginTop: 8 }}>
+          Import the <b>Payroll Register</b> Excel file (.xls or .xlsx). Allocation is fixed on the backend.
+        </p>
         <input
           className="input"
           type="file"
@@ -370,7 +375,7 @@ export default function Page() {
             {employeeTotals.salary   > 0 && <span className="pill"><b>{money(employeeTotals.salary)}</b><span className="muted small">Salary</span></span>}
             {employeeTotals.overtime > 0 && <span className="pill"><b>{money(employeeTotals.overtime)}</b><span className="muted small">Overtime</span></span>}
             {employeeTotals.hol      > 0 && <span className="pill"><b>{money(employeeTotals.hol)}</b><span className="muted small">HOL</span></span>}
-            {employeeTotals.er401k   > 0 && <span className="pill"><b>{money(employeeTotals.er401k)}</b><span className="muted small">401K ER</span></span>}
+            {employeeTotals.er401k   > 0 && <span className="pill"><b>{money(employeeTotals.er401k)}</b><span className="muted small">401K (ER)</span></span>}
             {employeeTotals.other    > 0 && <span className="pill"><b>{money(employeeTotals.other)}</b><span className="muted small">Other</span></span>}
             {employeeTotals.taxesEr  > 0 && <span className="pill"><b>{money(employeeTotals.taxesEr)}</b><span className="muted small">Taxes (ER)</span></span>}
             {employeeTotals.total    > 0 && <span className="pill pill-total"><b>{money(employeeTotals.total)}</b><span className="muted small">Total</span></span>}
@@ -410,15 +415,15 @@ export default function Page() {
                   <tr>
                     <th>Property</th>
                     <th>Property Name</th>
-                    {showInvSalaryREC && <th>Salary REC</th>}
-                    {showInvSalaryNR  && <th>Salary NR</th>}
-                    {showInvOvertime  && <th>Overtime</th>}
+                    {showInvSalaryREC && <th style={{ textAlign: "right" }}>Salary REC</th>}
+                    {showInvSalaryNR  && <th style={{ textAlign: "right" }}>Salary NR</th>}
+                    {showInvOvertime  && <th style={{ textAlign: "right" }}>Overtime</th>}
                     {showInvHolREC    && <th>HOL REC</th>}
                     {showInvHolNR     && <th>HOL NR</th>}
-                    {showInvEr401k    && <th>401K ER</th>}
+                    {showInvEr401k    && <th style={{ textAlign: "right" }}>401K (ER)</th>}
                     {showInvOther     && <th>Other</th>}
-                    {showInvTaxesEr   && <th>Taxes (ER)</th>}
-                    <th>Total</th>
+                    {showInvTaxesEr   && <th style={{ textAlign: "right" }}>Taxes (ER)</th>}
+                    <th style={{ textAlign: "right" }}>Total</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -438,7 +443,7 @@ export default function Page() {
                         {showInvOvertime  && <td><button className="linkBtn" onClick={() => openDrill(r, "overtime", "Overtime")}>{money(r.overtime)}</button></td>}
                         {showInvHolREC    && <td><button className="linkBtn" onClick={() => openDrill(r, "holREC", "HOL REC")}>{money(r.holREC)}</button></td>}
                         {showInvHolNR     && <td><button className="linkBtn" onClick={() => openDrill(r, "holNR", "HOL NR")}>{money(r.holNR)}</button></td>}
-                        {showInvEr401k    && <td><button className="linkBtn" onClick={() => openDrill(r, "er401k", "401K ER")}>{money(r.er401k)}</button></td>}
+                        {showInvEr401k    && <td><button className="linkBtn" onClick={() => openDrill(r, "er401k", "401K (ER)")}>{money(r.er401k)}</button></td>}
                         {showInvOther     && <td><button className="linkBtn" onClick={() => openDrill(r, "other", "Other Pay")}>{money(r.other)}</button></td>}
                         {showInvTaxesEr   && <td><button className="linkBtn" onClick={() => openDrill(r, "taxesEr", "Taxes (ER)")}>{money(r.taxesEr)}</button></td>}
                         <td><button className="linkBtn" onClick={() => openDrill(r, "total", "Total")}><b>{money(r.total)}</b></button></td>
@@ -499,7 +504,7 @@ export default function Page() {
                   {showEmpSalary   && <th style={{ textAlign: "right" }}>Salary *</th>}
                   {showEmpOvertime && <th style={{ textAlign: "right" }}>Overtime</th>}
                   {showEmpHol      && <th style={{ textAlign: "right" }}>HOL</th>}
-                  {showEmpEr401k   && <th style={{ textAlign: "right" }}>401K ER</th>}
+                  {showEmpEr401k   && <th style={{ textAlign: "right" }}>401K (ER)</th>}
                   {showEmpOther    && <th style={{ textAlign: "right" }}>Other</th>}
                   {showEmpTaxesEr  && <th style={{ textAlign: "right" }}>Taxes (ER)</th>}
                   <th style={{ textAlign: "right" }}>Total</th>
@@ -583,7 +588,7 @@ export default function Page() {
                     <th style={{ textAlign: "right" }}>Salary</th>
                     <th style={{ textAlign: "right" }}>Overtime</th>
                     <th style={{ textAlign: "right" }}>HOL</th>
-                    <th style={{ textAlign: "right" }}>401K ER</th>
+                    <th style={{ textAlign: "right" }}>401K (ER)</th>
                     {propAllocModal.showOther   && <th style={{ textAlign: "right" }}>Other</th>}
                     {propAllocModal.showTaxesEr && <th style={{ textAlign: "right" }}>Taxes (ER)</th>}
                     <th style={{ textAlign: "right" }}>Total</th>
@@ -668,7 +673,7 @@ export default function Page() {
       {/* ── Employee detail modal ── */}
       {empModal && (
         <div className="modalOverlay" onClick={() => setEmpModal(null)}>
-          <div className="modal wide" onClick={(e) => e.stopPropagation()}>
+          <div className="modal wide" style={{ maxHeight: "90vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
             <div className="modalHeader">
               <div>
                 <div className="modalTitle">
@@ -680,7 +685,7 @@ export default function Page() {
                   )}
                 </div>
                 <div className="muted">
-                  Salary {money(empModal.employee.salaryAmt)} · Overtime {money(empModal.employee.overtimeAmt)} · HOL {money(empModal.employee.holAmt)} · 401K ER {money(empModal.employee.er401kAmt)}
+                  Salary {money(empModal.employee.salaryAmt)} · Overtime {money(empModal.employee.overtimeAmt)} · HOL {money(empModal.employee.holAmt)} · 401K (ER) {money(empModal.employee.er401kAmt)}
                 </div>
               </div>
               <button className="btn" onClick={() => setEmpModal(null)}>Close</button>
@@ -705,7 +710,7 @@ export default function Page() {
                     <th style={{ textAlign: "right" }}>Salary</th>
                     <th style={{ textAlign: "right" }}>Overtime</th>
                     <th style={{ textAlign: "right" }}>HOL</th>
-                    <th style={{ textAlign: "right" }}>401K ER</th>
+                    <th style={{ textAlign: "right" }}>401K (ER)</th>
                     {empModal.showOther   && <th style={{ textAlign: "right" }}>Other</th>}
                     {empModal.showTaxesEr && <th style={{ textAlign: "right" }}>Taxes (ER)</th>}
                     <th style={{ textAlign: "right" }}>Total</th>

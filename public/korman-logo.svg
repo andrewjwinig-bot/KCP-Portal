@@ -1,6 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 52" width="320" height="52">
-  <text x="0" y="40" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="44" fill="#000" letter-spacing="2">KORMAN</text>
-  <line x1="196" y1="4" x2="196" y2="48" stroke="#000" stroke-width="1.5"/>
-  <text x="208" y="24" font-family="Arial, sans-serif" font-weight="400" font-size="13" fill="#000" letter-spacing="3">COMMERCIAL</text>
-  <text x="208" y="42" font-family="Arial, sans-serif" font-weight="400" font-size="13" fill="#000" letter-spacing="3">PROPERTIES</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 52" width="400" height="52">
+  <!-- KORMAN: Arial Black ~38px, each char ~27-30px wide = ~175px total -->
+  <text x="2" y="40" font-family="'Arial Black', 'Arial Bold', Arial, sans-serif" font-weight="900" font-size="38" fill="#000">KORMAN</text>
+  <!-- Divider safely after KORMAN -->
+  <line x1="196" y1="6" x2="196" y2="46" stroke="#000" stroke-width="1.5"/>
+  <!-- Right side: COMMERCIAL / PROPERTIES in small spaced caps -->
+  <text x="210" y="24" font-family="Arial, Helvetica, sans-serif" font-weight="400" font-size="12" fill="#000" letter-spacing="3">COMMERCIAL</text>
+  <text x="210" y="40" font-family="Arial, Helvetica, sans-serif" font-weight="400" font-size="12" fill="#000" letter-spacing="3">PROPERTIES</text>
 </svg>
