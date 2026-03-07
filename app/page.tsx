@@ -530,69 +530,6 @@ export default function Page() {
         )}
       </div>
 
-      {/* ── Pay Period History card ── */}
-      <div className="card">
-        <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <button
-              className="btn"
-              style={{ padding: "2px 8px", fontSize: 13 }}
-              onClick={() => setHistoryOpen((o) => !o)}
-              title={historyOpen ? "Collapse" : "Expand"}
-            >
-              {historyOpen ? "▲" : "▼"}
-            </button>
-            <div>
-              <b>Pay Period History</b>
-              <div className="small muted" style={{ marginTop: 4 }}>Saved pay periods. Click Load to restore, or open an employee to view their history.</div>
-            </div>
-          </div>
-          <button className="btn" style={{ fontSize: 12, padding: "2px 10px" }} onClick={loadPeriods} disabled={periodsLoading}>↻ Refresh</button>
-        </div>
-
-        {historyOpen && (
-          <div style={{ marginTop: 10 }}>
-            {periodsLoading ? (
-              <div className="muted small">Loading…</div>
-            ) : periods.length === 0 ? (
-              <div className="muted small">No saved periods yet. Import a payroll file and click "Save Pay Period" to begin building history.</div>
-            ) : (
-              <div className="tableWrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Name</th>
-                      <th>Pay Date</th>
-                      <th>Saved</th>
-                      <th style={{ textAlign: "right" }}>Employees</th>
-                      <th style={{ textAlign: "right" }}>Total</th>
-                      <th></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {periods.map((p) => (
-                      <tr key={p.id}>
-                        <td>{p.name}</td>
-                        <td className="muted">{p.payDate ?? "—"}</td>
-                        <td className="muted" style={{ fontSize: "0.85em" }}>{new Date(p.savedAt).toLocaleDateString()}</td>
-                        <td style={{ textAlign: "right" }}>{p.employeeCount}</td>
-                        <td style={{ textAlign: "right" }}>{money(p.total)}</td>
-                        <td style={{ textAlign: "right" }}>
-                          <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
-                            <button className="btn" style={{ fontSize: 12, padding: "2px 8px" }} onClick={() => loadPeriod(p.id)}>Load</button>
-                            <button className="btn" style={{ fontSize: 12, padding: "2px 8px", color: "#b42318" }} onClick={() => deletePeriod(p.id)}>Delete</button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
       {/* ── Invoices card ── */}
       <div className="card">
         <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
@@ -771,6 +708,69 @@ export default function Page() {
                 </tr>
               </tfoot>
             </table>
+          </div>
+        )}
+      </div>
+
+      {/* ── Pay Period History card ── */}
+      <div className="card">
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <button
+              className="btn"
+              style={{ padding: "2px 8px", fontSize: 13 }}
+              onClick={() => setHistoryOpen((o) => !o)}
+              title={historyOpen ? "Collapse" : "Expand"}
+            >
+              {historyOpen ? "▲" : "▼"}
+            </button>
+            <div>
+              <b>Pay Period History</b>
+              <div className="small muted" style={{ marginTop: 4 }}>Saved pay periods. Click Load to restore, or open an employee to view their history.</div>
+            </div>
+          </div>
+          <button className="btn" style={{ fontSize: 12, padding: "2px 10px" }} onClick={loadPeriods} disabled={periodsLoading}>↻ Refresh</button>
+        </div>
+
+        {historyOpen && (
+          <div style={{ marginTop: 10 }}>
+            {periodsLoading ? (
+              <div className="muted small">Loading…</div>
+            ) : periods.length === 0 ? (
+              <div className="muted small">No saved periods yet. Import a payroll file and click "Save Pay Period" to begin building history.</div>
+            ) : (
+              <div className="tableWrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Pay Date</th>
+                      <th>Saved</th>
+                      <th style={{ textAlign: "right" }}>Employees</th>
+                      <th style={{ textAlign: "right" }}>Total</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {periods.map((p) => (
+                      <tr key={p.id}>
+                        <td>{p.name}</td>
+                        <td className="muted">{p.payDate ?? "—"}</td>
+                        <td className="muted" style={{ fontSize: "0.85em" }}>{new Date(p.savedAt).toLocaleDateString()}</td>
+                        <td style={{ textAlign: "right" }}>{p.employeeCount}</td>
+                        <td style={{ textAlign: "right" }}>{money(p.total)}</td>
+                        <td style={{ textAlign: "right" }}>
+                          <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                            <button className="btn" style={{ fontSize: 12, padding: "2px 8px" }} onClick={() => loadPeriod(p.id)}>Load</button>
+                            <button className="btn" style={{ fontSize: 12, padding: "2px 8px", color: "#b42318" }} onClick={() => deletePeriod(p.id)}>Delete</button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
       </div>
