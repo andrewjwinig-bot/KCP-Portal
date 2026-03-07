@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { money, num, pct as fmtPct } from "../lib/utils";
 
 function toTitleCase(s: string): string {
@@ -93,6 +93,9 @@ type EmpModal = {
   showTaxesEr: boolean;
 };
 
+type PeriodMeta = { id: string; name: string; payDate?: string | null; savedAt: string; total: number; employeeCount: number };
+type EmpHistoryRow = { id: string; name: string; payDate?: string | null; salary: number; overtime: number; hol: number; er401k: number; other: number; taxesEr: number; total: number };
+
 // Group membership: which properties roll up into each group subtotal
 const GROUP_PROPS: Record<string, string[]> = {
   "JV III": ["3610", "3620", "3640"],
@@ -116,6 +119,15 @@ export default function Page() {
   const [propAllocModal, setPropAllocModal] = useState<PropAllocModal | null>(null);
   const [invoicesOpen, setInvoicesOpen] = useState(true);
   const [employeesOpen, setEmployeesOpen] = useState(true);
+  const [historyOpen, setHistoryOpen] = useState(true);
+  const [periods, setPeriods] = useState<PeriodMeta[]>([]);
+  const [periodsLoading, setPeriodsLoading] = useState(false);
+  const [saveOpen, setSaveOpen] = useState(false);
+  const [saveName, setSaveName] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [empTab, setEmpTab] = useState<"breakdown" | "history">("breakdown");
+  const [empHistory, setEmpHistory] = useState<EmpHistoryRow[] | null>(null);
+  const [empHistoryLoading, setEmpHistoryLoading] = useState(false);
 
   const totals = useMemo(() => {
     const t = { salaryREC: 0, salaryNR: 0, overtime: 0, holREC: 0, holNR: 0, er401k: 0, other: 0, taxesEr: 0, total: 0 };
@@ -166,6 +178,89 @@ export default function Page() {
   const showEmpOther    = employeeTotals.other     > 0;
   const showEmpTaxesEr  = employeeTotals.taxesEr   > 0;
   const empColCount = 3 + [showEmpSalary, showEmpOvertime, showEmpHol, showEmpEr401k, showEmpOther, showEmpTaxesEr].filter(Boolean).length;
+
+  useEffect(() => { loadPeriods(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function loadPeriods() {
+    setPeriodsLoading(true);
+    try {
+      const res = await fetch("/api/periods");
+      const j = await res.json().catch(() => ({}));
+      setPeriods(j.periods ?? []);
+    } catch { setPeriods([]); } finally { setPeriodsLoading(false); }
+  }
+
+  async function savePeriod() {
+    if (!saveName.trim()) return;
+    setSaving(true);
+    try {
+      const res = await fetch("/api/periods", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: saveName.trim(), payroll, invoices, employees }),
+      });
+      if (!res.ok) throw new Error("Save failed");
+      setSaveOpen(false);
+      setSaveName("");
+      await loadPeriods();
+    } catch (e: any) {
+      setError(e?.message ?? "Failed to save period");
+    } finally { setSaving(false); }
+  }
+
+  async function loadPeriod(id: string) {
+    setBusy("Loading period…");
+    try {
+      const res = await fetch(`/api/periods/${id}`);
+      if (!res.ok) throw new Error("Period not found");
+      const j = await res.json();
+      setPayroll(j.payroll);
+      setInvoices(j.invoices ?? []);
+      setEmployees((j.employees ?? []).slice().sort(
+        (a: EmployeeSummary, b: EmployeeSummary) => (a.payrollIndex ?? 9999) - (b.payrollIndex ?? 9999)
+      ));
+    } catch (e: any) {
+      setError(e?.message ?? "Failed to load period");
+    } finally { setBusy(null); }
+  }
+
+  async function deletePeriod(id: string) {
+    if (!confirm("Delete this saved period? This cannot be undone.")) return;
+    try {
+      await fetch(`/api/periods/${id}`, { method: "DELETE" });
+      await loadPeriods();
+    } catch { setError("Failed to delete period"); }
+  }
+
+  async function loadEmpHistory(empName: string, empNumber?: string) {
+    setEmpHistoryLoading(true);
+    setEmpHistory(null);
+    try {
+      const res = await fetch("/api/periods");
+      const j = await res.json().catch(() => ({}));
+      const allPeriods: PeriodMeta[] = (j.periods ?? []).slice().reverse(); // oldest first
+      const rows = (await Promise.all(
+        allPeriods.map(async (meta): Promise<EmpHistoryRow | null> => {
+          try {
+            const pr = await fetch(`/api/periods/${meta.id}`);
+            const pd = await pr.json();
+            const emps: any[] = pd.employees ?? [];
+            let emp = empNumber ? emps.find((e: any) => e.employeeNumber === empNumber) : null;
+            if (!emp) emp = emps.find((e: any) => String(e.name).toLowerCase() === empName.toLowerCase());
+            if (!emp) return null;
+            return {
+              id: meta.id, name: meta.name, payDate: meta.payDate,
+              salary: emp.salaryAmt ?? 0, overtime: emp.overtimeAmt ?? 0,
+              hol: emp.holAmt ?? 0, er401k: emp.er401kAmt ?? 0,
+              other: emp.otherAmt ?? 0, taxesEr: emp.taxesErAmt ?? 0,
+              total: emp.total ?? 0,
+            };
+          } catch { return null; }
+        })
+      )).filter((r): r is EmpHistoryRow => r !== null);
+      setEmpHistory(rows);
+    } catch { setEmpHistory([]); } finally { setEmpHistoryLoading(false); }
+  }
 
   async function importPayroll(file: File) {
     setError(null);
@@ -357,6 +452,8 @@ export default function Page() {
     const showTaxesEr = nonSub.some((r) => r.taxesEr > 0);
 
     setEmpModal({ employee: e, rows: displayRows, colTotals, showOther, showTaxesEr });
+    setEmpTab("breakdown");
+    setEmpHistory(null);
   }
 
   return (
@@ -380,7 +477,14 @@ export default function Page() {
             <b>Import Payroll Register</b>
             <span className="muted small" style={{ marginLeft: 12 }}>{payroll?.payDate ? `Pay Date: ${payroll.payDate}` : ""}</span>
           </div>
-          <button className="btn primary large" disabled={!payroll || !!busy} onClick={generateAll}>Generate All PDFs</button>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            {invoices.length > 0 && !saveOpen && (
+              <button className="btn" onClick={() => { setSaveOpen(true); setSaveName(`Pay Period${payroll?.payDate ? " – " + payroll.payDate : ""}`); }}>
+                Save Pay Period
+              </button>
+            )}
+            <button className="btn primary large" disabled={!payroll || !!busy} onClick={generateAll}>Generate All PDFs</button>
+          </div>
         </div>
         <p className="muted small" style={{ marginTop: 8 }}>
           Import the <b>Payroll Register</b> Excel file (.xls or .xlsx). Allocation is fixed on the backend.
@@ -394,6 +498,25 @@ export default function Page() {
             if (f) importPayroll(f);
           }}
         />
+        {saveOpen && (
+          <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 10, flexWrap: "wrap" }}>
+            <input
+              className="input"
+              type="text"
+              value={saveName}
+              onChange={(e) => setSaveName(e.target.value)}
+              placeholder="Period name…"
+              style={{ flexGrow: 1, minWidth: 220 }}
+              onKeyDown={(e) => { if (e.key === "Enter") savePeriod(); if (e.key === "Escape") setSaveOpen(false); }}
+              autoFocus
+            />
+            <button className="btn primary" disabled={saving || !saveName.trim()} onClick={savePeriod}>
+              {saving ? "Saving…" : "Save"}
+            </button>
+            <button className="btn" onClick={() => setSaveOpen(false)}>Cancel</button>
+          </div>
+        )}
+
         {employees.length > 0 && (
           <div className="pills">
             {employeeTotals.salary   > 0 && <span className="pill"><b>{money(employeeTotals.salary)}</b><span className="muted small">Salary</span></span>}
@@ -403,6 +526,69 @@ export default function Page() {
             {employeeTotals.other    > 0 && <span className="pill"><b>{money(employeeTotals.other)}</b><span className="muted small">Other</span></span>}
             {employeeTotals.taxesEr  > 0 && <span className="pill"><b>{money(employeeTotals.taxesEr)}</b><span className="muted small">Taxes (ER)</span></span>}
             {employeeTotals.total    > 0 && <span className="pill pill-total"><b>{money(employeeTotals.total)}</b><span className="muted small">Total</span></span>}
+          </div>
+        )}
+      </div>
+
+      {/* ── Pay Period History card ── */}
+      <div className="card">
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <button
+              className="btn"
+              style={{ padding: "2px 8px", fontSize: 13 }}
+              onClick={() => setHistoryOpen((o) => !o)}
+              title={historyOpen ? "Collapse" : "Expand"}
+            >
+              {historyOpen ? "▲" : "▼"}
+            </button>
+            <div>
+              <b>Pay Period History</b>
+              <div className="small muted" style={{ marginTop: 4 }}>Saved pay periods. Click Load to restore, or open an employee to view their history.</div>
+            </div>
+          </div>
+          <button className="btn" style={{ fontSize: 12, padding: "2px 10px" }} onClick={loadPeriods} disabled={periodsLoading}>↻ Refresh</button>
+        </div>
+
+        {historyOpen && (
+          <div style={{ marginTop: 10 }}>
+            {periodsLoading ? (
+              <div className="muted small">Loading…</div>
+            ) : periods.length === 0 ? (
+              <div className="muted small">No saved periods yet. Import a payroll file and click "Save Pay Period" to begin building history.</div>
+            ) : (
+              <div className="tableWrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Pay Date</th>
+                      <th>Saved</th>
+                      <th style={{ textAlign: "right" }}>Employees</th>
+                      <th style={{ textAlign: "right" }}>Total</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {periods.map((p) => (
+                      <tr key={p.id}>
+                        <td>{p.name}</td>
+                        <td className="muted">{p.payDate ?? "—"}</td>
+                        <td className="muted" style={{ fontSize: "0.85em" }}>{new Date(p.savedAt).toLocaleDateString()}</td>
+                        <td style={{ textAlign: "right" }}>{p.employeeCount}</td>
+                        <td style={{ textAlign: "right" }}>{money(p.total)}</td>
+                        <td style={{ textAlign: "right" }}>
+                          <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                            <button className="btn" style={{ fontSize: 12, padding: "2px 8px" }} onClick={() => loadPeriod(p.id)}>Load</button>
+                            <button className="btn" style={{ fontSize: 12, padding: "2px 8px", color: "#b42318" }} onClick={() => deletePeriod(p.id)}>Delete</button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -721,61 +907,144 @@ export default function Page() {
               <button className="btn" onClick={() => setEmpModal(null)}>Close</button>
             </div>
 
-            {empModal.employee.exclusions?.length ? (
-              <div style={{ margin: "10px 0 6px", fontSize: 12, color: "#555" }}>
-                {empModal.employee.exclusions.map((exc, i) => (
-                  <div key={i}>* Salary does not include <b>{money(exc.amount)}</b> in {exc.label} paid during this period.</div>
-                ))}
-              </div>
-            ) : null}
-            {empModal.rows.length === 0 ? (
-              <div className="muted" style={{ marginTop: 12 }}>No property data — amounts may not yet be parsed from the payroll file.</div>
+            {/* Tab bar */}
+            <div style={{ display: "flex", gap: 0, marginTop: 14, borderBottom: "2px solid #e5e7eb" }}>
+              {(["breakdown", "history"] as const).map((tab) => (
+                <button
+                  key={tab}
+                  className="btn"
+                  style={{
+                    borderRadius: 0, padding: "5px 16px", fontSize: 13, fontWeight: empTab === tab ? 700 : 400,
+                    borderBottom: empTab === tab ? "2px solid #0b4a7d" : "2px solid transparent",
+                    marginBottom: -2, color: empTab === tab ? "#0b4a7d" : undefined,
+                  }}
+                  onClick={() => {
+                    setEmpTab(tab);
+                    if (tab === "history" && !empHistory && !empHistoryLoading) {
+                      loadEmpHistory(empModal!.employee.name, empModal!.employee.employeeNumber);
+                    }
+                  }}
+                >
+                  {tab === "breakdown" ? "Current Period" : "History"}
+                </button>
+              ))}
+            </div>
+
+            {empTab === "breakdown" ? (
+              <>
+                {empModal.employee.exclusions?.length ? (
+                  <div style={{ margin: "10px 0 6px", fontSize: 12, color: "#555" }}>
+                    {empModal.employee.exclusions.map((exc, i) => (
+                      <div key={i}>* Salary does not include <b>{money(exc.amount)}</b> in {exc.label} paid during this period.</div>
+                    ))}
+                  </div>
+                ) : null}
+                {empModal.rows.length === 0 ? (
+                  <div className="muted" style={{ marginTop: 12 }}>No property data — amounts may not yet be parsed from the payroll file.</div>
+                ) : (
+                  <table className="modalTable" style={{ marginTop: 12 }}>
+                    <thead>
+                      <tr>
+                        <th style={{ textAlign: "left" }}>Property</th>
+                        <th style={{ textAlign: "left" }}>Name</th>
+                        <th style={{ textAlign: "right" }}>Alloc %</th>
+                        <th style={{ textAlign: "right" }}>Salary</th>
+                        <th style={{ textAlign: "right" }}>Overtime</th>
+                        <th style={{ textAlign: "right" }}>HOL</th>
+                        <th style={{ textAlign: "right" }}>401K (ER)</th>
+                        {empModal.showOther   && <th style={{ textAlign: "right" }}>Other</th>}
+                        {empModal.showTaxesEr && <th style={{ textAlign: "right" }}>Taxes (ER)</th>}
+                        <th style={{ textAlign: "right" }}>Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {empModal.rows.map((r, i) => (
+                        <tr key={i} style={r.isSubtotal ? { fontWeight: 700, borderTop: "1px solid #ccc" } : {}}>
+                          <td style={r.isSubtotal ? { color: "#0b4a7d" } : {}}>{r.isSubtotal ? "" : r.propertyKey}</td>
+                          <td style={r.isSubtotal ? { color: "#0b4a7d" } : { color: "#666" }}>{r.isSubtotal ? r.propertyName : toTitleCase(r.propertyName)}</td>
+                          <td style={{ textAlign: "right" }}>{r.allocPct ? fmtPct(r.allocPct) : ""}</td>
+                          <td style={{ textAlign: "right" }}>{money(r.salary)}</td>
+                          <td style={{ textAlign: "right" }}>{money(r.overtime)}</td>
+                          <td style={{ textAlign: "right" }}>{money(r.hol)}</td>
+                          <td style={{ textAlign: "right" }}>{money(r.er401k)}</td>
+                          {empModal.showOther   && <td style={{ textAlign: "right" }}>{money(r.other)}</td>}
+                          {empModal.showTaxesEr && <td style={{ textAlign: "right" }}>{money(r.taxesEr)}</td>}
+                          <td style={{ textAlign: "right" }}><b>{money(r.total)}</b></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr style={{ fontWeight: 700 }}>
+                        <td colSpan={2}>Grand Total</td>
+                        <td style={{ textAlign: "right" }}>{fmtPct(empModal.colTotals.allocPct)}</td>
+                        <td style={{ textAlign: "right" }}>{money(empModal.colTotals.salary)}</td>
+                        <td style={{ textAlign: "right" }}>{money(empModal.colTotals.overtime)}</td>
+                        <td style={{ textAlign: "right" }}>{money(empModal.colTotals.hol)}</td>
+                        <td style={{ textAlign: "right" }}>{money(empModal.colTotals.er401k)}</td>
+                        {empModal.showOther   && <td style={{ textAlign: "right" }}>{money(empModal.colTotals.other)}</td>}
+                        {empModal.showTaxesEr && <td style={{ textAlign: "right" }}>{money(empModal.colTotals.taxesEr)}</td>}
+                        <td style={{ textAlign: "right" }}>{money(empModal.colTotals.total)}</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                )}
+              </>
             ) : (
-              <table className="modalTable">
-                <thead>
-                  <tr>
-                    <th style={{ textAlign: "left" }}>Property</th>
-                    <th style={{ textAlign: "left" }}>Name</th>
-                    <th style={{ textAlign: "right" }}>Alloc %</th>
-                    <th style={{ textAlign: "right" }}>Salary</th>
-                    <th style={{ textAlign: "right" }}>Overtime</th>
-                    <th style={{ textAlign: "right" }}>HOL</th>
-                    <th style={{ textAlign: "right" }}>401K (ER)</th>
-                    {empModal.showOther   && <th style={{ textAlign: "right" }}>Other</th>}
-                    {empModal.showTaxesEr && <th style={{ textAlign: "right" }}>Taxes (ER)</th>}
-                    <th style={{ textAlign: "right" }}>Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {empModal.rows.map((r, i) => (
-                    <tr key={i} style={r.isSubtotal ? { fontWeight: 700, borderTop: "1px solid #ccc" } : {}}>
-                      <td style={r.isSubtotal ? { color: "#0b4a7d" } : {}}>{r.isSubtotal ? "" : r.propertyKey}</td>
-                      <td style={r.isSubtotal ? { color: "#0b4a7d" } : { color: "#666" }}>{r.isSubtotal ? r.propertyName : toTitleCase(r.propertyName)}</td>
-                      <td style={{ textAlign: "right" }}>{r.allocPct ? fmtPct(r.allocPct) : ""}</td>
-                      <td style={{ textAlign: "right" }}>{money(r.salary)}</td>
-                      <td style={{ textAlign: "right" }}>{money(r.overtime)}</td>
-                      <td style={{ textAlign: "right" }}>{money(r.hol)}</td>
-                      <td style={{ textAlign: "right" }}>{money(r.er401k)}</td>
-                      {empModal.showOther   && <td style={{ textAlign: "right" }}>{money(r.other)}</td>}
-                      {empModal.showTaxesEr && <td style={{ textAlign: "right" }}>{money(r.taxesEr)}</td>}
-                      <td style={{ textAlign: "right" }}><b>{money(r.total)}</b></td>
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  <tr style={{ fontWeight: 700 }}>
-                    <td colSpan={2}>Grand Total</td>
-                    <td style={{ textAlign: "right" }}>{fmtPct(empModal.colTotals.allocPct)}</td>
-                    <td style={{ textAlign: "right" }}>{money(empModal.colTotals.salary)}</td>
-                    <td style={{ textAlign: "right" }}>{money(empModal.colTotals.overtime)}</td>
-                    <td style={{ textAlign: "right" }}>{money(empModal.colTotals.hol)}</td>
-                    <td style={{ textAlign: "right" }}>{money(empModal.colTotals.er401k)}</td>
-                    {empModal.showOther   && <td style={{ textAlign: "right" }}>{money(empModal.colTotals.other)}</td>}
-                    {empModal.showTaxesEr && <td style={{ textAlign: "right" }}>{money(empModal.colTotals.taxesEr)}</td>}
-                    <td style={{ textAlign: "right" }}>{money(empModal.colTotals.total)}</td>
-                  </tr>
-                </tfoot>
-              </table>
+              /* History tab */
+              <div style={{ marginTop: 12 }}>
+                {empHistoryLoading ? (
+                  <div className="muted">Loading history…</div>
+                ) : empHistory === null ? null : empHistory.length === 0 ? (
+                  <div className="muted">No saved pay periods found for this employee.</div>
+                ) : (() => {
+                  const showHOther   = empHistory.some((r) => r.other   > 0);
+                  const showHTaxesEr = empHistory.some((r) => r.taxesEr > 0);
+                  return (
+                    <table className="modalTable">
+                      <thead>
+                        <tr>
+                          <th style={{ textAlign: "left" }}>Period</th>
+                          <th style={{ textAlign: "left" }}>Pay Date</th>
+                          <th style={{ textAlign: "right" }}>Salary</th>
+                          <th style={{ textAlign: "right" }}>Overtime</th>
+                          <th style={{ textAlign: "right" }}>HOL</th>
+                          <th style={{ textAlign: "right" }}>401K (ER)</th>
+                          {showHOther   && <th style={{ textAlign: "right" }}>Other</th>}
+                          {showHTaxesEr && <th style={{ textAlign: "right" }}>Taxes (ER)</th>}
+                          <th style={{ textAlign: "right" }}>Total</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {empHistory.map((r) => (
+                          <tr key={r.id}>
+                            <td>{r.name}</td>
+                            <td className="muted">{r.payDate ?? "—"}</td>
+                            <td style={{ textAlign: "right" }}>{money(r.salary)}</td>
+                            <td style={{ textAlign: "right" }}>{money(r.overtime)}</td>
+                            <td style={{ textAlign: "right" }}>{money(r.hol)}</td>
+                            <td style={{ textAlign: "right" }}>{money(r.er401k)}</td>
+                            {showHOther   && <td style={{ textAlign: "right" }}>{money(r.other)}</td>}
+                            {showHTaxesEr && <td style={{ textAlign: "right" }}>{money(r.taxesEr)}</td>}
+                            <td style={{ textAlign: "right" }}><b>{money(r.total)}</b></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot>
+                        <tr style={{ fontWeight: 700 }}>
+                          <td colSpan={2}>Total ({empHistory.length} {empHistory.length === 1 ? "period" : "periods"})</td>
+                          <td style={{ textAlign: "right" }}>{money(empHistory.reduce((s, r) => s + r.salary,   0))}</td>
+                          <td style={{ textAlign: "right" }}>{money(empHistory.reduce((s, r) => s + r.overtime, 0))}</td>
+                          <td style={{ textAlign: "right" }}>{money(empHistory.reduce((s, r) => s + r.hol,      0))}</td>
+                          <td style={{ textAlign: "right" }}>{money(empHistory.reduce((s, r) => s + r.er401k,   0))}</td>
+                          {showHOther   && <td style={{ textAlign: "right" }}>{money(empHistory.reduce((s, r) => s + r.other,   0))}</td>}
+                          {showHTaxesEr && <td style={{ textAlign: "right" }}>{money(empHistory.reduce((s, r) => s + r.taxesEr, 0))}</td>}
+                          <td style={{ textAlign: "right" }}>{money(empHistory.reduce((s, r) => s + r.total,    0))}</td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  );
+                })()}
+              </div>
             )}
           </div>
         </div>
