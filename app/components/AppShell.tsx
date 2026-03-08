@@ -8,18 +8,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const sidebarW = open ? 220 : 52;
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh" }}>
+    <div style={{ paddingLeft: sidebarW, transition: "padding-left 0.2s ease", minHeight: "100vh" }}>
       <Sidebar open={open} onToggle={() => setOpen((o) => !o)} />
-      <div
-        style={{
-          marginLeft: sidebarW,
-          flex: 1,
-          transition: "margin-left 0.2s ease",
-          minWidth: 0,
-        }}
-      >
-        {children}
-      </div>
+      {children}
     </div>
   );
 }
