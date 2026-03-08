@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { money, num, pct as fmtPct } from "../lib/utils";
 
 function toTitleCase(s: string): string {
@@ -112,6 +112,7 @@ export default function Page() {
   const [payroll, setPayroll] = useState<any>(null);
   const [invoices, setInvoices] = useState<any[]>([]);
   const [employees, setEmployees] = useState<EmployeeSummary[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [drill, setDrill] = useState<DrillState | null>(null);
@@ -489,15 +490,41 @@ export default function Page() {
         <p className="muted small" style={{ marginTop: 8 }}>
           Import the <b>Payroll Register</b> Excel file (.xls or .xlsx). Allocation is fixed on the backend.
         </p>
-        <input
-          className="input"
-          type="file"
-          accept=".xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) importPayroll(f);
-          }}
-        />
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 12 }}>
+          <div style={{
+            flex: 1,
+            display: "flex",
+            alignItems: "center",
+            border: "1px solid var(--border)",
+            borderRadius: 999,
+            padding: "6px 14px 6px 6px",
+            background: "#fff",
+            minWidth: 0,
+          }}>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) importPayroll(f);
+              }}
+              style={{ flex: 1, minWidth: 0, border: "none", background: "transparent", fontSize: 14 }}
+            />
+          </div>
+          <button
+            className="btn"
+            style={{ borderRadius: 999, fontWeight: 700, whiteSpace: "nowrap" }}
+            onClick={() => {
+              if (fileInputRef.current) fileInputRef.current.value = "";
+              setPayroll(null);
+              setInvoices([]);
+              setEmployees([]);
+            }}
+          >
+            Clear
+          </button>
+        </div>
         {saveOpen && (
           <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 10, flexWrap: "wrap" }}>
             <input
