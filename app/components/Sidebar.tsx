@@ -33,7 +33,7 @@ const NAV = [
 ];
 
 export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: () => void }) {
-  const W = open ? 220 : 52;
+  const W = open ? 220 : 60;
 
   return (
     <div
