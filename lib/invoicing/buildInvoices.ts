@@ -32,8 +32,10 @@ export function buildInvoices(payroll: PayrollParseResult, alloc: AllocationTabl
   // Accumulate per property
   type Acc = {
     salaryREC: number; salaryNR: number; overtime: number;
-    holREC: number; holNR: number; er401k: number;
-    other: number; taxesEr: number;
+    holREC: number; holNR: number;
+    er401kREC: number; er401kNR: number;
+    otherREC: number; otherNR: number;
+    taxesErREC: number; taxesErNR: number;
   };
   const byProp: Record<string, Acc> = {};
 
@@ -43,7 +45,7 @@ export function buildInvoices(payroll: PayrollParseResult, alloc: AllocationTabl
 
   function add(prop: string, field: keyof Acc, amount: number) {
     if (!amount) return;
-    if (!byProp[prop]) byProp[prop] = { salaryREC: 0, salaryNR: 0, overtime: 0, holREC: 0, holNR: 0, er401k: 0, other: 0, taxesEr: 0 };
+    if (!byProp[prop]) byProp[prop] = { salaryREC: 0, salaryNR: 0, overtime: 0, holREC: 0, holNR: 0, er401kREC: 0, er401kNR: 0, otherREC: 0, otherNR: 0, taxesErREC: 0, taxesErNR: 0 };
     byProp[prop][field] += amount;
   }
 
@@ -80,26 +82,29 @@ export function buildInvoices(payroll: PayrollParseResult, alloc: AllocationTabl
       addDrill(key, "overtime", emp.name, emp.overtimeAmt, pct, emp.overtimeAmt * pct);
       add(key, holField, emp.holAmt * pct);
       addDrill(key, holField, emp.name, emp.holAmt, pct, emp.holAmt * pct);
-      add(key, "er401k", emp.er401kAmt * pct);
-      addDrill(key, "er401k", emp.name, emp.er401kAmt, pct, emp.er401kAmt * pct);
+      const er401kField = a.recoverable ? "er401kREC" : "er401kNR";
+      add(key, er401kField, emp.er401kAmt * pct);
+      addDrill(key, er401kField, emp.name, emp.er401kAmt, pct, emp.er401kAmt * pct);
       // Other (Bonus + Auto Allowance): one drilldown row per category
+      const otherField = a.recoverable ? "otherREC" : "otherNR";
       if (emp.otherAmt) {
-        add(key, "other", emp.otherAmt * pct);
+        add(key, otherField, emp.otherAmt * pct);
         for (const ob of (emp.otherBreakdown ?? [])) {
-          if (ob.amount) addDrill(key, "other", emp.name, ob.amount, pct, ob.amount * pct, ob.label);
+          if (ob.amount) addDrill(key, otherField, emp.name, ob.amount, pct, ob.amount * pct, ob.label);
         }
         if (!emp.otherBreakdown?.length) {
-          addDrill(key, "other", emp.name, emp.otherAmt, pct, emp.otherAmt * pct);
+          addDrill(key, otherField, emp.name, emp.otherAmt, pct, emp.otherAmt * pct);
         }
       }
       // Taxes (ER): one drilldown row per tax type
+      const taxesErField = a.recoverable ? "taxesErREC" : "taxesErNR";
       if (emp.taxesErAmt) {
-        add(key, "taxesEr", emp.taxesErAmt * pct);
+        add(key, taxesErField, emp.taxesErAmt * pct);
         for (const tb of (emp.taxesErBreakdown ?? [])) {
-          if (tb.amount) addDrill(key, "taxesEr", emp.name, tb.amount, pct, tb.amount * pct, tb.label);
+          if (tb.amount) addDrill(key, taxesErField, emp.name, tb.amount, pct, tb.amount * pct, tb.label);
         }
         if (!emp.taxesErBreakdown?.length) {
-          addDrill(key, "taxesEr", emp.name, emp.taxesErAmt, pct, emp.taxesErAmt * pct);
+          addDrill(key, taxesErField, emp.name, emp.taxesErAmt, pct, emp.taxesErAmt * pct);
         }
       }
     }
@@ -136,18 +141,18 @@ export function buildInvoices(payroll: PayrollParseResult, alloc: AllocationTabl
           addDrill(prop, "overtime", emp.name, emp.overtimeAmt, effectivePct, emp.overtimeAmt * effectivePct);
           add(prop, "holNR", emp.holAmt * effectivePct);
           addDrill(prop, "holNR", emp.name, emp.holAmt, effectivePct, emp.holAmt * effectivePct);
-          add(prop, "er401k", emp.er401kAmt * effectivePct);
-          addDrill(prop, "er401k", emp.name, emp.er401kAmt, effectivePct, emp.er401kAmt * effectivePct);
+          add(prop, "er401kNR", emp.er401kAmt * effectivePct);
+          addDrill(prop, "er401kNR", emp.name, emp.er401kAmt, effectivePct, emp.er401kAmt * effectivePct);
           if (emp.otherAmt) {
-            add(prop, "other", emp.otherAmt * effectivePct);
+            add(prop, "otherNR", emp.otherAmt * effectivePct);
             for (const ob of (emp.otherBreakdown ?? [])) {
-              if (ob.amount) addDrill(prop, "other", emp.name, ob.amount, effectivePct, ob.amount * effectivePct, ob.label);
+              if (ob.amount) addDrill(prop, "otherNR", emp.name, ob.amount, effectivePct, ob.amount * effectivePct, ob.label);
             }
           }
           if (emp.taxesErAmt) {
-            add(prop, "taxesEr", emp.taxesErAmt * effectivePct);
+            add(prop, "taxesErNR", emp.taxesErAmt * effectivePct);
             for (const tb of (emp.taxesErBreakdown ?? [])) {
-              if (tb.amount) addDrill(prop, "taxesEr", emp.name, tb.amount, effectivePct, tb.amount * effectivePct, tb.label);
+              if (tb.amount) addDrill(prop, "taxesErNR", emp.name, tb.amount, effectivePct, tb.amount * effectivePct, tb.label);
             }
           }
         }
@@ -183,14 +188,40 @@ export function buildInvoices(payroll: PayrollParseResult, alloc: AllocationTabl
       lines.push({ description, accCode, amount: Math.round(amount * 100) / 100 });
     };
 
-    pushLine("Salary REC", "6030-8502", acc.salaryREC);
-    pushLine("Salary NR", "6010-8501", acc.salaryNR);
-    pushLine("Overtime", "6030-8502", acc.overtime);
-    pushLine("HOL REC", "6010-8501", acc.holREC);
-    pushLine("HOL NR", "6030-8502", acc.holNR);
-    pushLine("401K ER", "6010-8501", acc.er401k);
-    pushLine("Other Pay", "6010-8501", acc.other);
-    pushLine("Taxes (ER)", "6030-8502", acc.taxesEr);
+    // NR section (6010-8501)
+    const nrLines: PropertyInvoice["lines"] = [];
+    const pushNR = (description: string, amount: number) => {
+      if (!amount || Math.abs(amount) < 0.005) return;
+      nrLines!.push({ description, accCode: "6010-8501", amount: Math.round(amount * 100) / 100 });
+    };
+    pushNR("Salary NR",     acc.salaryNR);
+    pushNR("HOL NR",        acc.holNR);
+    pushNR("401K (ER) NR",  acc.er401kNR);
+    pushNR("Taxes (ER) NR", acc.taxesErNR);
+    pushNR("Other NR",      acc.otherNR);
+    if (nrLines.length) {
+      lines.push(...nrLines);
+      const nrSubtotal = nrLines.reduce((s, l) => s + l.amount, 0);
+      lines.push({ description: "NR Subtotal", accCode: "6010-8501", amount: Math.round(nrSubtotal * 100) / 100 });
+    }
+
+    // REC section (6030-8502)
+    const recLines: PropertyInvoice["lines"] = [];
+    const pushREC = (description: string, amount: number) => {
+      if (!amount || Math.abs(amount) < 0.005) return;
+      recLines!.push({ description, accCode: "6030-8502", amount: Math.round(amount * 100) / 100 });
+    };
+    pushREC("Salary REC",     acc.salaryREC);
+    pushREC("HOL REC",        acc.holREC);
+    pushREC("Overtime",       acc.overtime);
+    pushREC("401K (ER) REC",  acc.er401kREC);
+    pushREC("Taxes (ER) REC", acc.taxesErREC);
+    pushREC("Other REC",      acc.otherREC);
+    if (recLines.length) {
+      lines.push(...recLines);
+      const recSubtotal = recLines.reduce((s, l) => s + l.amount, 0);
+      lines.push({ description: "REC Subtotal", accCode: "6030-8502", amount: Math.round(recSubtotal * 100) / 100 });
+    }
 
     const total = lines.reduce((s, l) => s + l.amount, 0);
 
@@ -219,9 +250,15 @@ export function buildInvoices(payroll: PayrollParseResult, alloc: AllocationTabl
       overtime: acc.overtime,
       holREC: acc.holREC,
       holNR: acc.holNR,
-      er401k: acc.er401k,
-      other: acc.other,
-      taxesEr: acc.taxesEr,
+      er401kREC: acc.er401kREC,
+      er401kNR: acc.er401kNR,
+      er401k: acc.er401kREC + acc.er401kNR,
+      otherREC: acc.otherREC,
+      otherNR: acc.otherNR,
+      other: acc.otherREC + acc.otherNR,
+      taxesErREC: acc.taxesErREC,
+      taxesErNR: acc.taxesErNR,
+      taxesEr: acc.taxesErREC + acc.taxesErNR,
       total,
       drilldown: drill,
       footnotes: footnotesByProp[propLabel]?.length ? footnotesByProp[propLabel] : undefined,

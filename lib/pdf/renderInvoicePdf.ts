@@ -7,7 +7,7 @@ export type InvoicePdfInput = {
   invoiceNumber: string;
 };
 
-type Line = { description: string; accCode: string; amount: number };
+type Line = { description: string; accCode: string; amount: number; isSubtotal?: boolean };
 
 function moneyStr(n: number) {
   return Number(n ?? 0).toLocaleString("en-US", { style: "currency", currency: "USD" });
@@ -17,18 +17,42 @@ function buildLines(inv: PropertyInvoice): Line[] {
   const ACC_REC = "6030-8502";
   const ACC_NR  = "6010-8501";
   const lines: Line[] = [];
-  const pushIf = (amount: number, description: string, accCode: string) => {
+
+  // NR section
+  const nrLines: Line[] = [];
+  const pushNR = (amount: number | undefined, description: string) => {
     if (Math.abs(Number(amount ?? 0)) < 0.005) return;
-    lines.push({ description, accCode, amount: Number(amount) });
+    nrLines.push({ description, accCode: ACC_NR, amount: Number(amount) });
   };
-  pushIf(inv.salaryREC, "Salary REC", ACC_REC);
-  pushIf(inv.salaryNR,  "Salary NR",  ACC_NR);
-  pushIf(inv.overtime,  "Overtime",   ACC_REC);
-  pushIf(inv.holREC,    "HOL REC",    ACC_REC);
-  pushIf(inv.holNR,     "HOL NR",     ACC_NR);
-  pushIf(inv.er401k,    "401K ER",    ACC_NR);
-  pushIf(inv.other,     "Other Pay",  ACC_NR);
-  pushIf(inv.taxesEr,   "Taxes (ER)", ACC_REC);
+  pushNR(inv.salaryNR,   "Salary NR");
+  pushNR(inv.holNR,      "HOL NR");
+  pushNR(inv.er401kNR,   "401K (ER) NR");
+  pushNR(inv.taxesErNR,  "Taxes (ER) NR");
+  pushNR(inv.otherNR,    "Other NR");
+  if (nrLines.length) {
+    lines.push(...nrLines);
+    const nrTotal = nrLines.reduce((s, l) => s + l.amount, 0);
+    lines.push({ description: "NR Subtotal", accCode: ACC_NR, amount: nrTotal, isSubtotal: true });
+  }
+
+  // REC section
+  const recLines: Line[] = [];
+  const pushREC = (amount: number | undefined, description: string) => {
+    if (Math.abs(Number(amount ?? 0)) < 0.005) return;
+    recLines.push({ description, accCode: ACC_REC, amount: Number(amount) });
+  };
+  pushREC(inv.salaryREC,  "Salary REC");
+  pushREC(inv.holREC,     "HOL REC");
+  pushREC(inv.overtime,   "Overtime");
+  pushREC(inv.er401kREC,  "401K (ER) REC");
+  pushREC(inv.taxesErREC, "Taxes (ER) REC");
+  pushREC(inv.otherREC,   "Other REC");
+  if (recLines.length) {
+    lines.push(...recLines);
+    const recTotal = recLines.reduce((s, l) => s + l.amount, 0);
+    lines.push({ description: "REC Subtotal", accCode: ACC_REC, amount: recTotal, isSubtotal: true });
+  }
+
   return lines;
 }
 
@@ -174,20 +198,28 @@ export async function renderInvoicePdf(input: InvoicePdfInput): Promise<Uint8Arr
 
   let rowY = tblY + barH + 8;
   for (const line of rows) {
-    drawText(page, payDate,          margin + 8,                          rowY, regular, 9,  dark);
-    drawText(page, line.description, margin + colDate + 8,               rowY, regular, 10, black);
-    drawText(page, line.accCode,     margin + colDate + colDesc + 8,     rowY, regular, 10, dark);
+    const rowFont = line.isSubtotal ? bold : regular;
+    const descColor = line.isSubtotal ? teal : black;
+
+    if (line.isSubtotal) {
+      fillRect(page, margin, rowY - 3, contentW, 18, rgb(0.88, 0.93, 0.96));
+    }
+
+    drawText(page, line.isSubtotal ? "" : payDate, margin + 8, rowY, rowFont, 9, dark);
+    drawText(page, line.description, margin + colDate + 8,           rowY, rowFont, 10, descColor);
+    drawText(page, line.accCode,     margin + colDate + colDesc + 8, rowY, rowFont, 10, dark);
     drawText(page, moneyStr(line.amount),
-      margin + colDate + colDesc + colAcc, rowY, regular, 10, black,
+      margin + colDate + colDesc + colAcc, rowY, rowFont, 10, descColor,
       { maxWidth: colAmt - 8, align: "right" });
 
-    // thin divider
+    // divider — thicker under subtotals
     page.drawLine({
       start: { x: margin,            y: py(page, rowY + 14) },
       end:   { x: margin + contentW, y: py(page, rowY + 14) },
-      thickness: 0.4, color: rgb(0.82, 0.82, 0.82),
+      thickness: line.isSubtotal ? 1.0 : 0.4,
+      color: line.isSubtotal ? rgb(0.051, 0.322, 0.396) : rgb(0.82, 0.82, 0.82),
     });
-    rowY += 20;
+    rowY += line.isSubtotal ? 24 : 20;
   }
 
   // ── 7. Footer ────────────────────────────────────────────────────────────────
