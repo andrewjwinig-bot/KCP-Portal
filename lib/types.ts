@@ -108,8 +108,14 @@ export type PropertyInvoice = {
   holREC: number;
   holNR: number;
   er401k: number;
+  er401kREC: number;
+  er401kNR: number;
   other: number;
+  otherREC: number;
+  otherNR: number;
   taxesEr: number;
+  taxesErREC: number;
+  taxesErNR: number;
   total: number;
   drilldown?: Record<string, DrilldownRow[]>;
   /** Footnotes about excluded pay items (commissions) — not shown on PDFs */
