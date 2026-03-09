@@ -6,7 +6,7 @@ const NAV = [
     href: "/",
     external: false,
     icon: (
-      <span style={{ fontSize: 18, fontWeight: 700, lineHeight: 1 }}>$</span>
+      <span style={{ fontSize: 22, fontWeight: 700, lineHeight: 1 }}>$</span>
     ),
   },
   {
@@ -14,7 +14,7 @@ const NAV = [
     href: "https://cc-expenses-psi.vercel.app/",
     external: true,
     icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <rect x="2" y="5" width="20" height="14" rx="2" />
         <line x1="2" y1="10" x2="22" y2="10" />
       </svg>
@@ -25,7 +25,7 @@ const NAV = [
     href: "https://airtable.com/appu2QwzsaWb4Qw2X/pageF2MN3KyaNqj0D?MJMG1=allRecords&92GWJ=allRecords",
     external: true,
     icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
       </svg>
     ),
@@ -81,14 +81,14 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
         >
           {open ? (
             /* left-arrow / collapse */
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <line x1="3" y1="12" x2="21" y2="12" />
               <polyline points="3 6 21 6" />
               <polyline points="3 18 21 18" />
             </svg>
           ) : (
             /* hamburger / expand */
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <line x1="3" y1="12" x2="21" y2="12" />
               <polyline points="3 6 21 6" />
               <polyline points="3 18 21 18" />
