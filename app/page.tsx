@@ -198,8 +198,10 @@ export default function Page() {
         body: JSON.stringify({ name, payroll, invoices: invoicesSlim, employees }),
       });
       if (!res.ok) {
-        const j = await res.json().catch(() => ({}));
-        throw new Error(j?.error ?? `Save failed (${res.status})`);
+        const text = await res.text().catch(() => "");
+        let msg = `Save failed (${res.status})`;
+        try { const j = JSON.parse(text); if (j?.error) msg = j.error; } catch { if (text) msg += ": " + text.slice(0, 200); }
+        throw new Error(msg);
       }
     } catch (e: any) {
       setError(e?.message ?? "Failed to save period");
