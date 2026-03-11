@@ -120,11 +120,6 @@ export default function Page() {
   const [propAllocModal, setPropAllocModal] = useState<PropAllocModal | null>(null);
   const [invoicesOpen, setInvoicesOpen] = useState(true);
   const [employeesOpen, setEmployeesOpen] = useState(true);
-  const [historyOpen, setHistoryOpen] = useState(true);
-  const [periods, setPeriods] = useState<PeriodMeta[]>([]);
-  const [periodsLoading, setPeriodsLoading] = useState(false);
-  const [saveOpen, setSaveOpen] = useState(false);
-  const [saveName, setSaveName] = useState("");
   const [saving, setSaving] = useState(false);
   const [empTab, setEmpTab] = useState<"breakdown" | "history">("breakdown");
   const [empHistory, setEmpHistory] = useState<EmpHistoryRow[] | null>(null);
@@ -180,30 +175,27 @@ export default function Page() {
   const showEmpTaxesEr  = employeeTotals.taxesEr   > 0;
   const empColCount = 3 + [showEmpSalary, showEmpOvertime, showEmpHol, showEmpEr401k, showEmpOther, showEmpTaxesEr].filter(Boolean).length;
 
-  useEffect(() => { loadPeriods(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  async function loadPeriods() {
-    setPeriodsLoading(true);
-    try {
-      const res = await fetch("/api/periods");
-      const j = await res.json().catch(() => ({}));
-      setPeriods(j.periods ?? []);
-    } catch { setPeriods([]); } finally { setPeriodsLoading(false); }
-  }
+  // Auto-load a period from ?load=id URL param (set by the History page)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get("load");
+    if (id) {
+      window.history.replaceState({}, "", "/");
+      loadPeriod(id);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function savePeriod() {
-    if (!saveName.trim()) return;
+    const name = payroll?.payDate ?? new Date().toLocaleDateString();
     setSaving(true);
     try {
       const res = await fetch("/api/periods", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: saveName.trim(), payroll, invoices, employees }),
+        body: JSON.stringify({ name, payroll, invoices, employees }),
       });
       if (!res.ok) throw new Error("Save failed");
-      setSaveOpen(false);
-      setSaveName("");
-      await loadPeriods();
     } catch (e: any) {
       setError(e?.message ?? "Failed to save period");
     } finally { setSaving(false); }
@@ -223,14 +215,6 @@ export default function Page() {
     } catch (e: any) {
       setError(e?.message ?? "Failed to load period");
     } finally { setBusy(null); }
-  }
-
-  async function deletePeriod(id: string) {
-    if (!confirm("Delete this saved period? This cannot be undone.")) return;
-    try {
-      await fetch(`/api/periods/${id}`, { method: "DELETE" });
-      await loadPeriods();
-    } catch { setError("Failed to delete period"); }
   }
 
   async function loadEmpHistory(empName: string, empNumber?: string) {
@@ -479,9 +463,9 @@ export default function Page() {
             <span className="muted small" style={{ marginLeft: 12 }}>{payroll?.payDate ? `Pay Date: ${payroll.payDate}` : ""}</span>
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            {invoices.length > 0 && !saveOpen && (
-              <button className="btn" onClick={() => { setSaveOpen(true); setSaveName(`Pay Period${payroll?.payDate ? " – " + payroll.payDate : ""}`); }}>
-                Save Pay Period
+            {invoices.length > 0 && (
+              <button className="btn" disabled={saving} onClick={savePeriod}>
+                {saving ? "Saving…" : "Save Pay Period"}
               </button>
             )}
             <button className="btn primary large" disabled={!payroll || !!busy} onClick={generateAll}>Generate All PDFs</button>
@@ -525,25 +509,6 @@ export default function Page() {
             Clear
           </button>
         </div>
-        {saveOpen && (
-          <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 10, flexWrap: "wrap" }}>
-            <input
-              className="input"
-              type="text"
-              value={saveName}
-              onChange={(e) => setSaveName(e.target.value)}
-              placeholder="Period name…"
-              style={{ flexGrow: 1, minWidth: 220 }}
-              onKeyDown={(e) => { if (e.key === "Enter") savePeriod(); if (e.key === "Escape") setSaveOpen(false); }}
-              autoFocus
-            />
-            <button className="btn primary" disabled={saving || !saveName.trim()} onClick={savePeriod}>
-              {saving ? "Saving…" : "Save"}
-            </button>
-            <button className="btn" onClick={() => setSaveOpen(false)}>Cancel</button>
-          </div>
-        )}
-
         {employees.length > 0 && (
           <div className="pills">
             {employeeTotals.salary   > 0 && <span className="pill"><b>{money(employeeTotals.salary)}</b><span className="muted small">Salary</span></span>}
@@ -735,69 +700,6 @@ export default function Page() {
                 </tr>
               </tfoot>
             </table>
-          </div>
-        )}
-      </div>
-
-      {/* ── Pay Period History card ── */}
-      <div className="card">
-        <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <button
-              className="btn"
-              style={{ padding: "2px 8px", fontSize: 13 }}
-              onClick={() => setHistoryOpen((o) => !o)}
-              title={historyOpen ? "Collapse" : "Expand"}
-            >
-              {historyOpen ? "▲" : "▼"}
-            </button>
-            <div>
-              <b>Pay Period History</b>
-              <div className="small muted" style={{ marginTop: 4 }}>Saved pay periods. Click Load to restore, or open an employee to view their history.</div>
-            </div>
-          </div>
-          <button className="btn" style={{ fontSize: 12, padding: "2px 10px" }} onClick={loadPeriods} disabled={periodsLoading}>↻ Refresh</button>
-        </div>
-
-        {historyOpen && (
-          <div style={{ marginTop: 10 }}>
-            {periodsLoading ? (
-              <div className="muted small">Loading…</div>
-            ) : periods.length === 0 ? (
-              <div className="muted small">No saved periods yet. Import a payroll file and click "Save Pay Period" to begin building history.</div>
-            ) : (
-              <div className="tableWrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Name</th>
-                      <th>Pay Date</th>
-                      <th>Saved</th>
-                      <th style={{ textAlign: "right" }}>Employees</th>
-                      <th style={{ textAlign: "right" }}>Total</th>
-                      <th></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {periods.map((p) => (
-                      <tr key={p.id}>
-                        <td>{p.name}</td>
-                        <td className="muted">{p.payDate ?? "—"}</td>
-                        <td className="muted" style={{ fontSize: "0.85em" }}>{new Date(p.savedAt).toLocaleDateString()}</td>
-                        <td style={{ textAlign: "right" }}>{p.employeeCount}</td>
-                        <td style={{ textAlign: "right" }}>{money(p.total)}</td>
-                        <td style={{ textAlign: "right" }}>
-                          <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
-                            <button className="btn" style={{ fontSize: 12, padding: "2px 8px" }} onClick={() => loadPeriod(p.id)}>Load</button>
-                            <button className="btn" style={{ fontSize: 12, padding: "2px 8px", color: "#b42318" }} onClick={() => deletePeriod(p.id)}>Delete</button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
           </div>
         )}
       </div>

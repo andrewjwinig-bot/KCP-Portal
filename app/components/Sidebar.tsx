@@ -1,5 +1,7 @@
 "use client";
 
+import { usePathname } from "next/navigation";
+
 const NAV = [
   {
     label: "Payroll Invoicer",
@@ -7,6 +9,17 @@ const NAV = [
     external: false,
     icon: (
       <span style={{ fontSize: 22, fontWeight: 700, lineHeight: 1 }}>$</span>
+    ),
+  },
+  {
+    label: "History",
+    href: "/history",
+    external: false,
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10" />
+        <polyline points="12 6 12 12 16 14" />
+      </svg>
     ),
   },
   {
@@ -33,7 +46,14 @@ const NAV = [
 ];
 
 export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: () => void }) {
+  const pathname = usePathname();
   const W = open ? 220 : 60;
+
+  function isActive(item: (typeof NAV)[number]) {
+    if (item.external) return false;
+    if (item.href === "/") return pathname === "/";
+    return pathname.startsWith(item.href);
+  }
 
   return (
     <div
@@ -79,21 +99,11 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
             justifyContent: "center",
           }}
         >
-          {open ? (
-            /* left-arrow / collapse */
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="3" y1="12" x2="21" y2="12" />
-              <polyline points="3 6 21 6" />
-              <polyline points="3 18 21 18" />
-            </svg>
-          ) : (
-            /* hamburger / expand */
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="3" y1="12" x2="21" y2="12" />
-              <polyline points="3 6 21 6" />
-              <polyline points="3 18 21 18" />
-            </svg>
-          )}
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="3" y1="12" x2="21" y2="12" />
+            <polyline points="3 6 21 6" />
+            <polyline points="3 18 21 18" />
+          </svg>
         </button>
       </div>
 
@@ -106,35 +116,43 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
 
       {/* Nav links */}
       <nav style={{ flex: 1, padding: open ? "4px 8px" : "8px 6px", display: "flex", flexDirection: "column", gap: 2 }}>
-        {NAV.map((item) => (
-          <a
-            key={item.label}
-            href={item.href}
-            target={item.external ? "_blank" : undefined}
-            rel={item.external ? "noopener noreferrer" : undefined}
-            title={item.label}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              padding: open ? "9px 10px" : "9px 0",
-              justifyContent: open ? "flex-start" : "center",
-              borderRadius: 8,
-              color: "#e0f0ff",
-              textDecoration: "none",
-              fontSize: 14,
-              fontWeight: 500,
-              cursor: "pointer",
-              transition: "background 0.15s",
-              whiteSpace: "nowrap",
-            }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.12)"; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
-          >
-            <span style={{ flexShrink: 0 }}>{item.icon}</span>
-            {open && <span>{item.label}</span>}
-          </a>
-        ))}
+        {NAV.map((item) => {
+          const active = isActive(item);
+          return (
+            <a
+              key={item.label}
+              href={item.href}
+              target={item.external ? "_blank" : undefined}
+              rel={item.external ? "noopener noreferrer" : undefined}
+              title={item.label}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                padding: open ? "9px 10px" : "9px 0",
+                justifyContent: open ? "flex-start" : "center",
+                borderRadius: 8,
+                color: active ? "#fff" : "#e0f0ff",
+                textDecoration: "none",
+                fontSize: 14,
+                fontWeight: active ? 700 : 500,
+                cursor: "pointer",
+                transition: "background 0.15s",
+                whiteSpace: "nowrap",
+                background: active ? "rgba(255,255,255,0.18)" : "transparent",
+              }}
+              onMouseEnter={(e) => {
+                if (!active) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.12)";
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLElement).style.background = active ? "rgba(255,255,255,0.18)" : "transparent";
+              }}
+            >
+              <span style={{ flexShrink: 0 }}>{item.icon}</span>
+              {open && <span>{item.label}</span>}
+            </a>
+          );
+        })}
       </nav>
     </div>
   );
