@@ -332,6 +332,13 @@ export default function Page() {
     setDrill({ title, total, rows, isTotal: true });
   }
 
+  function openPillDrill(label: string, total: number, field: keyof Pick<EmployeeSummary, "salaryAmt" | "overtimeAmt" | "holAmt" | "er401kAmt" | "otherAmt" | "taxesErAmt" | "total">) {
+    const rows: DrillRow[] = employees
+      .filter((e) => (e[field] as number) !== 0)
+      .map((e) => ({ employee: e.name, amount: e[field] as number }));
+    setDrill({ title: `${label} — All Employees`, total, rows, isTotal: true });
+  }
+
   function openPropAlloc(inv: any) {
     const empMap = new Map<string, PropAllocRow>();
     const drilldown: Record<string, DrillRow[]> = inv.drilldown ?? {};
@@ -471,7 +478,7 @@ export default function Page() {
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             {invoices.length > 0 && (
-              <button className="btn" disabled={saving} onClick={savePeriod}>
+              <button className="btn large" disabled={saving} onClick={savePeriod}>
                 {saving ? "Saving…" : "Save Pay Period"}
               </button>
             )}
@@ -518,13 +525,13 @@ export default function Page() {
         </div>
         {employees.length > 0 && (
           <div className="pills">
-            {employeeTotals.salary   > 0 && <span className="pill"><b>{money(employeeTotals.salary)}</b><span className="muted small">Salary</span></span>}
-            {employeeTotals.overtime > 0 && <span className="pill"><b>{money(employeeTotals.overtime)}</b><span className="muted small">Overtime</span></span>}
-            {employeeTotals.hol      > 0 && <span className="pill"><b>{money(employeeTotals.hol)}</b><span className="muted small">HOL</span></span>}
-            {employeeTotals.er401k   > 0 && <span className="pill"><b>{money(employeeTotals.er401k)}</b><span className="muted small">401K (ER)</span></span>}
-            {employeeTotals.other    > 0 && <span className="pill"><b>{money(employeeTotals.other)}</b><span className="muted small">Other</span></span>}
-            {employeeTotals.taxesEr  > 0 && <span className="pill"><b>{money(employeeTotals.taxesEr)}</b><span className="muted small">Taxes (ER)</span></span>}
-            {employeeTotals.total    > 0 && <span className="pill pill-total"><b>{money(employeeTotals.total)}</b><span className="muted small">Total</span></span>}
+            {employeeTotals.salary   > 0 && <span className="pill" style={{ cursor: "pointer" }} title="Click to see employee breakdown" onClick={() => openPillDrill("Salary",      employeeTotals.salary,   "salaryAmt"  )}><b>{money(employeeTotals.salary)}</b><span className="muted small">Salary</span></span>}
+            {employeeTotals.overtime > 0 && <span className="pill" style={{ cursor: "pointer" }} title="Click to see employee breakdown" onClick={() => openPillDrill("Overtime",    employeeTotals.overtime, "overtimeAmt")}><b>{money(employeeTotals.overtime)}</b><span className="muted small">Overtime</span></span>}
+            {employeeTotals.hol      > 0 && <span className="pill" style={{ cursor: "pointer" }} title="Click to see employee breakdown" onClick={() => openPillDrill("HOL",         employeeTotals.hol,      "holAmt"     )}><b>{money(employeeTotals.hol)}</b><span className="muted small">HOL</span></span>}
+            {employeeTotals.er401k   > 0 && <span className="pill" style={{ cursor: "pointer" }} title="Click to see employee breakdown" onClick={() => openPillDrill("401K (ER)",   employeeTotals.er401k,   "er401kAmt"  )}><b>{money(employeeTotals.er401k)}</b><span className="muted small">401K (ER)</span></span>}
+            {employeeTotals.other    > 0 && <span className="pill" style={{ cursor: "pointer" }} title="Click to see employee breakdown" onClick={() => openPillDrill("Other",        employeeTotals.other,    "otherAmt"   )}><b>{money(employeeTotals.other)}</b><span className="muted small">Other</span></span>}
+            {employeeTotals.taxesEr  > 0 && <span className="pill" style={{ cursor: "pointer" }} title="Click to see employee breakdown" onClick={() => openPillDrill("Taxes (ER)",  employeeTotals.taxesEr,  "taxesErAmt" )}><b>{money(employeeTotals.taxesEr)}</b><span className="muted small">Taxes (ER)</span></span>}
+            {employeeTotals.total    > 0 && <span className="pill pill-total" style={{ cursor: "pointer" }} title="Click to see employee breakdown" onClick={() => openPillDrill("Total", employeeTotals.total, "total")}><b>{money(employeeTotals.total)}</b><span className="muted small">Total</span></span>}
           </div>
         )}
       </div>
@@ -567,7 +574,7 @@ export default function Page() {
                     {showInvHolREC    && <th>HOL REC</th>}
                     {showInvHolNR     && <th>HOL NR</th>}
                     {showInvEr401k    && <th style={{ textAlign: "right" }}>401K (ER)</th>}
-                    {showInvOther     && <th>Other</th>}
+                    {showInvOther     && <th style={{ textAlign: "right" }}>Other</th>}
                     {showInvTaxesEr   && <th style={{ textAlign: "right" }}>Taxes (ER)</th>}
                     <th style={{ textAlign: "right" }}>Total</th>
                   </tr>
@@ -590,7 +597,7 @@ export default function Page() {
                         {showInvHolREC    && <td><button className="linkBtn" onClick={() => openDrill(r, "holREC", "HOL REC")}>{money(r.holREC)}</button></td>}
                         {showInvHolNR     && <td><button className="linkBtn" onClick={() => openDrill(r, "holNR", "HOL NR")}>{money(r.holNR)}</button></td>}
                         {showInvEr401k    && <td><button className="linkBtn" onClick={() => openDrill(r, "er401k", "401K (ER)")}>{money(r.er401k)}</button></td>}
-                        {showInvOther     && <td><button className="linkBtn" onClick={() => openDrill(r, "other", "Other Pay")}>{money(r.other)}</button></td>}
+                        {showInvOther     && <td style={{ textAlign: "right" }}><button className="linkBtn" onClick={() => openDrill(r, "other", "Other Pay")}>{money(r.other)}</button></td>}
                         {showInvTaxesEr   && <td><button className="linkBtn" onClick={() => openDrill(r, "taxesEr", "Taxes (ER)")}>{money(r.taxesEr)}</button></td>}
                         <td><button className="linkBtn" onClick={() => openDrill(r, "total", "Total")}><b>{money(r.total)}</b></button></td>
                       </tr>
@@ -607,7 +614,7 @@ export default function Page() {
                     {showInvHolREC    && <td>{money(totals.holREC)}</td>}
                     {showInvHolNR     && <td>{money(totals.holNR)}</td>}
                     {showInvEr401k    && <td>{money(totals.er401k)}</td>}
-                    {showInvOther     && <td>{money(totals.other)}</td>}
+                    {showInvOther     && <td style={{ textAlign: "right" }}>{money(totals.other)}</td>}
                     {showInvTaxesEr   && <td>{money(totals.taxesEr)}</td>}
                     <td>{money(totals.total)}</td>
                   </tr>

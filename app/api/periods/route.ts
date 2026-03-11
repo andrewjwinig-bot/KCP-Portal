@@ -3,7 +3,10 @@ import { readdir, readFile, writeFile, mkdir } from "fs/promises";
 import { existsSync } from "fs";
 import path from "path";
 
-const PERIODS_DIR = path.join(process.cwd(), "data", "periods");
+// Use /tmp in Lambda/Vercel (process.cwd() is read-only /var/task there)
+const PERIODS_DIR = process.env.NODE_ENV === "production"
+  ? "/tmp/payroll-periods"
+  : path.join(process.cwd(), "data", "periods");
 
 async function ensureDir() {
   if (!existsSync(PERIODS_DIR)) {
