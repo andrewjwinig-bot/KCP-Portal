@@ -125,23 +125,20 @@ export default function HistoryPage() {
                   </div>
                   <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
                     <button
-                      className="btn"
-                      style={{ fontSize: 12, padding: "4px 12px" }}
                       onClick={() => toggleExpand(p.id)}
+                      style={{ fontSize: 13, padding: "5px 14px", borderRadius: 7, border: "1px solid #1a1a1a", background: "transparent", color: "#1a1a1a", cursor: "pointer", fontWeight: 500 }}
                     >
-                      {isExpanded ? "Collapse" : "Expand"}
+                      {isExpanded ? "Close" : "View"}
                     </button>
                     <button
-                      className="btn"
-                      style={{ fontSize: 12, padding: "4px 12px" }}
                       onClick={() => router.push(`/?load=${p.id}`)}
+                      style={{ fontSize: 13, padding: "5px 14px", borderRadius: 7, border: "1px solid #1a1a1a", background: "transparent", color: "#1a1a1a", cursor: "pointer", fontWeight: 500 }}
                     >
                       Load
                     </button>
                     <button
-                      className="btn"
-                      style={{ fontSize: 12, padding: "4px 12px", color: "#b42318" }}
                       onClick={() => deletePeriod(p.id)}
+                      style={{ fontSize: 13, padding: "5px 14px", borderRadius: 7, border: "1px solid #b42318", background: "transparent", color: "#b42318", cursor: "pointer", fontWeight: 500 }}
                     >
                       Delete
                     </button>

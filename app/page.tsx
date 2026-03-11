@@ -789,7 +789,7 @@ export default function Page() {
       {/* ── Invoice drilldown modal ── */}
       {drill && (
         <div className="modalOverlay" onClick={() => setDrill(null)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+          <div className="modal" style={{ maxHeight: "80vh", display: "flex", flexDirection: "column" }} onClick={(e) => e.stopPropagation()}>
             <div className="modalHeader">
               <div>
                 <div className="modalTitle">{drill.title}</div>
@@ -798,6 +798,7 @@ export default function Page() {
               <button className="btn" onClick={() => setDrill(null)}>Close</button>
             </div>
 
+            <div style={{ overflowY: "auto", flex: 1 }}>
             {(() => {
               const hasCategory = drill.rows.some((r) => r.category);
               return (
@@ -825,6 +826,7 @@ export default function Page() {
                 </table>
               );
             })()}
+            </div>
           </div>
         </div>
       )}
