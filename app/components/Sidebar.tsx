@@ -7,6 +7,7 @@ const NAV = [
     label: "Payroll Invoicer",
     href: "/",
     external: false,
+    indent: false,
     icon: (
       <span style={{ fontSize: 22, fontWeight: 700, lineHeight: 1 }}>$</span>
     ),
@@ -15,6 +16,7 @@ const NAV = [
     label: "History",
     href: "/history",
     external: false,
+    indent: true,
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <circle cx="12" cy="12" r="10" />
@@ -130,6 +132,7 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
                 alignItems: "center",
                 gap: 10,
                 padding: open ? "9px 10px" : "9px 0",
+                marginLeft: item.indent && open ? 16 : 0,
                 justifyContent: open ? "flex-start" : "center",
                 borderRadius: 8,
                 color: active ? "#fff" : "#e0f0ff",

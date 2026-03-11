@@ -195,7 +195,10 @@ export default function Page() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, payroll, invoices, employees }),
       });
-      if (!res.ok) throw new Error("Save failed");
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j?.error ?? `Save failed (${res.status})`);
+      }
     } catch (e: any) {
       setError(e?.message ?? "Failed to save period");
     } finally { setSaving(false); }

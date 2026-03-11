@@ -223,7 +223,9 @@ export function buildInvoices(payroll: PayrollParseResult, alloc: AllocationTabl
       lines.push({ description: "REC Subtotal", accCode: "6030-8502", amount: Math.round(recSubtotal * 100) / 100 });
     }
 
-    const total = lines.reduce((s, l) => s + l.amount, 0);
+    const total = acc.salaryREC + acc.salaryNR + acc.overtime + acc.holREC + acc.holNR +
+                  acc.er401kREC + acc.er401kNR + acc.otherREC + acc.otherNR +
+                  acc.taxesErREC + acc.taxesErNR;
 
     // Build "total" drilldown by summing each employee's contributions across all fields
     const drill: Record<string, DrillRow[]> = byPropDrill[propLabel] || {};
