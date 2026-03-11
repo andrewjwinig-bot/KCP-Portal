@@ -190,10 +190,12 @@ export default function Page() {
     const name = payroll?.payDate ?? new Date().toLocaleDateString();
     setSaving(true);
     try {
+      // Strip drilldown from invoices before saving to reduce payload size
+      const invoicesSlim = (invoices ?? []).map(({ drilldown: _d, ...rest }) => rest);
       const res = await fetch("/api/periods", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, payroll, invoices, employees }),
+        body: JSON.stringify({ name, payroll, invoices: invoicesSlim, employees }),
       });
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));

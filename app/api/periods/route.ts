@@ -31,21 +31,26 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   await ensureDir();
-  const body = await req.json();
-  const { name, payroll, invoices, employees } = body;
-  if (!name?.trim() || !invoices) {
-    return NextResponse.json({ error: "name and invoices are required" }, { status: 400 });
+  try {
+    const body = await req.json();
+    const { name, payroll, invoices, employees } = body;
+    if (!name?.trim() || !invoices) {
+      return NextResponse.json({ error: "name and invoices are required" }, { status: 400 });
+    }
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const period = {
+      id,
+      name: name.trim(),
+      payDate: payroll?.payDate ?? null,
+      savedAt: new Date().toISOString(),
+      payroll,
+      invoices,
+      employees,
+    };
+    await writeFile(path.join(PERIODS_DIR, `${id}.json`), JSON.stringify(period), "utf-8");
+    return NextResponse.json({ id, savedAt: period.savedAt });
+  } catch (e: any) {
+    console.error("[POST /api/periods] error:", e?.message ?? e);
+    return NextResponse.json({ error: e?.message ?? "Internal server error" }, { status: 500 });
   }
-  const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  const period = {
-    id,
-    name: name.trim(),
-    payDate: payroll?.payDate ?? null,
-    savedAt: new Date().toISOString(),
-    payroll,
-    invoices,
-    employees,
-  };
-  await writeFile(path.join(PERIODS_DIR, `${id}.json`), JSON.stringify(period), "utf-8");
-  return NextResponse.json({ id, savedAt: period.savedAt });
 }
