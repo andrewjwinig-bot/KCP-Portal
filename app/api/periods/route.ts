@@ -30,10 +30,12 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  await ensureDir();
+  console.log("[POST /api/periods] handler called");
   try {
+    await ensureDir();
     const body = await req.json();
     const { name, payroll, invoices, employees } = body;
+    console.log("[POST /api/periods] parsed body, name:", name, "invoices:", invoices?.length);
     if (!name?.trim() || !invoices) {
       return NextResponse.json({ error: "name and invoices are required" }, { status: 400 });
     }
@@ -47,10 +49,14 @@ export async function POST(req: NextRequest) {
       invoices,
       employees,
     };
-    await writeFile(path.join(PERIODS_DIR, `${id}.json`), JSON.stringify(period), "utf-8");
+    const filePath = path.join(PERIODS_DIR, `${id}.json`);
+    console.log("[POST /api/periods] writing to:", filePath);
+    await writeFile(filePath, JSON.stringify(period), "utf-8");
+    console.log("[POST /api/periods] write succeeded, id:", id);
     return NextResponse.json({ id, savedAt: period.savedAt });
   } catch (e: any) {
-    console.error("[POST /api/periods] error:", e?.message ?? e);
-    return NextResponse.json({ error: e?.message ?? "Internal server error" }, { status: 500 });
+    const msg = e?.message || e?.toString() || "Unknown error";
+    console.error("[POST /api/periods] error:", msg, e?.stack);
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
