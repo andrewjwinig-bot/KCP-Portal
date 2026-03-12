@@ -510,7 +510,7 @@ export default function ExpensesPage() {
   const stickyThStyle: React.CSSProperties = { position: "sticky", top: 0, zIndex: 15, background: "#fff" };
 
   return (
-    <main>
+    <main style={{ display: "grid", gap: 14 }}>
       <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
         <h1>Credit Card Expense Coder</h1>
         <div style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
@@ -524,7 +524,7 @@ export default function ExpensesPage() {
       </header>
 
       {/* Import bar */}
-      <div className="card" style={{ marginBottom: 16 }}>
+      <div className="card">
         <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
           <div>
             <b>Import Credit Card Statement</b>
