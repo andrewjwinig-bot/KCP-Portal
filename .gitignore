@@ -29,3 +29,4 @@ npm-debug.log*
 
 # Local data storage (runtime-generated, not source)
 data/periods/
+data/statements/
