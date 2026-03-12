@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx";
 import JSZip from "jszip";
+import { PDFDocument } from "pdf-lib";
 import { buildInvoicePdf, makeInvoiceId, CategoryGroup } from "../../lib/expenses/invoice";
 import { buildTopSheetXlsx, TopSheetTx } from "../../lib/expenses/topSheet";
 import { groupBy, normalizeAmount, toMoney } from "../../lib/expenses/utils";
@@ -426,6 +427,9 @@ export default function ExpensesPage() {
   const [showColFilters, setShowColFilters] = useState(false);
   const [expandedProps, setExpandedProps] = useState<Set<string>>(new Set());
   const [drillModal, setDrillModal] = useState<{ propId: string; category: string; items: any[] } | null>(null);
+  // Invoice PDF attachments — keyed by tx id, lives in memory only (not persisted)
+  const [attachments, setAttachments] = useState<Map<string, File>>(new Map());
+  const attachInputRefs = useRef<Map<string, HTMLInputElement>>(new Map());
 
   useEffect(() => {
     try { localStorage.setItem(LS_KEY, JSON.stringify({ tx, statementPeriodText })); } catch { /* ignore */ }
@@ -560,6 +564,15 @@ export default function ExpensesPage() {
 
   function upsertTx(list: Tx[]) { setTx((prev) => [...list, ...prev]); }
 
+  function attachInvoicePdf(txId: string, file: File) {
+    setAttachments((prev) => { const n = new Map(prev); n.set(txId, file); return n; });
+  }
+  function removeAttachment(txId: string) {
+    setAttachments((prev) => { const n = new Map(prev); n.delete(txId); return n; });
+    const input = attachInputRefs.current.get(txId);
+    if (input) input.value = "";
+  }
+
   async function importFile(file: File) {
     const name = file.name.toLowerCase();
     if (!(name.endsWith(".xlsx") || name.endsWith(".xls"))) { alert("Upload an Excel (XLSX) file."); return; }
@@ -646,7 +659,7 @@ export default function ExpensesPage() {
       zip.file(`${filenameMonth} - TOP SHEET.xlsx`, topBlob);
     }
     for (const g of invoiceGroups) {
-      const blob = buildInvoicePdf({
+      const invoiceBlob = buildInvoicePdf({
         propertyName: propName(g.propId),
         propertyCode: g.propId,
         categoryGroups: g.categoryGroups.map((cg) => ({ category: cg.category, items: cg.items.map((t: any) => ({ date: t.date, description: t.description, amount: t.amount, category: t.category, suite: t.suite, codedDescription: t.codedDescription, originalAmount: t.originalAmount })) })),
@@ -656,7 +669,36 @@ export default function ExpensesPage() {
         periodCompact: (statementStart && effectiveEnd) ? `${formatDateCompact(statementStart)}-${formatDateCompact(effectiveEnd)}` : undefined,
         invoiceId: makeInvoiceId(g.propId),
       });
-      zip.file(`${filenameMonth} - ${g.propId}.pdf`, blob);
+
+      // Collect unique attachments for transactions in this property group
+      const seenTxIds = new Set<string>();
+      const propAttachmentFiles: File[] = [];
+      for (const cg of g.categoryGroups) {
+        for (const t of cg.items as any[]) {
+          if (t.id && !seenTxIds.has(t.id) && attachments.has(t.id)) {
+            seenTxIds.add(t.id);
+            propAttachmentFiles.push(attachments.get(t.id)!);
+          }
+        }
+      }
+
+      let finalBlob = invoiceBlob;
+      if (propAttachmentFiles.length > 0) {
+        try {
+          const merged = await PDFDocument.create();
+          const mainPdf = await PDFDocument.load(await invoiceBlob.arrayBuffer());
+          for (const page of await merged.copyPages(mainPdf, mainPdf.getPageIndices())) merged.addPage(page);
+          for (const attachFile of propAttachmentFiles) {
+            const attachPdf = await PDFDocument.load(await attachFile.arrayBuffer());
+            for (const page of await merged.copyPages(attachPdf, attachPdf.getPageIndices())) merged.addPage(page);
+          }
+          finalBlob = new Blob([await merged.save()], { type: "application/pdf" });
+        } catch (err) {
+          console.error(`Failed to merge attachments for ${g.propId}:`, err);
+        }
+      }
+
+      zip.file(`${filenameMonth} - ${g.propId}.pdf`, finalBlob);
     }
     const zipBlob = await zip.generateAsync({ type: "blob" });
     download(`${filenameMonth} - Invoices.zip`, zipBlob);
@@ -754,6 +796,7 @@ export default function ExpensesPage() {
                       <th style={{ ...thBase, minWidth: 180 }} onClick={() => handleSortCol("acct")}>Account Code(s){sortIcon("acct")}</th>
                       <th style={{ ...thBase, minWidth: 120 }} onClick={() => handleSortCol("suite")}>Suite (TI){sortIcon("suite")}</th>
                       <th style={{ ...thBase, minWidth: 260 }} onClick={() => handleSortCol("invDesc")}>Invoice Description{sortIcon("invDesc")}</th>
+                      <th style={{ ...thBase, minWidth: 120, cursor: "default" }}>Invoice PDF</th>
                     </tr>
                     {showColFilters && (
                       <tr>
@@ -775,6 +818,7 @@ export default function ExpensesPage() {
                         {(["acct","suite","invDesc"] as const).map((k) => (
                           <th key={k} style={filterTh}><input style={filterInput} placeholder="Filter…" value={colFilters[k] ?? ""} onChange={(e) => setColFilter(k, e.target.value)} /></th>
                         ))}
+                        <th style={filterTh} />
                       </tr>
                     )}
                   </>
@@ -815,11 +859,45 @@ export default function ExpensesPage() {
                     <td style={{ padding: "8px" }}>
                       <input value={t.codedDescription} placeholder="Line item description…" onChange={(e) => updateTx(t.id, { codedDescription: e.target.value })} style={{ fontSize: 13, padding: "6px 8px", borderRadius: 8, border: "1px solid var(--border)", width: "100%" }} />
                     </td>
+                    <td style={{ padding: "8px", whiteSpace: "nowrap" }}>
+                      {(() => {
+                        const attached = attachments.get(t.id);
+                        return attached ? (
+                          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                            <span title={attached.name} style={{ fontSize: 12, color: "var(--navy)", maxWidth: 80, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "inline-block" }}>
+                              📎 {attached.name}
+                            </span>
+                            <button
+                              title="Remove attachment"
+                              onClick={() => removeAttachment(t.id)}
+                              style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", fontSize: 14, padding: "0 2px", lineHeight: 1 }}
+                            >✕</button>
+                          </div>
+                        ) : (
+                          <>
+                            <input
+                              type="file"
+                              accept="application/pdf"
+                              style={{ display: "none" }}
+                              ref={(el) => { if (el) attachInputRefs.current.set(t.id, el); else attachInputRefs.current.delete(t.id); }}
+                              onChange={(e) => { const f = e.target.files?.[0]; if (f) attachInvoicePdf(t.id, f); }}
+                            />
+                            <button
+                              className="btn"
+                              style={{ fontSize: 11, padding: "4px 8px", whiteSpace: "nowrap" }}
+                              onClick={() => attachInputRefs.current.get(t.id)?.click()}
+                            >
+                              + PDF
+                            </button>
+                          </>
+                        );
+                      })()}
+                    </td>
                   </tr>
                 );
               })}
               {!displayTx.length && (
-                <tr><td colSpan={9} className="small muted" style={{ padding: 14 }}>No rows to show.</td></tr>
+                <tr><td colSpan={10} className="small muted" style={{ padding: 14 }}>No rows to show.</td></tr>
               )}
             </tbody>
           </table>
