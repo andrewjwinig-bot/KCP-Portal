@@ -347,6 +347,12 @@ export default function ExpensesPage() {
   const [showAfterZipModal, setShowAfterZipModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [tableSortCol, setTableSortCol] = useState<string | null>(null);
+  const [tableSortDir, setTableSortDir] = useState<"asc" | "desc">("asc");
+  const [colFilters, setColFilters] = useState<Record<string, string>>({});
+  const [showColFilters, setShowColFilters] = useState(false);
+  const [expandedProps, setExpandedProps] = useState<Set<string>>(new Set());
+  const [drillModal, setDrillModal] = useState<{ propId: string; category: string; items: any[] } | null>(null);
 
   useEffect(() => {
     try { localStorage.setItem(LS_KEY, JSON.stringify({ tx, statementPeriodText })); } catch { /* ignore */ }
@@ -394,6 +400,43 @@ export default function ExpensesPage() {
   const expandedCoded = useMemo(() => {
     return tx.filter((t) => Number(t.amount) > 0).filter(isRowCoded).flatMap((t) => expandForAllocation(t));
   }, [tx]);
+
+  const displayTx = useMemo(() => {
+    let arr = filteredTx;
+    for (const [k, v] of Object.entries(colFilters)) {
+      if (!v.trim()) continue;
+      const q = v.toLowerCase();
+      arr = arr.filter((t) => {
+        if (k === "date") return t.date.toLowerCase().includes(q);
+        if (k === "user") return toTitleCaseFirstName(t.cardMember).toLowerCase().includes(q);
+        if (k === "amount") return toMoney(t.amount).includes(q);
+        if (k === "description") return trimLastTwoChars(t.description).toLowerCase().includes(q);
+        if (k === "category") return t.category.toLowerCase().includes(q);
+        if (k === "property") return (t.propertyId + " " + (properties.find((p) => p.id === t.propertyId)?.name ?? "")).toLowerCase().includes(q);
+        if (k === "acct") return getAccountCodes(t.category, t.propertyId).join(", ").toLowerCase().includes(q);
+        if (k === "suite") return t.suite.toLowerCase().includes(q);
+        if (k === "invDesc") return t.codedDescription.toLowerCase().includes(q);
+        return true;
+      });
+    }
+    if (tableSortCol) {
+      arr = [...arr].sort((a, b) => {
+        const dir = tableSortDir === "asc" ? 1 : -1;
+        if (tableSortCol === "amount") return (a.amount - b.amount) * dir;
+        let av = "", bv = "";
+        if (tableSortCol === "date") { av = a.date; bv = b.date; }
+        else if (tableSortCol === "user") { av = toTitleCaseFirstName(a.cardMember); bv = toTitleCaseFirstName(b.cardMember); }
+        else if (tableSortCol === "description") { av = trimLastTwoChars(a.description); bv = trimLastTwoChars(b.description); }
+        else if (tableSortCol === "category") { av = a.category; bv = b.category; }
+        else if (tableSortCol === "property") { av = a.propertyId; bv = b.propertyId; }
+        else if (tableSortCol === "acct") { av = getAccountCodes(a.category, a.propertyId).join(", "); bv = getAccountCodes(b.category, b.propertyId).join(", "); }
+        else if (tableSortCol === "suite") { av = a.suite; bv = b.suite; }
+        else if (tableSortCol === "invDesc") { av = a.codedDescription; bv = b.codedDescription; }
+        return av.localeCompare(bv) * dir;
+      });
+    }
+    return arr;
+  }, [filteredTx, colFilters, tableSortCol, tableSortDir, properties]);
 
   const invoiceGroups = useMemo(() => {
     const byProp = groupBy(expandedCoded, (t: any) => t.propertyId);
@@ -445,6 +488,15 @@ export default function ExpensesPage() {
   function clearAll() {
     if (!confirm("Clear all imported transactions?")) return;
     setTx([]); setStatementPeriodText(""); setStatementStart(null); setStatementEnd(null);
+  }
+
+  function handleSortCol(col: string) {
+    if (tableSortCol === col) setTableSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else { setTableSortCol(col); setTableSortDir("asc"); }
+  }
+  function setColFilter(k: string, v: string) { setColFilters((p) => ({ ...p, [k]: v })); }
+  function togglePropExpand(propId: string) {
+    setExpandedProps((prev) => { const n = new Set(prev); n.has(propId) ? n.delete(propId) : n.add(propId); return n; });
   }
 
   function propName(propId: string) {
@@ -567,6 +619,12 @@ export default function ExpensesPage() {
               <input type="checkbox" checked={showOnlyUncoded} onChange={(e) => setShowOnlyUncoded(e.target.checked)} />
               Uncoded only
             </label>
+            <button className="btn" style={{ fontSize: 12, padding: "5px 10px", background: showColFilters ? "var(--navy)" : undefined, color: showColFilters ? "#fff" : undefined }} onClick={() => setShowColFilters((v) => !v)}>
+              {showColFilters ? "Hide Filters" : "Filters"}
+            </button>
+            {Object.values(colFilters).some((v) => v.trim()) && (
+              <button className="btn" style={{ fontSize: 12, padding: "5px 10px" }} onClick={() => setColFilters({})}>Clear Filters</button>
+            )}
             <input placeholder="Search…" value={search} onChange={(e) => setSearch(e.target.value)} style={{ fontSize: 13, padding: "6px 10px", borderRadius: 8, border: "1px solid var(--border)", outline: "none", width: 160 }} />
           </div>
         </div>
@@ -574,20 +632,52 @@ export default function ExpensesPage() {
         <div style={{ overflowX: "auto", overflowY: "auto", maxHeight: CODE_TABLE_MAX_HEIGHT, borderRadius: 12, border: "1px solid var(--border)" }}>
           <table style={{ minWidth: 1200, width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
-              <tr>
-                <th style={{ ...stickyThStyle, minWidth: 110, padding: "10px", textAlign: "left", borderBottom: "1px solid var(--border)", color: "var(--muted)", fontWeight: 800 }}>Date</th>
-                <th style={{ ...stickyThStyle, minWidth: 140, padding: "10px", textAlign: "left", borderBottom: "1px solid var(--border)", color: "var(--muted)", fontWeight: 800 }}>User</th>
-                <th style={{ ...stickyThStyle, minWidth: 110, padding: "10px", textAlign: "left", borderBottom: "1px solid var(--border)", color: "var(--muted)", fontWeight: 800 }}>Amount</th>
-                <th style={{ ...stickyThStyle, minWidth: 260, padding: "10px", textAlign: "left", borderBottom: "1px solid var(--border)", color: "var(--muted)", fontWeight: 800 }}>Description</th>
-                <th style={{ ...stickyThStyle, minWidth: 170, padding: "10px", textAlign: "left", borderBottom: "1px solid var(--border)", color: "var(--muted)", fontWeight: 800 }}>Category</th>
-                <th style={{ ...stickyThStyle, minWidth: 160, padding: "10px", textAlign: "left", borderBottom: "1px solid var(--border)", color: "var(--muted)", fontWeight: 800 }}>Property</th>
-                <th style={{ ...stickyThStyle, minWidth: 180, padding: "10px", textAlign: "left", borderBottom: "1px solid var(--border)", color: "var(--muted)", fontWeight: 800 }}>Account Code(s)</th>
-                <th style={{ ...stickyThStyle, minWidth: 120, padding: "10px", textAlign: "left", borderBottom: "1px solid var(--border)", color: "var(--muted)", fontWeight: 800 }}>Suite (TI)</th>
-                <th style={{ ...stickyThStyle, minWidth: 260, padding: "10px", textAlign: "left", borderBottom: "1px solid var(--border)", color: "var(--muted)", fontWeight: 800 }}>Invoice Description</th>
-              </tr>
+              {(() => {
+                const sortIcon = (col: string) => tableSortCol === col ? (tableSortDir === "asc" ? " ↑" : " ↓") : <span style={{ opacity: 0.35, fontSize: 10 }}> ⇅</span>;
+                const thBase: React.CSSProperties = { ...stickyThStyle, padding: "10px", textAlign: "left", borderBottom: "1px solid var(--border)", color: "var(--muted)", fontWeight: 800, cursor: "pointer", userSelect: "none", whiteSpace: "nowrap" };
+                const filterTh: React.CSSProperties = { ...stickyThStyle, top: 38, padding: "4px 6px", borderBottom: "1px solid var(--border)", background: "#f8fafc" };
+                const filterInput: React.CSSProperties = { width: "100%", fontSize: 12, padding: "3px 6px", borderRadius: 6, border: "1px solid var(--border)", outline: "none" };
+                return (
+                  <>
+                    <tr>
+                      <th style={{ ...thBase, minWidth: 110 }} onClick={() => handleSortCol("date")}>Date{sortIcon("date")}</th>
+                      <th style={{ ...thBase, minWidth: 140 }} onClick={() => handleSortCol("user")}>User{sortIcon("user")}</th>
+                      <th style={{ ...thBase, minWidth: 110 }} onClick={() => handleSortCol("amount")}>Amount{sortIcon("amount")}</th>
+                      <th style={{ ...thBase, minWidth: 260 }} onClick={() => handleSortCol("description")}>Description{sortIcon("description")}</th>
+                      <th style={{ ...thBase, minWidth: 170 }} onClick={() => handleSortCol("category")}>Category{sortIcon("category")}</th>
+                      <th style={{ ...thBase, minWidth: 160 }} onClick={() => handleSortCol("property")}>Property{sortIcon("property")}</th>
+                      <th style={{ ...thBase, minWidth: 180 }} onClick={() => handleSortCol("acct")}>Account Code(s){sortIcon("acct")}</th>
+                      <th style={{ ...thBase, minWidth: 120 }} onClick={() => handleSortCol("suite")}>Suite (TI){sortIcon("suite")}</th>
+                      <th style={{ ...thBase, minWidth: 260 }} onClick={() => handleSortCol("invDesc")}>Invoice Description{sortIcon("invDesc")}</th>
+                    </tr>
+                    {showColFilters && (
+                      <tr>
+                        {(["date","user","amount","description"] as const).map((k) => (
+                          <th key={k} style={filterTh}><input style={filterInput} placeholder="Filter…" value={colFilters[k] ?? ""} onChange={(e) => setColFilter(k, e.target.value)} /></th>
+                        ))}
+                        <th style={filterTh}>
+                          <select style={{ ...filterInput, padding: "3px 4px" }} value={colFilters["category"] ?? ""} onChange={(e) => setColFilter("category", e.target.value)}>
+                            <option value="">All</option>
+                            {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                          </select>
+                        </th>
+                        <th style={filterTh}>
+                          <select style={{ ...filterInput, padding: "3px 4px" }} value={colFilters["property"] ?? ""} onChange={(e) => setColFilter("property", e.target.value)}>
+                            <option value="">All</option>
+                            {PROPERTIES.map((p) => <option key={p.id} value={p.id}>{p.id} — {p.name}</option>)}
+                          </select>
+                        </th>
+                        {(["acct","suite","invDesc"] as const).map((k) => (
+                          <th key={k} style={filterTh}><input style={filterInput} placeholder="Filter…" value={colFilters[k] ?? ""} onChange={(e) => setColFilter(k, e.target.value)} /></th>
+                        ))}
+                      </tr>
+                    )}
+                  </>
+                );
+              })()}
             </thead>
             <tbody>
-              {filteredTx.map((t) => {
+              {displayTx.map((t) => {
                 const acctCodes = getAccountCodes(t.category, t.propertyId);
                 const acctText = acctCodes.length ? acctCodes.join(", ") : "—";
                 const user = toTitleCaseFirstName(t.cardMember);
@@ -623,7 +713,7 @@ export default function ExpensesPage() {
                   </tr>
                 );
               })}
-              {!filteredTx.length && (
+              {!displayTx.length && (
                 <tr><td colSpan={9} className="small muted" style={{ padding: 14 }}>No rows to show.</td></tr>
               )}
             </tbody>
@@ -647,14 +737,38 @@ export default function ExpensesPage() {
               </tr>
             </thead>
             <tbody>
-              {invoiceGroups.map((g) => (
-                <tr key={g.propId} style={{ borderBottom: "1px solid rgba(15,23,42,0.08)" }}>
-                  <td style={{ padding: "10px" }}>{g.propId} — {propName(g.propId)}</td>
-                  <td style={{ padding: "10px", color: "var(--muted)", fontSize: 12 }}>{g.categoryGroups.map((cg) => cg.category).join(", ")}</td>
-                  <td style={{ padding: "10px", whiteSpace: "nowrap" }}>{g.itemCount}</td>
-                  <td style={{ padding: "10px", textAlign: "right", whiteSpace: "nowrap" }}>{toMoney(g.total)}</td>
-                </tr>
-              ))}
+              {invoiceGroups.map((g) => {
+                const isOpen = expandedProps.has(g.propId);
+                return (
+                  <>
+                    <tr key={g.propId} onClick={() => togglePropExpand(g.propId)} style={{ borderBottom: isOpen ? "none" : "1px solid rgba(15,23,42,0.08)", cursor: "pointer", background: isOpen ? "#f8fafc" : undefined }}>
+                      <td style={{ padding: "10px", fontWeight: 600 }}>
+                        <span style={{ display: "inline-block", width: 16, marginRight: 4, fontSize: 10, color: "var(--muted)" }}>{isOpen ? "▼" : "▶"}</span>
+                        {g.propId} — {propName(g.propId)}
+                      </td>
+                      <td style={{ padding: "10px", color: "var(--muted)", fontSize: 12 }}>{g.categoryGroups.map((cg) => cg.category).join(", ")}</td>
+                      <td style={{ padding: "10px", whiteSpace: "nowrap" }}>{g.itemCount}</td>
+                      <td style={{ padding: "10px", textAlign: "right", whiteSpace: "nowrap" }}>{toMoney(g.total)}</td>
+                    </tr>
+                    {isOpen && g.categoryGroups.map((cg, ci) => {
+                      const catTotal = cg.items.reduce((a, t: any) => a + Number(t.amount), 0);
+                      const isLast = ci === g.categoryGroups.length - 1;
+                      return (
+                        <tr key={g.propId + cg.category} onClick={() => setDrillModal({ propId: g.propId, category: cg.category, items: cg.items })} style={{ borderBottom: isLast ? "1px solid rgba(15,23,42,0.08)" : "1px solid rgba(15,23,42,0.04)", cursor: "pointer", background: "#f0f4f8" }}>
+                          <td style={{ padding: "8px 10px 8px 30px", color: "var(--navy)" }}>
+                            <span style={{ marginRight: 6, fontSize: 10 }}>↳</span>{cg.category}
+                          </td>
+                          <td style={{ padding: "8px 10px", color: "var(--muted)", fontSize: 12 }}>
+                            {CATEGORY_ACC[cg.category as keyof typeof CATEGORY_ACC] ?? "—"}
+                          </td>
+                          <td style={{ padding: "8px 10px", whiteSpace: "nowrap" }}>{cg.items.length}</td>
+                          <td style={{ padding: "8px 10px", textAlign: "right", whiteSpace: "nowrap" }}>{toMoney(catTotal)}</td>
+                        </tr>
+                      );
+                    })}
+                  </>
+                );
+              })}
               {!invoiceGroups.length && (
                 <tr><td colSpan={4} className="small muted" style={{ padding: 14 }}>Code at least one transaction to generate invoices.</td></tr>
               )}
@@ -662,6 +776,51 @@ export default function ExpensesPage() {
           </table>
         </div>
       </div>
+
+      {/* Drill-down modal */}
+      {drillModal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.55)", zIndex: 998, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} onClick={() => setDrillModal(null)}>
+          <div className="card" style={{ maxWidth: 780, width: "100%", maxHeight: "80vh", display: "flex", flexDirection: "column" }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+              <div>
+                <b style={{ fontSize: 15 }}>{drillModal.propId} — {propName(drillModal.propId)}</b>
+                <div className="small muted" style={{ marginTop: 2 }}>{drillModal.category}</div>
+              </div>
+              <button className="btn" style={{ padding: "4px 10px" }} onClick={() => setDrillModal(null)}>✕</button>
+            </div>
+            <div style={{ overflowY: "auto", borderRadius: 8, border: "1px solid var(--border)" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                <thead>
+                  <tr style={{ background: "#f8fafc" }}>
+                    <th style={{ padding: "8px 10px", textAlign: "left", color: "var(--muted)", fontWeight: 800, borderBottom: "1px solid var(--border)", whiteSpace: "nowrap" }}>Date</th>
+                    <th style={{ padding: "8px 10px", textAlign: "left", color: "var(--muted)", fontWeight: 800, borderBottom: "1px solid var(--border)" }}>Description</th>
+                    <th style={{ padding: "8px 10px", textAlign: "left", color: "var(--muted)", fontWeight: 800, borderBottom: "1px solid var(--border)" }}>Invoice Description</th>
+                    {drillModal.category === "TI" && <th style={{ padding: "8px 10px", textAlign: "left", color: "var(--muted)", fontWeight: 800, borderBottom: "1px solid var(--border)" }}>Suite</th>}
+                    <th style={{ padding: "8px 10px", textAlign: "right", color: "var(--muted)", fontWeight: 800, borderBottom: "1px solid var(--border)", whiteSpace: "nowrap" }}>Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {drillModal.items.map((t: any, i: number) => (
+                    <tr key={i} style={{ borderBottom: "1px solid rgba(15,23,42,0.06)" }}>
+                      <td style={{ padding: "8px 10px", whiteSpace: "nowrap" }}>{t.date}</td>
+                      <td style={{ padding: "8px 10px" }}>{trimLastTwoChars(t.description)}</td>
+                      <td style={{ padding: "8px 10px", color: "var(--muted)" }}>{t.codedDescription || "—"}</td>
+                      {drillModal.category === "TI" && <td style={{ padding: "8px 10px" }}>{t.suite}</td>}
+                      <td style={{ padding: "8px 10px", textAlign: "right", whiteSpace: "nowrap" }}>{toMoney(t.amount)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr style={{ background: "#f8fafc" }}>
+                    <td colSpan={drillModal.category === "TI" ? 4 : 3} style={{ padding: "8px 10px", fontWeight: 700, fontSize: 13 }}>Total ({drillModal.items.length} items)</td>
+                    <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 700, whiteSpace: "nowrap" }}>{toMoney(drillModal.items.reduce((a: number, t: any) => a + Number(t.amount), 0))}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* After-ZIP modal */}
       {showAfterZipModal && (
