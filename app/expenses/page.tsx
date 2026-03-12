@@ -511,45 +511,48 @@ export default function ExpensesPage() {
 
   return (
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
-      <header>
+      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
         <h1>Credit Card Expense Coder</h1>
+        <div style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
+          <span style={{ fontFamily: "'Arial Black', 'Arial Bold', Arial, sans-serif", fontWeight: 900, fontSize: 30, letterSpacing: "-0.5px", lineHeight: 1 }}>KORMAN</span>
+          <div style={{ width: 1, height: 36, background: "#000", flexShrink: 0 }} />
+          <div style={{ fontSize: 11, letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}><div>COMMERCIAL</div><div>PROPERTIES</div></div>
+        </div>
       </header>
 
       {/* Import bar */}
       <div className="card">
-        <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-          <div>
-            <b>Import Credit Card Statement</b>
-            <p className="muted small" style={{ margin: "8px 0 0" }}>
-              Upload an Amex Excel statement (.xlsx / .xls). Transportation rows auto-code to AUTO / BP &amp; SC.
-            </p>
-            <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 10 }}>
-              <input type="file" accept=".xlsx,.xls" style={{ width: "auto", flex: 1, fontSize: 13, padding: "6px 8px", borderRadius: 8, border: "1px solid var(--border)" }} onChange={(e) => { const f = e.target.files?.[0]; if (f) importFile(f); (e.target as any).value = ""; }} />
-              <button className="btn" onClick={clearAll} disabled={!tx.length}>Clear</button>
-            </div>
-          </div>
-
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-            <div style={{ display: "flex", gap: 8 }}>
-              <div className="pill"><b style={{ fontSize: 17, fontWeight: 900 }}>{totals.count}</b><span className="small muted">Transactions</span></div>
-              <div className="pill"><b style={{ fontSize: 17, fontWeight: 900 }}>{totals.coded}</b><span className="small muted">Coded</span></div>
-              <div className="pill pill-total"><b style={{ fontSize: 17, fontWeight: 900 }}>{toMoney(totals.total)}</b><span className="small muted">Total</span></div>
-            </div>
-            <div className="small muted"><b>Period:</b> {statementPeriodText || "—"}</div>
-          </div>
-
-          <div style={{ display: "flex", gap: 8, flexDirection: "column", alignItems: "flex-end" }}>
-            <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
+          <b>Import Credit Card Statement</b>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            {tx.length > 0 && (
               <button className="btn large" onClick={saveStatement} disabled={!totals.coded || saving}>
                 {saving ? "Saving…" : "Save to History"}
               </button>
-              <button className="btn primary large" onClick={generateAllPdfsZip} disabled={!invoiceGroups.length}>
-                Generate ALL PDFs (ZIP)
-              </button>
-            </div>
-            {saveError && <div style={{ color: "#b42318", fontSize: 13 }}>{saveError}</div>}
+            )}
+            <button className="btn primary large" onClick={generateAllPdfsZip} disabled={!invoiceGroups.length}>
+              Generate ALL PDFs (ZIP)
+            </button>
           </div>
         </div>
+        <p className="muted small" style={{ marginTop: 8 }}>
+          Upload an Amex Excel statement (.xlsx / .xls). Transportation rows auto-code to AUTO / BP &amp; SC.
+        </p>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 12 }}>
+          <div style={{ flex: 1, display: "flex", alignItems: "center", border: "1px solid var(--border)", borderRadius: 999, padding: "6px 14px 6px 6px", background: "#fff", minWidth: 0 }}>
+            <input type="file" accept=".xlsx,.xls" onChange={(e) => { const f = e.target.files?.[0]; if (f) importFile(f); (e.target as any).value = ""; }} style={{ flex: 1, minWidth: 0, border: "none", background: "transparent", fontSize: 14 }} />
+          </div>
+          <button className="btn" style={{ borderRadius: 999, fontWeight: 700, whiteSpace: "nowrap" }} onClick={clearAll} disabled={!tx.length}>Clear</button>
+        </div>
+        {tx.length > 0 && (
+          <div className="pills">
+            <div className="pill"><b>{totals.count}</b><span className="small muted">Transactions</span></div>
+            <div className="pill"><b>{totals.coded}</b><span className="small muted">Coded</span></div>
+            <div className="pill pill-total"><b>{toMoney(totals.total)}</b><span className="small muted">Total</span></div>
+          </div>
+        )}
+        {statementPeriodText && <div className="small muted" style={{ textAlign: "center", marginTop: 6 }}><b>Period:</b> {statementPeriodText}</div>}
+        {saveError && <div style={{ color: "#b42318", fontSize: 13, marginTop: 6 }}>{saveError}</div>}
       </div>
 
       {/* Code Transactions card */}
