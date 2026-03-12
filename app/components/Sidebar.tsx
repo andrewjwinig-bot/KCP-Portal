@@ -13,7 +13,7 @@ const NAV = [
     ),
   },
   {
-    label: "History",
+    label: "Payroll History",
     href: "/history",
     external: false,
     indent: true,
