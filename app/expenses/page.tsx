@@ -754,6 +754,24 @@ export default function ExpensesPage() {
         {saveError && <div style={{ color: "#b42318", fontSize: 13, marginTop: 6 }}>{saveError}</div>}
       </div>
 
+      {/* Charts card */}
+      {tx.filter((t) => Number(t.amount) > 0).length > 0 && (
+        <div className="card">
+          <b>Charts</b>
+          <div style={{ display: "flex", gap: 40, marginTop: 20, flexWrap: "wrap" }}>
+            <div style={{ flex: 1, minWidth: 340 }}>
+              <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 14, color: "var(--muted)", letterSpacing: "0.04em", textTransform: "uppercase" }}>By Property</div>
+              <DonutChart data={chartDataByProperty} />
+            </div>
+            <div style={{ width: 1, background: "var(--border)", flexShrink: 0, alignSelf: "stretch" }} />
+            <div style={{ flex: 1, minWidth: 340 }}>
+              <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 14, color: "var(--muted)", letterSpacing: "0.04em", textTransform: "uppercase" }}>By Category</div>
+              <DonutChart data={chartDataByCategory} />
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Code Transactions card */}
       <div className="card">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 10 }}>
@@ -959,24 +977,6 @@ export default function ExpensesPage() {
           </table>
         </div>
       </div>
-
-      {/* Charts card */}
-      {tx.filter((t) => Number(t.amount) > 0).length > 0 && (
-        <div className="card">
-          <b>Charts</b>
-          <div style={{ display: "flex", gap: 40, marginTop: 20, flexWrap: "wrap" }}>
-            <div style={{ flex: 1, minWidth: 340 }}>
-              <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 14, color: "var(--muted)", letterSpacing: "0.04em", textTransform: "uppercase" }}>By Property</div>
-              <DonutChart data={chartDataByProperty} />
-            </div>
-            <div style={{ width: 1, background: "var(--border)", flexShrink: 0, alignSelf: "stretch" }} />
-            <div style={{ flex: 1, minWidth: 340 }}>
-              <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 14, color: "var(--muted)", letterSpacing: "0.04em", textTransform: "uppercase" }}>By Category</div>
-              <DonutChart data={chartDataByCategory} />
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Drill-down modal */}
       {drillModal && (
