@@ -164,6 +164,79 @@ const ALLOC_BP_SC: Record<string, number> = {
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
+const PIE_COLORS = [
+  "#1e3a5f","#2563eb","#0891b2","#059669","#65a30d",
+  "#d97706","#dc2626","#9333ea","#db2777","#0d9488",
+  "#6366f1","#ca8a04","#0284c7","#16a34a","#7c3aed",
+  "#e11d48","#84cc16","#f59e0b",
+];
+
+type PieSlice = { label: string; value: number; color: string };
+
+function DonutChart({ data }: { data: PieSlice[] }) {
+  const [hovered, setHovered] = useState<number | null>(null);
+  const total = data.reduce((a, d) => a + d.value, 0);
+  if (!total) return <div className="small muted">No data.</div>;
+
+  const cx = 120, cy = 120, outerR = 110, innerR = 64;
+  const slices: Array<PieSlice & { path: string }> = [];
+  let angle = -Math.PI / 2;
+  for (let i = 0; i < data.length; i++) {
+    const d = data[i];
+    if (d.value <= 0) continue;
+    const pct = d.value / total;
+    const sweep = pct >= 1 ? Math.PI * 2 - 0.0001 : pct * Math.PI * 2;
+    const sa = angle, ea = angle + sweep;
+    angle += pct * Math.PI * 2;
+    const largeArc = sweep > Math.PI ? 1 : 0;
+    const ox1 = cx + outerR * Math.cos(sa), oy1 = cy + outerR * Math.sin(sa);
+    const ox2 = cx + outerR * Math.cos(ea), oy2 = cy + outerR * Math.sin(ea);
+    const ix1 = cx + innerR * Math.cos(sa), iy1 = cy + innerR * Math.sin(sa);
+    const ix2 = cx + innerR * Math.cos(ea), iy2 = cy + innerR * Math.sin(ea);
+    const path = `M ${ox1} ${oy1} A ${outerR} ${outerR} 0 ${largeArc} 1 ${ox2} ${oy2} L ${ix2} ${iy2} A ${innerR} ${innerR} 0 ${largeArc} 0 ${ix1} ${iy1} Z`;
+    slices.push({ ...d, path });
+  }
+
+  const hov = hovered !== null ? slices[hovered] : null;
+  const trim = (s: string, n = 17) => s.length > n ? s.slice(0, n) + "…" : s;
+
+  return (
+    <div style={{ display: "flex", gap: 20, alignItems: "flex-start", flexWrap: "wrap" }}>
+      <svg width={240} height={240} style={{ flexShrink: 0 }}>
+        {slices.map((s, i) => (
+          <path key={s.label} d={s.path} fill={s.color} stroke="#fff" strokeWidth={2}
+            style={{ cursor: "pointer", opacity: hovered !== null && hovered !== i ? 0.45 : 1, transition: "opacity 0.12s" }}
+            onMouseEnter={() => setHovered(i)} onMouseLeave={() => setHovered(null)} />
+        ))}
+        <text x={cx} y={cy - 16} textAnchor="middle" style={{ fontSize: 11, fill: "#64748b", fontFamily: "inherit" }}>
+          {trim(hov ? hov.label : "Total")}
+        </text>
+        <text x={cx} y={cy + 5} textAnchor="middle" style={{ fontSize: 14, fontWeight: 700, fill: "#0f172a", fontFamily: "inherit" }}>
+          {hov ? toMoney(hov.value) : toMoney(total)}
+        </text>
+        {hov && (
+          <text x={cx} y={cy + 22} textAnchor="middle" style={{ fontSize: 12, fill: "#64748b", fontFamily: "inherit" }}>
+            {((hov.value / total) * 100).toFixed(1)}%
+          </text>
+        )}
+      </svg>
+      <div style={{ flex: 1, minWidth: 160, display: "flex", flexDirection: "column", gap: 5, maxHeight: 240, overflowY: "auto" }}>
+        {slices.map((s, i) => (
+          <div key={s.label} onMouseEnter={() => setHovered(i)} onMouseLeave={() => setHovered(null)}
+            style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, cursor: "default",
+              opacity: hovered !== null && hovered !== i ? 0.45 : 1, transition: "opacity 0.12s" }}>
+            <div style={{ width: 10, height: 10, borderRadius: 2, background: s.color, flexShrink: 0 }} />
+            <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.label}</span>
+            <span style={{ color: "var(--muted)", whiteSpace: "nowrap", marginLeft: 4 }}>
+              {toMoney(s.value)} · {((s.value / total) * 100).toFixed(1)}%
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 type Tx = {
   id: string;
   date: string;
@@ -452,6 +525,38 @@ export default function ExpensesPage() {
     }
     return groups.sort((a, b) => a.propId.localeCompare(b.propId));
   }, [expandedCoded]);
+
+  const chartDataByProperty = useMemo<PieSlice[]>(() => {
+    const pos = tx.filter((t) => Number(t.amount) > 0);
+    const coded = pos.filter(isRowCoded);
+    const uncodedAmt = pos.filter((t) => !isRowCoded(t)).reduce((a, t) => a + t.amount, 0);
+    const byProp = new Map<string, number>();
+    for (const t of coded) byProp.set(t.propertyId, (byProp.get(t.propertyId) ?? 0) + t.amount);
+    const sorted = [...byProp.entries()].sort((a, b) => b[1] - a[1]);
+    const result: PieSlice[] = sorted.map(([propId, value], i) => ({
+      label: `${propId} — ${properties.find((p) => p.id === propId)?.name ?? propId}`,
+      value,
+      color: PIE_COLORS[i % PIE_COLORS.length],
+    }));
+    if (uncodedAmt > 0) result.push({ label: "Uncoded", value: uncodedAmt, color: "#fca5a5" });
+    return result;
+  }, [tx, properties]);
+
+  const chartDataByCategory = useMemo<PieSlice[]>(() => {
+    const pos = tx.filter((t) => Number(t.amount) > 0);
+    const coded = pos.filter(isRowCoded);
+    const uncodedAmt = pos.filter((t) => !isRowCoded(t)).reduce((a, t) => a + t.amount, 0);
+    const byCat = new Map<string, number>();
+    for (const t of coded) byCat.set(t.category, (byCat.get(t.category) ?? 0) + t.amount);
+    const sorted = [...byCat.entries()].sort((a, b) => b[1] - a[1]);
+    const result: PieSlice[] = sorted.map(([cat, value], i) => ({
+      label: cat,
+      value,
+      color: PIE_COLORS[i % PIE_COLORS.length],
+    }));
+    if (uncodedAmt > 0) result.push({ label: "Uncoded", value: uncodedAmt, color: "#fca5a5" });
+    return result;
+  }, [tx]);
 
   function upsertTx(list: Tx[]) { setTx((prev) => [...list, ...prev]); }
 
@@ -776,6 +881,24 @@ export default function ExpensesPage() {
           </table>
         </div>
       </div>
+
+      {/* Charts card */}
+      {tx.filter((t) => Number(t.amount) > 0).length > 0 && (
+        <div className="card">
+          <b>Charts</b>
+          <div style={{ display: "flex", gap: 40, marginTop: 20, flexWrap: "wrap" }}>
+            <div style={{ flex: 1, minWidth: 340 }}>
+              <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 14, color: "var(--muted)", letterSpacing: "0.04em", textTransform: "uppercase" }}>By Property</div>
+              <DonutChart data={chartDataByProperty} />
+            </div>
+            <div style={{ width: 1, background: "var(--border)", flexShrink: 0, alignSelf: "stretch" }} />
+            <div style={{ flex: 1, minWidth: 340 }}>
+              <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 14, color: "var(--muted)", letterSpacing: "0.04em", textTransform: "uppercase" }}>By Category</div>
+              <DonutChart data={chartDataByCategory} />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Drill-down modal */}
       {drillModal && (
