@@ -8,7 +8,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const sidebarW = open ? 220 : 60;
 
   return (
-    <div style={{ paddingLeft: sidebarW, transition: "padding-left 0.2s ease", minHeight: "100vh" }}>
+    <div style={{ paddingLeft: sidebarW, transition: "padding-left 0.2s ease", minHeight: "100vh", overflowX: "hidden" }}>
       <Sidebar open={open} onToggle={() => setOpen((o) => !o)} />
       {/* Korman Commercial Properties logo — fixed top-right on every page */}
       <div style={{ position: "fixed", top: 22, right: 20, zIndex: 30, display: "flex", alignItems: "center", gap: 14 }}>

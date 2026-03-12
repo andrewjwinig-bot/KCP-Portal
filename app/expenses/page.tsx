@@ -633,8 +633,14 @@ export default function ExpensesPage() {
         <div className="small muted" style={{ marginTop: 4, marginBottom: 10 }}>
           One invoice per property — summary page + detailed charges. BP &amp; SC expenses are pre-allocated by schedule.
         </div>
-        <div style={{ overflowX: "auto", borderRadius: 12, border: "1px solid var(--border)" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+        <div style={{ borderRadius: 12, border: "1px solid var(--border)" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, tableLayout: "fixed" }}>
+            <colgroup>
+              <col style={{ width: "28%" }} />
+              <col />
+              <col style={{ width: 80 }} />
+              <col style={{ width: 110 }} />
+            </colgroup>
             <thead>
               <tr>
                 <th style={{ padding: "10px", textAlign: "left", color: "var(--muted)", fontWeight: 800, borderBottom: "1px solid var(--border)" }}>Property</th>
