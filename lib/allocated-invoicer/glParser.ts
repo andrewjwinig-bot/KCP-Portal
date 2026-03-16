@@ -34,6 +34,9 @@ export type GLParseResult = {
 
 const TARGET_SUFFIXES = new Set(["9301", "9302", "9303"]);
 
+// Matches rows that are GL totals/balance lines — not individual transactions
+const TOTAL_BALANCE_RE = /^(total|balance|subtotal|net\s+change|beginning\s+balance|ending\s+balance)/i;
+
 // Matches "XXXX-XXXX" anywhere at the start of a cell value
 const ACCOUNT_CODE_START = /^(\d{4}-\d{4})/;
 const DATE_RE = /^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/;
@@ -89,6 +92,18 @@ function findAccountInRow(row: unknown[], maxCols = 10): { col: number; code: st
     }
   }
   return null;
+}
+
+/**
+ * Returns true if this row appears to be a GL total/balance summary line
+ * (e.g. "Total 8220-9301", "Ending Balance", "Subtotal") rather than a transaction.
+ */
+function isTotalOrBalanceRow(row: unknown[]): boolean {
+  for (let c = 0; c < Math.min(8, row.length); c++) {
+    const s = String(row[c] ?? "").trim();
+    if (s && TOTAL_BALANCE_RE.test(s)) return true;
+  }
+  return false;
 }
 
 /**
@@ -233,6 +248,9 @@ export function parseGLExcel(buffer: ArrayBuffer): GLParseResult {
         : "";
       continue;
     }
+
+    // Skip total/balance summary rows (prevents doubling from running-balance lines)
+    if (isTotalOrBalanceRow(row)) continue;
 
     // Only process transactions for target accounts
     if (!currentAccountSuffix) continue;
