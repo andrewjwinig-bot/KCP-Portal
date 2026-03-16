@@ -160,8 +160,7 @@ export default function AllocatedInvoicerPage() {
   const [fileName, setFileName] = useState<string>("");
   const [acctFilter, setAcctFilter] = useState<"all" | "9301" | "9302" | "9303">("all");
   const [search, setSearch] = useState("");
-  const [sortCol, setSortCol] = useState<string | null>(null);
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [expandedAccounts, setExpandedAccounts] = useState<Set<string>>(new Set());
 
   // ── Derived: allocation rows ────────────────────────────────────────────────
 
@@ -201,7 +200,7 @@ export default function AllocatedInvoicerPage() {
     [allocationRows]
   );
 
-  // ── Derived: filtered/sorted GL transactions ────────────────────────────────
+  // ── Derived: filtered GL transactions ──────────────────────────────────────
 
   const filteredTx = useMemo((): GLTransaction[] => {
     if (!glResult) return [];
@@ -221,29 +220,35 @@ export default function AllocatedInvoicerPage() {
     return list;
   }, [glResult, acctFilter, search]);
 
-  const displayTx = useMemo((): GLTransaction[] => {
-    if (!sortCol) return filteredTx;
-    return [...filteredTx].sort((a, b) => {
-      let av: string | number = "", bv: string | number = "";
-      if (sortCol === "date")    { av = a.date;        bv = b.date; }
-      if (sortCol === "acct")    { av = a.accountCode; bv = b.accountCode; }
-      if (sortCol === "name")    { av = a.accountName; bv = b.accountName; }
-      if (sortCol === "desc")    { av = a.description; bv = b.description; }
-      if (sortCol === "debit")   { av = a.debit;       bv = b.debit; }
-      if (sortCol === "credit")  { av = a.credit;      bv = b.credit; }
-      if (sortCol === "net")     { av = a.net;         bv = b.net; }
-      if (typeof av === "number") {
-        return sortDir === "asc" ? av - (bv as number) : (bv as number) - av;
-      }
-      return sortDir === "asc"
-        ? String(av).localeCompare(String(bv))
-        : String(bv).localeCompare(String(av));
-    });
-  }, [filteredTx, sortCol, sortDir]);
+  // ── Derived: grouped transactions by account code ───────────────────────────
 
-  function handleSort(col: string) {
-    if (sortCol === col) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    else { setSortCol(col); setSortDir("asc"); }
+  const groupedTx = useMemo(() => {
+    const order: string[] = [];
+    const map = new Map<string, GLTransaction[]>();
+    for (const tx of filteredTx) {
+      if (!map.has(tx.accountCode)) { order.push(tx.accountCode); map.set(tx.accountCode, []); }
+      map.get(tx.accountCode)!.push(tx);
+    }
+    return order.map((code) => {
+      const txList = map.get(code)!;
+      return {
+        accountCode:   code,
+        accountName:   txList[0].accountName,
+        accountSuffix: txList[0].accountSuffix,
+        txList,
+        totalDebit:  txList.reduce((a, t) => a + t.debit,  0),
+        totalCredit: txList.reduce((a, t) => a + t.credit, 0),
+        totalNet:    txList.reduce((a, t) => a + t.net,    0),
+      };
+    });
+  }, [filteredTx]);
+
+  function toggleAccount(code: string) {
+    setExpandedAccounts((prev) => {
+      const next = new Set(prev);
+      if (next.has(code)) next.delete(code); else next.add(code);
+      return next;
+    });
   }
 
   // ── Derived: chart data ────────────────────────────────────────────────────
@@ -282,7 +287,7 @@ export default function AllocatedInvoicerPage() {
       setFileName(file.name);
       setAcctFilter("all");
       setSearch("");
-      setSortCol(null);
+      setExpandedAccounts(new Set());
     } catch (e: any) {
       alert("Failed to parse GL file: " + (e?.message ?? String(e)));
     }
@@ -294,7 +299,7 @@ export default function AllocatedInvoicerPage() {
     setFileName("");
     setAcctFilter("all");
     setSearch("");
-    setSortCol(null);
+    setExpandedAccounts(new Set());
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
@@ -374,16 +379,6 @@ export default function AllocatedInvoicerPage() {
   // ── Render helpers ─────────────────────────────────────────────────────────
 
   const stickyTh: React.CSSProperties = { position: "sticky", top: 0, zIndex: 15, background: "#fff" };
-  const sortIcon = (col: string) =>
-    sortCol === col
-      ? sortDir === "asc" ? " ↑" : " ↓"
-      : <span style={{ opacity: 0.35, fontSize: 10 }}> ⇅</span>;
-
-  const thBase: React.CSSProperties = {
-    ...stickyTh, padding: "10px 8px", textAlign: "left",
-    borderBottom: "1px solid var(--border)", color: "var(--muted)",
-    fontWeight: 800, cursor: "pointer", userSelect: "none", whiteSpace: "nowrap",
-  };
 
   const grandAllocTotal = useMemo(
     () => allocationRows.reduce((a, r) => a + r.allocAmount, 0),
@@ -484,10 +479,9 @@ export default function AllocatedInvoicerPage() {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 10 }}>
             <div>
               <b>GL Transaction Breakdown</b>
-              <div className="small muted">Extracted transactions from accounts ending in 9301, 9302, or 9303.</div>
+              <div className="small muted">Click an account row to expand individual GL line items.</div>
             </div>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              {/* Suffix filter pills */}
               {(["all", "9301", "9302", "9303"] as const).map((f) => (
                 <button
                   key={f}
@@ -508,42 +502,75 @@ export default function AllocatedInvoicerPage() {
           </div>
 
           <div style={{ overflowX: "auto", overflowY: "auto", maxHeight: "calc(100vh - 320px)", borderRadius: 12, border: "1px solid var(--border)" }}>
-            <table style={{ minWidth: 900, width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+            <table style={{ minWidth: 860, width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
               <thead>
                 <tr>
-                  <th style={{ ...thBase, minWidth: 100 }} onClick={() => handleSort("acct")}>Account Code{sortIcon("acct")}</th>
-                  <th style={{ ...thBase, minWidth: 180 }} onClick={() => handleSort("name")}>Account Name{sortIcon("name")}</th>
-                  <th style={{ ...thBase, minWidth: 90 }}  onClick={() => handleSort("date")}>Date{sortIcon("date")}</th>
-                  <th style={{ ...thBase, minWidth: 220 }} onClick={() => handleSort("desc")}>Description{sortIcon("desc")}</th>
-                  <th style={{ ...thBase, minWidth: 50 }}>Jrn</th>
-                  <th style={{ ...thBase, minWidth: 70 }}>Ref</th>
-                  <th style={{ ...thBase, minWidth: 100, textAlign: "right" }} onClick={() => handleSort("debit")}>Debit{sortIcon("debit")}</th>
-                  <th style={{ ...thBase, minWidth: 100, textAlign: "right" }} onClick={() => handleSort("credit")}>Credit{sortIcon("credit")}</th>
-                  <th style={{ ...thBase, minWidth: 100, textAlign: "right" }} onClick={() => handleSort("net")}>Net{sortIcon("net")}</th>
+                  <th style={{ ...stickyTh, padding: "10px 8px", borderBottom: "1px solid var(--border)", color: "var(--muted)", fontWeight: 800, whiteSpace: "nowrap", width: 28 }}></th>
+                  <th style={{ ...stickyTh, padding: "10px 8px", borderBottom: "1px solid var(--border)", color: "var(--muted)", fontWeight: 800, whiteSpace: "nowrap", minWidth: 110 }}>Account Code</th>
+                  <th style={{ ...stickyTh, padding: "10px 8px", borderBottom: "1px solid var(--border)", color: "var(--muted)", fontWeight: 800, whiteSpace: "nowrap", minWidth: 180 }}>Account Name</th>
+                  <th style={{ ...stickyTh, padding: "10px 8px", borderBottom: "1px solid var(--border)", color: "var(--muted)", fontWeight: 800, whiteSpace: "nowrap", minWidth: 80 }}>Date</th>
+                  <th style={{ ...stickyTh, padding: "10px 8px", borderBottom: "1px solid var(--border)", color: "var(--muted)", fontWeight: 800, whiteSpace: "nowrap", minWidth: 200 }}>Description</th>
+                  <th style={{ ...stickyTh, padding: "10px 8px", borderBottom: "1px solid var(--border)", color: "var(--muted)", fontWeight: 800, whiteSpace: "nowrap", minWidth: 45 }}>Jrn</th>
+                  <th style={{ ...stickyTh, padding: "10px 8px", borderBottom: "1px solid var(--border)", color: "var(--muted)", fontWeight: 800, whiteSpace: "nowrap", minWidth: 60 }}>Ref</th>
+                  <th style={{ ...stickyTh, padding: "10px 8px", borderBottom: "1px solid var(--border)", color: "var(--muted)", fontWeight: 800, textAlign: "right", whiteSpace: "nowrap", minWidth: 95 }}>Debit</th>
+                  <th style={{ ...stickyTh, padding: "10px 8px", borderBottom: "1px solid var(--border)", color: "var(--muted)", fontWeight: 800, textAlign: "right", whiteSpace: "nowrap", minWidth: 95 }}>Credit</th>
+                  <th style={{ ...stickyTh, padding: "10px 8px", borderBottom: "1px solid var(--border)", color: "var(--muted)", fontWeight: 800, textAlign: "right", whiteSpace: "nowrap", minWidth: 95 }}>Net</th>
                 </tr>
               </thead>
               <tbody>
-                {displayTx.length === 0 && (
-                  <tr><td colSpan={9} style={{ padding: 24, textAlign: "center", color: "var(--muted)" }}>No transactions found.</td></tr>
+                {groupedTx.length === 0 && (
+                  <tr><td colSpan={10} style={{ padding: 24, textAlign: "center", color: "var(--muted)" }}>No transactions found.</td></tr>
                 )}
-                {displayTx.map((tx, i) => (
-                  <tr key={i} style={{ borderTop: "1px solid var(--border)" }}>
-                    <td style={{ padding: "8px 8px" }}>{tx.accountCode}</td>
-                    <td style={{ padding: "8px 8px", color: "var(--muted)", fontSize: 12 }}>{tx.accountName}</td>
-                    <td style={{ padding: "8px 8px", whiteSpace: "nowrap" }}>{tx.date}</td>
-                    <td style={{ padding: "8px 8px" }}>{tx.description}</td>
-                    <td style={{ padding: "8px 8px", color: "var(--muted)" }}>{tx.jrn}</td>
-                    <td style={{ padding: "8px 8px", color: "var(--muted)" }}>{tx.ref}</td>
-                    <td style={{ padding: "8px 8px", textAlign: "right" }}>{tx.debit ? toMoney(tx.debit) : "—"}</td>
-                    <td style={{ padding: "8px 8px", textAlign: "right" }}>{tx.credit ? toMoney(tx.credit) : "—"}</td>
-                    <td style={{ padding: "8px 8px", textAlign: "right", fontWeight: 700 }}>{toMoney(tx.net)}</td>
-                  </tr>
-                ))}
+                {groupedTx.map((group) => {
+                  const isOpen = expandedAccounts.has(group.accountCode);
+                  return (
+                    <>
+                      {/* Account group header row */}
+                      <tr
+                        key={group.accountCode}
+                        onClick={() => toggleAccount(group.accountCode)}
+                        style={{ borderTop: "1px solid var(--border)", background: "#f8fafc", cursor: "pointer" }}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = "#eef3f8")}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = "#f8fafc")}
+                      >
+                        <td style={{ padding: "9px 8px", textAlign: "center", color: "var(--muted)", fontSize: 11 }}>
+                          {isOpen ? "▼" : "▶"}
+                        </td>
+                        <td style={{ padding: "9px 8px", fontWeight: 700 }}>{group.accountCode}</td>
+                        <td style={{ padding: "9px 8px", color: "var(--muted)", fontSize: 12 }}>
+                          {group.accountName}
+                          <span style={{ marginLeft: 8, fontSize: 11, background: "var(--border)", borderRadius: 999, padding: "1px 6px", color: "var(--muted)", fontWeight: 600 }}>
+                            {group.txList.length}
+                          </span>
+                        </td>
+                        <td colSpan={4} />
+                        <td style={{ padding: "9px 8px", textAlign: "right", fontWeight: 600 }}>{group.totalDebit ? toMoney(group.totalDebit) : "—"}</td>
+                        <td style={{ padding: "9px 8px", textAlign: "right", fontWeight: 600 }}>{group.totalCredit ? toMoney(group.totalCredit) : "—"}</td>
+                        <td style={{ padding: "9px 8px", textAlign: "right", fontWeight: 700 }}>{toMoney(group.totalNet)}</td>
+                      </tr>
+                      {/* Individual transaction child rows */}
+                      {isOpen && group.txList.map((tx, i) => (
+                        <tr key={`${group.accountCode}-${i}`} style={{ borderTop: "1px solid #f0f4f8", background: "#fff" }}>
+                          <td style={{ padding: "7px 8px" }} />
+                          <td style={{ padding: "7px 8px", color: "var(--muted)", fontSize: 12, paddingLeft: 20 }}>↳</td>
+                          <td style={{ padding: "7px 8px" }} />
+                          <td style={{ padding: "7px 8px", whiteSpace: "nowrap", color: "var(--muted)", fontSize: 12 }}>{tx.date}</td>
+                          <td style={{ padding: "7px 8px", fontSize: 12 }}>{tx.description}</td>
+                          <td style={{ padding: "7px 8px", color: "var(--muted)", fontSize: 12 }}>{tx.jrn}</td>
+                          <td style={{ padding: "7px 8px", color: "var(--muted)", fontSize: 12 }}>{tx.ref}</td>
+                          <td style={{ padding: "7px 8px", textAlign: "right", fontSize: 12 }}>{tx.debit ? toMoney(tx.debit) : "—"}</td>
+                          <td style={{ padding: "7px 8px", textAlign: "right", fontSize: 12 }}>{tx.credit ? toMoney(tx.credit) : "—"}</td>
+                          <td style={{ padding: "7px 8px", textAlign: "right", fontSize: 12 }}>{toMoney(tx.net)}</td>
+                        </tr>
+                      ))}
+                    </>
+                  );
+                })}
               </tbody>
               <tfoot>
                 <tr style={{ borderTop: "2px solid var(--border)", background: "#f8fafc" }}>
-                  <td colSpan={6} style={{ padding: "8px 8px", fontWeight: 700, fontSize: 12, color: "var(--muted)" }}>
-                    {filteredTx.length} transactions
+                  <td colSpan={7} style={{ padding: "8px 8px", fontWeight: 700, fontSize: 12, color: "var(--muted)" }}>
+                    {groupedTx.length} accounts · {filteredTx.length} transactions
                   </td>
                   <td style={{ padding: "8px 8px", textAlign: "right", fontWeight: 700 }}>{toMoney(txTotals.debit)}</td>
                   <td style={{ padding: "8px 8px", textAlign: "right", fontWeight: 700 }}>{toMoney(txTotals.credit)}</td>
