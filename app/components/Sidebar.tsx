@@ -25,7 +25,7 @@ const NAV = [
     ),
   },
   {
-    label: "Expense Coder",
+    label: "CC Expense Coder",
     href: "/expenses",
     external: false,
     indent: false,
