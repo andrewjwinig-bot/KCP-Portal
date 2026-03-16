@@ -416,13 +416,7 @@ export default function AllocatedInvoicerPage() {
         <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
           <b>Import General Ledger</b>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <button
-              className="btn primary large"
-              onClick={generateAllPdfsZip}
-              disabled={!allocationRows.length}
-            >
-              Generate All PDFs
-            </button>
+            <span style={{ background: "#16a34a", color: "#fff", borderRadius: 999, padding: "4px 14px", fontSize: 13, fontWeight: 700 }}>Monthly</span>
           </div>
         </div>
         <p className="muted small" style={{ marginTop: 8 }}>
@@ -679,7 +673,7 @@ export default function AllocatedInvoicerPage() {
               onClick={generateAllPdfsZip}
               disabled={!allocationRows.length}
             >
-              Download All Invoices (ZIP)
+              Download All Invoices
             </button>
             <button
               className="btn large"
