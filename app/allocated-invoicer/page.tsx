@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import JSZip from "jszip";
 import { parseGLExcel, GLParseResult, GLTransaction } from "../../lib/allocated-invoicer/glParser";
 import { buildAllocInvoicePdf, makeAllocInvoiceId, AllocLineItem } from "../../lib/allocated-invoicer/invoice";
@@ -155,7 +155,9 @@ function DonutChart({ data }: { data: PieSlice[] }) {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function AllocatedInvoicerPage() {
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [glResult, setGlResult] = useState<GLParseResult | null>(null);
+  const [fileName, setFileName] = useState<string>("");
   const [acctFilter, setAcctFilter] = useState<"all" | "9301" | "9302" | "9303">("all");
   const [search, setSearch] = useState("");
   const [sortCol, setSortCol] = useState<string | null>(null);
@@ -277,6 +279,7 @@ export default function AllocatedInvoicerPage() {
       const buf = await file.arrayBuffer();
       const result = parseGLExcel(buf);
       setGlResult(result);
+      setFileName(file.name);
       setAcctFilter("all");
       setSearch("");
       setSortCol(null);
@@ -288,9 +291,11 @@ export default function AllocatedInvoicerPage() {
   function clearAll() {
     if (!confirm("Clear imported General Ledger?")) return;
     setGlResult(null);
+    setFileName("");
     setAcctFilter("all");
     setSearch("");
     setSortCol(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
   function buildLineItemsForProp(propId: string): AllocLineItem[] {
@@ -418,14 +423,25 @@ export default function AllocatedInvoicerPage() {
           Upload the monthly General Ledger Excel export (.xlsx or .xls). Accounts ending in <b>9301</b>, <b>9302</b>, and <b>9303</b> will be extracted and allocated.
         </p>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 12 }}>
-          <div style={{ flex: 1, display: "flex", alignItems: "center", border: "1px solid var(--border)", borderRadius: 999, padding: "6px 14px 6px 6px", background: "#fff", minWidth: 0 }}>
-            <input
-              type="file"
-              accept=".xlsx,.xls"
-              onChange={(e) => { const f = e.target.files?.[0]; if (f) importFile(f); (e.target as HTMLInputElement).value = ""; }}
-              style={{ flex: 1, minWidth: 0, border: "none", background: "transparent", fontSize: 14 }}
-            />
-          </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".xlsx,.xls"
+            style={{ display: "none" }}
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) importFile(f); }}
+          />
+          <button
+            className="btn large"
+            onClick={() => fileInputRef.current?.click()}
+            style={{ whiteSpace: "nowrap" }}
+          >
+            Choose GL File…
+          </button>
+          {fileName && (
+            <span style={{ fontSize: 13, color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
+              {fileName}
+            </span>
+          )}
           <button className="btn" style={{ borderRadius: 999, fontWeight: 700, whiteSpace: "nowrap" }} onClick={clearAll} disabled={!glResult}>
             Clear
           </button>
