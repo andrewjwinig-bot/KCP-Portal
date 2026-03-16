@@ -705,6 +705,19 @@ export default function ExpensesPage() {
     setShowAfterZipModal(true);
   }
 
+  function downloadExcelSummary() {
+    if (!expandedCoded.length) return;
+    const filenameMonth = statementMonth || "Statement";
+    const blob = buildTopSheetXlsx({
+      statementPeriodText: statementPeriodText || "",
+      statementMonth: statementMonth || "",
+      tx: expandedCoded.map((t: any) => ({ date: t.date, cardMember: t.cardMember, description: t.description, codedDescription: t.codedDescription, amount: t.amount, originalAmount: t.originalAmount, category: t.category, propertyId: t.propertyId, propertyName: propName(t.propertyId), suite: t.suite } as TopSheetTx)),
+      propertyOrder: properties.map((p) => ({ id: p.id, name: p.name })),
+      categoryOrder: [...TOP_SHEET_CATEGORIES],
+    });
+    download(`${filenameMonth} - TOP SHEET.xlsx`, blob);
+  }
+
   async function downloadSingleInvoicePdf(g: typeof invoiceGroups[number]) {
     const filenameMonth = statementMonth || "Statement";
     const invoiceBlob = buildInvoicePdf({
@@ -771,9 +784,7 @@ export default function ExpensesPage() {
                 {saving ? "Saving…" : "Save to History"}
               </button>
             )}
-            <button className="btn primary large" onClick={generateAllPdfsZip} disabled={!invoiceGroups.length}>
-              Generate All PDFs
-            </button>
+            <span style={{ background: "#16a34a", color: "#fff", borderRadius: 999, padding: "4px 14px", fontSize: 13, fontWeight: 700 }}>Monthly</span>
           </div>
         </div>
         <p className="muted small" style={{ marginTop: 8 }}>
@@ -1035,7 +1046,10 @@ export default function ExpensesPage() {
           <div className="small muted" style={{ marginTop: 4, marginBottom: 14 }}>One PDF invoice per property. Only properties with coded amounts greater than $0 are included.</div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
             <button className="btn primary large" onClick={generateAllPdfsZip}>
-              Download All Invoices (ZIP)
+              Download All Invoices
+            </button>
+            <button className="btn large" onClick={downloadExcelSummary} disabled={!expandedCoded.length}>
+              Download Excel Summary
             </button>
           </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>

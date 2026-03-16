@@ -475,7 +475,7 @@ export default function Page() {
                 {saving ? "Saving…" : "Save Pay Period"}
               </button>
             )}
-            <button className="btn primary large" disabled={!payroll || !!busy} onClick={generateAll}>Generate All PDFs</button>
+            <span style={{ background: "#16a34a", color: "#fff", borderRadius: 999, padding: "4px 14px", fontSize: 13, fontWeight: 700 }}>Monthly</span>
           </div>
         </div>
         <p className="muted small" style={{ marginTop: 8 }}>
