@@ -705,6 +705,48 @@ export default function ExpensesPage() {
     setShowAfterZipModal(true);
   }
 
+  async function downloadSingleInvoicePdf(g: typeof invoiceGroups[number]) {
+    const filenameMonth = statementMonth || "Statement";
+    const invoiceBlob = buildInvoicePdf({
+      propertyName: propName(g.propId),
+      propertyCode: g.propId,
+      categoryGroups: g.categoryGroups.map((cg) => ({ category: cg.category, items: cg.items.map((t: any) => ({ date: t.date, description: t.description, amount: t.amount, category: t.category, suite: t.suite, codedDescription: t.codedDescription, originalAmount: t.originalAmount })) })),
+      invoiceDate: invoiceDate || "",
+      statementMonth: statementMonth || "",
+      periodText: statementPeriodText || "",
+      periodCompact: (statementStart && effectiveEnd) ? `${formatDateCompact(statementStart)}-${formatDateCompact(effectiveEnd)}` : undefined,
+      invoiceId: makeInvoiceId(g.propId),
+    });
+
+    const seenTxIds = new Set<string>();
+    const propAttachmentFiles: File[] = [];
+    for (const cg of g.categoryGroups) {
+      for (const t of cg.items as any[]) {
+        if (t.id && !seenTxIds.has(t.id) && attachments.has(t.id)) {
+          seenTxIds.add(t.id);
+          propAttachmentFiles.push(attachments.get(t.id)!);
+        }
+      }
+    }
+
+    let finalBlob: Blob = invoiceBlob;
+    if (propAttachmentFiles.length > 0) {
+      try {
+        const merged = await PDFDocument.create();
+        const mainPdf = await PDFDocument.load(await invoiceBlob.arrayBuffer());
+        for (const page of await merged.copyPages(mainPdf, mainPdf.getPageIndices())) merged.addPage(page);
+        for (const attachFile of propAttachmentFiles) {
+          const attachPdf = await PDFDocument.load(await attachFile.arrayBuffer());
+          for (const page of await merged.copyPages(attachPdf, attachPdf.getPageIndices())) merged.addPage(page);
+        }
+        finalBlob = new Blob([await merged.save()], { type: "application/pdf" });
+      } catch (err) {
+        console.error(`Failed to merge attachments for ${g.propId}:`, err);
+      }
+    }
+    download(`${filenameMonth} - ${g.propId}.pdf`, finalBlob);
+  }
+
   const CODE_TABLE_MAX_HEIGHT = "calc(100vh - 320px)";
   const stickyThStyle: React.CSSProperties = { position: "sticky", top: 0, zIndex: 15, background: "#fff" };
 
@@ -985,6 +1027,32 @@ export default function ExpensesPage() {
           </table>
         </div>
       </div>
+
+      {/* ── Generate Invoices ── */}
+      {invoiceGroups.length > 0 && (
+        <div className="card">
+          <b>Generate Invoices</b>
+          <div className="small muted" style={{ marginTop: 4, marginBottom: 14 }}>One PDF invoice per property. Only properties with coded amounts greater than $0 are included.</div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
+            <button className="btn primary large" onClick={generateAllPdfsZip}>
+              Download All Invoices (ZIP)
+            </button>
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {invoiceGroups.map((g) => (
+              <button
+                key={g.propId}
+                className="btn"
+                style={{ fontSize: 12, padding: "5px 10px" }}
+                onClick={() => downloadSingleInvoicePdf(g)}
+              >
+                {g.propId} — {propName(g.propId)}{" "}
+                <span style={{ color: "var(--muted)", marginLeft: 4 }}>({toMoney(g.total)})</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Drill-down modal */}
       {drillModal && (
