@@ -597,15 +597,15 @@ export default function AllocatedInvoicerPage() {
       {glResult && allocationRows.length > 0 && (
         <div className="card">
           <b>Allocation Preview</b>
-          <div className="small muted" style={{ marginBottom: 14 }}>One row per property — click to expand account code detail.</div>
-          <div style={{ borderRadius: 12, border: "1px solid var(--border)", overflow: "hidden" }}>
+          <div className="small muted" style={{ marginTop: 4, marginBottom: 10 }}>One row per property — click to expand account code detail.</div>
+          <div style={{ borderRadius: 12, border: "1px solid var(--border)" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
               <thead>
                 <tr>
-                  <th style={{ ...stickyTh, padding: "10px 12px", textAlign: "left", borderBottom: "1px solid var(--border)", color: "var(--muted)", fontWeight: 800 }}>Property</th>
-                  <th style={{ ...stickyTh, padding: "10px 12px", textAlign: "left", borderBottom: "1px solid var(--border)", color: "var(--muted)", fontWeight: 800 }}>Accounts</th>
-                  <th style={{ ...stickyTh, padding: "10px 12px", textAlign: "right", borderBottom: "1px solid var(--border)", color: "var(--muted)", fontWeight: 800, whiteSpace: "nowrap" }}># Accounts</th>
-                  <th style={{ ...stickyTh, padding: "10px 12px", textAlign: "right", borderBottom: "1px solid var(--border)", color: "var(--muted)", fontWeight: 800 }}>Total</th>
+                  <th style={{ padding: "10px", textAlign: "left", color: "var(--muted)", fontWeight: 800, borderBottom: "1px solid var(--border)" }}>Property</th>
+                  <th style={{ padding: "10px", textAlign: "left", color: "var(--muted)", fontWeight: 800, borderBottom: "1px solid var(--border)" }}>Accounts</th>
+                  <th style={{ padding: "10px", textAlign: "left", color: "var(--muted)", fontWeight: 800, borderBottom: "1px solid var(--border)", whiteSpace: "nowrap" }}># Accounts</th>
+                  <th style={{ padding: "10px", textAlign: "right", color: "var(--muted)", fontWeight: 800, borderBottom: "1px solid var(--border)", whiteSpace: "nowrap" }}>Total</th>
                 </tr>
               </thead>
               <tbody>
@@ -620,15 +620,13 @@ export default function AllocatedInvoicerPage() {
                       <tr
                         key={prop.id}
                         onClick={() => toggleAllocProp(prop.id)}
-                        style={{ borderTop: "1px solid var(--border)", background: "#f8fafc", cursor: "pointer" }}
-                        onMouseEnter={(e) => (e.currentTarget.style.background = "#eef3f8")}
-                        onMouseLeave={(e) => (e.currentTarget.style.background = "#f8fafc")}
+                        style={{ borderBottom: isOpen ? "none" : "1px solid rgba(15,23,42,0.08)", cursor: "pointer", background: isOpen ? "#f8fafc" : undefined }}
                       >
-                        <td style={{ padding: "9px 12px", fontWeight: 700, whiteSpace: "nowrap" }}>
-                          <span style={{ display: "inline-block", width: 16, fontSize: 11, color: "var(--muted)" }}>{isOpen ? "▼" : "▶"}</span>
+                        <td style={{ padding: "10px", fontWeight: 600 }}>
+                          <span style={{ display: "inline-block", width: 16, marginRight: 4, fontSize: 10, color: "var(--muted)" }}>{isOpen ? "▼" : "▶"}</span>
                           {prop.id} — {prop.name}
                         </td>
-                        <td style={{ padding: "9px 12px" }}>
+                        <td style={{ padding: "10px" }}>
                           <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
                             {accountNames.map((name) => (
                               <span key={name} style={{ fontSize: 11, background: "#e8f0fe", color: "#1e4976", borderRadius: 999, padding: "2px 8px", fontWeight: 500, whiteSpace: "nowrap" }}>
@@ -637,29 +635,32 @@ export default function AllocatedInvoicerPage() {
                             ))}
                           </div>
                         </td>
-                        <td style={{ padding: "9px 12px", textAlign: "right" }}>{propRows.length}</td>
-                        <td style={{ padding: "9px 12px", textAlign: "right", fontWeight: 700 }}>{toMoney(propTotal)}</td>
+                        <td style={{ padding: "10px", whiteSpace: "nowrap" }}>{propRows.length}</td>
+                        <td style={{ padding: "10px", textAlign: "right", whiteSpace: "nowrap" }}>{toMoney(propTotal)}</td>
                       </tr>
-                      {isOpen && propRows.map((r) => (
-                        <tr key={`${prop.id}-${r.accountCode}`} style={{ borderTop: "1px solid #f0f4f8", background: "#fff" }}>
-                          <td style={{ padding: "7px 12px 7px 32px", fontWeight: 600, whiteSpace: "nowrap", fontSize: 12 }}>
-                            <span style={{ color: "var(--muted)", marginRight: 6 }}>↳</span>{r.accountCode}
-                          </td>
-                          <td style={{ padding: "7px 12px", color: "var(--muted)", fontSize: 12 }}>{r.accountName}</td>
-                          <td style={{ padding: "7px 12px", textAlign: "right", fontSize: 12, color: "var(--muted)", whiteSpace: "nowrap" }}>
-                            {toMoney(r.grossAmount)} · {(r.allocPct * 100).toFixed(2)}%
-                          </td>
-                          <td style={{ padding: "7px 12px", textAlign: "right", fontSize: 12 }}>{toMoney(r.allocAmount)}</td>
-                        </tr>
-                      ))}
+                      {isOpen && propRows.map((r, ri) => {
+                        const isLast = ri === propRows.length - 1;
+                        return (
+                          <tr key={`${prop.id}-${r.accountCode}`} style={{ borderBottom: isLast ? "1px solid rgba(15,23,42,0.08)" : "1px solid rgba(15,23,42,0.04)", background: "#f0f4f8" }}>
+                            <td style={{ padding: "8px 10px 8px 30px", color: "var(--navy)" }}>
+                              <span style={{ marginRight: 6, fontSize: 10 }}>↳</span>{r.accountCode}
+                            </td>
+                            <td style={{ padding: "8px 10px", color: "var(--muted)", fontSize: 12 }}>{r.accountName}</td>
+                            <td style={{ padding: "8px 10px", color: "var(--muted)", fontSize: 12, whiteSpace: "nowrap" }}>
+                              {toMoney(r.grossAmount)} · {(r.allocPct * 100).toFixed(2)}%
+                            </td>
+                            <td style={{ padding: "8px 10px", textAlign: "right", whiteSpace: "nowrap" }}>{toMoney(r.allocAmount)}</td>
+                          </tr>
+                        );
+                      })}
                     </>
                   );
                 })}
               </tbody>
               <tfoot>
                 <tr style={{ borderTop: "2px solid var(--border)", background: "#f8fafc" }}>
-                  <td colSpan={3} style={{ padding: "9px 12px", fontWeight: 700 }}>TOTAL</td>
-                  <td style={{ padding: "9px 12px", textAlign: "right", fontWeight: 700 }}>{toMoney(grandAllocTotal)}</td>
+                  <td colSpan={3} style={{ padding: "10px", fontWeight: 700 }}>TOTAL</td>
+                  <td style={{ padding: "10px", textAlign: "right", fontWeight: 700 }}>{toMoney(grandAllocTotal)}</td>
                 </tr>
               </tfoot>
             </table>

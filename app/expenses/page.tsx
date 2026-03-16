@@ -923,7 +923,7 @@ export default function ExpensesPage() {
 
         <hr style={{ border: 0, borderTop: "1px solid var(--border)", margin: "14px 0" }} />
 
-        <b>Invoices</b>
+        <b>Allocation Preview</b>
         <div className="small muted" style={{ marginTop: 4, marginBottom: 10 }}>
           One invoice per property — summary page + detailed charges. BP &amp; SC expenses are pre-allocated by schedule.
         </div>
@@ -947,7 +947,15 @@ export default function ExpensesPage() {
                         <span style={{ display: "inline-block", width: 16, marginRight: 4, fontSize: 10, color: "var(--muted)" }}>{isOpen ? "▼" : "▶"}</span>
                         {g.propId} — {propName(g.propId)}
                       </td>
-                      <td style={{ padding: "10px", color: "var(--muted)", fontSize: 12 }}>{g.categoryGroups.map((cg) => cg.category).join(", ")}</td>
+                      <td style={{ padding: "10px" }}>
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                            {g.categoryGroups.map((cg) => (
+                              <span key={cg.category} style={{ fontSize: 11, background: "#e8f0fe", color: "#1e4976", borderRadius: 999, padding: "2px 8px", fontWeight: 500, whiteSpace: "nowrap" }}>
+                                {cg.category}
+                              </span>
+                            ))}
+                          </div>
+                        </td>
                       <td style={{ padding: "10px", whiteSpace: "nowrap" }}>{g.itemCount}</td>
                       <td style={{ padding: "10px", textAlign: "right", whiteSpace: "nowrap" }}>{toMoney(g.total)}</td>
                     </tr>
