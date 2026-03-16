@@ -294,7 +294,13 @@ export function parseGLExcel(buffer: ArrayBuffer): GLParseResult {
     // Skip GL total/balance summary rows — must be after the date check so that
     // dated transaction rows with words like "Balance" in their description are
     // never accidentally skipped.
-    if (isTotalOrBalanceRow(row)) continue;
+    // Also clear currentAccountSuffix so rows after the Total line (e.g. a
+    // file-level grand total at the very bottom) cannot be merged into the
+    // last transaction of this account.
+    if (isTotalOrBalanceRow(row)) {
+      currentAccountSuffix = "";
+      continue;
+    }
 
     // ── Continuation row: no date, but has amounts ──────────────────────────
     // Some GL entries split the description onto one row and amounts onto the next.
