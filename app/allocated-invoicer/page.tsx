@@ -603,7 +603,7 @@ export default function AllocatedInvoicerPage() {
               <thead>
                 <tr>
                   <th style={{ ...stickyTh, padding: "10px 12px", textAlign: "left", borderBottom: "1px solid var(--border)", color: "var(--muted)", fontWeight: 800 }}>Property</th>
-                  <th style={{ ...stickyTh, padding: "10px 12px", textAlign: "left", borderBottom: "1px solid var(--border)", color: "var(--muted)", fontWeight: 800 }}>Account Codes</th>
+                  <th style={{ ...stickyTh, padding: "10px 12px", textAlign: "left", borderBottom: "1px solid var(--border)", color: "var(--muted)", fontWeight: 800 }}>Accounts</th>
                   <th style={{ ...stickyTh, padding: "10px 12px", textAlign: "right", borderBottom: "1px solid var(--border)", color: "var(--muted)", fontWeight: 800, whiteSpace: "nowrap" }}># Accounts</th>
                   <th style={{ ...stickyTh, padding: "10px 12px", textAlign: "right", borderBottom: "1px solid var(--border)", color: "var(--muted)", fontWeight: 800 }}>Total</th>
                 </tr>
@@ -614,7 +614,7 @@ export default function AllocatedInvoicerPage() {
                   const propTotal = perPropertyTotals.get(prop.id) ?? 0;
                   if (propTotal === 0) return null;
                   const isOpen = expandedAllocProps.has(prop.id);
-                  const codeList = propRows.map((r) => r.accountCode).join(", ");
+                  const accountNames = [...new Set(propRows.map((r) => r.accountName))];
                   return (
                     <>
                       <tr
@@ -628,7 +628,15 @@ export default function AllocatedInvoicerPage() {
                           <span style={{ display: "inline-block", width: 16, fontSize: 11, color: "var(--muted)" }}>{isOpen ? "▼" : "▶"}</span>
                           {prop.id} — {prop.name}
                         </td>
-                        <td style={{ padding: "9px 12px", color: "var(--muted)", fontSize: 12 }}>{codeList}</td>
+                        <td style={{ padding: "9px 12px" }}>
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                            {accountNames.map((name) => (
+                              <span key={name} style={{ fontSize: 11, background: "#e8f0fe", color: "#1e4976", borderRadius: 999, padding: "2px 8px", fontWeight: 500, whiteSpace: "nowrap" }}>
+                                {name}
+                              </span>
+                            ))}
+                          </div>
+                        </td>
                         <td style={{ padding: "9px 12px", textAlign: "right" }}>{propRows.length}</td>
                         <td style={{ padding: "9px 12px", textAlign: "right", fontWeight: 700 }}>{toMoney(propTotal)}</td>
                       </tr>
