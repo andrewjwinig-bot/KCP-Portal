@@ -916,7 +916,10 @@ export default function Page() {
                         {(() => {
                           const emp = employees.find((e) => e.name.toLowerCase() === r.employee.toLowerCase());
                           return emp
-                            ? <button className="linkBtn left" onClick={() => { setPropAllocModal(null); openEmployee(emp); }}>{toTitleCase(r.employee)}</button>
+                            ? <button className="linkBtn left" style={{ display: "inline-flex", alignItems: "center", gap: 8 }} onClick={() => { setPropAllocModal(null); openEmployee(emp); }}>
+                                {toTitleCase(r.employee)}
+                                {emp.recoverable && <span className="tag rec">REC</span>}
+                              </button>
                             : toTitleCase(r.employee);
                         })()}
                       </td>
