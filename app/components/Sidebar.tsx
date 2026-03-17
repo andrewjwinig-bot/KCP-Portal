@@ -8,6 +8,7 @@ const NAV = [
     href: "/",
     external: false,
     indent: false,
+    showFor: null as string | null,
     icon: (
       <span style={{ fontSize: 22, fontWeight: 700, lineHeight: 1 }}>$</span>
     ),
@@ -17,6 +18,7 @@ const NAV = [
     href: "/history",
     external: false,
     indent: true,
+    showFor: "/",
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <circle cx="12" cy="12" r="10" />
@@ -29,6 +31,7 @@ const NAV = [
     href: "/expenses",
     external: false,
     indent: false,
+    showFor: null as string | null,
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <rect x="2" y="5" width="20" height="14" rx="2" />
@@ -41,6 +44,7 @@ const NAV = [
     href: "/expenses/history",
     external: false,
     indent: true,
+    showFor: "/expenses",
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <circle cx="12" cy="12" r="10" />
@@ -53,6 +57,7 @@ const NAV = [
     href: "/allocated-invoicer",
     external: false,
     indent: false,
+    showFor: null as string | null,
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
@@ -67,6 +72,7 @@ const NAV = [
     href: "https://airtable.com/appu2QwzsaWb4Qw2X/pageF2MN3KyaNqj0D?MJMG1=allRecords&92GWJ=allRecords",
     external: true,
     indent: false,
+    showFor: null as string | null,
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
@@ -83,6 +89,12 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
     if (item.external) return false;
     if (item.href === "/") return pathname === "/";
     return pathname.startsWith(item.href);
+  }
+
+  function isVisible(item: (typeof NAV)[number]) {
+    if (item.showFor === null) return true;
+    if (item.showFor === "/") return pathname === "/" || pathname.startsWith("/history");
+    return pathname === item.showFor || pathname.startsWith(item.showFor + "/");
   }
 
   return (
@@ -146,7 +158,7 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
 
       {/* Nav links */}
       <nav style={{ flex: 1, padding: open ? "4px 8px" : "8px 6px", display: "flex", flexDirection: "column", gap: 2 }}>
-        {NAV.map((item) => {
+        {NAV.filter((item) => isVisible(item)).map((item) => {
           const active = isActive(item);
           return (
             <a
