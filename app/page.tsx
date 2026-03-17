@@ -212,7 +212,7 @@ export default function Page() {
   const showEmpEr401k   = employeeTotals.er401k    > 0;
   const showEmpOther    = employeeTotals.other     > 0;
   const showEmpTaxesEr  = employeeTotals.taxesEr   > 0;
-  const empColCount = 3 + [showEmpSalary, showEmpOvertime, showEmpHol, showEmpEr401k, showEmpOther, showEmpTaxesEr].filter(Boolean).length;
+  const empColCount = 2 + [showEmpSalary, showEmpOvertime, showEmpHol, showEmpEr401k, showEmpOther, showEmpTaxesEr].filter(Boolean).length;
 
   // Auto-load a period from ?load=id URL param (set by the History page)
   useEffect(() => {
@@ -658,7 +658,6 @@ export default function Page() {
               <thead>
                 <tr>
                   <th>Employee</th>
-                  <th>REC/NR</th>
                   {showEmpSalary   && <th style={{ textAlign: "right" }}>Salary *</th>}
                   {showEmpOvertime && <th style={{ textAlign: "right" }}>Overtime</th>}
                   {showEmpHol      && <th style={{ textAlign: "right" }}>HOL</th>}
@@ -675,9 +674,11 @@ export default function Page() {
                   employees.map((e) => (
                     <tr key={e.name}>
                       <td>
-                        <button className="linkBtn left" onClick={() => openEmployee(e)}>{toTitleCase(e.name)}</button>
+                        <button className="linkBtn left" onClick={() => openEmployee(e)} style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                          {toTitleCase(e.name)}
+                          {e.recoverable && <span className="tag rec">REC</span>}
+                        </button>
                       </td>
-                      <td><span className={e.recoverable ? "tag rec" : "tag nr"}>{e.recoverable ? "REC" : "NR"}</span></td>
                       {showEmpSalary   && <td style={{ textAlign: "right" }}>{money(e.salaryAmt)}</td>}
                       {showEmpOvertime && <td style={{ textAlign: "right" }}>{money(e.overtimeAmt)}</td>}
                       {showEmpHol      && <td style={{ textAlign: "right" }}>{money(e.holAmt)}</td>}
@@ -704,7 +705,6 @@ export default function Page() {
               <tfoot>
                 <tr>
                   <td>Totals</td>
-                  <td></td>
                   {showEmpSalary   && <td style={{ textAlign: "right" }}>{money(employeeTotals.salary)}</td>}
                   {showEmpOvertime && <td style={{ textAlign: "right" }}>{money(employeeTotals.overtime)}</td>}
                   {showEmpHol      && <td style={{ textAlign: "right" }}>{money(employeeTotals.hol)}</td>}
@@ -982,7 +982,6 @@ export default function Page() {
                         <td>
                           {toTitleCase(row.employee)}
                           {row.category === "REC" && <span className="tag rec" style={{ marginLeft: 8 }}>REC</span>}
-                          {row.category === "NR"  && <span className="tag nr"  style={{ marginLeft: 8 }}>NR</span>}
                         </td>
                         {hasCategory && <td style={{ color: "#555" }}>{row.category ?? ""}</td>}
                         {!drill.isTotal && <td style={{ textAlign: "right" }}>{row.baseAmount == null ? "—" : money(row.baseAmount)}</td>}
