@@ -427,6 +427,9 @@ export default function ExpensesPage() {
   const [showColFilters, setShowColFilters] = useState(false);
   const [allocPropModal, setAllocPropModal] = useState<{ propId: string; name: string; categoryGroups: { category: string; items: any[] }[] } | null>(null);
   const [drillModal, setDrillModal] = useState<{ propId: string; category: string; items: any[] } | null>(null);
+  const [chartsOpen, setChartsOpen] = useState(true);
+  const [codeTransOpen, setCodeTransOpen] = useState(true);
+  const [allocPreviewOpen, setAllocPreviewOpen] = useState(true);
   // Invoice PDF attachments — keyed by tx id, lives in memory only (not persisted)
   const [attachments, setAttachments] = useState<Map<string, File>>(new Map());
   const [fileName, setFileName] = useState<string>("");
@@ -824,27 +827,39 @@ export default function ExpensesPage() {
       {/* Charts card */}
       {tx.filter((t) => Number(t.amount) > 0).length > 0 && (
         <div className="card">
-          <b>Charts</b>
-          <div style={{ display: "flex", gap: 40, marginTop: 20, flexWrap: "wrap" }}>
-            <div style={{ flex: 1, minWidth: 340 }}>
-              <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 14, color: "var(--muted)", letterSpacing: "0.04em", textTransform: "uppercase" }}>By Property</div>
-              <DonutChart data={chartDataByProperty} />
-            </div>
-            <div style={{ width: 1, background: "var(--border)", flexShrink: 0, alignSelf: "stretch" }} />
-            <div style={{ flex: 1, minWidth: 340 }}>
-              <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 14, color: "var(--muted)", letterSpacing: "0.04em", textTransform: "uppercase" }}>By Category</div>
-              <DonutChart data={chartDataByCategory} />
-            </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <button className="btn" style={{ padding: "2px 8px", fontSize: 13 }} onClick={() => setChartsOpen((o) => !o)} title={chartsOpen ? "Collapse" : "Expand"}>
+              {chartsOpen ? "▲" : "▼"}
+            </button>
+            <b>Charts</b>
           </div>
+          {chartsOpen && (
+            <div style={{ display: "flex", gap: 40, marginTop: 20, flexWrap: "wrap" }}>
+              <div style={{ flex: 1, minWidth: 340 }}>
+                <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 14, color: "var(--muted)", letterSpacing: "0.04em", textTransform: "uppercase" }}>By Property</div>
+                <DonutChart data={chartDataByProperty} />
+              </div>
+              <div style={{ width: 1, background: "var(--border)", flexShrink: 0, alignSelf: "stretch" }} />
+              <div style={{ flex: 1, minWidth: 340 }}>
+                <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 14, color: "var(--muted)", letterSpacing: "0.04em", textTransform: "uppercase" }}>By Category</div>
+                <DonutChart data={chartDataByCategory} />
+              </div>
+            </div>
+          )}
         </div>
       )}
 
       {/* Code Transactions card */}
       <div className="card">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 10 }}>
-          <div>
-            <b>Code Transactions</b>
-            <div className="small muted">Category + Property required. Suite required only if Category = TI.</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <button className="btn" style={{ padding: "2px 8px", fontSize: 13 }} onClick={() => setCodeTransOpen((o) => !o)} title={codeTransOpen ? "Collapse" : "Expand"}>
+              {codeTransOpen ? "▲" : "▼"}
+            </button>
+            <div>
+              <b>Code Transactions</b>
+              <div className="small muted">Category + Property required. Suite required only if Category = TI.</div>
+            </div>
           </div>
           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
             <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 13 }}>
@@ -861,7 +876,7 @@ export default function ExpensesPage() {
           </div>
         </div>
 
-        <div style={{ overflowX: "auto", overflowY: "auto", maxHeight: CODE_TABLE_MAX_HEIGHT, borderRadius: 12, border: "1px solid var(--border)" }}>
+        {codeTransOpen && <div style={{ overflowX: "auto", overflowY: "auto", maxHeight: CODE_TABLE_MAX_HEIGHT, borderRadius: 12, border: "1px solid var(--border)" }}>
           <table style={{ minWidth: 1200, width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
               {(() => {
@@ -986,60 +1001,68 @@ export default function ExpensesPage() {
               )}
             </tbody>
           </table>
-        </div>
+        </div>}
+      </div>
 
-        <hr style={{ border: 0, borderTop: "1px solid var(--border)", margin: "14px 0" }} />
-
-        <b>Allocation Preview</b>
-        <div className="small muted" style={{ marginTop: 4, marginBottom: 10 }}>
-          One invoice per property — summary page + detailed charges. BP &amp; SC expenses are pre-allocated by schedule.
+      {/* ── Allocation Preview card ── */}
+      <div className="card">
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: allocPreviewOpen ? 0 : 0 }}>
+          <button className="btn" style={{ padding: "2px 8px", fontSize: 13 }} onClick={() => setAllocPreviewOpen((o) => !o)} title={allocPreviewOpen ? "Collapse" : "Expand"}>
+            {allocPreviewOpen ? "▲" : "▼"}
+          </button>
+          <div>
+            <b>Allocation Preview</b>
+            <div className="small muted" style={{ marginTop: 4 }}>One invoice per property — summary page + detailed charges. BP &amp; SC expenses are pre-allocated by schedule.</div>
+          </div>
         </div>
-        <div className="tableWrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Property</th>
-                <th>Categories</th>
-                <th style={{ textAlign: "right" }}># Items</th>
-                <th style={{ textAlign: "right" }}>Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {invoiceGroups.map((g) => (
-                <tr key={g.propId}>
-                  <td>
-                    <button className="linkBtn left" onClick={() => setAllocPropModal({ propId: g.propId, name: propName(g.propId), categoryGroups: g.categoryGroups })}>
-                      {g.propId} — {propName(g.propId)}
-                    </button>
-                  </td>
-                  <td>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                      {g.categoryGroups.map((cg) => (
-                        <span key={cg.category} style={{ fontSize: 11, background: "#e8f0fe", color: "#1e4976", borderRadius: 999, padding: "2px 8px", fontWeight: 500, whiteSpace: "nowrap" }}>
-                          {cg.category}
-                        </span>
-                      ))}
-                    </div>
-                  </td>
-                  <td style={{ textAlign: "right" }}>{g.itemCount}</td>
-                  <td style={{ textAlign: "right" }}>{toMoney(g.total)}</td>
-                </tr>
-              ))}
-              {!invoiceGroups.length && (
-                <tr><td colSpan={4} className="muted">Code at least one transaction to generate invoices.</td></tr>
-              )}
-            </tbody>
-            {invoiceGroups.length > 0 && (
-              <tfoot>
+        {allocPreviewOpen && (
+          <div className="tableWrap">
+            <table>
+              <thead>
                 <tr>
-                  <td colSpan={2}>Totals</td>
-                  <td style={{ textAlign: "right" }}>{invoiceGroups.reduce((s, g) => s + g.itemCount, 0)}</td>
-                  <td style={{ textAlign: "right" }}>{toMoney(invoiceGroups.reduce((s, g) => s + g.total, 0))}</td>
+                  <th>Property</th>
+                  <th>Categories</th>
+                  <th style={{ textAlign: "right" }}># Items</th>
+                  <th style={{ textAlign: "right" }}>Total</th>
                 </tr>
-              </tfoot>
-            )}
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {invoiceGroups.map((g) => (
+                  <tr key={g.propId}>
+                    <td>
+                      <button className="linkBtn left" onClick={() => setAllocPropModal({ propId: g.propId, name: propName(g.propId), categoryGroups: g.categoryGroups })}>
+                        {g.propId} — {propName(g.propId)}
+                      </button>
+                    </td>
+                    <td>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                        {g.categoryGroups.map((cg) => (
+                          <span key={cg.category} style={{ fontSize: 11, background: "#e8f0fe", color: "#1e4976", borderRadius: 999, padding: "2px 8px", fontWeight: 500, whiteSpace: "nowrap" }}>
+                            {cg.category}
+                          </span>
+                        ))}
+                      </div>
+                    </td>
+                    <td style={{ textAlign: "right" }}>{g.itemCount}</td>
+                    <td style={{ textAlign: "right" }}>{toMoney(g.total)}</td>
+                  </tr>
+                ))}
+                {!invoiceGroups.length && (
+                  <tr><td colSpan={4} className="muted">Code at least one transaction to generate invoices.</td></tr>
+                )}
+              </tbody>
+              {invoiceGroups.length > 0 && (
+                <tfoot>
+                  <tr>
+                    <td colSpan={2}>Totals</td>
+                    <td style={{ textAlign: "right" }}>{invoiceGroups.reduce((s, g) => s + g.itemCount, 0)}</td>
+                    <td style={{ textAlign: "right" }}>{toMoney(invoiceGroups.reduce((s, g) => s + g.total, 0))}</td>
+                  </tr>
+                </tfoot>
+              )}
+            </table>
+          </div>
+        )}
       </div>
 
       {/* ── Generate Invoices ── */}

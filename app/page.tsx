@@ -815,13 +815,13 @@ export default function Page() {
                     <td>Totals</td>
                     <td></td>
                     {showInvSalary    && <td style={{ textAlign: "right" }}>{money(totals.salaryREC + totals.salaryNR + mktTotals.salary)}</td>}
-                    {showInvOvertime  && <td>{money(totals.overtime)}</td>}
-                    {showInvHolREC    && <td>{money(totals.holREC)}</td>}
-                    {showInvHolNR     && <td>{money(totals.holNR)}</td>}
-                    {showInvEr401k    && <td>{money(totals.er401k + mktTotals.er401k)}</td>}
+                    {showInvOvertime  && <td style={{ textAlign: "right" }}>{money(totals.overtime)}</td>}
+                    {showInvHolREC    && <td style={{ textAlign: "right" }}>{money(totals.holREC)}</td>}
+                    {showInvHolNR     && <td style={{ textAlign: "right" }}>{money(totals.holNR)}</td>}
+                    {showInvEr401k    && <td style={{ textAlign: "right" }}>{money(totals.er401k + mktTotals.er401k)}</td>}
                     {showInvOther     && <td style={{ textAlign: "right" }}>{money(totals.other)}</td>}
-                    {showInvTaxesEr   && <td>{money(totals.taxesEr + mktTotals.taxesEr)}</td>}
-                    <td>{money(totals.total + mktTotals.total)}</td>
+                    {showInvTaxesEr   && <td style={{ textAlign: "right" }}>{money(totals.taxesEr + mktTotals.taxesEr)}</td>}
+                    <td style={{ textAlign: "right" }}>{money(totals.total + mktTotals.total)}</td>
                   </tr>
                   {allocationGaps.length > 0 && (
                     <tr>
