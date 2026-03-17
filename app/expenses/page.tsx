@@ -425,7 +425,7 @@ export default function ExpensesPage() {
   const [tableSortDir, setTableSortDir] = useState<"asc" | "desc">("asc");
   const [colFilters, setColFilters] = useState<Record<string, string>>({});
   const [showColFilters, setShowColFilters] = useState(false);
-  const [expandedProps, setExpandedProps] = useState<Set<string>>(new Set());
+  const [allocPropModal, setAllocPropModal] = useState<{ propId: string; name: string; categoryGroups: { category: string; items: any[] }[] } | null>(null);
   const [drillModal, setDrillModal] = useState<{ propId: string; category: string; items: any[] } | null>(null);
   // Invoice PDF attachments — keyed by tx id, lives in memory only (not persisted)
   const [attachments, setAttachments] = useState<Map<string, File>>(new Map());
@@ -618,9 +618,6 @@ export default function ExpensesPage() {
     else { setTableSortCol(col); setTableSortDir("asc"); }
   }
   function setColFilter(k: string, v: string) { setColFilters((p) => ({ ...p, [k]: v })); }
-  function togglePropExpand(propId: string) {
-    setExpandedProps((prev) => { const n = new Set(prev); n.has(propId) ? n.delete(propId) : n.add(propId); return n; });
-  }
 
   function propName(propId: string) {
     const p = properties.find((x) => x.id === propId);
@@ -997,61 +994,50 @@ export default function ExpensesPage() {
         <div className="small muted" style={{ marginTop: 4, marginBottom: 10 }}>
           One invoice per property — summary page + detailed charges. BP &amp; SC expenses are pre-allocated by schedule.
         </div>
-        <div style={{ borderRadius: 12, border: "1px solid var(--border)" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+        <div className="tableWrap">
+          <table>
             <thead>
               <tr>
-                <th style={{ padding: "10px", textAlign: "left", color: "var(--muted)", fontWeight: 800, borderBottom: "1px solid var(--border)" }}>Property</th>
-                <th style={{ padding: "10px", textAlign: "left", color: "var(--muted)", fontWeight: 800, borderBottom: "1px solid var(--border)" }}>Categories</th>
-                <th style={{ padding: "10px", textAlign: "left", color: "var(--muted)", fontWeight: 800, borderBottom: "1px solid var(--border)", whiteSpace: "nowrap" }}># Items</th>
-                <th style={{ padding: "10px", textAlign: "right", color: "var(--muted)", fontWeight: 800, borderBottom: "1px solid var(--border)", whiteSpace: "nowrap" }}>Total</th>
+                <th>Property</th>
+                <th>Categories</th>
+                <th style={{ textAlign: "right" }}># Items</th>
+                <th style={{ textAlign: "right" }}>Total</th>
               </tr>
             </thead>
             <tbody>
-              {invoiceGroups.map((g) => {
-                const isOpen = expandedProps.has(g.propId);
-                return (
-                  <>
-                    <tr key={g.propId} onClick={() => togglePropExpand(g.propId)} style={{ borderBottom: isOpen ? "none" : "1px solid rgba(15,23,42,0.08)", cursor: "pointer", background: isOpen ? "#f8fafc" : undefined }}>
-                      <td style={{ padding: "10px", fontWeight: 600 }}>
-                        <span style={{ display: "inline-block", width: 16, marginRight: 4, fontSize: 10, color: "var(--muted)" }}>{isOpen ? "▼" : "▶"}</span>
-                        {g.propId} — {propName(g.propId)}
-                      </td>
-                      <td style={{ padding: "10px" }}>
-                          <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                            {g.categoryGroups.map((cg) => (
-                              <span key={cg.category} style={{ fontSize: 11, background: "#e8f0fe", color: "#1e4976", borderRadius: 999, padding: "2px 8px", fontWeight: 500, whiteSpace: "nowrap" }}>
-                                {cg.category}
-                              </span>
-                            ))}
-                          </div>
-                        </td>
-                      <td style={{ padding: "10px", whiteSpace: "nowrap" }}>{g.itemCount}</td>
-                      <td style={{ padding: "10px", textAlign: "right", whiteSpace: "nowrap" }}>{toMoney(g.total)}</td>
-                    </tr>
-                    {isOpen && g.categoryGroups.map((cg, ci) => {
-                      const catTotal = cg.items.reduce((a, t: any) => a + Number(t.amount), 0);
-                      const isLast = ci === g.categoryGroups.length - 1;
-                      return (
-                        <tr key={g.propId + cg.category} onClick={() => setDrillModal({ propId: g.propId, category: cg.category, items: cg.items })} style={{ borderBottom: isLast ? "1px solid rgba(15,23,42,0.08)" : "1px solid rgba(15,23,42,0.04)", cursor: "pointer", background: "#f0f4f8" }}>
-                          <td style={{ padding: "8px 10px 8px 30px", color: "var(--navy)" }}>
-                            <span style={{ marginRight: 6, fontSize: 10 }}>↳</span>{cg.category}
-                          </td>
-                          <td style={{ padding: "8px 10px", color: "var(--muted)", fontSize: 12 }}>
-                            {CATEGORY_ACC[cg.category as keyof typeof CATEGORY_ACC] ?? "—"}
-                          </td>
-                          <td style={{ padding: "8px 10px", whiteSpace: "nowrap" }}>{cg.items.length}</td>
-                          <td style={{ padding: "8px 10px", textAlign: "right", whiteSpace: "nowrap" }}>{toMoney(catTotal)}</td>
-                        </tr>
-                      );
-                    })}
-                  </>
-                );
-              })}
+              {invoiceGroups.map((g) => (
+                <tr key={g.propId}>
+                  <td>
+                    <button className="linkBtn left" onClick={() => setAllocPropModal({ propId: g.propId, name: propName(g.propId), categoryGroups: g.categoryGroups })}>
+                      {g.propId} — {propName(g.propId)}
+                    </button>
+                  </td>
+                  <td>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                      {g.categoryGroups.map((cg) => (
+                        <span key={cg.category} style={{ fontSize: 11, background: "#e8f0fe", color: "#1e4976", borderRadius: 999, padding: "2px 8px", fontWeight: 500, whiteSpace: "nowrap" }}>
+                          {cg.category}
+                        </span>
+                      ))}
+                    </div>
+                  </td>
+                  <td style={{ textAlign: "right" }}>{g.itemCount}</td>
+                  <td style={{ textAlign: "right" }}>{toMoney(g.total)}</td>
+                </tr>
+              ))}
               {!invoiceGroups.length && (
-                <tr><td colSpan={4} className="small muted" style={{ padding: 14 }}>Code at least one transaction to generate invoices.</td></tr>
+                <tr><td colSpan={4} className="muted">Code at least one transaction to generate invoices.</td></tr>
               )}
             </tbody>
+            {invoiceGroups.length > 0 && (
+              <tfoot>
+                <tr>
+                  <td colSpan={2}>Totals</td>
+                  <td style={{ textAlign: "right" }}>{invoiceGroups.reduce((s, g) => s + g.itemCount, 0)}</td>
+                  <td style={{ textAlign: "right" }}>{toMoney(invoiceGroups.reduce((s, g) => s + g.total, 0))}</td>
+                </tr>
+              </tfoot>
+            )}
           </table>
         </div>
       </div>
@@ -1081,6 +1067,53 @@ export default function ExpensesPage() {
                 <span style={{ color: "var(--muted)", marginLeft: 4 }}>({toMoney(g.total)})</span>
               </button>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Allocation property modal */}
+      {allocPropModal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.55)", zIndex: 998, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} onClick={() => setAllocPropModal(null)}>
+          <div className="card" style={{ maxWidth: 640, width: "100%", maxHeight: "80vh", display: "flex", flexDirection: "column" }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+              <div>
+                <b style={{ fontSize: 15 }}>{allocPropModal.propId} — {allocPropModal.name}</b>
+                <div className="small muted" style={{ marginTop: 2 }}>Click a category to see transactions</div>
+              </div>
+              <button className="btn" style={{ padding: "4px 10px" }} onClick={() => setAllocPropModal(null)}>✕</button>
+            </div>
+            <div className="tableWrap" style={{ overflowY: "auto" }}>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Category</th>
+                    <th>Account</th>
+                    <th style={{ textAlign: "right" }}># Items</th>
+                    <th style={{ textAlign: "right" }}>Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {allocPropModal.categoryGroups.map((cg) => {
+                    const catTotal = cg.items.reduce((a: number, t: any) => a + Number(t.amount), 0);
+                    return (
+                      <tr key={cg.category} style={{ cursor: "pointer" }} onClick={() => { setAllocPropModal(null); setDrillModal({ propId: allocPropModal.propId, category: cg.category, items: cg.items }); }}>
+                        <td><button className="linkBtn left">{cg.category}</button></td>
+                        <td className="muted">{CATEGORY_ACC[cg.category as keyof typeof CATEGORY_ACC] ?? "—"}</td>
+                        <td style={{ textAlign: "right" }}>{cg.items.length}</td>
+                        <td style={{ textAlign: "right" }}>{toMoney(catTotal)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td colSpan={2}>Total</td>
+                    <td style={{ textAlign: "right" }}>{allocPropModal.categoryGroups.reduce((s, cg) => s + cg.items.length, 0)}</td>
+                    <td style={{ textAlign: "right" }}>{toMoney(allocPropModal.categoryGroups.reduce((s, cg) => s + cg.items.reduce((a: number, t: any) => a + Number(t.amount), 0), 0))}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
           </div>
         </div>
       )}

@@ -161,7 +161,7 @@ export default function AllocatedInvoicerPage() {
   const [acctFilter, setAcctFilter] = useState<"all" | "9301" | "9302" | "9303">("all");
   const [search, setSearch] = useState("");
   const [expandedAccounts, setExpandedAccounts] = useState<Set<string>>(new Set());
-  const [expandedAllocProps, setExpandedAllocProps] = useState<Set<string>>(new Set());
+  const [allocPropModal, setAllocPropModal] = useState<{ propId: string; propName: string; rows: AllocExportRow[] } | null>(null);
 
   // ── Derived: allocation rows ────────────────────────────────────────────────
 
@@ -252,13 +252,6 @@ export default function AllocatedInvoicerPage() {
     });
   }
 
-  function toggleAllocProp(propId: string) {
-    setExpandedAllocProps((prev) => {
-      const next = new Set(prev);
-      if (next.has(propId)) next.delete(propId); else next.add(propId);
-      return next;
-    });
-  }
 
   // ── Derived: chart data ────────────────────────────────────────────────────
 
@@ -297,7 +290,7 @@ export default function AllocatedInvoicerPage() {
       setAcctFilter("all");
       setSearch("");
       setExpandedAccounts(new Set());
-      setExpandedAllocProps(new Set());
+      setAllocPropModal(null);
     } catch (e: any) {
       alert("Failed to parse GL file: " + (e?.message ?? String(e)));
     }
@@ -310,7 +303,7 @@ export default function AllocatedInvoicerPage() {
     setAcctFilter("all");
     setSearch("");
     setExpandedAccounts(new Set());
-    setExpandedAllocProps(new Set());
+    setAllocPropModal(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
@@ -591,15 +584,15 @@ export default function AllocatedInvoicerPage() {
       {glResult && allocationRows.length > 0 && (
         <div className="card">
           <b>Allocation Preview</b>
-          <div className="small muted" style={{ marginTop: 4, marginBottom: 10 }}>One row per property — click to expand account code detail.</div>
-          <div style={{ borderRadius: 12, border: "1px solid var(--border)" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+          <div className="small muted" style={{ marginTop: 4, marginBottom: 10 }}>One row per property. Click a property to see account code detail.</div>
+          <div className="tableWrap">
+            <table>
               <thead>
                 <tr>
-                  <th style={{ padding: "10px", textAlign: "left", color: "var(--muted)", fontWeight: 800, borderBottom: "1px solid var(--border)" }}>Property</th>
-                  <th style={{ padding: "10px", textAlign: "left", color: "var(--muted)", fontWeight: 800, borderBottom: "1px solid var(--border)" }}>Accounts</th>
-                  <th style={{ padding: "10px", textAlign: "left", color: "var(--muted)", fontWeight: 800, borderBottom: "1px solid var(--border)", whiteSpace: "nowrap" }}># Accounts</th>
-                  <th style={{ padding: "10px", textAlign: "right", color: "var(--muted)", fontWeight: 800, borderBottom: "1px solid var(--border)", whiteSpace: "nowrap" }}>Total</th>
+                  <th>Property</th>
+                  <th>Accounts</th>
+                  <th style={{ textAlign: "right" }}># Accounts</th>
+                  <th style={{ textAlign: "right" }}>Total</th>
                 </tr>
               </thead>
               <tbody>
@@ -607,54 +600,33 @@ export default function AllocatedInvoicerPage() {
                   const propRows = allocationRows.filter((r) => r.propertyId === prop.id);
                   const propTotal = perPropertyTotals.get(prop.id) ?? 0;
                   if (propTotal === 0) return null;
-                  const isOpen = expandedAllocProps.has(prop.id);
                   const accountNames = [...new Set(propRows.map((r) => r.accountName))];
                   return (
-                    <>
-                      <tr
-                        key={prop.id}
-                        onClick={() => toggleAllocProp(prop.id)}
-                        style={{ borderBottom: isOpen ? "none" : "1px solid rgba(15,23,42,0.08)", cursor: "pointer", background: isOpen ? "#f8fafc" : undefined }}
-                      >
-                        <td style={{ padding: "10px", fontWeight: 600 }}>
-                          <span style={{ display: "inline-block", width: 16, marginRight: 4, fontSize: 10, color: "var(--muted)" }}>{isOpen ? "▼" : "▶"}</span>
+                    <tr key={prop.id}>
+                      <td>
+                        <button className="linkBtn left" onClick={() => setAllocPropModal({ propId: prop.id, propName: prop.name, rows: propRows })}>
                           {prop.id} — {prop.name}
-                        </td>
-                        <td style={{ padding: "10px" }}>
-                          <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                            {accountNames.map((name) => (
-                              <span key={name} style={{ fontSize: 11, background: "#e8f0fe", color: "#1e4976", borderRadius: 999, padding: "2px 8px", fontWeight: 500, whiteSpace: "nowrap" }}>
-                                {name}
-                              </span>
-                            ))}
-                          </div>
-                        </td>
-                        <td style={{ padding: "10px", whiteSpace: "nowrap" }}>{propRows.length}</td>
-                        <td style={{ padding: "10px", textAlign: "right", whiteSpace: "nowrap" }}>{toMoney(propTotal)}</td>
-                      </tr>
-                      {isOpen && propRows.map((r, ri) => {
-                        const isLast = ri === propRows.length - 1;
-                        return (
-                          <tr key={`${prop.id}-${r.accountCode}`} style={{ borderBottom: isLast ? "1px solid rgba(15,23,42,0.08)" : "1px solid rgba(15,23,42,0.04)", background: "#f0f4f8" }}>
-                            <td style={{ padding: "8px 10px 8px 30px", color: "var(--navy)" }}>
-                              <span style={{ marginRight: 6, fontSize: 10 }}>↳</span>{r.accountCode}
-                            </td>
-                            <td style={{ padding: "8px 10px", color: "var(--muted)", fontSize: 12 }}>{r.accountName}</td>
-                            <td style={{ padding: "8px 10px", color: "var(--muted)", fontSize: 12, whiteSpace: "nowrap" }}>
-                              {toMoney(r.grossAmount)} · {(r.allocPct * 100).toFixed(2)}%
-                            </td>
-                            <td style={{ padding: "8px 10px", textAlign: "right", whiteSpace: "nowrap" }}>{toMoney(r.allocAmount)}</td>
-                          </tr>
-                        );
-                      })}
-                    </>
+                        </button>
+                      </td>
+                      <td>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                          {accountNames.map((name) => (
+                            <span key={name} style={{ fontSize: 11, background: "#e8f0fe", color: "#1e4976", borderRadius: 999, padding: "2px 8px", fontWeight: 500, whiteSpace: "nowrap" }}>
+                              {name}
+                            </span>
+                          ))}
+                        </div>
+                      </td>
+                      <td style={{ textAlign: "right" }}>{propRows.length}</td>
+                      <td style={{ textAlign: "right" }}>{toMoney(propTotal)}</td>
+                    </tr>
                   );
                 })}
               </tbody>
               <tfoot>
-                <tr style={{ borderTop: "2px solid var(--border)", background: "#f8fafc" }}>
-                  <td colSpan={3} style={{ padding: "10px", fontWeight: 700 }}>TOTAL</td>
-                  <td style={{ padding: "10px", textAlign: "right", fontWeight: 700 }}>{toMoney(grandAllocTotal)}</td>
+                <tr>
+                  <td colSpan={3}>Total</td>
+                  <td style={{ textAlign: "right" }}>{toMoney(grandAllocTotal)}</td>
                 </tr>
               </tfoot>
             </table>
@@ -694,6 +666,51 @@ export default function AllocatedInvoicerPage() {
                 {prop.id} — {prop.name} <span style={{ color: "var(--muted)", marginLeft: 4 }}>({toMoney(perPropertyTotals.get(prop.id) ?? 0)})</span>
               </button>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Allocation property modal */}
+      {allocPropModal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.55)", zIndex: 998, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} onClick={() => setAllocPropModal(null)}>
+          <div className="card" style={{ maxWidth: 680, width: "100%", maxHeight: "80vh", display: "flex", flexDirection: "column" }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+              <div>
+                <b style={{ fontSize: 15 }}>{allocPropModal.propId} — {allocPropModal.propName}</b>
+                <div className="small muted" style={{ marginTop: 2 }}>Account code breakdown</div>
+              </div>
+              <button className="btn" style={{ padding: "4px 10px" }} onClick={() => setAllocPropModal(null)}>✕</button>
+            </div>
+            <div className="tableWrap" style={{ overflowY: "auto" }}>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Account Code</th>
+                    <th>Account Name</th>
+                    <th style={{ textAlign: "right" }}>Gross Amount</th>
+                    <th style={{ textAlign: "right" }}>Alloc %</th>
+                    <th style={{ textAlign: "right" }}>Allocated</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {allocPropModal.rows.map((r) => (
+                    <tr key={r.accountCode}>
+                      <td>{r.accountCode}</td>
+                      <td className="muted">{r.accountName}</td>
+                      <td style={{ textAlign: "right" }}>{toMoney(r.grossAmount)}</td>
+                      <td style={{ textAlign: "right" }}>{(r.allocPct * 100).toFixed(2)}%</td>
+                      <td style={{ textAlign: "right" }}>{toMoney(r.allocAmount)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td colSpan={4}>Total</td>
+                    <td style={{ textAlign: "right" }}>{toMoney(allocPropModal.rows.reduce((s, r) => s + r.allocAmount, 0))}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
           </div>
         </div>
       )}
