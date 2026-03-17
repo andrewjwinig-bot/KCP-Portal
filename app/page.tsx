@@ -194,7 +194,7 @@ export default function Page() {
         if (!mktEntries.length) return [];
         const mktPct = mktEntries.reduce((s, [, v]) => s + (v || 0), 0);
         if (mktPct < 0.0005) return [];
-        return [{ name: emp.name, allocPct: mktPct, amount: (emp.total ?? 0) * mktPct }];
+        return [{ name: emp.name, allocPct: mktPct, amount: (emp.total ?? 0) * mktPct, salary: (emp.salaryAmt ?? 0) * mktPct, er401k: (emp.er401kAmt ?? 0) * mktPct, taxesEr: (emp.taxesErAmt ?? 0) * mktPct }];
       });
   }, [employees]);
 
@@ -714,7 +714,7 @@ export default function Page() {
                 {marketingAllocations.map((m) => (
                   <tr key={m.name}>
                     <td colSpan={empColCount} className="muted" style={{ fontSize: "0.78em", paddingTop: "2px", fontWeight: 400 }}>
-                      {money(m.amount)} (Calculated) is allocated to Marketing from <b>{toTitleCase(m.name)}</b> and is not reflected in the Allocation Preview totals.
+                      {money(m.amount)} (Calculated) is allocated to Marketing from <b>{toTitleCase(m.name)}</b> ({money(m.salary)} Salary, {money(m.er401k)} 401K (ER), {money(m.taxesEr)} Taxes (ER)) and is not reflected in the Allocation Preview totals.
                     </td>
                   </tr>
                 ))}
@@ -819,7 +819,7 @@ export default function Page() {
                   {marketingAllocations.map((m) => (
                     <tr key={m.name}>
                       <td colSpan={invColCount} className="muted" style={{ fontSize: "0.78em", paddingTop: "2px", fontWeight: 400 }}>
-                        {money(m.amount)} (Calculated) is allocated to Marketing from <b>{toTitleCase(m.name)}</b> and is not reflected in the totals above.
+                        {money(m.amount)} (Calculated) is allocated to Marketing from <b>{toTitleCase(m.name)}</b> ({money(m.salary)} Salary, {money(m.er401k)} 401K (ER), {money(m.taxesEr)} Taxes (ER)) and is not reflected in the totals above.
                       </td>
                     </tr>
                   ))}
@@ -1065,6 +1065,29 @@ export default function Page() {
                           <td style={{ textAlign: "right" }}><b>{money(r.total)}</b></td>
                         </tr>
                       ))}
+                      {(() => {
+                        const emp = empModal.employee;
+                        const mktPct = Object.entries(emp.allocations ?? {})
+                          .filter(([k]) => k.toLowerCase().includes("marketing"))
+                          .reduce((s, [, v]) => s + (v || 0), 0);
+                        if (mktPct < 0.0005) return null;
+                        const mktTotal = (emp.total ?? 0) * mktPct;
+                        const mktStyle: React.CSSProperties = { textAlign: "right", color: "#aaa" };
+                        return (
+                          <tr style={{ color: "#aaa", borderTop: "1px dashed #ddd", fontStyle: "italic" }}>
+                            <td style={{ color: "#aaa" }}>—</td>
+                            <td style={{ color: "#aaa" }}>Marketing (not invoiced)</td>
+                            <td style={mktStyle}>{fmtPct(mktPct)}</td>
+                            <td style={mktStyle}>{money((emp.salaryAmt ?? 0) * mktPct)}</td>
+                            <td style={mktStyle}>{money((emp.overtimeAmt ?? 0) * mktPct)}</td>
+                            <td style={mktStyle}>{money((emp.holAmt ?? 0) * mktPct)}</td>
+                            <td style={mktStyle}>{money((emp.er401kAmt ?? 0) * mktPct)}</td>
+                            {empModal.showOther   && <td style={mktStyle}>{money((emp.otherAmt ?? 0) * mktPct)}</td>}
+                            {empModal.showTaxesEr && <td style={mktStyle}>{money((emp.taxesErAmt ?? 0) * mktPct)}</td>}
+                            <td style={mktStyle}>{money(mktTotal)}</td>
+                          </tr>
+                        );
+                      })()}
                     </tbody>
                     <tfoot>
                       <tr style={{ fontWeight: 700 }}>
