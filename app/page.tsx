@@ -169,6 +169,19 @@ export default function Page() {
     return t;
   }, [employees]);
 
+  // Per-employee allocation gaps: employees whose allocations sum to < 100%, leaving some pay unallocated
+  const allocationGaps = useMemo(() => {
+    if (!employees.length) return [];
+    return employees
+      .filter((emp) => (emp.total ?? 0) > 0.005)
+      .map((emp) => {
+        const totalAllocPct = Object.values(emp.allocations ?? {}).reduce((s, v) => s + (v || 0), 0);
+        const unallocatedAmt = (emp.total ?? 0) * Math.max(0, 1 - totalAllocPct);
+        return { name: emp.name, allocPct: totalAllocPct, unallocatedAmt };
+      })
+      .filter((g) => g.unallocatedAmt > 0.005);
+  }, [employees]);
+
   // Dynamic column visibility for Employees card — hide any column whose total is $0
   const showEmpSalary   = employeeTotals.salary   > 0;
   const showEmpOvertime = employeeTotals.overtime  > 0;
@@ -679,7 +692,7 @@ export default function Page() {
                 </tr>
                 <tr>
                   <td colSpan={empColCount} className="muted" style={{ fontSize: "0.78em", paddingTop: "4px", fontWeight: 400 }}>
-                    * Salary includes Regular, Salary, and VAC pay.
+                    * Salary includes Regular, Salary, and VAC pay.{allocationGaps.length > 0 && <span> ** This total may exceed the Allocation Preview total — see footnote below.</span>}
                   </td>
                 </tr>
               </tfoot>
@@ -767,6 +780,19 @@ export default function Page() {
                     {showInvTaxesEr   && <td>{money(totals.taxesEr)}</td>}
                     <td>{money(totals.total)}</td>
                   </tr>
+                  {allocationGaps.length > 0 && (
+                    <tr>
+                      <td colSpan={invColCount} className="muted" style={{ fontSize: "0.78em", paddingTop: "6px", fontWeight: 400 }}>
+                        ** Employees total ({money(employeeTotals.total)}) exceeds this total by {money(employeeTotals.total - totals.total)} because the following employees are not 100% allocated:{" "}
+                        {allocationGaps.map((g, i) => (
+                          <span key={g.name}>
+                            {i > 0 ? " · " : ""}
+                            <b>{toTitleCase(g.name)}</b> is {fmtPct(g.allocPct)} allocated ({money(g.unallocatedAmt)} unallocated)
+                          </span>
+                        ))}.
+                      </td>
+                    </tr>
+                  )}
                 </tfoot>
               </table>
             </div>
