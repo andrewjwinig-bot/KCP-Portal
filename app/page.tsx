@@ -316,6 +316,27 @@ export default function Page() {
     }
   }
 
+  async function downloadSinglePdf(inv: any) {
+    if (!payroll) return;
+    try {
+      const res = await fetch("/api/generate-pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ invoice: inv, payroll }),
+      });
+      if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error(j?.error ?? "Failed"); }
+      const blob = await res.blob();
+      const safeName = (inv.propertyLabel || inv.propertyKey || "invoice").replace(/[^a-z0-9\-_. ]/gi, "_");
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = `${safeName}.pdf`;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e: any) {
+      setError(e?.message ?? "Failed to generate PDF");
+    }
+  }
+
   function downloadExcel() {
     if (!invoices.length) return;
     const blob = buildPayrollExportXlsx({ payDate: payroll?.payDate, invoices });
@@ -490,7 +511,7 @@ export default function Page() {
                 {saving ? "Saving…" : "Save Pay Period"}
               </button>
             )}
-            <span style={{ background: "#16a34a", color: "#fff", borderRadius: 999, padding: "4px 14px", fontSize: 13, fontWeight: 700 }}>Monthly</span>
+            <span style={{ background: "#16a34a", color: "#fff", borderRadius: 999, padding: "4px 14px", fontSize: 13, fontWeight: 700 }}>Bi-Weekly</span>
           </div>
         </div>
         <p className="muted small" style={{ marginTop: 8 }}>
@@ -737,14 +758,15 @@ export default function Page() {
           </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
             {invoices.filter((r) => (r.total ?? 0) > 0).map((r) => (
-              <span
+              <button
                 key={r.propertyKey}
                 className="btn"
-                style={{ fontSize: 12, padding: "5px 10px", cursor: "default" }}
+                style={{ fontSize: 12, padding: "5px 10px" }}
+                onClick={() => downloadSinglePdf(r)}
               >
                 {r.propertyCode || r.propertyKey} — {r.propertyLabel || r.propertyKey}{" "}
                 <span style={{ color: "var(--muted)", marginLeft: 4 }}>({money(r.total)})</span>
-              </span>
+              </button>
             ))}
           </div>
         </div>
