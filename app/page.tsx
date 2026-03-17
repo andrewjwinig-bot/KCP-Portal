@@ -182,6 +182,22 @@ export default function Page() {
       .filter((g) => g.unallocatedAmt > 0.005);
   }, [employees]);
 
+  // Per-employee marketing allocations: employees who have a "Marketing" key in their allocations.
+  // Marketing flows through PRS tables to properties — if it doesn't resolve to any property rows it
+  // won't appear in the Allocation Preview, creating a visible gap vs. the Employees total.
+  const marketingAllocations = useMemo(() => {
+    if (!employees.length) return [];
+    return employees
+      .filter((emp) => (emp.total ?? 0) > 0.005)
+      .flatMap((emp) => {
+        const mktEntries = Object.entries(emp.allocations ?? {}).filter(([k]) => k.toLowerCase().includes("marketing"));
+        if (!mktEntries.length) return [];
+        const mktPct = mktEntries.reduce((s, [, v]) => s + (v || 0), 0);
+        if (mktPct < 0.0005) return [];
+        return [{ name: emp.name, allocPct: mktPct, amount: (emp.total ?? 0) * mktPct }];
+      });
+  }, [employees]);
+
   // Dynamic column visibility for Employees card — hide any column whose total is $0
   const showEmpSalary   = employeeTotals.salary   > 0;
   const showEmpOvertime = employeeTotals.overtime  > 0;
@@ -692,9 +708,16 @@ export default function Page() {
                 </tr>
                 <tr>
                   <td colSpan={empColCount} className="muted" style={{ fontSize: "0.78em", paddingTop: "4px", fontWeight: 400 }}>
-                    * Salary includes Regular, Salary, and VAC pay.{allocationGaps.length > 0 && <span> ** This total may exceed the Allocation Preview total — see footnote below.</span>}
+                    * Salary includes Regular, Salary, and VAC pay.{(allocationGaps.length > 0 || marketingAllocations.length > 0) && <span> ** This total may exceed the Allocation Preview total — see footnote below.</span>}
                   </td>
                 </tr>
+                {marketingAllocations.map((m) => (
+                  <tr key={m.name}>
+                    <td colSpan={empColCount} className="muted" style={{ fontSize: "0.78em", paddingTop: "2px", fontWeight: 400 }}>
+                      {money(m.amount)} (Calculated) is allocated to Marketing from <b>{toTitleCase(m.name)}</b> and is not reflected in the Allocation Preview totals.
+                    </td>
+                  </tr>
+                ))}
               </tfoot>
             </table>
           </div>
@@ -793,6 +816,13 @@ export default function Page() {
                       </td>
                     </tr>
                   )}
+                  {marketingAllocations.map((m) => (
+                    <tr key={m.name}>
+                      <td colSpan={invColCount} className="muted" style={{ fontSize: "0.78em", paddingTop: "2px", fontWeight: 400 }}>
+                        {money(m.amount)} (Calculated) is allocated to Marketing from <b>{toTitleCase(m.name)}</b> and is not reflected in the totals above.
+                      </td>
+                    </tr>
+                  ))}
                 </tfoot>
               </table>
             </div>
