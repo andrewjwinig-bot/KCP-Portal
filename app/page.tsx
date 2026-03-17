@@ -146,13 +146,14 @@ export default function Page() {
   // Dynamic column visibility for Invoices card — hide any column whose total is $0
   const showInvSalaryREC = totals.salaryREC > 0;
   const showInvSalaryNR  = totals.salaryNR  > 0;
+  const showInvSalary    = totals.salaryREC > 0 || totals.salaryNR > 0;
   const showInvOvertime  = totals.overtime  > 0;
   const showInvHolREC    = totals.holREC    > 0;
   const showInvHolNR     = totals.holNR     > 0;
   const showInvEr401k    = totals.er401k    > 0;
   const showInvOther     = totals.other     > 0;
   const showInvTaxesEr   = totals.taxesEr   > 0;
-  const invColCount = 3 + [showInvSalaryREC, showInvSalaryNR, showInvOvertime, showInvHolREC, showInvHolNR, showInvEr401k, showInvOther, showInvTaxesEr].filter(Boolean).length;
+  const invColCount = 3 + [showInvSalary, showInvOvertime, showInvHolREC, showInvHolNR, showInvEr401k, showInvOther, showInvTaxesEr].filter(Boolean).length;
 
   const employeeTotals = useMemo(() => {
     const t = { salary: 0, overtime: 0, hol: 0, er401k: 0, other: 0, taxesEr: 0, total: 0 };
@@ -351,34 +352,39 @@ export default function Page() {
   function openDrill(inv: any, field: string, label: string) {
     const isTotal = field === "total";
 
-    // Some columns display combined REC+NR totals under a merged key name.
-    // The drilldown map uses the split keys, so merge them when needed.
-    const COMBINED: Record<string, [string, string]> = {
-      er401k:  ["er401kREC",  "er401kNR"],
-      other:   ["otherREC",   "otherNR"],
-      taxesEr: ["taxesErREC", "taxesErNR"],
-    };
+    // salary: tag each row with REC or NR so the modal can show pills.
+    // er401k / other / taxesEr: drilldown uses split REC+NR keys — merge them.
     let rows: DrillRow[];
-    if (COMBINED[field]) {
-      const [recKey, nrKey] = COMBINED[field];
-      rows = [
-        ...(inv?.drilldown?.[recKey] ?? []),
-        ...(inv?.drilldown?.[nrKey] ?? []),
-      ];
-      // Merge rows for the same employee so each employee appears once
-      const byEmp = new Map<string, DrillRow>();
-      for (const r of rows) {
-        const existing = byEmp.get(r.employee);
-        if (existing) {
-          existing.amount += r.amount;
-          existing.baseAmount += r.baseAmount ?? 0;
-        } else {
-          byEmp.set(r.employee, { ...r });
-        }
-      }
-      rows = Array.from(byEmp.values());
+    if (field === "salary") {
+      const recRows = (inv?.drilldown?.["salaryREC"] ?? []).map((r: DrillRow) => ({ ...r, category: "REC" }));
+      const nrRows  = (inv?.drilldown?.["salaryNR"]  ?? []).map((r: DrillRow) => ({ ...r, category: "NR"  }));
+      rows = [...recRows, ...nrRows];
     } else {
-      rows = inv?.drilldown?.[field] ?? [];
+      const COMBINED: Record<string, [string, string]> = {
+        er401k:  ["er401kREC",  "er401kNR"],
+        other:   ["otherREC",   "otherNR"],
+        taxesEr: ["taxesErREC", "taxesErNR"],
+      };
+      if (COMBINED[field]) {
+        const [recKey, nrKey] = COMBINED[field];
+        rows = [
+          ...(inv?.drilldown?.[recKey] ?? []),
+          ...(inv?.drilldown?.[nrKey] ?? []),
+        ];
+        const byEmp = new Map<string, DrillRow>();
+        for (const r of rows) {
+          const existing = byEmp.get(r.employee);
+          if (existing) {
+            existing.amount += r.amount;
+            existing.baseAmount = (existing.baseAmount ?? 0) + (r.baseAmount ?? 0);
+          } else {
+            byEmp.set(r.employee, { ...r });
+          }
+        }
+        rows = Array.from(byEmp.values());
+      } else {
+        rows = inv?.drilldown?.[field] ?? [];
+      }
     }
 
     setDrill({
@@ -420,9 +426,9 @@ export default function Page() {
         if (field === "salaryREC" || field === "salaryNR") e.salary += amt;
         else if (field === "overtime") e.overtime += amt;
         else if (field === "holREC" || field === "holNR") e.hol += amt;
-        else if (field === "er401k") e.er401k += amt;
-        else if (field === "other") e.other += amt;
-        else if (field === "taxesEr") e.taxesEr += amt;
+        else if (field === "er401kREC" || field === "er401kNR") e.er401k += amt;
+        else if (field === "otherREC"  || field === "otherNR")  e.other  += amt;
+        else if (field === "taxesErREC"|| field === "taxesErNR") e.taxesEr += amt;
         e.total += amt;
       }
     }
@@ -455,9 +461,9 @@ export default function Page() {
           if (field === "salaryREC" || field === "salaryNR") row.salary += amt;
           else if (field === "overtime") row.overtime += amt;
           else if (field === "holREC" || field === "holNR") row.hol += amt;
-          else if (field === "er401k") row.er401k += amt;
-          else if (field === "other") row.other += amt;
-          else if (field === "taxesEr") row.taxesEr += amt;
+          else if (field === "er401kREC" || field === "er401kNR") row.er401k += amt;
+          else if (field === "otherREC"  || field === "otherNR")  row.other  += amt;
+          else if (field === "taxesErREC"|| field === "taxesErNR") row.taxesEr += amt;
           row.total += amt;
           // Use allocPct from any non-category row (category rows share the same allocPct)
           if (!row.allocPct && r.allocPct) row.allocPct = r.allocPct;
@@ -714,8 +720,7 @@ export default function Page() {
                   <tr>
                     <th>Property Name</th>
                     <th>Property</th>
-                    {showInvSalaryREC && <th style={{ textAlign: "right" }}>Salary REC</th>}
-                    {showInvSalaryNR  && <th style={{ textAlign: "right" }}>Salary NR</th>}
+                    {showInvSalary    && <th style={{ textAlign: "right" }}>Salary</th>}
                     {showInvOvertime  && <th style={{ textAlign: "right" }}>Overtime</th>}
                     {showInvHolREC    && <th>HOL REC</th>}
                     {showInvHolNR     && <th>HOL NR</th>}
@@ -737,8 +742,7 @@ export default function Page() {
                           </button>
                         </td>
                         <td>{r.propertyCode || r.propertyKey}</td>
-                        {showInvSalaryREC && <td><button className="linkBtn" onClick={() => openDrill(r, "salaryREC", "Salary REC")}>{money(r.salaryREC)}</button></td>}
-                        {showInvSalaryNR  && <td><button className="linkBtn" onClick={() => openDrill(r, "salaryNR", "Salary NR")}>{money(r.salaryNR)}</button></td>}
+                        {showInvSalary    && <td style={{ textAlign: "right" }}><button className="linkBtn" onClick={() => openDrill(r, "salary", "Salary")}>{money((r.salaryREC ?? 0) + (r.salaryNR ?? 0))}</button></td>}
                         {showInvOvertime  && <td><button className="linkBtn" onClick={() => openDrill(r, "overtime", "Overtime")}>{money(r.overtime)}</button></td>}
                         {showInvHolREC    && <td><button className="linkBtn" onClick={() => openDrill(r, "holREC", "HOL REC")}>{money(r.holREC)}</button></td>}
                         {showInvHolNR     && <td><button className="linkBtn" onClick={() => openDrill(r, "holNR", "HOL NR")}>{money(r.holNR)}</button></td>}
@@ -754,8 +758,7 @@ export default function Page() {
                   <tr>
                     <td>Totals</td>
                     <td></td>
-                    {showInvSalaryREC && <td>{money(totals.salaryREC)}</td>}
-                    {showInvSalaryNR  && <td>{money(totals.salaryNR)}</td>}
+                    {showInvSalary    && <td style={{ textAlign: "right" }}>{money(totals.salaryREC + totals.salaryNR)}</td>}
                     {showInvOvertime  && <td>{money(totals.overtime)}</td>}
                     {showInvHolREC    && <td>{money(totals.holREC)}</td>}
                     {showInvHolNR     && <td>{money(totals.holNR)}</td>}
@@ -884,7 +887,8 @@ export default function Page() {
 
             <div style={{ overflowY: "auto", flex: 1 }}>
             {(() => {
-              const hasCategory = drill.rows.some((r) => r.category);
+              const isRecNr     = drill.rows.some((r) => r.category === "REC" || r.category === "NR");
+              const hasCategory = !isRecNr && drill.rows.some((r) => r.category);
               return (
                 <table className="modalTable">
                   <thead>
@@ -899,7 +903,11 @@ export default function Page() {
                   <tbody>
                     {drill.rows.map((row, idx) => (
                       <tr key={idx}>
-                        <td>{toTitleCase(row.employee)}</td>
+                        <td>
+                          {toTitleCase(row.employee)}
+                          {row.category === "REC" && <span className="tag rec" style={{ marginLeft: 8 }}>REC</span>}
+                          {row.category === "NR"  && <span className="tag nr"  style={{ marginLeft: 8 }}>NR</span>}
+                        </td>
                         {hasCategory && <td style={{ color: "#555" }}>{row.category ?? ""}</td>}
                         {!drill.isTotal && <td style={{ textAlign: "right" }}>{row.baseAmount == null ? "—" : money(row.baseAmount)}</td>}
                         {!drill.isTotal && <td style={{ textAlign: "right" }}>{row.allocPct == null ? "—" : fmtPct(row.allocPct)}</td>}
