@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { money, num, pct as fmtPct } from "../lib/utils";
+import { buildPayrollExportXlsx } from "../lib/payroll/export";
 
 function toTitleCase(s: string): string {
   if (!s) return s;
@@ -121,6 +122,7 @@ export default function Page() {
   const [invoicesOpen, setInvoicesOpen] = useState(true);
   const [employeesOpen, setEmployeesOpen] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [fileName, setFileName] = useState<string>("");
   const [empTab, setEmpTab] = useState<"breakdown" | "history">("breakdown");
   const [empHistory, setEmpHistory] = useState<EmpHistoryRow[] | null>(null);
   const [empHistoryLoading, setEmpHistoryLoading] = useState(false);
@@ -268,6 +270,7 @@ export default function Page() {
       if (!res.ok) throw new Error(j?.error ?? "Failed to parse payroll");
       setPayroll(j.payroll);
       setInvoices(j.invoices ?? []);
+      setFileName(file.name);
       // Sort by position in payroll register so the table matches the report order
       setEmployees((j.employees ?? []).slice().sort(
         (a: EmployeeSummary, b: EmployeeSummary) => (a.payrollIndex ?? 9999) - (b.payrollIndex ?? 9999)
@@ -276,6 +279,7 @@ export default function Page() {
       setPayroll(null);
       setInvoices([]);
       setEmployees([]);
+      setFileName("");
       setError(e?.message ?? "Failed to parse payroll");
     } finally {
       setBusy(null);
@@ -310,6 +314,17 @@ export default function Page() {
     } finally {
       setBusy(null);
     }
+  }
+
+  function downloadExcel() {
+    if (!invoices.length) return;
+    const blob = buildPayrollExportXlsx({ payDate: payroll?.payDate, invoices });
+    const name = payroll?.payDate ? `${formatDateForZip(payroll.payDate)}payroll-summary.xlsx` : "payroll-summary.xlsx";
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
   }
 
   function openDrill(inv: any, field: string, label: string) {
@@ -482,27 +497,21 @@ export default function Page() {
           Import the <b>Payroll Register</b> Excel file (.xls or .xlsx). Allocation is fixed on the backend.
         </p>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 12 }}>
-          <div style={{
-            flex: 1,
-            display: "flex",
-            alignItems: "center",
-            border: "1px solid var(--border)",
-            borderRadius: 999,
-            padding: "6px 14px 6px 6px",
-            background: "#fff",
-            minWidth: 0,
-          }}>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) importPayroll(f);
-              }}
-              style={{ flex: 1, minWidth: 0, border: "none", background: "transparent", fontSize: 14 }}
-            />
-          </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            style={{ display: "none" }}
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) importPayroll(f); }}
+          />
+          <button className="btn large" onClick={() => fileInputRef.current?.click()} style={{ whiteSpace: "nowrap" }}>
+            Choose Payroll File…
+          </button>
+          {fileName && (
+            <span style={{ fontSize: 13, color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
+              {fileName}
+            </span>
+          )}
           <button
             className="btn"
             style={{ borderRadius: 999, fontWeight: 700, whiteSpace: "nowrap" }}
@@ -511,6 +520,7 @@ export default function Page() {
               setPayroll(null);
               setInvoices([]);
               setEmployees([]);
+              setFileName("");
             }}
           >
             Clear
@@ -528,97 +538,6 @@ export default function Page() {
           </div>
         )}
         {payroll?.payDate && <div className="small muted" style={{ textAlign: "center", marginTop: 6 }}><b>Pay Date:</b> {payroll.payDate}</div>}
-      </div>
-
-      {/* ── Invoices card ── */}
-      <div className="card">
-        <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <button
-              className="btn"
-              style={{ padding: "2px 8px", fontSize: 13 }}
-              onClick={() => setInvoicesOpen((o) => !o)}
-              title={invoicesOpen ? "Collapse" : "Expand"}
-            >
-              {invoicesOpen ? "▲" : "▼"}
-            </button>
-            <div>
-              <b>Invoices</b>
-              <div className="small muted" style={{ marginTop: 4 }}>
-                Summary by property. Click any amount to see employee detail.
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {error && <div style={{ marginTop: 10, color: "#b42318", fontWeight: 800 }}>{error}</div>}
-        {busy && <div style={{ marginTop: 10, color: "#a15c00", fontWeight: 800 }}>{busy}</div>}
-
-        {invoicesOpen && (
-          <>
-            <div className="tableWrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Property Name</th>
-                    <th>Property</th>
-                    {showInvSalaryREC && <th style={{ textAlign: "right" }}>Salary REC</th>}
-                    {showInvSalaryNR  && <th style={{ textAlign: "right" }}>Salary NR</th>}
-                    {showInvOvertime  && <th style={{ textAlign: "right" }}>Overtime</th>}
-                    {showInvHolREC    && <th>HOL REC</th>}
-                    {showInvHolNR     && <th>HOL NR</th>}
-                    {showInvEr401k    && <th style={{ textAlign: "right" }}>401K (ER)</th>}
-                    {showInvOther     && <th style={{ textAlign: "right" }}>Other</th>}
-                    {showInvTaxesEr   && <th style={{ textAlign: "right" }}>Taxes (ER)</th>}
-                    <th style={{ textAlign: "right" }}>Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {invoices.length === 0 ? (
-                    <tr><td colSpan={invColCount} className="muted">Import a payroll file to see invoice summaries.</td></tr>
-                  ) : (
-                    invoices.map((r) => (
-                      <tr key={r.propertyKey}>
-                        <td>
-                          <button className="linkBtn left" onClick={() => openPropAlloc(r)}>
-                            {r.propertyLabel || r.propertyKey}
-                          </button>
-                        </td>
-                        <td>{r.propertyCode || r.propertyKey}</td>
-                        {showInvSalaryREC && <td><button className="linkBtn" onClick={() => openDrill(r, "salaryREC", "Salary REC")}>{money(r.salaryREC)}</button></td>}
-                        {showInvSalaryNR  && <td><button className="linkBtn" onClick={() => openDrill(r, "salaryNR", "Salary NR")}>{money(r.salaryNR)}</button></td>}
-                        {showInvOvertime  && <td><button className="linkBtn" onClick={() => openDrill(r, "overtime", "Overtime")}>{money(r.overtime)}</button></td>}
-                        {showInvHolREC    && <td><button className="linkBtn" onClick={() => openDrill(r, "holREC", "HOL REC")}>{money(r.holREC)}</button></td>}
-                        {showInvHolNR     && <td><button className="linkBtn" onClick={() => openDrill(r, "holNR", "HOL NR")}>{money(r.holNR)}</button></td>}
-                        {showInvEr401k    && <td><button className="linkBtn" onClick={() => openDrill(r, "er401k", "401K (ER)")}>{money(r.er401k)}</button></td>}
-                        {showInvOther     && <td style={{ textAlign: "right" }}><button className="linkBtn" onClick={() => openDrill(r, "other", "Other Pay")}>{money(r.other)}</button></td>}
-                        {showInvTaxesEr   && <td><button className="linkBtn" onClick={() => openDrill(r, "taxesEr", "Taxes (ER)")}>{money(r.taxesEr)}</button></td>}
-                        <td><button className="linkBtn" onClick={() => openDrill(r, "total", "Total")}><b>{money(r.total)}</b></button></td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-                <tfoot>
-                  <tr>
-                    <td>Totals</td>
-                    <td></td>
-                    {showInvSalaryREC && <td>{money(totals.salaryREC)}</td>}
-                    {showInvSalaryNR  && <td>{money(totals.salaryNR)}</td>}
-                    {showInvOvertime  && <td>{money(totals.overtime)}</td>}
-                    {showInvHolREC    && <td>{money(totals.holREC)}</td>}
-                    {showInvHolNR     && <td>{money(totals.holNR)}</td>}
-                    {showInvEr401k    && <td>{money(totals.er401k)}</td>}
-                    {showInvOther     && <td style={{ textAlign: "right" }}>{money(totals.other)}</td>}
-                    {showInvTaxesEr   && <td>{money(totals.taxesEr)}</td>}
-                    <td>{money(totals.total)}</td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-            <hr />
-            <div className="small muted">Allocation is read from <code>/data/allocation.xlsx</code> on the server. <span style={{ color: "#888" }}>(Data\LIK Management\Payroll)</span></div>
-          </>
-        )}
       </div>
 
       {/* ── Employees card ── */}
@@ -711,6 +630,125 @@ export default function Page() {
           </div>
         )}
       </div>
+
+      {/* ── Allocation Preview card ── */}
+      <div className="card">
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <button
+              className="btn"
+              style={{ padding: "2px 8px", fontSize: 13 }}
+              onClick={() => setInvoicesOpen((o) => !o)}
+              title={invoicesOpen ? "Collapse" : "Expand"}
+            >
+              {invoicesOpen ? "▲" : "▼"}
+            </button>
+            <div>
+              <b>Allocation Preview</b>
+              <div className="small muted" style={{ marginTop: 4 }}>
+                Summary by property. Click any amount to see employee detail.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {error && <div style={{ marginTop: 10, color: "#b42318", fontWeight: 800 }}>{error}</div>}
+        {busy && <div style={{ marginTop: 10, color: "#a15c00", fontWeight: 800 }}>{busy}</div>}
+
+        {invoicesOpen && (
+          <>
+            <div className="tableWrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Property Name</th>
+                    <th>Property</th>
+                    {showInvSalaryREC && <th style={{ textAlign: "right" }}>Salary REC</th>}
+                    {showInvSalaryNR  && <th style={{ textAlign: "right" }}>Salary NR</th>}
+                    {showInvOvertime  && <th style={{ textAlign: "right" }}>Overtime</th>}
+                    {showInvHolREC    && <th>HOL REC</th>}
+                    {showInvHolNR     && <th>HOL NR</th>}
+                    {showInvEr401k    && <th style={{ textAlign: "right" }}>401K (ER)</th>}
+                    {showInvOther     && <th style={{ textAlign: "right" }}>Other</th>}
+                    {showInvTaxesEr   && <th style={{ textAlign: "right" }}>Taxes (ER)</th>}
+                    <th style={{ textAlign: "right" }}>Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {invoices.length === 0 ? (
+                    <tr><td colSpan={invColCount} className="muted">Import a payroll file to see invoice summaries.</td></tr>
+                  ) : (
+                    invoices.map((r) => (
+                      <tr key={r.propertyKey}>
+                        <td>
+                          <button className="linkBtn left" onClick={() => openPropAlloc(r)}>
+                            {r.propertyLabel || r.propertyKey}
+                          </button>
+                        </td>
+                        <td>{r.propertyCode || r.propertyKey}</td>
+                        {showInvSalaryREC && <td><button className="linkBtn" onClick={() => openDrill(r, "salaryREC", "Salary REC")}>{money(r.salaryREC)}</button></td>}
+                        {showInvSalaryNR  && <td><button className="linkBtn" onClick={() => openDrill(r, "salaryNR", "Salary NR")}>{money(r.salaryNR)}</button></td>}
+                        {showInvOvertime  && <td><button className="linkBtn" onClick={() => openDrill(r, "overtime", "Overtime")}>{money(r.overtime)}</button></td>}
+                        {showInvHolREC    && <td><button className="linkBtn" onClick={() => openDrill(r, "holREC", "HOL REC")}>{money(r.holREC)}</button></td>}
+                        {showInvHolNR     && <td><button className="linkBtn" onClick={() => openDrill(r, "holNR", "HOL NR")}>{money(r.holNR)}</button></td>}
+                        {showInvEr401k    && <td><button className="linkBtn" onClick={() => openDrill(r, "er401k", "401K (ER)")}>{money(r.er401k)}</button></td>}
+                        {showInvOther     && <td style={{ textAlign: "right" }}><button className="linkBtn" onClick={() => openDrill(r, "other", "Other Pay")}>{money(r.other)}</button></td>}
+                        {showInvTaxesEr   && <td><button className="linkBtn" onClick={() => openDrill(r, "taxesEr", "Taxes (ER)")}>{money(r.taxesEr)}</button></td>}
+                        <td><button className="linkBtn" onClick={() => openDrill(r, "total", "Total")}><b>{money(r.total)}</b></button></td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td>Totals</td>
+                    <td></td>
+                    {showInvSalaryREC && <td>{money(totals.salaryREC)}</td>}
+                    {showInvSalaryNR  && <td>{money(totals.salaryNR)}</td>}
+                    {showInvOvertime  && <td>{money(totals.overtime)}</td>}
+                    {showInvHolREC    && <td>{money(totals.holREC)}</td>}
+                    {showInvHolNR     && <td>{money(totals.holNR)}</td>}
+                    {showInvEr401k    && <td>{money(totals.er401k)}</td>}
+                    {showInvOther     && <td style={{ textAlign: "right" }}>{money(totals.other)}</td>}
+                    {showInvTaxesEr   && <td>{money(totals.taxesEr)}</td>}
+                    <td>{money(totals.total)}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+            <hr />
+            <div className="small muted">Allocation is read from <code>/data/allocation.xlsx</code> on the server. <span style={{ color: "#888" }}>(Data\LIK Management\Payroll)</span></div>
+          </>
+        )}
+      </div>
+
+      {/* ── Generate Invoices card ── */}
+      {invoices.length > 0 && (
+        <div className="card">
+          <b>Generate Invoices</b>
+          <div className="small muted" style={{ marginTop: 4, marginBottom: 14 }}>One PDF invoice per property. Only properties with allocated amounts greater than $0 are included.</div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
+            <button className="btn primary large" onClick={generateAll} disabled={!payroll || !!busy}>
+              Download All Invoices
+            </button>
+            <button className="btn large" onClick={downloadExcel} disabled={!invoices.length}>
+              Download Excel Summary
+            </button>
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {invoices.filter((r) => (r.total ?? 0) > 0).map((r) => (
+              <span
+                key={r.propertyKey}
+                className="btn"
+                style={{ fontSize: 12, padding: "5px 10px", cursor: "default" }}
+              >
+                {r.propertyCode || r.propertyKey} — {r.propertyLabel || r.propertyKey}{" "}
+                <span style={{ color: "var(--muted)", marginLeft: 4 }}>({money(r.total)})</span>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ── Property allocation modal ── */}
       {propAllocModal && (
