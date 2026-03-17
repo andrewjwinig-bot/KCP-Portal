@@ -198,6 +198,13 @@ export default function Page() {
       });
   }, [employees]);
 
+  const mktTotals = useMemo(() => ({
+    salary:  marketingAllocations.reduce((s, m) => s + m.salary,  0),
+    er401k:  marketingAllocations.reduce((s, m) => s + m.er401k,  0),
+    taxesEr: marketingAllocations.reduce((s, m) => s + m.taxesEr, 0),
+    total:   marketingAllocations.reduce((s, m) => s + m.amount,  0),
+  }), [marketingAllocations]);
+
   // Dynamic column visibility for Employees card — hide any column whose total is $0
   const showEmpSalary   = employeeTotals.salary   > 0;
   const showEmpOvertime = employeeTotals.overtime  > 0;
@@ -807,14 +814,14 @@ export default function Page() {
                   <tr>
                     <td>Totals</td>
                     <td></td>
-                    {showInvSalary    && <td style={{ textAlign: "right" }}>{money(totals.salaryREC + totals.salaryNR)}</td>}
+                    {showInvSalary    && <td style={{ textAlign: "right" }}>{money(totals.salaryREC + totals.salaryNR + mktTotals.salary)}</td>}
                     {showInvOvertime  && <td>{money(totals.overtime)}</td>}
                     {showInvHolREC    && <td>{money(totals.holREC)}</td>}
                     {showInvHolNR     && <td>{money(totals.holNR)}</td>}
-                    {showInvEr401k    && <td>{money(totals.er401k)}</td>}
+                    {showInvEr401k    && <td>{money(totals.er401k + mktTotals.er401k)}</td>}
                     {showInvOther     && <td style={{ textAlign: "right" }}>{money(totals.other)}</td>}
-                    {showInvTaxesEr   && <td>{money(totals.taxesEr)}</td>}
-                    <td>{money(totals.total)}</td>
+                    {showInvTaxesEr   && <td>{money(totals.taxesEr + mktTotals.taxesEr)}</td>}
+                    <td>{money(totals.total + mktTotals.total)}</td>
                   </tr>
                   {allocationGaps.length > 0 && (
                     <tr>
@@ -832,7 +839,7 @@ export default function Page() {
                   {marketingAllocations.length > 0 && (
                     <tr>
                       <td colSpan={invColCount} className="muted" style={{ fontSize: "0.78em", paddingTop: "2px", fontWeight: 400 }}>
-                        † Marketing has no invoice and is not included in the totals above.
+                        † Marketing has no invoice and will not generate a PDF.
                       </td>
                     </tr>
                   )}
