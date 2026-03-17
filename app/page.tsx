@@ -576,7 +576,7 @@ export default function Page() {
                 {saving ? "Saving…" : "Save Pay Period"}
               </button>
             )}
-            <span style={{ background: "#16a34a", color: "#fff", borderRadius: 999, padding: "4px 14px", fontSize: 13, fontWeight: 700 }}>Bi-Weekly</span>
+            <span style={{ background: "rgba(22, 163, 74, 0.85)", color: "#fff", borderRadius: 999, padding: "12px 18px", fontSize: 15, fontWeight: 700, border: "1px solid transparent", display: "inline-flex", alignItems: "center" }}>Bi-Weekly</span>
           </div>
         </div>
         <p className="muted small" style={{ marginTop: 8 }}>
@@ -711,13 +711,6 @@ export default function Page() {
                     * Salary includes Regular, Salary, and VAC pay.{(allocationGaps.length > 0 || marketingAllocations.length > 0) && <span> ** This total may exceed the Allocation Preview total — see footnote below.</span>}
                   </td>
                 </tr>
-                {marketingAllocations.map((m) => (
-                  <tr key={m.name}>
-                    <td colSpan={empColCount} className="muted" style={{ fontSize: "0.78em", paddingTop: "2px", fontWeight: 400 }}>
-                      {money(m.amount)} (Calculated) is allocated to Marketing from <b>{toTitleCase(m.name)}</b> ({money(m.salary)} Salary, {money(m.er401k)} 401K (ER), {money(m.taxesEr)} Taxes (ER)) and is not reflected in the Allocation Preview totals.
-                    </td>
-                  </tr>
-                ))}
               </tfoot>
             </table>
           </div>
