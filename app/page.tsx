@@ -153,7 +153,7 @@ export default function Page() {
   const showInvEr401k    = totals.er401k    > 0;
   const showInvOther     = totals.other     > 0;
   const showInvTaxesEr   = totals.taxesEr   > 0;
-  const invColCount = 3 + [showInvSalary, showInvOvertime, showInvHolREC, showInvHolNR, showInvEr401k, showInvOther, showInvTaxesEr].filter(Boolean).length;
+  const invColCount = 2 + [showInvSalary, showInvOvertime, showInvHolREC, showInvHolNR, showInvEr401k, showInvOther, showInvTaxesEr].filter(Boolean).length;
 
   const employeeTotals = useMemo(() => {
     const t = { salary: 0, overtime: 0, hol: 0, er401k: 0, other: 0, taxesEr: 0, total: 0 };
@@ -754,7 +754,6 @@ export default function Page() {
               <table>
                 <thead>
                   <tr>
-                    <th>Property Name</th>
                     <th>Property</th>
                     {showInvSalary    && <th style={{ textAlign: "right" }}>Salary</th>}
                     {showInvOvertime  && <th style={{ textAlign: "right" }}>Overtime</th>}
@@ -774,10 +773,9 @@ export default function Page() {
                       <tr key={r.propertyKey}>
                         <td>
                           <button className="linkBtn left" onClick={() => openPropAlloc(r)}>
-                            {r.propertyLabel || r.propertyKey}
+                            {r.propertyCode || r.propertyKey} — {r.propertyLabel || r.propertyKey}
                           </button>
                         </td>
-                        <td>{r.propertyCode || r.propertyKey}</td>
                         {showInvSalary    && <td style={{ textAlign: "right" }}><button className="linkBtn" onClick={() => openDrill(r, "salary", "Salary")}>{money((r.salaryREC ?? 0) + (r.salaryNR ?? 0))}</button></td>}
                         {showInvOvertime  && <td><button className="linkBtn" onClick={() => openDrill(r, "overtime", "Overtime")}>{money(r.overtime)}</button></td>}
                         {showInvHolREC    && <td><button className="linkBtn" onClick={() => openDrill(r, "holREC", "HOL REC")}>{money(r.holREC)}</button></td>}
@@ -796,8 +794,7 @@ export default function Page() {
                     const mktTotal   = marketingAllocations.reduce((s, m) => s + m.amount,  0);
                     return (
                       <tr key="marketing" style={{ color: "#bbb", fontStyle: "italic" }}>
-                        <td>Marketing †</td>
-                        <td>MKT</td>
+                        <td>MKT — Marketing †</td>
                         {showInvSalary   && <td style={{ textAlign: "right" }}>{money(mktSalary)}</td>}
                         {showInvOvertime && <td style={{ textAlign: "right" }}>—</td>}
                         {showInvHolREC   && <td>—</td>}
@@ -813,7 +810,6 @@ export default function Page() {
                 <tfoot>
                   <tr>
                     <td>Totals</td>
-                    <td></td>
                     {showInvSalary    && <td style={{ textAlign: "right" }}>{money(totals.salaryREC + totals.salaryNR + mktTotals.salary)}</td>}
                     {showInvOvertime  && <td style={{ textAlign: "right" }}>{money(totals.overtime)}</td>}
                     {showInvHolREC    && <td style={{ textAlign: "right" }}>{money(totals.holREC)}</td>}
