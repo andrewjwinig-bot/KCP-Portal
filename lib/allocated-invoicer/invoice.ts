@@ -229,7 +229,7 @@ export function buildAllocInvoicePdf(args: BuildAllocInvoicePdfArgs): Blob {
       doc.setFont("helvetica", "normal");
       doc.setFontSize(10);
       doc.setTextColor(0, 0, 0);
-      doc.text(item.accountCode,                               xAccCode  + 6,               y + 14);
+      doc.text(item.accountCode.replace(/-\w+$/, "-8501"),    xAccCode  + 6,               y + 14);
       doc.text(truncate(item.accountName, 32),                 xAccName  + 6,               y + 14);
       doc.text(toMoney(item.grossAmount),                      xGross    + colGross   - 6,  y + 14, { align: "right" });
       doc.text((item.allocPct * 100).toFixed(2) + "%",        xAllocPct + colAllocPct - 6, y + 14, { align: "right" });
@@ -253,7 +253,7 @@ export function buildAllocInvoicePdf(args: BuildAllocInvoicePdfArgs): Blob {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(10);
     doc.setTextColor(TEAL.r, TEAL.g, TEAL.b);
-    doc.text(`${suffix} Subtotal`, xAccName + 6, y + 14);
+    doc.text(`8501 Subtotal`, xAccName + 6, y + 14);
     doc.setTextColor(0, 0, 0);
     doc.text(toMoney(groupTotal), xAmount + colAmount - 6, y + 14, { align: "right" });
     y += subRowH + 4;
