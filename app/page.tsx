@@ -708,7 +708,7 @@ export default function Page() {
                 </tr>
                 <tr>
                   <td colSpan={empColCount} className="muted" style={{ fontSize: "0.78em", paddingTop: "4px", fontWeight: 400 }}>
-                    * Salary includes Regular, Salary, and VAC pay.{(allocationGaps.length > 0 || marketingAllocations.length > 0) && <span> ** This total may exceed the Allocation Preview total — see footnote below.</span>}
+                    * Salary includes Regular, Salary, and VAC pay.{allocationGaps.length > 0 && <span> ** This total may exceed the Allocation Preview total — see footnote below.</span>}
                   </td>
                 </tr>
               </tfoot>
@@ -782,6 +782,26 @@ export default function Page() {
                       </tr>
                     ))
                   )}
+                  {marketingAllocations.length > 0 && (() => {
+                    const mktSalary  = marketingAllocations.reduce((s, m) => s + m.salary,  0);
+                    const mktEr401k  = marketingAllocations.reduce((s, m) => s + m.er401k,  0);
+                    const mktTaxesEr = marketingAllocations.reduce((s, m) => s + m.taxesEr, 0);
+                    const mktTotal   = marketingAllocations.reduce((s, m) => s + m.amount,  0);
+                    return (
+                      <tr key="marketing" style={{ color: "#bbb", fontStyle: "italic" }}>
+                        <td>Marketing †</td>
+                        <td>MKT</td>
+                        {showInvSalary   && <td style={{ textAlign: "right" }}>{money(mktSalary)}</td>}
+                        {showInvOvertime && <td style={{ textAlign: "right" }}>—</td>}
+                        {showInvHolREC   && <td>—</td>}
+                        {showInvHolNR    && <td>—</td>}
+                        {showInvEr401k   && <td style={{ textAlign: "right" }}>{money(mktEr401k)}</td>}
+                        {showInvOther    && <td style={{ textAlign: "right" }}>—</td>}
+                        {showInvTaxesEr  && <td style={{ textAlign: "right" }}>{money(mktTaxesEr)}</td>}
+                        <td style={{ textAlign: "right" }}>{money(mktTotal)}</td>
+                      </tr>
+                    );
+                  })()}
                 </tbody>
                 <tfoot>
                   <tr>
@@ -809,13 +829,13 @@ export default function Page() {
                       </td>
                     </tr>
                   )}
-                  {marketingAllocations.map((m) => (
-                    <tr key={m.name}>
+                  {marketingAllocations.length > 0 && (
+                    <tr>
                       <td colSpan={invColCount} className="muted" style={{ fontSize: "0.78em", paddingTop: "2px", fontWeight: 400 }}>
-                        {money(m.amount)} (Calculated) is allocated to Marketing from <b>{toTitleCase(m.name)}</b> ({money(m.salary)} Salary, {money(m.er401k)} 401K (ER), {money(m.taxesEr)} Taxes (ER)) and is not reflected in the totals above.
+                        † Marketing has no invoice and is not included in the totals above.
                       </td>
                     </tr>
-                  ))}
+                  )}
                 </tfoot>
               </table>
             </div>

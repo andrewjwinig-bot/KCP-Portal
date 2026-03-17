@@ -409,7 +409,7 @@ export default function AllocatedInvoicerPage() {
         <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
           <b>Import General Ledger</b>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <span style={{ background: "#16a34a", color: "#fff", borderRadius: 999, padding: "4px 14px", fontSize: 13, fontWeight: 700 }}>Monthly</span>
+            <span style={{ background: "rgba(22, 163, 74, 0.85)", color: "#fff", borderRadius: 999, padding: "12px 18px", fontSize: 15, fontWeight: 700, border: "1px solid transparent", display: "inline-flex", alignItems: "center" }}>Monthly</span>
           </div>
         </div>
         <p className="muted small" style={{ marginTop: 8 }}>
