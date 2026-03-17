@@ -429,6 +429,8 @@ export default function ExpensesPage() {
   const [drillModal, setDrillModal] = useState<{ propId: string; category: string; items: any[] } | null>(null);
   // Invoice PDF attachments — keyed by tx id, lives in memory only (not persisted)
   const [attachments, setAttachments] = useState<Map<string, File>>(new Map());
+  const [fileName, setFileName] = useState<string>("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const attachInputRefs = useRef<Map<string, HTMLInputElement>>(new Map());
 
   useEffect(() => {
@@ -597,6 +599,7 @@ export default function ExpensesPage() {
       return newTx({ date: dateIdx >= 0 ? String(r[dateIdx] ?? "") : "", description: descIdx >= 0 ? String(r[descIdx] ?? "") : "", cardMember: cardIdx >= 0 ? String(r[cardIdx] ?? "") : "", amount: normalizeAmount(amtIdx >= 0 ? r[amtIdx] : 0), category: isTransportation ? "AUTO" : "", propertyId: isTransportation ? "BP & SC" : "" });
     }).filter((t) => Number(t.amount) > 0);
     upsertTx(imported);
+    setFileName(file.name);
   }
 
   function updateTx(id: string, patch: Partial<Tx>) {
@@ -606,6 +609,8 @@ export default function ExpensesPage() {
   function clearAll() {
     if (!confirm("Clear all imported transactions?")) return;
     setTx([]); setStatementPeriodText(""); setStatementStart(null); setStatementEnd(null);
+    setFileName("");
+    if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
   function handleSortCol(col: string) {
@@ -791,9 +796,21 @@ export default function ExpensesPage() {
           Import the <b>American Express</b> Excel file (.xls or .xlsx).
         </p>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 12 }}>
-          <div style={{ flex: 1, display: "flex", alignItems: "center", border: "1px solid var(--border)", borderRadius: 999, padding: "6px 14px 6px 6px", background: "#fff", minWidth: 0 }}>
-            <input type="file" accept=".xlsx,.xls" onChange={(e) => { const f = e.target.files?.[0]; if (f) importFile(f); (e.target as any).value = ""; }} style={{ flex: 1, minWidth: 0, border: "none", background: "transparent", fontSize: 14 }} />
-          </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".xlsx,.xls"
+            style={{ display: "none" }}
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) importFile(f); }}
+          />
+          <button className="btn large" onClick={() => fileInputRef.current?.click()} style={{ whiteSpace: "nowrap" }}>
+            Choose Statement File…
+          </button>
+          {fileName && (
+            <span style={{ fontSize: 13, color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
+              {fileName}
+            </span>
+          )}
           <button className="btn" style={{ borderRadius: 999, fontWeight: 700, whiteSpace: "nowrap" }} onClick={clearAll} disabled={!tx.length}>Clear</button>
         </div>
         {tx.length > 0 && (
