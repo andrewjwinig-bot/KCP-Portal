@@ -40,7 +40,7 @@ const CATEGORY_ACC: Record<(typeof CATEGORIES)[number], string> = {
   "MARKETING NR": "7110",
   "BUILDING MAINT.": "8220",
   TI: "1440",
-  "OFFICE SUPPLIES": "9830",
+  "OFFICE SUPPLIES": "8930",
   AUTO: "8980",
   TELEPHONE: "8940",
   "COMP & IT": "8400",
@@ -56,7 +56,6 @@ const PROPERTIES = [
   { id: "BP & SC", name: "All BP & SC" },
   { id: "BP", name: "All BP" },
   { id: "SC", name: "All SC" },
-  { id: "KH", name: "All KH" },
   { id: "PJV3", name: "JV III" },
   { id: "PNIPLX", name: "NI LLC" },
   { id: "PIIICO", name: "JV III Condo" },
@@ -100,7 +99,6 @@ const PROPERTY_ACC2: Record<(typeof PROPERTIES)[number]["id"], string[]> = {
   "BP & SC": ["9301", "9302"],
   BP: ["9301"],
   SC: ["9302"],
-  KH: ["8501"],
   PJV3: ["8501"],
   PNIPLX: ["8501"],
   PIIICO: ["8501"],
@@ -462,6 +460,7 @@ export default function ExpensesPage() {
   const [chartsOpen, setChartsOpen] = useState(true);
   const [codeTransOpen, setCodeTransOpen] = useState(true);
   const [allocPreviewOpen, setAllocPreviewOpen] = useState(true);
+  const [showAllocModal, setShowAllocModal] = useState(false);
   // Invoice PDF attachments — keyed by tx id, lives in memory only (not persisted)
   const [attachments, setAttachments] = useState<Map<string, File>>(new Map());
   const [fileName, setFileName] = useState<string>("");
@@ -1122,14 +1121,17 @@ export default function ExpensesPage() {
 
       {/* ── Allocation Preview card ── */}
       <div className="card">
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: allocPreviewOpen ? 0 : 0 }}>
-          <button className="btn" style={{ padding: "2px 8px", fontSize: 13 }} onClick={() => setAllocPreviewOpen((o) => !o)} title={allocPreviewOpen ? "Collapse" : "Expand"}>
-            {allocPreviewOpen ? "▲" : "▼"}
-          </button>
-          <div>
-            <b>Allocation Preview</b>
-            <div className="small muted" style={{ marginTop: 4 }}>One invoice per property — summary page + detailed charges. BP &amp; SC expenses are pre-allocated by schedule.</div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <button className="btn" style={{ padding: "2px 8px", fontSize: 13 }} onClick={() => setAllocPreviewOpen((o) => !o)} title={allocPreviewOpen ? "Collapse" : "Expand"}>
+              {allocPreviewOpen ? "▲" : "▼"}
+            </button>
+            <div>
+              <b>Allocation Preview</b>
+              <div className="small muted" style={{ marginTop: 4 }}>One invoice per property — summary page + detailed charges. BP &amp; SC expenses are pre-allocated by schedule.</div>
+            </div>
           </div>
+          <button className="btn" onClick={() => setShowAllocModal(true)}>Allocations</button>
         </div>
         {allocPreviewOpen && (
           <div className="tableWrap">
@@ -1297,6 +1299,54 @@ export default function ExpensesPage() {
                   <tr style={{ background: "#f8fafc" }}>
                     <td colSpan={drillModal.category === "TI" ? 4 : 3} style={{ padding: "8px 10px", fontWeight: 700, fontSize: 13 }}>Total ({drillModal.items.length} items)</td>
                     <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 700, whiteSpace: "nowrap" }}>{toMoney(drillModal.items.reduce((a: number, t: any) => a + Number(t.amount), 0))}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Allocations modal */}
+      {showAllocModal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.55)", zIndex: 998, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} onClick={() => setShowAllocModal(false)}>
+          <div className="card" style={{ maxWidth: 560, width: "100%", maxHeight: "85vh", display: "flex", flexDirection: "column" }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+              <div>
+                <b style={{ fontSize: 15 }}>Allocation Percentages</b>
+                <div className="small muted" style={{ marginTop: 2 }}>BP and SC property breakdowns</div>
+              </div>
+              <button className="btn" style={{ padding: "4px 10px" }} onClick={() => setShowAllocModal(false)}>✕</button>
+            </div>
+            <div className="tableWrap" style={{ overflowY: "auto" }}>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Property</th>
+                    <th style={{ textAlign: "right" }}>BP (9301)</th>
+                    <th style={{ textAlign: "right" }}>SC (9302)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    ...Object.entries(ALLOC_BP).map(([id, pct]) => ({ id, pct, group: "BP" as const })),
+                    ...Object.entries(ALLOC_SC).map(([id, pct]) => ({ id, pct, group: "SC" as const })),
+                  ].map(({ id, pct, group }) => {
+                    const name = properties.find((p) => p.id === id)?.name ?? id;
+                    return (
+                      <tr key={id}>
+                        <td>{id} — {name}</td>
+                        <td style={{ textAlign: "right" }}>{group === "BP" ? `${(pct * 100).toFixed(2)}%` : <span className="muted">—</span>}</td>
+                        <td style={{ textAlign: "right" }}>{group === "SC" ? `${(pct * 100).toFixed(2)}%` : <span className="muted">—</span>}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td>Total</td>
+                    <td style={{ textAlign: "right" }}>{(Object.values(ALLOC_BP).reduce((s, v) => s + v, 0) * 100).toFixed(2)}%</td>
+                    <td style={{ textAlign: "right" }}>{(Object.values(ALLOC_SC).reduce((s, v) => s + v, 0) * 100).toFixed(2)}%</td>
                   </tr>
                 </tfoot>
               </table>
