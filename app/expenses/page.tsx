@@ -140,6 +140,33 @@ const PROPERTY_ACC2: Record<(typeof PROPERTIES)[number]["id"], string[]> = {
   "0800": ["8501"],
 };
 
+// 9301 percentages from ALLOCATION_TABLE (BP buildings only)
+const ALLOC_BP: Record<string, number> = {
+  "3610": 0.0779,
+  "3620": 0.0913,
+  "3640": 0.0909,
+  "4050": 0.1006,
+  "4060": 0.2009,
+  "4070": 0.1146,
+  "4080": 0.2381,
+  "40A0": 0.0281,
+  "40B0": 0.0242,
+  "40C0": 0.0335,
+};
+
+// 9302 percentages from ALLOCATION_TABLE (SC properties only)
+const ALLOC_SC: Record<string, number> = {
+  "1100": 0.0299,
+  "1500": 0.0082,
+  "2300": 0.2224,
+  "4500": 0.2992,
+  "5600": 0.0048,
+  "7010": 0.2645,
+  "7200": 0.0535,
+  "7300": 0.0813,
+  "8200": 0.0361,
+};
+
 const ALLOC_BP_SC: Record<string, number> = {
   "3610": 0.0514,
   "3620": 0.0602,
@@ -379,9 +406,14 @@ function allocateCentsByPercents(totalCents: number, entries: Array<{ key: strin
 }
 
 function expandForAllocation(t: Tx): Array<Tx & { originalAmount?: number }> {
-  if (t.propertyId !== "BP & SC") return [t];
+  const allocTable =
+    t.propertyId === "BP & SC" ? ALLOC_BP_SC :
+    t.propertyId === "BP"      ? ALLOC_BP :
+    t.propertyId === "SC"      ? ALLOC_SC :
+    null;
+  if (!allocTable) return [t];
   const totalC = cents(t.amount);
-  const entries = Object.entries(ALLOC_BP_SC).map(([key, pct]) => ({ key, pct }));
+  const entries = Object.entries(allocTable).map(([key, pct]) => ({ key, pct }));
   const alloc = allocateCentsByPercents(totalC, entries);
   if (!alloc.length) return [t];
   return alloc
