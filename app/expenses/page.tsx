@@ -146,7 +146,7 @@ const ALLOC_BP: Record<string, number> = {
   "4050": 0.1006,
   "4060": 0.2009,
   "4070": 0.1146,
-  "4080": 0.2381,
+  "4080": 0.2380,
   "40A0": 0.0281,
   "40B0": 0.0242,
   "40C0": 0.0335,
@@ -157,7 +157,7 @@ const ALLOC_SC: Record<string, number> = {
   "1100": 0.0299,
   "1500": 0.0082,
   "2300": 0.2224,
-  "4500": 0.2992,
+  "4500": 0.2993,
   "5600": 0.0048,
   "7010": 0.2645,
   "7200": 0.0535,
@@ -1310,11 +1310,11 @@ export default function ExpensesPage() {
       {/* Allocations modal */}
       {showAllocModal && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.55)", zIndex: 998, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} onClick={() => setShowAllocModal(false)}>
-          <div className="card" style={{ maxWidth: 560, width: "100%", maxHeight: "85vh", display: "flex", flexDirection: "column" }} onClick={(e) => e.stopPropagation()}>
+          <div className="card" style={{ maxWidth: 660, width: "100%", maxHeight: "85vh", display: "flex", flexDirection: "column" }} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
               <div>
                 <b style={{ fontSize: 15 }}>Allocation Percentages</b>
-                <div className="small muted" style={{ marginTop: 2 }}>BP and SC property breakdowns</div>
+                <div className="small muted" style={{ marginTop: 2 }}>Allocations based on property square feet.</div>
               </div>
               <button className="btn" style={{ padding: "4px 10px" }} onClick={() => setShowAllocModal(false)}>✕</button>
             </div>
@@ -1325,19 +1325,25 @@ export default function ExpensesPage() {
                     <th>Property</th>
                     <th style={{ textAlign: "right" }}>BP (9301)</th>
                     <th style={{ textAlign: "right" }}>SC (9302)</th>
+                    <th style={{ textAlign: "right" }}>BP &amp; SC (9303)</th>
                   </tr>
                 </thead>
                 <tbody>
                   {[
-                    ...Object.entries(ALLOC_BP).map(([id, pct]) => ({ id, pct, group: "BP" as const })),
-                    ...Object.entries(ALLOC_SC).map(([id, pct]) => ({ id, pct, group: "SC" as const })),
-                  ].map(({ id, pct, group }) => {
+                    ...Object.entries(ALLOC_BP).map(([id, pct]) => ({ id, group: "BP" as const })),
+                    ...Object.entries(ALLOC_SC).map(([id, pct]) => ({ id, group: "SC" as const })),
+                  ].map(({ id, group }) => {
                     const name = properties.find((p) => p.id === id)?.name ?? id;
+                    const bp   = ALLOC_BP[id]   ?? 0;
+                    const sc   = ALLOC_SC[id]   ?? 0;
+                    const bpsc = ALLOC_BP_SC[id] ?? 0;
+                    const fmt = (v: number) => v ? `${(v * 100).toFixed(2)}%` : <span className="muted">—</span>;
                     return (
                       <tr key={id}>
                         <td>{id} — {name}</td>
-                        <td style={{ textAlign: "right" }}>{group === "BP" ? `${(pct * 100).toFixed(2)}%` : <span className="muted">—</span>}</td>
-                        <td style={{ textAlign: "right" }}>{group === "SC" ? `${(pct * 100).toFixed(2)}%` : <span className="muted">—</span>}</td>
+                        <td style={{ textAlign: "right" }}>{fmt(bp)}</td>
+                        <td style={{ textAlign: "right" }}>{fmt(sc)}</td>
+                        <td style={{ textAlign: "right" }}>{fmt(bpsc)}</td>
                       </tr>
                     );
                   })}
@@ -1347,6 +1353,7 @@ export default function ExpensesPage() {
                     <td>Total</td>
                     <td style={{ textAlign: "right" }}>{(Object.values(ALLOC_BP).reduce((s, v) => s + v, 0) * 100).toFixed(2)}%</td>
                     <td style={{ textAlign: "right" }}>{(Object.values(ALLOC_SC).reduce((s, v) => s + v, 0) * 100).toFixed(2)}%</td>
+                    <td style={{ textAlign: "right" }}>{(Object.values(ALLOC_BP_SC).reduce((s, v) => s + v, 0) * 100).toFixed(2)}%</td>
                   </tr>
                 </tfoot>
               </table>

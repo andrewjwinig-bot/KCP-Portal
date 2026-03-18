@@ -41,14 +41,14 @@ const ALLOCATION_TABLE: Record<PropId, Record<"9301" | "9302" | "9303", number>>
   "4050": { "9301": 0.1006, "9302": 0.0000, "9303": 0.0664 },
   "4060": { "9301": 0.2009, "9302": 0.0000, "9303": 0.1326 },
   "4070": { "9301": 0.1146, "9302": 0.0000, "9303": 0.0756 },
-  "4080": { "9301": 0.2381, "9302": 0.0000, "9303": 0.1571 },
+  "4080": { "9301": 0.2380, "9302": 0.0000, "9303": 0.1571 },
   "40A0": { "9301": 0.0281, "9302": 0.0000, "9303": 0.0185 },
   "40B0": { "9301": 0.0242, "9302": 0.0000, "9303": 0.0159 },
   "40C0": { "9301": 0.0335, "9302": 0.0000, "9303": 0.0221 },
   "1100": { "9301": 0.0000, "9302": 0.0299, "9303": 0.0102 },
   "1500": { "9301": 0.0000, "9302": 0.0082, "9303": 0.0028 },
   "2300": { "9301": 0.0000, "9302": 0.2224, "9303": 0.0757 },
-  "4500": { "9301": 0.0000, "9302": 0.2992, "9303": 0.1018 },
+  "4500": { "9301": 0.0000, "9302": 0.2993, "9303": 0.1018 },
   "5600": { "9301": 0.0000, "9302": 0.0048, "9303": 0.0016 },
   "7010": { "9301": 0.0000, "9302": 0.2645, "9303": 0.0900 },
   "7200": { "9301": 0.0000, "9302": 0.0535, "9303": 0.0182 },
@@ -658,7 +658,7 @@ export default function AllocatedInvoicerPage() {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
               <div>
                 <b style={{ fontSize: 15 }}>Allocation Percentages</b>
-                <div className="small muted" style={{ marginTop: 2 }}>Per-property breakdown by account suffix</div>
+                <div className="small muted" style={{ marginTop: 2 }}>Allocations based on property square feet.</div>
               </div>
               <button className="btn" style={{ padding: "4px 10px" }} onClick={() => setShowAllocModal(false)}>✕</button>
             </div>
@@ -669,7 +669,7 @@ export default function AllocatedInvoicerPage() {
                     <th>Property</th>
                     <th style={{ textAlign: "right" }}>9301 (BP)</th>
                     <th style={{ textAlign: "right" }}>9302 (SC)</th>
-                    <th style={{ textAlign: "right" }}>9303 (All)</th>
+                    <th style={{ textAlign: "right" }}>BP &amp; SC (9303)</th>
                   </tr>
                 </thead>
                 <tbody>
