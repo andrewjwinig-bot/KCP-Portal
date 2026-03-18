@@ -710,6 +710,90 @@ export default function ExpensesPage() {
     setShowAfterZipModal(true);
   }
 
+  function downloadGLExport() {
+    if (!invoiceGroups.length) return;
+    const filenameMonth = statementMonth || "Statement";
+
+    // Format date as M/D/YYYY to match GL system format
+    const glDate = effectiveEnd
+      ? `${effectiveEnd.getMonth() + 1}/${effectiveEnd.getDate()}/${effectiveEnd.getFullYear()}`
+      : "";
+
+    // Title-case a category name (e.g. "OFFICE SUPPLIES" → "Office Supplies")
+    const toTitleCase = (s: string) =>
+      s.replace(/\w\S*/g, (w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
+
+    // Account code for property 2010 per category (mirrors getAccountCodes logic)
+    const get2010AccCode = (category: string): string => {
+      if (category === "EQUIPMENT (CAP)") return "1450-0000";
+      if (category === "BUILDINGS (CAP)") return "1430-0000";
+      const catAcc = (CATEGORY_ACC as Record<string, string>)[category];
+      return catAcc ? `${catAcc}-8501` : "0000-8501";
+    };
+
+    // Section 1: one row per property invoice (all except 2010)
+    const section1Groups = invoiceGroups.filter((g) => g.propId !== "2010");
+    const section1Rows = section1Groups.map((g) => [
+      "JRNL", "2010", "0450-0000", "DW", glDate,
+      `Total CC Expenses for ${g.propId}`,
+      "CCEXP",
+      -g.total,
+    ]);
+
+    // Section 2: balancing row — positive inverse of section 1 sum
+    const section1Sum = section1Groups.reduce((s, g) => s + g.total, 0);
+    const section2Row = [
+      "JRNL", "2010", "0110-0000", "DW", glDate,
+      "Total CC Property Expenses",
+      "CCEXP",
+      section1Sum,
+    ];
+
+    // Section 3: 2010 breakdown by category (skip $0 categories)
+    const prop2010 = invoiceGroups.find((g) => g.propId === "2010");
+    const section3Rows: (string | number)[][] = [];
+    if (prop2010) {
+      for (const cg of prop2010.categoryGroups) {
+        const catTotal = cg.items.reduce((a: number, t: any) => a + Number(t.amount), 0);
+        if (catTotal === 0) continue;
+        section3Rows.push([
+          "JRNL", "2010", get2010AccCode(cg.category), "DW", glDate,
+          `CC 2010 ${toTitleCase(cg.category)}`,
+          "CCEXP",
+          catTotal,
+        ]);
+      }
+    }
+
+    // Section 4: reclass row — negative inverse of 2010 category sum (only if 2010 has charges)
+    const section3Sum = section3Rows.reduce((s, r) => s + (r[7] as number), 0);
+    const section4Rows: (string | number)[][] = section3Sum > 0 ? [[
+      "JRNL", "2010", "0450-0000", "DW", glDate,
+      "Total CC Reclass 0450->Exp.",
+      "CCEXP",
+      -section3Sum,
+    ]] : [];
+
+    const allRows = [...section1Rows, section2Row, ...section3Rows, ...section4Rows];
+
+    const ws = XLSX.utils.aoa_to_sheet(allRows);
+    ws["!cols"] = [
+      { wch: 6  }, // A: JRNL
+      { wch: 6  }, // B: 2010
+      { wch: 12 }, // C: account code
+      { wch: 4  }, // D: DW
+      { wch: 12 }, // E: date
+      { wch: 34 }, // F: description
+      { wch: 8  }, // G: CCEXP
+      { wch: 14 }, // H: amount
+    ];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "GL Journal Entry");
+    const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+    const blob = new Blob([wbout], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    download(`${filenameMonth} - GL Journal Entry.xlsx`, blob);
+  }
+
   function downloadExcelSummary() {
     if (!expandedCoded.length) return;
     const filenameMonth = statementMonth || "Statement";
@@ -1076,6 +1160,9 @@ export default function ExpensesPage() {
             </button>
             <button className="btn large" onClick={downloadExcelSummary} disabled={!expandedCoded.length}>
               Download Excel Summary
+            </button>
+            <button className="btn large" onClick={downloadGLExport} disabled={!invoiceGroups.length}>
+              Download GL Journal Entry
             </button>
           </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
