@@ -165,6 +165,7 @@ export default function AllocatedInvoicerPage() {
   const [chartsOpen, setChartsOpen] = useState(true);
   const [txOpen, setTxOpen] = useState(true);
   const [allocPreviewOpen, setAllocPreviewOpen] = useState(true);
+  const [showAllocModal, setShowAllocModal] = useState(false);
 
   // ── Derived: allocation rows ────────────────────────────────────────────────
 
@@ -553,14 +554,17 @@ export default function AllocatedInvoicerPage() {
       {/* ── Allocation Preview ── */}
       {glResult && allocationRows.length > 0 && (
         <div className="card">
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <button className="btn" style={{ padding: "2px 8px", fontSize: 13 }} onClick={() => setAllocPreviewOpen((o) => !o)} title={allocPreviewOpen ? "Collapse" : "Expand"}>
-              {allocPreviewOpen ? "▲" : "▼"}
-            </button>
-            <div>
-              <b>Allocation Preview</b>
-              <div className="small muted" style={{ marginTop: 4 }}>One row per property. Click a property to see account code detail.</div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <button className="btn" style={{ padding: "2px 8px", fontSize: 13 }} onClick={() => setAllocPreviewOpen((o) => !o)} title={allocPreviewOpen ? "Collapse" : "Expand"}>
+                {allocPreviewOpen ? "▲" : "▼"}
+              </button>
+              <div>
+                <b>Allocation Preview</b>
+                <div className="small muted" style={{ marginTop: 4 }}>One row per property. Click a property to see account code detail.</div>
+              </div>
             </div>
+            <button className="btn" onClick={() => setShowAllocModal(true)}>Allocations</button>
           </div>
           {allocPreviewOpen && <div className="tableWrap">
             <table>
@@ -643,6 +647,57 @@ export default function AllocatedInvoicerPage() {
                 {prop.id} — {prop.name} <span style={{ color: "var(--muted)", marginLeft: 4 }}>({toMoney(perPropertyTotals.get(prop.id) ?? 0)})</span>
               </button>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Allocations table modal */}
+      {showAllocModal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.55)", zIndex: 998, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} onClick={() => setShowAllocModal(false)}>
+          <div className="card" style={{ maxWidth: 620, width: "100%", maxHeight: "85vh", display: "flex", flexDirection: "column" }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+              <div>
+                <b style={{ fontSize: 15 }}>Allocation Percentages</b>
+                <div className="small muted" style={{ marginTop: 2 }}>Per-property breakdown by account suffix</div>
+              </div>
+              <button className="btn" style={{ padding: "4px 10px" }} onClick={() => setShowAllocModal(false)}>✕</button>
+            </div>
+            <div className="tableWrap" style={{ overflowY: "auto" }}>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Property</th>
+                    <th style={{ textAlign: "right" }}>9301 (BP)</th>
+                    <th style={{ textAlign: "right" }}>9302 (SC)</th>
+                    <th style={{ textAlign: "right" }}>9303 (All)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ALLOC_PROPERTIES.map((prop) => {
+                    const row = ALLOCATION_TABLE[prop.id];
+                    const fmt = (v: number) => v === 0 ? <span className="muted">—</span> : `${(v * 100).toFixed(2)}%`;
+                    return (
+                      <tr key={prop.id}>
+                        <td>{prop.id} — {prop.name}</td>
+                        <td style={{ textAlign: "right" }}>{fmt(row["9301"])}</td>
+                        <td style={{ textAlign: "right" }}>{fmt(row["9302"])}</td>
+                        <td style={{ textAlign: "right" }}>{fmt(row["9303"])}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td>Total</td>
+                    {(["9301", "9302", "9303"] as const).map((sfx) => (
+                      <td key={sfx} style={{ textAlign: "right" }}>
+                        {(ALLOC_PROPERTIES.reduce((s, p) => s + ALLOCATION_TABLE[p.id][sfx], 0) * 100).toFixed(2)}%
+                      </td>
+                    ))}
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
           </div>
         </div>
       )}
