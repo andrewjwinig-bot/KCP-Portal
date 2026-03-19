@@ -846,17 +846,10 @@ export default function TrackerPage() {
           <p className="muted small">Monthly to-do checklist · filing deadlines · recurring tasks</p>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <button className="btn" onClick={prevMonth} style={{ padding: "8px 16px", fontWeight: 900 }}>←</button>
-          <span style={{ fontWeight: 800, fontSize: 16, minWidth: 170, textAlign: "center" }}>
-            {MONTHS[viewMonth]} {viewYear}
-          </span>
-          <button className="btn" onClick={nextMonth} style={{ padding: "8px 16px", fontWeight: 900 }}>→</button>
-          {!isCurrentMonth && (
-            <button className="btn" onClick={() => { setViewYear(today.getFullYear()); setViewMonth(today.getMonth()); }} style={{ fontSize: 13 }}>
-              Today
-            </button>
-          )}
+        <div style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
+          <span style={{ fontFamily: "'Arial Black', 'Arial Bold', Arial, sans-serif", fontWeight: 900, fontSize: 30, letterSpacing: "-0.5px", lineHeight: 1 }}>KORMAN</span>
+          <div style={{ width: 1, height: 36, background: "#000", flexShrink: 0 }} />
+          <div style={{ fontSize: 11, letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}><div>COMMERCIAL</div><div>PROPERTIES</div></div>
         </div>
       </div>
 
@@ -906,8 +899,19 @@ export default function TrackerPage() {
 
         {/* ─ Calendar card ─────────────────────────────────────────────── */}
         <div className="card" style={{ padding: 16, position: "sticky", top: 20 }}>
-          <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 12 }}>
-            {MONTHS[viewMonth]} {viewYear}
+
+          {/* Month navigation — centered at top of calendar */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 14 }}>
+            <button className="btn" onClick={prevMonth} style={{ padding: "5px 12px", fontWeight: 900, fontSize: 14 }}>←</button>
+            <span style={{ fontWeight: 800, fontSize: 14, minWidth: 120, textAlign: "center" }}>
+              {MONTHS[viewMonth]} {viewYear}
+            </span>
+            <button className="btn" onClick={nextMonth} style={{ padding: "5px 12px", fontWeight: 900, fontSize: 14 }}>→</button>
+            {!isCurrentMonth && (
+              <button className="btn" onClick={() => { setViewYear(today.getFullYear()); setViewMonth(today.getMonth()); }} style={{ fontSize: 11, padding: "5px 9px" }}>
+                Today
+              </button>
+            )}
           </div>
 
           {/* Weekday headers */}
