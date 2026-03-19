@@ -13,7 +13,7 @@ const WEEKDAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 type Category = "routine" | "weekly" | "quarterly" | "seasonal" | "daily";
 
 const CATEGORIES: Record<Category, { label: string; pill: string; dot: string; bg: string; text: string; border: string }> = {
-  daily:     { label: "Daily",           pill: "D", dot: "#be185d", bg: "rgba(190,24,93,0.08)",   text: "#be185d", border: "rgba(190,24,93,0.25)"   },
+  daily:     { label: "Daily",           pill: "D", dot: "#0369a1", bg: "rgba(3,105,161,0.07)",   text: "#0369a1", border: "rgba(3,105,161,0.22)"   },
   weekly:    { label: "Weekly",          pill: "W", dot: "#0d9488", bg: "rgba(13,148,136,0.08)",  text: "#0d9488", border: "rgba(13,148,136,0.25)"  },
   routine:   { label: "Monthly",         pill: "M", dot: "#0b4a7d", bg: "rgba(11,74,125,0.08)",   text: "#0b4a7d", border: "rgba(11,74,125,0.25)"   },
   quarterly: { label: "Quarterly",       pill: "Q", dot: "#6d28d9", bg: "rgba(109,40,217,0.08)",  text: "#6d28d9", border: "rgba(109,40,217,0.25)"  },
@@ -69,6 +69,14 @@ const TASK_DEFS: TaskDef[] = [
     pinned: true,
     notes: "Check and approve checks and ACHs",
     link: "https://secure.chase.com/web/auth/dashboard#/dashboard/fraudProtectionHub/overview/index",
+  },
+  {
+    id: "daily-avid",
+    label: "Approve Avid Invoices",
+    category: "daily",
+    dueDay: 0,
+    pinned: true,
+    link: "https://one.avidxchange.net/#/invoices",
   },
 
   // ── MONTHLY ROUTINE — appears every month ─────────────────────────────────
@@ -1052,6 +1060,12 @@ export default function TrackerPage() {
                       background: catDef.bg,
                     }}
                   >
+                    {/* Greyed checkbox — decorative only, for alignment */}
+                    <input
+                      type="checkbox"
+                      disabled
+                      style={{ width: 16, height: 16, flexShrink: 0, opacity: 0.25, cursor: "default" }}
+                    />
                     <span style={{
                       fontSize: 10, fontWeight: 800, letterSpacing: "0.05em",
                       color: catDef.text, background: "#fff",
