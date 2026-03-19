@@ -10,12 +10,13 @@ const MONTHS = [
 ];
 const WEEKDAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 
-type Category = "routine" | "quarterly" | "seasonal";
+type Category = "routine" | "weekly" | "quarterly" | "seasonal";
 
-const CATEGORIES: Record<Category, { label: string; dot: string; bg: string; text: string; border: string }> = {
-  routine:   { label: "Monthly Routine",    dot: "#0b4a7d", bg: "rgba(11,74,125,0.08)",  text: "#0b4a7d", border: "rgba(11,74,125,0.25)"  },
-  quarterly: { label: "Quarterly",          dot: "#6d28d9", bg: "rgba(109,40,217,0.08)", text: "#6d28d9", border: "rgba(109,40,217,0.25)" },
-  seasonal:  { label: "Seasonal / Annual",  dot: "#b45309", bg: "rgba(180,83,9,0.08)",   text: "#b45309", border: "rgba(180,83,9,0.25)"   },
+const CATEGORIES: Record<Category, { label: string; pill: string; dot: string; bg: string; text: string; border: string }> = {
+  routine:   { label: "Monthly",          pill: "M", dot: "#0b4a7d", bg: "rgba(11,74,125,0.08)",  text: "#0b4a7d", border: "rgba(11,74,125,0.25)"  },
+  weekly:    { label: "Weekly",           pill: "W", dot: "#0d9488", bg: "rgba(13,148,136,0.08)", text: "#0d9488", border: "rgba(13,148,136,0.25)" },
+  quarterly: { label: "Quarterly",        pill: "Q", dot: "#6d28d9", bg: "rgba(109,40,217,0.08)", text: "#6d28d9", border: "rgba(109,40,217,0.25)" },
+  seasonal:  { label: "Annual / Seasonal",pill: "A", dot: "#b45309", bg: "rgba(180,83,9,0.08)",   text: "#b45309", border: "rgba(180,83,9,0.25)"   },
 };
 
 // ─── TASK DEFINITIONS ───────────────────────────────────────────────────────
@@ -391,7 +392,7 @@ const TASK_DEFS: TaskDef[] = [
   {
     id: "m-avid",
     label: "Pay Avid Bills",
-    category: "routine",
+    category: "weekly",
     dueDay: 0,          // placeholder — overridden per-Wednesday at expansion time
     everyWednesday: true,
     instructions: {
@@ -778,11 +779,15 @@ export default function TrackerPage() {
     return list;
   }, [tasks, selDay, filterCat, viewYear, viewMonth]);
 
-  const grouped = useMemo(() => {
-    const g: Partial<Record<Category, TaskDef[]>> = {};
-    visible.forEach(t => { (g[t.category] ??= []).push(t); });
-    return g;
-  }, [visible]);
+  const sortedVisible = useMemo(() =>
+    visible.slice().sort((a, b) => {
+      const doneA = checked[a.id] ? 1 : 0;
+      const doneB = checked[b.id] ? 1 : 0;
+      if (doneA !== doneB) return doneA - doneB;
+      return effDay(a, viewYear, viewMonth) - effDay(b, viewYear, viewMonth);
+    }),
+    [visible, checked, viewYear, viewMonth]
+  );
 
   // ── Stats
   const total   = tasks.length;
@@ -1007,128 +1012,106 @@ export default function TrackerPage() {
             </div>
           )}
 
-          {/* Grouped task cards */}
-          {(Object.keys(CATEGORIES) as Category[])
-            .filter(cat => (grouped[cat]?.length ?? 0) > 0)
-            .map(cat => {
-              const catDef   = CATEGORIES[cat];
-              const catTasks = (grouped[cat] ?? []).slice().sort((a, b) => {
-                const doneA = checked[a.id] ? 1 : 0;
-                const doneB = checked[b.id] ? 1 : 0;
-                if (doneA !== doneB) return doneA - doneB;
-                return effDay(a, viewYear, viewMonth) - effDay(b, viewYear, viewMonth);
-              });
-              const catDone = catTasks.filter(t => checked[t.id]).length;
+          {/* Flat task list — one card, frequency pill per row */}
+          {sortedVisible.length > 0 && (
+            <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+              {sortedVisible.map((task, idx) => {
+                const catDef  = CATEGORIES[task.category];
+                const status  = taskStatus(task);
+                const isDone  = !!checked[task.id];
+                const isOver  = isCurrentMonth && !isDone && isPast(effDay(task, viewYear, viewMonth));
+                const hasDetail = !!task.instructions;
 
-              return (
-                <div key={cat} className="card" style={{ padding: 0, overflow: "hidden" }}>
+                return (
+                  <div
+                    key={task.id}
+                    style={{
+                      display: "flex", alignItems: "flex-start", gap: 12,
+                      padding: "13px 16px",
+                      borderBottom: idx < sortedVisible.length - 1 ? "1px solid var(--border)" : "none",
+                      background: isDone ? "rgba(22,163,74,0.025)" : isOver ? "rgba(220,38,38,0.025)" : "transparent",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isDone}
+                      onChange={() => toggle(task.id)}
+                      style={{ marginTop: 3, width: 16, height: 16, accentColor: catDef.dot, flexShrink: 0, cursor: "pointer" }}
+                    />
 
-                  {/* Category header */}
-                  <div style={{
-                    display: "flex", alignItems: "center", justifyContent: "space-between",
-                    padding: "11px 16px",
-                    background: catDef.bg,
-                    borderBottom: `1px solid ${catDef.border}`,
-                  }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-                      <div style={{ width: 10, height: 10, borderRadius: "50%", background: catDef.dot }} />
-                      <span style={{ fontWeight: 800, fontSize: 14, color: catDef.text }}>{catDef.label}</span>
+                    {/* Frequency pill */}
+                    <span style={{
+                      fontSize: 10, fontWeight: 800, letterSpacing: "0.05em",
+                      color: catDef.text, background: catDef.bg,
+                      border: `1px solid ${catDef.border}`,
+                      padding: "2px 6px", borderRadius: 999,
+                      flexShrink: 0, marginTop: 2,
+                      opacity: isDone ? 0.45 : 1,
+                    }}>
+                      {catDef.pill}
+                    </span>
+
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span
+                          onClick={() => hasDetail && setDetailTask(task)}
+                          title={hasDetail ? "Click for instructions" : undefined}
+                          style={{
+                            fontWeight: 600, fontSize: 14,
+                            color: isDone ? "var(--muted)" : "var(--text)",
+                            textDecoration: isDone ? "line-through" : "none",
+                            cursor: hasDetail ? "pointer" : "default",
+                          }}
+                        >
+                          {task.label}
+                          {hasDetail && (
+                            <span style={{
+                              display: "inline-flex", alignItems: "center", justifyContent: "center",
+                              width: 16, height: 16, borderRadius: "50%",
+                              background: catDef.bg, border: `1px solid ${catDef.border}`,
+                              color: catDef.text, fontSize: 10, fontWeight: 800,
+                              marginLeft: 6, verticalAlign: "middle",
+                              flexShrink: 0,
+                            }}>i</span>
+                          )}
+                        </span>
+                        {task.link && (
+                          <Link
+                            href={task.link}
+                            title={`Open ${task.label}`}
+                            style={{
+                              display: "inline-flex", alignItems: "center", gap: 3,
+                              fontSize: 11, fontWeight: 700,
+                              color: catDef.text, background: catDef.bg,
+                              border: `1px solid ${catDef.border}`,
+                              borderRadius: 5, padding: "2px 7px",
+                              textDecoration: "none", flexShrink: 0,
+                              opacity: isDone ? 0.5 : 1,
+                            }}
+                          >
+                            Open →
+                          </Link>
+                        )}
+                      </div>
+                      {task.notes && (
+                        <div className="muted small" style={{ marginTop: 3 }}>{task.notes}</div>
+                      )}
                     </div>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: catDef.text, opacity: 0.75 }}>
-                      {catDone}/{catTasks.length} done
+
+                    <span style={{
+                      fontSize: 11, fontWeight: 800,
+                      color: status.color, background: status.bg,
+                      border: `1px solid ${status.border}`,
+                      padding: "3px 9px", borderRadius: 999,
+                      whiteSpace: "nowrap", flexShrink: 0,
+                    }}>
+                      {status.label}
                     </span>
                   </div>
-
-                  {/* Task rows */}
-                  {catTasks.map((task, idx) => {
-                    const status = taskStatus(task);
-                    const isDone = !!checked[task.id];
-                    const isOver = isCurrentMonth && !isDone && isPast(effDay(task, viewYear, viewMonth));
-
-                    const hasDetail = !!task.instructions;
-
-                    return (
-                      <div
-                        key={task.id}
-                        style={{
-                          display: "flex", alignItems: "flex-start", gap: 12,
-                          padding: "13px 16px",
-                          borderBottom: idx < catTasks.length - 1 ? "1px solid var(--border)" : "none",
-                          background: isDone ? "rgba(22,163,74,0.025)" : isOver ? "rgba(220,38,38,0.025)" : "transparent",
-                        }}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isDone}
-                          onChange={() => toggle(task.id)}
-                          style={{ marginTop: 2, width: 16, height: 16, accentColor: catDef.dot, flexShrink: 0, cursor: "pointer" }}
-                        />
-
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                            <span
-                              onClick={() => hasDetail && setDetailTask(task)}
-                              title={hasDetail ? "Click for instructions" : undefined}
-                              style={{
-                                fontWeight: 600, fontSize: 14,
-                                color: isDone ? "var(--muted)" : "var(--text)",
-                                textDecoration: isDone ? "line-through" : "none",
-                                cursor: hasDetail ? "pointer" : "default",
-                              }}
-                            >
-                              {task.label}
-                              {hasDetail && (
-                                <span style={{
-                                  display: "inline-flex", alignItems: "center", justifyContent: "center",
-                                  width: 16, height: 16, borderRadius: "50%",
-                                  background: catDef.bg, border: `1px solid ${catDef.border}`,
-                                  color: catDef.text, fontSize: 10, fontWeight: 800,
-                                  marginLeft: 6, verticalAlign: "middle",
-                                  flexShrink: 0,
-                                }}>i</span>
-                              )}
-                            </span>
-                            {task.link && (
-                              <Link
-                                href={task.link}
-                                title={`Open ${task.label}`}
-                                style={{
-                                  display: "inline-flex", alignItems: "center", gap: 3,
-                                  fontSize: 11, fontWeight: 700,
-                                  color: catDef.text,
-                                  background: catDef.bg,
-                                  border: `1px solid ${catDef.border}`,
-                                  borderRadius: 5, padding: "2px 7px",
-                                  textDecoration: "none",
-                                  flexShrink: 0,
-                                  opacity: isDone ? 0.5 : 1,
-                                }}
-                              >
-                                Open →
-                              </Link>
-                            )}
-                          </div>
-                          {task.notes && (
-                            <div className="muted small" style={{ marginTop: 3 }}>{task.notes}</div>
-                          )}
-                        </div>
-
-                        <span style={{
-                          fontSize: 11, fontWeight: 800,
-                          color: status.color,
-                          background: status.bg,
-                          border: `1px solid ${status.border}`,
-                          padding: "3px 9px", borderRadius: 999,
-                          whiteSpace: "nowrap", flexShrink: 0,
-                        }}>
-                          {status.label}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
+          )}
 
           {/* Empty state */}
           {visible.length === 0 && (
