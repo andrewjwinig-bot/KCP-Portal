@@ -184,6 +184,97 @@ const TASK_DEFS: TaskDef[] = [
     category: "routine",
     dueDay: 20,
     approxDay: true,
+    instructions: {
+      intro: "Post revenues and expenses, then run the full month-end close sequence",
+      steps: [
+        {
+          title: "Post PM to GL (Revenues)",
+          path: "Property Management → Additional Functions → PM Post to General Ledger",
+          items: [
+            "Group Name: None",
+            "Leave Property Number blank — this picks up all properties in Skyline",
+            "Posting Date: last day of the period being posted",
+            "Posting Method and Report Format: leave at defaults",
+            "Save to: Data → Accounting → Year End 20## → Skyline → Posting Reports → [month]",
+          ],
+          note: "If a warning appears about posting to prior periods, continue. Dates can be corrected via General Ledger → Transaction Entry → Correct Journal Entries.",
+        },
+        {
+          title: "Post AP to GL (Expenses)",
+          path: "Accounts Payable → AP Post to General Ledger",
+          items: [
+            "Run twice — once for PALL, once for PFUNDS",
+            "Save to: Data → Accounting → Year End #### → Skyline → Posting Reports → [month]",
+          ],
+        },
+        {
+          title: "Complete Journal Posting Prep Report",
+          path: "General Ledger → Period Processing → Journal Posting Prep",
+          items: [
+            "Run twice — once for PALL, once for PFUNDS",
+            "Catches out-of-balance entries, inactive account numbers, and wrong-date transactions before consolidation",
+            "If errors: General Ledger → Transaction Entry → Correct Journal Transactions → search by property and transaction number → edit dates to current period",
+            "Alternative fix: change journal to PP (this changes opening balances — remember to update prior periods when posting)",
+            "When clean, run Monthly Close. Full month-end and year-end instructions are in: Data → Shared → Accounting Process Procedures",
+          ],
+        },
+        {
+          title: "Consolidate Portfolios",
+          path: "General Ledger → Portfolio Consolidation → Consolidation Process",
+          items: [
+            "Run twice — once for PNIPLX, once for PJV3",
+          ],
+          note: "Do not save the consolidation reports.",
+        },
+        {
+          title: "Run Journal Posting Preparation Report — All Portfolios",
+          path: "General Ledger → Period Processing → Journal Posting Preparation",
+          items: [
+            "Run for: PALL, PFUNDS, PIIICO, PNIPLX, PJV3, PHOMES, PSHOP",
+          ],
+        },
+        {
+          title: "Repeat Consolidation Process for All Portfolios Above",
+          path: "General Ledger → Portfolio Consolidation → Consolidation Process",
+          items: [
+            "Run for each portfolio: PALL, PFUNDS, PIIICO, PNIPLX, PJV3, PHOMES, PSHOP",
+          ],
+        },
+        {
+          title: "Run Property / Company Status Report",
+          path: "General Ledger → Period Processing → Property/Company Status Report",
+          items: [
+            "Save as Excel",
+            "This shows which period each Prop/Co is in and which ones need to be closed",
+          ],
+        },
+        {
+          title: "Close Each Period",
+          path: "General Ledger → Period Processing → Month End Closing",
+          items: [
+            "Reference the Prop/Co list from the Property/Company Status Report",
+            "Close all individual properties",
+            "Close all Fund properties",
+          ],
+          note: "DO NOT CLOSE P PROPERTIES.",
+        },
+        {
+          title: "Repeat Consolidation Process (Post-Close)",
+          path: "General Ledger → Portfolio Consolidation → Consolidation Process",
+          items: [
+            "Run consolidation again for each portfolio from the status report",
+          ],
+        },
+        {
+          title: "Verify Final Status",
+          path: "General Ledger → Period Processing → Property/Company Status Report",
+          items: [
+            "Confirm all entities are in the correct period",
+          ],
+          note: "If any entity is still in the wrong period, run the consolidation process again.",
+        },
+      ],
+    },
   },
   {
     id: "m-cash",
