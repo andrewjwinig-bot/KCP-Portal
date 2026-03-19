@@ -97,6 +97,25 @@ type EmpModal = {
 type PeriodMeta = { id: string; name: string; payDate?: string | null; savedAt: string; total: number; employeeCount: number };
 type EmpHistoryRow = { id: string; name: string; payDate?: string | null; salary: number; overtime: number; hol: number; er401k: number; other: number; taxesEr: number; total: number };
 
+// ── Employee allocation notes ─────────────────────────────────────────────────
+// match: all tokens must appear (lowercase) somewhere in the runtime employee name
+const EMPLOYEE_ALLOC_NOTES: Array<{ match: string[]; displayName: string; note: string }> = [
+  { match: ["winig"],          displayName: "Winig, Andrew",               note: "25% LIK, 5% OW, balance SC and BP" },
+  { match: ["korman"],         displayName: "Korman Feldman, Alison",      note: "$75k Marketing-All, 50% LIK, balance SC and BP" },
+  { match: ["borton"],         displayName: "Borton, Rita",                note: "100% Office Works" },
+  { match: ["campbell"],       displayName: "Campbell-Holley, Lavalle B.", note: "100% Office Works" },
+  { match: ["collier"],        displayName: "Collier, Donna",              note: "100% Office Works" },
+  { match: ["tomlinson"],      displayName: "Tomlinson, Tami M.",          note: "100% Office Works" },
+  { match: ["weissman"],       displayName: "Weissman, Susan",             note: "100% Office Works" },
+  { match: ["feldman","harry"],displayName: "Feldman, Harry I.",           note: "5% LIK, $25K split between Interstate, Middletown, and Eastwick for development, balance SC" },
+  { match: ["jaster"],         displayName: "Jaster, Marie",              note: "50% SC, 50% BP" },
+  { match: ["rovkin"],         displayName: "Rovkin, Tatyana",             note: "50% SC, 50% BP" },
+  { match: ["loiseau"],        displayName: "Loiseau, Charles",            note: "50% SC, 50% BP" },
+  { match: ["fox"],            displayName: "Fox, Nancy L.",               note: "10% Office Works (Indirect), balance BP" },
+  { match: ["masciantonio"],   displayName: "Masciantonio, Gregory L.",    note: "35% SC, 65% BP" },
+  { match: ["gosik"],          displayName: "Gosik, Jason N.",             note: "50% SC, 50% BP" },
+];
+
 // Group membership: which properties roll up into each group subtotal
 const GROUP_PROPS: Record<string, string[]> = {
   "JV III": ["3610", "3620", "3640"],
@@ -120,6 +139,7 @@ export default function Page() {
   const [empModal, setEmpModal] = useState<EmpModal | null>(null);
   const [propAllocModal, setPropAllocModal] = useState<PropAllocModal | null>(null);
   const [invoicesOpen, setInvoicesOpen] = useState(true);
+  const [showEmpAllocModal, setShowEmpAllocModal] = useState(false);
   const [employeesOpen, setEmployeesOpen] = useState(true);
   const [saving, setSaving] = useState(false);
   const [fileName, setFileName] = useState<string>("");
@@ -743,6 +763,7 @@ export default function Page() {
               </div>
             </div>
           </div>
+          <button className="btn" onClick={() => setShowEmpAllocModal(true)}>Allocations</button>
         </div>
 
         {error && <div style={{ marginTop: 10, color: "#b42318", fontWeight: 800 }}>{error}</div>}
@@ -876,6 +897,68 @@ export default function Page() {
           </div>
         </div>
       )}
+
+      {/* ── Employee allocations reference modal ── */}
+      {showEmpAllocModal && (() => {
+        // Match each note entry to a runtime employee (all tokens must appear in lowercased name)
+        const matched = EMPLOYEE_ALLOC_NOTES.map((entry) => {
+          const emp = employees.find((e) =>
+            entry.match.every((tok) => e.name.toLowerCase().includes(tok))
+          );
+          return { entry, emp };
+        });
+        // Collect all unique allocation keys across matched employees for column headers
+        const allKeys = Array.from(
+          new Set(matched.flatMap(({ emp }) => emp ? Object.keys(emp.allocations) : []))
+        ).sort();
+        const hasData = employees.length > 0;
+        return (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.55)", zIndex: 998, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} onClick={() => setShowEmpAllocModal(false)}>
+            <div className="card" style={{ maxWidth: 900, width: "100%", maxHeight: "85vh", display: "flex", flexDirection: "column" }} onClick={(e) => e.stopPropagation()}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+                <div>
+                  <b style={{ fontSize: 15 }}>Employee Allocations</b>
+                  <div className="small muted" style={{ marginTop: 2 }}>Allocations based on payroll allocation workbook.</div>
+                </div>
+                <button className="btn" style={{ padding: "4px 10px" }} onClick={() => setShowEmpAllocModal(false)}>✕</button>
+              </div>
+              <div className="tableWrap" style={{ overflowY: "auto" }}>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Employee</th>
+                      <th>Allocation Note</th>
+                      {hasData && allKeys.map((k) => (
+                        <th key={k} style={{ textAlign: "right", whiteSpace: "nowrap" }}>{k}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {matched.map(({ entry, emp }) => (
+                      <tr key={entry.displayName}>
+                        <td style={{ whiteSpace: "nowrap" }}>{entry.displayName}</td>
+                        <td className="muted" style={{ fontSize: 12 }}>{entry.note}</td>
+                        {hasData && allKeys.map((k) => {
+                          const v = emp?.allocations[k];
+                          const pct = v == null ? null : v <= 1 ? v * 100 : v;
+                          return (
+                            <td key={k} style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                              {pct ? `${pct.toFixed(2)}%` : <span className="muted">—</span>}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {!hasData && (
+                  <p className="small muted" style={{ marginTop: 10 }}>Load a payroll file to see actual allocation percentages.</p>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── Property allocation modal ── */}
       {propAllocModal && (
