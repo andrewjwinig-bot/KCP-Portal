@@ -334,6 +334,33 @@ const TASK_DEFS: TaskDef[] = [
     category: "routine",
     dueDay: 31,
     endOfMonth: true,
+    instructions: {
+      intro: "Log in to Skyline as MANAGER (password: SKY305)",
+      steps: [
+        {
+          title: "Open Group Setup",
+          path: "Gear Icon → Group Setup",
+          items: [
+            "Log in as MANAGER with password SKY305",
+          ],
+        },
+        {
+          title: "Add New Tenants to Their Groups",
+          items: [
+            "Check at the top for tenants whose Unit Ref # matches the selected property",
+            "Add any new tenants to their correct group",
+          ],
+          note: "Tami sends Office Works tenancy changes on the 20th of each month — use this to identify new tenants.",
+        },
+        {
+          title: "Add New Units to the Selected Unit List",
+          items: [
+            "For any new units, confirm the unit has been added to the selected Unit list",
+          ],
+          note: "This ensures all new tenants get billed correctly.",
+        },
+      ],
+    },
   },
   {
     id: "m-mgmt-fees",
