@@ -1,31 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
-import { readdir, readFile, writeFile, mkdir } from "fs/promises";
-import { existsSync } from "fs";
-import path from "path";
-
-// Use /tmp in Lambda/Vercel (process.cwd() is read-only /var/task there)
-const PERIODS_DIR = process.env.NODE_ENV === "production"
-  ? "/tmp/payroll-periods"
-  : path.join(process.cwd(), "data", "periods");
-
-async function ensureDir() {
-  if (!existsSync(PERIODS_DIR)) {
-    await mkdir(PERIODS_DIR, { recursive: true });
-  }
-}
+import { storeJSON, listJSON } from "@/lib/storage";
 
 export async function GET() {
-  await ensureDir();
   try {
-    const files = (await readdir(PERIODS_DIR)).filter((f) => f.endsWith(".json")).sort().reverse();
-    const metas = await Promise.all(
-      files.map(async (f) => {
-        const raw = await readFile(path.join(PERIODS_DIR, f), "utf-8");
-        const { id, name, payDate, savedAt, invoices, employees } = JSON.parse(raw);
-        const total = (invoices ?? []).reduce((s: number, inv: any) => s + (inv.total ?? 0), 0);
-        return { id, name, payDate, savedAt, total, employeeCount: (employees ?? []).length };
-      })
-    );
+    const all = await listJSON("periods");
+    const metas = all
+      .map(({ id, name, payDate, savedAt, invoices, employees }) => ({
+        id,
+        name,
+        payDate,
+        savedAt,
+        total: (invoices ?? []).reduce((s: number, inv: any) => s + (inv.total ?? 0), 0),
+        employeeCount: (employees ?? []).length,
+      }))
+      .sort((a, b) => (b.savedAt > a.savedAt ? 1 : -1));
     return NextResponse.json({ periods: metas });
   } catch {
     return NextResponse.json({ periods: [] });
@@ -33,12 +21,9 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  console.log("[POST /api/periods] handler called");
   try {
-    await ensureDir();
     const body = await req.json();
     const { name, payroll, invoices, employees } = body;
-    console.log("[POST /api/periods] parsed body, name:", name, "invoices:", invoices?.length);
     if (!name?.trim() || !invoices) {
       return NextResponse.json({ error: "name and invoices are required" }, { status: 400 });
     }
@@ -52,14 +37,11 @@ export async function POST(req: NextRequest) {
       invoices,
       employees,
     };
-    const filePath = path.join(PERIODS_DIR, `${id}.json`);
-    console.log("[POST /api/periods] writing to:", filePath);
-    await writeFile(filePath, JSON.stringify(period), "utf-8");
-    console.log("[POST /api/periods] write succeeded, id:", id);
+    await storeJSON("periods", id, period);
     return NextResponse.json({ id, savedAt: period.savedAt });
   } catch (e: any) {
     const msg = e?.message || e?.toString() || "Unknown error";
-    console.error("[POST /api/periods] error:", msg, e?.stack);
+    console.error("[POST /api/periods] error:", msg);
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
