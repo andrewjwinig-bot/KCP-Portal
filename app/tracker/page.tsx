@@ -77,6 +77,7 @@ const TASK_DEFS: TaskDef[] = [
     dueDay: 0,
     pinned: true,
     link: "https://one.avidxchange.net/#/invoices",
+    notes: "Check and approve open invoices.",
   },
 
   // ── MONTHLY ROUTINE — appears every month ─────────────────────────────────
@@ -207,6 +208,7 @@ const TASK_DEFS: TaskDef[] = [
     category: "routine",
     dueDay: 20,
     approxDay: true,
+    notes: "Post and close period in Skyline.",
     instructions: {
       intro: "Post revenues and expenses, then run the full month-end close sequence",
       steps: [
@@ -350,6 +352,7 @@ const TASK_DEFS: TaskDef[] = [
     label: "Operating Statements",
     category: "routine",
     dueDay: 20,
+    notes: "Update and record variances.",
   },
   {
     id: "m-tenant",
@@ -391,6 +394,7 @@ const TASK_DEFS: TaskDef[] = [
     category: "routine",
     dueDay: 0,
     lastFriday: true,
+    notes: "Print from Skyline.",
   },
   {
     id: "m-alloc-exp",
@@ -416,6 +420,7 @@ const TASK_DEFS: TaskDef[] = [
     category: "weekly",
     dueDay: 0,          // placeholder — overridden per-Wednesday at expansion time
     everyWednesday: true,
+    notes: "Export from Skyline and import to Avid.",
     instructions: {
       steps: [
         {
