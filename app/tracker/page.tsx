@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useMemo, useCallback } from "react";
+import Link from "next/link";
 
 // ─── CONSTANTS ──────────────────────────────────────────────────────────────
 
@@ -21,8 +22,10 @@ const CATEGORIES: Record<Category, { label: string; dot: string; bg: string; tex
 //
 // dueDay:     calendar day (1–31). For end-of-month tasks set endOfMonth: true.
 // endOfMonth: task is due at the end of the month (last calendar day).
+// lastFriday: task is due on the last Friday of the month (computed per month).
 // approxDay:  display as "~Xth" (e.g. Close Prior Month ~20th).
 // months:     which months this task applies (1=Jan … 12=Dec). Omit = every month.
+// link:       internal route to open when the task label arrow is clicked.
 
 interface TaskDef {
   id: string;
@@ -30,9 +33,11 @@ interface TaskDef {
   category: Category;
   dueDay: number;
   endOfMonth?: boolean;
+  lastFriday?: boolean;
   approxDay?: boolean;
   months?: number[];
   notes?: string;
+  link?: string;
 }
 
 const TASK_DEFS: TaskDef[] = [
@@ -84,6 +89,31 @@ const TASK_DEFS: TaskDef[] = [
     category: "routine",
     dueDay: 31,
     endOfMonth: true,
+  },
+  {
+    id: "m-mgmt-fees",
+    label: "Print Management Fees",
+    category: "routine",
+    dueDay: 0,
+    lastFriday: true,
+  },
+  {
+    id: "m-alloc-exp",
+    label: "Allocate Expenses",
+    category: "routine",
+    dueDay: 20,
+    approxDay: true,
+    notes: "Same time as monthly close",
+    link: "/allocated-invoicer",
+  },
+  {
+    id: "m-alloc-cc",
+    label: "Allocate CC Charges",
+    category: "routine",
+    dueDay: 20,
+    approxDay: true,
+    notes: "Same time as monthly close",
+    link: "/expenses",
   },
 
   // ── QUARTERLY — January, April, July, October ─────────────────────────────
@@ -296,14 +326,29 @@ function tasksForMonth(year: number, month: number): TaskDef[] { // month 0-inde
   return TASK_DEFS.filter(t => !t.months || t.months.includes(m));
 }
 
-// Resolve "end of month" tasks to the actual last day
-function effDay(t: TaskDef, year: number, month: number): number {
-  return t.endOfMonth ? daysInMonth(year, month) : t.dueDay;
+// Last Friday of a given month (0-indexed)
+function lastFridayOfMonth(year: number, month: number): number {
+  const last = daysInMonth(year, month);
+  for (let d = last; d >= last - 6; d--) {
+    if (new Date(year, month, d).getDay() === 5) return d;
+  }
+  return last;
 }
 
-// Human-readable due date label
-function dueName(t: TaskDef, monthIdx: number): string {
+// Resolve computed due day (handles endOfMonth and lastFriday)
+function effDay(t: TaskDef, year: number, month: number): number {
+  if (t.endOfMonth) return daysInMonth(year, month);
+  if (t.lastFriday) return lastFridayOfMonth(year, month);
+  return t.dueDay;
+}
+
+// Human-readable due date label for status badge
+function dueName(t: TaskDef, year: number, monthIdx: number): string {
   if (t.endOfMonth) return "End of Month";
+  if (t.lastFriday) {
+    const d = lastFridayOfMonth(year, monthIdx);
+    return `Last Fri (${MONTHS[monthIdx].slice(0, 3)} ${d})`;
+  }
   if (t.approxDay)  return `~${t.dueDay}th`;
   return `${MONTHS[monthIdx].slice(0, 3)} ${t.dueDay}`;
 }
@@ -387,7 +432,7 @@ export default function TrackerPage() {
   // ── Status badge for a task row
   function taskStatus(t: TaskDef) {
     const d = effDay(t, viewYear, viewMonth);
-    const name = dueName(t, viewMonth);
+    const name = dueName(t, viewYear, viewMonth);
     if (checked[t.id])
       return { label: "✓ Done",    color: "#16a34a", bg: "rgba(22,163,74,0.08)",  border: "rgba(22,163,74,0.2)"  };
     if (isCurrentMonth && isPast(d))
@@ -654,12 +699,33 @@ export default function TrackerPage() {
                         />
 
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{
-                            fontWeight: 600, fontSize: 14,
-                            color: isDone ? "var(--muted)" : "var(--text)",
-                            textDecoration: isDone ? "line-through" : "none",
-                          }}>
-                            {task.label}
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <span style={{
+                              fontWeight: 600, fontSize: 14,
+                              color: isDone ? "var(--muted)" : "var(--text)",
+                              textDecoration: isDone ? "line-through" : "none",
+                            }}>
+                              {task.label}
+                            </span>
+                            {task.link && (
+                              <Link
+                                href={task.link}
+                                title={`Open ${task.label}`}
+                                style={{
+                                  display: "inline-flex", alignItems: "center", gap: 3,
+                                  fontSize: 11, fontWeight: 700,
+                                  color: catDef.text,
+                                  background: catDef.bg,
+                                  border: `1px solid ${catDef.border}`,
+                                  borderRadius: 5, padding: "2px 7px",
+                                  textDecoration: "none",
+                                  flexShrink: 0,
+                                  opacity: isDone ? 0.5 : 1,
+                                }}
+                              >
+                                Open →
+                              </Link>
+                            )}
                           </div>
                           {task.notes && (
                             <div className="muted small" style={{ marginTop: 3 }}>{task.notes}</div>
