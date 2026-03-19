@@ -134,6 +134,49 @@ const TASK_DEFS: TaskDef[] = [
     category: "routine",
     dueDay: 15,
     notes: "Activity Rec, Cash Journal, Check Register, Voucher Report, Bank Statement",
+    instructions: {
+      intro: "Save all reports to: Data\\Shared\\Properties\\MONTHLY REPORTS\\LHSC Cushman Monthly Reporting\\",
+      steps: [
+        {
+          title: "Set Skyline Property Filter — 9510 only",
+          items: [
+            "Group Name: None",
+            "Unit Ref Number — Beginning: 9510-   Ending: 9510-",
+            "Select Add Range",
+          ],
+        },
+        {
+          title: "Pull Reports from Skyline",
+          items: [
+            "Activity Reconciliation Report → Property Management → Reports → Financial Reports",
+            "Cash Journal → Property Management → Cash Management",
+            "Check Register → Accounts Payable → Daily Procedures",
+            "Voucher Report → Accounts Payable → Reports",
+          ],
+        },
+        {
+          title: "Save Chase Bank Statement",
+          items: [
+            "Save the Chase bank statement for the current period",
+          ],
+        },
+        {
+          title: "Verify Check Register vs. Bank Statement",
+          items: [
+            "Check Register — Check Amount must equal Checks Paid + Electronic Withdrawals on the Bank Statement",
+          ],
+          note: "If there is a variance, note the difference and explain it in the email.",
+        },
+        {
+          title: "Email the Package",
+          items: [
+            "To: Emilio Belem/USA — Emilio.Belem@cushwake.com",
+            "CC: Patrick Stanley/USA — Pat.Stanley@cushwake.com",
+            "CC: Tiffany Sarver/USA — Tiffany.Sarver@cushwake.com",
+          ],
+        },
+      ],
+    },
   },
   {
     id: "m-close",
