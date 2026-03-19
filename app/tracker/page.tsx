@@ -98,6 +98,35 @@ const TASK_DEFS: TaskDef[] = [
     category: "routine",
     dueDay: 15,
     notes: "Reprojections",
+    instructions: {
+      intro: "JVIII and NILLC only",
+      steps: [
+        {
+          title: "Update Reprojections",
+          path: "Data → Accounting → 20XX Year End → Skyline → Cumulus Reports → Reprojections",
+          items: [
+            "Change Parameters to period month",
+            "Change cell highlight of monthly period",
+            "Hit F9 to refresh",
+            "Publish to Values — save to: Data\\Shared\\Properties\\Business Plans - All Entities\\2025\\Business Parks\\Budgets for Liberty",
+          ],
+        },
+        {
+          title: "Update Cash Report",
+          items: [
+            "Add Operating Cash: Net Cash amounts for JVIII and NILLC, then subtract the TI Reserves",
+            "Add TI Cash: TI Reserves",
+            "Add Operating Cash + budgeted Cash Flow from the next month — subtract 20,050 for NILLC TI Escrow and 5,000 for JVIII TI Escrow",
+          ],
+        },
+        {
+          title: "Save the Report",
+          items: [
+            "Save to: Data\\Shared\\Properties\\Business Plans – All Entities\\20XX\\Business Parks\\Budgets for Liberty",
+          ],
+        },
+      ],
+    },
   },
   {
     id: "m-lhsc",
