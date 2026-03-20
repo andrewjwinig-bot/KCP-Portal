@@ -9,13 +9,12 @@ const MONTHS = [
 ];
 const MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
-type TaxCategory = "county" | "school" | "quarterly" | "entity";
+type TaxCategory = "ret" | "quarterly" | "entity";
 
 const TAX_CATEGORIES: Record<TaxCategory, { label: string; pill: string; dot: string; bg: string; text: string; border: string }> = {
-  county:    { label: "County RE Tax",      pill: "CO", dot: "#0b4a7d", bg: "rgba(11,74,125,0.08)",  text: "#0b4a7d", border: "rgba(11,74,125,0.25)"  },
-  school:    { label: "School RE Tax",      pill: "SC", dot: "#0d6b4e", bg: "rgba(13,107,78,0.08)",  text: "#0d6b4e", border: "rgba(13,107,78,0.25)"  },
-  quarterly: { label: "Net Profits / BIRT", pill: "NP", dot: "#b45309", bg: "rgba(180,83,9,0.08)",   text: "#b45309", border: "rgba(180,83,9,0.25)"   },
-  entity:    { label: "Entity Filings",     pill: "EN", dot: "#6d28d9", bg: "rgba(109,40,217,0.08)", text: "#6d28d9", border: "rgba(109,40,217,0.25)" },
+  ret:       { label: "Real Estate Tax",    pill: "RET", dot: "#0b4a7d", bg: "rgba(11,74,125,0.08)",  text: "#0b4a7d", border: "rgba(11,74,125,0.25)"  },
+  quarterly: { label: "Net Profits / BIRT", pill: "NP",  dot: "#b45309", bg: "rgba(180,83,9,0.08)",   text: "#b45309", border: "rgba(180,83,9,0.25)"   },
+  entity:    { label: "Entity Filings",     pill: "EN",  dot: "#6d28d9", bg: "rgba(109,40,217,0.08)", text: "#6d28d9", border: "rgba(109,40,217,0.25)" },
 };
 
 // ─── TAX TASK DEFINITIONS ───────────────────────────────────────────────────
@@ -23,8 +22,8 @@ const TAX_CATEGORIES: Record<TaxCategory, { label: string; pill: string; dot: st
 interface TaxTask {
   id: string;
   entity: string;       // full label (may include " — Q1" suffix for quarterly)
-  group: string;        // Real Estate | Shopping Centers | Business Parks | Entity Filings
   category: TaxCategory;
+  retType?: "county" | "school"; // distinguishes within RET for the filing label
   dueMonth: number;     // 1-12
   dueDay: number;       // 1-31
   notes?: string;
@@ -34,68 +33,68 @@ const TAX_TASKS: TaxTask[] = [
 
   // ─── COUNTY REAL ESTATE TAX ─────────────────────────────────────────────
 
-  { id: "co-1500", entity: "1500 Eastwick JV I",              group: "Shopping Centers", category: "county", dueMonth: 3,  dueDay: 31 },
-  { id: "co-4500", entity: "4500 Grays Ferry SC",             group: "Shopping Centers", category: "county", dueMonth: 3,  dueDay: 31 },
-  { id: "co-4510", entity: "4510 Grays Ferry Partners",       group: "Shopping Centers", category: "county", dueMonth: 3,  dueDay: 31 },
-  { id: "co-5600", entity: "5600 Hyman Korman Co",            group: "Shopping Centers", category: "county", dueMonth: 3,  dueDay: 31 },
-  { id: "co-7010", entity: "7010 Parkwood SC",                group: "Shopping Centers", category: "county", dueMonth: 3,  dueDay: 31 },
-  { id: "co-7200", entity: "7200 Elbridge",                   group: "Shopping Centers", category: "county", dueMonth: 3,  dueDay: 31 },
-  { id: "co-7300", entity: "7300 Revere",                     group: "Shopping Centers", category: "county", dueMonth: 3,  dueDay: 31 },
-  { id: "co-8200", entity: "8200 Trust #4",                   group: "Shopping Centers", category: "county", dueMonth: 3,  dueDay: 31 },
-  { id: "co-9200", entity: "9200 Eastwick JV XI",             group: "Shopping Centers", category: "county", dueMonth: 3,  dueDay: 31 },
-  { id: "co-1100", entity: "1100 Parkwood Professional Bldg", group: "Shopping Centers", category: "county", dueMonth: 3,  dueDay: 31 },
-  { id: "co-9800", entity: "9800 Bellaire Ave",               group: "Real Estate",      category: "county", dueMonth: 3,  dueDay: 31 },
-  { id: "co-2070", entity: "2070 Nockamixon",                 group: "Real Estate",      category: "county", dueMonth: 4,  dueDay: 30 },
-  { id: "co-2300", entity: "2300 Brookwood SC",               group: "Shopping Centers", category: "county", dueMonth: 4,  dueDay: 30 },
-  { id: "co-0900", entity: "0900 Interplex 2-Acre Land",      group: "Business Parks",   category: "county", dueMonth: 4,  dueDay: 30 },
-  { id: "co-piic", entity: "PIIICO Condo",                    group: "Business Parks",   category: "county", dueMonth: 4,  dueDay: 30 },
-  { id: "co-3610", entity: "3610 Building 1",                 group: "Business Parks",   category: "county", dueMonth: 4,  dueDay: 30 },
-  { id: "co-2620", entity: "2620 Building 1",                 group: "Business Parks",   category: "county", dueMonth: 4,  dueDay: 30 },
-  { id: "co-3640", entity: "3640 Building 4",                 group: "Business Parks",   category: "county", dueMonth: 4,  dueDay: 30 },
-  { id: "co-4050", entity: "4050 Building 5",                 group: "Business Parks",   category: "county", dueMonth: 4,  dueDay: 30 },
-  { id: "co-4060", entity: "4060 Building 6",                 group: "Business Parks",   category: "county", dueMonth: 4,  dueDay: 30 },
-  { id: "co-4070", entity: "4070 Building 7",                 group: "Business Parks",   category: "county", dueMonth: 4,  dueDay: 30 },
-  { id: "co-4080", entity: "4080 Building 8",                 group: "Business Parks",   category: "county", dueMonth: 4,  dueDay: 30 },
-  { id: "co-40a0", entity: "40A0 Kor Center",                 group: "Business Parks",   category: "county", dueMonth: 4,  dueDay: 30 },
-  { id: "co-9840", entity: "9840 3044 Joshua Rd",             group: "Real Estate",      category: "county", dueMonth: 5,  dueDay: 1,  notes: "Berkheimer sends bill" },
-  { id: "co-9510", entity: "9510 Lafayette Hill SC",          group: "Shopping Centers", category: "county", dueMonth: 5,  dueDay: 1,  notes: "Berkheimer sends bill" },
+  { id: "co-1500", entity: "1500 Eastwick JV I",              category: "ret", retType: "county", dueMonth: 3,  dueDay: 31 },
+  { id: "co-4500", entity: "4500 Grays Ferry SC",             category: "ret", retType: "county", dueMonth: 3,  dueDay: 31 },
+  { id: "co-4510", entity: "4510 Grays Ferry Partners",       category: "ret", retType: "county", dueMonth: 3,  dueDay: 31 },
+  { id: "co-5600", entity: "5600 Hyman Korman Co",            category: "ret", retType: "county", dueMonth: 3,  dueDay: 31 },
+  { id: "co-7010", entity: "7010 Parkwood SC",                category: "ret", retType: "county", dueMonth: 3,  dueDay: 31 },
+  { id: "co-7200", entity: "7200 Elbridge",                   category: "ret", retType: "county", dueMonth: 3,  dueDay: 31 },
+  { id: "co-7300", entity: "7300 Revere",                     category: "ret", retType: "county", dueMonth: 3,  dueDay: 31 },
+  { id: "co-8200", entity: "8200 Trust #4",                   category: "ret", retType: "county", dueMonth: 3,  dueDay: 31 },
+  { id: "co-9200", entity: "9200 Eastwick JV XI",             category: "ret", retType: "county", dueMonth: 3,  dueDay: 31 },
+  { id: "co-1100", entity: "1100 Parkwood Professional Bldg", category: "ret", retType: "county", dueMonth: 3,  dueDay: 31 },
+  { id: "co-9800", entity: "9800 Bellaire Ave",               category: "ret", retType: "county", dueMonth: 3,  dueDay: 31 },
+  { id: "co-2070", entity: "2070 Nockamixon",                 category: "ret", retType: "county", dueMonth: 4,  dueDay: 30 },
+  { id: "co-2300", entity: "2300 Brookwood SC",               category: "ret", retType: "county", dueMonth: 4,  dueDay: 30 },
+  { id: "co-0900", entity: "0900 Interplex 2-Acre Land",      category: "ret", retType: "county", dueMonth: 4,  dueDay: 30 },
+  { id: "co-piic", entity: "PIIICO Condo",                    category: "ret", retType: "county", dueMonth: 4,  dueDay: 30 },
+  { id: "co-3610", entity: "3610 Building 1",                 category: "ret", retType: "county", dueMonth: 4,  dueDay: 30 },
+  { id: "co-2620", entity: "2620 Building 1",                 category: "ret", retType: "county", dueMonth: 4,  dueDay: 30 },
+  { id: "co-3640", entity: "3640 Building 4",                 category: "ret", retType: "county", dueMonth: 4,  dueDay: 30 },
+  { id: "co-4050", entity: "4050 Building 5",                 category: "ret", retType: "county", dueMonth: 4,  dueDay: 30 },
+  { id: "co-4060", entity: "4060 Building 6",                 category: "ret", retType: "county", dueMonth: 4,  dueDay: 30 },
+  { id: "co-4070", entity: "4070 Building 7",                 category: "ret", retType: "county", dueMonth: 4,  dueDay: 30 },
+  { id: "co-4080", entity: "4080 Building 8",                 category: "ret", retType: "county", dueMonth: 4,  dueDay: 30 },
+  { id: "co-40a0", entity: "40A0 Kor Center",                 category: "ret", retType: "county", dueMonth: 4,  dueDay: 30 },
+  { id: "co-9840", entity: "9840 3044 Joshua Rd",             category: "ret", retType: "county", dueMonth: 5,  dueDay: 1,  notes: "Berkheimer sends bill" },
+  { id: "co-9510", entity: "9510 Lafayette Hill SC",          category: "ret", retType: "county", dueMonth: 5,  dueDay: 1,  notes: "Berkheimer sends bill" },
 
   // ─── SCHOOL REAL ESTATE TAX ─────────────────────────────────────────────
 
-  { id: "sc-2070", entity: "2070 Nockamixon",                 group: "Real Estate",      category: "school", dueMonth: 8,  dueDay: 31 },
-  { id: "sc-9800", entity: "9800 Bellaire Ave",               group: "Real Estate",      category: "school", dueMonth: 9,  dueDay: 2  },
-  { id: "sc-9840", entity: "9840 3044 Joshua Rd",             group: "Real Estate",      category: "school", dueMonth: 9,  dueDay: 2,  notes: "Berkheimer sends bill" },
-  { id: "sc-9510", entity: "9510 Lafayette Hill SC",          group: "Shopping Centers", category: "school", dueMonth: 9,  dueDay: 2,  notes: "Berkheimer sends bill" },
-  { id: "sc-2300", entity: "2300 Brookwood SC",               group: "Shopping Centers", category: "school", dueMonth: 9,  dueDay: 10 },
-  { id: "sc-0900", entity: "0900 Interplex 2-Acre Land",      group: "Business Parks",   category: "school", dueMonth: 9,  dueDay: 10 },
-  { id: "sc-piic", entity: "PIIICO Condo",                    group: "Business Parks",   category: "school", dueMonth: 9,  dueDay: 10 },
-  { id: "sc-3610", entity: "3610 Building 1",                 group: "Business Parks",   category: "school", dueMonth: 9,  dueDay: 10 },
-  { id: "sc-2620", entity: "2620 Building 1",                 group: "Business Parks",   category: "school", dueMonth: 9,  dueDay: 10 },
-  { id: "sc-3640", entity: "3640 Building 4",                 group: "Business Parks",   category: "school", dueMonth: 9,  dueDay: 10 },
-  { id: "sc-4050", entity: "4050 Building 5",                 group: "Business Parks",   category: "school", dueMonth: 9,  dueDay: 10 },
-  { id: "sc-4060", entity: "4060 Building 6",                 group: "Business Parks",   category: "school", dueMonth: 9,  dueDay: 10 },
-  { id: "sc-4070", entity: "4070 Building 7",                 group: "Business Parks",   category: "school", dueMonth: 9,  dueDay: 10 },
-  { id: "sc-4080", entity: "4080 Building 8",                 group: "Business Parks",   category: "school", dueMonth: 9,  dueDay: 10 },
-  { id: "sc-40a0", entity: "40A0 Kor Center",                 group: "Business Parks",   category: "school", dueMonth: 9,  dueDay: 10 },
-  { id: "sc-7200", entity: "7200 Elbridge",                   group: "Shopping Centers", category: "school", dueMonth: 9,  dueDay: 15 },
-  { id: "sc-7300", entity: "7300 Revere",                     group: "Shopping Centers", category: "school", dueMonth: 9,  dueDay: 15 },
-  { id: "sc-8200", entity: "8200 Trust #4",                   group: "Shopping Centers", category: "school", dueMonth: 9,  dueDay: 15 },
+  { id: "sc-2070", entity: "2070 Nockamixon",                 category: "ret", retType: "school", dueMonth: 8,  dueDay: 31 },
+  { id: "sc-9800", entity: "9800 Bellaire Ave",               category: "ret", retType: "school", dueMonth: 9,  dueDay: 2  },
+  { id: "sc-9840", entity: "9840 3044 Joshua Rd",             category: "ret", retType: "school", dueMonth: 9,  dueDay: 2,  notes: "Berkheimer sends bill" },
+  { id: "sc-9510", entity: "9510 Lafayette Hill SC",          category: "ret", retType: "school", dueMonth: 9,  dueDay: 2,  notes: "Berkheimer sends bill" },
+  { id: "sc-2300", entity: "2300 Brookwood SC",               category: "ret", retType: "school", dueMonth: 9,  dueDay: 10 },
+  { id: "sc-0900", entity: "0900 Interplex 2-Acre Land",      category: "ret", retType: "school", dueMonth: 9,  dueDay: 10 },
+  { id: "sc-piic", entity: "PIIICO Condo",                    category: "ret", retType: "school", dueMonth: 9,  dueDay: 10 },
+  { id: "sc-3610", entity: "3610 Building 1",                 category: "ret", retType: "school", dueMonth: 9,  dueDay: 10 },
+  { id: "sc-2620", entity: "2620 Building 1",                 category: "ret", retType: "school", dueMonth: 9,  dueDay: 10 },
+  { id: "sc-3640", entity: "3640 Building 4",                 category: "ret", retType: "school", dueMonth: 9,  dueDay: 10 },
+  { id: "sc-4050", entity: "4050 Building 5",                 category: "ret", retType: "school", dueMonth: 9,  dueDay: 10 },
+  { id: "sc-4060", entity: "4060 Building 6",                 category: "ret", retType: "school", dueMonth: 9,  dueDay: 10 },
+  { id: "sc-4070", entity: "4070 Building 7",                 category: "ret", retType: "school", dueMonth: 9,  dueDay: 10 },
+  { id: "sc-4080", entity: "4080 Building 8",                 category: "ret", retType: "school", dueMonth: 9,  dueDay: 10 },
+  { id: "sc-40a0", entity: "40A0 Kor Center",                 category: "ret", retType: "school", dueMonth: 9,  dueDay: 10 },
+  { id: "sc-7200", entity: "7200 Elbridge",                   category: "ret", retType: "school", dueMonth: 9,  dueDay: 15 },
+  { id: "sc-7300", entity: "7300 Revere",                     category: "ret", retType: "school", dueMonth: 9,  dueDay: 15 },
+  { id: "sc-8200", entity: "8200 Trust #4",                   category: "ret", retType: "school", dueMonth: 9,  dueDay: 15 },
 
   // ─── NET PROFITS TAX / BIRT ──────────────────────────────────────────────
 
-  { id: "np-0800-q1", entity: "0800 Bellmawr — Q1", group: "Real Estate", category: "quarterly", dueMonth: 2,  dueDay: 1, notes: "Net Profits Tax — pay online" },
-  { id: "np-0800-q2", entity: "0800 Bellmawr — Q2", group: "Real Estate", category: "quarterly", dueMonth: 5,  dueDay: 1, notes: "Net Profits Tax — pay online" },
-  { id: "np-0800-q3", entity: "0800 Bellmawr — Q3", group: "Real Estate", category: "quarterly", dueMonth: 8,  dueDay: 1, notes: "Net Profits Tax — pay online" },
-  { id: "np-0800-q4", entity: "0800 Bellmawr — Q4", group: "Real Estate", category: "quarterly", dueMonth: 11, dueDay: 1, notes: "Net Profits Tax — pay online" },
+  { id: "np-0800-q1", entity: "0800 Bellmawr — Q1", category: "quarterly", dueMonth: 2,  dueDay: 1, notes: "Net Profits Tax — pay online" },
+  { id: "np-0800-q2", entity: "0800 Bellmawr — Q2", category: "quarterly", dueMonth: 5,  dueDay: 1, notes: "Net Profits Tax — pay online" },
+  { id: "np-0800-q3", entity: "0800 Bellmawr — Q3", category: "quarterly", dueMonth: 8,  dueDay: 1, notes: "Net Profits Tax — pay online" },
+  { id: "np-0800-q4", entity: "0800 Bellmawr — Q4", category: "quarterly", dueMonth: 11, dueDay: 1, notes: "Net Profits Tax — pay online" },
 
   // ─── ENTITY / STATUTORY FILINGS ─────────────────────────────────────────
 
-  { id: "ent-nim-jun",  entity: "Neshaminy Interplex, MM, LP (DE)", group: "Entity Filings", category: "entity", dueMonth: 6,  dueDay: 1, notes: "File #5404613" },
-  { id: "ent-nil-jun",  entity: "Neshaminy Interplex LLC (DE)",     group: "Entity Filings", category: "entity", dueMonth: 6,  dueDay: 1, notes: "File #5404612" },
-  { id: "ent-0800-nov", entity: "0800 Bellmawr JV, LLP (NJ)",       group: "Entity Filings", category: "entity", dueMonth: 11, dueDay: 1, notes: "LP/LLC/GP Annual Tax — pay online via CT Corp · Acc 9400392779" },
-  { id: "ent-nim-nov",  entity: "Neshaminy Interplex, MM, LP (DE)", group: "Entity Filings", category: "entity", dueMonth: 11, dueDay: 1, notes: "LP/LLC/GP Annual Tax — pay online via CT Corp · Acc 9401222288" },
-  { id: "ent-nil-nov",  entity: "Neshaminy Interplex LLC (DE)",     group: "Entity Filings", category: "entity", dueMonth: 11, dueDay: 1, notes: "LP/LLC/GP Annual Tax — pay online via CT Corp · Acc 9401231147" },
-  { id: "ent-2010-nov", entity: "2010 LIK Management, Inc. (PA)",   group: "Entity Filings", category: "entity", dueMonth: 11, dueDay: 1, notes: "LP/LLC/GP Annual Tax — pay online via CT Corp · Acc 9400393039" },
+  { id: "ent-nim-jun",  entity: "Neshaminy Interplex, MM, LP (DE)", category: "entity", dueMonth: 6,  dueDay: 1, notes: "File #5404613" },
+  { id: "ent-nil-jun",  entity: "Neshaminy Interplex LLC (DE)",     category: "entity", dueMonth: 6,  dueDay: 1, notes: "File #5404612" },
+  { id: "ent-0800-nov", entity: "0800 Bellmawr JV, LLP (NJ)",       category: "entity", dueMonth: 11, dueDay: 1, notes: "LP/LLC/GP Annual Tax — pay online via CT Corp · Acc 9400392779" },
+  { id: "ent-nim-nov",  entity: "Neshaminy Interplex, MM, LP (DE)", category: "entity", dueMonth: 11, dueDay: 1, notes: "LP/LLC/GP Annual Tax — pay online via CT Corp · Acc 9401222288" },
+  { id: "ent-nil-nov",  entity: "Neshaminy Interplex LLC (DE)",     category: "entity", dueMonth: 11, dueDay: 1, notes: "LP/LLC/GP Annual Tax — pay online via CT Corp · Acc 9401231147" },
+  { id: "ent-2010-nov", entity: "2010 LIK Management, Inc. (PA)",   category: "entity", dueMonth: 11, dueDay: 1, notes: "LP/LLC/GP Annual Tax — pay online via CT Corp · Acc 9400393039" },
 ];
 
 // ─── STORAGE ────────────────────────────────────────────────────────────────
@@ -125,13 +124,14 @@ function quarterSuffix(entity: string): string | null {
 
 // Short label shown next to the pill in each filing row
 function filingLabel(t: TaxTask): string {
-  if (t.category === "county")    return "County Real Estate Tax";
-  if (t.category === "school")    return "School Real Estate Tax";
+  if (t.category === "ret") {
+    return t.retType === "school" ? "School Real Estate Tax" : "County Real Estate Tax";
+  }
   if (t.category === "quarterly") {
     const q = quarterSuffix(t.entity);
     return q ? `Net Profits Tax — ${q}` : "Net Profits Tax";
   }
-  return `Entity Filing`;
+  return "Entity Filing";
 }
 
 function isPastDate(year: number, month: number, day: number, today: Date) {
@@ -147,8 +147,6 @@ function isSoonDate(year: number, month: number, day: number, today: Date) {
   const ms = dt.getTime() - today.getTime();
   return ms > 0 && ms <= 3 * 24 * 60 * 60 * 1000;
 }
-
-const PROPERTY_GROUPS = ["Real Estate", "Shopping Centers", "Business Parks", "Entity Filings"];
 
 // ─── PAGE ───────────────────────────────────────────────────────────────────
 
@@ -178,24 +176,22 @@ export default function TaxTrackerPage() {
     [filterCat, filterMonth]
   );
 
-  // Build per-group → per-property → tasks map (preserving data order)
-  const byGroupAndProperty = useMemo(() => {
-    const result: Record<string, Record<string, TaxTask[]>> = {};
-    for (const grp of PROPERTY_GROUPS) result[grp] = {};
+  // Build flat property → tasks map (preserving data-defined entity order)
+  const byProperty = useMemo(() => {
+    const order: string[] = [];
+    const map: Record<string, TaxTask[]> = {};
     visible.forEach(t => {
       const base = baseEntityName(t.entity);
-      if (!result[t.group]) result[t.group] = {};
-      (result[t.group][base] ??= []).push(t);
+      if (!map[base]) { map[base] = []; order.push(base); }
+      map[base].push(t);
     });
     // Sort filings within each property by due date
-    for (const grp of PROPERTY_GROUPS) {
-      for (const prop of Object.keys(result[grp])) {
-        result[grp][prop].sort((a, b) =>
-          a.dueMonth !== b.dueMonth ? a.dueMonth - b.dueMonth : a.dueDay - b.dueDay
-        );
-      }
-    }
-    return result;
+    order.forEach(prop => {
+      map[prop].sort((a, b) =>
+        a.dueMonth !== b.dueMonth ? a.dueMonth - b.dueMonth : a.dueDay - b.dueDay
+      );
+    });
+    return { order, map };
   }, [visible]);
 
   // Stats
@@ -365,137 +361,107 @@ export default function TaxTrackerPage() {
         </div>
       </div>
 
-      {/* ── Property-first list ───────────────────────────────────────────── */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-        {PROPERTY_GROUPS.map(grp => {
-          const propMap = byGroupAndProperty[grp] ?? {};
-          const propNames = Object.keys(propMap);
-          if (propNames.length === 0) return null;
+      {/* ── Flat property list ───────────────────────────────────────────── */}
+      {byProperty.order.length === 0 ? (
+        <div className="card" style={{ textAlign: "center", padding: 40 }}>
+          <div style={{ fontSize: 36, marginBottom: 10 }}>✓</div>
+          <div style={{ fontWeight: 700, marginBottom: 4 }}>No filings match the current filter</div>
+          <div className="muted small">Try clearing the filters above</div>
+        </div>
+      ) : (
+        <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+          {byProperty.order.map((propName, pi) => {
+            const propTasks = byProperty.map[propName];
+            const propDone  = propTasks.filter(t => checked[t.id]).length;
+            const allFiled  = propDone === propTasks.length;
+            const isLast    = pi === byProperty.order.length - 1;
 
-          const grpTasks = propNames.flatMap(p => propMap[p]);
-          const grpDone  = grpTasks.filter(t => checked[t.id]).length;
+            return (
+              <div key={propName} style={{ borderBottom: isLast ? "none" : "1px solid var(--border)" }}>
 
-          return (
-            <div key={grp} className="card" style={{ padding: 0, overflow: "hidden" }}>
+                {/* Property name row */}
+                <div style={{
+                  display: "flex", alignItems: "center", justifyContent: "space-between",
+                  padding: "9px 18px",
+                  background: allFiled ? "rgba(22,163,74,0.04)" : "rgba(0,0,0,0.025)",
+                  borderBottom: "1px solid var(--border)",
+                }}>
+                  <span style={{
+                    fontWeight: 700, fontSize: 13,
+                    color: allFiled ? "var(--muted)" : "var(--text)",
+                    textDecoration: allFiled ? "line-through" : "none",
+                  }}>
+                    {propName}
+                  </span>
+                  <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600 }}>
+                    {propDone}/{propTasks.length}
+                  </span>
+                </div>
 
-              {/* Group header */}
-              <div style={{
-                display: "flex", alignItems: "center", justifyContent: "space-between",
-                padding: "11px 18px",
-                background: "rgba(0,0,0,0.03)",
-                borderBottom: "1px solid var(--border)",
-              }}>
-                <span style={{ fontWeight: 800, fontSize: 14 }}>{grp}</span>
-                <span style={{ fontSize: 12, fontWeight: 700, color: "var(--muted)" }}>
-                  {grpDone}/{grpTasks.length} filed
-                </span>
-              </div>
+                {/* Filing rows */}
+                {propTasks.map((task, ti) => {
+                  const cat    = TAX_CATEGORIES[task.category];
+                  const status = statusFor(task);
+                  const isDone = !!checked[task.id];
+                  const isOver = !isDone && isPastDate(viewYear, task.dueMonth, task.dueDay, today);
 
-              {/* Properties */}
-              {propNames.map((propName, pi) => {
-                const propTasks  = propMap[propName];
-                const propDone   = propTasks.filter(t => checked[t.id]).length;
-                const allFiled   = propDone === propTasks.length;
-                const isLastProp = pi === propNames.length - 1;
+                  return (
+                    <div
+                      key={task.id}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 12,
+                        padding: "10px 18px 10px 34px",
+                        borderBottom: ti === propTasks.length - 1 ? "none" : "1px solid var(--border)",
+                        background: isDone ? "rgba(22,163,74,0.025)" : isOver ? "rgba(220,38,38,0.025)" : "transparent",
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isDone}
+                        onChange={() => toggle(task.id)}
+                        style={{ width: 15, height: 15, accentColor: cat.dot, flexShrink: 0, cursor: "pointer" }}
+                      />
 
-                return (
-                  <div key={propName} style={{ borderBottom: isLastProp ? "none" : "1px solid var(--border)" }}>
-
-                    {/* Property name row */}
-                    <div style={{
-                      display: "flex", alignItems: "center", justifyContent: "space-between",
-                      padding: "9px 18px 9px 18px",
-                      background: allFiled ? "rgba(22,163,74,0.04)" : "rgba(0,0,0,0.015)",
-                      borderBottom: "1px solid var(--border)",
-                    }}>
                       <span style={{
-                        fontWeight: 700, fontSize: 13,
-                        color: allFiled ? "var(--muted)" : "var(--text)",
-                        textDecoration: allFiled ? "line-through" : "none",
+                        fontSize: 9, fontWeight: 800, letterSpacing: "0.05em",
+                        color: cat.text, background: cat.bg,
+                        border: `1px solid ${cat.border}`,
+                        padding: "2px 6px", borderRadius: 999, flexShrink: 0,
+                        opacity: isDone ? 0.5 : 1,
                       }}>
-                        {propName}
+                        {cat.pill}
                       </span>
-                      <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600 }}>
-                        {propDone}/{propTasks.length}
+
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <span style={{
+                          fontSize: 13, fontWeight: 500,
+                          color: isDone ? "var(--muted)" : "var(--text)",
+                          textDecoration: isDone ? "line-through" : "none",
+                        }}>
+                          {filingLabel(task)}
+                        </span>
+                        {task.notes && (
+                          <div className="muted small" style={{ marginTop: 2 }}>{task.notes}</div>
+                        )}
+                      </div>
+
+                      <span style={{
+                        fontSize: 11, fontWeight: 800,
+                        color: status.color, background: status.bg,
+                        border: `1px solid ${status.border}`,
+                        padding: "3px 9px", borderRadius: 999,
+                        whiteSpace: "nowrap", flexShrink: 0,
+                      }}>
+                        {status.label}
                       </span>
                     </div>
-
-                    {/* Filing rows */}
-                    {propTasks.map((task, ti) => {
-                      const cat    = TAX_CATEGORIES[task.category];
-                      const status = statusFor(task);
-                      const isDone = !!checked[task.id];
-                      const isOver = !isDone && isPastDate(viewYear, task.dueMonth, task.dueDay, today);
-                      const isLastFiling = ti === propTasks.length - 1;
-
-                      return (
-                        <div
-                          key={task.id}
-                          style={{
-                            display: "flex", alignItems: "center", gap: 12,
-                            padding: "10px 18px 10px 34px",
-                            borderBottom: isLastFiling ? "none" : "1px solid var(--border)",
-                            background: isDone ? "rgba(22,163,74,0.025)" : isOver ? "rgba(220,38,38,0.025)" : "transparent",
-                          }}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={isDone}
-                            onChange={() => toggle(task.id)}
-                            style={{ width: 15, height: 15, accentColor: cat.dot, flexShrink: 0, cursor: "pointer" }}
-                          />
-
-                          {/* Type pill */}
-                          <span style={{
-                            fontSize: 9, fontWeight: 800, letterSpacing: "0.05em",
-                            color: cat.text, background: cat.bg,
-                            border: `1px solid ${cat.border}`,
-                            padding: "2px 6px", borderRadius: 999, flexShrink: 0,
-                            opacity: isDone ? 0.5 : 1,
-                          }}>
-                            {cat.pill}
-                          </span>
-
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <span style={{
-                              fontSize: 13, fontWeight: 500,
-                              color: isDone ? "var(--muted)" : "var(--text)",
-                              textDecoration: isDone ? "line-through" : "none",
-                            }}>
-                              {filingLabel(task)}
-                            </span>
-                            {task.notes && (
-                              <div className="muted small" style={{ marginTop: 2 }}>{task.notes}</div>
-                            )}
-                          </div>
-
-                          <span style={{
-                            fontSize: 11, fontWeight: 800,
-                            color: status.color, background: status.bg,
-                            border: `1px solid ${status.border}`,
-                            padding: "3px 9px", borderRadius: 999,
-                            whiteSpace: "nowrap", flexShrink: 0,
-                          }}>
-                            {status.label}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                );
-              })}
-            </div>
-          );
-        })}
-
-        {visible.length === 0 && (
-          <div className="card" style={{ textAlign: "center", padding: 40 }}>
-            <div style={{ fontSize: 36, marginBottom: 10 }}>✓</div>
-            <div style={{ fontWeight: 700, marginBottom: 4 }}>No filings match the current filter</div>
-            <div className="muted small">Try clearing the filters above</div>
-          </div>
-        )}
-      </div>
+                  );
+                })}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </main>
   );
 }
