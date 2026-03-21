@@ -1,6 +1,11 @@
 "use client";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import Link from "next/link";
+import {
+  TAX_TASKS, TAX_CATEGORIES,
+  loadTaxChecked, saveTaxChecked,
+  masterTrackerLabel,
+} from "./tax-data";
 
 // ─── CONSTANTS ──────────────────────────────────────────────────────────────
 
@@ -748,12 +753,14 @@ export default function TrackerPage() {
   const [viewYear,  setViewYear]  = useState(today.getFullYear());
   const [viewMonth, setViewMonth] = useState(today.getMonth());
   const [checked,   setChecked]   = useState<Record<string, boolean>>({});
+  const [taxChecked, setTaxChecked] = useState<Record<string, boolean>>({});
   const [selDay,    setSelDay]    = useState<number | null>(null);
   const [filterCat, setFilterCat] = useState<Category | "all">("all");
   const [detailTask, setDetailTask] = useState<TaskDef | null>(null);
 
   useEffect(() => {
     setChecked(loadChecked(viewYear, viewMonth));
+    setTaxChecked(loadTaxChecked(viewYear));
     setSelDay(null);
   }, [viewYear, viewMonth]);
 
@@ -766,6 +773,22 @@ export default function TrackerPage() {
       return next;
     });
   }, [viewYear, viewMonth]);
+
+  const toggleTax = useCallback((id: string) => {
+    setTaxChecked(prev => {
+      const next = { ...prev, [id]: !prev[id] };
+      saveTaxChecked(viewYear, next);
+      return next;
+    });
+  }, [viewYear]);
+
+  // Tax tasks due in this month
+  const taxTasksThisMonth = useMemo(() =>
+    TAX_TASKS
+      .filter(t => t.dueMonth === viewMonth + 1)
+      .sort((a, b) => a.dueDay - b.dueDay),
+    [viewMonth]
+  );
 
   // Pinned tasks are always shown at top, never on the calendar
   const pinnedTasks = useMemo(() => TASK_DEFS.filter(t => t.pinned), []);
@@ -1203,6 +1226,115 @@ export default function TrackerPage() {
                       )}
                     </div>
 
+                    <span style={{
+                      fontSize: 11, fontWeight: 800,
+                      color: status.color, background: status.bg,
+                      border: `1px solid ${status.border}`,
+                      padding: "3px 9px", borderRadius: 999,
+                      whiteSpace: "nowrap", flexShrink: 0,
+                    }}>
+                      {status.label}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* ── Tax filings due this month ──────────────────────────────── */}
+          {taxTasksThisMonth.length > 0 && (
+            <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+              {/* Section header */}
+              <div style={{
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+                padding: "10px 16px",
+                background: "rgba(11,74,125,0.05)",
+                borderBottom: "1px solid var(--border)",
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{
+                    fontSize: 9, fontWeight: 800, letterSpacing: "0.05em",
+                    color: TAX_CATEGORIES.ret.text, background: TAX_CATEGORIES.ret.bg,
+                    border: `1px solid ${TAX_CATEGORIES.ret.border}`,
+                    padding: "2px 6px", borderRadius: 999,
+                  }}>TAX</span>
+                  <span style={{ fontWeight: 800, fontSize: 13 }}>Tax Filings Due This Month</span>
+                </div>
+                <Link
+                  href="/tracker/taxes"
+                  style={{
+                    fontSize: 11, fontWeight: 700,
+                    color: "var(--brand)", background: "rgba(11,74,125,0.07)",
+                    border: "1px solid rgba(11,74,125,0.18)",
+                    borderRadius: 5, padding: "3px 9px",
+                    textDecoration: "none",
+                  }}
+                >
+                  View all →
+                </Link>
+              </div>
+
+              {/* One row per tax task */}
+              {taxTasksThisMonth.map((task, idx) => {
+                const cat    = TAX_CATEGORIES[task.category];
+                const isDone = !!taxChecked[task.id];
+                const dueDate = new Date(viewYear, task.dueMonth - 1, task.dueDay);
+                dueDate.setHours(23, 59, 59);
+                const isOver  = !isDone && isCurrentMonth && dueDate < today;
+                const isToday = task.dueDay === today.getDate() && isCurrentMonth;
+                const isSoon  = !isOver && !isToday && isCurrentMonth &&
+                  (dueDate.getTime() - today.getTime()) <= 3 * 24 * 60 * 60 * 1000 &&
+                  dueDate.getTime() > today.getTime();
+
+                const dateLabel = `${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][task.dueMonth - 1]} ${task.dueDay}`;
+                const status = isDone
+                  ? { label: "✓ Filed",                color: "#16a34a", bg: "rgba(22,163,74,0.08)",  border: "rgba(22,163,74,0.2)"  }
+                  : isOver
+                  ? { label: `Overdue · ${dateLabel}`, color: "#dc2626", bg: "rgba(220,38,38,0.08)", border: "rgba(220,38,38,0.2)" }
+                  : isToday
+                  ? { label: "Due today",               color: "#ea580c", bg: "rgba(234,88,12,0.08)", border: "rgba(234,88,12,0.2)" }
+                  : isSoon
+                  ? { label: `Due soon · ${dateLabel}`,color: "#d97706", bg: "rgba(217,119,6,0.08)",  border: "rgba(217,119,6,0.2)"  }
+                  : { label: dateLabel,                  color: "var(--muted)", bg: "rgba(0,0,0,0.04)", border: "var(--border)" };
+
+                return (
+                  <div
+                    key={task.id}
+                    style={{
+                      display: "flex", alignItems: "flex-start", gap: 12,
+                      padding: "11px 16px",
+                      borderBottom: idx < taxTasksThisMonth.length - 1 ? "1px solid var(--border)" : "none",
+                      background: isDone ? "rgba(22,163,74,0.025)" : isOver ? "rgba(220,38,38,0.025)" : "transparent",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isDone}
+                      onChange={() => toggleTax(task.id)}
+                      style={{ marginTop: 3, width: 16, height: 16, accentColor: cat.dot, flexShrink: 0, cursor: "pointer" }}
+                    />
+                    <span style={{
+                      fontSize: 10, fontWeight: 800, letterSpacing: "0.05em",
+                      color: cat.text, background: cat.bg,
+                      border: `1px solid ${cat.border}`,
+                      padding: "2px 6px", borderRadius: 999,
+                      flexShrink: 0, marginTop: 2,
+                      opacity: isDone ? 0.45 : 1,
+                    }}>
+                      {cat.pill}
+                    </span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <span style={{
+                        fontWeight: 600, fontSize: 14,
+                        color: isDone ? "var(--muted)" : "var(--text)",
+                        textDecoration: isDone ? "line-through" : "none",
+                      }}>
+                        {masterTrackerLabel(task)}
+                      </span>
+                      {task.notes && (
+                        <div className="muted small" style={{ marginTop: 3 }}>{task.notes}</div>
+                      )}
+                    </div>
                     <span style={{
                       fontSize: 11, fontWeight: 800,
                       color: status.color, background: status.bg,
