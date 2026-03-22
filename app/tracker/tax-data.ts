@@ -103,6 +103,41 @@ export function saveTaxChecked(year: number, data: Record<string, boolean>) {
   localStorage.setItem(taxStorageKey(year), JSON.stringify(data));
 }
 
+// ─── PARCEL INFO ─────────────────────────────────────────────────────────────
+// Keyed by baseEntityName. A property may have multiple parcels.
+
+export interface TaxParcel {
+  method?: string;  // "Direct" | "Liberty Bank" | "Check" | undefined
+  number: string;
+}
+
+export const PARCEL_INFO: Record<string, TaxParcel[]> = {
+  "1100 Parkwood Professional Bldg": [{ method: "Direct",       number: "88-2-077811"       }],
+  "1500 Eastwick JV I":              [{ method: "Direct",       number: "88-2-057700"       }],
+  "4500 Grays Ferry SC":             [{ method: "Liberty Bank", number: "88-2-051606"       },
+                                      { method: "Liberty Bank", number: "87-4-545940"       },
+                                      { method: "Liberty Bank", number: "88-5-969440"       }],
+  "5600 Hyman Korman Co":            [{ method: "Direct",       number: "88-2-830600"       }],
+  "7010 Parkwood SC":                [{ method: "Liberty Bank", number: "88-2-078060"       }],
+  "7200 Elbridge":                   [{ method: "Direct",       number: "88-2-832400"       }],
+  "7300 Revere":                     [{ method: "Direct",       number: "88-2-138000"       }],
+  "8200 Trust #4":                   [{ method: "Direct",       number: "88-2-047230"       }],
+  "9200 Eastwick JV XI":             [{                         number: "88-5-819980"       }],
+  "9840 3044 Joshua Rd":             [{ method: "Check",        number: "54-00-06484-00-5"  }],
+  "9800 Bellaire Ave":               [{ method: "Check",        number: "54-00-01999-00-8"  }],
+  "3610 Building 1":                 [{                         number: "02001002-004-001"  }],
+  "3640 Building 4":                 [{                         number: "02001002-004-004"  }],
+  "4050 Building 5":                 [{                         number: "02001002-002"      }],
+  "4060 Building 6":                 [{                         number: "2001001"           }],
+  "4070 Building 7":                 [{                         number: "02001001-001"      }],
+  "4080 Building 8":                 [{                         number: "2001002"           },
+                                      {                         number: "02001002-015"      }],
+  "40A0 Kor Center":                 [{                         number: "02001002-005"      }],
+  "0900 Interplex 2-Acre Land":      [{                         number: "02001002-013"      }],
+  "PIIICO Condo":                    [{                         number: "02001002-016"      }],
+  "0800 Bellmawr":                   [{                         number: "Block 173.01 Lot 1"}],
+};
+
 // ─── SHARED HELPERS ──────────────────────────────────────────────────────────
 
 export function baseEntityName(entity: string): string {

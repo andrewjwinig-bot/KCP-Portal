@@ -2,6 +2,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import {
   TAX_TASKS, TAX_CATEGORIES, TaxCategory,
+  PARCEL_INFO,
   loadTaxChecked, saveTaxChecked,
   baseEntityName, filingLabel,
 } from "../tax-data";
@@ -262,23 +263,60 @@ export default function TaxTrackerPage() {
               <div key={propName} style={{ borderBottom: isLast ? "none" : "1px solid var(--border)" }}>
 
                 {/* Property name row */}
-                <div style={{
-                  display: "flex", alignItems: "center", justifyContent: "space-between",
-                  padding: "9px 18px",
-                  background: allFiled ? "rgba(22,163,74,0.04)" : "rgba(0,0,0,0.025)",
-                  borderBottom: "1px solid var(--border)",
-                }}>
-                  <span style={{
-                    fontWeight: 700, fontSize: 13,
-                    color: allFiled ? "var(--muted)" : "var(--text)",
-                    textDecoration: allFiled ? "line-through" : "none",
-                  }}>
-                    {propName}
-                  </span>
-                  <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600 }}>
-                    {propDone}/{propTasks.length}
-                  </span>
-                </div>
+                {(() => {
+                  const parcels = PARCEL_INFO[propName] ?? [];
+                  return (
+                    <div style={{
+                      display: "flex", alignItems: "center", justifyContent: "space-between",
+                      gap: 12,
+                      padding: "8px 18px",
+                      background: allFiled ? "rgba(22,163,74,0.04)" : "rgba(0,0,0,0.025)",
+                      borderBottom: "1px solid var(--border)",
+                    }}>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{
+                          fontWeight: 700, fontSize: 13,
+                          color: allFiled ? "var(--muted)" : "var(--text)",
+                          textDecoration: allFiled ? "line-through" : "none",
+                          marginBottom: parcels.length > 0 ? 5 : 0,
+                        }}>
+                          {propName}
+                        </div>
+                        {parcels.length > 0 && (
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                            {parcels.map((p, pi) => (
+                              <span key={pi} style={{
+                                display: "inline-flex", alignItems: "center", gap: 4,
+                                fontSize: 10, fontWeight: 600,
+                                color: "var(--muted)",
+                                background: "rgba(0,0,0,0.04)",
+                                border: "1px solid var(--border)",
+                                borderRadius: 4, padding: "2px 7px",
+                                fontFamily: "monospace",
+                              }}>
+                                {p.method && (
+                                  <span style={{
+                                    fontFamily: "inherit",
+                                    fontWeight: 700,
+                                    color: p.method === "Liberty Bank" ? "#0d6b4e"
+                                         : p.method === "Check"        ? "#b45309"
+                                         : "#0b4a7d",
+                                  }}>
+                                    {p.method} ·
+                                  </span>
+                                )}
+                                {p.number}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600, flexShrink: 0 }}>
+                        {propDone}/{propTasks.length}
+                      </span>
+                    </div>
+                  );
+                })()}
 
                 {/* Filing rows */}
                 {propTasks.map((task, ti) => {
