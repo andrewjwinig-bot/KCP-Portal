@@ -360,11 +360,11 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-function InfoField({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+function InfoField({ label, value }: { label: string; value: string; mono?: boolean }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-      <span style={{ fontSize: 10, fontWeight: 800, color: "var(--muted)", letterSpacing: "0.07em", textTransform: "uppercase" }}>{label}</span>
-      <span style={{ fontSize: 15, fontWeight: 500, fontFamily: mono ? "monospace" : "inherit", color: "var(--text)" }}>{value}</span>
+      <span style={{ fontSize: 11, fontWeight: 800, color: "var(--muted)", letterSpacing: "0.07em", textTransform: "uppercase" }}>{label}</span>
+      <span style={{ fontSize: 17, fontWeight: 500, color: "var(--text)" }}>{value}</span>
     </div>
   );
 }
@@ -403,9 +403,6 @@ function QuickLink({ href, label, icon, desc }: { href: string; label: string; i
 
 function PropertyCard({ prop, onClick }: { prop: PropertyDef; onClick: () => void }) {
   const ts = TYPE_STYLE[prop.type];
-  const hasTasks = tasksForProp(prop.id).length > 0;
-  const hasAlloc = !!ALLOC_PCT[prop.id];
-  const hasParcels = parcelsForProp(prop.id).length > 0;
 
   return (
     <button
@@ -455,29 +452,6 @@ function PropertyCard({ prop, onClick }: { prop: PropertyDef; onClick: () => voi
         }}>{prop.id}</code>
       </div>
 
-      {/* Badge row */}
-      <div style={{ display: "flex", gap: 5, flexWrap: "wrap", justifyContent: "flex-start", paddingTop: 6 }}>
-        {hasTasks && (
-          <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 999, background: "rgba(11,74,125,0.07)", color: "#0b4a7d", border: "1px solid rgba(11,74,125,0.18)" }}>
-            Filings
-          </span>
-        )}
-        {hasAlloc && (
-          <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 999, background: "rgba(13,148,136,0.07)", color: "#0d9488", border: "1px solid rgba(13,148,136,0.2)" }}>
-            Allocated
-          </span>
-        )}
-        {hasParcels && (
-          <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 999, background: "rgba(180,83,9,0.07)", color: "#b45309", border: "1px solid rgba(180,83,9,0.2)" }}>
-            Parcels
-          </span>
-        )}
-        {prop.allocGroup && (
-          <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 999, background: "rgba(109,40,217,0.06)", color: "#6d28d9", border: "1px solid rgba(109,40,217,0.18)" }}>
-            {prop.allocGroup}
-          </span>
-        )}
-      </div>
     </button>
   );
 }
