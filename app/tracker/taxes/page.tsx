@@ -39,6 +39,7 @@ export default function TaxTrackerPage() {
   const [checked,     setChecked]     = useState<Record<string, boolean>>({});
   const [filterCat,   setFilterCat]   = useState<TaxCategory | "all">("all");
   const [filterMonth, setFilterMonth] = useState<number | "all">("all");
+  const [filterStatus, setFilterStatus] = useState<"all" | "done" | "remaining" | "overdue">("all");
   const [expandedK1,  setExpandedK1]  = useState<Set<string>>(new Set());
 
   useEffect(() => { setChecked(loadTaxChecked(viewYear)); }, [viewYear]);
@@ -55,9 +56,15 @@ export default function TaxTrackerPage() {
     TAX_TASKS.filter(t => {
       if (filterCat   !== "all" && t.category !== filterCat)   return false;
       if (filterMonth !== "all" && t.dueMonth !== filterMonth) return false;
+      if (filterStatus !== "all") {
+        const isDone = isTaskEffectivelyDone(t, checked);
+        if (filterStatus === "done"      && !isDone) return false;
+        if (filterStatus === "remaining" && isDone)  return false;
+        if (filterStatus === "overdue"   && !(isPastDate(viewYear, t.dueMonth, t.dueDay, today) && !isDone)) return false;
+      }
       return true;
     }),
-    [filterCat, filterMonth]
+    [filterCat, filterMonth, filterStatus, checked, viewYear]
   );
 
   // Build flat property → tasks map (preserving data-defined entity order)
@@ -137,37 +144,52 @@ export default function TaxTrackerPage() {
         </div>
       </div>
 
-      {/* ── Summary pills ────────────────────────────────────────────────── */}
-      <div className="pills" style={{ justifyContent: "flex-start", marginBottom: 16 }}>
-        <div className="pill">
-          <b>{total}</b>
-          <span className="muted small">Total filings</span>
-        </div>
-        <div className="pill" style={{ borderColor: "#16a34a", background: "rgba(22,163,74,0.06)" }}>
-          <b style={{ color: "#16a34a" }}>{done}</b>
-          <span className="muted small">Filed</span>
-        </div>
-        <div className="pill">
-          <b>{total - done}</b>
-          <span className="muted small">Remaining</span>
-        </div>
-        {overdue > 0 && (
-          <div className="pill" style={{ borderColor: "#dc2626", background: "rgba(220,38,38,0.06)" }}>
-            <b style={{ color: "#dc2626" }}>{overdue}</b>
-            <span className="muted small">Overdue</span>
-          </div>
-        )}
-        {total > 0 && (
-          <div className="pill pill-total">
-            <b>{Math.round((done / total) * 100)}%</b>
-            <span className="muted small">Complete</span>
-          </div>
-        )}
+      {/* ── Stat tiles ───────────────────────────────────────────────────── */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 10, marginBottom: 14 }}>
+        {([
+          { key: "all",       label: "Total",     value: total,         color: "var(--brand)", activeBg: "rgba(11,74,125,0.07)",  activeBorder: "rgba(11,74,125,0.3)",  clickable: false },
+          { key: "done",      label: "Filed",     value: done,          color: "#16a34a",      activeBg: "rgba(22,163,74,0.08)",  activeBorder: "rgba(22,163,74,0.35)", clickable: true  },
+          { key: "remaining", label: "Remaining", value: total - done,  color: "var(--text)",  activeBg: "rgba(0,0,0,0.05)",      activeBorder: "rgba(0,0,0,0.25)",     clickable: true  },
+          { key: "overdue",   label: "Overdue",   value: overdue,       color: "#dc2626",      activeBg: "rgba(220,38,38,0.08)",  activeBorder: "rgba(220,38,38,0.35)", clickable: true  },
+          { key: "pct",       label: "Complete",  value: total > 0 ? `${Math.round((done / total) * 100)}%` : "—", color: "var(--muted)", activeBg: "", activeBorder: "", clickable: false },
+        ] as const).map(tile => {
+          const isActive = filterStatus === tile.key && tile.clickable;
+          return (
+            <button
+              key={tile.key}
+              onClick={() => tile.clickable && setFilterStatus(prev => prev === tile.key ? "all" : tile.key as typeof filterStatus)}
+              style={{
+                display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                padding: "13px 8px 11px",
+                border: `1.5px solid ${isActive ? tile.activeBorder : "var(--border)"}`,
+                borderRadius: 10,
+                background: isActive ? tile.activeBg : "#fff",
+                cursor: tile.clickable ? "pointer" : "default",
+                fontFamily: "inherit",
+                transition: "border-color 0.15s, background 0.15s, box-shadow 0.15s",
+                boxShadow: isActive ? `0 0 0 3px ${tile.activeBorder}22` : "none",
+                gap: 3,
+              }}
+            >
+              <span style={{ fontSize: 28, fontWeight: 900, lineHeight: 1, color: isActive ? tile.color : (tile.key === "overdue" && overdue > 0 ? "#dc2626" : "var(--text)") }}>
+                {tile.value}
+              </span>
+              <span style={{ fontSize: 11, fontWeight: 600, color: isActive ? tile.color : "var(--muted)", letterSpacing: "0.02em" }}>
+                {tile.label}
+              </span>
+              {tile.clickable && (
+                <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.07em", color: isActive ? tile.color : "var(--border)", marginTop: 1 }}>
+                  {isActive ? "● FILTERED" : "CLICK TO FILTER"}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
 
       {/* ── Progress bar ─────────────────────────────────────────────────── */}
       {total > 0 && (
-        <div style={{ height: 6, background: "var(--border)", borderRadius: 999, marginBottom: 22, overflow: "hidden" }}>
+        <div style={{ height: 5, background: "var(--border)", borderRadius: 999, marginBottom: 16, overflow: "hidden" }}>
           <div style={{
             height: "100%", width: `${(done / total) * 100}%`,
             background: done === total ? "#16a34a" : "var(--brand)",
@@ -176,110 +198,125 @@ export default function TaxTrackerPage() {
         </div>
       )}
 
-      {/* ── Filters ──────────────────────────────────────────────────────── */}
-      <div style={{ display: "flex", gap: 18, flexWrap: "wrap", marginBottom: 22, alignItems: "flex-start" }}>
+      {/* ── Filter card ──────────────────────────────────────────────────── */}
+      <div className="card" style={{ padding: "14px 18px", marginBottom: 18 }}>
 
-        {/* Year nav */}
-        <div>
-          <div style={{ fontSize: 11, fontWeight: 800, color: "var(--muted)", letterSpacing: "0.06em", marginBottom: 7 }}>YEAR</div>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <button className="btn" onClick={() => setViewYear(y => y - 1)} style={{ padding: "5px 11px", fontWeight: 900 }}>←</button>
-            <span style={{ fontWeight: 800, fontSize: 14, minWidth: 42, textAlign: "center" }}>{viewYear}</span>
-            <button className="btn" onClick={() => setViewYear(y => y + 1)} style={{ padding: "5px 11px", fontWeight: 900 }}>→</button>
-            {viewYear !== today.getFullYear() && (
-              <button className="btn" onClick={() => setViewYear(today.getFullYear())} style={{ fontSize: 12, padding: "5px 10px" }}>
-                This Year
+        {/* Row 1: Year + Type */}
+        <div style={{ display: "flex", gap: 0, flexWrap: "wrap", alignItems: "stretch", marginBottom: 12 }}>
+
+          {/* Year nav */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 7, paddingRight: 18, marginRight: 18, borderRight: "1px solid var(--border)", flexShrink: 0 }}>
+            <div style={{ fontSize: 10, fontWeight: 800, color: "var(--muted)", letterSpacing: "0.08em" }}>YEAR</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+              <button className="btn" onClick={() => setViewYear(y => y - 1)} style={{ padding: "4px 9px", fontWeight: 900 }}>←</button>
+              <span style={{ fontWeight: 800, fontSize: 15, minWidth: 40, textAlign: "center" }}>{viewYear}</span>
+              <button className="btn" onClick={() => setViewYear(y => y + 1)} style={{ padding: "4px 9px", fontWeight: 900 }}>→</button>
+              {viewYear !== today.getFullYear() && (
+                <button className="btn" onClick={() => setViewYear(today.getFullYear())} style={{ fontSize: 11, padding: "4px 9px" }}>
+                  Today
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Type filter */}
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 7 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ fontSize: 10, fontWeight: 800, color: "var(--muted)", letterSpacing: "0.08em" }}>TYPE</div>
+              {filterCat !== "all" && (
+                <button className="btn" onClick={() => setFilterCat("all")} style={{ fontSize: 11, padding: "2px 8px" }}>✕ Clear</button>
+              )}
+            </div>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              {(Object.entries(TAX_CATEGORIES) as [TaxCategory, typeof TAX_CATEGORIES[TaxCategory]][]).map(([key, cat]) => {
+                const active  = filterCat === key;
+                const count   = TAX_TASKS.filter(t => t.category === key).length;
+                const catDone = TAX_TASKS.filter(t => t.category === key && isTaskEffectivelyDone(t, checked)).length;
+                return (
+                  <button key={key} onClick={() => setFilterCat(active ? "all" : key)} style={{
+                    display: "flex", alignItems: "center", gap: 6,
+                    padding: "4px 11px",
+                    border: `1px solid ${active ? cat.border : "var(--border)"}`,
+                    borderRadius: 999, cursor: "pointer",
+                    background: active ? cat.bg : "transparent",
+                    fontFamily: "inherit", fontSize: 12, fontWeight: active ? 700 : 500,
+                    color: active ? cat.text : "var(--text)",
+                    transition: "border-color 0.12s, background 0.12s",
+                  }}>
+                    <span style={{
+                      fontSize: 9, fontWeight: 800, letterSpacing: "0.05em",
+                      color: active ? cat.text : "#fff",
+                      background: active ? "#fff" : cat.dot,
+                      border: `1px solid ${cat.border}`,
+                      padding: "1px 5px", borderRadius: 999,
+                    }}>{cat.pill}</span>
+                    {cat.label}
+                    <span style={{ fontSize: 11, color: active ? cat.text : "var(--muted)", opacity: 0.75 }}>
+                      {catDone}/{count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* Divider */}
+        <div style={{ height: 1, background: "var(--border)", marginBottom: 12 }} />
+
+        {/* Row 2: Month */}
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", marginBottom: 12 }}>
+          <div style={{ fontSize: 10, fontWeight: 800, color: "var(--muted)", letterSpacing: "0.08em", marginRight: 4 }}>MONTH</div>
+          {activeMonths.map(m => {
+            const active = filterMonth === m;
+            return (
+              <button key={m} onClick={() => setFilterMonth(active ? "all" : m)} style={{
+                padding: "4px 11px",
+                border: `1px solid ${active ? "var(--brand)" : "var(--border)"}`,
+                borderRadius: 999, cursor: "pointer",
+                background: active ? "rgba(11,74,125,0.08)" : "transparent",
+                fontFamily: "inherit", fontSize: 12, fontWeight: active ? 700 : 500,
+                color: active ? "var(--brand)" : "var(--text)",
+                transition: "border-color 0.12s, background 0.12s",
+              }}>
+                {MONTHS[m - 1]}
               </button>
-            )}
-          </div>
+            );
+          })}
+          {filterMonth !== "all" && (
+            <button className="btn" onClick={() => setFilterMonth("all")} style={{ fontSize: 11, padding: "4px 9px" }}>✕ Clear</button>
+          )}
         </div>
 
-        {/* Category filter */}
-        <div>
-          <div style={{ fontSize: 11, fontWeight: 800, color: "var(--muted)", letterSpacing: "0.06em", marginBottom: 7 }}>TYPE</div>
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-            {(Object.entries(TAX_CATEGORIES) as [TaxCategory, typeof TAX_CATEGORIES[TaxCategory]][]).map(([key, cat]) => {
-              const active  = filterCat === key;
-              const count   = TAX_TASKS.filter(t => t.category === key).length;
-              const catDone = TAX_TASKS.filter(t => t.category === key && checked[t.id]).length;
-              return (
-                <button key={key} onClick={() => setFilterCat(active ? "all" : key)} style={{
-                  display: "flex", alignItems: "center", gap: 6,
-                  padding: "5px 11px",
-                  border: `1px solid ${active ? cat.border : "var(--border)"}`,
-                  borderRadius: 999, cursor: "pointer",
-                  background: active ? cat.bg : "#fff",
-                  fontFamily: "inherit", fontSize: 12, fontWeight: active ? 700 : 500,
-                  color: active ? cat.text : "var(--text)",
-                }}>
-                  <span style={{
-                    fontSize: 9, fontWeight: 800, letterSpacing: "0.05em",
-                    color: active ? cat.text : "#fff",
-                    background: active ? "#fff" : cat.dot,
-                    border: `1px solid ${cat.border}`,
-                    padding: "1px 5px", borderRadius: 999,
-                  }}>{cat.pill}</span>
-                  {cat.label}
-                  <span style={{ fontSize: 11, color: active ? cat.text : "var(--muted)", opacity: 0.8 }}>
-                    {catDone}/{count}
-                  </span>
-                </button>
-              );
-            })}
-            {filterCat !== "all" && (
-              <button className="btn" onClick={() => setFilterCat("all")} style={{ fontSize: 12, padding: "5px 11px" }}>Clear</button>
-            )}
-          </div>
-        </div>
+        {/* Divider */}
+        <div style={{ height: 1, background: "var(--border)", marginBottom: 10 }} />
 
-        {/* Month filter */}
-        <div>
-          <div style={{ fontSize: 11, fontWeight: 800, color: "var(--muted)", letterSpacing: "0.06em", marginBottom: 7 }}>MONTH</div>
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-            {activeMonths.map(m => {
-              const active = filterMonth === m;
-              return (
-                <button key={m} onClick={() => setFilterMonth(active ? "all" : m)} style={{
-                  padding: "5px 11px",
-                  border: `1px solid ${active ? "var(--brand)" : "var(--border)"}`,
-                  borderRadius: 999, cursor: "pointer",
-                  background: active ? "rgba(11,74,125,0.08)" : "#fff",
-                  fontFamily: "inherit", fontSize: 12, fontWeight: active ? 700 : 500,
-                  color: active ? "var(--brand)" : "var(--text)",
-                }}>
-                  {MONTHS[m - 1]}
-                </button>
-              );
-            })}
-            {filterMonth !== "all" && (
-              <button className="btn" onClick={() => setFilterMonth("all")} style={{ fontSize: 12, padding: "5px 11px" }}>Clear</button>
-            )}
-          </div>
+        {/* Row 3: File path + active status badge */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#0b4a7d" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+          </svg>
+          <span style={{ fontSize: 12, color: "#0b4a7d", fontWeight: 600 }}>RET bills are saved at:</span>
+          <code style={{
+            fontFamily: "monospace", fontWeight: 700, fontSize: 11,
+            color: "#0b4a7d", background: "rgba(11,74,125,0.08)",
+            border: "1px solid rgba(11,74,125,0.18)",
+            borderRadius: 4, padding: "1px 7px",
+          }}>
+            Data\Shared\Real Estate Tax
+          </code>
+          {filterStatus !== "all" && (
+            <button className="btn" onClick={() => setFilterStatus("all")} style={{ marginLeft: "auto", fontSize: 11, padding: "3px 10px", display: "flex", alignItems: "center", gap: 5 }}>
+              <span style={{
+                fontSize: 10, fontWeight: 700,
+                color: filterStatus === "done" ? "#16a34a" : filterStatus === "overdue" ? "#dc2626" : "var(--text)",
+              }}>
+                ● {filterStatus === "done" ? "Filed" : filterStatus === "remaining" ? "Remaining" : "Overdue"} filter active
+              </span>
+              ✕
+            </button>
+          )}
         </div>
-      </div>
-
-      {/* ── File path note ───────────────────────────────────────────────── */}
-      <div style={{
-        display: "flex", alignItems: "center", gap: 10,
-        padding: "9px 14px", marginBottom: 16,
-        background: "rgba(11,74,125,0.05)",
-        border: "1px solid rgba(11,74,125,0.18)",
-        borderRadius: 8,
-        fontSize: 12,
-      }}>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0b4a7d" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-          <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
-        </svg>
-        <span style={{ color: "#0b4a7d", fontWeight: 600 }}>RET bills are saved at:</span>
-        <code style={{
-          fontFamily: "monospace", fontWeight: 700, fontSize: 12,
-          color: "#0b4a7d", background: "rgba(11,74,125,0.08)",
-          border: "1px solid rgba(11,74,125,0.2)",
-          borderRadius: 4, padding: "1px 7px",
-          letterSpacing: "0.01em",
-        }}>
-          Data\Shared\Real Estate Tax
-        </code>
       </div>
 
       {/* ── Flat property list ───────────────────────────────────────────── */}
