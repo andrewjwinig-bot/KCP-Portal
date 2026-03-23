@@ -20,7 +20,7 @@ const NAV = [
     ),
   },
   {
-    label: "Tax Filing Tracker",
+    label: "Filing Tracker",
     href: "/tracker/taxes",
     external: false,
     indent: true,
