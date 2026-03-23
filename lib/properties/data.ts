@@ -41,13 +41,8 @@ export const PROPERTY_DEFS: PropertyDef[] = [
   { id: "4500", name: "Gray's Ferry Shopping Center",     type: "Retail", allocGroup: "SC", ccAccounts: ["8501"], address: "2897 Grays Ferry Ave",   city: "Philadelphia",          state: "PA", zip: "19146", sqft: 82809, yearBuilt: 1989 },
   { id: "7010", name: "Parkwood Shopping/Office Center",  type: "Retail", allocGroup: "SC", ccAccounts: ["8501"], address: "12301-12377 Academy Rd", city: "Philadelphia",          state: "PA",               sqft: 73209, yearBuilt: 1963 },
   { id: "9510", name: "Shops at Lafayette Hill",          type: "Retail", allocGroup: "SC", ccAccounts: ["8501"], address: "400-428 Germantown Pike", city: "Lafayette Hill",        state: "PA",               sqft: 19983, yearBuilt: 1976 },
-  { id: "CA01", name: "Castor Ave - USPS",                type: "Retail",                   ccAccounts: ["8501"], address: "6382 Castor Ave",         city: "Philadelphia",          state: "PA",               sqft: 1326,  yearBuilt: 1951 },
-  { id: "CA02", name: "Castor Ave - Save-A-Lot",          type: "Retail",                   ccAccounts: ["8501"], address: "6412-22 Castor Ave",      city: "Philadelphia",          state: "PA",               sqft: 14821 },
-  { id: "RB01", name: "Roosevelt Blvd - K&G Fashion",     type: "Retail",                   ccAccounts: ["8501"], address: "7201 Roosevelt Blvd",     city: "Philadelphia",          state: "PA",               sqft: 22500 },
-  { id: "CT01", name: "Cottman Ave - McDonald's",         type: "Retail",                   ccAccounts: ["8501"], address: "2801 Cottman Ave",        city: "Philadelphia",          state: "PA",               sqft: 5000  },
-  { id: "CT02", name: "Cottman Ave - Four Seasons Diner", type: "Retail",                   ccAccounts: ["8501"], address: "2811 Cottman Ave",        city: "Philadelphia",          state: "PA",               sqft: 5000  },
-  { id: "7200", name: "Elbridge Shopping Center",         type: "Retail", allocGroup: "SC", ccAccounts: ["8501"] },
-  { id: "7300", name: "Revere Shopping Center",           type: "Retail", allocGroup: "SC", ccAccounts: ["8501"] },
+  { id: "7200", name: "Revere Partnership",   type: "Retail", allocGroup: "SC", ccAccounts: ["8501"], address: "7201 Roosevelt Blvd",  city: "Philadelphia", state: "PA", sqft: 22500 },
+  { id: "7300", name: "Elbridge Partnership", type: "Retail", allocGroup: "SC", ccAccounts: ["8501"], address: "6412-22 Castor Ave",  city: "Philadelphia", state: "PA", sqft: 14821 },
   { id: "1500", name: "Eastwick JV I",                    type: "Retail", allocGroup: "SC", ccAccounts: ["8501"] },
   { id: "9200", name: "Eastwick JV XII",                  type: "Retail",                   ccAccounts: ["8501"] },
 
@@ -58,8 +53,8 @@ export const PROPERTY_DEFS: PropertyDef[] = [
   { id: "9860", name: "KH Fort Washington", type: "Residential", state: "PA" },
 
   // ── Other Commercial / Holding ────────────────────────────────────────────
-  { id: "5600", name: "Hyman Korman Co",             type: "Office", allocGroup: "SC", ccAccounts: ["8501"] },
-  { id: "8200", name: "Trust #4",                    type: "Office", allocGroup: "SC", ccAccounts: ["8501"] },
+  { id: "5600", name: "Castor Ave - USPS", type: "Retail", allocGroup: "SC", ccAccounts: ["8501"], address: "6382 Castor Ave", city: "Philadelphia", state: "PA", sqft: 1326, yearBuilt: 1951 },
+  { id: "8200", name: "Trust #4",         type: "Retail", allocGroup: "SC", ccAccounts: ["8501"], address: "2801-2811 Cottman Ave", city: "Philadelphia", state: "PA", sqft: 10000, notes: "McDonald's (2801) + Four Seasons Diner (2811)" },
   { id: "4900", name: "The Office Works",            type: "Office",                   ccAccounts: ["8501"], notes: "OW payroll group" },
   { id: "2010", name: "LIK Management, Inc.",        type: "Office",                   ccAccounts: ["8501"], notes: "Management entity — LIK payroll group" },
   { id: "0300", name: "Airport Interplex Two, Inc.", type: "Office",                   ccAccounts: ["8501"] },
