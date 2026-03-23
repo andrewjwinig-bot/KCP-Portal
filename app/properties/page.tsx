@@ -56,9 +56,9 @@ function parcelsForProp(id: string): Array<{ method?: string; number: string }> 
   return entry ? entry[1] : [];
 }
 
-// ─── DETAIL PANEL ─────────────────────────────────────────────────────────────
+// ─── DETAIL MODAL ────────────────────────────────────────────────────────────
 
-function DetailPanel({
+function DetailModal({
   prop,
   onClose,
   checked,
@@ -67,12 +67,11 @@ function DetailPanel({
   onClose: () => void;
   checked: Record<string, boolean>;
 }) {
-  const tasks  = useMemo(() => tasksForProp(prop.id), [prop.id]);
-  const parcels = useMemo(() => parcelsForProp(prop.id), [prop.id]);
-  const alloc   = ALLOC_PCT[prop.id];
-  const k1Tasks = tasks.filter(t => t.category === "k1");
+  const tasks       = useMemo(() => tasksForProp(prop.id), [prop.id]);
+  const parcels     = useMemo(() => parcelsForProp(prop.id), [prop.id]);
+  const alloc       = ALLOC_PCT[prop.id];
+  const k1Tasks     = tasks.filter(t => t.category === "k1");
   const filingTasks = tasks.filter(t => t.category !== "k1");
-  const ts = TYPE_STYLE[prop.type];
 
   const today = new Date();
 
@@ -88,38 +87,13 @@ function DetailPanel({
   const MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
   return (
-    <>
-      {/* Backdrop */}
-      <div
-        onClick={onClose}
-        style={{
-          position: "fixed", inset: 0,
-          background: "rgba(15,23,42,0.45)",
-          zIndex: 50,
-        }}
-      />
+    <div className="modalOverlay" onClick={onClose}>
+      <div className="modal wide" onClick={e => e.stopPropagation()} style={{ maxHeight: "calc(100vh - 60px)", display: "flex", flexDirection: "column" }}>
 
-      {/* Panel */}
-      <div style={{
-        position: "fixed", top: 0, right: 0,
-        height: "100vh", width: "min(520px, 100vw)",
-        background: "#fff",
-        zIndex: 51,
-        overflowY: "auto",
-        boxShadow: "-10px 0 50px rgba(2,6,23,0.14)",
-        display: "flex", flexDirection: "column",
-      }}>
-
-        {/* Panel header */}
-        <div style={{
-          padding: "22px 24px 18px",
-          borderBottom: "1px solid var(--border)",
-          flexShrink: 0,
-          background: "#fff",
-          position: "sticky", top: 0, zIndex: 1,
-        }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-            <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10, flexWrap: "wrap" }}>
+        {/* Modal header */}
+        <div className="modalHeader" style={{ borderBottom: "1px solid var(--border)", paddingBottom: 14, marginBottom: 0, flexShrink: 0 }}>
+          <div>
+            <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8, flexWrap: "wrap" }}>
               <code style={{
                 background: "#0b1220", color: "#e0f0ff",
                 padding: "2px 8px", borderRadius: 6,
@@ -136,28 +110,28 @@ function DetailPanel({
                 </span>
               )}
             </div>
-            <button
-              onClick={onClose}
-              style={{
-                background: "none", border: "none", cursor: "pointer",
-                fontSize: 20, color: "var(--muted)", padding: "0 4px",
-                flexShrink: 0,
-              }}
-            >✕</button>
+            <div className="modalTitle">{prop.name}</div>
+            {prop.notes && (
+              <p style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>{prop.notes}</p>
+            )}
           </div>
-          <h2 style={{ fontSize: 24, fontWeight: 900, lineHeight: 1.1, margin: 0 }}>{prop.name}</h2>
-          {prop.notes && (
-            <p style={{ fontSize: 12, color: "var(--muted)", marginTop: 6 }}>{prop.notes}</p>
-          )}
+          <button
+            onClick={onClose}
+            style={{
+              background: "none", border: "none", cursor: "pointer",
+              fontSize: 20, color: "var(--muted)", padding: "0 4px",
+              flexShrink: 0, lineHeight: 1,
+            }}
+          >✕</button>
         </div>
 
-        {/* Panel body */}
-        <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 24, flex: 1 }}>
+        {/* Modal body — scrollable */}
+        <div style={{ overflowY: "auto", padding: "20px 4px 4px", display: "flex", flexDirection: "column", gap: 24 }}>
 
           {/* ── Overview ── */}
           <section>
             <SectionLabel>Overview</SectionLabel>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px 24px" }}>
               <InfoField label="Property Code" value={prop.id} mono />
               <InfoField label="Type" value={prop.type} />
               <InfoField label="Address" value={prop.address || "—"} />
@@ -364,7 +338,7 @@ function DetailPanel({
 
         </div>
       </div>
-    </>
+    </div>
   );
 }
 
@@ -458,25 +432,28 @@ function PropertyCard({ prop, onClick }: { prop: PropertyDef; onClick: () => voi
         el.style.transform = "";
       }}
     >
-      {/* Top row: code + type */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", marginBottom: 10 }}>
-        <code style={{
-          background: "#0b1220", color: "#e0f0ff",
-          padding: "2px 8px", borderRadius: 6,
-          fontSize: 11, fontWeight: 700, letterSpacing: "0.06em",
-        }}>{prop.id}</code>
+      {/* Type pill — top right */}
+      <div style={{ display: "flex", justifyContent: "flex-end", width: "100%", marginBottom: 8 }}>
         <TypePill type={prop.type} />
       </div>
 
-      {/* Property name */}
-      <div style={{ fontSize: 15, fontWeight: 800, lineHeight: 1.25, marginBottom: 6, color: "var(--text)" }}>
+      {/* Property name — prominent */}
+      <div style={{ fontSize: 16, fontWeight: 900, lineHeight: 1.2, marginBottom: 5, color: "var(--text)" }}>
         {prop.name}
       </div>
 
+      {/* Property code */}
+      <code style={{
+        background: "#0b1220", color: "#e0f0ff",
+        padding: "2px 8px", borderRadius: 6,
+        fontSize: 11, fontWeight: 700, letterSpacing: "0.06em",
+        marginBottom: 8, display: "inline-block",
+      }}>{prop.id}</code>
+
       {/* Address */}
       {prop.address
-        ? <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 6 }}>{prop.address}</div>
-        : <div style={{ fontSize: 12, color: "rgba(93,107,130,0.4)", marginBottom: 6, fontStyle: "italic" }}>No address on file</div>
+        ? <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 4 }}>{prop.address}</div>
+        : <div style={{ fontSize: 12, color: "rgba(93,107,130,0.35)", marginBottom: 4, fontStyle: "italic" }}>No address on file</div>
       }
 
       {/* Sq ft */}
@@ -666,8 +643,8 @@ export default function PropertiesPage() {
       ) : (
         <div style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(230px, 1fr))",
-          gap: 12,
+          gridTemplateColumns: "repeat(4, 1fr)",
+          gap: 14,
         }}>
           {filtered.map(prop => (
             <PropertyCard key={prop.id} prop={prop} onClick={() => setSelected(prop)} />
@@ -675,9 +652,9 @@ export default function PropertiesPage() {
         </div>
       )}
 
-      {/* ── Detail slide-out ── */}
+      {/* ── Detail modal ── */}
       {selected && (
-        <DetailPanel
+        <DetailModal
           prop={selected}
           onClose={() => setSelected(null)}
           checked={checked}
