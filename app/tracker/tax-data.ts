@@ -2,13 +2,19 @@
 // Imported by both /tracker/taxes/page.tsx and /tracker/page.tsx so that
 // task definitions and localStorage keys stay in sync between the two pages.
 
-export type TaxCategory = "ret" | "quarterly" | "entity";
+export type TaxCategory = "ret" | "quarterly" | "entity" | "k1";
 
 export const TAX_CATEGORIES: Record<TaxCategory, { label: string; pill: string; dot: string; bg: string; text: string; border: string }> = {
   ret:       { label: "Real Estate Tax",    pill: "RET", dot: "#0b4a7d", bg: "rgba(11,74,125,0.08)",  text: "#0b4a7d", border: "rgba(11,74,125,0.25)"  },
   quarterly: { label: "Net Profits / BIRT", pill: "NP",  dot: "#b45309", bg: "rgba(180,83,9,0.08)",   text: "#b45309", border: "rgba(180,83,9,0.25)"   },
   entity:    { label: "Entity Filings",     pill: "EN",  dot: "#6d28d9", bg: "rgba(109,40,217,0.08)", text: "#6d28d9", border: "rgba(109,40,217,0.25)" },
+  k1:        { label: "K-1 Distribution",   pill: "K-1", dot: "#0f766e", bg: "rgba(15,118,110,0.08)", text: "#0f766e", border: "rgba(15,118,110,0.25)" },
 };
+
+export interface K1Investor {
+  id: string;
+  name: string;
+}
 
 export interface TaxTask {
   id: string;
@@ -18,6 +24,7 @@ export interface TaxTask {
   dueMonth: number;      // 1-12
   dueDay: number;        // 1-31
   notes?: string;
+  investors?: K1Investor[]; // K-1 tasks only — one sub-row per investor
 }
 
 export const TAX_TASKS: TaxTask[] = [
@@ -77,6 +84,23 @@ export const TAX_TASKS: TaxTask[] = [
   { id: "np-0800-q2", entity: "0800 Bellmawr — Q2", category: "quarterly", dueMonth: 5,  dueDay: 1, notes: "Net Profits Tax — pay online" },
   { id: "np-0800-q3", entity: "0800 Bellmawr — Q3", category: "quarterly", dueMonth: 8,  dueDay: 1, notes: "Net Profits Tax — pay online" },
   { id: "np-0800-q4", entity: "0800 Bellmawr — Q4", category: "quarterly", dueMonth: 11, dueDay: 1, notes: "Net Profits Tax — pay online" },
+
+  // ─── K-1 DISTRIBUTIONS ──────────────────────────────────────────────────
+
+  {
+    id: "k1-2070",
+    entity: "2070 Nockamixon",
+    category: "k1",
+    dueMonth: 3,
+    dueDay: 15,
+    investors: [
+      { id: "k1-2070-schurr",  name: "Susan Schurr"  },
+      { id: "k1-2070-altman",  name: "Cathy Altman"  },
+      { id: "k1-2070-korman",  name: "Alison Korman" },
+      { id: "k1-2070-segal",   name: "Gerald Segal"  },
+      { id: "k1-2070-saul",    name: "Saul XXX"      },
+    ],
+  },
 
   // ─── ENTITY / STATUTORY FILINGS ─────────────────────────────────────────
 
@@ -157,7 +181,16 @@ export function filingLabel(t: TaxTask): string {
     const q = quarterSuffix(t.entity);
     return q ? `Net Profits Tax — ${q}` : "Net Profits Tax";
   }
+  if (t.category === "k1") return "Distribute K-1s to investors";
   return "Entity Filing";
+}
+
+// Returns true if the task is fully done (for K-1, all investors must be checked)
+export function isTaskEffectivelyDone(task: TaxTask, checked: Record<string, boolean>): boolean {
+  if (task.investors && task.investors.length > 0) {
+    return task.investors.every(inv => checked[inv.id]);
+  }
+  return !!checked[task.id];
 }
 
 // Full label shown on the master tracker: "3610 Building 1 — County RE Tax"

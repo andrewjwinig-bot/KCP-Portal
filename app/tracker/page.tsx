@@ -4,7 +4,7 @@ import Link from "next/link";
 import {
   TAX_TASKS, TAX_CATEGORIES,
   loadTaxChecked, saveTaxChecked,
-  masterTrackerLabel,
+  masterTrackerLabel, isTaskEffectivelyDone,
 } from "./tax-data";
 
 // ─── CONSTANTS ──────────────────────────────────────────────────────────────
@@ -1276,8 +1276,8 @@ export default function TrackerPage() {
 
               {/* One row per tax task */}
               {taxTasksThisMonth.map((task, idx) => {
-                const cat    = TAX_CATEGORIES[task.category];
-                const isDone = !!taxChecked[task.id];
+                const cat     = TAX_CATEGORIES[task.category];
+                const isDone  = isTaskEffectivelyDone(task, taxChecked);
                 const dueDate = new Date(viewYear, task.dueMonth - 1, task.dueDay);
                 dueDate.setHours(23, 59, 59);
                 const isOver  = !isDone && isCurrentMonth && dueDate < today;
@@ -1297,6 +1297,24 @@ export default function TrackerPage() {
                   ? { label: `Due soon · ${dateLabel}`,color: "#d97706", bg: "rgba(217,119,6,0.08)",  border: "rgba(217,119,6,0.2)"  }
                   : { label: dateLabel,                  color: "var(--muted)", bg: "rgba(0,0,0,0.04)", border: "var(--border)" };
 
+                // K-1 toggle: check/uncheck all investors at once
+                const handleToggle = () => {
+                  if (task.investors && task.investors.length > 0) {
+                    setTaxChecked(prev => {
+                      const next = { ...prev };
+                      task.investors!.forEach(inv => { next[inv.id] = !isDone; });
+                      saveTaxChecked(viewYear, next);
+                      return next;
+                    });
+                  } else {
+                    toggleTax(task.id);
+                  }
+                };
+
+                // Investor progress for K-1
+                const invCount = task.investors?.length ?? 0;
+                const invDone  = task.investors?.filter(inv => taxChecked[inv.id]).length ?? 0;
+
                 return (
                   <div
                     key={task.id}
@@ -1310,7 +1328,7 @@ export default function TrackerPage() {
                     <input
                       type="checkbox"
                       checked={isDone}
-                      onChange={() => toggleTax(task.id)}
+                      onChange={handleToggle}
                       style={{ marginTop: 3, width: 16, height: 16, accentColor: cat.dot, flexShrink: 0, cursor: "pointer" }}
                     />
                     <span style={{
@@ -1331,7 +1349,12 @@ export default function TrackerPage() {
                       }}>
                         {masterTrackerLabel(task)}
                       </span>
-                      {task.notes && (
+                      {invCount > 0 && (
+                        <div className="muted small" style={{ marginTop: 3 }}>
+                          {invDone}/{invCount} investors · <a href="/tracker/taxes" style={{ color: "var(--brand)", textDecoration: "none", fontWeight: 600 }}>manage →</a>
+                        </div>
+                      )}
+                      {task.notes && !invCount && (
                         <div className="muted small" style={{ marginTop: 3 }}>{task.notes}</div>
                       )}
                     </div>

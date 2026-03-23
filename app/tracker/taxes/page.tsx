@@ -4,7 +4,7 @@ import {
   TAX_TASKS, TAX_CATEGORIES, TaxCategory,
   PARCEL_INFO,
   loadTaxChecked, saveTaxChecked,
-  baseEntityName, filingLabel,
+  baseEntityName, filingLabel, isTaskEffectivelyDone,
 } from "../tax-data";
 
 // ─── CONSTANTS ──────────────────────────────────────────────────────────────
@@ -39,6 +39,7 @@ export default function TaxTrackerPage() {
   const [checked,     setChecked]     = useState<Record<string, boolean>>({});
   const [filterCat,   setFilterCat]   = useState<TaxCategory | "all">("all");
   const [filterMonth, setFilterMonth] = useState<number | "all">("all");
+  const [expandedK1,  setExpandedK1]  = useState<Set<string>>(new Set());
 
   useEffect(() => { setChecked(loadTaxChecked(viewYear)); }, [viewYear]);
 
@@ -76,10 +77,22 @@ export default function TaxTrackerPage() {
     return { order, map };
   }, [visible]);
 
+  // Toggle all investors for a K-1 task (or single task otherwise)
+  const toggleK1All = useCallback((task: typeof TAX_TASKS[number]) => {
+    if (!task.investors) { toggle(task.id); return; }
+    const allDone = task.investors.every(inv => checked[inv.id]);
+    setChecked(prev => {
+      const next = { ...prev };
+      task.investors!.forEach(inv => { next[inv.id] = !allDone; });
+      saveTaxChecked(viewYear, next);
+      return next;
+    });
+  }, [checked, viewYear, toggle]);
+
   // Stats
   const total   = TAX_TASKS.length;
-  const done    = TAX_TASKS.filter(t => checked[t.id]).length;
-  const overdue = TAX_TASKS.filter(t => !checked[t.id] && isPastDate(viewYear, t.dueMonth, t.dueDay, today)).length;
+  const done    = TAX_TASKS.filter(t => isTaskEffectivelyDone(t, checked)).length;
+  const overdue = TAX_TASKS.filter(t => !isTaskEffectivelyDone(t, checked) && isPastDate(viewYear, t.dueMonth, t.dueDay, today)).length;
 
   // Months that have tasks (for quick filter pills)
   const activeMonths = useMemo(() => {
@@ -90,9 +103,10 @@ export default function TaxTrackerPage() {
     return Array.from(ms).sort((a, b) => a - b);
   }, [filterCat]);
 
-  function statusFor(t: typeof TAX_TASKS[number]) {
+  function statusFor(t: typeof TAX_TASKS[number], done?: boolean) {
+    if (done === undefined) done = isTaskEffectivelyDone(t, checked);
     const dateStr = `${MONTH_NAMES[t.dueMonth - 1]} ${t.dueDay}`;
-    if (checked[t.id])
+    if (done)
       return { label: "✓ Filed",                color: "#16a34a", bg: "rgba(22,163,74,0.08)",  border: "rgba(22,163,74,0.2)"  };
     if (isPastDate(viewYear, t.dueMonth, t.dueDay, today))
       return { label: `Overdue · ${dateStr}`,   color: "#dc2626", bg: "rgba(220,38,38,0.08)", border: "rgba(220,38,38,0.2)" };
@@ -112,7 +126,7 @@ export default function TaxTrackerPage() {
       <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 22, flexWrap: "wrap", gap: 14 }}>
         <div>
           <h1 style={{ fontSize: 36, fontWeight: 900, letterSpacing: "-0.03em", marginBottom: 4 }}>
-            Tax Filing Tracker
+            Filing Tracker
           </h1>
           <p className="muted small">County &amp; school RE taxes · net profits / BIRT · entity filings</p>
         </div>
@@ -279,7 +293,7 @@ export default function TaxTrackerPage() {
         <div className="card" style={{ padding: 0, overflow: "hidden" }}>
           {byProperty.order.map((propName, pi) => {
             const propTasks = byProperty.map[propName];
-            const propDone  = propTasks.filter(t => checked[t.id]).length;
+            const propDone  = propTasks.filter(t => isTaskEffectivelyDone(t, checked)).length;
             const allFiled  = propDone === propTasks.length;
             const isLast    = pi === byProperty.order.length - 1;
 
@@ -308,17 +322,142 @@ export default function TaxTrackerPage() {
                 {/* Filing rows */}
                 {propTasks.map((task, ti) => {
                   const cat    = TAX_CATEGORIES[task.category];
-                  const status = statusFor(task);
-                  const isDone = !!checked[task.id];
+                  const isDone = isTaskEffectivelyDone(task, checked);
+                  const status = statusFor(task, isDone);
                   const isOver = !isDone && isPastDate(viewYear, task.dueMonth, task.dueDay, today);
+                  const isLast = ti === propTasks.length - 1;
 
+                  // ── K-1 row (collapsible) ────────────────────────────────
+                  if (task.category === "k1" && task.investors) {
+                    const investors    = task.investors;
+                    const invDone      = investors.filter(inv => checked[inv.id]).length;
+                    const isExpanded   = expandedK1.has(task.id);
+                    const toggleExpand = () => setExpandedK1(prev => {
+                      const next = new Set(prev);
+                      next.has(task.id) ? next.delete(task.id) : next.add(task.id);
+                      return next;
+                    });
+
+                    return (
+                      <div key={task.id} style={{ borderBottom: isLast ? "none" : "1px solid var(--border)" }}>
+
+                        {/* K-1 header row */}
+                        <div
+                          style={{
+                            display: "flex", alignItems: "center", gap: 12,
+                            padding: "10px 18px 10px 34px",
+                            background: isDone ? "rgba(22,163,74,0.025)" : isOver ? "rgba(220,38,38,0.025)" : "transparent",
+                            cursor: "pointer",
+                          }}
+                          onClick={toggleExpand}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isDone}
+                            onClick={e => e.stopPropagation()}
+                            onChange={() => toggleK1All(task)}
+                            style={{ width: 15, height: 15, accentColor: cat.dot, flexShrink: 0, cursor: "pointer", marginTop: 0 }}
+                          />
+                          <span style={{
+                            fontSize: 9, fontWeight: 800, letterSpacing: "0.05em",
+                            color: cat.text, background: cat.bg,
+                            border: `1px solid ${cat.border}`,
+                            padding: "2px 6px", borderRadius: 999, flexShrink: 0,
+                            opacity: isDone ? 0.5 : 1,
+                          }}>
+                            {cat.pill}
+                          </span>
+                          <span style={{
+                            flex: 1, fontSize: 13, fontWeight: 500,
+                            color: isDone ? "var(--muted)" : "var(--text)",
+                            textDecoration: isDone ? "line-through" : "none",
+                          }}>
+                            {filingLabel(task)}
+                          </span>
+                          {/* Investor count badge */}
+                          <span style={{
+                            fontSize: 11, fontWeight: 700,
+                            color: isDone ? "#16a34a" : "var(--muted)",
+                            background: isDone ? "rgba(22,163,74,0.08)" : "rgba(0,0,0,0.04)",
+                            border: `1px solid ${isDone ? "rgba(22,163,74,0.2)" : "var(--border)"}`,
+                            padding: "2px 8px", borderRadius: 999,
+                          }}>
+                            {invDone}/{investors.length}
+                          </span>
+                          {/* Status badge */}
+                          <span style={{
+                            fontSize: 11, fontWeight: 800,
+                            color: status.color, background: status.bg,
+                            border: `1px solid ${status.border}`,
+                            padding: "3px 9px", borderRadius: 999,
+                            whiteSpace: "nowrap", flexShrink: 0,
+                          }}>
+                            {status.label}
+                          </span>
+                          {/* Chevron */}
+                          <svg
+                            width="13" height="13" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                            style={{
+                              color: "var(--muted)", flexShrink: 0,
+                              transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)",
+                              transition: "transform 0.15s",
+                            }}
+                          >
+                            <polyline points="6 9 12 15 18 9"/>
+                          </svg>
+                        </div>
+
+                        {/* Investor sub-rows */}
+                        {isExpanded && investors.map((inv, ii) => {
+                          const invChecked = !!checked[inv.id];
+                          return (
+                            <div
+                              key={inv.id}
+                              style={{
+                                display: "flex", alignItems: "center", gap: 10,
+                                padding: "7px 18px 7px 58px",
+                                borderTop: "1px solid var(--border)",
+                                background: invChecked ? "rgba(22,163,74,0.02)" : "rgba(15,118,110,0.02)",
+                              }}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={invChecked}
+                                onChange={() => {
+                                  setChecked(prev => {
+                                    const next = { ...prev, [inv.id]: !prev[inv.id] };
+                                    saveTaxChecked(viewYear, next);
+                                    return next;
+                                  });
+                                }}
+                                style={{ width: 14, height: 14, accentColor: cat.dot, flexShrink: 0, cursor: "pointer" }}
+                              />
+                              <span style={{
+                                fontSize: 12, fontWeight: 500,
+                                color: invChecked ? "var(--muted)" : "var(--text)",
+                                textDecoration: invChecked ? "line-through" : "none",
+                              }}>
+                                {inv.name}
+                              </span>
+                              {invChecked && (
+                                <span style={{ fontSize: 10, color: "#16a34a", fontWeight: 700, marginLeft: "auto" }}>✓</span>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  }
+
+                  // ── Standard filing row ──────────────────────────────────
                   return (
                     <div
                       key={task.id}
                       style={{
                         display: "flex", alignItems: "flex-start", gap: 12,
                         padding: "10px 18px 10px 34px",
-                        borderBottom: ti === propTasks.length - 1 ? "none" : "1px solid var(--border)",
+                        borderBottom: isLast ? "none" : "1px solid var(--border)",
                         background: isDone ? "rgba(22,163,74,0.025)" : isOver ? "rgba(220,38,38,0.025)" : "transparent",
                       }}
                     >
@@ -328,7 +467,6 @@ export default function TaxTrackerPage() {
                         onChange={() => toggle(task.id)}
                         style={{ width: 15, height: 15, accentColor: cat.dot, flexShrink: 0, cursor: "pointer", marginTop: 2 }}
                       />
-
                       <span style={{
                         fontSize: 9, fontWeight: 800, letterSpacing: "0.05em",
                         color: cat.text, background: cat.bg,
@@ -338,7 +476,6 @@ export default function TaxTrackerPage() {
                       }}>
                         {cat.pill}
                       </span>
-
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <span style={{
                           fontSize: 13, fontWeight: 500,
@@ -383,7 +520,6 @@ export default function TaxTrackerPage() {
                           <div className="muted small" style={{ marginTop: 2 }}>{task.notes}</div>
                         )}
                       </div>
-
                       <span style={{
                         fontSize: 11, fontWeight: 800,
                         color: status.color, background: status.bg,
