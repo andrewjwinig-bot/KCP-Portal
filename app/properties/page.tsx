@@ -131,12 +131,14 @@ function DetailModal({
           {/* ── Overview ── */}
           <section>
             <SectionLabel>Overview</SectionLabel>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px 24px" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px 32px" }}>
               <InfoField label="Property Code" value={prop.id} mono />
               <InfoField label="Type" value={prop.type} />
               <InfoField label="Address" value={prop.address || "—"} />
               <InfoField label="City / State" value={[prop.city, prop.state].filter(Boolean).join(", ") || "—"} />
+              <InfoField label="Zip Code" value={prop.zip || "—"} />
               <InfoField label="Sq Footage" value={prop.sqft ? `${prop.sqft.toLocaleString()} sq ft` : "—"} />
+              <InfoField label="Year Built" value={prop.yearBuilt ? String(prop.yearBuilt) : "—"} />
               {prop.allocGroup && (
                 <InfoField label="Alloc. Group" value={prop.allocGroup === "BP" ? "Business Park (9301)" : "Shopping Centers (9302)"} />
               )}
@@ -450,14 +452,24 @@ function PropertyCard({ prop, onClick }: { prop: PropertyDef; onClick: () => voi
 
       {/* Address */}
       {prop.address
-        ? <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 4 }}>{prop.address}</div>
-        : <div style={{ fontSize: 13, color: "rgba(93,107,130,0.35)", marginBottom: 4, fontStyle: "italic" }}>No address on file</div>
+        ? <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 2 }}>{prop.address}</div>
+        : <div style={{ fontSize: 13, color: "rgba(93,107,130,0.35)", marginBottom: 2, fontStyle: "italic" }}>No address on file</div>
       }
 
-      {/* Sq ft */}
-      {prop.sqft && (
-        <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 6 }}>
-          {prop.sqft.toLocaleString()} sq ft
+      {/* City, State ZIP */}
+      {(prop.city || prop.state) && (
+        <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 4 }}>
+          {[prop.city, prop.state, prop.zip].filter(Boolean).join(", ")}
+        </div>
+      )}
+
+      {/* Sq ft · Year built */}
+      {(prop.sqft || prop.yearBuilt) && (
+        <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 4 }}>
+          {[
+            prop.sqft ? `${prop.sqft.toLocaleString()} sq ft` : null,
+            prop.yearBuilt ? `Built ${prop.yearBuilt}` : null,
+          ].filter(Boolean).join(" · ")}
         </div>
       )}
 
