@@ -20,7 +20,7 @@ export interface TaxTask {
   id: string;
   entity: string;        // full label (may include " — Q1" suffix for quarterly)
   category: TaxCategory;
-  retType?: "county" | "school"; // distinguishes within RET for the filing label
+  retType?: "county" | "school" | "county+school"; // distinguishes within RET for the filing label
   dueMonth: number;      // 1-12
   dueDay: number;        // 1-31
   notes?: string;
@@ -31,16 +31,16 @@ export const TAX_TASKS: TaxTask[] = [
 
   // ─── COUNTY REAL ESTATE TAX ─────────────────────────────────────────────
 
-  { id: "co-1500", entity: "1500 Eastwick JV I",              category: "ret", retType: "county", dueMonth: 3,  dueDay: 31 },
-  { id: "co-4500", entity: "4500 Grays Ferry SC",             category: "ret", retType: "county", dueMonth: 3,  dueDay: 31 },
-  { id: "co-4510", entity: "4510 Grays Ferry Partners",       category: "ret", retType: "county", dueMonth: 3,  dueDay: 31 },
-  { id: "co-5600", entity: "5600 Hyman Korman Co",            category: "ret", retType: "county", dueMonth: 3,  dueDay: 31 },
-  { id: "co-7010", entity: "7010 Parkwood SC",                category: "ret", retType: "county", dueMonth: 3,  dueDay: 31 },
-  { id: "co-7200", entity: "7200 Elbridge",                   category: "ret", retType: "county", dueMonth: 3,  dueDay: 31 },
-  { id: "co-7300", entity: "7300 Revere",                     category: "ret", retType: "county", dueMonth: 3,  dueDay: 31 },
-  { id: "co-8200", entity: "8200 Trust #4",                   category: "ret", retType: "county", dueMonth: 3,  dueDay: 31 },
-  { id: "co-9200", entity: "9200 Eastwick JV XI",             category: "ret", retType: "county", dueMonth: 3,  dueDay: 31 },
-  { id: "co-1100", entity: "1100 Parkwood Professional Bldg", category: "ret", retType: "county", dueMonth: 3,  dueDay: 31 },
+  { id: "co-1500", entity: "1500 Eastwick JV I",              category: "ret", retType: "county+school", dueMonth: 3,  dueDay: 31 },
+  { id: "co-4500", entity: "4500 Grays Ferry SC",             category: "ret", retType: "county+school", dueMonth: 3,  dueDay: 31 },
+  { id: "co-4510", entity: "4510 Grays Ferry Partners",       category: "ret", retType: "county+school", dueMonth: 3,  dueDay: 31 },
+  { id: "co-5600", entity: "5600 Hyman Korman Co",            category: "ret", retType: "county+school", dueMonth: 3,  dueDay: 31 },
+  { id: "co-7010", entity: "7010 Parkwood SC",                category: "ret", retType: "county+school", dueMonth: 3,  dueDay: 31 },
+  { id: "co-7200", entity: "7200 Elbridge",                   category: "ret", retType: "county+school", dueMonth: 3,  dueDay: 31 },
+  { id: "co-7300", entity: "7300 Revere",                     category: "ret", retType: "county+school", dueMonth: 3,  dueDay: 31 },
+  { id: "co-8200", entity: "8200 Trust #4",                   category: "ret", retType: "county+school", dueMonth: 3,  dueDay: 31 },
+  { id: "co-9200", entity: "9200 Eastwick JV XI",             category: "ret", retType: "county+school", dueMonth: 3,  dueDay: 31 },
+  { id: "co-1100", entity: "1100 Parkwood Professional Bldg", category: "ret", retType: "county+school", dueMonth: 3,  dueDay: 31 },
   { id: "co-9800", entity: "9800 Bellaire Ave",               category: "ret", retType: "county", dueMonth: 3,  dueDay: 31 },
   { id: "co-2070", entity: "2070 Nockamixon",                 category: "ret", retType: "county", dueMonth: 4,  dueDay: 30 },
   { id: "co-2300", entity: "2300 Brookwood SC",               category: "ret", retType: "county", dueMonth: 4,  dueDay: 30 },
@@ -74,9 +74,6 @@ export const TAX_TASKS: TaxTask[] = [
   { id: "sc-4070", entity: "4070 Building 7",                 category: "ret", retType: "school", dueMonth: 8,  dueDay: 31 },
   { id: "sc-4080", entity: "4080 Building 8",                 category: "ret", retType: "school", dueMonth: 8,  dueDay: 31 },
   { id: "sc-40a0", entity: "40A0 Kor Center",                 category: "ret", retType: "school", dueMonth: 8,  dueDay: 31 },
-  { id: "sc-7200", entity: "7200 Elbridge",                   category: "ret", retType: "school", dueMonth: 9,  dueDay: 15 },
-  { id: "sc-7300", entity: "7300 Revere",                     category: "ret", retType: "school", dueMonth: 9,  dueDay: 15 },
-  { id: "sc-8200", entity: "8200 Trust #4",                   category: "ret", retType: "school", dueMonth: 9,  dueDay: 15 },
 
   // ─── NET PROFITS TAX / BIRT ──────────────────────────────────────────────
 
@@ -183,7 +180,9 @@ export function quarterSuffix(entity: string): string | null {
 
 export function filingLabel(t: TaxTask): string {
   if (t.category === "ret") {
-    return t.retType === "school" ? "School Real Estate Tax" : "County Real Estate Tax";
+    if (t.retType === "school") return "School Real Estate Tax";
+    if (t.retType === "county+school") return "County + School Real Estate Tax";
+    return "County Real Estate Tax";
   }
   if (t.category === "quarterly") {
     const q = quarterSuffix(t.entity);
