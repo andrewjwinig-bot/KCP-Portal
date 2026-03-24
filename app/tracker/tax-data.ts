@@ -133,14 +133,16 @@ export function saveTaxChecked(year: number, data: Record<string, boolean>) {
 export interface TaxParcel {
   method?: string;  // "Direct" | "Liberty Bank" | "Check" | undefined
   number: string;
+  label?: string;
+  link?: string;
 }
 
 export const PARCEL_INFO: Record<string, TaxParcel[]> = {
   "1100 Parkwood Professional Bldg": [{ method: "Direct",       number: "88-2-077811"       }],
   "1500 Eastwick JV I":              [{ method: "Direct",       number: "88-2-057700"       }],
-  "4500 Grays Ferry SC":             [{ method: "Liberty Bank", number: "88-2-051606"       },
-                                      { method: "Liberty Bank", number: "87-4-545940"       },
-                                      { method: "Liberty Bank", number: "88-5-969440"       }],
+  "4500 Grays Ferry SC":             [{ method: "Liberty Bank", number: "882051606", label: "Shopping Center", link: "https://property.phila.gov/?p=882051606" },
+                                      { method: "Liberty Bank", number: "874545940", label: "Rear Parcel",       link: "https://property.phila.gov/?p=874545940" },
+                                      { method: "Liberty Bank", number: "885969440", label: "Billboard",         link: "https://property.phila.gov/?p=885969440" }],
   "5600 Hyman Korman Co":            [{ method: "Direct",       number: "88-2-830600"       }],
   "7010 Parkwood SC":                [{ method: "Liberty Bank", number: "88-2-078060"       }],
   "7200 Elbridge":                   [{ method: "Direct",       number: "88-2-832400"       }],

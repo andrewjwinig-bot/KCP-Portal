@@ -9,7 +9,7 @@ import {
 import {
   TAX_TASKS, PARCEL_INFO,
   baseEntityName, filingLabel, isTaskEffectivelyDone,
-  loadTaxChecked, type TaxTask, TAX_CATEGORIES,
+  loadTaxChecked, type TaxTask, type TaxParcel, TAX_CATEGORIES,
 } from "../tracker/tax-data";
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
@@ -50,7 +50,7 @@ function tasksForProp(id: string): TaxTask[] {
 }
 
 // Lookup parcels for a property
-function parcelsForProp(id: string): Array<{ method?: string; number: string }> {
+function parcelsForProp(id: string): TaxParcel[] {
   const uid = id.toUpperCase();
   const entry = Object.entries(PARCEL_INFO).find(([key]) =>
     key.toUpperCase().startsWith(uid + " ") || key.toUpperCase().startsWith(uid)
@@ -160,7 +160,16 @@ function DetailModal({
                     borderRadius: 8,
                     gap: 10,
                   }}>
-                    <code style={{ fontSize: 14, fontWeight: 700, color: "#0b4a7d" }}>{p.number}</code>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      {p.link
+                        ? <a href={p.link} target="_blank" rel="noreferrer" style={{ fontSize: 14, fontWeight: 700, color: "#0b4a7d", textDecoration: "none" }}
+                            onMouseEnter={e => (e.currentTarget.style.textDecoration = "underline")}
+                            onMouseLeave={e => (e.currentTarget.style.textDecoration = "none")}
+                          >{p.number}</a>
+                        : <code style={{ fontSize: 14, fontWeight: 700, color: "#0b4a7d" }}>{p.number}</code>
+                      }
+                      {p.label && <span style={{ fontSize: 13, color: "var(--muted)", fontWeight: 500 }}>{p.label}</span>}
+                    </div>
                     {p.method && (
                       <span style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600 }}>{p.method}</span>
                     )}
