@@ -6,11 +6,11 @@ import { PROPERTY_DEFS } from "../properties/data";
  * Rent Roll Excel Parser
  *
  * Expected Excel layout (Korman Commercial Properties rent roll format):
- *   Column A  (index 0):  Occupant Name (or "*** VACANT ***")
+ *   Column B  (index 1):  Occupant Name — merged B:G (or "*** VACANT ***")
  *   Column I  (index 8):  Unit Reference Number  e.g. "1100-34-CU"
- *   Column J  (index 9):  Square Feet
- *   Column K  (index 10): Lease Term From
- *   Column L  (index 11): Lease Term To
+ *   Column M  (index 12): Square Feet — merged M:N
+ *   Column P  (index 15): Lease Term From — merged P:Q
+ *   Column R  (index 17): Lease Term To — merged R:T
  *   Column M  (index 12): Base Rent (monthly)
  *   Column N  (index 13): Annual Rent
  *   Column O  (index 14): Annual Rent per Sq Ft/Yr
@@ -30,11 +30,11 @@ import { PROPERTY_DEFS } from "../properties/data";
  * Only units whose property code matches a known entry in PROPERTY_DEFS are included.
  */
 
-const COL_OCCUPANT    = 0;
-const COL_UNIT_REF    = 8;
-const COL_SQFT        = 9;
-const COL_LEASE_FROM  = 10;
-const COL_LEASE_TO    = 11;
+const COL_OCCUPANT    = 1;  // B (merged B:G)
+const COL_UNIT_REF    = 8;  // I
+const COL_SQFT        = 12; // M (merged M:N)
+const COL_LEASE_FROM  = 15; // P (merged P:Q)
+const COL_LEASE_TO    = 17; // R (merged R:T)
 const COL_BASE_RENT   = 12;
 const COL_ANNUAL_RENT = 13;
 const COL_ANNUAL_SQFT = 14;
