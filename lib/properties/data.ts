@@ -65,6 +65,122 @@ export const PROPERTY_DEFS: PropertyDef[] = [
   { id: "0900", name: "Interplex 2-Acre Land",             type: "Land" },
 ];
 
+// ─── BANK ACCOUNTS ───────────────────────────────────────────────────────────
+
+export interface BankAccount {
+  bank: string;   // "Chase" | "M&T" | "Liberty"
+  label: string;  // e.g. "Operating", "JV III", "NI LLC Security Deposits"
+  last4: string;  // e.g. "x5615"
+  link: string;
+}
+
+export const BANK_ACCOUNTS: Record<string, BankAccount[]> = {
+  "2300": [
+    { bank: "Chase",   label: "Operating",               last4: "x5615", link: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/745774880/DDA/CHK" },
+    { bank: "Liberty", label: "Operating",               last4: "x6888", link: "https://secure.myvirtualbranch.com/LibertyBank/React/Accounts.aspx?p_r=1#Accounts/4" },
+  ],
+  "3610": [
+    { bank: "Chase",   label: "JV III",                  last4: "x5631", link: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/745774882/DDA/CHK" },
+  ],
+  "3620": [
+    { bank: "Chase",   label: "JV III",                  last4: "x5631", link: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/745774882/DDA/CHK" },
+  ],
+  "3640": [
+    { bank: "Chase",   label: "JV III",                  last4: "x5631", link: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/745774882/DDA/CHK" },
+  ],
+  "7010": [
+    { bank: "Chase",   label: "Operating",               last4: "x5656", link: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/745774883/DDA/CHK" },
+    { bank: "Liberty", label: "Operating",               last4: "x9436", link: "https://secure.myvirtualbranch.com/LibertyBank/React/Accounts.aspx?p_r=1#Accounts/5" },
+  ],
+  "2010": [
+    { bank: "Chase",   label: "2010 Operating",          last4: "x9629", link: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/747621599/DDA/CHK" },
+    { bank: "Chase",   label: "2000 Clearing",           last4: "x1622", link: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/747627664/DDA/CHK" },
+    { bank: "Liberty", label: "Money Market",            last4: "x8276", link: "https://secure.myvirtualbranch.com/LibertyBank/React/Accounts.aspx?p_r=1#AccountSummary" },
+  ],
+  "4050": [
+    { bank: "Chase",   label: "NI LLC",                  last4: "x2190", link: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/747627665/DDA/CHK" },
+    { bank: "Liberty", label: "NI LLC Security Deposits",last4: "x7448", link: "https://secure.myvirtualbranch.com/LibertyBank/React/Accounts.aspx?p_r=1#Accounts/2" },
+  ],
+  "4060": [
+    { bank: "Chase",   label: "NI LLC",                  last4: "x2190", link: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/747627665/DDA/CHK" },
+    { bank: "Liberty", label: "NI LLC Security Deposits",last4: "x7448", link: "https://secure.myvirtualbranch.com/LibertyBank/React/Accounts.aspx?p_r=1#Accounts/2" },
+  ],
+  "4070": [
+    { bank: "Chase",   label: "NI LLC",                  last4: "x2190", link: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/747627665/DDA/CHK" },
+    { bank: "Liberty", label: "NI LLC Security Deposits",last4: "x7448", link: "https://secure.myvirtualbranch.com/LibertyBank/React/Accounts.aspx?p_r=1#Accounts/2" },
+  ],
+  "4080": [
+    { bank: "Chase",   label: "NI LLC",                  last4: "x2190", link: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/747627665/DDA/CHK" },
+    { bank: "Liberty", label: "NI LLC Security Deposits",last4: "x7448", link: "https://secure.myvirtualbranch.com/LibertyBank/React/Accounts.aspx?p_r=1#Accounts/2" },
+  ],
+  "40A0": [
+    { bank: "Chase",   label: "NI LLC",                  last4: "x2190", link: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/747627665/DDA/CHK" },
+    { bank: "Liberty", label: "NI LLC Security Deposits",last4: "x7448", link: "https://secure.myvirtualbranch.com/LibertyBank/React/Accounts.aspx?p_r=1#Accounts/2" },
+  ],
+  "40B0": [
+    { bank: "Chase",   label: "NI LLC",                  last4: "x2190", link: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/747627665/DDA/CHK" },
+    { bank: "Liberty", label: "NI LLC Security Deposits",last4: "x7448", link: "https://secure.myvirtualbranch.com/LibertyBank/React/Accounts.aspx?p_r=1#Accounts/2" },
+  ],
+  "40C0": [
+    { bank: "Chase",   label: "NI LLC",                  last4: "x2190", link: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/747627665/DDA/CHK" },
+    { bank: "Liberty", label: "NI LLC Security Deposits",last4: "x7448", link: "https://secure.myvirtualbranch.com/LibertyBank/React/Accounts.aspx?p_r=1#Accounts/2" },
+  ],
+  "9510": [
+    { bank: "Chase",   label: "9500 LH LLC",             last4: "x6088", link: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/747828439/DDA/CHK" },
+    { bank: "Chase",   label: "Operating",               last4: "x1235", link: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/913650367/DDA/CHK" },
+  ],
+  "5600": [
+    { bank: "Chase",   label: "Operating",               last4: "x0669", link: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/830677495/DDA/CHK" },
+  ],
+  "7200": [
+    { bank: "Chase",   label: "Operating",               last4: "x1692", link: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/884656389/DDA/CHK" },
+  ],
+  "8200": [
+    { bank: "Chase",   label: "Operating",               last4: "x0308", link: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/884724894/DDA/CHK" },
+  ],
+  "0800": [
+    { bank: "Chase",   label: "Operating",               last4: "x8822", link: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/909790844/DDA/CHK" },
+  ],
+  "1100": [
+    { bank: "Chase",   label: "Operating",               last4: "x9879", link: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/911051276/DDA/CHK" },
+  ],
+  "9800": [
+    { bank: "Chase",   label: "Operating",               last4: "x7857", link: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/789298739/DDA/CHK" },
+  ],
+  "9820": [
+    { bank: "Chase",   label: "Operating",               last4: "x2296", link: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/1146382431/DDA/CHK" },
+  ],
+  "9860": [
+    { bank: "Chase",   label: "Operating",               last4: "x8563", link: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/1195424660/DDA/CHK" },
+  ],
+  "4900": [
+    { bank: "M&T",     label: "Operating",               last4: "x3777", link: "https://treasurycenter.mtb.com/ui/" },
+  ],
+  "1500": [
+    { bank: "M&T",     label: "Operating",               last4: "x4031", link: "https://treasurycenter.mtb.com/ui/" },
+  ],
+  "9200": [
+    { bank: "M&T",     label: "Operating",               last4: "x4031", link: "https://treasurycenter.mtb.com/ui/" },
+  ],
+  "2070": [
+    { bank: "M&T",     label: "Operating",               last4: "x6119", link: "https://treasurycenter.mtb.com/ui/" },
+  ],
+  "0300": [
+    { bank: "M&T",     label: "Operating",               last4: "x6063", link: "https://treasurycenter.mtb.com/ui/" },
+  ],
+  "0900": [
+    { bank: "M&T",     label: "Operating",               last4: "x6063", link: "https://treasurycenter.mtb.com/ui/" },
+  ],
+  "7300": [
+    { bank: "Liberty", label: "Operating",               last4: "x4756", link: "https://secure.myvirtualbranch.com/LibertyBank/React/Accounts.aspx?p_r=1#Accounts/3" },
+    { bank: "Liberty", label: "Money Market",            last4: "x8177", link: "https://secure.myvirtualbranch.com/LibertyBank/React/Accounts.aspx?p_r=1#Accounts/8" },
+  ],
+  "4500": [
+    { bank: "Liberty", label: "Operating",               last4: "x0598", link: "https://secure.myvirtualbranch.com/LibertyBank/React/Accounts.aspx?p_r=1#Accounts/6" },
+    { bank: "Liberty", label: "Money Market",            last4: "x8086", link: "https://secure.myvirtualbranch.com/LibertyBank/React/Accounts.aspx?p_r=1#Accounts/7" },
+  ],
+};
+
 // ─── ALLOCATED INVOICER PERCENTAGES ──────────────────────────────────────────
 // Mirrors ALLOCATION_TABLE in app/allocated-invoicer/page.tsx.
 // Keys: property ID → { "9301": bp%, "9302": sc%, "9303": combined% }

@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
-  PROPERTY_DEFS, ALLOC_PCT, TYPE_STYLE,
-  type PropertyDef, type PropType,
+  PROPERTY_DEFS, ALLOC_PCT, TYPE_STYLE, BANK_ACCOUNTS,
+  type PropertyDef, type PropType, type BankAccount,
 } from "../../lib/properties/data";
 import {
   TAX_TASKS, PARCEL_INFO,
@@ -58,6 +58,11 @@ function parcelsForProp(id: string): TaxParcel[] {
   return entry ? entry[1] : [];
 }
 
+// Bank accounts for a property
+function bankAccountsForProp(id: string): BankAccount[] {
+  return BANK_ACCOUNTS[id.toUpperCase()] ?? [];
+}
+
 // ─── DETAIL MODAL ────────────────────────────────────────────────────────────
 
 function DetailModal({
@@ -69,8 +74,9 @@ function DetailModal({
   onClose: () => void;
   checked: Record<string, boolean>;
 }) {
-  const tasks       = useMemo(() => tasksForProp(prop.id), [prop.id]);
-  const parcels     = useMemo(() => parcelsForProp(prop.id), [prop.id]);
+  const tasks        = useMemo(() => tasksForProp(prop.id), [prop.id]);
+  const parcels      = useMemo(() => parcelsForProp(prop.id), [prop.id]);
+  const bankAccounts = useMemo(() => bankAccountsForProp(prop.id), [prop.id]);
   const alloc       = ALLOC_PCT[prop.id];
   const k1Tasks     = tasks.filter(t => t.category === "k1");
   const filingTasks = tasks.filter(t => t.category !== "k1");
@@ -162,6 +168,34 @@ function DetailModal({
                     {p.method && (
                       <span style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600 }}>{p.method}</span>
                     )}
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* ── Bank Accounts ── */}
+          {bankAccounts.length > 0 && (
+            <section>
+              <SectionLabel>Bank Accounts</SectionLabel>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {bankAccounts.map((acct, i) => (
+                  <div key={i} style={{
+                    display: "flex", alignItems: "center", justifyContent: "space-between",
+                    padding: "8px 12px",
+                    background: "rgba(11,74,125,0.04)",
+                    border: "1px solid rgba(11,74,125,0.12)",
+                    borderRadius: 8,
+                    gap: 10,
+                  }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <a href={acct.link} target="_blank" rel="noreferrer"
+                        style={{ fontSize: 14, fontWeight: 700, color: "#0b4a7d", textDecoration: "none" }}
+                        onMouseEnter={e => (e.currentTarget.style.textDecoration = "underline")}
+                        onMouseLeave={e => (e.currentTarget.style.textDecoration = "none")}
+                      >{acct.bank} {acct.last4}</a>
+                      <span style={{ fontSize: 13, color: "var(--muted)", fontWeight: 500 }}>{acct.label}</span>
+                    </div>
                   </div>
                 ))}
               </div>
