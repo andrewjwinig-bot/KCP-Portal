@@ -49,7 +49,7 @@ export const PROPERTY_DEFS: PropertyDef[] = [
   // ── Residential ───────────────────────────────────────────────────────────
   { id: "9800", name: "Bellaire Avenue",  type: "Residential", address: "509 Bellaire Ave", city: "Fort Washington", state: "PA", zip: "19034" },
   { id: "9820", name: "Spring Garden St", type: "Residential", city: "Ambler",        state: "PA", zip: "19002" },
-  { id: "9840", name: "Joshua Road",      type: "Residential", address: "3044 Joshua Rd", city: "Lafayette Hill", state: "PA", zip: "19444" },
+  { id: "9840", name: "Joshua Road",      type: "Residential", address: "3044 Joshua Rd", city: "Lafayette Hill", state: "PA", zip: "19444", sqft: 1628 },
   { id: "9860", name: "KH Fort Washington", type: "Residential", address: "233 Ft Washington Ave", state: "PA" },
 
   // ── Other Commercial / Holding ────────────────────────────────────────────
