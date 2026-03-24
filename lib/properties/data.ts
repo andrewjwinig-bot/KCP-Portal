@@ -57,7 +57,7 @@ export const PROPERTY_DEFS: PropertyDef[] = [
   { id: "8200", name: "Trust #4",         type: "Retail", allocGroup: "SC", ccAccounts: ["8501"], address: "2801-2811 Cottman Ave", city: "Philadelphia", state: "PA", sqft: 10000, notes: "McDonald's (2801) + Four Seasons Diner (2811)" },
   { id: "4900", name: "The Office Works",            type: "Misc",                     ccAccounts: ["8501"], notes: "OW payroll group" },
   { id: "2010", name: "LIK Management, Inc.",        type: "Misc",                     ccAccounts: ["8501"], notes: "Management entity — LIK payroll group" },
-  { id: "0300", name: "Airport Interplex Two, Inc.", type: "Land",                     ccAccounts: ["8501"] },
+  { id: "0300", name: "Airport Interplex Two, Inc.", type: "Land",                     ccAccounts: ["8501"], address: "8675 Tinicum Blvd", city: "Philadelphia", state: "PA", zip: "19153" },
   { id: "0800", name: "Interstate Business Park",    type: "Land",                     ccAccounts: ["8501"], notes: "Bellmawr, NJ — quarterly Net Profits Tax" },
 
   // ── Land ──────────────────────────────────────────────────────────────────
