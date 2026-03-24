@@ -28,12 +28,22 @@ function safeId(id: string) {
   return id.replace(/[^a-zA-Z0-9\-_]/g, "");
 }
 
+/** Fetch a blob URL server-side, including the auth token for private stores. */
+async function fetchBlobJson(url: string): Promise<any> {
+  const token = process.env.BLOB_READ_WRITE_TOKEN;
+  const res = await fetch(url, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) throw new Error(`Blob fetch failed: ${res.status} ${res.statusText}`);
+  return res.json();
+}
+
 /** Write a JSON object. Overwrites if id already exists. */
 export async function storeJSON(prefix: string, id: string, data: object): Promise<void> {
   const body = JSON.stringify(data);
   if (USE_BLOB) {
     await put(blobPath(prefix, id), body, {
-      access: "public",
+      access: "private",
       addRandomSuffix: false,
       contentType: "application/json",
     });
@@ -48,12 +58,7 @@ export async function storeJSON(prefix: string, id: string, data: object): Promi
 export async function listJSON(prefix: string): Promise<any[]> {
   if (USE_BLOB) {
     const { blobs } = await list({ prefix: `payroll/${prefix}/` });
-    return Promise.all(
-      blobs.map(async (b) => {
-        const res = await fetch(b.url);
-        return res.json();
-      })
-    );
+    return Promise.all(blobs.map((b) => fetchBlobJson(b.url)));
   } else {
     const dir = localDir(prefix);
     if (!existsSync(dir)) return [];
@@ -74,9 +79,7 @@ export async function getJSON(prefix: string, id: string): Promise<any | null> {
     const { blobs } = await list({ prefix: blobPath(prefix, clean) });
     const blob = blobs.find((b) => b.pathname === blobPath(prefix, clean));
     if (!blob) return null;
-    const res = await fetch(blob.url);
-    if (!res.ok) return null;
-    return res.json();
+    return fetchBlobJson(blob.url);
   } else {
     const filePath = path.join(localDir(prefix), `${clean}.json`);
     if (!existsSync(filePath)) return null;
