@@ -454,7 +454,7 @@ function PropertyCard({ prop, onClick }: { prop: PropertyDef; onClick: () => voi
 
 // ─── PAGE ─────────────────────────────────────────────────────────────────────
 
-const TYPES: PropType[] = ["Office", "Retail", "Residential", "Land"];
+const TYPES: PropType[] = ["Office", "Retail", "Residential", "Land", "Misc"];
 
 export default function PropertiesPage() {
   const [search,   setSearch]   = useState("");
