@@ -93,38 +93,37 @@ function DetailModal({
       <div className="modal wide" onClick={e => e.stopPropagation()} style={{ maxHeight: "calc(100vh - 60px)", display: "flex", flexDirection: "column" }}>
 
         {/* Modal header */}
-        <div className="modalHeader" style={{ borderBottom: "1px solid var(--border)", paddingBottom: 14, marginBottom: 0, flexShrink: 0 }}>
-          <div>
-            <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8, flexWrap: "wrap" }}>
-              <code style={{
-                background: "#0b1220", color: "#e0f0ff",
-                padding: "2px 8px", borderRadius: 6,
-                fontSize: 12, fontWeight: 700, letterSpacing: "0.05em",
-              }}>{prop.id}</code>
-              <TypePill type={prop.type} />
-              {prop.allocGroup && (
-                <span style={{
-                  fontSize: 11, fontWeight: 700, padding: "2px 8px",
-                  borderRadius: 999, background: "rgba(11,74,125,0.07)",
-                  color: "#0b4a7d", border: "1px solid rgba(11,74,125,0.2)",
-                }}>
-                  {prop.allocGroup} Group
-                </span>
-              )}
-            </div>
-            <div className="modalTitle" style={{ fontWeight: 500 }}>{prop.name}</div>
-            {prop.notes && (
-              <p style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>{prop.notes}</p>
-            )}
+        <div style={{ borderBottom: "1px solid var(--border)", paddingBottom: 14, marginBottom: 0, flexShrink: 0, padding: "16px 20px 14px" }}>
+          {/* Top row: Office pill + close button on the right */}
+          <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 8, marginBottom: 8 }}>
+            <TypePill type={prop.type} />
+            <button
+              onClick={onClose}
+              style={{
+                background: "none", border: "none", cursor: "pointer",
+                fontSize: 20, color: "var(--muted)", padding: "0 4px",
+                flexShrink: 0, lineHeight: 1,
+              }}
+            >✕</button>
           </div>
-          <button
-            onClick={onClose}
-            style={{
-              background: "none", border: "none", cursor: "pointer",
-              fontSize: 20, color: "var(--muted)", padding: "0 4px",
-              flexShrink: 0, lineHeight: 1,
-            }}
-          >✕</button>
+          {/* Title row: 3610 pill + Building 1 */}
+          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+            <code style={{
+              background: "#0b1220", color: "#e0f0ff",
+              padding: "2px 8px", borderRadius: 6,
+              fontSize: 12, fontWeight: 700, letterSpacing: "0.05em",
+            }}>{prop.id}</code>
+            <div className="modalTitle" style={{ fontWeight: 500, margin: 0 }}>{prop.name}</div>
+          </div>
+          {/* Subheader: address */}
+          {(prop.address || prop.city) && (
+            <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 4 }}>
+              {[prop.address, prop.city, [prop.state, prop.zip].filter(Boolean).join(" ")].filter(Boolean).join(", ")}
+            </div>
+          )}
+          {prop.notes && (
+            <p style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>{prop.notes}</p>
+          )}
         </div>
 
         {/* Modal body — scrollable */}
