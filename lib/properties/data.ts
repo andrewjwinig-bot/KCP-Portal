@@ -2,7 +2,7 @@
 // Single source of truth for all property definitions.
 // Referenced by: /app/properties/page.tsx
 
-export type PropType = "Office" | "Retail" | "Residential" | "Land";
+export type PropType = "Office" | "Retail" | "Residential" | "Land" | "Misc";
 
 export interface PropertyDef {
   id: string;         // property code (e.g., "3610")
@@ -55,10 +55,10 @@ export const PROPERTY_DEFS: PropertyDef[] = [
   // ── Other Commercial / Holding ────────────────────────────────────────────
   { id: "5600", name: "Castor Ave - USPS", type: "Retail", allocGroup: "SC", ccAccounts: ["8501"], address: "6382 Castor Ave", city: "Philadelphia", state: "PA", sqft: 1326, yearBuilt: 1951 },
   { id: "8200", name: "Trust #4",         type: "Retail", allocGroup: "SC", ccAccounts: ["8501"], address: "2801-2811 Cottman Ave", city: "Philadelphia", state: "PA", sqft: 10000, notes: "McDonald's (2801) + Four Seasons Diner (2811)" },
-  { id: "4900", name: "The Office Works",            type: "Office",                   ccAccounts: ["8501"], notes: "OW payroll group" },
-  { id: "2010", name: "LIK Management, Inc.",        type: "Office",                   ccAccounts: ["8501"], notes: "Management entity — LIK payroll group" },
-  { id: "0300", name: "Airport Interplex Two, Inc.", type: "Office",                   ccAccounts: ["8501"] },
-  { id: "0800", name: "Interstate Business Park",    type: "Office",                   ccAccounts: ["8501"], notes: "Bellmawr, NJ — quarterly Net Profits Tax" },
+  { id: "4900", name: "The Office Works",            type: "Misc",                     ccAccounts: ["8501"], notes: "OW payroll group" },
+  { id: "2010", name: "LIK Management, Inc.",        type: "Misc",                     ccAccounts: ["8501"], notes: "Management entity — LIK payroll group" },
+  { id: "0300", name: "Airport Interplex Two, Inc.", type: "Land",                     ccAccounts: ["8501"] },
+  { id: "0800", name: "Interstate Business Park",    type: "Land",                     ccAccounts: ["8501"], notes: "Bellmawr, NJ — quarterly Net Profits Tax" },
 
   // ── Land ──────────────────────────────────────────────────────────────────
   { id: "2070", name: "Kosano Associates LP (Nockamixon)", type: "Land", notes: "Has K-1 investors" },
@@ -99,4 +99,5 @@ export const TYPE_STYLE: Record<PropType, { text: string; bg: string; border: st
   Retail:      { text: "#0d9488", bg: "rgba(13,148,136,0.09)", border: "rgba(13,148,136,0.28)" },
   Residential: { text: "#6d28d9", bg: "rgba(109,40,217,0.09)", border: "rgba(109,40,217,0.28)" },
   Land:        { text: "#b45309", bg: "rgba(180,83,9,0.09)",   border: "rgba(180,83,9,0.28)"   },
+  Misc:        { text: "#475569", bg: "rgba(71,85,105,0.09)",  border: "rgba(71,85,105,0.28)"  },
 };

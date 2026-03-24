@@ -112,7 +112,7 @@ function DetailModal({
                 </span>
               )}
             </div>
-            <div className="modalTitle">{prop.name}</div>
+            <div className="modalTitle" style={{ fontWeight: 500 }}>{prop.name}</div>
             {prop.notes && (
               <p style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>{prop.notes}</p>
             )}
@@ -135,7 +135,6 @@ function DetailModal({
             <SectionLabel>Overview</SectionLabel>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px 32px" }}>
               <InfoField label="Property Code" value={prop.id} mono />
-              <InfoField label="Type" value={prop.type} />
               <InfoField label="Address" value={prop.address || "—"} />
               <InfoField label="City / State" value={[prop.city, prop.state].filter(Boolean).join(", ") || "—"} />
               <InfoField label="Zip Code" value={prop.zip || "—"} />
@@ -455,7 +454,7 @@ function PropertyCard({ prop, onClick }: { prop: PropertyDef; onClick: () => voi
 
 // ─── PAGE ─────────────────────────────────────────────────────────────────────
 
-const TYPES: PropType[] = ["Office", "Retail", "Residential", "Land"];
+const TYPES: PropType[] = ["Office", "Retail", "Residential", "Land", "Misc"];
 
 export default function PropertiesPage() {
   const [search,   setSearch]   = useState("");
@@ -468,7 +467,7 @@ export default function PropertiesPage() {
   }, []);
 
   const typeCounts = useMemo(() => {
-    const counts: Record<PropType, number> = { Office: 0, Retail: 0, Residential: 0, Land: 0 };
+    const counts: Record<PropType, number> = { Office: 0, Retail: 0, Residential: 0, Land: 0, Misc: 0 };
     PROPERTY_DEFS.forEach(p => counts[p.type]++);
     return counts;
   }, []);
