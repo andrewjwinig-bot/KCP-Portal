@@ -134,10 +134,7 @@ function DetailModal({
           <section>
             <SectionLabel>Overview</SectionLabel>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px 32px" }}>
-              <InfoField label="Property Code" value={prop.id} mono />
-              <InfoField label="Address" value={prop.address || "—"} />
-              <InfoField label="City / State" value={[prop.city, prop.state].filter(Boolean).join(", ") || "—"} />
-              <InfoField label="Zip Code" value={prop.zip || "—"} />
+              <InfoField label="Address" value={[prop.address, prop.city, [prop.state, prop.zip].filter(Boolean).join(" ")].filter(Boolean).join(", ") || "—"} />
               <InfoField label="Sq Footage" value={prop.sqft ? `${prop.sqft.toLocaleString()} sq ft` : "—"} />
               <InfoField label="Year Built" value={prop.yearBuilt ? String(prop.yearBuilt) : "—"} />
               {prop.allocGroup && (
