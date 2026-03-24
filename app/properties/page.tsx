@@ -408,7 +408,6 @@ function PropertyCard({ prop, onClick }: { prop: PropertyDef; onClick: () => voi
     <button
       onClick={onClick}
       style={{
-        position: "relative",
         display: "flex", flexDirection: "column",
         padding: "20px 16px 14px",
         minHeight: 140,
@@ -435,21 +434,19 @@ function PropertyCard({ prop, onClick }: { prop: PropertyDef; onClick: () => voi
         el.style.transform = "";
       }}
     >
-      {/* Type pill — absolute top-right */}
-      <div style={{ position: "absolute", top: 14, right: 14 }}>
-        <TypePill type={prop.type} large />
-      </div>
-
-      {/* Centered name + code */}
+      {/* Centered name + code + pill */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", paddingBottom: 8 }}>
         <div style={{ fontSize: 22, fontWeight: 900, lineHeight: 1.2, color: "var(--text)", marginBottom: 8 }}>
           {prop.name}
         </div>
-        <code style={{
-          background: "#0b1220", color: "#e0f0ff",
-          padding: "3px 10px", borderRadius: 6,
-          fontSize: 12, fontWeight: 700, letterSpacing: "0.06em",
-        }}>{prop.id}</code>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <code style={{
+            background: "#0b1220", color: "#e0f0ff",
+            padding: "3px 10px", borderRadius: 6,
+            fontSize: 12, fontWeight: 700, letterSpacing: "0.06em",
+          }}>{prop.id}</code>
+          <TypePill type={prop.type} large />
+        </div>
       </div>
 
     </button>
