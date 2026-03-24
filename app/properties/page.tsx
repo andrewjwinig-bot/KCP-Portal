@@ -160,7 +160,16 @@ function DetailModal({
                     borderRadius: 8,
                     gap: 10,
                   }}>
-                    <code style={{ fontSize: 14, fontWeight: 700, color: "#0b4a7d" }}>{p.number}</code>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      {p.link
+                        ? <a href={p.link} target="_blank" rel="noreferrer" style={{ fontSize: 14, fontWeight: 700, color: "#0b4a7d", textDecoration: "none" }}
+                            onMouseEnter={e => (e.currentTarget.style.textDecoration = "underline")}
+                            onMouseLeave={e => (e.currentTarget.style.textDecoration = "none")}
+                          >{p.number}</a>
+                        : <code style={{ fontSize: 14, fontWeight: 700, color: "#0b4a7d" }}>{p.number}</code>
+                      }
+                      {p.label && <span style={{ fontSize: 13, color: "var(--muted)", fontWeight: 500 }}>{p.label}</span>}
+                    </div>
                     {p.method && (
                       <span style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600 }}>{p.method}</span>
                     )}
