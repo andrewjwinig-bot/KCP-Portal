@@ -309,41 +309,6 @@ function DetailModal({
             </section>
           )}
 
-          {/* ── CC Expense Accounts ── */}
-          {prop.ccAccounts && (
-            <section>
-              <SectionLabel>
-                CC Expense Accounts
-                <Link href="/expenses" style={{ fontSize: 11, fontWeight: 600, color: "var(--brand)", marginLeft: 8, textDecoration: "none" }}>
-                  Open CC Expense Coder →
-                </Link>
-              </SectionLabel>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                {prop.ccAccounts.map(acct => (
-                  <div key={acct} style={{
-                    padding: "10px 16px",
-                    border: "1px solid rgba(11,74,125,0.2)",
-                    borderRadius: 8,
-                    background: "rgba(11,74,125,0.04)",
-                    fontSize: 14, fontWeight: 800, color: "#0b4a7d",
-                    fontFamily: "monospace",
-                  }}>{acct}</div>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {/* ── Quick Links ── */}
-          <section>
-            <SectionLabel>Quick Links</SectionLabel>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              <QuickLink href="/tracker" label="Master Tracker" icon="📋" desc="Monthly to-do checklist" />
-              <QuickLink href="/tracker/taxes" label="Filing Tracker" icon="📄" desc="RE taxes · entity filings · K-1s" />
-              <QuickLink href="/" label="Payroll Invoicer" icon="$" desc="Upload and process payroll" />
-              <QuickLink href="/expenses" label="CC Expense Coder" icon="💳" desc="Code credit card transactions" />
-              <QuickLink href="/allocated-invoicer" label="Allocated Invoicer" icon="%" desc="GL allocation invoicing" />
-            </div>
-          </section>
 
         </div>
       </div>
@@ -371,36 +336,6 @@ function InfoField({ label, value }: { label: string; value: string; mono?: bool
       <span style={{ fontSize: 11, fontWeight: 800, color: "var(--muted)", letterSpacing: "0.07em", textTransform: "uppercase" }}>{label}</span>
       <span style={{ fontSize: 17, fontWeight: 500, color: "var(--text)" }}>{value}</span>
     </div>
-  );
-}
-
-function QuickLink({ href, label, icon, desc }: { href: string; label: string; icon: string; desc: string }) {
-  return (
-    <Link href={href} style={{
-      display: "flex", alignItems: "center", gap: 10,
-      padding: "9px 12px",
-      border: "1px solid var(--border)",
-      borderRadius: 8,
-      textDecoration: "none",
-      color: "var(--text)",
-      transition: "background 0.12s, border-color 0.12s",
-    }}
-      onMouseEnter={e => {
-        (e.currentTarget as HTMLElement).style.background = "rgba(11,74,125,0.05)";
-        (e.currentTarget as HTMLElement).style.borderColor = "rgba(11,74,125,0.25)";
-      }}
-      onMouseLeave={e => {
-        (e.currentTarget as HTMLElement).style.background = "";
-        (e.currentTarget as HTMLElement).style.borderColor = "var(--border)";
-      }}
-    >
-      <span style={{ fontSize: 16, width: 24, textAlign: "center", flexShrink: 0 }}>{icon}</span>
-      <div style={{ flex: 1 }}>
-        <div style={{ fontSize: 14, fontWeight: 700 }}>{label}</div>
-        <div style={{ fontSize: 12, color: "var(--muted)" }}>{desc}</div>
-      </div>
-      <span style={{ fontSize: 12, color: "var(--muted)" }}>→</span>
-    </Link>
   );
 }
 
@@ -463,7 +398,6 @@ function PropertyCard({ prop, onClick }: { prop: PropertyDef; onClick: () => voi
 const TYPES: PropType[] = ["Office", "Retail", "Residential", "Land", "Misc"];
 
 export default function PropertiesPage() {
-  const [search,   setSearch]   = useState("");
   const [typeFilter, setTypeFilter] = useState<PropType | "all">("all");
   const [selected, setSelected] = useState<PropertyDef | null>(null);
   const [checked,  setChecked]  = useState<Record<string, boolean>>({});
@@ -478,19 +412,9 @@ export default function PropertiesPage() {
     return counts;
   }, []);
 
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase().trim();
-    return PROPERTY_DEFS.filter(p => {
-      if (typeFilter !== "all" && p.type !== typeFilter) return false;
-      if (!q) return true;
-      return (
-        p.id.toLowerCase().includes(q) ||
-        p.name.toLowerCase().includes(q) ||
-        (p.address?.toLowerCase().includes(q) ?? false) ||
-        p.type.toLowerCase().includes(q)
-      );
-    });
-  }, [search, typeFilter]);
+  const filtered = useMemo(() =>
+    typeFilter === "all" ? PROPERTY_DEFS : PROPERTY_DEFS.filter(p => p.type === typeFilter),
+  [typeFilter]);
 
   return (
     <main>
@@ -501,7 +425,6 @@ export default function PropertiesPage() {
           <h1 style={{ fontSize: 36, fontWeight: 900, letterSpacing: "-0.03em", marginBottom: 4 }}>
             Property Info
           </h1>
-          <p className="muted small">Property directory · allocations · filings &amp; K-1s</p>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
           <span style={{ fontFamily: "'Arial Black', 'Arial Bold', Arial, sans-serif", fontWeight: 900, fontSize: 30, letterSpacing: "-0.5px", lineHeight: 1 }}>KORMAN</span>
@@ -548,59 +471,6 @@ export default function PropertiesPage() {
         })}
       </div>
 
-      {/* ── Filter / search bar ── */}
-      <div className="card" style={{ padding: "12px 16px", marginBottom: 20, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-        <div style={{ fontSize: 10, fontWeight: 800, color: "var(--muted)", letterSpacing: "0.08em", marginRight: 4 }}>TYPE</div>
-        {(["all", ...TYPES] as const).map(t => {
-          const active = typeFilter === t;
-          const ts = t !== "all" ? TYPE_STYLE[t] : null;
-          return (
-            <button key={t} onClick={() => setTypeFilter(t)} style={{
-              padding: "4px 12px",
-              border: `1px solid ${active && ts ? ts.border : active ? "var(--brand)" : "var(--border)"}`,
-              borderRadius: 999, cursor: "pointer",
-              background: active && ts ? ts.bg : active ? "rgba(11,74,125,0.08)" : "transparent",
-              fontFamily: "inherit", fontSize: 12,
-              fontWeight: active ? 800 : 500,
-              color: active && ts ? ts.text : active ? "var(--brand)" : "var(--text)",
-              transition: "all 0.12s",
-            }}>
-              {t === "all" ? "All" : t}
-            </button>
-          );
-        })}
-        <div style={{ flex: 1, minWidth: 160, maxWidth: 280, marginLeft: "auto" }}>
-          <input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Search by name, code, address…"
-            style={{
-              width: "100%",
-              border: "1px solid var(--border)",
-              borderRadius: 8,
-              padding: "6px 10px",
-              fontSize: 13,
-              fontFamily: "inherit",
-              outline: "none",
-              background: "#fff",
-            }}
-          />
-        </div>
-        {(typeFilter !== "all" || search) && (
-          <button
-            className="btn"
-            style={{ fontSize: 11, padding: "4px 10px" }}
-            onClick={() => { setTypeFilter("all"); setSearch(""); }}
-          >✕ Clear</button>
-        )}
-      </div>
-
-      {/* ── Results count ── */}
-      {(typeFilter !== "all" || search) && (
-        <div className="small muted" style={{ marginBottom: 12 }}>
-          Showing {filtered.length} of {PROPERTY_DEFS.length} properties
-        </div>
-      )}
 
       {/* ── Property grid ── */}
       {filtered.length === 0 ? (
