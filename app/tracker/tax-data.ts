@@ -136,7 +136,7 @@ export interface TaxParcel {
 
 export const PARCEL_INFO: Record<string, TaxParcel[]> = {
   "1100 Parkwood Professional Bldg": [{ method: "Direct",       number: "882077811", label: "Shopping Center", link: "https://property.phila.gov/?p=882077811" }],
-  "1500 Eastwick JV I":              [{ method: "Direct",       number: "88-2-057700"       }],
+  "1500 Eastwick JV I":              [{ method: "Direct",       number: "882057700", label: "Property", link: "https://property.phila.gov/?p=882057700" }],
   "4500 Grays Ferry SC":             [{ method: "Liberty Bank", number: "882051606", label: "Shopping Center", link: "https://property.phila.gov/?p=882051606" },
                                       { method: "Liberty Bank", number: "874545940", label: "Rear Parcel",     link: "https://property.phila.gov/?p=874545940" },
                                       { method: "Liberty Bank", number: "885969440", label: "Billboard",       link: "https://property.phila.gov/?p=885969440" }],
