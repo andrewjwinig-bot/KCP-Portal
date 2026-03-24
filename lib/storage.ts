@@ -45,6 +45,7 @@ export async function storeJSON(prefix: string, id: string, data: object): Promi
     await put(blobPath(prefix, id), body, {
       access: "private",
       addRandomSuffix: false,
+      allowOverwrite: true,
       contentType: "application/json",
     });
   } else {
