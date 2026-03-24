@@ -5,50 +5,28 @@ import { PROPERTY_DEFS } from "../properties/data";
 /**
  * Rent Roll Excel Parser
  *
- * Expected Excel layout (Korman Commercial Properties rent roll format):
- *   Column B  (index 1):  Occupant Name — merged B:G (or "*** VACANT ***")
- *   Column I  (index 8):  Unit Reference Number  e.g. "1100-34-CU"
- *   Column M  (index 12): Square Feet — merged M:N
- *   Column P  (index 15): Lease Term From — merged P:Q
- *   Column R  (index 17): Lease Term To — merged R:T
- *   Column M  (index 12): Base Rent (monthly)
- *   Column N  (index 13): Annual Rent
- *   Column O  (index 14): Annual Rent per Sq Ft/Yr
- *   Column P  (index 15): Base Rent Increase Date (most recent)
- *   Column Q  (index 16): Base Rent Increase Amount
- *   Column R  (index 17): Operating Expense – Month
- *   Column S  (index 18): Operating Expense – Sq Ft/Yr
- *   Column T  (index 19): Real Estate Tax – Month
- *   Column U  (index 20): Real Estate Tax – Sq Ft/Yr
- *   Column V  (index 21): Other Expense – Month
- *   Column W  (index 22): Other Expense – Sq Ft/Yr
- *   Column X  (index 23): Gross Rents – Total
- *   Column Y  (index 24): Gross Rents – Sq Ft/Yr
- *   Column Z+ (index 25+): Future escalation dates then amounts (grouped)
+ * Confirmed column layout (Korman Commercial Properties rent roll format):
+ *   Column B   (index  1): Occupant Name — merged B:G  (or "*** VACANT ***")
+ *   Column I   (index  8): Unit Reference Number  e.g. "1100-34-CU"
+ *   Column M   (index 12): Square Feet — merged M:N
+ *   Column P   (index 15): Lease Term From — merged P:Q
+ *   Column R   (index 17): Lease Term To — merged R:T
+ *   Column U   (index 20): Base Rent / month — merged U:X
+ *   Column AL  (index 37): CAM (Operating Expense) / month — merged AL:AM
+ *   Column AS  (index 44): Real Estate Tax / month — merged AS:AV
  *
  * Property code = first segment of unit ref before the first dash.
  * Only units whose property code matches a known entry in PROPERTY_DEFS are included.
  */
 
-const COL_OCCUPANT    = 1;  // B (merged B:G)
-const COL_UNIT_REF    = 8;  // I
-const COL_SQFT        = 12; // M (merged M:N)
-const COL_LEASE_FROM  = 15; // P (merged P:Q)
-const COL_LEASE_TO    = 17; // R (merged R:T)
-const COL_BASE_RENT   = 12;
-const COL_ANNUAL_RENT = 13;
-const COL_ANNUAL_SQFT = 14;
-const COL_INCR_DATE   = 15;
-const COL_INCR_AMT    = 16;
-const COL_OPEX_MONTH  = 17;
-const COL_OPEX_SQFT   = 18;
-const COL_RETAX_MONTH = 19;
-const COL_RETAX_SQFT  = 20;
-const COL_OTHER_MONTH = 21;
-const COL_OTHER_SQFT  = 22;
-const COL_GROSS_TOTAL = 23;
-const COL_GROSS_SQFT  = 24;
-const COL_FUTURE_START = 25;
+const COL_OCCUPANT    =  1; // B  (merged B:G)
+const COL_UNIT_REF    =  8; // I
+const COL_SQFT        = 12; // M  (merged M:N)
+const COL_LEASE_FROM  = 15; // P  (merged P:Q)
+const COL_LEASE_TO    = 17; // R  (merged R:T)
+const COL_BASE_RENT   = 20; // U  (merged U:X)
+const COL_OPEX_MONTH  = 37; // AL (merged AL:AM) — CAM
+const COL_RETAX_MONTH = 44; // AS (merged AS:AV) — RE Tax
 
 export interface RentRollEscalation {
   date: string;
@@ -107,9 +85,16 @@ function norm(v: any): string {
 
 function parseDateStr(v: any): string | null {
   if (v == null || v === "") return null;
+  // JavaScript Date object (when cellDates: true + raw: true)
+  if (v instanceof Date) {
+    if (isNaN(v.getTime())) return null;
+    const mo = String(v.getMonth() + 1).padStart(2, "0");
+    const dy = String(v.getDate()).padStart(2, "0");
+    return `${mo}/${dy}/${v.getFullYear()}`;
+  }
   const s = norm(v);
   if (DATE_RE.test(s)) return s;
-  // Handle Excel serial date numbers
+  // Excel serial date number fallback
   if (typeof v === "number" && v > 10000 && v < 100000) {
     try {
       const formatted = XLSX.SSF.format("MM/DD/YYYY", v);
@@ -125,14 +110,14 @@ export function parseRentRollExcel(
   const wb = XLSX.read(buf, {
     type: buf instanceof ArrayBuffer ? "array" : "buffer",
     cellText: false,
-    cellDates: false,
-    raw: false,
+    cellDates: true,  // dates come through as Date objects
+    raw: true,
   });
 
   const sheet = wb.Sheets[wb.SheetNames[0]];
   const rows: any[][] = XLSX.utils.sheet_to_json(sheet, {
     header: 1,
-    raw: false,
+    raw: true,  // keep raw types so Date objects and numbers are preserved
     defval: "",
   });
 
@@ -198,40 +183,12 @@ export function parseRentRollExcel(
     const isVacant    = !rawOccupant || rawOccupant.toUpperCase().includes("VACANT");
     const occupantName = isVacant ? "Vacant" : rawOccupant;
 
-    const sqft               = toNumber(row[COL_SQFT]);
-    const leaseFrom          = parseDateStr(row[COL_LEASE_FROM]);
-    const leaseTo            = parseDateStr(row[COL_LEASE_TO]);
-    const baseRent           = toNumber(row[COL_BASE_RENT]);
-    const annualRent         = toNumber(row[COL_ANNUAL_RENT]);
-    const annualRentPerSqft  = toNumber(row[COL_ANNUAL_SQFT]);
-    const lastIncreaseDate   = parseDateStr(row[COL_INCR_DATE]);
-    const lastIncreaseAmount = toNumber(row[COL_INCR_AMT]);
-    const opexMonth          = toNumber(row[COL_OPEX_MONTH]);
-    const opexPerSqft        = toNumber(row[COL_OPEX_SQFT]);
-    const reTaxMonth         = toNumber(row[COL_RETAX_MONTH]);
-    const reTaxPerSqft       = toNumber(row[COL_RETAX_SQFT]);
-    const otherMonth         = toNumber(row[COL_OTHER_MONTH]);
-    const otherPerSqft       = toNumber(row[COL_OTHER_SQFT]);
-    const grossRentTotal     = toNumber(row[COL_GROSS_TOTAL]);
-    const grossRentPerSqft   = toNumber(row[COL_GROSS_SQFT]);
-
-    // Future escalations: dates appear before amounts in the grouped layout
-    const futureDates:   string[] = [];
-    const futureAmounts: number[] = [];
-    for (let c = COL_FUTURE_START; c < row.length; c++) {
-      const s = norm(row[c]);
-      if (!s) continue;
-      if (DATE_RE.test(s)) {
-        futureDates.push(s);
-      } else {
-        const n = toNumber(s);
-        if (n > 0) futureAmounts.push(n);
-      }
-    }
-    const futureEscalations: RentRollEscalation[] = futureDates.map((date, i) => ({
-      date,
-      amount: futureAmounts[i] ?? 0,
-    }));
+    const sqft      = toNumber(row[COL_SQFT]);
+    const leaseFrom = parseDateStr(row[COL_LEASE_FROM]);
+    const leaseTo   = parseDateStr(row[COL_LEASE_TO]);
+    const baseRent  = toNumber(row[COL_BASE_RENT]);
+    const opexMonth = toNumber(row[COL_OPEX_MONTH]);
+    const reTaxMonth = toNumber(row[COL_RETAX_MONTH]);
 
     prop.units.push({
       occupantName,
@@ -242,19 +199,19 @@ export function parseRentRollExcel(
       leaseFrom,
       leaseTo,
       baseRent,
-      annualRent,
-      annualRentPerSqft,
-      lastIncreaseDate,
-      lastIncreaseAmount,
+      annualRent:         baseRent * 12,
+      annualRentPerSqft:  sqft > 0 ? (baseRent * 12) / sqft : 0,
+      lastIncreaseDate:   null,
+      lastIncreaseAmount: 0,
       opexMonth,
-      opexPerSqft,
+      opexPerSqft:    sqft > 0 ? (opexMonth * 12) / sqft : 0,
       reTaxMonth,
-      reTaxPerSqft,
-      otherMonth,
-      otherPerSqft,
-      grossRentTotal,
-      grossRentPerSqft,
-      futureEscalations,
+      reTaxPerSqft:   sqft > 0 ? (reTaxMonth * 12) / sqft : 0,
+      otherMonth:     0,
+      otherPerSqft:   0,
+      grossRentTotal: baseRent + opexMonth + reTaxMonth,
+      grossRentPerSqft: sqft > 0 ? ((baseRent + opexMonth + reTaxMonth) * 12) / sqft : 0,
+      futureEscalations: [],
     });
 
     prop.totalSqft += sqft;
