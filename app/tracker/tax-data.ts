@@ -146,7 +146,7 @@ export const PARCEL_INFO: Record<string, TaxParcel[]> = {
   "7300 Revere":                     [{ method: "Direct",       number: "882138000", label: "Shopping Center", link: "https://property.phila.gov/?p=882138000" }],
   "8200 Trust #4":                   [{ method: "Direct",       number: "882047230", label: "Four Seasons",    link: "https://property.phila.gov/?p=882047230" },
                                       { method: "Direct",       number: "882047229", label: "McDonald's",      link: "https://property.phila.gov/?p=882047229" }],
-  "9200 Eastwick JV XI":             [{                         number: "88-5-819980"       }],
+  "9200 Eastwick JV XI":             [{ method: "Direct",       number: "885819980", label: "Land", link: "https://property.phila.gov/?p=885819980" }],
   "9840 3044 Joshua Rd":             [{ method: "Check",        number: "54-00-06484-00-5"  }],
   "9860 KH Fort Washington":         [{ method: "Check",        number: "54-00-06484-00-5", label: "House", link: "https://propertyrecords.montcopa.org/PT/Datalets/Datalet.aspx?mode=&UseSearch=no&pin=540006484005&jur=046&taxyr=2026" }],
   "9800 Bellaire Ave":               [{ method: "Check",        number: "54-00-01999-00-8"  }],
@@ -165,7 +165,7 @@ export const PARCEL_INFO: Record<string, TaxParcel[]> = {
                                   { number: "30-011-077-002",    label: "Small Parcel", link: "https://dataportal-bucksgis.opendata.arcgis.com/datasets/3a4d9c4305874312a2a74da7bd55a22d_0/explore?location=40.495032%2C-75.174738%2C18" }],
   "9820 Spring Garden St":      [{ method: "Check", number: "01-00-04904-00-9", label: "120", link: "https://propertyrecords.montcopa.org/PT/Datalets/Datalet.aspx?mode=&UseSearch=no&pin=010004904009&jur=046&taxyr=2026" },
                                   { method: "Check", number: "01-00-04903-00-1", label: "122", link: "https://propertyrecords.montcopa.org/PT/Datalets/Datalet.aspx?mode=&UseSearch=no&pin=010004903001&jur=046&taxyr=2026" }],
-  "0300 Airport Interplex Two":  [{ number: "885819980", label: "Land", link: "https://property.phila.gov/?p=885819980" }],
+
   "PIIICO Condo":                    [{                         number: "02001002-016"      }],
   "0800 Bellmawr":                   [{                         number: "Block 173.01 Lot 1"}],
 };

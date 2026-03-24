@@ -44,7 +44,7 @@ export const PROPERTY_DEFS: PropertyDef[] = [
   { id: "7200", name: "Elbridge Partnership", type: "Retail", allocGroup: "SC", ccAccounts: ["8501"], address: "7201 Roosevelt Blvd",  city: "Philadelphia", state: "PA", zip: "19149", sqft: 22500, yearBuilt: 1948 },
   { id: "7300", name: "Revere Partnership",   type: "Retail", allocGroup: "SC", ccAccounts: ["8501"], address: "6412-22 Castor Ave",  city: "Philadelphia", state: "PA", zip: "19149", sqft: 14821, yearBuilt: 1968 },
   { id: "1500", name: "Eastwick JV I",                    type: "Retail", allocGroup: "SC", ccAccounts: ["8501"], address: "2448 Island Ave", city: "Philadelphia", state: "PA", zip: "19153", sqft: 2280, yearBuilt: 1950 },
-  { id: "9200", name: "Eastwick JV XII",                  type: "Retail",                   ccAccounts: ["8501"] },
+  { id: "9200", name: "Eastwick JV XII",                  type: "Retail",                   ccAccounts: ["8501"], address: "8675 Tinicum Blvd", city: "Philadelphia", state: "PA", zip: "19153" },
 
   // ── Residential ───────────────────────────────────────────────────────────
   { id: "9800", name: "Bellaire Avenue",  type: "Residential", address: "509 Bellaire Ave", city: "Fort Washington", state: "PA", zip: "19034", yearBuilt: 1910 },
@@ -57,7 +57,7 @@ export const PROPERTY_DEFS: PropertyDef[] = [
   { id: "8200", name: "Trust #4",         type: "Retail", allocGroup: "SC", ccAccounts: ["8501"], address: "2801-2811 Cottman Ave", city: "Philadelphia", state: "PA", sqft: 10000, yearBuilt: 1990, notes: "McDonald's (2801) + Four Seasons Diner (2811)" },
   { id: "4900", name: "The Office Works",            type: "Misc",                     ccAccounts: ["8501"], notes: "OW payroll group" },
   { id: "2010", name: "LIK Management, Inc.",        type: "Misc",                     ccAccounts: ["8501"], notes: "Management entity — LIK payroll group" },
-  { id: "0300", name: "Airport Interplex Two, Inc.", type: "Land",                     ccAccounts: ["8501"], address: "8675 Tinicum Blvd", city: "Philadelphia", state: "PA", zip: "19153" },
+
   { id: "0800", name: "Interstate Business Park",    type: "Land",                     ccAccounts: ["8501"], notes: "Bellmawr, NJ — quarterly Net Profits Tax" },
 
   // ── Land ──────────────────────────────────────────────────────────────────
@@ -165,9 +165,7 @@ export const BANK_ACCOUNTS: Record<string, BankAccount[]> = {
   "2070": [
     { bank: "M&T",     label: "Operating",               last4: "x6119", link: "https://treasurycenter.mtb.com/ui/" },
   ],
-  "0300": [
-    { bank: "M&T",     label: "Operating",               last4: "x6063", link: "https://treasurycenter.mtb.com/ui/" },
-  ],
+
   "0900": [
     { bank: "M&T",     label: "Operating",               last4: "x6063", link: "https://treasurycenter.mtb.com/ui/" },
   ],
