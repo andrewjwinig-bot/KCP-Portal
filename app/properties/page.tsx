@@ -86,7 +86,8 @@ function DetailModal({
   useEffect(() => {
     fetch("/api/rentroll")
       .then(r => r.ok ? r.json() : null)
-      .then((data: RentRollData | null) => {
+      .then((res: { rentroll: RentRollData } | null) => {
+        const data = res?.rentroll;
         if (!data) return;
         const match = data.properties.find(
           p => p.propertyCode.toUpperCase() === prop.id.toUpperCase()
