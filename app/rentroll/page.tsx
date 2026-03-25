@@ -572,26 +572,18 @@ export default function RentRollPage() {
 
   return (
     <main>
-      {/* ── Page Header ─────────────────────────────────────────────────── */}
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, marginBottom: 24, flexWrap: "wrap" }}>
-        <div>
-          <h1 style={{ fontSize: 36, letterSpacing: "-0.03em", marginBottom: 4 }}>Rent Roll</h1>
-          {rentroll && (
-            <div style={{ fontSize: 13, color: "var(--muted)" }}>
-              Report period: {rentroll.reportFrom} – {rentroll.reportTo}
-              {" · "}
-              Uploaded {new Date(rentroll.uploadedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-            </div>
-          )}
+      <h1 style={{ fontSize: 36, letterSpacing: "-0.03em", marginBottom: 24 }}>Rent Roll</h1>
+
+      {/* ── Import card ───────────────────────────────────────────────────── */}
+      <div className="card" style={{ marginBottom: 24 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
+          <b>Import Rent Roll</b>
+          <span style={{ background: "rgba(22, 163, 74, 0.85)", color: "#fff", borderRadius: 999, padding: "12px 18px", fontSize: 15, fontWeight: 700, border: "1px solid transparent", display: "inline-flex", alignItems: "center" }}>Monthly</span>
         </div>
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
-          <button
-            className="btn primary"
-            disabled={uploading}
-            onClick={() => fileInputRef.current?.click()}
-          >
-            {uploading ? "Uploading…" : rentroll ? "Replace Rent Roll" : "Upload Rent Roll"}
-          </button>
+        <p className="muted small" style={{ marginTop: 8 }}>
+          Import the <b>Commercial Rent Roll</b> Excel file (.xls or .xlsx).
+        </p>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 12 }}>
           <input
             ref={fileInputRef}
             type="file"
@@ -599,48 +591,39 @@ export default function RentRollPage() {
             style={{ display: "none" }}
             onChange={handleFileChange}
           />
-          {uploadError && (
-            <div style={{ fontSize: 13, color: "#dc2626", maxWidth: 320, textAlign: "right" }}>{uploadError}</div>
-          )}
-        </div>
-      </div>
-
-      {/* ── Loading state ─────────────────────────────────────────────────── */}
-      {loading && (
-        <div style={{ color: "var(--muted)", fontSize: 15, padding: "40px 0" }}>Loading…</div>
-      )}
-
-      {/* ── Empty state ───────────────────────────────────────────────────── */}
-      {!loading && !rentroll && (
-        <div className="card" style={{ textAlign: "center", padding: "60px 40px" }}>
-          <div style={{ fontSize: 40, marginBottom: 12 }}>📋</div>
-          <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>No Rent Roll Uploaded</div>
-          <div style={{ fontSize: 14, color: "var(--muted)", marginBottom: 20, maxWidth: 440, margin: "0 auto 20px" }}>
-            Upload the monthly Excel rent roll to view occupancy data, lease expirations, and scheduled escalations across all properties.
-          </div>
+          <button className="btn large" onClick={() => fileInputRef.current?.click()} style={{ whiteSpace: "nowrap" }} disabled={uploading}>
+            {uploading ? "Uploading…" : "Choose Rent Roll File…"}
+          </button>
           <button
-            className="btn primary large"
-            onClick={() => fileInputRef.current?.click()}
+            className="btn"
+            style={{ borderRadius: 999, fontWeight: 700, whiteSpace: "nowrap" }}
+            onClick={() => setRentroll(null)}
+            disabled={!rentroll}
           >
-            Upload Rent Roll
+            Clear
           </button>
         </div>
-      )}
+        {uploadError && <div style={{ color: "#b42318", fontSize: 13, marginTop: 6 }}>{uploadError}</div>}
+        {loading && <div style={{ color: "var(--muted)", fontSize: 13, marginTop: 10 }}>Loading…</div>}
+        {rentroll && (
+          <>
+            <div className="pills" style={{ justifyContent: "flex-start", marginTop: 16, marginBottom: 0 }}>
+              <StatPill label="Total Sq Ft"    value={sqftFmt(totalSqft)} />
+              <StatPill label="Occupied"       value={sqftFmt(occupiedSqft)} />
+              <StatPill label="Vacant"         value={sqftFmt(vacantSqft)} />
+              <StatPill label="Properties"     value={String(rentroll.properties.length)} />
+              {totalGross > 0 && <StatPill label="Gross Rent/mo" value={money(totalGross)} />}
+            </div>
+            <div className="small muted" style={{ textAlign: "center", marginTop: 6 }}>
+              <b>Period:</b> {rentroll.reportFrom} – {rentroll.reportTo}
+            </div>
+          </>
+        )}
+      </div>
 
       {/* ── Dashboard ─────────────────────────────────────────────────────── */}
       {rentroll && (
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-
-          {/* Portfolio summary */}
-          <div className="pills" style={{ justifyContent: "flex-start", marginTop: 0 }}>
-            <StatPill label="Total Sq Ft"     value={sqftFmt(totalSqft)} />
-            <StatPill label="Occupied" value={sqftFmt(occupiedSqft)} />
-            <StatPill label="Vacant"          value={sqftFmt(vacantSqft)} />
-            <StatPill label="Properties"      value={String(rentroll.properties.length)} />
-            {totalGross > 0 && (
-              <StatPill label="Gross Rent/mo"  value={money(totalGross)} />
-            )}
-          </div>
 
           {/* Multi-line occupancy bars */}
           {totalSqft > 0 && <OccupancyLines rentroll={rentroll} />}
