@@ -24,6 +24,7 @@ export interface TaxTask {
   dueMonth: number;      // 1-12
   dueDay: number;        // 1-31
   notes?: string;
+  pillOverride?: string;       // Custom pill label instead of category default
   label?: string;              // Optional override for the auto-generated filing label
   instructionSteps?: string[]; // Numbered instructions shown in a modal when clicked
   investors?: K1Investor[]; // K-1 tasks only — one sub-row per investor
@@ -127,6 +128,21 @@ export const TAX_TASKS: TaxTask[] = [
   { id: "ent-nim-nov",  entity: "Neshaminy Interplex, MM, LP (DE)", category: "entity", dueMonth: 11, dueDay: 1, notes: "LP/LLC/GP Annual Tax — pay online via CT Corp · Acc 9401222288" },
   { id: "ent-nil-nov",  entity: "Neshaminy Interplex LLC (DE)",     category: "entity", dueMonth: 11, dueDay: 1, notes: "LP/LLC/GP Annual Tax — pay online via CT Corp · Acc 9401231147" },
   { id: "ent-2010-nov", entity: "2010 LIK Management, Inc. (PA)",   category: "entity", dueMonth: 11, dueDay: 1, notes: "LP/LLC/GP Annual Tax — pay online via CT Corp · Acc 9400393039" },
+
+  // ─── KORMAN FELDMAN FAMILY FOUNDATION ───────────────────────────────────
+
+  {
+    id: "kfff-990",
+    entity: "Korman Feldman Family Foundation",
+    category: "entity",
+    dueMonth: 11,
+    dueDay: 17,
+    pillOverride: "KFFF",
+    label: "Submit Form 990",
+    instructionSteps: [
+      "Sign and submit form 990-PF from GMS Surgent to Commonwealth of Pennsylvania Department of State with a $15 check made out to Commonwealth of Pennsylvania",
+    ],
+  },
 ];
 
 // ─── SHARED STORAGE ─────────────────────────────────────────────────────────

@@ -454,7 +454,7 @@ export default function TaxTrackerPage() {
                             padding: "2px 6px", borderRadius: 999, flexShrink: 0,
                             opacity: isDone ? 0.5 : 1,
                           }}>
-                            {cat.pill}
+                            {task.pillOverride ?? cat.pill}
                           </span>
                           <span style={{
                             flex: 1, fontSize: 13, fontWeight: 500,
@@ -563,7 +563,7 @@ export default function TaxTrackerPage() {
                         padding: "2px 6px", borderRadius: 999, flexShrink: 0,
                         opacity: isDone ? 0.5 : 1, marginTop: 2,
                       }}>
-                        {cat.pill}
+                        {task.pillOverride ?? cat.pill}
                       </span>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         {task.instructionSteps ? (

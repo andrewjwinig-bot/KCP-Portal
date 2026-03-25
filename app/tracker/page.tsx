@@ -1358,7 +1358,7 @@ export default function TrackerPage() {
                       flexShrink: 0, marginTop: 2,
                       opacity: isDone ? 0.45 : 1,
                     }}>
-                      {cat.pill}
+                      {task.pillOverride ?? cat.pill}
                     </span>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <span style={{
