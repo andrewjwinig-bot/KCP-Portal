@@ -137,12 +137,12 @@ function UnitsTable({ units, propertyCode }: { units: RentRollUnit[]; propertyCo
               <th style={{ textAlign: "right" }}>Sq Ft</th>
               <th>Lease From</th>
               <th>Lease To</th>
-              <th style={{ textAlign: "right" }}>Base Rent/mo</th>
-              <th style={{ textAlign: "right" }}>Annual $/sf</th>
-              <th style={{ textAlign: "right" }}>CAM/mo</th>
-              <th style={{ textAlign: "right" }}>RE Tax/mo</th>
-              <th style={{ textAlign: "right" }}>Other/mo</th>
-              <th style={{ textAlign: "right" }}>Gross/mo</th>
+              <th style={{ textAlign: "right" }}>Base Rent<br/>/mo</th>
+              <th style={{ textAlign: "right" }}>Annual<br/>$/sf</th>
+              <th style={{ textAlign: "right" }}>CAM<br/>/mo</th>
+              <th style={{ textAlign: "right" }}>RET<br/>/mo</th>
+              <th style={{ textAlign: "right" }}>Other<br/>/mo</th>
+              <th style={{ textAlign: "right" }}>Gross<br/>/mo</th>
             </tr>
           </thead>
           <tbody>
