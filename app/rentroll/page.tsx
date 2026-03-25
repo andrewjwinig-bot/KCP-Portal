@@ -92,6 +92,23 @@ const NI_LLC_CODES  = new Set(["4050", "4060", "4070", "4080", "40A0", "40B0", "
 const SC_CODES      = new Set(["1100", "2300", "4500", "7010", "9510", "7200", "7300", "1500", "9200", "5600", "8200"]);
 const KH_CODES      = new Set(["9800", "9820", "9840", "9860"]);
 
+// ─── Category filter sets ─────────────────────────────────────────────────────
+
+const CATEGORY_OFFICE_CODES      = new Set([...JV_III_CODES, ...NI_LLC_CODES]);
+const CATEGORY_RETAIL_CODES      = new Set([...SC_CODES]);
+const CATEGORY_RESIDENTIAL_CODES = new Set([...KH_CODES]);
+const CATEGORY_OW_CODES          = new Set(["4900"]);
+
+type CategoryFilter = "All" | "Office" | "Retail" | "Residential" | "The Office Works";
+
+const CATEGORY_OPTIONS: { label: CategoryFilter; color: string; activeColor: string }[] = [
+  { label: "All",              color: "var(--muted)",  activeColor: "#0f172a"  },
+  { label: "Office",           color: "#0b4a7d",       activeColor: "#0b4a7d"  },
+  { label: "Retail",           color: "#0d9488",       activeColor: "#0d9488"  },
+  { label: "Residential",      color: "#6d28d9",       activeColor: "#6d28d9"  },
+  { label: "The Office Works", color: "#475569",       activeColor: "#475569"  },
+];
+
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function StatPill({ label, value, sub }: { label: string; value: string; sub?: string }) {
@@ -639,6 +656,7 @@ export default function RentRollPage() {
   const [loading, setLoading]   = useState(true);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("All");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Load existing rent roll on mount
@@ -683,6 +701,23 @@ export default function RentRollPage() {
           ...p,
           units: p.units.filter((u) => !EXCLUDED_UNIT_REFS.has(u.unitRef)),
         })),
+      }
+    : null;
+
+  // Category-filtered rent roll (used for the dashboard sections below)
+  const categoryRentroll = filteredRentroll
+    ? {
+        ...filteredRentroll,
+        properties: categoryFilter === "All"
+          ? filteredRentroll.properties
+          : filteredRentroll.properties.filter((p) => {
+              const code = p.propertyCode.toUpperCase();
+              if (categoryFilter === "Office")           return CATEGORY_OFFICE_CODES.has(code);
+              if (categoryFilter === "Retail")           return CATEGORY_RETAIL_CODES.has(code);
+              if (categoryFilter === "Residential")      return CATEGORY_RESIDENTIAL_CODES.has(code);
+              if (categoryFilter === "The Office Works") return CATEGORY_OW_CODES.has(code);
+              return true;
+            }),
       }
     : null;
 
@@ -746,23 +781,58 @@ export default function RentRollPage() {
       </div>
 
       {/* ── Dashboard ─────────────────────────────────────────────────────── */}
-      {filteredRentroll && (
+      {filteredRentroll && categoryRentroll && (
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
 
+          {/* Category filter pills */}
+          <div style={{ display: "flex", gap: 8 }}>
+            {CATEGORY_OPTIONS.map(({ label, color, activeColor }) => {
+              const active = categoryFilter === label;
+              return (
+                <button
+                  key={label}
+                  onClick={() => setCategoryFilter(label)}
+                  style={{
+                    flex: 1,
+                    padding: "8px 4px",
+                    borderRadius: 999,
+                    fontSize: 13,
+                    fontWeight: active ? 700 : 500,
+                    cursor: "pointer",
+                    border: `1.5px solid ${active ? activeColor : "var(--border)"}`,
+                    background: active
+                      ? label === "All"
+                        ? "rgba(15,23,42,0.08)"
+                        : `${activeColor}18`
+                      : "transparent",
+                    color: active ? activeColor : "var(--muted)",
+                    transition: "all 0.15s ease",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+
           {/* Multi-line occupancy bars */}
-          {totalSqft > 0 && <OccupancyLines rentroll={filteredRentroll} />}
+          {categoryRentroll.properties.reduce((s, p) => s + p.totalSqft, 0) > 0 && (
+            <OccupancyLines rentroll={categoryRentroll} />
+          )}
 
           {/* Alerts */}
-          <AlertsPanel rentroll={filteredRentroll} />
+          <AlertsPanel rentroll={categoryRentroll} />
 
           {/* Per-property cards grouped by portfolio */}
           {(() => {
-            const jvIII  = filteredRentroll.properties.filter(p => JV_III_CODES.has(p.propertyCode.toUpperCase()));
-            const niLLC  = filteredRentroll.properties.filter(p => NI_LLC_CODES.has(p.propertyCode.toUpperCase()));
-            const sc     = filteredRentroll.properties.filter(p => SC_CODES.has(p.propertyCode.toUpperCase()));
-            const kh     = filteredRentroll.properties.filter(p => KH_CODES.has(p.propertyCode.toUpperCase()));
+            const props = categoryRentroll.properties;
+            const jvIII  = props.filter(p => JV_III_CODES.has(p.propertyCode.toUpperCase()));
+            const niLLC  = props.filter(p => NI_LLC_CODES.has(p.propertyCode.toUpperCase()));
+            const sc     = props.filter(p => SC_CODES.has(p.propertyCode.toUpperCase()));
+            const kh     = props.filter(p => KH_CODES.has(p.propertyCode.toUpperCase()));
             const allGrouped = new Set([...JV_III_CODES, ...NI_LLC_CODES, ...SC_CODES, ...KH_CODES]);
-            const other  = filteredRentroll.properties.filter(p => !allGrouped.has(p.propertyCode.toUpperCase()));
+            const other  = props.filter(p => !allGrouped.has(p.propertyCode.toUpperCase()));
             return (
               <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
                 <PortfolioGroup name="JV III LLC"         props={jvIII} />
