@@ -574,7 +574,7 @@ function AlertsPanel({ rentroll }: { rentroll: RentRollData }) {
 
 // ─── Multi-line Occupancy Bars ────────────────────────────────────────────────
 
-function OccupancyLines({ rentroll }: { rentroll: RentRollData }) {
+function OccupancyLines({ rentroll, categoryFilter }: { rentroll: RentRollData; categoryFilter: CategoryFilter }) {
   function pctFor(codes: Set<string>): number | null {
     const props = rentroll.properties.filter(p => codes.has(p.propertyCode.toUpperCase()));
     const total    = props.reduce((s, p) => s + p.totalSqft,    0);
@@ -582,24 +582,48 @@ function OccupancyLines({ rentroll }: { rentroll: RentRollData }) {
     return total > 0 ? (occupied / total) * 100 : null;
   }
 
-  const totalSqft    = rentroll.properties.reduce((s, p) => s + p.totalSqft,    0);
+  const totalSqft     = rentroll.properties.reduce((s, p) => s + p.totalSqft,    0);
   const totalOccupied = rentroll.properties.reduce((s, p) => s + p.occupiedSqft, 0);
-  const totalPct     = totalSqft > 0 ? (totalOccupied / totalSqft) * 100 : null;
+  const totalPct      = totalSqft > 0 ? (totalOccupied / totalSqft) * 100 : null;
 
-  const lines = [
-    { label: "% Occupied – Total",            pct: totalPct },
-    { label: "% Occupied – JV III LLC",        pct: pctFor(JV_III_CODES) },
-    { label: "% Occupied – NI LLC",            pct: pctFor(NI_LLC_CODES) },
-    { label: "% Occupied – Shopping Centers",  pct: pctFor(SC_CODES) },
-    { label: "% Occupied – Korman Homes",      pct: pctFor(KH_CODES) },
-  ].filter((l): l is { label: string; pct: number } => l.pct !== null);
+  type OccLine = { label: string; pct: number; indent?: boolean; bold?: boolean };
+
+  let lines: OccLine[];
+
+  if (categoryFilter === "All") {
+    lines = ([
+      { label: "% Occupied – Total",           pct: totalPct,              bold: true },
+      { label: "JV III LLC",                   pct: pctFor(JV_III_CODES)              },
+      { label: "NI LLC",                       pct: pctFor(NI_LLC_CODES)              },
+      { label: "Shopping Centers",             pct: pctFor(SC_CODES)                  },
+      { label: "Korman Homes",                 pct: pctFor(KH_CODES)                  },
+    ] as OccLine[]).filter((l): l is OccLine => l.pct != null);
+  } else {
+    const propLines: OccLine[] = rentroll.properties
+      .filter(p => p.totalSqft > 0)
+      .map(p => ({
+        label: propName(p.propertyCode),
+        pct: (p.occupiedSqft / p.totalSqft) * 100,
+        indent: categoryFilter === "Office",
+      }));
+
+    if (categoryFilter === "Office") {
+      const portfolioLines: OccLine[] = (([
+        { label: "JV III LLC", pct: pctFor(JV_III_CODES), bold: true },
+        { label: "NI LLC",     pct: pctFor(NI_LLC_CODES), bold: true },
+      ]) as OccLine[]).filter((l): l is OccLine => l.pct != null);
+      lines = [...portfolioLines, ...propLines];
+    } else {
+      lines = propLines;
+    }
+  }
 
   return (
     <div className="card" style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 10 }}>
-      {lines.map(({ label, pct }) => (
-        <div key={label} style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <span style={{ fontSize: 12, color: "var(--muted)", width: 230, flexShrink: 0 }}>{label}</span>
-          <div style={{ flex: 1, height: 6, borderRadius: 999, background: "rgba(15,23,42,0.08)", overflow: "hidden" }}>
+      {lines.map(({ label, pct, indent, bold }) => (
+        <div key={label} style={{ display: "flex", alignItems: "center", gap: 12, paddingLeft: indent ? 16 : 0 }}>
+          <span style={{ fontSize: indent ? 11 : 12, color: "var(--muted)", width: 230, flexShrink: 0, fontWeight: bold ? 700 : 400 }}>{label}</span>
+          <div style={{ flex: 1, height: indent ? 5 : 6, borderRadius: 999, background: "rgba(15,23,42,0.08)", overflow: "hidden" }}>
             <div style={{
               height: "100%",
               width: `${pct}%`,
@@ -608,7 +632,7 @@ function OccupancyLines({ rentroll }: { rentroll: RentRollData }) {
               transition: "width 0.4s ease",
             }} />
           </div>
-          <span style={{ fontSize: 12, fontWeight: 700, color: "var(--muted)", whiteSpace: "nowrap", width: 44, textAlign: "right" }}>
+          <span style={{ fontSize: indent ? 11 : 12, fontWeight: 700, color: "var(--muted)", whiteSpace: "nowrap", width: 44, textAlign: "right" }}>
             {pct.toFixed(1)}%
           </span>
         </div>
@@ -818,7 +842,7 @@ export default function RentRollPage() {
 
           {/* Multi-line occupancy bars */}
           {categoryRentroll.properties.reduce((s, p) => s + p.totalSqft, 0) > 0 && (
-            <OccupancyLines rentroll={categoryRentroll} />
+            <OccupancyLines rentroll={categoryRentroll} categoryFilter={categoryFilter} />
           )}
 
           {/* Alerts */}
