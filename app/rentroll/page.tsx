@@ -486,33 +486,62 @@ function AlertsPanel({ rentroll }: { rentroll: RentRollData }) {
               </div>
             </div>
           </button>
-          {vacOpen && (
-            <div style={{ borderTop: "1px solid var(--border)", padding: "0 20px 20px" }}>
-              <div className="tableWrap" style={{ marginTop: 16 }}>
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Property</th>
-                      <th>Unit</th>
-                      <th style={{ textAlign: "right" }}>Sq Ft</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {vacancies.map(({ propertyCode, unit }, i) => (
-                      <tr key={i} style={{ background: "rgba(15,23,42,0.025)" }}>
-                        <td style={{ fontSize: 13 }}>
-                          <div style={{ fontWeight: 600 }}>{propName(propertyCode)}</div>
-                          <div style={{ fontSize: 11, color: "var(--muted)" }}>{propertyCode}</div>
-                        </td>
-                        <td><code style={{ fontSize: 12 }}>{unit.unitRef}</code></td>
-                        <td style={{ textAlign: "right", fontSize: 13 }}>{sqftFmt(unit.sqft)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+          {vacOpen && (() => {
+            const OW_CODES = new Set(["4900"]);
+            const vacGroups: { label: string; codes: Set<string> }[] = [
+              { label: "JV III LLC",        codes: JV_III_CODES },
+              { label: "NI LLC",            codes: NI_LLC_CODES },
+              { label: "Shopping Centers",  codes: SC_CODES },
+              { label: "Korman Homes",      codes: KH_CODES },
+              { label: "The Office Works",  codes: OW_CODES },
+            ];
+            const allKnown = new Set([...JV_III_CODES, ...NI_LLC_CODES, ...SC_CODES, ...KH_CODES, ...OW_CODES]);
+            const groupedRows = vacGroups.map(({ label, codes }) => ({
+              label,
+              rows: vacancies.filter(v => codes.has(v.propertyCode.toUpperCase())),
+            })).filter(g => g.rows.length > 0);
+            const otherRows = vacancies.filter(v => !allKnown.has(v.propertyCode.toUpperCase()));
+            if (otherRows.length > 0) groupedRows.push({ label: "Other", rows: otherRows });
+
+            return (
+              <div style={{ borderTop: "1px solid var(--border)", padding: "0 20px 20px", display: "flex", flexDirection: "column", gap: 20 }}>
+                {groupedRows.map(({ label, rows }) => {
+                  const groupSqft = rows.reduce((s, r) => s + r.unit.sqft, 0);
+                  return (
+                    <div key={label} style={{ marginTop: 16 }}>
+                      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 8 }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>{label}</span>
+                        <span style={{ fontSize: 12, color: "var(--muted)" }}>{rows.length} unit{rows.length !== 1 ? "s" : ""} · {sqftFmt(groupSqft)} sf</span>
+                      </div>
+                      <div className="tableWrap" style={{ marginTop: 0 }}>
+                        <table>
+                          <thead>
+                            <tr>
+                              <th>Property</th>
+                              <th>Unit</th>
+                              <th style={{ textAlign: "right" }}>Sq Ft</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {rows.map(({ propertyCode, unit }, i) => (
+                              <tr key={i} style={{ background: "rgba(15,23,42,0.025)" }}>
+                                <td style={{ fontSize: 13 }}>
+                                  <div style={{ fontWeight: 600 }}>{propName(propertyCode)}</div>
+                                  <div style={{ fontSize: 11, color: "var(--muted)" }}>{propertyCode}</div>
+                                </td>
+                                <td><code style={{ fontSize: 12 }}>{unit.unitRef}</code></td>
+                                <td style={{ textAlign: "right", fontSize: 13 }}>{sqftFmt(unit.sqft)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-            </div>
-          )}
+            );
+          })()}
         </div>
       )}
 
