@@ -6,6 +6,7 @@ import {
   PROPERTY_DEFS, ALLOC_PCT, TYPE_STYLE, BANK_ACCOUNTS,
   type PropertyDef, type PropType, type BankAccount,
 } from "../../lib/properties/data";
+import type { RentRollData, RentRollProperty } from "../../lib/rentroll/parseRentRollExcel";
 import {
   TAX_TASKS, PARCEL_INFO,
   baseEntityName, filingLabel, isTaskEffectivelyDone,
@@ -81,6 +82,20 @@ function DetailModal({
   const k1Tasks     = tasks.filter(t => t.category === "k1");
   const filingTasks = tasks.filter(t => t.category !== "k1");
 
+  const [rrProp, setRrProp] = useState<RentRollProperty | null>(null);
+  useEffect(() => {
+    fetch("/api/rentroll")
+      .then(r => r.ok ? r.json() : null)
+      .then((data: RentRollData | null) => {
+        if (!data) return;
+        const match = data.properties.find(
+          p => p.propertyCode.toUpperCase() === prop.id.toUpperCase()
+        );
+        setRrProp(match ?? null);
+      })
+      .catch(() => {});
+  }, [prop.id]);
+
   const today = new Date();
 
   function filingStatus(t: TaxTask) {
@@ -144,6 +159,54 @@ function DetailModal({
               )}
             </div>
           </section>
+
+          {/* ── Occupancy & Suites (from rent roll) ── */}
+          {rrProp && (
+            <section>
+              <SectionLabel>Occupancy</SectionLabel>
+              {rrProp.totalSqft > 0 && (() => {
+                const pctOcc = (rrProp.occupiedSqft / rrProp.totalSqft) * 100;
+                return (
+                  <div style={{ marginBottom: 14 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+                      <span style={{
+                        fontSize: 22, fontWeight: 900, lineHeight: 1,
+                        color: pctOcc >= 90 ? "#16a34a" : pctOcc >= 70 ? "#0b4a7d" : "#d97706",
+                      }}>{pctOcc.toFixed(1)}%</span>
+                      <span style={{ fontSize: 13, color: "var(--muted)" }}>
+                        {rrProp.occupiedSqft.toLocaleString()} / {rrProp.totalSqft.toLocaleString()} sq ft occupied
+                      </span>
+                    </div>
+                    <div style={{ height: 6, borderRadius: 999, background: "rgba(15,23,42,0.08)", overflow: "hidden" }}>
+                      <div style={{
+                        height: "100%", borderRadius: 999,
+                        width: `${pctOcc}%`,
+                        background: pctOcc >= 90 ? "#16a34a" : pctOcc >= 70 ? "#0b4a7d" : "#d97706",
+                      }} />
+                    </div>
+                  </div>
+                );
+              })()}
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                {rrProp.units.map((u, i) => (
+                  <div key={i} style={{
+                    display: "flex", alignItems: "center", gap: 10,
+                    padding: "7px 12px",
+                    background: u.isVacant ? "rgba(15,23,42,0.025)" : "rgba(11,74,125,0.04)",
+                    border: "1px solid",
+                    borderColor: u.isVacant ? "var(--border)" : "rgba(11,74,125,0.12)",
+                    borderRadius: 8,
+                  }}>
+                    <code style={{ fontSize: 12, fontWeight: 700, color: "#0b4a7d", flexShrink: 0 }}>{u.unitRef}</code>
+                    <span style={{ flex: 1, fontSize: 13, fontWeight: u.isVacant ? 400 : 600, color: u.isVacant ? "var(--muted)" : "var(--text)", fontStyle: u.isVacant ? "italic" : "normal" }}>
+                      {u.isVacant ? "Vacant" : u.occupantName}
+                    </span>
+                    <span style={{ fontSize: 12, color: "var(--muted)", flexShrink: 0 }}>{u.sqft.toLocaleString()} sf</span>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
 
           {/* ── Parcel Numbers ── */}
           {parcels.length > 0 && (
