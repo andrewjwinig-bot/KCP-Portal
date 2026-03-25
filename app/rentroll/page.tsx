@@ -82,6 +82,13 @@ function fileToBase64(file: File): Promise<string> {
   });
 }
 
+// ─── Portfolio definitions ────────────────────────────────────────────────────
+
+const JV_III_CODES  = new Set(["3610", "3620", "3640"]);
+const NI_LLC_CODES  = new Set(["4050", "4060", "4070", "4080", "40A0", "40B0", "40C0"]);
+const SC_CODES      = new Set(["1100", "2300", "4500", "7010", "9510", "7200", "7300", "1500", "9200", "5600", "8200"]);
+const KH_CODES      = new Set(["9800", "9820", "9840", "9860"]);
+
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function StatPill({ label, value, sub }: { label: string; value: string; sub?: string }) {
@@ -435,6 +442,83 @@ function AlertsPanel({ rentroll }: { rentroll: RentRollData }) {
   );
 }
 
+// ─── Multi-line Occupancy Bars ────────────────────────────────────────────────
+
+function OccupancyLines({ rentroll }: { rentroll: RentRollData }) {
+  function pctFor(codes: Set<string>): number | null {
+    const props = rentroll.properties.filter(p => codes.has(p.propertyCode.toUpperCase()));
+    const total    = props.reduce((s, p) => s + p.totalSqft,    0);
+    const occupied = props.reduce((s, p) => s + p.occupiedSqft, 0);
+    return total > 0 ? (occupied / total) * 100 : null;
+  }
+
+  const totalSqft    = rentroll.properties.reduce((s, p) => s + p.totalSqft,    0);
+  const totalOccupied = rentroll.properties.reduce((s, p) => s + p.occupiedSqft, 0);
+  const totalPct     = totalSqft > 0 ? (totalOccupied / totalSqft) * 100 : null;
+
+  const lines = [
+    { label: "% Occupied – Total",            pct: totalPct },
+    { label: "% Occupied – JV III LLC",        pct: pctFor(JV_III_CODES) },
+    { label: "% Occupied – NI LLC",            pct: pctFor(NI_LLC_CODES) },
+    { label: "% Occupied – Shopping Centers",  pct: pctFor(SC_CODES) },
+    { label: "% Occupied – Korman Homes",      pct: pctFor(KH_CODES) },
+  ].filter((l): l is { label: string; pct: number } => l.pct !== null);
+
+  return (
+    <div className="card" style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 10 }}>
+      {lines.map(({ label, pct }) => (
+        <div key={label} style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <span style={{ fontSize: 12, color: "var(--muted)", width: 230, flexShrink: 0 }}>{label}</span>
+          <div style={{ flex: 1, height: 6, borderRadius: 999, background: "rgba(15,23,42,0.08)", overflow: "hidden" }}>
+            <div style={{
+              height: "100%",
+              width: `${pct}%`,
+              borderRadius: 999,
+              background: pct >= 90 ? "#16a34a" : pct >= 70 ? "#0b4a7d" : "#d97706",
+              transition: "width 0.4s ease",
+            }} />
+          </div>
+          <span style={{ fontSize: 12, fontWeight: 700, color: "var(--muted)", whiteSpace: "nowrap", width: 44, textAlign: "right" }}>
+            {pct.toFixed(1)}%
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── Portfolio Group ──────────────────────────────────────────────────────────
+
+function PortfolioGroup({ name, props }: { name: string; props: RentRollProperty[] }) {
+  if (!props.length) return null;
+  const totalSqft    = props.reduce((s, p) => s + p.totalSqft,    0);
+  const occupiedSqft = props.reduce((s, p) => s + p.occupiedSqft, 0);
+  const vacantSqft   = props.reduce((s, p) => s + p.vacantSqft,   0);
+  const gross        = props.reduce((s, p) => s + p.units.reduce((u, unit) => u + unit.grossRentTotal, 0), 0);
+  const pct          = totalSqft > 0 ? (occupiedSqft / totalSqft) * 100 : 0;
+
+  return (
+    <div>
+      {/* Portfolio header */}
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10 }}>
+        <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--muted)" }}>
+          {name} <span style={{ fontWeight: 500 }}>({props.length})</span>
+        </div>
+        <div style={{ display: "flex", gap: 18, fontSize: 12, color: "var(--muted)" }}>
+          <span>{sqftFmt(totalSqft)} total sf</span>
+          <span>{sqftFmt(occupiedSqft)} occupied</span>
+          {vacantSqft > 0 && <span>{sqftFmt(vacantSqft)} vacant</span>}
+          <span style={{ fontWeight: 700, color: pct >= 90 ? "#16a34a" : pct >= 70 ? "#0b4a7d" : "#d97706" }}>{pct.toFixed(1)}% occ</span>
+          {gross > 0 && <span>{money(gross)}/mo gross</span>}
+        </div>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {props.map(p => <PropertyCard key={p.propertyCode} prop={p} />)}
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function RentRollPage() {
@@ -488,26 +572,18 @@ export default function RentRollPage() {
 
   return (
     <main>
-      {/* ── Page Header ─────────────────────────────────────────────────── */}
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, marginBottom: 24, flexWrap: "wrap" }}>
-        <div>
-          <h1 style={{ fontSize: 36, letterSpacing: "-0.03em", marginBottom: 4 }}>Rent Roll</h1>
-          {rentroll && (
-            <div style={{ fontSize: 13, color: "var(--muted)" }}>
-              Report period: {rentroll.reportFrom} – {rentroll.reportTo}
-              {" · "}
-              Uploaded {new Date(rentroll.uploadedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-            </div>
-          )}
+      <h1 style={{ fontSize: 36, letterSpacing: "-0.03em", marginBottom: 24 }}>Rent Roll</h1>
+
+      {/* ── Import card ───────────────────────────────────────────────────── */}
+      <div className="card" style={{ marginBottom: 24 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
+          <b>Import Rent Roll</b>
+          <span style={{ background: "rgba(22, 163, 74, 0.85)", color: "#fff", borderRadius: 999, padding: "12px 18px", fontSize: 15, fontWeight: 700, border: "1px solid transparent", display: "inline-flex", alignItems: "center" }}>Monthly</span>
         </div>
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
-          <button
-            className="btn primary"
-            disabled={uploading}
-            onClick={() => fileInputRef.current?.click()}
-          >
-            {uploading ? "Uploading…" : rentroll ? "Replace Rent Roll" : "Upload Rent Roll"}
-          </button>
+        <p className="muted small" style={{ marginTop: 8 }}>
+          Import the <b>Commercial Rent Roll</b> Excel file (.xls or .xlsx).
+        </p>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 12 }}>
           <input
             ref={fileInputRef}
             type="file"
@@ -515,83 +591,64 @@ export default function RentRollPage() {
             style={{ display: "none" }}
             onChange={handleFileChange}
           />
-          {uploadError && (
-            <div style={{ fontSize: 13, color: "#dc2626", maxWidth: 320, textAlign: "right" }}>{uploadError}</div>
-          )}
-        </div>
-      </div>
-
-      {/* ── Loading state ─────────────────────────────────────────────────── */}
-      {loading && (
-        <div style={{ color: "var(--muted)", fontSize: 15, padding: "40px 0" }}>Loading…</div>
-      )}
-
-      {/* ── Empty state ───────────────────────────────────────────────────── */}
-      {!loading && !rentroll && (
-        <div className="card" style={{ textAlign: "center", padding: "60px 40px" }}>
-          <div style={{ fontSize: 40, marginBottom: 12 }}>📋</div>
-          <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>No Rent Roll Uploaded</div>
-          <div style={{ fontSize: 14, color: "var(--muted)", marginBottom: 20, maxWidth: 440, margin: "0 auto 20px" }}>
-            Upload the monthly Excel rent roll to view occupancy data, lease expirations, and scheduled escalations across all properties.
-          </div>
+          <button className="btn large" onClick={() => fileInputRef.current?.click()} style={{ whiteSpace: "nowrap" }} disabled={uploading}>
+            {uploading ? "Uploading…" : "Choose Rent Roll File…"}
+          </button>
           <button
-            className="btn primary large"
-            onClick={() => fileInputRef.current?.click()}
+            className="btn"
+            style={{ borderRadius: 999, fontWeight: 700, whiteSpace: "nowrap" }}
+            onClick={() => setRentroll(null)}
+            disabled={!rentroll}
           >
-            Upload Rent Roll
+            Clear
           </button>
         </div>
-      )}
+        {uploadError && <div style={{ color: "#b42318", fontSize: 13, marginTop: 6 }}>{uploadError}</div>}
+        {loading && <div style={{ color: "var(--muted)", fontSize: 13, marginTop: 10 }}>Loading…</div>}
+        {rentroll && (
+          <>
+            <div className="pills" style={{ justifyContent: "flex-start", marginTop: 16, marginBottom: 0 }}>
+              <StatPill label="Total Sq Ft"    value={sqftFmt(totalSqft)} />
+              <StatPill label="Occupied"       value={sqftFmt(occupiedSqft)} />
+              <StatPill label="Vacant"         value={sqftFmt(vacantSqft)} />
+              <StatPill label="Properties"     value={String(rentroll.properties.length)} />
+              {totalGross > 0 && <StatPill label="Gross Rent/mo" value={money(totalGross)} />}
+            </div>
+            <div className="small muted" style={{ textAlign: "center", marginTop: 6 }}>
+              <b>Period:</b> {rentroll.reportFrom} – {rentroll.reportTo}
+            </div>
+          </>
+        )}
+      </div>
 
       {/* ── Dashboard ─────────────────────────────────────────────────────── */}
       {rentroll && (
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
 
-          {/* Portfolio summary */}
-          <div className="pills" style={{ justifyContent: "flex-start", marginTop: 0 }}>
-            <StatPill label="Total Sq Ft"     value={sqftFmt(totalSqft)} />
-            <StatPill
-              label="Occupied"
-              value={sqftFmt(occupiedSqft)}
-              sub={`${occupancyPct.toFixed(1)}% occupancy`}
-            />
-            <StatPill label="Vacant"          value={sqftFmt(vacantSqft)} />
-            <StatPill label="Properties"      value={String(rentroll.properties.length)} />
-            {totalGross > 0 && (
-              <StatPill label="Gross Rent/mo"  value={money(totalGross)} />
-            )}
-          </div>
-
-          {/* Occupancy bar */}
-          {totalSqft > 0 && (
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <div style={{ flex: 1, height: 8, borderRadius: 999, background: "rgba(15,23,42,0.08)", overflow: "hidden" }}>
-                <div style={{
-                  height: "100%",
-                  width: `${occupancyPct}%`,
-                  borderRadius: 999,
-                  background: occupancyPct >= 90 ? "#16a34a" : occupancyPct >= 70 ? "#0b4a7d" : "#d97706",
-                  transition: "width 0.4s ease",
-                }} />
-              </div>
-              <span style={{ fontSize: 13, fontWeight: 700, color: "var(--muted)", whiteSpace: "nowrap" }}>
-                {occupancyPct.toFixed(1)}% occupied
-              </span>
-            </div>
-          )}
+          {/* Multi-line occupancy bars */}
+          {totalSqft > 0 && <OccupancyLines rentroll={rentroll} />}
 
           {/* Alerts */}
           <AlertsPanel rentroll={rentroll} />
 
-          {/* Per-property cards */}
-          <div>
-            <SectionLabel>Properties ({rentroll.properties.length})</SectionLabel>
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              {rentroll.properties.map((prop) => (
-                <PropertyCard key={prop.propertyCode} prop={prop} />
-              ))}
-            </div>
-          </div>
+          {/* Per-property cards grouped by portfolio */}
+          {(() => {
+            const jvIII  = rentroll.properties.filter(p => JV_III_CODES.has(p.propertyCode.toUpperCase()));
+            const niLLC  = rentroll.properties.filter(p => NI_LLC_CODES.has(p.propertyCode.toUpperCase()));
+            const sc     = rentroll.properties.filter(p => SC_CODES.has(p.propertyCode.toUpperCase()));
+            const kh     = rentroll.properties.filter(p => KH_CODES.has(p.propertyCode.toUpperCase()));
+            const allGrouped = new Set([...JV_III_CODES, ...NI_LLC_CODES, ...SC_CODES, ...KH_CODES]);
+            const other  = rentroll.properties.filter(p => !allGrouped.has(p.propertyCode.toUpperCase()));
+            return (
+              <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
+                <PortfolioGroup name="JV III LLC"         props={jvIII} />
+                <PortfolioGroup name="NI LLC"             props={niLLC} />
+                <PortfolioGroup name="Shopping Centers"   props={sc} />
+                <PortfolioGroup name="Korman Homes"       props={kh} />
+                {other.length > 0 && <PortfolioGroup name="Other Properties" props={other} />}
+              </div>
+            );
+          })()}
         </div>
       )}
     </main>
