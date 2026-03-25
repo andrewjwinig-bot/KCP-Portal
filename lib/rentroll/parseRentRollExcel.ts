@@ -14,6 +14,7 @@ import { PROPERTY_DEFS } from "../properties/data";
  *   Column U   (index 20): Base Rent / month — merged U:X
  *   Column AL  (index 37): CAM (Operating Expense) / month — merged AL:AM
  *   Column AS  (index 44): Real Estate Tax / month — merged AS:AV
+ *   Column BB  (index 53): Other / month — merged BB:BC
  *
  * Property code = first segment of unit ref before the first dash.
  * Only units whose property code matches a known entry in PROPERTY_DEFS are included.
@@ -27,6 +28,7 @@ const COL_LEASE_TO    = 17; // R  (merged R:T)
 const COL_BASE_RENT   = 20; // U  (merged U:X)
 const COL_OPEX_MONTH  = 39; // AN (merged AN:AR) — CAM
 const COL_RETAX_MONTH = 48; // AW (merged AW:AZ) — RE Tax
+const COL_OTHER_MONTH = 53; // BB (merged BB:BC) — Other
 
 export interface RentRollEscalation {
   date: string;
@@ -187,8 +189,9 @@ export function parseRentRollExcel(
     const leaseFrom = parseDateStr(row[COL_LEASE_FROM]);
     const leaseTo   = parseDateStr(row[COL_LEASE_TO]);
     const baseRent  = toNumber(row[COL_BASE_RENT]);
-    const opexMonth = toNumber(row[COL_OPEX_MONTH]);
+    const opexMonth  = toNumber(row[COL_OPEX_MONTH]);
     const reTaxMonth = toNumber(row[COL_RETAX_MONTH]);
+    const otherMonth = toNumber(row[COL_OTHER_MONTH]);
 
     prop.units.push({
       occupantName,
@@ -207,10 +210,10 @@ export function parseRentRollExcel(
       opexPerSqft:    sqft > 0 ? (opexMonth * 12) / sqft : 0,
       reTaxMonth,
       reTaxPerSqft:   sqft > 0 ? (reTaxMonth * 12) / sqft : 0,
-      otherMonth:     0,
-      otherPerSqft:   0,
-      grossRentTotal: baseRent + opexMonth + reTaxMonth,
-      grossRentPerSqft: sqft > 0 ? ((baseRent + opexMonth + reTaxMonth) * 12) / sqft : 0,
+      otherMonth,
+      otherPerSqft:   sqft > 0 ? (otherMonth * 12) / sqft : 0,
+      grossRentTotal: baseRent + opexMonth + reTaxMonth + otherMonth,
+      grossRentPerSqft: sqft > 0 ? ((baseRent + opexMonth + reTaxMonth + otherMonth) * 12) / sqft : 0,
       futureEscalations: [],
     });
 
