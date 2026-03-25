@@ -32,7 +32,7 @@ function formatDate(s: string | null | undefined): string {
   const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
   if (!m) return s;
   const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-  return `${months[Number(m[1]) - 1]} ${Number(m[2])}, ${m[3]}`;
+  return `${months[Number(m[1]) - 1]} ${Number(m[2])}, ${m[3].slice(2)}`;
 }
 
 function leaseStatus(leaseTo: string | null | undefined): {
@@ -137,14 +137,11 @@ function UnitsTable({ units, propertyCode }: { units: RentRollUnit[]; propertyCo
               <th style={{ textAlign: "right" }}>RE Tax/mo</th>
               <th style={{ textAlign: "right" }}>Other/mo</th>
               <th style={{ textAlign: "right" }}>Gross/mo</th>
-              <th>Next Escalation</th>
             </tr>
           </thead>
           <tbody>
             {displayed.map((unit, i) => {
               const status  = leaseStatus(unit.leaseTo);
-              const nextEsc = nextEscalation(unit);
-              const escDays = nextEsc ? daysUntil(parseRentDate(nextEsc.date)!) : null;
               const rowBg   = unit.isVacant
                 ? "rgba(15,23,42,0.025)"
                 : status.days !== null && status.days <= 90
@@ -165,17 +162,7 @@ function UnitsTable({ units, propertyCode }: { units: RentRollUnit[]; propertyCo
                   <td style={{ fontSize: 13, color: "var(--muted)" }}>{formatDate(unit.leaseFrom)}</td>
                   <td style={{ fontSize: 13 }}>
                     {unit.leaseTo ? (
-                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <span>{formatDate(unit.leaseTo)}</span>
-                        {!unit.isVacant && status.label !== "OK" && (
-                          <AlertBadge
-                            label={status.label}
-                            color={status.color}
-                            bg={status.bg}
-                            border={status.border}
-                          />
-                        )}
-                      </div>
+                      <span>{formatDate(unit.leaseTo)}</span>
                     ) : (
                       <span style={{ color: "var(--muted)" }}>—</span>
                     )}
@@ -189,23 +176,6 @@ function UnitsTable({ units, propertyCode }: { units: RentRollUnit[]; propertyCo
                   <td style={{ textAlign: "right", fontSize: 13 }}>{unit.otherMonth ? money(unit.otherMonth) : "—"}</td>
                   <td style={{ textAlign: "right", fontSize: 13, fontWeight: 600 }}>
                     {unit.grossRentTotal ? money(unit.grossRentTotal) : "—"}
-                  </td>
-                  <td style={{ fontSize: 13 }}>
-                    {nextEsc ? (
-                      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                        <span style={{ fontWeight: 600 }}>{money(nextEsc.amount)}/mo</span>
-                        <span style={{
-                          fontSize: 11,
-                          color: escDays !== null && escDays <= 90 ? "#d97706" : "var(--muted)",
-                          fontWeight: escDays !== null && escDays <= 90 ? 700 : 400,
-                        }}>
-                          {formatDate(nextEsc.date)}
-                          {escDays !== null && escDays <= 90 && ` · ${escDays}d`}
-                        </span>
-                      </div>
-                    ) : (
-                      <span style={{ color: "var(--muted)" }}>—</span>
-                    )}
                   </td>
                 </tr>
               );
@@ -236,6 +206,7 @@ function PropertyCard({ prop }: { prop: RentRollProperty }) {
 
   const expiringCount = prop.units.filter((u) => {
     if (u.isVacant) return false;
+    if (u.baseRent === 0 && u.grossRentTotal === 0) return false;
     const d = parseRentDate(u.leaseTo);
     if (!d) return false;
     return daysUntil(d) <= 90;
@@ -340,7 +311,7 @@ function AlertsPanel({ rentroll }: { rentroll: RentRollData }) {
 
   for (const prop of rentroll.properties) {
     for (const unit of prop.units) {
-      if (!unit.isVacant && unit.leaseTo) {
+      if (!unit.isVacant && unit.leaseTo && (unit.baseRent > 0 || unit.grossRentTotal > 0)) {
         const d = parseRentDate(unit.leaseTo);
         if (d) {
           const days = daysUntil(d);
