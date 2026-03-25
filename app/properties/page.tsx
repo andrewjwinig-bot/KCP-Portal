@@ -148,17 +148,75 @@ function DetailModal({
           {/* ── Overview ── */}
           <section>
             <SectionLabel>Overview</SectionLabel>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px 32px" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px 32px", marginBottom: (parcels.length > 0 || bankAccounts.length > 0) ? 16 : 0 }}>
               {prop.type !== "Land" && prop.type !== "Misc" && (
                 <InfoField label="Sq Footage" value={prop.sqft ? `${prop.sqft.toLocaleString()} sq ft` : "—"} />
               )}
               {prop.type !== "Land" && prop.type !== "Misc" && (
                 <InfoField label="Year Built" value={prop.yearBuilt ? String(prop.yearBuilt) : "—"} />
               )}
-              {prop.allocGroup && (
-                <InfoField label="Alloc. Group" value={prop.allocGroup === "BP" ? "Business Park (9301)" : "Shopping Centers (9302)"} />
-              )}
             </div>
+
+            {/* Parcel Numbers */}
+            {parcels.length > 0 && (
+              <div style={{ marginBottom: bankAccounts.length > 0 ? 12 : 0 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 6 }}>Parcel Numbers</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {parcels.map((p, i) => (
+                    <div key={i} style={{
+                      display: "flex", alignItems: "center", justifyContent: "space-between",
+                      padding: "8px 12px",
+                      background: "rgba(11,74,125,0.04)",
+                      border: "1px solid rgba(11,74,125,0.12)",
+                      borderRadius: 8,
+                      gap: 10,
+                    }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        {p.link
+                          ? <a href={p.link} target="_blank" rel="noreferrer" style={{ fontSize: 14, fontWeight: 700, color: "#0b4a7d", textDecoration: "none" }}
+                              onMouseEnter={e => (e.currentTarget.style.textDecoration = "underline")}
+                              onMouseLeave={e => (e.currentTarget.style.textDecoration = "none")}
+                            >{p.number}</a>
+                          : <code style={{ fontSize: 14, fontWeight: 700, color: "#0b4a7d" }}>{p.number}</code>
+                        }
+                        {p.label && <span style={{ fontSize: 13, color: "var(--muted)", fontWeight: 500 }}>{p.label}</span>}
+                      </div>
+                      {p.method && (
+                        <span style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600 }}>{p.method}</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Bank Accounts */}
+            {bankAccounts.length > 0 && (
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 6 }}>Bank Accounts</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {bankAccounts.map((acct, i) => (
+                    <div key={i} style={{
+                      display: "flex", alignItems: "center", justifyContent: "space-between",
+                      padding: "8px 12px",
+                      background: "rgba(11,74,125,0.04)",
+                      border: "1px solid rgba(11,74,125,0.12)",
+                      borderRadius: 8,
+                      gap: 10,
+                    }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <a href={acct.link} target="_blank" rel="noreferrer"
+                          style={{ fontSize: 14, fontWeight: 700, color: "#0b4a7d", textDecoration: "none" }}
+                          onMouseEnter={e => (e.currentTarget.style.textDecoration = "underline")}
+                          onMouseLeave={e => (e.currentTarget.style.textDecoration = "none")}
+                        >{acct.bank} {acct.last4}</a>
+                        <span style={{ fontSize: 13, color: "var(--muted)", fontWeight: 500 }}>{acct.label}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </section>
 
           {/* ── Occupancy & Suites (from rent roll) ── */}
@@ -203,67 +261,6 @@ function DetailModal({
                       {u.isVacant ? "Vacant" : u.occupantName}
                     </span>
                     <span style={{ fontSize: 12, color: "var(--muted)", flexShrink: 0 }}>{u.sqft.toLocaleString()} sf</span>
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {/* ── Parcel Numbers ── */}
-          {parcels.length > 0 && (
-            <section>
-              <SectionLabel>Parcel Numbers</SectionLabel>
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                {parcels.map((p, i) => (
-                  <div key={i} style={{
-                    display: "flex", alignItems: "center", justifyContent: "space-between",
-                    padding: "8px 12px",
-                    background: "rgba(11,74,125,0.04)",
-                    border: "1px solid rgba(11,74,125,0.12)",
-                    borderRadius: 8,
-                    gap: 10,
-                  }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      {p.link
-                        ? <a href={p.link} target="_blank" rel="noreferrer" style={{ fontSize: 14, fontWeight: 700, color: "#0b4a7d", textDecoration: "none" }}
-                            onMouseEnter={e => (e.currentTarget.style.textDecoration = "underline")}
-                            onMouseLeave={e => (e.currentTarget.style.textDecoration = "none")}
-                          >{p.number}</a>
-                        : <code style={{ fontSize: 14, fontWeight: 700, color: "#0b4a7d" }}>{p.number}</code>
-                      }
-                      {p.label && <span style={{ fontSize: 13, color: "var(--muted)", fontWeight: 500 }}>{p.label}</span>}
-                    </div>
-                    {p.method && (
-                      <span style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600 }}>{p.method}</span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {/* ── Bank Accounts ── */}
-          {bankAccounts.length > 0 && (
-            <section>
-              <SectionLabel>Bank Accounts</SectionLabel>
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                {bankAccounts.map((acct, i) => (
-                  <div key={i} style={{
-                    display: "flex", alignItems: "center", justifyContent: "space-between",
-                    padding: "8px 12px",
-                    background: "rgba(11,74,125,0.04)",
-                    border: "1px solid rgba(11,74,125,0.12)",
-                    borderRadius: 8,
-                    gap: 10,
-                  }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <a href={acct.link} target="_blank" rel="noreferrer"
-                        style={{ fontSize: 14, fontWeight: 700, color: "#0b4a7d", textDecoration: "none" }}
-                        onMouseEnter={e => (e.currentTarget.style.textDecoration = "underline")}
-                        onMouseLeave={e => (e.currentTarget.style.textDecoration = "none")}
-                      >{acct.bank} {acct.last4}</a>
-                      <span style={{ fontSize: 13, color: "var(--muted)", fontWeight: 500 }}>{acct.label}</span>
-                    </div>
                   </div>
                 ))}
               </div>
