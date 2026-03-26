@@ -32,6 +32,16 @@ function money(n: number) {
   return n.toLocaleString("en-US", { style: "currency", currency: "USD" });
 }
 function sqftFmt(n: number) { return n.toLocaleString("en-US"); }
+function parseDate(s: string | null | undefined): Date | null {
+  if (!s) return null;
+  const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (!m) return null;
+  return new Date(Number(m[3]), Number(m[1]) - 1, Number(m[2]));
+}
+function daysUntil(d: Date): number {
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  return Math.ceil((d.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+}
 function fmtDate(s: string | null | undefined): string {
   if (!s) return "—";
   const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
@@ -178,6 +188,200 @@ export async function POST(req: Request) {
         const lw = font.widthOfTextAtSize(s.label, 9);
         page.drawText(s.label, { x: x + (boxW - lw) / 2, y: y - 41, size: 9, font, color: C_MUTED });
       });
+    }
+
+    // ── Upcoming Lease Expirations summary ───────────────────────────────────
+    {
+      type ExpRow = { propName: string; tenant: string; unit: string; sqft: number; leaseTo: string; days: number };
+      const buckets: { label: string; min: number; max: number; rows: ExpRow[] }[] = [
+        { label: "Three Month Expirations",        min: -9999, max: 90,  rows: [] },
+        { label: "Four – Six Month Expirations",   min: 91,    max: 180, rows: [] },
+        { label: "Seven – Twelve Month Expirations", min: 181, max: 365, rows: [] },
+      ];
+
+      for (const prop of properties) {
+        const name = propDisplayName((prop.propertyCode as string).toUpperCase(), prop.reportedPropertyName || prop.propertyCode);
+        for (const unit of prop.units as any[]) {
+          if (unit.isVacant) continue;
+          if (!unit.leaseTo) continue;
+          if (unit.baseRent === 0 && unit.grossRentTotal === 0) continue;
+          const d = parseDate(unit.leaseTo);
+          if (!d) continue;
+          const days = daysUntil(d);
+          if (days > 365) continue;
+          const bucket = buckets.find(b => days >= b.min && days <= b.max);
+          if (bucket) bucket.rows.push({ propName: name, tenant: unit.occupantName || "", unit: unit.unitRef || "", sqft: unit.sqft, leaseTo: fmtDate(unit.leaseTo), days });
+        }
+      }
+      // Sort each bucket by days ascending
+      for (const b of buckets) b.rows.sort((a, b2) => a.days - b2.days);
+
+      const hasAny = buckets.some(b => b.rows.length > 0);
+      if (hasAny) {
+        const EXP_COLS: ColDef[] = [
+          { header: "Property",     width: 130, align: "left"  },
+          { header: "Tenant",       width: 175, align: "left"  },
+          { header: "Unit",         width: 75,  align: "left"  },
+          { header: "Sq Ft",        width: 60,  align: "right" },
+          { header: "Lease Expires",width: 80,  align: "left"  },
+          { header: "Days",         width: 50,  align: "right" },
+        ];
+        const tableW = EXP_COLS.reduce((s, c) => s + c.width, 0);
+        const tableX = (PW - tableW) / 2;
+
+        let { page, curY } = newPage();
+
+        // Section title
+        page.drawText("Upcoming Lease Expirations", { x: M, y: py(curY + 18), size: 16, font: fontBold, color: C_DARK });
+        curY += 28;
+
+        let grandTenants = 0;
+        let grandSqft    = 0;
+
+        for (const bucket of buckets) {
+          if (!bucket.rows.length) continue;
+
+          // Bucket header — ensure room
+          if (curY + 24 > PH - M - 10) { ({ page, curY } = newPage()); }
+
+          // Bucket label bar
+          page.drawRectangle({ x: M, y: py(curY + 20), width: PW - 2 * M, height: 20, color: C_BRAND });
+          page.drawText(bucket.label, { x: M + 6, y: py(curY + 14), size: 9, font: fontBold, color: rgb(1,1,1) });
+          curY += 24;
+
+          // Column headers
+          curY += drawHeader(page, curY, EXP_COLS, tableX, tableW);
+
+          let bucketSqft = 0;
+          for (let i = 0; i < bucket.rows.length; i++) {
+            if (curY + ROW_H > PH - M - 26) {
+              ({ page, curY } = newPage());
+              curY += drawHeader(page, curY, EXP_COLS, tableX, tableW);
+            }
+            const row = bucket.rows[i];
+            bucketSqft += row.sqft;
+            if (i % 2 === 1) page.drawRectangle({ x: tableX, y: py(curY + ROW_H), width: tableW, height: ROW_H, color: C_ALT });
+            const vals: Record<string, string> = {
+              "Property": row.propName, "Tenant": row.tenant, "Unit": row.unit,
+              "Sq Ft": sqftFmt(row.sqft), "Lease Expires": row.leaseTo,
+              "Days": row.days < 0 ? "Expired" : `${row.days}d`,
+            };
+            let cx = tableX;
+            for (const col of EXP_COLS) {
+              const val = vals[col.header] || "";
+              const tw  = font.widthOfTextAtSize(val, 8);
+              const tx  = col.align === "right" ? cx + col.width - 4 - tw : cx + 4;
+              const isExp = col.header === "Days" && row.days < 0;
+              page.drawText(val, { x: tx, y: py(curY + ROW_H - 5), size: 8, font: col.header === "Tenant" ? fontBold : font, color: isExp ? rgb(0.86,0.15,0.15) : C_DARK });
+              cx += col.width;
+            }
+            page.drawLine({ start: { x: tableX, y: py(curY + ROW_H) }, end: { x: tableX + tableW, y: py(curY + ROW_H) }, thickness: 0.2, color: C_LINE });
+            curY += ROW_H;
+          }
+
+          // Bucket subtotal
+          if (curY + ROW_H > PH - M - 10) { ({ page, curY } = newPage()); }
+          page.drawLine({ start: { x: tableX, y: py(curY + 1) }, end: { x: tableX + tableW, y: py(curY + 1) }, thickness: 1.2, color: C_DARK });
+          page.drawRectangle({ x: tableX, y: py(curY + ROW_H + 1), width: tableW, height: ROW_H, color: C_HBKG });
+          const subLabel = `${bucket.rows.length} tenant${bucket.rows.length !== 1 ? "s" : ""}   ·   ${sqftFmt(bucketSqft)} sf`;
+          const subW = fontBold.widthOfTextAtSize(subLabel, 8);
+          page.drawText(subLabel, { x: tableX + tableW - 4 - subW, y: py(curY + ROW_H - 4), size: 8, font: fontBold, color: C_DARK });
+          curY += ROW_H + 10;
+
+          grandTenants += bucket.rows.length;
+          grandSqft    += bucketSqft;
+        }
+
+        // Grand total
+        if (curY + 24 > PH - M - 10) { ({ page, curY } = newPage()); }
+        page.drawLine({ start: { x: M, y: py(curY + 1) }, end: { x: PW - M, y: py(curY + 1) }, thickness: 1.5, color: C_DARK });
+        page.drawRectangle({ x: M, y: py(curY + 22), width: PW - 2 * M, height: 22, color: C_HBKG });
+        page.drawText("Total", { x: M + 6, y: py(curY + 14), size: 9, font: fontBold, color: C_DARK });
+        const totLabel = `${grandTenants} tenant${grandTenants !== 1 ? "s" : ""}   ·   ${sqftFmt(grandSqft)} sf`;
+        const totW = fontBold.widthOfTextAtSize(totLabel, 9);
+        page.drawText(totLabel, { x: PW - M - 6 - totW, y: py(curY + 14), size: 9, font: fontBold, color: C_DARK });
+      }
+    }
+
+    // ── Vacancy Summary ───────────────────────────────────────────────────────
+    {
+      type VacRow = { propName: string; unit: string; sqft: number };
+      const groups: { propName: string; rows: VacRow[] }[] = [];
+
+      for (const prop of properties) {
+        const name = propDisplayName((prop.propertyCode as string).toUpperCase(), prop.reportedPropertyName || prop.propertyCode);
+        const vacUnits = (prop.units as any[]).filter(u => u.isVacant);
+        if (vacUnits.length) groups.push({ propName: name, rows: vacUnits.map(u => ({ propName: name, unit: u.unitRef || "", sqft: u.sqft })) });
+      }
+
+      if (groups.length) {
+        const VAC_COLS: ColDef[] = [
+          { header: "Property", width: 220, align: "left"  },
+          { header: "Unit",     width: 100, align: "left"  },
+          { header: "Sq Ft",    width: 80,  align: "right" },
+        ];
+        const tableW = VAC_COLS.reduce((s, c) => s + c.width, 0);
+        const tableX = (PW - tableW) / 2;
+
+        let { page, curY } = newPage();
+        page.drawText("Vacancy Summary", { x: M, y: py(curY + 18), size: 16, font: fontBold, color: C_DARK });
+        curY += 28;
+
+        let grandUnits = 0;
+        let grandSqft  = 0;
+
+        for (const group of groups) {
+          if (curY + 24 > PH - M - 10) { ({ page, curY } = newPage()); }
+          // Property header bar
+          page.drawRectangle({ x: M, y: py(curY + 20), width: PW - 2 * M, height: 20, color: rgb(0.29,0.29,0.32) });
+          page.drawText(group.propName, { x: M + 6, y: py(curY + 14), size: 9, font: fontBold, color: rgb(1,1,1) });
+          curY += 24;
+          curY += drawHeader(page, curY, VAC_COLS, tableX, tableW);
+
+          let grpSqft = 0;
+          for (let i = 0; i < group.rows.length; i++) {
+            if (curY + ROW_H > PH - M - 26) {
+              ({ page, curY } = newPage());
+              curY += drawHeader(page, curY, VAC_COLS, tableX, tableW);
+            }
+            const row = group.rows[i];
+            grpSqft += row.sqft;
+            if (i % 2 === 1) page.drawRectangle({ x: tableX, y: py(curY + ROW_H), width: tableW, height: ROW_H, color: C_ALT });
+            const vals: Record<string, string> = { "Property": row.propName, "Unit": row.unit, "Sq Ft": sqftFmt(row.sqft) };
+            let cx = tableX;
+            for (const col of VAC_COLS) {
+              const val = vals[col.header] || "";
+              const tw  = font.widthOfTextAtSize(val, 8);
+              const tx  = col.align === "right" ? cx + col.width - 4 - tw : cx + 4;
+              page.drawText(val, { x: tx, y: py(curY + ROW_H - 5), size: 8, font, color: C_MUTED });
+              cx += col.width;
+            }
+            page.drawLine({ start: { x: tableX, y: py(curY + ROW_H) }, end: { x: tableX + tableW, y: py(curY + ROW_H) }, thickness: 0.2, color: C_LINE });
+            curY += ROW_H;
+          }
+
+          // Group subtotal
+          if (curY + ROW_H > PH - M - 10) { ({ page, curY } = newPage()); }
+          page.drawLine({ start: { x: tableX, y: py(curY + 1) }, end: { x: tableX + tableW, y: py(curY + 1) }, thickness: 1.2, color: C_DARK });
+          page.drawRectangle({ x: tableX, y: py(curY + ROW_H + 1), width: tableW, height: ROW_H, color: C_HBKG });
+          const subLabel = `${group.rows.length} unit${group.rows.length !== 1 ? "s" : ""}   ·   ${sqftFmt(grpSqft)} sf vacant`;
+          const subW = fontBold.widthOfTextAtSize(subLabel, 8);
+          page.drawText(subLabel, { x: tableX + tableW - 4 - subW, y: py(curY + ROW_H - 4), size: 8, font: fontBold, color: C_DARK });
+          curY += ROW_H + 10;
+
+          grandUnits += group.rows.length;
+          grandSqft  += grpSqft;
+        }
+
+        // Grand total
+        if (curY + 24 > PH - M - 10) { ({ page, curY } = newPage()); }
+        page.drawLine({ start: { x: M, y: py(curY + 1) }, end: { x: PW - M, y: py(curY + 1) }, thickness: 1.5, color: C_DARK });
+        page.drawRectangle({ x: M, y: py(curY + 22), width: PW - 2 * M, height: 22, color: C_HBKG });
+        page.drawText("Total Vacancy", { x: M + 6, y: py(curY + 14), size: 9, font: fontBold, color: C_DARK });
+        const totLabel = `${grandUnits} unit${grandUnits !== 1 ? "s" : ""}   ·   ${sqftFmt(grandSqft)} sf`;
+        const totW = fontBold.widthOfTextAtSize(totLabel, 9);
+        page.drawText(totLabel, { x: PW - M - 6 - totW, y: py(curY + 14), size: 9, font: fontBold, color: C_DARK });
+      }
     }
 
     // ── Per-property sections ─────────────────────────────────────────────────
