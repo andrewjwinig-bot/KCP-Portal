@@ -14,6 +14,15 @@ export const TAX_CATEGORIES: Record<TaxCategory, { label: string; pill: string; 
 export interface K1Investor {
   id: string;
   name: string;
+  detailedName?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  stateIfDifferent?: string;
+  profitPct?: number;
+  lossPct?: number;
+  capitalPct?: number;
 }
 
 export interface TaxTask {
@@ -99,6 +108,56 @@ export const TAX_TASKS: TaxTask[] = [
       { id: "k1-2070-korman",  name: "Alison Korman" },
       { id: "k1-2070-segal",   name: "Gerald Segal"  },
       { id: "k1-2070-saul",    name: "Saul XXX"      },
+    ],
+  },
+
+  {
+    id: "k1-7200",
+    entity: "7200 Elbridge Partnership",
+    category: "k1",
+    dueMonth: 3,
+    dueDay: 15,
+    investors: [
+      { id: "k1-7200-langsfeld-1",      name: "Judith Langsfeld",        detailedName: "U/W of Max Korman",                                                         address: "1673 Paper Mill Road",             city: "Meadowbrook",    state: "Pennsylvania", zip: "19046",             profitPct: 0.093820200, lossPct: 0.093820200, capitalPct: 0.093820200 },
+      { id: "k1-7200-skorman",           name: "Steven Korman",                                                                                                      address: "580 West Germantown Pike Suite 200", city: "Plymouth Meeting", state: "Pennsylvania", zip: "19462",            profitPct: 0.019452200, lossPct: 0.019452200, capitalPct: 0.019452200 },
+      { id: "k1-7200-lhonickman",        name: "Lynne Honickman",         detailedName: "C/o The Honickman Co., Eric Pisauro",                                       address: "8275 N. Cresent Blvd.",             city: "Pennsauken",     state: "New Jersey",   zip: "08110",  stateIfDifferent: "Pennsylvania", profitPct: 0.019452200, lossPct: 0.019452200, capitalPct: 0.019452200 },
+      { id: "k1-7200-jhonickman-1",      name: "Jeffrey Honickman",       detailedName: "Lynne Honickman FBO Jeffrey Honickman",                                     address: "8275 N. Cresent Blvd.",             city: "Pennsauken",     state: "New Jersey",   zip: "08110",  stateIfDifferent: "Pennsylvania", profitPct: 0.004863000, lossPct: 0.004863000, capitalPct: 0.004863000 },
+      { id: "k1-7200-hahn-1",            name: "Shirley Honickman Hahn",  detailedName: "DTD 9/29/89, C/O The Honickman Co.",                                        address: "8275 N. Cresent Blvd.",             city: "Pennsauken",     state: "New Jersey",   zip: "08110",                                    profitPct: 0.004863000, lossPct: 0.004863000, capitalPct: 0.004863000 },
+      { id: "k1-7200-jkorman-1",         name: "John Korman",                                                                                                        address: "c/o 410 Lancaster Ave, Suite 5a",   city: "Haverford",      state: "Pennsylvania", zip: "19041",                                    profitPct: 0.004863000, lossPct: 0.004863000, capitalPct: 0.004863000 },
+      { id: "k1-7200-feldman-1",         name: "Alison Korman Feldman",                                                                                              address: "6015 Sheaff Ln",                    city: "Fort Washington", state: "Pennsylvania", zip: "19034",                                   profitPct: 0.004863000, lossPct: 0.004863000, capitalPct: 0.004863000 },
+      { id: "k1-7200-lkorman",           name: "Larry Korman",            detailedName: "GST Exempt Trust U/I 3 U/W SJK FBO Steven H. Korman/LMK",                  address: "580 West Germantown Pike Suite 200", city: "Plymouth Meeting", state: "Pennsylvania", zip: "19462", stateIfDifferent: "Various",     profitPct: 0.056292180, lossPct: 0.056292180, capitalPct: 0.056292180 },
+      { id: "k1-7200-bkorman",           name: "Brad Korman",             detailedName: "GST Exempt Trust U/I 3 U/W SJK FBO Steven H. Korman/BJK",                  address: "580 West Germantown Pike Suite 200", city: "Plymouth Meeting", state: "Pennsylvania", zip: "19462", stateIfDifferent: "Various",     profitPct: 0.056292180, lossPct: 0.056292180, capitalPct: 0.056292180 },
+      { id: "k1-7200-mkorman",           name: "Mark Korman",             detailedName: "GST Exempt Trust U/I 3 U/W SJK FBO Steven H. Korman/MGK",                  address: "580 West Germantown Pike Suite 200", city: "Plymouth Meeting", state: "Pennsylvania", zip: "19462", stateIfDifferent: "Various",     profitPct: 0.056292180, lossPct: 0.056292180, capitalPct: 0.056292180 },
+      { id: "k1-7200-jhonickman-2",      name: "Jeffrey Honickman",       detailedName: "GST Exempt Trust U/I 3 UWO Samuel Korman FBO LRH/Jeffrey Honickman c/o the honickman co, 8275 N. Cresent Blvd", address: "8275 N. Cresent Blvd.", city: "Pennsauken", state: "New Jersey", zip: "08110", stateIfDifferent: "Various", profitPct: 0.056292180, lossPct: 0.056292180, capitalPct: 0.056292180 },
+      { id: "k1-7200-hahn-2",            name: "Shirley Honickman Hahn",  detailedName: "GST Exempt Trust U/I 3 UWO Samuel Korman FBO LRH/Shirley Honickman Hahn", address: "c/o honickman co. 8275 N Cresent Blvd", city: "Pennsauken", state: "New Jersey", zip: "08110",                               profitPct: 0.056292180, lossPct: 0.056292180, capitalPct: 0.056292180 },
+      { id: "k1-7200-sohn",              name: "Joan Sohn",               detailedName: "Joan Sohn C/O Baker Tilly US, LLP",                                        address: "1650 Market St., Suite 4500",       city: "Philadelphia",   state: "Pennsylvania", zip: "19103", stateIfDifferent: "Various",     profitPct: 0.320365300, lossPct: 0.320365300, capitalPct: 0.320365300 },
+      { id: "k1-7200-langsfeld-2",       name: "Judith Langsfeld",        detailedName: "Judith Langsfeld",                                                          address: "1673 Paper Mill Road",              city: "Meadowbrook",    state: "Pennsylvania", zip: "19046",                                    profitPct: 0.019452200, lossPct: 0.019452200, capitalPct: 0.019452200 },
+      { id: "k1-7200-bkorman-tua",       name: "Berton Korman",           detailedName: "Berton E Korman TUA Dtd 02232018 As Amended",                              address: "C/O 410 Lancaster Ave, Suite 5a",   city: "Haverford",      state: "Pennsylvania", zip: "19041", stateIfDifferent: "Various",     profitPct: 0.019452200, lossPct: 0.019452200, capitalPct: 0.019452200 },
+      { id: "k1-7200-jkorman-2",         name: "John Korman",             detailedName: "Max WM Korman TUW Item 7th FBO John P Korman Trust",                       address: "C/o 410 Lancaster Ave, Suite 5a",   city: "Haverford",      state: "Pennsylvania", zip: "19041",                                    profitPct: 0.031273433, lossPct: 0.031273433, capitalPct: 0.031273433 },
+      { id: "k1-7200-jameskorman",       name: "James Korman",            detailedName: "Max WM Korman TUW Item 7th FBO James S Korman Trust",                      address: "C/O 410 Lancaster Ave, Suite 5a",   city: "Haverford",      state: "Pennsylvania", zip: "19041",                                    profitPct: 0.031273433, lossPct: 0.031273433, capitalPct: 0.031273433 },
+      { id: "k1-7200-jacobs",            name: "Carolyn Jacobs",          detailedName: "Max WM Korman TUW Item 7th FBO Carolyn K Jacobs Trust",                    address: "C/O 410 Lancaster Ave, Suite 5a",   city: "Haverford",      state: "Pennsylvania", zip: "19041",                                    profitPct: 0.031273434, lossPct: 0.031273434, capitalPct: 0.031273434 },
+      { id: "k1-7200-afeldman-lik",      name: "Alison Feldman",          detailedName: "Leonard I Korman GST Subject TR FBO Alison Feldman",                       address: "6015 Sheaff Lane",                  city: "Fort Washington", state: "Pennsylvania", zip: "19034", stateIfDifferent: "Florida",    profitPct: 0.006484067, lossPct: 0.006484067, capitalPct: 0.006484067 },
+      { id: "k1-7200-altman-lik",        name: "Catherine Altman",        detailedName: "Leonard I Korman GST Subject TR FBO Catherine Altman",                     address: "210 Eagle Drive",                   city: "Jupiter",        state: "Florida",      zip: "33477",                                    profitPct: 0.006484067, lossPct: 0.006484067, capitalPct: 0.006484067 },
+      { id: "k1-7200-schurr-lik",        name: "Susan Schurr",            detailedName: "Leonard I Korman GST Subject TR FBO Susan Schurr",                         address: "6100 Sheaff Lane",                  city: "Fort Washington", state: "Pennsylvania", zip: "19034", stateIfDifferent: "Florida",    profitPct: 0.006484066, lossPct: 0.006484066, capitalPct: 0.006484066 },
+      { id: "k1-7200-feldman-maxwm",     name: "Alison Korman Feldman",   detailedName: "Trust Under Item Seventh of the Will of Max Korman FBO Alison K. Feldman", address: "6015 Sheaff Ln",                    city: "Fort Washington", state: "Pennsylvania", zip: "19034",                                   profitPct: 0.031273433, lossPct: 0.031273433, capitalPct: 0.031273433 },
+      { id: "k1-7200-altman-maxwm",      name: "Catherine Altman",        detailedName: "Trust Under Item Seventh of the Will of Max Korman FBO Catherine Altman",  address: "210 Eagle Drive",                   city: "Jupiter",        state: "Pennsylvania", zip: "33477",                                    profitPct: 0.031273433, lossPct: 0.031273433, capitalPct: 0.031273433 },
+      { id: "k1-7200-schurr-maxwm",      name: "Susan Schurr",            detailedName: "Trust Under Item Seventh of the Will of Max Korman FBO Susan Schurr",      address: "6100 Sheaff Lane",                  city: "Fort Washington", state: "Pennsylvania", zip: "19034",                                    profitPct: 0.031273434, lossPct: 0.031273434, capitalPct: 0.031273434 },
+    ],
+  },
+
+  {
+    id: "k1-9510",
+    entity: "9510 Lafayette Hill SC",
+    category: "k1",
+    dueMonth: 3,
+    dueDay: 15,
+    investors: [
+      { id: "k1-9510-feldman",      name: "Alison Korman Feldman", detailedName: "Friedman Appointive TR FBO Alison K Feldman UAR JFK RVOC TR",   address: "1650 Market Street, STE 2800", city: "Philadelphia", state: "Pennsylvania", zip: "19103", stateIfDifferent: "Florida",  profitPct: 0.166700000, lossPct: 0.166700000, capitalPct: 0.166700000 },
+      { id: "k1-9510-altman",       name: "Catherine Altman",      detailedName: "Friedman Appointive TR FBO Catherine K Altman UAR JFK RVOC TR",  address: "1650 Market Street, STE 2800", city: "Philadelphia", state: "Pennsylvania", zip: "19103", stateIfDifferent: "Florida",  profitPct: 0.166700000, lossPct: 0.166700000, capitalPct: 0.166700000 },
+      { id: "k1-9510-schurr",       name: "Susan Schurr",          detailedName: "Friedman Appointive TR FBO Susan K Schurr UAR JFK RVOC TR",      address: "1035 3rd Ave South #317",      city: "Naples",       state: "Florida",      zip: "34102",                                 profitPct: 0.166600000, lossPct: 0.166600000, capitalPct: 0.166600000 },
+      { id: "k1-9510-egoldenberg",  name: "Elizabeth Goldenberg",  detailedName: "Elizabeth M. Goldenberg Trust",                                   address: "194 Hoffman Road",             city: "Tully",        state: "New York",     zip: "13159", stateIfDifferent: "Florida",  profitPct: 0.166700000, lossPct: 0.166700000, capitalPct: 0.166700000 },
+      { id: "k1-9510-jgoldenberg",  name: "James Goldenberg",      detailedName: "James B. Goldenberg Trust",                                       address: "20 Marshall Street",           city: "Duxbury",      state: "Massachusetts", zip: "02332", stateIfDifferent: "Florida", profitPct: 0.166700000, lossPct: 0.166700000, capitalPct: 0.166700000 },
+      { id: "k1-9510-wgoldenberg",  name: "William Goldenberg",    detailedName: "William J. Goldenberg Trust",                                     address: "31 Bens Landing Road",         city: "Boothbay",     state: "Maine",        zip: "04537", stateIfDifferent: "Florida",  profitPct: 0.166600000, lossPct: 0.166600000, capitalPct: 0.166600000 },
     ],
   },
 

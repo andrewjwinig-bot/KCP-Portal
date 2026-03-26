@@ -10,7 +10,7 @@ import type { RentRollData, RentRollProperty } from "../../lib/rentroll/parseRen
 import {
   TAX_TASKS, PARCEL_INFO,
   baseEntityName, filingLabel, isTaskEffectivelyDone,
-  loadTaxChecked, type TaxTask, type TaxParcel, TAX_CATEGORIES,
+  loadTaxChecked, type TaxTask, type TaxParcel, TAX_CATEGORIES, type K1Investor,
 } from "../tracker/tax-data";
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
@@ -62,6 +62,83 @@ function parcelsForProp(id: string): TaxParcel[] {
 // Bank accounts for a property
 function bankAccountsForProp(id: string): BankAccount[] {
   return BANK_ACCOUNTS[id.toUpperCase()] ?? [];
+}
+
+// ─── K-1 INVESTOR ROW ────────────────────────────────────────────────────────
+
+function K1InvestorRow({ inv, done, hasDetail }: { inv: K1Investor; done: boolean; hasDetail: boolean }) {
+  const [expanded, setExpanded] = useState(false);
+  const pctFmt = (n: number) => `${(n * 100).toFixed(6).replace(/\.?0+$/, "")}%`;
+
+  return (
+    <div style={{
+      border: "1px solid var(--border)",
+      borderRadius: 8,
+      marginBottom: 4,
+      background: done ? "rgba(22,163,74,0.04)" : "#fafafa",
+      overflow: "hidden",
+    }}>
+      <div
+        onClick={hasDetail ? () => setExpanded(e => !e) : undefined}
+        style={{
+          display: "flex", alignItems: "center", gap: 8,
+          padding: "8px 12px",
+          cursor: hasDetail ? "pointer" : "default",
+        }}
+      >
+        <span style={{
+          width: 16, height: 16, borderRadius: 4,
+          background: done ? "rgba(22,163,74,0.15)" : "var(--border)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          fontSize: 10, color: done ? "#16a34a" : "transparent",
+          flexShrink: 0,
+        }}>✓</span>
+        <span style={{ fontSize: 14, fontWeight: done ? 700 : 500, color: done ? "#16a34a" : "var(--text)", flex: 1 }}>
+          {inv.name}
+        </span>
+        {inv.profitPct != null && (
+          <span style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600, flexShrink: 0 }}>
+            {pctFmt(inv.profitPct)}
+          </span>
+        )}
+        {hasDetail && (
+          <span style={{ fontSize: 12, color: "var(--muted)", flexShrink: 0, marginLeft: 4 }}>
+            {expanded ? "▲" : "▼"}
+          </span>
+        )}
+      </div>
+      {expanded && hasDetail && (
+        <div style={{
+          borderTop: "1px solid var(--border)",
+          padding: "10px 12px 10px 36px",
+          fontSize: 12,
+          color: "var(--muted)",
+          display: "flex",
+          flexDirection: "column",
+          gap: 4,
+          background: "rgba(15,23,42,0.02)",
+        }}>
+          {inv.detailedName && (
+            <div><span style={{ fontWeight: 600, color: "var(--text)" }}>Entity:</span> {inv.detailedName}</div>
+          )}
+          {inv.address && (
+            <div>
+              <span style={{ fontWeight: 600, color: "var(--text)" }}>Address:</span>{" "}
+              {inv.address}, {inv.city}, {inv.state} {inv.zip}
+              {inv.stateIfDifferent && <span style={{ marginLeft: 6, fontStyle: "italic" }}>(also: {inv.stateIfDifferent})</span>}
+            </div>
+          )}
+          {(inv.profitPct != null || inv.lossPct != null || inv.capitalPct != null) && (
+            <div style={{ display: "flex", gap: 16, marginTop: 2 }}>
+              {inv.profitPct  != null && <span><span style={{ fontWeight: 600, color: "var(--text)" }}>Profit:</span> {pctFmt(inv.profitPct)}</span>}
+              {inv.lossPct    != null && <span><span style={{ fontWeight: 600, color: "var(--text)" }}>Loss:</span> {pctFmt(inv.lossPct)}</span>}
+              {inv.capitalPct != null && <span><span style={{ fontWeight: 600, color: "var(--text)" }}>Capital:</span> {pctFmt(inv.capitalPct)}</span>}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 // ─── DETAIL MODAL ────────────────────────────────────────────────────────────
@@ -339,26 +416,9 @@ function DetailModal({
                     </div>
                     {t.investors?.map(inv => {
                       const done = !!checked[inv.id];
+                      const hasDetail = !!(inv.detailedName || inv.address || inv.profitPct != null);
                       return (
-                        <div key={inv.id} style={{
-                          display: "flex", alignItems: "center", gap: 8,
-                          padding: "8px 12px",
-                          border: "1px solid var(--border)",
-                          borderRadius: 8,
-                          marginBottom: 4,
-                          background: done ? "rgba(22,163,74,0.04)" : "#fafafa",
-                        }}>
-                          <span style={{
-                            width: 16, height: 16, borderRadius: 4,
-                            background: done ? "rgba(22,163,74,0.15)" : "var(--border)",
-                            display: "flex", alignItems: "center", justifyContent: "center",
-                            fontSize: 10, color: done ? "#16a34a" : "transparent",
-                            flexShrink: 0,
-                          }}>✓</span>
-                          <span style={{ fontSize: 14, fontWeight: done ? 700 : 500, color: done ? "#16a34a" : "var(--text)" }}>
-                            {inv.name}
-                          </span>
-                        </div>
+                        <K1InvestorRow key={inv.id} inv={inv} done={done} hasDetail={hasDetail} />
                       );
                     })}
                   </div>
