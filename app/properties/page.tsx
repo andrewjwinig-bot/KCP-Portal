@@ -280,6 +280,8 @@ function DetailModal({
       .catch(() => {});
   }, [prop.id]);
 
+  const [instructionsTask, setInstructionsTask] = useState<TaxTask | null>(null);
+
   const today = new Date();
 
   function filingStatus(t: TaxTask) {
@@ -469,13 +471,18 @@ function DetailModal({
                   const status = filingStatus(t);
                   const cat = TAX_CATEGORIES[t.category];
                   return (
-                    <div key={t.id} style={{
-                      display: "flex", alignItems: "center", gap: 8,
-                      padding: "9px 12px",
-                      border: "1px solid var(--border)",
-                      borderRadius: 8,
-                      background: "#fafafa",
-                    }}>
+                    <div
+                      key={t.id}
+                      onClick={t.instructionSteps ? () => setInstructionsTask(t) : undefined}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 8,
+                        padding: "9px 12px",
+                        border: `1px solid ${t.instructionSteps ? "rgba(220,38,38,0.35)" : "var(--border)"}`,
+                        borderRadius: 8,
+                        background: t.instructionSteps ? "rgba(220,38,38,0.03)" : "#fafafa",
+                        cursor: t.instructionSteps ? "pointer" : "default",
+                      }}
+                    >
                       <span style={{
                         flexShrink: 0,
                         width: 28, height: 28,
@@ -487,7 +494,14 @@ function DetailModal({
                         fontSize: 9, fontWeight: 900,
                       }}>{cat.pill}</span>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 14, fontWeight: 700, lineHeight: 1.3 }}>{filingLabel(t)}</div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 14, fontWeight: 700, lineHeight: 1.3 }}>
+                          {filingLabel(t)}
+                          {t.instructionSteps && (
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                              <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                            </svg>
+                          )}
+                        </div>
                         <div style={{ fontSize: 12, color: "var(--muted)" }}>
                           Due {MONTHS_SHORT[t.dueMonth - 1]} {t.dueDay}
                           {t.notes && ` · ${t.notes}`}
@@ -584,6 +598,73 @@ function DetailModal({
 
         </div>
       </div>
+
+      {/* ── Instructions popup ── */}
+      {instructionsTask && (
+        <div
+          onClick={() => setInstructionsTask(null)}
+          style={{
+            position: "fixed", inset: 0, zIndex: 1100,
+            background: "rgba(15,23,42,0.55)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: "#fff", borderRadius: 14,
+              border: "1.5px solid rgba(220,38,38,0.3)",
+              padding: "24px 28px",
+              width: 500, maxWidth: "calc(100vw - 40px)",
+              maxHeight: "80vh", overflowY: "auto",
+              boxShadow: "0 8px 32px rgba(15,23,42,0.2)",
+              display: "flex", flexDirection: "column", gap: 16,
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 3 }}>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                    <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                  </svg>
+                  <span style={{ fontSize: 16, fontWeight: 700 }}>{filingLabel(instructionsTask)}</span>
+                </div>
+                <div style={{ fontSize: 12, color: "var(--muted)" }}>
+                  Due {MONTHS_SHORT[instructionsTask.dueMonth - 1]} {instructionsTask.dueDay}
+                  {instructionsTask.notes && ` · ${instructionsTask.notes}`}
+                </div>
+              </div>
+              <button
+                onClick={() => setInstructionsTask(null)}
+                style={{ background: "none", border: "none", fontSize: 18, cursor: "pointer", color: "var(--muted)", lineHeight: 1, padding: 2, flexShrink: 0 }}
+              >✕</button>
+            </div>
+
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 10 }}>
+                Instructions
+              </div>
+              <ol style={{ margin: 0, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 10 }}>
+                {instructionsTask.instructionSteps!.map((step, i) => (
+                  <li key={i} style={{ fontSize: 13, lineHeight: 1.6, color: "var(--text)" }}>
+                    {step.startsWith("Email ") ? (
+                      <>
+                        Email{" "}
+                        <a
+                          href={`mailto:${step.slice(6).trim()}`}
+                          style={{ color: "#0b4a7d", fontWeight: 600, textDecoration: "underline" }}
+                        >
+                          {step.slice(6).trim()}
+                        </a>
+                      </>
+                    ) : step}
+                  </li>
+                ))}
+              </ol>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

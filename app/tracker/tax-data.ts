@@ -44,9 +44,24 @@ export const TAX_TASKS: TaxTask[] = [
   // ─── COUNTY REAL ESTATE TAX ─────────────────────────────────────────────
 
   { id: "co-1500", entity: "1500 Eastwick JV I",              category: "ret", retType: "county+school", dueMonth: 3,  dueDay: 31 },
-  { id: "co-4500", entity: "4500 Grays Ferry SC",             category: "ret", retType: "county+school", dueMonth: 3,  dueDay: 31 },
+  { id: "co-4500", entity: "4500 Grays Ferry SC",             category: "ret", retType: "county+school", dueMonth: 3,  dueDay: 31,
+    instructionSteps: [
+      "Email taxreimbursement@usps.gov",
+      "Tenant: Grays Ferry (4500-3005) — Memo: Phila., PA 19146 — ID # 416544-206",
+      "Attach a copy of the front & back of the tax bill",
+      "Attach Proof of Payment (copy of Liberty Mortgage Statement reflecting tax payments)",
+      "On the bill copy, add the calculation of 1.94% per the lease — this is the total amount to be reimbursed",
+    ],
+  },
   { id: "co-4510", entity: "4510 Grays Ferry Partners",       category: "ret", retType: "county+school", dueMonth: 3,  dueDay: 31 },
-  { id: "co-5600", entity: "5600 Hyman Korman Co",            category: "ret", retType: "county+school", dueMonth: 3,  dueDay: 31 },
+  { id: "co-5600", entity: "5600 Hyman Korman Co",            category: "ret", retType: "county+school", dueMonth: 3,  dueDay: 31,
+    instructionSteps: [
+      "Email taxreimbursement@usps.gov",
+      "Tenant: Castor (5600-6382) — Memo: Phila., PA 19149 — ID # 416544-006",
+      "Attach a copy of the front & back of the tax bill",
+      "Attach Proof of Payment (confirmation from Tanya)",
+    ],
+  },
   { id: "co-7010", entity: "7010 Parkwood SC",                category: "ret", retType: "county+school", dueMonth: 3,  dueDay: 31 },
   { id: "co-7200", entity: "7200 Elbridge",                   category: "ret", retType: "county+school", dueMonth: 3,  dueDay: 31 },
   { id: "co-7300", entity: "7300 Revere",                     category: "ret", retType: "county+school", dueMonth: 3,  dueDay: 31 },
