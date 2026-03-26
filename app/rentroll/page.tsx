@@ -858,9 +858,9 @@ export default function RentRollPage() {
               })}
             </div>
             <div className="pills" style={{ justifyContent: "flex-start", marginTop: 12, marginBottom: 0 }}>
-              <StatPill label="Total Sq Ft"    value={sqftFmt(totalSqft)} />
               <StatPill label="Occupied"       value={sqftFmt(occupiedSqft)} />
               <StatPill label="Vacant"         value={sqftFmt(vacantSqft)} />
+              <StatPill label="Total Sq Ft"    value={sqftFmt(totalSqft)} />
               <StatPill label="Properties"     value={String(categoryRentroll!.properties.length)} />
               {totalGross > 0 && <StatPill label="Gross Rent/mo" value={money(totalGross)} />}
             </div>
