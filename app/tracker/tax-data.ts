@@ -161,6 +161,53 @@ export const TAX_TASKS: TaxTask[] = [
     ],
   },
 
+  {
+    id: "k1-9800",
+    entity: "9800 Bellaire Avenue",
+    category: "k1",
+    dueMonth: 3,
+    dueDay: 15,
+    investors: [
+      { id: "k1-9800-feldman", name: "Alison Korman Feldman", address: "6015 Sheaff Ln", city: "Fort Washington", state: "Pennsylvania", zip: "19034", profitPct: 0.750000000, lossPct: 0.750000000, capitalPct: 0.750000000 },
+      { id: "k1-9800-hfeldman", name: "Harry Feldman",        address: "7524 Fir Rd",    city: "Ambler",          state: "Pennsylvania", zip: "19002", profitPct: 0.250000000, lossPct: 0.250000000, capitalPct: 0.250000000 },
+    ],
+  },
+
+  {
+    id: "k1-9820",
+    entity: "9820 Spring Garden St",
+    category: "k1",
+    dueMonth: 3,
+    dueDay: 15,
+    investors: [
+      { id: "k1-9820-feldman", name: "Alison Korman Feldman", address: "6015 Sheaff Ln", city: "Fort Washington", state: "Pennsylvania", zip: "19034", profitPct: 0.750000000, lossPct: 0.750000000, capitalPct: 0.750000000 },
+      { id: "k1-9820-hfeldman", name: "Harry Feldman",        address: "7524 Fir Rd",    city: "Ambler",          state: "Pennsylvania", zip: "19002", profitPct: 0.250000000, lossPct: 0.250000000, capitalPct: 0.250000000 },
+    ],
+  },
+
+  {
+    id: "k1-9840",
+    entity: "9840 3044 Joshua Rd",
+    category: "k1",
+    dueMonth: 3,
+    dueDay: 15,
+    investors: [
+      { id: "k1-9840-feldman", name: "Alison Korman Feldman", address: "6015 Sheaff Ln", city: "Fort Washington", state: "Pennsylvania", zip: "19034", profitPct: 1.000000000, lossPct: 1.000000000, capitalPct: 1.000000000 },
+    ],
+  },
+
+  {
+    id: "k1-9860",
+    entity: "9860 KH Fort Washington",
+    category: "k1",
+    dueMonth: 3,
+    dueDay: 15,
+    investors: [
+      { id: "k1-9860-feldman", name: "Alison Korman Feldman", address: "6015 Sheaff Ln", city: "Fort Washington", state: "Pennsylvania", zip: "19034", profitPct: 0.750000000, lossPct: 0.750000000, capitalPct: 0.750000000 },
+      { id: "k1-9860-hfeldman", name: "Harry Feldman",        address: "7524 Fir Rd",    city: "Ambler",          state: "Pennsylvania", zip: "19002", profitPct: 0.250000000, lossPct: 0.250000000, capitalPct: 0.250000000 },
+    ],
+  },
+
   // ─── ANNUAL REPORTS ──────────────────────────────────────────────────────
 
   {
