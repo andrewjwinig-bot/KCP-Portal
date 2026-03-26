@@ -781,11 +781,11 @@ export default function RentRollPage() {
       }
     : null;
 
-  // Portfolio totals
-  const totalSqft    = filteredRentroll?.properties.reduce((s, p) => s + p.totalSqft,    0) ?? 0;
-  const occupiedSqft = filteredRentroll?.properties.reduce((s, p) => s + p.occupiedSqft, 0) ?? 0;
-  const vacantSqft   = filteredRentroll?.properties.reduce((s, p) => s + p.vacantSqft,   0) ?? 0;
-  const totalGross   = filteredRentroll?.properties.reduce((s, p) =>
+  // Portfolio totals (category-aware)
+  const totalSqft    = categoryRentroll?.properties.reduce((s, p) => s + p.totalSqft,    0) ?? 0;
+  const occupiedSqft = categoryRentroll?.properties.reduce((s, p) => s + p.occupiedSqft, 0) ?? 0;
+  const vacantSqft   = categoryRentroll?.properties.reduce((s, p) => s + p.vacantSqft,   0) ?? 0;
+  const totalGross   = categoryRentroll?.properties.reduce((s, p) =>
     s + p.units.reduce((u, unit) => u + unit.grossRentTotal, 0), 0) ?? 0;
   const occupancyPct = totalSqft > 0 ? (occupiedSqft / totalSqft) * 100 : 0;
 
@@ -826,11 +826,42 @@ export default function RentRollPage() {
         {loading && <div style={{ color: "var(--muted)", fontSize: 13, marginTop: 10 }}>Loading…</div>}
         {filteredRentroll && (
           <>
-            <div className="pills" style={{ justifyContent: "flex-start", marginTop: 16, marginBottom: 0 }}>
+            {/* Category filter pills */}
+            <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+              {CATEGORY_OPTIONS.map(({ label, color, activeColor }) => {
+                const active = categoryFilter === label;
+                return (
+                  <button
+                    key={label}
+                    onClick={() => setCategoryFilter(label)}
+                    style={{
+                      flex: 1,
+                      padding: "8px 4px",
+                      borderRadius: 999,
+                      fontSize: 13,
+                      fontWeight: active ? 700 : 500,
+                      cursor: "pointer",
+                      border: `1.5px solid ${active ? activeColor : "var(--border)"}`,
+                      background: active
+                        ? label === "All"
+                          ? "rgba(15,23,42,0.08)"
+                          : `${activeColor}18`
+                        : "transparent",
+                      color: active ? activeColor : "var(--muted)",
+                      transition: "all 0.15s ease",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="pills" style={{ justifyContent: "flex-start", marginTop: 12, marginBottom: 0 }}>
               <StatPill label="Total Sq Ft"    value={sqftFmt(totalSqft)} />
               <StatPill label="Occupied"       value={sqftFmt(occupiedSqft)} />
               <StatPill label="Vacant"         value={sqftFmt(vacantSqft)} />
-              <StatPill label="Properties"     value={String(filteredRentroll.properties.length)} />
+              <StatPill label="Properties"     value={String(categoryRentroll!.properties.length)} />
               {totalGross > 0 && <StatPill label="Gross Rent/mo" value={money(totalGross)} />}
             </div>
             <div className="small muted" style={{ textAlign: "center", marginTop: 6 }}>
@@ -843,38 +874,6 @@ export default function RentRollPage() {
       {/* ── Dashboard ─────────────────────────────────────────────────────── */}
       {filteredRentroll && categoryRentroll && (
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-
-          {/* Category filter pills */}
-          <div style={{ display: "flex", gap: 8 }}>
-            {CATEGORY_OPTIONS.map(({ label, color, activeColor }) => {
-              const active = categoryFilter === label;
-              return (
-                <button
-                  key={label}
-                  onClick={() => setCategoryFilter(label)}
-                  style={{
-                    flex: 1,
-                    padding: "8px 4px",
-                    borderRadius: 999,
-                    fontSize: 13,
-                    fontWeight: active ? 700 : 500,
-                    cursor: "pointer",
-                    border: `1.5px solid ${active ? activeColor : "var(--border)"}`,
-                    background: active
-                      ? label === "All"
-                        ? "rgba(15,23,42,0.08)"
-                        : `${activeColor}18`
-                      : "transparent",
-                    color: active ? activeColor : "var(--muted)",
-                    transition: "all 0.15s ease",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {label}
-                </button>
-              );
-            })}
-          </div>
 
           {/* Multi-line occupancy bars */}
           {categoryRentroll.properties.reduce((s, p) => s + p.totalSqft, 0) > 0 && (
