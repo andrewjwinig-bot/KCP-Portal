@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
-  PROPERTY_DEFS, ALLOC_PCT, TYPE_STYLE, BANK_ACCOUNTS,
+  PROPERTY_DEFS, ALLOC_PCT, TYPE_STYLE, BANK_ACCOUNTS, FLOORPLAN_IDS,
   type PropertyDef, type PropType, type BankAccount,
 } from "../../lib/properties/data";
 import type { RentRollData, RentRollProperty } from "../../lib/rentroll/parseRentRollExcel";
@@ -62,6 +62,71 @@ function parcelsForProp(id: string): TaxParcel[] {
 // Bank accounts for a property
 function bankAccountsForProp(id: string): BankAccount[] {
   return BANK_ACCOUNTS[id.toUpperCase()] ?? [];
+}
+
+// ─── FLOORPLAN VIEWER ────────────────────────────────────────────────────────
+
+function FloorplanViewer({ propId, propName }: { propId: string; propName: string }) {
+  const [open, setOpen] = useState(false);
+  const src = `/floorplans/${propId}.jpg`;
+
+  return (
+    <>
+      <button
+        onClick={() => setOpen(true)}
+        style={{
+          display: "inline-flex", alignItems: "center", gap: 6,
+          padding: "6px 14px", borderRadius: 8,
+          border: "1.5px solid rgba(11,74,125,0.3)",
+          background: "rgba(11,74,125,0.06)",
+          color: "#0b4a7d", fontSize: 13, fontWeight: 600,
+          cursor: "pointer",
+        }}
+      >
+        <span style={{ fontSize: 15 }}>⬜</span> View Floorplan
+      </button>
+
+      {open && (
+        <div
+          onClick={() => setOpen(false)}
+          style={{
+            position: "fixed", inset: 0, zIndex: 2000,
+            background: "rgba(15,23,42,0.75)",
+            display: "flex", flexDirection: "column",
+            alignItems: "center", justifyContent: "center",
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: "#fff", borderRadius: 12,
+              border: "1px solid var(--border)",
+              overflow: "hidden",
+              maxWidth: "min(90vw, 960px)",
+              maxHeight: "90vh",
+              display: "flex", flexDirection: "column",
+              boxShadow: "0 16px 48px rgba(15,23,42,0.3)",
+            }}
+          >
+            <div style={{
+              display: "flex", justifyContent: "space-between", alignItems: "center",
+              padding: "12px 16px", borderBottom: "1px solid var(--border)", flexShrink: 0,
+            }}>
+              <span style={{ fontWeight: 700, fontSize: 14 }}>{propName} — Floorplan</span>
+              <button
+                onClick={() => setOpen(false)}
+                style={{ background: "none", border: "none", fontSize: 18, cursor: "pointer", color: "var(--muted)", padding: "0 4px" }}
+              >✕</button>
+            </div>
+            <div style={{ overflowY: "auto", padding: 16 }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={src} alt={`${propName} floorplan`} style={{ width: "100%", height: "auto", display: "block" }} />
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
 }
 
 // ─── K-1 INVESTOR ROW ────────────────────────────────────────────────────────
@@ -253,6 +318,11 @@ function DetailModal({
           {(prop.address || prop.city) && (
             <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 4 }}>
               {[prop.address, prop.city, [prop.state, prop.zip].filter(Boolean).join(" ")].filter(Boolean).join(", ")}
+            </div>
+          )}
+          {FLOORPLAN_IDS.has(prop.id) && (
+            <div style={{ marginTop: 10 }}>
+              <FloorplanViewer propId={prop.id} propName={prop.name} />
             </div>
           )}
           {prop.notes && (

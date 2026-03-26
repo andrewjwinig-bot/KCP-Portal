@@ -206,7 +206,23 @@ export const ALLOC_PCT: Record<string, { "9301": number; "9302": number; "9303":
   "9510": { "9301": 0.0000, "9302": 0.0000, "9303": 0.0000 },
 };
 
-// ─── TYPE VISUAL CONFIG ───────────────────────────────────────────────────────
+// ─── FLOORPLANS ───────────────────────────────────────────────────────────────
+// Property IDs that have a floorplan image in /public/floorplans/{id}.jpg
+
+export const FLOORPLAN_IDS = new Set<string>([
+  "3610",
+  "3620",
+  "3640",
+  "40A0",
+  "40B0",
+  "40C0",
+  "4050",
+  "4060",
+  "4070",
+  "4080",
+  "4900",
+]);
+
 
 export const TYPE_STYLE: Record<PropType, { text: string; bg: string; border: string }> = {
   Office:      { text: "#0b4a7d", bg: "rgba(11,74,125,0.09)",  border: "rgba(11,74,125,0.28)"  },
