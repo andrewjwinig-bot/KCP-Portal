@@ -91,16 +91,18 @@ function K1InvestorRow({ inv, done, hasDetail }: { inv: K1Investor; done: boolea
           fontSize: 10, color: done ? "#16a34a" : "transparent",
           flexShrink: 0,
         }}>✓</span>
-        <span style={{ fontSize: 14, fontWeight: done ? 700 : 500, color: done ? "#16a34a" : "var(--text)", flex: 1 }}>
-          {inv.name}
+        <span style={{ display: "flex", alignItems: "center", gap: 4, flex: 1 }}>
+          <span style={{ fontSize: 14, fontWeight: done ? 700 : 500, color: done ? "#16a34a" : "var(--text)" }}>
+            {inv.name}
+          </span>
+          {hasDetail && (
+            <span style={{ fontSize: 11, color: "var(--muted)" }}>ⓘ</span>
+          )}
         </span>
         {inv.profitPct != null && (
           <span style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600, flexShrink: 0 }}>
             {pctFmt(inv.profitPct)}
           </span>
-        )}
-        {hasDetail && (
-          <span style={{ fontSize: 11, color: "var(--muted)", flexShrink: 0, marginLeft: 4 }}>ⓘ</span>
         )}
       </div>
 
