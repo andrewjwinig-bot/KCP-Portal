@@ -121,22 +121,22 @@ export function buildPayrollGLXlsx(args: BuildPayrollExportArgs): Blob {
   for (const inv of invoices) {
     const propKey = inv.propertyKey;
     // Match the invoice PDF subtotals exactly
-    const nr  = (inv.salaryNR   ?? 0) + (inv.holNR     ?? 0)
-              + (inv.er401kNR   ?? 0) + (inv.taxesErNR ?? 0) + (inv.otherNR  ?? 0);
-    const rec = (inv.salaryREC  ?? 0) + (inv.holREC    ?? 0) + (inv.overtime ?? 0)
-              + (inv.er401kREC  ?? 0) + (inv.taxesErREC?? 0) + (inv.otherREC ?? 0);
+    const nr  = Math.round(((inv.salaryNR   ?? 0) + (inv.holNR     ?? 0)
+              + (inv.er401kNR   ?? 0) + (inv.taxesErNR ?? 0) + (inv.otherNR  ?? 0)) * 100) / 100;
+    const rec = Math.round(((inv.salaryREC  ?? 0) + (inv.holREC    ?? 0) + (inv.overtime ?? 0)
+              + (inv.er401kREC  ?? 0) + (inv.taxesErREC?? 0) + (inv.otherREC ?? 0)) * 100) / 100;
 
     if (Math.abs(nr) > 0.005) {
-      rows.push(["JRNL", "2000", "8080-0000", "DW", dateStr, `Total NR Payroll for ${propKey}`, periodCode, -Math.round(nr * 100) / 100]);
+      rows.push(["JRNL", "2000", "8080-0000", "DW", dateStr, `Total NR Payroll for ${propKey}`, periodCode, -nr]);
       offsetTotal += nr;
     }
     if (Math.abs(rec) > 0.005) {
-      rows.push(["JRNL", "2000", "8080-0000", "DW", dateStr, `Total REC Payroll for ${propKey}`, periodCode, -Math.round(rec * 100) / 100]);
+      rows.push(["JRNL", "2000", "8080-0000", "DW", dateStr, `Total REC Payroll for ${propKey}`, periodCode, -rec]);
       offsetTotal += rec;
     }
   }
 
-  // Offset row — positive sum of all property lines
+  // Offset row — rounded sum of already-rounded property lines so column H nets to $0
   rows.push(["JRNL", "2000", "0110-0000", "DW", dateStr, "Total Prop Payroll Reimbursement", periodCode, Math.round(offsetTotal * 100) / 100]);
 
   const wb = XLSX.utils.book_new();
