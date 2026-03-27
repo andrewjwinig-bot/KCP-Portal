@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { money, num, pct as fmtPct } from "../lib/utils";
-import { buildPayrollExportXlsx } from "../lib/payroll/export";
+import { buildPayrollExportXlsx, buildPayrollGLXlsx } from "../lib/payroll/export";
 
 function toTitleCase(s: string): string {
   if (!s) return s;
@@ -398,6 +398,17 @@ export default function Page() {
     if (!invoices.length) return;
     const blob = buildPayrollExportXlsx({ payDate: payroll?.payDate, invoices });
     const name = payroll?.payDate ? `${formatDateForZip(payroll.payDate)}payroll-summary.xlsx` : "payroll-summary.xlsx";
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function downloadGLJournal() {
+    if (!invoices.length) return;
+    const blob = buildPayrollGLXlsx({ payDate: payroll?.payDate, invoices });
+    const name = payroll?.payDate ? `${formatDateForZip(payroll.payDate)}GL Journal Entry.xlsx` : "GL Journal Entry.xlsx";
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url; a.download = name;
@@ -880,6 +891,9 @@ export default function Page() {
             </button>
             <button className="btn large" onClick={downloadExcel} disabled={!invoices.length}>
               Download Excel Summary
+            </button>
+            <button className="btn large" onClick={downloadGLJournal} disabled={!invoices.length}>
+              Download GL Journal Entry
             </button>
           </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
