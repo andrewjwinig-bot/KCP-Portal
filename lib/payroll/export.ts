@@ -10,8 +10,14 @@ export type PayrollExportInvoice = {
   holREC?: number;
   holNR?: number;
   er401k?: number;
+  er401kREC?: number;
+  er401kNR?: number;
   other?: number;
+  otherREC?: number;
+  otherNR?: number;
   taxesEr?: number;
+  taxesErREC?: number;
+  taxesErNR?: number;
   total?: number;
 };
 
@@ -114,8 +120,11 @@ export function buildPayrollGLXlsx(args: BuildPayrollExportArgs): Blob {
 
   for (const inv of invoices) {
     const propKey = inv.propertyKey;
-    const nr  = (inv.salaryNR ?? 0) + (inv.holNR ?? 0);
-    const rec = (inv.total ?? 0) - nr;
+    // Match the invoice PDF subtotals exactly
+    const nr  = (inv.salaryNR   ?? 0) + (inv.holNR     ?? 0)
+              + (inv.er401kNR   ?? 0) + (inv.taxesErNR ?? 0) + (inv.otherNR  ?? 0);
+    const rec = (inv.salaryREC  ?? 0) + (inv.holREC    ?? 0) + (inv.overtime ?? 0)
+              + (inv.er401kREC  ?? 0) + (inv.taxesErREC?? 0) + (inv.otherREC ?? 0);
 
     if (Math.abs(nr) > 0.005) {
       rows.push(["JRNL", "2000", "8080-0000", "DW", dateStr, `Total NR Payroll for ${propKey}`, periodCode, -Math.round(nr * 100) / 100]);
