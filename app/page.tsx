@@ -70,7 +70,7 @@ type PropAllocRow = {
   employee: string; allocPct: number;
   salary: number; overtime: number; hol: number; er401k: number; other: number; taxesEr: number; total: number;
 };
-type PropAllocModal = { propertyKey: string; propertyLabel: string; rows: PropAllocRow[]; showOther: boolean; showTaxesEr: boolean };
+type PropAllocModal = { propertyKey: string; propertyLabel: string; rows: PropAllocRow[]; showOther: boolean; showTaxesEr: boolean; nrTotal: number; recTotal: number };
 
 type EmpModalRow = {
   propertyKey: string;
@@ -502,7 +502,9 @@ export default function Page() {
     const rows = Array.from(empMap.values()).sort((a, b) => b.total - a.total);
     const showOther   = rows.some((r) => r.other   > 0);
     const showTaxesEr = rows.some((r) => r.taxesEr > 0);
-    setPropAllocModal({ propertyKey: inv.propertyKey, propertyLabel: inv.propertyLabel ?? inv.propertyKey, rows, showOther, showTaxesEr });
+    const nrTotal  = (inv.salaryNR  ?? 0) + (inv.holNR     ?? 0) + (inv.er401kNR  ?? 0) + (inv.taxesErNR ?? 0) + (inv.otherNR  ?? 0);
+    const recTotal = (inv.salaryREC ?? 0) + (inv.holREC    ?? 0) + (inv.overtime  ?? 0)  + (inv.er401kREC ?? 0) + (inv.taxesErREC ?? 0) + (inv.otherREC ?? 0);
+    setPropAllocModal({ propertyKey: inv.propertyKey, propertyLabel: inv.propertyLabel ?? inv.propertyKey, rows, showOther, showTaxesEr, nrTotal, recTotal });
   }
 
   function openEmployee(e: EmployeeSummary) {
@@ -1038,6 +1040,18 @@ export default function Page() {
                     {propAllocModal.showTaxesEr && <td style={{ textAlign: "right" }}>{money(propAllocModal.rows.reduce((s, r) => s + r.taxesEr, 0))}</td>}
                     <td style={{ textAlign: "right" }}>{money(propAllocModal.rows.reduce((s, r) => s + r.total, 0))}</td>
                   </tr>
+                  {(propAllocModal.nrTotal > 0 || propAllocModal.recTotal > 0) && (
+                    <tr style={{ fontSize: "0.78em", color: "var(--muted)", borderTop: "1px solid var(--border)" }}>
+                      <td colSpan={2} style={{ paddingTop: 6 }}>NR / REC split</td>
+                      <td colSpan={4} />
+                      {propAllocModal.showOther   && <td />}
+                      {propAllocModal.showTaxesEr && <td />}
+                      <td style={{ textAlign: "right", paddingTop: 6 }}>
+                        <div>NR: <b style={{ color: "var(--text)" }}>{money(propAllocModal.nrTotal)}</b></div>
+                        <div>REC: <b style={{ color: "var(--text)" }}>{money(propAllocModal.recTotal)}</b></div>
+                      </td>
+                    </tr>
+                  )}
                 </tfoot>
               </table>
             )}
