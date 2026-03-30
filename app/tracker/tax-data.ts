@@ -177,6 +177,25 @@ export const TAX_TASKS: TaxTask[] = [
   },
 
   {
+    id: "k1-7300",
+    entity: "7300 Revere",
+    category: "k1",
+    dueMonth: 3,
+    dueDay: 15,
+    investors: [
+      { id: "k1-7300-langsfeld",   name: "Judith K. Langsfeld",        detailedName: "Judith K. Langsfeld 1942 Trust",                      address: "1673 Paper Mill Road",       city: "Meadowbrook",  state: "Pennsylvania", zip: "19046",             profitPct: 0.187400000, lossPct: 0.187400000, capitalPct: 0.187400000 },
+      { id: "k1-7300-sohn",        name: "Joan R. Sohn 1942 Trust",     detailedName: "C/O Baker Tilly US, LLP",                             address: "1650 Market St., Suite 4500", city: "Philadelphia", state: "Pennsylvania", zip: "19103",             profitPct: 0.374800000, lossPct: 0.374800000, capitalPct: 0.374800000 },
+      { id: "k1-7300-honickman",   name: "Lynne Honickman 1942 Trust",  detailedName: "C/O The Honickman Co., Eric D. Pisauro",              address: "8275 N. Crescent Blvd.",     city: "Pennsauken",   state: "New Jersey",   zip: "08110",             profitPct: 0.187400000, lossPct: 0.187400000, capitalPct: 0.187400000 },
+      { id: "k1-7300-aisard",      name: "Amy C Isard",                                                                                      address: "Grandweg 146",               city: "Hamburg",      state: "Germany",      zip: "",                  profitPct: 0.031300000, lossPct: 0.031300000, capitalPct: 0.031300000 },
+      { id: "k1-7300-misard",      name: "Michael A Isard",                                                                                  address: "160 Russ Street",            city: "San Francisco", state: "California",  zip: "94103",             profitPct: 0.031300000, lossPct: 0.031300000, capitalPct: 0.031300000 },
+      { id: "k1-7300-agisard",     name: "Alexander G Isard",                                                                                address: "2317 East York Street",      city: "Philadelphia", state: "Pennsylvania", zip: "19125",             profitPct: 0.031300000, lossPct: 0.031300000, capitalPct: 0.031300000 },
+      { id: "k1-7300-bkisard",     name: "Brendan K Isard",                                                                                  address: "757 Columbus Parkway",       city: "Buffalo",      state: "New York",     zip: "14213",             profitPct: 0.031300000, lossPct: 0.031300000, capitalPct: 0.031300000 },
+      { id: "k1-7300-lisard",      name: "Lawrence Isard",              detailedName: "Irrev At Margaret C Isard Dtd 7-28-20",               address: "901 N. Penn Street Unit P-1401", city: "Philadelphia", state: "Pennsylvania", zip: "19123",          profitPct: 0.062600000, lossPct: 0.062600000, capitalPct: 0.062600000 },
+      { id: "k1-7300-cisard",      name: "Carol Isard",                 detailedName: "Irrev At Margaret C Isard Dtd 7-28-20",               address: "8603 Prospect Avenue",       city: "Philadelphia", state: "Pennsylvania", zip: "19118",             profitPct: 0.062600000, lossPct: 0.062600000, capitalPct: 0.062600000 },
+    ],
+  },
+
+  {
     id: "k1-9800",
     entity: "9800 Bellaire Avenue",
     category: "k1",
