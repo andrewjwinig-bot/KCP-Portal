@@ -260,6 +260,20 @@ export const TAX_TASKS: TaxTask[] = [
     ],
   },
 
+  {
+    id: "bls-0900",
+    entity: "0900 Lincoln JV I",
+    category: "entity",
+    dueMonth: 3,
+    dueDay: 15,
+    label: "Lincoln BLS Schedule E",
+    instructionSteps: [
+      "Complete owner's share of income/expenses and fill out 0900 20XX Lincoln BLS Sch E.",
+      "Save to Data\\Accounting\\20XX Year End\\Business Parks\\0900 Lincoln JV I.",
+      "Once complete, send to Noreen Cassidy — ncassidy@livekorman.com",
+    ],
+  },
+
   // ─── ENTITY / STATUTORY FILINGS ─────────────────────────────────────────
 
   { id: "ent-nim-jun",  entity: "Neshaminy Interplex, MM, LP (DE)", category: "entity", dueMonth: 6,  dueDay: 1, notes: "File #5404613" },
