@@ -15,6 +15,7 @@ export interface PropertyDef {
   sqft?: number;
   yearBuilt?: number;
   notes?: string;
+  ein?: string;       // Employer Identification Number
   // "BP" = Business Park (9301), "SC" = Shopping Centers (9302)
   allocGroup?: "BP" | "SC";
   // GL accounts used in CC Expense Coder for this property
@@ -24,25 +25,25 @@ export interface PropertyDef {
 export const PROPERTY_DEFS: PropertyDef[] = [
 
   // ── Business Park (BP) — Office · Neshaminy Interplex, Feasterville-Trevose PA ─
-  { id: "3610", name: "Building 1",   type: "Office", allocGroup: "BP", ccAccounts: ["8501"], address: "1 Neshaminy Interplex",  city: "Feasterville-Trevose", state: "PA", zip: "19053", sqft: 41821,  yearBuilt: 1977 },
-  { id: "3620", name: "Building 2",   type: "Office", allocGroup: "BP", ccAccounts: ["8501"], address: "2 Neshaminy Interplex",  city: "Feasterville-Trevose", state: "PA", zip: "19053", sqft: 49020,  yearBuilt: 1978 },
-  { id: "3640", name: "Building 4",   type: "Office", allocGroup: "BP", ccAccounts: ["8501"], address: "4 Neshaminy Interplex",  city: "Feasterville-Trevose", state: "PA", zip: "19053", sqft: 48794,  yearBuilt: 1981 },
-  { id: "4050", name: "Building 5",   type: "Office", allocGroup: "BP", ccAccounts: ["8501"], address: "5 Interplex Dr",         city: "Feasterville-Trevose", state: "PA", zip: "19053", sqft: 54008,  yearBuilt: 1983 },
-  { id: "4060", name: "Building 6",   type: "Office", allocGroup: "BP", ccAccounts: ["8501"], address: "6 Interplex Dr",         city: "Feasterville-Trevose", state: "PA", zip: "19053", sqft: 107890, yearBuilt: 1985 },
-  { id: "4070", name: "Building 7",   type: "Office", allocGroup: "BP", ccAccounts: ["8501"], address: "7 Interplex Dr",         city: "Feasterville-Trevose", state: "PA", zip: "19053", sqft: 61448,  yearBuilt: 1987 },
-  { id: "4080", name: "Building 8",   type: "Office", allocGroup: "BP", ccAccounts: ["8501"], address: "8 Interplex Dr",         city: "Feasterville-Trevose", state: "PA", zip: "19053", sqft: 127848, yearBuilt: 1991 },
-  { id: "40A0", name: "Kor Center A", type: "Office", allocGroup: "BP", ccAccounts: ["8501"], address: "2577 Interplex Dr",      city: "Feasterville-Trevose", state: "PA", zip: "19053", sqft: 15083,  yearBuilt: 1976 },
-  { id: "40B0", name: "Kor Center B", type: "Office", allocGroup: "BP", ccAccounts: ["8501"], address: "2607 Interplex Dr",      city: "Feasterville-Trevose", state: "PA", zip: "19053", sqft: 12978,  yearBuilt: 1976 },
-  { id: "40C0", name: "Kor Center C", type: "Office", allocGroup: "BP", ccAccounts: ["8501"], address: "2585 Interplex Dr",      city: "Feasterville-Trevose", state: "PA", zip: "19053", sqft: 18000,  yearBuilt: 1976 },
+  { id: "3610", name: "Building 1",   type: "Office", ein: "23-2386090", allocGroup: "BP", ccAccounts: ["8501"], address: "1 Neshaminy Interplex",  city: "Feasterville-Trevose", state: "PA", zip: "19053", sqft: 41821,  yearBuilt: 1977 },
+  { id: "3620", name: "Building 2",   type: "Office", ein: "23-2386090", allocGroup: "BP", ccAccounts: ["8501"], address: "2 Neshaminy Interplex",  city: "Feasterville-Trevose", state: "PA", zip: "19053", sqft: 49020,  yearBuilt: 1978 },
+  { id: "3640", name: "Building 4",   type: "Office", ein: "23-2386090", allocGroup: "BP", ccAccounts: ["8501"], address: "4 Neshaminy Interplex",  city: "Feasterville-Trevose", state: "PA", zip: "19053", sqft: 48794,  yearBuilt: 1981 },
+  { id: "4050", name: "Building 5",   type: "Office", ein: "61-1723336", allocGroup: "BP", ccAccounts: ["8501"], address: "5 Interplex Dr",         city: "Feasterville-Trevose", state: "PA", zip: "19053", sqft: 54008,  yearBuilt: 1983 },
+  { id: "4060", name: "Building 6",   type: "Office", ein: "61-1723336", allocGroup: "BP", ccAccounts: ["8501"], address: "6 Interplex Dr",         city: "Feasterville-Trevose", state: "PA", zip: "19053", sqft: 107890, yearBuilt: 1985 },
+  { id: "4070", name: "Building 7",   type: "Office", ein: "61-1723336", allocGroup: "BP", ccAccounts: ["8501"], address: "7 Interplex Dr",         city: "Feasterville-Trevose", state: "PA", zip: "19053", sqft: 61448,  yearBuilt: 1987 },
+  { id: "4080", name: "Building 8",   type: "Office", ein: "61-1723336", allocGroup: "BP", ccAccounts: ["8501"], address: "8 Interplex Dr",         city: "Feasterville-Trevose", state: "PA", zip: "19053", sqft: 127848, yearBuilt: 1991 },
+  { id: "40A0", name: "Kor Center A", type: "Office", ein: "61-1723336", allocGroup: "BP", ccAccounts: ["8501"], address: "2577 Interplex Dr",      city: "Feasterville-Trevose", state: "PA", zip: "19053", sqft: 15083,  yearBuilt: 1976 },
+  { id: "40B0", name: "Kor Center B", type: "Office", ein: "61-1723336", allocGroup: "BP", ccAccounts: ["8501"], address: "2607 Interplex Dr",      city: "Feasterville-Trevose", state: "PA", zip: "19053", sqft: 12978,  yearBuilt: 1976 },
+  { id: "40C0", name: "Kor Center C", type: "Office", ein: "61-1723336", allocGroup: "BP", ccAccounts: ["8501"], address: "2585 Interplex Dr",      city: "Feasterville-Trevose", state: "PA", zip: "19053", sqft: 18000,  yearBuilt: 1976 },
 
   // ── Retail ────────────────────────────────────────────────────────────────
-  { id: "1100", name: "Parkwood Professional Building",   type: "Retail", allocGroup: "SC", ccAccounts: ["8501"], address: "12300-12310 Academy Rd", city: "Philadelphia",          state: "PA", zip: "19154", sqft: 8287,  yearBuilt: 1970 },
-  { id: "2300", name: "Brookwood Shopping Center",        type: "Retail", allocGroup: "SC", ccAccounts: ["8501"], address: "1847 Street Rd",         city: "Bensalem",              state: "PA", zip: "19020", sqft: 61572, yearBuilt: 1966 },
-  { id: "4500", name: "Gray's Ferry Shopping Center",     type: "Retail", allocGroup: "SC", ccAccounts: ["8501"], address: "2897 Grays Ferry Ave",   city: "Philadelphia",          state: "PA", zip: "19146", sqft: 82809, yearBuilt: 1989 },
-  { id: "7010", name: "Parkwood Shopping/Office Center",  type: "Retail", allocGroup: "SC", ccAccounts: ["8501"], address: "12301-12377 Academy Rd", city: "Philadelphia",          state: "PA",               sqft: 73209, yearBuilt: 1963 },
-  { id: "9510", name: "Shops at Lafayette Hill",          type: "Retail", allocGroup: "SC", ccAccounts: ["8501"], address: "400-428 Germantown Pike", city: "Lafayette Hill",        state: "PA",               sqft: 19983, yearBuilt: 1976 },
-  { id: "7200", name: "Elbridge Partnership", type: "Retail", allocGroup: "SC", ccAccounts: ["8501"], address: "7201 Roosevelt Blvd",  city: "Philadelphia", state: "PA", zip: "19149", sqft: 22500, yearBuilt: 1948 },
-  { id: "7300", name: "Revere Partnership",   type: "Retail", allocGroup: "SC", ccAccounts: ["8501"], address: "6412-22 Castor Ave",  city: "Philadelphia", state: "PA", zip: "19149", sqft: 14821, yearBuilt: 1968 },
+  { id: "1100", name: "Parkwood Professional Building",   type: "Retail", ein: "23-2333412", allocGroup: "SC", ccAccounts: ["8501"], address: "12300-12310 Academy Rd", city: "Philadelphia",          state: "PA", zip: "19154", sqft: 8287,  yearBuilt: 1970 },
+  { id: "2300", name: "Brookwood Shopping Center",        type: "Retail", ein: "23-2399813", allocGroup: "SC", ccAccounts: ["8501"], address: "1847 Street Rd",         city: "Bensalem",              state: "PA", zip: "19020", sqft: 61572, yearBuilt: 1966 },
+  { id: "4500", name: "Gray's Ferry Shopping Center",     type: "Retail", ein: "23-2946498", allocGroup: "SC", ccAccounts: ["8501"], address: "2897 Grays Ferry Ave",   city: "Philadelphia",          state: "PA", zip: "19146", sqft: 82809, yearBuilt: 1989 },
+  { id: "7010", name: "Parkwood Shopping/Office Center",  type: "Retail", ein: "23-6277274", allocGroup: "SC", ccAccounts: ["8501"], address: "12301-12377 Academy Rd", city: "Philadelphia",          state: "PA",               sqft: 73209, yearBuilt: 1963 },
+  { id: "9510", name: "Shops at Lafayette Hill",          type: "Retail",                    allocGroup: "SC", ccAccounts: ["8501"], address: "400-428 Germantown Pike", city: "Lafayette Hill",        state: "PA",               sqft: 19983, yearBuilt: 1976 },
+  { id: "7200", name: "Elbridge Partnership", type: "Retail", ein: "23-6487371", allocGroup: "SC", ccAccounts: ["8501"], address: "7201 Roosevelt Blvd",  city: "Philadelphia", state: "PA", zip: "19149", sqft: 22500, yearBuilt: 1948 },
+  { id: "7300", name: "Revere Partnership",   type: "Retail",                    allocGroup: "SC", ccAccounts: ["8501"], address: "6412-22 Castor Ave",  city: "Philadelphia", state: "PA", zip: "19149", sqft: 14821, yearBuilt: 1968 },
   { id: "1500", name: "Eastwick JV I",                    type: "Retail", allocGroup: "SC", ccAccounts: ["8501"], address: "2448 Island Ave", city: "Philadelphia", state: "PA", zip: "19153", sqft: 2280, yearBuilt: 1950 },
   { id: "9200", name: "Eastwick JV XII",                  type: "Retail",                   ccAccounts: ["8501"], address: "8675 Tinicum Blvd", city: "Philadelphia", state: "PA", zip: "19153" },
 
@@ -53,16 +54,16 @@ export const PROPERTY_DEFS: PropertyDef[] = [
   { id: "9860", name: "KH Fort Washington", type: "Residential", address: "233 Fort Washington Ave", city: "Fort Washington", state: "PA", zip: "19034", sqft: 1603, yearBuilt: 1900 },
 
   // ── Other Commercial / Holding ────────────────────────────────────────────
-  { id: "5600", name: "Castor Ave - USPS", type: "Retail", allocGroup: "SC", ccAccounts: ["8501"], address: "6382 Castor Ave", city: "Philadelphia", state: "PA", sqft: 1326, yearBuilt: 1951 },
+  { id: "5600", name: "Castor Ave - USPS", type: "Retail", ein: "23-2333761", allocGroup: "SC", ccAccounts: ["8501"], address: "6382 Castor Ave", city: "Philadelphia", state: "PA", sqft: 1326, yearBuilt: 1951 },
   { id: "8200", name: "Trust #4",         type: "Retail", allocGroup: "SC", ccAccounts: ["8501"], address: "2801-2811 Cottman Ave", city: "Philadelphia", state: "PA", sqft: 10000, yearBuilt: 1990, notes: "McDonald's (2801) + Four Seasons Diner (2811)" },
-  { id: "4900", name: "The Office Works",            type: "Misc",                     ccAccounts: ["8501"], notes: "OW payroll group" },
-  { id: "2010", name: "LIK Management, Inc.",        type: "Misc",                     ccAccounts: ["8501"], notes: "Management entity — LIK payroll group" },
+  { id: "4900", name: "The Office Works",            type: "Misc", ein: "23-2393492",                    ccAccounts: ["8501"], notes: "OW payroll group" },
+  { id: "2010", name: "LIK Management, Inc.",        type: "Misc", ein: "04-3627076",                    ccAccounts: ["8501"], notes: "Management entity — LIK payroll group" },
 
-  { id: "0800", name: "Interstate Business Park",    type: "Land",                     ccAccounts: ["8501"], notes: "Bellmawr, NJ — quarterly Net Profits Tax" },
+  { id: "0800", name: "Interstate Business Park",    type: "Land", ein: "23-2403675",                    ccAccounts: ["8501"], notes: "Bellmawr, NJ — quarterly Net Profits Tax" },
 
   // ── Land ──────────────────────────────────────────────────────────────────
   { id: "2070", name: "Kosano Associates LP (Nockamixon)", type: "Land", notes: "Has K-1 investors", address: "Easton Rd", city: "Ottsville", state: "PA", zip: "18942" },
-  { id: "0900", name: "Interplex 2-Acre Land",             type: "Land" },
+  { id: "0900", name: "Interplex 2-Acre Land",             type: "Land", ein: "N/A" },
 ];
 
 // ─── BANK ACCOUNTS ───────────────────────────────────────────────────────────

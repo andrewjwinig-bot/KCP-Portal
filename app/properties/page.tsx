@@ -345,6 +345,9 @@ function DetailModal({
               {prop.type !== "Land" && prop.type !== "Misc" && (
                 <InfoField label="Year Built" value={prop.yearBuilt ? String(prop.yearBuilt) : "—"} />
               )}
+              {prop.ein && (
+                <InfoField label="EIN" value={prop.ein} />
+              )}
             </div>
 
             {/* Parcel Numbers */}
