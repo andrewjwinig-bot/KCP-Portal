@@ -13,6 +13,7 @@ export interface PropertyDef {
   state?: string;
   zip?: string;
   sqft?: number;
+  acres?: number;     // land area in acres (for Land-type properties)
   yearBuilt?: number;
   notes?: string;
   ein?: string;       // Employer Identification Number
@@ -45,7 +46,7 @@ export const PROPERTY_DEFS: PropertyDef[] = [
   { id: "7200", name: "Elbridge Partnership", type: "Retail", ein: "23-6487371", allocGroup: "SC", ccAccounts: ["8501"], address: "7201 Roosevelt Blvd",  city: "Philadelphia", state: "PA", zip: "19149", sqft: 22500, yearBuilt: 1948 },
   { id: "7300", name: "Revere Partnership",   type: "Retail",                    allocGroup: "SC", ccAccounts: ["8501"], address: "6412-22 Castor Ave",  city: "Philadelphia", state: "PA", zip: "19149", sqft: 14821, yearBuilt: 1968 },
   { id: "1500", name: "Eastwick JV I",                    type: "Retail", allocGroup: "SC", ccAccounts: ["8501"], address: "2448 Island Ave", city: "Philadelphia", state: "PA", zip: "19153", sqft: 2280, yearBuilt: 1950 },
-  { id: "9200", name: "Eastwick JV XII",                  type: "Retail",                   ccAccounts: ["8501"], address: "8675 Tinicum Blvd", city: "Philadelphia", state: "PA", zip: "19153" },
+  { id: "9200", name: "Eastwick JV XII",                  type: "Retail", ein: "23-2921345", acres: 0.82, ccAccounts: ["8501"], address: "8675 Tinicum Blvd", city: "Philadelphia", state: "PA", zip: "19153" },
 
   // ── Residential ───────────────────────────────────────────────────────────
   { id: "9800", name: "Bellaire Avenue",  type: "Residential", address: "509 Bellaire Ave", city: "Fort Washington", state: "PA", zip: "19034", yearBuilt: 1910 },
@@ -59,11 +60,11 @@ export const PROPERTY_DEFS: PropertyDef[] = [
   { id: "4900", name: "The Office Works",            type: "Misc", ein: "23-2393492",                    ccAccounts: ["8501"], notes: "OW payroll group" },
   { id: "2010", name: "LIK Management, Inc.",        type: "Misc", ein: "04-3627076",                    ccAccounts: ["8501"], notes: "Management entity — LIK payroll group" },
 
-  { id: "0800", name: "Interstate Business Park",    type: "Land", ein: "23-2403675",                    ccAccounts: ["8501"], notes: "Bellmawr, NJ — quarterly Net Profits Tax" },
+  { id: "0800", name: "Interstate Business Park",    type: "Land", ein: "23-2403675", acres: 13,          ccAccounts: ["8501"], notes: "Bellmawr, NJ — quarterly Net Profits Tax" },
 
   // ── Land ──────────────────────────────────────────────────────────────────
-  { id: "2070", name: "Kosano Associates LP (Nockamixon)", type: "Land", notes: "Has K-1 investors", address: "Easton Rd", city: "Ottsville", state: "PA", zip: "18942" },
-  { id: "0900", name: "Interplex 2-Acre Land",             type: "Land", ein: "N/A" },
+  { id: "2070", name: "Kosano Associates LP (Nockamixon)", type: "Land", acres: 20, notes: "Has K-1 investors", address: "Easton Rd", city: "Ottsville", state: "PA", zip: "18942" },
+  { id: "0900", name: "Lincoln BLS",             type: "Land", ein: "N/A", acres: 2.09 },
 ];
 
 // ─── BANK ACCOUNTS ───────────────────────────────────────────────────────────

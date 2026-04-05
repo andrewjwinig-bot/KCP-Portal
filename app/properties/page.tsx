@@ -342,6 +342,9 @@ function DetailModal({
               {prop.type !== "Land" && prop.type !== "Misc" && (
                 <InfoField label="Sq Footage" value={prop.sqft ? `${prop.sqft.toLocaleString()} sq ft` : "—"} />
               )}
+              {prop.acres != null && (
+                <InfoField label="Acres" value={`${prop.acres} ac`} />
+              )}
               {prop.type !== "Land" && prop.type !== "Misc" && (
                 <InfoField label="Year Built" value={prop.yearBuilt ? String(prop.yearBuilt) : "—"} />
               )}
