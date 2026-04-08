@@ -107,7 +107,7 @@ const EMPLOYEE_ALLOC_NOTES: Array<{ match: string[]; displayName: string; note: 
   { match: ["collier"],        displayName: "Collier, Donna",              note: "100% Office Works" },
   { match: ["tomlinson"],      displayName: "Tomlinson, Tami M.",          note: "100% Office Works" },
   { match: ["weissman"],       displayName: "Weissman, Susan",             note: "100% Office Works" },
-  { match: ["feldman","harry"],displayName: "Feldman, Harry I.",           note: "5% LIK, $25K split between Interstate, Middletown, and Eastwick for development, balance SC" },
+  { match: ["feldman","harry"],displayName: "Feldman, Harry I.",           note: "5% LIK, $25K split between Interstate and Eastwick for development, balance SC" },
   { match: ["jaster"],         displayName: "Jaster, Marie",              note: "50% SC, 50% BP" },
   { match: ["rovkin"],         displayName: "Rovkin, Tatyana",             note: "50% SC, 50% BP" },
   { match: ["loiseau"],        displayName: "Loiseau, Charles",            note: "50% SC, 50% BP" },
