@@ -109,6 +109,21 @@ export const TAX_TASKS: TaxTask[] = [
   { id: "np-0800-q3", entity: "0800 Bellmawr — Q3", category: "quarterly", dueMonth: 8,  dueDay: 1, notes: "Net Profits Tax — pay online" },
   { id: "np-0800-q4", entity: "0800 Bellmawr — Q4", category: "quarterly", dueMonth: 11, dueDay: 1, notes: "Net Profits Tax — pay online" },
 
+  // ─── PA / PHILLY TAX FILINGS — APRIL 15 ─────────────────────────────────
+
+  { id: "ent-7200-pa65",   entity: "7200 Elbridge",         category: "entity", dueMonth: 4, dueDay: 15, label: "PA NR Withholding (PA-65)",                              instructionSteps: ["Accountant to provide info.", "Enclose a check or money order, payable to PA Department of Revenue. Write FEIN and the tax type on the check.", "Mail along with PA-NR Withholding Payment voucher.", "Vendor PADE5 · Acc: 2330-0000"] },
+  { id: "ent-7200-pa40es", entity: "7200 Elbridge",         category: "entity", dueMonth: 4, dueDay: 15, label: "Pennsylvania Estimated Income Tax (PA-40ES)",               instructionSteps: ["Accountant to provide info.", "Four vouchers to be mailed with a check to PA Department of Revenue.", "Vendor PADE4 · Acc: 2230-0000"] },
+  { id: "ent-7200-birt",   entity: "7200 Elbridge",         category: "entity", dueMonth: 4, dueDay: 15, label: "Philadelphia Business Income and Receipts Form (BIRT-EZ)", instructionSteps: ["Accountant to provide info.", "If balance, must be paid electronically via City of Philadelphia website at tax-services.phila.gov.", "Vendor CITY8 · Acc: 8210-8501"] },
+  { id: "ent-7200-npt",    entity: "7200 Elbridge",         category: "entity", dueMonth: 4, dueDay: 15, label: "Philadelphia Net Profits Tax Form (NPT)",                  instructionSteps: ["Accountant to provide info.", "Not always applicable if refund is due."] },
+
+  { id: "ent-7300-pa65",   entity: "7300 Revere",           category: "entity", dueMonth: 4, dueDay: 15, label: "PA NR Withholding (PA-65)",                              instructionSteps: ["Accountant to provide info.", "Enclose a check or money order, payable to PA Department of Revenue. Write FEIN and the tax type on the check.", "Mail along with PA-NR Withholding Payment voucher.", "Vendor PADE5 · Acc: 2330-0000"] },
+  { id: "ent-7300-pa40es", entity: "7300 Revere",           category: "entity", dueMonth: 4, dueDay: 15, label: "Pennsylvania Estimated Income Tax (PA-40ES)",               instructionSteps: ["Accountant to provide info.", "Four vouchers to be mailed with a check to PA Department of Revenue.", "Vendor PADE4 · Acc: 2230-0000"] },
+  { id: "ent-7300-birt",   entity: "7300 Revere",           category: "entity", dueMonth: 4, dueDay: 15, label: "Philadelphia Business Income and Receipts Form (BIRT-EZ)", instructionSteps: ["Accountant to provide info.", "If balance, must be paid electronically via City of Philadelphia website at tax-services.phila.gov.", "Vendor CITY8 · Acc: 8210-8501"] },
+  { id: "ent-7300-npt",    entity: "7300 Revere",           category: "entity", dueMonth: 4, dueDay: 15, label: "Philadelphia Net Profits Tax Form (NPT)",                  instructionSteps: ["Accountant to provide info.", "Not always applicable if refund is due."] },
+
+  { id: "ent-9510-pa65",   entity: "9510 Lafayette Hill SC", category: "entity", dueMonth: 4, dueDay: 15, label: "PA NR Withholding (PA-65)",                             instructionSteps: ["Accountant to provide info.", "Enclose a check or money order, payable to PA Department of Revenue. Write FEIN and the tax type on the check.", "Mail along with PA-NR Withholding Payment voucher.", "Vendor PADE5 · Acc: 2330-0000"] },
+  { id: "ent-9510-pa40es", entity: "9510 Lafayette Hill SC", category: "entity", dueMonth: 4, dueDay: 15, label: "Pennsylvania Estimated Income Tax (PA-40ES)",              instructionSteps: ["Accountant to provide info.", "Four vouchers to be mailed with a check to PA Department of Revenue.", "Vendor PADE4 · Acc: 2230-0000"] },
+
   // ─── K-1 DISTRIBUTIONS ──────────────────────────────────────────────────
 
   {
