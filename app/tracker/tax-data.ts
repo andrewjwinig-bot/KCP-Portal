@@ -291,8 +291,8 @@ export const TAX_TASKS: TaxTask[] = [
 
   // ─── ENTITY / STATUTORY FILINGS ─────────────────────────────────────────
 
-  { id: "ent-nim-jun",  entity: "Neshaminy Interplex, MM, LP (DE)", category: "entity", dueMonth: 6,  dueDay: 1, notes: "File #5404613" },
-  { id: "ent-nil-jun",  entity: "Neshaminy Interplex LLC (DE)",     category: "entity", dueMonth: 6,  dueDay: 1, notes: "File #5404612" },
+  { id: "ent-nim-jun",  entity: "Neshaminy Interplex, MM, LP (DE)", category: "entity", dueMonth: 6,  dueDay: 1, label: "Annual Alternative Entity (LLC/LP/GP)", notes: "File #5404613 · Comes in mail. Mail check or pay online at: corp.delaware.gov" },
+  { id: "ent-nil-jun",  entity: "Neshaminy Interplex LLC (DE)",     category: "entity", dueMonth: 6,  dueDay: 1, label: "Annual Alternative Entity (LLC/LP/GP)", notes: "File #5404612 · Comes in mail. Mail check or pay online at: corp.delaware.gov" },
   { id: "ent-0800-nov", entity: "0800 Bellmawr JV, LLP (NJ)",       category: "entity", dueMonth: 11, dueDay: 1, notes: "LP/LLC/GP Annual Tax — pay online via CT Corp · Acc 9400392779" },
   { id: "ent-nim-nov",  entity: "Neshaminy Interplex, MM, LP (DE)", category: "entity", dueMonth: 11, dueDay: 1, notes: "LP/LLC/GP Annual Tax — pay online via CT Corp · Acc 9401222288" },
   { id: "ent-nil-nov",  entity: "Neshaminy Interplex LLC (DE)",     category: "entity", dueMonth: 11, dueDay: 1, notes: "LP/LLC/GP Annual Tax — pay online via CT Corp · Acc 9401231147" },
