@@ -349,7 +349,10 @@ function DetailModal({
                 <InfoField label="Year Built" value={prop.yearBuilt ? String(prop.yearBuilt) : "—"} />
               )}
               {prop.ein && (
-                <InfoField label="EIN" value={prop.ein} />
+                <InfoField label={prop.einLabel ?? "EIN"} value={prop.ein} />
+              )}
+              {prop.ein2 && (
+                <InfoField label={prop.ein2Label ?? "EIN (2)"} value={prop.ein2} />
               )}
             </div>
 

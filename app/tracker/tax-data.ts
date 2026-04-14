@@ -124,6 +124,21 @@ export const TAX_TASKS: TaxTask[] = [
   { id: "ent-9510-pa65",   entity: "9510 Lafayette Hill SC", category: "entity", dueMonth: 4, dueDay: 15, label: "PA NR Withholding (PA-65)",                             instructionSteps: ["Accountant to provide info.", "Enclose a check or money order, payable to PA Department of Revenue. Write FEIN and the tax type on the check.", "Mail along with PA-NR Withholding Payment voucher.", "Vendor PADE5 · Acc: 2330-0000"] },
   { id: "ent-9510-pa40es", entity: "9510 Lafayette Hill SC", category: "entity", dueMonth: 4, dueDay: 15, label: "Pennsylvania Estimated Income Tax (PA-40ES)",              instructionSteps: ["Accountant to provide info.", "Four vouchers to be mailed with a check to PA Department of Revenue.", "Vendor PADE4 · Acc: 2230-0000"] },
 
+  { id: "ent-8200-birt-joan",   entity: "8200 Trust #4 (Joan Sohn)",        category: "entity", dueMonth: 4, dueDay: 15, label: "Philadelphia Business Income and Receipts Form (BIRT-EZ)", instructionSteps: ["Accountant to provide info.", "If balance, must be paid electronically via City of Philadelphia website at tax-services.phila.gov.", "Vendor CITY8 · Acc: 8210-8501"] },
+  { id: "ent-8200-birt-judith", entity: "8200 Trust #4 (Judith Langsfeld)", category: "entity", dueMonth: 4, dueDay: 15, label: "Philadelphia Business Income and Receipts Form (BIRT-EZ)", instructionSteps: ["Accountant to provide info.", "If balance, must be paid electronically via City of Philadelphia website at tax-services.phila.gov.", "Vendor CITY8 · Acc: 8210-8501"] },
+
+  { id: "ent-1100-birt", entity: "1100 Parkwood Professional Bldg", category: "entity", dueMonth: 4, dueDay: 15, label: "Philadelphia Business Income and Receipts Form (BIRT-EZ)", instructionSteps: ["Accountant to provide info.", "If balance, must be paid electronically via City of Philadelphia website at tax-services.phila.gov.", "Vendor CITY8 · Acc: 8210-8501"] },
+  { id: "ent-1100-npt",  entity: "1100 Parkwood Professional Bldg", category: "entity", dueMonth: 4, dueDay: 15, label: "Philadelphia Net Profits Tax Form (NPT)",                  instructionSteps: ["Accountant to provide info.", "Not always applicable if refund is due."] },
+
+  { id: "ent-1500-birt", entity: "1500 Eastwick JV I",    category: "entity", dueMonth: 4, dueDay: 15, label: "Philadelphia Business Income and Receipts Form (BIRT-EZ)", instructionSteps: ["Accountant to provide info.", "If balance, must be paid electronically via City of Philadelphia website at tax-services.phila.gov.", "Vendor CITY8 · Acc: 8210-8501"] },
+
+  { id: "ent-4500-birt", entity: "4500 Grays Ferry SC",   category: "entity", dueMonth: 4, dueDay: 15, label: "Philadelphia Business Income and Receipts Form (BIRT-EZ)", instructionSteps: ["Accountant to provide info.", "If balance, must be paid electronically via City of Philadelphia website at tax-services.phila.gov.", "Vendor CITY8 · Acc: 8210-8501"] },
+  { id: "ent-4500-npt",  entity: "4500 Grays Ferry SC",   category: "entity", dueMonth: 4, dueDay: 15, label: "Philadelphia Net Profits Tax Form (NPT)",                  instructionSteps: ["Accountant to provide info.", "Not always applicable if refund is due."] },
+
+  { id: "ent-5600-birt", entity: "5600 Hyman Korman Co",  category: "entity", dueMonth: 4, dueDay: 15, label: "Philadelphia Business Income and Receipts Form (BIRT-EZ)", instructionSteps: ["Accountant to provide info.", "If balance, must be paid electronically via City of Philadelphia website at tax-services.phila.gov.", "Vendor CITY8 · Acc: 8210-8501"] },
+
+  { id: "ent-7010-birt", entity: "7010 Parkwood SC",      category: "entity", dueMonth: 4, dueDay: 15, label: "Philadelphia Business Income and Receipts Form (BIRT-EZ)", instructionSteps: ["Accountant to provide info.", "If balance, must be paid electronically via City of Philadelphia website at tax-services.phila.gov.", "Vendor CITY8 · Acc: 8210-8501"] },
+
   // ─── K-1 DISTRIBUTIONS ──────────────────────────────────────────────────
 
   {
