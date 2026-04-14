@@ -16,7 +16,10 @@ export interface PropertyDef {
   acres?: number;     // land area in acres (for Land-type properties)
   yearBuilt?: number;
   notes?: string;
-  ein?: string;       // Employer Identification Number
+  ein?: string;       // Employer Identification Number (primary)
+  einLabel?: string;  // Label for primary EIN (defaults to "EIN")
+  ein2?: string;      // Secondary EIN
+  ein2Label?: string; // Label for secondary EIN (defaults to "EIN (2)")
   // "BP" = Business Park (9301), "SC" = Shopping Centers (9302)
   allocGroup?: "BP" | "SC";
   // GL accounts used in CC Expense Coder for this property
@@ -56,7 +59,7 @@ export const PROPERTY_DEFS: PropertyDef[] = [
 
   // ── Other Commercial / Holding ────────────────────────────────────────────
   { id: "5600", name: "Castor Ave - USPS", type: "Retail", ein: "23-2333761", allocGroup: "SC", ccAccounts: ["8501"], address: "6382 Castor Ave", city: "Philadelphia", state: "PA", sqft: 1326, yearBuilt: 1951 },
-  { id: "8200", name: "Trust #4",         type: "Retail", ein: "23-6290409", allocGroup: "SC", ccAccounts: ["8501"], address: "2801-2811 Cottman Ave", city: "Philadelphia", state: "PA", sqft: 10000, yearBuilt: 1990, notes: "McDonald's (2801) + Four Seasons Diner (2811)" },
+  { id: "8200", name: "Trust #4",         type: "Retail", ein: "23-6290409", einLabel: "EIN (Joan)", ein2: "23-6290313", ein2Label: "EIN (Judith)", allocGroup: "SC", ccAccounts: ["8501"], address: "2801-2811 Cottman Ave", city: "Philadelphia", state: "PA", sqft: 10000, yearBuilt: 1990, notes: "McDonald's (2801) + Four Seasons Diner (2811)" },
   { id: "4900", name: "The Office Works",            type: "Misc", ein: "23-2393492",                    ccAccounts: ["8501"], notes: "OW payroll group" },
   { id: "2010", name: "LIK Management, Inc.",        type: "Misc", ein: "04-3627076",                    ccAccounts: ["8501"], notes: "Management entity — LIK payroll group" },
 
