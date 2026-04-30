@@ -147,6 +147,7 @@ export default function Page() {
   const [empTab, setEmpTab] = useState<"breakdown" | "history">("breakdown");
   const [empHistory, setEmpHistory] = useState<EmpHistoryRow[] | null>(null);
   const [empHistoryLoading, setEmpHistoryLoading] = useState(false);
+  const [allocEmployees, setAllocEmployees] = useState<import("../lib/allocation/export").AllocExportEmployee[]>([]);
 
   const totals = useMemo(() => {
     const t = { salaryREC: 0, salaryNR: 0, overtime: 0, holREC: 0, holNR: 0, er401k: 0, other: 0, taxesEr: 0, total: 0 };
@@ -236,6 +237,12 @@ export default function Page() {
   const empColCount = 2 + [showEmpSalary, showEmpOvertime, showEmpHol, showEmpEr401k, showEmpOther, showEmpTaxesEr].filter(Boolean).length;
 
   // Auto-load a period from ?load=id URL param (set by the History page)
+  useEffect(() => {
+    fetch("/api/allocation").then((r) => r.json()).then((d) => {
+      if (d.employees) setAllocEmployees(d.employees);
+    }).catch(() => {});
+  }, []);
+
   useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
@@ -407,12 +414,10 @@ export default function Page() {
   }
 
   function downloadAllocTemplate() {
-    const blob = buildAllocationTemplateXlsx(employees.map((e) => ({
-      name: e.name,
-      employeeNumber: e.employeeNumber,
-      recoverable: e.recoverable,
-      allocations: e.allocations,
-    })));
+    const source = employees.length
+      ? employees.map((e) => ({ name: e.name, employeeNumber: e.employeeNumber, recoverable: e.recoverable, allocations: e.allocations }))
+      : allocEmployees;
+    const blob = buildAllocationTemplateXlsx(source);
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url; a.download = "allocation-template.xlsx";
@@ -896,7 +901,7 @@ export default function Page() {
           </>
         )}
         <div style={{ marginTop: 10 }}>
-          <button className="btn" onClick={downloadAllocTemplate} disabled={!employees.length}>Export Allocations</button>
+          <button className="btn" onClick={downloadAllocTemplate} disabled={!allocEmployees.length}>Export Allocations</button>
         </div>
       </div>
 
