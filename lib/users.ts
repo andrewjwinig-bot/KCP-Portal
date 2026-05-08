@@ -1,20 +1,20 @@
-// Office buildings (JV III + NI LLC)
-const OFFICE_CODES = ["3610", "3620", "3640", "4050", "4060", "4070", "4080", "40A0", "40B0", "40C0"];
-// Shopping Centers
-const SC_CODES = ["1100", "2300", "4500", "7010", "9510", "7200", "7300", "1500", "9200", "5600", "8200"];
-
 export const ALL_USERS = ["admin", "nancy", "harry", "maint"] as const;
 export type UserId = typeof ALL_USERS[number];
+
+export type RentRollCategory = "All" | "Office" | "Retail" | "Residential" | "The Office Works";
+export type PropertyType = "all" | "Office" | "Retail" | "Residential" | "Land" | "Misc";
 
 export type UserDef = {
   id: UserId;
   label: string;
   /** Sidebar nav keys this user can see. "all" wins. */
   navKeys: Set<string>;
-  /** Property codes (uppercased) this user is scoped to. null = no scope (sees everything). */
-  propertyScope: Set<string> | null;
   /** Path prefixes this user can directly navigate to. "*" allows everything. */
   allowedPathPrefixes: string[];
+  /** Default category filter on /rentroll. Other categories are still selectable. */
+  defaultRentRollCategory: RentRollCategory;
+  /** Default type filter on /properties. */
+  defaultPropertyType: PropertyType;
 };
 
 const universalNav = new Set(["dashboard", "properties", "rentroll"]);
@@ -24,29 +24,33 @@ export const USERS: Record<UserId, UserDef> = {
     id: "admin",
     label: "ADMIN",
     navKeys: new Set(["all"]),
-    propertyScope: null,
     allowedPathPrefixes: ["*"],
+    defaultRentRollCategory: "All",
+    defaultPropertyType: "all",
   },
   nancy: {
     id: "nancy",
     label: "NANCY",
     navKeys: new Set(universalNav),
-    propertyScope: new Set([...OFFICE_CODES.map((c) => c.toUpperCase()), "4900"]),
     allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll"],
+    defaultRentRollCategory: "Office",
+    defaultPropertyType: "Office",
   },
   harry: {
     id: "harry",
     label: "HARRY",
     navKeys: new Set([...universalNav, "expenses", "expenses-history", "payroll-invoicer"]),
-    propertyScope: new Set(SC_CODES.map((c) => c.toUpperCase())),
     allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/expenses", "/"],
+    defaultRentRollCategory: "Retail",
+    defaultPropertyType: "Retail",
   },
   maint: {
     id: "maint",
     label: "MAINT",
     navKeys: new Set([...universalNav, "maintenance"]),
-    propertyScope: null,
     allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll"],
+    defaultRentRollCategory: "All",
+    defaultPropertyType: "all",
   },
 };
 
