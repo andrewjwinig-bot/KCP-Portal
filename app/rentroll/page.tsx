@@ -163,12 +163,20 @@ function BaseYearCell({ unitRef: _unitRef, isVacant, value, onChange }: {
       if (value !== null) onChange(null);
       return;
     }
-    const n = Number(trimmed);
+    // Allow 2-digit shorthand: "23" → 2023
+    let normalized = trimmed;
+    if (/^\d{2}$/.test(normalized)) normalized = `20${normalized}`;
+    if (!/^\d{4}$/.test(normalized)) {
+      setText(value != null ? String(value) : ""); // revert invalid (1- or 3-digit input)
+      return;
+    }
+    const n = Number(normalized);
     if (!Number.isFinite(n) || n < 1900 || n > 2100) {
-      setText(value != null ? String(value) : ""); // revert invalid
+      setText(value != null ? String(value) : ""); // revert invalid range
       return;
     }
     if (n !== value) onChange(n);
+    setText(String(n)); // reflect expansion in the input
   }
 
   return (
