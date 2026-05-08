@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { RentRollData, RentRollUnit } from "../../lib/rentroll/parseRentRollExcel";
 import { TAX_TASKS, TAX_CATEGORIES, filingLabel, isTaskEffectivelyDone, loadTaxChecked, type TaxTask } from "../tracker/tax-data";
 
@@ -34,6 +35,7 @@ function nextDueDate(t: TaxTask, today: Date): Date {
 }
 
 export default function DashboardPage() {
+  const router = useRouter();
   const [rentroll, setRentroll] = useState<RentRollData | null>(null);
   const [loading, setLoading] = useState(true);
   const [checkedByYear, setCheckedByYear] = useState<Record<number, Record<string, boolean>>>({});
@@ -80,7 +82,7 @@ export default function DashboardPage() {
         const d = parseLeaseTo(unit.leaseTo);
         if (!d) continue;
         const days = daysBetween(new Date(), d);
-        if (days <= 60) rows.push({ propertyCode: prop.propertyCode, unit, days });
+        if (days >= -30 && days <= 60) rows.push({ propertyCode: prop.propertyCode, unit, days });
       }
     }
     return rows.sort((a, b) => a.days - b.days);
@@ -122,8 +124,13 @@ export default function DashboardPage() {
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 14 }}>
         {/* ── Portfolio Occupancy ── */}
-        <div className="card">
-          <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 8 }}>Portfolio Occupancy</div>
+        <Link href="/rentroll" className="card" style={{ display: "block", textDecoration: "none", color: "inherit", cursor: "pointer", transition: "box-shadow 0.15s, transform 0.15s" }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.boxShadow = "0 4px 16px rgba(15,23,42,0.08)"; }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.boxShadow = ""; }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>Portfolio Occupancy</div>
+            <span style={{ fontSize: 12, color: "var(--muted)" }}>→</span>
+          </div>
           {loading ? (
             <div className="muted small">Loading…</div>
           ) : occupancy ? (
@@ -144,9 +151,9 @@ export default function DashboardPage() {
               </div>
             </>
           ) : (
-            <div className="muted small">No rent roll uploaded yet. <Link href="/rentroll">Upload one →</Link></div>
+            <div className="muted small">No rent roll uploaded yet. Upload one →</div>
           )}
-        </div>
+        </Link>
 
         {/* ── Action Items / Data Freshness ── */}
         <div className="card">
@@ -211,7 +218,13 @@ export default function DashboardPage() {
                   const urgent = days >= 0 && days <= 30;
                   const bg = overdue ? "rgba(220,38,38,0.10)" : urgent ? "rgba(220,38,38,0.06)" : days <= 60 ? "rgba(234,88,12,0.06)" : undefined;
                   return (
-                    <tr key={i} style={{ background: bg }}>
+                    <tr
+                      key={i}
+                      style={{ background: bg, cursor: "pointer" }}
+                      onClick={() => router.push(`/rentroll#unit-${unit.unitRef.replace(/[^a-zA-Z0-9]/g, "-")}`)}
+                      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.filter = "brightness(0.97)"; }}
+                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.filter = ""; }}
+                    >
                       <td style={{ fontWeight: 600 }}>{unit.occupantName}</td>
                       <td style={{ fontSize: 13, color: "var(--muted)" }}>{propLabel(propertyCode)}</td>
                       <td style={{ whiteSpace: "nowrap" }}><code style={{ fontSize: 12, whiteSpace: "nowrap" }}>{unit.unitRef}</code></td>
@@ -256,7 +269,13 @@ export default function DashboardPage() {
                   const urgent = days >= 0 && days <= 14;
                   const bg = overdue ? "rgba(220,38,38,0.10)" : urgent ? "rgba(220,38,38,0.06)" : "rgba(234,88,12,0.04)";
                   return (
-                    <tr key={`${task.id}-${due.getTime()}`} style={{ background: bg }}>
+                    <tr
+                      key={`${task.id}-${due.getTime()}`}
+                      style={{ background: bg, cursor: "pointer" }}
+                      onClick={() => router.push(`/tracker/taxes#task-${task.id}`)}
+                      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.filter = "brightness(0.97)"; }}
+                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.filter = ""; }}
+                    >
                       <td style={{ fontWeight: 600 }}>{task.entity}</td>
                       <td style={{ fontSize: 13 }}>{filingLabel(task)}</td>
                       <td>
