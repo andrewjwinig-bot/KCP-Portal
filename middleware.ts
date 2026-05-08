@@ -2,7 +2,17 @@ import { NextResponse, type NextRequest } from "next/server";
 import { HISTORY_COOKIE, verifyHistoryToken } from "./lib/history-auth";
 
 export const config = {
-  matcher: ["/history", "/history/:path*", "/api/periods", "/api/periods/:path*"],
+  matcher: [
+    "/",
+    "/history",
+    "/history/:path*",
+    "/api/periods",
+    "/api/periods/:path*",
+    "/api/parse-payroll",
+    "/api/generate-all",
+    "/api/generate-pdf",
+    "/api/allocation",
+  ],
 };
 
 export async function middleware(req: NextRequest) {
