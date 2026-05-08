@@ -30,10 +30,64 @@ export default function TrendsPage() {
   const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
   const [selectedGroup, setSelectedGroup] = useState<GroupKey>("total");
   const [drilldown, setDrilldown] = useState<{ month: string; group: GroupKey; data: RentRollData | null; loading: boolean } | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadOk, setUploadOk] = useState<string | null>(null);
+
+  function reloadHistory() {
+    return fetch("/api/rentroll/history").then((r) => r.json()).then((j) => setSnapshots(j.snapshots ?? []));
+  }
 
   useEffect(() => {
-    fetch("/api/rentroll/history").then((r) => r.json()).then((j) => setSnapshots(j.snapshots ?? [])).finally(() => setLoading(false));
+    reloadHistory().finally(() => setLoading(false));
   }, []);
+
+  async function uploadHistorical(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+    setUploading(true);
+    setUploadError(null);
+    setUploadOk(null);
+    try {
+      const fileBase64 = await new Promise<string>((resolve, reject) => {
+        const r = new FileReader();
+        r.onerror = () => reject(new Error("Failed to read file"));
+        r.onload = () => {
+          const v = r.result;
+          if (typeof v !== "string") return reject(new Error("Unexpected FileReader result"));
+          const i = v.indexOf(",");
+          resolve(i >= 0 ? v.slice(i + 1) : v);
+        };
+        r.readAsDataURL(file);
+      });
+      const res = await fetch("/api/rentroll/history", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fileBase64 }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(j?.error ?? "Upload failed");
+      setUploadOk(`Saved ${j.month}`);
+      await reloadHistory();
+    } catch (err: any) {
+      setUploadError(err?.message ?? "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function deleteSnapshot(month: string) {
+    if (!confirm(`Delete the ${month} snapshot? The current rent roll on /rentroll is not affected.`)) return;
+    try {
+      const res = await fetch(`/api/rentroll/history/${month}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Delete failed");
+      await reloadHistory();
+      if (drilldown?.month === month) setDrilldown(null);
+    } catch (err: any) {
+      alert(err?.message ?? "Delete failed");
+    }
+  }
 
   function toggleGroup(k: GroupKey) {
     setActiveGroups((prev) => {
@@ -78,9 +132,26 @@ export default function TrendsPage() {
           <Link href="/rentroll" style={{ fontSize: 13, color: "#0b4a7d", textDecoration: "none" }}>← Rent roll</Link>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
+          <label className="btn" style={{ cursor: "pointer", margin: 0 }}>
+            {uploading ? "Uploading…" : "Upload past month"}
+            <input type="file" accept=".xls,.xlsx" onChange={uploadHistorical} disabled={uploading} style={{ display: "none" }} />
+          </label>
           <a href="/api/rentroll/trends/export" className="btn">Export Excel</a>
         </div>
       </header>
+
+      {(uploadError || uploadOk) && (
+        <div style={{
+          padding: "10px 14px",
+          borderRadius: 8,
+          fontSize: 13,
+          background: uploadError ? "rgba(220,38,38,0.06)" : "rgba(22,163,74,0.06)",
+          border: `1px solid ${uploadError ? "rgba(220,38,38,0.3)" : "rgba(22,163,74,0.3)"}`,
+          color: uploadError ? "#b91c1c" : "#166534",
+        }}>
+          {uploadError ?? uploadOk}
+        </div>
+      )}
 
       {/* ── Chart card ── */}
       <div className="card">
@@ -178,6 +249,7 @@ export default function TrendsPage() {
                 <tr>
                   <th>Month</th>
                   {TREND_GROUPS.map((g) => <th key={g.key} style={{ textAlign: "right" }}>{g.label}<br /><span style={{ fontWeight: 400, fontSize: 11, color: "var(--muted)" }}>occ % / sf</span></th>)}
+                  <th />
                 </tr>
               </thead>
               <tbody>
@@ -195,6 +267,15 @@ export default function TrendsPage() {
                         </td>
                       );
                     })}
+                    <td style={{ textAlign: "right" }}>
+                      <button
+                        onClick={() => deleteSnapshot(s.month)}
+                        title="Delete this snapshot"
+                        style={{ fontSize: 11, padding: "3px 9px", borderRadius: 6, border: "1px solid #b42318", background: "transparent", color: "#b42318", cursor: "pointer" }}
+                      >
+                        Delete
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
