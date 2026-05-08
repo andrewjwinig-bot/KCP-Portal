@@ -615,12 +615,12 @@ export async function POST(req: Request) {
             drawRow(cols, ["—", "", "", ""], { muted: true });
           } else {
             for (const v of leasing.tenantsVacating) {
-              const u = unitLookup.get(v.unitRef);
+              const auto = v.unitRef ? unitLookup.get(v.unitRef) : null;
               pageBreakIfNeeded(16);
               drawRow(cols, [
-                u?.tenant ?? v.unitRef,
-                u?.building ?? "",
-                u ? sqftFmt(u.sqft) : "",
+                v.tenant   || auto?.tenant   || "",
+                v.building || auto?.building || "",
+                v.sqft ? sqftFmt(v.sqft) : (auto ? sqftFmt(auto.sqft) : ""),
                 fmtDate(v.expirationDate),
               ]);
             }
@@ -646,12 +646,12 @@ export async function POST(req: Request) {
             drawRow(cols, ["—", "", "", "", "", ""], { muted: true });
           } else {
             for (const o of leasing.optionsToRenew) {
-              const u = unitLookup.get(o.unitRef);
+              const auto = o.unitRef ? unitLookup.get(o.unitRef) : null;
               pageBreakIfNeeded(16);
               drawRow(cols, [
-                u?.tenant ?? o.unitRef,
-                u?.building ?? "",
-                u ? sqftFmt(u.sqft) : "",
+                o.tenant   || auto?.tenant   || "",
+                o.building || auto?.building || "",
+                o.sqft ? sqftFmt(o.sqft) : (auto ? sqftFmt(auto.sqft) : ""),
                 o.term ?? "",
                 fmtDate(o.noticeDate),
                 fmtDate(o.optionTermExp),
