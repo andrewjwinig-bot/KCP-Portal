@@ -63,13 +63,33 @@ export default function DashboardPage() {
   }, []);
 
   // ── Portfolio occupancy ──
+  const JV_III_CODES = useMemo(() => new Set(["3610", "3620", "3640"]), []);
+  const NI_LLC_CODES = useMemo(() => new Set(["4050", "4060", "4070", "4080", "40A0", "40B0", "40C0"]), []);
+  const SC_CODES     = useMemo(() => new Set(["1100", "2300", "4500", "7010", "9510", "7200", "7300", "1500", "9200", "5600", "8200"]), []);
+
   const occupancy = useMemo(() => {
     if (!rentroll) return null;
-    const total    = rentroll.properties.reduce((s, p) => s + p.totalSqft, 0);
-    const occupied = rentroll.properties.reduce((s, p) => s + p.occupiedSqft, 0);
-    if (total === 0) return null;
-    return { total, occupied, vacant: total - occupied, pct: (occupied / total) * 100 };
-  }, [rentroll]);
+    const tally = (codes?: Set<string>) => {
+      const props = codes
+        ? rentroll.properties.filter((p) => codes.has(p.propertyCode.toUpperCase()))
+        : rentroll.properties;
+      const total    = props.reduce((s, p) => s + p.totalSqft,    0);
+      const occupied = props.reduce((s, p) => s + p.occupiedSqft, 0);
+      const vacant   = total - occupied;
+      return { total, occupied, vacant, pct: total > 0 ? (occupied / total) * 100 : null };
+    };
+    const all = tally();
+    if (all.total === 0) return null;
+    return {
+      ...all,
+      pct: all.pct ?? 0,
+      groups: [
+        { label: "JV III LLC",       ...tally(JV_III_CODES) },
+        { label: "NI LLC",           ...tally(NI_LLC_CODES) },
+        { label: "Shopping Centers", ...tally(SC_CODES)     },
+      ].filter((g) => g.total > 0),
+    };
+  }, [rentroll, JV_III_CODES, NI_LLC_CODES, SC_CODES]);
 
   // ── Rent roll freshness ──
   const today = new Date();
@@ -166,20 +186,39 @@ export default function DashboardPage() {
             <div className="muted small">Loading…</div>
           ) : occupancy ? (
             <>
-              <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
                 <span style={{ fontSize: 38, fontWeight: 900, lineHeight: 1, color: occupancy.pct >= 90 ? "#16a34a" : occupancy.pct >= 70 ? "#0b4a7d" : "#d97706" }}>
                   {occupancy.pct.toFixed(1)}%
                 </span>
                 <span style={{ fontSize: 13, color: "var(--muted)" }}>
-                  {sqftFmt(occupancy.occupied)} / {sqftFmt(occupancy.total)} sf
+                  {sqftFmt(occupancy.occupied)} / {sqftFmt(occupancy.total)} sf ({sqftFmt(occupancy.vacant)} vacant)
                 </span>
               </div>
               <div style={{ height: 6, borderRadius: 999, background: "rgba(15,23,42,0.08)", overflow: "hidden", marginTop: 10 }}>
                 <div style={{ height: "100%", borderRadius: 999, width: `${occupancy.pct}%`, background: occupancy.pct >= 90 ? "#16a34a" : occupancy.pct >= 70 ? "#0b4a7d" : "#d97706" }} />
               </div>
-              <div className="muted small" style={{ marginTop: 8 }}>
-                Vacant: {sqftFmt(occupancy.vacant)} sf · {rentroll?.properties.length ?? 0} properties
-              </div>
+              {occupancy.groups.length > 0 && (
+                <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 10 }}>
+                  {occupancy.groups.map((g) => {
+                    const pct = g.pct ?? 0;
+                    const color = pct >= 90 ? "#16a34a" : pct >= 70 ? "#0b4a7d" : "#d97706";
+                    return (
+                      <div key={g.label}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8, marginBottom: 4 }}>
+                          <span style={{ fontSize: 13, fontWeight: 600 }}>{g.label}</span>
+                          <span style={{ fontSize: 12, color: "var(--muted)" }}>
+                            <span style={{ fontWeight: 700, color }}>{pct.toFixed(1)}%</span>
+                            <span style={{ marginLeft: 6 }}>{sqftFmt(g.occupied)} / {sqftFmt(g.total)} sf ({sqftFmt(g.vacant)} vacant)</span>
+                          </span>
+                        </div>
+                        <div style={{ height: 4, borderRadius: 999, background: "rgba(15,23,42,0.08)", overflow: "hidden" }}>
+                          <div style={{ height: "100%", borderRadius: 999, width: `${pct}%`, background: color }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </>
           ) : (
             <div className="muted small">No rent roll uploaded yet. Upload one →</div>
