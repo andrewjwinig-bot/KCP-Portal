@@ -1,11 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { HISTORY_COOKIE, verifyHistoryToken } from "./lib/history-auth";
 
+// Only admin-only surfaces are gated. Everything else is open so non-admin
+// personas (Nancy/Harry/Maint) can browse without logging in.
 export const config = {
   matcher: [
-    "/",
-    "/dashboard",
-    "/dashboard/:path*",
     "/history",
     "/history/:path*",
     "/api/periods",
@@ -14,11 +13,6 @@ export const config = {
     "/api/generate-all",
     "/api/generate-pdf",
     "/api/allocation",
-    "/api/rentroll",
-    "/api/rentroll/:path*",
-    "/api/tenant-meta",
-    "/rentroll",
-    "/rentroll/:path*",
   ],
 };
 
@@ -31,7 +25,7 @@ export async function middleware(req: NextRequest) {
   const secret = process.env.HISTORY_AUTH_SECRET;
   if (!secret) {
     return NextResponse.json(
-      { error: "History auth not configured: set HISTORY_PASSWORD and HISTORY_AUTH_SECRET env vars." },
+      { error: "Admin auth not configured: set HISTORY_PASSWORD and HISTORY_AUTH_SECRET env vars." },
       { status: 503 },
     );
   }

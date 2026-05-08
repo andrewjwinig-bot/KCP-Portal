@@ -31,9 +31,20 @@ function Avatar({ id, size = 24 }: { id: UserId; size?: number }) {
 }
 
 export default function UserSwitcher({ collapsed }: { collapsed: boolean }) {
-  const { user, setUserId } = useUser();
+  const { user, setUserId, authed } = useUser();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement | null>(null);
+
+  function pickUser(id: UserId) {
+    if (id === "admin" && !authed) {
+      // Send them to the admin login flow; on success the login page will set persona to admin.
+      const next = typeof window !== "undefined" ? window.location.pathname + window.location.search : "/dashboard";
+      window.location.href = `/history/login?next=${encodeURIComponent(next)}`;
+      return;
+    }
+    setUserId(id);
+    setOpen(false);
+  }
 
   useEffect(() => {
     if (!open) return;
@@ -112,7 +123,7 @@ export default function UserSwitcher({ collapsed }: { collapsed: boolean }) {
                 key={id}
                 role="menuitemradio"
                 aria-checked={isActive}
-                onClick={() => { setUserId(id); setOpen(false); }}
+                onClick={() => pickUser(id)}
                 style={{
                   display: "flex",
                   alignItems: "center",
