@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import type { RentRollData, RentRollUnit } from "../../lib/rentroll/parseRentRollExcel";
 import { TAX_TASKS, TAX_CATEGORIES, filingLabel, isTaskEffectivelyDone, loadTaxChecked, type TaxTask } from "../tracker/tax-data";
 import { useUser } from "../components/UserProvider";
+import { PROPERTY_DEFS } from "../../lib/properties/data";
 
 function sqftFmt(n: number) { return n.toLocaleString(); }
 
@@ -72,30 +73,53 @@ export default function DashboardPage() {
   const SC_CODES     = useMemo(() => new Set(["1100", "2300", "4500", "7010", "9510", "7200", "7300", "1500", "9200", "5600", "8200"]), []);
   const OW_CODES     = useMemo(() => new Set(["4900"]), []);
 
+  function propLabelFor(code: string, fallback?: string): string {
+    const def = PROPERTY_DEFS.find((p) => p.id.toUpperCase() === code.toUpperCase());
+    return def?.name ?? fallback ?? code;
+  }
+
   const occupancy = useMemo(() => {
     if (!rentroll) return null;
-    const tally = (codes?: Set<string>) => {
-      const props = codes
-        ? rentroll.properties.filter((p) => codes.has(p.propertyCode.toUpperCase()))
-        : rentroll.properties;
+    const scope = user.dashboardScope;
+
+    const tally = (props: typeof rentroll.properties) => {
       const total    = props.reduce((s, p) => s + p.totalSqft,    0);
       const occupied = props.reduce((s, p) => s + p.occupiedSqft, 0);
       const vacant   = total - occupied;
       return { total, occupied, vacant, pct: total > 0 ? (occupied / total) * 100 : null };
     };
-    const all = tally();
+    const propsByCodes = (codes: Set<string>) => rentroll.properties.filter((p) => codes.has(p.propertyCode.toUpperCase()));
+
+    if (scope === "groups") {
+      const all = tally(rentroll.properties);
+      if (all.total === 0) return null;
+      return {
+        ...all,
+        pct: all.pct ?? 0,
+        groups: [
+          { label: "JV III LLC",       ...tally(propsByCodes(JV_III_CODES)) },
+          { label: "NI LLC",           ...tally(propsByCodes(NI_LLC_CODES)) },
+          { label: "Shopping Centers", ...tally(propsByCodes(SC_CODES))     },
+          { label: "The Office Works", ...tally(propsByCodes(OW_CODES))     },
+        ].filter((g) => g.total > 0),
+      };
+    }
+
+    // Per-property breakdown for personas with focused scope
+    const scopeProps = propsByCodes(scope.codes);
+    const all = tally(scopeProps);
     if (all.total === 0) return null;
     return {
       ...all,
       pct: all.pct ?? 0,
-      groups: [
-        { label: "JV III LLC",       ...tally(JV_III_CODES) },
-        { label: "NI LLC",           ...tally(NI_LLC_CODES) },
-        { label: "Shopping Centers", ...tally(SC_CODES)     },
-        { label: "The Office Works", ...tally(OW_CODES)     },
-      ].filter((g) => g.total > 0),
+      groups: scopeProps
+        .filter((p) => p.totalSqft > 0)
+        .map((p) => ({
+          label: `${p.propertyCode} ${propLabelFor(p.propertyCode, p.reportedPropertyName)}`,
+          ...tally([p]),
+        })),
     };
-  }, [rentroll, JV_III_CODES, NI_LLC_CODES, SC_CODES, OW_CODES]);
+  }, [rentroll, user.dashboardScope, JV_III_CODES, NI_LLC_CODES, SC_CODES, OW_CODES]);
 
   // ── Rent roll freshness ──
   const today = new Date();
