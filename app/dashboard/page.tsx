@@ -49,6 +49,19 @@ export default function DashboardPage() {
     setCheckedByYear({ [y]: loadTaxChecked(y), [y + 1]: loadTaxChecked(y + 1) });
   }, []);
 
+  // ── Next bi-weekly payroll Friday (anchor: 2026-05-08) ──
+  const nextPayroll = useMemo(() => {
+    const ANCHOR = new Date(2026, 4, 8); // May 8 2026 — known payroll Friday
+    const t = new Date(); t.setHours(0, 0, 0, 0);
+    const days = Math.floor((t.getTime() - ANCHOR.getTime()) / 86400000);
+    const mod = ((days % 14) + 14) % 14;
+    const daysUntil = mod === 0 ? 0 : 14 - mod;
+    const next = new Date(t);
+    next.setDate(t.getDate() + daysUntil);
+    const status: "today" | "soon" | "later" = daysUntil === 0 ? "today" : daysUntil <= 3 ? "soon" : "later";
+    return { date: next, daysUntil, status };
+  }, []);
+
   // ── Portfolio occupancy ──
   const occupancy = useMemo(() => {
     if (!rentroll) return null;
@@ -179,6 +192,31 @@ export default function DashboardPage() {
                   <div className="muted small" style={{ marginTop: 2 }}>{rrFreshness.message}</div>
                 </div>
                 <Link href="/rentroll" style={{ fontSize: 12, fontWeight: 600, color: "#0b4a7d", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>
+                  Open →
+                </Link>
+              </div>
+
+              <div style={{
+                display: "flex", alignItems: "flex-start", gap: 10,
+                padding: "10px 12px",
+                border: "1px solid",
+                borderColor: nextPayroll.status === "today" ? "rgba(11,74,125,0.35)" : nextPayroll.status === "soon" ? "rgba(217,119,6,0.3)" : "rgba(15,23,42,0.12)",
+                background: nextPayroll.status === "today" ? "rgba(11,74,125,0.07)" : nextPayroll.status === "soon" ? "rgba(217,119,6,0.06)" : "rgba(15,23,42,0.025)",
+                borderRadius: 8,
+              }}>
+                <span style={{
+                  width: 10, height: 10, borderRadius: 999, marginTop: 5, flexShrink: 0,
+                  background: nextPayroll.status === "today" ? "#0b4a7d" : nextPayroll.status === "soon" ? "#d97706" : "#64748b",
+                }} />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 600, fontSize: 14 }}>Next payroll</div>
+                  <div className="muted small" style={{ marginTop: 2 }}>
+                    {nextPayroll.status === "today"
+                      ? `Today, ${formatShortDate(nextPayroll.date)} — process payroll.`
+                      : `${formatShortDate(nextPayroll.date)} · in ${nextPayroll.daysUntil} day${nextPayroll.daysUntil === 1 ? "" : "s"}`}
+                  </div>
+                </div>
+                <Link href="/" style={{ fontSize: 12, fontWeight: 600, color: "#0b4a7d", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>
                   Open →
                 </Link>
               </div>
