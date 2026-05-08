@@ -174,7 +174,7 @@ const NAV = [
 
 export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: () => void }) {
   const pathname = usePathname();
-  const { user } = useUser();
+  const { user, authed, setUserId } = useUser();
   const W = open ? 220 : 60;
 
   function isActive(item: (typeof NAV)[number]) {
@@ -298,14 +298,16 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
         })}
       </nav>
 
-      {/* Log out (bottom) */}
+      {/* Log out (bottom) — only visible while admin auth cookie is active */}
+      {authed && (
       <div style={{ padding: open ? "10px 8px 14px" : "10px 6px 14px", borderTop: "1px solid rgba(255,255,255,0.07)", flexShrink: 0 }}>
         <button
           onClick={async () => {
             try { await fetch("/api/history/logout", { method: "POST" }); } catch { /* ignore */ }
-            window.location.href = "/history/login";
+            setUserId("harry");
+            window.location.reload();
           }}
-          title="Log out"
+          title="Log out admin"
           style={{
             display: "flex",
             alignItems: "center",
@@ -335,6 +337,7 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
           {open && <span>Log out</span>}
         </button>
       </div>
+      )}
     </div>
   );
 }

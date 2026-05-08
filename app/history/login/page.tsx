@@ -25,6 +25,8 @@ function LoginForm() {
         const j = await res.json().catch(() => ({}));
         throw new Error(j?.error ?? "Login failed");
       }
+      // Successful login implies the user wants to assume the admin persona.
+      try { localStorage.setItem("kcp:activeUser", "admin"); } catch { /* ignore */ }
       router.replace(next);
     } catch (e: any) {
       setError(e?.message ?? "Login failed");
@@ -36,8 +38,8 @@ function LoginForm() {
   return (
     <main style={{ display: "grid", placeItems: "center", minHeight: "60vh" }}>
       <form onSubmit={submit} className="card" style={{ width: 360, display: "grid", gap: 12 }}>
-        <h2 style={{ margin: 0 }}>Payroll History</h2>
-        <p className="muted small" style={{ margin: 0 }}>Enter the password to view sensitive payroll data.</p>
+        <h2 style={{ margin: 0 }}>Admin login</h2>
+        <p className="muted small" style={{ margin: 0 }}>The admin account requires a password.</p>
         <input
           type="password"
           autoFocus
