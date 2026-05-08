@@ -255,6 +255,19 @@ function UnitsTable({ units, propertyCode, hideNNN }: { units: RentRollUnit[]; p
 
 function PropertyCard({ prop }: { prop: RentRollProperty }) {
   const [open, setOpen] = useState(false);
+
+  // Auto-expand and scroll into view when the URL hash points at one of our units
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.location.hash) return;
+    const hash = window.location.hash.replace(/^#/, "");
+    const match = prop.units.some((u) => `unit-${u.unitRef.replace(/[^a-zA-Z0-9]/g, "-")}` === hash);
+    if (match) {
+      setOpen(true);
+      // Defer until after the row is rendered
+      setTimeout(() => document.getElementById(hash)?.scrollIntoView({ behavior: "smooth", block: "center" }), 60);
+    }
+  }, [prop]);
+
   const name            = propName(prop.propertyCode);
   const occupancyPct    = prop.totalSqft > 0 ? (prop.occupiedSqft / prop.totalSqft) * 100 : 0;
   const totalGross      = prop.units.reduce((s, u) => s + u.grossRentTotal, 0);
