@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getJSON, storeJSON } from "@/lib/storage";
-import { EMPTY_LEASING_ACTIVITY, type LeasingActivity } from "@/lib/leasing/types";
+import { EMPTY_LEASING_ACTIVITY, SEED_LEASING_ACTIVITY, type LeasingActivity } from "@/lib/leasing/types";
 
 const PREFIX = "leasing-activity";
 const ID     = "all";
@@ -10,7 +10,13 @@ export const runtime = "nodejs";
 export async function GET() {
   try {
     const data = (await getJSON(PREFIX, ID)) as LeasingActivity | null;
-    return NextResponse.json({ leasingActivity: data ?? EMPTY_LEASING_ACTIVITY });
+    if (!data) {
+      // First-time read: persist the seed so the editor sees the same rows the
+      // status report draws and Nancy can edit from there.
+      await storeJSON(PREFIX, ID, SEED_LEASING_ACTIVITY);
+      return NextResponse.json({ leasingActivity: SEED_LEASING_ACTIVITY });
+    }
+    return NextResponse.json({ leasingActivity: data });
   } catch {
     return NextResponse.json({ leasingActivity: EMPTY_LEASING_ACTIVITY });
   }
