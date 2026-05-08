@@ -365,43 +365,74 @@ export async function POST(req: Request) {
 
       if (rows.length) {
         const VAC_COLS: ColDef[] = [
-          { header: "Property", width: 220, align: "left"  },
-          { header: "Unit",     width: 100, align: "left"  },
-          { header: "Sq Ft",    width: 80,  align: "right" },
+          { header: "Property", width: 200, align: "left"  },
+          { header: "Unit",     width: 80,  align: "left"  },
+          { header: "Sq Ft",    width: 70,  align: "right" },
         ];
         const tableW = VAC_COLS.reduce((s, c) => s + c.width, 0);
-        const tableX = (PW - tableW) / 2;
+        const colGap = 24;
+        const leftX  = (PW - (tableW * 2 + colGap)) / 2;
+        const rightX = leftX + tableW + colGap;
+        const colXs: [number, number] = [leftX, rightX];
 
         let { page, curY } = newPage();
         page.drawText("Vacancy Summary", { x: M, y: py(curY + 18), size: 16, font: fontBold, color: C_DARK });
         curY += 28;
 
-        curY += drawHeader(page, curY, VAC_COLS, tableX, tableW);
+        // Track per-column running Y; keep them aligned by snapping to the same starting row
+        const startY = curY;
+        const colY: [number, number] = [startY, startY];
+        let activeCol: 0 | 1 = 0;
+
+        // Draw initial header for both columns
+        drawHeader(page, colY[0], VAC_COLS, colXs[0], tableW);
+        drawHeader(page, colY[1], VAC_COLS, colXs[1], tableW);
+        colY[0] += HEAD_H;
+        colY[1] += HEAD_H;
 
         let grandUnits = 0;
         let grandSqft  = 0;
 
         for (let i = 0; i < rows.length; i++) {
-          if (curY + ROW_H > PH - M - 30) {
-            ({ page, curY } = newPage());
-            curY += drawHeader(page, curY, VAC_COLS, tableX, tableW);
+          let y = colY[activeCol];
+
+          // Out of room in current column?
+          if (y + ROW_H > PH - M - 30) {
+            if (activeCol === 0) {
+              activeCol = 1;
+              y = colY[1];
+            } else {
+              ({ page, curY } = newPage());
+              colY[0] = curY;
+              colY[1] = curY;
+              drawHeader(page, colY[0], VAC_COLS, colXs[0], tableW);
+              drawHeader(page, colY[1], VAC_COLS, colXs[1], tableW);
+              colY[0] += HEAD_H;
+              colY[1] += HEAD_H;
+              activeCol = 0;
+              y = colY[0];
+            }
           }
+
+          const xBase = colXs[activeCol];
           const row = rows[i];
           grandUnits += 1;
           grandSqft  += row.sqft;
-          if (i % 2 === 1) page.drawRectangle({ x: tableX, y: py(curY + ROW_H), width: tableW, height: ROW_H, color: C_ALT });
+          if (i % 2 === 1) page.drawRectangle({ x: xBase, y: py(y + ROW_H), width: tableW, height: ROW_H, color: C_ALT });
           const vals: Record<string, string> = { "Property": row.propName, "Unit": row.unit, "Sq Ft": sqftFmt(row.sqft) };
-          let cx = tableX;
+          let cx = xBase;
           for (const col of VAC_COLS) {
             const val = vals[col.header] || "";
             const tw  = font.widthOfTextAtSize(val, 8);
             const tx  = col.align === "right" ? cx + col.width - 4 - tw : cx + 4;
-            page.drawText(val, { x: tx, y: py(curY + ROW_H - 5), size: 8, font, color: C_DARK });
+            page.drawText(val, { x: tx, y: py(y + ROW_H - 5), size: 8, font, color: C_DARK });
             cx += col.width;
           }
-          page.drawLine({ start: { x: tableX, y: py(curY + ROW_H) }, end: { x: tableX + tableW, y: py(curY + ROW_H) }, thickness: 0.2, color: C_LINE });
-          curY += ROW_H;
+          page.drawLine({ start: { x: xBase, y: py(y + ROW_H) }, end: { x: xBase + tableW, y: py(y + ROW_H) }, thickness: 0.2, color: C_LINE });
+          colY[activeCol] = y + ROW_H;
         }
+        // After the loop, set curY below the deepest column for the grand-total row
+        curY = Math.max(colY[0], colY[1]);
 
         // Grand total
         if (curY + 24 > PH - M - 10) { ({ page, curY } = newPage()); }
