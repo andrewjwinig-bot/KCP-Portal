@@ -73,16 +73,34 @@ export default function DashboardPage() {
 
   // ── Rent roll freshness ──
   const today = new Date();
+  const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
   const rrFreshness = useMemo(() => {
-    if (!rentroll?.uploadedAt) return { status: "missing" as const, message: "No rent roll has been uploaded yet." };
+    const this25th = new Date(today.getFullYear(), today.getMonth(), 25);
+
+    // Determine which month's rent roll is next to import.
+    // Cadence: each month's rent roll is imported on/after the 25th.
+    // If today < 25th of this month → next is this month.
+    // If today >= 25th and last upload is on/after this 25th → next is next month.
+    // Otherwise → still this month (overdue).
+    let nextMonthIdx = today.getMonth();
+    let nextMonthYear = today.getFullYear();
+    if (today >= this25th) {
+      const uploaded = rentroll?.uploadedAt ? new Date(rentroll.uploadedAt) : null;
+      if (uploaded && uploaded >= this25th) {
+        nextMonthIdx = (today.getMonth() + 1) % 12;
+        if (today.getMonth() === 11) nextMonthYear = today.getFullYear() + 1;
+      }
+    }
+    const nextMonthLabel = MONTH_NAMES[nextMonthIdx];
+    const title = `Import ${nextMonthLabel} Rent Roll`;
+
+    if (!rentroll?.uploadedAt) return { status: "missing" as const, title, message: "No rent roll has been uploaded yet." };
     const uploaded = new Date(rentroll.uploadedAt);
     const days = Math.floor((today.getTime() - uploaded.getTime()) / (1000 * 60 * 60 * 24));
-    // Past the 25th and last upload was before this month's 25th → overdue
-    const this25th = new Date(today.getFullYear(), today.getMonth(), 25);
     const overdue = today >= this25th && uploaded < this25th;
-    if (overdue) return { status: "overdue" as const, message: `Rent roll is overdue — last uploaded ${days} day${days === 1 ? "" : "s"} ago. Upload after the 25th.` };
-    if (days > 35) return { status: "stale" as const, message: `Last uploaded ${days} days ago.` };
-    return { status: "fresh" as const, message: `Last uploaded ${days === 0 ? "today" : `${days} day${days === 1 ? "" : "s"} ago`}.` };
+    if (overdue) return { status: "overdue" as const, title, message: `Overdue — last uploaded ${days} day${days === 1 ? "" : "s"} ago. Upload after the 25th.` };
+    if (days > 35) return { status: "stale" as const, title, message: `Last uploaded ${days} days ago.` };
+    return { status: "fresh" as const, title, message: `Last uploaded ${days === 0 ? "today" : `${days} day${days === 1 ? "" : "s"} ago`}.` };
   }, [rentroll, today]);
 
   // ── Leases expiring in next 60 days (or already past, with > 0 rent) ──
@@ -188,7 +206,7 @@ export default function DashboardPage() {
                   background: rrFreshness.status === "fresh" ? "#16a34a" : rrFreshness.status === "stale" ? "#d97706" : "#dc2626",
                 }} />
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 600, fontSize: 14 }}>Rent roll</div>
+                  <div style={{ fontWeight: 600, fontSize: 14 }}>{rrFreshness.title}</div>
                   <div className="muted small" style={{ marginTop: 2 }}>{rrFreshness.message}</div>
                 </div>
                 <Link href="/rentroll" style={{ fontSize: 12, fontWeight: 600, color: "#0b4a7d", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>
