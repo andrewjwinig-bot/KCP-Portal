@@ -6,6 +6,7 @@ import * as XLSX from "xlsx";
 import { buildInvoices } from "../../../lib/invoicing/buildInvoices";
 import { renderInvoicePdf } from "../../../lib/pdf/renderInvoicePdf";
 import { parseAllocationWorkbook } from "../../../lib/allocation/parseAllocationWorkbook";
+import { buildPayrollExportXlsx, buildPayrollGLXlsx } from "../../../lib/payroll/export";
 import { readFile } from "fs/promises";
 import path from "path";
 
@@ -46,8 +47,18 @@ export async function POST(req: Request) {
     // ── Master Excel workbook ──
     const xlsBuf = buildMasterExcel(invoices, employees);
     const payDate: string = body.payroll?.payDate ?? "";
-    const excelName = `${formatPayDateForFilename(payDate)} Payroll Allocation.xlsx`;
+    const datePrefix = formatPayDateForFilename(payDate);
+    const excelName = `${datePrefix} Payroll Allocation.xlsx`;
     archive.append(xlsBuf, { name: excelName });
+
+    // ── Payroll Summary + GL Journal Entry ──
+    const summaryBlob = buildPayrollExportXlsx({ payDate, invoices });
+    const summaryBuf = Buffer.from(await summaryBlob.arrayBuffer());
+    archive.append(summaryBuf, { name: `${datePrefix} payroll-summary.xlsx` });
+
+    const glBlob = buildPayrollGLXlsx({ payDate, invoices });
+    const glBuf = Buffer.from(await glBlob.arrayBuffer());
+    archive.append(glBuf, { name: `${datePrefix} GL Journal Entry.xlsx` });
 
     await archive.finalize();
 
