@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { RentRollData, RentRollUnit } from "../../lib/rentroll/parseRentRollExcel";
 import { TAX_TASKS, TAX_CATEGORIES, filingLabel, isTaskEffectivelyDone, loadTaxChecked, type TaxTask } from "../tracker/tax-data";
+import { useUser } from "../components/UserProvider";
 
 function sqftFmt(n: number) { return n.toLocaleString(); }
 
@@ -36,12 +37,22 @@ function nextDueDate(t: TaxTask, today: Date): Date {
 
 export default function DashboardPage() {
   const router = useRouter();
-  const [rentroll, setRentroll] = useState<RentRollData | null>(null);
+  const { user } = useUser();
+  const [rawRentroll, setRawRentroll] = useState<RentRollData | null>(null);
   const [loading, setLoading] = useState(true);
   const [checkedByYear, setCheckedByYear] = useState<Record<number, Record<string, boolean>>>({});
 
+  // Apply user property scope (admin = no scope)
+  const rentroll: RentRollData | null = useMemo(() => {
+    if (!rawRentroll) return null;
+    if (!user.propertyScope) return rawRentroll;
+    return { ...rawRentroll, properties: rawRentroll.properties.filter((p) => user.propertyScope!.has(p.propertyCode.toUpperCase())) };
+  }, [rawRentroll, user.propertyScope]);
+
+  const isAdmin = user.id === "admin";
+
   useEffect(() => {
-    fetch("/api/rentroll").then((r) => r.json()).then((j) => setRentroll(j.rentroll ?? null)).catch(() => setRentroll(null)).finally(() => setLoading(false));
+    fetch("/api/rentroll").then((r) => r.json()).then((j) => setRawRentroll(j.rentroll ?? null)).catch(() => setRawRentroll(null)).finally(() => setLoading(false));
   }, []);
 
   useEffect(() => {
@@ -253,6 +264,7 @@ export default function DashboardPage() {
                 </Link>
               </div>
 
+              {(user.navKeys.has("all") || user.navKeys.has("payroll-invoicer")) && (
               <div style={{
                 display: "flex", alignItems: "flex-start", gap: 10,
                 padding: "10px 12px",
@@ -277,6 +289,7 @@ export default function DashboardPage() {
                   Open →
                 </Link>
               </div>
+              )}
             </div>
           )}
         </div>
@@ -337,7 +350,8 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* ── Upcoming filings ── */}
+      {/* ── Upcoming filings (admin only) ── */}
+      {isAdmin && (
       <div className="card">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
           <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>Upcoming Filings (next 45 days)</div>
@@ -394,6 +408,7 @@ export default function DashboardPage() {
           </div>
         )}
       </div>
+      )}
     </main>
   );
 }
