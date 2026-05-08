@@ -16,6 +16,7 @@ export const config = {
     "/api/allocation",
     "/api/rentroll",
     "/api/rentroll/:path*",
+    "/api/tenant-meta",
     "/rentroll",
     "/rentroll/:path*",
   ],
