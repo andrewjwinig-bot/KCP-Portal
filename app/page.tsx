@@ -148,6 +148,7 @@ export default function Page() {
   const [empHistory, setEmpHistory] = useState<EmpHistoryRow[] | null>(null);
   const [empHistoryLoading, setEmpHistoryLoading] = useState(false);
   const [allocEmployees, setAllocEmployees] = useState<import("../lib/allocation/export").AllocExportEmployee[]>([]);
+  const [hydrated, setHydrated] = useState(false);
 
   const totals = useMemo(() => {
     const t = { salaryREC: 0, salaryNR: 0, overtime: 0, holREC: 0, holNR: 0, er401k: 0, other: 0, taxesEr: 0, total: 0 };
@@ -250,8 +251,34 @@ export default function Page() {
     if (id) {
       window.history.replaceState({}, "", "/");
       loadPeriod(id);
+      setHydrated(true);
+      return;
     }
+    try {
+      const raw = localStorage.getItem("kcp:lastPayroll");
+      if (raw) {
+        const d = JSON.parse(raw);
+        if (d?.payroll) {
+          setPayroll(d.payroll);
+          setInvoices(d.invoices ?? []);
+          setEmployees(d.employees ?? []);
+          setFileName(d.fileName ?? "");
+        }
+      }
+    } catch { /* ignore corrupt cache */ }
+    setHydrated(true);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!hydrated || typeof window === "undefined") return;
+    try {
+      if (payroll) {
+        localStorage.setItem("kcp:lastPayroll", JSON.stringify({ payroll, invoices, employees, fileName }));
+      } else {
+        localStorage.removeItem("kcp:lastPayroll");
+      }
+    } catch { /* quota or disabled storage — no-op */ }
+  }, [hydrated, payroll, invoices, employees, fileName]);
 
   async function savePeriod() {
     const name = payroll?.payDate ?? new Date().toLocaleDateString();
