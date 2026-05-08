@@ -280,6 +280,11 @@ export default function Page() {
     } catch { /* quota or disabled storage — no-op */ }
   }, [hydrated, payroll, invoices, employees, fileName]);
 
+  async function logout() {
+    try { await fetch("/api/history/logout", { method: "POST" }); } catch { /* ignore */ }
+    window.location.href = "/history/login";
+  }
+
   async function savePeriod() {
     const name = payroll?.payDate ?? new Date().toLocaleDateString();
     setSaving(true);
@@ -648,6 +653,12 @@ export default function Page() {
       <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
         <h1>Payroll Invoicer</h1>
         <div style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
+          <button
+            onClick={logout}
+            style={{ fontSize: 13, padding: "5px 14px", borderRadius: 7, border: "1px solid #1a1a1a", background: "transparent", color: "#1a1a1a", cursor: "pointer", fontWeight: 500 }}
+          >
+            Log out
+          </button>
           <span style={{ fontFamily: "'Arial Black', 'Arial Bold', Arial, sans-serif", fontWeight: 900, fontSize: 30, letterSpacing: "-0.5px", lineHeight: 1 }}>KORMAN</span>
           <div style={{ width: 1, height: 36, background: "#000", flexShrink: 0 }} />
           <div style={{ fontSize: 11, letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}><div>COMMERCIAL</div><div>PROPERTIES</div></div>
