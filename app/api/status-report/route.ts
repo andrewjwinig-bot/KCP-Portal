@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { PDFDocument, rgb, StandardFonts, PDFPage, PDFFont } from "pdf-lib";
+import { PDFDocument, rgb, PDFPage, PDFFont } from "pdf-lib";
+import fontkit from "@pdf-lib/fontkit";
 import fs from "fs";
 import path from "path";
 import { PROPERTY_DEFS } from "../../../lib/properties/data";
@@ -166,8 +167,10 @@ export async function POST(req: Request) {
     }
 
     const pdfDoc   = await PDFDocument.create();
-    const font     = await pdfDoc.embedFont(StandardFonts.Helvetica);
-    const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+    pdfDoc.registerFontkit(fontkit);
+    const fontDir = path.join(process.cwd(), "public", "fonts");
+    const font     = await pdfDoc.embedFont(fs.readFileSync(path.join(fontDir, "Quicksand-Regular.ttf")));
+    const fontBold = await pdfDoc.embedFont(fs.readFileSync(path.join(fontDir, "Quicksand-Bold.ttf")));
 
     const periodStr  = parsePeriod(reportFrom);
     const reportTitle = `${category} — ${periodStr} Status Report`;
@@ -355,15 +358,15 @@ export async function POST(req: Request) {
     // ── Vacancy Summary ───────────────────────────────────────────────────────
     {
       type VacRow = { propName: string; unit: string; sqft: number };
-      const groups: { propName: string; rows: VacRow[] }[] = [];
-
+      const rows: VacRow[] = [];
       for (const prop of properties) {
         const name = propDisplayName((prop.propertyCode as string).toUpperCase(), prop.reportedPropertyName || prop.propertyCode);
-        const vacUnits = (prop.units as any[]).filter(u => u.isVacant);
-        if (vacUnits.length) groups.push({ propName: name, rows: vacUnits.map(u => ({ propName: name, unit: u.unitRef || "", sqft: u.sqft })) });
+        for (const u of prop.units as any[]) {
+          if (u.isVacant) rows.push({ propName: name, unit: u.unitRef || "", sqft: u.sqft });
+        }
       }
 
-      if (groups.length) {
+      if (rows.length) {
         const VAC_COLS: ColDef[] = [
           { header: "Property", width: 220, align: "left"  },
           { header: "Unit",     width: 100, align: "left"  },
@@ -376,50 +379,31 @@ export async function POST(req: Request) {
         page.drawText("Vacancy Summary", { x: M, y: py(curY + 18), size: 16, font: fontBold, color: C_DARK });
         curY += 28;
 
+        curY += drawHeader(page, curY, VAC_COLS, tableX, tableW);
+
         let grandUnits = 0;
         let grandSqft  = 0;
 
-        for (const group of groups) {
-          if (curY + 24 > PH - M - 10) { ({ page, curY } = newPage()); }
-          // Property header bar
-          page.drawRectangle({ x: M, y: py(curY + 20), width: PW - 2 * M, height: 20, color: rgb(0.29,0.29,0.32) });
-          page.drawText(group.propName, { x: M + 6, y: py(curY + 14), size: 9, font: fontBold, color: rgb(1,1,1) });
-          curY += 24;
-          curY += drawHeader(page, curY, VAC_COLS, tableX, tableW);
-
-          let grpSqft = 0;
-          for (let i = 0; i < group.rows.length; i++) {
-            if (curY + ROW_H > PH - M - 26) {
-              ({ page, curY } = newPage());
-              curY += drawHeader(page, curY, VAC_COLS, tableX, tableW);
-            }
-            const row = group.rows[i];
-            grpSqft += row.sqft;
-            if (i % 2 === 1) page.drawRectangle({ x: tableX, y: py(curY + ROW_H), width: tableW, height: ROW_H, color: C_ALT });
-            const vals: Record<string, string> = { "Property": row.propName, "Unit": row.unit, "Sq Ft": sqftFmt(row.sqft) };
-            let cx = tableX;
-            for (const col of VAC_COLS) {
-              const val = vals[col.header] || "";
-              const tw  = font.widthOfTextAtSize(val, 8);
-              const tx  = col.align === "right" ? cx + col.width - 4 - tw : cx + 4;
-              page.drawText(val, { x: tx, y: py(curY + ROW_H - 5), size: 8, font, color: C_MUTED });
-              cx += col.width;
-            }
-            page.drawLine({ start: { x: tableX, y: py(curY + ROW_H) }, end: { x: tableX + tableW, y: py(curY + ROW_H) }, thickness: 0.2, color: C_LINE });
-            curY += ROW_H;
+        for (let i = 0; i < rows.length; i++) {
+          if (curY + ROW_H > PH - M - 30) {
+            ({ page, curY } = newPage());
+            curY += drawHeader(page, curY, VAC_COLS, tableX, tableW);
           }
-
-          // Group subtotal
-          if (curY + ROW_H > PH - M - 10) { ({ page, curY } = newPage()); }
-          page.drawLine({ start: { x: tableX, y: py(curY + 1) }, end: { x: tableX + tableW, y: py(curY + 1) }, thickness: 1.2, color: C_DARK });
-          page.drawRectangle({ x: tableX, y: py(curY + ROW_H + 1), width: tableW, height: ROW_H, color: C_HBKG });
-          const subLabel = `${group.rows.length} unit${group.rows.length !== 1 ? "s" : ""}   ·   ${sqftFmt(grpSqft)} sf vacant`;
-          const subW = fontBold.widthOfTextAtSize(subLabel, 8);
-          page.drawText(subLabel, { x: tableX + tableW - 4 - subW, y: py(curY + ROW_H - 4), size: 8, font: fontBold, color: C_DARK });
-          curY += ROW_H + 10;
-
-          grandUnits += group.rows.length;
-          grandSqft  += grpSqft;
+          const row = rows[i];
+          grandUnits += 1;
+          grandSqft  += row.sqft;
+          if (i % 2 === 1) page.drawRectangle({ x: tableX, y: py(curY + ROW_H), width: tableW, height: ROW_H, color: C_ALT });
+          const vals: Record<string, string> = { "Property": row.propName, "Unit": row.unit, "Sq Ft": sqftFmt(row.sqft) };
+          let cx = tableX;
+          for (const col of VAC_COLS) {
+            const val = vals[col.header] || "";
+            const tw  = font.widthOfTextAtSize(val, 8);
+            const tx  = col.align === "right" ? cx + col.width - 4 - tw : cx + 4;
+            page.drawText(val, { x: tx, y: py(curY + ROW_H - 5), size: 8, font, color: C_DARK });
+            cx += col.width;
+          }
+          page.drawLine({ start: { x: tableX, y: py(curY + ROW_H) }, end: { x: tableX + tableW, y: py(curY + ROW_H) }, thickness: 0.2, color: C_LINE });
+          curY += ROW_H;
         }
 
         // Grand total
