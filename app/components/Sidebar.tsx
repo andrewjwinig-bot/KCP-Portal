@@ -1,6 +1,23 @@
 "use client";
 
 import { usePathname } from "next/navigation";
+import { useUser } from "./UserProvider";
+import UserSwitcher from "./UserSwitcher";
+
+// Maps each NAV label to a role key. Items in this map are gated; items not in it are always visible.
+const NAV_ROLE_KEY: Record<string, string> = {
+  "Dashboard":          "dashboard",
+  "Property Info":      "properties",
+  "Rent Roll":          "rentroll",
+  "Master Tracker":     "tracker",
+  "Filing Tracker":     "tracker",
+  "Payroll Invoicer":   "payroll-invoicer",
+  "Payroll History":    "payroll-history",
+  "CC Expense Coder":   "expenses",
+  "Expense History":    "expenses-history",
+  "Allocated Invoicer": "allocated",
+  "Maintenance":        "maintenance",
+};
 
 const NAV = [
   {
@@ -157,6 +174,7 @@ const NAV = [
 
 export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: () => void }) {
   const pathname = usePathname();
+  const { user } = useUser();
   const W = open ? 220 : 60;
 
   function isActive(item: (typeof NAV)[number]) {
@@ -166,6 +184,12 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
   }
 
   function isVisible(item: (typeof NAV)[number]) {
+    // Role-based visibility (admin sees all; others must have the nav key)
+    const roleKey = NAV_ROLE_KEY[item.label];
+    const passesRole = !roleKey || user.navKeys.has("all") || user.navKeys.has(roleKey);
+    if (!passesRole) return false;
+
+    // Existing context-based visibility (e.g. show child item only on parent route)
     if (item.showFor === null) return true;
     if (item.showFor === "/") return pathname === "/" || pathname.startsWith("/history");
     return pathname === item.showFor || pathname.startsWith(item.showFor + "/");
@@ -189,17 +213,19 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
         borderRight: "1px solid rgba(255,255,255,0.07)",
       }}
     >
-      {/* Toggle button */}
+      {/* User switcher + toggle button */}
       <div
         style={{
           display: "flex",
           alignItems: "center",
-          justifyContent: open ? "flex-end" : "center",
-          padding: open ? "14px 12px 14px 16px" : "14px 0",
+          gap: 8,
+          justifyContent: open ? "space-between" : "center",
+          padding: open ? "14px 12px 14px 12px" : "14px 0",
           borderBottom: "1px solid rgba(255,255,255,0.07)",
           flexShrink: 0,
         }}
       >
+        {open && <UserSwitcher collapsed={false} />}
         <button
           onClick={onToggle}
           title={open ? "Collapse sidebar" : "Expand sidebar"}

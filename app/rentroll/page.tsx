@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { PROPERTY_DEFS } from "../../lib/properties/data";
 import type { RentRollData, RentRollUnit, RentRollProperty } from "../../lib/rentroll/parseRentRollExcel";
+import { useUser } from "../components/UserProvider";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -733,7 +734,8 @@ function PortfolioGroup({ name, props }: { name: string; props: RentRollProperty
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function RentRollPage() {
-  const [rentroll, setRentroll] = useState<RentRollData | null>(null);
+  const { user } = useUser();
+  const [rawRentroll, setRawRentroll] = useState<RentRollData | null>(null);
   const [loading, setLoading]   = useState(true);
   const [prevSnapshot, setPrevSnapshot] = useState<import("../../lib/rentroll/snapshot").RentRollSnapshotSummary | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -779,7 +781,7 @@ export default function RentRollPage() {
     fetch("/api/rentroll")
       .then((r) => r.json())
       .then((data) => {
-        setRentroll(data.rentroll ?? null);
+        setRawRentroll(data.rentroll ?? null);
         setLoading(false);
       })
       .catch(() => setLoading(false));
@@ -807,13 +809,20 @@ export default function RentRollPage() {
       });
       const data = await res.json();
       if (!res.ok || data.error) throw new Error(data.error ?? "Upload failed");
-      setRentroll(data.rentroll);
+      setRawRentroll(data.rentroll);
     } catch (err: any) {
       setUploadError(err?.message ?? "Upload failed");
     } finally {
       setUploading(false);
     }
   }
+
+  // Apply persona property scope (admin = no scope)
+  const rentroll: RentRollData | null = useMemo(() => {
+    if (!rawRentroll) return null;
+    if (!user.propertyScope) return rawRentroll;
+    return { ...rawRentroll, properties: rawRentroll.properties.filter((p) => user.propertyScope!.has(p.propertyCode.toUpperCase())) };
+  }, [rawRentroll, user.propertyScope]);
 
   // Filter excluded units from all properties
   const filteredRentroll = rentroll
@@ -895,7 +904,7 @@ export default function RentRollPage() {
           <button
             className="btn"
             style={{ borderRadius: 999, fontWeight: 700, whiteSpace: "nowrap" }}
-            onClick={() => setRentroll(null)}
+            onClick={() => setRawRentroll(null)}
             disabled={!rentroll}
           >
             Clear

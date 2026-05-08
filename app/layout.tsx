@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import AppShell from "./components/AppShell";
+import { UserProvider } from "./components/UserProvider";
 
 export const metadata: Metadata = {
   title: "Payroll Invoicer",
@@ -19,7 +20,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body>
-        <AppShell>{children}</AppShell>
+        <UserProvider>
+          <AppShell>{children}</AppShell>
+        </UserProvider>
       </body>
     </html>
   );
