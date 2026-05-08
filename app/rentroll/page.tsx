@@ -298,8 +298,8 @@ function PropertyCard({ prop }: { prop: RentRollProperty }) {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1, minWidth: 0, flexWrap: "wrap" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ fontWeight: 700, fontSize: 16 }}>{name}</span>
               <code style={{ fontSize: 12, color: "var(--muted)" }}>{prop.propertyCode}</code>
+              <span style={{ fontWeight: 700, fontSize: 16 }}>{name}</span>
             </div>
             <div style={{ fontSize: 13, color: "var(--muted)", display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center" }}>
               <span>Occupied: <b style={{ color: "var(--text)" }}>{sqftFmt(prop.occupiedSqft)} sf</b></span>
