@@ -15,6 +15,9 @@ export const config = {
     "/api/generate-pdf",
     "/api/allocation",
     "/api/rentroll",
+    "/api/rentroll/:path*",
+    "/rentroll",
+    "/rentroll/:path*",
   ],
 };
 

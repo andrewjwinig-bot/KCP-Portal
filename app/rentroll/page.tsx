@@ -610,7 +610,7 @@ function AlertsPanel({ rentroll }: { rentroll: RentRollData }) {
 
 // ─── Multi-line Occupancy Bars ────────────────────────────────────────────────
 
-function OccupancyLines({ rentroll, categoryFilter }: { rentroll: RentRollData; categoryFilter: CategoryFilter }) {
+function OccupancyLines({ rentroll, categoryFilter, prevPctByLabel }: { rentroll: RentRollData; categoryFilter: CategoryFilter; prevPctByLabel?: Record<string, number | null> }) {
   function pctFor(codes: Set<string>): number | null {
     const props = rentroll.properties.filter(p => codes.has(p.propertyCode.toUpperCase()));
     const total    = props.reduce((s, p) => s + p.totalSqft,    0);
@@ -669,23 +669,31 @@ function OccupancyLines({ rentroll, categoryFilter }: { rentroll: RentRollData; 
 
   return (
     <div className="card" style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 10 }}>
-      {lines.map(({ label, pct, indent, bold }) => (
-        <div key={label} style={{ display: "flex", alignItems: "center", gap: 12, paddingLeft: indent ? 16 : 0 }}>
-          <span style={{ fontSize: indent ? 11 : 12, color: "var(--muted)", width: 230, flexShrink: 0, fontWeight: bold ? 700 : 400 }}>{label}</span>
-          <div style={{ flex: 1, height: indent ? 5 : 6, borderRadius: 999, background: "rgba(15,23,42,0.08)", overflow: "hidden" }}>
-            <div style={{
-              height: "100%",
-              width: `${pct}%`,
-              borderRadius: 999,
-              background: pct >= 90 ? "#16a34a" : pct >= 70 ? "#0b4a7d" : "#d97706",
-              transition: "width 0.4s ease",
-            }} />
+      {lines.map(({ label, pct, indent, bold }) => {
+        const prev = prevPctByLabel?.[label];
+        const delta = prev != null ? pct - prev : null;
+        return (
+          <div key={label} style={{ display: "flex", alignItems: "center", gap: 12, paddingLeft: indent ? 16 : 0 }}>
+            <span style={{ fontSize: indent ? 11 : 12, color: "var(--muted)", width: 230, flexShrink: 0, fontWeight: bold ? 700 : 400 }}>{label}</span>
+            <div style={{ flex: 1, height: indent ? 5 : 6, borderRadius: 999, background: "rgba(15,23,42,0.08)", overflow: "hidden" }}>
+              <div style={{
+                height: "100%",
+                width: `${pct}%`,
+                borderRadius: 999,
+                background: pct >= 90 ? "#16a34a" : pct >= 70 ? "#0b4a7d" : "#d97706",
+                transition: "width 0.4s ease",
+              }} />
+            </div>
+            <span style={{ fontSize: indent ? 11 : 12, fontWeight: 700, color: "var(--muted)", whiteSpace: "nowrap", width: 44, textAlign: "right" }}>
+              {pct.toFixed(1)}%
+            </span>
+            <span style={{ fontSize: indent ? 10 : 11, fontWeight: 600, whiteSpace: "nowrap", width: 56, textAlign: "right",
+              color: delta == null ? "transparent" : Math.abs(delta) < 0.05 ? "var(--muted)" : delta > 0 ? "#16a34a" : "#dc2626" }}>
+              {delta == null ? "—" : `${delta >= 0 ? "+" : ""}${delta.toFixed(1)}%`}
+            </span>
           </div>
-          <span style={{ fontSize: indent ? 11 : 12, fontWeight: 700, color: "var(--muted)", whiteSpace: "nowrap", width: 44, textAlign: "right" }}>
-            {pct.toFixed(1)}%
-          </span>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -727,6 +735,7 @@ function PortfolioGroup({ name, props }: { name: string; props: RentRollProperty
 export default function RentRollPage() {
   const [rentroll, setRentroll] = useState<RentRollData | null>(null);
   const [loading, setLoading]   = useState(true);
+  const [prevSnapshot, setPrevSnapshot] = useState<import("../../lib/rentroll/snapshot").RentRollSnapshotSummary | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("All");
@@ -774,6 +783,13 @@ export default function RentRollPage() {
         setLoading(false);
       })
       .catch(() => setLoading(false));
+    fetch("/api/rentroll/history")
+      .then((r) => r.json())
+      .then((j) => {
+        const snaps = (j.snapshots ?? []) as import("../../lib/rentroll/snapshot").RentRollSnapshotSummary[];
+        if (snaps.length >= 2) setPrevSnapshot(snaps[snaps.length - 2]);
+      })
+      .catch(() => {});
   }, []);
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -940,7 +956,22 @@ export default function RentRollPage() {
 
           {/* Multi-line occupancy bars */}
           {categoryRentroll.properties.reduce((s, p) => s + p.totalSqft, 0) > 0 && (
-            <OccupancyLines rentroll={categoryRentroll} categoryFilter={categoryFilter} />
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ display: "flex", justifyContent: "flex-end" }}>
+              <a href="/rentroll/trends" style={{ fontSize: 12, fontWeight: 600, color: "#0b4a7d", textDecoration: "none" }}>View trend →</a>
+            </div>
+            <OccupancyLines
+              rentroll={categoryRentroll}
+              categoryFilter={categoryFilter}
+              prevPctByLabel={prevSnapshot ? {
+                "% Occupied – Total":      prevSnapshot.totals.total?.pct ?? null,
+                "JV III LLC":              prevSnapshot.totals.jv3?.pct   ?? null,
+                "NI LLC":                  prevSnapshot.totals.ni?.pct    ?? null,
+                "Shopping Centers":        prevSnapshot.totals.sc?.pct    ?? null,
+                "Korman Homes":            prevSnapshot.totals.kh?.pct    ?? null,
+              } : undefined}
+            />
+          </div>
           )}
 
           {/* Alerts */}
