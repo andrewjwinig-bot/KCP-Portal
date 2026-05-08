@@ -2,7 +2,6 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 import { ALL_USERS, USERS, type UserDef, type UserId } from "../../lib/users";
-import type { RentRollData } from "../../lib/rentroll/parseRentRollExcel";
 
 type Ctx = {
   user: UserDef;
@@ -43,16 +42,4 @@ export function useUser(): Ctx {
   const ctx = useContext(UserContext);
   if (!ctx) throw new Error("useUser must be used within UserProvider");
   return ctx;
-}
-
-/** Filter a rent roll's properties to the active user's scope (returns the same object if no scope). */
-export function useScopedRentroll(rentroll: RentRollData | null | undefined): RentRollData | null {
-  const { user } = useUser();
-  if (!rentroll) return null;
-  const scope = user.propertyScope;
-  if (!scope) return rentroll;
-  return {
-    ...rentroll,
-    properties: rentroll.properties.filter((p) => scope.has(p.propertyCode.toUpperCase())),
-  };
 }

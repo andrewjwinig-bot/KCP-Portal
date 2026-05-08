@@ -794,7 +794,9 @@ function PropertyCard({ prop, onClick }: { prop: PropertyDef; onClick: () => voi
 const TYPES: PropType[] = ["Office", "Retail", "Residential", "Land", "Misc"];
 
 export default function PropertiesPage() {
-  const [typeFilter, setTypeFilter] = useState<PropType | "all">("all");
+  const { user } = useUser();
+  const [typeFilter, setTypeFilter] = useState<PropType | "all">(user.defaultPropertyType as PropType | "all");
+  useEffect(() => { setTypeFilter(user.defaultPropertyType as PropType | "all"); }, [user.id, user.defaultPropertyType]);
   const [selected, setSelected] = useState<PropertyDef | null>(null);
   const [checked,  setChecked]  = useState<Record<string, boolean>>({});
 
@@ -802,21 +804,15 @@ export default function PropertiesPage() {
     setChecked(loadTaxChecked(new Date().getFullYear()));
   }, []);
 
-  const { user } = useUser();
-  const scopedDefs = useMemo(() => {
-    if (!user.propertyScope) return PROPERTY_DEFS;
-    return PROPERTY_DEFS.filter((p) => user.propertyScope!.has(p.id.toUpperCase()));
-  }, [user.propertyScope]);
-
   const typeCounts = useMemo(() => {
     const counts: Record<PropType, number> = { Office: 0, Retail: 0, Residential: 0, Land: 0, Misc: 0 };
-    scopedDefs.forEach(p => counts[p.type]++);
+    PROPERTY_DEFS.forEach(p => counts[p.type]++);
     return counts;
-  }, [scopedDefs]);
+  }, []);
 
   const filtered = useMemo(() =>
-    typeFilter === "all" ? scopedDefs : scopedDefs.filter(p => p.type === typeFilter),
-  [typeFilter, scopedDefs]);
+    typeFilter === "all" ? PROPERTY_DEFS : PROPERTY_DEFS.filter(p => p.type === typeFilter),
+  [typeFilter]);
 
   return (
     <main>
@@ -838,7 +834,7 @@ export default function PropertiesPage() {
       {/* ── Summary tiles ── */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 10, marginBottom: 18 }}>
         {([
-          { key: "all",         label: "Total",       value: scopedDefs.length, color: "var(--brand)",  activeBg: "rgba(11,74,125,0.07)",  activeBorder: "rgba(11,74,125,0.3)"  },
+          { key: "all",         label: "Total",       value: PROPERTY_DEFS.length, color: "var(--brand)",  activeBg: "rgba(11,74,125,0.07)",  activeBorder: "rgba(11,74,125,0.3)"  },
           { key: "Office",      label: "Office",       value: typeCounts.Office,      color: "#0b4a7d",      activeBg: "rgba(11,74,125,0.09)",  activeBorder: "rgba(11,74,125,0.35)" },
           { key: "Retail",      label: "Retail",       value: typeCounts.Retail,      color: "#0d9488",      activeBg: "rgba(13,148,136,0.09)", activeBorder: "rgba(13,148,136,0.35)"},
           { key: "Residential", label: "Residential",  value: typeCounts.Residential, color: "#6d28d9",      activeBg: "rgba(109,40,217,0.09)", activeBorder: "rgba(109,40,217,0.35)"},

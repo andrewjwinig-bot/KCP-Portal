@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { PROPERTY_DEFS } from "../../lib/properties/data";
 import type { RentRollData, RentRollUnit, RentRollProperty } from "../../lib/rentroll/parseRentRollExcel";
 import { useUser } from "../components/UserProvider";
@@ -634,6 +634,7 @@ function OccupancyLines({ rentroll, categoryFilter, prevPctByLabel }: { rentroll
       { label: "NI LLC",                       pct: pctFor(NI_LLC_CODES)              },
       { label: "Shopping Centers",             pct: pctFor(SC_CODES)                  },
       { label: "Korman Homes",                 pct: pctFor(KH_CODES)                  },
+      { label: "The Office Works",             pct: pctFor(CATEGORY_OW_CODES)         },
     ] as OccLine[]).filter((l): l is OccLine => l.pct != null);
   } else {
     const propLines: OccLine[] = rentroll.properties
@@ -740,7 +741,9 @@ export default function RentRollPage() {
   const [prevSnapshot, setPrevSnapshot] = useState<import("../../lib/rentroll/snapshot").RentRollSnapshotSummary | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
-  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("All");
+  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>(user.defaultRentRollCategory as CategoryFilter);
+  // Re-apply persona default when the active user changes (until the user clicks a different chip)
+  useEffect(() => { setCategoryFilter(user.defaultRentRollCategory as CategoryFilter); }, [user.id, user.defaultRentRollCategory]);
   const [generatingReport, setGeneratingReport] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -817,12 +820,8 @@ export default function RentRollPage() {
     }
   }
 
-  // Apply persona property scope (admin = no scope)
-  const rentroll: RentRollData | null = useMemo(() => {
-    if (!rawRentroll) return null;
-    if (!user.propertyScope) return rawRentroll;
-    return { ...rawRentroll, properties: rawRentroll.properties.filter((p) => user.propertyScope!.has(p.propertyCode.toUpperCase())) };
-  }, [rawRentroll, user.propertyScope]);
+  // No persona property scope — everyone sees all properties; default category filter is applied per persona instead.
+  const rentroll: RentRollData | null = rawRentroll;
 
   // Filter excluded units from all properties
   const filteredRentroll = rentroll

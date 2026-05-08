@@ -38,21 +38,14 @@ function nextDueDate(t: TaxTask, today: Date): Date {
 export default function DashboardPage() {
   const router = useRouter();
   const { user } = useUser();
-  const [rawRentroll, setRawRentroll] = useState<RentRollData | null>(null);
+  const [rentroll, setRentroll] = useState<RentRollData | null>(null);
   const [loading, setLoading] = useState(true);
   const [checkedByYear, setCheckedByYear] = useState<Record<number, Record<string, boolean>>>({});
-
-  // Apply user property scope (admin = no scope)
-  const rentroll: RentRollData | null = useMemo(() => {
-    if (!rawRentroll) return null;
-    if (!user.propertyScope) return rawRentroll;
-    return { ...rawRentroll, properties: rawRentroll.properties.filter((p) => user.propertyScope!.has(p.propertyCode.toUpperCase())) };
-  }, [rawRentroll, user.propertyScope]);
 
   const isAdmin = user.id === "admin";
 
   useEffect(() => {
-    fetch("/api/rentroll").then((r) => r.json()).then((j) => setRawRentroll(j.rentroll ?? null)).catch(() => setRawRentroll(null)).finally(() => setLoading(false));
+    fetch("/api/rentroll").then((r) => r.json()).then((j) => setRentroll(j.rentroll ?? null)).catch(() => setRentroll(null)).finally(() => setLoading(false));
   }, []);
 
   useEffect(() => {
@@ -77,6 +70,7 @@ export default function DashboardPage() {
   const JV_III_CODES = useMemo(() => new Set(["3610", "3620", "3640"]), []);
   const NI_LLC_CODES = useMemo(() => new Set(["4050", "4060", "4070", "4080", "40A0", "40B0", "40C0"]), []);
   const SC_CODES     = useMemo(() => new Set(["1100", "2300", "4500", "7010", "9510", "7200", "7300", "1500", "9200", "5600", "8200"]), []);
+  const OW_CODES     = useMemo(() => new Set(["4900"]), []);
 
   const occupancy = useMemo(() => {
     if (!rentroll) return null;
@@ -98,9 +92,10 @@ export default function DashboardPage() {
         { label: "JV III LLC",       ...tally(JV_III_CODES) },
         { label: "NI LLC",           ...tally(NI_LLC_CODES) },
         { label: "Shopping Centers", ...tally(SC_CODES)     },
+        { label: "The Office Works", ...tally(OW_CODES)     },
       ].filter((g) => g.total > 0),
     };
-  }, [rentroll, JV_III_CODES, NI_LLC_CODES, SC_CODES]);
+  }, [rentroll, JV_III_CODES, NI_LLC_CODES, SC_CODES, OW_CODES]);
 
   // ── Rent roll freshness ──
   const today = new Date();
