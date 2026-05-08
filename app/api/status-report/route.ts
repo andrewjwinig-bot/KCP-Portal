@@ -4,6 +4,7 @@ import fs from "fs";
 import path from "path";
 import { PROPERTY_DEFS } from "../../../lib/properties/data";
 import { getJSON } from "@/lib/storage";
+import { EMPTY_LEASING_ACTIVITY, type LeasingActivity } from "@/lib/leasing/types";
 
 export const runtime = "nodejs";
 
@@ -452,6 +453,212 @@ export async function POST(req: Request) {
           "* Occupied Space + Pending Leases - Tenants Vacating. See Leasing Activity Summary Report for detail.",
           { x: tableX, y: py(curY + 10), size: 8, font, color: C_MUTED },
         );
+      }
+    }
+
+    // ── Leasing Activity Summary page (Office only) ─────────────────────────
+    {
+      const includeCodes = new Set([...JV_III_CODES, ...NI_LLC_CODES, ...OW_CODES]);
+      const officePresent = properties.some((p: any) => includeCodes.has(String(p.propertyCode).toUpperCase()));
+
+      let leasing: LeasingActivity = EMPTY_LEASING_ACTIVITY;
+      try {
+        const raw = (await getJSON("leasing-activity", "all")) as LeasingActivity | null;
+        if (raw) leasing = { ...EMPTY_LEASING_ACTIVITY, ...raw };
+      } catch { /* default empty */ }
+
+      const hasData =
+        leasing.prospects.length > 0 ||
+        leasing.pendingLeases.length > 0 ||
+        leasing.tenantsVacating.length > 0 ||
+        leasing.optionsToRenew.length > 0;
+
+      if (officePresent && hasData) {
+        // Build unit lookup so vacating/option rows can resolve tenant info
+        const unitLookup = new Map<string, { tenant: string; building: string; sqft: number }>();
+        for (const prop of properties) {
+          const code = String(prop.propertyCode).toUpperCase();
+          if (!includeCodes.has(code)) continue;
+          const buildingName = propDisplayName(code, prop.reportedPropertyName || code);
+          for (const u of prop.units as any[]) {
+            unitLookup.set(u.unitRef, {
+              tenant: u.isVacant ? "Vacant" : u.occupantName,
+              building: buildingName,
+              sqft: u.sqft,
+            });
+          }
+        }
+
+        let page: PDFPage = pdfDoc.addPage([PW, PH]);
+        page.drawLine({ start: { x: M, y: py(M) }, end: { x: PW - M, y: py(M) }, thickness: 2, color: C_BRAND });
+        // Period top right
+        const prW = fontBold.widthOfTextAtSize(periodStr || "####", 11);
+        page.drawText(periodStr || "####", { x: PW - M - prW, y: py(M + 14), size: 11, font: fontBold, color: C_DARK });
+
+        // Title + subtitle
+        const title = "Leasing Activity Summary Report";
+        const titleSz = 22;
+        const titleW = fontBold.widthOfTextAtSize(title, titleSz);
+        page.drawText(title, { x: (PW - titleW) / 2, y: py(M + 40), size: titleSz, font: fontBold, color: C_DARK });
+        const subtitle = "Neshaminy Interplex Status Report";
+        const subSz = 10;
+        const subW = font.widthOfTextAtSize(subtitle, subSz);
+        page.drawText(subtitle, { x: (PW - subW) / 2, y: py(M + 60), size: subSz, font, color: C_BRAND });
+
+        let curY = M + 80;
+        const tableX = M + 6;
+        const tableW = PW - 2 * M - 12;
+
+        function newContinuationPage() {
+          page = pdfDoc.addPage([PW, PH]);
+          page.drawLine({ start: { x: M, y: py(M) }, end: { x: PW - M, y: py(M) }, thickness: 2, color: C_BRAND });
+          curY = M + 14;
+        }
+
+        function pageBreakIfNeeded(spaceNeeded: number) {
+          if (curY + spaceNeeded > PH - M - 10) newContinuationPage();
+        }
+
+        function drawSectionTitle(text: string) {
+          pageBreakIfNeeded(22);
+          page.drawText(text + ":", { x: M, y: py(curY + 12), size: 11, font: fontBold, color: C_DARK });
+          curY += 14;
+          page.drawLine({ start: { x: M, y: py(curY) }, end: { x: PW - M, y: py(curY) }, thickness: 0.6, color: C_LINE });
+          curY += 6;
+        }
+
+        function drawRow(cols: { label: string; align: "left" | "right"; width: number }[], values: string[], opts?: { bold?: boolean; muted?: boolean }) {
+          const f = opts?.bold ? fontBold : font;
+          const color = opts?.muted ? C_MUTED : C_DARK;
+          let cx = tableX;
+          for (let i = 0; i < cols.length; i++) {
+            const c = cols[i];
+            const v = values[i] ?? "";
+            const tw = f.widthOfTextAtSize(v, 9);
+            const tx = c.align === "right" ? cx + c.width - 6 - tw : cx + 6;
+            page.drawText(v, { x: tx, y: py(curY + 11), size: 9, font: f, color });
+            cx += c.width;
+          }
+          curY += 14;
+        }
+
+        // ── Prospects
+        {
+          drawSectionTitle("Prospects");
+          const cols = [
+            { label: "Tenant",        align: "left"  as const, width: 170 },
+            { label: "Building",      align: "left"  as const, width: 90  },
+            { label: "SQ. FT.",       align: "right" as const, width: 80  },
+            { label: "Type of",       align: "left"  as const, width: 170 },
+            { label: "Rating (1-5)",  align: "right" as const, width: 100 },
+          ];
+          drawRow(cols, cols.map(c => c.label), { bold: true });
+          page.drawLine({ start: { x: tableX, y: py(curY - 2) }, end: { x: tableX + tableW, y: py(curY - 2) }, thickness: 0.4, color: C_LINE });
+          if (leasing.prospects.length === 0) {
+            drawRow(cols, ["—", "", "", "", ""], { muted: true });
+          } else {
+            for (const p of leasing.prospects) {
+              pageBreakIfNeeded(16);
+              drawRow(cols, [
+                p.tenant ?? "",
+                p.building ?? "",
+                p.sqft ? sqftFmt(p.sqft) : "",
+                p.typeOf ?? "",
+                p.rating != null ? String(p.rating) : "",
+              ]);
+            }
+          }
+          curY += 6;
+        }
+
+        // ── Pending Leases
+        {
+          pageBreakIfNeeded(40);
+          drawSectionTitle("Pending Leases");
+          const cols = [
+            { label: "Tenant",     align: "left"  as const, width: 200 },
+            { label: "Building",   align: "left"  as const, width: 100 },
+            { label: "SQ. FT.",    align: "right" as const, width: 80  },
+            { label: "Start Date", align: "left"  as const, width: 120 },
+          ];
+          drawRow(cols, cols.map(c => c.label), { bold: true });
+          page.drawLine({ start: { x: tableX, y: py(curY - 2) }, end: { x: tableX + tableW, y: py(curY - 2) }, thickness: 0.4, color: C_LINE });
+          if (leasing.pendingLeases.length === 0) {
+            drawRow(cols, ["—", "", "", ""], { muted: true });
+          } else {
+            for (const p of leasing.pendingLeases) {
+              pageBreakIfNeeded(16);
+              drawRow(cols, [
+                p.tenant ?? "",
+                p.building ?? "",
+                p.sqft ? sqftFmt(p.sqft) : "",
+                fmtDate(p.startDate),
+              ]);
+            }
+          }
+          curY += 6;
+        }
+
+        // ── Tenants Vacating
+        {
+          pageBreakIfNeeded(40);
+          drawSectionTitle("Tenants Vacating");
+          const cols = [
+            { label: "Tenant",          align: "left"  as const, width: 200 },
+            { label: "Building",        align: "left"  as const, width: 100 },
+            { label: "SQ. FT.",         align: "right" as const, width: 80  },
+            { label: "Expiration Date", align: "left"  as const, width: 120 },
+          ];
+          drawRow(cols, cols.map(c => c.label), { bold: true });
+          page.drawLine({ start: { x: tableX, y: py(curY - 2) }, end: { x: tableX + tableW, y: py(curY - 2) }, thickness: 0.4, color: C_LINE });
+          if (leasing.tenantsVacating.length === 0) {
+            drawRow(cols, ["—", "", "", ""], { muted: true });
+          } else {
+            for (const v of leasing.tenantsVacating) {
+              const u = unitLookup.get(v.unitRef);
+              pageBreakIfNeeded(16);
+              drawRow(cols, [
+                u?.tenant ?? v.unitRef,
+                u?.building ?? "",
+                u ? sqftFmt(u.sqft) : "",
+                fmtDate(v.expirationDate),
+              ]);
+            }
+          }
+          curY += 6;
+        }
+
+        // ── Option to Renew
+        {
+          pageBreakIfNeeded(40);
+          drawSectionTitle("Option to Renew");
+          const cols = [
+            { label: "Tenant",              align: "left"  as const, width: 170 },
+            { label: "Building",            align: "left"  as const, width: 80  },
+            { label: "SQ. FT.",             align: "right" as const, width: 70  },
+            { label: "Term/ Prior Notice",  align: "left"  as const, width: 130 },
+            { label: "Notice Date",         align: "left"  as const, width: 80  },
+            { label: "Option Term Exp",     align: "left"  as const, width: 90  },
+          ];
+          drawRow(cols, cols.map(c => c.label), { bold: true });
+          page.drawLine({ start: { x: tableX, y: py(curY - 2) }, end: { x: tableX + tableW, y: py(curY - 2) }, thickness: 0.4, color: C_LINE });
+          if (leasing.optionsToRenew.length === 0) {
+            drawRow(cols, ["—", "", "", "", "", ""], { muted: true });
+          } else {
+            for (const o of leasing.optionsToRenew) {
+              const u = unitLookup.get(o.unitRef);
+              pageBreakIfNeeded(16);
+              drawRow(cols, [
+                u?.tenant ?? o.unitRef,
+                u?.building ?? "",
+                u ? sqftFmt(u.sqft) : "",
+                o.term ?? "",
+                fmtDate(o.noticeDate),
+                fmtDate(o.optionTermExp),
+              ]);
+            }
+          }
+        }
       }
     }
 
