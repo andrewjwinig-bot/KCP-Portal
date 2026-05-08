@@ -1,11 +1,13 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { listJSON, getJSON, storeJSON } from "@/lib/storage";
-import type { RentRollData } from "@/lib/rentroll/parseRentRollExcel";
+import { parseRentRollExcel, type RentRollData } from "@/lib/rentroll/parseRentRollExcel";
 import { snapshotMonthKey, summarizeSnapshot } from "@/lib/rentroll/snapshot";
 
 const RENTROLL_PREFIX = "rentroll";
 const RENTROLL_ID     = "current";
 const HISTORY_PREFIX  = "rentroll-history";
+
+export const runtime = "nodejs";
 
 /**
  * GET /api/rentroll/history
@@ -28,5 +30,39 @@ export async function GET() {
   } catch (err: any) {
     console.error("[GET /api/rentroll/history]", err?.message ?? err);
     return NextResponse.json({ snapshots: [] });
+  }
+}
+
+/**
+ * POST /api/rentroll/history
+ * Body: { fileBase64: string, monthOverride?: string }
+ * Parses the uploaded rent roll Excel and writes ONLY a history snapshot
+ * (keyed by report month, or by monthOverride if provided as YYYY-MM).
+ * Does NOT touch the current rent roll. Used for backfilling past months.
+ */
+export async function POST(req: NextRequest) {
+  try {
+    const body = await req.json();
+    const fileBase64 = body?.fileBase64 as string | undefined;
+    const monthOverride = (body?.monthOverride as string | undefined)?.trim();
+
+    if (!fileBase64) {
+      return NextResponse.json({ error: "Missing fileBase64" }, { status: 400 });
+    }
+
+    const buf = Buffer.from(fileBase64, "base64");
+    const parsed = parseRentRollExcel(buf);
+    const uploadedAt = new Date().toISOString();
+    const rentroll = { id: "history", uploadedAt, ...parsed } as RentRollData;
+
+    let key = snapshotMonthKey(rentroll);
+    if (monthOverride && /^\d{4}-\d{2}$/.test(monthOverride)) key = monthOverride;
+
+    await storeJSON(HISTORY_PREFIX, key, rentroll);
+
+    return NextResponse.json({ ok: true, month: key, summary: summarizeSnapshot(rentroll) });
+  } catch (err: any) {
+    console.error("[POST /api/rentroll/history]", err?.message ?? err);
+    return NextResponse.json({ error: err?.message ?? String(err) }, { status: 500 });
   }
 }

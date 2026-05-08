@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getJSON } from "@/lib/storage";
+import { getJSON, deleteJSON } from "@/lib/storage";
 
 const HISTORY_PREFIX = "rentroll-history";
 
@@ -9,4 +9,12 @@ export async function GET(_req: Request, ctx: { params: { month: string } }) {
   const data = await getJSON(HISTORY_PREFIX, month);
   if (!data) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json({ rentroll: data });
+}
+
+/** DELETE /api/rentroll/history/YYYY-MM → remove a snapshot. */
+export async function DELETE(_req: Request, ctx: { params: { month: string } }) {
+  const month = (ctx.params.month ?? "").replace(/[^0-9-]/g, "");
+  const ok = await deleteJSON(HISTORY_PREFIX, month);
+  if (!ok) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  return NextResponse.json({ ok: true });
 }
