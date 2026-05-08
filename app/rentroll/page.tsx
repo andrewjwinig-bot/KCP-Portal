@@ -305,7 +305,7 @@ function PropertyCard({ prop }: { prop: RentRollProperty }) {
               <span>Occupied: <b style={{ color: "var(--text)" }}>{sqftFmt(prop.occupiedSqft)} sf</b></span>
               <span>Vacant: <b style={{ color: "var(--text)" }}>{sqftFmt(prop.vacantSqft)} sf</b></span>
               <span>Total: <b style={{ color: "var(--text)" }}>{sqftFmt(prop.totalSqft)} sf</b></span>
-              {totalGross > 0 && <span>{money(totalGross)}/mo gross</span>}
+              {totalGross > 0 && <span>${Math.round(totalGross).toLocaleString()}/mo gross</span>}
             </div>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
               {expiringCount > 0 && (
@@ -720,7 +720,7 @@ function PortfolioGroup({ name, props }: { name: string; props: RentRollProperty
           <span>{sqftFmt(occupiedSqft)} occupied</span>
           {vacantSqft > 0 && <span>{sqftFmt(vacantSqft)} vacant</span>}
           <span style={{ fontWeight: 700, color: pct >= 90 ? "#16a34a" : pct >= 70 ? "#0b4a7d" : "#d97706" }}>{pct.toFixed(1)}% occ</span>
-          {gross > 0 && <span>{money(gross)}/mo gross</span>}
+          {gross > 0 && <span>${Math.round(gross).toLocaleString()}/mo gross</span>}
         </div>
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
