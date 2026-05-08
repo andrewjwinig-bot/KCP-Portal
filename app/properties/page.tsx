@@ -19,6 +19,13 @@ function pct(n: number) {
   return n === 0 ? "—" : `${(n * 100).toFixed(2)}%`;
 }
 
+function formatModalDate(d: string | null | undefined): string {
+  if (!d) return "—";
+  const m = d.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (!m) return d;
+  return `${m[1].padStart(2, "0")}/${m[2].padStart(2, "0")}/${m[3].slice(2)}`;
+}
+
 function TypePill({ type, large }: { type: PropType; large?: boolean }) {
   const s = TYPE_STYLE[type];
   return (
@@ -445,23 +452,37 @@ function DetailModal({
                   </div>
                 );
               })()}
-              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                {rrProp.units.map((u, i) => (
-                  <div key={i} style={{
-                    display: "flex", alignItems: "center", gap: 10,
-                    padding: "7px 12px",
-                    background: u.isVacant ? "rgba(15,23,42,0.025)" : "rgba(11,74,125,0.04)",
-                    border: "1px solid",
-                    borderColor: u.isVacant ? "var(--border)" : "rgba(11,74,125,0.12)",
-                    borderRadius: 8,
-                  }}>
-                    <code style={{ fontSize: 12, fontWeight: 700, color: "#0b4a7d", flexShrink: 0 }}>{u.unitRef}</code>
-                    <span style={{ flex: 1, fontSize: 13, fontWeight: u.isVacant ? 400 : 600, color: u.isVacant ? "var(--muted)" : "var(--text)", fontStyle: u.isVacant ? "italic" : "normal" }}>
-                      {u.isVacant ? "Vacant" : u.occupantName}
-                    </span>
-                    <span style={{ fontSize: 12, color: "var(--muted)", flexShrink: 0 }}>{u.sqft.toLocaleString()} sf</span>
-                  </div>
-                ))}
+              <div className="tableWrap" style={{ marginTop: 4 }}>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Tenant</th>
+                      <th>Unit</th>
+                      <th style={{ textAlign: "right" }}>Sq Ft</th>
+                      <th>Lease From</th>
+                      <th>Lease To</th>
+                      <th style={{ textAlign: "right" }}>Base Rent<br />/mo</th>
+                      <th style={{ textAlign: "right" }}>Annual<br />$/sf</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rrProp.units.map((u, i) => (
+                      <tr key={i} style={{ background: u.isVacant ? "rgba(15,23,42,0.025)" : undefined }}>
+                        <td style={{ fontWeight: u.isVacant ? 400 : 600, color: u.isVacant ? "var(--muted)" : "var(--text)", fontStyle: u.isVacant ? "italic" : "normal" }}>
+                          {u.isVacant ? "Vacant" : u.occupantName}
+                        </td>
+                        <td style={{ whiteSpace: "nowrap" }}>
+                          <code style={{ fontSize: 12, fontWeight: 700, color: "#0b4a7d", whiteSpace: "nowrap" }}>{u.unitRef}</code>
+                        </td>
+                        <td style={{ textAlign: "right", fontSize: 13 }}>{u.sqft ? u.sqft.toLocaleString() : "—"}</td>
+                        <td style={{ fontSize: 13, color: "var(--muted)", whiteSpace: "nowrap" }}>{formatModalDate(u.leaseFrom)}</td>
+                        <td style={{ fontSize: 13, whiteSpace: "nowrap" }}>{formatModalDate(u.leaseTo)}</td>
+                        <td style={{ textAlign: "right", fontSize: 13 }}>{u.baseRent ? `$${u.baseRent.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—"}</td>
+                        <td style={{ textAlign: "right", fontSize: 13, color: "var(--muted)" }}>{u.annualRentPerSqft ? `$${u.annualRentPerSqft.toFixed(2)}` : "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </section>
           )}

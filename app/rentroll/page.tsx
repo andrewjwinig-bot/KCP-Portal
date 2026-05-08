@@ -195,8 +195,8 @@ function UnitsTable({ units, propertyCode, hideNNN }: { units: RentRollUnit[]; p
                   <td style={{ fontWeight: unit.isVacant ? 400 : 600, color: unit.isVacant ? "var(--muted)" : "var(--text)" }}>
                     {unit.isVacant ? <em style={{ color: "var(--muted)" }}>Vacant</em> : unit.occupantName}
                   </td>
-                  <td>
-                    <code style={{ fontSize: 12 }}>{unit.unitRef}</code>
+                  <td style={{ whiteSpace: "nowrap" }}>
+                    <code style={{ fontSize: 12, whiteSpace: "nowrap" }}>{unit.unitRef}</code>
                   </td>
                   <td style={{ textAlign: "right", fontSize: 13 }}>{sqftFmt(unit.sqft)}</td>
                   <td style={{ fontSize: 13, color: "var(--muted)" }}>{formatDate(unit.leaseFrom)}</td>
