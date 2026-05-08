@@ -202,6 +202,9 @@ function UnitsTable({ units, propertyCode, hideNNN, tenantMeta, onBaseYearChange
 }) {
   const [showAll, setShowAll] = useState(true);
   const displayed = showAll ? units : units.slice(0, 10);
+  const upperCode = propertyCode.toUpperCase();
+  // Base Year only applies to office leases (JV III + NI LLC + The Office Works)
+  const showBaseYear = JV_III_CODES.has(upperCode) || NI_LLC_CODES.has(upperCode) || upperCode === "4900";
 
   const totSqft      = units.reduce((s, u) => s + u.sqft, 0);
   const totBaseRent  = units.reduce((s, u) => s + u.baseRent, 0);
@@ -222,7 +225,7 @@ function UnitsTable({ units, propertyCode, hideNNN, tenantMeta, onBaseYearChange
               <th style={{ textAlign: "right" }}>Sq Ft</th>
               <th>Lease From</th>
               <th>Lease To</th>
-              <th style={{ textAlign: "center" }}>Base<br/>Year</th>
+              {showBaseYear && <th style={{ textAlign: "center" }}>Base<br/>Year</th>}
               <th style={{ textAlign: "right" }}>Base Rent<br/>/mo</th>
               <th style={{ textAlign: "right" }}>Annual<br/>$/sf</th>
               {!hideNNN && <th style={{ textAlign: "right" }}>CAM<br/>/mo</th>}
@@ -262,14 +265,16 @@ function UnitsTable({ units, propertyCode, hideNNN, tenantMeta, onBaseYearChange
                       <span style={{ color: "var(--muted)" }}>—</span>
                     )}
                   </td>
-                  <td style={{ textAlign: "center", fontSize: 13 }}>
-                    <BaseYearCell
-                      unitRef={unit.unitRef}
-                      isVacant={unit.isVacant}
-                      value={tenantMeta[unit.unitRef]?.baseYear ?? null}
-                      onChange={(v) => onBaseYearChange(unit.unitRef, v)}
-                    />
-                  </td>
+                  {showBaseYear && (
+                    <td style={{ textAlign: "center", fontSize: 13 }}>
+                      <BaseYearCell
+                        unitRef={unit.unitRef}
+                        isVacant={unit.isVacant}
+                        value={tenantMeta[unit.unitRef]?.baseYear ?? null}
+                        onChange={(v) => onBaseYearChange(unit.unitRef, v)}
+                      />
+                    </td>
+                  )}
                   <td style={{ textAlign: "right", fontSize: 13 }}>{unit.baseRent ? money(unit.baseRent) : "—"}</td>
                   <td style={{ textAlign: "right", fontSize: 13, color: "var(--muted)" }}>
                     {unit.annualRentPerSqft ? `$${unit.annualRentPerSqft.toFixed(2)}` : "—"}
@@ -288,7 +293,7 @@ function UnitsTable({ units, propertyCode, hideNNN, tenantMeta, onBaseYearChange
             <tr style={{ borderTop: "2px solid var(--border)", fontWeight: 700, fontSize: 13 }}>
               <td colSpan={2} style={{ color: "var(--muted)", fontSize: 12 }}>Totals</td>
               <td style={{ textAlign: "right" }}>{sqftFmt(totSqft)}</td>
-              <td colSpan={3} />
+              <td colSpan={showBaseYear ? 3 : 2} />
               <td style={{ textAlign: "right" }}>{totBaseRent ? money(totBaseRent) : "—"}</td>
               <td style={{ textAlign: "right", color: "var(--muted)", fontWeight: 400, fontSize: 12 }}>
                 {avgPerSf != null ? `$${avgPerSf.toFixed(2)}` : "—"}
