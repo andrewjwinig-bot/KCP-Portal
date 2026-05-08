@@ -216,7 +216,7 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
       )}
 
       {/* Nav links */}
-      <nav style={{ flex: 1, padding: open ? "4px 8px" : "8px 6px", display: "flex", flexDirection: "column", gap: 2 }}>
+      <nav style={{ flex: 1, padding: open ? "4px 8px" : "8px 6px", display: "flex", flexDirection: "column", gap: 2, minHeight: 0 }}>
         {NAV.filter((item) => isVisible(item)).map((item) => {
           const active = isActive(item);
           return (
@@ -256,6 +256,44 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
           );
         })}
       </nav>
+
+      {/* Log out (bottom) */}
+      <div style={{ padding: open ? "10px 8px 14px" : "10px 6px 14px", borderTop: "1px solid rgba(255,255,255,0.07)", flexShrink: 0 }}>
+        <button
+          onClick={async () => {
+            try { await fetch("/api/history/logout", { method: "POST" }); } catch { /* ignore */ }
+            window.location.href = "/history/login";
+          }}
+          title="Log out"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            width: "100%",
+            padding: open ? "9px 10px" : "9px 0",
+            justifyContent: open ? "flex-start" : "center",
+            borderRadius: 8,
+            background: "transparent",
+            color: "#e0f0ff",
+            border: "none",
+            fontSize: 14,
+            fontWeight: 500,
+            cursor: "pointer",
+            whiteSpace: "nowrap",
+          }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.12)"; }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+        >
+          <span style={{ flexShrink: 0, display: "flex" }}>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+              <polyline points="16 17 21 12 16 7" />
+              <line x1="21" y1="12" x2="9" y2="12" />
+            </svg>
+          </span>
+          {open && <span>Log out</span>}
+        </button>
+      </div>
     </div>
   );
 }
