@@ -4,6 +4,8 @@ import { HISTORY_COOKIE, verifyHistoryToken } from "./lib/history-auth";
 export const config = {
   matcher: [
     "/",
+    "/dashboard",
+    "/dashboard/:path*",
     "/history",
     "/history/:path*",
     "/api/periods",
@@ -12,6 +14,7 @@ export const config = {
     "/api/generate-all",
     "/api/generate-pdf",
     "/api/allocation",
+    "/api/rentroll",
   ],
 };
 
