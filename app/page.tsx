@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { money, num, pct as fmtPct } from "../lib/utils";
 import { buildPayrollExportXlsx, buildPayrollGLXlsx } from "../lib/payroll/export";
 import { buildAllocationTemplateXlsx } from "../lib/allocation/export";
+import { useUser } from "./components/UserProvider";
 
 function toTitleCase(s: string): string {
   if (!s) return s;
@@ -148,6 +149,8 @@ export default function Page() {
   const [empHistory, setEmpHistory] = useState<EmpHistoryRow[] | null>(null);
   const [empHistoryLoading, setEmpHistoryLoading] = useState(false);
   const [allocEmployees, setAllocEmployees] = useState<import("../lib/allocation/export").AllocExportEmployee[]>([]);
+  const { user } = useUser();
+  const canSeeEmployeeDetail = user.id === "admin";
   const [hydrated, setHydrated] = useState(false);
 
   const totals = useMemo(() => {
@@ -713,7 +716,8 @@ export default function Page() {
         {payroll?.payDate && <div className="small muted" style={{ textAlign: "center", marginTop: 6 }}><b>Pay Date:</b> {payroll.payDate}</div>}
       </div>
 
-      {/* ── Employees card ── */}
+      {/* ── Employees card (admin only — sensitive per-employee detail) ── */}
+      {canSeeEmployeeDetail && (
       <div className="card">
         <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -803,6 +807,7 @@ export default function Page() {
           </div>
         )}
       </div>
+      )}
 
       {/* ── Allocation Preview card ── */}
       <div className="card">
@@ -900,7 +905,7 @@ export default function Page() {
                     {showInvTaxesEr   && <td style={{ textAlign: "right" }}>{money(totals.taxesEr + mktTotals.taxesEr)}</td>}
                     <td style={{ textAlign: "right" }}>{money(totals.total + mktTotals.total)}</td>
                   </tr>
-                  {allocationGaps.length > 0 && (
+                  {canSeeEmployeeDetail && allocationGaps.length > 0 && (
                     <tr>
                       <td colSpan={invColCount} className="muted" style={{ fontSize: "0.78em", paddingTop: "6px", fontWeight: 400 }}>
                         ** Employees total ({money(employeeTotals.total)}) exceeds this total by {money(employeeTotals.total - totals.total)} because the following employees are not 100% allocated:{" "}
