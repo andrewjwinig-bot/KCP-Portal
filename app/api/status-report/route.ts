@@ -24,6 +24,12 @@ const C_HBKG  = rgb(0.96,  0.97,  0.98);
 
 const KH_CODES = new Set(["9800","9820","9840","9860"]);
 const OW_CODES = new Set(["4900"]);
+const JV_III_CODES = new Set(["3610","3620","3640"]);
+const NI_LLC_CODES = new Set(["4050","4060","4070","4080","40A0","40B0","40C0"]);
+function isOfficeCode(code: string): boolean {
+  const c = code.toUpperCase();
+  return JV_III_CODES.has(c) || NI_LLC_CODES.has(c) || OW_CODES.has(c);
+}
 
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
@@ -64,38 +70,48 @@ function parsePeriod(reportFrom: string): string {
 
 type ColDef = { header: string; width: number; align: "left" | "right" };
 
-function buildCols(hideNNN: boolean): ColDef[] {
-  return hideNNN ? [
-    { header: "Tenant",       width: 195, align: "left"  },
-    { header: "Unit",         width: 65,  align: "left"  },
-    { header: "Sq Ft",        width: 55,  align: "right" },
-    { header: "Lease From",   width: 65,  align: "left"  },
-    { header: "Lease To",     width: 65,  align: "left"  },
-    { header: "Base Rent/mo", width: 80,  align: "right" },
-    { header: "Annual $/sf",  width: 60,  align: "right" },
-    { header: "Gross/mo",     width: 80,  align: "right" },
-  ] : [
-    { header: "Tenant",       width: 130, align: "left"  },
-    { header: "Unit",         width: 55,  align: "left"  },
-    { header: "Sq Ft",        width: 50,  align: "right" },
-    { header: "Lease From",   width: 58,  align: "left"  },
-    { header: "Lease To",     width: 58,  align: "left"  },
-    { header: "Base Rent/mo", width: 65,  align: "right" },
-    { header: "Annual $/sf",  width: 52,  align: "right" },
-    { header: "CAM/mo",       width: 52,  align: "right" },
-    { header: "RET/mo",       width: 52,  align: "right" },
-    { header: "Other/mo",     width: 52,  align: "right" },
-    { header: "Gross/mo",     width: 65,  align: "right" },
+function buildCols(hideNNN: boolean, showBaseYear: boolean): ColDef[] {
+  if (hideNNN) {
+    return [
+      { header: "Tenant",       width: 175, align: "left"  },
+      { header: "Unit",         width: 60,  align: "left"  },
+      { header: "Sq Ft",        width: 55,  align: "right" },
+      { header: "Lease From",   width: 60,  align: "left"  },
+      { header: "Lease To",     width: 60,  align: "left"  },
+      ...(showBaseYear ? [{ header: "Base Year", width: 50, align: "right" as const }] : []),
+      { header: "Base Rent/mo", width: 75,  align: "right" },
+      { header: "Annual $/sf",  width: 55,  align: "right" },
+      { header: "Gross/mo",     width: 75,  align: "right" },
+    ];
+  }
+  return [
+    { header: "Tenant",       width: showBaseYear ? 122 : 130, align: "left"  },
+    { header: "Unit",         width: 53,  align: "left"  },
+    { header: "Sq Ft",        width: 48,  align: "right" },
+    { header: "Lease From",   width: 56,  align: "left"  },
+    { header: "Lease To",     width: 56,  align: "left"  },
+    ...(showBaseYear ? [{ header: "Base Year", width: 44, align: "right" as const }] : []),
+    { header: "Base Rent/mo", width: 62,  align: "right" },
+    { header: "Annual $/sf",  width: 50,  align: "right" },
+    { header: "CAM/mo",       width: 50,  align: "right" },
+    { header: "RET/mo",       width: 50,  align: "right" },
+    { header: "Other/mo",     width: 50,  align: "right" },
+    { header: "Gross/mo",     width: 60,  align: "right" },
   ];
 }
 
-function cellVal(col: string, unit: any): string {
+function cellVal(col: string, unit: any, tenantMeta?: Record<string, { baseYear?: number | null }>): string {
   switch (col) {
     case "Tenant":       return unit.isVacant ? "Vacant" : (unit.occupantName || "");
     case "Unit":         return unit.unitRef || "";
     case "Sq Ft":        return sqftFmt(unit.sqft);
     case "Lease From":   return fmtDate(unit.leaseFrom);
     case "Lease To":     return fmtDate(unit.leaseTo);
+    case "Base Year":    {
+      if (unit.isVacant) return "—";
+      const v = tenantMeta?.[unit.unitRef]?.baseYear;
+      return v != null ? String(v) : "—";
+    }
     case "Base Rent/mo": return unit.baseRent  ? money(unit.baseRent)  : "—";
     case "Annual $/sf":  return unit.annualRentPerSqft ? `$${unit.annualRentPerSqft.toFixed(2)}` : "—";
     case "CAM/mo":       return unit.opexMonth  ? money(unit.opexMonth)  : "—";
@@ -110,10 +126,11 @@ function cellVal(col: string, unit: any): string {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { properties, category, reportFrom } = body as {
+    const { properties, category, reportFrom, tenantMeta } = body as {
       properties: any[];
       category: string;
       reportFrom: string;
+      tenantMeta?: Record<string, { baseYear?: number | null }>;
     };
 
     const pdfDoc   = await PDFDocument.create();
@@ -389,7 +406,8 @@ export async function POST(req: Request) {
       const code    = (prop.propertyCode as string).toUpperCase();
       const units   = prop.units as any[];
       const hideNNN = KH_CODES.has(code) || OW_CODES.has(code);
-      const cols    = buildCols(hideNNN);
+      const showBaseYear = isOfficeCode(code);
+      const cols    = buildCols(hideNNN, showBaseYear);
       const tableW  = cols.reduce((s, c) => s + c.width, 0);
       const tableX  = (PW - tableW) / 2;
       const name    = propDisplayName(code, prop.reportedPropertyName || code);
@@ -454,7 +472,7 @@ export async function POST(req: Request) {
 
         let cx = tableX;
         for (const col of cols) {
-          const val  = cellVal(col.header, unit);
+          const val  = cellVal(col.header, unit, tenantMeta);
           const fs   = 8;
           const useBold = col.header === "Tenant" && !unit.isVacant;
           const tw   = (useBold ? fontBold : font).widthOfTextAtSize(val, fs);
