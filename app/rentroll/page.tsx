@@ -200,7 +200,7 @@ function UnitsTable({ units, propertyCode, hideNNN, tenantMeta, onBaseYearChange
   tenantMeta: Record<string, { baseYear?: number | null }>;
   onBaseYearChange: (unitRef: string, baseYear: number | null) => void;
 }) {
-  const [showAll, setShowAll] = useState(false);
+  const [showAll, setShowAll] = useState(true);
   const displayed = showAll ? units : units.slice(0, 10);
 
   const totSqft      = units.reduce((s, u) => s + u.sqft, 0);
