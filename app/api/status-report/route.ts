@@ -3,6 +3,7 @@ import { PDFDocument, rgb, StandardFonts, PDFPage, PDFFont } from "pdf-lib";
 import fs from "fs";
 import path from "path";
 import { PROPERTY_DEFS } from "../../../lib/properties/data";
+import { getJSON } from "@/lib/storage";
 
 export const runtime = "nodejs";
 
@@ -26,9 +27,25 @@ const KH_CODES = new Set(["9800","9820","9840","9860"]);
 const OW_CODES = new Set(["4900"]);
 const JV_III_CODES = new Set(["3610","3620","3640"]);
 const NI_LLC_CODES = new Set(["4050","4060","4070","4080","40A0","40B0","40C0"]);
+const SC_CODES     = new Set(["1100","2300","4500","7010","9510","7200","7300","1500","9200","5600","8200"]);
+const CATEGORY_OFFICE_CODES      = new Set([...JV_III_CODES, ...NI_LLC_CODES]);
+const CATEGORY_RETAIL_CODES      = new Set([...SC_CODES]);
+const CATEGORY_RESIDENTIAL_CODES = new Set([...KH_CODES]);
+const CATEGORY_OW_CODES          = new Set([...OW_CODES]);
 function isOfficeCode(code: string): boolean {
   const c = code.toUpperCase();
   return JV_III_CODES.has(c) || NI_LLC_CODES.has(c) || OW_CODES.has(c);
+}
+function applyCategory(properties: any[], category: string): any[] {
+  if (category === "All") return properties;
+  return properties.filter((p) => {
+    const c = String(p.propertyCode).toUpperCase();
+    if (category === "Office")           return CATEGORY_OFFICE_CODES.has(c);
+    if (category === "Retail")           return CATEGORY_RETAIL_CODES.has(c);
+    if (category === "Residential")      return CATEGORY_RESIDENTIAL_CODES.has(c);
+    if (category === "The Office Works") return CATEGORY_OW_CODES.has(c);
+    return true;
+  });
 }
 
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -126,12 +143,27 @@ function cellVal(col: string, unit: any, tenantMeta?: Record<string, { baseYear?
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { properties, category, reportFrom, tenantMeta } = body as {
-      properties: any[];
+    const { category, tenantMeta, month } = body as {
+      properties?: any[];
       category: string;
-      reportFrom: string;
+      reportFrom?: string;
       tenantMeta?: Record<string, { baseYear?: number | null }>;
+      month?: string; // "YYYY-MM" — when set, generate from a historical snapshot
     };
+    let properties: any[];
+    let reportFrom: string;
+    if (month && /^\d{4}-\d{2}$/.test(month)) {
+      const snap = (await getJSON("rentroll-history", month)) as { properties: any[]; reportFrom?: string } | null;
+      if (!snap) {
+        return new NextResponse("Snapshot not found", { status: 404 });
+      }
+      properties = applyCategory(snap.properties ?? [], category);
+      const [yy, mm] = month.split("-");
+      reportFrom = snap.reportFrom ?? `${mm}/01/${yy}`;
+    } else {
+      properties = body.properties ?? [];
+      reportFrom = body.reportFrom ?? "";
+    }
 
     const pdfDoc   = await PDFDocument.create();
     const font     = await pdfDoc.embedFont(StandardFonts.Helvetica);

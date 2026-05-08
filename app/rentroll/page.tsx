@@ -823,6 +823,8 @@ export default function RentRollPage() {
   const [rawRentroll, setRawRentroll] = useState<RentRollData | null>(null);
   const [loading, setLoading]   = useState(true);
   const [prevSnapshot, setPrevSnapshot] = useState<import("../../lib/rentroll/snapshot").RentRollSnapshotSummary | null>(null);
+  const [snapshotList, setSnapshotList] = useState<import("../../lib/rentroll/snapshot").RentRollSnapshotSummary[]>([]);
+  const [reportMonth, setReportMonth] = useState<string>(""); // "" = current; otherwise YYYY-MM
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>(user.defaultRentRollCategory as CategoryFilter);
@@ -857,25 +859,34 @@ export default function RentRollPage() {
   const MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
   async function handleStatusReport() {
-    if (!categoryRentroll || !filteredRentroll) return;
+    const isHistorical = !!reportMonth;
+    if (!isHistorical && (!categoryRentroll || !filteredRentroll)) return;
     setGeneratingReport(true);
     try {
+      const requestBody: any = { category: categoryFilter, tenantMeta };
+      if (isHistorical) {
+        requestBody.month = reportMonth;
+      } else {
+        requestBody.properties = categoryRentroll!.properties;
+        requestBody.reportFrom = filteredRentroll!.reportFrom;
+      }
       const res = await fetch("/api/status-report", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          properties: categoryRentroll.properties,
-          category: categoryFilter,
-          reportFrom: filteredRentroll.reportFrom,
-          tenantMeta,
-        }),
+        body: JSON.stringify(requestBody),
       });
       if (!res.ok) throw new Error("Failed to generate report");
       const blob = await res.blob();
       const url  = URL.createObjectURL(blob);
       const a    = document.createElement("a");
-      const m    = filteredRentroll.reportFrom.match(/^(\d{1,2})\/\d+\/(\d{4})$/);
-      const period = m ? `${MONTHS_SHORT[parseInt(m[1]) - 1]}-${m[2].slice(2)}` : "";
+      let period: string;
+      if (isHistorical) {
+        const [yy, mm] = reportMonth.split("-");
+        period = `${MONTHS_SHORT[parseInt(mm) - 1]}-${yy.slice(2)}`;
+      } else {
+        const m = filteredRentroll!.reportFrom.match(/^(\d{1,2})\/\d+\/(\d{4})$/);
+        period = m ? `${MONTHS_SHORT[parseInt(m[1]) - 1]}-${m[2].slice(2)}` : "";
+      }
       a.href     = url;
       a.download = `${categoryFilter} - ${period} Status Report.pdf`;
       a.click();
@@ -900,6 +911,7 @@ export default function RentRollPage() {
       .then((r) => r.json())
       .then((j) => {
         const snaps = (j.snapshots ?? []) as import("../../lib/rentroll/snapshot").RentRollSnapshotSummary[];
+        setSnapshotList(snaps);
         if (snaps.length >= 2) setPrevSnapshot(snaps[snaps.length - 2]);
       })
       .catch(() => {});
@@ -976,20 +988,43 @@ export default function RentRollPage() {
         <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
           <b>Import Rent Roll</b>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            {filteredRentroll && categoryRentroll && (
-              <button
-                onClick={handleStatusReport}
-                disabled={generatingReport}
-                style={{
-                  background: generatingReport ? "rgba(11,74,125,0.4)" : "rgba(11,74,125,0.85)",
-                  color: "#fff", borderRadius: 999, padding: "12px 18px",
-                  fontSize: 15, fontWeight: 700, border: "1px solid transparent",
-                  display: "inline-flex", alignItems: "center", cursor: generatingReport ? "default" : "pointer",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {generatingReport ? "Generating…" : "Status Report"}
-              </button>
+            {((filteredRentroll && categoryRentroll) || snapshotList.length > 0) && (
+              <>
+                {snapshotList.length > 0 && (
+                  <select
+                    value={reportMonth}
+                    onChange={(e) => setReportMonth(e.target.value)}
+                    title="Status report period"
+                    style={{
+                      borderRadius: 999, padding: "11px 12px",
+                      fontSize: 13, fontWeight: 600,
+                      border: "1px solid rgba(11,74,125,0.3)",
+                      background: "#fff", color: "#0b4a7d",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <option value="">Current</option>
+                    {snapshotList.slice().reverse().map((s) => {
+                      const [yy, mm] = s.month.split("-");
+                      const label = `${MONTHS_SHORT[parseInt(mm) - 1]} ${yy}`;
+                      return <option key={s.month} value={s.month}>{label}</option>;
+                    })}
+                  </select>
+                )}
+                <button
+                  onClick={handleStatusReport}
+                  disabled={generatingReport || (!reportMonth && (!filteredRentroll || !categoryRentroll))}
+                  style={{
+                    background: generatingReport ? "rgba(11,74,125,0.4)" : "rgba(11,74,125,0.85)",
+                    color: "#fff", borderRadius: 999, padding: "12px 18px",
+                    fontSize: 15, fontWeight: 700, border: "1px solid transparent",
+                    display: "inline-flex", alignItems: "center", cursor: generatingReport ? "default" : "pointer",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {generatingReport ? "Generating…" : "Status Report"}
+                </button>
+              </>
             )}
             <span style={{ background: "rgba(22, 163, 74, 0.85)", color: "#fff", borderRadius: 999, padding: "12px 18px", fontSize: 15, fontWeight: 700, border: "1px solid transparent", display: "inline-flex", alignItems: "center" }}>Monthly</span>
           </div>
