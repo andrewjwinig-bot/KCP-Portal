@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { PDFDocument, rgb, PDFPage, PDFFont } from "pdf-lib";
-import fontkit from "@pdf-lib/fontkit";
+import { PDFDocument, rgb, StandardFonts, PDFPage, PDFFont } from "pdf-lib";
 import fs from "fs";
 import path from "path";
 import { PROPERTY_DEFS } from "../../../lib/properties/data";
@@ -167,10 +166,8 @@ export async function POST(req: Request) {
     }
 
     const pdfDoc   = await PDFDocument.create();
-    pdfDoc.registerFontkit(fontkit);
-    const fontDir = path.join(process.cwd(), "public", "fonts");
-    const font     = await pdfDoc.embedFont(fs.readFileSync(path.join(fontDir, "Quicksand-Regular.ttf")));
-    const fontBold = await pdfDoc.embedFont(fs.readFileSync(path.join(fontDir, "Quicksand-Bold.ttf")));
+    const font     = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
     const periodStr  = parsePeriod(reportFrom);
     const reportTitle = `${category} — ${periodStr} Status Report`;
