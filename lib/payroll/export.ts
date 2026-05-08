@@ -67,6 +67,22 @@ export function buildPayrollExportXlsx(args: BuildPayrollExportArgs): Blob {
   ];
 
   const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+  // Format columns C:K as currency (2 decimals, thousands separator)
+  const currencyFmt = "#,##0.00";
+  const headerRowIdx = payDate ? 2 : 0;
+  const lastRowIdx = headerRowIdx + rows.length + 1;
+  for (let r = headerRowIdx + 1; r <= lastRowIdx; r++) {
+    for (let c = 2; c <= 10; c++) {
+      const addr = XLSX.utils.encode_cell({ r, c });
+      const cell = ws[addr];
+      if (cell && typeof cell.v === "number") {
+        cell.t = "n";
+        cell.z = currencyFmt;
+      }
+    }
+  }
+
   XLSX.utils.book_append_sheet(wb, ws, "Payroll Summary");
   const buf = XLSX.write(wb, { type: "array", bookType: "xlsx" });
   return new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
