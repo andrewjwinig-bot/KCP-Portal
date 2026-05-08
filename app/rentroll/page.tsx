@@ -859,6 +859,7 @@ export default function RentRollPage() {
           properties: categoryRentroll.properties,
           category: categoryFilter,
           reportFrom: filteredRentroll.reportFrom,
+          tenantMeta,
         }),
       });
       if (!res.ok) throw new Error("Failed to generate report");
