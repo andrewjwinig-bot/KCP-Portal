@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { PROPERTY_DEFS } from "../../lib/properties/data";
 import type { RentRollData, RentRollUnit, RentRollProperty } from "../../lib/rentroll/parseRentRollExcel";
 import { useUser } from "../components/UserProvider";
+import LeasingActivityCard from "./LeasingActivityCard";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -1127,6 +1128,11 @@ export default function RentRollPage() {
 
           {/* Alerts */}
           <AlertsPanel rentroll={categoryRentroll} />
+
+          {/* Leasing Activity (Nancy + Admin only) */}
+          {(user.id === "admin" || user.id === "nancy") && (
+            <LeasingActivityCard rentroll={rentroll} />
+          )}
 
           {/* Per-property cards grouped by portfolio */}
           {(() => {
