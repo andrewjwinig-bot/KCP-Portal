@@ -15,7 +15,20 @@ export type UserDef = {
   defaultRentRollCategory: RentRollCategory;
   /** Default type filter on /properties. */
   defaultPropertyType: PropertyType;
+  /**
+   * How the dashboard portfolio occupancy renders the breakdown:
+   *  - "groups"      → the 5 group bars (JV III, NI LLC, Shopping Centers, Korman Homes, The Office Works)
+   *  - codes set     → one bar per individual property whose code is in the set; total reflects that subset
+   */
+  dashboardScope: "groups" | { codes: Set<string> };
 };
+
+const SC_INDIVIDUAL = new Set(["1100", "2300", "4500", "7010", "9510", "7200", "7300", "1500", "9200", "5600", "8200"]);
+const OFFICE_AND_OW_INDIVIDUAL = new Set([
+  "3610", "3620", "3640",
+  "4050", "4060", "4070", "4080", "40A0", "40B0", "40C0",
+  "4900",
+]);
 
 const universalNav = new Set(["dashboard", "properties", "rentroll"]);
 
@@ -27,6 +40,7 @@ export const USERS: Record<UserId, UserDef> = {
     allowedPathPrefixes: ["*"],
     defaultRentRollCategory: "All",
     defaultPropertyType: "all",
+    dashboardScope: "groups",
   },
   nancy: {
     id: "nancy",
@@ -35,6 +49,7 @@ export const USERS: Record<UserId, UserDef> = {
     allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll"],
     defaultRentRollCategory: "Office",
     defaultPropertyType: "Office",
+    dashboardScope: { codes: OFFICE_AND_OW_INDIVIDUAL },
   },
   harry: {
     id: "harry",
@@ -43,6 +58,7 @@ export const USERS: Record<UserId, UserDef> = {
     allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/expenses", "/"],
     defaultRentRollCategory: "Retail",
     defaultPropertyType: "Retail",
+    dashboardScope: { codes: SC_INDIVIDUAL },
   },
   maint: {
     id: "maint",
@@ -51,6 +67,7 @@ export const USERS: Record<UserId, UserDef> = {
     allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll"],
     defaultRentRollCategory: "All",
     defaultPropertyType: "all",
+    dashboardScope: "groups",
   },
 };
 
