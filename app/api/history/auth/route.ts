@@ -13,7 +13,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Server not configured" }, { status: 503 });
   }
 
-  let body: { password: string };
+  let body: z.infer<typeof Body>;
   try { body = Body.parse(await req.json()); } catch { return NextResponse.json({ error: "Bad request" }, { status: 400 }); }
 
   if (body.password !== password) {
