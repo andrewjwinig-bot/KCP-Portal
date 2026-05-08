@@ -941,7 +941,7 @@ export default function RentRollPage() {
               <StatPill label="Vacant"         value={sqftFmt(vacantSqft)} />
               <StatPill label="Total Sq Ft"    value={sqftFmt(totalSqft)} />
               <StatPill label="Properties"     value={String(categoryRentroll!.properties.length)} />
-              {totalGross > 0 && <StatPill label="Gross Rent/mo" value={money(totalGross)} />}
+              {totalGross > 0 && <StatPill label="Gross Rent/mo" value={`$${Math.round(totalGross).toLocaleString()}`} />}
             </div>
             <div className="small muted" style={{ textAlign: "center", marginTop: 6 }}>
               <b>Period:</b> {filteredRentroll.reportFrom} – {filteredRentroll.reportTo}
