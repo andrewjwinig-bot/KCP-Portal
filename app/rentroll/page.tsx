@@ -254,7 +254,7 @@ function UnitsTable({ units, propertyCode, hideNNN }: { units: RentRollUnit[]; p
 // ─── Property Card ────────────────────────────────────────────────────────────
 
 function PropertyCard({ prop }: { prop: RentRollProperty }) {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
   const name            = propName(prop.propertyCode);
   const occupancyPct    = prop.totalSqft > 0 ? (prop.occupiedSqft / prop.totalSqft) * 100 : 0;
   const totalGross      = prop.units.reduce((s, u) => s + u.grossRentTotal, 0);
@@ -355,8 +355,8 @@ function PropertyCard({ prop }: { prop: RentRollProperty }) {
 // ─── Alerts Panel ─────────────────────────────────────────────────────────────
 
 function AlertsPanel({ rentroll }: { rentroll: RentRollData }) {
-  const [expOpen, setExpOpen] = useState(true);
-  const [vacOpen, setVacOpen] = useState(true);
+  const [expOpen, setExpOpen] = useState(false);
+  const [vacOpen, setVacOpen] = useState(false);
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
