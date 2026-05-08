@@ -146,7 +146,60 @@ function AlertBadge({ label, color, bg, border }: { label: string; color: string
 
 // ─── Units Table ─────────────────────────────────────────────────────────────
 
-function UnitsTable({ units, propertyCode, hideNNN }: { units: RentRollUnit[]; propertyCode: string; hideNNN?: boolean }) {
+function BaseYearCell({ unitRef: _unitRef, isVacant, value, onChange }: {
+  unitRef: string;
+  isVacant: boolean;
+  value: number | null;
+  onChange: (v: number | null) => void;
+}) {
+  const [text, setText] = useState<string>(value != null ? String(value) : "");
+  useEffect(() => { setText(value != null ? String(value) : ""); }, [value]);
+
+  if (isVacant) return <span style={{ color: "var(--muted)" }}>—</span>;
+
+  function commit() {
+    const trimmed = text.trim();
+    if (trimmed === "") {
+      if (value !== null) onChange(null);
+      return;
+    }
+    const n = Number(trimmed);
+    if (!Number.isFinite(n) || n < 1900 || n > 2100) {
+      setText(value != null ? String(value) : ""); // revert invalid
+      return;
+    }
+    if (n !== value) onChange(n);
+  }
+
+  return (
+    <input
+      type="text"
+      inputMode="numeric"
+      value={text}
+      onChange={(e) => setText(e.target.value.replace(/[^0-9]/g, "").slice(0, 4))}
+      onBlur={commit}
+      onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+      placeholder="—"
+      style={{
+        width: 56,
+        padding: "3px 6px",
+        fontSize: 12,
+        textAlign: "center",
+        border: "1px solid var(--border)",
+        borderRadius: 6,
+        background: "transparent",
+      }}
+    />
+  );
+}
+
+function UnitsTable({ units, propertyCode, hideNNN, tenantMeta, onBaseYearChange }: {
+  units: RentRollUnit[];
+  propertyCode: string;
+  hideNNN?: boolean;
+  tenantMeta: Record<string, { baseYear?: number | null }>;
+  onBaseYearChange: (unitRef: string, baseYear: number | null) => void;
+}) {
   const [showAll, setShowAll] = useState(false);
   const displayed = showAll ? units : units.slice(0, 10);
 
@@ -169,6 +222,7 @@ function UnitsTable({ units, propertyCode, hideNNN }: { units: RentRollUnit[]; p
               <th style={{ textAlign: "right" }}>Sq Ft</th>
               <th>Lease From</th>
               <th>Lease To</th>
+              <th style={{ textAlign: "center" }}>Base<br/>Year</th>
               <th style={{ textAlign: "right" }}>Base Rent<br/>/mo</th>
               <th style={{ textAlign: "right" }}>Annual<br/>$/sf</th>
               {!hideNNN && <th style={{ textAlign: "right" }}>CAM<br/>/mo</th>}
@@ -208,6 +262,14 @@ function UnitsTable({ units, propertyCode, hideNNN }: { units: RentRollUnit[]; p
                       <span style={{ color: "var(--muted)" }}>—</span>
                     )}
                   </td>
+                  <td style={{ textAlign: "center", fontSize: 13 }}>
+                    <BaseYearCell
+                      unitRef={unit.unitRef}
+                      isVacant={unit.isVacant}
+                      value={tenantMeta[unit.unitRef]?.baseYear ?? null}
+                      onChange={(v) => onBaseYearChange(unit.unitRef, v)}
+                    />
+                  </td>
                   <td style={{ textAlign: "right", fontSize: 13 }}>{unit.baseRent ? money(unit.baseRent) : "—"}</td>
                   <td style={{ textAlign: "right", fontSize: 13, color: "var(--muted)" }}>
                     {unit.annualRentPerSqft ? `$${unit.annualRentPerSqft.toFixed(2)}` : "—"}
@@ -226,7 +288,7 @@ function UnitsTable({ units, propertyCode, hideNNN }: { units: RentRollUnit[]; p
             <tr style={{ borderTop: "2px solid var(--border)", fontWeight: 700, fontSize: 13 }}>
               <td colSpan={2} style={{ color: "var(--muted)", fontSize: 12 }}>Totals</td>
               <td style={{ textAlign: "right" }}>{sqftFmt(totSqft)}</td>
-              <td colSpan={2} />
+              <td colSpan={3} />
               <td style={{ textAlign: "right" }}>{totBaseRent ? money(totBaseRent) : "—"}</td>
               <td style={{ textAlign: "right", color: "var(--muted)", fontWeight: 400, fontSize: 12 }}>
                 {avgPerSf != null ? `$${avgPerSf.toFixed(2)}` : "—"}
@@ -254,7 +316,11 @@ function UnitsTable({ units, propertyCode, hideNNN }: { units: RentRollUnit[]; p
 
 // ─── Property Card ────────────────────────────────────────────────────────────
 
-function PropertyCard({ prop }: { prop: RentRollProperty }) {
+function PropertyCard({ prop, tenantMeta, onBaseYearChange }: {
+  prop: RentRollProperty;
+  tenantMeta: Record<string, { baseYear?: number | null }>;
+  onBaseYearChange: (unitRef: string, baseYear: number | null) => void;
+}) {
   const [open, setOpen] = useState(false);
 
   // Auto-expand and scroll into view when the URL hash points at one of our units
@@ -359,7 +425,7 @@ function PropertyCard({ prop }: { prop: RentRollProperty }) {
               </div>
             </div>
           )}
-          <UnitsTable units={prop.units} propertyCode={prop.propertyCode} hideNNN={KH_CODES.has(prop.propertyCode.toUpperCase()) || prop.propertyCode.toUpperCase() === "4900"} />
+          <UnitsTable units={prop.units} propertyCode={prop.propertyCode} hideNNN={KH_CODES.has(prop.propertyCode.toUpperCase()) || prop.propertyCode.toUpperCase() === "4900"} tenantMeta={tenantMeta} onBaseYearChange={onBaseYearChange} />
         </div>
       )}
     </div>
@@ -702,7 +768,12 @@ function OccupancyLines({ rentroll, categoryFilter, prevPctByLabel }: { rentroll
 
 // ─── Portfolio Group ──────────────────────────────────────────────────────────
 
-function PortfolioGroup({ name, props }: { name: string; props: RentRollProperty[] }) {
+function PortfolioGroup({ name, props, tenantMeta, onBaseYearChange }: {
+  name: string;
+  props: RentRollProperty[];
+  tenantMeta: Record<string, { baseYear?: number | null }>;
+  onBaseYearChange: (unitRef: string, baseYear: number | null) => void;
+}) {
   if (!props.length) return null;
   const totalSqft    = props.reduce((s, p) => s + p.totalSqft,    0);
   const occupiedSqft = props.reduce((s, p) => s + p.occupiedSqft, 0);
@@ -726,7 +797,7 @@ function PortfolioGroup({ name, props }: { name: string; props: RentRollProperty
         </div>
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        {props.map(p => <PropertyCard key={p.propertyCode} prop={p} />)}
+        {props.map(p => <PropertyCard key={p.propertyCode} prop={p} tenantMeta={tenantMeta} onBaseYearChange={onBaseYearChange} />)}
       </div>
     </div>
   );
@@ -746,6 +817,29 @@ export default function RentRollPage() {
   useEffect(() => { setCategoryFilter(user.defaultRentRollCategory as CategoryFilter); }, [user.id, user.defaultRentRollCategory]);
   const [generatingReport, setGeneratingReport] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [tenantMeta, setTenantMeta] = useState<Record<string, { baseYear?: number | null }>>({});
+
+  useEffect(() => {
+    fetch("/api/tenant-meta").then((r) => r.json()).then((j) => setTenantMeta(j.tenantMeta ?? {})).catch(() => {});
+  }, []);
+
+  async function updateBaseYear(unitRef: string, baseYear: number | null) {
+    // Optimistic update
+    setTenantMeta((prev) => {
+      const next = { ...prev };
+      const cur = { ...(next[unitRef] ?? {}) };
+      if (baseYear === null) delete cur.baseYear; else cur.baseYear = baseYear;
+      if (Object.keys(cur).length === 0) delete next[unitRef]; else next[unitRef] = cur;
+      return next;
+    });
+    try {
+      await fetch("/api/tenant-meta", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ unitRef, baseYear }),
+      });
+    } catch { /* surface a toast later if needed */ }
+  }
 
   const MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
@@ -1002,11 +1096,11 @@ export default function RentRollPage() {
             const other  = props.filter(p => !allGrouped.has(p.propertyCode.toUpperCase()));
             return (
               <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
-                <PortfolioGroup name="JV III LLC"         props={jvIII} />
-                <PortfolioGroup name="NI LLC"             props={niLLC} />
-                <PortfolioGroup name="Shopping Centers"   props={sc} />
-                <PortfolioGroup name="Korman Homes"       props={kh} />
-                {other.length > 0 && <PortfolioGroup name="Other Properties" props={other} />}
+                <PortfolioGroup name="JV III LLC"         props={jvIII}  tenantMeta={tenantMeta} onBaseYearChange={updateBaseYear} />
+                <PortfolioGroup name="NI LLC"             props={niLLC}  tenantMeta={tenantMeta} onBaseYearChange={updateBaseYear} />
+                <PortfolioGroup name="Shopping Centers"   props={sc}     tenantMeta={tenantMeta} onBaseYearChange={updateBaseYear} />
+                <PortfolioGroup name="Korman Homes"       props={kh}     tenantMeta={tenantMeta} onBaseYearChange={updateBaseYear} />
+                {other.length > 0 && <PortfolioGroup name="Other Properties" props={other} tenantMeta={tenantMeta} onBaseYearChange={updateBaseYear} />}
               </div>
             );
           })()}
