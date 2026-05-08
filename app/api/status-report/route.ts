@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { PDFDocument, rgb, StandardFonts, PDFPage, PDFFont } from "pdf-lib";
+import { PDFDocument, rgb, StandardFonts, PDFPage, PDFFont, degrees } from "pdf-lib";
 import fs from "fs";
 import path from "path";
 import { PROPERTY_DEFS } from "../../../lib/properties/data";
@@ -570,14 +570,31 @@ export async function POST(req: Request) {
 
         const availW = PW - 2 * M;
         const availH = PH - 2 * M - 36;
-        const scale  = Math.min(availW / dims.width, availH / dims.height);
-        const drawW  = dims.width  * scale;
-        const drawH  = dims.height * scale;
-        fpPage.drawImage(img, {
-          x: M + (availW - drawW) / 2,
-          y: M + 36 + (availH - drawH) / 2,
-          width: drawW, height: drawH,
-        });
+        const ROTATE_90_CW_CODES = new Set(["3610", "3620", "4050"]);
+        if (ROTATE_90_CW_CODES.has(code)) {
+          // Rotated 90° clockwise: visible width = original height, visible height = original width.
+          const scale = Math.min(availW / dims.height, availH / dims.width);
+          const drawW = dims.width  * scale;
+          const drawH = dims.height * scale;
+          // pdf-lib rotates around the un-rotated bottom-left at (x, y).
+          // After -90°, the image's visible bottom-left is at (x, y - drawW).
+          fpPage.drawImage(img, {
+            x: M + (availW - drawH) / 2,
+            y: M + 36 + (availH - drawW) / 2 + drawW,
+            width: drawW,
+            height: drawH,
+            rotate: degrees(-90),
+          });
+        } else {
+          const scale  = Math.min(availW / dims.width, availH / dims.height);
+          const drawW  = dims.width  * scale;
+          const drawH  = dims.height * scale;
+          fpPage.drawImage(img, {
+            x: M + (availW - drawW) / 2,
+            y: M + 36 + (availH - drawH) / 2,
+            width: drawW, height: drawH,
+          });
+        }
       }
     }
 
