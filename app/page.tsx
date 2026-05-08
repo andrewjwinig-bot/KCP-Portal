@@ -141,7 +141,7 @@ export default function Page() {
   const [propAllocModal, setPropAllocModal] = useState<PropAllocModal | null>(null);
   const [invoicesOpen, setInvoicesOpen] = useState(true);
   const [showEmpAllocModal, setShowEmpAllocModal] = useState(false);
-  const [employeesOpen, setEmployeesOpen] = useState(true);
+  const [employeesOpen, setEmployeesOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [fileName, setFileName] = useState<string>("");
   const [empTab, setEmpTab] = useState<"breakdown" | "history">("breakdown");
