@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { RentRollData } from "../../lib/rentroll/parseRentRollExcel";
 import {
   EMPTY_LEASING_ACTIVITY,
@@ -37,8 +37,111 @@ function tenantOptions(rentroll: RentRollData | null): TenantOption[] {
   return out.sort((a, b) => a.tenant.localeCompare(b.tenant));
 }
 
-// Office building short labels used in the Prospects building selector
+// Office building short labels (in display order) used in the Prospects building selector
 const OFFICE_BUILDING_LABELS = ["1", "2", "4", "5", "6", "7", "8", "Kor A", "Kor B", "Kor C"];
+
+function parseBuildings(value: string): string[] {
+  return value.split(",").map(s => s.trim()).filter(Boolean);
+}
+function joinBuildings(values: string[]): string {
+  // Preserve label order
+  const set = new Set(values);
+  return OFFICE_BUILDING_LABELS.filter(b => set.has(b)).concat(values.filter(v => !OFFICE_BUILDING_LABELS.includes(v))).join(",");
+}
+
+function BuildingMultiSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement | null>(null);
+  const selected = useMemo(() => new Set(parseBuildings(value)), [value]);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDoc(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  function toggle(label: string) {
+    const next = new Set(selected);
+    if (next.has(label)) next.delete(label); else next.add(label);
+    onChange(joinBuildings([...next]));
+  }
+
+  const display = value || "Select…";
+  return (
+    <div ref={ref} style={{ position: "relative", width: "100%" }}>
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        style={{
+          ...inputStyle,
+          textAlign: "left",
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 8,
+          color: value ? "var(--text)" : "var(--muted)",
+        }}
+      >
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{display}</span>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6, transform: open ? "rotate(180deg)" : undefined, transition: "transform 0.15s" }}>
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </button>
+      {open && (
+        <div
+          role="listbox"
+          style={{
+            position: "absolute",
+            top: "calc(100% + 4px)",
+            left: 0,
+            right: 0,
+            background: "#fff",
+            border: "1px solid var(--border)",
+            borderRadius: 8,
+            boxShadow: "0 8px 22px rgba(15,23,42,0.16)",
+            padding: 4,
+            zIndex: 30,
+            maxHeight: 260,
+            overflowY: "auto",
+          }}
+        >
+          {OFFICE_BUILDING_LABELS.map((label) => {
+            const checked = selected.has(label);
+            return (
+              <label
+                key={label}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "6px 8px",
+                  borderRadius: 6,
+                  fontSize: 13,
+                  cursor: "pointer",
+                  background: checked ? "rgba(11,74,125,0.08)" : "transparent",
+                }}
+              >
+                <input type="checkbox" checked={checked} onChange={() => toggle(label)} />
+                {label}
+              </label>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 const inputStyle: React.CSSProperties = {
   padding: "7px 10px",
@@ -171,11 +274,6 @@ export default function LeasingActivityCard({ rentroll }: { rentroll: RentRollDa
         Manual entries shown on the Status Report's Leasing Activity Summary page. Changes save automatically.
       </p>
 
-      {/* Building autocomplete suggestions for the Prospects column */}
-      <datalist id="leasing-buildings">
-        {OFFICE_BUILDING_LABELS.map((b) => <option key={b} value={b} />)}
-      </datalist>
-
       {/* ── Prospects ── */}
       <SectionHeader>Prospects</SectionHeader>
       <div className="tableWrap">
@@ -197,7 +295,10 @@ export default function LeasingActivityCard({ rentroll }: { rentroll: RentRollDa
                   <input style={inputStyle} value={p.tenant} onChange={(e) => update("prospects", (r) => r.map(x => x.id === p.id ? { ...x, tenant: e.target.value } : x))} />
                 </td>
                 <td >
-                  <input list="leasing-buildings" style={inputStyle} value={p.building} onChange={(e) => update("prospects", (r) => r.map(x => x.id === p.id ? { ...x, building: e.target.value } : x))} />
+                  <BuildingMultiSelect
+                    value={p.building}
+                    onChange={(v) => update("prospects", (r) => r.map(x => x.id === p.id ? { ...x, building: v } : x))}
+                  />
                 </td>
                 <td style={{ textAlign: "right" }}>
                   <input style={{ ...inputStyle, textAlign: "right" }} value={p.sqft || ""} onChange={(e) => update("prospects", (r) => r.map(x => x.id === p.id ? { ...x, sqft: Number(e.target.value.replace(/[^0-9]/g, "")) || 0 } : x))} />
