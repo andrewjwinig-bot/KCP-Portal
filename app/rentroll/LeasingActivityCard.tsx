@@ -37,6 +37,15 @@ function tenantOptions(rentroll: RentRollData | null): TenantOption[] {
   return out.sort((a, b) => a.tenant.localeCompare(b.tenant));
 }
 
+// Headers add this much horizontal padding so their text lines up with the
+// input/select text inside the cell below (inputs have ~11px of effective
+// extra inset from the cell edge — 1px border + 10px internal padding).
+const HEADER_INSET = 11;
+const thLeft: React.CSSProperties  = { paddingLeft:  10 + HEADER_INSET };
+const thRight: React.CSSProperties = { textAlign: "right", paddingRight: 10 + HEADER_INSET };
+const tdReadLeft: React.CSSProperties  = { paddingLeft:  10 + HEADER_INSET };
+const tdReadRight: React.CSSProperties = { textAlign: "right", paddingRight: 10 + HEADER_INSET };
+
 // Office building short labels (in display order) used in the Prospects building selector
 const OFFICE_BUILDING_LABELS = ["1", "2", "4", "5", "6", "7", "8", "Kor A", "Kor B", "Kor C"];
 
@@ -280,11 +289,11 @@ export default function LeasingActivityCard({ rentroll }: { rentroll: RentRollDa
         <table>
           <thead>
             <tr>
-              <th >Tenant</th>
-              <th >Building</th>
-              <th style={{ textAlign: "right" }}>Sq Ft</th>
-              <th >Type Of</th>
-              <th style={{ textAlign: "right" }}>Rating&nbsp;(1-5)</th>
+              <th style={thLeft}>Tenant</th>
+              <th style={thLeft}>Building</th>
+              <th style={thRight}>Sq Ft</th>
+              <th style={thLeft}>Type Of</th>
+              <th style={thRight}>Rating&nbsp;(1-5)</th>
               <th />
             </tr>
           </thead>
@@ -334,10 +343,10 @@ export default function LeasingActivityCard({ rentroll }: { rentroll: RentRollDa
         <table>
           <thead>
             <tr>
-              <th >Tenant</th>
-              <th >Building</th>
-              <th style={{ textAlign: "right" }}>Sq Ft</th>
-              <th >Start Date</th>
+              <th style={thLeft}>Tenant</th>
+              <th style={thLeft}>Building</th>
+              <th style={thRight}>Sq Ft</th>
+              <th style={thLeft}>Start Date</th>
               <th />
             </tr>
           </thead>
@@ -370,10 +379,10 @@ export default function LeasingActivityCard({ rentroll }: { rentroll: RentRollDa
         <table>
           <thead>
             <tr>
-              <th >Tenant</th>
-              <th >Building</th>
-              <th style={{ textAlign: "right" }}>Sq Ft</th>
-              <th >Expiration Date</th>
+              <th style={thLeft}>Tenant</th>
+              <th style={thLeft}>Building</th>
+              <th style={thRight}>Sq Ft</th>
+              <th style={thLeft}>Expiration Date</th>
               <th />
             </tr>
           </thead>
@@ -405,9 +414,9 @@ export default function LeasingActivityCard({ rentroll }: { rentroll: RentRollDa
                     {opts.map((o) => <option key={o.unitRef} value={o.unitRef}>{o.label}</option>)}
                   </select>
                 </td>
-                <td><span style={{ fontSize: 14 }}>{v.building || "—"}</span></td>
-                <td style={{ textAlign: "right" }}><span style={{ fontSize: 14 }}>{v.sqft ? v.sqft.toLocaleString() : "—"}</span></td>
-                <td><span style={{ fontSize: 14 }}>{v.expirationDate || "—"}</span></td>
+                <td style={tdReadLeft}><span style={{ fontSize: 14 }}>{v.building || "—"}</span></td>
+                <td style={tdReadRight}><span style={{ fontSize: 14 }}>{v.sqft ? v.sqft.toLocaleString() : "—"}</span></td>
+                <td style={tdReadLeft}><span style={{ fontSize: 14 }}>{v.expirationDate || "—"}</span></td>
                 <td><DeleteBtn onClick={() => update("tenantsVacating", (r) => r.filter(x => x.id !== v.id))} /></td>
               </tr>
             ))}
@@ -422,12 +431,12 @@ export default function LeasingActivityCard({ rentroll }: { rentroll: RentRollDa
         <table>
           <thead>
             <tr>
-              <th >Tenant</th>
-              <th >Building</th>
-              <th style={{ textAlign: "right" }}>Sq Ft</th>
-              <th >Term / Prior Notice</th>
-              <th >Notice Date</th>
-              <th >Option Term Exp</th>
+              <th style={thLeft}>Tenant</th>
+              <th style={thLeft}>Building</th>
+              <th style={thRight}>Sq Ft</th>
+              <th style={thLeft}>Term / Prior Notice</th>
+              <th style={thLeft}>Notice Date</th>
+              <th style={thLeft}>Option Term Exp</th>
               <th />
             </tr>
           </thead>
@@ -450,8 +459,8 @@ export default function LeasingActivityCard({ rentroll }: { rentroll: RentRollDa
                     {opts.map((opt2) => <option key={opt2.unitRef} value={opt2.unitRef}>{opt2.label}</option>)}
                   </select>
                 </td>
-                <td><span style={{ fontSize: 14 }}>{o.building || "—"}</span></td>
-                <td style={{ textAlign: "right" }}><span style={{ fontSize: 14 }}>{o.sqft ? o.sqft.toLocaleString() : "—"}</span></td>
+                <td style={tdReadLeft}><span style={{ fontSize: 14 }}>{o.building || "—"}</span></td>
+                <td style={tdReadRight}><span style={{ fontSize: 14 }}>{o.sqft ? o.sqft.toLocaleString() : "—"}</span></td>
                 <td>
                   <input style={inputStyle} placeholder="5 years / 6 mos." value={o.term} onChange={(e) => update("optionsToRenew", (r) => r.map(x => x.id === o.id ? { ...x, term: e.target.value } : x))} />
                 </td>
