@@ -41,28 +41,14 @@ function tenantOptions(rentroll: RentRollData | null): TenantOption[] {
 const OFFICE_BUILDING_LABELS = ["1", "2", "4", "5", "6", "7", "8", "Kor A", "Kor B", "Kor C"];
 
 const inputStyle: React.CSSProperties = {
-  padding: "4px 7px",
-  fontSize: 12,
-  borderRadius: 6,
+  padding: "7px 10px",
+  fontSize: 14,
+  borderRadius: 8,
   border: "1px solid var(--border)",
-  background: "transparent",
+  background: "#fff",
   width: "100%",
-};
-
-const tableHeaderStyle: React.CSSProperties = {
-  fontSize: 11,
-  fontWeight: 700,
-  textTransform: "uppercase",
-  letterSpacing: "0.04em",
-  color: "var(--muted)",
-  textAlign: "left",
-  padding: "5px 6px",
-};
-
-const tableCellStyle: React.CSSProperties = {
-  padding: "4px 6px",
-  verticalAlign: "middle",
-  fontSize: 12,
+  fontFamily: "inherit",
+  color: "var(--text)",
 };
 
 function DeleteBtn({ onClick }: { onClick: () => void }) {
@@ -98,15 +84,15 @@ function AddBtn({ onClick, label }: { onClick: () => void; label: string }) {
     <button
       onClick={onClick}
       style={{
-        fontSize: 12,
-        padding: "5px 12px",
+        fontSize: 13,
+        padding: "8px 16px",
         borderRadius: 999,
-        border: "1px solid #0b4a7d",
+        border: "1.5px solid rgba(11,74,125,0.3)",
         background: "rgba(11,74,125,0.06)",
         color: "#0b4a7d",
         cursor: "pointer",
         fontWeight: 600,
-        marginTop: 6,
+        marginTop: 10,
       }}
     >
       + {label}
@@ -116,7 +102,7 @@ function AddBtn({ onClick, label }: { onClick: () => void; label: string }) {
 
 function SectionHeader({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ fontSize: 13, fontWeight: 700, marginTop: 18, marginBottom: 6, color: "var(--text)" }}>
+    <div style={{ fontSize: 17, fontWeight: 700, marginTop: 24, marginBottom: 10, color: "var(--text)" }}>
       {children}
     </div>
   );
@@ -175,13 +161,13 @@ export default function LeasingActivityCard({ rentroll }: { rentroll: RentRollDa
 
   return (
     <div className="card">
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <b style={{ fontSize: 17 }}>Leasing Activity</b>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+        <b style={{ fontSize: 18 }}>Leasing Activity</b>
         <span className="muted small">
           {error ? <span style={{ color: "#b91c1c" }}>{error}</span> : savedAt ? "Saved" : "Auto-saves on change"}
         </span>
       </div>
-      <p className="muted small" style={{ marginTop: 4 }}>
+      <p className="muted small" style={{ marginTop: 6 }}>
         Manual entries shown on the Status Report's Leasing Activity Summary page. Changes save automatically.
       </p>
 
@@ -196,32 +182,32 @@ export default function LeasingActivityCard({ rentroll }: { rentroll: RentRollDa
         <table>
           <thead>
             <tr>
-              <th style={tableHeaderStyle}>Tenant</th>
-              <th style={tableHeaderStyle}>Building</th>
-              <th style={{ ...tableHeaderStyle, textAlign: "right" }}>Sq Ft</th>
-              <th style={tableHeaderStyle}>Type Of</th>
-              <th style={{ ...tableHeaderStyle, textAlign: "right" }}>Rating&nbsp;(1-5)</th>
+              <th >Tenant</th>
+              <th >Building</th>
+              <th style={{ textAlign: "right" }}>Sq Ft</th>
+              <th >Type Of</th>
+              <th style={{ textAlign: "right" }}>Rating&nbsp;(1-5)</th>
               <th />
             </tr>
           </thead>
           <tbody>
             {data.prospects.map((p) => (
               <tr key={p.id}>
-                <td style={tableCellStyle}>
+                <td >
                   <input style={inputStyle} value={p.tenant} onChange={(e) => update("prospects", (r) => r.map(x => x.id === p.id ? { ...x, tenant: e.target.value } : x))} />
                 </td>
-                <td style={tableCellStyle}>
+                <td >
                   <input list="leasing-buildings" style={inputStyle} value={p.building} onChange={(e) => update("prospects", (r) => r.map(x => x.id === p.id ? { ...x, building: e.target.value } : x))} />
                 </td>
-                <td style={{ ...tableCellStyle, textAlign: "right" }}>
+                <td style={{ textAlign: "right" }}>
                   <input style={{ ...inputStyle, textAlign: "right" }} value={p.sqft || ""} onChange={(e) => update("prospects", (r) => r.map(x => x.id === p.id ? { ...x, sqft: Number(e.target.value.replace(/[^0-9]/g, "")) || 0 } : x))} />
                 </td>
-                <td style={tableCellStyle}>
+                <td >
                   <input style={inputStyle} value={p.typeOf} onChange={(e) => update("prospects", (r) => r.map(x => x.id === p.id ? { ...x, typeOf: e.target.value } : x))} />
                 </td>
-                <td style={{ ...tableCellStyle, textAlign: "right" }}>
+                <td style={{ textAlign: "right" }}>
                   <select
-                    style={{ ...inputStyle, textAlign: "right", width: 60 }}
+                    style={{ ...inputStyle, textAlign: "right" }}
                     value={p.rating ?? ""}
                     onChange={(e) => {
                       const v = e.target.value;
@@ -233,7 +219,7 @@ export default function LeasingActivityCard({ rentroll }: { rentroll: RentRollDa
                     {[1, 2, 3, 4, 5].map((n) => <option key={n} value={n}>{n}</option>)}
                   </select>
                 </td>
-                <td style={tableCellStyle}><DeleteBtn onClick={() => update("prospects", (r) => r.filter(x => x.id !== p.id))} /></td>
+                <td ><DeleteBtn onClick={() => update("prospects", (r) => r.filter(x => x.id !== p.id))} /></td>
               </tr>
             ))}
           </tbody>
@@ -247,29 +233,29 @@ export default function LeasingActivityCard({ rentroll }: { rentroll: RentRollDa
         <table>
           <thead>
             <tr>
-              <th style={tableHeaderStyle}>Tenant</th>
-              <th style={tableHeaderStyle}>Building</th>
-              <th style={{ ...tableHeaderStyle, textAlign: "right" }}>Sq Ft</th>
-              <th style={tableHeaderStyle}>Start Date</th>
+              <th >Tenant</th>
+              <th >Building</th>
+              <th style={{ textAlign: "right" }}>Sq Ft</th>
+              <th >Start Date</th>
               <th />
             </tr>
           </thead>
           <tbody>
             {data.pendingLeases.map((p) => (
               <tr key={p.id}>
-                <td style={tableCellStyle}>
+                <td >
                   <input style={inputStyle} value={p.tenant} onChange={(e) => update("pendingLeases", (r) => r.map(x => x.id === p.id ? { ...x, tenant: e.target.value } : x))} />
                 </td>
-                <td style={tableCellStyle}>
+                <td >
                   <input style={inputStyle} value={p.building} onChange={(e) => update("pendingLeases", (r) => r.map(x => x.id === p.id ? { ...x, building: e.target.value } : x))} />
                 </td>
-                <td style={{ ...tableCellStyle, textAlign: "right" }}>
+                <td style={{ textAlign: "right" }}>
                   <input style={{ ...inputStyle, textAlign: "right" }} value={p.sqft || ""} onChange={(e) => update("pendingLeases", (r) => r.map(x => x.id === p.id ? { ...x, sqft: Number(e.target.value.replace(/[^0-9]/g, "")) || 0 } : x))} />
                 </td>
-                <td style={tableCellStyle}>
+                <td >
                   <input style={inputStyle} placeholder="MM/DD/YYYY" value={p.startDate} onChange={(e) => update("pendingLeases", (r) => r.map(x => x.id === p.id ? { ...x, startDate: e.target.value } : x))} />
                 </td>
-                <td style={tableCellStyle}><DeleteBtn onClick={() => update("pendingLeases", (r) => r.filter(x => x.id !== p.id))} /></td>
+                <td ><DeleteBtn onClick={() => update("pendingLeases", (r) => r.filter(x => x.id !== p.id))} /></td>
               </tr>
             ))}
           </tbody>
@@ -283,17 +269,17 @@ export default function LeasingActivityCard({ rentroll }: { rentroll: RentRollDa
         <table>
           <thead>
             <tr>
-              <th style={tableHeaderStyle}>Tenant</th>
-              <th style={tableHeaderStyle}>Building</th>
-              <th style={{ ...tableHeaderStyle, textAlign: "right" }}>Sq Ft</th>
-              <th style={tableHeaderStyle}>Expiration Date</th>
+              <th >Tenant</th>
+              <th >Building</th>
+              <th style={{ textAlign: "right" }}>Sq Ft</th>
+              <th >Expiration Date</th>
               <th />
             </tr>
           </thead>
           <tbody>
             {data.tenantsVacating.map((v) => (
               <tr key={v.id}>
-                <td style={tableCellStyle}>
+                <td >
                   <select
                     style={{ ...inputStyle, marginBottom: 4 }}
                     value={v.unitRef ?? ""}
@@ -319,16 +305,16 @@ export default function LeasingActivityCard({ rentroll }: { rentroll: RentRollDa
                   </select>
                   <input style={inputStyle} placeholder="Tenant name" value={v.tenant} onChange={(e) => update("tenantsVacating", (r) => r.map(x => x.id === v.id ? { ...x, tenant: e.target.value } : x))} />
                 </td>
-                <td style={tableCellStyle}>
+                <td >
                   <input style={inputStyle} value={v.building} onChange={(e) => update("tenantsVacating", (r) => r.map(x => x.id === v.id ? { ...x, building: e.target.value } : x))} />
                 </td>
-                <td style={{ ...tableCellStyle, textAlign: "right" }}>
+                <td style={{ textAlign: "right" }}>
                   <input style={{ ...inputStyle, textAlign: "right" }} value={v.sqft || ""} onChange={(e) => update("tenantsVacating", (r) => r.map(x => x.id === v.id ? { ...x, sqft: Number(e.target.value.replace(/[^0-9]/g, "")) || 0 } : x))} />
                 </td>
-                <td style={tableCellStyle}>
+                <td >
                   <input style={inputStyle} placeholder="MM/DD/YYYY" value={v.expirationDate} onChange={(e) => update("tenantsVacating", (r) => r.map(x => x.id === v.id ? { ...x, expirationDate: e.target.value } : x))} />
                 </td>
-                <td style={tableCellStyle}><DeleteBtn onClick={() => update("tenantsVacating", (r) => r.filter(x => x.id !== v.id))} /></td>
+                <td ><DeleteBtn onClick={() => update("tenantsVacating", (r) => r.filter(x => x.id !== v.id))} /></td>
               </tr>
             ))}
           </tbody>
@@ -342,19 +328,19 @@ export default function LeasingActivityCard({ rentroll }: { rentroll: RentRollDa
         <table>
           <thead>
             <tr>
-              <th style={tableHeaderStyle}>Tenant</th>
-              <th style={tableHeaderStyle}>Building</th>
-              <th style={{ ...tableHeaderStyle, textAlign: "right" }}>Sq Ft</th>
-              <th style={tableHeaderStyle}>Term / Prior Notice</th>
-              <th style={tableHeaderStyle}>Notice Date</th>
-              <th style={tableHeaderStyle}>Option Term Exp</th>
+              <th >Tenant</th>
+              <th >Building</th>
+              <th style={{ textAlign: "right" }}>Sq Ft</th>
+              <th >Term / Prior Notice</th>
+              <th >Notice Date</th>
+              <th >Option Term Exp</th>
               <th />
             </tr>
           </thead>
           <tbody>
             {data.optionsToRenew.map((o) => (
               <tr key={o.id}>
-                <td style={tableCellStyle}>
+                <td >
                   <select
                     style={{ ...inputStyle, marginBottom: 4 }}
                     value={o.unitRef ?? ""}
@@ -371,22 +357,22 @@ export default function LeasingActivityCard({ rentroll }: { rentroll: RentRollDa
                   </select>
                   <input style={inputStyle} placeholder="Tenant name" value={o.tenant} onChange={(e) => update("optionsToRenew", (r) => r.map(x => x.id === o.id ? { ...x, tenant: e.target.value } : x))} />
                 </td>
-                <td style={tableCellStyle}>
+                <td >
                   <input style={inputStyle} value={o.building} onChange={(e) => update("optionsToRenew", (r) => r.map(x => x.id === o.id ? { ...x, building: e.target.value } : x))} />
                 </td>
-                <td style={{ ...tableCellStyle, textAlign: "right" }}>
+                <td style={{ textAlign: "right" }}>
                   <input style={{ ...inputStyle, textAlign: "right" }} value={o.sqft || ""} onChange={(e) => update("optionsToRenew", (r) => r.map(x => x.id === o.id ? { ...x, sqft: Number(e.target.value.replace(/[^0-9]/g, "")) || 0 } : x))} />
                 </td>
-                <td style={tableCellStyle}>
+                <td >
                   <input style={inputStyle} placeholder="5 years / 6 mos." value={o.term} onChange={(e) => update("optionsToRenew", (r) => r.map(x => x.id === o.id ? { ...x, term: e.target.value } : x))} />
                 </td>
-                <td style={tableCellStyle}>
+                <td >
                   <input style={inputStyle} placeholder="MM/DD/YYYY" value={o.noticeDate} onChange={(e) => update("optionsToRenew", (r) => r.map(x => x.id === o.id ? { ...x, noticeDate: e.target.value } : x))} />
                 </td>
-                <td style={tableCellStyle}>
+                <td >
                   <input style={inputStyle} placeholder="MM/DD/YYYY" value={o.optionTermExp} onChange={(e) => update("optionsToRenew", (r) => r.map(x => x.id === o.id ? { ...x, optionTermExp: e.target.value } : x))} />
                 </td>
-                <td style={tableCellStyle}><DeleteBtn onClick={() => update("optionsToRenew", (r) => r.filter(x => x.id !== o.id))} /></td>
+                <td ><DeleteBtn onClick={() => update("optionsToRenew", (r) => r.filter(x => x.id !== o.id))} /></td>
               </tr>
             ))}
           </tbody>
