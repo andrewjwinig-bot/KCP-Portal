@@ -378,11 +378,13 @@ export default function LeasingActivityCard({ rentroll }: { rentroll: RentRollDa
             </tr>
           </thead>
           <tbody>
-            {data.tenantsVacating.map((v) => (
+            {data.tenantsVacating.map((v) => {
+              const linked = !!v.unitRef;
+              return (
               <tr key={v.id}>
                 <td >
                   <select
-                    style={{ ...inputStyle, marginBottom: 4 }}
+                    style={{ ...inputStyle, marginBottom: linked ? 0 : 4 }}
                     value={v.unitRef ?? ""}
                     onChange={(e) => {
                       const ref = e.target.value;
@@ -404,20 +406,29 @@ export default function LeasingActivityCard({ rentroll }: { rentroll: RentRollDa
                     <option value="">— Pick a tenant —</option>
                     {opts.map((o) => <option key={o.unitRef} value={o.unitRef}>{o.label}</option>)}
                   </select>
-                  <input style={inputStyle} placeholder="Tenant name" value={v.tenant} onChange={(e) => update("tenantsVacating", (r) => r.map(x => x.id === v.id ? { ...x, tenant: e.target.value } : x))} />
+                  {!linked && (
+                    <input style={inputStyle} placeholder="Tenant name" value={v.tenant} onChange={(e) => update("tenantsVacating", (r) => r.map(x => x.id === v.id ? { ...x, tenant: e.target.value } : x))} />
+                  )}
                 </td>
                 <td >
-                  <input style={inputStyle} value={v.building} onChange={(e) => update("tenantsVacating", (r) => r.map(x => x.id === v.id ? { ...x, building: e.target.value } : x))} />
+                  {linked
+                    ? <span style={{ fontSize: 14 }}>{v.building}</span>
+                    : <input style={inputStyle} value={v.building} onChange={(e) => update("tenantsVacating", (r) => r.map(x => x.id === v.id ? { ...x, building: e.target.value } : x))} />}
                 </td>
                 <td style={{ textAlign: "right" }}>
-                  <input style={{ ...inputStyle, textAlign: "right" }} value={v.sqft || ""} onChange={(e) => update("tenantsVacating", (r) => r.map(x => x.id === v.id ? { ...x, sqft: Number(e.target.value.replace(/[^0-9]/g, "")) || 0 } : x))} />
+                  {linked
+                    ? <span style={{ fontSize: 14 }}>{v.sqft ? v.sqft.toLocaleString() : "—"}</span>
+                    : <input style={{ ...inputStyle, textAlign: "right" }} value={v.sqft || ""} onChange={(e) => update("tenantsVacating", (r) => r.map(x => x.id === v.id ? { ...x, sqft: Number(e.target.value.replace(/[^0-9]/g, "")) || 0 } : x))} />}
                 </td>
                 <td >
-                  <input style={inputStyle} placeholder="MM/DD/YYYY" value={v.expirationDate} onChange={(e) => update("tenantsVacating", (r) => r.map(x => x.id === v.id ? { ...x, expirationDate: e.target.value } : x))} />
+                  {linked
+                    ? <span style={{ fontSize: 14 }}>{v.expirationDate || "—"}</span>
+                    : <input style={inputStyle} placeholder="MM/DD/YYYY" value={v.expirationDate} onChange={(e) => update("tenantsVacating", (r) => r.map(x => x.id === v.id ? { ...x, expirationDate: e.target.value } : x))} />}
                 </td>
                 <td ><DeleteBtn onClick={() => update("tenantsVacating", (r) => r.filter(x => x.id !== v.id))} /></td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -439,11 +450,13 @@ export default function LeasingActivityCard({ rentroll }: { rentroll: RentRollDa
             </tr>
           </thead>
           <tbody>
-            {data.optionsToRenew.map((o) => (
+            {data.optionsToRenew.map((o) => {
+              const linked = !!o.unitRef;
+              return (
               <tr key={o.id}>
                 <td >
                   <select
-                    style={{ ...inputStyle, marginBottom: 4 }}
+                    style={{ ...inputStyle, marginBottom: linked ? 0 : 4 }}
                     value={o.unitRef ?? ""}
                     onChange={(e) => {
                       const ref = e.target.value;
@@ -456,13 +469,19 @@ export default function LeasingActivityCard({ rentroll }: { rentroll: RentRollDa
                     <option value="">— Pick a tenant —</option>
                     {opts.map((opt2) => <option key={opt2.unitRef} value={opt2.unitRef}>{opt2.label}</option>)}
                   </select>
-                  <input style={inputStyle} placeholder="Tenant name" value={o.tenant} onChange={(e) => update("optionsToRenew", (r) => r.map(x => x.id === o.id ? { ...x, tenant: e.target.value } : x))} />
+                  {!linked && (
+                    <input style={inputStyle} placeholder="Tenant name" value={o.tenant} onChange={(e) => update("optionsToRenew", (r) => r.map(x => x.id === o.id ? { ...x, tenant: e.target.value } : x))} />
+                  )}
                 </td>
                 <td >
-                  <input style={inputStyle} value={o.building} onChange={(e) => update("optionsToRenew", (r) => r.map(x => x.id === o.id ? { ...x, building: e.target.value } : x))} />
+                  {linked
+                    ? <span style={{ fontSize: 14 }}>{o.building}</span>
+                    : <input style={inputStyle} value={o.building} onChange={(e) => update("optionsToRenew", (r) => r.map(x => x.id === o.id ? { ...x, building: e.target.value } : x))} />}
                 </td>
                 <td style={{ textAlign: "right" }}>
-                  <input style={{ ...inputStyle, textAlign: "right" }} value={o.sqft || ""} onChange={(e) => update("optionsToRenew", (r) => r.map(x => x.id === o.id ? { ...x, sqft: Number(e.target.value.replace(/[^0-9]/g, "")) || 0 } : x))} />
+                  {linked
+                    ? <span style={{ fontSize: 14 }}>{o.sqft ? o.sqft.toLocaleString() : "—"}</span>
+                    : <input style={{ ...inputStyle, textAlign: "right" }} value={o.sqft || ""} onChange={(e) => update("optionsToRenew", (r) => r.map(x => x.id === o.id ? { ...x, sqft: Number(e.target.value.replace(/[^0-9]/g, "")) || 0 } : x))} />}
                 </td>
                 <td >
                   <input style={inputStyle} placeholder="5 years / 6 mos." value={o.term} onChange={(e) => update("optionsToRenew", (r) => r.map(x => x.id === o.id ? { ...x, term: e.target.value } : x))} />
@@ -475,7 +494,8 @@ export default function LeasingActivityCard({ rentroll }: { rentroll: RentRollDa
                 </td>
                 <td ><DeleteBtn onClick={() => update("optionsToRenew", (r) => r.filter(x => x.id !== o.id))} /></td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>
