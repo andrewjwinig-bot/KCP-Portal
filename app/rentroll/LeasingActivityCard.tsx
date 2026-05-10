@@ -251,7 +251,7 @@ export default function LeasingActivityCard({ rentroll }: { rentroll: RentRollDa
     const t = setTimeout(async () => {
       try {
         const res = await fetch("/api/leasing-activity", {
-          method: "PUT",
+          method: "POST",
           headers: { "Content-Type": "application/json" },
           body: serialized,
         });

@@ -22,8 +22,8 @@ export async function GET() {
   }
 }
 
-/** PUT /api/leasing-activity — replaces the entire payload. */
-export async function PUT(req: NextRequest) {
+/** POST /api/leasing-activity — replaces the entire payload. */
+export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const data: LeasingActivity = {
@@ -35,7 +35,7 @@ export async function PUT(req: NextRequest) {
     await storeJSON(PREFIX, ID, data);
     return NextResponse.json({ ok: true, leasingActivity: data });
   } catch (err: any) {
-    console.error("[PUT /api/leasing-activity]", err?.message ?? err);
+    console.error("[POST /api/leasing-activity]", err?.message ?? err);
     return NextResponse.json({ error: err?.message ?? String(err) }, { status: 500 });
   }
 }
