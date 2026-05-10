@@ -14,11 +14,21 @@ import { PROPERTY_DEFS } from "../../lib/properties/data";
 
 function uid() { return Math.random().toString(36).slice(2, 10); }
 
+// Office buildings (JV III + NI LLC + The Office Works) — used to scope the
+// Tenants Vacating / Option to Renew tenant dropdown so Nancy doesn't have to
+// scroll through retail tenants.
+const OFFICE_PROPERTY_CODES = new Set([
+  "3610", "3620", "3640",
+  "4050", "4060", "4070", "4080", "40A0", "40B0", "40C0",
+  "4900",
+]);
+
 type TenantOption = { unitRef: string; label: string; tenant: string; building: string; sqft: number; leaseTo: string | null };
 function tenantOptions(rentroll: RentRollData | null): TenantOption[] {
   if (!rentroll) return [];
   const out: TenantOption[] = [];
   for (const p of rentroll.properties) {
+    if (!OFFICE_PROPERTY_CODES.has(p.propertyCode.toUpperCase())) continue;
     const def = PROPERTY_DEFS.find((d) => d.id.toUpperCase() === p.propertyCode.toUpperCase());
     // For Prospects building dropdown: short label like "1" or "Kor A" derived from building name
     const shortBuilding = def?.name?.replace(/^Building\s+/i, "").replace(/^Kor Center\s+/i, "Kor ") ?? p.propertyCode;
