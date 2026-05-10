@@ -74,9 +74,45 @@ function bankAccountsForProp(id: string): BankAccount[] {
 
 // ─── FLOORPLAN VIEWER ────────────────────────────────────────────────────────
 
+const FLOORPLAN_ROTATE_CW = new Set(["3610", "3620", "4050"]);
+
+function FloorplanImage({ src, alt, rotate90 }: { src: string; alt: string; rotate90: boolean }) {
+  const [dims, setDims] = useState<{ w: number; h: number } | null>(null);
+  useEffect(() => {
+    if (!rotate90) return;
+    const img = new window.Image();
+    img.onload = () => setDims({ w: img.naturalWidth, h: img.naturalHeight });
+    img.src = src;
+  }, [src, rotate90]);
+  if (!rotate90) {
+    /* eslint-disable-next-line @next/next/no-img-element */
+    return <img src={src} alt={alt} style={{ width: "100%", height: "auto", display: "block" }} />;
+  }
+  if (!dims) return <div style={{ height: 200 }} />;
+  return (
+    <div style={{ width: "100%", aspectRatio: `${dims.h} / ${dims.w}`, position: "relative", overflow: "hidden" }}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={src}
+        alt={alt}
+        style={{
+          position: "absolute",
+          top: "50%",
+          left: "50%",
+          width: `${(dims.w / dims.h) * 100}%`,
+          height: "auto",
+          transform: "translate(-50%, -50%) rotate(90deg)",
+          transformOrigin: "center",
+        }}
+      />
+    </div>
+  );
+}
+
 function FloorplanViewer({ propId, propName }: { propId: string; propName: string }) {
   const [open, setOpen] = useState(false);
   const src = `/floorplans/${propId}.jpg`;
+  const rotate90 = FLOORPLAN_ROTATE_CW.has(propId.toUpperCase());
 
   return (
     <>
@@ -127,8 +163,7 @@ function FloorplanViewer({ propId, propName }: { propId: string; propName: strin
               >✕</button>
             </div>
             <div style={{ overflowY: "auto", padding: 16 }}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={src} alt={`${propName} floorplan`} style={{ width: "100%", height: "auto", display: "block" }} />
+              <FloorplanImage src={src} alt={`${propName} floorplan`} rotate90={rotate90} />
             </div>
           </div>
         </div>
