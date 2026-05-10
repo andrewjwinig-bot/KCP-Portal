@@ -42,12 +42,24 @@ export default function DashboardPage() {
   const [rentroll, setRentroll] = useState<RentRollData | null>(null);
   const [loading, setLoading] = useState(true);
   const [checkedByYear, setCheckedByYear] = useState<Record<number, Record<string, boolean>>>({});
+  const [vacatingMatchers, setVacatingMatchers] = useState<{ unitRefs: Set<string>; names: Set<string> }>({ unitRefs: new Set(), names: new Set() });
 
   const isAdmin = user.id === "admin";
 
   useEffect(() => {
     fetch("/api/rentroll").then((r) => r.json()).then((j) => setRentroll(j.rentroll ?? null)).catch(() => setRentroll(null)).finally(() => setLoading(false));
+    fetch("/api/leasing-activity").then((r) => r.json()).then((j) => {
+      const list = (j?.leasingActivity?.tenantsVacating ?? []) as { unitRef?: string; tenant?: string }[];
+      setVacatingMatchers({
+        unitRefs: new Set(list.map(v => v.unitRef ?? "").filter(Boolean)),
+        names:    new Set(list.map(v => (v.tenant ?? "").toLowerCase().trim()).filter(Boolean)),
+      });
+    }).catch(() => {});
   }, []);
+
+  function isVacating(unitRef: string, tenantName: string): boolean {
+    return vacatingMatchers.unitRefs.has(unitRef) || vacatingMatchers.names.has(tenantName.toLowerCase().trim());
+  }
 
   useEffect(() => {
     const y = new Date().getFullYear();
@@ -352,7 +364,12 @@ export default function DashboardPage() {
                       onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.filter = "brightness(0.97)"; }}
                       onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.filter = ""; }}
                     >
-                      <td style={{ fontWeight: 600 }}>{unit.occupantName}</td>
+                      <td style={{ fontWeight: 600 }}>
+                        {unit.occupantName}
+                        {isVacating(unit.unitRef, unit.occupantName) && (
+                          <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 999, background: "rgba(220,38,38,0.1)", color: "#b91c1c", border: "1px solid rgba(220,38,38,0.35)", letterSpacing: "0.04em" }}>VACATING</span>
+                        )}
+                      </td>
                       <td style={{ fontSize: 13, color: "var(--muted)" }}>{propLabel(propertyCode)}</td>
                       <td style={{ whiteSpace: "nowrap" }}><code style={{ fontSize: 12, whiteSpace: "nowrap" }}>{unit.unitRef}</code></td>
                       <td style={{ textAlign: "right", fontSize: 13 }}>{sqftFmt(unit.sqft)}</td>

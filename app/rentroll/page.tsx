@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { PROPERTY_DEFS } from "../../lib/properties/data";
 import type { RentRollData, RentRollUnit, RentRollProperty } from "../../lib/rentroll/parseRentRollExcel";
 import { useUser } from "../components/UserProvider";
@@ -201,12 +201,13 @@ function BaseYearCell({ unitRef: _unitRef, isVacant, value, onChange }: {
   );
 }
 
-function UnitsTable({ units, propertyCode, hideNNN, tenantMeta, onBaseYearChange }: {
+function UnitsTable({ units, propertyCode, hideNNN, tenantMeta, onBaseYearChange, vacatingUnitRefs }: {
   units: RentRollUnit[];
   propertyCode: string;
   hideNNN?: boolean;
   tenantMeta: Record<string, { baseYear?: number | null }>;
   onBaseYearChange: (unitRef: string, baseYear: number | null) => void;
+  vacatingUnitRefs?: Set<string>;
 }) {
   const [showAll, setShowAll] = useState(true);
   const displayed = showAll ? units : units.slice(0, 10);
@@ -260,6 +261,9 @@ function UnitsTable({ units, propertyCode, hideNNN, tenantMeta, onBaseYearChange
                 <tr key={i} id={rowId} style={{ background: rowBg }}>
                   <td style={{ fontWeight: unit.isVacant ? 400 : 600, color: unit.isVacant ? "var(--muted)" : "var(--text)" }}>
                     {unit.isVacant ? <em style={{ color: "var(--muted)" }}>Vacant</em> : unit.occupantName}
+                    {!unit.isVacant && vacatingUnitRefs?.has(unit.unitRef) && (
+                      <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 999, background: "rgba(220,38,38,0.1)", color: "#b91c1c", border: "1px solid rgba(220,38,38,0.35)", letterSpacing: "0.04em" }}>VACATING</span>
+                    )}
                   </td>
                   <td style={{ whiteSpace: "nowrap" }}>
                     <code style={{ fontSize: 12, whiteSpace: "nowrap" }}>{unit.unitRef}</code>
@@ -329,10 +333,11 @@ function UnitsTable({ units, propertyCode, hideNNN, tenantMeta, onBaseYearChange
 
 // ─── Property Card ────────────────────────────────────────────────────────────
 
-function PropertyCard({ prop, tenantMeta, onBaseYearChange }: {
+function PropertyCard({ prop, tenantMeta, onBaseYearChange, vacatingUnitRefs }: {
   prop: RentRollProperty;
   tenantMeta: Record<string, { baseYear?: number | null }>;
   onBaseYearChange: (unitRef: string, baseYear: number | null) => void;
+  vacatingUnitRefs?: Set<string>;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -438,7 +443,7 @@ function PropertyCard({ prop, tenantMeta, onBaseYearChange }: {
               </div>
             </div>
           )}
-          <UnitsTable units={prop.units} propertyCode={prop.propertyCode} hideNNN={KH_CODES.has(prop.propertyCode.toUpperCase()) || prop.propertyCode.toUpperCase() === "4900"} tenantMeta={tenantMeta} onBaseYearChange={onBaseYearChange} />
+          <UnitsTable units={prop.units} propertyCode={prop.propertyCode} hideNNN={KH_CODES.has(prop.propertyCode.toUpperCase()) || prop.propertyCode.toUpperCase() === "4900"} tenantMeta={tenantMeta} onBaseYearChange={onBaseYearChange} vacatingUnitRefs={vacatingUnitRefs} />
         </div>
       )}
     </div>
@@ -781,11 +786,12 @@ function OccupancyLines({ rentroll, categoryFilter, prevPctByLabel }: { rentroll
 
 // ─── Portfolio Group ──────────────────────────────────────────────────────────
 
-function PortfolioGroup({ name, props, tenantMeta, onBaseYearChange }: {
+function PortfolioGroup({ name, props, tenantMeta, onBaseYearChange, vacatingUnitRefs }: {
   name: string;
   props: RentRollProperty[];
   tenantMeta: Record<string, { baseYear?: number | null }>;
   onBaseYearChange: (unitRef: string, baseYear: number | null) => void;
+  vacatingUnitRefs?: Set<string>;
 }) {
   if (!props.length) return null;
   const totalSqft    = props.reduce((s, p) => s + p.totalSqft,    0);
@@ -810,7 +816,7 @@ function PortfolioGroup({ name, props, tenantMeta, onBaseYearChange }: {
         </div>
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        {props.map(p => <PropertyCard key={p.propertyCode} prop={p} tenantMeta={tenantMeta} onBaseYearChange={onBaseYearChange} />)}
+        {props.map(p => <PropertyCard key={p.propertyCode} prop={p} tenantMeta={tenantMeta} onBaseYearChange={onBaseYearChange} vacatingUnitRefs={vacatingUnitRefs} />)}
       </div>
     </div>
   );
@@ -833,10 +839,32 @@ export default function RentRollPage() {
   const [generatingReport, setGeneratingReport] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [tenantMeta, setTenantMeta] = useState<Record<string, { baseYear?: number | null }>>({});
+  const [vacatingMatchers, setVacatingMatchers] = useState<{ unitRefs: Set<string>; names: Set<string> }>({ unitRefs: new Set(), names: new Set() });
 
   useEffect(() => {
     fetch("/api/tenant-meta").then((r) => r.json()).then((j) => setTenantMeta(j.tenantMeta ?? {})).catch(() => {});
+    fetch("/api/leasing-activity").then((r) => r.json()).then((j) => {
+      const list = (j?.leasingActivity?.tenantsVacating ?? []) as { unitRef?: string; tenant?: string }[];
+      setVacatingMatchers({
+        unitRefs: new Set(list.map(v => v.unitRef ?? "").filter(Boolean)),
+        names:    new Set(list.map(v => (v.tenant ?? "").toLowerCase().trim()).filter(Boolean)),
+      });
+    }).catch(() => {});
   }, []);
+
+  // Build the set of unit refs whose tenant is currently flagged Vacating
+  // (matched either by unitRef link or by tenant-name match).
+  const vacatingUnitRefs = useMemo(() => {
+    const out = new Set<string>(vacatingMatchers.unitRefs);
+    if (rawRentroll && vacatingMatchers.names.size > 0) {
+      for (const p of rawRentroll.properties) {
+        for (const u of p.units) {
+          if (vacatingMatchers.names.has((u.occupantName ?? "").toLowerCase().trim())) out.add(u.unitRef);
+        }
+      }
+    }
+    return out;
+  }, [rawRentroll, vacatingMatchers]);
 
   async function updateBaseYear(unitRef: string, baseYear: number | null) {
     // Optimistic update
@@ -1145,11 +1173,11 @@ export default function RentRollPage() {
             const other  = props.filter(p => !allGrouped.has(p.propertyCode.toUpperCase()));
             return (
               <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
-                <PortfolioGroup name="JV III LLC"         props={jvIII}  tenantMeta={tenantMeta} onBaseYearChange={updateBaseYear} />
-                <PortfolioGroup name="NI LLC"             props={niLLC}  tenantMeta={tenantMeta} onBaseYearChange={updateBaseYear} />
-                <PortfolioGroup name="Shopping Centers"   props={sc}     tenantMeta={tenantMeta} onBaseYearChange={updateBaseYear} />
-                <PortfolioGroup name="Korman Homes"       props={kh}     tenantMeta={tenantMeta} onBaseYearChange={updateBaseYear} />
-                {other.length > 0 && <PortfolioGroup name="Other Properties" props={other} tenantMeta={tenantMeta} onBaseYearChange={updateBaseYear} />}
+                <PortfolioGroup name="JV III LLC"         props={jvIII}  tenantMeta={tenantMeta} onBaseYearChange={updateBaseYear} vacatingUnitRefs={vacatingUnitRefs} />
+                <PortfolioGroup name="NI LLC"             props={niLLC}  tenantMeta={tenantMeta} onBaseYearChange={updateBaseYear} vacatingUnitRefs={vacatingUnitRefs} />
+                <PortfolioGroup name="Shopping Centers"   props={sc}     tenantMeta={tenantMeta} onBaseYearChange={updateBaseYear} vacatingUnitRefs={vacatingUnitRefs} />
+                <PortfolioGroup name="Korman Homes"       props={kh}     tenantMeta={tenantMeta} onBaseYearChange={updateBaseYear} vacatingUnitRefs={vacatingUnitRefs} />
+                {other.length > 0 && <PortfolioGroup name="Other Properties" props={other} tenantMeta={tenantMeta} onBaseYearChange={updateBaseYear} vacatingUnitRefs={vacatingUnitRefs} />}
               </div>
             );
           })()}
