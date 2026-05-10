@@ -287,6 +287,14 @@ export default function LeasingActivityCard({ rentroll }: { rentroll: RentRollDa
       <SectionHeader>Prospects</SectionHeader>
       <div className="tableWrap">
         <table>
+          <colgroup>
+            <col />               {/* Tenant — flex */}
+            <col style={{ width: 150 }} />  {/* Building */}
+            <col style={{ width: 90  }} />  {/* Sq Ft */}
+            <col />               {/* Type Of — flex */}
+            <col style={{ width: 80  }} />  {/* Rating */}
+            <col style={{ width: 36  }} />  {/* × */}
+          </colgroup>
           <thead>
             <tr>
               <th style={thLeft}>Tenant</th>
@@ -341,6 +349,13 @@ export default function LeasingActivityCard({ rentroll }: { rentroll: RentRollDa
       <SectionHeader>Pending Leases</SectionHeader>
       <div className="tableWrap">
         <table>
+          <colgroup>
+            <col />                          {/* Tenant — flex */}
+            <col style={{ width: 150 }} />   {/* Building (matches Prospects) */}
+            <col style={{ width: 90  }} />   {/* Sq Ft */}
+            <col style={{ width: 120 }} />   {/* Start Date */}
+            <col style={{ width: 36  }} />   {/* × */}
+          </colgroup>
           <thead>
             <tr>
               <th style={thLeft}>Tenant</th>
@@ -377,6 +392,13 @@ export default function LeasingActivityCard({ rentroll }: { rentroll: RentRollDa
       <SectionHeader>Tenants Vacating</SectionHeader>
       <div className="tableWrap">
         <table>
+          <colgroup>
+            <col />                          {/* Tenant — flex */}
+            <col style={{ width: 150 }} />   {/* Building */}
+            <col style={{ width: 90  }} />   {/* Sq Ft */}
+            <col style={{ width: 120 }} />   {/* Expiration Date */}
+            <col style={{ width: 36  }} />   {/* × */}
+          </colgroup>
           <thead>
             <tr>
               <th style={thLeft}>Tenant</th>
@@ -429,6 +451,15 @@ export default function LeasingActivityCard({ rentroll }: { rentroll: RentRollDa
       <SectionHeader>Option to Renew</SectionHeader>
       <div className="tableWrap">
         <table>
+          <colgroup>
+            <col />                          {/* Tenant — flex */}
+            <col style={{ width: 150 }} />   {/* Building */}
+            <col style={{ width: 90  }} />   {/* Sq Ft */}
+            <col />                          {/* Term / Prior Notice — flex */}
+            <col style={{ width: 120 }} />   {/* Notice Date */}
+            <col style={{ width: 120 }} />   {/* Option Term Exp */}
+            <col style={{ width: 36  }} />   {/* × */}
+          </colgroup>
           <thead>
             <tr>
               <th style={thLeft}>Tenant</th>
