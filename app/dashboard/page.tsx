@@ -43,7 +43,24 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [checkedByYear, setCheckedByYear] = useState<Record<number, Record<string, boolean>>>({});
   const [vacatingMatchers, setVacatingMatchers] = useState<{ unitRefs: Set<string>; names: Set<string> }>({ unitRefs: new Set(), names: new Set() });
-  const [upcomingNotices, setUpcomingNotices] = useState<{ tenant: string; building: string; noticeDate: string; daysUntil: number }[]>([]);
+  const [upcomingNotices, setUpcomingNotices] = useState<{ id: string; tenant: string; building: string; noticeDate: string; daysUntil: number }[]>([]);
+  const [dismissedNotices, setDismissedNotices] = useState<Set<string>>(new Set());
+
+  // Persist dismissed notices in localStorage so they don't reappear on reload.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = localStorage.getItem("kcp:dismissedNotices");
+      if (raw) setDismissedNotices(new Set(JSON.parse(raw)));
+    } catch { /* ignore */ }
+  }, []);
+  function dismissNotice(id: string) {
+    setDismissedNotices((prev) => {
+      const next = new Set(prev); next.add(id);
+      try { localStorage.setItem("kcp:dismissedNotices", JSON.stringify([...next])); } catch { /* ignore */ }
+      return next;
+    });
+  }
 
   const isAdmin = user.id === "admin";
 
@@ -60,7 +77,7 @@ export default function DashboardPage() {
       const opts = (la?.optionsToRenew ?? []) as { tenant?: string; building?: string; noticeDate?: string }[];
       const today = new Date(); today.setHours(0, 0, 0, 0);
       const cutoff = new Date(today); cutoff.setDate(today.getDate() + 30);
-      const rows: { tenant: string; building: string; noticeDate: string; daysUntil: number }[] = [];
+      const rows: { id: string; tenant: string; building: string; noticeDate: string; daysUntil: number }[] = [];
       for (const o of opts) {
         const m = (o.noticeDate ?? "").match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
         if (!m) continue;
@@ -68,6 +85,7 @@ export default function DashboardPage() {
         if (d > cutoff) continue;
         const days = Math.round((d.getTime() - today.getTime()) / 86400000);
         rows.push({
+          id: `${(o.tenant ?? "").toLowerCase()}|${o.noticeDate ?? ""}`,
           tenant: o.tenant ?? "",
           building: o.building ?? "",
           noticeDate: o.noticeDate ?? "",
@@ -344,41 +362,64 @@ export default function DashboardPage() {
               </div>
               )}
 
-              {(user.navKeys.has("all") || user.navKeys.has("leasing-activity")) && upcomingNotices.length > 0 && (
-                <div style={{
-                  display: "flex", alignItems: "flex-start", gap: 10,
-                  padding: "10px 12px",
-                  border: "1px solid rgba(217,119,6,0.3)",
-                  background: "rgba(217,119,6,0.06)",
-                  borderRadius: 8,
-                }}>
-                  <span style={{ width: 10, height: 10, borderRadius: 999, marginTop: 5, flexShrink: 0, background: "#d97706" }} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 600, fontSize: 14 }}>
-                      Option Notice Dates within 30 days
-                      <span style={{ fontWeight: 500, color: "var(--muted)", marginLeft: 8 }}>· {upcomingNotices.length}</span>
-                    </div>
-                    <div className="muted small" style={{ marginTop: 2, display: "flex", flexDirection: "column", gap: 2 }}>
-                      {upcomingNotices.slice(0, 5).map((n, i) => (
-                        <div key={i}>
-                          <b style={{ color: n.daysUntil < 0 ? "#b91c1c" : "var(--text)" }}>{n.tenant}</b>
-                          {n.building && <span> · Bldg {n.building}</span>}
-                          <span> · {n.noticeDate}</span>
-                          <span style={{ marginLeft: 6, color: n.daysUntil < 0 ? "#b91c1c" : "#b45309" }}>
-                            ({n.daysUntil < 0 ? `${Math.abs(n.daysUntil)}d ago` : n.daysUntil === 0 ? "today" : `in ${n.daysUntil}d`})
-                          </span>
+              {(user.navKeys.has("all") || user.navKeys.has("leasing-activity")) && upcomingNotices
+                .filter((n) => !dismissedNotices.has(n.id))
+                .map((n) => {
+                  const overdue = n.daysUntil < 0;
+                  const urgent  = n.daysUntil >= 0 && n.daysUntil <= 7;
+                  const accent = overdue ? "#b91c1c" : urgent ? "#b91c1c" : "#d97706";
+                  const bg     = overdue ? "rgba(220,38,38,0.06)" : urgent ? "rgba(220,38,38,0.04)" : "rgba(217,119,6,0.06)";
+                  const border = overdue ? "rgba(220,38,38,0.35)" : urgent ? "rgba(220,38,38,0.30)" : "rgba(217,119,6,0.30)";
+                  const relative = overdue ? `${Math.abs(n.daysUntil)} day${Math.abs(n.daysUntil) === 1 ? "" : "s"} ago` : n.daysUntil === 0 ? "today" : `in ${n.daysUntil} day${n.daysUntil === 1 ? "" : "s"}`;
+                  return (
+                    <div
+                      key={n.id}
+                      style={{
+                        display: "flex", alignItems: "flex-start", gap: 10,
+                        padding: "10px 12px",
+                        border: `1px solid ${border}`,
+                        background: bg,
+                        borderRadius: 8,
+                      }}
+                    >
+                      <span style={{ width: 10, height: 10, borderRadius: 999, marginTop: 5, flexShrink: 0, background: accent }} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 600, fontSize: 14 }}>
+                          Notice date — {n.tenant || "(no tenant)"}
+                          {overdue && (
+                            <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 999, background: "rgba(220,38,38,0.15)", color: "#b91c1c", border: "1px solid rgba(220,38,38,0.35)", letterSpacing: "0.04em" }}>PAST DUE</span>
+                          )}
                         </div>
-                      ))}
-                      {upcomingNotices.length > 5 && (
-                        <div className="muted small" style={{ marginTop: 2 }}>+ {upcomingNotices.length - 5} more</div>
-                      )}
+                        <div className="muted small" style={{ marginTop: 2 }}>
+                          {n.building && <span>Bldg {n.building} · </span>}
+                          <span>{n.noticeDate}</span>
+                          <span style={{ marginLeft: 6, color: accent, fontWeight: 600 }}>({relative})</span>
+                        </div>
+                      </div>
+                      <Link href="/rentroll/leasing" style={{ fontSize: 12, fontWeight: 600, color: "#0b4a7d", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>
+                        Open →
+                      </Link>
+                      <button
+                        onClick={() => dismissNotice(n.id)}
+                        title="Dismiss"
+                        aria-label="Dismiss notice item"
+                        style={{
+                          width: 22, height: 22, padding: 0, marginTop: 1, marginLeft: 4,
+                          borderRadius: 4,
+                          border: "1px solid rgba(15,23,42,0.18)",
+                          background: "rgba(255,255,255,0.6)",
+                          color: "var(--muted)",
+                          cursor: "pointer",
+                          fontSize: 13, lineHeight: 1, fontWeight: 700,
+                          display: "inline-flex", alignItems: "center", justifyContent: "center",
+                          flexShrink: 0,
+                        }}
+                      >
+                        ×
+                      </button>
                     </div>
-                  </div>
-                  <Link href="/rentroll/leasing" style={{ fontSize: 12, fontWeight: 600, color: "#0b4a7d", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>
-                    Open →
-                  </Link>
-                </div>
-              )}
+                  );
+                })}
             </div>
           )}
         </div>
