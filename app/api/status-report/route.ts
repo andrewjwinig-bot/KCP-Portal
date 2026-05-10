@@ -604,15 +604,16 @@ export async function POST(req: Request) {
           pageBreakIfNeeded(40);
           drawSectionTitle("Tenants Vacating");
           const cols = [
-            { label: "Tenant",          align: "left"  as const, width: 200 },
-            { label: "Building",        align: "left"  as const, width: 100 },
-            { label: "SQ. FT.",         align: "right" as const, width: 80  },
-            { label: "Expiration Date", align: "left"  as const, width: 120 },
+            { label: "Tenant",          align: "left"  as const, width: 180 },
+            { label: "Building",        align: "left"  as const, width: 90  },
+            { label: "Suite",           align: "left"  as const, width: 80  },
+            { label: "SQ. FT.",         align: "right" as const, width: 70  },
+            { label: "Expiration Date", align: "left"  as const, width: 100 },
           ];
           drawRow(cols, cols.map(c => c.label), { bold: true });
           page.drawLine({ start: { x: tableX, y: py(curY - 2) }, end: { x: tableX + tableW, y: py(curY - 2) }, thickness: 0.4, color: C_LINE });
           if (leasing.tenantsVacating.length === 0) {
-            drawRow(cols, ["—", "", "", ""], { muted: true });
+            drawRow(cols, ["—", "", "", "", ""], { muted: true });
           } else {
             for (const v of leasing.tenantsVacating) {
               const auto = v.unitRef ? unitLookup.get(v.unitRef) : null;
@@ -620,6 +621,7 @@ export async function POST(req: Request) {
               drawRow(cols, [
                 v.tenant   || auto?.tenant   || "",
                 v.building || auto?.building || "",
+                v.unitRef || "",
                 v.sqft ? sqftFmt(v.sqft) : (auto ? sqftFmt(auto.sqft) : ""),
                 fmtDate(v.expirationDate),
               ]);
