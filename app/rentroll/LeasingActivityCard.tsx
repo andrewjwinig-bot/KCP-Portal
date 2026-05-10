@@ -481,7 +481,7 @@ export default function LeasingActivityCard({ rentroll }: { rentroll: RentRollDa
         <table>
           <colgroup>
             <col />                          {/* Tenant — flex (gets the slack) */}
-            <col style={{ width: 110 }} />   {/* Building */}
+            <col style={{ width: 80  }} />   {/* Building */}
             <col style={{ width: 90  }} />   {/* Sq Ft */}
             <col style={{ width: 180 }} />   {/* Term / Prior Notice */}
             <col style={{ width: 120 }} />   {/* Notice Date */}
