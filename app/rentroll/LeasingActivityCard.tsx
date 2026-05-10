@@ -368,7 +368,7 @@ export default function LeasingActivityCard({ rentroll }: { rentroll: RentRollDa
           </tbody>
         </table>
       </div>
-      <AddBtn onClick={addProspect} label="Add prospect" />
+      <AddBtn onClick={addProspect} label="Add Prospect" />
 
       {/* ── Pending Leases ── */}
       <SectionHeader>Pending Leases</SectionHeader>
@@ -411,7 +411,7 @@ export default function LeasingActivityCard({ rentroll }: { rentroll: RentRollDa
           </tbody>
         </table>
       </div>
-      <AddBtn onClick={addPending} label="Add pending lease" />
+      <AddBtn onClick={addPending} label="Add Pending Lease" />
 
       {/* ── Tenants Vacating ── */}
       <SectionHeader>Tenants Vacating</SectionHeader>
@@ -473,7 +473,7 @@ export default function LeasingActivityCard({ rentroll }: { rentroll: RentRollDa
           </tbody>
         </table>
       </div>
-      <AddBtn onClick={addVacating} label="Add vacating tenant" />
+      <AddBtn onClick={addVacating} label="Add Vacating Tenant" />
 
       {/* ── Options to Renew ── */}
       <SectionHeader>Option to Renew</SectionHeader>
@@ -535,7 +535,7 @@ export default function LeasingActivityCard({ rentroll }: { rentroll: RentRollDa
           </tbody>
         </table>
       </div>
-      <AddBtn onClick={addOption} label="Add option to renew" />
+      <AddBtn onClick={addOption} label="Add Option to Renew" />
     </div>
   );
 }
