@@ -385,7 +385,7 @@ export default function DashboardPage() {
                       <span style={{ width: 10, height: 10, borderRadius: 999, marginTop: 5, flexShrink: 0, background: accent }} />
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontWeight: 600, fontSize: 14 }}>
-                          Notice date — {n.tenant || "(no tenant)"}
+                          Exercise Option Notice Date — {n.tenant || "(no tenant)"}
                           {overdue && (
                             <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 999, background: "rgba(220,38,38,0.15)", color: "#b91c1c", border: "1px solid rgba(220,38,38,0.35)", letterSpacing: "0.04em" }}>PAST DUE</span>
                           )}
