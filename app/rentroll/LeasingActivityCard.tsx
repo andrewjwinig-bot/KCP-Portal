@@ -304,18 +304,18 @@ export default function LeasingActivityCard({ rentroll }: { rentroll: RentRollDa
         <table>
           <colgroup>
             <col />               {/* Tenant — flex */}
+            <col />               {/* Type Of — flex */}
             <col style={{ width: 150 }} />  {/* Building */}
             <col style={{ width: 90  }} />  {/* Sq Ft */}
-            <col />               {/* Type Of — flex */}
             <col style={{ width: 110 }} />  {/* Rating */}
             <col style={{ width: 36  }} />  {/* × */}
           </colgroup>
           <thead>
             <tr>
               <th style={thLeft}>Tenant</th>
+              <th style={thLeft}>Type Of</th>
               <th style={thCenter}>Building</th>
               <th style={thRight}>Sq Ft</th>
-              <th style={thLeft}>Type Of</th>
               <th style={{ ...thRight, whiteSpace: "nowrap" }}>Rating (1-5)</th>
               <th />
             </tr>
@@ -327,6 +327,9 @@ export default function LeasingActivityCard({ rentroll }: { rentroll: RentRollDa
                   <input style={inputStyle} value={p.tenant} onChange={(e) => update("prospects", (r) => r.map(x => x.id === p.id ? { ...x, tenant: e.target.value } : x))} />
                 </td>
                 <td >
+                  <input style={inputStyle} value={p.typeOf} onChange={(e) => update("prospects", (r) => r.map(x => x.id === p.id ? { ...x, typeOf: e.target.value } : x))} />
+                </td>
+                <td >
                   <BuildingMultiSelect
                     value={p.building}
                     onChange={(v) => update("prospects", (r) => r.map(x => x.id === p.id ? { ...x, building: v } : x))}
@@ -334,9 +337,6 @@ export default function LeasingActivityCard({ rentroll }: { rentroll: RentRollDa
                 </td>
                 <td style={{ textAlign: "right" }}>
                   <input style={{ ...inputStyle, textAlign: "right" }} value={p.sqft ? p.sqft.toLocaleString() : ""} onChange={(e) => update("prospects", (r) => r.map(x => x.id === p.id ? { ...x, sqft: Number(e.target.value.replace(/[^0-9]/g, "")) || 0 } : x))} />
-                </td>
-                <td >
-                  <input style={inputStyle} value={p.typeOf} onChange={(e) => update("prospects", (r) => r.map(x => x.id === p.id ? { ...x, typeOf: e.target.value } : x))} />
                 </td>
                 <td style={{ textAlign: "right" }}>
                   <select
