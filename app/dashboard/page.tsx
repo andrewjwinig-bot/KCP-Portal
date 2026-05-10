@@ -43,17 +43,39 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [checkedByYear, setCheckedByYear] = useState<Record<number, Record<string, boolean>>>({});
   const [vacatingMatchers, setVacatingMatchers] = useState<{ unitRefs: Set<string>; names: Set<string> }>({ unitRefs: new Set(), names: new Set() });
+  const [upcomingNotices, setUpcomingNotices] = useState<{ tenant: string; building: string; noticeDate: string; daysUntil: number }[]>([]);
 
   const isAdmin = user.id === "admin";
 
   useEffect(() => {
     fetch("/api/rentroll").then((r) => r.json()).then((j) => setRentroll(j.rentroll ?? null)).catch(() => setRentroll(null)).finally(() => setLoading(false));
     fetch("/api/leasing-activity").then((r) => r.json()).then((j) => {
-      const list = (j?.leasingActivity?.tenantsVacating ?? []) as { unitRef?: string; tenant?: string }[];
+      const la = j?.leasingActivity ?? {};
+      const list = (la?.tenantsVacating ?? []) as { unitRef?: string; tenant?: string }[];
       setVacatingMatchers({
         unitRefs: new Set(list.map(v => v.unitRef ?? "").filter(Boolean)),
         names:    new Set(list.map(v => (v.tenant ?? "").toLowerCase().trim()).filter(Boolean)),
       });
+      // Upcoming option-to-renew notice dates within 30 days (or past-due)
+      const opts = (la?.optionsToRenew ?? []) as { tenant?: string; building?: string; noticeDate?: string }[];
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      const cutoff = new Date(today); cutoff.setDate(today.getDate() + 30);
+      const rows: { tenant: string; building: string; noticeDate: string; daysUntil: number }[] = [];
+      for (const o of opts) {
+        const m = (o.noticeDate ?? "").match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+        if (!m) continue;
+        const d = new Date(Number(m[3]), Number(m[1]) - 1, Number(m[2]));
+        if (d > cutoff) continue;
+        const days = Math.round((d.getTime() - today.getTime()) / 86400000);
+        rows.push({
+          tenant: o.tenant ?? "",
+          building: o.building ?? "",
+          noticeDate: o.noticeDate ?? "",
+          daysUntil: days,
+        });
+      }
+      rows.sort((a, b) => a.daysUntil - b.daysUntil);
+      setUpcomingNotices(rows);
     }).catch(() => {});
   }, []);
 
@@ -320,6 +342,42 @@ export default function DashboardPage() {
                   Open →
                 </Link>
               </div>
+              )}
+
+              {(user.navKeys.has("all") || user.navKeys.has("leasing-activity")) && upcomingNotices.length > 0 && (
+                <div style={{
+                  display: "flex", alignItems: "flex-start", gap: 10,
+                  padding: "10px 12px",
+                  border: "1px solid rgba(217,119,6,0.3)",
+                  background: "rgba(217,119,6,0.06)",
+                  borderRadius: 8,
+                }}>
+                  <span style={{ width: 10, height: 10, borderRadius: 999, marginTop: 5, flexShrink: 0, background: "#d97706" }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 600, fontSize: 14 }}>
+                      Option Notice Dates within 30 days
+                      <span style={{ fontWeight: 500, color: "var(--muted)", marginLeft: 8 }}>· {upcomingNotices.length}</span>
+                    </div>
+                    <div className="muted small" style={{ marginTop: 2, display: "flex", flexDirection: "column", gap: 2 }}>
+                      {upcomingNotices.slice(0, 5).map((n, i) => (
+                        <div key={i}>
+                          <b style={{ color: n.daysUntil < 0 ? "#b91c1c" : "var(--text)" }}>{n.tenant}</b>
+                          {n.building && <span> · Bldg {n.building}</span>}
+                          <span> · {n.noticeDate}</span>
+                          <span style={{ marginLeft: 6, color: n.daysUntil < 0 ? "#b91c1c" : "#b45309" }}>
+                            ({n.daysUntil < 0 ? `${Math.abs(n.daysUntil)}d ago` : n.daysUntil === 0 ? "today" : `in ${n.daysUntil}d`})
+                          </span>
+                        </div>
+                      ))}
+                      {upcomingNotices.length > 5 && (
+                        <div className="muted small" style={{ marginTop: 2 }}>+ {upcomingNotices.length - 5} more</div>
+                      )}
+                    </div>
+                  </div>
+                  <Link href="/rentroll/leasing" style={{ fontSize: 12, fontWeight: 600, color: "#0b4a7d", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>
+                    Open →
+                  </Link>
+                </div>
               )}
             </div>
           )}
