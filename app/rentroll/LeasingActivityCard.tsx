@@ -226,25 +226,40 @@ export default function LeasingActivityCard({ rentroll }: { rentroll: RentRollDa
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Snapshot of the most recently persisted payload — saves are skipped when
+  // the current data matches this. Set on initial GET and after each successful PUT.
+  const lastSavedRef = useRef<string>(JSON.stringify(EMPTY_LEASING_ACTIVITY));
+
   useEffect(() => {
     fetch("/api/leasing-activity")
       .then((r) => r.json())
-      .then((j) => setData(j.leasingActivity ?? EMPTY_LEASING_ACTIVITY))
+      .then((j) => {
+        const initial = j.leasingActivity ?? EMPTY_LEASING_ACTIVITY;
+        lastSavedRef.current = JSON.stringify(initial);
+        setData(initial);
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
 
-  // Debounced save on data change (skip the initial load)
+  // Debounced save when the user actually changes something
   useEffect(() => {
     if (loading) return;
+    const serialized = JSON.stringify(data);
+    if (serialized === lastSavedRef.current) return; // nothing changed since last save
+
     const t = setTimeout(async () => {
       try {
         const res = await fetch("/api/leasing-activity", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(data),
+          body: serialized,
         });
-        if (!res.ok) throw new Error("Save failed");
+        if (!res.ok) {
+          const text = await res.text().catch(() => "");
+          throw new Error(text ? text.slice(0, 120) : `Save failed (${res.status})`);
+        }
+        lastSavedRef.current = serialized;
         setSavedAt(Date.now());
         setError(null);
       } catch (err: any) {
