@@ -56,6 +56,13 @@ function money(n: number) {
   return n.toLocaleString("en-US", { style: "currency", currency: "USD" });
 }
 function sqftFmt(n: number) { return n.toLocaleString("en-US"); }
+function mdyToTs(s: string | null | undefined): number {
+  // Convert MM/DD/YYYY → epoch ms; missing/invalid sorts to the end.
+  if (!s) return Number.POSITIVE_INFINITY;
+  const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (!m) return Number.POSITIVE_INFINITY;
+  return new Date(Number(m[3]), Number(m[1]) - 1, Number(m[2])).getTime();
+}
 function parseDate(s: string | null | undefined): Date | null {
   if (!s) return null;
   const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
@@ -617,7 +624,8 @@ export async function POST(req: Request) {
           if (leasing.tenantsVacating.length === 0) {
             drawRow(cols, ["—", "", "", "", ""], { muted: true });
           } else {
-            for (const v of leasing.tenantsVacating) {
+            const vacatingSorted = leasing.tenantsVacating.slice().sort((a, b) => mdyToTs(a.expirationDate) - mdyToTs(b.expirationDate));
+            for (const v of vacatingSorted) {
               const auto = v.unitRef ? unitLookup.get(v.unitRef) : null;
               pageBreakIfNeeded(16);
               drawRow(cols, [
@@ -649,7 +657,8 @@ export async function POST(req: Request) {
           if (leasing.optionsToRenew.length === 0) {
             drawRow(cols, ["—", "", "", "", "", ""], { muted: true });
           } else {
-            for (const o of leasing.optionsToRenew) {
+            const optionsSorted = leasing.optionsToRenew.slice().sort((a, b) => mdyToTs(a.noticeDate) - mdyToTs(b.noticeDate));
+            for (const o of optionsSorted) {
               const auto = o.unitRef ? unitLookup.get(o.unitRef) : null;
               pageBreakIfNeeded(16);
               drawRow(cols, [
