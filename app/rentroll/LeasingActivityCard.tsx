@@ -410,6 +410,7 @@ export default function LeasingActivityCard({ rentroll }: { rentroll: RentRollDa
           <colgroup>
             <col />                          {/* Tenant — flex */}
             <col style={{ width: 150 }} />   {/* Building */}
+            <col style={{ width: 110 }} />   {/* Suite */}
             <col style={{ width: 90  }} />   {/* Sq Ft */}
             <col style={{ width: 120 }} />   {/* Expiration Date */}
             <col style={{ width: 36  }} />   {/* × */}
@@ -418,6 +419,7 @@ export default function LeasingActivityCard({ rentroll }: { rentroll: RentRollDa
             <tr>
               <th style={thLeft}>Tenant</th>
               <th style={thCenter}>Building</th>
+              <th style={thCenter}>Suite</th>
               <th style={thRight}>Sq Ft</th>
               <th style={thLeft}>Expiration Date</th>
               <th />
@@ -452,6 +454,7 @@ export default function LeasingActivityCard({ rentroll }: { rentroll: RentRollDa
                   </select>
                 </td>
                 <td style={tdReadCenter}><span style={{ fontSize: 14 }}>{v.building || "—"}</span></td>
+                <td style={tdReadCenter}><span style={{ fontSize: 14 }}>{v.unitRef || "—"}</span></td>
                 <td style={tdReadRight}><span style={{ fontSize: 14 }}>{v.sqft ? v.sqft.toLocaleString() : "—"}</span></td>
                 <td style={tdReadLeft}><span style={{ fontSize: 14 }}>{v.expirationDate || "—"}</span></td>
                 <td><DeleteBtn onClick={() => update("tenantsVacating", (r) => r.filter(x => x.id !== v.id))} /></td>
