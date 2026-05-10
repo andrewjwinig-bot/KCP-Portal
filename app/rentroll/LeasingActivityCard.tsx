@@ -307,7 +307,7 @@ export default function LeasingActivityCard({ rentroll }: { rentroll: RentRollDa
             <col />               {/* Type Of — flex */}
             <col style={{ width: 150 }} />  {/* Building */}
             <col style={{ width: 90  }} />  {/* Sq Ft */}
-            <col style={{ width: 110 }} />  {/* Rating */}
+            <col style={{ width: 120 }} />  {/* Rating (matches date columns) */}
             <col style={{ width: 36  }} />  {/* × */}
           </colgroup>
           <thead>
@@ -316,7 +316,7 @@ export default function LeasingActivityCard({ rentroll }: { rentroll: RentRollDa
               <th style={thLeft}>Type Of</th>
               <th style={thCenter}>Building</th>
               <th style={thRight}>Sq Ft</th>
-              <th style={{ ...thRight, whiteSpace: "nowrap" }}>Rating (1-5)</th>
+              <th style={{ ...thCenter, whiteSpace: "nowrap" }}>Rating (1-5)</th>
               <th />
             </tr>
           </thead>
@@ -338,9 +338,9 @@ export default function LeasingActivityCard({ rentroll }: { rentroll: RentRollDa
                 <td style={{ textAlign: "right" }}>
                   <input style={{ ...inputStyle, textAlign: "right" }} value={p.sqft ? p.sqft.toLocaleString() : ""} onChange={(e) => update("prospects", (r) => r.map(x => x.id === p.id ? { ...x, sqft: Number(e.target.value.replace(/[^0-9]/g, "")) || 0 } : x))} />
                 </td>
-                <td style={{ textAlign: "right" }}>
+                <td style={{ textAlign: "center" }}>
                   <select
-                    style={{ ...inputStyle, textAlign: "right" }}
+                    style={{ ...inputStyle, textAlign: "center" }}
                     value={p.rating ?? ""}
                     onChange={(e) => {
                       const v = e.target.value;
