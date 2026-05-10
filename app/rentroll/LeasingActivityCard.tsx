@@ -43,8 +43,10 @@ function tenantOptions(rentroll: RentRollData | null): TenantOption[] {
 const HEADER_INSET = 11;
 const thLeft: React.CSSProperties  = { paddingLeft:  10 + HEADER_INSET };
 const thRight: React.CSSProperties = { textAlign: "right", paddingRight: 10 + HEADER_INSET };
+const thCenter: React.CSSProperties = { textAlign: "center" };
 const tdReadLeft: React.CSSProperties  = { paddingLeft:  10 + HEADER_INSET };
 const tdReadRight: React.CSSProperties = { textAlign: "right", paddingRight: 10 + HEADER_INSET };
+const tdReadCenter: React.CSSProperties = { textAlign: "center" };
 
 // Office building short labels (in display order) used in the Prospects building selector
 const OFFICE_BUILDING_LABELS = ["1", "2", "4", "5", "6", "7", "8", "Kor A", "Kor B", "Kor C"];
@@ -93,17 +95,15 @@ function BuildingMultiSelect({ value, onChange }: { value: string; onChange: (v:
         onClick={() => setOpen(o => !o)}
         style={{
           ...inputStyle,
-          textAlign: "left",
+          textAlign: "center",
           cursor: "pointer",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 8,
+          position: "relative",
           color: value ? "var(--text)" : "var(--muted)",
+          paddingRight: 24,
         }}
       >
         <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{display}</span>
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6, transform: open ? "rotate(180deg)" : undefined, transition: "transform 0.15s" }}>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ position: "absolute", right: 8, top: "50%", transform: `translateY(-50%) ${open ? "rotate(180deg)" : ""}`, opacity: 0.6, transition: "transform 0.15s" }}>
           <polyline points="6 9 12 15 18 9" />
         </svg>
       </button>
@@ -292,16 +292,16 @@ export default function LeasingActivityCard({ rentroll }: { rentroll: RentRollDa
             <col style={{ width: 150 }} />  {/* Building */}
             <col style={{ width: 90  }} />  {/* Sq Ft */}
             <col />               {/* Type Of — flex */}
-            <col style={{ width: 80  }} />  {/* Rating */}
+            <col style={{ width: 110 }} />  {/* Rating */}
             <col style={{ width: 36  }} />  {/* × */}
           </colgroup>
           <thead>
             <tr>
               <th style={thLeft}>Tenant</th>
-              <th style={thLeft}>Building</th>
+              <th style={thCenter}>Building</th>
               <th style={thRight}>Sq Ft</th>
               <th style={thLeft}>Type Of</th>
-              <th style={thRight}>Rating&nbsp;(1-5)</th>
+              <th style={{ ...thRight, whiteSpace: "nowrap" }}>Rating (1-5)</th>
               <th />
             </tr>
           </thead>
@@ -359,7 +359,7 @@ export default function LeasingActivityCard({ rentroll }: { rentroll: RentRollDa
           <thead>
             <tr>
               <th style={thLeft}>Tenant</th>
-              <th style={thLeft}>Building</th>
+              <th style={thCenter}>Building</th>
               <th style={thRight}>Sq Ft</th>
               <th style={thLeft}>Start Date</th>
               <th />
@@ -372,7 +372,7 @@ export default function LeasingActivityCard({ rentroll }: { rentroll: RentRollDa
                   <input style={inputStyle} value={p.tenant} onChange={(e) => update("pendingLeases", (r) => r.map(x => x.id === p.id ? { ...x, tenant: e.target.value } : x))} />
                 </td>
                 <td >
-                  <input style={inputStyle} value={p.building} onChange={(e) => update("pendingLeases", (r) => r.map(x => x.id === p.id ? { ...x, building: e.target.value } : x))} />
+                  <input style={{ ...inputStyle, textAlign: "center" }} value={p.building} onChange={(e) => update("pendingLeases", (r) => r.map(x => x.id === p.id ? { ...x, building: e.target.value } : x))} />
                 </td>
                 <td style={{ textAlign: "right" }}>
                   <input style={{ ...inputStyle, textAlign: "right" }} value={p.sqft ? p.sqft.toLocaleString() : ""} onChange={(e) => update("pendingLeases", (r) => r.map(x => x.id === p.id ? { ...x, sqft: Number(e.target.value.replace(/[^0-9]/g, "")) || 0 } : x))} />
@@ -402,7 +402,7 @@ export default function LeasingActivityCard({ rentroll }: { rentroll: RentRollDa
           <thead>
             <tr>
               <th style={thLeft}>Tenant</th>
-              <th style={thLeft}>Building</th>
+              <th style={thCenter}>Building</th>
               <th style={thRight}>Sq Ft</th>
               <th style={thLeft}>Expiration Date</th>
               <th />
@@ -436,7 +436,7 @@ export default function LeasingActivityCard({ rentroll }: { rentroll: RentRollDa
                     {opts.map((o) => <option key={o.unitRef} value={o.unitRef}>{o.label}</option>)}
                   </select>
                 </td>
-                <td style={tdReadLeft}><span style={{ fontSize: 14 }}>{v.building || "—"}</span></td>
+                <td style={tdReadCenter}><span style={{ fontSize: 14 }}>{v.building || "—"}</span></td>
                 <td style={tdReadRight}><span style={{ fontSize: 14 }}>{v.sqft ? v.sqft.toLocaleString() : "—"}</span></td>
                 <td style={tdReadLeft}><span style={{ fontSize: 14 }}>{v.expirationDate || "—"}</span></td>
                 <td><DeleteBtn onClick={() => update("tenantsVacating", (r) => r.filter(x => x.id !== v.id))} /></td>
@@ -455,7 +455,7 @@ export default function LeasingActivityCard({ rentroll }: { rentroll: RentRollDa
             <col />                          {/* Tenant — flex */}
             <col style={{ width: 150 }} />   {/* Building */}
             <col style={{ width: 90  }} />   {/* Sq Ft */}
-            <col />                          {/* Term / Prior Notice — flex */}
+            <col style={{ width: 220 }} />   {/* Term / Prior Notice */}
             <col style={{ width: 120 }} />   {/* Notice Date */}
             <col style={{ width: 120 }} />   {/* Option Term Exp */}
             <col style={{ width: 36  }} />   {/* × */}
@@ -463,7 +463,7 @@ export default function LeasingActivityCard({ rentroll }: { rentroll: RentRollDa
           <thead>
             <tr>
               <th style={thLeft}>Tenant</th>
-              <th style={thLeft}>Building</th>
+              <th style={thCenter}>Building</th>
               <th style={thRight}>Sq Ft</th>
               <th style={thLeft}>Term / Prior Notice</th>
               <th style={thLeft}>Notice Date</th>
@@ -490,7 +490,7 @@ export default function LeasingActivityCard({ rentroll }: { rentroll: RentRollDa
                     {opts.map((opt2) => <option key={opt2.unitRef} value={opt2.unitRef}>{opt2.label}</option>)}
                   </select>
                 </td>
-                <td style={tdReadLeft}><span style={{ fontSize: 14 }}>{o.building || "—"}</span></td>
+                <td style={tdReadCenter}><span style={{ fontSize: 14 }}>{o.building || "—"}</span></td>
                 <td style={tdReadRight}><span style={{ fontSize: 14 }}>{o.sqft ? o.sqft.toLocaleString() : "—"}</span></td>
                 <td>
                   <input style={inputStyle} placeholder="5 years / 6 mos." value={o.term} onChange={(e) => update("optionsToRenew", (r) => r.map(x => x.id === o.id ? { ...x, term: e.target.value } : x))} />
