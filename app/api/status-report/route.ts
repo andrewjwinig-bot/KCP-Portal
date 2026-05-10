@@ -534,9 +534,13 @@ export async function POST(req: Request) {
           curY += 6;
         }
 
-        function drawRow(cols: { label: string; align: "left" | "right" | "center"; width: number }[], values: string[], opts?: { bold?: boolean; muted?: boolean }) {
+        function drawRow(cols: { label: string; align: "left" | "right" | "center"; width: number }[], values: string[], opts?: { bold?: boolean; muted?: boolean; bg?: import("pdf-lib").RGB }) {
           const f = opts?.bold ? fontBold : font;
           const color = opts?.muted ? C_MUTED : C_DARK;
+          if (opts?.bg) {
+            const totW = cols.reduce((s, c) => s + c.width, 0);
+            page.drawRectangle({ x: tableX, y: py(curY + 14), width: totW, height: 14, color: opts.bg });
+          }
           let cx = tableX;
           for (let i = 0; i < cols.length; i++) {
             const c = cols[i];
@@ -549,6 +553,18 @@ export async function POST(req: Request) {
             cx += c.width;
           }
           curY += 14;
+        }
+
+        function noticeBg(noticeDate: string | null | undefined): import("pdf-lib").RGB | undefined {
+          const ms = mdyToTs(noticeDate);
+          if (!Number.isFinite(ms)) return undefined;
+          const today = new Date(); today.setHours(0, 0, 0, 0);
+          const days = Math.round((ms - today.getTime()) / 86400000);
+          if (days < 0)   return rgb(0.95, 0.78, 0.78); // strong red wash for past-due
+          if (days <= 30) return rgb(0.97, 0.86, 0.86);
+          if (days <= 60) return rgb(0.98, 0.89, 0.80);
+          if (days <= 90) return rgb(0.99, 0.93, 0.83);
+          return undefined;
         }
 
         // ── Prospects
@@ -668,7 +684,7 @@ export async function POST(req: Request) {
                 o.term ?? "",
                 fmtDate(o.noticeDate),
                 fmtDate(o.optionTermExp),
-              ]);
+              ], { bg: noticeBg(o.noticeDate) });
             }
           }
         }

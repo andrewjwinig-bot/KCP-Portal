@@ -61,6 +61,28 @@ const tdReadCenter: React.CSSProperties = { textAlign: "center" };
 // Office building short labels (in display order) used in the Prospects building selector
 const OFFICE_BUILDING_LABELS = ["1", "2", "4", "5", "6", "7", "8", "Kor A", "Kor B", "Kor C"];
 
+function parseMDY(s: string | undefined | null): Date | null {
+  if (!s) return null;
+  const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (!m) return null;
+  return new Date(Number(m[3]), Number(m[1]) - 1, Number(m[2]));
+}
+function daysFromToday(d: Date): number {
+  const t = new Date(); t.setHours(0, 0, 0, 0);
+  return Math.round((d.getTime() - t.getTime()) / 86400000);
+}
+type NoticeStatus = { days: number | null; bg?: string; pastDue?: boolean };
+function noticeStatus(noticeDate: string | undefined | null): NoticeStatus {
+  const d = parseMDY(noticeDate);
+  if (!d) return { days: null };
+  const days = daysFromToday(d);
+  if (days < 0)   return { days, bg: "rgba(220,38,38,0.18)", pastDue: true };
+  if (days <= 30) return { days, bg: "rgba(220,38,38,0.10)" };
+  if (days <= 60) return { days, bg: "rgba(234,88,12,0.10)" };
+  if (days <= 90) return { days, bg: "rgba(217,119,6,0.10)" };
+  return { days };
+}
+
 function parseBuildings(value: string): string[] {
   return value.split(",").map(s => s.trim()).filter(Boolean);
 }
@@ -500,8 +522,20 @@ export default function LeasingActivityCard({ rentroll }: { rentroll: RentRollDa
             </tr>
           </thead>
           <tbody>
-            {data.optionsToRenew.map((o) => (
-              <tr key={o.id}>
+            {data.optionsToRenew
+              .slice()
+              .sort((a, b) => {
+                const da = parseMDY(a.noticeDate);
+                const db = parseMDY(b.noticeDate);
+                if (!da && !db) return 0;
+                if (!da) return 1;
+                if (!db) return -1;
+                return da.getTime() - db.getTime();
+              })
+              .map((o) => {
+                const ns = noticeStatus(o.noticeDate);
+                return (
+              <tr key={o.id} style={ns.bg ? { background: ns.bg } : undefined}>
                 <td>
                   <select
                     style={inputStyle}
@@ -517,6 +551,9 @@ export default function LeasingActivityCard({ rentroll }: { rentroll: RentRollDa
                     <option value="">{o.tenant || "— Pick a tenant —"}</option>
                     {opts.map((opt2) => <option key={opt2.unitRef} value={opt2.unitRef}>{opt2.label}</option>)}
                   </select>
+                  {ns.pastDue && (
+                    <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 999, background: "rgba(220,38,38,0.18)", color: "#b91c1c", border: "1px solid rgba(220,38,38,0.45)", letterSpacing: "0.04em" }}>PAST DUE</span>
+                  )}
                 </td>
                 <td style={tdReadCenter}><span style={{ fontSize: 14 }}>{o.building || "—"}</span></td>
                 <td style={tdReadRight}><span style={{ fontSize: 14 }}>{o.sqft ? o.sqft.toLocaleString() : "—"}</span></td>
@@ -531,7 +568,8 @@ export default function LeasingActivityCard({ rentroll }: { rentroll: RentRollDa
                 </td>
                 <td><DeleteBtn onClick={() => update("optionsToRenew", (r) => r.filter(x => x.id !== o.id))} /></td>
               </tr>
-            ))}
+                );
+              })}
           </tbody>
         </table>
       </div>
