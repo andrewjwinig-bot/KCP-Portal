@@ -160,18 +160,28 @@ export async function POST(req: Request) {
       month?: string; // "YYYY-MM" — when set, generate from a historical snapshot
     };
     let properties: any[];
+    let fullProperties: any[];
     let reportFrom: string;
     if (month && /^\d{4}-\d{2}$/.test(month)) {
       const snap = (await getJSON("rentroll-history", month)) as { properties: any[]; reportFrom?: string } | null;
       if (!snap) {
         return new NextResponse("Snapshot not found", { status: 404 });
       }
-      properties = applyCategory(snap.properties ?? [], category);
+      fullProperties = snap.properties ?? [];
+      properties = applyCategory(fullProperties, category);
       const [yy, mm] = month.split("-");
       reportFrom = snap.reportFrom ?? `${mm}/01/${yy}`;
     } else {
       properties = body.properties ?? [];
       reportFrom = body.reportFrom ?? "";
+      // Pull the unfiltered current rent roll so the Occupancy Summary can
+      // always include Office Works (4900) regardless of the category filter.
+      try {
+        const cur = (await getJSON("rentroll", "current")) as { properties?: any[] } | null;
+        fullProperties = cur?.properties?.length ? cur.properties : properties;
+      } catch {
+        fullProperties = properties;
+      }
     }
 
     const pdfDoc   = await PDFDocument.create();
@@ -289,7 +299,60 @@ export async function POST(req: Request) {
     // ── Occupancy Summary page (Office buildings — JV III + NI LLC + 4900) ───
     {
       const includeCodes = new Set([...JV_III_CODES, ...NI_LLC_CODES, ...OW_CODES]);
-      const officeProps = properties.filter((p: any) => includeCodes.has(String(p.propertyCode).toUpperCase()));
+      const officeProps = fullProperties.filter((p: any) => includeCodes.has(String(p.propertyCode).toUpperCase()));
+
+      // Pull leasing-activity to compute Pending + Vacating per property
+      let leasingForSummary: LeasingActivity = EMPTY_LEASING_ACTIVITY;
+      try {
+        const raw = (await getJSON("leasing-activity", "all")) as LeasingActivity | null;
+        if (raw) leasingForSummary = { ...EMPTY_LEASING_ACTIVITY, ...raw };
+      } catch { /* default empty */ }
+
+      const BUILDING_LABEL_TO_CODE: Record<string, string> = {
+        "1": "3610", "2": "3620", "4": "3640",
+        "5": "4050", "6": "4060", "7": "4070", "8": "4080",
+        "Kor A": "40A0", "Kor B": "40B0", "Kor C": "40C0",
+        "Office Works": "4900",
+      };
+      function buildingLabelToCode(label: string): string | null {
+        const trimmed = (label ?? "").trim();
+        // Multi-building labels like "1,6,8" — only count if single building
+        if (trimmed.includes(",")) return null;
+        return BUILDING_LABEL_TO_CODE[trimmed] ?? null;
+      }
+      type DeltaRow = { pendingSuites: number; pendingSqft: number; vacatingSuites: number; vacatingSqft: number };
+      const emptyDelta = (): DeltaRow => ({ pendingSuites: 0, pendingSqft: 0, vacatingSuites: 0, vacatingSqft: 0 });
+      const deltaByCode: Record<string, DeltaRow> = {};
+      for (const p of leasingForSummary.pendingLeases) {
+        const code = buildingLabelToCode(p.building);
+        if (!code) continue;
+        const d = (deltaByCode[code] ??= emptyDelta());
+        d.pendingSuites += 1;
+        d.pendingSqft += p.sqft || 0;
+      }
+      for (const v of leasingForSummary.tenantsVacating) {
+        // Prefer linked unitRef → resolve to property code; otherwise use the
+        // typed building label.
+        let code: string | null = null;
+        if (v.unitRef) code = v.unitRef.split("-")[0].toUpperCase();
+        if (!code) code = buildingLabelToCode(v.building);
+        if (!code) continue;
+        const d = (deltaByCode[code] ??= emptyDelta());
+        d.vacatingSuites += 1;
+        d.vacatingSqft += v.sqft || 0;
+      }
+      function deltaFor(codes: Set<string>): DeltaRow {
+        const out = emptyDelta();
+        for (const c of codes) {
+          const d = deltaByCode[c];
+          if (!d) continue;
+          out.pendingSuites += d.pendingSuites;
+          out.pendingSqft += d.pendingSqft;
+          out.vacatingSuites += d.vacatingSuites;
+          out.vacatingSqft += d.vacatingSqft;
+        }
+        return out;
+      }
       if (officeProps.length) {
         type Row = { code: string; name: string; total: number; occSuites: number; occSqft: number; vacSuites: number; vacSqft: number };
         function tally(prop: any): Row {
@@ -402,9 +465,33 @@ export async function POST(req: Request) {
           }
         }
 
-        function drawDataRow(yTop: number, label: string, row: Row, alt: boolean, bold: boolean) {
+        // Slightly darker than the global C_ALT for better readability on this page.
+        const ROW_ALT_BG = rgb(0.91, 0.92, 0.93);
+
+        // Per-column boundaries (x positions) used to draw vertical gridlines.
+        const colBoundaries = [
+          tableX + labelW,
+          tableX + labelW + totW,
+          ...grpStartXs.slice(1).flatMap((_x, _i) => [] as number[]),
+        ];
+        // Build column boundaries: after label, after total, after each grpSubW within each group.
+        const allBoundaries: number[] = [];
+        {
+          let cx = tableX + labelW;
+          allBoundaries.push(cx);
+          cx += totW;
+          allBoundaries.push(cx);
+          for (let g = 0; g < 3; g++) {
+            for (let j = 0; j < grpSubW.length; j++) {
+              cx += grpSubW[j];
+              allBoundaries.push(cx);
+            }
+          }
+        }
+
+        function drawDataRow(yTop: number, label: string, row: Row, alt: boolean, bold: boolean, delta?: DeltaRow) {
           if (alt) {
-            page.drawRectangle({ x: tableX, y: py(yTop + ROW_H_LOC), width: tableW, height: ROW_H_LOC, color: C_ALT });
+            page.drawRectangle({ x: tableX, y: py(yTop + ROW_H_LOC), width: tableW, height: ROW_H_LOC, color: ROW_ALT_BG });
           }
           const f = bold ? fontBold : font;
           // Label
@@ -413,12 +500,14 @@ export async function POST(req: Request) {
           const totVal = sqftFmt(row.total);
           const totW2 = f.widthOfTextAtSize(totVal, 9);
           page.drawText(totVal, { x: tableX + labelW + totW - 6 - totW2, y: py(yTop + ROW_H_LOC - 5), size: 9, font: f, color: C_DARK });
-          // Group cells
+          // Group cells: Occupied | Vacant | W/ Pending & Vacating
+          const d = delta ?? emptyDelta();
+          const pendingSuites  = row.occSuites + d.pendingSuites - d.vacatingSuites;
+          const pendingSqft    = row.occSqft + d.pendingSqft - d.vacatingSqft;
           const groups: [number, number, number][] = [
             [row.occSuites, row.occSqft, Math.round((row.occSqft / Math.max(row.total, 1)) * 100)],
             [row.vacSuites, row.vacSqft, Math.round((row.vacSqft / Math.max(row.total, 1)) * 100)],
-            // Pending placeholder = same as Occupied for now
-            [row.occSuites, row.occSqft, Math.round((row.occSqft / Math.max(row.total, 1)) * 100)],
+            [pendingSuites, pendingSqft, Math.round((pendingSqft / Math.max(row.total, 1)) * 100)],
           ];
           for (let i = 0; i < grpStartXs.length; i++) {
             const [s, sf, p] = groups[i];
@@ -430,6 +519,10 @@ export async function POST(req: Request) {
               page.drawText(vals[j], { x: cx + w - 6 - tw, y: py(yTop + ROW_H_LOC - 5), size: 9, font: f, color: C_DARK });
               cx += w;
             }
+          }
+          // Vertical gridlines through this row
+          for (const bx of allBoundaries) {
+            page.drawLine({ start: { x: bx, y: py(yTop) }, end: { x: bx, y: py(yTop + ROW_H_LOC) }, thickness: 0.4, color: C_LINE });
           }
         }
 
@@ -446,17 +539,19 @@ export async function POST(req: Request) {
         // Bottom rule under headers
         page.drawLine({ start: { x: tableX, y: py(curY) }, end: { x: tableX + tableW, y: py(curY) }, thickness: 0.5, color: C_DARK });
 
-        const entityRows: { label: string; row: Row }[] = [];
-        if (jvRows.length) entityRows.push({ label: "JVIII LLC", row: jvTotal });
-        if (niRows.length) entityRows.push({ label: "Neshaminy LLC", row: niTotal });
+        const entityRows: { label: string; row: Row; delta: DeltaRow }[] = [];
+        if (jvRows.length) entityRows.push({ label: "JVIII LLC",     row: jvTotal, delta: deltaFor(JV_III_CODES) });
+        if (niRows.length) entityRows.push({ label: "Neshaminy LLC", row: niTotal, delta: deltaFor(NI_LLC_CODES) });
+        const allOfficeCodes = new Set<string>([...JV_III_CODES, ...NI_LLC_CODES]);
+        const grandDelta = deltaFor(allOfficeCodes);
 
         for (let i = 0; i < entityRows.length; i++) {
-          drawDataRow(curY, entityRows[i].label, entityRows[i].row, i % 2 === 0, false);
+          drawDataRow(curY, entityRows[i].label, entityRows[i].row, i % 2 === 0, false, entityRows[i].delta);
           curY += ROW_H_LOC;
         }
         // Total row
         page.drawLine({ start: { x: tableX, y: py(curY) }, end: { x: tableX + tableW, y: py(curY) }, thickness: 0.5, color: C_DARK });
-        drawDataRow(curY, "TOTAL:", grandTotal, false, true);
+        drawDataRow(curY, "TOTAL:", grandTotal, false, true, grandDelta);
         curY += ROW_H_LOC + 14;
 
         // ── Table 2: Building ──
@@ -467,16 +562,16 @@ export async function POST(req: Request) {
         curY += 16;
         page.drawLine({ start: { x: tableX, y: py(curY) }, end: { x: tableX + tableW, y: py(curY) }, thickness: 0.5, color: C_DARK });
 
-        const buildingRows: { label: string; row: Row }[] = [];
-        for (const r of jvRows) buildingRows.push({ label: r.name, row: r });
-        for (const r of niRows) buildingRows.push({ label: r.name, row: r });
+        const buildingRows: { label: string; row: Row; delta: DeltaRow }[] = [];
+        for (const r of jvRows) buildingRows.push({ label: r.name, row: r, delta: deltaFor(new Set([r.code])) });
+        for (const r of niRows) buildingRows.push({ label: r.name, row: r, delta: deltaFor(new Set([r.code])) });
 
         for (let i = 0; i < buildingRows.length; i++) {
-          drawDataRow(curY, buildingRows[i].label, buildingRows[i].row, i % 2 === 0, false);
+          drawDataRow(curY, buildingRows[i].label, buildingRows[i].row, i % 2 === 0, false, buildingRows[i].delta);
           curY += ROW_H_LOC;
         }
         page.drawLine({ start: { x: tableX, y: py(curY) }, end: { x: tableX + tableW, y: py(curY) }, thickness: 0.5, color: C_DARK });
-        drawDataRow(curY, "TOTAL:", grandTotal, false, true);
+        drawDataRow(curY, "TOTAL:", grandTotal, false, true, grandDelta);
         curY += ROW_H_LOC + 14;
 
         // ── Table 3: The Office Works (4900) ──
@@ -488,7 +583,8 @@ export async function POST(req: Request) {
           curY += 16;
           page.drawLine({ start: { x: tableX, y: py(curY) }, end: { x: tableX + tableW, y: py(curY) }, thickness: 0.5, color: C_DARK });
           for (let i = 0; i < owRows.length; i++) {
-            drawDataRow(curY, "Office Works", owRows[i], i % 2 === 0, false);
+            const owDelta = deltaFor(new Set([owRows[i].code]));
+            drawDataRow(curY, "Office Works", owRows[i], i % 2 === 0, false, owDelta);
             curY += ROW_H_LOC;
           }
           curY += 8;
