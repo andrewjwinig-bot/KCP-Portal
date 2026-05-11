@@ -50,6 +50,7 @@ function applyCategory(properties: any[], category: string): any[] {
 }
 
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const MONTHS_LONG = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function money(n: number) {
@@ -211,14 +212,21 @@ export async function POST(req: Request) {
     // ── Cover page ────────────────────────────────────────────────────────────
     {
       const { page } = newPage();
-      const titleSz = 26;
-      const titleW  = fontBold.widthOfTextAtSize(reportTitle, titleSz);
-      page.drawText(reportTitle, { x: (PW - titleW) / 2, y: py(200), size: titleSz, font: fontBold, color: C_DARK });
 
-      const now     = new Date();
-      const dateStr = `Generated ${MONTHS[now.getMonth()]} ${now.getDate()}, ${now.getFullYear()}`;
-      const dateW   = font.widthOfTextAtSize(dateStr, 10);
-      page.drawText(dateStr, { x: (PW - dateW) / 2, y: py(240), size: 10, font, color: C_MUTED });
+      // Title
+      const coverTitle = "Neshaminy Interplex Business Center Leasing Status Report";
+      const titleSz = 24;
+      const titleW = fontBold.widthOfTextAtSize(coverTitle, titleSz);
+      page.drawText(coverTitle, { x: (PW - titleW) / 2, y: py(200), size: titleSz, font: fontBold, color: C_DARK });
+
+      // Period (e.g. "May 2026") below title
+      const m = reportFrom?.match(/^(\d{1,2})\/\d+\/(\d{4})$/);
+      const periodLong = m ? `${MONTHS_LONG[parseInt(m[1]) - 1]} ${m[2]}` : "";
+      if (periodLong) {
+        const plSz = 14;
+        const plW = font.widthOfTextAtSize(periodLong, plSz);
+        page.drawText(periodLong, { x: (PW - plW) / 2, y: py(228), size: plSz, font, color: C_BRAND });
+      }
 
       // Summary stat boxes
       const totSqft  = properties.reduce((s: number, p: any) => s + p.totalSqft,    0);
@@ -230,7 +238,7 @@ export async function POST(req: Request) {
         { label: "Properties",    value: String(properties.length) },
         { label: "Total Sq Ft",   value: sqftFmt(totSqft)          },
         { label: "Occupancy",     value: `${occ.toFixed(1)}%`      },
-        { label: "Gross Rent/mo", value: money(totGross)           },
+        { label: "Gross Rent/mo", value: `$${Math.round(totGross).toLocaleString("en-US")}` },
       ];
       const boxW = 140;
       const boxH = 56;
@@ -245,6 +253,37 @@ export async function POST(req: Request) {
         const lw = font.widthOfTextAtSize(s.label, 9);
         page.drawText(s.label, { x: x + (boxW - lw) / 2, y: y - 41, size: 9, font, color: C_MUTED });
       });
+
+      // ── Bottom-left: generated date ──
+      const now = new Date();
+      const generated = `Generated ${MONTHS_LONG[now.getMonth()]} ${now.getDate()}, ${now.getFullYear()}`;
+      page.drawText(generated, { x: M, y: M + 10, size: 9, font, color: C_MUTED });
+
+      // ── Bottom-right: Korman Commercial Properties wordmark ──
+      const word1 = "KORMAN";
+      const word2 = "COMMERCIAL";
+      const word3 = "PROPERTIES";
+      // KORMAN big bold
+      const w1Size = 16;
+      const w1W = fontBold.widthOfTextAtSize(word1, w1Size);
+      // Small uppercase tagline (two stacked lines)
+      const tagSize = 7;
+      const tagW = Math.max(font.widthOfTextAtSize(word2, tagSize), font.widthOfTextAtSize(word3, tagSize));
+      const dividerW = 1;
+      const innerGap = 8;
+      const totalLogoW = w1W + innerGap + dividerW + innerGap + tagW;
+      const logoRight = PW - M;
+      const baseY = M + 10;
+      const logoLeft = logoRight - totalLogoW;
+      // KORMAN
+      page.drawText(word1, { x: logoLeft, y: baseY + 2, size: w1Size, font: fontBold, color: C_DARK });
+      // Divider
+      const divX = logoLeft + w1W + innerGap;
+      page.drawLine({ start: { x: divX, y: baseY }, end: { x: divX, y: baseY + 16 }, thickness: 1, color: C_DARK });
+      // Tagline lines (top: COMMERCIAL, bottom: PROPERTIES)
+      const tagX = divX + innerGap;
+      page.drawText(word2, { x: tagX, y: baseY + 10, size: tagSize, font, color: C_DARK });
+      page.drawText(word3, { x: tagX, y: baseY + 2,  size: tagSize, font, color: C_DARK });
     }
 
     // ── Occupancy Summary page (Office buildings — JV III + NI LLC + 4900) ───
