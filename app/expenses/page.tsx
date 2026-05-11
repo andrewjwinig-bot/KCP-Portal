@@ -383,6 +383,7 @@ function getAccountCodes(category: string, propertyId: string): string[] {
   if (category === "EQUIPMENT (CAP)") return ["1450-0000"];
   if (category === "BUILDINGS (CAP)") return ["1430-0000"];
   if (category === "BUILDING MAINT.") return ["6220-8502"];
+  if (category === "OFFICE SUPPLIES") return ["8930-8502"];
   const catAcc = (CATEGORY_ACC as Record<string, string>)[category];
   const propAcc2 = (PROPERTY_ACC2 as Record<string, string[]>)[propertyId];
   if (!catAcc || !propAcc2 || !propAcc2.length) return [];
