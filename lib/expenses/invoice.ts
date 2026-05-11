@@ -205,11 +205,28 @@ export function buildInvoicePdf(args: BuildInvoicePdfArgs): Blob {
 
   const invoiceId = args.invoiceId || makeInvoiceId(args.propertyCode);
 
+  // 2010 (LIK Management) credit-card statement is for tracking only — show a
+  // bold "DO NOT PROCESS" banner at the top of every page so AP doesn't pay it.
+  const showDoNotProcess = args.propertyCode === "2010";
+  function drawDoNotProcessBanner() {
+    if (!showDoNotProcess) return;
+    doc.setFillColor(220, 38, 38);
+    doc.rect(0, 0, pageW, 26, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(14);
+    doc.text("DO NOT PROCESS", pageW / 2, 17, { align: "center" });
+    doc.setTextColor(0, 0, 0);
+  }
+
   // ── Compute grand total up front (used on both pages) ──────────────────
   let grandTotal = 0;
   for (const cg of args.categoryGroups) {
     for (const t of cg.items) grandTotal += Number(t.amount || 0);
   }
+
+  // Initial page banner
+  drawDoNotProcessBanner();
 
   // ════════════════════════════════════════════════════════════════════════
   // PAGE 1 — HEADER BLOCK
@@ -389,6 +406,7 @@ export function buildInvoicePdf(args: BuildInvoicePdfArgs): Blob {
   // ════════════════════════════════════════════════════════════════════════
 
   doc.addPage();
+          drawDoNotProcessBanner();
 
   const colDate  = 56;
   const colCat2  = 86;
@@ -445,6 +463,7 @@ export function buildInvoicePdf(args: BuildInvoicePdfArgs): Blob {
       for (const r of accLines) {
         if (y + detRowH > pageH - detBottomMgn) {
           doc.addPage();
+          drawDoNotProcessBanner();
           y = margin;
           drawDetailHeader(y);
           y += detHeaderH;
@@ -472,6 +491,7 @@ export function buildInvoicePdf(args: BuildInvoicePdfArgs): Blob {
       // ── Subtotal row (light blue) ──
       if (y + detSubRowH > pageH - detBottomMgn) {
         doc.addPage();
+          drawDoNotProcessBanner();
         y = margin;
         drawDetailHeader(y);
         y += detHeaderH;
