@@ -44,7 +44,7 @@ const CATEGORY_ACC: Record<string, string> = {
   "MARKETING NR": "7110",
   "BUILDING MAINT.": "6220",
   TI: "1440",
-  "OFFICE SUPPLIES": "9830",
+  "OFFICE SUPPLIES": "8930",
   AUTO: "8980",
   TELEPHONE: "8940",
   "COMP & IT": "8400",
@@ -162,6 +162,10 @@ function buildLinesForCategory(
     if (category === "BUILDING MAINT.") {
       const amt = Number(t.amount || 0);
       return [{ date: t.date, accountCode: "6220-8502", description: useDesc, amount: amt, originalAmount: orig }];
+    }
+    if (category === "OFFICE SUPPLIES") {
+      const amt = Number(t.amount || 0);
+      return [{ date: t.date, accountCode: "8930-8502", description: useDesc, amount: amt, originalAmount: orig }];
     }
 
     const acc = CATEGORY_ACC[category] || "";
