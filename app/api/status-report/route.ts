@@ -468,24 +468,19 @@ export async function POST(req: Request) {
         // Slightly darker than the global C_ALT for better readability on this page.
         const ROW_ALT_BG = rgb(0.91, 0.92, 0.93);
 
-        // Per-column boundaries (x positions) used to draw vertical gridlines.
-        const colBoundaries = [
-          tableX + labelW,
-          tableX + labelW + totW,
-          ...grpStartXs.slice(1).flatMap((_x, _i) => [] as number[]),
+        // Group-boundary X positions — vertical gridlines render at each group
+        // boundary only (matches the source Excel report), not between every
+        // sub-column.
+        const groupDividerXs = [
+          tableX + labelW,              // after label
+          tableX + labelW + totW,       // after Total
+          grpStartXs[1],                // after Occupied
+          grpStartXs[2],                // after Vacant
+          tableX + tableW,              // right edge (after Pending)
         ];
-        // Build column boundaries: after label, after total, after each grpSubW within each group.
-        const allBoundaries: number[] = [];
-        {
-          let cx = tableX + labelW;
-          allBoundaries.push(cx);
-          cx += totW;
-          allBoundaries.push(cx);
-          for (let g = 0; g < 3; g++) {
-            for (let j = 0; j < grpSubW.length; j++) {
-              cx += grpSubW[j];
-              allBoundaries.push(cx);
-            }
+        function drawTableVerticals(topY: number, bottomY: number) {
+          for (const bx of groupDividerXs) {
+            page.drawLine({ start: { x: bx, y: py(topY) }, end: { x: bx, y: py(bottomY) }, thickness: 0.5, color: C_LINE });
           }
         }
 
@@ -520,14 +515,11 @@ export async function POST(req: Request) {
               cx += w;
             }
           }
-          // Vertical gridlines through this row
-          for (const bx of allBoundaries) {
-            page.drawLine({ start: { x: bx, y: py(yTop) }, end: { x: bx, y: py(yTop + ROW_H_LOC) }, thickness: 0.4, color: C_LINE });
-          }
         }
 
         // ── Table 1: Entity ──
         let curY = M + 90;
+        const t1Top = curY;
         // Group header bar
         drawGroupHeaders(curY, true);
         curY += 16;
@@ -552,9 +544,11 @@ export async function POST(req: Request) {
         // Total row
         page.drawLine({ start: { x: tableX, y: py(curY) }, end: { x: tableX + tableW, y: py(curY) }, thickness: 0.5, color: C_DARK });
         drawDataRow(curY, "TOTAL:", grandTotal, false, true, grandDelta);
+        drawTableVerticals(t1Top, curY + ROW_H_LOC);
         curY += ROW_H_LOC + 14;
 
         // ── Table 2: Building ──
+        const t2Top = curY;
         drawGroupHeaders(curY, false);
         curY += 16;
         page.drawText("Building", { x: tableX + 6, y: py(curY + 11), size: 8, font, color: C_MUTED });
@@ -572,10 +566,12 @@ export async function POST(req: Request) {
         }
         page.drawLine({ start: { x: tableX, y: py(curY) }, end: { x: tableX + tableW, y: py(curY) }, thickness: 0.5, color: C_DARK });
         drawDataRow(curY, "TOTAL:", grandTotal, false, true, grandDelta);
+        drawTableVerticals(t2Top, curY + ROW_H_LOC);
         curY += ROW_H_LOC + 14;
 
         // ── Table 3: The Office Works (4900) ──
         if (owRows.length) {
+          const t3Top = curY;
           drawGroupHeaders(curY, false);
           curY += 16;
           page.drawText("Entity", { x: tableX + 6, y: py(curY + 11), size: 8, font, color: C_MUTED });
@@ -587,6 +583,7 @@ export async function POST(req: Request) {
             drawDataRow(curY, "Office Works", owRows[i], i % 2 === 0, false, owDelta);
             curY += ROW_H_LOC;
           }
+          drawTableVerticals(t3Top, curY);
           curY += 8;
         }
 
