@@ -866,13 +866,12 @@ export async function POST(req: Request) {
       const hasAny = buckets.some(b => b.rows.length > 0);
       if (hasAny) {
         const EXP_COLS: ColDef[] = [
-          { header: "Property",      width: 115, align: "left"  },
-          { header: "Tenant",        width: 150, align: "left"  },
-          { header: "Unit",          width: 60,  align: "left"  },
-          { header: "Sq Ft",         width: 50,  align: "right" },
-          { header: "Lease Expires", width: 70,  align: "left"  },
-          { header: "Last Contact",  width: 70,  align: "left"  },
-          { header: "Tenant Status", width: 100, align: "left"  },
+          { header: "Property",      width: 125, align: "left"  },
+          { header: "Tenant",        width: 165, align: "left"  },
+          { header: "Unit",          width: 65,  align: "left"  },
+          { header: "Sq Ft",         width: 55,  align: "right" },
+          { header: "Lease Expires", width: 80,  align: "left"  },
+          { header: "Tenant Status", width: 125, align: "left"  },
         ];
         const tableW = EXP_COLS.reduce((s, c) => s + c.width, 0);
         const tableX = (PW - tableW) / 2;
@@ -913,7 +912,6 @@ export async function POST(req: Request) {
             const vals: Record<string, string> = {
               "Property": row.propName, "Tenant": row.tenant, "Unit": row.unit,
               "Sq Ft": sqftFmt(row.sqft), "Lease Expires": row.leaseTo,
-              "Last Contact": comment.lastContact ? fmtDate(comment.lastContact) : "",
               "Tenant Status": comment.tenantStatus ?? "",
             };
             let cx = tableX;
