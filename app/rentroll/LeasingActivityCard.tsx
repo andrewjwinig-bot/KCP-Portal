@@ -253,23 +253,24 @@ function SectionHeader({ children, open, onToggle }: { children: React.ReactNode
       type="button"
       onClick={onToggle}
       style={{
-        display: "flex", alignItems: "center", gap: 10,
-        fontSize: 17, fontWeight: 700, marginTop: 24, marginBottom: 10, color: "var(--text)",
-        background: "transparent", border: "none", padding: 0, cursor: "pointer",
-        width: "100%", textAlign: "left",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 12,
+        width: "100%",
+        padding: "14px 16px",
+        marginTop: 18,
+        marginBottom: open ? 10 : 0,
+        background: "transparent",
+        border: "1px solid var(--border)",
+        borderRadius: 10,
+        cursor: "pointer",
+        textAlign: "left",
+        fontFamily: "inherit",
       }}
     >
-      <span style={{
-        display: "inline-flex", width: 22, height: 22,
-        borderRadius: 6, border: "1px solid var(--border)",
-        alignItems: "center", justifyContent: "center",
-        fontSize: 12, color: "var(--muted)",
-        transition: "transform 0.15s",
-        transform: open ? "rotate(0deg)" : "rotate(-90deg)",
-      }}>
-        ▾
-      </span>
-      <span>{children}</span>
+      <span style={{ fontSize: 17, fontWeight: 700, color: "var(--text)" }}>{children}</span>
+      <span style={{ color: "var(--muted)", fontSize: 18, flexShrink: 0 }}>{open ? "▲" : "▼"}</span>
     </button>
   );
 }
@@ -689,7 +690,7 @@ function ExpirationsSection({ rentroll, comments, onChange }: {
                   <col />                          {/* Tenant — flex */}
                   <col style={{ width: 80  }} />   {/* Sq Ft */}
                   <col style={{ width: 110 }} />   {/* Expires */}
-                  <col style={{ width: 80  }} />   {/* Building */}
+                  <col style={{ width: 130 }} />   {/* Building — fits "The Office Works" */}
                   <col />                          {/* Tenant Status — flex */}
                 </colgroup>
                 <thead>
