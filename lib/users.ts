@@ -51,6 +51,7 @@ export const USERS: Record<UserId, UserDef> = {
     navKeys: new Set([
       ...universalNav,
       "tracker",
+      "stacie-tracker",
       "payroll-invoicer",
       "expenses",
       "expenses-history",
