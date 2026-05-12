@@ -6,6 +6,21 @@ import {
   loadTaxChecked, saveTaxChecked,
   masterTrackerLabel, isTaskEffectivelyDone,
 } from "./tax-data";
+import {
+  STACIE_TASKS,
+  FREQUENCY_LABELS, FREQUENCY_ORDER,
+  checkedKey, currentPeriod,
+  type Frequency,
+} from "../../lib/stacie-tasks";
+import { useUser } from "../components/UserProvider";
+
+type OwnerFilter = "drew" | "stacie" | "both";
+
+const OWNER_FILTERS: { id: OwnerFilter; label: string }[] = [
+  { id: "drew",   label: "Drew" },
+  { id: "stacie", label: "Stacie" },
+  { id: "both",   label: "Both" },
+];
 
 // ─── CONSTANTS ──────────────────────────────────────────────────────────────
 
@@ -768,6 +783,7 @@ function dueName(t: TaskDef, year: number, monthIdx: number): string {
 
 export default function TrackerPage() {
   const today = new Date();
+  const { user } = useUser();
 
   const [viewYear,  setViewYear]  = useState(today.getFullYear());
   const [viewMonth, setViewMonth] = useState(today.getMonth());
@@ -777,11 +793,81 @@ export default function TrackerPage() {
   const [filterCat, setFilterCat] = useState<Category | "all">("all");
   const [detailTask, setDetailTask] = useState<TaskDef | null>(null);
 
+  // ── Owner filter: Drew (default for admin/maint), Stacie (default for stacie), Both ──
+  const [ownerFilter, setOwnerFilter] = useState<OwnerFilter>(
+    user.id === "stacie" ? "stacie" : "drew",
+  );
+  useEffect(() => {
+    setOwnerFilter(user.id === "stacie" ? "stacie" : "drew");
+  }, [user.id]);
+
+  // ── Stacie task state (period-bucketed, synced to /api/stacie-tasks) ──
+  const [stacieChecked, setStacieChecked] = useState<Record<string, boolean>>({});
+  const [stacieLoading, setStacieLoading] = useState(true);
+  const [stacieError,   setStacieError]   = useState<string | null>(null);
+  const [openFreqs, setOpenFreqs] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(FREQUENCY_ORDER.map((f) => [f, true])),
+  );
+
+  // Only fetch Stacie's task state when the view actually needs it
+  const showStacie = ownerFilter !== "drew";
+  useEffect(() => {
+    if (!showStacie) return;
+    setStacieLoading(true);
+    fetch("/api/stacie-tasks")
+      .then((r) => r.json())
+      .then((j) => setStacieChecked(j.checked ?? {}))
+      .catch(() => {})
+      .finally(() => setStacieLoading(false));
+  }, [showStacie]);
+
   useEffect(() => {
     setChecked(loadChecked(viewYear, viewMonth));
     setTaxChecked(loadTaxChecked(viewYear));
     setSelDay(null);
   }, [viewYear, viewMonth]);
+
+  // ── Stacie task helpers ───────────────────────────────────────────
+  const stacieByFreq = useMemo(() => {
+    const groups: Record<Frequency, typeof STACIE_TASKS> = {
+      weekly: [], monthly: [], quarterly: [], semiannual: [], annual: [], ongoing: [], eoy: [],
+    };
+    for (const t of STACIE_TASKS) groups[t.frequency].push(t);
+    return groups;
+  }, []);
+
+  async function toggleStacieTask(taskId: string, freq: Frequency) {
+    const period = currentPeriod(freq);
+    const key = checkedKey(taskId, period);
+    const next = { ...stacieChecked };
+    if (next[key]) delete next[key];
+    else next[key] = true;
+    setStacieChecked(next);
+    try {
+      const res = await fetch("/api/stacie-tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ checked: next }),
+      });
+      if (!res.ok) throw new Error("Save failed");
+      setStacieError(null);
+    } catch (e: any) {
+      setStacieError(e?.message ?? "Save failed");
+    }
+  }
+
+  function toggleFreq(f: Frequency) {
+    setOpenFreqs((prev) => ({ ...prev, [f]: !prev[f] }));
+  }
+  function isStacieChecked(taskId: string, freq: Frequency): boolean {
+    return !!stacieChecked[checkedKey(taskId, currentPeriod(freq))];
+  }
+  function freqCount(freq: Frequency): { total: number; done: number } {
+    const tasks = stacieByFreq[freq];
+    let done = 0;
+    for (const t of tasks) if (isStacieChecked(t.id, freq)) done++;
+    return { total: tasks.length, done };
+  }
 
   const tasks = useMemo(() => tasksForMonth(viewYear, viewMonth), [viewYear, viewMonth]);
 
@@ -893,7 +979,7 @@ export default function TrackerPage() {
   return (
     <main>
       {/* ── Header ──────────────────────────────────────────────────────── */}
-      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 22, flexWrap: "wrap", gap: 14 }}>
+      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 18, flexWrap: "wrap", gap: 14 }}>
         <div>
           <h1 style={{ fontSize: 36, fontWeight: 900, letterSpacing: "-0.03em", marginBottom: 4 }}>
             Master Tracker
@@ -908,6 +994,39 @@ export default function TrackerPage() {
         </div>
       </div>
 
+      {/* ── Owner filter (Drew / Stacie / Both) ─────────────────────────── */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18, flexWrap: "wrap" }}>
+        <span style={{ fontSize: 11, fontWeight: 800, color: "var(--muted)", letterSpacing: "0.06em" }}>VIEW</span>
+        <div role="tablist" aria-label="Owner filter" style={{
+          display: "inline-flex", border: "1px solid var(--border)", borderRadius: 999, overflow: "hidden", background: "#fff",
+        }}>
+          {OWNER_FILTERS.map((f) => {
+            const active = ownerFilter === f.id;
+            return (
+              <button
+                key={f.id}
+                role="tab"
+                aria-selected={active}
+                onClick={() => setOwnerFilter(f.id)}
+                style={{
+                  padding: "6px 14px",
+                  fontSize: 12, fontWeight: 700,
+                  background: active ? "var(--brand)" : "transparent",
+                  color: active ? "#fff" : "var(--text)",
+                  border: "none", cursor: "pointer", fontFamily: "inherit",
+                }}
+              >
+                {f.label}
+              </button>
+            );
+          })}
+        </div>
+        {showStacie && stacieError && (
+          <span style={{ color: "#b91c1c", fontSize: 12, fontWeight: 600 }}>· {stacieError}</span>
+        )}
+      </div>
+
+      {ownerFilter !== "stacie" && (<>
       {/* ── Summary pills ────────────────────────────────────────────────── */}
       <div className="pills" style={{ justifyContent: "flex-start", marginBottom: 20 }}>
         <div className="pill">
@@ -1408,6 +1527,107 @@ export default function TrackerPage() {
           )}
         </div>
       </div>
+      </>)}
+
+      {/* ── Stacie's recurring tasks (frequency-bucketed) ───────────────── */}
+      {showStacie && (
+        <div className="card" style={{ marginTop: ownerFilter === "both" ? 18 : 0 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+            <b style={{ fontSize: 17 }}>
+              {ownerFilter === "both" ? "Stacie's Recurring Tasks" : "Recurring Tasks"}
+            </b>
+            {ownerFilter === "both" && (
+              <span style={{
+                fontSize: 10, fontWeight: 800, letterSpacing: "0.05em",
+                color: "#0b4a7d", background: "rgba(11,74,125,0.08)",
+                border: "1px solid rgba(11,74,125,0.25)",
+                padding: "3px 9px", borderRadius: 999,
+              }}>STACIE</span>
+            )}
+          </div>
+          <p className="muted small" style={{ marginTop: 4 }}>
+            Checkboxes auto-reset each new period (week, month, quarter, etc.). State syncs across devices.
+          </p>
+
+          {stacieLoading ? (
+            <div className="muted small" style={{ marginTop: 12 }}>Loading…</div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 14 }}>
+              {FREQUENCY_ORDER.map((freq) => {
+                const tasks = stacieByFreq[freq];
+                if (!tasks.length) return null;
+                const { total: stTotal, done: stDone } = freqCount(freq);
+                const open = openFreqs[freq];
+                return (
+                  <div key={freq} style={{ border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden" }}>
+                    <button
+                      type="button"
+                      onClick={() => toggleFreq(freq)}
+                      style={{
+                        display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
+                        width: "100%", padding: "14px 16px",
+                        background: "transparent", border: "none", cursor: "pointer", textAlign: "left",
+                        fontFamily: "inherit",
+                      }}
+                    >
+                      <span style={{ display: "inline-flex", alignItems: "baseline", gap: 8 }}>
+                        <span style={{ fontSize: 16, fontWeight: 700 }}>{FREQUENCY_LABELS[freq]}</span>
+                        <span style={{ fontSize: 13, fontWeight: 500, color: "var(--muted)" }}>
+                          ({stDone}/{stTotal})
+                        </span>
+                      </span>
+                      <span style={{ color: "var(--muted)", fontSize: 18, flexShrink: 0 }}>{open ? "▲" : "▼"}</span>
+                    </button>
+
+                    {open && (
+                      <div style={{ borderTop: "1px solid var(--border)" }}>
+                        {tasks.map((t, i) => {
+                          const isDone = isStacieChecked(t.id, freq);
+                          return (
+                            <label
+                              key={t.id}
+                              htmlFor={`stacie-task-${t.id}`}
+                              style={{
+                                display: "grid", gridTemplateColumns: "32px 1fr", gap: 12,
+                                padding: "12px 16px",
+                                borderTop: i === 0 ? undefined : "1px solid var(--border)",
+                                cursor: "pointer",
+                                alignItems: "start",
+                              }}
+                            >
+                              <input
+                                id={`stacie-task-${t.id}`}
+                                type="checkbox"
+                                checked={isDone}
+                                onChange={() => toggleStacieTask(t.id, freq)}
+                                style={{ width: 20, height: 20, marginTop: 2, cursor: "pointer" }}
+                              />
+                              <div style={{ minWidth: 0 }}>
+                                <div style={{
+                                  fontSize: 14, fontWeight: 600,
+                                  color: isDone ? "var(--muted)" : "var(--text)",
+                                  textDecoration: isDone ? "line-through" : "none",
+                                }}>
+                                  {t.title}
+                                </div>
+                                {t.instructions && (
+                                  <div className="muted small" style={{ whiteSpace: "pre-wrap", marginTop: 4 }}>
+                                    {t.instructions}
+                                  </div>
+                                )}
+                              </div>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── Detail modal ─────────────────────────────────────────────────── */}
       {detailTask?.instructions && (() => {
