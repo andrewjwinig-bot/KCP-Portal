@@ -11,6 +11,7 @@ const NAV_ROLE_KEY: Record<string, string> = {
   "Rent Roll":          "rentroll",
   "Leasing Activity":   "leasing-activity",
   "Master Tracker":     "tracker",
+  "Stacie's Tracker":   "stacie-tracker",
   "Filing Tracker":     "tracker",
   "Payroll Invoicer":   "payroll-invoicer",
   "Payroll History":    "payroll-history",
@@ -107,6 +108,19 @@ const NAV = [
         <polyline points="14 2 14 8 20 8" />
         <line x1="9" y1="13" x2="15" y2="13" />
         <line x1="9" y1="17" x2="13" y2="17" />
+      </svg>
+    ),
+  },
+  {
+    label: "Stacie's Tracker",
+    href: "/tracker/stacie",
+    external: false,
+    indent: true,
+    showFor: "/tracker",
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="9 11 12 14 22 4" />
+        <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
       </svg>
     ),
   },
