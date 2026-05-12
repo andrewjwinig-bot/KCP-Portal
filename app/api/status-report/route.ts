@@ -717,11 +717,11 @@ export async function POST(req: Request) {
         {
           drawSectionTitle("Prospects");
           const cols = [
-            { label: "Tenant",        align: "left"   as const, width: 180 },
-            { label: "Type of",       align: "left"   as const, width: 170 },
-            { label: "Building",      align: "center" as const, width: 80  },
-            { label: "SQ. FT.",       align: "right"  as const, width: 80  },
-            { label: "Rating (1-5)",  align: "center" as const, width: 100 },
+            { label: "Tenant",        align: "left"   as const, width: 190 },
+            { label: "Type of",       align: "left"   as const, width: 140 },
+            { label: "Building",      align: "center" as const, width: 65  },
+            { label: "SQ. FT.",       align: "right"  as const, width: 65  },
+            { label: "Rating (1-5)",  align: "center" as const, width: 80  },
           ];
           drawRow(cols, cols.map(c => c.label), { bold: true });
           page.drawLine({ start: { x: tableX, y: py(curY - 2) }, end: { x: tableX + tableW, y: py(curY - 2) }, thickness: 0.4, color: C_LINE });
@@ -747,10 +747,10 @@ export async function POST(req: Request) {
           pageBreakIfNeeded(40);
           drawSectionTitle("Pending Leases");
           const cols = [
-            { label: "Tenant",     align: "left"   as const, width: 200 },
-            { label: "Building",   align: "center" as const, width: 100 },
+            { label: "Tenant",     align: "left"   as const, width: 260 },
+            { label: "Building",   align: "center" as const, width: 80  },
             { label: "SQ. FT.",    align: "right"  as const, width: 80  },
-            { label: "Start Date", align: "left"   as const, width: 120 },
+            { label: "Start Date", align: "left"   as const, width: 100 },
           ];
           drawRow(cols, cols.map(c => c.label), { bold: true });
           page.drawLine({ start: { x: tableX, y: py(curY - 2) }, end: { x: tableX + tableW, y: py(curY - 2) }, thickness: 0.4, color: C_LINE });
@@ -775,10 +775,10 @@ export async function POST(req: Request) {
           pageBreakIfNeeded(40);
           drawSectionTitle("Tenants Vacating");
           const cols = [
-            { label: "Tenant",          align: "left"   as const, width: 180 },
-            { label: "Building",        align: "center" as const, width: 90  },
-            { label: "Suite",           align: "center" as const, width: 80  },
-            { label: "SQ. FT.",         align: "right"  as const, width: 70  },
+            { label: "Tenant",          align: "left"   as const, width: 210 },
+            { label: "Building",        align: "center" as const, width: 75  },
+            { label: "Suite",           align: "center" as const, width: 85  },
+            { label: "SQ. FT.",         align: "right"  as const, width: 75  },
             { label: "Expiration Date", align: "left"   as const, width: 100 },
           ];
           drawRow(cols, cols.map(c => c.label), { bold: true });
@@ -808,11 +808,11 @@ export async function POST(req: Request) {
           drawSectionTitle("Option to Renew");
           const cols = [
             { label: "Tenant",              align: "left"   as const, width: 200 },
-            { label: "Building",            align: "center" as const, width: 70  },
-            { label: "SQ. FT.",             align: "right"  as const, width: 70  },
+            { label: "Building",            align: "center" as const, width: 60  },
+            { label: "SQ. FT.",             align: "right"  as const, width: 60  },
             { label: "Term / Prior Notice", align: "left"   as const, width: 130 },
-            { label: "Notice Date",         align: "left"   as const, width: 80  },
-            { label: "Option Term Exp",     align: "left"   as const, width: 90  },
+            { label: "Notice Date",         align: "left"   as const, width: 75  },
+            { label: "Option Term Exp",     align: "left"   as const, width: 85  },
           ];
           drawRow(cols, cols.map(c => c.label), { bold: true });
           page.drawLine({ start: { x: tableX, y: py(curY - 2) }, end: { x: tableX + tableW, y: py(curY - 2) }, thickness: 0.4, color: C_LINE });
