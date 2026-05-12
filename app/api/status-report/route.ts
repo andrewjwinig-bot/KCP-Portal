@@ -841,8 +841,8 @@ export async function POST(req: Request) {
     {
       type ExpRow = { propName: string; tenant: string; unit: string; sqft: number; leaseTo: string; days: number };
       const buckets: { label: string; min: number; max: number; rows: ExpRow[] }[] = [
-        { label: "Three Month Expirations",        min: -9999, max: 90,  rows: [] },
-        { label: "Four – Six Month Expirations",   min: 91,    max: 180, rows: [] },
+        { label: "Three Month Expirations",          min: 0,   max: 90,  rows: [] },
+        { label: "Four – Six Month Expirations",     min: 91,  max: 180, rows: [] },
         { label: "Seven – Twelve Month Expirations", min: 181, max: 365, rows: [] },
       ];
 
@@ -855,7 +855,8 @@ export async function POST(req: Request) {
           const d = parseDate(unit.leaseTo);
           if (!d) continue;
           const days = daysUntil(d);
-          if (days > 365) continue;
+          // Skip past-due and beyond 12 months.
+          if (days < 0 || days > 365) continue;
           const bucket = buckets.find(b => days >= b.min && days <= b.max);
           if (bucket) bucket.rows.push({ propName: name, tenant: unit.occupantName || "", unit: unit.unitRef || "", sqft: unit.sqft, leaseTo: fmtDate(unit.leaseTo), days });
         }

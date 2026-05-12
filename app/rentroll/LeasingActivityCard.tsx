@@ -353,7 +353,7 @@ export default function LeasingActivityCard({ rentroll }: { rentroll: RentRollDa
         const d = parseMDY(u.leaseTo);
         if (!d) continue;
         const days = Math.round((d.getTime() - today.getTime()) / 86400000);
-        if (days <= 365) n++;
+        if (days >= 0 && days <= 365) n++;
       }
     }
     return n;
@@ -687,7 +687,8 @@ function ExpirationsSection({ rentroll, comments, onChange }: {
         const d = parseMDY(u.leaseTo);
         if (!d) continue;
         const days = Math.round((d.getTime() - today.getTime()) / 86400000);
-        if (days > 365) continue;
+        // Skip past-due leases; only show upcoming within the next 12 months.
+        if (days < 0 || days > 365) continue;
         const row: Row = { unitRef: u.unitRef, tenant: u.occupantName, sqft: u.sqft, expires: u.leaseTo, building: shortBuilding, days };
         if (days <= 90) empty.rows.push(row);
         else if (days <= 180) four.rows.push(row);
