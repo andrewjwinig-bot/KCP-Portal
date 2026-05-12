@@ -31,7 +31,6 @@ export const UNIQUE_BANK_ACCOUNTS: UniqueBankAccount[] = [
   { bank: "JPM-Chase",   key: "JPM 2010 Escrow",      last4: "x2190", accountName: "LIK Management Inc dba KCP" },
   { bank: "JPM-Chase",   key: "JPM 2000 CLEAR",       last4: "x1622", accountName: "LIK Management, Inc. DBA KCP, Inc." },
   { bank: "JPM-Chase",   key: "JPM 2010 Operating",   last4: "x9629", accountName: "LIK Management Inc dba KCP" },
-  { bank: "JPM-Chase",   key: "JPM 6010",             last4: "x8755", accountName: "LIK SS Associates LP" },
   { bank: "JPM-Chase",   key: "JPM HK Castor PO (5600)", last4: "x0669", accountName: "Hyman Korman Co - NEW" },
   { bank: "JPM-Chase",   key: "JPM 8200",             last4: "x0308", accountName: "1942 Trust - LIK Mgmt Escrow" },
   { bank: "JPM-Chase",   key: "JPM 7200",             last4: "x1692", accountName: "Elbridge Partnership - LIK Mgmt Escrow" },
