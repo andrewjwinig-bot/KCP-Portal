@@ -45,16 +45,12 @@ export const USERS: Record<UserId, UserDef> = {
   stacie: {
     id: "stacie",
     label: "STACIE",
-    // Stacie sees everything admin sees except sensitive employee payroll
-    // detail (Payroll History page + the per-employee Employees card on the
-    // Payroll Invoicer remain admin-only via separate checks).
+    // Stacie sees the operational/reporting pages but not the financial
+    // coding tools (Payroll Invoicer, CC Expense Coder, Allocated Invoicer)
+    // or per-employee payroll detail.
     navKeys: new Set([
       ...universalNav,
       "tracker",
-      "payroll-invoicer",
-      "expenses",
-      "expenses-history",
-      "allocated",
       "maintenance",
       "leasing-activity",
     ]),
@@ -63,9 +59,6 @@ export const USERS: Record<UserId, UserDef> = {
       "/properties",
       "/rentroll",
       "/tracker",
-      "/",
-      "/expenses",
-      "/allocated-invoicer",
     ],
     defaultRentRollCategory: "All",
     defaultPropertyType: "all",
