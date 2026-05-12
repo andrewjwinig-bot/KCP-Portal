@@ -1,49 +1,24 @@
 "use client";
 
 import { useMemo } from "react";
-import { BANK_ACCOUNTS, PROPERTY_DEFS } from "../../lib/properties/data";
+import { UNIQUE_BANK_ACCOUNTS, type BankGroup } from "../../lib/bank-rec/accounts";
 
-type Row = { bank: string; propertyCode: string; propertyName: string; label: string; last4: string };
-
-function propertyName(code: string): string {
-  return PROPERTY_DEFS.find((p) => p.id === code)?.name ?? code;
-}
+// Group banks in spreadsheet order, not alphabetical.
+const BANK_ORDER: BankGroup[] = ["M&T", "JPM-Chase", "Liberty Bank"];
 
 export default function BankRecTrackerPage() {
-  // Flatten BANK_ACCOUNTS to one row per (property × account)
-  const rows: Row[] = useMemo(() => {
-    const out: Row[] = [];
-    for (const [code, accounts] of Object.entries(BANK_ACCOUNTS)) {
-      for (const a of accounts) {
-        out.push({
-          bank: a.bank,
-          propertyCode: code,
-          propertyName: propertyName(code),
-          label: a.label,
-          last4: a.last4,
-        });
-      }
+  const grouped = useMemo(() => {
+    const byBank = new Map<BankGroup, typeof UNIQUE_BANK_ACCOUNTS>();
+    for (const a of UNIQUE_BANK_ACCOUNTS) {
+      if (!byBank.has(a.bank)) byBank.set(a.bank, []);
+      byBank.get(a.bank)!.push(a);
     }
-    return out;
+    return BANK_ORDER
+      .filter((b) => byBank.has(b))
+      .map((b) => ({ bank: b, rows: byBank.get(b)! }));
   }, []);
 
-  // Group by bank, sort banks alphabetically; within a bank, sort by property name
-  const grouped = useMemo(() => {
-    const byBank = new Map<string, Row[]>();
-    for (const r of rows) {
-      if (!byBank.has(r.bank)) byBank.set(r.bank, []);
-      byBank.get(r.bank)!.push(r);
-    }
-    const sortedBanks = [...byBank.keys()].sort((a, b) => a.localeCompare(b));
-    return sortedBanks.map((bank) => ({
-      bank,
-      rows: byBank.get(bank)!.sort((a, b) =>
-        a.propertyName.localeCompare(b.propertyName) || a.last4.localeCompare(b.last4),
-      ),
-    }));
-  }, [rows]);
-
-  const totalAccounts = rows.length;
+  const totalAccounts = UNIQUE_BANK_ACCOUNTS.length;
 
   return (
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
@@ -61,10 +36,12 @@ export default function BankRecTrackerPage() {
       <div className="card">
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
           <b style={{ fontSize: 17 }}>Linked Bank Accounts</b>
-          <span className="muted small">{totalAccounts} account{totalAccounts === 1 ? "" : "s"} across {grouped.length} institution{grouped.length === 1 ? "" : "s"}</span>
+          <span className="muted small">
+            {totalAccounts} unique account{totalAccounts === 1 ? "" : "s"} across {grouped.length} institution{grouped.length === 1 ? "" : "s"}
+          </span>
         </div>
         <p className="muted small" style={{ marginTop: 4 }}>
-          Bank accounts linked to each property, grouped by banking institution.
+          One row per account, grouped by banking institution.
         </p>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 16, marginTop: 16 }}>
@@ -83,20 +60,17 @@ export default function BankRecTrackerPage() {
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                 <thead>
                   <tr style={{ textAlign: "left", color: "var(--muted)", fontSize: 11, letterSpacing: "0.04em" }}>
-                    <th style={{ padding: "8px 14px", fontWeight: 700, width: "80%" }}>PROPERTY</th>
-                    <th style={{ padding: "8px 14px", fontWeight: 700, width: "20%", textAlign: "right" }}>LAST 4</th>
+                    <th style={{ padding: "8px 14px", fontWeight: 700, width: "30%" }}>BANK ACCOUNT KEY</th>
+                    <th style={{ padding: "8px 14px", fontWeight: 700, width: "15%" }}>ACCOUNT</th>
+                    <th style={{ padding: "8px 14px", fontWeight: 700, width: "55%" }}>ACCOUNT NAME</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((r, i) => (
-                    <tr key={`${r.propertyCode}-${r.last4}-${i}`} style={{ borderTop: "1px solid var(--border)" }}>
-                      <td style={{ padding: "10px 14px" }}>
-                        <span style={{ fontWeight: 600 }}>{r.propertyName}</span>
-                        <span className="muted small" style={{ marginLeft: 8 }}>· {r.propertyCode}</span>
-                      </td>
-                      <td style={{ padding: "10px 14px", textAlign: "right", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}>
-                        {r.last4}
-                      </td>
+                  {rows.map((r) => (
+                    <tr key={r.last4 + r.key} style={{ borderTop: "1px solid var(--border)" }}>
+                      <td style={{ padding: "10px 14px", fontWeight: 600 }}>{r.key}</td>
+                      <td style={{ padding: "10px 14px", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}>{r.last4}</td>
+                      <td style={{ padding: "10px 14px" }}>{r.accountName}</td>
                     </tr>
                   ))}
                 </tbody>
