@@ -490,6 +490,15 @@ function DetailModal({
               })()}
               <div className="tableWrap" style={{ marginTop: 4 }}>
                 <table>
+                  <colgroup>
+                    <col />                          {/* Tenant — flex (gets the slack) */}
+                    <col style={{ width: 90 }} />    {/* Unit */}
+                    <col style={{ width: 80 }} />    {/* Sq Ft */}
+                    <col style={{ width: 95 }} />    {/* Lease From */}
+                    <col style={{ width: 95 }} />    {/* Lease To */}
+                    <col style={{ width: 90 }} />    {/* Base Rent /mo */}
+                    <col style={{ width: 70 }} />    {/* Annual $/sf */}
+                  </colgroup>
                   <thead>
                     <tr>
                       <th>Tenant</th>
