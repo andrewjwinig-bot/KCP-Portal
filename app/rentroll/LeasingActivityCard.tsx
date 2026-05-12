@@ -244,7 +244,7 @@ function AddBtn({ onClick, label }: { onClick: () => void; label: string }) {
   );
 }
 
-function SectionHeader({ children, open, onToggle }: { children: React.ReactNode; open?: boolean; onToggle?: () => void }) {
+function SectionHeader({ children, open, onToggle, count }: { children: React.ReactNode; open?: boolean; onToggle?: () => void; count?: number }) {
   if (onToggle == null) {
     return <div style={{ fontSize: 17, fontWeight: 700, marginTop: 24, marginBottom: 10, color: "var(--text)" }}>{children}</div>;
   }
@@ -269,7 +269,12 @@ function SectionHeader({ children, open, onToggle }: { children: React.ReactNode
         fontFamily: "inherit",
       }}
     >
-      <span style={{ fontSize: 17, fontWeight: 700, color: "var(--text)" }}>{children}</span>
+      <span style={{ display: "inline-flex", alignItems: "baseline", gap: 8 }}>
+        <span style={{ fontSize: 17, fontWeight: 700, color: "var(--text)" }}>{children}</span>
+        {count != null && (
+          <span style={{ fontSize: 13, fontWeight: 500, color: "var(--muted)" }}>({count})</span>
+        )}
+      </span>
       <span style={{ color: "var(--muted)", fontSize: 18, flexShrink: 0 }}>{open ? "▲" : "▼"}</span>
     </button>
   );
@@ -282,11 +287,11 @@ export default function LeasingActivityCard({ rentroll }: { rentroll: RentRollDa
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
-    prospects: true,
-    pending: true,
-    vacating: true,
-    options: true,
-    expirations: true,
+    prospects: false,
+    pending: false,
+    vacating: false,
+    options: false,
+    expirations: false,
   });
   function toggleSection(k: string) {
     setOpenSections((p) => ({ ...p, [k]: !p[k] }));
@@ -336,6 +341,23 @@ export default function LeasingActivityCard({ rentroll }: { rentroll: RentRollDa
   }, [data, loading]);
 
   const opts = useMemo(() => tenantOptions(rentroll), [rentroll]);
+  const expirationsCount = useMemo(() => {
+    if (!rentroll) return 0;
+    let n = 0;
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    for (const p of rentroll.properties) {
+      if (!OFFICE_PROPERTY_CODES.has(p.propertyCode.toUpperCase())) continue;
+      for (const u of p.units) {
+        if (u.isVacant || !u.leaseTo) continue;
+        if (u.baseRent === 0 && u.grossRentTotal === 0) continue;
+        const d = parseMDY(u.leaseTo);
+        if (!d) continue;
+        const days = Math.round((d.getTime() - today.getTime()) / 86400000);
+        if (days <= 365) n++;
+      }
+    }
+    return n;
+  }, [rentroll]);
   const optByRef = useMemo(() => Object.fromEntries(opts.map((o) => [o.unitRef, o])), [opts]);
 
   function update<K extends keyof LeasingActivity>(key: K, fn: (rows: LeasingActivity[K]) => LeasingActivity[K]) {
@@ -365,7 +387,7 @@ export default function LeasingActivityCard({ rentroll }: { rentroll: RentRollDa
       </p>
 
       {/* ── Prospects ── */}
-      <SectionHeader open={openSections.prospects} onToggle={() => toggleSection("prospects")}>Prospects</SectionHeader>
+      <SectionHeader open={openSections.prospects} onToggle={() => toggleSection("prospects")} count={data.prospects.length}>Prospects</SectionHeader>
       {openSections.prospects && (<>
 
       <div className="tableWrap">
@@ -430,7 +452,7 @@ export default function LeasingActivityCard({ rentroll }: { rentroll: RentRollDa
       </>)}
 
       {/* ── Pending Leases ── */}
-      <SectionHeader open={openSections.pending} onToggle={() => toggleSection("pending")}>Pending Leases</SectionHeader>
+      <SectionHeader open={openSections.pending} onToggle={() => toggleSection("pending")} count={data.pendingLeases.length}>Pending Leases</SectionHeader>
       {openSections.pending && (<>
       <div className="tableWrap">
         <table>
@@ -475,7 +497,7 @@ export default function LeasingActivityCard({ rentroll }: { rentroll: RentRollDa
       </>)}
 
       {/* ── Tenants Vacating ── */}
-      <SectionHeader open={openSections.vacating} onToggle={() => toggleSection("vacating")}>Tenants Vacating</SectionHeader>
+      <SectionHeader open={openSections.vacating} onToggle={() => toggleSection("vacating")} count={data.tenantsVacating.length}>Tenants Vacating</SectionHeader>
       {openSections.vacating && (<>
       <div className="tableWrap">
         <table>
@@ -539,7 +561,7 @@ export default function LeasingActivityCard({ rentroll }: { rentroll: RentRollDa
       </>)}
 
       {/* ── Options to Renew ── */}
-      <SectionHeader open={openSections.options} onToggle={() => toggleSection("options")}>Option to Renew</SectionHeader>
+      <SectionHeader open={openSections.options} onToggle={() => toggleSection("options")} count={data.optionsToRenew.length}>Option to Renew</SectionHeader>
       {openSections.options && (<>
       <div className="tableWrap">
         <table>
@@ -619,7 +641,7 @@ export default function LeasingActivityCard({ rentroll }: { rentroll: RentRollDa
       </>)}
 
       {/* ── Upcoming Lease Expirations (auto-populated from rent roll) ── */}
-      <SectionHeader open={openSections.expirations} onToggle={() => toggleSection("expirations")}>Upcoming Lease Expirations</SectionHeader>
+      <SectionHeader open={openSections.expirations} onToggle={() => toggleSection("expirations")} count={expirationsCount}>Upcoming Lease Expirations</SectionHeader>
       {openSections.expirations && (
         <ExpirationsSection
           rentroll={rentroll}
