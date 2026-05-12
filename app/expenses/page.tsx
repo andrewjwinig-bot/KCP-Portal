@@ -7,6 +7,7 @@ import { PDFDocument } from "pdf-lib";
 import { buildInvoicePdf, makeInvoiceId, CategoryGroup } from "../../lib/expenses/invoice";
 import { buildTopSheetXlsx, TopSheetTx } from "../../lib/expenses/topSheet";
 import { groupBy, normalizeAmount, toMoney } from "../../lib/expenses/utils";
+import { useUser } from "../components/UserProvider";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -435,6 +436,7 @@ const LS_KEY = "cc-expenses:v1";
 // ── Component ────────────────────────────────────────────────────────────────
 
 export default function ExpensesPage() {
+  const { user, hydrated } = useUser();
   const categories = useMemo(() => [...CATEGORIES], []);
   const properties = useMemo(() => [...PROPERTIES], []);
 
@@ -457,6 +459,19 @@ export default function ExpensesPage() {
   const [tableSortDir, setTableSortDir] = useState<"asc" | "desc">("asc");
   const [colFilters, setColFilters] = useState<Record<string, string>>({});
   const [showColFilters, setShowColFilters] = useState(false);
+
+  // Maint persona only codes Gregory's own transactions — default the user
+  // column filter to "Gregory" once and reveal the filter row so it's visible.
+  // Harry handles everyone else from his own account.
+  const maintDefaultApplied = useRef(false);
+  useEffect(() => {
+    if (!hydrated || maintDefaultApplied.current) return;
+    if (user.id === "maint") {
+      setColFilters((prev) => (prev.user ? prev : { ...prev, user: "Gregory" }));
+      setShowColFilters(true);
+      maintDefaultApplied.current = true;
+    }
+  }, [hydrated, user.id]);
   const [allocPropModal, setAllocPropModal] = useState<{ propId: string; name: string; categoryGroups: { category: string; items: any[] }[] } | null>(null);
   const [drillModal, setDrillModal] = useState<{ propId: string; category: string; items: any[] } | null>(null);
   const [chartsOpen, setChartsOpen] = useState(true);
