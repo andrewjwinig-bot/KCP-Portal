@@ -244,19 +244,52 @@ function AddBtn({ onClick, label }: { onClick: () => void; label: string }) {
   );
 }
 
-function SectionHeader({ children }: { children: React.ReactNode }) {
+function SectionHeader({ children, open, onToggle }: { children: React.ReactNode; open?: boolean; onToggle?: () => void }) {
+  if (onToggle == null) {
+    return <div style={{ fontSize: 17, fontWeight: 700, marginTop: 24, marginBottom: 10, color: "var(--text)" }}>{children}</div>;
+  }
   return (
-    <div style={{ fontSize: 17, fontWeight: 700, marginTop: 24, marginBottom: 10, color: "var(--text)" }}>
-      {children}
-    </div>
+    <button
+      type="button"
+      onClick={onToggle}
+      style={{
+        display: "flex", alignItems: "center", gap: 10,
+        fontSize: 17, fontWeight: 700, marginTop: 24, marginBottom: 10, color: "var(--text)",
+        background: "transparent", border: "none", padding: 0, cursor: "pointer",
+        width: "100%", textAlign: "left",
+      }}
+    >
+      <span style={{
+        display: "inline-flex", width: 22, height: 22,
+        borderRadius: 6, border: "1px solid var(--border)",
+        alignItems: "center", justifyContent: "center",
+        fontSize: 12, color: "var(--muted)",
+        transition: "transform 0.15s",
+        transform: open ? "rotate(0deg)" : "rotate(-90deg)",
+      }}>
+        ▾
+      </span>
+      <span>{children}</span>
+    </button>
   );
 }
+
 
 export default function LeasingActivityCard({ rentroll }: { rentroll: RentRollData | null }) {
   const [data, setData] = useState<LeasingActivity>(EMPTY_LEASING_ACTIVITY);
   const [loading, setLoading] = useState(true);
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
+    prospects: true,
+    pending: true,
+    vacating: true,
+    options: true,
+    expirations: true,
+  });
+  function toggleSection(k: string) {
+    setOpenSections((p) => ({ ...p, [k]: !p[k] }));
+  }
 
   // Snapshot of the most recently persisted payload — saves are skipped when
   // the current data matches this. Set on initial GET and after each successful PUT.
@@ -331,7 +364,9 @@ export default function LeasingActivityCard({ rentroll }: { rentroll: RentRollDa
       </p>
 
       {/* ── Prospects ── */}
-      <SectionHeader>Prospects</SectionHeader>
+      <SectionHeader open={openSections.prospects} onToggle={() => toggleSection("prospects")}>Prospects</SectionHeader>
+      {openSections.prospects && (<>
+
       <div className="tableWrap">
         <table>
           <colgroup>
@@ -391,9 +426,11 @@ export default function LeasingActivityCard({ rentroll }: { rentroll: RentRollDa
         </table>
       </div>
       <AddBtn onClick={addProspect} label="Add Prospect" />
+      </>)}
 
       {/* ── Pending Leases ── */}
-      <SectionHeader>Pending Leases</SectionHeader>
+      <SectionHeader open={openSections.pending} onToggle={() => toggleSection("pending")}>Pending Leases</SectionHeader>
+      {openSections.pending && (<>
       <div className="tableWrap">
         <table>
           <colgroup>
@@ -434,9 +471,11 @@ export default function LeasingActivityCard({ rentroll }: { rentroll: RentRollDa
         </table>
       </div>
       <AddBtn onClick={addPending} label="Add Pending Lease" />
+      </>)}
 
       {/* ── Tenants Vacating ── */}
-      <SectionHeader>Tenants Vacating</SectionHeader>
+      <SectionHeader open={openSections.vacating} onToggle={() => toggleSection("vacating")}>Tenants Vacating</SectionHeader>
+      {openSections.vacating && (<>
       <div className="tableWrap">
         <table>
           <colgroup>
@@ -496,9 +535,11 @@ export default function LeasingActivityCard({ rentroll }: { rentroll: RentRollDa
         </table>
       </div>
       <AddBtn onClick={addVacating} label="Add Vacating Tenant" />
+      </>)}
 
       {/* ── Options to Renew ── */}
-      <SectionHeader>Option to Renew</SectionHeader>
+      <SectionHeader open={openSections.options} onToggle={() => toggleSection("options")}>Option to Renew</SectionHeader>
+      {openSections.options && (<>
       <div className="tableWrap">
         <table>
           <colgroup>
@@ -574,6 +615,128 @@ export default function LeasingActivityCard({ rentroll }: { rentroll: RentRollDa
         </table>
       </div>
       <AddBtn onClick={addOption} label="Add Option to Renew" />
+      </>)}
+
+      {/* ── Upcoming Lease Expirations (auto-populated from rent roll) ── */}
+      <SectionHeader open={openSections.expirations} onToggle={() => toggleSection("expirations")}>Upcoming Lease Expirations</SectionHeader>
+      {openSections.expirations && (
+        <ExpirationsSection
+          rentroll={rentroll}
+          comments={data.expirationComments ?? {}}
+          onChange={(unitRef, patch) => {
+            setData((prev) => {
+              const cur = { ...(prev.expirationComments ?? {}) };
+              const merged = { ...(cur[unitRef] ?? {}), ...patch };
+              // Drop empty entries
+              if (!merged.lastContact && !merged.tenantStatus) delete cur[unitRef];
+              else cur[unitRef] = merged;
+              return { ...prev, expirationComments: cur };
+            });
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function ExpirationsSection({ rentroll, comments, onChange }: {
+  rentroll: RentRollData | null;
+  comments: Record<string, { lastContact?: string; tenantStatus?: string }>;
+  onChange: (unitRef: string, patch: { lastContact?: string; tenantStatus?: string }) => void;
+}) {
+  type Row = { unitRef: string; tenant: string; sqft: number; expires: string; building: string; days: number };
+  const buckets = useMemo(() => {
+    const empty = { label: "Three Month Expirations",       min: -9999, max: 90,  rows: [] as Row[] };
+    const four  = { label: "Four – Six Month Expirations",  min: 91,    max: 180, rows: [] as Row[] };
+    const seven = { label: "Seven – Twelve Month Expirations", min: 181, max: 365, rows: [] as Row[] };
+    if (!rentroll) return [empty, four, seven];
+    // Scope to office tenants (JV III + NI LLC + The Office Works)
+    const officeCodes = OFFICE_PROPERTY_CODES;
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    for (const p of rentroll.properties) {
+      if (!officeCodes.has(p.propertyCode.toUpperCase())) continue;
+      const def = PROPERTY_DEFS.find((d) => d.id.toUpperCase() === p.propertyCode.toUpperCase());
+      const shortBuilding = def?.name?.replace(/^Building\s+/i, "").replace(/^Kor Center\s+/i, "Kor ") ?? p.propertyCode;
+      for (const u of p.units) {
+        if (u.isVacant) continue;
+        if (!u.leaseTo) continue;
+        if (u.baseRent === 0 && u.grossRentTotal === 0) continue;
+        const d = parseMDY(u.leaseTo);
+        if (!d) continue;
+        const days = Math.round((d.getTime() - today.getTime()) / 86400000);
+        if (days > 365) continue;
+        const row: Row = { unitRef: u.unitRef, tenant: u.occupantName, sqft: u.sqft, expires: u.leaseTo, building: shortBuilding, days };
+        if (days <= 90) empty.rows.push(row);
+        else if (days <= 180) four.rows.push(row);
+        else seven.rows.push(row);
+      }
+    }
+    for (const b of [empty, four, seven]) b.rows.sort((a, b) => a.days - b.days);
+    return [empty, four, seven];
+  }, [rentroll]);
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+      {buckets.map((b) => (
+        <div key={b.label}>
+          <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 6 }}>{b.label}</div>
+          {b.rows.length === 0 ? (
+            <div className="muted small">No tenants in this window.</div>
+          ) : (
+            <div className="tableWrap">
+              <table>
+                <colgroup>
+                  <col />                          {/* Tenant — flex */}
+                  <col style={{ width: 80  }} />   {/* Sq Ft */}
+                  <col style={{ width: 110 }} />   {/* Expires */}
+                  <col style={{ width: 80  }} />   {/* Building */}
+                  <col style={{ width: 130 }} />   {/* Last Contact */}
+                  <col />                          {/* Tenant Status — flex */}
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th style={thLeft}>Tenant</th>
+                    <th style={thRight}>Sq Ft</th>
+                    <th style={thLeft}>Expires</th>
+                    <th style={thCenter}>Building</th>
+                    <th style={thLeft}>Last Contact</th>
+                    <th style={thLeft}>Tenant Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {b.rows.map((r) => {
+                    const c = comments[r.unitRef] ?? {};
+                    return (
+                      <tr key={r.unitRef}>
+                        <td><span style={{ fontSize: 14, fontWeight: 600 }}>{r.tenant}</span></td>
+                        <td style={tdReadRight}><span style={{ fontSize: 14 }}>{r.sqft.toLocaleString()}</span></td>
+                        <td style={tdReadLeft}><span style={{ fontSize: 14 }}>{r.expires}</span></td>
+                        <td style={tdReadCenter}><span style={{ fontSize: 14 }}>{r.building}</span></td>
+                        <td>
+                          <input
+                            style={inputStyle}
+                            placeholder="MM/DD/YYYY"
+                            value={c.lastContact ?? ""}
+                            onChange={(e) => onChange(r.unitRef, { lastContact: e.target.value })}
+                          />
+                        </td>
+                        <td>
+                          <input
+                            style={inputStyle}
+                            placeholder="e.g. RENEWING"
+                            value={c.tenantStatus ?? ""}
+                            onChange={(e) => onChange(r.unitRef, { tenantStatus: e.target.value })}
+                          />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      ))}
     </div>
   );
 }

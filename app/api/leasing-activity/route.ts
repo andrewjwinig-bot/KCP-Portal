@@ -31,6 +31,7 @@ export async function POST(req: NextRequest) {
       pendingLeases: Array.isArray(body?.pendingLeases) ? body.pendingLeases : [],
       tenantsVacating: Array.isArray(body?.tenantsVacating) ? body.tenantsVacating : [],
       optionsToRenew: Array.isArray(body?.optionsToRenew) ? body.optionsToRenew : [],
+      expirationComments: (body?.expirationComments && typeof body.expirationComments === "object") ? body.expirationComments : {},
     };
     await storeJSON(PREFIX, ID, data);
     return NextResponse.json({ ok: true, leasingActivity: data });

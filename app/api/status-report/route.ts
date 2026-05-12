@@ -191,6 +191,15 @@ export async function POST(req: Request) {
     const periodStr  = parsePeriod(reportFrom);
     const reportTitle = `${category} — ${periodStr} Status Report`;
 
+    // Leasing activity is used by both the Lease Activity Summary page and the
+    // Upcoming Lease Expirations section (for per-unit comments).
+    let topLeasing: LeasingActivity = EMPTY_LEASING_ACTIVITY;
+    try {
+      const raw = (await getJSON("leasing-activity", "all")) as LeasingActivity | null;
+      if (raw) topLeasing = { ...EMPTY_LEASING_ACTIVITY, ...raw };
+    } catch { /* ignore */ }
+    const expirationComments = topLeasing.expirationComments ?? {};
+
     const ROW_H  = 17;
     const HEAD_H = 22;
 
@@ -857,12 +866,13 @@ export async function POST(req: Request) {
       const hasAny = buckets.some(b => b.rows.length > 0);
       if (hasAny) {
         const EXP_COLS: ColDef[] = [
-          { header: "Property",     width: 130, align: "left"  },
-          { header: "Tenant",       width: 175, align: "left"  },
-          { header: "Unit",         width: 75,  align: "left"  },
-          { header: "Sq Ft",        width: 60,  align: "right" },
-          { header: "Lease Expires",width: 80,  align: "left"  },
-          { header: "Days",         width: 50,  align: "right" },
+          { header: "Property",      width: 115, align: "left"  },
+          { header: "Tenant",        width: 150, align: "left"  },
+          { header: "Unit",          width: 60,  align: "left"  },
+          { header: "Sq Ft",         width: 50,  align: "right" },
+          { header: "Lease Expires", width: 70,  align: "left"  },
+          { header: "Last Contact",  width: 70,  align: "left"  },
+          { header: "Tenant Status", width: 100, align: "left"  },
         ];
         const tableW = EXP_COLS.reduce((s, c) => s + c.width, 0);
         const tableX = (PW - tableW) / 2;
@@ -899,18 +909,19 @@ export async function POST(req: Request) {
             const row = bucket.rows[i];
             bucketSqft += row.sqft;
             if (i % 2 === 1) page.drawRectangle({ x: tableX, y: py(curY + ROW_H), width: tableW, height: ROW_H, color: C_ALT });
+            const comment = expirationComments[row.unit] ?? {};
             const vals: Record<string, string> = {
               "Property": row.propName, "Tenant": row.tenant, "Unit": row.unit,
               "Sq Ft": sqftFmt(row.sqft), "Lease Expires": row.leaseTo,
-              "Days": row.days < 0 ? "Expired" : `${row.days}d`,
+              "Last Contact": comment.lastContact ? fmtDate(comment.lastContact) : "",
+              "Tenant Status": comment.tenantStatus ?? "",
             };
             let cx = tableX;
             for (const col of EXP_COLS) {
               const val = vals[col.header] || "";
               const tw  = font.widthOfTextAtSize(val, 8);
               const tx  = col.align === "right" ? cx + col.width - 4 - tw : cx + 4;
-              const isExp = col.header === "Days" && row.days < 0;
-              page.drawText(val, { x: tx, y: py(curY + ROW_H - 5), size: 8, font: col.header === "Tenant" ? fontBold : font, color: isExp ? rgb(0.86,0.15,0.15) : C_DARK });
+              page.drawText(val, { x: tx, y: py(curY + ROW_H - 5), size: 8, font: col.header === "Tenant" ? fontBold : font, color: C_DARK });
               cx += col.width;
             }
             page.drawLine({ start: { x: tableX, y: py(curY + ROW_H) }, end: { x: tableX + tableW, y: py(curY + ROW_H) }, thickness: 0.2, color: C_LINE });
