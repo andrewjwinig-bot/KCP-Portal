@@ -7,6 +7,9 @@ function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
   const next = params.get("next") || "/history";
+  const personaParam = params.get("persona") || "admin";
+  // Whitelist personas that may be set via the login redirect.
+  const targetPersona = ["admin", "stacie"].includes(personaParam) ? personaParam : "admin";
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -26,7 +29,7 @@ function LoginForm() {
         throw new Error(j?.error ?? "Login failed");
       }
       // Successful login implies the user wants to assume the admin persona.
-      try { localStorage.setItem("kcp:activeUser", "admin"); } catch { /* ignore */ }
+      try { localStorage.setItem("kcp:activeUser", targetPersona); } catch { /* ignore */ }
       router.replace(next);
     } catch (e: any) {
       setError(e?.message ?? "Login failed");

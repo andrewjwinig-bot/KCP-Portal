@@ -5,11 +5,15 @@ import { useUser } from "./UserProvider";
 import { ALL_USERS, USERS, type UserId } from "../../lib/users";
 
 const AVATAR_COLOR: Record<UserId, string> = {
-  admin: "#16a34a",
-  nancy: "#0b4a7d",
-  harry: "#d97706",
-  maint: "#7c3aed",
+  admin:  "#16a34a",
+  stacie: "#db2777",
+  nancy:  "#0b4a7d",
+  harry:  "#d97706",
+  maint:  "#7c3aed",
 };
+
+// Personas that require the admin auth cookie before they can be selected.
+const ELEVATED_PERSONAS: ReadonlySet<UserId> = new Set(["admin", "stacie"]);
 
 function Avatar({ id, size = 24 }: { id: UserId; size?: number }) {
   return (
@@ -36,10 +40,10 @@ export default function UserSwitcher({ collapsed }: { collapsed: boolean }) {
   const ref = useRef<HTMLDivElement | null>(null);
 
   function pickUser(id: UserId) {
-    if (id === "admin" && !authed) {
-      // Send them to the admin login flow; on success the login page will set persona to admin.
+    if (ELEVATED_PERSONAS.has(id) && !authed) {
+      // Send them to the login flow; on success the login page will set this persona.
       const next = typeof window !== "undefined" ? window.location.pathname + window.location.search : "/dashboard";
-      window.location.href = `/history/login?next=${encodeURIComponent(next)}`;
+      window.location.href = `/history/login?next=${encodeURIComponent(next)}&persona=${id}`;
       return;
     }
     setUserId(id);

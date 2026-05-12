@@ -1,4 +1,4 @@
-export const ALL_USERS = ["admin", "nancy", "harry", "maint"] as const;
+export const ALL_USERS = ["admin", "stacie", "nancy", "harry", "maint"] as const;
 export type UserId = typeof ALL_USERS[number];
 
 export type RentRollCategory = "All" | "Office" | "Retail" | "Residential" | "The Office Works";
@@ -38,6 +38,35 @@ export const USERS: Record<UserId, UserDef> = {
     label: "ADMIN",
     navKeys: new Set(["all"]),
     allowedPathPrefixes: ["*"],
+    defaultRentRollCategory: "All",
+    defaultPropertyType: "all",
+    dashboardScope: "groups",
+  },
+  stacie: {
+    id: "stacie",
+    label: "STACIE",
+    // Stacie sees everything admin sees except sensitive employee payroll
+    // detail (Payroll History page + the per-employee Employees card on the
+    // Payroll Invoicer remain admin-only via separate checks).
+    navKeys: new Set([
+      ...universalNav,
+      "tracker",
+      "payroll-invoicer",
+      "expenses",
+      "expenses-history",
+      "allocated",
+      "maintenance",
+      "leasing-activity",
+    ]),
+    allowedPathPrefixes: [
+      "/dashboard",
+      "/properties",
+      "/rentroll",
+      "/tracker",
+      "/",
+      "/expenses",
+      "/allocated-invoicer",
+    ],
     defaultRentRollCategory: "All",
     defaultPropertyType: "all",
     dashboardScope: "groups",
