@@ -32,8 +32,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       .then((j) => {
         const ok = !!j?.authed;
         setAuthed(ok);
-        // If they were admin but cookie isn't valid, drop to a non-admin persona.
-        if (!ok && initial === "admin") {
+        // If they were on an elevated persona but the cookie isn't valid, drop them.
+        if (!ok && (initial === "admin" || initial === "stacie")) {
           setUserIdState(NON_ADMIN_DEFAULT);
           try { localStorage.setItem("kcp:activeUser", NON_ADMIN_DEFAULT); } catch { /* ignore */ }
         }
