@@ -628,7 +628,7 @@ export default function LeasingActivityCard({ rentroll }: { rentroll: RentRollDa
               const cur = { ...(prev.expirationComments ?? {}) };
               const merged = { ...(cur[unitRef] ?? {}), ...patch };
               // Drop empty entries
-              if (!merged.lastContact && !merged.tenantStatus) delete cur[unitRef];
+              if (!merged.tenantStatus) delete cur[unitRef];
               else cur[unitRef] = merged;
               return { ...prev, expirationComments: cur };
             });
@@ -690,7 +690,6 @@ function ExpirationsSection({ rentroll, comments, onChange }: {
                   <col style={{ width: 80  }} />   {/* Sq Ft */}
                   <col style={{ width: 110 }} />   {/* Expires */}
                   <col style={{ width: 80  }} />   {/* Building */}
-                  <col style={{ width: 130 }} />   {/* Last Contact */}
                   <col />                          {/* Tenant Status — flex */}
                 </colgroup>
                 <thead>
@@ -699,7 +698,6 @@ function ExpirationsSection({ rentroll, comments, onChange }: {
                     <th style={thRight}>Sq Ft</th>
                     <th style={thLeft}>Expires</th>
                     <th style={thCenter}>Building</th>
-                    <th style={thLeft}>Last Contact</th>
                     <th style={thLeft}>Tenant Status</th>
                   </tr>
                 </thead>
@@ -712,14 +710,6 @@ function ExpirationsSection({ rentroll, comments, onChange }: {
                         <td style={tdReadRight}><span style={{ fontSize: 14 }}>{r.sqft.toLocaleString()}</span></td>
                         <td style={tdReadLeft}><span style={{ fontSize: 14 }}>{r.expires}</span></td>
                         <td style={tdReadCenter}><span style={{ fontSize: 14 }}>{r.building}</span></td>
-                        <td>
-                          <input
-                            style={inputStyle}
-                            placeholder="MM/DD/YYYY"
-                            value={c.lastContact ?? ""}
-                            onChange={(e) => onChange(r.unitRef, { lastContact: e.target.value })}
-                          />
-                        </td>
                         <td>
                           <input
                             style={inputStyle}
