@@ -40,7 +40,7 @@ export const STACIE_TASKS: StacieTask[] = [
 
   // ── Monthly ───────────────────────────────────────────────────
   { id: "mo-dl-bank-statements", title: "Download ALL Bank Statements", frequency: "monthly", instructions: "Chase 16, Liberty 6 (+3?), M&T 6." },
-  { id: "mo-reconcile-bank",     title: "Reconcile ALL Bank Statements (except 5600 and 2000)", frequency: "monthly", instructions: "Schedule." },
+  { id: "mo-reconcile-bank",     title: "Reconcile ALL Bank Statements (except 5600 and 2000)", frequency: "monthly", instructions: "Due by the 10th of the following month.\nTrack progress on the Bank Rec Tracker (/bank-rec)." },
   { id: "mo-direct-pay-mtg",     title: "Post Direct Pay Mortgages", frequency: "monthly" },
   { id: "mo-nillc-mtg-alloc",    title: "Post NILLC allocation of Mortgage Principal & Interest", frequency: "monthly" },
   { id: "mo-bank-fees",          title: "Post all monthly Bank Fees", frequency: "monthly", instructions: "Chase — Lock Boxes; M&T (4900 & 1500); Liberty (7300)." },
