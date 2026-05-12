@@ -35,11 +35,18 @@ export type OptionToRenew = {
   optionTermExp: string; // MM/DD/YYYY
 };
 
+export type LeaseExpirationComment = {
+  lastContact?: string;   // MM/DD/YYYY
+  tenantStatus?: string;  // free-text, e.g. "BANKRUPTCY", "RENEWING"
+};
+
 export type LeasingActivity = {
   prospects: Prospect[];
   pendingLeases: PendingLease[];
   tenantsVacating: TenantVacating[];
   optionsToRenew: OptionToRenew[];
+  /** Per-unit notes shown on the Upcoming Lease Expirations section of the status report. Keyed by unitRef. */
+  expirationComments?: Record<string, LeaseExpirationComment>;
 };
 
 export const EMPTY_LEASING_ACTIVITY: LeasingActivity = {
@@ -47,6 +54,7 @@ export const EMPTY_LEASING_ACTIVITY: LeasingActivity = {
   pendingLeases: [],
   tenantsVacating: [],
   optionsToRenew: [],
+  expirationComments: {},
 };
 
 /**
