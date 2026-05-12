@@ -468,19 +468,21 @@ export async function POST(req: Request) {
         // Slightly darker than the global C_ALT for better readability on this page.
         const ROW_ALT_BG = rgb(0.91, 0.92, 0.93);
 
-        // Group-boundary X positions — vertical gridlines render at each group
-        // boundary only (matches the source Excel report), not between every
-        // sub-column.
+        // Vertical gridlines only at the four boundaries from the source
+        // report: after the 2nd column (Total Sq Ft), 5th column (Occupied %),
+        // 8th column (Vacant %), and the right edge (after Pending %).
         const groupDividerXs = [
-          tableX + labelW,              // after label
-          tableX + labelW + totW,       // after Total
-          grpStartXs[1],                // after Occupied
-          grpStartXs[2],                // after Vacant
-          tableX + tableW,              // right edge (after Pending)
+          tableX + labelW + totW,       // after Total (col 2)
+          grpStartXs[1],                // after Occupied (col 5)
+          grpStartXs[2],                // after Vacant (col 8)
+          tableX + tableW,              // right edge (col 11)
         ];
         function drawTableVerticals(topY: number, bottomY: number) {
+          // Extend a couple of points above the group-header band so the
+          // verticals visibly clear the header text.
+          const startY = topY - 2;
           for (const bx of groupDividerXs) {
-            page.drawLine({ start: { x: bx, y: py(topY) }, end: { x: bx, y: py(bottomY) }, thickness: 0.5, color: C_LINE });
+            page.drawLine({ start: { x: bx, y: py(startY) }, end: { x: bx, y: py(bottomY) }, thickness: 0.5, color: C_LINE });
           }
         }
 
