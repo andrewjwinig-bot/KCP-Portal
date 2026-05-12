@@ -51,6 +51,7 @@ export const USERS: Record<UserId, UserDef> = {
     navKeys: new Set([
       ...universalNav,
       "tracker",
+      "bank-rec-tracker",
       "maintenance",
       "leasing-activity",
     ]),
@@ -59,6 +60,7 @@ export const USERS: Record<UserId, UserDef> = {
       "/properties",
       "/rentroll",
       "/tracker",
+      "/bank-rec",
     ],
     defaultRentRollCategory: "All",
     defaultPropertyType: "all",
