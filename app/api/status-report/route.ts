@@ -223,11 +223,14 @@ export async function POST(req: Request) {
     {
       const { page } = newPage();
 
-      // Title
-      const coverTitle = "Neshaminy Interplex Business Center Leasing Status Report";
+      // Title — two lines
+      const line1 = "Neshaminy Interplex Business Center";
+      const line2 = "Leasing Status Report";
       const titleSz = 24;
-      const titleW = fontBold.widthOfTextAtSize(coverTitle, titleSz);
-      page.drawText(coverTitle, { x: (PW - titleW) / 2, y: py(200), size: titleSz, font: fontBold, color: C_DARK });
+      const line1W = fontBold.widthOfTextAtSize(line1, titleSz);
+      const line2W = fontBold.widthOfTextAtSize(line2, titleSz);
+      page.drawText(line1, { x: (PW - line1W) / 2, y: py(200), size: titleSz, font: fontBold, color: C_DARK });
+      page.drawText(line2, { x: (PW - line2W) / 2, y: py(232), size: titleSz, font: fontBold, color: C_DARK });
 
       // Period (e.g. "May 2026") below title
       const m = reportFrom?.match(/^(\d{1,2})\/\d+\/(\d{4})$/);
@@ -235,7 +238,7 @@ export async function POST(req: Request) {
       if (periodLong) {
         const plSz = 14;
         const plW = font.widthOfTextAtSize(periodLong, plSz);
-        page.drawText(periodLong, { x: (PW - plW) / 2, y: py(228), size: plSz, font, color: C_BRAND });
+        page.drawText(periodLong, { x: (PW - plW) / 2, y: py(262), size: plSz, font, color: C_BRAND });
       }
 
       // Summary stat boxes
