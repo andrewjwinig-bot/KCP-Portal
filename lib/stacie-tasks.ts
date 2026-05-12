@@ -1,10 +1,13 @@
 export type Frequency = "weekly" | "monthly" | "quarterly" | "semiannual" | "annual" | "ongoing" | "eoy";
 
+export type Owner = "stacie" | "drew";
+
 export type StacieTask = {
   id: string;
   title: string;
   frequency: Frequency;
   instructions?: string; // line-broken plain text
+  owner?: Owner; // defaults to "stacie" when omitted
 };
 
 export const FREQUENCY_LABELS: Record<Frequency, string> = {
@@ -75,6 +78,64 @@ export const STACIE_TASKS: StacieTask[] = [
 
   // ── End of Year ───────────────────────────────────────────────
   { id: "eoy-workpapers", title: "Prepare EOY Workpaper Support", frequency: "eoy", instructions: "As assigned." },
+];
+
+/**
+ * Drew's recurring tasks, mirrored from the Master Tracker (app/tracker/page.tsx)
+ * so Stacie can view them inside her tracker via the owner filter.
+ *
+ * Drew's master tracker lives in localStorage on his page; checks here are
+ * tracked separately in Stacie's blob store and reflect *her* view of progress.
+ * They do not sync to Drew's actual tracker.
+ */
+export const DREW_TASKS: StacieTask[] = [
+  // ── Daily reminders → "ongoing" bucket ───────────────────────────
+  { id: "drew-daily-chase", title: "Chase Bank Approvals", frequency: "ongoing", owner: "drew",
+    instructions: "Check and approve checks and ACHs.\nhttps://secure.chase.com/" },
+  { id: "drew-daily-avid",  title: "Approve Avid Invoices", frequency: "ongoing", owner: "drew",
+    instructions: "Check and approve open invoices.\nhttps://one.avidxchange.net/#/invoices" },
+
+  // ── Weekly ───────────────────────────────────────────────────────
+  { id: "drew-wkly-avid", title: "Pay Avid Bills (every Wednesday)", frequency: "weekly", owner: "drew",
+    instructions: "Export from Skyline and import to Avid. Run JV III, JV III Condo, NI LLC FNIPLX, then All Linked Accounts." },
+
+  // ── Monthly routine ──────────────────────────────────────────────
+  { id: "drew-m-checks",      title: "1st of the Month Checks",       frequency: "monthly", owner: "drew", instructions: "Print checks and cover sheet." },
+  { id: "drew-m-lbr",         title: "Liberty Bank Report",            frequency: "monthly", owner: "drew", instructions: "JVIII and NILLC reprojections." },
+  { id: "drew-m-lhsc",        title: "LHSC Cushman Report",            frequency: "monthly", owner: "drew", instructions: "Activity Rec, Cash Journal, Check Register, Voucher Report, Bank Statement." },
+  { id: "drew-m-close",       title: "Close Prior Month",              frequency: "monthly", owner: "drew", instructions: "Post and close period in Skyline (~20th)." },
+  { id: "drew-m-cash",        title: "Cash Analysis Report",           frequency: "monthly", owner: "drew" },
+  { id: "drew-m-opstmt",      title: "Operating Statements",           frequency: "monthly", owner: "drew", instructions: "Update and record variances." },
+  { id: "drew-m-tenant",      title: "Tenant Group Setup",             frequency: "monthly", owner: "drew" },
+  { id: "drew-m-mgmt-fees",   title: "Print Management Fees",          frequency: "monthly", owner: "drew", instructions: "Print from Skyline (last Friday of month)." },
+  { id: "drew-m-alloc-exp",   title: "Allocate Expenses",              frequency: "monthly", owner: "drew", instructions: "Same time as monthly close (~20th)." },
+  { id: "drew-m-alloc-cc",    title: "Allocate CC Charges",            frequency: "monthly", owner: "drew", instructions: "Same time as monthly close (~20th)." },
+
+  // ── Quarterly ────────────────────────────────────────────────────
+  { id: "drew-q-bp",        title: "BP Commissions",            frequency: "quarterly", owner: "drew", instructions: "Q4 (Jan) · Q1 (Apr) · Q2 (Jul) · Q3 (Oct)" },
+  { id: "drew-q-lhscwawa",  title: "LHSC Wawa Quarterly CAM",   frequency: "quarterly", owner: "drew", instructions: "Q4 (Jan) · Q1 (Apr) · Q2 (Jul) · Q3 (Oct)" },
+
+  // ── Annual / Seasonal ────────────────────────────────────────────
+  { id: "drew-jan-1099due",   title: "1099 Due (Jan)",                       frequency: "annual", owner: "drew" },
+  { id: "drew-jan-alloc",     title: "Reconcile Allocated Expenses (Jan)",   frequency: "annual", owner: "drew", instructions: "9301, 9302, 9303 expenses in 2000 account." },
+  { id: "drew-feb-wp",        title: "Start Workpapers (Feb)",                frequency: "annual", owner: "drew", instructions: "Once January is closed." },
+  { id: "drew-mar-wak",       title: "Wakefern CAM Rec Due (Mar)",            frequency: "annual", owner: "drew" },
+  { id: "drew-mar-ret",       title: "Single-Tenant RET Bills (Mar)",         frequency: "annual", owner: "drew", instructions: "Add RET bills to charges. Include copy of actual RET bill." },
+  { id: "drew-apr-cam",       title: "CAM Recs Due (Apr)",                    frequency: "annual", owner: "drew" },
+  { id: "drew-jul-sky",       title: "Reprojection Skyline Upload (Jul)",     frequency: "annual", owner: "drew" },
+  { id: "drew-aug-ins",       title: "Insurance Applications (Aug)",          frequency: "annual", owner: "drew" },
+  { id: "drew-sep-bud",       title: "Next Year Budgets (Sep)",               frequency: "annual", owner: "drew" },
+  { id: "drew-oct-wak",       title: "Wakefern Budget Due (Oct)",             frequency: "annual", owner: "drew" },
+  { id: "drew-nov-kfff-990",  title: "Submit KFFF Form 990 (Nov)",            frequency: "annual", owner: "drew" },
+  { id: "drew-nov-chase",     title: "Check Chase — Black Friday (Nov)",      frequency: "annual", owner: "drew" },
+  { id: "drew-nov-camest",    title: "Upload CAM Estimates (Nov)",            frequency: "annual", owner: "drew" },
+  { id: "drew-nov-budsky",    title: "Upload Budgets to Skyline (Nov)",       frequency: "annual", owner: "drew" },
+  { id: "drew-nov-rec",       title: "1st of Month Reconciliation (Nov)",     frequency: "annual", owner: "drew" },
+
+  // ── End of Year (December) ───────────────────────────────────────
+  { id: "drew-dec-1099", title: "1099 Start",                  frequency: "eoy", owner: "drew", instructions: "Prepare vendor list and upload to track1099.com." },
+  { id: "drew-dec-int",  title: "Transfer Interest Income",    frequency: "eoy", owner: "drew", instructions: "From three security deposit accounts. Calculate management fees on interest." },
+  { id: "drew-dec-bank", title: "Reimburse Bank Fees",         frequency: "eoy", owner: "drew", instructions: "Office Works and Eastwick (unless M&T acc closes)." },
 ];
 
 /** Returns the period key the given frequency uses for the supplied date. */
