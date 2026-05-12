@@ -1,7 +1,20 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { FREQUENCY_LABELS, FREQUENCY_ORDER, STACIE_TASKS, checkedKey, currentPeriod, type Frequency } from "../../../lib/stacie-tasks";
+import { DREW_TASKS, FREQUENCY_LABELS, FREQUENCY_ORDER, STACIE_TASKS, checkedKey, currentPeriod, type Frequency, type Owner, type StacieTask } from "../../../lib/stacie-tasks";
+
+type OwnerFilter = "stacie" | "both" | "drew";
+
+const OWNER_FILTERS: { id: OwnerFilter; label: string }[] = [
+  { id: "stacie", label: "Stacie's Tasks" },
+  { id: "both",   label: "Both" },
+  { id: "drew",   label: "Drew's Tasks" },
+];
+
+const OWNER_BADGE: Record<Owner, { label: string; bg: string; color: string; border: string }> = {
+  stacie: { label: "S", bg: "rgba(11,74,125,0.08)",  color: "#0b4a7d", border: "rgba(11,74,125,0.25)" },
+  drew:   { label: "D", bg: "rgba(180,83,9,0.10)",   color: "#b45309", border: "rgba(180,83,9,0.30)" },
+};
 
 export default function StacieTrackerPage() {
   const [checked, setChecked] = useState<Record<string, boolean>>({});
@@ -10,20 +23,28 @@ export default function StacieTrackerPage() {
   const [openFreqs, setOpenFreqs] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(FREQUENCY_ORDER.map((f) => [f, true])),
   );
+  const [ownerFilter, setOwnerFilter] = useState<OwnerFilter>("stacie");
 
   // Load on mount
   useEffect(() => {
     fetch("/api/stacie-tasks").then((r) => r.json()).then((j) => setChecked(j.checked ?? {})).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
-  // Group tasks by frequency once
+  // Active task list based on owner filter
+  const activeTasks: StacieTask[] = useMemo(() => {
+    if (ownerFilter === "stacie") return STACIE_TASKS;
+    if (ownerFilter === "drew")   return DREW_TASKS;
+    return [...STACIE_TASKS, ...DREW_TASKS];
+  }, [ownerFilter]);
+
+  // Group tasks by frequency
   const byFreq = useMemo(() => {
-    const groups: Record<Frequency, typeof STACIE_TASKS> = {
+    const groups: Record<Frequency, StacieTask[]> = {
       weekly: [], monthly: [], quarterly: [], semiannual: [], annual: [], ongoing: [], eoy: [],
     };
-    for (const t of STACIE_TASKS) groups[t.frequency].push(t);
+    for (const t of activeTasks) groups[t.frequency].push(t);
     return groups;
-  }, []);
+  }, [activeTasks]);
 
   // Toggle a single task's completion for its current period
   async function toggleTask(taskId: string, freq: Frequency) {
@@ -73,9 +94,38 @@ export default function StacieTrackerPage() {
       </header>
 
       <div className="card">
-        <b style={{ fontSize: 17 }}>Recurring Tasks</b>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+          <b style={{ fontSize: 17 }}>Recurring Tasks</b>
+          <div role="tablist" aria-label="Owner filter" style={{
+            display: "inline-flex", border: "1px solid var(--border)", borderRadius: 999, overflow: "hidden", background: "#fff",
+          }}>
+            {OWNER_FILTERS.map((f) => {
+              const active = ownerFilter === f.id;
+              return (
+                <button
+                  key={f.id}
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => setOwnerFilter(f.id)}
+                  style={{
+                    padding: "6px 14px",
+                    fontSize: 12, fontWeight: 700,
+                    background: active ? "var(--brand)" : "transparent",
+                    color: active ? "#fff" : "var(--text)",
+                    border: "none", cursor: "pointer", fontFamily: "inherit",
+                  }}
+                >
+                  {f.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
         <p className="muted small" style={{ marginTop: 4 }}>
           Checkboxes auto-reset each new period (week, month, quarter, etc.). State syncs across devices.
+          {ownerFilter !== "stacie" && (
+            <span style={{ marginLeft: 8 }}>· Drew&rsquo;s tasks are tracked here for Stacie&rsquo;s view; his Master Tracker is separate.</span>
+          )}
           {error && <span style={{ color: "#b91c1c", marginLeft: 8 }}>· {error}</span>}
         </p>
 
@@ -113,12 +163,17 @@ export default function StacieTrackerPage() {
                     <div style={{ borderTop: "1px solid var(--border)" }}>
                       {tasks.map((t, i) => {
                         const checked = isChecked(t.id, freq);
+                        const owner: Owner = t.owner ?? "stacie";
+                        const badge = OWNER_BADGE[owner];
+                        const showBadge = ownerFilter === "both";
                         return (
                           <label
                             key={t.id}
                             htmlFor={`task-${t.id}`}
                             style={{
-                              display: "grid", gridTemplateColumns: "32px 1fr", gap: 12,
+                              display: "grid",
+                              gridTemplateColumns: showBadge ? "32px 28px 1fr" : "32px 1fr",
+                              gap: 12,
                               padding: "12px 16px",
                               borderTop: i === 0 ? undefined : "1px solid var(--border)",
                               cursor: "pointer",
@@ -132,6 +187,21 @@ export default function StacieTrackerPage() {
                               onChange={() => toggleTask(t.id, freq)}
                               style={{ width: 20, height: 20, marginTop: 2, cursor: "pointer" }}
                             />
+                            {showBadge && (
+                              <span
+                                title={owner === "drew" ? "Drew" : "Stacie"}
+                                style={{
+                                  display: "inline-flex", alignItems: "center", justifyContent: "center",
+                                  width: 24, height: 24, borderRadius: 999, marginTop: 1,
+                                  fontSize: 11, fontWeight: 800, letterSpacing: "0.02em",
+                                  color: badge.color, background: badge.bg,
+                                  border: `1px solid ${badge.border}`,
+                                  flexShrink: 0,
+                                }}
+                              >
+                                {badge.label}
+                              </span>
+                            )}
                             <div style={{ minWidth: 0 }}>
                               <div style={{
                                 fontSize: 14, fontWeight: 600,
