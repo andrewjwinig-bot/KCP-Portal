@@ -119,6 +119,16 @@ export default function DashboardPage() {
     return { date: next, daysUntil, status };
   }, []);
 
+  // ── Next CC Expenses submission (7th of every month) ──
+  const ccExpensesDue = useMemo(() => {
+    const t = new Date(); t.setHours(0, 0, 0, 0);
+    const next = new Date(t.getFullYear(), t.getMonth(), 7);
+    if (t > next) next.setMonth(next.getMonth() + 1);
+    const daysUntil = Math.round((next.getTime() - t.getTime()) / 86400000);
+    const status: "today" | "soon" | "later" = daysUntil === 0 ? "today" : daysUntil <= 3 ? "soon" : "later";
+    return { date: next, daysUntil, status };
+  }, []);
+
   // ── Portfolio occupancy ──
   const JV_III_CODES = useMemo(() => new Set(["3610", "3620", "3640"]), []);
   const NI_LLC_CODES = useMemo(() => new Set(["4050", "4060", "4070", "4080", "40A0", "40B0", "40C0"]), []);
@@ -357,6 +367,33 @@ export default function DashboardPage() {
                   </div>
                 </div>
                 <Link href="/" style={{ fontSize: 12, fontWeight: 600, color: "#0b4a7d", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>
+                  Open →
+                </Link>
+              </div>
+              )}
+
+              {(user.id === "harry" || user.navKeys.has("all")) && (
+              <div style={{
+                display: "flex", alignItems: "flex-start", gap: 10,
+                padding: "10px 12px",
+                border: "1px solid",
+                borderColor: ccExpensesDue.status === "today" ? "rgba(220,38,38,0.35)" : ccExpensesDue.status === "soon" ? "rgba(217,119,6,0.3)" : "rgba(15,23,42,0.12)",
+                background: ccExpensesDue.status === "today" ? "rgba(220,38,38,0.06)" : ccExpensesDue.status === "soon" ? "rgba(217,119,6,0.06)" : "rgba(15,23,42,0.025)",
+                borderRadius: 8,
+              }}>
+                <span style={{
+                  width: 10, height: 10, borderRadius: 999, marginTop: 5, flexShrink: 0,
+                  background: ccExpensesDue.status === "today" ? "#dc2626" : ccExpensesDue.status === "soon" ? "#d97706" : "#64748b",
+                }} />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 600, fontSize: 14 }}>Submit CC Expenses</div>
+                  <div className="muted small" style={{ marginTop: 2 }}>
+                    {ccExpensesDue.status === "today"
+                      ? `Due today, ${formatShortDate(ccExpensesDue.date)} — submit credit card expenses.`
+                      : `Due ${formatShortDate(ccExpensesDue.date)} · in ${ccExpensesDue.daysUntil} day${ccExpensesDue.daysUntil === 1 ? "" : "s"}`}
+                  </div>
+                </div>
+                <Link href="/expenses" style={{ fontSize: 12, fontWeight: 600, color: "#0b4a7d", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>
                   Open →
                 </Link>
               </div>
