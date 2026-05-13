@@ -40,6 +40,54 @@ function normName(s: string): string {
   return s.toLowerCase().replace(/\s+/g, " ").trim();
 }
 
+type GroupedOwnerRow = {
+  owner: PropertyOwner;
+  groupKey: string;
+  groupTotal: number;
+  groupSize: number;
+  indexInGroup: number;        // 0-based
+  isLastInGroup: boolean;
+};
+
+/** Group owners by normalized name; sort groups by total ownership desc;
+ *  sort within each group by row ownership desc. Returns a flat list of
+ *  rows annotated with their group context. */
+function groupAndSortOwners(owners: PropertyOwner[]): GroupedOwnerRow[] {
+  const byKey = new Map<string, PropertyOwner[]>();
+  for (const o of owners) {
+    const key = normName(o.name);
+    let arr = byKey.get(key);
+    if (!arr) { arr = []; byKey.set(key, arr); }
+    arr.push(o);
+  }
+  for (const arr of byKey.values()) {
+    arr.sort((a, b) => (ownershipFor(b) ?? 0) - (ownershipFor(a) ?? 0));
+  }
+  const totals = new Map<string, number>();
+  for (const [k, arr] of byKey.entries()) {
+    totals.set(k, arr.reduce((s, o) => s + (ownershipFor(o) ?? 0), 0));
+  }
+  const sortedKeys = [...byKey.keys()].sort(
+    (a, b) => (totals.get(b) ?? 0) - (totals.get(a) ?? 0),
+  );
+  const out: GroupedOwnerRow[] = [];
+  for (const k of sortedKeys) {
+    const arr = byKey.get(k)!;
+    const total = totals.get(k) ?? 0;
+    arr.forEach((o, i) => {
+      out.push({
+        owner: o,
+        groupKey: k,
+        groupTotal: total,
+        groupSize: arr.length,
+        indexInGroup: i,
+        isLastInGroup: i === arr.length - 1,
+      });
+    });
+  }
+  return out;
+}
+
 export default function InvestorInfoPage() {
   const [view, setView] = useState<View>("property");
   const [query, setQuery] = useState("");
@@ -234,23 +282,45 @@ export default function InvestorInfoPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {h.owners.map((inv) => (
-                          <tr key={inv.id} style={{ borderTop: "1px solid var(--border)" }}>
-                            <td style={{ padding: "12px 16px", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 12, color: inv.vendorCode ? "var(--text)" : "var(--muted)" }}>
-                              {inv.vendorCode ?? "—"}
-                            </td>
-                            <td style={{ padding: "12px 16px" }}>
-                              <div style={{ fontWeight: 600 }}>{inv.name}</div>
-                              {inv.detailedName && (
-                                <div className="muted small" style={{ marginTop: 2 }}>{inv.detailedName}</div>
-                              )}
-                            </td>
-                            <td style={{ padding: "12px 16px", color: "var(--muted)" }}>
-                              {[inv.address, inv.city, inv.state, inv.zip].filter(Boolean).join(", ") || "—"}
-                            </td>
-                            <td style={{ padding: "12px 16px", textAlign: "right" }}>{pct(ownershipFor(inv))}</td>
-                          </tr>
-                        ))}
+                        {groupAndSortOwners(h.owners).map((row) => {
+                          const inv = row.owner;
+                          const grouped = row.groupSize > 1;
+                          const isFirst = row.indexInGroup === 0;
+                          const borderColor = grouped && !isFirst
+                            ? "rgba(11,74,125,0.12)"
+                            : "var(--border)";
+                          const leftAccent = grouped ? "3px solid rgba(11,74,125,0.35)" : undefined;
+                          return (
+                            <tr key={inv.id} style={{ borderTop: `1px solid ${borderColor}` }}>
+                              <td style={{ padding: "12px 16px", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 12, color: inv.vendorCode ? "var(--text)" : "var(--muted)", borderLeft: leftAccent }}>
+                                {inv.vendorCode ?? "—"}
+                              </td>
+                              <td style={{ padding: "12px 16px" }}>
+                                <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
+                                  <span style={{ fontWeight: 600 }}>{inv.name}</span>
+                                  {grouped && isFirst && (
+                                    <span style={{
+                                      fontSize: 10, fontWeight: 700, letterSpacing: "0.06em",
+                                      padding: "2px 7px", borderRadius: 4,
+                                      background: "rgba(11,74,125,0.08)", color: "#0b4a7d",
+                                      border: "1px solid rgba(11,74,125,0.25)",
+                                      textTransform: "uppercase",
+                                    }}>
+                                      Combined {pct(row.groupTotal)} · {row.groupSize} stakes
+                                    </span>
+                                  )}
+                                </div>
+                                {inv.detailedName && (
+                                  <div className="muted small" style={{ marginTop: 2 }}>{inv.detailedName}</div>
+                                )}
+                              </td>
+                              <td style={{ padding: "12px 16px", color: "var(--muted)" }}>
+                                {[inv.address, inv.city, inv.state, inv.zip].filter(Boolean).join(", ") || "—"}
+                              </td>
+                              <td style={{ padding: "12px 16px", textAlign: "right" }}>{pct(ownershipFor(inv))}</td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   )}
