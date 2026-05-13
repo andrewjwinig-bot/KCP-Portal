@@ -3,9 +3,34 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { UNIQUE_BANK_ACCOUNTS, type BankGroup, type UniqueBankAccount } from "../../lib/bank-rec/accounts";
 import { BANK_REC_DUE_DAY, bankRecKey, bankRecPeriod, bankRecPeriodLabel, shiftPeriod } from "../../lib/bank-rec/util";
+import { BANK_ACCOUNTS } from "../../lib/properties/data";
 
 const BANK_ORDER: BankGroup[] = ["M&T", "JPM-Chase", "Liberty Bank"];
 const COMMENT_AUTOSAVE_MS = 600;
+
+// Build a last4 → deep-link map from the per-property BANK_ACCOUNTS data so
+// each row in the rec tracker can jump straight to the bank's login screen
+// (matching the links used on the Property Info cards).
+const ACCOUNT_LINK_BY_LAST4: Record<string, string> = (() => {
+  const map: Record<string, string> = {};
+  for (const accounts of Object.values(BANK_ACCOUNTS)) {
+    for (const a of accounts) {
+      if (a.last4 && a.link && !map[a.last4]) map[a.last4] = a.link;
+    }
+  }
+  return map;
+})();
+
+// Fallback login URLs by bank when an account-specific link isn't on file.
+const BANK_LOGIN: Record<BankGroup, string> = {
+  "M&T":          "https://treasurycenter.mtb.com/ui/",
+  "JPM-Chase":    "https://secure.chase.com/",
+  "Liberty Bank": "https://secure.myvirtualbranch.com/",
+};
+
+function linkFor(account: UniqueBankAccount): string {
+  return ACCOUNT_LINK_BY_LAST4[account.last4] ?? BANK_LOGIN[account.bank];
+}
 
 export default function BankRecTrackerPage() {
   const [checked, setChecked] = useState<Record<string, boolean>>({});
@@ -274,13 +299,20 @@ export default function BankRecTrackerPage() {
                               style={{ width: 18, height: 18, cursor: "pointer" }}
                             />
                           </td>
-                          <td style={{
-                            padding: "10px 14px",
-                            fontWeight: 600,
-                            color: isDone ? "var(--muted)" : "var(--text)",
-                            textDecoration: isDone ? "line-through" : "none",
-                          }}>
-                            {r.accountName}
+                          <td style={{ padding: "10px 14px" }}>
+                            <a
+                              href={linkFor(r)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title={`Open ${r.bank} login`}
+                              style={{
+                                fontWeight: 600,
+                                color: isDone ? "var(--muted)" : "var(--brand)",
+                                textDecoration: isDone ? "line-through" : "none",
+                              }}
+                            >
+                              {r.accountName}
+                            </a>
                           </td>
                           <td style={{ padding: "10px 14px", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", color: isDone ? "var(--muted)" : "var(--text)" }}>
                             {r.last4}
