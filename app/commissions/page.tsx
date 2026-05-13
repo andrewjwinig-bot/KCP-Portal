@@ -12,6 +12,8 @@ import {
   recentQuarterLabels,
   suiteFromUnitRef,
   termYearsBetween,
+  toDisplayDate,
+  toIsoDate,
 } from "../../lib/commissions";
 
 // Office property codes — Business Parks Division commissions.
@@ -352,20 +354,26 @@ export default function CommissionsPage() {
             />
           </div>
 
-          {/* Lease From — always editable (rent roll source can be wrong) */}
+          {/* Lease From — native date picker, always editable */}
           <div>
             <label style={labelStyle}>Lease From</label>
-            <input type="text" placeholder="m/d/yyyy" value={form.leaseFrom}
+            <input
+              type="date"
+              value={toIsoDate(form.leaseFrom)}
               onChange={(e) => recomputeFromDates({ leaseFrom: e.target.value })}
-              style={inputStyle} />
+              style={inputStyle}
+            />
           </div>
 
-          {/* Lease To — always editable */}
+          {/* Lease To — native date picker, always editable */}
           <div>
             <label style={labelStyle}>Lease To</label>
-            <input type="text" placeholder="m/d/yyyy" value={form.leaseTo}
+            <input
+              type="date"
+              value={toIsoDate(form.leaseTo)}
               onChange={(e) => recomputeFromDates({ leaseTo: e.target.value })}
-              style={inputStyle} />
+              style={inputStyle}
+            />
           </div>
 
           {/* Term Years */}
@@ -507,14 +515,28 @@ export default function CommissionsPage() {
                           <td style={{ padding: "10px 12px" }}>{e.suite}</td>
                           <td style={{ padding: "10px 12px", textAlign: "right" }}>{e.sqft.toLocaleString()}</td>
                           <td style={{ padding: "10px 12px" }}>{e.termYears} yr</td>
-                          <td style={{ padding: "10px 12px", whiteSpace: "nowrap" }}>{e.leaseFrom} – {e.leaseTo}</td>
+                          <td style={{ padding: "10px 12px", whiteSpace: "nowrap" }}>{toDisplayDate(e.leaseFrom)} – {toDisplayDate(e.leaseTo)}</td>
                           <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: 600 }}>{toMoney(e.incentiveAmount)}</td>
                           <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: 700, color: "var(--brand)" }}>
                             {toMoney((Number(e.incentiveAmount) || 0) * MARKUP)}
                           </td>
                           <td style={{ padding: "10px 12px", textAlign: "right", whiteSpace: "nowrap" }}>
                             <button className="btn" onClick={() => editEntry(e)} style={{ padding: "4px 8px", fontSize: 11, marginRight: 6 }}>Edit</button>
-                            <button className="btn" onClick={() => deleteEntry(e.id)} style={{ padding: "4px 8px", fontSize: 11, color: "#b91c1c", borderColor: "rgba(220,38,38,0.4)" }}>Delete</button>
+                            <button
+                              onClick={() => deleteEntry(e.id)}
+                              title="Delete row"
+                              aria-label="Delete row"
+                              style={{
+                                width: 20, height: 20, padding: 0,
+                                borderRadius: 4,
+                                border: "1px solid rgba(180,35,24,0.45)",
+                                background: "rgba(180,35,24,0.08)",
+                                color: "#b42318",
+                                cursor: "pointer",
+                                fontSize: 14, lineHeight: 1, fontWeight: 700,
+                                display: "inline-flex", alignItems: "center", justifyContent: "center",
+                              }}
+                            >×</button>
                           </td>
                         </tr>
                       ))}
