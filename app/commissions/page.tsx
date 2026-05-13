@@ -1,14 +1,19 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import * as XLSX from "xlsx";
 import type { RentRollData } from "../../lib/rentroll/parseRentRollExcel";
-import { PROPERTY_DEFS } from "../../lib/properties/data";
+import { PROPERTY_DEFS, type FundGroup } from "../../lib/properties/data";
 import {
   type CommissionEntry,
   INCENTIVE_TIERS,
   buildingFromUnitRef,
+  buildJournalEntryRows,
   computeIncentive,
   incentiveRate,
+  type JEFund,
+  parseQuarterLabel,
+  quarterShortCode,
   recentQuarterLabels,
   suiteFromUnitRef,
   termYearsBetween,
@@ -20,6 +25,15 @@ import {
 const OFFICE_CODES = new Set(
   PROPERTY_DEFS.filter((p) => p.type === "Office" && !p.entityKind).map((p) => p.id.toUpperCase()),
 );
+
+/** Building codes grouped by fund (entity cards excluded — Journal Entries hit
+ *  real buildings only). Order here drives the DIST row order in the export. */
+const FUND_BUILDINGS: Record<FundGroup, string[]> = {
+  "JV III": PROPERTY_DEFS.filter((p) => p.fundGroup === "JV III" && !p.entityKind).map((p) => p.id),
+  "NI LLC": PROPERTY_DEFS.filter((p) => p.fundGroup === "NI LLC" && !p.entityKind).map((p) => p.id),
+};
+
+const BATCH_STORAGE_KEY = "kcp:commissions:batchNumber";
 
 const NEW_TENANT_VALUE = "__NEW__";
 
@@ -209,6 +223,43 @@ export default function CommissionsPage() {
     });
     setTenantSelection(e.unitRef ?? (e.tenant ? NEW_TENANT_VALUE : ""));
     if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  /** Generates and downloads a Journal Entry .xlsx for one fund + quarter group. */
+  function downloadJournalEntry(fund: JEFund, quarter: string, list: CommissionEntry[]) {
+    const parsed = parseQuarterLabel(quarter);
+    if (!parsed) { setError(`Could not parse quarter "${quarter}"`); return; }
+    const batchNumber = nextBatchNumber();
+    const uniqueId = Math.floor(1_000_000 + Math.random() * 9_000_000); // 7-digit pseudo-unique placeholder
+    const rows = buildJournalEntryRows({
+      entries: list,
+      fund,
+      fundBuildings: FUND_BUILDINGS[fund],
+      quarter: parsed.quarter,
+      year: parsed.year,
+      periodEnd: parsed.periodEnd,
+      batchNumber,
+      uniqueId,
+    });
+    if (!rows) {
+      setError(`No ${fund} commissions for ${quarter}`);
+      return;
+    }
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, `${fund.replace(/ /g, "_")} ${quarterShortCode(parsed.quarter, parsed.year)}`);
+    const filename = `JE_${fund.replace(/ /g, "_")}_${quarterShortCode(parsed.quarter, parsed.year)}.xlsx`;
+    XLSX.writeFile(wb, filename);
+    setError(null);
+  }
+
+  function nextBatchNumber(): number {
+    if (typeof window === "undefined") return 1;
+    const raw = localStorage.getItem(BATCH_STORAGE_KEY);
+    const current = raw ? Number(raw) : 97338; // seed close to the sample so it's recognizable
+    const next = (Number.isFinite(current) ? current : 97338) + 1;
+    try { localStorage.setItem(BATCH_STORAGE_KEY, String(next)); } catch { /* ignore */ }
+    return next;
   }
 
   function deleteEntry(id: string) {
@@ -482,11 +533,32 @@ export default function CommissionsPage() {
                     display: "flex", alignItems: "center", justifyContent: "space-between",
                     padding: "10px 14px", background: "rgba(11,74,125,0.05)",
                     borderBottom: "1px solid var(--border)",
+                    gap: 10, flexWrap: "wrap",
                   }}>
-                    <span style={{ fontWeight: 800, fontSize: 14 }}>{quarter}</span>
-                    <span className="muted small">
-                      {list.length} · Incentive {toMoney(total)} · Gross {toMoney(totalGross)}
-                    </span>
+                    <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
+                      <span style={{ fontWeight: 800, fontSize: 14 }}>{quarter}</span>
+                      <span className="muted small">
+                        {list.length} · Incentive {toMoney(total)} · Gross {toMoney(totalGross)}
+                      </span>
+                    </div>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <button
+                        className="btn"
+                        onClick={() => downloadJournalEntry("JV III", quarter, list)}
+                        title={`Download JV III Journal Entry for ${quarter}`}
+                        style={{ padding: "5px 10px", fontSize: 11, fontWeight: 700 }}
+                      >
+                        ↓ JV III JE
+                      </button>
+                      <button
+                        className="btn"
+                        onClick={() => downloadJournalEntry("NI LLC", quarter, list)}
+                        title={`Download NI LLC Journal Entry for ${quarter}`}
+                        style={{ padding: "5px 10px", fontSize: 11, fontWeight: 700 }}
+                      >
+                        ↓ NI LLC JE
+                      </button>
+                    </div>
                   </div>
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                     <thead>
