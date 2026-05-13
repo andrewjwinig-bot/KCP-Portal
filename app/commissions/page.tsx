@@ -524,9 +524,16 @@ export default function CommissionsPage() {
   );
 }
 
-/** Numeric sort key for "Nth Quarter YYYY" strings (most recent → highest number). */
+/** Numeric sort key for quarter labels (most recent → highest number).
+ *  Handles both the short "Q2 26" format and the legacy "2nd Quarter 2026" format. */
 function quarterSort(label: string): number {
-  const m = /^(\d)\w+ Quarter (\d{4})/.exec(label);
-  if (!m) return 0;
-  return Number(m[2]) * 10 + Number(m[1]);
+  const short = /^Q(\d)\s+(\d{2,4})/.exec(label);
+  if (short) {
+    const yr = Number(short[2]);
+    const fullYear = yr < 100 ? 2000 + yr : yr;
+    return fullYear * 10 + Number(short[1]);
+  }
+  const long = /^(\d)\w+ Quarter (\d{4})/.exec(label);
+  if (long) return Number(long[2]) * 10 + Number(long[1]);
+  return 0;
 }
