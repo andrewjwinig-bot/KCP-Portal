@@ -230,7 +230,10 @@ export default function CommissionsPage() {
     return [...map.entries()].sort((a, b) => quarterSort(b[0]) - quarterSort(a[0]));
   }, [entries]);
 
+  // Incentive paid to Nancy, then grossed up 20% for property billing.
+  const MARKUP = 1.2;
   const grandTotal = entries.reduce((s, e) => s + (Number(e.incentiveAmount) || 0), 0);
+  const grandTotalGross = grandTotal * MARKUP;
 
   // Standard rates table for reference card
   const rate = incentiveRate(Number(form.termYears) || 0);
@@ -452,7 +455,7 @@ export default function CommissionsPage() {
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10, flexWrap: "wrap", gap: 10 }}>
           <b style={{ fontSize: 17 }}>Saved Entries</b>
           <span className="muted small">
-            {entries.length} entr{entries.length === 1 ? "y" : "ies"} · total {toMoney(grandTotal)}
+            {entries.length} entr{entries.length === 1 ? "y" : "ies"} · incentive {toMoney(grandTotal)} · gross (20%) {toMoney(grandTotalGross)}
           </span>
         </div>
 
@@ -464,6 +467,7 @@ export default function CommissionsPage() {
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             {entriesByQuarter.map(([quarter, list]) => {
               const total = list.reduce((s, e) => s + (Number(e.incentiveAmount) || 0), 0);
+              const totalGross = total * MARKUP;
               return (
                 <div key={quarter} style={{ border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden" }}>
                   <div style={{
@@ -472,7 +476,9 @@ export default function CommissionsPage() {
                     borderBottom: "1px solid var(--border)",
                   }}>
                     <span style={{ fontWeight: 800, fontSize: 14 }}>{quarter}</span>
-                    <span className="muted small">{list.length} · {toMoney(total)}</span>
+                    <span className="muted small">
+                      {list.length} · incentive {toMoney(total)} · gross {toMoney(totalGross)}
+                    </span>
                   </div>
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                     <thead>
@@ -484,6 +490,7 @@ export default function CommissionsPage() {
                         <th style={{ padding: "8px 12px", fontWeight: 700 }}>TERM</th>
                         <th style={{ padding: "8px 12px", fontWeight: 700 }}>LEASE</th>
                         <th style={{ padding: "8px 12px", fontWeight: 700, textAlign: "right" }}>INCENTIVE</th>
+                        <th style={{ padding: "8px 12px", fontWeight: 700, textAlign: "right" }}>TOTAL</th>
                         <th style={{ padding: "8px 12px", fontWeight: 700 }}></th>
                       </tr>
                     </thead>
@@ -502,6 +509,9 @@ export default function CommissionsPage() {
                           <td style={{ padding: "10px 12px" }}>{e.termYears} yr</td>
                           <td style={{ padding: "10px 12px", whiteSpace: "nowrap" }}>{e.leaseFrom} – {e.leaseTo}</td>
                           <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: 600 }}>{toMoney(e.incentiveAmount)}</td>
+                          <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: 700, color: "var(--brand)" }}>
+                            {toMoney((Number(e.incentiveAmount) || 0) * MARKUP)}
+                          </td>
                           <td style={{ padding: "10px 12px", textAlign: "right", whiteSpace: "nowrap" }}>
                             <button className="btn" onClick={() => editEntry(e)} style={{ padding: "4px 8px", fontSize: 11, marginRight: 6 }}>Edit</button>
                             <button className="btn" onClick={() => deleteEntry(e.id)} style={{ padding: "4px 8px", fontSize: 11, color: "#b91c1c", borderColor: "rgba(220,38,38,0.4)" }}>Delete</button>
