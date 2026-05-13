@@ -1,10 +1,256 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
+import type { RentRollData } from "../../lib/rentroll/parseRentRollExcel";
+import { PROPERTY_DEFS } from "../../lib/properties/data";
+import {
+  type CommissionEntry,
+  INCENTIVE_TIERS,
+  buildingFromUnitRef,
+  computeIncentive,
+  incentiveRate,
+  recentQuarterLabels,
+  suiteFromUnitRef,
+  termYearsBetween,
+} from "../../lib/commissions";
+
+// Office property codes — Business Parks Division commissions.
+const OFFICE_CODES = new Set(
+  PROPERTY_DEFS.filter((p) => p.type === "Office" && !p.entityKind).map((p) => p.id.toUpperCase()),
+);
+
+const NEW_TENANT_VALUE = "__NEW__";
+
+type FormState = {
+  id: string | null;        // existing entry id when editing
+  quarter: string;
+  tenant: string;
+  building: string;
+  suite: string;
+  sqft: string;             // string for input handling
+  leaseFrom: string;
+  leaseTo: string;
+  termYears: string;
+  incentiveAmount: string;
+  comments: string;
+  unitRef?: string;
+};
+
+function emptyForm(defaultQuarter: string): FormState {
+  return {
+    id: null, quarter: defaultQuarter, tenant: "",
+    building: "", suite: "", sqft: "",
+    leaseFrom: "", leaseTo: "", termYears: "", incentiveAmount: "",
+    comments: "", unitRef: undefined,
+  };
+}
+
+function toMoney(n: number): string {
+  return n.toLocaleString(undefined, { style: "currency", currency: "USD" });
+}
+
 export default function CommissionsPage() {
+  const [rentroll, setRentroll] = useState<RentRollData | null>(null);
+  const [entries, setEntries]   = useState<CommissionEntry[]>([]);
+  const [loading, setLoading]   = useState(true);
+  const [saving, setSaving]     = useState(false);
+  const [error, setError]       = useState<string | null>(null);
+
+  const quarterOpts = useMemo(() => recentQuarterLabels(12), []);
+  const [form, setForm] = useState<FormState>(() => emptyForm(quarterOpts[0]));
+
+  // Initial load
+  useEffect(() => {
+    Promise.all([
+      fetch("/api/rentroll").then((r) => r.json()).catch(() => ({ rentroll: null })),
+      fetch("/api/commissions").then((r) => r.json()).catch(() => ({ entries: [] })),
+    ])
+      .then(([rr, ce]) => {
+        setRentroll(rr.rentroll ?? null);
+        setEntries(Array.isArray(ce.entries) ? ce.entries : []);
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+  // Build the office-tenant list for the dropdown
+  const officeTenants = useMemo(() => {
+    if (!rentroll) return [] as { value: string; label: string; unit: any }[];
+    const rows: { value: string; label: string; unit: any }[] = [];
+    for (const prop of rentroll.properties) {
+      if (!OFFICE_CODES.has(prop.propertyCode.toUpperCase())) continue;
+      for (const u of prop.units) {
+        if (u.isVacant || !u.occupantName) continue;
+        const suite = suiteFromUnitRef(u.unitRef);
+        rows.push({
+          value: u.unitRef,
+          label: `${u.occupantName} · ${prop.propertyCode}${suite ? "-" + suite : ""}`,
+          unit: u,
+        });
+      }
+    }
+    return rows.sort((a, b) => a.label.localeCompare(b.label));
+  }, [rentroll]);
+
+  // ── Form helpers ─────────────────────────────────────────────────
+  function patch<K extends keyof FormState>(key: K, value: FormState[K]) {
+    setForm((prev) => ({ ...prev, [key]: value }));
+  }
+
+  /** Triggered when the user picks an existing tenant from the dropdown. */
+  function applyTenantSelection(unitRef: string) {
+    if (unitRef === NEW_TENANT_VALUE || !unitRef) {
+      setForm((prev) => ({
+        ...prev,
+        id: prev.id,
+        tenant: "", building: "", suite: "", sqft: "",
+        leaseFrom: "", leaseTo: "", termYears: "", incentiveAmount: "",
+        unitRef: undefined,
+      }));
+      return;
+    }
+    const opt = officeTenants.find((o) => o.value === unitRef);
+    if (!opt) return;
+    const u = opt.unit;
+    const suite = suiteFromUnitRef(u.unitRef);
+    const building = buildingFromUnitRef(u.unitRef);
+    const leaseFrom = u.leaseFrom ?? "";
+    const leaseTo   = u.leaseTo   ?? "";
+    const term = termYearsBetween(leaseFrom, leaseTo);
+    const incentive = computeIncentive(term, u.sqft ?? 0);
+    setForm((prev) => ({
+      ...prev,
+      tenant: u.occupantName,
+      building,
+      suite,
+      sqft: String(u.sqft ?? ""),
+      leaseFrom,
+      leaseTo,
+      termYears: term ? String(term) : "",
+      incentiveAmount: incentive != null ? incentive.toFixed(2) : "",
+      unitRef: u.unitRef,
+    }));
+  }
+
+  /** Recompute term + incentive when dates or sqft change manually. */
+  function recomputeFromDates(next: Partial<FormState>) {
+    setForm((prev) => {
+      const merged = { ...prev, ...next };
+      const term = termYearsBetween(merged.leaseFrom, merged.leaseTo);
+      const incentive = computeIncentive(term, Number(merged.sqft) || 0);
+      return {
+        ...merged,
+        termYears: term ? String(term) : "",
+        incentiveAmount: incentive != null ? incentive.toFixed(2) : "",
+      };
+    });
+  }
+
+  async function persist(next: CommissionEntry[]) {
+    setSaving(true);
+    setEntries(next);
+    try {
+      const res = await fetch("/api/commissions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ entries: next }),
+      });
+      if (!res.ok) throw new Error("Save failed");
+      setError(null);
+    } catch (e: any) {
+      setError(e?.message ?? "Save failed");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function submit() {
+    if (!form.tenant.trim()) { setError("Tenant is required"); return; }
+    const sqft = Number(form.sqft) || 0;
+    const termYears = Number(form.termYears) || 0;
+    const incentiveAmount = Number(form.incentiveAmount) || 0;
+    const entry: CommissionEntry = {
+      id: form.id ?? crypto.randomUUID(),
+      quarter: form.quarter,
+      tenant: form.tenant.trim(),
+      building: form.building.trim(),
+      suite: form.suite.trim(),
+      sqft,
+      leaseFrom: form.leaseFrom,
+      leaseTo: form.leaseTo,
+      termYears,
+      incentiveAmount,
+      comments: form.comments,
+      unitRef: form.unitRef,
+      createdAt: Date.now(),
+    };
+    const next = form.id
+      ? entries.map((e) => (e.id === form.id ? { ...entry, createdAt: e.createdAt } : e))
+      : [entry, ...entries];
+    persist(next);
+    setForm(emptyForm(form.quarter));
+  }
+
+  function editEntry(e: CommissionEntry) {
+    setForm({
+      id: e.id, quarter: e.quarter, tenant: e.tenant, building: e.building,
+      suite: e.suite, sqft: String(e.sqft),
+      leaseFrom: e.leaseFrom, leaseTo: e.leaseTo,
+      termYears: String(e.termYears),
+      incentiveAmount: String(e.incentiveAmount),
+      comments: e.comments, unitRef: e.unitRef,
+    });
+    if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function deleteEntry(id: string) {
+    if (!confirm("Delete this commission entry?")) return;
+    persist(entries.filter((e) => e.id !== id));
+    if (form.id === id) setForm(emptyForm(form.quarter));
+  }
+
+  // Group entries by quarter for display
+  const entriesByQuarter = useMemo(() => {
+    const map = new Map<string, CommissionEntry[]>();
+    for (const e of entries) {
+      const k = e.quarter || "Unscheduled";
+      if (!map.has(k)) map.set(k, []);
+      map.get(k)!.push(e);
+    }
+    for (const arr of map.values()) arr.sort((a, b) => b.createdAt - a.createdAt);
+    return [...map.entries()].sort((a, b) => quarterSort(b[0]) - quarterSort(a[0]));
+  }, [entries]);
+
+  const grandTotal = entries.reduce((s, e) => s + (Number(e.incentiveAmount) || 0), 0);
+
+  // Standard rates table for reference card
+  const standardRates = INCENTIVE_TIERS;
+
+  const rate = incentiveRate(Number(form.termYears) || 0);
+  const isCalculatedExact = rate != null;
+  const isExistingTenant = !!form.unitRef;
+
+  // Same styling for all inputs
+  const inputStyle: React.CSSProperties = {
+    width: "100%", padding: "8px 10px",
+    border: "1px solid var(--border)", borderRadius: 6,
+    background: "var(--card)", color: "var(--text)",
+    fontSize: 13, fontFamily: "inherit", outline: "none",
+  };
+  const lockedStyle: React.CSSProperties = {
+    ...inputStyle, background: "rgba(15,23,42,0.04)", color: "var(--muted)",
+  };
+  const labelStyle: React.CSSProperties = {
+    fontSize: 11, fontWeight: 700, color: "var(--muted)", letterSpacing: "0.04em",
+    textTransform: "uppercase", marginBottom: 4, display: "block",
+  };
+
   return (
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
       <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
-        <h1 style={{ margin: 0 }}>Commissions</h1>
+        <div>
+          <h1 style={{ margin: 0 }}>Commissions</h1>
+          <p className="muted small" style={{ marginTop: 4 }}>Request for Incentive Compensation · Business Parks Division</p>
+        </div>
         <div style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
           <span style={{ fontFamily: "'Arial Black', 'Arial Bold', Arial, sans-serif", fontWeight: 900, fontSize: 30, letterSpacing: "-0.5px", lineHeight: 1 }}>KORMAN</span>
           <div style={{ width: 1, height: 36, background: "#000", flexShrink: 0 }} />
@@ -14,12 +260,243 @@ export default function CommissionsPage() {
         </div>
       </header>
 
+      {/* ── Add / Edit form ─────────────────────────────────────────── */}
       <div className="card">
-        <b style={{ fontSize: 17 }}>Commissions</b>
-        <p className="muted small" style={{ marginTop: 6 }}>
-          This page is empty. Tell Claude how you&rsquo;d like it laid out.
-        </p>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 12, flexWrap: "wrap", gap: 10 }}>
+          <b style={{ fontSize: 17 }}>{form.id ? "Edit Commission Entry" : "New Commission Entry"}</b>
+          {error && <span style={{ color: "#b91c1c", fontSize: 12 }}>{error}</span>}
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
+          {/* Quarter */}
+          <div>
+            <label style={labelStyle}>Quarter Ended</label>
+            <select value={form.quarter} onChange={(e) => patch("quarter", e.target.value)} style={inputStyle}>
+              {quarterOpts.map((q) => <option key={q} value={q}>{q}</option>)}
+            </select>
+          </div>
+
+          {/* Tenant — pick existing OR new */}
+          <div>
+            <label style={labelStyle}>Tenant</label>
+            <select
+              value={form.unitRef ?? (form.tenant ? NEW_TENANT_VALUE : "")}
+              onChange={(e) => applyTenantSelection(e.target.value)}
+              style={inputStyle}
+            >
+              <option value="">— Select tenant —</option>
+              <option value={NEW_TENANT_VALUE}>+ New tenant (enter manually)</option>
+              <optgroup label="Office tenants">
+                {officeTenants.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+              </optgroup>
+            </select>
+            <input
+              type="text"
+              value={form.tenant}
+              onChange={(e) => patch("tenant", e.target.value)}
+              placeholder="Tenant name"
+              style={{ ...inputStyle, marginTop: 6 }}
+              readOnly={isExistingTenant}
+            />
+          </div>
+
+          {/* Building */}
+          <div>
+            <label style={labelStyle}>Building</label>
+            <input type="text" value={form.building} onChange={(e) => patch("building", e.target.value)}
+              style={isExistingTenant ? lockedStyle : inputStyle}
+              readOnly={isExistingTenant} />
+          </div>
+
+          {/* Suite */}
+          <div>
+            <label style={labelStyle}>Suite</label>
+            <input type="text" value={form.suite} onChange={(e) => patch("suite", e.target.value)}
+              style={isExistingTenant ? lockedStyle : inputStyle}
+              readOnly={isExistingTenant} />
+          </div>
+
+          {/* Sqft */}
+          <div>
+            <label style={labelStyle}>Square Feet</label>
+            <input
+              type="number" value={form.sqft}
+              onChange={(e) => recomputeFromDates({ sqft: e.target.value })}
+              style={isExistingTenant ? lockedStyle : inputStyle}
+              readOnly={isExistingTenant}
+            />
+          </div>
+
+          {/* Lease From */}
+          <div>
+            <label style={labelStyle}>Lease From</label>
+            <input type="text" placeholder="m/d/yyyy" value={form.leaseFrom}
+              onChange={(e) => recomputeFromDates({ leaseFrom: e.target.value })}
+              style={isExistingTenant ? lockedStyle : inputStyle}
+              readOnly={isExistingTenant} />
+          </div>
+
+          {/* Lease To */}
+          <div>
+            <label style={labelStyle}>Lease To</label>
+            <input type="text" placeholder="m/d/yyyy" value={form.leaseTo}
+              onChange={(e) => recomputeFromDates({ leaseTo: e.target.value })}
+              style={isExistingTenant ? lockedStyle : inputStyle}
+              readOnly={isExistingTenant} />
+          </div>
+
+          {/* Term Years */}
+          <div>
+            <label style={labelStyle}>Term (years)</label>
+            <input
+              type="number" step="0.1" value={form.termYears}
+              onChange={(e) => {
+                const term = Number(e.target.value) || 0;
+                const incentive = computeIncentive(term, Number(form.sqft) || 0);
+                setForm((prev) => ({
+                  ...prev,
+                  termYears: e.target.value,
+                  incentiveAmount: incentive != null ? incentive.toFixed(2) : prev.incentiveAmount,
+                }));
+              }}
+              style={inputStyle}
+            />
+          </div>
+
+          {/* Incentive Amount */}
+          <div>
+            <label style={labelStyle}>Incentive Amount</label>
+            <input type="number" step="0.01" value={form.incentiveAmount}
+              onChange={(e) => patch("incentiveAmount", e.target.value)} style={inputStyle} />
+            <div className="muted small" style={{ marginTop: 4 }}>
+              {isCalculatedExact
+                ? <>${rate!.toFixed(2)}/sqft × {form.sqft || 0} sqft (standard rate)</>
+                : <>Non-standard term — enter manually</>}
+            </div>
+          </div>
+        </div>
+
+        {/* Comments */}
+        <div style={{ marginTop: 12 }}>
+          <label style={labelStyle}>Comments</label>
+          <textarea
+            value={form.comments}
+            onChange={(e) => patch("comments", e.target.value)}
+            rows={2}
+            style={{ ...inputStyle, resize: "vertical", minHeight: 56 }}
+          />
+        </div>
+
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 14 }}>
+          {form.id && (
+            <button className="btn" onClick={() => setForm(emptyForm(form.quarter))} disabled={saving}>
+              Cancel
+            </button>
+          )}
+          <button
+            className="btn primary"
+            onClick={submit}
+            disabled={saving || !form.tenant.trim()}
+          >
+            {form.id ? "Save Changes" : "Add Entry"}
+          </button>
+        </div>
+      </div>
+
+      {/* ── Rates reference ─────────────────────────────────────────── */}
+      <div className="card">
+        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 8, flexWrap: "wrap" }}>
+          <b style={{ fontSize: 14 }}>Standard Incentive Rates</b>
+          <span className="muted small">Exact-match by lease term, applied per square foot</span>
+        </div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {standardRates.map((r) => (
+            <span key={r.years} style={{
+              padding: "4px 10px", borderRadius: 999,
+              border: "1px solid var(--border)", fontSize: 12, fontWeight: 600,
+            }}>
+              {r.years} yr · ${r.ratePerSqft.toFixed(3)}/sf
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Saved entries ───────────────────────────────────────────── */}
+      <div className="card">
+        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10, flexWrap: "wrap", gap: 10 }}>
+          <b style={{ fontSize: 17 }}>Saved Entries</b>
+          <span className="muted small">
+            {entries.length} entr{entries.length === 1 ? "y" : "ies"} · total {toMoney(grandTotal)}
+          </span>
+        </div>
+
+        {loading ? (
+          <div className="muted small">Loading…</div>
+        ) : entries.length === 0 ? (
+          <div className="muted small">No commission entries yet. Add one above.</div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            {entriesByQuarter.map(([quarter, list]) => {
+              const total = list.reduce((s, e) => s + (Number(e.incentiveAmount) || 0), 0);
+              return (
+                <div key={quarter} style={{ border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden" }}>
+                  <div style={{
+                    display: "flex", alignItems: "center", justifyContent: "space-between",
+                    padding: "10px 14px", background: "rgba(11,74,125,0.05)",
+                    borderBottom: "1px solid var(--border)",
+                  }}>
+                    <span style={{ fontWeight: 800, fontSize: 14 }}>{quarter}</span>
+                    <span className="muted small">{list.length} · {toMoney(total)}</span>
+                  </div>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                    <thead>
+                      <tr style={{ color: "var(--muted)", fontSize: 11, letterSpacing: "0.04em", textAlign: "left" }}>
+                        <th style={{ padding: "8px 12px", fontWeight: 700 }}>TENANT</th>
+                        <th style={{ padding: "8px 12px", fontWeight: 700 }}>BUILDING</th>
+                        <th style={{ padding: "8px 12px", fontWeight: 700 }}>SUITE</th>
+                        <th style={{ padding: "8px 12px", fontWeight: 700, textAlign: "right" }}>SQ FT</th>
+                        <th style={{ padding: "8px 12px", fontWeight: 700 }}>TERM</th>
+                        <th style={{ padding: "8px 12px", fontWeight: 700 }}>LEASE</th>
+                        <th style={{ padding: "8px 12px", fontWeight: 700, textAlign: "right" }}>INCENTIVE</th>
+                        <th style={{ padding: "8px 12px", fontWeight: 700 }}></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {list.map((e) => (
+                        <tr key={e.id} style={{ borderTop: "1px solid var(--border)" }}>
+                          <td style={{ padding: "10px 12px", fontWeight: 600 }}>
+                            {e.tenant}
+                            {e.comments && (
+                              <div className="muted small" style={{ marginTop: 2, whiteSpace: "pre-wrap" }}>{e.comments}</div>
+                            )}
+                          </td>
+                          <td style={{ padding: "10px 12px" }}>{e.building}</td>
+                          <td style={{ padding: "10px 12px" }}>{e.suite}</td>
+                          <td style={{ padding: "10px 12px", textAlign: "right" }}>{e.sqft.toLocaleString()}</td>
+                          <td style={{ padding: "10px 12px" }}>{e.termYears} yr</td>
+                          <td style={{ padding: "10px 12px", whiteSpace: "nowrap" }}>{e.leaseFrom} – {e.leaseTo}</td>
+                          <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: 600 }}>{toMoney(e.incentiveAmount)}</td>
+                          <td style={{ padding: "10px 12px", textAlign: "right", whiteSpace: "nowrap" }}>
+                            <button className="btn" onClick={() => editEntry(e)} style={{ padding: "4px 8px", fontSize: 11, marginRight: 6 }}>Edit</button>
+                            <button className="btn" onClick={() => deleteEntry(e.id)} style={{ padding: "4px 8px", fontSize: 11, color: "#b91c1c", borderColor: "rgba(220,38,38,0.4)" }}>Delete</button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </main>
   );
+}
+
+/** Numeric sort key for "Nth Quarter YYYY" strings (most recent → highest number). */
+function quarterSort(label: string): number {
+  const m = /^(\d)\w+ Quarter (\d{4})/.exec(label);
+  if (!m) return 0;
+  return Number(m[2]) * 10 + Number(m[1]);
 }
