@@ -4,6 +4,14 @@
 
 export type PropType = "Office" | "Retail" | "Residential" | "Land" | "Misc";
 
+/** Office sub-fund. Each Fund label is the owning entity. */
+export type FundGroup = "JV III" | "NI LLC";
+
+export const FUND_LABEL: Record<FundGroup, string> = {
+  "JV III": "Lincoln Joint Venture III",
+  "NI LLC": "Neshaminy Interplex LLC",
+};
+
 export interface PropertyDef {
   id: string;         // property code (e.g., "3610")
   name: string;       // display name
@@ -24,21 +32,28 @@ export interface PropertyDef {
   allocGroup?: "BP" | "SC";
   // GL accounts used in CC Expense Coder for this property
   ccAccounts?: string[];
+  /** Office fund the property belongs to (subsection on the Property Info page). */
+  fundGroup?: FundGroup;
+  /** Set on owners' associations / non-buildings — rendered with a "Condo" badge and dashed border. */
+  isCondo?: boolean;
 }
 
 export const PROPERTY_DEFS: PropertyDef[] = [
 
   // ── Business Park (BP) — Office · Neshaminy Interplex, Feasterville-Trevose PA ─
-  { id: "3610", name: "Building 1",   type: "Office", ein: "23-2386090", allocGroup: "BP", ccAccounts: ["8501"], address: "1 Neshaminy Interplex",  city: "Feasterville-Trevose", state: "PA", zip: "19053", sqft: 41821,  yearBuilt: 1977 },
-  { id: "3620", name: "Building 2",   type: "Office", ein: "23-2386090", allocGroup: "BP", ccAccounts: ["8501"], address: "2 Neshaminy Interplex",  city: "Feasterville-Trevose", state: "PA", zip: "19053", sqft: 49020,  yearBuilt: 1978 },
-  { id: "3640", name: "Building 4",   type: "Office", ein: "23-2386090", allocGroup: "BP", ccAccounts: ["8501"], address: "4 Neshaminy Interplex",  city: "Feasterville-Trevose", state: "PA", zip: "19053", sqft: 48794,  yearBuilt: 1981 },
-  { id: "4050", name: "Building 5",   type: "Office", ein: "61-1723336", allocGroup: "BP", ccAccounts: ["8501"], address: "5 Interplex Dr",         city: "Feasterville-Trevose", state: "PA", zip: "19053", sqft: 54008,  yearBuilt: 1983 },
-  { id: "4060", name: "Building 6",   type: "Office", ein: "61-1723336", allocGroup: "BP", ccAccounts: ["8501"], address: "6 Interplex Dr",         city: "Feasterville-Trevose", state: "PA", zip: "19053", sqft: 107890, yearBuilt: 1985 },
-  { id: "4070", name: "Building 7",   type: "Office", ein: "61-1723336", allocGroup: "BP", ccAccounts: ["8501"], address: "7 Interplex Dr",         city: "Feasterville-Trevose", state: "PA", zip: "19053", sqft: 61448,  yearBuilt: 1987 },
-  { id: "4080", name: "Building 8",   type: "Office", ein: "61-1723336", allocGroup: "BP", ccAccounts: ["8501"], address: "8 Interplex Dr",         city: "Feasterville-Trevose", state: "PA", zip: "19053", sqft: 127848, yearBuilt: 1991 },
-  { id: "40A0", name: "Kor Center A", type: "Office", ein: "61-1723336", allocGroup: "BP", ccAccounts: ["8501"], address: "2577 Interplex Dr",      city: "Feasterville-Trevose", state: "PA", zip: "19053", sqft: 15083,  yearBuilt: 1976 },
-  { id: "40B0", name: "Kor Center B", type: "Office", ein: "61-1723336", allocGroup: "BP", ccAccounts: ["8501"], address: "2607 Interplex Dr",      city: "Feasterville-Trevose", state: "PA", zip: "19053", sqft: 12978,  yearBuilt: 1976 },
-  { id: "40C0", name: "Kor Center C", type: "Office", ein: "61-1723336", allocGroup: "BP", ccAccounts: ["8501"], address: "2585 Interplex Dr",      city: "Feasterville-Trevose", state: "PA", zip: "19053", sqft: 18000,  yearBuilt: 1976 },
+  // JV III (Lincoln Joint Venture III)
+  { id: "3610",  name: "Building 1",     type: "Office", fundGroup: "JV III", ein: "23-2386090", allocGroup: "BP", ccAccounts: ["8501"], address: "1 Neshaminy Interplex", city: "Feasterville-Trevose", state: "PA", zip: "19053", sqft: 41821, yearBuilt: 1977 },
+  { id: "3620",  name: "Building 2",     type: "Office", fundGroup: "JV III", ein: "23-2386090", allocGroup: "BP", ccAccounts: ["8501"], address: "2 Neshaminy Interplex", city: "Feasterville-Trevose", state: "PA", zip: "19053", sqft: 49020, yearBuilt: 1978 },
+  { id: "3640",  name: "Building 4",     type: "Office", fundGroup: "JV III", ein: "23-2386090", allocGroup: "BP", ccAccounts: ["8501"], address: "4 Neshaminy Interplex", city: "Feasterville-Trevose", state: "PA", zip: "19053", sqft: 48794, yearBuilt: 1981 },
+  { id: "3610A", name: "JV III Condo",   type: "Office", fundGroup: "JV III", isCondo: true, ccAccounts: ["8501"], notes: "Condo association for buildings 3610 / 3620 / 3640." },
+  // NI LLC (Neshaminy Interplex LLC)
+  { id: "4050", name: "Building 5",      type: "Office", fundGroup: "NI LLC", ein: "61-1723336", allocGroup: "BP", ccAccounts: ["8501"], address: "5 Interplex Dr",        city: "Feasterville-Trevose", state: "PA", zip: "19053", sqft: 54008,  yearBuilt: 1983 },
+  { id: "4060", name: "Building 6",      type: "Office", fundGroup: "NI LLC", ein: "61-1723336", allocGroup: "BP", ccAccounts: ["8501"], address: "6 Interplex Dr",        city: "Feasterville-Trevose", state: "PA", zip: "19053", sqft: 107890, yearBuilt: 1985 },
+  { id: "4070", name: "Building 7",      type: "Office", fundGroup: "NI LLC", ein: "61-1723336", allocGroup: "BP", ccAccounts: ["8501"], address: "7 Interplex Dr",        city: "Feasterville-Trevose", state: "PA", zip: "19053", sqft: 61448,  yearBuilt: 1987 },
+  { id: "4080", name: "Building 8",      type: "Office", fundGroup: "NI LLC", ein: "61-1723336", allocGroup: "BP", ccAccounts: ["8501"], address: "8 Interplex Dr",        city: "Feasterville-Trevose", state: "PA", zip: "19053", sqft: 127848, yearBuilt: 1991 },
+  { id: "40A0", name: "Kor Center A",    type: "Office", fundGroup: "NI LLC", ein: "61-1723336", allocGroup: "BP", ccAccounts: ["8501"], address: "2577 Interplex Dr",     city: "Feasterville-Trevose", state: "PA", zip: "19053", sqft: 15083,  yearBuilt: 1976 },
+  { id: "40B0", name: "Kor Center B",    type: "Office", fundGroup: "NI LLC", ein: "61-1723336", allocGroup: "BP", ccAccounts: ["8501"], address: "2607 Interplex Dr",     city: "Feasterville-Trevose", state: "PA", zip: "19053", sqft: 12978,  yearBuilt: 1976 },
+  { id: "40C0", name: "Kor Center C",    type: "Office", fundGroup: "NI LLC", ein: "61-1723336", allocGroup: "BP", ccAccounts: ["8501"], address: "2585 Interplex Dr",     city: "Feasterville-Trevose", state: "PA", zip: "19053", sqft: 18000,  yearBuilt: 1976 },
 
   // ── Retail ────────────────────────────────────────────────────────────────
   { id: "1100", name: "Parkwood Professional Building",   type: "Retail", ein: "23-2333412", allocGroup: "SC", ccAccounts: ["8501"], address: "12300-12310 Academy Rd", city: "Philadelphia",          state: "PA", zip: "19154", sqft: 8287,  yearBuilt: 1970 },
@@ -92,6 +107,9 @@ export const BANK_ACCOUNTS: Record<string, BankAccount[]> = {
   ],
   "3640": [
     { bank: "Chase",   label: "JV III",                  last4: "x5631", link: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/745774882/DDA/CHK" },
+  ],
+  "3610A": [
+    { bank: "Chase",   label: "JV III Condo",            last4: "x1993", link: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/913403676/DDA/CHK" },
   ],
   "7010": [
     { bank: "Chase",   label: "Operating",               last4: "x5656", link: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/745774883/DDA/CHK" },
