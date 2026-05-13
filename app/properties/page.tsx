@@ -316,6 +316,140 @@ function K1InvestorRow({
   );
 }
 
+// ─── OWNER SUB-ROW ────────────────────────────────────────────────────────────
+// Compact sub-row used under a "parent" owner row when one person holds
+// multiple legal-payee stakes in the same property. Shows the vendor code
+// chip, trust/detail label (if any), and the individual stake %.
+
+function OwnerSubRow({
+  inv, done, hasDetail, showK1Check, ownership, pctFmt,
+}: {
+  inv: PropertyOwner;
+  done: boolean;
+  hasDetail: boolean;
+  showK1Check: boolean;
+  ownership: number | undefined;
+  pctFmt: (n: number) => string;
+}) {
+  const [popupOpen, setPopupOpen] = useState(false);
+  const detail = inv.detailedName ?? "";
+  return (
+    <>
+      <div
+        onClick={hasDetail ? () => setPopupOpen(true) : undefined}
+        style={{
+          display: "flex", alignItems: "center", gap: 8,
+          padding: "5px 10px",
+          borderLeft: "2px solid var(--border)",
+          marginBottom: 2,
+          cursor: hasDetail ? "pointer" : "default",
+          fontSize: 12,
+        }}
+      >
+        {showK1Check && (
+          <span style={{
+            width: 13, height: 13, borderRadius: 3,
+            background: done ? "rgba(22,163,74,0.18)" : "var(--border)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 9, color: done ? "#16a34a" : "transparent",
+            flexShrink: 0,
+          }}>✓</span>
+        )}
+        {inv.vendorCode && (
+          <span style={{
+            fontSize: 9, fontWeight: 700, letterSpacing: "0.04em",
+            padding: "1px 5px", borderRadius: 3,
+            background: "#0b1220", color: "#e0f0ff",
+            fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+            flexShrink: 0,
+          }}>{inv.vendorCode}</span>
+        )}
+        <span style={{
+          flex: 1, minWidth: 0,
+          color: "var(--muted)",
+          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+        }}>
+          {detail || "—"}
+          {hasDetail && <span style={{ marginLeft: 4, fontSize: 10 }}>ⓘ</span>}
+        </span>
+        {ownership != null && (
+          <span style={{ fontWeight: 600, flexShrink: 0 }}>{pctFmt(ownership)}</span>
+        )}
+      </div>
+
+      {popupOpen && (
+        <div
+          onClick={() => setPopupOpen(false)}
+          style={{
+            position: "fixed", inset: 0, zIndex: 1000,
+            background: "rgba(15,23,42,0.45)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: "var(--card)", borderRadius: 12,
+              border: "1px solid var(--border)",
+              padding: "24px 28px",
+              width: 420, maxWidth: "calc(100vw - 40px)",
+              boxShadow: "0 8px 32px rgba(15,23,42,0.18)",
+              display: "flex", flexDirection: "column", gap: 14,
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+              <div>
+                <div style={{ fontSize: 17, fontWeight: 700 }}>{inv.name}</div>
+                {inv.detailedName && (
+                  <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 3 }}>{inv.detailedName}</div>
+                )}
+              </div>
+              <button
+                onClick={() => setPopupOpen(false)}
+                style={{ background: "none", border: "none", fontSize: 18, cursor: "pointer", color: "var(--muted)", lineHeight: 1, padding: 2 }}
+              >✕</button>
+            </div>
+
+            {inv.address && (
+              <div style={{ fontSize: 13, color: "var(--text)", lineHeight: 1.5 }}>
+                <div style={{ fontWeight: 600, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 3 }}>Address</div>
+                <div>{inv.address}</div>
+                <div>{inv.city}, {inv.state} {inv.zip}</div>
+                {inv.stateIfDifferent && (
+                  <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2, fontStyle: "italic" }}>Also files in: {inv.stateIfDifferent}</div>
+                )}
+              </div>
+            )}
+
+            {inv.phone && (
+              <div style={{ fontSize: 13, color: "var(--text)", lineHeight: 1.5 }}>
+                <div style={{ fontWeight: 600, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 3 }}>Phone</div>
+                <div>{inv.phone}</div>
+              </div>
+            )}
+
+            {inv.vendorCode && (
+              <div style={{ fontSize: 13, color: "var(--text)", lineHeight: 1.5 }}>
+                <div style={{ fontWeight: 600, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 3 }}>Vendor Code</div>
+                <div style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontWeight: 700 }}>{inv.vendorCode}</div>
+              </div>
+            )}
+
+            {ownership != null && (
+              <div>
+                <div style={{ fontWeight: 600, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 6 }}>Ownership %</div>
+                <div style={{ padding: "10px 12px", border: "1px solid var(--border)", borderRadius: 8, background: "#fafafa", textAlign: "center" }}>
+                  <div style={{ fontSize: 18, fontWeight: 700 }}>{pctFmt(ownership)}</div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 // ─── DETAIL MODAL ────────────────────────────────────────────────────────────
 
 function DetailModal({
@@ -688,37 +822,39 @@ function DetailModal({
                     <K1InvestorRow key={inv.id} inv={inv} done={done} hasDetail={hasDetail} showK1Check={!!ownershipEntry.hasK1Distribution} />
                   );
                 }
-                // Multi-stake: render one parent line per person + indented
-                // sub-rows for each vendor / legal payee.
+                // Multi-stake: primary row with person + combined %, then
+                // smaller indented sub-rows for each vendor / legal payee.
                 return (
-                  <div key={g.key} style={{ marginBottom: 8 }}>
+                  <div key={g.key} style={{ marginBottom: 6 }}>
                     <div style={{
                       display: "flex", alignItems: "center", justifyContent: "space-between",
                       padding: "8px 12px",
-                      background: "rgba(11,74,125,0.06)",
-                      border: "1px solid rgba(11,74,125,0.22)",
+                      border: "1px solid var(--border)",
                       borderRadius: 8,
-                      borderBottomLeftRadius: 0, borderBottomRightRadius: 0,
-                      borderBottom: "none",
+                      background: "#fafafa",
+                      marginBottom: 4,
                     }}>
                       <span style={{ fontSize: 14, fontWeight: 700 }}>{g.owners[0].name}</span>
-                      <span style={{ fontSize: 13, fontWeight: 700, color: "#0b4a7d" }}>
+                      <span style={{ fontSize: 13, fontWeight: 700 }}>
                         {(g.total * 100).toFixed(4)}%
                       </span>
                     </div>
-                    <div style={{
-                      borderLeft: "1px solid rgba(11,74,125,0.22)",
-                      borderRight: "1px solid rgba(11,74,125,0.22)",
-                      borderBottom: "1px solid rgba(11,74,125,0.22)",
-                      borderBottomLeftRadius: 8, borderBottomRightRadius: 8,
-                      padding: "4px 8px 4px 24px",
-                      background: "rgba(11,74,125,0.02)",
-                    }}>
+                    <div style={{ paddingLeft: 18 }}>
                       {g.owners.map((inv) => {
                         const done = !!checked[inv.id];
                         const hasDetail = !!(inv.detailedName || inv.address || inv.phone || inv.vendorCode || ownerPctFor(inv) != null);
+                        const pctFmt = (n: number) => `${(n * 100).toFixed(6).replace(/\.?0+$/, "")}%`;
+                        const ownership = ownerPctFor(inv);
                         return (
-                          <K1InvestorRow key={inv.id} inv={inv} done={done} hasDetail={hasDetail} showK1Check={!!ownershipEntry.hasK1Distribution} />
+                          <OwnerSubRow
+                            key={inv.id}
+                            inv={inv}
+                            done={done}
+                            hasDetail={hasDetail}
+                            showK1Check={!!ownershipEntry.hasK1Distribution}
+                            ownership={ownership}
+                            pctFmt={pctFmt}
+                          />
                         );
                       })}
                     </div>
