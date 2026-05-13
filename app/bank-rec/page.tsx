@@ -380,7 +380,7 @@ export default function BankAccTrackerPage() {
                                 width: "100%", padding: "6px 8px",
                                 fontSize: 13, fontFamily: "inherit",
                                 border: "1px solid var(--border)", borderRadius: 6,
-                                background: "#fff", color: "var(--text)",
+                                background: "var(--card)", color: "var(--text)",
                                 outline: "none",
                               }}
                             />

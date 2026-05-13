@@ -1027,7 +1027,7 @@ export default function RentRollPage() {
                       borderRadius: 999, padding: "11px 12px",
                       fontSize: 13, fontWeight: 600,
                       border: "1px solid rgba(11,74,125,0.3)",
-                      background: "#fff", color: "#0b4a7d",
+                      background: "var(--card)", color: "#0b4a7d",
                       cursor: "pointer",
                     }}
                   >

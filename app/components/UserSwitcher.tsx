@@ -112,7 +112,7 @@ export default function UserSwitcher({ collapsed }: { collapsed: boolean }) {
             top: "calc(100% + 6px)",
             left: 0,
             right: 0,
-            background: "#fff",
+            background: "var(--card)",
             borderRadius: 10,
             border: "1px solid rgba(15,23,42,0.12)",
             boxShadow: "0 10px 28px rgba(15,23,42,0.18)",
