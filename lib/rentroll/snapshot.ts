@@ -15,7 +15,33 @@ export const TREND_GROUPS: { key: string; label: string; codes: Set<string> | nu
 
 export type GroupKey = (typeof TREND_GROUPS)[number]["key"];
 
-export type GroupTotals = { total: number; occupied: number; vacant: number; pct: number };
+export type GroupTotals = {
+  total: number;
+  occupied: number;
+  vacant: number;
+  pct: number;
+  /** Total monthly gross rent (base + CAM + RET + other) summed across occupied units. */
+  grossRentMonth: number;
+  /** Annualized gross rent ÷ occupied SF; 0 when no occupied SF. */
+  avgRentPsf: number;
+  unitCount: number;
+  occupiedUnitCount: number;
+  vacantUnitCount: number;
+  /** Count of units whose lease expires within 90 / 180 / 365 days from
+   *  the snapshot's reportTo date (or upload date as fallback). */
+  expiring90: number;
+  expiring180: number;
+  expiring365: number;
+};
+
+export type PropertyTotals = {
+  propertyCode: string;
+  total: number;
+  occupied: number;
+  vacant: number;
+  pct: number;
+  grossRentMonth: number;
+};
 
 export type RentRollSnapshotSummary = {
   month: string;             // "YYYY-MM" key
@@ -23,6 +49,8 @@ export type RentRollSnapshotSummary = {
   reportTo: string | null;
   uploadedAt: string;
   totals: Record<GroupKey, GroupTotals>;
+  /** Per-property totals so the trends page can render small multiples. */
+  byProperty: PropertyTotals[];
 };
 
 export function snapshotMonthKey(rentroll: { reportTo?: string | null; uploadedAt?: string | null }): string {
@@ -37,23 +65,79 @@ export function snapshotMonthKey(rentroll: { reportTo?: string | null; uploadedA
   return `${u.getFullYear()}-${String(u.getMonth() + 1).padStart(2, "0")}`;
 }
 
-function tally(props: RentRollProperty[]): GroupTotals {
+function parseUSDate(s: string | null | undefined): Date | null {
+  if (!s) return null;
+  const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (!m) return null;
+  return new Date(Number(m[3]), Number(m[1]) - 1, Number(m[2]));
+}
+
+function snapshotAnchorDate(r: RentRollData): Date {
+  return parseUSDate(r.reportTo ?? null) ?? new Date(r.uploadedAt ?? Date.now());
+}
+
+function daysBetween(a: Date, b: Date): number {
+  return Math.round((b.getTime() - a.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+function tally(props: RentRollProperty[], anchor: Date): GroupTotals {
   const total    = props.reduce((s, p) => s + p.totalSqft,    0);
   const occupied = props.reduce((s, p) => s + p.occupiedSqft, 0);
   const vacant   = total - occupied;
   const pct      = total > 0 ? (occupied / total) * 100 : 0;
-  return { total, occupied, vacant, pct };
+  let grossRentMonth = 0;
+  let unitCount = 0;
+  let occupiedUnitCount = 0;
+  let vacantUnitCount = 0;
+  let expiring90 = 0, expiring180 = 0, expiring365 = 0;
+  for (const p of props) {
+    for (const u of p.units) {
+      unitCount += 1;
+      if (u.isVacant) {
+        vacantUnitCount += 1;
+        continue;
+      }
+      occupiedUnitCount += 1;
+      grossRentMonth += u.grossRentTotal;
+      const lt = parseUSDate(u.leaseTo);
+      if (!lt) continue;
+      const days = daysBetween(anchor, lt);
+      if (days >= 0 && days <= 365) {
+        expiring365 += 1;
+        if (days <= 180) expiring180 += 1;
+        if (days <= 90) expiring90 += 1;
+      }
+    }
+  }
+  const annualGross = grossRentMonth * 12;
+  const avgRentPsf = occupied > 0 ? annualGross / occupied : 0;
+  return {
+    total, occupied, vacant, pct,
+    grossRentMonth, avgRentPsf,
+    unitCount, occupiedUnitCount, vacantUnitCount,
+    expiring90, expiring180, expiring365,
+  };
 }
 
 export function computeGroupTotals(rentroll: RentRollData): Record<GroupKey, GroupTotals> {
+  const anchor = snapshotAnchorDate(rentroll);
   const out: Record<string, GroupTotals> = {};
   for (const g of TREND_GROUPS) {
     const props = g.codes
       ? rentroll.properties.filter((p) => g.codes!.has(p.propertyCode.toUpperCase()))
       : rentroll.properties;
-    out[g.key] = tally(props);
+    out[g.key] = tally(props, anchor);
   }
   return out;
+}
+
+function tallyOne(p: RentRollProperty): PropertyTotals {
+  const grossRentMonth = p.units.reduce((s, u) => s + (u.isVacant ? 0 : u.grossRentTotal), 0);
+  const total = p.totalSqft;
+  const occupied = p.occupiedSqft;
+  const vacant = p.vacantSqft;
+  const pct = total > 0 ? (occupied / total) * 100 : 0;
+  return { propertyCode: p.propertyCode, total, occupied, vacant, pct, grossRentMonth };
 }
 
 export function summarizeSnapshot(rentroll: RentRollData): RentRollSnapshotSummary {
@@ -63,5 +147,6 @@ export function summarizeSnapshot(rentroll: RentRollData): RentRollSnapshotSumma
     reportTo: rentroll.reportTo ?? null,
     uploadedAt: rentroll.uploadedAt,
     totals: computeGroupTotals(rentroll),
+    byProperty: rentroll.properties.map(tallyOne),
   };
 }
