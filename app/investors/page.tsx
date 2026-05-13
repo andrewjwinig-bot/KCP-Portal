@@ -29,7 +29,7 @@ type InvestorAggregate = {
 
 function pct(n: number | undefined | null): string {
   if (n == null) return "—";
-  return (n * 100).toFixed(4).replace(/\.?0+$/, "") + "%";
+  return (n * 100).toFixed(4) + "%";
 }
 
 function normName(s: string): string {
@@ -39,6 +39,12 @@ function normName(s: string): string {
 export default function InvestorInfoPage() {
   const [view, setView] = useState<View>("property");
   const [query, setQuery] = useState("");
+  /** Open/closed state for each card. Default = closed everywhere so the page
+   *  reads like the rent roll page (PropertyCard pattern). */
+  const [openIds, setOpenIds] = useState<Record<string, boolean>>({});
+  function toggleOpen(id: string) {
+    setOpenIds((prev) => ({ ...prev, [id]: !prev[id] }));
+  }
 
   // ── Pull K-1 tasks and resolve a property code for each ────────────────
   const holdings: PropertyHolding[] = useMemo(() => {
@@ -178,57 +184,67 @@ export default function InvestorInfoPage() {
           {filteredHoldings.length === 0 ? (
             <div className="card muted small">No matches.</div>
           ) : (
-            filteredHoldings.map((h) => (
-              <div key={h.taxTaskId} className="card" style={{ padding: 0, overflow: "hidden" }}>
-                <div style={{
-                  display: "flex", alignItems: "baseline", justifyContent: "space-between",
-                  padding: "12px 16px",
-                  background: "rgba(11,74,125,0.05)",
-                  borderBottom: "1px solid var(--border)",
-                  gap: 12, flexWrap: "wrap",
-                }}>
-                  <div style={{ display: "inline-flex", alignItems: "baseline", gap: 10 }}>
-                    <code style={{
-                      background: "#0b1220", color: "#e0f0ff",
-                      padding: "2px 8px", borderRadius: 5,
-                      fontSize: 11, fontWeight: 600, letterSpacing: "0.06em",
-                    }}>{h.propertyCode}</code>
-                    <span style={{ fontWeight: 800, fontSize: 14 }}>{h.propertyName}</span>
-                    <span className="muted small">· {h.investors.length} investor{h.investors.length === 1 ? "" : "s"}</span>
-                  </div>
-                </div>
+            filteredHoldings.map((h) => {
+              const open = !!openIds[h.taxTaskId];
+              return (
+                <div key={h.taxTaskId} className="card" style={{ padding: 0, overflow: "hidden" }}>
+                  <button
+                    type="button"
+                    onClick={() => toggleOpen(h.taxTaskId)}
+                    aria-expanded={open}
+                    style={{
+                      display: "flex", alignItems: "center", justifyContent: "space-between",
+                      width: "100%", padding: "14px 16px",
+                      background: "transparent", border: "none", cursor: "pointer",
+                      textAlign: "left", fontFamily: "inherit",
+                    }}
+                  >
+                    <span style={{ display: "inline-flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+                      <code style={{
+                        background: "#0b1220", color: "#e0f0ff",
+                        padding: "2px 8px", borderRadius: 5,
+                        fontSize: 12, fontWeight: 600, letterSpacing: "0.06em",
+                      }}>{h.propertyCode}</code>
+                      <span style={{ fontWeight: 700, fontSize: 16 }}>{h.propertyName}</span>
+                      <span className="muted small">· {h.investors.length} investor{h.investors.length === 1 ? "" : "s"}</span>
+                    </span>
+                    <span style={{ color: "var(--muted)", fontSize: 18, flexShrink: 0 }}>{open ? "▲" : "▼"}</span>
+                  </button>
 
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                  <thead>
-                    <tr style={{ color: "var(--muted)", fontSize: 11, letterSpacing: "0.04em", textAlign: "left" }}>
-                      <th style={{ padding: "8px 14px", fontWeight: 700 }}>INVESTOR</th>
-                      <th style={{ padding: "8px 14px", fontWeight: 700 }}>DETAIL</th>
-                      <th style={{ padding: "8px 14px", fontWeight: 700, textAlign: "right" }}>PROFIT %</th>
-                      <th style={{ padding: "8px 14px", fontWeight: 700, textAlign: "right" }}>LOSS %</th>
-                      <th style={{ padding: "8px 14px", fontWeight: 700, textAlign: "right" }}>CAPITAL %</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {h.investors.map((inv) => (
-                      <tr key={inv.id} style={{ borderTop: "1px solid var(--border)" }}>
-                        <td style={{ padding: "10px 14px", fontWeight: 600 }}>{inv.name}</td>
-                        <td style={{ padding: "10px 14px", color: "var(--muted)", fontSize: 12 }}>
-                          {inv.detailedName ?? ""}
-                          {(inv.address || inv.city) && (
-                            <div className="muted small" style={{ marginTop: 2 }}>
-                              {[inv.address, inv.city, inv.state, inv.zip].filter(Boolean).join(", ")}
-                            </div>
-                          )}
-                        </td>
-                        <td style={{ padding: "10px 14px", textAlign: "right", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}>{pct(inv.profitPct)}</td>
-                        <td style={{ padding: "10px 14px", textAlign: "right", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}>{pct(inv.lossPct)}</td>
-                        <td style={{ padding: "10px 14px", textAlign: "right", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}>{pct(inv.capitalPct)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ))
+                  {open && (
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14, borderTop: "1px solid var(--border)" }}>
+                      <thead>
+                        <tr style={{ color: "var(--muted)", fontSize: 11, letterSpacing: "0.04em", textAlign: "left" }}>
+                          <th style={{ padding: "10px 16px", fontWeight: 700 }}>INVESTOR</th>
+                          <th style={{ padding: "10px 16px", fontWeight: 700 }}>ADDRESS</th>
+                          <th style={{ padding: "10px 16px", fontWeight: 700, textAlign: "right" }}>PROFIT %</th>
+                          <th style={{ padding: "10px 16px", fontWeight: 700, textAlign: "right" }}>LOSS %</th>
+                          <th style={{ padding: "10px 16px", fontWeight: 700, textAlign: "right" }}>CAPITAL %</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {h.investors.map((inv) => (
+                          <tr key={inv.id} style={{ borderTop: "1px solid var(--border)" }}>
+                            <td style={{ padding: "12px 16px" }}>
+                              <div style={{ fontWeight: 600 }}>{inv.name}</div>
+                              {inv.detailedName && (
+                                <div className="muted small" style={{ marginTop: 2 }}>{inv.detailedName}</div>
+                              )}
+                            </td>
+                            <td style={{ padding: "12px 16px", color: "var(--muted)" }}>
+                              {[inv.address, inv.city, inv.state, inv.zip].filter(Boolean).join(", ") || "—"}
+                            </td>
+                            <td style={{ padding: "12px 16px", textAlign: "right" }}>{pct(inv.profitPct)}</td>
+                            <td style={{ padding: "12px 16px", textAlign: "right" }}>{pct(inv.lossPct)}</td>
+                            <td style={{ padding: "12px 16px", textAlign: "right" }}>{pct(inv.capitalPct)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              );
+            })
           )}
         </div>
       )}
@@ -239,56 +255,63 @@ export default function InvestorInfoPage() {
           {filteredInvestors.length === 0 ? (
             <div className="card muted small">No matches.</div>
           ) : (
-            filteredInvestors.map((agg) => (
-              <div key={agg.key} className="card" style={{ padding: 0, overflow: "hidden" }}>
-                <div style={{
-                  display: "flex", alignItems: "baseline", justifyContent: "space-between",
-                  padding: "12px 16px",
-                  background: "rgba(11,74,125,0.05)",
-                  borderBottom: "1px solid var(--border)",
-                  gap: 12, flexWrap: "wrap",
-                }}>
-                  <div style={{ display: "inline-flex", alignItems: "baseline", gap: 10 }}>
-                    <span style={{ fontWeight: 800, fontSize: 14 }}>{agg.name}</span>
-                    <span className="muted small">· {agg.rows.length} {agg.rows.length === 1 ? "property" : "properties"}</span>
-                  </div>
-                  <span className="muted small">
-                    Aggregate Profit: <span style={{ fontWeight: 700, color: "var(--text)" }}>{pct(agg.totalProfitPct || null)}</span>
-                  </span>
-                </div>
+            filteredInvestors.map((agg) => {
+              const open = !!openIds[agg.key];
+              return (
+                <div key={agg.key} className="card" style={{ padding: 0, overflow: "hidden" }}>
+                  <button
+                    type="button"
+                    onClick={() => toggleOpen(agg.key)}
+                    aria-expanded={open}
+                    style={{
+                      display: "flex", alignItems: "center", justifyContent: "space-between",
+                      width: "100%", padding: "14px 16px",
+                      background: "transparent", border: "none", cursor: "pointer",
+                      textAlign: "left", fontFamily: "inherit",
+                    }}
+                  >
+                    <span style={{ display: "inline-flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+                      <span style={{ fontWeight: 700, fontSize: 16 }}>{agg.name}</span>
+                      <span className="muted small">· {agg.rows.length} {agg.rows.length === 1 ? "property" : "properties"}</span>
+                      <span className="muted small" style={{ marginLeft: 6 }}>
+                        · Aggregate Profit <span style={{ fontWeight: 700, color: "var(--text)" }}>{pct(agg.totalProfitPct || null)}</span>
+                      </span>
+                    </span>
+                    <span style={{ color: "var(--muted)", fontSize: 18, flexShrink: 0 }}>{open ? "▲" : "▼"}</span>
+                  </button>
 
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                  <thead>
-                    <tr style={{ color: "var(--muted)", fontSize: 11, letterSpacing: "0.04em", textAlign: "left" }}>
-                      <th style={{ padding: "8px 14px", fontWeight: 700, width: 70 }}>PROP</th>
-                      <th style={{ padding: "8px 14px", fontWeight: 700 }}>PROPERTY</th>
-                      <th style={{ padding: "8px 14px", fontWeight: 700 }}>DETAIL</th>
-                      <th style={{ padding: "8px 14px", fontWeight: 700, textAlign: "right" }}>PROFIT %</th>
-                      <th style={{ padding: "8px 14px", fontWeight: 700, textAlign: "right" }}>LOSS %</th>
-                      <th style={{ padding: "8px 14px", fontWeight: 700, textAlign: "right" }}>CAPITAL %</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {agg.rows.map((r, i) => (
-                      <tr key={i} style={{ borderTop: "1px solid var(--border)" }}>
-                        <td style={{ padding: "10px 14px", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}>
-                          {r.holding.propertyCode}
-                        </td>
-                        <td style={{ padding: "10px 14px", fontWeight: 600 }}>
-                          {r.holding.propertyName}
-                        </td>
-                        <td style={{ padding: "10px 14px", color: "var(--muted)", fontSize: 12 }}>
-                          {r.investor.detailedName ?? ""}
-                        </td>
-                        <td style={{ padding: "10px 14px", textAlign: "right", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}>{pct(r.investor.profitPct)}</td>
-                        <td style={{ padding: "10px 14px", textAlign: "right", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}>{pct(r.investor.lossPct)}</td>
-                        <td style={{ padding: "10px 14px", textAlign: "right", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}>{pct(r.investor.capitalPct)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ))
+                  {open && (
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14, borderTop: "1px solid var(--border)" }}>
+                      <thead>
+                        <tr style={{ color: "var(--muted)", fontSize: 11, letterSpacing: "0.04em", textAlign: "left" }}>
+                          <th style={{ padding: "10px 16px", fontWeight: 700, width: 70 }}>PROP</th>
+                          <th style={{ padding: "10px 16px", fontWeight: 700 }}>PROPERTY</th>
+                          <th style={{ padding: "10px 16px", fontWeight: 700, textAlign: "right" }}>PROFIT %</th>
+                          <th style={{ padding: "10px 16px", fontWeight: 700, textAlign: "right" }}>LOSS %</th>
+                          <th style={{ padding: "10px 16px", fontWeight: 700, textAlign: "right" }}>CAPITAL %</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {agg.rows.map((r, i) => (
+                          <tr key={i} style={{ borderTop: "1px solid var(--border)" }}>
+                            <td style={{ padding: "12px 16px" }}>{r.holding.propertyCode}</td>
+                            <td style={{ padding: "12px 16px" }}>
+                              <div style={{ fontWeight: 600 }}>{r.holding.propertyName}</div>
+                              {r.investor.detailedName && (
+                                <div className="muted small" style={{ marginTop: 2 }}>{r.investor.detailedName}</div>
+                              )}
+                            </td>
+                            <td style={{ padding: "12px 16px", textAlign: "right" }}>{pct(r.investor.profitPct)}</td>
+                            <td style={{ padding: "12px 16px", textAlign: "right" }}>{pct(r.investor.lossPct)}</td>
+                            <td style={{ padding: "12px 16px", textAlign: "right" }}>{pct(r.investor.capitalPct)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              );
+            })
           )}
         </div>
       )}
