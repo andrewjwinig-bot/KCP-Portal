@@ -13,6 +13,9 @@ export default function BankRecTrackerPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [period, setPeriod] = useState<string>(() => bankRecPeriod());
+  const [openBanks, setOpenBanks] = useState<Record<BankGroup, boolean>>({
+    "M&T": true, "JPM-Chase": true, "Liberty Bank": true,
+  });
 
   const commentSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latestComments = useRef<Record<string, string>>({});
@@ -215,18 +218,30 @@ export default function BankRecTrackerPage() {
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           {grouped.map(({ bank, accounts }) => {
             const groupDone = accounts.filter((a) => checked[bankRecKey(a.last4, period)]).length;
+            const open = openBanks[bank];
             return (
               <div key={bank} className="card" style={{ padding: 0, overflow: "hidden" }}>
-                <div style={{
-                  display: "flex", alignItems: "center", justifyContent: "space-between",
-                  padding: "12px 16px",
-                  background: "rgba(11,74,125,0.05)",
-                  borderBottom: "1px solid var(--border)",
-                }}>
-                  <span style={{ fontWeight: 800, fontSize: 14, letterSpacing: "0.02em" }}>{bank}</span>
-                  <span className="muted small">{groupDone}/{accounts.length} reconciled</span>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setOpenBanks((prev) => ({ ...prev, [bank]: !prev[bank] }))}
+                  style={{
+                    display: "flex", alignItems: "center", justifyContent: "space-between",
+                    width: "100%", padding: "12px 16px",
+                    background: "rgba(11,74,125,0.05)",
+                    borderBottom: open ? "1px solid var(--border)" : "none",
+                    border: "none", cursor: "pointer", textAlign: "left",
+                    fontFamily: "inherit",
+                  }}
+                  aria-expanded={open}
+                >
+                  <span style={{ display: "inline-flex", alignItems: "baseline", gap: 10 }}>
+                    <span style={{ fontWeight: 800, fontSize: 14, letterSpacing: "0.02em" }}>{bank}</span>
+                    <span className="muted small">{groupDone}/{accounts.length} reconciled</span>
+                  </span>
+                  <span style={{ color: "var(--muted)", fontSize: 18, flexShrink: 0 }}>{open ? "▲" : "▼"}</span>
+                </button>
 
+                {open && (
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                   <thead>
                     <tr style={{ textAlign: "left", color: "var(--muted)", fontSize: 11, letterSpacing: "0.04em" }}>
@@ -294,6 +309,7 @@ export default function BankRecTrackerPage() {
                     })}
                   </tbody>
                 </table>
+                )}
               </div>
             );
           })}
