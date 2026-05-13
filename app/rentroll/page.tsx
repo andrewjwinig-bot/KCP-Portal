@@ -1009,7 +1009,7 @@ export default function RentRollPage() {
 
   return (
     <main>
-      <h1 style={{ fontSize: 36, letterSpacing: "-0.03em", marginBottom: 24 }}>Rent Roll</h1>
+      <h1 style={{ marginBottom: 24 }}>Rent Roll</h1>
 
       {/* ── Import card ───────────────────────────────────────────────────── */}
       <div className="card" style={{ marginBottom: 24 }}>

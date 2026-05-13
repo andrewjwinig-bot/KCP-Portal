@@ -198,9 +198,7 @@ export default function TaxTrackerPage() {
       {/* ── Header ──────────────────────────────────────────────────────── */}
       <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 22, flexWrap: "wrap", gap: 14 }}>
         <div>
-          <h1 style={{ fontSize: 36, fontWeight: 900, letterSpacing: "-0.03em", marginBottom: 4 }}>
-            Filing Tracker
-          </h1>
+          <h1>Filing Tracker</h1>
           <p className="muted small">County &amp; school RE taxes · net profits / BIRT · entity filings</p>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>

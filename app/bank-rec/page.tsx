@@ -176,9 +176,7 @@ export default function BankAccTrackerPage() {
       {/* ── Header ───────────────────────────────────────────────────── */}
       <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 18, flexWrap: "wrap", gap: 14 }}>
         <div>
-          <h1 style={{ fontSize: 36, fontWeight: 900, letterSpacing: "-0.03em", marginBottom: 4 }}>
-            Bank Account Tracker
-          </h1>
+          <h1>Bank Account Tracker</h1>
           <p className="muted small">Download statements and reconcile by the 10th of the following month</p>
         </div>
 
