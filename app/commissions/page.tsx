@@ -332,8 +332,13 @@ export default function CommissionsPage() {
           <div>
             <label style={labelStyle}>Square Feet</label>
             <input
-              type="number" value={form.sqft}
-              onChange={(e) => recomputeFromDates({ sqft: e.target.value })}
+              type="text"
+              inputMode="numeric"
+              value={form.sqft ? Number(form.sqft).toLocaleString() : ""}
+              onChange={(e) => {
+                const digits = e.target.value.replace(/[^\d]/g, "");
+                recomputeFromDates({ sqft: digits });
+              }}
               style={isExistingTenant ? lockedStyle : inputStyle}
               readOnly={isExistingTenant}
             />
@@ -382,7 +387,7 @@ export default function CommissionsPage() {
               onChange={(e) => patch("incentiveAmount", e.target.value)} style={inputStyle} />
             <div className="muted small" style={{ marginTop: 4 }}>
               {isCalculatedExact
-                ? <>${rate!.toFixed(2)}/sqft × {form.sqft || 0} sqft (standard rate)</>
+                ? <>${rate!.toFixed(2)}/sqft × {Number(form.sqft || 0).toLocaleString()} sqft (standard rate)</>
                 : <>Non-standard term — enter manually</>}
             </div>
           </div>
