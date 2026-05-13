@@ -30,15 +30,10 @@ function pct(n: number | undefined | null): string {
   return (n * 100).toFixed(4) + "%";
 }
 
-/** Prefer explicit profit %, fall back to overall owner % for wholly-owned rows. */
-function profitFor(inv: PropertyOwner): number | undefined {
-  return inv.profitPct ?? inv.ownerPct;
-}
-function lossFor(inv: PropertyOwner): number | undefined {
-  return inv.lossPct ?? inv.ownerPct;
-}
-function capitalFor(inv: PropertyOwner): number | undefined {
-  return inv.capitalPct ?? inv.ownerPct;
+/** Single ownership % for display — profit/loss/capital are equal in the
+ *  source data, so we use profit pct (or fall back to overall owner pct). */
+function ownershipFor(inv: PropertyOwner): number | undefined {
+  return inv.profitPct ?? inv.ownerPct ?? inv.capitalPct ?? inv.lossPct;
 }
 
 function normName(s: string): string {
@@ -83,7 +78,7 @@ export default function InvestorInfoPage() {
           map.set(key, agg);
         }
         agg.rows.push({ holding: h, investor: inv });
-        agg.totalProfitPct += profitFor(inv) ?? 0;
+        agg.totalProfitPct += ownershipFor(inv) ?? 0;
       }
     }
     return [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
@@ -235,9 +230,7 @@ export default function InvestorInfoPage() {
                           <th style={{ padding: "10px 16px", fontWeight: 700, width: 110 }}>VENDOR CODE</th>
                           <th style={{ padding: "10px 16px", fontWeight: 700 }}>OWNER</th>
                           <th style={{ padding: "10px 16px", fontWeight: 700 }}>ADDRESS</th>
-                          <th style={{ padding: "10px 16px", fontWeight: 700, textAlign: "right" }}>PROFIT %</th>
-                          <th style={{ padding: "10px 16px", fontWeight: 700, textAlign: "right" }}>LOSS %</th>
-                          <th style={{ padding: "10px 16px", fontWeight: 700, textAlign: "right" }}>CAPITAL %</th>
+                          <th style={{ padding: "10px 16px", fontWeight: 700, textAlign: "right" }}>OWNERSHIP %</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -255,9 +248,7 @@ export default function InvestorInfoPage() {
                             <td style={{ padding: "12px 16px", color: "var(--muted)" }}>
                               {[inv.address, inv.city, inv.state, inv.zip].filter(Boolean).join(", ") || "—"}
                             </td>
-                            <td style={{ padding: "12px 16px", textAlign: "right" }}>{pct(profitFor(inv))}</td>
-                            <td style={{ padding: "12px 16px", textAlign: "right" }}>{pct(lossFor(inv))}</td>
-                            <td style={{ padding: "12px 16px", textAlign: "right" }}>{pct(capitalFor(inv))}</td>
+                            <td style={{ padding: "12px 16px", textAlign: "right" }}>{pct(ownershipFor(inv))}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -295,7 +286,7 @@ export default function InvestorInfoPage() {
                       <span style={{ fontWeight: 700, fontSize: 16 }}>{agg.name}</span>
                       <span className="muted small">· {agg.rows.length} {agg.rows.length === 1 ? "property" : "properties"}</span>
                       <span className="muted small" style={{ marginLeft: 6 }}>
-                        · Aggregate Profit <span style={{ fontWeight: 700, color: "var(--text)" }}>{pct(agg.totalProfitPct || null)}</span>
+                        · Aggregate Ownership <span style={{ fontWeight: 700, color: "var(--text)" }}>{pct(agg.totalProfitPct || null)}</span>
                       </span>
                     </span>
                     <span style={{ color: "var(--muted)", fontSize: 18, flexShrink: 0 }}>{open ? "▲" : "▼"}</span>
@@ -308,9 +299,7 @@ export default function InvestorInfoPage() {
                           <th style={{ padding: "10px 16px", fontWeight: 700, width: 70 }}>PROP</th>
                           <th style={{ padding: "10px 16px", fontWeight: 700 }}>PROPERTY</th>
                           <th style={{ padding: "10px 16px", fontWeight: 700, width: 110 }}>VENDOR CODE</th>
-                          <th style={{ padding: "10px 16px", fontWeight: 700, textAlign: "right" }}>PROFIT %</th>
-                          <th style={{ padding: "10px 16px", fontWeight: 700, textAlign: "right" }}>LOSS %</th>
-                          <th style={{ padding: "10px 16px", fontWeight: 700, textAlign: "right" }}>CAPITAL %</th>
+                          <th style={{ padding: "10px 16px", fontWeight: 700, textAlign: "right" }}>OWNERSHIP %</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -326,9 +315,7 @@ export default function InvestorInfoPage() {
                             <td style={{ padding: "12px 16px", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 12, color: r.investor.vendorCode ? "var(--text)" : "var(--muted)" }}>
                               {r.investor.vendorCode ?? "—"}
                             </td>
-                            <td style={{ padding: "12px 16px", textAlign: "right" }}>{pct(profitFor(r.investor))}</td>
-                            <td style={{ padding: "12px 16px", textAlign: "right" }}>{pct(lossFor(r.investor))}</td>
-                            <td style={{ padding: "12px 16px", textAlign: "right" }}>{pct(capitalFor(r.investor))}</td>
+                            <td style={{ padding: "12px 16px", textAlign: "right" }}>{pct(ownershipFor(r.investor))}</td>
                           </tr>
                         ))}
                       </tbody>
