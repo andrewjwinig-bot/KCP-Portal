@@ -48,19 +48,24 @@ export default function DashboardPage() {
   const [upcomingNotices, setUpcomingNotices] = useState<{ id: string; tenant: string; building: string; noticeDate: string; daysUntil: number }[]>([]);
   const [dismissedNotices, setDismissedNotices] = useState<Set<string>>(new Set());
   const [bankRecChecked, setBankRecChecked] = useState<Record<string, boolean>>({});
+  const [bankStmtChecked, setBankStmtChecked] = useState<Record<string, boolean>>({});
 
-  // Stacie & admin: load bank rec state for the dashboard action item.
+  // Stacie & admin: load bank account tracker state for the dashboard action item.
   const showBankRec = user.id === "stacie" || user.navKeys.has("all");
   useEffect(() => {
     if (!showBankRec) return;
     fetch("/api/bank-rec").then((r) => r.json()).then((j) => setBankRecChecked(j.checked ?? {})).catch(() => {});
+    fetch("/api/bank-rec/statements").then((r) => r.json()).then((j) => setBankStmtChecked(j.statements ?? {})).catch(() => {});
   }, [showBankRec]);
 
   const bankRec = useMemo(() => {
     const { date, period, daysUntil } = nextBankRecDeadline();
     const total = UNIQUE_BANK_ACCOUNTS.length;
-    const done = UNIQUE_BANK_ACCOUNTS.filter((a) => bankRecChecked[bankRecKey(a.last4, period)]).length;
-    const remaining = total - done;
+    const totalTasks = total * 2;
+    const stmtDone = UNIQUE_BANK_ACCOUNTS.filter((a) => bankStmtChecked[bankRecKey(a.last4, period)]).length;
+    const recDone  = UNIQUE_BANK_ACCOUNTS.filter((a) => bankRecChecked[bankRecKey(a.last4, period)]).length;
+    const doneTasks = stmtDone + recDone;
+    const remaining = totalTasks - doneTasks;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const overdue = date < today && remaining > 0;
@@ -70,8 +75,8 @@ export default function DashboardPage() {
       : daysUntil === 0 ? "today"
       : daysUntil <= 3 ? "soon"
       : "later";
-    return { date, period, daysUntil, total, done, remaining, status };
-  }, [bankRecChecked]);
+    return { date, period, daysUntil, total, totalTasks, stmtDone, recDone, doneTasks, remaining, status };
+  }, [bankRecChecked, bankStmtChecked]);
 
   // Persist dismissed notices in localStorage so they don't reappear on reload.
   useEffect(() => {
@@ -453,7 +458,7 @@ export default function DashboardPage() {
                 }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 600, fontSize: 14 }}>
-                    Bank Reconciliations — {bankRecPeriodLabel(bankRec.period)}
+                    Bank Accounts — {bankRecPeriodLabel(bankRec.period)}
                     {bankRec.status === "overdue" && (
                       <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 999, background: "rgba(220,38,38,0.15)", color: "#b91c1c", border: "1px solid rgba(220,38,38,0.35)", letterSpacing: "0.04em" }}>
                         PAST DUE
@@ -462,8 +467,8 @@ export default function DashboardPage() {
                   </div>
                   <div className="muted small" style={{ marginTop: 2 }}>
                     {bankRec.status === "done"
-                      ? `All ${bankRec.total} accounts reconciled ✓`
-                      : `${bankRec.done}/${bankRec.total} reconciled · due ${bankRec.date.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`}
+                      ? `All ${bankRec.total} accounts done ✓`
+                      : `${bankRec.stmtDone}/${bankRec.total} statements · ${bankRec.recDone}/${bankRec.total} reconciled · due ${bankRec.date.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`}
                   </div>
                 </div>
                 <Link href="/bank-rec" style={{ fontSize: 12, fontWeight: 600, color: "#0b4a7d", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>

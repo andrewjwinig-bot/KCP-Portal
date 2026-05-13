@@ -12,7 +12,7 @@ const NAV_ROLE_KEY: Record<string, string> = {
   "Leasing Activity":   "leasing-activity",
   "Master Tracker":     "tracker",
   "Filing Tracker":     "tracker",
-  "Bank Rec Tracker":   "bank-rec-tracker",
+  "Bank Acc Tracker":   "bank-rec-tracker",
   "Payroll Invoicer":   "payroll-invoicer",
   "Payroll History":    "payroll-history",
   "CC Expense Coder":   "expenses",
@@ -112,7 +112,7 @@ const NAV = [
     ),
   },
   {
-    label: "Bank Rec Tracker",
+    label: "Bank Acc Tracker",
     href: "/bank-rec",
     external: false,
     indent: false,
