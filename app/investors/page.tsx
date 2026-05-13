@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { PROPERTY_OWNERSHIP, type PropertyOwner } from "../../lib/properties/ownership";
 import { PROPERTY_DEFS, TYPE_STYLE, FUND_LABEL, type PropType, type FundGroup } from "../../lib/properties/data";
 
@@ -79,6 +79,13 @@ function buildOwnerGroups(owners: PropertyOwner[]): OwnerGroup[] {
 export default function InvestorInfoPage() {
   const [view, setView] = useState<View>("property");
   const [query, setQuery] = useState("");
+  // Prefill the search box if the page was opened with ?q=… (used by the
+  // global search to deep-link to an owner or vendor code).
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const q = new URLSearchParams(window.location.search).get("q");
+    if (q) setQuery(q);
+  }, []);
   /** Open/closed state for each card. Default = closed everywhere so the page
    *  reads like the rent roll page (PropertyCard pattern). */
   const [openIds, setOpenIds] = useState<Record<string, boolean>>({});

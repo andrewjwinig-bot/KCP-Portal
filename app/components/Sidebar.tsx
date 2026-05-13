@@ -5,6 +5,7 @@ import { useUser } from "./UserProvider";
 import UserSwitcher from "./UserSwitcher";
 import ThemeToggle from "./ThemeToggle";
 import NotificationsToggle from "./NotificationsToggle";
+import { GlobalSearchTrigger } from "./GlobalSearch";
 
 // Maps each NAV label to a role key. Items in this map are gated; items not in it are always visible.
 const NAV_ROLE_KEY: Record<string, string> = {
@@ -313,9 +314,14 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
         </button>
       </div>
 
+      {/* Global search trigger */}
+      <div style={{ padding: open ? "12px 12px 4px" : "10px 6px 4px", flexShrink: 0 }}>
+        <GlobalSearchTrigger collapsed={!open} />
+      </div>
+
       {/* App label */}
       {open && (
-        <div style={{ padding: "16px 16px 8px", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#93c5fd", flexShrink: 0 }}>
+        <div style={{ padding: "12px 16px 8px", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#93c5fd", flexShrink: 0 }}>
           Tools
         </div>
       )}
