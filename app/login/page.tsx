@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
-export default function SiteLoginPage() {
+function LoginFormInner() {
   const router = useRouter();
   const params = useSearchParams();
   const nextPath = params.get("next") || "/dashboard";
@@ -99,5 +99,13 @@ export default function SiteLoginPage() {
         </button>
       </form>
     </main>
+  );
+}
+
+export default function SiteLoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginFormInner />
+    </Suspense>
   );
 }
