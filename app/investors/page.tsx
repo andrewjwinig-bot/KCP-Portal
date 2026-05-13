@@ -258,7 +258,7 @@ export default function InvestorInfoPage() {
                     <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14, borderTop: "1px solid var(--border)" }}>
                       <thead>
                         <tr style={{ color: "var(--muted)", fontSize: 11, letterSpacing: "0.04em", textAlign: "left" }}>
-                          <th style={{ padding: "10px 16px", fontWeight: 700, width: 110 }}>VENDOR CODE</th>
+                          <th style={{ padding: "10px 16px", fontWeight: 700, width: 140, whiteSpace: "nowrap" }}>VENDOR CODE</th>
                           <th style={{ padding: "10px 16px", fontWeight: 700 }}>OWNER</th>
                           <th style={{ padding: "10px 16px", fontWeight: 700 }}>ADDRESS</th>
                           <th style={{ padding: "10px 16px", fontWeight: 700, textAlign: "right" }}>OWNERSHIP %</th>
@@ -383,7 +383,7 @@ export default function InvestorInfoPage() {
                         <tr style={{ color: "var(--muted)", fontSize: 11, letterSpacing: "0.04em", textAlign: "left" }}>
                           <th style={{ padding: "10px 16px", fontWeight: 700, width: 70 }}>PROP</th>
                           <th style={{ padding: "10px 16px", fontWeight: 700 }}>PROPERTY</th>
-                          <th style={{ padding: "10px 16px", fontWeight: 700, width: 110 }}>VENDOR CODE</th>
+                          <th style={{ padding: "10px 16px", fontWeight: 700, width: 140, whiteSpace: "nowrap" }}>VENDOR CODE</th>
                           <th style={{ padding: "10px 16px", fontWeight: 700, textAlign: "right" }}>OWNERSHIP %</th>
                         </tr>
                       </thead>
