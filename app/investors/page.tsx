@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import * as XLSX from "xlsx";
 import { PROPERTY_OWNERSHIP, type PropertyOwner } from "../../lib/properties/ownership";
 import { PROPERTY_DEFS, TYPE_STYLE, FUND_LABEL, type PropType, type FundGroup } from "../../lib/properties/data";
 
@@ -156,6 +157,57 @@ export default function InvestorInfoPage() {
 
   const totalInvestors = investorIndex.length;
   const totalHoldings = holdings.length;
+
+  function exportToExcel() {
+    const fmtPct = (n: number | undefined) => (n == null ? "" : (n * 100).toFixed(4) + "%");
+
+    // Sheet 1: By Property (one row per legal payee).
+    const byProperty: Record<string, string | number>[] = [];
+    for (const h of holdings) {
+      for (const o of h.owners) {
+        byProperty.push({
+          "Property Code": h.propertyCode,
+          "Property Name": h.propertyName,
+          "Type": h.type,
+          "Fund": h.fundGroup ?? "",
+          "K-1": h.hasK1Distribution ? "Yes" : "",
+          "Vendor Code": o.vendorCode ?? "",
+          "Owner": o.name,
+          "Detail / Trust": o.detailedName ?? "",
+          "Address": o.address ?? "",
+          "City": o.city ?? "",
+          "State": o.state ?? "",
+          "Zip": o.zip ?? "",
+          "Phone": o.phone ?? "",
+          "Ownership %": fmtPct(ownershipFor(o)),
+        });
+      }
+    }
+
+    // Sheet 2: By Investor (one row per stake; rows grouped per person).
+    const byInvestor: Record<string, string | number>[] = [];
+    for (const inv of [...investorIndex].sort((a, b) => a.name.localeCompare(b.name))) {
+      for (const r of inv.rows) {
+        byInvestor.push({
+          "Investor": inv.name,
+          "Property Code": r.holding.propertyCode,
+          "Property Name": r.holding.propertyName,
+          "Type": r.holding.type,
+          "Vendor Code": r.investor.vendorCode ?? "",
+          "Detail / Trust": r.investor.detailedName ?? "",
+          "Address": [r.investor.address, r.investor.city, r.investor.state, r.investor.zip].filter(Boolean).join(", "),
+          "Phone": r.investor.phone ?? "",
+          "Ownership %": fmtPct(ownershipFor(r.investor)),
+        });
+      }
+    }
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(byProperty), "By Property");
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(byInvestor), "By Investor");
+    const stamp = new Date().toISOString().slice(0, 10);
+    XLSX.writeFile(wb, `Investor_Info_${stamp}.xlsx`);
+  }
 
   function renderHoldingCard(h: PropertyHolding) {
     const open = !!openIds[h.propertyCode];
@@ -318,8 +370,8 @@ export default function InvestorInfoPage() {
         </div>
       </header>
 
-      {/* ── View toggle + search ───────────────────────────────────────── */}
-      <div className="card">
+      {/* ── View toggle + search + exports ──────────────────────────────── */}
+      <div className="card no-print">
         <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
           <div role="tablist" aria-label="View" style={{
             display: "inline-flex", border: "1px solid var(--border)", borderRadius: 999,
@@ -362,6 +414,27 @@ export default function InvestorInfoPage() {
               fontFamily: "inherit", fontSize: 13, outline: "none",
             }}
           />
+
+          <div style={{ display: "flex", gap: 8 }}>
+            <button
+              type="button"
+              onClick={exportToExcel}
+              className="btn"
+              title="Download ownership data as an Excel workbook"
+              style={{ fontSize: 12 }}
+            >
+              Export Excel
+            </button>
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="btn"
+              title="Print or Save as PDF"
+              style={{ fontSize: 12 }}
+            >
+              Print / PDF
+            </button>
+          </div>
         </div>
 
         <p className="muted small" style={{ marginTop: 10, marginBottom: 0 }}>

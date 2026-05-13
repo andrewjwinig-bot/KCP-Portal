@@ -284,3 +284,30 @@ code {
   padding: 2px 6px;
   border-radius: 8px;
 }
+
+/* ── Print styles ───────────────────────────────────────────────────────── */
+@media print {
+  /* Hide app chrome */
+  aside, nav.sidebar, .sidebar, .no-print { display: none !important; }
+  main {
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: none !important;
+  }
+  body, html {
+    background: #fff !important;
+    color: #000 !important;
+  }
+  /* Force all collapsible cards open in print: rendering relies on JS
+   * state, but for printable views (Investor Info), the data shows by
+   * default when the user expands cards before printing. We at least
+   * ensure cards aren't cropped or pushed off-page. */
+  .card {
+    box-shadow: none !important;
+    border: 1px solid #d1d5db !important;
+    break-inside: avoid;
+  }
+  a { color: #000 !important; text-decoration: none !important; }
+  /* Hide the page sidebar padding the AppShell applies */
+  body > div[style*="padding-left"] { padding-left: 0 !important; }
+}
