@@ -147,6 +147,7 @@ export default function DashboardPage() {
   }
 
   const isAdmin = user.id === "admin";
+  const isStacie = user.id === "stacie";
 
   useEffect(() => {
     fetch("/api/rentroll").then((r) => r.json()).then((j) => setRentroll(j.rentroll ?? null)).catch(() => setRentroll(null)).finally(() => setLoading(false));
@@ -369,7 +370,7 @@ export default function DashboardPage() {
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 14 }}>
         {/* ── Portfolio Occupancy ── */}
-        <Link href="/rentroll" className="card" style={{ display: "block", textDecoration: "none", color: "inherit", cursor: "pointer", transition: "box-shadow 0.15s, transform 0.15s" }}
+        <Link href="/rentroll" className="card" style={{ display: "block", textDecoration: "none", color: "inherit", cursor: "pointer", transition: "box-shadow 0.15s, transform 0.15s", order: isStacie ? 2 : 0 }}
           onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.boxShadow = "0 4px 16px rgba(15,23,42,0.08)"; }}
           onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.boxShadow = ""; }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
@@ -657,7 +658,7 @@ export default function DashboardPage() {
 
         {/* ── Monthly bank progress donuts (Stacie + admin) ─────────────── */}
         {showBankRec && (
-          <div className="card">
+          <div className="card" style={{ order: isStacie ? -1 : 0 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
               <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
                 Monthly Progress · {bankRecPeriodLabel(bankRec.period)}
