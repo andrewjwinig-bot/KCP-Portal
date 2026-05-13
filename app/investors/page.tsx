@@ -160,7 +160,7 @@ export default function InvestorInfoPage() {
         style={{
           padding: 0,
           overflow: "hidden",
-          boxShadow: `var(--shadow), inset 4px 0 0 ${ts.text}`,
+          boxShadow: `var(--shadow), inset 0 5px 0 ${ts.text}`,
         }}
       >
         <button
@@ -169,7 +169,7 @@ export default function InvestorInfoPage() {
           aria-expanded={open}
           style={{
             display: "flex", alignItems: "center", justifyContent: "space-between",
-            width: "100%", padding: "14px 16px",
+            width: "100%", padding: "19px 16px 14px",
             background: "transparent", border: "none", cursor: "pointer",
             textAlign: "left", fontFamily: "inherit",
           }}
@@ -191,7 +191,16 @@ export default function InvestorInfoPage() {
               }}>K-1</span>
             )}
           </span>
-          <span style={{ color: "var(--muted)", fontSize: 18, flexShrink: 0 }}>{open ? "▲" : "▼"}</span>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+            <span style={{
+              display: "inline-flex", alignItems: "center", justifyContent: "center",
+              padding: "2px 9px", borderRadius: 999,
+              fontSize: 11, fontWeight: 500, letterSpacing: "0.02em",
+              background: ts.bg, color: ts.text,
+              border: `1px solid ${ts.border}`,
+            }}>{h.type}</span>
+            <span style={{ color: "var(--muted)", fontSize: 18 }}>{open ? "▲" : "▼"}</span>
+          </span>
         </button>
 
         {open && (

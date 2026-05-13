@@ -1006,14 +1006,14 @@ function PropertyCard({ prop, onClick }: { prop: PropertyDef; onClick: () => voi
   const ts = TYPE_STYLE[prop.type];
   const isEntity = !!prop.entityKind;
 
-  const typeAccent = isEntity ? "" : `, inset 4px 0 0 ${ts.text}`;
+  const typeAccent = isEntity ? "" : `, inset 0 5px 0 ${ts.text}`;
 
   return (
     <button
       onClick={onClick}
       style={{
         display: "flex", flexDirection: "column",
-        padding: "14px 16px 14px",
+        padding: "19px 16px 14px",
         minHeight: 110,
         border: isEntity ? "1.5px dashed #6d28d9" : "1px solid var(--border)",
         borderRadius: 14,
@@ -1038,8 +1038,8 @@ function PropertyCard({ prop, onClick }: { prop: PropertyDef; onClick: () => voi
         el.style.transform = "";
       }}
     >
-      {/* Header row: id badge + type pill (or entity pill if applicable) */}
-      <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 10, flexWrap: "wrap" }}>
+      {/* Header row: id badge (left), type pill or entity pill (right) */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
         <code style={{
           background: "#0b1220", color: "#e0f0ff",
           padding: "2px 8px", borderRadius: 5,
