@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   PROPERTY_DEFS, ALLOC_PCT, TYPE_STYLE, BANK_ACCOUNTS, FLOORPLAN_IDS,
-  type PropertyDef, type PropType, type BankAccount,
+  FUND_LABEL,
+  type PropertyDef, type PropType, type BankAccount, type FundGroup,
 } from "../../lib/properties/data";
 import type { RentRollData, RentRollProperty } from "../../lib/rentroll/parseRentRollExcel";
 import { useUser } from "../components/UserProvider";
@@ -771,6 +772,7 @@ function InfoField({ label, value }: { label: string; value: string; mono?: bool
 
 function PropertyCard({ prop, onClick }: { prop: PropertyDef; onClick: () => void }) {
   const ts = TYPE_STYLE[prop.type];
+  const condo = !!prop.isCondo;
 
   return (
     <button
@@ -779,9 +781,9 @@ function PropertyCard({ prop, onClick }: { prop: PropertyDef; onClick: () => voi
         display: "flex", flexDirection: "column",
         padding: "14px 16px 14px",
         minHeight: 110,
-        border: "1px solid var(--border)",
+        border: condo ? "1.5px dashed #6d28d9" : "1px solid var(--border)",
         borderRadius: 14,
-        background: "#fff",
+        background: condo ? "rgba(109,40,217,0.04)" : "#fff",
         boxShadow: "0 2px 8px rgba(2,6,23,0.05)",
         cursor: "pointer",
         textAlign: "left",
@@ -792,24 +794,33 @@ function PropertyCard({ prop, onClick }: { prop: PropertyDef; onClick: () => voi
       onMouseEnter={e => {
         const el = e.currentTarget as HTMLElement;
         el.style.boxShadow = "0 6px 22px rgba(2,6,23,0.10)";
-        el.style.borderColor = ts.border;
+        if (!condo) el.style.borderColor = ts.border;
         el.style.transform = "translateY(-1px)";
       }}
       onMouseLeave={e => {
         const el = e.currentTarget as HTMLElement;
         el.style.boxShadow = "0 2px 8px rgba(2,6,23,0.05)";
-        el.style.borderColor = "var(--border)";
+        if (!condo) el.style.borderColor = "var(--border)";
         el.style.transform = "";
       }}
     >
-      {/* Header row: id badge + pill */}
-      <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 10 }}>
+      {/* Header row: id badge + type pill (+ Condo pill if applicable) */}
+      <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 10, flexWrap: "wrap" }}>
         <code style={{
           background: "#0b1220", color: "#e0f0ff",
           padding: "2px 8px", borderRadius: 5,
           fontSize: 11, fontWeight: 600, letterSpacing: "0.06em",
         }}>{prop.id}</code>
-        <TypePill type={prop.type} />
+        {condo ? (
+          <span style={{
+            fontSize: 10, fontWeight: 800, letterSpacing: "0.06em",
+            color: "#6d28d9", background: "rgba(109,40,217,0.08)",
+            border: "1px solid rgba(109,40,217,0.25)",
+            padding: "2px 8px", borderRadius: 999, textTransform: "uppercase",
+          }}>Condo</span>
+        ) : (
+          <TypePill type={prop.type} />
+        )}
       </div>
 
       {/* Name */}
@@ -926,6 +937,20 @@ export default function PropertiesPage() {
             const group = filtered.filter(p => p.type === type);
             if (group.length === 0) return null;
             const ts = TYPE_STYLE[type];
+
+            // Office category splits into Fund subsections (JV III, NI LLC) with
+            // any unaffiliated office properties rendered flat below.
+            let officeFundSubsections: { fund: FundGroup; props: PropertyDef[] }[] = [];
+            let officeUnaffiliated: PropertyDef[] = [];
+            if (type === "Office") {
+              const fundOrder: FundGroup[] = ["JV III", "NI LLC"];
+              for (const f of fundOrder) {
+                const props = group.filter(p => p.fundGroup === f);
+                if (props.length) officeFundSubsections.push({ fund: f, props });
+              }
+              officeUnaffiliated = group.filter(p => !p.fundGroup);
+            }
+
             return (
               <div key={type}>
                 <div style={{
@@ -940,11 +965,51 @@ export default function PropertiesPage() {
                   <span style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600 }}>{group.length}</span>
                   <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }}>
-                  {group.map(prop => (
-                    <PropertyCard key={prop.id} prop={prop} onClick={() => setSelected(prop)} />
-                  ))}
-                </div>
+
+                {type === "Office" ? (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
+                    {officeFundSubsections.map(({ fund, props }) => (
+                      <div key={fund}>
+                        <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 10 }}>
+                          <span style={{ fontSize: 11, fontWeight: 800, color: "var(--muted)", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                            Fund
+                          </span>
+                          <span style={{ fontSize: 14, fontWeight: 700, color: "var(--text)" }}>
+                            {FUND_LABEL[fund]}
+                          </span>
+                          <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600 }}>
+                            · {fund} · {props.length}
+                          </span>
+                        </div>
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }}>
+                          {props.map(prop => (
+                            <PropertyCard key={prop.id} prop={prop} onClick={() => setSelected(prop)} />
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                    {officeUnaffiliated.length > 0 && (
+                      <div>
+                        {officeFundSubsections.length > 0 && (
+                          <div style={{ fontSize: 11, fontWeight: 800, color: "var(--muted)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 10 }}>
+                            Other
+                          </div>
+                        )}
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }}>
+                          {officeUnaffiliated.map(prop => (
+                            <PropertyCard key={prop.id} prop={prop} onClick={() => setSelected(prop)} />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }}>
+                    {group.map(prop => (
+                      <PropertyCard key={prop.id} prop={prop} onClick={() => setSelected(prop)} />
+                    ))}
+                  </div>
+                )}
               </div>
             );
           })}
