@@ -265,11 +265,29 @@ export default function DashboardPage() {
     return { status: "fresh" as const, title, message: `Last uploaded ${days === 0 ? "today" : `${days} day${days === 1 ? "" : "s"} ago`}.` };
   }, [rentroll, today]);
 
+  // Whether to render the Leases Expiring card for this persona, and how to scope it.
+  //  - Nancy → office only
+  //  - Harry → retail only
+  //  - Stacie → hidden entirely
+  //  - everyone else (admin / maint) → all property types
+  const expiringScope: "office" | "retail" | "all" | "none" =
+    user.id === "nancy"  ? "office" :
+    user.id === "harry"  ? "retail" :
+    user.id === "stacie" ? "none"   :
+    "all";
+  const showExpiring = expiringScope !== "none";
+
   // ── Leases expiring in next 60 days (or already past, with > 0 rent) ──
   const expiring = useMemo(() => {
-    if (!rentroll) return [];
+    if (!rentroll || !showExpiring) return [];
     const rows: { propertyCode: string; unit: RentRollUnit; days: number }[] = [];
     for (const prop of rentroll.properties) {
+      if (expiringScope !== "all") {
+        const def = PROPERTY_DEFS.find((p) => p.id.toUpperCase() === prop.propertyCode.toUpperCase());
+        const t = def?.type;
+        if (expiringScope === "office" && t !== "Office") continue;
+        if (expiringScope === "retail" && t !== "Retail") continue;
+      }
       for (const unit of prop.units) {
         if (unit.isVacant || !unit.leaseTo) continue;
         const d = parseLeaseTo(unit.leaseTo);
@@ -279,7 +297,7 @@ export default function DashboardPage() {
       }
     }
     return rows.sort((a, b) => a.days - b.days);
-  }, [rentroll]);
+  }, [rentroll, showExpiring, expiringScope]);
 
   // ── Upcoming filings in next 30 days, undone ──
   const upcomingFilings = useMemo(() => {
@@ -605,9 +623,14 @@ export default function DashboardPage() {
       </div>
 
       {/* ── Leases expiring soon ── */}
+      {showExpiring && (
       <div className="card">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-          <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>Leases Expiring (next 60 days)</div>
+          <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
+            Leases Expiring (next 60 days)
+            {expiringScope === "office" && <span className="muted small" style={{ marginLeft: 8, letterSpacing: 0, textTransform: "none" }}>· Office</span>}
+            {expiringScope === "retail" && <span className="muted small" style={{ marginLeft: 8, letterSpacing: 0, textTransform: "none" }}>· Retail</span>}
+          </div>
           <Link href="/rentroll" style={{ fontSize: 12, fontWeight: 600, color: "#0b4a7d", textDecoration: "none" }}>Rent roll →</Link>
         </div>
         {loading ? (
@@ -663,6 +686,7 @@ export default function DashboardPage() {
           </div>
         )}
       </div>
+      )}
 
       {/* ── Upcoming filings (admin only) ── */}
       {isAdmin && (
