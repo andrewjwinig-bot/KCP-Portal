@@ -38,6 +38,43 @@ function nextDueDate(t: TaxTask, today: Date): Date {
   return candidate;
 }
 
+/** Small SVG donut for progress display. Stroke fills clockwise from 12 o'clock. */
+function Donut({ value, total, color, label }: { value: number; total: number; color: string; label: string }) {
+  const r = 38;
+  const C = 2 * Math.PI * r;
+  const pct = total > 0 ? Math.max(0, Math.min(1, value / total)) : 0;
+  const offset = C * (1 - pct);
+  const pctLabel = total > 0 ? Math.round(pct * 100) : 0;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}>
+      <div style={{ position: "relative", width: 110, height: 110 }}>
+        <svg width="110" height="110" viewBox="0 0 100 100" style={{ transform: "rotate(-90deg)" }}>
+          <circle cx="50" cy="50" r={r} fill="none" stroke="var(--border)" strokeWidth="10" />
+          <circle
+            cx="50" cy="50" r={r}
+            fill="none"
+            stroke={color}
+            strokeWidth="10"
+            strokeLinecap="round"
+            strokeDasharray={C}
+            strokeDashoffset={offset}
+            style={{ transition: "stroke-dashoffset 0.4s ease" }}
+          />
+        </svg>
+        <div style={{
+          position: "absolute", inset: 0,
+          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+          fontFamily: "inherit",
+        }}>
+          <span style={{ fontSize: 20, fontWeight: 900, color, lineHeight: 1 }}>{pctLabel}%</span>
+          <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600, marginTop: 2 }}>{value}/{total}</span>
+        </div>
+      </div>
+      <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text)", textAlign: "center" }}>{label}</span>
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const { user } = useUser();
@@ -617,6 +654,34 @@ export default function DashboardPage() {
             </div>
           )}
         </div>
+
+        {/* ── Monthly bank progress donuts (Stacie + admin) ─────────────── */}
+        {showBankRec && (
+          <div className="card">
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
+                Monthly Progress · {bankRecPeriodLabel(bankRec.period)}
+              </div>
+              <Link href="/bank-rec" style={{ fontSize: 12, fontWeight: 600, color: "#0b4a7d", textDecoration: "none" }}>
+                Open →
+              </Link>
+            </div>
+            <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
+              <Donut
+                value={bankStmt.done}
+                total={bankStmt.total}
+                color="#0b4a7d"
+                label="Statements downloaded"
+              />
+              <Donut
+                value={bankRec.recDone}
+                total={bankRec.total}
+                color="#16a34a"
+                label="Bank recs completed"
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ── Leases expiring soon ── */}
