@@ -55,6 +55,14 @@ export const PROPERTY_OWNERSHIP: PropertyOwnership[] = [
     ],
   },
 
+  {
+    propertyCode: "2300",
+    owners: [
+      { id: "own-2300-hyma1", name: "Hyman Korman Co.", vendorCode: "HYMA1", ownerPct: 0.475 },
+      { id: "own-2300-thek1", name: "The Korman Co",    vendorCode: "THEK1", ownerPct: 0.525 },
+    ],
+  },
+
   // ─── K-1 distributions ───────────────────────────────────────────────────
   {
     propertyCode: "2070",
