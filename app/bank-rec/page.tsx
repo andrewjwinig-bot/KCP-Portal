@@ -298,7 +298,7 @@ export default function BankAccTrackerPage() {
                 >
                   <span style={{ display: "inline-flex", alignItems: "baseline", gap: 10 }}>
                     <span style={{ fontWeight: 800, fontSize: 14, letterSpacing: "0.02em" }}>{bank}</span>
-                    <span className="muted small">{groupStmt}/{accounts.length} stmts · {groupRec}/{accounts.length} rec</span>
+                    <span className="muted small">{groupStmt}/{accounts.length} Stmts · {groupRec}/{accounts.length} Rec</span>
                   </span>
                   <span style={{ color: "var(--muted)", fontSize: 18, flexShrink: 0 }}>{open ? "▲" : "▼"}</span>
                 </button>
