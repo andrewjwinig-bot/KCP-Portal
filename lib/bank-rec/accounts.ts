@@ -44,7 +44,7 @@ export const UNIQUE_BANK_ACCOUNTS: UniqueBankAccount[] = [
   { bank: "JPM-Chase",   key: "JPM 9860",             last4: "x8563", accountName: "Korman Homes LLC" },
 
   // ── Liberty Bank ──────────────────────────────────────────────────
-  { bank: "Liberty Bank", key: "LB 2010 SD (0250-2000)",  last4: "x7216", accountName: "LIK Management Inc (LIK-Cash 3)" },
+  { bank: "Liberty Bank", key: "LB 2010 SD (0250-2000)",  last4: "x7216", accountName: "SD Account - All but NILLC" },
   { bank: "Liberty Bank", key: "LB 4000 SD (0250-2000)",  last4: "x7448", accountName: "Nesh Interplex LLC/Korman Com Prop (NILLC-Cash 2)" },
   { bank: "Liberty Bank", key: "LB 7300 (0110-0000)",      last4: "x4756", accountName: "Revere Partnership" },
   { bank: "Liberty Bank", key: "LB 2300 (0130-0000)",      last4: "x6888", accountName: "Brookwood Shopping Center J V. (MIN)" },
