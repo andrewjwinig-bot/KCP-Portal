@@ -566,19 +566,20 @@ export default function CommissionsPage() {
                     </span>
                   </div>
 
-                  {/* Download bar — matches payroll page button group style */}
+                  {/* Download bar — same `btn large` / `btn primary large` pattern
+                      used on the Payroll and CC Expense Coder pages. */}
                   <div style={{
                     display: "flex", gap: 8, flexWrap: "wrap",
-                    padding: "10px 14px",
+                    padding: "14px 14px 16px",
                     borderBottom: "1px solid var(--border)",
                   }}>
-                    <button className="btn" onClick={() => downloadMemoPdf(quarter, list)}>
+                    <button className="btn primary large" onClick={() => downloadMemoPdf(quarter, list)}>
                       Download PDF Memo
                     </button>
-                    <button className="btn" onClick={() => downloadJournalEntry("JV III", quarter, list)}>
+                    <button className="btn large" onClick={() => downloadJournalEntry("JV III", quarter, list)}>
                       Download JV III JE
                     </button>
-                    <button className="btn" onClick={() => downloadJournalEntry("NI LLC", quarter, list)}>
+                    <button className="btn large" onClick={() => downloadJournalEntry("NI LLC", quarter, list)}>
                       Download NI LLC JE
                     </button>
                   </div>
