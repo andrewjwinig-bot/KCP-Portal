@@ -275,7 +275,14 @@ export default function CommissionsPage() {
           {error && <span style={{ color: "#b91c1c", fontSize: 12 }}>{error}</span>}
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))", gap: 12 }}>
+        {/* Explicit fractional columns so the inputs stretch to fill the full row
+            instead of auto-fit leaving empty tracks at the end. 8 columns: the
+            wider Tenant column gets ~2.4fr, others scale to fit. */}
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "minmax(0, 0.8fr) minmax(0, 2.4fr) minmax(0, 0.95fr) minmax(0, 0.75fr) minmax(0, 1fr) minmax(0, 1.05fr) minmax(0, 1.05fr) minmax(0, 0.9fr)",
+          gap: 12,
+        }}>
           {/* Quarter */}
           <div>
             <label style={labelStyle}>Quarter Ended</label>
@@ -285,7 +292,7 @@ export default function CommissionsPage() {
           </div>
 
           {/* Tenant — pick existing OR new */}
-          <div style={{ gridColumn: "span 2" }}>
+          <div>
             <label style={labelStyle}>Tenant</label>
             <select
               value={tenantSelection}
