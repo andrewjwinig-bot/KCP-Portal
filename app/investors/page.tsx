@@ -22,7 +22,6 @@ type InvestorAggregate = {
     holding: PropertyHolding;
     investor: PropertyOwner;
   }>;
-  totalProfitPct: number;  // sum of profitPct / ownerPct across properties
 };
 
 function pct(n: number | undefined | null): string {
@@ -107,11 +106,10 @@ export default function InvestorInfoPage() {
         const key = normName(inv.name);
         let agg = map.get(key);
         if (!agg) {
-          agg = { name: inv.name, key, rows: [], totalProfitPct: 0 };
+          agg = { name: inv.name, key, rows: [] };
           map.set(key, agg);
         }
         agg.rows.push({ holding: h, investor: inv });
-        agg.totalProfitPct += ownershipFor(inv) ?? 0;
       }
     }
     return [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
@@ -355,9 +353,6 @@ export default function InvestorInfoPage() {
                     <span style={{ display: "inline-flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
                       <span style={{ fontWeight: 700, fontSize: 16 }}>{agg.name}</span>
                       <span className="muted small">· {agg.rows.length} {agg.rows.length === 1 ? "property" : "properties"}</span>
-                      <span className="muted small" style={{ marginLeft: 6 }}>
-                        · Aggregate Ownership <span style={{ fontWeight: 700, color: "var(--text)" }}>{pct(agg.totalProfitPct || null)}</span>
-                      </span>
                     </span>
                     <span style={{ color: "var(--muted)", fontSize: 18, flexShrink: 0 }}>{open ? "▲" : "▼"}</span>
                   </button>
