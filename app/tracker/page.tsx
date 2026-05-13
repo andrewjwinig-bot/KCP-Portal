@@ -998,7 +998,7 @@ export default function TrackerPage() {
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18, flexWrap: "wrap" }}>
         <span style={{ fontSize: 11, fontWeight: 800, color: "var(--muted)", letterSpacing: "0.06em" }}>VIEW</span>
         <div role="tablist" aria-label="Owner filter" style={{
-          display: "inline-flex", border: "1px solid var(--border)", borderRadius: 999, overflow: "hidden", background: "#fff",
+          display: "inline-flex", border: "1px solid var(--border)", borderRadius: 999, overflow: "hidden", background: "var(--card)",
         }}>
           {OWNER_FILTERS.map((f) => {
             const active = ownerFilter === f.id;
@@ -1234,7 +1234,7 @@ export default function TrackerPage() {
                     />
                     <span style={{
                       fontSize: 10, fontWeight: 800, letterSpacing: "0.05em",
-                      color: catDef.text, background: "#fff",
+                      color: catDef.text, background: "var(--card)",
                       border: `1px solid ${catDef.border}`,
                       padding: "2px 6px", borderRadius: 999, flexShrink: 0,
                     }}>
@@ -1253,7 +1253,7 @@ export default function TrackerPage() {
                             style={{
                               display: "inline-flex", alignItems: "center", gap: 3,
                               fontSize: 11, fontWeight: 700,
-                              color: catDef.text, background: "#fff",
+                              color: catDef.text, background: "var(--card)",
                               border: `1px solid ${catDef.border}`,
                               borderRadius: 5, padding: "2px 7px",
                               textDecoration: "none", flexShrink: 0,
@@ -1269,7 +1269,7 @@ export default function TrackerPage() {
                     </div>
                     <span style={{
                       fontSize: 11, fontWeight: 800,
-                      color: catDef.text, background: "#fff",
+                      color: catDef.text, background: "var(--card)",
                       border: `1px solid ${catDef.border}`,
                       padding: "3px 9px", borderRadius: 999,
                       whiteSpace: "nowrap", flexShrink: 0,
@@ -1645,7 +1645,7 @@ export default function TrackerPage() {
             <div
               onClick={e => e.stopPropagation()}
               style={{
-                background: "#fff", borderRadius: 14,
+                background: "var(--card)", borderRadius: 14,
                 boxShadow: "0 20px 60px rgba(0,0,0,0.25)",
                 width: "100%", maxWidth: 580,
                 maxHeight: "80vh", overflowY: "auto",
@@ -1657,7 +1657,7 @@ export default function TrackerPage() {
                 display: "flex", alignItems: "flex-start", justifyContent: "space-between",
                 padding: "20px 24px 16px",
                 borderBottom: "1px solid var(--border)",
-                position: "sticky", top: 0, background: "#fff", zIndex: 1,
+                position: "sticky", top: 0, background: "var(--card)", zIndex: 1,
               }}>
                 <div>
                   <div style={{ fontWeight: 900, fontSize: 17, letterSpacing: "-0.02em" }}>
@@ -1745,7 +1745,7 @@ export default function TrackerPage() {
                 padding: "14px 24px",
                 borderTop: "1px solid var(--border)",
                 display: "flex", justifyContent: "flex-end",
-                position: "sticky", bottom: 0, background: "#fff",
+                position: "sticky", bottom: 0, background: "var(--card)",
               }}>
                 <button
                   className="btn"

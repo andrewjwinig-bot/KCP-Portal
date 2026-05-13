@@ -144,7 +144,7 @@ function FloorplanViewer({ propId, propName }: { propId: string; propName: strin
           <div
             onClick={e => e.stopPropagation()}
             style={{
-              background: "#fff", borderRadius: 12,
+              background: "var(--card)", borderRadius: 12,
               border: "1px solid var(--border)",
               overflow: "hidden",
               maxWidth: "min(90vw, 960px)",
@@ -227,7 +227,7 @@ function K1InvestorRow({ inv, done, hasDetail }: { inv: K1Investor; done: boolea
           <div
             onClick={e => e.stopPropagation()}
             style={{
-              background: "#fff", borderRadius: 12,
+              background: "var(--card)", borderRadius: 12,
               border: "1px solid var(--border)",
               padding: "24px 28px",
               width: 420, maxWidth: "calc(100vw - 40px)",
@@ -688,7 +688,7 @@ function DetailModal({
           <div
             onClick={e => e.stopPropagation()}
             style={{
-              background: "#fff", borderRadius: 14,
+              background: "var(--card)", borderRadius: 14,
               border: "1.5px solid rgba(220,38,38,0.3)",
               padding: "24px 28px",
               width: 500, maxWidth: "calc(100vw - 40px)",
@@ -783,7 +783,7 @@ function PropertyCard({ prop, onClick }: { prop: PropertyDef; onClick: () => voi
         minHeight: 110,
         border: isEntity ? "1.5px dashed #6d28d9" : "1px solid var(--border)",
         borderRadius: 14,
-        background: isEntity ? "rgba(109,40,217,0.04)" : "#fff",
+        background: isEntity ? "rgba(109,40,217,0.04)" : "var(--card)",
         boxShadow: "0 2px 8px rgba(2,6,23,0.05)",
         cursor: "pointer",
         textAlign: "left",
@@ -905,7 +905,7 @@ export default function PropertiesPage() {
                 padding: "13px 8px 11px",
                 border: `1.5px solid ${isActive ? tile.activeBorder : "var(--border)"}`,
                 borderRadius: 10,
-                background: isActive ? tile.activeBg : "#fff",
+                background: isActive ? tile.activeBg : "var(--card)",
                 cursor: "pointer",
                 fontFamily: "inherit",
                 transition: "border-color 0.15s, background 0.15s, box-shadow 0.15s",

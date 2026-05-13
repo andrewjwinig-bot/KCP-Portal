@@ -20,13 +20,20 @@
 [data-theme="dark"] {
   --bg: #0b1220;
   --text: #e6edf6;
-  --muted: #94a3b8;
+  --muted: #cbd5e1; /* slate-300 — lifted for readable secondary text on dark cards */
   --card: #1e293b;
-  --border: rgba(255, 255, 255, 0.10);
+  --border: rgba(255, 255, 255, 0.12);
   --shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
   --page-text: var(--text);
-  --page-muted: var(--muted);
+  --page-muted: #94a3b8;
 }
+
+/* Bump default text/link contrast inside cards on dark mode. */
+[data-theme="dark"] .card { color: var(--text); }
+[data-theme="dark"] .muted { color: var(--muted); }
+[data-theme="dark"] code,
+[data-theme="dark"] pre { background: rgba(255,255,255,0.06); color: var(--text); }
+[data-theme="dark"] hr { border-color: var(--border); }
 
 [data-theme="dark"] body {
   color: var(--text);

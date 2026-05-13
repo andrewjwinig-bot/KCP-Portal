@@ -898,7 +898,7 @@ export default function ExpensesPage() {
   }
 
   const CODE_TABLE_MAX_HEIGHT = "calc(100vh - 320px)";
-  const stickyThStyle: React.CSSProperties = { position: "sticky", top: 0, zIndex: 15, background: "#fff" };
+  const stickyThStyle: React.CSSProperties = { position: "sticky", top: 0, zIndex: 15, background: "var(--card)" };
 
   return (
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
