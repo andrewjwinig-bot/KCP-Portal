@@ -49,3 +49,28 @@ export function nextBankRecDeadline(now: Date = new Date()): { date: Date; perio
   const daysUntil = Math.round((deadline.getTime() - t.getTime()) / 86400000);
   return { date: deadline, period: bankRecPeriod(periodDate), daysUntil };
 }
+
+/** The day-of-month bank statements are expected to be downloaded by. */
+export const BANK_STATEMENTS_DUE_DAY = 1;
+
+/**
+ * Returns the next bank-statement download deadline relative to `now`:
+ *  - On the 1st of the month → due today (downloading prior month's statements)
+ *  - Other days → next deadline is the 1st of the following month (this month's statements)
+ *
+ *  The `period` value is the month whose statements are being downloaded by that deadline.
+ */
+export function nextStatementsDeadline(now: Date = new Date()): { date: Date; period: string; daysUntil: number } {
+  const t = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  let deadline: Date;
+  let periodDate: Date;
+  if (t.getDate() === BANK_STATEMENTS_DUE_DAY) {
+    deadline = new Date(t.getFullYear(), t.getMonth(), BANK_STATEMENTS_DUE_DAY);
+    periodDate = new Date(t.getFullYear(), t.getMonth() - 1, 1); // prior month statements due today
+  } else {
+    deadline = new Date(t.getFullYear(), t.getMonth() + 1, BANK_STATEMENTS_DUE_DAY);
+    periodDate = new Date(t.getFullYear(), t.getMonth(), 1); // this month's statements due next 1st
+  }
+  const daysUntil = Math.round((deadline.getTime() - t.getTime()) / 86400000);
+  return { date: deadline, period: bankRecPeriod(periodDate), daysUntil };
+}
