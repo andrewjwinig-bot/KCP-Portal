@@ -373,22 +373,27 @@ export default function CommissionsPage() {
                 setForm((prev) => ({
                   ...prev,
                   termYears: e.target.value,
-                  incentiveAmount: incentive != null ? incentive.toFixed(2) : prev.incentiveAmount,
+                  incentiveAmount: incentive != null ? incentive.toFixed(2) : "",
                 }));
               }}
               style={inputStyle}
             />
           </div>
 
-          {/* Incentive Amount */}
+          {/* Incentive Amount (auto-calculated, read-only) */}
           <div>
             <label style={labelStyle}>Incentive Amount</label>
-            <input type="number" step="0.01" value={form.incentiveAmount}
-              onChange={(e) => patch("incentiveAmount", e.target.value)} style={inputStyle} />
+            <input
+              type="text"
+              value={form.incentiveAmount ? toMoney(Number(form.incentiveAmount)) : "—"}
+              readOnly
+              style={lockedStyle}
+              tabIndex={-1}
+            />
             <div className="muted small" style={{ marginTop: 4 }}>
               {isCalculatedExact
                 ? <>${rate!.toFixed(2)}/sqft × {Number(form.sqft || 0).toLocaleString()} sqft (standard rate)</>
-                : <>Non-standard term — enter manually</>}
+                : <>Non-standard term — no standard rate applies</>}
             </div>
           </div>
         </div>
