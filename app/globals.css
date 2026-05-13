@@ -7,6 +7,30 @@
   --shadow: 0 10px 30px rgba(2, 6, 23, 0.08);
   --brand: #0b4a7d;
   --brand2: #0a3e69;
+  /* Color used for text that sits directly on the page background (outside cards). */
+  --page-text: var(--text);
+  --page-muted: var(--muted);
+}
+
+/* Dark mode darkens the page background only. Cards stay light so their inline
+   colors (status pills, hex links, etc.) remain readable without an audit. */
+[data-theme="dark"] {
+  --bg: #0f172a;
+  --page-text: #e6edf6;
+  --page-muted: #94a3b8;
+}
+[data-theme="dark"] body {
+  color: var(--page-text);
+}
+[data-theme="dark"] body main > h1,
+[data-theme="dark"] body main > header h1,
+[data-theme="dark"] body main > header p,
+[data-theme="dark"] body main > p {
+  color: var(--page-text);
+}
+[data-theme="dark"] body main > p.muted,
+[data-theme="dark"] body main > header p.muted {
+  color: var(--page-muted);
 }
 
 * { box-sizing: border-box; }
