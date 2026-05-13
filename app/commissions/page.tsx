@@ -58,6 +58,10 @@ export default function CommissionsPage() {
 
   const quarterOpts = useMemo(() => recentQuarterLabels(12), []);
   const [form, setForm] = useState<FormState>(() => emptyForm(quarterOpts[0]));
+  /** Tracks the tenant dropdown selection independently of form.unitRef so the
+   *  "Tenant name" manual input can be hidden until the user explicitly picks
+   *  "+ New tenant". Values: "" | NEW_TENANT_VALUE | <unitRef>. */
+  const [tenantSelection, setTenantSelection] = useState<string>("");
 
   // Initial load
   useEffect(() => {
@@ -98,6 +102,7 @@ export default function CommissionsPage() {
 
   /** Triggered when the user picks an existing tenant from the dropdown. */
   function applyTenantSelection(unitRef: string) {
+    setTenantSelection(unitRef);
     if (unitRef === NEW_TENANT_VALUE || !unitRef) {
       setForm((prev) => ({
         ...prev,
@@ -188,6 +193,7 @@ export default function CommissionsPage() {
       : [entry, ...entries];
     persist(next);
     setForm(emptyForm(form.quarter));
+    setTenantSelection("");
   }
 
   function editEntry(e: CommissionEntry) {
@@ -199,13 +205,17 @@ export default function CommissionsPage() {
       incentiveAmount: String(e.incentiveAmount),
       comments: e.comments, unitRef: e.unitRef,
     });
+    setTenantSelection(e.unitRef ?? (e.tenant ? NEW_TENANT_VALUE : ""));
     if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   function deleteEntry(id: string) {
     if (!confirm("Delete this commission entry?")) return;
     persist(entries.filter((e) => e.id !== id));
-    if (form.id === id) setForm(emptyForm(form.quarter));
+    if (form.id === id) {
+      setForm(emptyForm(form.quarter));
+      setTenantSelection("");
+    }
   }
 
   // Group entries by quarter for display
@@ -280,7 +290,7 @@ export default function CommissionsPage() {
           <div>
             <label style={labelStyle}>Tenant</label>
             <select
-              value={form.unitRef ?? (form.tenant ? NEW_TENANT_VALUE : "")}
+              value={tenantSelection}
               onChange={(e) => applyTenantSelection(e.target.value)}
               style={inputStyle}
             >
@@ -290,14 +300,16 @@ export default function CommissionsPage() {
                 {officeTenants.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
               </optgroup>
             </select>
-            <input
-              type="text"
-              value={form.tenant}
-              onChange={(e) => patch("tenant", e.target.value)}
-              placeholder="Tenant name"
-              style={{ ...inputStyle, marginTop: 6 }}
-              readOnly={isExistingTenant}
-            />
+            {tenantSelection === NEW_TENANT_VALUE && (
+              <input
+                type="text"
+                value={form.tenant}
+                onChange={(e) => patch("tenant", e.target.value)}
+                placeholder="Tenant name"
+                style={{ ...inputStyle, marginTop: 6 }}
+                autoFocus
+              />
+            )}
           </div>
 
           {/* Building */}
@@ -389,7 +401,7 @@ export default function CommissionsPage() {
 
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 14 }}>
           {form.id && (
-            <button className="btn" onClick={() => setForm(emptyForm(form.quarter))} disabled={saving}>
+            <button className="btn" onClick={() => { setForm(emptyForm(form.quarter)); setTenantSelection(""); }} disabled={saving}>
               Cancel
             </button>
           )}
