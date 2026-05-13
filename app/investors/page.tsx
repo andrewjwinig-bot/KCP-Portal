@@ -1,18 +1,16 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
-import { TAX_TASKS, type K1Investor } from "../tracker/tax-data";
+import { PROPERTY_OWNERSHIP, type PropertyOwner } from "../../lib/properties/ownership";
 import { PROPERTY_DEFS } from "../../lib/properties/data";
 
 type View = "property" | "investor";
 
 type PropertyHolding = {
-  taxTaskId: string;          // e.g. "k1-7200"
-  entity: string;             // display label from the K-1 task
-  propertyCode: string;       // best-guess property code parsed from entity ("7200")
-  propertyName: string;       // PROPERTY_DEFS lookup (or entity fallback)
-  investors: K1Investor[];
+  propertyCode: string;       // "1100", "7200"…
+  propertyName: string;       // PROPERTY_DEFS lookup (or override)
+  hasK1Distribution: boolean;
+  owners: PropertyOwner[];
 };
 
 type InvestorAggregate = {
@@ -22,14 +20,25 @@ type InvestorAggregate = {
   key: string;
   rows: Array<{
     holding: PropertyHolding;
-    investor: K1Investor;
+    investor: PropertyOwner;
   }>;
-  totalProfitPct: number;  // sum of profitPct across properties (sanity-check column)
+  totalProfitPct: number;  // sum of profitPct / ownerPct across properties
 };
 
 function pct(n: number | undefined | null): string {
   if (n == null) return "—";
   return (n * 100).toFixed(4) + "%";
+}
+
+/** Prefer explicit profit %, fall back to overall owner % for wholly-owned rows. */
+function profitFor(inv: PropertyOwner): number | undefined {
+  return inv.profitPct ?? inv.ownerPct;
+}
+function lossFor(inv: PropertyOwner): number | undefined {
+  return inv.lossPct ?? inv.ownerPct;
+}
+function capitalFor(inv: PropertyOwner): number | undefined {
+  return inv.capitalPct ?? inv.ownerPct;
 }
 
 function normName(s: string): string {
@@ -46,20 +55,17 @@ export default function InvestorInfoPage() {
     setOpenIds((prev) => ({ ...prev, [id]: !prev[id] }));
   }
 
-  // ── Pull K-1 tasks and resolve a property code for each ────────────────
+  // ── Holdings list sourced from PROPERTY_OWNERSHIP ──────────────────────
   const holdings: PropertyHolding[] = useMemo(() => {
-    return TAX_TASKS
-      .filter((t) => t.category === "k1" && t.investors && t.investors.length > 0)
-      .map((t) => {
-        // Entity strings look like "7200 Elbridge Partnership" — first token = code
-        const firstToken = (t.entity ?? "").trim().split(/\s+/)[0] ?? "";
-        const def = PROPERTY_DEFS.find((p) => p.id.toUpperCase() === firstToken.toUpperCase());
+    return PROPERTY_OWNERSHIP
+      .filter((p) => p.owners.length > 0)
+      .map((p) => {
+        const def = PROPERTY_DEFS.find((d) => d.id.toUpperCase() === p.propertyCode.toUpperCase());
         return {
-          taxTaskId: t.id,
-          entity: t.entity,
-          propertyCode: firstToken,
-          propertyName: def?.name ?? t.entity,
-          investors: t.investors as K1Investor[],
+          propertyCode: p.propertyCode,
+          propertyName: p.propertyName ?? def?.name ?? p.propertyCode,
+          hasK1Distribution: !!p.hasK1Distribution,
+          owners: p.owners,
         };
       })
       .sort((a, b) => a.propertyCode.localeCompare(b.propertyCode));
@@ -69,7 +75,7 @@ export default function InvestorInfoPage() {
   const investorIndex: InvestorAggregate[] = useMemo(() => {
     const map = new Map<string, InvestorAggregate>();
     for (const h of holdings) {
-      for (const inv of h.investors) {
+      for (const inv of h.owners) {
         const key = normName(inv.name);
         let agg = map.get(key);
         if (!agg) {
@@ -77,7 +83,7 @@ export default function InvestorInfoPage() {
           map.set(key, agg);
         }
         agg.rows.push({ holding: h, investor: inv });
-        agg.totalProfitPct += inv.profitPct ?? 0;
+        agg.totalProfitPct += profitFor(inv) ?? 0;
       }
     }
     return [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
@@ -87,10 +93,12 @@ export default function InvestorInfoPage() {
     const q = query.trim().toLowerCase();
     if (!q) return holdings;
     return holdings.filter((h) =>
-      h.entity.toLowerCase().includes(q)
-      || h.propertyName.toLowerCase().includes(q)
+      h.propertyName.toLowerCase().includes(q)
       || h.propertyCode.toLowerCase().includes(q)
-      || h.investors.some((inv) => inv.name.toLowerCase().includes(q) || (inv.detailedName ?? "").toLowerCase().includes(q)),
+      || h.owners.some((inv) =>
+        inv.name.toLowerCase().includes(q)
+        || (inv.detailedName ?? "").toLowerCase().includes(q)
+        || (inv.vendorCode ?? "").toLowerCase().includes(q)),
     );
   }, [holdings, query]);
 
@@ -100,9 +108,10 @@ export default function InvestorInfoPage() {
     return investorIndex.filter((i) =>
       i.name.toLowerCase().includes(q)
       || i.rows.some((r) =>
-        r.holding.entity.toLowerCase().includes(q)
+        r.holding.propertyName.toLowerCase().includes(q)
         || r.holding.propertyCode.toLowerCase().includes(q)
-        || (r.investor.detailedName ?? "").toLowerCase().includes(q)),
+        || (r.investor.detailedName ?? "").toLowerCase().includes(q)
+        || (r.investor.vendorCode ?? "").toLowerCase().includes(q)),
     );
   }, [investorIndex, query]);
 
@@ -162,7 +171,7 @@ export default function InvestorInfoPage() {
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search investors, properties, codes…"
+            placeholder="Search investors, vendor codes, properties…"
             style={{
               flex: 1, minWidth: 220,
               padding: "8px 12px",
@@ -174,7 +183,7 @@ export default function InvestorInfoPage() {
         </div>
 
         <p className="muted small" style={{ marginTop: 10, marginBottom: 0 }}>
-          Source: K-1 distributions on the Filing Tracker. Investors are matched by name across properties — minor name variants (e.g. "Cathy Altman" vs "Catherine Altman") may show as separate entries until names are normalized.
+          Source: <code>lib/properties/ownership.ts</code> — the canonical ownership table. The Filing Tracker K-1 task investors derive from the same data.
         </p>
       </div>
 
@@ -185,12 +194,12 @@ export default function InvestorInfoPage() {
             <div className="card muted small">No matches.</div>
           ) : (
             filteredHoldings.map((h) => {
-              const open = !!openIds[h.taxTaskId];
+              const open = !!openIds[h.propertyCode];
               return (
-                <div key={h.taxTaskId} className="card" style={{ padding: 0, overflow: "hidden" }}>
+                <div key={h.propertyCode} className="card" style={{ padding: 0, overflow: "hidden" }}>
                   <button
                     type="button"
-                    onClick={() => toggleOpen(h.taxTaskId)}
+                    onClick={() => toggleOpen(h.propertyCode)}
                     aria-expanded={open}
                     style={{
                       display: "flex", alignItems: "center", justifyContent: "space-between",
@@ -206,7 +215,15 @@ export default function InvestorInfoPage() {
                         fontSize: 12, fontWeight: 600, letterSpacing: "0.06em",
                       }}>{h.propertyCode}</code>
                       <span style={{ fontWeight: 700, fontSize: 16 }}>{h.propertyName}</span>
-                      <span className="muted small">· {h.investors.length} investor{h.investors.length === 1 ? "" : "s"}</span>
+                      <span className="muted small">· {h.owners.length} {h.owners.length === 1 ? "owner" : "owners"}</span>
+                      {h.hasK1Distribution && (
+                        <span style={{
+                          fontSize: 10, fontWeight: 700, letterSpacing: "0.06em",
+                          padding: "2px 7px", borderRadius: 4,
+                          background: "rgba(15,118,110,0.08)", color: "#0f766e",
+                          border: "1px solid rgba(15,118,110,0.25)",
+                        }}>K-1</span>
+                      )}
                     </span>
                     <span style={{ color: "var(--muted)", fontSize: 18, flexShrink: 0 }}>{open ? "▲" : "▼"}</span>
                   </button>
@@ -215,7 +232,8 @@ export default function InvestorInfoPage() {
                     <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14, borderTop: "1px solid var(--border)" }}>
                       <thead>
                         <tr style={{ color: "var(--muted)", fontSize: 11, letterSpacing: "0.04em", textAlign: "left" }}>
-                          <th style={{ padding: "10px 16px", fontWeight: 700 }}>INVESTOR</th>
+                          <th style={{ padding: "10px 16px", fontWeight: 700, width: 110 }}>VENDOR CODE</th>
+                          <th style={{ padding: "10px 16px", fontWeight: 700 }}>OWNER</th>
                           <th style={{ padding: "10px 16px", fontWeight: 700 }}>ADDRESS</th>
                           <th style={{ padding: "10px 16px", fontWeight: 700, textAlign: "right" }}>PROFIT %</th>
                           <th style={{ padding: "10px 16px", fontWeight: 700, textAlign: "right" }}>LOSS %</th>
@@ -223,8 +241,11 @@ export default function InvestorInfoPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {h.investors.map((inv) => (
+                        {h.owners.map((inv) => (
                           <tr key={inv.id} style={{ borderTop: "1px solid var(--border)" }}>
+                            <td style={{ padding: "12px 16px", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 12, color: inv.vendorCode ? "var(--text)" : "var(--muted)" }}>
+                              {inv.vendorCode ?? "—"}
+                            </td>
                             <td style={{ padding: "12px 16px" }}>
                               <div style={{ fontWeight: 600 }}>{inv.name}</div>
                               {inv.detailedName && (
@@ -234,9 +255,9 @@ export default function InvestorInfoPage() {
                             <td style={{ padding: "12px 16px", color: "var(--muted)" }}>
                               {[inv.address, inv.city, inv.state, inv.zip].filter(Boolean).join(", ") || "—"}
                             </td>
-                            <td style={{ padding: "12px 16px", textAlign: "right" }}>{pct(inv.profitPct)}</td>
-                            <td style={{ padding: "12px 16px", textAlign: "right" }}>{pct(inv.lossPct)}</td>
-                            <td style={{ padding: "12px 16px", textAlign: "right" }}>{pct(inv.capitalPct)}</td>
+                            <td style={{ padding: "12px 16px", textAlign: "right" }}>{pct(profitFor(inv))}</td>
+                            <td style={{ padding: "12px 16px", textAlign: "right" }}>{pct(lossFor(inv))}</td>
+                            <td style={{ padding: "12px 16px", textAlign: "right" }}>{pct(capitalFor(inv))}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -286,6 +307,7 @@ export default function InvestorInfoPage() {
                         <tr style={{ color: "var(--muted)", fontSize: 11, letterSpacing: "0.04em", textAlign: "left" }}>
                           <th style={{ padding: "10px 16px", fontWeight: 700, width: 70 }}>PROP</th>
                           <th style={{ padding: "10px 16px", fontWeight: 700 }}>PROPERTY</th>
+                          <th style={{ padding: "10px 16px", fontWeight: 700, width: 110 }}>VENDOR CODE</th>
                           <th style={{ padding: "10px 16px", fontWeight: 700, textAlign: "right" }}>PROFIT %</th>
                           <th style={{ padding: "10px 16px", fontWeight: 700, textAlign: "right" }}>LOSS %</th>
                           <th style={{ padding: "10px 16px", fontWeight: 700, textAlign: "right" }}>CAPITAL %</th>
@@ -301,9 +323,12 @@ export default function InvestorInfoPage() {
                                 <div className="muted small" style={{ marginTop: 2 }}>{r.investor.detailedName}</div>
                               )}
                             </td>
-                            <td style={{ padding: "12px 16px", textAlign: "right" }}>{pct(r.investor.profitPct)}</td>
-                            <td style={{ padding: "12px 16px", textAlign: "right" }}>{pct(r.investor.lossPct)}</td>
-                            <td style={{ padding: "12px 16px", textAlign: "right" }}>{pct(r.investor.capitalPct)}</td>
+                            <td style={{ padding: "12px 16px", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 12, color: r.investor.vendorCode ? "var(--text)" : "var(--muted)" }}>
+                              {r.investor.vendorCode ?? "—"}
+                            </td>
+                            <td style={{ padding: "12px 16px", textAlign: "right" }}>{pct(profitFor(r.investor))}</td>
+                            <td style={{ padding: "12px 16px", textAlign: "right" }}>{pct(lossFor(r.investor))}</td>
+                            <td style={{ padding: "12px 16px", textAlign: "right" }}>{pct(capitalFor(r.investor))}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -317,9 +342,7 @@ export default function InvestorInfoPage() {
       )}
 
       <p className="muted small" style={{ marginTop: 4 }}>
-        Need to update or add ownership data?{" "}
-        <Link href="/tracker/taxes" style={{ color: "var(--brand)", fontWeight: 600 }}>Filing Tracker → K-1</Link>{" "}
-        is the current source.
+        Source of truth: <code>lib/properties/ownership.ts</code>. Filing Tracker K-1 investors are derived from this file.
       </p>
     </main>
   );
