@@ -233,8 +233,6 @@ export default function CommissionsPage() {
   const grandTotal = entries.reduce((s, e) => s + (Number(e.incentiveAmount) || 0), 0);
 
   // Standard rates table for reference card
-  const standardRates = INCENTIVE_TIERS;
-
   const rate = incentiveRate(Number(form.termYears) || 0);
   const isCalculatedExact = rate != null;
   const isExistingTenant = !!form.unitRef;
@@ -417,6 +415,17 @@ export default function CommissionsPage() {
           />
         </div>
 
+        {/* Standard rates footnote */}
+        <p className="muted small" style={{ marginTop: 12, marginBottom: 0, fontSize: 11, lineHeight: 1.6 }}>
+          <span style={{ fontWeight: 700, marginRight: 6 }}>Standard rates / sf:</span>
+          {INCENTIVE_TIERS.map((r, i) => (
+            <span key={r.years}>
+              {i > 0 && <span style={{ margin: "0 6px", opacity: 0.5 }}>·</span>}
+              {r.years} yr <span style={{ fontWeight: 600 }}>${r.ratePerSqft.toFixed(3)}</span>
+            </span>
+          ))}
+        </p>
+
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 14 }}>
           {form.id && (
             <button className="btn" onClick={() => { setForm(emptyForm(form.quarter)); setTenantSelection(""); }} disabled={saving}>
@@ -430,24 +439,6 @@ export default function CommissionsPage() {
           >
             {form.id ? "Save Changes" : "Add Entry"}
           </button>
-        </div>
-      </div>
-
-      {/* ── Rates reference ─────────────────────────────────────────── */}
-      <div className="card">
-        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 8, flexWrap: "wrap" }}>
-          <b style={{ fontSize: 14 }}>Standard Incentive Rates</b>
-          <span className="muted small">Exact-match by lease term, applied per square foot</span>
-        </div>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          {standardRates.map((r) => (
-            <span key={r.years} style={{
-              padding: "4px 10px", borderRadius: 999,
-              border: "1px solid var(--border)", fontSize: 12, fontWeight: 600,
-            }}>
-              {r.years} yr · ${r.ratePerSqft.toFixed(3)}/sf
-            </span>
-          ))}
         </div>
       </div>
 
