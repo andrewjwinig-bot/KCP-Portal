@@ -88,6 +88,15 @@ export const PROPERTY_OWNERSHIP: PropertyOwnership[] = [
   },
 
   {
+    propertyCode: "8200",
+    owners: [
+      { id: "own-8200-joan2", name: "Joan R. Sohn",      vendorCode: "JOAN2", detailedName: "Joan R. Sohn 1942 Trust · C/O Baker Tilly US, LLP",      address: "1650 Market St., Suite 4500",              city: "Philadelphia", state: "Pennsylvania", zip: "19103", ownerPct: 0.500000 },
+      { id: "own-8200-judi2", name: "Judith K. Langsfeld", vendorCode: "JUDI2", detailedName: "Judith K. Langsfeld 1942 Trust",                          address: "1673 Paper Mill Road",                     city: "Meadowbrook",  state: "Pennsylvania", zip: "19046", ownerPct: 0.250000 },
+      { id: "own-8200-lynn2", name: "Lynne Honickman",   vendorCode: "LYNN2", detailedName: "Lynne Honickman 1942 Trust · C/O The Honickman Co., Eric D. Pisauro", address: "c/o Honickman Co · 8275 N. Crescent Blvd.", city: "Pennsauken",   state: "New Jersey",   zip: "08110", ownerPct: 0.250000 },
+    ],
+  },
+
+  {
     propertyCode: "7010",
     owners: [
       { id: "own-7010-akgst", name: "Alison Korman Feldman",          detailedName: "LIK GST TR FBO Alison Feldman",                    vendorCode: "AKGST", address: "6015 Sheaff Lane",   city: "Ft. Washington", state: "PA", zip: "19034",                              ownerPct: 0.049464 },
