@@ -1,10 +1,12 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useUser } from "./UserProvider";
 import UserSwitcher from "./UserSwitcher";
 import ThemeToggle from "./ThemeToggle";
 import NotificationsToggle from "./NotificationsToggle";
+import { GlobalSearchTrigger } from "./GlobalSearch";
 
 // Maps each NAV label to a role key. Items in this map are gated; items not in it are always visible.
 const NAV_ROLE_KEY: Record<string, string> = {
@@ -239,7 +241,16 @@ const NAV = [
 export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: () => void }) {
   const pathname = usePathname();
   const { user, authed, setUserId } = useUser();
-  const W = open ? 220 : 60;
+  const [isNarrow, setIsNarrow] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia("(max-width: 720px)");
+    const apply = () => setIsNarrow(mq.matches);
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, []);
+  const W = isNarrow ? (open ? 260 : 0) : (open ? 220 : 60);
 
   function isActive(item: (typeof NAV)[number]) {
     if (item.external) return false;
@@ -272,7 +283,7 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
         display: "flex",
         flexDirection: "column",
         transition: "width 0.2s ease",
-        zIndex: 40,
+        zIndex: isNarrow ? 90 : 40,
         overflow: "hidden",
         borderRight: "1px solid rgba(255,255,255,0.07)",
       }}
@@ -313,9 +324,14 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
         </button>
       </div>
 
+      {/* Global search trigger */}
+      <div style={{ padding: open ? "12px 12px 4px" : "10px 6px 4px", flexShrink: 0 }}>
+        <GlobalSearchTrigger collapsed={!open} />
+      </div>
+
       {/* App label */}
       {open && (
-        <div style={{ padding: "16px 16px 8px", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#93c5fd", flexShrink: 0 }}>
+        <div style={{ padding: "12px 16px 8px", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#93c5fd", flexShrink: 0 }}>
           Tools
         </div>
       )}

@@ -221,10 +221,10 @@ function K1InvestorRow({
         )}
         {inv.vendorCode && (
           <span style={{
-            fontSize: 10, fontWeight: 700, letterSpacing: "0.04em",
-            padding: "2px 6px", borderRadius: 4,
-            background: "#0b1220", color: "#e0f0ff",
-            fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+            fontSize: 11, fontWeight: 600, letterSpacing: "0.04em",
+            padding: "2px 7px", borderRadius: 999,
+            background: "rgba(15,23,42,0.05)", color: "var(--text)",
+            border: "1px solid var(--border)",
             flexShrink: 0,
           }}>{inv.vendorCode}</span>
         )}
@@ -297,7 +297,7 @@ function K1InvestorRow({
             {inv.vendorCode && (
               <div style={{ fontSize: 13, color: "var(--text)", lineHeight: 1.5 }}>
                 <div style={{ fontWeight: 600, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 3 }}>Vendor Code</div>
-                <div style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontWeight: 700 }}>{inv.vendorCode}</div>
+                <div style={{ fontWeight: 700, letterSpacing: "0.04em" }}>{inv.vendorCode}</div>
               </div>
             )}
 
@@ -357,10 +357,10 @@ function OwnerSubRow({
         )}
         {inv.vendorCode && (
           <span style={{
-            fontSize: 9, fontWeight: 700, letterSpacing: "0.04em",
-            padding: "1px 5px", borderRadius: 3,
-            background: "#0b1220", color: "#e0f0ff",
-            fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+            fontSize: 10, fontWeight: 600, letterSpacing: "0.04em",
+            padding: "1px 6px", borderRadius: 999,
+            background: "rgba(15,23,42,0.05)", color: "var(--text)",
+            border: "1px solid var(--border)",
             flexShrink: 0,
           }}>{inv.vendorCode}</span>
         )}
@@ -431,7 +431,7 @@ function OwnerSubRow({
             {inv.vendorCode && (
               <div style={{ fontSize: 13, color: "var(--text)", lineHeight: 1.5 }}>
                 <div style={{ fontWeight: 600, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 3 }}>Vendor Code</div>
-                <div style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontWeight: 700 }}>{inv.vendorCode}</div>
+                <div style={{ fontWeight: 700, letterSpacing: "0.04em" }}>{inv.vendorCode}</div>
               </div>
             )}
 
@@ -1002,77 +1002,205 @@ function InfoField({ label, value }: { label: string; value: string; mono?: bool
 
 // ─── PROPERTY CARD ────────────────────────────────────────────────────────────
 
-function PropertyCard({ prop, onClick }: { prop: PropertyDef; onClick: () => void }) {
+function PropertyCard({ prop, onClick, checked }: { prop: PropertyDef; onClick: () => void; checked: Record<string, boolean> }) {
   const ts = TYPE_STYLE[prop.type];
   const isEntity = !!prop.entityKind;
+  const typeAccent = isEntity ? "" : `, inset 0 5px 0 ${ts.text}`;
+
+  const ownership = useMemo(
+    () => PROPERTY_OWNERSHIP.find((p) => p.propertyCode.toUpperCase() === prop.id.toUpperCase()),
+    [prop.id],
+  );
+  const sortedOwners = useMemo(
+    () => [...(ownership?.owners ?? [])].sort((a, b) => (ownerPctFor(b) ?? 0) - (ownerPctFor(a) ?? 0)),
+    [ownership],
+  );
+  const filings = useMemo(
+    () => tasksForProp(prop.id).filter((t) => t.category !== "k1"),
+    [prop.id],
+  );
+  const [ownersOpen, setOwnersOpen] = useState(false);
+  const [filingsOpen, setFilingsOpen] = useState(false);
+
+  const MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const today = new Date();
+  function filingStatus(t: TaxTask) {
+    const done = isTaskEffectivelyDone(t, checked);
+    if (done) return { label: "Filed", color: "#16a34a", bg: "rgba(22,163,74,0.08)", border: "rgba(22,163,74,0.2)" };
+    const due = new Date(today.getFullYear(), t.dueMonth - 1, t.dueDay);
+    due.setHours(23, 59, 59);
+    if (due < today) return { label: "Overdue", color: "#dc2626", bg: "rgba(220,38,38,0.08)", border: "rgba(220,38,38,0.25)" };
+    return { label: "Pending", color: "var(--muted)", bg: "rgba(0,0,0,0.04)", border: "var(--border)" };
+  }
 
   return (
-    <button
-      onClick={onClick}
+    <div
       style={{
         display: "flex", flexDirection: "column",
-        padding: "14px 16px 14px",
         minHeight: 110,
         border: isEntity ? "1.5px dashed #6d28d9" : "1px solid var(--border)",
         borderRadius: 14,
         background: isEntity ? "rgba(109,40,217,0.04)" : "var(--card)",
-        boxShadow: "0 2px 8px rgba(2,6,23,0.05)",
-        cursor: "pointer",
-        textAlign: "left",
+        boxShadow: `0 2px 8px rgba(2,6,23,0.05)${typeAccent}`,
         fontFamily: "inherit",
         transition: "box-shadow 0.15s, border-color 0.15s, transform 0.1s",
         width: "100%",
+        overflow: "hidden",
       }}
-      onMouseEnter={e => {
+      onMouseEnter={(e) => {
         const el = e.currentTarget as HTMLElement;
-        el.style.boxShadow = "0 6px 22px rgba(2,6,23,0.10)";
+        el.style.boxShadow = `0 6px 22px rgba(2,6,23,0.10)${typeAccent}`;
         if (!isEntity) el.style.borderColor = ts.border;
         el.style.transform = "translateY(-1px)";
       }}
-      onMouseLeave={e => {
+      onMouseLeave={(e) => {
         const el = e.currentTarget as HTMLElement;
-        el.style.boxShadow = "0 2px 8px rgba(2,6,23,0.05)";
+        el.style.boxShadow = `0 2px 8px rgba(2,6,23,0.05)${typeAccent}`;
         if (!isEntity) el.style.borderColor = "var(--border)";
         el.style.transform = "";
       }}
     >
-      {/* Header row: id badge + type pill (or entity pill if applicable) */}
-      <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 10, flexWrap: "wrap" }}>
-        <code style={{
-          background: "#0b1220", color: "#e0f0ff",
-          padding: "2px 8px", borderRadius: 5,
-          fontSize: 11, fontWeight: 600, letterSpacing: "0.06em",
-        }}>{prop.id}</code>
-        {isEntity ? (
-          <span style={{
-            fontSize: 10, fontWeight: 800, letterSpacing: "0.06em",
-            color: "#6d28d9", background: "rgba(109,40,217,0.08)",
-            border: "1px solid rgba(109,40,217,0.25)",
-            padding: "2px 8px", borderRadius: 999, textTransform: "uppercase",
-          }}>{prop.entityKind}</span>
-        ) : (
-          <TypePill type={prop.type} />
+      {/* Main clickable area opens the detail modal */}
+      <button
+        onClick={onClick}
+        style={{
+          display: "flex", flexDirection: "column", flex: 1,
+          padding: "19px 16px 14px",
+          background: "transparent", border: "none", cursor: "pointer",
+          textAlign: "left", fontFamily: "inherit", width: "100%",
+        }}
+      >
+        {/* Header row: id badge (left), type pill or entity pill (right) */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
+          <code style={{
+            background: "#0b1220", color: "#e0f0ff",
+            padding: "2px 8px", borderRadius: 5,
+            fontSize: 11, fontWeight: 600, letterSpacing: "0.06em",
+          }}>{prop.id}</code>
+          {isEntity ? (
+            <span style={{
+              fontSize: 10, fontWeight: 800, letterSpacing: "0.06em",
+              color: "#6d28d9", background: "rgba(109,40,217,0.08)",
+              border: "1px solid rgba(109,40,217,0.25)",
+              padding: "2px 8px", borderRadius: 999, textTransform: "uppercase",
+            }}>{prop.entityKind}</span>
+          ) : (
+            <TypePill type={prop.type} />
+          )}
+        </div>
+
+        {/* Name */}
+        <div style={{ fontSize: 16, fontWeight: 500, lineHeight: 1.3, color: "var(--text)", marginBottom: 4 }}>
+          {prop.name}
+        </div>
+
+        {/* Address / city */}
+        {(prop.address || prop.city) && (
+          <div style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.4, marginTop: "auto", paddingTop: 8 }}>
+            {prop.address
+              ? `${prop.address}, ${prop.city ?? ""}`
+              : prop.city}
+          </div>
         )}
-      </div>
+        {prop.notes && !prop.address && !prop.city && (
+          <div style={{ fontSize: 12, color: "var(--muted)", marginTop: "auto", paddingTop: 8 }}>{prop.notes}</div>
+        )}
+      </button>
 
-      {/* Name */}
-      <div style={{ fontSize: 16, fontWeight: 500, lineHeight: 1.3, color: "var(--text)", marginBottom: 4 }}>
-        {prop.name}
-      </div>
-
-      {/* Address / city */}
-      {(prop.address || prop.city) && (
-        <div style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.4, marginTop: "auto", paddingTop: 8 }}>
-          {prop.address
-            ? `${prop.address}, ${prop.city ?? ""}`
-            : prop.city}
+      {/* Ownership collapsible footer (only when we have data) */}
+      {sortedOwners.length > 0 && (
+        <div style={{ borderTop: "1px solid var(--border)" }}>
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setOwnersOpen((o) => !o); }}
+            aria-expanded={ownersOpen}
+            style={{
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              width: "100%", padding: "8px 14px",
+              background: "transparent", border: "none", cursor: "pointer",
+              textAlign: "left", fontFamily: "inherit",
+              fontSize: 11, fontWeight: 700, color: "var(--muted)",
+              letterSpacing: "0.06em", textTransform: "uppercase",
+            }}
+          >
+            <span>Ownership · {sortedOwners.length} {sortedOwners.length === 1 ? "owner" : "owners"}</span>
+            <span style={{ fontSize: 13 }}>{ownersOpen ? "▲" : "▼"}</span>
+          </button>
+          {ownersOpen && (
+            <div style={{ padding: "0 14px 12px", display: "flex", flexDirection: "column", gap: 4 }}>
+              {sortedOwners.map((o) => {
+                const op = ownerPctFor(o);
+                return (
+                  <div key={o.id} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12 }}>
+                    {o.vendorCode && (
+                      <span style={{
+                        fontSize: 10, fontWeight: 600, letterSpacing: "0.04em",
+                        padding: "1px 6px", borderRadius: 999,
+                        background: "rgba(15,23,42,0.05)", color: "var(--text)",
+                        border: "1px solid var(--border)",
+                        flexShrink: 0,
+                      }}>{o.vendorCode}</span>
+                    )}
+                    <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={o.name}>{o.name}</span>
+                    {op != null && (
+                      <span style={{ flexShrink: 0, fontWeight: 600, color: "var(--text)" }}>{(op * 100).toFixed(4).replace(/\.?0+$/, "")}%</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
-      {prop.notes && !prop.address && !prop.city && (
-        <div style={{ fontSize: 12, color: "var(--muted)", marginTop: "auto", paddingTop: 8 }}>{prop.notes}</div>
-      )}
 
-    </button>
+      {/* Tax Filings collapsible footer */}
+      {filings.length > 0 && (
+        <div style={{ borderTop: "1px solid var(--border)" }}>
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setFilingsOpen((o) => !o); }}
+            aria-expanded={filingsOpen}
+            style={{
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              width: "100%", padding: "8px 14px",
+              background: "transparent", border: "none", cursor: "pointer",
+              textAlign: "left", fontFamily: "inherit",
+              fontSize: 11, fontWeight: 700, color: "var(--muted)",
+              letterSpacing: "0.06em", textTransform: "uppercase",
+            }}
+          >
+            <span>Tax Filings · {filings.length}</span>
+            <span style={{ fontSize: 13 }}>{filingsOpen ? "▲" : "▼"}</span>
+          </button>
+          {filingsOpen && (
+            <div style={{ padding: "0 14px 12px", display: "flex", flexDirection: "column", gap: 4 }}>
+              {filings.map((t) => {
+                const cat = TAX_CATEGORIES[t.category];
+                const status = filingStatus(t);
+                return (
+                  <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12 }}>
+                    <span style={{
+                      fontSize: 9, fontWeight: 800, letterSpacing: "0.04em",
+                      padding: "1px 5px", borderRadius: 4,
+                      color: cat.text, background: cat.bg, border: `1px solid ${cat.border}`,
+                      flexShrink: 0,
+                    }}>{cat.pill}</span>
+                    <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={filingLabel(t)}>{filingLabel(t)}</span>
+                    <span style={{ flexShrink: 0, color: "var(--muted)", fontSize: 11 }}>{MONTHS_SHORT[t.dueMonth - 1]} {t.dueDay}</span>
+                    <span style={{
+                      flexShrink: 0,
+                      fontSize: 9, fontWeight: 800,
+                      padding: "1px 6px", borderRadius: 999,
+                      color: status.color, background: status.bg, border: `1px solid ${status.border}`,
+                    }}>{status.label}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -1117,7 +1245,7 @@ export default function PropertiesPage() {
       </div>
 
       {/* ── Summary tiles ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 10, marginBottom: 18 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10, marginBottom: 18 }}>
         {([
           { key: "all",         label: "Total",       value: PROPERTY_DEFS.length, color: "var(--brand)",  activeBg: "rgba(11,74,125,0.07)",  activeBorder: "rgba(11,74,125,0.3)"  },
           { key: "Office",      label: "Office",       value: typeCounts.Office,      color: "#0b4a7d",      activeBg: "rgba(11,74,125,0.09)",  activeBorder: "rgba(11,74,125,0.35)" },
@@ -1187,10 +1315,10 @@ export default function PropertiesPage() {
                   display: "flex", alignItems: "center", gap: 10, marginBottom: 12,
                 }}>
                   <span style={{
-                    fontSize: 11, fontWeight: 900, letterSpacing: "0.08em",
+                    fontSize: 14, fontWeight: 800, letterSpacing: "0.06em",
                     textTransform: "uppercase", color: ts.text,
                     background: ts.bg, border: `1px solid ${ts.border}`,
-                    padding: "3px 10px", borderRadius: 999,
+                    padding: "5px 14px", borderRadius: 999,
                   }}>{type}</span>
                   <span style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600 }}>{group.length}</span>
                   <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
@@ -1211,9 +1339,9 @@ export default function PropertiesPage() {
                             · {fund} · {props.length}
                           </span>
                         </div>
-                        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }}>
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 14 }}>
                           {props.map(prop => (
-                            <PropertyCard key={prop.id} prop={prop} onClick={() => setSelected(prop)} />
+                            <PropertyCard key={prop.id} prop={prop} onClick={() => setSelected(prop)} checked={checked} />
                           ))}
                         </div>
                       </div>
@@ -1225,9 +1353,9 @@ export default function PropertiesPage() {
                             Other
                           </div>
                         )}
-                        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }}>
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 14 }}>
                           {officeUnaffiliated.map(prop => (
-                            <PropertyCard key={prop.id} prop={prop} onClick={() => setSelected(prop)} />
+                            <PropertyCard key={prop.id} prop={prop} onClick={() => setSelected(prop)} checked={checked} />
                           ))}
                         </div>
                       </div>
@@ -1236,7 +1364,7 @@ export default function PropertiesPage() {
                 ) : (
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }}>
                     {group.map(prop => (
-                      <PropertyCard key={prop.id} prop={prop} onClick={() => setSelected(prop)} />
+                      <PropertyCard key={prop.id} prop={prop} onClick={() => setSelected(prop)} checked={checked} />
                     ))}
                   </div>
                 )}

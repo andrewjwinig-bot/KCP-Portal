@@ -1,17 +1,22 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import * as XLSX from "xlsx";
 import { PROPERTY_OWNERSHIP, type PropertyOwner } from "../../lib/properties/ownership";
-import { PROPERTY_DEFS } from "../../lib/properties/data";
+import { PROPERTY_DEFS, TYPE_STYLE, FUND_LABEL, type PropType, type FundGroup } from "../../lib/properties/data";
 
 type View = "property" | "investor";
 
 type PropertyHolding = {
   propertyCode: string;       // "1100", "7200"…
   propertyName: string;       // PROPERTY_DEFS lookup (or override)
+  type: PropType | "Misc";    // for category grouping
+  fundGroup?: FundGroup;      // JV III / NI LLC subsection (Office only)
   hasK1Distribution: boolean;
   owners: PropertyOwner[];
 };
+
+const TYPES: PropType[] = ["Office", "Retail", "Residential", "Land", "Misc"];
 
 type InvestorAggregate = {
   /** Display name (Title Case as recorded). */
@@ -22,7 +27,6 @@ type InvestorAggregate = {
     holding: PropertyHolding;
     investor: PropertyOwner;
   }>;
-  totalProfitPct: number;  // sum of profitPct / ownerPct across properties
 };
 
 function pct(n: number | undefined | null): string {
@@ -76,6 +80,13 @@ function buildOwnerGroups(owners: PropertyOwner[]): OwnerGroup[] {
 export default function InvestorInfoPage() {
   const [view, setView] = useState<View>("property");
   const [query, setQuery] = useState("");
+  // Prefill the search box if the page was opened with ?q=… (used by the
+  // global search to deep-link to an owner or vendor code).
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const q = new URLSearchParams(window.location.search).get("q");
+    if (q) setQuery(q);
+  }, []);
   /** Open/closed state for each card. Default = closed everywhere so the page
    *  reads like the rent roll page (PropertyCard pattern). */
   const [openIds, setOpenIds] = useState<Record<string, boolean>>({});
@@ -92,6 +103,8 @@ export default function InvestorInfoPage() {
         return {
           propertyCode: p.propertyCode,
           propertyName: p.propertyName ?? def?.name ?? p.propertyCode,
+          type: (def?.type ?? "Misc") as PropType,
+          fundGroup: def?.fundGroup,
           hasK1Distribution: !!p.hasK1Distribution,
           owners: p.owners,
         };
@@ -107,11 +120,10 @@ export default function InvestorInfoPage() {
         const key = normName(inv.name);
         let agg = map.get(key);
         if (!agg) {
-          agg = { name: inv.name, key, rows: [], totalProfitPct: 0 };
+          agg = { name: inv.name, key, rows: [] };
           map.set(key, agg);
         }
         agg.rows.push({ holding: h, investor: inv });
-        agg.totalProfitPct += ownershipFor(inv) ?? 0;
       }
     }
     return [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
@@ -146,6 +158,200 @@ export default function InvestorInfoPage() {
   const totalInvestors = investorIndex.length;
   const totalHoldings = holdings.length;
 
+  function exportToExcel() {
+    const fmtPct = (n: number | undefined) => (n == null ? "" : (n * 100).toFixed(4) + "%");
+
+    // Sheet 1: By Property (one row per legal payee).
+    const byProperty: Record<string, string | number>[] = [];
+    for (const h of holdings) {
+      for (const o of h.owners) {
+        byProperty.push({
+          "Property Code": h.propertyCode,
+          "Property Name": h.propertyName,
+          "Type": h.type,
+          "Fund": h.fundGroup ?? "",
+          "K-1": h.hasK1Distribution ? "Yes" : "",
+          "Vendor Code": o.vendorCode ?? "",
+          "Owner": o.name,
+          "Detail / Trust": o.detailedName ?? "",
+          "Address": o.address ?? "",
+          "City": o.city ?? "",
+          "State": o.state ?? "",
+          "Zip": o.zip ?? "",
+          "Phone": o.phone ?? "",
+          "Ownership %": fmtPct(ownershipFor(o)),
+        });
+      }
+    }
+
+    // Sheet 2: By Investor (one row per stake; rows grouped per person).
+    const byInvestor: Record<string, string | number>[] = [];
+    for (const inv of [...investorIndex].sort((a, b) => a.name.localeCompare(b.name))) {
+      for (const r of inv.rows) {
+        byInvestor.push({
+          "Investor": inv.name,
+          "Property Code": r.holding.propertyCode,
+          "Property Name": r.holding.propertyName,
+          "Type": r.holding.type,
+          "Vendor Code": r.investor.vendorCode ?? "",
+          "Detail / Trust": r.investor.detailedName ?? "",
+          "Address": [r.investor.address, r.investor.city, r.investor.state, r.investor.zip].filter(Boolean).join(", "),
+          "Phone": r.investor.phone ?? "",
+          "Ownership %": fmtPct(ownershipFor(r.investor)),
+        });
+      }
+    }
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(byProperty), "By Property");
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(byInvestor), "By Investor");
+    const stamp = new Date().toISOString().slice(0, 10);
+    XLSX.writeFile(wb, `Investor_Info_${stamp}.xlsx`);
+  }
+
+  function renderHoldingCard(h: PropertyHolding) {
+    const open = !!openIds[h.propertyCode];
+    const ts = TYPE_STYLE[h.type as PropType];
+    return (
+      <div
+        key={h.propertyCode}
+        className="card"
+        style={{
+          padding: 0,
+          overflow: "hidden",
+          boxShadow: `var(--shadow), inset 0 5px 0 ${ts.text}`,
+        }}
+      >
+        <button
+          type="button"
+          onClick={() => toggleOpen(h.propertyCode)}
+          aria-expanded={open}
+          style={{
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            width: "100%", padding: "19px 16px 14px",
+            background: "transparent", border: "none", cursor: "pointer",
+            textAlign: "left", fontFamily: "inherit",
+          }}
+        >
+          <span style={{ display: "inline-flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+            <code style={{
+              background: "#0b1220", color: "#e0f0ff",
+              padding: "2px 8px", borderRadius: 5,
+              fontSize: 12, fontWeight: 600, letterSpacing: "0.06em",
+            }}>{h.propertyCode}</code>
+            <span style={{ fontWeight: 700, fontSize: 16 }}>{h.propertyName}</span>
+            <span className="muted small">· {h.owners.length} {h.owners.length === 1 ? "owner" : "owners"}</span>
+            {h.hasK1Distribution && (
+              <span style={{
+                fontSize: 10, fontWeight: 700, letterSpacing: "0.06em",
+                padding: "2px 7px", borderRadius: 4,
+                background: "rgba(15,118,110,0.08)", color: "#0f766e",
+                border: "1px solid rgba(15,118,110,0.25)",
+              }}>K-1</span>
+            )}
+          </span>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+            <span style={{
+              display: "inline-flex", alignItems: "center", justifyContent: "center",
+              padding: "2px 9px", borderRadius: 999,
+              fontSize: 11, fontWeight: 500, letterSpacing: "0.02em",
+              background: ts.bg, color: ts.text,
+              border: `1px solid ${ts.border}`,
+            }}>{h.type}</span>
+            <span style={{ color: "var(--muted)", fontSize: 18 }}>{open ? "▲" : "▼"}</span>
+          </span>
+        </button>
+
+        {open && (
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14, borderTop: "1px solid var(--border)" }}>
+            <thead>
+              <tr style={{ color: "var(--muted)", fontSize: 11, letterSpacing: "0.04em", textAlign: "left" }}>
+                <th style={{ padding: "10px 16px", fontWeight: 700, width: 140, whiteSpace: "nowrap" }}>VENDOR CODE</th>
+                <th style={{ padding: "10px 16px", fontWeight: 700 }}>OWNER</th>
+                <th style={{ padding: "10px 16px", fontWeight: 700 }}>ADDRESS</th>
+                <th style={{ padding: "10px 16px", fontWeight: 700, textAlign: "right" }}>OWNERSHIP %</th>
+              </tr>
+            </thead>
+            <tbody>
+              {buildOwnerGroups(h.owners).flatMap((g) => {
+                const multi = g.owners.length > 1;
+                if (!multi) {
+                  const inv = g.owners[0];
+                  return [(
+                    <tr key={inv.id} style={{ borderTop: "1px solid var(--border)" }}>
+                      <td style={{ padding: "12px 16px" }}>
+                        {inv.vendorCode ? (
+                          <span style={{
+                            fontSize: 11, fontWeight: 600, letterSpacing: "0.04em",
+                            padding: "2px 8px", borderRadius: 999,
+                            background: "rgba(15,23,42,0.05)", color: "var(--text)",
+                            border: "1px solid var(--border)",
+                            display: "inline-block",
+                          }}>{inv.vendorCode}</span>
+                        ) : (
+                          <span style={{ color: "var(--muted)" }}>—</span>
+                        )}
+                      </td>
+                      <td style={{ padding: "12px 16px" }}>
+                        <div style={{ fontWeight: 600 }}>{inv.name}</div>
+                        {inv.detailedName && (
+                          <div className="muted small" style={{ marginTop: 2 }}>{inv.detailedName}</div>
+                        )}
+                      </td>
+                      <td style={{ padding: "12px 16px", color: "var(--muted)" }}>
+                        {[inv.address, inv.city, inv.state, inv.zip].filter(Boolean).join(", ") || "—"}
+                      </td>
+                      <td style={{ padding: "12px 16px", textAlign: "right" }}>{pct(ownershipFor(inv))}</td>
+                    </tr>
+                  )];
+                }
+                const rows = [(
+                  <tr key={`${g.key}-primary`} style={{ borderTop: "1px solid var(--border)", background: "rgba(15,23,42,0.025)" }}>
+                    <td style={{ padding: "12px 16px", color: "var(--muted)", fontSize: 11 }}>—</td>
+                    <td style={{ padding: "12px 16px" }}>
+                      <div style={{ fontWeight: 700, fontSize: 15 }}>{g.name}</div>
+                    </td>
+                    <td style={{ padding: "12px 16px", color: "var(--muted)", fontSize: 11 }}>
+                      {g.owners.length} stakes
+                    </td>
+                    <td style={{ padding: "12px 16px", textAlign: "right", fontWeight: 700 }}>{pct(g.total)}</td>
+                  </tr>
+                )];
+                g.owners.forEach((inv) => {
+                  rows.push(
+                    <tr key={inv.id} style={{ borderTop: "1px solid rgba(11,74,125,0.08)" }}>
+                      <td style={{ padding: "8px 16px", paddingLeft: 36 }}>
+                        {inv.vendorCode ? (
+                          <span style={{
+                            fontSize: 10, fontWeight: 600, letterSpacing: "0.04em",
+                            padding: "1px 7px", borderRadius: 999,
+                            background: "rgba(15,23,42,0.05)", color: "var(--text)",
+                            border: "1px solid var(--border)",
+                            display: "inline-block",
+                          }}>{inv.vendorCode}</span>
+                        ) : (
+                          <span style={{ color: "var(--muted)", fontSize: 11 }}>—</span>
+                        )}
+                      </td>
+                      <td style={{ padding: "8px 16px", fontSize: 12, color: "var(--muted)" }}>
+                        {inv.detailedName || <span style={{ fontStyle: "italic" }}>(direct)</span>}
+                      </td>
+                      <td style={{ padding: "8px 16px", color: "var(--muted)", fontSize: 12 }}>
+                        {[inv.address, inv.city, inv.state, inv.zip].filter(Boolean).join(", ") || "—"}
+                      </td>
+                      <td style={{ padding: "8px 16px", textAlign: "right", fontSize: 12 }}>{pct(ownershipFor(inv))}</td>
+                    </tr>,
+                  );
+                });
+                return rows;
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
+    );
+  }
+
   return (
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
       <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
@@ -164,8 +370,8 @@ export default function InvestorInfoPage() {
         </div>
       </header>
 
-      {/* ── View toggle + search ───────────────────────────────────────── */}
-      <div className="card">
+      {/* ── View toggle + search + exports ──────────────────────────────── */}
+      <div className="card no-print">
         <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
           <div role="tablist" aria-label="View" style={{
             display: "inline-flex", border: "1px solid var(--border)", borderRadius: 999,
@@ -208,6 +414,27 @@ export default function InvestorInfoPage() {
               fontFamily: "inherit", fontSize: 13, outline: "none",
             }}
           />
+
+          <div style={{ display: "flex", gap: 8 }}>
+            <button
+              type="button"
+              onClick={exportToExcel}
+              className="btn"
+              title="Download ownership data as an Excel workbook"
+              style={{ fontSize: 12 }}
+            >
+              Export Excel
+            </button>
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="btn"
+              title="Print or Save as PDF"
+              style={{ fontSize: 12 }}
+            >
+              Print / PDF
+            </button>
+          </div>
         </div>
 
         <p className="muted small" style={{ marginTop: 10, marginBottom: 0 }}>
@@ -217,112 +444,69 @@ export default function InvestorInfoPage() {
 
       {/* ── By Property view ───────────────────────────────────────────── */}
       {view === "property" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
           {filteredHoldings.length === 0 ? (
             <div className="card muted small">No matches.</div>
           ) : (
-            filteredHoldings.map((h) => {
-              const open = !!openIds[h.propertyCode];
-              return (
-                <div key={h.propertyCode} className="card" style={{ padding: 0, overflow: "hidden" }}>
-                  <button
-                    type="button"
-                    onClick={() => toggleOpen(h.propertyCode)}
-                    aria-expanded={open}
-                    style={{
-                      display: "flex", alignItems: "center", justifyContent: "space-between",
-                      width: "100%", padding: "14px 16px",
-                      background: "transparent", border: "none", cursor: "pointer",
-                      textAlign: "left", fontFamily: "inherit",
-                    }}
-                  >
-                    <span style={{ display: "inline-flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
-                      <code style={{
-                        background: "#0b1220", color: "#e0f0ff",
-                        padding: "2px 8px", borderRadius: 5,
-                        fontSize: 12, fontWeight: 600, letterSpacing: "0.06em",
-                      }}>{h.propertyCode}</code>
-                      <span style={{ fontWeight: 700, fontSize: 16 }}>{h.propertyName}</span>
-                      <span className="muted small">· {h.owners.length} {h.owners.length === 1 ? "owner" : "owners"}</span>
-                      {h.hasK1Distribution && (
-                        <span style={{
-                          fontSize: 10, fontWeight: 700, letterSpacing: "0.06em",
-                          padding: "2px 7px", borderRadius: 4,
-                          background: "rgba(15,118,110,0.08)", color: "#0f766e",
-                          border: "1px solid rgba(15,118,110,0.25)",
-                        }}>K-1</span>
-                      )}
-                    </span>
-                    <span style={{ color: "var(--muted)", fontSize: 18, flexShrink: 0 }}>{open ? "▲" : "▼"}</span>
-                  </button>
+            TYPES.map((type) => {
+              const group = filteredHoldings.filter((h) => h.type === type);
+              if (group.length === 0) return null;
+              const ts = TYPE_STYLE[type];
 
-                  {open && (
-                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14, borderTop: "1px solid var(--border)" }}>
-                      <thead>
-                        <tr style={{ color: "var(--muted)", fontSize: 11, letterSpacing: "0.04em", textAlign: "left" }}>
-                          <th style={{ padding: "10px 16px", fontWeight: 700, width: 110 }}>VENDOR CODE</th>
-                          <th style={{ padding: "10px 16px", fontWeight: 700 }}>OWNER</th>
-                          <th style={{ padding: "10px 16px", fontWeight: 700 }}>ADDRESS</th>
-                          <th style={{ padding: "10px 16px", fontWeight: 700, textAlign: "right" }}>OWNERSHIP %</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {buildOwnerGroups(h.owners).flatMap((g) => {
-                          const multi = g.owners.length > 1;
-                          if (!multi) {
-                            const inv = g.owners[0];
-                            return [(
-                              <tr key={inv.id} style={{ borderTop: "1px solid var(--border)" }}>
-                                <td style={{ padding: "12px 16px", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 12, color: inv.vendorCode ? "var(--text)" : "var(--muted)" }}>
-                                  {inv.vendorCode ?? "—"}
-                                </td>
-                                <td style={{ padding: "12px 16px" }}>
-                                  <div style={{ fontWeight: 600 }}>{inv.name}</div>
-                                  {inv.detailedName && (
-                                    <div className="muted small" style={{ marginTop: 2 }}>{inv.detailedName}</div>
-                                  )}
-                                </td>
-                                <td style={{ padding: "12px 16px", color: "var(--muted)" }}>
-                                  {[inv.address, inv.city, inv.state, inv.zip].filter(Boolean).join(", ") || "—"}
-                                </td>
-                                <td style={{ padding: "12px 16px", textAlign: "right" }}>{pct(ownershipFor(inv))}</td>
-                              </tr>
-                            )];
-                          }
-                          // Multi-stake: primary row with name + combined %,
-                          // then indented sub-rows per legal payee.
-                          const rows = [(
-                            <tr key={`${g.key}-primary`} style={{ borderTop: "1px solid var(--border)", background: "rgba(15,23,42,0.025)" }}>
-                              <td style={{ padding: "12px 16px", color: "var(--muted)", fontSize: 11 }}>—</td>
-                              <td style={{ padding: "12px 16px" }}>
-                                <div style={{ fontWeight: 700, fontSize: 15 }}>{g.name}</div>
-                              </td>
-                              <td style={{ padding: "12px 16px", color: "var(--muted)", fontSize: 11 }}>
-                                {g.owners.length} stakes
-                              </td>
-                              <td style={{ padding: "12px 16px", textAlign: "right", fontWeight: 700 }}>{pct(g.total)}</td>
-                            </tr>
-                          )];
-                          g.owners.forEach((inv) => {
-                            rows.push(
-                              <tr key={inv.id} style={{ borderTop: "1px solid rgba(11,74,125,0.08)" }}>
-                                <td style={{ padding: "8px 16px", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 11, color: inv.vendorCode ? "var(--text)" : "var(--muted)", paddingLeft: 36 }}>
-                                  {inv.vendorCode ?? "—"}
-                                </td>
-                                <td style={{ padding: "8px 16px", fontSize: 12, color: "var(--muted)" }}>
-                                  {inv.detailedName || <span style={{ fontStyle: "italic" }}>(direct)</span>}
-                                </td>
-                                <td style={{ padding: "8px 16px", color: "var(--muted)", fontSize: 12 }}>
-                                  {[inv.address, inv.city, inv.state, inv.zip].filter(Boolean).join(", ") || "—"}
-                                </td>
-                                <td style={{ padding: "8px 16px", textAlign: "right", fontSize: 12 }}>{pct(ownershipFor(inv))}</td>
-                              </tr>,
-                            );
-                          });
-                          return rows;
-                        })}
-                      </tbody>
-                    </table>
+              // Office sub-groups by fund (JV III, NI LLC) with the rest in "Other".
+              const officeFundSubsections: { fund: FundGroup; items: PropertyHolding[] }[] = [];
+              let officeUnaffiliated: PropertyHolding[] = [];
+              if (type === "Office") {
+                const fundOrder: FundGroup[] = ["JV III", "NI LLC"];
+                for (const f of fundOrder) {
+                  const items = group.filter((h) => h.fundGroup === f);
+                  if (items.length) officeFundSubsections.push({ fund: f, items });
+                }
+                officeUnaffiliated = group.filter((h) => !h.fundGroup);
+              }
+
+              return (
+                <div key={type}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+                    <span style={{
+                      fontSize: 14, fontWeight: 800, letterSpacing: "0.06em",
+                      textTransform: "uppercase", color: ts.text,
+                      background: ts.bg, border: `1px solid ${ts.border}`,
+                      padding: "5px 14px", borderRadius: 999,
+                    }}>{type}</span>
+                    <span style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600 }}>{group.length}</span>
+                    <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
+                  </div>
+
+                  {type === "Office" ? (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
+                      {officeFundSubsections.map(({ fund, items }) => (
+                        <div key={fund}>
+                          <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 10 }}>
+                            <span style={{ fontSize: 11, fontWeight: 800, color: "var(--muted)", letterSpacing: "0.06em", textTransform: "uppercase" }}>Fund</span>
+                            <span style={{ fontSize: 14, fontWeight: 700, color: "var(--text)" }}>{FUND_LABEL[fund]}</span>
+                            <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600 }}>· {fund} · {items.length}</span>
+                          </div>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                            {items.map((h) => renderHoldingCard(h))}
+                          </div>
+                        </div>
+                      ))}
+                      {officeUnaffiliated.length > 0 && (
+                        <div>
+                          {officeFundSubsections.length > 0 && (
+                            <div style={{ fontSize: 11, fontWeight: 800, color: "var(--muted)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 10 }}>Other</div>
+                          )}
+                          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                            {officeUnaffiliated.map((h) => renderHoldingCard(h))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                      {group.map((h) => renderHoldingCard(h))}
+                    </div>
                   )}
                 </div>
               );
@@ -355,9 +539,6 @@ export default function InvestorInfoPage() {
                     <span style={{ display: "inline-flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
                       <span style={{ fontWeight: 700, fontSize: 16 }}>{agg.name}</span>
                       <span className="muted small">· {agg.rows.length} {agg.rows.length === 1 ? "property" : "properties"}</span>
-                      <span className="muted small" style={{ marginLeft: 6 }}>
-                        · Aggregate Ownership <span style={{ fontWeight: 700, color: "var(--text)" }}>{pct(agg.totalProfitPct || null)}</span>
-                      </span>
                     </span>
                     <span style={{ color: "var(--muted)", fontSize: 18, flexShrink: 0 }}>{open ? "▲" : "▼"}</span>
                   </button>
@@ -368,7 +549,7 @@ export default function InvestorInfoPage() {
                         <tr style={{ color: "var(--muted)", fontSize: 11, letterSpacing: "0.04em", textAlign: "left" }}>
                           <th style={{ padding: "10px 16px", fontWeight: 700, width: 70 }}>PROP</th>
                           <th style={{ padding: "10px 16px", fontWeight: 700 }}>PROPERTY</th>
-                          <th style={{ padding: "10px 16px", fontWeight: 700, width: 110 }}>VENDOR CODE</th>
+                          <th style={{ padding: "10px 16px", fontWeight: 700, width: 140, whiteSpace: "nowrap" }}>VENDOR CODE</th>
                           <th style={{ padding: "10px 16px", fontWeight: 700, textAlign: "right" }}>OWNERSHIP %</th>
                         </tr>
                       </thead>
@@ -382,8 +563,18 @@ export default function InvestorInfoPage() {
                                 <div className="muted small" style={{ marginTop: 2 }}>{r.investor.detailedName}</div>
                               )}
                             </td>
-                            <td style={{ padding: "12px 16px", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 12, color: r.investor.vendorCode ? "var(--text)" : "var(--muted)" }}>
-                              {r.investor.vendorCode ?? "—"}
+                            <td style={{ padding: "12px 16px" }}>
+                              {r.investor.vendorCode ? (
+                                <span style={{
+                                  fontSize: 11, fontWeight: 600, letterSpacing: "0.04em",
+                                  padding: "2px 8px", borderRadius: 999,
+                                  background: "rgba(15,23,42,0.05)", color: "var(--text)",
+                                  border: "1px solid var(--border)",
+                                  display: "inline-block",
+                                }}>{r.investor.vendorCode}</span>
+                              ) : (
+                                <span style={{ color: "var(--muted)" }}>—</span>
+                              )}
                             </td>
                             <td style={{ padding: "12px 16px", textAlign: "right" }}>{pct(ownershipFor(r.investor))}</td>
                           </tr>

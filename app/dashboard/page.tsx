@@ -10,6 +10,7 @@ import { PROPERTY_DEFS } from "../../lib/properties/data";
 import { UNIQUE_BANK_ACCOUNTS } from "../../lib/bank-rec/accounts";
 import { bankRecKey, nextBankRecDeadline, nextStatementsDeadline, bankRecPeriodLabel } from "../../lib/bank-rec/util";
 import { fireNotification } from "../../lib/notifications";
+import ExpirationChart from "./ExpirationChart";
 
 function sqftFmt(n: number) { return n.toLocaleString(); }
 
@@ -499,6 +500,13 @@ export default function DashboardPage() {
             <div className="muted small">No rent roll uploaded yet. Upload one →</div>
           )}
         </Link>
+
+        {/* ── Office Lease Expirations (Nancy + admin only) ── */}
+        {(user.id === "nancy" || isAdmin) && (
+          <div style={{ gridColumn: "1 / -1", order: user.id === "nancy" ? -1 : 1 }}>
+            <ExpirationChart rentroll={rentroll} />
+          </div>
+        )}
 
         {/* ── Action Items / Data Freshness ── */}
         <div className="card" style={{ order: isStacie ? -2 : 0 }}>

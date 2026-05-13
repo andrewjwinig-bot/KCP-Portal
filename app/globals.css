@@ -86,6 +86,24 @@ h1 {
   letter-spacing: -0.04em;
 }
 
+@media (max-width: 720px) {
+  main {
+    padding: 14px 12px 36px;
+  }
+  h1 {
+    font-size: 36px;
+  }
+  /* Tables on narrow screens scroll horizontally inside their parent
+   * instead of pushing the page wider. */
+  .card { padding: 14px; }
+  .card > table,
+  table.responsive {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
 p { margin: 0; }
 
 .muted { color: var(--muted); }
@@ -283,4 +301,31 @@ code {
   border: 1px solid rgba(15, 23, 42, 0.10);
   padding: 2px 6px;
   border-radius: 8px;
+}
+
+/* ── Print styles ───────────────────────────────────────────────────────── */
+@media print {
+  /* Hide app chrome */
+  aside, nav.sidebar, .sidebar, .no-print { display: none !important; }
+  main {
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: none !important;
+  }
+  body, html {
+    background: #fff !important;
+    color: #000 !important;
+  }
+  /* Force all collapsible cards open in print: rendering relies on JS
+   * state, but for printable views (Investor Info), the data shows by
+   * default when the user expands cards before printing. We at least
+   * ensure cards aren't cropped or pushed off-page. */
+  .card {
+    box-shadow: none !important;
+    border: 1px solid #d1d5db !important;
+    break-inside: avoid;
+  }
+  a { color: #000 !important; text-decoration: none !important; }
+  /* Hide the page sidebar padding the AppShell applies */
+  body > div[style*="padding-left"] { padding-left: 0 !important; }
 }
