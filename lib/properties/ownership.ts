@@ -88,6 +88,13 @@ export const PROPERTY_OWNERSHIP: PropertyOwnership[] = [
   },
 
   {
+    propertyCode: "2010",
+    owners: [
+      { id: "own-2010-alis1", name: "Alison Korman Feldman", vendorCode: "ALIS1", address: "6015 Sheaff Lane", city: "Fort Washington", state: "Pennsylvania", zip: "19034", ownerPct: 1.0 },
+    ],
+  },
+
+  {
     propertyCode: "8200",
     owners: [
       { id: "own-8200-joan2", name: "Joan R. Sohn",      vendorCode: "JOAN2", detailedName: "Joan R. Sohn 1942 Trust · C/O Baker Tilly US, LLP",      address: "1650 Market St., Suite 4500",              city: "Philadelphia", state: "Pennsylvania", zip: "19103", ownerPct: 0.500000 },
