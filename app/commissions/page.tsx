@@ -349,22 +349,20 @@ export default function CommissionsPage() {
             />
           </div>
 
-          {/* Lease From */}
+          {/* Lease From — always editable (rent roll source can be wrong) */}
           <div>
             <label style={labelStyle}>Lease From</label>
             <input type="text" placeholder="m/d/yyyy" value={form.leaseFrom}
               onChange={(e) => recomputeFromDates({ leaseFrom: e.target.value })}
-              style={isExistingTenant ? lockedStyle : inputStyle}
-              readOnly={isExistingTenant} />
+              style={inputStyle} />
           </div>
 
-          {/* Lease To */}
+          {/* Lease To — always editable */}
           <div>
             <label style={labelStyle}>Lease To</label>
             <input type="text" placeholder="m/d/yyyy" value={form.leaseTo}
               onChange={(e) => recomputeFromDates({ leaseTo: e.target.value })}
-              style={isExistingTenant ? lockedStyle : inputStyle}
-              readOnly={isExistingTenant} />
+              style={inputStyle} />
           </div>
 
           {/* Term Years */}
