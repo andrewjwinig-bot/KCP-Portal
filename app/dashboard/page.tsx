@@ -9,6 +9,7 @@ import { useUser } from "../components/UserProvider";
 import { PROPERTY_DEFS } from "../../lib/properties/data";
 import { UNIQUE_BANK_ACCOUNTS } from "../../lib/bank-rec/accounts";
 import { bankRecKey, nextBankRecDeadline, nextStatementsDeadline, bankRecPeriodLabel } from "../../lib/bank-rec/util";
+import { fireNotification } from "../../lib/notifications";
 
 function sqftFmt(n: number) { return n.toLocaleString(); }
 
@@ -350,6 +351,85 @@ export default function DashboardPage() {
       .sort((a, b) => a.days - b.days)
       .slice(0, 12);
   }, [checkedByYear]);
+
+  // ── Browser notifications for persona-scoped action items ────────────
+  // Fires once per item per day (dedup is in lib/notifications). Runs after
+  // data loads. No-op if the master toggle is off or permission isn't granted.
+  useEffect(() => {
+    if (loading) return;
+
+    const today = new Date();
+    const dateStamp = `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`;
+    const isHarry = user.id === "harry";
+
+    // CC Expenses (Harry + admin) — due 7th of the month
+    if ((isHarry || user.navKeys.has("all")) && ccExpensesDue.status !== "later") {
+      const label = ccExpensesDue.status === "today"
+        ? "Due today — submit credit card expenses."
+        : `Due ${ccExpensesDue.date.toLocaleDateString("en-US", { month: "short", day: "numeric" })} (in ${ccExpensesDue.daysUntil} day${ccExpensesDue.daysUntil === 1 ? "" : "s"}).`;
+      fireNotification({
+        title: "Submit CC Expenses",
+        body: label,
+        itemKey: `cc-expenses-${dateStamp}`,
+        url: "/expenses",
+      });
+    }
+
+    // Bank statement downloads (Stacie + admin) — due 1st of the month
+    if (showBankRec && bankStmt.status !== "later" && bankStmt.status !== "done") {
+      fireNotification({
+        title: `Download Bank Statements — ${bankRecPeriodLabel(bankStmt.period)}`,
+        body: `${bankStmt.done}/${bankStmt.total} done · due ${bankStmt.date.toLocaleDateString("en-US", { month: "short", day: "numeric" })}.`,
+        itemKey: `bank-stmt-${dateStamp}`,
+        url: "/bank-rec",
+      });
+    }
+
+    // Bank reconciliations (Stacie + admin) — due 10th of the following month
+    if (showBankRec && bankRec.status !== "later" && bankRec.status !== "done") {
+      fireNotification({
+        title: `Reconcile Bank Statements — ${bankRecPeriodLabel(bankRec.period)}`,
+        body: `${bankRec.recDone}/${bankRec.total} done · due ${bankRec.date.toLocaleDateString("en-US", { month: "short", day: "numeric" })}.`,
+        itemKey: `bank-rec-${dateStamp}`,
+        url: "/bank-rec",
+      });
+    }
+
+    // Bi-weekly payroll Friday (admin only)
+    if (isAdmin && (nextPayroll.status === "today" || nextPayroll.status === "soon")) {
+      fireNotification({
+        title: "Payroll",
+        body: nextPayroll.status === "today"
+          ? "Today is a payroll Friday."
+          : `Next payroll is ${nextPayroll.date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })} (in ${nextPayroll.daysUntil} day${nextPayroll.daysUntil === 1 ? "" : "s"}).`,
+        itemKey: `payroll-${dateStamp}`,
+        url: "/",
+      });
+    }
+
+    // Option-notice dates (Nancy only) — fire one notification per pending notice within 7 days
+    if (user.id === "nancy") {
+      const soon = upcomingNotices
+        .filter((n) => !dismissedNotices.has(n.id))
+        .filter((n) => n.daysUntil <= 7);
+      for (const n of soon) {
+        const tag = n.id.replace(/[^a-z0-9]+/g, "_");
+        const when = n.daysUntil < 0
+          ? `${Math.abs(n.daysUntil)} day${Math.abs(n.daysUntil) === 1 ? "" : "s"} past due`
+          : n.daysUntil === 0
+          ? "due today"
+          : `due in ${n.daysUntil} day${n.daysUntil === 1 ? "" : "s"}`;
+        fireNotification({
+          title: `Option Notice — ${n.tenant || "(no tenant)"}`,
+          body: `${n.noticeDate} (${when}).`,
+          itemKey: `option-${tag}-${dateStamp}`,
+          url: "/rentroll/leasing",
+        });
+      }
+    }
+    // Re-run when persona changes; deps below stay stable across the same load.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, user.id, ccExpensesDue.status, bankStmt.status, bankRec.status, nextPayroll.status, upcomingNotices.length]);
 
   // Helper: property name lookup (use code → "code" if no match)
   function propLabel(code: string): string {
