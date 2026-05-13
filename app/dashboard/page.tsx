@@ -672,13 +672,13 @@ export default function DashboardPage() {
                 value={bankStmt.done}
                 total={bankStmt.total}
                 color="#0b4a7d"
-                label="Statements downloaded"
+                label="Statements Downloaded"
               />
               <Donut
                 value={bankRec.recDone}
                 total={bankRec.total}
                 color="#16a34a"
-                label="Bank recs completed"
+                label="Bank Recs Completed"
               />
             </div>
           </div>
