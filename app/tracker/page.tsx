@@ -13,6 +13,8 @@ import {
   type Frequency,
 } from "../../lib/stacie-tasks";
 import { useUser } from "../components/UserProvider";
+import { UNIQUE_BANK_ACCOUNTS } from "../../lib/bank-rec/accounts";
+import { bankRecKey, bankRecPeriod } from "../../lib/bank-rec/util";
 
 type OwnerFilter = "drew" | "stacie" | "both";
 
@@ -821,6 +823,22 @@ export default function TrackerPage() {
       .finally(() => setStacieLoading(false));
   }, [showStacie]);
 
+  // Live bank rec progress for the per-task progress bars
+  const [bankStmtMap, setBankStmtMap] = useState<Record<string, boolean>>({});
+  const [bankRecMap,  setBankRecMap]  = useState<Record<string, boolean>>({});
+  useEffect(() => {
+    if (!showStacie) return;
+    fetch("/api/bank-rec/statements").then((r) => r.json()).then((j) => setBankStmtMap(j.statements ?? {})).catch(() => {});
+    fetch("/api/bank-rec").then((r) => r.json()).then((j) => setBankRecMap(j.checked ?? {})).catch(() => {});
+  }, [showStacie]);
+
+  function bankProgress(kind: "statements" | "reconciled"): { done: number; total: number } {
+    const period = bankRecPeriod();
+    const map = kind === "statements" ? bankStmtMap : bankRecMap;
+    const done = UNIQUE_BANK_ACCOUNTS.filter((a) => map[bankRecKey(a.last4, period)]).length;
+    return { done, total: UNIQUE_BANK_ACCOUNTS.length };
+  }
+
   useEffect(() => {
     setChecked(loadChecked(viewYear, viewMonth));
     setTaxChecked(loadTaxChecked(viewYear));
@@ -1583,6 +1601,9 @@ export default function TrackerPage() {
                       <div style={{ borderTop: "1px solid var(--border)" }}>
                         {tasks.map((t, i) => {
                           const isDone = isStacieChecked(t.id, freq);
+                          const progress = t.bankRecProgress ? bankProgress(t.bankRecProgress) : null;
+                          const pct = progress && progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0;
+                          const progressColor = t.bankRecProgress === "reconciled" ? "#16a34a" : "#0b4a7d";
                           return (
                             <label
                               key={t.id}
@@ -1603,16 +1624,52 @@ export default function TrackerPage() {
                                 style={{ width: 20, height: 20, marginTop: 2, cursor: "pointer" }}
                               />
                               <div style={{ minWidth: 0 }}>
-                                <div style={{
-                                  fontSize: 14, fontWeight: 600,
-                                  color: isDone ? "var(--muted)" : "var(--text)",
-                                  textDecoration: isDone ? "line-through" : "none",
-                                }}>
-                                  {t.title}
+                                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                                  <span style={{
+                                    fontSize: 14, fontWeight: 600,
+                                    color: isDone ? "var(--muted)" : "var(--text)",
+                                    textDecoration: isDone ? "line-through" : "none",
+                                  }}>
+                                    {t.title}
+                                  </span>
+                                  {t.link && (
+                                    <Link
+                                      href={t.link}
+                                      onClick={(e) => e.stopPropagation()}
+                                      style={{
+                                        display: "inline-flex", alignItems: "center", gap: 3,
+                                        fontSize: 11, fontWeight: 700,
+                                        color: "var(--brand)", background: "rgba(11,74,125,0.08)",
+                                        border: "1px solid rgba(11,74,125,0.22)",
+                                        borderRadius: 5, padding: "2px 8px",
+                                        textDecoration: "none", flexShrink: 0,
+                                      }}
+                                    >
+                                      Open →
+                                    </Link>
+                                  )}
                                 </div>
                                 {t.instructions && (
                                   <div className="muted small" style={{ whiteSpace: "pre-wrap", marginTop: 4 }}>
                                     {t.instructions}
+                                  </div>
+                                )}
+                                {progress && (
+                                  <div style={{ marginTop: 8 }}>
+                                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "var(--muted)", marginBottom: 4 }}>
+                                      <span style={{ fontWeight: 600 }}>
+                                        {progress.done}/{progress.total} {t.bankRecProgress === "reconciled" ? "reconciled" : "downloaded"}
+                                      </span>
+                                      <span style={{ fontWeight: 700, color: progressColor }}>{pct}%</span>
+                                    </div>
+                                    <div style={{ height: 5, borderRadius: 999, background: "var(--border)", overflow: "hidden" }}>
+                                      <div style={{
+                                        height: "100%", borderRadius: 999,
+                                        width: `${pct}%`,
+                                        background: progress.done === progress.total ? "#16a34a" : progressColor,
+                                        transition: "width 0.3s ease",
+                                      }} />
+                                    </div>
                                   </div>
                                 )}
                               </div>
