@@ -444,7 +444,7 @@ export default function ExpensesPage() {
     if (typeof window === "undefined") return [];
     try { const r = localStorage.getItem(LS_KEY); return r ? JSON.parse(r).tx ?? [] : []; } catch { return []; }
   });
-  const [showOnlyUncoded, setShowOnlyUncoded] = useState(false);
+  const [showOnlyUncoded, setShowOnlyUncoded] = useState(true);
   const [search, setSearch] = useState("");
   const [statementPeriodText, setStatementPeriodText] = useState(() => {
     if (typeof window === "undefined") return "";

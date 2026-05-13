@@ -541,7 +541,7 @@ export default function DashboardPage() {
               </div>
               )}
 
-              {(user.navKeys.has("all") || user.navKeys.has("leasing-activity")) && upcomingNotices
+              {user.id === "nancy" && upcomingNotices
                 .filter((n) => !dismissedNotices.has(n.id))
                 .map((n) => {
                   const overdue = n.daysUntil < 0;
