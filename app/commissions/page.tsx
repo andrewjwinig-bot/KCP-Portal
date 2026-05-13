@@ -277,7 +277,7 @@ export default function CommissionsPage() {
           {error && <span style={{ color: "#b91c1c", fontSize: 12 }}>{error}</span>}
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))", gap: 12 }}>
           {/* Quarter */}
           <div>
             <label style={labelStyle}>Quarter Ended</label>
@@ -287,7 +287,7 @@ export default function CommissionsPage() {
           </div>
 
           {/* Tenant — pick existing OR new */}
-          <div>
+          <div style={{ gridColumn: "span 2" }}>
             <label style={labelStyle}>Tenant</label>
             <select
               value={tenantSelection}
