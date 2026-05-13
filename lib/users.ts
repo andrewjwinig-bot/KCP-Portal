@@ -53,6 +53,7 @@ export const USERS: Record<UserId, UserDef> = {
       "tracker",
       "bank-rec-tracker",
       "leasing-activity",
+      "investors",
     ]),
     allowedPathPrefixes: [
       "/dashboard",
@@ -60,6 +61,7 @@ export const USERS: Record<UserId, UserDef> = {
       "/rentroll",
       "/tracker",
       "/bank-rec",
+      "/investors",
     ],
     defaultRentRollCategory: "All",
     defaultPropertyType: "all",
