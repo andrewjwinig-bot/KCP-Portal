@@ -3,8 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type { RentRollData, RentRollUnit } from "../../../lib/rentroll/parseRentRollExcel";
-import type { RentRollSnapshotSummary, GroupKey } from "../../../lib/rentroll/snapshot";
+import type { RentRollSnapshotSummary, GroupKey, GroupTotals } from "../../../lib/rentroll/snapshot";
 import { TREND_GROUPS } from "../../../lib/rentroll/snapshot";
+import { PROPERTY_DEFS } from "../../../lib/properties/data";
 
 const COLORS: Record<GroupKey, string> = {
   total: "#0b4a7d",
@@ -14,6 +15,14 @@ const COLORS: Record<GroupKey, string> = {
   kh:    "#7c3aed",
 };
 
+const HORIZONS = [
+  { key: "ytd",  label: "YTD" },
+  { key: "12mo", label: "Last 12 mo" },
+  { key: "24mo", label: "Last 24 mo" },
+  { key: "all",  label: "All / Calendar" },
+] as const;
+type Horizon = (typeof HORIZONS)[number]["key"];
+
 function fmtMonth(month: string): string {
   const [y, m] = month.split("-");
   const mNum = parseInt(m, 10);
@@ -22,11 +31,34 @@ function fmtMonth(month: string): string {
 }
 
 function sqftFmt(n: number) { return n.toLocaleString(); }
+function money(n: number): string {
+  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}M`;
+  if (n >= 1_000) return `$${(n / 1_000).toFixed(1)}K`;
+  return `$${Math.round(n).toLocaleString()}`;
+}
+function dollar(n: number): string {
+  return `$${n.toFixed(2)}`;
+}
+function pct(n: number): string { return `${n.toFixed(1)}%`; }
+
+function filterByHorizon(snapshots: RentRollSnapshotSummary[], horizon: Horizon): RentRollSnapshotSummary[] {
+  if (horizon === "all" || snapshots.length === 0) return snapshots;
+  const now = new Date();
+  let cutoff: Date;
+  if (horizon === "ytd")  cutoff = new Date(now.getFullYear(), 0, 1);
+  else if (horizon === "12mo") cutoff = new Date(now.getFullYear() - 1, now.getMonth() + 1, 1);
+  else cutoff = new Date(now.getFullYear() - 2, now.getMonth() + 1, 1);
+  return snapshots.filter((s) => {
+    const [y, m] = s.month.split("-").map(Number);
+    return new Date(y, m - 1, 1) >= cutoff;
+  });
+}
 
 export default function TrendsPage() {
   const [snapshots, setSnapshots] = useState<RentRollSnapshotSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeGroups, setActiveGroups] = useState<Set<GroupKey>>(new Set(["total", "jv3", "ni", "sc", "kh"]));
+  const [horizon, setHorizon] = useState<Horizon>("12mo");
   const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
   const [selectedGroup, setSelectedGroup] = useState<GroupKey>("total");
   const [drilldown, setDrilldown] = useState<{ month: string; group: GroupKey; data: RentRollData | null; loading: boolean } | null>(null);
@@ -112,6 +144,10 @@ export default function TrendsPage() {
     }
   }
 
+  // Filter snapshots based on the selected time horizon (used by every
+  // chart on the page).
+  const visibleSnapshots = useMemo(() => filterByHorizon(snapshots, horizon), [snapshots, horizon]);
+
   // ── Chart geometry ──
   const chart = useMemo(() => {
     const W = 760;
@@ -123,6 +159,23 @@ export default function TrendsPage() {
     const ys = (pct: number) => padT + innerH - (Math.max(0, Math.min(100, pct)) / 100) * innerH;
     return { W, H, padL, padR, padT, padB, innerW, innerH, xs, ys };
   }, []);
+
+  // ── KPI tiles (current vs YoY) ─────────────────────────────────────────
+  const kpis = useMemo(() => {
+    if (snapshots.length === 0) return null;
+    const last = snapshots[snapshots.length - 1];
+    // Find a snapshot ~12 months earlier for YoY comparison.
+    const [ly, lm] = last.month.split("-").map(Number);
+    const yoyKey = `${ly - 1}-${String(lm).padStart(2, "0")}`;
+    const yoy = snapshots.find((s) => s.month === yoyKey) ?? null;
+    function delta(now: number, prev: number | undefined): { value: number | null; pct: number | null } {
+      if (prev == null || prev === 0) return { value: null, pct: null };
+      return { value: now - prev, pct: (now - prev) / prev };
+    }
+    const t = last.totals.total;
+    const tPrev = yoy?.totals.total;
+    return { last, yoy, t, tPrev, delta };
+  }, [snapshots]);
 
   return (
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
@@ -139,6 +192,38 @@ export default function TrendsPage() {
           <a href="/api/rentroll/trends/export" className="btn">Export Excel</a>
         </div>
       </header>
+
+      {/* Horizon toggle */}
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+        <span style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", letterSpacing: "0.06em", textTransform: "uppercase" }}>Window</span>
+        <div role="tablist" style={{ display: "inline-flex", border: "1px solid var(--border)", borderRadius: 999, overflow: "hidden", background: "var(--card)" }}>
+          {HORIZONS.map((h) => {
+            const active = horizon === h.key;
+            return (
+              <button
+                key={h.key}
+                onClick={() => setHorizon(h.key)}
+                role="tab"
+                aria-selected={active}
+                style={{
+                  padding: "5px 14px", fontSize: 12, fontWeight: 700,
+                  background: active ? "var(--brand)" : "transparent",
+                  color: active ? "#fff" : "var(--text)",
+                  border: "none", cursor: "pointer", fontFamily: "inherit",
+                }}
+              >{h.label}</button>
+            );
+          })}
+        </div>
+        <span className="muted small" style={{ marginLeft: 4 }}>
+          {visibleSnapshots.length} {visibleSnapshots.length === 1 ? "snapshot" : "snapshots"}{snapshots.length !== visibleSnapshots.length ? ` of ${snapshots.length}` : ""}
+        </span>
+      </div>
+
+      {/* ── KPI tiles ── */}
+      {kpis && (
+        <KpiTiles last={kpis.last} yoy={kpis.yoy} />
+      )}
 
       {(uploadError || uploadOk) && (
         <div style={{
@@ -183,8 +268,8 @@ export default function TrendsPage() {
 
         {loading ? (
           <div className="muted small">Loading…</div>
-        ) : snapshots.length === 0 ? (
-          <div className="muted small">No rent roll history yet. Upload a rent roll to start the trend.</div>
+        ) : visibleSnapshots.length === 0 ? (
+          <div className="muted small">No rent roll history in this window. Adjust the horizon or upload a rent roll.</div>
         ) : (
           <>
             <svg width="100%" viewBox={`0 0 ${chart.W} ${chart.H}`} style={{ overflow: "visible" }}>
@@ -197,8 +282,8 @@ export default function TrendsPage() {
               ))}
 
               {/* X axis labels */}
-              {snapshots.map((s, i) => (
-                <text key={s.month} x={chart.xs(i, snapshots.length)} y={chart.H - chart.padB + 16} fontSize={10} fill="var(--muted)" textAnchor="middle">
+              {visibleSnapshots.map((s, i) => (
+                <text key={s.month} x={chart.xs(i, visibleSnapshots.length)} y={chart.H - chart.padB + 16} fontSize={10} fill="var(--muted)" textAnchor="middle">
                   {fmtMonth(s.month)}
                 </text>
               ))}
@@ -206,16 +291,16 @@ export default function TrendsPage() {
               {/* Lines */}
               {TREND_GROUPS.filter((g) => activeGroups.has(g.key as GroupKey)).map((g) => {
                 const k = g.key as GroupKey;
-                const path = snapshots.map((s, i) => {
-                  const x = chart.xs(i, snapshots.length);
+                const path = visibleSnapshots.map((s, i) => {
+                  const x = chart.xs(i, visibleSnapshots.length);
                   const y = chart.ys(s.totals[k]?.pct ?? 0);
                   return `${i === 0 ? "M" : "L"} ${x.toFixed(1)} ${y.toFixed(1)}`;
                 }).join(" ");
                 return (
                   <g key={k}>
                     <path d={path} fill="none" stroke={COLORS[k]} strokeWidth={2.5} />
-                    {snapshots.map((s, i) => {
-                      const x = chart.xs(i, snapshots.length);
+                    {visibleSnapshots.map((s, i) => {
+                      const x = chart.xs(i, visibleSnapshots.length);
                       const y = chart.ys(s.totals[k]?.pct ?? 0);
                       const isSelected = selectedMonth === s.month && selectedGroup === k;
                       return (
@@ -238,6 +323,42 @@ export default function TrendsPage() {
           </>
         )}
       </div>
+
+      {/* ── Multi-metric grid (Occupied SF, Gross Rent, Avg PSF, Expirations) ── */}
+      {visibleSnapshots.length > 0 && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))", gap: 14 }}>
+          <MetricChart
+            title="Occupied SF — Month over Month"
+            unit="sf"
+            snapshots={visibleSnapshots}
+            activeGroups={activeGroups}
+            extract={(t: GroupTotals | undefined) => t?.occupied ?? 0}
+            fmt={(v) => v.toLocaleString()}
+          />
+          <MetricChart
+            title="Gross Rent / mo — Month over Month"
+            unit="$"
+            snapshots={visibleSnapshots}
+            activeGroups={activeGroups}
+            extract={(t) => t?.grossRentMonth ?? 0}
+            fmt={money}
+          />
+          <MetricChart
+            title="Avg Rent PSF — Annualized"
+            unit="$/sf"
+            snapshots={visibleSnapshots}
+            activeGroups={activeGroups}
+            extract={(t) => t?.avgRentPsf ?? 0}
+            fmt={dollar}
+          />
+          <ExpirationsChart snapshots={visibleSnapshots} activeGroups={activeGroups} />
+        </div>
+      )}
+
+      {/* ── Per-building sparklines ── */}
+      {visibleSnapshots.length > 1 && (
+        <BuildingSparklines snapshots={visibleSnapshots} />
+      )}
 
       {/* ── Summary table ── */}
       {snapshots.length > 0 && (
@@ -342,5 +463,294 @@ export default function TrendsPage() {
         </div>
       )}
     </main>
+  );
+}
+
+// ─── KPI tiles ─────────────────────────────────────────────────────────────
+
+function KpiTiles({ last, yoy }: { last: RentRollSnapshotSummary; yoy: RentRollSnapshotSummary | null }) {
+  const t = last.totals.total;
+  const p = yoy?.totals.total;
+  function deltaPctTile(now: number, prev: number | undefined) {
+    if (prev == null) return null;
+    if (prev === 0) return null;
+    return (now - prev) / prev;
+  }
+  function deltaAbs(now: number, prev: number | undefined) {
+    if (prev == null) return null;
+    return now - prev;
+  }
+  const tiles = [
+    {
+      label: "Occupancy",
+      value: pct(t.pct),
+      sub: `${sqftFmt(t.occupied)} / ${sqftFmt(t.total)} sf`,
+      delta: deltaAbs(t.pct, p?.pct),
+      deltaFmt: (d: number) => `${d >= 0 ? "+" : ""}${d.toFixed(1)} pts`,
+      goodIfPositive: true,
+    },
+    {
+      label: "Total SF",
+      value: sqftFmt(t.total),
+      sub: `${t.unitCount} units`,
+      delta: deltaPctTile(t.total, p?.total),
+      deltaFmt: (d: number) => `${d >= 0 ? "+" : ""}${(d * 100).toFixed(1)}%`,
+      goodIfPositive: true,
+    },
+    {
+      label: "Gross Rent / mo",
+      value: money(t.grossRentMonth),
+      sub: `${money(t.grossRentMonth * 12)} / yr`,
+      delta: deltaPctTile(t.grossRentMonth, p?.grossRentMonth),
+      deltaFmt: (d: number) => `${d >= 0 ? "+" : ""}${(d * 100).toFixed(1)}%`,
+      goodIfPositive: true,
+    },
+    {
+      label: "Avg Rent PSF",
+      value: dollar(t.avgRentPsf),
+      sub: "annualized · occupied",
+      delta: deltaPctTile(t.avgRentPsf, p?.avgRentPsf),
+      deltaFmt: (d: number) => `${d >= 0 ? "+" : ""}${(d * 100).toFixed(1)}%`,
+      goodIfPositive: true,
+    },
+    {
+      label: "Expiring ≤ 90 d",
+      value: String(t.expiring90),
+      sub: `${t.expiring180} ≤180d · ${t.expiring365} ≤365d`,
+      delta: deltaAbs(t.expiring90, p?.expiring90),
+      deltaFmt: (d: number) => `${d >= 0 ? "+" : ""}${d}`,
+      goodIfPositive: false,
+    },
+  ];
+
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
+      {tiles.map((tile) => {
+        let toneColor = "var(--muted)";
+        if (tile.delta != null) {
+          const isUp = tile.delta > 0;
+          const isFlat = Math.abs(tile.delta) < 0.0001;
+          if (!isFlat) {
+            const positive = (isUp && tile.goodIfPositive) || (!isUp && !tile.goodIfPositive);
+            toneColor = positive ? "#16a34a" : "#dc2626";
+          }
+        }
+        return (
+          <div key={tile.label} className="card" style={{ padding: "12px 14px" }}>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>{tile.label}</div>
+            <div style={{ fontSize: 24, fontWeight: 800, marginTop: 4, lineHeight: 1.1 }}>{tile.value}</div>
+            <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>{tile.sub}</div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: toneColor, marginTop: 6 }}>
+              {tile.delta == null ? "no YoY data" : `${tile.deltaFmt(tile.delta)} vs YoY`}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Generic line chart for a metric ───────────────────────────────────────
+
+function MetricChart({
+  title, unit, snapshots, activeGroups, extract, fmt,
+}: {
+  title: string;
+  unit: string;
+  snapshots: RentRollSnapshotSummary[];
+  activeGroups: Set<GroupKey>;
+  extract: (t: GroupTotals | undefined) => number;
+  fmt: (v: number) => string;
+}) {
+  const W = 480, H = 220;
+  const padL = 56, padR = 14, padT = 12, padB = 28;
+  const innerW = W - padL - padR;
+  const innerH = H - padT - padB;
+
+  const series = TREND_GROUPS
+    .filter((g) => activeGroups.has(g.key as GroupKey))
+    .map((g) => {
+      const k = g.key as GroupKey;
+      return {
+        key: k,
+        label: g.label,
+        values: snapshots.map((s) => extract(s.totals[k])),
+      };
+    });
+
+  const max = Math.max(0.001, ...series.flatMap((s) => s.values));
+  const xs = (i: number) => snapshots.length <= 1 ? padL + innerW / 2 : padL + (i / (snapshots.length - 1)) * innerW;
+  const ys = (v: number) => padT + innerH - (v / max) * innerH;
+
+  return (
+    <div className="card">
+      <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 8 }}>{title}</div>
+      <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ overflow: "visible" }}>
+        {/* y-axis labels */}
+        {[0, 0.25, 0.5, 0.75, 1].map((f) => {
+          const v = max * f;
+          return (
+            <g key={f}>
+              <line x1={padL} x2={W - padR} y1={ys(v)} y2={ys(v)} stroke="rgba(15,23,42,0.07)" />
+              <text x={padL - 6} y={ys(v) + 4} fontSize={9} fill="var(--muted)" textAnchor="end">{fmt(v)}</text>
+            </g>
+          );
+        })}
+        {/* x labels — show first / middle / last to keep things clean */}
+        {snapshots.map((s, i) => {
+          const showLabel = i === 0 || i === snapshots.length - 1 || (snapshots.length <= 6) || i === Math.floor(snapshots.length / 2);
+          if (!showLabel) return null;
+          return (
+            <text key={s.month} x={xs(i)} y={H - padB + 14} fontSize={9} fill="var(--muted)" textAnchor="middle">
+              {fmtMonth(s.month)}
+            </text>
+          );
+        })}
+        {/* Lines */}
+        {series.map((s) => {
+          const path = s.values.map((v, i) => `${i === 0 ? "M" : "L"} ${xs(i).toFixed(1)} ${ys(v).toFixed(1)}`).join(" ");
+          return (
+            <g key={s.key}>
+              <path d={path} fill="none" stroke={COLORS[s.key]} strokeWidth={2} />
+              {s.values.map((v, i) => (
+                <circle key={i} cx={xs(i)} cy={ys(v)} r={3} fill={COLORS[s.key]} stroke="#fff" strokeWidth={1.5}>
+                  <title>{`${s.label} — ${fmtMonth(snapshots[i].month)} — ${fmt(v)}${unit ? " " + unit : ""}`}</title>
+                </circle>
+              ))}
+            </g>
+          );
+        })}
+      </svg>
+    </div>
+  );
+}
+
+// ─── Lease expirations stacked bars (90 / 180 / 365 day buckets) ───────────
+
+function ExpirationsChart({ snapshots, activeGroups }: { snapshots: RentRollSnapshotSummary[]; activeGroups: Set<GroupKey> }) {
+  // Use the most-aggregated active group (total preferred) so the chart
+  // stays readable. Fall back to whatever's first if total isn't active.
+  const k: GroupKey = activeGroups.has("total") ? "total" : (TREND_GROUPS.find((g) => activeGroups.has(g.key as GroupKey))?.key as GroupKey) ?? "total";
+
+  const W = 480, H = 220;
+  const padL = 36, padR = 14, padT = 12, padB = 28;
+  const innerW = W - padL - padR;
+  const innerH = H - padT - padB;
+  const max = Math.max(1, ...snapshots.map((s) => s.totals[k]?.expiring365 ?? 0));
+  const barWidth = Math.max(8, (innerW / Math.max(1, snapshots.length)) * 0.6);
+
+  return (
+    <div className="card">
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+        <div style={{ fontSize: 14, fontWeight: 700 }}>Lease Expirations as of Snapshot</div>
+        <div className="muted small">Group: {TREND_GROUPS.find((g) => g.key === k)?.label}</div>
+      </div>
+      <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ overflow: "visible" }}>
+        {[0, 0.5, 1].map((f) => {
+          const v = max * f;
+          const y = padT + innerH - f * innerH;
+          return (
+            <g key={f}>
+              <line x1={padL} x2={W - padR} y1={y} y2={y} stroke="rgba(15,23,42,0.07)" />
+              <text x={padL - 6} y={y + 4} fontSize={9} fill="var(--muted)" textAnchor="end">{Math.round(v)}</text>
+            </g>
+          );
+        })}
+        {snapshots.map((s, i) => {
+          const t = s.totals[k];
+          if (!t) return null;
+          const cx = snapshots.length <= 1 ? padL + innerW / 2 : padL + (i / (snapshots.length - 1)) * innerW;
+          const x = cx - barWidth / 2;
+          const h365 = ((t.expiring365 - t.expiring180) / max) * innerH;
+          const h180 = ((t.expiring180 - t.expiring90)  / max) * innerH;
+          const h90  = (t.expiring90 / max) * innerH;
+          const baseY = padT + innerH;
+          return (
+            <g key={s.month}>
+              <rect x={x} y={baseY - h90} width={barWidth} height={h90} fill="#dc2626">
+                <title>{`${fmtMonth(s.month)} · ≤90d: ${t.expiring90}`}</title>
+              </rect>
+              <rect x={x} y={baseY - h90 - h180} width={barWidth} height={h180} fill="#d97706">
+                <title>{`${fmtMonth(s.month)} · 90-180d: ${t.expiring180 - t.expiring90}`}</title>
+              </rect>
+              <rect x={x} y={baseY - h90 - h180 - h365} width={barWidth} height={h365} fill="#0b4a7d">
+                <title>{`${fmtMonth(s.month)} · 180-365d: ${t.expiring365 - t.expiring180}`}</title>
+              </rect>
+              <text x={cx} y={H - padB + 14} fontSize={9} fill="var(--muted)" textAnchor="middle">{fmtMonth(s.month)}</text>
+            </g>
+          );
+        })}
+      </svg>
+      <div style={{ display: "flex", gap: 14, fontSize: 11, marginTop: 8, color: "var(--muted)" }}>
+        <span><span style={{ display: "inline-block", width: 10, height: 10, background: "#dc2626", borderRadius: 2, marginRight: 4 }} />≤ 90 d</span>
+        <span><span style={{ display: "inline-block", width: 10, height: 10, background: "#d97706", borderRadius: 2, marginRight: 4 }} />90 – 180 d</span>
+        <span><span style={{ display: "inline-block", width: 10, height: 10, background: "#0b4a7d", borderRadius: 2, marginRight: 4 }} />180 – 365 d</span>
+      </div>
+    </div>
+  );
+}
+
+// ─── Per-building sparklines grid ──────────────────────────────────────────
+
+function BuildingSparklines({ snapshots }: { snapshots: RentRollSnapshotSummary[] }) {
+  // Collect every property code that appears in any snapshot's byProperty.
+  const codes = useMemo(() => {
+    const seen = new Set<string>();
+    for (const s of snapshots) for (const p of s.byProperty ?? []) seen.add(p.propertyCode.toUpperCase());
+    return [...seen].sort();
+  }, [snapshots]);
+
+  function nameFor(code: string) {
+    const def = PROPERTY_DEFS.find((p) => p.id.toUpperCase() === code);
+    return def?.name ?? code;
+  }
+
+  return (
+    <div className="card">
+      <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 8 }}>Per-Building Trajectory</div>
+      <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 12 }}>Occupancy % over the selected window. Hover for snapshot values.</div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 10 }}>
+        {codes.map((code) => {
+          const points = snapshots.map((s) => s.byProperty?.find((p) => p.propertyCode.toUpperCase() === code));
+          const occ = points.map((p) => p?.pct ?? 0);
+          const last = points[points.length - 1];
+          const first = points[0];
+          const trendDelta = last && first ? (last.pct - first.pct) : 0;
+          return (
+            <div key={code} style={{ padding: 10, border: "1px solid var(--border)", borderRadius: 10, background: "var(--card)" }}>
+              <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 6 }}>
+                <span style={{ fontWeight: 700, fontSize: 13 }}>{code}</span>
+                <span style={{ fontSize: 11, color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{nameFor(code)}</span>
+              </div>
+              <Sparkline values={occ} height={36} color="#0b4a7d" max={100} />
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginTop: 4 }}>
+                <span style={{ color: "var(--muted)" }}>{last ? `${last.pct.toFixed(1)}%` : "—"}</span>
+                <span style={{ color: trendDelta > 0.05 ? "#16a34a" : trendDelta < -0.05 ? "#dc2626" : "var(--muted)", fontWeight: 600 }}>
+                  {trendDelta === 0 ? "±0" : `${trendDelta > 0 ? "+" : ""}${trendDelta.toFixed(1)} pts`}
+                </span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function Sparkline({ values, height = 28, color = "#0b4a7d", max }: { values: number[]; height?: number; color?: string; max?: number }) {
+  const W = 120;
+  const m = max ?? Math.max(0.001, ...values);
+  const xs = (i: number) => values.length <= 1 ? W / 2 : (i / (values.length - 1)) * W;
+  const ys = (v: number) => height - (v / m) * (height - 4) - 2;
+  const path = values.map((v, i) => `${i === 0 ? "M" : "L"} ${xs(i).toFixed(1)} ${ys(v).toFixed(1)}`).join(" ");
+  return (
+    <svg width="100%" viewBox={`0 0 ${W} ${height}`} preserveAspectRatio="none" style={{ display: "block", marginTop: 4 }}>
+      <path d={path} fill="none" stroke={color} strokeWidth={1.6} />
+      {values.map((v, i) => (
+        <circle key={i} cx={xs(i)} cy={ys(v)} r={1.5} fill={color}>
+          <title>{`${v.toFixed(1)}%`}</title>
+        </circle>
+      ))}
+    </svg>
   );
 }

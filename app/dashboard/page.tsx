@@ -11,6 +11,7 @@ import { UNIQUE_BANK_ACCOUNTS } from "../../lib/bank-rec/accounts";
 import { bankRecKey, nextBankRecDeadline, nextStatementsDeadline, bankRecPeriodLabel } from "../../lib/bank-rec/util";
 import { fireNotification } from "../../lib/notifications";
 import ExpirationChart from "./ExpirationChart";
+import Insights from "./Insights";
 
 function sqftFmt(n: number) { return n.toLocaleString(); }
 
@@ -450,6 +451,9 @@ export default function DashboardPage() {
       </header>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 14 }}>
+        {/* ── Briefing / insights at the top of the dashboard ── */}
+        <Insights rentroll={rentroll} checked={checkedByYear[new Date().getFullYear()] ?? {}} personaId={user.id} />
+
         {/* ── Portfolio Occupancy ── */}
         <Link href="/rentroll" className="card" style={{ display: "block", textDecoration: "none", color: "inherit", cursor: "pointer", transition: "box-shadow 0.15s, transform 0.15s", order: isStacie ? 2 : 0 }}
           onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.boxShadow = "0 4px 16px rgba(15,23,42,0.08)"; }}
