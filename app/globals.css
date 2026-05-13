@@ -12,26 +12,47 @@
   --page-muted: var(--muted);
 }
 
-/* Dark mode darkens the page background only. Cards stay light so their inline
-   colors (status pills, hex links, etc.) remain readable without an audit. */
+/* ── Dark mode ───────────────────────────────────────────────────────────
+   Repaints the core theme tokens (bg, card, text, muted, border) so cards
+   inherit a darker surface and text flips light. Some inline rgba pill
+   colors throughout the app are still tuned for white cards — they're
+   tinted enough to remain legible but a future audit can polish them.    */
 [data-theme="dark"] {
-  --bg: #0f172a;
-  --page-text: #e6edf6;
-  --page-muted: #94a3b8;
+  --bg: #0b1220;
+  --text: #e6edf6;
+  --muted: #94a3b8;
+  --card: #1e293b;
+  --border: rgba(255, 255, 255, 0.10);
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  --page-text: var(--text);
+  --page-muted: var(--muted);
 }
+
 [data-theme="dark"] body {
-  color: var(--page-text);
+  color: var(--text);
+  background: var(--bg);
 }
-[data-theme="dark"] body main > h1,
-[data-theme="dark"] body main > header h1,
-[data-theme="dark"] body main > header p,
-[data-theme="dark"] body main > p {
-  color: var(--page-text);
+
+/* Inputs / selects / textareas — many have inline `background: #fff`
+   which we override here so they don't glow on dark cards. */
+[data-theme="dark"] input[type="text"],
+[data-theme="dark"] input[type="number"],
+[data-theme="dark"] input[type="search"],
+[data-theme="dark"] input[type="email"],
+[data-theme="dark"] input[type="password"],
+[data-theme="dark"] input[type="url"],
+[data-theme="dark"] input:not([type]),
+[data-theme="dark"] select,
+[data-theme="dark"] textarea {
+  background: rgba(255, 255, 255, 0.04) !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
 }
-[data-theme="dark"] body main > p.muted,
-[data-theme="dark"] body main > header p.muted {
-  color: var(--page-muted);
-}
+[data-theme="dark"] input::placeholder,
+[data-theme="dark"] textarea::placeholder { color: var(--muted); }
+
+/* Table headers / rows pick up theme tokens automatically through their
+   var(--text) / var(--border) references; nothing extra needed here. */
 
 * { box-sizing: border-box; }
 

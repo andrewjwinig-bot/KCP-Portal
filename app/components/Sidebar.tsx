@@ -259,7 +259,6 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
         }}
       >
         {open && <UserSwitcher collapsed={false} />}
-        <ThemeToggle />
         <button
           onClick={onToggle}
           title={open ? "Collapse sidebar" : "Expand sidebar"}
@@ -331,6 +330,24 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
           );
         })}
       </nav>
+
+      {/* Theme toggle (bottom) — only shown when sidebar is expanded */}
+      {open && (
+        <div style={{
+          padding: "10px 12px",
+          borderTop: "1px solid rgba(255,255,255,0.07)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 10,
+          flexShrink: 0,
+          fontSize: 12,
+          color: "#bfdbfe",
+        }}>
+          <span style={{ fontWeight: 600 }}>Appearance</span>
+          <ThemeToggle />
+        </div>
+      )}
 
       {/* Log out (bottom) — only visible while admin auth cookie is active */}
       {authed && (
