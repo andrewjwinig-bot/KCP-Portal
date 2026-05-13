@@ -52,7 +52,6 @@ export const USERS: Record<UserId, UserDef> = {
       ...universalNav,
       "tracker",
       "bank-rec-tracker",
-      "maintenance",
       "leasing-activity",
     ]),
     allowedPathPrefixes: [
