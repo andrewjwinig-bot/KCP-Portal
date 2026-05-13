@@ -221,10 +221,10 @@ function K1InvestorRow({
         )}
         {inv.vendorCode && (
           <span style={{
-            fontSize: 10, fontWeight: 700, letterSpacing: "0.04em",
-            padding: "2px 6px", borderRadius: 4,
-            background: "#0b1220", color: "#e0f0ff",
-            fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+            fontSize: 11, fontWeight: 600, letterSpacing: "0.04em",
+            padding: "2px 7px", borderRadius: 999,
+            background: "rgba(15,23,42,0.05)", color: "var(--text)",
+            border: "1px solid var(--border)",
             flexShrink: 0,
           }}>{inv.vendorCode}</span>
         )}
@@ -297,7 +297,7 @@ function K1InvestorRow({
             {inv.vendorCode && (
               <div style={{ fontSize: 13, color: "var(--text)", lineHeight: 1.5 }}>
                 <div style={{ fontWeight: 600, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 3 }}>Vendor Code</div>
-                <div style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontWeight: 700 }}>{inv.vendorCode}</div>
+                <div style={{ fontWeight: 700, letterSpacing: "0.04em" }}>{inv.vendorCode}</div>
               </div>
             )}
 
@@ -357,10 +357,10 @@ function OwnerSubRow({
         )}
         {inv.vendorCode && (
           <span style={{
-            fontSize: 9, fontWeight: 700, letterSpacing: "0.04em",
-            padding: "1px 5px", borderRadius: 3,
-            background: "#0b1220", color: "#e0f0ff",
-            fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+            fontSize: 10, fontWeight: 600, letterSpacing: "0.04em",
+            padding: "1px 6px", borderRadius: 999,
+            background: "rgba(15,23,42,0.05)", color: "var(--text)",
+            border: "1px solid var(--border)",
             flexShrink: 0,
           }}>{inv.vendorCode}</span>
         )}
@@ -431,7 +431,7 @@ function OwnerSubRow({
             {inv.vendorCode && (
               <div style={{ fontSize: 13, color: "var(--text)", lineHeight: 1.5 }}>
                 <div style={{ fontWeight: 600, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 3 }}>Vendor Code</div>
-                <div style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontWeight: 700 }}>{inv.vendorCode}</div>
+                <div style={{ fontWeight: 700, letterSpacing: "0.04em" }}>{inv.vendorCode}</div>
               </div>
             )}
 

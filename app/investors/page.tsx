@@ -271,8 +271,18 @@ export default function InvestorInfoPage() {
                             const inv = g.owners[0];
                             return [(
                               <tr key={inv.id} style={{ borderTop: "1px solid var(--border)" }}>
-                                <td style={{ padding: "12px 16px", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 12, color: inv.vendorCode ? "var(--text)" : "var(--muted)" }}>
-                                  {inv.vendorCode ?? "—"}
+                                <td style={{ padding: "12px 16px" }}>
+                                  {inv.vendorCode ? (
+                                    <span style={{
+                                      fontSize: 11, fontWeight: 600, letterSpacing: "0.04em",
+                                      padding: "2px 8px", borderRadius: 999,
+                                      background: "rgba(15,23,42,0.05)", color: "var(--text)",
+                                      border: "1px solid var(--border)",
+                                      display: "inline-block",
+                                    }}>{inv.vendorCode}</span>
+                                  ) : (
+                                    <span style={{ color: "var(--muted)" }}>—</span>
+                                  )}
                                 </td>
                                 <td style={{ padding: "12px 16px" }}>
                                   <div style={{ fontWeight: 600 }}>{inv.name}</div>
@@ -304,8 +314,18 @@ export default function InvestorInfoPage() {
                           g.owners.forEach((inv) => {
                             rows.push(
                               <tr key={inv.id} style={{ borderTop: "1px solid rgba(11,74,125,0.08)" }}>
-                                <td style={{ padding: "8px 16px", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 11, color: inv.vendorCode ? "var(--text)" : "var(--muted)", paddingLeft: 36 }}>
-                                  {inv.vendorCode ?? "—"}
+                                <td style={{ padding: "8px 16px", paddingLeft: 36 }}>
+                                  {inv.vendorCode ? (
+                                    <span style={{
+                                      fontSize: 10, fontWeight: 600, letterSpacing: "0.04em",
+                                      padding: "1px 7px", borderRadius: 999,
+                                      background: "rgba(15,23,42,0.05)", color: "var(--text)",
+                                      border: "1px solid var(--border)",
+                                      display: "inline-block",
+                                    }}>{inv.vendorCode}</span>
+                                  ) : (
+                                    <span style={{ color: "var(--muted)", fontSize: 11 }}>—</span>
+                                  )}
                                 </td>
                                 <td style={{ padding: "8px 16px", fontSize: 12, color: "var(--muted)" }}>
                                   {inv.detailedName || <span style={{ fontStyle: "italic" }}>(direct)</span>}
@@ -377,8 +397,18 @@ export default function InvestorInfoPage() {
                                 <div className="muted small" style={{ marginTop: 2 }}>{r.investor.detailedName}</div>
                               )}
                             </td>
-                            <td style={{ padding: "12px 16px", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 12, color: r.investor.vendorCode ? "var(--text)" : "var(--muted)" }}>
-                              {r.investor.vendorCode ?? "—"}
+                            <td style={{ padding: "12px 16px" }}>
+                              {r.investor.vendorCode ? (
+                                <span style={{
+                                  fontSize: 11, fontWeight: 600, letterSpacing: "0.04em",
+                                  padding: "2px 8px", borderRadius: 999,
+                                  background: "rgba(15,23,42,0.05)", color: "var(--text)",
+                                  border: "1px solid var(--border)",
+                                  display: "inline-block",
+                                }}>{r.investor.vendorCode}</span>
+                              ) : (
+                                <span style={{ color: "var(--muted)" }}>—</span>
+                              )}
                             </td>
                             <td style={{ padding: "12px 16px", textAlign: "right" }}>{pct(ownershipFor(r.investor))}</td>
                           </tr>
