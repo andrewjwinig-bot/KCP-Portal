@@ -433,7 +433,7 @@ export default function CommissionsPage() {
 
         {/* Standard rates footnote */}
         <p className="muted small" style={{ marginTop: 12, marginBottom: 0, fontSize: 11, lineHeight: 1.6 }}>
-          <span style={{ fontWeight: 700, marginRight: 6 }}>Standard rates / sf:</span>
+          <span style={{ fontWeight: 700, marginRight: 6 }}>Standard Rates / SF:</span>
           {INCENTIVE_TIERS.map((r, i) => (
             <span key={r.years}>
               {i > 0 && <span style={{ margin: "0 6px", opacity: 0.5 }}>·</span>}
@@ -463,7 +463,7 @@ export default function CommissionsPage() {
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10, flexWrap: "wrap", gap: 10 }}>
           <b style={{ fontSize: 17 }}>Saved Entries</b>
           <span className="muted small">
-            {entries.length} entr{entries.length === 1 ? "y" : "ies"} · incentive {toMoney(grandTotal)} · gross (20%) {toMoney(grandTotalGross)}
+            {entries.length} {entries.length === 1 ? "Entry" : "Entries"} · Incentive {toMoney(grandTotal)} · Gross (20%) {toMoney(grandTotalGross)}
           </span>
         </div>
 
@@ -485,7 +485,7 @@ export default function CommissionsPage() {
                   }}>
                     <span style={{ fontWeight: 800, fontSize: 14 }}>{quarter}</span>
                     <span className="muted small">
-                      {list.length} · incentive {toMoney(total)} · gross {toMoney(totalGross)}
+                      {list.length} · Incentive {toMoney(total)} · Gross {toMoney(totalGross)}
                     </span>
                   </div>
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
