@@ -48,6 +48,11 @@ export default function UserSwitcher({ collapsed }: { collapsed: boolean }) {
     }
     setUserId(id);
     setOpen(false);
+    // If they were sitting on the admin login page and bailed out by picking
+    // a non-admin persona, get them off it.
+    if (typeof window !== "undefined" && window.location.pathname === "/history/login") {
+      window.location.href = "/dashboard";
+    }
   }
 
   useEffect(() => {
