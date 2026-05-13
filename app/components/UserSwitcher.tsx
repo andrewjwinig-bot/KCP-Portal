@@ -13,7 +13,7 @@ const AVATAR_COLOR: Record<UserId, string> = {
 };
 
 // Personas that require the admin auth cookie before they can be selected.
-const ELEVATED_PERSONAS: ReadonlySet<UserId> = new Set(["admin", "stacie"]);
+const ELEVATED_PERSONAS: ReadonlySet<UserId> = new Set(["admin"]);
 
 function Avatar({ id, size = 24 }: { id: UserId; size?: number }) {
   return (
