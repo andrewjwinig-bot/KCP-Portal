@@ -34,8 +34,12 @@ export interface PropertyDef {
   ccAccounts?: string[];
   /** Office fund the property belongs to (subsection on the Property Info page). */
   fundGroup?: FundGroup;
-  /** Set on owners' associations / non-buildings — rendered with a "Condo" badge and dashed border. */
-  isCondo?: boolean;
+  /**
+   * Marks a non-building entity (condo association, holding LLC). Rendered with
+   * a dashed border and a labelled pill instead of the type pill so it's clear
+   * the card isn't a real property.
+   */
+  entityKind?: "Condo" | "LLC";
 }
 
 export const PROPERTY_DEFS: PropertyDef[] = [
@@ -45,8 +49,9 @@ export const PROPERTY_DEFS: PropertyDef[] = [
   { id: "3610",  name: "Building 1",     type: "Office", fundGroup: "JV III", ein: "23-2386090", allocGroup: "BP", ccAccounts: ["8501"], address: "1 Neshaminy Interplex", city: "Feasterville-Trevose", state: "PA", zip: "19053", sqft: 41821, yearBuilt: 1977 },
   { id: "3620",  name: "Building 2",     type: "Office", fundGroup: "JV III", ein: "23-2386090", allocGroup: "BP", ccAccounts: ["8501"], address: "2 Neshaminy Interplex", city: "Feasterville-Trevose", state: "PA", zip: "19053", sqft: 49020, yearBuilt: 1978 },
   { id: "3640",  name: "Building 4",     type: "Office", fundGroup: "JV III", ein: "23-2386090", allocGroup: "BP", ccAccounts: ["8501"], address: "4 Neshaminy Interplex", city: "Feasterville-Trevose", state: "PA", zip: "19053", sqft: 48794, yearBuilt: 1981 },
-  { id: "3610A", name: "JV III Condo",   type: "Office", fundGroup: "JV III", isCondo: true, ccAccounts: ["8501"], notes: "Condo association for buildings 3610 / 3620 / 3640." },
+  { id: "3610A", name: "JV III Condo",   type: "Office", fundGroup: "JV III", entityKind: "Condo", ccAccounts: ["8501"], notes: "Condo association for buildings 3610 / 3620 / 3640." },
   // NI LLC (Neshaminy Interplex LLC)
+  { id: "4000", name: "Neshaminy Interplex LLC", type: "Office", fundGroup: "NI LLC", entityKind: "LLC", ein: "61-1723336", ccAccounts: ["8501"], notes: "Holding entity for NI LLC buildings." },
   { id: "4050", name: "Building 5",      type: "Office", fundGroup: "NI LLC", ein: "61-1723336", allocGroup: "BP", ccAccounts: ["8501"], address: "5 Interplex Dr",        city: "Feasterville-Trevose", state: "PA", zip: "19053", sqft: 54008,  yearBuilt: 1983 },
   { id: "4060", name: "Building 6",      type: "Office", fundGroup: "NI LLC", ein: "61-1723336", allocGroup: "BP", ccAccounts: ["8501"], address: "6 Interplex Dr",        city: "Feasterville-Trevose", state: "PA", zip: "19053", sqft: 107890, yearBuilt: 1985 },
   { id: "4070", name: "Building 7",      type: "Office", fundGroup: "NI LLC", ein: "61-1723336", allocGroup: "BP", ccAccounts: ["8501"], address: "7 Interplex Dr",        city: "Feasterville-Trevose", state: "PA", zip: "19053", sqft: 61448,  yearBuilt: 1987 },
@@ -110,6 +115,9 @@ export const BANK_ACCOUNTS: Record<string, BankAccount[]> = {
   ],
   "3610A": [
     { bank: "Chase",   label: "JV III Condo",            last4: "x1993", link: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/913403676/DDA/CHK" },
+  ],
+  "4000": [
+    { bank: "Liberty", label: "NI LLC Security Deposits",last4: "x7448", link: "https://secure.myvirtualbranch.com/LibertyBank/React/Accounts.aspx?p_r=1#Accounts/2" },
   ],
   "7010": [
     { bank: "Chase",   label: "Operating",               last4: "x5656", link: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/745774883/DDA/CHK" },
