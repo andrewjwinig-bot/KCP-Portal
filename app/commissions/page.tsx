@@ -380,20 +380,28 @@ export default function CommissionsPage() {
             />
           </div>
 
-          {/* Incentive Amount (auto-calculated, read-only) */}
-          <div>
+          {/* Incentive Amount (auto-calculated, read-only) — spans full row so the
+              breakdown sits inline like the spreadsheet ($91.80 = $0.15 × 612 sf). */}
+          <div style={{ gridColumn: "1 / -1" }}>
             <label style={labelStyle}>Incentive Amount</label>
-            <input
-              type="text"
-              value={form.incentiveAmount ? toMoney(Number(form.incentiveAmount)) : "—"}
-              readOnly
-              style={lockedStyle}
-              tabIndex={-1}
-            />
-            <div className="muted small" style={{ marginTop: 4 }}>
-              {isCalculatedExact
-                ? <>${rate!.toFixed(2)}/sqft × {Number(form.sqft || 0).toLocaleString()} sqft (standard rate)</>
-                : <>Non-standard term — no standard rate applies</>}
+            <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+              <input
+                type="text"
+                value={form.incentiveAmount ? toMoney(Number(form.incentiveAmount)) : "—"}
+                readOnly
+                tabIndex={-1}
+                style={{ ...lockedStyle, width: 160, textAlign: "right", fontWeight: 700, fontSize: 15 }}
+              />
+              {isCalculatedExact ? (
+                <span style={{ fontSize: 14, color: "var(--text)" }}>
+                  <span style={{ color: "var(--muted)", marginRight: 8 }}>=</span>
+                  <span style={{ fontWeight: 600 }}>${rate!.toFixed(2)}</span>
+                  <span style={{ color: "var(--muted)", margin: "0 6px" }}>×</span>
+                  <span style={{ fontWeight: 600 }}>{Number(form.sqft || 0).toLocaleString()} sf</span>
+                </span>
+              ) : (
+                <span className="muted small">Non-standard term — no standard rate applies</span>
+              )}
             </div>
           </div>
         </div>
