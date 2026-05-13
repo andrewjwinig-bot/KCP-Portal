@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { useUser } from "./UserProvider";
 import UserSwitcher from "./UserSwitcher";
 import ThemeToggle from "./ThemeToggle";
+import NotificationsToggle from "./NotificationsToggle";
 
 // Maps each NAV label to a role key. Items in this map are gated; items not in it are always visible.
 const NAV_ROLE_KEY: Record<string, string> = {
@@ -393,7 +394,8 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
             </button>
           )}
           {open && (
-            <div style={{ marginLeft: authed ? 0 : "auto" }}>
+            <div style={{ display: "flex", gap: 6, marginLeft: authed ? 0 : "auto" }}>
+              <NotificationsToggle />
               <ThemeToggle />
             </div>
           )}
