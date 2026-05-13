@@ -421,7 +421,7 @@ export default function DashboardPage() {
         </Link>
 
         {/* ── Action Items / Data Freshness ── */}
-        <div className="card">
+        <div className="card" style={{ order: isStacie ? -2 : 0 }}>
           <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 8 }}>Action Items</div>
           {loading ? (
             <div className="muted small">Loading…</div>
