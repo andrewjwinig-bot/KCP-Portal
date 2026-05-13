@@ -1,22 +1,33 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { UNIQUE_BANK_ACCOUNTS, type BankGroup, type UniqueBankAccount } from "../../lib/bank-rec/accounts";
 import { BANK_REC_DUE_DAY, bankRecKey, bankRecPeriod, bankRecPeriodLabel, shiftPeriod } from "../../lib/bank-rec/util";
 
 const BANK_ORDER: BankGroup[] = ["M&T", "JPM-Chase", "Liberty Bank"];
+const COMMENT_AUTOSAVE_MS = 600;
 
 export default function BankRecTrackerPage() {
   const [checked, setChecked] = useState<Record<string, boolean>>({});
+  const [comments, setComments] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [period, setPeriod] = useState<string>(() => bankRecPeriod());
 
+  const commentSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const latestComments = useRef<Record<string, string>>({});
+
   useEffect(() => {
-    fetch("/api/bank-rec")
-      .then((r) => r.json())
-      .then((j) => setChecked(j.checked ?? {}))
-      .catch(() => {})
+    Promise.all([
+      fetch("/api/bank-rec").then((r) => r.json()).catch(() => ({ checked: {} })),
+      fetch("/api/bank-rec/comments").then((r) => r.json()).catch(() => ({ comments: {} })),
+    ])
+      .then(([c, com]) => {
+        setChecked(c.checked ?? {});
+        const initialComments = com.comments ?? {};
+        setComments(initialComments);
+        latestComments.current = initialComments;
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -56,6 +67,31 @@ export default function BankRecTrackerPage() {
     } catch (e: any) {
       setError(e?.message ?? "Save failed");
     }
+  }
+
+  function updateComment(last4: string, value: string) {
+    const key = bankRecKey(last4, period);
+    setComments((prev) => {
+      const next = { ...prev };
+      if (value.trim() === "") delete next[key];
+      else next[key] = value;
+      latestComments.current = next;
+      return next;
+    });
+    if (commentSaveTimer.current) clearTimeout(commentSaveTimer.current);
+    commentSaveTimer.current = setTimeout(async () => {
+      try {
+        const res = await fetch("/api/bank-rec/comments", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ comments: latestComments.current }),
+        });
+        if (!res.ok) throw new Error("Save failed");
+        setError(null);
+      } catch (e: any) {
+        setError(e?.message ?? "Save failed");
+      }
+    }, COMMENT_AUTOSAVE_MS);
   }
 
   // Group + sort: unreconciled first, reconciled at the bottom within each bank group.
@@ -196,13 +232,16 @@ export default function BankRecTrackerPage() {
                     <tr style={{ textAlign: "left", color: "var(--muted)", fontSize: 11, letterSpacing: "0.04em" }}>
                       <th style={{ padding: "8px 14px", fontWeight: 700, width: 60 }}></th>
                       <th style={{ padding: "8px 14px", fontWeight: 700 }}>ACCOUNT NAME</th>
-                      <th style={{ padding: "8px 14px", fontWeight: 700, width: "12%" }}>ACCOUNT</th>
-                      <th style={{ padding: "8px 14px", fontWeight: 700, width: "28%" }}>BANK ACCOUNT KEY</th>
+                      <th style={{ padding: "8px 14px", fontWeight: 700, width: "10%" }}>ACCOUNT</th>
+                      <th style={{ padding: "8px 14px", fontWeight: 700, width: "22%" }}>BANK ACCOUNT KEY</th>
+                      <th style={{ padding: "8px 14px", fontWeight: 700, width: "30%" }}>COMMENTS</th>
                     </tr>
                   </thead>
                   <tbody>
                     {accounts.map((r) => {
-                      const isDone = !!checked[bankRecKey(r.last4, period)];
+                      const k = bankRecKey(r.last4, period);
+                      const isDone = !!checked[k];
+                      const comment = comments[k] ?? "";
                       return (
                         <tr
                           key={r.last4 + r.key}
@@ -233,6 +272,22 @@ export default function BankRecTrackerPage() {
                           </td>
                           <td style={{ padding: "10px 14px", color: isDone ? "var(--muted)" : "var(--text)" }}>
                             {r.key}
+                          </td>
+                          <td style={{ padding: "8px 12px" }}>
+                            <input
+                              type="text"
+                              value={comment}
+                              onChange={(e) => updateComment(r.last4, e.target.value)}
+                              placeholder="Add note…"
+                              aria-label={`Comment for ${r.accountName}`}
+                              style={{
+                                width: "100%", padding: "6px 8px",
+                                fontSize: 13, fontFamily: "inherit",
+                                border: "1px solid var(--border)", borderRadius: 6,
+                                background: "#fff", color: "var(--text)",
+                                outline: "none",
+                              }}
+                            />
                           </td>
                         </tr>
                       );
