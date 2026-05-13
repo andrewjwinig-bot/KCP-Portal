@@ -752,7 +752,7 @@ export default function DashboardPage() {
       )}
 
       {/* ── Upcoming filings (admin only) ── */}
-      {isAdmin && (
+      {(isAdmin || isStacie) && (
       <div className="card">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
           <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>Upcoming Filings (next 45 days)</div>
