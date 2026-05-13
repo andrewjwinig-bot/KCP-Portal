@@ -7,6 +7,7 @@ import {
   FUND_LABEL,
   type PropertyDef, type PropType, type BankAccount, type FundGroup,
 } from "../../lib/properties/data";
+import { PROPERTY_OWNERSHIP, type PropertyOwner } from "../../lib/properties/ownership";
 import type { RentRollData, RentRollProperty } from "../../lib/rentroll/parseRentRollExcel";
 import { useUser } from "../components/UserProvider";
 import {
@@ -173,11 +174,27 @@ function FloorplanViewer({ propId, propName }: { propId: string; propName: strin
   );
 }
 
-// ─── K-1 INVESTOR ROW ────────────────────────────────────────────────────────
+// ─── OWNER ROW ────────────────────────────────────────────────────────────────
 
-function K1InvestorRow({ inv, done, hasDetail }: { inv: K1Investor; done: boolean; hasDetail: boolean }) {
+/** Single ownership % for display — profit/loss/capital match in source data,
+ *  so we use profit % first then fall back to overall owner %. */
+function ownerPctFor(inv: PropertyOwner | K1Investor): number | undefined {
+  const o = inv as PropertyOwner;
+  return o.profitPct ?? o.ownerPct ?? o.capitalPct ?? o.lossPct;
+}
+
+function K1InvestorRow({
+  inv, done, hasDetail, showK1Check,
+}: {
+  inv: PropertyOwner;
+  done: boolean;
+  hasDetail: boolean;
+  /** Show the K-1 filing-done checkmark column (only on K-1 properties). */
+  showK1Check: boolean;
+}) {
   const [popupOpen, setPopupOpen] = useState(false);
   const pctFmt = (n: number) => `${(n * 100).toFixed(6).replace(/\.?0+$/, "")}%`;
+  const ownership = ownerPctFor(inv);
 
   return (
     <>
@@ -193,24 +210,35 @@ function K1InvestorRow({ inv, done, hasDetail }: { inv: K1Investor; done: boolea
           cursor: hasDetail ? "pointer" : "default",
         }}
       >
-        <span style={{
-          width: 16, height: 16, borderRadius: 4,
-          background: done ? "rgba(22,163,74,0.15)" : "var(--border)",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 10, color: done ? "#16a34a" : "transparent",
-          flexShrink: 0,
-        }}>✓</span>
-        <span style={{ display: "flex", alignItems: "center", gap: 4, flex: 1 }}>
-          <span style={{ fontSize: 14, fontWeight: done ? 700 : 500, color: done ? "#16a34a" : "var(--text)" }}>
+        {showK1Check && (
+          <span style={{
+            width: 16, height: 16, borderRadius: 4,
+            background: done ? "rgba(22,163,74,0.15)" : "var(--border)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 10, color: done ? "#16a34a" : "transparent",
+            flexShrink: 0,
+          }}>✓</span>
+        )}
+        {inv.vendorCode && (
+          <span style={{
+            fontSize: 10, fontWeight: 700, letterSpacing: "0.04em",
+            padding: "2px 6px", borderRadius: 4,
+            background: "#0b1220", color: "#e0f0ff",
+            fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+            flexShrink: 0,
+          }}>{inv.vendorCode}</span>
+        )}
+        <span style={{ display: "flex", alignItems: "center", gap: 4, flex: 1, minWidth: 0 }}>
+          <span style={{ fontSize: 14, fontWeight: done ? 700 : 500, color: done ? "#16a34a" : "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {inv.name}
           </span>
           {hasDetail && (
             <span style={{ fontSize: 11, color: "var(--muted)" }}>ⓘ</span>
           )}
         </span>
-        {inv.profitPct != null && (
+        {ownership != null && (
           <span style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600, flexShrink: 0 }}>
-            {pctFmt(inv.profitPct)}
+            {pctFmt(ownership)}
           </span>
         )}
       </div>
@@ -259,28 +287,25 @@ function K1InvestorRow({ inv, done, hasDetail }: { inv: K1Investor; done: boolea
               </div>
             )}
 
-            {(inv.profitPct != null || inv.lossPct != null || inv.capitalPct != null) && (
+            {inv.phone && (
+              <div style={{ fontSize: 13, color: "var(--text)", lineHeight: 1.5 }}>
+                <div style={{ fontWeight: 600, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 3 }}>Phone</div>
+                <div>{inv.phone}</div>
+              </div>
+            )}
+
+            {inv.vendorCode && (
+              <div style={{ fontSize: 13, color: "var(--text)", lineHeight: 1.5 }}>
+                <div style={{ fontWeight: 600, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 3 }}>Vendor Code</div>
+                <div style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontWeight: 700 }}>{inv.vendorCode}</div>
+              </div>
+            )}
+
+            {ownership != null && (
               <div>
                 <div style={{ fontWeight: 600, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 6 }}>Ownership %</div>
-                <div style={{ display: "flex", gap: 10 }}>
-                  {inv.profitPct  != null && (
-                    <div style={{ flex: 1, textAlign: "center", padding: "10px 8px", border: "1px solid var(--border)", borderRadius: 8, background: "#fafafa" }}>
-                      <div style={{ fontSize: 15, fontWeight: 700 }}>{pctFmt(inv.profitPct)}</div>
-                      <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>Profit</div>
-                    </div>
-                  )}
-                  {inv.lossPct    != null && (
-                    <div style={{ flex: 1, textAlign: "center", padding: "10px 8px", border: "1px solid var(--border)", borderRadius: 8, background: "#fafafa" }}>
-                      <div style={{ fontSize: 15, fontWeight: 700 }}>{pctFmt(inv.lossPct)}</div>
-                      <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>Loss</div>
-                    </div>
-                  )}
-                  {inv.capitalPct != null && (
-                    <div style={{ flex: 1, textAlign: "center", padding: "10px 8px", border: "1px solid var(--border)", borderRadius: 8, background: "#fafafa" }}>
-                      <div style={{ fontSize: 15, fontWeight: 700 }}>{pctFmt(inv.capitalPct)}</div>
-                      <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>Capital</div>
-                    </div>
-                  )}
+                <div style={{ padding: "10px 12px", border: "1px solid var(--border)", borderRadius: 8, background: "#fafafa", textAlign: "center" }}>
+                  <div style={{ fontSize: 18, fontWeight: 700 }}>{pctFmt(ownership)}</div>
                 </div>
               </div>
             )}
@@ -308,6 +333,38 @@ function DetailModal({
   const alloc       = ALLOC_PCT[prop.id];
   const k1Tasks     = tasks.filter(t => t.category === "k1");
   const filingTasks = tasks.filter(t => t.category !== "k1");
+
+  // Canonical ownership entry (source of truth for owners + vendor codes).
+  const ownershipEntry = useMemo(
+    () => PROPERTY_OWNERSHIP.find((p) => p.propertyCode.toUpperCase() === prop.id.toUpperCase()),
+    [prop.id],
+  );
+  // Group + sort owners by total ownership desc (matches Investor Info page).
+  const ownerGroups = useMemo(() => {
+    const owners = ownershipEntry?.owners ?? [];
+    const byKey = new Map<string, PropertyOwner[]>();
+    for (const o of owners) {
+      const key = o.name.toLowerCase().replace(/\s+/g, " ").trim();
+      let arr = byKey.get(key);
+      if (!arr) { arr = []; byKey.set(key, arr); }
+      arr.push(o);
+    }
+    for (const arr of byKey.values()) {
+      arr.sort((a, b) => (ownerPctFor(b) ?? 0) - (ownerPctFor(a) ?? 0));
+    }
+    const totals = new Map<string, number>();
+    for (const [k, arr] of byKey.entries()) {
+      totals.set(k, arr.reduce((s, o) => s + (ownerPctFor(o) ?? 0), 0));
+    }
+    return [...byKey.entries()]
+      .map(([k, arr]) => ({ key: k, total: totals.get(k) ?? 0, owners: arr }))
+      .sort((a, b) => b.total - a.total);
+  }, [ownershipEntry]);
+
+  const ownershipTotal = useMemo(
+    () => (ownershipEntry?.owners ?? []).reduce((s, o) => s + (ownerPctFor(o) ?? 0), 0),
+    [ownershipEntry],
+  );
 
   const [rrProp, setRrProp] = useState<RentRollProperty | null>(null);
   useEffect(() => {
@@ -598,43 +655,56 @@ function DetailModal({
             </section>
           )}
 
-          {/* ── K-1 Investors ── */}
-          {k1Tasks.length > 0 && (
+          {/* ── Ownership ── */}
+          {ownershipEntry && ownershipEntry.owners.length > 0 && (
             <section>
-              <SectionLabel>K-1 Investors</SectionLabel>
-              {k1Tasks.map(t => {
-                const allDone = t.investors?.every(inv => checked[inv.id]) ?? false;
+              <SectionLabel>
+                Ownership
+                <Link href="/investors" style={{ fontSize: 11, fontWeight: 600, color: "var(--brand)", marginLeft: 8, textDecoration: "none" }}>
+                  Open Investor Info →
+                </Link>
+              </SectionLabel>
+              {k1Tasks.map((t) => {
+                const allDone = t.investors?.every((inv) => checked[inv.id]) ?? false;
                 return (
-                  <div key={t.id}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                      <span style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600 }}>
-                        Due {MONTHS_SHORT[t.dueMonth - 1]} {t.dueDay}
-                      </span>
-                      {allDone
-                        ? <span style={{ fontSize: 10, fontWeight: 800, color: "#16a34a", background: "rgba(22,163,74,0.08)", padding: "2px 8px", borderRadius: 999, border: "1px solid rgba(22,163,74,0.2)" }}>All Distributed</span>
-                        : <span style={{ fontSize: 10, fontWeight: 800, color: "#b45309", background: "rgba(180,83,9,0.08)", padding: "2px 8px", borderRadius: 999, border: "1px solid rgba(180,83,9,0.25)" }}>Pending</span>
-                      }
-                    </div>
-                    {t.investors?.map(inv => {
-                      const done = !!checked[inv.id];
-                      const hasDetail = !!(inv.detailedName || inv.address || inv.profitPct != null);
-                      return (
-                        <K1InvestorRow key={inv.id} inv={inv} done={done} hasDetail={hasDetail} />
-                      );
-                    })}
-                    {t.investors && t.investors.some(inv => inv.profitPct != null) && (() => {
-                      const total = t.investors!.reduce((s, inv) => s + (inv.profitPct ?? 0), 0);
-                      const pctFmt = (n: number) => `${(n * 100).toFixed(6).replace(/\.?0+$/, "")}%`;
-                      return (
-                        <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 12px", borderRadius: 8, background: "rgba(15,23,42,0.04)", border: "1px solid var(--border)", marginTop: 4 }}>
-                          <span style={{ fontSize: 12, fontWeight: 700, color: "var(--muted)" }}>Total</span>
-                          <span style={{ fontSize: 12, fontWeight: 700 }}>{pctFmt(total)}</span>
-                        </div>
-                      );
-                    })()}
+                  <div key={t.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                    <span style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600 }}>
+                      K-1 Distribution · Due {MONTHS_SHORT[t.dueMonth - 1]} {t.dueDay}
+                    </span>
+                    {allDone
+                      ? <span style={{ fontSize: 10, fontWeight: 800, color: "#16a34a", background: "rgba(22,163,74,0.08)", padding: "2px 8px", borderRadius: 999, border: "1px solid rgba(22,163,74,0.2)" }}>All Distributed</span>
+                      : <span style={{ fontSize: 10, fontWeight: 800, color: "#b45309", background: "rgba(180,83,9,0.08)", padding: "2px 8px", borderRadius: 999, border: "1px solid rgba(180,83,9,0.25)" }}>Pending</span>
+                    }
                   </div>
                 );
               })}
+              {ownerGroups.map((g) => (
+                <div key={g.key} style={{ marginBottom: 4 }}>
+                  {g.owners.length > 1 && (
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", padding: "4px 12px 2px", fontSize: 11 }}>
+                      <span style={{ fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                        {g.owners[0].name} · {g.owners.length} stakes
+                      </span>
+                      <span style={{ fontWeight: 700, color: "#0b4a7d" }}>
+                        Combined {(g.total * 100).toFixed(4)}%
+                      </span>
+                    </div>
+                  )}
+                  {g.owners.map((inv) => {
+                    const done = !!checked[inv.id];
+                    const hasDetail = !!(inv.detailedName || inv.address || inv.phone || inv.vendorCode || ownerPctFor(inv) != null);
+                    return (
+                      <K1InvestorRow key={inv.id} inv={inv} done={done} hasDetail={hasDetail} showK1Check={!!ownershipEntry.hasK1Distribution} />
+                    );
+                  })}
+                </div>
+              ))}
+              {ownershipTotal > 0 && (
+                <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 12px", borderRadius: 8, background: "rgba(15,23,42,0.04)", border: "1px solid var(--border)", marginTop: 4 }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: "var(--muted)" }}>Total</span>
+                  <span style={{ fontSize: 12, fontWeight: 700 }}>{`${(ownershipTotal * 100).toFixed(4)}%`}</span>
+                </div>
+              )}
             </section>
           )}
 
