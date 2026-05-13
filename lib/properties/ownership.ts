@@ -63,6 +63,23 @@ export const PROPERTY_OWNERSHIP: PropertyOwnership[] = [
     ],
   },
 
+  {
+    propertyCode: "4500",
+    owners: [
+      { id: "own-4500-19721", name: "1972 Tr for Alison Korman Feldman", vendorCode: "19721", address: "6015 Sheaff Lane",       city: "Fort Washington", state: "PA", zip: "19034",                              ownerPct: 0.055560 },
+      { id: "own-4500-19722", name: "1972 Tr for Catherine S. Korman",   vendorCode: "19722", address: "241 S. 6th Street",      city: "Philadelphia",    state: "PA", zip: "19106",                              ownerPct: 0.055560 },
+      { id: "own-4500-19723", name: "1972 Tr for Susan Korman Schurr",   vendorCode: "19723", address: "380 1st Ave North",      city: "Naples",          state: "FL", zip: "34102",                              ownerPct: 0.055560 },
+      { id: "own-4500-brad2", name: "Bradley J. Korman",                 vendorCode: "BRAD2", address: "120 Norristown Road",    city: "Blue Bell",       state: "PA", zip: "19422", phone: "(215) 646-1655",     ownerPct: 0.055550 },
+      { id: "own-4500-caro2", name: "Carolyn Korman Jacobs",             vendorCode: "CARO2", address: "6114 Butler Pike",       city: "Blue Bell",       state: "PA", zip: "19422", phone: "(215) 646-8785",     ownerPct: 0.055560 },
+      { id: "own-4500-gray2", name: "GRAYS FERRY SC ASSOC. INC",         vendorCode: "GRAY2", address: "8 Neshaminy Interplex",  city: "Trevose",         state: "PA", zip: "19053",                              ownerPct: 0.001000 },
+      { id: "own-4500-jame4", name: "James S. Korman",                   vendorCode: "JAME4", address: "360 Harrow Lane",        city: "Blue Bell",       state: "PA", zip: "19422", phone: "(215) 646-3137",     ownerPct: 0.055550 },
+      { id: "own-4500-john1", name: "John P. Korman",                    vendorCode: "JOHN1", address: "805 Penllyn Pike",       city: "Lower Gwynedd",   state: "PA", zip: "19002", phone: "(215) 542-1544",     ownerPct: 0.055560 },
+      { id: "own-4500-lawr1", name: "Lawrence M. Korman",                vendorCode: "LAWR1", address: "6019 Sheaff Lane",       city: "Ft Washington",   state: "PA", zip: "19034", phone: "(215) 646-9936",     ownerPct: 0.055550 },
+      { id: "own-4500-mark1", name: "Mark G. Korman",                    vendorCode: "MARK1", address: "6220 Sheaff Lane",       city: "Ft. Washington",  state: "PA", zip: "19034", phone: "(215) 542-7888",     ownerPct: 0.055550 },
+      { id: "own-4500-thek1", name: "The Korman Co",                     vendorCode: "THEK1",                                                                                                                       ownerPct: 0.499000 },
+    ],
+  },
+
   // ─── K-1 distributions ───────────────────────────────────────────────────
   {
     propertyCode: "2070",
