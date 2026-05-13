@@ -40,7 +40,7 @@ export default function BankAccTrackerPage() {
   const [error, setError] = useState<string | null>(null);
   const [period, setPeriod] = useState<string>(() => bankRecPeriod());
   const [openBanks, setOpenBanks] = useState<Record<BankGroup, boolean>>({
-    "M&T": true, "JPM-Chase": true, "Liberty Bank": true,
+    "M&T": false, "JPM-Chase": false, "Liberty Bank": false,
   });
 
   const commentSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -177,7 +177,7 @@ export default function BankAccTrackerPage() {
       <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 18, flexWrap: "wrap", gap: 14 }}>
         <div>
           <h1 style={{ fontSize: 36, fontWeight: 900, letterSpacing: "-0.03em", marginBottom: 4 }}>
-            Bank Acc Tracker
+            Bank Account Tracker
           </h1>
           <p className="muted small">Download statements and reconcile by the 10th of the following month</p>
         </div>
