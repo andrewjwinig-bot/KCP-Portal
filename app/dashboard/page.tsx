@@ -8,7 +8,7 @@ import { TAX_TASKS, TAX_CATEGORIES, filingLabel, isTaskEffectivelyDone, loadTaxC
 import { useUser } from "../components/UserProvider";
 import { PROPERTY_DEFS } from "../../lib/properties/data";
 import { UNIQUE_BANK_ACCOUNTS } from "../../lib/bank-rec/accounts";
-import { bankRecKey, nextBankRecDeadline, bankRecPeriodLabel } from "../../lib/bank-rec/util";
+import { bankRecKey, nextBankRecDeadline, nextStatementsDeadline, bankRecPeriodLabel } from "../../lib/bank-rec/util";
 
 function sqftFmt(n: number) { return n.toLocaleString(); }
 
@@ -77,6 +77,24 @@ export default function DashboardPage() {
       : "later";
     return { date, period, daysUntil, total, totalTasks, stmtDone, recDone, doneTasks, remaining, status };
   }, [bankRecChecked, bankStmtChecked]);
+
+  // Separate "download bank statements" item — due the 1st of each month.
+  const bankStmt = useMemo(() => {
+    const { date, period, daysUntil } = nextStatementsDeadline();
+    const total = UNIQUE_BANK_ACCOUNTS.length;
+    const done = UNIQUE_BANK_ACCOUNTS.filter((a) => bankStmtChecked[bankRecKey(a.last4, period)]).length;
+    const remaining = total - done;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const overdue = date < today && remaining > 0;
+    const status: "today" | "soon" | "later" | "overdue" | "done" =
+      remaining === 0 ? "done"
+      : overdue ? "overdue"
+      : daysUntil === 0 ? "today"
+      : daysUntil <= 3 ? "soon"
+      : "later";
+    return { date, period, daysUntil, total, done, remaining, status };
+  }, [bankStmtChecked]);
 
   // Persist dismissed notices in localStorage so they don't reappear on reload.
   useEffect(() => {
@@ -426,6 +444,52 @@ export default function DashboardPage() {
                   </div>
                 </div>
                 <Link href="/expenses" style={{ fontSize: 12, fontWeight: 600, color: "#0b4a7d", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>
+                  Open →
+                </Link>
+              </div>
+              )}
+
+              {showBankRec && (
+              <div style={{
+                display: "flex", alignItems: "flex-start", gap: 10,
+                padding: "10px 12px",
+                border: "1px solid",
+                borderColor: bankStmt.status === "done" ? "rgba(22,163,74,0.30)"
+                  : bankStmt.status === "overdue" ? "rgba(220,38,38,0.35)"
+                  : bankStmt.status === "today" ? "rgba(220,38,38,0.30)"
+                  : bankStmt.status === "soon" ? "rgba(217,119,6,0.30)"
+                  : "rgba(15,23,42,0.12)",
+                background: bankStmt.status === "done" ? "rgba(22,163,74,0.06)"
+                  : bankStmt.status === "overdue" ? "rgba(220,38,38,0.06)"
+                  : bankStmt.status === "today" ? "rgba(220,38,38,0.04)"
+                  : bankStmt.status === "soon" ? "rgba(217,119,6,0.06)"
+                  : "rgba(15,23,42,0.025)",
+                borderRadius: 8,
+              }}>
+                <span style={{
+                  width: 10, height: 10, borderRadius: 999, marginTop: 5, flexShrink: 0,
+                  background: bankStmt.status === "done" ? "#16a34a"
+                    : bankStmt.status === "overdue" ? "#b91c1c"
+                    : bankStmt.status === "today" ? "#dc2626"
+                    : bankStmt.status === "soon" ? "#d97706"
+                    : "#64748b",
+                }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, fontSize: 14 }}>
+                    Download Bank Statements — {bankRecPeriodLabel(bankStmt.period)}
+                    {bankStmt.status === "overdue" && (
+                      <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 999, background: "rgba(220,38,38,0.15)", color: "#b91c1c", border: "1px solid rgba(220,38,38,0.35)", letterSpacing: "0.04em" }}>
+                        PAST DUE
+                      </span>
+                    )}
+                  </div>
+                  <div className="muted small" style={{ marginTop: 2 }}>
+                    {bankStmt.status === "done"
+                      ? `All ${bankStmt.total} statements downloaded ✓`
+                      : `${bankStmt.done}/${bankStmt.total} downloaded · due ${bankStmt.date.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`}
+                  </div>
+                </div>
+                <Link href="/bank-rec" style={{ fontSize: 12, fontWeight: 600, color: "#0b4a7d", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>
                   Open →
                 </Link>
               </div>
