@@ -233,8 +233,6 @@ export default function CommissionsPage() {
   const grandTotal = entries.reduce((s, e) => s + (Number(e.incentiveAmount) || 0), 0);
 
   // Standard rates table for reference card
-  const standardRates = INCENTIVE_TIERS;
-
   const rate = incentiveRate(Number(form.termYears) || 0);
   const isCalculatedExact = rate != null;
   const isExistingTenant = !!form.unitRef;
@@ -277,7 +275,14 @@ export default function CommissionsPage() {
           {error && <span style={{ color: "#b91c1c", fontSize: 12 }}>{error}</span>}
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))", gap: 12 }}>
+        {/* Explicit fractional columns so the inputs stretch to fill the full row
+            instead of auto-fit leaving empty tracks at the end. 8 columns: the
+            wider Tenant column gets ~2.4fr, others scale to fit. */}
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "minmax(0, 0.8fr) minmax(0, 2.4fr) minmax(0, 0.95fr) minmax(0, 0.75fr) minmax(0, 1fr) minmax(0, 1.05fr) minmax(0, 1.05fr) minmax(0, 0.9fr)",
+          gap: 12,
+        }}>
           {/* Quarter */}
           <div>
             <label style={labelStyle}>Quarter Ended</label>
@@ -287,7 +292,7 @@ export default function CommissionsPage() {
           </div>
 
           {/* Tenant — pick existing OR new */}
-          <div style={{ gridColumn: "span 2" }}>
+          <div>
             <label style={labelStyle}>Tenant</label>
             <select
               value={tenantSelection}
@@ -417,6 +422,17 @@ export default function CommissionsPage() {
           />
         </div>
 
+        {/* Standard rates footnote */}
+        <p className="muted small" style={{ marginTop: 12, marginBottom: 0, fontSize: 11, lineHeight: 1.6 }}>
+          <span style={{ fontWeight: 700, marginRight: 6 }}>Standard rates / sf:</span>
+          {INCENTIVE_TIERS.map((r, i) => (
+            <span key={r.years}>
+              {i > 0 && <span style={{ margin: "0 6px", opacity: 0.5 }}>·</span>}
+              {r.years} yr <span style={{ fontWeight: 600 }}>${r.ratePerSqft.toFixed(3)}</span>
+            </span>
+          ))}
+        </p>
+
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 14 }}>
           {form.id && (
             <button className="btn" onClick={() => { setForm(emptyForm(form.quarter)); setTenantSelection(""); }} disabled={saving}>
@@ -430,24 +446,6 @@ export default function CommissionsPage() {
           >
             {form.id ? "Save Changes" : "Add Entry"}
           </button>
-        </div>
-      </div>
-
-      {/* ── Rates reference ─────────────────────────────────────────── */}
-      <div className="card">
-        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 8, flexWrap: "wrap" }}>
-          <b style={{ fontSize: 14 }}>Standard Incentive Rates</b>
-          <span className="muted small">Exact-match by lease term, applied per square foot</span>
-        </div>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          {standardRates.map((r) => (
-            <span key={r.years} style={{
-              padding: "4px 10px", borderRadius: 999,
-              border: "1px solid var(--border)", fontSize: 12, fontWeight: 600,
-            }}>
-              {r.years} yr · ${r.ratePerSqft.toFixed(3)}/sf
-            </span>
-          ))}
         </div>
       </div>
 
