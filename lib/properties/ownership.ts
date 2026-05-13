@@ -87,6 +87,33 @@ export const PROPERTY_OWNERSHIP: PropertyOwnership[] = [
     ],
   },
 
+  {
+    propertyCode: "7010",
+    owners: [
+      { id: "own-7010-akgst", name: "Alison Feldman",          detailedName: "LIK GST TR FBO Alison Feldman",                    vendorCode: "AKGST", address: "6015 Sheaff Lane",   city: "Ft. Washington", state: "PA", zip: "19034",                              ownerPct: 0.049464 },
+      { id: "own-7010-alis1", name: "Alison Korman Feldman",                                                                      vendorCode: "ALIS1", address: "6015 Sheaff Lane",   city: "Fort Washington", state: "PA", zip: "19034",                              ownerPct: 0.016230 },
+      { id: "own-7010-bert4", name: "Berton E. Korman",        detailedName: "Berton E Korman TUA Dtd 02232018 As Amended",      vendorCode: "BERT4", address: "410 Lancaster Ave",  city: "Haverford",       state: "PA", zip: "19041",                              ownerPct: 0.148390 },
+      { id: "own-7010-cagst", name: "Catherine Altman",        detailedName: "LIK GST TR FBO Catherine Altman",                  vendorCode: "CAGST", address: "241 A South 6th St.", city: "Philadelphia",   state: "PA", zip: "19106",                              ownerPct: 0.049463 },
+      { id: "own-7010-caro2", name: "Carolyn Korman Jacobs",                                                                      vendorCode: "CARO2", address: "6114 Butler Pike",   city: "Blue Bell",       state: "PA", zip: "19422", phone: "(215) 646-8785",     ownerPct: 0.016230 },
+      { id: "own-7010-caro3", name: "Carol Isard",             detailedName: "IRR TR-MC Isard 07/28/20 FBO Carol Isard",         vendorCode: "CARO3", address: "8603 Prospect Avenue", city: "Philadelphia",   state: "PA", zip: "19118",                              ownerPct: 0.075000 },
+      { id: "own-7010-cath2", name: "Catherine Korman Altman",                                                                    vendorCode: "CATH2", address: "241 S 6th Street",   city: "Philadelphia",    state: "PA", zip: "19106",                              ownerPct: 0.016230 },
+      { id: "own-7010-eliz1", name: "Elizabeth Langsfeld",     detailedName: "Elizabeth Langsfeld 1982 Trust",                   vendorCode: "ELIZ1", address: "4797 Crescent Street", city: "Bethesda",      state: "MD", zip: "20816", phone: "(301) 320-0831",     ownerPct: 0.016230 },
+      { id: "own-7010-jame4", name: "James S. Korman",                                                                            vendorCode: "JAME4", address: "360 Harrow Lane",    city: "Blue Bell",       state: "PA", zip: "19422", phone: "(215) 646-3137",     ownerPct: 0.016230 },
+      { id: "own-7010-joan1", name: "Joan R. Sohn",                                                                               vendorCode: "JOAN1",                                                                                                                  ownerPct: 0.200000 },
+      { id: "own-7010-john1", name: "John P. Korman",                                                                             vendorCode: "JOHN1", address: "805 Penllyn Pike",   city: "Lower Gwynedd",   state: "PA", zip: "19002", phone: "(215) 542-1544",     ownerPct: 0.016230 },
+      { id: "own-7010-judi1", name: "Judith K. Langsfeld",                                                                        vendorCode: "JUDI1", address: "1673 Paper Mill Road", city: "Meadowbrook",    state: "PA", zip: "19046", phone: "(215) 947-5097",     ownerPct: 0.023380 },
+      { id: "own-7010-lawr2", name: "Lawrence Isard",          detailedName: "IRR TR- MC Isard 07/28/20 FBO Lawrence Isard",     vendorCode: "LAWR2", address: "901 N. Penn Street", city: "Philadelphia",    state: "PA", zip: "19123",                              ownerPct: 0.075000 },
+      { id: "own-7010-mark2", name: "Mark Langsfeld",          detailedName: "Mark Langsfeld 1982 Trust",                        vendorCode: "MARK2", address: "1085 Herkness Drive", city: "Meadowbrook",    state: "PA", zip: "19046", phone: "(215) 886-0784",     ownerPct: 0.016230 },
+      { id: "own-7010-ssgst", name: "Susan Schurr",            detailedName: "LIK GST TR FBO Susan Schurr",                      vendorCode: "SSGST", address: "6100 Sheaff Lane",   city: "Ft. washington", state: "PA", zip: "19034",                              ownerPct: 0.049463 },
+      { id: "own-7010-susat", name: "Susan J. Korman Schurr",  detailedName: "Susan J Korman Schurr Revocable Trust",            vendorCode: "SUSAT", address: "1035 3rd Ave South", city: "Naples",          state: "FL", zip: "24102",                              ownerPct: 0.016230 },
+      { id: "own-7010-tru1",  name: "Jeffery Honickman",       detailedName: "Tr U/I 3 SJK FBO Jeffery Honickman",               vendorCode: "TRU/1",                                                                                                                  ownerPct: 0.040000 },
+      { id: "own-7010-tru2",  name: "Shirley Honickman Hahn",  detailedName: "Tr U/I 3 SJK FBO Shirley Honickman Hahn",          vendorCode: "TRU/2",                                                                                                                  ownerPct: 0.040000 },
+      { id: "own-7010-tru3",  name: "Brad Korman",             detailedName: "Tr U/I3 U/W SJK FBO Steven Korman / BJK",          vendorCode: "TRU/3",                                                                                                                  ownerPct: 0.040000 },
+      { id: "own-7010-tru4",  name: "Larry Korman",            detailedName: "Tr U/I3 U/W SJK FBO Steven Korman / LMK",          vendorCode: "TRU/4",                                                                                                                  ownerPct: 0.040000 },
+      { id: "own-7010-tru5",  name: "Mark Korman",             detailedName: "Tr U/I3 U/W SJK FBO Steven Korman / MGK",          vendorCode: "TRU/5",                                                                                                                  ownerPct: 0.040000 },
+    ],
+  },
+
   // ─── K-1 distributions ───────────────────────────────────────────────────
   {
     propertyCode: "2070",
