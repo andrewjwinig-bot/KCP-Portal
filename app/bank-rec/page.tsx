@@ -310,7 +310,7 @@ export default function BankAccTrackerPage() {
                       <th style={{ padding: "8px 14px", fontWeight: 700, width: 60, textAlign: "center" }}>STMT</th>
                       <th style={{ padding: "8px 14px", fontWeight: 700, width: 60, textAlign: "center" }}>REC</th>
                       <th style={{ padding: "8px 14px", fontWeight: 700 }}>ACCOUNT NAME</th>
-                      <th style={{ padding: "8px 14px", fontWeight: 700, width: "10%" }}>ACCOUNT</th>
+                      <th style={{ padding: "8px 14px", fontWeight: 700, width: "10%", textAlign: "center" }}>ACCOUNT</th>
                       <th style={{ padding: "8px 14px", fontWeight: 700, width: "20%" }}>BANK ACCOUNT KEY</th>
                       <th style={{ padding: "8px 14px", fontWeight: 700, width: "28%" }}>COMMENTS</th>
                     </tr>
@@ -363,7 +363,7 @@ export default function BankAccTrackerPage() {
                               {r.accountName}
                             </a>
                           </td>
-                          <td style={{ padding: "10px 14px", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", color: allDone ? "var(--muted)" : "var(--text)" }}>
+                          <td style={{ padding: "10px 14px", textAlign: "center", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", color: allDone ? "var(--muted)" : "var(--text)" }}>
                             {r.last4}
                           </td>
                           <td style={{ padding: "10px 14px", color: allDone ? "var(--muted)" : "var(--text)" }}>
