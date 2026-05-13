@@ -678,27 +678,53 @@ function DetailModal({
                   </div>
                 );
               })}
-              {ownerGroups.map((g) => (
-                <div key={g.key} style={{ marginBottom: 4 }}>
-                  {g.owners.length > 1 && (
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", padding: "4px 12px 2px", fontSize: 11 }}>
-                      <span style={{ fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                        {g.owners[0].name} · {g.owners.length} stakes
-                      </span>
-                      <span style={{ fontWeight: 700, color: "#0b4a7d" }}>
-                        Combined {(g.total * 100).toFixed(4)}%
+              {ownerGroups.map((g) => {
+                const grouped = g.owners.length > 1;
+                if (!grouped) {
+                  const inv = g.owners[0];
+                  const done = !!checked[inv.id];
+                  const hasDetail = !!(inv.detailedName || inv.address || inv.phone || inv.vendorCode || ownerPctFor(inv) != null);
+                  return (
+                    <K1InvestorRow key={inv.id} inv={inv} done={done} hasDetail={hasDetail} showK1Check={!!ownershipEntry.hasK1Distribution} />
+                  );
+                }
+                // Multi-stake: render one parent line per person + indented
+                // sub-rows for each vendor / legal payee.
+                return (
+                  <div key={g.key} style={{ marginBottom: 8 }}>
+                    <div style={{
+                      display: "flex", alignItems: "center", justifyContent: "space-between",
+                      padding: "8px 12px",
+                      background: "rgba(11,74,125,0.06)",
+                      border: "1px solid rgba(11,74,125,0.22)",
+                      borderRadius: 8,
+                      borderBottomLeftRadius: 0, borderBottomRightRadius: 0,
+                      borderBottom: "none",
+                    }}>
+                      <span style={{ fontSize: 14, fontWeight: 700 }}>{g.owners[0].name}</span>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: "#0b4a7d" }}>
+                        {(g.total * 100).toFixed(4)}%
                       </span>
                     </div>
-                  )}
-                  {g.owners.map((inv) => {
-                    const done = !!checked[inv.id];
-                    const hasDetail = !!(inv.detailedName || inv.address || inv.phone || inv.vendorCode || ownerPctFor(inv) != null);
-                    return (
-                      <K1InvestorRow key={inv.id} inv={inv} done={done} hasDetail={hasDetail} showK1Check={!!ownershipEntry.hasK1Distribution} />
-                    );
-                  })}
-                </div>
-              ))}
+                    <div style={{
+                      borderLeft: "1px solid rgba(11,74,125,0.22)",
+                      borderRight: "1px solid rgba(11,74,125,0.22)",
+                      borderBottom: "1px solid rgba(11,74,125,0.22)",
+                      borderBottomLeftRadius: 8, borderBottomRightRadius: 8,
+                      padding: "4px 8px 4px 24px",
+                      background: "rgba(11,74,125,0.02)",
+                    }}>
+                      {g.owners.map((inv) => {
+                        const done = !!checked[inv.id];
+                        const hasDetail = !!(inv.detailedName || inv.address || inv.phone || inv.vendorCode || ownerPctFor(inv) != null);
+                        return (
+                          <K1InvestorRow key={inv.id} inv={inv} done={done} hasDetail={hasDetail} showK1Check={!!ownershipEntry.hasK1Distribution} />
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
               {ownershipTotal > 0 && (
                 <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 12px", borderRadius: 8, background: "rgba(15,23,42,0.04)", border: "1px solid var(--border)", marginTop: 4 }}>
                   <span style={{ fontSize: 12, fontWeight: 700, color: "var(--muted)" }}>Total</span>
