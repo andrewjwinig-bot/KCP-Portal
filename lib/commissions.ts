@@ -70,6 +70,22 @@ function parseDateLoose(s: string): Date | null {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
+/** Normalize any accepted date string into ISO yyyy-mm-dd (for <input type="date">). */
+export function toIsoDate(s: string): string {
+  const d = parseDateLoose(s);
+  if (!d) return "";
+  const mo = String(d.getMonth() + 1).padStart(2, "0");
+  const dy = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${mo}-${dy}`;
+}
+
+/** Format a date string as m/d/yyyy for display. Falls back to the input when unparseable. */
+export function toDisplayDate(s: string): string {
+  const d = parseDateLoose(s);
+  if (!d) return s ?? "";
+  return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`;
+}
+
 /** Builds the next-N quarter labels relative to today, ordered most recent first.
  *  Short format like "Q2 26" to save horizontal space in the form. */
 export function recentQuarterLabels(count: number = 8, now: Date = new Date()): string[] {
