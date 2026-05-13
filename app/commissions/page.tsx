@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import * as XLSX from "xlsx";
+import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import type { RentRollData } from "../../lib/rentroll/parseRentRollExcel";
 import { PROPERTY_DEFS, type FundGroup } from "../../lib/properties/data";
 import {
@@ -260,6 +261,31 @@ export default function CommissionsPage() {
     const next = (Number.isFinite(current) ? current : 97338) + 1;
     try { localStorage.setItem(BATCH_STORAGE_KEY, String(next)); } catch { /* ignore */ }
     return next;
+  }
+
+  /** Generates and downloads a Nancy L. Fox incentive-compensation memo PDF
+   *  for the chosen quarter, broken out into JV III then NI LLC sections,
+   *  each sorted by building (then by suite). */
+  async function downloadMemoPdf(quarter: string, list: CommissionEntry[]) {
+    const parsed = parseQuarterLabel(quarter);
+    if (!parsed) { setError(`Could not parse quarter "${quarter}"`); return; }
+    try {
+      const bytes = await buildCommissionMemoPdf({ quarter, entries: list, parsed });
+      // Wrap in a fresh ArrayBuffer to satisfy lib.dom's BlobPart typing
+      // (pdf-lib returns a Uint8Array which is technically ArrayBufferView).
+      const ab = new ArrayBuffer(bytes.byteLength);
+      new Uint8Array(ab).set(bytes);
+      const blob = new Blob([ab], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Commissions ${quarterShortCode(parsed.quarter, parsed.year)} - Nancy L Fox.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setError(null);
+    } catch (e: any) {
+      setError(e?.message ?? "PDF failed");
+    }
   }
 
   function deleteEntry(id: string) {
@@ -533,32 +559,28 @@ export default function CommissionsPage() {
                     display: "flex", alignItems: "center", justifyContent: "space-between",
                     padding: "10px 14px", background: "rgba(11,74,125,0.05)",
                     borderBottom: "1px solid var(--border)",
-                    gap: 10, flexWrap: "wrap",
                   }}>
-                    <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
-                      <span style={{ fontWeight: 800, fontSize: 14 }}>{quarter}</span>
-                      <span className="muted small">
-                        {list.length} · Incentive {toMoney(total)} · Gross {toMoney(totalGross)}
-                      </span>
-                    </div>
-                    <div style={{ display: "flex", gap: 6 }}>
-                      <button
-                        className="btn"
-                        onClick={() => downloadJournalEntry("JV III", quarter, list)}
-                        title={`Download JV III Journal Entry for ${quarter}`}
-                        style={{ padding: "5px 10px", fontSize: 11, fontWeight: 700 }}
-                      >
-                        ↓ JV III JE
-                      </button>
-                      <button
-                        className="btn"
-                        onClick={() => downloadJournalEntry("NI LLC", quarter, list)}
-                        title={`Download NI LLC Journal Entry for ${quarter}`}
-                        style={{ padding: "5px 10px", fontSize: 11, fontWeight: 700 }}
-                      >
-                        ↓ NI LLC JE
-                      </button>
-                    </div>
+                    <span style={{ fontWeight: 800, fontSize: 14 }}>{quarter}</span>
+                    <span className="muted small">
+                      {list.length} · Incentive {toMoney(total)} · Gross {toMoney(totalGross)}
+                    </span>
+                  </div>
+
+                  {/* Download bar — matches payroll page button group style */}
+                  <div style={{
+                    display: "flex", gap: 8, flexWrap: "wrap",
+                    padding: "10px 14px",
+                    borderBottom: "1px solid var(--border)",
+                  }}>
+                    <button className="btn" onClick={() => downloadMemoPdf(quarter, list)}>
+                      Download PDF Memo
+                    </button>
+                    <button className="btn" onClick={() => downloadJournalEntry("JV III", quarter, list)}>
+                      Download JV III JE
+                    </button>
+                    <button className="btn" onClick={() => downloadJournalEntry("NI LLC", quarter, list)}>
+                      Download NI LLC JE
+                    </button>
                   </div>
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                     <thead>
@@ -622,6 +644,161 @@ export default function CommissionsPage() {
       </div>
     </main>
   );
+}
+
+// ─── PDF memo generator ─────────────────────────────────────────────────
+
+const COMMISSIONS_MARKUP = 1.2;
+
+async function buildCommissionMemoPdf(opts: {
+  quarter: string;
+  entries: CommissionEntry[];
+  parsed: NonNullable<ReturnType<typeof parseQuarterLabel>>;
+}): Promise<Uint8Array> {
+  const { entries, parsed } = opts;
+  const periodEnd = parsed.periodEnd;
+  const periodEndStr = `${periodEnd.getMonth() + 1}/${periodEnd.getDate()}/${periodEnd.getFullYear()}`;
+
+  // Split entries by fund (JV III / NI LLC) based on the building code.
+  const jvSet = new Set(PROPERTY_DEFS.filter((p) => p.fundGroup === "JV III").map((p) => p.id.toUpperCase()));
+  const niSet = new Set(PROPERTY_DEFS.filter((p) => p.fundGroup === "NI LLC").map((p) => p.id.toUpperCase()));
+  function fundOf(e: CommissionEntry): "JV III" | "NI LLC" | null {
+    const b = (e.building || "").toUpperCase();
+    if (jvSet.has(b)) return "JV III";
+    if (niSet.has(b)) return "NI LLC";
+    return null;
+  }
+  const sorted = [...entries].sort((a, b) => {
+    const bd = a.building.localeCompare(b.building);
+    if (bd !== 0) return bd;
+    return a.suite.localeCompare(b.suite);
+  });
+  const jvEntries = sorted.filter((e) => fundOf(e) === "JV III");
+  const niEntries = sorted.filter((e) => fundOf(e) === "NI LLC");
+
+  const subtotal = entries.reduce((s, e) => s + (Number(e.incentiveAmount) || 0), 0);
+  const total    = subtotal * COMMISSIONS_MARKUP;
+
+  // ── pdf-lib setup ──
+  const pdf = await PDFDocument.create();
+  const page = pdf.addPage([612, 792]); // Letter portrait
+  const font  = await pdf.embedFont(StandardFonts.Helvetica);
+  const bold  = await pdf.embedFont(StandardFonts.HelveticaBold);
+  const black = rgb(0, 0, 0);
+  const gray  = rgb(0.35, 0.40, 0.50);
+  const ruleGray = rgb(0.75, 0.78, 0.82);
+
+  const margin = 50;
+  const pageW = 612;
+  let y = 760;
+
+  function text(s: string, x: number, yy: number, opts: { size?: number; color?: any; b?: boolean } = {}) {
+    page.drawText(s, { x, y: yy, font: opts.b ? bold : font, size: opts.size ?? 10, color: opts.color ?? black });
+  }
+  function money(n: number): string {
+    return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  // ── Memo header (To/From/Date/Subject) ─────────────────────────
+  const labelX = margin;
+  const valueX = margin + 70;
+  const rowH = 18;
+  const headerRows: [string, string][] = [
+    ["To:",      "Payroll"],
+    ["From:",    "Alison Korman"],
+    ["Date:",    periodEndStr],
+    ["Subject:", "Incentive Compensation Nancy L. Fox"],
+  ];
+  for (const [k, v] of headerRows) {
+    text(k, labelX, y, { size: 11 });
+    text(v, valueX, y, { size: 11 });
+    y -= rowH;
+  }
+  y -= 6;
+  text(`Please pay Nancy L. Fox in the amount of $${money(subtotal)}`, margin, y, { size: 11 });
+  y -= rowH;
+  text(`for incentive compensation for the quarter ended ${periodEndStr} for the following leases:`, margin, y, { size: 11 });
+  y -= rowH + 4;
+
+  // ── Table layout ──
+  // Columns: Building (40), Suite (38), Tenant (170), Lease From (62), Lease To (62), Term (38), Subtotal (60), Total (62)
+  const cols = [
+    { label: "Building",   x: margin,         w: 42,  align: "left"  as const },
+    { label: "Suite",      x: margin + 42,    w: 36,  align: "left"  as const },
+    { label: "Tenant",     x: margin + 78,    w: 170, align: "left"  as const },
+    { label: "Lease From", x: margin + 248,   w: 62,  align: "left"  as const },
+    { label: "Lease To",   x: margin + 310,   w: 62,  align: "left"  as const },
+    { label: "Term",       x: margin + 372,   w: 36,  align: "right" as const },
+    { label: "Subtotal",   x: margin + 408,   w: 52,  align: "right" as const },
+    { label: "Total",      x: margin + 460,   w: 52,  align: "right" as const },
+  ];
+
+  function drawRow(values: string[], opts: { b?: boolean; size?: number } = {}) {
+    const size = opts.size ?? 9.5;
+    cols.forEach((c, i) => {
+      const v = values[i] ?? "";
+      const tw = (opts.b ? bold : font).widthOfTextAtSize(v, size);
+      let x = c.x;
+      if (c.align === "right") x = c.x + c.w - tw;
+      page.drawText(v, { x, y, font: opts.b ? bold : font, size, color: black });
+    });
+  }
+  function drawRule() {
+    page.drawLine({ start: { x: margin, y: y + 4 }, end: { x: pageW - margin, y: y + 4 }, thickness: 0.5, color: ruleGray });
+  }
+
+  function drawSection(title: string, list: CommissionEntry[]) {
+    if (list.length === 0) return;
+    // Section heading
+    text(title, margin, y, { size: 11, b: true });
+    y -= rowH - 2;
+    // Header row
+    drawRule();
+    drawRow(cols.map((c) => c.label), { b: true });
+    y -= 13;
+    drawRule();
+    y -= 4;
+    // Rows
+    let sectionSub = 0;
+    for (const e of list) {
+      const sub = Number(e.incentiveAmount) || 0;
+      const tot = sub * COMMISSIONS_MARKUP;
+      sectionSub += sub;
+      drawRow([
+        e.building,
+        e.suite,
+        e.tenant.length > 28 ? e.tenant.slice(0, 28) + "…" : e.tenant,
+        toDisplayDate(e.leaseFrom),
+        toDisplayDate(e.leaseTo),
+        `${e.termYears}`,
+        money(sub),
+        money(tot),
+      ]);
+      y -= 13;
+    }
+    // Section totals row
+    drawRule();
+    drawRow(["", "", "", "", "", title + " TOTAL", money(sectionSub), money(sectionSub * COMMISSIONS_MARKUP)], { b: true });
+    y -= 18;
+  }
+
+  drawSection("JV III",  jvEntries);
+  drawSection("NI LLC",  niEntries);
+
+  // ── Grand total ──
+  y -= 4;
+  drawRule();
+  drawRow(["", "", "", "", "", "TOTAL", money(subtotal), money(total)], { b: true, size: 10 });
+  y -= 18;
+  drawRule();
+
+  // ── Footer ──
+  y -= 14;
+  const footer = "Please charge commissions to 6620-8501 and deposit into LIK 942-8701";
+  const fw = bold.widthOfTextAtSize(footer, 10);
+  page.drawText(footer, { x: (pageW - fw) / 2, y, font: bold, size: 10, color: black });
+
+  return pdf.save();
 }
 
 /** Numeric sort key for quarter labels (most recent → highest number).
