@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useUser } from "./UserProvider";
 import UserSwitcher from "./UserSwitcher";
@@ -240,7 +241,16 @@ const NAV = [
 export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: () => void }) {
   const pathname = usePathname();
   const { user, authed, setUserId } = useUser();
-  const W = open ? 220 : 60;
+  const [isNarrow, setIsNarrow] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia("(max-width: 720px)");
+    const apply = () => setIsNarrow(mq.matches);
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, []);
+  const W = isNarrow ? (open ? 260 : 0) : (open ? 220 : 60);
 
   function isActive(item: (typeof NAV)[number]) {
     if (item.external) return false;
@@ -273,7 +283,7 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
         display: "flex",
         flexDirection: "column",
         transition: "width 0.2s ease",
-        zIndex: 40,
+        zIndex: isNarrow ? 90 : 40,
         overflow: "hidden",
         borderRight: "1px solid rgba(255,255,255,0.07)",
       }}

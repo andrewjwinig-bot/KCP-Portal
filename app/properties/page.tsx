@@ -1245,7 +1245,7 @@ export default function PropertiesPage() {
       </div>
 
       {/* ── Summary tiles ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 10, marginBottom: 18 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10, marginBottom: 18 }}>
         {([
           { key: "all",         label: "Total",       value: PROPERTY_DEFS.length, color: "var(--brand)",  activeBg: "rgba(11,74,125,0.07)",  activeBorder: "rgba(11,74,125,0.3)"  },
           { key: "Office",      label: "Office",       value: typeCounts.Office,      color: "#0b4a7d",      activeBg: "rgba(11,74,125,0.09)",  activeBorder: "rgba(11,74,125,0.35)" },
@@ -1339,7 +1339,7 @@ export default function PropertiesPage() {
                             · {fund} · {props.length}
                           </span>
                         </div>
-                        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }}>
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 14 }}>
                           {props.map(prop => (
                             <PropertyCard key={prop.id} prop={prop} onClick={() => setSelected(prop)} checked={checked} />
                           ))}
@@ -1353,7 +1353,7 @@ export default function PropertiesPage() {
                             Other
                           </div>
                         )}
-                        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }}>
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 14 }}>
                           {officeUnaffiliated.map(prop => (
                             <PropertyCard key={prop.id} prop={prop} onClick={() => setSelected(prop)} checked={checked} />
                           ))}
