@@ -70,21 +70,18 @@ function parseDateLoose(s: string): Date | null {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
-/** Builds the next-N quarter labels relative to today, ordered most recent first. */
+/** Builds the next-N quarter labels relative to today, ordered most recent first.
+ *  Short format like "Q2 26" to save horizontal space in the form. */
 export function recentQuarterLabels(count: number = 8, now: Date = new Date()): string[] {
   const out: string[] = [];
   let y = now.getFullYear();
   let q = Math.floor(now.getMonth() / 3) + 1;
   for (let i = 0; i < count; i++) {
-    out.push(`${ordinal(q)} Quarter ${y}`);
+    out.push(`Q${q} ${String(y).slice(-2)}`);
     q--;
     if (q < 1) { q = 4; y--; }
   }
   return out;
-}
-
-function ordinal(n: number): string {
-  return n === 1 ? "1st" : n === 2 ? "2nd" : n === 3 ? "3rd" : `${n}th`;
 }
 
 /** Suite parsed off the rent roll unitRef "3610-0205" → "205". */
