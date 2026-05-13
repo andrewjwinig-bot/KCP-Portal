@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 function LoginFormInner() {
@@ -8,12 +8,19 @@ function LoginFormInner() {
   const params = useSearchParams();
   const nextPath = params.get("next") || "/dashboard";
 
-  const [password, setPassword] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (busy) return;
+    const fd = new FormData(e.currentTarget);
+    const password = String(fd.get("password") ?? "");
+    if (!password) {
+      inputRef.current?.focus();
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -29,7 +36,6 @@ function LoginFormInner() {
       router.replace(nextPath);
     } catch (e: any) {
       setError(e?.message ?? "Login failed");
-    } finally {
       setBusy(false);
     }
   }
@@ -63,10 +69,11 @@ function LoginFormInner() {
         <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           <span style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", letterSpacing: "0.06em", textTransform: "uppercase" }}>Password</span>
           <input
+            ref={inputRef}
             type="password"
+            name="password"
+            autoComplete="current-password"
             autoFocus
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
             disabled={busy}
             style={{
               padding: "10px 12px",
@@ -92,7 +99,7 @@ function LoginFormInner() {
         <button
           type="submit"
           className="btn primary large"
-          disabled={busy || !password}
+          disabled={busy}
           style={{ width: "100%" }}
         >
           {busy ? "Signing in…" : "Sign In"}
