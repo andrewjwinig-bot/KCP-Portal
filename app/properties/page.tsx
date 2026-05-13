@@ -772,7 +772,7 @@ function InfoField({ label, value }: { label: string; value: string; mono?: bool
 
 function PropertyCard({ prop, onClick }: { prop: PropertyDef; onClick: () => void }) {
   const ts = TYPE_STYLE[prop.type];
-  const condo = !!prop.isCondo;
+  const isEntity = !!prop.entityKind;
 
   return (
     <button
@@ -781,9 +781,9 @@ function PropertyCard({ prop, onClick }: { prop: PropertyDef; onClick: () => voi
         display: "flex", flexDirection: "column",
         padding: "14px 16px 14px",
         minHeight: 110,
-        border: condo ? "1.5px dashed #6d28d9" : "1px solid var(--border)",
+        border: isEntity ? "1.5px dashed #6d28d9" : "1px solid var(--border)",
         borderRadius: 14,
-        background: condo ? "rgba(109,40,217,0.04)" : "#fff",
+        background: isEntity ? "rgba(109,40,217,0.04)" : "#fff",
         boxShadow: "0 2px 8px rgba(2,6,23,0.05)",
         cursor: "pointer",
         textAlign: "left",
@@ -794,30 +794,30 @@ function PropertyCard({ prop, onClick }: { prop: PropertyDef; onClick: () => voi
       onMouseEnter={e => {
         const el = e.currentTarget as HTMLElement;
         el.style.boxShadow = "0 6px 22px rgba(2,6,23,0.10)";
-        if (!condo) el.style.borderColor = ts.border;
+        if (!isEntity) el.style.borderColor = ts.border;
         el.style.transform = "translateY(-1px)";
       }}
       onMouseLeave={e => {
         const el = e.currentTarget as HTMLElement;
         el.style.boxShadow = "0 2px 8px rgba(2,6,23,0.05)";
-        if (!condo) el.style.borderColor = "var(--border)";
+        if (!isEntity) el.style.borderColor = "var(--border)";
         el.style.transform = "";
       }}
     >
-      {/* Header row: id badge + type pill (+ Condo pill if applicable) */}
+      {/* Header row: id badge + type pill (or entity pill if applicable) */}
       <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 10, flexWrap: "wrap" }}>
         <code style={{
           background: "#0b1220", color: "#e0f0ff",
           padding: "2px 8px", borderRadius: 5,
           fontSize: 11, fontWeight: 600, letterSpacing: "0.06em",
         }}>{prop.id}</code>
-        {condo ? (
+        {isEntity ? (
           <span style={{
             fontSize: 10, fontWeight: 800, letterSpacing: "0.06em",
             color: "#6d28d9", background: "rgba(109,40,217,0.08)",
             border: "1px solid rgba(109,40,217,0.25)",
             padding: "2px 8px", borderRadius: 999, textTransform: "uppercase",
-          }}>Condo</span>
+          }}>{prop.entityKind}</span>
         ) : (
           <TypePill type={prop.type} />
         )}
