@@ -1006,6 +1006,8 @@ function PropertyCard({ prop, onClick }: { prop: PropertyDef; onClick: () => voi
   const ts = TYPE_STYLE[prop.type];
   const isEntity = !!prop.entityKind;
 
+  const typeAccent = isEntity ? "" : `, inset 4px 0 0 ${ts.text}`;
+
   return (
     <button
       onClick={onClick}
@@ -1016,7 +1018,7 @@ function PropertyCard({ prop, onClick }: { prop: PropertyDef; onClick: () => voi
         border: isEntity ? "1.5px dashed #6d28d9" : "1px solid var(--border)",
         borderRadius: 14,
         background: isEntity ? "rgba(109,40,217,0.04)" : "var(--card)",
-        boxShadow: "0 2px 8px rgba(2,6,23,0.05)",
+        boxShadow: `0 2px 8px rgba(2,6,23,0.05)${typeAccent}`,
         cursor: "pointer",
         textAlign: "left",
         fontFamily: "inherit",
@@ -1025,13 +1027,13 @@ function PropertyCard({ prop, onClick }: { prop: PropertyDef; onClick: () => voi
       }}
       onMouseEnter={e => {
         const el = e.currentTarget as HTMLElement;
-        el.style.boxShadow = "0 6px 22px rgba(2,6,23,0.10)";
+        el.style.boxShadow = `0 6px 22px rgba(2,6,23,0.10)${typeAccent}`;
         if (!isEntity) el.style.borderColor = ts.border;
         el.style.transform = "translateY(-1px)";
       }}
       onMouseLeave={e => {
         const el = e.currentTarget as HTMLElement;
-        el.style.boxShadow = "0 2px 8px rgba(2,6,23,0.05)";
+        el.style.boxShadow = `0 2px 8px rgba(2,6,23,0.05)${typeAccent}`;
         if (!isEntity) el.style.borderColor = "var(--border)";
         el.style.transform = "";
       }}
@@ -1187,10 +1189,10 @@ export default function PropertiesPage() {
                   display: "flex", alignItems: "center", gap: 10, marginBottom: 12,
                 }}>
                   <span style={{
-                    fontSize: 11, fontWeight: 900, letterSpacing: "0.08em",
+                    fontSize: 14, fontWeight: 800, letterSpacing: "0.06em",
                     textTransform: "uppercase", color: ts.text,
                     background: ts.bg, border: `1px solid ${ts.border}`,
-                    padding: "3px 10px", borderRadius: 999,
+                    padding: "5px 14px", borderRadius: 999,
                   }}>{type}</span>
                   <span style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600 }}>{group.length}</span>
                   <div style={{ flex: 1, height: 1, background: "var(--border)" }} />

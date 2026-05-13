@@ -152,8 +152,17 @@ export default function InvestorInfoPage() {
 
   function renderHoldingCard(h: PropertyHolding) {
     const open = !!openIds[h.propertyCode];
+    const ts = TYPE_STYLE[h.type as PropType];
     return (
-      <div key={h.propertyCode} className="card" style={{ padding: 0, overflow: "hidden" }}>
+      <div
+        key={h.propertyCode}
+        className="card"
+        style={{
+          padding: 0,
+          overflow: "hidden",
+          boxShadow: `var(--shadow), inset 4px 0 0 ${ts.text}`,
+        }}
+      >
         <button
           type="button"
           onClick={() => toggleOpen(h.propertyCode)}
@@ -371,10 +380,10 @@ export default function InvestorInfoPage() {
                 <div key={type}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
                     <span style={{
-                      fontSize: 11, fontWeight: 900, letterSpacing: "0.08em",
+                      fontSize: 14, fontWeight: 800, letterSpacing: "0.06em",
                       textTransform: "uppercase", color: ts.text,
                       background: ts.bg, border: `1px solid ${ts.border}`,
-                      padding: "3px 10px", borderRadius: 999,
+                      padding: "5px 14px", borderRadius: 999,
                     }}>{type}</span>
                     <span style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600 }}>{group.length}</span>
                     <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
