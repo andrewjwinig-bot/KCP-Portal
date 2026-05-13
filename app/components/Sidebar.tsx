@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import { useUser } from "./UserProvider";
 import UserSwitcher from "./UserSwitcher";
+import ThemeToggle from "./ThemeToggle";
 
 // Maps each NAV label to a role key. Items in this map are gated; items not in it are always visible.
 const NAV_ROLE_KEY: Record<string, string> = {
@@ -258,6 +259,7 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
         }}
       >
         {open && <UserSwitcher collapsed={false} />}
+        <ThemeToggle />
         <button
           onClick={onToggle}
           title={open ? "Collapse sidebar" : "Expand sidebar"}

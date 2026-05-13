@@ -18,6 +18,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap"
           rel="stylesheet"
         />
+        {/* Apply persisted theme before paint to avoid a light → dark flicker. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem('kcp:theme');if(t==='dark')document.documentElement.dataset.theme='dark';}catch(e){}})();`,
+          }}
+        />
       </head>
       <body>
         <UserProvider>
