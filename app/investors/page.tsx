@@ -40,19 +40,16 @@ function normName(s: string): string {
   return s.toLowerCase().replace(/\s+/g, " ").trim();
 }
 
-type GroupedOwnerRow = {
-  owner: PropertyOwner;
-  groupKey: string;
-  groupTotal: number;
-  groupSize: number;
-  indexInGroup: number;        // 0-based
-  isLastInGroup: boolean;
+type OwnerGroup = {
+  key: string;
+  name: string;       // display name of the person
+  total: number;      // sum of ownership across all stakes
+  owners: PropertyOwner[];
 };
 
 /** Group owners by normalized name; sort groups by total ownership desc;
- *  sort within each group by row ownership desc. Returns a flat list of
- *  rows annotated with their group context. */
-function groupAndSortOwners(owners: PropertyOwner[]): GroupedOwnerRow[] {
+ *  sort within each group by row ownership desc. */
+function buildOwnerGroups(owners: PropertyOwner[]): OwnerGroup[] {
   const byKey = new Map<string, PropertyOwner[]>();
   for (const o of owners) {
     const key = normName(o.name);
@@ -63,28 +60,16 @@ function groupAndSortOwners(owners: PropertyOwner[]): GroupedOwnerRow[] {
   for (const arr of byKey.values()) {
     arr.sort((a, b) => (ownershipFor(b) ?? 0) - (ownershipFor(a) ?? 0));
   }
-  const totals = new Map<string, number>();
+  const out: OwnerGroup[] = [];
   for (const [k, arr] of byKey.entries()) {
-    totals.set(k, arr.reduce((s, o) => s + (ownershipFor(o) ?? 0), 0));
-  }
-  const sortedKeys = [...byKey.keys()].sort(
-    (a, b) => (totals.get(b) ?? 0) - (totals.get(a) ?? 0),
-  );
-  const out: GroupedOwnerRow[] = [];
-  for (const k of sortedKeys) {
-    const arr = byKey.get(k)!;
-    const total = totals.get(k) ?? 0;
-    arr.forEach((o, i) => {
-      out.push({
-        owner: o,
-        groupKey: k,
-        groupTotal: total,
-        groupSize: arr.length,
-        indexInGroup: i,
-        isLastInGroup: i === arr.length - 1,
-      });
+    out.push({
+      key: k,
+      name: arr[0].name,
+      total: arr.reduce((s, o) => s + (ownershipFor(o) ?? 0), 0),
+      owners: arr,
     });
   }
+  out.sort((a, b) => b.total - a.total);
   return out;
 }
 
@@ -282,44 +267,59 @@ export default function InvestorInfoPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {groupAndSortOwners(h.owners).map((row) => {
-                          const inv = row.owner;
-                          const grouped = row.groupSize > 1;
-                          const isFirst = row.indexInGroup === 0;
-                          const borderColor = grouped && !isFirst
-                            ? "rgba(11,74,125,0.12)"
-                            : "var(--border)";
-                          const leftAccent = grouped ? "3px solid rgba(11,74,125,0.35)" : undefined;
-                          return (
-                            <tr key={inv.id} style={{ borderTop: `1px solid ${borderColor}` }}>
-                              <td style={{ padding: "12px 16px", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 12, color: inv.vendorCode ? "var(--text)" : "var(--muted)", borderLeft: leftAccent }}>
-                                {inv.vendorCode ?? "—"}
-                              </td>
-                              <td style={{ padding: "12px 16px" }}>
-                                <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
-                                  <span style={{ fontWeight: 600 }}>{inv.name}</span>
-                                  {grouped && isFirst && (
-                                    <span style={{
-                                      fontSize: 10, fontWeight: 700, letterSpacing: "0.06em",
-                                      padding: "2px 7px", borderRadius: 4,
-                                      background: "rgba(11,74,125,0.08)", color: "#0b4a7d",
-                                      border: "1px solid rgba(11,74,125,0.25)",
-                                      textTransform: "uppercase",
-                                    }}>
-                                      Combined {pct(row.groupTotal)} · {row.groupSize} stakes
-                                    </span>
+                        {buildOwnerGroups(h.owners).flatMap((g) => {
+                          const multi = g.owners.length > 1;
+                          if (!multi) {
+                            const inv = g.owners[0];
+                            return [(
+                              <tr key={inv.id} style={{ borderTop: "1px solid var(--border)" }}>
+                                <td style={{ padding: "12px 16px", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 12, color: inv.vendorCode ? "var(--text)" : "var(--muted)" }}>
+                                  {inv.vendorCode ?? "—"}
+                                </td>
+                                <td style={{ padding: "12px 16px" }}>
+                                  <div style={{ fontWeight: 600 }}>{inv.name}</div>
+                                  {inv.detailedName && (
+                                    <div className="muted small" style={{ marginTop: 2 }}>{inv.detailedName}</div>
                                   )}
-                                </div>
-                                {inv.detailedName && (
-                                  <div className="muted small" style={{ marginTop: 2 }}>{inv.detailedName}</div>
-                                )}
+                                </td>
+                                <td style={{ padding: "12px 16px", color: "var(--muted)" }}>
+                                  {[inv.address, inv.city, inv.state, inv.zip].filter(Boolean).join(", ") || "—"}
+                                </td>
+                                <td style={{ padding: "12px 16px", textAlign: "right" }}>{pct(ownershipFor(inv))}</td>
+                              </tr>
+                            )];
+                          }
+                          // Multi-stake: primary row with name + combined %,
+                          // then indented sub-rows per legal payee.
+                          const rows = [(
+                            <tr key={`${g.key}-primary`} style={{ borderTop: "1px solid var(--border)", background: "rgba(15,23,42,0.025)" }}>
+                              <td style={{ padding: "12px 16px", color: "var(--muted)", fontSize: 11 }}>—</td>
+                              <td style={{ padding: "12px 16px" }}>
+                                <div style={{ fontWeight: 700, fontSize: 15 }}>{g.name}</div>
                               </td>
-                              <td style={{ padding: "12px 16px", color: "var(--muted)" }}>
-                                {[inv.address, inv.city, inv.state, inv.zip].filter(Boolean).join(", ") || "—"}
+                              <td style={{ padding: "12px 16px", color: "var(--muted)", fontSize: 11 }}>
+                                {g.owners.length} stakes
                               </td>
-                              <td style={{ padding: "12px 16px", textAlign: "right" }}>{pct(ownershipFor(inv))}</td>
+                              <td style={{ padding: "12px 16px", textAlign: "right", fontWeight: 700 }}>{pct(g.total)}</td>
                             </tr>
-                          );
+                          )];
+                          g.owners.forEach((inv) => {
+                            rows.push(
+                              <tr key={inv.id} style={{ borderTop: "1px solid rgba(11,74,125,0.08)" }}>
+                                <td style={{ padding: "8px 16px", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 11, color: inv.vendorCode ? "var(--text)" : "var(--muted)", paddingLeft: 36 }}>
+                                  {inv.vendorCode ?? "—"}
+                                </td>
+                                <td style={{ padding: "8px 16px", fontSize: 12, color: "var(--muted)" }}>
+                                  {inv.detailedName || <span style={{ fontStyle: "italic" }}>(direct)</span>}
+                                </td>
+                                <td style={{ padding: "8px 16px", color: "var(--muted)", fontSize: 12 }}>
+                                  {[inv.address, inv.city, inv.state, inv.zip].filter(Boolean).join(", ") || "—"}
+                                </td>
+                                <td style={{ padding: "8px 16px", textAlign: "right", fontSize: 12 }}>{pct(ownershipFor(inv))}</td>
+                              </tr>,
+                            );
+                          });
+                          return rows;
                         })}
                       </tbody>
                     </table>
