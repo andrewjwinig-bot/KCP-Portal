@@ -362,61 +362,57 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
         })}
       </nav>
 
-      {/* Bottom row — Log out (if authed) + theme toggle (only when expanded) */}
-      {(authed || open) && (
-        <div style={{
-          padding: open ? "10px 8px 14px" : "10px 6px 14px",
-          borderTop: "1px solid rgba(255,255,255,0.07)",
-          flexShrink: 0,
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-        }}>
-          {authed && (
-            <button
-              onClick={async () => {
-                try { await fetch("/api/history/logout", { method: "POST" }); } catch { /* ignore */ }
-                setUserId("harry");
-                window.location.reload();
-              }}
-              title="Log out admin"
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-                flex: 1,
-                padding: open ? "9px 10px" : "9px 0",
-                justifyContent: open ? "flex-start" : "center",
-                borderRadius: 8,
-                background: "transparent",
-                color: "#e0f0ff",
-                border: "none",
-                fontSize: 14,
-                fontWeight: 500,
-                cursor: "pointer",
-                whiteSpace: "nowrap",
-              }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.12)"; }}
+      {/* Bottom row — Sign Out + theme/notification toggles (only when expanded) */}
+      <div style={{
+        padding: open ? "10px 8px 14px" : "10px 6px 14px",
+        borderTop: "1px solid rgba(255,255,255,0.07)",
+        flexShrink: 0,
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+      }}>
+        <button
+          onClick={async () => {
+            try { await fetch("/api/site/logout", { method: "POST" }); } catch { /* ignore */ }
+            setUserId("harry");
+            window.location.href = "/login";
+          }}
+          title="Sign out"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            flex: 1,
+            padding: open ? "9px 10px" : "9px 0",
+            justifyContent: open ? "flex-start" : "center",
+            borderRadius: 8,
+            background: "transparent",
+            color: "#e0f0ff",
+            border: "none",
+            fontSize: 14,
+            fontWeight: 500,
+            cursor: "pointer",
+            whiteSpace: "nowrap",
+          }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.12)"; }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
-            >
-              <span style={{ flexShrink: 0, display: "flex" }}>
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                  <polyline points="16 17 21 12 16 7" />
-                  <line x1="21" y1="12" x2="9" y2="12" />
-                </svg>
-              </span>
-              {open && <span>Log out</span>}
-            </button>
-          )}
-          {open && (
-            <div style={{ display: "flex", gap: 6, marginLeft: authed ? 0 : "auto" }}>
-              <NotificationsToggle />
-              <ThemeToggle />
-            </div>
-          )}
-        </div>
-      )}
+        >
+          <span style={{ flexShrink: 0, display: "flex" }}>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+              <polyline points="16 17 21 12 16 7" />
+              <line x1="21" y1="12" x2="9" y2="12" />
+            </svg>
+          </span>
+          {open && <span>Sign out</span>}
+        </button>
+        {open && (
+          <div style={{ display: "flex", gap: 6 }}>
+            <NotificationsToggle />
+            <ThemeToggle />
+          </div>
+        )}
+      </div>
     </div>
   );
 }
