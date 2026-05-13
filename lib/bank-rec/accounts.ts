@@ -25,7 +25,7 @@ export const UNIQUE_BANK_ACCOUNTS: UniqueBankAccount[] = [
 
   // ── JPM-Chase ─────────────────────────────────────────────────────
   { bank: "JPM-Chase",   key: "KH 509 9800",          last4: "x7857", accountName: "KH 509 LLC" },
-  { bank: "JPM-Chase",   key: "JPM 3610",             last4: "x5631", accountName: "Lincoln Sub Jnt Vent III LIK Mgmt DBA KCP" },
+  { bank: "JPM-Chase",   key: "JPM 3610",             last4: "x5631", accountName: "PJV3 JVIII OP" },
   { bank: "JPM-Chase",   key: "JPM 2300",             last4: "x5615", accountName: "Brookwood Shopping Center JV" },
   { bank: "JPM-Chase",   key: "JPM 7010",             last4: "x5656", accountName: "Parkwood JV LIK MGmt DBA KCP Escr" },
   { bank: "JPM-Chase",   key: "JPM 2010 Escrow",      last4: "x2190", accountName: "LIK Management Inc dba KCP" },
