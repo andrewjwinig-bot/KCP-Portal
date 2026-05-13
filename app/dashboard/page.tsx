@@ -61,11 +61,8 @@ export default function DashboardPage() {
   const bankRec = useMemo(() => {
     const { date, period, daysUntil } = nextBankRecDeadline();
     const total = UNIQUE_BANK_ACCOUNTS.length;
-    const totalTasks = total * 2;
-    const stmtDone = UNIQUE_BANK_ACCOUNTS.filter((a) => bankStmtChecked[bankRecKey(a.last4, period)]).length;
-    const recDone  = UNIQUE_BANK_ACCOUNTS.filter((a) => bankRecChecked[bankRecKey(a.last4, period)]).length;
-    const doneTasks = stmtDone + recDone;
-    const remaining = totalTasks - doneTasks;
+    const recDone = UNIQUE_BANK_ACCOUNTS.filter((a) => bankRecChecked[bankRecKey(a.last4, period)]).length;
+    const remaining = total - recDone;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const overdue = date < today && remaining > 0;
@@ -75,8 +72,8 @@ export default function DashboardPage() {
       : daysUntil === 0 ? "today"
       : daysUntil <= 3 ? "soon"
       : "later";
-    return { date, period, daysUntil, total, totalTasks, stmtDone, recDone, doneTasks, remaining, status };
-  }, [bankRecChecked, bankStmtChecked]);
+    return { date, period, daysUntil, total, recDone, remaining, status };
+  }, [bankRecChecked]);
 
   // Separate "download bank statements" item — due the 1st of each month.
   const bankStmt = useMemo(() => {
@@ -540,7 +537,7 @@ export default function DashboardPage() {
                 }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 600, fontSize: 14 }}>
-                    Bank Accounts — {bankRecPeriodLabel(bankRec.period)}
+                    Reconcile Bank Statements — {bankRecPeriodLabel(bankRec.period)}
                     {bankRec.status === "overdue" && (
                       <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 999, background: "rgba(220,38,38,0.15)", color: "#b91c1c", border: "1px solid rgba(220,38,38,0.35)", letterSpacing: "0.04em" }}>
                         PAST DUE
@@ -548,9 +545,9 @@ export default function DashboardPage() {
                     )}
                   </div>
                   <div className="muted small" style={{ marginTop: 2 }}>
-                    {bankRec.status === "done"
-                      ? `All ${bankRec.total} accounts done ✓`
-                      : `${bankRec.stmtDone}/${bankRec.total} statements · ${bankRec.recDone}/${bankRec.total} reconciled · due ${bankRec.date.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`}
+                    {bankRec.recDone === bankRec.total
+                      ? `All ${bankRec.total} accounts reconciled ✓`
+                      : `${bankRec.recDone}/${bankRec.total} reconciled · due ${bankRec.date.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`}
                   </div>
                 </div>
                 <Link href="/bank-rec" style={{ fontSize: 12, fontWeight: 600, color: "#0b4a7d", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>
