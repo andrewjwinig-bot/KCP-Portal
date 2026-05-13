@@ -195,9 +195,9 @@ export default function BankRecTrackerPage() {
                   <thead>
                     <tr style={{ textAlign: "left", color: "var(--muted)", fontSize: 11, letterSpacing: "0.04em" }}>
                       <th style={{ padding: "8px 14px", fontWeight: 700, width: 60 }}></th>
-                      <th style={{ padding: "8px 14px", fontWeight: 700, width: "28%" }}>BANK ACCOUNT KEY</th>
-                      <th style={{ padding: "8px 14px", fontWeight: 700, width: "12%" }}>ACCOUNT</th>
                       <th style={{ padding: "8px 14px", fontWeight: 700 }}>ACCOUNT NAME</th>
+                      <th style={{ padding: "8px 14px", fontWeight: 700, width: "12%" }}>ACCOUNT</th>
+                      <th style={{ padding: "8px 14px", fontWeight: 700, width: "28%" }}>BANK ACCOUNT KEY</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -226,13 +226,13 @@ export default function BankRecTrackerPage() {
                             color: isDone ? "var(--muted)" : "var(--text)",
                             textDecoration: isDone ? "line-through" : "none",
                           }}>
-                            {r.key}
+                            {r.accountName}
                           </td>
                           <td style={{ padding: "10px 14px", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", color: isDone ? "var(--muted)" : "var(--text)" }}>
                             {r.last4}
                           </td>
                           <td style={{ padding: "10px 14px", color: isDone ? "var(--muted)" : "var(--text)" }}>
-                            {r.accountName}
+                            {r.key}
                           </td>
                         </tr>
                       );
