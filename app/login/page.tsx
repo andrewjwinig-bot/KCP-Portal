@@ -1,10 +1,9 @@
 "use client";
 
 import { Suspense, useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 
 function LoginFormInner() {
-  const router = useRouter();
   const params = useSearchParams();
   const nextPath = params.get("next") || "/dashboard";
 
@@ -33,7 +32,7 @@ function LoginFormInner() {
         const j = await res.json().catch(() => ({}));
         throw new Error(j?.error ?? "Login failed");
       }
-      router.replace(nextPath);
+      window.location.assign(nextPath);
     } catch (e: any) {
       setError(e?.message ?? "Login failed");
       setBusy(false);
