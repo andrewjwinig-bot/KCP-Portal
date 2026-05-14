@@ -118,7 +118,19 @@ export default function MaintenancePage() {
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
       <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
         <h1>Maintenance</h1>
-        <BackfillButton onDone={reload} />
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          <a
+            href="/submit"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn primary"
+            style={{ fontSize: 13, padding: "6px 12px", textDecoration: "none" }}
+            title="Open the public tenant submission form in a new tab"
+          >
+            Preview tenant form →
+          </a>
+          <BackfillButton onDone={reload} />
+        </div>
       </header>
 
       <div style={{ display: "flex", gap: 4, borderBottom: "1px solid var(--border)" }}>
