@@ -726,13 +726,15 @@ function DetailModal({
 
           {/* ── Tax Filings ── */}
           {filingTasks.length > 0 && (
-            <section>
-              <SectionLabel>
-                Tax Filings
+            <CollapsibleSection
+              title="Tax Filings"
+              count={filingTasks.length}
+              link={
                 <Link href="/tracker/taxes" style={{ fontSize: 11, fontWeight: 600, color: "var(--brand)", marginLeft: 8, textDecoration: "none" }}>
                   Open Filing Tracker →
                 </Link>
-              </SectionLabel>
+              }
+            >
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 {filingTasks.map(t => {
                   const status = filingStatus(t);
@@ -786,18 +788,20 @@ function DetailModal({
                   );
                 })}
               </div>
-            </section>
+            </CollapsibleSection>
           )}
 
           {/* ── Ownership ── */}
           {ownershipEntry && ownershipEntry.owners.length > 0 && (
-            <section>
-              <SectionLabel>
-                Ownership
+            <CollapsibleSection
+              title="Ownership"
+              count={ownershipEntry.owners.length}
+              link={
                 <Link href="/investors" style={{ fontSize: 11, fontWeight: 600, color: "var(--brand)", marginLeft: 8, textDecoration: "none" }}>
                   Open Investor Info →
                 </Link>
-              </SectionLabel>
+              }
+            >
               {k1Tasks.map((t) => {
                 const allDone = t.investors?.every((inv) => checked[inv.id]) ?? false;
                 return (
@@ -867,7 +871,7 @@ function DetailModal({
                   <span style={{ fontSize: 12, fontWeight: 700 }}>{`${(ownershipTotal * 100).toFixed(4)}%`}</span>
                 </div>
               )}
-            </section>
+            </CollapsibleSection>
           )}
 
           {/* ── GL Allocations ── */}
@@ -988,6 +992,53 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
     }}>
       {children}
     </div>
+  );
+}
+
+function CollapsibleSection({ title, link, count, children }: {
+  title: string;
+  link?: React.ReactNode;
+  count?: number;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <section>
+      <div style={{
+        display: "flex", alignItems: "center", gap: 6,
+        marginBottom: open ? 12 : 0,
+      }}>
+        <button
+          onClick={() => setOpen((v) => !v)}
+          style={{
+            display: "flex", alignItems: "center", gap: 6,
+            background: "transparent", border: "none", padding: 0,
+            fontSize: 11, fontWeight: 900, letterSpacing: "0.08em",
+            color: "var(--muted)", textTransform: "uppercase",
+            cursor: "pointer", fontFamily: "inherit",
+          }}
+        >
+          <svg
+            width="10" height="10" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"
+            style={{ transform: open ? "rotate(90deg)" : "rotate(0)", transition: "transform 0.15s" }}
+          >
+            <polyline points="9 18 15 12 9 6" />
+          </svg>
+          <span>{title}</span>
+          {typeof count === "number" && (
+            <span style={{
+              fontSize: 10, fontWeight: 800,
+              padding: "1px 7px", borderRadius: 999,
+              background: "rgba(15,23,42,0.06)", color: "var(--muted)",
+              letterSpacing: 0,
+            }}>{count}</span>
+          )}
+        </button>
+        {link && <span onClick={(e) => e.stopPropagation()}>{link}</span>}
+      </div>
+      {open && children}
+    </section>
   );
 }
 
