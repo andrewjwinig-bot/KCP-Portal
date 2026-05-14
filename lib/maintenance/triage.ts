@@ -28,19 +28,16 @@ const Electrical: RequestCategory = "Electrical";
 const Plumbing: RequestCategory = "Plumbing";
 const HVAC: RequestCategory = "HVAC";
 const General: RequestCategory = "General Repairs";
-const Cleaning: RequestCategory = "Cleaning / Janitorial";
+const Cleaning: RequestCategory = "Cleaning / Trash";
 const Lighting: RequestCategory = "Lighting";
 const Doors: RequestCategory = "Doors / Locks";
 const Windows: RequestCategory = "Windows / Glass";
 const Pest: RequestCategory = "Pest Control";
 const Safety: RequestCategory = "Safety / Compliance";
 const Exterior: RequestCategory = "Exterior Maintenance";
-const Interior: RequestCategory = "Interior Maintenance";
-const Access: RequestCategory = "Access Request";
 const Move: RequestCategory = "Move-In / Move-Out";
 const Noise: RequestCategory = "Noise Complaint";
 const Landscaping: RequestCategory = "Landscaping";
-const Trash: RequestCategory = "Trash / Waste";
 
 export const RULES: Rule[] = [
   // ── Safety / Compliance ── always High; checked first so it wins
@@ -68,9 +65,10 @@ export const RULES: Rule[] = [
   { re: /\b(no (heat|ac|air|cooling|a\/c)|heat(er|ing)?( is)? (not|isn'?t) working|ac (not|isn'?t) working|hvac (down|broken|out))\b/i, category: HVAC, priority: "High" },
   { re: /\b(thermostat|hvac|heater|heating|cooling|air condition(ing|er)|vent(ilation|s)?|furnace|boiler)\b/i,                      category: HVAC },
 
-  // ── Doors / Locks ── security signals are High
+  // ── Doors / Locks / Access ── security signals are High; key fobs and
+  // badge access fold in here now that there's no separate Access Request.
   { re: /\b(locked out|can'?t lock|won'?t lock|broken lock|deadbolt (broken|stuck)|key (stuck|broken)|security (concern|issue|breach))\b/i, category: Doors, priority: "High" },
-  { re: /\b(door|lock|hinge|knob|handle|latch|keypad|key fob|card reader)\b/i,                                                     category: Doors },
+  { re: /\b(door|lock|hinge|knob|handle|latch|keypad|key ?card|key ?fob|badge|card reader|entry pass)\b/i,                         category: Doors },
 
   // ── Windows / Glass ── broken/shatter → High
   { re: /\b(broken (window|glass)|shatter(ed)? (window|glass|pane)?|cracked (window|glass))\b/i,                                   category: Windows, priority: "High" },
@@ -82,11 +80,9 @@ export const RULES: Rule[] = [
   // ── Pest control
   { re: /\b(pest|rodent|rats?|mouse|mice|roach(es)?|cockroach|ants?|bugs?|spider|termites?|infestation|exterminat(or|e|ion))\b/i,  category: Pest },
 
-  // ── Cleaning / Janitorial
+  // ── Cleaning / Trash (consolidated)
   { re: /\b(clean(ing|er)?|janitorial|sanitiz(e|ation)|dust(y|ing)?|stain|spill)\b/i,                                              category: Cleaning },
-
-  // ── Trash / Waste
-  { re: /\b(trash|garbage|dumpster|recycl(e|ing)|waste bin|compactor)\b/i,                                                          category: Trash },
+  { re: /\b(trash|garbage|dumpster|recycl(e|ing)|waste bin|compactor)\b/i,                                                          category: Cleaning },
 
   // ── Landscaping
   { re: /\b(landscap(e|ing)|grass|lawn|tree|bush(es)?|mulch|sprinkler|irrigation|snow (removal|plow|shovel))\b/i,                  category: Landscaping },
@@ -101,11 +97,9 @@ export const RULES: Rule[] = [
   // ── Move
   { re: /\b(move-?in|move-?out|moving (in|out))\b/i,                                                                                category: Move },
 
-  // ── Access
-  { re: /\b(access|key ?card|key ?fob|badge|entry pass)\b/i,                                                                        category: Access },
-
-  // ── Interior generic (last so more specific rules win first)
-  { re: /\b(paint|drywall|ceiling tile|ceiling|carpet|floor(ing)?|wall(s)?|tile)\b/i,                                              category: Interior },
+  // ── Generic interior repair (paint, drywall, etc.) — no dedicated Interior
+  // category anymore, so these fall to General Repairs.
+  { re: /\b(paint|drywall|ceiling tile|ceiling|carpet|floor(ing)?|wall(s)?|tile)\b/i,                                              category: General },
 ];
 
 const PRIORITY_RANK: Record<RequestPriority, number> = { Low: 1, Medium: 2, High: 3 };
