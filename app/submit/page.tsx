@@ -4,8 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 import type { CompanyMatch } from "@/app/api/tenants/companies/route";
 
-// Public tenant-facing maintenance request form. No auth required — the
-// matching API endpoint is honeypot + rate-limited.
+// Public tenant-facing maintenance request form, styled to match the
+// kormancommercial.com Maintenance page so it can drop in as a replacement.
+// Rendering is fully raw (AppShell treats /submit as a public route).
 
 const SUBMITTABLE_PROPERTIES = PROPERTY_DEFS
   .filter((p) => !p.entityKind && (p.type === "Office" || p.type === "Retail" || p.type === "Residential"))
@@ -21,13 +22,22 @@ type LookupContact = {
   suiteNumber: string;
 };
 
+const NAVY = "#0e2238";
+const NAVY_DEEP = "#0a1a2c";
+const ACCENT = "#0e2238";
+const LINE = "rgba(14,34,56,0.18)";
+const LINE_DARK = "rgba(14,34,56,0.55)";
+const RED = "#b91c1c";
+const BG = "#f4f5f7";
+const CARD = "#ffffff";
+const TEXT = "#1a2238";
+const MUTED = "#5a657a";
+
 export default function SubmitPage() {
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Form state — controlled inputs so we can auto-populate from the lookup
-  // endpoint and from the company-units rent-roll match.
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [tenantEmail, setTenantEmail] = useState("");
@@ -40,16 +50,11 @@ export default function SubmitPage() {
   const [photos, setPhotos] = useState<File[]>([]);
   const [autofilled, setAutofilled] = useState(false);
 
-  // Companies available for the currently-selected property.
   const [companies, setCompanies] = useState<CompanyMatch[]>([]);
   const [companiesLoading, setCompaniesLoading] = useState(false);
 
-  // Pull companies from the rent roll whenever the property changes.
   useEffect(() => {
-    if (!propertyCode) {
-      setCompanies([]);
-      return;
-    }
+    if (!propertyCode) { setCompanies([]); return; }
     let alive = true;
     setCompaniesLoading(true);
     fetch(`/api/tenants/companies?propertyCode=${encodeURIComponent(propertyCode)}`)
@@ -60,19 +65,15 @@ export default function SubmitPage() {
     return () => { alive = false; };
   }, [propertyCode]);
 
-  // When the tenant picks a company that has exactly one unit on file, pre-fill
-  // the suite number — most tenants only rent one suite per building.
   useEffect(() => {
     if (!company) return;
     const match = companies.find((c) => c.name === company);
     if (match && match.units.length === 1 && !suite) {
       setSuite(match.units[0].unitRef.replace(/^\d+-/, ""));
     }
-    // Intentionally not depending on `suite` so we only run on company change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [company, companies]);
 
-  // Debounced contact lookup when the email becomes a complete address.
   const lookupTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (lookupTimer.current) clearTimeout(lookupTimer.current);
@@ -83,9 +84,6 @@ export default function SubmitPage() {
         const j = await res.json();
         const c: LookupContact | null = j.contact ?? null;
         if (!c) return;
-        // Fill only empty fields so we never overwrite something the user
-        // just typed. After the first autofill, mark the form so we can
-        // show a "Welcome back" hint.
         let touched = false;
         if (!firstName && c.firstName) { setFirstName(c.firstName); touched = true; }
         if (!lastName && c.lastName) { setLastName(c.lastName); touched = true; }
@@ -120,8 +118,6 @@ export default function SubmitPage() {
       fd.append("suite", suite);
       fd.append("company", company);
       fd.append("description", description);
-      // Honeypot — pulled from a hidden DOM input (see the JSX below). The
-      // server treats any non-empty value as a bot.
       const honey = (e.currentTarget.elements.namedItem("website") as HTMLInputElement | null)?.value ?? "";
       fd.append("website", honey);
       photos.forEach((p) => fd.append("photos", p));
@@ -152,233 +148,267 @@ export default function SubmitPage() {
     setAutofilled(false);
   }
 
-  if (success) {
-    return (
-      <main style={pageStyle}>
-        <div style={cardStyle}>
-          <h1 style={titleStyle}>Maintenance Request Submitted</h1>
-          <p style={{ fontSize: 14, lineHeight: 1.6, marginBottom: 18 }}>
-            Thanks — your request was received and the maintenance team has been notified.
-            They&apos;ll reach out if they need more information.
-          </p>
-          <p className="muted small" style={{ marginBottom: 24 }}>
-            Reference ID: <code>{success}</code>
-          </p>
-          <button onClick={() => setSuccess(null)} className="btn primary" style={{ width: "100%" }}>
-            Submit another request
-          </button>
+  return (
+    <div style={{ background: BG, minHeight: "100vh", color: TEXT }}>
+      <KormanHeader />
+
+      <main style={{ padding: "56px 16px 80px" }}>
+        <div style={{ maxWidth: 760, margin: "0 auto" }}>
+          <div style={{ textAlign: "center", marginBottom: 42 }}>
+            <div style={{ width: 54, height: 2, background: NAVY, margin: "0 auto 24px" }} />
+            <h1 style={{
+              margin: 0,
+              fontFamily: "Georgia, 'Times New Roman', 'Cormorant Garamond', serif",
+              fontSize: "clamp(40px, 6vw, 64px)",
+              fontWeight: 300,
+              letterSpacing: "-0.01em",
+              lineHeight: 1.1,
+              color: NAVY,
+            }}>
+              Maintenance
+            </h1>
+          </div>
+
+          {success ? (
+            <SuccessPanel id={success} onAnother={() => setSuccess(null)} />
+          ) : (
+            <form onSubmit={onSubmit} style={{
+              background: CARD,
+              padding: "48px clamp(20px, 6vw, 64px) 56px",
+              boxShadow: "0 1px 0 rgba(14,34,56,0.04), 0 18px 40px rgba(14,34,56,0.06)",
+              display: "flex", flexDirection: "column", gap: 28,
+            }}>
+              {error && <ErrorBox>{error}</ErrorBox>}
+              {autofilled && (
+                <InfoBox>
+                  Welcome back — we&apos;ve pre-filled what we had on file. Double-check before submitting.
+                </InfoBox>
+              )}
+
+              {/* Honeypot */}
+              <div aria-hidden="true" style={{ position: "absolute", left: "-10000px", height: 0, width: 0, overflow: "hidden" }}>
+                <label>Website<input type="text" name="website" tabIndex={-1} autoComplete="off" /></label>
+              </div>
+
+              <Row>
+                <Field label="First Name" required>
+                  <UnderlineInput value={firstName} onChange={setFirstName} required autoComplete="given-name" />
+                </Field>
+                <Field label="Last Name" required>
+                  <UnderlineInput value={lastName} onChange={setLastName} required autoComplete="family-name" />
+                </Field>
+              </Row>
+
+              <Field label="Company" required>
+                <UnderlineSelect
+                  value={company}
+                  onChange={setCompany}
+                  disabled={!propertyCode || companiesLoading}
+                  required
+                  placeholder={
+                    !propertyCode
+                      ? "Choose a property first"
+                      : companiesLoading
+                      ? "Loading tenants…"
+                      : companies.length === 0
+                      ? "No tenants on file for this property"
+                      : "Select your company"
+                  }
+                  options={companies.map((c) => ({
+                    value: c.name,
+                    label: c.units.length === 1
+                      ? `${c.name} · ${c.units[0].unitRef}`
+                      : c.units.length > 1
+                      ? `${c.name} · ${c.units.length} suites`
+                      : c.name,
+                  }))}
+                />
+                {propertyCode && companies.length === 0 && !companiesLoading && (
+                  <span style={hintStyle}>
+                    No tenants on the current rent roll for this property. If you&apos;re a recent move-in, contact the leasing office to be added.
+                  </span>
+                )}
+              </Field>
+
+              <Row>
+                <Field label="Phone" required>
+                  <UnderlineInput value={tenantPhone} onChange={setTenantPhone} required type="tel" autoComplete="tel" />
+                </Field>
+                <Field label="Email" required>
+                  <UnderlineInput value={tenantEmail} onChange={setTenantEmail} required type="email" autoComplete="email" />
+                </Field>
+              </Row>
+
+              <Field label="Property Name" required>
+                <UnderlineSelect
+                  value={propertyCode}
+                  onChange={(v) => {
+                    setPropertyCode(v);
+                    setCompany("");
+                    setSuite("");
+                    setBuilding("");
+                  }}
+                  required
+                  placeholder="Choose your building"
+                  options={SUBMITTABLE_PROPERTIES.map((p) => ({
+                    value: p.id,
+                    label: p.address ? `${p.name} · ${p.address}` : p.name,
+                  }))}
+                />
+              </Field>
+
+              <Row>
+                <Field label="Building Number (if applicable)">
+                  <UnderlineInput value={building} onChange={setBuilding} placeholder="e.g. 5, 40A" />
+                </Field>
+                <Field label="Suite Number (if applicable)">
+                  <UnderlineInput value={suite} onChange={setSuite} placeholder="e.g. 200, 4B" />
+                </Field>
+              </Row>
+
+              <Field label="Please describe your maintenance needs" required>
+                <textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  required
+                  rows={5}
+                  style={{
+                    width: "100%", boxSizing: "border-box",
+                    padding: 14, marginTop: 6,
+                    border: `1px solid ${LINE}`,
+                    background: "transparent", color: TEXT,
+                    fontFamily: "inherit", fontSize: 15, lineHeight: 1.5,
+                    outline: "none", resize: "vertical", minHeight: 120,
+                  }}
+                  onFocus={(e) => { e.currentTarget.style.borderColor = NAVY; }}
+                  onBlur={(e) => { e.currentTarget.style.borderColor = LINE; }}
+                />
+              </Field>
+
+              <Field label="Photos (optional, up to 5)">
+                <label style={{
+                  display: "inline-flex", alignItems: "center", gap: 10,
+                  padding: "9px 16px",
+                  border: `1px solid ${LINE_DARK}`,
+                  background: "transparent", color: NAVY,
+                  fontSize: 12, fontWeight: 600, letterSpacing: "0.14em", textTransform: "uppercase",
+                  cursor: "pointer", marginTop: 8, alignSelf: "flex-start",
+                }}>
+                  Choose Photos
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={(e) => setPhotos(Array.from(e.target.files ?? []).slice(0, 5))}
+                    style={{ display: "none" }}
+                  />
+                </label>
+                {photos.length > 0 && (
+                  <span style={{ ...hintStyle, marginTop: 8 }}>
+                    {photos.length} photo{photos.length === 1 ? "" : "s"} attached:{" "}
+                    {photos.map((p) => p.name).join(", ")}
+                  </span>
+                )}
+              </Field>
+
+              <div style={{ display: "flex", justifyContent: "center", marginTop: 12 }}>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  style={{
+                    background: NAVY_DEEP, color: "#fff",
+                    border: "none", padding: "16px 48px",
+                    fontSize: 14, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase",
+                    fontFamily: "inherit",
+                    cursor: submitting ? "not-allowed" : "pointer",
+                    opacity: submitting ? 0.7 : 1,
+                    transition: "background 0.15s",
+                  }}
+                  onMouseEnter={(e) => { if (!submitting) (e.currentTarget as HTMLButtonElement).style.background = NAVY; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = NAVY_DEEP; }}
+                >
+                  {submitting ? "Submitting…" : "Submit Request"}
+                </button>
+              </div>
+
+              <p style={{ ...hintStyle, textAlign: "center", marginTop: 8 }}>
+                For after-hours emergencies (active leak, fire, security), call your property&apos;s emergency line.
+              </p>
+            </form>
+          )}
         </div>
       </main>
-    );
-  }
 
-  return (
-    <main style={pageStyle}>
-      <form onSubmit={onSubmit} style={cardStyle}>
-        <div style={{ marginBottom: 6 }}>
-          <h1 style={titleStyle}>Maintenance</h1>
-          <p className="muted small" style={{ marginTop: 6 }}>
-            Submit a maintenance issue at your KCP property. We&apos;ll respond within one business day.
-          </p>
-        </div>
-
-        {error && <ErrorBox>{error}</ErrorBox>}
-        {autofilled && (
-          <div style={infoBoxStyle}>
-            Welcome back — we pre-filled what we had on file. Double-check before submitting.
-          </div>
-        )}
-
-        {/* Honeypot — hidden from sighted users; bots tend to fill every field. */}
-        <div aria-hidden="true" style={{ position: "absolute", left: "-10000px", height: 0, width: 0, overflow: "hidden" }}>
-          <label>
-            Website
-            <input type="text" name="website" tabIndex={-1} autoComplete="off" />
-          </label>
-        </div>
-
-        <Row>
-          <Field label="First Name" required>
-            <input value={firstName} onChange={(e) => setFirstName(e.target.value)} required autoComplete="given-name" style={inputStyle} />
-          </Field>
-          <Field label="Last Name" required>
-            <input value={lastName} onChange={(e) => setLastName(e.target.value)} required autoComplete="family-name" style={inputStyle} />
-          </Field>
-        </Row>
-
-        <Row>
-          <Field label="Phone" required>
-            <input value={tenantPhone} onChange={(e) => setTenantPhone(e.target.value)} required type="tel" autoComplete="tel" style={inputStyle} />
-          </Field>
-          <Field label="Email" required>
-            <input value={tenantEmail} onChange={(e) => setTenantEmail(e.target.value)} required type="email" autoComplete="email" style={inputStyle} />
-          </Field>
-        </Row>
-
-        <Field label="Property" required>
-          <select
-            value={propertyCode}
-            onChange={(e) => {
-              setPropertyCode(e.target.value);
-              setCompany("");
-              setSuite("");
-              setBuilding("");
-            }}
-            required
-            style={inputStyle}
-          >
-            <option value="" disabled>— Choose your building —</option>
-            {SUBMITTABLE_PROPERTIES.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}{p.address ? ` · ${p.address}` : ""}
-              </option>
-            ))}
-          </select>
-        </Field>
-
-        <Field label="Company" required>
-          <select
-            value={company}
-            onChange={(e) => setCompany(e.target.value)}
-            disabled={!propertyCode || companiesLoading}
-            required
-            style={inputStyle}
-          >
-            <option value="">
-              {!propertyCode
-                ? "— Choose a property first —"
-                : companiesLoading
-                ? "Loading tenants…"
-                : companies.length === 0
-                ? "— No tenants on file —"
-                : "— Select your company —"}
-            </option>
-            {companies.map((c) => (
-              <option key={c.name} value={c.name}>
-                {c.name}
-                {c.units.length === 1 ? ` · ${c.units[0].unitRef}` : c.units.length > 1 ? ` · ${c.units.length} suites` : ""}
-              </option>
-            ))}
-          </select>
-          {propertyCode && companies.length === 0 && !companiesLoading && (
-            <span className="muted small" style={{ marginTop: 4 }}>
-              No tenants on the current rent roll for this property. If you&apos;re a recent move-in, contact the leasing office to be added.
-            </span>
-          )}
-        </Field>
-
-        <Row>
-          <Field label="Building Number (if applicable)">
-            <input value={building} onChange={(e) => setBuilding(e.target.value)} placeholder="e.g. 5, 40A" style={inputStyle} />
-          </Field>
-          <Field label="Suite Number (if applicable)">
-            <input value={suite} onChange={(e) => setSuite(e.target.value)} placeholder="e.g. 200, 4B" style={inputStyle} />
-          </Field>
-        </Row>
-
-        <Field label="Please describe your maintenance needs" required>
-          <textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            required
-            rows={5}
-            placeholder="Describe the issue in detail — when it started, where exactly, anything we should know before arriving."
-            style={{ ...inputStyle, fontFamily: "inherit", resize: "vertical", minHeight: 110 }}
-          />
-        </Field>
-
-        <Field label="Photos (optional, up to 5)">
-          <input
-            type="file"
-            accept="image/*"
-            multiple
-            onChange={(e) => {
-              const files = Array.from(e.target.files ?? []);
-              setPhotos(files.slice(0, 5));
-            }}
-            style={{ ...inputStyle, padding: 7 }}
-          />
-          {photos.length > 0 && (
-            <div className="muted small" style={{ marginTop: 6 }}>
-              {photos.length} photo{photos.length === 1 ? "" : "s"} selected: {photos.map((p) => p.name).join(", ")}
-            </div>
-          )}
-        </Field>
-
-        <button
-          type="submit"
-          disabled={submitting}
-          className="btn primary"
-          style={{ width: "100%", fontSize: 15, padding: "12px 16px", marginTop: 8 }}
-        >
-          {submitting ? "Submitting…" : "Submit request"}
-        </button>
-
-        <p className="muted small" style={{ textAlign: "center", marginTop: 14 }}>
-          For after-hours emergencies (active leak, fire, security), call your property&apos;s emergency line.
-        </p>
-      </form>
-    </main>
+      <KormanFooter />
+    </div>
   );
 }
 
-const pageStyle: React.CSSProperties = {
-  minHeight: "100vh",
-  padding: "32px 16px",
-  background: "var(--bg)",
-  display: "flex",
-  justifyContent: "center",
-  alignItems: "flex-start",
-};
+// ── Brand chrome ──────────────────────────────────────────────────────────
 
-const cardStyle: React.CSSProperties = {
-  width: "100%",
-  maxWidth: 620,
-  padding: 28,
-  borderRadius: 14,
-  background: "var(--card)",
-  border: "1px solid var(--border)",
-  boxShadow: "var(--shadow)",
-  display: "flex",
-  flexDirection: "column",
-  gap: 14,
-  position: "relative",
-};
+function KormanHeader() {
+  return (
+    <header style={{
+      background: NAVY_DEEP,
+      padding: "22px 24px",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      borderBottom: "1px solid rgba(255,255,255,0.06)",
+    }}>
+      <Wordmark color="#fff" />
+    </header>
+  );
+}
 
-const titleStyle: React.CSSProperties = {
-  margin: 0,
-  fontSize: 24,
-  fontWeight: 900,
-  letterSpacing: "-0.02em",
-};
+function KormanFooter() {
+  return (
+    <footer style={{
+      borderTop: `1px solid ${LINE}`,
+      padding: "28px 24px 36px",
+      display: "flex", flexDirection: "column", alignItems: "center", gap: 14,
+      color: MUTED,
+      fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase",
+    }}>
+      <Wordmark color={NAVY} small />
+      <span>&copy; {new Date().getFullYear()} Korman Commercial Properties</span>
+    </footer>
+  );
+}
 
-const inputStyle: React.CSSProperties = {
-  padding: "10px 12px",
-  border: "1px solid var(--border)",
-  borderRadius: 8,
-  background: "var(--card)",
-  color: "var(--text)",
-  fontFamily: "inherit",
-  fontSize: 14,
-  outline: "none",
-  width: "100%",
-  boxSizing: "border-box",
-};
+function Wordmark({ color, small }: { color: string; small?: boolean }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: small ? 10 : 14, flexShrink: 0, color }}>
+      <span style={{
+        fontFamily: "'Arial Black', 'Arial Bold', Arial, sans-serif",
+        fontWeight: 900,
+        fontSize: small ? 18 : 26,
+        letterSpacing: "-0.5px",
+        lineHeight: 1,
+      }}>
+        KORMAN
+      </span>
+      <div style={{ width: 1, height: small ? 22 : 30, background: color, opacity: 0.85, flexShrink: 0 }} />
+      <div style={{
+        fontSize: small ? 9 : 11,
+        letterSpacing: "0.22em",
+        lineHeight: 1.6,
+        fontFamily: "Arial, Helvetica, sans-serif",
+        fontWeight: 500,
+      }}>
+        <div>COMMERCIAL</div>
+        <div>PROPERTIES</div>
+      </div>
+    </div>
+  );
+}
 
-const infoBoxStyle: React.CSSProperties = {
-  fontSize: 12, color: "#0b4a7d", fontWeight: 600,
-  padding: "9px 12px",
-  background: "rgba(11,74,125,0.06)",
-  border: "1px solid rgba(11,74,125,0.25)",
-  borderRadius: 8,
-};
+// ── Form primitives ───────────────────────────────────────────────────────
 
 function Row({ children }: { children: React.ReactNode }) {
   return (
     <div style={{
       display: "grid",
-      gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-      gap: 10,
+      gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+      gap: 24,
     }}>
       {children}
     </div>
@@ -387,25 +417,156 @@ function Row({ children }: { children: React.ReactNode }) {
 
 function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
   return (
-    <label style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-      <span style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", letterSpacing: "0.06em", textTransform: "uppercase" }}>
-        {label}{required && <span style={{ color: "#b91c1c", marginLeft: 4 }}>*</span>}
-      </span>
+    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+      <label style={{ fontSize: 13, fontWeight: 500, color: NAVY }}>
+        {label}{required && <span style={{ color: RED, marginLeft: 2 }}>*</span>}
+      </label>
       {children}
-    </label>
+    </div>
   );
+}
+
+function UnderlineInput({
+  value, onChange, type = "text", required, placeholder, autoComplete,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  type?: string;
+  required?: boolean;
+  placeholder?: string;
+  autoComplete?: string;
+}) {
+  return (
+    <input
+      type={type}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      required={required}
+      placeholder={placeholder}
+      autoComplete={autoComplete}
+      style={underlineInputStyle}
+      onFocus={(e) => { e.currentTarget.style.borderBottomColor = NAVY; }}
+      onBlur={(e) => { e.currentTarget.style.borderBottomColor = LINE; }}
+    />
+  );
+}
+
+function UnderlineSelect({
+  value, onChange, options, disabled, required, placeholder,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options: { value: string; label: string }[];
+  disabled?: boolean;
+  required?: boolean;
+  placeholder?: string;
+}) {
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      disabled={disabled}
+      required={required}
+      style={{ ...underlineInputStyle, appearance: "none", WebkitAppearance: "none", paddingRight: 24, backgroundImage: caretSvg(), backgroundRepeat: "no-repeat", backgroundPosition: "right 4px center", backgroundSize: 14 }}
+      onFocus={(e) => { e.currentTarget.style.borderBottomColor = NAVY; }}
+      onBlur={(e) => { e.currentTarget.style.borderBottomColor = LINE; }}
+    >
+      <option value="" disabled={required}>{placeholder ?? "Select…"}</option>
+      {options.map((o) => (
+        <option key={o.value} value={o.value}>{o.label}</option>
+      ))}
+    </select>
+  );
+}
+
+const underlineInputStyle: React.CSSProperties = {
+  width: "100%", boxSizing: "border-box",
+  padding: "8px 0 9px",
+  border: "none", borderBottom: `1px solid ${LINE}`,
+  background: "transparent", color: TEXT,
+  fontFamily: "inherit", fontSize: 16,
+  outline: "none",
+  transition: "border-color 0.15s",
+};
+
+const hintStyle: React.CSSProperties = {
+  display: "block",
+  fontSize: 12,
+  color: MUTED,
+  marginTop: 6,
+  lineHeight: 1.5,
+};
+
+function caretSvg() {
+  // Subtle SVG caret, navy.
+  const color = encodeURIComponent(NAVY);
+  return `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 7' fill='none' stroke='${color}' stroke-width='1.4'><polyline points='1 1 6 6 11 1'/></svg>")`;
 }
 
 function ErrorBox({ children }: { children: React.ReactNode }) {
   return (
     <div style={{
-      fontSize: 13, color: "#b91c1c", fontWeight: 600,
-      padding: "10px 12px",
-      background: "rgba(220,38,38,0.06)",
-      border: "1px solid rgba(220,38,38,0.30)",
-      borderRadius: 8,
+      fontSize: 13, color: RED, fontWeight: 600,
+      padding: "10px 14px",
+      background: "rgba(220,38,38,0.04)",
+      border: `1px solid rgba(220,38,38,0.30)`,
     }}>
       {children}
+    </div>
+  );
+}
+
+function InfoBox({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{
+      fontSize: 13, color: NAVY, fontWeight: 500,
+      padding: "10px 14px",
+      background: "rgba(14,34,56,0.04)",
+      border: `1px solid ${LINE_DARK}`,
+    }}>
+      {children}
+    </div>
+  );
+}
+
+function SuccessPanel({ id, onAnother }: { id: string; onAnother: () => void }) {
+  return (
+    <div style={{
+      background: CARD,
+      padding: "56px clamp(20px, 6vw, 64px)",
+      boxShadow: "0 1px 0 rgba(14,34,56,0.04), 0 18px 40px rgba(14,34,56,0.06)",
+      display: "flex", flexDirection: "column", alignItems: "center", gap: 18, textAlign: "center",
+    }}>
+      <div style={{
+        width: 56, height: 56, borderRadius: "50%",
+        background: "rgba(22,163,74,0.10)", color: "#15803d",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        fontSize: 26, fontWeight: 700,
+      }}>✓</div>
+      <div>
+        <h2 style={{ margin: 0, fontFamily: "Georgia, serif", fontSize: 28, fontWeight: 300, color: NAVY }}>
+          Request Submitted
+        </h2>
+        <p style={{ marginTop: 10, color: MUTED, lineHeight: 1.6, fontSize: 14 }}>
+          Thanks — your request was received and the maintenance team has been notified.
+          They&apos;ll reach out if they need more information.
+        </p>
+      </div>
+      <div style={{ ...hintStyle, marginTop: 0 }}>Reference ID: <code style={{ color: NAVY }}>{id}</code></div>
+      <button
+        onClick={onAnother}
+        style={{
+          marginTop: 6,
+          background: "transparent", color: NAVY,
+          border: `1px solid ${NAVY}`,
+          padding: "12px 28px",
+          fontSize: 12, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase",
+          fontFamily: "inherit",
+          cursor: "pointer",
+        }}
+      >
+        Submit Another Request
+      </button>
     </div>
   );
 }
