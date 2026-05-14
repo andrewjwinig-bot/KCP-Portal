@@ -11,6 +11,7 @@ import {
   type RequestPriority,
 } from "@/lib/maintenance/requests";
 import { saveRequest } from "@/lib/maintenance/requestsStorage";
+import { upsertContact } from "@/lib/maintenance/tenants";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 // Public tenant submission endpoint — no site auth. Middleware exempts
@@ -68,24 +69,41 @@ export async function POST(req: NextRequest) {
   const description = String(form.get("description") ?? "").trim();
   const propertyCode = String(form.get("propertyCode") ?? "").trim();
   const propertyName = String(form.get("propertyName") ?? "").trim();
-  const unit = String(form.get("unit") ?? "").trim();
-  const tenantName = String(form.get("tenantName") ?? "").trim();
+  const building = String(form.get("building") ?? "").trim();
+  const suite = String(form.get("suite") ?? "").trim();
+  const company = String(form.get("company") ?? "").trim();
+  const firstName = String(form.get("firstName") ?? "").trim();
+  const lastName = String(form.get("lastName") ?? "").trim();
   const tenantEmail = String(form.get("tenantEmail") ?? "").trim();
   const tenantPhone = String(form.get("tenantPhone") ?? "").trim();
   const priority = asPriority(String(form.get("priority") ?? "") || null);
   const categories = asCategories(form.getAll("category").map(String));
 
-  if (!subject) return NextResponse.json({ error: "Subject is required" }, { status: 400 });
   if (!description) return NextResponse.json({ error: "Description is required" }, { status: 400 });
-  if (!tenantName) return NextResponse.json({ error: "Your name is required" }, { status: 400 });
-  if (!tenantEmail) return NextResponse.json({ error: "Your email is required" }, { status: 400 });
+  if (!firstName) return NextResponse.json({ error: "First name is required" }, { status: 400 });
+  if (!lastName) return NextResponse.json({ error: "Last name is required" }, { status: 400 });
+  if (!tenantEmail) return NextResponse.json({ error: "Email is required" }, { status: 400 });
+  if (!tenantPhone) return NextResponse.json({ error: "Phone is required" }, { status: 400 });
   if (!propertyName) return NextResponse.json({ error: "Property is required" }, { status: 400 });
 
+  const tenantName = `${firstName} ${lastName}`.trim();
+
+  // Stitch the property label so Greg sees building / suite at a glance in
+  // the queue. Building number lives in front, suite in back.
+  const locationParts: string[] = [];
+  if (building) locationParts.push(`Bldg ${building}`);
+  if (suite) locationParts.push(`Suite ${suite}`);
+  const propertyLabel = locationParts.length
+    ? `${propertyName} — ${locationParts.join(" / ")}`
+    : propertyName;
+
   // Build the new request before handling photos so we have an id for blob paths.
+  // Subject defaults to a derived label if the tenant didn't supply one (the
+  // public form doesn't expose a subject field today; keep this as a guard).
   const r: MaintenanceRequest = applyPatch(emptyRequest({
-    subject,
+    subject: subject || `${company || tenantName}: maintenance request`,
     propertyCode: propertyCode || null,
-    propertyName: unit ? `${propertyName} — Unit ${unit}` : propertyName,
+    propertyName: propertyLabel,
     tenantEmail,
     tenantName,
     priority,
@@ -93,11 +111,16 @@ export async function POST(req: NextRequest) {
     source: "portal",
   }), {});
 
-  // Compose the initial note. We capture description + phone + raw unit so
-  // Greg has all the context without rummaging through fields.
-  const noteLines = [description];
-  if (unit) noteLines.push(`\nUnit / Suite: ${unit}`);
-  if (tenantPhone) noteLines.push(`Phone: ${tenantPhone}`);
+  // Compose the initial note with the whole submission context.
+  const noteLines: string[] = [description];
+  const contextLines: string[] = [];
+  if (company) contextLines.push(`Company: ${company}`);
+  if (building) contextLines.push(`Building: ${building}`);
+  if (suite) contextLines.push(`Suite: ${suite}`);
+  if (tenantPhone) contextLines.push(`Phone: ${tenantPhone}`);
+  if (contextLines.length) {
+    noteLines.push("", ...contextLines);
+  }
   r.notes.push({
     id: "note_" + r.id + "_submit",
     author: "admin",
@@ -154,11 +177,27 @@ export async function POST(req: NextRequest) {
 
   try {
     await saveRequest(r);
-    return NextResponse.json({ ok: true, id: r.id }, { status: 201 });
   } catch (e) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : "Failed to save request" },
       { status: 500 },
     );
   }
+
+  // Best-effort tenant directory upsert — if it fails, the request still
+  // saved, so don't 500 the submission.
+  try {
+    await upsertContact({
+      firstName,
+      lastName,
+      email: tenantEmail,
+      phone: tenantPhone,
+      company,
+      propertyCode: propertyCode || null,
+      buildingNumber: building,
+      suiteNumber: suite,
+    });
+  } catch { /* ignore */ }
+
+  return NextResponse.json({ ok: true, id: r.id }, { status: 201 });
 }
