@@ -67,8 +67,8 @@ export const USERS: Record<UserId, UserDef> = {
   nancy: {
     id: "nancy",
     label: "NANCY",
-    navKeys: new Set([...universalNav, "leasing-activity", "commissions"]),
-    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/commissions"],
+    navKeys: new Set([...universalNav, "leasing-activity", "commissions", "reservations"]),
+    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/commissions", "/reservations"],
     defaultRentRollCategory: "Office",
     defaultPropertyType: "Office",
     dashboardScope: { codes: OFFICE_AND_OW_INDIVIDUAL },
@@ -85,8 +85,8 @@ export const USERS: Record<UserId, UserDef> = {
   maint: {
     id: "maint",
     label: "MAINT",
-    navKeys: new Set([...universalNav, "maintenance", "expenses"]),
-    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/expenses", "/maintenance"],
+    navKeys: new Set([...universalNav, "maintenance", "expenses", "reservations"]),
+    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/expenses", "/maintenance", "/reservations"],
     defaultRentRollCategory: "All",
     defaultPropertyType: "all",
     dashboardScope: "groups",
