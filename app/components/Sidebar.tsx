@@ -16,7 +16,7 @@ const NAV_ROLE_KEY: Record<string, string> = {
   "Rent Roll":          "rentroll",
   "Leasing Activity":   "leasing-activity",
   "Commissions":        "commissions",
-  "Master Tracker":     "tracker",
+  "Task Tracker":       "tracker",
   "Filing Tracker":     "tracker",
   "Bank Acc Tracker":   "bank-rec-tracker",
   "Payroll Invoicer":   "payroll-invoicer",
@@ -115,7 +115,7 @@ const NAV = [
     ),
   },
   {
-    label: "Master Tracker",
+    label: "Task Tracker",
     href: "/tracker",
     external: false,
     indent: false,

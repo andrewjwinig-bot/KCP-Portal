@@ -999,7 +999,7 @@ export default function TrackerPage() {
       {/* ── Header ──────────────────────────────────────────────────────── */}
       <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 18, flexWrap: "wrap", gap: 14 }}>
         <div>
-          <h1>Master Tracker</h1>
+          <h1>Task Tracker</h1>
           <p className="muted small">Monthly to-do checklist · filing deadlines · recurring tasks</p>
         </div>
 
