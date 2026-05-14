@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { BOOKABLE_ROOMS } from "@/lib/reservations/rooms";
-import type { CompanyMatch } from "@/app/api/tenants/companies/route";
 
 // Public conference-room reservation form. Matches the look of /submit.
 
@@ -43,20 +42,39 @@ export default function ReservePage() {
 
   const room = useMemo(() => BOOKABLE_ROOMS.find((r) => r.unitRef === roomUnitRef) ?? null, [roomUnitRef]);
 
-  // Companies for the selected room's property (rent-roll occupants).
-  const [companies, setCompanies] = useState<CompanyMatch[]>([]);
-  const [companiesLoading, setCompaniesLoading] = useState(false);
+  // Any office tenant can book any conference / training room — pull the
+  // full deduped list once on page load.
+  const [tenants, setTenants] = useState<string[]>([]);
+  const [tenantsLoading, setTenantsLoading] = useState(true);
   useEffect(() => {
-    if (!room) { setCompanies([]); return; }
     let alive = true;
-    setCompaniesLoading(true);
-    fetch(`/api/tenants/companies?propertyCode=${encodeURIComponent(room.propertyCode)}`)
+    fetch("/api/reservations/tenants")
       .then((r) => r.json())
-      .then((j) => { if (alive) setCompanies(j.companies ?? []); })
-      .catch(() => { if (alive) setCompanies([]); })
-      .finally(() => { if (alive) setCompaniesLoading(false); });
+      .then((j) => { if (alive) setTenants(j.tenants ?? []); })
+      .catch(() => { if (alive) setTenants([]); })
+      .finally(() => { if (alive) setTenantsLoading(false); });
     return () => { alive = false; };
-  }, [room]);
+  }, []);
+
+  // Min selectable date = today; max = today + 6 months.
+  const dateBounds = useMemo(() => {
+    const today = new Date();
+    const max = new Date(today);
+    max.setMonth(max.getMonth() + 6);
+    const fmt = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    return { min: fmt(today), max: fmt(max) };
+  }, []);
+
+  // Friendly hint when the picked date lands on a weekend.
+  const weekendWarning = useMemo(() => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+    const [y, mo, d] = date.split("-").map(Number);
+    const dow = new Date(y, mo - 1, d).getDay();
+    return (dow === 0 || dow === 6)
+      ? "Reservations are Monday through Friday only."
+      : null;
+  }, [date]);
 
   // Email autofill via tenant directory.
   const lookupTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -161,15 +179,14 @@ export default function ReservePage() {
                 <UnderlineSelect
                   value={tenantCompany}
                   onChange={setTenantCompany}
-                  disabled={!room || companiesLoading}
+                  disabled={tenantsLoading}
                   required
                   placeholder={
-                    !room ? "Choose a room first"
-                    : companiesLoading ? "Loading tenants…"
-                    : companies.length === 0 ? "No tenants on file for this property"
+                    tenantsLoading ? "Loading tenants…"
+                    : tenants.length === 0 ? "No tenants on file"
                     : "Select your company"
                   }
-                  options={companies.map((c) => ({ value: c.name, label: c.name }))}
+                  options={tenants.map((name) => ({ value: name, label: name }))}
                 />
               </Field>
 
@@ -191,16 +208,44 @@ export default function ReservePage() {
                 </Field>
               </Row>
 
-              <Field label="Date" required>
-                <UnderlineInput value={date} onChange={setDate} required type="date" />
+              <Field label="Date (Monday–Friday)" required>
+                <UnderlineInput
+                  value={date}
+                  onChange={setDate}
+                  required
+                  type="date"
+                  min={dateBounds.min}
+                  max={dateBounds.max}
+                />
+                {weekendWarning && (
+                  <span style={{ fontSize: 12, color: RED, fontWeight: 600, marginTop: 6 }}>
+                    {weekendWarning}
+                  </span>
+                )}
               </Field>
 
               <Row>
-                <Field label="Start Time" required>
-                  <UnderlineInput value={startTime} onChange={setStartTime} required type="time" />
+                <Field label="Start Time (8:00 AM – 6:00 PM, 15-min)" required>
+                  <UnderlineInput
+                    value={startTime}
+                    onChange={setStartTime}
+                    required
+                    type="time"
+                    min="08:00"
+                    max="18:00"
+                    step={900}
+                  />
                 </Field>
-                <Field label="End Time" required>
-                  <UnderlineInput value={endTime} onChange={setEndTime} required type="time" />
+                <Field label="End Time (8:00 AM – 6:00 PM, 15-min)" required>
+                  <UnderlineInput
+                    value={endTime}
+                    onChange={setEndTime}
+                    required
+                    type="time"
+                    min="08:00"
+                    max="18:00"
+                    step={900}
+                  />
                 </Field>
               </Row>
 
@@ -302,13 +347,22 @@ function Field({ label, required, children }: { label: string; required?: boolea
     </div>
   );
 }
-function UnderlineInput({ value, onChange, type = "text", required, placeholder, autoComplete }: {
-  value: string; onChange: (v: string) => void; type?: string; required?: boolean; placeholder?: string; autoComplete?: string;
+function UnderlineInput({ value, onChange, type = "text", required, placeholder, autoComplete, min, max, step }: {
+  value: string;
+  onChange: (v: string) => void;
+  type?: string;
+  required?: boolean;
+  placeholder?: string;
+  autoComplete?: string;
+  min?: string;
+  max?: string;
+  step?: number | string;
 }) {
   return (
     <input
       type={type} value={value} onChange={(e) => onChange(e.target.value)}
       required={required} placeholder={placeholder} autoComplete={autoComplete}
+      min={min} max={max} step={step}
       style={underlineInputStyle}
       onFocus={(e) => { e.currentTarget.style.borderBottomColor = NAVY; }}
       onBlur={(e) => { e.currentTarget.style.borderBottomColor = LINE; }}
