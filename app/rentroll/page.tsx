@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { PROPERTY_DEFS } from "../../lib/properties/data";
 import type { RentRollData, RentRollUnit, RentRollProperty } from "../../lib/rentroll/parseRentRollExcel";
+import { amenityFor } from "../../lib/rentroll/amenities";
 import { useUser } from "../components/UserProvider";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -245,23 +246,53 @@ function UnitsTable({ units, propertyCode, hideNNN, tenantMeta, onBaseYearChange
           </thead>
           <tbody>
             {displayed.map((unit, i) => {
+              // Render-time amenity overlay so the rent-roll labels work
+              // even on parsed JSON that pre-dates the amenity field.
+              const amenity = unit.amenity ?? amenityFor(unit.unitRef);
+              const isAmenity = !!amenity;
+              const effectiveVacant = isAmenity ? false : unit.isVacant;
+              const occupantLabel = isAmenity ? amenity!.label : unit.occupantName;
+
               const status  = leaseStatus(unit.leaseTo);
-              const rowBg   = unit.isVacant
-                ? "rgba(15,23,42,0.025)"
-                : status.days !== null && status.days <= 90
-                  ? status.days < 0  ? "rgba(220,38,38,0.10)"
-                  : status.days <= 30 ? "rgba(220,38,38,0.10)"
-                  : status.days <= 60 ? "rgba(234,88,12,0.10)"
-                  :                     "rgba(217,119,6,0.10)"
-                  : undefined;
+              const rowBg   = isAmenity
+                ? "rgba(13,148,136,0.06)"
+                : effectiveVacant
+                  ? "rgba(15,23,42,0.025)"
+                  : status.days !== null && status.days <= 90
+                    ? status.days < 0  ? "rgba(220,38,38,0.10)"
+                    : status.days <= 30 ? "rgba(220,38,38,0.10)"
+                    : status.days <= 60 ? "rgba(234,88,12,0.10)"
+                    :                     "rgba(217,119,6,0.10)"
+                    : undefined;
 
               const rowId = `unit-${unit.unitRef.replace(/[^a-zA-Z0-9]/g, "-")}`;
 
               return (
                 <tr key={i} id={rowId} style={{ background: rowBg }}>
-                  <td style={{ fontWeight: unit.isVacant ? 400 : 600, color: unit.isVacant ? "var(--muted)" : "var(--text)" }}>
-                    {unit.isVacant ? <em style={{ color: "var(--muted)" }}>Vacant</em> : unit.occupantName}
-                    {!unit.isVacant && vacatingUnitRefs?.has(unit.unitRef) && (
+                  <td style={{
+                    fontWeight: effectiveVacant ? 400 : 600,
+                    color: effectiveVacant
+                      ? "var(--muted)"
+                      : isAmenity
+                        ? "#0d9488"
+                        : "var(--text)",
+                  }}>
+                    {effectiveVacant
+                      ? <em style={{ color: "var(--muted)" }}>Vacant</em>
+                      : isAmenity
+                        ? <span>
+                            {occupantLabel}
+                            <span style={{
+                              marginLeft: 8, fontSize: 10, fontWeight: 800, letterSpacing: "0.06em",
+                              padding: "2px 7px", borderRadius: 999,
+                              background: "rgba(13,148,136,0.10)", color: "#0d9488",
+                              border: "1px solid rgba(13,148,136,0.35)", textTransform: "uppercase",
+                            }}>
+                              In-House
+                            </span>
+                          </span>
+                        : occupantLabel}
+                    {!effectiveVacant && !isAmenity && vacatingUnitRefs?.has(unit.unitRef) && (
                       <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 999, background: "rgba(220,38,38,0.1)", color: "#b91c1c", border: "1px solid rgba(220,38,38,0.35)", letterSpacing: "0.04em" }}>VACATING</span>
                     )}
                   </td>

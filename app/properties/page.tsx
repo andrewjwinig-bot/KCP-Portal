@@ -9,6 +9,7 @@ import {
 } from "../../lib/properties/data";
 import { PROPERTY_OWNERSHIP, type PropertyOwner } from "../../lib/properties/ownership";
 import type { RentRollData, RentRollProperty } from "../../lib/rentroll/parseRentRollExcel";
+import { amenityFor } from "../../lib/rentroll/amenities";
 import { useUser } from "../components/UserProvider";
 import {
   TAX_TASKS, PARCEL_INFO,
@@ -709,10 +710,39 @@ function DetailModal({
                     </tr>
                   </thead>
                   <tbody>
-                    {rrProp.units.map((u, i) => (
-                      <tr key={i} style={{ background: u.isVacant ? "rgba(15,23,42,0.025)" : undefined }}>
-                        <td style={{ fontWeight: u.isVacant ? 400 : 600, color: u.isVacant ? "var(--muted)" : "var(--text)", fontStyle: u.isVacant ? "italic" : "normal" }}>
-                          {u.isVacant ? "Vacant" : u.occupantName}
+                    {rrProp.units.map((u, i) => {
+                      const amenity = u.amenity ?? amenityFor(u.unitRef);
+                      const isAmenity = !!amenity;
+                      const effectiveVacant = isAmenity ? false : u.isVacant;
+                      const occupantLabel = isAmenity ? amenity!.label : u.occupantName;
+                      return (
+                      <tr key={i} style={{
+                        background: isAmenity
+                          ? "rgba(13,148,136,0.06)"
+                          : effectiveVacant
+                            ? "rgba(15,23,42,0.025)"
+                            : undefined,
+                      }}>
+                        <td style={{
+                          fontWeight: effectiveVacant ? 400 : 600,
+                          color: effectiveVacant
+                            ? "var(--muted)"
+                            : isAmenity
+                              ? "#0d9488"
+                              : "var(--text)",
+                          fontStyle: effectiveVacant ? "italic" : "normal",
+                        }}>
+                          {effectiveVacant ? "Vacant" : occupantLabel}
+                          {isAmenity && (
+                            <span style={{
+                              marginLeft: 8, fontSize: 10, fontWeight: 800, letterSpacing: "0.06em",
+                              padding: "2px 7px", borderRadius: 999,
+                              background: "rgba(13,148,136,0.10)", color: "#0d9488",
+                              border: "1px solid rgba(13,148,136,0.35)", textTransform: "uppercase",
+                            }}>
+                              In-House
+                            </span>
+                          )}
                         </td>
                         <td style={{ whiteSpace: "nowrap" }}>
                           <code style={{ fontSize: 12, fontWeight: 700, color: "#0b4a7d", whiteSpace: "nowrap" }}>{u.unitRef}</code>
@@ -723,7 +753,8 @@ function DetailModal({
                         <td style={{ textAlign: "right", fontSize: 13 }}>{u.baseRent ? `$${u.baseRent.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—"}</td>
                         <td style={{ textAlign: "right", fontSize: 13, color: "var(--muted)" }}>{u.annualRentPerSqft ? `$${u.annualRentPerSqft.toFixed(2)}` : "—"}</td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
