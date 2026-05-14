@@ -10,7 +10,7 @@ import {
   type RequestPriority,
   type RequestStatus,
 } from "@/lib/maintenance/requests";
-import { STAFF, type StaffId } from "@/lib/maintenance/staff";
+import { STAFF, staffName, type StaffId } from "@/lib/maintenance/staff";
 import { summarize } from "@/lib/maintenance/summarize";
 
 type Tab = "active" | "completed";
@@ -746,11 +746,7 @@ function RequestModal({
           }}>
             <MetaCell label="Property" value={propertyOf(request)} />
             <MetaCell label="Tenant" value={companyOf(request)} />
-            <MetaCell
-              label="Contact"
-              value={request.tenantName || request.tenantEmail || ""}
-              sub={request.tenantName && request.tenantEmail ? request.tenantEmail : undefined}
-            />
+            <MetaCell label="Suite" value={request.tenantSuite} />
           </div>
 
           {/* Action row: status / priority / assignee */}
@@ -771,11 +767,23 @@ function RequestModal({
                 disabled={busy}
                 value={request.assignedTo ?? ""}
                 onChange={(e) => patch({ assignedTo: e.target.value === "" ? null : (e.target.value as StaffId) })}
-                style={selectStyle}
+                style={{
+                  ...selectStyle,
+                  // Highlight when nobody's on this — amber border + soft tint
+                  // makes the unassigned state hard to miss at a glance.
+                  borderColor: request.assignedTo ? "var(--border)" : "rgba(180,83,9,0.55)",
+                  borderWidth: request.assignedTo ? 1 : 1.5,
+                  background: request.assignedTo ? "var(--card)" : "rgba(180,83,9,0.06)",
+                }}
               >
                 <option value="">— Unassigned —</option>
                 {STAFF.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
+              {!request.assignedTo && (
+                <span style={{ fontSize: 11, color: "#b45309", fontWeight: 600, marginTop: 4 }}>
+                  ⚠ Needs an assignee
+                </span>
+              )}
             </Field>
           </div>
 
@@ -806,22 +814,56 @@ function RequestModal({
             </div>
           </Section>
 
-          {/* Submission — the tenant's original intake note (read-only) */}
+          {/* Submission — contact card on top, tenant's intake note below */}
           <Section title="Submission">
-            {submissionNote ? (
-              <div style={{
-                padding: "12px 14px",
-                border: "1px solid var(--border)", borderRadius: 10,
-                background: "rgba(15,23,42,0.025)",
-              }}>
-                <div style={{ fontSize: 11, color: "var(--muted)", fontWeight: 700, marginBottom: 6, letterSpacing: "0.02em" }}>
-                  {submissionNote.authorName} · {new Date(submissionNote.createdAt).toLocaleString()}
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {(request.tenantName || request.tenantEmail) && (
+                <div style={{
+                  padding: "10px 14px",
+                  border: "1px solid var(--border)", borderRadius: 10,
+                  background: "var(--card)",
+                  display: "flex", flexDirection: "column", gap: 2,
+                }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
+                    Contact
+                  </span>
+                  <span style={{ fontSize: 14, fontWeight: 600 }}>
+                    {request.tenantName || request.tenantEmail}
+                  </span>
+                  {request.tenantName && request.tenantEmail && (
+                    <a
+                      href={`mailto:${request.tenantEmail}`}
+                      style={{ fontSize: 12, color: "var(--brand)", textDecoration: "none" }}
+                    >
+                      {request.tenantEmail}
+                    </a>
+                  )}
                 </div>
-                <div style={{ fontSize: 14, whiteSpace: "pre-wrap", lineHeight: 1.55 }}>{submissionNote.text}</div>
-              </div>
-            ) : (
-              <div className="muted small">No tenant submission recorded for this request.</div>
-            )}
+              )}
+              {submissionNote ? (
+                <div style={{
+                  padding: "12px 14px",
+                  border: "1px solid var(--border)", borderRadius: 10,
+                  background: "rgba(15,23,42,0.025)",
+                }}>
+                  <div style={{ fontSize: 11, color: "var(--muted)", fontWeight: 700, marginBottom: 6, letterSpacing: "0.02em" }}>
+                    {submissionNote.authorName} · {new Date(submissionNote.createdAt).toLocaleString()}
+                  </div>
+                  <div style={{ fontSize: 14, whiteSpace: "pre-wrap", lineHeight: 1.55 }}>{submissionNote.text}</div>
+                </div>
+              ) : (
+                <div className="muted small">No tenant submission recorded for this request.</div>
+              )}
+              {request.tenantEmail && (
+                <EmailTenantComposer
+                  request={request}
+                  busy={busy}
+                  setBusy={setBusy}
+                  defaultAuthor={noteAuthor}
+                  onUpdated={onChange}
+                />
+              )}
+            </div>
           </Section>
 
           {/* Internal Notes — staff-added notes + the add-note composer */}
@@ -983,6 +1025,149 @@ function RowAssigneeSelect({
       <option value="">— Unassigned —</option>
       {STAFF.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
     </select>
+  );
+}
+
+function EmailTenantComposer({
+  request, busy, setBusy, defaultAuthor, onUpdated,
+}: {
+  request: MaintenanceRequest;
+  busy: boolean;
+  setBusy: (b: boolean) => void;
+  defaultAuthor: StaffId;
+  onUpdated: (r: MaintenanceRequest) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [author, setAuthor] = useState<StaffId>(defaultAuthor);
+  const [error, setError] = useState<string | null>(null);
+
+  // Reasonable default body so Greg/Jay/Charles only need to type the update.
+  const defaultSubject = `Re: Maintenance request — ${briefDescription(request)}`;
+  const defaultBody = [
+    `Hi ${request.tenantName?.split(/\s+/)[0] || "there"},`,
+    "",
+    `This is a follow-up on your maintenance request${request.id ? ` (ref ${request.id})` : ""}:`,
+    `  "${briefDescription(request)}"`,
+    "",
+    "[ Add your update here ]",
+    "",
+    "Thanks,",
+    staffName(author),
+    "KCP Maintenance",
+  ].join("\n");
+
+  const [subject, setSubject] = useState(defaultSubject);
+  const [text, setText] = useState(defaultBody);
+
+  // Keep the signature line + subject in sync when author flips.
+  useEffect(() => {
+    setSubject(`Re: Maintenance request — ${briefDescription(request)}`);
+    setText([
+      `Hi ${request.tenantName?.split(/\s+/)[0] || "there"},`,
+      "",
+      `This is a follow-up on your maintenance request${request.id ? ` (ref ${request.id})` : ""}:`,
+      `  "${briefDescription(request)}"`,
+      "",
+      "[ Add your update here ]",
+      "",
+      "Thanks,",
+      staffName(author),
+      "KCP Maintenance",
+    ].join("\n"));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [request.id, author]);
+
+  async function send() {
+    if (busy) return;
+    setError(null);
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/maintenance/requests/${request.id}/email-tenant`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ from: author, subject, body: text }),
+      });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error ?? "Send failed");
+      onUpdated(j.request);
+      setOpen(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Send failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="btn"
+        style={{ fontSize: 12, padding: "6px 12px", alignSelf: "flex-start" }}
+      >
+        ✉ Email tenant
+      </button>
+    );
+  }
+
+  return (
+    <div style={{
+      padding: 14,
+      border: "1px solid rgba(11,74,125,0.40)", borderRadius: 10,
+      background: "rgba(11,74,125,0.04)",
+      display: "flex", flexDirection: "column", gap: 10,
+    }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "#0b4a7d" }}>
+          Email tenant — {request.tenantEmail}
+        </span>
+        <button
+          onClick={() => setOpen(false)}
+          disabled={busy}
+          style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--muted)", fontSize: 14 }}
+        >×</button>
+      </div>
+      <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+        <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
+          From
+        </span>
+        <select value={author} onChange={(e) => setAuthor(e.target.value as StaffId)} style={{ ...selectStyle, width: "auto", minWidth: 120 }}>
+          {STAFF.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+        </select>
+      </div>
+      <input
+        type="text"
+        value={subject}
+        onChange={(e) => setSubject(e.target.value)}
+        style={{ ...selectStyle, width: "100%", fontSize: 14, fontWeight: 600 }}
+      />
+      <textarea
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        rows={9}
+        style={{ ...selectStyle, width: "100%", minHeight: 180, fontFamily: "inherit", resize: "vertical", fontSize: 13, lineHeight: 1.5 }}
+      />
+      {error && <div style={{ fontSize: 12, color: "#b91c1c", fontWeight: 600 }}>{error}</div>}
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+        <button
+          onClick={() => setOpen(false)}
+          disabled={busy}
+          className="btn"
+          style={{ fontSize: 13, padding: "8px 14px" }}
+        >
+          Cancel
+        </button>
+        <button
+          onClick={send}
+          disabled={busy}
+          className="btn primary"
+          style={{ fontSize: 13, padding: "8px 16px" }}
+        >
+          {busy ? "Sending…" : "Send email"}
+        </button>
+      </div>
+    </div>
   );
 }
 

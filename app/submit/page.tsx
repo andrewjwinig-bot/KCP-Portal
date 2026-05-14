@@ -100,6 +100,12 @@ export default function SubmitPage() {
       fd.append("propertyCode", propertyCode);
       fd.append("propertyName", prop?.name ?? "");
       fd.append("company", company);
+      // Suite is derived from the rent-roll record for the picked company —
+      // tenants don't enter it themselves any more. Comma-separated if the
+      // tenant occupies multiple units.
+      const tenantMatch = companies.find((c) => c.name === company);
+      const suiteStr = tenantMatch?.units.map((u) => u.unitRef).join(", ") ?? "";
+      fd.append("tenantSuite", suiteStr);
       fd.append("description", description);
       const honey = (e.currentTarget.elements.namedItem("website") as HTMLInputElement | null)?.value ?? "";
       fd.append("website", honey);
