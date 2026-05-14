@@ -2,9 +2,10 @@
 // and as the "author" on notes/activity. Add more by extending this array.
 
 export const STAFF = [
-  { id: "greg", name: "Greg" },
-  { id: "jay", name: "Jay" },
-  { id: "charles", name: "Charles" },
+  { id: "greg",       name: "Greg" },
+  { id: "jay",        name: "Jay" },
+  { id: "charles",    name: "Charles" },
+  { id: "contractor", name: "Contractor" },
 ] as const;
 
 export type StaffId = (typeof STAFF)[number]["id"];
