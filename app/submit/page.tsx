@@ -137,16 +137,8 @@ export default function SubmitPage() {
         <div style={{ maxWidth: 760, margin: "0 auto" }}>
           <div style={{ textAlign: "center", marginBottom: 42 }}>
             <div style={{ width: 54, height: 2, background: NAVY, margin: "0 auto 24px" }} />
-            <h1 style={{
-              margin: 0,
-              fontFamily: "Georgia, 'Times New Roman', 'Cormorant Garamond', serif",
-              fontSize: "clamp(40px, 6vw, 64px)",
-              fontWeight: 300,
-              letterSpacing: "-0.01em",
-              lineHeight: 1.1,
-              color: NAVY,
-            }}>
-              Maintenance
+            <h1 style={{ color: NAVY }}>
+              Maintenance Request
             </h1>
           </div>
 
