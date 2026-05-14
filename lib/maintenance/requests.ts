@@ -61,8 +61,9 @@ export type MaintenanceRequest = {
   categories: RequestCategory[];
   propertyCode: string | null;        // e.g. "3610" — matched against PROPERTY_DEFS
   propertyName: string;               // Free-text fallback when no code is matched
-  tenantEmail: string;
-  tenantName: string;
+  tenantCompany: string;              // The leased company (rent-roll occupant)
+  tenantEmail: string;                // Contact person's email
+  tenantName: string;                 // Contact person's name (individual, not the company)
   assignedTo: StaffId | null;
   submittedDate: string;              // ISO
   completedDate: string | null;       // ISO when Complete
@@ -102,6 +103,7 @@ export function emptyRequest(partial: Partial<MaintenanceRequest> = {}): Mainten
     categories: [],
     propertyCode: null,
     propertyName: "",
+    tenantCompany: "",
     tenantEmail: "",
     tenantName: "",
     assignedTo: null,
