@@ -299,9 +299,6 @@ export default function MaintenancePage() {
                           {tab === "active" && r.status !== "New" && (
                             <Pill style={sStyle}>{r.status}</Pill>
                           )}
-                          {r.notes.length > 0 && (
-                            <span style={{ fontSize: 11, color: "var(--muted)" }}>💬 {r.notes.length}</span>
-                          )}
                           {r.attachments.length > 0 && (
                             <span style={{ fontSize: 11, color: "var(--muted)" }}>📎 {r.attachments.length}</span>
                           )}
