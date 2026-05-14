@@ -132,7 +132,12 @@ export default function MaintenancePage() {
         <TabButton active={tab === "inbox"} onClick={() => setTab("inbox")}>Inbox</TabButton>
       </div>
 
-      {tab === "inbox" && <Inbox />}
+      {tab === "inbox" && (
+        <Inbox
+          existingRequests={requests ?? []}
+          onConverted={() => { setTab("active"); reload(); }}
+        />
+      )}
 
       {tab !== "inbox" && (
       <>
@@ -649,7 +654,12 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 // ── Inbox tab (re-exported from previous PR, lightly trimmed) ──────────────
 
-function Inbox() {
+function Inbox({
+  existingRequests, onConverted,
+}: {
+  existingRequests: MaintenanceRequest[];
+  onConverted: () => void;
+}) {
   const [emails, setEmails] = useState<MaintenanceEmail[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -756,17 +766,80 @@ function Inbox() {
         </div>
       </div>
 
-      {selected && <EmailModal email={selected} onClose={() => setSelected(null)} />}
+      {selected && (
+        <EmailModal
+          email={selected}
+          existingRequests={existingRequests}
+          onClose={() => setSelected(null)}
+          onConverted={() => { setSelected(null); onConverted(); }}
+        />
+      )}
     </>
   );
 }
 
-function EmailModal({ email, onClose }: { email: MaintenanceEmail; onClose: () => void }) {
+function EmailModal({
+  email, existingRequests, onClose, onConverted,
+}: {
+  email: MaintenanceEmail;
+  existingRequests: MaintenanceRequest[];
+  onClose: () => void;
+  onConverted: () => void;
+}) {
+  const [showForm, setShowForm] = useState(false);
+  const [draft, setDraft] = useState({
+    subject: email.subject || "(no subject)",
+    priority: "" as RequestPriority | "",
+    assignedTo: "" as StaffId | "",
+    categories: [] as RequestCategory[],
+    propertyName: "",
+  });
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  // Detect prior conversions of this email so Greg doesn't double-create.
+  const priorRequest = existingRequests.find((r) => r.linkedEmailIds.includes(email.id));
   useEffect(() => {
     function onKey(e: KeyboardEvent) { if (e.key === "Escape") onClose(); }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
+
+  async function submitConvert() {
+    if (submitting) return;
+    if (!draft.subject.trim()) {
+      setSubmitError("Subject is required");
+      return;
+    }
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      const body = {
+        subject: draft.subject.trim(),
+        priority: draft.priority,
+        categories: draft.categories,
+        assignedTo: draft.assignedTo || null,
+        propertyName: draft.propertyName.trim(),
+        tenantEmail: email.fromEmail,
+        tenantName: email.fromName,
+        linkedEmailIds: [email.id],
+        source: "email" as const,
+        submittedDate: email.date || email.receivedAt,
+      };
+      const res = await fetch("/api/maintenance/requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error ?? "Failed to create request");
+      onConverted();
+    } catch (e) {
+      setSubmitError(e instanceof Error ? e.message : "Failed to create request");
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   return (
     <div
@@ -789,16 +862,131 @@ function EmailModal({ email, onClose }: { email: MaintenanceEmail; onClose: () =
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16 }}>
           <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800 }}>{email.subject || "(no subject)"}</h2>
-          <button
-            onClick={onClose}
-            aria-label="Close"
-            style={{
-              background: "transparent", border: "1px solid var(--border)",
-              borderRadius: 6, padding: "4px 10px", cursor: "pointer",
-              fontSize: 16, lineHeight: 1, color: "var(--muted)",
-            }}
-          >×</button>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            {priorRequest ? (
+              <span className="muted small" title={`Request ${priorRequest.id}`}>
+                ✓ Already converted
+              </span>
+            ) : !showForm ? (
+              <button
+                onClick={() => setShowForm(true)}
+                className="btn primary"
+                style={{ fontSize: 13, padding: "6px 12px" }}
+              >
+                + Create Request
+              </button>
+            ) : null}
+            <button
+              onClick={onClose}
+              aria-label="Close"
+              style={{
+                background: "transparent", border: "1px solid var(--border)",
+                borderRadius: 6, padding: "4px 10px", cursor: "pointer",
+                fontSize: 16, lineHeight: 1, color: "var(--muted)",
+              }}
+            >×</button>
+          </div>
         </div>
+
+        {showForm && !priorRequest && (
+          <div style={{
+            border: "1px solid rgba(11,74,125,0.30)",
+            background: "rgba(11,74,125,0.04)",
+            borderRadius: 10, padding: 14,
+            display: "flex", flexDirection: "column", gap: 10,
+          }}>
+            <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "#0b4a7d" }}>
+              New Maintenance Request
+            </div>
+            <Field label="Subject">
+              <input
+                value={draft.subject}
+                onChange={(e) => setDraft({ ...draft, subject: e.target.value })}
+                style={{ ...selectStyle, width: "100%" }}
+              />
+            </Field>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 10 }}>
+              <Field label="Priority">
+                <select
+                  value={draft.priority}
+                  onChange={(e) => setDraft({ ...draft, priority: e.target.value as RequestPriority | "" })}
+                  style={selectStyle}
+                >
+                  <option value="">—</option>
+                  {REQUEST_PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
+                </select>
+              </Field>
+              <Field label="Assignee">
+                <select
+                  value={draft.assignedTo}
+                  onChange={(e) => setDraft({ ...draft, assignedTo: e.target.value as StaffId | "" })}
+                  style={selectStyle}
+                >
+                  <option value="">— Unassigned —</option>
+                  {STAFF.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+              </Field>
+              <Field label="Property">
+                <input
+                  placeholder="e.g. 3610 Lincoln Centre"
+                  value={draft.propertyName}
+                  onChange={(e) => setDraft({ ...draft, propertyName: e.target.value })}
+                  style={selectStyle}
+                />
+              </Field>
+            </div>
+            <Field label="Categories">
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {REQUEST_CATEGORIES.map((c) => {
+                  const on = draft.categories.includes(c);
+                  return (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => setDraft({
+                        ...draft,
+                        categories: on ? draft.categories.filter((x) => x !== c) : [...draft.categories, c],
+                      })}
+                      style={{
+                        fontSize: 11, fontWeight: 600, padding: "3px 9px", borderRadius: 999,
+                        border: on ? "1px solid rgba(11,74,125,0.45)" : "1px solid var(--border)",
+                        background: on ? "rgba(11,74,125,0.10)" : "var(--card)",
+                        color: on ? "#0b4a7d" : "var(--muted)",
+                        cursor: "pointer",
+                      }}
+                    >
+                      {c}
+                    </button>
+                  );
+                })}
+              </div>
+            </Field>
+            <div className="muted small">
+              Tenant <strong>{email.fromName || email.fromEmail}</strong> and this email will be linked to the new request automatically.
+            </div>
+            {submitError && (
+              <div style={{ fontSize: 13, color: "#b91c1c", fontWeight: 600 }}>{submitError}</div>
+            )}
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <button
+                onClick={() => setShowForm(false)}
+                disabled={submitting}
+                className="btn"
+                style={{ fontSize: 13, padding: "7px 14px" }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={submitConvert}
+                disabled={submitting}
+                className="btn primary"
+                style={{ fontSize: 13, padding: "7px 14px" }}
+              >
+                {submitting ? "Creating…" : "Create Request"}
+              </button>
+            </div>
+          </div>
+        )}
 
         <Row label="From" value={email.fromName ? `${email.fromName} <${email.fromEmail}>` : email.fromEmail} />
         <Row label="To" value={email.to} />
