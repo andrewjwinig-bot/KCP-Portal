@@ -7,6 +7,11 @@ import GlobalSearch from "./GlobalSearch";
 import { useUser } from "./UserProvider";
 import { isPathAllowed } from "../../lib/users";
 
+// Routes that render without the portal chrome (no sidebar, no auth gate).
+// These are exempt from the site-cookie check in middleware too, so anyone
+// can reach them without signing in.
+const PUBLIC_PATHS = new Set(["/submit", "/login"]);
+
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(true);
   const [isNarrow, setIsNarrow] = useState(false);
@@ -14,6 +19,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { user, hydrated } = useUser();
+  const isPublic = PUBLIC_PATHS.has(pathname);
 
   // Auto-collapse the sidebar to a hidden drawer on narrow viewports.
   useEffect(() => {
@@ -29,11 +35,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (!hydrated) return;
+    if (!hydrated || isPublic) return;
     if (!isPathAllowed(user.id, pathname)) {
       router.replace("/dashboard");
     }
-  }, [hydrated, pathname, user.id, router]);
+  }, [hydrated, pathname, user.id, router, isPublic]);
+
+  // Public pages render raw — no sidebar, no width offset.
+  if (isPublic) return <>{children}</>;
 
   return (
     <div style={{ paddingLeft: sidebarW, transition: "padding-left 0.2s ease", minHeight: "100vh", overflowX: "hidden" }}>
