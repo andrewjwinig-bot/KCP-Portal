@@ -56,6 +56,25 @@ function briefDescription(r: MaintenanceRequest): string {
   return r.subject;
 }
 
+/**
+ * Tenant = leased company (rent-roll occupant). New records save it on the
+ * tenantCompany field directly; older records (backfilled from Airtable or
+ * created before this split) baked it into propertyName as "<Property> — <Company>".
+ * Parse that out for back-compat.
+ */
+function companyOf(r: MaintenanceRequest): string {
+  if (r.tenantCompany) return r.tenantCompany;
+  const m = r.propertyName.match(/^(.+?)\s*—\s*(.+)$/);
+  return m ? m[2].trim() : "";
+}
+
+/** Property name with any back-compat "— Company" suffix stripped off. */
+function propertyOf(r: MaintenanceRequest): string {
+  if (r.tenantCompany) return r.propertyName;
+  const m = r.propertyName.match(/^(.+?)\s*—\s*(.+)$/);
+  return m ? m[1].trim() : r.propertyName;
+}
+
 function priorityStyle(p: string): { bg: string; fg: string; border: string } {
   switch (p) {
     case "High":   return { bg: "rgba(220,38,38,0.10)", fg: "#b91c1c", border: "rgba(220,38,38,0.30)" };
@@ -95,7 +114,10 @@ export default function MaintenancePage() {
 
   const properties = useMemo(() => {
     const set = new Set<string>();
-    for (const r of requests ?? []) if (r.propertyName) set.add(r.propertyName);
+    for (const r of requests ?? []) {
+      const p = propertyOf(r);
+      if (p) set.add(p);
+    }
     return ["All", ...Array.from(set).sort()];
   }, [requests]);
 
@@ -108,11 +130,11 @@ export default function MaintenancePage() {
       if (priority !== "All" && r.priority !== priority) return false;
       if (assignee === "Unassigned" && r.assignedTo !== null) return false;
       if (assignee !== "All" && assignee !== "Unassigned" && r.assignedTo !== assignee) return false;
-      if (property !== "All" && r.propertyName !== property) return false;
+      if (property !== "All" && propertyOf(r) !== property) return false;
       if (q) {
         const hay = [
-          r.subject, r.tenantName, r.tenantEmail,
-          r.propertyName, ...r.categories, ...r.notes.map((n) => n.text),
+          r.subject, r.tenantName, r.tenantEmail, companyOf(r),
+          propertyOf(r), ...r.categories, ...r.notes.map((n) => n.text),
         ].join(" ").toLowerCase();
         if (!hay.includes(q)) return false;
       }
@@ -223,13 +245,14 @@ export default function MaintenancePage() {
                   <th style={{ textAlign: "right" }}>{tab === "active" ? "Age" : "Completed"}</th>
                   <th>Property</th>
                   <th>Tenant</th>
+                  <th>Contact</th>
                   <th>Assignee</th>
                 </tr>
               </thead>
               <tbody>
-                {loading && <tr><td colSpan={7} className="muted small" style={{ padding: 16 }}>Loading…</td></tr>}
+                {loading && <tr><td colSpan={8} className="muted small" style={{ padding: 16 }}>Loading…</td></tr>}
                 {!loading && filtered.length === 0 && (
-                  <tr><td colSpan={7} className="muted small" style={{ padding: 16 }}>
+                  <tr><td colSpan={8} className="muted small" style={{ padding: 16 }}>
                     No requests. {tab === "active" && (requests?.length ?? 0) === 0 && "Tenants can submit via the public form at /submit."}
                   </td></tr>
                 )}
@@ -272,8 +295,18 @@ export default function MaintenancePage() {
                               </span>
                             )}
                       </td>
-                      <td style={{ fontSize: 13 }}>{r.propertyName || <span className="muted small">—</span>}</td>
-                      <td style={{ fontSize: 13 }}>{r.tenantName || r.tenantEmail || <span className="muted small">—</span>}</td>
+                      <td style={{ fontSize: 13 }}>{propertyOf(r) || <span className="muted small">—</span>}</td>
+                      <td style={{ fontSize: 13 }}>{companyOf(r) || <span className="muted small">—</span>}</td>
+                      <td style={{ fontSize: 13 }}>
+                        {r.tenantName || r.tenantEmail ? (
+                          <>
+                            <div>{r.tenantName || r.tenantEmail}</div>
+                            {r.tenantName && r.tenantEmail && (
+                              <div style={{ fontSize: 11, color: "var(--muted)" }}>{r.tenantEmail}</div>
+                            )}
+                          </>
+                        ) : <span className="muted small">—</span>}
+                      </td>
                       <td style={{ fontSize: 13, fontWeight: 600 }}>
                         {r.assignedTo
                           ? STAFF.find((s) => s.id === r.assignedTo)?.name ?? r.assignedTo
@@ -551,9 +584,10 @@ function RequestModal({
             borderRadius: 10,
             background: "rgba(15,23,42,0.025)",
           }}>
-            <MetaCell label="Property" value={request.propertyName} />
+            <MetaCell label="Property" value={propertyOf(request)} />
+            <MetaCell label="Tenant" value={companyOf(request)} />
             <MetaCell
-              label="Tenant"
+              label="Contact"
               value={request.tenantName || request.tenantEmail || ""}
               sub={request.tenantName && request.tenantEmail ? request.tenantEmail : undefined}
             />

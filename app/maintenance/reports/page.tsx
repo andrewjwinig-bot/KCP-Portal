@@ -114,7 +114,14 @@ export default function MaintenanceReportsPage() {
   }, [filtered]);
 
   // ── Chart rollups ────────────────────────────────────────────────────
-  const byProperty = useMemo(() => countBy(filtered, (r) => r.propertyName || "(none)"), [filtered]);
+  // Strip the back-compat "<Property> — <Company>" suffix when the new
+  // tenantCompany field isn't populated.
+  const byProperty = useMemo(() => countBy(filtered, (r) => {
+    const name = r.propertyName || "";
+    if (r.tenantCompany) return name || "(none)";
+    const m = name.match(/^(.+?)\s*—\s*(.+)$/);
+    return (m ? m[1].trim() : name) || "(none)";
+  }), [filtered]);
   const byCategory = useMemo(() => countBy(filtered, (r) => (r.categories.length ? r.categories : ["(uncategorized)"]), true), [filtered]);
   const byWorker   = useMemo(() => {
     const map = new Map<string, { label: string; n: number }>();
@@ -127,8 +134,15 @@ export default function MaintenanceReportsPage() {
     }
     return Array.from(map.values()).sort((a, b) => b.n - a.n);
   }, [filtered]);
+  // "Tenant" on the report = the leased company (rent-roll occupant). For
+  // older records that baked the company into propertyName as
+  // "<Property> — <Company>", fall back to parsing it out.
   const byTenant = useMemo(
-    () => countBy(filtered, (r) => r.tenantName || r.tenantEmail || "(unknown)"),
+    () => countBy(filtered, (r) => {
+      if (r.tenantCompany) return r.tenantCompany;
+      const m = r.propertyName.match(/^(.+?)\s*—\s*(.+)$/);
+      return m ? m[2].trim() : (r.tenantName || r.tenantEmail || "(unknown)");
+    }),
     [filtered],
   );
 

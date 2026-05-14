@@ -98,19 +98,14 @@ export async function POST(req: NextRequest) {
 
   const tenantName = `${firstName} ${lastName}`.trim();
 
-  // The company picked from the rent roll IS the tenant; surface it on the
-  // queue so Greg sees "Lincoln Centre — Acme Corp" at a glance.
-  const propertyLabel = company
-    ? `${propertyName} — ${company}`
-    : propertyName;
-
   // Build the new request before handling photos so we have an id for blob paths.
   // Subject defaults to a derived label if the tenant didn't supply one (the
   // public form doesn't expose a subject field today; keep this as a guard).
   const r: MaintenanceRequest = applyPatch(emptyRequest({
     subject: subject || `${company || tenantName}: maintenance request`,
     propertyCode: propertyCode || null,
-    propertyName: propertyLabel,
+    propertyName,
+    tenantCompany: company,
     tenantEmail,
     tenantName,
     priority,
