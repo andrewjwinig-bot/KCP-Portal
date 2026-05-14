@@ -11,28 +11,27 @@ export type RequestStatus = (typeof REQUEST_STATUSES)[number];
 export const REQUEST_PRIORITIES = ["Low", "Medium", "High"] as const;
 export type RequestPriority = (typeof REQUEST_PRIORITIES)[number];
 
-// Same set of categories used in the Airtable "Request Category (Non-AI)"
-// field, in the same order Greg's team is used to seeing them.
+// Canonical category list — consolidated from the original 20-item Airtable
+// schedule. Dropped: Tenant Request, Inspection, Access Request, Interior
+// Maintenance (all too vague or overlapped with neighbors). Merged:
+// Trash / Waste into Cleaning / Trash. Old records persisted with dropped
+// values continue to display them in the queue and Reports tab — only new
+// submissions and the canonical chip group respect the trimmed list.
 export const REQUEST_CATEGORIES = [
   "Electrical",
   "Plumbing",
   "HVAC",
   "General Repairs",
-  "Cleaning / Janitorial",
+  "Cleaning / Trash",
   "Lighting",
   "Doors / Locks",
   "Windows / Glass",
   "Pest Control",
   "Safety / Compliance",
   "Exterior Maintenance",
-  "Interior Maintenance",
-  "Access Request",
-  "Tenant Request",
   "Move-In / Move-Out",
   "Noise Complaint",
   "Landscaping",
-  "Trash / Waste",
-  "Inspection",
   "Other",
 ] as const;
 export type RequestCategory = (typeof REQUEST_CATEGORIES)[number];
