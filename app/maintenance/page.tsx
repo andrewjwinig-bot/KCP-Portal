@@ -136,6 +136,7 @@ export default function MaintenancePage() {
         <Inbox
           existingRequests={requests ?? []}
           onConverted={() => { setTab("active"); reload(); }}
+          onOpenRequest={(r) => { setTab("active"); setSelected(r); }}
         />
       )}
 
@@ -655,10 +656,11 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 // ── Inbox tab (re-exported from previous PR, lightly trimmed) ──────────────
 
 function Inbox({
-  existingRequests, onConverted,
+  existingRequests, onConverted, onOpenRequest,
 }: {
   existingRequests: MaintenanceRequest[];
   onConverted: () => void;
+  onOpenRequest: (r: MaintenanceRequest) => void;
 }) {
   const [emails, setEmails] = useState<MaintenanceEmail[] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -769,22 +771,122 @@ function Inbox({
       {selected && (
         <EmailModal
           email={selected}
+          allEmails={emails ?? []}
           existingRequests={existingRequests}
           onClose={() => setSelected(null)}
           onConverted={() => { setSelected(null); onConverted(); }}
+          onOpenEmail={(e) => setSelected(e)}
+          onOpenRequest={(r) => { setSelected(null); onOpenRequest(r); }}
         />
       )}
     </>
   );
 }
 
+function SenderHistory({
+  priorEmails, senderRequests, onOpenEmail, onOpenRequest,
+}: {
+  priorEmails: MaintenanceEmail[];
+  senderRequests: MaintenanceRequest[];
+  onOpenEmail: (e: MaintenanceEmail) => void;
+  onOpenRequest: (r: MaintenanceRequest) => void;
+}) {
+  return (
+    <div style={{
+      border: "1px solid var(--border)",
+      borderRadius: 10, padding: 12,
+      background: "rgba(15,23,42,0.025)",
+      display: "flex", flexDirection: "column", gap: 10,
+    }}>
+      <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
+        Sender history
+        <span style={{ marginLeft: 8, color: "var(--text)" }}>
+          {priorEmails.length} email{priorEmails.length === 1 ? "" : "s"}
+          {" · "}
+          {senderRequests.length} request{senderRequests.length === 1 ? "" : "s"}
+        </span>
+      </div>
+
+      {senderRequests.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: "var(--muted)" }}>Previous requests</div>
+          {senderRequests.slice(0, 5).map((r) => {
+            const sStyle = statusStyle(r.status);
+            const pStyle = priorityStyle(r.priority);
+            return (
+              <button
+                key={r.id}
+                onClick={() => onOpenRequest(r)}
+                style={{
+                  display: "flex", alignItems: "center", gap: 8,
+                  padding: "6px 10px", borderRadius: 6,
+                  background: "var(--card)", border: "1px solid var(--border)",
+                  cursor: "pointer", textAlign: "left",
+                  fontFamily: "inherit", color: "var(--text)",
+                }}
+              >
+                <Pill style={sStyle}>{r.status}</Pill>
+                {r.priority && <Pill style={pStyle}>{r.priority}</Pill>}
+                <span style={{ fontSize: 13, fontWeight: 600, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {r.subject}
+                </span>
+                <span style={{ fontSize: 11, color: "var(--muted)", whiteSpace: "nowrap" }}>
+                  {formatDate(r.submittedDate)}
+                </span>
+              </button>
+            );
+          })}
+          {senderRequests.length > 5 && (
+            <div className="muted small">+ {senderRequests.length - 5} more (search the Requests tab by email).</div>
+          )}
+        </div>
+      )}
+
+      {priorEmails.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: "var(--muted)" }}>Previous emails</div>
+          {priorEmails.slice(0, 5).map((e) => {
+            const received = new Date(e.receivedAt);
+            return (
+              <button
+                key={e.id}
+                onClick={() => onOpenEmail(e)}
+                style={{
+                  display: "flex", alignItems: "center", gap: 8,
+                  padding: "6px 10px", borderRadius: 6,
+                  background: "var(--card)", border: "1px solid var(--border)",
+                  cursor: "pointer", textAlign: "left",
+                  fontFamily: "inherit", color: "var(--text)",
+                }}
+              >
+                <span style={{ fontSize: 13, fontWeight: 600, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {e.subject || "(no subject)"}
+                </span>
+                <span style={{ fontSize: 11, color: "var(--muted)", whiteSpace: "nowrap" }}>
+                  {received.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "2-digit" })}
+                </span>
+              </button>
+            );
+          })}
+          {priorEmails.length > 5 && (
+            <div className="muted small">+ {priorEmails.length - 5} more emails from this sender.</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function EmailModal({
-  email, existingRequests, onClose, onConverted,
+  email, allEmails, existingRequests, onClose, onConverted, onOpenEmail, onOpenRequest,
 }: {
   email: MaintenanceEmail;
+  allEmails: MaintenanceEmail[];
   existingRequests: MaintenanceRequest[];
   onClose: () => void;
   onConverted: () => void;
+  onOpenEmail: (e: MaintenanceEmail) => void;
+  onOpenRequest: (r: MaintenanceRequest) => void;
 }) {
   const [showForm, setShowForm] = useState(false);
   const [draft, setDraft] = useState({
@@ -799,6 +901,18 @@ function EmailModal({
 
   // Detect prior conversions of this email so Greg doesn't double-create.
   const priorRequest = existingRequests.find((r) => r.linkedEmailIds.includes(email.id));
+
+  const senderKey = (email.fromEmail || "").toLowerCase().trim();
+  const priorEmails = senderKey
+    ? allEmails
+        .filter((e) => e.id !== email.id && (e.fromEmail || "").toLowerCase().trim() === senderKey)
+        .sort((a, b) => b.receivedAt.localeCompare(a.receivedAt))
+    : [];
+  const senderRequests = senderKey
+    ? existingRequests
+        .filter((r) => (r.tenantEmail || "").toLowerCase().trim() === senderKey)
+        .sort((a, b) => (b.submittedDate || b.createdAt).localeCompare(a.submittedDate || a.createdAt))
+    : [];
   useEffect(() => {
     function onKey(e: KeyboardEvent) { if (e.key === "Escape") onClose(); }
     window.addEventListener("keydown", onKey);
@@ -992,6 +1106,15 @@ function EmailModal({
         <Row label="To" value={email.to} />
         {email.cc && <Row label="Cc" value={email.cc} />}
         <Row label="Received" value={new Date(email.receivedAt).toLocaleString()} />
+
+        {senderKey && (priorEmails.length > 0 || senderRequests.length > 0) && (
+          <SenderHistory
+            priorEmails={priorEmails}
+            senderRequests={senderRequests}
+            onOpenEmail={onOpenEmail}
+            onOpenRequest={onOpenRequest}
+          />
+        )}
 
         <Section title="Body">
           <div style={{
