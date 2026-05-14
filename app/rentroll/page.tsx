@@ -340,7 +340,6 @@ function PropertyCard({ prop, tenantMeta, onBaseYearChange, vacatingUnitRefs }: 
   vacatingUnitRefs?: Set<string>;
 }) {
   const [open, setOpen] = useState(false);
-  const [unitsOpen, setUnitsOpen] = useState(false);
 
   // Auto-expand and scroll into view when the URL hash points at one of our units
   useEffect(() => {
@@ -349,7 +348,6 @@ function PropertyCard({ prop, tenantMeta, onBaseYearChange, vacatingUnitRefs }: 
     const match = prop.units.some((u) => `unit-${u.unitRef.replace(/[^a-zA-Z0-9]/g, "-")}` === hash);
     if (match) {
       setOpen(true);
-      setUnitsOpen(true);
       // Defer until after the row is rendered
       setTimeout(() => document.getElementById(hash)?.scrollIntoView({ behavior: "smooth", block: "center" }), 60);
     }
@@ -445,29 +443,11 @@ function PropertyCard({ prop, tenantMeta, onBaseYearChange, vacatingUnitRefs }: 
               </div>
             </div>
           )}
-          <div style={{ marginTop: 12 }}>
-            <button
-              type="button"
-              onClick={() => setUnitsOpen((o) => !o)}
-              aria-expanded={unitsOpen}
-              style={{
-                display: "flex", alignItems: "center", justifyContent: "space-between",
-                width: "100%", padding: "10px 12px",
-                background: "rgba(15,23,42,0.03)", border: "1px solid var(--border)", borderRadius: 8,
-                cursor: "pointer", fontFamily: "inherit",
-                textAlign: "left",
-              }}
-            >
-              <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>
-                Tenants · {prop.units.length} {prop.units.length === 1 ? "unit" : "units"}
-              </span>
-              <span style={{ color: "var(--muted)", fontSize: 15 }}>{unitsOpen ? "▲" : "▼"}</span>
-            </button>
-            {unitsOpen && (
-              <div style={{ marginTop: 10 }}>
-                <UnitsTable units={prop.units} propertyCode={prop.propertyCode} hideNNN={KH_CODES.has(prop.propertyCode.toUpperCase()) || prop.propertyCode.toUpperCase() === "4900"} tenantMeta={tenantMeta} onBaseYearChange={onBaseYearChange} vacatingUnitRefs={vacatingUnitRefs} />
-              </div>
-            )}
+          <div style={{ marginTop: 16 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 10 }}>
+              Tenants · {prop.units.length} {prop.units.length === 1 ? "unit" : "units"}
+            </div>
+            <UnitsTable units={prop.units} propertyCode={prop.propertyCode} hideNNN={KH_CODES.has(prop.propertyCode.toUpperCase()) || prop.propertyCode.toUpperCase() === "4900"} tenantMeta={tenantMeta} onBaseYearChange={onBaseYearChange} vacatingUnitRefs={vacatingUnitRefs} />
           </div>
         </div>
       )}
