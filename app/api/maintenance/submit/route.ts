@@ -85,6 +85,7 @@ export async function POST(req: NextRequest) {
   if (!tenantEmail) return NextResponse.json({ error: "Email is required" }, { status: 400 });
   if (!tenantPhone) return NextResponse.json({ error: "Phone is required" }, { status: 400 });
   if (!propertyName) return NextResponse.json({ error: "Property is required" }, { status: 400 });
+  if (!company) return NextResponse.json({ error: "Company is required" }, { status: 400 });
 
   const tenantName = `${firstName} ${lastName}`.trim();
 

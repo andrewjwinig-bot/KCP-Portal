@@ -36,7 +36,6 @@ export default function SubmitPage() {
   const [building, setBuilding] = useState("");
   const [suite, setSuite] = useState("");
   const [company, setCompany] = useState("");
-  const [companyMode, setCompanyMode] = useState<"select" | "other">("select");
   const [description, setDescription] = useState("");
   const [photos, setPhotos] = useState<File[]>([]);
   const [autofilled, setAutofilled] = useState(false);
@@ -64,14 +63,14 @@ export default function SubmitPage() {
   // When the tenant picks a company that has exactly one unit on file, pre-fill
   // the suite number — most tenants only rent one suite per building.
   useEffect(() => {
-    if (companyMode !== "select" || !company) return;
+    if (!company) return;
     const match = companies.find((c) => c.name === company);
     if (match && match.units.length === 1 && !suite) {
       setSuite(match.units[0].unitRef.replace(/^\d+-/, ""));
     }
     // Intentionally not depending on `suite` so we only run on company change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [company, companies, companyMode]);
+  }, [company, companies]);
 
   // Debounced contact lookup when the email becomes a complete address.
   const lookupTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -148,7 +147,6 @@ export default function SubmitPage() {
     setBuilding("");
     setSuite("");
     setCompany("");
-    setCompanyMode("select");
     setDescription("");
     setPhotos([]);
     setAutofilled(false);
@@ -223,7 +221,6 @@ export default function SubmitPage() {
             onChange={(e) => {
               setPropertyCode(e.target.value);
               setCompany("");
-              setCompanyMode("select");
               setSuite("");
               setBuilding("");
             }}
@@ -239,62 +236,34 @@ export default function SubmitPage() {
           </select>
         </Field>
 
-        <Field label="Company">
-          {companyMode === "select" ? (
-            <>
-              <select
-                value={company}
-                onChange={(e) => {
-                  if (e.target.value === "__other__") {
-                    setCompanyMode("other");
-                    setCompany("");
-                  } else {
-                    setCompany(e.target.value);
-                  }
-                }}
-                disabled={!propertyCode || companiesLoading}
-                style={inputStyle}
-              >
-                <option value="">
-                  {!propertyCode
-                    ? "— Choose a property first —"
-                    : companiesLoading
-                    ? "Loading tenants…"
-                    : companies.length === 0
-                    ? "— No tenants on file —"
-                    : "— Select your company —"}
-                </option>
-                {companies.map((c) => (
-                  <option key={c.name} value={c.name}>
-                    {c.name}
-                    {c.units.length === 1 ? ` · ${c.units[0].unitRef}` : c.units.length > 1 ? ` · ${c.units.length} suites` : ""}
-                  </option>
-                ))}
-                {propertyCode && <option value="__other__">My company isn&apos;t listed…</option>}
-              </select>
-              {propertyCode && companies.length > 0 && (
-                <span className="muted small" style={{ marginTop: 4 }}>
-                  Pulled from the current rent roll. Pick &quot;isn&apos;t listed&quot; if you&apos;re new or subletting.
-                </span>
-              )}
-            </>
-          ) : (
-            <div style={{ display: "flex", gap: 6 }}>
-              <input
-                value={company}
-                onChange={(e) => setCompany(e.target.value)}
-                placeholder="Your company name"
-                style={{ ...inputStyle, flex: 1 }}
-              />
-              <button
-                type="button"
-                onClick={() => { setCompanyMode("select"); setCompany(""); }}
-                className="btn"
-                style={{ fontSize: 12, padding: "4px 10px", flexShrink: 0 }}
-              >
-                Cancel
-              </button>
-            </div>
+        <Field label="Company" required>
+          <select
+            value={company}
+            onChange={(e) => setCompany(e.target.value)}
+            disabled={!propertyCode || companiesLoading}
+            required
+            style={inputStyle}
+          >
+            <option value="">
+              {!propertyCode
+                ? "— Choose a property first —"
+                : companiesLoading
+                ? "Loading tenants…"
+                : companies.length === 0
+                ? "— No tenants on file —"
+                : "— Select your company —"}
+            </option>
+            {companies.map((c) => (
+              <option key={c.name} value={c.name}>
+                {c.name}
+                {c.units.length === 1 ? ` · ${c.units[0].unitRef}` : c.units.length > 1 ? ` · ${c.units.length} suites` : ""}
+              </option>
+            ))}
+          </select>
+          {propertyCode && companies.length === 0 && !companiesLoading && (
+            <span className="muted small" style={{ marginTop: 4 }}>
+              No tenants on the current rent roll for this property. If you&apos;re a recent move-in, contact the leasing office to be added.
+            </span>
           )}
         </Field>
 
