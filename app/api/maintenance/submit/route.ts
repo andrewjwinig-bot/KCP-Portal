@@ -69,8 +69,6 @@ export async function POST(req: NextRequest) {
   const description = String(form.get("description") ?? "").trim();
   const propertyCode = String(form.get("propertyCode") ?? "").trim();
   const propertyName = String(form.get("propertyName") ?? "").trim();
-  const building = String(form.get("building") ?? "").trim();
-  const suite = String(form.get("suite") ?? "").trim();
   const company = String(form.get("company") ?? "").trim();
   const firstName = String(form.get("firstName") ?? "").trim();
   const lastName = String(form.get("lastName") ?? "").trim();
@@ -89,13 +87,10 @@ export async function POST(req: NextRequest) {
 
   const tenantName = `${firstName} ${lastName}`.trim();
 
-  // Stitch the property label so Greg sees building / suite at a glance in
-  // the queue. Building number lives in front, suite in back.
-  const locationParts: string[] = [];
-  if (building) locationParts.push(`Bldg ${building}`);
-  if (suite) locationParts.push(`Suite ${suite}`);
-  const propertyLabel = locationParts.length
-    ? `${propertyName} — ${locationParts.join(" / ")}`
+  // The company picked from the rent roll IS the tenant; surface it on the
+  // queue so Greg sees "Lincoln Centre — Acme Corp" at a glance.
+  const propertyLabel = company
+    ? `${propertyName} — ${company}`
     : propertyName;
 
   // Build the new request before handling photos so we have an id for blob paths.
@@ -115,9 +110,7 @@ export async function POST(req: NextRequest) {
   // Compose the initial note with the whole submission context.
   const noteLines: string[] = [description];
   const contextLines: string[] = [];
-  if (company) contextLines.push(`Company: ${company}`);
-  if (building) contextLines.push(`Building: ${building}`);
-  if (suite) contextLines.push(`Suite: ${suite}`);
+  if (company) contextLines.push(`Tenant: ${company}`);
   if (tenantPhone) contextLines.push(`Phone: ${tenantPhone}`);
   if (contextLines.length) {
     noteLines.push("", ...contextLines);
@@ -195,8 +188,6 @@ export async function POST(req: NextRequest) {
       phone: tenantPhone,
       company,
       propertyCode: propertyCode || null,
-      buildingNumber: building,
-      suiteNumber: suite,
     });
   } catch { /* ignore */ }
 
