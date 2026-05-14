@@ -10,7 +10,7 @@ import { isPathAllowed } from "../../lib/users";
 // Routes that render without the portal chrome (no sidebar, no auth gate).
 // These are exempt from the site-cookie check in middleware too, so anyone
 // can reach them without signing in.
-const PUBLIC_PATHS = new Set(["/submit", "/login"]);
+const PUBLIC_PATHS = new Set(["/submit", "/login", "/service", "/reserve"]);
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(true);

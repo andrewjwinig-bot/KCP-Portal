@@ -194,14 +194,14 @@ export default function MaintenancePage() {
             {loading ? "Refreshing…" : "Refresh"}
           </button>
           <a
-            href="/submit"
+            href="/service"
             target="_blank"
             rel="noopener noreferrer"
             className="btn primary"
             style={{ fontSize: 13, padding: "6px 12px", textDecoration: "none" }}
-            title="Open the public tenant submission form in a new tab"
+            title="Open the public Service Request landing in a new tab"
           >
-            Preview tenant form →
+            Preview tenant flow →
           </a>
         </div>
       </header>

@@ -13,7 +13,7 @@ import { SITE_COOKIE, verifySiteToken } from "./lib/site-auth";
 export const config = {
   // Catch everything except static asset routes and the two login endpoints.
   matcher: [
-    "/((?!_next/static|_next/image|_next/data|favicon.ico|images|login|submit|api/site/login|api/site/logout|api/maintenance/inbound|api/maintenance/submit|api/tenants).*)",
+    "/((?!_next/static|_next/image|_next/data|favicon.ico|images|login|submit|service|reserve|api/site/login|api/site/logout|api/maintenance/inbound|api/maintenance/submit|api/tenants|api/reservations/submit).*)",
   ],
 };
 
