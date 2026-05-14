@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getJSON } from "@/lib/storage";
 import type { RentRollData } from "@/lib/rentroll/parseRentRollExcel";
+import { amenityFor } from "@/lib/rentroll/amenities";
 
 // Public — used by the tenant submission form to populate the Company
 // dropdown once a building is selected.
@@ -38,6 +39,9 @@ export async function GET(req: NextRequest) {
   const map = new Map<string, CompanyMatch>();
   for (const u of prop.units) {
     if (u.isVacant) continue;
+    // In-house amenity units (training rooms, conference centers) aren't
+    // real tenants — keep them off the submission picker.
+    if (u.amenity || amenityFor(u.unitRef)) continue;
     const name = u.occupantName.trim();
     if (!name) continue;
     const entry = map.get(name) ?? { name, units: [] };
