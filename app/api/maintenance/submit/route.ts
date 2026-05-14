@@ -12,6 +12,7 @@ import {
 } from "@/lib/maintenance/requests";
 import { saveRequest } from "@/lib/maintenance/requestsStorage";
 import { upsertContact } from "@/lib/maintenance/tenants";
+import { classify } from "@/lib/maintenance/triage";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 // Public tenant submission endpoint — no site auth. Middleware exempts
@@ -74,8 +75,18 @@ export async function POST(req: NextRequest) {
   const lastName = String(form.get("lastName") ?? "").trim();
   const tenantEmail = String(form.get("tenantEmail") ?? "").trim();
   const tenantPhone = String(form.get("tenantPhone") ?? "").trim();
-  const priority = asPriority(String(form.get("priority") ?? "") || null);
-  const categories = asCategories(form.getAll("category").map(String));
+  let priority = asPriority(String(form.get("priority") ?? "") || null);
+  let categories = asCategories(form.getAll("category").map(String));
+
+  // Auto-triage from the description when the form didn't pre-pick. The
+  // public form never sends category/priority today, so the rule schedule
+  // (lib/maintenance/triage) is what fills them in. Greg can override on
+  // the request modal.
+  if (description) {
+    const triage = classify(`${subject}\n${description}`);
+    if (categories.length === 0) categories = triage.categories;
+    if (!priority) priority = triage.priority;
+  }
 
   if (!description) return NextResponse.json({ error: "Description is required" }, { status: 400 });
   if (!firstName) return NextResponse.json({ error: "First name is required" }, { status: 400 });
