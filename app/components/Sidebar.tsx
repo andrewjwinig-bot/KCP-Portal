@@ -226,8 +226,8 @@ const NAV = [
   },
   {
     label: "Maintenance",
-    href: "https://airtable.com/appu2QwzsaWb4Qw2X/pageF2MN3KyaNqj0D?MJMG1=allRecords&92GWJ=allRecords",
-    external: true,
+    href: "/maintenance",
+    external: false,
     indent: false,
     showFor: null as string | null,
     icon: (
