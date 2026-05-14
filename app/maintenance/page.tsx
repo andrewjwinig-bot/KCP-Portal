@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { MaintenanceRequest } from "../api/maintenance/requests/route";
+import type { MaintenanceEmail } from "@/lib/maintenance/emails";
 
 const STATUS_OPTIONS = ["New", "In Progress", "Complete"] as const;
 const PRIORITY_OPTIONS = ["High", "Medium", "Low"] as const;
@@ -40,7 +41,10 @@ function priorityStyle(p: string): { bg: string; fg: string; border: string } {
   }
 }
 
+type Tab = "requests" | "inbox";
+
 export default function MaintenancePage() {
+  const [tab, setTab] = useState<Tab>("requests");
   const [requests, setRequests] = useState<MaintenanceRequest[] | null>(null);
   const [error, setError] = useState<{ message: string; configError?: boolean } | null>(null);
   const [loading, setLoading] = useState(true);
@@ -123,6 +127,16 @@ export default function MaintenancePage() {
           Open Airtable →
         </a>
       </header>
+
+      <div style={{ display: "flex", gap: 4, borderBottom: "1px solid var(--border)" }}>
+        <TabButton active={tab === "requests"} onClick={() => setTab("requests")}>Requests</TabButton>
+        <TabButton active={tab === "inbox"} onClick={() => setTab("inbox")}>Inbox</TabButton>
+      </div>
+
+      {tab === "inbox" && <Inbox />}
+
+      {tab === "requests" && (
+      <>
 
       {error && (
         <div className="card" style={{ borderColor: "rgba(220,38,38,0.35)", background: "rgba(220,38,38,0.04)" }}>
@@ -249,7 +263,223 @@ export default function MaintenancePage() {
       {selected && (
         <RequestModal request={selected} onClose={() => setSelected(null)} />
       )}
+      </>
+      )}
     </main>
+  );
+}
+
+function TabButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        padding: "8px 14px",
+        background: "transparent",
+        border: "none",
+        borderBottom: active ? "2px solid #0b4a7d" : "2px solid transparent",
+        color: active ? "var(--text)" : "var(--muted)",
+        fontWeight: active ? 700 : 500,
+        fontSize: 14,
+        cursor: "pointer",
+        marginBottom: -1,
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+function Inbox() {
+  const [emails, setEmails] = useState<MaintenanceEmail[] | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [selected, setSelected] = useState<MaintenanceEmail | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    setLoading(true);
+    fetch("/api/maintenance/emails")
+      .then(async (r) => ({ ok: r.ok, body: await r.json() }))
+      .then(({ ok, body }) => {
+        if (!alive) return;
+        if (!ok) { setError(body.error ?? "Failed to load"); setEmails([]); }
+        else setEmails(body.emails ?? []);
+      })
+      .catch((e) => alive && setError(e?.message ?? "Network error"))
+      .finally(() => alive && setLoading(false));
+    return () => { alive = false; };
+  }, []);
+
+  const filtered = useMemo(() => {
+    if (!emails) return [];
+    const q = search.trim().toLowerCase();
+    if (!q) return emails;
+    return emails.filter((e) =>
+      [e.subject, e.fromName, e.fromEmail, e.textBody].join(" ").toLowerCase().includes(q),
+    );
+  }, [emails, search]);
+
+  return (
+    <>
+      {error && (
+        <div className="card" style={{ borderColor: "rgba(220,38,38,0.35)", background: "rgba(220,38,38,0.04)" }}>
+          <div style={{ fontWeight: 700, color: "#b91c1c", marginBottom: 4 }}>Couldn't load inbox</div>
+          <div className="muted small">{error}</div>
+        </div>
+      )}
+
+      <div className="card" style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
+        <Field label="Search">
+          <input
+            type="search"
+            placeholder="Subject, sender, body…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            style={{ ...selectStyle, minWidth: 280 }}
+          />
+        </Field>
+        <div style={{ marginLeft: "auto", fontSize: 12, color: "var(--muted)" }}>
+          {loading ? "Loading…" : `${filtered.length} email${filtered.length === 1 ? "" : "s"}`}
+        </div>
+      </div>
+
+      <div className="card" style={{ padding: 0 }}>
+        <div className="tableWrap">
+          <table>
+            <thead>
+              <tr>
+                <th>From</th>
+                <th>Subject</th>
+                <th>Preview</th>
+                <th style={{ whiteSpace: "nowrap" }}>Received</th>
+                <th style={{ textAlign: "right" }}>📎</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading && (
+                <tr><td colSpan={5} className="muted small" style={{ padding: 16 }}>Loading…</td></tr>
+              )}
+              {!loading && filtered.length === 0 && !error && (
+                <tr><td colSpan={5} className="muted small" style={{ padding: 16 }}>
+                  Inbox is empty. Configure your inbound webhook (POST → <code>/api/maintenance/inbound?token=…</code>) and forward your maintenance@ mailbox to it.
+                </td></tr>
+              )}
+              {filtered.map((e) => {
+                const preview = e.textBody.replace(/\s+/g, " ").trim().slice(0, 100);
+                const received = new Date(e.receivedAt);
+                return (
+                  <tr
+                    key={e.id}
+                    style={{ cursor: "pointer" }}
+                    onClick={() => setSelected(e)}
+                    onMouseEnter={(ev) => { (ev.currentTarget as HTMLElement).style.filter = "brightness(0.97)"; }}
+                    onMouseLeave={(ev) => { (ev.currentTarget as HTMLElement).style.filter = ""; }}
+                  >
+                    <td style={{ fontWeight: 600, fontSize: 13, whiteSpace: "nowrap" }}>
+                      {e.fromName || e.fromEmail}
+                      {e.fromName && (
+                        <div style={{ fontSize: 11, color: "var(--muted)", fontWeight: 400 }}>{e.fromEmail}</div>
+                      )}
+                    </td>
+                    <td style={{ fontWeight: 600 }}>{e.subject || <span className="muted small">(no subject)</span>}</td>
+                    <td className="muted small">{preview}{e.textBody.length > 100 ? "…" : ""}</td>
+                    <td style={{ fontSize: 12, whiteSpace: "nowrap", color: "var(--muted)" }}>
+                      {received.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                      {" · "}
+                      {received.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                    </td>
+                    <td style={{ textAlign: "right", fontSize: 12, color: "var(--muted)" }}>
+                      {e.attachmentCount > 0 ? e.attachmentCount : ""}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {selected && <EmailModal email={selected} onClose={() => setSelected(null)} />}
+    </>
+  );
+}
+
+function EmailModal({ email, onClose }: { email: MaintenanceEmail; onClose: () => void }) {
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) { if (e.key === "Escape") onClose(); }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed", inset: 0, background: "rgba(15,23,42,0.45)",
+        display: "flex", alignItems: "flex-start", justifyContent: "center",
+        padding: "60px 16px 16px", zIndex: 100, overflow: "auto",
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: "var(--card)", color: "var(--text)",
+          borderRadius: 12, border: "1px solid var(--border)",
+          maxWidth: 720, width: "100%", padding: 24,
+          boxShadow: "0 12px 40px rgba(15,23,42,0.25)",
+          display: "flex", flexDirection: "column", gap: 14,
+        }}
+      >
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16 }}>
+          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800 }}>
+            {email.subject || "(no subject)"}
+          </h2>
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            style={{
+              background: "transparent", border: "1px solid var(--border)",
+              borderRadius: 6, padding: "4px 10px", cursor: "pointer",
+              fontSize: 16, lineHeight: 1, color: "var(--muted)",
+            }}
+          >×</button>
+        </div>
+
+        <Row label="From" value={email.fromName ? `${email.fromName} <${email.fromEmail}>` : email.fromEmail} />
+        <Row label="To" value={email.to} />
+        {email.cc && <Row label="Cc" value={email.cc} />}
+        <Row label="Received" value={new Date(email.receivedAt).toLocaleString()} />
+
+        <Section title="Body">
+          <div style={{
+            fontSize: 14, lineHeight: 1.5, whiteSpace: "pre-wrap",
+            fontFamily: "inherit",
+            maxHeight: 400, overflowY: "auto",
+            padding: 12, background: "rgba(15,23,42,0.025)",
+            border: "1px solid var(--border)", borderRadius: 8,
+          }}>
+            {email.textBody || <span className="muted small">(no plain-text body)</span>}
+          </div>
+        </Section>
+
+        {email.attachments.length > 0 && (
+          <Section title={`Attachments (${email.attachments.length})`}>
+            <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13 }}>
+              {email.attachments.map((a, i) => (
+                <li key={i}>
+                  {a.name}
+                  <span className="muted small" style={{ marginLeft: 8 }}>
+                    {a.contentType}{a.size ? ` · ${Math.round(a.size / 1024)} KB` : ""}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </Section>
+        )}
+      </div>
+    </div>
   );
 }
 
