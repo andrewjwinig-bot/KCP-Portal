@@ -511,6 +511,26 @@ function RequestModal({
     ? STAFF.find((s) => s.id === request.assignedTo)?.name ?? request.assignedTo
     : null;
 
+  // Header right-side timestamp: completed date when finished, age otherwise.
+  const ageDays = daysSince(request.submittedDate);
+  const submittedLabel =
+    request.status === "Complete"
+      ? `Completed ${formatDate(request.completedDate)}`
+      : ageDays == null
+        ? `Submitted ${formatDate(request.submittedDate)}`
+        : ageDays === 0
+          ? "Submitted today"
+          : ageDays === 1
+            ? "Submitted 1 day ago"
+            : `Submitted ${ageDays} days ago`;
+
+  // Split notes into the tenant's intake (Submission section) vs everything
+  // staff added after the fact (Internal Notes section + add-note composer).
+  const submissionNote = request.notes.find(
+    (n) => n.authorName === "Tenant Submission" || n.authorName === "Migrated",
+  );
+  const internalNotes = request.notes.filter((n) => n !== submissionNote);
+
   return (
     <div
       onClick={onClose}
@@ -558,22 +578,49 @@ function RequestModal({
             >×</button>
           </div>
 
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-            <Pill style={sStyle}>{request.status}</Pill>
-            {request.priority && <Pill style={pStyle}>{request.priority}</Pill>}
-            {assigneeName && (
-              <Pill style={{ bg: "rgba(11,74,125,0.10)", fg: "#0b4a7d", border: "rgba(11,74,125,0.30)" }}>
-                {assigneeName}
-              </Pill>
-            )}
-            {request.categories.map((c) => (
-              <Pill key={c} style={{ bg: "rgba(15,23,42,0.05)", fg: "#475569", border: "rgba(15,23,42,0.15)" }}>{c}</Pill>
-            ))}
+          <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", flex: 1, minWidth: 0 }}>
+              <Pill style={sStyle}>{request.status}</Pill>
+              {request.priority && <Pill style={pStyle}>{request.priority}</Pill>}
+              {assigneeName && (
+                <Pill style={{ bg: "rgba(11,74,125,0.10)", fg: "#0b4a7d", border: "rgba(11,74,125,0.30)" }}>
+                  {assigneeName}
+                </Pill>
+              )}
+              {request.categories.map((c) => (
+                <Pill key={c} style={{ bg: "rgba(15,23,42,0.05)", fg: "#475569", border: "rgba(15,23,42,0.15)" }}>{c}</Pill>
+              ))}
+            </div>
+            <span style={{
+              fontSize: 12, color: "var(--muted)", fontWeight: 600,
+              whiteSpace: "nowrap", flexShrink: 0,
+            }}>
+              {submittedLabel}
+            </span>
           </div>
         </div>
 
         {/* Body */}
         <div style={{ padding: "24px 32px", display: "flex", flexDirection: "column", gap: 24 }}>
+          {/* Meta strip — Property / Tenant / Contact */}
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+            gap: 18,
+            padding: "16px 18px",
+            border: "1px solid var(--border)",
+            borderRadius: 10,
+            background: "rgba(15,23,42,0.025)",
+          }}>
+            <MetaCell label="Property" value={propertyOf(request)} />
+            <MetaCell label="Tenant" value={companyOf(request)} />
+            <MetaCell
+              label="Contact"
+              value={request.tenantName || request.tenantEmail || ""}
+              sub={request.tenantName && request.tenantEmail ? request.tenantEmail : undefined}
+            />
+          </div>
+
           {/* Action row: status / priority / assignee */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 14 }}>
             <Field label="Status">
@@ -599,37 +646,6 @@ function RequestModal({
               </select>
             </Field>
           </div>
-
-          {/* Meta strip — Property / Tenant / Submitted in a single bordered block */}
-          <div style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-            gap: 18,
-            padding: "16px 18px",
-            border: "1px solid var(--border)",
-            borderRadius: 10,
-            background: "rgba(15,23,42,0.025)",
-          }}>
-            <MetaCell label="Property" value={propertyOf(request)} />
-            <MetaCell label="Tenant" value={companyOf(request)} />
-            <MetaCell
-              label="Contact"
-              value={request.tenantName || request.tenantEmail || ""}
-              sub={request.tenantName && request.tenantEmail ? request.tenantEmail : undefined}
-            />
-            <MetaCell label="Submitted" value={formatDate(request.submittedDate)} />
-            {request.status === "Complete" && (
-              <MetaCell label="Completed" value={formatDate(request.completedDate)} />
-            )}
-          </div>
-
-          {/* Attachments */}
-          <AttachmentsSection
-            request={request}
-            busy={busy}
-            setBusy={setBusy}
-            onUpdated={onChange}
-          />
 
           {/* Categories */}
           <Section title="Categories">
@@ -658,13 +674,31 @@ function RequestModal({
             </div>
           </Section>
 
-          {/* Notes */}
-          <Section title={`Notes (${request.notes.length})`}>
+          {/* Submission — the tenant's original intake note (read-only) */}
+          <Section title="Submission">
+            {submissionNote ? (
+              <div style={{
+                padding: "12px 14px",
+                border: "1px solid var(--border)", borderRadius: 10,
+                background: "rgba(15,23,42,0.025)",
+              }}>
+                <div style={{ fontSize: 11, color: "var(--muted)", fontWeight: 700, marginBottom: 6, letterSpacing: "0.02em" }}>
+                  {submissionNote.authorName} · {new Date(submissionNote.createdAt).toLocaleString()}
+                </div>
+                <div style={{ fontSize: 14, whiteSpace: "pre-wrap", lineHeight: 1.55 }}>{submissionNote.text}</div>
+              </div>
+            ) : (
+              <div className="muted small">No tenant submission recorded for this request.</div>
+            )}
+          </Section>
+
+          {/* Internal Notes — staff-added notes + the add-note composer */}
+          <Section title={`Internal Notes (${internalNotes.length})`}>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {request.notes.length === 0 && (
-                <div className="muted small" style={{ padding: "8px 0" }}>No notes yet.</div>
+              {internalNotes.length === 0 && (
+                <div className="muted small" style={{ padding: "8px 0" }}>No internal notes yet.</div>
               )}
-              {request.notes.map((n) => (
+              {internalNotes.map((n) => (
                 <div key={n.id} style={{
                   padding: "12px 14px",
                   border: "1px solid var(--border)", borderRadius: 10,
@@ -698,7 +732,7 @@ function RequestModal({
                   </select>
                 </div>
                 <textarea
-                  placeholder="Add a note…"
+                  placeholder="Add an internal note…"
                   value={draftNote}
                   onChange={(e) => setDraftNote(e.target.value)}
                   rows={3}
@@ -717,6 +751,14 @@ function RequestModal({
               </div>
             </div>
           </Section>
+
+          {/* Attachments — last */}
+          <AttachmentsSection
+            request={request}
+            busy={busy}
+            setBusy={setBusy}
+            onUpdated={onChange}
+          />
         </div>
 
         {/* Footer */}
