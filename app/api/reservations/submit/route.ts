@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
+  listReservations,
   newNoteId,
   newReservationId,
   saveReservation,
   type Reservation,
 } from "@/lib/reservations/storage";
 import { roomByUnitRef } from "@/lib/reservations/rooms";
+import { findConflicts } from "@/lib/reservations/conflict";
 import { upsertContact } from "@/lib/maintenance/tenants";
 import { sendMail } from "@/lib/mail";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
@@ -64,6 +66,49 @@ export async function POST(req: NextRequest) {
   }
   if (startTime >= endTime) {
     return NextResponse.json({ error: "End time must be after start time" }, { status: 400 });
+  }
+
+  // Business-hours window: Mon–Fri only, 8:00–18:00, 15-minute increments.
+  const [y, mo, d] = date.split("-").map(Number);
+  const dow = new Date(y, mo - 1, d).getDay();
+  if (dow === 0 || dow === 6) {
+    return NextResponse.json(
+      { error: "Reservations are only available Monday through Friday." },
+      { status: 400 },
+    );
+  }
+  if (startTime < "08:00" || endTime > "18:00") {
+    return NextResponse.json(
+      { error: "Reservation times must be between 8:00 AM and 6:00 PM." },
+      { status: 400 },
+    );
+  }
+  const minutesOf = (hhmm: string) => {
+    const [h, m] = hhmm.split(":").map(Number);
+    return h * 60 + m;
+  };
+  if (minutesOf(startTime) % 15 !== 0 || minutesOf(endTime) % 15 !== 0) {
+    return NextResponse.json(
+      { error: "Pick start and end times in 15-minute increments." },
+      { status: 400 },
+    );
+  }
+
+  // Conflict check — block submissions that overlap an existing Approved
+  // reservation for the same room on the same date.
+  const existing = await listReservations();
+  const conflicts = findConflicts(existing, room.unitRef, date, startTime, endTime);
+  if (conflicts.length > 0) {
+    const taken = conflicts
+      .map((c) => `${prettyTime(c.startTime)}–${prettyTime(c.endTime)} (${c.tenantCompany})`)
+      .join(", ");
+    return NextResponse.json(
+      {
+        error: `That time slot is already booked: ${taken}. Please pick another time or room.`,
+        conflicts,
+      },
+      { status: 409 },
+    );
   }
 
   const now = new Date().toISOString();
