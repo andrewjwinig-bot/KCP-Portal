@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   type MaintenanceRequest,
 } from "@/lib/maintenance/requests";
@@ -323,15 +323,27 @@ function ChartCard({ title, children }: { title: string; children: React.ReactNo
 
 function HorizontalBars({ rows, accent }: { rows: { label: string; n: number }[]; accent: string }) {
   const max = rows.reduce((m, r) => Math.max(m, r.n), 0);
+  const total = rows.reduce((s, r) => s + r.n, 0);
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+  const [hover, setHover] = useState<HoverState | null>(null);
   if (!rows.length || rows.every((r) => r.n === 0)) {
     return <div className="muted small">No data in this window.</div>;
   }
+  function onMove(e: React.MouseEvent, label: string, n: number) {
+    const rect = wrapRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    setHover({ label, n, pct: total > 0 ? n / total : undefined, x: e.clientX - rect.left, y: e.clientY - rect.top });
+  }
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+    <div ref={wrapRef} style={{ display: "flex", flexDirection: "column", gap: 8, position: "relative" }} onMouseLeave={() => setHover(null)}>
       {rows.map((r) => {
         const pct = max === 0 ? 0 : (r.n / max) * 100;
         return (
-          <div key={r.label}>
+          <div
+            key={r.label}
+            onMouseMove={(e) => onMove(e, r.label, r.n)}
+            style={{ cursor: "pointer" }}
+          >
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 3 }}>
               <span style={{ fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "70%" }}>
                 {r.label}
@@ -344,20 +356,64 @@ function HorizontalBars({ rows, accent }: { rows: { label: string; n: number }[]
           </div>
         );
       })}
+      {hover && <ChartTooltip hover={hover} />}
     </div>
   );
 }
 
 // ── Pie / Donut with side legend ──────────────────────────────────────
 
+type HoverState = { label: string; n: number; pct?: number; x: number; y: number };
+
+function ChartTooltip({ hover }: { hover: HoverState }) {
+  return (
+    <div
+      style={{
+        position: "absolute",
+        left: hover.x + 12,
+        top: hover.y + 12,
+        background: "rgba(15,23,42,0.92)",
+        color: "#fff",
+        padding: "6px 10px",
+        borderRadius: 6,
+        fontSize: 12,
+        fontWeight: 600,
+        pointerEvents: "none",
+        whiteSpace: "nowrap",
+        boxShadow: "0 2px 8px rgba(15,23,42,0.20)",
+        zIndex: 30,
+      }}
+    >
+      <div>{hover.label}</div>
+      <div style={{ fontWeight: 500, opacity: 0.9, marginTop: 2 }}>
+        {hover.n}{hover.pct != null ? ` · ${(hover.pct * 100).toFixed(1)}%` : ""}
+      </div>
+    </div>
+  );
+}
+
 function PieWithLegend({ rows, donut }: { rows: { label: string; n: number }[]; donut: boolean }) {
   const total = rows.reduce((s, r) => s + r.n, 0);
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+  const [hover, setHover] = useState<HoverState | null>(null);
   if (!total) return <div className="muted small">No data in this window.</div>;
   const size = 220;
+  function onSliceMove(e: React.MouseEvent, label: string, n: number, pct: number) {
+    const rect = wrapRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    setHover({ label, n, pct, x: e.clientX - rect.left, y: e.clientY - rect.top });
+  }
   return (
-    <div style={{ display: "flex", gap: 18, alignItems: "center", flexWrap: "wrap" }}>
+    <div ref={wrapRef} style={{ display: "flex", gap: 18, alignItems: "center", flexWrap: "wrap", position: "relative" }}>
       <div style={{ flexShrink: 0 }}>
-        <PieSvg rows={rows} total={total} size={size} donut={donut} />
+        <PieSvg
+          rows={rows}
+          total={total}
+          size={size}
+          donut={donut}
+          onSliceMove={onSliceMove}
+          onSliceLeave={() => setHover(null)}
+        />
       </div>
       <ul style={{
         listStyle: "none", padding: 0, margin: 0,
@@ -377,17 +433,20 @@ function PieWithLegend({ rows, donut }: { rows: { label: string; n: number }[]; 
           </li>
         ))}
       </ul>
+      {hover && <ChartTooltip hover={hover} />}
     </div>
   );
 }
 
 function PieSvg({
-  rows, total, size, donut,
+  rows, total, size, donut, onSliceMove, onSliceLeave,
 }: {
   rows: { label: string; n: number }[];
   total: number;
   size: number;
   donut: boolean;
+  onSliceMove: (e: React.MouseEvent, label: string, n: number, pct: number) => void;
+  onSliceLeave: () => void;
 }) {
   const cx = size / 2;
   const cy = size / 2;
@@ -399,10 +458,13 @@ function PieSvg({
     const row = rows.find((x) => x.n > 0) ?? rows[0];
     const color = PALETTE[0];
     return (
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-        <circle cx={cx} cy={cy} r={r} fill={color} />
-        {donut && <circle cx={cx} cy={cy} r={ri} fill="var(--card)" />}
-        <title>{`${row.label}: ${row.n} (100%)`}</title>
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} onMouseLeave={onSliceLeave}>
+        <circle
+          cx={cx} cy={cy} r={r} fill={color}
+          onMouseMove={(e) => onSliceMove(e, row.label, row.n, 1)}
+          style={{ cursor: "pointer" }}
+        />
+        {donut && <circle cx={cx} cy={cy} r={ri} fill="var(--card)" pointerEvents="none" />}
       </svg>
     );
   }
@@ -417,7 +479,7 @@ function PieSvg({
   });
 
   return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} onMouseLeave={onSliceLeave}>
       {slices.map(({ row, i, a1, a2, pct }) => {
         if (row.n === 0) return null;
         const d = arcPath(cx, cy, r, ri, a1, a2);
@@ -428,9 +490,9 @@ function PieSvg({
             fill={PALETTE[i % PALETTE.length]}
             stroke="var(--card)"
             strokeWidth={1.5}
-          >
-            <title>{`${row.label}: ${row.n} (${(pct * 100).toFixed(1)}%)`}</title>
-          </path>
+            onMouseMove={(e) => onSliceMove(e, row.label, row.n, pct)}
+            style={{ cursor: "pointer" }}
+          />
         );
       })}
     </svg>
@@ -458,10 +520,13 @@ function arcPath(cx: number, cy: number, r: number, ri: number, a1: number, a2: 
 function VerticalBars({ rows, cap = 40 }: { rows: { label: string; n: number }[]; cap?: number }) {
   const display = rows.slice(0, cap);
   const overflow = rows.length > display.length ? rows.length - display.length : 0;
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+  const [hover, setHover] = useState<HoverState | null>(null);
   if (!display.length || display.every((r) => r.n === 0)) {
     return <div className="muted small">No data in this window.</div>;
   }
   const max = display.reduce((m, r) => Math.max(m, r.n), 0);
+  const totalCount = display.reduce((s, r) => s + r.n, 0);
 
   // Choose a nice Y-axis ceiling — round up to a "nice" tick value.
   const yMax = niceCeil(max);
@@ -479,13 +544,20 @@ function VerticalBars({ rows, cap = 40 }: { rows: { label: string; n: number }[]
   const totalW = padLeft + innerW + padRight;
   const totalH = chartH + labelH + 14;
 
+  function onBarMove(e: React.MouseEvent, label: string, n: number) {
+    const rect = wrapRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    setHover({ label, n, pct: totalCount > 0 ? n / totalCount : undefined, x: e.clientX - rect.left, y: e.clientY - rect.top });
+  }
+
   return (
-    <div style={{ overflowX: "auto" }}>
+    <div ref={wrapRef} style={{ overflowX: "auto", position: "relative" }}>
       <svg
         width={totalW}
         height={totalH}
         viewBox={`0 0 ${totalW} ${totalH}`}
         style={{ display: "block", minWidth: "100%" }}
+        onMouseLeave={() => setHover(null)}
       >
         {/* Y axis gridlines + labels */}
         {Array.from({ length: yTicks + 1 }, (_, i) => {
@@ -513,9 +585,9 @@ function VerticalBars({ rows, cap = 40 }: { rows: { label: string; n: number }[]
                 width={barW} height={h}
                 fill={PALETTE[i % PALETTE.length]}
                 rx={2}
-              >
-                <title>{`${r.label}: ${r.n}`}</title>
-              </rect>
+                onMouseMove={(e) => onBarMove(e, r.label, r.n)}
+                style={{ cursor: "pointer" }}
+              />
               {/* Slanted label */}
               <text
                 x={x + barW / 2}
@@ -531,6 +603,7 @@ function VerticalBars({ rows, cap = 40 }: { rows: { label: string; n: number }[]
           );
         })}
       </svg>
+      {hover && <ChartTooltip hover={hover} />}
       {overflow > 0 && (
         <div className="muted small" style={{ marginTop: 6 }}>
           +{overflow} more tenant{overflow === 1 ? "" : "s"} not shown.
