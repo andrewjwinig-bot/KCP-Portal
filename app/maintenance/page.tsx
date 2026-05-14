@@ -11,6 +11,7 @@ import {
   type RequestStatus,
 } from "@/lib/maintenance/requests";
 import { STAFF, type StaffId } from "@/lib/maintenance/staff";
+import { summarize } from "@/lib/maintenance/summarize";
 
 type Tab = "active" | "completed";
 
@@ -39,19 +40,20 @@ function statusStyle(s: string): { bg: string; fg: string; border: string } {
 }
 
 /**
- * One-line summary for the row. Submissions through /submit save the tenant's
- * actual description as the first "Tenant Submission" note — that reads much
- * better than the auto-generated subject ("Acme Corp: maintenance request").
- * Airtable-backfilled records use the migrated note's first line for the same
- * reason. Falls back to the subject when neither is present.
+ * Short keyword-style summary for the row. Submissions through /submit save
+ * the tenant's actual description as the first "Tenant Submission" note —
+ * summarized via lib/maintenance/summarize that reads better than either the
+ * raw paragraph or the auto-generated subject. Airtable-backfilled records
+ * fall through to the subject (Airtable's "Request Subject" is usually
+ * already a decent summary).
  */
 function briefDescription(r: MaintenanceRequest): string {
   const intake = r.notes.find(
     (n) => n.authorName === "Tenant Submission" || n.authorName === "Migrated",
   );
   if (intake) {
-    const firstLine = intake.text.split("\n").map((l) => l.trim()).find(Boolean);
-    if (firstLine) return firstLine;
+    const summary = summarize(intake.text);
+    if (summary) return summary;
   }
   return r.subject;
 }

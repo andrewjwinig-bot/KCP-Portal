@@ -13,6 +13,7 @@ import {
 import { saveRequest } from "@/lib/maintenance/requestsStorage";
 import { upsertContact } from "@/lib/maintenance/tenants";
 import { classify } from "@/lib/maintenance/triage";
+import { summarize } from "@/lib/maintenance/summarize";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 // Public tenant submission endpoint — no site auth. Middleware exempts
@@ -87,6 +88,9 @@ export async function POST(req: NextRequest) {
     if (categories.length === 0) categories = triage.categories;
     if (!priority) priority = triage.priority;
   }
+  // Every new request gets a priority — Medium is the floor so nothing
+  // sneaks into the queue as "no priority set".
+  if (!priority) priority = "Medium";
 
   if (!description) return NextResponse.json({ error: "Description is required" }, { status: 400 });
   if (!firstName) return NextResponse.json({ error: "First name is required" }, { status: 400 });
@@ -98,11 +102,17 @@ export async function POST(req: NextRequest) {
 
   const tenantName = `${firstName} ${lastName}`.trim();
 
+  // Subject = summarized description for the queue table + modal title.
+  // Falls back to the form-supplied subject (none today, future-proofing)
+  // and then a generic label if the description didn't yield anything.
+  const summary = summarize(description);
+  const derivedSubject = subject
+    || summary
+    || `${company || tenantName}: maintenance request`;
+
   // Build the new request before handling photos so we have an id for blob paths.
-  // Subject defaults to a derived label if the tenant didn't supply one (the
-  // public form doesn't expose a subject field today; keep this as a guard).
   const r: MaintenanceRequest = applyPatch(emptyRequest({
-    subject: subject || `${company || tenantName}: maintenance request`,
+    subject: derivedSubject,
     propertyCode: propertyCode || null,
     propertyName,
     tenantCompany: company,
