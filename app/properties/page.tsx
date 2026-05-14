@@ -680,6 +680,12 @@ function DetailModal({
                   </div>
                 );
               })()}
+            </section>
+          )}
+
+          {/* ── Rent Roll table (collapsible inside the open card) ── */}
+          {rrProp && rrProp.units.length > 0 && (
+            <CollapsibleSection title="Rent Roll" count={rrProp.units.length}>
               <div className="tableWrap" style={{ marginTop: 4 }}>
                 <table>
                   <colgroup>
@@ -721,7 +727,7 @@ function DetailModal({
                   </tbody>
                 </table>
               </div>
-            </section>
+            </CollapsibleSection>
           )}
 
           {/* ── Tax Filings ── */}
