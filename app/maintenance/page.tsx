@@ -38,6 +38,24 @@ function statusStyle(s: string): { bg: string; fg: string; border: string } {
   }
 }
 
+/**
+ * One-line summary for the row. Submissions through /submit save the tenant's
+ * actual description as the first "Tenant Submission" note — that reads much
+ * better than the auto-generated subject ("Acme Corp: maintenance request").
+ * Airtable-backfilled records use the migrated note's first line for the same
+ * reason. Falls back to the subject when neither is present.
+ */
+function briefDescription(r: MaintenanceRequest): string {
+  const intake = r.notes.find(
+    (n) => n.authorName === "Tenant Submission" || n.authorName === "Migrated",
+  );
+  if (intake) {
+    const firstLine = intake.text.split("\n").map((l) => l.trim()).find(Boolean);
+    if (firstLine) return firstLine;
+  }
+  return r.subject;
+}
+
 function priorityStyle(p: string): { bg: string; fg: string; border: string } {
   switch (p) {
     case "High":   return { bg: "rgba(220,38,38,0.10)", fg: "#b91c1c", border: "rgba(220,38,38,0.30)" };
@@ -117,7 +135,7 @@ export default function MaintenancePage() {
   return (
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
       <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
-        <h1>Maintenance</h1>
+        <h1>Maintenance Requests</h1>
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
           <a
             href="/submit"
@@ -160,7 +178,8 @@ export default function MaintenancePage() {
           </div>
         )}
 
-        <div className="card" style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
+        {/* Filters — inline strip, no card chrome. */}
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end", padding: "0 2px" }}>
           <Field label="Priority">
             <select value={priority} onChange={(e) => setPriority(e.target.value as typeof priority)} style={selectStyle}>
               <option value="All">All</option>
@@ -182,13 +201,13 @@ export default function MaintenancePage() {
           <Field label="Search">
             <input
               type="search"
-              placeholder="Subject, tenant, notes…"
+              placeholder="Description, tenant, notes…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               style={{ ...selectStyle, minWidth: 240 }}
             />
           </Field>
-          <div style={{ marginLeft: "auto", fontSize: 12, color: "var(--muted)" }}>
+          <div style={{ marginLeft: "auto", fontSize: 12, color: "var(--muted)", paddingBottom: 6 }}>
             {loading ? "Loading…" : `${filtered.length} of ${(requests ?? []).length}`}
           </div>
         </div>
@@ -198,21 +217,20 @@ export default function MaintenancePage() {
             <table>
               <thead>
                 <tr>
-                  <th>Subject</th>
+                  <th>Description</th>
                   <th>Priority</th>
-                  <th>Assignee</th>
+                  <th>Category</th>
+                  <th style={{ textAlign: "right" }}>{tab === "active" ? "Age" : "Completed"}</th>
                   <th>Property</th>
                   <th>Tenant</th>
-                  <th>Category</th>
-                  <th>Submitted</th>
-                  <th style={{ textAlign: "right" }}>{tab === "active" ? "Age" : "Completed"}</th>
+                  <th>Assignee</th>
                 </tr>
               </thead>
               <tbody>
-                {loading && <tr><td colSpan={8} className="muted small" style={{ padding: 16 }}>Loading…</td></tr>}
+                {loading && <tr><td colSpan={7} className="muted small" style={{ padding: 16 }}>Loading…</td></tr>}
                 {!loading && filtered.length === 0 && (
-                  <tr><td colSpan={8} className="muted small" style={{ padding: 16 }}>
-                    No requests. {tab === "active" && (requests?.length ?? 0) === 0 && "Tenants can submit via the public form at /submit; use Backfill to import legacy Airtable rows."}
+                  <tr><td colSpan={7} className="muted small" style={{ padding: 16 }}>
+                    No requests. {tab === "active" && (requests?.length ?? 0) === 0 && "Tenants can submit via the public form at /submit."}
                   </td></tr>
                 )}
                 {filtered.map((r) => {
@@ -227,26 +245,25 @@ export default function MaintenancePage() {
                       onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.filter = "brightness(0.97)"; }}
                       onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.filter = ""; }}
                     >
-                      <td style={{ fontWeight: 600 }}>
-                        {r.subject}
-                        {tab === "active" && r.status !== "New" && (
-                          <span style={{ marginLeft: 8 }}><Pill style={sStyle}>{r.status}</Pill></span>
-                        )}
-                        {r.notes.length > 0 && (
-                          <span style={{ marginLeft: 8, fontSize: 11, color: "var(--muted)" }}>💬 {r.notes.length}</span>
-                        )}
+                      <td style={{ fontWeight: 600, maxWidth: 340 }}>
+                        <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {briefDescription(r)}
+                        </div>
+                        <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 3, flexWrap: "wrap" }}>
+                          {tab === "active" && r.status !== "New" && (
+                            <Pill style={sStyle}>{r.status}</Pill>
+                          )}
+                          {r.notes.length > 0 && (
+                            <span style={{ fontSize: 11, color: "var(--muted)" }}>💬 {r.notes.length}</span>
+                          )}
+                          {r.attachments.length > 0 && (
+                            <span style={{ fontSize: 11, color: "var(--muted)" }}>📎 {r.attachments.length}</span>
+                          )}
+                        </div>
                       </td>
                       <td>{r.priority ? <Pill style={pStyle}>{r.priority}</Pill> : <span className="muted small">—</span>}</td>
-                      <td style={{ fontSize: 13, fontWeight: 600 }}>
-                        {r.assignedTo
-                          ? STAFF.find((s) => s.id === r.assignedTo)?.name ?? r.assignedTo
-                          : <span className="muted small" style={{ fontWeight: 400 }}>—</span>}
-                      </td>
-                      <td style={{ fontSize: 13 }}>{r.propertyName || <span className="muted small">—</span>}</td>
-                      <td style={{ fontSize: 13 }}>{r.tenantName || r.tenantEmail || <span className="muted small">—</span>}</td>
                       <td style={{ fontSize: 12 }}>{r.categories.join(", ") || <span className="muted small">—</span>}</td>
-                      <td style={{ fontSize: 13, whiteSpace: "nowrap" }}>{formatDate(r.submittedDate)}</td>
-                      <td style={{ textAlign: "right", fontSize: 13, fontWeight: 600 }}>
+                      <td style={{ textAlign: "right", fontSize: 13, fontWeight: 600, whiteSpace: "nowrap" }}>
                         {tab === "completed"
                           ? <span style={{ fontWeight: 500, color: "var(--muted)" }}>{formatDate(r.completedDate)}</span>
                           : age == null ? "—" : (
@@ -254,6 +271,13 @@ export default function MaintenancePage() {
                                 {age}d
                               </span>
                             )}
+                      </td>
+                      <td style={{ fontSize: 13 }}>{r.propertyName || <span className="muted small">—</span>}</td>
+                      <td style={{ fontSize: 13 }}>{r.tenantName || r.tenantEmail || <span className="muted small">—</span>}</td>
+                      <td style={{ fontSize: 13, fontWeight: 600 }}>
+                        {r.assignedTo
+                          ? STAFF.find((s) => s.id === r.assignedTo)?.name ?? r.assignedTo
+                          : <span className="muted small" style={{ fontWeight: 400 }}>—</span>}
                       </td>
                     </tr>
                   );
