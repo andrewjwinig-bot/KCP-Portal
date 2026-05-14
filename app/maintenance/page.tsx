@@ -12,7 +12,7 @@ import {
 } from "@/lib/maintenance/requests";
 import { STAFF, type StaffId } from "@/lib/maintenance/staff";
 
-type Tab = "active" | "completed" | "reports";
+type Tab = "active" | "completed";
 
 function formatDate(d: string | null): string {
   if (!d) return "—";
@@ -129,7 +129,6 @@ export default function MaintenancePage() {
           >
             Preview tenant form →
           </a>
-          <BackfillButton onDone={reload} />
         </div>
       </header>
 
@@ -140,10 +139,7 @@ export default function MaintenancePage() {
         <TabButton active={tab === "completed"} onClick={() => setTab("completed")}>
           Completed <Badge muted>{counts.completed}</Badge>
         </TabButton>
-        <TabButton active={tab === "reports"} onClick={() => setTab("reports")}>Reports</TabButton>
       </div>
-
-      {tab === "reports" && <Reports requests={requests ?? []} />}
 
       {(tab === "active" || tab === "completed") && (
       <>
@@ -365,40 +361,9 @@ function TabButton({ active, onClick, children }: { active: boolean; onClick: ()
   );
 }
 
-function BackfillButton({ onDone }: { onDone: () => void }) {
-  const [busy, setBusy] = useState(false);
-  const [result, setResult] = useState<string | null>(null);
-  async function run() {
-    if (busy) return;
-    if (!confirm("Import all maintenance requests from Airtable? Existing portal records are kept; new Airtable rows are added.")) return;
-    setBusy(true);
-    setResult(null);
-    try {
-      const res = await fetch("/api/maintenance/backfill", { method: "POST" });
-      const body = await res.json();
-      if (!res.ok) throw new Error(body.error ?? "Backfill failed");
-      setResult(`Imported ${body.imported}, skipped ${body.skipped} (already present).`);
-      onDone();
-    } catch (e) {
-      setResult(e instanceof Error ? e.message : "Backfill failed");
-    } finally {
-      setBusy(false);
-    }
-  }
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-      {result && <span className="muted small">{result}</span>}
-      <button
-        onClick={run}
-        disabled={busy}
-        className="btn"
-        style={{ fontSize: 13, padding: "6px 12px" }}
-      >
-        {busy ? "Importing…" : "Backfill from Airtable"}
-      </button>
-    </div>
-  );
-}
+// Backfill UI was removed; the /api/maintenance/backfill endpoint stays
+// in place (reachable via authenticated curl) for any rainy-day one-shot
+// import if Airtable still has stragglers.
 
 function RequestModal({
   request, onClose, onChange, onDelete,
@@ -740,130 +705,6 @@ function Section({ title, children }: { title: string; children: React.ReactNode
     </div>
   );
 }
-
-function Reports({ requests }: { requests: MaintenanceRequest[] }) {
-  const [window, setWindow] = useState<"7" | "30" | "90" | "all">("30");
-  const [scope, setScope] = useState<"active" | "all">("all");
-
-  const filtered = useMemo(() => {
-    const cutoff = window === "all" ? 0 : Date.now() - Number(window) * 86400000;
-    return requests.filter((r) => {
-      if (scope === "active" && r.status === "Complete") return false;
-      if (cutoff) {
-        const t = Date.parse(r.submittedDate || r.createdAt);
-        if (Number.isFinite(t) && t < cutoff) return false;
-      }
-      return true;
-    });
-  }, [requests, window, scope]);
-
-  const byProperty   = useMemo(() => countBy(filtered, (r) => r.propertyName || "(none)"), [filtered]);
-  const byCategory   = useMemo(() => countBy(filtered, (r) => r.categories.length ? r.categories : ["(uncategorized)"], true), [filtered]);
-  const byWorker     = useMemo(() => {
-    const list: { key: string; label: string }[] = filtered.map((r) => ({
-      key: r.assignedTo ?? "_unassigned",
-      label: r.assignedTo ? (STAFF.find((s) => s.id === r.assignedTo)?.name ?? r.assignedTo) : "Unassigned",
-    }));
-    const map = new Map<string, { label: string; n: number }>();
-    for (const x of list) {
-      const v = map.get(x.key) ?? { label: x.label, n: 0 };
-      v.n++;
-      map.set(x.key, v);
-    }
-    return Array.from(map.values())
-      .map((v) => ({ label: v.label, n: v.n }))
-      .sort((a, b) => b.n - a.n);
-  }, [filtered]);
-  const byStatus     = useMemo(() => countBy(filtered, (r) => r.status), [filtered]);
-  const byPriority   = useMemo(() => countBy(filtered, (r) => r.priority || "(none)"), [filtered]);
-  const byTenant     = useMemo(() => countBy(filtered, (r) => r.tenantName || r.tenantEmail || "(unknown)"), [filtered]);
-
-  return (
-    <>
-      <div className="card" style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
-        <Field label="Window">
-          <select value={window} onChange={(e) => setWindow(e.target.value as typeof window)} style={selectStyle}>
-            <option value="7">Last 7 days</option>
-            <option value="30">Last 30 days</option>
-            <option value="90">Last 90 days</option>
-            <option value="all">All time</option>
-          </select>
-        </Field>
-        <Field label="Scope">
-          <select value={scope} onChange={(e) => setScope(e.target.value as typeof scope)} style={selectStyle}>
-            <option value="all">All requests</option>
-            <option value="active">Active only</option>
-          </select>
-        </Field>
-        <div style={{ marginLeft: "auto", fontSize: 12, color: "var(--muted)" }}>
-          {filtered.length} request{filtered.length === 1 ? "" : "s"}
-        </div>
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))", gap: 14 }}>
-        <ReportCard title="By Property" rows={byProperty} accent="#0b4a7d" />
-        <ReportCard title="By Category" rows={byCategory} accent="#15803d" />
-        <ReportCard title="By Worker" rows={byWorker} accent="#7c3aed" />
-        <ReportCard title="By Priority" rows={byPriority} accent="#b45309" />
-        <ReportCard title="By Status" rows={byStatus} accent="#0b4a7d" />
-        <ReportCard title="Top Tenants" rows={byTenant.slice(0, 10)} accent="#0b4a7d" />
-      </div>
-    </>
-  );
-}
-
-function countBy(
-  list: MaintenanceRequest[],
-  pick: (r: MaintenanceRequest) => string | string[],
-  multi = false,
-): { label: string; n: number }[] {
-  const map = new Map<string, number>();
-  for (const r of list) {
-    const v = pick(r);
-    const keys = multi && Array.isArray(v) ? v : Array.isArray(v) ? v : [v];
-    for (const k of keys) {
-      if (!k) continue;
-      map.set(k, (map.get(k) ?? 0) + 1);
-    }
-  }
-  return Array.from(map.entries())
-    .map(([label, n]) => ({ label, n }))
-    .sort((a, b) => b.n - a.n);
-}
-
-function ReportCard({ title, rows, accent }: { title: string; rows: { label: string; n: number }[]; accent: string }) {
-  const max = rows.reduce((m, r) => Math.max(m, r.n), 0);
-  return (
-    <div className="card">
-      <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 10 }}>
-        {title}
-      </div>
-      {rows.length === 0 ? (
-        <div className="muted small">No data in this window.</div>
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {rows.map((r) => {
-            const pct = max === 0 ? 0 : (r.n / max) * 100;
-            return (
-              <div key={r.label}>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 3 }}>
-                  <span style={{ fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "70%" }}>
-                    {r.label}
-                  </span>
-                  <span style={{ color: accent, fontWeight: 700 }}>{r.n}</span>
-                </div>
-                <div style={{ height: 6, borderRadius: 999, background: "rgba(15,23,42,0.06)", overflow: "hidden" }}>
-                  <div style={{ height: "100%", width: `${pct}%`, background: accent, borderRadius: 999 }} />
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
 
 function AttachmentsSection({
   request, busy, setBusy, onUpdated,
