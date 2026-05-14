@@ -536,6 +536,14 @@ function RequestModal({
           </Section>
         )}
 
+        {/* Attachments */}
+        <AttachmentsSection
+          request={request}
+          busy={busy}
+          setBusy={setBusy}
+          onUpdated={onChange}
+        />
+
         {/* Categories — editable as a chip group */}
         <Section title="Categories">
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -650,6 +658,165 @@ function Section({ title, children }: { title: string; children: React.ReactNode
       <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 6 }}>{title}</div>
       {children}
     </div>
+  );
+}
+
+function AttachmentsSection({
+  request, busy, setBusy, onUpdated,
+}: {
+  request: MaintenanceRequest;
+  busy: boolean;
+  setBusy: (b: boolean) => void;
+  onUpdated: (r: MaintenanceRequest) => void;
+}) {
+  const [error, setError] = useState<string | null>(null);
+
+  async function upload(file: File) {
+    setError(null);
+    setBusy(true);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch(`/api/maintenance/requests/${request.id}/attachments`, {
+        method: "POST",
+        body: form,
+      });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error ?? "Upload failed");
+      onUpdated(j.request);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Upload failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function remove(attachmentId: string) {
+    if (!confirm("Delete this attachment?")) return;
+    setError(null);
+    setBusy(true);
+    try {
+      const res = await fetch(
+        `/api/maintenance/requests/${request.id}/attachments/${attachmentId}`,
+        { method: "DELETE" },
+      );
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error ?? "Delete failed");
+      onUpdated(j.request);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Delete failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Section title={`Attachments (${request.attachments.length})`}>
+      {error && (
+        <div style={{ fontSize: 12, color: "#b91c1c", marginBottom: 8 }}>{error}</div>
+      )}
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
+        gap: 8, marginBottom: 8,
+      }}>
+        {request.attachments.map((a) => {
+          const isImage = a.contentType.startsWith("image/");
+          return (
+            <div
+              key={a.id}
+              style={{
+                position: "relative",
+                border: "1px solid var(--border)", borderRadius: 8,
+                background: "rgba(15,23,42,0.02)",
+                overflow: "hidden",
+                display: "flex", flexDirection: "column",
+              }}
+            >
+              {isImage ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <a href={a.url} target="_blank" rel="noopener noreferrer">
+                  <img
+                    src={a.url}
+                    alt={a.name}
+                    style={{ width: "100%", height: 100, objectFit: "cover", display: "block" }}
+                  />
+                </a>
+              ) : (
+                <a
+                  href={a.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    height: 100, display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: 32, textDecoration: "none", color: "var(--muted)",
+                  }}
+                >
+                  📄
+                </a>
+              )}
+              <div style={{ padding: "6px 8px", fontSize: 11, display: "flex", flexDirection: "column", gap: 2 }}>
+                <a
+                  href={a.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title={a.name}
+                  style={{
+                    fontWeight: 600, color: "var(--text)", textDecoration: "none",
+                    overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                  }}
+                >
+                  {a.name}
+                </a>
+                <div style={{ color: "var(--muted)", display: "flex", justifyContent: "space-between" }}>
+                  <span>{a.size ? `${Math.round(a.size / 1024)} KB` : ""}</span>
+                  <button
+                    onClick={() => remove(a.id)}
+                    disabled={busy}
+                    title="Delete attachment"
+                    style={{
+                      background: "transparent", border: "none", color: "#b91c1c",
+                      cursor: busy ? "default" : "pointer", padding: 0, fontSize: 11, fontWeight: 600,
+                    }}
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <label
+        style={{
+          display: "inline-flex", alignItems: "center", gap: 8,
+          padding: "7px 12px", borderRadius: 6,
+          border: "1px dashed var(--border)",
+          fontSize: 13, fontWeight: 600,
+          cursor: busy ? "default" : "pointer",
+          color: "var(--muted)",
+          background: "var(--card)",
+        }}
+      >
+        + Add file
+        <input
+          type="file"
+          disabled={busy}
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) {
+              upload(f);
+              e.currentTarget.value = "";
+            }
+          }}
+          style={{ display: "none" }}
+        />
+      </label>
+      <span className="muted small" style={{ marginLeft: 10 }}>
+        Images, PDFs, docs up to ~4 MB.
+      </span>
+    </Section>
   );
 }
 
