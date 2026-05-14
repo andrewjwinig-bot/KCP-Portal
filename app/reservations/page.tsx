@@ -122,14 +122,14 @@ export default function ReservationsPage() {
             Reservation Form →
           </a>
           <a
-            href="/submit"
+            href="/service"
             target="_blank"
             rel="noopener noreferrer"
             className="btn"
             style={{ fontSize: 13, padding: "6px 12px", textDecoration: "none" }}
-            title="Open the public maintenance request form in a new tab"
+            title="Open the tenant Service Request landing in a new tab"
           >
-            Maintenance Request Form →
+            Tenant Flow →
           </a>
         </div>
       </header>
