@@ -1053,36 +1053,13 @@ function InfoField({ label, value }: { label: string; value: string; mono?: bool
 
 // ─── PROPERTY CARD ────────────────────────────────────────────────────────────
 
-function PropertyCard({ prop, onClick, checked }: { prop: PropertyDef; onClick: () => void; checked: Record<string, boolean> }) {
+function PropertyCard({ prop, onClick }: { prop: PropertyDef; onClick: () => void; checked: Record<string, boolean> }) {
   const ts = TYPE_STYLE[prop.type];
   const isEntity = !!prop.entityKind;
   const typeAccent = isEntity ? "" : `, inset 0 5px 0 ${ts.text}`;
-
-  const ownership = useMemo(
-    () => PROPERTY_OWNERSHIP.find((p) => p.propertyCode.toUpperCase() === prop.id.toUpperCase()),
-    [prop.id],
-  );
-  const sortedOwners = useMemo(
-    () => [...(ownership?.owners ?? [])].sort((a, b) => (ownerPctFor(b) ?? 0) - (ownerPctFor(a) ?? 0)),
-    [ownership],
-  );
-  const filings = useMemo(
-    () => tasksForProp(prop.id).filter((t) => t.category !== "k1"),
-    [prop.id],
-  );
-  const [ownersOpen, setOwnersOpen] = useState(false);
-  const [filingsOpen, setFilingsOpen] = useState(false);
-
-  const MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-  const today = new Date();
-  function filingStatus(t: TaxTask) {
-    const done = isTaskEffectivelyDone(t, checked);
-    if (done) return { label: "Filed", color: "#16a34a", bg: "rgba(22,163,74,0.08)", border: "rgba(22,163,74,0.2)" };
-    const due = new Date(today.getFullYear(), t.dueMonth - 1, t.dueDay);
-    due.setHours(23, 59, 59);
-    if (due < today) return { label: "Overdue", color: "#dc2626", bg: "rgba(220,38,38,0.08)", border: "rgba(220,38,38,0.25)" };
-    return { label: "Pending", color: "var(--muted)", bg: "rgba(0,0,0,0.04)", border: "var(--border)" };
-  }
+  // Ownership + Tax Filings used to render as collapsible footers on the
+  // preview card. They live inside the detail modal (also collapsible) now,
+  // so the preview stays clean and fast to scan.
 
   return (
     <div
@@ -1158,99 +1135,6 @@ function PropertyCard({ prop, onClick, checked }: { prop: PropertyDef; onClick: 
         )}
       </button>
 
-      {/* Ownership collapsible footer (only when we have data) */}
-      {sortedOwners.length > 0 && (
-        <div style={{ borderTop: "1px solid var(--border)" }}>
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); setOwnersOpen((o) => !o); }}
-            aria-expanded={ownersOpen}
-            style={{
-              display: "flex", alignItems: "center", justifyContent: "space-between",
-              width: "100%", padding: "8px 14px",
-              background: "transparent", border: "none", cursor: "pointer",
-              textAlign: "left", fontFamily: "inherit",
-              fontSize: 11, fontWeight: 700, color: "var(--muted)",
-              letterSpacing: "0.06em", textTransform: "uppercase",
-            }}
-          >
-            <span>Ownership · {sortedOwners.length} {sortedOwners.length === 1 ? "owner" : "owners"}</span>
-            <span style={{ fontSize: 13 }}>{ownersOpen ? "▲" : "▼"}</span>
-          </button>
-          {ownersOpen && (
-            <div style={{ padding: "0 14px 12px", display: "flex", flexDirection: "column", gap: 4 }}>
-              {sortedOwners.map((o) => {
-                const op = ownerPctFor(o);
-                return (
-                  <div key={o.id} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12 }}>
-                    {o.vendorCode && (
-                      <span style={{
-                        fontSize: 10, fontWeight: 600, letterSpacing: "0.04em",
-                        padding: "1px 6px", borderRadius: 999,
-                        background: "rgba(15,23,42,0.05)", color: "var(--text)",
-                        border: "1px solid var(--border)",
-                        flexShrink: 0,
-                      }}>{o.vendorCode}</span>
-                    )}
-                    <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={o.name}>{o.name}</span>
-                    {op != null && (
-                      <span style={{ flexShrink: 0, fontWeight: 600, color: "var(--text)" }}>{(op * 100).toFixed(4).replace(/\.?0+$/, "")}%</span>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Tax Filings collapsible footer */}
-      {filings.length > 0 && (
-        <div style={{ borderTop: "1px solid var(--border)" }}>
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); setFilingsOpen((o) => !o); }}
-            aria-expanded={filingsOpen}
-            style={{
-              display: "flex", alignItems: "center", justifyContent: "space-between",
-              width: "100%", padding: "8px 14px",
-              background: "transparent", border: "none", cursor: "pointer",
-              textAlign: "left", fontFamily: "inherit",
-              fontSize: 11, fontWeight: 700, color: "var(--muted)",
-              letterSpacing: "0.06em", textTransform: "uppercase",
-            }}
-          >
-            <span>Tax Filings · {filings.length}</span>
-            <span style={{ fontSize: 13 }}>{filingsOpen ? "▲" : "▼"}</span>
-          </button>
-          {filingsOpen && (
-            <div style={{ padding: "0 14px 12px", display: "flex", flexDirection: "column", gap: 4 }}>
-              {filings.map((t) => {
-                const cat = TAX_CATEGORIES[t.category];
-                const status = filingStatus(t);
-                return (
-                  <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12 }}>
-                    <span style={{
-                      fontSize: 9, fontWeight: 800, letterSpacing: "0.04em",
-                      padding: "1px 5px", borderRadius: 4,
-                      color: cat.text, background: cat.bg, border: `1px solid ${cat.border}`,
-                      flexShrink: 0,
-                    }}>{cat.pill}</span>
-                    <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={filingLabel(t)}>{filingLabel(t)}</span>
-                    <span style={{ flexShrink: 0, color: "var(--muted)", fontSize: 11 }}>{MONTHS_SHORT[t.dueMonth - 1]} {t.dueDay}</span>
-                    <span style={{
-                      flexShrink: 0,
-                      fontSize: 9, fontWeight: 800,
-                      padding: "1px 6px", borderRadius: 999,
-                      color: status.color, background: status.bg, border: `1px solid ${status.border}`,
-                    }}>{status.label}</span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 }

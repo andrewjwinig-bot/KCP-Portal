@@ -374,13 +374,9 @@ function PropertyCard({ prop, tenantMeta, onBaseYearChange, vacatingUnitRefs }: 
 
   return (
     <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-      {/* Card header */}
-      <button
-        className="linkBtn"
-        onClick={() => setOpen(!open)}
-        style={{ padding: "16px 20px", textAlign: "left", width: "100%" }}
-      >
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+      {/* Always-visible header: code, name, occupancy summary + bar, badges */}
+      <div style={{ padding: "16px 20px" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1, minWidth: 0, flexWrap: "wrap" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <code style={{ fontSize: 12, color: "var(--muted)" }}>{prop.propertyCode}</code>
@@ -411,44 +407,58 @@ function PropertyCard({ prop, tenantMeta, onBaseYearChange, vacatingUnitRefs }: 
               )}
             </div>
           </div>
-          <span style={{ color: "var(--muted)", fontSize: 18, flexShrink: 0 }}>{open ? "▲" : "▼"}</span>
         </div>
-      </button>
+
+        {/* Occupancy bar — always visible per request */}
+        {prop.totalSqft > 0 && (
+          <div style={{ marginTop: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+              <span style={{ fontSize: 12, color: "var(--muted)" }}>Occupancy</span>
+              <span style={{
+                fontSize: 13,
+                fontWeight: 700,
+                color: occupancyPct >= 90 ? "#16a34a" : occupancyPct >= 70 ? "#0b4a7d" : "#d97706",
+              }}>
+                {occupancyPct.toFixed(1)}%
+              </span>
+              <span style={{ fontSize: 12, color: "var(--muted)" }}>
+                ({sqftFmt(prop.occupiedSqft)} / {sqftFmt(prop.totalSqft)} sf)
+              </span>
+            </div>
+            <div style={{ height: 6, borderRadius: 999, background: "rgba(15,23,42,0.08)", overflow: "hidden" }}>
+              <div style={{
+                height: "100%",
+                width: `${occupancyPct}%`,
+                borderRadius: 999,
+                background: occupancyPct >= 90 ? "#16a34a" : occupancyPct >= 70 ? "#0b4a7d" : "#d97706",
+              }} />
+            </div>
+          </div>
+        )}
+
+        {/* Rent-roll toggle */}
+        <button
+          type="button"
+          onClick={() => setOpen(!open)}
+          aria-expanded={open}
+          style={{
+            marginTop: 14,
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            width: "100%", padding: "9px 12px",
+            background: "rgba(15,23,42,0.03)", border: "1px solid var(--border)", borderRadius: 8,
+            cursor: "pointer", fontFamily: "inherit", textAlign: "left",
+          }}
+        >
+          <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>
+            Rent Roll · {prop.units.length} {prop.units.length === 1 ? "unit" : "units"}
+          </span>
+          <span style={{ color: "var(--muted)", fontSize: 14 }}>{open ? "▲" : "▼"}</span>
+        </button>
+      </div>
 
       {open && (
-        <div style={{ borderTop: "1px solid var(--border)", padding: "0 20px 20px" }}>
-          {/* Occupancy bar */}
-          {prop.totalSqft > 0 && (
-            <div style={{ marginTop: 16, marginBottom: 8 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-                <span style={{ fontSize: 12, color: "var(--muted)" }}>Occupancy</span>
-                <span style={{
-                  fontSize: 13,
-                  fontWeight: 700,
-                  color: occupancyPct >= 90 ? "#16a34a" : occupancyPct >= 70 ? "#0b4a7d" : "#d97706",
-                }}>
-                  {occupancyPct.toFixed(1)}%
-                </span>
-                <span style={{ fontSize: 12, color: "var(--muted)" }}>
-                  ({sqftFmt(prop.occupiedSqft)} / {sqftFmt(prop.totalSqft)} sf)
-                </span>
-              </div>
-              <div style={{ height: 6, borderRadius: 999, background: "rgba(15,23,42,0.08)", overflow: "hidden" }}>
-                <div style={{
-                  height: "100%",
-                  width: `${occupancyPct}%`,
-                  borderRadius: 999,
-                  background: occupancyPct >= 90 ? "#16a34a" : occupancyPct >= 70 ? "#0b4a7d" : "#d97706",
-                }} />
-              </div>
-            </div>
-          )}
-          <div style={{ marginTop: 16 }}>
-            <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 10 }}>
-              Tenants · {prop.units.length} {prop.units.length === 1 ? "unit" : "units"}
-            </div>
-            <UnitsTable units={prop.units} propertyCode={prop.propertyCode} hideNNN={KH_CODES.has(prop.propertyCode.toUpperCase()) || prop.propertyCode.toUpperCase() === "4900"} tenantMeta={tenantMeta} onBaseYearChange={onBaseYearChange} vacatingUnitRefs={vacatingUnitRefs} />
-          </div>
+        <div style={{ borderTop: "1px solid var(--border)", padding: "16px 20px 20px" }}>
+          <UnitsTable units={prop.units} propertyCode={prop.propertyCode} hideNNN={KH_CODES.has(prop.propertyCode.toUpperCase()) || prop.propertyCode.toUpperCase() === "4900"} tenantMeta={tenantMeta} onBaseYearChange={onBaseYearChange} vacatingUnitRefs={vacatingUnitRefs} />
         </div>
       )}
     </div>

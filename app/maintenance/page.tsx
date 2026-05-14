@@ -135,7 +135,7 @@ export default function MaintenancePage() {
       if (property !== "All" && propertyOf(r) !== property) return false;
       if (q) {
         const hay = [
-          r.subject, r.tenantName, r.tenantEmail, companyOf(r),
+          r.id, r.subject, r.tenantName, r.tenantEmail, companyOf(r),
           propertyOf(r), ...r.categories, ...r.notes.map((n) => n.text),
         ].join(" ").toLowerCase();
         if (!hay.includes(q)) return false;
@@ -246,7 +246,7 @@ export default function MaintenancePage() {
           <Field label="Search">
             <input
               type="search"
-              placeholder="Description, tenant, notes…"
+              placeholder="Description, tenant, ref ID, notes…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               style={{ ...selectStyle, minWidth: 240 }}
@@ -330,10 +330,16 @@ export default function MaintenancePage() {
                           </>
                         ) : <span className="muted small">—</span>}
                       </td>
-                      <td style={{ fontSize: 13, fontWeight: 600 }}>
-                        {r.assignedTo
-                          ? STAFF.find((s) => s.id === r.assignedTo)?.name ?? r.assignedTo
-                          : <span className="muted small" style={{ fontWeight: 400 }}>—</span>}
+                      <td
+                        onClick={(e) => e.stopPropagation()}
+                        style={{ fontSize: 13, fontWeight: 600 }}
+                      >
+                        <RowAssigneeSelect
+                          request={r}
+                          onUpdated={(updated) => {
+                            setRequests((prev) => prev?.map((x) => x.id === updated.id ? updated : x) ?? prev);
+                          }}
+                        />
                       </td>
                     </tr>
                   );
@@ -757,6 +763,55 @@ function RequestModal({
         </div>
       </div>
     </div>
+  );
+}
+
+function RowAssigneeSelect({
+  request, onUpdated,
+}: {
+  request: MaintenanceRequest;
+  onUpdated: (r: MaintenanceRequest) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+
+  async function setTo(value: StaffId | null) {
+    if (busy || value === request.assignedTo) return;
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/maintenance/requests/${request.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ assignedTo: value }),
+      });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error ?? "Update failed");
+      onUpdated(j.request);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Update failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <select
+      value={request.assignedTo ?? ""}
+      disabled={busy}
+      onChange={(e) => setTo(e.target.value === "" ? null : (e.target.value as StaffId))}
+      onClick={(e) => e.stopPropagation()}
+      style={{
+        ...selectStyle,
+        padding: "5px 8px",
+        fontSize: 12,
+        fontWeight: 600,
+        minWidth: 110,
+        background: request.assignedTo ? "rgba(11,74,125,0.06)" : "var(--card)",
+        color: request.assignedTo ? "var(--text)" : "var(--muted)",
+      }}
+    >
+      <option value="">— Unassigned —</option>
+      {STAFF.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+    </select>
   );
 }
 
