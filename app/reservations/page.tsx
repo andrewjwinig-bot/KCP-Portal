@@ -89,9 +89,21 @@ export default function ReservationsPage() {
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
       <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
         <h1>Reservations</h1>
-        <button onClick={reload} disabled={loading} className="btn" style={{ fontSize: 13, padding: "6px 12px" }}>
-          {loading ? "Refreshing…" : "Refresh"}
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          <a
+            href="/reserve"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn primary"
+            style={{ fontSize: 13, padding: "6px 12px", textDecoration: "none" }}
+            title="Open the public conference-room reservation form in a new tab"
+          >
+            Preview reservation form →
+          </a>
+          <button onClick={reload} disabled={loading} className="btn" style={{ fontSize: 13, padding: "6px 12px" }}>
+            {loading ? "Refreshing…" : "Refresh"}
+          </button>
+        </div>
       </header>
 
       {error && (
