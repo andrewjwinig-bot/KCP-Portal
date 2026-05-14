@@ -5,7 +5,7 @@ import {
   type MaintenanceRequest,
 } from "@/lib/maintenance/requests";
 import { STAFF } from "@/lib/maintenance/staff";
-import { Pill, priorityTone, TONE_NEUTRAL, type PillTone } from "@/app/components/Pill";
+import { StatPill } from "@/app/components/Pill";
 
 // Standalone Maintenance Reports page. Linked from the Sidebar as a
 // sub-item under Maintenance.
@@ -186,22 +186,22 @@ export default function MaintenanceReportsPage() {
         </div>
       </div>
 
-      {/* KPI tiles */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 12 }}>
-        <Kpi label="Active" value={kpis.activeCount} accent={ACCENT_BLUE} />
-        <Kpi label="High Priority Open" value={kpis.highOpen} accent={ACCENT_RED} />
-        <Kpi label="Avg Days Open" value={fmtDays(kpis.avgOpen)} accent={ACCENT_AMBER} />
-        <Kpi label="Avg Days to Close" value={fmtDays(kpis.avgClose)} accent={ACCENT_GREEN} />
+      {/* KPI tiles — canonical StatPill (matches rent-roll summary) */}
+      <div className="pills">
+        <StatPill label="Active"             value={kpis.activeCount}     accent={ACCENT_BLUE} />
+        <StatPill label="High Priority Open" value={kpis.highOpen}        accent={ACCENT_RED} />
+        <StatPill label="Avg Days Open"      value={fmtDays(kpis.avgOpen)}  accent={ACCENT_AMBER} />
+        <StatPill label="Avg Days to Close"  value={fmtDays(kpis.avgClose)} accent={ACCENT_GREEN} />
       </div>
 
       {/* Open by Priority */}
       <div className="card">
         <div style={sectionLabelStyle}>Open by Priority</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12, marginTop: 10 }}>
-          <PriorityCount label="High"            n={kpis.highOpen} tone={priorityTone("High")} />
-          <PriorityCount label="Medium"          n={kpis.medOpen}  tone={priorityTone("Medium")} />
-          <PriorityCount label="Low"             n={kpis.lowOpen}  tone={priorityTone("Low")} />
-          <PriorityCount label="No Priority Set" n={kpis.unset}    tone={TONE_NEUTRAL} />
+        <div className="pills" style={{ marginTop: 10 }}>
+          <StatPill label="High"            value={kpis.highOpen} accent={ACCENT_RED} />
+          <StatPill label="Medium"          value={kpis.medOpen}  accent={ACCENT_AMBER} />
+          <StatPill label="Low"             value={kpis.lowOpen}  accent="#475569" />
+          <StatPill label="No Priority Set" value={kpis.unset} />
         </div>
       </div>
 
@@ -307,29 +307,6 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <span style={sectionLabelStyle}>{label}</span>
       {children}
     </label>
-  );
-}
-
-function Kpi({ label, value, accent }: { label: string; value: number | string; accent: string }) {
-  return (
-    <div className="card" style={{ padding: 14 }}>
-      <div style={sectionLabelStyle}>{label}</div>
-      <div style={{ fontSize: 28, fontWeight: 900, color: accent, marginTop: 4, lineHeight: 1 }}>{value}</div>
-    </div>
-  );
-}
-
-function PriorityCount({ label, n, tone }: { label: string; n: number; tone: PillTone }) {
-  return (
-    <div style={{
-      padding: "10px 12px",
-      border: "1px solid var(--border)", borderRadius: 8,
-      background: "rgba(15,23,42,0.025)",
-      display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-start",
-    }}>
-      <Pill tone={tone}>{label}</Pill>
-      <span style={{ fontSize: 22, fontWeight: 800, color: "var(--text)", lineHeight: 1 }}>{n}</span>
-    </div>
   );
 }
 
