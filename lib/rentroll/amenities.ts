@@ -14,6 +14,8 @@ export type AmenityInfo = { label: string };
 
 export const RENT_ROLL_AMENITIES: Record<string, AmenityInfo> = {
   "3640-112": { label: "Training Room" },
+  "4060-217": { label: "Conference Room" },
+  "4080-201": { label: "Conference Room" },
 };
 
 /** Returns the amenity record for a unit, or null if it's a normal unit. */
