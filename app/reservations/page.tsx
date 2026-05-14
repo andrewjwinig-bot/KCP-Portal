@@ -8,6 +8,7 @@ import {
 } from "@/lib/reservations/storage";
 import { BOOKABLE_ROOMS } from "@/lib/reservations/rooms";
 import { useUser } from "@/app/components/UserProvider";
+import { Pill, Badge, reservationStatusTone } from "@/app/components/Pill";
 
 type Filter = "Pending" | "Approved" | "Declined" | "All";
 
@@ -24,13 +25,6 @@ function prettyTime(hhmm: string): string {
   const ampm = h >= 12 ? "PM" : "AM";
   const h12 = ((h + 11) % 12) + 1;
   return `${h12}:${m[2]} ${ampm}`;
-}
-function statusStyle(s: ReservationStatus): { bg: string; fg: string; border: string } {
-  switch (s) {
-    case "Pending":  return { bg: "rgba(217,119,6,0.10)", fg: "#b45309", border: "rgba(217,119,6,0.30)" };
-    case "Approved": return { bg: "rgba(22,163,74,0.10)", fg: "#15803d", border: "rgba(22,163,74,0.30)" };
-    case "Declined": return { bg: "rgba(220,38,38,0.10)", fg: "#b91c1c", border: "rgba(220,38,38,0.30)" };
-  }
 }
 
 export default function ReservationsPage() {
@@ -193,7 +187,7 @@ export default function ReservationsPage() {
                 </td></tr>
               )}
               {filtered.map((r) => {
-                const ss = statusStyle(r.status);
+                const ss = reservationStatusTone(r.status);
                 return (
                   <tr
                     key={r.id}
@@ -210,13 +204,7 @@ export default function ReservationsPage() {
                     </td>
                     <td style={{ fontSize: 13, whiteSpace: "nowrap" }}>{prettyDate(r.date)}</td>
                     <td style={{ fontSize: 13, whiteSpace: "nowrap" }}>{prettyTime(r.startTime)}–{prettyTime(r.endTime)}</td>
-                    <td>
-                      <span style={{
-                        display: "inline-block", padding: "2px 8px", borderRadius: 999,
-                        fontSize: 11, fontWeight: 700,
-                        background: ss.bg, color: ss.fg, border: `1px solid ${ss.border}`,
-                      }}>{r.status}</span>
-                    </td>
+                    <td><Pill tone={ss}>{r.status}</Pill></td>
                     <td style={{ textAlign: "right", fontSize: 12, color: "var(--muted)", whiteSpace: "nowrap" }}>
                       {new Date(r.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                     </td>
@@ -314,7 +302,7 @@ function ReservationModal({
     } finally { setBusy(false); }
   }
 
-  const ss = statusStyle(reservation.status);
+  const ss = reservationStatusTone(reservation.status);
 
   return (
     <div
@@ -346,9 +334,7 @@ function ReservationModal({
             <button onClick={onClose} aria-label="Close" style={{ background: "transparent", border: "1px solid var(--border)", borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontSize: 18, lineHeight: 1, color: "var(--muted)", flexShrink: 0 }}>×</button>
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-            <span style={{ display: "inline-block", padding: "2px 8px", borderRadius: 999, fontSize: 11, fontWeight: 700, background: ss.bg, color: ss.fg, border: `1px solid ${ss.border}` }}>
-              {reservation.status}
-            </span>
+            <Pill tone={ss}>{reservation.status}</Pill>
             {reservation.decidedBy && (
               <span className="muted small">
                 by {reservation.decidedBy} · {reservation.decidedAt ? new Date(reservation.decidedAt).toLocaleString() : ""}
@@ -606,19 +592,6 @@ function TabButton({ active, onClick, children }: { active: boolean; onClick: ()
     }}>
       {children}
     </button>
-  );
-}
-
-function Badge({ children, muted }: { children: React.ReactNode; muted?: boolean }) {
-  return (
-    <span style={{
-      marginLeft: 6, padding: "1px 7px", borderRadius: 999,
-      fontSize: 11, fontWeight: 700,
-      background: muted ? "rgba(15,23,42,0.06)" : "rgba(11,74,125,0.10)",
-      color: muted ? "var(--muted)" : "#0b4a7d",
-    }}>
-      {children}
-    </span>
   );
 }
 

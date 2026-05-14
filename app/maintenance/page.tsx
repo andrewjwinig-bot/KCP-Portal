@@ -12,6 +12,14 @@ import {
 } from "@/lib/maintenance/requests";
 import { STAFF, staffName, type StaffId } from "@/lib/maintenance/staff";
 import { summarize } from "@/lib/maintenance/summarize";
+import {
+  Pill,
+  Badge,
+  maintenanceStatusTone,
+  priorityTone,
+  TONE_BLUE,
+  TONE_NEUTRAL,
+} from "@/app/components/Pill";
 
 type Tab = "active" | "completed";
 
@@ -28,15 +36,6 @@ function daysSince(d: string | null): number | null {
   const t = Date.parse(d);
   if (!Number.isFinite(t)) return null;
   return Math.floor((Date.now() - t) / 86400000);
-}
-
-function statusStyle(s: string): { bg: string; fg: string; border: string } {
-  switch (s) {
-    case "New":         return { bg: "rgba(11,74,125,0.10)",  fg: "#0b4a7d", border: "rgba(11,74,125,0.30)" };
-    case "In Progress": return { bg: "rgba(217,119,6,0.10)",  fg: "#b45309", border: "rgba(217,119,6,0.30)" };
-    case "Complete":    return { bg: "rgba(22,163,74,0.10)",  fg: "#15803d", border: "rgba(22,163,74,0.30)" };
-    default:            return { bg: "rgba(15,23,42,0.06)",   fg: "#475569", border: "rgba(15,23,42,0.15)" };
-  }
 }
 
 /**
@@ -84,15 +83,6 @@ function isNew(r: MaintenanceRequest): boolean {
   if (r.seenAt) return false;
   if (r.assignedTo) return false;
   return r.status === "New";
-}
-
-function priorityStyle(p: string): { bg: string; fg: string; border: string } {
-  switch (p) {
-    case "High":   return { bg: "rgba(220,38,38,0.10)", fg: "#b91c1c", border: "rgba(220,38,38,0.30)" };
-    case "Medium": return { bg: "rgba(217,119,6,0.10)", fg: "#b45309", border: "rgba(217,119,6,0.30)" };
-    case "Low":    return { bg: "rgba(15,23,42,0.06)",  fg: "#475569", border: "rgba(15,23,42,0.15)" };
-    default:       return { bg: "rgba(15,23,42,0.06)",  fg: "#475569", border: "rgba(15,23,42,0.15)" };
-  }
 }
 
 export default function MaintenancePage() {
@@ -340,8 +330,8 @@ export default function MaintenancePage() {
                   </td></tr>
                 )}
                 {filtered.map((r) => {
-                  const pStyle = priorityStyle(r.priority);
-                  const sStyle = statusStyle(r.status);
+                  const pStyle = priorityTone(r.priority);
+                  const sStyle = maintenanceStatusTone(r.status);
                   const age = daysSince(r.submittedDate);
                   return (
                     <tr
@@ -387,14 +377,14 @@ export default function MaintenancePage() {
                         </div>
                         <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 3, flexWrap: "wrap" }}>
                           {tab === "active" && r.status !== "New" && (
-                            <Pill style={sStyle}>{r.status}</Pill>
+                            <Pill tone={sStyle}>{r.status}</Pill>
                           )}
                           {r.attachments.length > 0 && (
                             <span style={{ fontSize: 11, color: "var(--muted)" }}>📎 {r.attachments.length}</span>
                           )}
                         </div>
                       </td>
-                      <td>{r.priority ? <Pill style={pStyle}>{r.priority}</Pill> : <span className="muted small">—</span>}</td>
+                      <td>{r.priority ? <Pill tone={pStyle}>{r.priority}</Pill> : <span className="muted small">—</span>}</td>
                       <td style={{ fontSize: 12 }}>{r.categories.join(", ") || <span className="muted small">—</span>}</td>
                       <td style={{ textAlign: "right", fontSize: 13, fontWeight: 600, whiteSpace: "nowrap" }}>
                         {tab === "completed"
@@ -539,32 +529,6 @@ function FilterTile({
   );
 }
 
-function Pill({ children, style }: { children: React.ReactNode; style: { bg: string; fg: string; border: string } }) {
-  return (
-    <span style={{
-      display: "inline-block", padding: "2px 8px", borderRadius: 999,
-      fontSize: 11, fontWeight: 700,
-      background: style.bg, color: style.fg, border: `1px solid ${style.border}`,
-      whiteSpace: "nowrap",
-    }}>
-      {children}
-    </span>
-  );
-}
-
-function Badge({ children, muted }: { children: React.ReactNode; muted?: boolean }) {
-  return (
-    <span style={{
-      marginLeft: 6, padding: "1px 7px", borderRadius: 999,
-      fontSize: 11, fontWeight: 700,
-      background: muted ? "rgba(15,23,42,0.06)" : "rgba(11,74,125,0.10)",
-      color: muted ? "var(--muted)" : "#0b4a7d",
-    }}>
-      {children}
-    </span>
-  );
-}
-
 function TabButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
     <button
@@ -646,8 +610,8 @@ function RequestModal({
     }
   }
 
-  const sStyle = statusStyle(request.status);
-  const pStyle = priorityStyle(request.priority);
+  const sStyle = maintenanceStatusTone(request.status);
+  const pStyle = priorityTone(request.priority);
 
   const assigneeName = request.assignedTo
     ? STAFF.find((s) => s.id === request.assignedTo)?.name ?? request.assignedTo
@@ -722,15 +686,15 @@ function RequestModal({
 
           <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", flex: 1, minWidth: 0 }}>
-              <Pill style={sStyle}>{request.status}</Pill>
-              {request.priority && <Pill style={pStyle}>{request.priority}</Pill>}
+              <Pill tone={sStyle}>{request.status}</Pill>
+              {request.priority && <Pill tone={pStyle}>{request.priority}</Pill>}
               {assigneeName && (
-                <Pill style={{ bg: "rgba(11,74,125,0.10)", fg: "#0b4a7d", border: "rgba(11,74,125,0.30)" }}>
+                <Pill tone={TONE_BLUE}>
                   {assigneeName}
                 </Pill>
               )}
               {request.categories.map((c) => (
-                <Pill key={c} style={{ bg: "rgba(15,23,42,0.05)", fg: "#475569", border: "rgba(15,23,42,0.15)" }}>{c}</Pill>
+                <Pill key={c} tone={TONE_NEUTRAL}>{c}</Pill>
               ))}
             </div>
             <span style={{
