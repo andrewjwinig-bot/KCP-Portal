@@ -29,6 +29,13 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
   let next = applyPatch(r, body);
 
+  // Assigning a request implicitly marks it as seen for everyone — the
+  // assignee row needs to clear the NEW pill across the team, not just for
+  // whoever clicked into it.
+  if (body.assignedTo && !next.seenAt) {
+    next = { ...next, seenAt: new Date().toISOString() };
+  }
+
   if (body.addNote && body.addNote.text.trim()) {
     const authorRaw = String(body.addNote.author ?? "");
     const author: Note["author"] = isStaffId(authorRaw) ? authorRaw : "admin";

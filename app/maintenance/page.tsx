@@ -77,6 +77,15 @@ function propertyOf(r: MaintenanceRequest): string {
   return m ? m[1].trim() : r.propertyName;
 }
 
+/** A request is "new" until someone has clicked into it OR assigned it.
+ *  Server stamps seenAt on first open AND on assignment, so the badge
+ *  clears for the whole team in one go. */
+function isNew(r: MaintenanceRequest): boolean {
+  if (r.seenAt) return false;
+  if (r.assignedTo) return false;
+  return r.status === "New";
+}
+
 function priorityStyle(p: string): { bg: string; fg: string; border: string } {
   switch (p) {
     case "High":   return { bg: "rgba(220,38,38,0.10)", fg: "#b91c1c", border: "rgba(220,38,38,0.30)" };
@@ -328,12 +337,42 @@ export default function MaintenancePage() {
                     <tr
                       key={r.id}
                       style={{ cursor: "pointer" }}
-                      onClick={() => setSelected(r)}
+                      onClick={() => {
+                        setSelected(r);
+                        // Mark as seen the first time anyone opens the row.
+                        // Fire-and-forget so the modal opens immediately.
+                        if (isNew(r)) {
+                          fetch(`/api/maintenance/requests/${r.id}`, {
+                            method: "PATCH",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ seenAt: new Date().toISOString() }),
+                          }).then(async (res) => {
+                            if (res.ok) {
+                              const j = await res.json();
+                              setRequests((prev) => prev?.map((x) => x.id === r.id ? j.request : x) ?? prev);
+                            }
+                          }).catch(() => { /* ignore */ });
+                        }
+                      }}
                       onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.filter = "brightness(0.97)"; }}
                       onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.filter = ""; }}
                     >
                       <td style={{ fontWeight: 600, maxWidth: 340 }}>
                         <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {isNew(r) && (
+                            <span style={{
+                              display: "inline-block",
+                              padding: "1px 7px",
+                              borderRadius: 999,
+                              fontSize: 10, fontWeight: 800, letterSpacing: "0.06em",
+                              background: "#0b4a7d", color: "#fff",
+                              textTransform: "uppercase",
+                              marginRight: 8,
+                              verticalAlign: "middle",
+                            }}>
+                              NEW
+                            </span>
+                          )}
                           {briefDescription(r)}
                         </div>
                         <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 3, flexWrap: "wrap" }}>
