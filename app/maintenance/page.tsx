@@ -459,170 +459,242 @@ function RequestModal({
   const sStyle = statusStyle(request.status);
   const pStyle = priorityStyle(request.priority);
 
+  const assigneeName = request.assignedTo
+    ? STAFF.find((s) => s.id === request.assignedTo)?.name ?? request.assignedTo
+    : null;
+
   return (
     <div
       onClick={onClose}
       style={{
-        position: "fixed", inset: 0, background: "rgba(15,23,42,0.45)",
+        position: "fixed", inset: 0, background: "rgba(15,23,42,0.55)",
         display: "flex", alignItems: "flex-start", justifyContent: "center",
-        padding: "60px 16px 16px", zIndex: 100, overflow: "auto",
+        padding: "48px 16px 32px", zIndex: 100, overflow: "auto",
       }}
     >
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
           background: "var(--card)", color: "var(--text)",
-          borderRadius: 12, border: "1px solid var(--border)",
-          maxWidth: 760, width: "100%", padding: 24,
-          boxShadow: "0 12px 40px rgba(15,23,42,0.25)",
-          display: "flex", flexDirection: "column", gap: 14,
+          borderRadius: 14, border: "1px solid var(--border)",
+          maxWidth: 960, width: "100%",
+          boxShadow: "0 24px 60px rgba(15,23,42,0.32)",
+          display: "flex", flexDirection: "column",
+          overflow: "hidden",
         }}
       >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16 }}>
-          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800 }}>{request.subject}</h2>
-          <button
-            onClick={onClose}
-            aria-label="Close"
-            style={{
-              background: "transparent", border: "1px solid var(--border)",
-              borderRadius: 6, padding: "4px 10px", cursor: "pointer",
-              fontSize: 16, lineHeight: 1, color: "var(--muted)",
-            }}
-          >×</button>
-        </div>
-
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <Pill style={sStyle}>{request.status}</Pill>
-          {request.priority && <Pill style={pStyle}>{request.priority}</Pill>}
-          {request.assignedTo && (
-            <Pill style={{ bg: "rgba(11,74,125,0.10)", fg: "#0b4a7d", border: "rgba(11,74,125,0.30)" }}>
-              {STAFF.find((s) => s.id === request.assignedTo)?.name ?? request.assignedTo}
-            </Pill>
-          )}
-          {request.categories.map((c) => (
-            <Pill key={c} style={{ bg: "rgba(15,23,42,0.05)", fg: "#475569", border: "rgba(15,23,42,0.15)" }}>{c}</Pill>
-          ))}
-        </div>
-
-        {/* Action row: status / priority / assignee */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 10 }}>
-          <Field label="Status">
-            <select disabled={busy} value={request.status} onChange={(e) => patch({ status: e.target.value as RequestStatus })} style={selectStyle}>
-              {REQUEST_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-            </select>
-          </Field>
-          <Field label="Priority">
-            <select disabled={busy} value={request.priority} onChange={(e) => patch({ priority: e.target.value as RequestPriority | "" })} style={selectStyle}>
-              <option value="">—</option>
-              {REQUEST_PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
-            </select>
-          </Field>
-          <Field label="Assigned To">
-            <select
-              disabled={busy}
-              value={request.assignedTo ?? ""}
-              onChange={(e) => patch({ assignedTo: e.target.value === "" ? null : (e.target.value as StaffId) })}
-              style={selectStyle}
-            >
-              <option value="">— Unassigned —</option>
-              {STAFF.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
-          </Field>
-        </div>
-
-        <Row label="Property" value={request.propertyName} />
-        <Row label="Tenant" value={request.tenantName ? `${request.tenantName} <${request.tenantEmail}>` : request.tenantEmail} />
-        <Row label="Submitted" value={formatDate(request.submittedDate)} />
-        {request.status === "Complete" && <Row label="Completed" value={formatDate(request.completedDate)} />}
-
-        {/* Attachments */}
-        <AttachmentsSection
-          request={request}
-          busy={busy}
-          setBusy={setBusy}
-          onUpdated={onChange}
-        />
-
-        {/* Categories — editable as a chip group */}
-        <Section title="Categories">
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-            {REQUEST_CATEGORIES.map((c) => {
-              const on = request.categories.includes(c);
-              return (
-                <button
-                  key={c}
-                  onClick={() => patch({ categories: on ? request.categories.filter((x) => x !== c) : [...request.categories, c as RequestCategory] })}
-                  disabled={busy}
-                  style={{
-                    fontSize: 11, fontWeight: 600, padding: "3px 9px", borderRadius: 999,
-                    border: on ? "1px solid rgba(11,74,125,0.45)" : "1px solid var(--border)",
-                    background: on ? "rgba(11,74,125,0.10)" : "var(--card)",
-                    color: on ? "#0b4a7d" : "var(--muted)",
-                    cursor: busy ? "default" : "pointer",
-                  }}
-                >
-                  {c}
-                </button>
-              );
-            })}
-          </div>
-        </Section>
-
-        {/* Notes */}
-        <Section title={`Notes (${request.notes.length})`}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {request.notes.length === 0 && <div className="muted small">No notes yet.</div>}
-            {request.notes.map((n) => (
-              <div key={n.id} style={{ padding: 10, border: "1px solid var(--border)", borderRadius: 8, background: "rgba(15,23,42,0.02)" }}>
-                <div style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600, marginBottom: 4 }}>
-                  {n.authorName} · {new Date(n.createdAt).toLocaleString()}
-                </div>
-                <div style={{ fontSize: 14, whiteSpace: "pre-wrap", lineHeight: 1.5 }}>{n.text}</div>
+        {/* Header */}
+        <div style={{
+          padding: "24px 32px 20px",
+          borderBottom: "1px solid var(--border)",
+          display: "flex", flexDirection: "column", gap: 14,
+        }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16 }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <h2 style={{ margin: 0, fontSize: 26, fontWeight: 800, letterSpacing: "-0.02em", lineHeight: 1.2 }}>
+                {request.subject}
+              </h2>
+              <div className="muted small" style={{ marginTop: 6, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 11 }}>
+                {request.id}
               </div>
-            ))}
-            <div style={{ display: "flex", gap: 8, alignItems: "flex-end", marginTop: 4 }}>
-              <Field label="Author">
-                <select value={noteAuthor} onChange={(e) => setNoteAuthor(e.target.value as StaffId)} style={selectStyle}>
-                  {STAFF.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                </select>
-              </Field>
-              <textarea
-                placeholder="Add a note…"
-                value={draftNote}
-                onChange={(e) => setDraftNote(e.target.value)}
-                rows={2}
-                style={{ ...selectStyle, flex: 1, minHeight: 40, fontFamily: "inherit", resize: "vertical" }}
-              />
-              <button
-                onClick={addNote}
-                disabled={busy || !draftNote.trim()}
-                className="btn primary"
-                style={{ fontSize: 13, padding: "8px 14px" }}
-              >
-                Add note
-              </button>
             </div>
+            <button
+              onClick={onClose}
+              aria-label="Close"
+              style={{
+                background: "transparent", border: "1px solid var(--border)",
+                borderRadius: 8, padding: "6px 12px", cursor: "pointer",
+                fontSize: 18, lineHeight: 1, color: "var(--muted)",
+                flexShrink: 0,
+              }}
+            >×</button>
           </div>
-        </Section>
 
-        <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4, alignItems: "center" }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+            <Pill style={sStyle}>{request.status}</Pill>
+            {request.priority && <Pill style={pStyle}>{request.priority}</Pill>}
+            {assigneeName && (
+              <Pill style={{ bg: "rgba(11,74,125,0.10)", fg: "#0b4a7d", border: "rgba(11,74,125,0.30)" }}>
+                {assigneeName}
+              </Pill>
+            )}
+            {request.categories.map((c) => (
+              <Pill key={c} style={{ bg: "rgba(15,23,42,0.05)", fg: "#475569", border: "rgba(15,23,42,0.15)" }}>{c}</Pill>
+            ))}
+          </div>
+        </div>
+
+        {/* Body */}
+        <div style={{ padding: "24px 32px", display: "flex", flexDirection: "column", gap: 24 }}>
+          {/* Action row: status / priority / assignee */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 14 }}>
+            <Field label="Status">
+              <select disabled={busy} value={request.status} onChange={(e) => patch({ status: e.target.value as RequestStatus })} style={selectStyle}>
+                {REQUEST_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </Field>
+            <Field label="Priority">
+              <select disabled={busy} value={request.priority} onChange={(e) => patch({ priority: e.target.value as RequestPriority | "" })} style={selectStyle}>
+                <option value="">—</option>
+                {REQUEST_PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
+              </select>
+            </Field>
+            <Field label="Assigned To">
+              <select
+                disabled={busy}
+                value={request.assignedTo ?? ""}
+                onChange={(e) => patch({ assignedTo: e.target.value === "" ? null : (e.target.value as StaffId) })}
+                style={selectStyle}
+              >
+                <option value="">— Unassigned —</option>
+                {STAFF.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+            </Field>
+          </div>
+
+          {/* Meta strip — Property / Tenant / Submitted in a single bordered block */}
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+            gap: 18,
+            padding: "16px 18px",
+            border: "1px solid var(--border)",
+            borderRadius: 10,
+            background: "rgba(15,23,42,0.025)",
+          }}>
+            <MetaCell label="Property" value={request.propertyName} />
+            <MetaCell
+              label="Tenant"
+              value={request.tenantName || request.tenantEmail || ""}
+              sub={request.tenantName && request.tenantEmail ? request.tenantEmail : undefined}
+            />
+            <MetaCell label="Submitted" value={formatDate(request.submittedDate)} />
+            {request.status === "Complete" && (
+              <MetaCell label="Completed" value={formatDate(request.completedDate)} />
+            )}
+          </div>
+
+          {/* Attachments */}
+          <AttachmentsSection
+            request={request}
+            busy={busy}
+            setBusy={setBusy}
+            onUpdated={onChange}
+          />
+
+          {/* Categories */}
+          <Section title="Categories">
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {REQUEST_CATEGORIES.map((c) => {
+                const on = request.categories.includes(c);
+                return (
+                  <button
+                    key={c}
+                    onClick={() => patch({ categories: on ? request.categories.filter((x) => x !== c) : [...request.categories, c as RequestCategory] })}
+                    disabled={busy}
+                    style={{
+                      fontSize: 12, fontWeight: 600, padding: "5px 12px", borderRadius: 999,
+                      border: on ? "1px solid rgba(11,74,125,0.55)" : "1px solid var(--border)",
+                      background: on ? "rgba(11,74,125,0.10)" : "var(--card)",
+                      color: on ? "#0b4a7d" : "var(--muted)",
+                      cursor: busy ? "default" : "pointer",
+                      fontFamily: "inherit",
+                      transition: "background 0.12s, border-color 0.12s",
+                    }}
+                  >
+                    {c}
+                  </button>
+                );
+              })}
+            </div>
+          </Section>
+
+          {/* Notes */}
+          <Section title={`Notes (${request.notes.length})`}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {request.notes.length === 0 && (
+                <div className="muted small" style={{ padding: "8px 0" }}>No notes yet.</div>
+              )}
+              {request.notes.map((n) => (
+                <div key={n.id} style={{
+                  padding: "12px 14px",
+                  border: "1px solid var(--border)", borderRadius: 10,
+                  background: "rgba(15,23,42,0.025)",
+                }}>
+                  <div style={{ fontSize: 11, color: "var(--muted)", fontWeight: 700, marginBottom: 6, letterSpacing: "0.02em" }}>
+                    {n.authorName} · {new Date(n.createdAt).toLocaleString()}
+                  </div>
+                  <div style={{ fontSize: 14, whiteSpace: "pre-wrap", lineHeight: 1.55 }}>{n.text}</div>
+                </div>
+              ))}
+
+              {/* Add-note composer */}
+              <div style={{
+                marginTop: 6,
+                padding: 14,
+                border: "1px solid var(--border)", borderRadius: 10,
+                background: "var(--card)",
+                display: "flex", flexDirection: "column", gap: 10,
+              }}>
+                <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
+                    Author
+                  </span>
+                  <select
+                    value={noteAuthor}
+                    onChange={(e) => setNoteAuthor(e.target.value as StaffId)}
+                    style={{ ...selectStyle, width: "auto", minWidth: 120 }}
+                  >
+                    {STAFF.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                </div>
+                <textarea
+                  placeholder="Add a note…"
+                  value={draftNote}
+                  onChange={(e) => setDraftNote(e.target.value)}
+                  rows={3}
+                  style={{ ...selectStyle, width: "100%", minHeight: 64, fontFamily: "inherit", resize: "vertical", fontSize: 14 }}
+                />
+                <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                  <button
+                    onClick={addNote}
+                    disabled={busy || !draftNote.trim()}
+                    className="btn primary"
+                    style={{ fontSize: 13, padding: "9px 18px" }}
+                  >
+                    Add note
+                  </button>
+                </div>
+              </div>
+            </div>
+          </Section>
+        </div>
+
+        {/* Footer */}
+        <div style={{
+          padding: "16px 32px 20px",
+          borderTop: "1px solid var(--border)",
+          background: "rgba(15,23,42,0.02)",
+          display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap",
+        }}>
           <button
             onClick={remove}
             disabled={busy}
             style={{
-              fontSize: 12, color: "#b91c1c", background: "transparent",
-              border: "1px solid rgba(220,38,38,0.30)", borderRadius: 6,
-              padding: "5px 10px", cursor: "pointer",
+              fontSize: 12, fontWeight: 600, color: "#b91c1c", background: "transparent",
+              border: "1px solid rgba(220,38,38,0.35)", borderRadius: 8,
+              padding: "8px 14px", cursor: busy ? "default" : "pointer",
+              fontFamily: "inherit",
             }}
           >
-            Delete
+            Delete Request
           </button>
           {request.status !== "Complete" ? (
             <button
               onClick={() => patch({ status: "Complete" })}
               disabled={busy}
               className="btn primary"
-              style={{ fontSize: 13, padding: "8px 16px" }}
+              style={{ fontSize: 14, padding: "10px 22px", fontWeight: 700 }}
             >
               ✓ Mark Complete
             </button>
@@ -631,7 +703,7 @@ function RequestModal({
               onClick={() => patch({ status: "In Progress" })}
               disabled={busy}
               className="btn"
-              style={{ fontSize: 13, padding: "8px 16px" }}
+              style={{ fontSize: 14, padding: "10px 22px", fontWeight: 700 }}
             >
               Reopen
             </button>
@@ -642,11 +714,20 @@ function RequestModal({
   );
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+function MetaCell({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
-    <div style={{ display: "flex", gap: 12, fontSize: 14 }}>
-      <span style={{ width: 110, flexShrink: 0, color: "var(--muted)", fontWeight: 600 }}>{label}</span>
-      <span>{value || "—"}</span>
+    <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
+      <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
+        {label}
+      </span>
+      <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", lineHeight: 1.4, wordBreak: "break-word" }}>
+        {value || "—"}
+      </span>
+      {sub && (
+        <span style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.3, wordBreak: "break-word" }}>
+          {sub}
+        </span>
+      )}
     </div>
   );
 }
