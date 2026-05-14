@@ -194,14 +194,24 @@ export default function MaintenancePage() {
             {loading ? "Refreshing…" : "Refresh"}
           </button>
           <a
-            href="/service"
+            href="/submit"
             target="_blank"
             rel="noopener noreferrer"
             className="btn primary"
             style={{ fontSize: 13, padding: "6px 12px", textDecoration: "none" }}
-            title="Open the public Service Request landing in a new tab"
+            title="Open the public maintenance request form in a new tab"
           >
-            Preview tenant flow →
+            Maintenance Request Form →
+          </a>
+          <a
+            href="/reserve"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn"
+            style={{ fontSize: 13, padding: "6px 12px", textDecoration: "none" }}
+            title="Open the public conference-room reservation form in a new tab"
+          >
+            Reservation Form →
           </a>
         </div>
       </header>
