@@ -93,6 +93,7 @@ export default function MaintenancePage() {
   const [error, setError] = useState<string | null>(null);
   const [priority, setPriority] = useState<"All" | RequestPriority>("All");
   const [assignee, setAssignee] = useState<"All" | "Unassigned" | StaffId>("All");
+  const [statusFilter, setStatusFilter] = useState<"All" | "New" | "In Progress">("All");
   const [property, setProperty] = useState<string>("All");
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<MaintenanceRequest | null>(null);
@@ -129,6 +130,7 @@ export default function MaintenancePage() {
     return requests.filter((r) => {
       if (tab === "active"    && r.status === "Complete") return false;
       if (tab === "completed" && r.status !== "Complete") return false;
+      if (statusFilter !== "All" && r.status !== statusFilter) return false;
       if (priority !== "All" && r.priority !== priority) return false;
       if (assignee === "Unassigned" && r.assignedTo !== null) return false;
       if (assignee !== "All" && assignee !== "Unassigned" && r.assignedTo !== assignee) return false;
@@ -142,7 +144,7 @@ export default function MaintenancePage() {
       }
       return true;
     });
-  }, [requests, tab, priority, assignee, property, search]);
+  }, [requests, tab, priority, assignee, property, search, statusFilter]);
 
   const counts = useMemo(() => {
     const all = requests ?? [];
@@ -213,15 +215,54 @@ export default function MaintenancePage() {
           </div>
         )}
 
-        {tab === "active" && (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 }}>
-            <Tile label="Active" value={counts.active} accent="#0b4a7d" />
-            <Tile label="High Priority" value={counts.highOpen} accent="#b91c1c" />
-            <Tile label="Unassigned" value={counts.unassigned} accent="#b45309" />
-            <Tile label="New" value={counts.newCount} accent="#0b4a7d" />
-            <Tile label="In Progress" value={counts.inProgress} accent="#b45309" />
-          </div>
-        )}
+        {tab === "active" && (() => {
+          const noExtraFilters =
+            priority === "All" && assignee === "All" && statusFilter === "All";
+          function clearAll() {
+            setPriority("All");
+            setAssignee("All");
+            setStatusFilter("All");
+          }
+          return (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 }}>
+              <FilterTile
+                label="Active"
+                value={counts.active}
+                accent="#0b4a7d"
+                active={noExtraFilters}
+                onClick={clearAll}
+              />
+              <FilterTile
+                label="High Priority"
+                value={counts.highOpen}
+                accent="#b91c1c"
+                active={priority === "High"}
+                onClick={() => setPriority(priority === "High" ? "All" : "High")}
+              />
+              <FilterTile
+                label="Unassigned"
+                value={counts.unassigned}
+                accent="#b45309"
+                active={assignee === "Unassigned"}
+                onClick={() => setAssignee(assignee === "Unassigned" ? "All" : "Unassigned")}
+              />
+              <FilterTile
+                label="New"
+                value={counts.newCount}
+                accent="#0b4a7d"
+                active={statusFilter === "New"}
+                onClick={() => setStatusFilter(statusFilter === "New" ? "All" : "New")}
+              />
+              <FilterTile
+                label="In Progress"
+                value={counts.inProgress}
+                accent="#b45309"
+                active={statusFilter === "In Progress"}
+                onClick={() => setStatusFilter(statusFilter === "In Progress" ? "All" : "In Progress")}
+              />
+            </div>
+          );
+        })()}
 
         {/* Filters — inline strip, no card chrome. */}
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end", padding: "0 2px" }}>
@@ -388,12 +429,64 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-function Tile({ label, value, accent }: { label: string; value: number; accent: string }) {
+/**
+ * Clickable summary pill, styled to match the rent-roll StatPill (big number
+ * on top, small label below) instead of the previous card-with-label-on-top
+ * Tile. Active state shows the accent color as both border and tint.
+ */
+function FilterTile({
+  label, value, accent, active, onClick,
+}: {
+  label: string;
+  value: number;
+  accent: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  // hex → rgba(…, 0.10) for the active background tint
+  function tint(hex: string, a: number): string {
+    const m = /^#?([a-f0-9]{6})$/i.exec(hex);
+    if (!m) return hex;
+    const n = parseInt(m[1], 16);
+    return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
+  }
   return (
-    <div className="card" style={{ padding: 14 }}>
-      <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>{label}</div>
-      <div style={{ fontSize: 28, fontWeight: 900, color: accent, marginTop: 4, lineHeight: 1 }}>{value}</div>
-    </div>
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      style={{
+        border: active ? `1.5px solid ${accent}` : "1.5px solid var(--border)",
+        borderRadius: 10,
+        padding: "13px 16px 11px",
+        display: "inline-flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: 4,
+        whiteSpace: "nowrap",
+        background: active ? tint(accent, 0.08) : "var(--card)",
+        cursor: "pointer",
+        fontFamily: "inherit",
+        transition: "background 0.12s, border-color 0.12s",
+        textAlign: "center",
+        width: "100%",
+        minWidth: 0,
+      }}
+      onMouseEnter={(e) => {
+        if (!active) (e.currentTarget as HTMLElement).style.borderColor = accent;
+      }}
+      onMouseLeave={(e) => {
+        if (!active) (e.currentTarget as HTMLElement).style.borderColor = "var(--border)";
+      }}
+    >
+      <b style={{ fontSize: 28, fontWeight: 900, lineHeight: 1, color: accent }}>{value}</b>
+      <span style={{
+        fontSize: 11, fontWeight: 600, color: "var(--muted)",
+        textTransform: "uppercase", letterSpacing: "0.04em",
+      }}>
+        {label}
+      </span>
+    </button>
   );
 }
 
