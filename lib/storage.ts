@@ -31,8 +31,12 @@ function safeId(id: string) {
 /** Fetch a blob URL server-side, including the auth token for private stores. */
 async function fetchBlobJson(url: string): Promise<any> {
   const token = process.env.BLOB_READ_WRITE_TOKEN;
+  // cache: "no-store" — Vercel Blob URLs are stable across overwrites
+  // (addRandomSuffix: false), so Next.js's default fetch cache would
+  // happily return a stale manifest body after a write. Force fresh.
   const res = await fetch(url, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
+    cache: "no-store",
   });
   if (!res.ok) throw new Error(`Blob fetch failed: ${res.status} ${res.statusText}`);
   return res.json();

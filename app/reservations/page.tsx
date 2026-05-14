@@ -90,6 +90,27 @@ export default function ReservationsPage() {
       <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
         <h1>Conference Room Reservations</h1>
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          <button
+            onClick={reload}
+            disabled={loading}
+            className="btn"
+            style={{ fontSize: 13, padding: "6px 12px", display: "inline-flex", alignItems: "center", gap: 6 }}
+            title="Pull the latest reservations"
+          >
+            <svg
+              width="14" height="14" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
+              style={{
+                animation: loading ? "spin 0.8s linear infinite" : "none",
+                transformOrigin: "center",
+              }}
+            >
+              <polyline points="23 4 23 10 17 10" />
+              <polyline points="1 20 1 14 7 14" />
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+            </svg>
+            {loading ? "Refreshing…" : "Refresh"}
+          </button>
           <a
             href="/reserve"
             target="_blank"
@@ -110,9 +131,6 @@ export default function ReservationsPage() {
           >
             Maintenance Request Form →
           </a>
-          <button onClick={reload} disabled={loading} className="btn" style={{ fontSize: 13, padding: "6px 12px" }}>
-            {loading ? "Refreshing…" : "Refresh"}
-          </button>
         </div>
       </header>
 

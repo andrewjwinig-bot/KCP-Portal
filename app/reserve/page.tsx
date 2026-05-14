@@ -209,13 +209,11 @@ export default function ReservePage() {
               </Row>
 
               <Field label="Date (Monday–Friday)" required>
-                <UnderlineInput
+                <WeekdayCalendar
                   value={date}
                   onChange={setDate}
-                  required
-                  type="date"
-                  min={dateBounds.min}
-                  max={dateBounds.max}
+                  minISO={dateBounds.min}
+                  maxISO={dateBounds.max}
                 />
                 {weekendWarning && (
                   <span style={{ fontSize: 12, color: RED, fontWeight: 600, marginTop: 6 }}>
@@ -225,26 +223,22 @@ export default function ReservePage() {
               </Field>
 
               <Row>
-                <Field label="Start Time (8:00 AM – 6:00 PM, 15-min)" required>
-                  <UnderlineInput
+                <Field label="Start Time (8:00 AM – 6:00 PM)" required>
+                  <UnderlineSelect
                     value={startTime}
                     onChange={setStartTime}
                     required
-                    type="time"
-                    min="08:00"
-                    max="18:00"
-                    step={900}
+                    placeholder="Pick a start time"
+                    options={QUARTER_HOUR_OPTIONS}
                   />
                 </Field>
-                <Field label="End Time (8:00 AM – 6:00 PM, 15-min)" required>
-                  <UnderlineInput
+                <Field label="End Time (8:00 AM – 6:00 PM)" required>
+                  <UnderlineSelect
                     value={endTime}
                     onChange={setEndTime}
                     required
-                    type="time"
-                    min="08:00"
-                    max="18:00"
-                    step={900}
+                    placeholder="Pick an end time"
+                    options={QUARTER_HOUR_OPTIONS}
                   />
                 </Field>
               </Row>
@@ -369,6 +363,217 @@ function UnderlineInput({ value, onChange, type = "text", required, placeholder,
     />
   );
 }
+// 15-minute time options between 8:00 AM and 6:00 PM (08:00 … 18:00).
+// Generated once; the inputs render them through the same UnderlineSelect
+// vocabulary used by the rest of the form.
+const QUARTER_HOUR_OPTIONS: { value: string; label: string }[] = (() => {
+  const out: { value: string; label: string }[] = [];
+  for (let mins = 8 * 60; mins <= 18 * 60; mins += 15) {
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    const value = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+    const ampm = h >= 12 ? "PM" : "AM";
+    const h12 = ((h + 11) % 12) + 1;
+    out.push({ value, label: `${h12}:${String(m).padStart(2, "0")} ${ampm}` });
+  }
+  return out;
+})();
+
+// Custom date picker — native <input type="date"> can't grey out weekend
+// columns. This is a tight popover calendar: weekdays inside [min, max]
+// are clickable; weekends and out-of-range days are visually muted and
+// non-interactive so tenants pick a valid date the first time.
+function WeekdayCalendar({
+  value,
+  onChange,
+  minISO,
+  maxISO,
+}: {
+  value: string;
+  onChange: (iso: string) => void;
+  minISO: string;
+  maxISO: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [viewMonth, setViewMonth] = useState<Date>(() => {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      const [y, mo] = value.split("-").map(Number);
+      return new Date(y, mo - 1, 1);
+    }
+    const [y, mo] = minISO.split("-").map(Number);
+    return new Date(y, mo - 1, 1);
+  });
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+
+  // Close on outside click.
+  useEffect(() => {
+    if (!open) return;
+    function onDoc(e: MouseEvent) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [open]);
+
+  const min = parseISO(minISO);
+  const max = parseISO(maxISO);
+  const monthLabel = viewMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  const days = monthGridDays(viewMonth);
+
+  function prevMonth() {
+    const d = new Date(viewMonth);
+    d.setMonth(d.getMonth() - 1);
+    if (lastDayOfMonth(d) < min) return;
+    setViewMonth(d);
+  }
+  function nextMonth() {
+    const d = new Date(viewMonth);
+    d.setMonth(d.getMonth() + 1);
+    if (d > max) return;
+    setViewMonth(d);
+  }
+
+  const displayValue = (() => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return "";
+    const d = parseISO(value);
+    return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
+  })();
+
+  return (
+    <div ref={wrapRef} style={{ position: "relative" }}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        style={{
+          ...underlineInputStyle,
+          textAlign: "left",
+          cursor: "pointer",
+          color: displayValue ? TEXT : MUTED,
+          paddingRight: 24,
+          backgroundImage: caretSvg(),
+          backgroundRepeat: "no-repeat",
+          backgroundPosition: "right 4px center",
+          backgroundSize: 14,
+        }}
+      >
+        {displayValue || "Pick a date"}
+      </button>
+      {open && (
+        <div
+          style={{
+            position: "absolute",
+            top: "calc(100% + 6px)",
+            left: 0,
+            zIndex: 50,
+            background: CARD,
+            border: `1px solid ${LINE_DARK}`,
+            boxShadow: "0 8px 24px rgba(14,34,56,0.12)",
+            padding: 14,
+            width: 280,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+            <button type="button" onClick={prevMonth} style={calNavBtn} aria-label="Previous month">‹</button>
+            <div style={{ fontSize: 14, fontWeight: 600, color: NAVY }}>{monthLabel}</div>
+            <button type="button" onClick={nextMonth} style={calNavBtn} aria-label="Next month">›</button>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2 }}>
+            {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
+              <div
+                key={i}
+                style={{
+                  fontSize: 11, fontWeight: 600, textAlign: "center", padding: "4px 0",
+                  color: i === 0 || i === 6 ? MUTED : NAVY,
+                }}
+              >
+                {d}
+              </div>
+            ))}
+            {days.map((d, i) => {
+              const inMonth = d.getMonth() === viewMonth.getMonth();
+              const dow = d.getDay();
+              const isWeekend = dow === 0 || dow === 6;
+              const outOfRange = d < min || d > max;
+              const disabled = !inMonth || isWeekend || outOfRange;
+              const iso = toISO(d);
+              const isSelected = iso === value;
+              return (
+                <button
+                  key={i}
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => { onChange(iso); setOpen(false); }}
+                  style={{
+                    fontFamily: "inherit",
+                    fontSize: 13,
+                    padding: "6px 0",
+                    border: "none",
+                    background: isSelected ? NAVY : "transparent",
+                    color: isSelected
+                      ? "#fff"
+                      : disabled
+                      ? "rgba(14,34,56,0.25)"
+                      : inMonth ? TEXT : MUTED,
+                    cursor: disabled ? "default" : "pointer",
+                    textAlign: "center",
+                    borderRadius: 2,
+                  }}
+                  aria-label={d.toDateString()}
+                >
+                  {d.getDate()}
+                </button>
+              );
+            })}
+          </div>
+          <div style={{ fontSize: 11, color: MUTED, marginTop: 10, lineHeight: 1.5 }}>
+            Weekends are unavailable. Pick a weekday between {fmtShort(min)} and {fmtShort(max)}.
+          </div>
+        </div>
+      )}
+      {/* Hidden input keeps the value participating in the form's `required` validation. */}
+      <input type="hidden" value={value} required />
+    </div>
+  );
+}
+
+function parseISO(iso: string): Date {
+  const [y, mo, d] = iso.split("-").map(Number);
+  return new Date(y, mo - 1, d);
+}
+function toISO(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+function lastDayOfMonth(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth() + 1, 0);
+}
+function fmtShort(d: Date): string {
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+// Returns 42 cells (6 weeks) covering the calendar grid for the month.
+function monthGridDays(viewMonth: Date): Date[] {
+  const first = new Date(viewMonth.getFullYear(), viewMonth.getMonth(), 1);
+  const start = new Date(first);
+  start.setDate(first.getDate() - first.getDay()); // back to Sunday
+  const out: Date[] = [];
+  for (let i = 0; i < 42; i++) {
+    const d = new Date(start);
+    d.setDate(start.getDate() + i);
+    out.push(d);
+  }
+  return out;
+}
+const calNavBtn: React.CSSProperties = {
+  background: "transparent",
+  border: `1px solid ${LINE}`,
+  color: NAVY,
+  width: 26,
+  height: 26,
+  fontSize: 16,
+  lineHeight: 1,
+  cursor: "pointer",
+  fontFamily: "inherit",
+};
+
 function UnderlineSelect({ value, onChange, options, disabled, required, placeholder }: {
   value: string; onChange: (v: string) => void;
   options: { value: string; label: string }[];
