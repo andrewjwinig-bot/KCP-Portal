@@ -21,6 +21,7 @@ import {
   toDisplayDate,
   toIsoDate,
 } from "../../lib/commissions";
+import { Calendar } from "@/app/components/Calendar";
 
 // Office property codes — Business Parks Division commissions.
 const OFFICE_CODES = new Set(
@@ -431,25 +432,25 @@ export default function CommissionsPage() {
             />
           </div>
 
-          {/* Lease From — native date picker, always editable */}
+          {/* Lease From — shared Calendar popover (card variant) */}
           <div>
             <label style={labelStyle}>Lease From</label>
-            <input
-              type="date"
+            <Calendar
               value={toIsoDate(form.leaseFrom)}
-              onChange={(e) => recomputeFromDates({ leaseFrom: e.target.value })}
-              style={inputStyle}
+              onChange={(iso) => recomputeFromDates({ leaseFrom: iso })}
+              variant="card"
+              placeholder="Pick lease start"
             />
           </div>
 
-          {/* Lease To — native date picker, always editable */}
+          {/* Lease To — shared Calendar popover (card variant) */}
           <div>
             <label style={labelStyle}>Lease To</label>
-            <input
-              type="date"
+            <Calendar
               value={toIsoDate(form.leaseTo)}
-              onChange={(e) => recomputeFromDates({ leaseTo: e.target.value })}
-              style={inputStyle}
+              onChange={(iso) => recomputeFromDates({ leaseTo: iso })}
+              variant="card"
+              placeholder="Pick lease end"
             />
           </div>
 

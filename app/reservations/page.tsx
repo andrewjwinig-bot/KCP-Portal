@@ -32,7 +32,7 @@ export default function ReservationsPage() {
   const [reservations, setReservations] = useState<Reservation[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<Filter>("Pending");
+  const [filter, setFilter] = useState<Filter>("All");
   const [roomFilter, setRoomFilter] = useState<string>("All");
   const [selected, setSelected] = useState<Reservation | null>(null);
 
@@ -136,17 +136,17 @@ export default function ReservationsPage() {
       )}
 
       <div style={{ display: "flex", gap: 4, borderBottom: "1px solid var(--border)" }}>
+        <TabButton active={filter === "All"} onClick={() => setFilter("All")}>
+          All <Badge>{counts.total}</Badge>
+        </TabButton>
         <TabButton active={filter === "Pending"} onClick={() => setFilter("Pending")}>
-          Pending <Badge>{counts.pending}</Badge>
+          Pending <Badge muted>{counts.pending}</Badge>
         </TabButton>
         <TabButton active={filter === "Approved"} onClick={() => setFilter("Approved")}>
           Approved <Badge muted>{counts.approved}</Badge>
         </TabButton>
         <TabButton active={filter === "Declined"} onClick={() => setFilter("Declined")}>
           Declined <Badge muted>{counts.declined}</Badge>
-        </TabButton>
-        <TabButton active={filter === "All"} onClick={() => setFilter("All")}>
-          All <Badge muted>{counts.total}</Badge>
         </TabButton>
       </div>
 
