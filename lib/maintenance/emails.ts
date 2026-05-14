@@ -19,6 +19,8 @@ export type MaintenanceEmail = {
   attachmentCount: number;
   attachments: { name: string; contentType: string; size: number }[];
   source: "postmark" | "resend" | "mailgun" | "sendgrid" | "generic";
+  aiSummary: string;          // Filled by Claude triage on inbound (best-effort)
+  aiCategories: string[];     // 0-3 categories from REQUEST_CATEGORIES
 };
 
 const PREFIX = "maintenance-emails";
@@ -93,6 +95,8 @@ export function normalizeInbound(payload: AnyJson): MaintenanceEmail {
         size: typeof a.ContentLength === "number" ? a.ContentLength : 0,
       })),
       source: "postmark",
+      aiSummary: "",
+      aiCategories: [],
     };
   }
 
@@ -124,5 +128,7 @@ export function normalizeInbound(payload: AnyJson): MaintenanceEmail {
     attachmentCount: attachments.length,
     attachments,
     source: "generic",
+    aiSummary: "",
+    aiCategories: [],
   };
 }
