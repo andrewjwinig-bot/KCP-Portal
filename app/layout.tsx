@@ -4,8 +4,8 @@ import AppShell from "./components/AppShell";
 import { UserProvider } from "./components/UserProvider";
 
 export const metadata: Metadata = {
-  title: "Payroll Invoicer",
-  description: "Generate payroll allocation invoices per property",
+  title: "KCP Portal",
+  description: "Korman Commercial Properties internal portal",
 };
 
 export const viewport = {
