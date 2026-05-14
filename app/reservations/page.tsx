@@ -88,7 +88,7 @@ export default function ReservationsPage() {
   return (
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
       <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
-        <h1>Reservations</h1>
+        <h1>Conference Room Reservations</h1>
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
           <a
             href="/reserve"
@@ -98,7 +98,17 @@ export default function ReservationsPage() {
             style={{ fontSize: 13, padding: "6px 12px", textDecoration: "none" }}
             title="Open the public conference-room reservation form in a new tab"
           >
-            Preview reservation form →
+            Reservation Form →
+          </a>
+          <a
+            href="/submit"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn"
+            style={{ fontSize: 13, padding: "6px 12px", textDecoration: "none" }}
+            title="Open the public maintenance request form in a new tab"
+          >
+            Maintenance Request Form →
           </a>
           <button onClick={reload} disabled={loading} className="btn" style={{ fontSize: 13, padding: "6px 12px" }}>
             {loading ? "Refreshing…" : "Refresh"}
