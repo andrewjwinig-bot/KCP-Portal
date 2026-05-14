@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { MaintenanceEmail } from "@/lib/maintenance/emails";
 import {
   REQUEST_CATEGORIES,
   REQUEST_PRIORITIES,
@@ -13,7 +12,7 @@ import {
 } from "@/lib/maintenance/requests";
 import { STAFF, type StaffId } from "@/lib/maintenance/staff";
 
-type Tab = "active" | "completed" | "reports" | "inbox";
+type Tab = "active" | "completed" | "reports";
 
 function formatDate(d: string | null): string {
   if (!d) return "—";
@@ -58,15 +57,6 @@ export default function MaintenancePage() {
   const [property, setProperty] = useState<string>("All");
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<MaintenanceRequest | null>(null);
-  const [emails, setEmails] = useState<MaintenanceEmail[]>([]);
-
-  const reloadEmails = useCallback(async () => {
-    try {
-      const res = await fetch("/api/maintenance/emails");
-      const body = await res.json();
-      if (res.ok) setEmails(body.emails ?? []);
-    } catch { /* inbox is best-effort */ }
-  }, []);
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -83,7 +73,7 @@ export default function MaintenancePage() {
     }
   }, []);
 
-  useEffect(() => { reload(); reloadEmails(); }, [reload, reloadEmails]);
+  useEffect(() => { reload(); }, [reload]);
 
   const properties = useMemo(() => {
     const set = new Set<string>();
@@ -103,7 +93,7 @@ export default function MaintenancePage() {
       if (property !== "All" && r.propertyName !== property) return false;
       if (q) {
         const hay = [
-          r.subject, r.aiSummary, r.tenantName, r.tenantEmail,
+          r.subject, r.tenantName, r.tenantEmail,
           r.propertyName, ...r.categories, ...r.notes.map((n) => n.text),
         ].join(" ").toLowerCase();
         if (!hay.includes(q)) return false;
@@ -139,16 +129,7 @@ export default function MaintenancePage() {
           Completed <Badge muted>{counts.completed}</Badge>
         </TabButton>
         <TabButton active={tab === "reports"} onClick={() => setTab("reports")}>Reports</TabButton>
-        <TabButton active={tab === "inbox"} onClick={() => setTab("inbox")}>Inbox</TabButton>
       </div>
-
-      {tab === "inbox" && (
-        <Inbox
-          existingRequests={requests ?? []}
-          onConverted={() => { setTab("active"); reload(); reloadEmails(); }}
-          onOpenRequest={(r) => { setTab("active"); setSelected(r); }}
-        />
-      )}
 
       {tab === "reports" && <Reports requests={requests ?? []} />}
 
@@ -223,7 +204,7 @@ export default function MaintenancePage() {
                 {loading && <tr><td colSpan={8} className="muted small" style={{ padding: 16 }}>Loading…</td></tr>}
                 {!loading && filtered.length === 0 && (
                   <tr><td colSpan={8} className="muted small" style={{ padding: 16 }}>
-                    No requests. {tab === "active" && (requests?.length ?? 0) === 0 && "Use Backfill to import from Airtable, or click an email in the Inbox tab to create one."}
+                    No requests. {tab === "active" && (requests?.length ?? 0) === 0 && "Tenants can submit via the public form at /submit; use Backfill to import legacy Airtable rows."}
                   </td></tr>
                 )}
                 {filtered.map((r) => {
@@ -277,7 +258,6 @@ export default function MaintenancePage() {
         {selected && (
           <RequestModal
             request={selected}
-            allEmails={emails}
             onClose={() => setSelected(null)}
             onChange={(updated) => {
               setRequests((prev) => prev?.map((r) => r.id === updated.id ? updated : r) ?? prev);
@@ -409,10 +389,9 @@ function BackfillButton({ onDone }: { onDone: () => void }) {
 }
 
 function RequestModal({
-  request, allEmails, onClose, onChange, onDelete,
+  request, onClose, onChange, onDelete,
 }: {
   request: MaintenanceRequest;
-  allEmails: MaintenanceEmail[];
   onClose: () => void;
   onChange: (r: MaintenanceRequest) => void;
   onDelete: (id: string) => void;
@@ -544,23 +523,9 @@ function RequestModal({
         <Row label="Submitted" value={formatDate(request.submittedDate)} />
         {request.status === "Complete" && <Row label="Completed" value={formatDate(request.completedDate)} />}
 
-        {request.aiSummary && (
-          <Section title="AI Summary">
-            <div style={{ fontSize: 14, lineHeight: 1.5 }}>{request.aiSummary}</div>
-          </Section>
-        )}
-
         {/* Attachments */}
         <AttachmentsSection
           request={request}
-          busy={busy}
-          setBusy={setBusy}
-          onUpdated={onChange}
-        />
-
-        <LinkedEmailsSection
-          request={request}
-          allEmails={allEmails}
           busy={busy}
           setBusy={setBusy}
           onUpdated={onChange}
@@ -806,160 +771,6 @@ function ReportCard({ title, rows, accent }: { title: string; rows: { label: str
   );
 }
 
-function LinkedEmailsSection({
-  request, allEmails, busy, setBusy, onUpdated,
-}: {
-  request: MaintenanceRequest;
-  allEmails: MaintenanceEmail[];
-  busy: boolean;
-  setBusy: (b: boolean) => void;
-  onUpdated: (r: MaintenanceRequest) => void;
-}) {
-  const [picking, setPicking] = useState(false);
-  const [picker, setPicker] = useState("");
-  const [error, setError] = useState<string | null>(null);
-
-  // Linked emails — pair the ids on the request with metadata when we have it.
-  // Unknown ids (email deleted) still render so they can be unlinked.
-  const linked = request.linkedEmailIds.map((id) => ({
-    id,
-    email: allEmails.find((e) => e.id === id) ?? null,
-  }));
-
-  // Candidate emails to link: same sender first, then everything else; exclude
-  // already-linked ids. Cap the picker so it stays usable.
-  const senderKey = request.tenantEmail.toLowerCase().trim();
-  const candidates = allEmails
-    .filter((e) => !request.linkedEmailIds.includes(e.id))
-    .sort((a, b) => {
-      const aMatch = senderKey && a.fromEmail.toLowerCase().trim() === senderKey ? 0 : 1;
-      const bMatch = senderKey && b.fromEmail.toLowerCase().trim() === senderKey ? 0 : 1;
-      if (aMatch !== bMatch) return aMatch - bMatch;
-      return b.receivedAt.localeCompare(a.receivedAt);
-    })
-    .slice(0, 50);
-
-  async function patchLinked(linkedEmailIds: string[]) {
-    setError(null);
-    setBusy(true);
-    try {
-      const res = await fetch(`/api/maintenance/requests/${request.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ linkedEmailIds }),
-      });
-      const j = await res.json();
-      if (!res.ok) throw new Error(j.error ?? "Failed");
-      onUpdated(j.request);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  function addLink() {
-    if (!picker) return;
-    patchLinked([...request.linkedEmailIds, picker]);
-    setPicker("");
-    setPicking(false);
-  }
-
-  function unlink(id: string) {
-    patchLinked(request.linkedEmailIds.filter((x) => x !== id));
-  }
-
-  return (
-    <Section title={`Linked Emails (${linked.length})`}>
-      {error && <div style={{ fontSize: 12, color: "#b91c1c", marginBottom: 8 }}>{error}</div>}
-      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        {linked.length === 0 && <div className="muted small">No emails linked yet.</div>}
-        {linked.map(({ id, email }) => (
-          <div
-            key={id}
-            style={{
-              display: "flex", alignItems: "center", gap: 8,
-              padding: "7px 10px", borderRadius: 6,
-              background: "var(--card)", border: "1px solid var(--border)",
-            }}
-          >
-            {email ? (
-              <>
-                <span style={{ fontSize: 13, fontWeight: 600, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {email.subject || "(no subject)"}
-                </span>
-                <span style={{ fontSize: 11, color: "var(--muted)", whiteSpace: "nowrap" }}>
-                  {email.fromName || email.fromEmail} · {new Date(email.receivedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "2-digit" })}
-                </span>
-              </>
-            ) : (
-              <span className="muted small" style={{ flex: 1 }}>
-                (Email no longer in inbox — id {id.slice(0, 12)}…)
-              </span>
-            )}
-            <button
-              onClick={() => unlink(id)}
-              disabled={busy}
-              title="Unlink"
-              style={{
-                background: "transparent", border: "none", color: "#b91c1c",
-                cursor: busy ? "default" : "pointer", padding: 0, fontSize: 11, fontWeight: 600,
-              }}
-            >
-              Unlink
-            </button>
-          </div>
-        ))}
-      </div>
-
-      <div style={{ marginTop: 8 }}>
-        {!picking ? (
-          <button
-            onClick={() => setPicking(true)}
-            disabled={busy || candidates.length === 0}
-            className="btn"
-            style={{ fontSize: 12, padding: "5px 10px" }}
-          >
-            {candidates.length === 0 ? "No more emails to link" : "+ Link an email"}
-          </button>
-        ) : (
-          <div style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
-            <Field label={senderKey ? "Pick an email (sender's first)" : "Pick an email"}>
-              <select value={picker} onChange={(e) => setPicker(e.target.value)} style={{ ...selectStyle, minWidth: 320 }}>
-                <option value="">—</option>
-                {candidates.map((e) => {
-                  const dateStr = new Date(e.receivedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "2-digit" });
-                  const senderMatch = senderKey && e.fromEmail.toLowerCase().trim() === senderKey;
-                  return (
-                    <option key={e.id} value={e.id}>
-                      {senderMatch ? "★ " : ""}{dateStr} · {e.fromName || e.fromEmail} · {e.subject || "(no subject)"}
-                    </option>
-                  );
-                })}
-              </select>
-            </Field>
-            <button
-              onClick={addLink}
-              disabled={busy || !picker}
-              className="btn primary"
-              style={{ fontSize: 12, padding: "6px 12px" }}
-            >
-              Link
-            </button>
-            <button
-              onClick={() => { setPicking(false); setPicker(""); }}
-              disabled={busy}
-              className="btn"
-              style={{ fontSize: 12, padding: "6px 12px" }}
-            >
-              Cancel
-            </button>
-          </div>
-        )}
-      </div>
-    </Section>
-  );
-}
 
 function AttachmentsSection({
   request, busy, setBusy, onUpdated,
@@ -1120,592 +931,3 @@ function AttachmentsSection({
   );
 }
 
-// ── Inbox tab (re-exported from previous PR, lightly trimmed) ──────────────
-
-function Inbox({
-  existingRequests, onConverted, onOpenRequest,
-}: {
-  existingRequests: MaintenanceRequest[];
-  onConverted: () => void;
-  onOpenRequest: (r: MaintenanceRequest) => void;
-}) {
-  const [emails, setEmails] = useState<MaintenanceEmail[] | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [selected, setSelected] = useState<MaintenanceEmail | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let alive = true;
-    setLoading(true);
-    fetch("/api/maintenance/emails")
-      .then(async (r) => ({ ok: r.ok, body: await r.json() }))
-      .then(({ ok, body }) => {
-        if (!alive) return;
-        if (!ok) { setError(body.error ?? "Failed to load"); setEmails([]); }
-        else setEmails(body.emails ?? []);
-      })
-      .catch((e) => alive && setError(e?.message ?? "Network error"))
-      .finally(() => alive && setLoading(false));
-    return () => { alive = false; };
-  }, []);
-
-  const filtered = useMemo(() => {
-    if (!emails) return [];
-    const q = search.trim().toLowerCase();
-    if (!q) return emails;
-    return emails.filter((e) =>
-      [e.subject, e.fromName, e.fromEmail, e.textBody].join(" ").toLowerCase().includes(q),
-    );
-  }, [emails, search]);
-
-  return (
-    <>
-      {error && (
-        <div className="card" style={{ borderColor: "rgba(220,38,38,0.35)", background: "rgba(220,38,38,0.04)" }}>
-          <div style={{ fontWeight: 700, color: "#b91c1c", marginBottom: 4 }}>Couldn't load inbox</div>
-          <div className="muted small">{error}</div>
-        </div>
-      )}
-
-      <div className="card" style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
-        <Field label="Search">
-          <input
-            type="search"
-            placeholder="Subject, sender, body…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            style={{ ...selectStyle, minWidth: 280 }}
-          />
-        </Field>
-        <div style={{ marginLeft: "auto", fontSize: 12, color: "var(--muted)" }}>
-          {loading ? "Loading…" : `${filtered.length} email${filtered.length === 1 ? "" : "s"}`}
-        </div>
-      </div>
-
-      <div className="card" style={{ padding: 0 }}>
-        <div className="tableWrap">
-          <table>
-            <thead>
-              <tr>
-                <th>From</th>
-                <th>Subject</th>
-                <th>Preview</th>
-                <th style={{ whiteSpace: "nowrap" }}>Received</th>
-                <th style={{ textAlign: "right" }}>📎</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading && <tr><td colSpan={5} className="muted small" style={{ padding: 16 }}>Loading…</td></tr>}
-              {!loading && filtered.length === 0 && !error && (
-                <tr><td colSpan={5} className="muted small" style={{ padding: 16 }}>
-                  Inbox is empty. Configure your inbound webhook (POST → <code>/api/maintenance/inbound?token=…</code>) and forward your maintenance@ mailbox to it.
-                </td></tr>
-              )}
-              {filtered.map((e) => {
-                const previewSrc = e.aiSummary || e.textBody;
-                const preview = previewSrc.replace(/\s+/g, " ").trim().slice(0, 110);
-                const received = new Date(e.receivedAt);
-                return (
-                  <tr
-                    key={e.id}
-                    style={{ cursor: "pointer" }}
-                    onClick={() => setSelected(e)}
-                    onMouseEnter={(ev) => { (ev.currentTarget as HTMLElement).style.filter = "brightness(0.97)"; }}
-                    onMouseLeave={(ev) => { (ev.currentTarget as HTMLElement).style.filter = ""; }}
-                  >
-                    <td style={{ fontWeight: 600, fontSize: 13, whiteSpace: "nowrap" }}>
-                      {e.fromName || e.fromEmail}
-                      {e.fromName && <div style={{ fontSize: 11, color: "var(--muted)", fontWeight: 400 }}>{e.fromEmail}</div>}
-                    </td>
-                    <td style={{ fontWeight: 600 }}>{e.subject || <span className="muted small">(no subject)</span>}</td>
-                    <td className="muted small">
-                      {e.aiSummary && (
-                        <span style={{
-                          marginRight: 6, padding: "1px 6px", borderRadius: 4,
-                          background: "rgba(124,58,237,0.12)", color: "#6d28d9",
-                          fontSize: 10, fontWeight: 700, letterSpacing: "0.04em",
-                        }}>AI</span>
-                      )}
-                      {preview}{previewSrc.length > 110 ? "…" : ""}
-                    </td>
-                    <td style={{ fontSize: 12, whiteSpace: "nowrap", color: "var(--muted)" }}>
-                      {received.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                      {" · "}
-                      {received.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
-                    </td>
-                    <td style={{ textAlign: "right", fontSize: 12, color: "var(--muted)" }}>
-                      {e.attachmentCount > 0 ? e.attachmentCount : ""}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {selected && (
-        <EmailModal
-          email={selected}
-          allEmails={emails ?? []}
-          existingRequests={existingRequests}
-          onClose={() => setSelected(null)}
-          onConverted={() => { setSelected(null); onConverted(); }}
-          onOpenEmail={(e) => setSelected(e)}
-          onOpenRequest={(r) => { setSelected(null); onOpenRequest(r); }}
-        />
-      )}
-    </>
-  );
-}
-
-function EmailAISection({ email }: { email: MaintenanceEmail }) {
-  const [working, setWorking] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [localSummary, setLocalSummary] = useState(email.aiSummary);
-  const [localCats, setLocalCats] = useState<string[]>(email.aiCategories);
-
-  // Reset if a different email is selected
-  useEffect(() => {
-    setLocalSummary(email.aiSummary);
-    setLocalCats(email.aiCategories);
-    setError(null);
-  }, [email.id, email.aiSummary, email.aiCategories]);
-
-  async function run() {
-    if (working) return;
-    setWorking(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/maintenance/emails/${email.id}/summarize`, { method: "POST" });
-      const j = await res.json();
-      if (!res.ok) throw new Error(j.error ?? "Summarize failed");
-      setLocalSummary(j.email.aiSummary ?? "");
-      setLocalCats(j.email.aiCategories ?? []);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Summarize failed");
-    } finally {
-      setWorking(false);
-    }
-  }
-
-  const hasAI = !!localSummary || localCats.length > 0;
-
-  return (
-    <div style={{
-      border: "1px solid rgba(124,58,237,0.30)",
-      background: "rgba(124,58,237,0.04)",
-      borderRadius: 10, padding: 12,
-      display: "flex", flexDirection: "column", gap: 8,
-    }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "#6d28d9" }}>
-          AI Triage
-        </div>
-        {!hasAI && (
-          <button
-            onClick={run}
-            disabled={working}
-            className="btn"
-            style={{ fontSize: 12, padding: "5px 10px" }}
-          >
-            {working ? "Summarizing…" : "Summarize"}
-          </button>
-        )}
-      </div>
-      {hasAI ? (
-        <>
-          {localSummary && <div style={{ fontSize: 14, lineHeight: 1.5 }}>{localSummary}</div>}
-          {localCats.length > 0 && (
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-              {localCats.map((c) => (
-                <span key={c} style={{
-                  fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 999,
-                  background: "rgba(124,58,237,0.10)", color: "#6d28d9",
-                  border: "1px solid rgba(124,58,237,0.30)",
-                }}>
-                  {c}
-                </span>
-              ))}
-            </div>
-          )}
-        </>
-      ) : (
-        <div className="muted small">
-          {error
-            ? <span style={{ color: "#b91c1c" }}>{error}</span>
-            : "No summary yet. Click Summarize to run Claude on this email."}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function SenderHistory({
-  priorEmails, senderRequests, onOpenEmail, onOpenRequest,
-}: {
-  priorEmails: MaintenanceEmail[];
-  senderRequests: MaintenanceRequest[];
-  onOpenEmail: (e: MaintenanceEmail) => void;
-  onOpenRequest: (r: MaintenanceRequest) => void;
-}) {
-  return (
-    <div style={{
-      border: "1px solid var(--border)",
-      borderRadius: 10, padding: 12,
-      background: "rgba(15,23,42,0.025)",
-      display: "flex", flexDirection: "column", gap: 10,
-    }}>
-      <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
-        Sender history
-        <span style={{ marginLeft: 8, color: "var(--text)" }}>
-          {priorEmails.length} email{priorEmails.length === 1 ? "" : "s"}
-          {" · "}
-          {senderRequests.length} request{senderRequests.length === 1 ? "" : "s"}
-        </span>
-      </div>
-
-      {senderRequests.length > 0 && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: "var(--muted)" }}>Previous requests</div>
-          {senderRequests.slice(0, 5).map((r) => {
-            const sStyle = statusStyle(r.status);
-            const pStyle = priorityStyle(r.priority);
-            return (
-              <button
-                key={r.id}
-                onClick={() => onOpenRequest(r)}
-                style={{
-                  display: "flex", alignItems: "center", gap: 8,
-                  padding: "6px 10px", borderRadius: 6,
-                  background: "var(--card)", border: "1px solid var(--border)",
-                  cursor: "pointer", textAlign: "left",
-                  fontFamily: "inherit", color: "var(--text)",
-                }}
-              >
-                <Pill style={sStyle}>{r.status}</Pill>
-                {r.priority && <Pill style={pStyle}>{r.priority}</Pill>}
-                <span style={{ fontSize: 13, fontWeight: 600, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {r.subject}
-                </span>
-                <span style={{ fontSize: 11, color: "var(--muted)", whiteSpace: "nowrap" }}>
-                  {formatDate(r.submittedDate)}
-                </span>
-              </button>
-            );
-          })}
-          {senderRequests.length > 5 && (
-            <div className="muted small">+ {senderRequests.length - 5} more (search the Requests tab by email).</div>
-          )}
-        </div>
-      )}
-
-      {priorEmails.length > 0 && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: "var(--muted)" }}>Previous emails</div>
-          {priorEmails.slice(0, 5).map((e) => {
-            const received = new Date(e.receivedAt);
-            return (
-              <button
-                key={e.id}
-                onClick={() => onOpenEmail(e)}
-                style={{
-                  display: "flex", alignItems: "center", gap: 8,
-                  padding: "6px 10px", borderRadius: 6,
-                  background: "var(--card)", border: "1px solid var(--border)",
-                  cursor: "pointer", textAlign: "left",
-                  fontFamily: "inherit", color: "var(--text)",
-                }}
-              >
-                <span style={{ fontSize: 13, fontWeight: 600, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {e.subject || "(no subject)"}
-                </span>
-                <span style={{ fontSize: 11, color: "var(--muted)", whiteSpace: "nowrap" }}>
-                  {received.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "2-digit" })}
-                </span>
-              </button>
-            );
-          })}
-          {priorEmails.length > 5 && (
-            <div className="muted small">+ {priorEmails.length - 5} more emails from this sender.</div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function EmailModal({
-  email, allEmails, existingRequests, onClose, onConverted, onOpenEmail, onOpenRequest,
-}: {
-  email: MaintenanceEmail;
-  allEmails: MaintenanceEmail[];
-  existingRequests: MaintenanceRequest[];
-  onClose: () => void;
-  onConverted: () => void;
-  onOpenEmail: (e: MaintenanceEmail) => void;
-  onOpenRequest: (r: MaintenanceRequest) => void;
-}) {
-  const [showForm, setShowForm] = useState(false);
-  const [draft, setDraft] = useState({
-    subject: email.subject || "(no subject)",
-    priority: "" as RequestPriority | "",
-    assignedTo: "" as StaffId | "",
-    categories: (email.aiCategories ?? []).filter(
-      (c): c is RequestCategory => REQUEST_CATEGORIES.includes(c as RequestCategory),
-    ),
-    propertyName: "",
-  });
-  const [submitting, setSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
-
-  // Detect prior conversions of this email so Greg doesn't double-create.
-  const priorRequest = existingRequests.find((r) => r.linkedEmailIds.includes(email.id));
-
-  const senderKey = (email.fromEmail || "").toLowerCase().trim();
-  const priorEmails = senderKey
-    ? allEmails
-        .filter((e) => e.id !== email.id && (e.fromEmail || "").toLowerCase().trim() === senderKey)
-        .sort((a, b) => b.receivedAt.localeCompare(a.receivedAt))
-    : [];
-  const senderRequests = senderKey
-    ? existingRequests
-        .filter((r) => (r.tenantEmail || "").toLowerCase().trim() === senderKey)
-        .sort((a, b) => (b.submittedDate || b.createdAt).localeCompare(a.submittedDate || a.createdAt))
-    : [];
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) { if (e.key === "Escape") onClose(); }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
-  async function submitConvert() {
-    if (submitting) return;
-    if (!draft.subject.trim()) {
-      setSubmitError("Subject is required");
-      return;
-    }
-    setSubmitting(true);
-    setSubmitError(null);
-    try {
-      const body = {
-        subject: draft.subject.trim(),
-        priority: draft.priority,
-        categories: draft.categories,
-        assignedTo: draft.assignedTo || null,
-        propertyName: draft.propertyName.trim(),
-        tenantEmail: email.fromEmail,
-        tenantName: email.fromName,
-        linkedEmailIds: [email.id],
-        source: "email" as const,
-        submittedDate: email.date || email.receivedAt,
-      };
-      const res = await fetch("/api/maintenance/requests", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      const j = await res.json();
-      if (!res.ok) throw new Error(j.error ?? "Failed to create request");
-      onConverted();
-    } catch (e) {
-      setSubmitError(e instanceof Error ? e.message : "Failed to create request");
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  return (
-    <div
-      onClick={onClose}
-      style={{
-        position: "fixed", inset: 0, background: "rgba(15,23,42,0.45)",
-        display: "flex", alignItems: "flex-start", justifyContent: "center",
-        padding: "60px 16px 16px", zIndex: 100, overflow: "auto",
-      }}
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          background: "var(--card)", color: "var(--text)",
-          borderRadius: 12, border: "1px solid var(--border)",
-          maxWidth: 720, width: "100%", padding: 24,
-          boxShadow: "0 12px 40px rgba(15,23,42,0.25)",
-          display: "flex", flexDirection: "column", gap: 14,
-        }}
-      >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16 }}>
-          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800 }}>{email.subject || "(no subject)"}</h2>
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            {priorRequest ? (
-              <span className="muted small" title={`Request ${priorRequest.id}`}>
-                ✓ Already converted
-              </span>
-            ) : !showForm ? (
-              <button
-                onClick={() => setShowForm(true)}
-                className="btn primary"
-                style={{ fontSize: 13, padding: "6px 12px" }}
-              >
-                + Create Request
-              </button>
-            ) : null}
-            <button
-              onClick={onClose}
-              aria-label="Close"
-              style={{
-                background: "transparent", border: "1px solid var(--border)",
-                borderRadius: 6, padding: "4px 10px", cursor: "pointer",
-                fontSize: 16, lineHeight: 1, color: "var(--muted)",
-              }}
-            >×</button>
-          </div>
-        </div>
-
-        {showForm && !priorRequest && (
-          <div style={{
-            border: "1px solid rgba(11,74,125,0.30)",
-            background: "rgba(11,74,125,0.04)",
-            borderRadius: 10, padding: 14,
-            display: "flex", flexDirection: "column", gap: 10,
-          }}>
-            <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "#0b4a7d" }}>
-              New Maintenance Request
-            </div>
-            <Field label="Subject">
-              <input
-                value={draft.subject}
-                onChange={(e) => setDraft({ ...draft, subject: e.target.value })}
-                style={{ ...selectStyle, width: "100%" }}
-              />
-            </Field>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 10 }}>
-              <Field label="Priority">
-                <select
-                  value={draft.priority}
-                  onChange={(e) => setDraft({ ...draft, priority: e.target.value as RequestPriority | "" })}
-                  style={selectStyle}
-                >
-                  <option value="">—</option>
-                  {REQUEST_PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
-                </select>
-              </Field>
-              <Field label="Assignee">
-                <select
-                  value={draft.assignedTo}
-                  onChange={(e) => setDraft({ ...draft, assignedTo: e.target.value as StaffId | "" })}
-                  style={selectStyle}
-                >
-                  <option value="">— Unassigned —</option>
-                  {STAFF.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                </select>
-              </Field>
-              <Field label="Property">
-                <input
-                  placeholder="e.g. 3610 Lincoln Centre"
-                  value={draft.propertyName}
-                  onChange={(e) => setDraft({ ...draft, propertyName: e.target.value })}
-                  style={selectStyle}
-                />
-              </Field>
-            </div>
-            <Field label="Categories">
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                {REQUEST_CATEGORIES.map((c) => {
-                  const on = draft.categories.includes(c);
-                  return (
-                    <button
-                      key={c}
-                      type="button"
-                      onClick={() => setDraft({
-                        ...draft,
-                        categories: on ? draft.categories.filter((x) => x !== c) : [...draft.categories, c],
-                      })}
-                      style={{
-                        fontSize: 11, fontWeight: 600, padding: "3px 9px", borderRadius: 999,
-                        border: on ? "1px solid rgba(11,74,125,0.45)" : "1px solid var(--border)",
-                        background: on ? "rgba(11,74,125,0.10)" : "var(--card)",
-                        color: on ? "#0b4a7d" : "var(--muted)",
-                        cursor: "pointer",
-                      }}
-                    >
-                      {c}
-                    </button>
-                  );
-                })}
-              </div>
-            </Field>
-            <div className="muted small">
-              Tenant <strong>{email.fromName || email.fromEmail}</strong> and this email will be linked to the new request automatically.
-            </div>
-            {submitError && (
-              <div style={{ fontSize: 13, color: "#b91c1c", fontWeight: 600 }}>{submitError}</div>
-            )}
-            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-              <button
-                onClick={() => setShowForm(false)}
-                disabled={submitting}
-                className="btn"
-                style={{ fontSize: 13, padding: "7px 14px" }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={submitConvert}
-                disabled={submitting}
-                className="btn primary"
-                style={{ fontSize: 13, padding: "7px 14px" }}
-              >
-                {submitting ? "Creating…" : "Create Request"}
-              </button>
-            </div>
-          </div>
-        )}
-
-        <Row label="From" value={email.fromName ? `${email.fromName} <${email.fromEmail}>` : email.fromEmail} />
-        <Row label="To" value={email.to} />
-        {email.cc && <Row label="Cc" value={email.cc} />}
-        <Row label="Received" value={new Date(email.receivedAt).toLocaleString()} />
-
-        <EmailAISection email={email} />
-
-        {senderKey && (priorEmails.length > 0 || senderRequests.length > 0) && (
-          <SenderHistory
-            priorEmails={priorEmails}
-            senderRequests={senderRequests}
-            onOpenEmail={onOpenEmail}
-            onOpenRequest={onOpenRequest}
-          />
-        )}
-
-        <Section title="Body">
-          <div style={{
-            fontSize: 14, lineHeight: 1.5, whiteSpace: "pre-wrap",
-            fontFamily: "inherit",
-            maxHeight: 400, overflowY: "auto",
-            padding: 12, background: "rgba(15,23,42,0.025)",
-            border: "1px solid var(--border)", borderRadius: 8,
-          }}>
-            {email.textBody || <span className="muted small">(no plain-text body)</span>}
-          </div>
-        </Section>
-
-        {email.attachments.length > 0 && (
-          <Section title={`Attachments (${email.attachments.length})`}>
-            <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13 }}>
-              {email.attachments.map((a, i) => (
-                <li key={i}>
-                  {a.name}
-                  <span className="muted small" style={{ marginLeft: 8 }}>
-                    {a.contentType}{a.size ? ` · ${Math.round(a.size / 1024)} KB` : ""}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </Section>
-        )}
-      </div>
-    </div>
-  );
-}
