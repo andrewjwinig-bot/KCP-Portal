@@ -18,8 +18,6 @@ type LookupContact = {
   phone: string;
   company: string;
   propertyCode: string | null;
-  buildingNumber: string;
-  suiteNumber: string;
 };
 
 const NAVY = "#0e2238";
@@ -43,8 +41,6 @@ export default function SubmitPage() {
   const [tenantEmail, setTenantEmail] = useState("");
   const [tenantPhone, setTenantPhone] = useState("");
   const [propertyCode, setPropertyCode] = useState("");
-  const [building, setBuilding] = useState("");
-  const [suite, setSuite] = useState("");
   const [company, setCompany] = useState("");
   const [description, setDescription] = useState("");
   const [photos, setPhotos] = useState<File[]>([]);
@@ -65,15 +61,6 @@ export default function SubmitPage() {
     return () => { alive = false; };
   }, [propertyCode]);
 
-  useEffect(() => {
-    if (!company) return;
-    const match = companies.find((c) => c.name === company);
-    if (match && match.units.length === 1 && !suite) {
-      setSuite(match.units[0].unitRef.replace(/^\d+-/, ""));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [company, companies]);
-
   const lookupTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (lookupTimer.current) clearTimeout(lookupTimer.current);
@@ -89,8 +76,6 @@ export default function SubmitPage() {
         if (!lastName && c.lastName) { setLastName(c.lastName); touched = true; }
         if (!tenantPhone && c.phone) { setTenantPhone(c.phone); touched = true; }
         if (!propertyCode && c.propertyCode) { setPropertyCode(c.propertyCode); touched = true; }
-        if (!building && c.buildingNumber) { setBuilding(c.buildingNumber); touched = true; }
-        if (!suite && c.suiteNumber) { setSuite(c.suiteNumber); touched = true; }
         if (!company && c.company) { setCompany(c.company); touched = true; }
         if (touched) setAutofilled(true);
       } catch { /* ignore */ }
@@ -114,8 +99,6 @@ export default function SubmitPage() {
       fd.append("tenantPhone", tenantPhone);
       fd.append("propertyCode", propertyCode);
       fd.append("propertyName", prop?.name ?? "");
-      fd.append("building", building);
-      fd.append("suite", suite);
       fd.append("company", company);
       fd.append("description", description);
       const honey = (e.currentTarget.elements.namedItem("website") as HTMLInputElement | null)?.value ?? "";
@@ -140,8 +123,6 @@ export default function SubmitPage() {
     setTenantEmail("");
     setTenantPhone("");
     setPropertyCode("");
-    setBuilding("");
-    setSuite("");
     setCompany("");
     setDescription("");
     setPhotos([]);
@@ -190,16 +171,23 @@ export default function SubmitPage() {
                 <label>Website<input type="text" name="website" tabIndex={-1} autoComplete="off" /></label>
               </div>
 
-              <Row>
-                <Field label="First Name" required>
-                  <UnderlineInput value={firstName} onChange={setFirstName} required autoComplete="given-name" />
-                </Field>
-                <Field label="Last Name" required>
-                  <UnderlineInput value={lastName} onChange={setLastName} required autoComplete="family-name" />
-                </Field>
-              </Row>
+              <Field label="Property Name" required>
+                <UnderlineSelect
+                  value={propertyCode}
+                  onChange={(v) => {
+                    setPropertyCode(v);
+                    setCompany("");
+                  }}
+                  required
+                  placeholder="Choose your building"
+                  options={SUBMITTABLE_PROPERTIES.map((p) => ({
+                    value: p.id,
+                    label: p.address ? `${p.name} · ${p.address}` : p.name,
+                  }))}
+                />
+              </Field>
 
-              <Field label="Company" required>
+              <Field label="Tenant" required>
                 <UnderlineSelect
                   value={company}
                   onChange={setCompany}
@@ -212,7 +200,7 @@ export default function SubmitPage() {
                       ? "Loading tenants…"
                       : companies.length === 0
                       ? "No tenants on file for this property"
-                      : "Select your company"
+                      : "Select your tenant"
                   }
                   options={companies.map((c) => ({
                     value: c.name,
@@ -231,38 +219,20 @@ export default function SubmitPage() {
               </Field>
 
               <Row>
+                <Field label="First Name" required>
+                  <UnderlineInput value={firstName} onChange={setFirstName} required autoComplete="given-name" />
+                </Field>
+                <Field label="Last Name" required>
+                  <UnderlineInput value={lastName} onChange={setLastName} required autoComplete="family-name" />
+                </Field>
+              </Row>
+
+              <Row>
                 <Field label="Phone" required>
                   <UnderlineInput value={tenantPhone} onChange={setTenantPhone} required type="tel" autoComplete="tel" />
                 </Field>
                 <Field label="Email" required>
                   <UnderlineInput value={tenantEmail} onChange={setTenantEmail} required type="email" autoComplete="email" />
-                </Field>
-              </Row>
-
-              <Field label="Property Name" required>
-                <UnderlineSelect
-                  value={propertyCode}
-                  onChange={(v) => {
-                    setPropertyCode(v);
-                    setCompany("");
-                    setSuite("");
-                    setBuilding("");
-                  }}
-                  required
-                  placeholder="Choose your building"
-                  options={SUBMITTABLE_PROPERTIES.map((p) => ({
-                    value: p.id,
-                    label: p.address ? `${p.name} · ${p.address}` : p.name,
-                  }))}
-                />
-              </Field>
-
-              <Row>
-                <Field label="Building Number (if applicable)">
-                  <UnderlineInput value={building} onChange={setBuilding} placeholder="e.g. 5, 40A" />
-                </Field>
-                <Field label="Suite Number (if applicable)">
-                  <UnderlineInput value={suite} onChange={setSuite} placeholder="e.g. 200, 4B" />
                 </Field>
               </Row>
 

@@ -32,8 +32,6 @@ export async function GET(req: NextRequest) {
       phone: c.phone,
       company: c.company,
       propertyCode: c.propertyCode,
-      buildingNumber: c.buildingNumber,
-      suiteNumber: c.suiteNumber,
     },
   });
 }

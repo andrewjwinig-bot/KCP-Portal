@@ -13,8 +13,6 @@ export type TenantContact = {
   phone: string;
   company: string;
   propertyCode: string | null;
-  buildingNumber: string;
-  suiteNumber: string;
   firstSeenAt: string;
   lastSeenAt: string;
   submissionCount: number;
