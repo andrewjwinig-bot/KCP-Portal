@@ -329,3 +329,8 @@ code {
   /* Hide the page sidebar padding the AppShell applies */
   body > div[style*="padding-left"] { padding-left: 0 !important; }
 }
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
