@@ -58,6 +58,15 @@ export default function MaintenancePage() {
   const [property, setProperty] = useState<string>("All");
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<MaintenanceRequest | null>(null);
+  const [emails, setEmails] = useState<MaintenanceEmail[]>([]);
+
+  const reloadEmails = useCallback(async () => {
+    try {
+      const res = await fetch("/api/maintenance/emails");
+      const body = await res.json();
+      if (res.ok) setEmails(body.emails ?? []);
+    } catch { /* inbox is best-effort */ }
+  }, []);
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -74,7 +83,7 @@ export default function MaintenancePage() {
     }
   }, []);
 
-  useEffect(() => { reload(); }, [reload]);
+  useEffect(() => { reload(); reloadEmails(); }, [reload, reloadEmails]);
 
   const properties = useMemo(() => {
     const set = new Set<string>();
@@ -135,7 +144,7 @@ export default function MaintenancePage() {
       {tab === "inbox" && (
         <Inbox
           existingRequests={requests ?? []}
-          onConverted={() => { setTab("active"); reload(); }}
+          onConverted={() => { setTab("active"); reload(); reloadEmails(); }}
           onOpenRequest={(r) => { setTab("active"); setSelected(r); }}
         />
       )}
@@ -265,6 +274,7 @@ export default function MaintenancePage() {
         {selected && (
           <RequestModal
             request={selected}
+            allEmails={emails}
             onClose={() => setSelected(null)}
             onChange={(updated) => {
               setRequests((prev) => prev?.map((r) => r.id === updated.id ? updated : r) ?? prev);
@@ -396,9 +406,10 @@ function BackfillButton({ onDone }: { onDone: () => void }) {
 }
 
 function RequestModal({
-  request, onClose, onChange, onDelete,
+  request, allEmails, onClose, onChange, onDelete,
 }: {
   request: MaintenanceRequest;
+  allEmails: MaintenanceEmail[];
   onClose: () => void;
   onChange: (r: MaintenanceRequest) => void;
   onDelete: (id: string) => void;
@@ -544,6 +555,14 @@ function RequestModal({
           onUpdated={onChange}
         />
 
+        <LinkedEmailsSection
+          request={request}
+          allEmails={allEmails}
+          busy={busy}
+          setBusy={setBusy}
+          onUpdated={onChange}
+        />
+
         {/* Categories — editable as a chip group */}
         <Section title="Categories">
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -658,6 +677,161 @@ function Section({ title, children }: { title: string; children: React.ReactNode
       <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 6 }}>{title}</div>
       {children}
     </div>
+  );
+}
+
+function LinkedEmailsSection({
+  request, allEmails, busy, setBusy, onUpdated,
+}: {
+  request: MaintenanceRequest;
+  allEmails: MaintenanceEmail[];
+  busy: boolean;
+  setBusy: (b: boolean) => void;
+  onUpdated: (r: MaintenanceRequest) => void;
+}) {
+  const [picking, setPicking] = useState(false);
+  const [picker, setPicker] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  // Linked emails — pair the ids on the request with metadata when we have it.
+  // Unknown ids (email deleted) still render so they can be unlinked.
+  const linked = request.linkedEmailIds.map((id) => ({
+    id,
+    email: allEmails.find((e) => e.id === id) ?? null,
+  }));
+
+  // Candidate emails to link: same sender first, then everything else; exclude
+  // already-linked ids. Cap the picker so it stays usable.
+  const senderKey = request.tenantEmail.toLowerCase().trim();
+  const candidates = allEmails
+    .filter((e) => !request.linkedEmailIds.includes(e.id))
+    .sort((a, b) => {
+      const aMatch = senderKey && a.fromEmail.toLowerCase().trim() === senderKey ? 0 : 1;
+      const bMatch = senderKey && b.fromEmail.toLowerCase().trim() === senderKey ? 0 : 1;
+      if (aMatch !== bMatch) return aMatch - bMatch;
+      return b.receivedAt.localeCompare(a.receivedAt);
+    })
+    .slice(0, 50);
+
+  async function patchLinked(linkedEmailIds: string[]) {
+    setError(null);
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/maintenance/requests/${request.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ linkedEmailIds }),
+      });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error ?? "Failed");
+      onUpdated(j.request);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function addLink() {
+    if (!picker) return;
+    patchLinked([...request.linkedEmailIds, picker]);
+    setPicker("");
+    setPicking(false);
+  }
+
+  function unlink(id: string) {
+    patchLinked(request.linkedEmailIds.filter((x) => x !== id));
+  }
+
+  return (
+    <Section title={`Linked Emails (${linked.length})`}>
+      {error && <div style={{ fontSize: 12, color: "#b91c1c", marginBottom: 8 }}>{error}</div>}
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        {linked.length === 0 && <div className="muted small">No emails linked yet.</div>}
+        {linked.map(({ id, email }) => (
+          <div
+            key={id}
+            style={{
+              display: "flex", alignItems: "center", gap: 8,
+              padding: "7px 10px", borderRadius: 6,
+              background: "var(--card)", border: "1px solid var(--border)",
+            }}
+          >
+            {email ? (
+              <>
+                <span style={{ fontSize: 13, fontWeight: 600, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {email.subject || "(no subject)"}
+                </span>
+                <span style={{ fontSize: 11, color: "var(--muted)", whiteSpace: "nowrap" }}>
+                  {email.fromName || email.fromEmail} · {new Date(email.receivedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "2-digit" })}
+                </span>
+              </>
+            ) : (
+              <span className="muted small" style={{ flex: 1 }}>
+                (Email no longer in inbox — id {id.slice(0, 12)}…)
+              </span>
+            )}
+            <button
+              onClick={() => unlink(id)}
+              disabled={busy}
+              title="Unlink"
+              style={{
+                background: "transparent", border: "none", color: "#b91c1c",
+                cursor: busy ? "default" : "pointer", padding: 0, fontSize: 11, fontWeight: 600,
+              }}
+            >
+              Unlink
+            </button>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ marginTop: 8 }}>
+        {!picking ? (
+          <button
+            onClick={() => setPicking(true)}
+            disabled={busy || candidates.length === 0}
+            className="btn"
+            style={{ fontSize: 12, padding: "5px 10px" }}
+          >
+            {candidates.length === 0 ? "No more emails to link" : "+ Link an email"}
+          </button>
+        ) : (
+          <div style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
+            <Field label={senderKey ? "Pick an email (sender's first)" : "Pick an email"}>
+              <select value={picker} onChange={(e) => setPicker(e.target.value)} style={{ ...selectStyle, minWidth: 320 }}>
+                <option value="">—</option>
+                {candidates.map((e) => {
+                  const dateStr = new Date(e.receivedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "2-digit" });
+                  const senderMatch = senderKey && e.fromEmail.toLowerCase().trim() === senderKey;
+                  return (
+                    <option key={e.id} value={e.id}>
+                      {senderMatch ? "★ " : ""}{dateStr} · {e.fromName || e.fromEmail} · {e.subject || "(no subject)"}
+                    </option>
+                  );
+                })}
+              </select>
+            </Field>
+            <button
+              onClick={addLink}
+              disabled={busy || !picker}
+              className="btn primary"
+              style={{ fontSize: 12, padding: "6px 12px" }}
+            >
+              Link
+            </button>
+            <button
+              onClick={() => { setPicking(false); setPicker(""); }}
+              disabled={busy}
+              className="btn"
+              style={{ fontSize: 12, padding: "6px 12px" }}
+            >
+              Cancel
+            </button>
+          </div>
+        )}
+      </div>
+    </Section>
   );
 }
 
