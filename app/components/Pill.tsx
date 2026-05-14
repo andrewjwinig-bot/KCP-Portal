@@ -40,6 +40,35 @@ import type React from "react";
 
 export type PillTone = { bg: string; fg: string; border: string };
 
+/**
+ * Canonical KPI / stat tile. Matches the `.pill` styling in
+ * app/globals.css — big number (28px / 900) on top, small muted label
+ * (11px / 600) below, optional sub line. Use this for ALL "label + big
+ * number" cards on admin pages (rent roll summary, maintenance KPI
+ * tiles, "Open by Priority" breakdowns, etc.). Optional `accent`
+ * colors the number (red for High priority, etc.); leave it off for
+ * neutral stats.
+ */
+export function StatPill({
+  label,
+  value,
+  sub,
+  accent,
+}: {
+  label: string;
+  value: string | number;
+  sub?: string;
+  accent?: string;
+}) {
+  return (
+    <div className="pill">
+      <b style={accent ? { color: accent } : undefined}>{value}</b>
+      <span className="small muted">{label}</span>
+      {sub && <span className="small muted">{sub}</span>}
+    </div>
+  );
+}
+
 export function Pill({ children, tone }: { children: React.ReactNode; tone: PillTone }) {
   return (
     <span style={{
