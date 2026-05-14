@@ -1203,7 +1203,8 @@ function Inbox({
                 </td></tr>
               )}
               {filtered.map((e) => {
-                const preview = e.textBody.replace(/\s+/g, " ").trim().slice(0, 100);
+                const previewSrc = e.aiSummary || e.textBody;
+                const preview = previewSrc.replace(/\s+/g, " ").trim().slice(0, 110);
                 const received = new Date(e.receivedAt);
                 return (
                   <tr
@@ -1218,7 +1219,16 @@ function Inbox({
                       {e.fromName && <div style={{ fontSize: 11, color: "var(--muted)", fontWeight: 400 }}>{e.fromEmail}</div>}
                     </td>
                     <td style={{ fontWeight: 600 }}>{e.subject || <span className="muted small">(no subject)</span>}</td>
-                    <td className="muted small">{preview}{e.textBody.length > 100 ? "…" : ""}</td>
+                    <td className="muted small">
+                      {e.aiSummary && (
+                        <span style={{
+                          marginRight: 6, padding: "1px 6px", borderRadius: 4,
+                          background: "rgba(124,58,237,0.12)", color: "#6d28d9",
+                          fontSize: 10, fontWeight: 700, letterSpacing: "0.04em",
+                        }}>AI</span>
+                      )}
+                      {preview}{previewSrc.length > 110 ? "…" : ""}
+                    </td>
                     <td style={{ fontSize: 12, whiteSpace: "nowrap", color: "var(--muted)" }}>
                       {received.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                       {" · "}
@@ -1247,6 +1257,88 @@ function Inbox({
         />
       )}
     </>
+  );
+}
+
+function EmailAISection({ email }: { email: MaintenanceEmail }) {
+  const [working, setWorking] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [localSummary, setLocalSummary] = useState(email.aiSummary);
+  const [localCats, setLocalCats] = useState<string[]>(email.aiCategories);
+
+  // Reset if a different email is selected
+  useEffect(() => {
+    setLocalSummary(email.aiSummary);
+    setLocalCats(email.aiCategories);
+    setError(null);
+  }, [email.id, email.aiSummary, email.aiCategories]);
+
+  async function run() {
+    if (working) return;
+    setWorking(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/maintenance/emails/${email.id}/summarize`, { method: "POST" });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error ?? "Summarize failed");
+      setLocalSummary(j.email.aiSummary ?? "");
+      setLocalCats(j.email.aiCategories ?? []);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Summarize failed");
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  const hasAI = !!localSummary || localCats.length > 0;
+
+  return (
+    <div style={{
+      border: "1px solid rgba(124,58,237,0.30)",
+      background: "rgba(124,58,237,0.04)",
+      borderRadius: 10, padding: 12,
+      display: "flex", flexDirection: "column", gap: 8,
+    }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "#6d28d9" }}>
+          AI Triage
+        </div>
+        {!hasAI && (
+          <button
+            onClick={run}
+            disabled={working}
+            className="btn"
+            style={{ fontSize: 12, padding: "5px 10px" }}
+          >
+            {working ? "Summarizing…" : "Summarize"}
+          </button>
+        )}
+      </div>
+      {hasAI ? (
+        <>
+          {localSummary && <div style={{ fontSize: 14, lineHeight: 1.5 }}>{localSummary}</div>}
+          {localCats.length > 0 && (
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              {localCats.map((c) => (
+                <span key={c} style={{
+                  fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 999,
+                  background: "rgba(124,58,237,0.10)", color: "#6d28d9",
+                  border: "1px solid rgba(124,58,237,0.30)",
+                }}>
+                  {c}
+                </span>
+              ))}
+            </div>
+          )}
+        </>
+      ) : (
+        <div className="muted small">
+          {error
+            ? <span style={{ color: "#b91c1c" }}>{error}</span>
+            : "No summary yet. Click Summarize to run Claude on this email."}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -1360,7 +1452,9 @@ function EmailModal({
     subject: email.subject || "(no subject)",
     priority: "" as RequestPriority | "",
     assignedTo: "" as StaffId | "",
-    categories: [] as RequestCategory[],
+    categories: (email.aiCategories ?? []).filter(
+      (c): c is RequestCategory => REQUEST_CATEGORIES.includes(c as RequestCategory),
+    ),
     propertyName: "",
   });
   const [submitting, setSubmitting] = useState(false);
@@ -1573,6 +1667,8 @@ function EmailModal({
         <Row label="To" value={email.to} />
         {email.cc && <Row label="Cc" value={email.cc} />}
         <Row label="Received" value={new Date(email.receivedAt).toLocaleString()} />
+
+        <EmailAISection email={email} />
 
         {senderKey && (priorEmails.length > 0 || senderRequests.length > 0) && (
           <SenderHistory

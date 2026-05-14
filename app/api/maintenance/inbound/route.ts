@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { normalizeInbound, saveEmail } from "@/lib/maintenance/emails";
+import { summarizeEmail } from "@/lib/maintenance/ai";
 
 // Inbound parsed-email webhook for the Maintenance Inbox.
 //
@@ -40,6 +41,12 @@ export async function POST(req: NextRequest) {
 
   try {
     const email = normalizeInbound(payload);
+    // Best-effort AI triage — if it fails the email still gets stored.
+    try {
+      const triage = await summarizeEmail(email.subject, email.textBody);
+      email.aiSummary = triage.summary;
+      email.aiCategories = triage.categories;
+    } catch { /* swallow — webhook ack must not block on AI */ }
     await saveEmail(email);
     return NextResponse.json({ ok: true, id: email.id });
   } catch (e) {
