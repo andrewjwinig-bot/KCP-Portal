@@ -11,6 +11,7 @@ import {
   type RequestPriority,
 } from "@/lib/maintenance/requests";
 import { saveRequest } from "@/lib/maintenance/requestsStorage";
+import { sendMail } from "@/lib/mail";
 import { upsertContact } from "@/lib/maintenance/tenants";
 import { classify } from "@/lib/maintenance/triage";
 import { summarize } from "@/lib/maintenance/summarize";
@@ -72,6 +73,7 @@ export async function POST(req: NextRequest) {
   const propertyCode = String(form.get("propertyCode") ?? "").trim();
   const propertyName = String(form.get("propertyName") ?? "").trim();
   const company = String(form.get("company") ?? "").trim();
+  const tenantSuite = String(form.get("tenantSuite") ?? "").trim();
   const firstName = String(form.get("firstName") ?? "").trim();
   const lastName = String(form.get("lastName") ?? "").trim();
   const tenantEmail = String(form.get("tenantEmail") ?? "").trim();
@@ -116,6 +118,7 @@ export async function POST(req: NextRequest) {
     propertyCode: propertyCode || null,
     propertyName,
     tenantCompany: company,
+    tenantSuite,
     tenantEmail,
     tenantName,
     priority,
@@ -207,5 +210,52 @@ export async function POST(req: NextRequest) {
     });
   } catch { /* ignore */ }
 
+  // Best-effort confirmation email. Same Postmark setup that powers the
+  // inbound auto-reply. If POSTMARK_SERVER_TOKEN / MAINTENANCE_REPLY_FROM
+  // aren't set the call is a no-op and the submission still succeeds.
+  if (tenantEmail) {
+    try {
+      await sendMail({
+        to: tenantEmail,
+        subject: `Maintenance request received — ${propertyName || "KCP"}`,
+        textBody: confirmationBody({
+          firstName,
+          propertyName,
+          tenantSuite,
+          description,
+          requestId: r.id,
+        }),
+        isAutoReply: true,
+      });
+    } catch { /* ignore */ }
+  }
+
   return NextResponse.json({ ok: true, id: r.id }, { status: 201 });
+}
+
+function confirmationBody(args: {
+  firstName: string;
+  propertyName: string;
+  tenantSuite: string;
+  description: string;
+  requestId: string;
+}): string {
+  const greet = args.firstName ? `Hi ${args.firstName},` : "Hi,";
+  const where = [args.propertyName, args.tenantSuite].filter(Boolean).join(" · ");
+  const lines = [
+    greet,
+    "",
+    "Thanks for submitting a maintenance request to Korman Commercial Properties. We've received it and the maintenance team has been notified.",
+    "",
+    where ? `Property: ${where}` : null,
+    `Reference ID: ${args.requestId}`,
+    "",
+    "Your description:",
+    args.description.split("\n").map((l) => `  ${l}`).join("\n"),
+    "",
+    "Someone from the team will follow up shortly. For after-hours emergencies (active leak, fire, security), please call your property's emergency line.",
+    "",
+    "— KCP Maintenance",
+  ].filter((l) => l !== null) as string[];
+  return lines.join("\n");
 }
