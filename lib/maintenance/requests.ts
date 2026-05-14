@@ -67,6 +67,7 @@ export type MaintenanceRequest = {
   assignedTo: StaffId | null;
   submittedDate: string;              // ISO
   completedDate: string | null;       // ISO when Complete
+  seenAt: string | null;              // ISO when first opened in the modal
   notes: Note[];
   attachments: Attachment[];
   linkedEmailIds: string[];
@@ -109,6 +110,7 @@ export function emptyRequest(partial: Partial<MaintenanceRequest> = {}): Mainten
     assignedTo: null,
     submittedDate: now,
     completedDate: null,
+    seenAt: null,
     notes: [],
     attachments: [],
     linkedEmailIds: [],
