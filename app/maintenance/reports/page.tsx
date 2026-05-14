@@ -5,6 +5,7 @@ import {
   type MaintenanceRequest,
 } from "@/lib/maintenance/requests";
 import { STAFF } from "@/lib/maintenance/staff";
+import { Pill, priorityTone, TONE_NEUTRAL, type PillTone } from "@/app/components/Pill";
 
 // Standalone Maintenance Reports page. Linked from the Sidebar as a
 // sub-item under Maintenance.
@@ -197,10 +198,10 @@ export default function MaintenanceReportsPage() {
       <div className="card">
         <div style={sectionLabelStyle}>Open by Priority</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12, marginTop: 10 }}>
-          <PriorityCount label="High"     n={kpis.highOpen} color={ACCENT_RED} />
-          <PriorityCount label="Medium"   n={kpis.medOpen}  color={ACCENT_AMBER} />
-          <PriorityCount label="Low"      n={kpis.lowOpen}  color="#475569" />
-          <PriorityCount label="No Priority Set" n={kpis.unset} color="#94a3b8" />
+          <PriorityCount label="High"            n={kpis.highOpen} tone={priorityTone("High")} />
+          <PriorityCount label="Medium"          n={kpis.medOpen}  tone={priorityTone("Medium")} />
+          <PriorityCount label="Low"             n={kpis.lowOpen}  tone={priorityTone("Low")} />
+          <PriorityCount label="No Priority Set" n={kpis.unset}    tone={TONE_NEUTRAL} />
         </div>
       </div>
 
@@ -318,17 +319,15 @@ function Kpi({ label, value, accent }: { label: string; value: number | string; 
   );
 }
 
-function PriorityCount({ label, n, color }: { label: string; n: number; color: string }) {
+function PriorityCount({ label, n, tone }: { label: string; n: number; tone: PillTone }) {
   return (
     <div style={{
       padding: "10px 12px",
       border: "1px solid var(--border)", borderRadius: 8,
       background: "rgba(15,23,42,0.025)",
-      display: "flex", flexDirection: "column", gap: 4,
+      display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-start",
     }}>
-      <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", color }}>
-        {label}
-      </span>
+      <Pill tone={tone}>{label}</Pill>
       <span style={{ fontSize: 22, fontWeight: 800, color: "var(--text)", lineHeight: 1 }}>{n}</span>
     </div>
   );
