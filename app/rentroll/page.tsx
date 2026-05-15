@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { PROPERTY_DEFS } from "../../lib/properties/data";
 import type { RentRollData, RentRollUnit, RentRollProperty } from "../../lib/rentroll/parseRentRollExcel";
 import { amenityFor } from "../../lib/rentroll/amenities";
@@ -147,12 +147,29 @@ function AlertBadge({ label, color, bg, border }: { label: string; color: string
 
 // ─── Units Table ─────────────────────────────────────────────────────────────
 
-function BaseYearCell({ unitRef: _unitRef, isVacant, value, onChange }: {
+type BaseYearResetInfo = {
+  resetDate: string;
+  originalBaseYear: number | null;
+  newBaseYear: number;
+  notes?: string;
+};
+const BaseYearResetsContext = createContext<Record<string, BaseYearResetInfo>>({});
+
+function fmtResetDate(iso: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  if (!m) return iso;
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+function BaseYearCell({ unitRef, isVacant, value, onChange }: {
   unitRef: string;
   isVacant: boolean;
   value: number | null;
   onChange: (v: number | null) => void;
 }) {
+  const resets = useContext(BaseYearResetsContext);
+  const reset = resets[unitRef];
   const [text, setText] = useState<string>(value != null ? String(value) : "");
   useEffect(() => { setText(value != null ? String(value) : ""); }, [value]);
 
@@ -180,25 +197,42 @@ function BaseYearCell({ unitRef: _unitRef, isVacant, value, onChange }: {
     setText(String(n)); // reflect expansion in the input
   }
 
+  const resetTitle = reset ? `Base year reset on ${fmtResetDate(reset.resetDate)}${reset.originalBaseYear ? ` (was ${reset.originalBaseYear})` : ""}${reset.notes ? ` — ${reset.notes}` : ""}` : undefined;
+
   return (
-    <input
-      type="text"
-      inputMode="numeric"
-      value={text}
-      onChange={(e) => setText(e.target.value.replace(/[^0-9]/g, "").slice(0, 4))}
-      onBlur={commit}
-      onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
-      placeholder="—"
-      style={{
-        width: 56,
-        padding: "3px 6px",
-        fontSize: 12,
-        textAlign: "center",
-        border: "1px solid var(--border)",
-        borderRadius: 6,
-        background: "transparent",
-      }}
-    />
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+      <input
+        type="text"
+        inputMode="numeric"
+        value={text}
+        onChange={(e) => setText(e.target.value.replace(/[^0-9]/g, "").slice(0, 4))}
+        onBlur={commit}
+        onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+        placeholder="—"
+        title={resetTitle}
+        style={{
+          width: 56,
+          padding: "3px 6px",
+          fontSize: 12,
+          fontWeight: reset ? 700 : 400,
+          textAlign: "center",
+          border: reset ? "1.5px solid rgba(220,38,38,0.55)" : "1px solid var(--border)",
+          borderRadius: 6,
+          background: reset ? "rgba(220,38,38,0.08)" : "transparent",
+          color: reset ? "#b91c1c" : "var(--text)",
+        }}
+      />
+      {reset && (
+        <sup
+          title={resetTitle}
+          style={{
+            fontSize: 10, fontWeight: 800,
+            color: "#b91c1c", cursor: "help",
+            lineHeight: 1,
+          }}
+        >※</sup>
+      )}
+    </span>
   );
 }
 
@@ -875,10 +909,12 @@ export default function RentRollPage() {
   const [generatingReport, setGeneratingReport] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [tenantMeta, setTenantMeta] = useState<Record<string, { baseYear?: number | null }>>({});
+  const [baseYearResets, setBaseYearResets] = useState<Record<string, { resetDate: string; originalBaseYear: number | null; newBaseYear: number; notes?: string }>>({});
   const [vacatingMatchers, setVacatingMatchers] = useState<{ unitRefs: Set<string>; names: Set<string> }>({ unitRefs: new Set(), names: new Set() });
 
   useEffect(() => {
     fetch("/api/tenant-meta").then((r) => r.json()).then((j) => setTenantMeta(j.tenantMeta ?? {})).catch(() => {});
+    fetch("/api/base-year-resets").then((r) => r.json()).then((j) => setBaseYearResets(j.resets ?? {})).catch(() => {});
     fetch("/api/leasing-activity").then((r) => r.json()).then((j) => {
       const list = (j?.leasingActivity?.tenantsVacating ?? []) as { unitRef?: string; tenant?: string }[];
       setVacatingMatchers({
@@ -1044,6 +1080,7 @@ export default function RentRollPage() {
   const occupancyPct = totalSqft > 0 ? (occupiedSqft / totalSqft) * 100 : 0;
 
   return (
+    <BaseYearResetsContext.Provider value={baseYearResets}>
     <main>
       <h1 style={{ marginBottom: 24 }}>Rent Roll</h1>
 
@@ -1220,5 +1257,6 @@ export default function RentRollPage() {
         </div>
       )}
     </main>
+    </BaseYearResetsContext.Provider>
   );
 }
