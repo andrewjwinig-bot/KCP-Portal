@@ -180,14 +180,12 @@ export default function MaintenanceOverview() {
         <PillLink href="/maintenance?tab=completed" label="Avg Days to Close"  value={fmtDays(kpis.avgClose)} />
       </div>
 
-      <div className="card">
-        <div style={sectionLabelStyle}>Open by Priority</div>
-        <div className="pills" style={{ marginTop: 10 }}>
-          <PillLink href="/maintenance?priority=High"   label="High"            value={kpis.highOpen} />
-          <PillLink href="/maintenance?priority=Medium" label="Medium"          value={kpis.medOpen} />
-          <PillLink href="/maintenance?priority=Low"    label="Low"             value={kpis.lowOpen} />
-          <PillLink href="/maintenance?priority=None"   label="No Priority Set" value={kpis.unset} />
-        </div>
+      <div style={sectionLabelStyle}>Open by Priority</div>
+      <div className="pills" style={{ marginTop: 0 }}>
+        <PillLink href="/maintenance?priority=High"   label="High"            value={kpis.highOpen} />
+        <PillLink href="/maintenance?priority=Medium" label="Medium"          value={kpis.medOpen} />
+        <PillLink href="/maintenance?priority=Low"    label="Low"             value={kpis.lowOpen} />
+        <PillLink href="/maintenance?priority=None"   label="No Priority Set" value={kpis.unset} />
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(420px, 1fr))", gap: 14 }}>
