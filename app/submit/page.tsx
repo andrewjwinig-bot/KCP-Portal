@@ -185,35 +185,14 @@ export default function SubmitPage() {
                 />
               </Field>
 
-              <Field label="Tenant" required>
-                <UnderlineSelect
+              <Field label="Company Name" required>
+                <UnderlineInput
                   value={company}
                   onChange={setCompany}
-                  disabled={!propertyCode || companiesLoading}
                   required
-                  placeholder={
-                    !propertyCode
-                      ? "Choose a property first"
-                      : companiesLoading
-                      ? "Loading tenants…"
-                      : companies.length === 0
-                      ? "No tenants on file for this property"
-                      : "Select your tenant"
-                  }
-                  options={companies.map((c) => ({
-                    value: c.name,
-                    label: c.units.length === 1
-                      ? `${c.name} · ${c.units[0].unitRef}`
-                      : c.units.length > 1
-                      ? `${c.name} · ${c.units.length} suites`
-                      : c.name,
-                  }))}
+                  placeholder="Your company / tenant name"
+                  autoComplete="organization"
                 />
-                {propertyCode && companies.length === 0 && !companiesLoading && (
-                  <span style={hintStyle}>
-                    No tenants on the current rent roll for this property. If you&apos;re a recent move-in, contact the leasing office to be added.
-                  </span>
-                )}
               </Field>
 
               <Row>
