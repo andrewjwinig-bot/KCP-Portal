@@ -104,6 +104,19 @@ const NAV = [
     ),
   },
   {
+    label: "Trends",
+    href: "/rentroll/trends",
+    external: false,
+    indent: true,
+    showFor: "/rentroll",
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="3 17 9 11 13 15 21 7" />
+        <polyline points="14 7 21 7 21 14" />
+      </svg>
+    ),
+  },
+  {
     label: "Commissions",
     href: "/commissions",
     external: false,
