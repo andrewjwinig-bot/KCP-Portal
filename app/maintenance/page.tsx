@@ -114,6 +114,20 @@ function MaintenancePageInner() {
     if (a && STAFF.some((s) => s.id === a)) return a as StaffId;
     return "All";
   })();
+  const initialProperty = searchParams.get("property") ?? "All";
+  const initialCategory = searchParams.get("category") ?? "";
+  const initialTenant   = searchParams.get("tenant")   ?? "";
+  const initialAgingMin = (() => {
+    const v = searchParams.get("agingMin");
+    const n = v == null ? NaN : Number(v);
+    return Number.isFinite(n) ? n : null;
+  })();
+  const initialAgingMax = (() => {
+    const v = searchParams.get("agingMax");
+    const n = v == null ? NaN : Number(v);
+    return Number.isFinite(n) ? n : null;
+  })();
+
   const [tab, setTab] = useState<Tab>(initialTab);
   const [requests, setRequests] = useState<MaintenanceRequest[] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -121,7 +135,11 @@ function MaintenancePageInner() {
   const [priority, setPriority] = useState<"All" | RequestPriority | "None">(initialPriority);
   const [assignee, setAssignee] = useState<"All" | "Unassigned" | StaffId>(initialAssignee);
   const [statusFilter, setStatusFilter] = useState<"All" | "New" | "In Progress">(initialStatus);
-  const [property, setProperty] = useState<string>("All");
+  const [property, setProperty] = useState<string>(initialProperty);
+  const [category, setCategory] = useState<string>(initialCategory);
+  const [tenant, setTenant] = useState<string>(initialTenant);
+  const [agingMin, setAgingMin] = useState<number | null>(initialAgingMin);
+  const [agingMax, setAgingMax] = useState<number | null>(initialAgingMax);
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<MaintenanceRequest | null>(null);
 
@@ -167,6 +185,15 @@ function MaintenancePageInner() {
       if (assignee === "Unassigned" && r.assignedTo !== null) return false;
       if (assignee !== "All" && assignee !== "Unassigned" && r.assignedTo !== assignee) return false;
       if (property !== "All" && propertyOf(r) !== property) return false;
+      if (category && !r.categories.includes(category as RequestCategory)) return false;
+      if (tenant && companyOf(r) !== tenant) return false;
+      if (agingMin != null || agingMax != null) {
+        const t = Date.parse(r.submittedDate ?? r.createdAt);
+        if (!Number.isFinite(t)) return false;
+        const days = Math.max(0, (Date.now() - t) / 86400000);
+        if (agingMin != null && days < agingMin) return false;
+        if (agingMax != null && days > agingMax) return false;
+      }
       if (q) {
         const hay = [
           r.id, r.subject, r.tenantName, r.tenantEmail, companyOf(r),
@@ -176,7 +203,7 @@ function MaintenancePageInner() {
       }
       return true;
     });
-  }, [requests, tab, priority, assignee, property, search, statusFilter]);
+  }, [requests, tab, priority, assignee, property, search, statusFilter, category, tenant, agingMin, agingMax]);
 
   const counts = useMemo(() => {
     const all = requests ?? [];
@@ -325,6 +352,22 @@ function MaintenancePageInner() {
             </div>
           );
         })()}
+
+        {/* Active deep-link filter chips (Category / Tenant / Aging — set
+            via URL params from chart click-throughs). */}
+        {(category || tenant || agingMin != null || agingMax != null) && (
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", padding: "0 2px" }}>
+            <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>Filters</span>
+            {category && <FilterChip label={`Category: ${category}`} onClear={() => setCategory("")} />}
+            {tenant && <FilterChip label={`Tenant: ${tenant}`} onClear={() => setTenant("")} />}
+            {(agingMin != null || agingMax != null) && (
+              <FilterChip
+                label={`Aging: ${agingMin ?? 0}${agingMax != null ? `–${agingMax}` : "+"} days`}
+                onClear={() => { setAgingMin(null); setAgingMax(null); }}
+              />
+            )}
+          </div>
+        )}
 
         {/* Filters — inline strip, no card chrome. */}
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end", padding: "0 2px" }}>
@@ -519,6 +562,30 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <span style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", letterSpacing: "0.06em", textTransform: "uppercase" }}>{label}</span>
       {children}
     </label>
+  );
+}
+
+function FilterChip({ label, onClear }: { label: string; onClear: () => void }) {
+  return (
+    <span style={{
+      display: "inline-flex", alignItems: "center", gap: 6,
+      padding: "4px 6px 4px 10px", borderRadius: 999,
+      background: "rgba(11,74,125,0.10)", color: "#0b4a7d",
+      border: "1px solid rgba(11,74,125,0.30)",
+      fontSize: 12, fontWeight: 600,
+    }}>
+      {label}
+      <button
+        onClick={onClear}
+        aria-label={`Clear ${label}`}
+        style={{
+          width: 18, height: 18, padding: 0, borderRadius: 999,
+          border: "none", background: "transparent", color: "#0b4a7d",
+          cursor: "pointer", fontSize: 14, lineHeight: 1, fontWeight: 700,
+          display: "inline-flex", alignItems: "center", justifyContent: "center",
+        }}
+      >×</button>
+    </span>
   );
 }
 

@@ -87,15 +87,15 @@ export default function MaintenanceOverview() {
     };
   }, [filtered]);
 
-  const aging = useMemo(() => {
+  const aging = useMemo<SliceRow[]>(() => {
     const now = Date.now();
     const buckets = [
-      { label: "≤ 7 days",   min: 0,  max: 7,   n: 0 },
-      { label: "8–14 days",  min: 8,  max: 14,  n: 0 },
-      { label: "15–30 days", min: 15, max: 30,  n: 0 },
-      { label: "31–60 days", min: 31, max: 60,  n: 0 },
-      { label: "60+ days",   min: 61, max: Infinity, n: 0 },
-    ];
+      { label: "≤ 7 days",   min: 0,  max: 7 },
+      { label: "8–14 days",  min: 8,  max: 14 },
+      { label: "15–30 days", min: 15, max: 30 },
+      { label: "31–60 days", min: 31, max: 60 },
+      { label: "60+ days",   min: 61, max: Infinity },
+    ].map(b => ({ ...b, n: 0 }));
     for (const r of filtered) {
       if (r.status === "Complete") continue;
       const d = agedDays(r.submittedDate, now);
@@ -103,16 +103,30 @@ export default function MaintenanceOverview() {
       const b = buckets.find((b) => d >= b.min && d <= b.max);
       if (b) b.n++;
     }
-    return buckets;
+    return buckets.map((b) => ({
+      label: b.label,
+      n: b.n,
+      href: `/maintenance?agingMin=${b.min}${Number.isFinite(b.max) ? `&agingMax=${b.max}` : ""}`,
+    }));
   }, [filtered]);
 
-  const byProperty = useMemo(() => countBy(filtered, (r) => {
-    const name = r.propertyName || "";
-    if (r.tenantCompany) return name || "(none)";
-    const m = name.match(/^(.+?)\s*—\s*(.+)$/);
-    return (m ? m[1].trim() : name) || "(none)";
-  }), [filtered]);
-  const byCategory = useMemo(() => countBy(filtered, (r) => (r.categories.length ? r.categories : ["(uncategorized)"]), true), [filtered]);
+  const byProperty = useMemo(() => countBy(
+    filtered,
+    (r) => {
+      const name = r.propertyName || "";
+      if (r.tenantCompany) return name || "(none)";
+      const m = name.match(/^(.+?)\s*—\s*(.+)$/);
+      return (m ? m[1].trim() : name) || "(none)";
+    },
+    false,
+    (label) => label && label !== "(none)" ? `/maintenance?property=${encodeURIComponent(label)}` : "",
+  ), [filtered]);
+  const byCategory = useMemo(() => countBy(
+    filtered,
+    (r) => (r.categories.length ? r.categories : ["(uncategorized)"]),
+    true,
+    (label) => label && label !== "(uncategorized)" ? `/maintenance?category=${encodeURIComponent(label)}` : "",
+  ), [filtered]);
   const byWorker = useMemo(() => {
     const map = new Map<string, { label: string; n: number; href: string }>();
     for (const r of filtered) {
@@ -126,11 +140,16 @@ export default function MaintenanceOverview() {
     return Array.from(map.values()).sort((a, b) => b.n - a.n);
   }, [filtered]);
   const byTenant = useMemo(
-    () => countBy(filtered, (r) => {
-      if (r.tenantCompany) return r.tenantCompany;
-      const m = r.propertyName.match(/^(.+?)\s*—\s*(.+)$/);
-      return m ? m[2].trim() : (r.tenantName || r.tenantEmail || "(unknown)");
-    }),
+    () => countBy(
+      filtered,
+      (r) => {
+        if (r.tenantCompany) return r.tenantCompany;
+        const m = r.propertyName.match(/^(.+?)\s*—\s*(.+)$/);
+        return m ? m[2].trim() : (r.tenantName || r.tenantEmail || "(unknown)");
+      },
+      false,
+      (label) => label && label !== "(unknown)" ? `/maintenance?tenant=${encodeURIComponent(label)}` : "",
+    ),
     [filtered],
   );
 
@@ -245,7 +264,8 @@ function countBy(
   list: MaintenanceRequest[],
   pick: (r: MaintenanceRequest) => string | string[],
   multi = false,
-): { label: string; n: number }[] {
+  getHref?: (label: string) => string,
+): SliceRow[] {
   const map = new Map<string, number>();
   for (const r of list) {
     const v = pick(r);
@@ -256,7 +276,7 @@ function countBy(
     }
   }
   return Array.from(map.entries())
-    .map(([label, n]) => ({ label, n }))
+    .map(([label, n]) => ({ label, n, href: getHref?.(label) }))
     .sort((a, b) => b.n - a.n);
 }
 
@@ -297,7 +317,8 @@ function ChartCard({ title, children }: { title: string; children: React.ReactNo
   );
 }
 
-function HorizontalBars({ rows, accent }: { rows: { label: string; n: number }[]; accent: string }) {
+function HorizontalBars({ rows, accent }: { rows: SliceRow[]; accent: string }) {
+  const router = useRouter();
   const max = rows.reduce((m, r) => Math.max(m, r.n), 0);
   const total = rows.reduce((s, r) => s + r.n, 0);
   const wrapRef = useRef<HTMLDivElement | null>(null);
@@ -318,7 +339,8 @@ function HorizontalBars({ rows, accent }: { rows: { label: string; n: number }[]
           <div
             key={r.label}
             onMouseMove={(e) => onMove(e, r.label, r.n)}
-            style={{ cursor: "pointer" }}
+            onClick={() => r.href && router.push(r.href)}
+            style={{ cursor: r.href ? "pointer" : "default" }}
           >
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 3 }}>
               <span style={{ fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "70%" }}>
@@ -504,7 +526,8 @@ function arcPath(cx: number, cy: number, r: number, ri: number, a1: number, a2: 
   return `M ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2} L ${xi2} ${yi2} A ${ri} ${ri} 0 ${largeArc} 0 ${xi1} ${yi1} Z`;
 }
 
-function VerticalBars({ rows, cap = 40 }: { rows: { label: string; n: number }[]; cap?: number }) {
+function VerticalBars({ rows, cap = 40 }: { rows: SliceRow[]; cap?: number }) {
+  const router = useRouter();
   const display = rows.slice(0, cap);
   const overflow = rows.length > display.length ? rows.length - display.length : 0;
   const wrapRef = useRef<HTMLDivElement | null>(null);
@@ -570,7 +593,8 @@ function VerticalBars({ rows, cap = 40 }: { rows: { label: string; n: number }[]
                 fill={PALETTE[i % PALETTE.length]}
                 rx={2}
                 onMouseMove={(e) => onBarMove(e, r.label, r.n)}
-                style={{ cursor: "pointer" }}
+                onClick={() => r.href && router.push(r.href)}
+                style={{ cursor: r.href ? "pointer" : "default" }}
               />
               <text
                 x={x + barW / 2}
