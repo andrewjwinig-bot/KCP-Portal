@@ -151,9 +151,13 @@ function MaintenancePageInner() {
     return requests.filter((r) => {
       if (tab === "active"    && r.status === "Complete") return false;
       if (tab === "completed" && r.status !== "Complete") return false;
-      if (statusFilter !== "All" && r.status !== statusFilter) return false;
+      if (statusFilter === "New" && !isNew(r)) return false;
+      if (statusFilter === "In Progress" && r.status !== "In Progress") return false;
       if (priority === "None" && r.priority) return false;
       if (priority !== "All" && priority !== "None" && r.priority !== priority) return false;
+      // "New" filter follows the NEW-pill semantic (unseen + unassigned),
+      // not the raw status — so tile count, row pill, and filtered list
+      // all show the same set.
       if (assignee === "Unassigned" && r.assignedTo !== null) return false;
       if (assignee !== "All" && assignee !== "Unassigned" && r.assignedTo !== assignee) return false;
       if (property !== "All" && propertyOf(r) !== property) return false;
@@ -173,7 +177,9 @@ function MaintenancePageInner() {
     return {
       active: all.filter((r) => r.status !== "Complete").length,
       completed: all.filter((r) => r.status === "Complete").length,
-      newCount: all.filter((r) => r.status === "New").length,
+      // Match what the "NEW" pill on each row shows — unseen + unassigned
+      // + still status "New". Counting raw status would over-report.
+      newCount: all.filter((r) => isNew(r)).length,
       inProgress: all.filter((r) => r.status === "In Progress").length,
       highOpen: all.filter((r) => r.status !== "Complete" && r.priority === "High").length,
       unassigned: all.filter((r) => r.status !== "Complete" && r.assignedTo === null).length,
@@ -255,6 +261,24 @@ function MaintenancePageInner() {
             setAssignee("All");
             setStatusFilter("All");
           }
+          // Tile clicks are exclusive: selecting one clears the others.
+          // Re-clicking the active tile clears back to "Active".
+          function selectHigh() {
+            if (priority === "High") { clearAll(); return; }
+            clearAll(); setPriority("High");
+          }
+          function selectUnassigned() {
+            if (assignee === "Unassigned") { clearAll(); return; }
+            clearAll(); setAssignee("Unassigned");
+          }
+          function selectNew() {
+            if (statusFilter === "New") { clearAll(); return; }
+            clearAll(); setStatusFilter("New");
+          }
+          function selectInProgress() {
+            if (statusFilter === "In Progress") { clearAll(); return; }
+            clearAll(); setStatusFilter("In Progress");
+          }
           return (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 }}>
               <FilterTile
@@ -269,28 +293,28 @@ function MaintenancePageInner() {
                 value={counts.highOpen}
                 accent="#b91c1c"
                 active={priority === "High"}
-                onClick={() => setPriority(priority === "High" ? "All" : "High")}
+                onClick={selectHigh}
               />
               <FilterTile
                 label="Unassigned"
                 value={counts.unassigned}
                 accent="#b45309"
                 active={assignee === "Unassigned"}
-                onClick={() => setAssignee(assignee === "Unassigned" ? "All" : "Unassigned")}
+                onClick={selectUnassigned}
               />
               <FilterTile
                 label="New"
                 value={counts.newCount}
                 accent="#0b4a7d"
                 active={statusFilter === "New"}
-                onClick={() => setStatusFilter(statusFilter === "New" ? "All" : "New")}
+                onClick={selectNew}
               />
               <FilterTile
                 label="In Progress"
                 value={counts.inProgress}
                 accent="#b45309"
                 active={statusFilter === "In Progress"}
-                onClick={() => setStatusFilter(statusFilter === "In Progress" ? "All" : "In Progress")}
+                onClick={selectInProgress}
               />
             </div>
           );
@@ -542,7 +566,7 @@ function FilterTile({
         if (!active) (e.currentTarget as HTMLElement).style.borderColor = "var(--border)";
       }}
     >
-      <b style={{ fontSize: 28, fontWeight: 900, lineHeight: 1, color: accent }}>{value}</b>
+      <b style={{ fontSize: 28, fontWeight: 900, lineHeight: 1, color: "var(--text)" }}>{value}</b>
       <span style={{
         fontSize: 11, fontWeight: 600, color: "var(--muted)",
         textTransform: "uppercase", letterSpacing: "0.04em",
@@ -953,14 +977,26 @@ function RequestModal({
             Delete Request
           </button>
           {request.status !== "Complete" ? (
-            <button
-              onClick={() => patch({ status: "Complete" })}
-              disabled={busy}
-              className="btn primary"
-              style={{ fontSize: 14, padding: "10px 22px", fontWeight: 700 }}
-            >
-              ✓ Mark Complete
-            </button>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {request.status === "New" && (
+                <button
+                  onClick={() => patch({ status: "In Progress" })}
+                  disabled={busy}
+                  className="btn"
+                  style={{ fontSize: 14, padding: "10px 18px", fontWeight: 700, color: "#b45309", borderColor: "rgba(180,83,9,0.45)" }}
+                >
+                  ▶ Mark In Progress
+                </button>
+              )}
+              <button
+                onClick={() => patch({ status: "Complete" })}
+                disabled={busy}
+                className="btn primary"
+                style={{ fontSize: 14, padding: "10px 22px", fontWeight: 700 }}
+              >
+                ✓ Mark Complete
+              </button>
+            </div>
           ) : (
             <button
               onClick={() => patch({ status: "In Progress" })}
