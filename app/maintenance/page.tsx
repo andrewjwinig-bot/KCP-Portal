@@ -160,6 +160,14 @@ function MaintenancePageInner() {
 
   useEffect(() => { reload(); }, [reload]);
 
+  // Deep-link: ?openId=<id> opens that request's modal after requests load.
+  useEffect(() => {
+    const openId = searchParams.get("openId");
+    if (!openId || !requests) return;
+    const r = requests.find((x) => x.id === openId);
+    if (r) setSelected(r);
+  }, [searchParams, requests]);
+
   const properties = useMemo(() => {
     const set = new Set<string>();
     for (const r of requests ?? []) {
