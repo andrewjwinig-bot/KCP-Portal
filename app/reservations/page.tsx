@@ -414,6 +414,9 @@ function ReservationModal({
             <button onClick={() => setComposer("custom")} disabled={busy} className="btn" style={{ fontSize: 13, padding: "8px 14px" }}>
               ✉ Email tenant
             </button>
+            <button onClick={() => downloadReservationICS(reservation)} className="btn" style={{ fontSize: 13, padding: "8px 14px" }}>
+              📅 Add to calendar
+            </button>
             {reservation.status !== "Declined" && (
               <button onClick={() => setStatus("Declined")} disabled={busy} className="btn" style={{ fontSize: 13, padding: "8px 14px", color: "#b91c1c", borderColor: "rgba(220,38,38,0.35)" }}>
                 Decline
@@ -612,4 +615,50 @@ function Section({ title, children }: { title: string; children: React.ReactNode
       {children}
     </div>
   );
+}
+
+function downloadReservationICS(r: Reservation) {
+  const dt = (date: string, hhmm: string) => `${date.replace(/-/g, "")}T${hhmm.replace(":", "")}00`;
+  const escapeICS = (s: string) =>
+    s.replace(/\\/g, "\\\\").replace(/\n/g, "\\n").replace(/,/g, "\\,").replace(/;/g, "\\;");
+  const now = new Date();
+  const dtstamp = `${now.getUTCFullYear()}${String(now.getUTCMonth() + 1).padStart(2, "0")}${String(now.getUTCDate()).padStart(2, "0")}T${String(now.getUTCHours()).padStart(2, "0")}${String(now.getUTCMinutes()).padStart(2, "0")}${String(now.getUTCSeconds()).padStart(2, "0")}Z`;
+
+  const summary  = `${r.roomLabel} — ${r.tenantCompany}`;
+  const location = [r.roomLabel, r.propertyName].filter(Boolean).join(", ");
+  const descLines = [
+    `Tenant: ${r.tenantCompany}`,
+    `Contact: ${r.contactFirstName} ${r.contactLastName} <${r.contactEmail}>`,
+    r.contactPhone ? `Phone: ${r.contactPhone}` : "",
+    r.purpose ? `\nPurpose: ${r.purpose}` : "",
+  ].filter(Boolean).join("\n");
+
+  const ics = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//KCP Portal//Conference Room Reservation//EN",
+    "CALSCALE:GREGORIAN",
+    "METHOD:PUBLISH",
+    "BEGIN:VEVENT",
+    `UID:${r.id}@kcp-portal`,
+    `DTSTAMP:${dtstamp}`,
+    `DTSTART:${dt(r.date, r.startTime)}`,
+    `DTEND:${dt(r.date, r.endTime)}`,
+    `SUMMARY:${escapeICS(summary)}`,
+    `LOCATION:${escapeICS(location)}`,
+    `DESCRIPTION:${escapeICS(descLines)}`,
+    `STATUS:${r.status === "Approved" ? "CONFIRMED" : r.status === "Declined" ? "CANCELLED" : "TENTATIVE"}`,
+    "END:VEVENT",
+    "END:VCALENDAR",
+  ].join("\r\n");
+
+  const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `reservation-${r.id}.ics`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
