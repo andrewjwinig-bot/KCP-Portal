@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { PROPERTY_DEFS } from "../../lib/properties/data";
 import type { RentRollData, RentRollUnit, RentRollProperty } from "../../lib/rentroll/parseRentRollExcel";
 import { amenityFor } from "../../lib/rentroll/amenities";
@@ -245,6 +245,7 @@ function UnitsTable({ units, propertyCode, hideNNN, tenantMeta, onBaseYearChange
   onBaseYearChange: (unitRef: string, baseYear: number | null) => void;
   vacatingUnitRefs?: Set<string>;
 }) {
+  const router = useRouter();
   const [showAll, setShowAll] = useState(true);
   const displayed = showAll ? units : units.slice(0, 10);
   const upperCode = propertyCode.toUpperCase();
@@ -303,7 +304,14 @@ function UnitsTable({ units, propertyCode, hideNNN, tenantMeta, onBaseYearChange
               const rowId = `unit-${unit.unitRef.replace(/[^a-zA-Z0-9]/g, "-")}`;
 
               return (
-                <tr key={i} id={rowId} style={{ background: rowBg }}>
+                <tr
+                  key={i}
+                  id={rowId}
+                  onClick={() => router.push(`/rentroll/units/${encodeURIComponent(unit.unitRef)}`)}
+                  style={{ background: rowBg, cursor: "pointer" }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.filter = "brightness(0.97)"; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.filter = ""; }}
+                >
                   <td style={{
                     fontWeight: effectiveVacant ? 400 : 600,
                     color: effectiveVacant
@@ -332,20 +340,13 @@ function UnitsTable({ units, propertyCode, hideNNN, tenantMeta, onBaseYearChange
                     )}
                   </td>
                   <td style={{ whiteSpace: "nowrap" }}>
-                    <Link
-                      href={`/rentroll/units/${encodeURIComponent(unit.unitRef)}`}
-                      style={{ textDecoration: "none", color: "inherit" }}
-                      onMouseEnter={(e) => {
-                        const c = e.currentTarget.querySelector("code") as HTMLElement | null;
-                        if (c) c.style.textDecoration = "underline";
-                      }}
-                      onMouseLeave={(e) => {
-                        const c = e.currentTarget.querySelector("code") as HTMLElement | null;
-                        if (c) c.style.textDecoration = "none";
-                      }}
-                    >
-                      <code style={{ fontSize: 12, whiteSpace: "nowrap", cursor: "pointer" }}>{unit.unitRef}</code>
-                    </Link>
+                    <code style={{
+                      fontSize: 12, fontWeight: 700,
+                      color: "#0b4a7d",
+                      whiteSpace: "nowrap",
+                      textDecoration: "underline",
+                      textUnderlineOffset: 2,
+                    }}>{unit.unitRef}</code>
                   </td>
                   <td style={{ textAlign: "right", fontSize: 13 }}>{sqftFmt(unit.sqft)}</td>
                   <td style={{ fontSize: 13, color: "var(--muted)" }}>{formatDate(unit.leaseFrom)}</td>
@@ -357,7 +358,10 @@ function UnitsTable({ units, propertyCode, hideNNN, tenantMeta, onBaseYearChange
                     )}
                   </td>
                   {showBaseYear && (
-                    <td style={{ textAlign: "center", fontSize: 13 }}>
+                    <td
+                      onClick={(e) => e.stopPropagation()}
+                      style={{ textAlign: "center", fontSize: 13 }}
+                    >
                       <BaseYearCell
                         unitRef={unit.unitRef}
                         isVacant={unit.isVacant}
