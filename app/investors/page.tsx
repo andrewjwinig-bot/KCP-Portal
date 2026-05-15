@@ -600,10 +600,25 @@ export default function InvestorInfoPage() {
   );
 }
 
+function Chevron({ open }: { open: boolean }) {
+  return (
+    <svg
+      width="10" height="10" viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"
+      style={{ color: "var(--muted)", transform: open ? "rotate(90deg)" : "rotate(0)", transition: "transform 0.15s", flexShrink: 0 }}
+    >
+      <polyline points="9 18 15 12 9 6" />
+    </svg>
+  );
+}
+
 /** Supplementary partnership / trustee structure shown inside the
  *  investor card. Only renders when the investor has an entry in
  *  lib/investors/structures.ts (e.g. Hyman Korman Co.). */
 function InvestorStructureBlock({ investorName, structure }: { investorName: string; structure: InvestorStructure | null }) {
+  const [structureOpen, setStructureOpen] = useState(false);
+  const [directoryOpen, setDirectoryOpen] = useState(false);
+
   if (!structure) return null;
 
   function downloadXlsx() {
@@ -647,11 +662,24 @@ function InvestorStructureBlock({ investorName, structure }: { investorName: str
 
   return (
     <>
-      <div style={{ borderTop: "1px solid var(--border)", padding: "14px 16px 16px" }}>
+      <div style={{ borderTop: "1px solid var(--border)", padding: "12px 16px" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>
-            {structure.title}
-          </div>
+          <button
+            type="button"
+            onClick={() => setStructureOpen((v) => !v)}
+            aria-expanded={structureOpen}
+            style={{
+              display: "flex", alignItems: "center", gap: 8,
+              background: "transparent", border: "none", padding: 0,
+              cursor: "pointer", fontFamily: "inherit", textAlign: "left",
+            }}
+          >
+            <Chevron open={structureOpen} />
+            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>
+              {structure.title}
+            </span>
+            <span className="muted small">{structure.entries.length}</span>
+          </button>
           <button
             type="button"
             onClick={downloadXlsx}
@@ -659,9 +687,10 @@ function InvestorStructureBlock({ investorName, structure }: { investorName: str
             style={{ fontSize: 12, padding: "5px 10px", fontWeight: 600 }}
           >⤓ Excel</button>
         </div>
-        {structure.subtitle && (
+        {structureOpen && structure.subtitle && (
           <div className="muted small" style={{ marginTop: 4 }}>{structure.subtitle}</div>
         )}
+        {structureOpen && (
         <div style={{ marginTop: 12, overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
@@ -701,13 +730,28 @@ function InvestorStructureBlock({ investorName, structure }: { investorName: str
             </tbody>
           </table>
         </div>
+        )}
       </div>
 
       {structure.directory && (
-        <div style={{ borderTop: "1px solid var(--border)", padding: "14px 16px 16px" }}>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>
-            {structure.directory.title}
-          </div>
+        <div style={{ borderTop: "1px solid var(--border)", padding: "12px 16px" }}>
+          <button
+            type="button"
+            onClick={() => setDirectoryOpen((v) => !v)}
+            aria-expanded={directoryOpen}
+            style={{
+              display: "flex", alignItems: "center", gap: 8,
+              background: "transparent", border: "none", padding: 0,
+              cursor: "pointer", fontFamily: "inherit", textAlign: "left",
+            }}
+          >
+            <Chevron open={directoryOpen} />
+            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>
+              {structure.directory.title}
+            </span>
+            <span className="muted small">{structure.directory.rows.length}</span>
+          </button>
+          {directoryOpen && (
           <div style={{ marginTop: 12, overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
               <thead>
@@ -748,6 +792,7 @@ function InvestorStructureBlock({ investorName, structure }: { investorName: str
               </tbody>
             </table>
           </div>
+          )}
         </div>
       )}
     </>
