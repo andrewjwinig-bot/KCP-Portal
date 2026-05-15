@@ -185,13 +185,20 @@ export default function TrendsPage() {
           <Link href="/rentroll" style={{ fontSize: 13, color: "#0b4a7d", textDecoration: "none" }}>← Rent roll</Link>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
-          <label className="btn" style={{ cursor: "pointer", margin: 0 }}>
+          <label
+            className="btn"
+            style={{ cursor: "pointer", margin: 0 }}
+            title="Adds a historical snapshot for charts. Does NOT change the current rent roll on /rentroll."
+          >
             {uploading ? "Uploading…" : "Upload past month"}
             <input type="file" accept=".xls,.xlsx" onChange={uploadHistorical} disabled={uploading} style={{ display: "none" }} />
           </label>
           <a href="/api/rentroll/trends/export" className="btn">Export Excel</a>
         </div>
       </header>
+      <div className="muted small" style={{ marginTop: -4 }}>
+        Use <b>Upload past month</b> to add older rent rolls for trends — the current rent roll on /rentroll stays put.
+      </div>
 
       {/* Horizon toggle */}
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
