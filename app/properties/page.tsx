@@ -462,12 +462,34 @@ function DetailModal({
   onClose: () => void;
   checked: Record<string, boolean>;
 }) {
+  const { user } = useUser();
+  const isMaint = user.id === "maint";
   const tasks        = useMemo(() => tasksForProp(prop.id), [prop.id]);
   const parcels      = useMemo(() => parcelsForProp(prop.id), [prop.id]);
   const bankAccounts = useMemo(() => bankAccountsForProp(prop.id), [prop.id]);
   const alloc       = ALLOC_PCT[prop.id];
   const k1Tasks     = tasks.filter(t => t.category === "k1");
   const filingTasks = tasks.filter(t => t.category !== "k1");
+
+  // Maintenance requests for this property — fetched once the modal opens.
+  type PropRequest = {
+    id: string; subject: string; status: string; priority: string;
+    assignedTo: string | null; submittedDate: string; tenantCompany: string;
+    propertyCode: string | null; propertyName: string;
+  };
+  const [propRequests, setPropRequests] = useState<PropRequest[] | null>(null);
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/maintenance/requests")
+      .then((r) => r.ok ? r.json() : null)
+      .then((j) => {
+        if (!alive) return;
+        const all = (j?.requests ?? []) as PropRequest[];
+        setPropRequests(all.filter((r) => r.propertyCode === prop.id));
+      })
+      .catch(() => alive && setPropRequests([]));
+    return () => { alive = false; };
+  }, [prop.id]);
 
   // Canonical ownership entry (source of truth for owners + vendor codes).
   const ownershipEntry = useMemo(
@@ -574,7 +596,7 @@ function DetailModal({
           {/* ── Overview ── */}
           <section>
             <SectionLabel>Overview</SectionLabel>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "14px 32px", marginBottom: (parcels.length > 0 || bankAccounts.length > 0) ? 16 : 0 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "14px 32px", marginBottom: (parcels.length > 0 || (!isMaint && bankAccounts.length > 0)) ? 16 : 0 }}>
               {prop.type !== "Land" && prop.type !== "Misc" && (
                 <InfoField label="Sq Footage" value={prop.sqft ? `${prop.sqft.toLocaleString()} sq ft` : "—"} />
               )}
@@ -594,7 +616,7 @@ function DetailModal({
 
             {/* Parcel Numbers */}
             {parcels.length > 0 && (
-              <div style={{ marginBottom: bankAccounts.length > 0 ? 12 : 0 }}>
+              <div style={{ marginBottom: (!isMaint && bankAccounts.length > 0) ? 12 : 0 }}>
                 <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 6 }}>Parcel Numbers</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                   {parcels.map((p, i) => (
@@ -626,7 +648,7 @@ function DetailModal({
             )}
 
             {/* Bank Accounts */}
-            {bankAccounts.length > 0 && (
+            {!isMaint && bankAccounts.length > 0 && (
               <div>
                 <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 6 }}>Bank Accounts</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -761,8 +783,76 @@ function DetailModal({
             </CollapsibleSection>
           )}
 
+          {/* ── Maintenance Requests for this property ── */}
+          {propRequests && propRequests.length > 0 && (
+            <CollapsibleSection
+              title="Maintenance Requests"
+              count={propRequests.length}
+              link={
+                <Link href={`/maintenance?property=${encodeURIComponent(prop.name)}`} style={{ fontSize: 11, fontWeight: 600, color: "var(--brand)", marginLeft: 8, textDecoration: "none" }}>
+                  Open Maintenance →
+                </Link>
+              }
+            >
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {[...propRequests]
+                  .sort((a, b) => {
+                    // Active (not Complete) first; within each, newest first.
+                    const ac = a.status === "Complete" ? 1 : 0;
+                    const bc = b.status === "Complete" ? 1 : 0;
+                    if (ac !== bc) return ac - bc;
+                    return (Date.parse(b.submittedDate) || 0) - (Date.parse(a.submittedDate) || 0);
+                  })
+                  .map((r) => {
+                    const statusColor =
+                      r.status === "Complete" ? { bg: "rgba(22,163,74,0.10)", fg: "#15803d", border: "rgba(22,163,74,0.30)" }
+                        : r.status === "In Progress" ? { bg: "rgba(217,119,6,0.10)", fg: "#b45309", border: "rgba(217,119,6,0.30)" }
+                          : { bg: "rgba(11,74,125,0.10)", fg: "#0b4a7d", border: "rgba(11,74,125,0.30)" };
+                    const prioColor =
+                      r.priority === "High" ? { bg: "rgba(220,38,38,0.10)", fg: "#b91c1c", border: "rgba(220,38,38,0.30)" }
+                        : r.priority === "Medium" ? { bg: "rgba(217,119,6,0.10)", fg: "#b45309", border: "rgba(217,119,6,0.30)" }
+                          : null;
+                    return (
+                      <Link
+                        key={r.id}
+                        href={`/maintenance?openId=${encodeURIComponent(r.id)}`}
+                        style={{
+                          display: "flex", alignItems: "center", gap: 10,
+                          padding: "9px 12px",
+                          border: "1px solid var(--border)", borderRadius: 8,
+                          background: "#fafafa",
+                          textDecoration: "none", color: "inherit",
+                        }}
+                      >
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 14, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {r.subject || "(no subject)"}
+                          </div>
+                          <div style={{ fontSize: 12, color: "var(--muted)" }}>
+                            {[r.tenantCompany, r.assignedTo ?? "Unassigned", formatModalDate(r.submittedDate)].filter(Boolean).join(" · ")}
+                          </div>
+                        </div>
+                        {prioColor && (
+                          <span style={{
+                            flexShrink: 0, fontSize: 10, fontWeight: 800, letterSpacing: "0.04em",
+                            padding: "2px 8px", borderRadius: 999,
+                            background: prioColor.bg, color: prioColor.fg, border: `1px solid ${prioColor.border}`,
+                          }}>{r.priority}</span>
+                        )}
+                        <span style={{
+                          flexShrink: 0, fontSize: 10, fontWeight: 800, letterSpacing: "0.04em",
+                          padding: "2px 8px", borderRadius: 999,
+                          background: statusColor.bg, color: statusColor.fg, border: `1px solid ${statusColor.border}`,
+                        }}>{r.status}</span>
+                      </Link>
+                    );
+                  })}
+              </div>
+            </CollapsibleSection>
+          )}
+
           {/* ── Tax Filings ── */}
-          {filingTasks.length > 0 && (
+          {!isMaint && filingTasks.length > 0 && (
             <CollapsibleSection
               title="Tax Filings"
               count={filingTasks.length}
@@ -829,7 +919,7 @@ function DetailModal({
           )}
 
           {/* ── Ownership ── */}
-          {ownershipEntry && ownershipEntry.owners.length > 0 && (
+          {!isMaint && ownershipEntry && ownershipEntry.owners.length > 0 && (
             <CollapsibleSection
               title="Ownership"
               count={ownershipEntry.owners.length}
@@ -912,7 +1002,7 @@ function DetailModal({
           )}
 
           {/* ── GL Allocations ── */}
-          {alloc && (
+          {!isMaint && alloc && (
             <section>
               <SectionLabel>
                 Allocated Invoicer %
