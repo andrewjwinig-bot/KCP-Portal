@@ -12,6 +12,16 @@ import {
   InfoField,
   formatModalDate,
 } from "../../../properties/PropertyDetail";
+import {
+  Pill,
+  StatPill,
+  TONE_BLUE,
+  TONE_NEUTRAL,
+  TONE_AMBER,
+  TONE_GREEN,
+  TONE_RED,
+  type PillTone,
+} from "../../../components/Pill";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -72,23 +82,24 @@ type MaintRequest = {
   propertyName: string;
 };
 
-// Status pill style
-function statusPillFor(unit: RentRollUnit, isAmenity: boolean): {
-  label: string; bg: string; fg: string; border: string;
-} {
-  if (isAmenity) {
-    return { label: "In-House", bg: "rgba(13,148,136,0.10)", fg: "#0d9488", border: "rgba(13,148,136,0.35)" };
-  }
-  if (unit.isVacant) {
-    return { label: "Vacant", bg: "rgba(15,23,42,0.06)", fg: "var(--muted)", border: "var(--border)" };
-  }
+// In-house teal — reused from rent roll for amenity / common-area suites.
+const TONE_TEAL: PillTone = {
+  bg: "rgba(13,148,136,0.10)",
+  fg: "#0d9488",
+  border: "rgba(13,148,136,0.35)",
+};
+
+// Status pill — returns label + tone tuple matching Pill semantics.
+function statusPillFor(unit: RentRollUnit, isAmenity: boolean): { label: string; tone: PillTone } {
+  if (isAmenity) return { label: "In-House", tone: TONE_TEAL };
+  if (unit.isVacant) return { label: "Vacant", tone: TONE_NEUTRAL };
   const d = parseRentDate(unit.leaseTo);
   if (d) {
     const days = daysUntil(d);
-    if (days < 0) return { label: "Expired", bg: "rgba(220,38,38,0.10)", fg: "#b91c1c", border: "rgba(220,38,38,0.30)" };
-    if (days <= 90) return { label: "Expiring Soon", bg: "rgba(217,119,6,0.10)", fg: "#b45309", border: "rgba(217,119,6,0.30)" };
+    if (days < 0) return { label: "Expired", tone: TONE_RED };
+    if (days <= 90) return { label: "Expiring Soon", tone: TONE_AMBER };
   }
-  return { label: "Active", bg: "rgba(22,163,74,0.10)", fg: "#15803d", border: "rgba(22,163,74,0.30)" };
+  return { label: "Active", tone: TONE_GREEN };
 }
 
 // ─── Page ───────────────────────────────────────────────────────────────────
@@ -224,9 +235,37 @@ export default function UnitDetailPage() {
 
   const futureEsc = unit.futureEscalations ?? [];
 
+  // Hero KPI accent for "Days to expiry" tile.
+  const daysToExpiryAccent =
+    daysToExpiry == null
+      ? undefined
+      : daysToExpiry < 0
+        ? "#b91c1c"
+        : daysToExpiry <= 30
+          ? "#b91c1c"
+          : daysToExpiry <= 90
+            ? "#b45309"
+            : undefined;
+
+  const daysToExpiryValue =
+    isAmenity
+      ? "—"
+      : unit.isVacant
+        ? "Vacant"
+        : daysToExpiry == null
+          ? "—"
+          : daysToExpiry < 0
+            ? "Expired"
+            : `${daysToExpiry}d`;
+
+  const heroAnnualPerSf =
+    unit.annualRentPerSqft || annualPerSf
+      ? `$${(unit.annualRentPerSqft || annualPerSf).toFixed(2)}`
+      : "—";
+
   return (
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
-      <header style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <header style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <Link
           href="/rentroll"
           style={{ fontSize: 12, fontWeight: 600, color: "var(--muted)", textDecoration: "none", width: "fit-content" }}
@@ -234,49 +273,76 @@ export default function UnitDetailPage() {
           ← Rent roll
         </Link>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-            <h1 style={{ margin: 0 }}>{headerTitle}</h1>
-            <code style={{
-              background: "#0b1220", color: "#e0f0ff",
-              padding: "2px 8px", borderRadius: 5,
-              fontSize: 11, fontWeight: 600, letterSpacing: "0.06em",
-            }}>{unit.unitRef}</code>
-            <Link
-              href={`/properties/${encodeURIComponent(propertyCode)}`}
-              style={{
-                fontSize: 11, fontWeight: 700, letterSpacing: "0.04em",
-                padding: "2px 8px", borderRadius: 999,
-                background: "rgba(11,74,125,0.08)", color: "#0b4a7d",
-                border: "1px solid rgba(11,74,125,0.25)",
-                textDecoration: "none",
-              }}
-              title={propertyName}
-            >{propertyCode}</Link>
-            <span style={{
-              display: "inline-flex", alignItems: "center",
-              padding: "2px 8px", borderRadius: 999,
-              fontSize: 11, fontWeight: 700, letterSpacing: "0.04em",
-              background: status.bg, color: status.fg, border: `1px solid ${status.border}`,
-            }}>{status.label}</span>
-          </div>
+          <h1 style={{ margin: 0 }}>{headerTitle}</h1>
           <div style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
             <span style={{ fontFamily: "'Arial Black', 'Arial Bold', Arial, sans-serif", fontWeight: 900, fontSize: 30, letterSpacing: "-0.5px", lineHeight: 1 }}>KORMAN</span>
             <div style={{ width: 1, height: 36, background: "#000", flexShrink: 0 }} />
             <div style={{ fontSize: 11, letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}><div>COMMERCIAL</div><div>PROPERTIES</div></div>
           </div>
         </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <code style={{
+            background: "#0b1220", color: "#e0f0ff",
+            padding: "2px 8px", borderRadius: 5,
+            fontSize: 11, fontWeight: 600, letterSpacing: "0.06em",
+          }}>{unit.unitRef}</code>
+          <Link
+            href={`/properties/${encodeURIComponent(propertyCode)}`}
+            style={{ textDecoration: "none" }}
+            title={propertyName}
+            onMouseEnter={(e) => {
+              const el = e.currentTarget.firstElementChild as HTMLElement | null;
+              if (el) el.style.textDecoration = "underline";
+            }}
+            onMouseLeave={(e) => {
+              const el = e.currentTarget.firstElementChild as HTMLElement | null;
+              if (el) el.style.textDecoration = "none";
+            }}
+          >
+            <Pill tone={TONE_BLUE}>{propertyCode}</Pill>
+          </Link>
+          <Pill tone={status.tone}>{status.label}</Pill>
+        </div>
       </header>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+      {/* ── Hero KPI strip ── */}
+      <div className="pills" style={{ marginTop: 0 }}>
+        <StatPill
+          label="Sq Ft"
+          value={unit.sqft ? unit.sqft.toLocaleString() : "—"}
+        />
+        {isAmenity || unit.isVacant ? (
+          <StatPill
+            label="Status"
+            value={isAmenity ? "In-House" : "Vacant"}
+            accent={isAmenity ? "#0d9488" : "var(--muted)"}
+          />
+        ) : (
+          <>
+            <StatPill
+              label="Base Rent / mo"
+              value={unit.baseRent ? `$${unit.baseRent.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : "—"}
+            />
+            <StatPill label="Annual $/sf" value={heroAnnualPerSf} />
+          </>
+        )}
+        <StatPill
+          label="Days to Expiry"
+          value={daysToExpiryValue}
+          accent={daysToExpiryAccent}
+        />
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         {/* ── Overview ── */}
-        <section>
+        <div className="card">
           <SectionLabel>Overview</SectionLabel>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "14px 32px" }}>
             <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
               <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>Property</span>
               <Link
                 href={`/properties/${encodeURIComponent(propertyCode)}`}
-                style={{ fontSize: 14, fontWeight: 600, color: "#0b4a7d", lineHeight: 1.4, textDecoration: "none" }}
+                style={{ fontSize: 16, fontWeight: 700, color: "#0b4a7d", lineHeight: 1.4, textDecoration: "none" }}
                 onMouseEnter={(e) => (e.currentTarget.style.textDecoration = "underline")}
                 onMouseLeave={(e) => (e.currentTarget.style.textDecoration = "none")}
               >{propertyName} <span style={{ color: "var(--muted)", fontWeight: 500 }}>({propertyCode})</span></Link>
@@ -295,11 +361,11 @@ export default function UnitDetailPage() {
               </span>
             </div>
           </div>
-        </section>
+        </div>
 
         {/* ── Rent ── */}
         {!isAmenity && (
-          <section>
+          <div className="card">
             <SectionLabel>Rent</SectionLabel>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "14px 32px" }}>
               <InfoField label="Base Rent / mo" value={unit.baseRent ? money(unit.baseRent) : "—"} />
@@ -314,12 +380,26 @@ export default function UnitDetailPage() {
               )}
               <InfoField label="Gross Rent / mo" value={unit.grossRentTotal ? money(unit.grossRentTotal) : "—"} />
             </div>
-          </section>
+            {/* Last Increase — folded into Rent card */}
+            {(unit.lastIncreaseDate || unit.lastIncreaseAmount) && (
+              <div style={{
+                marginTop: 14, paddingTop: 14,
+                borderTop: "1px solid var(--border)",
+                display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "14px 32px",
+              }}>
+                <div style={{ gridColumn: "1 / -1", fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", color: "var(--muted)", textTransform: "uppercase" }}>
+                  Last Increase
+                </div>
+                <InfoField label="Date" value={formatModalDate(unit.lastIncreaseDate)} />
+                <InfoField label="Amount" value={unit.lastIncreaseAmount ? money(unit.lastIncreaseAmount) : "—"} />
+              </div>
+            )}
+          </div>
         )}
 
         {/* ── Base Year (office only) ── */}
         {baseYearShown && (
-          <section>
+          <div className="card">
             <SectionLabel>Base Year</SectionLabel>
             {reset ? (
               <div>
@@ -342,30 +422,33 @@ export default function UnitDetailPage() {
             ) : (
               <InfoField label="Current Base Year" value={baseYearVal != null ? String(baseYearVal) : "—"} />
             )}
-          </section>
+          </div>
         )}
 
         {/* ── Future Escalations ── */}
         {futureEsc.length > 0 && (
-          <CollapsibleSection title="Future Escalations" count={futureEsc.length}>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {futureEsc.map((esc, i) => (
-                <div key={i} style={{
-                  display: "flex", alignItems: "center", justifyContent: "space-between",
-                  padding: "9px 12px",
-                  border: "1px solid var(--border)", borderRadius: 8,
-                  background: "#fafafa",
-                }}>
-                  <span style={{ fontSize: 13, fontWeight: 600 }}>{formatModalDate(esc.date)}</span>
-                  <span style={{ fontSize: 13, color: "var(--muted)" }}>→</span>
-                  <span style={{ fontSize: 13, fontWeight: 700 }}>{money(esc.amount)}/mo</span>
-                </div>
-              ))}
-            </div>
-          </CollapsibleSection>
+          <div className="card">
+            <CollapsibleSection title="Future Escalations" count={futureEsc.length}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {futureEsc.map((esc, i) => (
+                  <div key={i} style={{
+                    display: "flex", alignItems: "center", justifyContent: "space-between",
+                    padding: "9px 12px",
+                    border: "1px solid var(--border)", borderRadius: 8,
+                    background: "#fafafa",
+                  }}>
+                    <span style={{ fontSize: 13, fontWeight: 600 }}>{formatModalDate(esc.date)}</span>
+                    <span style={{ fontSize: 13, color: "var(--muted)" }}>→</span>
+                    <span style={{ fontSize: 13, fontWeight: 700 }}>{money(esc.amount)}/mo</span>
+                  </div>
+                ))}
+              </div>
+            </CollapsibleSection>
+          </div>
         )}
 
         {/* ── Maintenance Requests ── */}
+        <div className="card">
         <CollapsibleSection
           title="Maintenance Requests for this Unit"
           count={unitRequests.length}
@@ -426,16 +509,17 @@ export default function UnitDetailPage() {
             </div>
           )}
         </CollapsibleSection>
+        </div>
 
-        {/* ── Last Increase ── */}
-        {(unit.lastIncreaseDate || unit.lastIncreaseAmount) && (
-          <section>
+        {/* ── Last Increase — for amenity units only (rent card not shown) ── */}
+        {isAmenity && (unit.lastIncreaseDate || unit.lastIncreaseAmount) && (
+          <div className="card">
             <SectionLabel>Last Increase</SectionLabel>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "14px 32px" }}>
               <InfoField label="Date" value={formatModalDate(unit.lastIncreaseDate)} />
               <InfoField label="Amount" value={unit.lastIncreaseAmount ? money(unit.lastIncreaseAmount) : "—"} />
             </div>
-          </section>
+          </div>
         )}
       </div>
     </main>

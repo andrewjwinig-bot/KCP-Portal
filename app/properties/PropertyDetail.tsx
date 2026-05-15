@@ -16,6 +16,7 @@ import {
   baseEntityName, filingLabel, isTaskEffectivelyDone,
   type TaxTask, type TaxParcel, TAX_CATEGORIES, type K1Investor,
 } from "../tracker/tax-data";
+import { StatPill } from "../components/Pill";
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 
@@ -521,6 +522,18 @@ export function InfoField({ label, value }: { label: string; value: string; mono
   );
 }
 
+/** Larger variant of InfoField for hero/Overview-style key reference numbers
+ * (Year Built, Sq Footage, Acres). 16/700 instead of 14/600 to give
+ * Overview values more weight than dense detail-list fields. */
+export function BigInfoField({ label, value }: { label: string; value: string }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
+      <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>{label}</span>
+      <span style={{ fontSize: 16, fontWeight: 700, color: "var(--text)", lineHeight: 1.4, wordBreak: "break-word" }}>{value}</span>
+    </div>
+  );
+}
+
 // ─── PROPERTY DETAIL BODY ─────────────────────────────────────────────────────
 
 export function PropertyDetailBody({
@@ -639,17 +652,48 @@ export function PropertyDetailBody({
 
   const hasLocation = !!(prop.address || prop.city || FLOORPLAN_IDS.has(prop.id) || prop.notes);
 
+  // Hero KPI strip values — gather first so we can skip rendering when nothing's set.
+  const heroSqft = (rrProp?.totalSqft && rrProp.totalSqft > 0)
+    ? rrProp.totalSqft
+    : (prop.sqft ?? 0);
+  const heroOccPct = rrProp && rrProp.totalSqft > 0
+    ? (rrProp.occupiedSqft / rrProp.totalSqft) * 100
+    : null;
+  const heroUnits = rrProp?.units?.length ?? 0;
+  const heroYearBuilt = facts?.yearBuilt ?? prop.yearBuilt ?? null;
+
+  const heroTiles: { label: string; value: string; accent?: string }[] = [];
+  if (heroSqft > 0) heroTiles.push({ label: "Total Sq Ft", value: heroSqft.toLocaleString() });
+  if (heroOccPct != null) {
+    heroTiles.push({
+      label: "Occupied",
+      value: `${heroOccPct.toFixed(1)}%`,
+      accent: heroOccPct >= 90 ? "#16a34a" : heroOccPct >= 70 ? "#0b4a7d" : "#d97706",
+    });
+  }
+  if (heroUnits > 0) heroTiles.push({ label: "Units", value: String(heroUnits) });
+  if (heroYearBuilt) heroTiles.push({ label: "Year Built", value: String(heroYearBuilt) });
+
   return (
     <>
+      {/* ── Hero KPI strip ── */}
+      {heroTiles.length > 0 && (
+        <div className="pills" style={{ marginTop: 0, marginBottom: 14 }}>
+          {heroTiles.map((t) => (
+            <StatPill key={t.label} label={t.label} value={t.value} accent={t.accent} />
+          ))}
+        </div>
+      )}
+
       {/* Body — sections */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
 
         {/* ── Location / Floorplan / Notes ── */}
         {hasLocation && (
-          <section>
+          <div className="card">
             <SectionLabel>Location</SectionLabel>
             {(prop.address || prop.city) && (
-              <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", lineHeight: 1.4 }}>
+              <div style={{ fontSize: 16, fontWeight: 700, color: "var(--text)", lineHeight: 1.4 }}>
                 {[prop.address, prop.city, [prop.state, prop.zip].filter(Boolean).join(" ")].filter(Boolean).join(", ")}
               </div>
             )}
@@ -661,21 +705,21 @@ export function PropertyDetailBody({
             {prop.notes && (
               <p style={{ fontSize: 13, color: "var(--muted)", marginTop: 6, marginBottom: 0 }}>{prop.notes}</p>
             )}
-          </section>
+          </div>
         )}
 
         {/* ── Overview ── */}
-        <section>
+        <div className="card">
           <SectionLabel>Overview</SectionLabel>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "14px 32px", marginBottom: (parcels.length > 0 || (!isMaint && bankAccounts.length > 0)) ? 16 : 0 }}>
             {prop.type !== "Land" && prop.type !== "Misc" && (
-              <InfoField label="Sq Footage" value={prop.sqft ? `${prop.sqft.toLocaleString()} sq ft` : "—"} />
+              <BigInfoField label="Sq Footage" value={prop.sqft ? `${prop.sqft.toLocaleString()} sq ft` : "—"} />
             )}
             {prop.acres != null && (
-              <InfoField label="Acres" value={`${prop.acres} ac`} />
+              <BigInfoField label="Acres" value={`${prop.acres} ac`} />
             )}
             {prop.type !== "Land" && prop.type !== "Misc" && (
-              <InfoField label="Year Built" value={prop.yearBuilt ? String(prop.yearBuilt) : "—"} />
+              <BigInfoField label="Year Built" value={prop.yearBuilt ? String(prop.yearBuilt) : "—"} />
             )}
             {prop.ein && (
               <InfoField label={prop.einLabel ?? "EIN"} value={prop.ein} />
@@ -745,11 +789,11 @@ export function PropertyDetailBody({
               </div>
             </div>
           )}
-        </section>
+        </div>
 
         {/* ── Occupancy & Suites (from rent roll) ── */}
         {rrProp && (
-          <section>
+          <div className="card">
             <SectionLabel>Occupancy</SectionLabel>
             {rrProp.totalSqft > 0 && (() => {
               const pctOcc = (rrProp.occupiedSqft / rrProp.totalSqft) * 100;
@@ -774,20 +818,23 @@ export function PropertyDetailBody({
                 </div>
               );
             })()}
-          </section>
+          </div>
         )}
 
         {/* ── Building Facts (maint-team editable) ── */}
-        <BuildingFacts
-          propId={prop.id}
-          fallbackYearBuilt={prop.yearBuilt}
-          facts={facts}
-          onSaved={(next) => setFacts(next)}
-          canEdit={canEditFacts}
-        />
+        <div className="card">
+          <BuildingFacts
+            propId={prop.id}
+            fallbackYearBuilt={prop.yearBuilt}
+            facts={facts}
+            onSaved={(next) => setFacts(next)}
+            canEdit={canEditFacts}
+          />
+        </div>
 
         {/* ── Rent Roll table (collapsible inside the open card) ── */}
         {rrProp && rrProp.units.length > 0 && (
+          <div className="card">
           <CollapsibleSection title="Rent Roll" count={rrProp.units.length}>
             <div className="tableWrap" style={{ marginTop: 4 }}>
               <table>
@@ -868,10 +915,12 @@ export function PropertyDetailBody({
               </table>
             </div>
           </CollapsibleSection>
+          </div>
         )}
 
         {/* ── Maintenance Requests for this property ── */}
         {propRequests && propRequests.length > 0 && (
+          <div className="card">
           <CollapsibleSection
             title="Maintenance Requests"
             count={propRequests.length}
@@ -936,10 +985,12 @@ export function PropertyDetailBody({
                 })}
             </div>
           </CollapsibleSection>
+          </div>
         )}
 
         {/* ── Tax Filings ── */}
         {!isMaint && filingTasks.length > 0 && (
+          <div className="card">
           <CollapsibleSection
             title="Tax Filings"
             count={filingTasks.length}
@@ -1003,10 +1054,12 @@ export function PropertyDetailBody({
               })}
             </div>
           </CollapsibleSection>
+          </div>
         )}
 
         {/* ── Ownership ── */}
         {!isMaint && ownershipEntry && ownershipEntry.owners.length > 0 && (
+          <div className="card">
           <CollapsibleSection
             title="Ownership"
             count={ownershipEntry.owners.length}
@@ -1086,11 +1139,12 @@ export function PropertyDetailBody({
               </div>
             )}
           </CollapsibleSection>
+          </div>
         )}
 
         {/* ── GL Allocations ── */}
         {!isMaint && alloc && (
-          <section>
+          <div className="card">
             <SectionLabel>
               Allocated Invoicer %
               <Link href="/allocated-invoicer" style={{ fontSize: 11, fontWeight: 600, color: "var(--brand)", marginLeft: 8, textDecoration: "none" }}>
@@ -1118,7 +1172,7 @@ export function PropertyDetailBody({
                 </div>
               ))}
             </div>
-          </section>
+          </div>
         )}
 
 
