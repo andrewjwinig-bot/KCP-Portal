@@ -621,9 +621,11 @@ function InvestorStructureBlock({ investorName, structure }: { investorName: str
 
   if (!structure) return null;
 
-  function downloadXlsx() {
-    const wb = XLSX.utils.book_new();
-    const structureRows = structure!.entries.flatMap((e) =>
+  const safeName = investorName.replace(/[^a-zA-Z0-9]+/g, "_").replace(/^_|_$/g, "");
+  const stamp = new Date().toISOString().slice(0, 10);
+
+  function downloadStructure() {
+    const rows = structure!.entries.flatMap((e) =>
       e.trustees.length === 0
         ? [{
             "Entity / Trust": e.entity,
@@ -640,24 +642,27 @@ function InvestorStructureBlock({ investorName, structure }: { investorName: str
             "Capacity": t.capacity ?? "",
           })),
     );
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(structureRows), "Structure");
-    if (structure!.directory) {
-      const directoryRows = structure!.directory.rows.map((r) => ({
-        "Trustee / Partner Name": r.name,
-        "Address": r.address,
-        "City": r.city,
-        "State": r.state,
-        "Zip": r.zip ?? "",
-        "Serving Individually?": r.servingIndividually,
-        "Trust(s) / Entity": r.trusts,
-        "Source Will / Instrument": r.sourceInstrument,
-        "Notes": r.notes ?? "",
-      }));
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(directoryRows), "Trustee Directory");
-    }
-    const safeName = investorName.replace(/[^a-zA-Z0-9]+/g, "_").replace(/^_|_$/g, "");
-    const stamp = new Date().toISOString().slice(0, 10);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), "Structure");
     XLSX.writeFile(wb, `${safeName}_Structure_${stamp}.xlsx`);
+  }
+
+  function downloadDirectory() {
+    if (!structure!.directory) return;
+    const rows = structure!.directory.rows.map((r) => ({
+      "Trustee / Partner Name": r.name,
+      "Address": r.address,
+      "City": r.city,
+      "State": r.state,
+      "Zip": r.zip ?? "",
+      "Serving Individually?": r.servingIndividually,
+      "Trust(s) / Entity": r.trusts,
+      "Source Will / Instrument": r.sourceInstrument,
+      "Notes": r.notes ?? "",
+    }));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), "Trustee Directory");
+    XLSX.writeFile(wb, `${safeName}_Trustee_Directory_${stamp}.xlsx`);
   }
 
   return (
@@ -682,7 +687,7 @@ function InvestorStructureBlock({ investorName, structure }: { investorName: str
           </button>
           <button
             type="button"
-            onClick={downloadXlsx}
+            onClick={downloadStructure}
             className="btn"
             style={{ fontSize: 12, padding: "5px 10px", fontWeight: 600 }}
           >⤓ Excel</button>
@@ -735,22 +740,30 @@ function InvestorStructureBlock({ investorName, structure }: { investorName: str
 
       {structure.directory && (
         <div style={{ borderTop: "1px solid var(--border)", padding: "12px 16px" }}>
-          <button
-            type="button"
-            onClick={() => setDirectoryOpen((v) => !v)}
-            aria-expanded={directoryOpen}
-            style={{
-              display: "flex", alignItems: "center", gap: 8,
-              background: "transparent", border: "none", padding: 0,
-              cursor: "pointer", fontFamily: "inherit", textAlign: "left",
-            }}
-          >
-            <Chevron open={directoryOpen} />
-            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>
-              {structure.directory.title}
-            </span>
-            <span className="muted small">{structure.directory.rows.length}</span>
-          </button>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+            <button
+              type="button"
+              onClick={() => setDirectoryOpen((v) => !v)}
+              aria-expanded={directoryOpen}
+              style={{
+                display: "flex", alignItems: "center", gap: 8,
+                background: "transparent", border: "none", padding: 0,
+                cursor: "pointer", fontFamily: "inherit", textAlign: "left",
+              }}
+            >
+              <Chevron open={directoryOpen} />
+              <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>
+                {structure.directory.title}
+              </span>
+              <span className="muted small">{structure.directory.rows.length}</span>
+            </button>
+            <button
+              type="button"
+              onClick={downloadDirectory}
+              className="btn"
+              style={{ fontSize: 12, padding: "5px 10px", fontWeight: 600 }}
+            >⤓ Excel</button>
+          </div>
           {directoryOpen && (
           <div style={{ marginTop: 12, overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
