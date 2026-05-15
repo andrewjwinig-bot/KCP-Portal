@@ -5,8 +5,9 @@
 // between a 24-month and 5-year horizon. Office-only (JV III + NI LLC
 // + The Office Works). Each bar is stacked / colored by building.
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import type { RentRollData } from "../../lib/rentroll/parseRentRollExcel";
+import { PROPERTY_DEFS } from "../../lib/properties/data";
 
 // Office buildings (matches lib/users.ts OFFICE_AND_OW_INDIVIDUAL).
 const OFFICE_CODES = new Set([
@@ -82,9 +83,28 @@ function pct(n: number): string {
   return `${(n * 100).toFixed(1)}%`;
 }
 
+type HoverState = {
+  x: number;
+  y: number;
+  building: string;
+  buildingName: string;
+  periodLabel: string;
+  sqft: number;
+  annualGross: number;
+  units: number;
+  pctOfOffice: number;
+};
+
+function propLabelFor(code: string): string {
+  const def = PROPERTY_DEFS.find((p) => p.id.toUpperCase() === code.toUpperCase());
+  return def?.name ?? code;
+}
+
 export default function ExpirationChart({ rentroll }: { rentroll: RentRollData | null }) {
   const [horizon, setHorizon] = useState<Horizon>("24m");
   const [metric, setMetric] = useState<Metric>("pct");
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+  const [hover, setHover] = useState<HoverState | null>(null);
 
   const { periods, perPeriod, totalOfficeSqft, buildings, grandTotal } = useMemo(() => {
     const today = new Date();
@@ -97,8 +117,8 @@ export default function ExpirationChart({ rentroll }: { rentroll: RentRollData |
     );
     const totalOfficeSqft = officeProps.reduce((s, p) => s + p.totalSqft, 0);
 
-    // periodKey → propertyCode → { sqft, annualGross }
-    const perPeriod = new Map<string, Map<string, { sqft: number; annualGross: number }>>();
+    // periodKey → propertyCode → { sqft, annualGross, units }
+    const perPeriod = new Map<string, Map<string, { sqft: number; annualGross: number; units: number }>>();
     const buildings = new Set<string>();
     let grandTotal = { sqft: 0, annualGross: 0 };
 
@@ -113,9 +133,10 @@ export default function ExpirationChart({ rentroll }: { rentroll: RentRollData |
         let byProp = perPeriod.get(period.key);
         if (!byProp) { byProp = new Map(); perPeriod.set(period.key, byProp); }
         let bucket = byProp.get(code);
-        if (!bucket) { bucket = { sqft: 0, annualGross: 0 }; byProp.set(code, bucket); }
+        if (!bucket) { bucket = { sqft: 0, annualGross: 0, units: 0 }; byProp.set(code, bucket); }
         bucket.sqft += u.sqft;
         bucket.annualGross += u.grossRentTotal * 12;
+        bucket.units += 1;
         buildings.add(code);
         grandTotal.sqft += u.sqft;
         grandTotal.annualGross += u.grossRentTotal * 12;
@@ -210,23 +231,46 @@ export default function ExpirationChart({ rentroll }: { rentroll: RentRollData |
         </div>
       ) : (
         <>
-          <div style={{ display: "flex", alignItems: "flex-end", gap: 4, height: chartHeight + 26, paddingBottom: 26, position: "relative" }}>
+          <div ref={wrapRef} style={{ display: "flex", alignItems: "flex-end", gap: 4, height: chartHeight + 26, paddingBottom: 26, position: "relative" }}
+            onMouseLeave={() => setHover(null)}>
             {periods.map((p) => {
               const total = periodTotal(p.key);
               const barH = chartMax > 0 ? (total / chartMax) * chartHeight : 0;
               return (
-                <div key={p.key} title={`${p.label}: ${fmt(total)}`}
+                <div key={p.key}
                   style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end", height: chartHeight, position: "relative" }}>
                   <div style={{ display: "flex", flexDirection: "column-reverse", width: "70%", maxWidth: 28, height: barH, borderRadius: "3px 3px 0 0", overflow: "hidden", border: barH > 0 ? "1px solid rgba(15,23,42,0.12)" : "none" }}>
                     {buildings.map((code) => {
                       const v = valueFor(p.key, code);
                       if (v === 0) return null;
                       const segH = chartMax > 0 ? (v / chartMax) * chartHeight : 0;
+                      const bucket = perPeriod.get(p.key)?.get(code);
+                      const isHovered = hover?.building === code && hover?.periodLabel === p.label;
                       return (
-                        <div key={code} style={{
-                          height: segH,
-                          background: BUILDING_COLOR[code] ?? "#94a3b8",
-                        }} />
+                        <div key={code}
+                          onMouseMove={(e) => {
+                            const rect = wrapRef.current?.getBoundingClientRect();
+                            if (!rect || !bucket) return;
+                            setHover({
+                              x: e.clientX - rect.left,
+                              y: e.clientY - rect.top,
+                              building: code,
+                              buildingName: propLabelFor(code),
+                              periodLabel: p.label,
+                              sqft: bucket.sqft,
+                              annualGross: bucket.annualGross,
+                              units: bucket.units,
+                              pctOfOffice: totalOfficeSqft > 0 ? bucket.sqft / totalOfficeSqft : 0,
+                            });
+                          }}
+                          style={{
+                            height: segH,
+                            background: BUILDING_COLOR[code] ?? "#94a3b8",
+                            cursor: "pointer",
+                            filter: hover && !isHovered ? "brightness(0.85)" : "none",
+                            transition: "filter 0.12s",
+                          }}
+                        />
                       );
                     })}
                   </div>
@@ -250,6 +294,39 @@ export default function ExpirationChart({ rentroll }: { rentroll: RentRollData |
                 </div>
               );
             })}
+            {hover && (
+              <div
+                style={{
+                  position: "absolute",
+                  left: Math.min(hover.x + 14, 600),
+                  top: Math.max(hover.y - 8, 0),
+                  background: "rgba(15,23,42,0.94)",
+                  color: "#fff",
+                  padding: "8px 11px",
+                  borderRadius: 6,
+                  fontSize: 12,
+                  fontWeight: 500,
+                  pointerEvents: "none",
+                  whiteSpace: "nowrap",
+                  boxShadow: "0 4px 14px rgba(15,23,42,0.25)",
+                  zIndex: 30,
+                  lineHeight: 1.5,
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 700, marginBottom: 4 }}>
+                  <span style={{ width: 8, height: 8, background: BUILDING_COLOR[hover.building] ?? "#94a3b8", borderRadius: 2 }} />
+                  <span>{hover.building} · {hover.buildingName}</span>
+                </div>
+                <div style={{ opacity: 0.88 }}>{hover.periodLabel}</div>
+                <div style={{ marginTop: 4 }}>
+                  <b>{money(hover.annualGross)}</b> gross rent / yr
+                </div>
+                <div style={{ opacity: 0.88 }}>
+                  {hover.sqft.toLocaleString()} sf · {pct(hover.pctOfOffice)} of office
+                </div>
+                <div style={{ opacity: 0.7, marginTop: 2 }}>{hover.units} unit{hover.units === 1 ? "" : "s"} expiring</div>
+              </div>
+            )}
           </div>
 
           <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 16, paddingTop: 12, borderTop: "1px solid var(--border)" }}>
