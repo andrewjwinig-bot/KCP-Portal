@@ -1,17 +1,16 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import {
   type MaintenanceRequest,
 } from "@/lib/maintenance/requests";
 import { STAFF } from "@/lib/maintenance/staff";
-import { StatPill } from "@/app/components/Pill";
 
 type Window = "7" | "30" | "90" | "all";
 type Scope = "active" | "all";
 
 const ACCENT_BLUE   = "#0b4a7d";
-const ACCENT_GREEN  = "#15803d";
 const ACCENT_AMBER  = "#b45309";
 const ACCENT_RED    = "#b91c1c";
 
@@ -175,32 +174,28 @@ export default function MaintenanceOverview() {
       </div>
 
       <div className="pills">
-        <StatPill label="Active"             value={kpis.activeCount}     accent={ACCENT_BLUE} />
-        <StatPill label="High Priority Open" value={kpis.highOpen}        accent={ACCENT_RED} />
-        <StatPill label="Avg Days Open"      value={fmtDays(kpis.avgOpen)}  accent={ACCENT_AMBER} />
-        <StatPill label="Avg Days to Close"  value={fmtDays(kpis.avgClose)} accent={ACCENT_GREEN} />
+        <PillLink href="/maintenance" label="Active"             value={kpis.activeCount} />
+        <PillLink href="/maintenance?priority=High" label="High Priority Open" value={kpis.highOpen} />
+        <PillLink href="/maintenance" label="Avg Days Open"      value={fmtDays(kpis.avgOpen)} />
+        <PillLink href="/maintenance?tab=completed" label="Avg Days to Close"  value={fmtDays(kpis.avgClose)} />
       </div>
 
       <div className="card">
         <div style={sectionLabelStyle}>Open by Priority</div>
         <div className="pills" style={{ marginTop: 10 }}>
-          <StatPill label="High"            value={kpis.highOpen} accent={ACCENT_RED} />
-          <StatPill label="Medium"          value={kpis.medOpen}  accent={ACCENT_AMBER} />
-          <StatPill label="Low"             value={kpis.lowOpen}  accent="#475569" />
-          <StatPill label="No Priority Set" value={kpis.unset} />
+          <PillLink href="/maintenance?priority=High"   label="High"            value={kpis.highOpen} />
+          <PillLink href="/maintenance?priority=Medium" label="Medium"          value={kpis.medOpen} />
+          <PillLink href="/maintenance?priority=Low"    label="Low"             value={kpis.lowOpen} />
+          <PillLink href="/maintenance?priority=None"   label="No Priority Set" value={kpis.unset} />
         </div>
       </div>
 
-      <ChartCard title="Aging — Active Requests">
-        <HorizontalBars rows={aging} accent={ACCENT_AMBER} />
-      </ChartCard>
-
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(420px, 1fr))", gap: 14 }}>
+        <ChartCard title="Aging — Active Requests">
+          <HorizontalBars rows={aging} accent={ACCENT_AMBER} />
+        </ChartCard>
         <ChartCard title="Property">
           <HorizontalBars rows={byProperty} accent={ACCENT_BLUE} />
-        </ChartCard>
-        <ChartCard title="Category">
-          <PieWithLegend rows={byCategory} donut={false} />
         </ChartCard>
       </div>
 
@@ -208,16 +203,8 @@ export default function MaintenanceOverview() {
         <ChartCard title="Worker">
           <PieWithLegend rows={byWorker} donut />
         </ChartCard>
-        <ChartCard title="Open by Priority (chart)">
-          <HorizontalBars
-            rows={[
-              { label: "High",   n: kpis.highOpen },
-              { label: "Medium", n: kpis.medOpen },
-              { label: "Low",    n: kpis.lowOpen },
-              { label: "Unset",  n: kpis.unset },
-            ]}
-            accent={ACCENT_AMBER}
-          />
+        <ChartCard title="Category">
+          <PieWithLegend rows={byCategory} donut={false} />
         </ChartCard>
       </div>
 
@@ -225,6 +212,19 @@ export default function MaintenanceOverview() {
         <VerticalBars rows={byTenant} cap={40} />
       </ChartCard>
     </main>
+  );
+}
+
+function PillLink({ href, label, value }: { href: string; label: string; value: string | number }) {
+  return (
+    <Link
+      href={href}
+      className="pill"
+      style={{ textDecoration: "none", color: "inherit", cursor: "pointer" }}
+    >
+      <b>{value}</b>
+      <span className="small muted">{label}</span>
+    </Link>
   );
 }
 

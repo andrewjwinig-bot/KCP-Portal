@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   REQUEST_CATEGORIES,
   REQUEST_PRIORITIES,
@@ -86,13 +87,26 @@ function isNew(r: MaintenanceRequest): boolean {
 }
 
 export default function MaintenancePage() {
-  const [tab, setTab] = useState<Tab>("active");
+  const searchParams = useSearchParams();
+  const initialTab: Tab = searchParams.get("tab") === "completed" ? "completed" : "active";
+  const initialPriority: "All" | RequestPriority | "None" = (() => {
+    const p = searchParams.get("priority");
+    if (p === "High" || p === "Medium" || p === "Low" || p === "None") return p;
+    return "All";
+  })();
+  const initialStatus: "All" | "New" | "In Progress" = (() => {
+    const s = searchParams.get("status");
+    if (s === "New") return "New";
+    if (s === "InProgress" || s === "In Progress") return "In Progress";
+    return "All";
+  })();
+  const [tab, setTab] = useState<Tab>(initialTab);
   const [requests, setRequests] = useState<MaintenanceRequest[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [priority, setPriority] = useState<"All" | RequestPriority>("All");
+  const [priority, setPriority] = useState<"All" | RequestPriority | "None">(initialPriority);
   const [assignee, setAssignee] = useState<"All" | "Unassigned" | StaffId>("All");
-  const [statusFilter, setStatusFilter] = useState<"All" | "New" | "In Progress">("All");
+  const [statusFilter, setStatusFilter] = useState<"All" | "New" | "In Progress">(initialStatus);
   const [property, setProperty] = useState<string>("All");
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<MaintenanceRequest | null>(null);
@@ -130,7 +144,8 @@ export default function MaintenancePage() {
       if (tab === "active"    && r.status === "Complete") return false;
       if (tab === "completed" && r.status !== "Complete") return false;
       if (statusFilter !== "All" && r.status !== statusFilter) return false;
-      if (priority !== "All" && r.priority !== priority) return false;
+      if (priority === "None" && r.priority) return false;
+      if (priority !== "All" && priority !== "None" && r.priority !== priority) return false;
       if (assignee === "Unassigned" && r.assignedTo !== null) return false;
       if (assignee !== "All" && assignee !== "Unassigned" && r.assignedTo !== assignee) return false;
       if (property !== "All" && propertyOf(r) !== property) return false;
@@ -279,6 +294,7 @@ export default function MaintenancePage() {
             <select value={priority} onChange={(e) => setPriority(e.target.value as typeof priority)} style={selectStyle}>
               <option value="All">All</option>
               {REQUEST_PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
+              <option value="None">No Priority Set</option>
             </select>
           </Field>
           <Field label="Assignee">
