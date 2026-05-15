@@ -21,6 +21,24 @@ export type InvestorStructure = {
   title: string;
   subtitle?: string;
   entries: StructureEntry[];
+  directory?: TrusteeDirectory;
+};
+
+export type TrusteeDirectoryRow = {
+  name: string;
+  address: string;       // first address line(s) — may include "c/o …"
+  city: string;
+  state: string;
+  zip?: string;
+  servingIndividually: string;   // "Yes", "No", "No (Attorney-in-Fact)" etc.
+  trusts: string;        // semicolon-separated trust labels — preserve newlines as " ; "
+  sourceInstrument: string;
+  notes?: string;
+};
+
+export type TrusteeDirectory = {
+  title: string;
+  rows: TrusteeDirectoryRow[];
 };
 
 /** Lower-case, trim, collapse whitespace, drop trailing "co." or "co". */
@@ -169,6 +187,124 @@ export const INVESTOR_STRUCTURES: Record<string, InvestorStructure> = {
         ],
       },
     ],
+    directory: {
+      title: "Trustee Directory — Hyman Korman Co. Partners (2026)",
+      rows: [
+        { name: "Alison Korman Feldman", address: "6015 Sheaff Lane", city: "Fort Washington", state: "PA", zip: "19034",
+          servingIndividually: "No (Attorney-in-Fact)",
+          trusts: "Max Korman Trust FBO Alison K. Feldman; Leonard I. Korman GST Subject Trust FBO Alison Feldman",
+          sourceInstrument: "Will of Max Korman; Leonard I. Korman Trust",
+          notes: "Also serves as Attorney-in-Fact for loan modification" },
+        { name: "Avery Feldman", address: "6017 Sheaff Lane", city: "Fort Washington", state: "PA", zip: "19034",
+          servingIndividually: "No",
+          trusts: "Max Korman Trust FBO Alison K. Feldman & Issue",
+          sourceInstrument: "Will of Max Korman" },
+        { name: "Lily Feldman", address: "7247 Beech Road", city: "Ambler", state: "PA", zip: "19002",
+          servingIndividually: "No",
+          trusts: "Max Korman Trust FBO Alison K. Feldman & Issue",
+          sourceInstrument: "Will of Max Korman" },
+        { name: "Harry Feldman", address: "7254 Fir Road", city: "Ambler", state: "PA", zip: "19002",
+          servingIndividually: "No",
+          trusts: "Max Korman Trust FBO Alison K. Feldman & Issue",
+          sourceInstrument: "Will of Max Korman" },
+        { name: "Susan Schurr", address: "6100 Sheaff Lane", city: "Fort Washington", state: "PA", zip: "19034",
+          servingIndividually: "No",
+          trusts: "Max Korman Trust FBO Susan K. Schurr & Issue; Leonard I. Korman GST Subject Trust FBO Susan Schurr",
+          sourceInstrument: "Will of Max Korman; Leonard I. Korman Trust" },
+        { name: "Melissa Grossman", address: "c/o Cozen O'Connor, One Liberty Place, 1650 Market Street, Suite 2800",
+          city: "Philadelphia", state: "PA", zip: "19103",
+          servingIndividually: "No",
+          trusts: "Max Korman Trust FBO Susan K. Schurr & Issue; Leonard I. Korman GST Subject Trust (all three FBOs)",
+          sourceInstrument: "Will of Max Korman; Leonard I. Korman Trust",
+          notes: "Trustee across multiple trust branches" },
+        { name: "Michael Schurr", address: "6100 Sheaff Lane", city: "Fort Washington", state: "PA", zip: "19034",
+          servingIndividually: "No",
+          trusts: "Max Korman Trust FBO Susan K. Schurr & Issue",
+          sourceInstrument: "Will of Max Korman" },
+        { name: "Catherine K. Altman", address: "241 S. 6th Street, Apt. 1807", city: "Philadelphia", state: "PA", zip: "19106",
+          servingIndividually: "No",
+          trusts: "Max Korman Trust FBO Catherine K. Altman & Issue; Leonard I. Korman GST Subject Trust FBO Catherine Altman",
+          sourceInstrument: "Will of Max Korman; Leonard I. Korman Trust" },
+        { name: "Lauren Altman", address: "c/o Catherine K. Altman, 241 S. 6th Street, Apt. 1807", city: "Philadelphia", state: "PA", zip: "19106",
+          servingIndividually: "No",
+          trusts: "Max Korman Trust FBO Catherine K. Altman & Issue",
+          sourceInstrument: "Will of Max Korman" },
+        { name: "Daniel Altman", address: "c/o Catherine K. Altman, 241 S. 6th Street, Apt. 1807", city: "Philadelphia", state: "PA", zip: "19106",
+          servingIndividually: "No",
+          trusts: "Max Korman Trust FBO Catherine K. Altman & Issue",
+          sourceInstrument: "Will of Max Korman" },
+        { name: "John Korman", address: "c/o Korman Residential, 410 Lancaster Avenue, Suite 5A", city: "Haverford", state: "PA",
+          servingIndividually: "No",
+          trusts: "Max Korman Trusts FBO John P. Korman, James S. Korman & Carolyn K. Jacobs; Moss Residual Trust FBO Joan R. Sohn; Berton E. Korman Trust",
+          sourceInstrument: "Will of Max Korman; Will of I. Barney Moss & Sarah R. Moss; Berton E. Korman TUA 02/23/2018",
+          notes: "Trustee across four trust instruments" },
+        { name: "James Korman", address: "c/o Korman Residential, 410 Lancaster Avenue, Suite 5A", city: "Haverford", state: "PA",
+          servingIndividually: "No",
+          trusts: "Max Korman Trusts FBO John P. Korman, James S. Korman & Carolyn K. Jacobs; Moss Residual Trust FBO Joan R. Sohn; Berton E. Korman Trust",
+          sourceInstrument: "Will of Max Korman; Moss Will; Berton E. Korman TUA" },
+        { name: "Carolyn Korman Jacobs", address: "6114 Butler Pike", city: "Blue Bell", state: "PA", zip: "19422",
+          servingIndividually: "No",
+          trusts: "Max Korman Trusts FBO John P. Korman, James S. Korman & Carolyn K. Jacobs; Berton E. Korman Trust",
+          sourceInstrument: "Will of Max Korman; Berton E. Korman TUA" },
+        { name: "Joan R. Sohn", address: "110 Bloor St. West, Apt. 1903", city: "Toronto, Ontario M5S 2W7", state: "Canada",
+          servingIndividually: "Yes",
+          trusts: "Moss Residual Trust FBO Joan R. Sohn",
+          sourceInstrument: "Will of I. Barney Moss & Sarah R. Moss",
+          notes: "Serves individually AND as trustee" },
+        { name: "Harold Honickman", address: "c/o Eric D. Lipschutz, CFA|CPA, 8275 N. Crescent Blvd.", city: "Pennsauken", state: "NJ", zip: "08110",
+          servingIndividually: "No",
+          trusts: "GST Exempt Trusts u/Samuel J. Korman Will (all 5 sub-trusts)",
+          sourceInstrument: "Will of Samuel J. Korman" },
+        { name: "Lynne Honickman", address: "c/o Eric D. Lipschutz, CFA|CPA, 8275 N. Crescent Blvd.", city: "Pennsauken", state: "NJ", zip: "08110",
+          servingIndividually: "Yes",
+          trusts: "GST Exempt Trusts u/Samuel J. Korman Will (Korman sub-trusts)",
+          sourceInstrument: "Will of Samuel J. Korman",
+          notes: "Serves individually AND as trustee" },
+        { name: "Jeffrey Honickman", address: "c/o Eric D. Lipschutz, CFA|CPA, 8275 N. Crescent Blvd.", city: "Pennsauken", state: "NJ", zip: "08110",
+          servingIndividually: "No",
+          trusts: "GST Exempt Trusts u/Samuel J. Korman Will (Lynne/JAH & Lynne/SAH); Deed of Trust Jan 1, 1942 FBO Lynne Honickman",
+          sourceInstrument: "Will of Samuel J. Korman; 1942 Deed of Trust" },
+        { name: "Steven H. Korman", address: "c/o Korman Communities, 580 W. Germantown Pike, #200", city: "Plymouth Meeting", state: "PA", zip: "19462",
+          servingIndividually: "Yes",
+          trusts: "GST Exempt Trusts u/Samuel J. Korman Will (Korman sub-trusts)",
+          sourceInstrument: "Will of Samuel J. Korman",
+          notes: "Serves individually AND as trustee" },
+        { name: "Lester E. Lipschutz", address: "c/o Cozen O'Connor, One Liberty Place, 1650 Market Street, Suite 2800",
+          city: "Philadelphia", state: "PA", zip: "19103",
+          servingIndividually: "No",
+          trusts: "GST Exempt Trusts u/Samuel J. Korman Will (Lynne/JAH & Lynne/SAH)",
+          sourceInstrument: "Will of Samuel J. Korman" },
+        { name: "Shirley Honickman", address: "c/o Eric D. Lipschutz, CFA|CPA, 8275 N. Crescent Blvd.", city: "Pennsauken", state: "NJ", zip: "08110",
+          servingIndividually: "No",
+          trusts: "GST Exempt Trusts u/Samuel J. Korman Will (Lynne/SAH only)",
+          sourceInstrument: "Will of Samuel J. Korman" },
+        { name: "Judith K. Langsfeld", address: "c/o Mark Langsfeld, 1085 Herkness Drive", city: "Meadowbrook", state: "PA", zip: "19046",
+          servingIndividually: "Yes",
+          trusts: "Trust u/Will of Max Wm. Korman FBO Judith K. Langsfeld; Deed of Trust Jan 1, 1942 FBO Joan R. Sohn; Deed of Trust Jan 1, 1942 FBO Judith Langsfeld",
+          sourceInstrument: "Will of Max Wm. Korman; 1942 Deed of Trust",
+          notes: "Serves in three capacities individually + as trustee" },
+        { name: "Mark Langsfeld", address: "1085 Herkness Drive", city: "Meadowbrook", state: "PA", zip: "19046",
+          servingIndividually: "No",
+          trusts: "Trust u/Will of Max Wm. Korman FBO Judith Langsfeld; Deed of Trust Jan 1, 1942 FBO Judith Langsfeld",
+          sourceInstrument: "Will of Max Wm. Korman; 1942 Deed" },
+        { name: "Elizabeth Langsfeld", address: "4797 Crescent Street", city: "Bethesda", state: "MD",
+          servingIndividually: "No",
+          trusts: "Trust u/Will of Max Wm. Korman FBO Judith Langsfeld; Deed of Trust Jan 1, 1942 FBO Judith Langsfeld",
+          sourceInstrument: "Will of Max Wm. Korman; 1942 Deed" },
+        { name: "Benjamin K. Langsfeld", address: "442 Prospect Place", city: "Brooklyn", state: "NY", zip: "11238",
+          servingIndividually: "No",
+          trusts: "Trust u/Will of Max Wm. Korman FBO Judith Langsfeld; Deed of Trust Jan 1, 1942 FBO Judith Langsfeld",
+          sourceInstrument: "Will of Max Wm. Korman; 1942 Deed" },
+        { name: "Heike Sullivan", address: "c/o Ballard Spahr, 1735 Market Street, 51st Floor", city: "Philadelphia", state: "PA", zip: "19103",
+          servingIndividually: "No",
+          trusts: "Berton E. Korman Trust (TUA 02/23/2018)",
+          sourceInstrument: "Berton E. Korman TUA" },
+        { name: "Sallie Korman", address: "c/o Korman Residential, 410 Lancaster Avenue, Suite 5A", city: "Haverford", state: "PA",
+          servingIndividually: "No",
+          trusts: "Berton E. Korman Trust (TUA 02/23/2018)",
+          sourceInstrument: "Berton E. Korman TUA" },
+      ],
+    },
   },
 };
 

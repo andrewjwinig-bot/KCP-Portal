@@ -606,52 +606,102 @@ export default function InvestorInfoPage() {
 function InvestorStructureBlock({ structure }: { structure: InvestorStructure | null }) {
   if (!structure) return null;
   return (
-    <div style={{ borderTop: "1px solid var(--border)", padding: "14px 16px 16px" }}>
-      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>
-        {structure.title}
-      </div>
-      {structure.subtitle && (
-        <div className="muted small" style={{ marginTop: 4 }}>{structure.subtitle}</div>
-      )}
-      <div style={{ marginTop: 12, overflowX: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-          <thead>
-            <tr style={{ color: "var(--muted)", fontSize: 11, letterSpacing: "0.04em", textAlign: "left" }}>
-              <th style={{ padding: "8px 10px", fontWeight: 700, verticalAlign: "top" }}>ENTITY / TRUST</th>
-              <th style={{ padding: "8px 10px", fontWeight: 700, verticalAlign: "top", width: 180, whiteSpace: "nowrap" }}>TYPE</th>
-              <th style={{ padding: "8px 10px", fontWeight: 700, verticalAlign: "top", width: 200 }}>ROLE</th>
-              <th style={{ padding: "8px 10px", fontWeight: 700, verticalAlign: "top" }}>TRUSTEE / PARTNER</th>
-            </tr>
-          </thead>
-          <tbody>
-            {structure.entries.map((e, i) => (
-              <tr key={i} style={{ borderTop: "1px solid var(--border)" }}>
-                <td style={{ padding: "10px 10px", verticalAlign: "top", fontWeight: 600, lineHeight: 1.4 }}>
-                  {e.entity}
-                </td>
-                <td style={{ padding: "10px 10px", verticalAlign: "top", color: "var(--muted)" }}>{e.type}</td>
-                <td style={{ padding: "10px 10px", verticalAlign: "top" }}>{e.role}</td>
-                <td style={{ padding: "10px 10px", verticalAlign: "top" }}>
-                  {e.trustees.length === 0 ? (
-                    <span style={{ color: "var(--muted)" }}>—</span>
-                  ) : (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                      {e.trustees.map((t, j) => (
-                        <div key={j} style={{ display: "flex", flexDirection: "column" }}>
-                          <span style={{ fontWeight: 600 }}>{t.trustee}</span>
-                          {t.capacity && (
-                            <span className="muted small">{t.capacity}</span>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </td>
+    <>
+      <div style={{ borderTop: "1px solid var(--border)", padding: "14px 16px 16px" }}>
+        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>
+          {structure.title}
+        </div>
+        {structure.subtitle && (
+          <div className="muted small" style={{ marginTop: 4 }}>{structure.subtitle}</div>
+        )}
+        <div style={{ marginTop: 12, overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+            <thead>
+              <tr style={{ color: "var(--muted)", fontSize: 11, letterSpacing: "0.04em", textAlign: "left" }}>
+                <th style={{ padding: "8px 10px", fontWeight: 700, verticalAlign: "top" }}>ENTITY / TRUST</th>
+                <th style={{ padding: "8px 10px", fontWeight: 700, verticalAlign: "top", width: 180, whiteSpace: "nowrap" }}>TYPE</th>
+                <th style={{ padding: "8px 10px", fontWeight: 700, verticalAlign: "top", width: 200 }}>ROLE</th>
+                <th style={{ padding: "8px 10px", fontWeight: 700, verticalAlign: "top" }}>TRUSTEE / PARTNER</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {structure.entries.map((e, i) => (
+                <tr key={i} style={{ borderTop: "1px solid var(--border)" }}>
+                  <td style={{ padding: "10px 10px", verticalAlign: "top", fontWeight: 600, lineHeight: 1.4 }}>
+                    {e.entity}
+                  </td>
+                  <td style={{ padding: "10px 10px", verticalAlign: "top", color: "var(--muted)" }}>{e.type}</td>
+                  <td style={{ padding: "10px 10px", verticalAlign: "top" }}>{e.role}</td>
+                  <td style={{ padding: "10px 10px", verticalAlign: "top" }}>
+                    {e.trustees.length === 0 ? (
+                      <span style={{ color: "var(--muted)" }}>—</span>
+                    ) : (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                        {e.trustees.map((t, j) => (
+                          <div key={j} style={{ display: "flex", flexDirection: "column" }}>
+                            <span style={{ fontWeight: 600 }}>{t.trustee}</span>
+                            {t.capacity && (
+                              <span className="muted small">{t.capacity}</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
-    </div>
+
+      {structure.directory && (
+        <div style={{ borderTop: "1px solid var(--border)", padding: "14px 16px 16px" }}>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>
+            {structure.directory.title}
+          </div>
+          <div style={{ marginTop: 12, overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+              <thead>
+                <tr style={{ color: "var(--muted)", fontSize: 11, letterSpacing: "0.04em", textAlign: "left" }}>
+                  <th style={{ padding: "8px 10px", fontWeight: 700, verticalAlign: "top", width: 180 }}>NAME</th>
+                  <th style={{ padding: "8px 10px", fontWeight: 700, verticalAlign: "top" }}>ADDRESS</th>
+                  <th style={{ padding: "8px 10px", fontWeight: 700, verticalAlign: "top", width: 110, whiteSpace: "nowrap" }}>SERVING INDIVIDUALLY?</th>
+                  <th style={{ padding: "8px 10px", fontWeight: 700, verticalAlign: "top" }}>TRUST(S) / ENTITY</th>
+                  <th style={{ padding: "8px 10px", fontWeight: 700, verticalAlign: "top", width: 180 }}>SOURCE WILL / INSTRUMENT</th>
+                  <th style={{ padding: "8px 10px", fontWeight: 700, verticalAlign: "top" }}>NOTES</th>
+                </tr>
+              </thead>
+              <tbody>
+                {structure.directory.rows.map((r, i) => {
+                  const cityState = [r.city, r.state, r.zip].filter(Boolean).join(", ").replace(/, ([A-Z]{2}|Canada), (\d{5})/, ", $1 $2");
+                  return (
+                    <tr key={i} style={{ borderTop: "1px solid var(--border)" }}>
+                      <td style={{ padding: "10px 10px", verticalAlign: "top", fontWeight: 600 }}>{r.name}</td>
+                      <td style={{ padding: "10px 10px", verticalAlign: "top", lineHeight: 1.4 }}>
+                        <div>{r.address}</div>
+                        <div className="muted small" style={{ marginTop: 2 }}>{cityState}</div>
+                      </td>
+                      <td style={{ padding: "10px 10px", verticalAlign: "top" }}>{r.servingIndividually}</td>
+                      <td style={{ padding: "10px 10px", verticalAlign: "top", lineHeight: 1.5 }}>
+                        {r.trusts.split(/;\s*/).map((s, j, arr) => (
+                          <span key={j}>
+                            {s}{j < arr.length - 1 ? <span style={{ color: "var(--muted)" }}> · </span> : null}
+                          </span>
+                        ))}
+                      </td>
+                      <td style={{ padding: "10px 10px", verticalAlign: "top", color: "var(--muted)" }}>{r.sourceInstrument}</td>
+                      <td style={{ padding: "10px 10px", verticalAlign: "top" }}>
+                        {r.notes ?? <span style={{ color: "var(--muted)" }}>—</span>}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
