@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   REQUEST_CATEGORIES,
@@ -87,6 +87,14 @@ function isNew(r: MaintenanceRequest): boolean {
 }
 
 export default function MaintenancePage() {
+  return (
+    <Suspense fallback={null}>
+      <MaintenancePageInner />
+    </Suspense>
+  );
+}
+
+function MaintenancePageInner() {
   const searchParams = useSearchParams();
   const initialTab: Tab = searchParams.get("tab") === "completed" ? "completed" : "active";
   const initialPriority: "All" | RequestPriority | "None" = (() => {
