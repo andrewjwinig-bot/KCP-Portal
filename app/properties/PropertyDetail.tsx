@@ -455,9 +455,9 @@ export function OwnerSubRow({
 export function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
     <div style={{
-      fontSize: 11, fontWeight: 900, letterSpacing: "0.08em",
+      fontSize: 11, fontWeight: 700, letterSpacing: "0.06em",
       color: "var(--muted)", textTransform: "uppercase",
-      marginBottom: 12, display: "flex", alignItems: "center", gap: 6,
+      marginBottom: 10, display: "flex", alignItems: "center", gap: 6,
     }}>
       {children}
     </div>
@@ -513,9 +513,9 @@ export function CollapsibleSection({ title, link, count, children }: {
 
 export function InfoField({ label, value }: { label: string; value: string; mono?: boolean }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-      <span style={{ fontSize: 11, fontWeight: 800, color: "var(--muted)", letterSpacing: "0.07em", textTransform: "uppercase" }}>{label}</span>
-      <span style={{ fontSize: 17, fontWeight: 500, color: "var(--text)" }}>{value}</span>
+    <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
+      <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>{label}</span>
+      <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", lineHeight: 1.4, wordBreak: "break-word" }}>{value}</span>
     </div>
   );
 }
@@ -635,27 +635,32 @@ export function PropertyDetailBody({
 
   const MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
+  const hasLocation = !!(prop.address || prop.city || FLOORPLAN_IDS.has(prop.id) || prop.notes);
+
   return (
     <>
-      {/* Header content — address, floorplan button, notes */}
-      <section>
-        {(prop.address || prop.city) && (
-          <div style={{ fontSize: 13, color: "var(--muted)" }}>
-            {[prop.address, prop.city, [prop.state, prop.zip].filter(Boolean).join(" ")].filter(Boolean).join(", ")}
-          </div>
-        )}
-        {FLOORPLAN_IDS.has(prop.id) && (
-          <div style={{ marginTop: 10 }}>
-            <FloorplanViewer propId={prop.id} propName={prop.name} />
-          </div>
-        )}
-        {prop.notes && (
-          <p style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>{prop.notes}</p>
-        )}
-      </section>
-
       {/* Body — sections */}
       <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+
+        {/* ── Location / Floorplan / Notes ── */}
+        {hasLocation && (
+          <section>
+            <SectionLabel>Location</SectionLabel>
+            {(prop.address || prop.city) && (
+              <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", lineHeight: 1.4 }}>
+                {[prop.address, prop.city, [prop.state, prop.zip].filter(Boolean).join(" ")].filter(Boolean).join(", ")}
+              </div>
+            )}
+            {FLOORPLAN_IDS.has(prop.id) && (
+              <div style={{ marginTop: 10 }}>
+                <FloorplanViewer propId={prop.id} propName={prop.name} />
+              </div>
+            )}
+            {prop.notes && (
+              <p style={{ fontSize: 13, color: "var(--muted)", marginTop: 6, marginBottom: 0 }}>{prop.notes}</p>
+            )}
+          </section>
+        )}
 
         {/* ── Overview ── */}
         <section>
