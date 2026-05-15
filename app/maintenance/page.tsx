@@ -108,12 +108,18 @@ function MaintenancePageInner() {
     if (s === "InProgress" || s === "In Progress") return "In Progress";
     return "All";
   })();
+  const initialAssignee: "All" | "Unassigned" | StaffId = (() => {
+    const a = searchParams.get("assignee");
+    if (a === "Unassigned") return "Unassigned";
+    if (a && STAFF.some((s) => s.id === a)) return a as StaffId;
+    return "All";
+  })();
   const [tab, setTab] = useState<Tab>(initialTab);
   const [requests, setRequests] = useState<MaintenanceRequest[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [priority, setPriority] = useState<"All" | RequestPriority | "None">(initialPriority);
-  const [assignee, setAssignee] = useState<"All" | "Unassigned" | StaffId>("All");
+  const [assignee, setAssignee] = useState<"All" | "Unassigned" | StaffId>(initialAssignee);
   const [statusFilter, setStatusFilter] = useState<"All" | "New" | "In Progress">(initialStatus);
   const [property, setProperty] = useState<string>("All");
   const [search, setSearch] = useState("");

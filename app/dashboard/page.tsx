@@ -156,6 +156,10 @@ function DashboardInner() {
     });
   }
 
+  // Stable per-occurrence ids — when the occurrence rolls (new month/payroll
+  // date/etc.) the id changes, so dismissed-forever isn't a thing.
+  const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
   const isAdmin = user.id === "admin";
   const isStacie = user.id === "stacie";
 
@@ -526,6 +530,10 @@ function DashboardInner() {
             <div className="muted small">Loading…</div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {(() => {
+                const id = `rr-${rrFreshness.title}`;
+                if (dismissedNotices.has(id)) return null;
+                return (
               <div style={{
                 display: "flex", alignItems: "flex-start", gap: 10,
                 padding: "10px 12px",
@@ -545,9 +553,15 @@ function DashboardInner() {
                 <Link href="/rentroll" style={{ fontSize: 12, fontWeight: 600, color: "#0b4a7d", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>
                   Open →
                 </Link>
+                <DismissBtn onClick={() => dismissNotice(id)} />
               </div>
+                );
+              })()}
 
-              {(user.navKeys.has("all") || user.navKeys.has("payroll-invoicer")) && (
+              {(user.navKeys.has("all") || user.navKeys.has("payroll-invoicer")) && (() => {
+                const id = `payroll-${ymd(nextPayroll.date)}`;
+                if (dismissedNotices.has(id)) return null;
+                return (
               <div style={{
                 display: "flex", alignItems: "flex-start", gap: 10,
                 padding: "10px 12px",
@@ -571,10 +585,15 @@ function DashboardInner() {
                 <Link href="/" style={{ fontSize: 12, fontWeight: 600, color: "#0b4a7d", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>
                   Open →
                 </Link>
+                <DismissBtn onClick={() => dismissNotice(id)} />
               </div>
-              )}
+                );
+              })()}
 
-              {(user.id === "harry" || user.navKeys.has("all")) && (
+              {(user.id === "harry" || user.navKeys.has("all")) && (() => {
+                const id = `cc-expenses-${ymd(ccExpensesDue.date)}`;
+                if (dismissedNotices.has(id)) return null;
+                return (
               <div style={{
                 display: "flex", alignItems: "flex-start", gap: 10,
                 padding: "10px 12px",
@@ -598,10 +617,15 @@ function DashboardInner() {
                 <Link href="/expenses" style={{ fontSize: 12, fontWeight: 600, color: "#0b4a7d", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>
                   Open →
                 </Link>
+                <DismissBtn onClick={() => dismissNotice(id)} />
               </div>
-              )}
+                );
+              })()}
 
-              {showBankRec && (
+              {showBankRec && (() => {
+                const id = `bank-stmt-${bankStmt.period}`;
+                if (dismissedNotices.has(id)) return null;
+                return (
               <div style={{
                 display: "flex", alignItems: "flex-start", gap: 10,
                 padding: "10px 12px",
@@ -644,10 +668,15 @@ function DashboardInner() {
                 <Link href="/bank-rec" style={{ fontSize: 12, fontWeight: 600, color: "#0b4a7d", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>
                   Open →
                 </Link>
+                <DismissBtn onClick={() => dismissNotice(id)} />
               </div>
-              )}
+                );
+              })()}
 
-              {showBankRec && (
+              {showBankRec && (() => {
+                const id = `bank-rec-${bankRec.period}`;
+                if (dismissedNotices.has(id)) return null;
+                return (
               <div style={{
                 display: "flex", alignItems: "flex-start", gap: 10,
                 padding: "10px 12px",
@@ -690,8 +719,10 @@ function DashboardInner() {
                 <Link href="/bank-rec" style={{ fontSize: 12, fontWeight: 600, color: "#0b4a7d", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>
                   Open →
                 </Link>
+                <DismissBtn onClick={() => dismissNotice(id)} />
               </div>
-              )}
+                );
+              })()}
 
               {user.id === "nancy" && upcomingNotices
                 .filter((n) => !dismissedNotices.has(n.id))
@@ -910,5 +941,28 @@ function DashboardInner() {
       </div>
       )}
     </main>
+  );
+}
+
+function DismissBtn({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      title="Dismiss"
+      aria-label="Dismiss action item"
+      style={{
+        width: 22, height: 22, padding: 0, marginTop: 1, marginLeft: 4,
+        borderRadius: 4,
+        border: "1px solid rgba(15,23,42,0.18)",
+        background: "rgba(255,255,255,0.6)",
+        color: "var(--muted)",
+        cursor: "pointer",
+        fontSize: 13, lineHeight: 1, fontWeight: 700,
+        display: "inline-flex", alignItems: "center", justifyContent: "center",
+        flexShrink: 0,
+      }}
+    >
+      ×
+    </button>
   );
 }

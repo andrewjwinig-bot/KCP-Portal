@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   type MaintenanceRequest,
 } from "@/lib/maintenance/requests";
@@ -112,12 +113,13 @@ export default function MaintenanceOverview() {
     return (m ? m[1].trim() : name) || "(none)";
   }), [filtered]);
   const byCategory = useMemo(() => countBy(filtered, (r) => (r.categories.length ? r.categories : ["(uncategorized)"]), true), [filtered]);
-  const byWorker   = useMemo(() => {
-    const map = new Map<string, { label: string; n: number }>();
+  const byWorker = useMemo(() => {
+    const map = new Map<string, { label: string; n: number; href: string }>();
     for (const r of filtered) {
       const key = r.assignedTo ?? "_unassigned";
       const label = r.assignedTo ? (STAFF.find((s) => s.id === r.assignedTo)?.name ?? r.assignedTo) : "Unassigned";
-      const v = map.get(key) ?? { label, n: 0 };
+      const href = `/maintenance?assignee=${encodeURIComponent(r.assignedTo ?? "Unassigned")}`;
+      const v = map.get(key) ?? { label, n: 0, href };
       v.n++;
       map.set(key, v);
     }
@@ -364,7 +366,9 @@ function ChartTooltip({ hover }: { hover: HoverState }) {
   );
 }
 
-function PieWithLegend({ rows, donut }: { rows: { label: string; n: number }[]; donut: boolean }) {
+type SliceRow = { label: string; n: number; href?: string };
+
+function PieWithLegend({ rows, donut }: { rows: SliceRow[]; donut: boolean }) {
   const total = rows.reduce((s, r) => s + r.n, 0);
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const [hover, setHover] = useState<HoverState | null>(null);
@@ -392,18 +396,29 @@ function PieWithLegend({ rows, donut }: { rows: { label: string; n: number }[]; 
         display: "flex", flexDirection: "column", gap: 5,
         fontSize: 13, flex: 1, minWidth: 180, maxHeight: size, overflowY: "auto",
       }}>
-        {rows.map((r, i) => (
-          <li key={r.label} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{
-              width: 10, height: 10, borderRadius: "50%",
-              background: PALETTE[i % PALETTE.length], flexShrink: 0,
-            }} />
-            <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              {r.label}
-            </span>
-            <span style={{ color: "var(--muted)", fontWeight: 600 }}>{r.n}</span>
-          </li>
-        ))}
+        {rows.map((r, i) => {
+          const inner = (
+            <>
+              <span style={{
+                width: 10, height: 10, borderRadius: "50%",
+                background: PALETTE[i % PALETTE.length], flexShrink: 0,
+              }} />
+              <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {r.label}
+              </span>
+              <span style={{ color: "var(--muted)", fontWeight: 600 }}>{r.n}</span>
+            </>
+          );
+          return (
+            <li key={r.label} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              {r.href ? (
+                <Link href={r.href} style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0, color: "inherit", textDecoration: "none", cursor: "pointer" }}>
+                  {inner}
+                </Link>
+              ) : inner}
+            </li>
+          );
+        })}
       </ul>
       {hover && <ChartTooltip hover={hover} />}
     </div>
@@ -413,13 +428,14 @@ function PieWithLegend({ rows, donut }: { rows: { label: string; n: number }[]; 
 function PieSvg({
   rows, total, size, donut, onSliceMove, onSliceLeave,
 }: {
-  rows: { label: string; n: number }[];
+  rows: SliceRow[];
   total: number;
   size: number;
   donut: boolean;
   onSliceMove: (e: React.MouseEvent, label: string, n: number, pct: number) => void;
   onSliceLeave: () => void;
 }) {
+  const router = useRouter();
   const cx = size / 2;
   const cy = size / 2;
   const r = size / 2 - 2;
@@ -433,7 +449,8 @@ function PieSvg({
         <circle
           cx={cx} cy={cy} r={r} fill={color}
           onMouseMove={(e) => onSliceMove(e, row.label, row.n, 1)}
-          style={{ cursor: "pointer" }}
+          onClick={() => row.href && router.push(row.href)}
+          style={{ cursor: row.href ? "pointer" : "default" }}
         />
         {donut && <circle cx={cx} cy={cy} r={ri} fill="var(--card)" pointerEvents="none" />}
       </svg>
@@ -462,7 +479,8 @@ function PieSvg({
             stroke="var(--card)"
             strokeWidth={1.5}
             onMouseMove={(e) => onSliceMove(e, row.label, row.n, pct)}
-            style={{ cursor: "pointer" }}
+            onClick={() => row.href && router.push(row.href)}
+            style={{ cursor: row.href ? "pointer" : "default" }}
           />
         );
       })}
