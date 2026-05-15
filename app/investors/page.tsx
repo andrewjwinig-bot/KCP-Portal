@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import * as XLSX from "xlsx";
 import { PROPERTY_OWNERSHIP, type PropertyOwner } from "../../lib/properties/ownership";
 import { PROPERTY_DEFS, TYPE_STYLE, FUND_LABEL, type PropType, type FundGroup } from "../../lib/properties/data";
+import { structureFor, type InvestorStructure } from "../../lib/investors/structures";
 
 type View = "property" | "investor";
 
@@ -544,43 +545,46 @@ export default function InvestorInfoPage() {
                   </button>
 
                   {open && (
-                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14, borderTop: "1px solid var(--border)" }}>
-                      <thead>
-                        <tr style={{ color: "var(--muted)", fontSize: 11, letterSpacing: "0.04em", textAlign: "left" }}>
-                          <th style={{ padding: "10px 16px", fontWeight: 700, width: 70 }}>PROP</th>
-                          <th style={{ padding: "10px 16px", fontWeight: 700 }}>PROPERTY</th>
-                          <th style={{ padding: "10px 16px", fontWeight: 700, width: 140, whiteSpace: "nowrap" }}>VENDOR CODE</th>
-                          <th style={{ padding: "10px 16px", fontWeight: 700, textAlign: "right" }}>OWNERSHIP %</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {agg.rows.map((r, i) => (
-                          <tr key={i} style={{ borderTop: "1px solid var(--border)" }}>
-                            <td style={{ padding: "12px 16px" }}>{r.holding.propertyCode}</td>
-                            <td style={{ padding: "12px 16px" }}>
-                              <div style={{ fontWeight: 600 }}>{r.holding.propertyName}</div>
-                              {r.investor.detailedName && (
-                                <div className="muted small" style={{ marginTop: 2 }}>{r.investor.detailedName}</div>
-                              )}
-                            </td>
-                            <td style={{ padding: "12px 16px" }}>
-                              {r.investor.vendorCode ? (
-                                <span style={{
-                                  fontSize: 11, fontWeight: 600, letterSpacing: "0.04em",
-                                  padding: "2px 8px", borderRadius: 999,
-                                  background: "rgba(15,23,42,0.05)", color: "var(--text)",
-                                  border: "1px solid var(--border)",
-                                  display: "inline-block",
-                                }}>{r.investor.vendorCode}</span>
-                              ) : (
-                                <span style={{ color: "var(--muted)" }}>—</span>
-                              )}
-                            </td>
-                            <td style={{ padding: "12px 16px", textAlign: "right" }}>{pct(ownershipFor(r.investor))}</td>
+                    <>
+                      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14, borderTop: "1px solid var(--border)" }}>
+                        <thead>
+                          <tr style={{ color: "var(--muted)", fontSize: 11, letterSpacing: "0.04em", textAlign: "left" }}>
+                            <th style={{ padding: "10px 16px", fontWeight: 700, width: 70 }}>PROP</th>
+                            <th style={{ padding: "10px 16px", fontWeight: 700 }}>PROPERTY</th>
+                            <th style={{ padding: "10px 16px", fontWeight: 700, width: 140, whiteSpace: "nowrap" }}>VENDOR CODE</th>
+                            <th style={{ padding: "10px 16px", fontWeight: 700, textAlign: "right" }}>OWNERSHIP %</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody>
+                          {agg.rows.map((r, i) => (
+                            <tr key={i} style={{ borderTop: "1px solid var(--border)" }}>
+                              <td style={{ padding: "12px 16px" }}>{r.holding.propertyCode}</td>
+                              <td style={{ padding: "12px 16px" }}>
+                                <div style={{ fontWeight: 600 }}>{r.holding.propertyName}</div>
+                                {r.investor.detailedName && (
+                                  <div className="muted small" style={{ marginTop: 2 }}>{r.investor.detailedName}</div>
+                                )}
+                              </td>
+                              <td style={{ padding: "12px 16px" }}>
+                                {r.investor.vendorCode ? (
+                                  <span style={{
+                                    fontSize: 11, fontWeight: 600, letterSpacing: "0.04em",
+                                    padding: "2px 8px", borderRadius: 999,
+                                    background: "rgba(15,23,42,0.05)", color: "var(--text)",
+                                    border: "1px solid var(--border)",
+                                    display: "inline-block",
+                                  }}>{r.investor.vendorCode}</span>
+                                ) : (
+                                  <span style={{ color: "var(--muted)" }}>—</span>
+                                )}
+                              </td>
+                              <td style={{ padding: "12px 16px", textAlign: "right" }}>{pct(ownershipFor(r.investor))}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      <InvestorStructureBlock structure={structureFor(agg.name)} />
+                    </>
                   )}
                 </div>
               );
@@ -593,5 +597,61 @@ export default function InvestorInfoPage() {
         Source of truth: <code>lib/properties/ownership.ts</code>. Filing Tracker K-1 investors are derived from this file.
       </p>
     </main>
+  );
+}
+
+/** Supplementary partnership / trustee structure shown inside the
+ *  investor card. Only renders when the investor has an entry in
+ *  lib/investors/structures.ts (e.g. Hyman Korman Co.). */
+function InvestorStructureBlock({ structure }: { structure: InvestorStructure | null }) {
+  if (!structure) return null;
+  return (
+    <div style={{ borderTop: "1px solid var(--border)", padding: "14px 16px 16px" }}>
+      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>
+        {structure.title}
+      </div>
+      {structure.subtitle && (
+        <div className="muted small" style={{ marginTop: 4 }}>{structure.subtitle}</div>
+      )}
+      <div style={{ marginTop: 12, overflowX: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+          <thead>
+            <tr style={{ color: "var(--muted)", fontSize: 11, letterSpacing: "0.04em", textAlign: "left" }}>
+              <th style={{ padding: "8px 10px", fontWeight: 700, verticalAlign: "top" }}>ENTITY / TRUST</th>
+              <th style={{ padding: "8px 10px", fontWeight: 700, verticalAlign: "top", width: 180, whiteSpace: "nowrap" }}>TYPE</th>
+              <th style={{ padding: "8px 10px", fontWeight: 700, verticalAlign: "top", width: 200 }}>ROLE</th>
+              <th style={{ padding: "8px 10px", fontWeight: 700, verticalAlign: "top" }}>TRUSTEE / PARTNER</th>
+            </tr>
+          </thead>
+          <tbody>
+            {structure.entries.map((e, i) => (
+              <tr key={i} style={{ borderTop: "1px solid var(--border)" }}>
+                <td style={{ padding: "10px 10px", verticalAlign: "top", fontWeight: 600, lineHeight: 1.4 }}>
+                  {e.entity}
+                </td>
+                <td style={{ padding: "10px 10px", verticalAlign: "top", color: "var(--muted)" }}>{e.type}</td>
+                <td style={{ padding: "10px 10px", verticalAlign: "top" }}>{e.role}</td>
+                <td style={{ padding: "10px 10px", verticalAlign: "top" }}>
+                  {e.trustees.length === 0 ? (
+                    <span style={{ color: "var(--muted)" }}>—</span>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                      {e.trustees.map((t, j) => (
+                        <div key={j} style={{ display: "flex", flexDirection: "column" }}>
+                          <span style={{ fontWeight: 600 }}>{t.trustee}</span>
+                          {t.capacity && (
+                            <span className="muted small">{t.capacity}</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }
