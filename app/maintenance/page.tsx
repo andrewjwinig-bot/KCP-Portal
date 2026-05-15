@@ -180,7 +180,7 @@ function MaintenancePageInner() {
   const filtered = useMemo(() => {
     if (!requests) return [];
     const q = search.trim().toLowerCase();
-    return requests.filter((r) => {
+    const list = requests.filter((r) => {
       if (tab === "active"    && r.status === "Complete") return false;
       if (tab === "completed" && r.status !== "Complete") return false;
       if (statusFilter === "New" && !isNew(r)) return false;
@@ -210,6 +210,16 @@ function MaintenancePageInner() {
         if (!hay.includes(q)) return false;
       }
       return true;
+    });
+    // NEW (unseen + unassigned) rows float to the top; within each bucket
+    // the newest submission wins.
+    return [...list].sort((a, b) => {
+      const aNew = isNew(a) ? 1 : 0;
+      const bNew = isNew(b) ? 1 : 0;
+      if (aNew !== bNew) return bNew - aNew;
+      const ta = Date.parse(a.submittedDate ?? a.createdAt) || 0;
+      const tb = Date.parse(b.submittedDate ?? b.createdAt) || 0;
+      return tb - ta;
     });
   }, [requests, tab, priority, assignee, property, search, statusFilter, category, tenant, agingMin, agingMax]);
 
@@ -396,6 +406,12 @@ function MaintenancePageInner() {
           <Field label="Property">
             <select value={property} onChange={(e) => setProperty(e.target.value)} style={selectStyle}>
               {properties.map((p) => <option key={p} value={p}>{p}</option>)}
+            </select>
+          </Field>
+          <Field label="Category">
+            <select value={category} onChange={(e) => setCategory(e.target.value)} style={selectStyle}>
+              <option value="">All</option>
+              {REQUEST_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
           </Field>
           <Field label="Search">
