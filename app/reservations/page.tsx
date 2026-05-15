@@ -265,6 +265,36 @@ function ReservationModal({
   const [error, setError] = useState<string | null>(null);
   const [composer, setComposer] = useState<null | "modify" | "custom">(null);
 
+  // Known rent-roll companies for the reservation's property — drives the
+  // "Resolve to rent-roll tenant" dropdown so staff can normalize the free
+  // text Company Name the tenant typed on /reserve.
+  const [companies, setCompanies] = useState<{ name: string; units: { unitRef: string }[] }[]>([]);
+  useEffect(() => {
+    if (!reservation.propertyCode) { setCompanies([]); return; }
+    let alive = true;
+    fetch(`/api/tenants/companies?propertyCode=${encodeURIComponent(reservation.propertyCode)}`)
+      .then((r) => (r.ok ? r.json() : { companies: [] }))
+      .then((j) => { if (alive) setCompanies(j.companies ?? []); })
+      .catch(() => { if (alive) setCompanies([]); });
+    return () => { alive = false; };
+  }, [reservation.propertyCode]);
+
+  async function resolveTenant(name: string) {
+    setBusy(true); setError(null);
+    try {
+      const res = await fetch(`/api/reservations/${reservation.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tenantCompany: name }),
+      });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error ?? "Update failed");
+      onChange(j.reservation);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Update failed");
+    } finally { setBusy(false); }
+  }
+
   useEffect(() => {
     function onKey(e: KeyboardEvent) { if (e.key === "Escape") onClose(); }
     window.addEventListener("keydown", onKey);
@@ -367,7 +397,33 @@ function ReservationModal({
             gap: 16, padding: "14px 18px", border: "1px solid var(--border)", borderRadius: 10,
             background: "rgba(15,23,42,0.025)",
           }}>
-            <MetaCell label="Tenant" value={reservation.tenantCompany} />
+            <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
+              <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>Tenant</span>
+              <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", lineHeight: 1.4, wordBreak: "break-word" }}>
+                {reservation.tenantCompany || <span style={{ color: "var(--muted)" }}>—</span>}
+              </span>
+              {companies.length > 0 && (
+                <select
+                  disabled={busy}
+                  value=""
+                  onChange={(e) => { if (e.target.value) resolveTenant(e.target.value); }}
+                  style={{
+                    marginTop: 4, padding: "4px 8px",
+                    border: "1px solid var(--border)", borderRadius: 6,
+                    background: "var(--card)", color: "var(--text)",
+                    fontFamily: "inherit", fontSize: 12, outline: "none",
+                  }}
+                  title="Resolve to a rent-roll tenant"
+                >
+                  <option value="">Resolve tenant…</option>
+                  {companies.map((c) => (
+                    <option key={c.name} value={c.name}>
+                      {c.units.length === 1 ? `${c.name} · ${c.units[0].unitRef}` : `${c.name} · ${c.units.length} suites`}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
             <MetaCell label="Contact" value={`${reservation.contactFirstName} ${reservation.contactLastName}`} sub={reservation.contactEmail} />
             <MetaCell label="Phone" value={reservation.contactPhone} />
             <MetaCell label="Date" value={prettyDate(reservation.date)} />

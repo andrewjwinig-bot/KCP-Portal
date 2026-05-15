@@ -24,6 +24,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   let body: {
     status?: string;
     decidedBy?: string;
+    tenantCompany?: string;
     addNote?: { author: string; text: string };
   };
   try {
@@ -44,6 +45,10 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       next.decidedAt = null;
       next.decidedBy = null;
     }
+  }
+
+  if (typeof body.tenantCompany === "string") {
+    next.tenantCompany = body.tenantCompany.trim();
   }
 
   if (body.addNote && body.addNote.text.trim()) {

@@ -176,18 +176,13 @@ export default function ReservePage() {
                 />
               </Field>
 
-              <Field label="Tenant" required>
-                <UnderlineSelect
+              <Field label="Company Name" required>
+                <UnderlineInput
                   value={tenantCompany}
                   onChange={setTenantCompany}
-                  disabled={tenantsLoading}
                   required
-                  placeholder={
-                    tenantsLoading ? "Loading tenants…"
-                    : tenants.length === 0 ? "No tenants on file"
-                    : "Select your company"
-                  }
-                  options={tenants.map((name) => ({ value: name, label: name }))}
+                  placeholder="Your company / tenant name"
+                  autoComplete="organization"
                 />
               </Field>
 

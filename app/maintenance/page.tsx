@@ -714,6 +714,20 @@ function RequestModal({
   const [noteAuthor, setNoteAuthor] = useState<StaffId>("greg");
   const [busy, setBusy] = useState(false);
 
+  // Known rent-roll companies for the request's property — drives the
+  // "Resolve to rent-roll tenant" dropdown so staff can normalize the
+  // free-text Company Name the tenant typed on /submit.
+  const [companies, setCompanies] = useState<{ name: string; units: { unitRef: string }[] }[]>([]);
+  useEffect(() => {
+    if (!request.propertyCode) { setCompanies([]); return; }
+    let alive = true;
+    fetch(`/api/tenants/companies?propertyCode=${encodeURIComponent(request.propertyCode)}`)
+      .then((r) => (r.ok ? r.json() : { companies: [] }))
+      .then((j) => { if (alive) setCompanies(j.companies ?? []); })
+      .catch(() => { if (alive) setCompanies([]); });
+    return () => { alive = false; };
+  }, [request.propertyCode]);
+
   useEffect(() => {
     function onKey(e: KeyboardEvent) { if (e.key === "Escape") onClose(); }
     window.addEventListener("keydown", onKey);
@@ -899,7 +913,36 @@ function RequestModal({
             background: "rgba(15,23,42,0.025)",
           }}>
             <MetaCell label="Property" value={propertyOf(request)} />
-            <MetaCell label="Tenant" value={companyOf(request)} />
+            <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
+              <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>Tenant</span>
+              <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", lineHeight: 1.4, wordBreak: "break-word" }}>
+                {companyOf(request) || <span style={{ color: "var(--muted)" }}>—</span>}
+              </span>
+              {companies.length > 0 && (
+                <select
+                  disabled={busy}
+                  value=""
+                  onChange={(e) => {
+                    const pick = companies.find((c) => c.name === e.target.value);
+                    if (!pick) return;
+                    const suite = pick.units.map((u) => u.unitRef).join(", ");
+                    patch({ tenantCompany: pick.name, tenantSuite: suite });
+                  }}
+                  style={{
+                    ...selectStyle,
+                    fontSize: 12, padding: "4px 8px", marginTop: 4,
+                  }}
+                  title="Resolve to a rent-roll tenant"
+                >
+                  <option value="">Resolve tenant…</option>
+                  {companies.map((c) => (
+                    <option key={c.name} value={c.name}>
+                      {c.units.length === 1 ? `${c.name} · ${c.units[0].unitRef}` : `${c.name} · ${c.units.length} suites`}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
             <MetaCell label="Suite" value={request.tenantSuite} />
           </div>
 
