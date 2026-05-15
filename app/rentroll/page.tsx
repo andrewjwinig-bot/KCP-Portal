@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { PROPERTY_DEFS } from "../../lib/properties/data";
 import type { RentRollData, RentRollUnit, RentRollProperty } from "../../lib/rentroll/parseRentRollExcel";
 import { amenityFor } from "../../lib/rentroll/amenities";
@@ -331,7 +332,20 @@ function UnitsTable({ units, propertyCode, hideNNN, tenantMeta, onBaseYearChange
                     )}
                   </td>
                   <td style={{ whiteSpace: "nowrap" }}>
-                    <code style={{ fontSize: 12, whiteSpace: "nowrap" }}>{unit.unitRef}</code>
+                    <Link
+                      href={`/rentroll/units/${encodeURIComponent(unit.unitRef)}`}
+                      style={{ textDecoration: "none", color: "inherit" }}
+                      onMouseEnter={(e) => {
+                        const c = e.currentTarget.querySelector("code") as HTMLElement | null;
+                        if (c) c.style.textDecoration = "underline";
+                      }}
+                      onMouseLeave={(e) => {
+                        const c = e.currentTarget.querySelector("code") as HTMLElement | null;
+                        if (c) c.style.textDecoration = "none";
+                      }}
+                    >
+                      <code style={{ fontSize: 12, whiteSpace: "nowrap", cursor: "pointer" }}>{unit.unitRef}</code>
+                    </Link>
                   </td>
                   <td style={{ textAlign: "right", fontSize: 13 }}>{sqftFmt(unit.sqft)}</td>
                   <td style={{ fontSize: 13, color: "var(--muted)" }}>{formatDate(unit.leaseFrom)}</td>
