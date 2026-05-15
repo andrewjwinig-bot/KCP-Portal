@@ -418,6 +418,7 @@ function MaintenancePageInner() {
               <thead>
                 <tr>
                   <th>Description</th>
+                  <th>Status</th>
                   <th>Priority</th>
                   <th>Category</th>
                   <th style={{ textAlign: "right" }}>{tab === "active" ? "Age" : "Completed"}</th>
@@ -428,9 +429,9 @@ function MaintenancePageInner() {
                 </tr>
               </thead>
               <tbody>
-                {loading && <tr><td colSpan={8} className="muted small" style={{ padding: 16 }}>Loading…</td></tr>}
+                {loading && <tr><td colSpan={9} className="muted small" style={{ padding: 16 }}>Loading…</td></tr>}
                 {!loading && filtered.length === 0 && (
-                  <tr><td colSpan={8} className="muted small" style={{ padding: 16 }}>
+                  <tr><td colSpan={9} className="muted small" style={{ padding: 16 }}>
                     No requests. {tab === "active" && (requests?.length ?? 0) === 0 && "Tenants can submit via the public form at /submit."}
                   </td></tr>
                 )}
@@ -480,15 +481,13 @@ function MaintenancePageInner() {
                           )}
                           {briefDescription(r)}
                         </div>
-                        <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 3, flexWrap: "wrap" }}>
-                          {tab === "active" && r.status !== "New" && (
-                            <Pill tone={sStyle}>{r.status}</Pill>
-                          )}
-                          {r.attachments.length > 0 && (
+                        {r.attachments.length > 0 && (
+                          <div style={{ marginTop: 3 }}>
                             <span style={{ fontSize: 11, color: "var(--muted)" }}>📎 {r.attachments.length}</span>
-                          )}
-                        </div>
+                          </div>
+                        )}
                       </td>
+                      <td><Pill tone={sStyle}>{r.status}</Pill></td>
                       <td>{r.priority ? <Pill tone={pStyle}>{r.priority}</Pill> : <span className="muted small">—</span>}</td>
                       <td style={{ fontSize: 12 }}>{r.categories.join(", ") || <span className="muted small">—</span>}</td>
                       <td style={{ textAlign: "right", fontSize: 13, fontWeight: 600, whiteSpace: "nowrap" }}>
@@ -500,7 +499,11 @@ function MaintenancePageInner() {
                               </span>
                             )}
                       </td>
-                      <td style={{ fontSize: 13 }}>{propertyOf(r) || <span className="muted small">—</span>}</td>
+                      <td style={{ fontSize: 13, whiteSpace: "nowrap" }}>
+                        {r.propertyCode ? (
+                          <code style={{ fontSize: 12, fontWeight: 700, color: "#0b4a7d" }}>{r.propertyCode}</code>
+                        ) : <span className="muted small">—</span>}
+                      </td>
                       <td style={{ fontSize: 13 }}>{companyOf(r) || <span className="muted small">—</span>}</td>
                       <td style={{ fontSize: 13 }}>
                         {r.tenantName || r.tenantEmail ? (

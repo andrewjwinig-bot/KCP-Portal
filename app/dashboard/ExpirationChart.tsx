@@ -9,11 +9,11 @@ import { useMemo, useRef, useState } from "react";
 import type { RentRollData } from "../../lib/rentroll/parseRentRollExcel";
 import { PROPERTY_DEFS } from "../../lib/properties/data";
 
-// Office buildings (matches lib/users.ts OFFICE_AND_OW_INDIVIDUAL).
+// Office buildings (JV III + NI LLC; The Office Works 4900 intentionally
+// excluded from this view).
 const OFFICE_CODES = new Set([
   "3610", "3620", "3640",
   "4050", "4060", "4070", "4080", "40A0", "40B0", "40C0",
-  "4900",
 ]);
 const JV3_CODES = new Set(["3610", "3620", "3640"]);
 const NI_CODES  = new Set(["4050", "4060", "4070", "4080", "40A0", "40B0", "40C0"]);
@@ -31,7 +31,6 @@ const BUILDING_COLOR: Record<string, string> = {
   "40A0": "#84cc16",
   "40B0": "#a3e635",
   "40C0": "#65a30d",
-  "4900": "#7c3aed",
 };
 
 const MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
