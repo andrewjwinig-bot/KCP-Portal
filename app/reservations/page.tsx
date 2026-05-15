@@ -414,8 +414,11 @@ function ReservationModal({
             <button onClick={() => setComposer("custom")} disabled={busy} className="btn" style={{ fontSize: 13, padding: "8px 14px" }}>
               ✉ Email tenant
             </button>
-            <button onClick={() => downloadReservationICS(reservation)} className="btn" style={{ fontSize: 13, padding: "8px 14px" }}>
-              📅 Add to calendar
+            <button onClick={() => openOutlookCalendar(reservation)} className="btn" style={{ fontSize: 13, padding: "8px 14px" }}>
+              📅 Add to Outlook
+            </button>
+            <button onClick={() => downloadReservationICS(reservation)} className="btn" style={{ fontSize: 13, padding: "8px 14px" }} title="Download .ics for any calendar app">
+              ⤓ .ics
             </button>
             {reservation.status !== "Declined" && (
               <button onClick={() => setStatus("Declined")} disabled={busy} className="btn" style={{ fontSize: 13, padding: "8px 14px", color: "#b91c1c", borderColor: "rgba(220,38,38,0.35)" }}>
@@ -617,6 +620,38 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
+function reservationCalendarFields(r: Reservation) {
+  const subject = `${r.roomLabel} — ${r.tenantCompany}`;
+  const location = [r.roomLabel, r.propertyName].filter(Boolean).join(", ");
+  const body = [
+    `Tenant: ${r.tenantCompany}`,
+    `Contact: ${r.contactFirstName} ${r.contactLastName} <${r.contactEmail}>`,
+    r.contactPhone ? `Phone: ${r.contactPhone}` : "",
+    r.purpose ? `\nPurpose: ${r.purpose}` : "",
+  ].filter(Boolean).join("\n");
+  return { subject, location, body };
+}
+
+function openOutlookCalendar(r: Reservation) {
+  const { subject, location, body } = reservationCalendarFields(r);
+  // ISO local datetime; Outlook treats the date string as the user's tz.
+  const startdt = `${r.date}T${r.startTime}:00`;
+  const enddt   = `${r.date}T${r.endTime}:00`;
+  const params = new URLSearchParams({
+    rru: "addevent",
+    path: "/calendar/action/compose",
+    subject,
+    body,
+    location,
+    startdt,
+    enddt,
+  });
+  // outlook.office.com works for Office 365 (org accounts); outlook.live.com
+  // is the personal equivalent. Office is the right default for KCP.
+  const url = `https://outlook.office.com/calendar/0/deeplink/compose?${params.toString()}`;
+  window.open(url, "_blank", "noopener,noreferrer");
+}
+
 function downloadReservationICS(r: Reservation) {
   const dt = (date: string, hhmm: string) => `${date.replace(/-/g, "")}T${hhmm.replace(":", "")}00`;
   const escapeICS = (s: string) =>
@@ -624,14 +659,7 @@ function downloadReservationICS(r: Reservation) {
   const now = new Date();
   const dtstamp = `${now.getUTCFullYear()}${String(now.getUTCMonth() + 1).padStart(2, "0")}${String(now.getUTCDate()).padStart(2, "0")}T${String(now.getUTCHours()).padStart(2, "0")}${String(now.getUTCMinutes()).padStart(2, "0")}${String(now.getUTCSeconds()).padStart(2, "0")}Z`;
 
-  const summary  = `${r.roomLabel} — ${r.tenantCompany}`;
-  const location = [r.roomLabel, r.propertyName].filter(Boolean).join(", ");
-  const descLines = [
-    `Tenant: ${r.tenantCompany}`,
-    `Contact: ${r.contactFirstName} ${r.contactLastName} <${r.contactEmail}>`,
-    r.contactPhone ? `Phone: ${r.contactPhone}` : "",
-    r.purpose ? `\nPurpose: ${r.purpose}` : "",
-  ].filter(Boolean).join("\n");
+  const { subject, location, body } = reservationCalendarFields(r);
 
   const ics = [
     "BEGIN:VCALENDAR",
@@ -644,9 +672,9 @@ function downloadReservationICS(r: Reservation) {
     `DTSTAMP:${dtstamp}`,
     `DTSTART:${dt(r.date, r.startTime)}`,
     `DTEND:${dt(r.date, r.endTime)}`,
-    `SUMMARY:${escapeICS(summary)}`,
+    `SUMMARY:${escapeICS(subject)}`,
     `LOCATION:${escapeICS(location)}`,
-    `DESCRIPTION:${escapeICS(descLines)}`,
+    `DESCRIPTION:${escapeICS(body)}`,
     `STATUS:${r.status === "Approved" ? "CONFIRMED" : r.status === "Declined" ? "CANCELLED" : "TENTATIVE"}`,
     "END:VEVENT",
     "END:VCALENDAR",

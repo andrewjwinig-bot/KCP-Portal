@@ -720,16 +720,48 @@ function RequestModal({
                 {request.id}
               </div>
             </div>
-            <button
-              onClick={onClose}
-              aria-label="Close"
-              style={{
-                background: "transparent", border: "1px solid var(--border)",
-                borderRadius: 8, padding: "6px 12px", cursor: "pointer",
-                fontSize: 18, lineHeight: 1, color: "var(--muted)",
-                flexShrink: 0,
-              }}
-            >×</button>
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0, flexWrap: "wrap", justifyContent: "flex-end" }}>
+              {request.status !== "Complete" ? (
+                <>
+                  {request.status === "New" && (
+                    <button
+                      onClick={() => patch({ status: "In Progress" })}
+                      disabled={busy}
+                      className="btn"
+                      style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700, color: "#b45309", borderColor: "rgba(180,83,9,0.45)" }}
+                    >
+                      ▶ Mark In Progress
+                    </button>
+                  )}
+                  <button
+                    onClick={() => patch({ status: "Complete" })}
+                    disabled={busy}
+                    className="btn primary"
+                    style={{ fontSize: 13, padding: "8px 16px", fontWeight: 700 }}
+                  >
+                    ✓ Mark Complete
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={() => patch({ status: "In Progress" })}
+                  disabled={busy}
+                  className="btn"
+                  style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}
+                >
+                  Reopen
+                </button>
+              )}
+              <button
+                onClick={onClose}
+                aria-label="Close"
+                style={{
+                  background: "transparent", border: "1px solid var(--border)",
+                  borderRadius: 8, padding: "6px 12px", cursor: "pointer",
+                  fontSize: 18, lineHeight: 1, color: "var(--muted)",
+                }}
+              >×</button>
+            </div>
           </div>
 
           <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
@@ -976,37 +1008,6 @@ function RequestModal({
           >
             Delete Request
           </button>
-          {request.status !== "Complete" ? (
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              {request.status === "New" && (
-                <button
-                  onClick={() => patch({ status: "In Progress" })}
-                  disabled={busy}
-                  className="btn"
-                  style={{ fontSize: 14, padding: "10px 18px", fontWeight: 700, color: "#b45309", borderColor: "rgba(180,83,9,0.45)" }}
-                >
-                  ▶ Mark In Progress
-                </button>
-              )}
-              <button
-                onClick={() => patch({ status: "Complete" })}
-                disabled={busy}
-                className="btn primary"
-                style={{ fontSize: 14, padding: "10px 22px", fontWeight: 700 }}
-              >
-                ✓ Mark Complete
-              </button>
-            </div>
-          ) : (
-            <button
-              onClick={() => patch({ status: "In Progress" })}
-              disabled={busy}
-              className="btn"
-              style={{ fontSize: 14, padding: "10px 22px", fontWeight: 700 }}
-            >
-              Reopen
-            </button>
-          )}
         </div>
       </div>
     </div>
