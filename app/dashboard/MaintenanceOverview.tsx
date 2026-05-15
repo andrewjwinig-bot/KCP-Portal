@@ -7,20 +7,14 @@ import {
 import { STAFF } from "@/lib/maintenance/staff";
 import { StatPill } from "@/app/components/Pill";
 
-// Standalone Maintenance Reports page. Linked from the Sidebar as a
-// sub-item under Maintenance.
-
 type Window = "7" | "30" | "90" | "all";
 type Scope = "active" | "all";
 
 const ACCENT_BLUE   = "#0b4a7d";
 const ACCENT_GREEN  = "#15803d";
-const ACCENT_PURPLE = "#7c3aed";
 const ACCENT_AMBER  = "#b45309";
 const ACCENT_RED    = "#b91c1c";
 
-// Distinct, slightly muted palette for multi-category charts (pie / donut /
-// vertical bars). 18 entries — wraps if more categories show up.
 const PALETTE = [
   "#7eb6e6", "#e7826b", "#7fd1c8", "#b4a8e0", "#f3b86e",
   "#94c977", "#e08aa6", "#c5dca4", "#9bbeed", "#d4a5ce",
@@ -28,7 +22,7 @@ const PALETTE = [
   "#bfd7eb", "#f2cc8f", "#a6cfe2",
 ];
 
-export default function MaintenanceReportsPage() {
+export default function MaintenanceOverview() {
   const [requests, setRequests] = useState<MaintenanceRequest[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [window, setWindow] = useState<Window>("30");
@@ -60,7 +54,6 @@ export default function MaintenanceReportsPage() {
     });
   }, [requests, window, scope]);
 
-  // ── KPI tiles ─────────────────────────────────────────────────────────
   const kpis = useMemo(() => {
     const all = filtered;
     const active = all.filter((r) => r.status !== "Complete");
@@ -94,7 +87,6 @@ export default function MaintenanceReportsPage() {
     };
   }, [filtered]);
 
-  // ── Aging buckets (active requests) ───────────────────────────────────
   const aging = useMemo(() => {
     const now = Date.now();
     const buckets = [
@@ -114,9 +106,6 @@ export default function MaintenanceReportsPage() {
     return buckets;
   }, [filtered]);
 
-  // ── Chart rollups ────────────────────────────────────────────────────
-  // Strip the back-compat "<Property> — <Company>" suffix when the new
-  // tenantCompany field isn't populated.
   const byProperty = useMemo(() => countBy(filtered, (r) => {
     const name = r.propertyName || "";
     if (r.tenantCompany) return name || "(none)";
@@ -135,9 +124,6 @@ export default function MaintenanceReportsPage() {
     }
     return Array.from(map.values()).sort((a, b) => b.n - a.n);
   }, [filtered]);
-  // "Tenant" on the report = the leased company (rent-roll occupant). For
-  // older records that baked the company into propertyName as
-  // "<Property> — <Company>", fall back to parsing it out.
   const byTenant = useMemo(
     () => countBy(filtered, (r) => {
       if (r.tenantCompany) return r.tenantCompany;
@@ -151,10 +137,12 @@ export default function MaintenanceReportsPage() {
 
   return (
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
-      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
-        <div>
-          <h1>Maintenance Reports</h1>
-          <p className="muted small">Snapshot of the maintenance queue · filtered by window + scope</p>
+      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
+        <h1>Dashboard</h1>
+        <div style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
+          <span style={{ fontFamily: "'Arial Black', 'Arial Bold', Arial, sans-serif", fontWeight: 900, fontSize: 30, letterSpacing: "-0.5px", lineHeight: 1 }}>KORMAN</span>
+          <div style={{ width: 1, height: 36, background: "#000", flexShrink: 0 }} />
+          <div style={{ fontSize: 11, letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}><div>COMMERCIAL</div><div>PROPERTIES</div></div>
         </div>
       </header>
 
@@ -186,7 +174,6 @@ export default function MaintenanceReportsPage() {
         </div>
       </div>
 
-      {/* KPI tiles — canonical StatPill (matches rent-roll summary) */}
       <div className="pills">
         <StatPill label="Active"             value={kpis.activeCount}     accent={ACCENT_BLUE} />
         <StatPill label="High Priority Open" value={kpis.highOpen}        accent={ACCENT_RED} />
@@ -194,7 +181,6 @@ export default function MaintenanceReportsPage() {
         <StatPill label="Avg Days to Close"  value={fmtDays(kpis.avgClose)} accent={ACCENT_GREEN} />
       </div>
 
-      {/* Open by Priority */}
       <div className="card">
         <div style={sectionLabelStyle}>Open by Priority</div>
         <div className="pills" style={{ marginTop: 10 }}>
@@ -205,12 +191,10 @@ export default function MaintenanceReportsPage() {
         </div>
       </div>
 
-      {/* Aging buckets */}
       <ChartCard title="Aging — Active Requests">
         <HorizontalBars rows={aging} accent={ACCENT_AMBER} />
       </ChartCard>
 
-      {/* 2-col grid: Property / Category */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(420px, 1fr))", gap: 14 }}>
         <ChartCard title="Property">
           <HorizontalBars rows={byProperty} accent={ACCENT_BLUE} />
@@ -220,7 +204,6 @@ export default function MaintenanceReportsPage() {
         </ChartCard>
       </div>
 
-      {/* 2-col grid: Worker / Priority */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(420px, 1fr))", gap: 14 }}>
         <ChartCard title="Worker">
           <PieWithLegend rows={byWorker} donut />
@@ -238,15 +221,12 @@ export default function MaintenanceReportsPage() {
         </ChartCard>
       </div>
 
-      {/* Full-width Tenant vertical bars */}
       <ChartCard title="Tenant">
         <VerticalBars rows={byTenant} cap={40} />
       </ChartCard>
     </main>
   );
 }
-
-// ── helpers ─────────────────────────────────────────────────────────────
 
 function agedDays(start: string | null | undefined, end: number | null): number | null {
   if (!start || end == null) return null;
@@ -279,8 +259,6 @@ function countBy(
     .map(([label, n]) => ({ label, n }))
     .sort((a, b) => b.n - a.n);
 }
-
-// ── primitive components ───────────────────────────────────────────────
 
 const selectStyle: React.CSSProperties = {
   padding: "8px 10px",
@@ -318,8 +296,6 @@ function ChartCard({ title, children }: { title: string; children: React.ReactNo
     </div>
   );
 }
-
-// ── Horizontal bars (used for Property / Aging / smaller breakdowns) ──
 
 function HorizontalBars({ rows, accent }: { rows: { label: string; n: number }[]; accent: string }) {
   const max = rows.reduce((m, r) => Math.max(m, r.n), 0);
@@ -360,8 +336,6 @@ function HorizontalBars({ rows, accent }: { rows: { label: string; n: number }[]
     </div>
   );
 }
-
-// ── Pie / Donut with side legend ──────────────────────────────────────
 
 type HoverState = { label: string; n: number; pct?: number; x: number; y: number };
 
@@ -453,7 +427,6 @@ function PieSvg({
   const r = size / 2 - 2;
   const ri = donut ? r * 0.55 : 0;
 
-  // Single-slice case: full ring/circle (otherwise the arc collapses to a line).
   if (rows.length === 1 || rows.filter((x) => x.n > 0).length === 1) {
     const row = rows.find((x) => x.n > 0) ?? rows[0];
     const color = PALETTE[0];
@@ -515,8 +488,6 @@ function arcPath(cx: number, cy: number, r: number, ri: number, a1: number, a2: 
   return `M ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2} L ${xi2} ${yi2} A ${ri} ${ri} 0 ${largeArc} 0 ${xi1} ${yi1} Z`;
 }
 
-// ── Vertical bars (used for Tenant — many labels, slanted ticks) ──────
-
 function VerticalBars({ rows, cap = 40 }: { rows: { label: string; n: number }[]; cap?: number }) {
   const display = rows.slice(0, cap);
   const overflow = rows.length > display.length ? rows.length - display.length : 0;
@@ -528,7 +499,6 @@ function VerticalBars({ rows, cap = 40 }: { rows: { label: string; n: number }[]
   const max = display.reduce((m, r) => Math.max(m, r.n), 0);
   const totalCount = display.reduce((s, r) => s + r.n, 0);
 
-  // Choose a nice Y-axis ceiling — round up to a "nice" tick value.
   const yMax = niceCeil(max);
   const yTicks = 4;
 
@@ -538,7 +508,7 @@ function VerticalBars({ rows, cap = 40 }: { rows: { label: string; n: number }[]
   const padRight = 12;
   const chartW = display.length * (barW + gap);
   const chartH = 200;
-  const labelH = 90; // slanted labels below
+  const labelH = 90;
 
   const innerW = chartW;
   const totalW = padLeft + innerW + padRight;
@@ -559,7 +529,6 @@ function VerticalBars({ rows, cap = 40 }: { rows: { label: string; n: number }[]
         style={{ display: "block", minWidth: "100%" }}
         onMouseLeave={() => setHover(null)}
       >
-        {/* Y axis gridlines + labels */}
         {Array.from({ length: yTicks + 1 }, (_, i) => {
           const v = (yMax / yTicks) * i;
           const y = chartH - (v / yMax) * chartH + 4;
@@ -573,7 +542,6 @@ function VerticalBars({ rows, cap = 40 }: { rows: { label: string; n: number }[]
           );
         })}
 
-        {/* Bars */}
         {display.map((r, i) => {
           const h = (r.n / yMax) * chartH;
           const x = padLeft + i * (barW + gap);
@@ -588,7 +556,6 @@ function VerticalBars({ rows, cap = 40 }: { rows: { label: string; n: number }[]
                 onMouseMove={(e) => onBarMove(e, r.label, r.n)}
                 style={{ cursor: "pointer" }}
               />
-              {/* Slanted label */}
               <text
                 x={x + barW / 2}
                 y={chartH + 16}
