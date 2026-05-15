@@ -46,7 +46,7 @@ export default function PropertyDetailPage() {
 
   return (
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
-      <header style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <header style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <Link
           href="/properties"
           style={{ fontSize: 12, fontWeight: 600, color: "var(--muted)", textDecoration: "none", width: "fit-content" }}
@@ -54,20 +54,20 @@ export default function PropertyDetailPage() {
           ← Properties
         </Link>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-            <h1 style={{ margin: 0 }}>{prop.name}</h1>
-            <code style={{
-              background: "#0b1220", color: "#e0f0ff",
-              padding: "2px 8px", borderRadius: 5,
-              fontSize: 11, fontWeight: 600, letterSpacing: "0.06em",
-            }}>{prop.id}</code>
-            <TypePill type={prop.type} />
-          </div>
+          <h1 style={{ margin: 0 }}>{prop.name}</h1>
           <div style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
             <span style={{ fontFamily: "'Arial Black', 'Arial Bold', Arial, sans-serif", fontWeight: 900, fontSize: 30, letterSpacing: "-0.5px", lineHeight: 1 }}>KORMAN</span>
             <div style={{ width: 1, height: 36, background: "#000", flexShrink: 0 }} />
             <div style={{ fontSize: 11, letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}><div>COMMERCIAL</div><div>PROPERTIES</div></div>
           </div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <code style={{
+            background: "#0b1220", color: "#e0f0ff",
+            padding: "2px 8px", borderRadius: 5,
+            fontSize: 11, fontWeight: 600, letterSpacing: "0.06em",
+          }}>{prop.id}</code>
+          <TypePill type={prop.type} />
         </div>
       </header>
 
