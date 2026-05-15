@@ -12,6 +12,7 @@ import { bankRecKey, nextBankRecDeadline, nextStatementsDeadline, bankRecPeriodL
 import { fireNotification } from "../../lib/notifications";
 import ExpirationChart from "./ExpirationChart";
 import Insights from "./Insights";
+import MaintenanceOverview from "./MaintenanceOverview";
 
 function sqftFmt(n: number) { return n.toLocaleString(); }
 
@@ -79,6 +80,12 @@ function Donut({ value, total, color, label }: { value: number; total: number; c
 }
 
 export default function DashboardPage() {
+  const { user } = useUser();
+  if (user.id === "maint") return <MaintenanceOverview />;
+  return <DashboardInner />;
+}
+
+function DashboardInner() {
   const router = useRouter();
   const { user } = useUser();
   const [rentroll, setRentroll] = useState<RentRollData | null>(null);

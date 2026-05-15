@@ -27,7 +27,7 @@
  * If you need a new semantic, add a new tone helper here rather than
  * inlining `background: "rgba(...)"` in a page. Same goes for fonts and
  * sizes — match the 11px / 700 footprint so chips look identical across
- * /maintenance, /reservations, /maintenance/reports, etc.
+ * /maintenance, /reservations, etc.
  *
  * Layout rules:
  *   • Tile/KPI cards (big number + small label) belong in their own
