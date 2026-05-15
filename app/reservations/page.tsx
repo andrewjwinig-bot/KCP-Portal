@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   RESERVATION_STATUSES,
   type Reservation,
@@ -28,7 +29,16 @@ function prettyTime(hhmm: string): string {
 }
 
 export default function ReservationsPage() {
+  return (
+    <Suspense fallback={null}>
+      <ReservationsPageInner />
+    </Suspense>
+  );
+}
+
+function ReservationsPageInner() {
   const { user } = useUser();
+  const searchParams = useSearchParams();
   const [reservations, setReservations] = useState<Reservation[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -51,6 +61,14 @@ export default function ReservationsPage() {
     }
   }, []);
   useEffect(() => { reload(); }, [reload]);
+
+  // Deep-link: ?openId=<id> opens that reservation's modal once data loads.
+  useEffect(() => {
+    const openId = searchParams.get("openId");
+    if (!openId || !reservations) return;
+    const r = reservations.find((x) => x.id === openId);
+    if (r) setSelected(r);
+  }, [searchParams, reservations]);
 
   const filtered = useMemo(() => {
     if (!reservations) return [];

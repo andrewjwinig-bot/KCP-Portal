@@ -9,8 +9,41 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { PROPERTY_DEFS, BANK_ACCOUNTS, type PropertyDef } from "../../lib/properties/data";
 import { PROPERTY_OWNERSHIP } from "../../lib/properties/ownership";
 import { TAX_TASKS, PARCEL_INFO, filingLabel, baseEntityName } from "../tracker/tax-data";
+import { STAFF } from "@/lib/maintenance/staff";
+
+// Minimal shapes — keeps us off the server-only Reservation export.
+type SearchMaintRequest = {
+  id: string;
+  subject: string;
+  status: string;
+  priority: string;
+  categories: string[];
+  propertyCode: string | null;
+  propertyName: string;
+  tenantCompany: string;
+  tenantSuite: string;
+  tenantName: string;
+  tenantEmail: string;
+  assignedTo: string | null;
+};
+type SearchReservation = {
+  id: string;
+  roomLabel: string;
+  propertyCode: string;
+  propertyName: string;
+  tenantCompany: string;
+  contactFirstName: string;
+  contactLastName: string;
+  contactEmail: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  status: string;
+};
 
 type Group =
+  | "Maintenance Request"
+  | "Reservation"
   | "Property"
   | "Owner"
   | "Vendor Code"
@@ -56,6 +89,27 @@ function score(needle: string, haystack: string | undefined | null): number {
   return Math.max(10, 40 - idx);
 }
 
+/** Multi-token AND scoring. Splits the query on whitespace; each token must
+ *  hit at least one of the candidate strings. Returns the summed best
+ *  per-token score, or 0 if any token misses. Multipliers in `weights`
+ *  apply to that field's contribution to every token's score (so a hit on
+ *  a high-weight field is worth more). */
+function scoreFields(query: string, fields: Array<[string | null | undefined, number]>): number {
+  const tokens = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  if (tokens.length === 0) return 0;
+  let total = 0;
+  for (const tok of tokens) {
+    let best = 0;
+    for (const [field, weight] of fields) {
+      const s = score(tok, field) * weight;
+      if (s > best) best = s;
+    }
+    if (best === 0) return 0;
+    total += best;
+  }
+  return total;
+}
+
 type RentRollUnit = {
   unitRef: string;
   propertyCode: string;
@@ -76,6 +130,8 @@ export default function GlobalSearch() {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [tenants, setTenants] = useState<RentRollUnit[] | null>(null);
   const [tenantsLoading, setTenantsLoading] = useState(false);
+  const [maintRequests, setMaintRequests] = useState<SearchMaintRequest[] | null>(null);
+  const [reservations, setReservations] = useState<SearchReservation[] | null>(null);
 
   // ── Keyboard shortcut ⌘K / Ctrl+K + Esc + custom 'open-global-search' ──
   useEffect(() => {
@@ -130,6 +186,23 @@ export default function GlobalSearch() {
       .catch(() => setTenants([]))
       .finally(() => setTenantsLoading(false));
   }, [open, tenants, tenantsLoading]);
+
+  // Lazy-load maintenance requests + reservations on first open.
+  useEffect(() => {
+    if (!open) return;
+    if (maintRequests === null) {
+      fetch("/api/maintenance/requests")
+        .then((r) => (r.ok ? r.json() : null))
+        .then((j) => setMaintRequests(j?.requests ?? []))
+        .catch(() => setMaintRequests([]));
+    }
+    if (reservations === null) {
+      fetch("/api/reservations")
+        .then((r) => (r.ok ? r.json() : null))
+        .then((j) => setReservations(j?.reservations ?? []))
+        .catch(() => setReservations([]));
+    }
+  }, [open, maintRequests, reservations]);
 
   // ── Build all hits ──────────────────────────────────────────────────────
   const hits: Hit[] = useMemo(() => {
@@ -284,13 +357,73 @@ export default function GlobalSearch() {
       }
     }
 
+    // Maintenance requests — multi-token AND across id, subject, tenant,
+    // contact, property, category, status, priority, and assignee name.
+    if (maintRequests) {
+      for (const m of maintRequests) {
+        const worker = m.assignedTo ? (STAFF.find((s) => s.id === m.assignedTo)?.name ?? m.assignedTo) : "Unassigned";
+        const s = scoreFields(q, [
+          [m.id, 1.5],
+          [m.subject, 1.3],
+          [m.tenantCompany, 1.2],
+          [m.tenantName, 1.0],
+          [m.tenantEmail, 0.9],
+          [m.propertyName, 0.9],
+          [m.tenantSuite, 1.0],
+          [m.categories.join(" "), 1.1],
+          [m.status, 0.7],
+          [m.priority, 0.7],
+          [worker, 1.0],
+        ]);
+        if (s > 0) {
+          const parts = [m.status, m.priority || undefined, worker, m.tenantCompany, m.propertyName].filter(Boolean);
+          out.push({
+            group: "Maintenance Request",
+            title: m.subject || "(no subject)",
+            subtitle: parts.join(" · "),
+            badge: m.id.slice(0, 8),
+            href: `/maintenance?openId=${encodeURIComponent(m.id)}`,
+            score: s,
+          });
+        }
+      }
+    }
+
+    // Reservations — multi-token AND across id, tenant, contact, room, date.
+    if (reservations) {
+      for (const r of reservations) {
+        const contactName = `${r.contactFirstName} ${r.contactLastName}`.trim();
+        const s = scoreFields(q, [
+          [r.id, 1.4],
+          [r.tenantCompany, 1.3],
+          [contactName, 1.1],
+          [r.contactEmail, 0.9],
+          [r.roomLabel, 1.2],
+          [r.propertyName, 0.9],
+          [r.date, 1.0],
+          [r.status, 0.7],
+        ]);
+        if (s > 0) {
+          const parts = [r.date, r.startTime && r.endTime ? `${r.startTime}–${r.endTime}` : "", r.status, r.tenantCompany].filter(Boolean);
+          out.push({
+            group: "Reservation",
+            title: r.roomLabel || "(no room)",
+            subtitle: parts.join(" · "),
+            badge: r.id.slice(0, 8),
+            href: `/reservations?openId=${encodeURIComponent(r.id)}`,
+            score: s,
+          });
+        }
+      }
+    }
+
     out.sort((a, b) => b.score - a.score);
     return out;
-  }, [query, tenants]);
+  }, [query, tenants, maintRequests, reservations]);
 
   // Group results into sections, limiting each group to 6 with "+N more".
   const grouped = useMemo(() => {
-    const order: Group[] = ["Property", "Owner", "Vendor Code", "Tenant", "Tax Filing", "Bank Account", "Parcel"];
+    const order: Group[] = ["Maintenance Request", "Reservation", "Property", "Owner", "Vendor Code", "Tenant", "Tax Filing", "Bank Account", "Parcel"];
     const map = new Map<Group, Hit[]>();
     for (const h of hits) {
       let arr = map.get(h.group);
@@ -357,7 +490,7 @@ export default function GlobalSearch() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={onKeyDown}
-            placeholder="Search properties, owners, vendor codes, tenants, filings, parcels, banks…"
+            placeholder="Search requests, reservations, properties, owners, tenants, filings, banks…"
             style={{
               width: "100%", padding: "10px 12px",
               border: "1px solid var(--border)", borderRadius: 9,
@@ -370,7 +503,8 @@ export default function GlobalSearch() {
         <div style={{ flex: 1, overflowY: "auto", padding: "4px 0" }}>
           {!query.trim() ? (
             <div style={{ padding: "20px 16px", color: "var(--muted)", fontSize: 13 }}>
-              Start typing to search across the whole portal. Try a property code, owner name, vendor code (e.g. <code>THEK1</code>), tenant, filing, parcel, or last 4 of a bank account.
+              Start typing to search across the whole portal — maintenance requests, reservations, properties, owners, vendor codes, tenants, filings, parcels, banks.
+              Multi-word queries match all words (try <code>jay plumbing</code> or <code>conference apple</code>).
               {tenantsLoading && <div style={{ marginTop: 8, fontStyle: "italic" }}>Loading tenant data…</div>}
             </div>
           ) : grouped.length === 0 ? (
@@ -454,7 +588,6 @@ export default function GlobalSearch() {
           <span>↑↓ navigate</span>
           <span>↵ open</span>
           <span>esc to close</span>
-          <span style={{ marginLeft: "auto" }}>⌘K anywhere</span>
         </div>
       </div>
     </div>
@@ -487,10 +620,7 @@ export function GlobalSearchTrigger({ collapsed }: { collapsed: boolean }) {
         <line x1="21" y1="21" x2="16.65" y2="16.65" />
       </svg>
       {!collapsed && (
-        <>
-          <span style={{ opacity: 0.85 }}>Search</span>
-          <span style={{ marginLeft: "auto", fontSize: 10, padding: "1px 6px", borderRadius: 4, background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.15)", letterSpacing: "0.04em" }}>⌘K</span>
-        </>
+        <span style={{ opacity: 0.85 }}>Search</span>
       )}
     </button>
   );
