@@ -583,7 +583,7 @@ export default function InvestorInfoPage() {
                           ))}
                         </tbody>
                       </table>
-                      <InvestorStructureBlock structure={structureFor(agg.name)} />
+                      <InvestorStructureBlock investorName={agg.name} structure={structureFor(agg.name)} />
                     </>
                   )}
                 </div>
@@ -603,13 +603,61 @@ export default function InvestorInfoPage() {
 /** Supplementary partnership / trustee structure shown inside the
  *  investor card. Only renders when the investor has an entry in
  *  lib/investors/structures.ts (e.g. Hyman Korman Co.). */
-function InvestorStructureBlock({ structure }: { structure: InvestorStructure | null }) {
+function InvestorStructureBlock({ investorName, structure }: { investorName: string; structure: InvestorStructure | null }) {
   if (!structure) return null;
+
+  function downloadXlsx() {
+    const wb = XLSX.utils.book_new();
+    const structureRows = structure!.entries.flatMap((e) =>
+      e.trustees.length === 0
+        ? [{
+            "Entity / Trust": e.entity,
+            "Type": e.type,
+            "Role": e.role,
+            "Trustee / Partner": "",
+            "Capacity": "",
+          }]
+        : e.trustees.map((t) => ({
+            "Entity / Trust": e.entity,
+            "Type": e.type,
+            "Role": e.role,
+            "Trustee / Partner": t.trustee,
+            "Capacity": t.capacity ?? "",
+          })),
+    );
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(structureRows), "Structure");
+    if (structure!.directory) {
+      const directoryRows = structure!.directory.rows.map((r) => ({
+        "Trustee / Partner Name": r.name,
+        "Address": r.address,
+        "City": r.city,
+        "State": r.state,
+        "Zip": r.zip ?? "",
+        "Serving Individually?": r.servingIndividually,
+        "Trust(s) / Entity": r.trusts,
+        "Source Will / Instrument": r.sourceInstrument,
+        "Notes": r.notes ?? "",
+      }));
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(directoryRows), "Trustee Directory");
+    }
+    const safeName = investorName.replace(/[^a-zA-Z0-9]+/g, "_").replace(/^_|_$/g, "");
+    const stamp = new Date().toISOString().slice(0, 10);
+    XLSX.writeFile(wb, `${safeName}_Structure_${stamp}.xlsx`);
+  }
+
   return (
     <>
       <div style={{ borderTop: "1px solid var(--border)", padding: "14px 16px 16px" }}>
-        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>
-          {structure.title}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>
+            {structure.title}
+          </div>
+          <button
+            type="button"
+            onClick={downloadXlsx}
+            className="btn"
+            style={{ fontSize: 12, padding: "5px 10px", fontWeight: 600 }}
+          >⤓ Excel</button>
         </div>
         {structure.subtitle && (
           <div className="muted small" style={{ marginTop: 4 }}>{structure.subtitle}</div>
