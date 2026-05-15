@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ALLOC_PCT, TYPE_STYLE, BANK_ACCOUNTS, FLOORPLAN_IDS,
   type PropertyDef, type PropType, type BankAccount,
@@ -529,6 +530,7 @@ export function PropertyDetailBody({
   prop: PropertyDef;
   checked: Record<string, boolean>;
 }) {
+  const router = useRouter();
   const { user } = useUser();
   const isMaint = user.id === "maint";
   const canEditFacts = isMaint || user.navKeys.has("all");
@@ -816,13 +818,20 @@ export function PropertyDetailBody({
                     const effectiveVacant = isAmenity ? false : u.isVacant;
                     const occupantLabel = isAmenity ? amenity!.label : u.occupantName;
                     return (
-                    <tr key={i} style={{
-                      background: isAmenity
-                        ? "rgba(13,148,136,0.06)"
-                        : effectiveVacant
-                          ? "rgba(15,23,42,0.025)"
-                          : undefined,
-                    }}>
+                    <tr
+                      key={i}
+                      onClick={() => router.push(`/rentroll/units/${encodeURIComponent(u.unitRef)}`)}
+                      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.filter = "brightness(0.97)"; }}
+                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.filter = ""; }}
+                      style={{
+                        cursor: "pointer",
+                        background: isAmenity
+                          ? "rgba(13,148,136,0.06)"
+                          : effectiveVacant
+                            ? "rgba(15,23,42,0.025)"
+                            : undefined,
+                      }}
+                    >
                       <td style={{
                         fontWeight: effectiveVacant ? 400 : 600,
                         color: effectiveVacant
@@ -845,7 +854,7 @@ export function PropertyDetailBody({
                         )}
                       </td>
                       <td style={{ whiteSpace: "nowrap" }}>
-                        <code style={{ fontSize: 12, fontWeight: 700, color: "#0b4a7d", whiteSpace: "nowrap" }}>{u.unitRef}</code>
+                        <code style={{ fontSize: 12, fontWeight: 700, color: "#0b4a7d", whiteSpace: "nowrap", textDecoration: "underline", textUnderlineOffset: 2 }}>{u.unitRef}</code>
                       </td>
                       <td style={{ textAlign: "right", fontSize: 13 }}>{u.sqft ? u.sqft.toLocaleString() : "—"}</td>
                       <td style={{ fontSize: 13, color: "var(--muted)", whiteSpace: "nowrap" }}>{formatModalDate(u.leaseFrom)}</td>
