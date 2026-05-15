@@ -531,12 +531,27 @@ export function PropertyDetailBody({
 }) {
   const { user } = useUser();
   const isMaint = user.id === "maint";
+  const canEditFacts = isMaint || user.navKeys.has("all");
   const tasks        = useMemo(() => tasksForProp(prop.id), [prop.id]);
   const parcels      = useMemo(() => parcelsForProp(prop.id), [prop.id]);
   const bankAccounts = useMemo(() => bankAccountsForProp(prop.id), [prop.id]);
   const alloc       = ALLOC_PCT[prop.id];
   const k1Tasks     = tasks.filter(t => t.category === "k1");
   const filingTasks = tasks.filter(t => t.category !== "k1");
+
+  // Maintenance-team-edited property facts (year built, construction,
+  // roof, electrical, HVAC, etc.). Stored server-side via
+  // /api/properties/[id]/facts. yearBuilt here is an override — if unset,
+  // we fall back to the static value on PropertyDef.
+  const [facts, setFacts] = useState<PropertyFactsState | null>(null);
+  useEffect(() => {
+    let alive = true;
+    fetch(`/api/properties/${encodeURIComponent(prop.id)}/facts`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => alive && setFacts(j?.facts ?? {}))
+      .catch(() => alive && setFacts({}));
+    return () => { alive = false; };
+  }, [prop.id]);
 
   // Maintenance requests for this property — fetched on mount.
   type PropRequest = {
@@ -754,6 +769,15 @@ export function PropertyDetailBody({
             })()}
           </section>
         )}
+
+        {/* ── Building Facts (maint-team editable) ── */}
+        <BuildingFacts
+          propId={prop.id}
+          fallbackYearBuilt={prop.yearBuilt}
+          facts={facts}
+          onSaved={(next) => setFacts(next)}
+          canEdit={canEditFacts}
+        />
 
         {/* ── Rent Roll table (collapsible inside the open card) ── */}
         {rrProp && rrProp.units.length > 0 && (
@@ -1153,5 +1177,165 @@ export function PropertyDetailBody({
         </div>
       )}
     </>
+  );
+}
+
+// ─── BUILDING FACTS (maint-team editable) ───────────────────────────────
+
+export type PropertyFactsState = {
+  yearBuilt?: number | null;
+  constructionType?: string;
+  roofAge?: string;
+  roofType?: string;
+  electricalService?: string;
+  ceilingHeight?: string;
+  waterService?: string;
+  hvac?: string;
+  restrooms?: string;
+  updatedAt?: string;
+};
+
+const FACT_FIELDS: { key: keyof PropertyFactsState; label: string; placeholder: string; type?: "number" }[] = [
+  { key: "yearBuilt",         label: "Year Built",         placeholder: "e.g. 1985", type: "number" },
+  { key: "constructionType",  label: "Construction Type",  placeholder: "e.g. Steel frame, masonry exterior" },
+  { key: "roofAge",           label: "Roof Age",           placeholder: "e.g. 12 yrs (replaced 2014)" },
+  { key: "roofType",          label: "Roof Type",          placeholder: "e.g. TPO membrane" },
+  { key: "electricalService", label: "Electrical Service", placeholder: "e.g. 800A 277/480V 3-phase" },
+  { key: "ceilingHeight",     label: "Ceiling Height",     placeholder: `e.g. 12'–14' clear` },
+  { key: "waterService",      label: "Water Service",      placeholder: "e.g. 2-inch domestic, 6-inch fire" },
+  { key: "hvac",              label: "HVAC",               placeholder: "e.g. Rooftop Carrier units, 5 zones" },
+  { key: "restrooms",         label: "Restrooms",          placeholder: "e.g. 4 ADA-compliant, 2 per floor" },
+];
+
+function BuildingFacts({
+  propId, fallbackYearBuilt, facts, onSaved, canEdit,
+}: {
+  propId: string;
+  fallbackYearBuilt: number | undefined;
+  facts: PropertyFactsState | null;
+  onSaved: (f: PropertyFactsState) => void;
+  canEdit: boolean;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState<PropertyFactsState>({});
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  function startEdit() {
+    setDraft(facts ?? {});
+    setError(null);
+    setEditing(true);
+  }
+  function cancelEdit() {
+    setEditing(false);
+    setError(null);
+  }
+
+  async function save() {
+    setBusy(true); setError(null);
+    try {
+      const res = await fetch(`/api/properties/${encodeURIComponent(propId)}/facts`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(draft),
+      });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error ?? "Save failed");
+      onSaved(j.facts ?? {});
+      setEditing(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Save failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const filledCount = facts
+    ? FACT_FIELDS.reduce((n, f) => {
+        const v = facts[f.key];
+        if (f.key === "yearBuilt") return n + (v != null && v !== "" ? 1 : 0);
+        return n + (typeof v === "string" && v.trim() ? 1 : 0);
+      }, 0)
+    : 0;
+
+  function displayValue(key: keyof PropertyFactsState): string {
+    const v = facts?.[key];
+    if (key === "yearBuilt") {
+      if (v != null && v !== "") return String(v);
+      if (fallbackYearBuilt) return String(fallbackYearBuilt);
+      return "—";
+    }
+    return (typeof v === "string" && v.trim()) ? v : "—";
+  }
+
+  return (
+    <CollapsibleSection
+      title="Building Facts"
+      count={filledCount}
+      link={canEdit && !editing ? (
+        <button
+          onClick={(e) => { e.stopPropagation(); startEdit(); }}
+          style={{
+            fontSize: 11, fontWeight: 600, color: "var(--brand)",
+            marginLeft: 8, background: "transparent", border: "none",
+            cursor: "pointer", padding: 0, fontFamily: "inherit",
+          }}
+        >Edit ✎</button>
+      ) : undefined}
+    >
+      {facts === null ? (
+        <div className="muted small">Loading…</div>
+      ) : editing ? (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
+          {FACT_FIELDS.map((f) => {
+            const raw = draft[f.key];
+            const value = raw == null ? "" : String(raw);
+            return (
+              <label key={f.key} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>
+                  {f.label}
+                </span>
+                <input
+                  type={f.type === "number" ? "number" : "text"}
+                  inputMode={f.type === "number" ? "numeric" : undefined}
+                  value={value}
+                  placeholder={f.placeholder}
+                  onChange={(e) => setDraft((d) => ({ ...d, [f.key]: e.target.value }))}
+                  style={{
+                    padding: "8px 10px",
+                    border: "1px solid var(--border)",
+                    borderRadius: 6,
+                    background: "var(--card)",
+                    color: "var(--text)",
+                    fontFamily: "inherit", fontSize: 13, outline: "none",
+                  }}
+                />
+              </label>
+            );
+          })}
+          <div style={{ gridColumn: "1 / -1", display: "flex", gap: 8, alignItems: "center", marginTop: 4 }}>
+            <button
+              onClick={save}
+              disabled={busy}
+              className="btn primary"
+              style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}
+            >{busy ? "Saving…" : "Save"}</button>
+            <button
+              onClick={cancelEdit}
+              disabled={busy}
+              className="btn"
+              style={{ fontSize: 13, padding: "8px 14px" }}
+            >Cancel</button>
+            {error && <span style={{ fontSize: 12, color: "#b91c1c", fontWeight: 600 }}>{error}</span>}
+          </div>
+        </div>
+      ) : (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "12px 24px" }}>
+          {FACT_FIELDS.map((f) => (
+            <InfoField key={f.key} label={f.label} value={displayValue(f.key)} />
+          ))}
+        </div>
+      )}
+    </CollapsibleSection>
   );
 }
