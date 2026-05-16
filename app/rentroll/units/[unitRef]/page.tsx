@@ -22,6 +22,7 @@ import {
   TONE_RED,
   type PillTone,
 } from "../../../components/Pill";
+import SuiteInformationCard from "./SuiteInformationCard";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -424,6 +425,9 @@ export default function UnitDetailPage() {
             )}
           </div>
         )}
+
+        {/* ── Suite Information + Floorplan ── */}
+        <SuiteInformationCard unitRef={unit.unitRef} />
 
         {/* ── Future Escalations ── */}
         {futureEsc.length > 0 && (
