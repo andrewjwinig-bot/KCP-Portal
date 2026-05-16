@@ -15,6 +15,8 @@ import { sendMail } from "@/lib/mail";
 import { upsertContact } from "@/lib/maintenance/tenants";
 import { classify } from "@/lib/maintenance/triage";
 import { summarize } from "@/lib/maintenance/summarize";
+import { companiesForProperty } from "@/lib/tenants/companies";
+import { bestTenantMatch } from "@/lib/tenants/match";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 // Public tenant submission endpoint — no site auth. Middleware exempts
@@ -104,6 +106,26 @@ export async function POST(req: NextRequest) {
 
   const tenantName = `${firstName} ${lastName}`.trim();
 
+  // Auto-resolve the free-text company name to a canonical rent-roll
+  // tenant so staff don't have to. When nothing matches confidently, keep
+  // the typed name and flag the request so the queue highlights it as
+  // needing manual assignment.
+  let resolvedCompany = company;
+  let resolvedSuite = tenantSuite;
+  let tenantResolved = false;
+  if (propertyCode) {
+    const companies = await companiesForProperty(propertyCode);
+    const match = bestTenantMatch(company, companies.map((c) => c.name));
+    if (match) {
+      const pick = companies.find((c) => c.name === match.name)!;
+      resolvedCompany = pick.name;
+      tenantResolved = true;
+      if (!resolvedSuite) {
+        resolvedSuite = pick.units.map((u) => u.unitRef).join(", ");
+      }
+    }
+  }
+
   // Subject = summarized description for the queue table + modal title.
   // Falls back to the form-supplied subject (none today, future-proofing)
   // and then a generic label if the description didn't yield anything.
@@ -117,8 +139,9 @@ export async function POST(req: NextRequest) {
     subject: derivedSubject,
     propertyCode: propertyCode || null,
     propertyName,
-    tenantCompany: company,
-    tenantSuite,
+    tenantCompany: resolvedCompany,
+    tenantResolved,
+    tenantSuite: resolvedSuite,
     tenantEmail,
     tenantName,
     priority,

@@ -22,6 +22,7 @@ export type Reservation = {
   propertyCode: string;
   propertyName: string;
   tenantCompany: string;
+  tenantResolved: boolean;   // false → typed name didn't match the rent roll; needs staff assignment
   contactFirstName: string;
   contactLastName: string;
   contactEmail: string;

@@ -62,6 +62,7 @@ export type MaintenanceRequest = {
   propertyCode: string | null;        // e.g. "3610" — matched against PROPERTY_DEFS
   propertyName: string;               // Free-text fallback when no code is matched
   tenantCompany: string;              // The leased company (rent-roll occupant)
+  tenantResolved: boolean;            // false → typed name didn't match the rent roll; needs staff assignment
   tenantSuite: string;                // Suite(s) the tenant occupies (e.g. "5-101")
   tenantEmail: string;                // Contact person's email
   tenantName: string;                 // Contact person's name (individual, not the company)
@@ -106,6 +107,7 @@ export function emptyRequest(partial: Partial<MaintenanceRequest> = {}): Mainten
     propertyCode: null,
     propertyName: "",
     tenantCompany: "",
+    tenantResolved: true,
     tenantSuite: "",
     tenantEmail: "",
     tenantName: "",

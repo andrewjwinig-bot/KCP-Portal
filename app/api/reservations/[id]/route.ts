@@ -49,6 +49,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
   if (typeof body.tenantCompany === "string") {
     next.tenantCompany = body.tenantCompany.trim();
+    // Staff picked a rent-roll tenant — the request is now resolved.
+    next.tenantResolved = true;
   }
 
   if (body.addNote && body.addNote.text.trim()) {
