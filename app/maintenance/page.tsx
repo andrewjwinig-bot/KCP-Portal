@@ -13,6 +13,7 @@ import {
 } from "@/lib/maintenance/requests";
 import { STAFF, staffName, type StaffId } from "@/lib/maintenance/staff";
 import { summarize } from "@/lib/maintenance/summarize";
+import { bestTenantMatch, isResolvedTenant } from "@/lib/tenants/match";
 import {
   Pill,
   Badge,
@@ -728,6 +729,19 @@ function RequestModal({
     return () => { alive = false; };
   }, [request.propertyCode]);
 
+  // Closest rent-roll occupant to the free-text Company Name the tenant
+  // typed — staff get a one-click "use this" instead of hunting the
+  // dropdown. Suppressed once the name already matches a known tenant.
+  const tenantSuggestion = useMemo(() => {
+    const typed = companyOf(request);
+    if (!typed || companies.length === 0) return null;
+    const names = companies.map((c) => c.name);
+    if (isResolvedTenant(typed, names)) return null;
+    const match = bestTenantMatch(typed, names);
+    if (!match) return null;
+    return companies.find((c) => c.name === match.name) ?? null;
+  }, [request, companies]);
+
   useEffect(() => {
     function onKey(e: KeyboardEvent) { if (e.key === "Escape") onClose(); }
     window.addEventListener("keydown", onKey);
@@ -918,6 +932,29 @@ function RequestModal({
               <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", lineHeight: 1.4, wordBreak: "break-word" }}>
                 {companyOf(request) || <span style={{ color: "var(--muted)" }}>—</span>}
               </span>
+              {tenantSuggestion && (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => {
+                    const suite = tenantSuggestion.units.map((u) => u.unitRef).join(", ");
+                    patch({ tenantCompany: tenantSuggestion.name, tenantSuite: suite });
+                  }}
+                  title="Apply the closest rent-roll tenant"
+                  style={{
+                    marginTop: 4, padding: "4px 8px", cursor: "pointer",
+                    border: "1px solid rgba(37,99,235,0.45)", borderRadius: 6,
+                    background: "rgba(37,99,235,0.08)", color: "#1d4ed8",
+                    fontFamily: "inherit", fontSize: 12, fontWeight: 700,
+                    textAlign: "left", lineHeight: 1.35,
+                  }}
+                >
+                  ✨ Use “{tenantSuggestion.name}
+                  {tenantSuggestion.units.length === 1
+                    ? ` · ${tenantSuggestion.units[0].unitRef}`
+                    : ` · ${tenantSuggestion.units.length} suites`}”
+                </button>
+              )}
               {companies.length > 0 && (
                 <select
                   disabled={busy}
@@ -937,6 +974,7 @@ function RequestModal({
                   <option value="">Resolve tenant…</option>
                   {companies.map((c) => (
                     <option key={c.name} value={c.name}>
+                      {c.name === tenantSuggestion?.name ? "✨ " : ""}
                       {c.units.length === 1 ? `${c.name} · ${c.units[0].unitRef}` : `${c.name} · ${c.units.length} suites`}
                     </option>
                   ))}

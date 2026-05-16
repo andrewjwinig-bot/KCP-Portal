@@ -10,6 +10,7 @@ import {
 import { BOOKABLE_ROOMS } from "@/lib/reservations/rooms";
 import { useUser } from "@/app/components/UserProvider";
 import { Pill, Badge, reservationStatusTone } from "@/app/components/Pill";
+import { bestTenantMatch, isResolvedTenant } from "@/lib/tenants/match";
 
 type Filter = "Pending" | "Approved" | "Declined" | "All";
 
@@ -279,6 +280,18 @@ function ReservationModal({
     return () => { alive = false; };
   }, [reservation.propertyCode]);
 
+  // Closest rent-roll occupant to the free-text Company Name the tenant
+  // typed on /reserve — gives staff a one-click resolve.
+  const tenantSuggestion = useMemo(() => {
+    const typed = (reservation.tenantCompany ?? "").trim();
+    if (!typed || companies.length === 0) return null;
+    const names = companies.map((c) => c.name);
+    if (isResolvedTenant(typed, names)) return null;
+    const match = bestTenantMatch(typed, names);
+    if (!match) return null;
+    return companies.find((c) => c.name === match.name) ?? null;
+  }, [reservation.tenantCompany, companies]);
+
   async function resolveTenant(name: string) {
     setBusy(true); setError(null);
     try {
@@ -402,6 +415,26 @@ function ReservationModal({
               <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", lineHeight: 1.4, wordBreak: "break-word" }}>
                 {reservation.tenantCompany || <span style={{ color: "var(--muted)" }}>—</span>}
               </span>
+              {tenantSuggestion && (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => resolveTenant(tenantSuggestion.name)}
+                  title="Apply the closest rent-roll tenant"
+                  style={{
+                    marginTop: 4, padding: "4px 8px", cursor: "pointer",
+                    border: "1px solid rgba(37,99,235,0.45)", borderRadius: 6,
+                    background: "rgba(37,99,235,0.08)", color: "#1d4ed8",
+                    fontFamily: "inherit", fontSize: 12, fontWeight: 700,
+                    textAlign: "left", lineHeight: 1.35,
+                  }}
+                >
+                  ✨ Use “{tenantSuggestion.name}
+                  {tenantSuggestion.units.length === 1
+                    ? ` · ${tenantSuggestion.units[0].unitRef}`
+                    : ` · ${tenantSuggestion.units.length} suites`}”
+                </button>
+              )}
               {companies.length > 0 && (
                 <select
                   disabled={busy}
@@ -418,6 +451,7 @@ function ReservationModal({
                   <option value="">Resolve tenant…</option>
                   {companies.map((c) => (
                     <option key={c.name} value={c.name}>
+                      {c.name === tenantSuggestion?.name ? "✨ " : ""}
                       {c.units.length === 1 ? `${c.name} · ${c.units[0].unitRef}` : `${c.name} · ${c.units.length} suites`}
                     </option>
                   ))}
