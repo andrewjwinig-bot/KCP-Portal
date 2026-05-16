@@ -650,10 +650,6 @@ export function PropertyDetailBody({
 
   const MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
-  // Address now lives under the page <h1>; this card is only for the
-  // floorplan viewer and any free-text notes.
-  const hasLocation = !!(FLOORPLAN_IDS.has(prop.id) || prop.notes);
-
   // Hero KPI strip values — gather first so we can skip rendering when nothing's set.
   const heroSqft = (rrProp?.totalSqft && rrProp.totalSqft > 0)
     ? rrProp.totalSqft
@@ -690,66 +686,73 @@ export function PropertyDetailBody({
       {/* Body — sections */}
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
 
-        {/* ── Location / Floorplan / Notes ── */}
-        {hasLocation && (
+        {/* ── Notes ── */}
+        {prop.notes && (
           <div className="card">
-            <SectionLabel>Location</SectionLabel>
-            {FLOORPLAN_IDS.has(prop.id) && (
-              <FloorplanViewer propId={prop.id} propName={prop.name} />
-            )}
-            {prop.notes && (
-              <p style={{ fontSize: 13, color: "var(--muted)", marginTop: 6, marginBottom: 0 }}>{prop.notes}</p>
-            )}
+            <SectionLabel>Notes</SectionLabel>
+            <p style={{ fontSize: 13, color: "var(--muted)", margin: 0 }}>{prop.notes}</p>
           </div>
         )}
 
         {/* ── Overview ── */}
         <div className="card">
           <SectionLabel>Overview</SectionLabel>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "14px 32px", marginBottom: (parcels.length > 0 || (!isMaint && bankAccounts.length > 0)) ? 16 : 0 }}>
+
+          {/* EIN · Parcel Numbers · Floorplan — one row */}
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+            gap: "16px 32px",
+            alignItems: "start",
+            marginBottom: (!isMaint && bankAccounts.length > 0) ? 16 : 0,
+          }}>
             {prop.acres != null && (
               <BigInfoField label="Acres" value={`${prop.acres} ac`} />
             )}
-            {prop.ein && (
-              <InfoField label={prop.einLabel ?? "EIN"} value={prop.ein} />
+            {(prop.ein || prop.ein2) && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10, minWidth: 0 }}>
+                {prop.ein && <InfoField label={prop.einLabel ?? "EIN"} value={prop.ein} />}
+                {prop.ein2 && <InfoField label={prop.ein2Label ?? "EIN (2)"} value={prop.ein2} />}
+              </div>
             )}
-            {prop.ein2 && (
-              <InfoField label={prop.ein2Label ?? "EIN (2)"} value={prop.ein2} />
+            {parcels.length > 0 && (
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 6 }}>Parcel Numbers</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {parcels.map((p, i) => (
+                    <div key={i} style={{
+                      display: "flex", alignItems: "center", justifyContent: "space-between",
+                      padding: "8px 12px",
+                      background: "rgba(11,74,125,0.04)",
+                      border: "1px solid rgba(11,74,125,0.12)",
+                      borderRadius: 8,
+                      gap: 10,
+                    }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        {p.link
+                          ? <a href={p.link} target="_blank" rel="noreferrer" style={{ fontSize: 14, fontWeight: 700, color: "#0b4a7d", textDecoration: "none" }}
+                              onMouseEnter={e => (e.currentTarget.style.textDecoration = "underline")}
+                              onMouseLeave={e => (e.currentTarget.style.textDecoration = "none")}
+                            >{p.number}</a>
+                          : <code style={{ fontSize: 14, fontWeight: 700, color: "#0b4a7d" }}>{p.number}</code>
+                        }
+                        {p.label && <span style={{ fontSize: 13, color: "var(--muted)", fontWeight: 500 }}>{p.label}</span>}
+                      </div>
+                      {p.method && (
+                        <span style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600 }}>{p.method}</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {FLOORPLAN_IDS.has(prop.id) && (
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 6 }}>Floorplan</div>
+                <FloorplanViewer propId={prop.id} propName={prop.name} />
+              </div>
             )}
           </div>
-
-          {/* Parcel Numbers */}
-          {parcels.length > 0 && (
-            <div style={{ marginBottom: (!isMaint && bankAccounts.length > 0) ? 12 : 0 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 6 }}>Parcel Numbers</div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                {parcels.map((p, i) => (
-                  <div key={i} style={{
-                    display: "flex", alignItems: "center", justifyContent: "space-between",
-                    padding: "8px 12px",
-                    background: "rgba(11,74,125,0.04)",
-                    border: "1px solid rgba(11,74,125,0.12)",
-                    borderRadius: 8,
-                    gap: 10,
-                  }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      {p.link
-                        ? <a href={p.link} target="_blank" rel="noreferrer" style={{ fontSize: 14, fontWeight: 700, color: "#0b4a7d", textDecoration: "none" }}
-                            onMouseEnter={e => (e.currentTarget.style.textDecoration = "underline")}
-                            onMouseLeave={e => (e.currentTarget.style.textDecoration = "none")}
-                          >{p.number}</a>
-                        : <code style={{ fontSize: 14, fontWeight: 700, color: "#0b4a7d" }}>{p.number}</code>
-                      }
-                      {p.label && <span style={{ fontSize: 13, color: "var(--muted)", fontWeight: 500 }}>{p.label}</span>}
-                    </div>
-                    {p.method && (
-                      <span style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600 }}>{p.method}</span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
 
           {/* Bank Accounts */}
           {!isMaint && bankAccounts.length > 0 && (
