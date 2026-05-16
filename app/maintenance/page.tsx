@@ -521,7 +521,22 @@ function MaintenancePageInner() {
                           <code style={{ fontSize: 12, fontWeight: 700, color: "#0b4a7d" }}>{r.propertyCode}</code>
                         ) : <span className="muted small">—</span>}
                       </td>
-                      <td style={{ fontSize: 13 }}>{companyOf(r) || <span className="muted small">—</span>}</td>
+                      <td style={{ fontSize: 13 }}>
+                        {companyOf(r) || <span className="muted small">—</span>}
+                        {r.tenantResolved === false && (
+                          <span
+                            title="Tenant name didn't match the rent roll — needs assignment"
+                            style={{
+                              marginLeft: 6, padding: "1px 7px", borderRadius: 999,
+                              fontSize: 11, fontWeight: 700, whiteSpace: "nowrap",
+                              background: "rgba(180,83,9,0.12)", color: "#b45309",
+                              border: "1px solid rgba(180,83,9,0.35)",
+                            }}
+                          >
+                            ⚠ Unmatched
+                          </span>
+                        )}
+                      </td>
                       <td style={{ fontSize: 13 }}>
                         {r.tenantName || r.tenantEmail ? (
                           <>
@@ -932,13 +947,28 @@ function RequestModal({
               <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", lineHeight: 1.4, wordBreak: "break-word" }}>
                 {companyOf(request) || <span style={{ color: "var(--muted)" }}>—</span>}
               </span>
+              {request.tenantResolved === false && (
+                <span
+                  title="The typed company name didn't match the rent roll — assign a tenant below."
+                  style={{
+                    display: "inline-flex", alignItems: "center", gap: 4,
+                    alignSelf: "flex-start", marginTop: 2,
+                    padding: "2px 8px", borderRadius: 999,
+                    fontSize: 11, fontWeight: 700,
+                    background: "rgba(180,83,9,0.12)", color: "#b45309",
+                    border: "1px solid rgba(180,83,9,0.35)",
+                  }}
+                >
+                  ⚠ Needs assignment
+                </span>
+              )}
               {tenantSuggestion && (
                 <button
                   type="button"
                   disabled={busy}
                   onClick={() => {
                     const suite = tenantSuggestion.units.map((u) => u.unitRef).join(", ");
-                    patch({ tenantCompany: tenantSuggestion.name, tenantSuite: suite });
+                    patch({ tenantCompany: tenantSuggestion.name, tenantSuite: suite, tenantResolved: true });
                   }}
                   title="Apply the closest rent-roll tenant"
                   style={{
@@ -963,7 +993,7 @@ function RequestModal({
                     const pick = companies.find((c) => c.name === e.target.value);
                     if (!pick) return;
                     const suite = pick.units.map((u) => u.unitRef).join(", ");
-                    patch({ tenantCompany: pick.name, tenantSuite: suite });
+                    patch({ tenantCompany: pick.name, tenantSuite: suite, tenantResolved: true });
                   }}
                   style={{
                     ...selectStyle,

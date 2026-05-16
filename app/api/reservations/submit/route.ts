@@ -9,6 +9,8 @@ import {
 import { roomByUnitRef } from "@/lib/reservations/rooms";
 import { findConflicts } from "@/lib/reservations/conflict";
 import { upsertContact } from "@/lib/maintenance/tenants";
+import { companiesForProperty } from "@/lib/tenants/companies";
+import { bestTenantMatch } from "@/lib/tenants/match";
 import { sendMail } from "@/lib/mail";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
@@ -111,6 +113,14 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Auto-resolve the free-text company name to a canonical rent-roll
+  // tenant. When nothing matches confidently, keep the typed name and flag
+  // the reservation so the admin list highlights it for assignment.
+  const companies = await companiesForProperty(room.propertyCode);
+  const match = bestTenantMatch(tenantCompany, companies.map((c) => c.name));
+  const resolvedCompany = match ? match.name : tenantCompany;
+  const tenantResolved = match != null;
+
   const now = new Date().toISOString();
   const r: Reservation = {
     id: newReservationId(),
@@ -118,7 +128,8 @@ export async function POST(req: NextRequest) {
     roomLabel: room.label,
     propertyCode: room.propertyCode,
     propertyName: room.propertyName,
-    tenantCompany,
+    tenantCompany: resolvedCompany,
+    tenantResolved,
     contactFirstName: firstName,
     contactLastName: lastName,
     contactEmail: email,

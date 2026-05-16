@@ -216,7 +216,22 @@ function ReservationsPageInner() {
                     onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.filter = ""; }}
                   >
                     <td style={{ fontWeight: 600 }}>{r.roomLabel}<div style={{ fontSize: 11, color: "var(--muted)", fontWeight: 400 }}>{r.propertyName}</div></td>
-                    <td style={{ fontSize: 13 }}>{r.tenantCompany}</td>
+                    <td style={{ fontSize: 13 }}>
+                      {r.tenantCompany}
+                      {r.tenantResolved === false && (
+                        <span
+                          title="Tenant name didn't match the rent roll — needs assignment"
+                          style={{
+                            marginLeft: 6, padding: "1px 7px", borderRadius: 999,
+                            fontSize: 11, fontWeight: 700, whiteSpace: "nowrap",
+                            background: "rgba(180,83,9,0.12)", color: "#b45309",
+                            border: "1px solid rgba(180,83,9,0.35)",
+                          }}
+                        >
+                          ⚠ Unmatched
+                        </span>
+                      )}
+                    </td>
                     <td style={{ fontSize: 13 }}>
                       {r.contactFirstName} {r.contactLastName}
                       <div style={{ fontSize: 11, color: "var(--muted)" }}>{r.contactEmail}</div>
@@ -415,6 +430,21 @@ function ReservationModal({
               <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", lineHeight: 1.4, wordBreak: "break-word" }}>
                 {reservation.tenantCompany || <span style={{ color: "var(--muted)" }}>—</span>}
               </span>
+              {reservation.tenantResolved === false && (
+                <span
+                  title="The typed company name didn't match the rent roll — assign a tenant below."
+                  style={{
+                    display: "inline-flex", alignItems: "center", gap: 4,
+                    alignSelf: "flex-start", marginTop: 2,
+                    padding: "2px 8px", borderRadius: 999,
+                    fontSize: 11, fontWeight: 700,
+                    background: "rgba(180,83,9,0.12)", color: "#b45309",
+                    border: "1px solid rgba(180,83,9,0.35)",
+                  }}
+                >
+                  ⚠ Needs assignment
+                </span>
+              )}
               {tenantSuggestion && (
                 <button
                   type="button"
