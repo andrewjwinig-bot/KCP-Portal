@@ -710,9 +710,31 @@ export function PropertyDetailBody({
               <BigInfoField label="Acres" value={`${prop.acres} ac`} />
             )}
             {(prop.ein || prop.ein2) && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 10, minWidth: 0 }}>
-                {prop.ein && <InfoField label={prop.einLabel ?? "EIN"} value={prop.ein} />}
-                {prop.ein2 && <InfoField label={prop.ein2Label ?? "EIN (2)"} value={prop.ein2} />}
+              <div style={{ display: "flex", flexDirection: "column", gap: 12, minWidth: 0 }}>
+                {prop.ein && (
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 6 }}>{prop.einLabel ?? "EIN"}</div>
+                    <div style={{
+                      padding: "8px 12px",
+                      background: "rgba(11,74,125,0.04)",
+                      border: "1px solid rgba(11,74,125,0.12)",
+                      borderRadius: 8,
+                      fontSize: 14, fontWeight: 700, color: "var(--text)",
+                    }}>{prop.ein}</div>
+                  </div>
+                )}
+                {prop.ein2 && (
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 6 }}>{prop.ein2Label ?? "EIN (2)"}</div>
+                    <div style={{
+                      padding: "8px 12px",
+                      background: "rgba(11,74,125,0.04)",
+                      border: "1px solid rgba(11,74,125,0.12)",
+                      borderRadius: 8,
+                      fontSize: 14, fontWeight: 700, color: "var(--text)",
+                    }}>{prop.ein2}</div>
+                  </div>
+                )}
               </div>
             )}
             {parcels.length > 0 && (
