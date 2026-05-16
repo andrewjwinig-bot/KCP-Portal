@@ -650,7 +650,9 @@ export function PropertyDetailBody({
 
   const MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
-  const hasLocation = !!(prop.address || prop.city || FLOORPLAN_IDS.has(prop.id) || prop.notes);
+  // Address now lives under the page <h1>; this card is only for the
+  // floorplan viewer and any free-text notes.
+  const hasLocation = !!(FLOORPLAN_IDS.has(prop.id) || prop.notes);
 
   // Hero KPI strip values — gather first so we can skip rendering when nothing's set.
   const heroSqft = (rrProp?.totalSqft && rrProp.totalSqft > 0)
@@ -692,15 +694,8 @@ export function PropertyDetailBody({
         {hasLocation && (
           <div className="card">
             <SectionLabel>Location</SectionLabel>
-            {(prop.address || prop.city) && (
-              <div style={{ fontSize: 16, fontWeight: 700, color: "var(--text)", lineHeight: 1.4 }}>
-                {[prop.address, prop.city, [prop.state, prop.zip].filter(Boolean).join(" ")].filter(Boolean).join(", ")}
-              </div>
-            )}
             {FLOORPLAN_IDS.has(prop.id) && (
-              <div style={{ marginTop: 10 }}>
-                <FloorplanViewer propId={prop.id} propName={prop.name} />
-              </div>
+              <FloorplanViewer propId={prop.id} propName={prop.name} />
             )}
             {prop.notes && (
               <p style={{ fontSize: 13, color: "var(--muted)", marginTop: 6, marginBottom: 0 }}>{prop.notes}</p>
@@ -712,14 +707,8 @@ export function PropertyDetailBody({
         <div className="card">
           <SectionLabel>Overview</SectionLabel>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "14px 32px", marginBottom: (parcels.length > 0 || (!isMaint && bankAccounts.length > 0)) ? 16 : 0 }}>
-            {prop.type !== "Land" && prop.type !== "Misc" && (
-              <BigInfoField label="Sq Footage" value={prop.sqft ? `${prop.sqft.toLocaleString()} sq ft` : "—"} />
-            )}
             {prop.acres != null && (
               <BigInfoField label="Acres" value={`${prop.acres} ac`} />
-            )}
-            {prop.type !== "Land" && prop.type !== "Misc" && (
-              <BigInfoField label="Year Built" value={prop.yearBuilt ? String(prop.yearBuilt) : "—"} />
             )}
             {prop.ein && (
               <InfoField label={prop.einLabel ?? "EIN"} value={prop.ein} />
@@ -791,41 +780,10 @@ export function PropertyDetailBody({
           )}
         </div>
 
-        {/* ── Occupancy & Suites (from rent roll) ── */}
-        {rrProp && (
-          <div className="card">
-            <SectionLabel>Occupancy</SectionLabel>
-            {rrProp.totalSqft > 0 && (() => {
-              const pctOcc = (rrProp.occupiedSqft / rrProp.totalSqft) * 100;
-              return (
-                <div style={{ marginBottom: 14 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-                    <span style={{
-                      fontSize: 22, fontWeight: 900, lineHeight: 1,
-                      color: pctOcc >= 90 ? "#16a34a" : pctOcc >= 70 ? "#0b4a7d" : "#d97706",
-                    }}>{pctOcc.toFixed(1)}%</span>
-                    <span style={{ fontSize: 13, color: "var(--muted)" }}>
-                      {rrProp.occupiedSqft.toLocaleString()} / {rrProp.totalSqft.toLocaleString()} sq ft occupied
-                    </span>
-                  </div>
-                  <div style={{ height: 6, borderRadius: 999, background: "rgba(15,23,42,0.08)", overflow: "hidden" }}>
-                    <div style={{
-                      height: "100%", borderRadius: 999,
-                      width: `${pctOcc}%`,
-                      background: pctOcc >= 90 ? "#16a34a" : pctOcc >= 70 ? "#0b4a7d" : "#d97706",
-                    }} />
-                  </div>
-                </div>
-              );
-            })()}
-          </div>
-        )}
-
         {/* ── Building Facts (maint-team editable) ── */}
         <div className="card">
           <BuildingFacts
             propId={prop.id}
-            fallbackYearBuilt={prop.yearBuilt}
             facts={facts}
             onSaved={(next) => setFacts(next)}
             canEdit={canEditFacts}
@@ -1264,7 +1222,6 @@ export type PropertyFactsState = {
 };
 
 const FACT_FIELDS: { key: keyof PropertyFactsState; label: string; placeholder: string; type?: "number" }[] = [
-  { key: "yearBuilt",         label: "Year Built",         placeholder: "e.g. 1985", type: "number" },
   { key: "constructionType",  label: "Construction Type",  placeholder: "e.g. Steel frame, masonry exterior" },
   { key: "roofAge",           label: "Roof Age",           placeholder: "e.g. 12 yrs (replaced 2014)" },
   { key: "roofType",          label: "Roof Type",          placeholder: "e.g. TPO membrane" },
@@ -1276,10 +1233,9 @@ const FACT_FIELDS: { key: keyof PropertyFactsState; label: string; placeholder: 
 ];
 
 function BuildingFacts({
-  propId, fallbackYearBuilt, facts, onSaved, canEdit,
+  propId, facts, onSaved, canEdit,
 }: {
   propId: string;
-  fallbackYearBuilt: number | undefined;
   facts: PropertyFactsState | null;
   onSaved: (f: PropertyFactsState) => void;
   canEdit: boolean;
@@ -1321,36 +1277,37 @@ function BuildingFacts({
   const filledCount = facts
     ? FACT_FIELDS.reduce((n, f) => {
         const v = facts[f.key];
-        if (f.key === "yearBuilt") return n + (v != null && v !== "" ? 1 : 0);
         return n + (typeof v === "string" && v.trim() ? 1 : 0);
       }, 0)
     : 0;
 
   function displayValue(key: keyof PropertyFactsState): string {
     const v = facts?.[key];
-    if (key === "yearBuilt") {
-      if (v != null && v !== "") return String(v);
-      if (fallbackYearBuilt) return String(fallbackYearBuilt);
-      return "—";
-    }
     return (typeof v === "string" && v.trim()) ? v : "—";
   }
 
   return (
-    <CollapsibleSection
-      title="Building Facts"
-      count={filledCount}
-      link={canEdit && !editing ? (
-        <button
-          onClick={(e) => { e.stopPropagation(); startEdit(); }}
-          style={{
-            fontSize: 11, fontWeight: 600, color: "var(--brand)",
-            marginLeft: 8, background: "transparent", border: "none",
-            cursor: "pointer", padding: 0, fontFamily: "inherit",
-          }}
-        >Edit ✎</button>
-      ) : undefined}
-    >
+    <section>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 12 }}>
+        <span style={{
+          fontSize: 11, fontWeight: 900, letterSpacing: "0.08em",
+          color: "var(--muted)", textTransform: "uppercase",
+        }}>Building Facts</span>
+        <span style={{
+          fontSize: 10, fontWeight: 800, padding: "1px 7px", borderRadius: 999,
+          background: "rgba(15,23,42,0.06)", color: "var(--muted)",
+        }}>{filledCount}</span>
+        {canEdit && !editing && (
+          <button
+            onClick={startEdit}
+            style={{
+              fontSize: 11, fontWeight: 600, color: "var(--brand)",
+              marginLeft: 2, background: "transparent", border: "none",
+              cursor: "pointer", padding: 0, fontFamily: "inherit",
+            }}
+          >Edit ✎</button>
+        )}
+      </div>
       {facts === null ? (
         <div className="muted small">Loading…</div>
       ) : editing ? (
@@ -1404,6 +1361,6 @@ function BuildingFacts({
           ))}
         </div>
       )}
-    </CollapsibleSection>
+    </section>
   );
 }
