@@ -108,6 +108,23 @@ export const TONE_BLUE: PillTone      = { bg: "rgba(11,74,125,0.10)", fg: "#0b4a
 export const TONE_AMBER: PillTone     = { bg: "rgba(217,119,6,0.10)", fg: "#b45309", border: "rgba(217,119,6,0.30)" };
 export const TONE_GREEN: PillTone     = { bg: "rgba(22,163,74,0.10)", fg: "#15803d", border: "rgba(22,163,74,0.30)" };
 export const TONE_RED: PillTone       = { bg: "rgba(220,38,38,0.10)", fg: "#b91c1c", border: "rgba(220,38,38,0.30)" };
+export const TONE_TEAL: PillTone      = { bg: "rgba(13,148,136,0.10)", fg: "#0d9488", border: "rgba(13,148,136,0.35)" };
+export const TONE_PURPLE: PillTone    = { bg: "rgba(124,58,237,0.10)", fg: "#6d28d9", border: "rgba(124,58,237,0.30)" };
+export const TONE_PINK: PillTone      = { bg: "rgba(219,39,119,0.10)", fg: "#be185d", border: "rgba(219,39,119,0.30)" };
+
+/**
+ * Stable color palette for multi-select chips (Suite Information flooring
+ * / lighting, etc.). Use `paletteTone(index)` to color the Nth option so
+ * the same choice always reads the same color.
+ */
+export const MULTISELECT_PALETTE: PillTone[] = [
+  TONE_BLUE, TONE_TEAL, TONE_AMBER, TONE_PURPLE, TONE_GREEN, TONE_PINK, TONE_RED, TONE_NEUTRAL,
+];
+
+export function paletteTone(index: number): PillTone {
+  const n = MULTISELECT_PALETTE.length;
+  return MULTISELECT_PALETTE[((index % n) + n) % n];
+}
 
 export function maintenanceStatusTone(status: string): PillTone {
   switch (status) {
