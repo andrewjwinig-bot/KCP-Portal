@@ -54,7 +54,14 @@ export default function PropertyDetailPage() {
           ← Properties
         </Link>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
-          <h1 style={{ margin: 0 }}>{prop.name}</h1>
+          <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
+            <h1 style={{ margin: 0 }}>{prop.name}</h1>
+            {(prop.address || prop.city) && (
+              <div style={{ fontSize: 14, color: "var(--muted)", fontWeight: 500 }}>
+                {[prop.address, prop.city, [prop.state, prop.zip].filter(Boolean).join(" ")].filter(Boolean).join(", ")}
+              </div>
+            )}
+          </div>
           <div style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
             <span style={{ fontFamily: "'Arial Black', 'Arial Bold', Arial, sans-serif", fontWeight: 900, fontSize: 30, letterSpacing: "-0.5px", lineHeight: 1 }}>KORMAN</span>
             <div style={{ width: 1, height: 36, background: "#000", flexShrink: 0 }} />

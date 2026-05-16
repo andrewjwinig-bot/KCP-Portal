@@ -10,6 +10,7 @@ function r(partial: Partial<Reservation>): Reservation {
     propertyCode: "4060",
     propertyName: "Building 6",
     tenantCompany: partial.tenantCompany ?? "Acme",
+    tenantResolved: partial.tenantResolved ?? true,
     contactFirstName: "A",
     contactLastName: "B",
     contactEmail: "a@b.co",
