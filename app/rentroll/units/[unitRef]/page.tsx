@@ -31,7 +31,7 @@ const NI_LLC_CODES = new Set(["4050", "4060", "4070", "4080", "40A0", "40B0", "4
 
 function showsBaseYear(propertyCode: string): boolean {
   const c = propertyCode.toUpperCase();
-  return JV_III_CODES.has(c) || NI_LLC_CODES.has(c) || c === "4900";
+  return JV_III_CODES.has(c) || NI_LLC_CODES.has(c);
 }
 
 function parseRentDate(s: string | null | undefined): Date | null {
