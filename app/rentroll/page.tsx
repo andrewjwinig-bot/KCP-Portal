@@ -879,7 +879,7 @@ function OccupancyChart({ rentroll, categoryFilter }: { rentroll: RentRollData; 
   const legend = METRIC_SEGMENTS[metric];
 
   return (
-    <div className="card">
+    <div style={{ marginTop: 18, paddingTop: 18, borderTop: "1px solid var(--border)" }}>
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
         <div>
           <div style={{ fontWeight: 700, fontSize: 16 }}>
@@ -1227,15 +1227,49 @@ export default function RentRollPage() {
     s + p.units.reduce((u, unit) => u + unit.grossRentTotal, 0), 0) ?? 0;
   const occupancyPct = totalSqft > 0 ? (occupiedSqft / totalSqft) * 100 : 0;
 
+  // "May-26" style label derived from the rent roll's report period — shown
+  // alongside the page heading.
+  const periodLabel = (() => {
+    const m = filteredRentroll?.reportFrom?.match(/^(\d{1,2})\/\d{1,2}\/(\d{4})$/);
+    return m ? `${MONTHS_SHORT[parseInt(m[1]) - 1]}-${m[2].slice(2)}` : null;
+  })();
+
   return (
     <BaseYearResetsContext.Provider value={baseYearResets}>
     <main>
-      <h1 style={{ marginBottom: 24 }}>Rent Roll</h1>
+      <h1 style={{ marginBottom: 24 }}>
+        Rent Roll
+        {periodLabel && <span style={{ color: "var(--muted)", fontWeight: 400 }}> – {periodLabel}</span>}
+      </h1>
 
       {/* ── Import card ───────────────────────────────────────────────────── */}
       <div className="card" style={{ marginBottom: 24 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
-          <b style={{ fontSize: 13 }}>Import Rent Roll</b>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".xlsx,.xls"
+              style={{ display: "none" }}
+              onChange={handleFileChange}
+            />
+            <button
+              className="btn"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              style={{ whiteSpace: "nowrap", fontSize: 13, padding: "8px 16px" }}
+            >
+              {uploading ? "Uploading…" : "Import"}
+            </button>
+            <button
+              className="btn"
+              style={{ borderRadius: 999, fontWeight: 700, whiteSpace: "nowrap", fontSize: 13, padding: "8px 16px" }}
+              onClick={() => setRawRentroll(null)}
+              disabled={!rentroll}
+            >
+              Clear
+            </button>
+          </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             {((filteredRentroll && categoryRentroll) || snapshotList.length > 0) && (
               <>
@@ -1245,7 +1279,7 @@ export default function RentRollPage() {
                     onChange={(e) => setReportMonth(e.target.value)}
                     title="Status report period"
                     style={{
-                      borderRadius: 999, padding: "11px 12px",
+                      borderRadius: 999, padding: "8px 12px",
                       fontSize: 13, fontWeight: 600,
                       border: "1px solid rgba(11,74,125,0.3)",
                       background: "var(--card)", color: "#0b4a7d",
@@ -1265,8 +1299,8 @@ export default function RentRollPage() {
                   disabled={generatingReport || (!reportMonth && (!filteredRentroll || !categoryRentroll))}
                   style={{
                     background: generatingReport ? "rgba(11,74,125,0.4)" : "rgba(11,74,125,0.85)",
-                    color: "#fff", borderRadius: 999, padding: "12px 18px",
-                    fontSize: 15, fontWeight: 700, border: "1px solid transparent",
+                    color: "#fff", borderRadius: 999, padding: "8px 16px",
+                    fontSize: 13, fontWeight: 700, border: "1px solid transparent",
                     display: "inline-flex", alignItems: "center", cursor: generatingReport ? "default" : "pointer",
                     whiteSpace: "nowrap",
                   }}
@@ -1275,32 +1309,12 @@ export default function RentRollPage() {
                 </button>
               </>
             )}
-            <span style={{ background: "rgba(22, 163, 74, 0.85)", color: "#fff", borderRadius: 999, padding: "12px 18px", fontSize: 15, fontWeight: 700, border: "1px solid transparent", display: "inline-flex", alignItems: "center" }}>Monthly</span>
+            <span style={{ background: "rgba(22, 163, 74, 0.85)", color: "#fff", borderRadius: 999, padding: "8px 16px", fontSize: 13, fontWeight: 700, border: "1px solid transparent", display: "inline-flex", alignItems: "center" }}>Monthly</span>
           </div>
         </div>
-        <p className="muted small" style={{ marginTop: 4 }}>
+        <p className="muted small" style={{ marginTop: 8 }}>
           Import the <b>Commercial Rent Roll</b> Excel file (.xls or .xlsx).
         </p>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".xlsx,.xls"
-            style={{ display: "none" }}
-            onChange={handleFileChange}
-          />
-          <button className="btn" onClick={() => fileInputRef.current?.click()} style={{ whiteSpace: "nowrap", fontSize: 13, padding: "7px 14px" }} disabled={uploading}>
-            {uploading ? "Uploading…" : "Choose Rent Roll File…"}
-          </button>
-          <button
-            className="btn"
-            style={{ borderRadius: 999, fontWeight: 700, whiteSpace: "nowrap", fontSize: 13, padding: "7px 14px" }}
-            onClick={() => setRawRentroll(null)}
-            disabled={!rentroll}
-          >
-            Clear
-          </button>
-        </div>
         {uploadError && <div style={{ color: "#b42318", fontSize: 13, marginTop: 6 }}>{uploadError}</div>}
         {loading && <div style={{ color: "var(--muted)", fontSize: 13, marginTop: 10 }}>Loading…</div>}
         {filteredRentroll && (
@@ -1343,9 +1357,13 @@ export default function RentRollPage() {
               <StatPill label="Properties"     value={String(categoryRentroll!.properties.length)} />
               {totalGross > 0 && <StatPill label="Gross Rent/mo" value={`$${Math.round(totalGross).toLocaleString()}`} />}
             </div>
-            <div className="small muted" style={{ textAlign: "center", marginTop: 6 }}>
-              <b>Period:</b> {filteredRentroll.reportFrom} – {filteredRentroll.reportTo}
-            </div>
+            {/* Occupancy chart — driven by the category pills above */}
+            {categoryRentroll!.properties.reduce((s, p) => s + p.totalSqft, 0) > 0 && (
+              <OccupancyChart
+                rentroll={categoryRentroll!}
+                categoryFilter={categoryFilter}
+              />
+            )}
           </>
         )}
       </div>
@@ -1353,14 +1371,6 @@ export default function RentRollPage() {
       {/* ── Dashboard ─────────────────────────────────────────────────────── */}
       {filteredRentroll && categoryRentroll && (
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-
-          {/* Occupancy / rent stacked bar chart */}
-          {categoryRentroll.properties.reduce((s, p) => s + p.totalSqft, 0) > 0 && (
-            <OccupancyChart
-              rentroll={categoryRentroll}
-              categoryFilter={categoryFilter}
-            />
-          )}
 
           {/* Alerts */}
           <AlertsPanel rentroll={categoryRentroll} />
