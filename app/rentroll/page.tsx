@@ -891,16 +891,16 @@ function PortfolioGroup({ name, props, tenantMeta, onBaseYearChange, vacatingUni
   return (
     <div>
       {/* Portfolio header */}
-      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10 }}>
-        <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--muted)" }}>
-          {name} <span style={{ fontWeight: 500 }}>({props.length})</span>
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 16, marginBottom: 10, flexWrap: "wrap" }}>
+        <div style={{ fontSize: 14, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text)" }}>
+          {name} <span style={{ fontWeight: 600, color: "var(--muted)" }}>({props.length})</span>
         </div>
-        <div style={{ display: "flex", gap: 18, fontSize: 12, color: "var(--muted)" }}>
-          <span>{sqftFmt(totalSqft)} total sf</span>
-          <span>{sqftFmt(occupiedSqft)} occupied</span>
-          {vacantSqft > 0 && <span>{sqftFmt(vacantSqft)} vacant</span>}
-          <span style={{ fontWeight: 700, color: pct >= 90 ? "#16a34a" : pct >= 70 ? "#0b4a7d" : "#d97706" }}>{pct.toFixed(1)}% occ</span>
-          {gross > 0 && <span>${Math.round(gross).toLocaleString()}/mo gross</span>}
+        <div style={{ display: "flex", gap: 16, fontSize: 12, color: "var(--muted)", flexWrap: "wrap" }}>
+          <span><b style={{ fontWeight: 700, color: "var(--text)" }}>{sqftFmt(totalSqft)}</b> total sf</span>
+          <span><b style={{ fontWeight: 700, color: "var(--text)" }}>{sqftFmt(occupiedSqft)}</b> occupied</span>
+          {vacantSqft > 0 && <span><b style={{ fontWeight: 700, color: "var(--text)" }}>{sqftFmt(vacantSqft)}</b> vacant</span>}
+          <span><b style={{ fontWeight: 700, color: pct >= 90 ? "#16a34a" : pct >= 70 ? "#0b4a7d" : "#d97706" }}>{pct.toFixed(1)}%</b> occ</span>
+          {gross > 0 && <span><b style={{ fontWeight: 700, color: "var(--text)" }}>${Math.round(gross).toLocaleString()}</b>/mo gross</span>}
         </div>
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
