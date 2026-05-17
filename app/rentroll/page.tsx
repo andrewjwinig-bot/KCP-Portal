@@ -896,11 +896,11 @@ function PortfolioGroup({ name, props, tenantMeta, onBaseYearChange, vacatingUni
           {name} <span style={{ fontWeight: 600, color: "var(--muted)" }}>({props.length})</span>
         </div>
         <div style={{ display: "flex", gap: 16, fontSize: 12, color: "var(--muted)", flexWrap: "wrap" }}>
-          <span><b style={{ fontWeight: 700, color: "var(--text)" }}>{sqftFmt(totalSqft)}</b> total sf</span>
-          <span><b style={{ fontWeight: 700, color: "var(--text)" }}>{sqftFmt(occupiedSqft)}</b> occupied</span>
-          {vacantSqft > 0 && <span><b style={{ fontWeight: 700, color: "var(--text)" }}>{sqftFmt(vacantSqft)}</b> vacant</span>}
-          <span><b style={{ fontWeight: 700, color: pct >= 90 ? "#16a34a" : pct >= 70 ? "#0b4a7d" : "#d97706" }}>{pct.toFixed(1)}%</b> occ</span>
-          {gross > 0 && <span><b style={{ fontWeight: 700, color: "var(--text)" }}>${Math.round(gross).toLocaleString()}</b>/mo gross</span>}
+          <span><b style={{ fontWeight: 700, color: "var(--text)" }}>{sqftFmt(totalSqft)}</b> Total SF</span>
+          <span><b style={{ fontWeight: 700, color: "var(--text)" }}>{sqftFmt(occupiedSqft)}</b> Occupied</span>
+          {vacantSqft > 0 && <span><b style={{ fontWeight: 700, color: "var(--text)" }}>{sqftFmt(vacantSqft)}</b> Vacant</span>}
+          <span><b style={{ fontWeight: 700, color: pct >= 90 ? "#16a34a" : pct >= 70 ? "#0b4a7d" : "#d97706" }}>{pct.toFixed(1)}%</b> Occ</span>
+          {gross > 0 && <span><b style={{ fontWeight: 700, color: "var(--text)" }}>${Math.round(gross).toLocaleString()}</b>/mo Gross</span>}
         </div>
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
