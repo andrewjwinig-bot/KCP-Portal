@@ -282,6 +282,28 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
   }, []);
   const W = isNarrow ? (open ? 260 : 0) : (open ? 220 : 60);
 
+  // Pending reservation count → badge on the Reservations nav item.
+  const canSeeReservations = user.navKeys.has("all") || user.navKeys.has("reservations");
+  const [reservationPending, setReservationPending] = useState(0);
+  useEffect(() => {
+    if (!canSeeReservations) { setReservationPending(0); return; }
+    let alive = true;
+    const load = () => {
+      fetch("/api/reservations")
+        .then((r) => (r.ok ? r.json() : null))
+        .then((j) => {
+          if (!alive || !Array.isArray(j?.reservations)) return;
+          setReservationPending(
+            j.reservations.filter((x: { status?: string }) => x.status === "Pending").length,
+          );
+        })
+        .catch(() => { /* ignore */ });
+    };
+    load();
+    const timer = setInterval(load, 60000);
+    return () => { alive = false; clearInterval(timer); };
+  }, [canSeeReservations]);
+
   function isActive(item: (typeof NAV)[number]) {
     if (item.external) return false;
     if (item.href === "/") return pathname === "/";
@@ -370,6 +392,7 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
       <nav style={{ flex: 1, padding: open ? "4px 8px" : "8px 6px", display: "flex", flexDirection: "column", gap: 2, minHeight: 0 }}>
         {NAV.filter((item) => isVisible(item)).map((item) => {
           const active = isActive(item);
+          const badge = item.label === "Reservations" ? reservationPending : 0;
           return (
             <a
               key={item.label}
@@ -392,6 +415,7 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
                 cursor: "pointer",
                 transition: "background 0.15s",
                 whiteSpace: "nowrap",
+                position: "relative",
                 background: active ? "rgba(255,255,255,0.18)" : "transparent",
               }}
               onMouseEnter={(e) => {
@@ -403,6 +427,23 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
             >
               <span style={{ flexShrink: 0 }}>{item.icon}</span>
               {open && <span>{item.label}</span>}
+              {open && badge > 0 && (
+                <span style={{
+                  marginLeft: "auto", minWidth: 18, height: 18, padding: "0 5px",
+                  borderRadius: 999, background: "#dc2626", color: "#fff",
+                  fontSize: 10, fontWeight: 800, lineHeight: 1,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                }}>{badge}</span>
+              )}
+              {!open && badge > 0 && (
+                <span style={{
+                  position: "absolute", top: 3, right: 6,
+                  minWidth: 15, height: 15, padding: "0 3px",
+                  borderRadius: 999, background: "#dc2626", color: "#fff",
+                  fontSize: 9, fontWeight: 800, lineHeight: 1,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                }}>{badge}</span>
+              )}
             </a>
           );
         })}
