@@ -1240,7 +1240,7 @@ export default function RentRollPage() {
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 24, flexWrap: "wrap" }}>
         <h1 style={{ margin: 0 }}>Rent Roll</h1>
         {periodLabel && (
-          <span style={{ fontSize: 15, fontWeight: 600, color: "var(--muted)", whiteSpace: "nowrap" }}>{periodLabel}</span>
+          <span style={{ fontSize: 20, fontWeight: 700, color: "var(--muted)", whiteSpace: "nowrap" }}>{periodLabel}</span>
         )}
       </div>
 
