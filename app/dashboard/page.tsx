@@ -13,6 +13,7 @@ import { fireNotification } from "../../lib/notifications";
 import ExpirationChart from "./ExpirationChart";
 import MaintenanceOverview from "./MaintenanceOverview";
 import PendingReservationsCard from "./PendingReservationsCard";
+import PortfolioOccupancyPanel from "./PortfolioOccupancyPanel";
 
 function sqftFmt(n: number) { return n.toLocaleString(); }
 
@@ -468,6 +469,9 @@ function DashboardInner() {
         )}
 
         {/* ── Portfolio Occupancy ── */}
+        {(user.id === "nancy" || user.id === "harry") ? (
+          <PortfolioOccupancyPanel occupancy={occupancy} loading={loading} order={-1} />
+        ) : (
         <Link href="/rentroll" className="card" style={{ display: "block", textDecoration: "none", color: "inherit", cursor: "pointer", transition: "box-shadow 0.15s, transform 0.15s", order: isStacie ? 2 : 0 }}
           onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.boxShadow = "0 4px 16px rgba(15,23,42,0.08)"; }}
           onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.boxShadow = ""; }}>
@@ -517,17 +521,18 @@ function DashboardInner() {
             <div className="muted small">No rent roll uploaded yet. Upload one →</div>
           )}
         </Link>
+        )}
 
-        {/* ── Office Lease Expirations (Nancy + admin) ── */}
+        {/* ── Office Lease Expirations (Nancy + admin) — below occupancy ── */}
         {(user.id === "nancy" || isAdmin) && (
-          <div style={{ gridColumn: "1 / -1", order: user.id === "nancy" ? -1 : 1 }}>
+          <div style={{ gridColumn: "1 / -1", order: user.id === "nancy" ? 0 : 1 }}>
             <ExpirationChart rentroll={rentroll} variant="office" />
           </div>
         )}
 
-        {/* ── Retail Lease Expirations (Harry + admin) ── */}
+        {/* ── Retail Lease Expirations (Harry + admin) — below occupancy ── */}
         {(user.id === "harry" || isAdmin) && (
-          <div style={{ gridColumn: "1 / -1", order: user.id === "harry" ? -1 : 1 }}>
+          <div style={{ gridColumn: "1 / -1", order: user.id === "harry" ? 0 : 1 }}>
             <ExpirationChart rentroll={rentroll} variant="retail" />
           </div>
         )}
