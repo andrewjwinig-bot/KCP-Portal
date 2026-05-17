@@ -878,18 +878,46 @@ function OccupancyChart({ rentroll, categoryFilter }: { rentroll: RentRollData; 
   const chartMax = Math.max(1, ...bars.map((b) => b.total));
   const chartHeight = 200;
   const isMoney = metric !== "occupancy";
+  // Occupancy is shown as a percentage: every bar is full height and the
+  // segments split it into occupied vs vacant share.
+  const normalized = metric === "occupancy";
   const fmt = (n: number) => (isMoney ? moneyShort(n) : `${sqftFmt(Math.round(n))} sf`);
   const legend = METRIC_SEGMENTS[metric];
 
   return (
     <div className="card">
-      <div style={{ marginBottom: 12 }}>
-        <div style={{ fontWeight: 700, fontSize: 16 }}>
-          {CHART_METRICS.find((m) => m.key === metric)!.label}
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
+        <div>
+          <div style={{ fontWeight: 700, fontSize: 16 }}>
+            {CHART_METRICS.find((m) => m.key === metric)!.label}
+          </div>
+          <div className="muted small" style={{ marginTop: 2 }}>
+            {categoryFilter === "All" ? "By portfolio group" : "By property"}
+            {metric === "occupancy" ? " · % occupied" : " · monthly $"}
+          </div>
         </div>
-        <div className="muted small" style={{ marginTop: 2 }}>
-          {categoryFilter === "All" ? "By portfolio group" : "By property"}
-          {metric === "occupancy" ? " · occupied vs vacant SF" : " · monthly $"}
+        {/* Metric toggles */}
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {CHART_METRICS.map(({ key, label }) => {
+            const active = metric === key;
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => { setMetric(key); setHover(null); }}
+                style={{
+                  padding: "5px 14px", borderRadius: 999, fontSize: 12,
+                  fontWeight: active ? 700 : 500, cursor: "pointer",
+                  border: `1.5px solid ${active ? "#0b4a7d" : "var(--border)"}`,
+                  background: active ? "rgba(11,74,125,0.10)" : "transparent",
+                  color: active ? "#0b4a7d" : "var(--muted)",
+                  fontFamily: "inherit", transition: "all 0.15s ease",
+                }}
+              >
+                {label}
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -905,13 +933,18 @@ function OccupancyChart({ rentroll, categoryFilter }: { rentroll: RentRollData; 
             onMouseLeave={() => setHover(null)}
           >
             {bars.map((bar) => {
-              const barH = (bar.total / chartMax) * chartHeight;
+              const barH = normalized ? chartHeight : (bar.total / chartMax) * chartHeight;
+              const denom = normalized ? bar.total : chartMax;
+              const occSeg = bar.segments.find((s) => s.key === "occ");
+              const topLabel = normalized
+                ? `${(((occSeg?.value ?? 0) / bar.total) * 100).toFixed(1)}%`
+                : fmt(bar.total);
               return (
                 <div key={bar.key}
                   style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end", height: chartHeight, position: "relative" }}>
                   <div style={{ display: "flex", flexDirection: "column-reverse", width: "62%", maxWidth: 56, height: barH, borderRadius: "4px 4px 0 0", overflow: "hidden", border: barH > 0 ? "1px solid rgba(15,23,42,0.12)" : "none" }}>
                     {bar.segments.map((seg) => {
-                      const segH = (seg.value / chartMax) * chartHeight;
+                      const segH = (seg.value / denom) * chartHeight;
                       const isHovered = hover?.bar.key === bar.key && hover?.seg.key === seg.key;
                       return (
                         <div key={seg.key}
@@ -932,7 +965,7 @@ function OccupancyChart({ rentroll, categoryFilter }: { rentroll: RentRollData; 
                     })}
                   </div>
                   <div style={{ position: "absolute", bottom: barH + 3, fontSize: 9, fontWeight: 700, color: "var(--text)", whiteSpace: "nowrap" }}>
-                    {fmt(bar.total)}
+                    {topLabel}
                   </div>
                   <div style={{ position: "absolute", bottom: -26, fontSize: 10, fontWeight: 600, color: "var(--muted)", whiteSpace: "nowrap", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", textAlign: "center" }}>
                     {bar.label}
@@ -960,30 +993,6 @@ function OccupancyChart({ rentroll, categoryFilter }: { rentroll: RentRollData; 
                 </div>
               </div>
             )}
-          </div>
-
-          {/* Metric pills */}
-          <div style={{ display: "flex", gap: 8, marginTop: 14, flexWrap: "wrap" }}>
-            {CHART_METRICS.map(({ key, label }) => {
-              const active = metric === key;
-              return (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => { setMetric(key); setHover(null); }}
-                  style={{
-                    padding: "5px 14px", borderRadius: 999, fontSize: 12,
-                    fontWeight: active ? 700 : 500, cursor: "pointer",
-                    border: `1.5px solid ${active ? "#0b4a7d" : "var(--border)"}`,
-                    background: active ? "rgba(11,74,125,0.10)" : "transparent",
-                    color: active ? "#0b4a7d" : "var(--muted)",
-                    fontFamily: "inherit", transition: "all 0.15s ease",
-                  }}
-                >
-                  {label}
-                </button>
-              );
-            })}
           </div>
 
           {/* Legend */}
@@ -1351,17 +1360,12 @@ export default function RentRollPage() {
       {filteredRentroll && categoryRentroll && (
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
 
-          {/* Multi-line occupancy bars */}
+          {/* Occupancy / rent stacked bar chart */}
           {categoryRentroll.properties.reduce((s, p) => s + p.totalSqft, 0) > 0 && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            <div style={{ display: "flex", justifyContent: "flex-end" }}>
-              <a href="/rentroll/trends" style={{ fontSize: 12, fontWeight: 600, color: "#0b4a7d", textDecoration: "none" }}>View trend →</a>
-            </div>
             <OccupancyChart
               rentroll={categoryRentroll}
               categoryFilter={categoryFilter}
             />
-          </div>
           )}
 
           {/* Alerts */}
