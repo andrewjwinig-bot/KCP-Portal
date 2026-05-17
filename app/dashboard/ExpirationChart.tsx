@@ -18,8 +18,13 @@ const OFFICE_CODES = new Set([
 const JV3_CODES = new Set(["3610", "3620", "3640"]);
 const NI_CODES  = new Set(["4050", "4060", "4070", "4080", "40A0", "40B0", "40C0"]);
 
-// Stable color per building (mix of the Office + OW palette so codes
-// from each fund visually separate).
+// Retail (Shopping Center) buildings.
+const RETAIL_CODES = new Set([
+  "1100", "1500", "2300", "4500", "5600",
+  "7010", "7200", "7300", "8200", "9200", "9510",
+]);
+
+// Stable color per building so codes stay visually distinct in the stack.
 const BUILDING_COLOR: Record<string, string> = {
   "3610": "#0b4a7d",
   "3620": "#1d6fa5",
@@ -31,6 +36,17 @@ const BUILDING_COLOR: Record<string, string> = {
   "40A0": "#84cc16",
   "40B0": "#a3e635",
   "40C0": "#65a30d",
+  "1100": "#0b4a7d",
+  "1500": "#2563eb",
+  "2300": "#0d9488",
+  "4500": "#16a34a",
+  "5600": "#84cc16",
+  "7010": "#d97706",
+  "7200": "#ea580c",
+  "7300": "#dc2626",
+  "8200": "#db2777",
+  "9200": "#7c3aed",
+  "9510": "#4f46e5",
 };
 
 const MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -38,8 +54,10 @@ const MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct
 type Horizon = "24m" | "5y";
 type Metric = "pct" | "rent";
 type Fund = "all" | "jv3" | "ni";
+type Variant = "office" | "retail";
 
-function fundFilter(code: string, fund: Fund): boolean {
+function fundFilter(code: string, fund: Fund, variant: Variant): boolean {
+  if (variant === "retail") return RETAIL_CODES.has(code);
   if (fund === "all") return OFFICE_CODES.has(code);
   if (fund === "jv3") return JV3_CODES.has(code);
   return NI_CODES.has(code);
@@ -108,7 +126,7 @@ function propLabelFor(code: string): string {
   return def?.name ?? code;
 }
 
-export default function ExpirationChart({ rentroll }: { rentroll: RentRollData | null }) {
+export default function ExpirationChart({ rentroll, variant = "office" }: { rentroll: RentRollData | null; variant?: Variant }) {
   const [horizon, setHorizon] = useState<Horizon>("24m");
   const [metric, setMetric] = useState<Metric>("pct");
   const [fund, setFund] = useState<Fund>("all");
@@ -122,7 +140,7 @@ export default function ExpirationChart({ rentroll }: { rentroll: RentRollData |
     const periods = buildPeriods(horizon, today);
 
     const officeProps = (rentroll?.properties ?? []).filter((p) =>
-      fundFilter(p.propertyCode.toUpperCase(), fund),
+      fundFilter(p.propertyCode.toUpperCase(), fund, variant),
     );
     const totalOfficeSqft = officeProps.reduce((s, p) => s + p.totalSqft, 0);
 
@@ -153,7 +171,7 @@ export default function ExpirationChart({ rentroll }: { rentroll: RentRollData |
     }
 
     return { periods, perPeriod, totalOfficeSqft, buildings: [...buildings].sort(), grandTotal };
-  }, [rentroll, horizon, fund]);
+  }, [rentroll, horizon, fund, variant]);
 
   // Determine max bar value (in raw units of the chosen metric) to scale Y.
   const maxPeriodValue = useMemo(() => {
@@ -196,10 +214,22 @@ export default function ExpirationChart({ rentroll }: { rentroll: RentRollData |
   const barCount = periods.length;
   const chartHeight = 220;
 
+  const isRetail = variant === "retail";
+  const title = isRetail ? "Retail Lease Expirations" : "Office Lease Expirations";
+  const fundLabel = isRetail
+    ? "All Retail"
+    : fund === "all" ? "All Office" : fund === "jv3" ? "JV III" : "NI LLC";
+  const portfolioNoun = isRetail
+    ? "retail"
+    : fund === "all" ? "office" : fund === "jv3" ? "JV III" : "NI LLC";
+  const portfolioPhrase = isRetail
+    ? "retail portfolio"
+    : fund === "all" ? "office portfolio" : fund === "jv3" ? "JV III portfolio" : "NI LLC portfolio";
+
   if (!rentroll) {
     return (
       <div className="card">
-        <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 6 }}>Office Lease Expirations</div>
+        <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 6 }}>{title}</div>
         <div className="muted small">No rent roll loaded.</div>
       </div>
     );
@@ -209,21 +239,23 @@ export default function ExpirationChart({ rentroll }: { rentroll: RentRollData |
     <div className="card">
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
         <div>
-          <div style={{ fontWeight: 700, fontSize: 16 }}>Office Lease Expirations</div>
+          <div style={{ fontWeight: 700, fontSize: 16 }}>{title}</div>
           <div className="muted small" style={{ marginTop: 2 }}>
-            Stacked by building · {fund === "all" ? "All Office" : fund === "jv3" ? "JV III" : "NI LLC"} · {metric === "pct" ? "% of Office SF expiring" : "Annualized Gross Rent expiring"} · {horizon === "24m" ? "next 24 months" : "next 5 calendar years"}
+            Stacked by building · {fundLabel} · {metric === "pct" ? `% of ${portfolioNoun} SF expiring` : "Annualized Gross Rent expiring"} · {horizon === "24m" ? "next 24 months" : "next 5 calendar years"}
           </div>
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <SegToggle
-            value={fund}
-            onChange={(v) => setFund(v as Fund)}
-            options={[
-              { value: "all", label: "All Office" },
-              { value: "jv3", label: "JV III" },
-              { value: "ni",  label: "NI LLC" },
-            ]}
-          />
+          {!isRetail && (
+            <SegToggle
+              value={fund}
+              onChange={(v) => setFund(v as Fund)}
+              options={[
+                { value: "all", label: "All Office" },
+                { value: "jv3", label: "JV III" },
+                { value: "ni",  label: "NI LLC" },
+              ]}
+            />
+          )}
           <SegToggle
             value={metric}
             onChange={(v) => setMetric(v as Metric)}
@@ -245,7 +277,7 @@ export default function ExpirationChart({ rentroll }: { rentroll: RentRollData |
 
       {grandTotal.sqft === 0 ? (
         <div className="muted small" style={{ padding: "20px 0", textAlign: "center" }}>
-          No {fund === "all" ? "office" : fund === "jv3" ? "JV III" : "NI LLC"} leases expire in the selected window.
+          No {portfolioNoun} leases expire in the selected window.
         </div>
       ) : (
         <>
@@ -340,7 +372,7 @@ export default function ExpirationChart({ rentroll }: { rentroll: RentRollData |
                   <b>{money(hover.annualGross)}</b> gross rent / yr
                 </div>
                 <div style={{ opacity: 0.88 }}>
-                  {hover.sqft.toLocaleString()} sf · {pct(hover.pctOfOffice)} of {fund === "all" ? "office" : fund === "jv3" ? "JV III" : "NI LLC"}
+                  {hover.sqft.toLocaleString()} sf · {pct(hover.pctOfOffice)} of {portfolioNoun}
                 </div>
                 <div style={{ opacity: 0.7, marginTop: 2 }}>{hover.units} unit{hover.units === 1 ? "" : "s"} expiring</div>
               </div>
@@ -359,7 +391,7 @@ export default function ExpirationChart({ rentroll }: { rentroll: RentRollData |
           <div style={{ marginTop: 10, fontSize: 12, color: "var(--muted)" }}>
             Total expiring in window: <b style={{ color: "var(--text)" }}>{(grandTotal.sqft).toLocaleString()} sf</b> · <b style={{ color: "var(--text)" }}>{money(grandTotal.annualGross)} gross rent / yr</b>
             {totalOfficeSqft > 0 && (
-              <>{" "}· <b style={{ color: "var(--text)" }}>{pct(grandTotal.sqft / totalOfficeSqft)}</b> of {fund === "all" ? "office portfolio" : fund === "jv3" ? "JV III portfolio" : "NI LLC portfolio"}</>
+              <>{" "}· <b style={{ color: "var(--text)" }}>{pct(grandTotal.sqft / totalOfficeSqft)}</b> of {portfolioPhrase}</>
             )}
           </div>
         </>
