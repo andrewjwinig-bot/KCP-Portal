@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { RentRollData, RentRollUnit } from "../../../lib/rentroll/parseRentRollExcel";
 import LeasingActivityCard from "../LeasingActivityCard";
-import { Calendar } from "../../components/Calendar";
 import { PROPERTY_DEFS } from "../../../lib/properties/data";
 
 type TenantMeta = { baseYear?: number | string | null };
@@ -24,9 +23,20 @@ function isOfficeCode(code: string | null | undefined): boolean {
   return def?.type === "Office";
 }
 
-function todayISO(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const MONTH_NAMES = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+
+// Year range offered in the base-year reset picker.
+const RESET_YEARS = (() => {
+  const y = new Date().getFullYear();
+  return Array.from({ length: 9 }, (_, i) => y - 6 + i);
+})();
+
+// Base-year resets are always dated to the 1st of a month.
+function firstOfMonthISO(d = new Date()): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
 }
 
 function fmtDate(iso: string): string {
@@ -113,8 +123,9 @@ function BaseYearResets({
     return out;
   }, [rentroll]);
 
+  const [open, setOpen] = useState(false);
   const [selectedUnitRef, setSelectedUnitRef] = useState<string>("");
-  const [resetDate, setResetDate] = useState<string>(todayISO());
+  const [resetDate, setResetDate] = useState<string>(firstOfMonthISO());
   const [notes, setNotes] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -163,7 +174,7 @@ function BaseYearResets({
 
       // Reset form.
       setSelectedUnitRef("");
-      setResetDate(todayISO());
+      setResetDate(firstOfMonthISO());
       setNotes("");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Save failed");
@@ -185,15 +196,22 @@ function BaseYearResets({
 
   return (
     <section className="card">
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, width: "100%", background: "transparent", border: "none", padding: 0, cursor: "pointer", textAlign: "left", fontFamily: "inherit" }}
+      >
         <div>
           <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Base Year Resets</h2>
           <div className="muted small" style={{ marginTop: 2 }}>
             Pick an office tenant, record the reset date, and the base year is flipped to the current year. The rent roll cell will be highlighted with the reset date in a tooltip.
           </div>
         </div>
-      </div>
+        <span style={{ color: "var(--muted)", fontSize: 18, flexShrink: 0 }}>{open ? "▲" : "▼"}</span>
+      </button>
 
+      {open && (
+      <>
       {/* Form */}
       <div style={{ display: "grid", gridTemplateColumns: "minmax(260px, 2fr) minmax(140px, 1fr) minmax(150px, 1fr) minmax(180px, 2fr) auto", gap: 10, alignItems: "flex-end", marginTop: 14 }}>
         <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
@@ -223,8 +241,27 @@ function BaseYearResets({
           </div>
         </label>
         <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          <span style={fieldLabel}>Reset Date</span>
-          <Calendar value={resetDate} onChange={setResetDate} variant="card" />
+          <span style={fieldLabel}>Reset Month</span>
+          <div style={{ display: "flex", gap: 6 }}>
+            <select
+              value={resetDate.slice(5, 7)}
+              onChange={(e) => setResetDate(`${resetDate.slice(0, 4)}-${e.target.value}-01`)}
+              style={{ ...selectStyle, flex: 1 }}
+            >
+              {MONTH_NAMES.map((mn, i) => (
+                <option key={mn} value={String(i + 1).padStart(2, "0")}>{mn}</option>
+              ))}
+            </select>
+            <select
+              value={resetDate.slice(0, 4)}
+              onChange={(e) => setResetDate(`${e.target.value}-${resetDate.slice(5, 7)}-01`)}
+              style={{ ...selectStyle, width: 92 }}
+            >
+              {RESET_YEARS.map((y) => (
+                <option key={y} value={String(y)}>{y}</option>
+              ))}
+            </select>
+          </div>
         </label>
         <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           <span style={fieldLabel}>Notes (optional)</span>
@@ -295,6 +332,8 @@ function BaseYearResets({
           </tbody>
         </table>
       </div>
+      </>
+      )}
     </section>
   );
 }
