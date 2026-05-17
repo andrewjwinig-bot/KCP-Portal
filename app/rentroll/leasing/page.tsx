@@ -6,7 +6,7 @@ import LeasingActivityCard from "../LeasingActivityCard";
 import { Calendar } from "../../components/Calendar";
 import { PROPERTY_DEFS } from "../../../lib/properties/data";
 
-type TenantMeta = { baseYear?: number | null };
+type TenantMeta = { baseYear?: number | string | null };
 type BaseYearReset = {
   unitRef: string;
   propertyCode: string | null;

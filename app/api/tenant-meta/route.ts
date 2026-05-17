@@ -6,7 +6,7 @@ const PREFIX = "tenant-meta";
 const ID     = "all";
 
 export type TenantMeta = {
-  baseYear?: number | null;
+  baseYear?: number | string | null;
 };
 
 type Store = Record<string, TenantMeta>;
@@ -43,13 +43,20 @@ export async function POST(req: NextRequest) {
     const unitRef = String(body?.unitRef ?? "").trim();
     if (!unitRef) return NextResponse.json({ error: "Missing unitRef" }, { status: 400 });
 
-    const baseYearRaw = body?.baseYear;
-    const baseYear: number | null =
-      baseYearRaw === null || baseYearRaw === "" || baseYearRaw === undefined
-        ? null
-        : Number(baseYearRaw);
-    if (baseYear !== null && (!Number.isFinite(baseYear) || baseYear < 1900 || baseYear > 2100)) {
-      return NextResponse.json({ error: "Invalid baseYear" }, { status: 400 });
+    // A base year is either a 4-digit year or a free-text marker
+    // ("NNN", "GROSS", "NONE", a range, …). Pass null/"" to clear.
+    const raw = body?.baseYear;
+    let baseYear: number | string | null;
+    if (raw === null || raw === "" || raw === undefined) {
+      baseYear = null;
+    } else if (typeof raw === "number" || /^\d+$/.test(String(raw).trim())) {
+      const n = Number(raw);
+      if (!Number.isFinite(n) || n < 1900 || n > 2100) {
+        return NextResponse.json({ error: "Invalid baseYear" }, { status: 400 });
+      }
+      baseYear = n;
+    } else {
+      baseYear = String(raw).trim().toUpperCase().slice(0, 16);
     }
 
     const current = ((await getJSON(PREFIX, ID)) as Store | null) ?? {};

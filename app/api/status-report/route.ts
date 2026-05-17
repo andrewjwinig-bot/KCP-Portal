@@ -126,7 +126,7 @@ function buildCols(hideNNN: boolean, showBaseYear: boolean): ColDef[] {
   ];
 }
 
-function cellVal(col: string, unit: any, tenantMeta?: Record<string, { baseYear?: number | null }>): string {
+function cellVal(col: string, unit: any, tenantMeta?: Record<string, { baseYear?: number | string | null }>): string {
   switch (col) {
     case "Tenant":       return unit.isVacant ? "Vacant" : (unit.occupantName || "");
     case "Unit":         return unit.unitRef || "";
@@ -156,7 +156,7 @@ export async function POST(req: Request) {
       properties?: any[];
       category: string;
       reportFrom?: string;
-      tenantMeta?: Record<string, { baseYear?: number | null }>;
+      tenantMeta?: Record<string, { baseYear?: number | string | null }>;
       month?: string; // "YYYY-MM" — when set, generate from a historical snapshot
     };
     let properties: any[];
