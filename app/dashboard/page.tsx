@@ -11,7 +11,6 @@ import { UNIQUE_BANK_ACCOUNTS } from "../../lib/bank-rec/accounts";
 import { bankRecKey, nextBankRecDeadline, nextStatementsDeadline, bankRecPeriodLabel } from "../../lib/bank-rec/util";
 import { fireNotification } from "../../lib/notifications";
 import ExpirationChart from "./ExpirationChart";
-import Insights from "./Insights";
 import MaintenanceOverview from "./MaintenanceOverview";
 import PendingReservationsCard from "./PendingReservationsCard";
 
@@ -463,9 +462,6 @@ function DashboardInner() {
       </header>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 14 }}>
-        {/* ── Briefing / insights at the top of the dashboard ── */}
-        <Insights rentroll={rentroll} checked={checkedByYear[new Date().getFullYear()] ?? {}} personaId={user.id} />
-
         {/* ── Pending reservation requests (anyone with reservations access) ── */}
         {(user.navKeys.has("all") || user.navKeys.has("reservations")) && (
           <PendingReservationsCard order={user.id === "nancy" ? -2 : 1} />
