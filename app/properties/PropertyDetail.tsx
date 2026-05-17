@@ -698,19 +698,18 @@ export function PropertyDetailBody({
         <div className="card">
           <SectionLabel>Overview</SectionLabel>
 
-          {/* EIN · Parcel Numbers · Floorplan — one row */}
+          {/* Identifiers & accounts · Parcel Numbers · Floorplan — one row */}
           <div style={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+            gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
             gap: "16px 32px",
             alignItems: "start",
-            marginBottom: (!isMaint && bankAccounts.length > 0) ? 16 : 0,
           }}>
-            {prop.acres != null && (
-              <BigInfoField label="Acres" value={`${prop.acres} ac`} />
-            )}
-            {(prop.ein || prop.ein2) && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 12, minWidth: 0 }}>
+            {(prop.acres != null || prop.ein || prop.ein2 || (!isMaint && bankAccounts.length > 0)) && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 14, minWidth: 0 }}>
+                {prop.acres != null && (
+                  <BigInfoField label="Acres" value={`${prop.acres} ac`} />
+                )}
                 {prop.ein && (
                   <div>
                     <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 6 }}>{prop.einLabel ?? "EIN"}</div>
@@ -733,6 +732,32 @@ export function PropertyDetailBody({
                       borderRadius: 8,
                       fontSize: 14, fontWeight: 700, color: "var(--text)",
                     }}>{prop.ein2}</div>
+                  </div>
+                )}
+                {!isMaint && bankAccounts.length > 0 && (
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 6 }}>Bank Accounts</div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                      {bankAccounts.map((acct, i) => (
+                        <div key={i} style={{
+                          display: "flex", alignItems: "center", justifyContent: "space-between",
+                          padding: "8px 12px",
+                          background: "rgba(11,74,125,0.04)",
+                          border: "1px solid rgba(11,74,125,0.12)",
+                          borderRadius: 8,
+                          gap: 10,
+                        }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                            <a href={acct.link} target="_blank" rel="noreferrer"
+                              style={{ fontSize: 14, fontWeight: 700, color: "#0b4a7d", textDecoration: "none" }}
+                              onMouseEnter={e => (e.currentTarget.style.textDecoration = "underline")}
+                              onMouseLeave={e => (e.currentTarget.style.textDecoration = "none")}
+                            >{acct.bank} {acct.last4}</a>
+                            <span style={{ fontSize: 13, color: "var(--muted)", fontWeight: 500 }}>{acct.label}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
@@ -775,34 +800,6 @@ export function PropertyDetailBody({
               </div>
             )}
           </div>
-
-          {/* Bank Accounts */}
-          {!isMaint && bankAccounts.length > 0 && (
-            <div>
-              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 6 }}>Bank Accounts</div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                {bankAccounts.map((acct, i) => (
-                  <div key={i} style={{
-                    display: "flex", alignItems: "center", justifyContent: "space-between",
-                    padding: "8px 12px",
-                    background: "rgba(11,74,125,0.04)",
-                    border: "1px solid rgba(11,74,125,0.12)",
-                    borderRadius: 8,
-                    gap: 10,
-                  }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <a href={acct.link} target="_blank" rel="noreferrer"
-                        style={{ fontSize: 14, fontWeight: 700, color: "#0b4a7d", textDecoration: "none" }}
-                        onMouseEnter={e => (e.currentTarget.style.textDecoration = "underline")}
-                        onMouseLeave={e => (e.currentTarget.style.textDecoration = "none")}
-                      >{acct.bank} {acct.last4}</a>
-                      <span style={{ fontSize: 13, color: "var(--muted)", fontWeight: 500 }}>{acct.label}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
 
         {/* ── Building Facts (maint-team editable) ── */}
