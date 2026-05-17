@@ -537,19 +537,19 @@ function DashboardInner() {
           </div>
         )}
 
-        {/* ── Action Items / Data Freshness ── */}
-        <div className="card" style={{ order: isStacie ? -2 : 0 }}>
+        {/* ── Action Items / Data Freshness — full-width strip across the top ── */}
+        <div className="card" style={{ gridColumn: "1 / -1", order: -5 }}>
           <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 8 }}>Action Items</div>
           {loading ? (
             <div className="muted small">Loading…</div>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
               {(() => {
                 const id = `rr-${rrFreshness.title}`;
                 if (dismissedNotices.has(id)) return null;
                 return (
               <div style={{
-                display: "flex", alignItems: "flex-start", gap: 10,
+                display: "flex", alignItems: "flex-start", gap: 10, flex: "1 1 260px", minWidth: 0,
                 padding: "10px 12px",
                 border: "1px solid",
                 borderColor: rrFreshness.status === "fresh" ? "rgba(22,163,74,0.25)" : rrFreshness.status === "stale" ? "rgba(217,119,6,0.3)" : "rgba(220,38,38,0.35)",
@@ -577,7 +577,7 @@ function DashboardInner() {
                 if (dismissedNotices.has(id)) return null;
                 return (
               <div style={{
-                display: "flex", alignItems: "flex-start", gap: 10,
+                display: "flex", alignItems: "flex-start", gap: 10, flex: "1 1 260px", minWidth: 0,
                 padding: "10px 12px",
                 border: "1px solid",
                 borderColor: nextPayroll.status === "today" ? "rgba(11,74,125,0.35)" : nextPayroll.status === "soon" ? "rgba(217,119,6,0.3)" : "rgba(15,23,42,0.12)",
@@ -609,7 +609,7 @@ function DashboardInner() {
                 if (dismissedNotices.has(id)) return null;
                 return (
               <div style={{
-                display: "flex", alignItems: "flex-start", gap: 10,
+                display: "flex", alignItems: "flex-start", gap: 10, flex: "1 1 260px", minWidth: 0,
                 padding: "10px 12px",
                 border: "1px solid",
                 borderColor: ccExpensesDue.status === "today" ? "rgba(220,38,38,0.35)" : ccExpensesDue.status === "soon" ? "rgba(217,119,6,0.3)" : "rgba(15,23,42,0.12)",
@@ -641,7 +641,7 @@ function DashboardInner() {
                 if (dismissedNotices.has(id)) return null;
                 return (
               <div style={{
-                display: "flex", alignItems: "flex-start", gap: 10,
+                display: "flex", alignItems: "flex-start", gap: 10, flex: "1 1 260px", minWidth: 0,
                 padding: "10px 12px",
                 border: "1px solid",
                 borderColor: bankStmt.status === "done" ? "rgba(22,163,74,0.30)"
@@ -692,7 +692,7 @@ function DashboardInner() {
                 if (dismissedNotices.has(id)) return null;
                 return (
               <div style={{
-                display: "flex", alignItems: "flex-start", gap: 10,
+                display: "flex", alignItems: "flex-start", gap: 10, flex: "1 1 260px", minWidth: 0,
                 padding: "10px 12px",
                 border: "1px solid",
                 borderColor: bankRec.status === "done" ? "rgba(22,163,74,0.30)"
@@ -751,7 +751,7 @@ function DashboardInner() {
                     <div
                       key={n.id}
                       style={{
-                        display: "flex", alignItems: "flex-start", gap: 10,
+                        display: "flex", alignItems: "flex-start", gap: 10, flex: "1 1 260px", minWidth: 0,
                         padding: "10px 12px",
                         border: `1px solid ${border}`,
                         background: bg,
