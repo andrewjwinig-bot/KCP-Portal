@@ -783,12 +783,11 @@ function AlertsPanel({ rentroll }: { rentroll: RentRollData }) {
 
 // ─── Occupancy / Rent stacked bar chart ───────────────────────────────────────
 
-type ChartMetric = "occupancy" | "rent" | "gross";
+type ChartMetric = "occupancy" | "rent";
 
 const CHART_METRICS: { key: ChartMetric; label: string }[] = [
   { key: "occupancy", label: "Occupancy" },
   { key: "rent",      label: "Rent Breakdown" },
-  { key: "gross",     label: "Gross Rent" },
 ];
 
 // Stacked-segment definitions per metric — drives both the bars and the legend.
@@ -802,9 +801,6 @@ const METRIC_SEGMENTS: Record<ChartMetric, { key: string; label: string; color: 
     { key: "cam",   label: "CAM",       color: "#0d9488" },
     { key: "ret",   label: "RE Tax",    color: "#d97706" },
     { key: "other", label: "Other",     color: "#94a3b8" },
-  ],
-  gross: [
-    { key: "gross", label: "Gross Rent / mo", color: "#0b4a7d" },
   ],
 };
 
@@ -857,14 +853,12 @@ function OccupancyChart({ rentroll, categoryFilter }: { rentroll: RentRollData; 
         if (metric === "occupancy") {
           raw.occ = s.props.reduce((a, p) => a + p.occupiedSqft, 0);
           raw.vac = s.props.reduce((a, p) => a + p.vacantSqft, 0);
-        } else if (metric === "rent") {
+        } else {
           raw.base = raw.cam = raw.ret = raw.other = 0;
           for (const p of s.props) for (const u of p.units) {
             raw.base += u.baseRent; raw.cam += u.opexMonth;
             raw.ret += u.reTaxMonth; raw.other += u.otherMonth;
           }
-        } else {
-          raw.gross = s.props.reduce((a, p) => a + p.units.reduce((u, x) => u + x.grossRentTotal, 0), 0);
         }
         const segments: ChartSegment[] = defs
           .map((d) => ({ key: d.key, label: d.label, color: d.color, value: raw[d.key] ?? 0 }))
@@ -1241,7 +1235,7 @@ export default function RentRollPage() {
       {/* ── Import card ───────────────────────────────────────────────────── */}
       <div className="card" style={{ marginBottom: 24 }}>
         <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
-          <b>Import Rent Roll</b>
+          <b style={{ fontSize: 13 }}>Import Rent Roll</b>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             {((filteredRentroll && categoryRentroll) || snapshotList.length > 0) && (
               <>
@@ -1284,10 +1278,10 @@ export default function RentRollPage() {
             <span style={{ background: "rgba(22, 163, 74, 0.85)", color: "#fff", borderRadius: 999, padding: "12px 18px", fontSize: 15, fontWeight: 700, border: "1px solid transparent", display: "inline-flex", alignItems: "center" }}>Monthly</span>
           </div>
         </div>
-        <p className="muted small" style={{ marginTop: 8 }}>
+        <p className="muted small" style={{ marginTop: 4 }}>
           Import the <b>Commercial Rent Roll</b> Excel file (.xls or .xlsx).
         </p>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
           <input
             ref={fileInputRef}
             type="file"
@@ -1295,12 +1289,12 @@ export default function RentRollPage() {
             style={{ display: "none" }}
             onChange={handleFileChange}
           />
-          <button className="btn large" onClick={() => fileInputRef.current?.click()} style={{ whiteSpace: "nowrap" }} disabled={uploading}>
+          <button className="btn" onClick={() => fileInputRef.current?.click()} style={{ whiteSpace: "nowrap", fontSize: 13, padding: "7px 14px" }} disabled={uploading}>
             {uploading ? "Uploading…" : "Choose Rent Roll File…"}
           </button>
           <button
             className="btn"
-            style={{ borderRadius: 999, fontWeight: 700, whiteSpace: "nowrap" }}
+            style={{ borderRadius: 999, fontWeight: 700, whiteSpace: "nowrap", fontSize: 13, padding: "7px 14px" }}
             onClick={() => setRawRentroll(null)}
             disabled={!rentroll}
           >
