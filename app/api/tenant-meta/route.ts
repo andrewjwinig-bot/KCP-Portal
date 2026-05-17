@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getJSON, storeJSON } from "@/lib/storage";
+import { BASE_YEAR_SEED } from "@/lib/rentroll/baseYears";
 
 const PREFIX = "tenant-meta";
 const ID     = "all";
@@ -12,11 +13,20 @@ type Store = Record<string, TenantMeta>;
 
 export const runtime = "nodejs";
 
-/** GET /api/tenant-meta → { tenantMeta: { [unitRef]: { baseYear } } } */
+/** GET /api/tenant-meta → { tenantMeta: { [unitRef]: { baseYear } } }
+ *  Merges the static base-year seed with stored overrides — stored values
+ *  (edited through the base-year editor) win over the seed. */
 export async function GET() {
   try {
     const data = (await getJSON(PREFIX, ID)) as Store | null;
-    return NextResponse.json({ tenantMeta: data ?? {} });
+    const merged: Store = {};
+    for (const [unitRef, year] of Object.entries(BASE_YEAR_SEED)) {
+      merged[unitRef] = { baseYear: year };
+    }
+    for (const [unitRef, meta] of Object.entries(data ?? {})) {
+      merged[unitRef] = { ...merged[unitRef], ...meta };
+    }
+    return NextResponse.json({ tenantMeta: merged });
   } catch {
     return NextResponse.json({ tenantMeta: {} });
   }
