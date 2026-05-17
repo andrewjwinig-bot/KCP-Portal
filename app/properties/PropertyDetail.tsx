@@ -800,6 +800,40 @@ export function PropertyDetailBody({
               </div>
             )}
           </div>
+
+          {/* Portfolio PRS % — full-width strip at the foot of Overview */}
+          {!isMaint && alloc && (
+            <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px solid var(--border)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--muted)" }}>Portfolio PRS %</span>
+                <Link href="/allocated-invoicer" style={{ fontSize: 11, fontWeight: 600, color: "var(--brand)", textDecoration: "none" }}>
+                  Open Allocated Invoicer →
+                </Link>
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                {([
+                  ["9301", "Business Parks"],
+                  ["9302", "Shopping Centers"],
+                  ["9303", "All Properties"],
+                ] as const).map(([acct, name]) => (
+                  <div key={acct} style={{
+                    flex: 1, textAlign: "center",
+                    padding: "8px 8px 7px",
+                    border: `1.5px solid ${alloc[acct] > 0 ? "rgba(11,74,125,0.28)" : "var(--border)"}`,
+                    borderRadius: 8,
+                    background: alloc[acct] > 0 ? "rgba(11,74,125,0.05)" : "#fafafa",
+                  }}>
+                    <div style={{ fontSize: 16, fontWeight: 900, lineHeight: 1, color: alloc[acct] > 0 ? "#0b4a7d" : "var(--muted)" }}>
+                      {pct(alloc[acct])}
+                    </div>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: "var(--muted)", marginTop: 4 }}>
+                      {name} ({acct})
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* ── Building Facts (maint-team editable) ── */}
@@ -811,6 +845,160 @@ export function PropertyDetailBody({
             canEdit={canEditFacts}
           />
         </div>
+
+        {/* ── Ownership ── */}
+        {!isMaint && ownershipEntry && ownershipEntry.owners.length > 0 && (
+          <div className="card">
+          <CollapsibleSection
+            title="Ownership"
+            count={ownershipEntry.owners.length}
+            link={
+              <Link href="/investors" style={{ fontSize: 11, fontWeight: 600, color: "var(--brand)", marginLeft: 8, textDecoration: "none" }}>
+                Open Investor Info →
+              </Link>
+            }
+          >
+            {k1Tasks.map((t) => {
+              const allDone = t.investors?.every((inv) => checked[inv.id]) ?? false;
+              return (
+                <div key={t.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                  <span style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600 }}>
+                    K-1 Distribution · Due {MONTHS_SHORT[t.dueMonth - 1]} {t.dueDay}
+                  </span>
+                  {allDone
+                    ? <span style={{ fontSize: 10, fontWeight: 800, color: "#16a34a", background: "rgba(22,163,74,0.08)", padding: "2px 8px", borderRadius: 999, border: "1px solid rgba(22,163,74,0.2)" }}>All Distributed</span>
+                    : <span style={{ fontSize: 10, fontWeight: 800, color: "#b45309", background: "rgba(180,83,9,0.08)", padding: "2px 8px", borderRadius: 999, border: "1px solid rgba(180,83,9,0.25)" }}>Pending</span>
+                  }
+                </div>
+              );
+            })}
+            {ownerGroups.map((g) => {
+              const grouped = g.owners.length > 1;
+              if (!grouped) {
+                const inv = g.owners[0];
+                const done = !!checked[inv.id];
+                const hasDetail = !!(inv.detailedName || inv.address || inv.phone || inv.vendorCode || ownerPctFor(inv) != null);
+                return (
+                  <K1InvestorRow key={inv.id} inv={inv} done={done} hasDetail={hasDetail} showK1Check={!!ownershipEntry.hasK1Distribution} />
+                );
+              }
+              // Multi-stake: primary row with person + combined %, then
+              // smaller indented sub-rows for each vendor / legal payee.
+              return (
+                <div key={g.key} style={{ marginBottom: 6 }}>
+                  <div style={{
+                    display: "flex", alignItems: "center", justifyContent: "space-between",
+                    padding: "8px 12px",
+                    border: "1px solid var(--border)",
+                    borderRadius: 8,
+                    background: "#fafafa",
+                    marginBottom: 4,
+                  }}>
+                    <span style={{ fontSize: 14, fontWeight: 700 }}>{g.owners[0].name}</span>
+                    <span style={{ fontSize: 13, fontWeight: 700 }}>
+                      {(g.total * 100).toFixed(4)}%
+                    </span>
+                  </div>
+                  <div style={{ paddingLeft: 18 }}>
+                    {g.owners.map((inv) => {
+                      const done = !!checked[inv.id];
+                      const hasDetail = !!(inv.detailedName || inv.address || inv.phone || inv.vendorCode || ownerPctFor(inv) != null);
+                      const pctFmt = (n: number) => `${(n * 100).toFixed(6).replace(/\.?0+$/, "")}%`;
+                      const ownership = ownerPctFor(inv);
+                      return (
+                        <OwnerSubRow
+                          key={inv.id}
+                          inv={inv}
+                          done={done}
+                          hasDetail={hasDetail}
+                          showK1Check={!!ownershipEntry.hasK1Distribution}
+                          ownership={ownership}
+                          pctFmt={pctFmt}
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+            {ownershipTotal > 0 && (
+              <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 12px", borderRadius: 8, background: "rgba(15,23,42,0.04)", border: "1px solid var(--border)", marginTop: 4 }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: "var(--muted)" }}>Total</span>
+                <span style={{ fontSize: 12, fontWeight: 700 }}>{`${(ownershipTotal * 100).toFixed(4)}%`}</span>
+              </div>
+            )}
+          </CollapsibleSection>
+          </div>
+        )}
+
+        {/* ── Tax Filings ── */}
+        {!isMaint && filingTasks.length > 0 && (
+          <div className="card">
+          <CollapsibleSection
+            title="Tax Filings"
+            count={filingTasks.length}
+            link={
+              <Link href="/tracker/taxes" style={{ fontSize: 11, fontWeight: 600, color: "var(--brand)", marginLeft: 8, textDecoration: "none" }}>
+                Open Filing Tracker →
+              </Link>
+            }
+          >
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {filingTasks.map(t => {
+                const status = filingStatus(t);
+                const cat = TAX_CATEGORIES[t.category];
+                return (
+                  <div
+                    key={t.id}
+                    onClick={t.instructionSteps ? () => setInstructionsTask(t) : undefined}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 8,
+                      padding: "9px 12px",
+                      border: `1px solid ${t.instructionSteps ? "rgba(220,38,38,0.35)" : "var(--border)"}`,
+                      borderRadius: 8,
+                      background: t.instructionSteps ? "rgba(220,38,38,0.03)" : "#fafafa",
+                      cursor: t.instructionSteps ? "pointer" : "default",
+                    }}
+                  >
+                    <span style={{
+                      flexShrink: 0,
+                      width: 28, height: 28,
+                      borderRadius: 6,
+                      background: cat.bg,
+                      border: `1px solid ${cat.border}`,
+                      color: cat.text,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: 9, fontWeight: 900,
+                    }}>{cat.pill}</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 14, fontWeight: 700, lineHeight: 1.3 }}>
+                        {filingLabel(t)}
+                        {t.instructionSteps && (
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                            <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                          </svg>
+                        )}
+                      </div>
+                      <div style={{ fontSize: 12, color: "var(--muted)" }}>
+                        Due {MONTHS_SHORT[t.dueMonth - 1]} {t.dueDay}
+                        {t.notes && ` · ${t.notes}`}
+                      </div>
+                    </div>
+                    <span style={{
+                      flexShrink: 0,
+                      fontSize: 10, fontWeight: 800,
+                      padding: "2px 8px", borderRadius: 999,
+                      background: status.bg,
+                      color: status.color,
+                      border: `1px solid ${status.border}`,
+                    }}>{status.label}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </CollapsibleSection>
+          </div>
+        )}
 
         {/* ── Rent Roll table (collapsible inside the open card) ── */}
         {rrProp && rrProp.units.length > 0 && (
@@ -967,194 +1155,6 @@ export function PropertyDetailBody({
           </CollapsibleSection>
           </div>
         )}
-
-        {/* ── Tax Filings ── */}
-        {!isMaint && filingTasks.length > 0 && (
-          <div className="card">
-          <CollapsibleSection
-            title="Tax Filings"
-            count={filingTasks.length}
-            link={
-              <Link href="/tracker/taxes" style={{ fontSize: 11, fontWeight: 600, color: "var(--brand)", marginLeft: 8, textDecoration: "none" }}>
-                Open Filing Tracker →
-              </Link>
-            }
-          >
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {filingTasks.map(t => {
-                const status = filingStatus(t);
-                const cat = TAX_CATEGORIES[t.category];
-                return (
-                  <div
-                    key={t.id}
-                    onClick={t.instructionSteps ? () => setInstructionsTask(t) : undefined}
-                    style={{
-                      display: "flex", alignItems: "center", gap: 8,
-                      padding: "9px 12px",
-                      border: `1px solid ${t.instructionSteps ? "rgba(220,38,38,0.35)" : "var(--border)"}`,
-                      borderRadius: 8,
-                      background: t.instructionSteps ? "rgba(220,38,38,0.03)" : "#fafafa",
-                      cursor: t.instructionSteps ? "pointer" : "default",
-                    }}
-                  >
-                    <span style={{
-                      flexShrink: 0,
-                      width: 28, height: 28,
-                      borderRadius: 6,
-                      background: cat.bg,
-                      border: `1px solid ${cat.border}`,
-                      color: cat.text,
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      fontSize: 9, fontWeight: 900,
-                    }}>{cat.pill}</span>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 14, fontWeight: 700, lineHeight: 1.3 }}>
-                        {filingLabel(t)}
-                        {t.instructionSteps && (
-                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-                            <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
-                          </svg>
-                        )}
-                      </div>
-                      <div style={{ fontSize: 12, color: "var(--muted)" }}>
-                        Due {MONTHS_SHORT[t.dueMonth - 1]} {t.dueDay}
-                        {t.notes && ` · ${t.notes}`}
-                      </div>
-                    </div>
-                    <span style={{
-                      flexShrink: 0,
-                      fontSize: 10, fontWeight: 800,
-                      padding: "2px 8px", borderRadius: 999,
-                      background: status.bg,
-                      color: status.color,
-                      border: `1px solid ${status.border}`,
-                    }}>{status.label}</span>
-                  </div>
-                );
-              })}
-            </div>
-          </CollapsibleSection>
-          </div>
-        )}
-
-        {/* ── Ownership ── */}
-        {!isMaint && ownershipEntry && ownershipEntry.owners.length > 0 && (
-          <div className="card">
-          <CollapsibleSection
-            title="Ownership"
-            count={ownershipEntry.owners.length}
-            link={
-              <Link href="/investors" style={{ fontSize: 11, fontWeight: 600, color: "var(--brand)", marginLeft: 8, textDecoration: "none" }}>
-                Open Investor Info →
-              </Link>
-            }
-          >
-            {k1Tasks.map((t) => {
-              const allDone = t.investors?.every((inv) => checked[inv.id]) ?? false;
-              return (
-                <div key={t.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                  <span style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600 }}>
-                    K-1 Distribution · Due {MONTHS_SHORT[t.dueMonth - 1]} {t.dueDay}
-                  </span>
-                  {allDone
-                    ? <span style={{ fontSize: 10, fontWeight: 800, color: "#16a34a", background: "rgba(22,163,74,0.08)", padding: "2px 8px", borderRadius: 999, border: "1px solid rgba(22,163,74,0.2)" }}>All Distributed</span>
-                    : <span style={{ fontSize: 10, fontWeight: 800, color: "#b45309", background: "rgba(180,83,9,0.08)", padding: "2px 8px", borderRadius: 999, border: "1px solid rgba(180,83,9,0.25)" }}>Pending</span>
-                  }
-                </div>
-              );
-            })}
-            {ownerGroups.map((g) => {
-              const grouped = g.owners.length > 1;
-              if (!grouped) {
-                const inv = g.owners[0];
-                const done = !!checked[inv.id];
-                const hasDetail = !!(inv.detailedName || inv.address || inv.phone || inv.vendorCode || ownerPctFor(inv) != null);
-                return (
-                  <K1InvestorRow key={inv.id} inv={inv} done={done} hasDetail={hasDetail} showK1Check={!!ownershipEntry.hasK1Distribution} />
-                );
-              }
-              // Multi-stake: primary row with person + combined %, then
-              // smaller indented sub-rows for each vendor / legal payee.
-              return (
-                <div key={g.key} style={{ marginBottom: 6 }}>
-                  <div style={{
-                    display: "flex", alignItems: "center", justifyContent: "space-between",
-                    padding: "8px 12px",
-                    border: "1px solid var(--border)",
-                    borderRadius: 8,
-                    background: "#fafafa",
-                    marginBottom: 4,
-                  }}>
-                    <span style={{ fontSize: 14, fontWeight: 700 }}>{g.owners[0].name}</span>
-                    <span style={{ fontSize: 13, fontWeight: 700 }}>
-                      {(g.total * 100).toFixed(4)}%
-                    </span>
-                  </div>
-                  <div style={{ paddingLeft: 18 }}>
-                    {g.owners.map((inv) => {
-                      const done = !!checked[inv.id];
-                      const hasDetail = !!(inv.detailedName || inv.address || inv.phone || inv.vendorCode || ownerPctFor(inv) != null);
-                      const pctFmt = (n: number) => `${(n * 100).toFixed(6).replace(/\.?0+$/, "")}%`;
-                      const ownership = ownerPctFor(inv);
-                      return (
-                        <OwnerSubRow
-                          key={inv.id}
-                          inv={inv}
-                          done={done}
-                          hasDetail={hasDetail}
-                          showK1Check={!!ownershipEntry.hasK1Distribution}
-                          ownership={ownership}
-                          pctFmt={pctFmt}
-                        />
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })}
-            {ownershipTotal > 0 && (
-              <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 12px", borderRadius: 8, background: "rgba(15,23,42,0.04)", border: "1px solid var(--border)", marginTop: 4 }}>
-                <span style={{ fontSize: 12, fontWeight: 700, color: "var(--muted)" }}>Total</span>
-                <span style={{ fontSize: 12, fontWeight: 700 }}>{`${(ownershipTotal * 100).toFixed(4)}%`}</span>
-              </div>
-            )}
-          </CollapsibleSection>
-          </div>
-        )}
-
-        {/* ── GL Allocations ── */}
-        {!isMaint && alloc && (
-          <div className="card">
-            <SectionLabel>
-              Allocated Invoicer %
-              <Link href="/allocated-invoicer" style={{ fontSize: 11, fontWeight: 600, color: "var(--brand)", marginLeft: 8, textDecoration: "none" }}>
-                Open Allocated Invoicer →
-              </Link>
-            </SectionLabel>
-            <div style={{ display: "flex", gap: 8 }}>
-              {(["9301","9302","9303"] as const).map(acct => (
-                <div key={acct} style={{
-                  flex: 1, textAlign: "center",
-                  padding: "12px 8px 10px",
-                  border: `1.5px solid ${alloc[acct] > 0 ? "rgba(11,74,125,0.28)" : "var(--border)"}`,
-                  borderRadius: 10,
-                  background: alloc[acct] > 0 ? "rgba(11,74,125,0.05)" : "#fafafa",
-                }}>
-                  <div style={{
-                    fontSize: 22, fontWeight: 900, lineHeight: 1,
-                    color: alloc[acct] > 0 ? "#0b4a7d" : "var(--muted)",
-                  }}>
-                    {pct(alloc[acct])}
-                  </div>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", marginTop: 5 }}>
-                    Acct {acct}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
 
       </div>
 
