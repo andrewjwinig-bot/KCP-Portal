@@ -1237,10 +1237,12 @@ export default function RentRollPage() {
   return (
     <BaseYearResetsContext.Provider value={baseYearResets}>
     <main>
-      <h1 style={{ marginBottom: 24 }}>
-        Rent Roll
-        {periodLabel && <span style={{ color: "var(--muted)", fontWeight: 400 }}> – {periodLabel}</span>}
-      </h1>
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 24, flexWrap: "wrap" }}>
+        <h1 style={{ margin: 0 }}>Rent Roll</h1>
+        {periodLabel && (
+          <span style={{ fontSize: 15, fontWeight: 600, color: "var(--muted)", whiteSpace: "nowrap" }}>{periodLabel}</span>
+        )}
+      </div>
 
       {/* ── Import card ───────────────────────────────────────────────────── */}
       <div className="card" style={{ marginBottom: 24 }}>
