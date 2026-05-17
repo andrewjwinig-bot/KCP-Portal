@@ -518,10 +518,17 @@ function DashboardInner() {
           )}
         </Link>
 
-        {/* ── Office Lease Expirations (Nancy + admin only) ── */}
+        {/* ── Office Lease Expirations (Nancy + admin) ── */}
         {(user.id === "nancy" || isAdmin) && (
           <div style={{ gridColumn: "1 / -1", order: user.id === "nancy" ? -1 : 1 }}>
-            <ExpirationChart rentroll={rentroll} />
+            <ExpirationChart rentroll={rentroll} variant="office" />
+          </div>
+        )}
+
+        {/* ── Retail Lease Expirations (Harry + admin) ── */}
+        {(user.id === "harry" || isAdmin) && (
+          <div style={{ gridColumn: "1 / -1", order: user.id === "harry" ? -1 : 1 }}>
+            <ExpirationChart rentroll={rentroll} variant="retail" />
           </div>
         )}
 
