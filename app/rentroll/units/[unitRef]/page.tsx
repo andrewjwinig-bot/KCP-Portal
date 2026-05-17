@@ -112,7 +112,7 @@ export default function UnitDetailPage() {
 
   const [rentroll, setRentroll] = useState<RentRollData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [tenantMeta, setTenantMeta] = useState<Record<string, { baseYear?: number | null }>>({});
+  const [tenantMeta, setTenantMeta] = useState<Record<string, { baseYear?: number | string | null }>>({});
   const [resets, setResets] = useState<Record<string, BaseYearReset>>({});
   const [allRequests, setAllRequests] = useState<MaintRequest[]>([]);
 

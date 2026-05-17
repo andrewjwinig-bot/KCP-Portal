@@ -166,8 +166,8 @@ function fmtResetDate(iso: string): string {
 function BaseYearCell({ unitRef, isVacant, value, onChange }: {
   unitRef: string;
   isVacant: boolean;
-  value: number | null;
-  onChange: (v: number | null) => void;
+  value: number | string | null;
+  onChange: (v: number | string | null) => void;
 }) {
   const resets = useContext(BaseYearResetsContext);
   const reset = resets[unitRef];
@@ -182,20 +182,23 @@ function BaseYearCell({ unitRef, isVacant, value, onChange }: {
       if (value !== null) onChange(null);
       return;
     }
-    // Allow 2-digit shorthand: "23" → 2023
-    let normalized = trimmed;
-    if (/^\d{2}$/.test(normalized)) normalized = `20${normalized}`;
-    if (!/^\d{4}$/.test(normalized)) {
-      setText(value != null ? String(value) : ""); // revert invalid (1- or 3-digit input)
-      return;
+    let next: number | string;
+    if (/^\d{2}$/.test(trimmed)) {
+      // 2-digit shorthand: "23" → 2023
+      next = Number(`20${trimmed}`);
+    } else if (/^\d{4}$/.test(trimmed)) {
+      const n = Number(trimmed);
+      if (n < 1900 || n > 2100) {
+        setText(value != null ? String(value) : ""); // revert out-of-range year
+        return;
+      }
+      next = n;
+    } else {
+      // Free-text marker — NNN / GROSS / NONE / a range, etc.
+      next = trimmed.toUpperCase();
     }
-    const n = Number(normalized);
-    if (!Number.isFinite(n) || n < 1900 || n > 2100) {
-      setText(value != null ? String(value) : ""); // revert invalid range
-      return;
-    }
-    if (n !== value) onChange(n);
-    setText(String(n)); // reflect expansion in the input
+    if (next !== value) onChange(next);
+    setText(String(next));
   }
 
   const resetTitle = reset ? `Base year reset on ${fmtResetDate(reset.resetDate)}${reset.originalBaseYear ? ` (was ${reset.originalBaseYear})` : ""}${reset.notes ? ` — ${reset.notes}` : ""}` : undefined;
@@ -204,15 +207,14 @@ function BaseYearCell({ unitRef, isVacant, value, onChange }: {
     <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
       <input
         type="text"
-        inputMode="numeric"
         value={text}
-        onChange={(e) => setText(e.target.value.replace(/[^0-9]/g, "").slice(0, 4))}
+        onChange={(e) => setText(e.target.value.replace(/[^0-9A-Za-z-]/g, "").slice(0, 12))}
         onBlur={commit}
         onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
         placeholder="—"
         title={resetTitle}
         style={{
-          width: 56,
+          width: 66,
           padding: "3px 6px",
           fontSize: 12,
           fontWeight: reset ? 700 : 400,
@@ -241,8 +243,8 @@ function UnitsTable({ units, propertyCode, hideNNN, tenantMeta, onBaseYearChange
   units: RentRollUnit[];
   propertyCode: string;
   hideNNN?: boolean;
-  tenantMeta: Record<string, { baseYear?: number | null }>;
-  onBaseYearChange: (unitRef: string, baseYear: number | null) => void;
+  tenantMeta: Record<string, { baseYear?: number | string | null }>;
+  onBaseYearChange: (unitRef: string, baseYear: number | string | null) => void;
   vacatingUnitRefs?: Set<string>;
 }) {
   const router = useRouter();
@@ -418,8 +420,8 @@ function UnitsTable({ units, propertyCode, hideNNN, tenantMeta, onBaseYearChange
 
 function PropertyCard({ prop, tenantMeta, onBaseYearChange, vacatingUnitRefs }: {
   prop: RentRollProperty;
-  tenantMeta: Record<string, { baseYear?: number | null }>;
-  onBaseYearChange: (unitRef: string, baseYear: number | null) => void;
+  tenantMeta: Record<string, { baseYear?: number | string | null }>;
+  onBaseYearChange: (unitRef: string, baseYear: number | string | null) => void;
   vacatingUnitRefs?: Set<string>;
 }) {
   const [open, setOpen] = useState(false);
@@ -1009,8 +1011,8 @@ function OccupancyChart({ rentroll, categoryFilter }: { rentroll: RentRollData; 
 function PortfolioGroup({ name, props, tenantMeta, onBaseYearChange, vacatingUnitRefs }: {
   name: string;
   props: RentRollProperty[];
-  tenantMeta: Record<string, { baseYear?: number | null }>;
-  onBaseYearChange: (unitRef: string, baseYear: number | null) => void;
+  tenantMeta: Record<string, { baseYear?: number | string | null }>;
+  onBaseYearChange: (unitRef: string, baseYear: number | string | null) => void;
   vacatingUnitRefs?: Set<string>;
 }) {
   if (!props.length) return null;
@@ -1057,7 +1059,7 @@ export default function RentRollPage() {
   useEffect(() => { setCategoryFilter(user.defaultRentRollCategory as CategoryFilter); }, [user.id, user.defaultRentRollCategory]);
   const [generatingReport, setGeneratingReport] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [tenantMeta, setTenantMeta] = useState<Record<string, { baseYear?: number | null }>>({});
+  const [tenantMeta, setTenantMeta] = useState<Record<string, { baseYear?: number | string | null }>>({});
   const [baseYearResets, setBaseYearResets] = useState<Record<string, { resetDate: string; originalBaseYear: number | null; newBaseYear: number; notes?: string }>>({});
   const [vacatingMatchers, setVacatingMatchers] = useState<{ unitRefs: Set<string>; names: Set<string> }>({ unitRefs: new Set(), names: new Set() });
 
@@ -1087,7 +1089,7 @@ export default function RentRollPage() {
     return out;
   }, [rawRentroll, vacatingMatchers]);
 
-  async function updateBaseYear(unitRef: string, baseYear: number | null) {
+  async function updateBaseYear(unitRef: string, baseYear: number | string | null) {
     // Optimistic update
     setTenantMeta((prev) => {
       const next = { ...prev };
