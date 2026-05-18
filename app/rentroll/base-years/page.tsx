@@ -28,6 +28,10 @@ type RRProperty = {
   occupiedSqft: number;
   units: RRUnit[];
 };
+type RRSnapshot = {
+  month: string; // "YYYY-MM"
+  byProperty: { propertyCode: string; total: number; occupied: number }[];
+};
 
 // ── formatting ───────────────────────────────────────────────────────────────
 
@@ -75,6 +79,7 @@ export default function BaseYearExpensesPage() {
   const [propCode, setPropCode] = useState("3610");
   const [rrProps, setRrProps] = useState<RRProperty[] | null>(null);
   const [tenantMeta, setTenantMeta] = useState<Record<string, { baseYear?: number | string | null }>>({});
+  const [snapshots, setSnapshots] = useState<RRSnapshot[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [basis, setBasis] = useState<BaseYearBasis>("opexRet");
@@ -85,10 +90,12 @@ export default function BaseYearExpensesPage() {
     Promise.all([
       fetch("/api/rentroll").then((r) => (r.ok ? r.json() : null)).catch(() => null),
       fetch("/api/tenant-meta").then((r) => (r.ok ? r.json() : null)).catch(() => null),
+      fetch("/api/rentroll/history").then((r) => (r.ok ? r.json() : null)).catch(() => null),
     ])
-      .then(([rrJ, tmJ]) => {
+      .then(([rrJ, tmJ, histJ]) => {
         setRrProps(rrJ?.rentroll?.properties ?? []);
         setTenantMeta(tmJ?.tenantMeta ?? {});
+        setSnapshots(histJ?.snapshots ?? []);
       })
       .finally(() => setLoading(false));
   }, []);
@@ -117,6 +124,25 @@ export default function BaseYearExpensesPage() {
     if (!rrProp || rrProp.totalSqft <= 0) return null;
     return (rrProp.occupiedSqft / rrProp.totalSqft) * 100;
   }, [rrProp]);
+
+  // Monthly occupied SF for this building drawn from uploaded rent rolls —
+  // fills the occupancy history for 2026 onward.
+  const rrMonthly = useMemo(() => {
+    const out: Record<string, (number | null)[]> = {};
+    for (const snap of snapshots) {
+      const m = /^(\d{4})-(\d{2})$/.exec(snap.month ?? "");
+      if (!m) continue;
+      const bp = snap.byProperty?.find(
+        (p) => p.propertyCode.toUpperCase() === propCode.toUpperCase(),
+      );
+      if (!bp) continue;
+      const idx = Number(m[2]) - 1;
+      if (idx < 0 || idx > 11) continue;
+      if (!out[m[1]]) out[m[1]] = Array(12).fill(null);
+      out[m[1]][idx] = bp.occupied;
+    }
+    return out;
+  }, [snapshots, propCode]);
 
   // Live tenant roster for this building, with each tenant's base year.
   const tenants: TenantRow[] = useMemo(() => {
@@ -221,6 +247,9 @@ export default function BaseYearExpensesPage() {
             years={years}
             currentOccPct={currentOccPct}
           />
+
+          {/* Occupancy history — workbook layout */}
+          <OccupancyHistory expenses={expenses} rrMonthly={rrMonthly} />
 
           {/* Reset impact */}
           <ResetImpact
@@ -615,6 +644,93 @@ function ExpenseHistory({
         expense figures for {NOW_YEAR} are not yet posted. Op Ex (95%) grosses
         variable costs up to a 95%-occupancy basis — the figure used for
         base-year comparisons.
+      </p>
+    </div>
+  );
+}
+
+// ── occupancy history ────────────────────────────────────────────────────────
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+function OccupancyHistory({
+  expenses,
+  rrMonthly,
+}: {
+  expenses: PropertyExpenses;
+  rrMonthly: Record<string, (number | null)[]>;
+}) {
+  // Seed years take precedence; rent-roll-derived years (2026+) fill the rest.
+  const years = Array.from(
+    new Set([...Object.keys(expenses.occupancyMonthly), ...Object.keys(rrMonthly)]),
+  )
+    .map(Number)
+    .sort((a, b) => a - b);
+
+  const rentable = expenses.rentableSqft;
+  const hasRR = Object.keys(rrMonthly).length > 0;
+
+  const sticky: React.CSSProperties = {
+    position: "sticky",
+    left: 0,
+    background: "var(--card)",
+    zIndex: 1,
+  };
+
+  return (
+    <div className="card" style={{ marginTop: 16 }}>
+      <div style={SECTION_LABEL}>
+        Occupancy History · {rentable.toLocaleString()} SF rentable
+      </div>
+      <div className="tableWrap">
+        <table>
+          <thead>
+            <tr>
+              <th style={{ ...sticky, zIndex: 2 }}>Year</th>
+              {MONTHS.map((m) => (
+                <th key={m} style={{ textAlign: "right" }}>{m}</th>
+              ))}
+              <th style={{ textAlign: "right" }}>Avg Occ.</th>
+            </tr>
+          </thead>
+          <tbody>
+            {years.map((y) => {
+              const fromSeed = expenses.occupancyMonthly[String(y)];
+              const monthly: (number | null)[] = fromSeed ?? rrMonthly[String(y)] ?? [];
+              const present = monthly.filter((v): v is number => v != null);
+              const avgPct =
+                present.length && rentable > 0
+                  ? (present.reduce((s, v) => s + v, 0) / present.length / rentable) * 100
+                  : null;
+              const isRR = !fromSeed;
+              return (
+                <tr key={y}>
+                  <td style={{ ...sticky, fontWeight: 700 }}>
+                    {y}{isRR ? " *" : ""}
+                  </td>
+                  {Array.from({ length: 12 }).map((_, i) => {
+                    const v = monthly[i];
+                    return (
+                      <td key={i} style={{ textAlign: "right" }}>
+                        {v != null ? v.toLocaleString() : "—"}
+                      </td>
+                    );
+                  })}
+                  <td style={{ textAlign: "right", fontWeight: 700 }}>
+                    {avgPct != null ? Math.round(avgPct) + "%" : "—"}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <p className="small muted" style={{ marginTop: 8 }}>
+        Monthly occupied square footage; Avg Occ. is the average of the
+        reported months over rentable SF.{" "}
+        {hasRR
+          ? "Years marked * are filled from uploaded rent rolls."
+          : "Rows for 2026 onward fill automatically as monthly rent rolls are uploaded."}
       </p>
     </div>
   );
