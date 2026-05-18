@@ -16,7 +16,7 @@ const NAV_ROLE_KEY: Record<string, string> = {
   "Debt Tracker":       "debt",
   "Rent Roll":          "rentroll",
   "Leasing Activity":   "leasing-activity",
-  "Base Years":         "base-years",
+  "Expense History":    "base-years",
   "Commissions":        "commissions",
   "Task Tracker":       "tracker",
   "Filing Tracker":     "tracker",
@@ -24,7 +24,7 @@ const NAV_ROLE_KEY: Record<string, string> = {
   "Payroll Invoicer":   "payroll-invoicer",
   "Payroll History":    "payroll-history",
   "CC Expense Coder":   "expenses",
-  "Expense History":    "expenses-history",
+  "CC Expense History": "expenses-history",
   "Allocated Invoicer": "allocated",
   "Maintenance":        "maintenance",
   "Maintenance Reports":"maintenance",
@@ -164,11 +164,11 @@ const NAV = [
     ),
   },
   {
-    label: "Base Years",
+    label: "Expense History",
     href: "/rentroll/base-years",
     external: false,
-    indent: true,
-    showFor: "/rentroll",
+    indent: false,
+    showFor: null as string | null,
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <rect x="3" y="4" width="18" height="16" rx="2" />
@@ -243,7 +243,7 @@ const NAV = [
     ),
   },
   {
-    label: "Expense History",
+    label: "CC Expense History",
     href: "/expenses/history",
     external: false,
     indent: true,
