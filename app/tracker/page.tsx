@@ -824,7 +824,7 @@ export default function TrackerPage() {
   const [taxChecked, setTaxChecked] = useState<Record<string, boolean>>({});
   const [selDay,    setSelDay]    = useState<number | null>(null);
   const [filterCat, setFilterCat] = useState<Category | "all">("all");
-  const [detailTask, setDetailTask] = useState<TaskDef | null>(null);
+  const [detailTask, setDetailTask] = useState<{ label: string; instructions?: TaskInstructions } | null>(null);
 
   // ── Owner filter: Drew (default for admin/maint), Stacie (default for stacie), Both ──
   const [ownerFilter, setOwnerFilter] = useState<OwnerFilter>(
@@ -1654,13 +1654,30 @@ export default function TrackerPage() {
                               />
                               <div style={{ minWidth: 0 }}>
                                 <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                                  <span style={{
-                                    fontSize: 14, fontWeight: 600,
-                                    color: isDone ? "var(--muted)" : "var(--text)",
-                                    textDecoration: isDone ? "line-through" : "none",
-                                  }}>
-                                    {t.title}
-                                  </span>
+                                  {t.detail ? (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => { e.preventDefault(); setDetailTask({ label: t.title, instructions: t.detail }); }}
+                                      style={{
+                                        fontSize: 14, fontWeight: 600, textAlign: "left",
+                                        color: isDone ? "var(--muted)" : "var(--text)",
+                                        textDecoration: isDone ? "line-through" : "none",
+                                        background: "none", border: "none", padding: 0, cursor: "pointer",
+                                        fontFamily: "inherit", display: "inline-flex", alignItems: "center", gap: 6,
+                                      }}
+                                    >
+                                      <span style={{ borderBottom: "1px dotted var(--muted)" }}>{t.title}</span>
+                                      <span style={{ fontSize: 12, color: "var(--brand)", fontWeight: 700 }}>ⓘ</span>
+                                    </button>
+                                  ) : (
+                                    <span style={{
+                                      fontSize: 14, fontWeight: 600,
+                                      color: isDone ? "var(--muted)" : "var(--text)",
+                                      textDecoration: isDone ? "line-through" : "none",
+                                    }}>
+                                      {t.title}
+                                    </span>
+                                  )}
                                   {t.link && (
                                     <Link
                                       href={t.link}

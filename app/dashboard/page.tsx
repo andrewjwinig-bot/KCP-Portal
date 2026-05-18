@@ -15,7 +15,6 @@ import ExpirationChart from "./ExpirationChart";
 import MaintenanceOverview from "./MaintenanceOverview";
 import PendingReservationsCard from "./PendingReservationsCard";
 import PortfolioOccupancyPanel from "./PortfolioOccupancyPanel";
-import StacieTaskTracker from "./StacieTaskTracker";
 
 function sqftFmt(n: number) { return n.toLocaleString(); }
 
@@ -991,9 +990,6 @@ function DashboardInner() {
         )}
       </div>
       )}
-
-      {/* ── Stacie's task tracker — last, at the foot of the dashboard ── */}
-      {isStacie && <StacieTaskTracker />}
     </main>
   );
 }
