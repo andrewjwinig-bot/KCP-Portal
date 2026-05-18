@@ -333,7 +333,6 @@ function DashboardInner() {
     user.id === "nancy"  ? "office" :
     user.id === "harry"  ? "retail" :
     user.id === "stacie" ? "none"   :
-    user.id === "alison" ? "none"   :
     "all";
   const showExpiring = expiringScope !== "none";
 
