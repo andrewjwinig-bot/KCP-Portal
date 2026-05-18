@@ -532,9 +532,6 @@ function DashboardInner() {
         </Link>
         )}
 
-        {/* ── Stacie's task tracker — foot of her dashboard ── */}
-        {isStacie && <StacieTaskTracker order={10} />}
-
         {/* ── Office Lease Expirations (Nancy + admin) — below occupancy ── */}
         {(user.id === "nancy" || isAdmin) && (
           <div style={{ gridColumn: "1 / -1", order: user.id === "nancy" ? 0 : 1 }}>
@@ -994,6 +991,9 @@ function DashboardInner() {
         )}
       </div>
       )}
+
+      {/* ── Stacie's task tracker — last, at the foot of the dashboard ── */}
+      {isStacie && <StacieTaskTracker />}
     </main>
   );
 }
