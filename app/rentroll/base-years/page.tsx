@@ -78,7 +78,7 @@ export default function BaseYearExpensesPage() {
   const [loading, setLoading] = useState(true);
   const [showGL, setShowGL] = useState(false);
 
-  const [basis, setBasis] = useState<BaseYearBasis>("opex");
+  const [basis, setBasis] = useState<BaseYearBasis>("opexRet");
   const [compareYear, setCompareYear] = useState<number | null>(null);
   const [resetYear, setResetYear] = useState<number | null>(null);
 
