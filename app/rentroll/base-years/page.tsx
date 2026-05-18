@@ -425,19 +425,6 @@ function ResetImpact({
               accent={result.total ? "#b91c1c" : undefined}
             />
           </div>
-
-          {result.total != null &&
-            (result.total > 0 ? (
-              <p className="small" style={{ marginTop: 12 }}>
-                Resetting {selected.name} to a {latest} base year forgoes{" "}
-                <b style={{ color: "#b91c1c" }}>{money(result.total)}</b> of annual
-                expense recovery — the amount it currently owes above its {result.by} base year.
-              </p>
-            ) : (
-              <p className="small muted" style={{ marginTop: 12 }}>
-                Base year {result.by} is already at {latest} expense levels — no recovery to lose.
-              </p>
-            ))}
         </div>
       )}
 
@@ -445,7 +432,7 @@ function ResetImpact({
         Recovery is computed per GL line: the tenant owes its pro-rata share of
         each 95%-grossed-up Op Ex line and RE-tax line for {latest} above its
         base-year amount, each line floored at zero. Resetting the base year to{" "}
-        {latest} drops that recovery to $0 — CAM loss is the operating-expense
+        {NOW_YEAR} drops that recovery to $0 — CAM loss is the operating-expense
         portion, RET loss the real-estate-tax portion.
       </p>
     </div>
