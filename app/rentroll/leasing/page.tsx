@@ -4,6 +4,12 @@ import { useEffect, useMemo, useState } from "react";
 import type { RentRollData, RentRollUnit } from "../../../lib/rentroll/parseRentRollExcel";
 import LeasingActivityCard from "../LeasingActivityCard";
 import { PROPERTY_DEFS } from "../../../lib/properties/data";
+import {
+  SEED_EXPENSES,
+  latestExpenseYear,
+  reimbursement,
+} from "../../../lib/rentroll/baseYearExpenses";
+import { StatPill } from "../../components/Pill";
 
 type TenantMeta = { baseYear?: number | string | null };
 type BaseYearReset = {
@@ -105,8 +111,9 @@ function BaseYearResets({
 }) {
   // Build the office tenant dropdown options.
   const options = useMemo(() => {
-    if (!rentroll) return [] as { unitRef: string; label: string; propertyCode: string; occupantName: string }[];
-    const out: { unitRef: string; label: string; propertyCode: string; occupantName: string }[] = [];
+    type Opt = { unitRef: string; label: string; propertyCode: string; occupantName: string; sqft: number };
+    if (!rentroll) return [] as Opt[];
+    const out: Opt[] = [];
     for (const p of rentroll.properties) {
       if (!isOfficeCode(p.propertyCode)) continue;
       for (const u of p.units) {
@@ -115,6 +122,7 @@ function BaseYearResets({
           unitRef: u.unitRef,
           propertyCode: p.propertyCode,
           occupantName: u.occupantName,
+          sqft: u.sqft,
           label: `${p.propertyCode} · ${u.unitRef} · ${u.occupantName}`,
         });
       }
@@ -285,6 +293,11 @@ function BaseYearResets({
       </div>
       {error && <div style={{ marginTop: 8, fontSize: 12, color: "#b91c1c", fontWeight: 600 }}>{error}</div>}
 
+      {/* Reset impact for the selected tenant */}
+      {selectedOption && (
+        <ResetImpactPanel option={selectedOption} baseYearRaw={currentBaseYear} />
+      )}
+
       {/* Table */}
       <div style={{ marginTop: 16, overflowX: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
@@ -335,6 +348,68 @@ function BaseYearResets({
       </>
       )}
     </section>
+  );
+}
+
+// Income forgone by resetting the selected tenant's base year to the current
+// year, measured per GL line against the most recent full year of expenses.
+function ResetImpactPanel({
+  option,
+  baseYearRaw,
+}: {
+  option: { unitRef: string; propertyCode: string; occupantName: string; sqft: number };
+  baseYearRaw: number | string | null;
+}) {
+  const expenses = SEED_EXPENSES[option.propertyCode] ?? null;
+  const baseYear =
+    typeof baseYearRaw === "number"
+      ? baseYearRaw
+      : typeof baseYearRaw === "string" && /^\d{4}$/.test(baseYearRaw.trim())
+        ? Number(baseYearRaw.trim())
+        : null;
+
+  if (!expenses) {
+    return (
+      <div className="muted small" style={{ marginTop: 14 }}>
+        No operating-expense history loaded for {option.propertyCode} — reset impact unavailable.
+      </div>
+    );
+  }
+  if (baseYear == null) {
+    return (
+      <div className="muted small" style={{ marginTop: 14 }}>
+        {option.occupantName} has no numeric base year — reset impact unavailable.
+      </div>
+    );
+  }
+
+  const latest = latestExpenseYear(expenses);
+  if (latest == null) return null;
+
+  const cam = reimbursement(expenses, option.sqft, baseYear, latest, "opex");
+  const total = reimbursement(expenses, option.sqft, baseYear, latest, "opexRet");
+  const ret = cam != null && total != null ? total - cam : null;
+  const fmt = (n: number | null) =>
+    n != null ? "$" + Math.round(n).toLocaleString("en-US") : "—";
+
+  return (
+    <div style={{ marginTop: 16 }}>
+      <span style={fieldLabel}>Reset impact — annual income forgone</span>
+      <div className="pills" style={{ marginTop: 6 }}>
+        <StatPill label="CAM loss" value={fmt(cam)} sub={`vs ${latest} expenses`} />
+        <StatPill label="RET loss" value={fmt(ret)} sub={`vs ${latest} expenses`} />
+        <StatPill
+          label="Total loss"
+          value={fmt(total)}
+          accent={total ? "#b91c1c" : undefined}
+        />
+      </div>
+      <div className="muted small" style={{ marginTop: 6 }}>
+        Recovery the landlord would forgo by resetting {option.occupantName}&rsquo;s
+        base year ({baseYear}) to the current year — computed per GL line on the
+        95%-grossed-up Op Ex and RE taxes against {latest} expenses.
+      </div>
+    </div>
   );
 }
 
