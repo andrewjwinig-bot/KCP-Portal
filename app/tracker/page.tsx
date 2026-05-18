@@ -10,6 +10,7 @@ import {
   STACIE_TASKS,
   FREQUENCY_LABELS, FREQUENCY_ORDER,
   checkedKey, currentPeriod,
+  ACH_WIRES_DETAIL,
   type Frequency,
 } from "../../lib/stacie-tasks";
 import { useUser } from "../components/UserProvider";
@@ -509,65 +510,7 @@ const TASK_DEFS: TaskDef[] = [
     dueDay: 0,          // placeholder — overridden per-Monday at expansion time
     everyMonday: true,
     notes: "Download tenant ACH and incoming wire activity; send to Tami to post.",
-    instructions: {
-      intro: "Weekly — pull tenant ACH credits and incoming wires for the accounts below, save the reports, and hand off to Tami to post.",
-      steps: [
-        {
-          title: "Deposits to post — open these accounts",
-          items: [
-            "Chase — Brookwood (2300)",
-            "Chase — Parkwood (7010)",
-            "Chase — JV III (3610)",
-            "Chase — NI LLC (4000)",
-          ],
-          links: [
-            { label: "Brookwood 2300", url: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/745774880/DDA/CHK" },
-            { label: "Parkwood 7010", url: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/745774883/DDA/CHK" },
-            { label: "JV III 3610", url: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/745774882/DDA/CHK" },
-            { label: "NI LLC 4000", url: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/747627665/DDA/CHK" },
-          ],
-        },
-        {
-          title: "ACH Credits",
-          items: [
-            "Select Type: ACH Credit. Date: Sunday to Sunday. SEARCH.",
-            "To save: copy the description from the current month's posted batches (File: PDF Proc / Year / Property).",
-            "Change the dates and delete the Batch # — it should read ACH.",
-            "Save as PDF to: DATA / Sky Vol / PDF Process / Year / Year Lock Box and ACH reports / Property.",
-            "Name: \"Date Range ACH (Property) Batch #\" — leave the batch # blank.",
-          ],
-        },
-        {
-          title: "Incoming Wires",
-          items: [
-            "Select Type: Incoming Wire Transfers. Date: Sunday to Sunday. SEARCH.",
-            "To save: copy the description from the current month's posted batches (File: PDF Proc / Year / Property).",
-            "Change the dates and delete the Batch # — it should read WIRE.",
-            "Save as PDF to: DATA / Sky Vol / PDF Process / Year / Year Lock Box and ACH reports / Property.",
-            "Name: \"Date Range WIRE (Property) Batch #\" — leave the batch # blank.",
-          ],
-          note: "When Tami posts a batch she adds the batch # and moves the file to Sky Vol / PDF Proc / Year / Property along with the batch report PDF.",
-        },
-        {
-          title: "Month start / end — recurring ACH deposits",
-          items: [
-            "At the beginning or end of the month, also check for these recurring ACH deposits:",
-            "Lafayette Hill SC (9510) — WAWA ACH (always on the 1st)",
-            "Elbridge (7200) — Leevers ACH",
-            "KH Bellaire (9800) — Kreher (Homelink)",
-            "Grays Ferry (4500) — Wakefern, Grays Eye (TuDinh), Victra (ABC Phones) ACH",
-            "Revere (7300) — K&G ACH",
-          ],
-          links: [
-            { label: "Lafayette Hill 9510", url: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/913650367/DDA/CHK" },
-            { label: "Elbridge 7200", url: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/884656389/DDA/CHK" },
-            { label: "KH Bellaire 9800", url: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/789298739/DDA/CHK" },
-            { label: "Grays Ferry 4500", url: "https://secure.myvirtualbranch.com/LibertyBank/React/Accounts.aspx?p_r=1#Accounts/6" },
-            { label: "Revere 7300", url: "https://secure.myvirtualbranch.com/LibertyBank/React/Accounts.aspx?p_r=1#Accounts/3" },
-          ],
-        },
-      ],
-    },
+    instructions: ACH_WIRES_DETAIL,
   },
 
   // ── QUARTERLY — January, April, July, October ─────────────────────────────

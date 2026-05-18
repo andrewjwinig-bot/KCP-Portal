@@ -2,11 +2,24 @@ export type Frequency = "weekly" | "monthly" | "quarterly" | "semiannual" | "ann
 
 export type Owner = "stacie" | "drew";
 
+// Rich, click-to-open task detail (numbered steps, bullets, quick links).
+export type TaskDetailStep = {
+  title: string;
+  items: string[];
+  note?: string;
+  links?: { label: string; url: string }[];
+};
+export type TaskDetail = {
+  intro?: string;
+  steps: TaskDetailStep[];
+};
+
 export type StacieTask = {
   id: string;
   title: string;
   frequency: Frequency;
   instructions?: string; // line-broken plain text
+  detail?: TaskDetail;   // rich detail shown in a modal when the task is clicked
   owner?: Owner; // defaults to "stacie" when omitted
   /** Optional deep link rendered as a button next to the task title. */
   link?: string;
@@ -27,14 +40,76 @@ export const FREQUENCY_LABELS: Record<Frequency, string> = {
 
 export const FREQUENCY_ORDER: Frequency[] = ["weekly", "monthly", "quarterly", "semiannual", "annual", "ongoing", "eoy"];
 
+// Shared detail for the weekly ACH/wires download — used by both the
+// dashboard task tracker and the /tracker calendar task.
+export const ACH_WIRES_DETAIL: TaskDetail = {
+  intro: "Weekly — pull tenant ACH credits and incoming wires for the accounts below, save the reports, and hand off to Tami to post.",
+  steps: [
+    {
+      title: "Deposits to post — open these accounts",
+      items: [
+        "Chase — Brookwood (2300)",
+        "Chase — Parkwood (7010)",
+        "Chase — JV III (3610)",
+        "Chase — NI LLC (4000)",
+      ],
+      links: [
+        { label: "Brookwood 2300", url: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/745774880/DDA/CHK" },
+        { label: "Parkwood 7010", url: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/745774883/DDA/CHK" },
+        { label: "JV III 3610", url: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/745774882/DDA/CHK" },
+        { label: "NI LLC 4000", url: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/747627665/DDA/CHK" },
+      ],
+    },
+    {
+      title: "ACH Credits",
+      items: [
+        "Select Type: ACH Credit. Date: Sunday to Sunday. SEARCH.",
+        "To save: copy the description from the current month's posted batches (File: PDF Proc / Year / Property).",
+        "Change the dates and delete the Batch # — it should read ACH.",
+        "Save as PDF to: DATA / Sky Vol / PDF Process / Year / Year Lock Box and ACH reports / Property.",
+        "Name: \"Date Range ACH (Property) Batch #\" — leave the batch # blank.",
+      ],
+    },
+    {
+      title: "Incoming Wires",
+      items: [
+        "Select Type: Incoming Wire Transfers. Date: Sunday to Sunday. SEARCH.",
+        "To save: copy the description from the current month's posted batches (File: PDF Proc / Year / Property).",
+        "Change the dates and delete the Batch # — it should read WIRE.",
+        "Save as PDF to: DATA / Sky Vol / PDF Process / Year / Year Lock Box and ACH reports / Property.",
+        "Name: \"Date Range WIRE (Property) Batch #\" — leave the batch # blank.",
+      ],
+      note: "When Tami posts a batch she adds the batch # and moves the file to Sky Vol / PDF Proc / Year / Property along with the batch report PDF.",
+    },
+    {
+      title: "Month start / end — recurring ACH deposits",
+      items: [
+        "At the beginning or end of the month, also check for these recurring ACH deposits:",
+        "Lafayette Hill SC (9510) — WAWA ACH (always on the 1st)",
+        "Elbridge (7200) — Leevers ACH",
+        "KH Bellaire (9800) — Kreher (Homelink)",
+        "Grays Ferry (4500) — Wakefern, Grays Eye (TuDinh), Victra (ABC Phones) ACH",
+        "Revere (7300) — K&G ACH",
+      ],
+      links: [
+        { label: "Lafayette Hill 9510", url: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/913650367/DDA/CHK" },
+        { label: "Elbridge 7200", url: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/884656389/DDA/CHK" },
+        { label: "KH Bellaire 9800", url: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/789298739/DDA/CHK" },
+        { label: "Grays Ferry 4500", url: "https://secure.myvirtualbranch.com/LibertyBank/React/Accounts.aspx?p_r=1#Accounts/6" },
+        { label: "Revere 7300", url: "https://secure.myvirtualbranch.com/LibertyBank/React/Accounts.aspx?p_r=1#Accounts/3" },
+      ],
+    },
+  ],
+};
+
 export const STACIE_TASKS: StacieTask[] = [
   // ── Weekly ────────────────────────────────────────────────────
   {
     id: "wkly-dl-ach-wires",
     title: "Download ACH and Incoming Wires from Tenants",
     frequency: "weekly",
-    instructions:
-      "Mondays.\n• Chase LB (2300, 7010, NILLC, JVIII), 7200, 9510, Liberty 7300 & 4500, M&T 4900.\n• Including WAWA 1st of month (3).\n• Send to Tami to post.\n• Assist Tami with any questions regarding tenant payments.",
+    instructions: "Mondays — download tenant ACH/wires and send to Tami to post.",
+    detail: ACH_WIRES_DETAIL,
   },
   {
     id: "wkly-ap",
