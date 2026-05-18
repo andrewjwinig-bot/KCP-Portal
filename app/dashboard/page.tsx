@@ -14,6 +14,7 @@ import ExpirationChart from "./ExpirationChart";
 import MaintenanceOverview from "./MaintenanceOverview";
 import PendingReservationsCard from "./PendingReservationsCard";
 import PortfolioOccupancyPanel from "./PortfolioOccupancyPanel";
+import StacieTaskTracker from "./StacieTaskTracker";
 
 function sqftFmt(n: number) { return n.toLocaleString(); }
 
@@ -522,6 +523,9 @@ function DashboardInner() {
           )}
         </Link>
         )}
+
+        {/* ── Stacie's task tracker — foot of her dashboard ── */}
+        {isStacie && <StacieTaskTracker order={10} />}
 
         {/* ── Office Lease Expirations (Nancy + admin) — below occupancy ── */}
         {(user.id === "nancy" || isAdmin) && (
