@@ -163,7 +163,7 @@ export default function BaseYearExpensesPage() {
 
   return (
     <main>
-      <h1>Base Year Expenses</h1>
+      <h1>Operating Expense History</h1>
       <p className="muted" style={{ marginTop: 8, fontSize: 15 }}>
         Office operating-expense history by year and the recovery impact of
         resetting a tenant&rsquo;s base year forward.
