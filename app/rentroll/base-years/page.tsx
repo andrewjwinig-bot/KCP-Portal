@@ -37,10 +37,6 @@ type RRSnapshot = {
 function money(n: number): string {
   return "$" + Math.round(n).toLocaleString("en-US");
 }
-function signedMoney(n: number): string {
-  const v = Math.round(n);
-  return (v < 0 ? "−$" : "$") + Math.abs(v).toLocaleString("en-US");
-}
 function pct1(n: number): string {
   return n.toFixed(1) + "%";
 }
@@ -93,8 +89,6 @@ export default function BaseYearExpensesPage() {
   const [loading, setLoading] = useState(true);
 
   const [basis, setBasis] = useState<BaseYearBasis>("opexRet");
-  const [compareYear, setCompareYear] = useState<number | null>(null);
-  const [resetYear, setResetYear] = useState<number | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -112,18 +106,6 @@ export default function BaseYearExpensesPage() {
 
   const expenses: PropertyExpenses | null = SEED_EXPENSES[propCode] ?? null;
   const years = useMemo(() => (expenses ? expenseYears(expenses) : []), [expenses]);
-
-  // Default the year pickers to the latest year with data once expenses load.
-  useEffect(() => {
-    if (!expenses) {
-      setCompareYear(null);
-      setResetYear(null);
-      return;
-    }
-    const latest = latestExpenseYear(expenses);
-    setCompareYear(latest);
-    setResetYear(latest);
-  }, [expenses]);
 
   const rrProp = useMemo(
     () => (rrProps ?? []).find((p) => p.propertyCode.toUpperCase() === propCode.toUpperCase()) ?? null,
@@ -228,10 +210,6 @@ export default function BaseYearExpensesPage() {
             years={years}
             basis={basis}
             setBasis={setBasis}
-            compareYear={compareYear}
-            setCompareYear={setCompareYear}
-            resetYear={resetYear}
-            setResetYear={setResetYear}
             loading={loading}
             hasRentRoll={!!rrProp}
           />
@@ -350,10 +328,6 @@ function ResetImpact({
   years,
   basis,
   setBasis,
-  compareYear,
-  setCompareYear,
-  resetYear,
-  setResetYear,
   loading,
   hasRentRoll,
 }: {
@@ -362,31 +336,34 @@ function ResetImpact({
   years: number[];
   basis: BaseYearBasis;
   setBasis: (b: BaseYearBasis) => void;
-  compareYear: number | null;
-  setCompareYear: (y: number) => void;
-  resetYear: number | null;
-  setResetYear: (y: number) => void;
   loading: boolean;
   hasRentRoll: boolean;
 }) {
-  const cy = compareYear ?? latestExpenseYear(expenses) ?? years[years.length - 1];
-  const ry = resetYear ?? cy;
+  // Recovery is measured against the most recent full year of expense data.
+  const latest = latestExpenseYear(expenses) ?? years[years.length - 1];
 
   const rows = tenants.filter((t) => t.baseYearNum != null);
   const [selUnit, setSelUnit] = useState("");
   const selected = rows.find((t) => t.unitRef === selUnit) ?? rows[0] ?? null;
 
+  // The base year auto-populates to the selected tenant's current base year.
+  const [baseYearSel, setBaseYearSel] = useState<number | null>(null);
+  useEffect(() => {
+    setBaseYearSel(selected?.baseYearNum ?? null);
+  }, [selected?.unitRef, selected?.baseYearNum]);
+  const by = baseYearSel ?? selected?.baseYearNum ?? latest;
+
+  // Resetting the base year to the current year zeroes the tenant's expense
+  // recovery, so the income lost equals what it owes above its base year today.
   const result = useMemo(() => {
-    if (!selected || selected.baseYearNum == null) return null;
-    const now = reimbursement(expenses, selected.sqft, selected.baseYearNum, cy, basis);
-    const after = reimbursement(expenses, selected.sqft, ry, cy, basis);
+    if (!selected) return null;
     return {
-      now,
-      after,
+      now: reimbursement(expenses, selected.sqft, by, latest, basis),
       share: (selected.sqft / expenses.rentableSqft) * 100,
-      delta: now != null && after != null ? after - now : null,
     };
-  }, [selected, expenses, cy, ry, basis]);
+  }, [selected, expenses, by, latest, basis]);
+
+  const yearOptions = [...years].reverse();
 
   return (
     <div className="card" style={{ marginTop: 16 }}>
@@ -405,21 +382,20 @@ function ResetImpact({
             {rows.length === 0 && <option value="">No tenants</option>}
             {rows.map((t) => (
               <option key={t.unitRef} value={t.unitRef}>
-                {t.name} — Unit {t.unitRef} (base {t.baseYearNum})
+                {t.name} — Unit {t.unitRef}
               </option>
             ))}
           </select>
         </label>
         <label>
-          <div style={{ ...SECTION_LABEL, marginBottom: 5 }}>Compare expenses for</div>
-          <select value={cy} onChange={(e) => setCompareYear(Number(e.target.value))} style={selectStyle}>
-            {years.map((y) => <option key={y} value={y}>{y}</option>)}
-          </select>
-        </label>
-        <label>
-          <div style={{ ...SECTION_LABEL, marginBottom: 5 }}>Model reset to base year</div>
-          <select value={ry} onChange={(e) => setResetYear(Number(e.target.value))} style={selectStyle}>
-            {years.map((y) => <option key={y} value={y}>{y}</option>)}
+          <div style={{ ...SECTION_LABEL, marginBottom: 5 }}>Base year</div>
+          <select
+            value={by}
+            onChange={(e) => setBaseYearSel(Number(e.target.value))}
+            style={selectStyle}
+            disabled={!selected}
+          >
+            {yearOptions.map((y) => <option key={y} value={y}>{y}</option>)}
           </select>
         </label>
         <div>
@@ -469,55 +445,39 @@ function ResetImpact({
 
           <div className="pills" style={{ marginTop: 12 }}>
             <StatPill
-              label={`Reimbursement — base ${selected.baseYearNum}`}
+              label={`Recovery — base ${by}`}
               value={result.now != null ? money(result.now) : "—"}
-              sub={`vs ${cy} expenses`}
+              sub={`vs ${latest} expenses`}
             />
+            <StatPill label={`After reset to ${latest}`} value="$0" sub="base year = current" />
             <StatPill
-              label={`If reset to base ${ry}`}
-              value={result.after != null ? money(result.after) : "—"}
-              sub={`vs ${cy} expenses`}
-            />
-            <StatPill
-              label="Δ Annual Recovery"
-              value={result.delta != null ? signedMoney(result.delta) : "—"}
-              accent={
-                result.delta == null
-                  ? undefined
-                  : result.delta < 0
-                    ? "#b91c1c"
-                    : result.delta > 0
-                      ? "#15803d"
-                      : undefined
-              }
+              label="Annual income lost"
+              value={result.now != null ? money(result.now) : "—"}
+              accent={result.now ? "#b91c1c" : undefined}
             />
           </div>
 
-          {result.delta != null && result.delta !== 0 && selected.baseYearNum !== ry && (
-            <p className="small" style={{ marginTop: 12 }}>
-              Resetting {selected.name}&rsquo;s base year from {selected.baseYearNum} to{" "}
-              {ry} {result.delta < 0 ? "reduces" : "increases"} annual expense
-              recovery by{" "}
-              <b style={{ color: result.delta < 0 ? "#b91c1c" : "#15803d" }}>
-                {money(Math.abs(result.delta))}
-              </b>
-              .
-            </p>
-          )}
-          {selected.baseYearNum === ry && (
-            <p className="small muted" style={{ marginTop: 12 }}>
-              Tenant is already on base year {ry} — no change.
-            </p>
-          )}
+          {result.now != null &&
+            (result.now > 0 ? (
+              <p className="small" style={{ marginTop: 12 }}>
+                Resetting {selected.name} to a {latest} base year forgoes{" "}
+                <b style={{ color: "#b91c1c" }}>{money(result.now)}</b> of annual
+                expense recovery — the amount it currently owes above its {by} base year.
+              </p>
+            ) : (
+              <p className="small muted" style={{ marginTop: 12 }}>
+                Base year {by} is already at {latest} expense levels — no recovery to lose.
+              </p>
+            ))}
         </div>
       )}
 
       <p className="small muted" style={{ marginTop: 12 }}>
-        Reimbursement is computed per GL line on the{" "}
+        Recovery is computed per GL line on the{" "}
         {basis === "opexRet" ? "95%-grossed-up Op Ex plus RE taxes" : "95%-grossed-up Op Ex"}:
-        the tenant owes its pro-rata share of each line&rsquo;s {cy} amount above
-        its base-year amount, each line floored at zero. A negative Δ is
-        recovery the landlord gives up.
+        the tenant owes its pro-rata share of each line&rsquo;s {latest} amount
+        above its base-year amount, each line floored at zero. Resetting the base
+        year to {latest} drops that recovery to $0.
       </p>
     </div>
   );
