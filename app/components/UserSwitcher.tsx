@@ -10,6 +10,7 @@ const AVATAR_COLOR: Record<UserId, string> = {
   nancy:  "#0b4a7d",
   harry:  "#d97706",
   maint:  "#7c3aed",
+  alison: "#0d9488",
 };
 
 // Personas that require the admin auth cookie before they can be selected.

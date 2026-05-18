@@ -171,6 +171,7 @@ function DashboardInner() {
 
   const isAdmin = user.id === "admin";
   const isStacie = user.id === "stacie";
+  const isAlison = user.id === "alison";
 
   useEffect(() => {
     fetch("/api/rentroll").then((r) => r.json()).then((j) => setRentroll(j.rentroll ?? null)).catch(() => setRentroll(null)).finally(() => setLoading(false));
@@ -332,6 +333,7 @@ function DashboardInner() {
     user.id === "nancy"  ? "office" :
     user.id === "harry"  ? "retail" :
     user.id === "stacie" ? "none"   :
+    user.id === "alison" ? "none"   :
     "all";
   const showExpiring = expiringScope !== "none";
 
@@ -531,21 +533,22 @@ function DashboardInner() {
         </Link>
         )}
 
-        {/* ── Office Lease Expirations (Nancy + admin) — below occupancy ── */}
-        {(user.id === "nancy" || isAdmin) && (
+        {/* ── Office Lease Expirations (Nancy + admin + Alison) — below occupancy ── */}
+        {(user.id === "nancy" || isAdmin || isAlison) && (
           <div style={{ gridColumn: "1 / -1", order: user.id === "nancy" ? 0 : 1 }}>
             <ExpirationChart rentroll={rentroll} variant="office" />
           </div>
         )}
 
-        {/* ── Retail Lease Expirations (Harry + admin) — below occupancy ── */}
-        {(user.id === "harry" || isAdmin) && (
+        {/* ── Retail Lease Expirations (Harry + admin + Alison) — below occupancy ── */}
+        {(user.id === "harry" || isAdmin || isAlison) && (
           <div style={{ gridColumn: "1 / -1", order: user.id === "harry" ? 0 : 1 }}>
             <ExpirationChart rentroll={rentroll} variant="retail" />
           </div>
         )}
 
         {/* ── Action Items / Data Freshness — full-width strip across the top ── */}
+        {!isAlison && (
         <div className="card" style={{ gridColumn: "1 / -1", order: -5 }}>
           <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 8 }}>Action Items</div>
           {loading ? (
@@ -835,6 +838,7 @@ function DashboardInner() {
             </div>
           )}
         </div>
+        )}
 
         {/* ── Monthly bank progress donuts (Stacie + admin) ─────────────── */}
         {showBankRec && (
