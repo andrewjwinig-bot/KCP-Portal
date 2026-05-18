@@ -13,6 +13,7 @@ const NAV_ROLE_KEY: Record<string, string> = {
   "Dashboard":          "dashboard",
   "Property Info":      "properties",
   "Investor Info":      "investors",
+  "Debt Tracker":       "debt",
   "Rent Roll":          "rentroll",
   "Leasing Activity":   "leasing-activity",
   "Commissions":        "commissions",
@@ -101,6 +102,20 @@ const NAV = [
         <circle cx="9" cy="7" r="4" />
         <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
         <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+      </svg>
+    ),
+  },
+  {
+    label: "Debt Tracker",
+    href: "/debt",
+    external: false,
+    indent: false,
+    showFor: null as string | null,
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <line x1="3" y1="3" x2="3" y2="21" />
+        <line x1="3" y1="21" x2="21" y2="21" />
+        <polyline points="6 8 11 13 15 10 20 16" />
       </svg>
     ),
   },
