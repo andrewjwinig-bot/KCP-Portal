@@ -5,13 +5,12 @@ import {
   OFFICE_BUILDINGS,
   SEED_EXPENSES,
   expenseYears,
-  expenseBaseFor,
   latestExpenseYear,
   reimbursement,
   type BaseYearBasis,
   type PropertyExpenses,
 } from "@/lib/rentroll/baseYearExpenses";
-import { Pill, StatPill, TONE_BLUE } from "@/app/components/Pill";
+import { StatPill } from "@/app/components/Pill";
 
 // ── rent-roll shapes (subset of /api/rentroll) ───────────────────────────────
 
@@ -54,6 +53,16 @@ const SECTION_LABEL: React.CSSProperties = {
   color: "var(--muted)",
 };
 
+const selectStyle: React.CSSProperties = {
+  padding: "7px 10px",
+  borderRadius: 9,
+  border: "1px solid var(--border)",
+  background: "var(--card)",
+  color: "var(--text)",
+  fontSize: 14,
+  fontWeight: 700,
+};
+
 function resolveBaseYear(raw: number | string | null | undefined): {
   num: number | null;
   marker: string | null;
@@ -66,6 +75,7 @@ function resolveBaseYear(raw: number | string | null | undefined): {
 }
 
 const NOW_YEAR = new Date().getFullYear();
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 type TenantRow = {
   unitRef: string;
@@ -168,41 +178,30 @@ export default function BaseYearExpensesPage() {
   }, [rrProp, tenantMeta]);
 
   const meta = OFFICE_BUILDINGS.find((b) => b.code === propCode);
-  const building = SEED_EXPENSES[propCode];
 
   return (
     <main>
       <h1>Base Year Expenses</h1>
       <p className="muted" style={{ marginTop: 8, fontSize: 15 }}>
-        Office operating-expense history by year, the tenants locked to each
-        base year, and the recovery impact of resetting a base year forward.
+        Office operating-expense history by year and the recovery impact of
+        resetting a tenant&rsquo;s base year forward.
       </p>
 
-      {/* Building selector */}
-      <div style={{ display: "flex", gap: 8, marginTop: 18, flexWrap: "wrap" }}>
-        {OFFICE_BUILDINGS.map((b) => {
-          const active = b.code === propCode;
-          const hasData = !!SEED_EXPENSES[b.code];
-          return (
-            <button
-              key={b.code}
-              onClick={() => setPropCode(b.code)}
-              className="btn"
-              title={hasData ? "" : "Expense history not loaded yet"}
-              style={{
-                padding: "8px 13px",
-                fontSize: 13,
-                background: active ? "var(--brand)" : undefined,
-                color: active ? "#fff" : undefined,
-                borderColor: active ? "var(--brand)" : undefined,
-                opacity: hasData || active ? 1 : 0.55,
-              }}
-            >
-              {b.name} <span style={{ opacity: 0.7 }}>#{b.code}</span>
-              {!hasData && <span style={{ marginLeft: 6, fontSize: 11 }}>·&nbsp;no data</span>}
-            </button>
-          );
-        })}
+      {/* Building selector — compact dropdown */}
+      <div style={{ marginTop: 16, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        <span style={SECTION_LABEL}>Building</span>
+        <select value={propCode} onChange={(e) => setPropCode(e.target.value)} style={selectStyle}>
+          {OFFICE_BUILDINGS.map((b) => (
+            <option key={b.code} value={b.code}>
+              {b.name} (#{b.code}){SEED_EXPENSES[b.code] ? "" : " — no data"}
+            </option>
+          ))}
+        </select>
+        {expenses && (
+          <span className="small muted">
+            {meta?.fund} · {expenses.rentableSqft.toLocaleString()} SF · workbook updated {expenses.updatedAt}
+          </span>
+        )}
       </div>
 
       {!expenses ? (
@@ -212,46 +211,13 @@ export default function BaseYearExpensesPage() {
           </p>
           <p className="muted" style={{ marginTop: 6 }}>
             Send the historical operating-expense workbook for this building and
-            it&rsquo;ll appear here with the same base-year tools as Building&nbsp;1.
+            it&rsquo;ll appear here with the same base-year tools as the JV III buildings.
           </p>
         </div>
       ) : (
         <>
-          {/* KPIs */}
-          <div className="card" style={{ marginTop: 16 }}>
-            <div style={SECTION_LABEL}>
-              {meta?.name} (#{propCode}) · {meta?.fund} · workbook updated {expenses.updatedAt}
-            </div>
-            <div className="pills">
-              <StatPill label="Rentable SF" value={expenses.rentableSqft.toLocaleString()} />
-              <StatPill
-                label={`${latestExpenseYear(expenses)} Op Ex (95%)`}
-                value={money(expenses.opExGrossedUp[String(latestExpenseYear(expenses))] ?? 0)}
-              />
-              <StatPill
-                label={`${latestExpenseYear(expenses)} RE Taxes`}
-                value={money(expenses.ret[String(latestExpenseYear(expenses))] ?? 0)}
-              />
-              <StatPill label="Tenants w/ Base Year" value={tenants.filter((t) => t.baseYearNum != null).length} />
-              <StatPill
-                label="Current Occupancy"
-                value={currentOccPct != null ? pct1(currentOccPct) : "—"}
-                sub="from rent roll"
-              />
-            </div>
-          </div>
+          <SummaryTable expenses={expenses} />
 
-          {/* Expense history — workbook layout */}
-          <ExpenseHistory
-            expenses={expenses}
-            years={years}
-            currentOccPct={currentOccPct}
-          />
-
-          {/* Occupancy history — workbook layout */}
-          <OccupancyHistory expenses={expenses} rrMonthly={rrMonthly} />
-
-          {/* Reset impact */}
           <ResetImpact
             expenses={expenses}
             tenants={tenants}
@@ -265,13 +231,76 @@ export default function BaseYearExpensesPage() {
             loading={loading}
             hasRentRoll={!!rrProp}
           />
+
+          <ExpenseHistory expenses={expenses} years={years} currentOccPct={currentOccPct} />
+
+          <OccupancyHistory expenses={expenses} rrMonthly={rrMonthly} />
         </>
       )}
     </main>
   );
 }
 
-// ── reset-impact calculator ──────────────────────────────────────────────────
+// ── summary ($/SF, last 5 years) ─────────────────────────────────────────────
+
+function SummaryTable({ expenses }: { expenses: PropertyExpenses }) {
+  const last5 = expenseYears(expenses).slice(-5);
+  const rentable = expenses.rentableSqft;
+  const elec = expenses.lines.find((l) => l.separateCharge);
+
+  const psf = (n: number | undefined) =>
+    n != null ? "$" + (n / rentable).toFixed(2) : "—";
+
+  const rows: { label: string; total?: boolean; get: (y: string) => number | undefined }[] = [
+    { label: "CAM", get: (y) => expenses.opExGrossedUp[y] },
+    { label: "RET", get: (y) => expenses.ret[y] },
+    {
+      label: "Total (CAM + RET)",
+      total: true,
+      get: (y) =>
+        expenses.opExGrossedUp[y] != null
+          ? expenses.opExGrossedUp[y] + (expenses.ret[y] ?? 0)
+          : undefined,
+    },
+    { label: "Electric", get: (y) => elec?.values[y] },
+  ];
+
+  return (
+    <div className="card" style={{ marginTop: 16 }}>
+      <div style={SECTION_LABEL}>Summary — $ / SF · last 5 years</div>
+      <div className="tableWrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Per SF</th>
+              {last5.map((y) => (
+                <th key={y} style={{ textAlign: "right" }}>{y}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.label}>
+                <td style={{ fontWeight: r.total ? 800 : 700 }}>{r.label}</td>
+                {last5.map((y) => (
+                  <td key={y} style={{ textAlign: "right", fontWeight: r.total ? 800 : undefined }}>
+                    {psf(r.get(String(y)))}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="small muted" style={{ marginTop: 8 }}>
+        CAM = 95%-grossed-up operating expenses. Per SF over{" "}
+        {rentable.toLocaleString()} rentable SF. Electric is billed separately.
+      </p>
+    </div>
+  );
+}
+
+// ── reset-impact calculator (single tenant) ──────────────────────────────────
 
 function ResetImpact({
   expenses,
@@ -302,29 +331,20 @@ function ResetImpact({
   const ry = resetYear ?? cy;
 
   const rows = tenants.filter((t) => t.baseYearNum != null);
-  const markerRows = tenants.filter((t) => t.baseYearNum == null && t.baseYearMarker);
+  const [selUnit, setSelUnit] = useState("");
+  const selected = rows.find((t) => t.unitRef === selUnit) ?? rows[0] ?? null;
 
-  let totalNow = 0;
-  let totalAfter = 0;
-  const computed = rows.map((t) => {
-    const now = reimbursement(expenses, t.sqft, t.baseYearNum as number, cy, basis);
-    const after = reimbursement(expenses, t.sqft, ry, cy, basis);
-    if (now != null) totalNow += now;
-    if (after != null) totalAfter += after;
-    const lockedBase = expenseBaseFor(expenses, t.baseYearNum as number, basis);
-    return { t, now, after, lockedBase, delta: now != null && after != null ? after - now : null };
-  });
-  const totalDelta = totalAfter - totalNow;
-
-  const selectStyle: React.CSSProperties = {
-    padding: "7px 10px",
-    borderRadius: 9,
-    border: "1px solid var(--border)",
-    background: "var(--card)",
-    color: "var(--text)",
-    fontSize: 14,
-    fontWeight: 700,
-  };
+  const result = useMemo(() => {
+    if (!selected || selected.baseYearNum == null) return null;
+    const now = reimbursement(expenses, selected.sqft, selected.baseYearNum, cy, basis);
+    const after = reimbursement(expenses, selected.sqft, ry, cy, basis);
+    return {
+      now,
+      after,
+      share: (selected.sqft / expenses.rentableSqft) * 100,
+      delta: now != null && after != null ? after - now : null,
+    };
+  }, [selected, expenses, cy, ry, basis]);
 
   return (
     <div className="card" style={{ marginTop: 16 }}>
@@ -332,6 +352,22 @@ function ResetImpact({
 
       {/* Controls */}
       <div style={{ display: "flex", gap: 18, flexWrap: "wrap", alignItems: "flex-end", marginTop: 10 }}>
+        <label>
+          <div style={{ ...SECTION_LABEL, marginBottom: 5 }}>Tenant</div>
+          <select
+            value={selected?.unitRef ?? ""}
+            onChange={(e) => setSelUnit(e.target.value)}
+            style={{ ...selectStyle, maxWidth: 320 }}
+            disabled={rows.length === 0}
+          >
+            {rows.length === 0 && <option value="">No tenants</option>}
+            {rows.map((t) => (
+              <option key={t.unitRef} value={t.unitRef}>
+                {t.name} — Unit {t.unitRef} (base {t.baseYearNum})
+              </option>
+            ))}
+          </select>
+        </label>
         <label>
           <div style={{ ...SECTION_LABEL, marginBottom: 5 }}>Compare expenses for</div>
           <select value={cy} onChange={(e) => setCompareYear(Number(e.target.value))} style={selectStyle}>
@@ -370,121 +406,113 @@ function ResetImpact({
         </div>
       </div>
 
-      {/* Headline */}
-      <div className="pills" style={{ marginTop: 16 }}>
-        <StatPill label={`Recovery now (base yrs as-is)`} value={money(totalNow)} sub={`${cy} expenses`} />
-        <StatPill label={`Recovery if all reset to ${ry}`} value={money(totalAfter)} />
-        <StatPill
-          label="Annual recovery impact"
-          value={signedMoney(totalDelta)}
-          accent={totalDelta < 0 ? "#b91c1c" : totalDelta > 0 ? "#15803d" : undefined}
-        />
-      </div>
-
-      {/* Per-tenant table */}
+      {/* Result */}
       {loading ? (
-        <p className="muted" style={{ marginTop: 14 }}>Loading rent roll…</p>
+        <p className="muted" style={{ marginTop: 16 }}>Loading rent roll…</p>
       ) : !hasRentRoll ? (
-        <p className="muted" style={{ marginTop: 14 }}>
-          No rent roll loaded for this building — upload a rent roll to see tenants.
+        <p className="muted" style={{ marginTop: 16 }}>
+          No rent roll loaded for this building — upload a rent roll to pick a tenant.
         </p>
-      ) : rows.length === 0 ? (
-        <p className="muted" style={{ marginTop: 14 }}>
+      ) : !selected || !result ? (
+        <p className="muted" style={{ marginTop: 16 }}>
           No tenants with a numeric base year found for this building.
         </p>
       ) : (
-        <div className="tableWrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Tenant</th>
-                <th style={{ textAlign: "right" }}>SF</th>
-                <th style={{ textAlign: "right" }}>Pro-rata</th>
-                <th style={{ textAlign: "center" }}>Base Yr</th>
-                <th style={{ textAlign: "right" }}>Locked Base</th>
-                <th style={{ textAlign: "right" }}>Reimb. ({cy})</th>
-                <th style={{ textAlign: "center" }}>Reset → {ry}</th>
-                <th style={{ textAlign: "right" }}>New Reimb.</th>
-                <th style={{ textAlign: "right" }}>Δ Recovery</th>
-              </tr>
-            </thead>
-            <tbody>
-              {computed.map(({ t, now, after, lockedBase, delta }) => {
-                const share = (t.sqft / expenses.rentableSqft) * 100;
-                return (
-                  <tr key={t.unitRef}>
-                    <td>
-                      <div style={{ fontWeight: 700 }}>{t.name}</div>
-                      <div className="small muted">{t.unitRef}</div>
-                    </td>
-                    <td style={{ textAlign: "right" }}>{t.sqft.toLocaleString()}</td>
-                    <td style={{ textAlign: "right" }}>{pct1(share)}</td>
-                    <td style={{ textAlign: "center" }}>
-                      <Pill tone={TONE_BLUE}>{t.baseYearNum}</Pill>
-                    </td>
-                    <td style={{ textAlign: "right" }}>{lockedBase != null ? money(lockedBase) : "—"}</td>
-                    <td style={{ textAlign: "right" }}>{now != null ? money(now) : "—"}</td>
-                    <td style={{ textAlign: "center" }} className="small muted">
-                      {t.baseYearNum === ry ? "no change" : `was ${t.baseYearNum}`}
-                    </td>
-                    <td style={{ textAlign: "right" }}>{after != null ? money(after) : "—"}</td>
-                    <td
-                      style={{
-                        textAlign: "right",
-                        fontWeight: 800,
-                        color: delta == null ? undefined : delta < 0 ? "#b91c1c" : delta > 0 ? "#15803d" : "var(--muted)",
-                      }}
-                    >
-                      {delta == null ? "—" : delta === 0 ? "—" : signedMoney(delta)}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-            <tfoot>
-              <tr>
-                <td>Total</td>
-                <td style={{ textAlign: "right" }}>
-                  {rows.reduce((s, t) => s + t.sqft, 0).toLocaleString()}
-                </td>
-                <td colSpan={3} />
-                <td style={{ textAlign: "right" }}>{money(totalNow)}</td>
-                <td />
-                <td style={{ textAlign: "right" }}>{money(totalAfter)}</td>
-                <td
-                  style={{
-                    textAlign: "right",
-                    color: totalDelta < 0 ? "#b91c1c" : totalDelta > 0 ? "#15803d" : undefined,
-                  }}
-                >
-                  {signedMoney(totalDelta)}
-                </td>
-              </tr>
-            </tfoot>
-          </table>
+        <div style={{ marginTop: 16 }}>
+          <div style={{ fontWeight: 800, fontSize: 18 }}>{selected.name}</div>
+          <div className="small muted" style={{ marginTop: 2 }}>
+            Unit {selected.unitRef} · {selected.sqft.toLocaleString()} SF ·{" "}
+            {pct1(result.share)} pro-rata share · current base year {selected.baseYearNum}
+          </div>
+
+          <div className="pills" style={{ marginTop: 12 }}>
+            <StatPill
+              label={`Reimbursement — base ${selected.baseYearNum}`}
+              value={result.now != null ? money(result.now) : "—"}
+              sub={`vs ${cy} expenses`}
+            />
+            <StatPill
+              label={`If reset to base ${ry}`}
+              value={result.after != null ? money(result.after) : "—"}
+              sub={`vs ${cy} expenses`}
+            />
+            <StatPill
+              label="Δ Annual Recovery"
+              value={result.delta != null ? signedMoney(result.delta) : "—"}
+              accent={
+                result.delta == null
+                  ? undefined
+                  : result.delta < 0
+                    ? "#b91c1c"
+                    : result.delta > 0
+                      ? "#15803d"
+                      : undefined
+              }
+            />
+          </div>
+
+          {result.delta != null && result.delta !== 0 && selected.baseYearNum !== ry && (
+            <p className="small" style={{ marginTop: 12 }}>
+              Resetting {selected.name}&rsquo;s base year from {selected.baseYearNum} to{" "}
+              {ry} {result.delta < 0 ? "reduces" : "increases"} annual expense
+              recovery by{" "}
+              <b style={{ color: result.delta < 0 ? "#b91c1c" : "#15803d" }}>
+                {money(Math.abs(result.delta))}
+              </b>
+              .
+            </p>
+          )}
+          {selected.baseYearNum === ry && (
+            <p className="small muted" style={{ marginTop: 12 }}>
+              Tenant is already on base year {ry} — no change.
+            </p>
+          )}
         </div>
       )}
 
-      {markerRows.length > 0 && (
-        <p className="small muted" style={{ marginTop: 12 }}>
-          Excluded (no numeric base year):{" "}
-          {markerRows.map((t) => `${t.name} (${t.baseYearMarker})`).join(", ")}.
-          NNN tenants pay expenses directly; gross tenants have no expense stop.
-        </p>
-      )}
-      <p className="small muted" style={{ marginTop: 8 }}>
-        Reimbursement is computed per GL line: for each {basis === "opexRet" ? "95%-grossed-up Op Ex line and RE taxes" : "95%-grossed-up Op Ex line"},
-        the tenant owes its pro-rata share of the {cy} amount above that
-        line&rsquo;s base-year amount, and each line is floored at zero — a line
-        below its base year does not offset increases elsewhere. Resetting a
-        base year forward raises those floors, so a negative Δ is recovery the
-        landlord gives up.
+      <p className="small muted" style={{ marginTop: 12 }}>
+        Reimbursement is computed per GL line on the{" "}
+        {basis === "opexRet" ? "95%-grossed-up Op Ex plus RE taxes" : "95%-grossed-up Op Ex"}:
+        the tenant owes its pro-rata share of each line&rsquo;s {cy} amount above
+        its base-year amount, each line floored at zero. A negative Δ is
+        recovery the landlord gives up.
       </p>
     </div>
   );
 }
 
-// ── expense history table ────────────────────────────────────────────────────
+// ── collapsible section header ───────────────────────────────────────────────
+
+function CollapseHeader({
+  open,
+  onToggle,
+  title,
+}: {
+  open: boolean;
+  onToggle: () => void;
+  title: string;
+}) {
+  return (
+    <button
+      onClick={onToggle}
+      style={{
+        ...SECTION_LABEL,
+        border: "none",
+        background: "none",
+        padding: 0,
+        cursor: "pointer",
+        display: "flex",
+        alignItems: "center",
+        gap: 6,
+      }}
+    >
+      <span style={{ fontSize: 13 }}>{open ? "▾" : "▸"}</span>
+      {title}
+    </button>
+  );
+}
+
+// ── expense history table (collapsible) ──────────────────────────────────────
 
 function ExpenseHistory({
   expenses,
@@ -495,6 +523,7 @@ function ExpenseHistory({
   years: number[];
   currentOccPct: number | null;
 }) {
+  const [open, setOpen] = useState(false);
   const displayYears = years.includes(NOW_YEAR) ? years : [...years, NOW_YEAR];
   const [psf, setPsf] = useState(false);
 
@@ -528,130 +557,132 @@ function ExpenseHistory({
   return (
     <div className="card" style={{ marginTop: 16 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-        <div style={SECTION_LABEL}>
-          Operating Expense History {psf && `· per SF of ${expenses.rentableSqft.toLocaleString()} rentable`}
-        </div>
-        <div style={{ display: "flex", gap: 6 }}>
-          {([
-            [false, "$ total"],
-            [true, "$ / SF"],
-          ] as [boolean, string][]).map(([val, label]) => (
-            <button
-              key={label}
-              className="btn"
-              onClick={() => setPsf(val)}
-              style={{
-                padding: "6px 12px",
-                fontSize: 13,
-                background: psf === val ? "var(--brand)" : undefined,
-                color: psf === val ? "#fff" : undefined,
-                borderColor: psf === val ? "var(--brand)" : undefined,
-              }}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        <CollapseHeader open={open} onToggle={() => setOpen((o) => !o)} title="Operating Expense History" />
+        {open && (
+          <div style={{ display: "flex", gap: 6 }}>
+            {([
+              [false, "$ total"],
+              [true, "$ / SF"],
+            ] as [boolean, string][]).map(([val, label]) => (
+              <button
+                key={label}
+                className="btn"
+                onClick={() => setPsf(val)}
+                style={{
+                  padding: "6px 12px",
+                  fontSize: 13,
+                  background: psf === val ? "var(--brand)" : undefined,
+                  color: psf === val ? "#fff" : undefined,
+                  borderColor: psf === val ? "var(--brand)" : undefined,
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
-      <div className="tableWrap">
-        <table>
-          <thead>
-            <tr>
-              <th style={{ ...sticky, zIndex: 2, minWidth: 190 }}>GL Account</th>
-              {displayYears.map((y) => (
-                <th key={y} style={{ textAlign: "right" }}>
-                  {y}{y === NOW_YEAR ? " *" : ""}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td style={{ ...sticky, fontWeight: 700 }}>Avg. Occupancy</td>
-              {displayYears.map((y) => {
-                const occ =
-                  y === NOW_YEAR && currentOccPct != null
-                    ? pct1(currentOccPct)
-                    : expenses.occupancyPct[String(y)] != null
-                      ? expenses.occupancyPct[String(y)] + "%"
-                      : "—";
-                return <td key={y} style={{ textAlign: "right" }}>{occ}</td>;
-              })}
-            </tr>
+      {open && (
+        <>
+          <div className="tableWrap">
+            <table>
+              <thead>
+                <tr>
+                  <th style={{ ...sticky, zIndex: 2, minWidth: 190 }}>GL Account</th>
+                  {displayYears.map((y) => (
+                    <th key={y} style={{ textAlign: "right" }}>
+                      {y}{y === NOW_YEAR ? " *" : ""}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td style={{ ...sticky, fontWeight: 700 }}>Avg. Occupancy</td>
+                  {displayYears.map((y) => {
+                    const occ =
+                      y === NOW_YEAR && currentOccPct != null
+                        ? pct1(currentOccPct)
+                        : expenses.occupancyPct[String(y)] != null
+                          ? expenses.occupancyPct[String(y)] + "%"
+                          : "—";
+                    return <td key={y} style={{ textAlign: "right" }}>{occ}</td>;
+                  })}
+                </tr>
 
-            {glLines.map((line, i) => (
-              <tr key={line.glAccount}>
-                <td style={{ ...sticky, ...(i === 0 ? groupTop : {}) }}>
-                  <span style={{ fontWeight: 600 }}>{line.label}</span>
-                  <span className="small muted" style={{ marginLeft: 8 }}>{line.glAccount}</span>
-                </td>
-                {displayYears.map((y) => {
-                  const v = line.values[String(y)];
-                  return (
-                    <td key={y} style={{ textAlign: "right", ...(i === 0 ? groupTop : {}) }}>
-                      {v != null ? fmtv(v) : "—"}
+                {glLines.map((line, i) => (
+                  <tr key={line.glAccount}>
+                    <td style={{ ...sticky, ...(i === 0 ? groupTop : {}) }}>
+                      <span style={{ fontWeight: 600 }}>{line.label}</span>
+                      <span className="small muted" style={{ marginLeft: 8 }}>{line.glAccount}</span>
                     </td>
-                  );
-                })}
-              </tr>
-            ))}
+                    {displayYears.map((y) => {
+                      const v = line.values[String(y)];
+                      return (
+                        <td key={y} style={{ textAlign: "right", ...(i === 0 ? groupTop : {}) }}>
+                          {v != null ? fmtv(v) : "—"}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
 
-            <tr style={groupTop}>
-              <td style={{ ...sticky, ...groupTop, fontWeight: 700 }}>Total Op Ex (as-is)</td>
-              {valueCells(expenses.opEx)}
-            </tr>
-            <tr>
-              <td style={{ ...sticky, fontWeight: 800 }}>Total Op Ex (95%)</td>
-              {valueCells(expenses.opExGrossedUp, true)}
-            </tr>
+                <tr style={groupTop}>
+                  <td style={{ ...sticky, ...groupTop, fontWeight: 700 }}>Total Op Ex (as-is)</td>
+                  {valueCells(expenses.opEx)}
+                </tr>
+                <tr>
+                  <td style={{ ...sticky, fontWeight: 800 }}>Total Op Ex (95%)</td>
+                  {valueCells(expenses.opExGrossedUp, true)}
+                </tr>
 
-            {separateLines.map((line, i) => (
-              <tr key={line.glAccount}>
-                <td style={{ ...sticky, ...(i === 0 ? groupTop : {}) }}>
-                  <span style={{ fontWeight: 600 }}>{line.label}</span>
-                  <span className="small muted" style={{ marginLeft: 8 }}>{line.glAccount}</span>
-                  <span className="small muted" style={{ marginLeft: 6 }}>(billed separately)</span>
-                </td>
-                {displayYears.map((y) => {
-                  const v = line.values[String(y)];
-                  return (
-                    <td key={y} style={{ textAlign: "right", ...(i === 0 ? groupTop : {}) }}>
-                      {v != null ? fmtv(v) : "—"}
+                {separateLines.map((line, i) => (
+                  <tr key={line.glAccount}>
+                    <td style={{ ...sticky, ...(i === 0 ? groupTop : {}) }}>
+                      <span style={{ fontWeight: 600 }}>{line.label}</span>
+                      <span className="small muted" style={{ marginLeft: 8 }}>{line.glAccount}</span>
+                      <span className="small muted" style={{ marginLeft: 6 }}>(billed separately)</span>
                     </td>
-                  );
-                })}
-              </tr>
-            ))}
-            <tr style={separateLines.length === 0 ? groupTop : undefined}>
-              <td style={{ ...sticky, ...(separateLines.length === 0 ? groupTop : {}), fontWeight: 700 }}>
-                RE Taxes
-              </td>
-              {displayYears.map((y) => {
-                const v = expenses.ret[String(y)];
-                return (
-                  <td key={y} style={{ textAlign: "right", fontWeight: 700, ...(separateLines.length === 0 ? groupTop : {}) }}>
-                    {v != null ? fmtv(v) : "—"}
+                    {displayYears.map((y) => {
+                      const v = line.values[String(y)];
+                      return (
+                        <td key={y} style={{ textAlign: "right", ...(i === 0 ? groupTop : {}) }}>
+                          {v != null ? fmtv(v) : "—"}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+                <tr style={separateLines.length === 0 ? groupTop : undefined}>
+                  <td style={{ ...sticky, ...(separateLines.length === 0 ? groupTop : {}), fontWeight: 700 }}>
+                    RE Taxes
                   </td>
-                );
-              })}
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <p className="small muted" style={{ marginTop: 8 }}>
-        * {NOW_YEAR} occupancy is pulled live from the current rent roll;
-        expense figures for {NOW_YEAR} are not yet posted. Op Ex (95%) grosses
-        variable costs up to a 95%-occupancy basis — the figure used for
-        base-year comparisons.
-      </p>
+                  {displayYears.map((y) => {
+                    const v = expenses.ret[String(y)];
+                    return (
+                      <td key={y} style={{ textAlign: "right", fontWeight: 700, ...(separateLines.length === 0 ? groupTop : {}) }}>
+                        {v != null ? fmtv(v) : "—"}
+                      </td>
+                    );
+                  })}
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p className="small muted" style={{ marginTop: 8 }}>
+            * {NOW_YEAR} occupancy is pulled live from the current rent roll;
+            expense figures for {NOW_YEAR} are not yet posted. Op Ex (95%) grosses
+            variable costs up to a 95%-occupancy basis — the figure used for
+            base-year comparisons.
+          </p>
+        </>
+      )}
     </div>
   );
 }
 
-// ── occupancy history ────────────────────────────────────────────────────────
-
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+// ── occupancy history (collapsible) ──────────────────────────────────────────
 
 function OccupancyHistory({
   expenses,
@@ -660,6 +691,8 @@ function OccupancyHistory({
   expenses: PropertyExpenses;
   rrMonthly: Record<string, (number | null)[]>;
 }) {
+  const [open, setOpen] = useState(false);
+
   // Seed years take precedence; rent-roll-derived years (2026+) fill the rest.
   const years = Array.from(
     new Set([...Object.keys(expenses.occupancyMonthly), ...Object.keys(rrMonthly)]),
@@ -679,59 +712,62 @@ function OccupancyHistory({
 
   return (
     <div className="card" style={{ marginTop: 16 }}>
-      <div style={SECTION_LABEL}>
-        Occupancy History · {rentable.toLocaleString()} SF rentable
-      </div>
-      <div className="tableWrap">
-        <table>
-          <thead>
-            <tr>
-              <th style={{ ...sticky, zIndex: 2 }}>Year</th>
-              {MONTHS.map((m) => (
-                <th key={m} style={{ textAlign: "right" }}>{m}</th>
-              ))}
-              <th style={{ textAlign: "right" }}>Avg Occ.</th>
-            </tr>
-          </thead>
-          <tbody>
-            {years.map((y) => {
-              const fromSeed = expenses.occupancyMonthly[String(y)];
-              const monthly: (number | null)[] = fromSeed ?? rrMonthly[String(y)] ?? [];
-              const present = monthly.filter((v): v is number => v != null);
-              const avgPct =
-                present.length && rentable > 0
-                  ? (present.reduce((s, v) => s + v, 0) / present.length / rentable) * 100
-                  : null;
-              const isRR = !fromSeed;
-              return (
-                <tr key={y}>
-                  <td style={{ ...sticky, fontWeight: 700 }}>
-                    {y}{isRR ? " *" : ""}
-                  </td>
-                  {Array.from({ length: 12 }).map((_, i) => {
-                    const v = monthly[i];
-                    return (
-                      <td key={i} style={{ textAlign: "right" }}>
-                        {v != null ? v.toLocaleString() : "—"}
-                      </td>
-                    );
-                  })}
-                  <td style={{ textAlign: "right", fontWeight: 700 }}>
-                    {avgPct != null ? Math.round(avgPct) + "%" : "—"}
-                  </td>
+      <CollapseHeader open={open} onToggle={() => setOpen((o) => !o)} title="Occupancy History" />
+
+      {open && (
+        <>
+          <div className="tableWrap">
+            <table>
+              <thead>
+                <tr>
+                  <th style={{ ...sticky, zIndex: 2 }}>Year</th>
+                  {MONTHS.map((m) => (
+                    <th key={m} style={{ textAlign: "right" }}>{m}</th>
+                  ))}
+                  <th style={{ textAlign: "right" }}>Avg Occ.</th>
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-      <p className="small muted" style={{ marginTop: 8 }}>
-        Monthly occupied square footage; Avg Occ. is the average of the
-        reported months over rentable SF.{" "}
-        {hasRR
-          ? "Years marked * are filled from uploaded rent rolls."
-          : "Rows for 2026 onward fill automatically as monthly rent rolls are uploaded."}
-      </p>
+              </thead>
+              <tbody>
+                {years.map((y) => {
+                  const fromSeed = expenses.occupancyMonthly[String(y)];
+                  const monthly: (number | null)[] = fromSeed ?? rrMonthly[String(y)] ?? [];
+                  const present = monthly.filter((v): v is number => v != null);
+                  const avgPct =
+                    present.length && rentable > 0
+                      ? (present.reduce((s, v) => s + v, 0) / present.length / rentable) * 100
+                      : null;
+                  const isRR = !fromSeed;
+                  return (
+                    <tr key={y}>
+                      <td style={{ ...sticky, fontWeight: 700 }}>
+                        {y}{isRR ? " *" : ""}
+                      </td>
+                      {Array.from({ length: 12 }).map((_, i) => {
+                        const v = monthly[i];
+                        return (
+                          <td key={i} style={{ textAlign: "right" }}>
+                            {v != null ? v.toLocaleString() : "—"}
+                          </td>
+                        );
+                      })}
+                      <td style={{ textAlign: "right", fontWeight: 700 }}>
+                        {avgPct != null ? Math.round(avgPct) + "%" : "—"}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <p className="small muted" style={{ marginTop: 8 }}>
+            Monthly occupied square footage; Avg Occ. is the average of the
+            reported months over {rentable.toLocaleString()} rentable SF.{" "}
+            {hasRR
+              ? "Years marked * are filled from uploaded rent rolls."
+              : "Rows for 2026 onward fill automatically as monthly rent rolls are uploaded."}
+          </p>
+        </>
+      )}
     </div>
   );
 }
