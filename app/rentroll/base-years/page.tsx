@@ -76,7 +76,6 @@ export default function BaseYearExpensesPage() {
   const [rrProps, setRrProps] = useState<RRProperty[] | null>(null);
   const [tenantMeta, setTenantMeta] = useState<Record<string, { baseYear?: number | string | null }>>({});
   const [loading, setLoading] = useState(true);
-  const [showGL, setShowGL] = useState(false);
 
   const [basis, setBasis] = useState<BaseYearBasis>("opexRet");
   const [compareYear, setCompareYear] = useState<number | null>(null);
@@ -216,6 +215,13 @@ export default function BaseYearExpensesPage() {
             </div>
           </div>
 
+          {/* Expense history — workbook layout */}
+          <ExpenseHistory
+            expenses={expenses}
+            years={years}
+            currentOccPct={currentOccPct}
+          />
+
           {/* Reset impact */}
           <ResetImpact
             expenses={expenses}
@@ -229,15 +235,6 @@ export default function BaseYearExpensesPage() {
             setResetYear={setResetYear}
             loading={loading}
             hasRentRoll={!!rrProp}
-          />
-
-          {/* Expense history */}
-          <ExpenseHistory
-            expenses={expenses}
-            years={years}
-            currentOccPct={currentOccPct}
-            showGL={showGL}
-            setShowGL={setShowGL}
           />
         </>
       )}
@@ -464,14 +461,10 @@ function ExpenseHistory({
   expenses,
   years,
   currentOccPct,
-  showGL,
-  setShowGL,
 }: {
   expenses: PropertyExpenses;
   years: number[];
   currentOccPct: number | null;
-  showGL: boolean;
-  setShowGL: (b: boolean) => void;
 }) {
   const displayYears = years.includes(NOW_YEAR) ? years : [...years, NOW_YEAR];
   const [psf, setPsf] = useState(false);
@@ -479,7 +472,29 @@ function ExpenseHistory({
   // Format a dollar figure either as a total or as $/SF of rentable area.
   const fmtv = (n: number) =>
     psf ? "$" + (n / expenses.rentableSqft).toFixed(2) : money(n);
-  const unit = psf ? " /SF" : "";
+
+  const glLines = expenses.lines.filter((l) => !l.separateCharge);
+  const separateLines = expenses.lines.filter((l) => l.separateCharge);
+
+  // First column stays put while the year columns scroll horizontally.
+  const sticky: React.CSSProperties = {
+    position: "sticky",
+    left: 0,
+    background: "var(--card)",
+    zIndex: 1,
+  };
+
+  const valueCells = (vals: Record<string, number>, bold?: boolean) =>
+    displayYears.map((y) => {
+      const v = vals[String(y)];
+      return (
+        <td key={y} style={{ textAlign: "right", fontWeight: bold ? 800 : undefined }}>
+          {v != null ? fmtv(v) : "—"}
+        </td>
+      );
+    });
+
+  const groupTop: React.CSSProperties = { borderTop: "2px solid var(--border)" };
 
   return (
     <div className="card" style={{ marginTop: 16 }}>
@@ -507,13 +522,6 @@ function ExpenseHistory({
               {label}
             </button>
           ))}
-          <button
-            className="btn"
-            onClick={() => setShowGL(!showGL)}
-            style={{ padding: "6px 12px", fontSize: 13 }}
-          >
-            {showGL ? "Hide" : "Show"} GL detail
-          </button>
         </div>
       </div>
 
@@ -521,103 +529,93 @@ function ExpenseHistory({
         <table>
           <thead>
             <tr>
-              <th>Year</th>
-              <th style={{ textAlign: "right" }}>Avg Occ.</th>
-              <th style={{ textAlign: "right" }}>Op Ex (as-is){unit}</th>
-              <th style={{ textAlign: "right" }}>Op Ex (95%){unit}</th>
-              <th style={{ textAlign: "right" }}>RE Taxes{unit}</th>
-              <th style={{ textAlign: "right" }}>Op Ex 95% + RET{unit}</th>
+              <th style={{ ...sticky, zIndex: 2, minWidth: 190 }}>GL Account</th>
+              {displayYears.map((y) => (
+                <th key={y} style={{ textAlign: "right" }}>
+                  {y}{y === NOW_YEAR ? " *" : ""}
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>
-            {displayYears.map((y) => {
-              const ys = String(y);
-              const og = expenses.opExGrossedUp[ys];
-              const ret = expenses.ret[ys];
-              const isFuture = og == null;
-              const occ = expenses.occupancyPct[ys];
-              return (
-                <tr key={y} style={isFuture ? { color: "var(--muted)" } : undefined}>
-                  <td style={{ fontWeight: 700 }}>{y}</td>
-                  <td style={{ textAlign: "right" }}>
-                    {y === NOW_YEAR && currentOccPct != null
-                      ? pct1(currentOccPct) + " *"
-                      : occ != null
-                        ? occ + "%"
-                        : "—"}
+            <tr>
+              <td style={{ ...sticky, fontWeight: 700 }}>Avg. Occupancy</td>
+              {displayYears.map((y) => {
+                const occ =
+                  y === NOW_YEAR && currentOccPct != null
+                    ? pct1(currentOccPct)
+                    : expenses.occupancyPct[String(y)] != null
+                      ? expenses.occupancyPct[String(y)] + "%"
+                      : "—";
+                return <td key={y} style={{ textAlign: "right" }}>{occ}</td>;
+              })}
+            </tr>
+
+            {glLines.map((line, i) => (
+              <tr key={line.glAccount}>
+                <td style={{ ...sticky, ...(i === 0 ? groupTop : {}) }}>
+                  <span style={{ fontWeight: 600 }}>{line.label}</span>
+                  <span className="small muted" style={{ marginLeft: 8 }}>{line.glAccount}</span>
+                </td>
+                {displayYears.map((y) => {
+                  const v = line.values[String(y)];
+                  return (
+                    <td key={y} style={{ textAlign: "right", ...(i === 0 ? groupTop : {}) }}>
+                      {v != null ? fmtv(v) : "—"}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+
+            <tr style={groupTop}>
+              <td style={{ ...sticky, ...groupTop, fontWeight: 700 }}>Total Op Ex (as-is)</td>
+              {valueCells(expenses.opEx)}
+            </tr>
+            <tr>
+              <td style={{ ...sticky, fontWeight: 800 }}>Total Op Ex (95%)</td>
+              {valueCells(expenses.opExGrossedUp, true)}
+            </tr>
+
+            {separateLines.map((line, i) => (
+              <tr key={line.glAccount}>
+                <td style={{ ...sticky, ...(i === 0 ? groupTop : {}) }}>
+                  <span style={{ fontWeight: 600 }}>{line.label}</span>
+                  <span className="small muted" style={{ marginLeft: 8 }}>{line.glAccount}</span>
+                  <span className="small muted" style={{ marginLeft: 6 }}>(billed separately)</span>
+                </td>
+                {displayYears.map((y) => {
+                  const v = line.values[String(y)];
+                  return (
+                    <td key={y} style={{ textAlign: "right", ...(i === 0 ? groupTop : {}) }}>
+                      {v != null ? fmtv(v) : "—"}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+            <tr style={separateLines.length === 0 ? groupTop : undefined}>
+              <td style={{ ...sticky, ...(separateLines.length === 0 ? groupTop : {}), fontWeight: 700 }}>
+                RE Taxes
+              </td>
+              {displayYears.map((y) => {
+                const v = expenses.ret[String(y)];
+                return (
+                  <td key={y} style={{ textAlign: "right", fontWeight: 700, ...(separateLines.length === 0 ? groupTop : {}) }}>
+                    {v != null ? fmtv(v) : "—"}
                   </td>
-                  <td style={{ textAlign: "right" }}>{expenses.opEx[ys] != null ? fmtv(expenses.opEx[ys]) : "—"}</td>
-                  <td style={{ textAlign: "right", fontWeight: 700 }}>{og != null ? fmtv(og) : "—"}</td>
-                  <td style={{ textAlign: "right" }}>{ret != null ? fmtv(ret) : "—"}</td>
-                  <td style={{ textAlign: "right" }}>{og != null ? fmtv(og + (ret ?? 0)) : "—"}</td>
-                </tr>
-              );
-            })}
+                );
+              })}
+            </tr>
           </tbody>
         </table>
       </div>
       <p className="small muted" style={{ marginTop: 8 }}>
-        * {NOW_YEAR} occupancy pulled live from the current rent roll. Op Ex
-        (95%) grosses variable costs up to a 95%-occupancy basis — the
-        apples-to-apples figure used for base-year comparisons.
+        * {NOW_YEAR} occupancy is pulled live from the current rent roll;
+        expense figures for {NOW_YEAR} are not yet posted. Op Ex (95%) grosses
+        variable costs up to a 95%-occupancy basis — the figure used for
+        base-year comparisons.
       </p>
-
-      {showGL && (
-        <div className="tableWrap" style={{ marginTop: 14 }}>
-          <table>
-            <thead>
-              <tr>
-                <th>GL Account</th>
-                {years.map((y) => <th key={y} style={{ textAlign: "right" }}>{y}</th>)}
-              </tr>
-            </thead>
-            <tbody>
-              {expenses.lines.map((line) => (
-                <tr key={line.glAccount}>
-                  <td>
-                    <div style={{ fontWeight: 600 }}>{line.label}</div>
-                    <div className="small muted">{line.glAccount}</div>
-                  </td>
-                  {years.map((y) => {
-                    const v = line.values[String(y)];
-                    return (
-                      <td key={y} style={{ textAlign: "right" }} className="small">
-                        {v != null ? fmtv(v) : "—"}
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
-            </tbody>
-            <tfoot>
-              <tr>
-                <td>Total Op Ex (as-is)</td>
-                {years.map((y) => (
-                  <td key={y} style={{ textAlign: "right" }}>
-                    {expenses.opEx[String(y)] != null ? fmtv(expenses.opEx[String(y)]) : "—"}
-                  </td>
-                ))}
-              </tr>
-              <tr>
-                <td>Total Op Ex (95%)</td>
-                {years.map((y) => (
-                  <td key={y} style={{ textAlign: "right" }}>
-                    {expenses.opExGrossedUp[String(y)] != null ? fmtv(expenses.opExGrossedUp[String(y)]) : "—"}
-                  </td>
-                ))}
-              </tr>
-              <tr>
-                <td>RE Taxes</td>
-                {years.map((y) => (
-                  <td key={y} style={{ textAlign: "right" }}>
-                    {expenses.ret[String(y)] != null ? fmtv(expenses.ret[String(y)]) : "—"}
-                  </td>
-                ))}
-              </tr>
-            </tfoot>
-          </table>
-        </div>
-      )}
     </div>
   );
 }
