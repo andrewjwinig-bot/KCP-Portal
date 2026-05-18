@@ -229,7 +229,7 @@ export default function ExpirationChart({ rentroll, variant = "office" }: { rent
   if (!rentroll) {
     return (
       <div className="card">
-        <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 6 }}>{title}</div>
+        <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 6 }}>{title}</div>
         <div className="muted small">No rent roll loaded.</div>
       </div>
     );
@@ -239,7 +239,7 @@ export default function ExpirationChart({ rentroll, variant = "office" }: { rent
     <div className="card">
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
         <div>
-          <div style={{ fontWeight: 700, fontSize: 16 }}>{title}</div>
+          <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>{title}</div>
           <div className="muted small" style={{ marginTop: 2 }}>
             Stacked by building · {fundLabel} · {metric === "pct" ? `% of ${portfolioNoun} SF expiring` : "Annualized Gross Rent expiring"} · {horizon === "24m" ? "next 24 months" : "next 5 calendar years"}
           </div>

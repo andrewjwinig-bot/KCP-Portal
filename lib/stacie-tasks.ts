@@ -47,12 +47,7 @@ export const ACH_WIRES_DETAIL: TaskDetail = {
   steps: [
     {
       title: "Deposits to post — open these accounts",
-      items: [
-        "Chase — Brookwood (2300)",
-        "Chase — Parkwood (7010)",
-        "Chase — JV III (3610)",
-        "Chase — NI LLC (4000)",
-      ],
+      items: [],
       links: [
         { label: "Brookwood 2300", url: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/745774880/DDA/CHK" },
         { label: "Parkwood 7010", url: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/745774883/DDA/CHK" },
@@ -85,18 +80,13 @@ export const ACH_WIRES_DETAIL: TaskDetail = {
       title: "Month start / end — recurring ACH deposits",
       items: [
         "At the beginning or end of the month, also check for these recurring ACH deposits:",
-        "Lafayette Hill SC (9510) — WAWA ACH (always on the 1st)",
-        "Elbridge (7200) — Leevers ACH",
-        "KH Bellaire (9800) — Kreher (Homelink)",
-        "Grays Ferry (4500) — Wakefern, Grays Eye (TuDinh), Victra (ABC Phones) ACH",
-        "Revere (7300) — K&G ACH",
       ],
       links: [
-        { label: "Lafayette Hill 9510", url: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/913650367/DDA/CHK" },
-        { label: "Elbridge 7200", url: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/884656389/DDA/CHK" },
-        { label: "KH Bellaire 9800", url: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/789298739/DDA/CHK" },
-        { label: "Grays Ferry 4500", url: "https://secure.myvirtualbranch.com/LibertyBank/React/Accounts.aspx?p_r=1#Accounts/6" },
-        { label: "Revere 7300", url: "https://secure.myvirtualbranch.com/LibertyBank/React/Accounts.aspx?p_r=1#Accounts/3" },
+        { label: "Lafayette Hill 9510 · WAWA (1st)", url: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/913650367/DDA/CHK" },
+        { label: "Elbridge 7200 · Leevers", url: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/884656389/DDA/CHK" },
+        { label: "KH Bellaire 9800 · Kreher (Homelink)", url: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/789298739/DDA/CHK" },
+        { label: "Grays Ferry 4500 · Wakefern / Grays Eye / Victra", url: "https://secure.myvirtualbranch.com/LibertyBank/React/Accounts.aspx?p_r=1#Accounts/6" },
+        { label: "Revere 7300 · K&G", url: "https://secure.myvirtualbranch.com/LibertyBank/React/Accounts.aspx?p_r=1#Accounts/3" },
       ],
     },
   ],
