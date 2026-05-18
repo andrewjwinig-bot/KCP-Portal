@@ -1,28 +1,23 @@
 "use client";
 
-// Stacked bar chart showing upcoming office-lease expirations,
-// switchable between % of Office SF and annualized Gross Rent, and
-// between a 24-month and 5-year horizon. Office-only (JV III + NI LLC
-// + The Office Works). Each bar is stacked / colored by building.
+// Stacked bar chart of upcoming lease expirations, switchable between
+// % of SF and annualized Gross Rent, between a 24-month and 5-year
+// horizon, and across portfolio scopes (All Properties, Office, JV III,
+// NI LLC, Shopping Centers, Residential). Each bar is stacked / colored
+// by building.
 
 import { useMemo, useRef, useState } from "react";
 import type { RentRollData } from "../../lib/rentroll/parseRentRollExcel";
 import { PROPERTY_DEFS } from "../../lib/properties/data";
 
-// Office buildings (JV III + NI LLC; The Office Works 4900 intentionally
-// excluded from this view).
-const OFFICE_CODES = new Set([
-  "3610", "3620", "3640",
-  "4050", "4060", "4070", "4080", "40A0", "40B0", "40C0",
-]);
 const JV3_CODES = new Set(["3610", "3620", "3640"]);
 const NI_CODES  = new Set(["4050", "4060", "4070", "4080", "40A0", "40B0", "40C0"]);
-
-// Retail (Shopping Center) buildings.
+const OFFICE_CODES = new Set([...JV3_CODES, ...NI_CODES]);
 const RETAIL_CODES = new Set([
   "1100", "1500", "2300", "4500", "5600",
   "7010", "7200", "7300", "8200", "9200", "9510",
 ]);
+const RESIDENTIAL_CODES = new Set(["9800", "9820", "9840", "9860"]);
 
 // Stable color per building so codes stay visually distinct in the stack.
 const BUILDING_COLOR: Record<string, string> = {
@@ -47,20 +42,38 @@ const BUILDING_COLOR: Record<string, string> = {
   "8200": "#db2777",
   "9200": "#7c3aed",
   "9510": "#4f46e5",
+  "9800": "#0891b2",
+  "9820": "#0e7490",
+  "9840": "#155e75",
+  "9860": "#06b6d4",
+  "4900": "#475569",
 };
 
 const MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
 type Horizon = "24m" | "5y";
 type Metric = "pct" | "rent";
-type Fund = "all" | "jv3" | "ni";
-type Variant = "office" | "retail";
+export type ExpirationScope = "all" | "office" | "jv3" | "ni" | "sc" | "residential";
 
-function fundFilter(code: string, fund: Fund, variant: Variant): boolean {
-  if (variant === "retail") return RETAIL_CODES.has(code);
-  if (fund === "all") return OFFICE_CODES.has(code);
-  if (fund === "jv3") return JV3_CODES.has(code);
-  return NI_CODES.has(code);
+const SCOPE_ORDER: ExpirationScope[] = ["all", "office", "jv3", "ni", "sc", "residential"];
+const SCOPE_CFG: Record<ExpirationScope, { label: string; noun: string; phrase: string }> = {
+  all:         { label: "All Properties",   noun: "the portfolio", phrase: "the portfolio" },
+  office:      { label: "All Office",       noun: "office",        phrase: "the office portfolio" },
+  jv3:         { label: "JV III",           noun: "JV III",        phrase: "JV III" },
+  ni:          { label: "NI LLC",           noun: "NI LLC",        phrase: "NI LLC" },
+  sc:          { label: "Shopping Centers", noun: "retail",        phrase: "the retail portfolio" },
+  residential: { label: "Residential",      noun: "residential",   phrase: "the residential portfolio" },
+};
+
+function scopeFilter(code: string, scope: ExpirationScope): boolean {
+  switch (scope) {
+    case "all":         return OFFICE_CODES.has(code) || RETAIL_CODES.has(code) || RESIDENTIAL_CODES.has(code) || code === "4900";
+    case "office":      return OFFICE_CODES.has(code);
+    case "jv3":         return JV3_CODES.has(code);
+    case "ni":          return NI_CODES.has(code);
+    case "sc":          return RETAIL_CODES.has(code);
+    case "residential": return RESIDENTIAL_CODES.has(code);
+  }
 }
 
 type Period = { key: string; label: string; start: Date; end: Date };
@@ -81,7 +94,6 @@ function buildPeriods(horizon: Horizon, anchor: Date): Period[] {
     }
     return out;
   }
-  // 5y: current year + next 4
   const out: Period[] = [];
   for (let i = 0; i < 5; i++) {
     const year = anchor.getFullYear() + i;
@@ -109,6 +121,11 @@ function pct(n: number): string {
   return `${(n * 100).toFixed(1)}%`;
 }
 
+function propLabelFor(code: string): string {
+  const def = PROPERTY_DEFS.find((p) => p.id.toUpperCase() === code.toUpperCase());
+  return def?.name ?? code;
+}
+
 type HoverState = {
   x: number;
   y: number;
@@ -118,38 +135,38 @@ type HoverState = {
   sqft: number;
   annualGross: number;
   units: number;
-  pctOfOffice: number;
+  pctOfScope: number;
 };
 
-function propLabelFor(code: string): string {
-  const def = PROPERTY_DEFS.find((p) => p.id.toUpperCase() === code.toUpperCase());
-  return def?.name ?? code;
-}
-
-export default function ExpirationChart({ rentroll, variant = "office" }: { rentroll: RentRollData | null; variant?: Variant }) {
+export default function ExpirationChart({
+  rentroll,
+  defaultScope = "all",
+}: {
+  rentroll: RentRollData | null;
+  defaultScope?: ExpirationScope;
+}) {
   const [horizon, setHorizon] = useState<Horizon>("24m");
   const [metric, setMetric] = useState<Metric>("pct");
-  const [fund, setFund] = useState<Fund>("all");
+  const [scope, setScope] = useState<ExpirationScope>(defaultScope);
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const [hover, setHover] = useState<HoverState | null>(null);
 
-  const { periods, perPeriod, totalOfficeSqft, buildings, grandTotal } = useMemo(() => {
+  const { periods, perPeriod, totalScopeSqft, buildings, grandTotal } = useMemo(() => {
     const today = new Date();
     today.setDate(1);
     today.setHours(0, 0, 0, 0);
     const periods = buildPeriods(horizon, today);
 
-    const officeProps = (rentroll?.properties ?? []).filter((p) =>
-      fundFilter(p.propertyCode.toUpperCase(), fund, variant),
+    const scopeProps = (rentroll?.properties ?? []).filter((p) =>
+      scopeFilter(p.propertyCode.toUpperCase(), scope),
     );
-    const totalOfficeSqft = officeProps.reduce((s, p) => s + p.totalSqft, 0);
+    const totalScopeSqft = scopeProps.reduce((s, p) => s + p.totalSqft, 0);
 
-    // periodKey → propertyCode → { sqft, annualGross, units }
     const perPeriod = new Map<string, Map<string, { sqft: number; annualGross: number; units: number }>>();
     const buildings = new Set<string>();
     let grandTotal = { sqft: 0, annualGross: 0 };
 
-    for (const p of officeProps) {
+    for (const p of scopeProps) {
       const code = p.propertyCode.toUpperCase();
       for (const u of p.units) {
         if (u.isVacant) continue;
@@ -170,10 +187,9 @@ export default function ExpirationChart({ rentroll, variant = "office" }: { rent
       }
     }
 
-    return { periods, perPeriod, totalOfficeSqft, buildings: [...buildings].sort(), grandTotal };
-  }, [rentroll, horizon, fund, variant]);
+    return { periods, perPeriod, totalScopeSqft, buildings: [...buildings].sort(), grandTotal };
+  }, [rentroll, horizon, scope]);
 
-  // Determine max bar value (in raw units of the chosen metric) to scale Y.
   const maxPeriodValue = useMemo(() => {
     let max = 0;
     for (const p of periods) {
@@ -186,24 +202,21 @@ export default function ExpirationChart({ rentroll, variant = "office" }: { rent
     return max;
   }, [perPeriod, periods, metric]);
 
-  // For % metric the denominator is totalOfficeSqft; bar heights are the
-  // fraction of total office SF expiring in that period. For $ metric we
-  // scale to the largest period so the chart fills nicely.
   const chartMax = metric === "pct"
-    ? Math.max(maxPeriodValue / Math.max(1, totalOfficeSqft), 0.05)  // floor 5%
+    ? Math.max(maxPeriodValue / Math.max(1, totalScopeSqft), 0.05)
     : Math.max(maxPeriodValue, 1);
 
   function valueFor(periodKey: string, code: string): number {
     const v = perPeriod.get(periodKey)?.get(code);
     if (!v) return 0;
-    return metric === "pct" ? v.sqft / Math.max(1, totalOfficeSqft) : v.annualGross;
+    return metric === "pct" ? v.sqft / Math.max(1, totalScopeSqft) : v.annualGross;
   }
 
   function periodTotal(periodKey: string): number {
     const byProp = perPeriod.get(periodKey);
     if (!byProp) return 0;
     let total = 0;
-    for (const v of byProp.values()) total += metric === "pct" ? v.sqft / Math.max(1, totalOfficeSqft) : v.annualGross;
+    for (const v of byProp.values()) total += metric === "pct" ? v.sqft / Math.max(1, totalScopeSqft) : v.annualGross;
     return total;
   }
 
@@ -213,23 +226,12 @@ export default function ExpirationChart({ rentroll, variant = "office" }: { rent
 
   const barCount = periods.length;
   const chartHeight = 220;
-
-  const isRetail = variant === "retail";
-  const title = isRetail ? "Retail Lease Expirations" : "Office Lease Expirations";
-  const fundLabel = isRetail
-    ? "All Retail"
-    : fund === "all" ? "All Office" : fund === "jv3" ? "JV III" : "NI LLC";
-  const portfolioNoun = isRetail
-    ? "retail"
-    : fund === "all" ? "office" : fund === "jv3" ? "JV III" : "NI LLC";
-  const portfolioPhrase = isRetail
-    ? "retail portfolio"
-    : fund === "all" ? "office portfolio" : fund === "jv3" ? "JV III portfolio" : "NI LLC portfolio";
+  const cfg = SCOPE_CFG[scope];
 
   if (!rentroll) {
     return (
       <div className="card">
-        <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 6 }}>{title}</div>
+        <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 6 }}>Lease Expirations</div>
         <div className="muted small">No rent roll loaded.</div>
       </div>
     );
@@ -237,25 +239,14 @@ export default function ExpirationChart({ rentroll, variant = "office" }: { rent
 
   return (
     <div className="card">
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
         <div>
-          <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>{title}</div>
+          <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>Lease Expirations</div>
           <div className="muted small" style={{ marginTop: 2 }}>
-            Stacked by building · {fundLabel} · {metric === "pct" ? `% of ${portfolioNoun} SF expiring` : "Annualized Gross Rent expiring"} · {horizon === "24m" ? "next 24 months" : "next 5 calendar years"}
+            Stacked by building · {cfg.label} · {metric === "pct" ? "% of SF expiring" : "Annualized Gross Rent expiring"} · {horizon === "24m" ? "next 24 months" : "next 5 calendar years"}
           </div>
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          {!isRetail && (
-            <SegToggle
-              value={fund}
-              onChange={(v) => setFund(v as Fund)}
-              options={[
-                { value: "all", label: "All Office" },
-                { value: "jv3", label: "JV III" },
-                { value: "ni",  label: "NI LLC" },
-              ]}
-            />
-          )}
           <SegToggle
             value={metric}
             onChange={(v) => setMetric(v as Metric)}
@@ -275,9 +266,33 @@ export default function ExpirationChart({ rentroll, variant = "office" }: { rent
         </div>
       </div>
 
+      {/* Scope toggles */}
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
+        {SCOPE_ORDER.map((s) => {
+          const active = s === scope;
+          return (
+            <button
+              key={s}
+              type="button"
+              onClick={() => { setScope(s); setHover(null); }}
+              style={{
+                padding: "5px 12px", borderRadius: 999, fontSize: 12,
+                fontWeight: active ? 700 : 500, cursor: "pointer",
+                border: `1.5px solid ${active ? "#0b4a7d" : "var(--border)"}`,
+                background: active ? "rgba(11,74,125,0.10)" : "transparent",
+                color: active ? "#0b4a7d" : "var(--muted)",
+                fontFamily: "inherit", transition: "all 0.15s ease", whiteSpace: "nowrap",
+              }}
+            >
+              {SCOPE_CFG[s].label}
+            </button>
+          );
+        })}
+      </div>
+
       {grandTotal.sqft === 0 ? (
         <div className="muted small" style={{ padding: "20px 0", textAlign: "center" }}>
-          No {portfolioNoun} leases expire in the selected window.
+          No leases expire in the selected window.
         </div>
       ) : (
         <>
@@ -310,7 +325,7 @@ export default function ExpirationChart({ rentroll, variant = "office" }: { rent
                               sqft: bucket.sqft,
                               annualGross: bucket.annualGross,
                               units: bucket.units,
-                              pctOfOffice: totalOfficeSqft > 0 ? bucket.sqft / totalOfficeSqft : 0,
+                              pctOfScope: totalScopeSqft > 0 ? bucket.sqft / totalScopeSqft : 0,
                             });
                           }}
                           style={{
@@ -372,7 +387,7 @@ export default function ExpirationChart({ rentroll, variant = "office" }: { rent
                   <b>{money(hover.annualGross)}</b> gross rent / yr
                 </div>
                 <div style={{ opacity: 0.88 }}>
-                  {hover.sqft.toLocaleString()} sf · {pct(hover.pctOfOffice)} of {portfolioNoun}
+                  {hover.sqft.toLocaleString()} sf · {pct(hover.pctOfScope)} of {cfg.noun}
                 </div>
                 <div style={{ opacity: 0.7, marginTop: 2 }}>{hover.units} unit{hover.units === 1 ? "" : "s"} expiring</div>
               </div>
@@ -390,8 +405,8 @@ export default function ExpirationChart({ rentroll, variant = "office" }: { rent
 
           <div style={{ marginTop: 10, fontSize: 12, color: "var(--muted)" }}>
             Total expiring in window: <b style={{ color: "var(--text)" }}>{(grandTotal.sqft).toLocaleString()} sf</b> · <b style={{ color: "var(--text)" }}>{money(grandTotal.annualGross)} gross rent / yr</b>
-            {totalOfficeSqft > 0 && (
-              <>{" "}· <b style={{ color: "var(--text)" }}>{pct(grandTotal.sqft / totalOfficeSqft)}</b> of {portfolioPhrase}</>
+            {totalScopeSqft > 0 && (
+              <>{" "}· <b style={{ color: "var(--text)" }}>{pct(grandTotal.sqft / totalScopeSqft)}</b> of {cfg.phrase}</>
             )}
           </div>
         </>
