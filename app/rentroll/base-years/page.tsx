@@ -244,35 +244,72 @@ export default function BaseYearExpensesPage() {
 // ── summary ($/SF, last 5 years) ─────────────────────────────────────────────
 
 function SummaryTable({ expenses }: { expenses: PropertyExpenses }) {
+  const [mode, setMode] = useState<"total" | "gross" | "psf">("psf");
   const last5 = expenseYears(expenses).slice(-5).reverse();
   const rentable = expenses.rentableSqft;
   const elec = expenses.lines.find((l) => l.separateCharge);
 
-  const psf = (n: number | undefined) =>
-    n != null ? "$" + (n / rentable).toFixed(2) : "—";
+  // CAM is the 95%-grossed-up Op Ex except in "Totals" mode, which uses the
+  // as-is total. RET and Electric have no grossed-up variant, so they read
+  // the same in every mode. "$ / SF" divides the grossed-up figures by SF.
+  const cam = (y: string) =>
+    mode === "total" ? expenses.opEx[y] : expenses.opExGrossedUp[y];
+  const ret = (y: string) => expenses.ret[y];
+  const el = (y: string) => elec?.values[y];
+
+  const fmt = (n: number | undefined) => {
+    if (n == null) return "—";
+    return mode === "psf" ? "$" + (n / rentable).toFixed(2) : money(n);
+  };
 
   const rows: { label: string; total?: boolean; get: (y: string) => number | undefined }[] = [
-    { label: "CAM", get: (y) => expenses.opExGrossedUp[y] },
-    { label: "RET", get: (y) => expenses.ret[y] },
+    { label: "CAM", get: cam },
+    { label: "RET", get: ret },
     {
       label: "Total (CAM + RET)",
       total: true,
-      get: (y) =>
-        expenses.opExGrossedUp[y] != null
-          ? expenses.opExGrossedUp[y] + (expenses.ret[y] ?? 0)
-          : undefined,
+      get: (y) => {
+        const c = cam(y);
+        return c != null ? c + (ret(y) ?? 0) : undefined;
+      },
     },
-    { label: "Electric", get: (y) => elec?.values[y] },
+    { label: "Electric", get: el },
   ];
 
   return (
     <div className="card" style={{ marginTop: 16 }}>
-      <div style={SECTION_LABEL}>Summary — $ / SF · last 5 years</div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+        <div style={SECTION_LABEL}>Summary — last 5 years</div>
+        <div style={{ display: "flex", gap: 6 }}>
+          {([
+            ["total", "Totals"],
+            ["gross", "Grossed up"],
+            ["psf", "$ / SF"],
+          ] as ["total" | "gross" | "psf", string][]).map(([val, label]) => (
+            <button
+              key={val}
+              className="btn"
+              onClick={() => setMode(val)}
+              style={{
+                padding: "6px 12px",
+                fontSize: 13,
+                background: mode === val ? "var(--brand)" : undefined,
+                color: mode === val ? "#fff" : undefined,
+                borderColor: mode === val ? "var(--brand)" : undefined,
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
       <div className="tableWrap">
         <table>
           <thead>
             <tr>
-              <th>Per SF</th>
+              <th>
+                {mode === "psf" ? "$ / SF" : mode === "gross" ? "Grossed-up $" : "Total $"}
+              </th>
               {last5.map((y) => (
                 <th key={y} style={{ textAlign: "right" }}>{y}</th>
               ))}
@@ -284,7 +321,7 @@ function SummaryTable({ expenses }: { expenses: PropertyExpenses }) {
                 <td style={{ fontWeight: r.total ? 800 : 700 }}>{r.label}</td>
                 {last5.map((y) => (
                   <td key={y} style={{ textAlign: "right", fontWeight: r.total ? 800 : undefined }}>
-                    {psf(r.get(String(y)))}
+                    {fmt(r.get(String(y)))}
                   </td>
                 ))}
               </tr>
@@ -293,8 +330,13 @@ function SummaryTable({ expenses }: { expenses: PropertyExpenses }) {
         </table>
       </div>
       <p className="small muted" style={{ marginTop: 8 }}>
-        CAM = 95%-grossed-up operating expenses. Per SF over{" "}
-        {rentable.toLocaleString()} rentable SF. Electric is billed separately.
+        {mode === "total"
+          ? "Totals mode shows CAM as the as-is operating-expense total (not grossed up)."
+          : mode === "gross"
+            ? "CAM is the 95%-grossed-up operating-expense total."
+            : `$ / SF divides the 95%-grossed-up figures by ${rentable.toLocaleString()} rentable SF.`}
+        {" "}RET and Electric have no grossed-up variant, so they read the same
+        in every mode. Electric is billed separately.
       </p>
     </div>
   );
