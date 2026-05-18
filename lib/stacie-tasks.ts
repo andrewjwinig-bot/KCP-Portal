@@ -92,6 +92,63 @@ export const ACH_WIRES_DETAIL: TaskDetail = {
   ],
 };
 
+// Shared detail for the weekly Legal AP review — assigning GL codes to
+// legal bills (Clemons) in AVID.
+export const LEGAL_AP_DETAIL: TaskDetail = {
+  intro: "Review and assign GL codes for legal bills (Clemons) in AVID, then select & pay bills for all properties.",
+  steps: [
+    {
+      title: "Set the invoice date",
+      items: [
+        "Change every invoice date to the prior end-of-month. (e.g. 1/7/2026 → 12/31/2025)",
+      ],
+      links: [
+        { label: "AvidXchange Invoices", url: "https://one.avidxchange.net/#/invoices" },
+      ],
+    },
+    {
+      title: "Review & verify each invoice",
+      items: [
+        "Verify the Inv # and Property # (LIK, Property, or Building).",
+        "If the invoice is a Business Park: verify the funding entity and identify the property code — use the dropdown.",
+        "FJVIII → 3610, 3620, or 3640.",
+        "FNIPLX → 4050, 4060, 4070, 4080, 40A0, 40B0, or 40C0.",
+      ],
+    },
+    {
+      title: "New lease or amendment → A/C 1940-8501",
+      items: [
+        "If the invoice relates to a NEW lease or an amendment to an existing lease, use A/C 1940-8501 (select from the dropdown).",
+        "Add the Unit Ref # — it should agree with the tenant's name on the invoice. Enter the building only (e.g. 3620), then use the dropdown to select the unit.",
+        "Add a description with the tenant name and amendment # (or \"Initial lease\").",
+        "If the tenant name in AVID doesn't match the invoice — check Skyline to see if it's set up:",
+        "• Set up in Skyline → have Tanya update the tenant's name in AVID.",
+        "• Not set up → check with Nancy whether it's a strong prospect.",
+        "• Strong prospect → use 1940-8501 and add the name to the description (add building/suite later).",
+        "• Not a prospect → use 8310-8501 and add the name and \"prospect\" to the description.",
+      ],
+    },
+    {
+      title: "Not a lease/amendment → A/C 8310-8501",
+      items: [
+        "If the invoice is not a new lease or amendment, assign A/C 8310-8501.",
+        "Add a description. A Unit Ref # is not needed.",
+      ],
+    },
+    {
+      title: "Assignment / ownership change → bill the tenant",
+      items: [
+        "If the bill relates to an assignment or change in ownership, bill the tenant.",
+        "Accounting Code: 0450-0000",
+        "Unit Ref #: required",
+        "CB Charge Code: AD",
+        "Description: include the invoice # and a description of the legal work — this appears on the tenant's statement.",
+      ],
+      note: "To charge a tenant the entry must include all three: Acctg Code 0450-0000, Unit Ref #, and CB Charge Code AD. If there's any question about tenant responsibility, ask Nancy.",
+    },
+  ],
+};
+
 export const STACIE_TASKS: StacieTask[] = [
   // ── Weekly ────────────────────────────────────────────────────
   {
@@ -106,6 +163,7 @@ export const STACIE_TASKS: StacieTask[] = [
     title: "AP — Review/Approve Legal & 2000 in AVID; Select & Pay Bills (all properties)",
     frequency: "weekly",
     instructions: "Review and approve all legal bills and 2000 in AVID Box.\nSelect & pay bills for all properties.",
+    detail: LEGAL_AP_DETAIL,
   },
 
   // ── Monthly ───────────────────────────────────────────────────
