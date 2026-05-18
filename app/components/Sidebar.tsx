@@ -441,7 +441,20 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
               }}
             >
               <span style={{ flexShrink: 0 }}>{item.icon}</span>
-              {open && <span>{item.label}</span>}
+              {open && (
+                <span>
+                  {item.label}
+                  {item.href === "/debt" && (
+                    <span style={{
+                      color: "#f87171",
+                      fontWeight: 800,
+                      fontSize: 10,
+                      marginLeft: 6,
+                      letterSpacing: "0.06em",
+                    }}>DRAFT</span>
+                  )}
+                </span>
+              )}
               {open && badge > 0 && (
                 <span style={{
                   marginLeft: "auto", minWidth: 18, height: 18, padding: "0 5px",
