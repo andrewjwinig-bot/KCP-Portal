@@ -117,6 +117,7 @@ export const BANK_ACCOUNTS: Record<string, BankAccount[]> = {
     { bank: "Chase",   label: "JV III Condo",            last4: "x1993", link: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/913403676/DDA/CHK" },
   ],
   "4000": [
+    { bank: "Chase",   label: "NI LLC Operating",         last4: "x2190", link: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/747627665/DDA/CHK" },
     { bank: "Liberty", label: "NI LLC Security Deposits",last4: "x7448", link: "https://secure.myvirtualbranch.com/LibertyBank/React/Accounts.aspx?p_r=1#Accounts/2" },
   ],
   "7010": [
