@@ -218,6 +218,10 @@ export default function BaseYearExpensesPage() {
         <>
           <SummaryTable expenses={expenses} />
 
+          <ExpenseHistory expenses={expenses} years={years} currentOccPct={currentOccPct} />
+
+          <OccupancyHistory expenses={expenses} rrMonthly={rrMonthly} />
+
           <ResetImpact
             expenses={expenses}
             tenants={tenants}
@@ -231,10 +235,6 @@ export default function BaseYearExpensesPage() {
             loading={loading}
             hasRentRoll={!!rrProp}
           />
-
-          <ExpenseHistory expenses={expenses} years={years} currentOccPct={currentOccPct} />
-
-          <OccupancyHistory expenses={expenses} rrMonthly={rrMonthly} />
         </>
       )}
     </main>
@@ -244,7 +244,7 @@ export default function BaseYearExpensesPage() {
 // ── summary ($/SF, last 5 years) ─────────────────────────────────────────────
 
 function SummaryTable({ expenses }: { expenses: PropertyExpenses }) {
-  const last5 = expenseYears(expenses).slice(-5);
+  const last5 = expenseYears(expenses).slice(-5).reverse();
   const rentable = expenses.rentableSqft;
   const elec = expenses.lines.find((l) => l.separateCharge);
 
@@ -524,7 +524,10 @@ function ExpenseHistory({
   currentOccPct: number | null;
 }) {
   const [open, setOpen] = useState(false);
-  const displayYears = years.includes(NOW_YEAR) ? years : [...years, NOW_YEAR];
+  // Newest year first.
+  const displayYears = (years.includes(NOW_YEAR) ? years : [...years, NOW_YEAR])
+    .slice()
+    .reverse();
   const [psf, setPsf] = useState(false);
 
   // Format a dollar figure either as a total or as $/SF of rentable area.
@@ -698,7 +701,7 @@ function OccupancyHistory({
     new Set([...Object.keys(expenses.occupancyMonthly), ...Object.keys(rrMonthly)]),
   )
     .map(Number)
-    .sort((a, b) => a - b);
+    .sort((a, b) => b - a);
 
   const rentable = expenses.rentableSqft;
   const hasRR = Object.keys(rrMonthly).length > 0;
