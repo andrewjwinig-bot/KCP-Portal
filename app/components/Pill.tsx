@@ -152,3 +152,12 @@ export function reservationStatusTone(status: string): PillTone {
     default:         return TONE_NEUTRAL;
   }
 }
+
+export function debtStatusTone(status: string): PillTone {
+  switch (status) {
+    case "Interest-Only":   return TONE_AMBER;
+    case "Amortizing":      return TONE_GREEN;
+    case "Maturity Passed": return TONE_RED;
+    default:                return TONE_NEUTRAL;
+  }
+}

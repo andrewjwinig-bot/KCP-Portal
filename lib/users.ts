@@ -95,9 +95,9 @@ export const USERS: Record<UserId, UserDef> = {
     id: "alison",
     label: "ALISON",
     // President — a high-level view: dashboard, properties, investors,
-    // rent roll. No operational tools or action items.
-    navKeys: new Set([...universalNav, "investors"]),
-    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/investors"],
+    // rent roll, debt. No operational tools or action items.
+    navKeys: new Set([...universalNav, "investors", "debt"]),
+    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/investors", "/debt"],
     defaultRentRollCategory: "All",
     defaultPropertyType: "all",
     dashboardScope: "groups",
