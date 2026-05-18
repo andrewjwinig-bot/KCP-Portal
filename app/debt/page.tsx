@@ -160,7 +160,7 @@ export default function DebtPage() {
     <main>
       <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
         <div>
-          <h1>Debt Tracker</h1>
+          <h1>Debt Tracker <span style={{ color: "#dc2626" }}>&ndash; DRAFT</span></h1>
           <p className="muted" style={{ marginTop: 8, fontSize: 15 }}>
             Korman Commercial Properties — Schedule of Debt Outstanding. Balances
             project live from each loan&rsquo;s last known statement.
