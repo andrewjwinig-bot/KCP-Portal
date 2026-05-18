@@ -5,11 +5,8 @@ import {
   OFFICE_BUILDINGS,
   SEED_EXPENSES,
   expenseYears,
-  latestExpenseYear,
-  reimbursement,
   type PropertyExpenses,
 } from "@/lib/rentroll/baseYearExpenses";
-import { StatPill } from "@/app/components/Pill";
 
 // ── rent-roll shapes (subset of /api/rentroll) ───────────────────────────────
 
@@ -58,47 +55,22 @@ const selectStyle: React.CSSProperties = {
   fontWeight: 700,
 };
 
-function resolveBaseYear(raw: number | string | null | undefined): {
-  num: number | null;
-  marker: string | null;
-} {
-  if (raw == null) return { num: null, marker: null };
-  if (typeof raw === "number") return { num: raw, marker: null };
-  const s = String(raw).trim();
-  if (/^\d{4}$/.test(s)) return { num: Number(s), marker: null };
-  return { num: null, marker: s.toUpperCase() };
-}
-
 const NOW_YEAR = new Date().getFullYear();
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
-type TenantRow = {
-  unitRef: string;
-  name: string;
-  sqft: number;
-  baseYearNum: number | null;
-  baseYearMarker: string | null;
-};
 
 export default function BaseYearExpensesPage() {
   const [propCode, setPropCode] = useState("3610");
   const [rrProps, setRrProps] = useState<RRProperty[] | null>(null);
-  const [tenantMeta, setTenantMeta] = useState<Record<string, { baseYear?: number | string | null }>>({});
   const [snapshots, setSnapshots] = useState<RRSnapshot[]>([]);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     Promise.all([
       fetch("/api/rentroll").then((r) => (r.ok ? r.json() : null)).catch(() => null),
-      fetch("/api/tenant-meta").then((r) => (r.ok ? r.json() : null)).catch(() => null),
       fetch("/api/rentroll/history").then((r) => (r.ok ? r.json() : null)).catch(() => null),
-    ])
-      .then(([rrJ, tmJ, histJ]) => {
-        setRrProps(rrJ?.rentroll?.properties ?? []);
-        setTenantMeta(tmJ?.tenantMeta ?? {});
-        setSnapshots(histJ?.snapshots ?? []);
-      })
-      .finally(() => setLoading(false));
+    ]).then(([rrJ, histJ]) => {
+      setRrProps(rrJ?.rentroll?.properties ?? []);
+      setSnapshots(histJ?.snapshots ?? []);
+    });
   }, []);
 
   const expenses: PropertyExpenses | null = SEED_EXPENSES[propCode] ?? null;
@@ -133,37 +105,18 @@ export default function BaseYearExpensesPage() {
     return out;
   }, [snapshots, propCode]);
 
-  // Live tenant roster for this building, with each tenant's base year.
-  const tenants: TenantRow[] = useMemo(() => {
-    if (!rrProp) return [];
-    return rrProp.units
-      .filter((u) => !u.isVacant && !u.amenity && u.sqft > 0)
-      .map((u) => {
-        const { num, marker } = resolveBaseYear(tenantMeta[u.unitRef]?.baseYear);
-        return {
-          unitRef: u.unitRef,
-          name: u.occupantName,
-          sqft: u.sqft,
-          baseYearNum: num,
-          baseYearMarker: marker,
-        };
-      })
-      .sort((a, b) => {
-        const ay = a.baseYearNum ?? 9999;
-        const by = b.baseYearNum ?? 9999;
-        if (ay !== by) return ay - by;
-        return a.name.localeCompare(b.name);
-      });
-  }, [rrProp, tenantMeta]);
-
   const meta = OFFICE_BUILDINGS.find((b) => b.code === propCode);
 
   return (
     <main>
       <h1>Operating Expense History</h1>
       <p className="muted" style={{ marginTop: 8, fontSize: 15 }}>
-        Office operating-expense history by year and the recovery impact of
-        resetting a tenant&rsquo;s base year forward.
+        Office operating-expense and occupancy history by year for the JV III
+        and NI LLC buildings. To model the income impact of resetting a
+        tenant&rsquo;s base year, use{" "}
+        <a href="/rentroll/leasing" style={{ color: "var(--brand)", fontWeight: 700 }}>
+          Leasing Activity → Base Year Resets
+        </a>.
       </p>
 
       {/* Building selector — compact dropdown */}
@@ -200,14 +153,6 @@ export default function BaseYearExpensesPage() {
           <ExpenseHistory expenses={expenses} years={years} currentOccPct={currentOccPct} />
 
           <OccupancyHistory expenses={expenses} rrMonthly={rrMonthly} />
-
-          <ResetImpact
-            expenses={expenses}
-            tenants={tenants}
-            years={years}
-            loading={loading}
-            hasRentRoll={!!rrProp}
-          />
         </>
       )}
     </main>
@@ -310,130 +255,6 @@ function SummaryTable({ expenses }: { expenses: PropertyExpenses }) {
             : `$ / SF divides the 95%-grossed-up figures by ${rentable.toLocaleString()} rentable SF.`}
         {" "}RET and Electric have no grossed-up variant, so they read the same
         in every mode. Electric is billed separately.
-      </p>
-    </div>
-  );
-}
-
-// ── reset-impact calculator (single tenant) ──────────────────────────────────
-
-function ResetImpact({
-  expenses,
-  tenants,
-  years,
-  loading,
-  hasRentRoll,
-}: {
-  expenses: PropertyExpenses;
-  tenants: TenantRow[];
-  years: number[];
-  loading: boolean;
-  hasRentRoll: boolean;
-}) {
-  // Recovery is measured against the most recent full year of expense data.
-  const latest = latestExpenseYear(expenses) ?? years[years.length - 1];
-
-  const rows = tenants.filter((t) => t.baseYearNum != null);
-  const [selUnit, setSelUnit] = useState("");
-  const selected = rows.find((t) => t.unitRef === selUnit) ?? rows[0] ?? null;
-
-  // Resetting the base year to the current year zeroes the tenant's expense
-  // recovery, so the income lost equals what it owes above its base year today.
-  // CAM is the operating-expense portion; RET the real-estate-tax portion.
-  const result = useMemo(() => {
-    if (!selected || selected.baseYearNum == null) return null;
-    const by = selected.baseYearNum;
-    const cam = reimbursement(expenses, selected.sqft, by, latest, "opex");
-    const total = reimbursement(expenses, selected.sqft, by, latest, "opexRet");
-    return {
-      by,
-      cam,
-      ret: cam != null && total != null ? total - cam : null,
-      total,
-    };
-  }, [selected, expenses, latest]);
-
-  return (
-    <div className="card" style={{ marginTop: 16 }}>
-      <div style={SECTION_LABEL}>Base Year Reset Impact</div>
-
-      {/* Controls — tenant picker left, selected tenant detail top-right */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "flex-end",
-          gap: 16,
-          flexWrap: "wrap",
-          marginTop: 10,
-        }}
-      >
-        <div>
-          <div style={{ ...SECTION_LABEL, marginBottom: 5 }}>Tenant</div>
-          <select
-            value={selected?.unitRef ?? ""}
-            onChange={(e) => setSelUnit(e.target.value)}
-            style={{ ...selectStyle, maxWidth: 360 }}
-            disabled={rows.length === 0}
-          >
-            {rows.length === 0 && <option value="">No tenants</option>}
-            {rows.map((t) => (
-              <option key={t.unitRef} value={t.unitRef}>
-                {t.name} — Unit {t.unitRef}
-              </option>
-            ))}
-          </select>
-        </div>
-        {selected && (
-          <div style={{ fontSize: 14, textAlign: "right", paddingBottom: 4 }}>
-            <b>Base year {selected.baseYearNum}</b>
-            <span className="muted">
-              {" "}· Unit {selected.unitRef} · {selected.sqft.toLocaleString()} SF ·{" "}
-              {pct1((selected.sqft / expenses.rentableSqft) * 100)} pro-rata share
-            </span>
-          </div>
-        )}
-      </div>
-
-      {/* Result */}
-      {loading ? (
-        <p className="muted" style={{ marginTop: 16 }}>Loading rent roll…</p>
-      ) : !hasRentRoll ? (
-        <p className="muted" style={{ marginTop: 16 }}>
-          No rent roll loaded for this building — upload a rent roll to pick a tenant.
-        </p>
-      ) : !selected || !result ? (
-        <p className="muted" style={{ marginTop: 16 }}>
-          No tenants with a numeric base year found for this building.
-        </p>
-      ) : (
-        <div style={{ marginTop: 14 }}>
-          <div className="pills">
-            <StatPill
-              label="CAM loss"
-              value={result.cam != null ? money(result.cam) : "—"}
-              sub={`vs ${latest} expenses`}
-            />
-            <StatPill
-              label="RET loss"
-              value={result.ret != null ? money(result.ret) : "—"}
-              sub={`vs ${latest} expenses`}
-            />
-            <StatPill
-              label="Total loss"
-              value={result.total != null ? money(result.total) : "—"}
-              accent={result.total ? "#b91c1c" : undefined}
-            />
-          </div>
-        </div>
-      )}
-
-      <p className="small muted" style={{ marginTop: 12 }}>
-        Recovery is computed per GL line: the tenant owes its pro-rata share of
-        each 95%-grossed-up Op Ex line and RE-tax line for {latest} above its
-        base-year amount, each line floored at zero. Resetting the base year to{" "}
-        {NOW_YEAR} drops that recovery to $0 — CAM loss is the operating-expense
-        portion, RET loss the real-estate-tax portion.
       </p>
     </div>
   );
