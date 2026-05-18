@@ -7,7 +7,6 @@ import {
   expenseYears,
   latestExpenseYear,
   reimbursement,
-  type BaseYearBasis,
   type PropertyExpenses,
 } from "@/lib/rentroll/baseYearExpenses";
 import { StatPill } from "@/app/components/Pill";
@@ -87,8 +86,6 @@ export default function BaseYearExpensesPage() {
   const [tenantMeta, setTenantMeta] = useState<Record<string, { baseYear?: number | string | null }>>({});
   const [snapshots, setSnapshots] = useState<RRSnapshot[]>([]);
   const [loading, setLoading] = useState(true);
-
-  const [basis, setBasis] = useState<BaseYearBasis>("opexRet");
 
   useEffect(() => {
     Promise.all([
@@ -208,8 +205,6 @@ export default function BaseYearExpensesPage() {
             expenses={expenses}
             tenants={tenants}
             years={years}
-            basis={basis}
-            setBasis={setBasis}
             loading={loading}
             hasRentRoll={!!rrProp}
           />
@@ -326,16 +321,12 @@ function ResetImpact({
   expenses,
   tenants,
   years,
-  basis,
-  setBasis,
   loading,
   hasRentRoll,
 }: {
   expenses: PropertyExpenses;
   tenants: TenantRow[];
   years: number[];
-  basis: BaseYearBasis;
-  setBasis: (b: BaseYearBasis) => void;
   loading: boolean;
   hasRentRoll: boolean;
 }) {
@@ -346,82 +337,43 @@ function ResetImpact({
   const [selUnit, setSelUnit] = useState("");
   const selected = rows.find((t) => t.unitRef === selUnit) ?? rows[0] ?? null;
 
-  // The base year auto-populates to the selected tenant's current base year.
-  const [baseYearSel, setBaseYearSel] = useState<number | null>(null);
-  useEffect(() => {
-    setBaseYearSel(selected?.baseYearNum ?? null);
-  }, [selected?.unitRef, selected?.baseYearNum]);
-  const by = baseYearSel ?? selected?.baseYearNum ?? latest;
-
   // Resetting the base year to the current year zeroes the tenant's expense
   // recovery, so the income lost equals what it owes above its base year today.
+  // CAM is the operating-expense portion; RET the real-estate-tax portion.
   const result = useMemo(() => {
-    if (!selected) return null;
+    if (!selected || selected.baseYearNum == null) return null;
+    const by = selected.baseYearNum;
+    const cam = reimbursement(expenses, selected.sqft, by, latest, "opex");
+    const total = reimbursement(expenses, selected.sqft, by, latest, "opexRet");
     return {
-      now: reimbursement(expenses, selected.sqft, by, latest, basis),
+      by,
+      cam,
+      ret: cam != null && total != null ? total - cam : null,
+      total,
       share: (selected.sqft / expenses.rentableSqft) * 100,
     };
-  }, [selected, expenses, by, latest, basis]);
-
-  const yearOptions = [...years].reverse();
+  }, [selected, expenses, latest]);
 
   return (
     <div className="card" style={{ marginTop: 16 }}>
       <div style={SECTION_LABEL}>Base Year Reset Impact</div>
 
       {/* Controls */}
-      <div style={{ display: "flex", gap: 18, flexWrap: "wrap", alignItems: "flex-end", marginTop: 10 }}>
-        <label>
-          <div style={{ ...SECTION_LABEL, marginBottom: 5 }}>Tenant</div>
-          <select
-            value={selected?.unitRef ?? ""}
-            onChange={(e) => setSelUnit(e.target.value)}
-            style={{ ...selectStyle, maxWidth: 320 }}
-            disabled={rows.length === 0}
-          >
-            {rows.length === 0 && <option value="">No tenants</option>}
-            {rows.map((t) => (
-              <option key={t.unitRef} value={t.unitRef}>
-                {t.name} — Unit {t.unitRef}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          <div style={{ ...SECTION_LABEL, marginBottom: 5 }}>Base year</div>
-          <select
-            value={by}
-            onChange={(e) => setBaseYearSel(Number(e.target.value))}
-            style={selectStyle}
-            disabled={!selected}
-          >
-            {yearOptions.map((y) => <option key={y} value={y}>{y}</option>)}
-          </select>
-        </label>
-        <div>
-          <div style={{ ...SECTION_LABEL, marginBottom: 5 }}>Basis</div>
-          <div style={{ display: "flex", gap: 6 }}>
-            {([
-              ["opex", "Op Ex only"],
-              ["opexRet", "Op Ex + RE Tax"],
-            ] as [BaseYearBasis, string][]).map(([val, label]) => (
-              <button
-                key={val}
-                onClick={() => setBasis(val)}
-                className="btn"
-                style={{
-                  padding: "7px 12px",
-                  fontSize: 13,
-                  background: basis === val ? "var(--brand)" : undefined,
-                  color: basis === val ? "#fff" : undefined,
-                  borderColor: basis === val ? "var(--brand)" : undefined,
-                }}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
+      <div style={{ marginTop: 10 }}>
+        <div style={{ ...SECTION_LABEL, marginBottom: 5 }}>Tenant</div>
+        <select
+          value={selected?.unitRef ?? ""}
+          onChange={(e) => setSelUnit(e.target.value)}
+          style={{ ...selectStyle, maxWidth: 360 }}
+          disabled={rows.length === 0}
+        >
+          {rows.length === 0 && <option value="">No tenants</option>}
+          {rows.map((t) => (
+            <option key={t.unitRef} value={t.unitRef}>
+              {t.name} — Unit {t.unitRef}
+            </option>
+          ))}
+        </select>
       </div>
 
       {/* Result */}
@@ -436,48 +388,54 @@ function ResetImpact({
           No tenants with a numeric base year found for this building.
         </p>
       ) : (
-        <div style={{ marginTop: 16 }}>
-          <div style={{ fontWeight: 800, fontSize: 18 }}>{selected.name}</div>
-          <div className="small muted" style={{ marginTop: 2 }}>
-            Unit {selected.unitRef} · {selected.sqft.toLocaleString()} SF ·{" "}
-            {pct1(result.share)} pro-rata share · current base year {selected.baseYearNum}
+        <div style={{ marginTop: 14 }}>
+          <div style={{ fontSize: 15 }}>
+            <b>Base year {result.by}</b>
+            <span className="muted">
+              {" "}· Unit {selected.unitRef} · {selected.sqft.toLocaleString()} SF ·{" "}
+              {pct1(result.share)} pro-rata share
+            </span>
           </div>
 
           <div className="pills" style={{ marginTop: 12 }}>
             <StatPill
-              label={`Recovery — base ${by}`}
-              value={result.now != null ? money(result.now) : "—"}
+              label="CAM loss"
+              value={result.cam != null ? money(result.cam) : "—"}
               sub={`vs ${latest} expenses`}
             />
-            <StatPill label={`After reset to ${latest}`} value="$0" sub="base year = current" />
             <StatPill
-              label="Annual income lost"
-              value={result.now != null ? money(result.now) : "—"}
-              accent={result.now ? "#b91c1c" : undefined}
+              label="RET loss"
+              value={result.ret != null ? money(result.ret) : "—"}
+              sub={`vs ${latest} expenses`}
+            />
+            <StatPill
+              label="Total loss"
+              value={result.total != null ? money(result.total) : "—"}
+              accent={result.total ? "#b91c1c" : undefined}
             />
           </div>
 
-          {result.now != null &&
-            (result.now > 0 ? (
+          {result.total != null &&
+            (result.total > 0 ? (
               <p className="small" style={{ marginTop: 12 }}>
                 Resetting {selected.name} to a {latest} base year forgoes{" "}
-                <b style={{ color: "#b91c1c" }}>{money(result.now)}</b> of annual
-                expense recovery — the amount it currently owes above its {by} base year.
+                <b style={{ color: "#b91c1c" }}>{money(result.total)}</b> of annual
+                expense recovery — the amount it currently owes above its {result.by} base year.
               </p>
             ) : (
               <p className="small muted" style={{ marginTop: 12 }}>
-                Base year {by} is already at {latest} expense levels — no recovery to lose.
+                Base year {result.by} is already at {latest} expense levels — no recovery to lose.
               </p>
             ))}
         </div>
       )}
 
       <p className="small muted" style={{ marginTop: 12 }}>
-        Recovery is computed per GL line on the{" "}
-        {basis === "opexRet" ? "95%-grossed-up Op Ex plus RE taxes" : "95%-grossed-up Op Ex"}:
-        the tenant owes its pro-rata share of each line&rsquo;s {latest} amount
-        above its base-year amount, each line floored at zero. Resetting the base
-        year to {latest} drops that recovery to $0.
+        Recovery is computed per GL line: the tenant owes its pro-rata share of
+        each 95%-grossed-up Op Ex line and RE-tax line for {latest} above its
+        base-year amount, each line floored at zero. Resetting the base year to{" "}
+        {latest} drops that recovery to $0 — CAM loss is the operating-expense
+        portion, RET loss the real-estate-tax portion.
       </p>
     </div>
   );
