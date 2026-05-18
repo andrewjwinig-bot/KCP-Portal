@@ -126,7 +126,7 @@ export default function UserSwitcher({ collapsed }: { collapsed: boolean }) {
             zIndex: 100,
           }}
         >
-          {ALL_USERS.map((id) => {
+          {[...ALL_USERS].sort((a, b) => USERS[a].label.localeCompare(USERS[b].label)).map((id) => {
             const isActive = id === user.id;
             return (
               <button

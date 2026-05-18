@@ -479,8 +479,12 @@ function DashboardInner() {
         )}
 
         {/* ── Portfolio Occupancy ── */}
-        {(user.id === "nancy" || user.id === "harry") ? (
-          <PortfolioOccupancyPanel occupancy={occupancy} loading={loading} order={-1} />
+        {user.id === "nancy" ? (
+          <PortfolioOccupancyPanel rentroll={rentroll} scopes={["office"]} order={-1} />
+        ) : user.id === "harry" ? (
+          <PortfolioOccupancyPanel rentroll={rentroll} scopes={["retail"]} order={-1} />
+        ) : isAlison ? (
+          <PortfolioOccupancyPanel rentroll={rentroll} scopes={["category", "office", "retail", "residential"]} order={-1} />
         ) : isStacie ? null : (
         <Link href="/rentroll" className="card" style={{ display: "block", textDecoration: "none", color: "inherit", cursor: "pointer", transition: "box-shadow 0.15s, transform 0.15s", order: 0 }}
           onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.boxShadow = "0 4px 16px rgba(15,23,42,0.08)"; }}
