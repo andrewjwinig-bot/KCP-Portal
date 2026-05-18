@@ -472,18 +472,47 @@ function ExpenseHistory({
   setShowGL: (b: boolean) => void;
 }) {
   const displayYears = years.includes(NOW_YEAR) ? years : [...years, NOW_YEAR];
+  const [psf, setPsf] = useState(false);
+
+  // Format a dollar figure either as a total or as $/SF of rentable area.
+  const fmtv = (n: number) =>
+    psf ? "$" + (n / expenses.rentableSqft).toFixed(2) : money(n);
+  const unit = psf ? " /SF" : "";
 
   return (
     <div className="card" style={{ marginTop: 16 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-        <div style={SECTION_LABEL}>Operating Expense History</div>
-        <button
-          className="btn"
-          onClick={() => setShowGL(!showGL)}
-          style={{ padding: "6px 12px", fontSize: 13 }}
-        >
-          {showGL ? "Hide" : "Show"} GL detail
-        </button>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+        <div style={SECTION_LABEL}>
+          Operating Expense History {psf && `· per SF of ${expenses.rentableSqft.toLocaleString()} rentable`}
+        </div>
+        <div style={{ display: "flex", gap: 6 }}>
+          {([
+            [false, "$ total"],
+            [true, "$ / SF"],
+          ] as [boolean, string][]).map(([val, label]) => (
+            <button
+              key={label}
+              className="btn"
+              onClick={() => setPsf(val)}
+              style={{
+                padding: "6px 12px",
+                fontSize: 13,
+                background: psf === val ? "var(--brand)" : undefined,
+                color: psf === val ? "#fff" : undefined,
+                borderColor: psf === val ? "var(--brand)" : undefined,
+              }}
+            >
+              {label}
+            </button>
+          ))}
+          <button
+            className="btn"
+            onClick={() => setShowGL(!showGL)}
+            style={{ padding: "6px 12px", fontSize: 13 }}
+          >
+            {showGL ? "Hide" : "Show"} GL detail
+          </button>
+        </div>
       </div>
 
       <div className="tableWrap">
@@ -492,10 +521,10 @@ function ExpenseHistory({
             <tr>
               <th>Year</th>
               <th style={{ textAlign: "right" }}>Avg Occ.</th>
-              <th style={{ textAlign: "right" }}>Op Ex (as-is)</th>
-              <th style={{ textAlign: "right" }}>Op Ex (95%)</th>
-              <th style={{ textAlign: "right" }}>RE Taxes</th>
-              <th style={{ textAlign: "right" }}>Op Ex 95% + RET</th>
+              <th style={{ textAlign: "right" }}>Op Ex (as-is){unit}</th>
+              <th style={{ textAlign: "right" }}>Op Ex (95%){unit}</th>
+              <th style={{ textAlign: "right" }}>RE Taxes{unit}</th>
+              <th style={{ textAlign: "right" }}>Op Ex 95% + RET{unit}</th>
             </tr>
           </thead>
           <tbody>
@@ -515,10 +544,10 @@ function ExpenseHistory({
                         ? occ + "%"
                         : "—"}
                   </td>
-                  <td style={{ textAlign: "right" }}>{expenses.opEx[ys] != null ? money(expenses.opEx[ys]) : "—"}</td>
-                  <td style={{ textAlign: "right", fontWeight: 700 }}>{og != null ? money(og) : "—"}</td>
-                  <td style={{ textAlign: "right" }}>{ret != null ? money(ret) : "—"}</td>
-                  <td style={{ textAlign: "right" }}>{og != null ? money(og + (ret ?? 0)) : "—"}</td>
+                  <td style={{ textAlign: "right" }}>{expenses.opEx[ys] != null ? fmtv(expenses.opEx[ys]) : "—"}</td>
+                  <td style={{ textAlign: "right", fontWeight: 700 }}>{og != null ? fmtv(og) : "—"}</td>
+                  <td style={{ textAlign: "right" }}>{ret != null ? fmtv(ret) : "—"}</td>
+                  <td style={{ textAlign: "right" }}>{og != null ? fmtv(og + (ret ?? 0)) : "—"}</td>
                 </tr>
               );
             })}
@@ -551,7 +580,7 @@ function ExpenseHistory({
                     const v = line.values[String(y)];
                     return (
                       <td key={y} style={{ textAlign: "right" }} className="small">
-                        {v != null ? money(v) : "—"}
+                        {v != null ? fmtv(v) : "—"}
                       </td>
                     );
                   })}
@@ -563,7 +592,7 @@ function ExpenseHistory({
                 <td>Total Op Ex (as-is)</td>
                 {years.map((y) => (
                   <td key={y} style={{ textAlign: "right" }}>
-                    {expenses.opEx[String(y)] != null ? money(expenses.opEx[String(y)]) : "—"}
+                    {expenses.opEx[String(y)] != null ? fmtv(expenses.opEx[String(y)]) : "—"}
                   </td>
                 ))}
               </tr>
@@ -571,7 +600,7 @@ function ExpenseHistory({
                 <td>Total Op Ex (95%)</td>
                 {years.map((y) => (
                   <td key={y} style={{ textAlign: "right" }}>
-                    {expenses.opExGrossedUp[String(y)] != null ? money(expenses.opExGrossedUp[String(y)]) : "—"}
+                    {expenses.opExGrossedUp[String(y)] != null ? fmtv(expenses.opExGrossedUp[String(y)]) : "—"}
                   </td>
                 ))}
               </tr>
@@ -579,7 +608,7 @@ function ExpenseHistory({
                 <td>RE Taxes</td>
                 {years.map((y) => (
                   <td key={y} style={{ textAlign: "right" }}>
-                    {expenses.ret[String(y)] != null ? money(expenses.ret[String(y)]) : "—"}
+                    {expenses.ret[String(y)] != null ? fmtv(expenses.ret[String(y)]) : "—"}
                   </td>
                 ))}
               </tr>
