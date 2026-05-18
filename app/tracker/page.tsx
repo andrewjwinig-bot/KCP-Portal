@@ -57,6 +57,7 @@ interface InstructionStep {
   path?: string;   // software navigation path, e.g. "Module → Menu → Sub"
   items: string[]; // bullet points
   note?: string;   // asterisk note at the end of the step
+  links?: { label: string; url: string }[]; // quick-access buttons (e.g. bank logins)
 }
 
 interface TaskInstructions {
@@ -509,21 +510,60 @@ const TASK_DEFS: TaskDef[] = [
     everyMonday: true,
     notes: "Download tenant ACH and incoming wire activity; send to Tami to post.",
     instructions: {
+      intro: "Weekly — pull tenant ACH credits and incoming wires for the accounts below, save the reports, and hand off to Tami to post.",
       steps: [
         {
-          title: "Download ACH and incoming wires",
+          title: "Deposits to post — open these accounts",
           items: [
-            "Chase LB (2300, 7010, NI LLC, JV III), 7200, 9510",
-            "Liberty 7300 & 4500",
-            "M&T 4900",
-            "Include WAWA on the 1st of the month (3)",
+            "Chase — Brookwood (2300)",
+            "Chase — Parkwood (7010)",
+            "Chase — JV III (3610)",
+            "Chase — NI LLC (4000)",
+          ],
+          links: [
+            { label: "Brookwood 2300", url: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/745774880/DDA/CHK" },
+            { label: "Parkwood 7010", url: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/745774883/DDA/CHK" },
+            { label: "JV III 3610", url: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/745774882/DDA/CHK" },
+            { label: "NI LLC 4000", url: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/747627665/DDA/CHK" },
           ],
         },
         {
-          title: "Hand off",
+          title: "ACH Credits",
           items: [
-            "Send to Tami to post",
-            "Assist Tami with any questions regarding tenant payments",
+            "Select Type: ACH Credit. Date: Sunday to Sunday. SEARCH.",
+            "To save: copy the description from the current month's posted batches (File: PDF Proc / Year / Property).",
+            "Change the dates and delete the Batch # — it should read ACH.",
+            "Save as PDF to: DATA / Sky Vol / PDF Process / Year / Year Lock Box and ACH reports / Property.",
+            "Name: \"Date Range ACH (Property) Batch #\" — leave the batch # blank.",
+          ],
+        },
+        {
+          title: "Incoming Wires",
+          items: [
+            "Select Type: Incoming Wire Transfers. Date: Sunday to Sunday. SEARCH.",
+            "To save: copy the description from the current month's posted batches (File: PDF Proc / Year / Property).",
+            "Change the dates and delete the Batch # — it should read WIRE.",
+            "Save as PDF to: DATA / Sky Vol / PDF Process / Year / Year Lock Box and ACH reports / Property.",
+            "Name: \"Date Range WIRE (Property) Batch #\" — leave the batch # blank.",
+          ],
+          note: "When Tami posts a batch she adds the batch # and moves the file to Sky Vol / PDF Proc / Year / Property along with the batch report PDF.",
+        },
+        {
+          title: "Month start / end — recurring ACH deposits",
+          items: [
+            "At the beginning or end of the month, also check for these recurring ACH deposits:",
+            "Lafayette Hill SC (9510) — WAWA ACH (always on the 1st)",
+            "Elbridge (7200) — Leevers ACH",
+            "KH Bellaire (9800) — Kreher (Homelink)",
+            "Grays Ferry (4500) — Wakefern, Grays Eye (TuDinh), Victra (ABC Phones) ACH",
+            "Revere (7300) — K&G ACH",
+          ],
+          links: [
+            { label: "Lafayette Hill 9510", url: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/913650367/DDA/CHK" },
+            { label: "Elbridge 7200", url: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/884656389/DDA/CHK" },
+            { label: "KH Bellaire 9800", url: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/789298739/DDA/CHK" },
+            { label: "Grays Ferry 4500", url: "https://secure.myvirtualbranch.com/LibertyBank/React/Accounts.aspx?p_r=1#Accounts/6" },
+            { label: "Revere 7300", url: "https://secure.myvirtualbranch.com/LibertyBank/React/Accounts.aspx?p_r=1#Accounts/3" },
           ],
         },
       ],
@@ -1827,6 +1867,34 @@ export default function TrackerPage() {
                         </div>
                       ))}
                     </div>
+
+                    {/* Quick-access links (bank logins, etc.) */}
+                    {step.links && step.links.length > 0 && (
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 10, paddingLeft: 8 }}>
+                        {step.links.map((lk) => (
+                          <a
+                            key={lk.url + lk.label}
+                            href={lk.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                              display: "inline-flex", alignItems: "center", gap: 5,
+                              fontSize: 12, fontWeight: 700,
+                              color: "var(--brand)",
+                              background: "rgba(11,74,125,0.07)",
+                              border: "1px solid rgba(11,74,125,0.25)",
+                              borderRadius: 6, padding: "5px 10px",
+                              textDecoration: "none",
+                            }}
+                          >
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                              <line x1="3" y1="21" x2="21" y2="21" /><line x1="5" y1="21" x2="5" y2="10" /><line x1="19" y1="21" x2="19" y2="10" /><line x1="9" y1="21" x2="9" y2="14" /><line x1="15" y1="21" x2="15" y2="14" /><polygon points="12 2 21 9 3 9" />
+                            </svg>
+                            {lk.label} →
+                          </a>
+                        ))}
+                      </div>
+                    )}
 
                     {/* Asterisk note */}
                     {step.note && (
