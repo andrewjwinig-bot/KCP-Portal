@@ -9,6 +9,7 @@ import { useUser } from "../components/UserProvider";
 import { PROPERTY_DEFS } from "../../lib/properties/data";
 import { UNIQUE_BANK_ACCOUNTS } from "../../lib/bank-rec/accounts";
 import { bankRecKey, nextBankRecDeadline, nextStatementsDeadline, bankRecPeriodLabel } from "../../lib/bank-rec/util";
+import { checkedKey, currentPeriod } from "../../lib/stacie-tasks";
 import { fireNotification } from "../../lib/notifications";
 import ExpirationChart from "./ExpirationChart";
 import MaintenanceOverview from "./MaintenanceOverview";
@@ -98,6 +99,7 @@ function DashboardInner() {
   const [dismissedNotices, setDismissedNotices] = useState<Set<string>>(new Set());
   const [bankRecChecked, setBankRecChecked] = useState<Record<string, boolean>>({});
   const [bankStmtChecked, setBankStmtChecked] = useState<Record<string, boolean>>({});
+  const [stacieChecked, setStacieChecked] = useState<Record<string, boolean>>({});
 
   // Stacie & admin: load bank account tracker state for the dashboard action item.
   const showBankRec = user.id === "stacie" || user.navKeys.has("all");
@@ -106,6 +108,12 @@ function DashboardInner() {
     fetch("/api/bank-rec").then((r) => r.json()).then((j) => setBankRecChecked(j.checked ?? {})).catch(() => {});
     fetch("/api/bank-rec/statements").then((r) => r.json()).then((j) => setBankStmtChecked(j.statements ?? {})).catch(() => {});
   }, [showBankRec]);
+
+  // Stacie: weekly task state — drives the ACH/wires action-item reminder.
+  useEffect(() => {
+    if (user.id !== "stacie") return;
+    fetch("/api/stacie-tasks").then((r) => r.json()).then((j) => setStacieChecked(j.checked ?? {})).catch(() => {});
+  }, [user.id]);
 
   const bankRec = useMemo(() => {
     const { date, period, daysUntil } = nextBankRecDeadline();
@@ -735,6 +743,34 @@ function DashboardInner() {
                   </div>
                 </div>
                 <Link href="/bank-rec" style={{ fontSize: 12, fontWeight: 600, color: "#0b4a7d", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>
+                  Open →
+                </Link>
+                <DismissBtn onClick={() => dismissNotice(id)} />
+              </div>
+                );
+              })()}
+
+              {isStacie && (() => {
+                const achDone = !!stacieChecked[checkedKey("wkly-dl-ach-wires", currentPeriod("weekly"))];
+                if (achDone) return null;
+                const id = `ach-wires-${currentPeriod("weekly")}`;
+                if (dismissedNotices.has(id)) return null;
+                return (
+              <div style={{
+                display: "flex", alignItems: "flex-start", gap: 10, flex: "1 1 260px", minWidth: 0,
+                padding: "10px 12px",
+                border: "1px solid rgba(11,74,125,0.35)",
+                background: "rgba(11,74,125,0.07)",
+                borderRadius: 8,
+              }}>
+                <span style={{ width: 10, height: 10, borderRadius: 999, marginTop: 5, flexShrink: 0, background: "#0b4a7d" }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, fontSize: 14 }}>Download ACH &amp; Incoming Wires</div>
+                  <div className="muted small" style={{ marginTop: 2 }}>
+                    Weekly · Mondays — download tenant ACH/wires and send to Tami.
+                  </div>
+                </div>
+                <Link href="/tracker" style={{ fontSize: 12, fontWeight: 600, color: "#0b4a7d", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>
                   Open →
                 </Link>
                 <DismissBtn onClick={() => dismissNotice(id)} />

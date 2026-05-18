@@ -72,6 +72,7 @@ interface TaskDef {
   endOfMonth?: boolean;
   lastFriday?: boolean;
   everyWednesday?: boolean; // expands into one task per Wednesday in the month
+  everyMonday?: boolean;    // expands into one task per Monday in the month
   approxDay?: boolean;
   pinned?: boolean;         // always shown at top, no checkbox, not on calendar
   months?: number[];
@@ -500,6 +501,35 @@ const TASK_DEFS: TaskDef[] = [
     },
   },
 
+  {
+    id: "w-dl-ach-wires",
+    label: "Download ACH and Incoming Wires from Tenants",
+    category: "weekly",
+    dueDay: 0,          // placeholder — overridden per-Monday at expansion time
+    everyMonday: true,
+    notes: "Download tenant ACH and incoming wire activity; send to Tami to post.",
+    instructions: {
+      steps: [
+        {
+          title: "Download ACH and incoming wires",
+          items: [
+            "Chase LB (2300, 7010, NI LLC, JV III), 7200, 9510",
+            "Liberty 7300 & 4500",
+            "M&T 4900",
+            "Include WAWA on the 1st of the month (3)",
+          ],
+        },
+        {
+          title: "Hand off",
+          items: [
+            "Send to Tami to post",
+            "Assist Tami with any questions regarding tenant payments",
+          ],
+        },
+      ],
+    },
+  },
+
   // ── QUARTERLY — January, April, July, October ─────────────────────────────
   {
     id: "q-bp",
@@ -731,6 +761,14 @@ function getWednesdaysInMonth(year: number, month: number): number[] {
   }
   return result;
 }
+function getMondaysInMonth(year: number, month: number): number[] {
+  const count = daysInMonth(year, month);
+  const result: number[] = [];
+  for (let d = 1; d <= count; d++) {
+    if (new Date(year, month, d).getDay() === 1) result.push(d);
+  }
+  return result;
+}
 
 function tasksForMonth(year: number, month: number): TaskDef[] { // month 0-indexed
   const m = month + 1;
@@ -745,6 +783,16 @@ function tasksForMonth(year: number, month: number): TaskDef[] { // month 0-inde
           label: `${t.label} — ${MONTHS[month].slice(0, 3)} ${day}`,
           dueDay: day,
           everyWednesday: false,
+        });
+      }
+    } else if (t.everyMonday) {
+      for (const day of getMondaysInMonth(year, month)) {
+        result.push({
+          ...t,
+          id: `${t.id}-${year}-${m}-${day}`,
+          label: `${t.label} — ${MONTHS[month].slice(0, 3)} ${day}`,
+          dueDay: day,
+          everyMonday: false,
         });
       }
     } else {
