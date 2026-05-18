@@ -67,7 +67,7 @@ export const USERS: Record<UserId, UserDef> = {
   nancy: {
     id: "nancy",
     label: "NANCY",
-    navKeys: new Set([...universalNav, "leasing-activity", "commissions", "reservations"]),
+    navKeys: new Set([...universalNav, "leasing-activity", "base-years", "commissions", "reservations"]),
     allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/commissions", "/reservations"],
     defaultRentRollCategory: "Office",
     defaultPropertyType: "Office",
