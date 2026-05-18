@@ -29,6 +29,8 @@ export type ExpenseLine = {
   label: string;
   /** Whether this line is the 95%-occupancy grossed-up variant of another. */
   grossedUp?: boolean;
+  /** Billed directly to tenants (e.g. electric) — not part of Op Ex. */
+  separateCharge?: boolean;
   values: Record<string, number>;
 };
 
@@ -74,9 +76,29 @@ export function expenseBaseFor(
 }
 
 /**
- * Annual expense reimbursement a tenant owes: pro-rata share of the
- * comparison year's expenses above its base-year floor. Never negative —
- * a base year above the comparison year simply recovers nothing.
+ * The GL lines that compose the grossed-up Op Ex total: the 95%-occupancy
+ * variants where they exist, the as-is line otherwise, and never a
+ * separately-billed charge such as electric.
+ */
+export function grossedUpLines(p: PropertyExpenses): ExpenseLine[] {
+  const superseded = new Set(
+    p.lines
+      .filter((l) => l.glAccount.endsWith("-95"))
+      .map((l) => l.glAccount.slice(0, -3)),
+  );
+  return p.lines.filter((l) => {
+    if (l.separateCharge) return false;
+    if (l.glAccount.endsWith("-95")) return true;
+    return !superseded.has(l.glAccount);
+  });
+}
+
+/**
+ * Annual expense reimbursement a tenant owes. Computed per GL line: for
+ * each line the tenant owes its pro-rata share of any increase over that
+ * line's base-year amount, and each line is floored at zero — a line that
+ * fell below its base year does NOT offset increases on other lines. RE
+ * taxes are treated as one additional line when the basis includes them.
  */
 export function reimbursement(
   p: PropertyExpenses,
@@ -85,11 +107,26 @@ export function reimbursement(
   compareYear: number,
   basis: BaseYearBasis,
 ): number | null {
-  const base = expenseBaseFor(p, baseYear, basis);
-  const current = expenseBaseFor(p, compareYear, basis);
-  if (base == null || current == null || p.rentableSqft <= 0) return null;
+  const baseYs = String(baseYear);
+  const curYs = String(compareYear);
+  if (
+    p.rentableSqft <= 0 ||
+    p.opExGrossedUp[baseYs] == null ||
+    p.opExGrossedUp[curYs] == null
+  ) {
+    return null;
+  }
   const share = tenantSqft / p.rentableSqft;
-  return Math.max(0, current - base) * share;
+  let increase = 0;
+  for (const line of grossedUpLines(p)) {
+    const b = line.values[baseYs] ?? 0;
+    const c = line.values[curYs] ?? 0;
+    increase += Math.max(0, c - b);
+  }
+  if (basis === "opexRet") {
+    increase += Math.max(0, (p.ret[curYs] ?? 0) - (p.ret[baseYs] ?? 0));
+  }
+  return increase * share;
 }
 
 // ── seed data ────────────────────────────────────────────────────────────────
@@ -141,7 +178,7 @@ const SEED_3610: PropertyExpenses = {
     { glAccount: "6250-8502", label: "Cleaning", values: zip(YEARS_3610, [42247, 48116, 45929, 48503, 49970, 50827, 40634, 31990, 43991, 48739, 42242, 40943, 41093, 47686, 45909, 40587, 42086]) },
     { glAccount: "6610-8502-95", label: "Management Fee (95%)", grossedUp: true, values: zip(YEARS_3610, [29517, 34965, 24383, 32798, 23846, 23877, 27712, 26890, 23618, 32574, 30641, 29591, 31861, 31676, 31768, 32690, 32273]) },
     { glAccount: "6250-8502-95", label: "Cleaning (95%)", grossedUp: true, values: zip(YEARS_3610, [42247, 60372, 45929, 83862, 49970, 50827, 40634, 51008, 43991, 57549, 50256, 51933, 65070, 68040, 65601, 76915, 80482]) },
-    { glAccount: "6120-8502", label: "Electric", values: { "2021": 42984, "2022": 40821, "2023": 37268, "2024": 40821, "2025": 0 } },
+    { glAccount: "6120-8502", label: "Electric", separateCharge: true, values: { "2021": 42984, "2022": 40821, "2023": 37268, "2024": 40821, "2025": 0 } },
   ],
   updatedAt: "2026-02-02",
 };
@@ -187,7 +224,7 @@ const SEED_3620: PropertyExpenses = {
     { glAccount: "6250-8502", label: "Cleaning", values: zip(YEARS_3620, [44505, 60242, 56932, 49940, 35591, 28945, 30941, 51876, 41069, 40943, 29709, 33485, 34187, 36027, 28386]) },
     { glAccount: "6610-8502-95", label: "Management Fee (95%)", grossedUp: true, values: zip(YEARS_3620, [43815, 33711, 50357, 32510, 21511, 5332, 35598, 47591, 33955, 35888, 37621, 39360, 32944, 29723, 39472]) },
     { glAccount: "6250-8502-95", label: "Cleaning (95%)", grossedUp: true, values: zip(YEARS_3620, [67960, 91991, 56932, 76260, 35591, 28945, 77251, 89489, 69565, 71764, 55045, 52002, 54048, 63280, 63210]) },
-    { glAccount: "6120-8502", label: "Electric", values: { "2021": 52180, "2022": 47373, "2023": 47373, "2024": 47373, "2025": 0 } },
+    { glAccount: "6120-8502", label: "Electric", separateCharge: true, values: { "2021": 52180, "2022": 47373, "2023": 47373, "2024": 47373, "2025": 0 } },
   ],
   updatedAt: "2026-02-02",
 };
@@ -232,7 +269,7 @@ const SEED_3640: PropertyExpenses = {
     { glAccount: "6250-8502", label: "Cleaning", values: zip(YEARS_3640, [50091, 58581, 57962, 54365, 26601, 40297, 51876, 52366, 64297, 66728, 72031, 70145, 62497, 63508]) },
     { glAccount: "6610-8502-95", label: "Management Fee (95%)", grossedUp: true, values: zip(YEARS_3640, [35196, 30603, 40405, 37181, 35130, 28557, 40522, 35099, 34487, 37787, 35864, 36449, 34861, 35696]) },
     { glAccount: "6250-8502-95", label: "Cleaning (95%)", grossedUp: true, values: zip(YEARS_3640, [50091, 58581, 100010, 184127, 65962, 59189, 76197, 63857, 70160, 72813, 76150, 72348, 70054, 71918]) },
-    { glAccount: "6120-8502", label: "Electric", values: { "2022": 39944, "2023": 39347, "2024": 31967, "2025": 0 } },
+    { glAccount: "6120-8502", label: "Electric", separateCharge: true, values: { "2022": 39944, "2023": 39347, "2024": 31967, "2025": 0 } },
   ],
   updatedAt: "2026-02-02",
 };

@@ -447,10 +447,12 @@ function ResetImpact({
         </p>
       )}
       <p className="small muted" style={{ marginTop: 8 }}>
-        Reimbursement = tenant pro-rata share × ({cy} expenses − base-year
-        expenses), on the 95%-grossed-up Op Ex{basis === "opexRet" ? " plus RE taxes" : ""}.
-        Resetting a base year forward raises the floor, so a negative Δ is
-        recovery the landlord gives up.
+        Reimbursement is computed per GL line: for each {basis === "opexRet" ? "95%-grossed-up Op Ex line and RE taxes" : "95%-grossed-up Op Ex line"},
+        the tenant owes its pro-rata share of the {cy} amount above that
+        line&rsquo;s base-year amount, and each line is floored at zero — a line
+        below its base year does not offset increases elsewhere. Resetting a
+        base year forward raises those floors, so a negative Δ is recovery the
+        landlord gives up.
       </p>
     </div>
   );
