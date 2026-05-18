@@ -1,4 +1,4 @@
-export const ALL_USERS = ["admin", "stacie", "nancy", "harry", "maint"] as const;
+export const ALL_USERS = ["admin", "stacie", "nancy", "harry", "maint", "alison"] as const;
 export type UserId = typeof ALL_USERS[number];
 
 export type RentRollCategory = "All" | "Office" | "Retail" | "Residential" | "The Office Works";
@@ -87,6 +87,17 @@ export const USERS: Record<UserId, UserDef> = {
     label: "MAINT",
     navKeys: new Set([...universalNav, "maintenance", "expenses", "reservations"]),
     allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/expenses", "/maintenance", "/reservations"],
+    defaultRentRollCategory: "All",
+    defaultPropertyType: "all",
+    dashboardScope: "groups",
+  },
+  alison: {
+    id: "alison",
+    label: "ALISON",
+    // President — a high-level view: dashboard, properties, investors,
+    // rent roll. No operational tools or action items.
+    navKeys: new Set([...universalNav, "investors"]),
+    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/investors"],
     defaultRentRollCategory: "All",
     defaultPropertyType: "all",
     dashboardScope: "groups",
