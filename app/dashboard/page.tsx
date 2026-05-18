@@ -471,8 +471,8 @@ function DashboardInner() {
         {/* ── Portfolio Occupancy ── */}
         {(user.id === "nancy" || user.id === "harry") ? (
           <PortfolioOccupancyPanel occupancy={occupancy} loading={loading} order={-1} />
-        ) : (
-        <Link href="/rentroll" className="card" style={{ display: "block", textDecoration: "none", color: "inherit", cursor: "pointer", transition: "box-shadow 0.15s, transform 0.15s", order: isStacie ? 2 : 0 }}
+        ) : isStacie ? null : (
+        <Link href="/rentroll" className="card" style={{ display: "block", textDecoration: "none", color: "inherit", cursor: "pointer", transition: "box-shadow 0.15s, transform 0.15s", order: 0 }}
           onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.boxShadow = "0 4px 16px rgba(15,23,42,0.08)"; }}
           onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.boxShadow = ""; }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
