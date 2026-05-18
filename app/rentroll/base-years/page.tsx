@@ -350,7 +350,6 @@ function ResetImpact({
       cam,
       ret: cam != null && total != null ? total - cam : null,
       total,
-      share: (selected.sqft / expenses.rentableSqft) * 100,
     };
   }, [selected, expenses, latest]);
 
@@ -358,22 +357,42 @@ function ResetImpact({
     <div className="card" style={{ marginTop: 16 }}>
       <div style={SECTION_LABEL}>Base Year Reset Impact</div>
 
-      {/* Controls */}
-      <div style={{ marginTop: 10 }}>
-        <div style={{ ...SECTION_LABEL, marginBottom: 5 }}>Tenant</div>
-        <select
-          value={selected?.unitRef ?? ""}
-          onChange={(e) => setSelUnit(e.target.value)}
-          style={{ ...selectStyle, maxWidth: 360 }}
-          disabled={rows.length === 0}
-        >
-          {rows.length === 0 && <option value="">No tenants</option>}
-          {rows.map((t) => (
-            <option key={t.unitRef} value={t.unitRef}>
-              {t.name} — Unit {t.unitRef}
-            </option>
-          ))}
-        </select>
+      {/* Controls — tenant picker left, selected tenant detail top-right */}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-end",
+          gap: 16,
+          flexWrap: "wrap",
+          marginTop: 10,
+        }}
+      >
+        <div>
+          <div style={{ ...SECTION_LABEL, marginBottom: 5 }}>Tenant</div>
+          <select
+            value={selected?.unitRef ?? ""}
+            onChange={(e) => setSelUnit(e.target.value)}
+            style={{ ...selectStyle, maxWidth: 360 }}
+            disabled={rows.length === 0}
+          >
+            {rows.length === 0 && <option value="">No tenants</option>}
+            {rows.map((t) => (
+              <option key={t.unitRef} value={t.unitRef}>
+                {t.name} — Unit {t.unitRef}
+              </option>
+            ))}
+          </select>
+        </div>
+        {selected && (
+          <div style={{ fontSize: 14, textAlign: "right", paddingBottom: 4 }}>
+            <b>Base year {selected.baseYearNum}</b>
+            <span className="muted">
+              {" "}· Unit {selected.unitRef} · {selected.sqft.toLocaleString()} SF ·{" "}
+              {pct1((selected.sqft / expenses.rentableSqft) * 100)} pro-rata share
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Result */}
@@ -389,15 +408,7 @@ function ResetImpact({
         </p>
       ) : (
         <div style={{ marginTop: 14 }}>
-          <div style={{ fontSize: 15 }}>
-            <b>Base year {result.by}</b>
-            <span className="muted">
-              {" "}· Unit {selected.unitRef} · {selected.sqft.toLocaleString()} SF ·{" "}
-              {pct1(result.share)} pro-rata share
-            </span>
-          </div>
-
-          <div className="pills" style={{ marginTop: 12 }}>
+          <div className="pills">
             <StatPill
               label="CAM loss"
               value={result.cam != null ? money(result.cam) : "—"}
