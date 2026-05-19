@@ -123,7 +123,7 @@ function BaseYearResets({
           propertyCode: p.propertyCode,
           occupantName: u.occupantName,
           sqft: u.sqft,
-          label: `${p.propertyCode} · ${u.unitRef} · ${u.occupantName}`,
+          label: `${u.unitRef} · ${u.occupantName}`,
         });
       }
     }
