@@ -7,7 +7,7 @@ import {
   type Reservation,
 } from "@/lib/reservations/storage";
 import { roomByUnitRef } from "@/lib/reservations/rooms";
-import { findConflicts } from "@/lib/reservations/conflict";
+import { findConflicts, tenantRoomDaysInMonth, MONTHLY_DAY_LIMIT } from "@/lib/reservations/conflict";
 import { upsertContact } from "@/lib/maintenance/tenants";
 import { companiesForProperty } from "@/lib/tenants/companies";
 import { bestTenantMatch } from "@/lib/tenants/match";
@@ -120,6 +120,19 @@ export async function POST(req: NextRequest) {
   const match = bestTenantMatch(tenantCompany, companies.map((c) => c.name));
   const resolvedCompany = match ? match.name : tenantCompany;
   const tenantResolved = match != null;
+
+  // Monthly cap — a tenant may reserve each room on at most MONTHLY_DAY_LIMIT
+  // distinct days per calendar month. Booking another slot on a day they
+  // already hold is fine; a new day past the cap is not.
+  const monthDays = tenantRoomDaysInMonth(existing, room.unitRef, resolvedCompany, date.slice(0, 7));
+  if (!monthDays.has(date) && monthDays.size >= MONTHLY_DAY_LIMIT) {
+    return NextResponse.json(
+      {
+        error: `${resolvedCompany} has already reserved the ${room.label} on ${MONTHLY_DAY_LIMIT} days this month. Each tenant is limited to ${MONTHLY_DAY_LIMIT} days per room per month.`,
+      },
+      { status: 409 },
+    );
+  }
 
   const now = new Date().toISOString();
   const r: Reservation = {
