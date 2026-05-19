@@ -672,8 +672,7 @@ async function buildCommissionMemoPdf(opts: {
   }
   const sorted = [...entries].sort((a, b) => {
     const bd = a.building.localeCompare(b.building);
-    if (bd !== 0) return bd;
-    return a.suite.localeCompare(b.suite);
+    return bd !== 0 ? bd : a.suite.localeCompare(b.suite);
   });
   const jvEntries = sorted.filter((e) => fundOf(e) === "JV III");
   const niEntries = sorted.filter((e) => fundOf(e) === "NI LLC");
@@ -684,121 +683,153 @@ async function buildCommissionMemoPdf(opts: {
   // ── pdf-lib setup ──
   const pdf = await PDFDocument.create();
   const page = pdf.addPage([612, 792]); // Letter portrait
-  const font  = await pdf.embedFont(StandardFonts.Helvetica);
-  const bold  = await pdf.embedFont(StandardFonts.HelveticaBold);
-  const black = rgb(0, 0, 0);
-  const gray  = rgb(0.35, 0.40, 0.50);
-  const ruleGray = rgb(0.75, 0.78, 0.82);
+  const font = await pdf.embedFont(StandardFonts.Helvetica);
+  const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
+
+  const navy  = rgb(11 / 255, 74 / 255, 125 / 255);
+  const white = rgb(1, 1, 1);
+  const ink   = rgb(0.10, 0.12, 0.15);
+  const gray  = rgb(0.42, 0.46, 0.52);
+  const shade = rgb(0.945, 0.955, 0.965);
+  const rule  = rgb(0.80, 0.82, 0.86);
 
   const margin = 50;
-  const pageW = 612;
-  let y = 760;
+  const pageW  = 612;
+  const right  = pageW - margin; // 562
+  const contentW = pageW - margin * 2;
+  let y = 736;
 
-  function text(s: string, x: number, yy: number, opts: { size?: number; color?: any; b?: boolean } = {}) {
-    page.drawText(s, { x, y: yy, font: opts.b ? bold : font, size: opts.size ?? 10, color: opts.color ?? black });
-  }
-  function money(n: number): string {
-    return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  }
+  const txt = (s: string, x: number, yy: number, o: { size?: number; b?: boolean; color?: ReturnType<typeof rgb> } = {}) =>
+    page.drawText(s, { x, y: yy, font: o.b ? bold : font, size: o.size ?? 10, color: o.color ?? ink });
+  const txtR = (s: string, xr: number, yy: number, o: { size?: number; b?: boolean; color?: ReturnType<typeof rgb> } = {}) => {
+    const f = o.b ? bold : font, sz = o.size ?? 10;
+    page.drawText(s, { x: xr - f.widthOfTextAtSize(s, sz), y: yy, font: f, size: sz, color: o.color ?? ink });
+  };
+  const txtC = (s: string, cx: number, yy: number, o: { size?: number; b?: boolean; color?: ReturnType<typeof rgb> } = {}) => {
+    const f = o.b ? bold : font, sz = o.size ?? 10;
+    page.drawText(s, { x: cx - f.widthOfTextAtSize(s, sz) / 2, y: yy, font: f, size: sz, color: o.color ?? ink });
+  };
+  const money = (n: number) => n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const fit = (s: string, w: number, sz: number) => {
+    if (font.widthOfTextAtSize(s, sz) <= w) return s;
+    let t = s;
+    while (t.length > 1 && font.widthOfTextAtSize(t + "…", sz) > w) t = t.slice(0, -1);
+    return t + "…";
+  };
 
-  // ── Memo header (To/From/Date/Subject) ─────────────────────────
-  const labelX = margin;
-  const valueX = margin + 70;
-  const rowH = 18;
-  const headerRows: [string, string][] = [
-    ["To:",      "Payroll"],
-    ["From:",    "Alison Korman"],
-    ["Date:",    periodEndStr],
-    ["Subject:", "Incentive Compensation Nancy L. Fox"],
+  // ── Letterhead — Korman Commercial logo (left) + document title (right) ──
+  txt("KORMAN", margin, y, { b: true, size: 26, color: navy });
+  txt("C O M M E R C I A L   P R O P E R T I E S", margin + 1, y - 13, { b: true, size: 7, color: gray });
+  txtR("INCENTIVE COMPENSATION", right, y + 4, { b: true, size: 17, color: navy });
+  txtR("Request for Payment", right, y - 12, { size: 9, color: gray });
+  y -= 27;
+  page.drawRectangle({ x: margin, y, width: contentW, height: 2, color: navy });
+  y -= 26;
+
+  // ── Memo block (To / From / Date / Subject) ──
+  const memoRows: [string, string][] = [
+    ["TO", "Payroll"],
+    ["FROM", "Alison Korman"],
+    ["DATE", periodEndStr],
+    ["SUBJECT", "Incentive Compensation — Nancy L. Fox"],
   ];
-  for (const [k, v] of headerRows) {
-    text(k, labelX, y, { size: 11 });
-    text(v, valueX, y, { size: 11 });
-    y -= rowH;
+  const memoH = memoRows.length * 16 + 12;
+  page.drawRectangle({ x: margin, y: y - memoH + 12, width: contentW, height: memoH, color: shade });
+  let my = y;
+  for (const [k, v] of memoRows) {
+    txt(k, margin + 12, my, { b: true, size: 8, color: navy });
+    txt(v, margin + 92, my, { size: 10 });
+    my -= 16;
   }
-  y -= 6;
-  text(`Please pay Nancy L. Fox in the amount of $${money(subtotal)}`, margin, y, { size: 11 });
-  y -= rowH;
-  text(`for incentive compensation for the quarter ended ${periodEndStr} for the following leases:`, margin, y, { size: 11 });
-  y -= rowH + 4;
+  y -= memoH + 14;
 
-  // ── Table layout ──
-  // Columns: Building (40), Suite (38), Tenant (170), Lease From (62), Lease To (62), Term (38), Subtotal (60), Total (62)
+  // ── Intro ──
+  txt(`Please pay Nancy L. Fox $${money(subtotal)} in incentive compensation for the`, margin, y, { size: 10.5 });
+  y -= 15;
+  txt(`quarter ended ${periodEndStr} for the following leases:`, margin, y, { size: 10.5 });
+  y -= 28;
+
+  // ── Table ──
   const cols = [
-    { label: "Building",   x: margin,         w: 42,  align: "left"  as const },
-    { label: "Suite",      x: margin + 42,    w: 36,  align: "left"  as const },
-    { label: "Tenant",     x: margin + 78,    w: 170, align: "left"  as const },
-    { label: "Lease From", x: margin + 248,   w: 62,  align: "left"  as const },
-    { label: "Lease To",   x: margin + 310,   w: 62,  align: "left"  as const },
-    { label: "Term",       x: margin + 372,   w: 36,  align: "right" as const },
-    { label: "Subtotal",   x: margin + 408,   w: 52,  align: "right" as const },
-    { label: "Total",      x: margin + 460,   w: 52,  align: "right" as const },
+    { key: "building", label: "Building",   x: 50,  w: 52, align: "l" as const },
+    { key: "suite",    label: "Suite",      x: 102, w: 40, align: "l" as const },
+    { key: "tenant",   label: "Tenant",     x: 142, w: 150, align: "l" as const },
+    { key: "from",     label: "Lease From", x: 292, w: 64, align: "l" as const },
+    { key: "to",       label: "Lease To",   x: 356, w: 64, align: "l" as const },
+    { key: "term",     label: "Term",       x: 420, w: 36, align: "r" as const },
+    { key: "sub",      label: "Subtotal",   x: 456, w: 50, align: "r" as const },
+    { key: "tot",      label: "Total *",    x: 506, w: 56, align: "r" as const },
   ];
+  const subColEnd = cols[6].x + cols[6].w;
+  const totColEnd = cols[7].x + cols[7].w;
 
-  function drawRow(values: string[], opts: { b?: boolean; size?: number } = {}) {
-    const size = opts.size ?? 9.5;
+  function dataRow(vals: string[], fill?: ReturnType<typeof rgb>) {
+    if (fill) page.drawRectangle({ x: margin, y: y - 4, width: contentW, height: 15, color: fill });
     cols.forEach((c, i) => {
-      const v = values[i] ?? "";
-      const tw = (opts.b ? bold : font).widthOfTextAtSize(v, size);
-      let x = c.x;
-      if (c.align === "right") x = c.x + c.w - tw;
-      page.drawText(v, { x, y, font: opts.b ? bold : font, size, color: black });
+      const v = vals[i] ?? "";
+      if (!v) return;
+      if (c.align === "r") txtR(v, c.x + c.w, y, { size: 9 });
+      else txt(v, c.x, y, { size: 9 });
     });
   }
-  function drawRule() {
-    page.drawLine({ start: { x: margin, y: y + 4 }, end: { x: pageW - margin, y: y + 4 }, thickness: 0.5, color: ruleGray });
-  }
 
-  function drawSection(title: string, list: CommissionEntry[]) {
-    if (list.length === 0) return;
-    // Section heading
-    text(title, margin, y, { size: 11, b: true });
-    y -= rowH - 2;
-    // Header row
-    drawRule();
-    drawRow(cols.map((c) => c.label), { b: true });
-    y -= 13;
-    drawRule();
-    y -= 4;
-    // Rows
-    let sectionSub = 0;
-    for (const e of list) {
-      const sub = Number(e.incentiveAmount) || 0;
-      const tot = sub * COMMISSIONS_MARKUP;
-      sectionSub += sub;
-      drawRow([
+  function section(title: string, list: CommissionEntry[]) {
+    if (!list.length) return;
+    // Section bar
+    page.drawRectangle({ x: margin, y: y - 6, width: contentW, height: 18, color: navy });
+    txt(title, margin + 8, y, { b: true, size: 10, color: white });
+    y -= 24;
+    // Column headers
+    cols.forEach((c) => {
+      if (c.align === "r") txtR(c.label, c.x + c.w, y, { b: true, size: 8, color: gray });
+      else txt(c.label, c.x, y, { b: true, size: 8, color: gray });
+    });
+    y -= 5;
+    page.drawLine({ start: { x: margin, y }, end: { x: right, y }, thickness: 0.75, color: rule });
+    y -= 14;
+    // Data rows
+    let sub = 0;
+    list.forEach((e, idx) => {
+      const s = Number(e.incentiveAmount) || 0;
+      sub += s;
+      dataRow([
         e.building,
         e.suite,
-        e.tenant.length > 28 ? e.tenant.slice(0, 28) + "…" : e.tenant,
+        fit(e.tenant, cols[2].w - 4, 9),
         toDisplayDate(e.leaseFrom),
         toDisplayDate(e.leaseTo),
-        `${e.termYears}`,
-        money(sub),
-        money(tot),
-      ]);
-      y -= 13;
-    }
-    // Section totals row
-    drawRule();
-    drawRow(["", "", "", "", "", title + " TOTAL", money(sectionSub), money(sectionSub * COMMISSIONS_MARKUP)], { b: true });
-    y -= 18;
+        String(e.termYears),
+        money(s),
+        money(s * COMMISSIONS_MARKUP),
+      ], idx % 2 === 1 ? shade : undefined);
+      y -= 16;
+    });
+    // Section total
+    page.drawLine({ start: { x: margin, y: y + 11 }, end: { x: right, y: y + 11 }, thickness: 0.75, color: rule });
+    txtR(`${title} TOTAL`, subColEnd - cols[6].w - 12, y, { b: true, size: 9 });
+    txtR(money(sub), subColEnd, y, { b: true, size: 9 });
+    txtR(money(sub * COMMISSIONS_MARKUP), totColEnd, y, { b: true, size: 9 });
+    y -= 26;
   }
 
-  drawSection("JV III",  jvEntries);
-  drawSection("NI LLC",  niEntries);
+  section("JV III", jvEntries);
+  section("NI LLC", niEntries);
 
-  // ── Grand total ──
-  y -= 4;
-  drawRule();
-  drawRow(["", "", "", "", "", "TOTAL", money(subtotal), money(total)], { b: true, size: 10 });
-  y -= 18;
-  drawRule();
+  // ── Grand total bar ──
+  page.drawRectangle({ x: margin, y: y - 7, width: contentW, height: 22, color: navy });
+  txtR("TOTAL", subColEnd - cols[6].w - 12, y, { b: true, size: 11, color: white });
+  txtR(money(subtotal), subColEnd, y, { b: true, size: 11, color: white });
+  txtR(money(total), totColEnd, y, { b: true, size: 11, color: white });
+  y -= 34;
 
-  // ── Footer ──
-  y -= 14;
-  const footer = "Please charge commissions to 6620-8501 and deposit into LIK 942-8701";
-  const fw = bold.widthOfTextAtSize(footer, 10);
-  page.drawText(footer, { x: (pageW - fw) / 2, y, font: bold, size: 10, color: black });
+  // ── Footnote ──
+  txt("*  Total reflects the incentive subtotal grossed up 20% for property billing.", margin, y, { size: 8.5, color: gray });
+  y -= 30;
+
+  // ── Charge instruction ──
+  const note = "Please charge commissions to 6620-8501 and deposit into LIK 942-8701";
+  page.drawRectangle({ x: margin, y: y - 9, width: contentW, height: 24, color: shade });
+  txtC(note, pageW / 2, y, { b: true, size: 9.5, color: navy });
 
   return pdf.save();
 }
