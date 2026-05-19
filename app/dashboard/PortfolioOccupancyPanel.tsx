@@ -5,7 +5,7 @@
 // one or more scope toggles — "All" rolls up by category, the others
 // break down per property.
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type { RentRollData } from "../../lib/rentroll/parseRentRollExcel";
 import { PROPERTY_DEFS } from "../../lib/properties/data";
@@ -54,6 +54,10 @@ export default function PortfolioOccupancyPanel({
   order?: number;
 }) {
   const [scope, setScope] = useState<OccupancyScope>(scopes[0]);
+  // The dashboard mounts before the user persona hydrates, so the scopes
+  // prop can change once we know who's viewing — re-anchor to scopes[0].
+  const scopesKey = scopes.join(",");
+  useEffect(() => { setScope(scopes[0]); }, [scopesKey]); // eslint-disable-line react-hooks/exhaustive-deps
   const BAR_H = 104;
 
   const bars: Bar[] = useMemo(() => {
