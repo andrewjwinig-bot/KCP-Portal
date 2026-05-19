@@ -180,7 +180,7 @@ export default function SecurityDepositsPage() {
           }}
         >
           <div onClick={(e) => e.stopPropagation()} className="card"
-            style={{ maxWidth: 560, width: "100%", boxShadow: "0 24px 60px rgba(15,23,42,0.32)" }}>
+            style={{ maxWidth: 860, width: "100%", boxShadow: "0 24px 60px rgba(15,23,42,0.32)" }}>
             <div style={{ fontSize: 16, fontWeight: 800, marginBottom: 14 }}>
               {editing ? "Edit Security Deposit" : "New Security Deposit"}
             </div>
