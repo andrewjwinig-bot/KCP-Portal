@@ -420,7 +420,7 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
       )}
 
       {/* Nav links */}
-      <nav style={{ flex: 1, padding: open ? "4px 8px" : "8px 6px", display: "flex", flexDirection: "column", gap: 2, minHeight: 0 }}>
+      <nav style={{ flex: 1, padding: open ? "4px 8px" : "8px 6px", display: "flex", flexDirection: "column", gap: 2, minHeight: 0, overflowY: "auto", overflowX: "hidden" }}>
         {NAV.filter((item) => isVisible(item)).map((item) => {
           const active = isActive(item);
           const badge = item.label === "Reservations" ? reservationPending : 0;
