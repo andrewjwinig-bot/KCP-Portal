@@ -10,6 +10,8 @@ export type CommissionEntry = {
   leaseFrom: string;
   leaseTo: string;
   termYears: number;
+  /** Retail only — annual rent $/SF, used for the lease-value calculation. */
+  rate?: number;
   incentiveAmount: number;
   comments: string;
   /** Original rent-roll unit reference if auto-populated; blank for manual entries. */
@@ -44,6 +46,15 @@ export function computeIncentive(termYears: number, sqft: number): number | null
   const rate = incentiveRate(termYears);
   if (rate == null) return null;
   return Math.round(rate * sqft * 100) / 100;
+}
+
+/** Harry's retail leasing commission rate — 3% of total lease value. */
+export const RETAIL_COMMISSION_RATE = 0.03;
+
+/** Retail commission = 3% of lease value (SF × annual $/SF × term years). */
+export function retailCommission(sqft: number, ratePerSqft: number, termYears: number): number {
+  const v = sqft * ratePerSqft * termYears * RETAIL_COMMISSION_RATE;
+  return Number.isFinite(v) ? Math.round(v * 100) / 100 : 0;
 }
 
 /** Years between two date-like strings. Returns 0 if either is unparseable. */
