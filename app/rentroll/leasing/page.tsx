@@ -34,10 +34,10 @@ const MONTH_NAMES = [
   "July", "August", "September", "October", "November", "December",
 ];
 
-// Year range offered in the base-year reset picker.
+// A base year can only be reset to the current year or a future year.
 const RESET_YEARS = (() => {
   const y = new Date().getFullYear();
-  return Array.from({ length: 9 }, (_, i) => y - 6 + i);
+  return Array.from({ length: 3 }, (_, i) => y + i);
 })();
 
 // Base-year resets are always dated to the 1st of a month.
