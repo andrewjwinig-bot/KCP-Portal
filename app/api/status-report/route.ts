@@ -1201,7 +1201,17 @@ export async function POST(req: Request) {
     try {
       const depManifest = (await getJSON("security-deposits-manifest", "all")) as
         { deposits?: any[] } | null;
-      const deposits = Array.isArray(depManifest?.deposits) ? depManifest!.deposits : [];
+      const allDeposits = Array.isArray(depManifest?.deposits) ? depManifest!.deposits : [];
+      // Keep the section consistent with the report's category scope.
+      const catCodes =
+        category === "Office"           ? CATEGORY_OFFICE_CODES
+        : category === "Retail"         ? CATEGORY_RETAIL_CODES
+        : category === "Residential"    ? CATEGORY_RESIDENTIAL_CODES
+        : category === "The Office Works" ? CATEGORY_OW_CODES
+        : null;
+      const deposits = catCodes
+        ? allDeposits.filter((d) => catCodes.has(String(d.propertyCode).toUpperCase()))
+        : allDeposits;
       if (deposits.length > 0) {
         const ACCOUNTS = [
           { key: "ni-llc",     bank: "Liberty x7448", label: "NI LLC Security Deposits" },
