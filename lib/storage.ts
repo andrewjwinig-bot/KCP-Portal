@@ -31,8 +31,12 @@ function safeId(id: string) {
 /** Fetch a blob URL server-side, including the auth token for private stores. */
 async function fetchBlobJson(url: string): Promise<any> {
   const token = process.env.BLOB_READ_WRITE_TOKEN;
+  // cache: "no-store" — Vercel Blob URLs are stable across overwrites
+  // (addRandomSuffix: false), so Next.js's default fetch cache would
+  // happily return a stale manifest body after a write. Force fresh.
   const res = await fetch(url, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
+    cache: "no-store",
   });
   if (!res.ok) throw new Error(`Blob fetch failed: ${res.status} ${res.statusText}`);
   return res.json();
@@ -55,22 +59,54 @@ export async function storeJSON(prefix: string, id: string, data: object): Promi
   }
 }
 
-/** List all JSON objects under a prefix. Returns parsed objects. */
+/** List all JSON objects under a prefix. Returns parsed objects.
+ *
+ * Resilient: if individual blobs fail to fetch / parse (403 on a stale
+ * URL, transient network, corrupted JSON, etc.) we log the failure and
+ * skip just that record instead of taking down the whole list. Callers
+ * routinely use this for queue-style pages (maintenance, periods, bank
+ * recs); a single bad record shouldn't black out the entire page.
+ */
 export async function listJSON(prefix: string): Promise<any[]> {
   if (USE_BLOB) {
     const { blobs } = await list({ prefix: `payroll/${prefix}/` });
-    return Promise.all(blobs.map((b) => fetchBlobJson(b.url)));
-  } else {
-    const dir = localDir(prefix);
-    if (!existsSync(dir)) return [];
-    const files = (await readdir(dir)).filter((f) => f.endsWith(".json"));
-    return Promise.all(
-      files.map(async (f) => {
-        const raw = await readFile(path.join(dir, f), "utf-8");
-        return JSON.parse(raw);
-      })
-    );
+    const settled = await Promise.allSettled(blobs.map((b) => fetchBlobJson(b.url)));
+    const out: any[] = [];
+    for (let i = 0; i < settled.length; i++) {
+      const r = settled[i];
+      if (r.status === "fulfilled") {
+        out.push(r.value);
+      } else {
+        console.warn(
+          `storage.listJSON(${prefix}): skipped ${blobs[i].pathname} —`,
+          r.reason instanceof Error ? r.reason.message : r.reason,
+        );
+      }
+    }
+    return out;
   }
+  const dir = localDir(prefix);
+  if (!existsSync(dir)) return [];
+  const files = (await readdir(dir)).filter((f) => f.endsWith(".json"));
+  const settled = await Promise.allSettled(
+    files.map(async (f) => {
+      const raw = await readFile(path.join(dir, f), "utf-8");
+      return JSON.parse(raw);
+    }),
+  );
+  const out: any[] = [];
+  for (let i = 0; i < settled.length; i++) {
+    const r = settled[i];
+    if (r.status === "fulfilled") {
+      out.push(r.value);
+    } else {
+      console.warn(
+        `storage.listJSON(${prefix}): skipped ${files[i]} —`,
+        r.reason instanceof Error ? r.reason.message : r.reason,
+      );
+    }
+  }
+  return out;
 }
 
 /** Fetch a single JSON object by id. Returns null if not found. */

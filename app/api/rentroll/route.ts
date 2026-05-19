@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { parseRentRollExcel } from "@/lib/rentroll/parseRentRollExcel";
+import { snapshotMonthKey } from "@/lib/rentroll/snapshot";
 import { storeJSON, getJSON } from "@/lib/storage";
 
 const RENTROLL_PREFIX = "rentroll";
 const RENTROLL_ID     = "current";
+const HISTORY_PREFIX  = "rentroll-history";
 
 /**
  * GET /api/rentroll
@@ -40,6 +42,11 @@ export async function POST(req: NextRequest) {
     const rentroll    = { id, uploadedAt, ...parsed };
 
     await storeJSON(RENTROLL_PREFIX, id, rentroll);
+
+    // Snapshot keyed by report month so the trend page can chart history.
+    // Re-uploading the same month overwrites that snapshot.
+    const monthKey = snapshotMonthKey(rentroll);
+    await storeJSON(HISTORY_PREFIX, monthKey, rentroll);
 
     const summary = {
       uploadedAt,

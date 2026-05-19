@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { money, num, pct as fmtPct } from "../lib/utils";
 import { buildPayrollExportXlsx, buildPayrollGLXlsx } from "../lib/payroll/export";
 import { buildAllocationTemplateXlsx } from "../lib/allocation/export";
+import { useUser } from "./components/UserProvider";
 
 function toTitleCase(s: string): string {
   if (!s) return s;
@@ -141,12 +142,16 @@ export default function Page() {
   const [propAllocModal, setPropAllocModal] = useState<PropAllocModal | null>(null);
   const [invoicesOpen, setInvoicesOpen] = useState(true);
   const [showEmpAllocModal, setShowEmpAllocModal] = useState(false);
-  const [employeesOpen, setEmployeesOpen] = useState(true);
+  const [employeesOpen, setEmployeesOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [fileName, setFileName] = useState<string>("");
   const [empTab, setEmpTab] = useState<"breakdown" | "history">("breakdown");
   const [empHistory, setEmpHistory] = useState<EmpHistoryRow[] | null>(null);
   const [empHistoryLoading, setEmpHistoryLoading] = useState(false);
+  const [allocEmployees, setAllocEmployees] = useState<import("../lib/allocation/export").AllocExportEmployee[]>([]);
+  const { user } = useUser();
+  const canSeeEmployeeDetail = user.id === "admin";
+  const [hydrated, setHydrated] = useState(false);
 
   const totals = useMemo(() => {
     const t = { salaryREC: 0, salaryNR: 0, overtime: 0, holREC: 0, holNR: 0, er401k: 0, other: 0, taxesEr: 0, total: 0 };
@@ -237,14 +242,46 @@ export default function Page() {
 
   // Auto-load a period from ?load=id URL param (set by the History page)
   useEffect(() => {
+    fetch("/api/allocation").then((r) => r.json()).then((d) => {
+      if (d.employees) setAllocEmployees(d.employees);
+    }).catch(() => {});
+  }, []);
+
+  useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
     const id = params.get("load");
     if (id) {
       window.history.replaceState({}, "", "/");
       loadPeriod(id);
+      setHydrated(true);
+      return;
     }
+    try {
+      const raw = localStorage.getItem("kcp:lastPayroll");
+      if (raw) {
+        const d = JSON.parse(raw);
+        if (d?.payroll) {
+          setPayroll(d.payroll);
+          setInvoices(d.invoices ?? []);
+          setEmployees(d.employees ?? []);
+          setFileName(d.fileName ?? "");
+        }
+      }
+    } catch { /* ignore corrupt cache */ }
+    setHydrated(true);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!hydrated || typeof window === "undefined") return;
+    try {
+      if (payroll) {
+        localStorage.setItem("kcp:lastPayroll", JSON.stringify({ payroll, invoices, employees, fileName }));
+      } else {
+        localStorage.removeItem("kcp:lastPayroll");
+      }
+    } catch { /* quota or disabled storage — no-op */ }
+  }, [hydrated, payroll, invoices, employees, fileName]);
 
   async function savePeriod() {
     const name = payroll?.payDate ?? new Date().toLocaleDateString();
@@ -407,12 +444,10 @@ export default function Page() {
   }
 
   function downloadAllocTemplate() {
-    const blob = buildAllocationTemplateXlsx(employees.map((e) => ({
-      name: e.name,
-      employeeNumber: e.employeeNumber,
-      recoverable: e.recoverable,
-      allocations: e.allocations,
-    })));
+    const source = employees.length
+      ? employees.map((e) => ({ name: e.name, employeeNumber: e.employeeNumber, recoverable: e.recoverable, allocations: e.allocations }))
+      : allocEmployees;
+    const blob = buildAllocationTemplateXlsx(source);
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url; a.download = "allocation-template.xlsx";
@@ -681,7 +716,8 @@ export default function Page() {
         {payroll?.payDate && <div className="small muted" style={{ textAlign: "center", marginTop: 6 }}><b>Pay Date:</b> {payroll.payDate}</div>}
       </div>
 
-      {/* ── Employees card ── */}
+      {/* ── Employees card (admin only — sensitive per-employee detail) ── */}
+      {canSeeEmployeeDetail && (
       <div className="card">
         <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -771,6 +807,7 @@ export default function Page() {
           </div>
         )}
       </div>
+      )}
 
       {/* ── Allocation Preview card ── */}
       <div className="card">
@@ -868,7 +905,7 @@ export default function Page() {
                     {showInvTaxesEr   && <td style={{ textAlign: "right" }}>{money(totals.taxesEr + mktTotals.taxesEr)}</td>}
                     <td style={{ textAlign: "right" }}>{money(totals.total + mktTotals.total)}</td>
                   </tr>
-                  {allocationGaps.length > 0 && (
+                  {canSeeEmployeeDetail && allocationGaps.length > 0 && (
                     <tr>
                       <td colSpan={invColCount} className="muted" style={{ fontSize: "0.78em", paddingTop: "6px", fontWeight: 400 }}>
                         ** Employees total ({money(employeeTotals.total)}) exceeds this total by {money(employeeTotals.total - totals.total)} because the following employees are not 100% allocated:{" "}
@@ -896,7 +933,7 @@ export default function Page() {
           </>
         )}
         <div style={{ marginTop: 10 }}>
-          <button className="btn" onClick={downloadAllocTemplate} disabled={!employees.length}>Export Allocations</button>
+          <button className="btn" onClick={downloadAllocTemplate} disabled={!allocEmployees.length}>Export Allocations</button>
         </div>
       </div>
 

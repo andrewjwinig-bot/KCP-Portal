@@ -7,6 +7,7 @@ import { PDFDocument } from "pdf-lib";
 import { buildInvoicePdf, makeInvoiceId, CategoryGroup } from "../../lib/expenses/invoice";
 import { buildTopSheetXlsx, TopSheetTx } from "../../lib/expenses/topSheet";
 import { groupBy, normalizeAmount, toMoney } from "../../lib/expenses/utils";
+import { useUser } from "../components/UserProvider";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -38,7 +39,7 @@ const TOP_SHEET_CATEGORIES = [
 
 const CATEGORY_ACC: Record<(typeof CATEGORIES)[number], string> = {
   "MARKETING NR": "7110",
-  "BUILDING MAINT.": "8220",
+  "BUILDING MAINT.": "6220",
   TI: "1440",
   "OFFICE SUPPLIES": "8930",
   AUTO: "8980",
@@ -382,6 +383,8 @@ function yyyymmddFromDate(d: Date | null) {
 function getAccountCodes(category: string, propertyId: string): string[] {
   if (category === "EQUIPMENT (CAP)") return ["1450-0000"];
   if (category === "BUILDINGS (CAP)") return ["1430-0000"];
+  if (category === "BUILDING MAINT.") return ["6220-8502"];
+  if (category === "OFFICE SUPPLIES") return ["8930-8502"];
   const catAcc = (CATEGORY_ACC as Record<string, string>)[category];
   const propAcc2 = (PROPERTY_ACC2 as Record<string, string[]>)[propertyId];
   if (!catAcc || !propAcc2 || !propAcc2.length) return [];
@@ -433,6 +436,7 @@ const LS_KEY = "cc-expenses:v1";
 // ── Component ────────────────────────────────────────────────────────────────
 
 export default function ExpensesPage() {
+  const { user, hydrated } = useUser();
   const categories = useMemo(() => [...CATEGORIES], []);
   const properties = useMemo(() => [...PROPERTIES], []);
 
@@ -440,7 +444,7 @@ export default function ExpensesPage() {
     if (typeof window === "undefined") return [];
     try { const r = localStorage.getItem(LS_KEY); return r ? JSON.parse(r).tx ?? [] : []; } catch { return []; }
   });
-  const [showOnlyUncoded, setShowOnlyUncoded] = useState(false);
+  const [showOnlyUncoded, setShowOnlyUncoded] = useState(true);
   const [search, setSearch] = useState("");
   const [statementPeriodText, setStatementPeriodText] = useState(() => {
     if (typeof window === "undefined") return "";
@@ -455,6 +459,19 @@ export default function ExpensesPage() {
   const [tableSortDir, setTableSortDir] = useState<"asc" | "desc">("asc");
   const [colFilters, setColFilters] = useState<Record<string, string>>({});
   const [showColFilters, setShowColFilters] = useState(false);
+
+  // Maint persona only codes Gregory's own transactions — default the user
+  // column filter to "Gregory" once and reveal the filter row so it's visible.
+  // Harry handles everyone else from his own account.
+  const maintDefaultApplied = useRef(false);
+  useEffect(() => {
+    if (!hydrated || maintDefaultApplied.current) return;
+    if (user.id === "maint") {
+      setColFilters((prev) => (prev.user ? prev : { ...prev, user: "Gregory" }));
+      setShowColFilters(true);
+      maintDefaultApplied.current = true;
+    }
+  }, [hydrated, user.id]);
   const [allocPropModal, setAllocPropModal] = useState<{ propId: string; name: string; categoryGroups: { category: string; items: any[] }[] } | null>(null);
   const [drillModal, setDrillModal] = useState<{ propId: string; category: string; items: any[] } | null>(null);
   const [chartsOpen, setChartsOpen] = useState(true);
@@ -881,7 +898,7 @@ export default function ExpensesPage() {
   }
 
   const CODE_TABLE_MAX_HEIGHT = "calc(100vh - 320px)";
-  const stickyThStyle: React.CSSProperties = { position: "sticky", top: 0, zIndex: 15, background: "#fff" };
+  const stickyThStyle: React.CSSProperties = { position: "sticky", top: 0, zIndex: 15, background: "var(--card)" };
 
   return (
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>

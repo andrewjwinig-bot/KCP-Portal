@@ -1,0 +1,1605 @@
+"use client";
+
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import {
+  REQUEST_CATEGORIES,
+  REQUEST_PRIORITIES,
+  REQUEST_STATUSES,
+  type MaintenanceRequest,
+  type RequestCategory,
+  type RequestPriority,
+  type RequestStatus,
+} from "@/lib/maintenance/requests";
+import { STAFF, staffName, type StaffId } from "@/lib/maintenance/staff";
+import { summarize } from "@/lib/maintenance/summarize";
+import { bestTenantMatch, isResolvedTenant } from "@/lib/tenants/match";
+import {
+  Pill,
+  Badge,
+  maintenanceStatusTone,
+  priorityTone,
+  TONE_BLUE,
+  TONE_NEUTRAL,
+} from "@/app/components/Pill";
+
+type Tab = "active" | "completed";
+
+function formatDate(d: string | null): string {
+  if (!d) return "—";
+  const t = Date.parse(d);
+  if (!Number.isFinite(t)) return d;
+  const dt = new Date(t);
+  return `${String(dt.getMonth() + 1).padStart(2, "0")}/${String(dt.getDate()).padStart(2, "0")}/${String(dt.getFullYear()).slice(2)}`;
+}
+
+function daysSince(d: string | null): number | null {
+  if (!d) return null;
+  const t = Date.parse(d);
+  if (!Number.isFinite(t)) return null;
+  return Math.floor((Date.now() - t) / 86400000);
+}
+
+/**
+ * Short keyword-style summary for the row. Submissions through /submit save
+ * the tenant's actual description as the first "Tenant Submission" note —
+ * summarized via lib/maintenance/summarize that reads better than either the
+ * raw paragraph or the auto-generated subject. Airtable-backfilled records
+ * fall through to the subject (Airtable's "Request Subject" is usually
+ * already a decent summary).
+ */
+function briefDescription(r: MaintenanceRequest): string {
+  const intake = r.notes.find(
+    (n) => n.authorName === "Tenant Submission" || n.authorName === "Migrated",
+  );
+  if (intake) {
+    const summary = summarize(intake.text);
+    if (summary) return summary;
+  }
+  return r.subject;
+}
+
+/**
+ * Tenant = leased company (rent-roll occupant). New records save it on the
+ * tenantCompany field directly; older records (backfilled from Airtable or
+ * created before this split) baked it into propertyName as "<Property> — <Company>".
+ * Parse that out for back-compat.
+ */
+function companyOf(r: MaintenanceRequest): string {
+  if (r.tenantCompany) return r.tenantCompany;
+  const m = r.propertyName.match(/^(.+?)\s*—\s*(.+)$/);
+  return m ? m[2].trim() : "";
+}
+
+/** Property name with any back-compat "— Company" suffix stripped off. */
+function propertyOf(r: MaintenanceRequest): string {
+  if (r.tenantCompany) return r.propertyName;
+  const m = r.propertyName.match(/^(.+?)\s*—\s*(.+)$/);
+  return m ? m[1].trim() : r.propertyName;
+}
+
+/** A request is "new" until someone has clicked into it OR assigned it.
+ *  Server stamps seenAt on first open AND on assignment, so the badge
+ *  clears for the whole team in one go. */
+function isNew(r: MaintenanceRequest): boolean {
+  if (r.seenAt) return false;
+  if (r.assignedTo) return false;
+  return r.status === "New";
+}
+
+export default function MaintenancePage() {
+  return (
+    <Suspense fallback={null}>
+      <MaintenancePageInner />
+    </Suspense>
+  );
+}
+
+function MaintenancePageInner() {
+  const searchParams = useSearchParams();
+  const initialTab: Tab = searchParams.get("tab") === "completed" ? "completed" : "active";
+  const initialPriority: "All" | RequestPriority | "None" = (() => {
+    const p = searchParams.get("priority");
+    if (p === "High" || p === "Medium" || p === "Low" || p === "None") return p;
+    return "All";
+  })();
+  const initialStatus: "All" | "New" | "In Progress" = (() => {
+    const s = searchParams.get("status");
+    if (s === "New") return "New";
+    if (s === "InProgress" || s === "In Progress") return "In Progress";
+    return "All";
+  })();
+  const initialAssignee: "All" | "Unassigned" | StaffId = (() => {
+    const a = searchParams.get("assignee");
+    if (a === "Unassigned") return "Unassigned";
+    if (a && STAFF.some((s) => s.id === a)) return a as StaffId;
+    return "All";
+  })();
+  const initialProperty = searchParams.get("property") ?? "All";
+  const initialCategory = searchParams.get("category") ?? "";
+  const initialTenant   = searchParams.get("tenant")   ?? "";
+  const initialAgingMin = (() => {
+    const v = searchParams.get("agingMin");
+    const n = v == null ? NaN : Number(v);
+    return Number.isFinite(n) ? n : null;
+  })();
+  const initialAgingMax = (() => {
+    const v = searchParams.get("agingMax");
+    const n = v == null ? NaN : Number(v);
+    return Number.isFinite(n) ? n : null;
+  })();
+
+  const [tab, setTab] = useState<Tab>(initialTab);
+  const [requests, setRequests] = useState<MaintenanceRequest[] | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [priority, setPriority] = useState<"All" | RequestPriority | "None">(initialPriority);
+  const [assignee, setAssignee] = useState<"All" | "Unassigned" | StaffId>(initialAssignee);
+  const [statusFilter, setStatusFilter] = useState<"All" | "New" | "In Progress">(initialStatus);
+  const [property, setProperty] = useState<string>(initialProperty);
+  const [category, setCategory] = useState<string>(initialCategory);
+  const [tenant, setTenant] = useState<string>(initialTenant);
+  const [agingMin, setAgingMin] = useState<number | null>(initialAgingMin);
+  const [agingMax, setAgingMax] = useState<number | null>(initialAgingMax);
+  const [search, setSearch] = useState("");
+  const [selected, setSelected] = useState<MaintenanceRequest | null>(null);
+
+  const reload = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/maintenance/requests");
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error ?? "Failed to load");
+      setRequests(body.requests ?? []);
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { reload(); }, [reload]);
+
+  // Deep-link: ?openId=<id> opens that request's modal after requests load.
+  useEffect(() => {
+    const openId = searchParams.get("openId");
+    if (!openId || !requests) return;
+    const r = requests.find((x) => x.id === openId);
+    if (r) setSelected(r);
+  }, [searchParams, requests]);
+
+  const properties = useMemo(() => {
+    const set = new Set<string>();
+    for (const r of requests ?? []) {
+      const p = propertyOf(r);
+      if (p) set.add(p);
+    }
+    return ["All", ...Array.from(set).sort()];
+  }, [requests]);
+
+  const filtered = useMemo(() => {
+    if (!requests) return [];
+    const q = search.trim().toLowerCase();
+    const list = requests.filter((r) => {
+      if (tab === "active"    && r.status === "Complete") return false;
+      if (tab === "completed" && r.status !== "Complete") return false;
+      if (statusFilter === "New" && !isNew(r)) return false;
+      if (statusFilter === "In Progress" && r.status !== "In Progress") return false;
+      if (priority === "None" && r.priority) return false;
+      if (priority !== "All" && priority !== "None" && r.priority !== priority) return false;
+      // "New" filter follows the NEW-pill semantic (unseen + unassigned),
+      // not the raw status — so tile count, row pill, and filtered list
+      // all show the same set.
+      if (assignee === "Unassigned" && r.assignedTo !== null) return false;
+      if (assignee !== "All" && assignee !== "Unassigned" && r.assignedTo !== assignee) return false;
+      if (property !== "All" && propertyOf(r) !== property) return false;
+      if (category && !r.categories.includes(category as RequestCategory)) return false;
+      if (tenant && companyOf(r) !== tenant) return false;
+      if (agingMin != null || agingMax != null) {
+        const t = Date.parse(r.submittedDate ?? r.createdAt);
+        if (!Number.isFinite(t)) return false;
+        const days = Math.max(0, (Date.now() - t) / 86400000);
+        if (agingMin != null && days < agingMin) return false;
+        if (agingMax != null && days > agingMax) return false;
+      }
+      if (q) {
+        const hay = [
+          r.id, r.subject, r.tenantName, r.tenantEmail, companyOf(r),
+          propertyOf(r), ...r.categories, ...r.notes.map((n) => n.text),
+        ].join(" ").toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+    // NEW (unseen + unassigned) rows float to the top; within each bucket
+    // the newest submission wins.
+    return [...list].sort((a, b) => {
+      const aNew = isNew(a) ? 1 : 0;
+      const bNew = isNew(b) ? 1 : 0;
+      if (aNew !== bNew) return bNew - aNew;
+      const ta = Date.parse(a.submittedDate ?? a.createdAt) || 0;
+      const tb = Date.parse(b.submittedDate ?? b.createdAt) || 0;
+      return tb - ta;
+    });
+  }, [requests, tab, priority, assignee, property, search, statusFilter, category, tenant, agingMin, agingMax]);
+
+  const counts = useMemo(() => {
+    const all = requests ?? [];
+    return {
+      active: all.filter((r) => r.status !== "Complete").length,
+      completed: all.filter((r) => r.status === "Complete").length,
+      // Match what the "NEW" pill on each row shows — unseen + unassigned
+      // + still status "New". Counting raw status would over-report.
+      newCount: all.filter((r) => isNew(r)).length,
+      inProgress: all.filter((r) => r.status === "In Progress").length,
+      highOpen: all.filter((r) => r.status !== "Complete" && r.priority === "High").length,
+      unassigned: all.filter((r) => r.status !== "Complete" && r.assignedTo === null).length,
+    };
+  }, [requests]);
+
+  return (
+    <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
+      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+        <h1>Maintenance Requests</h1>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          <button
+            onClick={reload}
+            disabled={loading}
+            className="btn"
+            style={{ fontSize: 13, padding: "6px 12px", display: "inline-flex", alignItems: "center", gap: 6 }}
+            title="Pull the latest requests"
+          >
+            <svg
+              width="14" height="14" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
+              style={{
+                animation: loading ? "spin 0.8s linear infinite" : "none",
+                transformOrigin: "center",
+              }}
+            >
+              <polyline points="23 4 23 10 17 10" />
+              <polyline points="1 20 1 14 7 14" />
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+            </svg>
+            {loading ? "Refreshing…" : "Refresh"}
+          </button>
+          <a
+            href="/submit"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn primary"
+            style={{ fontSize: 13, padding: "6px 12px", textDecoration: "none" }}
+            title="Open the public maintenance request form in a new tab"
+          >
+            Maintenance Request Form →
+          </a>
+          <a
+            href="/service"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn"
+            style={{ fontSize: 13, padding: "6px 12px", textDecoration: "none" }}
+            title="Open the tenant Service Request landing in a new tab"
+          >
+            Tenant Flow →
+          </a>
+        </div>
+      </header>
+
+      <div style={{ display: "flex", gap: 4, borderBottom: "1px solid var(--border)" }}>
+        <TabButton active={tab === "active"} onClick={() => setTab("active")}>
+          Active <Badge>{counts.active}</Badge>
+        </TabButton>
+        <TabButton active={tab === "completed"} onClick={() => setTab("completed")}>
+          Completed <Badge muted>{counts.completed}</Badge>
+        </TabButton>
+      </div>
+
+      {(tab === "active" || tab === "completed") && (
+      <>
+        {error && (
+          <div className="card" style={{ borderColor: "rgba(220,38,38,0.35)", background: "rgba(220,38,38,0.04)" }}>
+            <div style={{ fontWeight: 700, color: "#b91c1c", marginBottom: 4 }}>Couldn't load requests</div>
+            <div className="muted small">{error}</div>
+          </div>
+        )}
+
+        {tab === "active" && (() => {
+          const noExtraFilters =
+            priority === "All" && assignee === "All" && statusFilter === "All";
+          function clearAll() {
+            setPriority("All");
+            setAssignee("All");
+            setStatusFilter("All");
+          }
+          // Tile clicks are exclusive: selecting one clears the others.
+          // Re-clicking the active tile clears back to "Active".
+          function selectHigh() {
+            if (priority === "High") { clearAll(); return; }
+            clearAll(); setPriority("High");
+          }
+          function selectUnassigned() {
+            if (assignee === "Unassigned") { clearAll(); return; }
+            clearAll(); setAssignee("Unassigned");
+          }
+          function selectNew() {
+            if (statusFilter === "New") { clearAll(); return; }
+            clearAll(); setStatusFilter("New");
+          }
+          function selectInProgress() {
+            if (statusFilter === "In Progress") { clearAll(); return; }
+            clearAll(); setStatusFilter("In Progress");
+          }
+          return (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 }}>
+              <FilterTile
+                label="Active"
+                value={counts.active}
+                accent="#0b4a7d"
+                active={noExtraFilters}
+                onClick={clearAll}
+              />
+              <FilterTile
+                label="High Priority"
+                value={counts.highOpen}
+                accent="#b91c1c"
+                active={priority === "High"}
+                onClick={selectHigh}
+              />
+              <FilterTile
+                label="Unassigned"
+                value={counts.unassigned}
+                accent="#b45309"
+                active={assignee === "Unassigned"}
+                onClick={selectUnassigned}
+              />
+              <FilterTile
+                label="New"
+                value={counts.newCount}
+                accent="#0b4a7d"
+                active={statusFilter === "New"}
+                onClick={selectNew}
+              />
+              <FilterTile
+                label="In Progress"
+                value={counts.inProgress}
+                accent="#b45309"
+                active={statusFilter === "In Progress"}
+                onClick={selectInProgress}
+              />
+            </div>
+          );
+        })()}
+
+        {/* Active deep-link filter chips (Category / Tenant / Aging — set
+            via URL params from chart click-throughs). */}
+        {(category || tenant || agingMin != null || agingMax != null) && (
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", padding: "0 2px" }}>
+            <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>Filters</span>
+            {category && <FilterChip label={`Category: ${category}`} onClear={() => setCategory("")} />}
+            {tenant && <FilterChip label={`Tenant: ${tenant}`} onClear={() => setTenant("")} />}
+            {(agingMin != null || agingMax != null) && (
+              <FilterChip
+                label={`Aging: ${agingMin ?? 0}${agingMax != null ? `–${agingMax}` : "+"} days`}
+                onClear={() => { setAgingMin(null); setAgingMax(null); }}
+              />
+            )}
+          </div>
+        )}
+
+        {/* Filters — inline strip, no card chrome. */}
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end", padding: "0 2px" }}>
+          <Field label="Priority">
+            <select value={priority} onChange={(e) => setPriority(e.target.value as typeof priority)} style={selectStyle}>
+              <option value="All">All</option>
+              {REQUEST_PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
+              <option value="None">No Priority Set</option>
+            </select>
+          </Field>
+          <Field label="Assignee">
+            <select value={assignee} onChange={(e) => setAssignee(e.target.value as typeof assignee)} style={selectStyle}>
+              <option value="All">All</option>
+              <option value="Unassigned">Unassigned</option>
+              {STAFF.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+          </Field>
+          <Field label="Property">
+            <select value={property} onChange={(e) => setProperty(e.target.value)} style={selectStyle}>
+              {properties.map((p) => <option key={p} value={p}>{p}</option>)}
+            </select>
+          </Field>
+          <Field label="Category">
+            <select value={category} onChange={(e) => setCategory(e.target.value)} style={selectStyle}>
+              <option value="">All</option>
+              {REQUEST_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </Field>
+          <Field label="Search">
+            <input
+              type="search"
+              placeholder="Description, tenant, ref ID, notes…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              style={{ ...selectStyle, minWidth: 240 }}
+            />
+          </Field>
+          <div style={{ marginLeft: "auto", fontSize: 12, color: "var(--muted)", paddingBottom: 6 }}>
+            {loading ? "Loading…" : `${filtered.length} of ${(requests ?? []).length}`}
+          </div>
+        </div>
+
+        <div className="card" style={{ padding: 0 }}>
+          <div className="tableWrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Description</th>
+                  <th>Status</th>
+                  <th>Priority</th>
+                  <th>Category</th>
+                  <th style={{ textAlign: "right" }}>{tab === "active" ? "Age" : "Completed"}</th>
+                  <th>Property</th>
+                  <th>Tenant</th>
+                  <th>Contact</th>
+                  <th>Assignee</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loading && <tr><td colSpan={9} className="muted small" style={{ padding: 16 }}>Loading…</td></tr>}
+                {!loading && filtered.length === 0 && (
+                  <tr><td colSpan={9} className="muted small" style={{ padding: 16 }}>
+                    No requests. {tab === "active" && (requests?.length ?? 0) === 0 && "Tenants can submit via the public form at /submit."}
+                  </td></tr>
+                )}
+                {filtered.map((r) => {
+                  const pStyle = priorityTone(r.priority);
+                  const sStyle = maintenanceStatusTone(r.status);
+                  const age = daysSince(r.submittedDate);
+                  return (
+                    <tr
+                      key={r.id}
+                      style={{ cursor: "pointer" }}
+                      onClick={() => {
+                        setSelected(r);
+                        // Mark as seen the first time anyone opens the row.
+                        // Fire-and-forget so the modal opens immediately.
+                        if (isNew(r)) {
+                          fetch(`/api/maintenance/requests/${r.id}`, {
+                            method: "PATCH",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ seenAt: new Date().toISOString() }),
+                          }).then(async (res) => {
+                            if (res.ok) {
+                              const j = await res.json();
+                              setRequests((prev) => prev?.map((x) => x.id === r.id ? j.request : x) ?? prev);
+                            }
+                          }).catch(() => { /* ignore */ });
+                        }
+                      }}
+                      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.filter = "brightness(0.97)"; }}
+                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.filter = ""; }}
+                    >
+                      <td style={{ fontWeight: 600, maxWidth: 340 }}>
+                        <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {isNew(r) && (
+                            <span style={{
+                              display: "inline-block",
+                              padding: "1px 7px",
+                              borderRadius: 999,
+                              fontSize: 10, fontWeight: 800, letterSpacing: "0.06em",
+                              background: "#0b4a7d", color: "#fff",
+                              textTransform: "uppercase",
+                              marginRight: 8,
+                              verticalAlign: "middle",
+                            }}>
+                              NEW
+                            </span>
+                          )}
+                          {briefDescription(r)}
+                        </div>
+                        {r.attachments.length > 0 && (
+                          <div style={{ marginTop: 3 }}>
+                            <span style={{ fontSize: 11, color: "var(--muted)" }}>📎 {r.attachments.length}</span>
+                          </div>
+                        )}
+                      </td>
+                      <td><Pill tone={sStyle}>{r.status}</Pill></td>
+                      <td>{r.priority ? <Pill tone={pStyle}>{r.priority}</Pill> : <span className="muted small">—</span>}</td>
+                      <td style={{ fontSize: 12 }}>{r.categories.join(", ") || <span className="muted small">—</span>}</td>
+                      <td style={{ textAlign: "right", fontSize: 13, fontWeight: 600, whiteSpace: "nowrap" }}>
+                        {tab === "completed"
+                          ? <span style={{ fontWeight: 500, color: "var(--muted)" }}>{formatDate(r.completedDate)}</span>
+                          : age == null ? "—" : (
+                              <span style={{ color: age > 30 ? "#b91c1c" : age > 14 ? "#b45309" : "var(--text)" }}>
+                                {age}d
+                              </span>
+                            )}
+                      </td>
+                      <td style={{ fontSize: 13, whiteSpace: "nowrap" }}>
+                        {r.propertyCode ? (
+                          <code style={{ fontSize: 12, fontWeight: 700, color: "#0b4a7d" }}>{r.propertyCode}</code>
+                        ) : <span className="muted small">—</span>}
+                      </td>
+                      <td style={{ fontSize: 13 }}>
+                        {companyOf(r) || <span className="muted small">—</span>}
+                        {r.tenantResolved === false && (
+                          <span
+                            title="Tenant name didn't match the rent roll — needs assignment"
+                            style={{
+                              marginLeft: 6, padding: "1px 7px", borderRadius: 999,
+                              fontSize: 11, fontWeight: 700, whiteSpace: "nowrap",
+                              background: "rgba(180,83,9,0.12)", color: "#b45309",
+                              border: "1px solid rgba(180,83,9,0.35)",
+                            }}
+                          >
+                            ⚠ Unmatched
+                          </span>
+                        )}
+                      </td>
+                      <td style={{ fontSize: 13 }}>
+                        {r.tenantName || r.tenantEmail ? (
+                          <>
+                            <div>{r.tenantName || r.tenantEmail}</div>
+                            {r.tenantName && r.tenantEmail && (
+                              <div style={{ fontSize: 11, color: "var(--muted)" }}>{r.tenantEmail}</div>
+                            )}
+                          </>
+                        ) : <span className="muted small">—</span>}
+                      </td>
+                      <td
+                        onClick={(e) => e.stopPropagation()}
+                        style={{ fontSize: 13, fontWeight: 600 }}
+                      >
+                        <RowAssigneeSelect
+                          request={r}
+                          onUpdated={(updated) => {
+                            setRequests((prev) => prev?.map((x) => x.id === updated.id ? updated : x) ?? prev);
+                          }}
+                        />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {selected && (
+          <RequestModal
+            request={selected}
+            onClose={() => setSelected(null)}
+            onChange={(updated) => {
+              setRequests((prev) => prev?.map((r) => r.id === updated.id ? updated : r) ?? prev);
+              setSelected(updated);
+            }}
+            onDelete={(id) => {
+              setRequests((prev) => prev?.filter((r) => r.id !== id) ?? prev);
+              setSelected(null);
+            }}
+          />
+        )}
+      </>
+      )}
+    </main>
+  );
+}
+
+// ── Subcomponents ──────────────────────────────────────────────────────────
+
+const selectStyle: React.CSSProperties = {
+  padding: "8px 10px",
+  border: "1px solid var(--border)",
+  borderRadius: 6,
+  background: "var(--card)",
+  color: "var(--text)",
+  fontFamily: "inherit",
+  fontSize: 13,
+  outline: "none",
+};
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+      <span style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", letterSpacing: "0.06em", textTransform: "uppercase" }}>{label}</span>
+      {children}
+    </label>
+  );
+}
+
+function FilterChip({ label, onClear }: { label: string; onClear: () => void }) {
+  return (
+    <span style={{
+      display: "inline-flex", alignItems: "center", gap: 6,
+      padding: "4px 6px 4px 10px", borderRadius: 999,
+      background: "rgba(11,74,125,0.10)", color: "#0b4a7d",
+      border: "1px solid rgba(11,74,125,0.30)",
+      fontSize: 12, fontWeight: 600,
+    }}>
+      {label}
+      <button
+        onClick={onClear}
+        aria-label={`Clear ${label}`}
+        style={{
+          width: 18, height: 18, padding: 0, borderRadius: 999,
+          border: "none", background: "transparent", color: "#0b4a7d",
+          cursor: "pointer", fontSize: 14, lineHeight: 1, fontWeight: 700,
+          display: "inline-flex", alignItems: "center", justifyContent: "center",
+        }}
+      >×</button>
+    </span>
+  );
+}
+
+/**
+ * Clickable summary pill, styled to match the rent-roll StatPill (big number
+ * on top, small label below) instead of the previous card-with-label-on-top
+ * Tile. Active state shows the accent color as both border and tint.
+ */
+function FilterTile({
+  label, value, accent, active, onClick,
+}: {
+  label: string;
+  value: number;
+  accent: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  // hex → rgba(…, 0.10) for the active background tint
+  function tint(hex: string, a: number): string {
+    const m = /^#?([a-f0-9]{6})$/i.exec(hex);
+    if (!m) return hex;
+    const n = parseInt(m[1], 16);
+    return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
+  }
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      style={{
+        border: active ? `1.5px solid ${accent}` : "1.5px solid var(--border)",
+        borderRadius: 10,
+        padding: "13px 16px 11px",
+        display: "inline-flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: 4,
+        whiteSpace: "nowrap",
+        background: active ? tint(accent, 0.08) : "var(--card)",
+        cursor: "pointer",
+        fontFamily: "inherit",
+        transition: "background 0.12s, border-color 0.12s",
+        textAlign: "center",
+        width: "100%",
+        minWidth: 0,
+      }}
+      onMouseEnter={(e) => {
+        if (!active) (e.currentTarget as HTMLElement).style.borderColor = accent;
+      }}
+      onMouseLeave={(e) => {
+        if (!active) (e.currentTarget as HTMLElement).style.borderColor = "var(--border)";
+      }}
+    >
+      <b style={{ fontSize: 28, fontWeight: 900, lineHeight: 1, color: "var(--text)" }}>{value}</b>
+      <span style={{
+        fontSize: 11, fontWeight: 600, color: "var(--muted)",
+        textTransform: "uppercase", letterSpacing: "0.04em",
+      }}>
+        {label}
+      </span>
+    </button>
+  );
+}
+
+function TabButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        padding: "8px 14px",
+        background: "transparent",
+        border: "none",
+        borderBottom: active ? "2px solid #0b4a7d" : "2px solid transparent",
+        color: active ? "var(--text)" : "var(--muted)",
+        fontWeight: active ? 700 : 500,
+        fontSize: 14,
+        cursor: "pointer",
+        marginBottom: -1,
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+// Backfill UI was removed; the /api/maintenance/backfill endpoint stays
+// in place (reachable via authenticated curl) for any rainy-day one-shot
+// import if Airtable still has stragglers.
+
+function RequestModal({
+  request, onClose, onChange, onDelete,
+}: {
+  request: MaintenanceRequest;
+  onClose: () => void;
+  onChange: (r: MaintenanceRequest) => void;
+  onDelete: (id: string) => void;
+}) {
+  const [draftNote, setDraftNote] = useState("");
+  const [noteAuthor, setNoteAuthor] = useState<StaffId>("greg");
+  const [busy, setBusy] = useState(false);
+
+  // Known rent-roll companies for the request's property — drives the
+  // "Resolve to rent-roll tenant" dropdown so staff can normalize the
+  // free-text Company Name the tenant typed on /submit.
+  const [companies, setCompanies] = useState<{ name: string; units: { unitRef: string }[] }[]>([]);
+  useEffect(() => {
+    if (!request.propertyCode) { setCompanies([]); return; }
+    let alive = true;
+    fetch(`/api/tenants/companies?propertyCode=${encodeURIComponent(request.propertyCode)}`)
+      .then((r) => (r.ok ? r.json() : { companies: [] }))
+      .then((j) => { if (alive) setCompanies(j.companies ?? []); })
+      .catch(() => { if (alive) setCompanies([]); });
+    return () => { alive = false; };
+  }, [request.propertyCode]);
+
+  // Closest rent-roll occupant to the free-text Company Name the tenant
+  // typed — staff get a one-click "use this" instead of hunting the
+  // dropdown. Suppressed once the name already matches a known tenant.
+  const tenantSuggestion = useMemo(() => {
+    const typed = companyOf(request);
+    if (!typed || companies.length === 0) return null;
+    const names = companies.map((c) => c.name);
+    if (isResolvedTenant(typed, names)) return null;
+    const match = bestTenantMatch(typed, names);
+    if (!match) return null;
+    return companies.find((c) => c.name === match.name) ?? null;
+  }, [request, companies]);
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) { if (e.key === "Escape") onClose(); }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  async function patch(body: Record<string, unknown>) {
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/maintenance/requests/${request.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error ?? "Update failed");
+      onChange(j.request);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Update failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function addNote() {
+    if (!draftNote.trim()) return;
+    await patch({ addNote: { author: noteAuthor, text: draftNote } });
+    setDraftNote("");
+  }
+
+  async function remove() {
+    if (!confirm("Delete this request? This cannot be undone.")) return;
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/maintenance/requests/${request.id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Delete failed");
+      onDelete(request.id);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Delete failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const sStyle = maintenanceStatusTone(request.status);
+  const pStyle = priorityTone(request.priority);
+
+  const assigneeName = request.assignedTo
+    ? STAFF.find((s) => s.id === request.assignedTo)?.name ?? request.assignedTo
+    : null;
+
+  // Header right-side timestamp: completed date when finished, age otherwise.
+  const ageDays = daysSince(request.submittedDate);
+  const submittedLabel =
+    request.status === "Complete"
+      ? `Completed ${formatDate(request.completedDate)}`
+      : ageDays == null
+        ? `Submitted ${formatDate(request.submittedDate)}`
+        : ageDays === 0
+          ? "Submitted today"
+          : ageDays === 1
+            ? "Submitted 1 day ago"
+            : `Submitted ${ageDays} days ago`;
+
+  // Split notes into the tenant's intake (Submission section) vs everything
+  // staff added after the fact (Internal Notes section + add-note composer).
+  const submissionNote = request.notes.find(
+    (n) => n.authorName === "Tenant Submission" || n.authorName === "Migrated",
+  );
+  const internalNotes = request.notes.filter((n) => n !== submissionNote);
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed", inset: 0, background: "rgba(15,23,42,0.55)",
+        display: "flex", alignItems: "flex-start", justifyContent: "center",
+        padding: "48px 16px 32px", zIndex: 100, overflow: "auto",
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: "var(--card)", color: "var(--text)",
+          borderRadius: 14, border: "1px solid var(--border)",
+          maxWidth: 960, width: "100%",
+          boxShadow: "0 24px 60px rgba(15,23,42,0.32)",
+          display: "flex", flexDirection: "column",
+          overflow: "hidden",
+        }}
+      >
+        {/* Header */}
+        <div style={{
+          padding: "24px 32px 20px",
+          borderBottom: "1px solid var(--border)",
+          display: "flex", flexDirection: "column", gap: 14,
+        }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16 }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <h2 style={{ margin: 0, fontSize: 26, fontWeight: 800, letterSpacing: "-0.02em", lineHeight: 1.2 }}>
+                {request.subject}
+              </h2>
+              <div className="muted small" style={{ marginTop: 6, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 11 }}>
+                {request.id}
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0, flexWrap: "wrap", justifyContent: "flex-end" }}>
+              {request.status !== "Complete" ? (
+                <>
+                  {request.status === "New" && (
+                    <button
+                      onClick={() => patch({ status: "In Progress" })}
+                      disabled={busy}
+                      className="btn"
+                      style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700, color: "#b45309", borderColor: "rgba(180,83,9,0.45)" }}
+                    >
+                      ▶ Mark In Progress
+                    </button>
+                  )}
+                  <button
+                    onClick={() => patch({ status: "Complete" })}
+                    disabled={busy}
+                    className="btn primary"
+                    style={{ fontSize: 13, padding: "8px 16px", fontWeight: 700 }}
+                  >
+                    ✓ Mark Complete
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={() => patch({ status: "In Progress" })}
+                  disabled={busy}
+                  className="btn"
+                  style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}
+                >
+                  Reopen
+                </button>
+              )}
+              <button
+                onClick={onClose}
+                aria-label="Close"
+                style={{
+                  background: "transparent", border: "1px solid var(--border)",
+                  borderRadius: 8, padding: "6px 12px", cursor: "pointer",
+                  fontSize: 18, lineHeight: 1, color: "var(--muted)",
+                }}
+              >×</button>
+            </div>
+          </div>
+
+          <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", flex: 1, minWidth: 0 }}>
+              <Pill tone={sStyle}>{request.status}</Pill>
+              {request.priority && <Pill tone={pStyle}>{request.priority}</Pill>}
+              {assigneeName && (
+                <Pill tone={TONE_BLUE}>
+                  {assigneeName}
+                </Pill>
+              )}
+              {request.categories.map((c) => (
+                <Pill key={c} tone={TONE_NEUTRAL}>{c}</Pill>
+              ))}
+            </div>
+            <span style={{
+              fontSize: 12, color: "var(--muted)", fontWeight: 600,
+              whiteSpace: "nowrap", flexShrink: 0,
+            }}>
+              {submittedLabel}
+            </span>
+          </div>
+        </div>
+
+        {/* Body */}
+        <div style={{ padding: "24px 32px", display: "flex", flexDirection: "column", gap: 24 }}>
+          {/* Meta strip — Property / Tenant / Contact */}
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+            gap: 18,
+            padding: "16px 18px",
+            border: "1px solid var(--border)",
+            borderRadius: 10,
+            background: "rgba(15,23,42,0.025)",
+          }}>
+            <MetaCell label="Property" value={propertyOf(request)} />
+            <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
+              <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>Tenant</span>
+              <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", lineHeight: 1.4, wordBreak: "break-word" }}>
+                {companyOf(request) || <span style={{ color: "var(--muted)" }}>—</span>}
+              </span>
+              {request.tenantResolved === false && (
+                <span
+                  title="The typed company name didn't match the rent roll — assign a tenant below."
+                  style={{
+                    display: "inline-flex", alignItems: "center", gap: 4,
+                    alignSelf: "flex-start", marginTop: 2,
+                    padding: "2px 8px", borderRadius: 999,
+                    fontSize: 11, fontWeight: 700,
+                    background: "rgba(180,83,9,0.12)", color: "#b45309",
+                    border: "1px solid rgba(180,83,9,0.35)",
+                  }}
+                >
+                  ⚠ Needs assignment
+                </span>
+              )}
+              {tenantSuggestion && (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => {
+                    const suite = tenantSuggestion.units.map((u) => u.unitRef).join(", ");
+                    patch({ tenantCompany: tenantSuggestion.name, tenantSuite: suite, tenantResolved: true });
+                  }}
+                  title="Apply the closest rent-roll tenant"
+                  style={{
+                    marginTop: 4, padding: "4px 8px", cursor: "pointer",
+                    border: "1px solid rgba(37,99,235,0.45)", borderRadius: 6,
+                    background: "rgba(37,99,235,0.08)", color: "#1d4ed8",
+                    fontFamily: "inherit", fontSize: 12, fontWeight: 700,
+                    textAlign: "left", lineHeight: 1.35,
+                  }}
+                >
+                  ✨ Use “{tenantSuggestion.name}
+                  {tenantSuggestion.units.length === 1
+                    ? ` · ${tenantSuggestion.units[0].unitRef}`
+                    : ` · ${tenantSuggestion.units.length} suites`}”
+                </button>
+              )}
+              {companies.length > 0 && (
+                <select
+                  disabled={busy}
+                  value=""
+                  onChange={(e) => {
+                    const pick = companies.find((c) => c.name === e.target.value);
+                    if (!pick) return;
+                    const suite = pick.units.map((u) => u.unitRef).join(", ");
+                    patch({ tenantCompany: pick.name, tenantSuite: suite, tenantResolved: true });
+                  }}
+                  style={{
+                    ...selectStyle,
+                    fontSize: 12, padding: "4px 8px", marginTop: 4,
+                  }}
+                  title="Resolve to a rent-roll tenant"
+                >
+                  <option value="">Resolve tenant…</option>
+                  {companies.map((c) => (
+                    <option key={c.name} value={c.name}>
+                      {c.name === tenantSuggestion?.name ? "✨ " : ""}
+                      {c.units.length === 1 ? `${c.name} · ${c.units[0].unitRef}` : `${c.name} · ${c.units.length} suites`}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+            <MetaCell label="Suite" value={request.tenantSuite} />
+          </div>
+
+          {/* Action row: status / priority / assignee */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 14 }}>
+            <Field label="Status">
+              <select disabled={busy} value={request.status} onChange={(e) => patch({ status: e.target.value as RequestStatus })} style={selectStyle}>
+                {REQUEST_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </Field>
+            <Field label="Priority">
+              <select disabled={busy} value={request.priority} onChange={(e) => patch({ priority: e.target.value as RequestPriority | "" })} style={selectStyle}>
+                <option value="">—</option>
+                {REQUEST_PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
+              </select>
+            </Field>
+            <Field label="Assigned To">
+              <select
+                disabled={busy}
+                value={request.assignedTo ?? ""}
+                onChange={(e) => patch({ assignedTo: e.target.value === "" ? null : (e.target.value as StaffId) })}
+                style={{
+                  ...selectStyle,
+                  // Highlight when nobody's on this — amber border + soft tint
+                  // makes the unassigned state hard to miss at a glance.
+                  borderColor: request.assignedTo ? "var(--border)" : "rgba(180,83,9,0.55)",
+                  borderWidth: request.assignedTo ? 1 : 1.5,
+                  background: request.assignedTo ? "var(--card)" : "rgba(180,83,9,0.06)",
+                }}
+              >
+                <option value="">— Unassigned —</option>
+                {STAFF.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+              {!request.assignedTo && (
+                <span style={{ fontSize: 11, color: "#b45309", fontWeight: 600, marginTop: 4 }}>
+                  ⚠ Needs an assignee
+                </span>
+              )}
+            </Field>
+          </div>
+
+          {/* Categories */}
+          <Section title="Categories">
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {REQUEST_CATEGORIES.map((c) => {
+                const on = request.categories.includes(c);
+                return (
+                  <button
+                    key={c}
+                    onClick={() => patch({ categories: on ? request.categories.filter((x) => x !== c) : [...request.categories, c as RequestCategory] })}
+                    disabled={busy}
+                    style={{
+                      fontSize: 12, fontWeight: 600, padding: "5px 12px", borderRadius: 999,
+                      border: on ? "1px solid rgba(11,74,125,0.55)" : "1px solid var(--border)",
+                      background: on ? "rgba(11,74,125,0.10)" : "var(--card)",
+                      color: on ? "#0b4a7d" : "var(--muted)",
+                      cursor: busy ? "default" : "pointer",
+                      fontFamily: "inherit",
+                      transition: "background 0.12s, border-color 0.12s",
+                    }}
+                  >
+                    {c}
+                  </button>
+                );
+              })}
+            </div>
+          </Section>
+
+          {/* Submission — contact card on top, tenant's intake note below */}
+          <Section title="Submission">
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {(request.tenantName || request.tenantEmail) && (
+                <div style={{
+                  padding: "10px 14px",
+                  border: "1px solid var(--border)", borderRadius: 10,
+                  background: "var(--card)",
+                  display: "flex", flexDirection: "column", gap: 2,
+                }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
+                    Contact
+                  </span>
+                  <span style={{ fontSize: 14, fontWeight: 600 }}>
+                    {request.tenantName || request.tenantEmail}
+                  </span>
+                  {request.tenantName && request.tenantEmail && (
+                    <a
+                      href={`mailto:${request.tenantEmail}`}
+                      style={{ fontSize: 12, color: "var(--brand)", textDecoration: "none" }}
+                    >
+                      {request.tenantEmail}
+                    </a>
+                  )}
+                </div>
+              )}
+              {submissionNote ? (
+                <div style={{
+                  padding: "12px 14px",
+                  border: "1px solid var(--border)", borderRadius: 10,
+                  background: "rgba(15,23,42,0.025)",
+                }}>
+                  <div style={{ fontSize: 11, color: "var(--muted)", fontWeight: 700, marginBottom: 6, letterSpacing: "0.02em" }}>
+                    {submissionNote.authorName} · {new Date(submissionNote.createdAt).toLocaleString()}
+                  </div>
+                  <div style={{ fontSize: 14, whiteSpace: "pre-wrap", lineHeight: 1.55 }}>{submissionNote.text}</div>
+                </div>
+              ) : (
+                <div className="muted small">No tenant submission recorded for this request.</div>
+              )}
+              {request.tenantEmail && (
+                <EmailTenantComposer
+                  request={request}
+                  busy={busy}
+                  setBusy={setBusy}
+                  defaultAuthor={noteAuthor}
+                  onUpdated={onChange}
+                />
+              )}
+            </div>
+          </Section>
+
+          {/* Internal Notes — staff-added notes + the add-note composer */}
+          <Section title={`Internal Notes (${internalNotes.length})`}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {internalNotes.length === 0 && (
+                <div className="muted small" style={{ padding: "8px 0" }}>No internal notes yet.</div>
+              )}
+              {internalNotes.map((n) => (
+                <div key={n.id} style={{
+                  padding: "12px 14px",
+                  border: "1px solid var(--border)", borderRadius: 10,
+                  background: "rgba(15,23,42,0.025)",
+                }}>
+                  <div style={{ fontSize: 11, color: "var(--muted)", fontWeight: 700, marginBottom: 6, letterSpacing: "0.02em" }}>
+                    {n.authorName} · {new Date(n.createdAt).toLocaleString()}
+                  </div>
+                  <div style={{ fontSize: 14, whiteSpace: "pre-wrap", lineHeight: 1.55 }}>{n.text}</div>
+                </div>
+              ))}
+
+              {/* Add-note composer */}
+              <div style={{
+                marginTop: 6,
+                padding: 14,
+                border: "1px solid var(--border)", borderRadius: 10,
+                background: "var(--card)",
+                display: "flex", flexDirection: "column", gap: 10,
+              }}>
+                <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
+                    Author
+                  </span>
+                  <select
+                    value={noteAuthor}
+                    onChange={(e) => setNoteAuthor(e.target.value as StaffId)}
+                    style={{ ...selectStyle, width: "auto", minWidth: 120 }}
+                  >
+                    {STAFF.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                </div>
+                <textarea
+                  placeholder="Add an internal note…"
+                  value={draftNote}
+                  onChange={(e) => setDraftNote(e.target.value)}
+                  rows={3}
+                  style={{ ...selectStyle, width: "100%", minHeight: 64, fontFamily: "inherit", resize: "vertical", fontSize: 14 }}
+                />
+                <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                  <button
+                    onClick={addNote}
+                    disabled={busy || !draftNote.trim()}
+                    className="btn primary"
+                    style={{ fontSize: 13, padding: "9px 18px" }}
+                  >
+                    Add note
+                  </button>
+                </div>
+              </div>
+            </div>
+          </Section>
+
+          {/* Attachments — last */}
+          <AttachmentsSection
+            request={request}
+            busy={busy}
+            setBusy={setBusy}
+            onUpdated={onChange}
+          />
+        </div>
+
+        {/* Footer */}
+        <div style={{
+          padding: "16px 32px 20px",
+          borderTop: "1px solid var(--border)",
+          background: "rgba(15,23,42,0.02)",
+          display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap",
+        }}>
+          <button
+            onClick={remove}
+            disabled={busy}
+            style={{
+              fontSize: 12, fontWeight: 600, color: "#b91c1c", background: "transparent",
+              border: "1px solid rgba(220,38,38,0.35)", borderRadius: 8,
+              padding: "8px 14px", cursor: busy ? "default" : "pointer",
+              fontFamily: "inherit",
+            }}
+          >
+            Delete Request
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RowAssigneeSelect({
+  request, onUpdated,
+}: {
+  request: MaintenanceRequest;
+  onUpdated: (r: MaintenanceRequest) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+
+  async function setTo(value: StaffId | null) {
+    if (busy || value === request.assignedTo) return;
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/maintenance/requests/${request.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ assignedTo: value }),
+      });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error ?? "Update failed");
+      onUpdated(j.request);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Update failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <select
+      value={request.assignedTo ?? ""}
+      disabled={busy}
+      onChange={(e) => setTo(e.target.value === "" ? null : (e.target.value as StaffId))}
+      onClick={(e) => e.stopPropagation()}
+      style={{
+        ...selectStyle,
+        padding: "5px 8px",
+        fontSize: 12,
+        fontWeight: 600,
+        minWidth: 110,
+        background: request.assignedTo ? "rgba(11,74,125,0.06)" : "var(--card)",
+        color: request.assignedTo ? "var(--text)" : "var(--muted)",
+      }}
+    >
+      <option value="">— Unassigned —</option>
+      {STAFF.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+    </select>
+  );
+}
+
+function EmailTenantComposer({
+  request, busy, setBusy, defaultAuthor, onUpdated,
+}: {
+  request: MaintenanceRequest;
+  busy: boolean;
+  setBusy: (b: boolean) => void;
+  defaultAuthor: StaffId;
+  onUpdated: (r: MaintenanceRequest) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [author, setAuthor] = useState<StaffId>(defaultAuthor);
+  const [error, setError] = useState<string | null>(null);
+
+  // Reasonable default body so Greg/Jay/Charles only need to type the update.
+  const defaultSubject = `Re: Maintenance request — ${briefDescription(request)}`;
+  const defaultBody = [
+    `Hi ${request.tenantName?.split(/\s+/)[0] || "there"},`,
+    "",
+    `This is a follow-up on your maintenance request${request.id ? ` (ref ${request.id})` : ""}:`,
+    `  "${briefDescription(request)}"`,
+    "",
+    "[ Add your update here ]",
+    "",
+    "Thanks,",
+    staffName(author),
+    "KCP Maintenance",
+  ].join("\n");
+
+  const [subject, setSubject] = useState(defaultSubject);
+  const [text, setText] = useState(defaultBody);
+
+  // Keep the signature line + subject in sync when author flips.
+  useEffect(() => {
+    setSubject(`Re: Maintenance request — ${briefDescription(request)}`);
+    setText([
+      `Hi ${request.tenantName?.split(/\s+/)[0] || "there"},`,
+      "",
+      `This is a follow-up on your maintenance request${request.id ? ` (ref ${request.id})` : ""}:`,
+      `  "${briefDescription(request)}"`,
+      "",
+      "[ Add your update here ]",
+      "",
+      "Thanks,",
+      staffName(author),
+      "KCP Maintenance",
+    ].join("\n"));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [request.id, author]);
+
+  async function send() {
+    if (busy) return;
+    setError(null);
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/maintenance/requests/${request.id}/email-tenant`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ from: author, subject, body: text }),
+      });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error ?? "Send failed");
+      onUpdated(j.request);
+      setOpen(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Send failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="btn"
+        style={{ fontSize: 12, padding: "6px 12px", alignSelf: "flex-start" }}
+      >
+        ✉ Email tenant
+      </button>
+    );
+  }
+
+  return (
+    <div style={{
+      padding: 14,
+      border: "1px solid rgba(11,74,125,0.40)", borderRadius: 10,
+      background: "rgba(11,74,125,0.04)",
+      display: "flex", flexDirection: "column", gap: 10,
+    }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "#0b4a7d" }}>
+          Email tenant — {request.tenantEmail}
+        </span>
+        <button
+          onClick={() => setOpen(false)}
+          disabled={busy}
+          style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--muted)", fontSize: 14 }}
+        >×</button>
+      </div>
+      <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+        <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
+          From
+        </span>
+        <select value={author} onChange={(e) => setAuthor(e.target.value as StaffId)} style={{ ...selectStyle, width: "auto", minWidth: 120 }}>
+          {STAFF.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+        </select>
+      </div>
+      <input
+        type="text"
+        value={subject}
+        onChange={(e) => setSubject(e.target.value)}
+        style={{ ...selectStyle, width: "100%", fontSize: 14, fontWeight: 600 }}
+      />
+      <textarea
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        rows={9}
+        style={{ ...selectStyle, width: "100%", minHeight: 180, fontFamily: "inherit", resize: "vertical", fontSize: 13, lineHeight: 1.5 }}
+      />
+      {error && <div style={{ fontSize: 12, color: "#b91c1c", fontWeight: 600 }}>{error}</div>}
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+        <button
+          onClick={() => setOpen(false)}
+          disabled={busy}
+          className="btn"
+          style={{ fontSize: 13, padding: "8px 14px" }}
+        >
+          Cancel
+        </button>
+        <button
+          onClick={send}
+          disabled={busy}
+          className="btn primary"
+          style={{ fontSize: 13, padding: "8px 16px" }}
+        >
+          {busy ? "Sending…" : "Send email"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function MetaCell({ label, value, sub }: { label: string; value: string; sub?: string }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
+      <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
+        {label}
+      </span>
+      <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", lineHeight: 1.4, wordBreak: "break-word" }}>
+        {value || "—"}
+      </span>
+      {sub && (
+        <span style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.3, wordBreak: "break-word" }}>
+          {sub}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 6 }}>{title}</div>
+      {children}
+    </div>
+  );
+}
+
+function AttachmentsSection({
+  request, busy, setBusy, onUpdated,
+}: {
+  request: MaintenanceRequest;
+  busy: boolean;
+  setBusy: (b: boolean) => void;
+  onUpdated: (r: MaintenanceRequest) => void;
+}) {
+  const [error, setError] = useState<string | null>(null);
+
+  async function upload(file: File) {
+    setError(null);
+    setBusy(true);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch(`/api/maintenance/requests/${request.id}/attachments`, {
+        method: "POST",
+        body: form,
+      });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error ?? "Upload failed");
+      onUpdated(j.request);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Upload failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function remove(attachmentId: string) {
+    if (!confirm("Delete this attachment?")) return;
+    setError(null);
+    setBusy(true);
+    try {
+      const res = await fetch(
+        `/api/maintenance/requests/${request.id}/attachments/${attachmentId}`,
+        { method: "DELETE" },
+      );
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error ?? "Delete failed");
+      onUpdated(j.request);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Delete failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Section title={`Attachments (${request.attachments.length})`}>
+      {error && (
+        <div style={{ fontSize: 12, color: "#b91c1c", marginBottom: 8 }}>{error}</div>
+      )}
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
+        gap: 8, marginBottom: 8,
+      }}>
+        {request.attachments.map((a) => {
+          const isImage = a.contentType.startsWith("image/");
+          return (
+            <div
+              key={a.id}
+              style={{
+                position: "relative",
+                border: "1px solid var(--border)", borderRadius: 8,
+                background: "rgba(15,23,42,0.02)",
+                overflow: "hidden",
+                display: "flex", flexDirection: "column",
+              }}
+            >
+              {isImage ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <a href={a.url} target="_blank" rel="noopener noreferrer">
+                  <img
+                    src={a.url}
+                    alt={a.name}
+                    style={{ width: "100%", height: 100, objectFit: "cover", display: "block" }}
+                  />
+                </a>
+              ) : (
+                <a
+                  href={a.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    height: 100, display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: 32, textDecoration: "none", color: "var(--muted)",
+                  }}
+                >
+                  📄
+                </a>
+              )}
+              <div style={{ padding: "6px 8px", fontSize: 11, display: "flex", flexDirection: "column", gap: 2 }}>
+                <a
+                  href={a.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title={a.name}
+                  style={{
+                    fontWeight: 600, color: "var(--text)", textDecoration: "none",
+                    overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                  }}
+                >
+                  {a.name}
+                </a>
+                <div style={{ color: "var(--muted)", display: "flex", justifyContent: "space-between" }}>
+                  <span>{a.size ? `${Math.round(a.size / 1024)} KB` : ""}</span>
+                  <button
+                    onClick={() => remove(a.id)}
+                    disabled={busy}
+                    title="Delete attachment"
+                    style={{
+                      background: "transparent", border: "none", color: "#b91c1c",
+                      cursor: busy ? "default" : "pointer", padding: 0, fontSize: 11, fontWeight: 600,
+                    }}
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <label
+        style={{
+          display: "inline-flex", alignItems: "center", gap: 8,
+          padding: "7px 12px", borderRadius: 6,
+          border: "1px dashed var(--border)",
+          fontSize: 13, fontWeight: 600,
+          cursor: busy ? "default" : "pointer",
+          color: "var(--muted)",
+          background: "var(--card)",
+        }}
+      >
+        + Add file
+        <input
+          type="file"
+          disabled={busy}
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) {
+              upload(f);
+              e.currentTarget.value = "";
+            }
+          }}
+          style={{ display: "none" }}
+        />
+      </label>
+      <span className="muted small" style={{ marginLeft: 10 }}>
+        Images, PDFs, docs up to ~4 MB.
+      </span>
+    </Section>
+  );
+}
+

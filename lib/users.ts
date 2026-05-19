@@ -1,0 +1,151 @@
+export const ALL_USERS = ["admin", "drew", "stacie", "nancy", "harry", "maint", "alison"] as const;
+export type UserId = typeof ALL_USERS[number];
+
+export type RentRollCategory = "All" | "Office" | "Retail" | "Residential" | "The Office Works";
+export type PropertyType = "all" | "Office" | "Retail" | "Residential" | "Land" | "Misc";
+
+export type UserDef = {
+  id: UserId;
+  label: string;
+  /** Sidebar nav keys this user can see. "all" wins. */
+  navKeys: Set<string>;
+  /** Path prefixes this user can directly navigate to. "*" allows everything. */
+  allowedPathPrefixes: string[];
+  /** Default category filter on /rentroll. Other categories are still selectable. */
+  defaultRentRollCategory: RentRollCategory;
+  /** Default type filter on /properties. */
+  defaultPropertyType: PropertyType;
+  /**
+   * How the dashboard portfolio occupancy renders the breakdown:
+   *  - "groups"      → the 5 group bars (JV III, NI LLC, Shopping Centers, Korman Homes, The Office Works)
+   *  - codes set     → one bar per individual property whose code is in the set; total reflects that subset
+   */
+  dashboardScope: "groups" | { codes: Set<string> };
+};
+
+const SC_INDIVIDUAL = new Set(["1100", "2300", "4500", "7010", "9510", "7200", "7300", "1500", "9200", "5600", "8200"]);
+const OFFICE_AND_OW_INDIVIDUAL = new Set([
+  "3610", "3620", "3640",
+  "4050", "4060", "4070", "4080", "40A0", "40B0", "40C0",
+  "4900",
+]);
+
+const universalNav = new Set(["dashboard", "properties", "rentroll"]);
+
+export const USERS: Record<UserId, UserDef> = {
+  admin: {
+    id: "admin",
+    label: "ADMIN",
+    navKeys: new Set(["all"]),
+    allowedPathPrefixes: ["*"],
+    defaultRentRollCategory: "All",
+    defaultPropertyType: "all",
+    dashboardScope: "groups",
+  },
+  // Drew — the admin in person, as a named user so his tasks (master Task
+  // Tracker + Filing Tracker) aren't lost in a shared persona. His profile
+  // is curated: no maintenance, reservations, payroll, CC expense coding or
+  // bank rec. He can switch to the generic admin role for those.
+  drew: {
+    id: "drew",
+    label: "DREW",
+    navKeys: new Set([
+      ...universalNav,
+      "investors",
+      "base-years",
+      "leasing-activity",
+      "commissions",
+      "commissions-retail",
+      "tracker",
+      "allocated",
+    ]),
+    allowedPathPrefixes: [
+      "/dashboard",
+      "/tracker",
+      "/properties",
+      "/investors",
+      "/rentroll",
+      "/commissions",
+      "/allocated-invoicer",
+    ],
+    defaultRentRollCategory: "All",
+    defaultPropertyType: "all",
+    dashboardScope: "groups",
+  },
+  stacie: {
+    id: "stacie",
+    label: "STACIE",
+    // Stacie sees the operational/reporting pages but not the financial
+    // coding tools (Payroll Invoicer, CC Expense Coder, Allocated Invoicer)
+    // or per-employee payroll detail.
+    navKeys: new Set([
+      ...universalNav,
+      "tracker",
+      "bank-rec-tracker",
+    ]),
+    allowedPathPrefixes: [
+      "/dashboard",
+      "/properties",
+      "/rentroll",
+      "/tracker",
+      "/bank-rec",
+    ],
+    defaultRentRollCategory: "All",
+    defaultPropertyType: "all",
+    dashboardScope: "groups",
+  },
+  nancy: {
+    id: "nancy",
+    label: "NANCY",
+    navKeys: new Set([...universalNav, "leasing-activity", "base-years", "commissions", "reservations"]),
+    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/commissions", "/reservations"],
+    defaultRentRollCategory: "Office",
+    defaultPropertyType: "Office",
+    dashboardScope: { codes: OFFICE_AND_OW_INDIVIDUAL },
+  },
+  harry: {
+    id: "harry",
+    label: "HARRY",
+    navKeys: new Set([...universalNav, "expenses", "expenses-history", "payroll-invoicer", "investors", "commissions-retail"]),
+    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/expenses", "/investors", "/commissions/retail", "/"],
+    defaultRentRollCategory: "Retail",
+    defaultPropertyType: "Retail",
+    dashboardScope: { codes: SC_INDIVIDUAL },
+  },
+  maint: {
+    id: "maint",
+    label: "MAINT",
+    navKeys: new Set([...universalNav, "maintenance", "expenses", "reservations"]),
+    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/expenses", "/maintenance", "/reservations"],
+    defaultRentRollCategory: "All",
+    defaultPropertyType: "all",
+    dashboardScope: "groups",
+  },
+  alison: {
+    id: "alison",
+    label: "ALISON",
+    // President — a high-level view: dashboard, properties, investors,
+    // rent roll, debt. No operational tools or action items.
+    navKeys: new Set([...universalNav, "investors", "debt", "base-years"]),
+    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/investors", "/debt"],
+    defaultRentRollCategory: "All",
+    defaultPropertyType: "all",
+    dashboardScope: "groups",
+  },
+};
+
+/** admin, drew and alison may switch between user profiles after signing in. */
+export function canSwitchUsers(userId: UserId): boolean {
+  return userId === "admin" || userId === "drew" || userId === "alison";
+}
+
+export function isPathAllowed(userId: UserId, pathname: string): boolean {
+  const u = USERS[userId];
+  if (u.allowedPathPrefixes.includes("*")) return true;
+  // Always allow the login page so users can re-auth
+  if (pathname === "/history/login") return true;
+  return u.allowedPathPrefixes.some((p) => {
+    if (p === "/") return pathname === "/";
+    return pathname === p || pathname.startsWith(p + "/");
+  });
+}

@@ -27,6 +27,8 @@ const COL_LEASE_FROM  = 15; // P  (merged P:Q)
 const COL_LEASE_TO    = 17; // R  (merged R:T)
 const COL_BASE_RENT   = 20; // U  (merged U:X)
 const COL_OPEX_MONTH  = 39; // AN (merged AN:AR) — CAM
+import { amenityFor, type AmenityInfo } from "./amenities";
+
 const COL_RETAX_MONTH = 48; // AW (merged AW:AZ) — RE Tax
 const COL_OTHER_MONTH = 53; // BB (merged BB:BC) — Other
 
@@ -40,6 +42,9 @@ export interface RentRollUnit {
   isVacant: boolean;
   unitRef: string;
   propertyCode: string;
+  /** Set for in-house amenity units (training room, conference center, etc.).
+   *  These count as occupied for sqft accounting but aren't real tenants. */
+  amenity?: AmenityInfo;
   sqft: number;
   leaseFrom: string | null;
   leaseTo: string | null;
@@ -180,10 +185,24 @@ export function parseRentRollExcel(
 
     const prop = propertiesMap.get(code)!;
 
+    const unitRef = unitRefCell.replace(/-CU$/i, "");
+
+    // Amenity override (training room, conference center, etc.) takes
+    // precedence over whatever the Excel says — these are in-house units
+    // that should always render with their canonical label and count as
+    // occupied.
+    const amenity = amenityFor(unitRef);
+
     // Parse unit fields
     const rawOccupant = norm(row[COL_OCCUPANT]);
-    const isVacant    = !rawOccupant || rawOccupant.toUpperCase().includes("VACANT");
-    const occupantName = isVacant ? "Vacant" : rawOccupant;
+    const isVacant    = amenity
+      ? false
+      : !rawOccupant || rawOccupant.toUpperCase().includes("VACANT");
+    const occupantName = amenity
+      ? amenity.label
+      : isVacant
+        ? "Vacant"
+        : rawOccupant;
 
     const sqft      = toNumber(row[COL_SQFT]);
     const leaseFrom = parseDateStr(row[COL_LEASE_FROM]);
@@ -196,7 +215,8 @@ export function parseRentRollExcel(
     prop.units.push({
       occupantName,
       isVacant,
-      unitRef: unitRefCell.replace(/-CU$/i, ""),
+      unitRef,
+      amenity: amenity ?? undefined,
       propertyCode: code,
       sqft,
       leaseFrom,

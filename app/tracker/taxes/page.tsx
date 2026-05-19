@@ -198,9 +198,7 @@ export default function TaxTrackerPage() {
       {/* ── Header ──────────────────────────────────────────────────────── */}
       <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 22, flexWrap: "wrap", gap: 14 }}>
         <div>
-          <h1 style={{ fontSize: 36, fontWeight: 900, letterSpacing: "-0.03em", marginBottom: 4 }}>
-            Filing Tracker
-          </h1>
+          <h1>Filing Tracker</h1>
           <p className="muted small">County &amp; school RE taxes · net profits / BIRT · entity filings</p>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
@@ -229,7 +227,7 @@ export default function TaxTrackerPage() {
                 padding: "13px 8px 11px",
                 border: `1.5px solid ${isActive ? tile.activeBorder : "var(--border)"}`,
                 borderRadius: 10,
-                background: isActive ? tile.activeBg : "#fff",
+                background: isActive ? tile.activeBg : "var(--card)",
                 cursor: tile.clickable ? "pointer" : "default",
                 fontFamily: "inherit",
                 transition: "border-color 0.15s, background 0.15s, box-shadow 0.15s",
@@ -347,14 +345,14 @@ export default function TaxTrackerPage() {
               padding: "5px 12px",
               border: `1px solid ${active ? cat.border : "var(--border)"}`,
               borderRadius: 999, cursor: "pointer",
-              background: active ? cat.bg : "#fff",
+              background: active ? cat.bg : "var(--card)",
               fontFamily: "inherit", fontSize: 12, fontWeight: active ? 700 : 500,
               color: active ? cat.text : "var(--text)",
               transition: "border-color 0.12s, background 0.12s",
             }}>
               <span style={{
                 fontSize: 9, fontWeight: 800, letterSpacing: "0.05em",
-                color: active ? cat.text : "#fff",
+                color: active ? cat.text : "var(--card)",
                 background: active ? "#fff" : cat.dot,
                 border: `1px solid ${cat.border}`,
                 padding: "1px 5px", borderRadius: 999,
