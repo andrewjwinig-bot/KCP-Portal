@@ -13,6 +13,7 @@ import {
 } from "@/lib/maintenance/requests";
 import { STAFF, staffName, type StaffId } from "@/lib/maintenance/staff";
 import { summarize } from "@/lib/maintenance/summarize";
+import { useUser } from "@/app/components/UserProvider";
 import { bestTenantMatch, isResolvedTenant } from "@/lib/tenants/match";
 import {
   Pill,
@@ -144,6 +145,21 @@ function MaintenancePageInner() {
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<MaintenanceRequest | null>(null);
 
+  // Some personas (e.g. Nancy) get a read-only window scoped to a subset
+  // of property codes; everyone else has full maintenance access.
+  const { user } = useUser();
+  const maintenanceView = user.maintenanceView;
+  const readOnly = !!maintenanceView?.readOnly;
+
+  // Requests this persona is allowed to see. A maintenanceView restricts
+  // the page to its property codes; otherwise it's the full list.
+  const visibleRequests = useMemo(() => {
+    if (!requests) return null;
+    const codes = maintenanceView?.codes;
+    if (!codes) return requests;
+    return requests.filter((r) => r.propertyCode != null && codes.has(r.propertyCode));
+  }, [requests, maintenanceView]);
+
   const reload = useCallback(async () => {
     setLoading(true);
     try {
@@ -164,24 +180,24 @@ function MaintenancePageInner() {
   // Deep-link: ?openId=<id> opens that request's modal after requests load.
   useEffect(() => {
     const openId = searchParams.get("openId");
-    if (!openId || !requests) return;
-    const r = requests.find((x) => x.id === openId);
+    if (!openId || !visibleRequests) return;
+    const r = visibleRequests.find((x) => x.id === openId);
     if (r) setSelected(r);
-  }, [searchParams, requests]);
+  }, [searchParams, visibleRequests]);
 
   const properties = useMemo(() => {
     const set = new Set<string>();
-    for (const r of requests ?? []) {
+    for (const r of visibleRequests ?? []) {
       const p = propertyOf(r);
       if (p) set.add(p);
     }
     return ["All", ...Array.from(set).sort()];
-  }, [requests]);
+  }, [visibleRequests]);
 
   const filtered = useMemo(() => {
-    if (!requests) return [];
+    if (!visibleRequests) return [];
     const q = search.trim().toLowerCase();
-    const list = requests.filter((r) => {
+    const list = visibleRequests.filter((r) => {
       if (tab === "active"    && r.status === "Complete") return false;
       if (tab === "completed" && r.status !== "Complete") return false;
       if (statusFilter === "New" && !isNew(r)) return false;
@@ -222,10 +238,10 @@ function MaintenancePageInner() {
       const tb = Date.parse(b.submittedDate ?? b.createdAt) || 0;
       return tb - ta;
     });
-  }, [requests, tab, priority, assignee, property, search, statusFilter, category, tenant, agingMin, agingMax]);
+  }, [visibleRequests, tab, priority, assignee, property, search, statusFilter, category, tenant, agingMin, agingMax]);
 
   const counts = useMemo(() => {
-    const all = requests ?? [];
+    const all = visibleRequests ?? [];
     return {
       active: all.filter((r) => r.status !== "Complete").length,
       completed: all.filter((r) => r.status === "Complete").length,
@@ -236,7 +252,7 @@ function MaintenancePageInner() {
       highOpen: all.filter((r) => r.status !== "Complete" && r.priority === "High").length,
       unassigned: all.filter((r) => r.status !== "Complete" && r.assignedTo === null).length,
     };
-  }, [requests]);
+  }, [visibleRequests]);
 
   return (
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
@@ -425,7 +441,7 @@ function MaintenancePageInner() {
             />
           </Field>
           <div style={{ marginLeft: "auto", fontSize: 12, color: "var(--muted)", paddingBottom: 6 }}>
-            {loading ? "Loading…" : `${filtered.length} of ${(requests ?? []).length}`}
+            {loading ? "Loading…" : `${filtered.length} of ${(visibleRequests ?? []).length}`}
           </div>
         </div>
 
@@ -449,7 +465,7 @@ function MaintenancePageInner() {
                 {loading && <tr><td colSpan={9} className="muted small" style={{ padding: 16 }}>Loading…</td></tr>}
                 {!loading && filtered.length === 0 && (
                   <tr><td colSpan={9} className="muted small" style={{ padding: 16 }}>
-                    No requests. {tab === "active" && (requests?.length ?? 0) === 0 && "Tenants can submit via the public form at /submit."}
+                    No requests. {tab === "active" && (visibleRequests?.length ?? 0) === 0 && !readOnly && "Tenants can submit via the public form at /submit."}
                   </td></tr>
                 )}
                 {filtered.map((r) => {
@@ -464,7 +480,8 @@ function MaintenancePageInner() {
                         setSelected(r);
                         // Mark as seen the first time anyone opens the row.
                         // Fire-and-forget so the modal opens immediately.
-                        if (isNew(r)) {
+                        // Read-only viewers don't mutate the request.
+                        if (isNew(r) && !readOnly) {
                           fetch(`/api/maintenance/requests/${r.id}`, {
                             method: "PATCH",
                             headers: { "Content-Type": "application/json" },
@@ -548,15 +565,21 @@ function MaintenancePageInner() {
                         ) : <span className="muted small">—</span>}
                       </td>
                       <td
-                        onClick={(e) => e.stopPropagation()}
+                        onClick={readOnly ? undefined : (e) => e.stopPropagation()}
                         style={{ fontSize: 13, fontWeight: 600 }}
                       >
-                        <RowAssigneeSelect
-                          request={r}
-                          onUpdated={(updated) => {
-                            setRequests((prev) => prev?.map((x) => x.id === updated.id ? updated : x) ?? prev);
-                          }}
-                        />
+                        {readOnly ? (
+                          r.assignedTo
+                            ? staffName(r.assignedTo)
+                            : <span className="muted small">—</span>
+                        ) : (
+                          <RowAssigneeSelect
+                            request={r}
+                            onUpdated={(updated) => {
+                              setRequests((prev) => prev?.map((x) => x.id === updated.id ? updated : x) ?? prev);
+                            }}
+                          />
+                        )}
                       </td>
                     </tr>
                   );
@@ -569,6 +592,7 @@ function MaintenancePageInner() {
         {selected && (
           <RequestModal
             request={selected}
+            readOnly={readOnly}
             onClose={() => setSelected(null)}
             onChange={(updated) => {
               setRequests((prev) => prev?.map((r) => r.id === updated.id ? updated : r) ?? prev);
@@ -719,9 +743,10 @@ function TabButton({ active, onClick, children }: { active: boolean; onClick: ()
 // import if Airtable still has stragglers.
 
 function RequestModal({
-  request, onClose, onChange, onDelete,
+  request, readOnly, onClose, onChange, onDelete,
 }: {
   request: MaintenanceRequest;
+  readOnly: boolean;
   onClose: () => void;
   onChange: (r: MaintenanceRequest) => void;
   onDelete: (id: string) => void;
@@ -764,6 +789,7 @@ function RequestModal({
   }, [onClose]);
 
   async function patch(body: Record<string, unknown>) {
+    if (readOnly) return;
     setBusy(true);
     try {
       const res = await fetch(`/api/maintenance/requests/${request.id}`, {
@@ -788,6 +814,7 @@ function RequestModal({
   }
 
   async function remove() {
+    if (readOnly) return;
     if (!confirm("Delete this request? This cannot be undone.")) return;
     setBusy(true);
     try {
@@ -864,7 +891,14 @@ function RequestModal({
               </div>
             </div>
             <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0, flexWrap: "wrap", justifyContent: "flex-end" }}>
-              {request.status !== "Complete" ? (
+              {readOnly && (
+                <span style={{
+                  fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase",
+                  padding: "4px 10px", borderRadius: 999,
+                  background: "rgba(15,23,42,0.06)", color: "var(--muted)", border: "1px solid var(--border)",
+                }}>View only</span>
+              )}
+              {!readOnly && (request.status !== "Complete" ? (
                 <>
                   {request.status === "New" && (
                     <button
@@ -894,7 +928,7 @@ function RequestModal({
                 >
                   Reopen
                 </button>
-              )}
+              ))}
               <button
                 onClick={onClose}
                 aria-label="Close"
@@ -962,7 +996,7 @@ function RequestModal({
                   ⚠ Needs assignment
                 </span>
               )}
-              {tenantSuggestion && (
+              {!readOnly && tenantSuggestion && (
                 <button
                   type="button"
                   disabled={busy}
@@ -985,7 +1019,7 @@ function RequestModal({
                     : ` · ${tenantSuggestion.units.length} suites`}”
                 </button>
               )}
-              {companies.length > 0 && (
+              {!readOnly && companies.length > 0 && (
                 <select
                   disabled={busy}
                   value=""
@@ -1017,19 +1051,19 @@ function RequestModal({
           {/* Action row: status / priority / assignee */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 14 }}>
             <Field label="Status">
-              <select disabled={busy} value={request.status} onChange={(e) => patch({ status: e.target.value as RequestStatus })} style={selectStyle}>
+              <select disabled={busy || readOnly} value={request.status} onChange={(e) => patch({ status: e.target.value as RequestStatus })} style={selectStyle}>
                 {REQUEST_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
               </select>
             </Field>
             <Field label="Priority">
-              <select disabled={busy} value={request.priority} onChange={(e) => patch({ priority: e.target.value as RequestPriority | "" })} style={selectStyle}>
+              <select disabled={busy || readOnly} value={request.priority} onChange={(e) => patch({ priority: e.target.value as RequestPriority | "" })} style={selectStyle}>
                 <option value="">—</option>
                 {REQUEST_PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
               </select>
             </Field>
             <Field label="Assigned To">
               <select
-                disabled={busy}
+                disabled={busy || readOnly}
                 value={request.assignedTo ?? ""}
                 onChange={(e) => patch({ assignedTo: e.target.value === "" ? null : (e.target.value as StaffId) })}
                 style={{
@@ -1061,7 +1095,7 @@ function RequestModal({
                   <button
                     key={c}
                     onClick={() => patch({ categories: on ? request.categories.filter((x) => x !== c) : [...request.categories, c as RequestCategory] })}
-                    disabled={busy}
+                    disabled={busy || readOnly}
                     style={{
                       fontSize: 12, fontWeight: 600, padding: "5px 12px", borderRadius: 999,
                       border: on ? "1px solid rgba(11,74,125,0.55)" : "1px solid var(--border)",
@@ -1151,6 +1185,7 @@ function RequestModal({
               ))}
 
               {/* Add-note composer */}
+              {!readOnly && (
               <div style={{
                 marginTop: 6,
                 padding: 14,
@@ -1188,12 +1223,14 @@ function RequestModal({
                   </button>
                 </div>
               </div>
+              )}
             </div>
           </Section>
 
           {/* Attachments — last */}
           <AttachmentsSection
             request={request}
+            readOnly={readOnly}
             busy={busy}
             setBusy={setBusy}
             onUpdated={onChange}
@@ -1201,6 +1238,7 @@ function RequestModal({
         </div>
 
         {/* Footer */}
+        {!readOnly && (
         <div style={{
           padding: "16px 32px 20px",
           borderTop: "1px solid var(--border)",
@@ -1220,6 +1258,7 @@ function RequestModal({
             Delete Request
           </button>
         </div>
+        )}
       </div>
     </div>
   );
@@ -1445,9 +1484,10 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 function AttachmentsSection({
-  request, busy, setBusy, onUpdated,
+  request, readOnly, busy, setBusy, onUpdated,
 }: {
   request: MaintenanceRequest;
+  readOnly: boolean;
   busy: boolean;
   setBusy: (b: boolean) => void;
   onUpdated: (r: MaintenanceRequest) => void;
@@ -1553,6 +1593,7 @@ function AttachmentsSection({
                 </a>
                 <div style={{ color: "var(--muted)", display: "flex", justifyContent: "space-between" }}>
                   <span>{a.size ? `${Math.round(a.size / 1024)} KB` : ""}</span>
+                  {!readOnly && (
                   <button
                     onClick={() => remove(a.id)}
                     disabled={busy}
@@ -1564,6 +1605,7 @@ function AttachmentsSection({
                   >
                     Delete
                   </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -1571,34 +1613,38 @@ function AttachmentsSection({
         })}
       </div>
 
-      <label
-        style={{
-          display: "inline-flex", alignItems: "center", gap: 8,
-          padding: "7px 12px", borderRadius: 6,
-          border: "1px dashed var(--border)",
-          fontSize: 13, fontWeight: 600,
-          cursor: busy ? "default" : "pointer",
-          color: "var(--muted)",
-          background: "var(--card)",
-        }}
-      >
-        + Add file
-        <input
-          type="file"
-          disabled={busy}
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) {
-              upload(f);
-              e.currentTarget.value = "";
-            }
-          }}
-          style={{ display: "none" }}
-        />
-      </label>
-      <span className="muted small" style={{ marginLeft: 10 }}>
-        Images, PDFs, docs up to ~4 MB.
-      </span>
+      {!readOnly && (
+        <>
+          <label
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 8,
+              padding: "7px 12px", borderRadius: 6,
+              border: "1px dashed var(--border)",
+              fontSize: 13, fontWeight: 600,
+              cursor: busy ? "default" : "pointer",
+              color: "var(--muted)",
+              background: "var(--card)",
+            }}
+          >
+            + Add file
+            <input
+              type="file"
+              disabled={busy}
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) {
+                  upload(f);
+                  e.currentTarget.value = "";
+                }
+              }}
+              style={{ display: "none" }}
+            />
+          </label>
+          <span className="muted small" style={{ marginLeft: 10 }}>
+            Images, PDFs, docs up to ~4 MB.
+          </span>
+        </>
+      )}
     </Section>
   );
 }

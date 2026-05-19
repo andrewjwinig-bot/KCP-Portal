@@ -21,6 +21,11 @@ export type UserDef = {
    *  - codes set     → one bar per individual property whose code is in the set; total reflects that subset
    */
   dashboardScope: "groups" | { codes: Set<string> };
+  /**
+   * When set, the Maintenance page is limited to a read-only view of
+   * requests for the given property codes. Absent → full maintenance access.
+   */
+  maintenanceView?: { readOnly: boolean; codes: Set<string> };
 };
 
 const SC_INDIVIDUAL = new Set(["1100", "2300", "4500", "7010", "9510", "7200", "7300", "1500", "9200", "5600", "8200"]);
@@ -97,11 +102,13 @@ export const USERS: Record<UserId, UserDef> = {
   nancy: {
     id: "nancy",
     label: "NANCY",
-    navKeys: new Set([...universalNav, "leasing-activity", "base-years", "commissions", "reservations"]),
-    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/commissions", "/reservations"],
+    navKeys: new Set([...universalNav, "leasing-activity", "base-years", "commissions", "reservations", "maintenance"]),
+    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/commissions", "/reservations", "/maintenance"],
     defaultRentRollCategory: "Office",
     defaultPropertyType: "Office",
     dashboardScope: { codes: OFFICE_AND_OW_INDIVIDUAL },
+    // Read-only window into office-tenant maintenance requests.
+    maintenanceView: { readOnly: true, codes: OFFICE_AND_OW_INDIVIDUAL },
   },
   harry: {
     id: "harry",
