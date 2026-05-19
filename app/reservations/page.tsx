@@ -11,6 +11,7 @@ import { BOOKABLE_ROOMS } from "@/lib/reservations/rooms";
 import { useUser } from "@/app/components/UserProvider";
 import { Pill, Badge, reservationStatusTone } from "@/app/components/Pill";
 import { bestTenantMatch, isResolvedTenant } from "@/lib/tenants/match";
+import WeekCalendar from "./WeekCalendar";
 
 type Filter = "Pending" | "Approved" | "Declined" | "All";
 
@@ -45,6 +46,7 @@ function ReservationsPageInner() {
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>("All");
   const [roomFilter, setRoomFilter] = useState<string>("All");
+  const [viewMode, setViewMode] = useState<"list" | "week">("list");
   const [selected, setSelected] = useState<Reservation | null>(null);
 
   const reload = useCallback(async () => {
@@ -179,11 +181,34 @@ function ReservationsPageInner() {
             ))}
           </select>
         </label>
+        <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <span style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", letterSpacing: "0.06em", textTransform: "uppercase" }}>View</span>
+          <div style={{ display: "inline-flex", border: "1px solid var(--border)", borderRadius: 6, overflow: "hidden" }}>
+            {(["list", "week"] as const).map((mode) => (
+              <button
+                key={mode}
+                onClick={() => setViewMode(mode)}
+                className="btn"
+                style={{
+                  fontSize: 13, padding: "7px 14px", border: "none", borderRadius: 0,
+                  fontWeight: viewMode === mode ? 700 : 500,
+                  background: viewMode === mode ? "var(--brand)" : "transparent",
+                  color: viewMode === mode ? "#fff" : "var(--text)",
+                }}
+              >{mode === "list" ? "List" : "Week"}</button>
+            ))}
+          </div>
+        </label>
         <div style={{ marginLeft: "auto", fontSize: 12, color: "var(--muted)", paddingBottom: 6 }}>
           {loading ? "Loading…" : `${filtered.length} of ${(reservations ?? []).length}`}
         </div>
       </div>
 
+      {viewMode === "week" && !loading && (
+        <WeekCalendar reservations={filtered} onSelect={setSelected} />
+      )}
+
+      {viewMode === "list" && (
       <div className="card" style={{ padding: 0 }}>
         <div className="tableWrap">
           <table>
@@ -249,6 +274,7 @@ function ReservationsPageInner() {
           </table>
         </div>
       </div>
+      )}
 
       {selected && (
         <ReservationModal
