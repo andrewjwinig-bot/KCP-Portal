@@ -19,9 +19,8 @@ import {
 } from "../../../lib/commissions";
 import { Calendar } from "@/app/components/Calendar";
 
-// The person these commissions are paid to. Update if Harry's full legal
-// name should appear on the memo.
-const PAYEE = "Harry";
+// The person these commissions are paid to — appears on the memo.
+const PAYEE = "Harry I. Feldman";
 
 // Retail property codes — Shopping Centers Division.
 const RETAIL_CODES = new Set(
