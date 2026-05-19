@@ -6,7 +6,7 @@
 // NI LLC, Shopping Centers, Residential). Each bar is stacked / colored
 // by building.
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { RentRollData } from "../../lib/rentroll/parseRentRollExcel";
 import { PROPERTY_DEFS } from "../../lib/properties/data";
 
@@ -148,6 +148,9 @@ export default function ExpirationChart({
   const [horizon, setHorizon] = useState<Horizon>("24m");
   const [metric, setMetric] = useState<Metric>("pct");
   const [scope, setScope] = useState<ExpirationScope>(defaultScope);
+  // The dashboard mounts before the user persona hydrates, so defaultScope
+  // can arrive late (e.g. once we know this is Harry). Track it.
+  useEffect(() => { setScope(defaultScope); }, [defaultScope]);
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const [hover, setHover] = useState<HoverState | null>(null);
 
