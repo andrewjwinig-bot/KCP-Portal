@@ -17,6 +17,7 @@ import {
   type TaxTask, type TaxParcel, TAX_CATEGORIES, type K1Investor,
 } from "../tracker/tax-data";
 import { StatPill } from "../components/Pill";
+import ShareFolderCard from "../components/ShareFolderCard";
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 
@@ -693,6 +694,9 @@ export function PropertyDetailBody({
             <p style={{ fontSize: 13, color: "var(--muted)", margin: 0 }}>{prop.notes}</p>
           </div>
         )}
+
+        {/* ── Shared Drive Folder ── */}
+        <ShareFolderCard kind="property" entityKey={prop.id} />
 
         {/* ── Overview ── */}
         <div className="card">
