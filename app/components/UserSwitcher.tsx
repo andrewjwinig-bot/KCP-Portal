@@ -6,6 +6,7 @@ import { ALL_USERS, USERS, type UserId } from "../../lib/users";
 
 const AVATAR_COLOR: Record<UserId, string> = {
   admin:  "#16a34a",
+  drew:   "#4338ca",
   stacie: "#db2777",
   nancy:  "#0b4a7d",
   harry:  "#d97706",
