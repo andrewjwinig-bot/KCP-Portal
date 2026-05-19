@@ -55,6 +55,7 @@ export const USERS: Record<UserId, UserDef> = {
       "base-years",
       "leasing-activity",
       "commissions",
+      "commissions-retail",
       "tracker",
       "allocated",
     ]),
@@ -105,8 +106,8 @@ export const USERS: Record<UserId, UserDef> = {
   harry: {
     id: "harry",
     label: "HARRY",
-    navKeys: new Set([...universalNav, "expenses", "expenses-history", "payroll-invoicer", "investors"]),
-    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/expenses", "/investors", "/"],
+    navKeys: new Set([...universalNav, "expenses", "expenses-history", "payroll-invoicer", "investors", "commissions-retail"]),
+    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/expenses", "/investors", "/commissions/retail", "/"],
     defaultRentRollCategory: "Retail",
     defaultPropertyType: "Retail",
     dashboardScope: { codes: SC_INDIVIDUAL },
