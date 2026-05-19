@@ -313,9 +313,9 @@ export default function UnitDetailPage() {
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-        {/* ── Overview ── */}
+        {/* ── Lease Information ── */}
         <div className="card">
-          <SectionLabel>Overview</SectionLabel>
+          <SectionLabel>Lease Information</SectionLabel>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "14px 32px" }}>
             <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
               <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>Property</span>
