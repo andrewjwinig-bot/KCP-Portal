@@ -21,6 +21,40 @@ const labelStyle: React.CSSProperties = {
   textTransform: "uppercase", color: "var(--muted)",
 };
 
+// Parse a response body without throwing on empty / non-JSON payloads
+// (e.g. a platform 413 when an upload is too large).
+async function readJson(res: Response): Promise<Record<string, any>> {
+  const text = await res.text().catch(() => "");
+  if (!text) return {};
+  try { return JSON.parse(text); } catch { return {}; }
+}
+
+// Downscale large photos in the browser so uploads stay well under the
+// ~4.5 MB serverless body cap. Non-images pass through untouched.
+async function downscaleImage(file: File): Promise<File> {
+  if (!file.type.startsWith("image/")) return file;
+  try {
+    const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+    const MAX = 2200;
+    const scale = Math.min(1, MAX / Math.max(bitmap.width, bitmap.height));
+    if (scale >= 1 && file.size <= 3_500_000) { bitmap.close?.(); return file; }
+    const w = Math.max(1, Math.round(bitmap.width * scale));
+    const h = Math.max(1, Math.round(bitmap.height * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) { bitmap.close?.(); return file; }
+    ctx.drawImage(bitmap, 0, 0, w, h);
+    bitmap.close?.();
+    const blob: Blob | null = await new Promise((r) => canvas.toBlob(r, "image/jpeg", 0.85));
+    if (!blob) return file;
+    return new File([blob], file.name.replace(/\.[^.]+$/i, "") + ".jpg", { type: "image/jpeg" });
+  } catch {
+    return file;
+  }
+}
+
 export default function DepositForm({
   deposit,
   unitOptions,
@@ -66,26 +100,27 @@ export default function DepositForm({
       : null);
   const account = unit ? accountForProperty(unit.propertyCode) : null;
 
-  async function onPickFile(file: File) {
-    setStagedFile(file);
-    setStagedPreview(URL.createObjectURL(file));
+  async function onPickFile(rawFile: File) {
     setExtractNote(null);
     setExtracting(true);
+    const file = await downscaleImage(rawFile);
+    setStagedFile(file);
+    setStagedPreview(URL.createObjectURL(file));
     try {
       const fd = new FormData();
       fd.append("file", file);
       const res = await fetch("/api/deposits/extract", { method: "POST", body: fd });
-      const j = await res.json();
+      const j = await readJson(res);
       // Only fill blanks — never clobber what the user already typed.
       if (j.checkNumber && !checkNumber) setCheckNumber(j.checkNumber);
       if (j.amount != null && !amount) setAmount(String(j.amount));
       if (j.checkDate && !checkDate) setCheckDate(j.checkDate);
       if (j.note) setExtractNote(j.note);
       else if (j.checkNumber || j.amount != null || j.checkDate) {
-        setExtractNote("Autofilled from the check image — please verify.");
+        setExtractNote("Autofilled from the check image — please verify against the photo.");
       }
     } catch {
-      setExtractNote("Couldn't read the check automatically — enter the details manually.");
+      setExtractNote("Couldn't read the check automatically — type the details from the image below.");
     } finally {
       setExtracting(false);
     }
@@ -111,17 +146,23 @@ export default function DepositForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      const j = await res.json();
-      if (!res.ok) throw new Error(j.error ?? "Save failed");
-      let saved: SecurityDeposit = j.deposit;
+      const j = await readJson(res);
+      if (!res.ok || !j.deposit) throw new Error((j.error as string) ?? "Couldn't save the deposit.");
+      let saved: SecurityDeposit = j.deposit as SecurityDeposit;
 
+      // Image upload is optional — only attempt it when a file is staged.
       if (stagedFile) {
         const fd = new FormData();
         fd.append("file", stagedFile);
         const up = await fetch(`/api/deposits/${saved.id}/check-image`, { method: "POST", body: fd });
-        const uj = await up.json();
-        if (!up.ok) throw new Error(uj.error ?? "Check image upload failed");
-        saved = uj.deposit;
+        const uj = await readJson(up);
+        if (!up.ok || !uj.deposit) {
+          throw new Error(
+            (uj.error as string) ??
+            "The deposit was saved, but the check image upload failed — it may be too large.",
+          );
+        }
+        saved = uj.deposit as SecurityDeposit;
       }
       onSaved(saved);
     } catch (e) {
@@ -193,29 +234,35 @@ export default function DepositForm({
         )}
       </div>
 
-      {/* Check image */}
+      {/* Check image — optional */}
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        <span style={labelStyle}>Check Image</span>
+        <span style={labelStyle}>Check Image <span style={{ fontWeight: 500, textTransform: "none", letterSpacing: 0 }}>(optional)</span></span>
         {previewUrl && (
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {previewIsImage ? (
-              <a href={previewUrl} target="_blank" rel="noreferrer">
+              <a href={previewUrl} target="_blank" rel="noreferrer" title="Open full size in a new tab">
                 <img src={previewUrl} alt="Check"
-                  style={{ maxHeight: 120, borderRadius: 8, border: "1px solid var(--border)", display: "block" }} />
+                  style={{
+                    width: "100%", maxHeight: 460, objectFit: "contain",
+                    borderRadius: 10, border: "1px solid var(--border)",
+                    background: "rgba(15,23,42,0.03)", display: "block",
+                  }} />
               </a>
             ) : (
               <a href={previewUrl} target="_blank" rel="noreferrer"
                 style={{ fontSize: 13, fontWeight: 600, color: "#0b4a7d" }}>View uploaded file</a>
             )}
-            <button type="button" onClick={removeImage} className="btn"
-              style={{ fontSize: 12, padding: "5px 12px", fontWeight: 600 }}>Remove</button>
+            <div>
+              <button type="button" onClick={removeImage} className="btn"
+                style={{ fontSize: 12, padding: "5px 12px", fontWeight: 600 }}>Remove image</button>
+            </div>
           </div>
         )}
         <div
           onClick={() => fileRef.current?.click()}
           style={{
             display: "flex", alignItems: "center", justifyContent: "center",
-            padding: "16px", cursor: "pointer",
+            padding: "16px", cursor: "pointer", textAlign: "center",
             border: "1.5px dashed var(--border)", borderRadius: 10,
             background: "rgba(15,23,42,0.015)", fontSize: 13, color: "var(--muted)",
           }}
@@ -224,7 +271,7 @@ export default function DepositForm({
             ? "Reading the check…"
             : previewUrl
               ? "Replace the check image"
-              : "⭳ Upload a photo of the check — we'll try to read the check #, amount and date"}
+              : "⭳ Upload a photo of the check (optional) — read it large below and we'll try to autofill the check #, amount and date"}
         </div>
         <input
           ref={fileRef}
