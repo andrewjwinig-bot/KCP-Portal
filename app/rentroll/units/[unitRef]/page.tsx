@@ -15,6 +15,7 @@ import {
 import { StatPill } from "../../../components/Pill";
 import SuiteInformationCard from "./SuiteInformationCard";
 import ContactsCard from "./ContactsCard";
+import DepositCard from "./DepositCard";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -368,6 +369,15 @@ export default function UnitDetailPage() {
             unitRef={unit.unitRef}
             propertyCode={propertyCode}
             occupantName={unit.occupantName || ""}
+          />
+        )}
+
+        {/* ── Security Deposit (occupied suites only) ── */}
+        {!isAmenity && !unit.isVacant && (
+          <DepositCard
+            unitRef={unit.unitRef}
+            propertyCode={propertyCode}
+            tenantCompany={unit.occupantName || ""}
           />
         )}
 

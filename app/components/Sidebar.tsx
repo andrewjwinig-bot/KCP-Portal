@@ -20,6 +20,7 @@ const NAV_ROLE_KEY: Record<string, string> = {
   "Expense Trends":     "base-years",
   "Commissions":        "commissions",
   "Retail Commissions": "commissions-retail",
+  "Security Deposits":  "deposits",
   "Task Tracker":       "tracker",
   "Filing Tracker":     "tracker",
   "Bank Acc Tracker":   "bank-rec-tracker",
@@ -217,6 +218,20 @@ const NAV = [
         <line x1="12" y1="1" x2="12" y2="23" />
         <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
         <rect x="3" y="15" width="6" height="6" rx="1" />
+      </svg>
+    ),
+  },
+  {
+    label: "Security Deposits",
+    href: "/deposits",
+    external: false,
+    indent: false,
+    showFor: null as string | null,
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="2" y="7" width="20" height="13" rx="2" />
+        <path d="M2 11h20" />
+        <path d="M6 3h12l2 4H4l2-4z" />
       </svg>
     ),
   },

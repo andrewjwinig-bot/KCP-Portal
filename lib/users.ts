@@ -63,6 +63,7 @@ export const USERS: Record<UserId, UserDef> = {
       "commissions-retail",
       "tracker",
       "allocated",
+      "deposits",
     ]),
     allowedPathPrefixes: [
       "/dashboard",
@@ -72,6 +73,7 @@ export const USERS: Record<UserId, UserDef> = {
       "/rentroll",
       "/commissions",
       "/allocated-invoicer",
+      "/deposits",
     ],
     defaultRentRollCategory: "All",
     defaultPropertyType: "all",
@@ -102,8 +104,8 @@ export const USERS: Record<UserId, UserDef> = {
   nancy: {
     id: "nancy",
     label: "NANCY",
-    navKeys: new Set([...universalNav, "leasing-activity", "base-years", "commissions", "reservations", "maintenance"]),
-    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/commissions", "/reservations", "/maintenance"],
+    navKeys: new Set([...universalNav, "leasing-activity", "base-years", "commissions", "reservations", "maintenance", "deposits"]),
+    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/commissions", "/reservations", "/maintenance", "/deposits"],
     defaultRentRollCategory: "Office",
     defaultPropertyType: "Office",
     dashboardScope: { codes: OFFICE_AND_OW_INDIVIDUAL },

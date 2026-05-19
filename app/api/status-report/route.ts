@@ -1197,6 +1197,91 @@ export async function POST(req: Request) {
       }
     }
 
+    // ── Security Deposits page ───────────────────────────────────────────────
+    try {
+      const depManifest = (await getJSON("security-deposits-manifest", "all")) as
+        { deposits?: any[] } | null;
+      const deposits = Array.isArray(depManifest?.deposits) ? depManifest!.deposits : [];
+      if (deposits.length > 0) {
+        const ACCOUNTS = [
+          { key: "ni-llc",     bank: "Liberty x7448", label: "NI LLC Security Deposits" },
+          { key: "all-but-ni", bank: "Liberty x7216", label: "Security Deposits — All but NI LLC" },
+        ];
+        const fmtMoney = (n: number) => "$" + Math.round(n).toLocaleString("en-US");
+        const fmtDate  = (iso: string) => {
+          const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || ""));
+          return m ? `${m[2]}/${m[3]}/${m[1].slice(2)}` : "—";
+        };
+        const tableX = M;
+        const tableW = PW - 2 * M;
+        const DCOLS = [
+          { h: "Tenant",  x: M,       w: 250, align: "left"  as const },
+          { h: "Unit",    x: M + 250, w: 85,  align: "left"  as const },
+          { h: "Check #", x: M + 335, w: 90,  align: "left"  as const },
+          { h: "Amount",  x: M + 425, w: 110, align: "right" as const },
+          { h: "Date",    x: M + 535, w: 95,  align: "left"  as const },
+          { h: "Image",   x: M + 630, w: 90,  align: "left"  as const },
+        ];
+
+        let { page: dPage, curY: dY } = newPage();
+        dPage.drawText("Security Deposits", { x: M, y: py(M + 18), size: 13, font: fontBold, color: C_DARK });
+        dY = M + 40;
+        const grandTotal = deposits.reduce((s, d) => s + (Number(d.amount) || 0), 0);
+        dPage.drawText(`Total held: ${fmtMoney(grandTotal)} across ${deposits.length} deposit check${deposits.length === 1 ? "" : "s"}`,
+          { x: M, y: py(dY), size: 9, font, color: C_MUTED });
+        dY += 22;
+
+        const drawCell = (text: string, col: typeof DCOLS[number], bold: boolean) => {
+          const f = bold ? fontBold : font;
+          const t = text || "—";
+          const tw = f.widthOfTextAtSize(t, 8);
+          const tx = col.align === "right" ? col.x + col.w - 6 - tw : col.x + 6;
+          dPage.drawText(t, { x: tx, y: py(dY + ROW_H - 5), size: 8, font: f, color: C_DARK });
+        };
+
+        for (const acct of ACCOUNTS) {
+          const rows = deposits
+            .filter((d) => d.account === acct.key)
+            .sort((a, b) => String(a.tenantCompany || "").localeCompare(String(b.tenantCompany || "")));
+          if (rows.length === 0) continue;
+          if (dY > PH - M - 90) ({ page: dPage, curY: dY } = newPage());
+
+          const acctTotal = rows.reduce((s, d) => s + (Number(d.amount) || 0), 0);
+          dPage.drawText(`${acct.label}  ·  ${acct.bank}`, { x: M, y: py(dY + 11), size: 9.5, font: fontBold, color: C_BRAND });
+          const atW = fontBold.widthOfTextAtSize(fmtMoney(acctTotal), 9.5);
+          dPage.drawText(fmtMoney(acctTotal), { x: PW - M - atW, y: py(dY + 11), size: 9.5, font: fontBold, color: C_DARK });
+          dY += 20;
+
+          dPage.drawRectangle({ x: tableX, y: py(dY + HEAD_H), width: tableW, height: HEAD_H, color: C_HBKG });
+          for (const col of DCOLS) {
+            const tw = font.widthOfTextAtSize(col.h, 7.5);
+            const tx = col.align === "right" ? col.x + col.w - 6 - tw : col.x + 6;
+            dPage.drawText(col.h, { x: tx, y: py(dY + HEAD_H - 7), size: 7.5, font: fontBold, color: C_DARK });
+          }
+          dY += HEAD_H;
+
+          let alt = false;
+          for (const d of rows) {
+            if (dY > PH - M - ROW_H) {
+              ({ page: dPage, curY: dY } = newPage());
+            }
+            if (alt) {
+              dPage.drawRectangle({ x: tableX, y: py(dY + ROW_H), width: tableW, height: ROW_H, color: C_ALT });
+            }
+            drawCell(String(d.tenantCompany || ""), DCOLS[0], true);
+            drawCell(String(d.unitRef || ""), DCOLS[1], false);
+            drawCell(String(d.checkNumber || ""), DCOLS[2], false);
+            drawCell(d.amount ? fmtMoney(Number(d.amount)) : "—", DCOLS[3], false);
+            drawCell(fmtDate(d.checkDate), DCOLS[4], false);
+            drawCell(d.checkImage ? "On file" : "—", DCOLS[5], false);
+            dY += ROW_H;
+            alt = !alt;
+          }
+          dY += 18;
+        }
+      }
+    } catch { /* ignore — deposits section is best-effort */ }
+
     const pdfBytes  = await pdfDoc.save();
     const safeName  = reportTitle.replace(/[^a-z0-9\-_. ]/gi, "_");
 
