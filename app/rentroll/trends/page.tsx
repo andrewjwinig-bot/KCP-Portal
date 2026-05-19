@@ -181,7 +181,7 @@ export default function TrendsPage() {
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
       <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-          <h1 style={{ margin: 0 }}>Rent Roll Trend</h1>
+          <h1 style={{ margin: 0 }}>Rent Roll Trend <span style={{ color: "#dc2626" }}>&ndash; DRAFT</span></h1>
           <Link href="/rentroll" style={{ fontSize: 13, color: "#0b4a7d", textDecoration: "none" }}>← Rent roll</Link>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>

@@ -474,7 +474,7 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
               {open && (
                 <span>
                   {item.label}
-                  {item.href === "/debt" && (
+                  {(item.href === "/debt" || item.href === "/rentroll/trends") && (
                     <span style={{
                       color: "#f87171",
                       fontWeight: 800,
