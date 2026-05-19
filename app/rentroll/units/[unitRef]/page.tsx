@@ -23,6 +23,7 @@ import {
   type PillTone,
 } from "../../../components/Pill";
 import SuiteInformationCard from "./SuiteInformationCard";
+import ContactsCard from "./ContactsCard";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -424,6 +425,15 @@ export default function UnitDetailPage() {
               <InfoField label="Current Base Year" value={baseYearVal != null ? String(baseYearVal) : "—"} />
             )}
           </div>
+        )}
+
+        {/* ── Contacts (occupied suites only) ── */}
+        {!isAmenity && !unit.isVacant && (
+          <ContactsCard
+            unitRef={unit.unitRef}
+            propertyCode={propertyCode}
+            occupantName={unit.occupantName || ""}
+          />
         )}
 
         {/* ── Suite Information + Floorplan ── */}
