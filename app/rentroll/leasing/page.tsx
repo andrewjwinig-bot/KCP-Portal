@@ -391,16 +391,21 @@ function ResetImpactPanel({
   const ret = cam != null && total != null ? total - cam : null;
   const fmt = (n: number | null) =>
     n != null ? "$" + Math.round(n).toLocaleString("en-US") : "—";
+  const fmtPsf = (n: number | null) =>
+    n != null && option.sqft > 0
+      ? "$" + (n / option.sqft).toFixed(2) + "/sf"
+      : "—";
 
   return (
     <div style={{ marginTop: 16 }}>
       <span style={fieldLabel}>Reset impact — annual income forgone</span>
       <div className="pills" style={{ marginTop: 6 }}>
-        <StatPill label="CAM loss" value={fmt(cam)} sub={`vs ${latest} expenses`} />
-        <StatPill label="RET loss" value={fmt(ret)} sub={`vs ${latest} expenses`} />
+        <StatPill label="CAM loss" value={fmt(cam)} sub={fmtPsf(cam)} />
+        <StatPill label="RET loss" value={fmt(ret)} sub={fmtPsf(ret)} />
         <StatPill
           label="Total loss"
           value={fmt(total)}
+          sub={fmtPsf(total)}
           accent={total ? "#b91c1c" : undefined}
         />
       </div>
