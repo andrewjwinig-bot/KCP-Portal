@@ -13,6 +13,7 @@ import { checkedKey, currentPeriod } from "../../lib/stacie-tasks";
 import { fireNotification } from "../../lib/notifications";
 import ExpirationChart from "./ExpirationChart";
 import DrewSavedStatus from "./DrewSavedStatus";
+import DrewTasksThisWeek from "./DrewTasksThisWeek";
 import MaintenanceOverview from "./MaintenanceOverview";
 import PendingReservationsCard from "./PendingReservationsCard";
 import PortfolioOccupancyPanel from "./PortfolioOccupancyPanel";
@@ -842,7 +843,8 @@ function DashboardInner() {
         </div>
         )}
 
-        {/* ── Drew: payroll & CC expense saved-status ─────────────────── */}
+        {/* ── Drew: tasks this week + payroll & CC expense saved-status ── */}
+        {user.id === "drew" && <DrewTasksThisWeek />}
         {user.id === "drew" && <DrewSavedStatus />}
 
         {/* ── Monthly bank progress donuts (Stacie + admin; Drew at a glance) ── */}
