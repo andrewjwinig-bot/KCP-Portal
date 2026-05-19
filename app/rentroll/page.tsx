@@ -872,6 +872,7 @@ function OccupancyChart({ rentroll, categoryFilter }: { rentroll: RentRollData; 
   }, [rentroll, categoryFilter, metric]);
 
   const chartMax = Math.max(1, ...bars.map((b) => b.total));
+  const chartTotal = bars.reduce((s, b) => s + b.total, 0);
   const chartHeight = 200;
   const isMoney = metric !== "occupancy";
   // Occupancy is shown as a percentage: every bar is full height and the
@@ -934,7 +935,9 @@ function OccupancyChart({ rentroll, categoryFilter }: { rentroll: RentRollData; 
               const occSeg = bar.segments.find((s) => s.key === "occ");
               const topLabel = normalized
                 ? `${(((occSeg?.value ?? 0) / bar.total) * 100).toFixed(1)}%`
-                : fmt(bar.total);
+                : isMoney && chartTotal > 0
+                  ? `${fmt(bar.total)} (${Math.round((bar.total / chartTotal) * 100)}%)`
+                  : fmt(bar.total);
               return (
                 <div key={bar.key}
                   style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end", height: chartHeight, position: "relative" }}>

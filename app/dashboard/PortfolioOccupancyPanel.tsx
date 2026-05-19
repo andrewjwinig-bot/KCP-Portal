@@ -10,9 +10,11 @@ import Link from "next/link";
 import type { RentRollData } from "../../lib/rentroll/parseRentRollExcel";
 import { PROPERTY_DEFS } from "../../lib/properties/data";
 
-export type OccupancyScope = "category" | "office" | "retail" | "residential";
+export type OccupancyScope = "category" | "office" | "jv3" | "ni" | "retail" | "residential";
 
 const OFFICE_CODES = new Set(["3610", "3620", "3640", "4050", "4060", "4070", "4080", "40A0", "40B0", "40C0"]);
+const JV_III_CODES = new Set(["3610", "3620", "3640"]);
+const NI_LLC_CODES = new Set(["4050", "4060", "4070", "4080", "40A0", "40B0", "40C0"]);
 const RETAIL_CODES = new Set(["1100", "1500", "2300", "4500", "5600", "7010", "7200", "7300", "8200", "9200", "9510"]);
 const RESIDENTIAL_CODES = new Set(["9800", "9820", "9840", "9860"]);
 const OW_CODES = new Set(["4900"]);
@@ -20,6 +22,8 @@ const OW_CODES = new Set(["4900"]);
 const SCOPE_LABEL: Record<OccupancyScope, string> = {
   category: "All",
   office: "Office",
+  jv3: "JV III",
+  ni: "NI LLC",
   retail: "Retail",
   residential: "Residential",
 };
@@ -72,7 +76,12 @@ export default function PortfolioOccupancyPanel({
       ].filter((b) => b.total > 0);
     }
 
-    const codes = scope === "office" ? OFFICE_CODES : scope === "retail" ? RETAIL_CODES : RESIDENTIAL_CODES;
+    const codes =
+      scope === "office" ? OFFICE_CODES
+      : scope === "jv3" ? JV_III_CODES
+      : scope === "ni" ? NI_LLC_CODES
+      : scope === "retail" ? RETAIL_CODES
+      : RESIDENTIAL_CODES;
     return rentroll.properties
       .filter((p) => codes.has(p.propertyCode.toUpperCase()) && p.totalSqft > 0)
       .map((p) => ({
