@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   LOAN_GROUPS,
   buildSchedule,
@@ -12,7 +12,6 @@ import {
 } from "@/lib/debt/amortization";
 import { Calendar } from "@/app/components/Calendar";
 import {
-  Badge,
   Pill,
   StatPill,
   debtStatusTone,
@@ -57,14 +56,11 @@ const SECTION_LABEL: React.CSSProperties = {
   color: "var(--muted)",
 };
 
-type Tab = "All" | LoanGroup;
-
 export default function DebtPage() {
   const [loans, setLoans] = useState<Loan[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [tab, setTab] = useState<Tab>("All");
   const [scheduleId, setScheduleId] = useState<string | null>(null);
   const [editLoan, setEditLoan] = useState<Loan | null>(null);
 
@@ -129,10 +125,14 @@ export default function DebtPage() {
     setScheduleId(null);
   }, [loans, persist]);
 
-  const visible = useMemo(() => {
+  // Loans grouped for the section-header layout. Empty groups are dropped.
+  const grouped = useMemo(() => {
     const all = loans ?? [];
-    return tab === "All" ? all : all.filter((l) => l.group === tab);
-  }, [loans, tab]);
+    return LOAN_GROUPS
+      .map((group) => ({ group, rows: all.filter((l) => l.group === group) }))
+      .filter((g) => g.rows.length > 0);
+  }, [loans]);
+  const totalVisible = grouped.reduce((s, g) => s + g.rows.length, 0);
 
   const portfolio = useMemo(() => {
     const all = loans ?? [];
@@ -197,39 +197,12 @@ export default function DebtPage() {
         </div>
       </div>
 
-      {/* Tabs */}
-      <div style={{ display: "flex", gap: 8, marginTop: 20, flexWrap: "wrap" }}>
-        {(["All", ...LOAN_GROUPS] as Tab[]).map((t) => {
-          const n = t === "All"
-            ? (loans ?? []).length
-            : (loans ?? []).filter((l) => l.group === t).length;
-          const active = tab === t;
-          return (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              className="btn"
-              style={{
-                padding: "8px 14px",
-                fontSize: 14,
-                background: active ? "var(--brand)" : undefined,
-                color: active ? "#fff" : undefined,
-                borderColor: active ? "var(--brand)" : undefined,
-              }}
-            >
-              {t}
-              <Badge muted={!active}>{n}</Badge>
-            </button>
-          );
-        })}
-      </div>
-
       {/* Loan table */}
       <div className="card" style={{ marginTop: 14 }}>
         {loading ? (
           <p className="muted">Loading loans…</p>
-        ) : visible.length === 0 ? (
-          <p className="muted">No loans in this view.</p>
+        ) : totalVisible === 0 ? (
+          <p className="muted">No loans yet.</p>
         ) : (
           <div className="tableWrap">
             <table>
@@ -248,50 +221,80 @@ export default function DebtPage() {
                 </tr>
               </thead>
               <tbody>
-                {visible.map((l) => {
-                  const s = summarizeLoan(l, today);
-                  return (
-                    <tr key={l.id}>
-                      <td>
-                        <button
-                          className="linkBtn"
-                          onClick={() => setScheduleId(l.id)}
-                          style={{ textAlign: "left" }}
-                        >
-                          <div style={{ fontWeight: 800 }}>{l.partnership}</div>
-                          <div className="small muted">
-                            {l.property ? `#${l.property} · ` : ""}{l.collateral}
-                          </div>
-                        </button>
-                      </td>
-                      <td className="small">{l.lender}</td>
-                      <td style={{ textAlign: "right" }}>{pct(l.annualRatePct)}</td>
-                      <td style={{ textAlign: "right" }}>{money(l.originalBalance)}</td>
-                      <td style={{ textAlign: "right", fontWeight: 800 }}>{money(s.projectedBalance)}</td>
-                      <td style={{ textAlign: "right" }}>{money2(s.monthlyDebtService)}</td>
-                      <td className="small">{monthYearShort(l.maturityDate)}</td>
-                      <td><Pill tone={debtStatusTone(s.status)}>{s.status}</Pill></td>
-                      <td style={{ textAlign: "center" }}>
-                        <Toggle on={l.interestOnly} onClick={() => toggleIO(l.id)} disabled={saving} />
-                      </td>
-                      <td style={{ textAlign: "right" }}>
-                        <button
-                          className="btn"
-                          onClick={() => setEditLoan(l)}
-                          style={{ padding: "5px 12px", fontSize: 13 }}
-                        >
-                          Edit
-                        </button>
+                {grouped.map(({ group, rows }, gi) => (
+                  <Fragment key={group}>
+                    <tr>
+                      <td colSpan={10} style={{
+                        paddingTop: gi === 0 ? 4 : 18, paddingBottom: 6,
+                        background: "transparent", borderBottom: "none",
+                      }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                          <span style={{
+                            fontSize: 13, fontWeight: 800, letterSpacing: "0.06em",
+                            textTransform: "uppercase",
+                            color: groupTone(group).fg,
+                            background: groupTone(group).bg,
+                            border: `1px solid ${groupTone(group).border}`,
+                            padding: "4px 12px", borderRadius: 999,
+                          }}>{group}</span>
+                          <span style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600 }}>{rows.length}</span>
+                          <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
+                        </div>
                       </td>
                     </tr>
-                  );
-                })}
+                    {rows.map((l) => {
+                      const s = summarizeLoan(l, today);
+                      return (
+                        <tr key={l.id}>
+                          <td>
+                            <button
+                              className="linkBtn"
+                              onClick={() => setScheduleId(l.id)}
+                              style={{ textAlign: "left" }}
+                            >
+                              <div style={{ fontWeight: 800 }}>{l.partnership}</div>
+                              <div className="small muted">
+                                {l.property ? `#${l.property} · ` : ""}{l.collateral}
+                              </div>
+                            </button>
+                          </td>
+                          <td className="small">{l.lender}</td>
+                          <td style={{ textAlign: "right" }}>{pct(l.annualRatePct)}</td>
+                          <td style={{ textAlign: "right" }}>{money(l.originalBalance)}</td>
+                          <td style={{ textAlign: "right", fontWeight: 800 }}>{money(s.projectedBalance)}</td>
+                          <td style={{ textAlign: "right" }}>{money(s.monthlyDebtService)}</td>
+                          <td className="small">{monthYearShort(l.maturityDate)}</td>
+                          <td><Pill tone={debtStatusTone(s.status)}>{s.status}</Pill></td>
+                          <td style={{ textAlign: "center" }}>
+                            <input
+                              type="checkbox"
+                              checked={l.interestOnly}
+                              onChange={() => toggleIO(l.id)}
+                              disabled={saving}
+                              aria-label="Interest only"
+                              style={{ cursor: saving ? "default" : "pointer", width: 16, height: 16 }}
+                            />
+                          </td>
+                          <td style={{ textAlign: "right" }}>
+                            <button
+                              className="btn"
+                              onClick={() => setEditLoan(l)}
+                              style={{ padding: "5px 12px", fontSize: 13 }}
+                            >
+                              Edit
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </Fragment>
+                ))}
               </tbody>
             </table>
           </div>
         )}
         <p className="small muted" style={{ marginTop: 12 }}>
-          Click a partnership to open its live amortization schedule. Toggle
+          Click a partnership to open its live amortization schedule. Check
           Interest-Only for loans currently paying interest only (e.g. JV III,
           NI&nbsp;LLC) — the schedule and debt service recompute instantly.
         </p>
@@ -313,42 +316,11 @@ export default function DebtPage() {
   );
 }
 
-// ── interest-only toggle ─────────────────────────────────────────────────────
-
-function Toggle({ on, onClick, disabled }: { on: boolean; onClick: () => void; disabled?: boolean }) {
-  return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      aria-pressed={on}
-      title={on ? "Interest-only — click to switch to amortizing" : "Amortizing — click to switch to interest-only"}
-      style={{
-        width: 42,
-        height: 24,
-        borderRadius: 999,
-        border: "1px solid " + (on ? "rgba(217,119,6,0.45)" : "var(--border)"),
-        background: on ? TONE_AMBER.bg : "rgba(15,23,42,0.08)",
-        position: "relative",
-        cursor: disabled ? "default" : "pointer",
-        padding: 0,
-        transition: "background 0.15s",
-        opacity: disabled ? 0.6 : 1,
-      }}
-    >
-      <span
-        style={{
-          position: "absolute",
-          top: 2,
-          left: on ? 20 : 2,
-          width: 18,
-          height: 18,
-          borderRadius: 999,
-          background: on ? "#b45309" : "#94a3b8",
-          transition: "left 0.15s",
-        }}
-      />
-    </button>
-  );
+// Loan-group section header tones (mirrors the property page's category pills).
+function groupTone(group: LoanGroup): { bg: string; fg: string; border: string } {
+  return group === "Business Parks"
+    ? { bg: "rgba(11,74,125,0.10)",  fg: "#0b4a7d", border: "rgba(11,74,125,0.35)" }
+    : { bg: "rgba(13,148,136,0.10)", fg: "#0d9488", border: "rgba(13,148,136,0.35)" };
 }
 
 // ── amortization schedule modal ──────────────────────────────────────────────
@@ -566,8 +538,13 @@ function LoanForm({
           </label>
         </div>
 
-        <label style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 14 }}>
-          <Toggle on={draft.interestOnly} onClick={() => set("interestOnly", !draft.interestOnly)} />
+        <label style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 14, cursor: "pointer" }}>
+          <input
+            type="checkbox"
+            checked={draft.interestOnly}
+            onChange={(e) => set("interestOnly", e.target.checked)}
+            style={{ width: 16, height: 16, cursor: "pointer" }}
+          />
           <span style={{ fontWeight: 700, fontSize: 14 }}>
             Interest-only — pay monthly interest, no principal reduction
           </span>
