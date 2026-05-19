@@ -568,8 +568,9 @@ function DashboardInner() {
           </div>
         )}
 
-        {/* ── Action Items / Data Freshness — full-width strip across the top ── */}
-        {!isAlison && (
+        {/* ── Action Items / Data Freshness — full-width strip across the top.
+             Drew uses the Tasks This Week card instead. ── */}
+        {!isAlison && !isDrew && (
         <div className="card" style={{ gridColumn: "1 / -1", order: -5 }}>
           <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 8 }}>Action Items</div>
           {loading ? (
