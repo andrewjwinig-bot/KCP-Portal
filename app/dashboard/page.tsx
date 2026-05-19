@@ -12,6 +12,7 @@ import { bankRecKey, nextBankRecDeadline, nextStatementsDeadline, bankRecPeriodL
 import { checkedKey, currentPeriod } from "../../lib/stacie-tasks";
 import { fireNotification } from "../../lib/notifications";
 import ExpirationChart from "./ExpirationChart";
+import DrewSavedStatus from "./DrewSavedStatus";
 import MaintenanceOverview from "./MaintenanceOverview";
 import PendingReservationsCard from "./PendingReservationsCard";
 import PortfolioOccupancyPanel from "./PortfolioOccupancyPanel";
@@ -100,13 +101,15 @@ function DashboardInner() {
   const [bankStmtChecked, setBankStmtChecked] = useState<Record<string, boolean>>({});
   const [stacieChecked, setStacieChecked] = useState<Record<string, boolean>>({});
 
-  // Stacie & admin: load bank account tracker state for the dashboard action item.
+  // Stacie & admin: bank-rec action items. Drew also sees the progress
+  // donuts (status at a glance) but not the action items themselves.
   const showBankRec = user.id === "stacie" || user.navKeys.has("all");
+  const showBankDonuts = showBankRec || user.id === "drew";
   useEffect(() => {
-    if (!showBankRec) return;
+    if (!showBankDonuts) return;
     fetch("/api/bank-rec").then((r) => r.json()).then((j) => setBankRecChecked(j.checked ?? {})).catch(() => {});
     fetch("/api/bank-rec/statements").then((r) => r.json()).then((j) => setBankStmtChecked(j.statements ?? {})).catch(() => {});
-  }, [showBankRec]);
+  }, [showBankDonuts]);
 
   // Stacie: weekly task state — drives the ACH/wires action-item reminder.
   useEffect(() => {
@@ -839,16 +842,21 @@ function DashboardInner() {
         </div>
         )}
 
-        {/* ── Monthly bank progress donuts (Stacie + admin) ─────────────── */}
-        {showBankRec && (
+        {/* ── Drew: payroll & CC expense saved-status ─────────────────── */}
+        {user.id === "drew" && <DrewSavedStatus />}
+
+        {/* ── Monthly bank progress donuts (Stacie + admin; Drew at a glance) ── */}
+        {showBankDonuts && (
           <div className="card" style={{ order: isStacie ? -1 : 0 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
               <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
                 Monthly Progress · {bankRecPeriodLabel(bankRec.period)}
               </div>
-              <Link href="/bank-rec" style={{ fontSize: 12, fontWeight: 600, color: "#0b4a7d", textDecoration: "none" }}>
-                Open →
-              </Link>
+              {showBankRec && (
+                <Link href="/bank-rec" style={{ fontSize: 12, fontWeight: 600, color: "#0b4a7d", textDecoration: "none" }}>
+                  Open →
+                </Link>
+              )}
             </div>
             <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
               <Donut
