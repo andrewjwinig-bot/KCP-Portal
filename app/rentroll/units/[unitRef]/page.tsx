@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import type { RentRollData, RentRollUnit } from "../../../../lib/rentroll/parseRentRollExcel";
+import type { RentRollData } from "../../../../lib/rentroll/parseRentRollExcel";
 import { amenityFor } from "../../../../lib/rentroll/amenities";
 import { PROPERTY_DEFS } from "../../../../lib/properties/data";
 import {
@@ -12,15 +12,7 @@ import {
   InfoField,
   formatModalDate,
 } from "../../../properties/PropertyDetail";
-import {
-  Pill,
-  StatPill,
-  TONE_NEUTRAL,
-  TONE_AMBER,
-  TONE_GREEN,
-  TONE_RED,
-  type PillTone,
-} from "../../../components/Pill";
+import { StatPill } from "../../../components/Pill";
 import SuiteInformationCard from "./SuiteInformationCard";
 import ContactsCard from "./ContactsCard";
 
@@ -82,26 +74,6 @@ type MaintRequest = {
   propertyCode: string | null;
   propertyName: string;
 };
-
-// In-house teal — reused from rent roll for amenity / common-area suites.
-const TONE_TEAL: PillTone = {
-  bg: "rgba(13,148,136,0.10)",
-  fg: "#0d9488",
-  border: "rgba(13,148,136,0.35)",
-};
-
-// Status pill — returns label + tone tuple matching Pill semantics.
-function statusPillFor(unit: RentRollUnit, isAmenity: boolean): { label: string; tone: PillTone } {
-  if (isAmenity) return { label: "In-House", tone: TONE_TEAL };
-  if (unit.isVacant) return { label: "Vacant", tone: TONE_NEUTRAL };
-  const d = parseRentDate(unit.leaseTo);
-  if (d) {
-    const days = daysUntil(d);
-    if (days < 0) return { label: "Expired", tone: TONE_RED };
-    if (days <= 90) return { label: "Expiring Soon", tone: TONE_AMBER };
-  }
-  return { label: "Active", tone: TONE_GREEN };
-}
 
 // ─── Page ───────────────────────────────────────────────────────────────────
 
@@ -212,7 +184,6 @@ export default function UnitDetailPage() {
       ? "Vacant"
       : (unit.occupantName || "Vacant");
 
-  const status = statusPillFor(unit, isAmenity);
   const propertyName = propName(propertyCode);
 
   const leaseToDate = parseRentDate(unit.leaseTo);
@@ -280,7 +251,14 @@ export default function UnitDetailPage() {
             padding: "2px 8px", borderRadius: 5,
             fontSize: 11, fontWeight: 600, letterSpacing: "0.06em",
           }}>{unit.unitRef}</code>
-          <Pill tone={status.tone}>{status.label}</Pill>
+          <Link
+            href={`/properties/${encodeURIComponent(propertyCode)}`}
+            style={{ fontSize: 13, fontWeight: 600, color: "#0b4a7d", textDecoration: "none" }}
+            onMouseEnter={(e) => (e.currentTarget.style.textDecoration = "underline")}
+            onMouseLeave={(e) => (e.currentTarget.style.textDecoration = "none")}
+          >
+            {propertyName} <span style={{ color: "var(--muted)", fontWeight: 500 }}>({propertyCode})</span>
+          </Link>
         </div>
       </header>
 
@@ -317,15 +295,6 @@ export default function UnitDetailPage() {
         <div className="card">
           <SectionLabel>Lease Information</SectionLabel>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "14px 32px" }}>
-            <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
-              <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>Property</span>
-              <Link
-                href={`/properties/${encodeURIComponent(propertyCode)}`}
-                style={{ fontSize: 16, fontWeight: 700, color: "#0b4a7d", lineHeight: 1.4, textDecoration: "none" }}
-                onMouseEnter={(e) => (e.currentTarget.style.textDecoration = "underline")}
-                onMouseLeave={(e) => (e.currentTarget.style.textDecoration = "none")}
-              >{propertyName} <span style={{ color: "var(--muted)", fontWeight: 500 }}>({propertyCode})</span></Link>
-            </div>
             <InfoField label="Lease From" value={formatModalDate(unit.leaseFrom)} />
             <InfoField label="Lease To" value={formatModalDate(unit.leaseTo)} />
           </div>
