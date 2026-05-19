@@ -731,6 +731,7 @@ async function buildCommissionMemoPdf(opts: {
     ["TO", "Payroll"],
     ["FROM", "Alison Korman"],
     ["DATE", periodEndStr],
+    ["PERIOD", `Q${Math.floor(periodEnd.getMonth() / 3) + 1} ${periodEnd.getFullYear()}`],
     ["SUBJECT", "Incentive Compensation — Nancy L. Fox"],
   ];
   const memoH = memoRows.length * 16 + 12;
@@ -744,10 +745,8 @@ async function buildCommissionMemoPdf(opts: {
   y -= memoH + 14;
 
   // ── Intro ──
-  txt(`Please pay Nancy L. Fox $${money(subtotal)} in incentive compensation for the`, margin, y, { size: 10.5 });
-  y -= 15;
-  txt(`quarter ended ${periodEndStr} for the following leases:`, margin, y, { size: 10.5 });
-  y -= 28;
+  txt(`Please pay Nancy L. Fox $${money(subtotal)} in incentive compensation for the following leases:`, margin, y, { size: 10.5 });
+  y -= 26;
 
   // ── Table ──
   const cols = [
