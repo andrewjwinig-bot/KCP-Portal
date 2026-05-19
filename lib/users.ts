@@ -104,6 +104,11 @@ export const USERS: Record<UserId, UserDef> = {
   },
 };
 
+/** Only admin and alison may switch between user profiles after signing in. */
+export function canSwitchUsers(userId: UserId): boolean {
+  return userId === "admin" || userId === "alison";
+}
+
 export function isPathAllowed(userId: UserId, pathname: string): boolean {
   const u = USERS[userId];
   if (u.allowedPathPrefixes.includes("*")) return true;

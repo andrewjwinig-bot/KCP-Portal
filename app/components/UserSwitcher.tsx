@@ -13,9 +13,6 @@ const AVATAR_COLOR: Record<UserId, string> = {
   alison: "#0d9488",
 };
 
-// Personas that require the admin auth cookie before they can be selected.
-const ELEVATED_PERSONAS: ReadonlySet<UserId> = new Set(["admin"]);
-
 function Avatar({ id, size = 24 }: { id: UserId; size?: number }) {
   return (
     <div
@@ -35,26 +32,28 @@ function Avatar({ id, size = 24 }: { id: UserId; size?: number }) {
   );
 }
 
+/** Static user badge — shown to users who can't switch profiles. */
+function UserBadge({ id, collapsed }: { id: UserId; collapsed: boolean }) {
+  if (collapsed) return <Avatar id={id} size={32} />;
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0, padding: "6px 10px 6px 6px" }}>
+      <Avatar id={id} size={26} />
+      <div style={{ flex: 1, minWidth: 0, lineHeight: 1.1 }}>
+        <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: "0.1em", color: "rgba(255,255,255,0.6)", textTransform: "uppercase" }}>
+          User
+        </div>
+        <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: "0.02em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {USERS[id].label}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function UserSwitcher({ collapsed }: { collapsed: boolean }) {
-  const { user, setUserId, authed } = useUser();
+  const { user, setUserId, canSwitch } = useUser();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement | null>(null);
-
-  function pickUser(id: UserId) {
-    if (ELEVATED_PERSONAS.has(id) && !authed) {
-      // Send them to the login flow; on success the login page will set this persona.
-      const next = typeof window !== "undefined" ? window.location.pathname + window.location.search : "/dashboard";
-      window.location.href = `/history/login?next=${encodeURIComponent(next)}&persona=${id}`;
-      return;
-    }
-    setUserId(id);
-    setOpen(false);
-    // If they were sitting on the admin login page and bailed out by picking
-    // a non-admin persona, get them off it.
-    if (typeof window !== "undefined" && window.location.pathname === "/history/login") {
-      window.location.href = "/dashboard";
-    }
-  }
 
   useEffect(() => {
     if (!open) return;
@@ -72,8 +71,14 @@ export default function UserSwitcher({ collapsed }: { collapsed: boolean }) {
     };
   }, [open]);
 
-  if (collapsed) {
-    return <Avatar id={user.id} size={32} />;
+  // Users other than admin / alison are pinned to their own profile.
+  if (!canSwitch) return <UserBadge id={user.id} collapsed={collapsed} />;
+
+  if (collapsed) return <Avatar id={user.id} size={32} />;
+
+  function pickUser(id: UserId) {
+    setUserId(id);
+    setOpen(false);
   }
 
   return (

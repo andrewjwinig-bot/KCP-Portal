@@ -1,21 +1,47 @@
 "use client";
 
-import { Suspense, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { ALL_USERS, USERS } from "../../lib/users";
+
+const LAST_USER_KEY = "kcp:loginUser";
+
+const labelStyle: React.CSSProperties = {
+  fontSize: 11, fontWeight: 700, color: "var(--muted)",
+  letterSpacing: "0.06em", textTransform: "uppercase",
+};
+const fieldStyle: React.CSSProperties = {
+  padding: "10px 12px",
+  border: "1px solid var(--border)", borderRadius: 8,
+  background: "var(--card)", color: "var(--text)",
+  fontFamily: "inherit", fontSize: 14, outline: "none",
+};
 
 function LoginFormInner() {
   const params = useSearchParams();
   const nextPath = params.get("next") || "/dashboard";
 
   const inputRef = useRef<HTMLInputElement>(null);
+  const [user, setUser] = useState("");
+  const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Prefill with whoever signed in last on this browser.
+  useEffect(() => {
+    try {
+      const last = localStorage.getItem(LAST_USER_KEY);
+      if (last && (ALL_USERS as readonly string[]).includes(last)) setUser(last);
+    } catch { /* ignore */ }
+  }, []);
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (busy) return;
-    const fd = new FormData(e.currentTarget);
-    const password = String(fd.get("password") ?? "");
+    if (!user) {
+      setError("Select your name.");
+      return;
+    }
     if (!password) {
       inputRef.current?.focus();
       return;
@@ -26,18 +52,24 @@ function LoginFormInner() {
       const res = await fetch("/api/site/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password }),
+        body: JSON.stringify({ user, password }),
       });
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
         throw new Error(j?.error ?? "Login failed");
       }
+      try {
+        localStorage.setItem(LAST_USER_KEY, user);
+        localStorage.setItem("kcp:activeUser", user);
+      } catch { /* ignore */ }
       window.location.assign(nextPath);
     } catch (e: any) {
       setError(e?.message ?? "Login failed");
       setBusy(false);
     }
   }
+
+  const isAdmin = user === "admin";
 
   return (
     <main style={{
@@ -62,24 +94,39 @@ function LoginFormInner() {
           </div>
         </div>
         <p className="muted small" style={{ margin: 0 }}>
-          Sign in to access the portal.
+          Select your name and enter the portal password to sign in.
         </p>
 
         <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          <span style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", letterSpacing: "0.06em", textTransform: "uppercase" }}>Password</span>
+          <span style={labelStyle}>User</span>
+          <select
+            name="user"
+            value={user}
+            onChange={(e) => setUser(e.target.value)}
+            disabled={busy}
+            autoFocus
+            style={fieldStyle}
+          >
+            <option value="">Select your name…</option>
+            {[...ALL_USERS]
+              .sort((a, b) => USERS[a].label.localeCompare(USERS[b].label))
+              .map((id) => (
+                <option key={id} value={id}>{USERS[id].label}</option>
+              ))}
+          </select>
+        </label>
+
+        <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <span style={labelStyle}>{isAdmin ? "Admin password" : "Password"}</span>
           <input
             ref={inputRef}
             type="password"
             name="password"
             autoComplete="current-password"
-            autoFocus
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
             disabled={busy}
-            style={{
-              padding: "10px 12px",
-              border: "1px solid var(--border)", borderRadius: 8,
-              background: "var(--card)", color: "var(--text)",
-              fontFamily: "inherit", fontSize: 14, outline: "none",
-            }}
+            style={fieldStyle}
           />
         </label>
 
