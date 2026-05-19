@@ -223,15 +223,40 @@ export function emptyLoan(): Loan {
 }
 
 /**
- * Seed loans from the Korman "Schedule of Debt Outstanding" (updated
- * 9/24/25). Balances are the principal as of 1/1/2026 from that schedule;
- * the engine projects forward from there. JV III and NI LLC are flagged
- * interest-only per the current loan posture.
+ * Korman loan book. Each loan is a named, code-managed constant: storage
+ * reconciles the live loans to these definitions on every load, so loan
+ * data is kept current here from the monthly Liberty mortgage statements.
+ * All five are anchored to their 4/2026 statements (first projected
+ * payment 5/1/2026).
  */
+
+// JV III (property 3600) — Liberty Bank. Interest-only.
+export const JV_III_3600_LOAN: Loan = {
+  id: "loan_jv3",
+  property: "3600",
+  partnership: "Lincoln Joint Venture III",
+  collateral: "O.B. #1,2,4",
+  lender: "Liberty Bank",
+  group: "Business Parks",
+  originalBalance: 7100000,
+  annualRatePct: 4.5,
+  amortYears: 25,
+  scheduledPayment: 39464.11,
+  maturityDate: "2024-04-01",
+  anchorBalance: 6139294.10,
+  anchorDate: "2026-04-01",
+  interestOnly: true,
+  notes:
+    "Refinanced 7/11/2019 at $7,100,000 on a 25-yr amortization; 5-yr term " +
+    "with a 5-yr extension option. Currently interest-only. Per the " +
+    "4/18/2026 Liberty statement: principal balance $6,139,294.10, escrow " +
+    "balance $115,895.31, rate 4.500%, YTD interest $92,089.42, prior-year " +
+    "interest $263,945.77. Payments auto-debit from account x5631.",
+};
+
 /**
- * NI LLC (property 4000) — Liberty Bank. Kept as a named constant because
- * it carries a pending loan amendment the edit UI can't express; storage
- * reconciles the live loan to this definition on every load.
+ * NI LLC (property 4000) — Liberty Bank. Carries a pending loan amendment
+ * the edit UI can't express.
  *
  * Anchored to the 4/18/2026 Liberty statement: principal balance
  * $22,789,590.83, escrow balance $324,622.90, rate 4.900%. Pending
@@ -270,78 +295,86 @@ export const NI_LLC_4000_LOAN: Loan = {
     "from account x2190.",
 };
 
-export const SEED_LOANS: Loan[] = [
-  {
-    id: "loan_jv3",
-    property: "3600",
-    partnership: "Lincoln Joint Venture III",
-    collateral: "O.B. #1,2,4",
-    lender: "Liberty Bank",
-    group: "Business Parks",
-    originalBalance: 7100000,
-    annualRatePct: 4.5,
-    amortYears: 25,
-    scheduledPayment: 39464.11,
-    maturityDate: "2024-04-01",
-    anchorBalance: 6124134,
-    anchorDate: "2026-01-01",
-    interestOnly: true,
-    notes:
-      "Refinanced 7/11/2019 at $7,100,000. 5-yr term, P&I on a 25-yr amortization, option to extend an additional 5 yrs (notice 120-60 days prior to maturity). 1-month disconnect between interest and principal on Liberty statements.",
-  },
+// Brookwood (property 2300) — Liberty Bank. Amortizing.
+export const BROOKWOOD_2300_LOAN: Loan = {
+  id: "loan_brookwood",
+  property: "2300",
+  partnership: "Brookwood Joint Venture",
+  collateral: "Shopping Center",
+  lender: "Liberty Bank",
+  group: "Shopping Centers",
+  originalBalance: 5000000,
+  annualRatePct: 3.5,
+  amortYears: 25,
+  scheduledPayment: 25031.18,
+  maturityDate: "2027-09-01",
+  anchorBalance: 4228154.76,
+  anchorDate: "2026-04-01",
+  interestOnly: false,
+  notes:
+    "Refinanced 8/14/2020 at $5,000,000 @ 3.5% on a 25-yr amortization. " +
+    "Prepayment with 30 days notice: 5/4/3/2/1% yrs 1-5. Per the latest " +
+    "Liberty statement: principal balance $4,228,154.76, escrow balance " +
+    "$86,228.40, rate 3.500%, YTD interest $49,696.71, prior-year interest " +
+    "$152,567.52. P&I $25,031.18/mo, payments auto-debit from account x5615.",
+};
+
+// Grays Ferry (property 4500) — Liberty Bank. Amortizing.
+export const GRAYS_FERRY_4500_LOAN: Loan = {
+  id: "loan_graysferry",
+  property: "4500",
+  partnership: "Grays Ferry Partners, L.P.",
+  collateral: "Shopping Center",
+  lender: "Liberty Bank",
+  group: "Shopping Centers",
+  originalBalance: 9000000,
+  annualRatePct: 3.55,
+  amortYears: 25,
+  scheduledPayment: 45297.82,
+  maturityDate: "2026-09-01",
+  anchorBalance: 7908407.12,
+  anchorDate: "2026-04-01",
+  interestOnly: false,
+  notes:
+    "Refinanced 9/21/2021 at $9,000,000 on a 25-yr amortization; option to " +
+    "extend maturity one 5-yr period. Prepayment with 30 days notice: " +
+    "5/4/3/2/1% yrs 1-5. Per the latest Liberty statement: principal " +
+    "balance $7,908,407.12, escrow balance $33,678.44, rate 3.550%, YTD " +
+    "interest $94,226.94, prior-year interest $288,762.04. P&I $45,297.82/mo, " +
+    "payments auto-debit from account x0598.",
+};
+
+// Parkwood (property 7010) — Liberty Bank. Amortizing.
+export const PARKWOOD_7010_LOAN: Loan = {
+  id: "loan_parkwood",
+  property: "7010",
+  partnership: "Parkwood Joint Venture",
+  collateral: "Shopping Center",
+  lender: "Liberty Bank",
+  group: "Shopping Centers",
+  originalBalance: 4750000,
+  annualRatePct: 3.5,
+  amortYears: 25,
+  scheduledPayment: 23779.62,
+  maturityDate: "2027-09-01",
+  anchorBalance: 4016747.06,
+  anchorDate: "2026-04-01",
+  interestOnly: false,
+  notes:
+    "Refinanced 8/14/2020 at $4,750,000 @ 3.5% on a 25-yr amortization. " +
+    "Prepayment with 30 days notice: 5/4/3/2/1% yrs 1-5. Per the latest " +
+    "Liberty statement: principal balance $4,016,747.06, escrow balance " +
+    "$23,109.62, rate 3.500%, YTD interest $47,211.88, prior-year interest " +
+    "$144,939.16. P&I $23,779.62/mo, payments auto-debit from account x5656.",
+};
+
+/** All loans are code-managed and reconciled to these definitions on load. */
+export const MANAGED_LOANS: Loan[] = [
+  JV_III_3600_LOAN,
   NI_LLC_4000_LOAN,
-  {
-    id: "loan_brookwood",
-    property: "2300",
-    partnership: "Brookwood Joint Venture",
-    collateral: "Shopping Center",
-    lender: "Liberty Bank",
-    group: "Shopping Centers",
-    originalBalance: 5000000,
-    annualRatePct: 3.5,
-    amortYears: 25,
-    scheduledPayment: 25031.18,
-    maturityDate: "2027-09-01",
-    anchorBalance: 4278583,
-    anchorDate: "2026-01-01",
-    interestOnly: false,
-    notes:
-      "Refinanced 8/14/2020 at $5,000,000 @ 3.5%. Prepayment permitted with 30 days notice: 5% yr 1, 4% yr 2, 3% yr 3, 2% yr 4, 1% yr 5. $100k operating account opened with Liberty per loan terms.",
-  },
-  {
-    id: "loan_graysferry",
-    property: "4500",
-    partnership: "Grays Ferry Partners, L.P.",
-    collateral: "Shopping Center",
-    lender: "Liberty Bank",
-    group: "Shopping Centers",
-    originalBalance: 9000000,
-    annualRatePct: 3.55,
-    amortYears: 25,
-    scheduledPayment: 45297.82,
-    maturityDate: "2026-09-01",
-    anchorBalance: 7995372,
-    anchorDate: "2026-01-01",
-    interestOnly: false,
-    notes:
-      "Refinanced 9/21/2021 at $9,000,000. Option to extend maturity one additional 5-yr period (notice 120-60 days prior). Prepayment with 30 days notice: 5/4/3/2/1% yrs 1-5. All operating funds maintained at Liberty.",
-  },
-  {
-    id: "loan_parkwood",
-    property: "7010",
-    partnership: "Parkwood Joint Venture",
-    collateral: "Shopping Center",
-    lender: "Liberty Bank",
-    group: "Shopping Centers",
-    originalBalance: 4750000,
-    annualRatePct: 3.5,
-    amortYears: 25,
-    scheduledPayment: 23779.62,
-    maturityDate: "2027-09-01",
-    anchorBalance: 4064654,
-    anchorDate: "2026-01-01",
-    interestOnly: false,
-    notes:
-      "Refinanced 8/14/2020 at $4,750,000. Prepayment permitted with 30 days notice: 5/4/3/2/1% yrs 1-5. $100k operating account opened with Liberty per loan terms.",
-  },
+  BROOKWOOD_2300_LOAN,
+  GRAYS_FERRY_4500_LOAN,
+  PARKWOOD_7010_LOAN,
 ];
+
+export const SEED_LOANS: Loan[] = MANAGED_LOANS;
