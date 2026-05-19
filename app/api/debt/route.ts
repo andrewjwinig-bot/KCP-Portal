@@ -23,11 +23,20 @@ function num(v: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+function cleanAmendment(raw: unknown): Loan["amendment"] {
+  if (!raw || typeof raw !== "object") return undefined;
+  const a = raw as Record<string, unknown>;
+  const startDate = String(a.startDate ?? "").trim();
+  const endDate = String(a.endDate ?? "").trim();
+  if (!startDate || !endDate) return undefined;
+  return { startDate, endDate, principalPerMonth: num(a.principalPerMonth) };
+}
+
 function cleanLoan(raw: Partial<Loan>): Loan {
   const group = LOAN_GROUPS.includes(raw.group as never)
     ? (raw.group as Loan["group"])
     : "Business Parks";
-  return {
+  const loan: Loan = {
     id: String(raw.id ?? "").trim() || "loan_" + Date.now().toString(36),
     property: String(raw.property ?? "").trim(),
     partnership: String(raw.partnership ?? "").trim(),
@@ -44,6 +53,9 @@ function cleanLoan(raw: Partial<Loan>): Loan {
     interestOnly: !!raw.interestOnly,
     notes: String(raw.notes ?? ""),
   };
+  const amendment = cleanAmendment(raw.amendment);
+  if (amendment) loan.amendment = amendment;
+  return loan;
 }
 
 // Full-list replace — the page sends the whole loan array on every save.
