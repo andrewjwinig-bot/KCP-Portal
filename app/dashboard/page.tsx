@@ -20,6 +20,16 @@ import PortfolioOccupancyPanel from "./PortfolioOccupancyPanel";
 
 function sqftFmt(n: number) { return n.toLocaleString(); }
 
+/** 2-digit base year for the B/Y column — 4-digit year → last 2 digits;
+ *  non-numeric markers (NNN, GROSS, …) shown as-is; missing → dash. */
+function baseYear2(raw: number | string | null | undefined): string {
+  if (raw == null || raw === "") return "—";
+  const s = String(raw).trim();
+  if (/^\d{4}$/.test(s)) return s.slice(2);
+  if (/^\d{2}$/.test(s)) return s;
+  return s.toUpperCase();
+}
+
 function parseLeaseTo(d: string | null): Date | null {
   if (!d) return null;
   const m = d.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
@@ -96,6 +106,7 @@ function DashboardInner() {
   const [loading, setLoading] = useState(true);
   const [checkedByYear, setCheckedByYear] = useState<Record<number, Record<string, boolean>>>({});
   const [vacatingMatchers, setVacatingMatchers] = useState<{ unitRefs: Set<string>; names: Set<string> }>({ unitRefs: new Set(), names: new Set() });
+  const [tenantMeta, setTenantMeta] = useState<Record<string, { baseYear?: number | string | null }>>({});
   const [upcomingNotices, setUpcomingNotices] = useState<{ id: string; tenant: string; building: string; noticeDate: string; daysUntil: number }[]>([]);
   const [dismissedNotices, setDismissedNotices] = useState<Set<string>>(new Set());
   const [bankRecChecked, setBankRecChecked] = useState<Record<string, boolean>>({});
@@ -179,6 +190,7 @@ function DashboardInner() {
 
   useEffect(() => {
     fetch("/api/rentroll").then((r) => r.json()).then((j) => setRentroll(j.rentroll ?? null)).catch(() => setRentroll(null)).finally(() => setLoading(false));
+    fetch("/api/tenant-meta").then((r) => (r.ok ? r.json() : null)).then((j) => setTenantMeta(j?.tenantMeta ?? {})).catch(() => {});
     fetch("/api/leasing-activity").then((r) => r.json()).then((j) => {
       const la = j?.leasingActivity ?? {};
       const list = (la?.tenantsVacating ?? []) as { unitRef?: string; tenant?: string }[];
@@ -361,6 +373,12 @@ function DashboardInner() {
     }
     return rows.sort((a, b) => a.days - b.days);
   }, [rentroll, showExpiring, expiringScope]);
+
+  // Drew's lease card shows only tenants flagged as vacating.
+  const isDrew = user.id === "drew";
+  const expiringRows = isDrew
+    ? expiring.filter((r) => isVacating(r.unit.unitRef, r.unit.occupantName))
+    : expiring;
 
   // ── Upcoming filings in next 30 days, undone ──
   const upcomingFilings = useMemo(() => {
@@ -883,7 +901,7 @@ function DashboardInner() {
       <div className="card">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
           <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
-            Leases Expiring (next 60 days)
+            {isDrew ? "Vacating Tenants (next 60 days)" : "Leases Expiring (next 60 days)"}
             {expiringScope === "office" && <span className="muted small" style={{ marginLeft: 8, letterSpacing: 0, textTransform: "none" }}>· Office</span>}
             {expiringScope === "retail" && <span className="muted small" style={{ marginLeft: 8, letterSpacing: 0, textTransform: "none" }}>· Retail</span>}
           </div>
@@ -893,14 +911,17 @@ function DashboardInner() {
           <div className="muted small">Loading…</div>
         ) : !rentroll ? (
           <div className="muted small">No rent roll uploaded.</div>
-        ) : expiring.length === 0 ? (
-          <div className="muted small">Nothing expiring in the next 60 days. </div>
+        ) : expiringRows.length === 0 ? (
+          <div className="muted small">
+            {isDrew ? "No tenants vacating in the next 60 days." : "Nothing expiring in the next 60 days."}
+          </div>
         ) : (
           <div className="tableWrap">
             <table>
               <thead>
                 <tr>
                   <th>Tenant</th>
+                  <th style={{ textAlign: "center" }}>B/Y</th>
                   <th>Property</th>
                   <th>Unit</th>
                   <th style={{ textAlign: "right" }}>Sq Ft</th>
@@ -909,7 +930,7 @@ function DashboardInner() {
                 </tr>
               </thead>
               <tbody>
-                {expiring.map(({ propertyCode, unit, days }, i) => {
+                {expiringRows.map(({ propertyCode, unit, days }, i) => {
                   const overdue = days < 0;
                   const urgent = days >= 0 && days <= 30;
                   const bg = overdue ? "rgba(220,38,38,0.10)" : urgent ? "rgba(220,38,38,0.06)" : days <= 60 ? "rgba(234,88,12,0.06)" : undefined;
@@ -923,10 +944,11 @@ function DashboardInner() {
                     >
                       <td style={{ fontWeight: 600 }}>
                         {unit.occupantName}
-                        {isVacating(unit.unitRef, unit.occupantName) && (
+                        {!isDrew && isVacating(unit.unitRef, unit.occupantName) && (
                           <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 999, background: "rgba(220,38,38,0.1)", color: "#b91c1c", border: "1px solid rgba(220,38,38,0.35)", letterSpacing: "0.04em" }}>VACATING</span>
                         )}
                       </td>
+                      <td style={{ textAlign: "center", fontSize: 13 }}>{baseYear2(tenantMeta[unit.unitRef]?.baseYear)}</td>
                       <td style={{ fontSize: 13, color: "var(--muted)" }}>{propLabel(propertyCode)}</td>
                       <td style={{ whiteSpace: "nowrap" }}><code style={{ fontSize: 12, whiteSpace: "nowrap" }}>{unit.unitRef}</code></td>
                       <td style={{ textAlign: "right", fontSize: 13 }}>{sqftFmt(unit.sqft)}</td>
