@@ -167,6 +167,8 @@ export default function BaseYearExpensesPage() {
 function SummaryTable({ expenses }: { expenses: PropertyExpenses }) {
   const [mode, setMode] = useState<"total" | "gross" | "psf">("psf");
   const last5 = expenseYears(expenses).slice(-5).reverse();
+  const recent3 = last5.slice(0, 3); // most recent 3 years, for the 3-Yr Avg
+  const avgBg = "rgba(11,74,125,0.06)";
   const rentable = expenses.rentableSqft;
   const elec = expenses.lines.find((l) => l.separateCharge);
 
@@ -231,22 +233,34 @@ function SummaryTable({ expenses }: { expenses: PropertyExpenses }) {
               <th>
                 {mode === "psf" ? "$ / SF" : mode === "gross" ? "Grossed-up $" : "Total $"}
               </th>
+              <th style={{ textAlign: "right", background: avgBg }}>3-Yr Avg</th>
               {last5.map((y) => (
                 <th key={y} style={{ textAlign: "right" }}>{y}</th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {rows.map((r) => (
-              <tr key={r.label}>
-                <td style={{ fontWeight: r.total ? 800 : 700 }}>{r.label}</td>
-                {last5.map((y) => (
-                  <td key={y} style={{ textAlign: "right", fontWeight: r.total ? 800 : undefined }}>
-                    {fmt(r.get(String(y)))}
+            {rows.map((r) => {
+              const recent = recent3
+                .map((y) => r.get(String(y)))
+                .filter((v): v is number => v != null);
+              const avg = recent.length
+                ? recent.reduce((s, v) => s + v, 0) / recent.length
+                : null;
+              return (
+                <tr key={r.label}>
+                  <td style={{ fontWeight: r.total ? 800 : 700 }}>{r.label}</td>
+                  <td style={{ textAlign: "right", fontWeight: r.total ? 800 : 700, background: avgBg }}>
+                    {avg != null ? fmt(avg) : "—"}
                   </td>
-                ))}
-              </tr>
-            ))}
+                  {last5.map((y) => (
+                    <td key={y} style={{ textAlign: "right", fontWeight: r.total ? 800 : undefined }}>
+                      {fmt(r.get(String(y)))}
+                    </td>
+                  ))}
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
