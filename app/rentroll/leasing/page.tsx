@@ -221,7 +221,7 @@ function BaseYearResets({
       {open && (
       <>
       {/* Form */}
-      <div style={{ display: "grid", gridTemplateColumns: "minmax(260px, 2.4fr) minmax(84px, 0.6fr) minmax(150px, 1fr) minmax(200px, 2.4fr) auto", gap: 10, alignItems: "flex-end", marginTop: 14 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(240px, 2.2fr) minmax(84px, 0.6fr) minmax(230px, 1.3fr) minmax(190px, 2fr) auto", gap: 10, alignItems: "flex-end", marginTop: 14 }}>
         <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           <span style={fieldLabel}>Tenant (office only)</span>
           <select
@@ -248,13 +248,13 @@ function BaseYearResets({
             {currentBaseYear ?? "—"}
           </div>
         </label>
-        <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        <label style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
           <span style={fieldLabel}>Reset Month</span>
-          <div style={{ display: "flex", gap: 6 }}>
+          <div style={{ display: "flex", gap: 6, minWidth: 0 }}>
             <select
               value={resetDate.slice(5, 7)}
               onChange={(e) => setResetDate(`${resetDate.slice(0, 4)}-${e.target.value}-01`)}
-              style={{ ...selectStyle, flex: 1 }}
+              style={{ ...selectStyle, flex: 1, minWidth: 0 }}
             >
               {MONTH_NAMES.map((mn, i) => (
                 <option key={mn} value={String(i + 1).padStart(2, "0")}>{mn}</option>
@@ -263,7 +263,7 @@ function BaseYearResets({
             <select
               value={resetDate.slice(0, 4)}
               onChange={(e) => setResetDate(`${e.target.value}-${resetDate.slice(5, 7)}-01`)}
-              style={{ ...selectStyle, width: 92 }}
+              style={{ ...selectStyle, width: 84, flexShrink: 0 }}
             >
               {RESET_YEARS.map((y) => (
                 <option key={y} value={String(y)}>{y}</option>
