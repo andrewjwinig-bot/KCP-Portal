@@ -297,11 +297,10 @@ export default function RetailCommissionsPage() {
           gridTemplateColumns: "minmax(0, 0.8fr) minmax(0, 2.2fr) minmax(0, 0.9fr) minmax(0, 0.7fr) minmax(0, 0.9fr) minmax(0, 0.8fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.8fr)",
           gap: 12,
         }}>
+          {/* Period — fixed to the current quarter */}
           <div>
-            <label style={labelStyle}>Quarter Ended</label>
-            <select value={form.quarter} onChange={(e) => patch("quarter", e.target.value)} style={inputStyle}>
-              {quarterOpts.map((q) => <option key={q} value={q}>{q}</option>)}
-            </select>
+            <label style={labelStyle}>Period</label>
+            <input type="text" value={form.quarter} readOnly tabIndex={-1} style={lockedStyle} />
           </div>
 
           <div>

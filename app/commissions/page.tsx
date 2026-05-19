@@ -393,12 +393,10 @@ export default function CommissionsPage() {
           gridTemplateColumns: "minmax(0, 0.8fr) minmax(0, 2.4fr) minmax(0, 0.95fr) minmax(0, 0.75fr) minmax(0, 1fr) minmax(0, 1.05fr) minmax(0, 1.05fr) minmax(0, 0.9fr)",
           gap: 12,
         }}>
-          {/* Quarter */}
+          {/* Period — fixed to the current quarter */}
           <div>
-            <label style={labelStyle}>Quarter Ended</label>
-            <select value={form.quarter} onChange={(e) => patch("quarter", e.target.value)} style={inputStyle}>
-              {quarterOpts.map((q) => <option key={q} value={q}>{q}</option>)}
-            </select>
+            <label style={labelStyle}>Period</label>
+            <input type="text" value={form.quarter} readOnly tabIndex={-1} style={lockedStyle} />
           </div>
 
           {/* Tenant — pick existing OR new */}
