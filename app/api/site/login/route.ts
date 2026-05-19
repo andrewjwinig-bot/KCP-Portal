@@ -36,7 +36,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Select a valid user" }, { status: 400 });
   }
 
-  const isAdmin = user === "admin";
+  // admin and drew sign in at the admin tier — admin password + elevated cookie.
+  const isAdmin = user === "admin" || user === "drew";
   const adminPassword = process.env.HISTORY_PASSWORD;
   const adminSecret = process.env.HISTORY_AUTH_SECRET;
   if (isAdmin && (!adminPassword || !adminSecret)) {

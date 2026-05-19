@@ -1,4 +1,4 @@
-export const ALL_USERS = ["admin", "stacie", "nancy", "harry", "maint", "alison"] as const;
+export const ALL_USERS = ["admin", "drew", "stacie", "nancy", "harry", "maint", "alison"] as const;
 export type UserId = typeof ALL_USERS[number];
 
 export type RentRollCategory = "All" | "Office" | "Retail" | "Residential" | "The Office Works";
@@ -38,6 +38,35 @@ export const USERS: Record<UserId, UserDef> = {
     label: "ADMIN",
     navKeys: new Set(["all"]),
     allowedPathPrefixes: ["*"],
+    defaultRentRollCategory: "All",
+    defaultPropertyType: "all",
+    dashboardScope: "groups",
+  },
+  // Drew — the admin in person, as a named user so his tasks (master Task
+  // Tracker + Filing Tracker) aren't lost in a shared persona. His profile
+  // is curated: no maintenance, reservations, payroll, CC expense coding or
+  // bank rec. He can switch to the generic admin role for those.
+  drew: {
+    id: "drew",
+    label: "DREW",
+    navKeys: new Set([
+      ...universalNav,
+      "investors",
+      "base-years",
+      "leasing-activity",
+      "commissions",
+      "tracker",
+      "allocated",
+    ]),
+    allowedPathPrefixes: [
+      "/dashboard",
+      "/tracker",
+      "/properties",
+      "/investors",
+      "/rentroll",
+      "/commissions",
+      "/allocated-invoicer",
+    ],
     defaultRentRollCategory: "All",
     defaultPropertyType: "all",
     dashboardScope: "groups",
@@ -104,9 +133,9 @@ export const USERS: Record<UserId, UserDef> = {
   },
 };
 
-/** Only admin and alison may switch between user profiles after signing in. */
+/** admin, drew and alison may switch between user profiles after signing in. */
 export function canSwitchUsers(userId: UserId): boolean {
-  return userId === "admin" || userId === "alison";
+  return userId === "admin" || userId === "drew" || userId === "alison";
 }
 
 export function isPathAllowed(userId: UserId, pathname: string): boolean {
