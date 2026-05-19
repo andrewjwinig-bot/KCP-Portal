@@ -539,7 +539,7 @@ export default function CommissionsPage() {
       {/* ── Saved entries ───────────────────────────────────────────── */}
       <div className="card">
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10, flexWrap: "wrap", gap: 10 }}>
-          <b style={{ fontSize: 17 }}>Saved Entries</b>
+          <b style={{ fontSize: 17 }}>Pending Commissions</b>
           <span className="muted small">
             {entries.length} {entries.length === 1 ? "Entry" : "Entries"} · Incentive {toMoney(grandTotal)} · Gross (20%) {toMoney(grandTotalGross)}
           </span>
