@@ -221,7 +221,7 @@ function BaseYearResets({
       {open && (
       <>
       {/* Form */}
-      <div style={{ display: "grid", gridTemplateColumns: "minmax(260px, 2fr) minmax(140px, 1fr) minmax(150px, 1fr) minmax(180px, 2fr) auto", gap: 10, alignItems: "flex-end", marginTop: 14 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(260px, 2.4fr) minmax(84px, 0.6fr) minmax(150px, 1fr) minmax(200px, 2.4fr) auto", gap: 10, alignItems: "flex-end", marginTop: 14 }}>
         <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           <span style={fieldLabel}>Tenant (office only)</span>
           <select
@@ -236,7 +236,7 @@ function BaseYearResets({
           </select>
         </label>
         <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          <span style={fieldLabel}>Current Base Year</span>
+          <span style={fieldLabel}>Current B/Y</span>
           <div style={{
             padding: "8px 10px",
             border: "1px solid var(--border)",
@@ -306,8 +306,8 @@ function BaseYearResets({
               <th style={{ padding: "8px 10px", fontWeight: 700 }}>PROP</th>
               <th style={{ padding: "8px 10px", fontWeight: 700 }}>UNIT</th>
               <th style={{ padding: "8px 10px", fontWeight: 700 }}>TENANT</th>
-              <th style={{ padding: "8px 10px", fontWeight: 700, whiteSpace: "nowrap" }}>OLD BASE YR</th>
-              <th style={{ padding: "8px 10px", fontWeight: 700, whiteSpace: "nowrap" }}>NEW BASE YR</th>
+              <th style={{ padding: "8px 10px", fontWeight: 700, whiteSpace: "nowrap" }}>OLD B/Y</th>
+              <th style={{ padding: "8px 10px", fontWeight: 700, whiteSpace: "nowrap" }}>NEW B/Y</th>
               <th style={{ padding: "8px 10px", fontWeight: 700, whiteSpace: "nowrap" }}>RESET DATE</th>
               <th style={{ padding: "8px 10px", fontWeight: 700 }}>NOTES</th>
               <th style={{ padding: "8px 10px", fontWeight: 700, width: 1 }}></th>
