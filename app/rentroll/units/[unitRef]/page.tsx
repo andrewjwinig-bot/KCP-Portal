@@ -15,7 +15,6 @@ import {
 import {
   Pill,
   StatPill,
-  TONE_BLUE,
   TONE_NEUTRAL,
   TONE_AMBER,
   TONE_GREEN,
@@ -218,13 +217,6 @@ export default function UnitDetailPage() {
 
   const leaseToDate = parseRentDate(unit.leaseTo);
   const daysToExpiry = leaseToDate ? daysUntil(leaseToDate) : null;
-  const expiryColor = daysToExpiry == null
-    ? undefined
-    : daysToExpiry < 0 ? "#b91c1c"
-    : daysToExpiry <= 30 ? "#b91c1c"
-    : daysToExpiry <= 60 ? "#ea580c"
-    : daysToExpiry <= 90 ? "#d97706"
-    : undefined;
 
   const baseYearShown = showsBaseYear(propertyCode);
   const baseYearVal = tenantMeta[unit.unitRef]?.baseYear ?? null;
@@ -288,21 +280,6 @@ export default function UnitDetailPage() {
             padding: "2px 8px", borderRadius: 5,
             fontSize: 11, fontWeight: 600, letterSpacing: "0.06em",
           }}>{unit.unitRef}</code>
-          <Link
-            href={`/properties/${encodeURIComponent(propertyCode)}`}
-            style={{ textDecoration: "none" }}
-            title={propertyName}
-            onMouseEnter={(e) => {
-              const el = e.currentTarget.firstElementChild as HTMLElement | null;
-              if (el) el.style.textDecoration = "underline";
-            }}
-            onMouseLeave={(e) => {
-              const el = e.currentTarget.firstElementChild as HTMLElement | null;
-              if (el) el.style.textDecoration = "none";
-            }}
-          >
-            <Pill tone={TONE_BLUE}>{propertyCode}</Pill>
-          </Link>
           <Pill tone={status.tone}>{status.label}</Pill>
         </div>
       </header>
@@ -349,19 +326,8 @@ export default function UnitDetailPage() {
                 onMouseLeave={(e) => (e.currentTarget.style.textDecoration = "none")}
               >{propertyName} <span style={{ color: "var(--muted)", fontWeight: 500 }}>({propertyCode})</span></Link>
             </div>
-            <InfoField label="Sq Footage" value={unit.sqft ? `${unit.sqft.toLocaleString()} sq ft` : "—"} />
             <InfoField label="Lease From" value={formatModalDate(unit.leaseFrom)} />
             <InfoField label="Lease To" value={formatModalDate(unit.leaseTo)} />
-            <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
-              <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>Days to Expiry</span>
-              <span style={{ fontSize: 14, fontWeight: 600, color: expiryColor ?? "var(--text)", lineHeight: 1.4 }}>
-                {daysToExpiry == null
-                  ? "—"
-                  : daysToExpiry < 0
-                    ? `Expired ${Math.abs(daysToExpiry)}d ago`
-                    : `${daysToExpiry}d`}
-              </span>
-            </div>
           </div>
         </div>
 
