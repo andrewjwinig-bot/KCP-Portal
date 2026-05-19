@@ -112,11 +112,7 @@ export default function BaseYearExpensesPage() {
       <h1>Operating Expense History</h1>
       <p className="muted" style={{ marginTop: 8, fontSize: 15 }}>
         Office operating-expense and occupancy history by year for the JV III
-        and NI LLC buildings. To model the income impact of resetting a
-        tenant&rsquo;s base year, use{" "}
-        <a href="/rentroll/leasing" style={{ color: "var(--brand)", fontWeight: 700 }}>
-          Leasing Activity → Base Year Resets
-        </a>.
+        and NI LLC buildings.
       </p>
 
       {/* Building selector — compact dropdown */}
@@ -155,6 +151,13 @@ export default function BaseYearExpensesPage() {
           <OccupancyHistory expenses={expenses} rrMonthly={rrMonthly} />
         </>
       )}
+
+      <p className="muted small" style={{ marginTop: 16 }}>
+        To model the income impact of resetting a tenant&rsquo;s base year, use{" "}
+        <a href="/rentroll/leasing" style={{ color: "var(--brand)", fontWeight: 700 }}>
+          Leasing Activity → Base Year Resets
+        </a>.
+      </p>
     </main>
   );
 }
