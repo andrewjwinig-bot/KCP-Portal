@@ -43,6 +43,11 @@ function monthYear(iso: string): string {
   const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
   return d.toLocaleDateString("en-US", { month: "short", year: "numeric" });
 }
+function monthYearShort(iso: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  if (!m) return iso || "—";
+  return `${m[2]}/${m[1].slice(2)}`;
+}
 
 const SECTION_LABEL: React.CSSProperties = {
   fontSize: 11,
@@ -265,7 +270,7 @@ export default function DebtPage() {
                       <td style={{ textAlign: "right" }}>{money(l.originalBalance)}</td>
                       <td style={{ textAlign: "right", fontWeight: 800 }}>{money(s.projectedBalance)}</td>
                       <td style={{ textAlign: "right" }}>{money2(s.monthlyDebtService)}</td>
-                      <td className="small">{prettyDate(l.maturityDate)}</td>
+                      <td className="small">{monthYearShort(l.maturityDate)}</td>
                       <td><Pill tone={debtStatusTone(s.status)}>{s.status}</Pill></td>
                       <td style={{ textAlign: "center" }}>
                         <Toggle on={l.interestOnly} onClick={() => toggleIO(l.id)} disabled={saving} />
@@ -366,7 +371,7 @@ function ScheduleModal({ loan, today, onClose }: { loan: Loan; today: string; on
             <div className="modalTitle">{loan.partnership}</div>
             <div className="small muted" style={{ marginTop: 4 }}>
               {loan.lender} · {pct(loan.annualRatePct)} · {loan.amortYears}-yr amortization ·
-              matures {prettyDate(loan.maturityDate)}
+              matures {monthYearShort(loan.maturityDate)}
             </div>
           </div>
           <button className="btn" onClick={onClose} style={{ padding: "6px 14px" }}>Close</button>
