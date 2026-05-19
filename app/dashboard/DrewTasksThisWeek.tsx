@@ -78,12 +78,6 @@ export default function DrewTasksThisWeek() {
                   cursor: "pointer",
                 }}
               >
-                <input
-                  type="checkbox"
-                  checked={done}
-                  onChange={() => toggle(o)}
-                  style={{ width: 16, height: 16, flexShrink: 0, cursor: "pointer" }}
-                />
                 <span style={{ width: 9, height: 9, borderRadius: 999, background: dot, flexShrink: 0 }} />
                 <div style={{
                   flex: 1, minWidth: 0, fontSize: 13, fontWeight: 600,
@@ -97,6 +91,12 @@ export default function DrewTasksThisWeek() {
                     ? "Today"
                     : o.date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
                 </div>
+                <input
+                  type="checkbox"
+                  checked={done}
+                  onChange={() => toggle(o)}
+                  style={{ width: 16, height: 16, flexShrink: 0, cursor: "pointer" }}
+                />
               </label>
             );
           })}

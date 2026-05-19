@@ -506,9 +506,7 @@ function DashboardInner() {
           <PortfolioOccupancyPanel rentroll={rentroll} scopes={["retail"]} order={-1} />
         ) : isAlison ? (
           <PortfolioOccupancyPanel rentroll={rentroll} scopes={["category", "office", "retail", "residential"]} order={-1} />
-        ) : isDrew ? (
-          <PortfolioOccupancyPanel rentroll={rentroll} scopes={["category", "office", "retail", "residential"]} order={10} />
-        ) : isStacie ? null : (
+        ) : isDrew ? null : isStacie ? null : (
         <Link href="/rentroll" className="card" style={{ display: "block", textDecoration: "none", color: "inherit", cursor: "pointer", transition: "box-shadow 0.15s, transform 0.15s", order: 0 }}
           onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.boxShadow = "0 4px 16px rgba(15,23,42,0.08)"; }}
           onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.boxShadow = ""; }}>
@@ -561,8 +559,8 @@ function DashboardInner() {
         )}
 
         {/* ── Lease Expirations (Nancy / Harry / admin / Alison) — below occupancy ── */}
-        {(user.id === "nancy" || user.id === "harry" || isAdmin || isAlison || isDrew) && (
-          <div style={{ gridColumn: "1 / -1", order: isDrew ? 11 : 0 }}>
+        {(user.id === "nancy" || user.id === "harry" || isAdmin || isAlison) && (
+          <div style={{ gridColumn: "1 / -1", order: 0 }}>
             <ExpirationChart
               rentroll={rentroll}
               defaultScope={user.id === "nancy" ? "office" : user.id === "harry" ? "sc" : "all"}
@@ -967,6 +965,19 @@ function DashboardInner() {
           </div>
         )}
       </div>
+      )}
+
+      {/* ── Drew: portfolio occupancy + lease expirations, below vacating ── */}
+      {isDrew && (
+        <PortfolioOccupancyPanel
+          rentroll={rentroll}
+          scopes={["category", "office", "retail", "residential"]}
+        />
+      )}
+      {isDrew && (
+        <div>
+          <ExpirationChart rentroll={rentroll} defaultScope="all" />
+        </div>
       )}
 
       {/* ── Upcoming filings (admin only) ── */}
