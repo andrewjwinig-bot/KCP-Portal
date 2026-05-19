@@ -506,6 +506,8 @@ function DashboardInner() {
           <PortfolioOccupancyPanel rentroll={rentroll} scopes={["retail"]} order={-1} />
         ) : isAlison ? (
           <PortfolioOccupancyPanel rentroll={rentroll} scopes={["category", "office", "retail", "residential"]} order={-1} />
+        ) : isDrew ? (
+          <PortfolioOccupancyPanel rentroll={rentroll} scopes={["category", "office", "retail", "residential"]} order={10} />
         ) : isStacie ? null : (
         <Link href="/rentroll" className="card" style={{ display: "block", textDecoration: "none", color: "inherit", cursor: "pointer", transition: "box-shadow 0.15s, transform 0.15s", order: 0 }}
           onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.boxShadow = "0 4px 16px rgba(15,23,42,0.08)"; }}
@@ -559,8 +561,8 @@ function DashboardInner() {
         )}
 
         {/* ── Lease Expirations (Nancy / Harry / admin / Alison) — below occupancy ── */}
-        {(user.id === "nancy" || user.id === "harry" || isAdmin || isAlison) && (
-          <div style={{ gridColumn: "1 / -1", order: 0 }}>
+        {(user.id === "nancy" || user.id === "harry" || isAdmin || isAlison || isDrew) && (
+          <div style={{ gridColumn: "1 / -1", order: isDrew ? 11 : 0 }}>
             <ExpirationChart
               rentroll={rentroll}
               defaultScope={user.id === "nancy" ? "office" : user.id === "harry" ? "sc" : "all"}
@@ -922,11 +924,11 @@ function DashboardInner() {
               <thead>
                 <tr>
                   <th>Tenant</th>
-                  <th style={{ textAlign: "center" }}>B/Y</th>
                   <th>Property</th>
                   <th>Unit</th>
                   <th style={{ textAlign: "right" }}>Sq Ft</th>
                   <th>Lease To</th>
+                  <th style={{ textAlign: "center" }}>B/Y</th>
                   <th style={{ textAlign: "right" }}>Days</th>
                 </tr>
               </thead>
@@ -949,11 +951,11 @@ function DashboardInner() {
                           <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 999, background: "rgba(220,38,38,0.1)", color: "#b91c1c", border: "1px solid rgba(220,38,38,0.35)", letterSpacing: "0.04em" }}>VACATING</span>
                         )}
                       </td>
-                      <td style={{ textAlign: "center", fontSize: 13 }}>{baseYear2(tenantMeta[unit.unitRef]?.baseYear)}</td>
                       <td style={{ fontSize: 13, color: "var(--muted)" }}>{propLabel(propertyCode)}</td>
                       <td style={{ whiteSpace: "nowrap" }}><code style={{ fontSize: 12, whiteSpace: "nowrap" }}>{unit.unitRef}</code></td>
                       <td style={{ textAlign: "right", fontSize: 13 }}>{sqftFmt(unit.sqft)}</td>
                       <td style={{ fontSize: 13, whiteSpace: "nowrap" }}>{unit.leaseTo}</td>
+                      <td style={{ textAlign: "center", fontSize: 13 }}>{baseYear2(tenantMeta[unit.unitRef]?.baseYear)}</td>
                       <td style={{ textAlign: "right", fontSize: 13, fontWeight: 600, color: overdue ? "#b91c1c" : urgent ? "#b91c1c" : "#b45309" }}>
                         {overdue ? `${Math.abs(days)} ago` : `${days}`}
                       </td>
