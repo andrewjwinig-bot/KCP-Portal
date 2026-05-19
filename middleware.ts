@@ -38,8 +38,8 @@ export async function middleware(req: NextRequest) {
   const siteSecret = process.env.SITE_AUTH_SECRET;
   if (sitePassword && siteSecret) {
     const siteToken = req.cookies.get(SITE_COOKIE)?.value;
-    const siteOk = await verifySiteToken(siteToken, siteSecret);
-    if (!siteOk) {
+    const siteUser = await verifySiteToken(siteToken, siteSecret);
+    if (!siteUser) {
       if (pathname.startsWith("/api/")) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
       }

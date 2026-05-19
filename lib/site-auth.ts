@@ -34,25 +34,37 @@ function timingSafeEqual(a: Uint8Array, b: Uint8Array): boolean {
   return diff === 0;
 }
 
-/** Build a signed site-access cookie value: "<expiresAtSec>.<hmac>". */
-export async function signSiteToken(secret: string): Promise<{ value: string; maxAge: number }> {
+/**
+ * Build a signed site-access cookie value: "<expiresAtSec>.<userId>.<hmac>".
+ * The signed-in user id is part of the payload so the server can trust who
+ * is logged in (not just that they knew a password).
+ */
+export async function signSiteToken(
+  secret: string,
+  userId: string,
+): Promise<{ value: string; maxAge: number }> {
   const expires = Math.floor(Date.now() / 1000) + MAX_AGE_SECONDS;
-  const sig = await hmac(secret, String(expires));
-  return { value: `${expires}.${b64urlEncode(sig)}`, maxAge: MAX_AGE_SECONDS };
+  const payload = `${expires}.${userId}`;
+  const sig = await hmac(secret, payload);
+  return { value: `${payload}.${b64urlEncode(sig)}`, maxAge: MAX_AGE_SECONDS };
 }
 
-export async function verifySiteToken(token: string | undefined, secret: string): Promise<boolean> {
-  if (!token) return false;
-  const dot = token.indexOf(".");
-  if (dot <= 0) return false;
-  const expiresStr = token.slice(0, dot);
-  const sigStr = token.slice(dot + 1);
+/** Verify a site token. Returns the signed-in user id, or null if invalid. */
+export async function verifySiteToken(
+  token: string | undefined,
+  secret: string,
+): Promise<string | null> {
+  if (!token) return null;
+  const parts = token.split(".");
+  if (parts.length !== 3) return null;
+  const [expiresStr, userId, sigStr] = parts;
   const expires = Number(expiresStr);
-  if (!Number.isFinite(expires) || expires < Math.floor(Date.now() / 1000)) return false;
-  const expected = await hmac(secret, expiresStr);
+  if (!Number.isFinite(expires) || expires < Math.floor(Date.now() / 1000)) return null;
+  if (!userId) return null;
+  const expected = await hmac(secret, `${expiresStr}.${userId}`);
   let provided: Uint8Array;
-  try { provided = b64urlDecode(sigStr); } catch { return false; }
-  return timingSafeEqual(expected, provided);
+  try { provided = b64urlDecode(sigStr); } catch { return null; }
+  return timingSafeEqual(expected, provided) ? userId : null;
 }
 
 /** True only when both env vars are configured. When either is missing, the
