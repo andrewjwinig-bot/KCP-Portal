@@ -16,6 +16,7 @@ import { StatPill } from "../../../components/Pill";
 import SuiteInformationCard from "./SuiteInformationCard";
 import ContactsCard from "./ContactsCard";
 import DepositCard from "./DepositCard";
+import ShareFolderCard from "../../../components/ShareFolderCard";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -380,6 +381,9 @@ export default function UnitDetailPage() {
             tenantCompany={unit.occupantName || ""}
           />
         )}
+
+        {/* ── Shared Drive Folder ── */}
+        <ShareFolderCard kind="unit" entityKey={unit.unitRef} />
 
         {/* ── Suite Information + Floorplan ── */}
         <SuiteInformationCard unitRef={unit.unitRef} />
