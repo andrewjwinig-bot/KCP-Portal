@@ -242,15 +242,16 @@ export const JV_III_3600_LOAN: Loan = {
   annualRatePct: 4.5,
   amortYears: 25,
   scheduledPayment: 39464.11,
-  maturityDate: "2024-04-01",
+  maturityDate: "2028-03-01",
   anchorBalance: 6139294.10,
   anchorDate: "2026-04-01",
   interestOnly: true,
   notes:
-    "Refinanced 7/11/2019 at $7,100,000 on a 25-yr amortization; 5-yr term " +
-    "with a 5-yr extension option. Currently interest-only. Per the " +
-    "4/18/2026 Liberty statement: principal balance $6,139,294.10, escrow " +
-    "balance $115,895.31, rate 4.500%, YTD interest $92,089.42, prior-year " +
+    "Refinanced 7/11/2019 at $7,100,000 on a 25-yr amortization. Term " +
+    "extended through 3/1/2028 alongside the NI LLC extension; remains " +
+    "interest-only (no fixed-principal amendment). Per the 4/18/2026 " +
+    "Liberty statement: principal balance $6,139,294.10, escrow balance " +
+    "$115,895.31, rate 4.500%, YTD interest $92,089.42, prior-year " +
     "interest $263,945.77. Payments auto-debit from account x5631.",
 };
 
