@@ -26,6 +26,11 @@ export type UserDef = {
    * requests for the given property codes. Absent → full maintenance access.
    */
   maintenanceView?: { readOnly: boolean; codes: Set<string> };
+  /**
+   * When set, the Security Deposits page (and unit-page deposit card) is
+   * limited to these property codes. Absent → all deposits.
+   */
+  depositsScope?: { codes: Set<string> };
 };
 
 const SC_INDIVIDUAL = new Set(["1100", "2300", "4500", "7010", "9510", "7200", "7300", "1500", "9200", "5600", "8200"]);
@@ -34,6 +39,9 @@ const OFFICE_AND_OW_INDIVIDUAL = new Set([
   "4050", "4060", "4070", "4080", "40A0", "40B0", "40C0",
   "4900",
 ]);
+const RESIDENTIAL_INDIVIDUAL = new Set(["9800", "9820", "9840", "9860"]);
+// Harry's deposit scope — shopping centers + residential (Korman Homes).
+const SC_AND_RESIDENTIAL = new Set([...SC_INDIVIDUAL, ...RESIDENTIAL_INDIVIDUAL]);
 
 const universalNav = new Set(["dashboard", "properties", "rentroll"]);
 
@@ -111,15 +119,19 @@ export const USERS: Record<UserId, UserDef> = {
     dashboardScope: { codes: OFFICE_AND_OW_INDIVIDUAL },
     // Read-only window into office-tenant maintenance requests.
     maintenanceView: { readOnly: true, codes: OFFICE_AND_OW_INDIVIDUAL },
+    // Security deposits scoped to office tenants.
+    depositsScope: { codes: OFFICE_AND_OW_INDIVIDUAL },
   },
   harry: {
     id: "harry",
     label: "HARRY",
-    navKeys: new Set([...universalNav, "expenses", "expenses-history", "payroll-invoicer", "investors", "commissions-retail"]),
-    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/expenses", "/investors", "/commissions/retail", "/"],
+    navKeys: new Set([...universalNav, "expenses", "expenses-history", "payroll-invoicer", "investors", "commissions-retail", "deposits"]),
+    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/expenses", "/investors", "/commissions/retail", "/deposits", "/"],
     defaultRentRollCategory: "Retail",
     defaultPropertyType: "Retail",
     dashboardScope: { codes: SC_INDIVIDUAL },
+    // Security deposits scoped to shopping centers + residential.
+    depositsScope: { codes: SC_AND_RESIDENTIAL },
   },
   maint: {
     id: "maint",

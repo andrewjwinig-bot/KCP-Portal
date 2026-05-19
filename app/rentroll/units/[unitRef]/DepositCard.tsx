@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { SectionLabel } from "@/app/properties/PropertyDetail";
 import { DEPOSIT_ACCOUNTS, type SecurityDeposit } from "@/lib/deposits/deposits";
+import { useUser } from "@/app/components/UserProvider";
 import DepositForm, { type UnitOption } from "@/app/deposits/DepositForm";
 
 function money(n: number): string {
@@ -25,12 +26,21 @@ export default function DepositCard({
   propertyCode: string;
   tenantCompany: string;
 }) {
+  const { user } = useUser();
+  // Only personas with deposit access see the card, and only for units
+  // inside their deposit scope (Nancy → office, Harry → SC + residential).
+  const hasAccess = user.navKeys.has("all") || user.navKeys.has("deposits");
+  const scope = user.depositsScope;
+  const inScope = !scope || scope.codes.has(propertyCode);
+  const visible = hasAccess && inScope;
+
   const [deposits, setDeposits] = useState<SecurityDeposit[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<SecurityDeposit | null>(null);
   const [adding, setAdding] = useState(false);
 
   useEffect(() => {
+    if (!visible) { setLoading(false); return; }
     let alive = true;
     fetch("/api/deposits")
       .then((r) => (r.ok ? r.json() : null))
@@ -42,7 +52,7 @@ export default function DepositCard({
       .catch(() => { if (alive) setDeposits([]); })
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
-  }, [unitRef]);
+  }, [unitRef, visible]);
 
   const unitOptions = useMemo<UnitOption[]>(() => [{
     unitRef,
@@ -67,6 +77,8 @@ export default function DepositCard({
   }
 
   const showForm = adding || !!editing;
+
+  if (!visible) return null;
 
   return (
     <div className="card">

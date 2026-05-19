@@ -9,6 +9,7 @@ import {
   type SecurityDeposit,
 } from "@/lib/deposits/deposits";
 import { StatPill } from "@/app/components/Pill";
+import { useUser } from "@/app/components/UserProvider";
 import DepositForm, { type UnitOption } from "./DepositForm";
 
 function money(n: number): string {
@@ -23,6 +24,9 @@ function prettyDate(iso: string): string {
 }
 
 export default function SecurityDepositsPage() {
+  const { user } = useUser();
+  const scopeCodes = user.depositsScope?.codes ?? null;
+
   const [deposits, setDeposits] = useState<SecurityDeposit[] | null>(null);
   const [rentroll, setRentroll] = useState<RentRollData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -43,10 +47,18 @@ export default function SecurityDepositsPage() {
     return () => { alive = false; };
   }, []);
 
+  // Deposits this persona is allowed to see (scoped by property code).
+  const visibleDeposits = useMemo(() => {
+    if (!deposits) return null;
+    if (!scopeCodes) return deposits;
+    return deposits.filter((d) => scopeCodes.has(d.propertyCode));
+  }, [deposits, scopeCodes]);
+
   const unitOptions = useMemo<UnitOption[]>(() => {
     if (!rentroll) return [];
     const out: UnitOption[] = [];
     for (const p of rentroll.properties) {
+      if (scopeCodes && !scopeCodes.has(p.propertyCode)) continue;
       for (const u of p.units) {
         if (u.isVacant || !u.occupantName) continue;
         out.push({
@@ -58,16 +70,16 @@ export default function SecurityDepositsPage() {
       }
     }
     return out.sort((a, b) => a.label.localeCompare(b.label));
-  }, [rentroll]);
+  }, [rentroll, scopeCodes]);
 
   const byAccount = useMemo(() => {
     const map: Record<DepositAccount, SecurityDeposit[]> = { "ni-llc": [], "all-but-ni": [] };
-    for (const d of deposits ?? []) map[d.account]?.push(d);
+    for (const d of visibleDeposits ?? []) map[d.account]?.push(d);
     for (const k of Object.keys(map) as DepositAccount[]) {
       map[k].sort((a, b) => a.tenantCompany.localeCompare(b.tenantCompany));
     }
     return map;
-  }, [deposits]);
+  }, [visibleDeposits]);
 
   function onSaved(d: SecurityDeposit) {
     setDeposits((prev) => {
@@ -85,7 +97,7 @@ export default function SecurityDepositsPage() {
     setEditing(null);
   }
 
-  const total = (deposits ?? []).reduce((s, d) => s + d.amount, 0);
+  const total = (visibleDeposits ?? []).reduce((s, d) => s + d.amount, 0);
 
   return (
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
