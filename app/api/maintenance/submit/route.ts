@@ -139,7 +139,7 @@ export async function POST(req: NextRequest) {
   const summary = summarize(description);
   const derivedSubject = subject
     || summary
-    || `${company || tenantName}: maintenance request`;
+    || `${company || tenantName}: service request`;
 
   // Build the new request before handling photos so we have an id for blob paths.
   const r: MaintenanceRequest = applyPatch(emptyRequest({
@@ -247,7 +247,7 @@ export async function POST(req: NextRequest) {
     try {
       await sendMail({
         to: tenantEmail,
-        subject: `Maintenance request received — ${propertyName || "KCP"}`,
+        subject: `Service request received — ${propertyName || "KCP"}`,
         textBody: confirmationBody({
           firstName,
           propertyName,
@@ -275,7 +275,7 @@ function confirmationBody(args: {
   const lines = [
     greet,
     "",
-    "Thanks for submitting a maintenance request to Korman Commercial Properties. We've received it and the maintenance team has been notified.",
+    "Thanks for submitting a service request to Korman Commercial Properties. We've received it and the service team has been notified.",
     "",
     where ? `Property: ${where}` : null,
     `Reference ID: ${args.requestId}`,

@@ -34,8 +34,8 @@ export default function ServiceLandingPage() {
           }}>
             <ServiceTile
               href="/submit"
-              title="Maintenance Request"
-              description="Report a maintenance issue at your suite or building — leaks, HVAC, lighting, lockouts, anything that needs the maintenance team."
+              title="Service Request"
+              description="Report a service issue at your suite or building — leaks, HVAC, lighting, lockouts, anything that needs the service team."
             />
             <ServiceTile
               href="/reserve"

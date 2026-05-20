@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 import type { CompanyMatch } from "@/app/api/tenants/companies/route";
 
-// Public tenant-facing maintenance request form, styled to match the
+// Public tenant-facing service request form, styled to match the
 // kormancommercial.com Maintenance page so it can drop in as a replacement.
 // Rendering is fully raw (AppShell treats /submit as a public route).
 
@@ -144,7 +144,7 @@ export default function SubmitPage() {
           <div style={{ textAlign: "center", marginBottom: 42 }}>
             <div style={{ width: 54, height: 2, background: NAVY, margin: "0 auto 24px" }} />
             <h1 style={{ color: NAVY }}>
-              Maintenance Request
+              Service Request
             </h1>
           </div>
 
@@ -213,7 +213,7 @@ export default function SubmitPage() {
                 </Field>
               </Row>
 
-              <Field label="Please describe your maintenance needs" required>
+              <Field label="Please describe your service needs" required>
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
@@ -495,7 +495,7 @@ function SuccessPanel({ id, onAnother }: { id: string; onAnother: () => void }) 
           Request Submitted
         </h2>
         <p style={{ marginTop: 10, color: MUTED, lineHeight: 1.6, fontSize: 14 }}>
-          Thanks — your request was received and the maintenance team has been notified.
+          Thanks — your request was received and the service team has been notified.
           They&apos;ll reach out if they need more information.
         </p>
       </div>
