@@ -251,10 +251,10 @@ export default function CamConfigCard({
   // the picker).
   const lineOptions = useMemo(() => {
     const set = new Set<string>(CAM_LINE_ITEMS);
-    for (const v of config?.camAdminLines ?? []) set.add(v);
+    for (const v of config?.camAdminExcludedLines ?? []) set.add(v);
     for (const v of config?.camExcludedLines ?? []) set.add(v);
     return Array.from(set);
-  }, [config?.camAdminLines, config?.camExcludedLines]);
+  }, [config?.camAdminExcludedLines, config?.camExcludedLines]);
 
   if (loading) {
     return (
@@ -354,52 +354,27 @@ export default function CamConfigCard({
             CAM Line Items
           </div>
 
-          {/* Admin scope */}
-          <div style={{ display: "grid", gridTemplateColumns: "160px 1fr", gap: "6px 20px", alignItems: "start" }}>
+          {/* Two consistent exclusion rows. Both empty by default → admin
+              fee applies to every CAM line and every CAM line is billed. */}
+          <div style={{ display: "grid", gridTemplateColumns: "200px 1fr", gap: "6px 20px", alignItems: "start" }}>
             <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text)", paddingTop: 6 }}>
-              Admin Fee applies to
+              Excluded from Admin Fee
             </span>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <div style={{ display: "flex", gap: 6 }}>
-                {([
-                  { value: "all", label: "All CAM lines" },
-                  { value: "select", label: "Select lines only" },
-                ] as const).map((opt) => {
-                  const active = config.camAdminScope === opt.value;
-                  return (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      disabled={isGross}
-                      onClick={() => update({ camAdminScope: opt.value })}
-                      style={{
-                        fontSize: 12, fontWeight: 700, letterSpacing: "0.02em",
-                        padding: "5px 12px", borderRadius: 999,
-                        border: `1px solid ${active ? "rgba(11,74,125,0.4)" : "var(--border)"}`,
-                        background: active ? "rgba(11,74,125,0.10)" : "transparent",
-                        color: active ? "#0b4a7d" : "var(--muted)",
-                        cursor: isGross ? "not-allowed" : "pointer",
-                      }}
-                    >
-                      {opt.label}
-                    </button>
-                  );
-                })}
-              </div>
-              {config.camAdminScope === "select" && (
-                <MultiSelect
-                  options={lineOptions}
-                  selected={config.camAdminLines}
-                  onChange={(next) => update({ camAdminLines: next })}
-                  placeholder="Pick the CAM lines that carry an admin fee…"
-                  disabled={isGross}
-                />
-              )}
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <span style={{ fontSize: 12, color: "var(--muted)" }}>
+                CAM lines this tenant’s admin fee does not apply to.
+              </span>
+              <MultiSelect
+                options={lineOptions}
+                selected={config.camAdminExcludedLines}
+                onChange={(next) => update({ camAdminExcludedLines: next })}
+                placeholder="Pick lines to exclude from the admin fee…"
+                disabled={isGross}
+              />
             </div>
           </div>
 
-          {/* Excluded lines */}
-          <div style={{ display: "grid", gridTemplateColumns: "160px 1fr", gap: "6px 20px", alignItems: "start" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "200px 1fr", gap: "6px 20px", alignItems: "start" }}>
             <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text)", paddingTop: 6 }}>
               Excluded CAM lines
             </span>

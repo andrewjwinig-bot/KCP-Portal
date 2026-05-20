@@ -298,6 +298,7 @@ export default function UnitDetailPage() {
           />
         ) : (
           <>
+            <StatPill label="Annual $/sf" value={heroAnnualPerSf} />
             <StatPill
               label="Base Rent / mo"
               value={unit.baseRent ? `$${unit.baseRent.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : "—"}
@@ -310,7 +311,6 @@ export default function UnitDetailPage() {
               label="Annual Rent"
               value={annualRent ? `$${Math.round(annualRent).toLocaleString()}` : "—"}
             />
-            <StatPill label="Annual $/sf" value={heroAnnualPerSf} />
           </>
         )}
         <StatPill

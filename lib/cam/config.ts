@@ -5,10 +5,10 @@
 //   - a stipulated PRS that overrides the unit's true square-foot share
 //   - an admin fee % (0 / 5 / 10 most often, occasionally custom)
 //
-// CAM-specific extras: admin fee may apply to every CAM line, or only a
-// chosen subset; and some leases exclude certain CAM lines entirely from
-// the tenant's bill. INS and RET are not part of CAM, so they carry only
-// the simpler PRS + admin fee.
+// CAM-specific extras: a lease may exclude certain CAM lines from the
+// admin-fee calculation, and may also exclude certain CAM lines entirely
+// from the tenant's bill. INS and RET are not part of CAM, so they carry
+// only the simpler PRS + admin fee.
 //
 // A gross-lease flag short-circuits everything — when set, the tenant
 // owes no CAM / INS / RET reconciliation regardless of the other fields.
@@ -44,9 +44,6 @@ export const CAM_LINE_ITEMS = [
   "Sign Maintenance",
 ] as const;
 
-export const ADMIN_SCOPE_OPTIONS = ["all", "select"] as const;
-export type AdminScope = (typeof ADMIN_SCOPE_OPTIONS)[number];
-
 export type CamCategoryConfig = {
   /** Lease-stipulated PRS % (0–100). Overrides the unit's true PRS for
    *  reconciliation when set. Null/undefined → use true PRS. */
@@ -60,18 +57,17 @@ export type CamConfig = {
   /** When true the tenant pays gross rent — no CAM/INS/RET reconciliation.
    *  Default false (i.e. NNN). */
   grossLease: boolean;
-  /** When true the lease carves out specific exclusions — either the admin
-   *  fee doesn't apply to every CAM line, or some CAM lines aren't billed
-   *  to this tenant. Default false (admin on all, every line billed). */
+  /** When true the lease carves out specific exclusions — either some CAM
+   *  lines are excluded from the admin fee, or some CAM lines aren't
+   *  billed to this tenant. Default false (admin on all, every line
+   *  billed). */
   hasExclusions: boolean;
   cam: CamCategoryConfig;
   ins: CamCategoryConfig;
   ret: CamCategoryConfig;
-  /** CAM-only: does the admin fee apply to every CAM line, or only the
-   *  lines listed in `camAdminLines`? */
-  camAdminScope: AdminScope;
-  /** CAM lines the admin fee applies to when camAdminScope === "select". */
-  camAdminLines: string[];
+  /** CAM lines the admin fee does NOT apply to (subset of CAM_LINE_ITEMS
+   *  plus any custom lines). Empty → admin fee applies to every CAM line. */
+  camAdminExcludedLines: string[];
   /** CAM lines this tenant is NOT billed for (lease-specific exclusions). */
   camExcludedLines: string[];
   updatedAt: string;
@@ -85,8 +81,7 @@ export function emptyCamConfig(unitRef: string): CamConfig {
     cam: { stipulatedPrs: null, adminFeePct: null },
     ins: { stipulatedPrs: null, adminFeePct: null },
     ret: { stipulatedPrs: null, adminFeePct: null },
-    camAdminScope: "all",
-    camAdminLines: [],
+    camAdminExcludedLines: [],
     camExcludedLines: [],
     updatedAt: new Date().toISOString(),
   };
@@ -129,7 +124,6 @@ function asLineList(value: unknown): string[] {
  *  by the caller, updatedAt stamped by the storage layer). */
 export function sanitizeCamConfig(unitRef: string, body: unknown): CamConfig {
   const b = (body ?? {}) as Record<string, unknown>;
-  const scope = b.camAdminScope === "select" ? "select" : "all";
   return {
     unitRef,
     grossLease: b.grossLease === true,
@@ -137,8 +131,7 @@ export function sanitizeCamConfig(unitRef: string, body: unknown): CamConfig {
     cam: asCategory(b.cam),
     ins: asCategory(b.ins),
     ret: asCategory(b.ret),
-    camAdminScope: scope,
-    camAdminLines: asLineList(b.camAdminLines),
+    camAdminExcludedLines: asLineList(b.camAdminExcludedLines),
     camExcludedLines: asLineList(b.camExcludedLines),
     updatedAt: new Date().toISOString(),
   };
