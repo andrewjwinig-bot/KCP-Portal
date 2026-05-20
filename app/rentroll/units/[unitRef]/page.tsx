@@ -16,6 +16,7 @@ import { StatPill } from "../../../components/Pill";
 import SuiteInformationCard from "./SuiteInformationCard";
 import ContactsCard from "./ContactsCard";
 import DepositCard from "./DepositCard";
+import CamConfigCard from "./CamConfigCard";
 import ShareFolderCard from "../../../components/ShareFolderCard";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -26,6 +27,14 @@ const NI_LLC_CODES = new Set(["4050", "4060", "4070", "4080", "40A0", "40B0", "4
 function showsBaseYear(propertyCode: string): boolean {
   const c = propertyCode.toUpperCase();
   return JV_III_CODES.has(c) || NI_LLC_CODES.has(c);
+}
+
+// A retail unit lives in a Shopping Center property (any non-entity
+// PropertyDef whose type is "Retail"). CAM / INS / RET reconciliation
+// is only meaningful for these.
+function isRetailUnit(propertyCode: string): boolean {
+  const def = PROPERTY_DEFS.find((p) => p.id.toUpperCase() === propertyCode.toUpperCase());
+  return !!def && def.type === "Retail" && !def.entityKind;
 }
 
 function parseRentDate(s: string | null | undefined): Date | null {
@@ -334,6 +343,11 @@ export default function UnitDetailPage() {
               </div>
             )}
           </div>
+        )}
+
+        {/* ── CAM / INS / RET (retail only, occupied suites) ── */}
+        {isRetailUnit(propertyCode) && !isAmenity && !unit.isVacant && (
+          <CamConfigCard unitRef={unit.unitRef} />
         )}
 
         {/* ── Base Year (office only) ── */}
