@@ -542,6 +542,120 @@ const SEED_4080: PropertyExpenses = {
   updatedAt: "2026-02-03",
 };
 
+// 40A0 — Kor Center A (NI LLC). Workbook carries 2017, 2021-2025. Occupancy
+// runs in the high 90s; 2022 average not on file. RET on file for all years
+// except 2022.
+const YEARS_40A0 = [2017, 2021, 2022, 2023, 2024, 2025];
+
+const SEED_40A0: PropertyExpenses = {
+  propertyCode: "40A0",
+  rentableSqft: 15083,
+  opEx: zip(YEARS_40A0, [61616, 89195, 95514, 115596, 108979, 105778]),
+  opExGrossedUp: zip(YEARS_40A0, [60910, 88051, 95514, 113653, 107601, 104293]),
+  ret: {
+    "2017": 25038, "2021": 26600, "2023": 27000, "2024": 24756, "2025": 29026,
+  },
+  occupancyPct: { "2017": 98, "2021": 98, "2023": 99, "2024": 98, "2025": 98 },
+  occupancyMonthly: {
+    "2017": [14434, 14434, 14434, 14434, 14434, 14434, 15083, 15083, 15083, 15083, 15083, 15083],
+    "2021": [14434, 14434, 14434, 14434, 14434, 14434, 15083, 15083, 15083, 15083, 15083, 15083],
+    "2023": [15083, 15083, 15083, 15083, 15083, 15083, 15083, 14087, 15083, 15083, 15083, 15083],
+    "2024": [15083, 15083, 15083, 15083, 15083, 15083, 15083, 14444, 14444, 14444, 14444, 14444],
+    "2025": [14444, 14444, 14444, 14444, 14444, 15083, 15083, 15083, 15083, 15083, 15083, 15083],
+  },
+  lines: [
+    { glAccount: "6130-8502", label: "Water / Sewer", values: zip(YEARS_40A0, [2745, 1148, 1312, 1847, 1556, 1840]) },
+    { glAccount: "6220-8502", label: "Building Maintenance", values: zip(YEARS_40A0, [8618, 18314, 16950, 18755, 25462, 15108]) },
+    { glAccount: "6030-8502", label: "Maintenance Salaries", values: zip(YEARS_40A0, [5207, 4160, 4069, 2393, 2160, 2604]) },
+    { glAccount: "6270-8502", label: "Trash Removal", values: zip(YEARS_40A0, [8100, 11316, 14171, 15660, 18420, 21136]) },
+    { glAccount: "6360-8502", label: "Parking Lot Maint.", values: zip(YEARS_40A0, [1179, 594, 3287, 8600, 1843, 2205]) },
+    { glAccount: "6350-8502", label: "Security", values: zip(YEARS_40A0, [3203, 2830, 1412, 2362, 812, 1561]) },
+    { glAccount: "6370-8502", label: "Snow Removal", values: zip(YEARS_40A0, [2323, 2541, 4374, 10000, 2491, 3273]) },
+    { glAccount: "6380-8502", label: "Landscaping", values: zip(YEARS_40A0, [2506, 3305, 2548, 4276, 6011, 4317]) },
+    { glAccount: "6510-8502", label: "Insurance", values: zip(YEARS_40A0, [3500, 5678, 6480, 8280, 8387, 8619]) },
+    { glAccount: "6610-8502", label: "Management Fee", values: zip(YEARS_40A0, [8006, 16121, 17643, 18463, 16332, 18644]) },
+    { glAccount: "6250-8502", label: "Cleaning", values: zip(YEARS_40A0, [16229, 23188, 23268, 24960, 25503, 26471]) },
+    { glAccount: "6610-8502-95", label: "Management Fee (95%)", grossedUp: true, values: zip(YEARS_40A0, [7773, 15652, 17643, 17637, 15794, 18030]) },
+    { glAccount: "6250-8502-95", label: "Cleaning (95%)", grossedUp: true, values: zip(YEARS_40A0, [15757, 22513, 23268, 23843, 24663, 25599]) },
+    { glAccount: "6120-8501", label: "Electric", separateCharge: true, values: { "2021": 22058, "2023": 24875, "2024": 27413, "2025": 31802 } },
+  ],
+  updatedAt: "2026-02-03",
+};
+
+// 40B0 — Kor Center B (NI LLC). Workbook carries 2018-2025. 2024 occupancy
+// collapsed to ~1,063 SF (low-occupancy year), so the 95% gross-up of Mgmt
+// Fee and Cleaning balloons — that's per the workbook, not a typo.
+const YEARS_40B0 = [2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025];
+
+const SEED_40B0: PropertyExpenses = {
+  propertyCode: "40B0",
+  rentableSqft: 12978,
+  opEx: zip(YEARS_40B0, [59337, 52445, 55557, 58649, 64700, 39389, 55577, 50175]),
+  opExGrossedUp: zip(YEARS_40B0, [59337, 52445, 55489, 60586, 64281, 40020, 194765, 49816]),
+  ret: {
+    "2020": 20744, "2021": 22570, "2022": 22636, "2023": 23300, "2024": 23856, "2025": 24934,
+  },
+  occupancyPct: { "2020": 95, "2021": 85, "2022": 97, "2023": 91, "2024": 11, "2025": 97 },
+  occupancyMonthly: {
+    "2020": [12978, 12978, 12978, 12978, 12978, 12978, 12978, 12978, 12978, 10584, 10584, 10584],
+    "2021": [10584, 10584, 10584, 10584, 10584, 10584, 10584, 10584, 10584, 10584, 12978, 12978],
+    "2022": [12978, 12978, 12978, 12978, 12978, 12978, 12978, 12978, 10584, 10584, 12978, 12978],
+    "2023": [10584, 10584, 10584, 10584, 10584, 12978, 12978, 12978, 12978, 10584, 12978, 12978],
+    "2024": [1063, 1063, 1063, 1063, 1063, 1063, 1063, 1063, 1063, 1063, 3457, 3457],
+    "2025": [12978, 12978, 12978, 12978, 12978, 12978, 12978, 12978, 12978, 12978, 10584, 10584],
+  },
+  lines: [
+    { glAccount: "6130-8502", label: "Water / Sewer", values: zip(YEARS_40B0, [5849, 4937, 8045, 11007, 20227, 4068, 8875, 4315]) },
+    { glAccount: "6220-8502", label: "Building Maintenance", values: zip(YEARS_40B0, [16730, 15612, 16210, 11512, 7220, 10756, 5384, 3980]) },
+    { glAccount: "6030-8502", label: "Maintenance Salaries", values: zip(YEARS_40B0, [4277, 4394, 4225, 3306, 2496, 1800, 2400, 2232]) },
+    { glAccount: "6270-8502", label: "Trash Removal", values: zip(YEARS_40B0, [105, 254, 1466, 381, 47, 39, 28, 12]) },
+    { glAccount: "6360-8502", label: "Parking Lot Maint.", values: zip(YEARS_40B0, [521, 390, 517, 663, 3518, 0, 8119, 7054]) },
+    { glAccount: "6350-8502", label: "Security", values: zip(YEARS_40B0, [2279, 1719, 2048, 1982, 956, 782, 609, 1171]) },
+    { glAccount: "6370-8502", label: "Snow Removal", values: zip(YEARS_40B0, [2978, 1904, 568, 4714, 1436, 0, 1868, 2455]) },
+    { glAccount: "6380-8502", label: "Landscaping", values: zip(YEARS_40B0, [5481, 1217, 2601, 5612, 1898, 1761, 2336, 3429]) },
+    { glAccount: "6510-8502", label: "Insurance", values: zip(YEARS_40B0, [2384, 3393, 3024, 3666, 5831, 6623, 7232, 7427]) },
+    { glAccount: "6610-8502", label: "Management Fee", values: zip(YEARS_40B0, [13146, 12139, 12747, 13174, 13528, 12585, 12539, 13592]) },
+    { glAccount: "6250-8502", label: "Cleaning", values: zip(YEARS_40B0, [5587, 6486, 4106, 2632, 7545, 975, 6187, 4509]) },
+    { glAccount: "6610-8502-95", label: "Management Fee (95%)", grossedUp: true, values: zip(YEARS_40B0, [13146, 12139, 12695, 14789, 13259, 13170, 105741, 13322]) },
+    { glAccount: "6250-8502-95", label: "Cleaning (95%)", grossedUp: true, values: zip(YEARS_40B0, [5587, 6486, 4089, 2955, 7395, 1021, 52173, 4419]) },
+    { glAccount: "6120-8501", label: "Electric", separateCharge: true, values: { "2020": 70, "2021": 318, "2022": 0, "2023": 0, "2024": 0, "2025": 134 } },
+  ],
+  updatedAt: "2026-02-03",
+};
+
+// 40C0 — Kor Center C (NI LLC). Workbook carries 2018-2025; many lines are
+// sparse so most amounts are seeded as zero where the workbook is blank.
+// Average occupancy is not tracked on the workbook (no monthly SF rows).
+// 2023 saw a one-time Condo charge ($10,512). RET only on file for 2025.
+const YEARS_40C0 = [2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025];
+
+const SEED_40C0: PropertyExpenses = {
+  propertyCode: "40C0",
+  rentableSqft: 18000,
+  opEx: zip(YEARS_40C0, [21530, 35528, 34529, 39168, 37279, 33869, 35689, 44879]),
+  opExGrossedUp: zip(YEARS_40C0, [21530, 35528, 34529, 39168, 37279, 33869, 35689, 44879]),
+  ret: { "2025": 34210 },
+  occupancyPct: {},
+  occupancyMonthly: {},
+  lines: [
+    { glAccount: "6130-8502", label: "Water / Sewer", values: zip(YEARS_40C0, [0, 0, 0, 0, 0, 0, 0, 0]) },
+    { glAccount: "6220-8502", label: "Building Maintenance", values: zip(YEARS_40C0, [5341, 7003, 6502, 9504, 5255, 0, 4070, 4644]) },
+    { glAccount: "6030-8502", label: "Maintenance Salaries", values: zip(YEARS_40C0, [0, 6227, 5988, 1755, 1755, 10769, 0, 0]) },
+    { glAccount: "6270-8502", label: "Trash Removal", values: zip(YEARS_40C0, [0, 105, 176, 0, 0, 0, 60, 0]) },
+    { glAccount: "6360-8502", label: "Parking Lot Maint.", values: zip(YEARS_40C0, [761, 647, 989, 830, 2167, 0, 2269, 2756]) },
+    { glAccount: "6350-8502", label: "Security", values: zip(YEARS_40C0, [3751, 2913, 3413, 3081, 1681, 0, 1015, 2756]) },
+    { glAccount: "6370-8502", label: "Snow Removal", values: zip(YEARS_40C0, [4964, 3174, 698, 6385, 4799, 1303, 3114, 4091]) },
+    { glAccount: "6380-8502", label: "Landscaping", values: zip(YEARS_40C0, [3154, 1653, 3547, 3565, 2549, 0, 3346, 8157]) },
+    { glAccount: "6510-8502", label: "Insurance", values: zip(YEARS_40C0, [3559, 4672, 4212, 5012, 7188, 2372, 9731, 10005]) },
+    { glAccount: "6610-8502", label: "Management Fee", values: zip(YEARS_40C0, [0, 8605, 9004, 9036, 11885, 8912, 12084, 12470]) },
+    { glAccount: "6990-8502", label: "Condo", values: zip(YEARS_40C0, [0, 0, 0, 0, 0, 10512, 0, 0]) },
+    { glAccount: "6250-8502", label: "Cleaning", values: zip(YEARS_40C0, [0, 529, 0, 0, 0, 0, 0, 0]) },
+    { glAccount: "6610-8502-95", label: "Management Fee (95%)", grossedUp: true, values: zip(YEARS_40C0, [0, 8605, 9004, 9036, 11885, 8912, 12084, 12470]) },
+    { glAccount: "6250-8502-95", label: "Cleaning (95%)", grossedUp: true, values: zip(YEARS_40C0, [0, 529, 0, 0, 0, 0, 0, 0]) },
+  ],
+  updatedAt: "2026-02-03",
+};
+
 /** Seeded expense history, keyed by property code. */
 export const SEED_EXPENSES: Record<string, PropertyExpenses> = {
   "3610": SEED_3610,
@@ -551,4 +665,7 @@ export const SEED_EXPENSES: Record<string, PropertyExpenses> = {
   "4060": SEED_4060,
   "4070": SEED_4070,
   "4080": SEED_4080,
+  "40A0": SEED_40A0,
+  "40B0": SEED_40B0,
+  "40C0": SEED_40C0,
 };
