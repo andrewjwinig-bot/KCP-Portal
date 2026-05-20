@@ -352,7 +352,7 @@ export default function UnitDetailPage() {
               )}
             </div>
             {/* Last Increase — folded into Rent card */}
-            {(unit.lastIncreaseDate || unit.lastIncreaseAmount) && (
+            {Boolean(unit.lastIncreaseDate || unit.lastIncreaseAmount) && (
               <div style={{
                 marginTop: 14, paddingTop: 14,
                 borderTop: "1px solid var(--border)",
@@ -518,7 +518,7 @@ export default function UnitDetailPage() {
         </div>
 
         {/* ── Last Increase — for amenity units only (rent card not shown) ── */}
-        {isAmenity && (unit.lastIncreaseDate || unit.lastIncreaseAmount) && (
+        {isAmenity && Boolean(unit.lastIncreaseDate || unit.lastIncreaseAmount) && (
           <div className="card">
             <SectionLabel>Last Increase</SectionLabel>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "14px 32px" }}>
