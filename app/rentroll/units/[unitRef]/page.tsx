@@ -384,6 +384,7 @@ export default function UnitDetailPage() {
           <CamConfigCard
             unitRef={unit.unitRef}
             actualPrs={actualPrs}
+            unitSqft={unit.sqft}
             opexMonth={unit.opexMonth}
             reTaxMonth={unit.reTaxMonth}
             otherMonth={unit.otherMonth}
