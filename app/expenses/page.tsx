@@ -924,41 +924,55 @@ export default function ExpensesPage() {
         </div>
       </header>
 
-      {/* Import bar — hidden from maint (Greg only codes, never imports). */}
+      {/* Import bar — same shape as Payroll Invoicer / Rent Roll: a
+          single button row at the top with Save / Cadence on the right,
+          and one muted descriptor line beneath. Hidden from maint (Greg
+          only codes, never imports). */}
       {!isMaint && (
       <div className="card">
-        <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
-          <b>Import Credit Card Statement</b>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".xlsx,.xls"
+              style={{ display: "none" }}
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) importFile(f); }}
+            />
+            <button
+              className="btn"
+              onClick={() => fileInputRef.current?.click()}
+              style={{ fontSize: 13, padding: "8px 16px", whiteSpace: "nowrap" }}
+            >
+              Choose Statement File…
+            </button>
+            <button
+              className="btn"
+              style={{ borderRadius: 999, fontWeight: 700, fontSize: 13, padding: "8px 16px", whiteSpace: "nowrap" }}
+              onClick={clearAll}
+              disabled={!tx.length}
+            >
+              Clear
+            </button>
+          </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             {tx.length > 0 && (
-              <button className="btn large" onClick={saveStatement} disabled={!totals.coded || saving}>
+              <button
+                className="btn"
+                onClick={saveStatement}
+                disabled={!totals.coded || saving}
+                style={{ fontSize: 13, padding: "8px 16px", whiteSpace: "nowrap" }}
+              >
                 {saving ? "Saving…" : "Save to History"}
               </button>
             )}
-            <span style={{ background: "rgba(22, 163, 74, 0.85)", color: "#fff", borderRadius: 999, padding: "12px 18px", fontSize: 15, fontWeight: 700, border: "1px solid transparent", display: "inline-flex", alignItems: "center" }}>Monthly</span>
+            <span style={{ background: "rgba(22, 163, 74, 0.85)", color: "#fff", borderRadius: 999, padding: "8px 16px", fontSize: 13, fontWeight: 700, border: "1px solid transparent", display: "inline-flex", alignItems: "center" }}>Monthly</span>
           </div>
         </div>
         <p className="muted small" style={{ marginTop: 8 }}>
           Import the <b>American Express</b> Excel file (.xls or .xlsx).
+          {fileName && <span style={{ marginLeft: 8 }}>· {fileName}</span>}
         </p>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 12 }}>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".xlsx,.xls"
-            style={{ display: "none" }}
-            onChange={(e) => { const f = e.target.files?.[0]; if (f) importFile(f); }}
-          />
-          <button className="btn large" onClick={() => fileInputRef.current?.click()} style={{ whiteSpace: "nowrap" }}>
-            Choose Statement File…
-          </button>
-          {fileName && (
-            <span style={{ fontSize: 13, color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
-              {fileName}
-            </span>
-          )}
-          <button className="btn" style={{ borderRadius: 999, fontWeight: 700, whiteSpace: "nowrap" }} onClick={clearAll} disabled={!tx.length}>Clear</button>
-        </div>
         {tx.length > 0 && (
           <div className="pills">
             <div className="pill"><b>{totals.count}</b><span className="small muted">Transactions</span></div>
