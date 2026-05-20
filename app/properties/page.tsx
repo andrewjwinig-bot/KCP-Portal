@@ -10,10 +10,23 @@ import {
 import { useUser } from "../components/UserProvider";
 import { loadTaxChecked } from "../tracker/tax-data";
 import { TypePill } from "./PropertyDetail";
+import { MANAGED_LOANS, summarizeLoan, todayISO, type Loan } from "../../lib/debt/amortization";
+
+// Some loans are booked on a partnership/entity GL code rather than the
+// property card id — show those loans on the entity card.
+const LOAN_PROPERTY_TO_CARD: Record<string, string> = {
+  "3600": "3610A", // JV III loan → JV III Condo entity card
+};
+
+function compactMoney(n: number): string {
+  if (n >= 1_000_000) return "$" + (n / 1_000_000).toFixed(n >= 10_000_000 ? 1 : 2) + "M";
+  if (n >= 1_000) return "$" + Math.round(n / 1000) + "K";
+  return "$" + Math.round(n);
+}
 
 // ─── PROPERTY CARD ────────────────────────────────────────────────────────────
 
-function PropertyCard({ prop, onClick }: { prop: PropertyDef; onClick: () => void; checked: Record<string, boolean> }) {
+function PropertyCard({ prop, onClick, loan }: { prop: PropertyDef; onClick: () => void; checked: Record<string, boolean>; loan?: Loan | null }) {
   const ts = TYPE_STYLE[prop.type];
   const isEntity = !!prop.entityKind;
   const typeAccent = isEntity ? "" : `, inset 0 5px 0 ${ts.text}`;
@@ -82,6 +95,29 @@ function PropertyCard({ prop, onClick }: { prop: PropertyDef; onClick: () => voi
           {prop.name}
         </div>
 
+        {/* Debt summary — present only on properties (or partnership cards) that secure a loan */}
+        {loan && (() => {
+          const s = summarizeLoan(loan, todayISO());
+          return (
+            <div style={{
+              display: "inline-flex", alignItems: "center", gap: 6, flexWrap: "wrap",
+              padding: "3px 9px", borderRadius: 999,
+              background: "rgba(11,74,125,0.06)",
+              border: "1px solid rgba(11,74,125,0.20)",
+              color: "var(--muted)", fontSize: 11, fontWeight: 600,
+              marginTop: 6, alignSelf: "flex-start", maxWidth: "100%",
+            }}>
+              <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: "0.06em",
+                textTransform: "uppercase", color: "#0b4a7d" }}>Debt</span>
+              <span style={{ color: "#0b4a7d", fontWeight: 800 }}>{compactMoney(s.projectedBalance)}</span>
+              <span>·</span>
+              <span>{loan.annualRatePct.toFixed(2)}%</span>
+              <span>·</span>
+              <span>{compactMoney(s.monthlyDebtService)}/mo</span>
+            </div>
+          );
+        })()}
+
         {/* Address / city */}
         {(prop.address || prop.city) && (
           <div style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.4, marginTop: "auto", paddingTop: 8 }}>
@@ -109,6 +145,17 @@ export default function PropertiesPage() {
   const [typeFilter, setTypeFilter] = useState<PropType | "all">(user.defaultPropertyType as PropType | "all");
   useEffect(() => { setTypeFilter(user.defaultPropertyType as PropType | "all"); }, [user.id, user.defaultPropertyType]);
   const [checked,  setChecked]  = useState<Record<string, boolean>>({});
+
+  // Loan per property card. Loans booked on a partnership GL code (e.g.
+  // JV III "3600") fall through to the partnership's entity card.
+  const loansByCard = useMemo(() => {
+    const map = new Map<string, Loan>();
+    for (const l of MANAGED_LOANS) {
+      const cardId = LOAN_PROPERTY_TO_CARD[l.property] ?? l.property;
+      map.set(cardId, l);
+    }
+    return map;
+  }, []);
 
   useEffect(() => {
     setChecked(loadTaxChecked(new Date().getFullYear()));
@@ -238,7 +285,7 @@ export default function PropertiesPage() {
                         </div>
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 14 }}>
                           {props.map(prop => (
-                            <PropertyCard key={prop.id} prop={prop} onClick={() => openProp(prop)} checked={checked} />
+                            <PropertyCard key={prop.id} prop={prop} onClick={() => openProp(prop)} checked={checked} loan={loansByCard.get(prop.id) ?? null} />
                           ))}
                         </div>
                       </div>
@@ -252,7 +299,7 @@ export default function PropertiesPage() {
                         )}
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 14 }}>
                           {officeUnaffiliated.map(prop => (
-                            <PropertyCard key={prop.id} prop={prop} onClick={() => openProp(prop)} checked={checked} />
+                            <PropertyCard key={prop.id} prop={prop} onClick={() => openProp(prop)} checked={checked} loan={loansByCard.get(prop.id) ?? null} />
                           ))}
                         </div>
                       </div>
@@ -261,7 +308,7 @@ export default function PropertiesPage() {
                 ) : (
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }}>
                     {group.map(prop => (
-                      <PropertyCard key={prop.id} prop={prop} onClick={() => openProp(prop)} checked={checked} />
+                      <PropertyCard key={prop.id} prop={prop} onClick={() => openProp(prop)} checked={checked} loan={loansByCard.get(prop.id) ?? null} />
                     ))}
                   </div>
                 )}
