@@ -97,7 +97,13 @@ export default function SecurityDepositsPage() {
     setEditing(null);
   }
 
-  const total = (visibleDeposits ?? []).reduce((s, d) => s + d.amount, 0);
+  // "Held" totals exclude deposits that have been refunded to the tenant.
+  const heldDeposits = (visibleDeposits ?? []).filter((d) => !d.refunded);
+  const total = heldDeposits.reduce((s, d) => s + d.amount, 0);
+  const heldByAccount = {
+    "ni-llc": heldDeposits.filter((d) => d.account === "ni-llc"),
+    "all-but-ni": heldDeposits.filter((d) => d.account === "all-but-ni"),
+  };
 
   return (
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
@@ -112,11 +118,11 @@ export default function SecurityDepositsPage() {
       <div className="pills" style={{ marginTop: 0 }}>
         <StatPill label="Total Held" value={money(total)} />
         <StatPill label={DEPOSIT_ACCOUNTS["ni-llc"].bank}
-          value={money(byAccount["ni-llc"].reduce((s, d) => s + d.amount, 0))}
-          sub={`NI LLC · ${byAccount["ni-llc"].length} checks`} />
+          value={money(heldByAccount["ni-llc"].reduce((s, d) => s + d.amount, 0))}
+          sub={`NI LLC · ${heldByAccount["ni-llc"].length} checks`} />
         <StatPill label={DEPOSIT_ACCOUNTS["all-but-ni"].bank}
-          value={money(byAccount["all-but-ni"].reduce((s, d) => s + d.amount, 0))}
-          sub={`All but NI LLC · ${byAccount["all-but-ni"].length} checks`} />
+          value={money(heldByAccount["all-but-ni"].reduce((s, d) => s + d.amount, 0))}
+          sub={`All but NI LLC · ${heldByAccount["all-but-ni"].length} checks`} />
       </div>
 
       {loading ? (
@@ -149,10 +155,26 @@ export default function SecurityDepositsPage() {
                     </td></tr>
                   )}
                   {byAccount[acct].map((d) => (
-                    <tr key={d.id} style={{ cursor: "pointer" }} onClick={() => { setEditing(d); setAdding(false); }}
+                    <tr key={d.id}
+                      style={{ cursor: "pointer", opacity: d.refunded ? 0.7 : 1 }}
+                      onClick={() => { setEditing(d); setAdding(false); }}
                       onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.filter = "brightness(0.97)"; }}
                       onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.filter = ""; }}>
-                      <td style={{ fontWeight: 600 }}>{d.tenantCompany || "—"}</td>
+                      <td style={{ fontWeight: 600 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                          <span>{d.tenantCompany || "—"}</span>
+                          {d.refunded && (
+                            <span style={{
+                              fontSize: 10, fontWeight: 800, letterSpacing: "0.04em", textTransform: "uppercase",
+                              padding: "2px 8px", borderRadius: 999,
+                              background: "rgba(22,163,74,0.10)", color: "#15803d",
+                              border: "1px solid rgba(22,163,74,0.30)",
+                            }}>
+                              Refunded{d.refundDate ? ` · ${prettyDate(d.refundDate)}` : ""}
+                            </span>
+                          )}
+                        </div>
+                      </td>
                       <td><code style={{ fontSize: 12 }}>{d.unitRef}</code></td>
                       <td style={{ fontSize: 13 }}>{d.checkNumber || "—"}</td>
                       <td style={{ textAlign: "right", fontSize: 13, fontWeight: 600 }}>{d.amount ? money(d.amount) : "—"}</td>
