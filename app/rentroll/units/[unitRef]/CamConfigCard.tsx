@@ -485,13 +485,14 @@ export default function CamConfigCard({
         )}
       </div>
 
-      {/* Lease modifiers — plain inline checkboxes at the bottom. Both
-          off-by-default; the reconciliation table above assumes NNN with
-          admin on every line and no excluded lines unless turned on. */}
+      {/* Lease modifiers — plain inline checkboxes at the bottom, both
+          on one line. Both off-by-default; the reconciliation table above
+          assumes NNN with admin on every line and no excluded lines
+          unless turned on. */}
       <div style={{
         marginTop: 18, paddingTop: 14,
         borderTop: "1px solid var(--border)",
-        display: "flex", flexDirection: "column", gap: 8,
+        display: "flex", alignItems: "center", flexWrap: "wrap", gap: "8px 24px",
       }}>
         <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer" }}>
           <input
@@ -500,8 +501,7 @@ export default function CamConfigCard({
             onChange={(e) => update({ grossLease: e.target.checked })}
             style={{ width: 15, height: 15, cursor: "pointer" }}
           />
-          <span style={{ fontWeight: 600, color: "var(--text)" }}>Gross lease</span>
-          <span style={{ color: "var(--muted)" }}>— tenant pays gross rent, no CAM / INS / RET reconciliation.</span>
+          <span style={{ fontWeight: 600, color: "var(--text)" }}>Gross Lease</span>
         </label>
         <label style={{
           display: "flex", alignItems: "center", gap: 8, fontSize: 13,
@@ -515,8 +515,7 @@ export default function CamConfigCard({
             onChange={(e) => update({ hasExclusions: e.target.checked })}
             style={{ width: 15, height: 15, cursor: "pointer" }}
           />
-          <span style={{ fontWeight: 600, color: "var(--text)" }}>Lease has exclusions</span>
-          <span style={{ color: "var(--muted)" }}>— admin fee applies to only some CAM lines, or some CAM lines aren’t billed.</span>
+          <span style={{ fontWeight: 600, color: "var(--text)" }}>Lease Has Exclusions</span>
         </label>
       </div>
     </div>
