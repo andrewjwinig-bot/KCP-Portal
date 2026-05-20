@@ -5,7 +5,7 @@
 
 import "server-only";
 import { getJSON, storeJSON } from "@/lib/storage";
-import { emptyCamConfig, type CamConfig } from "./config";
+import { emptyCamConfig, sanitizeCamConfig, type CamConfig } from "./config";
 
 const PREFIX = "cam-config-manifest";
 const ID = "all";
@@ -23,7 +23,12 @@ async function saveAll(configs: CamConfig[]): Promise<void> {
 
 export async function getCamConfig(unitRef: string): Promise<CamConfig | null> {
   const all = await loadAll();
-  return all.find((c) => c.unitRef === unitRef) ?? null;
+  const raw = all.find((c) => c.unitRef === unitRef);
+  if (!raw) return null;
+  // Normalize the stored shape on read so legacy fields (e.g. earlier
+  // schema variants) don't leak into the client and the new fields
+  // always have sane defaults.
+  return sanitizeCamConfig(unitRef, raw);
 }
 
 export async function getOrEmptyCamConfig(unitRef: string): Promise<CamConfig> {

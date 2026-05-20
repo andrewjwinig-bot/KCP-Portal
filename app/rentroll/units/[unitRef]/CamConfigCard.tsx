@@ -366,7 +366,7 @@ export default function CamConfigCard({
               </span>
               <MultiSelect
                 options={lineOptions}
-                selected={config.camAdminExcludedLines}
+                selected={config.camAdminExcludedLines ?? []}
                 onChange={(next) => update({ camAdminExcludedLines: next })}
                 placeholder="Pick lines to exclude from the admin fee…"
                 disabled={isGross}
@@ -384,7 +384,7 @@ export default function CamConfigCard({
               </span>
               <MultiSelect
                 options={lineOptions}
-                selected={config.camExcludedLines}
+                selected={config.camExcludedLines ?? []}
                 onChange={(next) => update({ camExcludedLines: next })}
                 placeholder="Pick lines to exclude from this tenant’s CAM…"
                 disabled={isGross}
