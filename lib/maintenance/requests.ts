@@ -12,11 +12,11 @@ export const REQUEST_PRIORITIES = ["Low", "Medium", "High"] as const;
 export type RequestPriority = (typeof REQUEST_PRIORITIES)[number];
 
 // Canonical category list — consolidated from the original 20-item Airtable
-// schedule. "Lock Out" and "Temperature" were added later for the service
-// team; "Other" is the fallback whenever a submission doesn't fit anything
-// else. Old records persisted with dropped values continue to display them
-// in the queue and Reports tab — only new submissions and the canonical
-// chip group respect the trimmed list.
+// schedule. "Temperature" was added later for the service team; "Other"
+// is the fallback whenever a submission doesn't fit anything else.
+// Lock-outs roll up into "Doors / Locks". Old records persisted with
+// dropped values continue to display them in the queue and Reports tab —
+// only new submissions and the canonical chip group respect the trimmed list.
 export const REQUEST_CATEGORIES = [
   "Electrical",
   "Plumbing",
@@ -26,7 +26,6 @@ export const REQUEST_CATEGORIES = [
   "Cleaning / Trash",
   "Lighting",
   "Doors / Locks",
-  "Lock Out",
   "Windows / Glass",
   "Pest Control",
   "Safety / Compliance",
