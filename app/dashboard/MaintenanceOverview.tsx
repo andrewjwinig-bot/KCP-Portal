@@ -219,7 +219,7 @@ export default function MaintenanceOverview() {
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(420px, 1fr))", gap: 14 }}>
-        <ChartCard title="Worker">
+        <ChartCard title="Team Member">
           <PieWithLegend rows={byWorker} donut />
         </ChartCard>
         <ChartCard title="Category">
