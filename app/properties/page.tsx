@@ -27,6 +27,8 @@ function compactMoney(n: number): string {
 // ─── PROPERTY CARD ────────────────────────────────────────────────────────────
 
 function PropertyCard({ prop, onClick, loan }: { prop: PropertyDef; onClick: () => void; checked: Record<string, boolean>; loan?: Loan | null }) {
+  const { user } = useUser();
+  const isMaint = user.id === "maint";
   const ts = TYPE_STYLE[prop.type];
   const isEntity = !!prop.entityKind;
   const typeAccent = isEntity ? "" : `, inset 0 5px 0 ${ts.text}`;
@@ -95,8 +97,8 @@ function PropertyCard({ prop, onClick, loan }: { prop: PropertyDef; onClick: () 
           {prop.name}
         </div>
 
-        {/* Debt summary — present only on properties (or partnership cards) that secure a loan */}
-        {loan && (() => {
+        {/* Debt summary — present only on properties (or partnership cards) that secure a loan. Hidden from the maint persona. */}
+        {!isMaint && loan && (() => {
           const s = summarizeLoan(loan, todayISO());
           return (
             <div style={{

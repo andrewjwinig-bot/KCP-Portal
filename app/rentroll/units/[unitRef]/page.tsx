@@ -19,6 +19,7 @@ import DepositCard from "./DepositCard";
 import CamConfigCard from "./CamConfigCard";
 import FloorplanCard from "./FloorplanCard";
 import ShareFolderCard from "../../../components/ShareFolderCard";
+import { useUser } from "../../../components/UserProvider";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -93,6 +94,10 @@ export default function UnitDetailPage() {
   const params = useParams<{ unitRef: string }>();
   const rawRef = params?.unitRef ?? "";
   const decodedUnitRef = decodeURIComponent(Array.isArray(rawRef) ? rawRef[0] : rawRef);
+  const { user } = useUser();
+  // The maint persona is maintenance staff — no business need to see rent,
+  // deposits, or CAM reconciliation details.
+  const isMaint = user.id === "maint";
 
   const [rentroll, setRentroll] = useState<RentRollData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -296,7 +301,7 @@ export default function UnitDetailPage() {
             value={isAmenity ? "In-House" : "Vacant"}
             accent={isAmenity ? "#0d9488" : "var(--muted)"}
           />
-        ) : (
+        ) : isMaint ? null : (
           <>
             <StatPill label="Annual $/sf" value={heroAnnualPerSf} />
             <StatPill
@@ -347,8 +352,8 @@ export default function UnitDetailPage() {
         {/* Rent card — only renders when there's content beyond the
             hero-pill repeats. Non-retail tenants still see NNN breakouts
             and Gross Rent here; everyone sees Last Increase when it
-            exists. */}
-        {!isAmenity && (
+            exists. Hidden entirely for the maint persona. */}
+        {!isMaint && !isAmenity && (
           (!isRetailUnit(propertyCode) && (hasNNN || unit.grossRentTotal > 0))
           || Boolean(unit.lastIncreaseDate || unit.lastIncreaseAmount)
         ) && (
@@ -384,8 +389,8 @@ export default function UnitDetailPage() {
           </div>
         )}
 
-        {/* ── CAM / INS / RET (retail only, occupied suites) ── */}
-        {isRetailUnit(propertyCode) && !isAmenity && !unit.isVacant && (
+        {/* ── CAM / INS / RET (retail only, occupied suites, hidden from maint) ── */}
+        {!isMaint && isRetailUnit(propertyCode) && !isAmenity && !unit.isVacant && (
           <CamConfigCard
             unitRef={unit.unitRef}
             actualPrs={actualPrs}
@@ -433,8 +438,8 @@ export default function UnitDetailPage() {
           />
         )}
 
-        {/* ── Security Deposit (occupied suites only) ── */}
-        {!isAmenity && !unit.isVacant && (
+        {/* ── Security Deposit (occupied suites only, hidden from maint) ── */}
+        {!isMaint && !isAmenity && !unit.isVacant && (
           <DepositCard
             unitRef={unit.unitRef}
             propertyCode={propertyCode}
