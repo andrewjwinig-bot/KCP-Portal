@@ -113,7 +113,14 @@ export async function POST(req: NextRequest) {
   let resolvedCompany = company;
   let resolvedSuite = tenantSuite;
   let tenantResolved = false;
-  if (propertyCode) {
+  // PBS is our cleaning vendor — they aren't on the rent roll but
+  // legitimately submit service requests against any office property
+  // we manage, so treat them as a resolved submitter on every property.
+  const isPbsVendor = /^\s*pbs\s*$/i.test(company);
+  if (isPbsVendor) {
+    resolvedCompany = "PBS";
+    tenantResolved = true;
+  } else if (propertyCode) {
     const companies = await companiesForProperty(propertyCode);
     const match = bestTenantMatch(company, companies.map((c) => c.name));
     if (match) {

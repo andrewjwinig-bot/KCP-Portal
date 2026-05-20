@@ -29,7 +29,7 @@ const NAV_ROLE_KEY: Record<string, string> = {
   "CC Expense Coder":   "expenses",
   "CC Expense History": "expenses-history",
   "Allocated Invoicer": "allocated",
-  "Maintenance":        "maintenance",
+  "Requests":           "maintenance",
   "Maintenance Reports":"maintenance",
   "Reservations":       "reservations",
 };
@@ -315,7 +315,7 @@ const NAV = [
     ),
   },
   {
-    label: "Maintenance",
+    label: "Requests",
     href: "/maintenance",
     external: false,
     indent: false,
@@ -378,6 +378,30 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
     const timer = setInterval(load, 60000);
     return () => { alive = false; clearInterval(timer); };
   }, [canSeeReservations]);
+
+  // Pending service-request count → badge on the Requests nav item.
+  // Counts anything that isn't Complete (matches the dashboard's "open"
+  // bucket — New and In Progress).
+  const canSeeMaintenance = user.navKeys.has("all") || user.navKeys.has("maintenance");
+  const [maintenancePending, setMaintenancePending] = useState(0);
+  useEffect(() => {
+    if (!canSeeMaintenance) { setMaintenancePending(0); return; }
+    let alive = true;
+    const load = () => {
+      fetch("/api/maintenance/requests")
+        .then((r) => (r.ok ? r.json() : null))
+        .then((j) => {
+          if (!alive || !Array.isArray(j?.requests)) return;
+          setMaintenancePending(
+            j.requests.filter((x: { status?: string }) => x.status !== "Complete").length,
+          );
+        })
+        .catch(() => { /* ignore */ });
+    };
+    load();
+    const timer = setInterval(load, 60000);
+    return () => { alive = false; clearInterval(timer); };
+  }, [canSeeMaintenance]);
 
   function isActive(item: (typeof NAV)[number]) {
     if (item.external) return false;
@@ -467,7 +491,11 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
       <nav style={{ flex: 1, padding: open ? "4px 8px" : "8px 6px", display: "flex", flexDirection: "column", gap: 2, minHeight: 0, overflowY: "auto", overflowX: "hidden" }}>
         {NAV.filter((item) => isVisible(item)).map((item) => {
           const active = isActive(item);
-          const badge = item.label === "Reservations" ? reservationPending : 0;
+          const badge = item.label === "Reservations"
+            ? reservationPending
+            : item.label === "Requests"
+              ? maintenancePending
+              : 0;
           return (
             <a
               key={item.label}

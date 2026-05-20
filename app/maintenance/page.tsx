@@ -257,7 +257,7 @@ function MaintenancePageInner() {
   return (
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
       <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
-        <h1>Maintenance Requests</h1>
+        <h1>Service Requests</h1>
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
           <button
             onClick={reload}
@@ -1062,23 +1062,43 @@ function RequestModal({
               </select>
             </Field>
             <Field label="Assigned To">
-              <select
-                disabled={busy || readOnly}
-                value={request.assignedTo ?? ""}
-                onChange={(e) => patch({ assignedTo: e.target.value === "" ? null : (e.target.value as StaffId) })}
-                style={{
-                  ...selectStyle,
-                  // Highlight when nobody's on this — amber border + soft tint
-                  // makes the unassigned state hard to miss at a glance.
-                  borderColor: request.assignedTo ? "var(--border)" : "rgba(180,83,9,0.55)",
-                  borderWidth: request.assignedTo ? 1 : 1.5,
-                  background: request.assignedTo ? "var(--card)" : "rgba(180,83,9,0.06)",
-                }}
-              >
-                <option value="">— Unassigned —</option>
-                {STAFF.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
-              {!request.assignedTo && (
+              {/* Multi-assignee: click each staff chip to toggle them on or off.
+                  The amber tint highlights the "no one assigned" state. */}
+              <div style={{
+                display: "flex", flexWrap: "wrap", gap: 6,
+                padding: "6px 8px",
+                border: `${request.assignedToIds.length > 0 ? 1 : 1.5}px solid ${request.assignedToIds.length > 0 ? "var(--border)" : "rgba(180,83,9,0.55)"}`,
+                borderRadius: 8,
+                background: request.assignedToIds.length > 0 ? "var(--card)" : "rgba(180,83,9,0.06)",
+              }}>
+                {STAFF.map((s) => {
+                  const on = request.assignedToIds.includes(s.id);
+                  return (
+                    <button
+                      key={s.id}
+                      type="button"
+                      disabled={busy || readOnly}
+                      onClick={() => {
+                        const next = on
+                          ? request.assignedToIds.filter((id) => id !== s.id)
+                          : [...request.assignedToIds, s.id];
+                        patch({ assignedToIds: next });
+                      }}
+                      style={{
+                        fontSize: 12, fontWeight: 700, padding: "4px 10px",
+                        borderRadius: 999, cursor: busy || readOnly ? "default" : "pointer",
+                        border: `1px solid ${on ? "rgba(11,74,125,0.4)" : "var(--border)"}`,
+                        background: on ? "rgba(11,74,125,0.10)" : "transparent",
+                        color: on ? "#0b4a7d" : "var(--muted)",
+                        opacity: busy || readOnly ? 0.6 : 1,
+                      }}
+                    >
+                      {s.name}
+                    </button>
+                  );
+                })}
+              </div>
+              {request.assignedToIds.length === 0 && (
                 <span style={{ fontSize: 11, color: "#b45309", fontWeight: 600, marginTop: 4 }}>
                   ⚠ Needs an assignee
                 </span>
@@ -1111,6 +1131,16 @@ function RequestModal({
                 );
               })}
             </div>
+          </Section>
+
+          {/* Tenant Billback — optional charge passed back to the tenant
+              for parts / labor / etc. that this request triggered. */}
+          <Section title="Tenant Billback">
+            <TenantBillbackEditor
+              value={request.tenantBillback}
+              disabled={busy || readOnly}
+              onChange={(next) => patch({ tenantBillback: next })}
+            />
           </Section>
 
           {/* Submission — contact card on top, tenant's intake note below */}
@@ -1264,6 +1294,95 @@ function RequestModal({
   );
 }
 
+// Editor for the optional dollar billback we charge the tenant for a
+// service-request resolution. Null until the user clicks "+ Add billback";
+// once added, three required fields (amount, description, date) sit
+// side-by-side with a remove button.
+function TenantBillbackEditor({
+  value,
+  disabled,
+  onChange,
+}: {
+  value: import("@/lib/maintenance/requests").TenantBillback | null;
+  disabled?: boolean;
+  onChange: (next: import("@/lib/maintenance/requests").TenantBillback | null) => void;
+}) {
+  if (!value) {
+    return (
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => onChange({
+          amount: 0,
+          description: "",
+          date: new Date().toISOString().slice(0, 10),
+        })}
+        className="btn"
+        style={{ fontSize: 12, padding: "6px 12px", fontWeight: 600, opacity: disabled ? 0.5 : 1 }}
+      >
+        + Add billback
+      </button>
+    );
+  }
+  return (
+    <div style={{
+      display: "grid",
+      gridTemplateColumns: "minmax(120px, 0.6fr) minmax(0, 2fr) minmax(140px, 0.7fr) auto",
+      gap: 10, alignItems: "end",
+    }}>
+      <Field label="Amount">
+        <div style={{ position: "relative" }}>
+          <span style={{
+            position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)",
+            fontSize: 13, fontWeight: 700, color: "var(--muted)", pointerEvents: "none",
+          }}>$</span>
+          <input
+            type="number"
+            inputMode="decimal"
+            step="0.01"
+            min={0}
+            disabled={disabled}
+            value={Number.isFinite(value.amount) ? String(value.amount) : ""}
+            onChange={(e) => {
+              const n = Number(e.target.value);
+              onChange({ ...value, amount: Number.isFinite(n) ? n : 0 });
+            }}
+            style={{ ...selectStyle, paddingLeft: 22, textAlign: "right" }}
+          />
+        </div>
+      </Field>
+      <Field label="Description">
+        <input
+          type="text"
+          disabled={disabled}
+          value={value.description}
+          onChange={(e) => onChange({ ...value, description: e.target.value })}
+          placeholder="Parts, labor, etc."
+          style={selectStyle}
+        />
+      </Field>
+      <Field label="Date">
+        <input
+          type="date"
+          disabled={disabled}
+          value={value.date}
+          onChange={(e) => onChange({ ...value, date: e.target.value })}
+          style={selectStyle}
+        />
+      </Field>
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => onChange(null)}
+        className="btn"
+        style={{ fontSize: 12, padding: "8px 12px", fontWeight: 600, height: 38 }}
+      >
+        Remove
+      </button>
+    </div>
+  );
+}
+
 function RowAssigneeSelect({
   request, onUpdated,
 }: {
@@ -1338,7 +1457,7 @@ function EmailTenantComposer({
     "",
     "Thanks,",
     staffName(author),
-    "KCP Maintenance",
+    "Korman Commercial Operations",
   ].join("\n");
 
   const [subject, setSubject] = useState(defaultSubject);
@@ -1357,7 +1476,7 @@ function EmailTenantComposer({
       "",
       "Thanks,",
       staffName(author),
-      "KCP Maintenance",
+      "Korman Commercial Operations",
     ].join("\n"));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [request.id, author]);

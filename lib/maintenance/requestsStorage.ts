@@ -9,7 +9,7 @@
 
 import "server-only";
 import { getJSON, listJSON, storeJSON } from "@/lib/storage";
-import type { MaintenanceRequest } from "@/lib/maintenance/requests";
+import { normalizeRequest, type MaintenanceRequest } from "@/lib/maintenance/requests";
 
 // Manifest lives in its own prefix so it never collides with — or gets
 // re-included by — legacy per-record blobs in `maintenance-requests/`.
@@ -21,7 +21,7 @@ type Manifest = { requests: MaintenanceRequest[]; updatedAt: string };
 
 async function loadManifest(): Promise<MaintenanceRequest[]> {
   const m = (await getJSON(MANIFEST_PREFIX, MANIFEST_ID)) as Manifest | null;
-  if (m && Array.isArray(m.requests)) return m.requests;
+  if (m && Array.isArray(m.requests)) return m.requests.map(normalizeRequest);
 
   // Bootstrap path: no manifest exists yet. Pull whatever per-record
   // blobs the legacy prefix still has (one list() call), build the
@@ -33,7 +33,7 @@ async function loadManifest(): Promise<MaintenanceRequest[]> {
     legacy = [];
   }
   await saveManifest(legacy);
-  return legacy;
+  return legacy.map(normalizeRequest);
 }
 
 async function saveManifest(requests: MaintenanceRequest[]): Promise<void> {
