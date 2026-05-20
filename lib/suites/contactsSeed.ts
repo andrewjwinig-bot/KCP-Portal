@@ -10,7 +10,50 @@
 // not individual contacts. Staff fill those in over time.
 
 export const SUITE_CONTACTS_SEED: Record<string, readonly string[]> = {
-  // ── 4050 ────────────────────────────────────────────────────────
+  // ── 3610 (JV III) ───────────────────────────────────────────────
+  "3610-101": ["altruistichca@gmail.com"],
+  "3610-103": ["ea@thealongroup.com"],
+  "3610-104": ["invoices@myallamericancare.com"],
+  "3610-105": ["theapricityapproach@gmail.com", "juliacmeehan@gmail.com"],
+  "3610-106": ["patientfirsthca@gmail.com"],
+  "3610-202": ["gina@mrnoah.com"],
+  "3610-203": ["nozzi6105@gmail.com"],
+  "3610-205": ["dayempervaiz97@gmail.com"],
+  "3610-209": ["walter@west-comm.com"],
+  "3610-300": ["keyiara@eelp.net"],
+  "3610-302": ["pdimitrova@traffictech.com", "ap@traffictech.com"],
+  "3610-305": ["elizabeth.reevey@hhinc.org"],
+  "3610-310": ["accounting@amreslending.com"],
+
+  // ── 3620 (JV III) ───────────────────────────────────────────────
+  "3620-100": ["ap@vtinfo.com"],
+  "3620-102": ["lende@comcast.net"],
+  "3620-104": ["dtee@cpsgo.com"],
+  "3620-108": ["jkoszarek@jdm-inc.com"],
+  "3620-110": ["rentdepartment@davita.com"],
+  "3620-205": ["rburgos@masoneast-pa.com", "sgelb@masoneast-pa.com"],
+  "3620-209": ["john@freitagfamilyagency.com"],
+  "3620-210": ["mlonergan@northmarqadv.com"],
+  "3620-310": ["sbsap@avidbill.com", "apinquiries@sbsmiles.org"],
+  "3620-312": ["paulab@advenser.net"],
+
+  // ── 3640 (JV III) ───────────────────────────────────────────────
+  "3640-101": ["hbalogun@mednetservices.com"],
+  "3640-103": ["kfederico@falconengineering.com"],
+  "3640-105": ["mary@edwardgilsonlaw.com"],
+  "3640-106": ["jpio@teamsignal.com", "bkotowski@teamsignal.com"],
+  "3640-107": ["verlette@envoylighting.com"],
+  "3640-108": ["dennis@dennisrichman.com"],
+  "3640-109": ["realestateleases@kleinfelder.com"],
+  "3640-111": ["rhine@nalc.org"],
+  "3640-204": ["psaap@avenna.com"],
+  "3640-205": ["schmidtsl@aol.com"],
+  "3640-206": ["vipul@carnegiehealthcare.com"],
+  "3640-207": ["lcarr@uservices.com"],
+  "3640-300": ["mark@seominteractive.com"],
+  "3640-301": ["accounts.payable@srpcompanies.com"],
+
+  // ── 4050 (NI LLC) ───────────────────────────────────────────────
   "4050-113": ["kwyatt@strangcorp.com"],
   "4050-115": ["susan@skhabstract.com"],
   "4050-201": ["accounts_payable@abc-med.com"],
@@ -22,7 +65,7 @@ export const SUITE_CONTACTS_SEED: Record<string, readonly string[]> = {
   "4050-307": ["larry@larrythelawyer.com"],
   "4050-315": ["accounting@fsdc-law.com"],
 
-  // ── 4060 ────────────────────────────────────────────────────────
+  // ── 4060 (NI LLC) ───────────────────────────────────────────────
   "4060-100": ["propertymanagement@hearusa.com"],
   "4060-105": ["ogorman@cornerstonecaregiving.com"],
   "4060-111": ["mdeangelis@CBIZ.com"],
@@ -42,7 +85,7 @@ export const SUITE_CONTACTS_SEED: Record<string, readonly string[]> = {
   "4060-403": ["billing@modernroofingandexteriors.com"],
   "4060-500": ["emanraja.ffl@gmail.com", "salemronnie93@gmail.com"],
 
-  // ── 4070 ────────────────────────────────────────────────────────
+  // ── 4070 (NI LLC) ───────────────────────────────────────────────
   "4070-103": ["steve@bctma.com"],
   "4070-107": ["email@ossv.net"],
   "4070-113": ["bmcquoid@allstate.com"],
@@ -58,7 +101,7 @@ export const SUITE_CONTACTS_SEED: Record<string, readonly string[]> = {
   "4070-411": ["uhg.docs@cbre.com"],
   "4070-415": ["AP@veltriinc.com"],
 
-  // ── 4080 ────────────────────────────────────────────────────────
+  // ── 4080 (NI LLC) ───────────────────────────────────────────────
   "4080-100": ["ceveritt@lawlerdirect.com"],
   "4080-102": ["monicabarrett@comcast.net"],
   "4080-107": ["ceveritt@lawlerdirect.com"],
