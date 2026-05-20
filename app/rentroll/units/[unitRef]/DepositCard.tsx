@@ -119,6 +119,7 @@ export default function DepositCard({
                 display: "flex", alignItems: "center", gap: 12,
                 padding: "10px 12px", border: "1px solid var(--border)",
                 borderRadius: 10, background: "rgba(15,23,42,0.015)", cursor: "pointer",
+                opacity: d.refunded ? 0.7 : 1,
               }}>
               {d.checkImage && d.checkImage.contentType.startsWith("image/") && (
                 <a href={d.checkImage.url} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>
@@ -127,11 +128,21 @@ export default function DepositCard({
                 </a>
               )}
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 14, fontWeight: 700 }}>
-                  {d.amount ? money(d.amount) : "—"}
+                <div style={{ fontSize: 14, fontWeight: 700, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  <span>{d.amount ? money(d.amount) : "—"}</span>
                   <span style={{ fontSize: 12, fontWeight: 500, color: "var(--muted)" }}>
-                    {d.checkNumber ? `  ·  Check #${d.checkNumber}` : ""}
+                    {d.checkNumber ? `Check #${d.checkNumber}` : ""}
                   </span>
+                  {d.refunded && (
+                    <span style={{
+                      fontSize: 10, fontWeight: 800, letterSpacing: "0.04em", textTransform: "uppercase",
+                      padding: "2px 8px", borderRadius: 999,
+                      background: "rgba(22,163,74,0.10)", color: "#15803d",
+                      border: "1px solid rgba(22,163,74,0.30)",
+                    }}>
+                      Refunded{d.refundDate ? ` · ${prettyDate(d.refundDate)}` : ""}
+                    </span>
+                  )}
                 </div>
                 <div style={{ fontSize: 12, color: "var(--muted)" }}>
                   {prettyDate(d.checkDate)} · {DEPOSIT_ACCOUNTS[d.account].bank}

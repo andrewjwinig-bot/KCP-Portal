@@ -77,6 +77,8 @@ export default function DepositForm({
   const [amount, setAmount] = useState(deposit?.amount ? String(deposit.amount) : "");
   const [checkDate, setCheckDate] = useState(deposit?.checkDate ?? "");
   const [notes, setNotes] = useState(deposit?.notes ?? "");
+  const [refunded, setRefunded] = useState(deposit?.refunded ?? false);
+  const [refundDate, setRefundDate] = useState(deposit?.refundDate ?? "");
   const [stagedFile, setStagedFile] = useState<File | null>(null);
   const [stagedPreview, setStagedPreview] = useState<string | null>(null);
   const [existingImage, setExistingImage] = useState(deposit?.checkImage ?? null);
@@ -140,6 +142,8 @@ export default function DepositForm({
         amount: Number(amount) || 0,
         checkDate,
         notes,
+        refunded,
+        refundDate: refunded ? refundDate : "",
       };
       const res = await fetch(deposit ? `/api/deposits/${deposit.id}` : "/api/deposits", {
         method: deposit ? "PUT" : "POST",
@@ -310,6 +314,25 @@ export default function DepositForm({
         <span style={labelStyle}>Notes</span>
         <input style={inputStyle} value={notes} placeholder="Anything worth noting"
           onChange={(e) => setNotes(e.target.value)} />
+      </div>
+
+      {/* Refund status */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <label style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+          <input
+            type="checkbox"
+            checked={refunded}
+            onChange={(e) => setRefunded(e.target.checked)}
+            style={{ width: 16, height: 16, cursor: "pointer" }}
+          />
+          <span style={{ fontSize: 13, fontWeight: 700 }}>Refunded to tenant</span>
+        </label>
+        {refunded && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 4, maxWidth: 260 }}>
+            <span style={labelStyle}>Refund Date</span>
+            <Calendar value={refundDate} onChange={setRefundDate} variant="card" />
+          </div>
+        )}
       </div>
 
       {/* Actions */}

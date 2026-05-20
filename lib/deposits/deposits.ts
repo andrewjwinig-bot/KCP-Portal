@@ -42,6 +42,10 @@ export type SecurityDeposit = {
   account: DepositAccount;
   checkImage: DepositCheckImage | null;
   notes: string;
+  /** True once the deposit has been returned to the tenant. */
+  refunded: boolean;
+  /** ISO YYYY-MM-DD the refund was issued. Empty when not refunded. */
+  refundDate: string;
   createdAt: string;
   updatedAt: string;
 };
@@ -77,6 +81,7 @@ export function sanitizeDeposit(body: unknown, existing?: SecurityDeposit): Secu
   const b = (body ?? {}) as Record<string, unknown>;
   const now = new Date().toISOString();
   const propertyCode = asText(b.propertyCode, 10) || existing?.propertyCode || "";
+  const refunded = !!b.refunded;
   return {
     id: existing?.id ?? (asText(b.id, 64) || newDepositId()),
     unitRef: asText(b.unitRef, 40) || existing?.unitRef || "",
@@ -88,6 +93,9 @@ export function sanitizeDeposit(body: unknown, existing?: SecurityDeposit): Secu
     account: accountForProperty(propertyCode),
     checkImage: existing?.checkImage ?? null,
     notes: asText(b.notes, 1000),
+    refunded,
+    // A refund date is only meaningful when the deposit is refunded.
+    refundDate: refunded ? asISODate(b.refundDate) : "",
     createdAt: existing?.createdAt ?? now,
     updatedAt: now,
   };
