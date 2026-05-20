@@ -1005,9 +1005,11 @@ export default function ExpensesPage() {
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 10 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <button className="btn" style={{ padding: "2px 8px", fontSize: 13 }} onClick={() => setCodeTransOpen((o) => !o)} title={codeTransOpen ? "Collapse" : "Expand"}>
-              {codeTransOpen ? "▲" : "▼"}
-            </button>
+            {!isMaint && (
+              <button className="btn" style={{ padding: "2px 8px", fontSize: 13 }} onClick={() => setCodeTransOpen((o) => !o)} title={codeTransOpen ? "Collapse" : "Expand"}>
+                {codeTransOpen ? "▲" : "▼"}
+              </button>
+            )}
             <div>
               <b>Code Transactions</b>
               <div className="small muted">Category + Property required. Suite required only if Category = TI.</div>
@@ -1028,7 +1030,7 @@ export default function ExpensesPage() {
           </div>
         </div>
 
-        {codeTransOpen && <div style={{ overflowX: "auto", overflowY: "auto", maxHeight: CODE_TABLE_MAX_HEIGHT, borderRadius: 12, border: "1px solid var(--border)" }}>
+        {(codeTransOpen || isMaint) && <div style={{ overflowX: "auto", overflowY: "auto", maxHeight: CODE_TABLE_MAX_HEIGHT, borderRadius: 12, border: "1px solid var(--border)" }}>
           <table style={{ minWidth: 1200, width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
               {(() => {
