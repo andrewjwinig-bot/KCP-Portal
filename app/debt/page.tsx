@@ -1,6 +1,7 @@
 "use client";
 
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   LOAN_GROUPS,
   buildSchedule,
@@ -51,6 +52,15 @@ const SECTION_LABEL: React.CSSProperties = {
 };
 
 export default function DebtPage() {
+  return (
+    <Suspense fallback={null}>
+      <DebtPageInner />
+    </Suspense>
+  );
+}
+
+function DebtPageInner() {
+  const searchParams = useSearchParams();
   const [loans, setLoans] = useState<Loan[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -154,6 +164,13 @@ export default function DebtPage() {
     () => (loans ?? []).find((l) => l.id === scheduleId) ?? null,
     [loans, scheduleId],
   );
+
+  // Deep-link: ?openId=<loanId> opens that loan's schedule modal once loans load.
+  useEffect(() => {
+    const openId = searchParams.get("openId");
+    if (!openId || !loans) return;
+    if (loans.some((l) => l.id === openId)) setScheduleId(openId);
+  }, [searchParams, loans]);
 
   return (
     <main>
