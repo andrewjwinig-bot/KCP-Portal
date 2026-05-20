@@ -33,23 +33,32 @@ function ColumnHeader({ children }: { children: React.ReactNode }) {
   );
 }
 
-// PRS cell: a narrow centered % input with an inline "%" affix. The
-// implied building-sqft figure renders on the row below in its own grid
-// cell, so this component stays a single-line input.
+// PRS cell: a narrow % input with an inline "%" affix and the implied
+// building GLA right beside it — e.g. "[5.25] % (95,238 SF)". The whole
+// group is centered within the grid cell.
 function PrsInput({
   value,
   onChange,
   disabled,
+  unitSqft,
 }: {
   value: number | null;
   onChange: (next: number | null) => void;
   disabled?: boolean;
+  unitSqft: number;
 }) {
   const [text, setText] = useState<string>(value == null ? "" : String(value));
   useEffect(() => { setText(value == null ? "" : String(value)); }, [value]);
 
+  const gla = value && value > 0 && unitSqft > 0
+    ? Math.round(unitSqft / (value / 100))
+    : null;
+
   return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}>
+    <div style={{
+      display: "flex", alignItems: "center", justifyContent: "center",
+      gap: 6, whiteSpace: "nowrap",
+    }}>
       <input
         type="number"
         inputMode="decimal"
@@ -76,33 +85,22 @@ function PrsInput({
         }}
         style={{
           ...inputStyle,
-          width: 76,
+          width: 72,
           textAlign: "right",
           opacity: disabled ? 0.5 : 1,
           cursor: disabled ? "not-allowed" : "text",
         }}
       />
       <span style={{
-        fontSize: 13, fontWeight: 600, color: "var(--muted)",
+        fontSize: 13, fontWeight: 700, color: "var(--text)",
         opacity: disabled ? 0.5 : 1,
       }}>%</span>
+      {gla != null && (
+        <span style={{ fontSize: 12, color: "var(--muted)" }}>
+          ({gla.toLocaleString()} SF)
+        </span>
+      )}
     </div>
-  );
-}
-
-// "(95,238 SF)" — the building SF implied by a given PRS. Renders blank
-// when PRS is unset.
-function ImpliedSF({ prsPct, unitSqft }: { prsPct: number | null; unitSqft: number }) {
-  const sf = prsPct && prsPct > 0 && unitSqft > 0
-    ? Math.round(unitSqft / (prsPct / 100))
-    : null;
-  return (
-    <span style={{
-      fontSize: 11, color: "var(--muted)", textAlign: "center",
-      whiteSpace: "nowrap", minHeight: 14,
-    }}>
-      {sf != null ? `(${sf.toLocaleString()} SF)` : ""}
-    </span>
   );
 }
 
@@ -123,26 +121,30 @@ function AdminFeeSelect({
   // so the dropdown still shows a matching option.
   const intValue = value == null ? "" : String(Math.round(value));
   return (
-    <select
-      value={intValue}
-      disabled={disabled}
-      onChange={(e) => {
-        const t = e.target.value;
-        onChange(t === "" ? null : Number(t));
-      }}
-      style={{
-        ...inputStyle,
-        cursor: disabled ? "not-allowed" : "pointer",
-        opacity: disabled ? 0.5 : 1,
-        textAlign: "right",
-        appearance: "auto",
-      }}
-    >
-      <option value="">—</option>
-      {Array.from({ length: 15 }, (_, i) => i + 1).map((n) => (
-        <option key={n} value={n}>{n}%</option>
-      ))}
-    </select>
+    <div style={{ display: "flex", justifyContent: "center" }}>
+      <select
+        value={intValue}
+        disabled={disabled}
+        onChange={(e) => {
+          const t = e.target.value;
+          onChange(t === "" ? null : Number(t));
+        }}
+        style={{
+          ...inputStyle,
+          width: 110,
+          cursor: disabled ? "not-allowed" : "pointer",
+          opacity: disabled ? 0.5 : 1,
+          textAlign: "center",
+          textAlignLast: "center",
+          appearance: "auto",
+        }}
+      >
+        <option value="">—</option>
+        {Array.from({ length: 15 }, (_, i) => i + 1).map((n) => (
+          <option key={n} value={n}>{n}%</option>
+        ))}
+      </select>
+    </div>
   );
 }
 
@@ -302,10 +304,10 @@ export default function CamConfigCard({
       )}
 
       <div style={{ opacity: isGross ? 0.45 : 1, pointerEvents: isGross ? "none" : "auto" }}>
-        {/* Single 4-column / 3-row grid: CAM Admin Fee on the left, then
-            CAM PRS / INS PRS / RET PRS columns. Row 1 headers, row 2
-            inputs (dropdown and % fields on the same line), row 3 the
-            building-SF implied by each PRS — left cell stays empty. */}
+        {/* Single 4-column / 2-row grid: CAM Admin Fee on the left, then
+            CAM PRS / INS PRS / RET PRS. Row 1 headers, row 2 values —
+            PRS cells render "[%] (NN,NNN SF)" inline; admin fee is a
+            centered dropdown. */}
         <div style={{
           display: "grid",
           gridTemplateColumns: "minmax(140px, 0.7fr) repeat(3, minmax(0, 1fr))",
@@ -319,7 +321,7 @@ export default function CamConfigCard({
           <ColumnHeader>INS PRS</ColumnHeader>
           <ColumnHeader>RET PRS</ColumnHeader>
 
-          {/* Row 2: inputs */}
+          {/* Row 2: inputs — PRS cells render "% (NN SF)" inline. */}
           <AdminFeeSelect
             value={config.cam.adminFeePct}
             onChange={(v) => updateCategory("cam", { adminFeePct: v })}
@@ -330,17 +332,8 @@ export default function CamConfigCard({
               key={`v-${cat}`}
               value={config[cat].stipulatedPrs}
               onChange={(v) => updateCategory(cat, { stipulatedPrs: v })}
-              disabled={isGross}
-            />
-          ))}
-
-          {/* Row 3: building SF implied by the chosen PRS — left cell empty */}
-          <div />
-          {CAM_CATEGORIES.map((cat) => (
-            <ImpliedSF
-              key={`s-${cat}`}
-              prsPct={config[cat].stipulatedPrs}
               unitSqft={unitSqft}
+              disabled={isGross}
             />
           ))}
         </div>
