@@ -215,11 +215,10 @@ export default function SuiteInformationCard({ unitRef }: { unitRef: string }) {
   }
 
   return (
-    <>
-      <div className="card">
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-          <SectionLabel>Suite Information</SectionLabel>
-          <AutosaveStatus saving={saving} savedFlash={savedFlash} />
+    <div className="card">
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+        <SectionLabel>Suite Information</SectionLabel>
+        <AutosaveStatus saving={saving} savedFlash={savedFlash} />
         </div>
 
         {error && (
@@ -324,45 +323,7 @@ export default function SuiteInformationCard({ unitRef }: { unitRef: string }) {
               />
             </div>
           </Row>
-        </div>
       </div>
-
-      <div className="card">
-        <SectionLabel>Floorplan</SectionLabel>
-        {info.floorplan ? (
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {info.floorplan.contentType.startsWith("image/") ? (
-              <a href={info.floorplan.url} target="_blank" rel="noreferrer">
-                <img
-                  src={info.floorplan.url}
-                  alt="Suite floorplan"
-                  style={{
-                    maxWidth: "100%", maxHeight: 420, borderRadius: 10,
-                    border: "1px solid var(--border)", display: "block",
-                  }}
-                />
-              </a>
-            ) : (
-              <a href={info.floorplan.url} target="_blank" rel="noreferrer"
-                style={{ fontSize: 13, fontWeight: 600, color: "#0b4a7d" }}>
-                {info.floorplan.name}
-              </a>
-            )}
-            <div>
-              <button type="button" onClick={() => removeFile("floorplan")}
-                className="btn" style={{ fontSize: 12, padding: "5px 12px", fontWeight: 600 }}>
-                Remove floorplan
-              </button>
-            </div>
-          </div>
-        ) : (
-          <UploadBox
-            label="Floorplan"
-            busy={uploadingKind === "floorplan"}
-            onPick={(f) => upload("floorplan", f)}
-          />
-        )}
-      </div>
-    </>
+    </div>
   );
 }

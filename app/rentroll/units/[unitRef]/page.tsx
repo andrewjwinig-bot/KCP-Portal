@@ -17,6 +17,7 @@ import SuiteInformationCard from "./SuiteInformationCard";
 import ContactsCard from "./ContactsCard";
 import DepositCard from "./DepositCard";
 import CamConfigCard from "./CamConfigCard";
+import FloorplanCard from "./FloorplanCard";
 import ShareFolderCard from "../../../components/ShareFolderCard";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -305,6 +306,10 @@ export default function UnitDetailPage() {
               label="Gross Rent / mo"
               value={unit.grossRentTotal ? `$${unit.grossRentTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : "—"}
             />
+            <StatPill
+              label="Annual Rent"
+              value={annualRent ? `$${Math.round(annualRent).toLocaleString()}` : "—"}
+            />
             <StatPill label="Annual $/sf" value={heroAnnualPerSf} />
           </>
         )}
@@ -316,49 +321,56 @@ export default function UnitDetailPage() {
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-        {/* Lease Term + Rent share a row — Lease Term is a one-liner and
-            Rent's 3-column grid stays compact, so giving each ~half a
-            row reads better than two stacked half-empty cards. Amenity
-            units have no Rent card; Lease Term renders alone. */}
-        {(() => {
-          const leaseTermCard = (
-            <div className="card" style={{ display: "flex", alignItems: "center", gap: 14, padding: "12px 18px" }}>
-              <span style={{
-                fontSize: 11, fontWeight: 700, letterSpacing: "0.06em",
-                color: "var(--muted)", textTransform: "uppercase",
-              }}>Lease Term</span>
-              <span style={{ fontSize: 14, fontWeight: 700, color: "var(--text)" }}>
-                {formatModalDate(unit.leaseFrom)}
-                <span style={{ color: "var(--muted)", fontWeight: 500, margin: "0 8px" }}>→</span>
-                {formatModalDate(unit.leaseTo)}
-              </span>
-            </div>
-          );
-          const rentCard = (
-            <div className="card">
-              <SectionLabel>Rent</SectionLabel>
+        {/* Top row: Lease Term · Floorplan · Shared Drive Folder. Base
+            Rent / Annual $/sf / Annual Rent all live on the hero pills
+            above, so they don't repeat in a Rent card here. */}
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "minmax(220px, 0.6fr) minmax(0, 1fr) minmax(0, 0.7fr)",
+          gap: 14, alignItems: "stretch",
+        }}>
+          <div className="card" style={{ display: "flex", alignItems: "center", gap: 14, padding: "12px 18px" }}>
+            <span style={{
+              fontSize: 11, fontWeight: 700, letterSpacing: "0.06em",
+              color: "var(--muted)", textTransform: "uppercase",
+            }}>Lease Term</span>
+            <span style={{ fontSize: 14, fontWeight: 700, color: "var(--text)" }}>
+              {formatModalDate(unit.leaseFrom)}
+              <span style={{ color: "var(--muted)", fontWeight: 500, margin: "0 8px" }}>→</span>
+              {formatModalDate(unit.leaseTo)}
+            </span>
+          </div>
+          <FloorplanCard unitRef={unit.unitRef} />
+          <ShareFolderCard kind="unit" entityKey={unit.unitRef} />
+        </div>
+
+        {/* Rent card — only renders when there's content beyond the
+            hero-pill repeats. Non-retail tenants still see NNN breakouts
+            and Gross Rent here; everyone sees Last Increase when it
+            exists. */}
+        {!isAmenity && (
+          (!isRetailUnit(propertyCode) && (hasNNN || unit.grossRentTotal > 0))
+          || Boolean(unit.lastIncreaseDate || unit.lastIncreaseAmount)
+        ) && (
+          <div className="card">
+            <SectionLabel>Rent</SectionLabel>
+            {!isRetailUnit(propertyCode) && (hasNNN || unit.grossRentTotal > 0) && (
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "14px 32px" }}>
-                <InfoField label="Base Rent / mo" value={unit.baseRent ? money(unit.baseRent) : "—"} />
-                <InfoField label="Annual $/sf" value={unit.annualRentPerSqft ? `$${unit.annualRentPerSqft.toFixed(2)}` : (annualPerSf ? `$${annualPerSf.toFixed(2)}` : "—")} />
-                <InfoField label="Annual Rent" value={annualRent ? money(annualRent) : "—"} />
-                {/* NNN breakouts (CAM / RE Tax / Other) and Gross Rent live on
-                    the CAM card pills for retail units. Non-retail units still
-                    surface them here so the data isn't lost. */}
-                {!isRetailUnit(propertyCode) && hasNNN && (
-                  <>
-                    {unit.opexMonth > 0 && <InfoField label="CAM / mo" value={money(unit.opexMonth)} />}
-                    {unit.reTaxMonth > 0 && <InfoField label="RE Tax / mo" value={money(unit.reTaxMonth)} />}
-                    {unit.otherMonth > 0 && <InfoField label="Other / mo" value={money(unit.otherMonth)} />}
-                  </>
-                )}
-                {!isRetailUnit(propertyCode) && (
-                  <InfoField label="Gross Rent / mo" value={unit.grossRentTotal ? money(unit.grossRentTotal) : "—"} />
+                {hasNNN && unit.opexMonth > 0  && <InfoField label="CAM / mo"    value={money(unit.opexMonth)} />}
+                {hasNNN && unit.reTaxMonth > 0 && <InfoField label="RE Tax / mo" value={money(unit.reTaxMonth)} />}
+                {hasNNN && unit.otherMonth > 0 && <InfoField label="Other / mo"  value={money(unit.otherMonth)} />}
+                {unit.grossRentTotal > 0 && (
+                  <InfoField label="Gross Rent / mo" value={money(unit.grossRentTotal)} />
                 )}
               </div>
-              {Boolean(unit.lastIncreaseDate || unit.lastIncreaseAmount) && (
+            )}
+            {Boolean(unit.lastIncreaseDate || unit.lastIncreaseAmount) && (() => {
+              const hasNonRetailNNN = !isRetailUnit(propertyCode) && (hasNNN || unit.grossRentTotal > 0);
+              return (
                 <div style={{
-                  marginTop: 14, paddingTop: 14,
-                  borderTop: "1px solid var(--border)",
+                  marginTop: hasNonRetailNNN ? 14 : 0,
+                  paddingTop: hasNonRetailNNN ? 14 : 0,
+                  borderTop: hasNonRetailNNN ? "1px solid var(--border)" : undefined,
                   display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "14px 32px",
                 }}>
                   <div style={{ gridColumn: "1 / -1", fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", color: "var(--muted)", textTransform: "uppercase" }}>
@@ -367,17 +379,10 @@ export default function UnitDetailPage() {
                   <InfoField label="Date" value={formatModalDate(unit.lastIncreaseDate)} />
                   <InfoField label="Amount" value={unit.lastIncreaseAmount ? money(unit.lastIncreaseAmount) : "—"} />
                 </div>
-              )}
-            </div>
-          );
-          if (isAmenity) return leaseTermCard;
-          return (
-            <div style={{ display: "grid", gridTemplateColumns: "minmax(220px, 0.5fr) minmax(0, 1fr)", gap: 14, alignItems: "stretch" }}>
-              {leaseTermCard}
-              {rentCard}
-            </div>
-          );
-        })()}
+              );
+            })()}
+          </div>
+        )}
 
         {/* ── CAM / INS / RET (retail only, occupied suites) ── */}
         {isRetailUnit(propertyCode) && !isAmenity && !unit.isVacant && (
@@ -437,10 +442,7 @@ export default function UnitDetailPage() {
           />
         )}
 
-        {/* ── Shared Drive Folder ── */}
-        <ShareFolderCard kind="unit" entityKey={unit.unitRef} />
-
-        {/* ── Suite Information + Floorplan ── */}
+        {/* ── Suite Information (Floorplan lives in the top row) ── */}
         <SuiteInformationCard unitRef={unit.unitRef} />
 
         {/* ── Future Escalations ── */}
