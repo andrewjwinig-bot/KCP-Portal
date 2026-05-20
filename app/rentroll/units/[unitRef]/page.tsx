@@ -301,6 +301,10 @@ export default function UnitDetailPage() {
               label="Base Rent / mo"
               value={unit.baseRent ? `$${unit.baseRent.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : "—"}
             />
+            <StatPill
+              label="Gross Rent / mo"
+              value={unit.grossRentTotal ? `$${unit.grossRentTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : "—"}
+            />
             <StatPill label="Annual $/sf" value={heroAnnualPerSf} />
           </>
         )}
@@ -312,13 +316,17 @@ export default function UnitDetailPage() {
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-        {/* ── Lease Information ── */}
-        <div className="card">
-          <SectionLabel>Lease Information</SectionLabel>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "14px 32px" }}>
-            <InfoField label="Lease From" value={formatModalDate(unit.leaseFrom)} />
-            <InfoField label="Lease To" value={formatModalDate(unit.leaseTo)} />
-          </div>
+        {/* ── Lease Term — compact one-liner since it's just a date range ── */}
+        <div className="card" style={{ display: "flex", alignItems: "center", gap: 14, padding: "12px 18px" }}>
+          <span style={{
+            fontSize: 11, fontWeight: 700, letterSpacing: "0.06em",
+            color: "var(--muted)", textTransform: "uppercase",
+          }}>Lease Term</span>
+          <span style={{ fontSize: 14, fontWeight: 700, color: "var(--text)" }}>
+            {formatModalDate(unit.leaseFrom)}
+            <span style={{ color: "var(--muted)", fontWeight: 500, margin: "0 8px" }}>→</span>
+            {formatModalDate(unit.leaseTo)}
+          </span>
         </div>
 
         {/* ── Rent ── */}
@@ -329,14 +337,19 @@ export default function UnitDetailPage() {
               <InfoField label="Base Rent / mo" value={unit.baseRent ? money(unit.baseRent) : "—"} />
               <InfoField label="Annual $/sf" value={unit.annualRentPerSqft ? `$${unit.annualRentPerSqft.toFixed(2)}` : (annualPerSf ? `$${annualPerSf.toFixed(2)}` : "—")} />
               <InfoField label="Annual Rent" value={annualRent ? money(annualRent) : "—"} />
-              {hasNNN && (
+              {/* NNN breakouts (CAM / RE Tax / Other) and Gross Rent live on
+                  the CAM card pills for retail units. Non-retail units still
+                  surface them here so the data isn't lost. */}
+              {!isRetailUnit(propertyCode) && hasNNN && (
                 <>
                   {unit.opexMonth > 0 && <InfoField label="CAM / mo" value={money(unit.opexMonth)} />}
                   {unit.reTaxMonth > 0 && <InfoField label="RE Tax / mo" value={money(unit.reTaxMonth)} />}
                   {unit.otherMonth > 0 && <InfoField label="Other / mo" value={money(unit.otherMonth)} />}
                 </>
               )}
-              <InfoField label="Gross Rent / mo" value={unit.grossRentTotal ? money(unit.grossRentTotal) : "—"} />
+              {!isRetailUnit(propertyCode) && (
+                <InfoField label="Gross Rent / mo" value={unit.grossRentTotal ? money(unit.grossRentTotal) : "—"} />
+              )}
             </div>
             {/* Last Increase — folded into Rent card */}
             {(unit.lastIncreaseDate || unit.lastIncreaseAmount) && (
@@ -357,7 +370,13 @@ export default function UnitDetailPage() {
 
         {/* ── CAM / INS / RET (retail only, occupied suites) ── */}
         {isRetailUnit(propertyCode) && !isAmenity && !unit.isVacant && (
-          <CamConfigCard unitRef={unit.unitRef} actualPrs={actualPrs} />
+          <CamConfigCard
+            unitRef={unit.unitRef}
+            actualPrs={actualPrs}
+            opexMonth={unit.opexMonth}
+            reTaxMonth={unit.reTaxMonth}
+            otherMonth={unit.otherMonth}
+          />
         )}
 
         {/* ── Base Year (office only) ── */}

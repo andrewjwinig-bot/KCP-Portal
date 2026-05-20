@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { SectionLabel } from "@/app/properties/PropertyDetail";
 import { MultiSelect } from "@/app/components/MultiSelect";
+import { StatPill } from "@/app/components/Pill";
 import {
   CAM_CATEGORIES,
   CAM_CATEGORY_LABELS,
@@ -143,14 +144,29 @@ function AdminFeeSelect({
   );
 }
 
+function money(n: number): string {
+  return n.toLocaleString("en-US", {
+    style: "currency", currency: "USD",
+    minimumFractionDigits: 0, maximumFractionDigits: 0,
+  });
+}
+
 export default function CamConfigCard({
   unitRef,
   actualPrs,
+  opexMonth,
+  reTaxMonth,
+  otherMonth,
 }: {
   unitRef: string;
   /** True PRS for the unit (unit sqft / building sqft × 100), used to
    *  pre-fill the Stipulated PRS column when no override is stored. */
   actualPrs: number | null;
+  /** Monthly NNN breakouts pulled off the rent roll. Each renders as a
+   *  pill above the table when non-zero. */
+  opexMonth: number;
+  reTaxMonth: number;
+  otherMonth: number;
 }) {
   const [config, setConfig] = useState<CamConfig | null>(null);
   const [loading, setLoading] = useState(true);
@@ -277,6 +293,16 @@ export default function CamConfigCard({
           background: "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.3)",
           color: "#b91c1c", fontSize: 12, fontWeight: 600,
         }}>{error}</div>
+      )}
+
+      {/* Monthly NNN breakouts pulled from the rent roll. Read-only —
+          editing happens upstream in the Excel import. */}
+      {(opexMonth > 0 || reTaxMonth > 0 || otherMonth > 0) && (
+        <div className="pills" style={{ marginTop: 0, marginBottom: 14 }}>
+          {opexMonth > 0   && <StatPill label="CAM / mo"    value={money(opexMonth)} />}
+          {reTaxMonth > 0  && <StatPill label="RE Tax / mo" value={money(reTaxMonth)} />}
+          {otherMonth > 0  && <StatPill label="Other / mo"  value={money(otherMonth)} />}
+        </div>
       )}
 
       {/* Lease modifiers — both off-by-default. The reconciliation table
