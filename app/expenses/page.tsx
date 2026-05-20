@@ -1047,7 +1047,7 @@ export default function ExpensesPage() {
                       <th style={{ ...thBase, minWidth: 260 }} onClick={() => handleSortCol("description")}>Description{sortIcon("description")}</th>
                       <th style={{ ...thBase, minWidth: 170 }} onClick={() => handleSortCol("category")}>Category{sortIcon("category")}</th>
                       <th style={{ ...thBase, minWidth: 160 }} onClick={() => handleSortCol("property")}>Property{sortIcon("property")}</th>
-                      <th style={{ ...thBase, minWidth: 180 }} onClick={() => handleSortCol("acct")}>Account Code(s){sortIcon("acct")}</th>
+                      {!isMaint && <th style={{ ...thBase, minWidth: 180 }} onClick={() => handleSortCol("acct")}>Account Code(s){sortIcon("acct")}</th>}
                       <th style={{ ...thBase, minWidth: 120 }} onClick={() => handleSortCol("suite")}>Suite (TI){sortIcon("suite")}</th>
                       <th style={{ ...thBase, minWidth: 260 }} onClick={() => handleSortCol("invDesc")}>Invoice Description{sortIcon("invDesc")}</th>
                       <th style={{ ...thBase, minWidth: 120, cursor: "default" }}>Invoice PDF</th>
@@ -1083,9 +1083,12 @@ export default function ExpensesPage() {
                             {PROPERTIES.map((p) => <option key={p.id} value={p.id}>{p.id} — {p.name}</option>)}
                           </select>
                         </th>
-                        {(["acct","suite","invDesc"] as const).map((k) => (
-                          <th key={k} style={filterTh}><input style={filterInput} placeholder="Filter…" value={colFilters[k] ?? ""} onChange={(e) => setColFilter(k, e.target.value)} /></th>
-                        ))}
+                        {(["acct","suite","invDesc"] as const).map((k) => {
+                          if (k === "acct" && isMaint) return null;
+                          return (
+                            <th key={k} style={filterTh}><input style={filterInput} placeholder="Filter…" value={colFilters[k] ?? ""} onChange={(e) => setColFilter(k, e.target.value)} /></th>
+                          );
+                        })}
                         <th style={filterTh} />
                       </tr>
                     )}
@@ -1117,10 +1120,12 @@ export default function ExpensesPage() {
                         {properties.map((p) => <option key={p.id} value={p.id}>{p.id} — {p.name}</option>)}
                       </select>
                     </td>
-                    <td style={{ padding: "10px", fontVariantNumeric: "tabular-nums", fontSize: 12 }}>
-                      {acctText}
-                      {(!t.category || !t.propertyId) && <div className="small muted">Select category + property</div>}
-                    </td>
+                    {!isMaint && (
+                      <td style={{ padding: "10px", fontVariantNumeric: "tabular-nums", fontSize: 12 }}>
+                        {acctText}
+                        {(!t.category || !t.propertyId) && <div className="small muted">Select category + property</div>}
+                      </td>
+                    )}
                     <td style={{ padding: "8px" }}>
                       <input value={t.category === "TI" ? t.suite : ""} disabled={t.category !== "TI"} placeholder={t.category === "TI" ? "Suite (required)" : "—"} onChange={(e) => updateTx(t.id, { suite: e.target.value })} style={{ fontSize: 13, padding: "6px 8px", borderRadius: 8, border: "1px solid var(--border)", width: "100%" }} />
                     </td>
@@ -1165,7 +1170,7 @@ export default function ExpensesPage() {
                 );
               })}
               {!displayTx.length && (
-                <tr><td colSpan={10} className="small muted" style={{ padding: 14 }}>No rows to show.</td></tr>
+                <tr><td colSpan={isMaint ? 9 : 10} className="small muted" style={{ padding: 14 }}>No rows to show.</td></tr>
               )}
             </tbody>
           </table>
