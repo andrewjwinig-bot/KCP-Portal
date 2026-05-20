@@ -16,9 +16,12 @@ function toISODate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+// Conference rooms aren't bookable on weekends — start the week on Monday
+// and render Mon–Fri. Sunday-input → step back 6 days to last Monday.
 function startOfWeek(d: Date): Date {
   const out = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  out.setDate(out.getDate() - out.getDay());
+  const dow = out.getDay();
+  out.setDate(out.getDate() - (dow === 0 ? 6 : dow - 1));
   return out;
 }
 
@@ -90,7 +93,8 @@ export default function WeekCalendar({
   const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek(new Date()));
 
   const days = useMemo(() => {
-    return Array.from({ length: 7 }, (_, i) => {
+    // Mon–Fri only (weekStart is Monday).
+    return Array.from({ length: 5 }, (_, i) => {
       const d = new Date(weekStart);
       d.setDate(d.getDate() + i);
       return d;
@@ -108,7 +112,7 @@ export default function WeekCalendar({
   }, [reservations]);
 
   const todayISO = toISODate(new Date());
-  const rangeLabel = `${days[0].toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${days[6].toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
+  const rangeLabel = `${days[0].toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${days[days.length - 1].toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
 
   function shiftWeek(delta: number) {
     setWeekStart((prev) => {
@@ -135,7 +139,7 @@ export default function WeekCalendar({
       </div>
 
       {/* Day headers */}
-      <div style={{ display: "grid", gridTemplateColumns: "56px repeat(7, 1fr)", borderBottom: "1px solid var(--border)" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "56px repeat(5, 1fr)", borderBottom: "1px solid var(--border)" }}>
         <div />
         {days.map((d) => {
           const iso = toISODate(d);
@@ -159,7 +163,7 @@ export default function WeekCalendar({
       </div>
 
       {/* Time grid */}
-      <div style={{ display: "grid", gridTemplateColumns: "56px repeat(7, 1fr)", position: "relative" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "56px repeat(5, 1fr)", position: "relative" }}>
         {/* Hour gutter */}
         <div style={{ position: "relative", height: BODY_H }}>
           {Array.from({ length: HOUR_END - HOUR_START }, (_, i) => (
