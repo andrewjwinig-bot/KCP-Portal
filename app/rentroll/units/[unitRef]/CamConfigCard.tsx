@@ -47,6 +47,20 @@ function RowLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
+// Small CAM/INS/RET sub-column header used inside the right-side
+// Stipulated PRS region.
+function SubColHeader({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{
+      fontSize: 11, fontWeight: 700, letterSpacing: "0.06em",
+      textTransform: "uppercase", color: "var(--muted)",
+      textAlign: "center", paddingBottom: 4,
+    }}>
+      {children}
+    </div>
+  );
+}
+
 // Numeric % input with a trailing "%" affordance.
 function PctInput({
   value,
@@ -346,96 +360,47 @@ export default function CamConfigCard({
         </div>
       )}
 
-      {/* Lease modifiers — both off-by-default. The reconciliation table
-          assumes NNN with admin on every line and no excluded lines unless
-          one of these is turned on. */}
-      <div style={{
-        display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10,
-        marginBottom: 14,
-      }}>
-        <label style={{
-          display: "flex", alignItems: "flex-start", gap: 10,
-          padding: "10px 12px",
-          border: "1px solid var(--border)", borderRadius: 10,
-          background: isGross ? "rgba(11,74,125,0.06)" : "rgba(15,23,42,0.015)",
-          cursor: "pointer",
-        }}>
-          <input
-            type="checkbox"
-            checked={isGross}
-            onChange={(e) => update({ grossLease: e.target.checked })}
-            style={{ width: 16, height: 16, cursor: "pointer", marginTop: 2 }}
-          />
-          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-            <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text)" }}>
-              Gross lease <span style={{ color: "var(--muted)", fontWeight: 500 }}>(default: NNN)</span>
-            </span>
-            <span style={{ fontSize: 12, color: "var(--muted)" }}>
-              Tenant pays gross rent — no CAM, INS, or RET reconciliation.
-            </span>
-          </div>
-        </label>
-
-        <label style={{
-          display: "flex", alignItems: "flex-start", gap: 10,
-          padding: "10px 12px",
-          border: "1px solid var(--border)", borderRadius: 10,
-          background: hasExclusions && !isGross ? "rgba(11,74,125,0.06)" : "rgba(15,23,42,0.015)",
-          cursor: isGross ? "not-allowed" : "pointer",
-          opacity: isGross ? 0.45 : 1,
-        }}>
-          <input
-            type="checkbox"
-            checked={hasExclusions}
-            disabled={isGross}
-            onChange={(e) => update({ hasExclusions: e.target.checked })}
-            style={{ width: 16, height: 16, cursor: "pointer", marginTop: 2 }}
-          />
-          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-            <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text)" }}>
-              Lease has exclusions
-            </span>
-            <span style={{ fontSize: 12, color: "var(--muted)" }}>
-              Admin fee applies only to some CAM lines, or some CAM lines aren’t billed to this tenant.
-            </span>
-          </div>
-        </label>
-      </div>
-
       <div style={{ opacity: isGross ? 0.45 : 1, pointerEvents: isGross ? "none" : "auto" }}>
-        {/* Grid: rows = items, columns = CAM / INS / RET */}
+        {/* Two-region layout: CAM Admin Fee on the left, the three
+            Stipulated PRS columns (CAM / INS / RET) on the right.
+            `align-items: end` keeps the dropdown and PRS inputs on the
+            same baseline since the right side has an extra sub-header row. */}
         <div style={{
           display: "grid",
-          gridTemplateColumns: "160px repeat(3, minmax(0, 1fr))",
-          gap: "10px 16px",
-          alignItems: "center",
+          gridTemplateColumns: "minmax(140px, 0.7fr) minmax(0, 2fr)",
+          gap: "0 28px",
+          alignItems: "end",
         }}>
-          {/* Header row */}
-          <div />
-          {CAM_CATEGORIES.map((cat) => (
-            <ColumnHeader key={cat}>{CAM_CATEGORY_LABELS[cat]}</ColumnHeader>
-          ))}
-
-          {/* Stipulated PRS row */}
-          <RowLabel>Stipulated PRS</RowLabel>
-          {CAM_CATEGORIES.map((cat) => (
-            <PctInput
-              key={cat}
-              value={config[cat].stipulatedPrs}
-              onChange={(v) => updateCategory(cat, { stipulatedPrs: v })}
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <ColumnHeader>CAM Admin Fee</ColumnHeader>
+            <AdminFeeSelect
+              value={config.cam.adminFeePct}
+              onChange={(v) => updateCategory("cam", { adminFeePct: v })}
               disabled={isGross}
             />
-          ))}
+          </div>
 
-          {/* Admin Fee row — only CAM carries one; INS and RET don't. */}
-          <RowLabel>Admin Fee</RowLabel>
-          <AdminFeeSelect
-            value={config.cam.adminFeePct}
-            onChange={(v) => updateCategory("cam", { adminFeePct: v })}
-            disabled={isGross}
-          />
-          <span style={{ fontSize: 13, color: "var(--muted)", textAlign: "center" }}>—</span>
-          <span style={{ fontSize: 13, color: "var(--muted)", textAlign: "center" }}>—</span>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <ColumnHeader>Stipulated PRS</ColumnHeader>
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+              gap: "0 14px",
+              alignItems: "end",
+            }}>
+              {CAM_CATEGORIES.map((cat) => (
+                <SubColHeader key={`h-${cat}`}>{CAM_CATEGORY_LABELS[cat]}</SubColHeader>
+              ))}
+              {CAM_CATEGORIES.map((cat) => (
+                <PctInput
+                  key={`v-${cat}`}
+                  value={config[cat].stipulatedPrs}
+                  onChange={(v) => updateCategory(cat, { stipulatedPrs: v })}
+                  disabled={isGross}
+                />
+              ))}
+            </div>
+          </div>
         </div>
 
         {/* CAM-only: admin scope + excluded lines. Hidden unless the
@@ -518,6 +483,41 @@ export default function CamConfigCard({
           </div>
         </div>
         )}
+      </div>
+
+      {/* Lease modifiers — plain inline checkboxes at the bottom. Both
+          off-by-default; the reconciliation table above assumes NNN with
+          admin on every line and no excluded lines unless turned on. */}
+      <div style={{
+        marginTop: 18, paddingTop: 14,
+        borderTop: "1px solid var(--border)",
+        display: "flex", flexDirection: "column", gap: 8,
+      }}>
+        <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer" }}>
+          <input
+            type="checkbox"
+            checked={isGross}
+            onChange={(e) => update({ grossLease: e.target.checked })}
+            style={{ width: 15, height: 15, cursor: "pointer" }}
+          />
+          <span style={{ fontWeight: 600, color: "var(--text)" }}>Gross lease</span>
+          <span style={{ color: "var(--muted)" }}>— tenant pays gross rent, no CAM / INS / RET reconciliation.</span>
+        </label>
+        <label style={{
+          display: "flex", alignItems: "center", gap: 8, fontSize: 13,
+          cursor: isGross ? "not-allowed" : "pointer",
+          opacity: isGross ? 0.5 : 1,
+        }}>
+          <input
+            type="checkbox"
+            checked={hasExclusions}
+            disabled={isGross}
+            onChange={(e) => update({ hasExclusions: e.target.checked })}
+            style={{ width: 15, height: 15, cursor: "pointer" }}
+          />
+          <span style={{ fontWeight: 600, color: "var(--text)" }}>Lease has exclusions</span>
+          <span style={{ color: "var(--muted)" }}>— admin fee applies to only some CAM lines, or some CAM lines aren’t billed.</span>
+        </label>
       </div>
     </div>
   );
