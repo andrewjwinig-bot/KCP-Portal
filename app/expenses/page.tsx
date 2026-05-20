@@ -460,16 +460,15 @@ export default function ExpensesPage() {
   const [colFilters, setColFilters] = useState<Record<string, string>>({});
   const [showColFilters, setShowColFilters] = useState(false);
 
-  // Maint persona only codes Gregory's own transactions — default the user
-  // column filter to "Gregory" once and reveal the filter row so it's visible.
-  // Harry handles everyone else from his own account.
-  const maintDefaultApplied = useRef(false);
+  // Maint persona only codes Gregory's own transactions — the upstream
+  // `filteredTx` enforces this regardless of column filters. We still
+  // reveal the filter row so he can see the locked "Gregory" cell.
+  const maintFilterRevealed = useRef(false);
   useEffect(() => {
-    if (!hydrated || maintDefaultApplied.current) return;
+    if (!hydrated || maintFilterRevealed.current) return;
     if (user.id === "maint") {
-      setColFilters((prev) => (prev.user ? prev : { ...prev, user: "Gregory" }));
       setShowColFilters(true);
-      maintDefaultApplied.current = true;
+      maintFilterRevealed.current = true;
     }
   }, [hydrated, user.id]);
   const [allocPropModal, setAllocPropModal] = useState<{ propId: string; name: string; categoryGroups: { category: string; items: any[] }[] } | null>(null);
@@ -509,8 +508,16 @@ export default function ExpensesPage() {
   const statementMonth = useMemo(() => yyyymmFromDate(effectiveEnd) || "", [effectiveEnd]);
   const invoiceDate = useMemo(() => yyyymmddFromDate(effectiveEnd) || "", [effectiveEnd]);
 
+  // The maint persona (Gregory) can only see / code his own transactions.
+  // Enforce here so the restriction holds even if he clears column filters
+  // or pastes a search that would otherwise reveal another card-holder.
+  const isMaint = user.id === "maint";
+
   const filteredTx = useMemo(() => {
     let arr = tx.filter((t) => Number(t.amount) > 0);
+    if (isMaint) {
+      arr = arr.filter((t) => toTitleCaseFirstName(t.cardMember).toLowerCase() === "gregory");
+    }
     if (showOnlyUncoded) arr = arr.filter((t) => !isRowCoded(t));
     if (search.trim()) {
       const q = search.toLowerCase();
@@ -911,7 +918,8 @@ export default function ExpensesPage() {
         </div>
       </header>
 
-      {/* Import bar */}
+      {/* Import bar — hidden from maint (Greg only codes, never imports). */}
+      {!isMaint && (
       <div className="card">
         <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
           <b>Import Credit Card Statement</b>
@@ -955,9 +963,10 @@ export default function ExpensesPage() {
         {statementPeriodText && <div className="small muted" style={{ textAlign: "center", marginTop: 6 }}><b>Period:</b> {statementPeriodText}</div>}
         {saveError && <div style={{ color: "#b42318", fontSize: 13, marginTop: 6 }}>{saveError}</div>}
       </div>
+      )}
 
-      {/* Charts card */}
-      {tx.filter((t) => Number(t.amount) > 0).length > 0 && (
+      {/* Charts card — hidden from maint. */}
+      {!isMaint && tx.filter((t) => Number(t.amount) > 0).length > 0 && (
         <div className="card">
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <button className="btn" style={{ padding: "2px 8px", fontSize: 13 }} onClick={() => setChartsOpen((o) => !o)} title={chartsOpen ? "Collapse" : "Expand"}>
@@ -1032,9 +1041,23 @@ export default function ExpensesPage() {
                     </tr>
                     {showColFilters && (
                       <tr>
-                        {(["date","user","amount","description"] as const).map((k) => (
-                          <th key={k} style={filterTh}><input style={filterInput} placeholder="Filter…" value={colFilters[k] ?? ""} onChange={(e) => setColFilter(k, e.target.value)} /></th>
-                        ))}
+                        {(["date","user","amount","description"] as const).map((k) => {
+                          // Maint persona is locked to his own transactions
+                          // (filtered upstream), so the user-column filter is
+                          // surfaced as a read-only "Gregory" cell.
+                          if (k === "user" && isMaint) {
+                            return (
+                              <th key={k} style={filterTh}>
+                                <input style={{ ...filterInput, opacity: 0.7, cursor: "not-allowed" }} value="Gregory" readOnly disabled />
+                              </th>
+                            );
+                          }
+                          return (
+                            <th key={k} style={filterTh}>
+                              <input style={filterInput} placeholder="Filter…" value={colFilters[k] ?? ""} onChange={(e) => setColFilter(k, e.target.value)} />
+                            </th>
+                          );
+                        })}
                         <th style={filterTh}>
                           <select style={{ ...filterInput, padding: "3px 4px" }} value={colFilters["category"] ?? ""} onChange={(e) => setColFilter("category", e.target.value)}>
                             <option value="">All</option>
@@ -1136,7 +1159,8 @@ export default function ExpensesPage() {
         </div>}
       </div>
 
-      {/* ── Allocation Preview card ── */}
+      {/* ── Allocation Preview card — hidden from maint. ── */}
+      {!isMaint && (
       <div className="card">
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -1199,9 +1223,10 @@ export default function ExpensesPage() {
           </div>
         )}
       </div>
+      )}
 
-      {/* ── Generate Invoices ── */}
-      {invoiceGroups.length > 0 && (
+      {/* ── Generate Invoices — hidden from maint. ── */}
+      {!isMaint && invoiceGroups.length > 0 && (
         <div className="card">
           <b>Generate Invoices</b>
           <div className="small muted" style={{ marginTop: 4, marginBottom: 14 }}>One PDF invoice per property. Only properties with coded amounts greater than $0 are included.</div>
