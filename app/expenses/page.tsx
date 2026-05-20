@@ -907,7 +907,10 @@ export default function ExpensesPage() {
     download(`${filenameMonth} - ${g.propId}.pdf`, finalBlob);
   }
 
-  const CODE_TABLE_MAX_HEIGHT = "calc(100vh - 320px)";
+  // The Code Transactions card is the only card on the maint persona's
+  // expense page, so give its inner table much more vertical room
+  // (~280 px less padding gives them most of the viewport).
+  const CODE_TABLE_MAX_HEIGHT = isMaint ? "calc(100vh - 220px)" : "calc(100vh - 320px)";
   const stickyThStyle: React.CSSProperties = { position: "sticky", top: 0, zIndex: 15, background: "var(--card)" };
 
   return (
@@ -993,8 +996,13 @@ export default function ExpensesPage() {
         </div>
       )}
 
-      {/* Code Transactions card */}
-      <div className="card">
+      {/* Code Transactions card — for the maint persona this is the
+          only card on the page, so let it stretch to use the available
+          viewport height. */}
+      <div
+        className="card"
+        style={isMaint ? { display: "flex", flexDirection: "column", minHeight: "calc(100vh - 200px)" } : undefined}
+      >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 10 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <button className="btn" style={{ padding: "2px 8px", fontSize: 13 }} onClick={() => setCodeTransOpen((o) => !o)} title={codeTransOpen ? "Collapse" : "Expand"}>
