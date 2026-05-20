@@ -1,15 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-
-const AUTOSAVE_MS = 600;
-const SAVED_FLASH_MS = 1400;
+import { useEffect, useMemo, useState } from "react";
 import { SectionLabel } from "@/app/properties/PropertyDetail";
 import { MultiSelect } from "@/app/components/MultiSelect";
 import { StatPill } from "@/app/components/Pill";
+import { AutosaveStatus, useAutosave } from "@/app/components/useAutosave";
 import {
   CAM_CATEGORIES,
-  CAM_CATEGORY_LABELS,
   CAM_LINE_ITEMS,
   type CamCategory,
   type CamCategoryConfig,
@@ -36,52 +33,23 @@ function ColumnHeader({ children }: { children: React.ReactNode }) {
   );
 }
 
-function RowLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <span style={{
-      fontSize: 13, fontWeight: 700, color: "var(--text)",
-      alignSelf: "center",
-    }}>
-      {children}
-    </span>
-  );
-}
-
-// Small CAM/INS/RET sub-column header used inside the right-side
-// Stipulated PRS region.
-function SubColHeader({ children }: { children: React.ReactNode }) {
-  return (
-    <div style={{
-      fontSize: 11, fontWeight: 700, letterSpacing: "0.06em",
-      textTransform: "uppercase", color: "var(--muted)",
-      textAlign: "center", paddingBottom: 4,
-    }}>
-      {children}
-    </div>
-  );
-}
-
-// Numeric % input with a trailing "%" affordance.
-function PctInput({
+// PRS cell: a narrow centered % input with an inline "%" affix. The
+// implied building-sqft figure renders on the row below in its own grid
+// cell, so this component stays a single-line input.
+function PrsInput({
   value,
   onChange,
   disabled,
-  placeholder = "—",
 }: {
   value: number | null;
   onChange: (next: number | null) => void;
   disabled?: boolean;
-  placeholder?: string;
 }) {
-  // Track local text so users can clear the field while typing.
   const [text, setText] = useState<string>(value == null ? "" : String(value));
-
-  useEffect(() => {
-    setText(value == null ? "" : String(value));
-  }, [value]);
+  useEffect(() => { setText(value == null ? "" : String(value)); }, [value]);
 
   return (
-    <div style={{ position: "relative" }}>
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}>
       <input
         type="number"
         inputMode="decimal"
@@ -89,7 +57,7 @@ function PctInput({
         min={0}
         max={100}
         value={text}
-        placeholder={placeholder}
+        placeholder="—"
         disabled={disabled}
         onChange={(e) => {
           const t = e.target.value;
@@ -108,19 +76,36 @@ function PctInput({
         }}
         style={{
           ...inputStyle,
-          paddingRight: 26,
+          width: 76,
+          textAlign: "right",
           opacity: disabled ? 0.5 : 1,
           cursor: disabled ? "not-allowed" : "text",
-          textAlign: "right",
         }}
       />
       <span style={{
-        position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)",
-        fontSize: 12, fontWeight: 600, color: "var(--muted)", pointerEvents: "none",
+        fontSize: 13, fontWeight: 600, color: "var(--muted)",
+        opacity: disabled ? 0.5 : 1,
       }}>%</span>
     </div>
   );
 }
+
+// "(95,238 SF)" — the building SF implied by a given PRS. Renders blank
+// when PRS is unset.
+function ImpliedSF({ prsPct, unitSqft }: { prsPct: number | null; unitSqft: number }) {
+  const sf = prsPct && prsPct > 0 && unitSqft > 0
+    ? Math.round(unitSqft / (prsPct / 100))
+    : null;
+  return (
+    <span style={{
+      fontSize: 11, color: "var(--muted)", textAlign: "center",
+      whiteSpace: "nowrap", minHeight: 14,
+    }}>
+      {sf != null ? `(${sf.toLocaleString()} SF)` : ""}
+    </span>
+  );
+}
+
 
 // Admin-fee dropdown — whole percentages 1–15 plus an empty "—" option
 // meaning "no admin fee". Matches the only values that show up on real
@@ -171,14 +156,18 @@ function money(n: number): string {
 export default function CamConfigCard({
   unitRef,
   actualPrs,
+  unitSqft,
   opexMonth,
   reTaxMonth,
   otherMonth,
 }: {
   unitRef: string;
   /** True PRS for the unit (unit sqft / building sqft × 100), used to
-   *  pre-fill the Stipulated PRS column when no override is stored. */
+   *  pre-fill the PRS columns when no override is stored. */
   actualPrs: number | null;
+  /** The unit's square footage. Used to compute the building SF implied
+   *  by each entered PRS (`unitSqft / (prs / 100)`). */
+  unitSqft: number;
   /** Monthly NNN breakouts pulled off the rent roll. Each renders as a
    *  pill above the table when non-zero. */
   opexMonth: number;
@@ -187,18 +176,30 @@ export default function CamConfigCard({
 }) {
   const [config, setConfig] = useState<CamConfig | null>(null);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [savedFlash, setSavedFlash] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  // Latest in-memory config, kept in a ref so the debounced save timer
-  // always picks up the freshest values (state would be stale by the
-  // time the timer fires).
-  const latestConfig = useRef<CamConfig | null>(null);
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const api = `/api/cam-config/${encodeURIComponent(unitRef)}`;
+
+  const { saving, savedFlash, error, schedule } = useAutosave<CamConfig>({
+    save: async (snapshot) => {
+      const res = await fetch(api, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(snapshot),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j.error ?? "Save failed");
+      }
+    },
+    keepalive: (snapshot) => {
+      void fetch(api, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(snapshot),
+        keepalive: true,
+      }).catch(() => { /* ignore */ });
+    },
+  });
 
   useEffect(() => {
     let alive = true;
@@ -218,7 +219,6 @@ export default function CamConfigCard({
             }
           }
         }
-        latestConfig.current = c;
         setConfig(c);
       })
       .catch(() => { /* leave null */ })
@@ -226,78 +226,22 @@ export default function CamConfigCard({
     return () => { alive = false; };
   }, [api, actualPrs]);
 
-  // Flush any pending save when the card unmounts so a quick edit + nav
-  // away doesn't drop the user's last keystroke.
-  useEffect(() => {
-    return () => {
-      if (saveTimer.current) {
-        clearTimeout(saveTimer.current);
-        if (latestConfig.current) {
-          // Fire-and-forget — the page is going away. keepalive lets the
-          // browser finish the request even after navigation.
-          fetch(api, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(latestConfig.current),
-            keepalive: true,
-          }).catch(() => { /* ignore */ });
-        }
-      }
-      if (flashTimer.current) clearTimeout(flashTimer.current);
-    };
-  }, [api]);
-
-  async function doSave() {
-    const snapshot = latestConfig.current;
-    if (!snapshot) return;
-    setSaving(true);
-    setError(null);
-    try {
-      const res = await fetch(api, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(snapshot),
-      });
-      const j = await res.json();
-      if (!res.ok) throw new Error(j.error ?? "Save failed");
-      // Don't overwrite local state with the response — concurrent edits
-      // since the save fired would be clobbered. The server payload is
-      // the same data we just sent.
-      setSavedFlash(true);
-      if (flashTimer.current) clearTimeout(flashTimer.current);
-      flashTimer.current = setTimeout(() => setSavedFlash(false), SAVED_FLASH_MS);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Save failed");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  function scheduleSave() {
-    if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => { void doSave(); }, AUTOSAVE_MS);
-  }
-
   function update(patch: Partial<CamConfig>) {
     setConfig((prev) => {
       if (!prev) return prev;
       const next = { ...prev, ...patch };
-      latestConfig.current = next;
+      schedule(next);
       return next;
     });
-    setSavedFlash(false);
-    scheduleSave();
   }
 
   function updateCategory(cat: CamCategory, patch: Partial<CamCategoryConfig>) {
     setConfig((prev) => {
       if (!prev) return prev;
       const next = { ...prev, [cat]: { ...prev[cat], ...patch } };
-      latestConfig.current = next;
+      schedule(next);
       return next;
     });
-    setSavedFlash(false);
-    scheduleSave();
   }
 
   // Build the line-item option set: standard list plus any custom lines
@@ -334,10 +278,7 @@ export default function CamConfigCard({
     <div className="card">
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
         <SectionLabel>CAM / INS / RET</SectionLabel>
-        {/* Inline autosave status — no manual Save button. */}
-        <span style={{ fontSize: 11, fontWeight: 600, color: "var(--muted)", minHeight: 14 }}>
-          {saving ? "Saving…" : savedFlash ? <span style={{ color: "#15803d" }}>✓ Saved</span> : ""}
-        </span>
+        <AutosaveStatus saving={saving} savedFlash={savedFlash} />
       </div>
 
       {error && (
@@ -361,46 +302,47 @@ export default function CamConfigCard({
       )}
 
       <div style={{ opacity: isGross ? 0.45 : 1, pointerEvents: isGross ? "none" : "auto" }}>
-        {/* Two-region layout: CAM Admin Fee on the left, the three
-            Stipulated PRS columns (CAM / INS / RET) on the right.
-            `align-items: end` keeps the dropdown and PRS inputs on the
-            same baseline since the right side has an extra sub-header row. */}
+        {/* Single 4-column / 3-row grid: CAM Admin Fee on the left, then
+            CAM PRS / INS PRS / RET PRS columns. Row 1 headers, row 2
+            inputs (dropdown and % fields on the same line), row 3 the
+            building-SF implied by each PRS — left cell stays empty. */}
         <div style={{
           display: "grid",
-          gridTemplateColumns: "minmax(140px, 0.7fr) minmax(0, 2fr)",
-          gap: "0 28px",
-          alignItems: "end",
+          gridTemplateColumns: "minmax(140px, 0.7fr) repeat(3, minmax(0, 1fr))",
+          rowGap: 6,
+          columnGap: 18,
+          alignItems: "center",
         }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <ColumnHeader>CAM Admin Fee</ColumnHeader>
-            <AdminFeeSelect
-              value={config.cam.adminFeePct}
-              onChange={(v) => updateCategory("cam", { adminFeePct: v })}
+          {/* Row 1: headers */}
+          <ColumnHeader>CAM Admin Fee</ColumnHeader>
+          <ColumnHeader>CAM PRS</ColumnHeader>
+          <ColumnHeader>INS PRS</ColumnHeader>
+          <ColumnHeader>RET PRS</ColumnHeader>
+
+          {/* Row 2: inputs */}
+          <AdminFeeSelect
+            value={config.cam.adminFeePct}
+            onChange={(v) => updateCategory("cam", { adminFeePct: v })}
+            disabled={isGross}
+          />
+          {CAM_CATEGORIES.map((cat) => (
+            <PrsInput
+              key={`v-${cat}`}
+              value={config[cat].stipulatedPrs}
+              onChange={(v) => updateCategory(cat, { stipulatedPrs: v })}
               disabled={isGross}
             />
-          </div>
+          ))}
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <ColumnHeader>Stipulated PRS</ColumnHeader>
-            <div style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-              gap: "0 14px",
-              alignItems: "end",
-            }}>
-              {CAM_CATEGORIES.map((cat) => (
-                <SubColHeader key={`h-${cat}`}>{CAM_CATEGORY_LABELS[cat]}</SubColHeader>
-              ))}
-              {CAM_CATEGORIES.map((cat) => (
-                <PctInput
-                  key={`v-${cat}`}
-                  value={config[cat].stipulatedPrs}
-                  onChange={(v) => updateCategory(cat, { stipulatedPrs: v })}
-                  disabled={isGross}
-                />
-              ))}
-            </div>
-          </div>
+          {/* Row 3: building SF implied by the chosen PRS — left cell empty */}
+          <div />
+          {CAM_CATEGORIES.map((cat) => (
+            <ImpliedSF
+              key={`s-${cat}`}
+              prsPct={config[cat].stipulatedPrs}
+              unitSqft={unitSqft}
+            />
+          ))}
         </div>
 
         {/* CAM-only: admin scope + excluded lines. Hidden unless the

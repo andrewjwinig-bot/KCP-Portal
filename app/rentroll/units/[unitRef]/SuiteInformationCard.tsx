@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { SectionLabel } from "@/app/properties/PropertyDetail";
 import { MultiSelect } from "@/app/components/MultiSelect";
+import { AutosaveStatus, useAutosave } from "@/app/components/useAutosave";
 import {
   FLOORING_OPTIONS,
   LIGHTING_OPTIONS,
@@ -103,13 +104,35 @@ function UploadBox({
 export default function SuiteInformationCard({ unitRef }: { unitRef: string }) {
   const [info, setInfo] = useState<SuiteInformation | null>(null);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [dirty, setDirty] = useState(false);
-  const [savedFlash, setSavedFlash] = useState(false);
   const [uploadingKind, setUploadingKind] = useState<null | "attachment" | "floorplan">(null);
-  const [error, setError] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   const api = `/api/suites/${encodeURIComponent(unitRef)}/information`;
+
+  const { saving, savedFlash, error: saveError, schedule } = useAutosave<SuiteInformation>({
+    save: async (snapshot) => {
+      const res = await fetch(api, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(snapshot),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j.error ?? "Save failed");
+      }
+    },
+    keepalive: (snapshot) => {
+      void fetch(api, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(snapshot),
+        keepalive: true,
+      }).catch(() => { /* ignore */ });
+    },
+  });
+
+  // Surface the most recent error from either path (autosave or upload).
+  const error = saveError ?? uploadError;
 
   useEffect(() => {
     let alive = true;
@@ -123,36 +146,17 @@ export default function SuiteInformationCard({ unitRef }: { unitRef: string }) {
   }, [api]);
 
   function update(patch: Partial<SuiteInformation>) {
-    setInfo((prev) => (prev ? { ...prev, ...patch } : prev));
-    setDirty(true);
-    setSavedFlash(false);
-  }
-
-  async function save() {
-    if (!info) return;
-    setSaving(true);
-    setError(null);
-    try {
-      const res = await fetch(api, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(info),
-      });
-      const j = await res.json();
-      if (!res.ok) throw new Error(j.error ?? "Save failed");
-      setInfo(j.info);
-      setDirty(false);
-      setSavedFlash(true);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Save failed");
-    } finally {
-      setSaving(false);
-    }
+    setInfo((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev, ...patch };
+      schedule(next);
+      return next;
+    });
   }
 
   async function upload(kind: "attachment" | "floorplan", file: File) {
     setUploadingKind(kind);
-    setError(null);
+    setUploadError(null);
     try {
       const fd = new FormData();
       fd.append("kind", kind);
@@ -167,14 +171,14 @@ export default function SuiteInformationCard({ unitRef }: { unitRef: string }) {
         floorplan: j.info.floorplan,
       } : j.info));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Upload failed");
+      setUploadError(e instanceof Error ? e.message : "Upload failed");
     } finally {
       setUploadingKind(null);
     }
   }
 
   async function removeFile(kind: "attachment" | "floorplan", fileId?: string) {
-    setError(null);
+    setUploadError(null);
     try {
       const qs = new URLSearchParams({ kind });
       if (fileId) qs.set("fileId", fileId);
@@ -187,7 +191,7 @@ export default function SuiteInformationCard({ unitRef }: { unitRef: string }) {
         floorplan: j.info.floorplan,
       } : j.info));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Delete failed");
+      setUploadError(e instanceof Error ? e.message : "Delete failed");
     }
   }
 
@@ -215,20 +219,7 @@ export default function SuiteInformationCard({ unitRef }: { unitRef: string }) {
       <div className="card">
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
           <SectionLabel>Suite Information</SectionLabel>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            {savedFlash && !dirty && (
-              <span style={{ fontSize: 12, fontWeight: 600, color: "#15803d" }}>✓ Saved</span>
-            )}
-            <button
-              type="button"
-              onClick={save}
-              disabled={saving || !dirty}
-              className="btn primary"
-              style={{ fontSize: 13, padding: "7px 16px", fontWeight: 700, opacity: !dirty ? 0.5 : 1 }}
-            >
-              {saving ? "Saving…" : "Save"}
-            </button>
-          </div>
+          <AutosaveStatus saving={saving} savedFlash={savedFlash} />
         </div>
 
         {error && (

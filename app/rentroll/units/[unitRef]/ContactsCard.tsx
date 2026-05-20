@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { SectionLabel } from "@/app/properties/PropertyDetail";
+import { AutosaveStatus, useAutosave } from "@/app/components/useAutosave";
 import {
   emptyContact,
   newContactId,
@@ -46,12 +47,38 @@ export default function ContactsCard({
   const [contacts, setContacts] = useState<SuiteContact[] | null>(null);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [dirty, setDirty] = useState(false);
-  const [savedFlash, setSavedFlash] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const api = `/api/suites/${encodeURIComponent(unitRef)}/contacts`;
+
+  const { saving, savedFlash, error, schedule } = useAutosave<SuiteContact[]>({
+    save: async (snapshot) => {
+      const res = await fetch(api, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contacts: snapshot }),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j.error ?? "Save failed");
+      }
+    },
+    keepalive: (snapshot) => {
+      void fetch(api, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contacts: snapshot }),
+        keepalive: true,
+      }).catch(() => { /* ignore */ });
+    },
+  });
+
+  // Mutate contacts in state and queue an autosave. Falls back to the
+  // current list when contacts haven't loaded yet (a no-op since the
+  // mutators all early-out without a list).
+  function mutate(next: SuiteContact[]) {
+    setContacts(next);
+    schedule(next);
+  }
 
   useEffect(() => {
     let alive = true;
@@ -111,72 +138,31 @@ export default function ContactsCard({
   }, [suggestions, contacts]);
 
   function update(id: string, patch: Partial<SuiteContact>) {
-    setContacts((prev) => prev && prev.map((c) => (c.id === id ? { ...c, ...patch } : c)));
-    setDirty(true);
-    setSavedFlash(false);
+    if (!contacts) return;
+    mutate(contacts.map((c) => (c.id === id ? { ...c, ...patch } : c)));
   }
 
   function addContact() {
-    setContacts((prev) => [...(prev ?? []), emptyContact()]);
-    setDirty(true);
-    setSavedFlash(false);
+    mutate([...(contacts ?? []), emptyContact()]);
   }
 
   function removeContact(id: string) {
-    setContacts((prev) => prev && prev.filter((c) => c.id !== id));
-    setDirty(true);
-    setSavedFlash(false);
+    if (!contacts) return;
+    mutate(contacts.filter((c) => c.id !== id));
   }
 
   function addFromSuggestion(s: Suggestion) {
-    setContacts((prev) => [
-      ...(prev ?? []),
+    mutate([
+      ...(contacts ?? []),
       { id: newContactId(), name: s.name, title: s.title, email: s.email, phone: s.phone, address: "", notes: "" },
     ]);
-    setDirty(true);
-    setSavedFlash(false);
-  }
-
-  async function save() {
-    if (!contacts) return;
-    setSaving(true);
-    setError(null);
-    try {
-      const res = await fetch(api, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contacts }),
-      });
-      const j = await res.json();
-      if (!res.ok) throw new Error(j.error ?? "Save failed");
-      setContacts(j.contacts?.contacts ?? []);
-      setDirty(false);
-      setSavedFlash(true);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Save failed");
-    } finally {
-      setSaving(false);
-    }
   }
 
   return (
     <div className="card">
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
         <SectionLabel>Contacts</SectionLabel>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          {savedFlash && !dirty && (
-            <span style={{ fontSize: 12, fontWeight: 600, color: "#15803d" }}>✓ Saved</span>
-          )}
-          <button
-            type="button"
-            onClick={save}
-            disabled={saving || !dirty}
-            className="btn primary"
-            style={{ fontSize: 13, padding: "7px 16px", fontWeight: 700, opacity: !dirty ? 0.5 : 1 }}
-          >
-            {saving ? "Saving…" : "Save"}
-          </button>
-        </div>
+        <AutosaveStatus saving={saving} savedFlash={savedFlash} />
       </div>
 
       {error && (
