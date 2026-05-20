@@ -659,49 +659,53 @@ export default function Page() {
 
       <div className="card">
         <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-          <b>Import Payroll Register</b>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+              style={{ display: "none" }}
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) importPayroll(f); }}
+            />
+            <button
+              className="btn"
+              onClick={() => fileInputRef.current?.click()}
+              style={{ fontSize: 13, padding: "8px 16px", whiteSpace: "nowrap" }}
+            >
+              Choose Payroll File…
+            </button>
+            <button
+              className="btn"
+              style={{ borderRadius: 999, fontWeight: 700, fontSize: 13, padding: "8px 16px", whiteSpace: "nowrap" }}
+              onClick={() => {
+                if (fileInputRef.current) fileInputRef.current.value = "";
+                setPayroll(null);
+                setInvoices([]);
+                setEmployees([]);
+                setFileName("");
+              }}
+            >
+              Clear
+            </button>
+          </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             {invoices.length > 0 && (
-              <button className="btn large" disabled={saving} onClick={savePeriod}>
+              <button
+                className="btn"
+                disabled={saving}
+                onClick={savePeriod}
+                style={{ fontSize: 13, padding: "8px 16px", whiteSpace: "nowrap" }}
+              >
                 {saving ? "Saving…" : "Save Pay Period"}
               </button>
             )}
-            <span style={{ background: "rgba(22, 163, 74, 0.85)", color: "#fff", borderRadius: 999, padding: "12px 18px", fontSize: 15, fontWeight: 700, border: "1px solid transparent", display: "inline-flex", alignItems: "center" }}>Bi-Weekly</span>
+            <span style={{ background: "rgba(22, 163, 74, 0.85)", color: "#fff", borderRadius: 999, padding: "8px 16px", fontSize: 13, fontWeight: 700, border: "1px solid transparent", display: "inline-flex", alignItems: "center" }}>Bi-Weekly</span>
           </div>
         </div>
         <p className="muted small" style={{ marginTop: 8 }}>
           Import the <b>Payroll Register</b> Excel file (.xls or .xlsx). Allocation is fixed on the backend.
+          {fileName && <span style={{ marginLeft: 8 }}>· {fileName}</span>}
         </p>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 12 }}>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            style={{ display: "none" }}
-            onChange={(e) => { const f = e.target.files?.[0]; if (f) importPayroll(f); }}
-          />
-          <button className="btn large" onClick={() => fileInputRef.current?.click()} style={{ whiteSpace: "nowrap" }}>
-            Choose Payroll File…
-          </button>
-          {fileName && (
-            <span style={{ fontSize: 13, color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
-              {fileName}
-            </span>
-          )}
-          <button
-            className="btn"
-            style={{ borderRadius: 999, fontWeight: 700, whiteSpace: "nowrap" }}
-            onClick={() => {
-              if (fileInputRef.current) fileInputRef.current.value = "";
-              setPayroll(null);
-              setInvoices([]);
-              setEmployees([]);
-              setFileName("");
-            }}
-          >
-            Clear
-          </button>
-        </div>
         {employees.length > 0 && (
           <div className="pills">
             {employeeTotals.salary   > 0 && <span className="pill" style={{ cursor: "pointer" }} title="Click to see employee breakdown" onClick={() => openPillDrill("Salary",      employeeTotals.salary,   "salaryAmt"  )}><b>{money(employeeTotals.salary)}</b><span className="muted small">Salary</span></span>}
