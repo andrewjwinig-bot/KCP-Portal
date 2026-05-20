@@ -36,12 +36,6 @@ function prettyDate(iso: string): string {
   const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
-function monthYear(iso: string): string {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
-  if (!m) return iso;
-  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
-  return d.toLocaleDateString("en-US", { month: "short", year: "numeric" });
-}
 function monthYearShort(iso: string): string {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
   if (!m) return iso || "—";
@@ -350,15 +344,9 @@ function ScheduleModal({ loan, today, onClose }: { loan: Loan; today: string; on
 
         <div className="pills" style={{ marginTop: 4 }}>
           <StatPill label="Current Balance" value={money(summary.projectedBalance)} />
-          <StatPill
-            label={loan.interestOnly ? "Monthly Interest" : "Monthly P&I"}
-            value={money2(summary.monthlyDebtService)}
-          />
-          <StatPill label="Interest (next 12 mo)" value={money(summary.annualInterest)} accent="#b45309" />
-          <StatPill
-            label={loan.interestOnly ? "Payoff" : "Projected Payoff"}
-            value={summary.payoffDate ? monthYear(summary.payoffDate) : "Interest-only"}
-          />
+          <StatPill label="Monthly Principal" value={money2(summary.nextPayment?.principal ?? 0)} />
+          <StatPill label="Monthly Interest" value={money2(summary.nextPayment?.interest ?? 0)} accent="#b45309" />
+          <StatPill label="Total Monthly Payment" value={money2(summary.monthlyDebtService)} />
         </div>
 
         <div style={{ ...SECTION_LABEL, marginTop: 16, display: "flex", gap: 8, alignItems: "center" }}>
