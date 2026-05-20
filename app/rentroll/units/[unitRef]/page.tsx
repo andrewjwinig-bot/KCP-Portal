@@ -204,6 +204,16 @@ export default function UnitDetailPage() {
   const baseYearVal = tenantMeta[unit.unitRef]?.baseYear ?? null;
   const reset = resets[unit.unitRef];
 
+  // True PRS = unit sqft ÷ building sqft × 100. Used to pre-fill the
+  // Stipulated PRS column in the CAM card so it starts on the lease-
+  // neutral value.
+  const propertyDef = PROPERTY_DEFS.find((p) => p.id.toUpperCase() === propertyCode.toUpperCase());
+  const buildingSqft = propertyDef?.sqft ?? 0;
+  const actualPrs =
+    unit.sqft > 0 && buildingSqft > 0
+      ? Math.round((unit.sqft / buildingSqft) * 10000) / 100  // two decimals
+      : null;
+
   // Annual values
   const annualRent = unit.baseRent * 12;
   const annualPerSf = unit.sqft > 0 ? annualRent / unit.sqft : 0;
@@ -347,7 +357,7 @@ export default function UnitDetailPage() {
 
         {/* ── CAM / INS / RET (retail only, occupied suites) ── */}
         {isRetailUnit(propertyCode) && !isAmenity && !unit.isVacant && (
-          <CamConfigCard unitRef={unit.unitRef} />
+          <CamConfigCard unitRef={unit.unitRef} actualPrs={actualPrs} />
         )}
 
         {/* ── Base Year (office only) ── */}

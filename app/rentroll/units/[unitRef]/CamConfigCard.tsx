@@ -104,9 +104,10 @@ function PctInput({
   );
 }
 
-// Quick-pick chips for the three common admin-fee values. Selecting a
-// chip writes the value into the field; clicking the active chip clears.
-function AdminQuickPicks({
+// Admin-fee dropdown — whole percentages 1–15 plus an empty "—" option
+// meaning "no admin fee". Matches the only values that show up on real
+// retail leases (0/5/10 are the common ones; up to 15 covers the outliers).
+function AdminFeeSelect({
   value,
   onChange,
   disabled,
@@ -115,36 +116,42 @@ function AdminQuickPicks({
   onChange: (next: number | null) => void;
   disabled?: boolean;
 }) {
-  const opts: number[] = [0, 5, 10];
+  // Coerce stored decimals (legacy values) to the closest whole number
+  // so the dropdown still shows a matching option.
+  const intValue = value == null ? "" : String(Math.round(value));
   return (
-    <div style={{ display: "flex", gap: 4, justifyContent: "center" }}>
-      {opts.map((n) => {
-        const active = value === n;
-        return (
-          <button
-            key={n}
-            type="button"
-            disabled={disabled}
-            onClick={() => onChange(active ? null : n)}
-            style={{
-              fontSize: 10, fontWeight: 700, letterSpacing: "0.04em",
-              padding: "2px 8px", borderRadius: 999,
-              border: `1px solid ${active ? "rgba(11,74,125,0.4)" : "var(--border)"}`,
-              background: active ? "rgba(11,74,125,0.10)" : "transparent",
-              color: active ? "#0b4a7d" : "var(--muted)",
-              cursor: disabled ? "not-allowed" : "pointer",
-              opacity: disabled ? 0.5 : 1,
-            }}
-          >
-            {n}%
-          </button>
-        );
-      })}
-    </div>
+    <select
+      value={intValue}
+      disabled={disabled}
+      onChange={(e) => {
+        const t = e.target.value;
+        onChange(t === "" ? null : Number(t));
+      }}
+      style={{
+        ...inputStyle,
+        cursor: disabled ? "not-allowed" : "pointer",
+        opacity: disabled ? 0.5 : 1,
+        textAlign: "right",
+        appearance: "auto",
+      }}
+    >
+      <option value="">—</option>
+      {Array.from({ length: 15 }, (_, i) => i + 1).map((n) => (
+        <option key={n} value={n}>{n}%</option>
+      ))}
+    </select>
   );
 }
 
-export default function CamConfigCard({ unitRef }: { unitRef: string }) {
+export default function CamConfigCard({
+  unitRef,
+  actualPrs,
+}: {
+  unitRef: string;
+  /** True PRS for the unit (unit sqft / building sqft × 100), used to
+   *  pre-fill the Stipulated PRS column when no override is stored. */
+  actualPrs: number | null;
+}) {
   const [config, setConfig] = useState<CamConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -159,11 +166,26 @@ export default function CamConfigCard({ unitRef }: { unitRef: string }) {
     setLoading(true);
     fetch(api)
       .then((r) => (r.ok ? r.json() : null))
-      .then((j) => { if (alive && j?.config) setConfig(j.config); })
+      .then((j) => {
+        if (!alive || !j?.config) return;
+        // Hydrate any unset stipulated-PRS field with the unit's actual
+        // PRS so the user sees a sensible starting value. Doesn't mark
+        // the form dirty — the value only persists if they touch
+        // something and click Save.
+        const c: CamConfig = j.config;
+        if (actualPrs != null) {
+          for (const cat of ["cam", "ins", "ret"] as const) {
+            if (c[cat].stipulatedPrs == null) {
+              c[cat] = { ...c[cat], stipulatedPrs: actualPrs };
+            }
+          }
+        }
+        setConfig(c);
+      })
       .catch(() => { /* leave null */ })
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
-  }, [api]);
+  }, [api, actualPrs]);
 
   function update(patch: Partial<CamConfig>) {
     setConfig((prev) => (prev ? { ...prev, ...patch } : prev));
@@ -303,21 +325,15 @@ export default function CamConfigCard({ unitRef }: { unitRef: string }) {
             />
           ))}
 
-          {/* Admin Fee row + quick picks */}
+          {/* Admin Fee row (whole-% dropdown, 1–15) */}
           <RowLabel>Admin Fee</RowLabel>
           {CAM_CATEGORIES.map((cat) => (
-            <div key={cat} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              <PctInput
-                value={config[cat].adminFeePct}
-                onChange={(v) => updateCategory(cat, { adminFeePct: v })}
-                disabled={isGross}
-              />
-              <AdminQuickPicks
-                value={config[cat].adminFeePct}
-                onChange={(v) => updateCategory(cat, { adminFeePct: v })}
-                disabled={isGross}
-              />
-            </div>
+            <AdminFeeSelect
+              key={cat}
+              value={config[cat].adminFeePct}
+              onChange={(v) => updateCategory(cat, { adminFeePct: v })}
+              disabled={isGross}
+            />
           ))}
         </div>
 
