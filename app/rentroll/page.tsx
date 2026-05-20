@@ -248,6 +248,9 @@ function UnitsTable({ units, propertyCode, hideNNN, tenantMeta, onBaseYearChange
   vacatingUnitRefs?: Set<string>;
 }) {
   const router = useRouter();
+  const { user } = useUser();
+  // Maint persona never sees rent dollar amounts.
+  const hideRent = user.id === "maint";
   const [showAll, setShowAll] = useState(true);
   const displayed = showAll ? units : units.slice(0, 10);
   const upperCode = propertyCode.toUpperCase();
@@ -274,12 +277,12 @@ function UnitsTable({ units, propertyCode, hideNNN, tenantMeta, onBaseYearChange
               <th>Lease From</th>
               <th>Lease To</th>
               {showBaseYear && <th style={{ textAlign: "center" }}>Base<br/>Year</th>}
-              <th style={{ textAlign: "right" }}>Base Rent<br/>/mo</th>
-              <th style={{ textAlign: "right" }}>Annual<br/>$/sf</th>
-              {!hideNNN && <th style={{ textAlign: "right" }}>CAM<br/>/mo</th>}
-              {!hideNNN && <th style={{ textAlign: "right" }}>RET<br/>/mo</th>}
-              {!hideNNN && <th style={{ textAlign: "right" }}>Other<br/>/mo</th>}
-              <th style={{ textAlign: "right" }}>Gross<br/>/mo</th>
+              {!hideRent && <th style={{ textAlign: "right" }}>Base Rent<br/>/mo</th>}
+              {!hideRent && <th style={{ textAlign: "right" }}>Annual<br/>$/sf</th>}
+              {!hideRent && !hideNNN && <th style={{ textAlign: "right" }}>CAM<br/>/mo</th>}
+              {!hideRent && !hideNNN && <th style={{ textAlign: "right" }}>RET<br/>/mo</th>}
+              {!hideRent && !hideNNN && <th style={{ textAlign: "right" }}>Other<br/>/mo</th>}
+              {!hideRent && <th style={{ textAlign: "right" }}>Gross<br/>/mo</th>}
             </tr>
           </thead>
           <tbody>
@@ -372,16 +375,20 @@ function UnitsTable({ units, propertyCode, hideNNN, tenantMeta, onBaseYearChange
                       />
                     </td>
                   )}
-                  <td style={{ textAlign: "right", fontSize: 13 }}>{unit.baseRent ? money(unit.baseRent) : "—"}</td>
-                  <td style={{ textAlign: "right", fontSize: 13, color: "var(--muted)" }}>
-                    {unit.annualRentPerSqft ? `$${unit.annualRentPerSqft.toFixed(2)}` : "—"}
-                  </td>
-                  {!hideNNN && <td style={{ textAlign: "right", fontSize: 13 }}>{unit.opexMonth ? money(unit.opexMonth) : "—"}</td>}
-                  {!hideNNN && <td style={{ textAlign: "right", fontSize: 13 }}>{unit.reTaxMonth ? money(unit.reTaxMonth) : "—"}</td>}
-                  {!hideNNN && <td style={{ textAlign: "right", fontSize: 13 }}>{unit.otherMonth ? money(unit.otherMonth) : "—"}</td>}
-                  <td style={{ textAlign: "right", fontSize: 13, fontWeight: 600 }}>
-                    {unit.grossRentTotal ? money(unit.grossRentTotal) : "—"}
-                  </td>
+                  {!hideRent && <td style={{ textAlign: "right", fontSize: 13 }}>{unit.baseRent ? money(unit.baseRent) : "—"}</td>}
+                  {!hideRent && (
+                    <td style={{ textAlign: "right", fontSize: 13, color: "var(--muted)" }}>
+                      {unit.annualRentPerSqft ? `$${unit.annualRentPerSqft.toFixed(2)}` : "—"}
+                    </td>
+                  )}
+                  {!hideRent && !hideNNN && <td style={{ textAlign: "right", fontSize: 13 }}>{unit.opexMonth ? money(unit.opexMonth) : "—"}</td>}
+                  {!hideRent && !hideNNN && <td style={{ textAlign: "right", fontSize: 13 }}>{unit.reTaxMonth ? money(unit.reTaxMonth) : "—"}</td>}
+                  {!hideRent && !hideNNN && <td style={{ textAlign: "right", fontSize: 13 }}>{unit.otherMonth ? money(unit.otherMonth) : "—"}</td>}
+                  {!hideRent && (
+                    <td style={{ textAlign: "right", fontSize: 13, fontWeight: 600 }}>
+                      {unit.grossRentTotal ? money(unit.grossRentTotal) : "—"}
+                    </td>
+                  )}
                 </tr>
               );
             })}
@@ -391,14 +398,16 @@ function UnitsTable({ units, propertyCode, hideNNN, tenantMeta, onBaseYearChange
               <td colSpan={2} style={{ color: "var(--muted)", fontSize: 12 }}>Totals</td>
               <td style={{ textAlign: "right" }}>{sqftFmt(totSqft)}</td>
               <td colSpan={showBaseYear ? 3 : 2} />
-              <td style={{ textAlign: "right" }}>{totBaseRent ? money(totBaseRent) : "—"}</td>
-              <td style={{ textAlign: "right", color: "var(--muted)", fontWeight: 400, fontSize: 12 }}>
-                {avgPerSf != null ? `$${avgPerSf.toFixed(2)}` : "—"}
-              </td>
-              {!hideNNN && <td style={{ textAlign: "right" }}>{totCAM ? money(totCAM) : "—"}</td>}
-              {!hideNNN && <td style={{ textAlign: "right" }}>{totRET ? money(totRET) : "—"}</td>}
-              {!hideNNN && <td style={{ textAlign: "right" }}>{totOther ? money(totOther) : "—"}</td>}
-              <td style={{ textAlign: "right" }}>{totGross ? money(totGross) : "—"}</td>
+              {!hideRent && <td style={{ textAlign: "right" }}>{totBaseRent ? money(totBaseRent) : "—"}</td>}
+              {!hideRent && (
+                <td style={{ textAlign: "right", color: "var(--muted)", fontWeight: 400, fontSize: 12 }}>
+                  {avgPerSf != null ? `$${avgPerSf.toFixed(2)}` : "—"}
+                </td>
+              )}
+              {!hideRent && !hideNNN && <td style={{ textAlign: "right" }}>{totCAM ? money(totCAM) : "—"}</td>}
+              {!hideRent && !hideNNN && <td style={{ textAlign: "right" }}>{totRET ? money(totRET) : "—"}</td>}
+              {!hideRent && !hideNNN && <td style={{ textAlign: "right" }}>{totOther ? money(totOther) : "—"}</td>}
+              {!hideRent && <td style={{ textAlign: "right" }}>{totGross ? money(totGross) : "—"}</td>}
             </tr>
           </tfoot>
         </table>
@@ -424,6 +433,8 @@ function PropertyCard({ prop, tenantMeta, onBaseYearChange, vacatingUnitRefs }: 
   onBaseYearChange: (unitRef: string, baseYear: number | string | null) => void;
   vacatingUnitRefs?: Set<string>;
 }) {
+  const { user } = useUser();
+  const hideRent = user.id === "maint";
   const [open, setOpen] = useState(false);
 
   // Auto-expand and scroll into view when the URL hash points at one of our units
@@ -475,7 +486,7 @@ function PropertyCard({ prop, tenantMeta, onBaseYearChange, vacatingUnitRefs }: 
               <span>Occupied: <b style={{ color: "var(--text)" }}>{sqftFmt(prop.occupiedSqft)} sf</b></span>
               <span>Vacant: <b style={{ color: "var(--text)" }}>{sqftFmt(prop.vacantSqft)} sf</b></span>
               <span>Total: <b style={{ color: "var(--text)" }}>{sqftFmt(prop.totalSqft)} sf</b></span>
-              {totalGross > 0 && <span>${Math.round(totalGross).toLocaleString()}/mo gross</span>}
+              {!hideRent && totalGross > 0 && <span>${Math.round(totalGross).toLocaleString()}/mo gross</span>}
             </div>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
               {expiringCount > 0 && (
