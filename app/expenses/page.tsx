@@ -996,13 +996,11 @@ export default function ExpensesPage() {
         </div>
       )}
 
-      {/* Code Transactions card — for the maint persona this is the
-          only card on the page, so let it stretch to use the available
-          viewport height. */}
-      <div
-        className="card"
-        style={isMaint ? { display: "flex", flexDirection: "column", minHeight: "calc(100vh - 200px)" } : undefined}
-      >
+      {/* Code Transactions card — the maint persona has no other cards
+          above this one, so the table sizes naturally to the number of
+          rows. CODE_TABLE_MAX_HEIGHT caps it at the viewport for long
+          statements. */}
+      <div className="card">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 10 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             {!isMaint && (
@@ -1011,7 +1009,7 @@ export default function ExpensesPage() {
               </button>
             )}
             <div>
-              <b>Code Transactions</b>
+              <b>{isMaint ? "Code Gregory's Transactions" : "Code Transactions"}</b>
               <div className="small muted">Category + Property required. Suite required only if Category = TI.</div>
             </div>
           </div>
@@ -1042,7 +1040,7 @@ export default function ExpensesPage() {
                   <>
                     <tr>
                       <th style={{ ...thBase, minWidth: 110 }} onClick={() => handleSortCol("date")}>Date{sortIcon("date")}</th>
-                      <th style={{ ...thBase, minWidth: 140 }} onClick={() => handleSortCol("user")}>User{sortIcon("user")}</th>
+                      {!isMaint && <th style={{ ...thBase, minWidth: 140 }} onClick={() => handleSortCol("user")}>User{sortIcon("user")}</th>}
                       <th style={{ ...thBase, minWidth: 110 }} onClick={() => handleSortCol("amount")}>Amount{sortIcon("amount")}</th>
                       <th style={{ ...thBase, minWidth: 260 }} onClick={() => handleSortCol("description")}>Description{sortIcon("description")}</th>
                       <th style={{ ...thBase, minWidth: 170 }} onClick={() => handleSortCol("category")}>Category{sortIcon("category")}</th>
@@ -1055,16 +1053,9 @@ export default function ExpensesPage() {
                     {showColFilters && (
                       <tr>
                         {(["date","user","amount","description"] as const).map((k) => {
-                          // Maint persona is locked to his own transactions
-                          // (filtered upstream), so the user-column filter is
-                          // surfaced as a read-only "Gregory" cell.
-                          if (k === "user" && isMaint) {
-                            return (
-                              <th key={k} style={filterTh}>
-                                <input style={{ ...filterInput, opacity: 0.7, cursor: "not-allowed" }} value="Gregory" readOnly disabled />
-                              </th>
-                            );
-                          }
+                          // Maint persona's "User" column is filtered upstream
+                          // and hidden entirely — skip the filter cell too.
+                          if (k === "user" && isMaint) return null;
                           return (
                             <th key={k} style={filterTh}>
                               <input style={filterInput} placeholder="Filter…" value={colFilters[k] ?? ""} onChange={(e) => setColFilter(k, e.target.value)} />
@@ -1105,7 +1096,7 @@ export default function ExpensesPage() {
                 return (
                   <tr key={t.id} style={{ borderBottom: "1px solid rgba(15,23,42,0.08)" }}>
                     <td style={{ padding: "10px" }}>{t.date}</td>
-                    <td style={{ padding: "10px" }}>{user}</td>
+                    {!isMaint && <td style={{ padding: "10px" }}>{user}</td>}
                     <td style={{ padding: "10px" }}>{toMoney(t.amount)}</td>
                     <td style={{ padding: "10px", whiteSpace: "pre-wrap" }}>{displayDesc}</td>
                     <td style={{ padding: "8px" }}>
@@ -1170,7 +1161,7 @@ export default function ExpensesPage() {
                 );
               })}
               {!displayTx.length && (
-                <tr><td colSpan={isMaint ? 9 : 10} className="small muted" style={{ padding: 14 }}>No rows to show.</td></tr>
+                <tr><td colSpan={isMaint ? 8 : 10} className="small muted" style={{ padding: 14 }}>No rows to show.</td></tr>
               )}
             </tbody>
           </table>
