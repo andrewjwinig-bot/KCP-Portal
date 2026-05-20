@@ -1016,8 +1016,8 @@ export function PropertyDetailBody({
                   <col style={{ width: 80 }} />    {/* Sq Ft */}
                   <col style={{ width: 95 }} />    {/* Lease From */}
                   <col style={{ width: 95 }} />    {/* Lease To */}
-                  <col style={{ width: 90 }} />    {/* Base Rent /mo */}
-                  <col style={{ width: 70 }} />    {/* Annual $/sf */}
+                  {!isMaint && <col style={{ width: 90 }} />}    {/* Base Rent /mo */}
+                  {!isMaint && <col style={{ width: 70 }} />}    {/* Annual $/sf */}
                 </colgroup>
                 <thead>
                   <tr>
@@ -1026,8 +1026,8 @@ export function PropertyDetailBody({
                     <th style={{ textAlign: "right" }}>Sq Ft</th>
                     <th>Lease From</th>
                     <th>Lease To</th>
-                    <th style={{ textAlign: "right" }}>Base Rent<br />/mo</th>
-                    <th style={{ textAlign: "right" }}>Annual<br />$/sf</th>
+                    {!isMaint && <th style={{ textAlign: "right" }}>Base Rent<br />/mo</th>}
+                    {!isMaint && <th style={{ textAlign: "right" }}>Annual<br />$/sf</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -1078,8 +1078,8 @@ export function PropertyDetailBody({
                       <td style={{ textAlign: "right", fontSize: 13 }}>{u.sqft ? u.sqft.toLocaleString() : "—"}</td>
                       <td style={{ fontSize: 13, color: "var(--muted)", whiteSpace: "nowrap" }}>{formatModalDate(u.leaseFrom)}</td>
                       <td style={{ fontSize: 13, whiteSpace: "nowrap" }}>{formatModalDate(u.leaseTo)}</td>
-                      <td style={{ textAlign: "right", fontSize: 13 }}>{u.baseRent ? `$${u.baseRent.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—"}</td>
-                      <td style={{ textAlign: "right", fontSize: 13, color: "var(--muted)" }}>{u.annualRentPerSqft ? `$${u.annualRentPerSqft.toFixed(2)}` : "—"}</td>
+                      {!isMaint && <td style={{ textAlign: "right", fontSize: 13 }}>{u.baseRent ? `$${u.baseRent.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—"}</td>}
+                      {!isMaint && <td style={{ textAlign: "right", fontSize: 13, color: "var(--muted)" }}>{u.annualRentPerSqft ? `$${u.annualRentPerSqft.toFixed(2)}` : "—"}</td>}
                     </tr>
                     );
                   })}

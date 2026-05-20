@@ -508,16 +508,19 @@ export default function ExpensesPage() {
   const statementMonth = useMemo(() => yyyymmFromDate(effectiveEnd) || "", [effectiveEnd]);
   const invoiceDate = useMemo(() => yyyymmddFromDate(effectiveEnd) || "", [effectiveEnd]);
 
-  // The maint persona (Gregory) can only see / code his own transactions.
-  // Enforce here so the restriction holds even if he clears column filters
-  // or pastes a search that would otherwise reveal another card-holder.
+  // The maint persona (Gregory / "Greg") can only see / code his own
+  // transactions. We match permissively against the raw cardMember
+  // string so spelling variants (Greg, Gregory, GREG WINIG, GREGORY KORMAN…)
+  // and common formats (last-first comma-separated, etc.) all resolve to
+  // the same person without us having to enumerate them.
   const isMaint = user.id === "maint";
+  function isGregRow(t: { cardMember: string }): boolean {
+    return String(t.cardMember || "").toLowerCase().includes("greg");
+  }
 
   const filteredTx = useMemo(() => {
     let arr = tx.filter((t) => Number(t.amount) > 0);
-    if (isMaint) {
-      arr = arr.filter((t) => toTitleCaseFirstName(t.cardMember).toLowerCase() === "gregory");
-    }
+    if (isMaint) arr = arr.filter(isGregRow);
     if (showOnlyUncoded) arr = arr.filter((t) => !isRowCoded(t));
     if (search.trim()) {
       const q = search.toLowerCase();
@@ -527,7 +530,7 @@ export default function ExpensesPage() {
       });
     }
     return arr;
-  }, [tx, showOnlyUncoded, search]);
+  }, [tx, showOnlyUncoded, search, isMaint]);
 
   const totals = useMemo(() => {
     const onlyPos = tx.filter((t) => Number(t.amount) > 0);
