@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import * as XLSX from "xlsx";
+import { useUser } from "../../components/UserProvider";
 
 type SavedTx = {
   date: string;
@@ -72,6 +73,15 @@ function exportStatement(entry: StatementDetail) {
 }
 
 export default function ExpenseHistoryPage() {
+  const { user } = useUser();
+  // The maint persona only sees Greg's own rows — mirror the lock on the
+  // /expenses Code Transactions table.
+  const isMaint = user.id === "maint";
+  const visibleTx = (txs: SavedTx[]): SavedTx[] =>
+    isMaint
+      ? txs.filter((t) => String(t.cardMember || "").toLowerCase().includes("greg"))
+      : txs;
+
   const [statements, setStatements] = useState<StatementMeta[]>([]);
   const [details, setDetails] = useState<Record<string, StatementDetail>>({});
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -155,7 +165,7 @@ export default function ExpenseHistoryPage() {
                 <div style={{ borderTop: "1px solid var(--border)", overflowX: "auto" }}>
                   {!detail ? (
                     <div className="small muted" style={{ padding: 14 }}>Loading…</div>
-                  ) : detail.tx.length === 0 ? (
+                  ) : visibleTx(detail.tx).length === 0 ? (
                     <div className="small muted" style={{ padding: 14 }}>No transactions.</div>
                   ) : (
                     <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, minWidth: 900 }}>
@@ -167,7 +177,7 @@ export default function ExpenseHistoryPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {detail.tx.map((t, i) => (
+                        {visibleTx(detail.tx).map((t, i) => (
                           <tr key={i} style={{ borderBottom: "1px solid rgba(15,23,42,0.08)" }}>
                             <td style={{ padding: "10px" }}>{t.date}</td>
                             <td style={{ padding: "10px" }}>{t.cardMember}</td>
