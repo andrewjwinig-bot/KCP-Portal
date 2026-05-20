@@ -1,6 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+
+const AUTOSAVE_MS = 600;
+const SAVED_FLASH_MS = 1400;
 import { SectionLabel } from "@/app/properties/PropertyDetail";
 import { MultiSelect } from "@/app/components/MultiSelect";
 import { StatPill } from "@/app/components/Pill";
@@ -171,9 +174,15 @@ export default function CamConfigCard({
   const [config, setConfig] = useState<CamConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [dirty, setDirty] = useState(false);
   const [savedFlash, setSavedFlash] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Latest in-memory config, kept in a ref so the debounced save timer
+  // always picks up the freshest values (state would be stale by the
+  // time the timer fires).
+  const latestConfig = useRef<CamConfig | null>(null);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const api = `/api/cam-config/${encodeURIComponent(unitRef)}`;
 
@@ -185,9 +194,8 @@ export default function CamConfigCard({
       .then((j) => {
         if (!alive || !j?.config) return;
         // Hydrate any unset stipulated-PRS field with the unit's actual
-        // PRS so the user sees a sensible starting value. Doesn't mark
-        // the form dirty — the value only persists if they touch
-        // something and click Save.
+        // PRS so the user sees a sensible starting value. Doesn't trigger
+        // a save — only real edits do.
         const c: CamConfig = j.config;
         if (actualPrs != null) {
           for (const cat of ["cam", "ins", "ret"] as const) {
@@ -196,6 +204,7 @@ export default function CamConfigCard({
             }
           }
         }
+        latestConfig.current = c;
         setConfig(c);
       })
       .catch(() => { /* leave null */ })
@@ -203,38 +212,78 @@ export default function CamConfigCard({
     return () => { alive = false; };
   }, [api, actualPrs]);
 
-  function update(patch: Partial<CamConfig>) {
-    setConfig((prev) => (prev ? { ...prev, ...patch } : prev));
-    setDirty(true);
-    setSavedFlash(false);
-  }
+  // Flush any pending save when the card unmounts so a quick edit + nav
+  // away doesn't drop the user's last keystroke.
+  useEffect(() => {
+    return () => {
+      if (saveTimer.current) {
+        clearTimeout(saveTimer.current);
+        if (latestConfig.current) {
+          // Fire-and-forget — the page is going away. keepalive lets the
+          // browser finish the request even after navigation.
+          fetch(api, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(latestConfig.current),
+            keepalive: true,
+          }).catch(() => { /* ignore */ });
+        }
+      }
+      if (flashTimer.current) clearTimeout(flashTimer.current);
+    };
+  }, [api]);
 
-  function updateCategory(cat: CamCategory, patch: Partial<CamCategoryConfig>) {
-    setConfig((prev) => (prev ? { ...prev, [cat]: { ...prev[cat], ...patch } } : prev));
-    setDirty(true);
-    setSavedFlash(false);
-  }
-
-  async function save() {
-    if (!config) return;
+  async function doSave() {
+    const snapshot = latestConfig.current;
+    if (!snapshot) return;
     setSaving(true);
     setError(null);
     try {
       const res = await fetch(api, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(config),
+        body: JSON.stringify(snapshot),
       });
       const j = await res.json();
       if (!res.ok) throw new Error(j.error ?? "Save failed");
-      setConfig(j.config);
-      setDirty(false);
+      // Don't overwrite local state with the response — concurrent edits
+      // since the save fired would be clobbered. The server payload is
+      // the same data we just sent.
       setSavedFlash(true);
+      if (flashTimer.current) clearTimeout(flashTimer.current);
+      flashTimer.current = setTimeout(() => setSavedFlash(false), SAVED_FLASH_MS);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Save failed");
     } finally {
       setSaving(false);
     }
+  }
+
+  function scheduleSave() {
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => { void doSave(); }, AUTOSAVE_MS);
+  }
+
+  function update(patch: Partial<CamConfig>) {
+    setConfig((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev, ...patch };
+      latestConfig.current = next;
+      return next;
+    });
+    setSavedFlash(false);
+    scheduleSave();
+  }
+
+  function updateCategory(cat: CamCategory, patch: Partial<CamCategoryConfig>) {
+    setConfig((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev, [cat]: { ...prev[cat], ...patch } };
+      latestConfig.current = next;
+      return next;
+    });
+    setSavedFlash(false);
+    scheduleSave();
   }
 
   // Build the line-item option set: standard list plus any custom lines
@@ -271,20 +320,10 @@ export default function CamConfigCard({
     <div className="card">
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
         <SectionLabel>CAM / INS / RET</SectionLabel>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          {savedFlash && !dirty && (
-            <span style={{ fontSize: 12, fontWeight: 600, color: "#15803d" }}>✓ Saved</span>
-          )}
-          <button
-            type="button"
-            onClick={save}
-            disabled={saving || !dirty}
-            className="btn primary"
-            style={{ fontSize: 13, padding: "7px 16px", fontWeight: 700, opacity: !dirty ? 0.5 : 1 }}
-          >
-            {saving ? "Saving…" : "Save"}
-          </button>
-        </div>
+        {/* Inline autosave status — no manual Save button. */}
+        <span style={{ fontSize: 11, fontWeight: 600, color: "var(--muted)", minHeight: 14 }}>
+          {saving ? "Saving…" : savedFlash ? <span style={{ color: "#15803d" }}>✓ Saved</span> : ""}
+        </span>
       </div>
 
       {error && (
@@ -386,16 +425,15 @@ export default function CamConfigCard({
             />
           ))}
 
-          {/* Admin Fee row (whole-% dropdown, 1–15) */}
+          {/* Admin Fee row — only CAM carries one; INS and RET don't. */}
           <RowLabel>Admin Fee</RowLabel>
-          {CAM_CATEGORIES.map((cat) => (
-            <AdminFeeSelect
-              key={cat}
-              value={config[cat].adminFeePct}
-              onChange={(v) => updateCategory(cat, { adminFeePct: v })}
-              disabled={isGross}
-            />
-          ))}
+          <AdminFeeSelect
+            value={config.cam.adminFeePct}
+            onChange={(v) => updateCategory("cam", { adminFeePct: v })}
+            disabled={isGross}
+          />
+          <span style={{ fontSize: 13, color: "var(--muted)", textAlign: "center" }}>—</span>
+          <span style={{ fontSize: 13, color: "var(--muted)", textAlign: "center" }}>—</span>
         </div>
 
         {/* CAM-only: admin scope + excluded lines. Hidden unless the
