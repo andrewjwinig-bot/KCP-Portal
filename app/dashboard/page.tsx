@@ -17,6 +17,7 @@ import DrewTasksThisWeek from "./DrewTasksThisWeek";
 import MaintenanceOverview from "./MaintenanceOverview";
 import PendingReservationsCard from "./PendingReservationsCard";
 import PortfolioOccupancyPanel from "./PortfolioOccupancyPanel";
+import DebtSummaryCard from "./DebtSummaryCard";
 
 function sqftFmt(n: number) { return n.toLocaleString(); }
 
@@ -557,6 +558,9 @@ function DashboardInner() {
           )}
         </Link>
         )}
+
+        {/* ── Debt Summary (Alison) — full width, sits with the occupancy panel ── */}
+        {isAlison && <DebtSummaryCard order={-1} />}
 
         {/* ── Lease Expirations (Nancy / Harry / admin / Alison) — below occupancy ── */}
         {(user.id === "nancy" || user.id === "harry" || isAdmin || isAlison) && (
