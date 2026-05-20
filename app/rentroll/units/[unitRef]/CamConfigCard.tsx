@@ -334,13 +334,15 @@ export default function CamConfigCard({
         }}>{error}</div>
       )}
 
-      {/* Monthly NNN breakouts pulled from the rent roll. Read-only —
-          editing happens upstream in the Excel import. */}
+      {/* Monthly NNN breakouts pulled from the rent roll — these reflect
+          the 2026 budgeted expense schedule, so they're estimates until
+          the year-end reconciliation. Read-only here; editing happens
+          upstream in the Excel import. */}
       {(opexMonth > 0 || reTaxMonth > 0 || otherMonth > 0) && (
         <div className="pills" style={{ marginTop: 0, marginBottom: 14 }}>
-          {opexMonth > 0   && <StatPill label="CAM / mo"    value={money(opexMonth)} />}
-          {reTaxMonth > 0  && <StatPill label="RE Tax / mo" value={money(reTaxMonth)} />}
-          {otherMonth > 0  && <StatPill label="Other / mo"  value={money(otherMonth)} />}
+          {opexMonth > 0  && <StatPill label="Est. CAM / mo" value={money(opexMonth)}  sub="2026 budget" />}
+          {reTaxMonth > 0 && <StatPill label="Est. RET / mo" value={money(reTaxMonth)} sub="2026 budget" />}
+          {otherMonth > 0 && <StatPill label="Est. INS / mo" value={money(otherMonth)} sub="2026 budget" />}
         </div>
       )}
 
