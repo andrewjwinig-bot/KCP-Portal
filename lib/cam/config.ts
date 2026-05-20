@@ -57,8 +57,13 @@ export type CamCategoryConfig = {
 
 export type CamConfig = {
   unitRef: string;
-  /** When true the tenant pays gross rent — no CAM/INS/RET reconciliation. */
+  /** When true the tenant pays gross rent — no CAM/INS/RET reconciliation.
+   *  Default false (i.e. NNN). */
   grossLease: boolean;
+  /** When true the lease carves out specific exclusions — either the admin
+   *  fee doesn't apply to every CAM line, or some CAM lines aren't billed
+   *  to this tenant. Default false (admin on all, every line billed). */
+  hasExclusions: boolean;
   cam: CamCategoryConfig;
   ins: CamCategoryConfig;
   ret: CamCategoryConfig;
@@ -76,6 +81,7 @@ export function emptyCamConfig(unitRef: string): CamConfig {
   return {
     unitRef,
     grossLease: false,
+    hasExclusions: false,
     cam: { stipulatedPrs: null, adminFeePct: null },
     ins: { stipulatedPrs: null, adminFeePct: null },
     ret: { stipulatedPrs: null, adminFeePct: null },
@@ -127,6 +133,7 @@ export function sanitizeCamConfig(unitRef: string, body: unknown): CamConfig {
   return {
     unitRef,
     grossLease: b.grossLease === true,
+    hasExclusions: b.hasExclusions === true,
     cam: asCategory(b.cam),
     ins: asCategory(b.ins),
     ret: asCategory(b.ret),

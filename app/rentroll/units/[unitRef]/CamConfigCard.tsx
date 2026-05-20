@@ -249,6 +249,7 @@ export default function CamConfigCard({
   }
 
   const isGross = config.grossLease;
+  const hasExclusions = config.hasExclusions;
 
   return (
     <div className="card">
@@ -278,27 +279,61 @@ export default function CamConfigCard({
         }}>{error}</div>
       )}
 
-      {/* Gross-lease toggle — when on, the reconciliation table below is dimmed */}
-      <label style={{
-        display: "flex", alignItems: "center", gap: 10,
-        padding: "10px 12px",
-        border: "1px solid var(--border)", borderRadius: 10,
-        background: isGross ? "rgba(11,74,125,0.06)" : "rgba(15,23,42,0.015)",
-        cursor: "pointer", marginBottom: 14,
+      {/* Lease modifiers — both off-by-default. The reconciliation table
+          assumes NNN with admin on every line and no excluded lines unless
+          one of these is turned on. */}
+      <div style={{
+        display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10,
+        marginBottom: 14,
       }}>
-        <input
-          type="checkbox"
-          checked={isGross}
-          onChange={(e) => update({ grossLease: e.target.checked })}
-          style={{ width: 16, height: 16, cursor: "pointer" }}
-        />
-        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text)" }}>Gross lease</span>
-          <span style={{ fontSize: 12, color: "var(--muted)" }}>
-            Tenant pays gross rent — no CAM, INS, or RET reconciliation.
-          </span>
-        </div>
-      </label>
+        <label style={{
+          display: "flex", alignItems: "flex-start", gap: 10,
+          padding: "10px 12px",
+          border: "1px solid var(--border)", borderRadius: 10,
+          background: isGross ? "rgba(11,74,125,0.06)" : "rgba(15,23,42,0.015)",
+          cursor: "pointer",
+        }}>
+          <input
+            type="checkbox"
+            checked={isGross}
+            onChange={(e) => update({ grossLease: e.target.checked })}
+            style={{ width: 16, height: 16, cursor: "pointer", marginTop: 2 }}
+          />
+          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text)" }}>
+              Gross lease <span style={{ color: "var(--muted)", fontWeight: 500 }}>(default: NNN)</span>
+            </span>
+            <span style={{ fontSize: 12, color: "var(--muted)" }}>
+              Tenant pays gross rent — no CAM, INS, or RET reconciliation.
+            </span>
+          </div>
+        </label>
+
+        <label style={{
+          display: "flex", alignItems: "flex-start", gap: 10,
+          padding: "10px 12px",
+          border: "1px solid var(--border)", borderRadius: 10,
+          background: hasExclusions && !isGross ? "rgba(11,74,125,0.06)" : "rgba(15,23,42,0.015)",
+          cursor: isGross ? "not-allowed" : "pointer",
+          opacity: isGross ? 0.45 : 1,
+        }}>
+          <input
+            type="checkbox"
+            checked={hasExclusions}
+            disabled={isGross}
+            onChange={(e) => update({ hasExclusions: e.target.checked })}
+            style={{ width: 16, height: 16, cursor: "pointer", marginTop: 2 }}
+          />
+          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text)" }}>
+              Lease has exclusions
+            </span>
+            <span style={{ fontSize: 12, color: "var(--muted)" }}>
+              Admin fee applies only to some CAM lines, or some CAM lines aren’t billed to this tenant.
+            </span>
+          </div>
+        </label>
+      </div>
 
       <div style={{ opacity: isGross ? 0.45 : 1, pointerEvents: isGross ? "none" : "auto" }}>
         {/* Grid: rows = items, columns = CAM / INS / RET */}
@@ -337,7 +372,10 @@ export default function CamConfigCard({
           ))}
         </div>
 
-        {/* CAM-only: admin scope + excluded lines */}
+        {/* CAM-only: admin scope + excluded lines. Hidden unless the
+            "Lease has exclusions" box is checked — most retail tenants
+            don't have either of these carve-outs. */}
+        {hasExclusions && (
         <div style={{
           marginTop: 18, paddingTop: 14,
           borderTop: "1px solid var(--border)",
@@ -413,6 +451,7 @@ export default function CamConfigCard({
             </div>
           </div>
         </div>
+        )}
       </div>
     </div>
   );
