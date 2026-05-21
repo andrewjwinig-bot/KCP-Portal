@@ -159,34 +159,12 @@ function tileInputStyle(disabled: boolean | undefined, width: number): React.CSS
   };
 }
 
-// Compact "label  $value" chip used in the read-only monthly NNN row
-// below the big tiles. Stays small / muted so it doesn't compete with
-// the editable tiles for attention.
-function MonthChip({ label, value }: { label: string; value: string }) {
-  return (
-    <span style={{ whiteSpace: "nowrap" }}>
-      <span>{label}</span>{" "}
-      <b style={{ color: "var(--text)", fontWeight: 700 }}>{value}</b>
-    </span>
-  );
-}
-
-function money(n: number): string {
-  return n.toLocaleString("en-US", {
-    style: "currency", currency: "USD",
-    minimumFractionDigits: 0, maximumFractionDigits: 0,
-  });
-}
-
 export default function CamConfigCard({
   unitRef,
   propertyCode,
   occupantName,
   unitSqft,
   buildingSqft,
-  opexMonth,
-  reTaxMonth,
-  otherMonth,
 }: {
   unitRef: string;
   /** Property code (e.g. "2300") — used to look up per-property CAM rules
@@ -201,11 +179,6 @@ export default function CamConfigCard({
   /** Full building GLA. Default denominator for any category that
    *  doesn't have a property-rule override. */
   buildingSqft: number;
-  /** Monthly NNN breakouts pulled off the rent roll. Each renders as a
-   *  pill above the table when non-zero. */
-  opexMonth: number;
-  reTaxMonth: number;
-  otherMonth: number;
 }) {
   // Per-category prefill PRS and exclusion flags. A tenant excluded
   // from a category (e.g. Wawa from CAM) pays nothing for that category;
@@ -409,22 +382,6 @@ export default function CamConfigCard({
         )}
 
       </div>
-
-      {/* Monthly NNN breakouts pulled from the rent roll — these reflect
-          the 2026 budgeted expense schedule and are informational, so
-          they sit below the editable tiles in a compact chip row. */}
-      {(opexMonth > 0 || reTaxMonth > 0 || otherMonth > 0) && (
-        <div style={{
-          marginTop: 14,
-          display: "flex", flexWrap: "wrap", gap: "6px 18px",
-          fontSize: 12, color: "var(--muted)",
-        }}>
-          {opexMonth > 0 && <MonthChip label="Est. CAM / mo" value={money(opexMonth)} />}
-          {reTaxMonth > 0 && <MonthChip label="Est. RET / mo" value={money(reTaxMonth)} />}
-          {otherMonth > 0 && <MonthChip label="Est. INS / mo" value={money(otherMonth)} />}
-          <span style={{ opacity: 0.7 }}>· 2026 budget</span>
-        </div>
-      )}
 
       {/* Lease modifiers — plain inline checkboxes, both on one line.
           Both off-by-default; the reconciliation table above assumes

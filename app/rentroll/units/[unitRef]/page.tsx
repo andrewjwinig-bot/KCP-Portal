@@ -324,27 +324,38 @@ export default function UnitDetailPage() {
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-        {/* Top row: Lease Term · Floorplan · Shared Drive Folder. Base
-            Rent / Annual $/sf / Annual Rent all live on the hero pills
-            above, so they don't repeat in a Rent card here. */}
+        {/* Top row: Lease Term + Shared Drive (stacked) · Floorplan ·
+            Other Charges. The monthly CAM / RET / INS estimates that used
+            to sit at the bottom of the CAM card now stack in the third
+            slot — they read as a proper card instead of a stray chip
+            row. Base Rent / Annual $/sf / Annual Rent stay on the hero
+            pills, so the Rent card only appears when there's something
+            else to show. */}
         <div style={{
           display: "grid",
-          gridTemplateColumns: "minmax(220px, 0.6fr) minmax(0, 1fr) minmax(0, 0.7fr)",
+          gridTemplateColumns: "minmax(240px, 0.7fr) minmax(0, 1fr) minmax(220px, 0.6fr)",
           gap: 14, alignItems: "stretch",
         }}>
-          <div className="card" style={{ display: "flex", alignItems: "center", gap: 14, padding: "12px 18px" }}>
-            <span style={{
-              fontSize: 11, fontWeight: 700, letterSpacing: "0.06em",
-              color: "var(--muted)", textTransform: "uppercase",
-            }}>Lease Term</span>
-            <span style={{ fontSize: 14, fontWeight: 700, color: "var(--text)" }}>
-              {formatModalDate(unit.leaseFrom)}
-              <span style={{ color: "var(--muted)", fontWeight: 500, margin: "0 8px" }}>→</span>
-              {formatModalDate(unit.leaseTo)}
-            </span>
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <div className="card" style={{ display: "flex", alignItems: "center", gap: 14, padding: "12px 18px" }}>
+              <span style={{
+                fontSize: 11, fontWeight: 700, letterSpacing: "0.06em",
+                color: "var(--muted)", textTransform: "uppercase",
+              }}>Lease Term</span>
+              <span style={{ fontSize: 14, fontWeight: 700, color: "var(--text)" }}>
+                {formatModalDate(unit.leaseFrom)}
+                <span style={{ color: "var(--muted)", fontWeight: 500, margin: "0 8px" }}>→</span>
+                {formatModalDate(unit.leaseTo)}
+              </span>
+            </div>
+            <ShareFolderCard kind="unit" entityKey={unit.unitRef} />
           </div>
           <FloorplanCard unitRef={unit.unitRef} />
-          <ShareFolderCard kind="unit" entityKey={unit.unitRef} />
+          <OtherChargesCard
+            opexMonth={unit.opexMonth}
+            reTaxMonth={unit.reTaxMonth}
+            otherMonth={unit.otherMonth}
+          />
         </div>
 
         {/* Rent card — only renders when there's content beyond the
@@ -395,9 +406,6 @@ export default function UnitDetailPage() {
             occupantName={unit.occupantName || ""}
             unitSqft={unit.sqft}
             buildingSqft={buildingSqft}
-            opexMonth={unit.opexMonth}
-            reTaxMonth={unit.reTaxMonth}
-            otherMonth={unit.otherMonth}
           />
         )}
 
@@ -548,5 +556,46 @@ export default function UnitDetailPage() {
         )}
       </div>
     </main>
+  );
+}
+
+// Compact "Other Charges" card — stacks the 2026-budget monthly NNN
+// estimates (CAM / RET / INS) in the top row beside Lease Term and
+// Floorplan. Renders nothing when every figure is zero (e.g. office
+// gross-lease tenants).
+function OtherChargesCard({
+  opexMonth,
+  reTaxMonth,
+  otherMonth,
+}: {
+  opexMonth: number;
+  reTaxMonth: number;
+  otherMonth: number;
+}) {
+  if (opexMonth <= 0 && reTaxMonth <= 0 && otherMonth <= 0) return null;
+  const fmt = (n: number) =>
+    n.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  const Row = ({ label, value }: { label: string; value: number }) => (
+    <div style={{
+      display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10,
+    }}>
+      <span style={{ fontSize: 12, color: "var(--muted)" }}>{label}</span>
+      <span style={{ fontSize: 14, fontWeight: 700, color: "var(--text)" }}>{fmt(value)}</span>
+    </div>
+  );
+  return (
+    <div className="card" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      <span style={{
+        fontSize: 11, fontWeight: 700, letterSpacing: "0.06em",
+        color: "var(--muted)", textTransform: "uppercase",
+        marginBottom: 2,
+      }}>Other Charges</span>
+      {opexMonth > 0 && <Row label="Est. CAM / mo" value={opexMonth} />}
+      {reTaxMonth > 0 && <Row label="Est. RET / mo" value={reTaxMonth} />}
+      {otherMonth > 0 && <Row label="Est. INS / mo" value={otherMonth} />}
+      <span style={{ fontSize: 11, color: "var(--muted)", marginTop: 2, fontStyle: "italic" }}>
+        2026 budget
+      </span>
+    </div>
   );
 }
