@@ -318,7 +318,9 @@ export default function CamConfigCard({
   }
 
   const isGross = config.grossLease;
-  const hasExclusions = config.hasExclusions;
+  const hasAdminFeeExclusions = config.hasAdminFeeExclusions;
+  const hasExpenseExclusions = config.hasExpenseExclusions;
+  const anyExclusions = hasAdminFeeExclusions || hasExpenseExclusions;
 
   return (
     <div className="card">
@@ -440,20 +442,34 @@ export default function CamConfigCard({
         }}>
           <input
             type="checkbox"
-            checked={hasExclusions}
+            checked={hasAdminFeeExclusions}
             disabled={isGross}
-            onChange={(e) => update({ hasExclusions: e.target.checked })}
+            onChange={(e) => update({ hasAdminFeeExclusions: e.target.checked })}
             style={{ width: 15, height: 15, cursor: "pointer" }}
           />
-          <span style={{ fontWeight: 600, color: "var(--text)" }}>Lease Has Exclusions</span>
+          <span style={{ fontWeight: 600, color: "var(--text)" }}>Admin Fee Exclusions</span>
+        </label>
+        <label style={{
+          display: "flex", alignItems: "center", gap: 8, fontSize: 13,
+          cursor: isGross ? "not-allowed" : "pointer",
+          opacity: isGross ? 0.5 : 1,
+        }}>
+          <input
+            type="checkbox"
+            checked={hasExpenseExclusions}
+            disabled={isGross}
+            onChange={(e) => update({ hasExpenseExclusions: e.target.checked })}
+            style={{ width: 15, height: 15, cursor: "pointer" }}
+          />
+          <span style={{ fontWeight: 600, color: "var(--text)" }}>Expense Pool Exclusions</span>
         </label>
       </div>
 
-      {/* Exclusion picker reveals directly beneath the "Lease Has
-          Exclusions" toggle that controls it, so the cause/effect is
-          obvious without scrolling. Dimmed alongside the rest of the
-          card when Gross Lease is on. */}
-      {hasExclusions && (
+      {/* Exclusion pickers reveal directly beneath the two checkboxes
+          that control them, so the cause/effect reads at a glance.
+          Either checkbox can be on independently. Both panels dim with
+          the rest of the card when Gross Lease is on. */}
+      {anyExclusions && (
         <div style={{
           marginTop: 14, paddingTop: 14,
           borderTop: "1px solid var(--border)",
@@ -461,50 +477,45 @@ export default function CamConfigCard({
           opacity: isGross ? 0.45 : 1,
           pointerEvents: isGross ? "none" : "auto",
         }}>
-          <div style={{
-            fontSize: 11, fontWeight: 700, letterSpacing: "0.06em",
-            color: "var(--muted)", textTransform: "uppercase",
-          }}>
-            CAM Line Items
-          </div>
-
-          {/* Two consistent exclusion rows. Both empty by default → admin
-              fee applies to every CAM line and every CAM line is billed. */}
-          <div style={{ display: "grid", gridTemplateColumns: "200px 1fr", gap: "6px 20px", alignItems: "start" }}>
-            <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text)", paddingTop: 6 }}>
-              Excluded from Admin Fee
-            </span>
-            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              <span style={{ fontSize: 12, color: "var(--muted)" }}>
-                CAM lines this tenant’s admin fee does not apply to.
+          {hasAdminFeeExclusions && (
+            <div style={{ display: "grid", gridTemplateColumns: "200px 1fr", gap: "6px 20px", alignItems: "start" }}>
+              <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text)", paddingTop: 6 }}>
+                Excluded from Admin Fee
               </span>
-              <MultiSelect
-                options={lineOptions}
-                selected={config.camAdminExcludedLines ?? []}
-                onChange={(next) => update({ camAdminExcludedLines: next })}
-                placeholder="Pick lines to exclude from the admin fee…"
-                disabled={isGross}
-              />
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                <span style={{ fontSize: 12, color: "var(--muted)" }}>
+                  CAM lines this tenant’s admin fee does not apply to.
+                </span>
+                <MultiSelect
+                  options={lineOptions}
+                  selected={config.camAdminExcludedLines ?? []}
+                  onChange={(next) => update({ camAdminExcludedLines: next })}
+                  placeholder="Pick lines to exclude from the admin fee…"
+                  disabled={isGross}
+                />
+              </div>
             </div>
-          </div>
+          )}
 
-          <div style={{ display: "grid", gridTemplateColumns: "200px 1fr", gap: "6px 20px", alignItems: "start" }}>
-            <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text)", paddingTop: 6 }}>
-              Excluded CAM lines
-            </span>
-            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              <span style={{ fontSize: 12, color: "var(--muted)" }}>
-                CAM lines this tenant is not billed for under their lease.
+          {hasExpenseExclusions && (
+            <div style={{ display: "grid", gridTemplateColumns: "200px 1fr", gap: "6px 20px", alignItems: "start" }}>
+              <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text)", paddingTop: 6 }}>
+                Excluded CAM lines
               </span>
-              <MultiSelect
-                options={lineOptions}
-                selected={config.camExcludedLines ?? []}
-                onChange={(next) => update({ camExcludedLines: next })}
-                placeholder="Pick lines to exclude from this tenant’s CAM…"
-                disabled={isGross}
-              />
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                <span style={{ fontSize: 12, color: "var(--muted)" }}>
+                  CAM lines this tenant is not billed for under their lease.
+                </span>
+                <MultiSelect
+                  options={lineOptions}
+                  selected={config.camExcludedLines ?? []}
+                  onChange={(next) => update({ camExcludedLines: next })}
+                  placeholder="Pick lines to exclude from this tenant’s CAM…"
+                  disabled={isGross}
+                />
+              </div>
             </div>
-          </div>
+          )}
         </div>
       )}
     </div>
