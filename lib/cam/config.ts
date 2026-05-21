@@ -57,11 +57,12 @@ export type CamConfig = {
   /** When true the tenant pays gross rent — no CAM/INS/RET reconciliation.
    *  Default false (i.e. NNN). */
   grossLease: boolean;
-  /** When true the lease carves out specific exclusions — either some CAM
-   *  lines are excluded from the admin fee, or some CAM lines aren't
-   *  billed to this tenant. Default false (admin on all, every line
-   *  billed). */
-  hasExclusions: boolean;
+  /** When true the admin fee skips one or more CAM lines — reveals the
+   *  "Excluded from Admin Fee" picker in the UI. Default false. */
+  hasAdminFeeExclusions: boolean;
+  /** When true some CAM lines aren't billed to this tenant at all —
+   *  reveals the "Excluded CAM lines" picker in the UI. Default false. */
+  hasExpenseExclusions: boolean;
   cam: CamCategoryConfig;
   ins: CamCategoryConfig;
   ret: CamCategoryConfig;
@@ -77,7 +78,8 @@ export function emptyCamConfig(unitRef: string): CamConfig {
   return {
     unitRef,
     grossLease: false,
-    hasExclusions: false,
+    hasAdminFeeExclusions: false,
+    hasExpenseExclusions: false,
     cam: { stipulatedPrs: null, adminFeePct: null },
     ins: { stipulatedPrs: null, adminFeePct: null },
     ret: { stipulatedPrs: null, adminFeePct: null },
@@ -123,18 +125,35 @@ function asLineList(value: unknown): string[] {
 }
 
 /** Coerce an untrusted JSON body into a clean CamConfig (unitRef supplied
- *  by the caller, updatedAt stamped by the storage layer). */
+ *  by the caller, updatedAt stamped by the storage layer).
+ *
+ *  Legacy migration: an older shape carried a single boolean
+ *  `hasExclusions` that gated BOTH exclusion pickers. When a record only
+ *  has the legacy field we light up each new flag only if its underlying
+ *  list is non-empty, so the user doesn't see an empty picker pop up. */
 export function sanitizeCamConfig(unitRef: string, body: unknown): CamConfig {
   const b = (body ?? {}) as Record<string, unknown>;
+  const camAdminExcludedLines = asLineList(b.camAdminExcludedLines);
+  const camExcludedLines = asLineList(b.camExcludedLines);
+
+  const legacyHasExclusions = b.hasExclusions === true;
+  const hasAdminFeeExclusions = b.hasAdminFeeExclusions === true
+    ? true
+    : legacyHasExclusions && camAdminExcludedLines.length > 0;
+  const hasExpenseExclusions = b.hasExpenseExclusions === true
+    ? true
+    : legacyHasExclusions && camExcludedLines.length > 0;
+
   return {
     unitRef,
     grossLease: b.grossLease === true,
-    hasExclusions: b.hasExclusions === true,
+    hasAdminFeeExclusions,
+    hasExpenseExclusions,
     cam: asCategory(b.cam),
     ins: asCategory(b.ins),
     ret: asCategory(b.ret),
-    camAdminExcludedLines: asLineList(b.camAdminExcludedLines),
-    camExcludedLines: asLineList(b.camExcludedLines),
+    camAdminExcludedLines,
+    camExcludedLines,
     updatedAt: new Date().toISOString(),
   };
 }
