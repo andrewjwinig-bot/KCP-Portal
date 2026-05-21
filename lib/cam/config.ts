@@ -91,10 +91,12 @@ function asPct(value: unknown): number | null {
   if (value === null || value === undefined || value === "") return null;
   const n = typeof value === "number" ? value : Number(value);
   if (!Number.isFinite(n)) return null;
-  // Allow 0–100; clamp to two decimals.
+  // Allow 0–100; clamp to three decimals (needed so the PRS round-trips
+  // back to the right building-SF denominator for centers with reduced
+  // CAM/INS denominators, e.g. Brookwood).
   if (n < 0) return 0;
   if (n > 100) return 100;
-  return Math.round(n * 100) / 100;
+  return Math.round(n * 1000) / 1000;
 }
 
 function asCategory(value: unknown): CamCategoryConfig {

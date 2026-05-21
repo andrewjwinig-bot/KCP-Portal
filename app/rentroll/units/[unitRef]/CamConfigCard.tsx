@@ -40,25 +40,25 @@ function ColumnHeader({ children }: { children: React.ReactNode }) {
 }
 
 // PRS cell: a narrow % input with an inline "%" affix and the implied
-// building GLA right beside it — e.g. "[5.25] % (95,238 SF)". The whole
-// group is centered within the grid cell.
+// building GLA right beside it — e.g. "[5.250] % (95,238 SF)". The
+// denominator is sourced from the property rule (or full GLA when no
+// rule applies) rather than reverse-computed from the rounded percent,
+// so the displayed SF matches the actual denominator exactly.
 function PrsInput({
   value,
   onChange,
   disabled,
-  unitSqft,
+  denominator,
 }: {
   value: number | null;
   onChange: (next: number | null) => void;
   disabled?: boolean;
-  unitSqft: number;
+  /** Building SF this category's PRS is computed against. Displayed
+   *  beside the % input. */
+  denominator: number;
 }) {
   const [text, setText] = useState<string>(value == null ? "" : String(value));
   useEffect(() => { setText(value == null ? "" : String(value)); }, [value]);
-
-  const gla = value && value > 0 && unitSqft > 0
-    ? Math.round(unitSqft / (value / 100))
-    : null;
 
   return (
     <div style={{
@@ -68,7 +68,7 @@ function PrsInput({
       <input
         type="number"
         inputMode="decimal"
-        step="0.01"
+        step="0.001"
         min={0}
         max={100}
         value={text}
@@ -85,13 +85,13 @@ function PrsInput({
           if (text === "") return;
           const n = Number(text);
           if (!Number.isFinite(n)) { setText(value == null ? "" : String(value)); return; }
-          const clamped = Math.max(0, Math.min(100, Math.round(n * 100) / 100));
+          const clamped = Math.max(0, Math.min(100, Math.round(n * 1000) / 1000));
           setText(String(clamped));
           onChange(clamped);
         }}
         style={{
           ...inputStyle,
-          width: 72,
+          width: 84,
           textAlign: "right",
           opacity: disabled ? 0.5 : 1,
           cursor: disabled ? "not-allowed" : "text",
@@ -101,9 +101,9 @@ function PrsInput({
         fontSize: 13, fontWeight: 700, color: "var(--text)",
         opacity: disabled ? 0.5 : 1,
       }}>%</span>
-      {gla != null && (
+      {denominator > 0 && (
         <span style={{ fontSize: 12, color: "var(--muted)" }}>
-          ({gla.toLocaleString()} SF)
+          ({denominator.toLocaleString()} SF)
         </span>
       )}
     </div>
@@ -178,8 +178,8 @@ export default function CamConfigCard({
   /** Tenant occupant name from the rent roll — used to match tenant
    *  carve-outs (e.g. "Wawa" pays no CAM at Brookwood). */
   occupantName: string;
-  /** The unit's square footage. Used to compute the building SF implied
-   *  by each entered PRS (`unitSqft / (prs / 100)`). */
+  /** The unit's square footage. Used to compute each category's
+   *  prefill PRS (`unitSqft / denominator × 100`). */
   unitSqft: number;
   /** Full building GLA. Default denominator for any category that
    *  doesn't have a property-rule override. */
@@ -194,19 +194,23 @@ export default function CamConfigCard({
   // from a category (e.g. Wawa from CAM) pays nothing for that category;
   // their PRS cell is forced to 0 and the input is disabled.
   const categoryMeta = useMemo(() => {
-    const out: Record<CamCategory, { prefillPrs: number | null; excluded: boolean; footnote: string | null }> = {
-      cam: { prefillPrs: null, excluded: false, footnote: null },
-      ins: { prefillPrs: null, excluded: false, footnote: null },
-      ret: { prefillPrs: null, excluded: false, footnote: null },
+    const out: Record<CamCategory, { prefillPrs: number | null; denominator: number; excluded: boolean; footnote: string | null }> = {
+      cam: { prefillPrs: null, denominator: buildingSqft, excluded: false, footnote: null },
+      ins: { prefillPrs: null, denominator: buildingSqft, excluded: false, footnote: null },
+      ret: { prefillPrs: null, denominator: buildingSqft, excluded: false, footnote: null },
     };
     for (const cat of CAM_CATEGORIES) {
       const excluded = isTenantExcluded(propertyCode, cat, occupantName);
       const denom = getCategoryDenominator(propertyCode, cat, occupantName, buildingSqft);
+      // Three decimals so the reverse-computed SF lands within ~1 sf of
+      // the actual denominator on edits, and the stored value carries
+      // enough precision for reconciliation math.
       const prefill = !excluded && unitSqft > 0 && denom > 0
-        ? Math.round((unitSqft / denom) * 10000) / 100
+        ? Math.round((unitSqft / denom) * 100000) / 1000
         : excluded ? 0 : null;
       out[cat] = {
         prefillPrs: prefill,
+        denominator: denom,
         excluded,
         footnote: getCategoryFootnote(propertyCode, cat),
       };
@@ -372,7 +376,7 @@ export default function CamConfigCard({
               key={`v-${cat}`}
               value={config[cat].stipulatedPrs}
               onChange={(v) => updateCategory(cat, { stipulatedPrs: v })}
-              unitSqft={unitSqft}
+              denominator={categoryMeta[cat].denominator}
               disabled={isGross}
             />
           ))}
