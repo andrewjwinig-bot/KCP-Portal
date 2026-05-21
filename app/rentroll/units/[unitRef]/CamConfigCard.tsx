@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { SectionLabel } from "@/app/properties/PropertyDetail";
 import { MultiSelect } from "@/app/components/MultiSelect";
-import { StatPill } from "@/app/components/Pill";
 import { AutosaveStatus, useAutosave } from "@/app/components/useAutosave";
 import {
   CAM_CATEGORIES,
@@ -19,102 +18,72 @@ import {
   isTenantExcluded,
 } from "@/lib/cam/propertyRules";
 
-const inputStyle: React.CSSProperties = {
-  width: "100%", padding: "8px 10px", fontSize: 13, fontFamily: "inherit",
-  border: "1px solid var(--border)", borderRadius: 8,
-  background: "var(--card)", color: "var(--text)", outline: "none",
-};
-
-function ColumnHeader({ children }: { children: React.ReactNode }) {
-  return (
-    <div style={{
-      fontSize: 11, fontWeight: 800, letterSpacing: "0.08em",
-      textTransform: "uppercase", color: "var(--muted)",
-      textAlign: "center",
-      paddingBottom: 6,
-      borderBottom: "1px solid var(--border)",
-    }}>
-      {children}
-    </div>
-  );
-}
-
-// PRS cell: a narrow % input with an inline "%" affix and the implied
-// building GLA right beside it — e.g. "[5.250] % (95,238 SF)". The
-// denominator is sourced from the property rule (or full GLA when no
-// rule applies) rather than reverse-computed from the rounded percent,
-// so the displayed SF matches the actual denominator exactly.
-function PrsInput({
+// Big editable tile for one PRS category — matches the visual weight of
+// a StatPill (border, padded, label below, optional sub line). The PRS
+// value is rendered as a wide input so users can edit in place; the
+// denominator (building SF this category's PRS is computed against) shows
+// underneath as the sub-line.
+function PrsTile({
   value,
   onChange,
   disabled,
   denominator,
+  label,
 }: {
   value: number | null;
   onChange: (next: number | null) => void;
   disabled?: boolean;
-  /** Building SF this category's PRS is computed against. Displayed
-   *  beside the % input. */
   denominator: number;
+  label: string;
 }) {
   const [text, setText] = useState<string>(value == null ? "" : String(value));
   useEffect(() => { setText(value == null ? "" : String(value)); }, [value]);
 
   return (
-    <div style={{
-      display: "flex", alignItems: "center", justifyContent: "center",
-      gap: 6, whiteSpace: "nowrap",
-    }}>
-      <input
-        type="number"
-        inputMode="decimal"
-        step="0.001"
-        min={0}
-        max={100}
-        value={text}
-        placeholder="—"
-        disabled={disabled}
-        onChange={(e) => {
-          const t = e.target.value;
-          setText(t);
-          if (t === "") { onChange(null); return; }
-          const n = Number(t);
-          if (Number.isFinite(n)) onChange(n);
-        }}
-        onBlur={() => {
-          if (text === "") return;
-          const n = Number(text);
-          if (!Number.isFinite(n)) { setText(value == null ? "" : String(value)); return; }
-          const clamped = Math.max(0, Math.min(100, Math.round(n * 1000) / 1000));
-          setText(String(clamped));
-          onChange(clamped);
-        }}
-        style={{
-          ...inputStyle,
-          width: 84,
-          textAlign: "right",
+    <div style={tileStyle}>
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "center", gap: 4 }}>
+        <input
+          type="number"
+          inputMode="decimal"
+          step="0.001"
+          min={0}
+          max={100}
+          value={text}
+          placeholder="—"
+          disabled={disabled}
+          onChange={(e) => {
+            const t = e.target.value;
+            setText(t);
+            if (t === "") { onChange(null); return; }
+            const n = Number(t);
+            if (Number.isFinite(n)) onChange(n);
+          }}
+          onBlur={() => {
+            if (text === "") return;
+            const n = Number(text);
+            if (!Number.isFinite(n)) { setText(value == null ? "" : String(value)); return; }
+            const clamped = Math.max(0, Math.min(100, Math.round(n * 1000) / 1000));
+            setText(String(clamped));
+            onChange(clamped);
+          }}
+          style={tileInputStyle(disabled, 96)}
+        />
+        <span style={{
+          fontSize: 18, fontWeight: 700, color: "var(--muted)",
           opacity: disabled ? 0.5 : 1,
-          cursor: disabled ? "not-allowed" : "text",
-        }}
-      />
-      <span style={{
-        fontSize: 13, fontWeight: 700, color: "var(--text)",
-        opacity: disabled ? 0.5 : 1,
-      }}>%</span>
+        }}>%</span>
+      </div>
+      <span style={tileLabelStyle}>{label}</span>
       {denominator > 0 && (
-        <span style={{ fontSize: 12, color: "var(--muted)" }}>
-          ({denominator.toLocaleString()} SF)
-        </span>
+        <span style={tileSubStyle}>({denominator.toLocaleString()} SF)</span>
       )}
     </div>
   );
 }
 
-
-// Admin-fee dropdown — whole percentages 1–15 plus an empty "—" option
-// meaning "no admin fee". Matches the only values that show up on real
-// retail leases (0/5/10 are the common ones; up to 15 covers the outliers).
-function AdminFeeSelect({
+// Big editable tile for the CAM Admin Fee dropdown — same visual weight
+// as the PRS tiles to its right.
+function AdminFeeTile({
   value,
   onChange,
   disabled,
@@ -127,7 +96,7 @@ function AdminFeeSelect({
   // so the dropdown still shows a matching option.
   const intValue = value == null ? "" : String(Math.round(value));
   return (
-    <div style={{ display: "flex", justifyContent: "center" }}>
+    <div style={tileStyle}>
       <select
         value={intValue}
         disabled={disabled}
@@ -136,13 +105,11 @@ function AdminFeeSelect({
           onChange(t === "" ? null : Number(t));
         }}
         style={{
-          ...inputStyle,
-          width: 110,
-          cursor: disabled ? "not-allowed" : "pointer",
-          opacity: disabled ? 0.5 : 1,
+          ...tileInputStyle(disabled, 96),
           textAlign: "center",
           textAlignLast: "center",
           appearance: "auto",
+          cursor: disabled ? "not-allowed" : "pointer",
         }}
       >
         <option value="">—</option>
@@ -150,7 +117,57 @@ function AdminFeeSelect({
           <option key={n} value={n}>{n}%</option>
         ))}
       </select>
+      <span style={tileLabelStyle}>CAM Admin Fee</span>
     </div>
+  );
+}
+
+// ── Shared big-tile styling so PrsTile + AdminFeeTile look identical ────
+const tileStyle: React.CSSProperties = {
+  flex: "1 1 0", minWidth: 0,
+  border: "1.5px solid var(--border)",
+  borderRadius: 10,
+  padding: "13px 16px 11px",
+  display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
+  whiteSpace: "nowrap",
+  background: "var(--card)",
+};
+const tileLabelStyle: React.CSSProperties = {
+  fontSize: 11, fontWeight: 600, color: "var(--muted)",
+  textTransform: "uppercase", letterSpacing: "0.04em",
+  marginTop: 2,
+};
+const tileSubStyle: React.CSSProperties = {
+  fontSize: 11, color: "var(--muted)",
+};
+function tileInputStyle(disabled: boolean | undefined, width: number): React.CSSProperties {
+  return {
+    width,
+    fontSize: 22,
+    fontWeight: 800,
+    lineHeight: 1,
+    textAlign: "right",
+    padding: "4px 8px",
+    border: "1px solid var(--border)",
+    borderRadius: 7,
+    background: "var(--card)",
+    color: "var(--text)",
+    fontFamily: "inherit",
+    outline: "none",
+    opacity: disabled ? 0.5 : 1,
+    cursor: disabled ? "not-allowed" : "text",
+  };
+}
+
+// Compact "label  $value" chip used in the read-only monthly NNN row
+// below the big tiles. Stays small / muted so it doesn't compete with
+// the editable tiles for attention.
+function MonthChip({ label, value }: { label: string; value: string }) {
+  return (
+    <span style={{ whiteSpace: "nowrap" }}>
+      <span>{label}</span>{" "}
+      <b style={{ color: "var(--text)", fontWeight: 700 }}>{value}</b>
+    </span>
   );
 }
 
@@ -337,48 +354,24 @@ export default function CamConfigCard({
         }}>{error}</div>
       )}
 
-      {/* Monthly NNN breakouts pulled from the rent roll — these reflect
-          the 2026 budgeted expense schedule, so they're estimates until
-          the year-end reconciliation. Read-only here; editing happens
-          upstream in the Excel import. */}
-      {(opexMonth > 0 || reTaxMonth > 0 || otherMonth > 0) && (
-        <div className="pills" style={{ marginTop: 0, marginBottom: 14 }}>
-          {opexMonth > 0  && <StatPill label="Est. CAM / mo" value={money(opexMonth)}  sub="2026 budget" />}
-          {reTaxMonth > 0 && <StatPill label="Est. RET / mo" value={money(reTaxMonth)} sub="2026 budget" />}
-          {otherMonth > 0 && <StatPill label="Est. INS / mo" value={money(otherMonth)} sub="2026 budget" />}
-        </div>
-      )}
-
       <div style={{ opacity: isGross ? 0.45 : 1, pointerEvents: isGross ? "none" : "auto" }}>
-        {/* Single 4-column / 2-row grid: CAM Admin Fee on the left, then
-            CAM PRS / INS PRS / RET PRS. Row 1 headers, row 2 values —
-            PRS cells render "[%] (NN,NNN SF)" inline; admin fee is a
-            centered dropdown. */}
-        <div style={{
-          display: "grid",
-          gridTemplateColumns: "minmax(140px, 0.7fr) repeat(3, minmax(0, 1fr))",
-          rowGap: 6,
-          columnGap: 18,
-          alignItems: "center",
-        }}>
-          {/* Row 1: headers */}
-          <ColumnHeader>CAM Admin Fee</ColumnHeader>
-          <ColumnHeader>CAM PRS</ColumnHeader>
-          <ColumnHeader>INS PRS</ColumnHeader>
-          <ColumnHeader>RET PRS</ColumnHeader>
-
-          {/* Row 2: inputs — PRS cells render "% (NN SF)" inline. */}
-          <AdminFeeSelect
+        {/* Big tile row — CAM Admin Fee + the three PRS tiles. These are
+            the values staff actually edit, so they get the prominent
+            StatPill-style treatment with labels and (SF) denominators
+            below each input. */}
+        <div className="pills" style={{ marginTop: 0, marginBottom: 14 }}>
+          <AdminFeeTile
             value={config.cam.adminFeePct}
             onChange={(v) => updateCategory("cam", { adminFeePct: v })}
             disabled={isGross}
           />
           {CAM_CATEGORIES.map((cat) => (
-            <PrsInput
+            <PrsTile
               key={`v-${cat}`}
               value={config[cat].stipulatedPrs}
               onChange={(v) => updateCategory(cat, { stipulatedPrs: v })}
               denominator={categoryMeta[cat].denominator}
+              label={`${CAM_CATEGORY_LABELS[cat]} PRS`}
               disabled={isGross}
             />
           ))}
@@ -416,6 +409,22 @@ export default function CamConfigCard({
         )}
 
       </div>
+
+      {/* Monthly NNN breakouts pulled from the rent roll — these reflect
+          the 2026 budgeted expense schedule and are informational, so
+          they sit below the editable tiles in a compact chip row. */}
+      {(opexMonth > 0 || reTaxMonth > 0 || otherMonth > 0) && (
+        <div style={{
+          marginTop: 14,
+          display: "flex", flexWrap: "wrap", gap: "6px 18px",
+          fontSize: 12, color: "var(--muted)",
+        }}>
+          {opexMonth > 0 && <MonthChip label="Est. CAM / mo" value={money(opexMonth)} />}
+          {reTaxMonth > 0 && <MonthChip label="Est. RET / mo" value={money(reTaxMonth)} />}
+          {otherMonth > 0 && <MonthChip label="Est. INS / mo" value={money(otherMonth)} />}
+          <span style={{ opacity: 0.7 }}>· 2026 budget</span>
+        </div>
+      )}
 
       {/* Lease modifiers — plain inline checkboxes, both on one line.
           Both off-by-default; the reconciliation table above assumes
