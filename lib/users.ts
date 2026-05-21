@@ -72,6 +72,7 @@ export const USERS: Record<UserId, UserDef> = {
       "tracker",
       "allocated",
       "deposits",
+      "bank-transfers",
     ]),
     allowedPathPrefixes: [
       "/dashboard",
@@ -82,6 +83,7 @@ export const USERS: Record<UserId, UserDef> = {
       "/commissions",
       "/allocated-invoicer",
       "/deposits",
+      "/bank-transfers",
     ],
     defaultRentRollCategory: "All",
     defaultPropertyType: "all",
@@ -125,8 +127,8 @@ export const USERS: Record<UserId, UserDef> = {
   harry: {
     id: "harry",
     label: "HARRY",
-    navKeys: new Set([...universalNav, "expenses", "expenses-history", "payroll-invoicer", "investors", "commissions-retail", "deposits"]),
-    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/expenses", "/investors", "/commissions/retail", "/deposits", "/"],
+    navKeys: new Set([...universalNav, "expenses", "expenses-history", "payroll-invoicer", "investors", "commissions-retail", "deposits", "bank-transfers"]),
+    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/expenses", "/investors", "/commissions/retail", "/deposits", "/bank-transfers", "/"],
     defaultRentRollCategory: "Retail",
     defaultPropertyType: "Retail",
     dashboardScope: { codes: SC_INDIVIDUAL },
@@ -136,8 +138,8 @@ export const USERS: Record<UserId, UserDef> = {
   maint: {
     id: "maint",
     label: "SERVICE",
-    navKeys: new Set([...universalNav, "maintenance", "expenses", "reservations", "service-calendar"]),
-    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/expenses", "/maintenance", "/reservations", "/service-calendar"],
+    navKeys: new Set([...universalNav, "maintenance", "expenses", "reservations"]),
+    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/expenses", "/maintenance", "/reservations"],
     defaultRentRollCategory: "All",
     defaultPropertyType: "all",
     dashboardScope: "groups",
