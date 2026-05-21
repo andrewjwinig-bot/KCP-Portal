@@ -413,14 +413,53 @@ export default function CamConfigCard({
           </div>
         )}
 
-        {/* CAM-only: admin scope + excluded lines. Hidden unless the
-            "Lease has exclusions" box is checked — most retail tenants
-            don't have either of these carve-outs. */}
-        {hasExclusions && (
+      </div>
+
+      {/* Lease modifiers — plain inline checkboxes, both on one line.
+          Both off-by-default; the reconciliation table above assumes
+          NNN with admin on every line and no excluded lines unless
+          turned on. */}
+      <div style={{
+        marginTop: 18, paddingTop: 14,
+        borderTop: "1px solid var(--border)",
+        display: "flex", alignItems: "center", flexWrap: "wrap", gap: "8px 24px",
+      }}>
+        <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer" }}>
+          <input
+            type="checkbox"
+            checked={isGross}
+            onChange={(e) => update({ grossLease: e.target.checked })}
+            style={{ width: 15, height: 15, cursor: "pointer" }}
+          />
+          <span style={{ fontWeight: 600, color: "var(--text)" }}>Gross Lease</span>
+        </label>
+        <label style={{
+          display: "flex", alignItems: "center", gap: 8, fontSize: 13,
+          cursor: isGross ? "not-allowed" : "pointer",
+          opacity: isGross ? 0.5 : 1,
+        }}>
+          <input
+            type="checkbox"
+            checked={hasExclusions}
+            disabled={isGross}
+            onChange={(e) => update({ hasExclusions: e.target.checked })}
+            style={{ width: 15, height: 15, cursor: "pointer" }}
+          />
+          <span style={{ fontWeight: 600, color: "var(--text)" }}>Lease Has Exclusions</span>
+        </label>
+      </div>
+
+      {/* Exclusion picker reveals directly beneath the "Lease Has
+          Exclusions" toggle that controls it, so the cause/effect is
+          obvious without scrolling. Dimmed alongside the rest of the
+          card when Gross Lease is on. */}
+      {hasExclusions && (
         <div style={{
-          marginTop: 18, paddingTop: 14,
+          marginTop: 14, paddingTop: 14,
           borderTop: "1px solid var(--border)",
           display: "flex", flexDirection: "column", gap: 14,
+          opacity: isGross ? 0.45 : 1,
+          pointerEvents: isGross ? "none" : "auto",
         }}>
           <div style={{
             fontSize: 11, fontWeight: 700, letterSpacing: "0.06em",
@@ -467,42 +506,7 @@ export default function CamConfigCard({
             </div>
           </div>
         </div>
-        )}
-      </div>
-
-      {/* Lease modifiers — plain inline checkboxes at the bottom, both
-          on one line. Both off-by-default; the reconciliation table above
-          assumes NNN with admin on every line and no excluded lines
-          unless turned on. */}
-      <div style={{
-        marginTop: 18, paddingTop: 14,
-        borderTop: "1px solid var(--border)",
-        display: "flex", alignItems: "center", flexWrap: "wrap", gap: "8px 24px",
-      }}>
-        <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer" }}>
-          <input
-            type="checkbox"
-            checked={isGross}
-            onChange={(e) => update({ grossLease: e.target.checked })}
-            style={{ width: 15, height: 15, cursor: "pointer" }}
-          />
-          <span style={{ fontWeight: 600, color: "var(--text)" }}>Gross Lease</span>
-        </label>
-        <label style={{
-          display: "flex", alignItems: "center", gap: 8, fontSize: 13,
-          cursor: isGross ? "not-allowed" : "pointer",
-          opacity: isGross ? 0.5 : 1,
-        }}>
-          <input
-            type="checkbox"
-            checked={hasExclusions}
-            disabled={isGross}
-            onChange={(e) => update({ hasExclusions: e.target.checked })}
-            style={{ width: 15, height: 15, cursor: "pointer" }}
-          />
-          <span style={{ fontWeight: 600, color: "var(--text)" }}>Lease Has Exclusions</span>
-        </label>
-      </div>
+      )}
     </div>
   );
 }
