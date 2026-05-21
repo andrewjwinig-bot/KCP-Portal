@@ -136,8 +136,8 @@ export const USERS: Record<UserId, UserDef> = {
   maint: {
     id: "maint",
     label: "SERVICE",
-    navKeys: new Set([...universalNav, "maintenance", "expenses", "reservations"]),
-    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/expenses", "/maintenance", "/reservations"],
+    navKeys: new Set([...universalNav, "maintenance", "expenses", "reservations", "service-calendar"]),
+    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/expenses", "/maintenance", "/reservations", "/service-calendar"],
     defaultRentRollCategory: "All",
     defaultPropertyType: "all",
     dashboardScope: "groups",
