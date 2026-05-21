@@ -27,6 +27,7 @@ export default function BankTransfersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState<BankTransfer | "new" | null>(null);
+  const [savedPrompt, setSavedPrompt] = useState<boolean>(false);
   const [search, setSearch] = useState("");
 
   const reload = useCallback(async () => {
@@ -76,7 +77,10 @@ export default function BankTransfersPage() {
     return Array.from(set).sort();
   }, [transfers]);
 
-  async function saveTransfer(draft: Partial<BankTransfer> & { id?: string; createdAt?: string }) {
+  async function saveTransfer(
+    draft: Partial<BankTransfer> & { id?: string; createdAt?: string },
+    isNew: boolean,
+  ) {
     try {
       const res = await fetch("/api/bank-transfers", {
         method: "POST",
@@ -87,6 +91,7 @@ export default function BankTransfersPage() {
       if (!res.ok) throw new Error(body.error ?? "Failed to save");
       setEditing(null);
       await reload();
+      if (isNew) setSavedPrompt(true);
     } catch (e) {
       alert(e instanceof Error ? e.message : "Failed to save");
     }
@@ -123,7 +128,7 @@ export default function BankTransfersPage() {
         <button
           onClick={() => setEditing("new")}
           className="btn primary"
-          style={{ fontSize: 13, padding: "6px 12px" }}
+          style={{ fontSize: 15, padding: "10px 22px", fontWeight: 700 }}
         >
           + New Transfer
         </button>
@@ -223,7 +228,68 @@ export default function BankTransfersPage() {
           onDelete={deleteTransfer}
         />
       )}
+
+      {savedPrompt && (
+        <SavedPrompt url={shareFolderUrl} onClose={() => setSavedPrompt(false)} />
+      )}
     </main>
+  );
+}
+
+function SavedPrompt({ url, onClose }: { url: string; onClose: () => void }) {
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed", inset: 0, zIndex: 110,
+        background: "rgba(15,23,42,0.45)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        padding: 16,
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: "var(--card)", color: "var(--text)",
+          borderRadius: 12, border: "1px solid var(--border)",
+          maxWidth: 460, width: "100%",
+          padding: 22,
+          boxShadow: "0 12px 40px rgba(15,23,42,0.25)",
+        }}
+      >
+        <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800 }}>Save Record on SharePoint</h2>
+        <div className="muted small" style={{ marginTop: 8 }}>
+          Transfer saved. Drop the supporting PDF in the shared folder so the record is complete.
+        </div>
+
+        <div style={{ marginTop: 16 }}>
+          {url ? (
+            <a
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn primary"
+              style={{
+                fontSize: 14, padding: "10px 18px", fontWeight: 700, textDecoration: "none",
+                display: "inline-flex", alignItems: "center", gap: 8,
+              }}
+            >
+              <FolderIcon /> Open SharePoint Folder
+            </a>
+          ) : (
+            <div className="muted small">
+              No SharePoint folder linked yet — add one with the Shared Drive Folder card above.
+            </div>
+          )}
+        </div>
+
+        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 18 }}>
+          <button onClick={onClose} className="btn" style={{ fontSize: 13, padding: "8px 16px" }}>
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -354,7 +420,7 @@ function EditModal({
   item: BankTransfer | null;
   labelOptions: string[];
   onClose: () => void;
-  onSave: (draft: Partial<BankTransfer> & { id?: string; createdAt?: string }) => void | Promise<void>;
+  onSave: (draft: Partial<BankTransfer> & { id?: string; createdAt?: string }, isNew: boolean) => void | Promise<void>;
   onDelete: (id: string) => void | Promise<void>;
 }) {
   const [date, setDate] = useState(item?.date ?? todayISO());
@@ -382,7 +448,7 @@ function EditModal({
       pdfSaved,
       description,
       createdAt: item?.createdAt,
-    });
+    }, !item);
     setSaving(false);
   }
 
