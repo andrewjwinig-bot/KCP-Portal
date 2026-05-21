@@ -41,6 +41,7 @@ function PrsTile({
 
   return (
     <div style={tileStyle}>
+      <span style={tileLabelStyle}>{label}</span>
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "center", gap: 4 }}>
         <input
           type="number"
@@ -66,14 +67,13 @@ function PrsTile({
             setText(String(clamped));
             onChange(clamped);
           }}
-          style={tileInputStyle(disabled, 96)}
+          style={tileInputStyle(disabled, 120)}
         />
         <span style={{
           fontSize: 18, fontWeight: 700, color: "var(--muted)",
           opacity: disabled ? 0.5 : 1,
         }}>%</span>
       </div>
-      <span style={tileLabelStyle}>{label}</span>
       {denominator > 0 && (
         <span style={tileSubStyle}>({denominator.toLocaleString()} SF)</span>
       )}
@@ -97,6 +97,7 @@ function AdminFeeTile({
   const intValue = value == null ? "" : String(Math.round(value));
   return (
     <div style={tileStyle}>
+      <span style={tileLabelStyle}>CAM Admin Fee</span>
       <select
         value={intValue}
         disabled={disabled}
@@ -105,7 +106,7 @@ function AdminFeeTile({
           onChange(t === "" ? null : Number(t));
         }}
         style={{
-          ...tileInputStyle(disabled, 96),
+          ...tileInputStyle(disabled, 120),
           textAlign: "center",
           textAlignLast: "center",
           appearance: "auto",
@@ -117,7 +118,6 @@ function AdminFeeTile({
           <option key={n} value={n}>{n}%</option>
         ))}
       </select>
-      <span style={tileLabelStyle}>CAM Admin Fee</span>
     </div>
   );
 }
@@ -135,7 +135,7 @@ const tileStyle: React.CSSProperties = {
 const tileLabelStyle: React.CSSProperties = {
   fontSize: 11, fontWeight: 600, color: "var(--muted)",
   textTransform: "uppercase", letterSpacing: "0.04em",
-  marginTop: 2,
+  marginBottom: 2,
 };
 const tileSubStyle: React.CSSProperties = {
   fontSize: 11, color: "var(--muted)",
