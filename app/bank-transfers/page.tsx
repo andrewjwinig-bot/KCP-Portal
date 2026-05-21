@@ -408,35 +408,6 @@ function Toolbar({
         </div>
       ) : (
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          {url ? (
-            <a
-              href={url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="btn primary"
-              style={{
-                fontSize: 13, padding: "8px 16px", fontWeight: 700, textDecoration: "none",
-                display: "inline-flex", alignItems: "center", gap: 8,
-              }}
-            >
-              <FolderIcon /> Open SharePoint Folder
-            </a>
-          ) : (
-            <span style={{ fontSize: 13, color: "var(--muted)" }}>
-              No SharePoint folder linked yet.
-            </span>
-          )}
-          <button
-            type="button"
-            onClick={() => { setDraft(url); setEditing(true); setError(null); }}
-            style={{
-              fontSize: 11, fontWeight: 600, color: "var(--brand)",
-              background: "transparent", border: "none", cursor: "pointer", fontFamily: "inherit",
-            }}
-          >
-            {url ? "Change link" : "Link a folder"}
-          </button>
-
           <button
             type="button"
             onClick={onNewTransfer}
@@ -447,6 +418,34 @@ function Toolbar({
           </button>
 
           <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            {url ? (
+              <a
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn primary"
+                style={{
+                  fontSize: 13, padding: "8px 16px", fontWeight: 700, textDecoration: "none",
+                  display: "inline-flex", alignItems: "center", gap: 8,
+                }}
+              >
+                <FolderIcon /> Open SharePoint Folder
+              </a>
+            ) : (
+              <span style={{ fontSize: 13, color: "var(--muted)" }}>
+                No SharePoint folder linked yet.
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={() => { setDraft(url); setEditing(true); setError(null); }}
+              style={{
+                fontSize: 11, fontWeight: 600, color: "var(--brand)",
+                background: "transparent", border: "none", cursor: "pointer", fontFamily: "inherit",
+              }}
+            >
+              {url ? "Change link" : "Link a folder"}
+            </button>
             <input
               type="search"
               placeholder="Search bank, account, description…"
