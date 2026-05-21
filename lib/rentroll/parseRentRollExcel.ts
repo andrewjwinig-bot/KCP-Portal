@@ -86,6 +86,24 @@ const DATE_RE     = /^\d{1,2}\/\d{1,2}\/\d{2,4}$/;
 
 const KNOWN_CODES = new Set(PROPERTY_DEFS.map((p) => p.id.toUpperCase()));
 
+// Strip trailing store / location / branch numbers from a tenant name.
+// Matches a "#…" suffix at end of string, optionally preceded by a
+// generic locator word ("Store", "Location", "Branch", "Unit", "Shop",
+// "Site"). Leaves names alone when the # is at the start of the name
+// (e.g. "#1 Chinese Buffet") or when no #-suffix is present.
+//
+//   "Starbucks #1234"        → "Starbucks"
+//   "Walgreens Store #234"   → "Walgreens"
+//   "Wells Fargo Branch #5"  → "Wells Fargo"
+//   "Target #T-2345"         → "Target"
+//   "AT&T"                   → "AT&T"        (unchanged)
+//   "#1 Chinese Buffet"      → "#1 Chinese Buffet" (unchanged)
+export function stripStoreNumber(name: string): string {
+  return name
+    .replace(/\s+(?:store|location|loc\.?|branch|unit|shop|site)?\s*#\s*[\w.-]+\s*$/i, "")
+    .trim();
+}
+
 function norm(v: any): string {
   return String(v ?? "").trim();
 }
@@ -202,7 +220,7 @@ export function parseRentRollExcel(
       ? amenity.label
       : isVacant
         ? "Vacant"
-        : rawOccupant;
+        : stripStoreNumber(rawOccupant);
 
     const sqft      = toNumber(row[COL_SQFT]);
     const leaseFrom = parseDateStr(row[COL_LEASE_FROM]);
