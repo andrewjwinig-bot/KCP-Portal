@@ -7,11 +7,17 @@ import { StatPill } from "@/app/components/Pill";
 import { AutosaveStatus, useAutosave } from "@/app/components/useAutosave";
 import {
   CAM_CATEGORIES,
+  CAM_CATEGORY_LABELS,
   CAM_LINE_ITEMS,
   type CamCategory,
   type CamCategoryConfig,
   type CamConfig,
 } from "@/lib/cam/config";
+import {
+  getCategoryDenominator,
+  getCategoryFootnote,
+  isTenantExcluded,
+} from "@/lib/cam/propertyRules";
 
 const inputStyle: React.CSSProperties = {
   width: "100%", padding: "8px 10px", fontSize: 13, fontFamily: "inherit",
@@ -157,25 +163,56 @@ function money(n: number): string {
 
 export default function CamConfigCard({
   unitRef,
-  actualPrs,
+  propertyCode,
+  occupantName,
   unitSqft,
+  buildingSqft,
   opexMonth,
   reTaxMonth,
   otherMonth,
 }: {
   unitRef: string;
-  /** True PRS for the unit (unit sqft / building sqft × 100), used to
-   *  pre-fill the PRS columns when no override is stored. */
-  actualPrs: number | null;
+  /** Property code (e.g. "2300") — used to look up per-property CAM rules
+   *  in lib/cam/propertyRules.ts. */
+  propertyCode: string;
+  /** Tenant occupant name from the rent roll — used to match tenant
+   *  carve-outs (e.g. "Wawa" pays no CAM at Brookwood). */
+  occupantName: string;
   /** The unit's square footage. Used to compute the building SF implied
    *  by each entered PRS (`unitSqft / (prs / 100)`). */
   unitSqft: number;
+  /** Full building GLA. Default denominator for any category that
+   *  doesn't have a property-rule override. */
+  buildingSqft: number;
   /** Monthly NNN breakouts pulled off the rent roll. Each renders as a
    *  pill above the table when non-zero. */
   opexMonth: number;
   reTaxMonth: number;
   otherMonth: number;
 }) {
+  // Per-category prefill PRS and exclusion flags. A tenant excluded
+  // from a category (e.g. Wawa from CAM) pays nothing for that category;
+  // their PRS cell is forced to 0 and the input is disabled.
+  const categoryMeta = useMemo(() => {
+    const out: Record<CamCategory, { prefillPrs: number | null; excluded: boolean; footnote: string | null }> = {
+      cam: { prefillPrs: null, excluded: false, footnote: null },
+      ins: { prefillPrs: null, excluded: false, footnote: null },
+      ret: { prefillPrs: null, excluded: false, footnote: null },
+    };
+    for (const cat of CAM_CATEGORIES) {
+      const excluded = isTenantExcluded(propertyCode, cat, occupantName);
+      const denom = getCategoryDenominator(propertyCode, cat, occupantName, buildingSqft);
+      const prefill = !excluded && unitSqft > 0 && denom > 0
+        ? Math.round((unitSqft / denom) * 10000) / 100
+        : excluded ? 0 : null;
+      out[cat] = {
+        prefillPrs: prefill,
+        excluded,
+        footnote: getCategoryFootnote(propertyCode, cat),
+      };
+    }
+    return out;
+  }, [propertyCode, occupantName, unitSqft, buildingSqft]);
   const [config, setConfig] = useState<CamConfig | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -210,15 +247,17 @@ export default function CamConfigCard({
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => {
         if (!alive || !j?.config) return;
-        // Hydrate any unset stipulated-PRS field with the unit's actual
-        // PRS so the user sees a sensible starting value. Doesn't trigger
+        // Hydrate each category's stipulated-PRS field from the per-
+        // category prefill (which honors property-rule denominator
+        // overrides). Excluded tenants get a forced 0. Doesn't trigger
         // a save — only real edits do.
         const c: CamConfig = j.config;
-        if (actualPrs != null) {
-          for (const cat of ["cam", "ins", "ret"] as const) {
-            if (c[cat].stipulatedPrs == null) {
-              c[cat] = { ...c[cat], stipulatedPrs: actualPrs };
-            }
+        for (const cat of CAM_CATEGORIES) {
+          const meta = categoryMeta[cat];
+          if (meta.excluded) {
+            c[cat] = { ...c[cat], stipulatedPrs: 0 };
+          } else if (c[cat].stipulatedPrs == null && meta.prefillPrs != null) {
+            c[cat] = { ...c[cat], stipulatedPrs: meta.prefillPrs };
           }
         }
         setConfig(c);
@@ -226,7 +265,7 @@ export default function CamConfigCard({
       .catch(() => { /* leave null */ })
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
-  }, [api, actualPrs]);
+  }, [api, categoryMeta]);
 
   function update(patch: Partial<CamConfig>) {
     setConfig((prev) => {
@@ -333,10 +372,41 @@ export default function CamConfigCard({
               value={config[cat].stipulatedPrs}
               onChange={(v) => updateCategory(cat, { stipulatedPrs: v })}
               unitSqft={unitSqft}
-              disabled={isGross}
+              disabled={isGross || categoryMeta[cat].excluded}
             />
           ))}
         </div>
+
+        {/* Property-rule footnotes (e.g. "* CAM denominator excludes
+            Wawa outparcel."). Only rendered when a rule applies to this
+            property + category combo. */}
+        {(categoryMeta.cam.footnote || categoryMeta.ins.footnote || categoryMeta.ret.footnote) && (
+          <div style={{
+            marginTop: 10,
+            display: "flex", flexDirection: "column", gap: 4,
+            fontSize: 11, fontStyle: "italic", color: "var(--muted)",
+            lineHeight: 1.5,
+          }}>
+            {CAM_CATEGORIES.map((cat) =>
+              categoryMeta[cat].footnote ? (
+                <div key={`fn-${cat}`}>* {categoryMeta[cat].footnote}</div>
+              ) : null,
+            )}
+          </div>
+        )}
+
+        {/* Per-category exclusion notice — when this specific tenant is
+            carved out of a category entirely. */}
+        {CAM_CATEGORIES.some((c) => categoryMeta[c].excluded) && (
+          <div style={{
+            marginTop: 6,
+            fontSize: 11, fontStyle: "italic", color: "var(--muted)",
+          }}>
+            {CAM_CATEGORIES.filter((c) => categoryMeta[c].excluded)
+              .map((c) => `${occupantName || "This tenant"} does not pay ${CAM_CATEGORY_LABELS[c]}.`)
+              .join(" ")}
+          </div>
+        )}
 
         {/* CAM-only: admin scope + excluded lines. Hidden unless the
             "Lease has exclusions" box is checked — most retail tenants

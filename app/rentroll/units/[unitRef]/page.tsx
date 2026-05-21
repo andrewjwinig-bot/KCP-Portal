@@ -212,13 +212,11 @@ export default function UnitDetailPage() {
 
   // True PRS = unit sqft ÷ building sqft × 100. Used to pre-fill the
   // Stipulated PRS column in the CAM card so it starts on the lease-
-  // neutral value.
+  // neutral value. Some properties carve out tenants from specific
+  // categories (e.g. Wawa outparcel from CAM at Brookwood) — see
+  // lib/cam/propertyRules.ts for per-property overrides.
   const propertyDef = PROPERTY_DEFS.find((p) => p.id.toUpperCase() === propertyCode.toUpperCase());
   const buildingSqft = propertyDef?.sqft ?? 0;
-  const actualPrs =
-    unit.sqft > 0 && buildingSqft > 0
-      ? Math.round((unit.sqft / buildingSqft) * 10000) / 100  // two decimals
-      : null;
 
   // Annual values
   const annualRent = unit.baseRent * 12;
@@ -393,8 +391,10 @@ export default function UnitDetailPage() {
         {!isMaint && isRetailUnit(propertyCode) && !isAmenity && !unit.isVacant && (
           <CamConfigCard
             unitRef={unit.unitRef}
-            actualPrs={actualPrs}
+            propertyCode={propertyCode}
+            occupantName={unit.occupantName || ""}
             unitSqft={unit.sqft}
+            buildingSqft={buildingSqft}
             opexMonth={unit.opexMonth}
             reTaxMonth={unit.reTaxMonth}
             otherMonth={unit.otherMonth}
