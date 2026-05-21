@@ -17,13 +17,14 @@ export const config = {
   ],
 };
 
+// Admin-only paths: viewing/managing saved payroll snapshots. The compute
+// endpoints used by Payroll Invoicer (/api/parse-payroll, /api/allocation,
+// /api/generate-all, /api/generate-pdf) are read-only / one-shot and sit
+// behind site auth + per-user nav-key access — no extra admin gate so
+// Harry can run his payroll without sharing the admin password.
 const ADMIN_PATH_PREFIXES = [
   "/history",
   "/api/periods",
-  "/api/parse-payroll",
-  "/api/generate-all",
-  "/api/generate-pdf",
-  "/api/allocation",
 ];
 
 function isAdminPath(pathname: string): boolean {
