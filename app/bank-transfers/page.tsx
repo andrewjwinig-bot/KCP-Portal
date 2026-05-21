@@ -3,7 +3,25 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Calendar } from "@/app/components/Calendar";
 import { Pill, StatPill, TONE_GREEN, TONE_RED } from "@/app/components/Pill";
+import { UNIQUE_BANK_ACCOUNTS, type BankGroup } from "@/lib/bank-rec/accounts";
 import type { BankTransfer } from "@/lib/bankTransfers/storage";
+
+const BANK_OPTIONS: BankGroup[] = ["M&T", "JPM-Chase", "Liberty Bank"];
+
+/** Display label for one bank account: prefer the internal key, fall back to
+ *  the formal account name; always suffix with the last4 so it's unambiguous. */
+function accountLabel(acc: { key: string; accountName: string; last4: string }): string {
+  const base = acc.key || acc.accountName;
+  return `${base} (${acc.last4})`;
+}
+
+/** Normalize the bank name on records that pre-date the bank dropdown
+ *  (the seed used "Chase" before we constrained to UNIQUE_BANK_ACCOUNTS). */
+function normalizeBank(name: string): string {
+  const n = name.trim();
+  if (n.toLowerCase() === "chase") return "JPM-Chase";
+  return n;
+}
 
 function fmtMoney(n: number): string {
   return n.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2 });
@@ -68,11 +86,15 @@ export default function BankTransfersPage() {
     [filtered]
   );
 
-  const labelOptions = useMemo(() => {
+  // Distinct labels currently in use that are NOT in UNIQUE_BANK_ACCOUNTS.
+  // Surfaced in the dropdowns as "Legacy" entries so existing rows still
+  // show their value and can be remapped to a canonical account.
+  const legacyLabels = useMemo(() => {
+    const canonical = new Set(UNIQUE_BANK_ACCOUNTS.map(accountLabel));
     const set = new Set<string>();
     (transfers ?? []).forEach((t) => {
-      if (t.fromLabel) set.add(t.fromLabel);
-      if (t.toLabel) set.add(t.toLabel);
+      if (t.fromLabel && !canonical.has(t.fromLabel)) set.add(t.fromLabel);
+      if (t.toLabel && !canonical.has(t.toLabel)) set.add(t.toLabel);
     });
     return Array.from(set).sort();
   }, [transfers]);
@@ -189,7 +211,7 @@ export default function BankTransfersPage() {
               {filtered.map((t) => (
                 <tr key={t.id} style={{ cursor: "pointer" }} onClick={() => setEditing(t)}>
                   <td style={{ whiteSpace: "nowrap", fontWeight: 600 }}>{prettyDate(t.date)}</td>
-                  <td>{t.bankName}</td>
+                  <td>{normalizeBank(t.bankName)}</td>
                   <td>{t.fromLabel}</td>
                   <td>{t.toLabel}</td>
                   <td style={{ textAlign: "right", fontWeight: 600, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
@@ -222,7 +244,7 @@ export default function BankTransfersPage() {
       {editing !== null && (
         <EditModal
           item={editing === "new" ? null : editing}
-          labelOptions={labelOptions}
+          legacyLabels={legacyLabels}
           onClose={() => setEditing(null)}
           onSave={saveTransfer}
           onDelete={deleteTransfer}
@@ -412,21 +434,35 @@ function ShareFolderPanel({ url, onSave }: { url: string; onSave: (next: string)
 
 function EditModal({
   item,
-  labelOptions,
+  legacyLabels,
   onClose,
   onSave,
   onDelete,
 }: {
   item: BankTransfer | null;
-  labelOptions: string[];
+  legacyLabels: string[];
   onClose: () => void;
   onSave: (draft: Partial<BankTransfer> & { id?: string; createdAt?: string }, isNew: boolean) => void | Promise<void>;
   onDelete: (id: string) => void | Promise<void>;
 }) {
   const [date, setDate] = useState(item?.date ?? todayISO());
-  const [bankName, setBankName] = useState(item?.bankName ?? "Chase");
+  const [bankName, setBankName] = useState<string>(normalizeBank(item?.bankName ?? "JPM-Chase"));
   const [fromLabel, setFromLabel] = useState(item?.fromLabel ?? "");
   const [toLabel, setToLabel] = useState(item?.toLabel ?? "");
+
+  // Accounts available for the From / To dropdowns: filtered by the
+  // selected bank so transfers stay within one institution (matches how
+  // the historical log was kept). If the existing record's value points
+  // at another bank or a legacy label, it's still preserved at the top
+  // of the list so it doesn't silently disappear.
+  const accountsForBank = useMemo(
+    () => UNIQUE_BANK_ACCOUNTS.filter((a) => a.bank === bankName),
+    [bankName],
+  );
+  const accountLabelsForBank = useMemo(
+    () => new Set(accountsForBank.map(accountLabel)),
+    [accountsForBank],
+  );
   const [amount, setAmount] = useState<string>(item ? String(item.amount) : "");
   const [pdfSaved, setPdfSaved] = useState<boolean>(item?.pdfSaved ?? false);
   const [description, setDescription] = useState(item?.description ?? "");
@@ -486,36 +522,36 @@ function EditModal({
           </Field>
 
           <Field label="Bank">
-            <input
+            <select
               value={bankName}
               onChange={(e) => setBankName(e.target.value)}
-              placeholder="Chase"
               style={selectStyle}
-            />
+            >
+              {BANK_OPTIONS.map((b) => (
+                <option key={b} value={b}>{b}</option>
+              ))}
+            </select>
           </Field>
 
           <div style={{ display: "grid", gap: 14, gridTemplateColumns: "1fr 1fr" }}>
             <Field label="From">
-              <input
-                list="bt-labels"
+              <AccountSelect
                 value={fromLabel}
-                onChange={(e) => setFromLabel(e.target.value)}
-                placeholder="e.g. LIK - Operating"
-                style={selectStyle}
+                onChange={setFromLabel}
+                accounts={accountsForBank}
+                inBankLabels={accountLabelsForBank}
+                legacyLabels={legacyLabels}
               />
             </Field>
             <Field label="To">
-              <input
-                list="bt-labels"
+              <AccountSelect
                 value={toLabel}
-                onChange={(e) => setToLabel(e.target.value)}
-                placeholder="e.g. Bellaire Ave"
-                style={selectStyle}
+                onChange={setToLabel}
+                accounts={accountsForBank}
+                inBankLabels={accountLabelsForBank}
+                legacyLabels={legacyLabels}
               />
             </Field>
-            <datalist id="bt-labels">
-              {labelOptions.map((l) => <option key={l} value={l} />)}
-            </datalist>
           </div>
 
           <Field label="Amount">
@@ -571,6 +607,48 @@ function EditModal({
         </div>
       </div>
     </div>
+  );
+}
+
+function AccountSelect({
+  value,
+  onChange,
+  accounts,
+  inBankLabels,
+  legacyLabels,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+  accounts: { key: string; accountName: string; last4: string }[];
+  inBankLabels: Set<string>;
+  legacyLabels: string[];
+}) {
+  // If the current value isn't one of the in-bank canonical options, show
+  // it as a "Legacy" option at the top so the existing data is preserved
+  // until staff remaps it.
+  const valueIsCanonical = !value || inBankLabels.has(value);
+  return (
+    <select value={value} onChange={(e) => onChange(e.target.value)} style={selectStyle}>
+      <option value="">— Select account —</option>
+      {!valueIsCanonical && (
+        <optgroup label="Current (legacy)">
+          <option value={value}>{value}</option>
+        </optgroup>
+      )}
+      <optgroup label="Accounts">
+        {accounts.map((a) => {
+          const label = `${a.key || a.accountName} (${a.last4})`;
+          return <option key={a.last4} value={label}>{label}</option>;
+        })}
+      </optgroup>
+      {legacyLabels.length > 0 && (
+        <optgroup label="Other legacy labels">
+          {legacyLabels.filter((l) => l !== value).map((l) => (
+            <option key={l} value={l}>{l}</option>
+          ))}
+        </optgroup>
+      )}
+    </select>
   );
 }
 
