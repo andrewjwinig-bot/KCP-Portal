@@ -145,18 +145,15 @@ export default function BankTransfersPage() {
 
   return (
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
-      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+      <header>
         <h1>Bank Transfers</h1>
-        <button
-          onClick={() => setEditing("new")}
-          className="btn primary"
-          style={{ fontSize: 15, padding: "10px 22px", fontWeight: 700 }}
-        >
-          + New Transfer
-        </button>
       </header>
 
-      <ShareFolderPanel url={shareFolderUrl} onSave={persistShareUrl} />
+      <ShareFolderPanel
+        url={shareFolderUrl}
+        onSave={persistShareUrl}
+        onNewTransfer={() => setEditing("new")}
+      />
 
       {error && (
         <div className="card" style={{ borderColor: "rgba(220,38,38,0.35)", background: "rgba(220,38,38,0.04)" }}>
@@ -333,7 +330,15 @@ function FolderIcon() {
   );
 }
 
-function ShareFolderPanel({ url, onSave }: { url: string; onSave: (next: string) => Promise<void> }) {
+function ShareFolderPanel({
+  url,
+  onSave,
+  onNewTransfer,
+}: {
+  url: string;
+  onSave: (next: string) => Promise<void>;
+  onNewTransfer: () => void;
+}) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
   const [saving, setSaving] = useState(false);
@@ -408,24 +413,34 @@ function ShareFolderPanel({ url, onSave }: { url: string; onSave: (next: string)
             )}
           </div>
         </div>
-      ) : url ? (
-        <div style={{ marginTop: 8 }}>
-          <a
-            href={url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="btn primary"
-            style={{
-              fontSize: 13, padding: "8px 16px", fontWeight: 700, textDecoration: "none",
-              display: "inline-flex", alignItems: "center", gap: 8,
-            }}
-          >
-            <FolderIcon /> Open SharePoint Folder
-          </a>
-        </div>
       ) : (
-        <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 8 }}>
-          No SharePoint folder linked yet.
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginTop: 8 }}>
+          {url ? (
+            <a
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn primary"
+              style={{
+                fontSize: 13, padding: "8px 16px", fontWeight: 700, textDecoration: "none",
+                display: "inline-flex", alignItems: "center", gap: 8,
+              }}
+            >
+              <FolderIcon /> Open SharePoint Folder
+            </a>
+          ) : (
+            <span style={{ fontSize: 13, color: "var(--muted)" }}>
+              No SharePoint folder linked yet.
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={onNewTransfer}
+            className="btn primary"
+            style={{ fontSize: 13, padding: "8px 16px", fontWeight: 700 }}
+          >
+            + New Transfer
+          </button>
         </div>
       )}
     </div>
