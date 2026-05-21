@@ -188,6 +188,43 @@ function DashboardInner() {
   const isAdmin = user.id === "admin";
   const isStacie = user.id === "stacie";
   const isAlison = user.id === "alison";
+  const isHarryUser = user.id === "harry";
+
+  // Bank-transfer notifications — surface recent transfers on Harry,
+  // Drew, Stacie and admin's dashboards. Dismissible.
+  const showBankTransferNotices = isAdmin || isStacie || isHarryUser || user.id === "drew";
+  const [bankTransferNotices, setBankTransferNotices] = useState<
+    { id: string; date: string; from: string; to: string; amount: number; description: string; createdAt: string }[]
+  >([]);
+  useEffect(() => {
+    if (!showBankTransferNotices) return;
+    let alive = true;
+    fetch("/api/bank-transfers", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (!alive || !Array.isArray(j?.transfers)) return;
+        const cutoff = Date.now() - 14 * 24 * 60 * 60 * 1000;
+        const recent = (j.transfers as Array<{
+          id: string; date: string; fromLabel: string; toLabel: string; amount: number;
+          description: string; createdAt: string;
+        }>)
+          .filter((t) => !t.id.startsWith("bt_seed_") && Date.parse(t.createdAt) >= cutoff)
+          .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+          .slice(0, 8)
+          .map((t) => ({
+            id: `bank-transfer-${t.id}`,
+            date: t.date,
+            from: t.fromLabel,
+            to: t.toLabel,
+            amount: t.amount,
+            description: t.description,
+            createdAt: t.createdAt,
+          }));
+        setBankTransferNotices(recent);
+      })
+      .catch(() => { /* ignore */ });
+    return () => { alive = false; };
+  }, [showBankTransferNotices]);
 
   useEffect(() => {
     fetch("/api/rentroll").then((r) => r.json()).then((j) => setRentroll(j.rentroll ?? null)).catch(() => setRentroll(null)).finally(() => setLoading(false));
@@ -869,6 +906,46 @@ function DashboardInner() {
         {/* ── Drew: tasks this week + payroll & CC expense saved-status ── */}
         {user.id === "drew" && <DrewTasksThisWeek />}
         {user.id === "drew" && <DrewSavedStatus />}
+
+        {/* ── New Bank Transfers — surface recent transfers for admin /
+             drew / harry / stacie. Each card is dismissible. ── */}
+        {showBankTransferNotices && bankTransferNotices.some((n) => !dismissedNotices.has(n.id)) && (
+          <div className="card" style={{ gridColumn: "1 / -1", order: -4 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 8 }}>
+              New Bank Transfers
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {bankTransferNotices.filter((n) => !dismissedNotices.has(n.id)).map((n) => (
+                <div
+                  key={n.id}
+                  style={{
+                    display: "flex", alignItems: "flex-start", gap: 10, flex: "1 1 320px", minWidth: 0,
+                    padding: "10px 12px",
+                    border: "1px solid rgba(11,74,125,0.30)",
+                    background: "rgba(11,74,125,0.06)",
+                    borderRadius: 8,
+                  }}
+                >
+                  <span style={{ width: 10, height: 10, borderRadius: 999, marginTop: 5, flexShrink: 0, background: "#0b4a7d" }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 600, fontSize: 14 }}>
+                      {n.amount.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 0 })}
+                      <span style={{ color: "var(--muted)", fontWeight: 500 }}> · {n.from} → {n.to}</span>
+                    </div>
+                    <div className="muted small" style={{ marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {formatShortDate(new Date(n.date + "T00:00:00"))}
+                      {n.description ? ` · ${n.description}` : ""}
+                    </div>
+                  </div>
+                  <Link href="/bank-transfers" style={{ fontSize: 12, fontWeight: 600, color: "#0b4a7d", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>
+                    Open →
+                  </Link>
+                  <DismissBtn onClick={() => dismissNotice(n.id)} />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* ── Monthly bank progress donuts (Stacie + admin; Drew at a glance) ── */}
         {showBankDonuts && (

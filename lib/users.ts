@@ -99,6 +99,7 @@ export const USERS: Record<UserId, UserDef> = {
       ...universalNav,
       "tracker",
       "bank-rec-tracker",
+      "bank-transfers",
     ]),
     allowedPathPrefixes: [
       "/dashboard",
@@ -106,6 +107,7 @@ export const USERS: Record<UserId, UserDef> = {
       "/rentroll",
       "/tracker",
       "/bank-rec",
+      "/bank-transfers",
     ],
     defaultRentRollCategory: "All",
     defaultPropertyType: "all",
@@ -149,8 +151,8 @@ export const USERS: Record<UserId, UserDef> = {
     label: "ALISON",
     // President — a high-level view: dashboard, properties, investors,
     // rent roll, debt. No operational tools or action items.
-    navKeys: new Set([...universalNav, "investors", "debt", "base-years"]),
-    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/investors", "/debt"],
+    navKeys: new Set([...universalNav, "investors", "debt", "base-years", "bank-transfers"]),
+    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/investors", "/debt", "/bank-transfers"],
     defaultRentRollCategory: "All",
     defaultPropertyType: "all",
     dashboardScope: "groups",
