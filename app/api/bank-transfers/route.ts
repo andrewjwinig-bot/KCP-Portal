@@ -7,10 +7,44 @@ import {
   newBankTransferId,
   type BankTransfer,
 } from "@/lib/bankTransfers/storage";
+import { sendMail } from "@/lib/mail";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 export const runtime = "nodejs";
+
+const NEW_TRANSFER_NOTIFY = "mjaster@kormancommercial.com";
+
+function prettyDate(iso: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  if (!m) return iso;
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  return d.toLocaleDateString("en-US", { weekday: "short", month: "long", day: "numeric", year: "numeric" });
+}
+
+function fmtMoney(n: number): string {
+  return n.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2 });
+}
+
+function buildTransferEmail(t: BankTransfer): { subject: string; textBody: string } {
+  const lines = [
+    `A new bank transfer was logged in the KCP Portal.`,
+    ``,
+    `Date:        ${prettyDate(t.date)}`,
+    `Bank:        ${t.bankName || "—"}`,
+    `From:        ${t.fromLabel}`,
+    `To:          ${t.toLabel}`,
+    `Amount:      ${fmtMoney(t.amount)}`,
+    `PDF saved:   ${t.pdfSaved ? "Yes" : "Not yet"}`,
+  ];
+  if (t.description?.trim()) {
+    lines.push("", "Details:", t.description.trim());
+  }
+  return {
+    subject: "New Bank Transfer",
+    textBody: lines.join("\n"),
+  };
+}
 
 export async function GET() {
   try {
@@ -27,8 +61,9 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
+    const isNew = !(typeof body.id === "string" && body.id);
     const t: BankTransfer = {
-      id: typeof body.id === "string" && body.id ? body.id : newBankTransferId(),
+      id: isNew ? newBankTransferId() : body.id,
       date: String(body.date ?? "").trim(),
       bankName: String(body.bankName ?? "").trim(),
       fromLabel: String(body.fromLabel ?? "").trim(),
@@ -46,6 +81,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "From and To are required" }, { status: 400 });
     }
     await saveBankTransfer(t);
+
+    // Best-effort notification — never blocks the save. sendMail returns
+    // false silently if Postmark isn't configured.
+    if (isNew) {
+      const { subject, textBody } = buildTransferEmail(t);
+      sendMail({ to: NEW_TRANSFER_NOTIFY, subject, textBody }).catch(() => { /* swallow */ });
+    }
+
     return NextResponse.json({ transfer: t });
   } catch (e) {
     return NextResponse.json(
