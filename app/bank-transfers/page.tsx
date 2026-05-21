@@ -51,7 +51,7 @@ export default function BankTransfersPage() {
   const reload = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/bank-transfers");
+      const res = await fetch("/api/bank-transfers", { cache: "no-store" });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error ?? "Failed to load");
       setTransfers(body.transfers ?? []);
@@ -63,6 +63,22 @@ export default function BankTransfersPage() {
       setLoading(false);
     }
   }, []);
+
+  function applyLocalUpdate(saved: BankTransfer): void {
+    // Optimistic state update so the new/edited row shows up immediately,
+    // even if the backing store has a brief read-after-write delay.
+    setTransfers((curr) => {
+      const list = curr ?? [];
+      const idx = list.findIndex((x) => x.id === saved.id);
+      const next = idx >= 0
+        ? list.map((x, i) => (i === idx ? saved : x))
+        : [saved, ...list];
+      return [...next].sort((a, b) => {
+        if (a.date !== b.date) return b.date.localeCompare(a.date);
+        return b.createdAt.localeCompare(a.createdAt);
+      });
+    });
+  }
   useEffect(() => { reload(); }, [reload]);
 
   const filtered = useMemo(() => {
@@ -111,9 +127,10 @@ export default function BankTransfersPage() {
       });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error ?? "Failed to save");
+      if (body.transfer) applyLocalUpdate(body.transfer);
       setEditing(null);
-      await reload();
       if (isNew) setSavedPrompt(true);
+      reload();
     } catch (e) {
       alert(e instanceof Error ? e.message : "Failed to save");
     }
@@ -125,8 +142,9 @@ export default function BankTransfersPage() {
       const res = await fetch(`/api/bank-transfers?id=${encodeURIComponent(id)}`, { method: "DELETE" });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error ?? "Failed to delete");
+      setTransfers((curr) => (curr ?? []).filter((x) => x.id !== id));
       setEditing(null);
-      await reload();
+      reload();
     } catch (e) {
       alert(e instanceof Error ? e.message : "Failed to delete");
     }
