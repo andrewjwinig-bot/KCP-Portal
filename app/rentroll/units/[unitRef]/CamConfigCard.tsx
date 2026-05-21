@@ -249,15 +249,16 @@ export default function CamConfigCard({
         if (!alive || !j?.config) return;
         // Hydrate each category's stipulated-PRS field from the per-
         // category prefill (which honors property-rule denominator
-        // overrides). Excluded tenants get a forced 0. Doesn't trigger
-        // a save — only real edits do.
+        // overrides). Excluded tenants default to 0 instead of the
+        // rule's prefill, but the field remains editable so users can
+        // override per lease. Doesn't trigger a save — only real edits do.
         const c: CamConfig = j.config;
         for (const cat of CAM_CATEGORIES) {
+          if (c[cat].stipulatedPrs != null) continue;  // respect saved values
           const meta = categoryMeta[cat];
-          if (meta.excluded) {
-            c[cat] = { ...c[cat], stipulatedPrs: 0 };
-          } else if (c[cat].stipulatedPrs == null && meta.prefillPrs != null) {
-            c[cat] = { ...c[cat], stipulatedPrs: meta.prefillPrs };
+          const defaultValue = meta.excluded ? 0 : meta.prefillPrs;
+          if (defaultValue != null) {
+            c[cat] = { ...c[cat], stipulatedPrs: defaultValue };
           }
         }
         setConfig(c);
@@ -372,7 +373,7 @@ export default function CamConfigCard({
               value={config[cat].stipulatedPrs}
               onChange={(v) => updateCategory(cat, { stipulatedPrs: v })}
               unitSqft={unitSqft}
-              disabled={isGross || categoryMeta[cat].excluded}
+              disabled={isGross}
             />
           ))}
         </div>
