@@ -863,7 +863,7 @@ async function buildCommissionMemoPdf(opts: {
   y -= 30;
 
   // ── Charge instruction ──
-  const note = "Please charge commissions to 6620-8501 and deposit into LIK 942-8701";
+  const note = "Please charge commissions to 6620-8501 and deposit into LIK Clearing x1622";
   page.drawRectangle({ x: margin, y: y - 9, width: contentW, height: 24, color: shade });
   txtC(note, pageW / 2, y, { b: true, size: 9.5, color: navy });
 
