@@ -264,26 +264,36 @@ export default function CommissionsPage() {
     return next;
   }
 
-  /** Generates and downloads a Nancy L. Fox incentive-compensation memo PDF
-   *  for the chosen quarter, broken out into JV III then NI LLC sections,
-   *  each sorted by building (then by suite). */
+  /** Generates and downloads Nancy L. Fox incentive-compensation memo
+   *  PDFs for the chosen quarter — one PDF per fund (JV III, NI LLC).
+   *  A fund with no entries that quarter is skipped silently. */
   async function downloadMemoPdf(quarter: string, list: CommissionEntry[]) {
     const parsed = parseQuarterLabel(quarter);
     if (!parsed) { setError(`Could not parse quarter "${quarter}"`); return; }
     try {
-      const bytes = await buildCommissionMemoPdf({ quarter, entries: list, parsed });
-      // Wrap in a fresh ArrayBuffer to satisfy lib.dom's BlobPart typing
-      // (pdf-lib returns a Uint8Array which is technically ArrayBufferView).
-      const ab = new ArrayBuffer(bytes.byteLength);
-      new Uint8Array(ab).set(bytes);
-      const blob = new Blob([ab], { type: "application/pdf" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `Commissions ${quarterShortCode(parsed.quarter, parsed.year)} - Nancy L Fox.pdf`;
-      a.click();
-      URL.revokeObjectURL(url);
-      setError(null);
+      const funds: ("JV III" | "NI LLC")[] = ["JV III", "NI LLC"];
+      let downloaded = 0;
+      for (const fund of funds) {
+        const bytes = await buildCommissionMemoPdf({ quarter, entries: list, parsed, fund });
+        if (!bytes) continue; // fund had no entries this quarter
+        // Wrap in a fresh ArrayBuffer to satisfy lib.dom's BlobPart typing
+        // (pdf-lib returns a Uint8Array which is technically ArrayBufferView).
+        const ab = new ArrayBuffer(bytes.byteLength);
+        new Uint8Array(ab).set(bytes);
+        const blob = new Blob([ab], { type: "application/pdf" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `Commissions ${quarterShortCode(parsed.quarter, parsed.year)} - ${fund} - Nancy L Fox.pdf`;
+        a.click();
+        URL.revokeObjectURL(url);
+        downloaded++;
+      }
+      if (downloaded === 0) {
+        setError("No commissions found for this quarter.");
+      } else {
+        setError(null);
+      }
     } catch (e: any) {
       setError(e?.message ?? "PDF failed");
     }
@@ -681,28 +691,30 @@ async function buildCommissionMemoPdf(opts: {
   quarter: string;
   entries: CommissionEntry[];
   parsed: NonNullable<ReturnType<typeof parseQuarterLabel>>;
-}): Promise<Uint8Array> {
-  const { entries, parsed } = opts;
+  /** Which fund to render. The PDF only contains rows for buildings
+   *  belonging to this fund; the other fund's entries are ignored. */
+  fund: "JV III" | "NI LLC";
+}): Promise<Uint8Array | null> {
+  const { entries, parsed, fund } = opts;
   const periodEnd = parsed.periodEnd;
   const periodEndStr = `${periodEnd.getMonth() + 1}/${periodEnd.getDate()}/${periodEnd.getFullYear()}`;
 
-  // Split entries by fund (JV III / NI LLC) based on the building code.
-  const jvSet = new Set(PROPERTY_DEFS.filter((p) => p.fundGroup === "JV III").map((p) => p.id.toUpperCase()));
-  const niSet = new Set(PROPERTY_DEFS.filter((p) => p.fundGroup === "NI LLC").map((p) => p.id.toUpperCase()));
-  function fundOf(e: CommissionEntry): "JV III" | "NI LLC" | null {
-    const b = (e.building || "").toUpperCase();
-    if (jvSet.has(b)) return "JV III";
-    if (niSet.has(b)) return "NI LLC";
-    return null;
-  }
+  // Filter entries to just this fund. Buildings whose code matches the
+  // requested fund's PROPERTY_DEFS are included; entries that don't
+  // resolve to a known fund are dropped from both PDFs.
+  const fundSet = new Set(
+    PROPERTY_DEFS.filter((p) => p.fundGroup === fund).map((p) => p.id.toUpperCase()),
+  );
   const sorted = [...entries].sort((a, b) => {
     const bd = a.building.localeCompare(b.building);
     return bd !== 0 ? bd : a.suite.localeCompare(b.suite);
   });
-  const jvEntries = sorted.filter((e) => fundOf(e) === "JV III");
-  const niEntries = sorted.filter((e) => fundOf(e) === "NI LLC");
+  const fundEntries = sorted.filter((e) => fundSet.has((e.building || "").toUpperCase()));
 
-  const subtotal = entries.reduce((s, e) => s + (Number(e.incentiveAmount) || 0), 0);
+  // No work to do for this fund this quarter — caller skips downloading.
+  if (fundEntries.length === 0) return null;
+
+  const subtotal = fundEntries.reduce((s, e) => s + (Number(e.incentiveAmount) || 0), 0);
   const total    = subtotal * COMMISSIONS_MARKUP;
 
   // ── pdf-lib setup ──
@@ -757,6 +769,7 @@ async function buildCommissionMemoPdf(opts: {
     ["FROM", "Alison Korman"],
     ["DATE", periodEndStr],
     ["PERIOD", `Q${Math.floor(periodEnd.getMonth() / 3) + 1} ${periodEnd.getFullYear()}`],
+    ["FUND", fund],
     ["SUBJECT", "Incentive Compensation — Nancy L. Fox"],
   ];
   const memoH = memoRows.length * 16 + 12;
@@ -836,8 +849,7 @@ async function buildCommissionMemoPdf(opts: {
     y -= 26;
   }
 
-  section("JV III", jvEntries);
-  section("NI LLC", niEntries);
+  section(fund, fundEntries);
 
   // ── Grand total bar ──
   page.drawRectangle({ x: margin, y: y - 7, width: contentW, height: 22, color: navy });
