@@ -149,10 +149,15 @@ export default function BankTransfersPage() {
         <h1>Bank Transfers</h1>
       </header>
 
-      <ShareFolderPanel
+      <Toolbar
         url={shareFolderUrl}
-        onSave={persistShareUrl}
+        onSaveUrl={persistShareUrl}
         onNewTransfer={() => setEditing("new")}
+        search={search}
+        onSearchChange={setSearch}
+        resultsCount={filtered.length}
+        totalCount={(transfers ?? []).length}
+        loading={loading}
       />
 
       {error && (
@@ -166,21 +171,6 @@ export default function BankTransfersPage() {
         <StatPill label="Transfers" value={filtered.length} />
         <StatPill label="Total volume" value={fmtMoney(totalAmount)} />
         <StatPill label="Missing PDF" value={missingPdf} accent={missingPdf > 0 ? "#b91c1c" : undefined} />
-      </div>
-
-      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end", padding: "0 2px" }}>
-        <Field label="Search">
-          <input
-            type="search"
-            placeholder="Property, account, bank, description…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            style={{ ...selectStyle, minWidth: 280 }}
-          />
-        </Field>
-        <div style={{ marginLeft: "auto", fontSize: 12, color: "var(--muted)", paddingBottom: 6 }}>
-          {loading ? "Loading…" : `${filtered.length} of ${(transfers ?? []).length}`}
-        </div>
       </div>
 
       <div className="card" style={{ padding: 0 }}>
@@ -312,14 +302,6 @@ function SavedPrompt({ url, onClose }: { url: string; onClose: () => void }) {
   );
 }
 
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <div style={{
-      fontSize: 11, fontWeight: 700, letterSpacing: "0.06em",
-      textTransform: "uppercase", color: "var(--muted)",
-    }}>{children}</div>
-  );
-}
 
 function FolderIcon() {
   return (
@@ -330,14 +312,24 @@ function FolderIcon() {
   );
 }
 
-function ShareFolderPanel({
+function Toolbar({
   url,
-  onSave,
+  onSaveUrl,
   onNewTransfer,
+  search,
+  onSearchChange,
+  resultsCount,
+  totalCount,
+  loading,
 }: {
   url: string;
-  onSave: (next: string) => Promise<void>;
+  onSaveUrl: (next: string) => Promise<void>;
   onNewTransfer: () => void;
+  search: string;
+  onSearchChange: (v: string) => void;
+  resultsCount: number;
+  totalCount: number;
+  loading: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
@@ -348,7 +340,7 @@ function ShareFolderPanel({
     setSaving(true);
     setError(null);
     try {
-      await onSave(next);
+      await onSaveUrl(next);
       setEditing(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Save failed");
@@ -359,32 +351,15 @@ function ShareFolderPanel({
 
   return (
     <div className="card">
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-        <SectionLabel>Shared Drive Folder</SectionLabel>
-        {!editing && (
-          <button
-            type="button"
-            onClick={() => { setDraft(url); setEditing(true); setError(null); }}
-            style={{
-              fontSize: 11, fontWeight: 600, color: "var(--brand)",
-              background: "transparent", border: "none", cursor: "pointer", fontFamily: "inherit",
-            }}
-          >
-            {url ? "Change link" : "Link a folder"}
-          </button>
-        )}
-      </div>
-
-      {error && (
-        <div style={{
-          margin: "8px 0", padding: "8px 10px", borderRadius: 8,
-          background: "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.3)",
-          color: "#b91c1c", fontSize: 12, fontWeight: 600,
-        }}>{error}</div>
-      )}
-
       {editing ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {error && (
+            <div style={{
+              padding: "8px 10px", borderRadius: 8,
+              background: "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.3)",
+              color: "#b91c1c", fontSize: 12, fontWeight: 600,
+            }}>{error}</div>
+          )}
           <input
             style={{ ...selectStyle, width: "100%" }}
             value={draft}
@@ -414,7 +389,7 @@ function ShareFolderPanel({
           </div>
         </div>
       ) : (
-        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginTop: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
           {url ? (
             <a
               href={url}
@@ -435,12 +410,36 @@ function ShareFolderPanel({
           )}
           <button
             type="button"
+            onClick={() => { setDraft(url); setEditing(true); setError(null); }}
+            style={{
+              fontSize: 11, fontWeight: 600, color: "var(--brand)",
+              background: "transparent", border: "none", cursor: "pointer", fontFamily: "inherit",
+            }}
+          >
+            {url ? "Change link" : "Link a folder"}
+          </button>
+
+          <button
+            type="button"
             onClick={onNewTransfer}
             className="btn primary"
             style={{ fontSize: 13, padding: "8px 16px", fontWeight: 700 }}
           >
             + New Transfer
           </button>
+
+          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <input
+              type="search"
+              placeholder="Search bank, account, description…"
+              value={search}
+              onChange={(e) => onSearchChange(e.target.value)}
+              style={{ ...selectStyle, minWidth: 260 }}
+            />
+            <span style={{ fontSize: 12, color: "var(--muted)", whiteSpace: "nowrap" }}>
+              {loading ? "Loading…" : `${resultsCount} of ${totalCount}`}
+            </span>
+          </div>
         </div>
       )}
     </div>
