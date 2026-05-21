@@ -2,9 +2,15 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Calendar } from "@/app/components/Calendar";
+import { useUser } from "@/app/components/UserProvider";
 import { Pill, StatPill, TONE_GREEN, TONE_RED } from "@/app/components/Pill";
 import { UNIQUE_BANK_ACCOUNTS, type BankGroup } from "@/lib/bank-rec/accounts";
 import type { BankTransfer } from "@/lib/bankTransfers/storage";
+
+// Only admin / drew / harry can input or modify transfers. Alison and
+// stacie get read-only access (no New Transfer, no Edit, table rows
+// don't open the editor).
+const CAN_EDIT_USERS = new Set(["admin", "drew", "harry"]);
 
 const BANK_OPTIONS: BankGroup[] = ["M&T", "JPM-Chase", "Liberty Bank"];
 
@@ -40,6 +46,8 @@ function todayISO(): string {
 }
 
 export default function BankTransfersPage() {
+  const { user } = useUser();
+  const canEdit = CAN_EDIT_USERS.has(user.id);
   const [transfers, setTransfers] = useState<BankTransfer[] | null>(null);
   const [shareFolderUrl, setShareFolderUrl] = useState<string>("");
   const [loading, setLoading] = useState(true);
@@ -168,6 +176,7 @@ export default function BankTransfersPage() {
       </header>
 
       <Toolbar
+        canEdit={canEdit}
         url={shareFolderUrl}
         onSaveUrl={persistShareUrl}
         onNewTransfer={() => setEditing("new")}
@@ -203,18 +212,22 @@ export default function BankTransfersPage() {
                 <th style={{ textAlign: "right" }}>Amount</th>
                 <th>PDF</th>
                 <th>Description</th>
-                <th style={{ width: 60 }}></th>
+                {canEdit && <th style={{ width: 60 }}></th>}
               </tr>
             </thead>
             <tbody>
               {loading && (
-                <tr><td colSpan={8} className="muted small" style={{ padding: 16 }}>Loading…</td></tr>
+                <tr><td colSpan={canEdit ? 8 : 7} className="muted small" style={{ padding: 16 }}>Loading…</td></tr>
               )}
               {!loading && filtered.length === 0 && (
-                <tr><td colSpan={8} className="muted small" style={{ padding: 16 }}>No transfers.</td></tr>
+                <tr><td colSpan={canEdit ? 8 : 7} className="muted small" style={{ padding: 16 }}>No transfers.</td></tr>
               )}
               {filtered.map((t) => (
-                <tr key={t.id} style={{ cursor: "pointer" }} onClick={() => setEditing(t)}>
+                <tr
+                  key={t.id}
+                  style={{ cursor: canEdit ? "pointer" : "default" }}
+                  onClick={canEdit ? () => setEditing(t) : undefined}
+                >
                   <td style={{ whiteSpace: "nowrap", fontWeight: 600 }}>{prettyDate(t.date)}</td>
                   <td>{normalizeBank(t.bankName)}</td>
                   <td>{t.fromLabel}</td>
@@ -230,15 +243,17 @@ export default function BankTransfersPage() {
                   <td className="muted small" style={{ maxWidth: 320, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {t.description || "—"}
                   </td>
-                  <td>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setEditing(t); }}
-                      className="btn"
-                      style={{ fontSize: 12, padding: "4px 10px" }}
-                    >
-                      Edit
-                    </button>
-                  </td>
+                  {canEdit && (
+                    <td>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setEditing(t); }}
+                        className="btn"
+                        style={{ fontSize: 12, padding: "4px 10px" }}
+                      >
+                        Edit
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -331,6 +346,7 @@ function FolderIcon() {
 }
 
 function Toolbar({
+  canEdit,
   url,
   onSaveUrl,
   onNewTransfer,
@@ -340,6 +356,7 @@ function Toolbar({
   totalCount,
   loading,
 }: {
+  canEdit: boolean;
   url: string;
   onSaveUrl: (next: string) => Promise<void>;
   onNewTransfer: () => void;
@@ -408,14 +425,16 @@ function Toolbar({
         </div>
       ) : (
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          <button
-            type="button"
-            onClick={onNewTransfer}
-            className="btn primary"
-            style={{ fontSize: 13, padding: "8px 16px", fontWeight: 700 }}
-          >
-            + New Transfer
-          </button>
+          {canEdit && (
+            <button
+              type="button"
+              onClick={onNewTransfer}
+              className="btn primary"
+              style={{ fontSize: 13, padding: "8px 16px", fontWeight: 700 }}
+            >
+              + New Transfer
+            </button>
+          )}
 
           <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             {url ? (
@@ -436,16 +455,18 @@ function Toolbar({
                 No SharePoint folder linked yet.
               </span>
             )}
-            <button
-              type="button"
-              onClick={() => { setDraft(url); setEditing(true); setError(null); }}
-              style={{
-                fontSize: 11, fontWeight: 600, color: "var(--brand)",
-                background: "transparent", border: "none", cursor: "pointer", fontFamily: "inherit",
-              }}
-            >
-              {url ? "Change link" : "Link a folder"}
-            </button>
+            {canEdit && (
+              <button
+                type="button"
+                onClick={() => { setDraft(url); setEditing(true); setError(null); }}
+                style={{
+                  fontSize: 11, fontWeight: 600, color: "var(--brand)",
+                  background: "transparent", border: "none", cursor: "pointer", fontFamily: "inherit",
+                }}
+              >
+                {url ? "Change link" : "Link a folder"}
+              </button>
+            )}
             <input
               type="search"
               placeholder="Search bank, account, description…"
