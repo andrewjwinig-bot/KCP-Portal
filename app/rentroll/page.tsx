@@ -17,6 +17,16 @@ function sqftFmt(n: number) {
   return n.toLocaleString("en-US");
 }
 
+function kSqft(n: number): string {
+  return n >= 1000 ? `${Math.round(n / 1000)}k` : String(n);
+}
+
+function occColor(pct: number): string {
+  if (pct >= 90) return "#16a34a";
+  if (pct >= 70) return "#0b4a7d";
+  return "#d97706";
+}
+
 function parseRentDate(s: string | null | undefined): Date | null {
   if (!s) return null;
   const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
@@ -483,11 +493,35 @@ function PropertyCard({ prop, tenantMeta, onBaseYearChange, vacatingUnitRefs }: 
               <code style={{ fontSize: 12, color: "var(--muted)" }}>{prop.propertyCode}</code>
               <span style={{ fontWeight: 700, fontSize: 16 }}>{name}</span>
             </div>
-            <div style={{ fontSize: 13, color: "var(--muted)", display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center" }}>
-              <span>Occupied: <b style={{ color: "var(--text)" }}>{sqftFmt(prop.occupiedSqft)} sf</b></span>
-              <span>Vacant: <b style={{ color: "var(--text)" }}>{sqftFmt(prop.vacantSqft)} sf</b></span>
-              <span>Total: <b style={{ color: "var(--text)" }}>{sqftFmt(prop.totalSqft)} sf</b></span>
-              {!hideRent && totalGross > 0 && <span>${Math.round(totalGross).toLocaleString()}/mo gross</span>}
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              {/* Colored % pill */}
+              <span style={{
+                padding: "3px 9px", borderRadius: 6,
+                background: `${occColor(occupancyPct)}1a`,
+                color: occColor(occupancyPct),
+                fontSize: 12, fontWeight: 800, letterSpacing: "0.04em",
+                fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap",
+              }}>
+                {Math.round(occupancyPct)}% OCC
+              </span>
+              {/* Mini horizontal occupancy bar */}
+              <div style={{
+                width: 110, height: 8, borderRadius: 999,
+                background: "rgba(15,23,42,0.08)", overflow: "hidden", flexShrink: 0,
+              }} title={`${sqftFmt(prop.occupiedSqft)} / ${sqftFmt(prop.totalSqft)} sf · ${sqftFmt(prop.vacantSqft)} vacant`}>
+                <div style={{
+                  width: `${occupancyPct}%`, height: "100%",
+                  background: occColor(occupancyPct),
+                }} />
+              </div>
+              <span style={{ fontSize: 12, color: "var(--muted)", whiteSpace: "nowrap" }}>
+                {kSqft(prop.occupiedSqft)} / {kSqft(prop.totalSqft)} sf
+              </span>
+              {!hideRent && totalGross > 0 && (
+                <span style={{ fontSize: 12, color: "var(--muted)", whiteSpace: "nowrap" }}>
+                  · ${Math.round(totalGross).toLocaleString()}/mo
+                </span>
+              )}
             </div>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
               {expiringCount > 0 && (
