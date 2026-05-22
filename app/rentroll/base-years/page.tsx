@@ -766,8 +766,13 @@ function BaseYearBreakdown({
                       {g.tenants.length} tenant{g.tenants.length === 1 ? "" : "s"}
                     </div>
                     <div className="muted small">
-                      {g.sqft.toLocaleString()} sf · {g.prsPct.toFixed(1)}% PRS
+                      {g.sqft.toLocaleString()} sf · {g.prsPct.toFixed(1)}% bldg
                     </div>
+                    {g.isNumeric && totals.total > 0 && (
+                      <div className="muted small" style={{ marginTop: 2 }}>
+                        {((g.total / totals.total) * 100).toFixed(1)}% of recoveries
+                      </div>
+                    )}
                   </div>
                   <div>
                     {/* Group totals row + recovery bar */}
@@ -799,22 +804,25 @@ function BaseYearBreakdown({
                     <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 4 }}>
                       <div style={{
                         display: "grid",
-                        gridTemplateColumns: "minmax(0, 1.6fr) 70px 90px 90px 100px",
+                        gridTemplateColumns: "minmax(0, 1.6fr) 60px 70px 80px 80px 90px",
                         gap: 10, alignItems: "center",
                         fontSize: 10, fontWeight: 700, letterSpacing: "0.04em",
                         textTransform: "uppercase", color: "var(--muted)",
                         padding: "0 8px",
                       }}>
                         <span>Tenant</span>
-                        <span style={{ textAlign: "right" }}>PRS</span>
+                        <span style={{ textAlign: "right" }} title="Tenant SF / building rentable SF">Bldg %</span>
+                        <span style={{ textAlign: "right" }} title="Tenant's share of building-wide recovery $">Rec %</span>
                         <span style={{ textAlign: "right" }}>CAM</span>
                         <span style={{ textAlign: "right" }}>RET</span>
                         <span style={{ textAlign: "right" }}>Total</span>
                       </div>
-                      {g.tenants.map((t) => (
+                      {g.tenants.map((t) => {
+                        const recSharePct = totals.total > 0 ? (t.total / totals.total) * 100 : 0;
+                        return (
                         <div key={t.unitRef} style={{
                           display: "grid",
-                          gridTemplateColumns: "minmax(0, 1.6fr) 70px 90px 90px 100px",
+                          gridTemplateColumns: "minmax(0, 1.6fr) 60px 70px 80px 80px 90px",
                           gap: 10, alignItems: "center",
                           fontSize: 12,
                           padding: "4px 8px",
@@ -827,6 +835,10 @@ function BaseYearBreakdown({
                           <span className="muted" style={{ fontVariantNumeric: "tabular-nums", textAlign: "right" }}>
                             {t.prsPct.toFixed(2)}%
                           </span>
+                          <span style={{ fontVariantNumeric: "tabular-nums", textAlign: "right", fontWeight: 600, color: g.isNumeric && recSharePct > t.prsPct ? "#b45309" : "var(--text)" }}
+                            title={g.isNumeric && recSharePct > t.prsPct ? "Carries more of recoveries than its building share" : undefined}>
+                            {g.isNumeric ? `${recSharePct.toFixed(1)}%` : "—"}
+                          </span>
                           <span style={{ fontVariantNumeric: "tabular-nums", textAlign: "right" }}>
                             {g.isNumeric ? money(t.cam) : "—"}
                           </span>
@@ -837,7 +849,8 @@ function BaseYearBreakdown({
                             {g.isNumeric ? money(t.total) : "—"}
                           </span>
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 </div>
