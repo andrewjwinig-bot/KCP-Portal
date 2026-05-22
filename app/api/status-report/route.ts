@@ -232,8 +232,10 @@ export async function POST(req: Request) {
     {
       const { page } = newPage();
 
-      // Title — two lines
-      const line1 = "Neshaminy Interplex Business Center";
+      // Title — two lines (swaps to the shopping-center wordmark on retail
+      // reports; office / all reports keep the Neshaminy Interplex header)
+      const isRetail = category === "Retail";
+      const line1 = isRetail ? "Korman Commercial Shopping Center" : "Neshaminy Interplex Business Center";
       const line2 = "Leasing Status Report";
       const titleSz = 24;
       const line1W = fontBold.widthOfTextAtSize(line1, titleSz);
@@ -309,7 +311,7 @@ export async function POST(req: Request) {
     }
 
     // ── Occupancy Summary page (Office buildings — JV III + NI LLC + 4900) ───
-    {
+    if (category !== "Retail") {
       const includeCodes = new Set([...JV_III_CODES, ...NI_LLC_CODES, ...OW_CODES]);
       const officeProps = fullProperties.filter((p: any) => includeCodes.has(String(p.propertyCode).toUpperCase()));
 
@@ -609,8 +611,189 @@ export async function POST(req: Request) {
       }
     }
 
-    // ── Leasing Activity Summary page (Office only) ─────────────────────────
-    {
+    // ── Occupancy Summary page (Shopping Centers — retail only) ─────────────
+    if (category === "Retail") {
+      const retailProps = fullProperties.filter((p: any) =>
+        CATEGORY_RETAIL_CODES.has(String(p.propertyCode).toUpperCase()),
+      );
+      if (retailProps.length) {
+        type Row = { code: string; name: string; total: number; occSuites: number; occSqft: number; vacSuites: number; vacSqft: number };
+        function tally(prop: any): Row {
+          let occSuites = 0, occSqft = 0, vacSuites = 0, vacSqft = 0;
+          for (const u of prop.units) {
+            if (u.isVacant) { vacSuites++; vacSqft += u.sqft; }
+            else            { occSuites++; occSqft += u.sqft; }
+          }
+          const code = String(prop.propertyCode).toUpperCase();
+          return {
+            code,
+            name: propDisplayName(code, prop.reportedPropertyName || code),
+            total: prop.totalSqft,
+            occSuites, occSqft, vacSuites, vacSqft,
+          };
+        }
+        const rows = retailProps.map(tally).sort((a, b) => b.total - a.total);
+        const totalRow: Row = rows.reduce((acc, r) => ({
+          code: "", name: "",
+          total: acc.total + r.total,
+          occSuites: acc.occSuites + r.occSuites,
+          occSqft:   acc.occSqft   + r.occSqft,
+          vacSuites: acc.vacSuites + r.vacSuites,
+          vacSqft:   acc.vacSqft   + r.vacSqft,
+        }), { code: "", name: "", total: 0, occSuites: 0, occSqft: 0, vacSuites: 0, vacSqft: 0 });
+
+        const page = pdfDoc.addPage([PW, PH]);
+        page.drawLine({ start: { x: M, y: py(M) }, end: { x: PW - M, y: py(M) }, thickness: 2, color: C_BRAND });
+
+        // Period top right
+        const periodTopRight = periodStr || "####";
+        const prW = fontBold.widthOfTextAtSize(periodTopRight, 11);
+        page.drawText(periodTopRight, { x: PW - M - prW, y: py(M + 14), size: 11, font: fontBold, color: C_DARK });
+
+        // Title + subtitle
+        const title = "Occupancy Summary Report";
+        const titleSz = 22;
+        const titleW = fontBold.widthOfTextAtSize(title, titleSz);
+        page.drawText(title, { x: (PW - titleW) / 2, y: py(M + 40), size: titleSz, font: fontBold, color: C_DARK });
+        const subtitle = "Korman Commercial Shopping Center Status Report";
+        const subSz = 10;
+        const subW = font.widthOfTextAtSize(subtitle, subSz);
+        page.drawText(subtitle, { x: (PW - subW) / 2, y: py(M + 60), size: subSz, font, color: C_BRAND });
+
+        // ── Table: Property | Total Sq Ft | Occupied (# Suites / Sq Ft / %) | Vacant (# Suites / Sq Ft / %) | Occupancy bar
+        const labelW  = 170;
+        const totW    = 70;
+        const grpW    = 135;
+        const grpSubW = [42, 60, 33];
+        const barW    = 150;
+        const tableW  = labelW + totW + grpW * 2 + barW;
+        const tableX  = (PW - tableW) / 2;
+        const ROW_H   = 18;
+
+        const grpStartXs = [
+          tableX + labelW + totW,
+          tableX + labelW + totW + grpW,
+        ];
+        const barX = tableX + labelW + totW + grpW * 2;
+
+        function drawGroupHeaders(yTop: number) {
+          const labels = ["Total", "Occupied", "Vacant", "Occupancy"];
+          const xs = [
+            tableX + labelW + totW / 2,
+            grpStartXs[0] + grpW / 2,
+            grpStartXs[1] + grpW / 2,
+            barX + barW / 2,
+          ];
+          for (let i = 0; i < labels.length; i++) {
+            const lab = labels[i];
+            const tw = fontBold.widthOfTextAtSize(lab, 9);
+            page.drawText(lab, { x: xs[i] - tw / 2, y: py(yTop + 12), size: 9, font: fontBold, color: C_DARK });
+          }
+        }
+        function drawColumnHeaders(yTop: number) {
+          const totHdr = "Sq. Ft";
+          const tw = font.widthOfTextAtSize(totHdr, 8);
+          page.drawText(totHdr, { x: tableX + labelW + totW - 6 - tw, y: py(yTop + 11), size: 8, font, color: C_MUTED });
+          const subHdrs = ["# Suites", "Sq. Ft", "%"];
+          for (const grpX of grpStartXs) {
+            let cx = grpX;
+            for (let i = 0; i < subHdrs.length; i++) {
+              const w = grpSubW[i];
+              const lab = subHdrs[i];
+              const lw = font.widthOfTextAtSize(lab, 8);
+              page.drawText(lab, { x: cx + w - 6 - lw, y: py(yTop + 11), size: 8, font, color: C_MUTED });
+              cx += w;
+            }
+          }
+        }
+        const ROW_ALT_BG = rgb(0.91, 0.92, 0.93);
+        const groupDividerXs = [
+          tableX + labelW + totW,
+          grpStartXs[1],
+          barX,
+          tableX + tableW,
+        ];
+        function drawTableVerticals(topY: number, bottomY: number) {
+          const startY = topY - 2;
+          for (const bx of groupDividerXs) {
+            page.drawLine({ start: { x: bx, y: py(startY) }, end: { x: bx, y: py(bottomY) }, thickness: 0.5, color: C_LINE });
+          }
+        }
+        function drawOccBar(yTop: number, occSqft: number, total: number) {
+          const padX = 10;
+          const innerW = barW - padX * 2;
+          const innerX = barX + padX;
+          const barH = 8;
+          const barY = py(yTop + ROW_H - 6) - barH;
+          // Track
+          page.drawRectangle({ x: innerX, y: barY, width: innerW, height: barH, color: rgb(0.92, 0.93, 0.95), borderColor: C_LINE, borderWidth: 0.5 });
+          // Fill
+          const pct = total > 0 ? occSqft / total : 0;
+          if (pct > 0) {
+            page.drawRectangle({ x: innerX, y: barY, width: innerW * pct, height: barH, color: C_BRAND });
+          }
+        }
+        function drawDataRow(yTop: number, label: string, row: Row, alt: boolean, bold: boolean) {
+          if (alt) {
+            page.drawRectangle({ x: tableX, y: py(yTop + ROW_H), width: tableW, height: ROW_H, color: ROW_ALT_BG });
+          }
+          const f = bold ? fontBold : font;
+          page.drawText(label, { x: tableX + 6, y: py(yTop + ROW_H - 5), size: 9, font: f, color: C_DARK });
+          const totVal = sqftFmt(row.total);
+          const tw2 = f.widthOfTextAtSize(totVal, 9);
+          page.drawText(totVal, { x: tableX + labelW + totW - 6 - tw2, y: py(yTop + ROW_H - 5), size: 9, font: f, color: C_DARK });
+          const groups: [number, number, number][] = [
+            [row.occSuites, row.occSqft, Math.round((row.occSqft / Math.max(row.total, 1)) * 100)],
+            [row.vacSuites, row.vacSqft, Math.round((row.vacSqft / Math.max(row.total, 1)) * 100)],
+          ];
+          for (let i = 0; i < grpStartXs.length; i++) {
+            const [s, sf, p] = groups[i];
+            const vals = [String(s), sqftFmt(sf), `${p}%`];
+            let cx = grpStartXs[i];
+            for (let j = 0; j < vals.length; j++) {
+              const w = grpSubW[j];
+              const tw = f.widthOfTextAtSize(vals[j], 9);
+              page.drawText(vals[j], { x: cx + w - 6 - tw, y: py(yTop + ROW_H - 5), size: 9, font: f, color: C_DARK });
+              cx += w;
+            }
+          }
+          drawOccBar(yTop, row.occSqft, row.total);
+        }
+
+        // ── Entity table (single row: Shopping Centers)
+        let curY = M + 90;
+        const t1Top = curY;
+        drawGroupHeaders(curY);
+        curY += 16;
+        page.drawText("Entity", { x: tableX + 6, y: py(curY + 11), size: 8, font, color: C_MUTED });
+        drawColumnHeaders(curY);
+        curY += 16;
+        page.drawLine({ start: { x: tableX, y: py(curY) }, end: { x: tableX + tableW, y: py(curY) }, thickness: 0.5, color: C_DARK });
+        drawDataRow(curY, "Shopping Centers", totalRow, false, true);
+        curY += ROW_H;
+        drawTableVerticals(t1Top, curY);
+        curY += 14;
+
+        // ── Per-property table
+        const t2Top = curY;
+        drawGroupHeaders(curY);
+        curY += 16;
+        page.drawText("Property", { x: tableX + 6, y: py(curY + 11), size: 8, font, color: C_MUTED });
+        drawColumnHeaders(curY);
+        curY += 16;
+        page.drawLine({ start: { x: tableX, y: py(curY) }, end: { x: tableX + tableW, y: py(curY) }, thickness: 0.5, color: C_DARK });
+        for (let i = 0; i < rows.length; i++) {
+          drawDataRow(curY, rows[i].name, rows[i], i % 2 === 0, false);
+          curY += ROW_H;
+        }
+        page.drawLine({ start: { x: tableX, y: py(curY) }, end: { x: tableX + tableW, y: py(curY) }, thickness: 0.5, color: C_DARK });
+        drawDataRow(curY, "TOTAL:", totalRow, false, true);
+        drawTableVerticals(t2Top, curY + ROW_H);
+      }
+    }
+
+    // ── Leasing Activity Summary page (Office only — skipped for retail) ───
+    if (category !== "Retail") {
       const includeCodes = new Set([...JV_III_CODES, ...NI_LLC_CODES, ...OW_CODES]);
       const officePresent = properties.some((p: any) => includeCodes.has(String(p.propertyCode).toUpperCase()));
 
