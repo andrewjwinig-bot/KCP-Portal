@@ -281,7 +281,16 @@ function SectionHeader({ children, open, onToggle, count }: { children: React.Re
 }
 
 
-export default function LeasingActivityCard({ rentroll }: { rentroll: RentRollData | null }) {
+export default function LeasingActivityCard({
+  rentroll,
+  headerSlot,
+}: {
+  rentroll: RentRollData | null;
+  /** Optional element rendered in the card header (replaces the auto-save
+   *  status text). Used by the Leasing Activity page to host the Status
+   *  Report button. */
+  headerSlot?: React.ReactNode;
+}) {
   const [data, setData] = useState<LeasingActivity>(EMPTY_LEASING_ACTIVITY);
   const [loading, setLoading] = useState(true);
   const [savedAt, setSavedAt] = useState<number | null>(null);
@@ -378,9 +387,9 @@ export default function LeasingActivityCard({ rentroll }: { rentroll: RentRollDa
     <div className="card">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
         <b style={{ fontSize: 18 }}>Leasing Activity</b>
-        <span className="muted small">
-          {error ? <span style={{ color: "#b91c1c" }}>{error}</span> : savedAt ? "Saved" : "Auto-saves on change"}
-        </span>
+        {headerSlot ?? (
+          error ? <span className="muted small" style={{ color: "#b91c1c" }}>{error}</span> : null
+        )}
       </div>
       <p className="muted small" style={{ marginTop: 6 }}>
         Manual entries shown on the Status Report's Leasing Activity Summary page. Changes save automatically.

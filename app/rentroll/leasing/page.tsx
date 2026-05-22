@@ -107,24 +107,8 @@ export default function LeasingActivityPage() {
 
   return (
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
-      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-          <h1 style={{ margin: 0 }}>Leasing Activity</h1>
-          <button
-            onClick={handleStatusReport}
-            disabled={generatingReport || !rentroll}
-            style={{
-              background: generatingReport ? "rgba(11,74,125,0.4)" : "rgba(11,74,125,0.85)",
-              color: "#fff", borderRadius: 999, padding: "8px 16px",
-              fontSize: 13, fontWeight: 700, border: "1px solid transparent",
-              display: "inline-flex", alignItems: "center",
-              cursor: generatingReport || !rentroll ? "default" : "pointer",
-              whiteSpace: "nowrap",
-            }}
-          >
-            {generatingReport ? "Generating…" : "Status Report"}
-          </button>
-        </div>
+      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
+        <h1 style={{ margin: 0 }}>Leasing Activity</h1>
         <div style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
           <span style={{ fontFamily: "'Arial Black', 'Arial Bold', Arial, sans-serif", fontWeight: 900, fontSize: 30, letterSpacing: "-0.5px", lineHeight: 1 }}>KORMAN</span>
           <div style={{ width: 1, height: 36, background: "#000", flexShrink: 0 }} />
@@ -136,7 +120,25 @@ export default function LeasingActivityPage() {
         <div className="card"><div className="muted small">Loading rent roll…</div></div>
       ) : (
         <>
-          <LeasingActivityCard rentroll={rentroll} />
+          <LeasingActivityCard
+            rentroll={rentroll}
+            headerSlot={
+              <button
+                onClick={handleStatusReport}
+                disabled={generatingReport || !rentroll}
+                style={{
+                  background: generatingReport ? "rgba(11,74,125,0.4)" : "rgba(11,74,125,0.85)",
+                  color: "#fff", borderRadius: 999, padding: "8px 16px",
+                  fontSize: 13, fontWeight: 700, border: "1px solid transparent",
+                  display: "inline-flex", alignItems: "center",
+                  cursor: generatingReport || !rentroll ? "default" : "pointer",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {generatingReport ? "Generating…" : "Status Report"}
+              </button>
+            }
+          />
           <BaseYearResets
             rentroll={rentroll}
             tenantMeta={tenantMeta}
