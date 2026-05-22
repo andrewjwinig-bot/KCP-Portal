@@ -153,9 +153,9 @@ export default function BaseYearExpensesPage() {
 
           <ExpenseHistory expenses={expenses} years={years} currentOccPct={currentOccPct} />
 
-          <BaseYearBreakdown rrProp={rrProp} tenantMeta={tenantMeta} />
-
           <OccupancyHistory expenses={expenses} rrMonthly={rrMonthly} />
+
+          <BaseYearBreakdown rrProp={rrProp} tenantMeta={tenantMeta} />
         </>
       )}
 
@@ -642,52 +642,51 @@ function BaseYearBreakdown({
             {grandTotal.toLocaleString()} sf across {groups.length} base-year group
             {groups.length === 1 ? "" : "s"}.
           </p>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))", gap: 18 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             {groups.map((g) => {
               const isNotSet = g.year === "Not set";
               const accent = isNotSet ? "#64748b" : "#0b4a7d";
               const accentBg = isNotSet ? "rgba(100,116,139,0.10)" : "rgba(11,74,125,0.10)";
               const accentBd = isNotSet ? "rgba(100,116,139,0.30)" : "rgba(11,74,125,0.30)";
               return (
-                <div key={g.year} style={{
-                  padding: 14,
-                  border: `1px solid ${accentBd}`,
-                  borderRadius: 10,
-                  background: "var(--card)",
-                  display: "flex", flexDirection: "column", gap: 10,
-                }}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+                <div key={g.year} style={{ display: "grid", gridTemplateColumns: "120px 1fr", gap: 14, alignItems: "start" }}>
+                  <div>
                     <span style={{
                       display: "inline-block",
-                      padding: "4px 12px", borderRadius: 6,
+                      padding: "4px 10px", borderRadius: 6,
                       background: accentBg, color: accent,
                       border: `1px solid ${accentBd}`,
-                      fontSize: 14, fontWeight: 800,
+                      fontSize: 13, fontWeight: 800,
                       fontVariantNumeric: "tabular-nums",
                     }}>{g.year}</span>
-                    <span className="muted small" style={{ whiteSpace: "nowrap" }}>
-                      {g.count} tenant{g.count === 1 ? "" : "s"} · {g.sqft.toLocaleString()} sf · {g.pct.toFixed(1)}%
-                    </span>
+                    <div className="muted small" style={{ marginTop: 4 }}>
+                      {g.count} tenant{g.count === 1 ? "" : "s"} · {g.sqft.toLocaleString()} sf
+                    </div>
                   </div>
-                  <div style={{
-                    width: "100%", height: 8, borderRadius: 999,
-                    background: "rgba(15,23,42,0.06)", overflow: "hidden",
-                    border: "1px solid var(--border)",
-                  }}>
-                    <div style={{ width: `${g.pct}%`, height: "100%", background: accent }} />
-                  </div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                    {g.tenants.map((t) => (
-                      <span key={t.unitRef} style={{
-                        padding: "3px 9px", borderRadius: 999,
-                        background: accentBg, color: accent,
-                        border: `1px solid ${accentBd}`,
-                        fontSize: 11, fontWeight: 600,
-                        whiteSpace: "nowrap",
-                      }} title={`${t.unitRef} · ${t.sqft.toLocaleString()} sf`}>
-                        {t.name}
-                      </span>
-                    ))}
+                  <div>
+                    <div style={{
+                      width: "100%", height: 10, borderRadius: 999,
+                      background: "rgba(15,23,42,0.06)", overflow: "hidden",
+                      border: "1px solid var(--border)",
+                    }}>
+                      <div style={{ width: `${g.pct}%`, height: "100%", background: accent }} />
+                    </div>
+                    <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4 }}>
+                      {g.pct.toFixed(1)}% of occupied SF
+                    </div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
+                      {g.tenants.map((t) => (
+                        <span key={t.unitRef} style={{
+                          padding: "2px 8px", borderRadius: 999,
+                          background: accentBg, color: accent,
+                          border: `1px solid ${accentBd}`,
+                          fontSize: 11, fontWeight: 600,
+                          whiteSpace: "nowrap",
+                        }} title={`${t.unitRef} · ${t.sqft.toLocaleString()} sf`}>
+                          {t.name}
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 </div>
               );
