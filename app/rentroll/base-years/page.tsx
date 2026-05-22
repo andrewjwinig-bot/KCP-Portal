@@ -695,6 +695,8 @@ function BaseYearBreakdown({
 
   const groupMaxTotal = Math.max(1, ...groups.map((g) => g.total));
   const latestExpenseTotal = totals.latestOpEx + totals.latestRet;
+  const camRecoveryPct = totals.latestOpEx > 0 ? (totals.cam / totals.latestOpEx) * 100 : 0;
+  const retRecoveryPct = totals.latestRet > 0 ? (totals.ret / totals.latestRet) * 100 : 0;
   const pctOfExpenses = latestExpenseTotal > 0 ? (totals.total / latestExpenseTotal) * 100 : 0;
 
   return (
@@ -714,19 +716,30 @@ function BaseYearBreakdown({
         <p className="muted small">No occupied tenants in this building.</p>
       ) : (
         <>
-          {/* Top summary */}
+          {/* Top summary — each tile shows the recoverable $ plus what
+              percentage of that expense category is being recovered. */}
           <div style={{
-            display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+            display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
             gap: 12, marginBottom: 18,
           }}>
-            <SummaryTile label={`Recoverable CAM (${latestYear})`} value={money(totals.cam)} accent="#0b4a7d" />
-            <SummaryTile label={`Recoverable RET (${latestYear})`} value={money(totals.ret)} accent="#0b4a7d" />
-            <SummaryTile label="Total recoverable / yr" value={money(totals.total)} accent="#16a34a" bold />
             <SummaryTile
-              label={`% of ${latestYear} OpEx + RET`}
-              value={pctOfExpenses.toFixed(1) + "%"}
-              accent="#64748b"
-              sub={`vs ${money(latestExpenseTotal)} expenses`}
+              label={`Recoverable CAM (${latestYear})`}
+              value={money(totals.cam)}
+              accent="#0b4a7d"
+              sub={`${camRecoveryPct.toFixed(1)}% of ${money(totals.latestOpEx)} CAM`}
+            />
+            <SummaryTile
+              label={`Recoverable RET (${latestYear})`}
+              value={money(totals.ret)}
+              accent="#0b4a7d"
+              sub={`${retRecoveryPct.toFixed(1)}% of ${money(totals.latestRet)} RET`}
+            />
+            <SummaryTile
+              label="Total recoverable / yr"
+              value={money(totals.total)}
+              accent="#16a34a"
+              bold
+              sub={`${pctOfExpenses.toFixed(1)}% of ${money(latestExpenseTotal)} expenses`}
             />
           </div>
 
@@ -763,7 +776,11 @@ function BaseYearBreakdown({
                         {money(g.total)} / yr
                       </span>
                       <span className="muted small" style={{ fontVariantNumeric: "tabular-nums" }}>
-                        CAM {money(g.cam)} · RET {money(g.ret)}
+                        CAM {money(g.cam)}
+                        {totals.cam > 0 && ` (${((g.cam / totals.cam) * 100).toFixed(1)}%)`}
+                        {" · "}
+                        RET {money(g.ret)}
+                        {totals.ret > 0 && ` (${((g.ret / totals.ret) * 100).toFixed(1)}%)`}
                       </span>
                     </div>
                     <div style={{
