@@ -600,6 +600,7 @@ function BaseYearBreakdown({
   expenses: PropertyExpenses;
 }) {
   const latestYear = useMemo(() => latestExpenseYear(expenses), [expenses]);
+  const [hoverYear, setHoverYear] = useState<string | null>(null);
 
   type TenantRow = {
     unitRef: string;
@@ -756,6 +757,8 @@ function BaseYearBreakdown({
               segments={groups.filter((g) => g.isNumeric && g.cam > 0).map((g) => ({
                 year: g.year, value: g.cam, color: colorForYear(g.year),
               }))}
+              hoverYear={hoverYear}
+              onHover={setHoverYear}
             />
             <RecoveryBar
               label="RET"
@@ -765,8 +768,90 @@ function BaseYearBreakdown({
               segments={groups.filter((g) => g.isNumeric && g.ret > 0).map((g) => ({
                 year: g.year, value: g.ret, color: colorForYear(g.year),
               }))}
+              hoverYear={hoverYear}
+              onHover={setHoverYear}
             />
           </div>
+
+          {/* Hover detail panel — appears when a bar segment or legend row
+              is hovered. Lists every tenant in that base-year cohort with
+              their PRS, CAM / RET contribution, and total. */}
+          {hoverYear && (() => {
+            const g = groups.find((x) => x.year === hoverYear);
+            if (!g) return null;
+            const color = g.isNumeric ? colorForYear(g.year) : "#94a3b8";
+            return (
+              <div style={{
+                marginTop: 14,
+                padding: "12px 14px",
+                borderRadius: 8,
+                border: `1px solid ${color}`,
+                background: "rgba(15,23,42,0.02)",
+                boxShadow: "0 1px 3px rgba(15,23,42,0.04)",
+              }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <span style={{
+                      display: "inline-block", width: 14, height: 14, borderRadius: 3,
+                      background: color, border: "1px solid rgba(15,23,42,0.15)",
+                    }} />
+                    <span style={{ fontSize: 15, fontWeight: 800 }}>Base year {g.year}</span>
+                    <span className="muted small">
+                      {g.tenants.length} tenant{g.tenants.length === 1 ? "" : "s"} · {g.sqft.toLocaleString()} sf
+                    </span>
+                  </div>
+                  <span className="muted small" style={{ fontVariantNumeric: "tabular-nums" }}>
+                    {g.isNumeric
+                      ? `${money(g.total)} / yr · ${((g.total / Math.max(1, totals.total)) * 100).toFixed(1)}% of recoveries`
+                      : "no recovery $ (base year not numeric)"}
+                  </span>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  <div style={{
+                    display: "grid",
+                    gridTemplateColumns: "minmax(0, 1.6fr) 60px 80px 80px 90px",
+                    gap: 10, alignItems: "center",
+                    fontSize: 10, fontWeight: 700, letterSpacing: "0.04em",
+                    textTransform: "uppercase", color: "var(--muted)",
+                    padding: "0 8px",
+                  }}>
+                    <span>Tenant</span>
+                    <span style={{ textAlign: "right" }}>Bldg %</span>
+                    <span style={{ textAlign: "right" }}>CAM</span>
+                    <span style={{ textAlign: "right" }}>RET</span>
+                    <span style={{ textAlign: "right" }}>Total</span>
+                  </div>
+                  {g.tenants.map((t) => (
+                    <div key={t.unitRef} style={{
+                      display: "grid",
+                      gridTemplateColumns: "minmax(0, 1.6fr) 60px 80px 80px 90px",
+                      gap: 10, alignItems: "center",
+                      fontSize: 12,
+                      padding: "4px 8px",
+                      borderRadius: 6,
+                      background: "rgba(15,23,42,0.03)",
+                    }}>
+                      <span style={{ fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={`${t.unitRef} · ${t.sqft.toLocaleString()} sf`}>
+                        {t.name}
+                      </span>
+                      <span className="muted" style={{ fontVariantNumeric: "tabular-nums", textAlign: "right" }}>
+                        {t.prsPct.toFixed(2)}%
+                      </span>
+                      <span style={{ fontVariantNumeric: "tabular-nums", textAlign: "right" }}>
+                        {g.isNumeric ? money(t.cam) : "—"}
+                      </span>
+                      <span style={{ fontVariantNumeric: "tabular-nums", textAlign: "right" }}>
+                        {g.isNumeric ? money(t.ret) : "—"}
+                      </span>
+                      <span style={{ fontVariantNumeric: "tabular-nums", textAlign: "right", fontWeight: 700, color }}>
+                        {g.isNumeric ? money(t.total) : "—"}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Legend — one row per base year showing color, count, total
               recovered, and share of recoveries. Includes non-numeric /
@@ -792,16 +877,27 @@ function BaseYearBreakdown({
               const color = g.isNumeric ? colorForYear(g.year) : "#cbd5e1";
               const recSharePct = totals.total > 0 ? (g.total / totals.total) * 100 : 0;
               const tenantNames = g.tenants.map((t) => t.name).join(", ");
+              const isHovered = hoverYear === g.year;
+              const isOtherHovered = hoverYear !== null && hoverYear !== g.year;
               return (
-                <div key={g.year} style={{
-                  display: "grid",
-                  gridTemplateColumns: "20px minmax(0, 1.4fr) 70px 70px 110px 110px 90px",
-                  gap: 10, alignItems: "center",
-                  fontSize: 12,
-                  padding: "6px 8px",
-                  borderRadius: 6,
-                  background: "rgba(15,23,42,0.03)",
-                }}>
+                <div
+                  key={g.year}
+                  onMouseEnter={() => setHoverYear(g.year)}
+                  onMouseLeave={() => setHoverYear(null)}
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "20px minmax(0, 1.4fr) 70px 70px 110px 110px 90px",
+                    gap: 10, alignItems: "center",
+                    fontSize: 12,
+                    padding: "6px 8px",
+                    borderRadius: 6,
+                    background: isHovered ? "rgba(15,23,42,0.07)" : "rgba(15,23,42,0.03)",
+                    border: isHovered ? `1px solid ${color}` : "1px solid transparent",
+                    opacity: isOtherHovered ? 0.55 : 1,
+                    cursor: "default",
+                    transition: "opacity 0.12s ease, background 0.12s ease",
+                  }}
+                >
                   <span style={{
                     display: "inline-block", width: 12, height: 12, borderRadius: 3,
                     background: color, border: "1px solid rgba(15,23,42,0.15)",
@@ -871,12 +967,16 @@ function RecoveryBar({
   total,
   recovered,
   segments,
+  hoverYear,
+  onHover,
 }: {
   label: string;
   latestYear: number | null;
   total: number;
   recovered: number;
   segments: { year: string; value: number; color: string }[];
+  hoverYear: string | null;
+  onHover: (year: string | null) => void;
 }) {
   const recoveryPct = total > 0 ? (recovered / total) * 100 : 0;
   return (
@@ -890,17 +990,29 @@ function RecoveryBar({
             </span>
           </div>
         </div>
-        <div style={{
-          display: "flex", width: "100%", height: 22, borderRadius: 6, overflow: "hidden",
-          background: "rgba(15,23,42,0.06)", border: "1px solid var(--border)",
-        }}>
+        <div
+          style={{
+            display: "flex", width: "100%", height: 22, borderRadius: 6, overflow: "hidden",
+            background: "rgba(15,23,42,0.06)", border: "1px solid var(--border)",
+          }}
+          onMouseLeave={() => onHover(null)}
+        >
           {segments.map((s) => {
             const pct = recovered > 0 ? (s.value / recovered) * 100 : 0;
             if (pct <= 0) return null;
+            const isOtherHovered = hoverYear !== null && hoverYear !== s.year;
             return (
               <div
                 key={s.year}
-                style={{ width: `${pct}%`, background: s.color, height: "100%" }}
+                onMouseEnter={() => onHover(s.year)}
+                style={{
+                  width: `${pct}%`, background: s.color, height: "100%",
+                  cursor: "pointer",
+                  opacity: isOtherHovered ? 0.35 : 1,
+                  outline: hoverYear === s.year ? "2px solid rgba(15,23,42,0.55)" : "none",
+                  outlineOffset: -2,
+                  transition: "opacity 0.12s ease",
+                }}
                 title={`${s.year} — ${money(s.value)} (${pct.toFixed(1)}% of ${label} recovery)`}
               />
             );
