@@ -611,184 +611,293 @@ export async function POST(req: Request) {
       }
     }
 
-    // ── Occupancy Summary page (Shopping Centers — retail only) ─────────────
+    // ── Retail-only pages: Portfolio Occupancy chart + Lease Expirations chart
     if (category === "Retail") {
       const retailProps = fullProperties.filter((p: any) =>
         CATEGORY_RETAIL_CODES.has(String(p.propertyCode).toUpperCase()),
       );
       if (retailProps.length) {
-        type Row = { code: string; name: string; total: number; occSuites: number; occSqft: number; vacSuites: number; vacSqft: number };
-        function tally(prop: any): Row {
-          let occSuites = 0, occSqft = 0, vacSuites = 0, vacSqft = 0;
-          for (const u of prop.units) {
-            if (u.isVacant) { vacSuites++; vacSqft += u.sqft; }
-            else            { occSuites++; occSqft += u.sqft; }
-          }
-          const code = String(prop.propertyCode).toUpperCase();
-          return {
-            code,
-            name: propDisplayName(code, prop.reportedPropertyName || code),
-            total: prop.totalSqft,
-            occSuites, occSqft, vacSuites, vacSqft,
-          };
-        }
-        const rows = retailProps.map(tally).sort((a, b) => b.total - a.total);
-        const totalRow: Row = rows.reduce((acc, r) => ({
-          code: "", name: "",
-          total: acc.total + r.total,
-          occSuites: acc.occSuites + r.occSuites,
-          occSqft:   acc.occSqft   + r.occSqft,
-          vacSuites: acc.vacSuites + r.vacSuites,
-          vacSqft:   acc.vacSqft   + r.vacSqft,
-        }), { code: "", name: "", total: 0, occSuites: 0, occSqft: 0, vacSuites: 0, vacSqft: 0 });
+        // ── Shared helpers ─────────────────────────────────────────────
+        type Bar = { code: string; name: string; occupied: number; vacant: number; total: number };
+        const bars: Bar[] = retailProps
+          .map((p: any) => {
+            let occ = 0, vac = 0;
+            for (const u of p.units) {
+              if (u.isVacant) vac += u.sqft;
+              else            occ += u.sqft;
+            }
+            const code = String(p.propertyCode).toUpperCase();
+            return {
+              code,
+              name: propDisplayName(code, p.reportedPropertyName || code),
+              occupied: occ,
+              vacant: vac,
+              total: p.totalSqft,
+            };
+          })
+          .filter((b: Bar) => b.total > 0)
+          .sort((a: Bar, b: Bar) => a.code.localeCompare(b.code));
 
-        const page = pdfDoc.addPage([PW, PH]);
-        page.drawLine({ start: { x: M, y: py(M) }, end: { x: PW - M, y: py(M) }, thickness: 2, color: C_BRAND });
+        const totalOcc = bars.reduce((s: number, b: Bar) => s + b.occupied, 0);
+        const totalVac = bars.reduce((s: number, b: Bar) => s + b.vacant, 0);
+        const totalSf = totalOcc + totalVac;
+        const occPct = totalSf > 0 ? (totalOcc / totalSf) * 100 : 0;
 
-        // Period top right
+        const occColor = (p: number) =>
+          p >= 90 ? rgb(0.086, 0.639, 0.290)
+          : p >= 70 ? rgb(0.043, 0.290, 0.490)
+          : rgb(0.851, 0.467, 0.024);
+
+        const kSqft = (n: number) => n >= 1000 ? `${Math.round(n / 1000)}k` : String(n);
+
         const periodTopRight = periodStr || "####";
         const prW = fontBold.widthOfTextAtSize(periodTopRight, 11);
-        page.drawText(periodTopRight, { x: PW - M - prW, y: py(M + 14), size: 11, font: fontBold, color: C_DARK });
 
-        // Title + subtitle
-        const title = "Occupancy Summary Report";
-        const titleSz = 22;
-        const titleW = fontBold.widthOfTextAtSize(title, titleSz);
-        page.drawText(title, { x: (PW - titleW) / 2, y: py(M + 40), size: titleSz, font: fontBold, color: C_DARK });
-        const subtitle = "Korman Commercial Shopping Center Status Report";
-        const subSz = 10;
-        const subW = font.widthOfTextAtSize(subtitle, subSz);
-        page.drawText(subtitle, { x: (PW - subW) / 2, y: py(M + 60), size: subSz, font, color: C_BRAND });
+        // ── Page 1: Portfolio Occupancy ────────────────────────────────
+        {
+          const page = pdfDoc.addPage([PW, PH]);
+          page.drawLine({ start: { x: M, y: py(M) }, end: { x: PW - M, y: py(M) }, thickness: 2, color: C_BRAND });
+          page.drawText(periodTopRight, { x: PW - M - prW, y: py(M + 14), size: 11, font: fontBold, color: C_DARK });
 
-        // ── Table: Property | Total Sq Ft | Occupied (# Suites / Sq Ft / %) | Vacant (# Suites / Sq Ft / %) | Occupancy bar
-        const labelW  = 170;
-        const totW    = 70;
-        const grpW    = 135;
-        const grpSubW = [42, 60, 33];
-        const barW    = 150;
-        const tableW  = labelW + totW + grpW * 2 + barW;
-        const tableX  = (PW - tableW) / 2;
-        const ROW_H   = 18;
+          const title = "Portfolio Occupancy";
+          const titleSz = 22;
+          const titleW = fontBold.widthOfTextAtSize(title, titleSz);
+          page.drawText(title, { x: (PW - titleW) / 2, y: py(M + 40), size: titleSz, font: fontBold, color: C_DARK });
+          const subtitle = "Korman Commercial Shopping Center Status Report";
+          const subSz = 10;
+          const subW = font.widthOfTextAtSize(subtitle, subSz);
+          page.drawText(subtitle, { x: (PW - subW) / 2, y: py(M + 60), size: subSz, font, color: C_BRAND });
 
-        const grpStartXs = [
-          tableX + labelW + totW,
-          tableX + labelW + totW + grpW,
-        ];
-        const barX = tableX + labelW + totW + grpW * 2;
+          // Big % + horizontal stacked bar
+          const headlineTop = M + 100;
+          const pctColor = occColor(occPct);
+          const pctText = `${occPct.toFixed(1)}%`;
+          const pctSz = 38;
+          page.drawText(pctText, { x: M + 8, y: py(headlineTop + pctSz - 2), size: pctSz, font: fontBold, color: pctColor });
+          page.drawText("OCCUPIED", { x: M + 8, y: py(headlineTop + pctSz + 14), size: 8, font: fontBold, color: C_MUTED });
 
-        function drawGroupHeaders(yTop: number) {
-          const labels = ["Total", "Occupied", "Vacant", "Occupancy"];
-          const xs = [
-            tableX + labelW + totW / 2,
-            grpStartXs[0] + grpW / 2,
-            grpStartXs[1] + grpW / 2,
-            barX + barW / 2,
-          ];
-          for (let i = 0; i < labels.length; i++) {
-            const lab = labels[i];
-            const tw = fontBold.widthOfTextAtSize(lab, 9);
-            page.drawText(lab, { x: xs[i] - tw / 2, y: py(yTop + 12), size: 9, font: fontBold, color: C_DARK });
+          const barLeft = M + 120;
+          const barRight = PW - M - 8;
+          const barWidth = barRight - barLeft;
+          const barH = 22;
+          const barTop = headlineTop + 12;
+          page.drawRectangle({ x: barLeft, y: py(barTop + barH), width: barWidth, height: barH, color: rgb(0.93, 0.94, 0.95), borderColor: C_LINE, borderWidth: 1 });
+          const fillW = barWidth * (occPct / 100);
+          if (fillW > 0) {
+            page.drawRectangle({ x: barLeft, y: py(barTop + barH), width: fillW, height: barH, color: pctColor });
+          }
+          const labelY = barTop + barH + 14;
+          const lblOcc = `${sqftFmt(totalOcc)} occupied`;
+          const lblVac = `${sqftFmt(totalVac)} vacant`;
+          const lblTot = `${sqftFmt(totalSf)} total sf`;
+          page.drawText(lblOcc, { x: barLeft, y: py(labelY), size: 9, font, color: C_DARK });
+          const vW = font.widthOfTextAtSize(lblVac, 9);
+          page.drawText(lblVac, { x: barLeft + (barWidth - vW) / 2, y: py(labelY), size: 9, font, color: C_DARK });
+          const tW = font.widthOfTextAtSize(lblTot, 9);
+          page.drawText(lblTot, { x: barRight - tW, y: py(labelY), size: 9, font, color: C_DARK });
+
+          // Divider
+          const dividerY = labelY + 18;
+          page.drawLine({ start: { x: M, y: py(dividerY) }, end: { x: PW - M, y: py(dividerY) }, thickness: 0.5, color: C_LINE });
+
+          // Per-property column bars
+          const colsTop = dividerY + 18;
+          const usableW = PW - 2 * M;
+          const colW = usableW / bars.length;
+          const colH = 140;
+          for (let i = 0; i < bars.length; i++) {
+            const b = bars[i];
+            const bpct = b.total > 0 ? (b.occupied / b.total) * 100 : 0;
+            const bColor = occColor(bpct);
+            const cx = M + i * colW;
+            const colInnerW = 38;
+            const colInnerX = cx + (colW - colInnerW) / 2;
+            const pctLbl = `${bpct.toFixed(1)}%`;
+            const pctW = fontBold.widthOfTextAtSize(pctLbl, 11);
+            page.drawText(pctLbl, { x: cx + (colW - pctW) / 2, y: py(colsTop), size: 11, font: fontBold, color: bColor });
+            const colBarTop = colsTop + 6;
+            page.drawRectangle({ x: colInnerX, y: py(colBarTop + colH), width: colInnerW, height: colH, color: rgb(0.94, 0.95, 0.96), borderColor: C_LINE, borderWidth: 0.5 });
+            const fillH = colH * (bpct / 100);
+            if (fillH > 0) {
+              page.drawRectangle({ x: colInnerX, y: py(colBarTop + colH), width: colInnerW, height: fillH, color: bColor });
+            }
+            const codeY = colBarTop + colH + 12;
+            const codeW = fontBold.widthOfTextAtSize(b.code, 9);
+            page.drawText(b.code, { x: cx + (colW - codeW) / 2, y: py(codeY), size: 9, font: fontBold, color: C_DARK });
+            const sqftLbl = `${kSqft(b.occupied)}/${kSqft(b.total)} sf`;
+            const sqftW = font.widthOfTextAtSize(sqftLbl, 7);
+            page.drawText(sqftLbl, { x: cx + (colW - sqftW) / 2, y: py(codeY + 11), size: 7, font, color: C_MUTED });
+            // Property name (shortened)
+            const propLbl = b.name.length > 18 ? b.name.slice(0, 16) + "…" : b.name;
+            const pnW = font.widthOfTextAtSize(propLbl, 7);
+            page.drawText(propLbl, { x: cx + (colW - pnW) / 2, y: py(codeY + 22), size: 7, font, color: C_MUTED });
           }
         }
-        function drawColumnHeaders(yTop: number) {
-          const totHdr = "Sq. Ft";
-          const tw = font.widthOfTextAtSize(totHdr, 8);
-          page.drawText(totHdr, { x: tableX + labelW + totW - 6 - tw, y: py(yTop + 11), size: 8, font, color: C_MUTED });
-          const subHdrs = ["# Suites", "Sq. Ft", "%"];
-          for (const grpX of grpStartXs) {
-            let cx = grpX;
-            for (let i = 0; i < subHdrs.length; i++) {
-              const w = grpSubW[i];
-              const lab = subHdrs[i];
-              const lw = font.widthOfTextAtSize(lab, 8);
-              page.drawText(lab, { x: cx + w - 6 - lw, y: py(yTop + 11), size: 8, font, color: C_MUTED });
-              cx += w;
+
+        // ── Page 2: Lease Expirations ──────────────────────────────────
+        {
+          const today = new Date();
+          today.setDate(1);
+          today.setHours(0, 0, 0, 0);
+          type Period = { key: string; label: string; start: Date; end: Date };
+          const periods: Period[] = [];
+          for (let i = 0; i < 24; i++) {
+            const start = new Date(today.getFullYear(), today.getMonth() + i, 1);
+            const end = new Date(today.getFullYear(), today.getMonth() + i + 1, 0);
+            end.setHours(23, 59, 59);
+            periods.push({
+              key: `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, "0")}`,
+              label: `${MONTHS[start.getMonth()]} '${String(start.getFullYear()).slice(-2)}`,
+              start,
+              end,
+            });
+          }
+          function parseRentDate(s: string | null | undefined): Date | null {
+            if (!s) return null;
+            const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+            if (!m) return null;
+            return new Date(Number(m[3]), Number(m[1]) - 1, Number(m[2]));
+          }
+
+          const perPeriod = new Map<string, Map<string, number>>();
+          const buildingSet = new Set<string>();
+          let totalScopeSqft = 0;
+          let expiringSqft = 0;
+          let expiringAnnualGross = 0;
+          for (const p of retailProps) {
+            totalScopeSqft += p.totalSqft;
+            const code = String(p.propertyCode).toUpperCase();
+            for (const u of p.units) {
+              if (u.isVacant) continue;
+              const lt = parseRentDate(u.leaseTo);
+              if (!lt) continue;
+              const period = periods.find((pp) => lt >= pp.start && lt <= pp.end);
+              if (!period) continue;
+              let byProp = perPeriod.get(period.key);
+              if (!byProp) { byProp = new Map(); perPeriod.set(period.key, byProp); }
+              byProp.set(code, (byProp.get(code) ?? 0) + u.sqft);
+              buildingSet.add(code);
+              expiringSqft += u.sqft;
+              expiringAnnualGross += u.grossRentTotal * 12;
             }
           }
-        }
-        const ROW_ALT_BG = rgb(0.91, 0.92, 0.93);
-        const groupDividerXs = [
-          tableX + labelW + totW,
-          grpStartXs[1],
-          barX,
-          tableX + tableW,
-        ];
-        function drawTableVerticals(topY: number, bottomY: number) {
-          const startY = topY - 2;
-          for (const bx of groupDividerXs) {
-            page.drawLine({ start: { x: bx, y: py(startY) }, end: { x: bx, y: py(bottomY) }, thickness: 0.5, color: C_LINE });
+          const buildingList = [...buildingSet].sort();
+
+          // Building color palette — matches dashboard ExpirationChart
+          const RGBS: Record<string, [number, number, number]> = {
+            "1100": [0.043, 0.290, 0.490],
+            "1500": [0.145, 0.388, 0.922],
+            "2300": [0.051, 0.580, 0.533],
+            "4500": [0.086, 0.639, 0.290],
+            "5600": [0.518, 0.800, 0.086],
+            "7010": [0.851, 0.467, 0.024],
+            "7200": [0.918, 0.345, 0.047],
+            "7300": [0.863, 0.149, 0.149],
+            "8200": [0.859, 0.153, 0.467],
+            "9200": [0.486, 0.227, 0.929],
+            "9510": [0.310, 0.275, 0.898],
+          };
+          const colorFor = (code: string) => {
+            const c = RGBS[code] ?? [0.42, 0.45, 0.52];
+            return rgb(c[0], c[1], c[2]);
+          };
+
+          let maxPeriodPct = 0.05;
+          for (const p of periods) {
+            const byProp = perPeriod.get(p.key);
+            if (!byProp) continue;
+            let total = 0;
+            for (const v of byProp.values()) total += v;
+            const pctVal = total / Math.max(1, totalScopeSqft);
+            if (pctVal > maxPeriodPct) maxPeriodPct = pctVal;
           }
-        }
-        function drawOccBar(yTop: number, occSqft: number, total: number) {
-          const padX = 10;
-          const innerW = barW - padX * 2;
-          const innerX = barX + padX;
-          const barH = 8;
-          const barY = py(yTop + ROW_H - 6) - barH;
-          // Track
-          page.drawRectangle({ x: innerX, y: barY, width: innerW, height: barH, color: rgb(0.92, 0.93, 0.95), borderColor: C_LINE, borderWidth: 0.5 });
-          // Fill
-          const pct = total > 0 ? occSqft / total : 0;
-          if (pct > 0) {
-            page.drawRectangle({ x: innerX, y: barY, width: innerW * pct, height: barH, color: C_BRAND });
+          // Round up to a clean % step
+          const niceMax = Math.max(0.01, Math.ceil(maxPeriodPct * 100) / 100);
+
+          const expPage = pdfDoc.addPage([PW, PH]);
+          expPage.drawLine({ start: { x: M, y: py(M) }, end: { x: PW - M, y: py(M) }, thickness: 2, color: C_BRAND });
+          expPage.drawText(periodTopRight, { x: PW - M - prW, y: py(M + 14), size: 11, font: fontBold, color: C_DARK });
+
+          const expTitle = "Lease Expirations";
+          const expTitleSz = 22;
+          const expTitleW = fontBold.widthOfTextAtSize(expTitle, expTitleSz);
+          expPage.drawText(expTitle, { x: (PW - expTitleW) / 2, y: py(M + 40), size: expTitleSz, font: fontBold, color: C_DARK });
+          const expSub = "Stacked by building · Shopping Centers · % of SF expiring · next 24 months";
+          const expSubW = font.widthOfTextAtSize(expSub, 10);
+          expPage.drawText(expSub, { x: (PW - expSubW) / 2, y: py(M + 60), size: 10, font, color: C_BRAND });
+
+          // Chart geometry
+          const chartLeft = M + 36;
+          const chartRight = PW - M - 8;
+          const chartTop = M + 100;
+          const chartBottom = PH - M - 80; // room for x-axis labels + legend + footer
+          const chartW = chartRight - chartLeft;
+          const chartH = chartBottom - chartTop;
+          const barCount = periods.length;
+          const colGap = 3;
+          const barW3 = (chartW - colGap * (barCount - 1)) / barCount;
+
+          // Y-axis tick lines + labels
+          const ticks = 4;
+          for (let t = 0; t <= ticks; t++) {
+            const yFrac = t / ticks;
+            const tickY = chartBottom - yFrac * chartH;
+            expPage.drawLine({ start: { x: chartLeft, y: py(tickY) }, end: { x: chartRight, y: py(tickY) }, thickness: 0.4, color: C_LINE });
+            const tickLabel = `${Math.round(yFrac * niceMax * 100)}%`;
+            const tlW = font.widthOfTextAtSize(tickLabel, 7);
+            expPage.drawText(tickLabel, { x: chartLeft - 6 - tlW, y: py(tickY + 3), size: 7, font, color: C_MUTED });
           }
-        }
-        function drawDataRow(yTop: number, label: string, row: Row, alt: boolean, bold: boolean) {
-          if (alt) {
-            page.drawRectangle({ x: tableX, y: py(yTop + ROW_H), width: tableW, height: ROW_H, color: ROW_ALT_BG });
-          }
-          const f = bold ? fontBold : font;
-          page.drawText(label, { x: tableX + 6, y: py(yTop + ROW_H - 5), size: 9, font: f, color: C_DARK });
-          const totVal = sqftFmt(row.total);
-          const tw2 = f.widthOfTextAtSize(totVal, 9);
-          page.drawText(totVal, { x: tableX + labelW + totW - 6 - tw2, y: py(yTop + ROW_H - 5), size: 9, font: f, color: C_DARK });
-          const groups: [number, number, number][] = [
-            [row.occSuites, row.occSqft, Math.round((row.occSqft / Math.max(row.total, 1)) * 100)],
-            [row.vacSuites, row.vacSqft, Math.round((row.vacSqft / Math.max(row.total, 1)) * 100)],
-          ];
-          for (let i = 0; i < grpStartXs.length; i++) {
-            const [s, sf, p] = groups[i];
-            const vals = [String(s), sqftFmt(sf), `${p}%`];
-            let cx = grpStartXs[i];
-            for (let j = 0; j < vals.length; j++) {
-              const w = grpSubW[j];
-              const tw = f.widthOfTextAtSize(vals[j], 9);
-              page.drawText(vals[j], { x: cx + w - 6 - tw, y: py(yTop + ROW_H - 5), size: 9, font: f, color: C_DARK });
-              cx += w;
+
+          // Stacked bars
+          for (let i = 0; i < periods.length; i++) {
+            const p = periods[i];
+            const bx = chartLeft + i * (barW3 + colGap);
+            const byProp = perPeriod.get(p.key);
+            // x-axis label
+            const lblW = font.widthOfTextAtSize(p.label, 6.5);
+            expPage.drawText(p.label, { x: bx + (barW3 - lblW) / 2, y: py(chartBottom + 12), size: 6.5, font, color: C_MUTED });
+            if (!byProp) continue;
+            let total = 0;
+            for (const v of byProp.values()) total += v;
+            const totalPct = total / Math.max(1, totalScopeSqft);
+            const stackH = (totalPct / niceMax) * chartH;
+            if (totalPct > 0) {
+              const pctStr = `${(totalPct * 100).toFixed(1)}%`;
+              const pctStrW = fontBold.widthOfTextAtSize(pctStr, 7);
+              expPage.drawText(pctStr, { x: bx + (barW3 - pctStrW) / 2, y: py(chartBottom - stackH - 4), size: 7, font: fontBold, color: C_DARK });
+            }
+            let accH = 0;
+            for (const code of buildingList) {
+              const v = byProp.get(code) ?? 0;
+              if (v <= 0) continue;
+              const segH = (v / Math.max(1, totalScopeSqft) / niceMax) * chartH;
+              const segY = chartBottom - accH - segH;
+              expPage.drawRectangle({ x: bx, y: py(segY + segH), width: barW3, height: segH, color: colorFor(code) });
+              accH += segH;
             }
           }
-          drawOccBar(yTop, row.occSqft, row.total);
-        }
 
-        // ── Entity table (single row: Shopping Centers)
-        let curY = M + 90;
-        const t1Top = curY;
-        drawGroupHeaders(curY);
-        curY += 16;
-        page.drawText("Entity", { x: tableX + 6, y: py(curY + 11), size: 8, font, color: C_MUTED });
-        drawColumnHeaders(curY);
-        curY += 16;
-        page.drawLine({ start: { x: tableX, y: py(curY) }, end: { x: tableX + tableW, y: py(curY) }, thickness: 0.5, color: C_DARK });
-        drawDataRow(curY, "Shopping Centers", totalRow, false, true);
-        curY += ROW_H;
-        drawTableVerticals(t1Top, curY);
-        curY += 14;
+          expPage.drawLine({ start: { x: chartLeft, y: py(chartBottom) }, end: { x: chartRight, y: py(chartBottom) }, thickness: 0.6, color: C_DARK });
 
-        // ── Per-property table
-        const t2Top = curY;
-        drawGroupHeaders(curY);
-        curY += 16;
-        page.drawText("Property", { x: tableX + 6, y: py(curY + 11), size: 8, font, color: C_MUTED });
-        drawColumnHeaders(curY);
-        curY += 16;
-        page.drawLine({ start: { x: tableX, y: py(curY) }, end: { x: tableX + tableW, y: py(curY) }, thickness: 0.5, color: C_DARK });
-        for (let i = 0; i < rows.length; i++) {
-          drawDataRow(curY, rows[i].name, rows[i], i % 2 === 0, false);
-          curY += ROW_H;
+          // Legend
+          const legendY = chartBottom + 32;
+          const legendItemW = 60;
+          const totalLegendW = buildingList.length * legendItemW;
+          const legendStartX = (PW - totalLegendW) / 2;
+          for (let i = 0; i < buildingList.length; i++) {
+            const code = buildingList[i];
+            const lx = legendStartX + i * legendItemW;
+            expPage.drawRectangle({ x: lx, y: py(legendY + 8), width: 10, height: 10, color: colorFor(code) });
+            expPage.drawText(code, { x: lx + 14, y: py(legendY + 6), size: 9, font, color: C_DARK });
+          }
+
+          // Footer summary
+          const pctOfPortfolio = totalScopeSqft > 0 ? (expiringSqft / totalScopeSqft) * 100 : 0;
+          const grossM = expiringAnnualGross / 1_000_000;
+          const footerSummary = `Total expiring in window: ${sqftFmt(expiringSqft)} sf · $${grossM.toFixed(2)}M gross rent / yr · ${pctOfPortfolio.toFixed(1)}% of the retail portfolio`;
+          const fW = font.widthOfTextAtSize(footerSummary, 9);
+          expPage.drawText(footerSummary, { x: (PW - fW) / 2, y: py(legendY + 28), size: 9, font, color: C_MUTED });
         }
-        page.drawLine({ start: { x: tableX, y: py(curY) }, end: { x: tableX + tableW, y: py(curY) }, thickness: 0.5, color: C_DARK });
-        drawDataRow(curY, "TOTAL:", totalRow, false, true);
-        drawTableVerticals(t2Top, curY + ROW_H);
       }
     }
 
