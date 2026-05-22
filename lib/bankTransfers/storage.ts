@@ -36,8 +36,10 @@ type Manifest = {
 // still using the legacy strings is rewritten on first read after this
 // deploys, then persisted so the migration only runs once.
 const LEGACY_LABEL_MAP: Record<string, string> = {
-  "LIK - Operating": "JPM 2010 Operating (x9629)",
-  "Clearing":        "JPM 2000 CLEAR (x1622)",
+  "LIK - Operating":  "JPM 2010 Operating (x9629)",
+  "Clearing":         "JPM 2000 CLEAR (x1622)",
+  "Bellaire Ave":     "KH 509 9800 (x7857)",
+  "Spring Garden St": "JPM 9820 (x2296)",
 };
 
 function remapLabel(s: string): string {
