@@ -719,7 +719,7 @@ function BaseYearBreakdown({
           {/* Top summary — each tile shows the recoverable $ plus what
               percentage of that expense category is being recovered. */}
           <div style={{
-            display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+            display: "flex", flexWrap: "wrap", justifyContent: "center",
             gap: 12, marginBottom: 18,
           }}>
             <SummaryTile
@@ -878,6 +878,7 @@ function SummaryTile({
 }) {
   return (
     <div style={{
+      flex: "1 1 240px", maxWidth: 320,
       padding: "10px 14px",
       borderRadius: 8,
       background: "rgba(15,23,42,0.03)",
