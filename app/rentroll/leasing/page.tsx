@@ -34,6 +34,8 @@ const MONTH_NAMES = [
   "July", "August", "September", "October", "November", "December",
 ];
 
+const MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
 // A base year can only be reset to the current year or a future year.
 const RESET_YEARS = (() => {
   const y = new Date().getFullYear();
@@ -57,6 +59,7 @@ export default function LeasingActivityPage() {
   const [loading, setLoading] = useState(true);
   const [tenantMeta, setTenantMeta] = useState<Record<string, TenantMeta>>({});
   const [resets, setResets] = useState<Record<string, BaseYearReset>>({});
+  const [generatingReport, setGeneratingReport] = useState(false);
 
   useEffect(() => {
     fetch("/api/rentroll").then((r) => r.json())
@@ -71,10 +74,57 @@ export default function LeasingActivityPage() {
       .catch(() => {});
   }, []);
 
+  async function handleStatusReport() {
+    if (!rentroll) return;
+    setGeneratingReport(true);
+    try {
+      const res = await fetch("/api/status-report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          category: "All",
+          tenantMeta,
+          properties: rentroll.properties,
+          reportFrom: rentroll.reportFrom,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to generate report");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      const m = rentroll.reportFrom.match(/^(\d{1,2})\/\d+\/(\d{4})$/);
+      const period = m ? `${MONTHS_SHORT[parseInt(m[1]) - 1]}-${m[2].slice(2)}` : "";
+      a.href = url;
+      a.download = `All - ${period} Status Report.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setGeneratingReport(false);
+    }
+  }
+
   return (
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
-      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
-        <h1 style={{ margin: 0 }}>Leasing Activity</h1>
+      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <h1 style={{ margin: 0 }}>Leasing Activity</h1>
+          <button
+            onClick={handleStatusReport}
+            disabled={generatingReport || !rentroll}
+            style={{
+              background: generatingReport ? "rgba(11,74,125,0.4)" : "rgba(11,74,125,0.85)",
+              color: "#fff", borderRadius: 999, padding: "8px 16px",
+              fontSize: 13, fontWeight: 700, border: "1px solid transparent",
+              display: "inline-flex", alignItems: "center",
+              cursor: generatingReport || !rentroll ? "default" : "pointer",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {generatingReport ? "Generating…" : "Status Report"}
+          </button>
+        </div>
         <div style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
           <span style={{ fontFamily: "'Arial Black', 'Arial Bold', Arial, sans-serif", fontWeight: 900, fontSize: 30, letterSpacing: "-0.5px", lineHeight: 1 }}>KORMAN</span>
           <div style={{ width: 1, height: 36, background: "#000", flexShrink: 0 }} />
