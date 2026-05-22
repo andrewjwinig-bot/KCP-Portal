@@ -653,88 +653,88 @@ export async function POST(req: Request) {
         const periodTopRight = periodStr || "####";
         const prW = fontBold.widthOfTextAtSize(periodTopRight, 11);
 
-        // ── Page 1: Portfolio Occupancy ────────────────────────────────
-        {
-          const page = pdfDoc.addPage([PW, PH]);
-          page.drawLine({ start: { x: M, y: py(M) }, end: { x: PW - M, y: py(M) }, thickness: 2, color: C_BRAND });
-          page.drawText(periodTopRight, { x: PW - M - prW, y: py(M + 14), size: 11, font: fontBold, color: C_DARK });
+        // ── Single page: Portfolio Occupancy (top half) + Lease Expirations (bottom half)
+        const page = pdfDoc.addPage([PW, PH]);
+        page.drawLine({ start: { x: M, y: py(M) }, end: { x: PW - M, y: py(M) }, thickness: 2, color: C_BRAND });
+        page.drawText(periodTopRight, { x: PW - M - prW, y: py(M + 14), size: 11, font: fontBold, color: C_DARK });
 
-          const title = "Portfolio Occupancy";
-          const titleSz = 22;
-          const titleW = fontBold.widthOfTextAtSize(title, titleSz);
-          page.drawText(title, { x: (PW - titleW) / 2, y: py(M + 40), size: titleSz, font: fontBold, color: C_DARK });
-          const subtitle = "Korman Commercial Shopping Center Status Report";
-          const subSz = 10;
-          const subW = font.widthOfTextAtSize(subtitle, subSz);
-          page.drawText(subtitle, { x: (PW - subW) / 2, y: py(M + 60), size: subSz, font, color: C_BRAND });
+        const title = "Occupancy & Lease Expirations";
+        const titleSz = 20;
+        const titleW = fontBold.widthOfTextAtSize(title, titleSz);
+        page.drawText(title, { x: (PW - titleW) / 2, y: py(M + 36), size: titleSz, font: fontBold, color: C_DARK });
+        const subtitle = "Korman Commercial Shopping Center Status Report";
+        const subSz = 10;
+        const subW = font.widthOfTextAtSize(subtitle, subSz);
+        page.drawText(subtitle, { x: (PW - subW) / 2, y: py(M + 54), size: subSz, font, color: C_BRAND });
+
+        // ── Section A: Portfolio Occupancy ─────────────────────────────
+        {
+          const sectionTop = M + 70;
+          page.drawText("PORTFOLIO OCCUPANCY", { x: M, y: py(sectionTop + 9), size: 9, font: fontBold, color: C_MUTED });
 
           // Big % + horizontal stacked bar
-          const headlineTop = M + 100;
+          const headlineTop = sectionTop + 14;
           const pctColor = occColor(occPct);
           const pctText = `${occPct.toFixed(1)}%`;
-          const pctSz = 38;
-          page.drawText(pctText, { x: M + 8, y: py(headlineTop + pctSz - 2), size: pctSz, font: fontBold, color: pctColor });
-          page.drawText("OCCUPIED", { x: M + 8, y: py(headlineTop + pctSz + 14), size: 8, font: fontBold, color: C_MUTED });
+          const pctSz = 28;
+          page.drawText(pctText, { x: M + 6, y: py(headlineTop + pctSz - 2), size: pctSz, font: fontBold, color: pctColor });
+          page.drawText("OCCUPIED", { x: M + 6, y: py(headlineTop + pctSz + 10), size: 7, font: fontBold, color: C_MUTED });
 
-          const barLeft = M + 120;
+          const barLeft = M + 100;
           const barRight = PW - M - 8;
           const barWidth = barRight - barLeft;
-          const barH = 22;
-          const barTop = headlineTop + 12;
+          const barH = 18;
+          const barTop = headlineTop + 4;
           page.drawRectangle({ x: barLeft, y: py(barTop + barH), width: barWidth, height: barH, color: rgb(0.93, 0.94, 0.95), borderColor: C_LINE, borderWidth: 1 });
           const fillW = barWidth * (occPct / 100);
           if (fillW > 0) {
             page.drawRectangle({ x: barLeft, y: py(barTop + barH), width: fillW, height: barH, color: pctColor });
           }
-          const labelY = barTop + barH + 14;
+          const labelY = barTop + barH + 11;
           const lblOcc = `${sqftFmt(totalOcc)} occupied`;
           const lblVac = `${sqftFmt(totalVac)} vacant`;
           const lblTot = `${sqftFmt(totalSf)} total sf`;
-          page.drawText(lblOcc, { x: barLeft, y: py(labelY), size: 9, font, color: C_DARK });
-          const vW = font.widthOfTextAtSize(lblVac, 9);
-          page.drawText(lblVac, { x: barLeft + (barWidth - vW) / 2, y: py(labelY), size: 9, font, color: C_DARK });
-          const tW = font.widthOfTextAtSize(lblTot, 9);
-          page.drawText(lblTot, { x: barRight - tW, y: py(labelY), size: 9, font, color: C_DARK });
-
-          // Divider
-          const dividerY = labelY + 18;
-          page.drawLine({ start: { x: M, y: py(dividerY) }, end: { x: PW - M, y: py(dividerY) }, thickness: 0.5, color: C_LINE });
+          page.drawText(lblOcc, { x: barLeft, y: py(labelY), size: 8, font, color: C_DARK });
+          const vW = font.widthOfTextAtSize(lblVac, 8);
+          page.drawText(lblVac, { x: barLeft + (barWidth - vW) / 2, y: py(labelY), size: 8, font, color: C_DARK });
+          const tW = font.widthOfTextAtSize(lblTot, 8);
+          page.drawText(lblTot, { x: barRight - tW, y: py(labelY), size: 8, font, color: C_DARK });
 
           // Per-property column bars
-          const colsTop = dividerY + 18;
+          const colsTop = labelY + 14;
           const usableW = PW - 2 * M;
           const colW = usableW / bars.length;
-          const colH = 140;
+          const colH = 70;
           for (let i = 0; i < bars.length; i++) {
             const b = bars[i];
             const bpct = b.total > 0 ? (b.occupied / b.total) * 100 : 0;
             const bColor = occColor(bpct);
             const cx = M + i * colW;
-            const colInnerW = 38;
+            const colInnerW = 32;
             const colInnerX = cx + (colW - colInnerW) / 2;
             const pctLbl = `${bpct.toFixed(1)}%`;
-            const pctW = fontBold.widthOfTextAtSize(pctLbl, 11);
-            page.drawText(pctLbl, { x: cx + (colW - pctW) / 2, y: py(colsTop), size: 11, font: fontBold, color: bColor });
-            const colBarTop = colsTop + 6;
+            const pctW = fontBold.widthOfTextAtSize(pctLbl, 9);
+            page.drawText(pctLbl, { x: cx + (colW - pctW) / 2, y: py(colsTop), size: 9, font: fontBold, color: bColor });
+            const colBarTop = colsTop + 5;
             page.drawRectangle({ x: colInnerX, y: py(colBarTop + colH), width: colInnerW, height: colH, color: rgb(0.94, 0.95, 0.96), borderColor: C_LINE, borderWidth: 0.5 });
-            const fillH = colH * (bpct / 100);
-            if (fillH > 0) {
-              page.drawRectangle({ x: colInnerX, y: py(colBarTop + colH), width: colInnerW, height: fillH, color: bColor });
+            const fillH2 = colH * (bpct / 100);
+            if (fillH2 > 0) {
+              page.drawRectangle({ x: colInnerX, y: py(colBarTop + colH), width: colInnerW, height: fillH2, color: bColor });
             }
-            const codeY = colBarTop + colH + 12;
-            const codeW = fontBold.widthOfTextAtSize(b.code, 9);
-            page.drawText(b.code, { x: cx + (colW - codeW) / 2, y: py(codeY), size: 9, font: fontBold, color: C_DARK });
+            const codeY = colBarTop + colH + 10;
+            const codeW = fontBold.widthOfTextAtSize(b.code, 8);
+            page.drawText(b.code, { x: cx + (colW - codeW) / 2, y: py(codeY), size: 8, font: fontBold, color: C_DARK });
             const sqftLbl = `${kSqft(b.occupied)}/${kSqft(b.total)} sf`;
-            const sqftW = font.widthOfTextAtSize(sqftLbl, 7);
-            page.drawText(sqftLbl, { x: cx + (colW - sqftW) / 2, y: py(codeY + 11), size: 7, font, color: C_MUTED });
-            // Property name (shortened)
-            const propLbl = b.name.length > 18 ? b.name.slice(0, 16) + "…" : b.name;
-            const pnW = font.widthOfTextAtSize(propLbl, 7);
-            page.drawText(propLbl, { x: cx + (colW - pnW) / 2, y: py(codeY + 22), size: 7, font, color: C_MUTED });
+            const sqftW = font.widthOfTextAtSize(sqftLbl, 6.5);
+            page.drawText(sqftLbl, { x: cx + (colW - sqftW) / 2, y: py(codeY + 9), size: 6.5, font, color: C_MUTED });
           }
         }
 
-        // ── Page 2: Lease Expirations ──────────────────────────────────
+        // Divider between sections
+        const midY = M + 270;
+        page.drawLine({ start: { x: M, y: py(midY) }, end: { x: PW - M, y: py(midY) }, thickness: 0.5, color: C_LINE });
+
+        // ── Section B: Lease Expirations ───────────────────────────────
         {
           const today = new Date();
           today.setDate(1);
@@ -814,23 +814,16 @@ export async function POST(req: Request) {
           // Round up to a clean % step
           const niceMax = Math.max(0.01, Math.ceil(maxPeriodPct * 100) / 100);
 
-          const expPage = pdfDoc.addPage([PW, PH]);
-          expPage.drawLine({ start: { x: M, y: py(M) }, end: { x: PW - M, y: py(M) }, thickness: 2, color: C_BRAND });
-          expPage.drawText(periodTopRight, { x: PW - M - prW, y: py(M + 14), size: 11, font: fontBold, color: C_DARK });
-
-          const expTitle = "Lease Expirations";
-          const expTitleSz = 22;
-          const expTitleW = fontBold.widthOfTextAtSize(expTitle, expTitleSz);
-          expPage.drawText(expTitle, { x: (PW - expTitleW) / 2, y: py(M + 40), size: expTitleSz, font: fontBold, color: C_DARK });
+          // Header on the bottom half (re-uses the same page)
+          page.drawText("LEASE EXPIRATIONS", { x: M, y: py(midY + 14), size: 9, font: fontBold, color: C_MUTED });
           const expSub = "Stacked by building · Shopping Centers · % of SF expiring · next 24 months";
-          const expSubW = font.widthOfTextAtSize(expSub, 10);
-          expPage.drawText(expSub, { x: (PW - expSubW) / 2, y: py(M + 60), size: 10, font, color: C_BRAND });
+          page.drawText(expSub, { x: M + 130, y: py(midY + 14), size: 9, font, color: C_BRAND });
 
-          // Chart geometry
-          const chartLeft = M + 36;
+          // Chart geometry — fit into the lower half (midY+24 to PH-M-46)
+          const chartLeft = M + 30;
           const chartRight = PW - M - 8;
-          const chartTop = M + 100;
-          const chartBottom = PH - M - 80; // room for x-axis labels + legend + footer
+          const chartTop = midY + 24;
+          const chartBottom = PH - M - 60; // room for x-axis labels + legend + footer
           const chartW = chartRight - chartLeft;
           const chartH = chartBottom - chartTop;
           const barCount = periods.length;
@@ -842,10 +835,10 @@ export async function POST(req: Request) {
           for (let t = 0; t <= ticks; t++) {
             const yFrac = t / ticks;
             const tickY = chartBottom - yFrac * chartH;
-            expPage.drawLine({ start: { x: chartLeft, y: py(tickY) }, end: { x: chartRight, y: py(tickY) }, thickness: 0.4, color: C_LINE });
+            page.drawLine({ start: { x: chartLeft, y: py(tickY) }, end: { x: chartRight, y: py(tickY) }, thickness: 0.4, color: C_LINE });
             const tickLabel = `${Math.round(yFrac * niceMax * 100)}%`;
             const tlW = font.widthOfTextAtSize(tickLabel, 7);
-            expPage.drawText(tickLabel, { x: chartLeft - 6 - tlW, y: py(tickY + 3), size: 7, font, color: C_MUTED });
+            page.drawText(tickLabel, { x: chartLeft - 6 - tlW, y: py(tickY + 3), size: 7, font, color: C_MUTED });
           }
 
           // Stacked bars
@@ -855,7 +848,7 @@ export async function POST(req: Request) {
             const byProp = perPeriod.get(p.key);
             // x-axis label
             const lblW = font.widthOfTextAtSize(p.label, 6.5);
-            expPage.drawText(p.label, { x: bx + (barW3 - lblW) / 2, y: py(chartBottom + 12), size: 6.5, font, color: C_MUTED });
+            page.drawText(p.label, { x: bx + (barW3 - lblW) / 2, y: py(chartBottom + 12), size: 6.5, font, color: C_MUTED });
             if (!byProp) continue;
             let total = 0;
             for (const v of byProp.values()) total += v;
@@ -864,7 +857,7 @@ export async function POST(req: Request) {
             if (totalPct > 0) {
               const pctStr = `${(totalPct * 100).toFixed(1)}%`;
               const pctStrW = fontBold.widthOfTextAtSize(pctStr, 7);
-              expPage.drawText(pctStr, { x: bx + (barW3 - pctStrW) / 2, y: py(chartBottom - stackH - 4), size: 7, font: fontBold, color: C_DARK });
+              page.drawText(pctStr, { x: bx + (barW3 - pctStrW) / 2, y: py(chartBottom - stackH - 4), size: 7, font: fontBold, color: C_DARK });
             }
             let accH = 0;
             for (const code of buildingList) {
@@ -872,23 +865,23 @@ export async function POST(req: Request) {
               if (v <= 0) continue;
               const segH = (v / Math.max(1, totalScopeSqft) / niceMax) * chartH;
               const segY = chartBottom - accH - segH;
-              expPage.drawRectangle({ x: bx, y: py(segY + segH), width: barW3, height: segH, color: colorFor(code) });
+              page.drawRectangle({ x: bx, y: py(segY + segH), width: barW3, height: segH, color: colorFor(code) });
               accH += segH;
             }
           }
 
-          expPage.drawLine({ start: { x: chartLeft, y: py(chartBottom) }, end: { x: chartRight, y: py(chartBottom) }, thickness: 0.6, color: C_DARK });
+          page.drawLine({ start: { x: chartLeft, y: py(chartBottom) }, end: { x: chartRight, y: py(chartBottom) }, thickness: 0.6, color: C_DARK });
 
           // Legend
-          const legendY = chartBottom + 32;
+          const legendY = chartBottom + 24;
           const legendItemW = 60;
           const totalLegendW = buildingList.length * legendItemW;
           const legendStartX = (PW - totalLegendW) / 2;
           for (let i = 0; i < buildingList.length; i++) {
             const code = buildingList[i];
             const lx = legendStartX + i * legendItemW;
-            expPage.drawRectangle({ x: lx, y: py(legendY + 8), width: 10, height: 10, color: colorFor(code) });
-            expPage.drawText(code, { x: lx + 14, y: py(legendY + 6), size: 9, font, color: C_DARK });
+            page.drawRectangle({ x: lx, y: py(legendY + 8), width: 10, height: 10, color: colorFor(code) });
+            page.drawText(code, { x: lx + 14, y: py(legendY + 6), size: 9, font, color: C_DARK });
           }
 
           // Footer summary
@@ -896,7 +889,7 @@ export async function POST(req: Request) {
           const grossM = expiringAnnualGross / 1_000_000;
           const footerSummary = `Total expiring in window: ${sqftFmt(expiringSqft)} sf · $${grossM.toFixed(2)}M gross rent / yr · ${pctOfPortfolio.toFixed(1)}% of the retail portfolio`;
           const fW = font.widthOfTextAtSize(footerSummary, 9);
-          expPage.drawText(footerSummary, { x: (PW - fW) / 2, y: py(legendY + 28), size: 9, font, color: C_MUTED });
+          page.drawText(footerSummary, { x: (PW - fW) / 2, y: py(legendY + 20), size: 9, font, color: C_MUTED });
         }
       }
     }
