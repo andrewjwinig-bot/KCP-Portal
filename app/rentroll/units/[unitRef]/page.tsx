@@ -371,8 +371,8 @@ export default function UnitDetailPage() {
             {!isRetailUnit(propertyCode) && (hasNNN || unit.grossRentTotal > 0) && (
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "14px 32px" }}>
                 {hasNNN && unit.opexMonth > 0  && <InfoField label="CAM / mo"    value={money(unit.opexMonth)} />}
+                {hasNNN && unit.otherMonth > 0 && <InfoField label="INS / mo"    value={money(unit.otherMonth)} />}
                 {hasNNN && unit.reTaxMonth > 0 && <InfoField label="RE Tax / mo" value={money(unit.reTaxMonth)} />}
-                {hasNNN && unit.otherMonth > 0 && <InfoField label="Other / mo"  value={money(unit.otherMonth)} />}
                 {unit.grossRentTotal > 0 && (
                   <InfoField label="Gross Rent / mo" value={money(unit.grossRentTotal)} />
                 )}
