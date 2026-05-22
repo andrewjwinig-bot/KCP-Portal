@@ -878,7 +878,7 @@ function SummaryTile({
 }) {
   return (
     <div style={{
-      flex: "1 1 240px", maxWidth: 320,
+      flex: "0 1 300px", minWidth: 220,
       padding: "10px 14px",
       borderRadius: 8,
       background: "rgba(15,23,42,0.03)",
