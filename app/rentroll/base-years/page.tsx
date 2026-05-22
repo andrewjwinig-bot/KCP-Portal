@@ -693,7 +693,6 @@ function BaseYearBreakdown({
     return { groups, totals };
   }, [rrProp, tenantMeta, expenses, latestYear]);
 
-  const groupMaxTotal = Math.max(1, ...groups.map((g) => g.total));
   const latestExpenseTotal = totals.latestOpEx + totals.latestRet;
   const camRecoveryPct = totals.latestOpEx > 0 ? (totals.cam / totals.latestOpEx) * 100 : 0;
   const retRecoveryPct = totals.latestRet > 0 ? (totals.ret / totals.latestRet) * 100 : 0;
@@ -743,122 +742,172 @@ function BaseYearBreakdown({
             />
           </div>
 
-          {/* Group rows */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          {/* Stacked bars — one for CAM, one for RET. Each bar's full width
+              equals the building's total expense for that category. Filled
+              segments = recovery contribution per base-year cohort; the
+              remaining grey tail is the unrecovered share. Same color per
+              year across both bars so the legend reads against either. */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+            <RecoveryBar
+              label="CAM"
+              latestYear={latestYear}
+              total={totals.latestOpEx}
+              recovered={totals.cam}
+              segments={groups.filter((g) => g.isNumeric && g.cam > 0).map((g) => ({
+                year: g.year, value: g.cam, color: colorForYear(g.year),
+              }))}
+            />
+            <RecoveryBar
+              label="RET"
+              latestYear={latestYear}
+              total={totals.latestRet}
+              recovered={totals.ret}
+              segments={groups.filter((g) => g.isNumeric && g.ret > 0).map((g) => ({
+                year: g.year, value: g.ret, color: colorForYear(g.year),
+              }))}
+            />
+          </div>
+
+          {/* Legend — one row per base year showing color, count, total
+              recovered, and share of recoveries. Includes non-numeric /
+              "Not set" groups at the bottom for completeness. */}
+          <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 6 }}>
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: "20px minmax(0, 1.4fr) 70px 70px 110px 110px 90px",
+              gap: 10, alignItems: "center",
+              fontSize: 10, fontWeight: 700, letterSpacing: "0.04em",
+              textTransform: "uppercase", color: "var(--muted)",
+              padding: "0 8px",
+            }}>
+              <span></span>
+              <span>Base year · Tenants</span>
+              <span style={{ textAlign: "right" }} title="Combined tenant SF / building rentable SF">Bldg %</span>
+              <span style={{ textAlign: "right" }} title="Combined recovery $ / total recovery $">Rec %</span>
+              <span style={{ textAlign: "right" }}>CAM</span>
+              <span style={{ textAlign: "right" }}>RET</span>
+              <span style={{ textAlign: "right" }}>Total</span>
+            </div>
             {groups.map((g) => {
-              const isNotSet = g.year === "Not set";
-              const accent = isNotSet || !g.isNumeric ? "#64748b" : "#0b4a7d";
-              const accentBg = isNotSet || !g.isNumeric ? "rgba(100,116,139,0.10)" : "rgba(11,74,125,0.10)";
-              const accentBd = isNotSet || !g.isNumeric ? "rgba(100,116,139,0.30)" : "rgba(11,74,125,0.30)";
-              const groupBarPct = (g.total / groupMaxTotal) * 100;
+              const color = g.isNumeric ? colorForYear(g.year) : "#cbd5e1";
+              const recSharePct = totals.total > 0 ? (g.total / totals.total) * 100 : 0;
+              const tenantNames = g.tenants.map((t) => t.name).join(", ");
               return (
-                <div key={g.year} style={{ display: "grid", gridTemplateColumns: "150px 1fr", gap: 14, alignItems: "start" }}>
-                  <div>
-                    <span style={{
-                      display: "inline-block",
-                      padding: "4px 10px", borderRadius: 6,
-                      background: accentBg, color: accent,
-                      border: `1px solid ${accentBd}`,
-                      fontSize: 13, fontWeight: 800,
-                      fontVariantNumeric: "tabular-nums",
-                    }}>{g.year}</span>
-                    <div className="muted small" style={{ marginTop: 4 }}>
-                      {g.tenants.length} tenant{g.tenants.length === 1 ? "" : "s"}
-                    </div>
-                    <div className="muted small">
-                      {g.sqft.toLocaleString()} sf · {g.prsPct.toFixed(1)}% bldg
-                    </div>
-                    {g.isNumeric && totals.total > 0 && (
-                      <div className="muted small" style={{ marginTop: 2 }}>
-                        {((g.total / totals.total) * 100).toFixed(1)}% of recoveries
-                      </div>
-                    )}
-                  </div>
-                  <div>
-                    {/* Group totals row + recovery bar */}
-                    <div style={{ display: "flex", alignItems: "baseline", gap: 14, flexWrap: "wrap" }}>
-                      <span style={{ fontSize: 14, fontWeight: 800, color: accent, fontVariantNumeric: "tabular-nums" }}>
-                        {money(g.total)} / yr
+                <div key={g.year} style={{
+                  display: "grid",
+                  gridTemplateColumns: "20px minmax(0, 1.4fr) 70px 70px 110px 110px 90px",
+                  gap: 10, alignItems: "center",
+                  fontSize: 12,
+                  padding: "6px 8px",
+                  borderRadius: 6,
+                  background: "rgba(15,23,42,0.03)",
+                }}>
+                  <span style={{
+                    display: "inline-block", width: 12, height: 12, borderRadius: 3,
+                    background: color, border: "1px solid rgba(15,23,42,0.15)",
+                  }} />
+                  <span style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
+                    <span style={{ fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
+                      {g.year}
+                      <span className="muted" style={{ fontWeight: 500, marginLeft: 6 }}>
+                        · {g.tenants.length} tenant{g.tenants.length === 1 ? "" : "s"}
                       </span>
-                      <span className="muted small" style={{ fontVariantNumeric: "tabular-nums" }}>
-                        CAM {money(g.cam)}
-                        {totals.cam > 0 && ` (${((g.cam / totals.cam) * 100).toFixed(1)}%)`}
-                        {" · "}
-                        RET {money(g.ret)}
-                        {totals.ret > 0 && ` (${((g.ret / totals.ret) * 100).toFixed(1)}%)`}
-                      </span>
-                    </div>
-                    <div style={{
-                      marginTop: 6, width: "100%", height: 8, borderRadius: 999,
-                      background: "rgba(15,23,42,0.06)", overflow: "hidden",
-                      border: "1px solid var(--border)",
-                    }}>
-                      <div style={{ width: `${groupBarPct}%`, height: "100%", background: accent }} />
-                    </div>
-                    {!g.isNumeric && (
-                      <p className="muted small" style={{ marginTop: 6 }}>
-                        Recovery $ not computed — base year is {g.year === "Not set" ? "not set" : `non-numeric (${g.year})`}.
-                      </p>
-                    )}
-                    {/* Per-tenant detail */}
-                    <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 4 }}>
-                      <div style={{
-                        display: "grid",
-                        gridTemplateColumns: "minmax(0, 1.6fr) 60px 70px 80px 80px 90px",
-                        gap: 10, alignItems: "center",
-                        fontSize: 10, fontWeight: 700, letterSpacing: "0.04em",
-                        textTransform: "uppercase", color: "var(--muted)",
-                        padding: "0 8px",
-                      }}>
-                        <span>Tenant</span>
-                        <span style={{ textAlign: "right" }} title="Tenant SF / building rentable SF">Bldg %</span>
-                        <span style={{ textAlign: "right" }} title="Tenant's share of building-wide recovery $">Rec %</span>
-                        <span style={{ textAlign: "right" }}>CAM</span>
-                        <span style={{ textAlign: "right" }}>RET</span>
-                        <span style={{ textAlign: "right" }}>Total</span>
-                      </div>
-                      {g.tenants.map((t) => {
-                        const recSharePct = totals.total > 0 ? (t.total / totals.total) * 100 : 0;
-                        return (
-                        <div key={t.unitRef} style={{
-                          display: "grid",
-                          gridTemplateColumns: "minmax(0, 1.6fr) 60px 70px 80px 80px 90px",
-                          gap: 10, alignItems: "center",
-                          fontSize: 12,
-                          padding: "4px 8px",
-                          borderRadius: 6,
-                          background: "rgba(15,23,42,0.03)",
-                        }}>
-                          <span style={{ fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={`${t.unitRef} · ${t.sqft.toLocaleString()} sf`}>
-                            {t.name}
-                          </span>
-                          <span className="muted" style={{ fontVariantNumeric: "tabular-nums", textAlign: "right" }}>
-                            {t.prsPct.toFixed(2)}%
-                          </span>
-                          <span style={{ fontVariantNumeric: "tabular-nums", textAlign: "right", fontWeight: 600, color: g.isNumeric && recSharePct > t.prsPct ? "#b45309" : "var(--text)" }}
-                            title={g.isNumeric && recSharePct > t.prsPct ? "Carries more of recoveries than its building share" : undefined}>
-                            {g.isNumeric ? `${recSharePct.toFixed(1)}%` : "—"}
-                          </span>
-                          <span style={{ fontVariantNumeric: "tabular-nums", textAlign: "right" }}>
-                            {g.isNumeric ? money(t.cam) : "—"}
-                          </span>
-                          <span style={{ fontVariantNumeric: "tabular-nums", textAlign: "right" }}>
-                            {g.isNumeric ? money(t.ret) : "—"}
-                          </span>
-                          <span style={{ fontVariantNumeric: "tabular-nums", textAlign: "right", fontWeight: 700, color: accent }}>
-                            {g.isNumeric ? money(t.total) : "—"}
-                          </span>
-                        </div>
-                        );
-                      })}
-                    </div>
-                  </div>
+                    </span>
+                    <span className="muted small" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={tenantNames}>
+                      {tenantNames || "—"}
+                    </span>
+                  </span>
+                  <span className="muted" style={{ fontVariantNumeric: "tabular-nums", textAlign: "right" }}>
+                    {g.prsPct.toFixed(1)}%
+                  </span>
+                  <span style={{ fontVariantNumeric: "tabular-nums", textAlign: "right", fontWeight: 600, color: g.isNumeric && recSharePct > g.prsPct ? "#b45309" : "var(--text)" }}
+                    title={g.isNumeric && recSharePct > g.prsPct ? "This cohort pulls more recoveries than its building share" : undefined}>
+                    {g.isNumeric ? `${recSharePct.toFixed(1)}%` : "—"}
+                  </span>
+                  <span style={{ fontVariantNumeric: "tabular-nums", textAlign: "right" }}>
+                    {g.isNumeric ? money(g.cam) : "—"}
+                  </span>
+                  <span style={{ fontVariantNumeric: "tabular-nums", textAlign: "right" }}>
+                    {g.isNumeric ? money(g.ret) : "—"}
+                  </span>
+                  <span style={{ fontVariantNumeric: "tabular-nums", textAlign: "right", fontWeight: 700 }}>
+                    {g.isNumeric ? money(g.total) : "—"}
+                  </span>
                 </div>
               );
             })}
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+// Stable color for a base year. Older years get warmer colors so they
+// visually pop as "carrying more recovery weight"; newer years stay cool.
+const YEAR_COLOR_PALETTE = [
+  "#3b82f6", // 0: newest — blue
+  "#14b8a6", // 1: teal
+  "#22c55e", // 2: green
+  "#84cc16", // 3: lime
+  "#eab308", // 4: yellow
+  "#f59e0b", // 5: amber
+  "#f97316", // 6: orange
+  "#ef4444", // 7: red
+  "#dc2626", // 8: darker red
+  "#991b1b", // 9+: deepest red
+];
+function colorForYear(year: string): string {
+  if (!/^\d+$/.test(year)) return "#94a3b8";
+  const y = Number(year);
+  const now = new Date().getFullYear();
+  const age = Math.max(0, now - y);
+  return YEAR_COLOR_PALETTE[Math.min(age, YEAR_COLOR_PALETTE.length - 1)];
+}
+
+function RecoveryBar({
+  label,
+  latestYear,
+  total,
+  recovered,
+  segments,
+}: {
+  label: string;
+  latestYear: number | null;
+  total: number;
+  recovered: number;
+  segments: { year: string; value: number; color: string }[];
+}) {
+  const recoveryPct = total > 0 ? (recovered / total) * 100 : 0;
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 6, flexWrap: "wrap" }}>
+        <div>
+          <span style={{ fontSize: 13, fontWeight: 800, color: "var(--text)" }}>{label}</span>
+          <span className="muted small" style={{ marginLeft: 8, fontVariantNumeric: "tabular-nums" }}>
+            {latestYear ?? "—"} · {money(total)} total
+          </span>
+        </div>
+        <div className="muted small" style={{ fontVariantNumeric: "tabular-nums" }}>
+          <b style={{ color: "#0b4a7d" }}>{money(recovered)}</b> recovered · {recoveryPct.toFixed(1)}%
+        </div>
+      </div>
+      <div style={{
+        display: "flex", width: "100%", height: 22, borderRadius: 6, overflow: "hidden",
+        background: "rgba(15,23,42,0.06)", border: "1px solid var(--border)",
+      }}>
+        {segments.map((s) => {
+          const pct = total > 0 ? (s.value / total) * 100 : 0;
+          if (pct <= 0) return null;
+          return (
+            <div
+              key={s.year}
+              style={{ width: `${pct}%`, background: s.color, height: "100%" }}
+              title={`${s.year} — ${money(s.value)} (${pct.toFixed(1)}% of ${label})`}
+            />
+          );
+        })}
+      </div>
     </div>
   );
 }
