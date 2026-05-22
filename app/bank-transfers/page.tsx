@@ -33,6 +33,19 @@ function fmtMoney(n: number): string {
   return n.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2 });
 }
 
+/** Split a stored From/To label into a property line + last4 line. Looks
+ *  the account up by last4 in UNIQUE_BANK_ACCOUNTS so the top line is the
+ *  formal account name (e.g. "2010 LIK Mgmt OP") rather than the internal
+ *  key. Legacy values without parens fall back to a single line. */
+function splitAccountLabel(label: string): { primary: string; secondary: string } {
+  const m = label.match(/^(.+?)\s*\(([^)]+)\)\s*$/);
+  if (!m) return { primary: label, secondary: "" };
+  const last4 = m[2].trim();
+  const acc = UNIQUE_BANK_ACCOUNTS.find((a) => a.last4 === last4);
+  if (acc) return { primary: acc.accountName, secondary: `(${acc.last4})` };
+  return { primary: m[1].trim(), secondary: `(${last4})` };
+}
+
 function prettyDate(iso: string): string {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
   if (!m) return iso;
@@ -229,8 +242,8 @@ export default function BankTransfersPage() {
                     <div style={{ fontWeight: 600 }}>{prettyDate(t.date)}</div>
                     <div className="muted small">{normalizeBank(t.bankName)}</div>
                   </td>
-                  <td>{t.fromLabel}</td>
-                  <td>{t.toLabel}</td>
+                  <td><AccountCell label={t.fromLabel} /></td>
+                  <td><AccountCell label={t.toLabel} /></td>
                   <td style={{ textAlign: "right", fontWeight: 600, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
                     {fmtMoney(t.amount)}
                   </td>
@@ -334,6 +347,16 @@ function SavedPrompt({ url, onClose }: { url: string; onClose: () => void }) {
   );
 }
 
+
+function AccountCell({ label }: { label: string }) {
+  const { primary, secondary } = splitAccountLabel(label);
+  return (
+    <div>
+      <div>{primary}</div>
+      {secondary && <div className="muted small">{secondary}</div>}
+    </div>
+  );
+}
 
 function FolderIcon() {
   return (
