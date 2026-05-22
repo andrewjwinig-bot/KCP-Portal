@@ -880,33 +880,44 @@ function RecoveryBar({
 }) {
   const recoveryPct = total > 0 ? (recovered / total) * 100 : 0;
   return (
-    <div>
-      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 6, flexWrap: "wrap" }}>
-        <div>
-          <span style={{ fontSize: 13, fontWeight: 800, color: "var(--text)" }}>{label}</span>
-          <span className="muted small" style={{ marginLeft: 8, fontVariantNumeric: "tabular-nums" }}>
-            {latestYear ?? "—"} · {money(total)} total
-          </span>
+    <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 140px", gap: 18, alignItems: "center" }}>
+      <div style={{ minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 6, flexWrap: "wrap" }}>
+          <div>
+            <span style={{ fontSize: 13, fontWeight: 800, color: "var(--text)" }}>{label}</span>
+            <span className="muted small" style={{ marginLeft: 8, fontVariantNumeric: "tabular-nums" }}>
+              {latestYear ?? "—"} · {money(recovered)} recovered of {money(total)}
+            </span>
+          </div>
         </div>
-        <div className="muted small" style={{ fontVariantNumeric: "tabular-nums" }}>
-          <b style={{ color: "#0b4a7d" }}>{money(recovered)}</b> recovered · {recoveryPct.toFixed(1)}%
+        <div style={{
+          display: "flex", width: "100%", height: 22, borderRadius: 6, overflow: "hidden",
+          background: "rgba(15,23,42,0.06)", border: "1px solid var(--border)",
+        }}>
+          {segments.map((s) => {
+            const pct = recovered > 0 ? (s.value / recovered) * 100 : 0;
+            if (pct <= 0) return null;
+            return (
+              <div
+                key={s.year}
+                style={{ width: `${pct}%`, background: s.color, height: "100%" }}
+                title={`${s.year} — ${money(s.value)} (${pct.toFixed(1)}% of ${label} recovery)`}
+              />
+            );
+          })}
         </div>
       </div>
-      <div style={{
-        display: "flex", width: "100%", height: 22, borderRadius: 6, overflow: "hidden",
-        background: "rgba(15,23,42,0.06)", border: "1px solid var(--border)",
-      }}>
-        {segments.map((s) => {
-          const pct = total > 0 ? (s.value / total) * 100 : 0;
-          if (pct <= 0) return null;
-          return (
-            <div
-              key={s.year}
-              style={{ width: `${pct}%`, background: s.color, height: "100%" }}
-              title={`${s.year} — ${money(s.value)} (${pct.toFixed(1)}% of ${label})`}
-            />
-          );
-        })}
+      <div style={{ textAlign: "right" }}>
+        <div style={{
+          fontSize: 32, fontWeight: 900, lineHeight: 1,
+          color: recoveryPct >= 50 ? "#16a34a" : recoveryPct >= 25 ? "#0b4a7d" : "#b45309",
+          fontVariantNumeric: "tabular-nums",
+        }}>
+          {recoveryPct.toFixed(1)}%
+        </div>
+        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)", marginTop: 4 }}>
+          of {label} recovered
+        </div>
       </div>
     </div>
   );
