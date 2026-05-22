@@ -36,8 +36,7 @@ function fmtMoney(n: number): string {
 function prettyDate(iso: string): string {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
   if (!m) return iso;
-  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  return `${m[2]}/${m[3]}/${m[1].slice(2)}`;
 }
 
 function todayISO(): string {
@@ -210,17 +209,16 @@ export default function BankTransfersPage() {
                 <th>From</th>
                 <th>To</th>
                 <th style={{ textAlign: "right" }}>Amount</th>
-                <th>PDF</th>
                 <th>Description</th>
-                {canEdit && <th style={{ width: 60 }}></th>}
+                <th style={{ width: 80 }}>PDF</th>
               </tr>
             </thead>
             <tbody>
               {loading && (
-                <tr><td colSpan={canEdit ? 8 : 7} className="muted small" style={{ padding: 16 }}>Loading…</td></tr>
+                <tr><td colSpan={7} className="muted small" style={{ padding: 16 }}>Loading…</td></tr>
               )}
               {!loading && filtered.length === 0 && (
-                <tr><td colSpan={canEdit ? 8 : 7} className="muted small" style={{ padding: 16 }}>No transfers.</td></tr>
+                <tr><td colSpan={7} className="muted small" style={{ padding: 16 }}>No transfers.</td></tr>
               )}
               {filtered.map((t) => (
                 <tr
@@ -235,25 +233,25 @@ export default function BankTransfersPage() {
                   <td style={{ textAlign: "right", fontWeight: 600, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
                     {fmtMoney(t.amount)}
                   </td>
-                  <td>
-                    <Pill tone={t.pdfSaved ? TONE_GREEN : TONE_RED}>
-                      {t.pdfSaved ? "Saved" : "Missing"}
-                    </Pill>
-                  </td>
-                  <td className="muted small" style={{ maxWidth: 320, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  <td className="muted small" style={{ maxWidth: 360, whiteSpace: "normal", wordBreak: "break-word" }}>
                     {t.description || "—"}
                   </td>
-                  {canEdit && (
-                    <td>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setEditing(t); }}
-                        className="btn"
-                        style={{ fontSize: 12, padding: "4px 10px" }}
-                      >
-                        Edit
-                      </button>
-                    </td>
-                  )}
+                  <td>
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 4 }}>
+                      <Pill tone={t.pdfSaved ? TONE_GREEN : TONE_RED}>
+                        {t.pdfSaved ? "Saved" : "Missing"}
+                      </Pill>
+                      {canEdit && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setEditing(t); }}
+                          className="btn"
+                          style={{ fontSize: 12, padding: "4px 10px" }}
+                        >
+                          Edit
+                        </button>
+                      )}
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
