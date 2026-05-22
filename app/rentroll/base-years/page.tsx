@@ -614,10 +614,10 @@ function BaseYearBreakdown({
         pct: totalSqft > 0 ? (tenants.reduce((s, t) => s + t.sqft, 0) / totalSqft) * 100 : 0,
       }))
       .sort((a, b) => {
-        // Numeric years ascending; "Not set" and free-text markers at the end.
+        // Newest numeric years first; "Not set" and free-text markers at the end.
         const ay = /^\d+$/.test(a.year);
         const by = /^\d+$/.test(b.year);
-        if (ay && by) return Number(a.year) - Number(b.year);
+        if (ay && by) return Number(b.year) - Number(a.year);
         if (ay) return -1;
         if (by) return 1;
         if (a.year === "Not set") return 1;
