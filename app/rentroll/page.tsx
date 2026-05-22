@@ -254,8 +254,9 @@ function UnitsTable({ units, propertyCode, hideNNN, tenantMeta, onBaseYearChange
   const [showAll, setShowAll] = useState(true);
   const displayed = showAll ? units : units.slice(0, 10);
   const upperCode = propertyCode.toUpperCase();
-  // Base Year only applies to office leases (JV III + NI LLC + The Office Works)
-  const showBaseYear = JV_III_CODES.has(upperCode) || NI_LLC_CODES.has(upperCode);
+  // Base Year only applies to office leases (JV III + NI LLC + The Office Works).
+  // Hidden entirely for the SERVICE persona — they don't need lease financials.
+  const showBaseYear = !hideRent && (JV_III_CODES.has(upperCode) || NI_LLC_CODES.has(upperCode));
 
   const totSqft      = units.reduce((s, u) => s + u.sqft, 0);
   const totBaseRent  = units.reduce((s, u) => s + u.baseRent, 0);
