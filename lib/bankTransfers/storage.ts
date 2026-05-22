@@ -29,19 +29,51 @@ type Manifest = {
   updatedAt: string;
 };
 
+// Idempotent label remapping. We started with informal labels like
+// "LIK - Operating" / "Clearing" in the seed; once the From/To dropdowns
+// were wired to UNIQUE_BANK_ACCOUNTS, the canonical labels became
+// "JPM 2010 Operating (x9629)" and "JPM 2000 CLEAR (x1622)". Anything
+// still using the legacy strings is rewritten on first read after this
+// deploys, then persisted so the migration only runs once.
+const LEGACY_LABEL_MAP: Record<string, string> = {
+  "LIK - Operating": "JPM 2010 Operating (x9629)",
+  "Clearing":        "JPM 2000 CLEAR (x1622)",
+};
+
+function remapLabel(s: string): string {
+  return LEGACY_LABEL_MAP[s] ?? s;
+}
+
+function migrateLabels(transfers: BankTransfer[]): { transfers: BankTransfer[]; changed: boolean } {
+  let changed = false;
+  const next = transfers.map((t) => {
+    const from = remapLabel(t.fromLabel);
+    const to = remapLabel(t.toLabel);
+    if (from !== t.fromLabel || to !== t.toLabel) {
+      changed = true;
+      return { ...t, fromLabel: from, toLabel: to };
+    }
+    return t;
+  });
+  return { transfers: next, changed };
+}
+
 async function loadManifest(): Promise<Manifest> {
   const m = (await getJSON(MANIFEST_PREFIX, MANIFEST_ID)) as Manifest | null;
   if (m && Array.isArray(m.transfers) && m.seeded) {
-    return {
-      transfers: m.transfers,
+    const { transfers, changed } = migrateLabels(m.transfers);
+    const next: Manifest = {
+      transfers,
       shareFolderUrl: m.shareFolderUrl ?? DEFAULT_SHARE_FOLDER_URL,
       seeded: true,
-      updatedAt: m.updatedAt,
+      updatedAt: changed ? new Date().toISOString() : m.updatedAt,
     };
+    if (changed) await saveManifestRaw(next);
+    return next;
   }
-  const transfers = BANK_TRANSFERS_SEED();
+  const seeded = migrateLabels(BANK_TRANSFERS_SEED()).transfers;
   const next: Manifest = {
-    transfers,
+    transfers: seeded,
     shareFolderUrl: DEFAULT_SHARE_FOLDER_URL,
     seeded: true,
     updatedAt: new Date().toISOString(),
