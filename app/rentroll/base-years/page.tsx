@@ -58,18 +58,23 @@ const selectStyle: React.CSSProperties = {
 const NOW_YEAR = new Date().getFullYear();
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
+type TenantMeta = { baseYear?: number | string | null };
+
 export default function BaseYearExpensesPage() {
   const [propCode, setPropCode] = useState("3610");
   const [rrProps, setRrProps] = useState<RRProperty[] | null>(null);
   const [snapshots, setSnapshots] = useState<RRSnapshot[]>([]);
+  const [tenantMeta, setTenantMeta] = useState<Record<string, TenantMeta>>({});
 
   useEffect(() => {
     Promise.all([
       fetch("/api/rentroll").then((r) => (r.ok ? r.json() : null)).catch(() => null),
       fetch("/api/rentroll/history").then((r) => (r.ok ? r.json() : null)).catch(() => null),
-    ]).then(([rrJ, histJ]) => {
+      fetch("/api/tenant-meta").then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    ]).then(([rrJ, histJ, metaJ]) => {
       setRrProps(rrJ?.rentroll?.properties ?? []);
       setSnapshots(histJ?.snapshots ?? []);
+      setTenantMeta(metaJ?.tenantMeta ?? {});
     });
   }, []);
 
@@ -147,6 +152,8 @@ export default function BaseYearExpensesPage() {
           <SummaryTable expenses={expenses} />
 
           <ExpenseHistory expenses={expenses} years={years} currentOccPct={currentOccPct} />
+
+          <BaseYearBreakdown rrProp={rrProp} tenantMeta={tenantMeta} />
 
           <OccupancyHistory expenses={expenses} rrMonthly={rrMonthly} />
         </>
@@ -565,6 +572,126 @@ function OccupancyHistory({
               ? "Years marked * are filled from uploaded rent rolls."
               : "Rows for 2026 onward fill automatically as monthly rent rolls are uploaded."}
           </p>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ── Base Year Breakdown ──────────────────────────────────────────────────────
+// For the selected building, group occupied tenants by base-year value and
+// render a horizontal bar per group (length = % of occupied SF), with the
+// tenant names listed under each bar.
+function BaseYearBreakdown({
+  rrProp,
+  tenantMeta,
+}: {
+  rrProp: RRProperty | null;
+  tenantMeta: Record<string, { baseYear?: number | string | null }>;
+}) {
+  const groups = useMemo(() => {
+    if (!rrProp) return [];
+    type Tenant = { unitRef: string; name: string; sqft: number };
+    const byYear = new Map<string, Tenant[]>();
+    let totalSqft = 0;
+    for (const u of rrProp.units) {
+      if (u.isVacant) continue;
+      if (u.amenity) continue;
+      const meta = tenantMeta[u.unitRef];
+      const raw = meta?.baseYear;
+      const key = raw == null || raw === "" ? "Not set" : String(raw);
+      const list = byYear.get(key) ?? [];
+      list.push({ unitRef: u.unitRef, name: u.occupantName || u.unitRef, sqft: u.sqft });
+      byYear.set(key, list);
+      totalSqft += u.sqft;
+    }
+    return Array.from(byYear.entries())
+      .map(([year, tenants]) => ({
+        year,
+        tenants: tenants.sort((a, b) => b.sqft - a.sqft),
+        count: tenants.length,
+        sqft: tenants.reduce((s, t) => s + t.sqft, 0),
+        pct: totalSqft > 0 ? (tenants.reduce((s, t) => s + t.sqft, 0) / totalSqft) * 100 : 0,
+      }))
+      .sort((a, b) => {
+        // Numeric years ascending; "Not set" and free-text markers at the end.
+        const ay = /^\d+$/.test(a.year);
+        const by = /^\d+$/.test(b.year);
+        if (ay && by) return Number(a.year) - Number(b.year);
+        if (ay) return -1;
+        if (by) return 1;
+        if (a.year === "Not set") return 1;
+        if (b.year === "Not set") return -1;
+        return a.year.localeCompare(b.year);
+      });
+  }, [rrProp, tenantMeta]);
+
+  const grandTotal = groups.reduce((s, g) => s + g.sqft, 0);
+
+  return (
+    <div className="card" style={{ marginTop: 16 }}>
+      <p style={{ fontWeight: 700, marginBottom: 12 }}>Base Year Breakdown</p>
+      {!rrProp ? (
+        <p className="muted small">Loading rent roll…</p>
+      ) : groups.length === 0 ? (
+        <p className="muted small">No occupied tenants in this building.</p>
+      ) : (
+        <>
+          <p className="muted small" style={{ marginBottom: 14 }}>
+            {groups.reduce((s, g) => s + g.count, 0)} tenants ·{" "}
+            {grandTotal.toLocaleString()} sf across {groups.length} base-year group
+            {groups.length === 1 ? "" : "s"}.
+          </p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            {groups.map((g) => {
+              const isNotSet = g.year === "Not set";
+              const accent = isNotSet ? "#64748b" : "#0b4a7d";
+              const accentBg = isNotSet ? "rgba(100,116,139,0.10)" : "rgba(11,74,125,0.10)";
+              const accentBd = isNotSet ? "rgba(100,116,139,0.30)" : "rgba(11,74,125,0.30)";
+              return (
+                <div key={g.year} style={{ display: "grid", gridTemplateColumns: "120px 1fr", gap: 14, alignItems: "start" }}>
+                  <div>
+                    <span style={{
+                      display: "inline-block",
+                      padding: "4px 10px", borderRadius: 6,
+                      background: accentBg, color: accent,
+                      border: `1px solid ${accentBd}`,
+                      fontSize: 13, fontWeight: 800,
+                      fontVariantNumeric: "tabular-nums",
+                    }}>{g.year}</span>
+                    <div className="muted small" style={{ marginTop: 4 }}>
+                      {g.count} tenant{g.count === 1 ? "" : "s"} · {g.sqft.toLocaleString()} sf
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{
+                      width: "100%", height: 10, borderRadius: 999,
+                      background: "rgba(15,23,42,0.06)", overflow: "hidden",
+                      border: "1px solid var(--border)",
+                    }}>
+                      <div style={{ width: `${g.pct}%`, height: "100%", background: accent }} />
+                    </div>
+                    <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4 }}>
+                      {g.pct.toFixed(1)}% of occupied SF
+                    </div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
+                      {g.tenants.map((t) => (
+                        <span key={t.unitRef} style={{
+                          padding: "2px 8px", borderRadius: 999,
+                          background: accentBg, color: accent,
+                          border: `1px solid ${accentBd}`,
+                          fontSize: 11, fontWeight: 600,
+                          whiteSpace: "nowrap",
+                        }} title={`${t.unitRef} · ${t.sqft.toLocaleString()} sf`}>
+                          {t.name}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </>
       )}
     </div>

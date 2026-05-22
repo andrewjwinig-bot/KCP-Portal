@@ -173,11 +173,12 @@ function fmtResetDate(iso: string): string {
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
-function BaseYearCell({ unitRef, isVacant, value, onChange }: {
+function BaseYearCell({ unitRef, isVacant, value, onChange, readOnly }: {
   unitRef: string;
   isVacant: boolean;
   value: number | string | null;
   onChange: (v: number | string | null) => void;
+  readOnly?: boolean;
 }) {
   const resets = useContext(BaseYearResetsContext);
   const reset = resets[unitRef];
@@ -185,6 +186,24 @@ function BaseYearCell({ unitRef, isVacant, value, onChange }: {
   useEffect(() => { setText(value != null ? String(value) : ""); }, [value]);
 
   if (isVacant) return <span style={{ color: "var(--muted)" }}>—</span>;
+
+  const resetTitleRO = reset ? `Base year reset on ${fmtResetDate(reset.resetDate)}${reset.originalBaseYear ? ` (was ${reset.originalBaseYear})` : ""}${reset.notes ? ` — ${reset.notes}` : ""}` : undefined;
+
+  if (readOnly) {
+    return (
+      <span
+        title={resetTitleRO}
+        style={{
+          display: "inline-flex", alignItems: "center", gap: 4,
+          fontSize: 12, fontWeight: reset ? 700 : 500,
+          color: reset ? "#b91c1c" : "var(--text)",
+        }}
+      >
+        {value != null && value !== "" ? value : <span style={{ color: "var(--muted)" }}>—</span>}
+        {reset && <sup style={{ fontSize: 10, fontWeight: 800, color: "#b91c1c", lineHeight: 1 }}>※</sup>}
+      </span>
+    );
+  }
 
   function commit() {
     const trimmed = text.trim();
@@ -261,6 +280,10 @@ function UnitsTable({ units, propertyCode, hideNNN, tenantMeta, onBaseYearChange
   const { user } = useUser();
   // Maint persona never sees rent dollar amounts.
   const hideRent = user.id === "maint";
+  // Base Year is editable for Nancy and admin only — everyone else sees it
+  // as static text (no input). Stops other personas (Drew, Harry, Alison,
+  // Stacie) from accidentally rewriting a tenant's base year.
+  const baseYearReadOnly = !(user.id === "nancy" || user.id === "admin");
   const [showAll, setShowAll] = useState(true);
   const displayed = showAll ? units : units.slice(0, 10);
   const upperCode = propertyCode.toUpperCase();
@@ -383,6 +406,7 @@ function UnitsTable({ units, propertyCode, hideNNN, tenantMeta, onBaseYearChange
                         isVacant={unit.isVacant}
                         value={tenantMeta[unit.unitRef]?.baseYear ?? null}
                         onChange={(v) => onBaseYearChange(unit.unitRef, v)}
+                        readOnly={baseYearReadOnly}
                       />
                     </td>
                   )}

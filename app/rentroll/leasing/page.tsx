@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { RentRollData, RentRollUnit } from "../../../lib/rentroll/parseRentRollExcel";
+import { useUser } from "../../components/UserProvider";
 import LeasingActivityCard from "../LeasingActivityCard";
 import { PROPERTY_DEFS } from "../../../lib/properties/data";
 import {
@@ -161,6 +162,10 @@ function BaseYearResets({
   resets: Record<string, BaseYearReset>;
   setResets: (next: Record<string, BaseYearReset>) => void;
 }) {
+  const { user } = useUser();
+  // Base-year updates are restricted to Nancy and admin to prevent other
+  // personas from accidentally rewriting a tenant's negotiated terms.
+  const canEditBaseYear = user.id === "nancy" || user.id === "admin";
   // Build the office tenant dropdown options.
   const options = useMemo(() => {
     type Opt = { unitRef: string; label: string; propertyCode: string; occupantName: string; sqft: number };
@@ -272,8 +277,14 @@ function BaseYearResets({
 
       {open && (
       <>
+      {!canEditBaseYear && (
+        <div className="muted small" style={{ marginTop: 12, padding: "8px 12px", borderRadius: 6, background: "rgba(15,23,42,0.04)", border: "1px solid var(--border)" }}>
+          Read-only view. Only Nancy can record base-year resets.
+        </div>
+      )}
       {/* Form */}
-      <div style={{ display: "grid", gridTemplateColumns: "minmax(240px, 2.2fr) minmax(84px, 0.6fr) minmax(230px, 1.3fr) minmax(190px, 2fr) auto", gap: 10, alignItems: "flex-end", marginTop: 14 }}>
+      <fieldset disabled={!canEditBaseYear} style={{ border: "none", padding: 0, margin: 0, display: "contents" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(240px, 2.2fr) minmax(84px, 0.6fr) minmax(230px, 1.3fr) minmax(190px, 2fr) auto", gap: 10, alignItems: "flex-end", marginTop: 14, opacity: canEditBaseYear ? 1 : 0.55 }}>
         <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           <span style={fieldLabel}>Tenant (office only)</span>
           <select
@@ -344,6 +355,7 @@ function BaseYearResets({
         </button>
       </div>
       {error && <div style={{ marginTop: 8, fontSize: 12, color: "#b91c1c", fontWeight: 600 }}>{error}</div>}
+      </fieldset>
 
       {/* Reset impact for the selected tenant */}
       {selectedOption && (
@@ -382,15 +394,17 @@ function BaseYearResets({
                 <td style={{ padding: "10px 10px", whiteSpace: "nowrap" }}>{fmtDate(r.resetDate)}</td>
                 <td style={{ padding: "10px 10px" }}>{r.notes || <span className="muted small">—</span>}</td>
                 <td style={{ padding: "10px 10px" }}>
-                  <button
-                    type="button"
-                    onClick={() => remove(r.unitRef)}
-                    style={{
-                      background: "transparent", border: "1px solid rgba(220,38,38,0.35)",
-                      color: "#b91c1c", fontSize: 12, fontWeight: 600,
-                      padding: "4px 9px", borderRadius: 6, cursor: "pointer", fontFamily: "inherit",
-                    }}
-                  >Remove</button>
+                  {canEditBaseYear && (
+                    <button
+                      type="button"
+                      onClick={() => remove(r.unitRef)}
+                      style={{
+                        background: "transparent", border: "1px solid rgba(220,38,38,0.35)",
+                        color: "#b91c1c", fontSize: 12, fontWeight: 600,
+                        padding: "4px 9px", borderRadius: 6, cursor: "pointer", fontFamily: "inherit",
+                      }}
+                    >Remove</button>
+                  )}
                 </td>
               </tr>
             ))}
