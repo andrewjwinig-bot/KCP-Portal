@@ -477,18 +477,6 @@ function Toolbar({
                 No SharePoint folder linked yet.
               </span>
             )}
-            {canEdit && (
-              <button
-                type="button"
-                onClick={() => { setDraft(url); setEditing(true); setError(null); }}
-                style={{
-                  fontSize: 11, fontWeight: 600, color: "var(--brand)",
-                  background: "transparent", border: "none", cursor: "pointer", fontFamily: "inherit",
-                }}
-              >
-                {url ? "Change link" : "Link a folder"}
-              </button>
-            )}
             <input
               type="search"
               placeholder="Search bank, account, description…"
