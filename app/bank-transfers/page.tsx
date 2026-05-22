@@ -205,7 +205,6 @@ export default function BankTransfersPage() {
             <thead>
               <tr>
                 <th>Date</th>
-                <th>Bank</th>
                 <th>From</th>
                 <th>To</th>
                 <th style={{ textAlign: "right" }}>Amount</th>
@@ -215,10 +214,10 @@ export default function BankTransfersPage() {
             </thead>
             <tbody>
               {loading && (
-                <tr><td colSpan={7} className="muted small" style={{ padding: 16 }}>Loading…</td></tr>
+                <tr><td colSpan={6} className="muted small" style={{ padding: 16 }}>Loading…</td></tr>
               )}
               {!loading && filtered.length === 0 && (
-                <tr><td colSpan={7} className="muted small" style={{ padding: 16 }}>No transfers.</td></tr>
+                <tr><td colSpan={6} className="muted small" style={{ padding: 16 }}>No transfers.</td></tr>
               )}
               {filtered.map((t) => (
                 <tr
@@ -226,8 +225,10 @@ export default function BankTransfersPage() {
                   style={{ cursor: canEdit ? "pointer" : "default" }}
                   onClick={canEdit ? () => setEditing(t) : undefined}
                 >
-                  <td style={{ whiteSpace: "nowrap", fontWeight: 600 }}>{prettyDate(t.date)}</td>
-                  <td>{normalizeBank(t.bankName)}</td>
+                  <td style={{ whiteSpace: "nowrap" }}>
+                    <div style={{ fontWeight: 600 }}>{prettyDate(t.date)}</div>
+                    <div className="muted small">{normalizeBank(t.bankName)}</div>
+                  </td>
                   <td>{t.fromLabel}</td>
                   <td>{t.toLabel}</td>
                   <td style={{ textAlign: "right", fontWeight: 600, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
