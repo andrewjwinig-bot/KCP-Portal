@@ -5,6 +5,8 @@ import {
   OFFICE_BUILDINGS,
   SEED_EXPENSES,
   expenseYears,
+  latestExpenseYear,
+  reimbursement,
   type PropertyExpenses,
 } from "@/lib/rentroll/baseYearExpenses";
 
@@ -155,7 +157,7 @@ export default function BaseYearExpensesPage() {
 
           <OccupancyHistory expenses={expenses} rrMonthly={rrMonthly} />
 
-          <BaseYearBreakdown rrProp={rrProp} tenantMeta={tenantMeta} />
+          <BaseYearBreakdown rrProp={rrProp} tenantMeta={tenantMeta} expenses={expenses} />
         </>
       )}
 
@@ -582,74 +584,162 @@ function OccupancyHistory({
 // For the selected building, group occupied tenants by base-year value and
 // render a horizontal bar per group (length = % of occupied SF), with the
 // tenant names listed under each bar.
+// Recovery Analysis: for the selected building, group occupied office
+// tenants by base year and compute the CAM + RET reimbursement each
+// group owes against the building's latest reported year of expenses.
+// Surfaces "who's carrying the recovery" plus the upside of resetting
+// a base year (= the difference between today's recoverable and zero
+// if reset to the current year).
 function BaseYearBreakdown({
   rrProp,
   tenantMeta,
+  expenses,
 }: {
   rrProp: RRProperty | null;
   tenantMeta: Record<string, { baseYear?: number | string | null }>;
+  expenses: PropertyExpenses;
 }) {
-  const groups = useMemo(() => {
-    if (!rrProp) return [];
-    type Tenant = { unitRef: string; name: string; sqft: number };
-    const byYear = new Map<string, Tenant[]>();
-    let totalSqft = 0;
-    for (const u of rrProp.units) {
-      if (u.isVacant) continue;
-      if (u.amenity) continue;
-      const meta = tenantMeta[u.unitRef];
-      const raw = meta?.baseYear;
-      const key = raw == null || raw === "" ? "Not set" : String(raw);
-      const list = byYear.get(key) ?? [];
-      list.push({ unitRef: u.unitRef, name: u.occupantName || u.unitRef, sqft: u.sqft });
-      byYear.set(key, list);
-      totalSqft += u.sqft;
-    }
-    return Array.from(byYear.entries())
-      .map(([year, tenants]) => ({
-        year,
-        tenants: tenants.sort((a, b) => b.sqft - a.sqft),
-        count: tenants.length,
-        sqft: tenants.reduce((s, t) => s + t.sqft, 0),
-        pct: totalSqft > 0 ? (tenants.reduce((s, t) => s + t.sqft, 0) / totalSqft) * 100 : 0,
-      }))
-      .sort((a, b) => {
-        // Newest numeric years first; "Not set" and free-text markers at the end.
-        const ay = /^\d+$/.test(a.year);
-        const by = /^\d+$/.test(b.year);
-        if (ay && by) return Number(b.year) - Number(a.year);
-        if (ay) return -1;
-        if (by) return 1;
-        if (a.year === "Not set") return 1;
-        if (b.year === "Not set") return -1;
-        return a.year.localeCompare(b.year);
-      });
-  }, [rrProp, tenantMeta]);
+  const latestYear = useMemo(() => latestExpenseYear(expenses), [expenses]);
 
-  const grandTotal = groups.reduce((s, g) => s + g.sqft, 0);
+  type TenantRow = {
+    unitRef: string;
+    name: string;
+    sqft: number;
+    prsPct: number;          // tenant SF / rentable SF * 100
+    cam: number;             // recoverable CAM ($/yr)
+    ret: number;             // recoverable RET ($/yr)
+    total: number;           // cam + ret
+    numericBase: number | null;
+  };
+  type Group = {
+    year: string;
+    isNumeric: boolean;
+    tenants: TenantRow[];
+    sqft: number;
+    prsPct: number;
+    cam: number;
+    ret: number;
+    total: number;
+  };
+
+  const { groups, totals } = useMemo(() => {
+    if (!rrProp || !latestYear) {
+      return {
+        groups: [] as Group[],
+        totals: { cam: 0, ret: 0, total: 0, latestOpEx: 0, latestRet: 0 },
+      };
+    }
+    const byYear = new Map<string, TenantRow[]>();
+    for (const u of rrProp.units) {
+      if (u.isVacant || u.amenity) continue;
+      const raw = tenantMeta[u.unitRef]?.baseYear;
+      const numericBase = typeof raw === "number"
+        ? raw
+        : (typeof raw === "string" && /^\d{4}$/.test(raw) ? Number(raw) : null);
+      const key = raw == null || raw === "" ? "Not set" : String(raw);
+      const prsPct = expenses.rentableSqft > 0 ? (u.sqft / expenses.rentableSqft) * 100 : 0;
+      const cam = numericBase != null
+        ? (reimbursement(expenses, u.sqft, numericBase, latestYear, "opex") ?? 0)
+        : 0;
+      const total = numericBase != null
+        ? (reimbursement(expenses, u.sqft, numericBase, latestYear, "opexRet") ?? 0)
+        : 0;
+      const row: TenantRow = {
+        unitRef: u.unitRef,
+        name: u.occupantName || u.unitRef,
+        sqft: u.sqft,
+        prsPct,
+        cam,
+        ret: Math.max(0, total - cam),
+        total,
+        numericBase,
+      };
+      const list = byYear.get(key) ?? [];
+      list.push(row);
+      byYear.set(key, list);
+    }
+    const groups: Group[] = Array.from(byYear.entries()).map(([year, tenants]) => {
+      tenants.sort((a, b) => b.total - a.total);
+      const sqft = tenants.reduce((s, t) => s + t.sqft, 0);
+      return {
+        year,
+        isNumeric: /^\d+$/.test(year),
+        tenants,
+        sqft,
+        prsPct: expenses.rentableSqft > 0 ? (sqft / expenses.rentableSqft) * 100 : 0,
+        cam: tenants.reduce((s, t) => s + t.cam, 0),
+        ret: tenants.reduce((s, t) => s + t.ret, 0),
+        total: tenants.reduce((s, t) => s + t.total, 0),
+      };
+    }).sort((a, b) => {
+      // Newest numeric year first; "Not set" / non-numeric at the end.
+      if (a.isNumeric && b.isNumeric) return Number(b.year) - Number(a.year);
+      if (a.isNumeric) return -1;
+      if (b.isNumeric) return 1;
+      if (a.year === "Not set") return 1;
+      if (b.year === "Not set") return -1;
+      return a.year.localeCompare(b.year);
+    });
+    const totals = groups.reduce(
+      (acc, g) => ({
+        cam: acc.cam + g.cam,
+        ret: acc.ret + g.ret,
+        total: acc.total + g.total,
+        latestOpEx: expenses.opExGrossedUp[String(latestYear)] ?? 0,
+        latestRet: expenses.ret[String(latestYear)] ?? 0,
+      }),
+      { cam: 0, ret: 0, total: 0, latestOpEx: 0, latestRet: 0 },
+    );
+    return { groups, totals };
+  }, [rrProp, tenantMeta, expenses, latestYear]);
+
+  const groupMaxTotal = Math.max(1, ...groups.map((g) => g.total));
+  const latestExpenseTotal = totals.latestOpEx + totals.latestRet;
+  const pctOfExpenses = latestExpenseTotal > 0 ? (totals.total / latestExpenseTotal) * 100 : 0;
 
   return (
     <div className="card" style={{ marginTop: 16 }}>
-      <p style={{ fontWeight: 700, marginBottom: 12 }}>Base Year Breakdown</p>
+      <p style={{ fontWeight: 700, marginBottom: 4 }}>Recovery Analysis by Base Year</p>
+      <p className="muted small" style={{ marginBottom: 14 }}>
+        Pro-rata reimbursement each tenant owes against the building&rsquo;s {latestYear ?? "latest"} CAM + RET,
+        grouped by current base year. INS is bundled inside CAM in the workbook,
+        so it&rsquo;s captured in the CAM column.
+      </p>
+
       {!rrProp ? (
         <p className="muted small">Loading rent roll…</p>
+      ) : !latestYear ? (
+        <p className="muted small">No expense history available for this building.</p>
       ) : groups.length === 0 ? (
         <p className="muted small">No occupied tenants in this building.</p>
       ) : (
         <>
-          <p className="muted small" style={{ marginBottom: 14 }}>
-            {groups.reduce((s, g) => s + g.count, 0)} tenants ·{" "}
-            {grandTotal.toLocaleString()} sf across {groups.length} base-year group
-            {groups.length === 1 ? "" : "s"}.
-          </p>
+          {/* Top summary */}
+          <div style={{
+            display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+            gap: 12, marginBottom: 18,
+          }}>
+            <SummaryTile label={`Recoverable CAM (${latestYear})`} value={money(totals.cam)} accent="#0b4a7d" />
+            <SummaryTile label={`Recoverable RET (${latestYear})`} value={money(totals.ret)} accent="#0b4a7d" />
+            <SummaryTile label="Total recoverable / yr" value={money(totals.total)} accent="#16a34a" bold />
+            <SummaryTile
+              label={`% of ${latestYear} OpEx + RET`}
+              value={pctOfExpenses.toFixed(1) + "%"}
+              accent="#64748b"
+              sub={`vs ${money(latestExpenseTotal)} expenses`}
+            />
+          </div>
+
+          {/* Group rows */}
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             {groups.map((g) => {
               const isNotSet = g.year === "Not set";
-              const accent = isNotSet ? "#64748b" : "#0b4a7d";
-              const accentBg = isNotSet ? "rgba(100,116,139,0.10)" : "rgba(11,74,125,0.10)";
-              const accentBd = isNotSet ? "rgba(100,116,139,0.30)" : "rgba(11,74,125,0.30)";
+              const accent = isNotSet || !g.isNumeric ? "#64748b" : "#0b4a7d";
+              const accentBg = isNotSet || !g.isNumeric ? "rgba(100,116,139,0.10)" : "rgba(11,74,125,0.10)";
+              const accentBd = isNotSet || !g.isNumeric ? "rgba(100,116,139,0.30)" : "rgba(11,74,125,0.30)";
+              const groupBarPct = (g.total / groupMaxTotal) * 100;
               return (
-                <div key={g.year} style={{ display: "grid", gridTemplateColumns: "120px 1fr", gap: 14, alignItems: "start" }}>
+                <div key={g.year} style={{ display: "grid", gridTemplateColumns: "150px 1fr", gap: 14, alignItems: "start" }}>
                   <div>
                     <span style={{
                       display: "inline-block",
@@ -660,31 +750,76 @@ function BaseYearBreakdown({
                       fontVariantNumeric: "tabular-nums",
                     }}>{g.year}</span>
                     <div className="muted small" style={{ marginTop: 4 }}>
-                      {g.count} tenant{g.count === 1 ? "" : "s"} · {g.sqft.toLocaleString()} sf
+                      {g.tenants.length} tenant{g.tenants.length === 1 ? "" : "s"}
+                    </div>
+                    <div className="muted small">
+                      {g.sqft.toLocaleString()} sf · {g.prsPct.toFixed(1)}% PRS
                     </div>
                   </div>
                   <div>
+                    {/* Group totals row + recovery bar */}
+                    <div style={{ display: "flex", alignItems: "baseline", gap: 14, flexWrap: "wrap" }}>
+                      <span style={{ fontSize: 14, fontWeight: 800, color: accent, fontVariantNumeric: "tabular-nums" }}>
+                        {money(g.total)} / yr
+                      </span>
+                      <span className="muted small" style={{ fontVariantNumeric: "tabular-nums" }}>
+                        CAM {money(g.cam)} · RET {money(g.ret)}
+                      </span>
+                    </div>
                     <div style={{
-                      width: "100%", height: 10, borderRadius: 999,
+                      marginTop: 6, width: "100%", height: 8, borderRadius: 999,
                       background: "rgba(15,23,42,0.06)", overflow: "hidden",
                       border: "1px solid var(--border)",
                     }}>
-                      <div style={{ width: `${g.pct}%`, height: "100%", background: accent }} />
+                      <div style={{ width: `${groupBarPct}%`, height: "100%", background: accent }} />
                     </div>
-                    <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4 }}>
-                      {g.pct.toFixed(1)}% of occupied SF
-                    </div>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
+                    {!g.isNumeric && (
+                      <p className="muted small" style={{ marginTop: 6 }}>
+                        Recovery $ not computed — base year is {g.year === "Not set" ? "not set" : `non-numeric (${g.year})`}.
+                      </p>
+                    )}
+                    {/* Per-tenant detail */}
+                    <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 4 }}>
+                      <div style={{
+                        display: "grid",
+                        gridTemplateColumns: "minmax(0, 1.6fr) 70px 90px 90px 100px",
+                        gap: 10, alignItems: "center",
+                        fontSize: 10, fontWeight: 700, letterSpacing: "0.04em",
+                        textTransform: "uppercase", color: "var(--muted)",
+                        padding: "0 8px",
+                      }}>
+                        <span>Tenant</span>
+                        <span style={{ textAlign: "right" }}>PRS</span>
+                        <span style={{ textAlign: "right" }}>CAM</span>
+                        <span style={{ textAlign: "right" }}>RET</span>
+                        <span style={{ textAlign: "right" }}>Total</span>
+                      </div>
                       {g.tenants.map((t) => (
-                        <span key={t.unitRef} style={{
-                          padding: "2px 8px", borderRadius: 999,
-                          background: accentBg, color: accent,
-                          border: `1px solid ${accentBd}`,
-                          fontSize: 11, fontWeight: 600,
-                          whiteSpace: "nowrap",
-                        }} title={`${t.unitRef} · ${t.sqft.toLocaleString()} sf`}>
-                          {t.name}
-                        </span>
+                        <div key={t.unitRef} style={{
+                          display: "grid",
+                          gridTemplateColumns: "minmax(0, 1.6fr) 70px 90px 90px 100px",
+                          gap: 10, alignItems: "center",
+                          fontSize: 12,
+                          padding: "4px 8px",
+                          borderRadius: 6,
+                          background: "rgba(15,23,42,0.03)",
+                        }}>
+                          <span style={{ fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={`${t.unitRef} · ${t.sqft.toLocaleString()} sf`}>
+                            {t.name}
+                          </span>
+                          <span className="muted" style={{ fontVariantNumeric: "tabular-nums", textAlign: "right" }}>
+                            {t.prsPct.toFixed(2)}%
+                          </span>
+                          <span style={{ fontVariantNumeric: "tabular-nums", textAlign: "right" }}>
+                            {g.isNumeric ? money(t.cam) : "—"}
+                          </span>
+                          <span style={{ fontVariantNumeric: "tabular-nums", textAlign: "right" }}>
+                            {g.isNumeric ? money(t.ret) : "—"}
+                          </span>
+                          <span style={{ fontVariantNumeric: "tabular-nums", textAlign: "right", fontWeight: 700, color: accent }}>
+                            {g.isNumeric ? money(t.total) : "—"}
+                          </span>
+                        </div>
                       ))}
                     </div>
                   </div>
@@ -694,6 +829,39 @@ function BaseYearBreakdown({
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+function SummaryTile({
+  label,
+  value,
+  accent,
+  bold,
+  sub,
+}: {
+  label: string;
+  value: string;
+  accent: string;
+  bold?: boolean;
+  sub?: string;
+}) {
+  return (
+    <div style={{
+      padding: "10px 14px",
+      borderRadius: 8,
+      background: "rgba(15,23,42,0.03)",
+      border: "1px solid var(--border)",
+    }}>
+      <div style={{
+        fontSize: 10, fontWeight: 700, letterSpacing: "0.06em",
+        textTransform: "uppercase", color: "var(--muted)",
+      }}>{label}</div>
+      <div style={{
+        fontSize: bold ? 22 : 18, fontWeight: 800, color: accent,
+        marginTop: 4, fontVariantNumeric: "tabular-nums",
+      }}>{value}</div>
+      {sub && <div className="muted small" style={{ marginTop: 2 }}>{sub}</div>}
     </div>
   );
 }
