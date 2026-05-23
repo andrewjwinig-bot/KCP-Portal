@@ -52,6 +52,31 @@ export type CamCategoryConfig = {
   adminFeePct: number | null;
 };
 
+/**
+ * Lease-level CAM expense cap. Currently used by one tenant only —
+ * National Fitness Partners at 2300 — whose lease caps CAM at the lesser
+ * of (current-year applicable CAM × PRS) or (prior-year controllable
+ * expenses × growth × PRS). The "controllable" base must be updated each
+ * year — bump `baseYear` and `controllableAmount` to the new prior year
+ * when reconciling, and the displayed cap recomputes against it.
+ *
+ * Kept optional so other tenants' configs stay simple; treat it as an
+ * outlier marker in the UI.
+ */
+export type CamCap = {
+  /** Year that controllableAmount refers to (the cap applies to baseYear + 1). */
+  baseYear: number;
+  /** Prior-year controllable operating expenses in $. */
+  controllableAmount: number;
+  /** Annual growth applied to the prior-year amount, in % (typical = 4). */
+  growthPct: number;
+  /** This tenant doesn't pay Liability Insurance — flagged on the CAM cap
+   *  card so reconciliation knows to back it out manually. */
+  excludeLiabilityInsurance: boolean;
+  /** Free-text reminder shown next to the cap fields. */
+  notes: string;
+};
+
 export type CamConfig = {
   unitRef: string;
   /** When true the tenant pays gross rent — no CAM/INS/RET reconciliation.
@@ -71,6 +96,8 @@ export type CamConfig = {
   camAdminExcludedLines: string[];
   /** CAM lines this tenant is NOT billed for (lease-specific exclusions). */
   camExcludedLines: string[];
+  /** Optional CAM cap rider (outlier — currently only NFP at 2300). */
+  camCap?: CamCap;
   updatedAt: string;
 };
 
@@ -106,6 +133,24 @@ function asCategory(value: unknown): CamCategoryConfig {
   return {
     stipulatedPrs: asPct(v.stipulatedPrs),
     adminFeePct: asPct(v.adminFeePct),
+  };
+}
+
+function asCamCap(value: unknown): CamCap | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const v = value as Record<string, unknown>;
+  const baseYear = Number(v.baseYear);
+  const controllableAmount = Number(v.controllableAmount);
+  const growthPctRaw = Number(v.growthPct);
+  if (!Number.isFinite(baseYear) || baseYear < 1900 || baseYear > 2100) return undefined;
+  if (!Number.isFinite(controllableAmount) || controllableAmount < 0) return undefined;
+  const growthPct = Number.isFinite(growthPctRaw) ? Math.max(0, Math.min(100, growthPctRaw)) : 4;
+  return {
+    baseYear: Math.round(baseYear),
+    controllableAmount: Math.round(controllableAmount * 100) / 100,
+    growthPct: Math.round(growthPct * 100) / 100,
+    excludeLiabilityInsurance: v.excludeLiabilityInsurance === true,
+    notes: typeof v.notes === "string" ? v.notes.slice(0, 500) : "",
   };
 }
 
@@ -154,6 +199,7 @@ export function sanitizeCamConfig(unitRef: string, body: unknown): CamConfig {
     ret: asCategory(b.ret),
     camAdminExcludedLines,
     camExcludedLines,
+    camCap: asCamCap(b.camCap),
     updatedAt: new Date().toISOString(),
   };
 }
