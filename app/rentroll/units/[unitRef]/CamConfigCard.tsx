@@ -429,7 +429,172 @@ export default function CamConfigCard({
           />
           <span style={{ fontWeight: 600, color: "var(--text)" }}>Expense Pool Exclusions</span>
         </label>
+        <label style={{
+          display: "flex", alignItems: "center", gap: 8, fontSize: 13,
+          cursor: isGross ? "not-allowed" : "pointer",
+          opacity: isGross ? 0.5 : 1,
+        }} title="Lease-level CAM cap (outlier — currently only NFP at 2300)">
+          <input
+            type="checkbox"
+            checked={!!config.camCap}
+            disabled={isGross}
+            onChange={(e) => update({
+              camCap: e.target.checked
+                ? (config.camCap ?? {
+                    baseYear: new Date().getFullYear() - 1,
+                    controllableAmount: 0,
+                    growthPct: 4,
+                    excludeLiabilityInsurance: false,
+                    notes: "",
+                  })
+                : undefined,
+            })}
+            style={{ width: 15, height: 15, cursor: "pointer" }}
+          />
+          <span style={{ fontWeight: 600, color: "var(--text)" }}>CAM Cap</span>
+          <span style={{
+            fontSize: 10, fontWeight: 700, letterSpacing: "0.06em",
+            textTransform: "uppercase", color: "#b45309",
+            background: "rgba(217,119,6,0.10)", border: "1px solid rgba(217,119,6,0.35)",
+            padding: "1px 6px", borderRadius: 4,
+          }}>Outlier</span>
+        </label>
       </div>
+
+      {/* CAM Cap panel — appears when CAM Cap is checked. Single-tenant
+          outlier feature so it stays scoped to this card only. */}
+      {config.camCap && !isGross && (() => {
+        const cap = config.camCap;
+        const nextYear = cap.baseYear + 1;
+        const capAmount = cap.controllableAmount * (1 + cap.growthPct / 100);
+        const currentYear = new Date().getFullYear();
+        const isStale = cap.baseYear < currentYear - 1;
+        return (
+          <div style={{
+            marginTop: 14, paddingTop: 14,
+            borderTop: "1px solid var(--border)",
+          }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 10 }}>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>
+                  CAM Cap · outlier
+                </div>
+                <div className="small muted" style={{ marginTop: 2 }}>
+                  Bill the lesser of (current-year applicable CAM × PRS) or (prior-year controllable × growth × PRS). Bump the base year and amount each reconciliation cycle.
+                </div>
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <div style={{
+                  fontSize: 22, fontWeight: 900, color: "#0b4a7d",
+                  fontVariantNumeric: "tabular-nums",
+                }}>
+                  {capAmount.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 })}
+                </div>
+                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>
+                  Cap for {nextYear} reconciliation
+                </div>
+              </div>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12, alignItems: "end" }}>
+              <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                  Base year (prior)
+                </span>
+                <input
+                  type="number"
+                  value={cap.baseYear}
+                  min={1900}
+                  max={2100}
+                  onChange={(e) => {
+                    const v = Number(e.target.value);
+                    if (Number.isFinite(v)) update({ camCap: { ...cap, baseYear: Math.round(v) } });
+                  }}
+                  style={{
+                    padding: "8px 10px", borderRadius: 6, border: "1px solid var(--border)",
+                    background: "var(--card)", color: "var(--text)", fontSize: 13, fontFamily: "inherit",
+                  }}
+                />
+              </label>
+              <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                  Controllable expenses ({cap.baseYear})
+                </span>
+                <input
+                  type="number"
+                  value={cap.controllableAmount}
+                  min={0}
+                  step="0.01"
+                  onChange={(e) => {
+                    const v = Number(e.target.value);
+                    if (Number.isFinite(v)) update({ camCap: { ...cap, controllableAmount: Math.max(0, v) } });
+                  }}
+                  style={{
+                    padding: "8px 10px", borderRadius: 6, border: "1px solid var(--border)",
+                    background: "var(--card)", color: "var(--text)", fontSize: 13, fontFamily: "inherit",
+                  }}
+                />
+              </label>
+              <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                  Annual growth %
+                </span>
+                <input
+                  type="number"
+                  value={cap.growthPct}
+                  min={0}
+                  max={100}
+                  step="0.1"
+                  onChange={(e) => {
+                    const v = Number(e.target.value);
+                    if (Number.isFinite(v)) update({ camCap: { ...cap, growthPct: Math.max(0, Math.min(100, v)) } });
+                  }}
+                  style={{
+                    padding: "8px 10px", borderRadius: 6, border: "1px solid var(--border)",
+                    background: "var(--card)", color: "var(--text)", fontSize: 13, fontFamily: "inherit",
+                  }}
+                />
+              </label>
+            </div>
+            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, marginTop: 12, cursor: "pointer" }}>
+              <input
+                type="checkbox"
+                checked={cap.excludeLiabilityInsurance}
+                onChange={(e) => update({ camCap: { ...cap, excludeLiabilityInsurance: e.target.checked } })}
+                style={{ width: 15, height: 15, cursor: "pointer" }}
+              />
+              <span style={{ color: "var(--text)" }}>
+                Tenant does <b>not</b> pay Liability Insurance (broken out of CAM but no separate GL — back out manually at reconciliation)
+              </span>
+            </label>
+            <label style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 10 }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                Notes
+              </span>
+              <textarea
+                rows={2}
+                value={cap.notes}
+                placeholder="Lease cite, etc."
+                onChange={(e) => update({ camCap: { ...cap, notes: e.target.value.slice(0, 500) } })}
+                style={{
+                  padding: "8px 10px", borderRadius: 6, border: "1px solid var(--border)",
+                  background: "var(--card)", color: "var(--text)", fontSize: 13, fontFamily: "inherit",
+                  resize: "vertical",
+                }}
+              />
+            </label>
+            {isStale && (
+              <div style={{
+                marginTop: 10, padding: "8px 10px", borderRadius: 6,
+                background: "rgba(220,38,38,0.06)",
+                border: "1px solid rgba(220,38,38,0.35)",
+                color: "#b91c1c", fontSize: 12, fontWeight: 600,
+              }}>
+                Base year is {cap.baseYear} — for a {currentYear} reconciliation the cap should be based on {currentYear - 1} controllable. Update before billing.
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Exclusion pickers reveal directly beneath the two checkboxes
           that control them, so the cause/effect reads at a glance.
