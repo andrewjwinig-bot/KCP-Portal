@@ -235,7 +235,12 @@ export async function POST(req: Request) {
       // Title — two lines (swaps to the shopping-center wordmark on retail
       // reports; office / all reports keep the Neshaminy Interplex header)
       const isRetail = category === "Retail";
-      const line1 = isRetail ? "Korman Commercial Shopping Center" : "Neshaminy Interplex Business Center";
+      const isResidential = category === "Residential";
+      const line1 = isRetail
+        ? "Korman Commercial Shopping Center"
+        : isResidential
+          ? "Korman Homes"
+          : "Neshaminy Interplex Business Center";
       const line2 = "Leasing Status Report";
       const titleSz = 24;
       const line1W = fontBold.widthOfTextAtSize(line1, titleSz);
