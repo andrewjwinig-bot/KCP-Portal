@@ -148,6 +148,294 @@ function cellVal(col: string, unit: any, tenantMeta?: Record<string, { baseYear?
   }
 }
 
+// ── Building-color palettes for the stacked Lease Expirations chart ──────────
+// (mirrors the dashboard ExpirationChart palette so the report matches).
+const RETAIL_BUILDING_COLORS: Record<string, [number, number, number]> = {
+  "1100": [0.043, 0.290, 0.490],
+  "1500": [0.145, 0.388, 0.922],
+  "2300": [0.051, 0.580, 0.533],
+  "4500": [0.086, 0.639, 0.290],
+  "5600": [0.518, 0.800, 0.086],
+  "7010": [0.851, 0.467, 0.024],
+  "7200": [0.918, 0.345, 0.047],
+  "7300": [0.863, 0.149, 0.149],
+  "8200": [0.859, 0.153, 0.467],
+  "9200": [0.486, 0.227, 0.929],
+  "9510": [0.310, 0.275, 0.898],
+};
+const RESIDENTIAL_BUILDING_COLORS: Record<string, [number, number, number]> = {
+  "9800": [0.035, 0.569, 0.698],
+  "9820": [0.055, 0.455, 0.565],
+  "9840": [0.082, 0.369, 0.459],
+  "9860": [0.024, 0.714, 0.831],
+};
+
+/**
+ * Shared "Portfolio Occupancy + Lease Expirations" page used by Retail
+ * and Residential reports. Filtered properties are the only input —
+ * subtitle / footer wording / building color palette come from opts.
+ */
+function drawScopedOccupancyAndExpirations(
+  pdfDoc: PDFDocument,
+  font: PDFFont,
+  fontBold: PDFFont,
+  props: any[],
+  periodStr: string,
+  opts: {
+    subtitle: string;
+    expirationsSubtitle: string;
+    footerNoun: string;
+    colorPalette: Record<string, [number, number, number]>;
+  },
+): void {
+  type Bar = { code: string; name: string; occupied: number; vacant: number; total: number };
+  const bars: Bar[] = props
+    .map((p: any) => {
+      let occ = 0, vac = 0;
+      for (const u of p.units) {
+        if (u.isVacant) vac += u.sqft;
+        else            occ += u.sqft;
+      }
+      const code = String(p.propertyCode).toUpperCase();
+      return {
+        code,
+        name: propDisplayName(code, p.reportedPropertyName || code),
+        occupied: occ,
+        vacant: vac,
+        total: p.totalSqft,
+      };
+    })
+    .filter((b: Bar) => b.total > 0)
+    .sort((a: Bar, b: Bar) => a.code.localeCompare(b.code));
+
+  const totalOcc = bars.reduce((s, b) => s + b.occupied, 0);
+  const totalVac = bars.reduce((s, b) => s + b.vacant, 0);
+  const totalSf = totalOcc + totalVac;
+  const occPct = totalSf > 0 ? (totalOcc / totalSf) * 100 : 0;
+
+  const occColor = (p: number) =>
+    p >= 90 ? rgb(0.086, 0.639, 0.290)
+    : p >= 70 ? rgb(0.043, 0.290, 0.490)
+    : rgb(0.851, 0.467, 0.024);
+
+  const kSqft = (n: number) => n >= 1000 ? `${Math.round(n / 1000)}k` : String(n);
+
+  const periodTopRight = periodStr || "####";
+  const prW = fontBold.widthOfTextAtSize(periodTopRight, 11);
+
+  // ── Single page: Portfolio Occupancy (top half) + Lease Expirations (bottom half)
+  const page = pdfDoc.addPage([PW, PH]);
+  page.drawLine({ start: { x: M, y: py(M) }, end: { x: PW - M, y: py(M) }, thickness: 2, color: C_BRAND });
+  page.drawText(periodTopRight, { x: PW - M - prW, y: py(M + 14), size: 11, font: fontBold, color: C_DARK });
+
+  const title = "Occupancy & Lease Expirations";
+  const titleSz = 20;
+  const titleW = fontBold.widthOfTextAtSize(title, titleSz);
+  page.drawText(title, { x: (PW - titleW) / 2, y: py(M + 36), size: titleSz, font: fontBold, color: C_DARK });
+  const subSz = 10;
+  const subW = font.widthOfTextAtSize(opts.subtitle, subSz);
+  page.drawText(opts.subtitle, { x: (PW - subW) / 2, y: py(M + 54), size: subSz, font, color: C_BRAND });
+
+  // ── Section A: Portfolio Occupancy ─────────────────────────────
+  {
+    const sectionTop = M + 70;
+    page.drawText("PORTFOLIO OCCUPANCY", { x: M, y: py(sectionTop + 9), size: 9, font: fontBold, color: C_MUTED });
+
+    const headlineTop = sectionTop + 14;
+    const pctColor = occColor(occPct);
+    const pctText = `${occPct.toFixed(1)}%`;
+    const pctSz = 28;
+    page.drawText(pctText, { x: M + 6, y: py(headlineTop + pctSz - 2), size: pctSz, font: fontBold, color: pctColor });
+    page.drawText("OCCUPIED", { x: M + 6, y: py(headlineTop + pctSz + 10), size: 7, font: fontBold, color: C_MUTED });
+
+    const barLeft = M + 100;
+    const barRight = PW - M - 8;
+    const barWidth = barRight - barLeft;
+    const barH = 18;
+    const barTop = headlineTop + 4;
+    page.drawRectangle({ x: barLeft, y: py(barTop + barH), width: barWidth, height: barH, color: rgb(0.93, 0.94, 0.95), borderColor: C_LINE, borderWidth: 1 });
+    const fillW = barWidth * (occPct / 100);
+    if (fillW > 0) {
+      page.drawRectangle({ x: barLeft, y: py(barTop + barH), width: fillW, height: barH, color: pctColor });
+    }
+    const labelY = barTop + barH + 11;
+    const lblOcc = `${sqftFmt(totalOcc)} occupied`;
+    const lblVac = `${sqftFmt(totalVac)} vacant`;
+    const lblTot = `${sqftFmt(totalSf)} total sf`;
+    page.drawText(lblOcc, { x: barLeft, y: py(labelY), size: 8, font, color: C_DARK });
+    const vW = font.widthOfTextAtSize(lblVac, 8);
+    page.drawText(lblVac, { x: barLeft + (barWidth - vW) / 2, y: py(labelY), size: 8, font, color: C_DARK });
+    const tW = font.widthOfTextAtSize(lblTot, 8);
+    page.drawText(lblTot, { x: barRight - tW, y: py(labelY), size: 8, font, color: C_DARK });
+
+    const colsTop = labelY + 14;
+    const usableW = PW - 2 * M;
+    const colW = bars.length > 0 ? usableW / bars.length : usableW;
+    const colH = 70;
+    for (let i = 0; i < bars.length; i++) {
+      const b = bars[i];
+      const bpct = b.total > 0 ? (b.occupied / b.total) * 100 : 0;
+      const bColor = occColor(bpct);
+      const cx = M + i * colW;
+      const colInnerW = 32;
+      const colInnerX = cx + (colW - colInnerW) / 2;
+      const pctLbl = `${bpct.toFixed(1)}%`;
+      const pctW = fontBold.widthOfTextAtSize(pctLbl, 9);
+      page.drawText(pctLbl, { x: cx + (colW - pctW) / 2, y: py(colsTop), size: 9, font: fontBold, color: bColor });
+      const colBarTop = colsTop + 5;
+      page.drawRectangle({ x: colInnerX, y: py(colBarTop + colH), width: colInnerW, height: colH, color: rgb(0.94, 0.95, 0.96), borderColor: C_LINE, borderWidth: 0.5 });
+      const fillH2 = colH * (bpct / 100);
+      if (fillH2 > 0) {
+        page.drawRectangle({ x: colInnerX, y: py(colBarTop + colH), width: colInnerW, height: fillH2, color: bColor });
+      }
+      const codeY = colBarTop + colH + 10;
+      const codeW = fontBold.widthOfTextAtSize(b.code, 8);
+      page.drawText(b.code, { x: cx + (colW - codeW) / 2, y: py(codeY), size: 8, font: fontBold, color: C_DARK });
+      const sqftLbl = `${kSqft(b.occupied)}/${kSqft(b.total)} sf`;
+      const sqftW = font.widthOfTextAtSize(sqftLbl, 6.5);
+      page.drawText(sqftLbl, { x: cx + (colW - sqftW) / 2, y: py(codeY + 9), size: 6.5, font, color: C_MUTED });
+    }
+  }
+
+  const midY = M + 270;
+  page.drawLine({ start: { x: M, y: py(midY) }, end: { x: PW - M, y: py(midY) }, thickness: 0.5, color: C_LINE });
+
+  // ── Section B: Lease Expirations ───────────────────────────────
+  {
+    const today = new Date();
+    today.setDate(1);
+    today.setHours(0, 0, 0, 0);
+    type Period = { key: string; label: string; start: Date; end: Date };
+    const periods: Period[] = [];
+    for (let i = 0; i < 24; i++) {
+      const start = new Date(today.getFullYear(), today.getMonth() + i, 1);
+      const end = new Date(today.getFullYear(), today.getMonth() + i + 1, 0);
+      end.setHours(23, 59, 59);
+      periods.push({
+        key: `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, "0")}`,
+        label: `${MONTHS[start.getMonth()]} '${String(start.getFullYear()).slice(-2)}`,
+        start,
+        end,
+      });
+    }
+    function parseRentDate(s: string | null | undefined): Date | null {
+      if (!s) return null;
+      const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+      if (!m) return null;
+      return new Date(Number(m[3]), Number(m[1]) - 1, Number(m[2]));
+    }
+
+    const perPeriod = new Map<string, Map<string, number>>();
+    const buildingSet = new Set<string>();
+    let totalScopeSqft = 0;
+    let expiringSqft = 0;
+    let expiringAnnualGross = 0;
+    for (const p of props) {
+      totalScopeSqft += p.totalSqft;
+      const code = String(p.propertyCode).toUpperCase();
+      for (const u of p.units) {
+        if (u.isVacant) continue;
+        const lt = parseRentDate(u.leaseTo);
+        if (!lt) continue;
+        const period = periods.find((pp) => lt >= pp.start && lt <= pp.end);
+        if (!period) continue;
+        let byProp = perPeriod.get(period.key);
+        if (!byProp) { byProp = new Map(); perPeriod.set(period.key, byProp); }
+        byProp.set(code, (byProp.get(code) ?? 0) + u.sqft);
+        buildingSet.add(code);
+        expiringSqft += u.sqft;
+        expiringAnnualGross += u.grossRentTotal * 12;
+      }
+    }
+    const buildingList = [...buildingSet].sort();
+
+    const colorFor = (code: string) => {
+      const c = opts.colorPalette[code] ?? [0.42, 0.45, 0.52];
+      return rgb(c[0], c[1], c[2]);
+    };
+
+    let maxPeriodPct = 0.05;
+    for (const p of periods) {
+      const byProp = perPeriod.get(p.key);
+      if (!byProp) continue;
+      let total = 0;
+      for (const v of byProp.values()) total += v;
+      const pctVal = total / Math.max(1, totalScopeSqft);
+      if (pctVal > maxPeriodPct) maxPeriodPct = pctVal;
+    }
+    const niceMax = Math.max(0.01, Math.ceil(maxPeriodPct * 100) / 100);
+
+    page.drawText("LEASE EXPIRATIONS", { x: M, y: py(midY + 14), size: 9, font: fontBold, color: C_MUTED });
+    page.drawText(opts.expirationsSubtitle, { x: M + 130, y: py(midY + 14), size: 9, font, color: C_BRAND });
+
+    const chartLeft = M + 30;
+    const chartRight = PW - M - 8;
+    const chartTop = midY + 24;
+    const chartBottom = PH - M - 60;
+    const chartW = chartRight - chartLeft;
+    const chartH = chartBottom - chartTop;
+    const barCount = periods.length;
+    const colGap = 3;
+    const barW3 = (chartW - colGap * (barCount - 1)) / barCount;
+
+    const ticks = 4;
+    for (let t = 0; t <= ticks; t++) {
+      const yFrac = t / ticks;
+      const tickY = chartBottom - yFrac * chartH;
+      page.drawLine({ start: { x: chartLeft, y: py(tickY) }, end: { x: chartRight, y: py(tickY) }, thickness: 0.4, color: C_LINE });
+      const tickLabel = `${Math.round(yFrac * niceMax * 100)}%`;
+      const tlW = font.widthOfTextAtSize(tickLabel, 7);
+      page.drawText(tickLabel, { x: chartLeft - 6 - tlW, y: py(tickY + 3), size: 7, font, color: C_MUTED });
+    }
+
+    for (let i = 0; i < periods.length; i++) {
+      const p = periods[i];
+      const bx = chartLeft + i * (barW3 + colGap);
+      const byProp = perPeriod.get(p.key);
+      const lblW = font.widthOfTextAtSize(p.label, 6.5);
+      page.drawText(p.label, { x: bx + (barW3 - lblW) / 2, y: py(chartBottom + 12), size: 6.5, font, color: C_MUTED });
+      if (!byProp) continue;
+      let total = 0;
+      for (const v of byProp.values()) total += v;
+      const totalPct = total / Math.max(1, totalScopeSqft);
+      const stackH = (totalPct / niceMax) * chartH;
+      if (totalPct > 0) {
+        const pctStr = `${(totalPct * 100).toFixed(1)}%`;
+        const pctStrW = fontBold.widthOfTextAtSize(pctStr, 7);
+        page.drawText(pctStr, { x: bx + (barW3 - pctStrW) / 2, y: py(chartBottom - stackH - 4), size: 7, font: fontBold, color: C_DARK });
+      }
+      let accH = 0;
+      for (const code of buildingList) {
+        const v = byProp.get(code) ?? 0;
+        if (v <= 0) continue;
+        const segH = (v / Math.max(1, totalScopeSqft) / niceMax) * chartH;
+        const segY = chartBottom - accH - segH;
+        page.drawRectangle({ x: bx, y: py(segY + segH), width: barW3, height: segH, color: colorFor(code) });
+        accH += segH;
+      }
+    }
+
+    page.drawLine({ start: { x: chartLeft, y: py(chartBottom) }, end: { x: chartRight, y: py(chartBottom) }, thickness: 0.6, color: C_DARK });
+
+    const legendY = chartBottom + 24;
+    const legendItemW = 60;
+    const totalLegendW = buildingList.length * legendItemW;
+    const legendStartX = (PW - totalLegendW) / 2;
+    for (let i = 0; i < buildingList.length; i++) {
+      const code = buildingList[i];
+      const lx = legendStartX + i * legendItemW;
+      page.drawRectangle({ x: lx, y: py(legendY + 8), width: 10, height: 10, color: colorFor(code) });
+      page.drawText(code, { x: lx + 14, y: py(legendY + 6), size: 9, font, color: C_DARK });
+    }
+
+    const pctOfPortfolio = totalScopeSqft > 0 ? (expiringSqft / totalScopeSqft) * 100 : 0;
+    const grossM = expiringAnnualGross / 1_000_000;
+    const footerSummary = `Total expiring in window: ${sqftFmt(expiringSqft)} sf · $${grossM.toFixed(2)}M gross rent / yr · ${pctOfPortfolio.toFixed(1)}% of ${opts.footerNoun}`;
+    const fW = font.widthOfTextAtSize(footerSummary, 9);
+    page.drawText(footerSummary, { x: (PW - fW) / 2, y: py(legendY + 20), size: 9, font, color: C_MUTED });
+  }
+}
+
 // ── Main handler ──────────────────────────────────────────────────────────────
 export async function POST(req: Request) {
   try {
@@ -235,7 +523,12 @@ export async function POST(req: Request) {
       // Title — two lines (swaps to the shopping-center wordmark on retail
       // reports; office / all reports keep the Neshaminy Interplex header)
       const isRetail = category === "Retail";
-      const line1 = isRetail ? "Korman Commercial Shopping Center" : "Neshaminy Interplex Business Center";
+      const isResidential = category === "Residential";
+      const line1 = isRetail
+        ? "Korman Commercial Shopping Center"
+        : isResidential
+          ? "Korman Homes"
+          : "Neshaminy Interplex Business Center";
       const line2 = "Leasing Status Report";
       const titleSz = 24;
       const line1W = fontBold.widthOfTextAtSize(line1, titleSz);
@@ -311,7 +604,7 @@ export async function POST(req: Request) {
     }
 
     // ── Occupancy Summary page (Office buildings — JV III + NI LLC + 4900) ───
-    if (category !== "Retail") {
+    if (category !== "Retail" && category !== "Residential") {
       const includeCodes = new Set([...JV_III_CODES, ...NI_LLC_CODES, ...OW_CODES]);
       const officeProps = fullProperties.filter((p: any) => includeCodes.has(String(p.propertyCode).toUpperCase()));
 
@@ -611,291 +904,37 @@ export async function POST(req: Request) {
       }
     }
 
-    // ── Retail-only pages: Portfolio Occupancy chart + Lease Expirations chart
+    // ── Retail / Residential: Portfolio Occupancy chart + Lease Expirations
     if (category === "Retail") {
       const retailProps = fullProperties.filter((p: any) =>
         CATEGORY_RETAIL_CODES.has(String(p.propertyCode).toUpperCase()),
       );
       if (retailProps.length) {
-        // ── Shared helpers ─────────────────────────────────────────────
-        type Bar = { code: string; name: string; occupied: number; vacant: number; total: number };
-        const bars: Bar[] = retailProps
-          .map((p: any) => {
-            let occ = 0, vac = 0;
-            for (const u of p.units) {
-              if (u.isVacant) vac += u.sqft;
-              else            occ += u.sqft;
-            }
-            const code = String(p.propertyCode).toUpperCase();
-            return {
-              code,
-              name: propDisplayName(code, p.reportedPropertyName || code),
-              occupied: occ,
-              vacant: vac,
-              total: p.totalSqft,
-            };
-          })
-          .filter((b: Bar) => b.total > 0)
-          .sort((a: Bar, b: Bar) => a.code.localeCompare(b.code));
-
-        const totalOcc = bars.reduce((s: number, b: Bar) => s + b.occupied, 0);
-        const totalVac = bars.reduce((s: number, b: Bar) => s + b.vacant, 0);
-        const totalSf = totalOcc + totalVac;
-        const occPct = totalSf > 0 ? (totalOcc / totalSf) * 100 : 0;
-
-        const occColor = (p: number) =>
-          p >= 90 ? rgb(0.086, 0.639, 0.290)
-          : p >= 70 ? rgb(0.043, 0.290, 0.490)
-          : rgb(0.851, 0.467, 0.024);
-
-        const kSqft = (n: number) => n >= 1000 ? `${Math.round(n / 1000)}k` : String(n);
-
-        const periodTopRight = periodStr || "####";
-        const prW = fontBold.widthOfTextAtSize(periodTopRight, 11);
-
-        // ── Single page: Portfolio Occupancy (top half) + Lease Expirations (bottom half)
-        const page = pdfDoc.addPage([PW, PH]);
-        page.drawLine({ start: { x: M, y: py(M) }, end: { x: PW - M, y: py(M) }, thickness: 2, color: C_BRAND });
-        page.drawText(periodTopRight, { x: PW - M - prW, y: py(M + 14), size: 11, font: fontBold, color: C_DARK });
-
-        const title = "Occupancy & Lease Expirations";
-        const titleSz = 20;
-        const titleW = fontBold.widthOfTextAtSize(title, titleSz);
-        page.drawText(title, { x: (PW - titleW) / 2, y: py(M + 36), size: titleSz, font: fontBold, color: C_DARK });
-        const subtitle = "Korman Commercial Shopping Center Status Report";
-        const subSz = 10;
-        const subW = font.widthOfTextAtSize(subtitle, subSz);
-        page.drawText(subtitle, { x: (PW - subW) / 2, y: py(M + 54), size: subSz, font, color: C_BRAND });
-
-        // ── Section A: Portfolio Occupancy ─────────────────────────────
-        {
-          const sectionTop = M + 70;
-          page.drawText("PORTFOLIO OCCUPANCY", { x: M, y: py(sectionTop + 9), size: 9, font: fontBold, color: C_MUTED });
-
-          // Big % + horizontal stacked bar
-          const headlineTop = sectionTop + 14;
-          const pctColor = occColor(occPct);
-          const pctText = `${occPct.toFixed(1)}%`;
-          const pctSz = 28;
-          page.drawText(pctText, { x: M + 6, y: py(headlineTop + pctSz - 2), size: pctSz, font: fontBold, color: pctColor });
-          page.drawText("OCCUPIED", { x: M + 6, y: py(headlineTop + pctSz + 10), size: 7, font: fontBold, color: C_MUTED });
-
-          const barLeft = M + 100;
-          const barRight = PW - M - 8;
-          const barWidth = barRight - barLeft;
-          const barH = 18;
-          const barTop = headlineTop + 4;
-          page.drawRectangle({ x: barLeft, y: py(barTop + barH), width: barWidth, height: barH, color: rgb(0.93, 0.94, 0.95), borderColor: C_LINE, borderWidth: 1 });
-          const fillW = barWidth * (occPct / 100);
-          if (fillW > 0) {
-            page.drawRectangle({ x: barLeft, y: py(barTop + barH), width: fillW, height: barH, color: pctColor });
-          }
-          const labelY = barTop + barH + 11;
-          const lblOcc = `${sqftFmt(totalOcc)} occupied`;
-          const lblVac = `${sqftFmt(totalVac)} vacant`;
-          const lblTot = `${sqftFmt(totalSf)} total sf`;
-          page.drawText(lblOcc, { x: barLeft, y: py(labelY), size: 8, font, color: C_DARK });
-          const vW = font.widthOfTextAtSize(lblVac, 8);
-          page.drawText(lblVac, { x: barLeft + (barWidth - vW) / 2, y: py(labelY), size: 8, font, color: C_DARK });
-          const tW = font.widthOfTextAtSize(lblTot, 8);
-          page.drawText(lblTot, { x: barRight - tW, y: py(labelY), size: 8, font, color: C_DARK });
-
-          // Per-property column bars
-          const colsTop = labelY + 14;
-          const usableW = PW - 2 * M;
-          const colW = usableW / bars.length;
-          const colH = 70;
-          for (let i = 0; i < bars.length; i++) {
-            const b = bars[i];
-            const bpct = b.total > 0 ? (b.occupied / b.total) * 100 : 0;
-            const bColor = occColor(bpct);
-            const cx = M + i * colW;
-            const colInnerW = 32;
-            const colInnerX = cx + (colW - colInnerW) / 2;
-            const pctLbl = `${bpct.toFixed(1)}%`;
-            const pctW = fontBold.widthOfTextAtSize(pctLbl, 9);
-            page.drawText(pctLbl, { x: cx + (colW - pctW) / 2, y: py(colsTop), size: 9, font: fontBold, color: bColor });
-            const colBarTop = colsTop + 5;
-            page.drawRectangle({ x: colInnerX, y: py(colBarTop + colH), width: colInnerW, height: colH, color: rgb(0.94, 0.95, 0.96), borderColor: C_LINE, borderWidth: 0.5 });
-            const fillH2 = colH * (bpct / 100);
-            if (fillH2 > 0) {
-              page.drawRectangle({ x: colInnerX, y: py(colBarTop + colH), width: colInnerW, height: fillH2, color: bColor });
-            }
-            const codeY = colBarTop + colH + 10;
-            const codeW = fontBold.widthOfTextAtSize(b.code, 8);
-            page.drawText(b.code, { x: cx + (colW - codeW) / 2, y: py(codeY), size: 8, font: fontBold, color: C_DARK });
-            const sqftLbl = `${kSqft(b.occupied)}/${kSqft(b.total)} sf`;
-            const sqftW = font.widthOfTextAtSize(sqftLbl, 6.5);
-            page.drawText(sqftLbl, { x: cx + (colW - sqftW) / 2, y: py(codeY + 9), size: 6.5, font, color: C_MUTED });
-          }
-        }
-
-        // Divider between sections
-        const midY = M + 270;
-        page.drawLine({ start: { x: M, y: py(midY) }, end: { x: PW - M, y: py(midY) }, thickness: 0.5, color: C_LINE });
-
-        // ── Section B: Lease Expirations ───────────────────────────────
-        {
-          const today = new Date();
-          today.setDate(1);
-          today.setHours(0, 0, 0, 0);
-          type Period = { key: string; label: string; start: Date; end: Date };
-          const periods: Period[] = [];
-          for (let i = 0; i < 24; i++) {
-            const start = new Date(today.getFullYear(), today.getMonth() + i, 1);
-            const end = new Date(today.getFullYear(), today.getMonth() + i + 1, 0);
-            end.setHours(23, 59, 59);
-            periods.push({
-              key: `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, "0")}`,
-              label: `${MONTHS[start.getMonth()]} '${String(start.getFullYear()).slice(-2)}`,
-              start,
-              end,
-            });
-          }
-          function parseRentDate(s: string | null | undefined): Date | null {
-            if (!s) return null;
-            const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-            if (!m) return null;
-            return new Date(Number(m[3]), Number(m[1]) - 1, Number(m[2]));
-          }
-
-          const perPeriod = new Map<string, Map<string, number>>();
-          const buildingSet = new Set<string>();
-          let totalScopeSqft = 0;
-          let expiringSqft = 0;
-          let expiringAnnualGross = 0;
-          for (const p of retailProps) {
-            totalScopeSqft += p.totalSqft;
-            const code = String(p.propertyCode).toUpperCase();
-            for (const u of p.units) {
-              if (u.isVacant) continue;
-              const lt = parseRentDate(u.leaseTo);
-              if (!lt) continue;
-              const period = periods.find((pp) => lt >= pp.start && lt <= pp.end);
-              if (!period) continue;
-              let byProp = perPeriod.get(period.key);
-              if (!byProp) { byProp = new Map(); perPeriod.set(period.key, byProp); }
-              byProp.set(code, (byProp.get(code) ?? 0) + u.sqft);
-              buildingSet.add(code);
-              expiringSqft += u.sqft;
-              expiringAnnualGross += u.grossRentTotal * 12;
-            }
-          }
-          const buildingList = [...buildingSet].sort();
-
-          // Building color palette — matches dashboard ExpirationChart
-          const RGBS: Record<string, [number, number, number]> = {
-            "1100": [0.043, 0.290, 0.490],
-            "1500": [0.145, 0.388, 0.922],
-            "2300": [0.051, 0.580, 0.533],
-            "4500": [0.086, 0.639, 0.290],
-            "5600": [0.518, 0.800, 0.086],
-            "7010": [0.851, 0.467, 0.024],
-            "7200": [0.918, 0.345, 0.047],
-            "7300": [0.863, 0.149, 0.149],
-            "8200": [0.859, 0.153, 0.467],
-            "9200": [0.486, 0.227, 0.929],
-            "9510": [0.310, 0.275, 0.898],
-          };
-          const colorFor = (code: string) => {
-            const c = RGBS[code] ?? [0.42, 0.45, 0.52];
-            return rgb(c[0], c[1], c[2]);
-          };
-
-          let maxPeriodPct = 0.05;
-          for (const p of periods) {
-            const byProp = perPeriod.get(p.key);
-            if (!byProp) continue;
-            let total = 0;
-            for (const v of byProp.values()) total += v;
-            const pctVal = total / Math.max(1, totalScopeSqft);
-            if (pctVal > maxPeriodPct) maxPeriodPct = pctVal;
-          }
-          // Round up to a clean % step
-          const niceMax = Math.max(0.01, Math.ceil(maxPeriodPct * 100) / 100);
-
-          // Header on the bottom half (re-uses the same page)
-          page.drawText("LEASE EXPIRATIONS", { x: M, y: py(midY + 14), size: 9, font: fontBold, color: C_MUTED });
-          const expSub = "Stacked by building · Shopping Centers · % of SF expiring · next 24 months";
-          page.drawText(expSub, { x: M + 130, y: py(midY + 14), size: 9, font, color: C_BRAND });
-
-          // Chart geometry — fit into the lower half (midY+24 to PH-M-46)
-          const chartLeft = M + 30;
-          const chartRight = PW - M - 8;
-          const chartTop = midY + 24;
-          const chartBottom = PH - M - 60; // room for x-axis labels + legend + footer
-          const chartW = chartRight - chartLeft;
-          const chartH = chartBottom - chartTop;
-          const barCount = periods.length;
-          const colGap = 3;
-          const barW3 = (chartW - colGap * (barCount - 1)) / barCount;
-
-          // Y-axis tick lines + labels
-          const ticks = 4;
-          for (let t = 0; t <= ticks; t++) {
-            const yFrac = t / ticks;
-            const tickY = chartBottom - yFrac * chartH;
-            page.drawLine({ start: { x: chartLeft, y: py(tickY) }, end: { x: chartRight, y: py(tickY) }, thickness: 0.4, color: C_LINE });
-            const tickLabel = `${Math.round(yFrac * niceMax * 100)}%`;
-            const tlW = font.widthOfTextAtSize(tickLabel, 7);
-            page.drawText(tickLabel, { x: chartLeft - 6 - tlW, y: py(tickY + 3), size: 7, font, color: C_MUTED });
-          }
-
-          // Stacked bars
-          for (let i = 0; i < periods.length; i++) {
-            const p = periods[i];
-            const bx = chartLeft + i * (barW3 + colGap);
-            const byProp = perPeriod.get(p.key);
-            // x-axis label
-            const lblW = font.widthOfTextAtSize(p.label, 6.5);
-            page.drawText(p.label, { x: bx + (barW3 - lblW) / 2, y: py(chartBottom + 12), size: 6.5, font, color: C_MUTED });
-            if (!byProp) continue;
-            let total = 0;
-            for (const v of byProp.values()) total += v;
-            const totalPct = total / Math.max(1, totalScopeSqft);
-            const stackH = (totalPct / niceMax) * chartH;
-            if (totalPct > 0) {
-              const pctStr = `${(totalPct * 100).toFixed(1)}%`;
-              const pctStrW = fontBold.widthOfTextAtSize(pctStr, 7);
-              page.drawText(pctStr, { x: bx + (barW3 - pctStrW) / 2, y: py(chartBottom - stackH - 4), size: 7, font: fontBold, color: C_DARK });
-            }
-            let accH = 0;
-            for (const code of buildingList) {
-              const v = byProp.get(code) ?? 0;
-              if (v <= 0) continue;
-              const segH = (v / Math.max(1, totalScopeSqft) / niceMax) * chartH;
-              const segY = chartBottom - accH - segH;
-              page.drawRectangle({ x: bx, y: py(segY + segH), width: barW3, height: segH, color: colorFor(code) });
-              accH += segH;
-            }
-          }
-
-          page.drawLine({ start: { x: chartLeft, y: py(chartBottom) }, end: { x: chartRight, y: py(chartBottom) }, thickness: 0.6, color: C_DARK });
-
-          // Legend
-          const legendY = chartBottom + 24;
-          const legendItemW = 60;
-          const totalLegendW = buildingList.length * legendItemW;
-          const legendStartX = (PW - totalLegendW) / 2;
-          for (let i = 0; i < buildingList.length; i++) {
-            const code = buildingList[i];
-            const lx = legendStartX + i * legendItemW;
-            page.drawRectangle({ x: lx, y: py(legendY + 8), width: 10, height: 10, color: colorFor(code) });
-            page.drawText(code, { x: lx + 14, y: py(legendY + 6), size: 9, font, color: C_DARK });
-          }
-
-          // Footer summary
-          const pctOfPortfolio = totalScopeSqft > 0 ? (expiringSqft / totalScopeSqft) * 100 : 0;
-          const grossM = expiringAnnualGross / 1_000_000;
-          const footerSummary = `Total expiring in window: ${sqftFmt(expiringSqft)} sf · $${grossM.toFixed(2)}M gross rent / yr · ${pctOfPortfolio.toFixed(1)}% of the retail portfolio`;
-          const fW = font.widthOfTextAtSize(footerSummary, 9);
-          page.drawText(footerSummary, { x: (PW - fW) / 2, y: py(legendY + 20), size: 9, font, color: C_MUTED });
-        }
+        drawScopedOccupancyAndExpirations(pdfDoc, font, fontBold, retailProps, periodStr, {
+          subtitle: "Korman Commercial Shopping Center Status Report",
+          expirationsSubtitle: "Stacked by building · Shopping Centers · % of SF expiring · next 24 months",
+          footerNoun: "the retail portfolio",
+          colorPalette: RETAIL_BUILDING_COLORS,
+        });
       }
     }
 
-    // ── Leasing Activity Summary page (Office only — skipped for retail) ───
-    if (category !== "Retail") {
+    if (category === "Residential") {
+      const residentialProps = fullProperties.filter((p: any) =>
+        CATEGORY_RESIDENTIAL_CODES.has(String(p.propertyCode).toUpperCase()),
+      );
+      if (residentialProps.length) {
+        drawScopedOccupancyAndExpirations(pdfDoc, font, fontBold, residentialProps, periodStr, {
+          subtitle: "Korman Homes Status Report",
+          expirationsSubtitle: "Stacked by building · Korman Homes · % of SF expiring · next 24 months",
+          footerNoun: "the residential portfolio",
+          colorPalette: RESIDENTIAL_BUILDING_COLORS,
+        });
+      }
+    }
+
+    // ── Leasing Activity Summary page (Office only — skipped for retail / residential) ───
+    if (category !== "Retail" && category !== "Residential") {
       const includeCodes = new Set([...JV_III_CODES, ...NI_LLC_CODES, ...OW_CODES]);
       const officePresent = properties.some((p: any) => includeCodes.has(String(p.propertyCode).toUpperCase()));
 
@@ -1330,6 +1369,12 @@ export async function POST(req: Request) {
     }
 
     // ── Per-property sections ─────────────────────────────────────────────────
+    // For Korman Homes (residential) properties we share pages across
+    // iterations so all four mini-rent-rolls land on one page instead of
+    // taking four separate pages each. Threshold: ~200pt left, enough for
+    // a typical heading + stats + small unit table + totals.
+    let kHomesPage: PDFPage | null = null;
+    let kHomesY = 0;
     for (const prop of properties) {
       const code    = (prop.propertyCode as string).toUpperCase();
       const units   = prop.units as any[];
@@ -1340,8 +1385,21 @@ export async function POST(req: Request) {
       const tableX  = (PW - tableW) / 2;
       const name    = propDisplayName(code, prop.reportedPropertyName || code);
       const address = propAddress(code);
+      const isKHomes = KH_CODES.has(code);
+      // Approx vertical budget for this property: header + address +
+      // stats + rule + table header + N rows + totals row + spacing.
+      const projectedHeight = 22 + (address ? 16 : 0) + 16 + 10 + HEAD_H + units.length * ROW_H + ROW_H + 24;
 
-      let { page, curY } = newPage();
+      let page: PDFPage;
+      let curY: number;
+      if (isKHomes && kHomesPage && kHomesY + projectedHeight <= PH - M - 10) {
+        // Continue on the shared residential page; draw a divider above.
+        page = kHomesPage;
+        kHomesPage.drawLine({ start: { x: M, y: py(kHomesY + 6) }, end: { x: PW - M, y: py(kHomesY + 6) }, thickness: 0.5, color: C_LINE });
+        curY = kHomesY + 18;
+      } else {
+        ({ page, curY } = newPage());
+      }
 
       // Property heading
       const nameStr = `${name}`;
@@ -1442,9 +1500,18 @@ export async function POST(req: Request) {
         cx2 += col.width;
       }
 
+      // After the totals row, remember the current page/Y for the next
+      // residential property so it can stack on the same page.
+      if (isKHomes) {
+        kHomesPage = page;
+        kHomesY = curY + ROW_H + 8;
+      }
+
       // ── Floorplan page ──────────────────────────────────────────────────────
-      const fpPath = path.join(process.cwd(), "public", "floorplans", `${code}.jpg`);
-      if (fs.existsSync(fpPath)) {
+      // Korman Homes properties don't ship with floorplans and we want to
+      // keep them on a single consolidated page anyway, so skip.
+      const fpPath = isKHomes ? "" : path.join(process.cwd(), "public", "floorplans", `${code}.jpg`);
+      if (fpPath && fs.existsSync(fpPath)) {
         const imgBytes = fs.readFileSync(fpPath);
         const img      = await pdfDoc.embedJpg(imgBytes);
         const dims     = img.scale(1);
