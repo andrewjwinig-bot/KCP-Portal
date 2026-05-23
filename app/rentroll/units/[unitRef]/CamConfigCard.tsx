@@ -433,7 +433,7 @@ export default function CamConfigCard({
           display: "flex", alignItems: "center", gap: 8, fontSize: 13,
           cursor: isGross ? "not-allowed" : "pointer",
           opacity: isGross ? 0.5 : 1,
-        }} title="Lease-level CAM cap (outlier — currently only NFP at 2300)">
+        }} title="Lease-level CAM cap">
           <input
             type="checkbox"
             checked={!!config.camCap}
@@ -441,10 +441,9 @@ export default function CamConfigCard({
             onChange={(e) => update({
               camCap: e.target.checked
                 ? (config.camCap ?? {
-                    baseYear: new Date().getFullYear() - 1,
+                    priorYear: new Date().getFullYear() - 1,
                     controllableAmount: 0,
                     growthPct: 4,
-                    excludeLiabilityInsurance: false,
                     notes: "",
                   })
                 : undefined,
@@ -452,12 +451,6 @@ export default function CamConfigCard({
             style={{ width: 15, height: 15, cursor: "pointer" }}
           />
           <span style={{ fontWeight: 600, color: "var(--text)" }}>CAM Cap</span>
-          <span style={{
-            fontSize: 10, fontWeight: 700, letterSpacing: "0.06em",
-            textTransform: "uppercase", color: "#b45309",
-            background: "rgba(217,119,6,0.10)", border: "1px solid rgba(217,119,6,0.35)",
-            padding: "1px 6px", borderRadius: 4,
-          }}>Outlier</span>
         </label>
       </div>
 
@@ -465,10 +458,10 @@ export default function CamConfigCard({
           outlier feature so it stays scoped to this card only. */}
       {config.camCap && !isGross && (() => {
         const cap = config.camCap;
-        const nextYear = cap.baseYear + 1;
+        const nextYear = cap.priorYear + 1;
         const capAmount = cap.controllableAmount * (1 + cap.growthPct / 100);
         const currentYear = new Date().getFullYear();
-        const isStale = cap.baseYear < currentYear - 1;
+        const isStale = cap.priorYear < currentYear - 1;
         return (
           <div style={{
             marginTop: 14, paddingTop: 14,
@@ -477,7 +470,7 @@ export default function CamConfigCard({
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 10 }}>
               <div>
                 <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>
-                  CAM Cap · outlier
+                  CAM Cap
                 </div>
                 <div className="small muted" style={{ marginTop: 2 }}>
                   Bill the lesser of (current-year applicable CAM × PRS) or (prior-year controllable × growth × PRS). Bump the base year and amount each reconciliation cycle.
@@ -498,16 +491,16 @@ export default function CamConfigCard({
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12, alignItems: "end" }}>
               <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                 <span style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", letterSpacing: "0.06em", textTransform: "uppercase" }}>
-                  Base year (prior)
+                  Prior year
                 </span>
                 <input
                   type="number"
-                  value={cap.baseYear}
+                  value={cap.priorYear}
                   min={1900}
                   max={2100}
                   onChange={(e) => {
                     const v = Number(e.target.value);
-                    if (Number.isFinite(v)) update({ camCap: { ...cap, baseYear: Math.round(v) } });
+                    if (Number.isFinite(v)) update({ camCap: { ...cap, priorYear: Math.round(v) } });
                   }}
                   style={{
                     padding: "8px 10px", borderRadius: 6, border: "1px solid var(--border)",
@@ -517,7 +510,7 @@ export default function CamConfigCard({
               </label>
               <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                 <span style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", letterSpacing: "0.06em", textTransform: "uppercase" }}>
-                  Controllable expenses ({cap.baseYear})
+                  Controllable expenses ({cap.priorYear})
                 </span>
                 <input
                   type="number"
@@ -555,18 +548,7 @@ export default function CamConfigCard({
                 />
               </label>
             </div>
-            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, marginTop: 12, cursor: "pointer" }}>
-              <input
-                type="checkbox"
-                checked={cap.excludeLiabilityInsurance}
-                onChange={(e) => update({ camCap: { ...cap, excludeLiabilityInsurance: e.target.checked } })}
-                style={{ width: 15, height: 15, cursor: "pointer" }}
-              />
-              <span style={{ color: "var(--text)" }}>
-                Tenant does <b>not</b> pay Liability Insurance (broken out of CAM but no separate GL — back out manually at reconciliation)
-              </span>
-            </label>
-            <label style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 10 }}>
+            <label style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 12 }}>
               <span style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", letterSpacing: "0.06em", textTransform: "uppercase" }}>
                 Notes
               </span>
@@ -589,7 +571,7 @@ export default function CamConfigCard({
                 border: "1px solid rgba(220,38,38,0.35)",
                 color: "#b91c1c", fontSize: 12, fontWeight: 600,
               }}>
-                Base year is {cap.baseYear} — for a {currentYear} reconciliation the cap should be based on {currentYear - 1} controllable. Update before billing.
+                Prior year is {cap.priorYear} — for a {currentYear} reconciliation the cap should be based on {currentYear - 1} controllable. Update before billing.
               </div>
             )}
           </div>
