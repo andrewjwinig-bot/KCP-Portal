@@ -512,20 +512,29 @@ export default function CamConfigCard({
                 <span style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", letterSpacing: "0.06em", textTransform: "uppercase" }}>
                   Controllable expenses ({cap.priorYear})
                 </span>
-                <input
-                  type="number"
-                  value={cap.controllableAmount}
-                  min={0}
-                  step="0.01"
-                  onChange={(e) => {
-                    const v = Number(e.target.value);
-                    if (Number.isFinite(v)) update({ camCap: { ...cap, controllableAmount: Math.max(0, v) } });
-                  }}
-                  style={{
-                    padding: "8px 10px", borderRadius: 6, border: "1px solid var(--border)",
-                    background: "var(--card)", color: "var(--text)", fontSize: 13, fontFamily: "inherit",
-                  }}
-                />
+                <div style={{ position: "relative" }}>
+                  <span style={{
+                    position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)",
+                    fontSize: 13, color: "var(--muted)", pointerEvents: "none",
+                  }}>$</span>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={cap.controllableAmount > 0 ? cap.controllableAmount.toLocaleString("en-US") : ""}
+                    placeholder="0"
+                    onChange={(e) => {
+                      const raw = e.target.value.replace(/[^0-9.]/g, "");
+                      const v = raw === "" ? 0 : Number(raw);
+                      if (Number.isFinite(v)) update({ camCap: { ...cap, controllableAmount: Math.max(0, v) } });
+                    }}
+                    style={{
+                      width: "100%", padding: "8px 10px 8px 22px", borderRadius: 6,
+                      border: "1px solid var(--border)", background: "var(--card)",
+                      color: "var(--text)", fontSize: 13, fontFamily: "inherit",
+                      fontVariantNumeric: "tabular-nums", textAlign: "right",
+                    }}
+                  />
+                </div>
               </label>
               <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                 <span style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", letterSpacing: "0.06em", textTransform: "uppercase" }}>
@@ -615,7 +624,7 @@ export default function CamConfigCard({
               <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text)", paddingTop: 6 }}>
                 Excluded CAM lines
               </span>
-              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 <span style={{ fontSize: 12, color: "var(--muted)" }}>
                   CAM lines this tenant is not billed for under their lease.
                 </span>
@@ -626,6 +635,70 @@ export default function CamConfigCard({
                   placeholder="Pick lines to exclude from this tenant’s CAM…"
                   disabled={isGross}
                 />
+                {/* "Other" — flat-$ exclusion for line items that aren't
+                    in CAM_LINE_ITEMS and have no separate GL code. */}
+                <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, marginTop: 4, cursor: isGross ? "not-allowed" : "pointer", opacity: isGross ? 0.5 : 1 }}>
+                  <input
+                    type="checkbox"
+                    checked={!!config.camExcludedOther}
+                    disabled={isGross}
+                    onChange={(e) => update({
+                      camExcludedOther: e.target.checked
+                        ? (config.camExcludedOther ?? { description: "", amount: 0 })
+                        : undefined,
+                    })}
+                    style={{ width: 15, height: 15, cursor: "pointer" }}
+                  />
+                  <span style={{ fontWeight: 600 }}>Other</span>
+                  <span className="small muted">(flat $ amount, no GL code)</span>
+                </label>
+                {config.camExcludedOther && !isGross && (
+                  <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 160px", gap: 8 }}>
+                    <input
+                      type="text"
+                      value={config.camExcludedOther.description}
+                      placeholder="What is being excluded? e.g. Liability Insurance"
+                      onChange={(e) => update({
+                        camExcludedOther: {
+                          ...(config.camExcludedOther ?? { amount: 0 }),
+                          description: e.target.value.slice(0, 120),
+                        },
+                      })}
+                      style={{
+                        padding: "8px 10px", borderRadius: 6, border: "1px solid var(--border)",
+                        background: "var(--card)", color: "var(--text)", fontSize: 13, fontFamily: "inherit",
+                      }}
+                    />
+                    <div style={{ position: "relative" }}>
+                      <span style={{
+                        position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)",
+                        fontSize: 13, color: "var(--muted)", pointerEvents: "none",
+                      }}>$</span>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={config.camExcludedOther.amount > 0 ? config.camExcludedOther.amount.toLocaleString("en-US") : ""}
+                        placeholder="0"
+                        onChange={(e) => {
+                          const raw = e.target.value.replace(/[^0-9.]/g, "");
+                          const v = raw === "" ? 0 : Number(raw);
+                          if (Number.isFinite(v)) update({
+                            camExcludedOther: {
+                              ...(config.camExcludedOther ?? { description: "" }),
+                              amount: Math.max(0, v),
+                            },
+                          });
+                        }}
+                        style={{
+                          width: "100%", padding: "8px 10px 8px 22px", borderRadius: 6,
+                          border: "1px solid var(--border)", background: "var(--card)",
+                          color: "var(--text)", fontSize: 13, fontFamily: "inherit",
+                          fontVariantNumeric: "tabular-nums", textAlign: "right",
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}

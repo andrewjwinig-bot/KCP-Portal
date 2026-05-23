@@ -91,6 +91,12 @@ export type CamConfig = {
   camAdminExcludedLines: string[];
   /** CAM lines this tenant is NOT billed for (lease-specific exclusions). */
   camExcludedLines: string[];
+  /** Catch-all "Other" CAM exclusion for line items that aren't in
+   *  CAM_LINE_ITEMS and don't have their own GL code (e.g. Liability
+   *  Insurance broken out inside CAM but with no separate account).
+   *  Staff describes what it is and enters the annual $ amount to back
+   *  out at reconciliation. */
+  camExcludedOther?: { description: string; amount: number };
   /** Optional CAM cap rider (outlier — currently only NFP at 2300). */
   camCap?: CamCap;
   updatedAt: string;
@@ -148,6 +154,17 @@ function asCamCap(value: unknown): CamCap | undefined {
   };
 }
 
+function asCamExcludedOther(value: unknown): { description: string; amount: number } | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const v = value as Record<string, unknown>;
+  const amount = Number(v.amount);
+  if (!Number.isFinite(amount) || amount <= 0) return undefined;
+  return {
+    description: typeof v.description === "string" ? v.description.slice(0, 120) : "",
+    amount: Math.round(amount * 100) / 100,
+  };
+}
+
 function asLineList(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   const out: string[] = [];
@@ -193,6 +210,7 @@ export function sanitizeCamConfig(unitRef: string, body: unknown): CamConfig {
     ret: asCategory(b.ret),
     camAdminExcludedLines,
     camExcludedLines,
+    camExcludedOther: asCamExcludedOther(b.camExcludedOther),
     camCap: asCamCap(b.camCap),
     updatedAt: new Date().toISOString(),
   };
