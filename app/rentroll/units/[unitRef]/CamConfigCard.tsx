@@ -28,16 +28,31 @@ function PrsTile({
   onChange,
   disabled,
   denominator,
+  unitSqft,
   label,
 }: {
   value: number | null;
   onChange: (next: number | null) => void;
   disabled?: boolean;
+  /** Building (or category) denominator — used when no PRS is set. */
   denominator: number;
+  /** Unit SF — used to back-solve the implied denominator from a custom PRS. */
+  unitSqft: number;
   label: string;
 }) {
   const [text, setText] = useState<string>(value == null ? "" : String(value));
   useEffect(() => { setText(value == null ? "" : String(value)); }, [value]);
+
+  // Displayed denominator: when there's a stipulated PRS, back-solve from
+  // (unitSqft / PRS × 100) so the sub-line reads "(X SF)" matching what
+  // that PRS actually implies. Falls back to the category's canonical
+  // denominator when the field is blank.
+  const displayDenom = (() => {
+    if (value != null && value > 0 && unitSqft > 0) {
+      return Math.round((unitSqft / value) * 100);
+    }
+    return denominator;
+  })();
 
   return (
     <div style={tileStyle}>
@@ -74,8 +89,8 @@ function PrsTile({
           opacity: disabled ? 0.5 : 1,
         }}>%</span>
       </div>
-      {denominator > 0 && (
-        <span style={tileSubStyle}>({denominator.toLocaleString()} SF)</span>
+      {displayDenom > 0 && (
+        <span style={tileSubStyle}>({displayDenom.toLocaleString()} SF)</span>
       )}
     </div>
   );
@@ -344,6 +359,7 @@ export default function CamConfigCard({
               value={config[cat].stipulatedPrs}
               onChange={(v) => updateCategory(cat, { stipulatedPrs: v })}
               denominator={categoryMeta[cat].denominator}
+              unitSqft={unitSqft}
               label={`${CAM_CATEGORY_LABELS[cat]} PRS`}
               disabled={isGross}
             />
