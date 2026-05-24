@@ -41,6 +41,15 @@ const NAV_ROLE_KEY: Record<string, string> = {
 // Visible cue: chevron + slightly tinted background distinguishes a
 // group header from a plain link.
 const GROUPS: Record<string, { label: string; icon: React.ReactNode }> = {
+  directory: {
+    label: "Directory",
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+      </svg>
+    ),
+  },
   banking: {
     label: "Banking",
     icon: (
@@ -128,6 +137,7 @@ const NAV = [
     external: false,
     indent: false,
     showFor: null as string | null,
+    groupId: "directory",
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
@@ -141,6 +151,7 @@ const NAV = [
     external: false,
     indent: false,
     showFor: null as string | null,
+    groupId: "directory",
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
