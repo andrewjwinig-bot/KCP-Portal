@@ -35,6 +35,25 @@ const NAV_ROLE_KEY: Record<string, string> = {
   "Bank Transfers":     "bank-transfers",
 };
 
+// Group metadata. Sidebar items can opt into a group via `groupId`; the
+// group renders as a collapsible header with its children indented
+// beneath, replacing the inline order they'd otherwise appear in.
+// Visible cue: chevron + slightly tinted background distinguishes a
+// group header from a plain link.
+const GROUPS: Record<string, { label: string; icon: React.ReactNode }> = {
+  invoicing: {
+    label: "Invoicing",
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+        <polyline points="14 2 14 8 20 8" />
+        <line x1="9" y1="14" x2="15" y2="14" />
+        <line x1="9" y1="18" x2="15" y2="18" />
+      </svg>
+    ),
+  },
+};
+
 const NAV = [
   {
     label: "Dashboard",
@@ -257,6 +276,7 @@ const NAV = [
     external: false,
     indent: false,
     showFor: null as string | null,
+    groupId: "invoicing",
     icon: (
       <span style={{ fontSize: 22, fontWeight: 700, lineHeight: 1 }}>$</span>
     ),
@@ -267,6 +287,7 @@ const NAV = [
     external: false,
     indent: true,
     showFor: "/",
+    groupId: "invoicing",
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <circle cx="12" cy="12" r="10" />
@@ -280,6 +301,7 @@ const NAV = [
     external: false,
     indent: false,
     showFor: null as string | null,
+    groupId: "invoicing",
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <rect x="2" y="5" width="20" height="14" rx="2" />
@@ -293,6 +315,7 @@ const NAV = [
     external: false,
     indent: true,
     showFor: "/expenses",
+    groupId: "invoicing",
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <circle cx="12" cy="12" r="10" />
@@ -306,6 +329,7 @@ const NAV = [
     external: false,
     indent: false,
     showFor: null as string | null,
+    groupId: "invoicing",
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
@@ -363,6 +387,25 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
   const pathname = usePathname();
   const { user, authed, setUserId } = useUser();
   const [isNarrow, setIsNarrow] = useState(false);
+
+  // Collapsible group expand state, persisted across reloads. A group
+  // auto-expands when the current pathname matches one of its children.
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set());
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = localStorage.getItem("kcp:sidebarGroups");
+      if (raw) setExpandedGroups(new Set(JSON.parse(raw)));
+    } catch { /* ignore */ }
+  }, []);
+  function toggleGroup(id: string) {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      try { localStorage.setItem("kcp:sidebarGroups", JSON.stringify([...next])); } catch { /* ignore */ }
+      return next;
+    });
+  }
   useEffect(() => {
     if (typeof window === "undefined") return;
     const mq = window.matchMedia("(max-width: 720px)");
@@ -503,82 +546,152 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
         </div>
       )}
 
-      {/* Nav links */}
+      {/* Nav links — items rendered in source order; items with a
+          groupId collapse under their group header at the point of
+          first occurrence so order is preserved. */}
       <nav style={{ flex: 1, padding: open ? "4px 8px" : "8px 6px", display: "flex", flexDirection: "column", gap: 2, minHeight: 0, overflowY: "auto", overflowX: "hidden" }}>
-        {NAV.filter((item) => isVisible(item)).map((item) => {
-          const active = isActive(item);
-          const badge = item.label === "Reservations"
-            ? reservationPending
-            : item.label === "Requests"
-              ? maintenancePending
-              : 0;
-          return (
-            <a
-              key={item.label}
-              href={item.href}
-              target={item.external ? "_blank" : undefined}
-              rel={item.external ? "noopener noreferrer" : undefined}
-              title={item.label}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-                padding: open ? "9px 10px" : "9px 0",
-                marginLeft: item.indent && open ? 16 : 0,
-                justifyContent: open ? "flex-start" : "center",
-                borderRadius: 8,
-                color: active ? "#fff" : "#e0f0ff",
-                textDecoration: "none",
-                fontSize: 14,
-                fontWeight: active ? 700 : 500,
-                cursor: "pointer",
-                transition: "background 0.15s",
-                whiteSpace: "nowrap",
-                position: "relative",
-                background: active ? "rgba(255,255,255,0.18)" : "transparent",
-              }}
-              onMouseEnter={(e) => {
-                if (!active) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.12)";
-              }}
-              onMouseLeave={(e) => {
-                (e.currentTarget as HTMLElement).style.background = active ? "rgba(255,255,255,0.18)" : "transparent";
-              }}
-            >
-              <span style={{ flexShrink: 0 }}>{item.icon}</span>
-              {open && (
-                <span>
-                  {item.label}
-                  {item.href === "/rentroll/trends" && (
-                    <span style={{
-                      color: "#f87171",
-                      fontWeight: 800,
-                      fontSize: 10,
-                      marginLeft: 6,
-                      letterSpacing: "0.06em",
-                    }}>DRAFT</span>
+        {(() => {
+          const visible = NAV.filter((item) => isVisible(item));
+          const renderedGroups = new Set<string>();
+          const out: React.ReactNode[] = [];
+
+          const renderLink = (item: (typeof NAV)[number], inGroup: boolean) => {
+            const active = isActive(item);
+            const badge = item.label === "Reservations"
+              ? reservationPending
+              : item.label === "Requests"
+                ? maintenancePending
+                : 0;
+            return (
+              <a
+                key={item.label}
+                href={item.href}
+                target={item.external ? "_blank" : undefined}
+                rel={item.external ? "noopener noreferrer" : undefined}
+                title={item.label}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: open ? "9px 10px" : "9px 0",
+                  // Group children get a base indent of 12px when open;
+                  // sub-indented items (Payroll History etc) stack on top.
+                  marginLeft: open ? (inGroup ? 12 : 0) + (item.indent ? 16 : 0) : 0,
+                  justifyContent: open ? "flex-start" : "center",
+                  borderRadius: 8,
+                  color: active ? "#fff" : "#e0f0ff",
+                  textDecoration: "none",
+                  fontSize: 14,
+                  fontWeight: active ? 700 : 500,
+                  cursor: "pointer",
+                  transition: "background 0.15s",
+                  whiteSpace: "nowrap",
+                  position: "relative",
+                  background: active ? "rgba(255,255,255,0.18)" : "transparent",
+                }}
+                onMouseEnter={(e) => {
+                  if (!active) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.12)";
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLElement).style.background = active ? "rgba(255,255,255,0.18)" : "transparent";
+                }}
+              >
+                <span style={{ flexShrink: 0 }}>{item.icon}</span>
+                {open && (
+                  <span>
+                    {item.label}
+                    {item.href === "/rentroll/trends" && (
+                      <span style={{
+                        color: "#f87171",
+                        fontWeight: 800,
+                        fontSize: 10,
+                        marginLeft: 6,
+                        letterSpacing: "0.06em",
+                      }}>DRAFT</span>
+                    )}
+                  </span>
+                )}
+                {open && badge > 0 && (
+                  <span style={{
+                    marginLeft: "auto", minWidth: 18, height: 18, padding: "0 5px",
+                    borderRadius: 999, background: "#dc2626", color: "#fff",
+                    fontSize: 10, fontWeight: 800, lineHeight: 1,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                  }}>{badge}</span>
+                )}
+                {!open && badge > 0 && (
+                  <span style={{
+                    position: "absolute", top: 3, right: 6,
+                    minWidth: 15, height: 15, padding: "0 3px",
+                    borderRadius: 999, background: "#dc2626", color: "#fff",
+                    fontSize: 9, fontWeight: 800, lineHeight: 1,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                  }}>{badge}</span>
+                )}
+              </a>
+            );
+          };
+
+          for (const item of visible) {
+            const gid = (item as { groupId?: string }).groupId;
+            if (gid && GROUPS[gid]) {
+              if (renderedGroups.has(gid)) continue;
+              renderedGroups.add(gid);
+              const meta = GROUPS[gid];
+              const children = visible.filter((x) => (x as { groupId?: string }).groupId === gid);
+              const anyChildActive = children.some((c) => isActive(c));
+              const expanded = expandedGroups.has(gid) || anyChildActive;
+              out.push(
+                <button
+                  key={`group-${gid}`}
+                  type="button"
+                  onClick={() => toggleGroup(gid)}
+                  title={meta.label}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    padding: open ? "9px 10px" : "9px 0",
+                    justifyContent: open ? "flex-start" : "center",
+                    borderRadius: 8,
+                    color: "#bfdbfe",
+                    border: "none",
+                    fontFamily: "inherit",
+                    fontSize: 13,
+                    fontWeight: 700,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.05em",
+                    cursor: "pointer",
+                    transition: "background 0.15s",
+                    whiteSpace: "nowrap",
+                    background: "rgba(255,255,255,0.04)",
+                    textAlign: "left",
+                    width: "100%",
+                  }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.10)"; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.04)"; }}
+                >
+                  <span style={{ flexShrink: 0 }}>{meta.icon}</span>
+                  {open && (
+                    <>
+                      <span style={{ flex: 1 }}>{meta.label}</span>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"
+                        style={{ transform: expanded ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.15s ease", flexShrink: 0 }}>
+                        <polyline points="9 6 15 12 9 18" />
+                      </svg>
+                    </>
                   )}
-                </span>
-              )}
-              {open && badge > 0 && (
-                <span style={{
-                  marginLeft: "auto", minWidth: 18, height: 18, padding: "0 5px",
-                  borderRadius: 999, background: "#dc2626", color: "#fff",
-                  fontSize: 10, fontWeight: 800, lineHeight: 1,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                }}>{badge}</span>
-              )}
-              {!open && badge > 0 && (
-                <span style={{
-                  position: "absolute", top: 3, right: 6,
-                  minWidth: 15, height: 15, padding: "0 3px",
-                  borderRadius: 999, background: "#dc2626", color: "#fff",
-                  fontSize: 9, fontWeight: 800, lineHeight: 1,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                }}>{badge}</span>
-              )}
-            </a>
-          );
-        })}
+                </button>
+              );
+              if (expanded) {
+                for (const child of children) out.push(renderLink(child, true));
+              }
+              continue;
+            }
+            out.push(renderLink(item, false));
+          }
+          return out;
+        })()}
       </nav>
 
       {/* Bottom row — Sign Out + theme/notification toggles (only when expanded) */}
