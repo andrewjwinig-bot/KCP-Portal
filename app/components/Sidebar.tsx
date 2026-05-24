@@ -553,6 +553,12 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
     return pathname === item.showFor || pathname.startsWith(item.showFor + "/");
   }
 
+  function badgeFor(item: (typeof NAV)[number]): number {
+    if (item.label === "Reservations") return reservationPending;
+    if (item.label === "Requests") return maintenancePending;
+    return 0;
+  }
+
   return (
     <div
       style={{
@@ -630,11 +636,7 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
 
           const renderLink = (item: (typeof NAV)[number], inGroup: boolean) => {
             const active = isActive(item);
-            const badge = item.label === "Reservations"
-              ? reservationPending
-              : item.label === "Requests"
-                ? maintenancePending
-                : 0;
+            const badge = badgeFor(item);
             return (
               <a
                 key={item.label}
@@ -713,6 +715,11 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
               const meta = GROUPS[gid];
               const children = visible.filter((x) => (x as { groupId?: string }).groupId === gid);
               const expanded = !collapsedGroups.has(gid);
+              // Sum child badges and roll up onto the group header when
+              // collapsed, so a pending Request / Reservation isn't
+              // hidden behind a closed group.
+              const childBadgeSum = children.reduce((s, c) => s + badgeFor(c), 0);
+              const showGroupBadge = !expanded && childBadgeSum > 0;
               out.push(
                 <button
                   key={`group-${gid}`}
@@ -739,6 +746,7 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
                     background: "rgba(255,255,255,0.04)",
                     textAlign: "left",
                     width: "100%",
+                    position: "relative",
                   }}
                   onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.10)"; }}
                   onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.04)"; }}
@@ -747,11 +755,28 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
                   {open && (
                     <>
                       <span style={{ flex: 1 }}>{meta.label}</span>
+                      {showGroupBadge && (
+                        <span style={{
+                          minWidth: 18, height: 18, padding: "0 5px",
+                          borderRadius: 999, background: "#dc2626", color: "#fff",
+                          fontSize: 10, fontWeight: 800, lineHeight: 1,
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                        }}>{childBadgeSum}</span>
+                      )}
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"
                         style={{ transform: expanded ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.15s ease", flexShrink: 0 }}>
                         <polyline points="9 6 15 12 9 18" />
                       </svg>
                     </>
+                  )}
+                  {!open && showGroupBadge && (
+                    <span style={{
+                      position: "absolute", top: 3, right: 6,
+                      minWidth: 15, height: 15, padding: "0 3px",
+                      borderRadius: 999, background: "#dc2626", color: "#fff",
+                      fontSize: 9, fontWeight: 800, lineHeight: 1,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                    }}>{childBadgeSum}</span>
                   )}
                 </button>
               );
