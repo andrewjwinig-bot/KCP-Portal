@@ -240,6 +240,26 @@ export async function POST(req: NextRequest) {
     });
   } catch { /* ignore */ }
 
+  // Best-effort notification to the internal service team so a new
+  // request is never missed. Fires every submission; failure is silent.
+  try {
+    await sendMail({
+      to: "service@kormancommercial.com",
+      subject: `New service request — ${propertyName || "KCP"}${tenantSuite ? ` · ${tenantSuite}` : ""}`,
+      textBody: teamNotificationBody({
+        tenantName,
+        tenantEmail,
+        tenantPhone,
+        company: resolvedCompany,
+        propertyName,
+        tenantSuite,
+        category: r.categories.join(", "),
+        description,
+        requestId: r.id,
+      }),
+    });
+  } catch { /* ignore */ }
+
   // Best-effort confirmation email. Same Postmark setup that powers the
   // inbound auto-reply. If POSTMARK_SERVER_TOKEN / MAINTENANCE_REPLY_FROM
   // aren't set the call is a no-op and the submission still succeeds.
@@ -288,4 +308,34 @@ function confirmationBody(args: {
     "— KCP Maintenance",
   ].filter((l) => l !== null) as string[];
   return lines.join("\n");
+}
+
+function teamNotificationBody(args: {
+  tenantName: string;
+  tenantEmail: string;
+  tenantPhone: string;
+  company: string;
+  propertyName: string;
+  tenantSuite: string;
+  category: string;
+  description: string;
+  requestId: string;
+}): string {
+  const where = [args.propertyName, args.tenantSuite].filter(Boolean).join(" · ");
+  return [
+    "A new service request was just submitted in the KCP Portal.",
+    "",
+    `Property:    ${where || "—"}`,
+    `Company:     ${args.company || "—"}`,
+    `Submitted by: ${args.tenantName}`,
+    `Email:       ${args.tenantEmail || "—"}`,
+    `Phone:       ${args.tenantPhone || "—"}`,
+    `Category:    ${args.category || "—"}`,
+    `Reference:   ${args.requestId}`,
+    "",
+    "Description:",
+    args.description.split("\n").map((l) => `  ${l}`).join("\n"),
+    "",
+    "Open the request in the portal: https://kcp-portal.vercel.app/maintenance",
+  ].join("\n");
 }
