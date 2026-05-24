@@ -459,21 +459,23 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
   const { user, authed, setUserId } = useUser();
   const [isNarrow, setIsNarrow] = useState(false);
 
-  // Collapsible group expand state, persisted across reloads. A group
-  // auto-expands when the current pathname matches one of its children.
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set());
+  // Collapsible groups — store only groups the user has explicitly
+  // collapsed. Default for a fresh visitor is "all groups collapsed" so
+  // the sidebar reads as a tidy summary on first login; users expand
+  // what they want and that state persists.
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => new Set(Object.keys(GROUPS)));
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
-      const raw = localStorage.getItem("kcp:sidebarGroups");
-      if (raw) setExpandedGroups(new Set(JSON.parse(raw)));
+      const raw = localStorage.getItem("kcp:sidebarCollapsed");
+      if (raw) setCollapsedGroups(new Set(JSON.parse(raw)));
     } catch { /* ignore */ }
   }, []);
   function toggleGroup(id: string) {
-    setExpandedGroups((prev) => {
+    setCollapsedGroups((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id); else next.add(id);
-      try { localStorage.setItem("kcp:sidebarGroups", JSON.stringify([...next])); } catch { /* ignore */ }
+      try { localStorage.setItem("kcp:sidebarCollapsed", JSON.stringify([...next])); } catch { /* ignore */ }
       return next;
     });
   }
@@ -710,8 +712,7 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
               renderedGroups.add(gid);
               const meta = GROUPS[gid];
               const children = visible.filter((x) => (x as { groupId?: string }).groupId === gid);
-              const anyChildActive = children.some((c) => isActive(c));
-              const expanded = expandedGroups.has(gid) || anyChildActive;
+              const expanded = !collapsedGroups.has(gid);
               out.push(
                 <button
                   key={`group-${gid}`}
