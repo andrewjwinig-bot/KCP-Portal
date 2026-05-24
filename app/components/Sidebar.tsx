@@ -82,6 +82,32 @@ const GROUPS: Record<string, { label: string; icon: React.ReactNode }> = {
       </svg>
     ),
   },
+  tenancy: {
+    label: "Tenancy",
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3 21h18" />
+        <path d="M5 21V7l7-4 7 4v14" />
+        <path d="M9 9h1" />
+        <path d="M14 9h1" />
+        <path d="M9 13h1" />
+        <path d="M14 13h1" />
+        <path d="M9 17h1" />
+        <path d="M14 17h1" />
+      </svg>
+    ),
+  },
+  cam: {
+    label: "CAM",
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="9" />
+        <path d="M9 9h6" />
+        <path d="M9 12h6" />
+        <path d="M9 15h4" />
+      </svg>
+    ),
+  },
 };
 
 const NAV = [
@@ -182,6 +208,7 @@ const NAV = [
     external: false,
     indent: false,
     showFor: null as string | null,
+    groupId: "tenancy",
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <rect x="3" y="3" width="18" height="18" rx="2" />
@@ -197,6 +224,7 @@ const NAV = [
     external: false,
     indent: true,
     showFor: "/rentroll",
+    groupId: "tenancy",
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <polyline points="3 17 9 11 13 15 21 7" />
@@ -210,6 +238,7 @@ const NAV = [
     external: false,
     indent: false,
     showFor: null as string | null,
+    groupId: "tenancy",
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
@@ -225,6 +254,7 @@ const NAV = [
     external: false,
     indent: false,
     showFor: null as string | null,
+    groupId: "cam",
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <rect x="3" y="4" width="18" height="16" rx="2" />
@@ -240,6 +270,7 @@ const NAV = [
     external: false,
     indent: true,
     showFor: "/rentroll/base-years",
+    groupId: "cam",
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <polyline points="3 17 9 11 13 15 21 7" />
