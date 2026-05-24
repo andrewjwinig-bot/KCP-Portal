@@ -619,6 +619,13 @@ function DashboardInner() {
           ) : (
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
               {(() => {
+                // Rent-roll import action — Drew, Harry and admin only.
+                // Auto-hides once the latest rent roll has been uploaded
+                // for the current cycle (status "fresh"); reappears on
+                // the next 25th when the new month's roll is due.
+                const canImportRR = user.id === "drew" || user.id === "harry" || isAdmin;
+                if (!canImportRR) return null;
+                if (rrFreshness.status === "fresh") return null;
                 const id = `rr-${rrFreshness.title}`;
                 if (dismissedNotices.has(id)) return null;
                 return (
@@ -626,13 +633,13 @@ function DashboardInner() {
                 display: "flex", alignItems: "flex-start", gap: 10, flex: "1 1 260px", minWidth: 0,
                 padding: "10px 12px",
                 border: "1px solid",
-                borderColor: rrFreshness.status === "fresh" ? "rgba(22,163,74,0.25)" : rrFreshness.status === "stale" ? "rgba(217,119,6,0.3)" : "rgba(220,38,38,0.35)",
-                background: rrFreshness.status === "fresh" ? "rgba(22,163,74,0.06)" : rrFreshness.status === "stale" ? "rgba(217,119,6,0.06)" : "rgba(220,38,38,0.06)",
+                borderColor: rrFreshness.status === "stale" ? "rgba(217,119,6,0.3)" : "rgba(220,38,38,0.35)",
+                background: rrFreshness.status === "stale" ? "rgba(217,119,6,0.06)" : "rgba(220,38,38,0.06)",
                 borderRadius: 8,
               }}>
                 <span style={{
                   width: 10, height: 10, borderRadius: 999, marginTop: 5, flexShrink: 0,
-                  background: rrFreshness.status === "fresh" ? "#16a34a" : rrFreshness.status === "stale" ? "#d97706" : "#dc2626",
+                  background: rrFreshness.status === "stale" ? "#d97706" : "#dc2626",
                 }} />
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 600, fontSize: 14 }}>{rrFreshness.title}</div>
