@@ -33,6 +33,7 @@ const NAV_ROLE_KEY: Record<string, string> = {
   "Maintenance Reports":"maintenance",
   "Reservations":       "reservations",
   "Bank Transfers":     "bank-transfers",
+  "Budgets":            "financials-budgets",
 };
 
 // Group metadata. Sidebar items can opt into a group via `groupId`; the
@@ -105,6 +106,16 @@ const GROUPS: Record<string, { label: string; icon: React.ReactNode }> = {
         <path d="M9 9h6" />
         <path d="M9 12h6" />
         <path d="M9 15h4" />
+      </svg>
+    ),
+  },
+  financials: {
+    label: "Financials",
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3 21h18" />
+        <polyline points="6 17 10 11 14 15 20 7" />
+        <polyline points="14 7 20 7 20 13" />
       </svg>
     ),
   },
@@ -449,6 +460,22 @@ const NAV = [
         <polyline points="13 4 16 7 13 10" />
         <path d="M21 17H8" />
         <polyline points="11 14 8 17 11 20" />
+      </svg>
+    ),
+  },
+  {
+    label: "Budgets",
+    href: "/financials/budgets",
+    external: false,
+    indent: false,
+    showFor: null as string | null,
+    groupId: "financials",
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="4" width="18" height="16" rx="2" />
+        <line x1="3" y1="10" x2="21" y2="10" />
+        <line x1="8" y1="14" x2="16" y2="14" />
+        <line x1="8" y1="17" x2="13" y2="17" />
       </svg>
     ),
   },
