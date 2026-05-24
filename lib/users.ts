@@ -71,6 +71,7 @@ export const USERS: Record<UserId, UserDef> = {
       "allocated",
       "deposits",
       "bank-transfers",
+      "financials-budgets",
     ]),
     allowedPathPrefixes: [
       "/dashboard",
@@ -81,6 +82,7 @@ export const USERS: Record<UserId, UserDef> = {
       "/allocated-invoicer",
       "/deposits",
       "/bank-transfers",
+      "/financials",
     ],
     defaultRentRollCategory: "All",
     defaultPropertyType: "all",
@@ -113,8 +115,8 @@ export const USERS: Record<UserId, UserDef> = {
   nancy: {
     id: "nancy",
     label: "NANCY",
-    navKeys: new Set([...universalNav, "leasing-activity", "base-years", "commissions", "reservations", "maintenance", "deposits"]),
-    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/commissions", "/reservations", "/maintenance", "/deposits"],
+    navKeys: new Set([...universalNav, "leasing-activity", "base-years", "commissions", "reservations", "maintenance", "deposits", "financials-budgets"]),
+    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/commissions", "/reservations", "/maintenance", "/deposits", "/financials"],
     defaultRentRollCategory: "Office",
     defaultPropertyType: "Office",
     dashboardScope: { codes: OFFICE_AND_OW_INDIVIDUAL },
@@ -126,8 +128,8 @@ export const USERS: Record<UserId, UserDef> = {
   harry: {
     id: "harry",
     label: "HARRY",
-    navKeys: new Set([...universalNav, "expenses", "expenses-history", "payroll-invoicer", "investors", "commissions-retail", "deposits", "bank-transfers"]),
-    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/expenses", "/investors", "/commissions/retail", "/deposits", "/bank-transfers", "/"],
+    navKeys: new Set([...universalNav, "expenses", "expenses-history", "payroll-invoicer", "investors", "commissions-retail", "deposits", "bank-transfers", "financials-budgets"]),
+    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/expenses", "/investors", "/commissions/retail", "/deposits", "/bank-transfers", "/financials", "/"],
     defaultRentRollCategory: "Retail",
     defaultPropertyType: "Retail",
     dashboardScope: { codes: SC_INDIVIDUAL },
