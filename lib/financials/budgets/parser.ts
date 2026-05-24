@@ -302,6 +302,7 @@ export function parseBudgetWorkbook(
   return {
     id: idFromLabel(label, year),
     label,
+    kind: "imported",
     category,
     year,
     uploadedAt: new Date().toISOString(),

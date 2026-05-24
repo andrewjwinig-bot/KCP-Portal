@@ -13,6 +13,7 @@ export async function GET() {
     const summary = workbooks.map((w) => ({
       id: w.id,
       label: w.label,
+      kind: w.kind,
       category: w.category,
       year: w.year,
       uploadedAt: w.uploadedAt,
