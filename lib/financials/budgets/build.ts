@@ -25,12 +25,15 @@ import type {
 // Rent-roll subset we read from /api/rentroll's stored snapshot.
 type RentRollUnitLite = {
   unitRef: string;
+  occupantName?: string;
   isVacant?: boolean;
   amenity?: unknown;
   baseRent?: number;        // monthly base rent
   opexMonth?: number;       // CAM monthly billed
   reTaxMonth?: number;      // RET monthly billed
   otherMonth?: number;      // INS monthly billed
+  leaseFrom?: string;       // MM/DD/YYYY
+  leaseTo?: string;         // MM/DD/YYYY
 };
 type RentRollPropertyLite = {
   propertyCode: string;
@@ -50,6 +53,34 @@ const CATEGORY_PROPERTY_TYPE: Record<BudgetCategory, "Office" | "Retail" | "Resi
 function zeroMonths(): number[] { return Array(12).fill(0); }
 function sumMonths(ms: number[]): number { return ms.reduce((s, m) => s + m, 0); }
 function lift(ms: number[], factor: number): number[] { return ms.map((m) => Math.round(m * factor)); }
+
+function parseRentDate(s: string | null | undefined): { year: number; month: number } | null {
+  if (!s) return null;
+  const m = String(s).match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (!m) return null;
+  return { year: Number(m[3]), month: Number(m[1]) };
+}
+
+/**
+ * Tenant-level "this lease covers the FULL budget year" check. Used to
+ * separate in-place rent from leases that need a Renew & Vac assumption
+ * because they expire mid-year (or earlier). Tenants whose lease ends
+ * during or before the budget year are excluded from In Place — Phase 2b's
+ * panel will handle them.
+ */
+function leaseCoversFullYear(unit: RentRollUnitLite, year: number): boolean {
+  const to = parseRentDate(unit.leaseTo);
+  if (!to) return false;            // missing / unparseable lease end → not full year
+  if (to.year < year) return false; // already expired
+  if (to.year === year) return false; // expires sometime this year
+  return true; // lease ends in a later year
+}
+
+function fullYearUnits(units: RentRollUnitLite[], year: number): RentRollUnitLite[] {
+  return units.filter(
+    (u) => !u.isVacant && !u.amenity && leaseCoversFullYear(u, year),
+  );
+}
 
 function totalAcross(lines: BudgetLine[]): number[] {
   const out = zeroMonths();
@@ -96,18 +127,27 @@ function propertyName(code: string, fallback: string | undefined): string {
 
 function buildRevenuesSection(
   units: RentRollUnitLite[],
+  year: number,
   prior: BudgetSection | null,
 ): { section: BudgetSection; monthsTotal: number[] } {
-  const monthlyBase = units
-    .filter((u) => !u.isVacant && !u.amenity)
-    .reduce((s, u) => s + (u.baseRent ?? 0), 0);
+  // Only count tenants whose lease covers the entire budget year. Tenants
+  // expiring during the year are excluded — Phase 2b's Renew & Vac panel
+  // captures their renewal / vacate assumption and the post-expiration rent.
+  const fullYear = fullYearUnits(units, year);
+  const monthlyBase = fullYear.reduce((s, u) => s + (u.baseRent ?? 0), 0);
+  const excludedCount = units.filter(
+    (u) => !u.isVacant && !u.amenity && !leaseCoversFullYear(u, year),
+  ).length;
+  const inPlaceNote = excludedCount > 0
+    ? `Auto from rent roll, full-year leases only (flat — no escalations). ${excludedCount} expiring tenant${excludedCount === 1 ? "" : "s"} excluded — set via Renew & Vac.`
+    : "Auto from current rent roll (flat — no escalations applied)";
 
   const lines: BudgetLine[] = [
     {
       glAccount: "4230-8501", subCategory: null, label: "Rental Income - In Place",
       months: Array(12).fill(monthlyBase),
       total: monthlyBase * 12, totalPsf: null, input: null,
-      notes: "Auto from current rent roll (flat — no escalations applied)",
+      notes: inPlaceNote,
       isSubtotal: false,
     },
     {
@@ -143,12 +183,15 @@ function buildRevenuesSection(
 
 function buildReimbursementsSection(
   units: RentRollUnitLite[],
+  year: number,
   prior: BudgetSection | null,
 ): { section: BudgetSection; monthsTotal: number[] } {
-  const occupied = units.filter((u) => !u.isVacant && !u.amenity);
-  const cam = occupied.reduce((s, u) => s + (u.opexMonth ?? 0), 0);
-  const ret = occupied.reduce((s, u) => s + (u.reTaxMonth ?? 0), 0);
-  const ins = occupied.reduce((s, u) => s + (u.otherMonth ?? 0), 0);
+  // Same full-year filter as In-Place Revenue — expiring tenants' CAM /
+  // RET / INS reimbursements depend on the renewal assumption.
+  const fullYear = fullYearUnits(units, year);
+  const cam = fullYear.reduce((s, u) => s + (u.opexMonth ?? 0), 0);
+  const ret = fullYear.reduce((s, u) => s + (u.reTaxMonth ?? 0), 0);
+  const ins = fullYear.reduce((s, u) => s + (u.otherMonth ?? 0), 0);
 
   const lines: BudgetLine[] = [
     {
@@ -345,8 +388,8 @@ export function buildLiveBudget(input: BuildLiveBudgetInput): BudgetWorkbook {
     const priorNonReimb  = findSectionByNameHint(input.prior, code, /^non-reimbursable/i);
     const priorCapital   = findSectionByNameHint(input.prior, code, /capital/i);
 
-    const rev      = buildRevenuesSection(rrProp.units, null);
-    const reimb    = buildReimbursementsSection(rrProp.units, priorReimb);
+    const rev      = buildRevenuesSection(rrProp.units, input.year, null);
+    const reimb    = buildReimbursementsSection(rrProp.units, input.year, priorReimb);
     const reimbExp = liftExpenseSection(priorReimbExp, growthFactor, "Reimbursable Expenses");
     const nonReimb = liftExpenseSection(priorNonReimb, growthFactor, "Non-Reimbursable Expenses");
     const capital  = buildCapitalSection(priorCapital);

@@ -17,8 +17,14 @@ import type { BudgetWorkbook } from "./types";
 
 const PREFIX = "financials-budgets";
 const MANIFEST_ID = "manifest";
+// The bundled workbook's internal year column says 2026 but the actual
+// underlying data is the 2025 budget (2026 data hasn't been worked yet);
+// override on load so users see it tagged as 2025 and the Create-Live-
+// Budget default year flows to 2026.
 const SEED_FILE = path.join(process.cwd(), "data", "budgets", "Shopping_Centers_2026.xlsx");
-const SEED_LABEL = "Shopping Centers 2026 Operating Budget";
+const SEED_LABEL = "Shopping Centers 2025 Operating Budget";
+const SEED_YEAR = 2025;
+const SEED_ID = "shopping-centers-2025";
 
 type Manifest = {
   workbooks: BudgetWorkbook[];
@@ -30,12 +36,38 @@ type Manifest = {
 
 async function loadManifest(): Promise<BudgetWorkbook[]> {
   const m = (await getJSON(PREFIX, MANIFEST_ID)) as Manifest | null;
-  if (m?.workbooks?.length) return m.workbooks;
+  if (m?.workbooks?.length) {
+    // One-shot migration: an earlier deploy seeded the bundled workbook
+    // with the year stamped as 2026 (matching the file metadata). The
+    // underlying data is actually the 2025 budget — re-stamp on load so
+    // existing stores reflect that.
+    let migrated = false;
+    for (const wb of m.workbooks) {
+      if (
+        wb.kind === "imported" &&
+        wb.year === 2026 &&
+        wb.id !== SEED_ID &&
+        /shopping centers/i.test(wb.label) &&
+        /operating budget/i.test(wb.label)
+      ) {
+        wb.id = SEED_ID;
+        wb.label = SEED_LABEL;
+        wb.year = SEED_YEAR;
+        migrated = true;
+      }
+    }
+    if (migrated) await saveManifest(m.workbooks, true);
+    return m.workbooks;
+  }
   if (m?.seeded) return m.workbooks ?? [];
-  // First-ever read — try to seed from the bundled 2026 file.
+  // First-ever read — try to seed from the bundled workbook.
   try {
     const buf = await fs.readFile(SEED_FILE);
     const wb = parseBudgetWorkbook(buf, SEED_LABEL);
+    // Pin the year + id since the source file's internal year metadata
+    // doesn't match the data the user told us this represents.
+    wb.year = SEED_YEAR;
+    wb.id = SEED_ID;
     if (wb.properties.length > 0) {
       await saveManifest([wb], true);
       return [wb];
