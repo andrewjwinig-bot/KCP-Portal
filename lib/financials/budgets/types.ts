@@ -65,13 +65,28 @@ export type PropertyBudget = {
 
 export type BudgetCategory = "Shopping Centers" | "Office" | "Residential" | "Other";
 
+/** Kind = "imported" → a parsed source workbook (the historical 2026 file).
+ *  Kind = "live"     → a portal-built budget populated from rent roll +
+ *  debt tracker + prior budget at × growth. Both share the same shape so
+ *  the viewer is identical. */
+export type BudgetKind = "imported" | "live";
+
 export type BudgetWorkbook = {
   id: string;                     // e.g. "shopping-centers-2026"
   label: string;                  // human-readable
+  kind: BudgetKind;
   category: BudgetCategory;
   year: number;
   uploadedAt: string;
   uploadedBy?: string;
+  /** Provenance for live budgets — which rent roll snapshot the in-place
+   *  revenue came from, which prior budget OpEx was lifted from, and what
+   *  growth multiplier was applied. */
+  source?: {
+    rentRollUploadedAt?: string;
+    priorBudgetId?: string;
+    opExGrowthPct?: number;
+  };
   /** Workbook-level rollup ("All Shopping Centers" sheet), if present. */
   rollup?: PropertyBudget;
   properties: PropertyBudget[];
