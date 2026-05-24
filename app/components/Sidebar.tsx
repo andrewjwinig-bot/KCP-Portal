@@ -41,6 +41,19 @@ const NAV_ROLE_KEY: Record<string, string> = {
 // Visible cue: chevron + slightly tinted background distinguishes a
 // group header from a plain link.
 const GROUPS: Record<string, { label: string; icon: React.ReactNode }> = {
+  banking: {
+    label: "Banking",
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3 9l9-6 9 6" />
+        <path d="M5 9v10" />
+        <path d="M19 9v10" />
+        <path d="M9 9v10" />
+        <path d="M15 9v10" />
+        <line x1="3" y1="21" x2="21" y2="21" />
+      </svg>
+    ),
+  },
   invoicing: {
     label: "Invoicing",
     icon: (
@@ -135,6 +148,7 @@ const NAV = [
     external: false,
     indent: false,
     showFor: null as string | null,
+    groupId: "banking",
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <line x1="3" y1="3" x2="3" y2="21" />
@@ -247,6 +261,7 @@ const NAV = [
     external: false,
     indent: false,
     showFor: null as string | null,
+    groupId: "banking",
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <rect x="2" y="7" width="20" height="13" rx="2" />
@@ -261,6 +276,7 @@ const NAV = [
     external: false,
     indent: false,
     showFor: null as string | null,
+    groupId: "banking",
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <rect x="3" y="5" width="18" height="14" rx="2" ry="2" />
@@ -372,6 +388,7 @@ const NAV = [
     external: false,
     indent: false,
     showFor: null as string | null,
+    groupId: "banking",
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M3 7h13" />
