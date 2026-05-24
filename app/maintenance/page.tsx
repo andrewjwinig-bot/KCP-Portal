@@ -848,12 +848,16 @@ function RequestModal({
             ? "Submitted 1 day ago"
             : `Submitted ${ageDays} days ago`;
 
-  // Split notes into the tenant's intake (Submission section) vs everything
-  // staff added after the fact (Internal Notes section + add-note composer).
+  // Split notes into three buckets:
+  //  - submissionNote — the tenant's intake (rendered in the Submission section)
+  //  - correspondence — outbound emails sent to the tenant from this thread
+  //  - internalNotes  — actual staff-to-staff remarks
   const submissionNote = request.notes.find(
     (n) => n.authorName === "Tenant Submission" || n.authorName === "Migrated",
   );
-  const internalNotes = request.notes.filter((n) => n !== submissionNote);
+  const isCorrespondence = (n: { text: string }) => n.text.startsWith("Emailed tenant (");
+  const correspondence = request.notes.filter((n) => n !== submissionNote && isCorrespondence(n));
+  const internalNotes = request.notes.filter((n) => n !== submissionNote && !isCorrespondence(n));
 
   return (
     <div
@@ -1194,6 +1198,27 @@ function RequestModal({
               )}
             </div>
           </Section>
+
+          {/* Correspondence — outbound emails sent from this request. Read-only;
+              new email goes out via the Email Tenant composer below. */}
+          {correspondence.length > 0 && (
+            <Section title={`Correspondence (${correspondence.length})`}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {correspondence.map((n) => (
+                  <div key={n.id} style={{
+                    padding: "12px 14px",
+                    border: "1px solid rgba(11,74,125,0.25)", borderRadius: 10,
+                    background: "rgba(11,74,125,0.04)",
+                  }}>
+                    <div style={{ fontSize: 11, color: "var(--muted)", fontWeight: 700, marginBottom: 6, letterSpacing: "0.02em" }}>
+                      {n.authorName} · {new Date(n.createdAt).toLocaleString()}
+                    </div>
+                    <div style={{ fontSize: 14, whiteSpace: "pre-wrap", lineHeight: 1.55 }}>{n.text}</div>
+                  </div>
+                ))}
+              </div>
+            </Section>
+          )}
 
           {/* Internal Notes — staff-added notes + the add-note composer */}
           <Section title={`Internal Notes (${internalNotes.length})`}>

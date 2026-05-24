@@ -86,7 +86,7 @@ async function sendAutoReply(email: ParsedEmail): Promise<boolean> {
   const firstName = email.fromName.split(/\s+/)[0] || "there";
   const subject = email.subject
     ? `Re: ${email.subject.replace(/^Re:\s*/i, "")}`
-    : "Re: Maintenance request";
+    : "Re: Service request";
 
   const body = [
     `Hi ${firstName},`,

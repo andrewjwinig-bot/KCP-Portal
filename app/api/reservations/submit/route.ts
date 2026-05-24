@@ -187,6 +187,16 @@ export async function POST(req: NextRequest) {
     });
   } catch { /* ignore */ }
 
+  // Best-effort notification to the internal service team so a new
+  // reservation never slips through. Fires every submission.
+  try {
+    await sendMail({
+      to: "service@kormancommercial.com",
+      subject: `New conference room reservation — ${r.roomLabel}, ${r.propertyName}`,
+      textBody: teamNotificationBody(r),
+    });
+  } catch { /* ignore */ }
+
   // Best-effort confirmation email.
   try {
     await sendMail({
@@ -216,6 +226,25 @@ function confirmationBody(r: Reservation): string {
     "Your reservation is currently PENDING. You'll receive another email once it's approved.",
     "",
     "— KCP Property Management",
+  ].filter((l) => l !== null).join("\n");
+}
+
+function teamNotificationBody(r: Reservation): string {
+  return [
+    "A new conference room reservation was just submitted in the KCP Portal.",
+    "",
+    `Room:        ${r.roomLabel} (${r.propertyName})`,
+    `Date:        ${prettyDate(r.date)}`,
+    `Time:        ${prettyTime(r.startTime)} – ${prettyTime(r.endTime)}`,
+    `Tenant:      ${r.tenantCompany || "—"}`,
+    `Contact:     ${[r.contactFirstName, r.contactLastName].filter(Boolean).join(" ") || "—"}`,
+    `Email:       ${r.contactEmail || "—"}`,
+    `Phone:       ${r.contactPhone || "—"}`,
+    r.purpose ? `Purpose:     ${r.purpose}` : null,
+    `Reference:   ${r.id}`,
+    "",
+    "Status: PENDING approval. Open the reservation in the portal:",
+    "https://kcp-portal.vercel.app/reservations",
   ].filter((l) => l !== null).join("\n");
 }
 
