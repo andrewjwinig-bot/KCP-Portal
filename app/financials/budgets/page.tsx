@@ -406,46 +406,6 @@ function BudgetTable({ workbook, property }: { workbook: BudgetWorkbook; propert
           </div>
         </div>
       ))}
-
-      {/* Skyline import preview */}
-      {property.skylineImport.length > 0 && (
-        <div className="card">
-          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 8, gap: 10, flexWrap: "wrap" }}>
-            <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase" }}>
-              Budget Import — {property.propertyCode}
-            </span>
-            <span className="muted small">
-              Skyline payload. Revenues stored as negatives (credits). Use the Budget Import (.xlsx) button at the top.
-            </span>
-          </div>
-          <div className="tableWrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Line</th>
-                  <th style={{ width: 110 }}>Account</th>
-                  <th style={{ textAlign: "right", width: 140 }}>Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {property.skylineImport.map((l, i) => (
-                  <tr key={i}>
-                    <td>{l.label}</td>
-                    <td className="muted small" style={{ fontVariantNumeric: "tabular-nums" }}>{l.glAccount}</td>
-                    <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{money(l.total)}</td>
-                  </tr>
-                ))}
-                <tr style={{ fontWeight: 800, background: "rgba(15,23,42,0.04)" }}>
-                  <td colSpan={2}>Total</td>
-                  <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
-                    {money(property.skylineImport.reduce((s, l) => s + l.total, 0))}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
