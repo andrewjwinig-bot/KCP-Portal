@@ -471,7 +471,6 @@ function CreateBudgetDialog({
   onCreated: (id: string) => void | Promise<void>;
 }) {
   const today = new Date();
-  const [year, setYear] = useState<number>(today.getFullYear() + 1);
   const [category, setCategory] = useState<"Shopping Centers" | "Office" | "Residential">("Shopping Centers");
   const [priorBudgetId, setPriorBudgetId] = useState<string>("");
   const [growth, setGrowth] = useState<number>(3);
@@ -483,12 +482,19 @@ function CreateBudgetDialog({
     () => summaries.filter((s) => s.category === category).sort((a, b) => b.year - a.year),
     [summaries, category],
   );
+  // Default the new budget's year to one past the chosen prior (or
+  // today's year + 1 when there's no prior in this category).
+  const [year, setYear] = useState<number>(today.getFullYear() + 1);
   useEffect(() => {
     setPriorBudgetId((prev) => {
       if (prev && priorOptions.some((o) => o.id === prev)) return prev;
       return priorOptions[0]?.id ?? "";
     });
   }, [priorOptions]);
+  useEffect(() => {
+    const prior = priorOptions.find((o) => o.id === priorBudgetId);
+    if (prior) setYear(prior.year + 1);
+  }, [priorBudgetId, priorOptions]);
 
   async function submit() {
     setError(null);
