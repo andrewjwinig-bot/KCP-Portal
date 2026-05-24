@@ -8,6 +8,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { PROPERTY_DEFS, BANK_ACCOUNTS, type PropertyDef } from "../../lib/properties/data";
 import { PROPERTY_OWNERSHIP } from "../../lib/properties/ownership";
+import { useUser } from "./UserProvider";
 import { TAX_TASKS, PARCEL_INFO, filingLabel, baseEntityName } from "../tracker/tax-data";
 import { STAFF } from "@/lib/maintenance/staff";
 
@@ -42,6 +43,7 @@ type SearchReservation = {
 };
 
 type Group =
+  | "Page"
   | "Maintenance Request"
   | "Reservation"
   | "Property"
@@ -51,6 +53,84 @@ type Group =
   | "Tax Filing"
   | "Bank Account"
   | "Parcel";
+
+// Pages exposed to the search. Each entry lists the page title plus a
+// handful of keywords / aliases so a user can find a page by what they
+// know it as, not just its exact label. `navKey` mirrors the role-gating
+// used by the sidebar — null means everyone with site access can land
+// on the page.
+type PageEntry = { label: string; href: string; navKey: string | null; description?: string; keywords: string[] };
+const PAGES: PageEntry[] = [
+  { label: "Dashboard", href: "/dashboard", navKey: "dashboard",
+    description: "Action items and at-a-glance portfolio numbers",
+    keywords: ["home", "action items", "overview", "alerts", "summary"] },
+  { label: "Property Info", href: "/properties", navKey: "properties",
+    description: "Property directory — addresses, ownership, EIN, contacts",
+    keywords: ["properties", "buildings", "addresses", "directory", "ein", "owner", "ownership"] },
+  { label: "Investor Info", href: "/investors", navKey: "investors",
+    description: "Investor / partner directory and vendor codes",
+    keywords: ["investors", "partners", "owners", "vendor", "vendor code"] },
+  { label: "Debt Tracker", href: "/debt", navKey: "debt",
+    description: "Loans, maturity dates, interest-only vs amortizing",
+    keywords: ["loans", "mortgage", "debt", "maturity", "amortization", "interest"] },
+  { label: "Rent Roll", href: "/rentroll", navKey: "rentroll",
+    description: "Current tenant rent roll by property",
+    keywords: ["tenants", "occupancy", "leases", "units", "suites"] },
+  { label: "Occupancy Trends", href: "/rentroll/trends", navKey: "rentroll",
+    description: "Historical occupancy chart by property",
+    keywords: ["occupancy", "trends", "vacancy", "history"] },
+  { label: "Leasing Activity", href: "/rentroll/leasing", navKey: "leasing-activity",
+    description: "Prospects, pending leases, vacating, base year resets",
+    keywords: ["prospects", "pending", "vacating", "renewals", "options", "base year", "reset"] },
+  { label: "Expense History", href: "/rentroll/base-years", navKey: "base-years",
+    description: "Operating expense history + CAM recovery analysis by base year",
+    keywords: ["opex", "operating expenses", "cam", "ret", "recovery", "base year", "office", "reconciliation"] },
+  { label: "Expense Trends", href: "/rentroll/base-years/trends", navKey: "base-years",
+    description: "Year-over-year operating expense trends per building",
+    keywords: ["opex", "trends", "history", "cam"] },
+  { label: "Commissions", href: "/commissions", navKey: "commissions",
+    description: "Office leasing commission memos",
+    keywords: ["commission", "memo", "leasing", "office"] },
+  { label: "Retail Commissions", href: "/commissions/retail", navKey: "commissions-retail",
+    description: "Shopping center leasing commission memos",
+    keywords: ["commission", "retail", "shopping centers", "memo"] },
+  { label: "Security Deposits", href: "/deposits", navKey: "deposits",
+    description: "Per-tenant security deposit ledger",
+    keywords: ["deposit", "security deposit", "sd", "tenant deposits"] },
+  { label: "Task Tracker", href: "/tracker", navKey: "tracker",
+    description: "Weekly / monthly task checklist",
+    keywords: ["tasks", "todo", "checklist", "weekly", "monthly"] },
+  { label: "Filing Tracker", href: "/tracker/taxes", navKey: "tracker",
+    description: "Annual tax filings tracker",
+    keywords: ["taxes", "filings", "annual", "1065", "k1"] },
+  { label: "Bank Acc Tracker", href: "/bank-rec", navKey: "bank-rec-tracker",
+    description: "Bank reconciliation status by account, by month",
+    keywords: ["bank rec", "reconciliation", "accounts", "statements", "stacie"] },
+  { label: "Bank Transfers", href: "/bank-transfers", navKey: "bank-transfers",
+    description: "Inter-account transfer log",
+    keywords: ["transfers", "wires", "advances", "reimbursements", "intercompany"] },
+  { label: "Payroll Invoicer", href: "/", navKey: "payroll-invoicer",
+    description: "Generate payroll allocation invoices per property",
+    keywords: ["payroll", "invoice", "allocation", "paychex"] },
+  { label: "Payroll History", href: "/history", navKey: "payroll-history",
+    description: "Archive of saved payroll pay periods",
+    keywords: ["payroll", "history", "periods", "archive"] },
+  { label: "CC Expense Coder", href: "/expenses", navKey: "expenses",
+    description: "Code credit-card expenses to properties + send invoices",
+    keywords: ["credit card", "expenses", "coding", "avidbill", "amex"] },
+  { label: "CC Expense History", href: "/expenses/history", navKey: "expenses-history",
+    description: "Archive of past credit-card coding sessions",
+    keywords: ["credit card", "history", "expenses", "archive"] },
+  { label: "Allocated Invoicer", href: "/allocated-invoicer", navKey: "allocated",
+    description: "Allocate a single invoice across multiple properties",
+    keywords: ["invoice", "allocation", "split", "vendor"] },
+  { label: "Service Requests", href: "/maintenance", navKey: "maintenance",
+    description: "Maintenance / service request queue",
+    keywords: ["service", "maintenance", "tickets", "requests", "work orders"] },
+  { label: "Reservations", href: "/reservations", navKey: "reservations",
+    description: "Conference room reservation queue",
+    keywords: ["conference", "rooms", "reservations", "bookings", "meetings"] },
+];
 
 type Hit = {
   group: Group;
@@ -124,6 +204,7 @@ type RentRollData = {
 };
 
 export default function GlobalSearch() {
+  const { user } = useUser();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [activeIdx, setActiveIdx] = useState(0);
@@ -209,6 +290,31 @@ export default function GlobalSearch() {
     const q = query.trim();
     if (!q) return [];
     const out: Hit[] = [];
+
+    // Pages — surface navigation targets the current user has access to.
+    // Score against the page label, its description, and a keyword list
+    // so people can search by what they call the page (e.g. "tickets" →
+    // Service Requests, "opex" → Expense History).
+    const canSee = (navKey: string | null) =>
+      navKey === null || user.navKeys.has("all") || user.navKeys.has(navKey);
+    for (const p of PAGES) {
+      if (!canSee(p.navKey)) continue;
+      const fields: Array<[string | null | undefined, number]> = [
+        [p.label, 1.6],
+        [p.description ?? null, 0.8],
+        ...p.keywords.map((k): [string, number] => [k, 1.2]),
+      ];
+      const s = scoreFields(q, fields);
+      if (s > 0) {
+        out.push({
+          group: "Page",
+          title: p.label,
+          subtitle: p.description,
+          href: p.href,
+          score: s + 4, // small floor so an exact page-name hit floats above noisy data matches
+        });
+      }
+    }
 
     // Properties
     for (const p of PROPERTY_DEFS) {
@@ -419,11 +525,11 @@ export default function GlobalSearch() {
 
     out.sort((a, b) => b.score - a.score);
     return out;
-  }, [query, tenants, maintRequests, reservations]);
+  }, [query, tenants, maintRequests, reservations, user.navKeys]);
 
   // Group results into sections, limiting each group to 6 with "+N more".
   const grouped = useMemo(() => {
-    const order: Group[] = ["Maintenance Request", "Reservation", "Property", "Owner", "Vendor Code", "Tenant", "Tax Filing", "Bank Account", "Parcel"];
+    const order: Group[] = ["Page", "Maintenance Request", "Reservation", "Property", "Owner", "Vendor Code", "Tenant", "Tax Filing", "Bank Account", "Parcel"];
     const map = new Map<Group, Hit[]>();
     for (const h of hits) {
       let arr = map.get(h.group);
