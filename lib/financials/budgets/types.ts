@@ -44,6 +44,33 @@ export type SkylineImportLine = {
   total: number;
 };
 
+/** One row of the per-tenant "who makes up Occupancy SF each month" panel.
+ *
+ *  category:
+ *    "in-place" — lease was already in place going into the year and
+ *                 covers all 12 months.
+ *    "renewal"  — lease expires during the budget year. The row carries
+ *                 the tenant's footprint through the expiration month;
+ *                 post-expiration months are zero until a Renew & Vac
+ *                 assumption is set (Phase 2b).
+ *    "new"      — lease starts during the budget year (already signed in
+ *                 the rent roll). Contributes from the start month on.
+ *    "vacant"   — currently vacant suite; zero across the board until a
+ *                 new-lease assumption is set (Phase 2b).
+ */
+export type OccupancyDetailRow = {
+  unitRef: string;
+  tenantName: string;
+  category: "in-place" | "renewal" | "new" | "vacant";
+  unitSqft: number;
+  /** 12 entries Jan–Dec — sqft attributed to this row per month. */
+  monthlySqft: number[];
+  /** 12 entries Jan–Dec — base rent attributed to this row per month. */
+  monthlyBaseRent: number[];
+  leaseFrom: string | null;
+  leaseTo: string | null;
+};
+
 export type PropertyBudget = {
   propertyCode: string;
   propertyName: string;
@@ -55,6 +82,11 @@ export type PropertyBudget = {
   sections: BudgetSection[];
   /** Headline rollups (Total Revenues, NOI, Cash Flow before/after Debt). */
   rollups: { name: string; total: number; months: number[] }[];
+  /** Per-unit projected occupancy breakdown (in-place / renewal / new /
+   *  vacant). Drives the expandable "who's in here each month" panel
+   *  under the occupancy strip. Optional because imported workbooks
+   *  don't carry per-tenant lease data — only live builds populate it. */
+  occupancyDetail?: OccupancyDetailRow[];
   /** The Skyline Import block exactly as it appears at the bottom of the
    *  property sheet — used to generate the .xlsx for the GL system. */
   skylineImport: SkylineImportLine[];

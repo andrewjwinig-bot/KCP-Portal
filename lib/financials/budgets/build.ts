@@ -18,6 +18,7 @@ import type {
   BudgetLine,
   BudgetSection,
   BudgetWorkbook,
+  OccupancyDetailRow,
   PropertyBudget,
   SkylineImportLine,
 } from "./types";
@@ -28,6 +29,7 @@ type RentRollUnitLite = {
   occupantName?: string;
   isVacant?: boolean;
   amenity?: unknown;
+  sqft?: number;            // unit square footage (for occupancy detail)
   baseRent?: number;        // monthly base rent
   opexMonth?: number;       // CAM monthly billed
   reTaxMonth?: number;      // RET monthly billed
@@ -80,6 +82,78 @@ function fullYearUnits(units: RentRollUnitLite[], year: number): RentRollUnitLit
   return units.filter(
     (u) => !u.isVacant && !u.amenity && leaseCoversFullYear(u, year),
   );
+}
+
+/** Inclusive [0..11] month index of the lease-start date if it falls in
+ *  `year`. Returns 0 if the lease started before the budget year (i.e.
+ *  occupied from Jan onwards) and null if it starts after. */
+function leaseStartMonthIdx(unit: RentRollUnitLite, year: number): number | null {
+  const from = parseRentDate(unit.leaseFrom);
+  if (!from) return 0; // unknown start treated as already-in-place
+  if (from.year < year) return 0;
+  if (from.year > year) return null;
+  return from.month - 1;
+}
+
+/** Inclusive [0..11] last month the lease is active within `year`. Returns
+ *  11 if the lease ends after the budget year. Returns null if it ended
+ *  before the year began. */
+function leaseEndMonthIdx(unit: RentRollUnitLite, year: number): number | null {
+  const to = parseRentDate(unit.leaseTo);
+  if (!to) return 11; // open-ended → active all year
+  if (to.year < year) return null;
+  if (to.year > year) return 11;
+  return to.month - 1;
+}
+
+/** Classify a rent-roll unit for the budget-year breakdown. */
+function classifyUnit(
+  unit: RentRollUnitLite,
+  year: number,
+): OccupancyDetailRow["category"] {
+  if (unit.isVacant || unit.amenity) return "vacant";
+  const from = parseRentDate(unit.leaseFrom);
+  const to = parseRentDate(unit.leaseTo);
+  // New lease that starts mid-year (lease-from inside the budget year).
+  if (from && from.year === year) return "new";
+  // Expires during the budget year → renewal decision pending.
+  if (to && to.year === year) return "renewal";
+  // Lease already in place going into the year and covers all 12 months.
+  return "in-place";
+}
+
+function buildOccupancyDetail(units: RentRollUnitLite[], year: number): OccupancyDetailRow[] {
+  return units
+    .filter((u) => !u.amenity) // skip amenity rows (parking, signage, etc.)
+    .map((u) => {
+      const category = classifyUnit(u, year);
+      const sqft = u.sqft ?? 0;
+      const rent = u.baseRent ?? 0;
+      const monthlySqft = zeroMonths();
+      const monthlyBaseRent = zeroMonths();
+      if (category !== "vacant") {
+        const start = leaseStartMonthIdx(u, year);
+        const end = leaseEndMonthIdx(u, year);
+        if (start !== null && end !== null && end >= start) {
+          for (let i = start; i <= end; i++) {
+            monthlySqft[i] = sqft;
+            monthlyBaseRent[i] = rent;
+          }
+        }
+      }
+      return {
+        unitRef: u.unitRef,
+        tenantName: u.occupantName?.trim() || "VACANT",
+        category,
+        unitSqft: sqft,
+        monthlySqft,
+        monthlyBaseRent,
+        leaseFrom: u.leaseFrom ?? null,
+        leaseTo: u.leaseTo ?? null,
+      };
+    })
+    // Sort by suite number for stable display.
+    .sort((a, b) => a.unitRef.localeCompare(b.unitRef, "en", { numeric: true }));
 }
 
 function totalAcross(lines: BudgetLine[]): number[] {
@@ -414,17 +488,29 @@ export function buildLiveBudget(input: BuildLiveBudgetInput): BudgetWorkbook {
     ];
 
     const totalSqft = rrProp.totalSqft ?? 0;
-    const occupiedSqft = rrProp.occupiedSqft ?? 0;
-    const occPct = totalSqft > 0 ? (occupiedSqft / totalSqft) * 100 : 0;
+
+    const occupancyDetail = buildOccupancyDetail(rrProp.units, input.year);
+    // Monthly occupancy now reflects who's actually projected to be in
+    // place each month (in-place + renewals through expiration + signed
+    // new leases from their start month). Vacant / post-expiration months
+    // stay zero until Phase 2b assumptions fill them in.
+    const occSqftByMonth = zeroMonths();
+    for (const row of occupancyDetail) {
+      for (let i = 0; i < 12; i++) occSqftByMonth[i] += row.monthlySqft[i];
+    }
+    const occPctByMonth = occSqftByMonth.map((s) =>
+      totalSqft > 0 ? Number(((s / totalSqft) * 100).toFixed(1)) : 0,
+    );
 
     return {
       propertyCode: code,
       propertyName: propertyName(code, rrProp.reportedPropertyName),
       rentableSqft: totalSqft,
-      occupancyPct: Array(12).fill(Number(occPct.toFixed(1))),
-      occupancySqft: Array(12).fill(occupiedSqft),
+      occupancyPct: occPctByMonth,
+      occupancySqft: occSqftByMonth,
       sections,
       rollups,
+      occupancyDetail,
       skylineImport: buildSkylineImport(priorProperty, sections),
       skylineImportTotal: -sumMonths(cfAfterMonths),
     };
