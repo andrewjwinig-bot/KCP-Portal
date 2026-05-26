@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useUser } from "@/app/components/UserProvider";
-import { StatPill } from "@/app/components/Pill";
-import type { BudgetWorkbook } from "@/lib/financials/budgets/types";
+import { Pill, StatPill, type PillTone } from "@/app/components/Pill";
+import type { BudgetWorkbook, OccupancyDetailRow } from "@/lib/financials/budgets/types";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] as const;
 
@@ -209,6 +209,153 @@ export default function BudgetsPage() {
   );
 }
 
+const OCCUPANCY_TONES: Record<OccupancyDetailRow["category"], PillTone> = {
+  "in-place": { bg: "rgba(11,74,125,0.10)",  fg: "#0b4a7d", border: "rgba(11,74,125,0.30)" },
+  "renewal":  { bg: "rgba(202,138,4,0.12)",  fg: "#854d0e", border: "rgba(202,138,4,0.35)" },
+  "new":      { bg: "rgba(22,163,74,0.10)",  fg: "#15803d", border: "rgba(22,163,74,0.30)" },
+  "vacant":   { bg: "rgba(15,23,42,0.06)",   fg: "#475569", border: "rgba(15,23,42,0.15)" },
+};
+
+const OCCUPANCY_LABELS: Record<OccupancyDetailRow["category"], string> = {
+  "in-place": "In-Place",
+  "renewal":  "Renewal Pending",
+  "new":      "New Lease (Signed)",
+  "vacant":   "Vacant",
+};
+
+/** Order rows render in: in-place tenants first, then renewals, then new
+ *  leases, then vacant suites — same grouping the source workbook uses
+ *  with its Rental Summary / In Place / New & Renewal blocks. */
+const OCCUPANCY_ORDER: OccupancyDetailRow["category"][] = ["in-place", "renewal", "new", "vacant"];
+
+function OccupancyPanel({ property }: { property: BudgetWorkbook["properties"][number] }) {
+  const [expanded, setExpanded] = useState(false);
+  const detail = property.occupancyDetail ?? [];
+  const canExpand = detail.length > 0;
+
+  // Group rows by category for the expanded view, preserving suite-sort
+  // within each group.
+  const grouped = useMemo(() => {
+    const by: Record<OccupancyDetailRow["category"], OccupancyDetailRow[]> = {
+      "in-place": [], "renewal": [], "new": [], "vacant": [],
+    };
+    for (const r of detail) by[r.category].push(r);
+    return by;
+  }, [detail]);
+
+  // Per-category monthly totals for the summary rows inside the expand.
+  const categoryTotals = useMemo(() => {
+    const out: Record<OccupancyDetailRow["category"], number[]> = {
+      "in-place": Array(12).fill(0),
+      "renewal":  Array(12).fill(0),
+      "new":      Array(12).fill(0),
+      "vacant":   Array(12).fill(0),
+    };
+    for (const r of detail) {
+      for (let i = 0; i < 12; i++) out[r.category][i] += r.monthlySqft[i];
+    }
+    return out;
+  }, [detail]);
+
+  return (
+    <div className="card" style={{ padding: 0 }}>
+      <div className="tableWrap">
+        <table>
+          <thead>
+            <tr>
+              <th style={{ minWidth: 220 }}>
+                {canExpand && (
+                  <button
+                    onClick={() => setExpanded((v) => !v)}
+                    className="btn"
+                    style={{
+                      padding: "3px 8px", fontSize: 11, fontWeight: 700,
+                      letterSpacing: "0.04em", textTransform: "uppercase",
+                    }}
+                    aria-expanded={expanded}
+                  >
+                    {expanded ? "▾ Hide tenant breakdown" : "▸ Show tenant breakdown"}
+                  </button>
+                )}
+              </th>
+              {MONTHS.map((m) => <th key={m} style={{ textAlign: "right" }}>{m}</th>)}
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style={{ fontWeight: 700, color: "var(--muted)" }}>Occupancy %</td>
+              {property.occupancyPct.map((p, i) => (
+                <td key={i} style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{pct(p)}</td>
+              ))}
+            </tr>
+            <tr>
+              <td style={{ fontWeight: 700, color: "var(--muted)" }}>Occupancy SF</td>
+              {property.occupancySqft.map((s, i) => (
+                <td key={i} style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+                  {s > 0 ? s.toLocaleString() : "—"}
+                </td>
+              ))}
+            </tr>
+
+            {expanded && OCCUPANCY_ORDER.flatMap((cat) => {
+              const rows = grouped[cat];
+              if (rows.length === 0) return [];
+              return [
+                <tr key={`hdr-${cat}`} style={{ background: "rgba(15,23,42,0.04)" }}>
+                  <td colSpan={13} style={{
+                    fontSize: 11, fontWeight: 800, letterSpacing: "0.06em",
+                    textTransform: "uppercase", color: "var(--muted)",
+                    padding: "8px 12px",
+                  }}>
+                    {OCCUPANCY_LABELS[cat]} · {rows.length} {rows.length === 1 ? "suite" : "suites"}
+                  </td>
+                </tr>,
+                ...rows.map((r) => (
+                  <tr key={`${cat}-${r.unitRef}`}>
+                    <td>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                        <Pill tone={OCCUPANCY_TONES[cat]}>{OCCUPANCY_LABELS[cat]}</Pill>
+                        <span style={{ fontVariantNumeric: "tabular-nums", color: "var(--muted)", fontSize: 12 }}>
+                          {r.unitRef}
+                        </span>
+                        <span style={{ fontWeight: 600 }}>{r.tenantName}</span>
+                        {r.unitSqft > 0 && (
+                          <span className="muted small">· {r.unitSqft.toLocaleString()} sf</span>
+                        )}
+                        {r.leaseTo && (
+                          <span className="muted small">· thru {r.leaseTo}</span>
+                        )}
+                      </div>
+                    </td>
+                    {r.monthlySqft.map((s, i) => (
+                      <td key={i} style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+                        {s > 0 ? s.toLocaleString() : "—"}
+                      </td>
+                    ))}
+                  </tr>
+                )),
+                <tr key={`sub-${cat}`} style={{ fontWeight: 700, background: "rgba(15,23,42,0.02)" }}>
+                  <td style={{ color: "var(--muted)" }}>Subtotal — {OCCUPANCY_LABELS[cat]}</td>
+                  {categoryTotals[cat].map((s, i) => (
+                    <td key={i} style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+                      {s > 0 ? s.toLocaleString() : "—"}
+                    </td>
+                  ))}
+                </tr>,
+              ];
+            })}
+          </tbody>
+        </table>
+      </div>
+      {!canExpand && (
+        <div className="muted small" style={{ padding: "8px 14px", borderTop: "1px solid var(--border)" }}>
+          Per-tenant breakdown is only available on Live budgets (built from the current rent roll).
+        </div>
+      )}
+    </div>
+  );
+}
+
 function BudgetTable({
   workbook,
   property,
@@ -332,36 +479,9 @@ function BudgetTable({
         </div>
       </div>
 
-      {/* Occupancy strip */}
+      {/* Occupancy strip + expandable per-tenant breakdown */}
       {property.occupancyPct.some((p) => p > 0) && (
-        <div className="card" style={{ padding: 0 }}>
-          <div className="tableWrap">
-            <table>
-              <thead>
-                <tr>
-                  <th></th>
-                  {MONTHS.map((m) => <th key={m} style={{ textAlign: "right" }}>{m}</th>)}
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td style={{ fontWeight: 700, color: "var(--muted)" }}>Occupancy %</td>
-                  {property.occupancyPct.map((p, i) => (
-                    <td key={i} style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{pct(p)}</td>
-                  ))}
-                </tr>
-                <tr>
-                  <td style={{ fontWeight: 700, color: "var(--muted)" }}>Occupancy SF</td>
-                  {property.occupancySqft.map((s, i) => (
-                    <td key={i} style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
-                      {s > 0 ? s.toLocaleString() : "—"}
-                    </td>
-                  ))}
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <OccupancyPanel property={property} />
       )}
 
       {/* Sections */}
