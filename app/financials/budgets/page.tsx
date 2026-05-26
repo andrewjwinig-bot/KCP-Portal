@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useUser } from "@/app/components/UserProvider";
+import { StatPill } from "@/app/components/Pill";
 import type { BudgetWorkbook } from "@/lib/financials/budgets/types";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] as const;
@@ -283,39 +284,35 @@ function BudgetTable({ workbook, property }: { workbook: BudgetWorkbook; propert
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       {/* Property summary tile */}
-      <div className="card" style={{ display: "flex", flexWrap: "wrap", gap: 24, alignItems: "baseline" }}>
-        <div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>
-            <span>{workbook.year} Operating Budget · {workbook.category}</span>
-            <span style={{
-              fontSize: 9, padding: "2px 7px", borderRadius: 4,
-              background: workbook.kind === "live" ? "rgba(22,163,74,0.10)" : "rgba(11,74,125,0.10)",
-              color: workbook.kind === "live" ? "#15803d" : "#0b4a7d",
-              border: `1px solid ${workbook.kind === "live" ? "rgba(22,163,74,0.30)" : "rgba(11,74,125,0.30)"}`,
-              letterSpacing: "0.08em",
-            }}>{workbook.kind === "live" ? "Live" : "Imported"}</span>
-          </div>
-          <div style={{ fontSize: 18, fontWeight: 800, marginTop: 2 }}>
-            {property.propertyCode} — {property.propertyName}
-          </div>
-          <div className="muted small" style={{ marginTop: 2 }}>
-            Rentable SF: {property.rentableSqft.toLocaleString()} ·
-            {" "}{workbook.kind === "live" ? "Built" : "Uploaded"} {new Date(workbook.uploadedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-            {workbook.kind === "live" && workbook.source?.opExGrowthPct != null && (
-              <> · OpEx defaulted at {workbook.source.opExGrowthPct}% over prior</>
-            )}
-          </div>
+      <div className="card">
+        <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>
+          <span>{workbook.year} Operating Budget · {workbook.category}</span>
+          <span style={{
+            fontSize: 9, padding: "2px 7px", borderRadius: 4,
+            background: workbook.kind === "live" ? "rgba(22,163,74,0.10)" : "rgba(11,74,125,0.10)",
+            color: workbook.kind === "live" ? "#15803d" : "#0b4a7d",
+            border: `1px solid ${workbook.kind === "live" ? "rgba(22,163,74,0.30)" : "rgba(11,74,125,0.30)"}`,
+            letterSpacing: "0.08em",
+          }}>{workbook.kind === "live" ? "Live" : "Imported"}</span>
         </div>
-        <div style={{ marginLeft: "auto", display: "flex", gap: 20, flexWrap: "wrap" }}>
+        <div style={{ fontSize: 18, fontWeight: 800, marginTop: 2 }}>
+          {property.propertyCode} — {property.propertyName}
+        </div>
+        <div className="muted small" style={{ marginTop: 2 }}>
+          Rentable SF: {property.rentableSqft.toLocaleString()} ·
+          {" "}{workbook.kind === "live" ? "Built" : "Uploaded"} {new Date(workbook.uploadedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+          {workbook.kind === "live" && workbook.source?.opExGrowthPct != null && (
+            <> · OpEx defaulted at {workbook.source.opExGrowthPct}% over prior</>
+          )}
+        </div>
+        <div className="pills">
           {property.rollups.map((r) => (
-            <div key={r.name} style={{ minWidth: 140 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>
-                {r.name}
-              </div>
-              <div style={{ fontSize: 16, fontWeight: 800, marginTop: 2, fontVariantNumeric: "tabular-nums" }}>
-                {money(r.total)}
-              </div>
-            </div>
+            <StatPill
+              key={r.name}
+              label={r.name}
+              value={money(r.total)}
+              accent={r.total < 0 ? "#b91c1c" : undefined}
+            />
           ))}
         </div>
       </div>
