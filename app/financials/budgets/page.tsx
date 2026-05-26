@@ -513,9 +513,14 @@ function BudgetTable({
       )}
 
       {/* Sections with cross-section subtotal cards (TOTAL REVENUES,
-          NOI, CASH FLOW, etc.) injected between them. */}
+          NOI, CASH FLOW, etc.) injected between them. Group headers
+          ("REVENUES", "OPERATING EXPENSES") sit above the first section
+          in each group. */}
       {property.sections.map((sec) => (
         <Fragment key={sec.name}>
+          {groupHeaderFor(sec.name) && (
+            <GroupHeader label={groupHeaderFor(sec.name)!} />
+          )}
           <div className="card" style={{ padding: 0 }}>
             <div style={{
               padding: "10px 14px",
@@ -568,6 +573,36 @@ function BudgetTable({
           ))}
         </Fragment>
       ))}
+    </div>
+  );
+}
+
+/** Returns the group header label to render before a given section, or
+ *  null if no header should appear. Headers sit above the first section
+ *  in each top-level grouping (Revenues, Operating Expenses, Capital,
+ *  Debt) to make the budget's structure obvious at a glance. */
+function groupHeaderFor(sectionName: string): string | null {
+  const n = sectionName.toLowerCase();
+  if (/^revenues?$/.test(n)) return "Revenues";
+  if (/^reimbursable expenses?$/.test(n)) return "Operating Expenses";
+  if (/^capital/.test(n)) return "Capital Improvements";
+  if (/^debt service$/.test(n)) return "Debt Service";
+  return null;
+}
+
+function GroupHeader({ label }: { label: string }) {
+  return (
+    <div style={{
+      marginTop: 4,
+      paddingBottom: 6,
+      borderBottom: "2px solid #0b4a7d",
+      fontSize: 18,
+      fontWeight: 900,
+      letterSpacing: "0.08em",
+      textTransform: "uppercase",
+      color: "#0b4a7d",
+    }}>
+      {label}
     </div>
   );
 }
