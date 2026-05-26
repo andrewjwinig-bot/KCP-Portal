@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useUser } from "@/app/components/UserProvider";
 import { Pill, StatPill, type PillTone } from "@/app/components/Pill";
 import type { BudgetWorkbook, OccupancyDetailRow } from "@/lib/financials/budgets/types";
@@ -380,6 +380,28 @@ function BudgetTable({
   onCreateClick: () => void;
 }) {
   const skylineHref = `/api/financials/budgets/${encodeURIComponent(workbook.id)}/skyline?property=${encodeURIComponent(property.propertyCode)}`;
+  const [psf, setPsf] = useState(false);
+  const sqft = property.rentableSqft || 0;
+
+  // Build the lookup of cross-section subtotals (TOTAL REVENUES, NOI,
+  // etc.) by section name so we can inject them between section cards.
+  const rollupByName = useMemo(() => {
+    const m = new Map<string, { name: string; total: number; months: number[] }>();
+    for (const r of property.rollups) m.set(r.name.toUpperCase().trim(), r);
+    return m;
+  }, [property.rollups]);
+  const subtotalsAfter = useCallback((sectionName: string): { name: string; total: number; months: number[] }[] => {
+    const norm = sectionName.toLowerCase();
+    const wants: string[] = [];
+    if (/reimburs/.test(norm) && !/expense/.test(norm) && !/non/.test(norm)) wants.push("TOTAL REVENUES");
+    if (/non-reimbursable/.test(norm)) wants.push("TOTAL OPERATING EXPENSES", "NET OPERATING INCOME");
+    if (/capital/.test(norm)) wants.push("CASH FLOW BEFORE DEBT SERVICE");
+    if (/debt service/.test(norm)) wants.push("CASH FLOW AFTER DEBT SERVICE");
+    return wants
+      .map((n) => rollupByName.get(n))
+      .filter((r): r is { name: string; total: number; months: number[] } => Boolean(r));
+  }, [rollupByName]);
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       {/* Property summary tile */}
@@ -459,12 +481,18 @@ function BudgetTable({
           </div>
         </div>
 
-        <div className="muted small" style={{ marginTop: 6 }}>
-          Rentable SF: {property.rentableSqft.toLocaleString()} ·
-          {" "}{workbook.kind === "live" ? "Built" : "Uploaded"} {new Date(workbook.uploadedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-          {workbook.kind === "live" && workbook.source?.opExGrowthPct != null && (
-            <> · OpEx defaulted at {workbook.source.opExGrowthPct}% over prior</>
-          )}
+        <div style={{
+          marginTop: 6, display: "flex", alignItems: "center", justifyContent: "space-between",
+          gap: 12, flexWrap: "wrap",
+        }}>
+          <div className="muted small">
+            Rentable SF: {property.rentableSqft.toLocaleString()} ·
+            {" "}{workbook.kind === "live" ? "Built" : "Uploaded"} {new Date(workbook.uploadedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+            {workbook.kind === "live" && workbook.source?.opExGrowthPct != null && (
+              <> · OpEx defaulted at {workbook.source.opExGrowthPct}% over prior</>
+            )}
+          </div>
+          <ViewToggle psf={psf} onChange={setPsf} disabled={sqft <= 0} />
         </div>
 
         <div className="pills">
@@ -484,62 +512,171 @@ function BudgetTable({
         <OccupancyPanel property={property} />
       )}
 
-      {/* Sections */}
+      {/* Sections with cross-section subtotal cards (TOTAL REVENUES,
+          NOI, CASH FLOW, etc.) injected between them. */}
       {property.sections.map((sec) => (
-        <div className="card" key={sec.name} style={{ padding: 0 }}>
-          <div style={{
-            padding: "10px 14px",
-            borderBottom: "1px solid var(--border)",
-            background: "rgba(15,23,42,0.03)",
-            fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase",
-          }}>
-            {sec.name}
-          </div>
-          <div className="tableWrap">
-            <table>
-              <thead>
-                <tr>
-                  <th style={{ width: 96 }}>GL</th>
-                  <th>Line</th>
-                  {MONTHS.map((m) => <th key={m} style={{ textAlign: "right" }}>{m}</th>)}
-                  <th style={{ textAlign: "right" }}>Total</th>
-                  <th style={{ textAlign: "right" }}>$/SF</th>
-                </tr>
-              </thead>
-              <tbody>
-                {sec.lines.map((l, i) => (
-                  <tr key={`${sec.name}-${i}`} style={{
-                    background: l.isSubtotal ? "rgba(15,23,42,0.04)" : undefined,
-                    fontWeight: l.isSubtotal ? 700 : 400,
-                  }}>
-                    <td className="muted small" style={{ fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
-                      {l.glAccount ?? ""}
-                    </td>
-                    <td>
-                      {l.subCategory && <span style={{ color: "var(--muted)", marginRight: 6, fontSize: 11 }}>{l.subCategory}</span>}
-                      {l.label}
-                      {l.notes && <div className="muted small" style={{ marginTop: 2 }}>{l.notes}</div>}
-                    </td>
-                    {l.months.map((m, j) => (
-                      <td key={j} style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontSize: 12 }}>
-                        {money(m)}
-                      </td>
-                    ))}
-                    <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontWeight: l.isSubtotal ? 800 : 600 }}>
-                      {money(l.total)}
-                    </td>
-                    <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", color: "var(--muted)", fontSize: 12 }}>
-                      {l.totalPsf != null ? `$${l.totalPsf.toFixed(2)}` : "—"}
-                    </td>
+        <Fragment key={sec.name}>
+          <div className="card" style={{ padding: 0 }}>
+            <div style={{
+              padding: "10px 14px",
+              borderBottom: "1px solid var(--border)",
+              background: "rgba(15,23,42,0.03)",
+              fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase",
+            }}>
+              {sec.name}
+            </div>
+            <div className="tableWrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th style={{ width: 96 }}>GL</th>
+                    <th>Line</th>
+                    {MONTHS.map((m) => <th key={m} style={{ textAlign: "right" }}>{m}</th>)}
+                    <th style={{ textAlign: "right" }}>Total</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {sec.lines.map((l, i) => (
+                    <tr key={`${sec.name}-${i}`} style={{
+                      background: l.isSubtotal ? "rgba(15,23,42,0.04)" : undefined,
+                      fontWeight: l.isSubtotal ? 700 : 400,
+                    }}>
+                      <td className="muted small" style={{ fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
+                        {l.glAccount ?? ""}
+                      </td>
+                      <td>
+                        {l.subCategory && <span style={{ color: "var(--muted)", marginRight: 6, fontSize: 11 }}>{l.subCategory}</span>}
+                        {l.label}
+                        {l.notes && <div className="muted small" style={{ marginTop: 2 }}>{l.notes}</div>}
+                      </td>
+                      {l.months.map((m, j) => (
+                        <td key={j} style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontSize: 12 }}>
+                          {fmtAmount(m, sqft, psf)}
+                        </td>
+                      ))}
+                      <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontWeight: l.isSubtotal ? 800 : 600 }}>
+                        {fmtAmount(l.total, sqft, psf)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
+          {subtotalsAfter(sec.name).map((r) => (
+            <SubtotalCard key={r.name} rollup={r} sqft={sqft} psf={psf} />
+          ))}
+        </Fragment>
       ))}
     </div>
   );
+}
+
+function ViewToggle({ psf, onChange, disabled }: {
+  psf: boolean;
+  onChange: (v: boolean) => void;
+  disabled: boolean;
+}) {
+  const baseBtn: React.CSSProperties = {
+    fontSize: 11, fontWeight: 700, padding: "4px 10px",
+    border: "1px solid var(--border)", background: "var(--card)",
+    color: "var(--text)", cursor: disabled ? "not-allowed" : "pointer",
+    letterSpacing: "0.04em", textTransform: "uppercase",
+  };
+  const active: React.CSSProperties = {
+    background: "#0b4a7d", color: "#fff", borderColor: "#0b4a7d",
+  };
+  return (
+    <div style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+      <span className="muted small" style={{ fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase" }}>View</span>
+      <div style={{ display: "inline-flex", borderRadius: 6, overflow: "hidden", opacity: disabled ? 0.5 : 1 }}>
+        <button
+          type="button"
+          onClick={() => !disabled && onChange(false)}
+          disabled={disabled}
+          style={{ ...baseBtn, borderRadius: "6px 0 0 6px", ...(psf ? {} : active) }}
+        >
+          Total
+        </button>
+        <button
+          type="button"
+          onClick={() => !disabled && onChange(true)}
+          disabled={disabled}
+          style={{ ...baseBtn, borderLeft: "none", borderRadius: "0 6px 6px 0", ...(psf ? active : {}) }}
+        >
+          $/SF
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** Big cross-section subtotal row (TOTAL REVENUES, NET OPERATING INCOME,
+ *  CASH FLOW…). Sits between section cards with heavier styling than the
+ *  in-section subtotals. */
+function SubtotalCard({ rollup, sqft, psf }: {
+  rollup: { name: string; total: number; months: number[] };
+  sqft: number;
+  psf: boolean;
+}) {
+  const negative = rollup.total < 0;
+  return (
+    <div className="card" style={{
+      padding: 0,
+      borderColor: "#0b4a7d",
+      background: "rgba(11,74,125,0.04)",
+    }}>
+      <div className="tableWrap">
+        <table>
+          <colgroup>
+            <col style={{ width: 96 }} />
+            <col />
+            {MONTHS.map((m) => <col key={m} />)}
+            <col />
+          </colgroup>
+          <tbody>
+            <tr style={{ fontWeight: 800 }}>
+              <td></td>
+              <td style={{
+                fontSize: 13, fontWeight: 900, letterSpacing: "0.04em",
+                textTransform: "uppercase", color: "#0b4a7d",
+              }}>
+                {rollup.name}
+              </td>
+              {rollup.months.map((m, j) => (
+                <td key={j} style={{
+                  textAlign: "right", fontVariantNumeric: "tabular-nums",
+                  fontSize: 13, fontWeight: 800,
+                  color: m < 0 ? "#b91c1c" : undefined,
+                }}>
+                  {fmtAmount(m, sqft, psf)}
+                </td>
+              ))}
+              <td style={{
+                textAlign: "right", fontVariantNumeric: "tabular-nums",
+                fontSize: 14, fontWeight: 900,
+                color: negative ? "#b91c1c" : "#0b4a7d",
+              }}>
+                {fmtAmount(rollup.total, sqft, psf)}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+/** Format a dollar amount in the current view mode. In total mode it's
+ *  the standard money() format; in PSF mode it's $/SF (amount/sqft) with
+ *  two decimals. Zero stays as the dash everywhere. */
+function fmtAmount(amount: number, sqft: number, psf: boolean): string {
+  if (amount === 0) return "—";
+  if (!psf || sqft <= 0) return money(amount);
+  const v = amount / sqft;
+  const sign = v < 0 ? "-" : "";
+  const abs = Math.abs(v);
+  return `${sign}$${abs.toFixed(2)}`;
 }
 
 /** Small chip-style budget selector that lives in the property card's
