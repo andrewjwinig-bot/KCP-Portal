@@ -42,6 +42,13 @@ export default function BudgetsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Upload + Create dialog state lives at the page level now that the
+  // actions render inside the consolidated property card.
+  const fileRef = useRef<HTMLInputElement | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
+
   const reload = useCallback(async () => {
     setLoading(true);
     try {
@@ -86,6 +93,32 @@ export default function BudgetsPage() {
     return workbook.properties.find((p) => p.propertyCode === propertyCode) ?? null;
   }, [workbook, propertyCode]);
 
+  const handleUploaded = useCallback(async (newId: string) => {
+    await reload();
+    setSelectedId(newId);
+  }, [reload]);
+
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadError(null);
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("label", file.name.replace(/\.[^.]+$/, ""));
+      const res = await fetch("/api/financials/budgets/upload", { method: "POST", body: fd });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error ?? "Upload failed");
+      await handleUploaded(body.id);
+    } catch (e) {
+      setUploadError(e instanceof Error ? e.message : "Upload failed");
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  }
+
   return (
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
       <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
@@ -104,207 +137,189 @@ export default function BudgetsPage() {
         </div>
       )}
 
-      <Toolbar
-        canUpload={canUpload}
-        summaries={summaries ?? []}
-        selectedId={selectedId}
-        onSelect={setSelectedId}
-        workbook={workbook}
-        propertyCode={propertyCode}
-        onPropertyChange={setPropertyCode}
-        onUploaded={async (newId) => {
-          await reload();
-          setSelectedId(newId);
-        }}
-      />
+      {uploadError && (
+        <div className="card" style={{ borderColor: "rgba(220,38,38,0.35)", background: "rgba(220,38,38,0.04)" }}>
+          <div className="small" style={{ fontWeight: 700, color: "#b91c1c" }}>{uploadError}</div>
+        </div>
+      )}
 
       {loading && !workbook && (
         <div className="card"><div className="muted small">Loading…</div></div>
       )}
 
       {!loading && summaries && summaries.length === 0 && (
-        <div className="card">
-          <p style={{ fontWeight: 700, marginBottom: 6 }}>No budget uploaded yet.</p>
-          <p className="muted small">
-            {canUpload
-              ? "Use the Upload Budget button above to import the operating-budget workbook (e.g. Shopping Centers 2026)."
-              : "Once a budget is uploaded by Drew, Harry, or Nancy, it'll appear here."}
-          </p>
+        <div className="card" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+          <div>
+            <p style={{ fontWeight: 700, marginBottom: 6 }}>No budget uploaded yet.</p>
+            <p className="muted small">
+              {canUpload
+                ? "Click Upload Budget to import the operating-budget workbook (e.g. Shopping Centers 2026)."
+                : "Once a budget is uploaded by Drew, Harry, or Nancy, it'll appear here."}
+            </p>
+          </div>
+          {canUpload && (
+            <button
+              onClick={() => fileRef.current?.click()}
+              disabled={uploading}
+              className="btn primary"
+              style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}
+            >
+              {uploading ? "Uploading…" : "Upload Budget"}
+            </button>
+          )}
         </div>
       )}
 
       {workbook && property && (
-        <BudgetTable workbook={workbook} property={property} />
+        <BudgetTable
+          workbook={workbook}
+          property={property}
+          summaries={summaries ?? []}
+          selectedId={selectedId}
+          onSelectBudget={setSelectedId}
+          onSelectProperty={setPropertyCode}
+          canUpload={canUpload}
+          uploading={uploading}
+          onUploadClick={() => fileRef.current?.click()}
+          onCreateClick={() => setCreateOpen(true)}
+        />
+      )}
+
+      {/* Hidden file input — shared by the empty-state button and the
+          Upload New button inside the property card. */}
+      <input
+        ref={fileRef}
+        type="file"
+        accept=".xlsx,.xls"
+        onChange={handleFileChange}
+        style={{ display: "none" }}
+      />
+
+      {createOpen && (
+        <CreateBudgetDialog
+          summaries={summaries ?? []}
+          onClose={() => setCreateOpen(false)}
+          onCreated={async (id) => {
+            setCreateOpen(false);
+            await handleUploaded(id);
+          }}
+        />
       )}
     </main>
   );
 }
 
-function Toolbar({
-  canUpload,
+function BudgetTable({
+  workbook,
+  property,
   summaries,
   selectedId,
-  onSelect,
-  workbook,
-  propertyCode,
-  onPropertyChange,
-  onUploaded,
+  onSelectBudget,
+  onSelectProperty,
+  canUpload,
+  uploading,
+  onUploadClick,
+  onCreateClick,
 }: {
-  canUpload: boolean;
+  workbook: BudgetWorkbook;
+  property: BudgetWorkbook["properties"][number];
   summaries: WorkbookSummary[];
   selectedId: string | null;
-  onSelect: (id: string) => void;
-  workbook: BudgetWorkbook | null;
-  propertyCode: string | null;
-  onPropertyChange: (code: string) => void;
-  onUploaded: (id: string) => void | Promise<void>;
+  onSelectBudget: (id: string) => void;
+  onSelectProperty: (code: string) => void;
+  canUpload: boolean;
+  uploading: boolean;
+  onUploadClick: () => void;
+  onCreateClick: () => void;
 }) {
-  const [createOpen, setCreateOpen] = useState(false);
-  const fileRef = useRef<HTMLInputElement | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const [uploadError, setUploadError] = useState<string | null>(null);
-
-  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploadError(null);
-    setUploading(true);
-    try {
-      const fd = new FormData();
-      fd.append("file", file);
-      fd.append("label", file.name.replace(/\.[^.]+$/, ""));
-      const res = await fetch("/api/financials/budgets/upload", { method: "POST", body: fd });
-      const body = await res.json();
-      if (!res.ok) throw new Error(body.error ?? "Upload failed");
-      await onUploaded(body.id);
-    } catch (e) {
-      setUploadError(e instanceof Error ? e.message : "Upload failed");
-    } finally {
-      setUploading(false);
-      if (fileRef.current) fileRef.current.value = "";
-    }
-  }
-
-  const skylineHref = workbook && propertyCode
-    ? `/api/financials/budgets/${encodeURIComponent(workbook.id)}/skyline?property=${encodeURIComponent(propertyCode)}`
-    : null;
-
-  return (
-    <div className="card" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10 }}>
-      {summaries.length > 0 && (
-        <>
-          <Field label="Budget">
-            <select
-              value={selectedId ?? ""}
-              onChange={(e) => onSelect(e.target.value)}
-              style={selectStyle}
-            >
-              {summaries.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.label} · {s.year} {s.kind === "live" ? "(Live)" : ""}
-                </option>
-              ))}
-            </select>
-          </Field>
-          {workbook && (
-            <Field label="Property">
-              <select
-                value={propertyCode ?? ""}
-                onChange={(e) => onPropertyChange(e.target.value)}
-                style={{ ...selectStyle, minWidth: 240 }}
-              >
-                {workbook.properties.map((p) => (
-                  <option key={p.propertyCode} value={p.propertyCode}>
-                    {p.propertyCode} — {p.propertyName}
-                  </option>
-                ))}
-              </select>
-            </Field>
-          )}
-        </>
-      )}
-
-      <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-        {skylineHref && (
-          <a
-            href={skylineHref}
-            className="btn primary"
-            style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700, textDecoration: "none" }}
-          >
-            ⬇ Budget Import (.xlsx)
-          </a>
-        )}
-        {canUpload && (
-          <>
-            <button
-              onClick={() => setCreateOpen(true)}
-              className="btn primary"
-              style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}
-            >
-              + Create Live Budget
-            </button>
-            <button
-              onClick={() => fileRef.current?.click()}
-              disabled={uploading}
-              className="btn"
-              style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}
-            >
-              {uploading ? "Uploading…" : (summaries.length === 0 ? "Upload Budget" : "Upload New")}
-            </button>
-            <input
-              ref={fileRef}
-              type="file"
-              accept=".xlsx,.xls"
-              onChange={handleFileChange}
-              style={{ display: "none" }}
-            />
-          </>
-        )}
-      </div>
-
-      {createOpen && (
-        <CreateBudgetDialog
-          summaries={summaries}
-          onClose={() => setCreateOpen(false)}
-          onCreated={async (id) => {
-            setCreateOpen(false);
-            await onUploaded(id);
-          }}
-        />
-      )}
-
-      {uploadError && (
-        <div style={{ width: "100%", marginTop: 6, color: "#b91c1c", fontSize: 12, fontWeight: 600 }}>{uploadError}</div>
-      )}
-    </div>
-  );
-}
-
-function BudgetTable({ workbook, property }: { workbook: BudgetWorkbook; property: BudgetWorkbook["properties"][number] }) {
+  const skylineHref = `/api/financials/budgets/${encodeURIComponent(workbook.id)}/skyline?property=${encodeURIComponent(property.propertyCode)}`;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       {/* Property summary tile */}
       <div className="card">
-        <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>
-          <span>{workbook.year} Operating Budget · {workbook.category}</span>
+        {/* Top meta row — small budget selector + kind badge. Replaces
+            the previous "Budget" dropdown in the now-removed toolbar. */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          {summaries.length > 1 ? (
+            <select
+              value={selectedId ?? ""}
+              onChange={(e) => onSelectBudget(e.target.value)}
+              style={budgetChipStyle}
+              aria-label="Budget"
+            >
+              {summaries.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.label} · {s.year}{s.kind === "live" ? " (Live)" : ""}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>
+              {workbook.year} Operating Budget · {workbook.category}
+            </span>
+          )}
           <span style={{
             fontSize: 9, padding: "2px 7px", borderRadius: 4,
             background: workbook.kind === "live" ? "rgba(22,163,74,0.10)" : "rgba(11,74,125,0.10)",
             color: workbook.kind === "live" ? "#15803d" : "#0b4a7d",
             border: `1px solid ${workbook.kind === "live" ? "rgba(22,163,74,0.30)" : "rgba(11,74,125,0.30)"}`,
-            letterSpacing: "0.08em",
+            letterSpacing: "0.08em", fontWeight: 700, textTransform: "uppercase",
           }}>{workbook.kind === "live" ? "Live" : "Imported"}</span>
         </div>
-        <div style={{ fontSize: 18, fontWeight: 800, marginTop: 2 }}>
-          {property.propertyCode} — {property.propertyName}
+
+        {/* Header row — large property dropdown styled as a heading, with
+            the three actions right-aligned on the same line. */}
+        <div style={{ marginTop: 8, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+          <select
+            value={property.propertyCode}
+            onChange={(e) => onSelectProperty(e.target.value)}
+            style={propertyHeaderSelectStyle}
+            aria-label="Property"
+          >
+            {workbook.properties.map((p) => (
+              <option key={p.propertyCode} value={p.propertyCode}>
+                {p.propertyCode} — {p.propertyName}
+              </option>
+            ))}
+          </select>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <a
+              href={skylineHref}
+              className="btn primary"
+              style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700, textDecoration: "none" }}
+            >
+              ⬇ Budget Import (.xlsx)
+            </a>
+            {canUpload && (
+              <>
+                <button
+                  onClick={onCreateClick}
+                  className="btn primary"
+                  style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}
+                >
+                  + Create Live Budget
+                </button>
+                <button
+                  onClick={onUploadClick}
+                  disabled={uploading}
+                  className="btn"
+                  style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}
+                >
+                  {uploading ? "Uploading…" : "Upload New"}
+                </button>
+              </>
+            )}
+          </div>
         </div>
-        <div className="muted small" style={{ marginTop: 2 }}>
+
+        <div className="muted small" style={{ marginTop: 6 }}>
           Rentable SF: {property.rentableSqft.toLocaleString()} ·
           {" "}{workbook.kind === "live" ? "Built" : "Uploaded"} {new Date(workbook.uploadedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
           {workbook.kind === "live" && workbook.source?.opExGrowthPct != null && (
             <> · OpEx defaulted at {workbook.source.opExGrowthPct}% over prior</>
           )}
         </div>
+
         <div className="pills">
           {property.rollups.map((r) => (
             <StatPill
@@ -407,15 +422,39 @@ function BudgetTable({ workbook, property }: { workbook: BudgetWorkbook; propert
   );
 }
 
-const selectStyle: React.CSSProperties = {
-  padding: "8px 10px",
-  border: "1px solid var(--border)",
-  borderRadius: 6,
-  background: "var(--card)",
+/** Small chip-style budget selector that lives in the property card's
+ *  top meta row. Looks like the uppercase label it replaces, but
+ *  clickable. */
+const budgetChipStyle: React.CSSProperties = {
+  padding: "2px 22px 2px 0",
+  border: "none",
+  background: "transparent",
+  color: "var(--muted)",
+  fontFamily: "inherit",
+  fontSize: 11,
+  fontWeight: 700,
+  letterSpacing: "0.06em",
+  textTransform: "uppercase",
+  cursor: "pointer",
+  outline: "none",
+  appearance: "auto",
+};
+
+/** Large header-style property selector. Sits where the property name
+ *  used to live and acts as the section title. */
+const propertyHeaderSelectStyle: React.CSSProperties = {
+  padding: "4px 28px 4px 6px",
+  border: "1px solid transparent",
+  borderRadius: 8,
+  background: "transparent",
   color: "var(--text)",
   fontFamily: "inherit",
-  fontSize: 13,
+  fontSize: 22,
+  fontWeight: 800,
+  cursor: "pointer",
   outline: "none",
+  appearance: "auto",
+  maxWidth: "100%",
 };
 
 function CreateBudgetDialog({
