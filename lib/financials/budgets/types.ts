@@ -62,6 +62,21 @@ export type AllocationDetail = {
   /** Optional source note from the block ("From 2026 Payroll Budget",
    *  "2025 amt grown 3%", etc.). */
   sourceNote?: string;
+  /** Full per-property breakdown of the allocation block — used by the
+   *  click-to-open modal so staff can see exactly how the portfolio
+   *  total split across every property. Sorted by property code. */
+  rows?: AllocationBlockRow[];
+};
+
+/** One row in an allocation block — a single property's slice of the
+ *  portfolio-wide expense. */
+export type AllocationBlockRow = {
+  propertyCode: string;
+  sqft: number;
+  sharePct: number;
+  /** 12 monthly amounts Jan–Dec. */
+  months: number[];
+  total: number;
 };
 
 export type BudgetSection = {

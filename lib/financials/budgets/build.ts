@@ -311,12 +311,19 @@ function liftExpenseSection(prior: BudgetSection | null, growthFactor: number, n
   }
   // Lift allocation metadata at the same growth rate so the
   // per-property amount + portfolio total stay internally consistent
-  // (the share % is a ratio, so it stays the same).
+  // (the share % is a ratio, so it stays the same). The full per-
+  // property rows array is lifted alongside so the click-to-open
+  // detail modal stays in sync.
   const liftAllocations = (allocs: BudgetLine["allocations"]) =>
     allocs?.map((a) => ({
       ...a,
       propertyAmount: Math.round(a.propertyAmount * growthFactor),
       portfolioTotal: Math.round(a.portfolioTotal * growthFactor),
+      rows: a.rows?.map((row) => ({
+        ...row,
+        months: lift(row.months, growthFactor),
+        total: Math.round(row.total * growthFactor),
+      })),
     }));
 
   // Recursively lift a sub-line tree so every level scales at the same

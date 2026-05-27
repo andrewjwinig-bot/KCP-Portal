@@ -638,6 +638,7 @@ function BudgetTable({
                         sqft={sqft}
                         psf={psf}
                         isEmpty={isEmpty}
+                        propertyCode={property.propertyCode}
                       />
                     );
                   })}
@@ -809,42 +810,191 @@ function shortEscalationTooltip(text: string): string {
  *  bottom of the table. Anything else renders as an ⓘ chip with the
  *  full text in a hover tooltip — those are bespoke per-line comments
  *  that don't share a single explanation. */
-/** Inline annotation for allocated expense lines. One small muted line
- *  per contributing block — e.g. "2.79% sqft share of $109,668 · From
- *  2026 Payroll Budget". When a line aggregates multiple allocations
- *  (e.g. Marketing = Marketing Salaries + Marketing direct) we render
- *  each on its own line so the math stays auditable. */
-function AllocationAnnotation({ allocations }: {
+/** Small "A" chip rendered after the label on any allocated expense
+ *  line. Click → opens AllocationModal showing the full per-property
+ *  breakdown of every block contributing to this line, with the
+ *  current property highlighted. Quietly aggregates when a line takes
+ *  more than one allocation (e.g. Marketing = Marketing Salaries +
+ *  Marketing direct → shows "A 2"). */
+function AllocationIcon({ allocations, currentPropertyCode }: {
   allocations: NonNullable<import("@/lib/financials/budgets/types").BudgetLine["allocations"]>;
+  currentPropertyCode: string;
 }) {
+  const [open, setOpen] = useState(false);
+  const blocks = allocations.length;
+  const myShare = allocations.reduce((s, a) => s + a.propertyAmount, 0);
+  const myShareLabel = `$${Math.round(myShare).toLocaleString("en-US")}`;
   return (
-    <div style={{ marginTop: 3, display: "flex", flexDirection: "column", gap: 2 }}>
-      {allocations.map((a, i) => {
-        const pct = a.sharePct.toFixed(2).replace(/\.?0+$/, "");
-        const dollars = `$${Math.round(a.propertyAmount).toLocaleString("en-US")}`;
-        const portfolio = `$${Math.round(a.portfolioTotal).toLocaleString("en-US")}`;
-        const basisLabel = a.basis === "sqft" ? "sqft share" : a.basis === "annual" ? "annual" : "share";
-        return (
-          <div
-            key={i}
-            className="muted small"
-            style={{ fontSize: 11, lineHeight: 1.35 }}
-            title={a.sourceNote ?? undefined}
-          >
-            <span style={{ fontWeight: 600 }}>{a.blockLabel}</span>
-            {": "}
-            {dollars}{" "}
-            <span style={{ opacity: 0.8 }}>
-              ({pct}% {basisLabel} of {portfolio})
-            </span>
-            {a.sourceNote && (
-              <span style={{ marginLeft: 6, fontStyle: "italic", opacity: 0.7 }}>
-                · {a.sourceNote}
-              </span>
-            )}
+    <>
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); setOpen(true); }}
+        title={`Allocated expense — ${myShareLabel} from ${blocks} ${blocks === 1 ? "block" : "blocks"} (click for detail)`}
+        style={{
+          display: "inline-flex", alignItems: "center", justifyContent: "center",
+          minWidth: 18, height: 18, padding: "0 5px", marginLeft: 6,
+          fontSize: 10, fontWeight: 800, lineHeight: 1,
+          background: "rgba(11,74,125,0.10)",
+          color: "#0b4a7d",
+          border: "1px solid rgba(11,74,125,0.30)",
+          borderRadius: 4,
+          cursor: "pointer",
+          fontVariantNumeric: "tabular-nums",
+        }}
+      >
+        A{blocks > 1 ? ` ${blocks}` : ""}
+      </button>
+      {open && (
+        <AllocationModal
+          allocations={allocations}
+          currentPropertyCode={currentPropertyCode}
+          onClose={() => setOpen(false)}
+        />
+      )}
+    </>
+  );
+}
+
+/** Click-out backdrop + dialog showing the workbook-style allocation
+ *  table for one (or more) blocks. The current property's row is
+ *  highlighted brand-blue and rendered at full opacity; the rest of
+ *  the portfolio reads at reduced opacity so the eye lands on "where
+ *  am I in this allocation" immediately. */
+function AllocationModal({ allocations, currentPropertyCode, onClose }: {
+  allocations: NonNullable<import("@/lib/financials/budgets/types").BudgetLine["allocations"]>;
+  currentPropertyCode: string;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const fmt = (n: number) => n === 0 ? "—" : `$${Math.round(n).toLocaleString("en-US")}`;
+  const here = currentPropertyCode.toUpperCase();
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed", inset: 0, zIndex: 100,
+        background: "rgba(15,23,42,0.55)",
+        display: "flex", alignItems: "flex-start", justifyContent: "center",
+        padding: "60px 20px", overflow: "auto",
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: "var(--card)", borderRadius: 12,
+          maxWidth: 1180, width: "100%",
+          boxShadow: "0 20px 60px rgba(0,0,0,0.35)",
+          display: "flex", flexDirection: "column", gap: 14, padding: 18,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+          <div>
+            <div className="muted small" style={{ fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+              Allocated Expense Detail
+            </div>
+            <div style={{ fontSize: 16, fontWeight: 800, marginTop: 2 }}>
+              {allocations.length === 1 ? allocations[0].blockLabel : `${allocations.length} contributing blocks`}
+            </div>
           </div>
-        );
-      })}
+          <button onClick={onClose} className="btn" style={{ padding: "6px 12px", fontSize: 13, fontWeight: 700 }}>
+            Close
+          </button>
+        </div>
+
+        {allocations.map((a, idx) => (
+          <div key={idx} className="card" style={{ padding: 0 }}>
+            <div style={{
+              padding: "10px 14px",
+              borderBottom: "1px solid var(--border)",
+              background: "rgba(15,23,42,0.03)",
+              display: "flex", alignItems: "baseline", justifyContent: "space-between",
+              gap: 12, flexWrap: "wrap",
+            }}>
+              <div>
+                <span className="muted small" style={{ fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase" }}>
+                  {a.glAccount} · {a.basis === "sqft" ? "Sqft share" : a.basis === "annual" ? "Annual amount" : "Allocation"}
+                </span>
+                <div style={{ fontSize: 14, fontWeight: 800, marginTop: 2 }}>
+                  {a.blockLabel}
+                </div>
+                {a.sourceNote && (
+                  <div className="muted small" style={{ marginTop: 2, fontStyle: "italic" }}>{a.sourceNote}</div>
+                )}
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <div className="muted small" style={{ fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase" }}>
+                  Portfolio total
+                </div>
+                <div style={{ fontSize: 16, fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>
+                  {fmt(a.portfolioTotal)}
+                </div>
+              </div>
+            </div>
+            <div className="tableWrap" style={{ marginTop: 0 }}>
+              <table>
+                <thead>
+                  <tr>
+                    <th style={{ width: 80 }}>Property</th>
+                    <th style={{ textAlign: "right", width: 90 }}>SF</th>
+                    <th style={{ textAlign: "right", width: 70 }}>{a.basis === "annual" ? "Annual" : "Share"}</th>
+                    {MONTHS.map((m) => <th key={m} style={{ textAlign: "right" }}>{m}</th>)}
+                    <th style={{ textAlign: "right" }}>Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(a.rows ?? []).map((row) => {
+                    const isMe = row.propertyCode.toUpperCase() === here;
+                    return (
+                      <tr key={row.propertyCode} style={{
+                        background: isMe ? "rgba(11,74,125,0.06)" : undefined,
+                        opacity: isMe ? 1 : 0.55,
+                        fontWeight: isMe ? 700 : 400,
+                      }}>
+                        <td style={{ fontVariantNumeric: "tabular-nums", color: isMe ? "#0b4a7d" : undefined }}>
+                          {row.propertyCode}
+                        </td>
+                        <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+                          {row.sqft > 0 ? row.sqft.toLocaleString() : "—"}
+                        </td>
+                        <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+                          {row.sharePct > 0 ? `${row.sharePct.toFixed(2)}%` : "—"}
+                        </td>
+                        {row.months.map((m, j) => (
+                          <td key={j} style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontSize: 12 }}>
+                            {fmt(m)}
+                          </td>
+                        ))}
+                        <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontWeight: isMe ? 800 : 600 }}>
+                          {fmt(row.total)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  <tr style={{ background: "rgba(15,23,42,0.04)", fontWeight: 800 }}>
+                    <td>TOTAL</td>
+                    <td></td>
+                    <td style={{ textAlign: "right" }}>100%</td>
+                    {Array(12).fill(0).map((_, j) => {
+                      const colSum = (a.rows ?? []).reduce((s, r) => s + (r.months[j] ?? 0), 0);
+                      return (
+                        <td key={j} style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontSize: 12 }}>
+                          {fmt(colSum)}
+                        </td>
+                      );
+                    })}
+                    <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{fmt(a.portfolioTotal)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -906,6 +1056,7 @@ function BudgetLineRow({
   sqft,
   psf,
   isEmpty,
+  propertyCode,
 }: {
   line: import("@/lib/financials/budgets/types").BudgetLine;
   sectionName: string;
@@ -913,6 +1064,7 @@ function BudgetLineRow({
   sqft: number;
   psf: boolean;
   isEmpty: boolean;
+  propertyCode: string;
 }) {
   const [expanded, setExpanded] = useState(false);
   const hasSubLines = !!line.subLines && line.subLines.length > 0;
@@ -975,7 +1127,7 @@ function BudgetLineRow({
             )}
             {line.notes && <LineNoteMarker text={line.notes} />}
           </div>
-          {line.allocations && line.allocations.length > 0 && <AllocationAnnotation allocations={line.allocations} />}
+          {line.allocations && line.allocations.length > 0 && <AllocationIcon allocations={line.allocations} currentPropertyCode={propertyCode} />}
         </td>
         {line.months.map((m, j) => (
           <td key={j} style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontSize: 12 }}>
@@ -994,6 +1146,7 @@ function BudgetLineRow({
           depth={1}
           sqft={sqft}
           psf={psf}
+          propertyCode={propertyCode}
         />
       ))}
     </>
@@ -1010,12 +1163,14 @@ function SubLineRow({
   depth,
   sqft,
   psf,
+  propertyCode,
 }: {
   line: import("@/lib/financials/budgets/types").BudgetLine;
   parentKey: string;
   depth: number;
   sqft: number;
   psf: boolean;
+  propertyCode: string;
 }) {
   const [expanded, setExpanded] = useState(false);
   const hasNested = !!line.subLines && line.subLines.length > 0;
@@ -1067,7 +1222,7 @@ function SubLineRow({
             <span className="muted small" style={{ marginLeft: 6 }}>· {line.subCategory}</span>
           )}
           {line.notes && <LineNoteMarker text={line.notes} />}
-          {line.allocations && line.allocations.length > 0 && <AllocationAnnotation allocations={line.allocations} />}
+          {line.allocations && line.allocations.length > 0 && <AllocationIcon allocations={line.allocations} currentPropertyCode={propertyCode} />}
         </td>
         {line.months.map((m, k) => (
           <td key={k} style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
@@ -1086,6 +1241,7 @@ function SubLineRow({
           depth={depth + 1}
           sqft={sqft}
           psf={psf}
+          propertyCode={propertyCode}
         />
       ))}
     </>
