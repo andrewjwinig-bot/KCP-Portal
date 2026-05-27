@@ -245,15 +245,11 @@ function parsePropertySheet(rows: unknown[][], sheetName: string): PropertyBudge
     }
 
     // Sub-line row — label lives in col 3, with no GL in col 0 and no
-    // label in col 2. Buffer for the next parent line.
+    // label in col 2. Buffer for the next parent line. Empty sub-lines
+    // (e.g. D&O = 0) are tolerated so the breakdown still lists every
+    // category; the page mutes empty rows on its own.
     if (!col0 && !col2 && col3 && !col1) {
-      const ms = months(r);
-      const total = num(r[16]);
-      // Tolerate empty sub-lines (e.g. D&O = 0) so the breakdown still
-      // lists every category. The page mutes empty rows on its own.
       pendingSubLines.push(buildSubLineFromRow(r, col3));
-      // unused-var silencer
-      void ms; void total;
       continue;
     }
 
