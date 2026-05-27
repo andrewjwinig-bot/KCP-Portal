@@ -34,6 +34,7 @@ const NAV_ROLE_KEY: Record<string, string> = {
   "Reservations":       "reservations",
   "Bank Transfers":     "bank-transfers",
   "Budgets":            "financials-budgets",
+  "Historical OpEx":    "financials-historical-opex",
 };
 
 // Group metadata. Sidebar items can opt into a group via `groupId`; the
@@ -476,6 +477,20 @@ const NAV = [
         <line x1="3" y1="10" x2="21" y2="10" />
         <line x1="8" y1="14" x2="16" y2="14" />
         <line x1="8" y1="17" x2="13" y2="17" />
+      </svg>
+    ),
+  },
+  {
+    label: "Historical OpEx",
+    href: "/financials/historical-opex",
+    external: false,
+    indent: false,
+    showFor: null as string | null,
+    groupId: "financials",
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="3 17 9 11 13 15 21 7" />
+        <polyline points="15 7 21 7 21 13" />
       </svg>
     ),
   },
