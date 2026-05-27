@@ -199,6 +199,7 @@ export default function BankTransfersPage() {
         url={shareFolderUrl}
         onSaveUrl={persistShareUrl}
         onNewTransfer={() => setEditing("new")}
+        onRefresh={reload}
         search={search}
         onSearchChange={setSearch}
         resultsCount={filtered.length}
@@ -379,6 +380,7 @@ function Toolbar({
   url,
   onSaveUrl,
   onNewTransfer,
+  onRefresh,
   search,
   onSearchChange,
   resultsCount,
@@ -389,6 +391,7 @@ function Toolbar({
   url: string;
   onSaveUrl: (next: string) => Promise<void>;
   onNewTransfer: () => void;
+  onRefresh: () => void | Promise<void>;
   search: string;
   onSearchChange: (v: string) => void;
   resultsCount: number;
@@ -464,6 +467,29 @@ function Toolbar({
               + New Transfer
             </button>
           )}
+          <button
+            type="button"
+            onClick={onRefresh}
+            disabled={loading}
+            title="Reload bank transfers"
+            className="btn"
+            style={{
+              fontSize: 13, padding: "8px 14px", fontWeight: 700,
+              display: "inline-flex", alignItems: "center", gap: 6,
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"
+              style={{
+                animation: loading ? "spin 0.8s linear infinite" : undefined,
+              }}
+            >
+              <polyline points="23 4 23 10 17 10" />
+              <polyline points="1 20 1 14 7 14" />
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10" />
+              <path d="M20.49 15a9 9 0 0 1-14.85 3.36L1 14" />
+            </svg>
+            {loading ? "Refreshing…" : "Refresh"}
+          </button>
 
           <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             {url ? (
