@@ -51,6 +51,24 @@ function seedHasYoyNoise(wb: BudgetWorkbook): boolean {
   return false;
 }
 
+/** Returns true when the seed has no `allocations` metadata anywhere —
+ *  earlier deploys didn't parse the Allocated Expenses tab so every
+ *  line that should carry portfolio-share annotation came back without
+ *  it. */
+function seedMissingAllocations(wb: BudgetWorkbook): boolean {
+  if (wb.id !== SEED_ID) return false;
+  const check = (line: import("./types").BudgetLine): boolean => {
+    if (line.allocations && line.allocations.length > 0) return true;
+    return !!line.subLines && line.subLines.some(check);
+  };
+  for (const property of wb.properties) {
+    for (const section of property.sections) {
+      if (section.lines.some(check)) return false; // at least one found
+    }
+  }
+  return true;
+}
+
 /** Returns true when "Leasing Salaries and Commissions", "Utilities",
  *  "General & Administrative", "Capital Improvements", or "Outside
  *  Leasing Commissions" exist on the property but have no sub-lines —
@@ -139,7 +157,7 @@ async function loadManifest(): Promise<BudgetWorkbook[]> {
     // sub-line parser (level 1 / level 2) OR if it still carries the
     // stale YoY variance % data we used to store as notes.
     const seed = m.workbooks.find((wb) => wb.id === SEED_ID);
-    if (seed && (seedMissingSubLineDetail(seed) || seedHasYoyNoise(seed) || seedMissingGroupedSubLines(seed))) {
+    if (seed && (seedMissingSubLineDetail(seed) || seedHasYoyNoise(seed) || seedMissingGroupedSubLines(seed) || seedMissingAllocations(seed))) {
       const reparsed = await reseedFromBundle();
       if (reparsed) {
         const i = m.workbooks.indexOf(seed);

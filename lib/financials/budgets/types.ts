@@ -31,6 +31,37 @@ export type BudgetLine = {
    *  Sub-lines reuse the same BudgetLine shape so totals/months/notes all
    *  display identically — they just live one level deeper. */
   subLines?: BudgetLine[];
+  /** Allocation context — when this line's dollar amount was computed by
+   *  apportioning a portfolio-wide expense across properties (parsed
+   *  from the Allocated Expenses tab). One line can carry multiple
+   *  allocations when several allocated blocks roll into the same GL
+   *  (e.g. Marketing = Marketing Salaries + Marketing direct). The UI
+   *  renders one small annotation per allocation under the line label
+   *  so staff can audit "where did this number come from". */
+  allocations?: AllocationDetail[];
+};
+
+export type AllocationDetail = {
+  /** The amount this specific allocation contributes to the line. When
+   *  multiple allocations sit on the same line, the sum equals the
+   *  line's total. */
+  propertyAmount: number;
+  /** Share of the portfolio total (0–100). Derived as
+   *  propertyAmount / portfolioTotal × 100 so it always ties out. */
+  sharePct: number;
+  /** Workbook block's portfolio-wide total being allocated. */
+  portfolioTotal: number;
+  /** What the allocation is keyed off. "sqft" when the block uses a
+   *  Reimbursement % column (sqft share); "annual" when the block lists
+   *  an annual dollar amount per property directly. */
+  basis: "sqft" | "annual" | "other";
+  /** Label of the Allocated Expenses block (e.g. "Marketing Salaries"). */
+  blockLabel: string;
+  /** GL code from the Allocated Expenses block. */
+  glAccount?: string;
+  /** Optional source note from the block ("From 2026 Payroll Budget",
+   *  "2025 amt grown 3%", etc.). */
+  sourceNote?: string;
 };
 
 export type BudgetSection = {
