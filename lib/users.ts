@@ -90,8 +90,8 @@ export const USERS: Record<UserId, UserDef> = {
   },
   stacie: {
     id: "stacie",
-    label: "STACIE",
-    // Stacie sees the operational/reporting pages but not the financial
+    label: "MARIE",
+    // Marie sees the operational/reporting pages but not the financial
     // coding tools (Payroll Invoicer, CC Expense Coder, Allocated Invoicer)
     // or per-employee payroll detail.
     navKeys: new Set([

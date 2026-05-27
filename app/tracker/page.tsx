@@ -25,7 +25,7 @@ type OwnerFilter = "drew" | "stacie" | "both";
 
 const OWNER_FILTERS: { id: OwnerFilter; label: string }[] = [
   { id: "drew",   label: "Drew" },
-  { id: "stacie", label: "Stacie" },
+  { id: "stacie", label: "Marie" },
   { id: "both",   label: "Both" },
 ];
 
@@ -817,7 +817,7 @@ export default function TrackerPage() {
         <div className="card" style={{ marginTop: ownerFilter === "both" ? 18 : 0 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
             <b style={{ fontSize: 17 }}>
-              {ownerFilter === "both" ? "Stacie's Recurring Tasks" : "Recurring Tasks"}
+              {ownerFilter === "both" ? "Marie's Recurring Tasks" : "Recurring Tasks"}
             </b>
             {ownerFilter === "both" && (
               <span style={{
@@ -825,7 +825,7 @@ export default function TrackerPage() {
                 color: "#0b4a7d", background: "rgba(11,74,125,0.08)",
                 border: "1px solid rgba(11,74,125,0.25)",
                 padding: "3px 9px", borderRadius: 999,
-              }}>STACIE</span>
+              }}>MARIE</span>
             )}
           </div>
           <p className="muted small" style={{ marginTop: 4 }}>
