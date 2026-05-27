@@ -852,33 +852,50 @@ function BudgetLineRow({
           {fmtAmount(line.total, sqft, psf)}
         </td>
       </tr>
-      {expanded && hasSubLines && line.subLines!.map((sub, j) => (
-        <tr
-          key={`${sectionName}-${index}-sub-${j}`}
-          style={{
-            background: sub.isSubtotal ? "rgba(11,74,125,0.04)" : "rgba(11,74,125,0.02)",
-            fontWeight: sub.isSubtotal ? 700 : 400,
-            color: "var(--text)",
-            fontSize: 12,
-          }}
-        >
-          <td></td>
-          <td style={{ paddingLeft: 36, color: sub.isSubtotal ? "#0b4a7d" : undefined }}>
-            {sub.label}
-            {sub.subCategory && !sub.isSubtotal && (
-              <span className="muted small" style={{ marginLeft: 6 }}>· {sub.subCategory}</span>
-            )}
-          </td>
-          {sub.months.map((m, k) => (
-            <td key={k} style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
-              {fmtAmount(m, sqft, psf)}
+      {expanded && hasSubLines && line.subLines!.map((sub, j) => {
+        const isLast = j === line.subLines!.length - 1;
+        // Tree branch glyph in the GL column connects each sub-line back
+        // to the parent: └ on the last row, ├ on every row above.
+        const branch = isLast ? "└" : "├";
+        return (
+          <tr
+            key={`${sectionName}-${index}-sub-${j}`}
+            style={{
+              background: sub.isSubtotal ? "rgba(11,74,125,0.07)" : "rgba(11,74,125,0.035)",
+              fontWeight: sub.isSubtotal ? 700 : 400,
+              color: "var(--text)",
+              fontSize: 12,
+            }}
+          >
+            {/* GL column doubles as the tree-branch indent rail */}
+            <td style={{
+              textAlign: "right", paddingRight: 8,
+              color: "#0b4a7d", fontWeight: 700, fontSize: 14, lineHeight: 1,
+              fontFamily: "monospace",
+            }}>
+              {branch}
             </td>
-          ))}
-          <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontWeight: sub.isSubtotal ? 800 : 600 }}>
-            {fmtAmount(sub.total, sqft, psf)}
-          </td>
-        </tr>
-      ))}
+            <td style={{
+              paddingLeft: 18,
+              borderLeft: "3px solid #0b4a7d",
+              color: sub.isSubtotal ? "#0b4a7d" : undefined,
+            }}>
+              {sub.label}
+              {sub.subCategory && !sub.isSubtotal && (
+                <span className="muted small" style={{ marginLeft: 6 }}>· {sub.subCategory}</span>
+              )}
+            </td>
+            {sub.months.map((m, k) => (
+              <td key={k} style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+                {fmtAmount(m, sqft, psf)}
+              </td>
+            ))}
+            <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontWeight: sub.isSubtotal ? 800 : 600 }}>
+              {fmtAmount(sub.total, sqft, psf)}
+            </td>
+          </tr>
+        );
+      })}
     </>
   );
 }
