@@ -402,6 +402,56 @@ function BudgetTable({
       .filter((r): r is { name: string; total: number; months: number[] } => Boolean(r));
   }, [rollupByName]);
 
+  // Headline pills. Always 5 across the row:
+  //   1. TOTAL REVENUES, 2. TOTAL OPERATING EXPENSES, 3. NET OPERATING INCOME
+  //   4. If debt service > 0 → CASH FLOW AFTER DEBT SERVICE
+  //      Else                → CASH FLOW (was "before debt service",
+  //                            renamed when there's nothing being deducted)
+  //   5. ESTIMATED NNN'S PSF (annual CAM + RET reimbursements ÷ rentable SF)
+  // Drops CASH FLOW BEFORE DEBT SERVICE entirely when there's debt — the
+  // before/after pair was redundant given the row only has room for one.
+  const headlinePills = useMemo(() => {
+    const get = (n: string) => rollupByName.get(n);
+    const totalRev = get("TOTAL REVENUES");
+    const totalOpex = get("TOTAL OPERATING EXPENSES");
+    const noi = get("NET OPERATING INCOME");
+    const cfAfter = get("CASH FLOW AFTER DEBT SERVICE");
+    const cfBefore = get("CASH FLOW BEFORE DEBT SERVICE");
+    const debt = property.sections.find((s) => /debt service/i.test(s.name));
+    const hasDebt = !!debt && debt.lines.some((l) => !l.isSubtotal && l.total !== 0);
+
+    // Estimated NNN PSF — sum the annual totals of the two big reimbursement
+    // lines and divide by rentable SF. Look up by GL first (more durable
+    // than the label across upload variations), fall back to label match.
+    const reimb = property.sections.find((s) => /^reimburs/i.test(s.name));
+    const findLineTotal = (gl: string, labelRe: RegExp) => {
+      if (!reimb) return 0;
+      const line = reimb.lines.find((l) => !l.isSubtotal && (l.glAccount === gl || labelRe.test(l.label)));
+      return line?.total ?? 0;
+    };
+    const camTotal = findLineTotal("4910-8502", /common area maintenance/i);
+    const retTotal = findLineTotal("4920-8502", /real estate tax/i);
+    const nnnsAnnual = camTotal + retTotal;
+    const nnnsPsf = sqft > 0 ? nnnsAnnual / sqft : 0;
+
+    type Pill = { key: string; label: string; value: string; accent?: string };
+    const pills: Pill[] = [];
+    if (totalRev)  pills.push({ key: totalRev.name,  label: totalRev.name,  value: money(totalRev.total),  accent: totalRev.total  < 0 ? "#b91c1c" : undefined });
+    if (totalOpex) pills.push({ key: totalOpex.name, label: totalOpex.name, value: money(totalOpex.total), accent: totalOpex.total < 0 ? "#b91c1c" : undefined });
+    if (noi)       pills.push({ key: noi.name,       label: noi.name,       value: money(noi.total),       accent: noi.total       < 0 ? "#b91c1c" : undefined });
+    if (hasDebt && cfAfter) {
+      pills.push({ key: cfAfter.name, label: cfAfter.name, value: money(cfAfter.total), accent: cfAfter.total < 0 ? "#b91c1c" : undefined });
+    } else if (cfBefore) {
+      pills.push({ key: "CASH FLOW", label: "CASH FLOW", value: money(cfBefore.total), accent: cfBefore.total < 0 ? "#b91c1c" : undefined });
+    }
+    pills.push({
+      key: "EST_NNN_PSF",
+      label: "EST. NNN'S PSF (CAM + RET)",
+      value: nnnsPsf > 0 ? `$${nnnsPsf.toFixed(2)}` : "—",
+    });
+    return pills;
+  }, [rollupByName, property.sections, sqft]);
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       {/* Property summary tile */}
@@ -496,12 +546,12 @@ function BudgetTable({
         </div>
 
         <div className="pills">
-          {property.rollups.map((r) => (
+          {headlinePills.map((p) => (
             <StatPill
-              key={r.name}
-              label={r.name}
-              value={money(r.total)}
-              accent={r.total < 0 ? "#b91c1c" : undefined}
+              key={p.key}
+              label={p.label}
+              value={p.value}
+              accent={p.accent}
             />
           ))}
         </div>
