@@ -950,7 +950,6 @@ function BudgetLineRow({
           key={`${sectionName}-${index}-sub-${j}`}
           line={sub}
           parentKey={`${sectionName}-${index}-sub-${j}`}
-          isLast={j === line.subLines!.length - 1}
           depth={1}
           sqft={sqft}
           psf={psf}
@@ -961,29 +960,25 @@ function BudgetLineRow({
 }
 
 /** Recursive sub-line renderer. Each level deeper nests further to the
- *  right with its own ├/└ branch glyph + brand-blue left rail. Sub-lines
- *  that themselves carry sub-lines (e.g. "Building Maint.-Contractual"
- *  with the level-2 contract items) are clickable to expand the next
- *  level. */
+ *  right via the brand-blue left rail on the label cell. Sub-lines that
+ *  themselves carry sub-lines (e.g. "Building Maint.-Contractual" with
+ *  the level-2 contract items) are clickable to expand the next level. */
 function SubLineRow({
   line,
   parentKey,
-  isLast,
   depth,
   sqft,
   psf,
 }: {
   line: import("@/lib/financials/budgets/types").BudgetLine;
   parentKey: string;
-  isLast: boolean;
   depth: number;
   sqft: number;
   psf: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
   const hasNested = !!line.subLines && line.subLines.length > 0;
-  const branch = isLast ? "└" : "├";
-  // Each depth level steps the brand-blue rail 16px further to the right
+  // Each depth level steps the brand-blue rail 18px further to the right
   // so nested children visually sit "inside" their parent sub-line.
   const indent = depth * 18;
   const fontSize = depth === 1 ? 12 : 11;
@@ -1000,24 +995,13 @@ function SubLineRow({
           cursor: hasNested ? "pointer" : undefined,
         }}
       >
-        {/* GL column doubles as the tree-branch indent rail. When the
-            sub-line carries its own GL (e.g. 6010-8501 Salaries & Wages
-            under Leasing Salaries and Commissions) show the GL stacked
-            under the branch glyph so both nesting and account are
-            visible. */}
-        <td style={{
-          textAlign: "right", paddingRight: 8,
-          color: "#0b4a7d", fontWeight: 700, lineHeight: 1.2,
+        {/* GL column — only the GL number when present. The continuous
+            brand-blue rail on the label cell carries the nesting visual
+            on its own; per-row tree branches were extra ink. */}
+        <td className="muted small" style={{
+          fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap",
         }}>
-          <span style={{ fontSize: 14, fontFamily: "monospace" }}>{branch}</span>
-          {line.glAccount && (
-            <div className="muted small" style={{
-              fontVariantNumeric: "tabular-nums",
-              fontWeight: 400, marginTop: 1,
-            }}>
-              {line.glAccount}
-            </div>
-          )}
+          {line.glAccount ?? ""}
         </td>
         <td style={{
           paddingLeft: indent,
@@ -1057,7 +1041,6 @@ function SubLineRow({
           key={`${parentKey}-${k}`}
           line={nested}
           parentKey={`${parentKey}-${k}`}
-          isLast={k === line.subLines!.length - 1}
           depth={depth + 1}
           sqft={sqft}
           psf={psf}
