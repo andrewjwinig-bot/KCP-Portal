@@ -17,6 +17,7 @@ type WorkbookSummary = {
   year: number;
   uploadedAt: string;
   propertyCount: number;
+  properties: { propertyCode: string; propertyName: string }[];
 };
 
 function money(n: number): string {
@@ -495,21 +496,49 @@ function BudgetTable({
     return pills;
   }, [rollupByName, property.sections, sqft, psf, hasDebt]);
 
-  // Build the year dropdown options + a resolver from a chosen year back
-  // to the underlying budget id. Years are pulled from all summaries in
-  // the same category as the currently-loaded workbook so swapping years
-  // keeps you on the same category. When a year has both a live and an
-  // imported budget, the live one wins.
-  const yearsForCategory = useMemo(() => {
+  // Year dropdown lists every distinct budget year across all
+  // workbooks — staff can toggle between any year/property/category
+  // without first navigating to the "right" workbook.
+  const allYears = useMemo(() => {
     const ys = new Set<number>();
-    for (const s of summaries) if (s.category === workbook.category) ys.add(s.year);
+    for (const s of summaries) ys.add(s.year);
     return Array.from(ys).sort((a, b) => b - a);
-  }, [summaries, workbook.category]);
+  }, [summaries]);
+
+  // Combined property dropdown — every property across every workbook
+  // for the selected year, grouped by workbook label as <optgroup>s.
+  // Selecting a property automatically resolves to the workbook that
+  // owns it (so 1100 → SC 2026, 3610 → JV III 2026, etc.).
+  const propertyOptionsByWorkbook = useMemo(() => {
+    return summaries
+      .filter((s) => s.year === workbook.year)
+      .sort((a, b) => a.category.localeCompare(b.category) || a.label.localeCompare(b.label))
+      .map((s) => ({
+        budgetId: s.id,
+        label: s.label,
+        properties: s.properties,
+      }));
+  }, [summaries, workbook.year]);
+
   const handleYearChange = useCallback((y: number) => {
-    const candidates = summaries.filter((s) => s.category === workbook.category && s.year === y);
-    const pick = candidates.find((s) => s.kind === "live") ?? candidates[0];
+    // Prefer same-category continuity (so a user on Office 2026 stays
+    // on Office when switching to 2027), then live > imported, then
+    // first alphabetical.
+    const candidates = summaries.filter((s) => s.year === y);
+    const sameCategory = candidates.filter((s) => s.category === workbook.category);
+    const pool = sameCategory.length > 0 ? sameCategory : candidates;
+    const pick = pool.find((s) => s.kind === "live") ?? pool[0];
     if (pick) onSelectBudget(pick.id);
   }, [summaries, workbook.category, onSelectBudget]);
+
+  const handlePropertyChange = useCallback((value: string) => {
+    // The combined dropdown encodes selections as "budgetId|propertyCode"
+    // so we can route to the right workbook without an extra round-trip.
+    const [budgetId, code] = value.split("|");
+    if (!code) return;
+    if (budgetId && budgetId !== workbook.id) onSelectBudget(budgetId);
+    onSelectProperty(code);
+  }, [workbook.id, onSelectBudget, onSelectProperty]);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -527,20 +556,24 @@ function BudgetTable({
               style={yearHeaderSelectStyle}
               aria-label="Year"
             >
-              {yearsForCategory.map((y) => (
+              {allYears.map((y) => (
                 <option key={y} value={y}>{y}</option>
               ))}
             </select>
             <select
-              value={property.propertyCode}
-              onChange={(e) => onSelectProperty(e.target.value)}
+              value={`${workbook.id}|${property.propertyCode}`}
+              onChange={(e) => handlePropertyChange(e.target.value)}
               style={propertyHeaderSelectStyle}
               aria-label="Property"
             >
-              {workbook.properties.map((p) => (
-                <option key={p.propertyCode} value={p.propertyCode}>
-                  {p.propertyCode} — {p.propertyName}
-                </option>
+              {propertyOptionsByWorkbook.map((grp) => (
+                <optgroup key={grp.budgetId} label={grp.label}>
+                  {grp.properties.map((p) => (
+                    <option key={`${grp.budgetId}|${p.propertyCode}`} value={`${grp.budgetId}|${p.propertyCode}`}>
+                      {p.propertyCode} — {p.propertyName}
+                    </option>
+                  ))}
+                </optgroup>
               ))}
             </select>
           </div>

@@ -8,8 +8,10 @@ export const revalidate = 0;
 export async function GET() {
   try {
     const workbooks = await listBudgets();
-    // Lighter list payload — drop the heavy `properties` array, callers
-    // hit /[id] when they need the full data.
+    // Light list payload — drop heavy sections / sub-lines, but include
+    // each property's code + name so the page can build a combined
+    // property dropdown across all workbooks without hitting /[id] for
+    // every one.
     const summary = workbooks.map((w) => ({
       id: w.id,
       label: w.label,
@@ -19,6 +21,10 @@ export async function GET() {
       uploadedAt: w.uploadedAt,
       uploadedBy: w.uploadedBy,
       propertyCount: w.properties.length,
+      properties: w.properties.map((p) => ({
+        propertyCode: p.propertyCode,
+        propertyName: p.propertyName,
+      })),
     }));
     return NextResponse.json({ workbooks: summary });
   } catch (e) {
