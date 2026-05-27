@@ -34,17 +34,21 @@ type Manifest = {
   updatedAt: string;
 };
 
-/** Returns true when the seed workbook in the manifest is missing the
- *  per-property Insurance sub-line breakdown we now parse from the
- *  INS RET DEBT tab. Earlier deploys saved the seed before that parser
- *  existed; we re-parse those once on next read so the expansion works. */
-function seedMissingInsuranceDetail(wb: BudgetWorkbook): boolean {
+/** Returns true when the seed workbook in the manifest is missing
+ *  per-line sub-detail. Earlier deploys saved the seed before the
+ *  in-sheet sub-line parser existed (which extracts Building Maint.-
+ *  Contractual / -Recurring / -Big Projects, Landscaping-*, Parking
+ *  Lot Maint-*, Insurance-Liability / -Property / -Other, etc.); we
+ *  re-parse those once on next read so the expansion works. Checks
+ *  for "Building Maintenance" sub-lines specifically since that's the
+ *  most common parent that should always have them. */
+function seedMissingSubLineDetail(wb: BudgetWorkbook): boolean {
   if (wb.id !== SEED_ID) return false;
   for (const property of wb.properties) {
     for (const section of property.sections) {
       for (const line of section.lines) {
         if (line.isSubtotal) continue;
-        if (/^insurance$/i.test(line.label.trim()) && line.subLines && line.subLines.length > 0) {
+        if (/^building maintenance$/i.test(line.label.trim()) && line.subLines && line.subLines.length > 0) {
           return false; // already has detail
         }
       }
@@ -88,10 +92,11 @@ async function loadManifest(): Promise<BudgetWorkbook[]> {
       }
     }
 
-    // Second migration: if the seed pre-dates the INS RET DEBT parser,
-    // re-parse the bundle so the insurance sub-line breakdown shows up.
+    // Second migration: if the seed pre-dates the in-sheet sub-line
+    // parser, re-parse the bundle so per-line breakdowns (Building
+    // Maint.-*, Landscaping-*, Insurance-*, etc.) show up.
     const seed = m.workbooks.find((wb) => wb.id === SEED_ID);
-    if (seed && seedMissingInsuranceDetail(seed)) {
+    if (seed && seedMissingSubLineDetail(seed)) {
       const reparsed = await reseedFromBundle();
       if (reparsed) {
         const i = m.workbooks.indexOf(seed);

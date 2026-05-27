@@ -99,6 +99,26 @@ function isRollupLabel(label: string): boolean {
   return u.startsWith("TOTAL ") || u.startsWith("NET ") || u.startsWith("CASH FLOW");
 }
 
+/** Build a sub-line BudgetLine from a row that has its label in col 3.
+ *  These rows precede their parent line in the property sheet — e.g.
+ *  rows for "Building Maint.-Contractual / Recurring / Big Projects"
+ *  immediately precede the "Building Maintenance" parent row that holds
+ *  the GL code and the summed total. */
+function buildSubLineFromRow(r: unknown[], label: string): BudgetLine {
+  const ms = months(r);
+  return {
+    glAccount: null,
+    subCategory: null,
+    label,
+    months: ms,
+    total: num(r[16]),
+    totalPsf: r[17] != null && trim(r[17]) !== "" ? num(r[17]) : null,
+    input: r[18] != null && trim(r[18]) !== "" ? trim(r[18]) : null,
+    notes: r[19] != null && trim(r[19]) !== "" ? trim(r[19]) : null,
+    isSubtotal: false,
+  };
+}
+
 function parsePropertySheet(rows: unknown[][], sheetName: string): PropertyBudget | null {
   const r0 = rows[0] ?? [];
   const codeRaw = trim(r0[1]);
@@ -119,6 +139,11 @@ function parsePropertySheet(rows: unknown[][], sheetName: string): PropertyBudge
   const sections: BudgetSection[] = [];
   const rollups: { name: string; total: number; months: number[] }[] = [];
   let currentSection: BudgetSection | null = null;
+  // Sub-line rows (label in col 3, no GL) precede their parent row in the
+  // property sheet — e.g. "Building Maint.-Contractual / -Recurring /
+  // -Big Projects" appear immediately before the "Building Maintenance"
+  // parent row. We buffer them here and attach on the next parent.
+  let pendingSubLines: BudgetLine[] = [];
 
   let skylineImport: SkylineImportLine[] = [];
   let skylineImportTotal = 0;
@@ -127,10 +152,11 @@ function parsePropertySheet(rows: unknown[][], sheetName: string): PropertyBudge
 
   for (let i = 7; i < rows.length; i++) {
     const r = rows[i] ?? [];
-    if (rowIsBlank(r)) continue;
+    if (rowIsBlank(r)) { pendingSubLines = []; continue; }
     const col0 = trim(r[0]);
     const col1 = trim(r[1]);
     const col2 = trim(r[2]);
+    const col3 = trim(r[3]);
 
     // Budget Import block — once we hit "Budget Import - <code>" in col 1,
     // we stop accumulating the main P&L and parse this flat table instead.
@@ -175,6 +201,7 @@ function parsePropertySheet(rows: unknown[][], sheetName: string): PropertyBudge
     ) {
       // We don't set stopMainPnl here — keep scanning, just skip detail rows.
       // The blocks naturally end before Budget Import.
+      pendingSubLines = [];
       continue;
     }
 
@@ -186,6 +213,7 @@ function parsePropertySheet(rows: unknown[][], sheetName: string): PropertyBudge
       if (total !== 0 || ms.some((m) => m !== 0)) {
         rollups.push({ name: col1, total, months: ms });
       }
+      pendingSubLines = [];
       continue;
     }
 
@@ -193,6 +221,7 @@ function parsePropertySheet(rows: unknown[][], sheetName: string): PropertyBudge
     if (isSectionHeader(r, col0, col1, col2)) {
       if (currentSection) sections.push(currentSection);
       currentSection = { name: col1, lines: [] };
+      pendingSubLines = [];
       continue;
     }
 
@@ -211,6 +240,20 @@ function parsePropertySheet(rows: unknown[][], sheetName: string): PropertyBudge
         isSubtotal: true,
       };
       if (currentSection) currentSection.lines.push(line);
+      pendingSubLines = [];
+      continue;
+    }
+
+    // Sub-line row — label lives in col 3, with no GL in col 0 and no
+    // label in col 2. Buffer for the next parent line.
+    if (!col0 && !col2 && col3 && !col1) {
+      const ms = months(r);
+      const total = num(r[16]);
+      // Tolerate empty sub-lines (e.g. D&O = 0) so the breakdown still
+      // lists every category. The page mutes empty rows on its own.
+      pendingSubLines.push(buildSubLineFromRow(r, col3));
+      // unused-var silencer
+      void ms; void total;
       continue;
     }
 
@@ -219,7 +262,10 @@ function parsePropertySheet(rows: unknown[][], sheetName: string): PropertyBudge
       const ms = months(r);
       const total = num(r[16]);
       // Skip completely empty rows that slipped through (no GL, no money)
-      if (!col0 && total === 0 && ms.every((m) => m === 0)) continue;
+      if (!col0 && total === 0 && ms.every((m) => m === 0)) {
+        pendingSubLines = [];
+        continue;
+      }
       const line: BudgetLine = {
         glAccount: col0 || null,
         subCategory: col1 || null,
@@ -230,7 +276,9 @@ function parsePropertySheet(rows: unknown[][], sheetName: string): PropertyBudge
         input: r[18] != null && trim(r[18]) !== "" ? trim(r[18]) : null,
         notes: r[19] != null && trim(r[19]) !== "" ? trim(r[19]) : null,
         isSubtotal: false,
+        subLines: pendingSubLines.length > 0 ? pendingSubLines : undefined,
       };
+      pendingSubLines = [];
       if (!currentSection) currentSection = { name: "Other", lines: [] };
       currentSection.lines.push(line);
     }
