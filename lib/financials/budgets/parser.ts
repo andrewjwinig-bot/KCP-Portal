@@ -159,15 +159,26 @@ function buildSubLineFromRow(r: unknown[], label: string, glAccount: string | nu
 function parsePropertySheet(rows: unknown[][], sheetName: string): PropertyBudget | null {
   const r0 = rows[0] ?? [];
   const codeRaw = trim(r0[1]);
-  const code = codeRaw.toUpperCase();
-  if (!isPropertyCode(code) && !isRollupSheet(sheetName)) return null;
-
-  // Property name: strip leading dash + spaces from "- Brookwood Shopping
-  // Center". The SC file carries the name in col 2 of row 0; the JV III
-  // / office files leave it blank — fall back to PROPERTY_DEFS so the
-  // page header reads cleanly either way.
-  const nameFromSheet = trim(r0[2]).replace(/^[-\s]+/, "");
-  const name = nameFromSheet || lookupPropertyName(code) || code;
+  const isRollup = isRollupSheet(sheetName);
+  // For property sheets the property code lives in row 0 col 1. For
+  // rollup sheets ("All Shopping Centers", "JV III Consolidated") that
+  // cell carries the rollup's display name instead, so we synthesize a
+  // stable code and use the cell value as the human label.
+  let code: string;
+  let name: string;
+  if (isRollup) {
+    code = "CONSOLIDATED";
+    name = codeRaw || "Consolidated";
+  } else {
+    code = codeRaw.toUpperCase();
+    if (!isPropertyCode(code)) return null;
+    // Property name: strip leading dash + spaces from "- Brookwood
+    // Shopping Center". The SC file carries the name in col 2 of row 0;
+    // the JV III office files leave it blank — fall back to
+    // PROPERTY_DEFS so the page header reads cleanly either way.
+    const nameFromSheet = trim(r0[2]).replace(/^[-\s]+/, "");
+    name = nameFromSheet || lookupPropertyName(code) || code;
+  }
 
   const r3 = rows[3] ?? [];
   const rentableSqft = num(r3[1]);
@@ -761,6 +772,13 @@ export function parseBudgetWorkbook(
     if (isRollupSheet(sheetName)) rollup = parsed;
     else properties.push(parsed);
   }
+
+  // Surface the rollup as a selectable "Consolidated" entry at the top
+  // of the property list so the dropdown lets staff jump straight to
+  // the portfolio view alongside the individual buildings. The supporting-
+  // tab attachers below correctly no-op on it (no allocations / sub-line
+  // detail keyed off propertyCode="CONSOLIDATED").
+  if (rollup) properties.unshift(rollup);
 
   // Attach supporting-tab detail after all property sheets are parsed
   // (the supporting tabs can appear before or after them in the workbook).

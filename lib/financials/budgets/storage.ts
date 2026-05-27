@@ -139,11 +139,21 @@ function seedMissingSubLineDetail(wb: BudgetWorkbook): boolean {
   return true;
 }
 
+/** Returns true when the seed has a rollup sheet but doesn't surface
+ *  it as a selectable "Consolidated" property — added later so the
+ *  dropdown lets staff jump to the portfolio view alongside the
+ *  individual buildings. */
+function seedMissingConsolidatedEntry(wb: BudgetWorkbook): boolean {
+  if (!wb.rollup) return false;
+  return !wb.properties.some((p) => p.propertyCode === "CONSOLIDATED");
+}
+
 function seedNeedsReparse(wb: BudgetWorkbook): boolean {
   return seedMissingSubLineDetail(wb) ||
          seedHasYoyNoise(wb) ||
          seedMissingGroupedSubLines(wb) ||
-         seedMissingAllocations(wb);
+         seedMissingAllocations(wb) ||
+         seedMissingConsolidatedEntry(wb);
 }
 
 async function parseSeed(cfg: SeedConfig): Promise<BudgetWorkbook | null> {
