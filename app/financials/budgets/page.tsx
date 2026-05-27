@@ -381,6 +381,7 @@ function BudgetTable({
 }) {
   const skylineHref = `/api/financials/budgets/${encodeURIComponent(workbook.id)}/skyline?property=${encodeURIComponent(property.propertyCode)}`;
   const [psf, setPsf] = useState(false);
+  const [hideEmpty, setHideEmpty] = useState(false);
   const sqft = property.rentableSqft || 0;
 
   // Build the lookup of cross-section subtotals (TOTAL REVENUES, NOI,
@@ -545,7 +546,10 @@ function BudgetTable({
               <> · OpEx defaulted at {workbook.source.opExGrowthPct}% over prior</>
             )}
           </div>
-          <ViewToggle psf={psf} onChange={setPsf} disabled={sqft <= 0} />
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+            <ViewToggle psf={psf} onChange={setPsf} disabled={sqft <= 0} />
+            <EmptyRowsToggle hide={hideEmpty} onChange={setHideEmpty} />
+          </div>
         </div>
 
         <div className="pills">
@@ -594,29 +598,37 @@ function BudgetTable({
                   </tr>
                 </thead>
                 <tbody>
-                  {sec.lines.map((l, i) => (
-                    <tr key={`${sec.name}-${i}`} style={{
-                      background: l.isSubtotal ? "rgba(15,23,42,0.04)" : undefined,
-                      fontWeight: l.isSubtotal ? 700 : 400,
-                    }}>
-                      <td className="muted small" style={{ fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
-                        {l.glAccount ?? ""}
-                      </td>
-                      <td>
-                        {l.subCategory && <span style={{ color: "var(--muted)", marginRight: 6, fontSize: 11 }}>{l.subCategory}</span>}
-                        {l.label}
-                        {l.notes && <div className="muted small" style={{ marginTop: 2 }}>{l.notes}</div>}
-                      </td>
-                      {l.months.map((m, j) => (
-                        <td key={j} style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontSize: 12 }}>
-                          {fmtAmount(m, sqft, psf)}
+                  {sec.lines.map((l, i) => {
+                    // Empty = no value anywhere on the row. Subtotals are
+                    // never considered empty so we don't orphan a header.
+                    const isEmpty = !l.isSubtotal && l.total === 0 && l.months.every((m) => m === 0);
+                    if (hideEmpty && isEmpty) return null;
+                    return (
+                      <tr key={`${sec.name}-${i}`} style={{
+                        background: l.isSubtotal ? "rgba(15,23,42,0.04)" : undefined,
+                        fontWeight: l.isSubtotal ? 700 : 400,
+                        color: isEmpty ? "var(--muted)" : undefined,
+                        opacity: isEmpty ? 0.55 : 1,
+                      }}>
+                        <td className="muted small" style={{ fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
+                          {l.glAccount ?? ""}
                         </td>
-                      ))}
-                      <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontWeight: l.isSubtotal ? 800 : 600 }}>
-                        {fmtAmount(l.total, sqft, psf)}
-                      </td>
-                    </tr>
-                  ))}
+                        <td>
+                          {l.subCategory && <span style={{ color: "var(--muted)", marginRight: 6, fontSize: 11 }}>{l.subCategory}</span>}
+                          {l.label}
+                          {l.notes && <div className="muted small" style={{ marginTop: 2 }}>{l.notes}</div>}
+                        </td>
+                        {l.months.map((m, j) => (
+                          <td key={j} style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontSize: 12 }}>
+                            {fmtAmount(m, sqft, psf)}
+                          </td>
+                        ))}
+                        <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontWeight: l.isSubtotal ? 800 : 600 }}>
+                          {fmtAmount(l.total, sqft, psf)}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -656,6 +668,42 @@ function GroupHeader({ label }: { label: string }) {
       color: "#0b4a7d",
     }}>
       {label}
+    </div>
+  );
+}
+
+function EmptyRowsToggle({ hide, onChange }: {
+  hide: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  const baseBtn: React.CSSProperties = {
+    fontSize: 11, fontWeight: 700, padding: "4px 10px",
+    border: "1px solid var(--border)", background: "var(--card)",
+    color: "var(--text)", cursor: "pointer",
+    letterSpacing: "0.04em", textTransform: "uppercase",
+  };
+  const active: React.CSSProperties = {
+    background: "#0b4a7d", color: "#fff", borderColor: "#0b4a7d",
+  };
+  return (
+    <div style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+      <span className="muted small" style={{ fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase" }}>Empty rows</span>
+      <div style={{ display: "inline-flex", borderRadius: 6, overflow: "hidden" }}>
+        <button
+          type="button"
+          onClick={() => onChange(false)}
+          style={{ ...baseBtn, borderRadius: "6px 0 0 6px", ...(hide ? {} : active) }}
+        >
+          Show
+        </button>
+        <button
+          type="button"
+          onClick={() => onChange(true)}
+          style={{ ...baseBtn, borderLeft: "none", borderRadius: "0 6px 6px 0", ...(hide ? active : {}) }}
+        >
+          Hide
+        </button>
+      </div>
     </div>
   );
 }
