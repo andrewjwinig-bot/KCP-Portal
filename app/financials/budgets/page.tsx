@@ -788,7 +788,10 @@ function SubtotalCard({ rollup, sqft, psf }: {
       borderColor: "#0b4a7d",
       background: "rgba(11,74,125,0.04)",
     }}>
-      <div className="tableWrap">
+      {/* margin-top: 0 overrides the default .tableWrap margin so the
+          single subtotal row sits at the optical center of the card
+          instead of getting pushed down by the wrapper's top margin. */}
+      <div className="tableWrap" style={{ marginTop: 0 }}>
         <table>
           <colgroup>
             <col style={{ width: 96 }} />
@@ -798,10 +801,11 @@ function SubtotalCard({ rollup, sqft, psf }: {
           </colgroup>
           <tbody>
             <tr style={{ fontWeight: 800 }}>
-              <td></td>
+              <td style={{ verticalAlign: "middle", borderBottom: "none" }}></td>
               <td style={{
                 fontSize: 13, fontWeight: 900, letterSpacing: "0.04em",
                 textTransform: "uppercase", color: "#0b4a7d",
+                verticalAlign: "middle", borderBottom: "none",
               }}>
                 {rollup.name}
               </td>
@@ -810,6 +814,7 @@ function SubtotalCard({ rollup, sqft, psf }: {
                   textAlign: "right", fontVariantNumeric: "tabular-nums",
                   fontSize: 13, fontWeight: 800,
                   color: m < 0 ? "#b91c1c" : undefined,
+                  verticalAlign: "middle", borderBottom: "none",
                 }}>
                   {fmtAmount(m, sqft, psf)}
                 </td>
@@ -818,6 +823,7 @@ function SubtotalCard({ rollup, sqft, psf }: {
                 textAlign: "right", fontVariantNumeric: "tabular-nums",
                 fontSize: 14, fontWeight: 900,
                 color: negative ? "#b91c1c" : "#0b4a7d",
+                verticalAlign: "middle", borderBottom: "none",
               }}>
                 {fmtAmount(rollup.total, sqft, psf)}
               </td>
