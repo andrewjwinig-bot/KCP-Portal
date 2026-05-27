@@ -120,18 +120,23 @@ function isYoyVarianceColumn(input: string | null, notes: string | null): boolea
  *  These rows precede their parent line in the property sheet — e.g.
  *  rows for "Building Maint.-Contractual / Recurring / Big Projects"
  *  immediately precede the "Building Maintenance" parent row that holds
- *  the GL code and the summed total. */
-function buildSubLineFromRow(r: unknown[], label: string): BudgetLine {
+ *  the summed total. Some sub-lines also carry their own GL code in
+ *  col 0 (e.g. 6010-8501 Salaries & Wages under "Leasing Salaries and
+ *  Commissions"); preserve that when present. */
+function buildSubLineFromRow(r: unknown[], label: string, glAccount: string | null): BudgetLine {
   const ms = months(r);
+  const rawInput = r[18] != null && trim(r[18]) !== "" ? trim(r[18]) : null;
+  const rawNotes = r[19] != null && trim(r[19]) !== "" ? trim(r[19]) : null;
+  const isYoy = isYoyVarianceColumn(rawInput, rawNotes);
   return {
-    glAccount: null,
+    glAccount,
     subCategory: null,
     label,
     months: ms,
     total: num(r[16]),
     totalPsf: r[17] != null && trim(r[17]) !== "" ? num(r[17]) : null,
-    input: r[18] != null && trim(r[18]) !== "" ? trim(r[18]) : null,
-    notes: r[19] != null && trim(r[19]) !== "" ? trim(r[19]) : null,
+    input: isYoy ? null : rawInput,
+    notes: isYoy ? null : rawNotes,
     isSubtotal: false,
   };
 }
@@ -261,12 +266,16 @@ function parsePropertySheet(rows: unknown[][], sheetName: string): PropertyBudge
       continue;
     }
 
-    // Sub-line row — label lives in col 3, with no GL in col 0 and no
-    // label in col 2. Buffer for the next parent line. Empty sub-lines
-    // (e.g. D&O = 0) are tolerated so the breakdown still lists every
-    // category; the page mutes empty rows on its own.
-    if (!col0 && !col2 && col3 && !col1) {
-      pendingSubLines.push(buildSubLineFromRow(r, col3));
+    // Sub-line row — label lives in col 3, no parent-label in col 2.
+    // Col 0 (GL) MAY be set (e.g. 6010-8501 Salaries & Wages under
+    // "Leasing Salaries and Commissions"; same shape for Utilities,
+    // G&A, Capital, Outside Leasing Commissions) — we preserve the
+    // GL on the sub-line so it stays visible in the GL column.
+    // Buffer for the next parent line. Empty sub-lines (e.g. D&O = 0)
+    // are tolerated so the breakdown still lists every category;
+    // the page mutes empty rows on its own.
+    if (!col2 && col3 && !col1) {
+      pendingSubLines.push(buildSubLineFromRow(r, col3, col0 || null));
       continue;
     }
 

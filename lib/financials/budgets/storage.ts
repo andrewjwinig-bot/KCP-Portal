@@ -51,6 +51,28 @@ function seedHasYoyNoise(wb: BudgetWorkbook): boolean {
   return false;
 }
 
+/** Returns true when "Leasing Salaries and Commissions", "Utilities",
+ *  "General & Administrative", "Capital Improvements", or "Outside
+ *  Leasing Commissions" exist on the property but have no sub-lines —
+ *  those parents always carry sub-lines in the workbook, so a missing
+ *  array means we parsed under the pre-loosened sub-line detector that
+ *  required col 0 to be empty. */
+function seedMissingGroupedSubLines(wb: BudgetWorkbook): boolean {
+  if (wb.id !== SEED_ID) return false;
+  const expectsSubLines = /^(leasing salaries and commissions|utilities|general & administrative|capital improvements|outside leasing commissions)$/i;
+  for (const property of wb.properties) {
+    for (const section of property.sections) {
+      for (const line of section.lines) {
+        if (line.isSubtotal) continue;
+        if (expectsSubLines.test(line.label.trim()) && (!line.subLines || line.subLines.length === 0)) {
+          return true;
+        }
+      }
+    }
+  }
+  return false;
+}
+
 /** Returns true when the seed workbook in the manifest is missing
  *  the latest level of sub-line detail. Earlier deploys saved the seed
  *  before the in-sheet sub-line parser (level 1) or the Building Maint
@@ -117,7 +139,7 @@ async function loadManifest(): Promise<BudgetWorkbook[]> {
     // sub-line parser (level 1 / level 2) OR if it still carries the
     // stale YoY variance % data we used to store as notes.
     const seed = m.workbooks.find((wb) => wb.id === SEED_ID);
-    if (seed && (seedMissingSubLineDetail(seed) || seedHasYoyNoise(seed))) {
+    if (seed && (seedMissingSubLineDetail(seed) || seedHasYoyNoise(seed) || seedMissingGroupedSubLines(seed))) {
       const reparsed = await reseedFromBundle();
       if (reparsed) {
         const i = m.workbooks.indexOf(seed);
