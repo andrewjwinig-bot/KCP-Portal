@@ -309,22 +309,25 @@ function liftExpenseSection(prior: BudgetSection | null, growthFactor: number, n
   if (!prior) {
     return { section: { name, lines: [] }, monthsTotal: zeroMonths() };
   }
+  // Recursively lift a sub-line tree so every level scales at the same
+  // growth rate as the parent and the breakdown still ties.
+  const liftSub = (sub: BudgetLine): BudgetLine => {
+    const subMonths = sub.isSubtotal ? zeroMonths() : lift(sub.months, growthFactor);
+    return {
+      ...sub,
+      months: subMonths,
+      total: sumMonths(subMonths),
+      subLines: sub.subLines ? sub.subLines.map(liftSub) : undefined,
+    };
+  };
+
   const lines: BudgetLine[] = prior.lines.map((l) => {
     const months = l.isSubtotal ? zeroMonths() : lift(l.months, growthFactor);
-    // Lift sub-lines (e.g. Insurance breakdown) at the same growth rate
-    // so the breakdown still ties to the parent. Intermediate sub-line
-    // subtotals get the lifted parent treatment too.
-    const subLines = l.subLines
-      ? l.subLines.map((sub) => {
-          const subMonths = lift(sub.months, growthFactor);
-          return { ...sub, months: subMonths, total: sumMonths(subMonths) };
-        })
-      : undefined;
     return {
       ...l,
       months,
       total: sumMonths(months),
-      subLines,
+      subLines: l.subLines ? l.subLines.map(liftSub) : undefined,
       notes: l.isSubtotal
         ? null
         : `Defaulted to ${Math.round((growthFactor - 1) * 100)}% over prior year`,
