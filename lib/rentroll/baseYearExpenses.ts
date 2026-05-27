@@ -486,9 +486,11 @@ const SEED_4070: PropertyExpenses = {
   updatedAt: "2026-02-03",
 };
 
-// 4080 — Building 8 (NI LLC). No operating-expense data for 2016; RET is
-// only on file for 2025 so far. No Condo line. Maintenance Salaries had
-// no 2020 entry, seeded as $0. Occupancy through 2025.
+// 4080 — Building 8 (NI LLC). No operating-expense data for 2016. RET
+// history goes back to 2005 (2009 picked up from a separate pull;
+// 2016 was a literal $0 in the source — treated as missing). No Condo
+// line. Maintenance Salaries had no 2020 entry, seeded as $0.
+// Occupancy through 2025.
 const YEARS_4080 = [
   2005, 2010, 2011, 2012, 2013, 2014, 2015,
   2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025,
@@ -505,7 +507,27 @@ const SEED_4080: PropertyExpenses = {
     571375, 652673, 674000, 627950, 646345, 651514, 631571,
     642691, 686112, 702250, 617730, 740222, 698820, 817070, 861396, 792122,
   ]),
-  ret: { "2025": 257813 },
+  ret: {
+    "2005": 322177,
+    "2009": 294050,
+    "2010": 311949,
+    "2011": 349025,
+    "2012": 363088,
+    "2013": 365645,
+    "2014": 337519,
+    "2015": 323455,
+    // 2016 intentionally omitted — source carried a literal $0 which
+    // reads as "data missing" rather than a real $0 assessment.
+    "2017": 332405,
+    "2018": 337519,
+    "2019": 342837,
+    "2020": 348382,
+    "2021": 320970,
+    "2022": 321911,
+    "2023": 262276,
+    "2024": 233111,
+    "2025": 257813,
+  },
   occupancyPct: {
     "2010": 80, "2013": 80, "2014": 80, "2016": 95, "2018": 89, "2019": 86,
     "2020": 56, "2021": 65, "2023": 59, "2024": 53, "2025": 58,
