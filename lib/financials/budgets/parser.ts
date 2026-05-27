@@ -72,10 +72,12 @@ function months(r: unknown[]): number[] {
 // Sheet name patterns we always ignore (cover, junk pivot). Supporting
 // tabs (INS RET DEBT, Building Maint, etc.) are NOT ignored here — they
 // don't match the property-sheet layout so parsePropertySheet returns
-// null for them. They're picked up separately by parseInsuranceDetail
-// (and future parsers as we expand sub-line coverage).
-const IGNORE_SHEET = /^(cover\s*sheet|sheet\d+|in place revenue|renew|tenant recoveries|building maint|allocated expenses|lik mgmt fee)\s*$/i;
+// null for them. They're picked up separately by parseInsuranceDetail /
+// parseBuildingMaintDetail (and future parsers as we expand sub-line
+// coverage).
+const IGNORE_SHEET = /^(cover\s*sheet|sheet\d+|in place revenue|renew|tenant recoveries|allocated expenses|lik mgmt fee)\s*$/i;
 const INS_RET_DEBT_SHEET = /^ins\s+ret\s+debt$/i;
+const BUILDING_MAINT_SHEET = /^building\s+maint$/i;
 
 function isRollupSheet(name: string): boolean {
   return /^all\s+/i.test(name.trim());
@@ -387,6 +389,98 @@ function attachInsuranceSubLines(property: PropertyBudget, subLines: BudgetLine[
   }
 }
 
+/** Parses the Building Maint supporting sheet. Each detail block (e.g.
+ *  "Contract - Sprinkler Inspection", "Recurring - Misc Expenses") spans
+ *  one row per property. Returns per-property level-2 sub-lines bucketed
+ *  by category — Contract items roll up into Building Maint.-Contractual,
+ *  Recurring items roll up into Building Maint.-Recurring. (Big Projects
+ *  has no per-item detail in this tab; it's just a single bucket with a
+ *  description carried on the parent line.)
+ *
+ *  Row layout inside a detail block:
+ *    Col 0  = " Contract - " / " Recurring - " on the title row only
+ *    Col 1  = item name on the title row, property code on data rows
+ *    Cols 2..13 = Jan..Dec
+ *    Col 14 = annual total
+ *
+ *  Note this column layout differs from the property sheet (which uses
+ *  cols 4..15 for months / col 16 for total) — the Building Maint tab
+ *  is shifted left by two columns. */
+function parseBuildingMaintDetail(rows: unknown[][]): Map<string, { contract: BudgetLine[]; recurring: BudgetLine[] }> {
+  const out = new Map<string, { contract: BudgetLine[]; recurring: BudgetLine[] }>();
+  const ensure = (code: string) => {
+    let b = out.get(code);
+    if (!b) { b = { contract: [], recurring: [] }; out.set(code, b); }
+    return b;
+  };
+
+  let blockCategory: "contract" | "recurring" | null = null;
+  let blockItem: string | null = null;
+
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i] ?? [];
+    const c0 = trim(r[0]);
+    const c1 = trim(r[1]);
+
+    // Block title: " Contract - " or " Recurring - " in col 0, item name in col 1.
+    if (/^contract\s*-/i.test(c0)) { blockCategory = "contract";  blockItem = c1 || null; continue; }
+    if (/^recurring\s*-/i.test(c0)) { blockCategory = "recurring"; blockItem = c1 || null; continue; }
+
+    if (!blockCategory || !blockItem) continue;
+    // End of block: TOTAL row or blank row resets the cursor (next block
+    // title will set it again).
+    if (/^total\s*:?\s*$/i.test(c1)) { blockCategory = null; blockItem = null; continue; }
+    if (!c1) continue;
+
+    // Per-property row: col 1 is the property code, cols 2..13 are months,
+    // col 14 is the annual total.
+    if (!isPropertyCode(c1)) continue;
+    const ms: number[] = [];
+    for (let j = 2; j < 14; j++) ms.push(num(r[j]));
+    const total = num(r[14]);
+    if (total === 0 && ms.every((m) => m === 0)) continue; // skip empty
+    const code = c1.toUpperCase();
+    const bucket = ensure(code);
+    const line: BudgetLine = {
+      glAccount: null,
+      subCategory: null,
+      label: blockItem,
+      months: ms,
+      total,
+      totalPsf: null,
+      input: null,
+      notes: null,
+      isSubtotal: false,
+    };
+    bucket[blockCategory].push(line);
+  }
+  return out;
+}
+
+/** Attach the level-2 Building Maint detail to the corresponding level-1
+ *  sub-lines under each property's "Building Maintenance" parent line.
+ *  Matches by the level-1 label substring "Contractual" / "Recurring". */
+function attachBuildingMaintSubLines(
+  property: PropertyBudget,
+  bucket: { contract: BudgetLine[]; recurring: BudgetLine[] },
+): void {
+  if (bucket.contract.length === 0 && bucket.recurring.length === 0) return;
+  for (const sec of property.sections) {
+    for (const line of sec.lines) {
+      if (line.isSubtotal) continue;
+      if (!/^building maintenance$/i.test(line.label.trim())) continue;
+      if (!line.subLines) continue;
+      for (const sub of line.subLines) {
+        if (/contract/i.test(sub.label) && bucket.contract.length > 0) {
+          sub.subLines = bucket.contract;
+        } else if (/recurring/i.test(sub.label) && bucket.recurring.length > 0) {
+          sub.subLines = bucket.recurring;
+        }
+      }
+    }
+  }
+}
+
 function inferYear(rows: unknown[][]): number | null {
   const r0 = rows[0] ?? [];
   for (let i = 0; i < Math.min(r0.length, 30); i++) {
@@ -426,6 +520,7 @@ export function parseBudgetWorkbook(
   let rollup: PropertyBudget | undefined;
   let detectedYear: number | null = null;
   let insuranceDetail: Map<string, BudgetLine[]> | null = null;
+  let buildingMaintDetail: Map<string, { contract: BudgetLine[]; recurring: BudgetLine[] }> | null = null;
 
   for (const sheetName of wb.SheetNames) {
     const trimmed = sheetName.trim();
@@ -437,18 +532,26 @@ export function parseBudgetWorkbook(
       insuranceDetail = parseInsuranceDetail(rows);
       continue;
     }
+    if (BUILDING_MAINT_SHEET.test(trimmed)) {
+      buildingMaintDetail = parseBuildingMaintDetail(rows);
+      continue;
+    }
     const parsed = parsePropertySheet(rows, sheetName);
     if (!parsed) continue;
     if (isRollupSheet(sheetName)) rollup = parsed;
     else properties.push(parsed);
   }
 
-  // Attach insurance sub-line detail after all property sheets are parsed
-  // (the INS RET DEBT tab can appear before or after them in the workbook).
-  if (insuranceDetail) {
-    for (const property of properties) {
+  // Attach supporting-tab detail after all property sheets are parsed
+  // (the supporting tabs can appear before or after them in the workbook).
+  for (const property of properties) {
+    if (insuranceDetail) {
       const subs = insuranceDetail.get(property.propertyCode);
       if (subs) attachInsuranceSubLines(property, subs);
+    }
+    if (buildingMaintDetail) {
+      const bucket = buildingMaintDetail.get(property.propertyCode);
+      if (bucket) attachBuildingMaintSubLines(property, bucket);
     }
   }
 

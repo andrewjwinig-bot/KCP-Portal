@@ -852,50 +852,112 @@ function BudgetLineRow({
           {fmtAmount(line.total, sqft, psf)}
         </td>
       </tr>
-      {expanded && hasSubLines && line.subLines!.map((sub, j) => {
-        const isLast = j === line.subLines!.length - 1;
-        // Tree branch glyph in the GL column connects each sub-line back
-        // to the parent: └ on the last row, ├ on every row above.
-        const branch = isLast ? "└" : "├";
-        return (
-          <tr
-            key={`${sectionName}-${index}-sub-${j}`}
-            style={{
-              background: sub.isSubtotal ? "rgba(11,74,125,0.07)" : "rgba(11,74,125,0.035)",
-              fontWeight: sub.isSubtotal ? 700 : 400,
-              color: "var(--text)",
-              fontSize: 12,
-            }}
-          >
-            {/* GL column doubles as the tree-branch indent rail */}
-            <td style={{
-              textAlign: "right", paddingRight: 8,
-              color: "#0b4a7d", fontWeight: 700, fontSize: 14, lineHeight: 1,
-              fontFamily: "monospace",
-            }}>
-              {branch}
-            </td>
-            <td style={{
-              paddingLeft: 18,
-              borderLeft: "3px solid #0b4a7d",
-              color: sub.isSubtotal ? "#0b4a7d" : undefined,
-            }}>
-              {sub.label}
-              {sub.subCategory && !sub.isSubtotal && (
-                <span className="muted small" style={{ marginLeft: 6 }}>· {sub.subCategory}</span>
-              )}
-            </td>
-            {sub.months.map((m, k) => (
-              <td key={k} style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
-                {fmtAmount(m, sqft, psf)}
-              </td>
-            ))}
-            <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontWeight: sub.isSubtotal ? 800 : 600 }}>
-              {fmtAmount(sub.total, sqft, psf)}
-            </td>
-          </tr>
-        );
-      })}
+      {expanded && hasSubLines && line.subLines!.map((sub, j) => (
+        <SubLineRow
+          key={`${sectionName}-${index}-sub-${j}`}
+          line={sub}
+          parentKey={`${sectionName}-${index}-sub-${j}`}
+          isLast={j === line.subLines!.length - 1}
+          depth={1}
+          sqft={sqft}
+          psf={psf}
+        />
+      ))}
+    </>
+  );
+}
+
+/** Recursive sub-line renderer. Each level deeper nests further to the
+ *  right with its own ├/└ branch glyph + brand-blue left rail. Sub-lines
+ *  that themselves carry sub-lines (e.g. "Building Maint.-Contractual"
+ *  with the level-2 contract items) are clickable to expand the next
+ *  level. */
+function SubLineRow({
+  line,
+  parentKey,
+  isLast,
+  depth,
+  sqft,
+  psf,
+}: {
+  line: import("@/lib/financials/budgets/types").BudgetLine;
+  parentKey: string;
+  isLast: boolean;
+  depth: number;
+  sqft: number;
+  psf: boolean;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const hasNested = !!line.subLines && line.subLines.length > 0;
+  const branch = isLast ? "└" : "├";
+  // Each depth level steps the brand-blue rail 16px further to the right
+  // so nested children visually sit "inside" their parent sub-line.
+  const indent = depth * 18;
+  const fontSize = depth === 1 ? 12 : 11;
+
+  return (
+    <>
+      <tr
+        onClick={hasNested ? () => setExpanded((v) => !v) : undefined}
+        style={{
+          background: line.isSubtotal ? "rgba(11,74,125,0.07)" : "rgba(11,74,125,0.035)",
+          fontWeight: line.isSubtotal ? 700 : 400,
+          color: "var(--text)",
+          fontSize,
+          cursor: hasNested ? "pointer" : undefined,
+        }}
+      >
+        {/* GL column doubles as the tree-branch indent rail */}
+        <td style={{
+          textAlign: "right", paddingRight: 8,
+          color: "#0b4a7d", fontWeight: 700, fontSize: 14, lineHeight: 1,
+          fontFamily: "monospace",
+        }}>
+          {branch}
+        </td>
+        <td style={{
+          paddingLeft: indent,
+          borderLeft: "3px solid #0b4a7d",
+          color: line.isSubtotal ? "#0b4a7d" : undefined,
+        }}>
+          {hasNested && (
+            <span
+              aria-hidden
+              style={{
+                display: "inline-block", width: 12, fontWeight: 800,
+                color: "var(--muted)", fontSize: 10, marginRight: 4,
+                transform: expanded ? "rotate(90deg)" : "none",
+                transition: "transform 0.12s ease",
+              }}
+            >
+              ▸
+            </span>
+          )}
+          {line.label}
+          {line.subCategory && !line.isSubtotal && (
+            <span className="muted small" style={{ marginLeft: 6 }}>· {line.subCategory}</span>
+          )}
+        </td>
+        {line.months.map((m, k) => (
+          <td key={k} style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+            {fmtAmount(m, sqft, psf)}
+          </td>
+        ))}
+        <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontWeight: line.isSubtotal ? 800 : 600 }}>
+          {fmtAmount(line.total, sqft, psf)}
+        </td>
+      </tr>
+      {expanded && hasNested && line.subLines!.map((nested, k) => (
+        <SubLineRow
+          key={`${parentKey}-${k}`}
+          line={nested}
+          parentKey={`${parentKey}-${k}`}
+          isLast={k === line.subLines!.length - 1}
+          depth={depth + 1}
+          sqft={sqft}
+          psf={psf}
+        />
+      ))}
     </>
   );
 }

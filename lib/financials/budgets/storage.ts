@@ -35,22 +35,26 @@ type Manifest = {
 };
 
 /** Returns true when the seed workbook in the manifest is missing
- *  per-line sub-detail. Earlier deploys saved the seed before the
- *  in-sheet sub-line parser existed (which extracts Building Maint.-
- *  Contractual / -Recurring / -Big Projects, Landscaping-*, Parking
- *  Lot Maint-*, Insurance-Liability / -Property / -Other, etc.); we
- *  re-parse those once on next read so the expansion works. Checks
- *  for "Building Maintenance" sub-lines specifically since that's the
- *  most common parent that should always have them. */
+ *  the latest level of sub-line detail. Earlier deploys saved the seed
+ *  before the in-sheet sub-line parser (level 1) or the Building Maint
+ *  tab parser (level 2 under Building Maint.-Contractual / -Recurring)
+ *  existed; we re-parse those once on next read so the expansion works.
+ *  Treats absence of EITHER level as missing — the level-2 probe is
+ *  the strongest signal we can check. */
 function seedMissingSubLineDetail(wb: BudgetWorkbook): boolean {
   if (wb.id !== SEED_ID) return false;
   for (const property of wb.properties) {
     for (const section of property.sections) {
       for (const line of section.lines) {
         if (line.isSubtotal) continue;
-        if (/^building maintenance$/i.test(line.label.trim()) && line.subLines && line.subLines.length > 0) {
-          return false; // already has detail
-        }
+        if (!/^building maintenance$/i.test(line.label.trim())) continue;
+        if (!line.subLines || line.subLines.length === 0) continue;
+        // Level 1 present — now check level 2: any of Contractual /
+        // Recurring sub-lines should carry their own subLines.
+        const hasLevel2 = line.subLines.some(
+          (s) => /contract|recurring/i.test(s.label) && s.subLines && s.subLines.length > 0,
+        );
+        if (hasLevel2) return false; // current; no re-parse needed
       }
     }
   }
