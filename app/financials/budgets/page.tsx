@@ -406,14 +406,31 @@ function BudgetTable({
     [property.sections, hasDebt],
   );
 
+  // Some workbooks (JV III's office sheets) don't have a Capital
+  // Improvements section at all — the CASH FLOW BEFORE DEBT SERVICE
+  // subtotal still belongs in the document, but it has to slide up to
+  // sit after Non-Reimbursable Expenses since there's nothing else
+  // between NOI and Debt Service.
+  const hasCapital = useMemo(
+    () => property.sections.some((s) => /^capital/i.test(s.name)),
+    [property.sections],
+  );
+
   const subtotalsAfter = useCallback((sectionName: string): { name: string; total: number; months: number[] }[] => {
     const norm = sectionName.toLowerCase();
     const wants: { key: string; relabelTo?: string }[] = [];
     if (/reimburs/.test(norm) && !/expense/.test(norm) && !/non/.test(norm)) wants.push({ key: "TOTAL REVENUES" });
-    if (/non-reimbursable/.test(norm)) wants.push({ key: "TOTAL OPERATING EXPENSES" }, { key: "NET OPERATING INCOME" });
+    if (/non-reimbursable/.test(norm)) {
+      wants.push({ key: "TOTAL OPERATING EXPENSES" }, { key: "NET OPERATING INCOME" });
+      // No Capital section in this workbook? Emit CASH FLOW BEFORE DEBT
+      // SERVICE here (or just CASH FLOW when there's no debt either).
+      if (!hasCapital) {
+        wants.push(hasDebt
+          ? { key: "CASH FLOW BEFORE DEBT SERVICE" }
+          : { key: "CASH FLOW BEFORE DEBT SERVICE", relabelTo: "CASH FLOW" });
+      }
+    }
     if (/capital/.test(norm)) {
-      // With debt: keep "Before Debt Service" framing. Without: this is
-      // simply the final CASH FLOW line.
       wants.push(hasDebt
         ? { key: "CASH FLOW BEFORE DEBT SERVICE" }
         : { key: "CASH FLOW BEFORE DEBT SERVICE", relabelTo: "CASH FLOW" });
@@ -425,7 +442,7 @@ function BudgetTable({
         return r ? { ...r, name: w.relabelTo ?? r.name } : null;
       })
       .filter((r): r is { name: string; total: number; months: number[] } => Boolean(r));
-  }, [rollupByName, hasDebt]);
+  }, [rollupByName, hasDebt, hasCapital]);
 
   // Headline pills. Always 5 across the row:
   //   1. TOTAL REVENUES, 2. TOTAL OPERATING EXPENSES, 3. NET OPERATING INCOME
