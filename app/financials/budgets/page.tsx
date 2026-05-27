@@ -630,29 +630,15 @@ function BudgetTable({
                     const isEmpty = !l.isSubtotal && l.total === 0 && l.months.every((m) => m === 0);
                     if (hideEmpty && isEmpty) return null;
                     return (
-                      <tr key={`${sec.name}-${i}`} style={{
-                        background: l.isSubtotal ? "rgba(15,23,42,0.04)" : undefined,
-                        fontWeight: l.isSubtotal ? 700 : 400,
-                        color: isEmpty ? "var(--muted)" : undefined,
-                        opacity: isEmpty ? 0.55 : 1,
-                      }}>
-                        <td className="muted small" style={{ fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
-                          {l.glAccount ?? ""}
-                        </td>
-                        <td>
-                          {l.subCategory && <span style={{ color: "var(--muted)", marginRight: 6, fontSize: 11 }}>{l.subCategory}</span>}
-                          {l.label}
-                          {l.notes && <div className="muted small" style={{ marginTop: 2 }}>{l.notes}</div>}
-                        </td>
-                        {l.months.map((m, j) => (
-                          <td key={j} style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontSize: 12 }}>
-                            {fmtAmount(m, sqft, psf)}
-                          </td>
-                        ))}
-                        <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontWeight: l.isSubtotal ? 800 : 600 }}>
-                          {fmtAmount(l.total, sqft, psf)}
-                        </td>
-                      </tr>
+                      <BudgetLineRow
+                        key={`${sec.name}-${i}`}
+                        line={l}
+                        sectionName={sec.name}
+                        index={i}
+                        sqft={sqft}
+                        psf={psf}
+                        isEmpty={isEmpty}
+                      />
                     );
                   })}
                 </tbody>
@@ -776,6 +762,124 @@ function ViewToggle({ psf, onChange, disabled }: {
 /** Big cross-section subtotal row (TOTAL REVENUES, NET OPERATING INCOME,
  *  CASH FLOW…). Sits between section cards with heavier styling than the
  *  in-section subtotals. */
+/** Single row in the section table. When the line carries sub-line
+ *  detail (e.g. Insurance → Gen Liab + Umbrella + Property + D&O) the
+ *  label cell shows a chevron toggle; clicking expands a set of indented
+ *  rows underneath plus a "ties to $X" tag confirming the sum matches. */
+function BudgetLineRow({
+  line,
+  sectionName,
+  index,
+  sqft,
+  psf,
+  isEmpty,
+}: {
+  line: import("@/lib/financials/budgets/types").BudgetLine;
+  sectionName: string;
+  index: number;
+  sqft: number;
+  psf: boolean;
+  isEmpty: boolean;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const hasSubLines = !!line.subLines && line.subLines.length > 0;
+  const subTotal = hasSubLines ? line.subLines!.filter((s) => !s.isSubtotal).reduce((s, x) => s + x.total, 0) : 0;
+  // Allow $1 of rounding drift between sub-lines and the parent rollup.
+  const sumTies = hasSubLines && Math.abs(subTotal - line.total) <= 1;
+
+  const rowStyle: React.CSSProperties = {
+    background: line.isSubtotal ? "rgba(15,23,42,0.04)" : undefined,
+    fontWeight: line.isSubtotal ? 700 : 400,
+    color: isEmpty ? "var(--muted)" : undefined,
+    opacity: isEmpty ? 0.55 : 1,
+    cursor: hasSubLines ? "pointer" : undefined,
+  };
+
+  return (
+    <>
+      <tr
+        style={rowStyle}
+        onClick={hasSubLines ? () => setExpanded((v) => !v) : undefined}
+      >
+        <td className="muted small" style={{ fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
+          {line.glAccount ?? ""}
+        </td>
+        <td>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+            {hasSubLines && (
+              <span
+                aria-hidden
+                style={{
+                  display: "inline-block", width: 12, fontWeight: 800,
+                  color: "var(--muted)", fontSize: 11,
+                  transform: expanded ? "rotate(90deg)" : "none",
+                  transition: "transform 0.12s ease",
+                }}
+              >
+                ▸
+              </span>
+            )}
+            {line.subCategory && <span style={{ color: "var(--muted)", marginRight: 2, fontSize: 11 }}>{line.subCategory}</span>}
+            <span>{line.label}</span>
+            {hasSubLines && (
+              <span
+                className="small"
+                style={{
+                  fontSize: 10, padding: "1px 6px", borderRadius: 999,
+                  background: sumTies ? "rgba(22,163,74,0.10)" : "rgba(202,138,4,0.12)",
+                  color: sumTies ? "#15803d" : "#854d0e",
+                  border: `1px solid ${sumTies ? "rgba(22,163,74,0.30)" : "rgba(202,138,4,0.35)"}`,
+                  fontWeight: 700, letterSpacing: "0.02em",
+                }}
+              >
+                {sumTies
+                  ? `${line.subLines!.filter((s) => !s.isSubtotal).length} sub-lines`
+                  : `Δ ${money(subTotal - line.total)}`}
+              </span>
+            )}
+          </div>
+          {line.notes && <div className="muted small" style={{ marginTop: 2 }}>{line.notes}</div>}
+        </td>
+        {line.months.map((m, j) => (
+          <td key={j} style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontSize: 12 }}>
+            {fmtAmount(m, sqft, psf)}
+          </td>
+        ))}
+        <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontWeight: line.isSubtotal ? 800 : 600 }}>
+          {fmtAmount(line.total, sqft, psf)}
+        </td>
+      </tr>
+      {expanded && hasSubLines && line.subLines!.map((sub, j) => (
+        <tr
+          key={`${sectionName}-${index}-sub-${j}`}
+          style={{
+            background: sub.isSubtotal ? "rgba(11,74,125,0.04)" : "rgba(11,74,125,0.02)",
+            fontWeight: sub.isSubtotal ? 700 : 400,
+            color: "var(--text)",
+            fontSize: 12,
+          }}
+        >
+          <td></td>
+          <td style={{ paddingLeft: 36, color: sub.isSubtotal ? "#0b4a7d" : undefined }}>
+            {sub.label}
+            {sub.subCategory && !sub.isSubtotal && (
+              <span className="muted small" style={{ marginLeft: 6 }}>· {sub.subCategory}</span>
+            )}
+          </td>
+          {sub.months.map((m, k) => (
+            <td key={k} style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+              {fmtAmount(m, sqft, psf)}
+            </td>
+          ))}
+          <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontWeight: sub.isSubtotal ? 800 : 600 }}>
+            {fmtAmount(sub.total, sqft, psf)}
+          </td>
+        </tr>
+      ))}
+    </>
+  );
+}
+
 function SubtotalCard({ rollup, sqft, psf }: {
   rollup: { name: string; total: number; months: number[] };
   sqft: number;

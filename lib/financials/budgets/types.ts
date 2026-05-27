@@ -24,6 +24,13 @@ export type BudgetLine = {
    *  Other", "TOTAL REVENUES"). Stored alongside line items so we can render
    *  the workbook layout faithfully. */
   isSubtotal: boolean;
+  /** Optional sub-line breakdown for parent lines that roll up multiple
+   *  detail rows (e.g. Insurance = Gen Liability + Umbrella + Property +
+   *  D&O). Parsed from the workbook's supporting tabs (INS RET DEBT,
+   *  Building Maint, etc.); the UI renders an expand chevron when present.
+   *  Sub-lines reuse the same BudgetLine shape so totals/months/notes all
+   *  display identically — they just live one level deeper. */
+  subLines?: BudgetLine[];
 };
 
 export type BudgetSection = {

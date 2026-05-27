@@ -69,8 +69,13 @@ function months(r: unknown[]): number[] {
   return r.slice(4, 16).map(num);
 }
 
-// Sheet name patterns we always ignore (cover, junk pivot, supporting tabs).
-const IGNORE_SHEET = /^(cover\s*sheet|sheet\d+|in place revenue|renew|tenant recoveries|ins ret debt|building maint|allocated expenses|lik mgmt fee)\s*$/i;
+// Sheet name patterns we always ignore (cover, junk pivot). Supporting
+// tabs (INS RET DEBT, Building Maint, etc.) are NOT ignored here — they
+// don't match the property-sheet layout so parsePropertySheet returns
+// null for them. They're picked up separately by parseInsuranceDetail
+// (and future parsers as we expand sub-line coverage).
+const IGNORE_SHEET = /^(cover\s*sheet|sheet\d+|in place revenue|renew|tenant recoveries|building maint|allocated expenses|lik mgmt fee)\s*$/i;
+const INS_RET_DEBT_SHEET = /^ins\s+ret\s+debt$/i;
 
 function isRollupSheet(name: string): boolean {
   return /^all\s+/i.test(name.trim());
@@ -246,6 +251,98 @@ function parsePropertySheet(rows: unknown[][], sheetName: string): PropertyBudge
   };
 }
 
+/**
+ * Parses the INSURANCE block at the top of the INS RET DEBT supporting
+ * sheet. Each property gets a block of rows — Gen Liability / Umbrella /
+ * (Insurance - Liability intermediate subtotal) / Property / D&O /
+ * TOTAL — terminated by a "TOTAL:" row in col 1. Returns a map keyed by
+ * the property code that the block starts with.
+ *
+ * Row layout inside a block:
+ *   Col 0  = property code (only on the first sub-line row of the block)
+ *   Col 1  = sub-line label
+ *   Col 3..14 = Jan..Dec
+ *   Col 15 = annual total
+ *   Col 18 = GL-label tag the sub-line rolls up into (e.g. "Insurance-Liability")
+ *
+ * Stops at row 76 — that's the "TOTAL INSURANCE:" portfolio rollup, after
+ * which the RET and Debt blocks begin (those aren't useful sub-detail —
+ * one row per property).
+ */
+function parseInsuranceDetail(rows: unknown[][]): Map<string, BudgetLine[]> {
+  const out = new Map<string, BudgetLine[]>();
+  let currentCode: string | null = null;
+  let currentLines: BudgetLine[] = [];
+
+  for (let i = 5; i < rows.length; i++) {
+    const r = rows[i] ?? [];
+    const col0 = trim(r[0]);
+    const col1 = trim(r[1]);
+
+    // Stop at the portfolio rollup row — beyond this is the RET section.
+    if (/^total\s+insurance/i.test(col1)) {
+      if (currentCode && currentLines.length) out.set(currentCode, currentLines);
+      break;
+    }
+
+    // Property block boundary marker
+    if (isPropertyCode(col0)) {
+      if (currentCode && currentLines.length) out.set(currentCode, currentLines);
+      currentCode = col0.toUpperCase();
+      currentLines = [];
+    }
+    if (!currentCode) continue;
+
+    // End of block — push and clear
+    if (/^total\s*:?\s*$/i.test(col1)) {
+      if (currentLines.length) out.set(currentCode, currentLines);
+      currentCode = null;
+      currentLines = [];
+      continue;
+    }
+
+    // Sub-line row — needs a label and either a total or a monthly value
+    if (!col1) continue;
+    const ms: number[] = [];
+    for (let j = 3; j < 15; j++) ms.push(num(r[j]));
+    const total = num(r[15]);
+    if (total === 0 && ms.every((m) => m === 0)) continue;
+
+    const targetTag = trim(r[18]);
+    const isIntermediateSubtotal = /^insurance\s*-\s*liability$/i.test(col1);
+    currentLines.push({
+      glAccount: null,
+      subCategory: targetTag || null,
+      label: col1,
+      months: ms,
+      total,
+      totalPsf: null,
+      input: null,
+      notes: null,
+      isSubtotal: isIntermediateSubtotal,
+    });
+  }
+  if (currentCode && currentLines.length) out.set(currentCode, currentLines);
+  return out;
+}
+
+/** Find every line in a property that looks like an Insurance row in the
+ *  main P&L and attach the sub-lines parsed from INS RET DEBT. Both the
+ *  Reimbursements (revenue) and Reimbursable Expenses (cost) Insurance
+ *  rows get the same breakdown — the tenants reimburse the cost, so the
+ *  composition is the same on both sides. */
+function attachInsuranceSubLines(property: PropertyBudget, subLines: BudgetLine[]): void {
+  if (subLines.length === 0) return;
+  for (const sec of property.sections) {
+    for (const line of sec.lines) {
+      if (line.isSubtotal) continue;
+      if (/^insurance$/i.test(line.label.trim())) {
+        line.subLines = subLines;
+      }
+    }
+  }
+}
+
 function inferYear(rows: unknown[][]): number | null {
   const r0 = rows[0] ?? [];
   for (let i = 0; i < Math.min(r0.length, 30); i++) {
@@ -284,16 +381,31 @@ export function parseBudgetWorkbook(
   const properties: PropertyBudget[] = [];
   let rollup: PropertyBudget | undefined;
   let detectedYear: number | null = null;
+  let insuranceDetail: Map<string, BudgetLine[]> | null = null;
 
   for (const sheetName of wb.SheetNames) {
-    if (IGNORE_SHEET.test(sheetName.trim())) continue;
+    const trimmed = sheetName.trim();
+    if (IGNORE_SHEET.test(trimmed)) continue;
     const sheet = wb.Sheets[sheetName];
     const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: "" }) as unknown[][];
     if (!detectedYear) detectedYear = inferYear(rows);
+    if (INS_RET_DEBT_SHEET.test(trimmed)) {
+      insuranceDetail = parseInsuranceDetail(rows);
+      continue;
+    }
     const parsed = parsePropertySheet(rows, sheetName);
     if (!parsed) continue;
     if (isRollupSheet(sheetName)) rollup = parsed;
     else properties.push(parsed);
+  }
+
+  // Attach insurance sub-line detail after all property sheets are parsed
+  // (the INS RET DEBT tab can appear before or after them in the workbook).
+  if (insuranceDetail) {
+    for (const property of properties) {
+      const subs = insuranceDetail.get(property.propertyCode);
+      if (subs) attachInsuranceSubLines(property, subs);
+    }
   }
 
   const year = detectedYear ?? new Date().getFullYear();
