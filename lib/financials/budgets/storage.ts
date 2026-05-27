@@ -51,22 +51,26 @@ function seedHasYoyNoise(wb: BudgetWorkbook): boolean {
   return false;
 }
 
-/** Returns true when the seed has no `allocations` metadata anywhere —
- *  earlier deploys didn't parse the Allocated Expenses tab so every
- *  line that should carry portfolio-share annotation came back without
- *  it. */
+/** Returns true when the seed has no `allocations` metadata anywhere
+ *  OR when any existing allocation is missing its full per-property
+ *  `rows` breakdown (added later for the click-to-open modal). */
 function seedMissingAllocations(wb: BudgetWorkbook): boolean {
   if (wb.id !== SEED_ID) return false;
-  const check = (line: import("./types").BudgetLine): boolean => {
-    if (line.allocations && line.allocations.length > 0) return true;
-    return !!line.subLines && line.subLines.some(check);
+  let any = false;
+  let allHaveRows = true;
+  const check = (line: import("./types").BudgetLine) => {
+    if (line.allocations && line.allocations.length > 0) {
+      any = true;
+      for (const a of line.allocations) {
+        if (!a.rows || a.rows.length === 0) allHaveRows = false;
+      }
+    }
+    line.subLines?.forEach(check);
   };
   for (const property of wb.properties) {
-    for (const section of property.sections) {
-      if (section.lines.some(check)) return false; // at least one found
-    }
+    for (const section of property.sections) section.lines.forEach(check);
   }
-  return true;
+  return !any || !allHaveRows;
 }
 
 /** Returns true when "Leasing Salaries and Commissions", "Utilities",

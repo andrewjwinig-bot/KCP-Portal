@@ -512,6 +512,12 @@ function parseAllocatedExpenses(rows: unknown[][]): Map<string, import("./types"
     arr.push(alloc);
   };
 
+  type PendingRow = {
+    code: string;
+    sqft: number;
+    months: number[];
+    propertyAmount: number;
+  };
   type Block = {
     gl: string;
     label: string;
@@ -523,12 +529,25 @@ function parseAllocatedExpenses(rows: unknown[][]): Map<string, import("./types"
     // when a new block title appears — at that point we know whether the
     // portfolioTotal needs to be back-filled from the TOTAL row (annual
     // blocks don't put the total on the title row).
-    pending: { code: string; propertyAmount: number }[];
+    pending: PendingRow[];
   };
   let block: Block | null = null;
 
   const finalize = (b: Block, totalFromRow: number) => {
     const total = b.portfolioTotal > 0 ? b.portfolioTotal : (totalFromRow > 0 ? totalFromRow : b.pending.reduce((s, p) => s + p.propertyAmount, 0));
+    // Build the full block row list once so every per-property
+    // allocation can carry the same reference (cheap — 10 rows × 12
+    // months per block).
+    const blockRows: import("./types").AllocationBlockRow[] = b.pending
+      .map((p) => ({
+        propertyCode: p.code.toUpperCase(),
+        sqft: p.sqft,
+        sharePct: total > 0 ? (p.propertyAmount / total) * 100 : 0,
+        months: p.months,
+        total: p.propertyAmount,
+      }))
+      .sort((a, c) => a.propertyCode.localeCompare(c.propertyCode));
+
     for (const p of b.pending) {
       const sharePct = total > 0 ? (p.propertyAmount / total) * 100 : 0;
       push(p.code, {
@@ -539,6 +558,7 @@ function parseAllocatedExpenses(rows: unknown[][]): Map<string, import("./types"
         blockLabel: b.label,
         glAccount: b.gl,
         sourceNote: b.sourceNote ?? undefined,
+        rows: blockRows,
       });
     }
   };
@@ -591,11 +611,15 @@ function parseAllocatedExpenses(rows: unknown[][]): Map<string, import("./types"
 
     // Per-property data row — buffer; finalize once the block boundary
     // is known so the sharePct can be computed against the real
-    // portfolio total.
+    // portfolio total. The Allocated Expenses tab uses cols 4..15 for
+    // Jan..Dec (same as the property sheet).
     if (!block.inHeader && isPropertyCode(col1)) {
       const propertyAmount = num(r[16]);
       if (propertyAmount === 0) continue;
-      block.pending.push({ code: col1, propertyAmount });
+      const sqft = num(r[2]);
+      const ms: number[] = [];
+      for (let j = 4; j < 16; j++) ms.push(num(r[j]));
+      block.pending.push({ code: col1, sqft, months: ms, propertyAmount });
     }
   }
   if (block) finalize(block, 0);
