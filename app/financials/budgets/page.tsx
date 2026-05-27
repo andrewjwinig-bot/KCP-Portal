@@ -650,6 +650,22 @@ function BudgetTable({
           ))}
         </Fragment>
       ))}
+
+      {/* Master footnote for the standard-escalation marker (*). Only
+          renders when at least one line on this property carries the
+          shared "grown 3%" / "Defaulted to N% over prior year" note. */}
+      {propertyHasStandardEscalation(property) && (
+        <div className="muted small" style={{
+          padding: "8px 4px 0", borderTop: "1px dashed var(--border)",
+          display: "flex", alignItems: "baseline", gap: 6,
+        }}>
+          <sup style={{ color: "#0b4a7d", fontWeight: 800, fontSize: 11 }}>*</sup>
+          <span>
+            Standard escalation — line was carried forward from the prior-year
+            business plan at the noted growth rate (typically 3%).
+          </span>
+        </div>
+      )}
     </div>
   );
 }
@@ -766,11 +782,35 @@ function ViewToggle({ psf, onChange, disabled }: {
  *  detail (e.g. Insurance → Gen Liab + Umbrella + Property + D&O) the
  *  label cell shows a chevron toggle; clicking expands a set of indented
  *  rows underneath plus a "ties to $X" tag confirming the sum matches. */
-/** Small ⓘ tag rendered inline after a line label when there's a note
- *  (author comment, growth assumption, etc.). Hover reveals the full
- *  text via the native title tooltip — keeps the row tight while still
- *  surfacing context on demand. */
-function NoteIcon({ text }: { text: string }) {
+/** Match the "everyone-uses-this" escalation comment ("2025 Business
+ *  Plan grown 3%") and the live builder's equivalent ("Defaulted to 3%
+ *  over prior year"). These don't deserve a per-row info chip — they
+ *  point to one shared convention that's better surfaced as a master
+ *  footnote at the bottom of the property card. */
+function isStandardEscalationNote(text: string): boolean {
+  return /business plan\s+grown\s+\d+\s*%/i.test(text) ||
+         /defaulted to\s+\d+\s*%.*prior year/i.test(text);
+}
+
+/** Inline note marker. Standard-escalation notes render as a small
+ *  superscript asterisk that ties back to the master footnote at the
+ *  bottom of the table. Anything else renders as an ⓘ chip with the
+ *  full text in a hover tooltip — those are bespoke per-line comments
+ *  that don't share a single explanation. */
+function LineNoteMarker({ text }: { text: string }) {
+  if (isStandardEscalationNote(text)) {
+    return (
+      <sup
+        title={text}
+        style={{
+          color: "#0b4a7d", fontWeight: 800, marginLeft: 3,
+          fontSize: 11, cursor: "help",
+        }}
+      >
+        *
+      </sup>
+    );
+  }
   return (
     <span
       title={text}
@@ -792,6 +832,19 @@ function NoteIcon({ text }: { text: string }) {
       i
     </span>
   );
+}
+
+/** True when any line in any section (or its sub-lines, recursively)
+ *  uses the standard escalation note — gates the master footnote. */
+function propertyHasStandardEscalation(property: BudgetWorkbook["properties"][number]): boolean {
+  const hit = (line: import("@/lib/financials/budgets/types").BudgetLine): boolean => {
+    if (line.notes && isStandardEscalationNote(line.notes)) return true;
+    return !!line.subLines && line.subLines.some(hit);
+  };
+  for (const sec of property.sections) {
+    if (sec.lines.some(hit)) return true;
+  }
+  return false;
 }
 
 function BudgetLineRow({
@@ -868,7 +921,7 @@ function BudgetLineRow({
                 {line.subLines!.filter((s) => !s.isSubtotal).length}
               </span>
             )}
-            {line.notes && <NoteIcon text={line.notes} />}
+            {line.notes && <LineNoteMarker text={line.notes} />}
           </div>
         </td>
         {line.months.map((m, j) => (
@@ -965,7 +1018,7 @@ function SubLineRow({
           {line.subCategory && !line.isSubtotal && (
             <span className="muted small" style={{ marginLeft: 6 }}>· {line.subCategory}</span>
           )}
-          {line.notes && <NoteIcon text={line.notes} />}
+          {line.notes && <LineNoteMarker text={line.notes} />}
         </td>
         {line.months.map((m, k) => (
           <td key={k} style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
