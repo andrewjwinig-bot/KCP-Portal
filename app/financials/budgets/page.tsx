@@ -407,9 +407,10 @@ function BudgetTable({
   //   4. If debt service > 0 → CASH FLOW AFTER DEBT SERVICE
   //      Else                → CASH FLOW (was "before debt service",
   //                            renamed when there's nothing being deducted)
-  //   5. ESTIMATED NNN'S PSF (annual CAM + RET reimbursements ÷ rentable SF)
-  // Drops CASH FLOW BEFORE DEBT SERVICE entirely when there's debt — the
-  // before/after pair was redundant given the row only has room for one.
+  //   5. EST. NNN'S PSF (annual CAM + RET reimbursements ÷ rentable SF) —
+  //      always shown in $/SF regardless of the Total | $/SF toggle.
+  // The first four pills respect the Total | $/SF toggle so they stay
+  // in sync with the table below.
   const headlinePills = useMemo(() => {
     const get = (n: string) => rollupByName.get(n);
     const totalRev = get("TOTAL REVENUES");
@@ -434,15 +435,17 @@ function BudgetTable({
     const nnnsAnnual = camTotal + retTotal;
     const nnnsPsf = sqft > 0 ? nnnsAnnual / sqft : 0;
 
+    const fmt = (v: number) => fmtAmount(v, sqft, psf);
+
     type Pill = { key: string; label: string; value: string; accent?: string };
     const pills: Pill[] = [];
-    if (totalRev)  pills.push({ key: totalRev.name,  label: totalRev.name,  value: money(totalRev.total),  accent: totalRev.total  < 0 ? "#b91c1c" : undefined });
-    if (totalOpex) pills.push({ key: totalOpex.name, label: totalOpex.name, value: money(totalOpex.total), accent: totalOpex.total < 0 ? "#b91c1c" : undefined });
-    if (noi)       pills.push({ key: noi.name,       label: noi.name,       value: money(noi.total),       accent: noi.total       < 0 ? "#b91c1c" : undefined });
+    if (totalRev)  pills.push({ key: totalRev.name,  label: totalRev.name,  value: fmt(totalRev.total),  accent: totalRev.total  < 0 ? "#b91c1c" : undefined });
+    if (totalOpex) pills.push({ key: totalOpex.name, label: totalOpex.name, value: fmt(totalOpex.total), accent: totalOpex.total < 0 ? "#b91c1c" : undefined });
+    if (noi)       pills.push({ key: noi.name,       label: noi.name,       value: fmt(noi.total),       accent: noi.total       < 0 ? "#b91c1c" : undefined });
     if (hasDebt && cfAfter) {
-      pills.push({ key: cfAfter.name, label: cfAfter.name, value: money(cfAfter.total), accent: cfAfter.total < 0 ? "#b91c1c" : undefined });
+      pills.push({ key: cfAfter.name, label: cfAfter.name, value: fmt(cfAfter.total), accent: cfAfter.total < 0 ? "#b91c1c" : undefined });
     } else if (cfBefore) {
-      pills.push({ key: "CASH FLOW", label: "CASH FLOW", value: money(cfBefore.total), accent: cfBefore.total < 0 ? "#b91c1c" : undefined });
+      pills.push({ key: "CASH FLOW", label: "CASH FLOW", value: fmt(cfBefore.total), accent: cfBefore.total < 0 ? "#b91c1c" : undefined });
     }
     pills.push({
       key: "EST_NNN_PSF",
@@ -450,57 +453,57 @@ function BudgetTable({
       value: nnnsPsf > 0 ? `$${nnnsPsf.toFixed(2)}` : "—",
     });
     return pills;
-  }, [rollupByName, property.sections, sqft]);
+  }, [rollupByName, property.sections, sqft, psf]);
+
+  // Build the year dropdown options + a resolver from a chosen year back
+  // to the underlying budget id. Years are pulled from all summaries in
+  // the same category as the currently-loaded workbook so swapping years
+  // keeps you on the same category. When a year has both a live and an
+  // imported budget, the live one wins.
+  const yearsForCategory = useMemo(() => {
+    const ys = new Set<number>();
+    for (const s of summaries) if (s.category === workbook.category) ys.add(s.year);
+    return Array.from(ys).sort((a, b) => b - a);
+  }, [summaries, workbook.category]);
+  const handleYearChange = useCallback((y: number) => {
+    const candidates = summaries.filter((s) => s.category === workbook.category && s.year === y);
+    const pick = candidates.find((s) => s.kind === "live") ?? candidates[0];
+    if (pick) onSelectBudget(pick.id);
+  }, [summaries, workbook.category, onSelectBudget]);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       {/* Property summary tile */}
       <div className="card">
-        {/* Top meta row — small budget selector + kind badge. Replaces
-            the previous "Budget" dropdown in the now-removed toolbar. */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          {summaries.length > 1 ? (
+        {/* Header row — large property + year dropdowns styled as the
+            section title, with the three actions right-aligned on the
+            same line. Old meta row (Budget chip + Imported badge) was
+            replaced by the year selector. */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", minWidth: 0 }}>
             <select
-              value={selectedId ?? ""}
-              onChange={(e) => onSelectBudget(e.target.value)}
-              style={budgetChipStyle}
-              aria-label="Budget"
+              value={property.propertyCode}
+              onChange={(e) => onSelectProperty(e.target.value)}
+              style={propertyHeaderSelectStyle}
+              aria-label="Property"
             >
-              {summaries.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.label} · {s.year}{s.kind === "live" ? " (Live)" : ""}
+              {workbook.properties.map((p) => (
+                <option key={p.propertyCode} value={p.propertyCode}>
+                  {p.propertyCode} — {p.propertyName}
                 </option>
               ))}
             </select>
-          ) : (
-            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>
-              {workbook.year} Operating Budget · {workbook.category}
-            </span>
-          )}
-          <span style={{
-            fontSize: 9, padding: "2px 7px", borderRadius: 4,
-            background: workbook.kind === "live" ? "rgba(22,163,74,0.10)" : "rgba(11,74,125,0.10)",
-            color: workbook.kind === "live" ? "#15803d" : "#0b4a7d",
-            border: `1px solid ${workbook.kind === "live" ? "rgba(22,163,74,0.30)" : "rgba(11,74,125,0.30)"}`,
-            letterSpacing: "0.08em", fontWeight: 700, textTransform: "uppercase",
-          }}>{workbook.kind === "live" ? "Live" : "Imported"}</span>
-        </div>
-
-        {/* Header row — large property dropdown styled as a heading, with
-            the three actions right-aligned on the same line. */}
-        <div style={{ marginTop: 8, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-          <select
-            value={property.propertyCode}
-            onChange={(e) => onSelectProperty(e.target.value)}
-            style={propertyHeaderSelectStyle}
-            aria-label="Property"
-          >
-            {workbook.properties.map((p) => (
-              <option key={p.propertyCode} value={p.propertyCode}>
-                {p.propertyCode} — {p.propertyName}
-              </option>
-            ))}
-          </select>
+            <select
+              value={workbook.year}
+              onChange={(e) => handleYearChange(Number(e.target.value))}
+              style={yearHeaderSelectStyle}
+              aria-label="Year"
+            >
+              {yearsForCategory.map((y) => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+            </select>
+          </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             <a
               href={skylineHref}
@@ -764,24 +767,6 @@ function fmtAmount(amount: number, sqft: number, psf: boolean): string {
   return `${sign}$${abs.toFixed(2)}`;
 }
 
-/** Small chip-style budget selector that lives in the property card's
- *  top meta row. Looks like the uppercase label it replaces, but
- *  clickable. */
-const budgetChipStyle: React.CSSProperties = {
-  padding: "2px 22px 2px 0",
-  border: "none",
-  background: "transparent",
-  color: "var(--muted)",
-  fontFamily: "inherit",
-  fontSize: 11,
-  fontWeight: 700,
-  letterSpacing: "0.06em",
-  textTransform: "uppercase",
-  cursor: "pointer",
-  outline: "none",
-  appearance: "auto",
-};
-
 /** Large header-style property selector. Sits where the property name
  *  used to live and acts as the section title. */
 const propertyHeaderSelectStyle: React.CSSProperties = {
@@ -797,6 +782,22 @@ const propertyHeaderSelectStyle: React.CSSProperties = {
   outline: "none",
   appearance: "auto",
   maxWidth: "100%",
+};
+
+/** Year selector — same header weight as the property selector, slightly
+ *  muted so it reads as a secondary qualifier on the property name. */
+const yearHeaderSelectStyle: React.CSSProperties = {
+  padding: "4px 22px 4px 6px",
+  border: "1px solid transparent",
+  borderRadius: 8,
+  background: "transparent",
+  color: "var(--muted)",
+  fontFamily: "inherit",
+  fontSize: 22,
+  fontWeight: 800,
+  cursor: "pointer",
+  outline: "none",
+  appearance: "auto",
 };
 
 function CreateBudgetDialog({
