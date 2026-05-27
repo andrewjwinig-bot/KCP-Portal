@@ -661,8 +661,7 @@ function BudgetTable({
         }}>
           <sup style={{ color: "#0b4a7d", fontWeight: 800, fontSize: 11 }}>*</sup>
           <span>
-            Standard escalation — line was carried forward from the prior-year
-            business plan at the noted growth rate (typically 3%).
+            Standard escalation — prior-year business plan grown by 3%.
           </span>
         </div>
       )}
@@ -792,6 +791,19 @@ function isStandardEscalationNote(text: string): boolean {
          /defaulted to\s+\d+\s*%.*prior year/i.test(text);
 }
 
+/** Shortens a standard-escalation note to the form "YYYY grown N%" for
+ *  the asterisk tooltip. Matches both the workbook's literal phrasing
+ *  ("2025 Business Plan grown 3%") and the live builder's ("Defaulted
+ *  to 3% over prior year"). Falls back to the raw text if neither
+ *  pattern matches. */
+function shortEscalationTooltip(text: string): string {
+  const bp = text.match(/(\d{4})\s+Business Plan\s+grown\s+(\d+)\s*%/i);
+  if (bp) return `${bp[1]} grown ${bp[2]}%`;
+  const def = text.match(/Defaulted to\s+(\d+)\s*%/i);
+  if (def) return `prior year grown ${def[1]}%`;
+  return text;
+}
+
 /** Inline note marker. Standard-escalation notes render as a small
  *  superscript asterisk that ties back to the master footnote at the
  *  bottom of the table. Anything else renders as an ⓘ chip with the
@@ -801,7 +813,7 @@ function LineNoteMarker({ text }: { text: string }) {
   if (isStandardEscalationNote(text)) {
     return (
       <sup
-        title={text}
+        title={shortEscalationTooltip(text)}
         style={{
           color: "#0b4a7d", fontWeight: 800, marginLeft: 3,
           fontSize: 11, cursor: "help",
