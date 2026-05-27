@@ -936,17 +936,13 @@ function AllocationModal({ allocations, currentPropertyCode, onClose }: {
                 </div>
               </div>
             </div>
+            {/* Core data only — drops the Property / SF / Share columns,
+                the Jan..Dec header row, and the TOTAL footer row. The
+                modal's header above already carries GL, label, source
+                note, and portfolio total; the highlighted row IDs the
+                current property. */}
             <div className="tableWrap" style={{ marginTop: 0 }}>
               <table>
-                <thead>
-                  <tr>
-                    <th style={{ width: 80 }}>Property</th>
-                    <th style={{ textAlign: "right", width: 90 }}>SF</th>
-                    <th style={{ textAlign: "right", width: 70 }}>{a.basis === "annual" ? "Annual" : "Share"}</th>
-                    {MONTHS.map((m) => <th key={m} style={{ textAlign: "right" }}>{m}</th>)}
-                    <th style={{ textAlign: "right" }}>Total</th>
-                  </tr>
-                </thead>
                 <tbody>
                   {(a.rows ?? []).map((row) => {
                     const isMe = row.propertyCode.toUpperCase() === here;
@@ -956,15 +952,6 @@ function AllocationModal({ allocations, currentPropertyCode, onClose }: {
                         opacity: isMe ? 1 : 0.55,
                         fontWeight: isMe ? 700 : 400,
                       }}>
-                        <td style={{ fontVariantNumeric: "tabular-nums", color: isMe ? "#0b4a7d" : undefined }}>
-                          {row.propertyCode}
-                        </td>
-                        <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
-                          {row.sqft > 0 ? row.sqft.toLocaleString() : "—"}
-                        </td>
-                        <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
-                          {row.sharePct > 0 ? `${row.sharePct.toFixed(2)}%` : "—"}
-                        </td>
                         {row.months.map((m, j) => (
                           <td key={j} style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontSize: 12 }}>
                             {fmt(m)}
@@ -976,20 +963,6 @@ function AllocationModal({ allocations, currentPropertyCode, onClose }: {
                       </tr>
                     );
                   })}
-                  <tr style={{ background: "rgba(15,23,42,0.04)", fontWeight: 800 }}>
-                    <td>TOTAL</td>
-                    <td></td>
-                    <td style={{ textAlign: "right" }}>100%</td>
-                    {Array(12).fill(0).map((_, j) => {
-                      const colSum = (a.rows ?? []).reduce((s, r) => s + (r.months[j] ?? 0), 0);
-                      return (
-                        <td key={j} style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontSize: 12 }}>
-                          {fmt(colSum)}
-                        </td>
-                      );
-                    })}
-                    <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{fmt(a.portfolioTotal)}</td>
-                  </tr>
                 </tbody>
               </table>
             </div>
