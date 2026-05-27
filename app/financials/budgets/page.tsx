@@ -809,6 +809,46 @@ function shortEscalationTooltip(text: string): string {
  *  bottom of the table. Anything else renders as an ⓘ chip with the
  *  full text in a hover tooltip — those are bespoke per-line comments
  *  that don't share a single explanation. */
+/** Inline annotation for allocated expense lines. One small muted line
+ *  per contributing block — e.g. "2.79% sqft share of $109,668 · From
+ *  2026 Payroll Budget". When a line aggregates multiple allocations
+ *  (e.g. Marketing = Marketing Salaries + Marketing direct) we render
+ *  each on its own line so the math stays auditable. */
+function AllocationAnnotation({ allocations }: {
+  allocations: NonNullable<import("@/lib/financials/budgets/types").BudgetLine["allocations"]>;
+}) {
+  return (
+    <div style={{ marginTop: 3, display: "flex", flexDirection: "column", gap: 2 }}>
+      {allocations.map((a, i) => {
+        const pct = a.sharePct.toFixed(2).replace(/\.?0+$/, "");
+        const dollars = `$${Math.round(a.propertyAmount).toLocaleString("en-US")}`;
+        const portfolio = `$${Math.round(a.portfolioTotal).toLocaleString("en-US")}`;
+        const basisLabel = a.basis === "sqft" ? "sqft share" : a.basis === "annual" ? "annual" : "share";
+        return (
+          <div
+            key={i}
+            className="muted small"
+            style={{ fontSize: 11, lineHeight: 1.35 }}
+            title={a.sourceNote ?? undefined}
+          >
+            <span style={{ fontWeight: 600 }}>{a.blockLabel}</span>
+            {": "}
+            {dollars}{" "}
+            <span style={{ opacity: 0.8 }}>
+              ({pct}% {basisLabel} of {portfolio})
+            </span>
+            {a.sourceNote && (
+              <span style={{ marginLeft: 6, fontStyle: "italic", opacity: 0.7 }}>
+                · {a.sourceNote}
+              </span>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function LineNoteMarker({ text }: { text: string }) {
   if (isStandardEscalationNote(text)) {
     return (
@@ -935,6 +975,7 @@ function BudgetLineRow({
             )}
             {line.notes && <LineNoteMarker text={line.notes} />}
           </div>
+          {line.allocations && line.allocations.length > 0 && <AllocationAnnotation allocations={line.allocations} />}
         </td>
         {line.months.map((m, j) => (
           <td key={j} style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontSize: 12 }}>
@@ -1026,6 +1067,7 @@ function SubLineRow({
             <span className="muted small" style={{ marginLeft: 6 }}>· {line.subCategory}</span>
           )}
           {line.notes && <LineNoteMarker text={line.notes} />}
+          {line.allocations && line.allocations.length > 0 && <AllocationAnnotation allocations={line.allocations} />}
         </td>
         {line.months.map((m, k) => (
           <td key={k} style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>

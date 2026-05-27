@@ -75,9 +75,10 @@ function months(r: unknown[]): number[] {
 // null for them. They're picked up separately by parseInsuranceDetail /
 // parseBuildingMaintDetail (and future parsers as we expand sub-line
 // coverage).
-const IGNORE_SHEET = /^(cover\s*sheet|sheet\d+|in place revenue|renew|tenant recoveries|allocated expenses|lik mgmt fee)\s*$/i;
+const IGNORE_SHEET = /^(cover\s*sheet|sheet\d+|in place revenue|renew|tenant recoveries|lik mgmt fee)\s*$/i;
 const INS_RET_DEBT_SHEET = /^ins\s+ret\s+debt$/i;
 const BUILDING_MAINT_SHEET = /^building\s+maint$/i;
+const ALLOCATED_EXPENSES_SHEET = /^allocated\s+expenses$/i;
 
 function isRollupSheet(name: string): boolean {
   return /^all\s+/i.test(name.trim());
@@ -484,6 +485,151 @@ function parseBuildingMaintDetail(rows: unknown[][]): Map<string, { contract: Bu
   return out;
 }
 
+/** Parses the Allocated Expenses tab — a stack of portfolio-wide
+ *  expense blocks (Maintenance Salaries, Leasing Salaries, Marketing
+ *  Salaries, Marketing direct, etc.) where each row distributes a
+ *  central total across all properties by sqft share OR by an annual
+ *  amount listed directly. Returns per-property allocations grouped by
+ *  GL so the budget viewer can annotate each P&L line with the
+ *  underlying calculation.
+ *
+ *  Block shape:
+ *    Title row:   col 0 = GL, col 1 = label, col 16 = portfolio total,
+ *                 col 18 = optional source note
+ *    Header row:  col 2 "SF", col 3 "Reimb" (sqft mode) | "Annual"
+ *                 (direct $ mode), cols 4..15 = Jan..Dec, col 16 "Total",
+ *                 col 18 = optional allocation-basis note
+ *    Data rows:   col 1 = property code, col 2 = sqft, col 3 = share % or
+ *                 annual $, cols 4..15 = monthly, col 16 = annual total
+ *    TOTAL row:   col 1 = "TOTAL:", col 16 = total (matches portfolio
+ *                 total on the title row) */
+function parseAllocatedExpenses(rows: unknown[][]): Map<string, import("./types").AllocationDetail[]> {
+  const out = new Map<string, import("./types").AllocationDetail[]>();
+  const push = (code: string, alloc: import("./types").AllocationDetail) => {
+    const key = code.toUpperCase();
+    let arr = out.get(key);
+    if (!arr) { arr = []; out.set(key, arr); }
+    arr.push(alloc);
+  };
+
+  type Block = {
+    gl: string;
+    label: string;
+    portfolioTotal: number;
+    sourceNote: string | null;
+    basis: "sqft" | "annual" | "other";
+    inHeader: boolean;
+    // Collected as we walk per-property rows. We finalize on TOTAL row or
+    // when a new block title appears — at that point we know whether the
+    // portfolioTotal needs to be back-filled from the TOTAL row (annual
+    // blocks don't put the total on the title row).
+    pending: { code: string; propertyAmount: number }[];
+  };
+  let block: Block | null = null;
+
+  const finalize = (b: Block, totalFromRow: number) => {
+    const total = b.portfolioTotal > 0 ? b.portfolioTotal : (totalFromRow > 0 ? totalFromRow : b.pending.reduce((s, p) => s + p.propertyAmount, 0));
+    for (const p of b.pending) {
+      const sharePct = total > 0 ? (p.propertyAmount / total) * 100 : 0;
+      push(p.code, {
+        propertyAmount: p.propertyAmount,
+        sharePct,
+        portfolioTotal: total,
+        basis: b.basis,
+        blockLabel: b.label,
+        glAccount: b.gl,
+        sourceNote: b.sourceNote ?? undefined,
+      });
+    }
+  };
+
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i] ?? [];
+    const col0 = trim(r[0]);
+    const col1 = trim(r[1]);
+    const col3 = trim(r[3]);
+
+    // Title row — GL in col 0, label in col 1, portfolio total in col 16,
+    // optional source note in col 18.
+    if (col0 && /^\d{4}-\d{4}$/.test(col0) && col1) {
+      if (block) finalize(block, 0);
+      block = {
+        gl: col0,
+        label: col1,
+        portfolioTotal: num(r[16]),
+        sourceNote: r[18] != null && trim(r[18]) !== "" ? trim(r[18]) : null,
+        basis: "other",
+        inHeader: true,
+        pending: [],
+      };
+      continue;
+    }
+    if (!block) continue;
+
+    // Header row — detects allocation basis. "Reimb" = sqft share %,
+    // "Annual" = direct dollar amount per property.
+    if (block.inHeader && /^(reimb|annual)/i.test(col3)) {
+      block.basis = /^reimb/i.test(col3) ? "sqft" : "annual";
+      // The header row can also carry a basis note in col 18 (e.g.
+      // "46% Allocation of $X" or "2025 amt grown 3%"). Use it as the
+      // source note if the title row didn't have one.
+      if (!block.sourceNote && r[18] != null && trim(r[18]) !== "") {
+        block.sourceNote = trim(r[18]);
+      }
+      block.inHeader = false;
+      continue;
+    }
+
+    // End of block — the TOTAL row carries the portfolio total in col 16
+    // (especially important for annual-basis blocks where the title row's
+    // col 16 is empty).
+    if (/^total\s*:?\s*$/i.test(col1)) {
+      finalize(block, num(r[16]));
+      block = null;
+      continue;
+    }
+
+    // Per-property data row — buffer; finalize once the block boundary
+    // is known so the sharePct can be computed against the real
+    // portfolio total.
+    if (!block.inHeader && isPropertyCode(col1)) {
+      const propertyAmount = num(r[16]);
+      if (propertyAmount === 0) continue;
+      block.pending.push({ code: col1, propertyAmount });
+    }
+  }
+  if (block) finalize(block, 0);
+  return out;
+}
+
+/** Attach allocation detail to every line on the property (parent OR
+ *  sub-line at any depth) whose GL matches an allocation block's GL.
+ *  One line can collect multiple allocations when several blocks share
+ *  the same GL (e.g. "Marketing" on the property sheet aggregates both
+ *  the Marketing Salaries allocation and the Marketing direct allocation). */
+function attachAllocations(property: PropertyBudget, allocations: import("./types").AllocationDetail[]): void {
+  if (allocations.length === 0) return;
+  const visit = (line: BudgetLine) => {
+    if (!line.isSubtotal && line.glAccount) {
+      const matches = allocations.filter((a) => a.glAccount === line.glAccount);
+      if (matches.length > 0) {
+        // Multiple allocations may share a GL but represent different
+        // contributions to this line. Dedup by blockLabel to avoid
+        // double-counting if the parser ever sees a block twice.
+        const seen = new Set<string>();
+        line.allocations = matches.filter((a) => {
+          const key = `${a.blockLabel}|${a.propertyAmount}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+      }
+    }
+    if (line.subLines) line.subLines.forEach(visit);
+  };
+  for (const sec of property.sections) sec.lines.forEach(visit);
+}
+
 /** Attach the level-2 Building Maint detail to the corresponding level-1
  *  sub-lines under each property's "Building Maintenance" parent line.
  *  Matches by the level-1 label substring "Contractual" / "Recurring". */
@@ -548,6 +694,7 @@ export function parseBudgetWorkbook(
   let detectedYear: number | null = null;
   let insuranceDetail: Map<string, BudgetLine[]> | null = null;
   let buildingMaintDetail: Map<string, { contract: BudgetLine[]; recurring: BudgetLine[] }> | null = null;
+  let allocatedExpenses: Map<string, import("./types").AllocationDetail[]> | null = null;
 
   for (const sheetName of wb.SheetNames) {
     const trimmed = sheetName.trim();
@@ -561,6 +708,10 @@ export function parseBudgetWorkbook(
     }
     if (BUILDING_MAINT_SHEET.test(trimmed)) {
       buildingMaintDetail = parseBuildingMaintDetail(rows);
+      continue;
+    }
+    if (ALLOCATED_EXPENSES_SHEET.test(trimmed)) {
+      allocatedExpenses = parseAllocatedExpenses(rows);
       continue;
     }
     const parsed = parsePropertySheet(rows, sheetName);
@@ -579,6 +730,10 @@ export function parseBudgetWorkbook(
     if (buildingMaintDetail) {
       const bucket = buildingMaintDetail.get(property.propertyCode);
       if (bucket) attachBuildingMaintSubLines(property, bucket);
+    }
+    if (allocatedExpenses) {
+      const allocs = allocatedExpenses.get(property.propertyCode);
+      if (allocs) attachAllocations(property, allocs);
     }
   }
 

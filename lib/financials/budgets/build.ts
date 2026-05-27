@@ -309,6 +309,16 @@ function liftExpenseSection(prior: BudgetSection | null, growthFactor: number, n
   if (!prior) {
     return { section: { name, lines: [] }, monthsTotal: zeroMonths() };
   }
+  // Lift allocation metadata at the same growth rate so the
+  // per-property amount + portfolio total stay internally consistent
+  // (the share % is a ratio, so it stays the same).
+  const liftAllocations = (allocs: BudgetLine["allocations"]) =>
+    allocs?.map((a) => ({
+      ...a,
+      propertyAmount: Math.round(a.propertyAmount * growthFactor),
+      portfolioTotal: Math.round(a.portfolioTotal * growthFactor),
+    }));
+
   // Recursively lift a sub-line tree so every level scales at the same
   // growth rate as the parent and the breakdown still ties.
   const liftSub = (sub: BudgetLine): BudgetLine => {
@@ -318,6 +328,7 @@ function liftExpenseSection(prior: BudgetSection | null, growthFactor: number, n
       months: subMonths,
       total: sumMonths(subMonths),
       subLines: sub.subLines ? sub.subLines.map(liftSub) : undefined,
+      allocations: liftAllocations(sub.allocations),
     };
   };
 
@@ -328,6 +339,7 @@ function liftExpenseSection(prior: BudgetSection | null, growthFactor: number, n
       months,
       total: sumMonths(months),
       subLines: l.subLines ? l.subLines.map(liftSub) : undefined,
+      allocations: liftAllocations(l.allocations),
       notes: l.isSubtotal
         ? null
         : `Defaulted to ${Math.round((growthFactor - 1) * 100)}% over prior year`,
