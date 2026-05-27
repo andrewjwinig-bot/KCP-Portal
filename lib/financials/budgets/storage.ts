@@ -31,19 +31,16 @@ type SeedConfig = {
 };
 
 const SEEDS: SeedConfig[] = [
-  // Shopping Centers — the bundled workbook's internal year column says
-  // 2026 but the underlying data is the 2025 budget (2026 data hasn't
-  // been worked yet); override on load so users see it tagged as 2025
-  // and Create-Live-Budget defaults to 2026.
+  // Shopping Centers — staff-prepared 2026 budget.
   {
     file: "Shopping_Centers_2026.xlsx",
-    label: "Shopping Centers 2025 Operating Budget",
-    year: 2025,
-    id: "shopping-centers-2025",
+    label: "Shopping Centers 2026 Operating Budget",
+    year: 2026,
+    id: "shopping-centers-2026",
   },
-  // JV III (Lincoln Joint Venture III — office) — 2026 budget, parsed
-  // from the staff-prepared workbook. The 7/2025 reprojection column
-  // sits in cols 18/19 and is dropped by the YoY-noise filter.
+  // JV III (Lincoln Joint Venture III — office) — staff-prepared 2026
+  // budget. 7/2025 reprojection column in cols 18/19 is dropped by the
+  // YoY-noise filter.
   {
     file: "JV_III_2026.xlsx",
     label: "JV III 2026 Operating Budget",
@@ -190,23 +187,22 @@ async function loadManifest(): Promise<BudgetWorkbook[]> {
     migrated = true;
   }
 
-  // One-shot id/year correction for the legacy single-seed Shopping
-  // Centers manifest (saved with year=2026 before we learned the data
-  // represents 2025).
-  const scSeed = SEEDS.find((s) => s.id === "shopping-centers-2025")!;
-  for (const wb of workbooks) {
-    if (
-      wb.kind === "imported" &&
-      wb.year === 2026 &&
-      wb.id !== scSeed.id &&
-      /shopping centers/i.test(wb.label) &&
-      /operating budget/i.test(wb.label)
-    ) {
-      wb.id = scSeed.id;
-      wb.label = scSeed.label;
-      wb.year = scSeed.year;
-      migrated = true;
+  // Legacy-id cleanup. Older deploys saved the Shopping Centers seed
+  // under id "shopping-centers-2025" (and the user has since confirmed
+  // every budget is 2026). Drop any legacy id so the top-up logic
+  // above adds the canonical 2026 entry on the next pass.
+  const legacyIds = new Set(["shopping-centers-2025"]);
+  const beforeLegacy = workbooks.length;
+  workbooks = workbooks.filter((w) => !legacyIds.has(w.id));
+  if (workbooks.length !== beforeLegacy) {
+    // Top-up the missing seed now that the legacy entry's been dropped.
+    const present = new Set(workbooks.map((w) => w.id));
+    for (const cfg of SEEDS) {
+      if (present.has(cfg.id)) continue;
+      const wb = await parseSeed(cfg);
+      if (wb) workbooks.push(wb);
     }
+    migrated = true;
   }
 
   // Re-parse seeds that pre-date a parser improvement (sub-line detail,
