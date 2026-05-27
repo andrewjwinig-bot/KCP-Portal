@@ -311,10 +311,20 @@ function liftExpenseSection(prior: BudgetSection | null, growthFactor: number, n
   }
   const lines: BudgetLine[] = prior.lines.map((l) => {
     const months = l.isSubtotal ? zeroMonths() : lift(l.months, growthFactor);
+    // Lift sub-lines (e.g. Insurance breakdown) at the same growth rate
+    // so the breakdown still ties to the parent. Intermediate sub-line
+    // subtotals get the lifted parent treatment too.
+    const subLines = l.subLines
+      ? l.subLines.map((sub) => {
+          const subMonths = lift(sub.months, growthFactor);
+          return { ...sub, months: subMonths, total: sumMonths(subMonths) };
+        })
+      : undefined;
     return {
       ...l,
       months,
       total: sumMonths(months),
+      subLines,
       notes: l.isSubtotal
         ? null
         : `Defaulted to ${Math.round((growthFactor - 1) * 100)}% over prior year`,

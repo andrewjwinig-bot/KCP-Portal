@@ -34,6 +34,37 @@ type Manifest = {
   updatedAt: string;
 };
 
+/** Returns true when the seed workbook in the manifest is missing the
+ *  per-property Insurance sub-line breakdown we now parse from the
+ *  INS RET DEBT tab. Earlier deploys saved the seed before that parser
+ *  existed; we re-parse those once on next read so the expansion works. */
+function seedMissingInsuranceDetail(wb: BudgetWorkbook): boolean {
+  if (wb.id !== SEED_ID) return false;
+  for (const property of wb.properties) {
+    for (const section of property.sections) {
+      for (const line of section.lines) {
+        if (line.isSubtotal) continue;
+        if (/^insurance$/i.test(line.label.trim()) && line.subLines && line.subLines.length > 0) {
+          return false; // already has detail
+        }
+      }
+    }
+  }
+  return true;
+}
+
+async function reseedFromBundle(): Promise<BudgetWorkbook | null> {
+  try {
+    const buf = await fs.readFile(SEED_FILE);
+    const wb = parseBudgetWorkbook(buf, SEED_LABEL);
+    wb.year = SEED_YEAR;
+    wb.id = SEED_ID;
+    return wb.properties.length > 0 ? wb : null;
+  } catch {
+    return null;
+  }
+}
+
 async function loadManifest(): Promise<BudgetWorkbook[]> {
   const m = (await getJSON(PREFIX, MANIFEST_ID)) as Manifest | null;
   if (m?.workbooks?.length) {
@@ -56,6 +87,19 @@ async function loadManifest(): Promise<BudgetWorkbook[]> {
         migrated = true;
       }
     }
+
+    // Second migration: if the seed pre-dates the INS RET DEBT parser,
+    // re-parse the bundle so the insurance sub-line breakdown shows up.
+    const seed = m.workbooks.find((wb) => wb.id === SEED_ID);
+    if (seed && seedMissingInsuranceDetail(seed)) {
+      const reparsed = await reseedFromBundle();
+      if (reparsed) {
+        const i = m.workbooks.indexOf(seed);
+        m.workbooks[i] = reparsed;
+        migrated = true;
+      }
+    }
+
     if (migrated) await saveManifest(m.workbooks, true);
     return m.workbooks;
   }
