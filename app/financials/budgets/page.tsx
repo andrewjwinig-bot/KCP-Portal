@@ -1000,13 +1000,24 @@ function SubLineRow({
           cursor: hasNested ? "pointer" : undefined,
         }}
       >
-        {/* GL column doubles as the tree-branch indent rail */}
+        {/* GL column doubles as the tree-branch indent rail. When the
+            sub-line carries its own GL (e.g. 6010-8501 Salaries & Wages
+            under Leasing Salaries and Commissions) show the GL stacked
+            under the branch glyph so both nesting and account are
+            visible. */}
         <td style={{
           textAlign: "right", paddingRight: 8,
-          color: "#0b4a7d", fontWeight: 700, fontSize: 14, lineHeight: 1,
-          fontFamily: "monospace",
+          color: "#0b4a7d", fontWeight: 700, lineHeight: 1.2,
         }}>
-          {branch}
+          <span style={{ fontSize: 14, fontFamily: "monospace" }}>{branch}</span>
+          {line.glAccount && (
+            <div className="muted small" style={{
+              fontVariantNumeric: "tabular-nums",
+              fontWeight: 400, marginTop: 1,
+            }}>
+              {line.glAccount}
+            </div>
+          )}
         </td>
         <td style={{
           paddingLeft: indent,
