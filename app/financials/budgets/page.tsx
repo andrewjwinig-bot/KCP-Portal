@@ -179,14 +179,13 @@ export default function BudgetsPage() {
           onSelectBudget={setSelectedId}
           onSelectProperty={setPropertyCode}
           canUpload={canUpload}
-          uploading={uploading}
-          onUploadClick={() => fileRef.current?.click()}
           onCreateClick={() => setCreateOpen(true)}
         />
       )}
 
-      {/* Hidden file input — shared by the empty-state button and the
-          Upload New button inside the property card. */}
+      {/* Hidden file input — wired to the empty-state Upload Budget
+          button so staff can seed the first workbook from this page.
+          Subsequent budgets are created in-app via + Create Live Budget. */}
       <input
         ref={fileRef}
         type="file"
@@ -364,8 +363,6 @@ function BudgetTable({
   onSelectBudget,
   onSelectProperty,
   canUpload,
-  uploading,
-  onUploadClick,
   onCreateClick,
 }: {
   workbook: BudgetWorkbook;
@@ -375,11 +372,10 @@ function BudgetTable({
   onSelectBudget: (id: string) => void;
   onSelectProperty: (code: string) => void;
   canUpload: boolean;
-  uploading: boolean;
-  onUploadClick: () => void;
   onCreateClick: () => void;
 }) {
   const skylineHref = `/api/financials/budgets/${encodeURIComponent(workbook.id)}/skyline?property=${encodeURIComponent(property.propertyCode)}`;
+  const downloadHref = `/api/financials/budgets/${encodeURIComponent(workbook.id)}/download?property=${encodeURIComponent(property.propertyCode)}`;
   const [psf, setPsf] = useState(false);
   const [hideEmpty, setHideEmpty] = useState(false);
   const sqft = property.rentableSqft || 0;
@@ -533,30 +529,27 @@ function BudgetTable({
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             <a
-              href={skylineHref}
+              href={downloadHref}
               className="btn primary"
               style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700, textDecoration: "none" }}
             >
-              ⬇ Budget Import (.xlsx)
+              ⬇ Download
+            </a>
+            <a
+              href={skylineHref}
+              className="btn"
+              style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700, textDecoration: "none" }}
+            >
+              ⬇ Skyline Import
             </a>
             {canUpload && (
-              <>
-                <button
-                  onClick={onCreateClick}
-                  className="btn primary"
-                  style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}
-                >
-                  + Create Live Budget
-                </button>
-                <button
-                  onClick={onUploadClick}
-                  disabled={uploading}
-                  className="btn"
-                  style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}
-                >
-                  {uploading ? "Uploading…" : "Upload New"}
-                </button>
-              </>
+              <button
+                onClick={onCreateClick}
+                className="btn primary"
+                style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}
+              >
+                + Create Live Budget
+              </button>
             )}
           </div>
         </div>
