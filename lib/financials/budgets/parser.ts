@@ -101,6 +101,21 @@ function isRollupLabel(label: string): boolean {
   return u.startsWith("TOTAL ") || u.startsWith("NET ") || u.startsWith("CASH FLOW");
 }
 
+/** Workbook column S (col 18) is either author initials ("DW") or a
+ *  prior-year total ("$45,254" / "45,254"). Column T (col 19) is either
+ *  a free-text note ("Includes $500/mo to mow empty field") or a YoY
+ *  variance % ("-16.09%"). We can't reliably tie out variance / prior-
+ *  year totals until the portal carries multi-year actuals, so detect
+ *  the YoY pair and drop both — keep only real notes / initials. */
+function isYoyVarianceColumn(input: string | null, notes: string | null): boolean {
+  if (!input && !notes) return false;
+  const variancePct = /^[-+]?\d+(\.\d+)?\s*%$/;
+  const priorYearNumber = /^\$?\s*-?[\d,]+(\.\d+)?$/;
+  // Treat as YoY pair if EITHER column matches its variance/prior shape.
+  return (notes !== null && variancePct.test(notes.trim())) ||
+         (input !== null && priorYearNumber.test(input.trim()) && (input.includes(",") || input.includes("$")));
+}
+
 /** Build a sub-line BudgetLine from a row that has its label in col 3.
  *  These rows precede their parent line in the property sheet — e.g.
  *  rows for "Building Maint.-Contractual / Recurring / Big Projects"
@@ -264,6 +279,9 @@ function parsePropertySheet(rows: unknown[][], sheetName: string): PropertyBudge
         pendingSubLines = [];
         continue;
       }
+      const rawInput = r[18] != null && trim(r[18]) !== "" ? trim(r[18]) : null;
+      const rawNotes = r[19] != null && trim(r[19]) !== "" ? trim(r[19]) : null;
+      const isYoy = isYoyVarianceColumn(rawInput, rawNotes);
       const line: BudgetLine = {
         glAccount: col0 || null,
         subCategory: col1 || null,
@@ -271,8 +289,8 @@ function parsePropertySheet(rows: unknown[][], sheetName: string): PropertyBudge
         months: ms,
         total,
         totalPsf: r[17] != null && trim(r[17]) !== "" ? num(r[17]) : null,
-        input: r[18] != null && trim(r[18]) !== "" ? trim(r[18]) : null,
-        notes: r[19] != null && trim(r[19]) !== "" ? trim(r[19]) : null,
+        input: isYoy ? null : rawInput,
+        notes: isYoy ? null : rawNotes,
         isSubtotal: false,
         subLines: pendingSubLines.length > 0 ? pendingSubLines : undefined,
       };

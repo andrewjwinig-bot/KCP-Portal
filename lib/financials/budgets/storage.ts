@@ -34,6 +34,23 @@ type Manifest = {
   updatedAt: string;
 };
 
+/** Returns true when any line in the seed carries a YoY-variance %
+ *  in its notes (e.g. "-16.09%"). Those were stored from col 19 of
+ *  the source workbook before we learned they aren't real notes —
+ *  re-parse to drop them. */
+function seedHasYoyNoise(wb: BudgetWorkbook): boolean {
+  if (wb.id !== SEED_ID) return false;
+  const variancePct = /^[-+]?\d+(\.\d+)?\s*%$/;
+  for (const property of wb.properties) {
+    for (const section of property.sections) {
+      for (const line of section.lines) {
+        if (line.notes && variancePct.test(line.notes.trim())) return true;
+      }
+    }
+  }
+  return false;
+}
+
 /** Returns true when the seed workbook in the manifest is missing
  *  the latest level of sub-line detail. Earlier deploys saved the seed
  *  before the in-sheet sub-line parser (level 1) or the Building Maint
@@ -96,11 +113,11 @@ async function loadManifest(): Promise<BudgetWorkbook[]> {
       }
     }
 
-    // Second migration: if the seed pre-dates the in-sheet sub-line
-    // parser, re-parse the bundle so per-line breakdowns (Building
-    // Maint.-*, Landscaping-*, Insurance-*, etc.) show up.
+    // Second migration: re-parse the seed if it pre-dates the in-sheet
+    // sub-line parser (level 1 / level 2) OR if it still carries the
+    // stale YoY variance % data we used to store as notes.
     const seed = m.workbooks.find((wb) => wb.id === SEED_ID);
-    if (seed && seedMissingSubLineDetail(seed)) {
+    if (seed && (seedMissingSubLineDetail(seed) || seedHasYoyNoise(seed))) {
       const reparsed = await reseedFromBundle();
       if (reparsed) {
         const i = m.workbooks.indexOf(seed);
