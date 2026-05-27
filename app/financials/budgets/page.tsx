@@ -832,7 +832,7 @@ function AllocationIcon({ allocations, currentPropertyCode }: {
         title={`Allocated expense — ${myShareLabel} from ${blocks} ${blocks === 1 ? "block" : "blocks"} (click for detail)`}
         style={{
           display: "inline-flex", alignItems: "center", justifyContent: "center",
-          minWidth: 18, height: 18, padding: "0 5px", marginLeft: 6,
+          minWidth: 18, height: 18, padding: "0 5px", marginLeft: 4,
           fontSize: 10, fontWeight: 800, lineHeight: 1,
           background: "rgba(11,74,125,0.10)",
           color: "#0b4a7d",
@@ -840,6 +840,7 @@ function AllocationIcon({ allocations, currentPropertyCode }: {
           borderRadius: 4,
           cursor: "pointer",
           fontVariantNumeric: "tabular-nums",
+          flexShrink: 0,
         }}
       >
         A{blocks > 1 ? ` ${blocks}` : ""}
@@ -1126,8 +1127,10 @@ function BudgetLineRow({
               </span>
             )}
             {line.notes && <LineNoteMarker text={line.notes} />}
+            {line.allocations && line.allocations.length > 0 && (
+              <AllocationIcon allocations={line.allocations} currentPropertyCode={propertyCode} />
+            )}
           </div>
-          {line.allocations && line.allocations.length > 0 && <AllocationIcon allocations={line.allocations} currentPropertyCode={propertyCode} />}
         </td>
         {line.months.map((m, j) => (
           <td key={j} style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontSize: 12 }}>
