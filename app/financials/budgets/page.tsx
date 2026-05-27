@@ -482,6 +482,16 @@ function BudgetTable({
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", minWidth: 0 }}>
             <select
+              value={workbook.year}
+              onChange={(e) => handleYearChange(Number(e.target.value))}
+              style={yearHeaderSelectStyle}
+              aria-label="Year"
+            >
+              {yearsForCategory.map((y) => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+            </select>
+            <select
               value={property.propertyCode}
               onChange={(e) => onSelectProperty(e.target.value)}
               style={propertyHeaderSelectStyle}
@@ -491,16 +501,6 @@ function BudgetTable({
                 <option key={p.propertyCode} value={p.propertyCode}>
                   {p.propertyCode} — {p.propertyName}
                 </option>
-              ))}
-            </select>
-            <select
-              value={workbook.year}
-              onChange={(e) => handleYearChange(Number(e.target.value))}
-              style={yearHeaderSelectStyle}
-              aria-label="Year"
-            >
-              {yearsForCategory.map((y) => (
-                <option key={y} value={y}>{y}</option>
               ))}
             </select>
           </div>
