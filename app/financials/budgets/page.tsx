@@ -391,17 +391,45 @@ function BudgetTable({
     for (const r of property.rollups) m.set(r.name.toUpperCase().trim(), r);
     return m;
   }, [property.rollups]);
+
+  // Does this property carry any debt? Drives whether the Debt Service
+  // section, its group header, and the before/after-debt cash flow
+  // subtotals render at all — for unlevered properties (and the
+  // residential book where debt sits at the portfolio level) the section
+  // is just noise.
+  const hasDebt = useMemo(() => {
+    const debt = property.sections.find((s) => /debt service/i.test(s.name));
+    return !!debt && debt.lines.some((l) => !l.isSubtotal && l.total !== 0);
+  }, [property.sections]);
+
+  // Sections to actually render. Skip Debt Service when there's no debt
+  // — the empty subtotal + the surrounding "before/after debt" framing
+  // adds nothing useful.
+  const visibleSections = useMemo(
+    () => property.sections.filter((s) => hasDebt || !/debt service/i.test(s.name)),
+    [property.sections, hasDebt],
+  );
+
   const subtotalsAfter = useCallback((sectionName: string): { name: string; total: number; months: number[] }[] => {
     const norm = sectionName.toLowerCase();
-    const wants: string[] = [];
-    if (/reimburs/.test(norm) && !/expense/.test(norm) && !/non/.test(norm)) wants.push("TOTAL REVENUES");
-    if (/non-reimbursable/.test(norm)) wants.push("TOTAL OPERATING EXPENSES", "NET OPERATING INCOME");
-    if (/capital/.test(norm)) wants.push("CASH FLOW BEFORE DEBT SERVICE");
-    if (/debt service/.test(norm)) wants.push("CASH FLOW AFTER DEBT SERVICE");
+    const wants: { key: string; relabelTo?: string }[] = [];
+    if (/reimburs/.test(norm) && !/expense/.test(norm) && !/non/.test(norm)) wants.push({ key: "TOTAL REVENUES" });
+    if (/non-reimbursable/.test(norm)) wants.push({ key: "TOTAL OPERATING EXPENSES" }, { key: "NET OPERATING INCOME" });
+    if (/capital/.test(norm)) {
+      // With debt: keep "Before Debt Service" framing. Without: this is
+      // simply the final CASH FLOW line.
+      wants.push(hasDebt
+        ? { key: "CASH FLOW BEFORE DEBT SERVICE" }
+        : { key: "CASH FLOW BEFORE DEBT SERVICE", relabelTo: "CASH FLOW" });
+    }
+    if (/debt service/.test(norm)) wants.push({ key: "CASH FLOW AFTER DEBT SERVICE" });
     return wants
-      .map((n) => rollupByName.get(n))
+      .map((w) => {
+        const r = rollupByName.get(w.key);
+        return r ? { ...r, name: w.relabelTo ?? r.name } : null;
+      })
       .filter((r): r is { name: string; total: number; months: number[] } => Boolean(r));
-  }, [rollupByName]);
+  }, [rollupByName, hasDebt]);
 
   // Headline pills. Always 5 across the row:
   //   1. TOTAL REVENUES, 2. TOTAL OPERATING EXPENSES, 3. NET OPERATING INCOME
@@ -419,8 +447,6 @@ function BudgetTable({
     const noi = get("NET OPERATING INCOME");
     const cfAfter = get("CASH FLOW AFTER DEBT SERVICE");
     const cfBefore = get("CASH FLOW BEFORE DEBT SERVICE");
-    const debt = property.sections.find((s) => /debt service/i.test(s.name));
-    const hasDebt = !!debt && debt.lines.some((l) => !l.isSubtotal && l.total !== 0);
 
     // Estimated NNN PSF — sum the annual totals of the two big reimbursement
     // lines and divide by rentable SF. Look up by GL first (more durable
@@ -454,7 +480,7 @@ function BudgetTable({
       value: nnnsPsf > 0 ? `$${nnnsPsf.toFixed(2)}` : "—",
     });
     return pills;
-  }, [rollupByName, property.sections, sqft, psf]);
+  }, [rollupByName, property.sections, sqft, psf, hasDebt]);
 
   // Build the year dropdown options + a resolver from a chosen year back
   // to the underlying budget id. Years are pulled from all summaries in
@@ -573,7 +599,7 @@ function BudgetTable({
           NOI, CASH FLOW, etc.) injected between them. Group headers
           ("REVENUES", "OPERATING EXPENSES") sit above the first section
           in each group. */}
-      {property.sections.map((sec) => (
+      {visibleSections.map((sec) => (
         <Fragment key={sec.name}>
           {groupHeaderFor(sec.name) && (
             <GroupHeader label={groupHeaderFor(sec.name)!} />
