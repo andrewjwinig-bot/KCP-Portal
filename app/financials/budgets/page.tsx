@@ -766,6 +766,34 @@ function ViewToggle({ psf, onChange, disabled }: {
  *  detail (e.g. Insurance → Gen Liab + Umbrella + Property + D&O) the
  *  label cell shows a chevron toggle; clicking expands a set of indented
  *  rows underneath plus a "ties to $X" tag confirming the sum matches. */
+/** Small ⓘ tag rendered inline after a line label when there's a note
+ *  (author comment, growth assumption, etc.). Hover reveals the full
+ *  text via the native title tooltip — keeps the row tight while still
+ *  surfacing context on demand. */
+function NoteIcon({ text }: { text: string }) {
+  return (
+    <span
+      title={text}
+      role="img"
+      aria-label={`Note: ${text}`}
+      style={{
+        display: "inline-flex", alignItems: "center", justifyContent: "center",
+        width: 14, height: 14, marginLeft: 6,
+        fontSize: 10, fontWeight: 800, fontStyle: "italic", lineHeight: 1,
+        fontFamily: "Georgia, serif",
+        borderRadius: "50%",
+        background: "rgba(11,74,125,0.10)",
+        color: "#0b4a7d",
+        border: "1px solid rgba(11,74,125,0.30)",
+        cursor: "help",
+        verticalAlign: "middle",
+      }}
+    >
+      i
+    </span>
+  );
+}
+
 function BudgetLineRow({
   line,
   sectionName,
@@ -840,8 +868,8 @@ function BudgetLineRow({
                 {line.subLines!.filter((s) => !s.isSubtotal).length}
               </span>
             )}
+            {line.notes && <NoteIcon text={line.notes} />}
           </div>
-          {line.notes && <div className="muted small" style={{ marginTop: 2 }}>{line.notes}</div>}
         </td>
         {line.months.map((m, j) => (
           <td key={j} style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontSize: 12 }}>
@@ -937,6 +965,7 @@ function SubLineRow({
           {line.subCategory && !line.isSubtotal && (
             <span className="muted small" style={{ marginLeft: 6 }}>· {line.subCategory}</span>
           )}
+          {line.notes && <NoteIcon text={line.notes} />}
         </td>
         {line.months.map((m, k) => (
           <td key={k} style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
