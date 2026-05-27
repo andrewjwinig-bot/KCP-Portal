@@ -36,11 +36,17 @@ function emitLine(aoa: unknown[][], line: BudgetLine, depth: number): void {
 
 /** Cross-section subtotal labels appended after a given section name.
  *  Mirrors the page's BudgetTable subtotalsAfter() logic so the
- *  download lays out top-to-bottom in the same order as the screen. */
-function subtotalKeysAfter(sectionName: string, hasDebt: boolean): string[] {
+ *  download lays out top-to-bottom in the same order as the screen.
+ *  When the property has no Capital section (JV III office sheets),
+ *  CASH FLOW BEFORE DEBT SERVICE slides up to sit after Non-Reimbursable. */
+function subtotalKeysAfter(sectionName: string, hasDebt: boolean, hasCapital: boolean): string[] {
   const n = sectionName.toLowerCase();
   if (/reimburs/.test(n) && !/expense/.test(n) && !/non/.test(n)) return ["TOTAL REVENUES"];
-  if (/non-reimbursable/.test(n)) return ["TOTAL OPERATING EXPENSES", "NET OPERATING INCOME"];
+  if (/non-reimbursable/.test(n)) {
+    const out = ["TOTAL OPERATING EXPENSES", "NET OPERATING INCOME"];
+    if (!hasCapital) out.push(hasDebt ? "CASH FLOW BEFORE DEBT SERVICE" : "CASH FLOW");
+    return out;
+  }
   if (/capital/.test(n)) return [hasDebt ? "CASH FLOW BEFORE DEBT SERVICE" : "CASH FLOW"];
   if (/debt service/.test(n)) return ["CASH FLOW AFTER DEBT SERVICE"];
   return [];
@@ -99,6 +105,7 @@ export function generateBudgetDownloadXlsx(wb: BudgetWorkbook, property: Propert
   const visibleSections = property.sections.filter(
     (s) => hasDebt || !/debt service/i.test(s.name),
   );
+  const hasCapital = property.sections.some((s) => /^capital/i.test(s.name));
 
   for (const sec of visibleSections) {
     const groupHeader = groupHeaderFor(sec.name);
@@ -109,7 +116,7 @@ export function generateBudgetDownloadXlsx(wb: BudgetWorkbook, property: Propert
     aoa.push([]);
     aoa.push(["", sec.name]);
     for (const line of sec.lines) emitLine(aoa, line, 0);
-    for (const key of subtotalKeysAfter(sec.name, hasDebt)) {
+    for (const key of subtotalKeysAfter(sec.name, hasDebt, hasCapital)) {
       // CASH FLOW (no-debt case) reuses the "before debt service"
       // rollup data; everything else looks up by literal name.
       const rollup =

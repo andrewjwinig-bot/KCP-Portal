@@ -26,6 +26,7 @@
 // (revenues are stored as parenthesized negatives — Skyline credits).
 
 import * as XLSX from "xlsx";
+import { PROPERTY_DEFS } from "@/lib/properties/data";
 import type {
   BudgetCategory,
   BudgetLine,
@@ -34,6 +35,11 @@ import type {
   PropertyBudget,
   SkylineImportLine,
 } from "./types";
+
+function lookupPropertyName(code: string): string | null {
+  const def = PROPERTY_DEFS.find((p) => p.id.toUpperCase() === code.toUpperCase());
+  return def?.name ?? null;
+}
 
 function trim(v: unknown): string {
   if (v == null) return "";
@@ -75,13 +81,21 @@ function months(r: unknown[]): number[] {
 // null for them. They're picked up separately by parseInsuranceDetail /
 // parseBuildingMaintDetail (and future parsers as we expand sub-line
 // coverage).
-const IGNORE_SHEET = /^(cover\s*sheet|sheet\d+|in place revenue|renew|tenant recoveries|lik mgmt fee)\s*$/i;
-const INS_RET_DEBT_SHEET = /^ins\s+ret\s+debt$/i;
+// Sheet name patterns we always ignore. Supporting tabs (INS RET[/ DEBT],
+// Building Maint, Allocated Expenses, etc.) are handled by their own
+// parsers below; everything in IGNORE_SHEET is workbook scaffolding
+// we don't pull anything from.
+const IGNORE_SHEET = /^(cover\s*sheet|sheet\d+|source and use of cash|assumptions|dscr\s*calc|in place revenue|renew(\s*&\s*vac.*)?|tenant recoveries|lik mgmt fee|water\s*sewer|parking lot maint|landscaping|trash)\s*$/i;
+const INS_RET_DEBT_SHEET = /^ins\s+ret(\s+debt)?$/i;
 const BUILDING_MAINT_SHEET = /^building\s+maint$/i;
 const ALLOCATED_EXPENSES_SHEET = /^allocated\s+expenses$/i;
 
 function isRollupSheet(name: string): boolean {
-  return /^all\s+/i.test(name.trim());
+  const n = name.trim();
+  // "All Shopping Centers" (SC file) or "JV III Consolidated" / "NI LLC
+  // Consolidated" (office files) — both are the portfolio-level rollup
+  // sheet that mirrors a property sheet's layout.
+  return /^all\s+/i.test(n) || /consolidated\s*$/i.test(n);
 }
 
 function isPropertyCode(code: string): boolean {
@@ -148,8 +162,12 @@ function parsePropertySheet(rows: unknown[][], sheetName: string): PropertyBudge
   const code = codeRaw.toUpperCase();
   if (!isPropertyCode(code) && !isRollupSheet(sheetName)) return null;
 
-  // Property name: strip leading dash + spaces from "- Brookwood Shopping Center"
-  const name = trim(r0[2]).replace(/^[-\s]+/, "");
+  // Property name: strip leading dash + spaces from "- Brookwood Shopping
+  // Center". The SC file carries the name in col 2 of row 0; the JV III
+  // / office files leave it blank — fall back to PROPERTY_DEFS so the
+  // page header reads cleanly either way.
+  const nameFromSheet = trim(r0[2]).replace(/^[-\s]+/, "");
+  const name = nameFromSheet || lookupPropertyName(code) || code;
 
   const r3 = rows[3] ?? [];
   const rentableSqft = num(r3[1]);
