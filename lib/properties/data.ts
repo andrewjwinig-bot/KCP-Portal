@@ -28,6 +28,10 @@ export interface PropertyDef {
   einLabel?: string;  // Label for primary EIN (defaults to "EIN")
   ein2?: string;      // Secondary EIN
   ein2Label?: string; // Label for secondary EIN (defaults to "EIN (2)")
+  /** Owning legal entity (e.g. "KH 509 LLC"). Used on the Property Info
+   *  page where Office buildings use fundGroup → FUND_LABEL and the
+   *  residentials need a per-property entity instead. */
+  ownerEntity?: string;
   // "BP" = Business Park (9301), "SC" = Shopping Centers (9302)
   allocGroup?: "BP" | "SC";
   // GL accounts used in CC Expense Coder for this property
@@ -72,10 +76,10 @@ export const PROPERTY_DEFS: PropertyDef[] = [
   { id: "9200", name: "Eastwick JV XII",                  type: "Retail", ein: "23-2921345", acres: 0.82, ccAccounts: ["8501"], address: "8675 Tinicum Blvd", city: "Philadelphia", state: "PA", zip: "19153" },
 
   // ── Residential ───────────────────────────────────────────────────────────
-  { id: "9800", name: "Bellaire Avenue",  type: "Residential", address: "509 Bellaire Ave", city: "Fort Washington", state: "PA", zip: "19034", yearBuilt: 1910 },
-  { id: "9820", name: "Spring Garden St", type: "Residential", address: "120-122 N Spring Garden St", city: "Ambler", state: "PA", zip: "19002", sqft: 1904, yearBuilt: 1994 },
-  { id: "9840", name: "Joshua Road",      type: "Residential", address: "3044 Joshua Rd", city: "Lafayette Hill", state: "PA", zip: "19444", sqft: 1628, yearBuilt: 1949 },
-  { id: "9860", name: "KH Fort Washington", type: "Residential", address: "233 Fort Washington Ave", city: "Fort Washington", state: "PA", zip: "19034", sqft: 1603, yearBuilt: 1900 },
+  { id: "9800", name: "Bellaire Avenue",  type: "Residential", ownerEntity: "KH 509 LLC",                address: "509 Bellaire Ave",         city: "Fort Washington", state: "PA", zip: "19034", yearBuilt: 1910 },
+  { id: "9820", name: "Spring Garden St", type: "Residential", ownerEntity: "KH - SPRING GARDEN STREET", address: "120-122 N Spring Garden St", city: "Ambler",          state: "PA", zip: "19002", sqft: 1904, yearBuilt: 1994 },
+  { id: "9840", name: "Joshua Road",      type: "Residential", ownerEntity: "KH - JOSHUA 3044 LLC",      address: "3044 Joshua Rd",           city: "Lafayette Hill",  state: "PA", zip: "19444", sqft: 1628, yearBuilt: 1949 },
+  { id: "9860", name: "KH Fort Washington", type: "Residential", ownerEntity: "Korman Homes LLC",         address: "233 Fort Washington Ave",  city: "Fort Washington", state: "PA", zip: "19034", sqft: 1603, yearBuilt: 1900 },
 
   // ── Other Commercial / Holding ────────────────────────────────────────────
   { id: "5600", name: "Castor Ave - USPS", type: "Retail", ein: "23-2333761", allocGroup: "SC", ccAccounts: ["8501"], address: "6382 Castor Ave", city: "Philadelphia", state: "PA", sqft: 1326, yearBuilt: 1951 },

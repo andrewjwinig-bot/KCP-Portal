@@ -709,10 +709,22 @@ export function PropertyDetailBody({
             gap: "16px 32px",
             alignItems: "start",
           }}>
-            {(prop.acres != null || prop.ein || prop.ein2 || (!isMaint && bankAccounts.length > 0)) && (
+            {(prop.acres != null || prop.ownerEntity || prop.ein || prop.ein2 || (!isMaint && bankAccounts.length > 0)) && (
               <div style={{ display: "flex", flexDirection: "column", gap: 14, minWidth: 0 }}>
                 {prop.acres != null && (
                   <BigInfoField label="Acres" value={`${prop.acres} ac`} />
+                )}
+                {prop.ownerEntity && (
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 6 }}>Ownership Entity</div>
+                    <div style={{
+                      padding: "8px 12px",
+                      background: "rgba(11,74,125,0.04)",
+                      border: "1px solid rgba(11,74,125,0.12)",
+                      borderRadius: 8,
+                      fontSize: 14, fontWeight: 700, color: "var(--text)",
+                    }}>{prop.ownerEntity}</div>
+                  </div>
                 )}
                 {prop.ein && (
                   <div>
