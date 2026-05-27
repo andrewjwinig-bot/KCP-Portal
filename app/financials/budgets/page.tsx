@@ -823,18 +823,21 @@ function BudgetLineRow({
             <span>{line.label}</span>
             {hasSubLines && (
               <span
-                className="small"
+                title={sumTies
+                  ? `${line.subLines!.filter((s) => !s.isSubtotal).length} sub-lines (click to expand)`
+                  : `Δ ${money(subTotal - line.total)} between sub-lines and parent`}
                 style={{
-                  fontSize: 10, padding: "1px 6px", borderRadius: 999,
-                  background: sumTies ? "rgba(22,163,74,0.10)" : "rgba(202,138,4,0.12)",
+                  display: "inline-flex", alignItems: "center", justifyContent: "center",
+                  minWidth: 18, height: 18, padding: "0 5px",
+                  fontSize: 10, fontWeight: 800, lineHeight: 1,
+                  background: sumTies ? "rgba(22,163,74,0.12)" : "rgba(202,138,4,0.14)",
                   color: sumTies ? "#15803d" : "#854d0e",
-                  border: `1px solid ${sumTies ? "rgba(22,163,74,0.30)" : "rgba(202,138,4,0.35)"}`,
-                  fontWeight: 700, letterSpacing: "0.02em",
+                  border: `1px solid ${sumTies ? "rgba(22,163,74,0.35)" : "rgba(202,138,4,0.40)"}`,
+                  borderRadius: 4,
+                  fontVariantNumeric: "tabular-nums",
                 }}
               >
-                {sumTies
-                  ? `${line.subLines!.filter((s) => !s.isSubtotal).length} sub-lines`
-                  : `Δ ${money(subTotal - line.total)}`}
+                {line.subLines!.filter((s) => !s.isSubtotal).length}
               </span>
             )}
           </div>
