@@ -676,10 +676,11 @@ function BudgetTable({
               {sec.name}
             </div>
             <div className="tableWrap">
-              <table>
+              <table style={{ tableLayout: "fixed" }}>
+                <BudgetTableColgroup />
                 <thead>
                   <tr>
-                    <th style={{ width: 96 }}>GL</th>
+                    <th>GL</th>
                     <th>Line</th>
                     {MONTHS.map((m) => <th key={m} style={{ textAlign: "right" }}>{m}</th>)}
                     <th style={{ textAlign: "right" }}>Total</th>
@@ -1520,6 +1521,28 @@ function SubLineRow({
   );
 }
 
+/** Shared column widths for the section tables + SubtotalCard so the
+ *  cross-section subtotal rows (TOTAL REVENUES, NOI, …) align vertically
+ *  with the section's monthly columns. Without `table-layout: fixed`
+ *  each table sizes its columns independently — a wider "TOTAL
+ *  REVENUES" label was pushing month numbers a few pixels right of
+ *  Jan / Feb / etc. above. */
+const BUDGET_COL_GL = 96;
+const BUDGET_COL_LINE = 280;
+const BUDGET_COL_MONTH = 88;
+const BUDGET_COL_TOTAL = 112;
+
+function BudgetTableColgroup() {
+  return (
+    <colgroup>
+      <col style={{ width: BUDGET_COL_GL }} />
+      <col style={{ width: BUDGET_COL_LINE }} />
+      {MONTHS.map((m) => <col key={m} style={{ width: BUDGET_COL_MONTH }} />)}
+      <col style={{ width: BUDGET_COL_TOTAL }} />
+    </colgroup>
+  );
+}
+
 function SubtotalCard({ rollup, sqft, psf }: {
   rollup: { name: string; total: number; months: number[] };
   sqft: number;
@@ -1536,13 +1559,8 @@ function SubtotalCard({ rollup, sqft, psf }: {
           single subtotal row sits at the optical center of the card
           instead of getting pushed down by the wrapper's top margin. */}
       <div className="tableWrap" style={{ marginTop: 0 }}>
-        <table>
-          <colgroup>
-            <col style={{ width: 96 }} />
-            <col />
-            {MONTHS.map((m) => <col key={m} />)}
-            <col />
-          </colgroup>
+        <table style={{ tableLayout: "fixed" }}>
+          <BudgetTableColgroup />
           <tbody>
             <tr style={{ fontWeight: 800 }}>
               <td style={{ verticalAlign: "middle", borderBottom: "none" }}></td>
