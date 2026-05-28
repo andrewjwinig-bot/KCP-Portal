@@ -67,6 +67,17 @@ const SEEDS: SeedConfig[] = [
     year: 2026,
     id: "office-works-2026",
   },
+  // LIK Management (2010) — KCP corporate operating budget. The "LIK
+  // Budget 2026" sheet has its own layout (Jan at col C, no property /
+  // occupancy header, parent rows infer their sub-lines from a sum-
+  // matching heuristic) — parsed by parseLikBudgetSheet. The Notes to
+  // Projections + 10 Year Projection tabs are ignored.
+  {
+    file: "LIK_Mgmt_2026.xlsx",
+    label: "LIK Management 2026 Operating Budget",
+    year: 2026,
+    id: "lik-mgmt-2026",
+  },
 ];
 
 type Manifest = {
