@@ -1069,6 +1069,28 @@ function TenantRecoveryModal({
           display: "flex", flexDirection: "column", gap: 14, padding: 18,
         }}
       >
+        <div style={{
+          padding: "8px 12px",
+          background: "rgba(202,138,4,0.14)",
+          color: "#854d0e",
+          border: "1px solid rgba(202,138,4,0.40)",
+          borderRadius: 6,
+          fontSize: 12, fontWeight: 700, letterSpacing: "0.04em",
+          textTransform: "uppercase",
+          display: "flex", alignItems: "center", gap: 8,
+        }}>
+          <span style={{
+            display: "inline-flex", alignItems: "center", justifyContent: "center",
+            minWidth: 50, padding: "2px 8px",
+            fontSize: 11, fontWeight: 800,
+            background: "#ca8a04", color: "#fff",
+            borderRadius: 4, letterSpacing: "0.06em",
+          }}>DRAFT</span>
+          <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 500, fontSize: 12 }}>
+            Per-tenant recovery breakdown isn&apos;t finalized yet — numbers are sourced from the rent roll for now, not the budget file. We&apos;ll come back to wire this up correctly.
+          </span>
+        </div>
+
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
           <div>
             <div className="muted small" style={{ fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}>
