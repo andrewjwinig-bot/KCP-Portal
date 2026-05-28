@@ -1379,11 +1379,15 @@ function BudgetLineRow({
   const sumTies = hasSubLines && Math.abs(subTotal - line.total) <= 1;
 
   const rowStyle: React.CSSProperties = {
-    background: line.isSubtotal ? "rgba(15,23,42,0.04)" : undefined,
-    fontWeight: line.isSubtotal ? 700 : 400,
-    color: isEmpty ? "var(--muted)" : undefined,
+    background: line.isSubtotal ? "rgba(11,74,125,0.06)" : undefined,
+    fontWeight: line.isSubtotal ? 800 : 400,
+    color: isEmpty ? "var(--muted)" : line.isSubtotal ? "#0b4a7d" : undefined,
     opacity: isEmpty ? 0.55 : 1,
     cursor: hasSubLines ? "pointer" : undefined,
+    borderTop: line.isSubtotal ? "2px solid rgba(11,74,125,0.30)" : undefined,
+    textTransform: line.isSubtotal ? "uppercase" : undefined,
+    letterSpacing: line.isSubtotal ? "0.04em" : undefined,
+    fontSize: line.isSubtotal ? 12 : undefined,
   };
 
   return (
