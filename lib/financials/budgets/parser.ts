@@ -780,6 +780,71 @@ function idFromLabel(label: string, year: number): string {
   return `${slug || "budget"}-${year}`;
 }
 
+/** When a multi-building workbook has a CONSOLIDATED rollup and at
+ *  least two real buildings, synthesize an AllocationDetail on each
+ *  building's line for the supplied GLs — Debt Service for JV III /
+ *  NI LLC where the loan sits at the fund level and gets split across
+ *  the buildings.
+ *
+ *  portfolioTotal = sum of the buildings' own line totals (the
+ *  CONSOLIDATED sheet doesn't always carry the GL as a discrete row
+ *  — NI LLC's debt section is just a rollup subtotal). The label
+ *  comes from the first building's line so the modal still reads
+ *  "Interest" / "Mortgage Amortization" rather than "Total Debt
+ *  Service". Skips when fewer than 2 buildings carry a non-zero
+ *  amount for the GL — no allocation to make. */
+function synthesizeMultiBuildingAllocations(
+  properties: PropertyBudget[],
+  glAccounts: string[],
+): void {
+  const consolidated = properties.find((p) => p.propertyCode === "CONSOLIDATED");
+  const buildings = properties.filter((p) => p.propertyCode !== "CONSOLIDATED");
+  if (!consolidated || buildings.length < 2) return;
+  const findLine = (p: PropertyBudget, gl: string): BudgetLine | null => {
+    for (const sec of p.sections) {
+      for (const line of sec.lines) {
+        if (!line.isSubtotal && line.glAccount === gl) return line;
+      }
+    }
+    return null;
+  };
+  for (const gl of glAccounts) {
+    const buildingLines = buildings
+      .map((b) => ({ building: b, line: findLine(b, gl) }))
+      .filter((x): x is { building: PropertyBudget; line: BudgetLine } => !!x.line && x.line.total !== 0);
+    if (buildingLines.length < 2) continue;
+    const portfolioTotal = buildingLines.reduce((s, { line }) => s + line.total, 0);
+    const blockLabel = buildingLines[0].line.label;
+    const rows = buildingLines.map(({ building, line }) => ({
+      propertyCode: building.propertyCode,
+      sqft: building.rentableSqft,
+      sharePct: portfolioTotal > 0 ? (line.total / portfolioTotal) * 100 : 0,
+      months: line.months.slice(),
+      total: line.total,
+    }));
+    rows.sort((a, b) => a.propertyCode.localeCompare(b.propertyCode));
+    for (const { line } of buildingLines) {
+      const existing = line.allocations ?? [];
+      // Skip if we've already attached a synthetic entry for this GL
+      // (e.g. on a re-parse of the same workbook).
+      if (existing.some((a) => a.glAccount === gl && a.blockLabel === blockLabel)) continue;
+      line.allocations = [
+        ...existing,
+        {
+          propertyAmount: line.total,
+          sharePct: portfolioTotal > 0 ? (line.total / portfolioTotal) * 100 : 0,
+          portfolioTotal,
+          basis: "annual",
+          blockLabel,
+          glAccount: gl,
+          sourceNote: `Allocated across ${buildingLines.length} buildings`,
+          rows,
+        },
+      ];
+    }
+  }
+}
+
 export function parseBudgetWorkbook(
   buf: Buffer | ArrayBuffer,
   label: string,
@@ -882,8 +947,27 @@ function rollupDisplayName(workbookLabel: string, fallback: string): string {
     }
   }
 
-  const year = detectedYear ?? new Date().getFullYear();
+  // Synthesize fund-level allocations for Debt Service GLs across the
+  // buildings of a multi-building workbook. JV III's debt sits on the
+  // fund-level loan and gets split across the 3 buildings — the
+  // Allocated Expenses tab doesn't carry debt blocks, so each building's
+  // Interest / Mortgage Amortization line has the right number but no
+  // allocation metadata. Pull the CONSOLIDATED total, the per-building
+  // amounts, and synthesize an allocation entry on each building's
+  // matching line so the modal opens with the same breakdown layout as
+  // any other allocated expense. Skip Shopping Centers — each SC has
+  // its own loan, not a fund-level allocation, so the modal would
+  // misleadingly suggest the loans are shared.
   const category = inferCategoryFromLabel(label);
+  if (category === "Office") {
+    synthesizeMultiBuildingAllocations(properties, [
+      "9210-8501",  // Interest
+      "2740-8501",  // Mortgage Amortization
+      "2740-0000",  // Loan Proceeds
+    ]);
+  }
+
+  const year = detectedYear ?? new Date().getFullYear();
 
   return {
     id: idFromLabel(label, year),

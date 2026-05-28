@@ -195,6 +195,31 @@ function seedMissingMainPnlSubtotals(wb: BudgetWorkbook): boolean {
   return false;
 }
 
+/** Returns true when a multi-building workbook (CONSOLIDATED + 2+
+ *  buildings) has non-zero debt service GLs on the buildings but no
+ *  allocation metadata yet — added later so each building's
+ *  Interest / Mortgage Amortization line opens the per-building
+ *  allocation modal. */
+function seedMissingDebtAllocations(wb: BudgetWorkbook): boolean {
+  // Only office workbooks (JV III, NI LLC) carry fund-level debt that
+  // gets allocated across buildings — Shopping Centers have individual
+  // property loans, so skipping debt synthesis there is correct, not
+  // missing.
+  if (wb.category !== "Office") return false;
+  const consolidated = wb.properties.find((p) => p.propertyCode === "CONSOLIDATED");
+  const buildings = wb.properties.filter((p) => p.propertyCode !== "CONSOLIDATED");
+  if (!consolidated || buildings.length < 2) return false;
+  for (const gl of ["9210-8501", "2740-8501", "2740-0000"]) {
+    const buildingLines = buildings
+      .map((b) => b.sections.flatMap((s) => s.lines).find((l) => !l.isSubtotal && l.glAccount === gl && l.total !== 0))
+      .filter((l): l is import("./types").BudgetLine => !!l);
+    if (buildingLines.length < 2) continue;
+    const missing = buildingLines.some((l) => !(l.allocations ?? []).some((a) => a.glAccount === gl));
+    if (missing) return true;
+  }
+  return false;
+}
+
 function seedNeedsReparse(wb: BudgetWorkbook): boolean {
   return seedMissingSubLineDetail(wb) ||
          seedHasYoyNoise(wb) ||
@@ -202,7 +227,8 @@ function seedNeedsReparse(wb: BudgetWorkbook): boolean {
          seedMissingAllocations(wb) ||
          seedMissingConsolidatedEntry(wb) ||
          seedConsolidatedMissingOccSqft(wb) ||
-         seedMissingMainPnlSubtotals(wb);
+         seedMissingMainPnlSubtotals(wb) ||
+         seedMissingDebtAllocations(wb);
 }
 
 async function parseSeed(cfg: SeedConfig): Promise<BudgetWorkbook | null> {
