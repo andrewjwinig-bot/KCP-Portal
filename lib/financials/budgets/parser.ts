@@ -100,13 +100,14 @@ function months(r: unknown[]): number[] {
 // Building Maint, Allocated Expenses, etc.) are handled by their own
 // parsers below; everything in IGNORE_SHEET is workbook scaffolding
 // we don't pull anything from.
-const IGNORE_SHEET = /^(cover\s*sheet|sheet\d+|source and use of cash|assumptions|dscr\s*calc|in place revenue|renew(\s*&\s*vac.*)?|tenant recoveries|lik mgmt fee|parking lot maint|landscaping|trash|trusts)\s*$/i;
+const IGNORE_SHEET = /^(cover\s*sheet|sheet\d+|source and use of cash|assumptions|dscr\s*calc|in place revenue|renew(\s*&\s*vac.*)?|tenant recoveries|lik mgmt fee|parking lot maint|landscaping|trash|trusts|notes to projections|\d+\s*year\s*projection)\s*$/i;
 const INS_RET_DEBT_SHEET = /^ins\s+ret(\s+debt)?$/i;
 const BUILDING_MAINT_SHEET = /^building\s+maint$/i;
 const ALLOCATED_EXPENSES_SHEET = /^allocated\s+expenses$/i;
 const WATER_SEWER_SHEET = /^water\s*sewer$/i;
 const OFFICE_WORKS_SHEET = /^the\s+office\s+works$/i;
 const TOW_RR_CIP_SHEET = /^monthly\s+rent\s+roll(\s*&\s*cip)?$/i;
+const LIK_BUDGET_SHEET = /^lik\s+budget\s+\d{4}$/i;
 
 function isRollupSheet(name: string): boolean {
   const n = name.trim();
@@ -1410,6 +1411,197 @@ function parseTowCip(rows: unknown[][]): import("./types").CipDetail | null {
   return { tenants, total };
 }
 
+/** Parser for the LIK Management (2010) operating budget. The workbook
+ *  is a single management-company P&L — Revenue + Operating Expenses,
+ *  no property layout, no occupancy header, no Skyline-style import
+ *  block in the body (just appears at the bottom as a flat GL table).
+ *
+ *  Quirks:
+ *   - Months sit at cols C-N (Jan = col 2) with Total / Input / Notes at
+ *     cols O / P / Q for parent rows.
+ *   - Two sub-line shapes: (A) cols 0+1 empty, label at col 2 with the
+ *     numbers shifted one column right — used for the JV III / NI LLC /
+ *     SC / Residential breakdown of "Total Management Fees"; (B) col 0
+ *     empty, col 1 carries a leading-whitespace label, numbers stay at
+ *     cols 2-13 like a parent — used for Base Rents / Electric under
+ *     Office Rent, Insurance D&O / W/C / Liab, and the Business Taxes
+ *     fragments.
+ *   - "TOTAL REVENUES:" + "Net Income" go to rollups; "Sub-Total
+ *     Expenses" stays as an in-section subtotal.
+ *   - "Budget Import - 2010" at the bottom is the skyline export, ignore. */
+function parseLikBudgetSheet(rows: unknown[][]): PropertyBudget | null {
+  // Property code lives at row 0 col 0 ("2010") with the workbook title
+  // in col 1. Different again from the property books.
+  const r0 = rows[0] ?? [];
+  const codeRaw = trim(r0[0]);
+  if (!isPropertyCode(codeRaw.toUpperCase())) return null;
+  const code = codeRaw.toUpperCase();
+  const name = trim((rows[1] ?? [])[1]) || lookupPropertyName(code) || code;
+
+  // Lock the Jan column from the header row.
+  let janCol = -1;
+  for (let i = 0; i < Math.min(rows.length, 8); i++) {
+    const r = rows[i] ?? [];
+    for (let j = 0; j < r.length; j++) {
+      if (/^jan$/i.test(trim(r[j]))) { janCol = j; break; }
+    }
+    if (janCol >= 0) break;
+  }
+  if (janCol < 0) janCol = 2;
+  const totalCol = janCol + 12;
+  const inputCol = janCol + 13;
+  const notesCol = janCol + 14;
+
+  const sections: BudgetSection[] = [];
+  const rollups: { name: string; total: number; months: number[] }[] = [];
+  let currentSection: BudgetSection | null = null;
+  let pendingSubLines: BudgetLine[] = [];
+
+  const isKnownSectionName = (s: string) =>
+    /^(revenues?|operating\s+expenses?|operation\s+expenses?|reimbursements?|reimbursable\s+expenses?|non-reimbursable\s+expenses?|capital(\s+improvements?|\s+expenditures?)?|debt\s+service)$/i.test(s.trim());
+
+  const monthlyAllEmpty = (r: unknown[], start: number) =>
+    r.slice(start, start + 12).every((c) => c == null || (typeof c === "string" && c.trim() === ""));
+
+  const flushPending = () => {
+    if (pendingSubLines.length === 0) return;
+    if (currentSection) currentSection.lines.push(...pendingSubLines);
+    pendingSubLines = [];
+  };
+
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i] ?? [];
+    if (rowIsBlank(r)) {
+      // Blank gap → buffered non-GL rows weren't pre-parent siblings;
+      // flush them as standalone lines so we don't lose them.
+      flushPending();
+      continue;
+    }
+    const col0 = trim(r[0]);
+    // Preserve leading whitespace on col 1 so we can distinguish a
+    // sub-line ("   Base Rents") from a parent line ("Base Rents").
+    const col1Raw = String(r[1] ?? "");
+    const col1 = col1Raw.trim();
+    const col2Raw = String(r[2] ?? "");
+    const col2 = col2Raw.trim();
+
+    // Skip the title + header rows.
+    if (i < 4) continue;
+
+    // Budget Import block — stop main P&L.
+    if (/budget\s+import/i.test(col1) || /budget\s+import/i.test(col2)) break;
+
+    // Section header — col 1 set, no money, no GL, label matches a
+    // known section name. Restricting to known names keeps zero-row
+    // line items like "Non-Deductible expense" from being mis-classed.
+    if (!col0 && col1 && isKnownSectionName(col1) && monthlyAllEmpty(r, janCol)) {
+      if (currentSection) sections.push(currentSection);
+      currentSection = { name: col1, lines: [] };
+      pendingSubLines = [];
+      continue;
+    }
+
+    // Cross-section rollups — TOTAL REVENUES:, Net Income.
+    if (!col0 && /^(net\s+income|total\s+revenues?:?)$/i.test(col1)) {
+      const ms = r.slice(janCol, janCol + 12).map(num);
+      rollups.push({ name: col1.replace(/:\s*$/, ""), total: num(r[totalCol]), months: ms });
+      pendingSubLines = [];
+      continue;
+    }
+
+    // Section subtotal — "Sub-Total Expenses".
+    if (!col0 && /^sub-?total/i.test(col1)) {
+      const ms = r.slice(janCol, janCol + 12).map(num);
+      const line: BudgetLine = {
+        glAccount: null, subCategory: null,
+        label: col1,
+        months: ms,
+        total: num(r[totalCol]),
+        totalPsf: null, input: null, notes: null,
+        isSubtotal: true,
+      };
+      if (currentSection) currentSection.lines.push(line);
+      pendingSubLines = [];
+      continue;
+    }
+
+    // Non-GL data row — buffer as a potential sub-line. The workbook
+    // doesn't explicitly mark sub-lines (no consistent indent / col
+    // shift), so we lean on the parent's sum formula instead: when
+    // the next GL row's total matches the running sum, attach the
+    // buffer as its sub-lines. Otherwise we flush the buffer as
+    // standalone rows on the next blank gap.
+    //
+    // Zero-month rows count too (e.g. Insurance D&O / W/C) — they're
+    // legit-but-empty sub-line categories.
+    if (!col0 && col1) {
+      const ms = r.slice(janCol, janCol + 12).map(num);
+      pendingSubLines.push({
+        glAccount: null, subCategory: null,
+        label: col1,
+        months: ms,
+        total: num(r[totalCol]),
+        totalPsf: null,
+        input: trimMeaningful(r[inputCol] == null ? null : String(r[inputCol])),
+        notes: trimMeaningful(r[notesCol] == null ? null : String(r[notesCol])),
+        isSubtotal: false,
+      });
+      continue;
+    }
+
+    // Parent or standalone line — has either a GL or a flush-left
+    // label with monthly values. Attaches the buffered sub-lines
+    // when the totals tie out (within $1 for rounding); otherwise
+    // flushes them as standalone lines first.
+    if ((col0 || col1) && !monthlyAllEmpty(r, janCol)) {
+      const ms = r.slice(janCol, janCol + 12).map(num);
+      const parentTotal = num(r[totalCol]);
+      let attached: BudgetLine[] | undefined;
+      if (pendingSubLines.length > 0) {
+        const sum = pendingSubLines.reduce((s, l) => s + l.total, 0);
+        if (Math.abs(sum - parentTotal) <= 1) {
+          attached = pendingSubLines;
+        } else {
+          if (currentSection) currentSection.lines.push(...pendingSubLines);
+        }
+        pendingSubLines = [];
+      }
+      const line: BudgetLine = {
+        glAccount: col0 || null,
+        subCategory: null,
+        label: col1 || col0,
+        months: ms,
+        total: parentTotal,
+        totalPsf: null,
+        input: trimMeaningful(r[inputCol] == null ? null : String(r[inputCol])),
+        notes: trimMeaningful(r[notesCol] == null ? null : String(r[notesCol])),
+        isSubtotal: false,
+        subLines: attached,
+      };
+      if (!currentSection) currentSection = { name: "Other", lines: [] };
+      currentSection.lines.push(line);
+      continue;
+    }
+  }
+  // Flush any trailing buffered non-GL rows.
+  if (pendingSubLines.length > 0 && currentSection) {
+    currentSection.lines.push(...pendingSubLines);
+  }
+  if (currentSection) sections.push(currentSection);
+
+  return {
+    propertyCode: code,
+    propertyName: name,
+    rentableSqft: 0,
+    occupancyPct: Array(12).fill(0),
+    occupancySqft: Array(12).fill(0),
+    sections,
+    rollups,
+    skylineImport: [],
+    skylineImportTotal: 0,
+  };
+}
+
 /** Attach the parsed CIP roster to The Office Works' "CIP Memberships"
  *  line so the UI can render a click-to-open modal. Matches by GL
  *  (4810-8502) and falls back to label match. */
@@ -1477,6 +1669,11 @@ export function parseBudgetWorkbook(
     }
     if (OFFICE_WORKS_SHEET.test(trimmed)) {
       const parsed = parseOfficeWorksSheet(rows, sheetName);
+      if (parsed) properties.push(parsed);
+      continue;
+    }
+    if (LIK_BUDGET_SHEET.test(trimmed)) {
+      const parsed = parseLikBudgetSheet(rows);
       if (parsed) properties.push(parsed);
       continue;
     }
