@@ -1311,6 +1311,71 @@ function parseOfficeWorksSheet(rows: unknown[][], sheetName: string): PropertyBu
   };
 }
 
+/** Parse the office roster from the top half of The Office Works'
+ *  "Monthly Rent Roll & CIP" tab — each row is one numbered office
+ *  (col 1 = tenant name, col 2 = office #, cols 4–15 = monthly rent).
+ *  The workbook doesn't carry per-unit SF; staff just need a per-month
+ *  "how many of the 32 offices are bringing in rent" count so the
+ *  budget page can render the occupancy strip in the same shape as
+ *  the property workbooks. */
+function parseTowOfficeOccupancy(rows: unknown[][]): { totalUnits: number; monthlyOccupied: number[] } | null {
+  // Lock onto the Jan column from the header row.
+  let janCol = -1;
+  for (let i = 0; i < Math.min(rows.length, 6); i++) {
+    const r = rows[i] ?? [];
+    for (let j = 0; j < r.length; j++) {
+      if (/^jan$/i.test(trim(r[j]))) { janCol = j; break; }
+    }
+    if (janCol >= 0) break;
+  }
+  if (janCol < 0) janCol = 4;
+
+  let totalUnits = 0;
+  const monthlyOccupied = Array(12).fill(0);
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i] ?? [];
+    const name = trim(r[1]);
+    const ofcRaw = trim(r[2]);
+    if (!name || !ofcRaw) continue;
+    // Stop counting once we hit SUB-TOTAL or the CIP block (col 2 = "CIP").
+    if (/^sub-?total$/i.test(name)) break;
+    if (/^cip$/i.test(ofcRaw)) continue;
+    // Office # is an integer 1–32; ignore anything else (CIP rows
+    // already filtered above, but be defensive).
+    if (!/^\d+$/.test(ofcRaw)) continue;
+    totalUnits++;
+    const ms = r.slice(janCol, janCol + 12).map(num);
+    const isNamedVacancy = /^vacant$/i.test(name);
+    for (let m = 0; m < 12; m++) {
+      // A unit counts as occupied in month m when (a) the row isn't
+      // labelled "Vacant" and (b) it has rent in that month. Rows like
+      // "Vacant/Lyneer" — which start vacant and pick up a tenant
+      // mid-year — fall through correctly: the months with rent count
+      // as occupied because the name isn't literally "Vacant".
+      if (isNamedVacancy) continue;
+      if ((ms[m] ?? 0) > 0) monthlyOccupied[m]++;
+    }
+  }
+  if (totalUnits === 0) return null;
+  return { totalUnits, monthlyOccupied };
+}
+
+/** Pull the building's rentable SF out of the property sheet's "Office
+ *  Rent & electric $17.50 psf (10,048 sf)" label, which is where the
+ *  workbook records the size. Returns null when the label isn't found
+ *  or doesn't carry an SF parenthetical. */
+function extractTowRentableSqft(property: PropertyBudget): number | null {
+  for (const sec of property.sections) {
+    for (const line of sec.lines) {
+      if (line.isSubtotal) continue;
+      if (!/office\s+rent/i.test(line.label)) continue;
+      const m = line.label.match(/\(\s*([\d,]+)\s*sf\s*\)/i);
+      if (m) return Number(m[1].replace(/,/g, ""));
+    }
+  }
+  return null;
+}
+
 /** Parse the CIP block from The Office Works' "Monthly Rent Roll & CIP"
  *  supporting tab. The CIP roster lives below the rent-roll block —
  *  each row is one CIP member (col 1 = name, col 2 = "CIP" tag, cols
@@ -1381,6 +1446,7 @@ export function parseBudgetWorkbook(
   let allocatedExpenses: Map<string, import("./types").AllocationDetail[]> | null = null;
   let waterSewerDetail: Map<string, BudgetLine[]> | null = null;
   let towCipDetail: import("./types").CipDetail | null = null;
+  let towOfficeOccupancy: { totalUnits: number; monthlyOccupied: number[] } | null = null;
 
   for (const sheetName of wb.SheetNames) {
     const trimmed = sheetName.trim();
@@ -1406,6 +1472,7 @@ export function parseBudgetWorkbook(
     }
     if (TOW_RR_CIP_SHEET.test(trimmed)) {
       towCipDetail = parseTowCip(rows);
+      towOfficeOccupancy = parseTowOfficeOccupancy(rows);
       continue;
     }
     if (OFFICE_WORKS_SHEET.test(trimmed)) {
@@ -1485,6 +1552,25 @@ function rollupDisplayName(workbookLabel: string, fallback: string): string {
     }
     if (towCipDetail && property.propertyCode === "4900") {
       attachCipDetail(property, towCipDetail);
+    }
+    if (towOfficeOccupancy && property.propertyCode === "4900") {
+      // Hydrate the occupancy strip from the workbook's rent roll
+      // tab. Per-unit SF isn't carried in the workbook so we allocate
+      // the building's RSF evenly across the 32 numbered offices,
+      // which matches how staff describe the space ("each office is
+      // roughly 300 sf"). Once the portal carries a real 4900 rent
+      // roll snapshot we can swap in per-unit SF from there.
+      const rsf = extractTowRentableSqft(property) ?? property.rentableSqft;
+      if (rsf > 0 && towOfficeOccupancy.totalUnits > 0) {
+        const sfPerUnit = rsf / towOfficeOccupancy.totalUnits;
+        property.rentableSqft = rsf;
+        property.occupancySqft = towOfficeOccupancy.monthlyOccupied.map(
+          (n) => Math.round(n * sfPerUnit),
+        );
+        property.occupancyPct = towOfficeOccupancy.monthlyOccupied.map(
+          (n) => Number(((n / towOfficeOccupancy!.totalUnits) * 100).toFixed(1)),
+        );
+      }
     }
   }
 

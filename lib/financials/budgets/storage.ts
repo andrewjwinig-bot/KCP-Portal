@@ -297,6 +297,18 @@ function seedMissingMgmtFeePercent(wb: BudgetWorkbook): boolean {
   return false;
 }
 
+/** Returns true when The Office Works seed has no occupancy data on
+ *  its 4900 property — derived later from the rent roll tab so the
+ *  page can render the occupancy strip in the same shape as the
+ *  property workbooks. */
+function seedMissingTowOccupancy(wb: BudgetWorkbook): boolean {
+  if (wb.id !== "office-works-2026") return false;
+  const property = wb.properties.find((p) => p.propertyCode === "4900");
+  if (!property) return false;
+  if (property.rentableSqft <= 0) return true;
+  return property.occupancySqft.every((s) => s === 0);
+}
+
 /** Returns true when The Office Works seed is missing the CIP tenant
  *  detail on its "CIP Memberships" line — added later so the page can
  *  open a per-tenant modal off the Monthly Rent Roll & CIP tab. */
@@ -375,7 +387,8 @@ function seedNeedsReparse(wb: BudgetWorkbook): boolean {
          seedMissingMgmtFeePercent(wb) ||
          seedHasLegacyLeasingLabel(wb) ||
          seedMissingCipDetail(wb) ||
-         seedHasLegacyTowReimbLabels(wb);
+         seedHasLegacyTowReimbLabels(wb) ||
+         seedMissingTowOccupancy(wb);
 }
 
 async function parseSeed(cfg: SeedConfig): Promise<BudgetWorkbook | null> {
