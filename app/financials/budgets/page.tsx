@@ -1373,6 +1373,123 @@ function AllocationModal({ allocations, currentPropertyCode, onClose }: {
   );
 }
 
+/** CIP roster chip — click opens the per-tenant breakdown modal sourced
+ *  from The Office Works' "Monthly Rent Roll & CIP" tab. Same visual
+ *  weight as AllocationIcon so they sit alongside each other cleanly,
+ *  but tinted purple to distinguish "tenant detail on this property"
+ *  from "share of a portfolio expense". */
+function CipIcon({ detail }: { detail: NonNullable<import("@/lib/financials/budgets/types").BudgetLine["cipDetail"]> }) {
+  const [open, setOpen] = useState(false);
+  const count = detail.tenants.length;
+  return (
+    <>
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); setOpen(true); }}
+        title={`CIP roster — ${count} member${count === 1 ? "" : "s"} (click for detail)`}
+        style={{
+          display: "inline-flex", alignItems: "center", justifyContent: "center",
+          minWidth: 18, height: 18, padding: "0 5px", marginLeft: 4,
+          fontSize: 10, fontWeight: 800, lineHeight: 1,
+          background: "rgba(76,29,149,0.10)",
+          color: "#4c1d95",
+          border: "1px solid rgba(76,29,149,0.30)",
+          borderRadius: 4,
+          cursor: "pointer",
+          fontVariantNumeric: "tabular-nums",
+          flexShrink: 0,
+        }}
+      >
+        {count}
+      </button>
+      {open && <CipModal detail={detail} onClose={() => setOpen(false)} />}
+    </>
+  );
+}
+
+function CipModal({ detail, onClose }: {
+  detail: NonNullable<import("@/lib/financials/budgets/types").BudgetLine["cipDetail"]>;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+  const fmt = (n: number) => n === 0 ? "—" : `$${Math.round(n).toLocaleString("en-US")}`;
+  const monthlyTotals = Array.from({ length: 12 }, (_, m) =>
+    detail.tenants.reduce((s, t) => s + (t.months[m] ?? 0), 0),
+  );
+  const annual = detail.tenants.reduce((s, t) => s + t.total, 0);
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed", inset: 0, zIndex: 100,
+        background: "rgba(15,23,42,0.55)",
+        display: "flex", alignItems: "flex-start", justifyContent: "center",
+        padding: "60px 20px", overflow: "auto",
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: "var(--card)", borderRadius: 12,
+          maxWidth: 1440, width: "100%",
+          boxShadow: "0 20px 60px rgba(0,0,0,0.35)",
+          display: "flex", flexDirection: "column", gap: 14, padding: 18,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+          <div>
+            <div className="muted small" style={{ fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+              CIP Membership Roster
+            </div>
+            <div style={{ fontSize: 16, fontWeight: 800, marginTop: 2 }}>
+              {detail.tenants.length} members · {fmt(annual)} annual
+            </div>
+          </div>
+          <button onClick={onClose} className="btn" style={{ padding: "6px 12px", fontSize: 13, fontWeight: 700 }}>Close</button>
+        </div>
+        <div className="tableWrap" style={{ marginTop: 0 }}>
+          <table style={{ tableLayout: "fixed", width: "100%" }}>
+            <colgroup>
+              <col style={{ width: 220 }} />
+              {MONTHS.map((m) => <col key={m} />)}
+              <col style={{ width: 100 }} />
+            </colgroup>
+            <thead>
+              <tr>
+                <th style={{ textAlign: "left" }}>Member</th>
+                {MONTHS.map((m) => <th key={m} style={{ textAlign: "right" }}>{m}</th>)}
+                <th style={{ textAlign: "right" }}>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {detail.tenants.map((t, idx) => (
+                <tr key={idx}>
+                  <td style={{ whiteSpace: "nowrap" }}>{t.name}</td>
+                  {t.months.map((m, j) => (
+                    <td key={j} style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontSize: 12 }}>{fmt(m)}</td>
+                  ))}
+                  <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontWeight: 600 }}>{fmt(t.total)}</td>
+                </tr>
+              ))}
+              <tr style={{ borderTop: "2px solid var(--border)", fontWeight: 800 }}>
+                <td style={{ textTransform: "uppercase", letterSpacing: "0.04em", fontSize: 11 }}>Total</td>
+                {monthlyTotals.map((m, j) => (
+                  <td key={j} style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{fmt(m)}</td>
+                ))}
+                <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{fmt(annual)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function LineNoteMarker({ text }: { text: string }) {
   if (isStandardEscalationNote(text)) {
     return (
@@ -1523,6 +1640,7 @@ function BudgetLineRow({
             {line.allocations && line.allocations.length > 0 && (
               <AllocationIcon allocations={line.allocations} currentPropertyCode={propertyCode} />
             )}
+            {line.cipDetail && <CipIcon detail={line.cipDetail} />}
             <TenantRecoveryChip
               glAccount={line.glAccount}
               sectionName={sectionName}
@@ -1632,6 +1750,7 @@ function SubLineRow({
           )}
           {line.notes && <LineNoteMarker text={line.notes} />}
           {line.allocations && line.allocations.length > 0 && <AllocationIcon allocations={line.allocations} currentPropertyCode={propertyCode} />}
+          {line.cipDetail && <CipIcon detail={line.cipDetail} />}
         </td>
         {line.months.map((m, k) => (
           <td key={k} style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>

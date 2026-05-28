@@ -105,6 +105,8 @@ const INS_RET_DEBT_SHEET = /^ins\s+ret(\s+debt)?$/i;
 const BUILDING_MAINT_SHEET = /^building\s+maint$/i;
 const ALLOCATED_EXPENSES_SHEET = /^allocated\s+expenses$/i;
 const WATER_SEWER_SHEET = /^water\s*sewer$/i;
+const OFFICE_WORKS_SHEET = /^the\s+office\s+works$/i;
+const TOW_RR_CIP_SHEET = /^monthly\s+rent\s+roll(\s*&\s*cip)?$/i;
 
 function isRollupSheet(name: string): boolean {
   const n = name.trim();
@@ -877,6 +879,11 @@ function inferYear(rows: unknown[][]): number | null {
 
 function inferCategoryFromLabel(label: string): BudgetCategory {
   const l = label.toLowerCase();
+  // "Other Budgets" bucket — one-off books that don't roll into the
+  // Shopping Centers / JV III / NI LLC funds: The Office Works (4900),
+  // KCP Management (2010), and the LIK payroll budget. Checked before
+  // the generic "office" rule so "Office Works" doesn't land in Office.
+  if (l.includes("office works") || /\b2010\b/.test(l) || l.includes("payroll budget") || l.includes("lik payroll")) return "Other";
   if (l.includes("shopping center")) return "Shopping Centers";
   if (l.includes("office") || /\bni\s*llc\b/.test(l) || l.includes("jv iii")) return "Office";
   if (l.includes("residential") || l.includes("korman home")) return "Residential";
@@ -1037,6 +1044,269 @@ function synthesizeMultiBuildingAllocations(
   }
 }
 
+/** The Office Works (4900) workbook is shaped differently from the
+ *  shopping-center / JV III / NI LLC books: months sit one column to
+ *  the right (E–P → F–Q, total in R, notes in T), the sheet doesn't
+ *  carry the rentable-SF / occupancy header block, and the "TOTAL …"
+ *  rows live in col 2 rather than col 1. Rather than parameterizing
+ *  the main parser, handle it as its own path — small workbook, one
+ *  sheet, one supporting tab. */
+function parseOfficeWorksSheet(rows: unknown[][], sheetName: string): PropertyBudget | null {
+  // Find the "Jan" column dynamically from the header row (row 5 in
+  // the 2026 file). Falls back to col 5 (the position observed in the
+  // shipped workbook) so a header tweak doesn't kill the parse.
+  let janCol = -1;
+  for (let i = 0; i < Math.min(rows.length, 12); i++) {
+    const r = rows[i] ?? [];
+    for (let j = 0; j < r.length; j++) {
+      if (/^jan$/i.test(trim(r[j]))) { janCol = j; break; }
+    }
+    if (janCol >= 0) break;
+  }
+  if (janCol < 0) janCol = 5;
+  const totalCol = janCol + 12;
+  const notesCol = totalCol + 2;
+
+  const cellMonths = (r: unknown[]): number[] => r.slice(janCol, janCol + 12).map(num);
+
+  // Property code lives on row 0, but at col 5 (further right than
+  // the other workbooks). Name lives on row 1 col 9. Bail if neither
+  // is the expected 4900 / "The Office Works" — keeps the focused
+  // parser from accidentally claiming a sheet it doesn't understand.
+  const r0 = rows[0] ?? [];
+  const r1 = rows[1] ?? [];
+  let code = "";
+  for (let j = 0; j < r0.length; j++) {
+    const v = trim(r0[j]);
+    if (isPropertyCode(v.toUpperCase())) { code = v.toUpperCase(); break; }
+  }
+  if (!code) return null;
+  let name = "";
+  for (let j = 0; j < r1.length; j++) {
+    const v = trim(r1[j]);
+    if (v && !/operating budget/i.test(v)) { name = v; break; }
+  }
+  if (!name) name = lookupPropertyName(code) || code;
+
+  const sections: BudgetSection[] = [];
+  const rollups: { name: string; total: number; months: number[] }[] = [];
+  let currentSection: BudgetSection | null = null;
+  // The G&A block is laid out with a zero-valued "General & Administrative"
+  // parent row followed by its sub-line items (col 3 labels), which is the
+  // reverse of the other workbooks. Track an open parent and attach
+  // subsequent col-3 sub-lines until a section header / subtotal / new
+  // parent row commits it.
+  let openParent: { line: BudgetLine; children: BudgetLine[] } | null = null;
+  const commitParent = () => {
+    if (!openParent) return;
+    if (openParent.children.length > 0) {
+      openParent.line.subLines = openParent.children;
+      // Derive parent totals from the children since the workbook leaves
+      // the parent row blank (sub-lines are inputs).
+      const summed = Array(12).fill(0);
+      let tot = 0;
+      for (const c of openParent.children) {
+        for (let i = 0; i < 12; i++) summed[i] += c.months[i] ?? 0;
+        tot += c.total;
+      }
+      openParent.line.months = summed;
+      openParent.line.total = tot;
+    }
+    if (currentSection) currentSection.lines.push(openParent.line);
+    openParent = null;
+  };
+
+  for (let i = 7; i < rows.length; i++) {
+    const r = rows[i] ?? [];
+    if (rowIsBlank(r)) continue;
+    const col0 = trim(r[0]);
+    const col1 = trim(r[1]);
+    const col2 = trim(r[2]);
+    const col3 = trim(r[3]);
+
+    // Stop accumulating once the Skyline import block starts ("BUDGET
+    // IMPORT" in col 2). The flat GL → annual table that follows is
+    // not part of the main P&L.
+    if (/^budget\s+import/i.test(col1) || /^budget\s+import/i.test(col2)) {
+      commitParent();
+      break;
+    }
+
+    // Section header — colon-suffixed label in col 1 with no money.
+    if (!col0 && !col2 && col1 && r.slice(janCol, janCol + 12).every((c) => c == null || (typeof c === "string" && c.trim() === ""))) {
+      commitParent();
+      if (currentSection) sections.push(currentSection);
+      currentSection = { name: col1.replace(/:\s*$/, ""), lines: [] };
+      continue;
+    }
+
+    // Cross-section rollups — "TOTAL REVENUES", "NET OPERATING INCOME",
+    // "NET OPERATING CASH FLOW" — labelled in col 2, big monthly figures.
+    if (!col0 && !col1 && (/^total\s+revenues?$/i.test(col2) || /^net\s+/i.test(col2))) {
+      commitParent();
+      const ms = cellMonths(r);
+      const total = num(r[totalCol]);
+      rollups.push({ name: col2, total, months: ms });
+      continue;
+    }
+
+    // In-section subtotal ("TOTAL RENTAL & OTHER", "TOTAL REIMBURSEMENTS",
+    // "TOTAL SECRETARIAL SERVICES", "TOTAL NON-REIMBURSABLE EXPENSES",
+    // "TOTAL OPERATING EXPENSES", "TOTAL CAPITAL EXPENDITURES",
+    // "TOTAL DEBT SERVICE").
+    if (!col0 && /^total\s+/i.test(col2)) {
+      commitParent();
+      const ms = cellMonths(r);
+      const line: BudgetLine = {
+        glAccount: null,
+        subCategory: null,
+        label: col2,
+        months: ms,
+        total: num(r[totalCol]),
+        totalPsf: null,
+        input: null,
+        notes: null,
+        isSubtotal: true,
+      };
+      if (currentSection) currentSection.lines.push(line);
+      continue;
+    }
+
+    // Sub-line row — col 4 (the cell just left of Jan) carries the
+    // label; col 2 is empty. Used by the General & Administrative
+    // block (Bank Fees, Business Taxes, etc.). When there's no
+    // parent open the sub-line is treated as a regular line item
+    // below.
+    const subLineLabel = trim(r[janCol - 1]);
+    if (!col2 && !col1 && subLineLabel && openParent) {
+      const ms = cellMonths(r);
+      openParent.children.push({
+        glAccount: col0 || null,
+        subCategory: null,
+        label: subLineLabel,
+        months: ms,
+        total: num(r[totalCol]),
+        totalPsf: null,
+        input: null,
+        notes: trimMeaningful(r[notesCol] == null ? null : String(r[notesCol])),
+        isSubtotal: false,
+      });
+      continue;
+    }
+
+    if (col0 || col2) {
+      const ms = cellMonths(r);
+      const total = num(r[totalCol]);
+      const allZero = total === 0 && ms.every((m) => m === 0);
+
+      // Parent-header row — col 2 label, no GL, all zero months. The
+      // workbook uses this for "General & Administrative" whose detail
+      // sits in col-3 sub-lines below. Open a parent and let the next
+      // rows attach.
+      if (!col0 && allZero && col2) {
+        commitParent();
+        openParent = {
+          line: {
+            glAccount: null,
+            subCategory: col1 || null,
+            label: col2,
+            months: Array(12).fill(0),
+            total: 0,
+            totalPsf: null,
+            input: null,
+            notes: trimMeaningful(r[notesCol] == null ? null : String(r[notesCol])),
+            isSubtotal: false,
+          },
+          children: [],
+        };
+        continue;
+      }
+
+      // Regular line item — commit any open parent first.
+      commitParent();
+      if (!col0 && allZero) continue;
+      const line: BudgetLine = {
+        glAccount: col0 || null,
+        subCategory: col1 || null,
+        label: col2 || col0,
+        months: ms,
+        total,
+        totalPsf: null,
+        input: null,
+        notes: trimMeaningful(r[notesCol] == null ? null : String(r[notesCol])),
+        isSubtotal: false,
+      };
+      if (!currentSection) currentSection = { name: "Other", lines: [] };
+      currentSection.lines.push(line);
+    }
+  }
+  commitParent();
+  if (currentSection) sections.push(currentSection);
+
+  return {
+    propertyCode: code,
+    propertyName: name,
+    rentableSqft: 0,
+    occupancyPct: Array(12).fill(0),
+    occupancySqft: Array(12).fill(0),
+    sections,
+    rollups,
+    skylineImport: [],
+    skylineImportTotal: 0,
+  };
+}
+
+/** Parse the CIP block from The Office Works' "Monthly Rent Roll & CIP"
+ *  supporting tab. The CIP roster lives below the rent-roll block —
+ *  each row is one CIP member (col 1 = name, col 2 = "CIP" tag, cols
+ *  4–15 = monthly billing). Returns the per-tenant breakdown plus the
+ *  block total so the UI modal can tie out to the parent line. */
+function parseTowCip(rows: unknown[][]): import("./types").CipDetail | null {
+  // Find header row to lock in the Jan column.
+  let janCol = -1;
+  for (let i = 0; i < Math.min(rows.length, 6); i++) {
+    const r = rows[i] ?? [];
+    for (let j = 0; j < r.length; j++) {
+      if (/^jan$/i.test(trim(r[j]))) { janCol = j; break; }
+    }
+    if (janCol >= 0) break;
+  }
+  if (janCol < 0) janCol = 4;
+
+  const tenants: { name: string; months: number[]; total: number }[] = [];
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i] ?? [];
+    const name = trim(r[1]);
+    const tag = trim(r[2]);
+    if (!name) continue;
+    if (!/^cip$/i.test(tag)) continue;
+    const ms = r.slice(janCol, janCol + 12).map(num);
+    const t = ms.reduce((s, v) => s + v, 0);
+    if (t === 0 && ms.every((m) => m === 0)) continue;
+    tenants.push({ name, months: ms, total: t });
+  }
+  if (tenants.length === 0) return null;
+  const total = tenants.reduce((s, t) => s + t.total, 0);
+  return { tenants, total };
+}
+
+/** Attach the parsed CIP roster to The Office Works' "CIP Memberships"
+ *  line so the UI can render a click-to-open modal. Matches by GL
+ *  (4810-8502) and falls back to label match. */
+function attachCipDetail(property: PropertyBudget, cip: import("./types").CipDetail): void {
+  for (const sec of property.sections) {
+    for (const line of sec.lines) {
+      if (line.isSubtotal) continue;
+      const glMatch = line.glAccount === "4810-8502";
+      const labelMatch = /^cip\s+memberships?$/i.test(line.label.trim());
+      if (glMatch || labelMatch) {
+        line.cipDetail = cip;
+        return;
+      }
+    }
+  }
+}
+
 export function parseBudgetWorkbook(
   buf: Buffer | ArrayBuffer,
   label: string,
@@ -1055,6 +1325,7 @@ export function parseBudgetWorkbook(
   let buildingMaintDetail: Map<string, { contract: BudgetLine[]; recurring: BudgetLine[] }> | null = null;
   let allocatedExpenses: Map<string, import("./types").AllocationDetail[]> | null = null;
   let waterSewerDetail: Map<string, BudgetLine[]> | null = null;
+  let towCipDetail: import("./types").CipDetail | null = null;
 
   for (const sheetName of wb.SheetNames) {
     const trimmed = sheetName.trim();
@@ -1076,6 +1347,15 @@ export function parseBudgetWorkbook(
     }
     if (WATER_SEWER_SHEET.test(trimmed)) {
       waterSewerDetail = parseWaterSewerDetail(rows);
+      continue;
+    }
+    if (TOW_RR_CIP_SHEET.test(trimmed)) {
+      towCipDetail = parseTowCip(rows);
+      continue;
+    }
+    if (OFFICE_WORKS_SHEET.test(trimmed)) {
+      const parsed = parseOfficeWorksSheet(rows, sheetName);
+      if (parsed) properties.push(parsed);
       continue;
     }
     const parsed = parsePropertySheet(rows, sheetName);
@@ -1147,6 +1427,9 @@ function rollupDisplayName(workbookLabel: string, fallback: string): string {
     if (waterSewerDetail) {
       const subs = waterSewerDetail.get(property.propertyCode);
       if (subs) attachWaterSewerSubLines(property, subs);
+    }
+    if (towCipDetail && property.propertyCode === "4900") {
+      attachCipDetail(property, towCipDetail);
     }
   }
 

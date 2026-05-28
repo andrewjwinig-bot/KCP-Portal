@@ -57,6 +57,16 @@ const SEEDS: SeedConfig[] = [
     year: 2026,
     id: "ni-llc-2026",
   },
+  // The Office Works (4900) — one-off "Other Budgets" book. Different
+  // sheet shape from the property workbooks (months at col F-Q, no
+  // occupancy header, CIP member roster on a supporting tab) — parsed
+  // by the focused parseOfficeWorksSheet path.
+  {
+    file: "Office_Works_2026.xlsx",
+    label: "Office Works 2026 Operating Budget",
+    year: 2026,
+    id: "office-works-2026",
+  },
 ];
 
 type Manifest = {
@@ -287,6 +297,20 @@ function seedMissingMgmtFeePercent(wb: BudgetWorkbook): boolean {
   return false;
 }
 
+/** Returns true when The Office Works seed is missing the CIP tenant
+ *  detail on its "CIP Memberships" line — added later so the page can
+ *  open a per-tenant modal off the Monthly Rent Roll & CIP tab. */
+function seedMissingCipDetail(wb: BudgetWorkbook): boolean {
+  if (wb.id !== "office-works-2026") return false;
+  const property = wb.properties.find((p) => p.propertyCode === "4900");
+  if (!property) return false;
+  const line = property.sections
+    .flatMap((s) => s.lines)
+    .find((l) => !l.isSubtotal && (l.glAccount === "4810-8502" || /^cip\s+memberships?$/i.test(l.label.trim())));
+  if (!line) return false;
+  return !line.cipDetail || line.cipDetail.tenants.length === 0;
+}
+
 /** Returns true when any line still uses the legacy "Leasing Salaries
  *  and Commissions" spelling — staff prefer the ampersand form for
  *  the page header. */
@@ -316,7 +340,8 @@ function seedNeedsReparse(wb: BudgetWorkbook): boolean {
          seedMissingWaterSewerSubLines(wb) ||
          seedMisattachedNonReimbBuildingMaintDetail(wb) ||
          seedMissingMgmtFeePercent(wb) ||
-         seedHasLegacyLeasingLabel(wb);
+         seedHasLegacyLeasingLabel(wb) ||
+         seedMissingCipDetail(wb);
 }
 
 async function parseSeed(cfg: SeedConfig): Promise<BudgetWorkbook | null> {
