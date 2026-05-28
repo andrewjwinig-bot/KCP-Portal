@@ -320,6 +320,24 @@ function seedMissingTowOccupancy(wb: BudgetWorkbook): boolean {
   return property.occupancySqft.every((s) => s === 0);
 }
 
+/** Returns true when the LIK Management seed still ships the workbook's
+ *  raw rollup labels ("Net Income" instead of "NET OPERATING INCOME")
+ *  or is missing the synthesized "TOTAL OPERATING EXPENSES" / "CASH
+ *  FLOW BEFORE DEBT SERVICE" — added later so the headline pills and
+ *  between-section SubtotalCards render consistently with the property
+ *  workbooks. */
+function seedMissingLikRollupNormalization(wb: BudgetWorkbook): boolean {
+  if (wb.id !== "lik-mgmt-2026") return false;
+  const property = wb.properties.find((p) => p.propertyCode === "2010");
+  if (!property) return false;
+  const names = new Set(property.rollups.map((r) => r.name.toUpperCase()));
+  if (names.has("NET INCOME")) return true;
+  if (!names.has("NET OPERATING INCOME")) return true;
+  if (!names.has("TOTAL OPERATING EXPENSES")) return true;
+  if (!names.has("CASH FLOW BEFORE DEBT SERVICE")) return true;
+  return false;
+}
+
 /** Returns true when The Office Works seed is missing the CIP tenant
  *  detail on its "CIP Memberships" line — added later so the page can
  *  open a per-tenant modal off the Monthly Rent Roll & CIP tab. */
@@ -399,7 +417,8 @@ function seedNeedsReparse(wb: BudgetWorkbook): boolean {
          seedHasLegacyLeasingLabel(wb) ||
          seedMissingCipDetail(wb) ||
          seedHasLegacyTowReimbLabels(wb) ||
-         seedMissingTowOccupancy(wb);
+         seedMissingTowOccupancy(wb) ||
+         seedMissingLikRollupNormalization(wb);
 }
 
 async function parseSeed(cfg: SeedConfig): Promise<BudgetWorkbook | null> {

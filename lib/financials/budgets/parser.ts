@@ -1589,6 +1589,34 @@ function parseLikBudgetSheet(rows: unknown[][]): PropertyBudget | null {
   }
   if (currentSection) sections.push(currentSection);
 
+  // Normalize the rollup names + synthesize "TOTAL OPERATING EXPENSES"
+  // and "CASH FLOW BEFORE DEBT SERVICE" so the headline pills + the
+  // between-section SubtotalCards render consistently with the
+  // property workbooks. The workbook's own labels are "TOTAL
+  // REVENUES:" / "Net Income" / "Sub-Total Expenses".
+  for (const r of rollups) {
+    const t = r.name.toUpperCase().replace(/:\s*$/, "").trim();
+    if (t === "NET INCOME") r.name = "NET OPERATING INCOME";
+    else r.name = t;
+  }
+  const opsSection = sections.find((s) => /^operating\s+expenses?$/i.test(s.name.trim()));
+  const opsSubtotal = opsSection?.lines.find((l) => l.isSubtotal && /^sub-?total/i.test(l.label));
+  if (opsSubtotal && !rollups.some((r) => /^total operating expenses?$/i.test(r.name))) {
+    rollups.push({
+      name: "TOTAL OPERATING EXPENSES",
+      total: opsSubtotal.total,
+      months: opsSubtotal.months.slice(),
+    });
+  }
+  const noi = rollups.find((r) => r.name === "NET OPERATING INCOME");
+  if (noi && !rollups.some((r) => /^cash flow/i.test(r.name))) {
+    rollups.push({
+      name: "CASH FLOW BEFORE DEBT SERVICE",
+      total: noi.total,
+      months: noi.months.slice(),
+    });
+  }
+
   return {
     propertyCode: code,
     propertyName: name,

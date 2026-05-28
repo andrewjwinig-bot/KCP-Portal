@@ -437,14 +437,38 @@ function BudgetTable({
     [property.sections],
   );
 
+  // Does the workbook carry a Reimbursements section? Property books
+  // do; the management-company books (2010, 4900) only have a single
+  // Revenue section so the TOTAL REVENUES card injects right after it
+  // instead of waiting for Reimbursements.
+  const hasReimbursements = useMemo(
+    () => property.sections.some((s) => /^reimburs/i.test(s.name.trim()) && !/expense/i.test(s.name)),
+    [property.sections],
+  );
+
   const subtotalsAfter = useCallback((sectionName: string): { name: string; total: number; months: number[] }[] => {
     const norm = sectionName.toLowerCase();
     const wants: { key: string; relabelTo?: string }[] = [];
     if (/reimburs/.test(norm) && !/expense/.test(norm) && !/non/.test(norm)) wants.push({ key: "TOTAL REVENUES" });
+    // Books without a separate Reimbursements section (LIK 2010, TOW
+    // 4900) — drop the TOTAL REVENUES card right after Revenue / Revenues
+    // so it still anchors the top of the page.
+    if (!hasReimbursements && /^revenues?$/.test(norm)) wants.push({ key: "TOTAL REVENUES" });
     if (/non-reimbursable/.test(norm)) {
       wants.push({ key: "TOTAL OPERATING EXPENSES" }, { key: "NET OPERATING INCOME" });
       // No Capital section in this workbook? Emit CASH FLOW BEFORE DEBT
       // SERVICE here (or just CASH FLOW when there's no debt either).
+      if (!hasCapital) {
+        wants.push(hasDebt
+          ? { key: "CASH FLOW BEFORE DEBT SERVICE" }
+          : { key: "CASH FLOW BEFORE DEBT SERVICE", relabelTo: "CASH FLOW" });
+      }
+    }
+    // Management-company books — Operating Expenses is the single
+    // expense section, so TOTAL OPERATING EXPENSES + NET OPERATING
+    // INCOME + CASH FLOW all land after it.
+    if (/^operating\s+expenses?$/.test(norm) || /^operation\s+expenses?$/.test(norm)) {
+      wants.push({ key: "TOTAL OPERATING EXPENSES" }, { key: "NET OPERATING INCOME" });
       if (!hasCapital) {
         wants.push(hasDebt
           ? { key: "CASH FLOW BEFORE DEBT SERVICE" }
@@ -463,7 +487,7 @@ function BudgetTable({
         return r ? { ...r, name: w.relabelTo ?? r.name } : null;
       })
       .filter((r): r is { name: string; total: number; months: number[] } => Boolean(r));
-  }, [rollupByName, hasDebt, hasCapital]);
+  }, [rollupByName, hasDebt, hasCapital, hasReimbursements]);
 
   // Headline pills. Always 5 across the row:
   //   1. TOTAL REVENUES, 2. TOTAL OPERATING EXPENSES, 3. NET OPERATING INCOME
