@@ -1240,7 +1240,7 @@ function AllocationModal({ allocations, currentPropertyCode, onClose }: {
         onClick={(e) => e.stopPropagation()}
         style={{
           background: "var(--card)", borderRadius: 12,
-          maxWidth: 1180, width: "100%",
+          maxWidth: 1440, width: "100%",
           boxShadow: "0 20px 60px rgba(0,0,0,0.35)",
           display: "flex", flexDirection: "column", gap: 14, padding: 18,
         }}
@@ -1288,14 +1288,27 @@ function AllocationModal({ allocations, currentPropertyCode, onClose }: {
                 </div>
               </div>
             </div>
-            {/* Core data only — drops the Property / SF / Share columns
-                and the Jan..Dec header row. The card header above carries
-                GL, label, source note, and portfolio total; the
-                highlighted row IDs the current property. Footer TOTAL
-                row sums each month + the annual so staff can spot-check
-                that the allocation ties out. */}
+            {/* Property + Share columns on the left + month headers up
+                top so it's obvious which building gets what across the
+                year. Current property's row stays highlighted brand-
+                blue. Footer TOTAL row sums each month and the annual
+                for the tie-out check. */}
             <div className="tableWrap" style={{ marginTop: 0 }}>
               <table style={{ tableLayout: "fixed", width: "100%" }}>
+                <colgroup>
+                  <col style={{ width: 90 }} />
+                  <col style={{ width: 64 }} />
+                  {MONTHS.map((m) => <col key={m} />)}
+                  <col style={{ width: 100 }} />
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th style={{ textAlign: "left" }}>Property</th>
+                    <th style={{ textAlign: "right" }}>Share</th>
+                    {MONTHS.map((m) => <th key={m} style={{ textAlign: "right" }}>{m}</th>)}
+                    <th style={{ textAlign: "right" }}>Total</th>
+                  </tr>
+                </thead>
                 <tbody>
                   {(a.rows ?? []).map((row) => {
                     const isMe = row.propertyCode.toUpperCase() === here;
@@ -1305,6 +1318,15 @@ function AllocationModal({ allocations, currentPropertyCode, onClose }: {
                         opacity: isMe ? 1 : 0.55,
                         fontWeight: isMe ? 700 : 400,
                       }}>
+                        <td style={{
+                          fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap",
+                          color: isMe ? "#0b4a7d" : undefined,
+                        }}>
+                          {row.propertyCode}
+                        </td>
+                        <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontSize: 12 }}>
+                          {row.sharePct > 0 ? `${row.sharePct.toFixed(2)}%` : "—"}
+                        </td>
                         {row.months.map((m, j) => (
                           <td key={j} style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontSize: 12 }}>
                             {fmt(m)}
@@ -1327,6 +1349,8 @@ function AllocationModal({ allocations, currentPropertyCode, onClose }: {
                         borderTop: "2px solid rgba(11,74,125,0.40)",
                         fontWeight: 800, color: "#0b4a7d",
                       }}>
+                        <td>TOTAL</td>
+                        <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>100%</td>
                         {monthlyTotals.map((m, j) => (
                           <td key={j} style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontSize: 12 }}>
                             {fmt(m)}
