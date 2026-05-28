@@ -72,15 +72,17 @@ type Manifest = {
 };
 
 /** Returns true when any line in a seed carries a YoY-variance %
- *  in its notes (e.g. "-16.09%"). Those were stored from col 19 of
- *  the source workbook before we learned they aren't real notes —
- *  re-parse to drop them. */
+ *  in its notes (e.g. "-16.09%") OR a pure placeholder dash that an
+ *  earlier parse stored as a real note (the page would otherwise show
+ *  a misleading ⓘ info icon). Both cases warrant a re-parse. */
 function seedHasYoyNoise(wb: BudgetWorkbook): boolean {
   const variancePct = /^[-+]?\d+(\.\d+)?\s*%$/;
+  const placeholder = /^[-—–\s]+$/;
   for (const property of wb.properties) {
     for (const section of property.sections) {
       for (const line of section.lines) {
-        if (line.notes && variancePct.test(line.notes.trim())) return true;
+        const n = line.notes?.trim();
+        if (n && (variancePct.test(n) || placeholder.test(n))) return true;
       }
     }
   }

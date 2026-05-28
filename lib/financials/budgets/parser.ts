@@ -60,6 +60,21 @@ function num(v: unknown): number {
   return neg ? -n : n;
 }
 
+/** True when a workbook cell holds a placeholder ("-", "—", " - ") that
+ *  staff use to denote "nothing here" rather than an actual note /
+ *  initials. The page would otherwise show a misleading ⓘ info icon on
+ *  every line with a placeholder in the notes column. */
+function isPlaceholderText(s: string): boolean {
+  return /^[-—–\s]+$/.test(s);
+}
+
+function trimMeaningful(s: string | null): string | null {
+  if (s == null) return null;
+  const t = s.trim();
+  if (!t || isPlaceholderText(t)) return null;
+  return t;
+}
+
 function pct(v: unknown): number {
   const s = trim(v);
   if (!s) return 0;
@@ -141,8 +156,8 @@ function isYoyVarianceColumn(input: string | null, notes: string | null): boolea
  *  Commissions"); preserve that when present. */
 function buildSubLineFromRow(r: unknown[], label: string, glAccount: string | null): BudgetLine {
   const ms = months(r);
-  const rawInput = r[18] != null && trim(r[18]) !== "" ? trim(r[18]) : null;
-  const rawNotes = r[19] != null && trim(r[19]) !== "" ? trim(r[19]) : null;
+  const rawInput = trimMeaningful(r[18] == null ? null : String(r[18]));
+  const rawNotes = trimMeaningful(r[19] == null ? null : String(r[19]));
   const isYoy = isYoyVarianceColumn(rawInput, rawNotes);
   return {
     glAccount,
@@ -328,8 +343,8 @@ function parsePropertySheet(rows: unknown[][], sheetName: string): PropertyBudge
         pendingSubLines = [];
         continue;
       }
-      const rawInput = r[18] != null && trim(r[18]) !== "" ? trim(r[18]) : null;
-      const rawNotes = r[19] != null && trim(r[19]) !== "" ? trim(r[19]) : null;
+      const rawInput = trimMeaningful(r[18] == null ? null : String(r[18]));
+      const rawNotes = trimMeaningful(r[19] == null ? null : String(r[19]));
       const isYoy = isYoyVarianceColumn(rawInput, rawNotes);
       const line: BudgetLine = {
         glAccount: col0 || null,
