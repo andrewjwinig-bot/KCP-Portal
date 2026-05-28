@@ -1486,7 +1486,12 @@ function BudgetLineRow({
               </span>
             )}
             {line.subCategory && <span style={{ color: "var(--muted)", marginRight: 2, fontSize: 11 }}>{line.subCategory}</span>}
-            <span>{line.label}</span>
+            <span>
+              {line.label}
+              {line.feePercent != null && (
+                <span className="muted small" style={{ marginLeft: 6 }}>({line.feePercent}%)</span>
+              )}
+            </span>
             {hasSubLines && (
               <span
                 title={sumTies
