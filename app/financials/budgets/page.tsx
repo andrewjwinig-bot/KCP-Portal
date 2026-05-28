@@ -1266,13 +1266,14 @@ function AllocationModal({ allocations, currentPropertyCode, onClose }: {
                 </div>
               </div>
             </div>
-            {/* Core data only — drops the Property / SF / Share columns,
-                the Jan..Dec header row, and the TOTAL footer row. The
-                modal's header above already carries GL, label, source
-                note, and portfolio total; the highlighted row IDs the
-                current property. */}
+            {/* Core data only — drops the Property / SF / Share columns
+                and the Jan..Dec header row. The card header above carries
+                GL, label, source note, and portfolio total; the
+                highlighted row IDs the current property. Footer TOTAL
+                row sums each month + the annual so staff can spot-check
+                that the allocation ties out. */}
             <div className="tableWrap" style={{ marginTop: 0 }}>
-              <table>
+              <table style={{ tableLayout: "fixed", width: "100%" }}>
                 <tbody>
                   {(a.rows ?? []).map((row) => {
                     const isMe = row.propertyCode.toUpperCase() === here;
@@ -1293,6 +1294,28 @@ function AllocationModal({ allocations, currentPropertyCode, onClose }: {
                       </tr>
                     );
                   })}
+                  {(a.rows?.length ?? 0) > 0 && (() => {
+                    const monthlyTotals = Array.from({ length: 12 }, (_, m) =>
+                      a.rows!.reduce((s, r) => s + (r.months[m] ?? 0), 0),
+                    );
+                    const annualTotal = a.rows!.reduce((s, r) => s + r.total, 0);
+                    return (
+                      <tr style={{
+                        background: "rgba(11,74,125,0.10)",
+                        borderTop: "2px solid rgba(11,74,125,0.40)",
+                        fontWeight: 800, color: "#0b4a7d",
+                      }}>
+                        {monthlyTotals.map((m, j) => (
+                          <td key={j} style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontSize: 12 }}>
+                            {fmt(m)}
+                          </td>
+                        ))}
+                        <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontSize: 13 }}>
+                          {fmt(annualTotal)}
+                        </td>
+                      </tr>
+                    );
+                  })()}
                 </tbody>
               </table>
             </div>
