@@ -85,7 +85,7 @@ function months(r: unknown[]): number[] {
 // Building Maint, Allocated Expenses, etc.) are handled by their own
 // parsers below; everything in IGNORE_SHEET is workbook scaffolding
 // we don't pull anything from.
-const IGNORE_SHEET = /^(cover\s*sheet|sheet\d+|source and use of cash|assumptions|dscr\s*calc|in place revenue|renew(\s*&\s*vac.*)?|tenant recoveries|lik mgmt fee|water\s*sewer|parking lot maint|landscaping|trash)\s*$/i;
+const IGNORE_SHEET = /^(cover\s*sheet|sheet\d+|source and use of cash|assumptions|dscr\s*calc|in place revenue|renew(\s*&\s*vac.*)?|tenant recoveries|lik mgmt fee|water\s*sewer|parking lot maint|landscaping|trash|trusts)\s*$/i;
 const INS_RET_DEBT_SHEET = /^ins\s+ret(\s+debt)?$/i;
 const BUILDING_MAINT_SHEET = /^building\s+maint$/i;
 const ALLOCATED_EXPENSES_SHEET = /^allocated\s+expenses$/i;
@@ -160,24 +160,33 @@ function parsePropertySheet(rows: unknown[][], sheetName: string): PropertyBudge
   const r0 = rows[0] ?? [];
   const codeRaw = trim(r0[1]);
   const isRollup = isRollupSheet(sheetName);
-  // For property sheets the property code lives in row 0 col 1. For
-  // rollup sheets ("All Shopping Centers", "JV III Consolidated") that
-  // cell carries the rollup's display name instead, so we synthesize a
-  // stable code and use the cell value as the human label.
+  // For property sheets the property code usually lives in row 0 col 1.
+  // For rollup sheets ("All Shopping Centers", "JV III Consolidated")
+  // that cell carries the rollup's display name instead. For NI LLC's
+  // 4000 sheet it carries "Unallocated Expenses" — in that case we fall
+  // back to the sheet name (which IS a property code) and use the
+  // descriptive text as the display name.
   let code: string;
   let name: string;
   if (isRollup) {
     code = "CONSOLIDATED";
     name = codeRaw || "Consolidated";
-  } else {
+  } else if (isPropertyCode(codeRaw.toUpperCase())) {
     code = codeRaw.toUpperCase();
-    if (!isPropertyCode(code)) return null;
     // Property name: strip leading dash + spaces from "- Brookwood
     // Shopping Center". The SC file carries the name in col 2 of row 0;
-    // the JV III office files leave it blank — fall back to
-    // PROPERTY_DEFS so the page header reads cleanly either way.
+    // the JV III office files leave it blank — fall back to PROPERTY_DEFS
+    // so the page header reads cleanly either way.
     const nameFromSheet = trim(r0[2]).replace(/^[-\s]+/, "");
     name = nameFromSheet || lookupPropertyName(code) || code;
+  } else if (isPropertyCode(sheetName.toUpperCase())) {
+    // Sheet name carries the property code; row 0 col 1 has descriptive
+    // text (e.g. "Unallocated Expenses" on NI LLC's 4000 sheet — the
+    // holding-entity bucket for LLC-level expenses).
+    code = sheetName.toUpperCase();
+    name = codeRaw || lookupPropertyName(code) || code;
+  } else {
+    return null;
   }
 
   const r3 = rows[3] ?? [];
@@ -722,7 +731,7 @@ function inferYear(rows: unknown[][]): number | null {
 function inferCategoryFromLabel(label: string): BudgetCategory {
   const l = label.toLowerCase();
   if (l.includes("shopping center")) return "Shopping Centers";
-  if (l.includes("office") || l.includes("nilllc") || l.includes("jv iii")) return "Office";
+  if (l.includes("office") || /\bni\s*llc\b/.test(l) || l.includes("jv iii")) return "Office";
   if (l.includes("residential") || l.includes("korman home")) return "Residential";
   return "Other";
 }
