@@ -398,6 +398,7 @@ function BudgetTable({
   const downloadHref = `/api/financials/budgets/${encodeURIComponent(workbook.id)}/download?property=${encodeURIComponent(property.propertyCode)}`;
   const [psf, setPsf] = useState(false);
   const [hideEmpty, setHideEmpty] = useState(false);
+  const [showGL, setShowGL] = useState(false);
   const sqft = property.rentableSqft || 0;
 
   // Build the lookup of cross-section subtotals (TOTAL REVENUES, NOI,
@@ -637,6 +638,7 @@ function BudgetTable({
           <div style={{ display: "inline-flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
             <ViewToggle psf={psf} onChange={setPsf} disabled={sqft <= 0} />
             <EmptyRowsToggle hide={hideEmpty} onChange={setHideEmpty} />
+            <GLToggle show={showGL} onChange={setShowGL} />
           </div>
         </div>
 
@@ -701,6 +703,7 @@ function BudgetTable({
                         psf={psf}
                         isEmpty={isEmpty}
                         propertyCode={property.propertyCode}
+                        showGL={showGL}
                       />
                     );
                   })}
@@ -758,6 +761,42 @@ function GroupHeader({ label }: { label: string }) {
       color: "#0b4a7d",
     }}>
       {label}
+    </div>
+  );
+}
+
+function GLToggle({ show, onChange }: {
+  show: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  const baseBtn: React.CSSProperties = {
+    fontSize: 11, fontWeight: 700, padding: "4px 10px",
+    border: "1px solid var(--border)", background: "var(--card)",
+    color: "var(--text)", cursor: "pointer",
+    letterSpacing: "0.04em", textTransform: "uppercase",
+  };
+  const active: React.CSSProperties = {
+    background: "#0b4a7d", color: "#fff", borderColor: "#0b4a7d",
+  };
+  return (
+    <div style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+      <span className="muted small" style={{ fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase" }}>GL</span>
+      <div style={{ display: "inline-flex", borderRadius: 6, overflow: "hidden" }}>
+        <button
+          type="button"
+          onClick={() => onChange(false)}
+          style={{ ...baseBtn, borderRadius: "6px 0 0 6px", ...(show ? {} : active) }}
+        >
+          Hide
+        </button>
+        <button
+          type="button"
+          onClick={() => onChange(true)}
+          style={{ ...baseBtn, borderLeft: "none", borderRadius: "0 6px 6px 0", ...(show ? active : {}) }}
+        >
+          Show
+        </button>
+      </div>
     </div>
   );
 }
@@ -1322,6 +1361,7 @@ function BudgetLineRow({
   psf,
   isEmpty,
   propertyCode,
+  showGL,
 }: {
   line: import("@/lib/financials/budgets/types").BudgetLine;
   sectionName: string;
@@ -1330,6 +1370,7 @@ function BudgetLineRow({
   psf: boolean;
   isEmpty: boolean;
   propertyCode: string;
+  showGL: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
   const hasSubLines = !!line.subLines && line.subLines.length > 0;
@@ -1366,7 +1407,7 @@ function BudgetLineRow({
                 ▸
               </span>
             )}
-            {line.glAccount && (
+            {showGL && line.glAccount && (
               <span className="muted small" style={{ fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
                 {line.glAccount}
               </span>
@@ -1421,6 +1462,7 @@ function BudgetLineRow({
           sqft={sqft}
           psf={psf}
           propertyCode={propertyCode}
+          showGL={showGL}
         />
       ))}
     </>
@@ -1438,6 +1480,7 @@ function SubLineRow({
   sqft,
   psf,
   propertyCode,
+  showGL,
 }: {
   line: import("@/lib/financials/budgets/types").BudgetLine;
   parentKey: string;
@@ -1445,6 +1488,7 @@ function SubLineRow({
   sqft: number;
   psf: boolean;
   propertyCode: string;
+  showGL: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
   const hasNested = !!line.subLines && line.subLines.length > 0;
@@ -1483,7 +1527,7 @@ function SubLineRow({
               ▸
             </span>
           )}
-          {line.glAccount && (
+          {showGL && line.glAccount && (
             <span className="muted small" style={{ fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", marginRight: 6 }}>
               {line.glAccount}
             </span>
@@ -1513,6 +1557,7 @@ function SubLineRow({
           sqft={sqft}
           psf={psf}
           propertyCode={propertyCode}
+          showGL={showGL}
         />
       ))}
     </>
