@@ -237,6 +237,27 @@ function seedMissingWaterSewerSubLines(wb: BudgetWorkbook): boolean {
   return false;
 }
 
+/** Returns true when the Non-Reimbursable Expenses "Building
+ *  Maintenance" line has level-2 detail attached. That tab covers
+ *  Reimbursable-side CAM maintenance only; the Non-Reimbursable line
+ *  is a hardcoded total. Earlier deploys attached the detail
+ *  indiscriminately — re-parse so the misattached sub-lines drop. */
+function seedMisattachedNonReimbBuildingMaintDetail(wb: BudgetWorkbook): boolean {
+  for (const property of wb.properties) {
+    for (const section of property.sections) {
+      if (!/^non-reimbursable expenses?$/i.test(section.name.trim())) continue;
+      for (const line of section.lines) {
+        if (line.isSubtotal) continue;
+        if (!/^building maintenance$/i.test(line.label.trim())) continue;
+        if (!line.subLines) continue;
+        const hasLevel2 = line.subLines.some((s) => (s.subLines?.length ?? 0) > 0);
+        if (hasLevel2) return true;
+      }
+    }
+  }
+  return false;
+}
+
 function seedNeedsReparse(wb: BudgetWorkbook): boolean {
   return seedMissingSubLineDetail(wb) ||
          seedHasYoyNoise(wb) ||
@@ -246,7 +267,8 @@ function seedNeedsReparse(wb: BudgetWorkbook): boolean {
          seedConsolidatedMissingOccSqft(wb) ||
          seedMissingMainPnlSubtotals(wb) ||
          seedMissingDebtAllocations(wb) ||
-         seedMissingWaterSewerSubLines(wb);
+         seedMissingWaterSewerSubLines(wb) ||
+         seedMisattachedNonReimbBuildingMaintDetail(wb);
 }
 
 async function parseSeed(cfg: SeedConfig): Promise<BudgetWorkbook | null> {

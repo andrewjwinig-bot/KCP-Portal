@@ -843,6 +843,11 @@ function attachBuildingMaintSubLines(
 ): void {
   if (bucket.contract.length === 0 && bucket.recurring.length === 0) return;
   for (const sec of property.sections) {
+    // Only attach to the Reimbursable Expenses side. The Non-
+    // Reimbursable "Building Maintenance" line has its own hardcoded
+    // sub-line totals — the Building Maint supporting tab covers
+    // operating CAM-style maintenance, not the building's own R&M.
+    if (!/^reimbursable expenses?$/i.test(sec.name.trim())) continue;
     for (const line of sec.lines) {
       if (line.isSubtotal) continue;
       if (!/^building maintenance$/i.test(line.label.trim())) continue;
