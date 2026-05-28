@@ -1270,49 +1270,94 @@ function AllocationModal({ allocations, currentPropertyCode, onClose }: {
           display: "flex", flexDirection: "column", gap: 14, padding: 18,
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-          <div>
-            <div className="muted small" style={{ fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}>
-              Allocated Expense Detail
-            </div>
-            <div style={{ fontSize: 16, fontWeight: 800, marginTop: 2 }}>
-              {allocations.length === 1 ? allocations[0].blockLabel : `${allocations.length} contributing blocks`}
-            </div>
-          </div>
-          <button onClick={onClose} className="btn" style={{ padding: "6px 12px", fontSize: 13, fontWeight: 700 }}>
-            Close
-          </button>
-        </div>
-
-        {allocations.map((a, idx) => (
-          <div key={idx} className="card" style={{ padding: 0 }}>
-            <div style={{
-              padding: "10px 14px",
-              borderBottom: "1px solid var(--border)",
-              background: "rgba(15,23,42,0.03)",
-              display: "flex", alignItems: "baseline", justifyContent: "space-between",
-              gap: 12, flexWrap: "wrap",
-            }}>
-              <div>
-                <span className="muted small" style={{ fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase" }}>
-                  {a.glAccount} · {a.basis === "sqft" ? "Sqft share" : a.basis === "annual" ? "Annual amount" : "Allocation"}
-                </span>
-                <div style={{ fontSize: 14, fontWeight: 800, marginTop: 2 }}>
-                  {a.blockLabel}
-                </div>
-                {a.sourceNote && (
-                  <div className="muted small" style={{ marginTop: 2, fontStyle: "italic" }}>{a.sourceNote}</div>
-                )}
+        {/* Single block (the common case) — promote the label + GL +
+            portfolio total to the modal header so the block card itself
+            doesn't repeat them. Multi-block keeps a generic header up
+            top and each block retains its own identifier card. */}
+        {allocations.length === 1 ? (
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+            <div style={{ minWidth: 0 }}>
+              <div className="muted small" style={{ fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                Allocated Expense Detail
               </div>
+              <div style={{ fontSize: 18, fontWeight: 800, marginTop: 2, display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
+                <span>{allocations[0].blockLabel}</span>
+                <span className="muted small" style={{ fontVariantNumeric: "tabular-nums", fontWeight: 700 }}>
+                  {allocations[0].glAccount}
+                </span>
+              </div>
+              {allocations[0].sourceNote && (
+                <div className="muted small" style={{ marginTop: 4, fontStyle: "italic" }}>{allocations[0].sourceNote}</div>
+              )}
+            </div>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
               <div style={{ textAlign: "right" }}>
                 <div className="muted small" style={{ fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase" }}>
                   Portfolio total
                 </div>
                 <div style={{ fontSize: 16, fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>
-                  {fmt(a.portfolioTotal)}
+                  {fmt(allocations[0].portfolioTotal)}
+                </div>
+                <div className="muted small" style={{ marginTop: 2 }}>
+                  {allocations[0].basis === "sqft" ? "Sqft share" : allocations[0].basis === "annual" ? "Annual amount" : "Allocation"}
                 </div>
               </div>
+              <button onClick={onClose} className="btn" style={{ padding: "6px 12px", fontSize: 13, fontWeight: 700 }}>
+                Close
+              </button>
             </div>
+          </div>
+        ) : (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+            <div>
+              <div className="muted small" style={{ fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                Allocated Expense Detail
+              </div>
+              <div style={{ fontSize: 16, fontWeight: 800, marginTop: 2 }}>
+                {`${allocations.length} contributing blocks`}
+              </div>
+            </div>
+            <button onClick={onClose} className="btn" style={{ padding: "6px 12px", fontSize: 13, fontWeight: 700 }}>
+              Close
+            </button>
+          </div>
+        )}
+
+        {allocations.map((a, idx) => (
+          <div key={idx} className="card" style={{ padding: 0 }}>
+            {/* Per-block identifier card only renders when there's
+                more than one block — the single-block info already
+                lives in the modal header above. */}
+            {allocations.length > 1 && (
+              <div style={{
+                padding: "10px 14px",
+                borderBottom: "1px solid var(--border)",
+                background: "rgba(15,23,42,0.03)",
+                display: "flex", alignItems: "baseline", justifyContent: "space-between",
+                gap: 12, flexWrap: "wrap",
+              }}>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 800, display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
+                    <span>{a.blockLabel}</span>
+                    <span className="muted small" style={{ fontVariantNumeric: "tabular-nums", fontWeight: 700 }}>{a.glAccount}</span>
+                  </div>
+                  {a.sourceNote && (
+                    <div className="muted small" style={{ marginTop: 2, fontStyle: "italic" }}>{a.sourceNote}</div>
+                  )}
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <div className="muted small" style={{ fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase" }}>
+                    Portfolio total
+                  </div>
+                  <div style={{ fontSize: 16, fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>
+                    {fmt(a.portfolioTotal)}
+                  </div>
+                  <div className="muted small" style={{ marginTop: 2 }}>
+                    {a.basis === "sqft" ? "Sqft share" : a.basis === "annual" ? "Annual amount" : "Allocation"}
+                  </div>
+                </div>
+              </div>
+            )}
             {/* Property + Share columns on the left + month headers up
                 top so it's obvious which building gets what across the
                 year. Current property's row stays highlighted brand-

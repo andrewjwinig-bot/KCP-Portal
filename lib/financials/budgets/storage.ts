@@ -112,15 +112,19 @@ function seedHasYoyNoise(wb: BudgetWorkbook): boolean {
 
 /** Returns true when the seed has no `allocations` metadata anywhere
  *  OR when any existing allocation is missing its full per-property
- *  `rows` breakdown (added later for the click-to-open modal). */
+ *  `rows` breakdown (added later for the click-to-open modal) OR when
+ *  any allocation's blockLabel still carries the legacy " - Line N"
+ *  workbook row-pointer suffix (stripped by a parser cleanup). */
 function seedMissingAllocations(wb: BudgetWorkbook): boolean {
   let any = false;
   let allHaveRows = true;
+  let hasLegacyLineSuffix = false;
   const check = (line: import("./types").BudgetLine) => {
     if (line.allocations && line.allocations.length > 0) {
       any = true;
       for (const a of line.allocations) {
         if (!a.rows || a.rows.length === 0) allHaveRows = false;
+        if (/\s-\s*line\s+\d+\s*$/i.test(a.blockLabel)) hasLegacyLineSuffix = true;
       }
     }
     line.subLines?.forEach(check);
@@ -128,7 +132,7 @@ function seedMissingAllocations(wb: BudgetWorkbook): boolean {
   for (const property of wb.properties) {
     for (const section of property.sections) section.lines.forEach(check);
   }
-  return !any || !allHaveRows;
+  return !any || !allHaveRows || hasLegacyLineSuffix;
 }
 
 /** Returns true when a known parent ("Leasing Salaries and Commissions",

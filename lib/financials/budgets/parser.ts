@@ -746,9 +746,13 @@ function parseAllocatedExpenses(rows: unknown[][]): Map<string, import("./types"
       // shifts when extra columns are present.
       const titleTotal = num(r[16]) || num(r[17]);
       const noteCol = [r[18], r[19], r[20]].map((c) => (c != null ? trim(c) : "")).find((s) => s !== "");
+      // Strip the workbook's " - Line N" row index from the block
+      // label — staff don't care about the source-row pointer; the
+      // modal already shows the GL and the block name.
+      const cleanLabel = col1.replace(/\s*-\s*line\s+\d+\s*$/i, "").trim();
       block = {
         gl: col0,
-        label: col1,
+        label: cleanLabel,
         portfolioTotal: titleTotal,
         sourceNote: noteCol || null,
         basis: "other",
