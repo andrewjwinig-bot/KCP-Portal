@@ -773,12 +773,28 @@ export function parseBudgetWorkbook(
     else properties.push(parsed);
   }
 
+/** Friendly display name for the synthesized "Consolidated" property.
+ *  The rollup sheet's row-0 col-1 value can be cryptic ("Consolidated
+ *  - 1, 2, 4"); derive a fund/category-aware label from the workbook
+ *  label instead so the dropdown reads cleanly. */
+function rollupDisplayName(workbookLabel: string, fallback: string): string {
+  const l = workbookLabel.toLowerCase();
+  if (/jv\s*iii/.test(l)) return "JV III";
+  if (/ni\s*llc/.test(l)) return "NI LLC";
+  if (/shopping centers/.test(l)) return "All Shopping Centers";
+  if (/residential|korman home/.test(l)) return "All Residential";
+  return fallback || "Consolidated";
+}
+
   // Surface the rollup as a selectable "Consolidated" entry at the top
   // of the property list so the dropdown lets staff jump straight to
   // the portfolio view alongside the individual buildings. The supporting-
   // tab attachers below correctly no-op on it (no allocations / sub-line
   // detail keyed off propertyCode="CONSOLIDATED").
-  if (rollup) properties.unshift(rollup);
+  if (rollup) {
+    rollup.propertyName = rollupDisplayName(label, rollup.propertyName);
+    properties.unshift(rollup);
+  }
 
   // Attach supporting-tab detail after all property sheets are parsed
   // (the supporting tabs can appear before or after them in the workbook).
