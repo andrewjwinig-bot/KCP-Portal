@@ -47,6 +47,16 @@ const SEEDS: SeedConfig[] = [
     year: 2026,
     id: "jv-iii-2026",
   },
+  // NI LLC (Neshaminy Interplex LLC — office) — staff-prepared 2026
+  // budget covering buildings 4050 / 4060 / 4070 / 4080 / 40A0 / 40B0 /
+  // 40C0 plus a 4000 "Unallocated Expenses" sheet for LLC-level
+  // expenses that don't belong to a specific building.
+  {
+    file: "NI_LLC_2026.xlsx",
+    label: "NI LLC 2026 Operating Budget",
+    year: 2026,
+    id: "ni-llc-2026",
+  },
 ];
 
 type Manifest = {
