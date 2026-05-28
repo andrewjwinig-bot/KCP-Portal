@@ -1245,26 +1245,55 @@ function parseOfficeWorksSheet(rows: unknown[][], sheetName: string): PropertyBu
 
   // Reimbursements section label cleanup — the workbook spells every
   // line with the chargeback code in parens ("Postage (1PO-2PO)
-  // (1PP-2PP)") which is noisy for the page. Strip them. For the two
-  // Copier lines, lift the per-page rate out of the note into the
-  // label so it reads "Copier - B&W ($0.13/pg)" — same inline-paren
-  // shape as the Management Fee %.
+  // (1PP-2PP)") which is noisy for the page. Strip them. For lines
+  // where the workbook note carries useful context (Copier rates,
+  // Postage markup, Clerical handset), lift it inline next to the
+  // label in the same paren shape Management Fee uses — and drop the
+  // now-redundant note so no stray ⓘ chip renders.
   for (const sec of sections) {
     if (!/^reimbursements?$/i.test(sec.name.trim())) continue;
     for (const line of sec.lines) {
       if (line.isSubtotal) continue;
+      const base = line.label.replace(/\s*\([^)]*\)/g, "").trim();
       if (/^copier/i.test(line.label)) {
-        const stripped = line.label.replace(/\s*\([^)]*\)/g, "").trim();
         const rateMatch = line.notes?.match(/\$\s*0?\.(\d+)/);
         if (rateMatch) {
           const cents = rateMatch[1].padEnd(2, "0").slice(0, 2);
-          line.label = `${stripped} ($0.${cents}/pg)`;
+          line.label = `${base} ($0.${cents}/pg)`;
           line.notes = null;
         } else {
-          line.label = stripped;
+          line.label = base;
         }
+      } else if (/^postage/i.test(base)) {
+        line.label = `${base} (Cost +20%)`;
+        line.notes = null;
+      } else if (/^clerical/i.test(base)) {
+        line.label = `${base} (KCP Phone)`;
+        line.notes = null;
       } else {
-        line.label = line.label.replace(/\s*\([^)]*\)/g, "").trim();
+        line.label = base;
+      }
+    }
+  }
+
+  // Operation Expenses cleanup — only the three lines staff flagged
+  // get touched (Office Supplies, the two Copier rows). Leave the
+  // rest of the section alone so parens on labels like "Postage
+  // (Pitney Bowes…)" and "Telephone (TDS)" stay as-is.
+  for (const sec of sections) {
+    if (!/^operation\s+expenses?$/i.test(sec.name.trim())) continue;
+    for (const line of sec.lines) {
+      if (line.isSubtotal) continue;
+      if (/^office\s+supplies$/i.test(line.label.trim())) {
+        line.label = "Office Supplies (NR)";
+        line.notes = null;
+      } else if (/^copier/i.test(line.label)) {
+        const rateMatch = line.notes?.match(/\$\s*0?\.(\d+)/);
+        if (rateMatch) {
+          const cents = rateMatch[1].padEnd(2, "0").slice(0, 2);
+          line.label = `${line.label.trim()} ($0.${cents}/pg)`;
+          line.notes = null;
+        }
       }
     }
   }
