@@ -258,6 +258,27 @@ function seedMisattachedNonReimbBuildingMaintDetail(wb: BudgetWorkbook): boolean
   return false;
 }
 
+/** Returns true when the workbook has Management Fee lines but none
+ *  carry the `feePercent` field — added later so the rate from the
+ *  workbook formula renders inline next to the label. */
+function seedMissingMgmtFeePercent(wb: BudgetWorkbook): boolean {
+  let any = false;
+  let anyWithPct = false;
+  for (const property of wb.properties) {
+    if (property.propertyCode === "CONSOLIDATED") continue;
+    for (const section of property.sections) {
+      for (const line of section.lines) {
+        if (line.isSubtotal) continue;
+        if (!/management fee/i.test(line.label)) continue;
+        if (!line.glAccount?.startsWith("6610-")) continue;
+        any = true;
+        if (line.feePercent != null) anyWithPct = true;
+      }
+    }
+  }
+  return any && !anyWithPct;
+}
+
 function seedNeedsReparse(wb: BudgetWorkbook): boolean {
   return seedMissingSubLineDetail(wb) ||
          seedHasYoyNoise(wb) ||
@@ -268,7 +289,8 @@ function seedNeedsReparse(wb: BudgetWorkbook): boolean {
          seedMissingMainPnlSubtotals(wb) ||
          seedMissingDebtAllocations(wb) ||
          seedMissingWaterSewerSubLines(wb) ||
-         seedMisattachedNonReimbBuildingMaintDetail(wb);
+         seedMisattachedNonReimbBuildingMaintDetail(wb) ||
+         seedMissingMgmtFeePercent(wb);
 }
 
 async function parseSeed(cfg: SeedConfig): Promise<BudgetWorkbook | null> {

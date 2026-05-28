@@ -901,6 +901,42 @@ function idFromLabel(label: string, year: number): string {
  *  "Interest" / "Mortgage Amortization" rather than "Total Debt
  *  Service". Skips when fewer than 2 buildings carry a non-zero
  *  amount for the GL — no allocation to make. */
+/** Scans the property sheet for "Management Fee" rows, reads the Jan
+ *  cell's formula (e.g. ROUND(E$24 * 0.06, 0)), pulls out the
+ *  multiplier (6%), and stamps it on the matching BudgetLine.
+ *  Management fee % varies by property (SC: 6%, JV III: 4%, NI LLC
+ *  Kor Centers: 6%, NI LLC towers: 4%); rendering it inline next to
+ *  the label lets staff spot-check what rate each property pays. */
+function attachManagementFeePercent(
+  property: PropertyBudget,
+  rows: unknown[][],
+  sheet: XLSX.WorkSheet,
+): void {
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i] ?? [];
+    const col0 = trim(r[0]);
+    const col2 = trim(r[2]);
+    if (!/management fee/i.test(col2)) continue;
+    if (!/^6610-850\d$/.test(col0)) continue;
+    const addr = XLSX.utils.encode_cell({ r: i, c: 4 });
+    const cell = sheet[addr];
+    const formula = cell?.f as string | undefined;
+    if (!formula) continue;
+    // Match "* 0.06" or "* .06" — the multiplier on the revenue base.
+    const m = formula.match(/\*\s*(0?\.[0-9]+)/);
+    if (!m) continue;
+    const pct = Math.round(parseFloat(m[1]) * 1000) / 10; // 0.06 → 6.0
+    for (const sec of property.sections) {
+      for (const line of sec.lines) {
+        if (line.isSubtotal) continue;
+        if (line.glAccount === col0 && /management fee/i.test(line.label)) {
+          line.feePercent = pct;
+        }
+      }
+    }
+  }
+}
+
 function synthesizeMultiBuildingAllocations(
   properties: PropertyBudget[],
   glAccounts: string[],
@@ -961,6 +997,7 @@ export function parseBudgetWorkbook(
     type: buf instanceof ArrayBuffer ? "array" : "buffer",
     cellDates: false,
     raw: false,
+    cellFormula: true,
   });
 
   const properties: PropertyBudget[] = [];
@@ -995,6 +1032,7 @@ export function parseBudgetWorkbook(
     }
     const parsed = parsePropertySheet(rows, sheetName);
     if (!parsed) continue;
+    attachManagementFeePercent(parsed, rows, sheet);
     if (isRollupSheet(sheetName)) rollup = parsed;
     else properties.push(parsed);
   }

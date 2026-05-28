@@ -31,6 +31,11 @@ export type BudgetLine = {
    *  Sub-lines reuse the same BudgetLine shape so totals/months/notes all
    *  display identically — they just live one level deeper. */
   subLines?: BudgetLine[];
+  /** Fee rate (as a percentage, e.g. 6 for 6%) when the line's value is
+   *  driven by a percentage formula in the workbook — currently set on
+   *  the Management Fee lines so the page can render "Management Fee
+   *  (6%)" inline. Varies by property. */
+  feePercent?: number;
   /** Allocation context — when this line's dollar amount was computed by
    *  apportioning a portfolio-wide expense across properties (parsed
    *  from the Allocated Expenses tab). One line can carry multiple
