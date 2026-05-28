@@ -878,6 +878,235 @@ function shortEscalationTooltip(text: string): string {
  *  current property highlighted. Quietly aggregates when a line takes
  *  more than one allocation (e.g. Marketing = Marketing Salaries +
  *  Marketing direct → shows "A 2"). */
+/** Maps a Reimbursements section line to the rent-roll field that
+ *  carries the per-tenant contribution. Returns null when the line
+ *  isn't a known recovery (or when we're looking at a Reimbursable
+ *  Expenses line, which has the same Insurance label but is the cost
+ *  side, not the recovery side). */
+function recoveryFieldFor(
+  glAccount: string | null | undefined,
+  sectionName: string,
+): { key: "opexMonth" | "reTaxMonth" | "otherMonth"; label: string } | null {
+  if (!/^reimburs/i.test(sectionName) || /expense/i.test(sectionName)) return null;
+  switch (glAccount) {
+    case "4910-8502": return { key: "opexMonth",  label: "CAM" };
+    case "4920-8502": return { key: "reTaxMonth", label: "RET" };
+    case "4930-8502": return { key: "otherMonth", label: "INS" };
+    default: return null;
+  }
+}
+
+type RentRollUnit = {
+  unitRef?: string;
+  occupantName?: string;
+  isVacant?: boolean;
+  amenity?: unknown;
+  sqft?: number;
+  opexMonth?: number;
+  reTaxMonth?: number;
+  otherMonth?: number;
+};
+type RentRollProperty = { propertyCode?: string; units?: RentRollUnit[] };
+
+function TenantRecoveryChip({
+  glAccount,
+  sectionName,
+  propertyCode,
+}: {
+  glAccount: string | null;
+  sectionName: string;
+  propertyCode: string;
+}) {
+  const recovery = recoveryFieldFor(glAccount, sectionName);
+  const [open, setOpen] = useState(false);
+  if (!recovery) return null;
+  if (propertyCode.toUpperCase() === "CONSOLIDATED") return null;
+  return (
+    <>
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); setOpen(true); }}
+        title={`Tenants contributing to this ${recovery.label} recovery on ${propertyCode}`}
+        style={{
+          display: "inline-flex", alignItems: "center", justifyContent: "center",
+          minWidth: 18, height: 18, padding: "0 5px", marginLeft: 4,
+          fontSize: 10, fontWeight: 800, lineHeight: 1,
+          background: "rgba(22,163,74,0.10)",
+          color: "#15803d",
+          border: "1px solid rgba(22,163,74,0.30)",
+          borderRadius: 4,
+          cursor: "pointer",
+          fontVariantNumeric: "tabular-nums",
+          flexShrink: 0,
+        }}
+      >
+        T
+      </button>
+      {open && (
+        <TenantRecoveryModal
+          propertyCode={propertyCode}
+          recoveryKey={recovery.key}
+          recoveryLabel={recovery.label}
+          onClose={() => setOpen(false)}
+        />
+      )}
+    </>
+  );
+}
+
+function TenantRecoveryModal({
+  propertyCode,
+  recoveryKey,
+  recoveryLabel,
+  onClose,
+}: {
+  propertyCode: string;
+  recoveryKey: "opexMonth" | "reTaxMonth" | "otherMonth";
+  recoveryLabel: string;
+  onClose: () => void;
+}) {
+  const [units, setUnits] = useState<RentRollUnit[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/rentroll", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((j) => {
+        if (!alive) return;
+        const rentroll = j.rentroll as { properties?: RentRollProperty[] } | null;
+        const here = (rentroll?.properties ?? []).find(
+          (p) => (p.propertyCode ?? "").toUpperCase() === propertyCode.toUpperCase(),
+        );
+        setUnits(here?.units ?? []);
+      })
+      .catch((e) => alive && setError(e instanceof Error ? e.message : "Failed to load"));
+    return () => { alive = false; };
+  }, [propertyCode]);
+
+  const contributing = useMemo(() => {
+    return (units ?? [])
+      .filter((u) => !u.isVacant && !u.amenity)
+      .map((u) => {
+        const monthly = Number(u[recoveryKey] ?? 0);
+        return {
+          unitRef: u.unitRef ?? "",
+          tenantName: (u.occupantName ?? "").trim() || "—",
+          sqft: u.sqft ?? 0,
+          monthly,
+          annual: monthly * 12,
+        };
+      })
+      .filter((r) => r.annual > 0)
+      .sort((a, b) => b.annual - a.annual);
+  }, [units, recoveryKey]);
+
+  const fmt = (n: number) => n === 0 ? "—" : `$${Math.round(n).toLocaleString("en-US")}`;
+  const totalMonthly = contributing.reduce((s, r) => s + r.monthly, 0);
+  const totalAnnual = contributing.reduce((s, r) => s + r.annual, 0);
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed", inset: 0, zIndex: 100,
+        background: "rgba(15,23,42,0.55)",
+        display: "flex", alignItems: "flex-start", justifyContent: "center",
+        padding: "60px 20px", overflow: "auto",
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: "var(--card)", borderRadius: 12,
+          maxWidth: 820, width: "100%",
+          boxShadow: "0 20px 60px rgba(0,0,0,0.35)",
+          display: "flex", flexDirection: "column", gap: 14, padding: 18,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+          <div>
+            <div className="muted small" style={{ fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+              {propertyCode} · {recoveryLabel} Recoveries
+            </div>
+            <div style={{ fontSize: 16, fontWeight: 800, marginTop: 2 }}>
+              Per-tenant contribution
+            </div>
+            <div className="muted small" style={{ marginTop: 2, fontStyle: "italic" }}>
+              Sourced from the current rent roll snapshot. {contributing.length} contributing {contributing.length === 1 ? "tenant" : "tenants"}.
+            </div>
+          </div>
+          <button onClick={onClose} className="btn" style={{ padding: "6px 12px", fontSize: 13, fontWeight: 700 }}>
+            Close
+          </button>
+        </div>
+
+        {error && (
+          <div className="muted small" style={{ color: "#b91c1c" }}>{error}</div>
+        )}
+        {!units && !error && (
+          <div className="muted small">Loading rent roll…</div>
+        )}
+        {units && (
+          <div className="card" style={{ padding: 0 }}>
+            <div className="tableWrap" style={{ marginTop: 0 }}>
+              <table>
+                <thead>
+                  <tr>
+                    <th style={{ width: 90 }}>Suite</th>
+                    <th>Tenant</th>
+                    <th style={{ textAlign: "right", width: 90 }}>SF</th>
+                    <th style={{ textAlign: "right", width: 110 }}>Monthly</th>
+                    <th style={{ textAlign: "right", width: 130 }}>Annual</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {contributing.map((r) => (
+                    <tr key={r.unitRef}>
+                      <td style={{ fontVariantNumeric: "tabular-nums", color: "var(--muted)" }}>{r.unitRef}</td>
+                      <td style={{ fontWeight: 600 }}>{r.tenantName}</td>
+                      <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+                        {r.sqft > 0 ? r.sqft.toLocaleString() : "—"}
+                      </td>
+                      <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+                        {fmt(r.monthly)}
+                      </td>
+                      <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontWeight: 700 }}>
+                        {fmt(r.annual)}
+                      </td>
+                    </tr>
+                  ))}
+                  {contributing.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="muted small" style={{ padding: "12px 14px", fontStyle: "italic" }}>
+                        No tenants on this property carry a {recoveryLabel} reimbursement in the current rent roll.
+                      </td>
+                    </tr>
+                  )}
+                  {contributing.length > 0 && (
+                    <tr style={{ background: "rgba(15,23,42,0.04)", fontWeight: 800 }}>
+                      <td colSpan={2}>TOTAL</td>
+                      <td></td>
+                      <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{fmt(totalMonthly)}</td>
+                      <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{fmt(totalAnnual)}</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function AllocationIcon({ allocations, currentPropertyCode }: {
   allocations: NonNullable<import("@/lib/financials/budgets/types").BudgetLine["allocations"]>;
   currentPropertyCode: string;
@@ -1165,6 +1394,11 @@ function BudgetLineRow({
             {line.allocations && line.allocations.length > 0 && (
               <AllocationIcon allocations={line.allocations} currentPropertyCode={propertyCode} />
             )}
+            <TenantRecoveryChip
+              glAccount={line.glAccount}
+              sectionName={sectionName}
+              propertyCode={propertyCode}
+            />
           </div>
         </td>
         {line.months.map((m, j) => (
