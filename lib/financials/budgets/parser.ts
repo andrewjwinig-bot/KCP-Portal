@@ -937,6 +937,54 @@ function attachManagementFeePercent(
   }
 }
 
+/** Set the CONSOLIDATED property's Management Fee feePercent (or
+ *  feePercentRange when buildings carry different rates). The rollup
+ *  sheet's formula is a SUM across building cells, so the rate isn't
+ *  embedded there — derive from the buildings we already stamped. */
+function deriveConsolidatedManagementFeePercent(properties: PropertyBudget[]): void {
+  const consolidated = properties.find((p) => p.propertyCode === "CONSOLIDATED");
+  const buildings = properties.filter((p) => p.propertyCode !== "CONSOLIDATED");
+  if (!consolidated || buildings.length < 2) return;
+  const buildingPercents = buildings
+    .flatMap((b) => b.sections.flatMap((s) => s.lines))
+    .filter((l) => !l.isSubtotal && /management fee/i.test(l.label) && l.feePercent != null)
+    .map((l) => l.feePercent as number);
+  if (buildingPercents.length === 0) return;
+  const min = Math.min(...buildingPercents);
+  const max = Math.max(...buildingPercents);
+  for (const sec of consolidated.sections) {
+    for (const line of sec.lines) {
+      if (line.isSubtotal) continue;
+      if (!/management fee/i.test(line.label)) continue;
+      if (!line.glAccount?.startsWith("6610-")) continue;
+      if (min === max) line.feePercent = min;
+      else line.feePercentRange = [min, max];
+    }
+  }
+}
+
+/** Source workbook spells out "Leasing Salaries and Commissions" — we
+ *  use & elsewhere on the page (header treatments, section names) so
+ *  normalize here. Easy place to add more renames if other labels
+ *  drift. */
+function normalizeLabels(properties: PropertyBudget[]): void {
+  const rewrites: Array<[RegExp, string]> = [
+    [/^Leasing Salaries and Commissions$/i, "Leasing Salaries & Commissions"],
+  ];
+  const visit = (line: BudgetLine) => {
+    for (const [re, replacement] of rewrites) {
+      if (re.test(line.label.trim())) {
+        line.label = replacement;
+        break;
+      }
+    }
+    line.subLines?.forEach(visit);
+  };
+  for (const property of properties) {
+    for (const section of property.sections) section.lines.forEach(visit);
+  }
+}
+
 function synthesizeMultiBuildingAllocations(
   properties: PropertyBudget[],
   glAccounts: string[],
@@ -1114,6 +1162,14 @@ function rollupDisplayName(workbookLabel: string, fallback: string): string {
   // its own loan, not a fund-level allocation, so the modal would
   // misleadingly suggest the loans are shared.
   const category = inferCategoryFromLabel(label);
+  // Derive a Management Fee rate for the CONSOLIDATED rollup by
+  // looking across the buildings. The rollup sheet's formula is a
+  // straight SUM of building cells — no rate of its own.
+  deriveConsolidatedManagementFeePercent(properties);
+  // Source workbook spells the line "Leasing Salaries and
+  // Commissions"; switch to & for consistency with everywhere else
+  // we use the ampersand form.
+  normalizeLabels(properties);
   if (category === "Office") {
     synthesizeMultiBuildingAllocations(properties, [
       "9210-8501",  // Interest

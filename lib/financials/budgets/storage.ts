@@ -262,21 +262,46 @@ function seedMisattachedNonReimbBuildingMaintDetail(wb: BudgetWorkbook): boolean
  *  carry the `feePercent` field — added later so the rate from the
  *  workbook formula renders inline next to the label. */
 function seedMissingMgmtFeePercent(wb: BudgetWorkbook): boolean {
-  let any = false;
-  let anyWithPct = false;
+  let anyBuilding = false;
+  let buildingHasPct = false;
+  let consolidatedHasInfo: boolean | null = null;
   for (const property of wb.properties) {
-    if (property.propertyCode === "CONSOLIDATED") continue;
+    const isConsolidated = property.propertyCode === "CONSOLIDATED";
     for (const section of property.sections) {
       for (const line of section.lines) {
         if (line.isSubtotal) continue;
         if (!/management fee/i.test(line.label)) continue;
         if (!line.glAccount?.startsWith("6610-")) continue;
-        any = true;
-        if (line.feePercent != null) anyWithPct = true;
+        if (isConsolidated) {
+          if (consolidatedHasInfo === null) consolidatedHasInfo = false;
+          if (line.feePercent != null || line.feePercentRange) consolidatedHasInfo = true;
+        } else {
+          anyBuilding = true;
+          if (line.feePercent != null) buildingHasPct = true;
+        }
       }
     }
   }
-  return any && !anyWithPct;
+  if (anyBuilding && !buildingHasPct) return true;
+  if (consolidatedHasInfo === false) return true;
+  return false;
+}
+
+/** Returns true when any line still uses the legacy "Leasing Salaries
+ *  and Commissions" spelling — staff prefer the ampersand form for
+ *  the page header. */
+function seedHasLegacyLeasingLabel(wb: BudgetWorkbook): boolean {
+  const re = /^Leasing Salaries and Commissions$/i;
+  const visit = (line: BudgetWorkbook["properties"][number]["sections"][number]["lines"][number]): boolean => {
+    if (re.test(line.label.trim())) return true;
+    return !!line.subLines && line.subLines.some(visit);
+  };
+  for (const property of wb.properties) {
+    for (const section of property.sections) {
+      if (section.lines.some(visit)) return true;
+    }
+  }
+  return false;
 }
 
 function seedNeedsReparse(wb: BudgetWorkbook): boolean {
@@ -290,7 +315,8 @@ function seedNeedsReparse(wb: BudgetWorkbook): boolean {
          seedMissingDebtAllocations(wb) ||
          seedMissingWaterSewerSubLines(wb) ||
          seedMisattachedNonReimbBuildingMaintDetail(wb) ||
-         seedMissingMgmtFeePercent(wb);
+         seedMissingMgmtFeePercent(wb) ||
+         seedHasLegacyLeasingLabel(wb);
 }
 
 async function parseSeed(cfg: SeedConfig): Promise<BudgetWorkbook | null> {
