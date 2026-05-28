@@ -7,7 +7,7 @@ import type { BudgetWorkbook, OccupancyDetailRow } from "@/lib/financials/budget
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] as const;
 
-const CAN_UPLOAD = new Set(["admin", "drew", "harry", "nancy"]);
+const CAN_UPLOAD = new Set(["admin", "drew", "alison"]);
 
 type WorkbookSummary = {
   id: string;

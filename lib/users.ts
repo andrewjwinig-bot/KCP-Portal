@@ -115,8 +115,8 @@ export const USERS: Record<UserId, UserDef> = {
   nancy: {
     id: "nancy",
     label: "NANCY",
-    navKeys: new Set([...universalNav, "leasing-activity", "base-years", "commissions", "reservations", "maintenance", "deposits", "financials-budgets"]),
-    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/commissions", "/reservations", "/maintenance", "/deposits", "/financials"],
+    navKeys: new Set([...universalNav, "leasing-activity", "base-years", "commissions", "reservations", "maintenance", "deposits"]),
+    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/commissions", "/reservations", "/maintenance", "/deposits"],
     defaultRentRollCategory: "Office",
     defaultPropertyType: "Office",
     dashboardScope: { codes: OFFICE_AND_OW_INDIVIDUAL },
@@ -128,8 +128,8 @@ export const USERS: Record<UserId, UserDef> = {
   harry: {
     id: "harry",
     label: "HARRY",
-    navKeys: new Set([...universalNav, "expenses", "expenses-history", "payroll-invoicer", "investors", "commissions-retail", "deposits", "bank-transfers", "financials-budgets"]),
-    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/expenses", "/investors", "/commissions/retail", "/deposits", "/bank-transfers", "/financials", "/"],
+    navKeys: new Set([...universalNav, "expenses", "expenses-history", "payroll-invoicer", "investors", "commissions-retail", "deposits", "bank-transfers"]),
+    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/expenses", "/investors", "/commissions/retail", "/deposits", "/bank-transfers", "/"],
     defaultRentRollCategory: "Retail",
     defaultPropertyType: "Retail",
     dashboardScope: { codes: SC_INDIVIDUAL },
@@ -150,8 +150,8 @@ export const USERS: Record<UserId, UserDef> = {
     label: "ALISON",
     // President — a high-level view: dashboard, properties, investors,
     // rent roll, debt. No operational tools or action items.
-    navKeys: new Set([...universalNav, "investors", "debt", "base-years", "bank-transfers"]),
-    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/investors", "/debt", "/bank-transfers"],
+    navKeys: new Set([...universalNav, "investors", "debt", "base-years", "bank-transfers", "financials-budgets"]),
+    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/investors", "/debt", "/bank-transfers", "/financials"],
     defaultRentRollCategory: "All",
     defaultPropertyType: "all",
     dashboardScope: "groups",
