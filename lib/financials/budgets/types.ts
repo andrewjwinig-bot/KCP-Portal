@@ -49,6 +49,22 @@ export type BudgetLine = {
    *  renders one small annotation per allocation under the line label
    *  so staff can audit "where did this number come from". */
   allocations?: AllocationDetail[];
+  /** Per-tenant breakdown of a single-property line. Used by The Office
+   *  Works' "CIP Memberships" line, whose monthly total ties out to the
+   *  CIP roster on the Monthly Rent Roll & CIP supporting tab — a click-
+   *  to-open modal lists every CIP member with their monthly billing. */
+  cipDetail?: CipDetail;
+};
+
+export type CipDetail = {
+  tenants: Array<{
+    name: string;
+    /** 12 entries Jan–Dec. */
+    months: number[];
+    total: number;
+  }>;
+  /** Sum across tenants — should tie to the parent line's `total`. */
+  total: number;
 };
 
 export type AllocationDetail = {
