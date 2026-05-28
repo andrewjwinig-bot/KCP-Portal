@@ -279,6 +279,7 @@ function OccupancyPanel({ property }: { property: BudgetWorkbook["properties"][n
                 )}
               </th>
               {MONTHS.map((m) => <th key={m} style={{ textAlign: "right" }}>{m}</th>)}
+              <th style={{ textAlign: "right" }}>Avg</th>
             </tr>
           </thead>
           <tbody>
@@ -287,6 +288,9 @@ function OccupancyPanel({ property }: { property: BudgetWorkbook["properties"][n
               {property.occupancyPct.map((p, i) => (
                 <td key={i} style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{pct(p)}</td>
               ))}
+              <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontWeight: 700 }}>
+                {pct(property.occupancyPct.reduce((s, v) => s + v, 0) / 12)}
+              </td>
             </tr>
             <tr>
               <td style={{ fontWeight: 700, color: "var(--muted)" }}>Occupancy SF</td>
@@ -295,6 +299,9 @@ function OccupancyPanel({ property }: { property: BudgetWorkbook["properties"][n
                   {s > 0 ? s.toLocaleString() : "—"}
                 </td>
               ))}
+              <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontWeight: 700 }}>
+                {Math.round(property.occupancySqft.reduce((s, v) => s + v, 0) / 12).toLocaleString()}
+              </td>
             </tr>
 
             {expanded && OCCUPANCY_ORDER.flatMap((cat) => {
@@ -302,7 +309,7 @@ function OccupancyPanel({ property }: { property: BudgetWorkbook["properties"][n
               if (rows.length === 0) return [];
               return [
                 <tr key={`hdr-${cat}`} style={{ background: "rgba(15,23,42,0.04)" }}>
-                  <td colSpan={13} style={{
+                  <td colSpan={14} style={{
                     fontSize: 11, fontWeight: 800, letterSpacing: "0.06em",
                     textTransform: "uppercase", color: "var(--muted)",
                     padding: "8px 12px",
@@ -310,30 +317,36 @@ function OccupancyPanel({ property }: { property: BudgetWorkbook["properties"][n
                     {OCCUPANCY_LABELS[cat]} · {rows.length} {rows.length === 1 ? "suite" : "suites"}
                   </td>
                 </tr>,
-                ...rows.map((r) => (
-                  <tr key={`${cat}-${r.unitRef}`}>
-                    <td>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                        <Pill tone={OCCUPANCY_TONES[cat]}>{OCCUPANCY_LABELS[cat]}</Pill>
-                        <span style={{ fontVariantNumeric: "tabular-nums", color: "var(--muted)", fontSize: 12 }}>
-                          {r.unitRef}
-                        </span>
-                        <span style={{ fontWeight: 600 }}>{r.tenantName}</span>
-                        {r.unitSqft > 0 && (
-                          <span className="muted small">· {r.unitSqft.toLocaleString()} sf</span>
-                        )}
-                        {r.leaseTo && (
-                          <span className="muted small">· thru {r.leaseTo}</span>
-                        )}
-                      </div>
-                    </td>
-                    {r.monthlySqft.map((s, i) => (
-                      <td key={i} style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
-                        {s > 0 ? s.toLocaleString() : "—"}
+                ...rows.map((r) => {
+                  const avgSf = r.monthlySqft.reduce((s, v) => s + v, 0) / 12;
+                  return (
+                    <tr key={`${cat}-${r.unitRef}`}>
+                      <td>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                          <Pill tone={OCCUPANCY_TONES[cat]}>{OCCUPANCY_LABELS[cat]}</Pill>
+                          <span style={{ fontVariantNumeric: "tabular-nums", color: "var(--muted)", fontSize: 12 }}>
+                            {r.unitRef}
+                          </span>
+                          <span style={{ fontWeight: 600 }}>{r.tenantName}</span>
+                          {r.unitSqft > 0 && (
+                            <span className="muted small">· {r.unitSqft.toLocaleString()} sf</span>
+                          )}
+                          {r.leaseTo && (
+                            <span className="muted small">· thru {r.leaseTo}</span>
+                          )}
+                        </div>
                       </td>
-                    ))}
-                  </tr>
-                )),
+                      {r.monthlySqft.map((s, i) => (
+                        <td key={i} style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+                          {s > 0 ? s.toLocaleString() : "—"}
+                        </td>
+                      ))}
+                      <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontWeight: 700 }}>
+                        {avgSf > 0 ? Math.round(avgSf).toLocaleString() : "—"}
+                      </td>
+                    </tr>
+                  );
+                }),
                 <tr key={`sub-${cat}`} style={{ fontWeight: 700, background: "rgba(15,23,42,0.02)" }}>
                   <td style={{ color: "var(--muted)" }}>Subtotal — {OCCUPANCY_LABELS[cat]}</td>
                   {categoryTotals[cat].map((s, i) => (
@@ -341,6 +354,12 @@ function OccupancyPanel({ property }: { property: BudgetWorkbook["properties"][n
                       {s > 0 ? s.toLocaleString() : "—"}
                     </td>
                   ))}
+                  <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+                    {(() => {
+                      const a = categoryTotals[cat].reduce((s, v) => s + v, 0) / 12;
+                      return a > 0 ? Math.round(a).toLocaleString() : "—";
+                    })()}
+                  </td>
                 </tr>,
               ];
             })}
@@ -570,7 +589,7 @@ function BudgetTable({
                 <optgroup key={grp.budgetId} label={grp.label}>
                   {grp.properties.map((p) => (
                     <option key={`${grp.budgetId}|${p.propertyCode}`} value={`${grp.budgetId}|${p.propertyCode}`}>
-                      {p.propertyCode} — {p.propertyName}
+                      {p.propertyCode === "CONSOLIDATED" ? p.propertyName : `${p.propertyCode} — ${p.propertyName}`}
                     </option>
                   ))}
                 </optgroup>
