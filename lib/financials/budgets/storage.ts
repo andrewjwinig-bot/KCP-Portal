@@ -142,10 +142,19 @@ function seedMissingSubLineDetail(wb: BudgetWorkbook): boolean {
 /** Returns true when the seed has a rollup sheet but doesn't surface
  *  it as a selectable "Consolidated" property — added later so the
  *  dropdown lets staff jump to the portfolio view alongside the
- *  individual buildings. */
+ *  individual buildings. Also returns true when the CONSOLIDATED
+ *  entry still carries the cryptic row-0 label (e.g. "Consolidated
+ *  - 1, 2, 4") from before rollupDisplayName mapped it to the
+ *  fund-aware name (JV III, NI LLC, All Shopping Centers, …). */
 function seedMissingConsolidatedEntry(wb: BudgetWorkbook): boolean {
   if (!wb.rollup) return false;
-  return !wb.properties.some((p) => p.propertyCode === "CONSOLIDATED");
+  const consolidated = wb.properties.find((p) => p.propertyCode === "CONSOLIDATED");
+  if (!consolidated) return true;
+  // Legacy name shape — the cleaner one is "JV III" / "NI LLC" /
+  // "All Shopping Centers" / "All Residential". Anything starting
+  // with the literal "Consolidated -" is the pre-mapping cell value.
+  if (/^consolidated\s*-/i.test(consolidated.propertyName.trim())) return true;
+  return false;
 }
 
 function seedNeedsReparse(wb: BudgetWorkbook): boolean {
