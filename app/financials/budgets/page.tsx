@@ -680,7 +680,6 @@ function BudgetTable({
                 <BudgetTableColgroup />
                 <thead>
                   <tr>
-                    <th>GL</th>
                     <th>Line</th>
                     {MONTHS.map((m) => <th key={m} style={{ textAlign: "right" }}>{m}</th>)}
                     <th style={{ textAlign: "right" }}>Total</th>
@@ -1352,9 +1351,6 @@ function BudgetLineRow({
         style={rowStyle}
         onClick={hasSubLines ? () => setExpanded((v) => !v) : undefined}
       >
-        <td className="muted small" style={{ fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
-          {line.glAccount ?? ""}
-        </td>
         <td>
           <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
             {hasSubLines && (
@@ -1368,6 +1364,11 @@ function BudgetLineRow({
                 }}
               >
                 ▸
+              </span>
+            )}
+            {line.glAccount && (
+              <span className="muted small" style={{ fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
+                {line.glAccount}
               </span>
             )}
             {line.subCategory && <span style={{ color: "var(--muted)", marginRight: 2, fontSize: 11 }}>{line.subCategory}</span>}
@@ -1464,14 +1465,6 @@ function SubLineRow({
           cursor: hasNested ? "pointer" : undefined,
         }}
       >
-        {/* GL column — only the GL number when present. The continuous
-            brand-blue rail on the label cell carries the nesting visual
-            on its own; per-row tree branches were extra ink. */}
-        <td className="muted small" style={{
-          fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap",
-        }}>
-          {line.glAccount ?? ""}
-        </td>
         <td style={{
           paddingLeft: indent,
           borderLeft: "3px solid #0b4a7d",
@@ -1488,6 +1481,11 @@ function SubLineRow({
               }}
             >
               ▸
+            </span>
+          )}
+          {line.glAccount && (
+            <span className="muted small" style={{ fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", marginRight: 6 }}>
+              {line.glAccount}
             </span>
           )}
           {line.label}
@@ -1528,16 +1526,15 @@ function SubLineRow({
  *  scrollbar — while still snapping every Jan/Feb/…/Dec/Total cell into
  *  the same horizontal position with `table-layout: fixed`. */
 const BUDGET_COL_PCT = {
-  gl: 6,        // 96 / 1600 ≈ 6%
-  line: 16,     // narrow on purpose so the 12 month columns can breathe
+  line: 22,     // bumped from 16 since the GL column is gone — GL now
+                // renders as a small muted prefix inline with the label
   month: 5.5,   // × 12 = 66%
-  total: 12,
+  total: 12,    // sum = 100%
 };
 
 function BudgetTableColgroup() {
   return (
     <colgroup>
-      <col style={{ width: `${BUDGET_COL_PCT.gl}%` }} />
       <col style={{ width: `${BUDGET_COL_PCT.line}%` }} />
       {MONTHS.map((m) => <col key={m} style={{ width: `${BUDGET_COL_PCT.month}%` }} />)}
       <col style={{ width: `${BUDGET_COL_PCT.total}%` }} />
@@ -1565,7 +1562,6 @@ function SubtotalCard({ rollup, sqft, psf }: {
           <BudgetTableColgroup />
           <tbody>
             <tr style={{ fontWeight: 800 }}>
-              <td style={{ verticalAlign: "middle", borderBottom: "none" }}></td>
               <td style={{
                 fontSize: 13, fontWeight: 900, letterSpacing: "0.04em",
                 textTransform: "uppercase", color: "#0b4a7d",
