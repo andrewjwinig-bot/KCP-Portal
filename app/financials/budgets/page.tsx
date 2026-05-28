@@ -704,6 +704,7 @@ function BudgetTable({
                         isEmpty={isEmpty}
                         propertyCode={property.propertyCode}
                         showGL={showGL}
+                        hideEmpty={hideEmpty}
                       />
                     );
                   })}
@@ -1431,6 +1432,7 @@ function BudgetLineRow({
   isEmpty,
   propertyCode,
   showGL,
+  hideEmpty,
 }: {
   line: import("@/lib/financials/budgets/types").BudgetLine;
   sectionName: string;
@@ -1440,6 +1442,7 @@ function BudgetLineRow({
   isEmpty: boolean;
   propertyCode: string;
   showGL: boolean;
+  hideEmpty: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
   const hasSubLines = !!line.subLines && line.subLines.length > 0;
@@ -1541,6 +1544,7 @@ function BudgetLineRow({
           psf={psf}
           propertyCode={propertyCode}
           showGL={showGL}
+          hideEmpty={hideEmpty}
         />
       ))}
     </>
@@ -1559,6 +1563,7 @@ function SubLineRow({
   psf,
   propertyCode,
   showGL,
+  hideEmpty,
 }: {
   line: import("@/lib/financials/budgets/types").BudgetLine;
   parentKey: string;
@@ -1567,9 +1572,15 @@ function SubLineRow({
   psf: boolean;
   propertyCode: string;
   showGL: boolean;
+  hideEmpty: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
   const hasNested = !!line.subLines && line.subLines.length > 0;
+  // Honor the page-level "Hide empty rows" toggle on sub-lines too —
+  // a sub-line is empty when its total and every month are 0 and it
+  // isn't a subtotal row that we always want to render.
+  const isEmpty = !line.isSubtotal && line.total === 0 && line.months.every((m) => m === 0);
+  if (hideEmpty && isEmpty && !hasNested) return null;
   // Each depth level steps the brand-blue rail 18px further to the right
   // so nested children visually sit "inside" their parent sub-line.
   const indent = depth * 18;
@@ -1636,6 +1647,7 @@ function SubLineRow({
           psf={psf}
           propertyCode={propertyCode}
           showGL={showGL}
+          hideEmpty={hideEmpty}
         />
       ))}
     </>
