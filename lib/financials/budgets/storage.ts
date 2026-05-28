@@ -179,13 +179,30 @@ function seedConsolidatedMissingOccSqft(wb: BudgetWorkbook): boolean {
   return buildings.some((p) => p.occupancySqft.some((s) => s > 0));
 }
 
+/** Returns true when a known main-P&L section (Revenues / Reimbursements
+ *  / Reimbursable Expenses / Non-Reimbursable Expenses / Debt Service /
+ *  Capital Improvements) on any property has line items but no subtotal
+ *  row — staff need the section footer to spot-check totals. */
+function seedMissingMainPnlSubtotals(wb: BudgetWorkbook): boolean {
+  const expected = /^(revenues?|reimbursements?|reimbursable expenses?|non-reimbursable expenses?|capital improvements?|debt service)$/i;
+  for (const property of wb.properties) {
+    for (const section of property.sections) {
+      if (!expected.test(section.name.trim())) continue;
+      if (section.lines.length === 0) continue;
+      if (!section.lines.some((l) => l.isSubtotal)) return true;
+    }
+  }
+  return false;
+}
+
 function seedNeedsReparse(wb: BudgetWorkbook): boolean {
   return seedMissingSubLineDetail(wb) ||
          seedHasYoyNoise(wb) ||
          seedMissingGroupedSubLines(wb) ||
          seedMissingAllocations(wb) ||
          seedMissingConsolidatedEntry(wb) ||
-         seedConsolidatedMissingOccSqft(wb);
+         seedConsolidatedMissingOccSqft(wb) ||
+         seedMissingMainPnlSubtotals(wb);
 }
 
 async function parseSeed(cfg: SeedConfig): Promise<BudgetWorkbook | null> {

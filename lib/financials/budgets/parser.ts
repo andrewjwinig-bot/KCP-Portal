@@ -350,6 +350,45 @@ function parsePropertySheet(rows: unknown[][], sheetName: string): PropertyBudge
 
   if (currentSection) sections.push(currentSection);
 
+  // Synthesize missing subtotal rows for the main P&L sections so every
+  // property — including the CONSOLIDATED rollup — carries the same
+  // "Total Rental and Other", "Total Reimbursements", etc. footers
+  // regardless of whether the workbook's sheet for that property ships
+  // them explicitly. Both SC and the office files leave these rows off
+  // their respective consolidated sheets, which is what staff were
+  // missing visually.
+  const SYNTH_SUBTOTAL_LABEL: Record<string, string> = {
+    "revenues":                 "Total Rental and Other",
+    "reimbursements":           "Total Reimbursements",
+    "reimbursable expenses":    "Total Reimbursable Expenses",
+    "non-reimbursable expenses": "Total Non-Reimbursable Expenses",
+    "capital improvements":     "Total Capital Improvements",
+    "debt service":             "Total Debt Service",
+  };
+  for (const section of sections) {
+    const expected = SYNTH_SUBTOTAL_LABEL[section.name.toLowerCase().trim()];
+    if (!expected) continue;
+    if (section.lines.some((l) => l.isSubtotal)) continue;
+    const summedMonths = Array(12).fill(0);
+    let summedTotal = 0;
+    for (const l of section.lines) {
+      if (l.isSubtotal) continue;
+      for (let i = 0; i < 12; i++) summedMonths[i] += l.months[i] ?? 0;
+      summedTotal += l.total;
+    }
+    section.lines.push({
+      glAccount: null,
+      subCategory: null,
+      label: expected,
+      months: summedMonths,
+      total: summedTotal,
+      totalPsf: null,
+      input: null,
+      notes: null,
+      isSubtotal: true,
+    });
+  }
+
   return {
     propertyCode: code,
     propertyName: name,

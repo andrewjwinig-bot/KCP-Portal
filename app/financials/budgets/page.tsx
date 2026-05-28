@@ -1387,7 +1387,7 @@ function BudgetLineRow({
     borderTop: line.isSubtotal ? "2px solid rgba(11,74,125,0.30)" : undefined,
     textTransform: line.isSubtotal ? "uppercase" : undefined,
     letterSpacing: line.isSubtotal ? "0.04em" : undefined,
-    fontSize: line.isSubtotal ? 12 : undefined,
+    fontSize: line.isSubtotal ? 13.5 : undefined,
   };
 
   return (
@@ -1449,11 +1449,11 @@ function BudgetLineRow({
           </div>
         </td>
         {line.months.map((m, j) => (
-          <td key={j} style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontSize: 12 }}>
+          <td key={j} style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontSize: line.isSubtotal ? 13.5 : 12 }}>
             {fmtAmount(m, sqft, psf)}
           </td>
         ))}
-        <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontWeight: line.isSubtotal ? 800 : 600 }}>
+        <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontWeight: line.isSubtotal ? 800 : 600, fontSize: line.isSubtotal ? 14 : undefined }}>
           {fmtAmount(line.total, sqft, psf)}
         </td>
       </tr>
