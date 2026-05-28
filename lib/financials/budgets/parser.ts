@@ -602,10 +602,12 @@ function parseAllocatedExpenses(rows: unknown[][]): Map<string, import("./types"
     sourceNote: string | null;
     basis: "sqft" | "annual" | "other";
     inHeader: boolean;
-    // Collected as we walk per-property rows. We finalize on TOTAL row or
-    // when a new block title appears — at that point we know whether the
-    // portfolioTotal needs to be back-filled from the TOTAL row (annual
-    // blocks don't put the total on the title row).
+    /** Column index where the Jan column starts on this block's data
+     *  rows. JV III uses col 4 (no extra columns); NI LLC uses col 5
+     *  because the header row carries an extra "Alternate" share %
+     *  column between the primary share % and Jan. Detected by finding
+     *  "Jan" in the header row. */
+    monthStart: number;
     pending: PendingRow[];
   };
   let block: Block | null = null;
@@ -646,56 +648,71 @@ function parseAllocatedExpenses(rows: unknown[][]): Map<string, import("./types"
     const col1 = trim(r[1]);
     const col3 = trim(r[3]);
 
-    // Title row — GL in col 0, label in col 1, portfolio total in col 16,
-    // optional source note in col 18.
+    // Title row — GL in col 0, label in col 1, portfolio total in col 16
+    // (sometimes col 17 when an extra share column is present), optional
+    // source note in col 18+.
     if (col0 && /^\d{4}-\d{4}$/.test(col0) && col1) {
       if (block) finalize(block, 0);
+      // Search broadly for portfolio total + note since the column
+      // shifts when extra columns are present.
+      const titleTotal = num(r[16]) || num(r[17]);
+      const noteCol = [r[18], r[19], r[20]].map((c) => (c != null ? trim(c) : "")).find((s) => s !== "");
       block = {
         gl: col0,
         label: col1,
-        portfolioTotal: num(r[16]),
-        sourceNote: r[18] != null && trim(r[18]) !== "" ? trim(r[18]) : null,
+        portfolioTotal: titleTotal,
+        sourceNote: noteCol || null,
         basis: "other",
         inHeader: true,
+        monthStart: 4,    // default; refined when we hit the header row
         pending: [],
       };
       continue;
     }
     if (!block) continue;
 
-    // Header row — detects allocation basis. "Reimb" = sqft share %,
-    // "Annual" = direct dollar amount per property.
-    if (block.inHeader && /^(reimb|annual)/i.test(col3)) {
-      block.basis = /^reimb/i.test(col3) ? "sqft" : "annual";
-      // The header row can also carry a basis note in col 18 (e.g.
-      // "46% Allocation of $X" or "2025 amt grown 3%"). Use it as the
-      // source note if the title row didn't have one.
-      if (!block.sourceNote && r[18] != null && trim(r[18]) !== "") {
-        block.sourceNote = trim(r[18]);
+    // Header row — finds the Jan column dynamically, since some
+    // workbooks (NI LLC) carry an extra "Alternate" share column that
+    // shifts the months right by one. Also detects allocation basis:
+    // "Reimb" / "<fund> PRS" / "%" → sqft share, "Annual" → direct
+    // dollar amounts per property.
+    if (block.inHeader) {
+      const janIdx = r.findIndex((c) => /^jan$/i.test(trim(c)));
+      if (janIdx > 0) {
+        block.monthStart = janIdx;
+        // Anything in col 3 that isn't "Annual" is treated as a share-
+        // basis label (Reimb, NI LLC PRS, etc.) → sqft allocation.
+        const basisLabel = col3.toLowerCase();
+        block.basis = /^annual/.test(basisLabel) ? "annual" : "sqft";
+        // Header row may also carry a basis note in a column past Total.
+        const totalIdx = janIdx + 12;
+        for (let i = totalIdx + 1; i < r.length && i <= totalIdx + 4; i++) {
+          const v = trim(r[i]);
+          if (v && !block.sourceNote) { block.sourceNote = v; break; }
+        }
+        block.inHeader = false;
       }
-      block.inHeader = false;
       continue;
     }
 
-    // End of block — the TOTAL row carries the portfolio total in col 16
-    // (especially important for annual-basis blocks where the title row's
-    // col 16 is empty).
+    // End of block — the TOTAL row carries the portfolio total in the
+    // Total column (especially important for annual-basis blocks where
+    // the title row's total cell is empty).
     if (/^total\s*:?\s*$/i.test(col1)) {
-      finalize(block, num(r[16]));
+      finalize(block, num(r[block.monthStart + 12]));
       block = null;
       continue;
     }
 
     // Per-property data row — buffer; finalize once the block boundary
     // is known so the sharePct can be computed against the real
-    // portfolio total. The Allocated Expenses tab uses cols 4..15 for
-    // Jan..Dec (same as the property sheet).
+    // portfolio total.
     if (!block.inHeader && isPropertyCode(col1)) {
-      const propertyAmount = num(r[16]);
+      const propertyAmount = num(r[block.monthStart + 12]);
       if (propertyAmount === 0) continue;
       const sqft = num(r[2]);
       const ms: number[] = [];
-      for (let j = 4; j < 16; j++) ms.push(num(r[j]));
+      for (let j = block.monthStart; j < block.monthStart + 12; j++) ms.push(num(r[j]));
       block.pending.push({ code: col1, sqft, months: ms, propertyAmount });
     }
   }
