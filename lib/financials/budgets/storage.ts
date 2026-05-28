@@ -311,22 +311,35 @@ function seedMissingCipDetail(wb: BudgetWorkbook): boolean {
   return !line.cipDetail || line.cipDetail.tenants.length === 0;
 }
 
-/** Returns true when The Office Works Reimbursements section still
- *  carries the workbook's parenthesized chargeback codes in line
- *  labels ("Supplies (6960-8502)", "Postage (1PO-2PO) (1PP-2PP)",
- *  etc.) — staff asked to strip these for a cleaner page. Also fires
- *  when the Copier rows still have the per-page rate sitting in the
- *  notes column instead of inline in the label. */
+/** Returns true when The Office Works Reimbursements / Operation
+ *  Expenses sections still carry workbook noise that staff has asked
+ *  us to fold into the label — chargeback codes, per-page Copier
+ *  rates, the Postage / Clerical context notes, or the "non-
+ *  reimbursible" tag on Office Supplies. */
 function seedHasLegacyTowReimbLabels(wb: BudgetWorkbook): boolean {
   if (wb.id !== "office-works-2026") return false;
   const property = wb.properties.find((p) => p.propertyCode === "4900");
   if (!property) return false;
   const reimb = property.sections.find((s) => /^reimbursements?$/i.test(s.name.trim()));
-  if (!reimb) return false;
-  for (const line of reimb.lines) {
-    if (line.isSubtotal) continue;
-    if (/^copier/i.test(line.label) && /\$\s*0?\.\d+/.test(line.notes ?? "")) return true;
-    if (!/^copier/i.test(line.label) && /\(/.test(line.label)) return true;
+  if (reimb) {
+    for (const line of reimb.lines) {
+      if (line.isSubtotal) continue;
+      // Copier rate still sitting in notes
+      if (/^copier/i.test(line.label) && /\$\s*0?\.\d+/.test(line.notes ?? "")) return true;
+      // Postage / Clerical haven't been folded into the label yet
+      if (/^postage$/i.test(line.label.trim()) && line.notes) return true;
+      if (/^clerical$/i.test(line.label.trim()) && line.notes) return true;
+      // Any other line still has chargeback codes in parens
+      if (!/^copier/i.test(line.label) && !/(cost \+20%|kcp phone)/i.test(line.label) && /\(/.test(line.label)) return true;
+    }
+  }
+  const ops = property.sections.find((s) => /^operation\s+expenses?$/i.test(s.name.trim()));
+  if (ops) {
+    for (const line of ops.lines) {
+      if (line.isSubtotal) continue;
+      if (/^office\s+supplies$/i.test(line.label.trim())) return true;
+      if (/^copier/i.test(line.label) && /\$\s*0?\.\d+/.test(line.notes ?? "")) return true;
+    }
   }
   return false;
 }
