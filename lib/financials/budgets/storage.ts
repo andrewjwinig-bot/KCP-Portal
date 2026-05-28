@@ -220,6 +220,21 @@ function seedMissingDebtAllocations(wb: BudgetWorkbook): boolean {
   return false;
 }
 
+/** Office workbooks ship a per-property Water Sewer breakdown (Aqua /
+ *  BCWSA / etc.) — the parser was added later, so existing office
+ *  seeds need a re-parse to surface it on the Water & Sewer line. */
+function seedMissingWaterSewerSubLines(wb: BudgetWorkbook): boolean {
+  if (wb.category !== "Office") return false;
+  for (const property of wb.properties) {
+    if (property.propertyCode === "CONSOLIDATED") continue;
+    const ws = property.sections
+      .flatMap((s) => s.lines)
+      .find((l) => !l.isSubtotal && /^water\s*(&|and)?\s*sewer$/i.test(l.label.trim()) && l.total !== 0);
+    if (ws && (!ws.subLines || ws.subLines.length === 0)) return true;
+  }
+  return false;
+}
+
 function seedNeedsReparse(wb: BudgetWorkbook): boolean {
   return seedMissingSubLineDetail(wb) ||
          seedHasYoyNoise(wb) ||
@@ -228,7 +243,8 @@ function seedNeedsReparse(wb: BudgetWorkbook): boolean {
          seedMissingConsolidatedEntry(wb) ||
          seedConsolidatedMissingOccSqft(wb) ||
          seedMissingMainPnlSubtotals(wb) ||
-         seedMissingDebtAllocations(wb);
+         seedMissingDebtAllocations(wb) ||
+         seedMissingWaterSewerSubLines(wb);
 }
 
 async function parseSeed(cfg: SeedConfig): Promise<BudgetWorkbook | null> {

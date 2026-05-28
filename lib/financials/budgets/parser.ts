@@ -85,10 +85,11 @@ function months(r: unknown[]): number[] {
 // Building Maint, Allocated Expenses, etc.) are handled by their own
 // parsers below; everything in IGNORE_SHEET is workbook scaffolding
 // we don't pull anything from.
-const IGNORE_SHEET = /^(cover\s*sheet|sheet\d+|source and use of cash|assumptions|dscr\s*calc|in place revenue|renew(\s*&\s*vac.*)?|tenant recoveries|lik mgmt fee|water\s*sewer|parking lot maint|landscaping|trash|trusts)\s*$/i;
+const IGNORE_SHEET = /^(cover\s*sheet|sheet\d+|source and use of cash|assumptions|dscr\s*calc|in place revenue|renew(\s*&\s*vac.*)?|tenant recoveries|lik mgmt fee|parking lot maint|landscaping|trash|trusts)\s*$/i;
 const INS_RET_DEBT_SHEET = /^ins\s+ret(\s+debt)?$/i;
 const BUILDING_MAINT_SHEET = /^building\s+maint$/i;
 const ALLOCATED_EXPENSES_SHEET = /^allocated\s+expenses$/i;
+const WATER_SEWER_SHEET = /^water\s*sewer$/i;
 
 function isRollupSheet(name: string): boolean {
   const n = name.trim();
@@ -482,6 +483,76 @@ function parseInsuranceDetail(rows: unknown[][]): Map<string, BudgetLine[]> {
  *  Reimbursements (revenue) and Reimbursable Expenses (cost) Insurance
  *  rows get the same breakdown — the tenants reimburse the cost, so the
  *  composition is the same on both sides. */
+/** Parses the Water Sewer supporting tab — same block-per-property
+ *  shape as the INS RET DEBT insurance block but with the data shifted
+ *  left two columns (months at cols 2..13 / total at col 14).
+ *  Each block has one row per vendor (Aqua, BCWSA, etc.) terminated by
+ *  a "TOTAL:" row. */
+function parseWaterSewerDetail(rows: unknown[][]): Map<string, BudgetLine[]> {
+  const out = new Map<string, BudgetLine[]>();
+  let currentCode: string | null = null;
+  let currentLines: BudgetLine[] = [];
+
+  for (let i = 4; i < rows.length; i++) {
+    const r = rows[i] ?? [];
+    const col0 = trim(r[0]);
+    const col1 = trim(r[1]);
+
+    // Property block boundary marker
+    if (isPropertyCode(col0)) {
+      if (currentCode && currentLines.length) out.set(currentCode, currentLines);
+      currentCode = col0.toUpperCase();
+      currentLines = [];
+    }
+    if (!currentCode) continue;
+
+    // End of block — TOTAL row
+    if (/^total\s*:?\s*$/i.test(col1)) {
+      if (currentLines.length) out.set(currentCode, currentLines);
+      currentCode = null;
+      currentLines = [];
+      continue;
+    }
+
+    if (!col1) continue;
+    const ms: number[] = [];
+    for (let j = 2; j < 14; j++) ms.push(num(r[j]));
+    const total = num(r[14]);
+    if (total === 0 && ms.every((m) => m === 0)) continue;
+
+    const note = r[16] != null && trim(r[16]) !== "" ? trim(r[16]) : null;
+    currentLines.push({
+      glAccount: null,
+      subCategory: null,
+      label: col1,
+      months: ms,
+      total,
+      totalPsf: null,
+      input: null,
+      notes: note,
+      isSubtotal: false,
+    });
+  }
+  if (currentCode && currentLines.length) out.set(currentCode, currentLines);
+  return out;
+}
+
+/** Attach the Water Sewer detail to a property's "Water & Sewer" line
+ *  (GL 6130-8502). Matches by label since both the Reimbursements and
+ *  the Reimbursable Expenses sides share the same number on office
+ *  workbooks. */
+function attachWaterSewerSubLines(property: PropertyBudget, subLines: BudgetLine[]): void {
+  if (subLines.length === 0) return;
+  for (const sec of property.sections) {
+    for (const line of sec.lines) {
+      if (line.isSubtotal) continue;
+      if (/^water\s*(&|and)?\s*sewer$/i.test(line.label.trim())) {
+        line.subLines = subLines;
+      }
+    }
+  }
+}
+
 function attachInsuranceSubLines(property: PropertyBudget, subLines: BudgetLine[]): void {
   if (subLines.length === 0) return;
   for (const sec of property.sections) {
@@ -878,6 +949,7 @@ export function parseBudgetWorkbook(
   let insuranceDetail: Map<string, BudgetLine[]> | null = null;
   let buildingMaintDetail: Map<string, { contract: BudgetLine[]; recurring: BudgetLine[] }> | null = null;
   let allocatedExpenses: Map<string, import("./types").AllocationDetail[]> | null = null;
+  let waterSewerDetail: Map<string, BudgetLine[]> | null = null;
 
   for (const sheetName of wb.SheetNames) {
     const trimmed = sheetName.trim();
@@ -895,6 +967,10 @@ export function parseBudgetWorkbook(
     }
     if (ALLOCATED_EXPENSES_SHEET.test(trimmed)) {
       allocatedExpenses = parseAllocatedExpenses(rows);
+      continue;
+    }
+    if (WATER_SEWER_SHEET.test(trimmed)) {
+      waterSewerDetail = parseWaterSewerDetail(rows);
       continue;
     }
     const parsed = parsePropertySheet(rows, sheetName);
@@ -961,6 +1037,10 @@ function rollupDisplayName(workbookLabel: string, fallback: string): string {
     if (allocatedExpenses) {
       const allocs = allocatedExpenses.get(property.propertyCode);
       if (allocs) attachAllocations(property, allocs);
+    }
+    if (waterSewerDetail) {
+      const subs = waterSewerDetail.get(property.propertyCode);
+      if (subs) attachWaterSewerSubLines(property, subs);
     }
   }
 
