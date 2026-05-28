@@ -397,7 +397,7 @@ function BudgetTable({
   const skylineHref = `/api/financials/budgets/${encodeURIComponent(workbook.id)}/skyline?property=${encodeURIComponent(property.propertyCode)}`;
   const downloadHref = `/api/financials/budgets/${encodeURIComponent(workbook.id)}/download?property=${encodeURIComponent(property.propertyCode)}`;
   const [psf, setPsf] = useState(false);
-  const [hideEmpty, setHideEmpty] = useState(false);
+  const [hideEmpty, setHideEmpty] = useState(true);
   const [showGL, setShowGL] = useState(false);
   const sqft = property.rentableSqft || 0;
 
@@ -820,17 +820,17 @@ function EmptyRowsToggle({ hide, onChange }: {
       <div style={{ display: "inline-flex", borderRadius: 6, overflow: "hidden" }}>
         <button
           type="button"
-          onClick={() => onChange(false)}
-          style={{ ...baseBtn, borderRadius: "6px 0 0 6px", ...(hide ? {} : active) }}
+          onClick={() => onChange(true)}
+          style={{ ...baseBtn, borderRadius: "6px 0 0 6px", ...(hide ? active : {}) }}
         >
-          Show
+          Hide
         </button>
         <button
           type="button"
-          onClick={() => onChange(true)}
-          style={{ ...baseBtn, borderLeft: "none", borderRadius: "0 6px 6px 0", ...(hide ? active : {}) }}
+          onClick={() => onChange(false)}
+          style={{ ...baseBtn, borderLeft: "none", borderRadius: "0 6px 6px 0", ...(hide ? {} : active) }}
         >
-          Hide
+          Show
         </button>
       </div>
     </div>
