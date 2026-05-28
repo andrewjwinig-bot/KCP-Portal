@@ -157,12 +157,25 @@ function seedMissingConsolidatedEntry(wb: BudgetWorkbook): boolean {
   return false;
 }
 
+/** Returns true when the workbook's CONSOLIDATED property has all-zero
+ *  occupancy SF even though the underlying buildings carry data — the
+ *  rollup-summing logic was added later, so existing seeds need a
+ *  re-parse to pick it up. */
+function seedConsolidatedMissingOccSqft(wb: BudgetWorkbook): boolean {
+  const consolidated = wb.properties.find((p) => p.propertyCode === "CONSOLIDATED");
+  if (!consolidated) return false;
+  if (consolidated.occupancySqft.some((s) => s > 0)) return false;
+  const buildings = wb.properties.filter((p) => p.propertyCode !== "CONSOLIDATED");
+  return buildings.some((p) => p.occupancySqft.some((s) => s > 0));
+}
+
 function seedNeedsReparse(wb: BudgetWorkbook): boolean {
   return seedMissingSubLineDetail(wb) ||
          seedHasYoyNoise(wb) ||
          seedMissingGroupedSubLines(wb) ||
          seedMissingAllocations(wb) ||
-         seedMissingConsolidatedEntry(wb);
+         seedMissingConsolidatedEntry(wb) ||
+         seedConsolidatedMissingOccSqft(wb);
 }
 
 async function parseSeed(cfg: SeedConfig): Promise<BudgetWorkbook | null> {

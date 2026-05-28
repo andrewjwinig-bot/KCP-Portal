@@ -793,6 +793,27 @@ function rollupDisplayName(workbookLabel: string, fallback: string): string {
   // detail keyed off propertyCode="CONSOLIDATED").
   if (rollup) {
     rollup.propertyName = rollupDisplayName(label, rollup.propertyName);
+    // The workbook's rollup sheet often leaves row 6 (Occupancy SF)
+    // blank even though row 5 (Occupancy %) is populated — sum the
+    // SF from the underlying buildings so the consolidated view ties
+    // out. Same back-fill for rentable SF and occupancy % when blank.
+    if (properties.length > 0) {
+      const summedSqft = Array.from({ length: 12 }, (_, i) =>
+        properties.reduce((s, p) => s + (p.occupancySqft[i] ?? 0), 0),
+      );
+      const totalRentable = properties.reduce((s, p) => s + p.rentableSqft, 0);
+      if (rollup.occupancySqft.every((s) => s === 0)) {
+        rollup.occupancySqft = summedSqft;
+      }
+      if (rollup.rentableSqft === 0) {
+        rollup.rentableSqft = totalRentable;
+      }
+      if (rollup.occupancyPct.every((p) => p === 0) && totalRentable > 0) {
+        rollup.occupancyPct = summedSqft.map(
+          (s) => Number(((s / totalRentable) * 100).toFixed(1)),
+        );
+      }
+    }
     properties.unshift(rollup);
   }
 
