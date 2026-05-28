@@ -36,6 +36,11 @@ export type BudgetLine = {
    *  the Management Fee lines so the page can render "Management Fee
    *  (6%)" inline. Varies by property. */
   feePercent?: number;
+  /** Fund-level rollups (JV III / NI LLC Consolidated) where the
+   *  underlying buildings carry different fee rates — the rollup
+   *  itself doesn't have a single rate, just the range. Renders as
+   *  "(4–6%)". */
+  feePercentRange?: [number, number];
   /** Allocation context — when this line's dollar amount was computed by
    *  apportioning a portfolio-wide expense across properties (parsed
    *  from the Allocated Expenses tab). One line can carry multiple

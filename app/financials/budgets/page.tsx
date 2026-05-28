@@ -1494,6 +1494,11 @@ function BudgetLineRow({
               {line.feePercent != null && (
                 <span className="muted small" style={{ marginLeft: 6 }}>({line.feePercent}%)</span>
               )}
+              {line.feePercent == null && line.feePercentRange && (
+                <span className="muted small" style={{ marginLeft: 6 }}>
+                  ({line.feePercentRange[0]}–{line.feePercentRange[1]}%)
+                </span>
+              )}
             </span>
             {hasSubLines && (
               <span
