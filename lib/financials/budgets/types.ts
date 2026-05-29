@@ -61,6 +61,12 @@ export type BudgetLine = {
    *  In Place Revenue supporting tab; stage 2 will fold in renewal and
    *  new-lease assumptions from the Renew & Vac tab. */
   rentDetail?: RentDetail;
+  /** Editor display label ("DREW", "NANCY", "ALISON") + ISO timestamp
+   *  for the most recent edit to this line during a reforecast. Lets
+   *  the page render "Greg edited Insurance · 2m ago" so staff
+   *  collaborating on the same workbook can see who touched what. */
+  lastEditedBy?: string;
+  lastEditedAt?: string;
 };
 
 export type RentRosterEntry = {
@@ -242,4 +248,13 @@ export type BudgetWorkbook = {
   /** Workbook-level rollup ("All Shopping Centers" sheet), if present. */
   rollup?: PropertyBudget;
   properties: PropertyBudget[];
+  /** Reforecast mode — when true, every monthly cell + notes field on
+   *  the page becomes inline-editable, with autosave + last-edited-by
+   *  tracking. Persisted on the workbook so multiple staff can
+   *  collaborate on the same reforecast concurrently. Toggled via
+   *  PATCH /api/financials/budgets/[id] { reforecasting }. */
+  reforecasting?: boolean;
+  /** Who toggled the most recent reforecast on / off and when. */
+  reforecastBy?: string;
+  reforecastAt?: string;
 };

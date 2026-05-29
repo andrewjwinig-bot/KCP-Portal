@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getBudget, deleteBudget } from "@/lib/financials/budgets/storage";
+import { getBudget, deleteBudget, saveBudget } from "@/lib/financials/budgets/storage";
 import { enrichWithRentRollDates } from "@/lib/financials/budgets/enrich";
 
 export const runtime = "nodejs";
@@ -19,6 +19,37 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   } catch (e) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : "Failed to load budget" },
+      { status: 500 },
+    );
+  }
+}
+
+/**
+ * PATCH /api/financials/budgets/:id
+ *
+ * Body: { reforecasting: boolean, user?: string }
+ *
+ * Flip the workbook-wide editable flag. While `reforecasting` is true
+ * the property pages render their monthly cells + notes as inline
+ * inputs and PATCH /api/financials/budgets/:id/line accepts edits.
+ * Toggling back off locks the budget back to read-only without
+ * discarding what was edited.
+ */
+export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+  try {
+    const body = await req.json();
+    const wb = await getBudget(params.id);
+    if (!wb) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    if (typeof body?.reforecasting === "boolean") {
+      wb.reforecasting = body.reforecasting;
+      if (body?.user) wb.reforecastBy = String(body.user);
+      wb.reforecastAt = new Date().toISOString();
+      await saveBudget(wb);
+    }
+    return NextResponse.json({ workbook: wb });
+  } catch (e) {
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : "Failed to toggle reforecast" },
       { status: 500 },
     );
   }
