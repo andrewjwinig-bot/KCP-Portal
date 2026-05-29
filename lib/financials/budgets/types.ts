@@ -257,4 +257,13 @@ export type BudgetWorkbook = {
   /** Who toggled the most recent reforecast on / off and when. */
   reforecastBy?: string;
   reforecastAt?: string;
+  /** Snapshot of the property sections + rollups + occupancy strips
+   *  captured the moment a reforecast starts. Lets staff click
+   *  Discard to roll back to the pre-reforecast state if they were
+   *  only testing the flow. Cleared when a reforecast is committed
+   *  (Save) or discarded. */
+  reforecastSnapshot?: {
+    properties: PropertyBudget[];
+    rollup?: PropertyBudget;
+  };
 };

@@ -76,6 +76,10 @@ export interface RentRollProperty {
 export interface RentRollData {
   id: string;
   uploadedAt: string;
+  /** Display label of the user who uploaded — captured at POST time
+   *  so the rent-roll page can show "Last imported … by NANCY".
+   *  Optional because pre-existing uploads predate this field. */
+  uploadedBy?: string | null;
   reportFrom: string;
   reportTo: string;
   properties: RentRollProperty[];
