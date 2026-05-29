@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import type { RentRollData } from "../../../lib/rentroll/parseRentRollExcel";
 import { PROPERTY_DEFS } from "../../../lib/properties/data";
@@ -19,6 +19,7 @@ import {
 } from "../../../lib/commissions";
 import { Calendar } from "@/app/components/Calendar";
 import { downloadCommissionInvoice, downloadCommissionInvoicesZip } from "@/lib/commissions/downloadInvoices";
+import { SendToAvidBillButton, formatSentDate } from "../SendToAvidBillButton";
 
 // The person these commissions are paid to — appears on the memo.
 const PAYEE = "Harry I. Feldman";
@@ -77,14 +78,26 @@ export default function RetailCommissionsPage() {
   const [form, setForm] = useState<FormState>(() => emptyForm(quarterOpts[0]));
   const [tenantSelection, setTenantSelection] = useState<string>("");
 
+  // Avid send-log keyed by quarter — shared across office + retail
+  // since both stores feed the same email batch.
+  const [avidSent, setAvidSent] = useState<Record<string, { sentAt: string; count: number; total: number }>>({});
+  const refreshAvidSent = useCallback(() => {
+    fetch("/api/commissions/avidbill-sent")
+      .then((r) => r.json())
+      .then((d) => setAvidSent((d?.log && typeof d.log === "object") ? d.log : {}))
+      .catch(() => { /* best-effort */ });
+  }, []);
+
   useEffect(() => {
     Promise.all([
       fetch("/api/rentroll").then((r) => r.json()).catch(() => ({ rentroll: null })),
       fetch("/api/commissions/retail").then((r) => r.json()).catch(() => ({ entries: [] })),
+      fetch("/api/commissions/avidbill-sent").then((r) => r.json()).catch(() => ({ log: {} })),
     ])
-      .then(([rr, ce]) => {
+      .then(([rr, ce, av]) => {
         setRentroll(rr.rentroll ?? null);
         setEntries(Array.isArray(ce.entries) ? ce.entries : []);
+        setAvidSent((av?.log && typeof av.log === "object") ? av.log : {});
       })
       .finally(() => setLoading(false));
   }, []);
@@ -421,13 +434,29 @@ export default function RetailCommissionsPage() {
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             {entriesByQuarter.map(([quarter, list]) => {
               const total = list.reduce((s, e) => s + (Number(e.incentiveAmount) || 0), 0);
+              const sentRecord = avidSent[quarter];
+              const sentDateLabel = sentRecord ? formatSentDate(sentRecord.sentAt) : null;
               return (
-                <div key={quarter} style={{ border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden" }}>
+                <div key={quarter} style={{ border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden", opacity: sentRecord ? 0.85 : 1 }}>
                   <div style={{
                     display: "flex", alignItems: "center", justifyContent: "space-between",
-                    padding: "10px 14px", background: "rgba(11,74,125,0.05)", borderBottom: "1px solid var(--border)",
+                    padding: "10px 14px",
+                    background: sentRecord ? "rgba(22,163,74,0.07)" : "rgba(11,74,125,0.05)",
+                    borderBottom: "1px solid var(--border)", gap: 12, flexWrap: "wrap",
                   }}>
-                    <span style={{ fontWeight: 800, fontSize: 14 }}>{quarter}</span>
+                    <span style={{ fontWeight: 800, fontSize: 14, display: "flex", alignItems: "center", gap: 8 }}>
+                      {quarter}
+                      {sentRecord && (
+                        <span style={{
+                          fontSize: 10, fontWeight: 800, letterSpacing: "0.04em",
+                          padding: "2px 8px", borderRadius: 999,
+                          background: "rgba(22,163,74,0.18)", color: "#15803d",
+                          border: "1px solid rgba(22,163,74,0.35)",
+                        }}>
+                          SENT TO AVIDXCHANGE · {sentDateLabel}
+                        </span>
+                      )}
+                    </span>
                     <span className="muted small">{list.length} · {toMoney(total)}</span>
                   </div>
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap", padding: "14px 14px 16px", borderBottom: "1px solid var(--border)" }}>
@@ -447,6 +476,7 @@ export default function RetailCommissionsPage() {
                     >
                       Download Invoices (Zip)
                     </button>
+                    <SendToAvidBillButton quarterLabel={quarter} onSent={refreshAvidSent} />
                   </div>
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                     <thead>
