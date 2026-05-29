@@ -677,17 +677,17 @@ function ExpirationsSection({ rentroll, comments, onChange }: {
   onChange: (unitRef: string, patch: { lastContact?: string; tenantStatus?: string }) => void;
 }) {
   type Row = { unitRef: string; tenant: string; sqft: number; expires: string; building: string; days: number };
-  const buckets = useMemo(() => {
-    const empty = { label: "Three Month Expirations",       min: -9999, max: 90,  rows: [] as Row[] };
-    const four  = { label: "Four – Six Month Expirations",  min: 91,    max: 180, rows: [] as Row[] };
-    const seven = { label: "Seven – Twelve Month Expirations", min: 181, max: 365, rows: [] as Row[] };
+  type Bucket = { label: string; min: number; max: number; rows: Row[] };
+  const buildBuckets = (filter: (propCode: string) => boolean): Bucket[] => {
+    const empty: Bucket = { label: "Three Month Expirations",          min: -9999, max: 90,  rows: [] };
+    const four:  Bucket = { label: "Four – Six Month Expirations",     min: 91,    max: 180, rows: [] };
+    const seven: Bucket = { label: "Seven – Twelve Month Expirations", min: 181,   max: 365, rows: [] };
     if (!rentroll) return [empty, four, seven];
-    // Scope to office tenants (JV III + NI LLC + The Office Works)
-    const officeCodes = OFFICE_PROPERTY_CODES;
     const today = new Date(); today.setHours(0, 0, 0, 0);
     for (const p of rentroll.properties) {
-      if (!officeCodes.has(p.propertyCode.toUpperCase())) continue;
-      const def = PROPERTY_DEFS.find((d) => d.id.toUpperCase() === p.propertyCode.toUpperCase());
+      const code = p.propertyCode.toUpperCase();
+      if (!filter(code)) continue;
+      const def = PROPERTY_DEFS.find((d) => d.id.toUpperCase() === code);
       const shortBuilding = def?.name?.replace(/^Building\s+/i, "").replace(/^Kor Center\s+/i, "Kor ") ?? p.propertyCode;
       for (const u of p.units) {
         if (u.isVacant) continue;
@@ -706,60 +706,89 @@ function ExpirationsSection({ rentroll, comments, onChange }: {
     }
     for (const b of [empty, four, seven]) b.rows.sort((a, b) => a.days - b.days);
     return [empty, four, seven];
-  }, [rentroll]);
+  };
+
+  // JV III + NI LLC office buildings — staff treat these together
+  // since they're the office portfolio proper. The Office Works
+  // (4900) gets its own block below since the sub-tenant footprint
+  // there is tiny offices (~100-300 SF) that staff want to track
+  // separately from the larger floors.
+  const mainBuckets = useMemo(
+    () => buildBuckets((code) => OFFICE_PROPERTY_CODES.has(code) && code !== "4900"),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [rentroll],
+  );
+  const officeWorksBuckets = useMemo(
+    () => buildBuckets((code) => code === "4900"),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [rentroll],
+  );
+  const hasOfficeWorks = officeWorksBuckets.some((b) => b.rows.length > 0);
+
+  const renderBucket = (b: Bucket) => (
+    <div key={b.label}>
+      <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 6 }}>{b.label}</div>
+      {b.rows.length === 0 ? (
+        <div className="muted small">No tenants in this window.</div>
+      ) : (
+        <div className="tableWrap">
+          <table>
+            <colgroup>
+              <col />                          {/* Tenant — flex */}
+              <col style={{ width: 80  }} />   {/* Sq Ft */}
+              <col style={{ width: 110 }} />   {/* Expires */}
+              <col style={{ width: 130 }} />   {/* Building — fits "The Office Works" */}
+              <col />                          {/* Tenant Status — flex */}
+            </colgroup>
+            <thead>
+              <tr>
+                <th style={thLeft}>Tenant</th>
+                <th style={thRight}>Sq Ft</th>
+                <th style={thLeft}>Expires</th>
+                <th style={thCenter}>Building</th>
+                <th style={thLeft}>Tenant Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {b.rows.map((r) => {
+                const c = comments[r.unitRef] ?? {};
+                return (
+                  <tr key={r.unitRef}>
+                    <td><span style={{ fontSize: 14, fontWeight: 600 }}>{r.tenant}</span></td>
+                    <td style={tdReadRight}><span style={{ fontSize: 14 }}>{r.sqft.toLocaleString()}</span></td>
+                    <td style={tdReadLeft}><span style={{ fontSize: 14 }}>{r.expires}</span></td>
+                    <td style={tdReadCenter}><span style={{ fontSize: 14 }}>{r.building}</span></td>
+                    <td>
+                      <input
+                        style={inputStyle}
+                        placeholder="e.g. RENEWING"
+                        value={c.tenantStatus ?? ""}
+                        onChange={(e) => onChange(r.unitRef, { tenantStatus: e.target.value })}
+                      />
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-      {buckets.map((b) => (
-        <div key={b.label}>
-          <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 6 }}>{b.label}</div>
-          {b.rows.length === 0 ? (
-            <div className="muted small">No tenants in this window.</div>
-          ) : (
-            <div className="tableWrap">
-              <table>
-                <colgroup>
-                  <col />                          {/* Tenant — flex */}
-                  <col style={{ width: 80  }} />   {/* Sq Ft */}
-                  <col style={{ width: 110 }} />   {/* Expires */}
-                  <col style={{ width: 130 }} />   {/* Building — fits "The Office Works" */}
-                  <col />                          {/* Tenant Status — flex */}
-                </colgroup>
-                <thead>
-                  <tr>
-                    <th style={thLeft}>Tenant</th>
-                    <th style={thRight}>Sq Ft</th>
-                    <th style={thLeft}>Expires</th>
-                    <th style={thCenter}>Building</th>
-                    <th style={thLeft}>Tenant Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {b.rows.map((r) => {
-                    const c = comments[r.unitRef] ?? {};
-                    return (
-                      <tr key={r.unitRef}>
-                        <td><span style={{ fontSize: 14, fontWeight: 600 }}>{r.tenant}</span></td>
-                        <td style={tdReadRight}><span style={{ fontSize: 14 }}>{r.sqft.toLocaleString()}</span></td>
-                        <td style={tdReadLeft}><span style={{ fontSize: 14 }}>{r.expires}</span></td>
-                        <td style={tdReadCenter}><span style={{ fontSize: 14 }}>{r.building}</span></td>
-                        <td>
-                          <input
-                            style={inputStyle}
-                            placeholder="e.g. RENEWING"
-                            value={c.tenantStatus ?? ""}
-                            onChange={(e) => onChange(r.unitRef, { tenantStatus: e.target.value })}
-                          />
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
+    <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+        {mainBuckets.map(renderBucket)}
+      </div>
+      {hasOfficeWorks && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 18, paddingTop: 16, borderTop: "1px solid var(--border)" }}>
+          <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>
+            The Office Works — Lease Expirations
+          </div>
+          {officeWorksBuckets.map(renderBucket)}
         </div>
-      ))}
+      )}
     </div>
   );
 }
