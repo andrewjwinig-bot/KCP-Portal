@@ -1712,7 +1712,7 @@ function RentModal({ detail, onClose }: {
                         {fmt(m)}
                       </td>
                     ))}
-                    <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontWeight: 600, fontSize: 12, background: e.total > 0 ? tint : undefined, color: isVacant ? "var(--muted)" : undefined }}>
+                    <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontWeight: 600, fontSize: 12, color: isVacant ? "var(--muted)" : undefined }}>
                       {fmt(e.total)}
                     </td>
                   </tr>
