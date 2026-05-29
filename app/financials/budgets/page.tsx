@@ -1298,9 +1298,6 @@ function AllocationModal({ allocations, currentPropertyCode, onClose }: {
                 <div style={{ fontSize: 16, fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>
                   {fmt(allocations[0].portfolioTotal)}
                 </div>
-                <div className="muted small" style={{ marginTop: 2 }}>
-                  {allocations[0].basis === "sqft" ? "Sqft share" : allocations[0].basis === "annual" ? "Annual amount" : "Allocation"}
-                </div>
               </div>
               <button onClick={onClose} className="btn" style={{ padding: "6px 12px", fontSize: 13, fontWeight: 700 }}>
                 Close
@@ -1351,9 +1348,6 @@ function AllocationModal({ allocations, currentPropertyCode, onClose }: {
                   </div>
                   <div style={{ fontSize: 16, fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>
                     {fmt(a.portfolioTotal)}
-                  </div>
-                  <div className="muted small" style={{ marginTop: 2 }}>
-                    {a.basis === "sqft" ? "Sqft share" : a.basis === "annual" ? "Annual amount" : "Allocation"}
                   </div>
                 </div>
               </div>
