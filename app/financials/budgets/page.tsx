@@ -1650,19 +1650,10 @@ function BudgetLineRow({
       >
         <td>
           <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-            {hasSubLines && (
-              <span
-                aria-hidden
-                style={{
-                  display: "inline-block", width: 12, fontWeight: 800,
-                  color: "var(--muted)", fontSize: 11,
-                  transform: expanded ? "rotate(90deg)" : "none",
-                  transition: "transform 0.12s ease",
-                }}
-              >
-                ▸
-              </span>
-            )}
+            {/* The green sub-line count chip on the right is the only
+                expand affordance — the leading chevron was visual
+                clutter that pushed expandable rows out of column
+                alignment with their plain-row siblings. */}
             {showGL && line.glAccount && (
               <span className="muted small" style={{ fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
                 {line.glAccount}
@@ -1789,19 +1780,6 @@ function SubLineRow({
           borderLeft: "3px solid #0b4a7d",
           color: line.isSubtotal ? "#0b4a7d" : undefined,
         }}>
-          {hasNested && (
-            <span
-              aria-hidden
-              style={{
-                display: "inline-block", width: 12, fontWeight: 800,
-                color: "var(--muted)", fontSize: 10, marginRight: 4,
-                transform: expanded ? "rotate(90deg)" : "none",
-                transition: "transform 0.12s ease",
-              }}
-            >
-              ▸
-            </span>
-          )}
           {showGL && line.glAccount && (
             <span className="muted small" style={{ fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", marginRight: 6 }}>
               {line.glAccount}
