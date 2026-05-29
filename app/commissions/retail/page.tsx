@@ -18,6 +18,7 @@ import {
   toIsoDate,
 } from "../../../lib/commissions";
 import { Calendar } from "@/app/components/Calendar";
+import { downloadCommissionInvoice, downloadCommissionInvoicesZip } from "@/lib/commissions/downloadInvoices";
 
 // The person these commissions are paid to — appears on the memo.
 const PAYEE = "Harry I. Feldman";
@@ -433,6 +434,19 @@ export default function RetailCommissionsPage() {
                     <button className="btn primary large" onClick={() => downloadMemoPdf(quarter, list)}>
                       Download PDF Memo
                     </button>
+                    {/* Retail commissions are already the 3 %-of-
+                        lease-value figure stored on `incentiveAmount`,
+                        so the per-row billable equals the stored
+                        value with no markup. */}
+                    <button
+                      className="btn large"
+                      onClick={() => downloadCommissionInvoicesZip(quarter, list.map((e) => ({
+                        entry: e,
+                        amount: Number(e.incentiveAmount) || 0,
+                      })))}
+                    >
+                      Download Invoices (Zip)
+                    </button>
                   </div>
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                     <thead>
@@ -465,6 +479,12 @@ export default function RetailCommissionsPage() {
                             {toMoney(e.incentiveAmount)}
                           </td>
                           <td style={{ padding: "10px 12px", textAlign: "right", whiteSpace: "nowrap" }}>
+                            <button
+                              className="btn"
+                              onClick={() => downloadCommissionInvoice(e, Number(e.incentiveAmount) || 0)}
+                              style={{ padding: "4px 8px", fontSize: 11, marginRight: 6 }}
+                              title="Download AvidBill invoice for this commission"
+                            >Invoice</button>
                             <button className="btn" onClick={() => editEntry(e)} style={{ padding: "4px 8px", fontSize: 11, marginRight: 6 }}>Edit</button>
                             <button onClick={() => deleteEntry(e.id)} title="Delete row" aria-label="Delete row"
                               style={{
