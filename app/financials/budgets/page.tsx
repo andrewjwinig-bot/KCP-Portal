@@ -785,8 +785,9 @@ function BudgetTable({
                 onClick={onCreateClick}
                 className="btn primary"
                 style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}
+                title="Start a new live budget for the selected property"
               >
-                + Create Live Budget
+                New
               </button>
             )}
           </div>
