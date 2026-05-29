@@ -23,7 +23,7 @@ import {
 } from "../../lib/commissions";
 import { Calendar } from "@/app/components/Calendar";
 import { downloadCommissionInvoice, downloadCommissionInvoicesZip } from "@/lib/commissions/downloadInvoices";
-import { SendToAvidBillButton, formatSentDate } from "./SendToAvidBillButton";
+import { formatSentDate } from "./SendToAvidBillButton";
 
 // Office property codes — Business Parks Division commissions.
 const OFFICE_CODES = new Set(
@@ -660,11 +660,11 @@ export default function CommissionsPage() {
                     >
                       Download Invoices (Zip)
                     </button>
-                    {/* Sends the same PDFs the zip would carry to
-                        kormancommercial@avidbill.com via Postmark.
-                        Prompts a dry-run preview first so staff can
-                        eyeball the count + total before firing. */}
-                    <SendToAvidBillButton quarterLabel={quarter} onSent={refreshAvidSent} />
+                    {/* "Send to AvidXchange" button intentionally
+                        removed — the Vercel cron at 09:00 UTC on
+                        Jan 1 / Apr 1 / Jul 1 / Oct 1 handles
+                        sending automatically. Manual trigger lives
+                        only in the API + the cron retry path. */}
                   </div>
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                     <thead>
