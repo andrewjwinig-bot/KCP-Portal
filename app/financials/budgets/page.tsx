@@ -1362,7 +1362,7 @@ function AllocationModal({ allocations, currentPropertyCode, onClose }: {
                 <colgroup>
                   <col style={{ width: 90 }} />
                   <col style={{ width: 64 }} />
-                  {MONTHS.map((m) => <col key={m} />)}
+                  {MONTHS.map((m, i) => <col key={m} style={i % 2 === 0 ? { background: MONTH_TINT } : undefined} />)}
                   <col style={{ width: 100 }} />
                 </colgroup>
                 <thead>
@@ -1518,7 +1518,7 @@ function CipModal({ detail, onClose }: {
           <table style={{ tableLayout: "fixed", width: "100%" }}>
             <colgroup>
               <col style={{ width: 220 }} />
-              {MONTHS.map((m) => <col key={m} />)}
+              {MONTHS.map((m, i) => <col key={m} style={i % 2 === 0 ? { background: MONTH_TINT } : undefined} />)}
               <col style={{ width: 100 }} />
             </colgroup>
             <thead>
@@ -1854,11 +1854,21 @@ const BUDGET_COL_PCT = {
   total: 12,    // sum = 100%
 };
 
+// Subtle alternating tint on month columns to keep the eye tracking
+// horizontally across a 12-month grid. Even-indexed months (Jan, Mar,
+// May, Jul, Sep, Nov) get a faint background so consecutive values
+// don't blur into each other. Low alpha works on both light and dark
+// themes without competing with the subtotal-row + brand-blue tints.
+const MONTH_TINT = "rgba(15,23,42,0.035)";
+const monthColStyle = (i: number, width: string) => i % 2 === 0
+  ? { width, background: MONTH_TINT }
+  : { width };
+
 function BudgetTableColgroup() {
   return (
     <colgroup>
       <col style={{ width: `${BUDGET_COL_PCT.line}%` }} />
-      {MONTHS.map((m) => <col key={m} style={{ width: `${BUDGET_COL_PCT.month}%` }} />)}
+      {MONTHS.map((m, i) => <col key={m} style={monthColStyle(i, `${BUDGET_COL_PCT.month}%`)} />)}
       <col style={{ width: `${BUDGET_COL_PCT.total}%` }} />
     </colgroup>
   );
