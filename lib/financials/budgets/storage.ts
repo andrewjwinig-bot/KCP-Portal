@@ -418,14 +418,26 @@ function seedHasLegacyLeasingLabel(wb: BudgetWorkbook): boolean {
  *  Rental Summary block (Shopping Centers, JV III, NI LLC). */
 function seedMissingRentDetail(wb: BudgetWorkbook): boolean {
   if (wb.category !== "Shopping Centers" && wb.category !== "Office") return false;
+  const subLabel = /^total\s+rental\s+(and|&)\s+other$/i;
+  const consolidated = wb.properties.find((p) => p.propertyCode === "CONSOLIDATED");
+  let buildingsHaveDetail = false;
   for (const property of wb.properties) {
     if (property.propertyCode === "CONSOLIDATED") continue;
     const sub = property.sections.flatMap((s) => s.lines)
-      .find((l) => l.isSubtotal && /^total\s+rental\s+(and|&)\s+other$/i.test(l.label.trim()));
+      .find((l) => l.isSubtotal && subLabel.test(l.label.trim()));
     if (!sub) continue;
     if (!sub.rentDetail || sub.rentDetail.entries.length === 0) return true;
     // Stale shape: the entry pre-dates per-month categorization.
     if (sub.rentDetail.entries.some((e) => !Array.isArray((e as any).monthCategories) || (e as any).monthCategories.length !== 12)) return true;
+    if (sub.rentDetail.entries.length > 0) buildingsHaveDetail = true;
+  }
+  // CONSOLIDATED rollup should aggregate every building's rent
+  // roster — re-parse the seed if the rollup is missing it but the
+  // buildings have data to feed it.
+  if (consolidated && buildingsHaveDetail) {
+    const sub = consolidated.sections.flatMap((s) => s.lines)
+      .find((l) => l.isSubtotal && subLabel.test(l.label.trim()));
+    if (sub && (!sub.rentDetail || sub.rentDetail.entries.length === 0)) return true;
   }
   return false;
 }

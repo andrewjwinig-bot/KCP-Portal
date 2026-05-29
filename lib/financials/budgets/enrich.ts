@@ -37,35 +37,30 @@ export async function enrichWithRentRollDates(wb: BudgetWorkbook): Promise<void>
   const rr = await getJSON(RENTROLL_PREFIX, RENTROLL_ID) as RentRoll | null;
   if (!rr?.properties?.length) return;
 
-  // Build a per-property unitRef → { from, to, sqft } lookup. Both
-  // pieces of metadata come off the same rent-roll unit, so we walk
-  // it once and stamp both.
-  const byProperty = new Map<string, Map<string, { from?: string; to?: string; sqft?: number }>>();
+  // Flat unitRef → { from, to, sqft } lookup. UnitRefs already embed
+  // the building code ("4050-205"), so a single map covers every
+  // building AND the CONSOLIDATED rollup whose aggregated entries
+  // span multiple buildings.
+  const byUnitRef = new Map<string, { from?: string; to?: string; sqft?: number }>();
   for (const prop of rr.properties) {
-    const code = (prop.propertyCode ?? "").toUpperCase();
-    if (!code) continue;
-    const map = new Map<string, { from?: string; to?: string; sqft?: number }>();
     for (const u of prop.units ?? []) {
       const ref = normSuite(u.unitRef);
       if (!ref) continue;
-      map.set(ref, {
+      byUnitRef.set(ref, {
         from: u.leaseFrom ?? undefined,
         to:   u.leaseTo   ?? undefined,
         sqft: typeof u.sqft === "number" && u.sqft > 0 ? u.sqft : undefined,
       });
     }
-    if (map.size > 0) byProperty.set(code, map);
   }
-  if (byProperty.size === 0) return;
+  if (byUnitRef.size === 0) return;
 
   for (const property of wb.properties) {
-    const lookup = byProperty.get(property.propertyCode.toUpperCase());
-    if (!lookup) continue;
     for (const section of property.sections) {
       for (const line of section.lines) {
         if (!line.rentDetail) continue;
         for (const entry of line.rentDetail.entries) {
-          const hit = lookup.get(normSuite(entry.unitRef));
+          const hit = byUnitRef.get(normSuite(entry.unitRef));
           if (!hit) continue;
           // R&V tab dates are canonical for "this lease expires this
           // year" so don't overwrite them — only fill in blanks.

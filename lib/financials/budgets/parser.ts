@@ -2169,6 +2169,31 @@ function rollupDisplayName(workbookLabel: string, fallback: string): string {
     }
   }
 
+  // Aggregate every building's rent roster onto the CONSOLIDATED
+  // rollup so the fund-level view shows every tenant in one place.
+  // UnitRefs already embed the building code ("4050-205"), so a flat
+  // concat is unambiguous; we share references rather than deep-clone
+  // so subsequent rent-roll enrichment (sqft + lease dates) lands on
+  // both the building and the rollup copies at once.
+  const consolidatedProp = properties.find((p) => p.propertyCode === "CONSOLIDATED");
+  if (consolidatedProp) {
+    const subtotalLabelRe = /^total\s+rental\s+(and|&)\s+other$/i;
+    const aggregated: import("./types").RentRosterEntry[] = [];
+    for (const property of properties) {
+      if (property.propertyCode === "CONSOLIDATED") continue;
+      for (const sec of property.sections) {
+        for (const line of sec.lines) {
+          if (!line.isSubtotal) continue;
+          if (!subtotalLabelRe.test(line.label.trim())) continue;
+          if (line.rentDetail) aggregated.push(...line.rentDetail.entries);
+        }
+      }
+    }
+    if (aggregated.length > 0) {
+      attachRentDetail(consolidatedProp, aggregated);
+    }
+  }
+
   // Synthesize fund-level allocations for Debt Service GLs across the
   // buildings of a multi-building workbook. JV III's debt sits on the
   // fund-level loan and gets split across the 3 buildings — the
