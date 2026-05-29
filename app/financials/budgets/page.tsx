@@ -1553,15 +1553,18 @@ function CipModal({ detail, onClose }: {
   );
 }
 
-/** Tint per certainty bucket — dark green for locked-in in-place
- *  income, mid-green for renewal assumptions (lease expires this
- *  year, assumed to renew), light green for new-lease assumptions on
- *  currently-vacant suites, no tint for truly vacant rows so they
- *  read as zeros. */
+/** Three-stop green scale chosen for enough contrast that the eye can
+ *  pick out the certainty bucket at a glance. Shifts hue + alpha
+ *  together (not just alpha) so the steps stay legible against the
+ *  card background on either theme.
+ *    in-place → deep forest green   (guaranteed income)
+ *    renewal  → mid bright lime     (lease expires, assumed to renew)
+ *    new      → pale yellow-green   (suite vacant, new-lease assumption)
+ *    vacant   → no tint             (em-dash render) */
 const RENT_CATEGORY_TINT: Record<import("@/lib/financials/budgets/types").RentRosterEntry["category"], string> = {
-  "in-place": "rgba(22,163,74,0.22)",  // darkest green
-  "renewal":  "rgba(22,163,74,0.13)",  // mid
-  "new":      "rgba(22,163,74,0.06)",  // light
+  "in-place": "rgba(21,128,61,0.55)",
+  "renewal":  "rgba(132,204,22,0.45)",
+  "new":      "rgba(217,249,157,0.65)",
   "vacant":   "transparent",
 };
 const RENT_CATEGORY_LABEL: Record<import("@/lib/financials/budgets/types").RentRosterEntry["category"], string> = {
@@ -1677,10 +1680,13 @@ function RentModal({ detail, onClose }: {
         </div>
         <div className="tableWrap" style={{ marginTop: 0 }}>
           <table style={{ tableLayout: "fixed", width: "100%" }}>
+            {/* No MONTH_TINT here — the alternating column shading
+                muddies the certainty greens. The tinted cells on each
+                row carry the visual rhythm instead. */}
             <colgroup>
               <col style={{ width: 80 }} />
-              <col style={{ width: 220 }} />
-              {MONTHS.map((m, i) => <col key={m} style={i % 2 === 0 ? { background: MONTH_TINT } : undefined} />)}
+              <col style={{ width: 280 }} />
+              {MONTHS.map((m) => <col key={m} />)}
               <col style={{ width: 100 }} />
             </colgroup>
             <thead>
@@ -1697,8 +1703,8 @@ function RentModal({ detail, onClose }: {
                 const isVacant = e.category === "vacant";
                 return (
                   <tr key={idx}>
-                    <td style={{ fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{e.unitRef}</td>
-                    <td style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: isVacant ? "var(--muted)" : undefined, fontStyle: isVacant ? "italic" : undefined }}>
+                    <td style={{ fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", fontSize: 12 }}>{e.unitRef}</td>
+                    <td style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontSize: 12, fontWeight: 400, color: isVacant ? "var(--muted)" : undefined, fontStyle: isVacant ? "italic" : undefined }} title={e.tenantName}>
                       {e.tenantName}
                     </td>
                     {e.months.map((m, j) => (
@@ -1706,7 +1712,7 @@ function RentModal({ detail, onClose }: {
                         {fmt(m)}
                       </td>
                     ))}
-                    <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontWeight: 600, background: e.total > 0 ? tint : undefined, color: isVacant ? "var(--muted)" : undefined }}>
+                    <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontWeight: 600, fontSize: 12, background: e.total > 0 ? tint : undefined, color: isVacant ? "var(--muted)" : undefined }}>
                       {fmt(e.total)}
                     </td>
                   </tr>
