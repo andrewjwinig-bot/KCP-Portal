@@ -1701,17 +1701,51 @@ function RentModal({ detail, onClose }: {
               {ordered.map((e, idx) => {
                 const tint = RENT_CATEGORY_TINT[e.category];
                 const isVacant = e.category === "vacant";
+                // Build the hover tooltip — tenant + lease window
+                // when we have it. Renewals show "Expires" (the
+                // workbook's date is when the current lease ends);
+                // new-lease assumptions show "Lease" (start → end).
+                const tooltipLines = [e.tenantName];
+                if (e.leaseFrom && e.leaseTo) {
+                  tooltipLines.push(`Lease: ${e.leaseFrom} – ${e.leaseTo}`);
+                } else if (e.leaseTo) {
+                  tooltipLines.push(`Expires: ${e.leaseTo}`);
+                } else if (e.leaseFrom) {
+                  tooltipLines.push(`Starts: ${e.leaseFrom}`);
+                }
+                const rowTooltip = tooltipLines.join("\n");
+                // Rent bump = a month with a strictly higher value
+                // than the previous month, and both values positive.
+                // A first-month start (0 → X) doesn't count as a bump
+                // because it's just lease commencement, not a rate
+                // change.
+                const isBump = (j: number) => j > 0 && (e.months[j] ?? 0) > (e.months[j - 1] ?? 0) && (e.months[j - 1] ?? 0) > 0;
                 return (
                   <tr key={idx}>
-                    <td style={{ fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", fontSize: 12 }}>{e.unitRef}</td>
-                    <td style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontSize: 12, fontWeight: 400, color: isVacant ? "var(--muted)" : undefined, fontStyle: isVacant ? "italic" : undefined }} title={e.tenantName}>
+                    <td style={{ fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", fontSize: 12 }} title={rowTooltip}>{e.unitRef}</td>
+                    <td style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontSize: 12, fontWeight: 400, color: isVacant ? "var(--muted)" : undefined, fontStyle: isVacant ? "italic" : undefined }} title={rowTooltip}>
                       {e.tenantName}
                     </td>
-                    {e.months.map((m, j) => (
-                      <td key={j} style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontSize: 12, background: m > 0 ? tint : undefined, color: isVacant ? "var(--muted)" : undefined }}>
-                        {fmt(m)}
-                      </td>
-                    ))}
+                    {e.months.map((m, j) => {
+                      const bump = isBump(j);
+                      return (
+                        <td key={j} style={{
+                          textAlign: "right",
+                          fontVariantNumeric: "tabular-nums",
+                          fontSize: 12,
+                          fontWeight: bump ? 700 : undefined,
+                          background: m > 0 ? tint : undefined,
+                          color: isVacant ? "var(--muted)" : undefined,
+                          // Solid underline marks the month a rent
+                          // step-up kicks in — quicker to spot than
+                          // comparing adjacent numbers.
+                          boxShadow: bump ? "inset 0 -2px 0 rgba(15,23,42,0.55)" : undefined,
+                        }}
+                        title={bump ? `Rent bump: $${Math.round((e.months[j - 1] ?? 0)).toLocaleString()} → $${Math.round(m).toLocaleString()}` : undefined}>
+                          {fmt(m)}
+                        </td>
+                      );
+                    })}
                     <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontWeight: 600, fontSize: 12, color: isVacant ? "var(--muted)" : undefined }}>
                       {fmt(e.total)}
                     </td>
