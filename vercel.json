@@ -2,7 +2,6 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "crons": [
     {
-      "//": "Fires at 09:00 UTC on the 1st of Jan / Apr / Jul / Oct — emails the just-completed quarter's commission invoices to AvidBill.",
       "path": "/api/commissions/avidbill-quarter",
       "schedule": "0 9 1 1,4,7,10 *"
     }
