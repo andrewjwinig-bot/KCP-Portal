@@ -19,7 +19,7 @@ import {
 } from "../../../lib/commissions";
 import { Calendar } from "@/app/components/Calendar";
 import { downloadCommissionInvoice, downloadCommissionInvoicesZip } from "@/lib/commissions/downloadInvoices";
-import { SendToAvidBillButton, formatSentDate } from "../SendToAvidBillButton";
+import { formatSentDate } from "../SendToAvidBillButton";
 
 // The person these commissions are paid to — appears on the memo.
 const PAYEE = "Harry I. Feldman";
@@ -476,7 +476,6 @@ export default function RetailCommissionsPage() {
                     >
                       Download Invoices (Zip)
                     </button>
-                    <SendToAvidBillButton quarterLabel={quarter} onSent={refreshAvidSent} />
                   </div>
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                     <thead>
