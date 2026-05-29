@@ -181,6 +181,8 @@ export default function BudgetsPage() {
           onSelectProperty={setPropertyCode}
           canUpload={canUpload}
           onCreateClick={() => setCreateOpen(true)}
+          onWorkbookUpdate={setWorkbook}
+          editor={user.label}
         />
       )}
 
@@ -384,6 +386,8 @@ function BudgetTable({
   onSelectProperty,
   canUpload,
   onCreateClick,
+  onWorkbookUpdate,
+  editor,
 }: {
   workbook: BudgetWorkbook;
   property: BudgetWorkbook["properties"][number];
@@ -393,7 +397,61 @@ function BudgetTable({
   onSelectProperty: (code: string) => void;
   canUpload: boolean;
   onCreateClick: () => void;
+  /** Replace the cached workbook in the parent after an API edit
+   *  returns the new state. */
+  onWorkbookUpdate: (wb: BudgetWorkbook) => void;
+  /** Display label for the current user — stamped onto edited lines
+   *  as `lastEditedBy`. */
+  editor: string;
 }) {
+  // Reforecast toggle — flips wb.reforecasting on the server. While
+  // on, monthly cells + notes become editable + autosave per blur.
+  const [togglingReforecast, setTogglingReforecast] = useState(false);
+  const reforecasting = !!workbook.reforecasting;
+  const canEdit = reforecasting && canUpload;
+  const handleToggleReforecast = useCallback(async () => {
+    setTogglingReforecast(true);
+    try {
+      const res = await fetch(`/api/financials/budgets/${encodeURIComponent(workbook.id)}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ reforecasting: !reforecasting, user: editor }),
+      });
+      const data = await res.json();
+      if (!res.ok) { alert(data?.error ?? "Failed to toggle reforecast"); return; }
+      if (data.workbook) onWorkbookUpdate(data.workbook);
+    } finally {
+      setTogglingReforecast(false);
+    }
+  }, [workbook.id, reforecasting, editor, onWorkbookUpdate]);
+
+  // Single-cell edit handler — PATCHes the line endpoint and updates
+  // the cached workbook with whatever the server returns (so
+  // recomputed parent / subtotal / rollup values land too).
+  const handleLineEdit = useCallback(async (
+    sectionName: string,
+    parentLineLabel: string | null,
+    lineLabel: string,
+    patch: { monthIdx?: number; value?: number; notes?: string },
+  ) => {
+    if (!canEdit) return;
+    const res = await fetch(`/api/financials/budgets/${encodeURIComponent(workbook.id)}/line`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        propertyCode: property.propertyCode,
+        sectionName,
+        parentLineLabel,
+        lineLabel,
+        patch,
+        user: editor,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) { alert(data?.error ?? "Edit failed"); return; }
+    if (data.workbook) onWorkbookUpdate(data.workbook);
+  }, [canEdit, workbook.id, property.propertyCode, editor, onWorkbookUpdate]);
+
   const skylineHref = `/api/financials/budgets/${encodeURIComponent(workbook.id)}/skyline?property=${encodeURIComponent(property.propertyCode)}`;
   const downloadHref = `/api/financials/budgets/${encodeURIComponent(workbook.id)}/download?property=${encodeURIComponent(property.propertyCode)}`;
   const [psf, setPsf] = useState(false);
@@ -638,6 +696,24 @@ function BudgetTable({
             </a>
             {canUpload && (
               <button
+                onClick={handleToggleReforecast}
+                disabled={togglingReforecast}
+                className={reforecasting ? "btn primary" : "btn"}
+                style={{
+                  fontSize: 13, padding: "8px 14px", fontWeight: 700,
+                  background: reforecasting ? "#b45309" : undefined,
+                  borderColor: reforecasting ? "#b45309" : undefined,
+                  color: reforecasting ? "white" : undefined,
+                }}
+                title={reforecasting
+                  ? "Lock the budget — cells become read-only again"
+                  : "Open the budget for inline editing across all staff"}
+              >
+                {reforecasting ? "● Reforecasting · Lock" : "Start Reforecast"}
+              </button>
+            )}
+            {canUpload && (
+              <button
                 onClick={onCreateClick}
                 className="btn primary"
                 style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}
@@ -729,6 +805,8 @@ function BudgetTable({
                         propertyCode={property.propertyCode}
                         showGL={showGL}
                         hideEmpty={hideEmpty}
+                        canEdit={canEdit}
+                        onLineEdit={handleLineEdit}
                       />
                     );
                   })}
@@ -1849,6 +1927,89 @@ function propertyHasStandardEscalation(property: BudgetWorkbook["properties"][nu
   return false;
 }
 
+type LineEditHandler = (
+  sectionName: string,
+  parentLineLabel: string | null,
+  lineLabel: string,
+  patch: { monthIdx?: number; value?: number; notes?: string },
+) => void | Promise<void>;
+
+/** Monthly amount cell with an opt-in click-to-edit affordance.
+ *  Read-only when `canEdit` is false (the normal viewing case) —
+ *  becomes a number input on click during a reforecast, saves on
+ *  blur or Enter, and reverts on Escape. We use a controlled local
+ *  string state so staff can type intermediate values like "12,5"
+ *  without the formatter mangling them mid-edit. */
+function EditableMonthCell({
+  value,
+  monthIdx,
+  sqft,
+  psf,
+  isSubtotal,
+  canEdit,
+  onSave,
+}: {
+  value: number;
+  monthIdx: number;
+  sqft: number;
+  psf: boolean;
+  isSubtotal: boolean;
+  canEdit: boolean;
+  onSave: (next: number) => void | Promise<void>;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(String(Math.round(value)));
+  const baseStyle: React.CSSProperties = {
+    textAlign: "right",
+    fontVariantNumeric: "tabular-nums",
+    fontSize: isSubtotal ? 13.5 : 12,
+  };
+  if (!canEdit) {
+    return <td style={baseStyle}>{fmtAmount(value, sqft, psf)}</td>;
+  }
+  if (!editing) {
+    return (
+      <td
+        style={{ ...baseStyle, cursor: "text", outline: "1px dashed rgba(180,83,9,0.35)", outlineOffset: -1 }}
+        onClick={() => { setDraft(String(Math.round(value))); setEditing(true); }}
+        title="Click to edit"
+      >
+        {fmtAmount(value, sqft, psf)}
+      </td>
+    );
+  }
+  const commit = async () => {
+    const clean = draft.replace(/[,$\s]/g, "");
+    const next = Number(clean);
+    setEditing(false);
+    if (!Number.isFinite(next) || next === Math.round(value)) return;
+    await onSave(next);
+  };
+  return (
+    <td style={{ ...baseStyle, padding: 0 }}>
+      <input
+        autoFocus
+        type="text"
+        inputMode="numeric"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") { e.preventDefault(); (e.target as HTMLInputElement).blur(); }
+          else if (e.key === "Escape") { setEditing(false); setDraft(String(Math.round(value))); }
+        }}
+        style={{
+          width: "100%", padding: "2px 4px",
+          textAlign: "right", fontVariantNumeric: "tabular-nums",
+          fontSize: isSubtotal ? 13.5 : 12,
+          border: "1px solid #b45309", borderRadius: 2,
+          background: "rgba(245,158,11,0.06)",
+        }}
+      />
+    </td>
+  );
+}
+
 function BudgetLineRow({
   line,
   sectionName,
@@ -1859,6 +2020,8 @@ function BudgetLineRow({
   propertyCode,
   showGL,
   hideEmpty,
+  canEdit,
+  onLineEdit,
 }: {
   line: import("@/lib/financials/budgets/types").BudgetLine;
   sectionName: string;
@@ -1869,6 +2032,8 @@ function BudgetLineRow({
   propertyCode: string;
   showGL: boolean;
   hideEmpty: boolean;
+  canEdit: boolean;
+  onLineEdit: LineEditHandler;
 }) {
   const [expanded, setExpanded] = useState(false);
   const hasSubLines = !!line.subLines && line.subLines.length > 0;
@@ -1950,9 +2115,16 @@ function BudgetLineRow({
           </div>
         </td>
         {line.months.map((m, j) => (
-          <td key={j} style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontSize: line.isSubtotal ? 13.5 : 12 }}>
-            {fmtAmount(m, sqft, psf)}
-          </td>
+          <EditableMonthCell
+            key={j}
+            value={m}
+            monthIdx={j}
+            sqft={sqft}
+            psf={psf}
+            isSubtotal={line.isSubtotal}
+            canEdit={canEdit && !line.isSubtotal && !hasSubLines}
+            onSave={(v) => onLineEdit(sectionName, null, line.label, { monthIdx: j, value: v })}
+          />
         ))}
         <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontWeight: line.isSubtotal ? 800 : 600, fontSize: line.isSubtotal ? 14 : undefined }}>
           {fmtAmount(line.total, sqft, psf)}
@@ -1969,6 +2141,10 @@ function BudgetLineRow({
           propertyCode={propertyCode}
           showGL={showGL}
           hideEmpty={hideEmpty}
+          canEdit={canEdit}
+          onLineEdit={onLineEdit}
+          sectionName={sectionName}
+          parentLineLabel={line.label}
         />
       ))}
     </>
@@ -1988,6 +2164,10 @@ function SubLineRow({
   propertyCode,
   showGL,
   hideEmpty,
+  canEdit,
+  onLineEdit,
+  sectionName,
+  parentLineLabel,
 }: {
   line: import("@/lib/financials/budgets/types").BudgetLine;
   parentKey: string;
@@ -1997,6 +2177,12 @@ function SubLineRow({
   propertyCode: string;
   showGL: boolean;
   hideEmpty: boolean;
+  canEdit: boolean;
+  onLineEdit: LineEditHandler;
+  sectionName: string;
+  /** Label of the immediate parent line — sent to the API so the
+   *  server resolves the sub-line by `(section, parent, label)`. */
+  parentLineLabel: string;
 }) {
   const [expanded, setExpanded] = useState(false);
   const hasNested = !!line.subLines && line.subLines.length > 0;
@@ -2042,9 +2228,16 @@ function SubLineRow({
           {line.rentDetail && <RentIcon detail={line.rentDetail} />}
         </td>
         {line.months.map((m, k) => (
-          <td key={k} style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
-            {fmtAmount(m, sqft, psf)}
-          </td>
+          <EditableMonthCell
+            key={k}
+            value={m}
+            monthIdx={k}
+            sqft={sqft}
+            psf={psf}
+            isSubtotal={line.isSubtotal}
+            canEdit={canEdit && !line.isSubtotal && !hasNested}
+            onSave={(v) => onLineEdit(sectionName, parentLineLabel, line.label, { monthIdx: k, value: v })}
+          />
         ))}
         <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontWeight: line.isSubtotal ? 800 : 600 }}>
           {fmtAmount(line.total, sqft, psf)}
@@ -2061,6 +2254,10 @@ function SubLineRow({
           propertyCode={propertyCode}
           showGL={showGL}
           hideEmpty={hideEmpty}
+          canEdit={canEdit}
+          onLineEdit={onLineEdit}
+          sectionName={sectionName}
+          parentLineLabel={line.label}
         />
       ))}
     </>
