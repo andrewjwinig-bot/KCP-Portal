@@ -406,6 +406,22 @@ function seedHasLegacyLeasingLabel(wb: BudgetWorkbook): boolean {
   return false;
 }
 
+/** Returns true when the seed still ships both the (BP) and (SC)
+ *  Management Fee rows — the parser drops the off-path one now so
+ *  property pages render a single clean "Management Fee" line. */
+function seedHasDualManagementFeeRows(wb: BudgetWorkbook): boolean {
+  if (wb.category !== "Shopping Centers" && wb.category !== "Office") return false;
+  for (const property of wb.properties) {
+    for (const section of property.sections) {
+      const mgmt = section.lines.filter(
+        (l) => !l.isSubtotal && /management fee/i.test(l.label) && (l.subCategory === "(BP)" || l.subCategory === "(SC)"),
+      );
+      if (mgmt.length > 0) return true;
+    }
+  }
+  return false;
+}
+
 function seedNeedsReparse(wb: BudgetWorkbook): boolean {
   return seedMissingSubLineDetail(wb) ||
          seedHasYoyNoise(wb) ||
@@ -422,6 +438,7 @@ function seedNeedsReparse(wb: BudgetWorkbook): boolean {
          seedMissingCipDetail(wb) ||
          seedHasLegacyTowReimbLabels(wb) ||
          seedMissingTowOccupancy(wb) ||
+         seedHasDualManagementFeeRows(wb) ||
          seedMissingLikRollupNormalization(wb);
 }
 
