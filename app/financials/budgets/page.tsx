@@ -697,21 +697,22 @@ function BudgetTable({
             replaced by the year selector. */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", minWidth: 0 }}>
-            <select
-              value={workbook.year}
-              onChange={(e) => handleYearChange(Number(e.target.value))}
-              style={yearHeaderSelectStyle}
-              aria-label="Year"
+            <HeaderSelect
+              value={String(workbook.year)}
+              onChange={(v) => handleYearChange(Number(v))}
+              displayLabel={String(workbook.year)}
+              ariaLabel="Year"
+              muted
             >
               {allYears.map((y) => (
                 <option key={y} value={y}>{y}</option>
               ))}
-            </select>
-            <select
+            </HeaderSelect>
+            <HeaderSelect
               value={`${workbook.id}|${property.propertyCode}`}
-              onChange={(e) => handlePropertyChange(e.target.value)}
-              style={propertyHeaderSelectStyle}
-              aria-label="Property"
+              onChange={handlePropertyChange}
+              displayLabel={property.propertyCode === "CONSOLIDATED" ? property.propertyName : `${property.propertyCode} — ${property.propertyName}`}
+              ariaLabel="Property"
             >
               {propertyOptionsByWorkbook.map((grp) => (
                 <optgroup key={grp.budgetId} label={grp.label}>
@@ -722,7 +723,7 @@ function BudgetTable({
                   ))}
                 </optgroup>
               ))}
-            </select>
+            </HeaderSelect>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             <a
@@ -2618,36 +2619,90 @@ function fmtAmount(amount: number, sqft: number, psf: boolean): string {
 
 /** Large header-style property selector. Sits where the property name
  *  used to live and acts as the section title. */
-const propertyHeaderSelectStyle: React.CSSProperties = {
-  padding: "4px 28px 4px 6px",
-  border: "1px solid transparent",
-  borderRadius: 8,
-  background: "transparent",
-  color: "var(--text)",
-  fontFamily: "inherit",
-  fontSize: 22,
-  fontWeight: 800,
-  cursor: "pointer",
-  outline: "none",
-  appearance: "auto",
-  maxWidth: "100%",
-};
-
-/** Year selector — same header weight as the property selector, slightly
- *  muted so it reads as a secondary qualifier on the property name. */
-const yearHeaderSelectStyle: React.CSSProperties = {
-  padding: "4px 22px 4px 6px",
-  border: "1px solid transparent",
-  borderRadius: 8,
-  background: "transparent",
-  color: "var(--muted)",
-  fontFamily: "inherit",
-  fontSize: 22,
-  fontWeight: 800,
-  cursor: "pointer",
-  outline: "none",
-  appearance: "auto",
-};
+/** Header-styled dropdown that sizes its chrome to the *currently
+ *  selected* label rather than to the widest option in the list — which
+ *  is what native `<select>` does, and what was leaving a big blank
+ *  gap between the property name and the chevron on workbooks that
+ *  carry long consolidated rollup entries. We render the visible label
+ *  + chevron in a content-sized span, then overlay an invisible native
+ *  select on top so the platform's dropdown UI still drives selection. */
+function HeaderSelect({
+  value,
+  onChange,
+  displayLabel,
+  ariaLabel,
+  muted = false,
+  children,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+  displayLabel: string;
+  ariaLabel: string;
+  muted?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <span
+      style={{
+        position: "relative",
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 4,
+        padding: "4px 6px",
+        borderRadius: 8,
+        cursor: "pointer",
+        maxWidth: "100%",
+        minWidth: 0,
+      }}
+    >
+      <span
+        style={{
+          fontSize: 22,
+          fontWeight: 800,
+          color: muted ? "var(--muted)" : "var(--text)",
+          whiteSpace: "nowrap",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          minWidth: 0,
+        }}
+      >
+        {displayLabel}
+      </span>
+      <span
+        aria-hidden
+        style={{
+          fontSize: 11,
+          lineHeight: 1,
+          color: muted ? "var(--muted)" : "var(--text)",
+          opacity: 0.6,
+          flexShrink: 0,
+        }}
+      >
+        ▾
+      </span>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        aria-label={ariaLabel}
+        style={{
+          position: "absolute",
+          inset: 0,
+          width: "100%",
+          height: "100%",
+          opacity: 0,
+          cursor: "pointer",
+          border: 0,
+          padding: 0,
+          margin: 0,
+          appearance: "auto",
+          background: "transparent",
+        }}
+      >
+        {children}
+      </select>
+    </span>
+  );
+}
 
 function CreateBudgetDialog({
   summaries,
