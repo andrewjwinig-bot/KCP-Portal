@@ -1553,6 +1553,180 @@ function CipModal({ detail, onClose }: {
   );
 }
 
+/** Tint per certainty bucket — dark green for locked-in in-place
+ *  income, mid-green for renewal assumptions (lease expires this
+ *  year, assumed to renew), light green for new-lease assumptions on
+ *  currently-vacant suites, no tint for truly vacant rows so they
+ *  read as zeros. */
+const RENT_CATEGORY_TINT: Record<import("@/lib/financials/budgets/types").RentRosterEntry["category"], string> = {
+  "in-place": "rgba(22,163,74,0.22)",  // darkest green
+  "renewal":  "rgba(22,163,74,0.13)",  // mid
+  "new":      "rgba(22,163,74,0.06)",  // light
+  "vacant":   "transparent",
+};
+const RENT_CATEGORY_LABEL: Record<import("@/lib/financials/budgets/types").RentRosterEntry["category"], string> = {
+  "in-place": "In-Place",
+  "renewal":  "Renewal",
+  "new":      "New Lease",
+  "vacant":   "Vacant",
+};
+const RENT_CATEGORY_ORDER: import("@/lib/financials/budgets/types").RentRosterEntry["category"][] = ["in-place", "renewal", "new", "vacant"];
+
+/** Click-target chip on the Total Rental and Other subtotal — opens
+ *  the per-tenant modal so staff can verify who's paying what. Same
+ *  visual footprint as AllocationIcon / CipIcon; green to match the
+ *  rent theme. */
+function RentIcon({ detail }: { detail: NonNullable<import("@/lib/financials/budgets/types").BudgetLine["rentDetail"]> }) {
+  const [open, setOpen] = useState(false);
+  const count = detail.entries.filter((e) => e.category !== "vacant").length;
+  return (
+    <>
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); setOpen(true); }}
+        title={`Rent roster — ${count} paying tenant${count === 1 ? "" : "s"} (click for detail)`}
+        style={{
+          display: "inline-flex", alignItems: "center", justifyContent: "center",
+          minWidth: 18, height: 18, padding: "0 5px", marginLeft: 4,
+          fontSize: 10, fontWeight: 800, lineHeight: 1,
+          background: "rgba(22,163,74,0.12)",
+          color: "#15803d",
+          border: "1px solid rgba(22,163,74,0.35)",
+          borderRadius: 4,
+          cursor: "pointer",
+          fontVariantNumeric: "tabular-nums",
+          flexShrink: 0,
+        }}
+      >
+        {count}
+      </button>
+      {open && <RentModal detail={detail} onClose={() => setOpen(false)} />}
+    </>
+  );
+}
+
+function RentModal({ detail, onClose }: {
+  detail: NonNullable<import("@/lib/financials/budgets/types").BudgetLine["rentDetail"]>;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+  const fmt = (n: number) => n === 0 ? "—" : `$${Math.round(n).toLocaleString("en-US")}`;
+  // Sort: by certainty bucket (in-place → renewal → new → vacant), then suite ref.
+  const ordered = [...detail.entries].sort((a, b) => {
+    const ca = RENT_CATEGORY_ORDER.indexOf(a.category);
+    const cb = RENT_CATEGORY_ORDER.indexOf(b.category);
+    if (ca !== cb) return ca - cb;
+    return a.unitRef.localeCompare(b.unitRef, undefined, { numeric: true });
+  });
+  const monthlyTotals = Array.from({ length: 12 }, (_, m) =>
+    detail.entries.reduce((s, e) => s + (e.months[m] ?? 0), 0),
+  );
+  const annual = detail.entries.reduce((s, e) => s + e.total, 0);
+  const countBy = (cat: import("@/lib/financials/budgets/types").RentRosterEntry["category"]) =>
+    detail.entries.filter((e) => e.category === cat).length;
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed", inset: 0, zIndex: 100,
+        background: "rgba(15,23,42,0.55)",
+        display: "flex", alignItems: "flex-start", justifyContent: "center",
+        padding: "60px 20px", overflow: "auto",
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: "var(--card)", borderRadius: 12,
+          maxWidth: 1440, width: "100%",
+          boxShadow: "0 20px 60px rgba(0,0,0,0.35)",
+          display: "flex", flexDirection: "column", gap: 14, padding: 18,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+          <div>
+            <div className="muted small" style={{ fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+              Rental Summary by Month
+            </div>
+            <div style={{ fontSize: 18, fontWeight: 800, marginTop: 2 }}>
+              {ordered.length} suite{ordered.length === 1 ? "" : "s"} · {fmt(annual)} annual
+            </div>
+            <div style={{ display: "flex", gap: 12, marginTop: 6, flexWrap: "wrap" }}>
+              {RENT_CATEGORY_ORDER.map((cat) => {
+                const n = countBy(cat);
+                if (n === 0) return null;
+                return (
+                  <span key={cat} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11 }}>
+                    <span style={{
+                      display: "inline-block", width: 12, height: 12,
+                      background: RENT_CATEGORY_TINT[cat],
+                      border: "1px solid rgba(22,163,74,0.35)",
+                      borderRadius: 2,
+                    }} />
+                    <span className="muted small">{RENT_CATEGORY_LABEL[cat]}: {n}</span>
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+          <button onClick={onClose} className="btn" style={{ padding: "6px 12px", fontSize: 13, fontWeight: 700 }}>Close</button>
+        </div>
+        <div className="tableWrap" style={{ marginTop: 0 }}>
+          <table style={{ tableLayout: "fixed", width: "100%" }}>
+            <colgroup>
+              <col style={{ width: 80 }} />
+              <col style={{ width: 220 }} />
+              {MONTHS.map((m, i) => <col key={m} style={i % 2 === 0 ? { background: MONTH_TINT } : undefined} />)}
+              <col style={{ width: 100 }} />
+            </colgroup>
+            <thead>
+              <tr>
+                <th style={{ textAlign: "left" }}>Suite</th>
+                <th style={{ textAlign: "left" }}>Tenant</th>
+                {MONTHS.map((m) => <th key={m} style={{ textAlign: "right" }}>{m}</th>)}
+                <th style={{ textAlign: "right" }}>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {ordered.map((e, idx) => {
+                const tint = RENT_CATEGORY_TINT[e.category];
+                const isVacant = e.category === "vacant";
+                return (
+                  <tr key={idx}>
+                    <td style={{ fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{e.unitRef}</td>
+                    <td style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: isVacant ? "var(--muted)" : undefined, fontStyle: isVacant ? "italic" : undefined }}>
+                      {e.tenantName}
+                    </td>
+                    {e.months.map((m, j) => (
+                      <td key={j} style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontSize: 12, background: m > 0 ? tint : undefined, color: isVacant ? "var(--muted)" : undefined }}>
+                        {fmt(m)}
+                      </td>
+                    ))}
+                    <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontWeight: 600, background: e.total > 0 ? tint : undefined, color: isVacant ? "var(--muted)" : undefined }}>
+                      {fmt(e.total)}
+                    </td>
+                  </tr>
+                );
+              })}
+              <tr style={{ borderTop: "2px solid var(--border)", fontWeight: 800 }}>
+                <td colSpan={2} style={{ textTransform: "uppercase", letterSpacing: "0.04em", fontSize: 11 }}>Total</td>
+                {monthlyTotals.map((m, j) => (
+                  <td key={j} style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{fmt(m)}</td>
+                ))}
+                <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{fmt(annual)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function LineNoteMarker({ text }: { text: string }) {
   if (isStandardEscalationNote(text)) {
     return (
@@ -1695,6 +1869,7 @@ function BudgetLineRow({
               <AllocationIcon allocations={line.allocations} currentPropertyCode={propertyCode} />
             )}
             {line.cipDetail && <CipIcon detail={line.cipDetail} />}
+            {line.rentDetail && <RentIcon detail={line.rentDetail} />}
             <TenantRecoveryChip
               glAccount={line.glAccount}
               sectionName={sectionName}
@@ -1792,6 +1967,7 @@ function SubLineRow({
           {line.notes && <LineNoteMarker text={line.notes} />}
           {line.allocations && line.allocations.length > 0 && <AllocationIcon allocations={line.allocations} currentPropertyCode={propertyCode} />}
           {line.cipDetail && <CipIcon detail={line.cipDetail} />}
+          {line.rentDetail && <RentIcon detail={line.rentDetail} />}
         </td>
         {line.months.map((m, k) => (
           <td key={k} style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>

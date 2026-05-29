@@ -54,6 +54,37 @@ export type BudgetLine = {
    *  CIP roster on the Monthly Rent Roll & CIP supporting tab — a click-
    *  to-open modal lists every CIP member with their monthly billing. */
   cipDetail?: CipDetail;
+  /** Per-tenant rent roster — every tenant paying base rent on this
+   *  property, with their monthly billing across Jan–Dec. Drives the
+   *  "who's paying what" modal that opens off the "Total Rental and
+   *  Other" subtotal. Stage 1 only carries `in-place` tenants from the
+   *  In Place Revenue supporting tab; stage 2 will fold in renewal and
+   *  new-lease assumptions from the Renew & Vac tab. */
+  rentDetail?: RentDetail;
+};
+
+export type RentRosterEntry = {
+  unitRef: string;
+  tenantName: string;
+  /** Which certainty bucket the row falls into — drives the modal's
+   *  green-shade gradient.
+   *    in-place — current lease covers the full year, locked-in
+   *    renewal — lease expires mid-year; the post-expiration months
+   *              are an assumed renewal at the same / new rate
+   *    new     — suite is currently vacant; amounts are an assumed
+   *              new lease (most speculative)
+   *    vacant  — suite is currently vacant and no lease assumed yet */
+  category: "in-place" | "renewal" | "new" | "vacant";
+  /** 12 monthly amounts Jan–Dec. */
+  months: number[];
+  /** Sum across months — should tie to the parent line's contribution. */
+  total: number;
+};
+
+export type RentDetail = {
+  entries: RentRosterEntry[];
+  /** Sum of every entry's total. */
+  total: number;
 };
 
 export type CipDetail = {
