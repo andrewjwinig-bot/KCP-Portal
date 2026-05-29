@@ -62,7 +62,7 @@ export const PROPERTY_DEFS: PropertyDef[] = [
   { id: "40A0", name: "Kor Center A",    type: "Office", fundGroup: "NI LLC", ein: "61-1723336", allocGroup: "BP", ccAccounts: ["8501"], address: "2577 Interplex Dr",     city: "Feasterville-Trevose", state: "PA", zip: "19053", sqft: 15083,  yearBuilt: 1976 },
   { id: "40B0", name: "Kor Center B",    type: "Office", fundGroup: "NI LLC", ein: "61-1723336", allocGroup: "BP", ccAccounts: ["8501"], address: "2607 Interplex Dr",     city: "Feasterville-Trevose", state: "PA", zip: "19053", sqft: 12978,  yearBuilt: 1976 },
   { id: "40C0", name: "Kor Center C",    type: "Office", fundGroup: "NI LLC", ein: "61-1723336", allocGroup: "BP", ccAccounts: ["8501"], address: "2585 Interplex Dr",     city: "Feasterville-Trevose", state: "PA", zip: "19053", sqft: 18000,  yearBuilt: 1976 },
-  { id: "4000", name: "Neshaminy Interplex LLC", type: "Office", fundGroup: "NI LLC", entityKind: "LLC", ein: "80-0956519", ccAccounts: ["8501"], notes: "Holding entity for NI LLC buildings." },
+  { id: "4000", name: "Neshaminy Interplex LLC", type: "Office", fundGroup: "NI LLC", entityKind: "LLC", ein: "61-1723336", ein2: "80-0956519", ein2Label: "FEIN/TIN", ccAccounts: ["8501"], notes: "Holding entity for NI LLC buildings." },
 
   // ── Retail ────────────────────────────────────────────────────────────────
   { id: "1100", name: "Parkwood Professional Building",   type: "Retail", ein: "23-2333412", allocGroup: "SC", ccAccounts: ["8501"], address: "12300-12310 Academy Rd", city: "Philadelphia",          state: "PA", zip: "19154", sqft: 8287,  yearBuilt: 1970 },
