@@ -632,6 +632,11 @@ export default function CommissionsPage() {
                     >
                       Download Invoices (Zip)
                     </button>
+                    {/* Sends the same PDFs the zip would carry to
+                        kormancommercial@avidbill.com via Postmark.
+                        Prompts a dry-run preview first so staff can
+                        eyeball the count + total before firing. */}
+                    <SendToAvidBillButton quarterLabel={quarter} />
                   </div>
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                     <thead>
@@ -888,6 +893,175 @@ async function buildCommissionMemoPdf(opts: {
   txtC(note, pageW / 2, y, { b: true, size: 9.5, color: navy });
 
   return pdf.save();
+}
+
+/** "Send to AvidBill" trigger button for a single quarter. Two-step
+ *  flow: clicking the button POSTs `dryRun: true` first and shows a
+ *  preview ("This will send N invoices totaling $X to
+ *  kormancommercial@avidbill.com. Continue?"); confirm fires the real
+ *  POST and renders the result. Idempotent on the server — a quarter
+ *  that's already been sent reports `alreadySent: true` instead of
+ *  re-billing. */
+function SendToAvidBillButton({ quarterLabel }: { quarterLabel: string }) {
+  type Preview = {
+    ok: boolean;
+    count: number;
+    total: number;
+    reason?: string;
+    alreadySent?: boolean;
+    dryRun?: boolean;
+  };
+  const [busy, setBusy] = useState(false);
+  const [preview, setPreview] = useState<Preview | null>(null);
+  const [confirming, setConfirming] = useState(false);
+  const [result, setResult] = useState<Preview | null>(null);
+
+  const ENDPOINT = "/api/commissions/avidbill-quarter";
+
+  const post = async (force = false): Promise<Preview> => {
+    const res = await fetch(ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ quarterLabel, dryRun: !force, force }),
+    });
+    return res.json();
+  };
+
+  const openPreview = async () => {
+    setBusy(true);
+    setPreview(null);
+    setResult(null);
+    try {
+      const p = await post(false);
+      setPreview(p);
+      setConfirming(true);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const sendForReal = async () => {
+    setBusy(true);
+    try {
+      const res = await fetch(ENDPOINT, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ quarterLabel, dryRun: false }),
+      });
+      const r = await res.json();
+      setResult(r);
+      setConfirming(false);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <>
+      <button
+        className="btn large"
+        onClick={openPreview}
+        disabled={busy}
+        title="Email all commission invoices for this quarter to kormancommercial@avidbill.com"
+      >
+        {busy && !confirming ? "Preparing…" : "Send to AvidBill"}
+      </button>
+
+      {confirming && preview && (
+        <div
+          onClick={() => setConfirming(false)}
+          style={{
+            position: "fixed", inset: 0, zIndex: 100,
+            background: "rgba(15,23,42,0.55)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            padding: 20,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: "var(--card)", borderRadius: 12,
+              maxWidth: 460, width: "100%", padding: 22,
+              boxShadow: "0 20px 60px rgba(0,0,0,0.35)",
+              display: "flex", flexDirection: "column", gap: 14,
+            }}
+          >
+            <div className="muted small" style={{ fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+              Send Commission Invoices
+            </div>
+            {preview.ok && preview.count > 0 ? (
+              <>
+                <div style={{ fontSize: 16, fontWeight: 700 }}>
+                  {preview.count} invoice{preview.count === 1 ? "" : "s"} · {toMoney(preview.total)}
+                </div>
+                <div className="muted small">
+                  Will email <b>kormancommercial@avidbill.com</b> with one PDF per commission in <b>{quarterLabel}</b>.
+                  {preview.alreadySent && (
+                    <div style={{ marginTop: 6, color: "#b45309" }}>
+                      ⚠ Already sent for this quarter. Cancel unless you really want to resend (would require unchecking idempotency).
+                    </div>
+                  )}
+                </div>
+                <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                  <button className="btn" onClick={() => setConfirming(false)} disabled={busy}>Cancel</button>
+                  <button className="btn primary" onClick={sendForReal} disabled={busy || preview.alreadySent}>
+                    {busy ? "Sending…" : "Send"}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div style={{ fontSize: 15 }}>
+                  Nothing to send — {preview.reason ?? "no commissions for this quarter"}.
+                </div>
+                <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                  <button className="btn" onClick={() => setConfirming(false)}>Close</button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {result && (
+        <div
+          onClick={() => setResult(null)}
+          style={{
+            position: "fixed", inset: 0, zIndex: 100,
+            background: "rgba(15,23,42,0.55)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            padding: 20,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: "var(--card)", borderRadius: 12,
+              maxWidth: 460, width: "100%", padding: 22,
+              boxShadow: "0 20px 60px rgba(0,0,0,0.35)",
+              display: "flex", flexDirection: "column", gap: 14,
+            }}
+          >
+            <div className="muted small" style={{ fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+              Result
+            </div>
+            {result.ok ? (
+              <div style={{ fontSize: 16, fontWeight: 700, color: "#15803d" }}>
+                ✓ Sent {result.count} invoice{result.count === 1 ? "" : "s"} · {toMoney(result.total)}
+              </div>
+            ) : (
+              <div style={{ fontSize: 16, fontWeight: 700, color: "#b91c1c" }}>
+                ✗ {result.reason ?? "Send failed"}
+              </div>
+            )}
+            <div style={{ display: "flex", justifyContent: "flex-end" }}>
+              <button className="btn" onClick={() => setResult(null)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
 }
 
 /** Numeric sort key for quarter labels (most recent → highest number).
