@@ -21,6 +21,9 @@ const BRAND_DARK = "FF0A3E69";  // darker shade for top banner
 const BRAND_TINT = "FFE6EEF5";  // very light navy wash for section header
 const ROLLUP_FILL = "FFD9E4EE"; // slightly stronger wash for cross-section subtotals
 const SUBTOTAL_FILL = "FFF3F6F9"; // soft gray for in-section subtotals
+const DETAIL_BANNER = "FFEEF3F8"; // banner above each rent / allocation / cip detail block
+const DETAIL_HEADER = "FFDDE6EF"; // column header inside detail tables
+const DETAIL_BAND = "FFFBFCFD";   // alternating band inside detail tables
 const BORDER_GRAY = "FFB7C2CC";
 
 const N_COLS = 15; // A: GL, B: Line, C–N: months, O: Total
@@ -84,7 +87,13 @@ function emitLine(
 ): void {
   if (isEmpty(line)) return;
   const indent = "    ".repeat(depth);
-  const row = ws.addRow([line.glAccount ?? "", indent + line.label, ...line.months, line.total]);
+  // Annotate the label with the management-fee percent the screen
+  // shows ("Management Fee (6%)" / "(4–6%)") so the export carries the
+  // same context.
+  let label = indent + line.label;
+  if (line.feePercent != null) label += ` (${line.feePercent}%)`;
+  else if (line.feePercentRange) label += ` (${line.feePercentRange[0]}–${line.feePercentRange[1]}%)`;
+  const row = ws.addRow([line.glAccount ?? "", label, ...line.months, line.total]);
   row.height = 16;
   row.getCell(1).font = { name: "Calibri", size: 10, color: { argb: "FF555555" } };
   row.getCell(2).font = { name: "Calibri", size: 10 };
@@ -103,9 +112,213 @@ function emitLine(
     }
   }
   bandIdx.v += 1;
+  // Inline notes from column T (workbook input) so staff don't lose
+  // the context attached to a line.
+  if (line.notes && line.notes.trim()) {
+    const noteRow = ws.addRow(["", `${indent}    ↳ ${line.notes.trim()}`]);
+    ws.mergeCells(noteRow.number, 2, noteRow.number, N_COLS);
+    noteRow.getCell(2).font = { name: "Calibri", size: 9, italic: true, color: { argb: "FF666666" } };
+    noteRow.getCell(2).alignment = { vertical: "middle", wrapText: true, indent: depth + 1 };
+    noteRow.height = 14;
+  }
+  // Allocation block detail — render under the line so staff can see
+  // exactly how a portfolio-wide expense was split.
+  if (line.allocations && line.allocations.length > 0) {
+    for (const alloc of line.allocations) emitAllocationDetail(ws, alloc, depth + 1);
+  }
   if (line.subLines) {
     for (const sub of line.subLines) emitLine(ws, sub, depth + 1, bandIdx);
   }
+}
+
+function emitAllocationDetail(
+  ws: ExcelJS.Worksheet,
+  alloc: NonNullable<BudgetLine["allocations"]>[number],
+  depth: number,
+): void {
+  const indent = "    ".repeat(depth);
+  // Banner row that names the allocation block + summarizes basis.
+  const summaryParts = [
+    `${alloc.sharePct.toFixed(1)}% share`,
+    alloc.basis === "sqft" ? "SF-weighted" : alloc.basis === "annual" ? "annual amount" : "other basis",
+  ];
+  if (alloc.sourceNote) summaryParts.push(alloc.sourceNote);
+  const bannerLabel = `${indent}▸ Allocation · ${alloc.blockLabel}${alloc.glAccount ? `  (${alloc.glAccount})` : ""}  —  ${summaryParts.join(" · ")}`;
+  const banner = ws.addRow([
+    "",
+    bannerLabel,
+    ...Array(11).fill(""),
+    "Portfolio:",
+    alloc.portfolioTotal,
+  ]);
+  banner.height = 16;
+  ws.mergeCells(banner.number, 2, banner.number, N_COLS - 2);
+  banner.getCell(2).font = { name: "Calibri", size: 9, bold: true, italic: true, color: { argb: BRAND_DARK } };
+  banner.getCell(2).alignment = { vertical: "middle", indent: depth };
+  banner.getCell(N_COLS - 1).font = { name: "Calibri", size: 9, italic: true, color: { argb: "FF666666" } };
+  banner.getCell(N_COLS - 1).alignment = { vertical: "middle", horizontal: "right" };
+  banner.getCell(N_COLS).numFmt = MONEY_FMT;
+  banner.getCell(N_COLS).font = { name: "Calibri", size: 9, bold: true, color: { argb: BRAND_DARK } };
+  for (let c = 1; c <= N_COLS; c++) {
+    banner.getCell(c).fill = { type: "pattern", pattern: "solid", fgColor: { argb: DETAIL_BANNER } };
+  }
+
+  if (!alloc.rows || alloc.rows.length === 0) return;
+
+  // Column header: Property | Basis (SF/share) | Jan–Dec | Total
+  const header = ws.addRow(["Property", `${indent}Basis`, ...MONTHS, "Total"]);
+  header.height = 16;
+  for (let c = 1; c <= N_COLS; c++) {
+    const cell = header.getCell(c);
+    cell.font = { name: "Calibri", size: 9, bold: true, color: { argb: BRAND_DARK } };
+    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: DETAIL_HEADER } };
+    cell.alignment = { vertical: "middle", horizontal: c <= 2 ? "left" : "right", indent: c <= 2 ? 1 : 0 };
+    cell.border = THIN_BORDER;
+  }
+
+  alloc.rows.forEach((r, i) => {
+    const basisLabel = alloc.basis === "sqft"
+      ? `${r.sqft.toLocaleString("en-US")} SF · ${r.sharePct.toFixed(1)}%`
+      : alloc.basis === "annual"
+        ? `${r.sharePct.toFixed(1)}%`
+        : `${r.sharePct.toFixed(1)}%`;
+    const row = ws.addRow([r.propertyCode, basisLabel, ...r.months, r.total]);
+    row.height = 14;
+    row.getCell(1).font = { name: "Calibri", size: 9, color: { argb: "FF555555" } };
+    row.getCell(2).font = { name: "Calibri", size: 9, color: { argb: "FF555555" } };
+    row.getCell(2).alignment = { vertical: "middle", indent: 1 };
+    applyMoneyFmt(row, 3, N_COLS);
+    applyBorder(row, 1, N_COLS);
+    if (i % 2 === 1) {
+      for (let c = 1; c <= N_COLS; c++) {
+        row.getCell(c).fill = { type: "pattern", pattern: "solid", fgColor: { argb: DETAIL_BAND } };
+      }
+    }
+  });
+}
+
+function emitRentRosterDetail(
+  ws: ExcelJS.Worksheet,
+  line: BudgetLine,
+): void {
+  const detail = line.rentDetail;
+  if (!detail || detail.entries.length === 0) return;
+  const banner = ws.addRow([`▸ Rent Roster — ${detail.entries.length} tenants  ·  ties to "${line.label}"`]);
+  ws.mergeCells(banner.number, 1, banner.number, N_COLS);
+  banner.height = 18;
+  banner.getCell(1).font = { name: "Calibri", size: 10, bold: true, italic: true, color: { argb: BRAND_DARK } };
+  banner.getCell(1).alignment = { vertical: "middle", horizontal: "left", indent: 1 };
+  banner.getCell(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: DETAIL_BANNER } };
+
+  const header = ws.addRow(["Suite", "Tenant · Category · Lease · SF", ...MONTHS, "Total"]);
+  header.height = 16;
+  for (let c = 1; c <= N_COLS; c++) {
+    const cell = header.getCell(c);
+    cell.font = { name: "Calibri", size: 9, bold: true, color: { argb: BRAND_DARK } };
+    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: DETAIL_HEADER } };
+    cell.alignment = { vertical: "middle", horizontal: c <= 2 ? "left" : "right", indent: c <= 2 ? 1 : 0 };
+    cell.border = THIN_BORDER;
+  }
+
+  // Sort: in-place first, then renewal, then new, then vacant; within
+  // each bucket alphabetical by tenant.
+  const order = { "in-place": 0, renewal: 1, new: 2, vacant: 3 } as const;
+  const sorted = [...detail.entries].sort((a, b) => {
+    const c = order[a.category] - order[b.category];
+    return c !== 0 ? c : a.tenantName.localeCompare(b.tenantName);
+  });
+  sorted.forEach((e, i) => {
+    const meta: string[] = [e.tenantName];
+    meta.push(e.category === "in-place" ? "In Place"
+      : e.category === "renewal" ? "Renewal"
+      : e.category === "new" ? "New Lease"
+      : "Vacant");
+    if (e.leaseFrom || e.leaseTo) meta.push(`${e.leaseFrom ?? "?"} → ${e.leaseTo ?? "?"}`);
+    if (e.sqft) meta.push(`${e.sqft.toLocaleString("en-US")} SF`);
+    const row = ws.addRow([e.unitRef, meta.join("  ·  "), ...e.months, e.total]);
+    row.height = 14;
+    row.getCell(1).font = { name: "Calibri", size: 9, color: { argb: "FF555555" } };
+    row.getCell(2).font = { name: "Calibri", size: 9 };
+    row.getCell(2).alignment = { vertical: "middle", indent: 1 };
+    applyMoneyFmt(row, 3, N_COLS);
+    applyBorder(row, 1, N_COLS);
+    if (i % 2 === 1) {
+      for (let c = 1; c <= N_COLS; c++) {
+        row.getCell(c).fill = { type: "pattern", pattern: "solid", fgColor: { argb: DETAIL_BAND } };
+      }
+    }
+  });
+
+  // Subtotal row tying back to the parent line.
+  const totalMonths = Array(12).fill(0);
+  for (const e of sorted) for (let m = 0; m < 12; m++) totalMonths[m] += e.months[m] ?? 0;
+  const totalRow = ws.addRow(["", "Roster Total", ...totalMonths, detail.total]);
+  totalRow.height = 16;
+  applyMoneyFmt(totalRow, 3, N_COLS);
+  for (let c = 1; c <= N_COLS; c++) {
+    totalRow.getCell(c).font = { name: "Calibri", size: 9, bold: true, color: { argb: BRAND_DARK } };
+    totalRow.getCell(c).fill = { type: "pattern", pattern: "solid", fgColor: { argb: SUBTOTAL_FILL } };
+    totalRow.getCell(c).border = {
+      top: { style: "thin", color: { argb: BRAND } },
+      bottom: { style: "thin", color: { argb: BRAND } },
+      left: { style: "thin", color: { argb: BORDER_GRAY } },
+      right: { style: "thin", color: { argb: BORDER_GRAY } },
+    };
+  }
+  totalRow.getCell(2).alignment = { vertical: "middle", indent: 1 };
+}
+
+function emitCipDetail(ws: ExcelJS.Worksheet, line: BudgetLine): void {
+  const detail = line.cipDetail;
+  if (!detail || detail.tenants.length === 0) return;
+  const banner = ws.addRow([`▸ CIP Members — ${detail.tenants.length} active  ·  ties to "${line.label}"`]);
+  ws.mergeCells(banner.number, 1, banner.number, N_COLS);
+  banner.height = 18;
+  banner.getCell(1).font = { name: "Calibri", size: 10, bold: true, italic: true, color: { argb: BRAND_DARK } };
+  banner.getCell(1).alignment = { vertical: "middle", horizontal: "left", indent: 1 };
+  banner.getCell(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: DETAIL_BANNER } };
+
+  const header = ws.addRow(["", "Member", ...MONTHS, "Total"]);
+  header.height = 16;
+  for (let c = 1; c <= N_COLS; c++) {
+    const cell = header.getCell(c);
+    cell.font = { name: "Calibri", size: 9, bold: true, color: { argb: BRAND_DARK } };
+    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: DETAIL_HEADER } };
+    cell.alignment = { vertical: "middle", horizontal: c <= 2 ? "left" : "right", indent: c <= 2 ? 1 : 0 };
+    cell.border = THIN_BORDER;
+  }
+
+  const sorted = [...detail.tenants].sort((a, b) => a.name.localeCompare(b.name));
+  sorted.forEach((t, i) => {
+    const row = ws.addRow(["", t.name, ...t.months, t.total]);
+    row.height = 14;
+    row.getCell(2).font = { name: "Calibri", size: 9 };
+    row.getCell(2).alignment = { vertical: "middle", indent: 1 };
+    applyMoneyFmt(row, 3, N_COLS);
+    applyBorder(row, 1, N_COLS);
+    if (i % 2 === 1) {
+      for (let c = 1; c <= N_COLS; c++) {
+        row.getCell(c).fill = { type: "pattern", pattern: "solid", fgColor: { argb: DETAIL_BAND } };
+      }
+    }
+  });
+
+  const totalMonths = Array(12).fill(0);
+  for (const t of sorted) for (let m = 0; m < 12; m++) totalMonths[m] += t.months[m] ?? 0;
+  const totalRow = ws.addRow(["", "CIP Total", ...totalMonths, detail.total]);
+  totalRow.height = 16;
+  applyMoneyFmt(totalRow, 3, N_COLS);
+  for (let c = 1; c <= N_COLS; c++) {
+    totalRow.getCell(c).font = { name: "Calibri", size: 9, bold: true, color: { argb: BRAND_DARK } };
+    totalRow.getCell(c).fill = { type: "pattern", pattern: "solid", fgColor: { argb: SUBTOTAL_FILL } };
+    totalRow.getCell(c).border = {
+      top: { style: "thin", color: { argb: BRAND } },
+      bottom: { style: "thin", color: { argb: BRAND } },
+      left: { style: "thin", color: { argb: BORDER_GRAY } },
+      right: { style: "thin", color: { argb: BORDER_GRAY } },
+    };
+  }
+  totalRow.getCell(2).alignment = { vertical: "middle", indent: 1 };
 }
 
 export async function generateBudgetDownloadXlsx(
@@ -315,10 +528,14 @@ export async function generateBudgetDownloadXlsx(
           };
         }
         row.getCell(2).alignment = { vertical: "middle", horizontal: "left", indent: 1 };
+        // Rent roster sits on the "Total Rental and Other" subtotal.
+        if (line.rentDetail) emitRentRosterDetail(ws, line);
         bandIdx.v = 0;
         continue;
       }
       emitLine(ws, line, 0, bandIdx);
+      // CIP detail sits on the "CIP Memberships" leaf line.
+      if (line.cipDetail) emitCipDetail(ws, line);
     }
     for (const key of subtotalKeysAfter(sec.name, hasDebt, hasCapital)) {
       const rollup =
