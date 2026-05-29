@@ -6,6 +6,15 @@
 
 import "server-only";
 
+export type MailAttachment = {
+  /** Filename the recipient sees, e.g. "Invoice - 4080 - 207 - Pragmatics.pdf". */
+  name: string;
+  /** Raw file bytes — base64-encoded before being handed to Postmark. */
+  content: Uint8Array;
+  /** MIME type, e.g. "application/pdf". */
+  contentType: string;
+};
+
 export type MailMessage = {
   to: string;
   subject: string;
@@ -15,6 +24,9 @@ export type MailMessage = {
   headers?: { Name: string; Value: string }[];
   /** RFC 3834 marker — set true for system-generated confirmations. */
   isAutoReply?: boolean;
+  /** Optional binary attachments — currently used by the quarterly
+   *  AvidBill commission-invoice batch. */
+  attachments?: MailAttachment[];
 };
 
 export function isMailConfigured(): boolean {
@@ -32,6 +44,12 @@ export async function sendMail(msg: MailMessage): Promise<boolean> {
     headers.push({ Name: "Auto-Submitted", Value: "auto-replied" });
   }
 
+  const Attachments = (msg.attachments ?? []).map((a) => ({
+    Name: a.name,
+    Content: Buffer.from(a.content).toString("base64"),
+    ContentType: a.contentType,
+  }));
+
   try {
     const res = await fetch("https://api.postmarkapp.com/email", {
       method: "POST",
@@ -47,6 +65,7 @@ export async function sendMail(msg: MailMessage): Promise<boolean> {
         TextBody: msg.textBody,
         MessageStream: "outbound",
         Headers: headers,
+        ...(Attachments.length > 0 ? { Attachments } : {}),
       }),
     });
     return res.ok;
