@@ -22,6 +22,7 @@ import {
   toIsoDate,
 } from "../../lib/commissions";
 import { Calendar } from "@/app/components/Calendar";
+import { downloadCommissionInvoice, downloadCommissionInvoicesZip } from "@/lib/commissions/downloadInvoices";
 
 // Office property codes — Business Parks Division commissions.
 const OFFICE_CODES = new Set(
@@ -618,6 +619,19 @@ export default function CommissionsPage() {
                     <button className="btn large" onClick={() => downloadJournalEntry("NI LLC", quarter, list)}>
                       Download NI LLC JE
                     </button>
+                    {/* Bulk invoice zip — one PDF per commission, all
+                        sent to AvidBill at quarter-end. Office side
+                        bills incentive × 1.2 markup, same as the
+                        TOTAL column on the table. */}
+                    <button
+                      className="btn large"
+                      onClick={() => downloadCommissionInvoicesZip(quarter, list.map((e) => ({
+                        entry: e,
+                        amount: (Number(e.incentiveAmount) || 0) * MARKUP,
+                      })))}
+                    >
+                      Download Invoices (Zip)
+                    </button>
                   </div>
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                     <thead>
@@ -652,6 +666,12 @@ export default function CommissionsPage() {
                             {toMoney((Number(e.incentiveAmount) || 0) * MARKUP)}
                           </td>
                           <td style={{ padding: "10px 12px", textAlign: "right", whiteSpace: "nowrap" }}>
+                            <button
+                              className="btn"
+                              onClick={() => downloadCommissionInvoice(e, (Number(e.incentiveAmount) || 0) * MARKUP)}
+                              style={{ padding: "4px 8px", fontSize: 11, marginRight: 6 }}
+                              title="Download AvidBill invoice for this commission"
+                            >Invoice</button>
                             <button className="btn" onClick={() => editEntry(e)} style={{ padding: "4px 8px", fontSize: 11, marginRight: 6 }}>Edit</button>
                             <button
                               onClick={() => deleteEntry(e.id)}
