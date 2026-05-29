@@ -117,16 +117,28 @@ export async function renderCommissionInvoicePdf(input: CommissionInvoiceInput):
   const pageW    = 612;
   const contentW = pageW - margin * 2;
 
+  // ── 0. Workflow-assignment banner ──────────────────────────────────────
+  // Full-width teal bar at the very top so AvidXchange's coding
+  // pipeline routes the invoice straight to the COMMISSIONS workflow
+  // without staff having to assign it manually.
+  fillRect(page, 0, 0, pageW, 24, teal);
+  {
+    const wfLabel = "ASSIGN TO WORKFLOW: COMMISSIONS";
+    const wfSize  = 11;
+    const wfW     = bold.widthOfTextAtSize(wfLabel, wfSize);
+    drawText(page, wfLabel, (pageW - wfW) / 2, 7, bold, wfSize, white);
+  }
+
   // ── 1. Company header ──────────────────────────────────────────────────
-  drawText(page, "LIK Management Inc",               margin, 38, bold,    18, black);
-  drawText(page, "8 Neshaminy Interplex; Suite 400", margin, 60, regular, 10, dark);
-  drawText(page, "Trevose, PA  19053",               margin, 74, regular, 10, dark);
+  drawText(page, "LIK Management Inc",               margin, 44, bold,    18, black);
+  drawText(page, "8 Neshaminy Interplex; Suite 400", margin, 66, regular, 10, dark);
+  drawText(page, "Trevose, PA  19053",               margin, 80, regular, 10, dark);
 
   // ── 2. INVOICE banner ──────────────────────────────────────────────────
   const invLabel = "INVOICE";
   const invSize  = 36;
   const invW     = bold.widthOfTextAtSize(invLabel, invSize);
-  drawText(page, invLabel, pageW - margin - invW, 38, bold, invSize, teal);
+  drawText(page, invLabel, pageW - margin - invW, 44, bold, invSize, teal);
 
   // ── 3. Left = BILL TO, Right = info grid ──────────────────────────────
   const leftW  = 310;
