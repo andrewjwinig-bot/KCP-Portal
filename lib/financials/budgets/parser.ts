@@ -992,6 +992,29 @@ const DUAL_TAGGED_LINES: RegExp[] = [
   /^parking lot cleaning$/i,
 ];
 
+/** Lines where the "(SC)" / "(BP)" subCategory tag is workbook
+ *  noise — not a category-applicability flag — so strip it without
+ *  dropping the row regardless of workbook category. JV III's
+ *  "Other - Condo Fee (SC)" is the current case: the tag means
+ *  something legacy / internal, but the line is a real JV-III-only
+ *  expense that staff want to see clean. */
+const STRIP_TAG_ONLY: RegExp[] = [
+  /^(other\s*-\s*)?condo fee$/i,
+];
+
+function stripWorkbookTagOnly(properties: PropertyBudget[]): void {
+  for (const property of properties) {
+    for (const section of property.sections) {
+      for (const line of section.lines) {
+        if (line.isSubtotal) continue;
+        if (line.subCategory !== "(SC)" && line.subCategory !== "(BP)") continue;
+        if (!STRIP_TAG_ONLY.some((re) => re.test(line.label.trim()))) continue;
+        line.subCategory = null;
+      }
+    }
+  }
+}
+
 function dropOffPathTaggedLines(properties: PropertyBudget[], category: BudgetCategory): void {
   let keepTag: "(SC)" | "(BP)" | null;
   if (category === "Shopping Centers") keepTag = "(SC)";
@@ -1867,6 +1890,10 @@ function rollupDisplayName(workbookLabel: string, fallback: string): string {
   // (Management Fee, Parking Lot Cleaning) — drop whichever doesn't
   // apply to this category so the page shows just one clean row.
   dropOffPathTaggedLines(properties, category);
+  // Other "(SC)" / "(BP)"-tagged lines where the tag is just legacy
+  // workbook noise (Condo Fee on JV III) — strip the tag, keep the
+  // row.
+  stripWorkbookTagOnly(properties);
   if (category === "Office") {
     synthesizeMultiBuildingAllocations(properties, [
       "9210-8501",  // Interest
