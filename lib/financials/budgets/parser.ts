@@ -1233,28 +1233,41 @@ function parseInPlaceRevenueTab(rows: unknown[][]): Map<string, Omit<import("./t
  *  right (around col 11). Returns the set of suite refs that fall
  *  into each bucket per property so the Rental Summary categorization
  *  can pick the right shade. */
-function parseRenewVac(rows: unknown[][]): Map<string, { vacancies: Set<string>; renewals: Set<string> }> {
-  const out = new Map<string, { vacancies: Set<string>; renewals: Set<string> }>();
+type RenewVacInfo = { leaseFrom?: string; leaseTo?: string };
+type RenewVacProperty = {
+  vacancies: Map<string, RenewVacInfo>;
+  renewals: Map<string, RenewVacInfo>;
+};
+
+function parseRenewVac(rows: unknown[][]): Map<string, RenewVacProperty> {
+  const out = new Map<string, RenewVacProperty>();
   // The Renew & Vac tab uses a fixed two-column layout per property —
   // Vacancies on the left (suite at col A, tenant at col B), Renewals
-  // on the right (suite at col L, tenant at col M).
+  // on the right (suite at col L, tenant at col M). The date columns
+  // sit just inside each side: Start at col D / O, Exp at col E / P.
   const VAC_SUITE = 0;
   const VAC_TENANT = 1;
+  const VAC_FROM = 3;
+  const VAC_TO = 4;
   const REN_SUITE = 11;
   const REN_TENANT = 12;
+  const REN_FROM = 14;
+  const REN_TO = 15;
   // Looks like a suite ref ("4050-101", "102", "1100-30", etc.) vs a
   // header / total / placeholder row.
   const looksLikeSuite = (s: string) => !!s && !/^suite\b/i.test(s) && !/^total\b/i.test(s) && !/rent\s+(start|exp)/i.test(s);
+  const dateString = (v: unknown): string | undefined => {
+    const s = trim(v);
+    return s ? s : undefined;
+  };
 
   let currentCode: string | null = null;
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i] ?? [];
     const col0 = trim(r[0]);
-    // Property block opens with the bare property code in col A and
-    // everything else blank.
     if (isPropertyCode(col0.toUpperCase()) && r.slice(1).every((c) => c == null || trim(c) === "")) {
       currentCode = col0.toUpperCase();
-      if (!out.has(currentCode)) out.set(currentCode, { vacancies: new Set(), renewals: new Set() });
+      if (!out.has(currentCode)) out.set(currentCode, { vacancies: new Map(), renewals: new Map() });
       continue;
     }
     if (!currentCode) continue;
@@ -1262,12 +1275,12 @@ function parseRenewVac(rows: unknown[][]): Map<string, { vacancies: Set<string>;
     const vacSuite  = trim(r[VAC_SUITE]);
     const vacTenant = trim(r[VAC_TENANT]);
     if (looksLikeSuite(vacSuite) && vacTenant) {
-      bucket.vacancies.add(vacSuite);
+      bucket.vacancies.set(vacSuite, { leaseFrom: dateString(r[VAC_FROM]), leaseTo: dateString(r[VAC_TO]) });
     }
     const renSuite  = trim(r[REN_SUITE]);
     const renTenant = trim(r[REN_TENANT]);
     if (looksLikeSuite(renSuite) && renTenant) {
-      bucket.renewals.add(renSuite);
+      bucket.renewals.set(renSuite, { leaseFrom: dateString(r[REN_FROM]), leaseTo: dateString(r[REN_TO]) });
     }
   }
   return out;
@@ -1280,28 +1293,38 @@ function parseRenewVac(rows: unknown[][]): Map<string, { vacancies: Set<string>;
  *  rest are locked-in in-place leases. */
 function categorizeRentRoster(
   entries: Omit<import("./types").RentRosterEntry, "category">[],
-  rv: { vacancies: Set<string>; renewals: Set<string> } | undefined,
+  rv: RenewVacProperty | undefined,
 ): import("./types").RentRosterEntry[] {
   return entries.map((e): import("./types").RentRosterEntry => {
     const suite = e.unitRef.trim();
     const isVacantName = /^vacant$/i.test(e.tenantName.trim());
     const allZero = e.total === 0 && e.months.every((m) => m === 0);
     let category: import("./types").RentRosterEntry["category"];
+    let info: RenewVacInfo | undefined;
     if (isVacantName && allZero) {
       category = "vacant";
+      info = rv?.vacancies.get(suite);
     } else if (isVacantName) {
       // VACANT-named with a billing assumption → new-lease assumption.
       category = "new";
+      info = rv?.vacancies.get(suite);
     } else if (rv?.renewals.has(suite)) {
       category = "renewal";
+      info = rv.renewals.get(suite);
     } else if (rv?.vacancies.has(suite)) {
       // R&V tagged the suite as Vacancy but a real tenant name showed
       // up in Rental Summary — treat as new-lease assumption.
       category = "new";
+      info = rv.vacancies.get(suite);
     } else {
       category = "in-place";
     }
-    return { ...e, category };
+    return {
+      ...e,
+      category,
+      leaseFrom: info?.leaseFrom,
+      leaseTo: info?.leaseTo,
+    };
   });
 }
 
@@ -1937,7 +1960,7 @@ export function parseBudgetWorkbook(
   let waterSewerDetail: Map<string, BudgetLine[]> | null = null;
   let towCipDetail: import("./types").CipDetail | null = null;
   let towOfficeOccupancy: { totalUnits: number; monthlyOccupied: number[] } | null = null;
-  let renewVac: Map<string, { vacancies: Set<string>; renewals: Set<string> }> | null = null;
+  let renewVac: Map<string, RenewVacProperty> | null = null;
   let inPlaceRevenueTab: Map<string, Omit<import("./types").RentRosterEntry, "category">[]> | null = null;
   // Rental Summary roster gathered per-property as we parse the
   // property sheets — categorized + attached after we've also seen

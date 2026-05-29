@@ -79,6 +79,13 @@ export type RentRosterEntry = {
   months: number[];
   /** Sum across months — should tie to the parent line's contribution. */
   total: number;
+  /** Lease start / expiration as the workbook reports them (formatted
+   *  date string like "11/1/26" or the literal "M-M"). Sourced from
+   *  the Renew & Vac tab where the suite appears; in-place leases
+   *  whose expiration falls outside the budget year don't surface a
+   *  date because the workbook only carries the expiring set. */
+  leaseFrom?: string;
+  leaseTo?: string;
 };
 
 export type RentDetail = {
