@@ -1741,7 +1741,19 @@ function RentModal({ detail, onClose }: {
                           // comparing adjacent numbers.
                           boxShadow: bump ? "inset 0 -2px 0 rgba(15,23,42,0.55)" : undefined,
                         }}
-                        title={bump ? `Rent bump: $${Math.round((e.months[j - 1] ?? 0)).toLocaleString()} → $${Math.round(m).toLocaleString()}` : undefined}>
+                        title={bump
+                          ? (() => {
+                              const prev = e.months[j - 1] ?? 0;
+                              const pct = prev > 0 ? ((m - prev) / prev) * 100 : 0;
+                              // Show one decimal when the bump is
+                              // sub-10%, otherwise whole-number — keeps
+                              // the tooltip readable for both the
+                              // common 3% escalator and the bigger
+                              // mid-lease step-ups.
+                              const pctLabel = pct >= 10 ? `${Math.round(pct)}%` : `${pct.toFixed(1)}%`;
+                              return `Rent bump: $${Math.round(prev).toLocaleString()} → $${Math.round(m).toLocaleString()} (+${pctLabel})`;
+                            })()
+                          : undefined}>
                           {fmt(m)}
                         </td>
                       );
