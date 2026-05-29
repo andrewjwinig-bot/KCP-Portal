@@ -1671,6 +1671,11 @@ function RentModal({ detail, onClose }: {
                 if (cat === "vacant") return null;
                 const dollars = totalByCategory(cat);
                 if (dollars === 0) return null;
+                // % of total annual revenue lets staff see at a glance
+                // how much rent is contractual (in-place) vs. pending
+                // (renewal) vs. speculative (new).
+                const pct = annual > 0 ? (dollars / annual) * 100 : 0;
+                const pctLabel = pct >= 10 ? `${Math.round(pct)}%` : `${pct.toFixed(1)}%`;
                 return (
                   <span key={cat} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11 }}>
                     <span style={{
@@ -1679,7 +1684,7 @@ function RentModal({ detail, onClose }: {
                       border: "1px solid rgba(22,163,74,0.35)",
                       borderRadius: 2,
                     }} />
-                    <span className="muted small">{RENT_CATEGORY_LABEL[cat]}: {fmt(dollars)}</span>
+                    <span className="muted small">{RENT_CATEGORY_LABEL[cat]}: {fmt(dollars)} ({pctLabel})</span>
                   </span>
                 );
               })}
