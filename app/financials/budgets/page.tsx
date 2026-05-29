@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useUser } from "@/app/components/UserProvider";
 import { Pill, StatPill, type PillTone } from "@/app/components/Pill";
 import type { BudgetWorkbook, OccupancyDetailRow } from "@/lib/financials/budgets/types";
@@ -489,6 +489,7 @@ function BudgetTable({
 
   const skylineHref = `/api/financials/budgets/${encodeURIComponent(workbook.id)}/skyline?property=${encodeURIComponent(property.propertyCode)}`;
   const downloadHref = `/api/financials/budgets/${encodeURIComponent(workbook.id)}/download?property=${encodeURIComponent(property.propertyCode)}`;
+  const downloadPdfHref = `/api/financials/budgets/${encodeURIComponent(workbook.id)}/download/pdf?property=${encodeURIComponent(property.propertyCode)}`;
   const [psf, setPsf] = useState(false);
   const [hideEmpty, setHideEmpty] = useState(true);
   const [showGL, setShowGL] = useState(false);
@@ -726,32 +727,16 @@ function BudgetTable({
             </HeaderSelect>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-            <a
-              href={downloadHref}
-              className="btn primary"
-              style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700, textDecoration: "none" }}
-            >
-              Download
-            </a>
-            <a
-              href={skylineHref}
-              className="btn"
-              style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700, textDecoration: "none" }}
-            >
-              Skyline Import
-            </a>
-            {canUpload && !reforecasting && (
-              <button
-                onClick={handleStartReforecast}
-                disabled={togglingReforecast}
-                className="btn"
-                style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}
-                title="Open the budget for inline editing across all staff"
-              >
-                Reforecast
-              </button>
-            )}
-            {canUpload && reforecasting && (
+            <ButtonMenu
+              label="Download"
+              variant="primary"
+              items={[
+                { label: "Excel (.xlsx)", description: "Full budget + rent roll, allocations, CIP detail tabs", href: downloadHref },
+                { label: "PDF",           description: "Presentation-ready single-property summary",           href: downloadPdfHref },
+                { label: "Skyline Import",description: "GL-ready .xlsx for the bookkeeping system",            href: skylineHref },
+              ]}
+            />
+            {canUpload && reforecasting ? (
               <>
                 <button
                   onClick={handleSaveReforecast}
@@ -780,17 +765,15 @@ function BudgetTable({
                   Discard
                 </button>
               </>
-            )}
-            {canUpload && (
-              <button
-                onClick={onCreateClick}
-                className="btn primary"
-                style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}
-                title="Start a new live budget for the selected property"
-              >
-                New
-              </button>
-            )}
+            ) : canUpload ? (
+              <ButtonMenu
+                label="Actions"
+                items={[
+                  { label: "New Budget",        description: "Build a fresh live budget for this property",         onClick: onCreateClick },
+                  { label: "Reforecast Budget", description: "Open the current budget for inline editing across staff", onClick: handleStartReforecast, disabled: togglingReforecast },
+                ]}
+              />
+            ) : null}
           </div>
         </div>
 
@@ -2619,6 +2602,142 @@ function fmtAmount(amount: number, sqft: number, psf: boolean): string {
 
 /** Large header-style property selector. Sits where the property name
  *  used to live and acts as the section title. */
+/** Pill-shaped button that opens a small menu of choices. Used in the
+ *  budgets header to collapse the Download/Skyline/PDF buttons into a
+ *  single Download menu and the New/Reforecast buttons into a single
+ *  Actions menu. Items render with an optional one-line description
+ *  beneath the label so staff don't have to remember which Download
+ *  flavour does what. Closes on outside click or Escape. */
+type ButtonMenuItem = {
+  label: string;
+  description?: string;
+  href?: string;
+  onClick?: () => void;
+  disabled?: boolean;
+};
+
+function ButtonMenu({
+  label,
+  items,
+  variant = "default",
+}: {
+  label: string;
+  items: ButtonMenuItem[];
+  variant?: "default" | "primary";
+}) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = React.useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDocClick = (e: MouseEvent) => {
+      if (!wrapRef.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("mousedown", onDocClick);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDocClick);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  return (
+    <div ref={wrapRef} style={{ position: "relative", display: "inline-flex" }}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className={variant === "primary" ? "btn primary" : "btn"}
+        style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 6 }}
+        aria-haspopup="menu"
+        aria-expanded={open}
+      >
+        {label}
+        <span aria-hidden style={{ fontSize: 10, opacity: 0.75, lineHeight: 1 }}>▾</span>
+      </button>
+      {open && (
+        <div
+          role="menu"
+          style={{
+            position: "absolute",
+            top: "calc(100% + 6px)",
+            right: 0,
+            zIndex: 40,
+            minWidth: 260,
+            background: "var(--card)",
+            border: "1px solid var(--border)",
+            borderRadius: 10,
+            boxShadow: "0 8px 24px rgba(15,23,42,0.18)",
+            padding: 4,
+            display: "flex",
+            flexDirection: "column",
+          }}
+        >
+          {items.map((item, i) => {
+            const content = (
+              <>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text)" }}>{item.label}</div>
+                {item.description && (
+                  <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2, lineHeight: 1.35 }}>
+                    {item.description}
+                  </div>
+                )}
+              </>
+            );
+            const style: React.CSSProperties = {
+              display: "block",
+              textAlign: "left",
+              textDecoration: "none",
+              background: "transparent",
+              border: 0,
+              borderRadius: 6,
+              padding: "8px 10px",
+              cursor: item.disabled ? "not-allowed" : "pointer",
+              opacity: item.disabled ? 0.5 : 1,
+              width: "100%",
+            };
+            const onHover = (e: React.MouseEvent<HTMLElement>) => {
+              if (!item.disabled) (e.currentTarget as HTMLElement).style.background = "var(--surface-2, rgba(15,23,42,0.05))";
+            };
+            const onLeave = (e: React.MouseEvent<HTMLElement>) => {
+              (e.currentTarget as HTMLElement).style.background = "transparent";
+            };
+            if (item.href && !item.disabled) {
+              return (
+                <a
+                  key={i}
+                  href={item.href}
+                  style={style}
+                  role="menuitem"
+                  onClick={() => setOpen(false)}
+                  onMouseEnter={onHover}
+                  onMouseLeave={onLeave}
+                >
+                  {content}
+                </a>
+              );
+            }
+            return (
+              <button
+                key={i}
+                type="button"
+                style={style}
+                role="menuitem"
+                disabled={item.disabled}
+                onClick={() => { if (!item.disabled) { setOpen(false); item.onClick?.(); } }}
+                onMouseEnter={onHover}
+                onMouseLeave={onLeave}
+              >
+                {content}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** Header-styled dropdown that sizes its chrome to the *currently
  *  selected* label rather than to the widest option in the list — which
  *  is what native `<select>` does, and what was leaving a big blank
