@@ -235,6 +235,26 @@ function OccupancyPanel({ property }: { property: BudgetWorkbook["properties"][n
   const detail = property.occupancyDetail ?? [];
   const canExpand = detail.length > 0;
 
+  // Pull the rentDetail off the "Total Rental and Other" subtotal so
+  // the Occupancy SF row can offer a per-tenant breakdown modal even
+  // on imported budgets (the legacy occupancyDetail field above only
+  // gets populated for live builds). Each rent-roster entry already
+  // carries monthCategories + per-month rent; the rent-roll snapshot
+  // stamps `sqft` on the entry at GET time so we can derive monthly
+  // occupied SF as `sqft when months[i] > 0 else 0`.
+  const rentDetail = useMemo(() => {
+    for (const sec of property.sections) {
+      for (const line of sec.lines) {
+        if (!line.isSubtotal) continue;
+        if (!/^total\s+rental\s+(and|&)\s+other$/i.test(line.label.trim())) continue;
+        if (line.rentDetail && line.rentDetail.entries.some((e) => (e.sqft ?? 0) > 0)) {
+          return line.rentDetail;
+        }
+      }
+    }
+    return null;
+  }, [property.sections]);
+
   // Group rows by category for the expanded view, preserving suite-sort
   // within each group.
   const grouped = useMemo(() => {
@@ -295,7 +315,12 @@ function OccupancyPanel({ property }: { property: BudgetWorkbook["properties"][n
               </td>
             </tr>
             <tr>
-              <td style={{ fontWeight: 700, color: "var(--muted)" }}>Occupancy SF</td>
+              <td style={{ fontWeight: 700, color: "var(--muted)" }}>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  Occupancy SF
+                  {rentDetail && <OccupancyDetailIcon detail={rentDetail} property={property} />}
+                </span>
+              </td>
               {property.occupancySqft.map((s, i) => (
                 <td key={i} style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
                   {s > 0 ? s.toLocaleString() : "—"}
@@ -1901,6 +1926,191 @@ function RentModal({ detail, onClose }: {
                   <td key={j} style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{fmt(m)}</td>
                 ))}
                 <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{fmt(annual)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Click-chip that opens the per-suite occupancy modal. Same visual
+ *  weight as RentIcon, sits next to the Occupancy SF row label on the
+ *  occupancy strip. Hides itself when no entry on the rent roster
+ *  carries unit SF (rent roll snapshot hasn't been uploaded, etc.). */
+function OccupancyDetailIcon({ detail, property }: {
+  detail: NonNullable<import("@/lib/financials/budgets/types").BudgetLine["rentDetail"]>;
+  property: BudgetWorkbook["properties"][number];
+}) {
+  const [open, setOpen] = useState(false);
+  const occupied = detail.entries.filter((e) => (e.sqft ?? 0) > 0 && e.months.some((m) => m > 0));
+  if (occupied.length === 0) return null;
+  return (
+    <>
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); setOpen(true); }}
+        title={`Occupancy by suite — ${occupied.length} occupied (click for monthly breakdown)`}
+        style={{
+          display: "inline-flex", alignItems: "center", justifyContent: "center",
+          minWidth: 18, height: 18, padding: "0 5px",
+          fontSize: 10, fontWeight: 800, lineHeight: 1,
+          background: "rgba(11,74,125,0.10)",
+          color: "#0b4a7d",
+          border: "1px solid rgba(11,74,125,0.30)",
+          borderRadius: 4,
+          cursor: "pointer",
+          fontVariantNumeric: "tabular-nums",
+          flexShrink: 0,
+        }}
+      >
+        {occupied.length}
+      </button>
+      {open && <OccupancyDetailModal detail={detail} property={property} onClose={() => setOpen(false)} />}
+    </>
+  );
+}
+
+function OccupancyDetailModal({ detail, property, onClose }: {
+  detail: NonNullable<import("@/lib/financials/budgets/types").BudgetLine["rentDetail"]>;
+  property: BudgetWorkbook["properties"][number];
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  // Each entry's monthly occupied SF = unit SF when that month has
+  // rent + the entry isn't a vacant row; em-dash otherwise. This
+  // gives us a tenant-level breakdown of the same numbers the
+  // Occupancy SF row at the top of the page already shows.
+  const sqftFmt = (n: number) => n === 0 ? "—" : n.toLocaleString("en-US");
+  const ordered = [...detail.entries].sort((a, b) =>
+    a.unitRef.localeCompare(b.unitRef, undefined, { numeric: true }),
+  );
+  const occupiedSqftByMonth = (e: typeof detail.entries[number]): number[] => {
+    const sqft = e.sqft ?? 0;
+    if (sqft === 0) return Array(12).fill(0);
+    return e.months.map((m, i) => {
+      // Genuinely-vacant rows never contribute; everything else uses
+      // unit SF for months that carry rent.
+      const cat = e.monthCategories?.[i] ?? e.category;
+      if (cat === "vacant") return 0;
+      return m > 0 ? sqft : 0;
+    });
+  };
+  const rows = ordered.map((e) => ({ entry: e, monthlySqft: occupiedSqftByMonth(e) }));
+  const monthlyTotals = Array.from({ length: 12 }, (_, m) =>
+    rows.reduce((s, r) => s + r.monthlySqft[m], 0),
+  );
+  const annualAvg = Math.round(monthlyTotals.reduce((s, v) => s + v, 0) / 12);
+  const rentable = property.rentableSqft || 0;
+  const annualAvgPct = rentable > 0 ? (annualAvg / rentable) * 100 : 0;
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed", inset: 0, zIndex: 100,
+        background: "rgba(15,23,42,0.55)",
+        display: "flex", alignItems: "flex-start", justifyContent: "center",
+        padding: "60px 20px", overflow: "auto",
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: "var(--card)", borderRadius: 12,
+          maxWidth: 1440, width: "100%",
+          boxShadow: "0 20px 60px rgba(0,0,0,0.35)",
+          display: "flex", flexDirection: "column", gap: 14, padding: 18,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+          <div>
+            <div className="muted small" style={{ fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+              Occupancy by Suite
+            </div>
+            <div style={{ fontSize: 18, fontWeight: 800, marginTop: 2 }}>
+              {rows.length} suite{rows.length === 1 ? "" : "s"} · Avg {sqftFmt(annualAvg)} SF
+              {rentable > 0 && (
+                <span className="muted small" style={{ marginLeft: 8, fontWeight: 600 }}>
+                  ({annualAvgPct.toFixed(1)}% of {sqftFmt(rentable)})
+                </span>
+              )}
+            </div>
+          </div>
+          <button onClick={onClose} className="btn" style={{ padding: "6px 12px", fontSize: 13, fontWeight: 700 }}>Close</button>
+        </div>
+        <div className="tableWrap" style={{ marginTop: 0 }}>
+          <table style={{ tableLayout: "fixed", width: "100%" }}>
+            <colgroup>
+              <col style={{ width: 80 }} />
+              <col style={{ width: 280 }} />
+              <col style={{ width: 70 }} />
+              {MONTHS.map((m) => <col key={m} />)}
+              <col style={{ width: 100 }} />
+            </colgroup>
+            <thead>
+              <tr>
+                <th style={{ textAlign: "left" }}>Suite</th>
+                <th style={{ textAlign: "left" }}>Tenant</th>
+                <th style={{ textAlign: "right" }}>Unit SF</th>
+                {MONTHS.map((m) => <th key={m} style={{ textAlign: "right" }}>{m}</th>)}
+                <th style={{ textAlign: "right" }}>Avg</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map(({ entry: e, monthlySqft }, idx) => {
+                const isVacant = e.category === "vacant";
+                const avg = Math.round(monthlySqft.reduce((s, v) => s + v, 0) / 12);
+                const tooltipLines = [e.tenantName];
+                if (e.leaseFrom && e.leaseTo) tooltipLines.push(`Lease: ${e.leaseFrom} – ${e.leaseTo}`);
+                else if (e.leaseTo) tooltipLines.push(`Expires: ${e.leaseTo}`);
+                else if (e.leaseFrom) tooltipLines.push(`Starts: ${e.leaseFrom}`);
+                const rowTooltip = tooltipLines.join("\n");
+                return (
+                  <tr key={idx}>
+                    <td style={{ fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", fontSize: 12 }} title={rowTooltip}>{e.unitRef}</td>
+                    <td style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontSize: 12, fontWeight: 400, color: isVacant ? "var(--muted)" : undefined, fontStyle: isVacant ? "italic" : undefined }} title={rowTooltip}>
+                      {e.tenantName}
+                    </td>
+                    <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontSize: 12, color: "var(--muted)" }}>
+                      {e.sqft ? e.sqft.toLocaleString() : "—"}
+                    </td>
+                    {monthlySqft.map((sf, j) => {
+                      // Per-month cell tint matches the rent modal so
+                      // staff can see at a glance whether the
+                      // occupied SF is in-place / renewal / new.
+                      const cat = e.monthCategories?.[j] ?? e.category;
+                      const tint = RENT_CATEGORY_TINT[cat];
+                      return (
+                        <td key={j} style={{
+                          textAlign: "right",
+                          fontVariantNumeric: "tabular-nums",
+                          fontSize: 12,
+                          background: sf > 0 ? tint : undefined,
+                          color: sf === 0 ? "var(--muted)" : undefined,
+                        }}>
+                          {sqftFmt(sf)}
+                        </td>
+                      );
+                    })}
+                    <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontWeight: 600, fontSize: 12, color: isVacant ? "var(--muted)" : undefined }}>
+                      {sqftFmt(avg)}
+                    </td>
+                  </tr>
+                );
+              })}
+              <tr style={{ borderTop: "2px solid var(--border)", fontWeight: 800 }}>
+                <td colSpan={3} style={{ textTransform: "uppercase", letterSpacing: "0.04em", fontSize: 11 }}>Total Occupied SF</td>
+                {monthlyTotals.map((m, j) => (
+                  <td key={j} style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{sqftFmt(m)}</td>
+                ))}
+                <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{sqftFmt(annualAvg)}</td>
               </tr>
             </tbody>
           </table>
