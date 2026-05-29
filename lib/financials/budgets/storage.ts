@@ -142,7 +142,7 @@ function seedMissingAllocations(wb: BudgetWorkbook): boolean {
  *  so a missing array means we parsed under an older detector that
  *  didn't recognize GL-bearing sub-lines. */
 function seedMissingGroupedSubLines(wb: BudgetWorkbook): boolean {
-  const expectsSubLines = /^(leasing salaries and commissions|utilities|general & administrative|capital improvements|outside leasing commissions)$/i;
+  const expectsSubLines = /^(salaries & commissions|leasing salaries (?:and|&) commissions|utilities|general & administrative|capital improvements|outside leasing commissions)$/i;
   for (const property of wb.properties) {
     for (const section of property.sections) {
       for (const line of section.lines) {
@@ -389,11 +389,12 @@ function seedHasLegacyTowReimbLabels(wb: BudgetWorkbook): boolean {
   return false;
 }
 
-/** Returns true when any line still uses the legacy "Leasing Salaries
- *  and Commissions" spelling — staff prefer the ampersand form for
- *  the page header. */
+/** Returns true when any line still carries the old "Leasing Salaries
+ *  …" spelling (with either "and" or "&") — staff have since shortened
+ *  it to just "Salaries & Commissions" since the section context
+ *  already implies leasing. */
 function seedHasLegacyLeasingLabel(wb: BudgetWorkbook): boolean {
-  const re = /^Leasing Salaries and Commissions$/i;
+  const re = /^Leasing Salaries\s+(?:and|&)\s+Commissions$/i;
   const visit = (line: BudgetWorkbook["properties"][number]["sections"][number]["lines"][number]): boolean => {
     if (re.test(line.label.trim())) return true;
     return !!line.subLines && line.subLines.some(visit);

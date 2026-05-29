@@ -1004,13 +1004,13 @@ function dropOffPathManagementFee(properties: PropertyBudget[], category: Budget
   }
 }
 
-/** Source workbook spells out "Leasing Salaries and Commissions" — we
- *  use & elsewhere on the page (header treatments, section names) so
- *  normalize here. Easy place to add more renames if other labels
- *  drift. */
+/** Source workbook spells the parent "Leasing Salaries and
+ *  Commissions"; staff want the shorter "Salaries & Commissions"
+ *  since the section context already implies leasing. Easy place to
+ *  add more renames as labels drift. */
 function normalizeLabels(properties: PropertyBudget[]): void {
   const rewrites: Array<[RegExp, string]> = [
-    [/^Leasing Salaries and Commissions$/i, "Leasing Salaries & Commissions"],
+    [/^Leasing Salaries\s+(?:and|&)\s+Commissions$/i, "Salaries & Commissions"],
   ];
   const visit = (line: BudgetLine) => {
     for (const [re, replacement] of rewrites) {
