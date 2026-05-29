@@ -412,14 +412,17 @@ function seedHasLegacyLeasingLabel(wb: BudgetWorkbook): boolean {
  *  Cleaning). Detected by the "(BP)" / "(SC)" subCategory still being
  *  present on either kind of line. */
 function seedHasDualManagementFeeRows(wb: BudgetWorkbook): boolean {
-  if (wb.category !== "Shopping Centers" && wb.category !== "Office") return false;
   const dualLabel = /^(management fee|parking lot cleaning)$/i;
+  const stripLabel = /^(other\s*-\s*)?condo fee$/i;
   for (const property of wb.properties) {
     for (const section of property.sections) {
-      const hit = section.lines.some(
-        (l) => !l.isSubtotal && dualLabel.test(l.label.trim()) && (l.subCategory === "(BP)" || l.subCategory === "(SC)"),
-      );
-      if (hit) return true;
+      for (const line of section.lines) {
+        if (line.isSubtotal) continue;
+        if (line.subCategory !== "(BP)" && line.subCategory !== "(SC)") continue;
+        const label = line.label.trim();
+        if (dualLabel.test(label)) return true;
+        if (stripLabel.test(label)) return true;
+      }
     }
   }
   return false;
