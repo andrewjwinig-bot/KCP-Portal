@@ -975,6 +975,35 @@ function deriveConsolidatedManagementFeePercent(properties: PropertyBudget[]): v
   }
 }
 
+/** The workbooks ship two Management Fee rows on every property — one
+ *  tagged "(BP)" on the Reimbursable side (GL 6610-8502, business
+ *  parks / office) and one tagged "(SC)" on the Non-Reimbursable side
+ *  (GL 6610-8501, shopping centers). Only one applies per property
+ *  type; the other is a hardcoded $0 placeholder. Drop the off-path
+ *  row and strip the "(BP)" / "(SC)" subCategory tag from the
+ *  survivor so the page reads "Management Fee" cleanly. */
+function dropOffPathManagementFee(properties: PropertyBudget[], category: BudgetCategory): void {
+  let keepTag: "(SC)" | "(BP)" | null;
+  if (category === "Shopping Centers") keepTag = "(SC)";
+  else if (category === "Office") keepTag = "(BP)";
+  else return; // Residential / Other — workbooks don't ship the dual row.
+  for (const property of properties) {
+    for (const section of property.sections) {
+      section.lines = section.lines.filter((line) => {
+        if (line.isSubtotal) return true;
+        if (!/management fee/i.test(line.label)) return true;
+        if (line.subCategory !== "(BP)" && line.subCategory !== "(SC)") return true;
+        return line.subCategory === keepTag;
+      });
+      for (const line of section.lines) {
+        if (line.isSubtotal) continue;
+        if (!/management fee/i.test(line.label)) continue;
+        if (line.subCategory === keepTag) line.subCategory = null;
+      }
+    }
+  }
+}
+
 /** Source workbook spells out "Leasing Salaries and Commissions" — we
  *  use & elsewhere on the page (header treatments, section names) so
  *  normalize here. Easy place to add more renames if other labels
@@ -1823,6 +1852,10 @@ function rollupDisplayName(workbookLabel: string, fallback: string): string {
   // Commissions"; switch to & for consistency with everywhere else
   // we use the ampersand form.
   normalizeLabels(properties);
+  // Workbooks ship both the (BP) and (SC) Management Fee variants on
+  // every property — drop whichever doesn't apply to this category so
+  // the page shows just one clean "Management Fee" row.
+  dropOffPathManagementFee(properties, category);
   if (category === "Office") {
     synthesizeMultiBuildingAllocations(properties, [
       "9210-8501",  // Interest
