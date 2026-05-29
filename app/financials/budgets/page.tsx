@@ -647,9 +647,19 @@ function BudgetTable({
   // Selecting a property automatically resolves to the workbook that
   // owns it (so 1100 → SC 2026, 3610 → JV III 2026, etc.).
   const propertyOptionsByWorkbook = useMemo(() => {
+    // Property workbooks first (Shopping Centers / Office / Residential
+    // in their natural alphabetical order), then the "Other" books
+    // (LIK Management, The Office Works) pinned to the bottom so the
+    // dropdown lands on the operating portfolio when staff open it.
+    const categoryRank = (c: string) => (c === "Other" ? 1 : 0);
     return summaries
       .filter((s) => s.year === workbook.year)
-      .sort((a, b) => a.category.localeCompare(b.category) || a.label.localeCompare(b.label))
+      .sort((a, b) => {
+        const ra = categoryRank(a.category);
+        const rb = categoryRank(b.category);
+        if (ra !== rb) return ra - rb;
+        return a.category.localeCompare(b.category) || a.label.localeCompare(b.label);
+      })
       .map((s) => ({
         budgetId: s.id,
         label: s.label,
