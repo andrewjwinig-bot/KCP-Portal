@@ -5,10 +5,16 @@
 // subtotals, and the big cross-section subtotals (TOTAL REVENUES, NOI,
 // CASH FLOW, …). Empty rows are skipped so the file reads clean.
 //
-// The page's click-through modals (rent roster, allocation breakdowns,
+// The page's click-through modals (rent roll, allocation breakdowns,
 // CIP roster) are emitted as standalone tabs in the same workbook so
 // the main sheet stays uncluttered while the full audit trail still
 // travels with the file.
+//
+// Every monetary cell is a formula — row totals are SUM(C:N), parent
+// lines SUM their immediate sub-lines, in-section subtotals SUM their
+// member parent rows, and cross-section rollups reference each other
+// (NOI = TOTAL REVENUES − TOTAL OPEX, etc.) so editing any month cell
+// recalculates the whole property cleanly.
 //
 // Built with exceljs so cells carry real fonts, fills, borders, number
 // formats, merged ranges and frozen panes — the output matches the
@@ -30,7 +36,39 @@ const DETAIL_HEADER = "FFDDE6EF"; // column header inside detail tables
 const DETAIL_BAND = "FFFBFCFD";   // alternating band inside detail tables
 const BORDER_GRAY = "FFB7C2CC";
 
+// Rent-category tints — blend of the modal's rgba overlays against
+// white, since Excel fills are opaque. Matches the in-place / renewal /
+// new / vacant scale used on the page's Total Rental and Other modal.
+const RENT_TINT: Record<"in-place" | "renewal" | "new" | "vacant", string> = {
+  "in-place": "FF7EB994", // deep forest green
+  "renewal":  "FFC8E896", // mid lime
+  "new":      "FFE6FBBF", // pale yellow-green
+  "vacant":   "FFFFFFFF", // no tint
+};
+const RENT_LABEL: Record<"in-place" | "renewal" | "new" | "vacant", string> = {
+  "in-place": "In Place",
+  "renewal":  "Renewal",
+  "new":      "New Lease",
+  "vacant":   "Vacant",
+};
+
 const N_COLS = 15; // A: GL, B: Line, C–N: months, O: Total
+
+/** Column letter for col index (1-based). Only goes A–Z, fine for our
+ *  tabs which top out at 18 columns. */
+function colLetter(c: number): string {
+  return String.fromCharCode(64 + c);
+}
+
+/** Build a `SUM(a+b+c+...)` expression from a list of row numbers for a
+ *  single column. Returns "0" for an empty list so the formula stays
+ *  valid. Joined with "+" rather than commas because Excel only supports
+ *  contiguous ranges inside SUM(); this lets us reference scattered rows
+ *  (e.g. parent lines interleaved with notes / sub-lines). */
+function sumRefs(letter: string, rows: number[]): string {
+  if (rows.length === 0) return "0";
+  return rows.map((r) => `${letter}${r}`).join("+");
+}
 
 function isEmpty(line: BudgetLine): boolean {
   return !line.isSubtotal && line.total === 0 && line.months.every((m) => m === 0);
@@ -120,8 +158,8 @@ function emitLine(
   line: BudgetLine,
   depth: number,
   bandIdx: { v: number },
-): void {
-  if (isEmpty(line)) return;
+): number | null {
+  if (isEmpty(line)) return null;
   const indent = "    ".repeat(depth);
   // Annotate the label with the management-fee percent the screen
   // shows ("Management Fee (6%)" / "(4–6%)").
@@ -149,9 +187,29 @@ function emitLine(
     noteRow.getCell(2).alignment = { vertical: "middle", wrapText: true, indent: depth + 1 };
     noteRow.height = 14;
   }
+  // Recurse into sub-lines, collecting their row numbers so we can
+  // turn the parent's monthly cells into SUM formulas — edits to a
+  // sub-line then flow up to the parent and the section subtotal.
+  const childRows: number[] = [];
   if (line.subLines) {
-    for (const sub of line.subLines) emitLine(ws, sub, depth + 1, bandIdx);
+    for (const sub of line.subLines) {
+      const r = emitLine(ws, sub, depth + 1, bandIdx);
+      if (r) childRows.push(r);
+    }
+    if (childRows.length > 0) {
+      for (let m = 0; m < 12; m++) {
+        const letter = colLetter(3 + m);
+        row.getCell(3 + m).value = { formula: sumRefs(letter, childRows), result: line.months[m] };
+      }
+    }
   }
+  // Every line's Total = SUM of its 12 month cells — so editing a
+  // month flows through to the row total automatically.
+  row.getCell(N_COLS).value = {
+    formula: `SUM(C${row.number}:N${row.number})`,
+    result: line.total,
+  };
+  return row.number;
 }
 
 /** Walk every line + sub-line in the property to find the lines that
@@ -177,16 +235,17 @@ function collectLinesWithDetail(property: PropertyBudget) {
   return { rent, cip, allocLines };
 }
 
-/** Rent Roster tab — one row per tenant across all "Total Rental and
- *  Other" subtotals in the property. */
-function buildRentRosterTab(book: ExcelJS.Workbook, wb: BudgetWorkbook, property: PropertyBudget): void {
+/** Rent Roll tab — one row per tenant across all "Total Rental and
+ *  Other" subtotals in the property. Each month cell is tinted by its
+ *  monthCategories[m] (in-place / renewal / new / vacant) so the
+ *  certainty mix that drives the Revenues modal is preserved in print. */
+function buildRentRollTab(book: ExcelJS.Workbook, wb: BudgetWorkbook, property: PropertyBudget): void {
   const { rent } = collectLinesWithDetail(property);
   const totalEntries = rent.reduce((s, r) => s + (r.line.rentDetail?.entries.length ?? 0), 0);
   if (totalEntries === 0) return;
 
   const COLS_RR = 18; // Suite | Tenant | Category | Lease From | Lease To | SF | Jan-Dec | Total
-  const ws = book.addWorksheet("Rent Roster", {
-    views: [{ state: "frozen", xSplit: 2, ySplit: 0 }],
+  const ws = book.addWorksheet("Rent Roll", {
     pageSetup: {
       orientation: "landscape",
       paperSize: 5,
@@ -199,7 +258,7 @@ function buildRentRosterTab(book: ExcelJS.Workbook, wb: BudgetWorkbook, property
   ws.columns = [
     { width: 12 },                                       // Suite
     { width: 32 },                                       // Tenant
-    { width: 11 },                                       // Category
+    { width: 12 },                                       // Category
     { width: 11 },                                       // Lease From
     { width: 11 },                                       // Lease To
     { width: 10 },                                       // SF
@@ -210,22 +269,41 @@ function buildRentRosterTab(book: ExcelJS.Workbook, wb: BudgetWorkbook, property
   writeTabHeader(
     ws,
     COLS_RR,
-    `Rent Roster — ${property.propertyCode}  ${property.propertyName}`,
+    `Rent Roll — ${property.propertyCode}  ${property.propertyName}`,
     `${wb.year} Operating Budget  ·  ${totalEntries} tenant${totalEntries === 1 ? "" : "s"}`,
     [`Generated ${new Date().toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}`],
   );
 
+  // Legend strip explaining the cell tints — same palette as the
+  // Total Rental and Other modal so staff can read either format.
+  const legend = ws.addRow([""]);
+  legend.height = 18;
+  const legendItems: { cat: "in-place" | "renewal" | "new" | "vacant"; label: string }[] = [
+    { cat: "in-place", label: "  In Place  " },
+    { cat: "renewal",  label: "  Renewal  " },
+    { cat: "new",      label: "  New Lease  " },
+    { cat: "vacant",   label: "  Vacant  " },
+  ];
+  legendItems.forEach((item, i) => {
+    const cell = legend.getCell(2 + i * 2);
+    cell.value = item.label;
+    cell.font = { name: "Calibri", size: 9, bold: true, color: { argb: "FF222222" } };
+    cell.alignment = { vertical: "middle", horizontal: "center" };
+    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: RENT_TINT[item.cat] } };
+    cell.border = THIN_BORDER;
+  });
+  ws.addRow([]);
+
+  // Pin only the title block + legend rows so the table body scrolls
+  // freely beneath them. xSplit=2 keeps Suite + Tenant visible while
+  // scrolling horizontally through Jan–Dec.
+  const frozenAfter = ws.lastRow!.number;
+  ws.views = [{ state: "frozen", xSplit: 2, ySplit: frozenAfter }];
+
   const order = { "in-place": 0, renewal: 1, new: 2, vacant: 3 } as const;
-  const friendly: Record<typeof order extends Record<infer K, number> ? K : never, string> = {
-    "in-place": "In Place",
-    renewal: "Renewal",
-    new: "New Lease",
-    vacant: "Vacant",
-  };
 
   for (const { line } of rent) {
     const detail = line.rentDetail!;
-    // Section label tying back to the budget tab.
     const banner = ws.addRow([`Source: ${line.label}  —  ${detail.entries.length} tenant${detail.entries.length === 1 ? "" : "s"}`]);
     ws.mergeCells(banner.number, 1, banner.number, COLS_RR);
     banner.height = 20;
@@ -251,19 +329,17 @@ function buildRentRosterTab(book: ExcelJS.Workbook, wb: BudgetWorkbook, property
         right: { style: "thin", color: { argb: BRAND_DARK } },
       };
     }
-    // Anchor the frozen pane onto the latest header so this tab's table
-    // header is what stays pinned when scrolling.
-    ws.views = [{ state: "frozen", xSplit: 2, ySplit: header.number }];
 
     const sorted = [...detail.entries].sort((a, b) => {
       const c = order[a.category] - order[b.category];
       return c !== 0 ? c : a.tenantName.localeCompare(b.tenantName);
     });
-    sorted.forEach((e, i) => {
+    const entryRowNums: number[] = [];
+    sorted.forEach((e) => {
       const row = ws.addRow([
         e.unitRef,
         e.tenantName,
-        friendly[e.category],
+        RENT_LABEL[e.category],
         e.leaseFrom ?? "",
         e.leaseTo ?? "",
         e.sqft ?? "",
@@ -274,25 +350,41 @@ function buildRentRosterTab(book: ExcelJS.Workbook, wb: BudgetWorkbook, property
       row.getCell(1).font = { name: "Calibri", size: 10, color: { argb: "FF555555" } };
       row.getCell(2).font = { name: "Calibri", size: 10 };
       row.getCell(2).alignment = { vertical: "middle", indent: 1 };
-      row.getCell(3).font = { name: "Calibri", size: 9, color: { argb: BRAND_DARK }, bold: true };
+      // Category cell tinted to the headline bucket so the eye can
+      // group rows at a glance.
+      row.getCell(3).font = { name: "Calibri", size: 9, bold: true, color: { argb: "FF222222" } };
       row.getCell(3).alignment = { vertical: "middle", horizontal: "left", indent: 1 };
+      row.getCell(3).fill = { type: "pattern", pattern: "solid", fgColor: { argb: RENT_TINT[e.category] } };
       row.getCell(4).alignment = { vertical: "middle", horizontal: "right" };
       row.getCell(5).alignment = { vertical: "middle", horizontal: "right" };
       row.getCell(6).numFmt = "#,##0";
       row.getCell(6).alignment = { vertical: "middle", horizontal: "right" };
       applyMoneyFmt(row, 7, COLS_RR);
       applyBorder(row, 1, COLS_RR);
-      if (i % 2 === 1) {
-        for (let c = 1; c <= COLS_RR; c++) {
-          row.getCell(c).fill = { type: "pattern", pattern: "solid", fgColor: { argb: DETAIL_BAND } };
-        }
+      // Per-month tint based on monthCategories — preserves the modal's
+      // certainty colour grading (e.g. a row that's in-place through
+      // March then renewal Apr–Dec gets the two-tone look).
+      const cats = e.monthCategories ?? Array(12).fill(e.category);
+      for (let m = 0; m < 12; m++) {
+        const cat = (cats[m] ?? e.category) as "in-place" | "renewal" | "new" | "vacant";
+        if (cat === "vacant") continue; // leave at default white
+        row.getCell(7 + m).fill = {
+          type: "pattern", pattern: "solid", fgColor: { argb: RENT_TINT[cat] },
+        };
       }
+      // Total = SUM(G:R) — the tenant's annual stays live if any month
+      // gets adjusted.
+      row.getCell(COLS_RR).value = {
+        formula: `SUM(G${row.number}:R${row.number})`,
+        result: e.total,
+      };
+      entryRowNums.push(row.number);
     });
 
-    // Subtotal row that ties back to the parent line on the budget tab.
-    const totalMonths = Array(12).fill(0);
-    for (const e of sorted) for (let m = 0; m < 12; m++) totalMonths[m] += e.months[m] ?? 0;
-    const totalRow = ws.addRow(["", "Roster Total", "", "", "", "", ...totalMonths, detail.total]);
+    // Roster Total — months sum the tenant rows, total sums months.
+    const totalMonthsPlaceholder = Array(12).fill(0);
+    for (const e of sorted) for (let m = 0; m < 12; m++) totalMonthsPlaceholder[m] += e.months[m] ?? 0;
+    const totalRow = ws.addRow(["", "Roster Total", "", "", "", "", ...totalMonthsPlaceholder, detail.total]);
     totalRow.height = 18;
     applyMoneyFmt(totalRow, 7, COLS_RR);
     for (let c = 1; c <= COLS_RR; c++) {
@@ -306,6 +398,17 @@ function buildRentRosterTab(book: ExcelJS.Workbook, wb: BudgetWorkbook, property
       };
     }
     totalRow.getCell(2).alignment = { vertical: "middle", indent: 1 };
+    for (let m = 0; m < 12; m++) {
+      const letter = colLetter(7 + m);
+      totalRow.getCell(7 + m).value = {
+        formula: sumRefs(letter, entryRowNums),
+        result: totalMonthsPlaceholder[m],
+      };
+    }
+    totalRow.getCell(COLS_RR).value = {
+      formula: `SUM(G${totalRow.number}:R${totalRow.number})`,
+      result: detail.total,
+    };
 
     ws.addRow([]); // spacer between source blocks
   }
@@ -324,7 +427,6 @@ function buildAllocationsTab(book: ExcelJS.Workbook, wb: BudgetWorkbook, propert
 
   const COLS_AL = 15; // Property | Basis | Jan-Dec | Total
   const ws = book.addWorksheet("Allocations", {
-    views: [{ state: "frozen", xSplit: 2, ySplit: 0 }],
     pageSetup: {
       orientation: "landscape",
       paperSize: 5,
@@ -348,6 +450,11 @@ function buildAllocationsTab(book: ExcelJS.Workbook, wb: BudgetWorkbook, propert
     `${wb.year} Operating Budget  ·  ${totalBlocks} allocation block${totalBlocks === 1 ? "" : "s"}`,
     [`Generated ${new Date().toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}`],
   );
+
+  // Pin only the title block so the body scrolls freely (previously
+  // re-anchored per block which left big chunks above the split locked
+  // out of view).
+  ws.views = [{ state: "frozen", xSplit: 2, ySplit: ws.lastRow!.number }];
 
   for (const { line, path } of allocLines) {
     for (const alloc of line.allocations!) {
@@ -383,14 +490,13 @@ function buildAllocationsTab(book: ExcelJS.Workbook, wb: BudgetWorkbook, propert
           right: { style: "thin", color: { argb: BRAND_DARK } },
         };
       }
-      ws.views = [{ state: "frozen", xSplit: 2, ySplit: header.number }];
-
       const rows = alloc.rows ?? [];
       if (rows.length === 0) {
         const empty = ws.addRow(["", "(per-property breakdown not captured)"]);
         ws.mergeCells(empty.number, 2, empty.number, COLS_AL);
         empty.getCell(2).font = { name: "Calibri", size: 9, italic: true, color: { argb: "FF888888" } };
       } else {
+        const rowNums: number[] = [];
         rows.forEach((r, i) => {
           const basisLabel = alloc.basis === "sqft"
             ? `${r.sqft.toLocaleString("en-US")} SF · ${r.sharePct.toFixed(1)}%`
@@ -408,7 +514,6 @@ function buildAllocationsTab(book: ExcelJS.Workbook, wb: BudgetWorkbook, propert
           applyMoneyFmt(row, 3, COLS_AL);
           applyBorder(row, 1, COLS_AL);
           if (isThisProperty) {
-            // Highlight this property's slice so the line ties out.
             for (let c = 1; c <= COLS_AL; c++) {
               row.getCell(c).fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND_TINT } };
             }
@@ -417,9 +522,16 @@ function buildAllocationsTab(book: ExcelJS.Workbook, wb: BudgetWorkbook, propert
               row.getCell(c).fill = { type: "pattern", pattern: "solid", fgColor: { argb: DETAIL_BAND } };
             }
           }
+          // Per-property Total = SUM of its 12 month cells.
+          row.getCell(COLS_AL).value = {
+            formula: `SUM(C${row.number}:N${row.number})`,
+            result: r.total,
+          };
+          rowNums.push(row.number);
         });
 
-        // Portfolio total row.
+        // Portfolio total row — month cells SUM the property rows above,
+        // total cell SUMs the months.
         const totalMonths = Array(12).fill(0);
         for (const r of rows) for (let m = 0; m < 12; m++) totalMonths[m] += r.months[m] ?? 0;
         const totalRow = ws.addRow(["", "Portfolio Total", ...totalMonths, alloc.portfolioTotal]);
@@ -436,6 +548,17 @@ function buildAllocationsTab(book: ExcelJS.Workbook, wb: BudgetWorkbook, propert
           };
         }
         totalRow.getCell(2).alignment = { vertical: "middle", indent: 1 };
+        for (let m = 0; m < 12; m++) {
+          const letter = colLetter(3 + m);
+          totalRow.getCell(3 + m).value = {
+            formula: sumRefs(letter, rowNums),
+            result: totalMonths[m],
+          };
+        }
+        totalRow.getCell(COLS_AL).value = {
+          formula: `SUM(C${totalRow.number}:N${totalRow.number})`,
+          result: alloc.portfolioTotal,
+        };
       }
       ws.addRow([]); // spacer between blocks
     }
@@ -454,7 +577,6 @@ function buildCipTab(book: ExcelJS.Workbook, wb: BudgetWorkbook, property: Prope
 
   const COLS_CIP = 14; // Member | Jan-Dec | Total
   const ws = book.addWorksheet("CIP Members", {
-    views: [{ state: "frozen", xSplit: 1, ySplit: 0 }],
     pageSetup: {
       orientation: "landscape",
       paperSize: 5,
@@ -477,6 +599,8 @@ function buildCipTab(book: ExcelJS.Workbook, wb: BudgetWorkbook, property: Prope
     `${wb.year} Operating Budget  ·  ${totalMembers} active member${totalMembers === 1 ? "" : "s"}`,
     [`Generated ${new Date().toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}`],
   );
+
+  ws.views = [{ state: "frozen", xSplit: 1, ySplit: ws.lastRow!.number }];
 
   for (const { line } of cip) {
     const detail = line.cipDetail!;
@@ -501,9 +625,8 @@ function buildCipTab(book: ExcelJS.Workbook, wb: BudgetWorkbook, property: Prope
         right: { style: "thin", color: { argb: BRAND_DARK } },
       };
     }
-    ws.views = [{ state: "frozen", xSplit: 1, ySplit: header.number }];
-
     const sorted = [...detail.tenants].sort((a, b) => a.name.localeCompare(b.name));
+    const rowNums: number[] = [];
     sorted.forEach((t, i) => {
       const row = ws.addRow([t.name, ...t.months, t.total]);
       row.height = 16;
@@ -516,6 +639,11 @@ function buildCipTab(book: ExcelJS.Workbook, wb: BudgetWorkbook, property: Prope
           row.getCell(c).fill = { type: "pattern", pattern: "solid", fgColor: { argb: DETAIL_BAND } };
         }
       }
+      row.getCell(COLS_CIP).value = {
+        formula: `SUM(B${row.number}:M${row.number})`,
+        result: t.total,
+      };
+      rowNums.push(row.number);
     });
 
     const totalMonths = Array(12).fill(0);
@@ -534,6 +662,17 @@ function buildCipTab(book: ExcelJS.Workbook, wb: BudgetWorkbook, property: Prope
       };
     }
     totalRow.getCell(1).alignment = { vertical: "middle", indent: 1 };
+    for (let m = 0; m < 12; m++) {
+      const letter = colLetter(2 + m);
+      totalRow.getCell(2 + m).value = {
+        formula: sumRefs(letter, rowNums),
+        result: totalMonths[m],
+      };
+    }
+    totalRow.getCell(COLS_CIP).value = {
+      formula: `SUM(B${totalRow.number}:M${totalRow.number})`,
+      result: detail.total,
+    };
     ws.addRow([]);
   }
 
@@ -585,7 +724,7 @@ function buildMainBudgetTab(book: ExcelJS.Workbook, wb: BudgetWorkbook, property
   // detail moved to.
   const { rent, allocLines, cip } = collectLinesWithDetail(property);
   const tabs: string[] = [];
-  if (rent.length > 0) tabs.push("Rent Roster tab");
+  if (rent.length > 0) tabs.push("Rent Roll tab");
   if (allocLines.length > 0) tabs.push("Allocations tab");
   if (cip.length > 0) tabs.push("CIP Members tab");
   if (tabs.length > 0) meta.push(`See ${tabs.join(" · ")}`);
@@ -693,7 +832,21 @@ function buildMainBudgetTab(book: ExcelJS.Workbook, wb: BudgetWorkbook, property
     };
   };
 
-  const writeCrossSectionSubtotal = (label: string, months: number[], total: number) => {
+  // Row numbers for already-emitted cross-section subtotals, keyed by
+  // their canonical name — drives the NOI / CFBDS / CFADS formulas
+  // that reference earlier rollups.
+  const crossRow: Record<string, number> = {};
+  // Rows that feed the *next* cross-section subtotal — populated as
+  // each section's in-section subtotals (or parent rows, when a
+  // section has no end-subtotal) come in, drained when a TOTAL_*
+  // rollup that consumes them is emitted.
+  const pendingContribution: number[] = [];
+
+  const writeCrossSectionSubtotal = (
+    label: string,
+    months: number[],
+    total: number,
+  ): number => {
     ws.addRow([]);
     const row = ws.addRow(["", label, ...months, total]);
     row.height = 20;
@@ -701,7 +854,6 @@ function buildMainBudgetTab(book: ExcelJS.Workbook, wb: BudgetWorkbook, property
     row.getCell(2).alignment = { vertical: "middle", horizontal: "left", indent: 1 };
     applyMoneyFmt(row, 3, N_COLS);
     for (let c = 1; c <= N_COLS; c++) {
-      row.getCell(c).font = row.getCell(c).font ?? {};
       row.getCell(c).fill = { type: "pattern", pattern: "solid", fgColor: { argb: ROLLUP_FILL } };
       row.getCell(c).border = {
         top: { style: "medium", color: { argb: BRAND } },
@@ -713,6 +865,47 @@ function buildMainBudgetTab(book: ExcelJS.Workbook, wb: BudgetWorkbook, property
         row.getCell(c).font = { name: "Calibri", size: 11, bold: true, color: { argb: BRAND_DARK } };
       }
     }
+    // Build the per-month formula based on which cross-section rollup
+    // this row is. Falls back to the parser-supplied value if we don't
+    // yet have the inputs (defensive — should never happen given the
+    // order subtotalKeysAfter emits them in).
+    for (let m = 0; m < 12; m++) {
+      const letter = colLetter(3 + m);
+      let formula: string | null = null;
+      if (label === "TOTAL REVENUES" || label === "TOTAL OPERATING EXPENSES") {
+        formula = sumRefs(letter, pendingContribution);
+      } else if (label === "NET OPERATING INCOME") {
+        const tr = crossRow["TOTAL REVENUES"];
+        const to = crossRow["TOTAL OPERATING EXPENSES"];
+        if (tr && to) formula = `${letter}${tr}-${letter}${to}`;
+      } else if (label === "CASH FLOW BEFORE DEBT SERVICE" || label === "CASH FLOW") {
+        const noi = crossRow["NET OPERATING INCOME"];
+        if (noi) {
+          formula = pendingContribution.length === 0
+            ? `${letter}${noi}`
+            : `${letter}${noi}-(${sumRefs(letter, pendingContribution)})`;
+        }
+      } else if (label === "CASH FLOW AFTER DEBT SERVICE") {
+        const cfb = crossRow["CASH FLOW BEFORE DEBT SERVICE"] ?? crossRow["CASH FLOW"];
+        if (cfb) {
+          formula = pendingContribution.length === 0
+            ? `${letter}${cfb}`
+            : `${letter}${cfb}-(${sumRefs(letter, pendingContribution)})`;
+        }
+      }
+      if (formula) {
+        row.getCell(3 + m).value = { formula, result: months[m] };
+      }
+    }
+    row.getCell(N_COLS).value = {
+      formula: `SUM(C${row.number}:N${row.number})`,
+      result: total,
+    };
+    // TOTAL_* / CASH FLOW rollups consume their pending inputs; NOI is
+    // a pure subtraction and leaves pending alone for the next CASH
+    // FLOW rollup.
+    if (label !== "NET OPERATING INCOME") pendingContribution.length = 0;
+    return row.number;
   };
 
   for (const sec of visibleSections) {
@@ -720,6 +913,16 @@ function buildMainBudgetTab(book: ExcelJS.Workbook, wb: BudgetWorkbook, property
     if (groupHeader) writeGroupBanner(groupHeader);
     writeSectionHeader(sec.name);
     const bandIdx = { v: 0 };
+    // Parent rows since the last in-section subtotal — drives that
+    // subtotal's SUM formula. Reset after each subtotal so a mid-
+    // section subtotal only covers the rows it actually sits under.
+    const sectionParentRows: number[] = [];
+    // All in-section subtotals (used in preference to raw parent rows
+    // when this section contributes to a cross-section rollup) and all
+    // parent rows (fallback when the section has no end subtotal).
+    const sectionSubtotalRows: number[] = [];
+    const sectionAllParentRows: number[] = [];
+
     for (const line of sec.lines) {
       if (line.isSubtotal) {
         if (isEmpty(line)) continue;
@@ -737,16 +940,46 @@ function buildMainBudgetTab(book: ExcelJS.Workbook, wb: BudgetWorkbook, property
           };
         }
         row.getCell(2).alignment = { vertical: "middle", horizontal: "left", indent: 1 };
+        // In-section subtotal months = SUM of the parent rows that
+        // landed in this section since the previous subtotal (or
+        // section start). Total = SUM(C:N) of this row.
+        for (let m = 0; m < 12; m++) {
+          const letter = colLetter(3 + m);
+          row.getCell(3 + m).value = {
+            formula: sumRefs(letter, sectionParentRows),
+            result: line.months[m],
+          };
+        }
+        row.getCell(N_COLS).value = {
+          formula: `SUM(C${row.number}:N${row.number})`,
+          result: line.total,
+        };
+        sectionSubtotalRows.push(row.number);
+        sectionParentRows.length = 0;
         bandIdx.v = 0;
         continue;
       }
-      emitLine(ws, line, 0, bandIdx);
+      const rowNum = emitLine(ws, line, 0, bandIdx);
+      if (rowNum) {
+        sectionParentRows.push(rowNum);
+        sectionAllParentRows.push(rowNum);
+      }
     }
+
+    // Decide which rows from this section feed the upcoming cross-
+    // section subtotal: prefer the section's subtotal rows (they're
+    // the workbook's authoritative section totals), fall back to the
+    // raw parent rows for sections without any subtotals.
+    const contribution = sectionSubtotalRows.length > 0
+      ? sectionSubtotalRows
+      : sectionAllParentRows;
+    pendingContribution.push(...contribution);
+
     for (const key of subtotalKeysAfter(sec.name, hasDebt, hasCapital)) {
       const rollup =
         key === "CASH FLOW" ? rollupByName.get("CASH FLOW BEFORE DEBT SERVICE") : rollupByName.get(key);
       if (!rollup) continue;
-      writeCrossSectionSubtotal(key, rollup.months, rollup.total);
+      crossRow[key] = writeCrossSectionSubtotal(key, rollup.months, rollup.total);
     }
   }
 
@@ -762,7 +995,7 @@ export async function generateBudgetDownloadXlsx(
   book.created = new Date();
 
   buildMainBudgetTab(book, wb, property);
-  buildRentRosterTab(book, wb, property);
+  buildRentRollTab(book, wb, property);
   buildAllocationsTab(book, wb, property);
   buildCipTab(book, wb, property);
 
