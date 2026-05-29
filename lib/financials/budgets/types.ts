@@ -66,15 +66,18 @@ export type BudgetLine = {
 export type RentRosterEntry = {
   unitRef: string;
   tenantName: string;
-  /** Which certainty bucket the row falls into — drives the modal's
-   *  green-shade gradient.
-   *    in-place — current lease covers the full year, locked-in
-   *    renewal — lease expires mid-year; the post-expiration months
-   *              are an assumed renewal at the same / new rate
-   *    new     — suite is currently vacant; amounts are an assumed
-   *              new lease (most speculative)
-   *    vacant  — suite is currently vacant and no lease assumed yet */
+  /** "Headline" bucket for the row — most-certain category seen across
+   *  the 12 months. Used for legend counts; cell rendering uses
+   *  `monthCategories` so mid-year transitions (lease ends Mar →
+   *  vacant Apr-Jun → new lease Jul-Dec) colour-shift across the row. */
   category: "in-place" | "renewal" | "new" | "vacant";
+  /** Per-month certainty bucket. Index 0 = Jan, 11 = Dec. Always
+   *  length 12. Derived by cross-referencing the Rental Summary
+   *  amount against the In Place Revenue ledger (an active RNT
+   *  charge → in-place) and the Renew & Vac tab (the rest of the
+   *  amount is renewal or new-lease assumption depending on which
+   *  side of R&V the suite sits on). */
+  monthCategories: ("in-place" | "renewal" | "new" | "vacant")[];
   /** 12 monthly amounts Jan–Dec. */
   months: number[];
   /** Sum across months — should tie to the parent line's contribution. */

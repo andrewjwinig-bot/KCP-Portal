@@ -1157,7 +1157,7 @@ function synthesizeMultiBuildingAllocations(
  *  Skyline import. Returns the per-tenant monthly rent grid without
  *  category metadata; categorization happens later via cross-
  *  reference against the Renew & Vac tab. */
-function parseRentalSummary(rows: unknown[][]): Omit<import("./types").RentRosterEntry, "category">[] {
+function parseRentalSummary(rows: unknown[][]): Omit<import("./types").RentRosterEntry, "category" | "monthCategories">[] {
   // Find the block header row.
   let startIdx = -1;
   for (let i = 0; i < rows.length; i++) {
@@ -1175,7 +1175,7 @@ function parseRentalSummary(rows: unknown[][]): Omit<import("./types").RentRoste
   // The next row after the header carries the column labels — Suite,
   // Tenant, 12 dates, Total. Tenant rows follow until we hit a row
   // with no suite ref in col 1.
-  const entries: Omit<import("./types").RentRosterEntry, "category">[] = [];
+  const entries: Omit<import("./types").RentRosterEntry, "category" | "monthCategories">[] = [];
   for (let i = startIdx + 2; i < rows.length; i++) {
     const r = rows[i] ?? [];
     const suite  = trim(r[1]);
@@ -1195,7 +1195,7 @@ function parseRentalSummary(rows: unknown[][]): Omit<import("./types").RentRoste
  *  per-property tenant rosters so properties whose property sheet
  *  doesn't ship a Rental Summary block (JV III buildings, some small
  *  SC properties) can still surface a per-tenant rent modal. */
-function parseInPlaceRevenueTab(rows: unknown[][]): Map<string, Omit<import("./types").RentRosterEntry, "category">[]> {
+function parseInPlaceRevenueTab(rows: unknown[][]): Map<string, Omit<import("./types").RentRosterEntry, "category" | "monthCategories">[]> {
   type Key = string; // `${property}|${unitRef}|${tenant}`
   const byProperty = new Map<string, Map<Key, { unitRef: string; tenant: string; months: number[] }>>();
   for (let i = 1; i < rows.length; i++) {
@@ -1215,9 +1215,9 @@ function parseInPlaceRevenueTab(rows: unknown[][]): Map<string, Omit<import("./t
     if (!propBucket.has(key)) propBucket.set(key, { unitRef, tenant: tenant || "VACANT", months: Array(12).fill(0) });
     propBucket.get(key)!.months[month - 1] += amount;
   }
-  const out = new Map<string, Omit<import("./types").RentRosterEntry, "category">[]>();
+  const out = new Map<string, Omit<import("./types").RentRosterEntry, "category" | "monthCategories">[]>();
   for (const [prop, bucket] of byProperty) {
-    const entries: Omit<import("./types").RentRosterEntry, "category">[] = [];
+    const entries: Omit<import("./types").RentRosterEntry, "category" | "monthCategories">[] = [];
     for (const v of bucket.values()) {
       const total = v.months.reduce((s, m) => s + m, 0);
       entries.push({ unitRef: v.unitRef, tenantName: v.tenant, months: v.months, total });
@@ -1292,36 +1292,74 @@ function parseRenewVac(rows: unknown[][]): Map<string, RenewVacProperty> {
  *  suites on the Renew & Vac tab's Renewals side are renewals; the
  *  rest are locked-in in-place leases. */
 function categorizeRentRoster(
-  entries: Omit<import("./types").RentRosterEntry, "category">[],
+  entries: Omit<import("./types").RentRosterEntry, "category" | "monthCategories">[],
   rv: RenewVacProperty | undefined,
+  inPlaceMonthsBySuite: Map<string, number[]> | undefined,
 ): import("./types").RentRosterEntry[] {
+  type Cat = import("./types").RentRosterEntry["category"];
+  // Priority of categories for the row-level headline — most
+  // certain wins.
+  const RANK: Record<Cat, number> = { "in-place": 0, "renewal": 1, "new": 2, "vacant": 3 };
+
   return entries.map((e): import("./types").RentRosterEntry => {
     const suite = e.unitRef.trim();
     const isVacantName = /^vacant$/i.test(e.tenantName.trim());
-    const allZero = e.total === 0 && e.months.every((m) => m === 0);
-    let category: import("./types").RentRosterEntry["category"];
-    let info: RenewVacInfo | undefined;
-    if (isVacantName && allZero) {
-      category = "vacant";
-      info = rv?.vacancies.get(suite);
-    } else if (isVacantName) {
-      // VACANT-named with a billing assumption → new-lease assumption.
-      category = "new";
-      info = rv?.vacancies.get(suite);
-    } else if (rv?.renewals.has(suite)) {
-      category = "renewal";
-      info = rv.renewals.get(suite);
-    } else if (rv?.vacancies.has(suite)) {
-      // R&V tagged the suite as Vacancy but a real tenant name showed
-      // up in Rental Summary — treat as new-lease assumption.
-      category = "new";
-      info = rv.vacancies.get(suite);
-    } else {
-      category = "in-place";
+    const renewalInfo = rv?.renewals.get(suite);
+    const vacancyInfo = rv?.vacancies.get(suite);
+    const info = renewalInfo ?? vacancyInfo;
+    const iprMonths = inPlaceMonthsBySuite?.get(suite);
+
+    // Default assumption bucket — what an assumed (non-in-place)
+    // billing falls into when the cell isn't $0. R&V Renewals side
+    // means the lease ends mid-year so post-expiration months read
+    // as "renewal"; R&V Vacancies side means the suite is currently
+    // vacant and the workbook penciled in a new-lease assumption.
+    let assumptionBucket: Cat;
+    if (renewalInfo) assumptionBucket = "renewal";
+    else if (vacancyInfo) assumptionBucket = "new";
+    else if (isVacantName) assumptionBucket = "new";
+    else assumptionBucket = "in-place";
+
+    const monthCategories: Cat[] = e.months.map((amount, j) => {
+      if (amount === 0) return "vacant";
+      // Has a current-lease RNT charge for this month → locked-in
+      // in-place income regardless of what else the row carries.
+      if (iprMonths && (iprMonths[j] ?? 0) > 0) return "in-place";
+      // No in-place charge but the cell carries an amount → it's an
+      // assumption. Use the assumption bucket determined above.
+      return assumptionBucket;
+    });
+    // Gap-detection refinement: when in-place months are followed by
+    // a vacant stretch and THEN assumed months, those assumed months
+    // come from a different lease — i.e. "new", not "renewal" — no
+    // matter which side of R&V the suite sits on. A contiguous
+    // in-place → assumed transition (no $0 gap) keeps the original
+    // bucket so a same-tenant mid-year renewal still reads as
+    // "renewal".
+    let sawInPlace = false;
+    let sawGap = false;
+    for (let j = 0; j < monthCategories.length; j++) {
+      const c = monthCategories[j];
+      if (c === "in-place") {
+        sawInPlace = true;
+      } else if (c === "vacant" && sawInPlace) {
+        sawGap = true;
+      } else if (sawGap && c !== "vacant") {
+        monthCategories[j] = "new";
+      }
     }
+
+    // Headline category for the row is the most-certain bucket that
+    // appears anywhere across the year.
+    let category: Cat = "vacant";
+    for (const m of monthCategories) {
+      if (RANK[m] < RANK[category]) category = m;
+    }
+
     return {
       ...e,
       category,
+      monthCategories,
       leaseFrom: info?.leaseFrom,
       leaseTo: info?.leaseTo,
     };
@@ -1961,11 +1999,11 @@ export function parseBudgetWorkbook(
   let towCipDetail: import("./types").CipDetail | null = null;
   let towOfficeOccupancy: { totalUnits: number; monthlyOccupied: number[] } | null = null;
   let renewVac: Map<string, RenewVacProperty> | null = null;
-  let inPlaceRevenueTab: Map<string, Omit<import("./types").RentRosterEntry, "category">[]> | null = null;
+  let inPlaceRevenueTab: Map<string, Omit<import("./types").RentRosterEntry, "category" | "monthCategories">[]> | null = null;
   // Rental Summary roster gathered per-property as we parse the
   // property sheets — categorized + attached after we've also seen
   // the Renew & Vac tab.
-  const pendingRentRosters = new Map<string, Omit<import("./types").RentRosterEntry, "category">[]>();
+  const pendingRentRosters = new Map<string, Omit<import("./types").RentRosterEntry, "category" | "monthCategories">[]>();
 
   for (const sheetName of wb.SheetNames) {
     const trimmed = sheetName.trim();
@@ -2119,7 +2157,14 @@ function rollupDisplayName(workbookLabel: string, fallback: string): string {
       ?? inPlaceRevenueTab?.get(property.propertyCode);
     if (roster && roster.length > 0) {
       const rv = renewVac?.get(property.propertyCode);
-      const categorized = categorizeRentRoster(roster, rv);
+      // Per-suite "which months are billed RNT currently" map so the
+      // categorizer can split a single row into in-place vs.
+      // assumption portions when the lease ends or starts mid-year.
+      const inPlacePropertyEntries = inPlaceRevenueTab?.get(property.propertyCode);
+      const inPlaceMonthsBySuite = inPlacePropertyEntries
+        ? new Map(inPlacePropertyEntries.map((e) => [e.unitRef.trim(), e.months]))
+        : undefined;
+      const categorized = categorizeRentRoster(roster, rv, inPlaceMonthsBySuite);
       attachRentDetail(property, categorized);
     }
   }

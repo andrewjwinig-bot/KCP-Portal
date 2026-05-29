@@ -424,6 +424,8 @@ function seedMissingRentDetail(wb: BudgetWorkbook): boolean {
       .find((l) => l.isSubtotal && /^total\s+rental\s+(and|&)\s+other$/i.test(l.label.trim()));
     if (!sub) continue;
     if (!sub.rentDetail || sub.rentDetail.entries.length === 0) return true;
+    // Stale shape: the entry pre-dates per-month categorization.
+    if (sub.rentDetail.entries.some((e) => !Array.isArray((e as any).monthCategories) || (e as any).monthCategories.length !== 12)) return true;
   }
   return false;
 }
