@@ -144,6 +144,11 @@ export async function sendQuarterToAvidBill(opts: {
 
   const sent = await sendMail({
     to: AVIDBILL_TO,
+    // Commissions go from dwinig@ so AvidBill / payable replies land
+    // in Drew's inbox rather than the service catch-all. Sender must
+    // be verified in Postmark first; falls back to the default
+    // MAINTENANCE_REPLY_FROM when COMMISSIONS_REPLY_FROM isn't set.
+    from: process.env.COMMISSIONS_REPLY_FROM || undefined,
     subject,
     textBody: textLines.join("\n"),
     attachments,

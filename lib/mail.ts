@@ -27,6 +27,12 @@ export type MailMessage = {
   /** Optional binary attachments — currently used by the quarterly
    *  AvidBill commission-invoice batch. */
   attachments?: MailAttachment[];
+  /** Overrides the default `MAINTENANCE_REPLY_FROM` for this message
+   *  only. Used by the commissions batch which sends from
+   *  dwinig@kormancommercial.com so staff replies + bounces don't
+   *  hit the service inbox. The sender must be verified in Postmark
+   *  before mail will actually go out. */
+  from?: string;
 };
 
 export function isMailConfigured(): boolean {
@@ -35,7 +41,7 @@ export function isMailConfigured(): boolean {
 
 export async function sendMail(msg: MailMessage): Promise<boolean> {
   const token = process.env.POSTMARK_SERVER_TOKEN;
-  const from = process.env.MAINTENANCE_REPLY_FROM;
+  const from = msg.from || process.env.MAINTENANCE_REPLY_FROM;
   if (!token || !from) return false;
   if (!msg.to || !msg.subject || !msg.textBody) return false;
 
