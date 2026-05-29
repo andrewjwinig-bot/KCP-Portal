@@ -1618,19 +1618,27 @@ function RentModal({ detail, onClose }: {
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
   const fmt = (n: number) => n === 0 ? "—" : `$${Math.round(n).toLocaleString("en-US")}`;
-  // Sort: by certainty bucket (in-place → renewal → new → vacant), then suite ref.
-  const ordered = [...detail.entries].sort((a, b) => {
-    const ca = RENT_CATEGORY_ORDER.indexOf(a.category);
-    const cb = RENT_CATEGORY_ORDER.indexOf(b.category);
-    if (ca !== cb) return ca - cb;
-    return a.unitRef.localeCompare(b.unitRef, undefined, { numeric: true });
-  });
+  // Suite-order top to bottom so the modal lines up with the
+  // workbook view staff are used to seeing.
+  const ordered = [...detail.entries].sort((a, b) =>
+    a.unitRef.localeCompare(b.unitRef, undefined, { numeric: true }),
+  );
   const monthlyTotals = Array.from({ length: 12 }, (_, m) =>
     detail.entries.reduce((s, e) => s + (e.months[m] ?? 0), 0),
   );
   const annual = detail.entries.reduce((s, e) => s + e.total, 0);
-  const countBy = (cat: import("@/lib/financials/budgets/types").RentRosterEntry["category"]) =>
-    detail.entries.filter((e) => e.category === cat).length;
+  // Legend sums the dollar amount in each certainty bucket across
+  // every cell — so a single row that's in-place Jan-Mar and a new
+  // assumption Jul-Dec contributes to both totals (rather than just
+  // its headline bucket).
+  const totalByCategory = (cat: import("@/lib/financials/budgets/types").RentRosterEntry["category"]) =>
+    detail.entries.reduce((s, e) => {
+      let dollars = 0;
+      for (let j = 0; j < 12; j++) {
+        if ((e.monthCategories?.[j] ?? e.category) === cat) dollars += e.months[j] ?? 0;
+      }
+      return s + dollars;
+    }, 0);
   return (
     <div
       onClick={onClose}
@@ -1660,8 +1668,9 @@ function RentModal({ detail, onClose }: {
             </div>
             <div style={{ display: "flex", gap: 12, marginTop: 6, flexWrap: "wrap" }}>
               {RENT_CATEGORY_ORDER.map((cat) => {
-                const n = countBy(cat);
-                if (n === 0) return null;
+                if (cat === "vacant") return null;
+                const dollars = totalByCategory(cat);
+                if (dollars === 0) return null;
                 return (
                   <span key={cat} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11 }}>
                     <span style={{
@@ -1670,7 +1679,7 @@ function RentModal({ detail, onClose }: {
                       border: "1px solid rgba(22,163,74,0.35)",
                       borderRadius: 2,
                     }} />
-                    <span className="muted small">{RENT_CATEGORY_LABEL[cat]}: {n}</span>
+                    <span className="muted small">{RENT_CATEGORY_LABEL[cat]}: {fmt(dollars)}</span>
                   </span>
                 );
               })}
@@ -1728,17 +1737,23 @@ function RentModal({ detail, onClose }: {
                     </td>
                     {e.months.map((m, j) => {
                       const bump = isBump(j);
+                      // Per-month tint — same row can shift in-place
+                      // → vacant → new across the year (lease ends
+                      // mid-year, suite goes dark, new lease assumed).
+                      const cellCat = e.monthCategories?.[j] ?? e.category;
+                      const cellTint = RENT_CATEGORY_TINT[cellCat];
                       return (
                         <td key={j} style={{
                           textAlign: "right",
                           fontVariantNumeric: "tabular-nums",
                           fontSize: 12,
-                          fontWeight: bump ? 700 : undefined,
-                          background: m > 0 ? tint : undefined,
-                          color: isVacant ? "var(--muted)" : undefined,
+                          background: m > 0 ? cellTint : undefined,
+                          color: cellCat === "vacant" ? "var(--muted)" : undefined,
                           // Solid underline marks the month a rent
                           // step-up kicks in — quicker to spot than
-                          // comparing adjacent numbers.
+                          // comparing adjacent numbers. Bold dropped
+                          // since staff want totals to be the only
+                          // bolded cells.
                           boxShadow: bump ? "inset 0 -2px 0 rgba(15,23,42,0.55)" : undefined,
                         }}
                         title={bump
