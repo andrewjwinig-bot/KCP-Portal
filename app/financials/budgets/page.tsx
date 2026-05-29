@@ -730,14 +730,14 @@ function BudgetTable({
               className="btn primary"
               style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700, textDecoration: "none" }}
             >
-              ⬇ Download
+              Download
             </a>
             <a
               href={skylineHref}
               className="btn"
               style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700, textDecoration: "none" }}
             >
-              ⬇ Skyline Import
+              Skyline Import
             </a>
             {canUpload && !reforecasting && (
               <button
