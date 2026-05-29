@@ -100,7 +100,7 @@ function months(r: unknown[]): number[] {
 // Building Maint, Allocated Expenses, etc.) are handled by their own
 // parsers below; everything in IGNORE_SHEET is workbook scaffolding
 // we don't pull anything from.
-const IGNORE_SHEET = /^(cover\s*sheet|sheet\d+|source and use of cash|assumptions|dscr\s*calc|in place revenue|renew(\s*&\s*vac.*)?|tenant recoveries|lik mgmt fee|parking lot maint|landscaping|trash|trusts|notes to projections|\d+\s*year\s*projection)\s*$/i;
+const IGNORE_SHEET = /^(cover\s*sheet|sheet\d+|source and use of cash|assumptions|dscr\s*calc|in place revenue|tenant recoveries|lik mgmt fee|parking lot maint|landscaping|trash|trusts|notes to projections|\d+\s*year\s*projection)\s*$/i;
 const INS_RET_DEBT_SHEET = /^ins\s+ret(\s+debt)?$/i;
 const BUILDING_MAINT_SHEET = /^building\s+maint$/i;
 const ALLOCATED_EXPENSES_SHEET = /^allocated\s+expenses$/i;
@@ -108,6 +108,7 @@ const WATER_SEWER_SHEET = /^water\s*sewer$/i;
 const OFFICE_WORKS_SHEET = /^the\s+office\s+works$/i;
 const TOW_RR_CIP_SHEET = /^monthly\s+rent\s+roll(\s*&\s*cip)?$/i;
 const LIK_BUDGET_SHEET = /^lik\s+budget\s+\d{4}$/i;
+const RENEW_VAC_SHEET = /^renew\s*&\s*vac/i;
 
 function isRollupSheet(name: string): boolean {
   const n = name.trim();
@@ -1150,6 +1151,138 @@ function synthesizeMultiBuildingAllocations(
  *  rows live in col 2 rather than col 1. Rather than parameterizing
  *  the main parser, handle it as its own path — small workbook, one
  *  sheet, one supporting tab. */
+/** Scan a property sheet for the "Rental Summary by Month" block —
+ *  the per-tenant table that sits between the main P&L and the
+ *  Skyline import. Returns the per-tenant monthly rent grid without
+ *  category metadata; categorization happens later via cross-
+ *  reference against the Renew & Vac tab. */
+function parseRentalSummary(rows: unknown[][]): Omit<import("./types").RentRosterEntry, "category">[] {
+  // Find the block header row.
+  let startIdx = -1;
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i] ?? [];
+    for (const c of r) {
+      if (typeof c === "string" && /rental summary by month/i.test(c)) {
+        startIdx = i;
+        break;
+      }
+    }
+    if (startIdx >= 0) break;
+  }
+  if (startIdx < 0) return [];
+
+  // The next row after the header carries the column labels — Suite,
+  // Tenant, 12 dates, Total. Tenant rows follow until we hit a row
+  // with no suite ref in col 1.
+  const entries: Omit<import("./types").RentRosterEntry, "category">[] = [];
+  for (let i = startIdx + 2; i < rows.length; i++) {
+    const r = rows[i] ?? [];
+    const suite  = trim(r[1]);
+    const tenant = trim(r[3]);
+    // First blank suite ends the block (the footer monthly-totals
+    // row has col 1 empty as well).
+    if (!suite) break;
+    const months = r.slice(4, 16).map(num);
+    const total  = num(r[16]);
+    entries.push({ unitRef: suite, tenantName: tenant || "VACANT", months, total });
+  }
+  return entries;
+}
+
+/** Parse the Renew & Vac tab. Each property block carries a left
+ *  "Vacancies" column at col 1 and a right "Renewals" column further
+ *  right (around col 11). Returns the set of suite refs that fall
+ *  into each bucket per property so the Rental Summary categorization
+ *  can pick the right shade. */
+function parseRenewVac(rows: unknown[][]): Map<string, { vacancies: Set<string>; renewals: Set<string> }> {
+  const out = new Map<string, { vacancies: Set<string>; renewals: Set<string> }>();
+  // The Renew & Vac tab uses a fixed two-column layout per property —
+  // Vacancies on the left (suite at col A, tenant at col B), Renewals
+  // on the right (suite at col L, tenant at col M).
+  const VAC_SUITE = 0;
+  const VAC_TENANT = 1;
+  const REN_SUITE = 11;
+  const REN_TENANT = 12;
+  // Looks like a suite ref ("4050-101", "102", "1100-30", etc.) vs a
+  // header / total / placeholder row.
+  const looksLikeSuite = (s: string) => !!s && !/^suite\b/i.test(s) && !/^total\b/i.test(s) && !/rent\s+(start|exp)/i.test(s);
+
+  let currentCode: string | null = null;
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i] ?? [];
+    const col0 = trim(r[0]);
+    // Property block opens with the bare property code in col A and
+    // everything else blank.
+    if (isPropertyCode(col0.toUpperCase()) && r.slice(1).every((c) => c == null || trim(c) === "")) {
+      currentCode = col0.toUpperCase();
+      if (!out.has(currentCode)) out.set(currentCode, { vacancies: new Set(), renewals: new Set() });
+      continue;
+    }
+    if (!currentCode) continue;
+    const bucket = out.get(currentCode)!;
+    const vacSuite  = trim(r[VAC_SUITE]);
+    const vacTenant = trim(r[VAC_TENANT]);
+    if (looksLikeSuite(vacSuite) && vacTenant) {
+      bucket.vacancies.add(vacSuite);
+    }
+    const renSuite  = trim(r[REN_SUITE]);
+    const renTenant = trim(r[REN_TENANT]);
+    if (looksLikeSuite(renSuite) && renTenant) {
+      bucket.renewals.add(renSuite);
+    }
+  }
+  return out;
+}
+
+/** Bucket each entry into the certainty-coloured category that the
+ *  modal renders. VACANT name + zero amounts is genuinely vacant;
+ *  VACANT name with a billing assumption is a new-lease projection;
+ *  suites on the Renew & Vac tab's Renewals side are renewals; the
+ *  rest are locked-in in-place leases. */
+function categorizeRentRoster(
+  entries: Omit<import("./types").RentRosterEntry, "category">[],
+  rv: { vacancies: Set<string>; renewals: Set<string> } | undefined,
+): import("./types").RentRosterEntry[] {
+  return entries.map((e): import("./types").RentRosterEntry => {
+    const suite = e.unitRef.trim();
+    const isVacantName = /^vacant$/i.test(e.tenantName.trim());
+    const allZero = e.total === 0 && e.months.every((m) => m === 0);
+    let category: import("./types").RentRosterEntry["category"];
+    if (isVacantName && allZero) {
+      category = "vacant";
+    } else if (isVacantName) {
+      // VACANT-named with a billing assumption → new-lease assumption.
+      category = "new";
+    } else if (rv?.renewals.has(suite)) {
+      category = "renewal";
+    } else if (rv?.vacancies.has(suite)) {
+      // R&V tagged the suite as Vacancy but a real tenant name showed
+      // up in Rental Summary — treat as new-lease assumption.
+      category = "new";
+    } else {
+      category = "in-place";
+    }
+    return { ...e, category };
+  });
+}
+
+/** Attach the parsed roster to the property's "Total Rental and Other"
+ *  subtotal so the page can render the per-tenant modal. */
+function attachRentDetail(property: PropertyBudget, entries: import("./types").RentRosterEntry[]): void {
+  if (entries.length === 0) return;
+  const total = entries.reduce((s, e) => s + e.total, 0);
+  const detail: import("./types").RentDetail = { entries, total };
+  for (const sec of property.sections) {
+    for (const line of sec.lines) {
+      if (!line.isSubtotal) continue;
+      if (/^total\s+rental\s+(and|&)\s+other$/i.test(line.label.trim())) {
+        line.rentDetail = detail;
+        return;
+      }
+    }
+  }
+}
+
 function parseOfficeWorksSheet(rows: unknown[][], sheetName: string): PropertyBudget | null {
   // Find the "Jan" column dynamically from the header row (row 5 in
   // the 2026 file). Falls back to col 5 (the position observed in the
@@ -1765,6 +1898,11 @@ export function parseBudgetWorkbook(
   let waterSewerDetail: Map<string, BudgetLine[]> | null = null;
   let towCipDetail: import("./types").CipDetail | null = null;
   let towOfficeOccupancy: { totalUnits: number; monthlyOccupied: number[] } | null = null;
+  let renewVac: Map<string, { vacancies: Set<string>; renewals: Set<string> }> | null = null;
+  // Rental Summary roster gathered per-property as we parse the
+  // property sheets — categorized + attached after we've also seen
+  // the Renew & Vac tab.
+  const pendingRentRosters = new Map<string, Omit<import("./types").RentRosterEntry, "category">[]>();
 
   for (const sheetName of wb.SheetNames) {
     const trimmed = sheetName.trim();
@@ -1788,6 +1926,10 @@ export function parseBudgetWorkbook(
       waterSewerDetail = parseWaterSewerDetail(rows);
       continue;
     }
+    if (RENEW_VAC_SHEET.test(trimmed)) {
+      renewVac = parseRenewVac(rows);
+      continue;
+    }
     if (TOW_RR_CIP_SHEET.test(trimmed)) {
       towCipDetail = parseTowCip(rows);
       towOfficeOccupancy = parseTowOfficeOccupancy(rows);
@@ -1806,6 +1948,11 @@ export function parseBudgetWorkbook(
     const parsed = parsePropertySheet(rows, sheetName);
     if (!parsed) continue;
     attachManagementFeePercent(parsed, rows, sheet);
+    // Capture the per-property Rental Summary block from the same
+    // sheet so we can attach it to the Total Rental and Other line
+    // after Renew & Vac has been parsed.
+    const roster = parseRentalSummary(rows);
+    if (roster.length > 0) pendingRentRosters.set(parsed.propertyCode, roster);
     if (isRollupSheet(sheetName)) rollup = parsed;
     else properties.push(parsed);
   }
@@ -1894,6 +2041,15 @@ function rollupDisplayName(workbookLabel: string, fallback: string): string {
           (n) => Number(((n / towOfficeOccupancy!.totalUnits) * 100).toFixed(1)),
         );
       }
+    }
+    // Per-tenant rent roster on the Total Rental and Other subtotal —
+    // categorized via the Renew & Vac tab cross-reference when
+    // available; otherwise everyone falls into "in-place".
+    const roster = pendingRentRosters.get(property.propertyCode);
+    if (roster) {
+      const rv = renewVac?.get(property.propertyCode);
+      const categorized = categorizeRentRoster(roster, rv);
+      attachRentDetail(property, categorized);
     }
   }
 

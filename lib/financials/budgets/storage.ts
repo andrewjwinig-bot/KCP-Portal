@@ -411,6 +411,23 @@ function seedHasLegacyLeasingLabel(wb: BudgetWorkbook): boolean {
  *  lines that the parser now collapses (Management Fee, Parking Lot
  *  Cleaning). Detected by the "(BP)" / "(SC)" subCategory still being
  *  present on either kind of line. */
+/** Returns true when the seed's per-property "Total Rental and Other"
+ *  subtotal doesn't yet carry the rent roster — added later so the
+ *  page can open a per-tenant modal with three-shade-green
+ *  categorization. Only applies to workbooks that actually carry the
+ *  Rental Summary block (Shopping Centers, JV III, NI LLC). */
+function seedMissingRentDetail(wb: BudgetWorkbook): boolean {
+  if (wb.category !== "Shopping Centers" && wb.category !== "Office") return false;
+  for (const property of wb.properties) {
+    if (property.propertyCode === "CONSOLIDATED") continue;
+    const sub = property.sections.flatMap((s) => s.lines)
+      .find((l) => l.isSubtotal && /^total\s+rental\s+(and|&)\s+other$/i.test(l.label.trim()));
+    if (!sub) continue;
+    if (!sub.rentDetail || sub.rentDetail.entries.length === 0) return true;
+  }
+  return false;
+}
+
 function seedHasDualManagementFeeRows(wb: BudgetWorkbook): boolean {
   const dualLabel = /^(management fee|parking lot cleaning)$/i;
   const stripLabel = /^(other\s*-\s*)?condo fee$/i;
@@ -452,6 +469,7 @@ function seedNeedsReparse(wb: BudgetWorkbook): boolean {
          seedHasLegacyTowReimbLabels(wb) ||
          seedMissingTowOccupancy(wb) ||
          seedHasDualManagementFeeRows(wb) ||
+         seedMissingRentDetail(wb) ||
          seedMissingLikRollupNormalization(wb);
 }
 
