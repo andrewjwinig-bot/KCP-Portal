@@ -975,29 +975,40 @@ function deriveConsolidatedManagementFeePercent(properties: PropertyBudget[]): v
   }
 }
 
-/** The workbooks ship two Management Fee rows on every property — one
- *  tagged "(BP)" on the Reimbursable side (GL 6610-8502, business
- *  parks / office) and one tagged "(SC)" on the Non-Reimbursable side
- *  (GL 6610-8501, shopping centers). Only one applies per property
- *  type; the other is a hardcoded $0 placeholder. Drop the off-path
- *  row and strip the "(BP)" / "(SC)" subCategory tag from the
- *  survivor so the page reads "Management Fee" cleanly. */
-function dropOffPathManagementFee(properties: PropertyBudget[], category: BudgetCategory): void {
+/** Workbooks ship several lines where the same label appears twice —
+ *  once with "(BP)" on the Reimbursable side and once with "(SC)" on
+ *  the Non-Reimbursable side. Only one applies per workbook category;
+ *  the other is a hardcoded $0 placeholder. Drop the off-path row
+ *  and strip the parenthesised tag from the survivor so the page
+ *  reads the bare label.
+ *
+ *  Currently scoped to lines staff has confirmed follow this pattern
+ *  (Management Fee, Parking Lot Cleaning). Other "(SC)" / "(BP)"-
+ *  tagged rows like JV III's "Other - Condo Fee (SC)" actually carry
+ *  values on the wrong category, so a blanket-by-tag rule would lose
+ *  data. */
+const DUAL_TAGGED_LINES: RegExp[] = [
+  /^management fee$/i,
+  /^parking lot cleaning$/i,
+];
+
+function dropOffPathTaggedLines(properties: PropertyBudget[], category: BudgetCategory): void {
   let keepTag: "(SC)" | "(BP)" | null;
   if (category === "Shopping Centers") keepTag = "(SC)";
   else if (category === "Office") keepTag = "(BP)";
   else return; // Residential / Other — workbooks don't ship the dual row.
+  const matches = (label: string) => DUAL_TAGGED_LINES.some((re) => re.test(label.trim()));
   for (const property of properties) {
     for (const section of property.sections) {
       section.lines = section.lines.filter((line) => {
         if (line.isSubtotal) return true;
-        if (!/management fee/i.test(line.label)) return true;
+        if (!matches(line.label)) return true;
         if (line.subCategory !== "(BP)" && line.subCategory !== "(SC)") return true;
         return line.subCategory === keepTag;
       });
       for (const line of section.lines) {
         if (line.isSubtotal) continue;
-        if (!/management fee/i.test(line.label)) continue;
+        if (!matches(line.label)) continue;
         if (line.subCategory === keepTag) line.subCategory = null;
       }
     }
@@ -1852,10 +1863,10 @@ function rollupDisplayName(workbookLabel: string, fallback: string): string {
   // Commissions"; switch to & for consistency with everywhere else
   // we use the ampersand form.
   normalizeLabels(properties);
-  // Workbooks ship both the (BP) and (SC) Management Fee variants on
-  // every property — drop whichever doesn't apply to this category so
-  // the page shows just one clean "Management Fee" row.
-  dropOffPathManagementFee(properties, category);
+  // Workbooks ship dual (BP) / (SC) variants on a handful of lines
+  // (Management Fee, Parking Lot Cleaning) — drop whichever doesn't
+  // apply to this category so the page shows just one clean row.
+  dropOffPathTaggedLines(properties, category);
   if (category === "Office") {
     synthesizeMultiBuildingAllocations(properties, [
       "9210-8501",  // Interest

@@ -407,17 +407,19 @@ function seedHasLegacyLeasingLabel(wb: BudgetWorkbook): boolean {
   return false;
 }
 
-/** Returns true when the seed still ships both the (BP) and (SC)
- *  Management Fee rows — the parser drops the off-path one now so
- *  property pages render a single clean "Management Fee" line. */
+/** Returns true when the seed still ships either of the dual-tagged
+ *  lines that the parser now collapses (Management Fee, Parking Lot
+ *  Cleaning). Detected by the "(BP)" / "(SC)" subCategory still being
+ *  present on either kind of line. */
 function seedHasDualManagementFeeRows(wb: BudgetWorkbook): boolean {
   if (wb.category !== "Shopping Centers" && wb.category !== "Office") return false;
+  const dualLabel = /^(management fee|parking lot cleaning)$/i;
   for (const property of wb.properties) {
     for (const section of property.sections) {
-      const mgmt = section.lines.filter(
-        (l) => !l.isSubtotal && /management fee/i.test(l.label) && (l.subCategory === "(BP)" || l.subCategory === "(SC)"),
+      const hit = section.lines.some(
+        (l) => !l.isSubtotal && dualLabel.test(l.label.trim()) && (l.subCategory === "(BP)" || l.subCategory === "(SC)"),
       );
-      if (mgmt.length > 0) return true;
+      if (hit) return true;
     }
   }
   return false;
