@@ -95,6 +95,11 @@ export type RentRosterEntry = {
    *  date because the workbook only carries the expiring set. */
   leaseFrom?: string;
   leaseTo?: string;
+  /** Unit's full rentable SF. Stamped at GET time from the portal's
+   *  rent-roll snapshot so the per-suite occupancy modal can show
+   *  how the monthly occupancy SF on the strip breaks down by
+   *  tenant. Undefined when no matching rent-roll unit exists yet. */
+  sqft?: number;
 };
 
 export type RentDetail = {
