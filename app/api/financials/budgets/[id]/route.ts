@@ -27,13 +27,25 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
 /**
  * PATCH /api/financials/budgets/:id
  *
- * Body: { reforecasting: boolean, user?: string }
+ * Body: { reforecasting: boolean, discard?: boolean, user?: string }
  *
  * Flip the workbook-wide editable flag. While `reforecasting` is true
  * the property pages render their monthly cells + notes as inline
  * inputs and PATCH /api/financials/budgets/:id/line accepts edits.
- * Toggling back off locks the budget back to read-only without
- * discarding what was edited.
+ *
+ *   { reforecasting: true }                — start. Snapshots the
+ *                                            current properties +
+ *                                            rollup so a Discard can
+ *                                            roll back.
+ *   { reforecasting: false }               — save / commit. Drops the
+ *                                            snapshot; whatever was
+ *                                            edited stays in place.
+ *   { reforecasting: false, discard: true} — discard. Restores from
+ *                                            the snapshot and drops
+ *                                            it, leaving the budget
+ *                                            exactly as it was
+ *                                            before the reforecast
+ *                                            started.
  */
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   try {
@@ -41,6 +53,29 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     const wb = await getBudget(params.id);
     if (!wb) return NextResponse.json({ error: "Not found" }, { status: 404 });
     if (typeof body?.reforecasting === "boolean") {
+      const turningOn  = body.reforecasting === true;
+      const turningOff = body.reforecasting === false;
+      const discard    = turningOff && body?.discard === true;
+
+      if (turningOn && !wb.reforecasting) {
+        // Snapshot the current state so Discard can roll back. Deep
+        // clone via JSON so subsequent line edits don't bleed into
+        // the snapshot.
+        wb.reforecastSnapshot = {
+          properties: JSON.parse(JSON.stringify(wb.properties)),
+          rollup: wb.rollup ? JSON.parse(JSON.stringify(wb.rollup)) : undefined,
+        };
+      } else if (turningOff && discard && wb.reforecastSnapshot) {
+        // Restore from the snapshot — exits reforecast mode with the
+        // budget unchanged from when the user clicked Reforecast.
+        wb.properties = wb.reforecastSnapshot.properties;
+        if (wb.reforecastSnapshot.rollup) wb.rollup = wb.reforecastSnapshot.rollup;
+        delete wb.reforecastSnapshot;
+      } else if (turningOff) {
+        // Save / commit. Drop the snapshot, keep the edits.
+        delete wb.reforecastSnapshot;
+      }
+
       wb.reforecasting = body.reforecasting;
       if (body?.user) wb.reforecastBy = String(body.user);
       wb.reforecastAt = new Date().toISOString();

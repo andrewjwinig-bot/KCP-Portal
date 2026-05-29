@@ -409,13 +409,13 @@ function BudgetTable({
   const [togglingReforecast, setTogglingReforecast] = useState(false);
   const reforecasting = !!workbook.reforecasting;
   const canEdit = reforecasting && canUpload;
-  const handleToggleReforecast = useCallback(async () => {
+  const patchReforecast = useCallback(async (body: Record<string, unknown>) => {
     setTogglingReforecast(true);
     try {
       const res = await fetch(`/api/financials/budgets/${encodeURIComponent(workbook.id)}`, {
         method: "PATCH",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ reforecasting: !reforecasting, user: editor }),
+        body: JSON.stringify({ ...body, user: editor }),
       });
       const data = await res.json();
       if (!res.ok) { alert(data?.error ?? "Failed to toggle reforecast"); return; }
@@ -423,7 +423,17 @@ function BudgetTable({
     } finally {
       setTogglingReforecast(false);
     }
-  }, [workbook.id, reforecasting, editor, onWorkbookUpdate]);
+  }, [workbook.id, editor, onWorkbookUpdate]);
+  const handleStartReforecast = useCallback(() => {
+    patchReforecast({ reforecasting: true });
+  }, [patchReforecast]);
+  const handleSaveReforecast = useCallback(() => {
+    patchReforecast({ reforecasting: false });
+  }, [patchReforecast]);
+  const handleDiscardReforecast = useCallback(() => {
+    if (!confirm("Discard all edits made during this reforecast?")) return;
+    patchReforecast({ reforecasting: false, discard: true });
+  }, [patchReforecast]);
 
   // Single-cell edit handler — PATCHes the line endpoint and updates
   // the cached workbook with whatever the server returns (so
@@ -694,23 +704,46 @@ function BudgetTable({
             >
               ⬇ Skyline Import
             </a>
-            {canUpload && (
+            {canUpload && !reforecasting && (
               <button
-                onClick={handleToggleReforecast}
+                onClick={handleStartReforecast}
                 disabled={togglingReforecast}
-                className={reforecasting ? "btn primary" : "btn"}
-                style={{
-                  fontSize: 13, padding: "8px 14px", fontWeight: 700,
-                  background: reforecasting ? "#b45309" : undefined,
-                  borderColor: reforecasting ? "#b45309" : undefined,
-                  color: reforecasting ? "white" : undefined,
-                }}
-                title={reforecasting
-                  ? "Lock the budget — cells become read-only again"
-                  : "Open the budget for inline editing across all staff"}
+                className="btn"
+                style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}
+                title="Open the budget for inline editing across all staff"
               >
-                {reforecasting ? "● Reforecasting · Lock" : "Start Reforecast"}
+                Reforecast
               </button>
+            )}
+            {canUpload && reforecasting && (
+              <>
+                <button
+                  onClick={handleSaveReforecast}
+                  disabled={togglingReforecast}
+                  className="btn primary"
+                  style={{
+                    fontSize: 13, padding: "8px 14px", fontWeight: 700,
+                    background: "#b45309", borderColor: "#b45309", color: "white",
+                  }}
+                  title="Lock the budget — keeps every edit made during this reforecast"
+                >
+                  ● Save Reforecast
+                </button>
+                <button
+                  onClick={handleDiscardReforecast}
+                  disabled={togglingReforecast}
+                  className="btn"
+                  style={{
+                    fontSize: 13, padding: "8px 14px", fontWeight: 700,
+                    background: "var(--card)",
+                    borderColor: "rgba(180,35,24,0.45)",
+                    color: "#b42318",
+                  }}
+                  title="Roll the budget back to the state it was in when Reforecast was clicked"
+                >
+                  Discard
+                </button>
+              </>
             )}
             {canUpload && (
               <button

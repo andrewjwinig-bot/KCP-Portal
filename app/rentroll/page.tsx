@@ -173,6 +173,16 @@ function fmtResetDate(iso: string): string {
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
+/** "May 28, 2026 at 2:34 PM" — local-time format for the
+ *  Last-imported timestamp under the page header. */
+function formatImportedAt(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  const date = d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  const time = d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+  return `${date} at ${time}`;
+}
+
 function BaseYearCell({ unitRef, isVacant, value, onChange, readOnly }: {
   unitRef: string;
   isVacant: boolean;
@@ -1251,7 +1261,7 @@ export default function RentRollPage() {
       const res = await fetch("/api/rentroll", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fileBase64 }),
+        body: JSON.stringify({ fileBase64, uploadedBy: user.label }),
       });
       const data = await res.json();
       if (!res.ok || data.error) throw new Error(data.error ?? "Upload failed");
@@ -1392,6 +1402,12 @@ export default function RentRollPage() {
         <p className="muted small" style={{ marginTop: 8 }}>
           Import the <b>Commercial Rent Roll</b> Excel file (.xls or .xlsx).
         </p>
+        {rentroll?.uploadedAt && (
+          <p className="muted small" style={{ marginTop: 4, fontStyle: "italic" }}>
+            Last imported {formatImportedAt(rentroll.uploadedAt)}
+            {rentroll.uploadedBy ? <> by <b style={{ color: "var(--text)" }}>{rentroll.uploadedBy}</b></> : null}
+          </p>
+        )}
         {uploadError && <div style={{ color: "#b42318", fontSize: 13, marginTop: 6 }}>{uploadError}</div>}
         {loading && <div style={{ color: "var(--muted)", fontSize: 13, marginTop: 10 }}>Loading…</div>}
         {filteredRentroll && (

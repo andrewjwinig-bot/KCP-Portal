@@ -46,6 +46,9 @@ export async function POST(req: NextRequest) {
   try {
     const body       = await req.json();
     const fileBase64 = body?.fileBase64 as string | undefined;
+    const uploadedBy = typeof body?.uploadedBy === "string" && body.uploadedBy.trim()
+      ? body.uploadedBy.trim()
+      : null;
 
     if (!fileBase64) {
       return NextResponse.json({ error: "Missing fileBase64" }, { status: 400 });
@@ -56,7 +59,7 @@ export async function POST(req: NextRequest) {
 
     const id          = RENTROLL_ID;
     const uploadedAt  = new Date().toISOString();
-    const rentroll    = { id, uploadedAt, ...parsed };
+    const rentroll    = { id, uploadedAt, uploadedBy, ...parsed };
 
     await storeJSON(RENTROLL_PREFIX, id, rentroll);
 
