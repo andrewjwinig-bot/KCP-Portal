@@ -1015,6 +1015,37 @@ function stripWorkbookTagOnly(properties: PropertyBudget[]): void {
   }
 }
 
+/** Compact the verbose mixed-use subCategory tags (Retail / Office /
+ *  Retail/Office) to the SC / BP shorthand staff use everywhere else.
+ *  Hits property 7010 — retail center with an upstairs office floor
+ *  whose CAM lines are split across both. Saves horizontal space
+ *  inline with the label and keeps the vocabulary consistent with the
+ *  "(BP)" / "(SC)" Management Fee variants. */
+function compactMixedUseSubCategories(properties: PropertyBudget[]): void {
+  const rewrites: Array<[RegExp, string]> = [
+    [/^retail\s*\/\s*office$/i,  "SC/BP"],
+    [/^office\s*\/\s*retail$/i,  "BP/SC"],
+    [/^office\s+direct$/i,       "BP Direct"],
+    [/^retail\s+direct$/i,       "SC Direct"],
+    [/^office$/i,                "BP"],
+    [/^retail$/i,                "SC"],
+  ];
+  for (const property of properties) {
+    for (const section of property.sections) {
+      for (const line of section.lines) {
+        if (line.isSubtotal) continue;
+        if (!line.subCategory) continue;
+        for (const [re, replacement] of rewrites) {
+          if (re.test(line.subCategory.trim())) {
+            line.subCategory = replacement;
+            break;
+          }
+        }
+      }
+    }
+  }
+}
+
 function dropOffPathTaggedLines(properties: PropertyBudget[], category: BudgetCategory): void {
   let keepTag: "(SC)" | "(BP)" | null;
   if (category === "Shopping Centers") keepTag = "(SC)";
@@ -1894,6 +1925,10 @@ function rollupDisplayName(workbookLabel: string, fallback: string): string {
   // workbook noise (Condo Fee on JV III) — strip the tag, keep the
   // row.
   stripWorkbookTagOnly(properties);
+  // 7010-style mixed-use rows ("Retail / Office", "Office Direct",
+  // …) collapse to the SC / BP shorthand so the inline tag is short
+  // enough to sit beside the label without wrapping.
+  compactMixedUseSubCategories(properties);
   if (category === "Office") {
     synthesizeMultiBuildingAllocations(properties, [
       "9210-8501",  // Interest

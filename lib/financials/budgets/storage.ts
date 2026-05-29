@@ -414,14 +414,21 @@ function seedHasLegacyLeasingLabel(wb: BudgetWorkbook): boolean {
 function seedHasDualManagementFeeRows(wb: BudgetWorkbook): boolean {
   const dualLabel = /^(management fee|parking lot cleaning)$/i;
   const stripLabel = /^(other\s*-\s*)?condo fee$/i;
+  // Verbose mixed-use tags (Retail / Office / Office Direct, …) get
+  // compacted to SC / BP shorthand on a separate parser pass.
+  const verboseMixedUseTag = /^(retail|office)(\s+direct)?$|^(retail\s*\/\s*office|office\s*\/\s*retail)$/i;
   for (const property of wb.properties) {
     for (const section of property.sections) {
       for (const line of section.lines) {
         if (line.isSubtotal) continue;
-        if (line.subCategory !== "(BP)" && line.subCategory !== "(SC)") continue;
-        const label = line.label.trim();
-        if (dualLabel.test(label)) return true;
-        if (stripLabel.test(label)) return true;
+        const sub = line.subCategory;
+        if (!sub) continue;
+        if (sub === "(BP)" || sub === "(SC)") {
+          const label = line.label.trim();
+          if (dualLabel.test(label)) return true;
+          if (stripLabel.test(label)) return true;
+        }
+        if (verboseMixedUseTag.test(sub.trim())) return true;
       }
     }
   }
