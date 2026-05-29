@@ -173,6 +173,116 @@ function fmtResetDate(iso: string): string {
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
+/** Click-to-open info pill that opens a modal with the step-by-step
+ *  Skyline → Portal rent-roll import instructions. Sits inline next
+ *  to the import hint under the page header. */
+function ImportInstructionsButton() {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); setOpen(true); }}
+        title="How to export the rent roll from Skyline and import it here"
+        aria-label="Import instructions"
+        style={{
+          display: "inline-flex", alignItems: "center", justifyContent: "center",
+          width: 16, height: 16, padding: 0,
+          fontSize: 10, fontWeight: 800, lineHeight: 1,
+          background: "rgba(11,74,125,0.10)",
+          color: "#0b4a7d",
+          border: "1px solid rgba(11,74,125,0.30)",
+          borderRadius: "50%",
+          cursor: "pointer",
+        }}
+      >
+        i
+      </button>
+      {open && <ImportInstructionsModal onClose={() => setOpen(false)} />}
+    </>
+  );
+}
+
+function ImportInstructionsModal({ onClose }: { onClose: () => void }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+  const sectionLabelStyle: React.CSSProperties = {
+    fontSize: 11, fontWeight: 700, letterSpacing: "0.06em",
+    textTransform: "uppercase", color: "var(--muted)",
+  };
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed", inset: 0, zIndex: 100,
+        background: "rgba(15,23,42,0.55)",
+        display: "flex", alignItems: "flex-start", justifyContent: "center",
+        padding: "60px 20px", overflow: "auto",
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: "var(--card)", borderRadius: 12,
+          maxWidth: 640, width: "100%", padding: 22,
+          boxShadow: "0 20px 60px rgba(0,0,0,0.35)",
+          display: "flex", flexDirection: "column", gap: 16,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+          <div>
+            <div style={sectionLabelStyle}>Rent Roll Import Instructions</div>
+            <div style={{ fontSize: 18, fontWeight: 800, marginTop: 2 }}>
+              Export from Skyline → Import here
+            </div>
+          </div>
+          <button onClick={onClose} className="btn" style={{ padding: "6px 12px", fontSize: 13, fontWeight: 700 }}>
+            Close
+          </button>
+        </div>
+
+        {/* Step 1: Skyline export */}
+        <div>
+          <div style={sectionLabelStyle}>1. Export Rent Roll from Skyline</div>
+          <ol style={{ marginTop: 8, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 6, fontSize: 14 }}>
+            <li>
+              Skyline: <b>Property Management → Reports → Rent Roll Reports → Commercial Rent Roll</b>.
+            </li>
+            <li>
+              Select <b>Beginning Date</b> and <b>End Date</b> for the month that will be imported.
+            </li>
+            <li>
+              From the Commercial Rent Roll report, select <b>Export</b> in the upper left.
+            </li>
+            <li>
+              Select <b>Microsoft Excel (97-2003) (.xls)</b> — the selection from the top.
+            </li>
+            <li>
+              Hit <b>Save</b> and save to a location where the file can be accessed outside of Skyline (e.g. Desktop). File name is not important.
+            </li>
+          </ol>
+        </div>
+
+        {/* Step 2: Portal import */}
+        <div>
+          <div style={sectionLabelStyle}>2. Import Rent Roll into Portal</div>
+          <ol style={{ marginTop: 8, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 6, fontSize: 14 }}>
+            <li>
+              Select <b>Import</b> in the upper left of the Rent Roll page.
+            </li>
+            <li>
+              Select the saved Excel file from above and hit <b>Open</b>.
+            </li>
+          </ol>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /** "May 28, 2026 at 2:34 PM" — local-time format for the
  *  Last-imported timestamp under the page header. */
 function formatImportedAt(iso: string): string {
@@ -1399,8 +1509,9 @@ export default function RentRollPage() {
             <span style={{ background: "rgba(22, 163, 74, 0.85)", color: "#fff", borderRadius: 999, padding: "8px 16px", fontSize: 13, fontWeight: 700, border: "1px solid transparent", display: "inline-flex", alignItems: "center" }}>Monthly</span>
           </div>
         </div>
-        <p className="muted small" style={{ marginTop: 8 }}>
-          Import the <b>Commercial Rent Roll</b> Excel file (.xls or .xlsx).
+        <p className="muted small" style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 6 }}>
+          <span>Import the <b>Commercial Rent Roll</b> Excel file (.xls or .xlsx).</span>
+          <ImportInstructionsButton />
         </p>
         {rentroll?.uploadedAt && (
           <p className="muted small" style={{ marginTop: 4, fontStyle: "italic" }}>
