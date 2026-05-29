@@ -23,7 +23,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     if (!property) {
       return NextResponse.json({ error: `Property ${propertyCode} not in this budget` }, { status: 404 });
     }
-    const buf = generateBudgetDownloadXlsx(wb, property);
+    const buf = await generateBudgetDownloadXlsx(wb, property);
     return new NextResponse(new Uint8Array(buf), {
       status: 200,
       headers: {
