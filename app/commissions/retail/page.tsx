@@ -19,7 +19,7 @@ import {
 } from "../../../lib/commissions";
 import { Calendar } from "@/app/components/Calendar";
 import { downloadCommissionInvoice, downloadCommissionInvoicesZip } from "@/lib/commissions/downloadInvoices";
-import { formatSentDate } from "../SendToAvidBillButton";
+import { formatSentDate, CommissionSectionHeading } from "../SendToAvidBillButton";
 
 // The person these commissions are paid to — appears on the memo.
 const PAYEE = "Harry I. Feldman";
@@ -430,9 +430,13 @@ export default function RetailCommissionsPage() {
           <div className="muted small">Loading…</div>
         ) : entries.length === 0 ? (
           <div className="muted small">No commission entries yet. Add one above.</div>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            {entriesByQuarter.map(([quarter, list]) => {
+        ) : (() => {
+          // Split into Pending vs Paid sections — same layout shape
+          // as /commissions (office) so staff get a consistent
+          // visual treatment across both pages.
+          const pendingQuarters = entriesByQuarter.filter(([q]) => !avidSent[q]);
+          const paidQuarters    = entriesByQuarter.filter(([q]) =>  avidSent[q]);
+          const renderQuarterCard = ([quarter, list]: [string, CommissionEntry[]]) => {
               const total = list.reduce((s, e) => s + (Number(e.incentiveAmount) || 0), 0);
               const sentRecord = avidSent[quarter];
               const sentDateLabel = sentRecord ? formatSentDate(sentRecord.sentAt) : null;
@@ -529,9 +533,38 @@ export default function RetailCommissionsPage() {
                   </table>
                 </div>
               );
-            })}
-          </div>
-        )}
+          };
+          return (
+            <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
+              {pendingQuarters.length > 0 && (
+                <div>
+                  <CommissionSectionHeading
+                    label="Pending"
+                    count={pendingQuarters.length}
+                    tone="blue"
+                    subtitle="Not yet sent to AvidXchange"
+                  />
+                  <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                    {pendingQuarters.map(renderQuarterCard)}
+                  </div>
+                </div>
+              )}
+              {paidQuarters.length > 0 && (
+                <div>
+                  <CommissionSectionHeading
+                    label="Paid"
+                    count={paidQuarters.length}
+                    tone="green"
+                    subtitle="Sent to AvidXchange"
+                  />
+                  <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                    {paidQuarters.map(renderQuarterCard)}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
       </div>
     </main>
   );

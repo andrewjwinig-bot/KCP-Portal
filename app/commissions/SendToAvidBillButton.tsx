@@ -2,6 +2,53 @@
 
 import { useState } from "react";
 
+/** Section header used to separate Pending vs. Paid commission
+ *  quarters on /commissions and /commissions/retail. Tone-tagged so
+ *  the eye lands on the right group quickly: blue for pending, green
+ *  for paid (matches the SENT TO AVIDXCHANGE badge). */
+export function CommissionSectionHeading({
+  label,
+  count,
+  tone,
+  subtitle,
+}: {
+  label: string;
+  count: number;
+  tone: "blue" | "green";
+  subtitle?: string;
+}) {
+  const accent = tone === "green" ? "#15803d" : "#0b4a7d";
+  const bg     = tone === "green" ? "rgba(22,163,74,0.10)" : "rgba(11,74,125,0.08)";
+  const border = tone === "green" ? "rgba(22,163,74,0.30)" : "rgba(11,74,125,0.25)";
+  return (
+    <div style={{
+      padding: "10px 14px",
+      borderRadius: 8,
+      marginBottom: 10,
+      background: bg,
+      border: `1px solid ${border}`,
+      display: "flex",
+      alignItems: "baseline",
+      gap: 10,
+      flexWrap: "wrap",
+    }}>
+      <span style={{
+        fontSize: 13, fontWeight: 800,
+        letterSpacing: "0.06em", textTransform: "uppercase",
+        color: accent,
+      }}>
+        {label}
+      </span>
+      <span className="muted small">{count} quarter{count === 1 ? "" : "s"}</span>
+      {subtitle && (
+        <span className="muted small" style={{ marginLeft: "auto", fontStyle: "italic" }}>
+          {subtitle}
+        </span>
+      )}
+    </div>
+  );
+}
+
 /** Render an ISO timestamp as "MM/DD/YY". */
 export function formatSentDate(iso: string): string {
   const d = new Date(iso);
