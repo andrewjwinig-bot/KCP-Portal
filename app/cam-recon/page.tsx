@@ -197,6 +197,9 @@ function drawTenantStatement(doc: any, t: TenantReconResult, year: number, propL
     at(`* Tenant's base year was reset on ${new Date(t.baseYearResetISO + "T00:00:00").toLocaleDateString("en-US")}; recovery is prorated through the reset date.`, L);
     y += 14; doc.setFont("helvetica", "normal");
   }
+  if (t.futureBaseYear) {
+    at(`Base year ${t.baseYear} is after the ${year} reconciliation year, so no recovery is due.`, L); y += 14;
+  }
   if (contact?.email) { at(`Statement to: ${contact.email}`, L); y += 14; }
 
   stroke(LINE); doc.setLineWidth(0.6); doc.line(L, 752, R, 752);
@@ -377,6 +380,7 @@ export default function OfficeCamReconPage() {
               <Pill tone={TONE_NEUTRAL}>{pct(selected.proRataPct / 100)} share</Pill>
               {selected.occPct < 0.9999 && <Pill tone={TONE_NEUTRAL}>{pct(selected.occPct, 1)} occ</Pill>}
               {selected.baseYearResetISO && <Pill tone={TONE_AMBER}>Base year reset</Pill>}
+              {selected.futureBaseYear && <Pill tone={TONE_AMBER}>No recovery — future base year</Pill>}
             </>
           ) : (
             <span className="muted small">{tenants.length} tenants reconciled · base-year expense recovery, year-end true-up</span>
@@ -742,6 +746,11 @@ function TenantStatement({ t, reconYear, estimate, contact, onEdit }: {
       {t.baseYearResetISO && (
         <p className="small muted" style={{ margin: 0 }}>
           * Tenant&rsquo;s base year was reset on {new Date(t.baseYearResetISO + "T00:00:00").toLocaleDateString("en-US", { month: "numeric", day: "numeric", year: "numeric" })}; recovery is prorated through the reset date.
+        </p>
+      )}
+      {t.futureBaseYear && (
+        <p className="small muted" style={{ margin: 0 }}>
+          Base year {t.baseYear} is after the {reconYear} reconciliation year, so no recovery is due.
         </p>
       )}
 

@@ -96,6 +96,8 @@ export type TenantReconResult = {
   /** ISO date a base-year reset occurred during the recon year, if any —
    *  drives a footnote and caps the recovery period. */
   baseYearResetISO?: string | null;
+  /** True when the base year is after the recon year — nothing is due. */
+  futureBaseYear?: boolean;
   // Operating expenses
   opexLines: ReconScheduleLine[];
   opexBaseTotal: number;

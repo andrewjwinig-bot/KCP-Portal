@@ -35,12 +35,18 @@ export function reconcileTenant(
   reconYear: number,
 ): TenantReconResult {
   const share = t.proRataPct / 100;
+  // A base year after the reconciliation year means the tenant's expense
+  // floor hasn't been set yet — there's no increase to recover, so nothing
+  // is due (every line's net increase is forced to zero).
+  const futureBase = t.baseYear > reconYear;
 
   const opexLines = pool.opexLines.map((line) => {
     const useGrossUp = t.grossUp && !!line.grossUpAccount;
     const account = useGrossUp ? line.grossUpAccount! : line.glAccount;
     const label = useGrossUp ? `${line.label} (95%)` : line.label;
-    return scheduleLine(pool, account, label, t.baseYear, reconYear);
+    const sl = scheduleLine(pool, account, label, t.baseYear, reconYear);
+    if (futureBase) sl.netIncrease = 0;
+    return sl;
   });
 
   const opexBaseTotal = opexLines.reduce((a, l) => a + l.baseCost, 0);
@@ -50,6 +56,7 @@ export function reconcileTenant(
   const opexBalance = opexAmountDue - t.opexEscrow;
 
   const retLine = scheduleLine(pool, pool.retAccount, pool.retLabel, t.baseYear, reconYear);
+  if (futureBase) retLine.netIncrease = 0;
   const retAmountDue = retLine.netIncrease * share * t.occPct;
   const retBalance = retAmountDue - t.retEscrow;
 
@@ -65,6 +72,7 @@ export function reconcileTenant(
     occPct: t.occPct,
     isVacant: false,
     baseYearResetISO: t.baseYearResetISO ?? null,
+    futureBaseYear: futureBase,
     opexLines,
     opexBaseTotal,
     opexActualTotal,
