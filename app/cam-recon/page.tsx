@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Pill, StatPill, reconBalanceTone, TONE_BLUE, TONE_NEUTRAL } from "@/app/components/Pill";
+import { Pill, StatPill, reconBalanceTone, TONE_NEUTRAL, TONE_AMBER } from "@/app/components/Pill";
 import { Calendar } from "@/app/components/Calendar";
 import {
   yearEndAdjustmentRows,
@@ -191,12 +191,18 @@ export default function OfficeCamReconPage() {
           </div>
         </div>
 
-        <div style={{ marginTop: 6, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-          <div className="muted small">
-            {selected
-              ? `Suite ${selected.suite} · Base year ${selected.baseYear} · ${pct(selected.proRataPct / 100)} share${selected.occPct < 0.9999 ? ` · ${pct(selected.occPct, 1)} occ` : ""}`
-              : `${tenants.length} tenants reconciled · base-year expense recovery, year-end true-up`}
-          </div>
+        <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          {selected ? (
+            <>
+              <Pill tone={TONE_NEUTRAL}>Base Year {selected.baseYear}</Pill>
+              <Pill tone={TONE_NEUTRAL}>{selected.grossUp ? "Grossed up 95%" : "Not grossed up"}</Pill>
+              <Pill tone={TONE_NEUTRAL}>{pct(selected.proRataPct / 100)} share</Pill>
+              {selected.occPct < 0.9999 && <Pill tone={TONE_NEUTRAL}>{pct(selected.occPct, 1)} occ</Pill>}
+              {selected.baseYearResetISO && <Pill tone={TONE_AMBER}>Base year reset</Pill>}
+            </>
+          ) : (
+            <span className="muted small">{tenants.length} tenants reconciled · base-year expense recovery, year-end true-up</span>
+          )}
         </div>
 
         <div className="pills">
@@ -358,9 +364,12 @@ function BuildingSummary({ result, onPick, onEditEscrow }: {
 
 // ── Per-tenant statement ─────────────────────────────────────────────────────
 
-function ScheduleTable({ title, lines, baseYear, reconYear }: {
-  title: string; lines: TenantReconResult["opexLines"]; baseYear: number; reconYear: number;
+function ScheduleTable({ title, lines, baseYear, reconYear, totalLabel }: {
+  title: string; lines: TenantReconResult["opexLines"]; baseYear: number; reconYear: number; totalLabel?: string;
 }) {
+  const baseTotal = lines.reduce((s, l) => s + l.baseCost, 0);
+  const actualTotal = lines.reduce((s, l) => s + l.actual, 0);
+  const incTotal = lines.reduce((s, l) => s + l.netIncrease, 0);
   return (
     <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 520 }}>
       <thead>
@@ -381,6 +390,16 @@ function ScheduleTable({ title, lines, baseYear, reconYear }: {
           </tr>
         ))}
       </tbody>
+      {totalLabel && (
+        <tfoot>
+          <tr style={{ fontWeight: 800, borderTop: "2px solid var(--border)" }}>
+            <td style={{ ...td, textAlign: "left" }}>{totalLabel}</td>
+            <td style={td}>{money(baseTotal)}</td>
+            <td style={td}>{money(actualTotal)}</td>
+            <td style={td}>{money(incTotal)}</td>
+          </tr>
+        </tfoot>
+      )}
     </table>
   );
 }
@@ -397,21 +416,12 @@ function BalanceRow({ label, value, strong }: { label: string; value: string; st
 function TenantStatement({ t, reconYear, estimate }: { t: TenantReconResult; reconYear: number; estimate?: NextYearEstimate }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-        <h2 style={{ fontSize: 18, fontWeight: 800, margin: 0 }}>{t.name}</h2>
-        <Pill tone={TONE_BLUE}>Suite {t.suite}</Pill>
-        <Pill tone={TONE_NEUTRAL}>Base Year {t.baseYear}</Pill>
-        <Pill tone={TONE_NEUTRAL}>{t.grossUp ? "Grossed up 95%" : "Not grossed up"}</Pill>
-        <Pill tone={TONE_NEUTRAL}>{pct(t.proRataPct / 100)} share</Pill>
-        {t.occPct < 0.9999 && <Pill tone={TONE_NEUTRAL}>{pct(t.occPct, 1)} occ</Pill>}
-      </div>
-
       <div className="card" style={{ overflowX: "auto" }}>
-        <ScheduleTable title="Schedule of Operating Expenses" lines={t.opexLines} baseYear={t.baseYear} reconYear={reconYear} />
+        <ScheduleTable title="Schedule of Operating Expenses" lines={t.opexLines} baseYear={t.baseYear} reconYear={reconYear} totalLabel="Total Operating Expenses" />
         <div style={{ borderTop: "2px solid var(--border)", marginTop: 8, paddingTop: 8, maxWidth: 420, marginLeft: "auto" }}>
           <BalanceRow label="Net Increase Over Base Year" value={money(t.opexNetIncrease)} />
           <BalanceRow label="× Tenant Proportionate Share" value={pct(t.proRataPct / 100)} />
-          <BalanceRow label="× Occupancy % For The Year" value={pct(t.occPct, 1)} />
+          <BalanceRow label={`× Occupancy % For The Year${t.baseYearResetISO ? " *" : ""}`} value={pct(t.occPct, 1)} />
           <BalanceRow label="Amount Due" value={money(t.opexAmountDue)} strong />
           <BalanceRow label="Less: Escrow Payments for the Year" value={money(-t.opexEscrow)} />
           <BalanceRow label="Balance, Op Ex Costs Due" value={money(t.opexBalance)} strong />
@@ -423,12 +433,18 @@ function TenantStatement({ t, reconYear, estimate }: { t: TenantReconResult; rec
         <div style={{ borderTop: "2px solid var(--border)", marginTop: 8, paddingTop: 8, maxWidth: 420, marginLeft: "auto" }}>
           <BalanceRow label="Net Increase Over Base Year" value={money(t.retLine.netIncrease)} />
           <BalanceRow label="× Tenant Proportionate Share" value={pct(t.proRataPct / 100)} />
-          <BalanceRow label="× Occupancy % For The Year" value={pct(t.occPct, 1)} />
+          <BalanceRow label={`× Occupancy % For The Year${t.baseYearResetISO ? " *" : ""}`} value={pct(t.occPct, 1)} />
           <BalanceRow label="Amount Due" value={money(t.retAmountDue)} strong />
           <BalanceRow label="Less: Escrow Payments for the Year" value={money(-t.retEscrow)} />
           <BalanceRow label="Balance, Real Estate Taxes Due" value={money(t.retBalance)} strong />
         </div>
       </div>
+
+      {t.baseYearResetISO && (
+        <p className="small muted" style={{ margin: 0 }}>
+          * Tenant&rsquo;s base year was reset on {new Date(t.baseYearResetISO + "T00:00:00").toLocaleDateString("en-US", { month: "numeric", day: "numeric", year: "numeric" })}; recovery is prorated through the reset date.
+        </p>
+      )}
 
       <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "center" }}>
         <Pill tone={reconBalanceTone(t.opexBalance + t.retBalance)}>

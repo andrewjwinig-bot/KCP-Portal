@@ -93,6 +93,9 @@ export type TenantReconResult = {
   sqft: number;
   occPct: number;
   isVacant: boolean;
+  /** ISO date a base-year reset occurred during the recon year, if any —
+   *  drives a footnote and caps the recovery period. */
+  baseYearResetISO?: string | null;
   // Operating expenses
   opexLines: ReconScheduleLine[];
   opexBaseTotal: number;

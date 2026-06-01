@@ -64,6 +64,7 @@ export function reconcileTenant(
     sqft: t.sqft,
     occPct: t.occPct,
     isVacant: false,
+    baseYearResetISO: t.baseYearResetISO ?? null,
     opexLines,
     opexBaseTotal,
     opexActualTotal,
