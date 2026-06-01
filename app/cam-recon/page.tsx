@@ -249,6 +249,7 @@ export default function OfficeCamReconPage() {
   const [result, setResult] = useState<BuildingReconResult | null>(null);
   const [estimates, setEstimates] = useState<NextYearEstimate[]>([]);
   const [contacts, setContacts] = useState<Record<string, { email: string; cc: string }>>({});
+  const [expenseSummary, setExpenseSummary] = useState<ExpRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [yeDate, setYeDate] = useState("");
   const [estDate, setEstDate] = useState("");
@@ -276,6 +277,7 @@ export default function OfficeCamReconPage() {
       setResult(j?.result ?? null);
       setEstimates(j?.estimates ?? []);
       setContacts(j?.contacts ?? {});
+      setExpenseSummary(j?.expenseSummary ?? []);
     } finally {
       setLoading(false);
     }
@@ -297,6 +299,17 @@ export default function OfficeCamReconPage() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ property, year, unitRef, field, value }),
+    });
+    await loadResult();
+  }, [property, year, loadResult]);
+
+  // Save a Final Expense Summary edit (keyed by GL account), then reload so
+  // the FINAL flows back into every tenant's calc.
+  const saveExpense = useCallback(async (account: string, field: string, value: number | string | null) => {
+    await fetch("/api/cam-recon/office", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ property, year, account, field, value }),
     });
     await loadResult();
   }, [property, year, loadResult]);
@@ -399,6 +412,7 @@ export default function OfficeCamReconPage() {
 
       {!selected && result && <BuildingSummary result={result} onPick={setUnit} onEditEscrow={saveField} />}
       {!selected && result && <RecoveryByBaseYear result={result} />}
+      {!selected && expenseSummary.length > 0 && <FinalExpenseSummary rows={expenseSummary} onEdit={saveExpense} />}
       {selected && <TenantStatement t={selected} reconYear={year} estimate={estimates.find((e) => e.unitRef === selected.unitRef)} contact={contacts[selected.unitRef]} onEdit={saveField} />}
 
       {/* Year-End Adjustments — one compiled schedule across every office
@@ -542,6 +556,62 @@ function BuildingSummary({ result, onPick, onEditEscrow }: {
         </tfoot>
       </table>
       <p className="small muted" style={{ marginTop: 8 }}>Click a row to open that tenant&rsquo;s reconciliation statement.</p>
+    </div>
+  );
+}
+
+// ── Final Expense Summary ────────────────────────────────────────────────────
+
+type ExpRow = {
+  account: string; label: string; tbDetail: number; excelAvid: number;
+  final: number; description: string; variance: number;
+};
+
+function FinalExpenseSummary({ rows, onEdit }: {
+  rows: ExpRow[];
+  onEdit: (account: string, field: string, value: number | string | null) => void;
+}) {
+  const isSep = (a: string) => a.startsWith("6120") || a.startsWith("6410"); // Electric / RET
+  const opexTotal = rows.filter((r) => !isSep(r.account)).reduce((s, r) => s + r.final, 0);
+  return (
+    <div className="card" style={{ overflowX: "auto" }}>
+      <div style={SECTION_LABEL}>Final Expense Summary</div>
+      <p className="small muted" style={{ marginTop: 4 }}>
+        TB Detail is the general ledger. Import Excel Avid, review the variance, then set FINAL — FINAL drives every tenant&rsquo;s CAM/RET calc and is recorded as the year&rsquo;s expense history.
+      </p>
+      <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 10, minWidth: 860 }}>
+        <thead>
+          <tr>
+            <th style={{ ...th, textAlign: "left" }}>Acc Code</th>
+            <th style={{ ...th, textAlign: "left" }}>Expense</th>
+            <th style={th}>TB Detail (GL)</th>
+            <th style={th}>Excel Avid</th>
+            <th style={th}>Variance</th>
+            <th style={th}>FINAL</th>
+            <th style={{ ...th, textAlign: "left" }}>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.account} style={{ borderBottom: "1px solid var(--border)", ...(isSep(r.account) ? { borderTop: "2px solid var(--border)" } : {}) }}>
+              <td style={{ ...td, textAlign: "left", color: "var(--muted)", fontSize: 12 }}>{r.account}</td>
+              <td style={{ ...td, textAlign: "left" }}>{r.label}</td>
+              <td style={td}>{money(r.tbDetail)}</td>
+              <td style={td}><EditableMoney value={r.excelAvid} onCommit={(v) => onEdit(r.account, "excelAvid", v)} /></td>
+              <td style={{ ...td, color: Math.abs(r.variance) < 0.005 ? "var(--muted)" : r.variance < 0 ? "#b91c1c" : "#15803d" }}>{money(r.variance)}</td>
+              <td style={{ ...td, fontWeight: 700 }}><EditableMoney value={r.final} onCommit={(v) => onEdit(r.account, "final", v)} /></td>
+              <td style={{ ...td, textAlign: "left" }}><EditableText value={r.description} placeholder="—" onCommit={(v) => onEdit(r.account, "description", v)} /></td>
+            </tr>
+          ))}
+        </tbody>
+        <tfoot>
+          <tr style={{ fontWeight: 800, borderTop: "2px solid var(--border)" }}>
+            <td style={{ ...td, textAlign: "left" }} colSpan={5}>Total Operating Expenses (excl. Electric / RET)</td>
+            <td style={td}>{money(opexTotal)}</td>
+            <td />
+          </tr>
+        </tfoot>
+      </table>
     </div>
   );
 }
