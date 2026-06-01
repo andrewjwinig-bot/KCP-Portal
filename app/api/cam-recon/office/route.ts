@@ -7,7 +7,27 @@ import { getOverrides, mergeConfig, saveOverride } from "@/lib/cam/office/config
 import { getContactOverrides, mergeContacts, saveContact } from "@/lib/cam/office/contactStore";
 import { getExpenseOverrides, saveExpenseField } from "@/lib/cam/office/expenseStore";
 import { finalsFromSummary, mergeExpenseSummary, type ExpenseOverride } from "@/lib/cam/office/expenseSummary";
+import { listHistoricalOpEx, upsertHistoricalOpEx } from "@/lib/financials/historical-opex/storage";
 import { getJSON } from "@/lib/storage";
+
+/** Record a FINAL into the historical OpEx dataset for the recon year only,
+ *  preserving every other year — prior years are already adjusted and stay
+ *  locked. Matches an existing line by GL account, then by label. */
+async function syncFinalToHistory(property: string, year: number, account: string, label: string, final: number) {
+  const all = await listHistoricalOpEx();
+  const existing =
+    all.find((e) => e.glAccount && e.glAccount === account) ??
+    all.find((e) => e.lineLabel.toLowerCase() === label.toLowerCase());
+  const yearly = { ...(existing?.yearly ?? {}), [String(year)]: final };
+  await upsertHistoricalOpEx({
+    propertyCode: property,
+    lineLabel: existing?.lineLabel ?? label,
+    glAccount: account,
+    yearly,
+    source: existing?.source ?? "CAM reconciliation FINAL",
+    updatedAt: new Date().toISOString(),
+  });
+}
 
 /** Stored base-year resets keyed by unit ref. */
 async function loadResets(): Promise<Record<string, ResetInfo>> {
@@ -88,6 +108,13 @@ export async function POST(req: NextRequest) {
         value = Math.round(n * 100) / 100;
       }
       await saveExpenseField(property, year, account, field as keyof ExpenseOverride, value);
+      // Record the effective FINAL into history for this year only (prior
+      // years stay locked).
+      if (field === "final") {
+        const merged = mergeExpenseSummary(property, year, await getExpenseOverrides(property, year));
+        const row = merged.find((r) => r.account === account);
+        if (row) await syncFinalToHistory(property, year, account, row.label, row.final);
+      }
       return NextResponse.json({ ok: true });
     }
 
