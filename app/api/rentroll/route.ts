@@ -25,12 +25,42 @@ function normalizeOccupantNames(data: any): any {
 }
 
 /**
+ * Resolve the current rent roll as the snapshot with the LATEST report
+ * month across all history, not whatever happened to be uploaded last.
+ * If the stored "current" pointer has drifted off the latest month (e.g.
+ * an older roll was imported under the pre-fix behavior), repair it here
+ * so the direct readers of rentroll/current — budgets, status report,
+ * tenant lookups — also see the latest month.
+ */
+async function resolveCurrentRentroll(): Promise<any | null> {
+  const snapshots = (await listJSON(HISTORY_PREFIX)) as any[];
+  if (!snapshots.length) {
+    return await getJSON(RENTROLL_PREFIX, RENTROLL_ID);
+  }
+  let latest = snapshots[0];
+  let latestMonth = snapshotMonthKey(latest);
+  for (const snap of snapshots) {
+    const m = snapshotMonthKey(snap);
+    if (m.localeCompare(latestMonth) > 0) {
+      latest = snap;
+      latestMonth = m;
+    }
+  }
+  const stored = await getJSON(RENTROLL_PREFIX, RENTROLL_ID);
+  if (!stored || snapshotMonthKey(stored) !== latestMonth) {
+    await storeJSON(RENTROLL_PREFIX, RENTROLL_ID, { ...latest, id: RENTROLL_ID });
+  }
+  return latest;
+}
+
+/**
  * GET /api/rentroll
- * Returns the most recently uploaded rent roll, or null if none exists.
+ * Returns the rent roll for the most recent report month, or null if none
+ * exists. Importing an older roll never changes this.
  */
 export async function GET() {
   try {
-    const data = await getJSON(RENTROLL_PREFIX, RENTROLL_ID);
+    const data = await resolveCurrentRentroll();
     return NextResponse.json({ rentroll: data ? normalizeOccupantNames(data) : null });
   } catch {
     return NextResponse.json({ rentroll: null });
