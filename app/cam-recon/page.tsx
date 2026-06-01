@@ -548,23 +548,25 @@ const REC_CAM = "#0b4a7d";
 const REC_RET = "#0d9488";
 
 function RecoveryByBaseYear({ result }: { result: BuildingReconResult }) {
+  const [hover, setHover] = useState<number | null>(null);
   const groups = useMemo(() => {
-    const map = new Map<number, { cam: number; ret: number; count: number }>();
+    const map = new Map<number, { cam: number; ret: number; members: { suite: string; name: string; total: number }[] }>();
     for (const t of result.tenants) {
-      const g = map.get(t.baseYear) ?? { cam: 0, ret: 0, count: 0 };
+      const g = map.get(t.baseYear) ?? { cam: 0, ret: 0, members: [] };
       g.cam += t.opexAmountDue;
       g.ret += t.retAmountDue;
-      g.count += 1;
+      g.members.push({ suite: t.suite, name: t.name, total: t.opexAmountDue + t.retAmountDue });
       map.set(t.baseYear, g);
     }
     return [...map.entries()]
-      .map(([year, v]) => ({ year, ...v, total: v.cam + v.ret }))
+      .map(([year, v]) => ({ year, cam: v.cam, ret: v.ret, total: v.cam + v.ret, count: v.members.length, members: v.members.sort((a, b) => b.total - a.total) }))
       .sort((a, b) => a.year - b.year);
   }, [result]);
 
   const max = Math.max(1, ...groups.map((g) => g.total));
   const totalRecovery = groups.reduce((s, g) => s + g.total, 0);
   const H = 180;
+  const hovered = hover != null ? groups.find((g) => g.year === hover) : null;
 
   return (
     <div className="card">
@@ -576,14 +578,19 @@ function RecoveryByBaseYear({ result }: { result: BuildingReconResult }) {
           <span className="small muted">{money0(totalRecovery)} total recovery</span>
         </div>
       </div>
-      <div style={{ display: "flex", alignItems: "flex-end", gap: 10, marginTop: 18, overflowX: "auto", paddingBottom: 4 }}>
+      <div style={{ display: "flex", alignItems: "flex-end", gap: 10, marginTop: 18, overflowX: "auto", paddingBottom: 4 }} onMouseLeave={() => setHover(null)}>
         {groups.map((g) => {
           const camH = (g.cam / max) * H;
           const retH = (g.ret / max) * H;
+          const dim = hover != null && hover !== g.year;
           return (
-            <div key={g.year} style={{ flex: "1 0 56px", display: "flex", flexDirection: "column", alignItems: "center", minWidth: 56 }}>
+            <div
+              key={g.year}
+              onMouseEnter={() => setHover(g.year)}
+              style={{ flex: "1 0 56px", display: "flex", flexDirection: "column", alignItems: "center", minWidth: 56, cursor: "default", opacity: dim ? 0.5 : 1, transition: "opacity 0.12s" }}
+            >
               <div style={{ fontSize: 12, fontWeight: 800 }}>{money0(g.total)}</div>
-              <div style={{ height: H, display: "flex", flexDirection: "column", justifyContent: "flex-end", width: 40, marginTop: 4 }} title={`${g.year}: CAM ${money0(g.cam)} · RET ${money0(g.ret)}`}>
+              <div style={{ height: H, display: "flex", flexDirection: "column", justifyContent: "flex-end", width: 40, marginTop: 4, outline: hover === g.year ? "2px solid rgba(11,74,125,0.35)" : "none", outlineOffset: 2, borderRadius: 4 }}>
                 <div style={{ height: Math.max(0, retH), background: REC_RET, borderRadius: "4px 4px 0 0" }} />
                 <div style={{ height: Math.max(0, camH), background: REC_CAM, borderRadius: retH < 1 ? "4px 4px 0 0" : 0 }} />
               </div>
@@ -593,9 +600,25 @@ function RecoveryByBaseYear({ result }: { result: BuildingReconResult }) {
           );
         })}
       </div>
-      <p className="small muted" style={{ marginTop: 10, marginBottom: 0 }}>
-        Total reconciled recovery (CAM + RET amount due) for each base year. Older base years recover more as the gap to current-year expenses widens.
-      </p>
+
+      {/* Hover detail — which tenants sit on the hovered base year. */}
+      <div style={{ marginTop: 12, borderTop: "1px solid var(--border)", paddingTop: 10, minHeight: 58 }}>
+        {hovered ? (
+          <>
+            <div className="small" style={{ fontWeight: 800, marginBottom: 8 }}>
+              Base Year {hovered.year} · {hovered.count} {hovered.count === 1 ? "tenant" : "tenants"} · {money0(hovered.total)} recovery
+              <span className="muted" style={{ fontWeight: 600 }}>  (CAM {money0(hovered.cam)} · RET {money0(hovered.ret)})</span>
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+              {hovered.members.map((m) => (
+                <Pill key={m.suite + m.name} tone={TONE_NEUTRAL}>{m.suite} · {m.name} — {money0(m.total)}</Pill>
+              ))}
+            </div>
+          </>
+        ) : (
+          <span className="small muted">Hover a bar to list the tenants on that base year. Bars show total reconciled recovery (CAM + RET amount due); older base years recover more as the gap to current-year expenses widens.</span>
+        )}
+      </div>
     </div>
   );
 }
