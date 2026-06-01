@@ -74,79 +74,136 @@ function HeaderSelect({
   );
 }
 
-// Client-side PDF of a single tenant's reconciliation statement.
-async function downloadTenantPdf(t: TenantReconResult, year: number, propLabel: string) {
+// Presentation-ready PDF of a single tenant's reconciliation statement.
+async function downloadTenantPdf(
+  t: TenantReconResult, year: number, propLabel: string, contact?: { email: string; cc: string },
+) {
   const { jsPDF } = await import("jspdf");
   const doc = new jsPDF({ unit: "pt", format: "letter" });
-  const L = 48, R = 564;
+  const PAGE_W = 612;
+  const L = 48, R = 564, W = R - L;
   const cols = [372, 468, R]; // right edges: B/Y, Actual, Net Increase
-  let y = 56;
+
+  // Brand palette (same navy as the app / Excel exports).
+  const NAVY: [number, number, number] = [11, 74, 125];
+  const TINT: [number, number, number] = [230, 238, 245];
+  const ZEBRA: [number, number, number] = [247, 249, 251];
+  const MUTED: [number, number, number] = [110, 110, 110];
+  const INK: [number, number, number] = [20, 20, 20];
+  const LINE: [number, number, number] = [205, 210, 216];
+  const GREEN: [number, number, number] = [21, 128, 61];
+  const AMBER: [number, number, number] = [180, 83, 9];
+  const fill = (c: number[]) => doc.setFillColor(c[0], c[1], c[2]);
+  const ink = (c: number[]) => doc.setTextColor(c[0], c[1], c[2]);
+  const stroke = (c: number[]) => doc.setDrawColor(c[0], c[1], c[2]);
+
+  let y = 0;
   const at = (s: string, x: number, opts?: { align?: "right" | "center" | "left" }) => doc.text(s, x, y, opts);
-  const nl = (h = 16) => { y += h; if (y > 740) { doc.addPage(); y = 56; } };
 
-  doc.setFont("helvetica", "bold"); doc.setFontSize(16);
-  at(`${year} CAM / RET Reconciliation`, L);
-  doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.setTextColor(110);
-  nl(14); at(propLabel, L); doc.setTextColor(0); nl(24);
+  // ── Header band — Korman wordmark + statement title ──────────────────────
+  fill(NAVY); doc.rect(0, 0, PAGE_W, 84, "F");
+  ink([255, 255, 255]);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(24);
+  doc.text("KORMAN", L, 46);
+  stroke([255, 255, 255]); doc.setLineWidth(0.7); doc.line(170, 26, 170, 50);
+  doc.setFont("helvetica", "normal"); doc.setFontSize(7.5);
+  doc.text("COMMERCIAL", 180, 34); doc.text("PROPERTIES", 180, 45);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(15);
+  doc.text("CAM / RET Reconciliation", R, 38, { align: "right" });
+  doc.setFont("helvetica", "normal"); doc.setFontSize(9.5);
+  doc.text(`${year} Year-End Statement`, R, 54, { align: "right" });
 
-  doc.setFont("helvetica", "bold"); doc.setFontSize(13);
-  at(`${t.name} · Suite ${t.suite}`, L);
-  doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.setTextColor(110);
-  nl(14);
-  at(`Base Year ${t.baseYear} · ${t.grossUp ? "Grossed up to 95%" : "Not grossed up"} · ${pct(t.proRataPct / 100)} share · ${pct(t.occPct, 1)} occupancy`, L);
-  doc.setTextColor(0); nl(24);
+  // ── Tenant block ─────────────────────────────────────────────────────────
+  y = 112;
+  ink(INK); doc.setFont("helvetica", "bold"); doc.setFontSize(15);
+  at(t.name, L);
+  y += 16; ink(MUTED); doc.setFont("helvetica", "normal"); doc.setFontSize(10);
+  at(`${propLabel}   ·   Suite ${t.suite}`, L);
+  y += 14;
+  at(`Base Year ${t.baseYear}   ·   ${t.grossUp ? "Grossed up to 95%" : "Not grossed up"}   ·   ${pct(t.proRataPct / 100)} share   ·   ${pct(t.occPct, 1)} occupancy`, L);
+  y += 28;
 
-  const headerRow = (title: string) => {
-    doc.setFont("helvetica", "bold"); doc.setFontSize(9);
-    at(title.toUpperCase(), L);
-    at(`B/Y (${t.baseYear})`, cols[0], { align: "right" });
-    at(`Actual (${year})`, cols[1], { align: "right" });
-    at("Net Increase", cols[2], { align: "right" });
-    nl(6); doc.setDrawColor(200); doc.line(L, y, R, y); nl(14);
-    doc.setFont("helvetica", "normal"); doc.setFontSize(10);
+  const sectionBar = (title: string, withCols: boolean) => {
+    fill(TINT); doc.rect(L, y - 11, W, 18, "F");
+    ink(NAVY); doc.setFont("helvetica", "bold"); doc.setFontSize(9);
+    at(title.toUpperCase(), L + 6);
+    if (withCols) {
+      doc.setFontSize(8);
+      at(`B/Y ${t.baseYear}`, cols[0], { align: "right" });
+      at(`Actual ${year}`, cols[1], { align: "right" });
+      at("Net Increase", cols[2] - 6, { align: "right" });
+    }
+    y += 22; ink(INK); doc.setFontSize(10);
   };
-  const lineRow = (label: string, b: number, a: number, n: number, bold = false) => {
+  const lineRow = (i: number, label: string, b: number, a: number, n: number, bold = false) => {
+    if (!bold && i % 2 === 1) { fill(ZEBRA); doc.rect(L, y - 10, W, 15, "F"); }
     doc.setFont("helvetica", bold ? "bold" : "normal");
-    at(label, L); at(money(b), cols[0], { align: "right" }); at(money(a), cols[1], { align: "right" }); at(money(n), cols[2], { align: "right" });
-    nl(15);
+    ink(bold ? NAVY : INK);
+    at(label, L + 6);
+    at(money(b), cols[0], { align: "right" });
+    at(money(a), cols[1], { align: "right" });
+    at(money(n), cols[2] - 6, { align: "right" });
+    y += 15; ink(INK);
   };
   const sumRow = (label: string, value: string, bold = false) => {
-    doc.setFont("helvetica", bold ? "bold" : "normal"); doc.setFontSize(bold ? 11 : 10);
-    at(label, L); at(value, R, { align: "right" }); nl(15); doc.setFontSize(10);
+    doc.setFont("helvetica", bold ? "bold" : "normal"); doc.setFontSize(bold ? 10.5 : 10);
+    ink(bold ? INK : MUTED); at(label, 300); ink(INK); at(value, R, { align: "right" });
+    y += 15; doc.setFontSize(10);
   };
 
-  headerRow("Schedule of Operating Expenses");
-  for (const l of t.opexLines) lineRow(l.label, l.baseCost, l.actual, l.netIncrease);
-  doc.setDrawColor(120); doc.line(L, y - 4, R, y - 4);
-  lineRow("Total Operating Expenses", t.opexBaseTotal, t.opexActualTotal, t.opexNetIncrease, true);
-  nl(6);
+  // ── Operating expenses ───────────────────────────────────────────────────
+  sectionBar("Schedule of Operating Expenses", true);
+  t.opexLines.forEach((l, i) => lineRow(i, l.label, l.baseCost, l.actual, l.netIncrease));
+  stroke(NAVY); doc.setLineWidth(0.8); doc.line(L, y - 11, R, y - 11);
+  lineRow(0, "Total Operating Expenses", t.opexBaseTotal, t.opexActualTotal, t.opexNetIncrease, true);
+  y += 6;
   sumRow("Net Increase Over Base Year", money(t.opexNetIncrease));
   sumRow("× Tenant Proportionate Share", pct(t.proRataPct / 100));
   sumRow(`× Occupancy % For The Year${t.baseYearResetISO ? " *" : ""}`, pct(t.occPct, 1));
   sumRow("Amount Due", money(t.opexAmountDue), true);
   sumRow("Less: Escrow Payments for the Year", money(-t.opexEscrow));
   sumRow("Balance, Op Ex Costs Due", money(t.opexBalance), true);
-  nl(16);
+  y += 20;
 
-  headerRow("Real Estate Taxes");
-  lineRow(t.retLine.label, t.retLine.baseCost, t.retLine.actual, t.retLine.netIncrease);
-  nl(6);
+  // ── Real estate taxes ────────────────────────────────────────────────────
+  sectionBar("Real Estate Taxes", true);
+  lineRow(0, t.retLine.label, t.retLine.baseCost, t.retLine.actual, t.retLine.netIncrease);
+  y += 6;
   sumRow("× Tenant Proportionate Share", pct(t.proRataPct / 100));
   sumRow(`× Occupancy % For The Year${t.baseYearResetISO ? " *" : ""}`, pct(t.occPct, 1));
   sumRow("Amount Due", money(t.retAmountDue), true);
   sumRow("Less: Escrow Payments for the Year", money(-t.retEscrow));
   sumRow("Balance, Real Estate Taxes Due", money(t.retBalance), true);
-  nl(18);
+  y += 22;
 
+  // ── Net true-up callout ──────────────────────────────────────────────────
   const net = t.opexBalance + t.retBalance;
-  doc.setFont("helvetica", "bold"); doc.setFontSize(12);
-  at(`Net ${net < 0 ? "Credit to Tenant" : "Balance Due from Tenant"}: ${money(Math.abs(net))}`, L);
-  nl(20);
+  const credit = net < 0;
+  const theme = credit ? GREEN : AMBER;
+  const boxFill = credit ? [235, 247, 239] : [252, 245, 235];
+  fill(boxFill); stroke(theme); doc.setLineWidth(1.2);
+  doc.rect(L, y, W, 46, "FD");
+  ink(theme); doc.setFont("helvetica", "bold"); doc.setFontSize(10);
+  doc.text((credit ? "NET CREDIT TO TENANT" : "NET BALANCE DUE FROM TENANT"), L + 16, y + 20);
+  doc.setFontSize(8); ink(MUTED);
+  doc.text(`CAM ${money(t.opexBalance)}   ·   RET ${money(t.retBalance)}`, L + 16, y + 34);
+  ink(theme); doc.setFont("helvetica", "bold"); doc.setFontSize(22);
+  doc.text(money(Math.abs(net)), R - 16, y + 30, { align: "right" });
+  y += 64;
+
+  // ── Footnotes / footer ───────────────────────────────────────────────────
+  ink(MUTED); doc.setFont("helvetica", "normal"); doc.setFontSize(8.5);
   if (t.baseYearResetISO) {
-    doc.setFont("helvetica", "italic"); doc.setFontSize(9); doc.setTextColor(110);
+    doc.setFont("helvetica", "italic");
     at(`* Tenant's base year was reset on ${new Date(t.baseYearResetISO + "T00:00:00").toLocaleDateString("en-US")}; recovery is prorated through the reset date.`, L);
-    doc.setTextColor(0);
+    y += 14; doc.setFont("helvetica", "normal");
   }
+  if (contact?.email) { at(`Statement to: ${contact.email}`, L); y += 14; }
+
+  stroke(LINE); doc.setLineWidth(0.6); doc.line(L, 752, R, 752);
+  ink(MUTED); doc.setFontSize(8);
+  doc.text("Korman Commercial Properties", L, 766);
+  doc.text(`${year} CAM / RET Reconciliation  ·  Suite ${t.suite}`, R, 766, { align: "right" });
 
   const propCode = propLabel.split(" ")[0];
   doc.save(`${propCode}_${year}_Suite${t.suite}_${t.name.replace(/[^\w]+/g, "_")}_CAM_RET.pdf`);
@@ -286,7 +343,7 @@ export default function OfficeCamReconPage() {
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             {selected && (
-              <button onClick={() => downloadTenantPdf(selected, year, `${property} — ${propName}`)} className="btn primary" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}>Download PDF</button>
+              <button onClick={() => downloadTenantPdf(selected, year, `${property} — ${propName}`, contacts[selected.unitRef])} className="btn primary" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}>Download PDF</button>
             )}
             <button onClick={exportEstimate} disabled={!result} className="btn" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}>{year + 1} Estimate</button>
           </div>
