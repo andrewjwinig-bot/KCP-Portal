@@ -6,6 +6,7 @@
 // the tie-out test runs against.
 
 import type { OfficeExpensePool, OfficeTenantInput } from "../types";
+import { assembleTenantInputs, type OfficeLeaseConfig, type RosterUnit } from "../assemble";
 
 const Y = [2014, 2016, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025];
 
@@ -66,21 +67,47 @@ export const POOL_4070: OfficeExpensePool = {
   ],
 };
 
-// Tenant inputs for the 2025 reconciliation. occPct = days occupied ÷ 365;
-// escrow = CAM/RET estimate collected during 2025 (positive dollars).
-export const TENANTS_4070_2025: OfficeTenantInput[] = [
-  { unitRef: "4070-103", skylineUnit: "4070-103-CU", suite: "103", name: "Bucks County Transportation", baseYear: 2022, grossUp: true, proRataPct: 2.2, sqft: 1285, occPct: 0.49589041095890413, opexEscrow: 2100, retEscrow: 120 },
-  { unitRef: "4070-107", skylineUnit: "4070-107-CU", suite: "107", name: "O.S.S.V .Management, LLC", baseYear: 2018, grossUp: true, proRataPct: 2.24, sqft: 1311, occPct: 1, opexEscrow: 4200, retEscrow: 0 },
-  { unitRef: "4070-113", skylineUnit: "4070-113-CU", suite: "113", name: "McQuoid Financial Group, Inc.", baseYear: 2024, grossUp: true, proRataPct: 3.03, sqft: 1771, occPct: 1, opexEscrow: 4500, retEscrow: 120 },
-  { unitRef: "4070-115", skylineUnit: "4070-115-CU", suite: "115", name: "GLT Transportation, LLC", baseYear: 2026, grossUp: true, proRataPct: 2.88, sqft: 1693, occPct: 0.084931506849315067, opexEscrow: 0, retEscrow: 0 },
-  { unitRef: "4070-116", skylineUnit: "4070-116-CU", suite: "116", name: "Rothkoff Law Group, P.C.", baseYear: 2024, grossUp: true, proRataPct: 6.61, sqft: 3861, occPct: 1, opexEscrow: 6000, retEscrow: 0 },
-  { unitRef: "4070-117", skylineUnit: "4070-117-CU", suite: "117", name: "Belden Brick Sales & Service", baseYear: 2019, grossUp: true, proRataPct: 6.75, sqft: 3945, occPct: 0.58082191780821912, opexEscrow: 5400, retEscrow: 0 },
-  { unitRef: "4070-201", skylineUnit: "4070-201-CU", suite: "201", name: "Robert Half International, Inc", baseYear: 2020, grossUp: true, proRataPct: 6.3, sqft: 3680, occPct: 0.49589041095890413, opexEscrow: 5000, retEscrow: 0 },
-  { unitRef: "4070-209", skylineUnit: "4070-209-CU", suite: "209", name: "Ryan R. Janis P.C.", baseYear: 2025, grossUp: true, proRataPct: 2.95, sqft: 1725, occPct: 1, opexEscrow: 0, retEscrow: 0 },
-  { unitRef: "4070-211", skylineUnit: "4070-211-CU", suite: "211", name: "AIM - USA LLC", baseYear: 2024, grossUp: true, proRataPct: 2.46, sqft: 1438, occPct: 1, opexEscrow: 1200, retEscrow: 240 },
-  { unitRef: "4070-215", skylineUnit: "4070-215-CU", suite: "215", name: "Law Ofcs. of Michael P. Clarke", baseYear: 2021, grossUp: true, proRataPct: 3.43, sqft: 2004, occPct: 1, opexEscrow: 5700, retEscrow: 414 },
-  { unitRef: "4070-301", skylineUnit: "4070-301-CU", suite: "301", name: "Veltri, Inc.", baseYear: 2022, grossUp: true, proRataPct: 10.91, sqft: 6374, occPct: 1, opexEscrow: 8000, retEscrow: 1200 },
-  { unitRef: "4070-400", skylineUnit: "4070-400-CU", suite: "400", name: "Mette, Evans & Woodside", baseYear: 2023, grossUp: true, proRataPct: 5.91, sqft: 3455, occPct: 1, opexEscrow: 6000, retEscrow: 840 },
-  { unitRef: "4070-411", skylineUnit: "4070-411-CU", suite: "411", name: "Refresh Management, LLC", baseYear: 2022, grossUp: true, proRataPct: 5.66, sqft: 3308, occPct: 1, opexEscrow: 18000, retEscrow: 1200 },
-  { unitRef: "4070-415", skylineUnit: "4070-415-CU", suite: "415", name: "Veltri, Inc.", baseYear: 2022, grossUp: true, proRataPct: 11.63, sqft: 6795, occPct: 1, opexEscrow: 14400, retEscrow: 1200 },
+// Lease-level config (not on the rent roll): base year + gross-up come from
+// tenant metadata, pro-rata from CAMPRep, escrow from collections.
+export const LEASE_CONFIG_4070_2025: Record<string, OfficeLeaseConfig> = {
+  "4070-103": { baseYear: 2022, grossUp: true, proRataPct: 2.2,  opexEscrow: 2100,  retEscrow: 120 },
+  "4070-107": { baseYear: 2018, grossUp: true, proRataPct: 2.24, opexEscrow: 4200,  retEscrow: 0 },
+  "4070-113": { baseYear: 2024, grossUp: true, proRataPct: 3.03, opexEscrow: 4500,  retEscrow: 120 },
+  "4070-115": { baseYear: 2026, grossUp: true, proRataPct: 2.88, opexEscrow: 0,     retEscrow: 0 },
+  "4070-116": { baseYear: 2024, grossUp: true, proRataPct: 6.61, opexEscrow: 6000,  retEscrow: 0 },
+  "4070-117": { baseYear: 2019, grossUp: true, proRataPct: 6.75, opexEscrow: 5400,  retEscrow: 0 },
+  "4070-201": { baseYear: 2020, grossUp: true, proRataPct: 6.3,  opexEscrow: 5000,  retEscrow: 0 },
+  "4070-209": { baseYear: 2025, grossUp: true, proRataPct: 2.95, opexEscrow: 0,     retEscrow: 0 },
+  "4070-211": { baseYear: 2024, grossUp: true, proRataPct: 2.46, opexEscrow: 1200,  retEscrow: 240 },
+  "4070-215": { baseYear: 2021, grossUp: true, proRataPct: 3.43, opexEscrow: 5700,  retEscrow: 414 },
+  "4070-301": { baseYear: 2022, grossUp: true, proRataPct: 10.91, opexEscrow: 8000, retEscrow: 1200 },
+  "4070-400": { baseYear: 2023, grossUp: true, proRataPct: 5.91, opexEscrow: 6000,  retEscrow: 840 },
+  "4070-411": { baseYear: 2022, grossUp: true, proRataPct: 5.66, opexEscrow: 18000, retEscrow: 1200 },
+  "4070-415": { baseYear: 2022, grossUp: true, proRataPct: 11.63, opexEscrow: 14400, retEscrow: 1200 },
+};
+
+// Rent-roll roster (the slice the assembler needs): SF + lease dates the
+// December rent roll carries. Partial-year leases drive the occupancy %;
+// full-year tenants use sentinel dates. Stand-in for the live Dec snapshot.
+const FULL = { leaseFrom: "1/1/2000", leaseTo: "12/31/2030" };
+export const ROSTER_4070_2025: RosterUnit[] = [
+  { unitRef: "4070-103", occupantName: "Bucks County Transportation", sqft: 1285, isVacant: false, leaseFrom: "2/15/2011", leaseTo: "6/30/2025" },
+  { unitRef: "4070-107", occupantName: "O.S.S.V .Management, LLC",     sqft: 1311, isVacant: false, ...FULL },
+  { unitRef: "4070-113", occupantName: "McQuoid Financial Group, Inc.", sqft: 1771, isVacant: false, ...FULL },
+  { unitRef: "4070-115", occupantName: "GLT Transportation, LLC",      sqft: 1693, isVacant: false, leaseFrom: "12/1/2025", leaseTo: "11/30/2026" },
+  { unitRef: "4070-116", occupantName: "Rothkoff Law Group, P.C.",     sqft: 3861, isVacant: false, ...FULL },
+  { unitRef: "4070-117", occupantName: "Belden Brick Sales & Service", sqft: 3945, isVacant: false, leaseFrom: "3/4/2005", leaseTo: "7/31/2025" },
+  { unitRef: "4070-201", occupantName: "Robert Half International, Inc", sqft: 3680, isVacant: false, leaseFrom: "1/1/2010", leaseTo: "6/30/2025" },
+  { unitRef: "4070-209", occupantName: "Ryan R. Janis P.C.",           sqft: 1725, isVacant: false, ...FULL },
+  { unitRef: "4070-211", occupantName: "AIM - USA LLC",                sqft: 1438, isVacant: false, ...FULL },
+  { unitRef: "4070-215", occupantName: "Law Ofcs. of Michael P. Clarke", sqft: 2004, isVacant: false, ...FULL },
+  { unitRef: "4070-301", occupantName: "Veltri, Inc.",                 sqft: 6374, isVacant: false, ...FULL },
+  { unitRef: "4070-400", occupantName: "Mette, Evans & Woodside",      sqft: 3455, isVacant: false, ...FULL },
+  { unitRef: "4070-411", occupantName: "Refresh Management, LLC",      sqft: 3308, isVacant: false, ...FULL },
+  { unitRef: "4070-415", occupantName: "Veltri, Inc.",                 sqft: 6795, isVacant: false, ...FULL },
 ];
+
+// Tenant inputs for the 2025 reconciliation, assembled from the roster +
+// lease config — the same path the live December rent roll will take.
+export const TENANTS_4070_2025: OfficeTenantInput[] =
+  assembleTenantInputs(ROSTER_4070_2025, 2025, LEASE_CONFIG_4070_2025);
