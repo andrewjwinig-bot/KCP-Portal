@@ -18,6 +18,7 @@ const NAV_ROLE_KEY: Record<string, string> = {
   "Leasing Activity":   "leasing-activity",
   "Expense History":    "base-years",
   "Expense Trends":     "base-years",
+  "CAM Reconciliation": "base-years",
   "Commissions":        "commissions",
   "Retail Commissions": "commissions-retail",
   "Security Deposits":  "deposits",
@@ -286,6 +287,22 @@ const NAV = [
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <polyline points="3 17 9 11 13 15 21 7" />
         <polyline points="14 7 21 7 21 14" />
+      </svg>
+    ),
+  },
+  {
+    label: "CAM Reconciliation",
+    href: "/cam-recon",
+    external: false,
+    indent: false,
+    showFor: null as string | null,
+    groupId: "cam",
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3 3v18h18" />
+        <rect x="7" y="12" width="3" height="6" />
+        <rect x="12" y="8" width="3" height="10" />
+        <rect x="17" y="5" width="3" height="13" />
       </svg>
     ),
   },
