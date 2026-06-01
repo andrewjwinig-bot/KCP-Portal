@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Pill, StatPill, reconBalanceTone, TONE_BLUE, TONE_NEUTRAL } from "@/app/components/Pill";
 import { Calendar } from "@/app/components/Calendar";
 import {
@@ -22,31 +22,12 @@ function pct(n: number, dp = 2): string {
 }
 
 const SECTION_LABEL: React.CSSProperties = {
-  fontSize: 11,
-  fontWeight: 700,
-  textTransform: "uppercase",
-  letterSpacing: "0.06em",
-  color: "var(--muted)",
-};
-const selectStyle: React.CSSProperties = {
-  padding: "7px 10px",
-  borderRadius: 9,
-  border: "1px solid var(--border)",
-  background: "var(--card)",
-  color: "var(--text)",
-  fontSize: 14,
-  fontWeight: 700,
+  fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)",
 };
 const th: React.CSSProperties = {
-  textAlign: "right",
-  padding: "6px 10px",
-  fontSize: 11,
-  fontWeight: 700,
-  textTransform: "uppercase",
-  letterSpacing: "0.04em",
-  color: "var(--muted)",
-  borderBottom: "1px solid var(--border)",
-  whiteSpace: "nowrap",
+  textAlign: "right", padding: "6px 10px", fontSize: 11, fontWeight: 700,
+  textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--muted)",
+  borderBottom: "1px solid var(--border)", whiteSpace: "nowrap",
 };
 const td: React.CSSProperties = { textAlign: "right", padding: "6px 10px", fontSize: 13, whiteSpace: "nowrap" };
 
@@ -62,6 +43,42 @@ function downloadCSV(filename: string, csv: string) {
   URL.revokeObjectURL(url);
 }
 
+// Big-label dropdown matching the Budgets header (label + chevron with an
+// invisible native <select> overlaid).
+function HeaderSelect({
+  value, onChange, displayLabel, ariaLabel, muted = false, children,
+}: {
+  value: string; onChange: (next: string) => void; displayLabel: string;
+  ariaLabel: string; muted?: boolean; children: React.ReactNode;
+}) {
+  return (
+    <span style={{ position: "relative", display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 6px", borderRadius: 8, cursor: "pointer", maxWidth: "100%", minWidth: 0 }}>
+      <span style={{ fontSize: 22, fontWeight: 800, color: muted ? "var(--muted)" : "var(--text)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>
+        {displayLabel}
+      </span>
+      <span aria-hidden style={{ fontSize: 11, lineHeight: 1, color: muted ? "var(--muted)" : "var(--text)", opacity: 0.6, flexShrink: 0 }}>▾</span>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        aria-label={ariaLabel}
+        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 0, cursor: "pointer", border: 0, padding: 0, margin: 0, appearance: "auto", background: "transparent" }}
+      >
+        {children}
+      </select>
+    </span>
+  );
+}
+
+function KormanWordmark() {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
+      <span style={{ fontFamily: "'Arial Black', 'Arial Bold', Arial, sans-serif", fontWeight: 900, fontSize: 30, letterSpacing: "-0.5px", lineHeight: 1 }}>KORMAN</span>
+      <div style={{ width: 1, height: 36, background: "#000", flexShrink: 0 }} />
+      <div style={{ fontSize: 11, letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}><div>COMMERCIAL</div><div>PROPERTIES</div></div>
+    </div>
+  );
+}
+
 export default function OfficeCamReconPage() {
   const [available, setAvailable] = useState<Available[]>([]);
   const [property, setProperty] = useState<string>("");
@@ -70,12 +87,9 @@ export default function OfficeCamReconPage() {
   const [result, setResult] = useState<BuildingReconResult | null>(null);
   const [estimates, setEstimates] = useState<NextYearEstimate[]>([]);
   const [loading, setLoading] = useState(false);
-
-  // Effective dates for the two Skyline uploads.
   const [yeDate, setYeDate] = useState("");
   const [estDate, setEstDate] = useState("");
 
-  // Load the list of available building/year reconciliations.
   useEffect(() => {
     fetch("/api/cam-recon/office")
       .then((r) => (r.ok ? r.json() : null))
@@ -90,7 +104,6 @@ export default function OfficeCamReconPage() {
       .catch(() => {});
   }, []);
 
-  // Load a specific reconciliation.
   useEffect(() => {
     if (!property || !year) return;
     setLoading(true);
@@ -109,96 +122,90 @@ export default function OfficeCamReconPage() {
   const years = available.find((a) => a.propertyCode === property)?.years ?? [];
   const tenants = result?.tenants ?? [];
   const selected = unit === "ALL" ? null : tenants.find((t) => t.unitRef === unit) ?? null;
-
   const totals = result?.totals;
+  const propName = available.find((a) => a.propertyCode === property)?.name ?? "";
+
+  // Headline pills follow the selection: a tenant's balances when one is
+  // picked, otherwise the building totals. Office has no separate insurance
+  // recovery (insurance is a CAM line), so INS shows $0.
+  const camDue = selected ? selected.opexBalance : totals?.opexBalance ?? 0;
+  const retDue = selected ? selected.retBalance : totals?.retBalance ?? 0;
+  const insDue = 0;
+  const totalDue = camDue + insDue + retDue;
 
   function exportYearEnd() {
     if (!result) return;
-    const rows = yearEndAdjustmentRows(result, yeDate);
-    downloadCSV(`${property}_${year}_YearEndAdjustments.csv`, chargeRowsToCSV(rows));
+    downloadCSV(`${property}_${year}_YearEndAdjustments.csv`, chargeRowsToCSV(yearEndAdjustmentRows(result, yeDate)));
   }
   function exportEstimate() {
     if (!result) return;
-    const rows = estimateChargeRows(result, estDate);
-    downloadCSV(`${property}_${year + 1}_CAM_RET_Estimate.csv`, chargeRowsToCSV(rows));
+    downloadCSV(`${property}_${year + 1}_CAM_RET_Estimate.csv`, chargeRowsToCSV(estimateChargeRows(result, estDate)));
   }
 
   return (
-    <div style={{ padding: "24px 28px", maxWidth: 1180, margin: "0 auto" }}>
-      <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
-        <h1 style={{ fontSize: 22, fontWeight: 800, margin: 0 }}>Office CAM / RET Reconciliation</h1>
-        <span className="small muted">Base-year expense recovery — year-end true-up</span>
-      </div>
+    <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
+      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+        <h1>CAM / RET Reconciliation</h1>
+        <KormanWordmark />
+      </header>
 
-      {/* Controls */}
-      <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "flex-end", marginTop: 18 }}>
-        <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          <span style={SECTION_LABEL}>Building</span>
-          <select style={selectStyle} value={property} onChange={(e) => setProperty(e.target.value)}>
-            {available.map((a) => (
-              <option key={a.propertyCode} value={a.propertyCode}>
-                {a.propertyCode} — {a.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          <span style={SECTION_LABEL}>Recon Year</span>
-          <select style={selectStyle} value={year} onChange={(e) => setYear(Number(e.target.value))}>
-            {years.map((y) => (
-              <option key={y} value={y}>{y}</option>
-            ))}
-          </select>
-        </label>
-        <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          <span style={SECTION_LABEL}>Tenant</span>
-          <select style={{ ...selectStyle, minWidth: 260 }} value={unit} onChange={(e) => setUnit(e.target.value)}>
-            <option value="ALL">All Tenants — Building Summary</option>
-            {tenants.map((t) => (
-              <option key={t.unitRef} value={t.unitRef}>
-                {t.suite} — {t.name}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
-
-      {loading && <p className="muted" style={{ marginTop: 24 }}>Loading…</p>}
-
-      {/* KPIs */}
-      {totals && (
-        <div className="pills" style={{ marginTop: 20 }}>
-          <StatPill label="Op Ex true-up" value={money(totals.opexBalance)} sub={`${money(totals.opexAmountDue)} due · ${money(-totals.opexEscrow)} escrow`} />
-          <StatPill label="RET true-up" value={money(totals.retBalance)} sub={`${money(totals.retAmountDue)} due · ${money(-totals.retEscrow)} escrow`} />
-          <StatPill label="Combined net" value={money(totals.opexBalance + totals.retBalance)} accent={(totals.opexBalance + totals.retBalance) < 0 ? "#15803d" : "#b45309"} />
-          <StatPill label="Tenants reconciled" value={tenants.length} />
+      <div className="card">
+        {/* Year · Property · Tenant selectors styled as the section title */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", minWidth: 0 }}>
+            <HeaderSelect value={String(year)} onChange={(v) => setYear(Number(v))} displayLabel={String(year || "—")} ariaLabel="Year" muted>
+              {years.map((y) => <option key={y} value={y}>{y}</option>)}
+            </HeaderSelect>
+            <HeaderSelect value={property} onChange={setProperty} displayLabel={property ? `${property} — ${propName}` : "—"} ariaLabel="Property">
+              {available.map((a) => <option key={a.propertyCode} value={a.propertyCode}>{a.propertyCode} — {a.name}</option>)}
+            </HeaderSelect>
+            <HeaderSelect value={unit} onChange={setUnit} displayLabel={selected ? `${selected.suite} — ${selected.name}` : "All Tenants"} ariaLabel="Tenant" muted>
+              <option value="ALL">All Tenants</option>
+              {tenants.map((t) => <option key={t.unitRef} value={t.unitRef}>{t.suite} — {t.name}</option>)}
+            </HeaderSelect>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <button onClick={exportYearEnd} disabled={!result} className="btn primary" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}>Year-End Adjustments</button>
+            <button onClick={exportEstimate} disabled={!result} className="btn" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}>{year + 1} Estimate</button>
+          </div>
         </div>
-      )}
 
-      {/* Building summary */}
-      {!selected && result && (
-        <BuildingSummary result={result} onPick={setUnit} />
-      )}
+        <div style={{ marginTop: 6, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+          <div className="muted small">
+            {selected
+              ? `Suite ${selected.suite} · Base year ${selected.baseYear} · ${pct(selected.proRataPct / 100)} share${selected.occPct < 0.9999 ? ` · ${pct(selected.occPct, 1)} occ` : ""}`
+              : `${tenants.length} tenants reconciled · base-year expense recovery, year-end true-up`}
+          </div>
+        </div>
 
-      {/* Per-tenant statement */}
+        <div className="pills">
+          <StatPill label="CAM Due" value={money(camDue)} accent={reconBalanceTone(camDue).fg} />
+          <StatPill label="INS Due" value={money(insDue)} />
+          <StatPill label="RET Due" value={money(retDue)} accent={reconBalanceTone(retDue).fg} />
+          <StatPill label="Total Due" value={money(totalDue)} accent={reconBalanceTone(totalDue).fg} />
+        </div>
+      </div>
+
+      {loading && <div className="card"><div className="muted small">Loading…</div></div>}
+
+      {!selected && result && <BuildingSummary result={result} onPick={setUnit} />}
       {selected && <TenantStatement t={selected} reconYear={year} estimate={estimates.find((e) => e.unitRef === selected.unitRef)} />}
 
-      {/* Exports */}
       {result && (
-        <div style={{ marginTop: 32, padding: 18, border: "1px solid var(--border)", borderRadius: 12, background: "var(--card)" }}>
+        <div className="card">
           <div style={SECTION_LABEL}>Skyline Exports</div>
           <div style={{ display: "flex", gap: 28, flexWrap: "wrap", marginTop: 14 }}>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               <span className="small" style={{ fontWeight: 700 }}>Year End Adjustments (YEC / YER)</span>
               <span className="small muted">One-time true-up posted on:</span>
               <Calendar value={yeDate} variant="card" onChange={setYeDate} />
-              <button onClick={exportYearEnd} style={primaryBtn}>Download Year End Adjustments CSV</button>
+              <button onClick={exportYearEnd} className="btn primary" style={{ fontSize: 13, padding: "9px 14px", fontWeight: 700 }}>Download Year End Adjustments CSV</button>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               <span className="small" style={{ fontWeight: 700 }}>{year + 1} CAM / RET Estimate</span>
               <span className="small muted">Recurring monthly charge effective:</span>
               <Calendar value={estDate} variant="card" onChange={setEstDate} />
-              <button onClick={exportEstimate} style={primaryBtn}>Download Next-Year Estimate CSV</button>
+              <button onClick={exportEstimate} className="btn primary" style={{ fontSize: 13, padding: "9px 14px", fontWeight: 700 }}>Download Next-Year Estimate CSV</button>
             </div>
           </div>
           <p className="small muted" style={{ marginTop: 14, marginBottom: 0 }}>
@@ -206,29 +213,16 @@ export default function OfficeCamReconPage() {
           </p>
         </div>
       )}
-    </div>
+    </main>
   );
 }
-
-const primaryBtn: React.CSSProperties = {
-  marginTop: 4,
-  padding: "9px 14px",
-  borderRadius: 9,
-  border: "none",
-  background: "#1e4976",
-  color: "#fff",
-  fontSize: 13,
-  fontWeight: 700,
-  cursor: "pointer",
-  whiteSpace: "nowrap",
-};
 
 // ── Building summary table ───────────────────────────────────────────────────
 
 function BuildingSummary({ result, onPick }: { result: BuildingReconResult; onPick: (u: string) => void }) {
   const { tenants, totals } = result;
   return (
-    <div style={{ marginTop: 24, overflowX: "auto" }}>
+    <div className="card" style={{ overflowX: "auto" }}>
       <div style={SECTION_LABEL}>Building Summary — {result.propertyCode} · {result.reconYear}</div>
       <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 10, minWidth: 920 }}>
         <thead>
@@ -283,10 +277,7 @@ function BuildingSummary({ result, onPick }: { result: BuildingReconResult; onPi
 // ── Per-tenant statement ─────────────────────────────────────────────────────
 
 function ScheduleTable({ title, lines, baseYear, reconYear }: {
-  title: string;
-  lines: TenantReconResult["opexLines"];
-  baseYear: number;
-  reconYear: number;
+  title: string; lines: TenantReconResult["opexLines"]; baseYear: number; reconYear: number;
 }) {
   return (
     <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 520 }}>
@@ -323,7 +314,7 @@ function BalanceRow({ label, value, strong }: { label: string; value: string; st
 
 function TenantStatement({ t, reconYear, estimate }: { t: TenantReconResult; reconYear: number; estimate?: NextYearEstimate }) {
   return (
-    <div style={{ marginTop: 24 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
         <h2 style={{ fontSize: 18, fontWeight: 800, margin: 0 }}>{t.name}</h2>
         <Pill tone={TONE_BLUE}>Suite {t.suite}</Pill>
@@ -333,8 +324,7 @@ function TenantStatement({ t, reconYear, estimate }: { t: TenantReconResult; rec
         {t.occPct < 0.9999 && <Pill tone={TONE_NEUTRAL}>{pct(t.occPct, 1)} occ</Pill>}
       </div>
 
-      {/* Operating expenses */}
-      <div style={{ marginTop: 18, padding: 16, border: "1px solid var(--border)", borderRadius: 12, background: "var(--card)", overflowX: "auto" }}>
+      <div className="card" style={{ overflowX: "auto" }}>
         <ScheduleTable title="Schedule of Operating Expenses" lines={t.opexLines} baseYear={t.baseYear} reconYear={reconYear} />
         <div style={{ borderTop: "2px solid var(--border)", marginTop: 8, paddingTop: 8, maxWidth: 420, marginLeft: "auto" }}>
           <BalanceRow label="Net Increase Over Base Year" value={money(t.opexNetIncrease)} />
@@ -346,8 +336,7 @@ function TenantStatement({ t, reconYear, estimate }: { t: TenantReconResult; rec
         </div>
       </div>
 
-      {/* Real estate taxes */}
-      <div style={{ marginTop: 16, padding: 16, border: "1px solid var(--border)", borderRadius: 12, background: "var(--card)", overflowX: "auto" }}>
+      <div className="card" style={{ overflowX: "auto" }}>
         <ScheduleTable title="Real Estate Taxes" lines={[t.retLine]} baseYear={t.baseYear} reconYear={reconYear} />
         <div style={{ borderTop: "2px solid var(--border)", marginTop: 8, paddingTop: 8, maxWidth: 420, marginLeft: "auto" }}>
           <BalanceRow label="Net Increase Over Base Year" value={money(t.retLine.netIncrease)} />
@@ -359,8 +348,7 @@ function TenantStatement({ t, reconYear, estimate }: { t: TenantReconResult; rec
         </div>
       </div>
 
-      {/* Net + next-year estimate */}
-      <div style={{ marginTop: 16, display: "flex", gap: 14, flexWrap: "wrap", alignItems: "center" }}>
+      <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "center" }}>
         <Pill tone={reconBalanceTone(t.opexBalance + t.retBalance)}>
           Net true-up: {money(t.opexBalance + t.retBalance)} {(t.opexBalance + t.retBalance) < 0 ? "(credit to tenant)" : "(owed by tenant)"}
         </Pill>
