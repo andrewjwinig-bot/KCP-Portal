@@ -1245,6 +1245,10 @@ export default function RentRollPage() {
   const [loading, setLoading]   = useState(true);
   const [snapshotList, setSnapshotList] = useState<import("../../lib/rentroll/snapshot").RentRollSnapshotSummary[]>([]);
   const [reportMonth, setReportMonth] = useState<string>(""); // "" = current; otherwise YYYY-MM
+  // Full rent roll for the selected historical month. Null when viewing
+  // "Current" (then the page renders rawRentroll instead).
+  const [monthRentroll, setMonthRentroll] = useState<RentRollData | null>(null);
+  const [monthLoading, setMonthLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadNote, setUploadNote] = useState<string | null>(null);
@@ -1343,6 +1347,24 @@ export default function RentRollPage() {
     }
   }
 
+  // Load the selected month's full snapshot so the pills, graphs and table
+  // all follow the dropdown. "" → Current, handled by rawRentroll below.
+  useEffect(() => {
+    if (!reportMonth) {
+      setMonthRentroll(null);
+      setMonthLoading(false);
+      return;
+    }
+    let alive = true;
+    setMonthLoading(true);
+    fetch(`/api/rentroll/history/${reportMonth}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => { if (alive) setMonthRentroll(j?.rentroll ?? null); })
+      .catch(() => { if (alive) setMonthRentroll(null); })
+      .finally(() => { if (alive) setMonthLoading(false); });
+    return () => { alive = false; };
+  }, [reportMonth]);
+
   // Load existing rent roll on mount
   useEffect(() => {
     fetch("/api/rentroll")
@@ -1394,7 +1416,9 @@ export default function RentRollPage() {
   }
 
   // No persona property scope — everyone sees all properties; default category filter is applied per persona instead.
-  const rentroll: RentRollData | null = rawRentroll;
+  // When a historical month is selected, the whole page renders that
+  // snapshot; otherwise it renders the current roll.
+  const rentroll: RentRollData | null = reportMonth ? monthRentroll : rawRentroll;
 
   // Filter excluded units from all properties
   const filteredRentroll = rentroll
@@ -1484,7 +1508,7 @@ export default function RentRollPage() {
                   <select
                     value={reportMonth}
                     onChange={(e) => setReportMonth(e.target.value)}
-                    title="Status report period"
+                    title="View period — switches the rent roll, pills and graphs to this month"
                     style={{
                       borderRadius: 999, padding: "8px 12px",
                       fontSize: 13, fontWeight: 600,
@@ -1531,7 +1555,7 @@ export default function RentRollPage() {
         )}
         {uploadError && <div style={{ color: "#b42318", fontSize: 13, marginTop: 6 }}>{uploadError}</div>}
         {uploadNote && <div style={{ color: "#0b4a7d", fontSize: 13, marginTop: 6 }}>{uploadNote}</div>}
-        {loading && <div style={{ color: "var(--muted)", fontSize: 13, marginTop: 10 }}>Loading…</div>}
+        {(loading || monthLoading) && <div style={{ color: "var(--muted)", fontSize: 13, marginTop: 10 }}>Loading…</div>}
         {filteredRentroll && (
           <>
             {/* Category filter pills */}
