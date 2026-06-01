@@ -1,9 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { reconcileBuilding } from "@/lib/cam/office/compute";
 import { nextYearEstimate } from "@/lib/cam/office/exports";
-import { assembleTenantInputs, type OfficeLeaseConfig } from "@/lib/cam/office/assemble";
+import { assembleTenantInputs, type OfficeLeaseConfig, type ResetInfo } from "@/lib/cam/office/assemble";
 import { OFFICE_RECON_FIXTURES, availableOfficeRecons } from "@/lib/cam/office/registry";
 import { getOverrides, mergeConfig, saveOverride } from "@/lib/cam/office/configStore";
+import { getJSON } from "@/lib/storage";
+
+/** Stored base-year resets keyed by unit ref. */
+async function loadResets(): Promise<Record<string, ResetInfo>> {
+  const s = (await getJSON("base-year-resets", "all")) as
+    | { resets?: Record<string, { resetDate: string; originalBaseYear: number | null; newBaseYear: number }> }
+    | null;
+  return s?.resets ?? {};
+}
 
 export const runtime = "nodejs";
 
@@ -31,7 +40,8 @@ export async function GET(req: NextRequest) {
 
   const overrides = await getOverrides(property, year);
   const config = mergeConfig(reconYear.leaseConfig, overrides);
-  const tenants = assembleTenantInputs(reconYear.roster, year, config);
+  const resets = await loadResets();
+  const tenants = assembleTenantInputs(reconYear.roster, year, config, resets);
 
   const result = reconcileBuilding(fixture.pool, tenants, year);
   const estimates = result.tenants.map(nextYearEstimate);
