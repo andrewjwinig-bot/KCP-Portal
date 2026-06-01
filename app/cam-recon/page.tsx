@@ -77,6 +77,8 @@ function HeaderSelect({
 // Draw one tenant statement onto the current page of a jsPDF doc.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function drawTenantStatement(doc: any, t: TenantReconResult, year: number, propLabel: string, contact?: { email: string; cc: string }) {
+  // Whole-dollar formatting throughout the PDF for a cleaner statement.
+  const money = money0;
   const PAGE_W = 612;
   const L = 48, R = 564, W = R - L;
   const cols = [372, 468, R]; // right edges: B/Y, Actual, Net Increase
@@ -117,7 +119,7 @@ function drawTenantStatement(doc: any, t: TenantReconResult, year: number, propL
   y += 16; ink(MUTED); doc.setFont("helvetica", "normal"); doc.setFontSize(10);
   at(`${propLabel}   ·   Suite ${t.suite}`, L);
   y += 14;
-  at(`Base Year ${t.baseYear}   ·   ${t.grossUp ? "Grossed up to 95%" : "Not grossed up"}   ·   ${pct(t.proRataPct / 100)} share   ·   ${pct(t.occPct, 1)} occupancy`, L);
+  at(`Base Year ${t.baseYear}   ·   ${t.grossUp ? "Grossed Up to 95%" : "Not Grossed Up"}   ·   ${pct(t.proRataPct / 100)} Share   ·   ${pct(t.occPct, 1)} Occupancy`, L);
   y += 28;
 
   const sectionBar = (title: string, withCols: boolean) => {
