@@ -69,6 +69,84 @@ function HeaderSelect({
   );
 }
 
+// Client-side PDF of a single tenant's reconciliation statement.
+async function downloadTenantPdf(t: TenantReconResult, year: number, propLabel: string) {
+  const { jsPDF } = await import("jspdf");
+  const doc = new jsPDF({ unit: "pt", format: "letter" });
+  const L = 48, R = 564;
+  const cols = [372, 468, R]; // right edges: B/Y, Actual, Net Increase
+  let y = 56;
+  const at = (s: string, x: number, opts?: { align?: "right" | "center" | "left" }) => doc.text(s, x, y, opts);
+  const nl = (h = 16) => { y += h; if (y > 740) { doc.addPage(); y = 56; } };
+
+  doc.setFont("helvetica", "bold"); doc.setFontSize(16);
+  at(`${year} CAM / RET Reconciliation`, L);
+  doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.setTextColor(110);
+  nl(14); at(propLabel, L); doc.setTextColor(0); nl(24);
+
+  doc.setFont("helvetica", "bold"); doc.setFontSize(13);
+  at(`${t.name} · Suite ${t.suite}`, L);
+  doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.setTextColor(110);
+  nl(14);
+  at(`Base Year ${t.baseYear} · ${t.grossUp ? "Grossed up to 95%" : "Not grossed up"} · ${pct(t.proRataPct / 100)} share · ${pct(t.occPct, 1)} occupancy`, L);
+  doc.setTextColor(0); nl(24);
+
+  const headerRow = (title: string) => {
+    doc.setFont("helvetica", "bold"); doc.setFontSize(9);
+    at(title.toUpperCase(), L);
+    at(`B/Y (${t.baseYear})`, cols[0], { align: "right" });
+    at(`Actual (${year})`, cols[1], { align: "right" });
+    at("Net Increase", cols[2], { align: "right" });
+    nl(6); doc.setDrawColor(200); doc.line(L, y, R, y); nl(14);
+    doc.setFont("helvetica", "normal"); doc.setFontSize(10);
+  };
+  const lineRow = (label: string, b: number, a: number, n: number, bold = false) => {
+    doc.setFont("helvetica", bold ? "bold" : "normal");
+    at(label, L); at(money(b), cols[0], { align: "right" }); at(money(a), cols[1], { align: "right" }); at(money(n), cols[2], { align: "right" });
+    nl(15);
+  };
+  const sumRow = (label: string, value: string, bold = false) => {
+    doc.setFont("helvetica", bold ? "bold" : "normal"); doc.setFontSize(bold ? 11 : 10);
+    at(label, L); at(value, R, { align: "right" }); nl(15); doc.setFontSize(10);
+  };
+
+  headerRow("Schedule of Operating Expenses");
+  for (const l of t.opexLines) lineRow(l.label, l.baseCost, l.actual, l.netIncrease);
+  doc.setDrawColor(120); doc.line(L, y - 4, R, y - 4);
+  lineRow("Total Operating Expenses", t.opexBaseTotal, t.opexActualTotal, t.opexNetIncrease, true);
+  nl(6);
+  sumRow("Net Increase Over Base Year", money(t.opexNetIncrease));
+  sumRow("× Tenant Proportionate Share", pct(t.proRataPct / 100));
+  sumRow(`× Occupancy % For The Year${t.baseYearResetISO ? " *" : ""}`, pct(t.occPct, 1));
+  sumRow("Amount Due", money(t.opexAmountDue), true);
+  sumRow("Less: Escrow Payments for the Year", money(-t.opexEscrow));
+  sumRow("Balance, Op Ex Costs Due", money(t.opexBalance), true);
+  nl(16);
+
+  headerRow("Real Estate Taxes");
+  lineRow(t.retLine.label, t.retLine.baseCost, t.retLine.actual, t.retLine.netIncrease);
+  nl(6);
+  sumRow("× Tenant Proportionate Share", pct(t.proRataPct / 100));
+  sumRow(`× Occupancy % For The Year${t.baseYearResetISO ? " *" : ""}`, pct(t.occPct, 1));
+  sumRow("Amount Due", money(t.retAmountDue), true);
+  sumRow("Less: Escrow Payments for the Year", money(-t.retEscrow));
+  sumRow("Balance, Real Estate Taxes Due", money(t.retBalance), true);
+  nl(18);
+
+  const net = t.opexBalance + t.retBalance;
+  doc.setFont("helvetica", "bold"); doc.setFontSize(12);
+  at(`Net ${net < 0 ? "Credit to Tenant" : "Balance Due from Tenant"}: ${money(Math.abs(net))}`, L);
+  nl(20);
+  if (t.baseYearResetISO) {
+    doc.setFont("helvetica", "italic"); doc.setFontSize(9); doc.setTextColor(110);
+    at(`* Tenant's base year was reset on ${new Date(t.baseYearResetISO + "T00:00:00").toLocaleDateString("en-US")}; recovery is prorated through the reset date.`, L);
+    doc.setTextColor(0);
+  }
+
+  const propCode = propLabel.split(" ")[0];
+  doc.save(`${propCode}_${year}_Suite${t.suite}_${t.name.replace(/[^\w]+/g, "_")}_CAM_RET.pdf`);
+}
+
 function KormanWordmark() {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
@@ -154,13 +232,27 @@ export default function OfficeCamReconPage() {
   // collected from the tenant. (Zero → no direction shown.)
   const direction = (v: number) => (v < -0.005 ? "to tenants" : v > 0.005 ? "from tenants" : "");
 
-  function exportYearEnd() {
-    if (!result) return;
-    downloadCSV(`${property}_${year}_YearEndAdjustments.csv`, chargeRowsToCSV(yearEndAdjustmentRows(result, yeDate)));
-  }
   function exportEstimate() {
     if (!result) return;
     downloadCSV(`${property}_${year + 1}_CAM_RET_Estimate.csv`, chargeRowsToCSV(estimateChargeRows(result, estDate)));
+  }
+  // One compiled year-end adjustment schedule across every office property
+  // for the selected year — a single one-time Skyline import.
+  const [compiling, setCompiling] = useState(false);
+  async function downloadAllYearEnd() {
+    setCompiling(true);
+    try {
+      const rows: ReturnType<typeof yearEndAdjustmentRows> = [];
+      for (const a of available) {
+        if (!a.years.includes(year)) continue;
+        const j = await fetch(`/api/cam-recon/office?property=${a.propertyCode}&year=${year}`)
+          .then((r) => (r.ok ? r.json() : null)).catch(() => null);
+        if (j?.result) rows.push(...yearEndAdjustmentRows(j.result, yeDate));
+      }
+      downloadCSV(`AllOfficeProperties_${year}_YearEndAdjustments.csv`, chargeRowsToCSV(rows));
+    } finally {
+      setCompiling(false);
+    }
   }
 
   return (
@@ -186,7 +278,9 @@ export default function OfficeCamReconPage() {
             </HeaderSelect>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-            <button onClick={exportYearEnd} disabled={!result} className="btn primary" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}>Year-End Adjustments</button>
+            {selected && (
+              <button onClick={() => downloadTenantPdf(selected, year, `${property} — ${propName}`)} className="btn primary" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}>Download PDF</button>
+            )}
             <button onClick={exportEstimate} disabled={!result} className="btn" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}>{year + 1} Estimate</button>
           </div>
         </div>
@@ -218,25 +312,26 @@ export default function OfficeCamReconPage() {
       {!selected && result && <BuildingSummary result={result} onPick={setUnit} onEditEscrow={saveField} />}
       {selected && <TenantStatement t={selected} reconYear={year} estimate={estimates.find((e) => e.unitRef === selected.unitRef)} />}
 
+      {/* Year-End Adjustments — one compiled schedule across every office
+          property, hit once at year end. Lives at the bottom for that
+          reason. */}
       {result && (
         <div className="card">
-          <div style={SECTION_LABEL}>Skyline Exports</div>
-          <div style={{ display: "flex", gap: 28, flexWrap: "wrap", marginTop: 14 }}>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <span className="small" style={{ fontWeight: 700 }}>Year End Adjustments (YEC / YER)</span>
+          <div style={SECTION_LABEL}>Year-End Adjustments — All Office Properties</div>
+          <p className="small muted" style={{ marginTop: 6 }}>
+            One compiled YEC / YER schedule across every office property for {year} — a single one-time Skyline import.
+          </p>
+          <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "flex-end", marginTop: 12 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               <span className="small muted">One-time true-up posted on:</span>
               <Calendar value={yeDate} variant="card" onChange={setYeDate} />
-              <button onClick={exportYearEnd} className="btn primary" style={{ fontSize: 13, padding: "9px 14px", fontWeight: 700 }}>Download Year End Adjustments CSV</button>
             </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <span className="small" style={{ fontWeight: 700 }}>{year + 1} CAM / RET Estimate</span>
-              <span className="small muted">Recurring monthly charge effective:</span>
-              <Calendar value={estDate} variant="card" onChange={setEstDate} />
-              <button onClick={exportEstimate} className="btn primary" style={{ fontSize: 13, padding: "9px 14px", fontWeight: 700 }}>Download Next-Year Estimate CSV</button>
-            </div>
+            <button onClick={downloadAllYearEnd} disabled={compiling} className="btn primary" style={{ fontSize: 13, padding: "9px 14px", fontWeight: 700 }}>
+              {compiling ? "Compiling…" : "Download All Year-End Adjustments CSV"}
+            </button>
           </div>
           <p className="small muted" style={{ marginTop: 14, marginBottom: 0 }}>
-            CSVs are values-only (no header) and omit $0 rows — paste directly into Skyline Data Import → Unit Charges.
+            Values-only (no header), $0 rows omitted — paste into Skyline Data Import → Unit Charges.
           </p>
         </div>
       )}
