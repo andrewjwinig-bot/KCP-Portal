@@ -457,18 +457,28 @@ const groupTh: React.CSSProperties = {
 // Inline-editable dollar cell. Shows the amount; click to edit. Commits on
 // blur / Enter when changed. Stops row-click propagation so editing doesn't
 // open the tenant statement.
-function EditableMoney({ value, onCommit }: { value: number; onCommit: (n: number) => void }) {
-  const [text, setText] = useState(value.toFixed(2));
-  useEffect(() => { setText(value.toFixed(2)); }, [value]);
+// Tint marking a cell as editable, and the green "matches" tint.
+const EDIT_BG = "rgba(11,74,125,0.06)";
+const MATCH_BG = "rgba(22,163,74,0.16)";
+
+function EditableMoney({ value, onCommit, whole = false, bg = EDIT_BG }: {
+  value: number; onCommit: (n: number) => void; whole?: boolean; bg?: string;
+}) {
+  const fmt = (n: number) => whole
+    ? Math.round(n).toLocaleString("en-US")
+    : (Math.round(n * 100) / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const [editing, setEditing] = useState(false);
+  const [text, setText] = useState(fmt(value));
+  useEffect(() => { if (!editing) setText(fmt(value)); }, [value, editing, whole]);
   function commit(e: React.FocusEvent<HTMLInputElement> | React.KeyboardEvent<HTMLInputElement>) {
+    setEditing(false);
     (e.currentTarget as HTMLInputElement).style.borderColor = "transparent";
-    (e.currentTarget as HTMLInputElement).style.background = "transparent";
+    (e.currentTarget as HTMLInputElement).style.background = bg;
     const n = Number(text.replace(/[^0-9.\-]/g, ""));
-    if (Number.isFinite(n) && Math.round(n * 100) !== Math.round(value * 100)) {
-      onCommit(Math.round(n * 100) / 100);
-    } else {
-      setText(value.toFixed(2));
-    }
+    const cur = whole ? Math.round(value) : Math.round(value * 100) / 100;
+    const next = whole ? Math.round(n) : Math.round(n * 100) / 100;
+    if (Number.isFinite(n) && next !== cur) onCommit(next);
+    else setText(fmt(value));
   }
   return (
     <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "flex-end", gap: 1 }}>
@@ -477,11 +487,11 @@ function EditableMoney({ value, onCommit }: { value: number; onCommit: (n: numbe
         value={text}
         onChange={(e) => setText(e.target.value)}
         onClick={(e) => e.stopPropagation()}
-        onFocus={(e) => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.background = "var(--card)"; e.currentTarget.select(); }}
+        onFocus={(e) => { setEditing(true); setText(whole ? String(Math.round(value)) : String(Math.round(value * 100) / 100)); e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.background = "var(--card)"; e.currentTarget.select(); }}
         onBlur={commit}
-        onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); if (e.key === "Escape") { setText(value.toFixed(2)); e.currentTarget.blur(); } }}
-        title="Click to adjust escrow (amount actually collected)"
-        style={{ width: 84, textAlign: "right", border: "1px solid transparent", borderRadius: 6, padding: "2px 4px", background: "transparent", color: "inherit", font: "inherit", cursor: "pointer" }}
+        onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); if (e.key === "Escape") { setEditing(false); setText(fmt(value)); e.currentTarget.blur(); } }}
+        title="Editable"
+        style={{ width: 92, textAlign: "right", border: "1px solid transparent", borderRadius: 6, padding: "2px 5px", background: bg, color: "inherit", font: "inherit", cursor: "text" }}
       />
     </span>
   );
@@ -579,6 +589,14 @@ function FinalExpenseSummary({ rows, onEdit }: {
       <p className="small muted" style={{ marginTop: 4 }}>
         TB Detail is the general ledger. Import Excel Avid, review the variance, then set FINAL — FINAL drives every tenant&rsquo;s CAM/RET calc and is recorded as the year&rsquo;s expense history.
       </p>
+      <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap", marginTop: 6 }}>
+        <span className="small" style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+          <span style={{ width: 12, height: 12, borderRadius: 3, background: EDIT_BG, border: "1px solid var(--border)", display: "inline-block" }} /> editable (Excel Avid · FINAL · Description)
+        </span>
+        <span className="small" style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+          <span style={{ width: 12, height: 12, borderRadius: 3, background: MATCH_BG, display: "inline-block" }} /> FINAL matches TB Detail or Excel Avid
+        </span>
+      </div>
       <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 10, minWidth: 860 }}>
         <thead>
           <tr>
@@ -592,22 +610,25 @@ function FinalExpenseSummary({ rows, onEdit }: {
           </tr>
         </thead>
         <tbody>
-          {rows.map((r) => (
-            <tr key={r.account} style={{ borderBottom: "1px solid var(--border)", ...(isSep(r.account) ? { borderTop: "2px solid var(--border)" } : {}) }}>
-              <td style={{ ...td, textAlign: "left", color: "var(--muted)", fontSize: 12 }}>{r.account}</td>
-              <td style={{ ...td, textAlign: "left" }}>{r.label}</td>
-              <td style={td}>{money(r.tbDetail)}</td>
-              <td style={td}><EditableMoney value={r.excelAvid} onCommit={(v) => onEdit(r.account, "excelAvid", v)} /></td>
-              <td style={{ ...td, color: Math.abs(r.variance) < 0.005 ? "var(--muted)" : r.variance < 0 ? "#b91c1c" : "#15803d" }}>{money(r.variance)}</td>
-              <td style={{ ...td, fontWeight: 700 }}><EditableMoney value={r.final} onCommit={(v) => onEdit(r.account, "final", v)} /></td>
-              <td style={{ ...td, textAlign: "left" }}><EditableText value={r.description} placeholder="—" onCommit={(v) => onEdit(r.account, "description", v)} /></td>
-            </tr>
-          ))}
+          {rows.map((r) => {
+            const matches = Math.round(r.final) === Math.round(r.tbDetail) || Math.round(r.final) === Math.round(r.excelAvid);
+            return (
+              <tr key={r.account} style={{ borderBottom: "1px solid var(--border)", ...(isSep(r.account) ? { borderTop: "2px solid var(--border)" } : {}) }}>
+                <td style={{ ...td, textAlign: "left", color: "var(--muted)", fontSize: 12 }}>{r.account}</td>
+                <td style={{ ...td, textAlign: "left" }}>{r.label}</td>
+                <td style={td}>{money0(r.tbDetail)}</td>
+                <td style={td}><EditableMoney value={r.excelAvid} whole onCommit={(v) => onEdit(r.account, "excelAvid", v)} /></td>
+                <td style={{ ...td, color: Math.abs(r.variance) < 0.5 ? "var(--muted)" : r.variance < 0 ? "#b91c1c" : "#15803d" }}>{money0(r.variance)}</td>
+                <td style={{ ...td, fontWeight: 700 }}><EditableMoney value={r.final} whole bg={matches ? MATCH_BG : EDIT_BG} onCommit={(v) => onEdit(r.account, "final", v)} /></td>
+                <td style={{ ...td, textAlign: "left" }}><EditableText value={r.description} placeholder="—" onCommit={(v) => onEdit(r.account, "description", v)} /></td>
+              </tr>
+            );
+          })}
         </tbody>
         <tfoot>
           <tr style={{ fontWeight: 800, borderTop: "2px solid var(--border)" }}>
             <td style={{ ...td, textAlign: "left" }} colSpan={5}>Total Operating Expenses (excl. Electric / RET)</td>
-            <td style={td}>{money(opexTotal)}</td>
+            <td style={td}>{money0(opexTotal)}</td>
             <td />
           </tr>
         </tfoot>
@@ -766,10 +787,10 @@ function EditableText({ value, placeholder, onCommit }: { value: string; placeho
       value={text}
       placeholder={placeholder}
       onChange={(e) => setText(e.target.value)}
-      onBlur={() => { if (text !== value) onCommit(text.trim()); }}
+      onBlur={(e) => { e.currentTarget.style.borderColor = "transparent"; e.currentTarget.style.background = EDIT_BG; if (text !== value) onCommit(text.trim()); }}
       onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); if (e.key === "Escape") { setText(value); e.currentTarget.blur(); } }}
       onFocus={(e) => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.background = "var(--card)"; }}
-      style={{ minWidth: 240, flex: 1, border: "1px solid transparent", borderRadius: 6, padding: "3px 6px", background: "transparent", color: "inherit", font: "inherit", fontSize: 13 }}
+      style={{ minWidth: 240, flex: 1, border: "1px solid transparent", borderRadius: 6, padding: "3px 6px", background: EDIT_BG, color: "inherit", font: "inherit", fontSize: 13 }}
     />
   );
 }
