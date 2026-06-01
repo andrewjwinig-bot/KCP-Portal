@@ -1247,6 +1247,7 @@ export default function RentRollPage() {
   const [reportMonth, setReportMonth] = useState<string>(""); // "" = current; otherwise YYYY-MM
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadNote, setUploadNote] = useState<string | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>(user.defaultRentRollCategory as CategoryFilter);
   // Re-apply persona default when the active user changes (until the user clicks a different chip)
   useEffect(() => { setCategoryFilter(user.defaultRentRollCategory as CategoryFilter); }, [user.id, user.defaultRentRollCategory]);
@@ -1366,6 +1367,7 @@ export default function RentRollPage() {
     e.target.value = "";
     setUploading(true);
     setUploadError(null);
+    setUploadNote(null);
     try {
       const fileBase64 = await fileToBase64(file);
       const res = await fetch("/api/rentroll", {
@@ -1376,6 +1378,14 @@ export default function RentRollPage() {
       const data = await res.json();
       if (!res.ok || data.error) throw new Error(data.error ?? "Upload failed");
       setRawRentroll(data.rentroll);
+      // When the imported roll isn't the newest month it's filed to history
+      // and the more-recent roll stays current — say so, so the unchanged
+      // on-screen roll isn't surprising.
+      if (data.imported && data.imported.becameCurrent === false) {
+        setUploadNote(
+          `Imported ${data.imported.month} into history. ${data.currentMonth} remains the current rent roll.`,
+        );
+      }
     } catch (err: any) {
       setUploadError(err?.message ?? "Upload failed");
     } finally {
@@ -1520,6 +1530,7 @@ export default function RentRollPage() {
           </p>
         )}
         {uploadError && <div style={{ color: "#b42318", fontSize: 13, marginTop: 6 }}>{uploadError}</div>}
+        {uploadNote && <div style={{ color: "#0b4a7d", fontSize: 13, marginTop: 6 }}>{uploadNote}</div>}
         {loading && <div style={{ color: "var(--muted)", fontSize: 13, marginTop: 10 }}>Loading…</div>}
         {filteredRentroll && (
           <>

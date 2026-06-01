@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { parseRentRollExcel, stripStoreNumber } from "@/lib/rentroll/parseRentRollExcel";
 import { snapshotMonthKey } from "@/lib/rentroll/snapshot";
-import { storeJSON, getJSON } from "@/lib/storage";
+import { storeJSON, getJSON, listJSON } from "@/lib/storage";
 
 const RENTROLL_PREFIX = "rentroll";
 const RENTROLL_ID     = "current";
@@ -40,7 +40,14 @@ export async function GET() {
 /**
  * POST /api/rentroll
  * Body: { fileBase64: string }
- * Parses the Excel rent roll and persists it (overwrites any previous upload).
+ *
+ * Parses the Excel rent roll, saves a snapshot keyed by the roll's own
+ * report month, and points "current" at whichever month is the most
+ * recent across all snapshots — NOT simply at whatever was uploaded last.
+ *
+ * That means you can import past rent rolls in any order to backfill
+ * history: each is filed under its report month, and the newest month
+ * stays "current". Re-importing a month overwrites just that snapshot.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -57,28 +64,50 @@ export async function POST(req: NextRequest) {
     const buf    = Buffer.from(fileBase64, "base64");
     const parsed = parseRentRollExcel(buf);
 
-    const id          = RENTROLL_ID;
     const uploadedAt  = new Date().toISOString();
-    const rentroll    = { id, uploadedAt, uploadedBy, ...parsed };
+    const imported    = { uploadedAt, uploadedBy, ...parsed };
 
-    await storeJSON(RENTROLL_PREFIX, id, rentroll);
+    // File this upload under its report month. Re-importing a month
+    // overwrites that snapshot.
+    const importedMonth = snapshotMonthKey(imported);
+    await storeJSON(HISTORY_PREFIX, importedMonth, imported);
 
-    // Snapshot keyed by report month so the trend page can chart history.
-    // Re-uploading the same month overwrites that snapshot.
-    const monthKey = snapshotMonthKey(rentroll);
-    await storeJSON(HISTORY_PREFIX, monthKey, rentroll);
+    // "Current" = the latest month across every snapshot, so backfilling an
+    // older roll never dethrones a newer current.
+    const all = (await listJSON(HISTORY_PREFIX)) as any[];
+    let latest = imported;
+    let latestMonth = importedMonth;
+    for (const snap of all) {
+      const m = snapshotMonthKey(snap);
+      if (m.localeCompare(latestMonth) > 0) {
+        latest = snap;
+        latestMonth = m;
+      }
+    }
+    const current = { ...latest, id: RENTROLL_ID };
+    await storeJSON(RENTROLL_PREFIX, RENTROLL_ID, current);
+
+    const becameCurrent = latestMonth === importedMonth;
 
     const summary = {
       uploadedAt,
-      reportFrom:     rentroll.reportFrom,
-      reportTo:       rentroll.reportTo,
-      propertyCount:  rentroll.properties.length,
-      totalSqft:      rentroll.properties.reduce((s, p) => s + p.totalSqft, 0),
-      occupiedSqft:   rentroll.properties.reduce((s, p) => s + p.occupiedSqft, 0),
-      vacantSqft:     rentroll.properties.reduce((s, p) => s + p.vacantSqft, 0),
+      reportFrom:     imported.reportFrom,
+      reportTo:       imported.reportTo,
+      propertyCount:  imported.properties.length,
+      totalSqft:      imported.properties.reduce((s, p) => s + p.totalSqft, 0),
+      occupiedSqft:   imported.properties.reduce((s, p) => s + p.occupiedSqft, 0),
+      vacantSqft:     imported.properties.reduce((s, p) => s + p.vacantSqft, 0),
     };
 
-    return NextResponse.json({ ok: true, summary, rentroll });
+    // Always hand back the *current* (latest-month) roll for display, plus
+    // what was imported and whether it became current.
+    return NextResponse.json({
+      ok: true,
+      summary,
+      rentroll: normalizeOccupantNames(current),
+      imported: { month: importedMonth, becameCurrent },
+      currentMonth: latestMonth,
+    });
   } catch (err: any) {
     console.error("[POST /api/rentroll]", err?.message ?? err);
     return NextResponse.json({ error: err?.message ?? String(err) }, { status: 500 });
