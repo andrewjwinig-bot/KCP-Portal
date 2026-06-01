@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Pill, StatPill, reconBalanceTone, TONE_BLUE, TONE_NEUTRAL } from "@/app/components/Pill";
 import { Calendar } from "@/app/components/Calendar";
 import {
@@ -104,20 +104,38 @@ export default function OfficeCamReconPage() {
       .catch(() => {});
   }, []);
 
-  useEffect(() => {
+  const loadResult = useCallback(async () => {
     if (!property || !year) return;
     setLoading(true);
-    fetch(`/api/cam-recon/office?property=${property}&year=${year}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j) => {
-        setResult(j?.result ?? null);
-        setEstimates(j?.estimates ?? []);
-        setYeDate(`${year + 1}-04-30`);
-        setEstDate(`${year + 1}-01-01`);
-        setUnit("ALL");
-      })
-      .finally(() => setLoading(false));
+    try {
+      const r = await fetch(`/api/cam-recon/office?property=${property}&year=${year}`);
+      const j = r.ok ? await r.json() : null;
+      setResult(j?.result ?? null);
+      setEstimates(j?.estimates ?? []);
+    } finally {
+      setLoading(false);
+    }
   }, [property, year]);
+
+  // Property/year change: reset selection + export dates, then load.
+  useEffect(() => {
+    if (!property || !year) return;
+    setYeDate(`${year + 1}-04-30`);
+    setEstDate(`${year + 1}-01-01`);
+    setUnit("ALL");
+    loadResult();
+  }, [property, year, loadResult]);
+
+  // Persist a single per-unit override (e.g. an escrow adjustment) then
+  // reload so balances recompute server-side.
+  const saveField = useCallback(async (unitRef: string, field: string, value: number | null) => {
+    await fetch("/api/cam-recon/office", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ property, year, unitRef, field, value }),
+    });
+    await loadResult();
+  }, [property, year, loadResult]);
 
   const years = available.find((a) => a.propertyCode === property)?.years ?? [];
   const tenants = result?.tenants ?? [];
@@ -191,7 +209,7 @@ export default function OfficeCamReconPage() {
 
       {loading && <div className="card"><div className="muted small">Loading…</div></div>}
 
-      {!selected && result && <BuildingSummary result={result} onPick={setUnit} />}
+      {!selected && result && <BuildingSummary result={result} onPick={setUnit} onEditEscrow={saveField} />}
       {selected && <TenantStatement t={selected} reconYear={year} estimate={estimates.find((e) => e.unitRef === selected.unitRef)} />}
 
       {result && (
@@ -232,7 +250,44 @@ const groupTh: React.CSSProperties = {
   textTransform: "uppercase", letterSpacing: "0.08em",
 };
 
-function BuildingSummary({ result, onPick }: { result: BuildingReconResult; onPick: (u: string) => void }) {
+// Inline-editable dollar cell. Shows the amount; click to edit. Commits on
+// blur / Enter when changed. Stops row-click propagation so editing doesn't
+// open the tenant statement.
+function EditableMoney({ value, onCommit }: { value: number; onCommit: (n: number) => void }) {
+  const [text, setText] = useState(value.toFixed(2));
+  useEffect(() => { setText(value.toFixed(2)); }, [value]);
+  function commit(e: React.FocusEvent<HTMLInputElement> | React.KeyboardEvent<HTMLInputElement>) {
+    (e.currentTarget as HTMLInputElement).style.borderColor = "transparent";
+    (e.currentTarget as HTMLInputElement).style.background = "transparent";
+    const n = Number(text.replace(/[^0-9.\-]/g, ""));
+    if (Number.isFinite(n) && Math.round(n * 100) !== Math.round(value * 100)) {
+      onCommit(Math.round(n * 100) / 100);
+    } else {
+      setText(value.toFixed(2));
+    }
+  }
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "flex-end", gap: 1 }}>
+      <span style={{ color: "var(--muted)" }}>$</span>
+      <input
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onClick={(e) => e.stopPropagation()}
+        onFocus={(e) => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.background = "var(--card)"; e.currentTarget.select(); }}
+        onBlur={commit}
+        onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); if (e.key === "Escape") { setText(value.toFixed(2)); e.currentTarget.blur(); } }}
+        title="Click to adjust escrow (amount actually collected)"
+        style={{ width: 84, textAlign: "right", border: "1px solid transparent", borderRadius: 6, padding: "2px 4px", background: "transparent", color: "inherit", font: "inherit", cursor: "pointer" }}
+      />
+    </span>
+  );
+}
+
+function BuildingSummary({ result, onPick, onEditEscrow }: {
+  result: BuildingReconResult;
+  onPick: (u: string) => void;
+  onEditEscrow: (unitRef: string, field: string, value: number | null) => void;
+}) {
   const { tenants, totals } = result;
   const cam = (first = false): React.CSSProperties => ({ ...td, background: CAM_TINT, ...(first ? { borderLeft: BLOCK_SEP } : {}) });
   const ret = (first = false): React.CSSProperties => ({ ...td, background: RET_TINT, ...(first ? { borderLeft: BLOCK_SEP } : {}) });
@@ -272,10 +327,14 @@ function BuildingSummary({ result, onPick }: { result: BuildingReconResult; onPi
               <td style={td}>{pct(t.proRataPct / 100)}</td>
               <td style={td}>{pct(t.occPct, 1)}</td>
               <td style={cam(true)}>{money(t.opexAmountDue)}</td>
-              <td style={{ ...cam(), color: "var(--muted)" }}>{money(-t.opexEscrow)}</td>
+              <td style={cam()} onClick={(e) => e.stopPropagation()}>
+                <EditableMoney value={t.opexEscrow} onCommit={(v) => onEditEscrow(t.unitRef, "opexEscrow", v)} />
+              </td>
               <td style={cam()}><Pill tone={reconBalanceTone(t.opexBalance)}>{money(t.opexBalance)}</Pill></td>
               <td style={ret(true)}>{money(t.retAmountDue)}</td>
-              <td style={{ ...ret(), color: "var(--muted)" }}>{money(-t.retEscrow)}</td>
+              <td style={ret()} onClick={(e) => e.stopPropagation()}>
+                <EditableMoney value={t.retEscrow} onCommit={(v) => onEditEscrow(t.unitRef, "retEscrow", v)} />
+              </td>
               <td style={ret()}><Pill tone={reconBalanceTone(t.retBalance)}>{money(t.retBalance)}</Pill></td>
             </tr>
           ))}
@@ -284,10 +343,10 @@ function BuildingSummary({ result, onPick }: { result: BuildingReconResult; onPi
           <tr style={{ fontWeight: 800, borderTop: "2px solid var(--border)" }}>
             <td style={{ ...td, textAlign: "left" }} colSpan={5}>Total</td>
             <td style={cam(true)}>{money(totals.opexAmountDue)}</td>
-            <td style={cam()}>{money(-totals.opexEscrow)}</td>
+            <td style={cam()}>{money(totals.opexEscrow)}</td>
             <td style={cam()}>{money(totals.opexBalance)}</td>
             <td style={ret(true)}>{money(totals.retAmountDue)}</td>
-            <td style={ret()}>{money(-totals.retEscrow)}</td>
+            <td style={ret()}>{money(totals.retEscrow)}</td>
             <td style={ret()}>{money(totals.retBalance)}</td>
           </tr>
         </tfoot>
