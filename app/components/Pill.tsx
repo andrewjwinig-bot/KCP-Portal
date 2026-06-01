@@ -153,6 +153,15 @@ export function reservationStatusTone(status: string): PillTone {
   }
 }
 
+/** CAM/RET reconciliation balance: a positive balance is owed by the tenant
+ *  (amber), a negative balance is a credit back to the tenant (green), zero
+ *  is neutral. Used by the office reconciliation summary + statement. */
+export function reconBalanceTone(balance: number): PillTone {
+  if (balance > 0.005) return TONE_AMBER;
+  if (balance < -0.005) return TONE_GREEN;
+  return TONE_NEUTRAL;
+}
+
 export function debtStatusTone(status: string): PillTone {
   switch (status) {
     case "Interest-Only":   return TONE_AMBER;
