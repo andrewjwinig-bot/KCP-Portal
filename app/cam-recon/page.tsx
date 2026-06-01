@@ -17,6 +17,11 @@ function money(n: number): string {
   const v = Math.round(n * 100) / 100;
   return (v < 0 ? "-$" : "$") + Math.abs(v).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
+/** Whole-dollar format for the headline KPI pills. */
+function money0(n: number): string {
+  const v = Math.round(n);
+  return (v < 0 ? "-$" : "$") + Math.abs(v).toLocaleString("en-US");
+}
 function pct(n: number, dp = 2): string {
   return (n * 100).toFixed(dp) + "%";
 }
@@ -302,10 +307,10 @@ export default function OfficeCamReconPage() {
         </div>
 
         <div className="pills">
-          <StatPill label={`CAM Due${direction(camDue) ? ` · ${direction(camDue)}` : ""}`} value={money(Math.abs(camDue))} accent={reconBalanceTone(camDue).fg} />
-          <StatPill label={`INS Due${direction(insDue) ? ` · ${direction(insDue)}` : ""}`} value={money(Math.abs(insDue))} />
-          <StatPill label={`RET Due${direction(retDue) ? ` · ${direction(retDue)}` : ""}`} value={money(Math.abs(retDue))} accent={reconBalanceTone(retDue).fg} />
-          <StatPill label={`Total Due${direction(totalDue) ? ` · ${direction(totalDue)}` : ""}`} value={money(Math.abs(totalDue))} accent={reconBalanceTone(totalDue).fg} />
+          <StatPill label={`CAM Due${direction(camDue) ? ` · ${direction(camDue)}` : ""}`} value={money0(Math.abs(camDue))} accent={reconBalanceTone(camDue).fg} />
+          <StatPill label={`INS Due${direction(insDue) ? ` · ${direction(insDue)}` : ""}`} value={money0(Math.abs(insDue))} />
+          <StatPill label={`RET Due${direction(retDue) ? ` · ${direction(retDue)}` : ""}`} value={money0(Math.abs(retDue))} accent={reconBalanceTone(retDue).fg} />
+          <StatPill label={`Total Due${direction(totalDue) ? ` · ${direction(totalDue)}` : ""}`} value={money0(Math.abs(totalDue))} accent={reconBalanceTone(totalDue).fg} />
         </div>
       </div>
 
