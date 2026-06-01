@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Pill, StatPill, reconBalanceTone, TONE_NEUTRAL, TONE_AMBER } from "@/app/components/Pill";
 import { Calendar } from "@/app/components/Calendar";
 import {
@@ -394,6 +394,7 @@ export default function OfficeCamReconPage() {
       {loading && <div className="card"><div className="muted small">Loading…</div></div>}
 
       {!selected && result && <BuildingSummary result={result} onPick={setUnit} onEditEscrow={saveField} />}
+      {!selected && result && <RecoveryByBaseYear result={result} />}
       {selected && <TenantStatement t={selected} reconYear={year} estimate={estimates.find((e) => e.unitRef === selected.unitRef)} contact={contacts[selected.unitRef]} onEdit={saveField} />}
 
       {/* Year-End Adjustments — one compiled schedule across every office
@@ -538,6 +539,73 @@ function BuildingSummary({ result, onPick, onEditEscrow }: {
       </table>
       <p className="small muted" style={{ marginTop: 8 }}>Click a row to open that tenant&rsquo;s reconciliation statement.</p>
     </div>
+  );
+}
+
+// ── Recovery analysis by base year ───────────────────────────────────────────
+
+const REC_CAM = "#0b4a7d";
+const REC_RET = "#0d9488";
+
+function RecoveryByBaseYear({ result }: { result: BuildingReconResult }) {
+  const groups = useMemo(() => {
+    const map = new Map<number, { cam: number; ret: number; count: number }>();
+    for (const t of result.tenants) {
+      const g = map.get(t.baseYear) ?? { cam: 0, ret: 0, count: 0 };
+      g.cam += t.opexAmountDue;
+      g.ret += t.retAmountDue;
+      g.count += 1;
+      map.set(t.baseYear, g);
+    }
+    return [...map.entries()]
+      .map(([year, v]) => ({ year, ...v, total: v.cam + v.ret }))
+      .sort((a, b) => a.year - b.year);
+  }, [result]);
+
+  const max = Math.max(1, ...groups.map((g) => g.total));
+  const totalRecovery = groups.reduce((s, g) => s + g.total, 0);
+  const H = 180;
+
+  return (
+    <div className="card">
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+        <div style={SECTION_LABEL}>Recovery Analysis by Base Year</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          <Legend color={REC_CAM} label="CAM" />
+          <Legend color={REC_RET} label="RET" />
+          <span className="small muted">{money0(totalRecovery)} total recovery</span>
+        </div>
+      </div>
+      <div style={{ display: "flex", alignItems: "flex-end", gap: 10, marginTop: 18, overflowX: "auto", paddingBottom: 4 }}>
+        {groups.map((g) => {
+          const camH = (g.cam / max) * H;
+          const retH = (g.ret / max) * H;
+          return (
+            <div key={g.year} style={{ flex: "1 0 56px", display: "flex", flexDirection: "column", alignItems: "center", minWidth: 56 }}>
+              <div style={{ fontSize: 12, fontWeight: 800 }}>{money0(g.total)}</div>
+              <div style={{ height: H, display: "flex", flexDirection: "column", justifyContent: "flex-end", width: 40, marginTop: 4 }} title={`${g.year}: CAM ${money0(g.cam)} · RET ${money0(g.ret)}`}>
+                <div style={{ height: Math.max(0, retH), background: REC_RET, borderRadius: "4px 4px 0 0" }} />
+                <div style={{ height: Math.max(0, camH), background: REC_CAM, borderRadius: retH < 1 ? "4px 4px 0 0" : 0 }} />
+              </div>
+              <div style={{ fontSize: 13, fontWeight: 700, marginTop: 6 }}>{g.year}</div>
+              <div className="small muted">{g.count} {g.count === 1 ? "tenant" : "tenants"}</div>
+            </div>
+          );
+        })}
+      </div>
+      <p className="small muted" style={{ marginTop: 10, marginBottom: 0 }}>
+        Total reconciled recovery (CAM + RET amount due) for each base year. Older base years recover more as the gap to current-year expenses widens.
+      </p>
+    </div>
+  );
+}
+
+function Legend({ color, label }: { color: string; label: string }) {
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+      <span style={{ width: 11, height: 11, borderRadius: 3, background: color, display: "inline-block" }} />
+      <span className="small" style={{ fontWeight: 700 }}>{label}</span>
+    </span>
   );
 }
 
