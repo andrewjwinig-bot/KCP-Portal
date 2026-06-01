@@ -1379,6 +1379,12 @@ export default function RentRollPage() {
       .then((j) => {
         const snaps = (j.snapshots ?? []) as import("../../lib/rentroll/snapshot").RentRollSnapshotSummary[];
         setSnapshotList(snaps);
+        // Default the period to the most recent month (snapshots are sorted
+        // ascending). "Current" and the latest month are the same roll, so
+        // there's no separate "Current" option — newest month is the default.
+        if (snaps.length > 0) {
+          setReportMonth((prev) => prev || snaps[snaps.length - 1].month);
+        }
       })
       .catch(() => {});
   }, []);
@@ -1416,9 +1422,13 @@ export default function RentRollPage() {
   }
 
   // No persona property scope — everyone sees all properties; default category filter is applied per persona instead.
-  // When a historical month is selected, the whole page renders that
-  // snapshot; otherwise it renders the current roll.
-  const rentroll: RentRollData | null = reportMonth ? monthRentroll : rawRentroll;
+  // The page renders the selected month's snapshot. For the latest month
+  // (the default) we fall back to the already-loaded current roll while its
+  // snapshot fetches, so there's no flicker; older months show Loading.
+  const latestMonth = snapshotList.length ? snapshotList[snapshotList.length - 1].month : "";
+  const rentroll: RentRollData | null = reportMonth
+    ? (monthRentroll ?? (reportMonth === latestMonth ? rawRentroll : null))
+    : rawRentroll;
 
   // Filter excluded units from all properties
   const filteredRentroll = rentroll
@@ -1517,7 +1527,6 @@ export default function RentRollPage() {
                       cursor: "pointer",
                     }}
                   >
-                    <option value="">Current</option>
                     {snapshotList.slice().reverse().map((s) => {
                       const [yy, mm] = s.month.split("-");
                       const label = `${MONTHS_SHORT[parseInt(mm) - 1]} ${yy}`;
