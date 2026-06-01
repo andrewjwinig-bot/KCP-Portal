@@ -132,6 +132,9 @@ export default function OfficeCamReconPage() {
   const retDue = selected ? selected.retBalance : totals?.retBalance ?? 0;
   const insDue = 0;
   const totalDue = camDue + insDue + retDue;
+  // A negative balance is a credit owed back to the tenant; positive is
+  // collected from the tenant. (Zero → no direction shown.)
+  const direction = (v: number) => (v < -0.005 ? "to tenants" : v > 0.005 ? "from tenants" : "");
 
   function exportYearEnd() {
     if (!result) return;
@@ -179,10 +182,10 @@ export default function OfficeCamReconPage() {
         </div>
 
         <div className="pills">
-          <StatPill label="CAM Due" value={money(camDue)} accent={reconBalanceTone(camDue).fg} />
-          <StatPill label="INS Due" value={money(insDue)} />
-          <StatPill label="RET Due" value={money(retDue)} accent={reconBalanceTone(retDue).fg} />
-          <StatPill label="Total Due" value={money(totalDue)} accent={reconBalanceTone(totalDue).fg} />
+          <StatPill label="CAM Due" value={money(Math.abs(camDue))} sub={direction(camDue)} accent={reconBalanceTone(camDue).fg} />
+          <StatPill label="INS Due" value={money(Math.abs(insDue))} sub={direction(insDue)} />
+          <StatPill label="RET Due" value={money(Math.abs(retDue))} sub={direction(retDue)} accent={reconBalanceTone(retDue).fg} />
+          <StatPill label="Total Due" value={money(Math.abs(totalDue))} sub={direction(totalDue)} accent={reconBalanceTone(totalDue).fg} />
         </div>
       </div>
 
@@ -219,25 +222,45 @@ export default function OfficeCamReconPage() {
 
 // ── Building summary table ───────────────────────────────────────────────────
 
+// Two column blocks — CAM (Op Ex) and RET — each tinted, separated by a
+// rule, and capped with a spanning group header.
+const CAM_TINT = "rgba(11,74,125,0.05)";
+const RET_TINT = "rgba(202,138,4,0.06)";
+const BLOCK_SEP = "2px solid rgba(15,23,42,0.18)";
+const groupTh: React.CSSProperties = {
+  textAlign: "center", padding: "5px 10px", fontSize: 11, fontWeight: 800,
+  textTransform: "uppercase", letterSpacing: "0.08em",
+};
+
 function BuildingSummary({ result, onPick }: { result: BuildingReconResult; onPick: (u: string) => void }) {
   const { tenants, totals } = result;
+  const cam = (first = false): React.CSSProperties => ({ ...td, background: CAM_TINT, ...(first ? { borderLeft: BLOCK_SEP } : {}) });
+  const ret = (first = false): React.CSSProperties => ({ ...td, background: RET_TINT, ...(first ? { borderLeft: BLOCK_SEP } : {}) });
+  const camH = (first = false): React.CSSProperties => ({ ...th, background: CAM_TINT, ...(first ? { borderLeft: BLOCK_SEP } : {}) });
+  const retH = (first = false): React.CSSProperties => ({ ...th, background: RET_TINT, ...(first ? { borderLeft: BLOCK_SEP } : {}) });
   return (
     <div className="card" style={{ overflowX: "auto" }}>
       <div style={SECTION_LABEL}>Building Summary — {result.propertyCode} · {result.reconYear}</div>
       <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 10, minWidth: 920 }}>
         <thead>
+          {/* Group header: identity columns, then the CAM and RET blocks */}
+          <tr>
+            <th colSpan={5} style={{ borderBottom: "1px solid var(--border)" }} />
+            <th colSpan={3} style={{ ...groupTh, color: "#0b4a7d", background: CAM_TINT, borderLeft: BLOCK_SEP, borderBottom: "1px solid var(--border)" }}>CAM</th>
+            <th colSpan={3} style={{ ...groupTh, color: "#854d0e", background: RET_TINT, borderLeft: BLOCK_SEP, borderBottom: "1px solid var(--border)" }}>RET</th>
+          </tr>
           <tr>
             <th style={{ ...th, textAlign: "left" }}>Suite</th>
             <th style={{ ...th, textAlign: "left" }}>Tenant</th>
             <th style={th}>Base Yr</th>
             <th style={th}>% Share</th>
             <th style={th}>% Occ</th>
-            <th style={th}>Op Ex Due</th>
-            <th style={th}>Op Ex Escrow</th>
-            <th style={th}>Op Ex Balance</th>
-            <th style={th}>RET Due</th>
-            <th style={th}>RET Escrow</th>
-            <th style={th}>RET Balance</th>
+            <th style={camH(true)}>Due</th>
+            <th style={camH()}>Escrow</th>
+            <th style={camH()}>Balance</th>
+            <th style={retH(true)}>Due</th>
+            <th style={retH()}>Escrow</th>
+            <th style={retH()}>Balance</th>
           </tr>
         </thead>
         <tbody>
@@ -248,24 +271,24 @@ function BuildingSummary({ result, onPick }: { result: BuildingReconResult; onPi
               <td style={td}>{t.baseYear}</td>
               <td style={td}>{pct(t.proRataPct / 100)}</td>
               <td style={td}>{pct(t.occPct, 1)}</td>
-              <td style={td}>{money(t.opexAmountDue)}</td>
-              <td style={{ ...td, color: "var(--muted)" }}>{money(-t.opexEscrow)}</td>
-              <td style={td}><Pill tone={reconBalanceTone(t.opexBalance)}>{money(t.opexBalance)}</Pill></td>
-              <td style={td}>{money(t.retAmountDue)}</td>
-              <td style={{ ...td, color: "var(--muted)" }}>{money(-t.retEscrow)}</td>
-              <td style={td}><Pill tone={reconBalanceTone(t.retBalance)}>{money(t.retBalance)}</Pill></td>
+              <td style={cam(true)}>{money(t.opexAmountDue)}</td>
+              <td style={{ ...cam(), color: "var(--muted)" }}>{money(-t.opexEscrow)}</td>
+              <td style={cam()}><Pill tone={reconBalanceTone(t.opexBalance)}>{money(t.opexBalance)}</Pill></td>
+              <td style={ret(true)}>{money(t.retAmountDue)}</td>
+              <td style={{ ...ret(), color: "var(--muted)" }}>{money(-t.retEscrow)}</td>
+              <td style={ret()}><Pill tone={reconBalanceTone(t.retBalance)}>{money(t.retBalance)}</Pill></td>
             </tr>
           ))}
         </tbody>
         <tfoot>
           <tr style={{ fontWeight: 800, borderTop: "2px solid var(--border)" }}>
             <td style={{ ...td, textAlign: "left" }} colSpan={5}>Total</td>
-            <td style={td}>{money(totals.opexAmountDue)}</td>
-            <td style={td}>{money(-totals.opexEscrow)}</td>
-            <td style={td}>{money(totals.opexBalance)}</td>
-            <td style={td}>{money(totals.retAmountDue)}</td>
-            <td style={td}>{money(-totals.retEscrow)}</td>
-            <td style={td}>{money(totals.retBalance)}</td>
+            <td style={cam(true)}>{money(totals.opexAmountDue)}</td>
+            <td style={cam()}>{money(-totals.opexEscrow)}</td>
+            <td style={cam()}>{money(totals.opexBalance)}</td>
+            <td style={ret(true)}>{money(totals.retAmountDue)}</td>
+            <td style={ret()}>{money(-totals.retEscrow)}</td>
+            <td style={ret()}>{money(totals.retBalance)}</td>
           </tr>
         </tfoot>
       </table>
