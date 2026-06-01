@@ -4,6 +4,7 @@ import { nextYearEstimate } from "@/lib/cam/office/exports";
 import { assembleTenantInputs, type OfficeLeaseConfig, type ResetInfo } from "@/lib/cam/office/assemble";
 import { OFFICE_RECON_FIXTURES, availableOfficeRecons } from "@/lib/cam/office/registry";
 import { getOverrides, mergeConfig, saveOverride } from "@/lib/cam/office/configStore";
+import { getContactOverrides, mergeContacts, saveContact } from "@/lib/cam/office/contactStore";
 import { getJSON } from "@/lib/storage";
 
 /** Stored base-year resets keyed by unit ref. */
@@ -45,7 +46,8 @@ export async function GET(req: NextRequest) {
 
   const result = reconcileBuilding(fixture.pool, tenants, year);
   const estimates = result.tenants.map(nextYearEstimate);
-  return NextResponse.json({ result, estimates });
+  const contacts = mergeContacts(property, await getContactOverrides(property));
+  return NextResponse.json({ result, estimates, contacts });
 }
 
 const EDITABLE_FIELDS = new Set<keyof OfficeLeaseConfig>([
@@ -62,12 +64,20 @@ export async function POST(req: NextRequest) {
     const property = String(body?.property ?? "");
     const year = Number(body?.year);
     const unitRef = String(body?.unitRef ?? "");
-    const field = String(body?.field ?? "") as keyof OfficeLeaseConfig;
+    const field = String(body?.field ?? "");
 
     if (!OFFICE_RECON_FIXTURES[property]?.byYear[year]) {
       return NextResponse.json({ error: "Unknown property/year" }, { status: 400 });
     }
-    if (!unitRef || !EDITABLE_FIELDS.has(field)) {
+    // Contact fields (email / cc) are strings stored per-property, separate
+    // from the per-year lease config.
+    if (field === "email" || field === "cc") {
+      const value = typeof body?.value === "string" ? body.value.trim().slice(0, 300) : "";
+      await saveContact(property, unitRef, { [field]: value });
+      return NextResponse.json({ ok: true });
+    }
+
+    if (!unitRef || !EDITABLE_FIELDS.has(field as keyof OfficeLeaseConfig)) {
       return NextResponse.json({ error: "Invalid field" }, { status: 400 });
     }
 

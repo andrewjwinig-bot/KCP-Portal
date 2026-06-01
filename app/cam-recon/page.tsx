@@ -164,6 +164,7 @@ export default function OfficeCamReconPage() {
   const [unit, setUnit] = useState<string>("ALL");
   const [result, setResult] = useState<BuildingReconResult | null>(null);
   const [estimates, setEstimates] = useState<NextYearEstimate[]>([]);
+  const [contacts, setContacts] = useState<Record<string, { email: string; cc: string }>>({});
   const [loading, setLoading] = useState(false);
   const [yeDate, setYeDate] = useState("");
   const [estDate, setEstDate] = useState("");
@@ -190,6 +191,7 @@ export default function OfficeCamReconPage() {
       const j = r.ok ? await r.json() : null;
       setResult(j?.result ?? null);
       setEstimates(j?.estimates ?? []);
+      setContacts(j?.contacts ?? {});
     } finally {
       setLoading(false);
     }
@@ -206,7 +208,7 @@ export default function OfficeCamReconPage() {
 
   // Persist a single per-unit override (e.g. an escrow adjustment) then
   // reload so balances recompute server-side.
-  const saveField = useCallback(async (unitRef: string, field: string, value: number | null) => {
+  const saveField = useCallback(async (unitRef: string, field: string, value: number | string | null) => {
     await fetch("/api/cam-recon/office", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -310,7 +312,7 @@ export default function OfficeCamReconPage() {
       {loading && <div className="card"><div className="muted small">Loading…</div></div>}
 
       {!selected && result && <BuildingSummary result={result} onPick={setUnit} onEditEscrow={saveField} />}
-      {selected && <TenantStatement t={selected} reconYear={year} estimate={estimates.find((e) => e.unitRef === selected.unitRef)} />}
+      {selected && <TenantStatement t={selected} reconYear={year} estimate={estimates.find((e) => e.unitRef === selected.unitRef)} contact={contacts[selected.unitRef]} onEdit={saveField} />}
 
       {/* Year-End Adjustments — one compiled schedule across every office
           property, hit once at year end. Lives at the bottom for that
@@ -508,9 +510,38 @@ function BalanceRow({ label, value, strong }: { label: string; value: string; st
   );
 }
 
-function TenantStatement({ t, reconYear, estimate }: { t: TenantReconResult; reconYear: number; estimate?: NextYearEstimate }) {
+// Inline-editable text (email / cc). Commits on blur when changed.
+function EditableText({ value, placeholder, onCommit }: { value: string; placeholder: string; onCommit: (s: string) => void }) {
+  const [text, setText] = useState(value);
+  useEffect(() => { setText(value); }, [value]);
+  return (
+    <input
+      value={text}
+      placeholder={placeholder}
+      onChange={(e) => setText(e.target.value)}
+      onBlur={() => { if (text !== value) onCommit(text.trim()); }}
+      onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); if (e.key === "Escape") { setText(value); e.currentTarget.blur(); } }}
+      onFocus={(e) => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.background = "var(--card)"; }}
+      style={{ minWidth: 240, flex: 1, border: "1px solid transparent", borderRadius: 6, padding: "3px 6px", background: "transparent", color: "inherit", font: "inherit", fontSize: 13 }}
+    />
+  );
+}
+
+function TenantStatement({ t, reconYear, estimate, contact, onEdit }: {
+  t: TenantReconResult; reconYear: number; estimate?: NextYearEstimate;
+  contact?: { email: string; cc: string };
+  onEdit: (unitRef: string, field: string, value: string) => void;
+}) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      {/* Billing contact — where the statement is circulated, plus CC. */}
+      <div className="card" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
+        <span style={{ ...SECTION_LABEL, whiteSpace: "nowrap" }}>Statement to</span>
+        <EditableText value={contact?.email ?? ""} placeholder="tenant@email.com" onCommit={(v) => onEdit(t.unitRef, "email", v)} />
+        <span style={{ ...SECTION_LABEL, whiteSpace: "nowrap" }}>CC</span>
+        <EditableText value={contact?.cc ?? ""} placeholder="cc@kormancommercial.com" onCommit={(v) => onEdit(t.unitRef, "cc", v)} />
+      </div>
+
       <div className="card" style={{ overflowX: "auto" }}>
         <ScheduleTable title="Schedule of Operating Expenses" lines={t.opexLines} baseYear={t.baseYear} reconYear={reconYear} totalLabel="Total Operating Expenses" />
         <div style={{ borderTop: "2px solid var(--border)", marginTop: 8, paddingTop: 8, maxWidth: 420, marginLeft: "auto" }}>
