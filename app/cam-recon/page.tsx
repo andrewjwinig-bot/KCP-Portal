@@ -182,10 +182,10 @@ export default function OfficeCamReconPage() {
         </div>
 
         <div className="pills">
-          <StatPill label="CAM Due" value={money(Math.abs(camDue))} sub={direction(camDue)} accent={reconBalanceTone(camDue).fg} />
-          <StatPill label="INS Due" value={money(Math.abs(insDue))} sub={direction(insDue)} />
-          <StatPill label="RET Due" value={money(Math.abs(retDue))} sub={direction(retDue)} accent={reconBalanceTone(retDue).fg} />
-          <StatPill label="Total Due" value={money(Math.abs(totalDue))} sub={direction(totalDue)} accent={reconBalanceTone(totalDue).fg} />
+          <StatPill label={`CAM Due${direction(camDue) ? ` · ${direction(camDue)}` : ""}`} value={money(Math.abs(camDue))} accent={reconBalanceTone(camDue).fg} />
+          <StatPill label={`INS Due${direction(insDue) ? ` · ${direction(insDue)}` : ""}`} value={money(Math.abs(insDue))} />
+          <StatPill label={`RET Due${direction(retDue) ? ` · ${direction(retDue)}` : ""}`} value={money(Math.abs(retDue))} accent={reconBalanceTone(retDue).fg} />
+          <StatPill label={`Total Due${direction(totalDue) ? ` · ${direction(totalDue)}` : ""}`} value={money(Math.abs(totalDue))} accent={reconBalanceTone(totalDue).fg} />
         </div>
       </div>
 
