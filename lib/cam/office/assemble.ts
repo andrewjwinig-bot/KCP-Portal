@@ -14,19 +14,24 @@
 
 import type { OfficeTenantInput } from "./types";
 import { occupancyPctForYear } from "./occupancy";
+import { monthsOccupiedInYear, annualizedEscrow } from "./escrow";
 
-/** Lease-level inputs that don't come from the rent roll. */
+/** Lease-level inputs that don't come from the rent roll. Escrow is
+ *  optional: when omitted the assembler annualizes the rent-roll monthly
+ *  charge (monthly × months occupied); when present it overrides — e.g. a
+ *  tenant whose charge changed mid-year or whose December charge is $0. */
 export type OfficeLeaseConfig = {
   baseYear: number;
   grossUp: boolean;
   proRataPct: number;
-  opexEscrow: number;
-  retEscrow: number;
+  opexEscrow?: number;
+  retEscrow?: number;
 };
 
 /** The slice of a rent-roll unit the assembler needs (subset of
  *  RentRollUnit). unitRef has the "-CU" charge suffix already stripped by
- *  the parser, so it matches the tenant-meta / config keys. */
+ *  the parser, so it matches the tenant-meta / config keys. opexMonth /
+ *  reTaxMonth are the current monthly CAM / RET estimate charges. */
 export type RosterUnit = {
   unitRef: string;
   occupantName: string;
@@ -34,6 +39,8 @@ export type RosterUnit = {
   isVacant: boolean;
   leaseFrom: string | null;
   leaseTo: string | null;
+  opexMonth?: number;
+  reTaxMonth?: number;
 };
 
 /** Suite from a unit ref: "4070-103" → "103". */
@@ -63,6 +70,9 @@ export function assembleTenantInputs(
     if (u.isVacant) continue;
     const cfg = configByUnit[u.unitRef];
     if (!cfg) continue;
+    // Escrow default: annualize the monthly charge over the months occupied.
+    // A config value overrides it (mid-year change / $0 December charge).
+    const monthsOcc = monthsOccupiedInYear(u.leaseFrom, u.leaseTo, year);
     out.push({
       unitRef: u.unitRef,
       skylineUnit: skylineUnitOf(u.unitRef),
@@ -73,8 +83,8 @@ export function assembleTenantInputs(
       proRataPct: cfg.proRataPct,
       sqft: u.sqft,
       occPct: occupancyPctForYear(u.leaseFrom, u.leaseTo, year),
-      opexEscrow: cfg.opexEscrow,
-      retEscrow: cfg.retEscrow,
+      opexEscrow: cfg.opexEscrow ?? annualizedEscrow(u.opexMonth ?? 0, monthsOcc),
+      retEscrow: cfg.retEscrow ?? annualizedEscrow(u.reTaxMonth ?? 0, monthsOcc),
     });
   }
   return out;
