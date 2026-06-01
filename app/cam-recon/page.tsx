@@ -74,12 +74,9 @@ function HeaderSelect({
   );
 }
 
-// Presentation-ready PDF of a single tenant's reconciliation statement.
-async function downloadTenantPdf(
-  t: TenantReconResult, year: number, propLabel: string, contact?: { email: string; cc: string },
-) {
-  const { jsPDF } = await import("jspdf");
-  const doc = new jsPDF({ unit: "pt", format: "letter" });
+// Draw one tenant statement onto the current page of a jsPDF doc.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function drawTenantStatement(doc: any, t: TenantReconResult, year: number, propLabel: string, contact?: { email: string; cc: string }) {
   const PAGE_W = 612;
   const L = 48, R = 564, W = R - L;
   const cols = [372, 468, R]; // right edges: B/Y, Actual, Net Increase
@@ -204,9 +201,29 @@ async function downloadTenantPdf(
   ink(MUTED); doc.setFontSize(8);
   doc.text("Korman Commercial Properties", L, 766);
   doc.text(`${year} CAM / RET Reconciliation  ·  Suite ${t.suite}`, R, 766, { align: "right" });
+}
 
+// One tenant's statement as its own PDF.
+async function downloadTenantPdf(t: TenantReconResult, year: number, propLabel: string, contact?: { email: string; cc: string }) {
+  const { jsPDF } = await import("jspdf");
+  const doc = new jsPDF({ unit: "pt", format: "letter" });
+  drawTenantStatement(doc, t, year, propLabel, contact);
   const propCode = propLabel.split(" ")[0];
   doc.save(`${propCode}_${year}_Suite${t.suite}_${t.name.replace(/[^\w]+/g, "_")}_CAM_RET.pdf`);
+}
+
+// Every tenant in the building as one combined PDF (a page per tenant).
+async function downloadAllTenantPdfs(
+  tenants: TenantReconResult[], year: number, propLabel: string, contacts: Record<string, { email: string; cc: string }>,
+) {
+  const { jsPDF } = await import("jspdf");
+  const doc = new jsPDF({ unit: "pt", format: "letter" });
+  tenants.forEach((t, i) => {
+    if (i > 0) doc.addPage();
+    drawTenantStatement(doc, t, year, propLabel, contacts[t.unitRef]);
+  });
+  const propCode = propLabel.split(" ")[0];
+  doc.save(`${propCode}_${year}_AllTenantStatements.pdf`);
 }
 
 function KormanWordmark() {
@@ -345,6 +362,7 @@ export default function OfficeCamReconPage() {
             {selected && (
               <button onClick={() => downloadTenantPdf(selected, year, `${property} — ${propName}`, contacts[selected.unitRef])} className="btn primary" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}>Download PDF</button>
             )}
+            <button onClick={() => result && downloadAllTenantPdfs(result.tenants, year, `${property} — ${propName}`, contacts)} disabled={!result} className="btn" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}>All Tenant PDFs</button>
             <button onClick={exportEstimate} disabled={!result} className="btn" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}>{year + 1} Estimate</button>
           </div>
         </div>
