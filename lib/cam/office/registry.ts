@@ -8,12 +8,14 @@
 // config, then assembles the tenant inputs from roster + merged config.
 
 import type { OfficeExpensePool } from "./types";
-import type { OfficeLeaseConfig, RosterUnit } from "./assemble";
-import { POOL_4070, LEASE_CONFIG_4070_2025, ROSTER_4070_2025 } from "./seed/4070";
+import type { OfficeLeaseConfig, RosterUnit, ResetInfo } from "./assemble";
+import { POOL_4070, LEASE_CONFIG_4070_2025, ROSTER_4070_2025, RESETS_4070_2025 } from "./seed/4070";
 
 export type OfficeReconYear = {
   roster: RosterUnit[];
   leaseConfig: Record<string, OfficeLeaseConfig>;
+  /** Base-year resets seeded for this year (merged with stored resets). */
+  resets: Record<string, ResetInfo>;
 };
 
 export type OfficeReconFixture = {
@@ -29,7 +31,7 @@ export const OFFICE_RECON_FIXTURES: Record<string, OfficeReconFixture> = {
     name: "Building 7",
     pool: POOL_4070,
     byYear: {
-      2025: { roster: ROSTER_4070_2025, leaseConfig: LEASE_CONFIG_4070_2025 },
+      2025: { roster: ROSTER_4070_2025, leaseConfig: LEASE_CONFIG_4070_2025, resets: RESETS_4070_2025 },
     },
   },
 };

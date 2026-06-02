@@ -37,8 +37,13 @@ export type RosterUnit = {
   occupantName: string;
   sqft: number;
   isVacant: boolean;
+  /** Lease commencement (RCD) — drives mid-year move-in occupancy. */
   leaseFrom: string | null;
+  /** Lease expiration — informational; does NOT reduce occupancy. */
   leaseTo: string | null;
+  /** Genuine mid-year move-out date, if the tenant actually vacated. Only
+   *  this (not lease expiration) ends occupancy before year-end. */
+  movedOut?: string | null;
   opexMonth?: number;
   reTaxMonth?: number;
 };
@@ -55,6 +60,13 @@ function isoToUS(iso: string): string {
   const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (!m) return iso;
   return `${Number(m[2])}/${Number(m[3])}/${m[1]}`;
+}
+
+/** ISO date minus one day (e.g. a reset effective 7/1 → recovery through 6/30). */
+function isoMinusOneDay(iso: string): string {
+  const d = new Date(iso + "T00:00:00Z");
+  d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().slice(0, 10);
 }
 
 function usDateMs(s: string | null | undefined): number | null {
@@ -102,15 +114,20 @@ export function assembleTenantInputs(
     const cfg = configByUnit[u.unitRef];
     if (!cfg) continue;
 
-    // A base year reset during the recon year caps the recovery period: the
-    // post-reset base equals the current year, so no further increase
-    // accrues after the reset date. Recovery occupancy ends at the earlier
-    // of the lease end and the reset date; escrow proration follows.
+    // Occupancy: move-in (lease commencement) → move-out only. A lease that
+    // expires mid-year while the tenant stays is still 100%.
+    const occEnd = u.movedOut ?? null;
+    const occPct = occupancyPctForYear(u.leaseFrom, occEnd, year);
+
+    // A base-year reset during the recon year prorates the RECOVERY (not the
+    // occupancy): the old base applies only through the day before the reset,
+    // so recovery is capped there. Occupancy is unchanged.
     const reset = resetsByUnit[u.unitRef];
     const resetInYear = !!reset && reset.resetDate.slice(0, 4) === String(year);
-    const recoveryLeaseTo = resetInYear ? earlierUS(u.leaseTo, isoToUS(reset!.resetDate)) : u.leaseTo;
+    const recoveryEnd = resetInYear ? earlierUS(occEnd, isoToUS(isoMinusOneDay(reset!.resetDate))) : occEnd;
+    const recoveryPct = resetInYear ? occupancyPctForYear(u.leaseFrom, recoveryEnd, year) : occPct;
 
-    const monthsOcc = monthsOccupiedInYear(u.leaseFrom, recoveryLeaseTo, year);
+    const monthsOcc = monthsOccupiedInYear(u.leaseFrom, occEnd, year);
     out.push({
       unitRef: u.unitRef,
       skylineUnit: skylineUnitOf(u.unitRef),
@@ -120,7 +137,8 @@ export function assembleTenantInputs(
       grossUp: cfg.grossUp,
       proRataPct: cfg.proRataPct,
       sqft: u.sqft,
-      occPct: occupancyPctForYear(u.leaseFrom, recoveryLeaseTo, year),
+      occPct,
+      recoveryPct,
       baseYearResetISO: resetInYear ? reset!.resetDate : null,
       rcd: u.leaseFrom ?? null,
       opexEscrow: cfg.opexEscrow ?? annualizedEscrow(u.opexMonth ?? 0, monthsOcc),

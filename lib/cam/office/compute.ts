@@ -78,12 +78,12 @@ export function reconcileTenant(
   const opexBaseTotal = opexLines.reduce((a, l) => a + l.baseCost, 0);
   const opexActualTotal = opexLines.reduce((a, l) => a + l.actual, 0);
   const opexNetIncrease = opexLines.reduce((a, l) => a + l.netIncrease, 0);
-  const opexAmountDue = opexNetIncrease * share * t.occPct;
+  const opexAmountDue = opexNetIncrease * share * t.recoveryPct;
   const opexBalance = opexAmountDue - t.opexEscrow;
 
   const retLine = scheduleLine(pool, pool.retAccount, pool.retLabel, t.baseYear, reconYear, finals);
   if (futureBase) retLine.netIncrease = 0;
-  const retAmountDue = retLine.netIncrease * share * t.occPct;
+  const retAmountDue = retLine.netIncrease * share * t.recoveryPct;
   const retBalance = retAmountDue - t.retEscrow;
 
   return {
@@ -96,6 +96,7 @@ export function reconcileTenant(
     proRataPct: t.proRataPct,
     sqft: t.sqft,
     occPct: t.occPct,
+    recoveryPct: t.recoveryPct,
     isVacant: false,
     baseYearResetISO: t.baseYearResetISO ?? null,
     futureBaseYear: futureBase,

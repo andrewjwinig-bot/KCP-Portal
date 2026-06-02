@@ -90,6 +90,10 @@ function HeaderSelect({
 function drawTenantStatement(doc: any, t: TenantReconResult, year: number, propLabel: string, contact?: { email: string; cc: string }) {
   // Whole-dollar formatting throughout the PDF for a cleaner statement.
   const money = money0;
+  const resetRel = t.occPct > 0 ? t.recoveryPct / t.occPct : 0;
+  const resetShort = t.baseYearResetISO
+    ? new Date(t.baseYearResetISO + "T00:00:00").toLocaleDateString("en-US", { month: "numeric", day: "numeric", year: "2-digit" })
+    : "";
   const PAGE_W = 612;
   const L = 48, R = 564, W = R - L;
   const cols = [372, 468, R]; // right edges: B/Y, Actual, Net Increase
@@ -169,7 +173,8 @@ function drawTenantStatement(doc: any, t: TenantReconResult, year: number, propL
   y += 6;
   sumRow("Net Increase Over Base Year", money(t.opexNetIncrease));
   sumRow("× Tenant Proportionate Share", pct(t.proRataPct / 100));
-  sumRow(`× Occupancy % For The Year${t.baseYearResetISO ? " *" : ""}`, pct(t.occPct, 1));
+  sumRow("× Occupancy % For The Year", pct(t.occPct, 1));
+  if (t.baseYearResetISO) sumRow(`× Base Year Reset Proration (${resetShort})`, pct(resetRel, 1));
   sumRow("Amount Due", money(t.opexAmountDue), true);
   sumRow("Less: Escrow Payments for the Year", money(-t.opexEscrow));
   sumRow("Balance, Op Ex Costs Due", money(t.opexBalance), true);
@@ -180,7 +185,8 @@ function drawTenantStatement(doc: any, t: TenantReconResult, year: number, propL
   lineRow(0, t.retLine.label, t.retLine.baseCost, t.retLine.actual, t.retLine.netIncrease);
   y += 6;
   sumRow("× Tenant Proportionate Share", pct(t.proRataPct / 100));
-  sumRow(`× Occupancy % For The Year${t.baseYearResetISO ? " *" : ""}`, pct(t.occPct, 1));
+  sumRow("× Occupancy % For The Year", pct(t.occPct, 1));
+  if (t.baseYearResetISO) sumRow(`× Base Year Reset Proration (${resetShort})`, pct(resetRel, 1));
   sumRow("Amount Due", money(t.retAmountDue), true);
   sumRow("Less: Escrow Payments for the Year", money(-t.retEscrow));
   sumRow("Balance, Real Estate Taxes Due", money(t.retBalance), true);
@@ -346,7 +352,7 @@ export default function OfficeCamReconPage() {
   const totalDue = camDue + insDue + retDue;
   // A negative balance is a credit owed back to the tenant; positive is
   // collected from the tenant. (Zero → no direction shown.)
-  const direction = (v: number) => (v < -0.005 ? "to tenants" : v > 0.005 ? "from tenants" : "");
+  const direction = (v: number) => (v < -0.005 ? "to Tenant" : v > 0.005 ? "from Tenant" : "");
 
   function exportEstimate() {
     if (!result) return;
@@ -423,7 +429,7 @@ export default function OfficeCamReconPage() {
               <Pill tone={TONE_NEUTRAL}>{selected.grossUp ? "Grossed Up 95%" : "Not Grossed Up"}</Pill>
               <Pill tone={TONE_NEUTRAL}>{pct(selected.proRataPct / 100)} Share</Pill>
               {selected.occPct < 0.9999 && <Pill tone={TONE_NEUTRAL}>{pct(selected.occPct, 1)} Occupancy{selected.rcd ? ` (${fmtRCD(selected.rcd)} RCD)` : ""}</Pill>}
-              {selected.baseYearResetISO && <Pill tone={TONE_AMBER}>Base Year Reset</Pill>}
+              {selected.baseYearResetISO && <Pill tone={TONE_AMBER}>Base Year Reset {new Date(selected.baseYearResetISO + "T00:00:00").toLocaleDateString("en-US", { month: "numeric", day: "numeric", year: "2-digit" })}</Pill>}
               {selected.futureBaseYear && <Pill tone={TONE_AMBER}>No Recovery — Future Base Year</Pill>}
             </>
           ) : (
@@ -432,10 +438,10 @@ export default function OfficeCamReconPage() {
         </div>
 
         <div className="pills">
-          <StatPill label={`CAM Due${direction(camDue) ? ` · ${direction(camDue)}` : ""}`} value={money0(Math.abs(camDue))} accent={reconBalanceTone(camDue).fg} />
-          <StatPill label={`INS Due${direction(insDue) ? ` · ${direction(insDue)}` : ""}`} value={money0(Math.abs(insDue))} />
-          <StatPill label={`RET Due${direction(retDue) ? ` · ${direction(retDue)}` : ""}`} value={money0(Math.abs(retDue))} accent={reconBalanceTone(retDue).fg} />
-          <StatPill label={`Total Due${direction(totalDue) ? ` · ${direction(totalDue)}` : ""}`} value={money0(Math.abs(totalDue))} accent={reconBalanceTone(totalDue).fg} />
+          <StatPill label={`CAM Due${direction(camDue) ? ` ${direction(camDue)}` : ""}`} value={money0(Math.abs(camDue))} accent={reconBalanceTone(camDue).fg} />
+          <StatPill label={`INS Due${direction(insDue) ? ` ${direction(insDue)}` : ""}`} value={money0(Math.abs(insDue))} />
+          <StatPill label={`RET Due${direction(retDue) ? ` ${direction(retDue)}` : ""}`} value={money0(Math.abs(retDue))} accent={reconBalanceTone(retDue).fg} />
+          <StatPill label={`Total Due${direction(totalDue) ? ` ${direction(totalDue)}` : ""}`} value={money0(Math.abs(totalDue))} accent={reconBalanceTone(totalDue).fg} />
         </div>
       </div>
 
@@ -568,7 +574,7 @@ function BuildingSummary({ result, onPick, onEditEscrow }: {
             <tr key={t.unitRef} style={{ borderBottom: "1px solid var(--border)", cursor: "pointer" }} onClick={() => onPick(t.unitRef)}>
               <td style={{ ...td, textAlign: "left", fontWeight: 700 }}>{t.suite}</td>
               <td style={{ ...td, textAlign: "left" }}>{t.name}</td>
-              <td style={td}>{t.baseYear}</td>
+              <td style={td}>{t.baseYear}{t.baseYearResetISO && <span title={`Base year reset ${new Date(t.baseYearResetISO + "T00:00:00").toLocaleDateString("en-US")}`} style={{ color: "#b45309", fontWeight: 800, marginLeft: 3, cursor: "help" }}>↺</span>}</td>
               <td style={td}>{pct(t.proRataPct / 100)}</td>
               <td style={td}>{pct(t.occPct, 1)}{t.occPct < 0.9999 && t.rcd ? <span className="muted" style={{ fontSize: 11 }}> ({fmtRCD(t.rcd)})</span> : null}</td>
               <td style={cam(true)}>{money(t.opexAmountDue)}</td>
@@ -860,6 +866,11 @@ function TenantStatement({ t, reconYear, estimate, contact, onEdit }: {
   contact?: { email: string; cc: string };
   onEdit: (unitRef: string, field: string, value: string) => void;
 }) {
+  const occLabel = `${pct(t.occPct, 1)}${t.occPct < 0.9999 && t.rcd ? ` (${fmtRCD(t.rcd)} RCD)` : ""}`;
+  const resetRel = t.occPct > 0 ? t.recoveryPct / t.occPct : 0;
+  const resetShort = t.baseYearResetISO
+    ? new Date(t.baseYearResetISO + "T00:00:00").toLocaleDateString("en-US", { month: "numeric", day: "numeric", year: "2-digit" })
+    : "";
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       {/* Expense schedules — CAM then RET */}
@@ -876,7 +887,8 @@ function TenantStatement({ t, reconYear, estimate, contact, onEdit }: {
           <div style={{ ...SECTION_LABEL, color: "#0b4a7d", marginBottom: 8 }}>CAM</div>
           <BalanceRow label="Net Increase Over Base Year" value={money0(t.opexNetIncrease)} />
           <BalanceRow label="× Tenant Proportionate Share" value={pct(t.proRataPct / 100)} />
-          <BalanceRow label={`× Occupancy % For The Year${t.baseYearResetISO ? " *" : ""}`} value={`${pct(t.occPct, 1)}${t.occPct < 0.9999 && t.rcd ? ` (${fmtRCD(t.rcd)} RCD)` : ""}`} />
+          <BalanceRow label="× Occupancy % For The Year" value={occLabel} />
+          {t.baseYearResetISO && <BalanceRow label={`× Base Year Reset Proration (${resetShort})`} value={pct(resetRel, 1)} />}
           <BalanceRow label="Amount Due" value={money0(t.opexAmountDue)} strong />
           <BalanceRow label="Less: Escrow Payments for the Year" value={money0(-t.opexEscrow)} />
           <FinalBalanceRow label="Balance, Op Ex Costs Due" value={t.opexBalance} />
@@ -885,7 +897,8 @@ function TenantStatement({ t, reconYear, estimate, contact, onEdit }: {
           <div style={{ ...SECTION_LABEL, color: "#854d0e", marginBottom: 8 }}>RET</div>
           <BalanceRow label="Net Increase Over Base Year" value={money0(t.retLine.netIncrease)} />
           <BalanceRow label="× Tenant Proportionate Share" value={pct(t.proRataPct / 100)} />
-          <BalanceRow label={`× Occupancy % For The Year${t.baseYearResetISO ? " *" : ""}`} value={`${pct(t.occPct, 1)}${t.occPct < 0.9999 && t.rcd ? ` (${fmtRCD(t.rcd)} RCD)` : ""}`} />
+          <BalanceRow label="× Occupancy % For The Year" value={occLabel} />
+          {t.baseYearResetISO && <BalanceRow label={`× Base Year Reset Proration (${resetShort})`} value={pct(resetRel, 1)} />}
           <BalanceRow label="Amount Due" value={money0(t.retAmountDue)} strong />
           <BalanceRow label="Less: Escrow Payments for the Year" value={money0(-t.retEscrow)} />
           <FinalBalanceRow label="Balance, Real Estate Taxes Due" value={t.retBalance} />
@@ -894,7 +907,7 @@ function TenantStatement({ t, reconYear, estimate, contact, onEdit }: {
 
       {t.baseYearResetISO && (
         <p className="small muted" style={{ margin: 0 }}>
-          * Tenant&rsquo;s base year was reset on {new Date(t.baseYearResetISO + "T00:00:00").toLocaleDateString("en-US", { month: "numeric", day: "numeric", year: "numeric" })}; recovery is prorated through the reset date.
+          Base year was reset on {new Date(t.baseYearResetISO + "T00:00:00").toLocaleDateString("en-US", { month: "numeric", day: "numeric", year: "numeric" })} — occupancy is full-year, but recovery is prorated through the day before the reset (after which the new base year applies and no further increase accrues).
         </p>
       )}
       {t.futureBaseYear && (

@@ -6,7 +6,7 @@
 // the tie-out test runs against.
 
 import type { OfficeExpensePool, OfficeTenantInput } from "../types";
-import { assembleTenantInputs, type OfficeLeaseConfig, type RosterUnit } from "../assemble";
+import { assembleTenantInputs, type OfficeLeaseConfig, type RosterUnit, type ResetInfo } from "../assemble";
 
 const Y = [2014, 2016, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025];
 
@@ -90,25 +90,37 @@ export const LEASE_CONFIG_4070_2025: Record<string, OfficeLeaseConfig> = {
 // Rent-roll roster (the slice the assembler needs): SF + lease dates the
 // December rent roll carries. Partial-year leases drive the occupancy %;
 // full-year tenants use sentinel dates. Stand-in for the live Dec snapshot.
-const FULL = { leaseFrom: "1/1/2000", leaseTo: "12/31/2030" };
+// Rent-roll roster. leaseFrom = commencement (RCD); a mid-year leaseFrom
+// makes a genuine move-in partial (GLT). Continuing tenants keep their RCD
+// and a sentinel end — a lease expiring mid-year does NOT reduce occupancy.
+const FULL_TO = "12/31/2030";
 export const ROSTER_4070_2025: RosterUnit[] = [
-  { unitRef: "4070-103", occupantName: "Bucks County Transportation", sqft: 1285, isVacant: false, leaseFrom: "2/15/2011", leaseTo: "6/30/2025" },
-  { unitRef: "4070-107", occupantName: "O.S.S.V .Management, LLC",     sqft: 1311, isVacant: false, ...FULL },
-  { unitRef: "4070-113", occupantName: "McQuoid Financial Group, Inc.", sqft: 1771, isVacant: false, ...FULL },
+  { unitRef: "4070-103", occupantName: "Bucks County Transportation", sqft: 1285, isVacant: false, leaseFrom: "2/15/2011", leaseTo: FULL_TO },
+  { unitRef: "4070-107", occupantName: "O.S.S.V .Management, LLC",     sqft: 1311, isVacant: false, leaseFrom: "1/1/2000", leaseTo: FULL_TO },
+  { unitRef: "4070-113", occupantName: "McQuoid Financial Group, Inc.", sqft: 1771, isVacant: false, leaseFrom: "1/1/2000", leaseTo: FULL_TO },
   { unitRef: "4070-115", occupantName: "GLT Transportation, LLC",      sqft: 1693, isVacant: false, leaseFrom: "12/1/2025", leaseTo: "11/30/2026" },
-  { unitRef: "4070-116", occupantName: "Rothkoff Law Group, P.C.",     sqft: 3861, isVacant: false, ...FULL },
-  { unitRef: "4070-117", occupantName: "Belden Brick Sales & Service", sqft: 3945, isVacant: false, leaseFrom: "3/4/2005", leaseTo: "7/31/2025" },
-  { unitRef: "4070-201", occupantName: "Robert Half International, Inc", sqft: 3680, isVacant: false, leaseFrom: "1/1/2010", leaseTo: "6/30/2025" },
-  { unitRef: "4070-209", occupantName: "Ryan R. Janis P.C.",           sqft: 1725, isVacant: false, ...FULL },
-  { unitRef: "4070-211", occupantName: "AIM - USA LLC",                sqft: 1438, isVacant: false, ...FULL },
-  { unitRef: "4070-215", occupantName: "Law Ofcs. of Michael P. Clarke", sqft: 2004, isVacant: false, ...FULL },
-  { unitRef: "4070-301", occupantName: "Veltri, Inc.",                 sqft: 6374, isVacant: false, ...FULL },
-  { unitRef: "4070-400", occupantName: "Mette, Evans & Woodside",      sqft: 3455, isVacant: false, ...FULL },
-  { unitRef: "4070-411", occupantName: "Refresh Management, LLC",      sqft: 3308, isVacant: false, ...FULL },
-  { unitRef: "4070-415", occupantName: "Veltri, Inc.",                 sqft: 6795, isVacant: false, ...FULL },
+  { unitRef: "4070-116", occupantName: "Rothkoff Law Group, P.C.",     sqft: 3861, isVacant: false, leaseFrom: "1/1/2000", leaseTo: FULL_TO },
+  { unitRef: "4070-117", occupantName: "Belden Brick Sales & Service", sqft: 3945, isVacant: false, leaseFrom: "3/4/2005", leaseTo: FULL_TO },
+  { unitRef: "4070-201", occupantName: "Robert Half International, Inc", sqft: 3680, isVacant: false, leaseFrom: "1/1/2010", leaseTo: FULL_TO },
+  { unitRef: "4070-209", occupantName: "Ryan R. Janis P.C.",           sqft: 1725, isVacant: false, leaseFrom: "1/1/2000", leaseTo: FULL_TO },
+  { unitRef: "4070-211", occupantName: "AIM - USA LLC",                sqft: 1438, isVacant: false, leaseFrom: "1/1/2000", leaseTo: FULL_TO },
+  { unitRef: "4070-215", occupantName: "Law Ofcs. of Michael P. Clarke", sqft: 2004, isVacant: false, leaseFrom: "1/1/2000", leaseTo: FULL_TO },
+  { unitRef: "4070-301", occupantName: "Veltri, Inc.",                 sqft: 6374, isVacant: false, leaseFrom: "1/1/2000", leaseTo: FULL_TO },
+  { unitRef: "4070-400", occupantName: "Mette, Evans & Woodside",      sqft: 3455, isVacant: false, leaseFrom: "1/1/2000", leaseTo: FULL_TO },
+  { unitRef: "4070-411", occupantName: "Refresh Management, LLC",      sqft: 3308, isVacant: false, leaseFrom: "1/1/2000", leaseTo: FULL_TO },
+  { unitRef: "4070-415", occupantName: "Veltri, Inc.",                 sqft: 6795, isVacant: false, leaseFrom: "1/1/2000", leaseTo: FULL_TO },
 ];
 
+// Base-year resets in effect for 2025. A mid-year reset prorates the
+// recovery through the day before the reset (these reproduce the workbook's
+// partial figures, now correctly attributed to resets rather than move-outs).
+export const RESETS_4070_2025: Record<string, ResetInfo> = {
+  "4070-103": { resetDate: "2025-07-01", originalBaseYear: 2022, newBaseYear: 2025 },
+  "4070-117": { resetDate: "2025-08-01", originalBaseYear: 2019, newBaseYear: 2025 },
+  "4070-201": { resetDate: "2025-07-01", originalBaseYear: 2020, newBaseYear: 2025 },
+};
+
 // Tenant inputs for the 2025 reconciliation, assembled from the roster +
-// lease config — the same path the live December rent roll will take.
+// lease config + resets — the same path the live December rent roll will take.
 export const TENANTS_4070_2025: OfficeTenantInput[] =
-  assembleTenantInputs(ROSTER_4070_2025, 2025, LEASE_CONFIG_4070_2025);
+  assembleTenantInputs(ROSTER_4070_2025, 2025, LEASE_CONFIG_4070_2025, RESETS_4070_2025);

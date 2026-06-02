@@ -9,14 +9,15 @@ const roster: RosterUnit[] = [
 ];
 
 describe("base-year reset proration", () => {
-  it("caps recovery occupancy at the reset date and flags the footnote", () => {
+  it("keeps occupancy at 100% but prorates recovery through the day before the reset", () => {
     const resets: Record<string, ResetInfo> = {
-      "4070-301": { resetDate: "2025-06-30", originalBaseYear: 2022, newBaseYear: 2025 },
+      "4070-301": { resetDate: "2025-07-01", originalBaseYear: 2022, newBaseYear: 2025 },
     };
     const t = assembleTenantInputs(roster, 2025, cfg, resets)[0];
-    // Jan 1 – Jun 30 = 181 days / 365.
-    expect(Math.round(t.occPct * 1e6) / 1e6).toBe(Math.round((181 / 365) * 1e6) / 1e6);
-    expect(t.baseYearResetISO).toBe("2025-06-30");
+    // Continuing tenant → 100% occupancy; recovery only Jan 1 – Jun 30 = 181/365.
+    expect(t.occPct).toBe(1);
+    expect(Math.round(t.recoveryPct * 1e6) / 1e6).toBe(Math.round((181 / 365) * 1e6) / 1e6);
+    expect(t.baseYearResetISO).toBe("2025-07-01");
   });
 
   it("ignores a reset from a different year (full year, no footnote)", () => {
@@ -25,12 +26,14 @@ describe("base-year reset proration", () => {
     };
     const t = assembleTenantInputs(roster, 2025, cfg, resets)[0];
     expect(t.occPct).toBe(1);
+    expect(t.recoveryPct).toBe(1);
     expect(t.baseYearResetISO).toBeNull();
   });
 
   it("no resets → full year, no footnote (unchanged)", () => {
     const t = assembleTenantInputs(roster, 2025, cfg)[0];
     expect(t.occPct).toBe(1);
+    expect(t.recoveryPct).toBe(1);
     expect(t.baseYearResetISO).toBeNull();
   });
 });

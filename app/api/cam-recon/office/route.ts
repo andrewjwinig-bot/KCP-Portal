@@ -63,7 +63,8 @@ export async function GET(req: NextRequest) {
 
   const overrides = await getOverrides(property, year);
   const config = mergeConfig(reconYear.leaseConfig, overrides);
-  const resets = await loadResets();
+  // Seeded resets, overridden by any recorded via the base-year-reset tool.
+  const resets = { ...reconYear.resets, ...(await loadResets()) };
   const tenants = assembleTenantInputs(reconYear.roster, year, config, resets);
 
   // Final Expense Summary → per-account FINALs drive the current-year pool.

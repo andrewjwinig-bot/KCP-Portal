@@ -65,8 +65,13 @@ export type OfficeTenantInput = {
   /** Pro-rata share as a percent, e.g. 2.2 means 2.2%. */
   proRataPct: number;
   sqft: number;
-  /** Fraction of the year the suite was occupied (0–1). 1 for full year. */
+  /** Fraction of the year the suite was occupied (0–1) — move-in/move-out
+   *  only. 1 for a full-year tenant (a lease expiring mid-year while the
+   *  tenant stays is still 1). */
   occPct: number;
+  /** Fraction used to prorate the recovery (0–1) = occupancy further capped
+   *  at a mid-year base-year reset. Equals occPct when there's no reset. */
+  recoveryPct: number;
   /** CAM estimate collected during the year (positive dollars). */
   opexEscrow: number;
   /** RET estimate collected during the year (positive dollars). */
@@ -96,7 +101,10 @@ export type TenantReconResult = {
   grossUp: boolean;
   proRataPct: number;
   sqft: number;
+  /** Occupancy fraction (move-in/move-out only). */
   occPct: number;
+  /** Recovery proration = occupancy capped at a mid-year base-year reset. */
+  recoveryPct: number;
   isVacant: boolean;
   /** ISO date a base-year reset occurred during the recon year, if any —
    *  drives a footnote and caps the recovery period. */
