@@ -57,6 +57,22 @@ const selectStyle: React.CSSProperties = {
   fontWeight: 700,
 };
 
+// Big-label dropdown matching the CAM Reconciliation / Budgets headers.
+function HeaderSelect({ value, onChange, displayLabel, ariaLabel, children }: {
+  value: string; onChange: (next: string) => void; displayLabel: string; ariaLabel: string; children: React.ReactNode;
+}) {
+  return (
+    <span style={{ position: "relative", display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 6px", borderRadius: 8, cursor: "pointer", maxWidth: "100%", minWidth: 0 }}>
+      <span style={{ fontSize: 22, fontWeight: 800, color: "var(--text)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>{displayLabel}</span>
+      <span aria-hidden style={{ fontSize: 11, lineHeight: 1, color: "var(--text)", opacity: 0.6, flexShrink: 0 }}>▾</span>
+      <select value={value} onChange={(e) => onChange(e.target.value)} aria-label={ariaLabel}
+        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 0, cursor: "pointer", border: 0, padding: 0, margin: 0, appearance: "auto", background: "transparent" }}>
+        {children}
+      </select>
+    </span>
+  );
+}
+
 const NOW_YEAR = new Date().getFullYear();
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -156,16 +172,20 @@ export default function BaseYearExpensesPage() {
         and NI LLC buildings.
       </p>
 
-      {/* Building selector — compact dropdown */}
+      {/* Building selector — big header dropdown (matches CAM Recon / Budgets) */}
       <div style={{ marginTop: 16, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-        <span style={SECTION_LABEL}>Building</span>
-        <select value={propCode} onChange={(e) => setPropCode(e.target.value)} style={selectStyle}>
+        <HeaderSelect
+          value={propCode}
+          onChange={setPropCode}
+          displayLabel={`${propCode} — ${meta?.name ?? propCode}`}
+          ariaLabel="Building"
+        >
           {OFFICE_BUILDINGS.map((b) => (
             <option key={b.code} value={b.code}>
-              {b.name} (#{b.code}){SEED_EXPENSES[b.code] ? "" : " — no data"}
+              {b.code} — {b.name}{SEED_EXPENSES[b.code] ? "" : " (no data)"}
             </option>
           ))}
-        </select>
+        </HeaderSelect>
         {expenses && (
           <span className="small muted">
             {meta?.fund} · {expenses.rentableSqft.toLocaleString()} SF · workbook updated {expenses.updatedAt}
