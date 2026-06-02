@@ -403,7 +403,9 @@ export default function OfficeCamReconPage() {
             {selected && (
               <button onClick={() => downloadTenantPdf(selected, year, `${property} — ${propName}`, contacts[selected.unitRef])} className="btn primary" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}>Download PDF</button>
             )}
-            <button onClick={() => result && downloadAllTenantPdfs(result.tenants, year, `${property} — ${propName}`, contacts)} disabled={!result} className="btn" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}>All Tenant PDFs</button>
+            {!selected && (
+              <button onClick={() => result && downloadAllTenantPdfs(result.tenants, year, `${property} — ${propName}`, contacts)} disabled={!result} className="btn" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}>All Tenant PDFs</button>
+            )}
             <button onClick={exportEstimate} disabled={!result} className="btn" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}>{year + 1} Estimate</button>
           </div>
         </div>
@@ -805,6 +807,23 @@ function BalanceRow({ label, value, strong }: { label: string; value: string; st
   );
 }
 
+// The bottom-line balance — boxed + tone-colored (green credit / amber owed)
+// so it stands out from the rest of the waterfall.
+function FinalBalanceRow({ label, value }: { label: string; value: number }) {
+  const tone = reconBalanceTone(value);
+  return (
+    <div style={{
+      display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12,
+      marginTop: 8, padding: "9px 12px", borderRadius: 8,
+      background: tone.bg, border: `1.5px solid ${tone.border}`,
+      fontWeight: 800, fontSize: 16.5,
+    }}>
+      <span>{label}</span>
+      <span style={{ color: tone.fg }}>{money0(value)}</span>
+    </div>
+  );
+}
+
 // Inline-editable text (email / cc). Commits on blur when changed.
 function EditableText({ value, placeholder, onCommit }: { value: string; placeholder: string; onCommit: (s: string) => void }) {
   const [text, setText] = useState(value);
@@ -846,7 +865,7 @@ function TenantStatement({ t, reconYear, estimate, contact, onEdit }: {
           <BalanceRow label={`× Occupancy % For The Year${t.baseYearResetISO ? " *" : ""}`} value={pct(t.occPct, 1)} />
           <BalanceRow label="Amount Due" value={money0(t.opexAmountDue)} strong />
           <BalanceRow label="Less: Escrow Payments for the Year" value={money0(-t.opexEscrow)} />
-          <BalanceRow label="Balance, Op Ex Costs Due" value={money0(t.opexBalance)} strong />
+          <FinalBalanceRow label="Balance, Op Ex Costs Due" value={t.opexBalance} />
         </div>
         <div style={{ flex: "1 1 300px", minWidth: 280 }}>
           <div style={{ ...SECTION_LABEL, color: "#854d0e", marginBottom: 8 }}>RET</div>
@@ -855,7 +874,7 @@ function TenantStatement({ t, reconYear, estimate, contact, onEdit }: {
           <BalanceRow label={`× Occupancy % For The Year${t.baseYearResetISO ? " *" : ""}`} value={pct(t.occPct, 1)} />
           <BalanceRow label="Amount Due" value={money0(t.retAmountDue)} strong />
           <BalanceRow label="Less: Escrow Payments for the Year" value={money0(-t.retEscrow)} />
-          <BalanceRow label="Balance, Real Estate Taxes Due" value={money0(t.retBalance)} strong />
+          <FinalBalanceRow label="Balance, Real Estate Taxes Due" value={t.retBalance} />
         </div>
       </div>
 
