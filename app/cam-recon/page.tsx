@@ -771,7 +771,15 @@ function ScheduleTable({ title, lines, baseYear, reconYear, totalLabel }: {
   const sth: React.CSSProperties = { ...th, fontSize: 12, padding: "7px 10px" };
   const std: React.CSSProperties = { ...td, fontSize: 14.5, padding: "7px 10px" };
   return (
-    <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 520 }}>
+    // Fixed layout + shared column widths so the Op Ex and RET schedules
+    // stack cleanly (B/Y over B/Y, Actual over Actual).
+    <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed", minWidth: 520 }}>
+      <colgroup>
+        <col style={{ width: "40%" }} />
+        <col style={{ width: "20%" }} />
+        <col style={{ width: "20%" }} />
+        <col style={{ width: "20%" }} />
+      </colgroup>
       <thead>
         <tr>
           <th style={{ ...sth, textAlign: "left" }}>{title}</th>
