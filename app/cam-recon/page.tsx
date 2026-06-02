@@ -448,6 +448,7 @@ export default function OfficeCamReconPage() {
       {loading && <div className="card"><div className="muted small">Loading…</div></div>}
 
       {!selected && result && <BuildingSummary result={result} onPick={setUnit} onEditEscrow={saveField} />}
+      {!selected && result && <MonthlyEstimates result={result} />}
       {!selected && result && <RecoveryByBaseYear result={result} />}
       {!selected && expenseSummary.length > 0 && <FinalExpenseSummary rows={expenseSummary} onEdit={saveExpense} />}
       {selected && <TenantStatement t={selected} reconYear={year} estimate={estimates.find((e) => e.unitRef === selected.unitRef)} contact={contacts[selected.unitRef]} onEdit={saveField} />}
@@ -668,6 +669,54 @@ function FinalExpenseSummary({ rows, onEdit }: {
             <td style={{ ...td, textAlign: "left" }} colSpan={5}>Total Operating Expenses (excl. Electric / RET)</td>
             <td style={td}>{money0(opexTotal)}</td>
             <td />
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  );
+}
+
+// ── Monthly estimate (escrow) history ────────────────────────────────────────
+
+// Year-over-year monthly CAM/RET escrow estimates per tenant, to spot big
+// jumps before they reach a tenant. Seeded with the current rent-roll charge
+// (the recon year's estimate); future years' budget-driven estimates append
+// as columns and the change/spike flags light up.
+function MonthlyEstimates({ result }: { result: BuildingReconResult }) {
+  const year = result.reconYear;
+  return (
+    <div className="card" style={{ overflowX: "auto" }}>
+      <div style={SECTION_LABEL}>Monthly Estimates — escrow by tenant</div>
+      <p className="small muted" style={{ marginTop: 4 }}>
+        Current monthly CAM / RET escrow from the rent roll (matches the CAM EST BILLING sheet). As each year&rsquo;s budget sets new estimates, columns are added here to show the year-over-year change and flag spikes.
+      </p>
+      <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 10, minWidth: 640 }}>
+        <thead>
+          <tr>
+            <th style={{ ...th, textAlign: "left" }}>Suite</th>
+            <th style={{ ...th, textAlign: "left" }}>Tenant</th>
+            <th style={th}>{year} CAM / mo</th>
+            <th style={th}>{year} RET / mo</th>
+            <th style={th}>{year} Total / mo</th>
+          </tr>
+        </thead>
+        <tbody>
+          {result.tenants.map((t) => (
+            <tr key={t.unitRef} style={{ borderBottom: "1px solid var(--border)" }}>
+              <td style={{ ...td, textAlign: "left", fontWeight: 700 }}>{t.suite}</td>
+              <td style={{ ...td, textAlign: "left" }}>{t.name}</td>
+              <td style={td}>{money0(t.camMonthly)}</td>
+              <td style={td}>{money0(t.retMonthly)}</td>
+              <td style={{ ...td, fontWeight: 700 }}>{money0(t.camMonthly + t.retMonthly)}</td>
+            </tr>
+          ))}
+        </tbody>
+        <tfoot>
+          <tr style={{ fontWeight: 800, borderTop: "2px solid var(--border)" }}>
+            <td style={{ ...td, textAlign: "left" }} colSpan={2}>Total</td>
+            <td style={td}>{money0(result.tenants.reduce((s, t) => s + t.camMonthly, 0))}</td>
+            <td style={td}>{money0(result.tenants.reduce((s, t) => s + t.retMonthly, 0))}</td>
+            <td style={td}>{money0(result.tenants.reduce((s, t) => s + t.camMonthly + t.retMonthly, 0))}</td>
           </tr>
         </tfoot>
       </table>

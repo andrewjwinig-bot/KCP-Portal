@@ -143,6 +143,8 @@ export function assembleTenantInputs(
       rcd: u.leaseFrom ?? null,
       opexEscrow: cfg.opexEscrow ?? annualizedEscrow(u.opexMonth ?? 0, monthsOcc),
       retEscrow: cfg.retEscrow ?? annualizedEscrow(u.reTaxMonth ?? 0, monthsOcc),
+      camMonthly: u.opexMonth ?? 0,
+      retMonthly: u.reTaxMonth ?? 0,
     });
   }
   return out;

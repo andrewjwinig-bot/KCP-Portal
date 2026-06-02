@@ -76,6 +76,10 @@ export type OfficeTenantInput = {
   opexEscrow: number;
   /** RET estimate collected during the year (positive dollars). */
   retEscrow: number;
+  /** Current monthly CAM / RET estimate charges from the rent roll
+   *  (the "Charges" column on the CAM EST BILLING sheet). */
+  camMonthly?: number;
+  retMonthly?: number;
   /** ISO date the base year was reset, if any — surfaces a footnote. */
   baseYearResetISO?: string | null;
   /** Rent commencement date (lease start), "M/D/YYYY" — for partial-year
@@ -128,6 +132,9 @@ export type TenantReconResult = {
   retAmountDue: number;
   retEscrow: number;
   retBalance: number;
+  /** Current monthly CAM / RET charge from the rent roll (CAM EST BILLING). */
+  camMonthly: number;
+  retMonthly: number;
 };
 
 export type BuildingReconResult = {

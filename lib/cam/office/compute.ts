@@ -112,6 +112,8 @@ export function reconcileTenant(
     retAmountDue,
     retEscrow: t.retEscrow,
     retBalance,
+    camMonthly: t.camMonthly ?? 0,
+    retMonthly: t.retMonthly ?? 0,
   };
 }
 

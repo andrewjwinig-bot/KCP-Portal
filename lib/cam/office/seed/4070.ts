@@ -93,22 +93,25 @@ export const LEASE_CONFIG_4070_2025: Record<string, OfficeLeaseConfig> = {
 // Rent-roll roster. leaseFrom = commencement (RCD); a mid-year leaseFrom
 // makes a genuine move-in partial (GLT). Continuing tenants keep their RCD
 // and a sentinel end — a lease expiring mid-year does NOT reduce occupancy.
+// opexMonth / reTaxMonth are the current monthly CAM / RET estimate charges
+// from the rent roll ("Charges" column on the CAM EST BILLING sheet) — the
+// 2026 estimate being billed. Reset tenants show $0 (new base = current year).
 const FULL_TO = "12/31/2030";
 export const ROSTER_4070_2025: RosterUnit[] = [
-  { unitRef: "4070-103", occupantName: "Bucks County Transportation", sqft: 1285, isVacant: false, leaseFrom: "2/15/2011", leaseTo: FULL_TO },
-  { unitRef: "4070-107", occupantName: "O.S.S.V .Management, LLC",     sqft: 1311, isVacant: false, leaseFrom: "1/1/2000", leaseTo: FULL_TO },
-  { unitRef: "4070-113", occupantName: "McQuoid Financial Group, Inc.", sqft: 1771, isVacant: false, leaseFrom: "1/1/2000", leaseTo: FULL_TO },
-  { unitRef: "4070-115", occupantName: "GLT Transportation, LLC",      sqft: 1693, isVacant: false, leaseFrom: "12/1/2025", leaseTo: "11/30/2026" },
-  { unitRef: "4070-116", occupantName: "Rothkoff Law Group, P.C.",     sqft: 3861, isVacant: false, leaseFrom: "1/1/2000", leaseTo: FULL_TO },
-  { unitRef: "4070-117", occupantName: "Belden Brick Sales & Service", sqft: 3945, isVacant: false, leaseFrom: "3/4/2005", leaseTo: FULL_TO },
-  { unitRef: "4070-201", occupantName: "Robert Half International, Inc", sqft: 3680, isVacant: false, leaseFrom: "1/1/2010", leaseTo: FULL_TO },
-  { unitRef: "4070-209", occupantName: "Ryan R. Janis P.C.",           sqft: 1725, isVacant: false, leaseFrom: "1/1/2000", leaseTo: FULL_TO },
-  { unitRef: "4070-211", occupantName: "AIM - USA LLC",                sqft: 1438, isVacant: false, leaseFrom: "1/1/2000", leaseTo: FULL_TO },
-  { unitRef: "4070-215", occupantName: "Law Ofcs. of Michael P. Clarke", sqft: 2004, isVacant: false, leaseFrom: "1/1/2000", leaseTo: FULL_TO },
-  { unitRef: "4070-301", occupantName: "Veltri, Inc.",                 sqft: 6374, isVacant: false, leaseFrom: "1/1/2000", leaseTo: FULL_TO },
-  { unitRef: "4070-400", occupantName: "Mette, Evans & Woodside",      sqft: 3455, isVacant: false, leaseFrom: "1/1/2000", leaseTo: FULL_TO },
-  { unitRef: "4070-411", occupantName: "Refresh Management, LLC",      sqft: 3308, isVacant: false, leaseFrom: "1/1/2000", leaseTo: FULL_TO },
-  { unitRef: "4070-415", occupantName: "Veltri, Inc.",                 sqft: 6795, isVacant: false, leaseFrom: "1/1/2000", leaseTo: FULL_TO },
+  { unitRef: "4070-103", occupantName: "Bucks County Transportation", sqft: 1285, isVacant: false, leaseFrom: "2/15/2011", leaseTo: FULL_TO, opexMonth: 0, reTaxMonth: 0 },
+  { unitRef: "4070-107", occupantName: "O.S.S.V .Management, LLC",     sqft: 1311, isVacant: false, leaseFrom: "1/1/2000", leaseTo: FULL_TO, opexMonth: 350, reTaxMonth: 0 },
+  { unitRef: "4070-113", occupantName: "McQuoid Financial Group, Inc.", sqft: 1771, isVacant: false, leaseFrom: "1/1/2000", leaseTo: FULL_TO, opexMonth: 375, reTaxMonth: 10 },
+  { unitRef: "4070-115", occupantName: "GLT Transportation, LLC",      sqft: 1693, isVacant: false, leaseFrom: "12/1/2025", leaseTo: "11/30/2026", opexMonth: 0, reTaxMonth: 0 },
+  { unitRef: "4070-116", occupantName: "Rothkoff Law Group, P.C.",     sqft: 3861, isVacant: false, leaseFrom: "1/1/2000", leaseTo: FULL_TO, opexMonth: 500, reTaxMonth: 0 },
+  { unitRef: "4070-117", occupantName: "Belden Brick Sales & Service", sqft: 3945, isVacant: false, leaseFrom: "3/4/2005", leaseTo: FULL_TO, opexMonth: 0, reTaxMonth: 0 },
+  { unitRef: "4070-201", occupantName: "Robert Half International, Inc", sqft: 3680, isVacant: false, leaseFrom: "1/1/2010", leaseTo: FULL_TO, opexMonth: 0, reTaxMonth: 0 },
+  { unitRef: "4070-209", occupantName: "Ryan R. Janis P.C.",           sqft: 1725, isVacant: false, leaseFrom: "1/1/2000", leaseTo: FULL_TO, opexMonth: 0, reTaxMonth: 0 },
+  { unitRef: "4070-211", occupantName: "AIM - USA LLC",                sqft: 1438, isVacant: false, leaseFrom: "1/1/2000", leaseTo: FULL_TO, opexMonth: 100, reTaxMonth: 20 },
+  { unitRef: "4070-215", occupantName: "Law Ofcs. of Michael P. Clarke", sqft: 2004, isVacant: false, leaseFrom: "1/1/2000", leaseTo: FULL_TO, opexMonth: 475, reTaxMonth: 30 },
+  { unitRef: "4070-301", occupantName: "Veltri, Inc.",                 sqft: 6374, isVacant: false, leaseFrom: "1/1/2000", leaseTo: FULL_TO, opexMonth: 0, reTaxMonth: 100 },
+  { unitRef: "4070-400", occupantName: "Mette, Evans & Woodside",      sqft: 3455, isVacant: false, leaseFrom: "1/1/2000", leaseTo: FULL_TO, opexMonth: 500, reTaxMonth: 70 },
+  { unitRef: "4070-411", occupantName: "Refresh Management, LLC",      sqft: 3308, isVacant: false, leaseFrom: "1/1/2000", leaseTo: FULL_TO, opexMonth: 1500, reTaxMonth: 100 },
+  { unitRef: "4070-415", occupantName: "Veltri, Inc.",                 sqft: 6795, isVacant: false, leaseFrom: "1/1/2000", leaseTo: FULL_TO, opexMonth: 0, reTaxMonth: 100 },
 ];
 
 // Base-year resets in effect for 2025. A mid-year reset prorates the
