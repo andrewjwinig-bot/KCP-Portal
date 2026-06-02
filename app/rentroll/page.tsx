@@ -307,20 +307,26 @@ function BaseYearCell({ unitRef, isVacant, value, onChange, readOnly }: {
 
   if (isVacant) return <span style={{ color: "var(--muted)" }}>—</span>;
 
+  const resetMonthYear = reset
+    ? new Date(Number(reset.resetDate.slice(0, 4)), Number(reset.resetDate.slice(5, 7)) - 1, 1)
+        .toLocaleDateString("en-US", { month: "short", year: "numeric" })
+    : "";
+  const resetNote = reset
+    ? `↺ reset ${resetMonthYear}${reset.originalBaseYear ? ` · from ${reset.originalBaseYear}` : ""}`
+    : "";
   const resetTitleRO = reset ? `Base year reset on ${fmtResetDate(reset.resetDate)}${reset.originalBaseYear ? ` (was ${reset.originalBaseYear})` : ""}${reset.notes ? ` — ${reset.notes}` : ""}` : undefined;
 
   if (readOnly) {
     return (
-      <span
-        title={resetTitleRO}
-        style={{
-          display: "inline-flex", alignItems: "center", gap: 4,
-          fontSize: 12, fontWeight: reset ? 700 : 500,
-          color: reset ? "#b91c1c" : "var(--text)",
-        }}
-      >
-        {value != null && value !== "" ? value : <span style={{ color: "var(--muted)" }}>—</span>}
-        {reset && <sup style={{ fontSize: 10, fontWeight: 800, color: "#b91c1c", lineHeight: 1 }}>※</sup>}
+      <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", gap: 1 }}>
+        <span style={{ fontSize: 12, fontWeight: reset ? 700 : 500, color: reset ? "#b91c1c" : "var(--text)" }}>
+          {value != null && value !== "" ? value : <span style={{ color: "var(--muted)" }}>—</span>}
+        </span>
+        {reset && (
+          <span title={resetTitleRO} style={{ fontSize: 9.5, fontWeight: 700, color: "#b91c1c", whiteSpace: "nowrap", lineHeight: 1.1, cursor: "help" }}>
+            {resetNote}
+          </span>
+        )}
       </span>
     );
   }
@@ -353,7 +359,7 @@ function BaseYearCell({ unitRef, isVacant, value, onChange, readOnly }: {
   const resetTitle = reset ? `Base year reset on ${fmtResetDate(reset.resetDate)}${reset.originalBaseYear ? ` (was ${reset.originalBaseYear})` : ""}${reset.notes ? ` — ${reset.notes}` : ""}` : undefined;
 
   return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+    <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
       <input
         type="text"
         value={text}
@@ -375,14 +381,9 @@ function BaseYearCell({ unitRef, isVacant, value, onChange, readOnly }: {
         }}
       />
       {reset && (
-        <sup
-          title={resetTitle}
-          style={{
-            fontSize: 10, fontWeight: 800,
-            color: "#b91c1c", cursor: "help",
-            lineHeight: 1,
-          }}
-        >※</sup>
+        <span title={resetTitle} style={{ fontSize: 9.5, fontWeight: 700, color: "#b91c1c", whiteSpace: "nowrap", lineHeight: 1.1, cursor: "help" }}>
+          {resetNote}
+        </span>
       )}
     </span>
   );

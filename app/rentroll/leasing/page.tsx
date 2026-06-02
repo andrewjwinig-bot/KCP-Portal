@@ -205,9 +205,18 @@ function BaseYearResets({
 
   async function save() {
     if (!selectedOption) { setError("Pick a tenant."); return; }
+    const newBaseYear = new Date().getFullYear();
+    const when = new Date(Number(resetDate.slice(0, 4)), Number(resetDate.slice(5, 7)) - 1, 1)
+      .toLocaleDateString("en-US", { month: "long", year: "numeric" });
+    const ok = window.confirm(
+      `Reset the base year for ${selectedOption.occupantName} (${selectedOption.unitRef})?\n\n` +
+      `• From ${currentBaseYear ?? "—"} → ${newBaseYear}\n` +
+      `• Effective ${when}\n\n` +
+      `This flips the tenant's base year and changes their CAM reconciliation going forward.`,
+    );
+    if (!ok) return;
     setSaving(true); setError(null);
     try {
-      const newBaseYear = new Date().getFullYear();
       // 1) Save the reset row.
       const r = await fetch("/api/base-year-resets", {
         method: "POST",
