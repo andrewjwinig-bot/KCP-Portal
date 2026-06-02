@@ -19,6 +19,7 @@ const NAV_ROLE_KEY: Record<string, string> = {
   "Expense History":    "base-years",
   "Expense Trends":     "base-years",
   "CAM Reconciliation": "base-years",
+  "Estimates":          "base-years",
   "Commissions":        "commissions",
   "Retail Commissions": "commissions-retail",
   "Security Deposits":  "deposits",
@@ -303,6 +304,20 @@ const NAV = [
         <rect x="7" y="12" width="3" height="6" />
         <rect x="12" y="8" width="3" height="10" />
         <rect x="17" y="5" width="3" height="13" />
+      </svg>
+    ),
+  },
+  {
+    label: "Estimates",
+    href: "/cam-recon/estimates",
+    external: false,
+    indent: true,
+    showFor: "/cam-recon",
+    groupId: "cam",
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <line x1="12" y1="1" x2="12" y2="23" />
+        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
       </svg>
     ),
   },
