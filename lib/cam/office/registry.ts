@@ -17,6 +17,11 @@ export type OfficeReconYear = {
   leaseConfig: Record<string, OfficeLeaseConfig>;
   /** Base-year resets seeded for this year (merged with stored resets). */
   resets: Record<string, ResetInfo>;
+  /** Occupied roster units intentionally left out of the reconciliation
+   *  (e.g. gross leases that don't reconcile), keyed by unit ref → reason.
+   *  Lets the route distinguish a deliberate omission from a tenant
+   *  accidentally missing a lease config (which is surfaced as a warning). */
+  excludedUnits?: Record<string, string>;
 };
 
 export type OfficeReconFixture = {
@@ -40,7 +45,15 @@ export const OFFICE_RECON_FIXTURES: Record<string, OfficeReconFixture> = {
     name: "Building 5",
     pool: POOL_4050,
     byYear: {
-      2025: { roster: ROSTER_4050_2025, leaseConfig: LEASE_CONFIG_4050_2025, resets: RESETS_4050_2025 },
+      2025: {
+        roster: ROSTER_4050_2025,
+        leaseConfig: LEASE_CONFIG_4050_2025,
+        resets: RESETS_4050_2025,
+        // Fenningham (315) is a gross lease — it does not reconcile, so it's
+        // intentionally absent from the lease config. Declared here so the
+        // live rent roll doesn't flag it as a missing-config error.
+        excludedUnits: { "4050-315": "Gross lease — does not reconcile" },
+      },
     },
   },
 };

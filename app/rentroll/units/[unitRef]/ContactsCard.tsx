@@ -258,7 +258,30 @@ export default function ContactsCard({
                     onChange={(e) => update(c.id, { notes: e.target.value })} />
                 </ContactField>
               </div>
-              <div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                <label
+                  title="Sends the CAM/RET year-end statement to this contact"
+                  style={{
+                    display: "flex", alignItems: "center", gap: 8, fontSize: 13,
+                    cursor: c.email ? "pointer" : "not-allowed", opacity: c.email ? 1 : 0.5,
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={!!c.camRecipient}
+                    disabled={!c.email}
+                    onChange={(e) => update(c.id, { camRecipient: e.target.checked })}
+                    style={{ width: 15, height: 15, cursor: "pointer" }}
+                  />
+                  <span style={{ fontWeight: 600, color: "var(--text)" }}>CAM/RET statement recipient</span>
+                  {c.camRecipient && c.email && (
+                    <span style={{
+                      fontSize: 10, fontWeight: 800, letterSpacing: "0.04em", textTransform: "uppercase",
+                      padding: "2px 8px", borderRadius: 999,
+                      background: "rgba(13,148,136,0.10)", color: "#0d9488", border: "1px solid rgba(13,148,136,0.30)",
+                    }}>Recipient</span>
+                  )}
+                </label>
                 <button type="button" onClick={() => removeContact(c.id)}
                   className="btn" style={{ fontSize: 12, padding: "5px 12px", fontWeight: 600 }}>
                   Remove contact

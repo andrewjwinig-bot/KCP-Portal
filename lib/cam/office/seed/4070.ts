@@ -7,6 +7,8 @@
 
 import type { OfficeExpensePool, OfficeTenantInput } from "../types";
 import { assembleTenantInputs, type OfficeLeaseConfig, type RosterUnit, type ResetInfo } from "../assemble";
+import { SEED_EXPENSES } from "../../../rentroll/baseYearExpenses";
+import { poolFromSeedExpenses } from "../poolFromSeed";
 
 const Y = [2014, 2016, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025];
 
@@ -18,7 +20,18 @@ function zip(vals: number[]): Record<string, number> {
   return out;
 }
 
-export const POOL_4070: OfficeExpensePool = {
+// Production pool — derived from the app's own Expense History (the same
+// SEED_EXPENSES["4070"] shown on the Expense History page), so an edit there
+// flows straight into the reconciliation. This is the connected approach used
+// by every building; the penny-exact POOL_4070_WORKBOOK below is retained only
+// as the engine's golden tie-out fixture (the workbook used cents; the app's
+// history is whole-dollar, so the two differ by sub-dollar rounding).
+export const POOL_4070: OfficeExpensePool = poolFromSeedExpenses(SEED_EXPENSES["4070"]);
+
+// Penny-exact pool transcribed verbatim from the workbook ("Expenses & Occ")
+// — NOT wired into the app; used by compute.test.ts to prove the engine ties
+// out to the cent against the source reconciliation.
+export const POOL_4070_WORKBOOK: OfficeExpensePool = {
   propertyCode: "4070",
   retAccount: "6410-8502",
   retLabel: "Rate x Building Sq. Ft",

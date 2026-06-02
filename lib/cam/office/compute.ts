@@ -16,6 +16,22 @@ function amountFor(pool: OfficeExpensePool, account: string, year: number): numb
   return pool.values[account]?.[String(year)] ?? 0;
 }
 
+/** Earliest year for which the pool's operating-expense / RET accounts carry
+ *  any data. Used to flag a base year that predates the history — which would
+ *  silently recover against a $0 base (the full current-year pool) and badly
+ *  over-bill the tenant. Returns null for an empty pool. */
+function earliestPoolYear(pool: OfficeExpensePool): number | null {
+  const accounts = [pool.retAccount, ...pool.opexLines.map((l) => l.glAccount)];
+  let min = Infinity;
+  for (const acct of accounts) {
+    for (const y of Object.keys(pool.values[acct] ?? {})) {
+      const n = Number(y);
+      if (Number.isFinite(n) && n < min) min = n;
+    }
+  }
+  return min === Infinity ? null : min;
+}
+
 /** Current-year expense for an account, applying any FINAL overrides from
  *  the Final Expense Summary. A FINAL is keyed by the raw GL account; a
  *  "-95" grossed-up variant scales by the same ratio so the gross-up holds.
@@ -86,6 +102,20 @@ export function reconcileTenant(
   const retAmountDue = retLine.netIncrease * share * t.recoveryPct;
   const retBalance = retAmountDue - t.retEscrow;
 
+  // Data-integrity guard: a base year before the pool's earliest data means
+  // every base cost reads as $0, so the tenant recovers the full current-year
+  // pool instead of the increase over its base — a large silent over-bill.
+  // Surface it rather than letting it flow through as a (wrong) number.
+  const dataWarnings: string[] = [];
+  if (!futureBase) {
+    const earliest = earliestPoolYear(pool);
+    if (earliest != null && t.baseYear < earliest) {
+      dataWarnings.push(
+        `Base year ${t.baseYear} predates the expense history (earliest ${earliest}) — recovery is computed against a $0 base, which over-recovers. Verify the base year or extend the expense history.`,
+      );
+    }
+  }
+
   return {
     unitRef: t.unitRef,
     skylineUnit: t.skylineUnit,
@@ -101,6 +131,7 @@ export function reconcileTenant(
     baseYearResetISO: t.baseYearResetISO ?? null,
     futureBaseYear: futureBase,
     rcd: t.rcd ?? null,
+    dataWarnings: dataWarnings.length ? dataWarnings : undefined,
     opexLines,
     opexBaseTotal,
     opexActualTotal,

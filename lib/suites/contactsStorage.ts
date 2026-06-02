@@ -36,6 +36,9 @@ function seededContactsFor(unitRef: string): SuiteContact[] {
     phone: "",
     address: "",
     notes: "",
+    // On-file emails are the billing addresses, so they default to CAM/RET
+    // recipients — staff can clear the flag if a contact shouldn't be billed.
+    camRecipient: true,
   }));
 }
 
@@ -47,6 +50,19 @@ export async function getOrEmptySuiteContacts(unitRef: string): Promise<SuiteCon
   return seeded.length > 0
     ? { unitRef, contacts: seeded, updatedAt: new Date(0).toISOString() }
     : emptySuiteContacts(unitRef);
+}
+
+/** Batch read for many units in a single manifest load (the per-unit
+ *  getOrEmptySuiteContacts would re-read the manifest each call). Applies the
+ *  same seed fallback per unit. */
+export async function getSuiteContactsMap(unitRefs: string[]): Promise<Record<string, SuiteContact[]>> {
+  const all = await loadAll();
+  const byUnit = new Map(all.map((s) => [s.unitRef, s.contacts]));
+  const out: Record<string, SuiteContact[]> = {};
+  for (const unitRef of unitRefs) {
+    out[unitRef] = byUnit.get(unitRef) ?? seededContactsFor(unitRef);
+  }
+  return out;
 }
 
 export async function saveSuiteContacts(

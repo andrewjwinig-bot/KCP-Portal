@@ -117,6 +117,10 @@ export type TenantReconResult = {
   futureBaseYear?: boolean;
   /** Rent commencement date (lease start), "M/D/YYYY". */
   rcd?: string | null;
+  /** Non-fatal data-integrity warnings surfaced to staff (e.g. a base year
+   *  that predates the expense history, which would over-recover). Empty /
+   *  absent when the tenant's inputs are clean. */
+  dataWarnings?: string[];
   // Operating expenses
   opexLines: ReconScheduleLine[];
   opexBaseTotal: number;

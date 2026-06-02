@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { reconcileBuilding } from "./compute";
-import { POOL_4070, TENANTS_4070_2025 } from "./seed/4070";
+import { POOL_4070_WORKBOOK as POOL_4070, TENANTS_4070_2025 } from "./seed/4070";
 import {
   excelRound,
   yearEndAdjustmentRows,

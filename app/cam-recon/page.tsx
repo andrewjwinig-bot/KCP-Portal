@@ -267,6 +267,7 @@ export default function OfficeCamReconPage() {
   const [estimates, setEstimates] = useState<NextYearEstimate[]>([]);
   const [contacts, setContacts] = useState<Record<string, { email: string; cc: string }>>({});
   const [expenseSummary, setExpenseSummary] = useState<ExpRow[]>([]);
+  const [warnings, setWarnings] = useState<{ unitRef: string; name: string; kind: string; message: string }[]>([]);
   const [loading, setLoading] = useState(false);
   const [yeDate, setYeDate] = useState("");
   const [estDate, setEstDate] = useState("");
@@ -295,6 +296,7 @@ export default function OfficeCamReconPage() {
       setEstimates(j?.estimates ?? []);
       setContacts(j?.contacts ?? {});
       setExpenseSummary(j?.expenseSummary ?? []);
+      setWarnings(j?.warnings ?? []);
     } finally {
       setLoading(false);
     }
@@ -447,10 +449,27 @@ export default function OfficeCamReconPage() {
 
       {loading && <div className="card"><div className="muted small">Loading…</div></div>}
 
+      {!loading && warnings.length > 0 && (
+        <div style={{
+          padding: "12px 14px", borderRadius: 10,
+          background: "rgba(220,38,38,0.06)", border: "1px solid rgba(220,38,38,0.35)",
+          display: "flex", flexDirection: "column", gap: 6,
+        }}>
+          <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.04em", textTransform: "uppercase", color: "#b91c1c" }}>
+            {warnings.length} data {warnings.length === 1 ? "warning" : "warnings"} — review before billing
+          </div>
+          {warnings.map((w, i) => (
+            <div key={`${w.unitRef}-${i}`} style={{ fontSize: 12.5, color: "#7f1d1d", lineHeight: 1.5 }}>
+              • {w.message}
+            </div>
+          ))}
+        </div>
+      )}
+
       {!selected && result && <BuildingSummary result={result} onPick={setUnit} onEditEscrow={saveField} />}
       {!selected && result && <RecoveryByBaseYear result={result} />}
       {!selected && expenseSummary.length > 0 && <FinalExpenseSummary rows={expenseSummary} onEdit={saveExpense} />}
-      {selected && <TenantStatement t={selected} reconYear={year} estimate={estimates.find((e) => e.unitRef === selected.unitRef)} contact={contacts[selected.unitRef]} onEdit={saveField} />}
+      {selected && <TenantStatement t={selected} reconYear={year} estimate={estimates.find((e) => e.unitRef === selected.unitRef)} contact={contacts[selected.unitRef]} />}
 
       {/* Year-End Adjustments — one compiled schedule across every office
           property, hit once at year end. Lives at the bottom for that
@@ -861,10 +880,9 @@ function EditableText({ value, placeholder, onCommit }: { value: string; placeho
   );
 }
 
-function TenantStatement({ t, reconYear, estimate, contact, onEdit }: {
+function TenantStatement({ t, reconYear, estimate, contact }: {
   t: TenantReconResult; reconYear: number; estimate?: NextYearEstimate;
   contact?: { email: string; cc: string };
-  onEdit: (unitRef: string, field: string, value: string) => void;
 }) {
   const occLabel = `${pct(t.occPct, 1)}${t.occPct < 0.9999 && t.rcd ? ` (${fmtRCD(t.rcd)} RCD)` : ""}`;
   const resetRel = t.occPct > 0 ? t.recoveryPct / t.occPct : 0;
@@ -916,12 +934,24 @@ function TenantStatement({ t, reconYear, estimate, contact, onEdit }: {
         </p>
       )}
 
-      {/* Billing contact — where the statement is circulated, plus CC. */}
-      <div className="card" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
+      {/* Billing contact — read-only; the tenant's Contacts page is the
+          master source of truth for who receives the statement. CC is the
+          constant internal default and isn't shown per tenant. */}
+      <div className="card" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10 }}>
         <span style={{ ...SECTION_LABEL, whiteSpace: "nowrap" }}>Statement to</span>
-        <EditableText value={contact?.email ?? ""} placeholder="tenant@email.com" onCommit={(v) => onEdit(t.unitRef, "email", v)} />
-        <span style={{ ...SECTION_LABEL, whiteSpace: "nowrap" }}>CC</span>
-        <EditableText value={contact?.cc ?? ""} placeholder="cc@kormancommercial.com" onCommit={(v) => onEdit(t.unitRef, "cc", v)} />
+        {contact?.email ? (
+          <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text)", wordBreak: "break-all" }}>{contact.email}</span>
+        ) : (
+          <span style={{ fontSize: 13, color: "#b91c1c", fontWeight: 600 }}>
+            No CAM/RET recipient flagged — set one on the Contacts page
+          </span>
+        )}
+        <a
+          href={`/rentroll/units/${encodeURIComponent(t.unitRef)}`}
+          style={{ fontSize: 12, fontWeight: 600, color: "#0b4a7d", textDecoration: "none", marginLeft: "auto" }}
+        >
+          Edit contacts →
+        </a>
       </div>
     </div>
   );
