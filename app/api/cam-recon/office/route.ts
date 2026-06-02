@@ -67,7 +67,11 @@ export async function GET(req: NextRequest) {
   const tenants = assembleTenantInputs(reconYear.roster, year, config, resets);
 
   // Final Expense Summary → per-account FINALs drive the current-year pool.
-  const expenseSummary = mergeExpenseSummary(property, year, await getExpenseOverrides(property, year));
+  // The Condo expense (6990) only applies to the JV III condo buildings
+  // (3610 / 3620 / 3640); hide it for the NI LLC buildings.
+  const JV_III = new Set(["3610", "3620", "3640"]);
+  const expenseSummary = mergeExpenseSummary(property, year, await getExpenseOverrides(property, year))
+    .filter((r) => r.account !== "6990-8502" || JV_III.has(property));
   const finals = expenseSummary.length ? finalsFromSummary(expenseSummary) : undefined;
 
   const result = reconcileBuilding(fixture.pool, tenants, year, finals);
