@@ -17,6 +17,7 @@ import SuiteInformationCard from "./SuiteInformationCard";
 import ContactsCard from "./ContactsCard";
 import DepositCard from "./DepositCard";
 import CamConfigCard from "./CamConfigCard";
+import OfficeCamConfigCard from "./OfficeCamConfigCard";
 import FloorplanCard from "./FloorplanCard";
 import ShareFolderCard from "../../../components/ShareFolderCard";
 import { useUser } from "../../../components/UserProvider";
@@ -37,6 +38,14 @@ function showsBaseYear(propertyCode: string): boolean {
 function isRetailUnit(propertyCode: string): boolean {
   const def = PROPERTY_DEFS.find((p) => p.id.toUpperCase() === propertyCode.toUpperCase());
   return !!def && def.type === "Retail" && !def.entityKind;
+}
+
+// An office unit is one whose building runs base-year expense recovery — the
+// NI LLC and JV III office buildings. These show the office CAM config card
+// (pro-rata share + gross-up) so CAMPRep lease terms are stored per tenant.
+function isOfficeUnit(propertyCode: string): boolean {
+  const c = propertyCode.toUpperCase();
+  return JV_III_CODES.has(c) || NI_LLC_CODES.has(c);
 }
 
 function parseRentDate(s: string | null | undefined): Date | null {
@@ -435,6 +444,15 @@ export default function UnitDetailPage() {
               <InfoField label="Current Base Year" value={baseYearVal != null ? String(baseYearVal) : "—"} />
             )}
           </div>
+        )}
+
+        {/* ── CAM / RET config (office only, occupied suites, hidden from maint) ── */}
+        {!isMaint && isOfficeUnit(propertyCode) && !isAmenity && !unit.isVacant && (
+          <OfficeCamConfigCard
+            unitRef={unit.unitRef}
+            unitSqft={unit.sqft}
+            buildingSqft={buildingSqft}
+          />
         )}
 
         {/* ── Contacts (occupied suites only) ── */}
