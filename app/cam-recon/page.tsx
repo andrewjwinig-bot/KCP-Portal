@@ -829,9 +829,18 @@ function TenantStatement({ t, reconYear, estimate, contact, onEdit }: {
 }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      {/* Expense schedules — CAM then RET */}
       <div className="card" style={{ overflowX: "auto" }}>
         <ScheduleTable title="Schedule of Operating Expenses" lines={t.opexLines} baseYear={t.baseYear} reconYear={reconYear} totalLabel="Total Operating Expenses" />
-        <div style={{ borderTop: "2px solid var(--border)", marginTop: 8, paddingTop: 8, maxWidth: 420, marginLeft: "auto" }}>
+      </div>
+      <div className="card" style={{ overflowX: "auto" }}>
+        <ScheduleTable title="Real Estate Taxes" lines={[t.retLine]} baseYear={t.baseYear} reconYear={reconYear} />
+      </div>
+
+      {/* Side-by-side reconciliation — CAM and RET calculations */}
+      <div className="card" style={{ display: "flex", flexWrap: "wrap", gap: 28 }}>
+        <div style={{ flex: "1 1 300px", minWidth: 280 }}>
+          <div style={{ ...SECTION_LABEL, color: "#0b4a7d", marginBottom: 8 }}>CAM</div>
           <BalanceRow label="Net Increase Over Base Year" value={money0(t.opexNetIncrease)} />
           <BalanceRow label="× Tenant Proportionate Share" value={pct(t.proRataPct / 100)} />
           <BalanceRow label={`× Occupancy % For The Year${t.baseYearResetISO ? " *" : ""}`} value={pct(t.occPct, 1)} />
@@ -839,11 +848,8 @@ function TenantStatement({ t, reconYear, estimate, contact, onEdit }: {
           <BalanceRow label="Less: Escrow Payments for the Year" value={money0(-t.opexEscrow)} />
           <BalanceRow label="Balance, Op Ex Costs Due" value={money0(t.opexBalance)} strong />
         </div>
-      </div>
-
-      <div className="card" style={{ overflowX: "auto" }}>
-        <ScheduleTable title="Real Estate Taxes" lines={[t.retLine]} baseYear={t.baseYear} reconYear={reconYear} />
-        <div style={{ borderTop: "2px solid var(--border)", marginTop: 8, paddingTop: 8, maxWidth: 420, marginLeft: "auto" }}>
+        <div style={{ flex: "1 1 300px", minWidth: 280 }}>
+          <div style={{ ...SECTION_LABEL, color: "#854d0e", marginBottom: 8 }}>RET</div>
           <BalanceRow label="Net Increase Over Base Year" value={money0(t.retLine.netIncrease)} />
           <BalanceRow label="× Tenant Proportionate Share" value={pct(t.proRataPct / 100)} />
           <BalanceRow label={`× Occupancy % For The Year${t.baseYearResetISO ? " *" : ""}`} value={pct(t.occPct, 1)} />
