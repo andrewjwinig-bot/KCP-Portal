@@ -390,10 +390,7 @@ export default function OfficeCamReconPage() {
             <>
               <Pill tone={TONE_NEUTRAL}>{selected.baseYear} Base Year</Pill>
               <Pill tone={TONE_NEUTRAL}>{selected.grossUp ? "Grossed Up 95%" : "Not Grossed Up"}</Pill>
-              <Pill tone={TONE_NEUTRAL}>
-                {pct(selected.proRataPct / 100)} Share
-                {result?.rentableSqft ? ` (${selected.sqft.toLocaleString()} / ${result.rentableSqft.toLocaleString()} sf)` : ""}
-              </Pill>
+              <Pill tone={TONE_NEUTRAL}>{pct(selected.proRataPct / 100)} Share</Pill>
               {selected.occPct < 0.9999 && <Pill tone={TONE_NEUTRAL}>{pct(selected.occPct, 1)} Occupancy</Pill>}
               {selected.baseYearResetISO && <Pill tone={TONE_AMBER}>Base Year Reset</Pill>}
               {selected.futureBaseYear && <Pill tone={TONE_AMBER}>No Recovery — Future Base Year</Pill>}
