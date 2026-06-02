@@ -6,6 +6,9 @@ import { OFFICE_RECON_FIXTURES, availableOfficeRecons } from "@/lib/cam/office/r
 import { getOverrides, mergeConfig, saveOverride } from "@/lib/cam/office/configStore";
 import { getUnitConfigs } from "@/lib/cam/office/unitConfig";
 import { getContactOverrides, mergeContacts, saveContact } from "@/lib/cam/office/contactStore";
+import { DEFAULT_CC } from "@/lib/cam/office/contacts";
+import { getSuiteContactsMap } from "@/lib/suites/contactsStorage";
+import { camRecipientEmails } from "@/lib/suites/contacts";
 import { getExpenseOverrides, saveExpenseField } from "@/lib/cam/office/expenseStore";
 import { finalsFromSummary, mergeExpenseSummary, type ExpenseOverride } from "@/lib/cam/office/expenseSummary";
 import { listHistoricalOpEx, upsertHistoricalOpEx } from "@/lib/financials/historical-opex/storage";
@@ -97,7 +100,22 @@ export async function GET(req: NextRequest) {
 
   const result = reconcileBuilding(pool, tenants, year, finals);
   const estimates = result.tenants.map(nextYearEstimate);
-  const contacts = mergeContacts(property, await getContactOverrides(property));
+
+  // Statement recipients come from the master Contacts directory on each
+  // tenant's rent-roll page (the contacts flagged as CAM/RET recipients), so
+  // there's one source of truth. CC is always the internal default (Drew +
+  // Greg), applied at send time — not shown per tenant. A legacy per-property
+  // override email still wins if one was set before this switch.
+  const legacy = mergeContacts(property, await getContactOverrides(property));
+  const suiteContacts = await getSuiteContactsMap(result.tenants.map((t) => t.unitRef));
+  const contacts: Record<string, { email: string; cc: string }> = {};
+  for (const t of result.tenants) {
+    const fromDirectory = camRecipientEmails(suiteContacts[t.unitRef] ?? []);
+    contacts[t.unitRef] = {
+      email: legacy[t.unitRef]?.email || fromDirectory,
+      cc: DEFAULT_CC,
+    };
+  }
 
   // Data-integrity warnings surfaced to staff:
   //  • an occupied roster unit with no lease config that isn't a declared
