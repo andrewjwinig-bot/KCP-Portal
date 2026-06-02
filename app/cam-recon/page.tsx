@@ -29,6 +29,11 @@ function pct(n: number, dp = 2): string {
 const SECTION_LABEL: React.CSSProperties = {
   fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)",
 };
+const arrowBtn: React.CSSProperties = {
+  width: 26, height: 26, borderRadius: 999, border: "1px solid var(--border)",
+  background: "var(--card)", color: "var(--text)", fontSize: 16, fontWeight: 700, lineHeight: 1,
+  display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0, padding: 0,
+};
 const th: React.CSSProperties = {
   textAlign: "right", padding: "6px 10px", fontSize: 11, fontWeight: 700,
   textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--muted)",
@@ -317,6 +322,12 @@ export default function OfficeCamReconPage() {
   const years = available.find((a) => a.propertyCode === property)?.years ?? [];
   const tenants = result?.tenants ?? [];
   const selected = unit === "ALL" ? null : tenants.find((t) => t.unitRef === unit) ?? null;
+  const tenantIdx = selected ? tenants.findIndex((t) => t.unitRef === selected.unitRef) : -1;
+  const goTenant = (dir: 1 | -1) => {
+    if (tenantIdx < 0) return;
+    const next = tenantIdx + dir;
+    if (next >= 0 && next < tenants.length) setUnit(tenants[next].unitRef);
+  };
   const totals = result?.totals;
   const propName = available.find((a) => a.propertyCode === property)?.name ?? "";
 
@@ -371,10 +382,22 @@ export default function OfficeCamReconPage() {
             <HeaderSelect value={property} onChange={setProperty} displayLabel={property ? `${property} — ${propName}` : "—"} ariaLabel="Property">
               {available.map((a) => <option key={a.propertyCode} value={a.propertyCode}>{a.propertyCode} — {a.name}</option>)}
             </HeaderSelect>
-            <HeaderSelect value={unit} onChange={setUnit} displayLabel={selected ? `${selected.suite} — ${selected.name}` : "All Tenants"} ariaLabel="Tenant" muted>
-              <option value="ALL">All Tenants</option>
-              {tenants.map((t) => <option key={t.unitRef} value={t.unitRef}>{t.suite} — {t.name}</option>)}
-            </HeaderSelect>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 2 }}>
+              {selected && (
+                <button type="button" onClick={() => goTenant(-1)} disabled={tenantIdx <= 0} aria-label="Previous tenant"
+                  title="Previous tenant"
+                  style={{ ...arrowBtn, opacity: tenantIdx <= 0 ? 0.35 : 1, cursor: tenantIdx <= 0 ? "default" : "pointer" }}>‹</button>
+              )}
+              <HeaderSelect value={unit} onChange={setUnit} displayLabel={selected ? `${selected.suite} — ${selected.name}` : "All Tenants"} ariaLabel="Tenant" muted>
+                <option value="ALL">All Tenants</option>
+                {tenants.map((t) => <option key={t.unitRef} value={t.unitRef}>{t.suite} — {t.name}</option>)}
+              </HeaderSelect>
+              {selected && (
+                <button type="button" onClick={() => goTenant(1)} disabled={tenantIdx >= tenants.length - 1} aria-label="Next tenant"
+                  title="Next tenant"
+                  style={{ ...arrowBtn, opacity: tenantIdx >= tenants.length - 1 ? 0.35 : 1, cursor: tenantIdx >= tenants.length - 1 ? "default" : "pointer" }}>›</button>
+              )}
+            </span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             {selected && (
