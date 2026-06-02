@@ -4,14 +4,15 @@
 
 import { describe, it, expect } from "vitest";
 import { reconcileBuilding, reconcileTenant } from "./compute";
-import { POOL_4070, TENANTS_4070_2025 } from "./seed/4070";
+import { POOL_4070, POOL_4070_WORKBOOK, TENANTS_4070_2025 } from "./seed/4070";
 
 const YEAR = 2025;
 const r2 = (n: number) => Math.round(n * 100) / 100;
+const near = (a: number, b: number, tol = 5) => Math.abs(a - b) <= tol;
 
 describe("office CAM/RET reconciliation — 4070 (2025)", () => {
   const byUnit = Object.fromEntries(
-    TENANTS_4070_2025.map((t) => [t.unitRef, reconcileTenant(POOL_4070, t, YEAR)]),
+    TENANTS_4070_2025.map((t) => [t.unitRef, reconcileTenant(POOL_4070_WORKBOOK, t, YEAR)]),
   );
 
   it("Bucks County (mid-year, base 2022) ties to the tenant page", () => {
@@ -60,11 +61,28 @@ describe("office CAM/RET reconciliation — 4070 (2025)", () => {
   }
 
   it("building totals equal the sum of per-tenant balances", () => {
-    const { totals, tenants } = reconcileBuilding(POOL_4070, TENANTS_4070_2025, YEAR);
+    const { totals, tenants } = reconcileBuilding(POOL_4070_WORKBOOK, TENANTS_4070_2025, YEAR);
     const sum = (f: (x: typeof tenants[number]) => number) => r2(tenants.reduce((a, x) => a + f(x), 0));
     expect(r2(totals.opexBalance)).toBe(sum((x) => x.opexBalance));
     expect(r2(totals.retBalance)).toBe(sum((x) => x.retBalance));
     expect(r2(totals.opexEscrow)).toBe(80500);
     expect(r2(totals.retEscrow)).toBe(5334);
+  });
+
+  // The PRODUCTION pool is derived from the app's whole-dollar Expense History
+  // (SEED_EXPENSES["4070"]) rather than the cents workbook. Confirm that the
+  // connected pool still ties to the same workbook balances within a small
+  // rounding tolerance — i.e. migrating 4070 to the derived pool did not move
+  // the reconciliation off the workbook beyond sub-dollar rounding.
+  describe("derived production pool ties to the workbook (±$5)", () => {
+    const derived = Object.fromEntries(
+      TENANTS_4070_2025.map((t) => [t.unitRef, reconcileTenant(POOL_4070, t, YEAR)]),
+    );
+    for (const t of TENANTS_4070_2025) {
+      it(`${t.unitRef} within tolerance`, () => {
+        expect(near(derived[t.unitRef].opexBalance, expectedOpexBalance[t.unitRef])).toBe(true);
+        expect(near(derived[t.unitRef].retBalance, expectedRetBalance[t.unitRef])).toBe(true);
+      });
+    }
   });
 });

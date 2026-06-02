@@ -267,6 +267,7 @@ export default function OfficeCamReconPage() {
   const [estimates, setEstimates] = useState<NextYearEstimate[]>([]);
   const [contacts, setContacts] = useState<Record<string, { email: string; cc: string }>>({});
   const [expenseSummary, setExpenseSummary] = useState<ExpRow[]>([]);
+  const [warnings, setWarnings] = useState<{ unitRef: string; name: string; kind: string; message: string }[]>([]);
   const [loading, setLoading] = useState(false);
   const [yeDate, setYeDate] = useState("");
   const [estDate, setEstDate] = useState("");
@@ -295,6 +296,7 @@ export default function OfficeCamReconPage() {
       setEstimates(j?.estimates ?? []);
       setContacts(j?.contacts ?? {});
       setExpenseSummary(j?.expenseSummary ?? []);
+      setWarnings(j?.warnings ?? []);
     } finally {
       setLoading(false);
     }
@@ -446,6 +448,23 @@ export default function OfficeCamReconPage() {
       </div>
 
       {loading && <div className="card"><div className="muted small">Loading…</div></div>}
+
+      {!loading && warnings.length > 0 && (
+        <div style={{
+          padding: "12px 14px", borderRadius: 10,
+          background: "rgba(220,38,38,0.06)", border: "1px solid rgba(220,38,38,0.35)",
+          display: "flex", flexDirection: "column", gap: 6,
+        }}>
+          <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.04em", textTransform: "uppercase", color: "#b91c1c" }}>
+            {warnings.length} data {warnings.length === 1 ? "warning" : "warnings"} — review before billing
+          </div>
+          {warnings.map((w, i) => (
+            <div key={`${w.unitRef}-${i}`} style={{ fontSize: 12.5, color: "#7f1d1d", lineHeight: 1.5 }}>
+              • {w.message}
+            </div>
+          ))}
+        </div>
+      )}
 
       {!selected && result && <BuildingSummary result={result} onPick={setUnit} onEditEscrow={saveField} />}
       {!selected && result && <RecoveryByBaseYear result={result} />}

@@ -98,7 +98,31 @@ export async function GET(req: NextRequest) {
   const result = reconcileBuilding(pool, tenants, year, finals);
   const estimates = result.tenants.map(nextYearEstimate);
   const contacts = mergeContacts(property, await getContactOverrides(property));
-  return NextResponse.json({ result, estimates, contacts, expenseSummary });
+
+  // Data-integrity warnings surfaced to staff:
+  //  • an occupied roster unit with no lease config that isn't a declared
+  //    exclusion (a tenant silently dropped from the reconciliation), and
+  //  • per-tenant warnings from the engine (e.g. base year predating history).
+  const warnings: { unitRef: string; name: string; kind: string; message: string }[] = [];
+  const excluded = reconYear.excludedUnits ?? {};
+  for (const u of reconYear.roster) {
+    if (u.isVacant) continue;
+    if (config[u.unitRef]) continue;
+    if (excluded[u.unitRef]) continue;
+    warnings.push({
+      unitRef: u.unitRef,
+      name: u.occupantName,
+      kind: "missing-config",
+      message: `${u.occupantName || u.unitRef} (${u.unitRef}) is on the rent roll but has no lease config — it's not being reconciled. Add its base year / pro-rata share, or declare it an intentional exclusion.`,
+    });
+  }
+  for (const t of result.tenants) {
+    for (const w of t.dataWarnings ?? []) {
+      warnings.push({ unitRef: t.unitRef, name: t.name, kind: "base-year", message: `${t.name} (${t.unitRef}): ${w}` });
+    }
+  }
+
+  return NextResponse.json({ result, estimates, contacts, expenseSummary, warnings });
 }
 
 const EDITABLE_FIELDS = new Set<keyof OfficeLeaseConfig>([
