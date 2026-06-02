@@ -67,6 +67,9 @@ export default function BaseYearExpensesPage() {
   const [rrProps, setRrProps] = useState<RRProperty[] | null>(null);
   const [snapshots, setSnapshots] = useState<RRSnapshot[]>([]);
   const [tenantMeta, setTenantMeta] = useState<Record<string, TenantMeta>>({});
+  // 2026 budget figures for the Summary's "2026 Est" column (as-is annual
+  // totals; CAM = Total OpEx less RET & Electric).
+  const [budget2026, setBudget2026] = useState<{ camAsIs: number; ret: number; electric: number } | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -79,6 +82,37 @@ export default function BaseYearExpensesPage() {
       setTenantMeta(metaJ?.tenantMeta ?? {});
     });
   }, []);
+
+  // Pull the 2026 budget for this property → CAM (Total OpEx − RET − Electric),
+  // RET, and Electric annual totals for the Summary's 2026 Est column.
+  useEffect(() => {
+    if (!propCode) { setBudget2026(null); return; }
+    let alive = true;
+    (async () => {
+      try {
+        const list = await fetch("/api/financials/budgets").then((r) => (r.ok ? r.json() : null));
+        const wb = (list?.workbooks ?? []).find(
+          (w: { year: number; properties: { propertyCode: string }[] }) =>
+            w.year === 2026 && w.properties?.some((p) => p.propertyCode.toUpperCase() === propCode.toUpperCase()),
+        );
+        if (!wb) { if (alive) setBudget2026(null); return; }
+        const detail = await fetch(`/api/financials/budgets/${wb.id}`).then((r) => (r.ok ? r.json() : null));
+        const prop = detail?.workbook?.properties?.find(
+          (p: { propertyCode: string }) => p.propertyCode.toUpperCase() === propCode.toUpperCase(),
+        );
+        if (!prop) { if (alive) setBudget2026(null); return; }
+        const totalOpEx = (prop.rollups ?? []).find((r: { name: string }) => r.name.toUpperCase().trim() === "TOTAL OPERATING EXPENSES")?.total ?? 0;
+        const lines = (prop.sections ?? []).flatMap((s: { lines: { label: string; total: number }[] }) => s.lines);
+        const lineTotal = (re: RegExp) => lines.find((l: { label: string }) => re.test(l.label))?.total ?? 0;
+        const ret = lineTotal(/real estate tax/i);
+        const electric = lineTotal(/electric/i);
+        if (alive) setBudget2026({ camAsIs: Math.max(0, totalOpEx - ret - electric), ret, electric });
+      } catch {
+        if (alive) setBudget2026(null);
+      }
+    })();
+    return () => { alive = false; };
+  }, [propCode]);
 
   const expenses: PropertyExpenses | null = SEED_EXPENSES[propCode] ?? null;
   const years = useMemo(() => (expenses ? expenseYears(expenses) : []), [expenses]);
@@ -151,7 +185,7 @@ export default function BaseYearExpensesPage() {
         </div>
       ) : (
         <>
-          <SummaryTable expenses={expenses} />
+          <SummaryTable expenses={expenses} budget2026={budget2026} />
 
           <ExpenseHistory expenses={expenses} years={years} currentOccPct={currentOccPct} />
 
@@ -173,13 +207,31 @@ export default function BaseYearExpensesPage() {
 
 // ── summary ($/SF, last 5 years) ─────────────────────────────────────────────
 
-function SummaryTable({ expenses }: { expenses: PropertyExpenses }) {
+function SummaryTable({ expenses, budget2026 }: {
+  expenses: PropertyExpenses;
+  budget2026: { camAsIs: number; ret: number; electric: number } | null;
+}) {
   const [mode, setMode] = useState<"total" | "gross" | "psf">("psf");
   const last5 = expenseYears(expenses).slice(-5).reverse();
   const recent3 = last5.slice(0, 3); // most recent 3 years, for the 3-Yr Avg
   const avgBg = "rgba(11,74,125,0.06)";
+  const estBg = "rgba(22,163,74,0.07)";
   const rentable = expenses.rentableSqft;
   const elec = expenses.lines.find((l) => l.separateCharge);
+
+  // Gross the 2026 budget CAM up to 95% to match the historical CAM row,
+  // using the latest year's grossed-up ÷ as-is ratio.
+  const latestY = String(expenseYears(expenses).slice(-1)[0] ?? "");
+  const grossFactor = expenses.opEx[latestY] ? (expenses.opExGrossedUp[latestY] / expenses.opEx[latestY]) : 1;
+  const est = (label: string): number | undefined => {
+    if (!budget2026) return undefined;
+    if (label === "RET") return budget2026.ret || undefined;
+    if (label === "Electric") return budget2026.electric || undefined;
+    const camGross = mode === "total" ? budget2026.camAsIs : budget2026.camAsIs * grossFactor;
+    if (label === "CAM") return camGross || undefined;
+    if (label.startsWith("Total")) return (camGross || 0) + (budget2026.ret || 0); // CAM + RET
+    return undefined;
+  };
 
   // CAM is the 95%-grossed-up Op Ex except in "Totals" mode, which uses the
   // as-is total. RET and Electric have no grossed-up variant, so they read
@@ -242,6 +294,7 @@ function SummaryTable({ expenses }: { expenses: PropertyExpenses }) {
               <th>
                 {mode === "psf" ? "$ / SF" : mode === "gross" ? "Grossed-up $" : "Total $"}
               </th>
+              <th style={{ textAlign: "right", background: estBg }}>2026 Est</th>
               <th style={{ textAlign: "right", background: avgBg }}>3-Yr Avg</th>
               {last5.map((y) => (
                 <th key={y} style={{ textAlign: "right" }}>{y}</th>
@@ -259,6 +312,9 @@ function SummaryTable({ expenses }: { expenses: PropertyExpenses }) {
               return (
                 <tr key={r.label}>
                   <td style={{ fontWeight: r.total ? 800 : 700 }}>{r.label}</td>
+                  <td style={{ textAlign: "right", fontWeight: r.total ? 800 : 700, background: estBg }}>
+                    {fmt(est(r.label))}
+                  </td>
                   <td style={{ textAlign: "right", fontWeight: r.total ? 800 : 700, background: avgBg }}>
                     {avg != null ? fmt(avg) : "—"}
                   </td>
@@ -281,6 +337,7 @@ function SummaryTable({ expenses }: { expenses: PropertyExpenses }) {
             : `$ / SF divides the 95%-grossed-up figures by ${rentable.toLocaleString()} rentable SF.`}
         {" "}RET and Electric have no grossed-up variant, so they read the same
         in every mode. Electric is billed separately.
+        {budget2026 && " 2026 Est is the operating budget (CAM = Total Operating Expenses less RET & Electric), 95% grossed up to match the CAM row."}
       </p>
     </div>
   );
