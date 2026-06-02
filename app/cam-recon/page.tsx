@@ -759,33 +759,36 @@ function ScheduleTable({ title, lines, baseYear, reconYear, totalLabel }: {
   const baseTotal = lines.reduce((s, l) => s + l.baseCost, 0);
   const actualTotal = lines.reduce((s, l) => s + l.actual, 0);
   const incTotal = lines.reduce((s, l) => s + l.netIncrease, 0);
+  // Slightly larger fonts + whole dollars for an easy-to-read statement.
+  const sth: React.CSSProperties = { ...th, fontSize: 12, padding: "7px 10px" };
+  const std: React.CSSProperties = { ...td, fontSize: 14.5, padding: "7px 10px" };
   return (
     <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 520 }}>
       <thead>
         <tr>
-          <th style={{ ...th, textAlign: "left" }}>{title}</th>
-          <th style={th}>B/Y Costs ({baseYear})</th>
-          <th style={th}>Actual ({reconYear})</th>
-          <th style={th}>Net Increase</th>
+          <th style={{ ...sth, textAlign: "left" }}>{title}</th>
+          <th style={sth}>B/Y Costs ({baseYear})</th>
+          <th style={sth}>Actual ({reconYear})</th>
+          <th style={sth}>Net Increase</th>
         </tr>
       </thead>
       <tbody>
         {lines.map((l) => (
           <tr key={l.glAccount} style={{ borderBottom: "1px solid var(--border)" }}>
-            <td style={{ ...td, textAlign: "left" }}>{l.label}</td>
-            <td style={td}>{money(l.baseCost)}</td>
-            <td style={td}>{money(l.actual)}</td>
-            <td style={{ ...td, color: l.netIncrease > 0 ? "var(--text)" : "var(--muted)" }}>{money(l.netIncrease)}</td>
+            <td style={{ ...std, textAlign: "left" }}>{l.label}</td>
+            <td style={std}>{money0(l.baseCost)}</td>
+            <td style={std}>{money0(l.actual)}</td>
+            <td style={{ ...std, color: l.netIncrease > 0 ? "var(--text)" : "var(--muted)" }}>{money0(l.netIncrease)}</td>
           </tr>
         ))}
       </tbody>
       {totalLabel && (
         <tfoot>
           <tr style={{ fontWeight: 800, borderTop: "2px solid var(--border)" }}>
-            <td style={{ ...td, textAlign: "left" }}>{totalLabel}</td>
-            <td style={td}>{money(baseTotal)}</td>
-            <td style={td}>{money(actualTotal)}</td>
-            <td style={td}>{money(incTotal)}</td>
+            <td style={{ ...std, textAlign: "left" }}>{totalLabel}</td>
+            <td style={std}>{money0(baseTotal)}</td>
+            <td style={std}>{money0(actualTotal)}</td>
+            <td style={std}>{money0(incTotal)}</td>
           </tr>
         </tfoot>
       )}
@@ -795,7 +798,7 @@ function ScheduleTable({ title, lines, baseYear, reconYear, totalLabel }: {
 
 function BalanceRow({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
   return (
-    <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 10px", fontWeight: strong ? 800 : 500, fontSize: strong ? 14 : 13 }}>
+    <div style={{ display: "flex", justifyContent: "space-between", padding: "5px 10px", fontWeight: strong ? 800 : 500, fontSize: strong ? 15.5 : 14 }}>
       <span style={strong ? undefined : { color: "var(--muted)" }}>{label}</span>
       <span>{value}</span>
     </div>
@@ -837,24 +840,24 @@ function TenantStatement({ t, reconYear, estimate, contact, onEdit }: {
       <div className="card" style={{ overflowX: "auto" }}>
         <ScheduleTable title="Schedule of Operating Expenses" lines={t.opexLines} baseYear={t.baseYear} reconYear={reconYear} totalLabel="Total Operating Expenses" />
         <div style={{ borderTop: "2px solid var(--border)", marginTop: 8, paddingTop: 8, maxWidth: 420, marginLeft: "auto" }}>
-          <BalanceRow label="Net Increase Over Base Year" value={money(t.opexNetIncrease)} />
+          <BalanceRow label="Net Increase Over Base Year" value={money0(t.opexNetIncrease)} />
           <BalanceRow label="× Tenant Proportionate Share" value={pct(t.proRataPct / 100)} />
           <BalanceRow label={`× Occupancy % For The Year${t.baseYearResetISO ? " *" : ""}`} value={pct(t.occPct, 1)} />
-          <BalanceRow label="Amount Due" value={money(t.opexAmountDue)} strong />
-          <BalanceRow label="Less: Escrow Payments for the Year" value={money(-t.opexEscrow)} />
-          <BalanceRow label="Balance, Op Ex Costs Due" value={money(t.opexBalance)} strong />
+          <BalanceRow label="Amount Due" value={money0(t.opexAmountDue)} strong />
+          <BalanceRow label="Less: Escrow Payments for the Year" value={money0(-t.opexEscrow)} />
+          <BalanceRow label="Balance, Op Ex Costs Due" value={money0(t.opexBalance)} strong />
         </div>
       </div>
 
       <div className="card" style={{ overflowX: "auto" }}>
         <ScheduleTable title="Real Estate Taxes" lines={[t.retLine]} baseYear={t.baseYear} reconYear={reconYear} />
         <div style={{ borderTop: "2px solid var(--border)", marginTop: 8, paddingTop: 8, maxWidth: 420, marginLeft: "auto" }}>
-          <BalanceRow label="Net Increase Over Base Year" value={money(t.retLine.netIncrease)} />
+          <BalanceRow label="Net Increase Over Base Year" value={money0(t.retLine.netIncrease)} />
           <BalanceRow label="× Tenant Proportionate Share" value={pct(t.proRataPct / 100)} />
           <BalanceRow label={`× Occupancy % For The Year${t.baseYearResetISO ? " *" : ""}`} value={pct(t.occPct, 1)} />
-          <BalanceRow label="Amount Due" value={money(t.retAmountDue)} strong />
-          <BalanceRow label="Less: Escrow Payments for the Year" value={money(-t.retEscrow)} />
-          <BalanceRow label="Balance, Real Estate Taxes Due" value={money(t.retBalance)} strong />
+          <BalanceRow label="Amount Due" value={money0(t.retAmountDue)} strong />
+          <BalanceRow label="Less: Escrow Payments for the Year" value={money0(-t.retEscrow)} />
+          <BalanceRow label="Balance, Real Estate Taxes Due" value={money0(t.retBalance)} strong />
         </div>
       </div>
 
