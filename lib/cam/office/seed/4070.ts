@@ -22,6 +22,7 @@ export const POOL_4070: OfficeExpensePool = {
   propertyCode: "4070",
   retAccount: "6410-8502",
   retLabel: "Rate x Building Sq. Ft",
+  rentableSqft: 61508,
   updatedAt: "2026-02-03",
   values: {
     "6130-8502": zip([12548, 11604, 15067, 15805, 15874.79, 14311.99, 16445, 18155.35, 19544.27, 18115.85]),

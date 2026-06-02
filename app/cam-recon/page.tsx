@@ -388,12 +388,15 @@ export default function OfficeCamReconPage() {
         <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           {selected ? (
             <>
-              <Pill tone={TONE_NEUTRAL}>Base Year {selected.baseYear}</Pill>
-              <Pill tone={TONE_NEUTRAL}>{selected.grossUp ? "Grossed up 95%" : "Not grossed up"}</Pill>
-              <Pill tone={TONE_NEUTRAL}>{pct(selected.proRataPct / 100)} share</Pill>
-              {selected.occPct < 0.9999 && <Pill tone={TONE_NEUTRAL}>{pct(selected.occPct, 1)} occ</Pill>}
-              {selected.baseYearResetISO && <Pill tone={TONE_AMBER}>Base year reset</Pill>}
-              {selected.futureBaseYear && <Pill tone={TONE_AMBER}>No recovery — future base year</Pill>}
+              <Pill tone={TONE_NEUTRAL}>{selected.baseYear} Base Year</Pill>
+              <Pill tone={TONE_NEUTRAL}>{selected.grossUp ? "Grossed Up 95%" : "Not Grossed Up"}</Pill>
+              <Pill tone={TONE_NEUTRAL}>
+                {pct(selected.proRataPct / 100)} Share
+                {result?.rentableSqft ? ` (${selected.sqft.toLocaleString()} / ${result.rentableSqft.toLocaleString()} sf)` : ""}
+              </Pill>
+              {selected.occPct < 0.9999 && <Pill tone={TONE_NEUTRAL}>{pct(selected.occPct, 1)} Occupancy</Pill>}
+              {selected.baseYearResetISO && <Pill tone={TONE_AMBER}>Base Year Reset</Pill>}
+              {selected.futureBaseYear && <Pill tone={TONE_AMBER}>No Recovery — Future Base Year</Pill>}
             </>
           ) : (
             <span className="muted small">{tenants.length} tenants reconciled · base-year expense recovery, year-end true-up</span>

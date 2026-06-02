@@ -41,6 +41,8 @@ export type OfficeExpensePool = {
   /** GL account carrying real estate taxes, run as its own schedule. */
   retAccount: string;
   retLabel: string;
+  /** Building rentable SF — the share denominator, for display. */
+  rentableSqft?: number;
   updatedAt: string;
 };
 
@@ -118,6 +120,8 @@ export type TenantReconResult = {
 export type BuildingReconResult = {
   propertyCode: string;
   reconYear: number;
+  /** Building rentable SF — the pro-rata share denominator. */
+  rentableSqft?: number;
   tenants: TenantReconResult[];
   totals: {
     opexAmountDue: number;

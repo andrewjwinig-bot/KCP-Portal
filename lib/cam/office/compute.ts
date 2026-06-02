@@ -132,5 +132,5 @@ export function reconcileBuilding(
     },
     { opexAmountDue: 0, opexEscrow: 0, opexBalance: 0, retAmountDue: 0, retEscrow: 0, retBalance: 0 },
   );
-  return { propertyCode: pool.propertyCode, reconYear, tenants: results, totals };
+  return { propertyCode: pool.propertyCode, reconYear, rentableSqft: pool.rentableSqft, tenants: results, totals };
 }
