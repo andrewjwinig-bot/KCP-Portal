@@ -46,10 +46,15 @@ export default function OfficeCamConfigCard({
   unitRef,
   unitSqft,
   buildingSqft,
+  baseYear,
 }: {
   unitRef: string;
   unitSqft: number;
   buildingSqft: number;
+  /** Current base year from the rent roll / tenant metadata (the master
+   *  source) — echoed here so it autofills for every office building, not
+   *  just those with a reconciliation fixture. */
+  baseYear?: number | string | null;
 }) {
   const [seed, setSeed] = useState<Seed | null>(null);
   const [config, setConfig] = useState<Effective | null>(null);
@@ -122,13 +127,15 @@ export default function OfficeCamConfigCard({
     );
   }
 
-  // Sub-line beneath the PRS tile: back-solve the implied building SF from
-  // the stipulated share (unitSqft / PRS × 100), falling back to true
-  // SF-over-building-SF when blank.
-  const displayDenom =
-    config.proRataPct != null && config.proRataPct > 0 && unitSqft > 0
-      ? Math.round((unitSqft / config.proRataPct) * 100)
-      : buildingSqft;
+  // True pro-rata share = unit SF ÷ building SF. CAMPrep shares sometimes
+  // diverge from this (lease amendments, excluded areas), so flag when the
+  // stipulated share doesn't match the raw SF share — beyond a 0.01% rounding
+  // tolerance — so staff can confirm it's intentional.
+  const truePRS = buildingSqft > 0 && unitSqft > 0 ? (unitSqft / buildingSqft) * 100 : null;
+  const r2 = (n: number) => Math.round(n * 100) / 100;
+  const prsMismatch =
+    truePRS != null && config.proRataPct != null && config.proRataPct > 0 &&
+    Math.abs(r2(config.proRataPct) - r2(truePRS)) > 0.01;
 
   return (
     <div className="card">
@@ -180,10 +187,17 @@ export default function OfficeCamConfigCard({
             />
             <span style={{ fontSize: 18, fontWeight: 700, color: "var(--muted)" }}>%</span>
           </div>
-          {displayDenom > 0 && (
-            <span style={tileSubStyle}>
-              {unitSqft > 0 ? `${unitSqft.toLocaleString()} / ` : ""}{displayDenom.toLocaleString()} SF
-            </span>
+          {truePRS != null && (
+            prsMismatch ? (
+              <span style={{ ...tileSubStyle, color: "#b45309", fontWeight: 700 }}
+                title={`Building true share is ${truePRS.toFixed(2)}% (${unitSqft.toLocaleString()} / ${buildingSqft.toLocaleString()} SF). The stipulated CAMPrep share differs.`}>
+                ≠ true {truePRS.toFixed(2)}%
+              </span>
+            ) : (
+              <span style={tileSubStyle}>
+                {unitSqft.toLocaleString()} / {buildingSqft.toLocaleString()} SF
+              </span>
+            )
           )}
         </div>
 
@@ -207,11 +221,12 @@ export default function OfficeCamConfigCard({
           <span style={tileSubStyle}>{config.grossUp ? "to 95% occupancy" : "actual expenses"}</span>
         </div>
 
-        {/* Base Year (read-only echo — edited in the Base Year card above) */}
+        {/* Base Year (read-only echo from the rent roll — edited in the Base
+            Year card above) */}
         <div style={tileStyle}>
           <span style={tileLabelStyle}>Base Year</span>
           <span style={{ fontSize: 22, fontWeight: 800, lineHeight: 1, color: "var(--text)" }}>
-            {seed?.baseYear ?? "—"}
+            {baseYear ?? seed?.baseYear ?? "—"}
           </span>
           <span style={tileSubStyle}>expense recovery</span>
         </div>
