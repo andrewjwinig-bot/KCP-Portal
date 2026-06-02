@@ -441,7 +441,7 @@ export default function OfficeCamReconPage() {
       {/* Year-End Adjustments — one compiled schedule across every office
           property, hit once at year end. Lives at the bottom for that
           reason. */}
-      {result && (
+      {!selected && result && (
         <div className="card">
           <div style={SECTION_LABEL}>Year-End Adjustments — All Office Properties</div>
           <p className="small muted" style={{ marginTop: 6 }}>
@@ -829,14 +829,6 @@ function TenantStatement({ t, reconYear, estimate, contact, onEdit }: {
 }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      {/* Billing contact — where the statement is circulated, plus CC. */}
-      <div className="card" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
-        <span style={{ ...SECTION_LABEL, whiteSpace: "nowrap" }}>Statement to</span>
-        <EditableText value={contact?.email ?? ""} placeholder="tenant@email.com" onCommit={(v) => onEdit(t.unitRef, "email", v)} />
-        <span style={{ ...SECTION_LABEL, whiteSpace: "nowrap" }}>CC</span>
-        <EditableText value={contact?.cc ?? ""} placeholder="cc@kormancommercial.com" onCommit={(v) => onEdit(t.unitRef, "cc", v)} />
-      </div>
-
       <div className="card" style={{ overflowX: "auto" }}>
         <ScheduleTable title="Schedule of Operating Expenses" lines={t.opexLines} baseYear={t.baseYear} reconYear={reconYear} totalLabel="Total Operating Expenses" />
         <div style={{ borderTop: "2px solid var(--border)", marginTop: 8, paddingTop: 8, maxWidth: 420, marginLeft: "auto" }}>
@@ -872,15 +864,12 @@ function TenantStatement({ t, reconYear, estimate, contact, onEdit }: {
         </p>
       )}
 
-      <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "center" }}>
-        <Pill tone={reconBalanceTone(t.opexBalance + t.retBalance)}>
-          Net true-up: {money(t.opexBalance + t.retBalance)} {(t.opexBalance + t.retBalance) < 0 ? "(credit to tenant)" : "(owed by tenant)"}
-        </Pill>
-        {estimate && (
-          <span className="small muted">
-            {reconYear + 1} estimate: {money(estimate.monthlyCam)}/mo CAM · {money(estimate.monthlyRet)}/mo RET
-          </span>
-        )}
+      {/* Billing contact — where the statement is circulated, plus CC. */}
+      <div className="card" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
+        <span style={{ ...SECTION_LABEL, whiteSpace: "nowrap" }}>Statement to</span>
+        <EditableText value={contact?.email ?? ""} placeholder="tenant@email.com" onCommit={(v) => onEdit(t.unitRef, "email", v)} />
+        <span style={{ ...SECTION_LABEL, whiteSpace: "nowrap" }}>CC</span>
+        <EditableText value={contact?.cc ?? ""} placeholder="cc@kormancommercial.com" onCommit={(v) => onEdit(t.unitRef, "cc", v)} />
       </div>
     </div>
   );
