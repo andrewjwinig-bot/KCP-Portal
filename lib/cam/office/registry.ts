@@ -10,6 +10,7 @@
 import type { OfficeExpensePool } from "./types";
 import type { OfficeLeaseConfig, RosterUnit, ResetInfo } from "./assemble";
 import { POOL_4070, LEASE_CONFIG_4070_2025, ROSTER_4070_2025, RESETS_4070_2025 } from "./seed/4070";
+import { POOL_4050, LEASE_CONFIG_4050_2025, ROSTER_4050_2025, RESETS_4050_2025 } from "./seed/4050";
 
 export type OfficeReconYear = {
   roster: RosterUnit[];
@@ -32,6 +33,14 @@ export const OFFICE_RECON_FIXTURES: Record<string, OfficeReconFixture> = {
     pool: POOL_4070,
     byYear: {
       2025: { roster: ROSTER_4070_2025, leaseConfig: LEASE_CONFIG_4070_2025, resets: RESETS_4070_2025 },
+    },
+  },
+  "4050": {
+    propertyCode: "4050",
+    name: "Building 5",
+    pool: POOL_4050,
+    byYear: {
+      2025: { roster: ROSTER_4050_2025, leaseConfig: LEASE_CONFIG_4050_2025, resets: RESETS_4050_2025 },
     },
   },
 };
