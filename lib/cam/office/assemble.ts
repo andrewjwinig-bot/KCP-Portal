@@ -122,6 +122,7 @@ export function assembleTenantInputs(
       sqft: u.sqft,
       occPct: occupancyPctForYear(u.leaseFrom, recoveryLeaseTo, year),
       baseYearResetISO: resetInYear ? reset!.resetDate : null,
+      rcd: u.leaseFrom ?? null,
       opexEscrow: cfg.opexEscrow ?? annualizedEscrow(u.opexMonth ?? 0, monthsOcc),
       retEscrow: cfg.retEscrow ?? annualizedEscrow(u.reTaxMonth ?? 0, monthsOcc),
     });

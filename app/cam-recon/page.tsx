@@ -25,6 +25,12 @@ function money0(n: number): string {
 function pct(n: number, dp = 2): string {
   return (n * 100).toFixed(dp) + "%";
 }
+/** Rent commencement date "M/D/YYYY" → "MM/DD/YY". */
+function fmtRCD(d?: string | null): string {
+  if (!d) return "";
+  const m = d.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  return m ? `${m[1].padStart(2, "0")}/${m[2].padStart(2, "0")}/${m[3].slice(2)}` : d;
+}
 
 const SECTION_LABEL: React.CSSProperties = {
   fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)",
@@ -416,7 +422,7 @@ export default function OfficeCamReconPage() {
               <Pill tone={TONE_NEUTRAL}>{selected.baseYear} Base Year</Pill>
               <Pill tone={TONE_NEUTRAL}>{selected.grossUp ? "Grossed Up 95%" : "Not Grossed Up"}</Pill>
               <Pill tone={TONE_NEUTRAL}>{pct(selected.proRataPct / 100)} Share</Pill>
-              {selected.occPct < 0.9999 && <Pill tone={TONE_NEUTRAL}>{pct(selected.occPct, 1)} Occupancy</Pill>}
+              {selected.occPct < 0.9999 && <Pill tone={TONE_NEUTRAL}>{pct(selected.occPct, 1)} Occupancy{selected.rcd ? ` (${fmtRCD(selected.rcd)} RCD)` : ""}</Pill>}
               {selected.baseYearResetISO && <Pill tone={TONE_AMBER}>Base Year Reset</Pill>}
               {selected.futureBaseYear && <Pill tone={TONE_AMBER}>No Recovery — Future Base Year</Pill>}
             </>
@@ -564,7 +570,7 @@ function BuildingSummary({ result, onPick, onEditEscrow }: {
               <td style={{ ...td, textAlign: "left" }}>{t.name}</td>
               <td style={td}>{t.baseYear}</td>
               <td style={td}>{pct(t.proRataPct / 100)}</td>
-              <td style={td}>{pct(t.occPct, 1)}</td>
+              <td style={td}>{pct(t.occPct, 1)}{t.occPct < 0.9999 && t.rcd ? <span className="muted" style={{ fontSize: 11 }}> ({fmtRCD(t.rcd)})</span> : null}</td>
               <td style={cam(true)}>{money(t.opexAmountDue)}</td>
               <td style={cam()} onClick={(e) => e.stopPropagation()}>
                 <EditableMoney value={t.opexEscrow} onCommit={(v) => onEditEscrow(t.unitRef, "opexEscrow", v)} />
@@ -862,7 +868,7 @@ function TenantStatement({ t, reconYear, estimate, contact, onEdit }: {
           <div style={{ ...SECTION_LABEL, color: "#0b4a7d", marginBottom: 8 }}>CAM</div>
           <BalanceRow label="Net Increase Over Base Year" value={money0(t.opexNetIncrease)} />
           <BalanceRow label="× Tenant Proportionate Share" value={pct(t.proRataPct / 100)} />
-          <BalanceRow label={`× Occupancy % For The Year${t.baseYearResetISO ? " *" : ""}`} value={pct(t.occPct, 1)} />
+          <BalanceRow label={`× Occupancy % For The Year${t.baseYearResetISO ? " *" : ""}`} value={`${pct(t.occPct, 1)}${t.occPct < 0.9999 && t.rcd ? ` (${fmtRCD(t.rcd)} RCD)` : ""}`} />
           <BalanceRow label="Amount Due" value={money0(t.opexAmountDue)} strong />
           <BalanceRow label="Less: Escrow Payments for the Year" value={money0(-t.opexEscrow)} />
           <FinalBalanceRow label="Balance, Op Ex Costs Due" value={t.opexBalance} />
@@ -871,7 +877,7 @@ function TenantStatement({ t, reconYear, estimate, contact, onEdit }: {
           <div style={{ ...SECTION_LABEL, color: "#854d0e", marginBottom: 8 }}>RET</div>
           <BalanceRow label="Net Increase Over Base Year" value={money0(t.retLine.netIncrease)} />
           <BalanceRow label="× Tenant Proportionate Share" value={pct(t.proRataPct / 100)} />
-          <BalanceRow label={`× Occupancy % For The Year${t.baseYearResetISO ? " *" : ""}`} value={pct(t.occPct, 1)} />
+          <BalanceRow label={`× Occupancy % For The Year${t.baseYearResetISO ? " *" : ""}`} value={`${pct(t.occPct, 1)}${t.occPct < 0.9999 && t.rcd ? ` (${fmtRCD(t.rcd)} RCD)` : ""}`} />
           <BalanceRow label="Amount Due" value={money0(t.retAmountDue)} strong />
           <BalanceRow label="Less: Escrow Payments for the Year" value={money0(-t.retEscrow)} />
           <FinalBalanceRow label="Balance, Real Estate Taxes Due" value={t.retBalance} />

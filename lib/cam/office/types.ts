@@ -73,6 +73,9 @@ export type OfficeTenantInput = {
   retEscrow: number;
   /** ISO date the base year was reset, if any — surfaces a footnote. */
   baseYearResetISO?: string | null;
+  /** Rent commencement date (lease start), "M/D/YYYY" — for partial-year
+   *  verification. */
+  rcd?: string | null;
 };
 
 export type ReconScheduleLine = {
@@ -100,6 +103,8 @@ export type TenantReconResult = {
   baseYearResetISO?: string | null;
   /** True when the base year is after the recon year — nothing is due. */
   futureBaseYear?: boolean;
+  /** Rent commencement date (lease start), "M/D/YYYY". */
+  rcd?: string | null;
   // Operating expenses
   opexLines: ReconScheduleLine[];
   opexBaseTotal: number;

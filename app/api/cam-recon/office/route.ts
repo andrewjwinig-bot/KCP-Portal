@@ -68,13 +68,18 @@ export async function GET(req: NextRequest) {
 
   // Final Expense Summary → per-account FINALs drive the current-year pool.
   // The Condo expense (6990) only applies to the JV III condo buildings
-  // (3610 / 3620 / 3640); hide it for the NI LLC buildings.
+  // (3610 / 3620 / 3640); hide it everywhere else (NI LLC + shopping
+  // centers) — both the summary and the per-tenant schedule.
   const JV_III = new Set(["3610", "3620", "3640"]);
   const expenseSummary = mergeExpenseSummary(property, year, await getExpenseOverrides(property, year))
     .filter((r) => r.account !== "6990-8502" || JV_III.has(property));
   const finals = expenseSummary.length ? finalsFromSummary(expenseSummary) : undefined;
 
-  const result = reconcileBuilding(fixture.pool, tenants, year, finals);
+  const pool = JV_III.has(property)
+    ? fixture.pool
+    : { ...fixture.pool, opexLines: fixture.pool.opexLines.filter((l) => !l.glAccount.startsWith("6990")) };
+
+  const result = reconcileBuilding(pool, tenants, year, finals);
   const estimates = result.tenants.map(nextYearEstimate);
   const contacts = mergeContacts(property, await getContactOverrides(property));
   return NextResponse.json({ result, estimates, contacts, expenseSummary });

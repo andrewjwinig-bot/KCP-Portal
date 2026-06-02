@@ -99,6 +99,7 @@ export function reconcileTenant(
     isVacant: false,
     baseYearResetISO: t.baseYearResetISO ?? null,
     futureBaseYear: futureBase,
+    rcd: t.rcd ?? null,
     opexLines,
     opexBaseTotal,
     opexActualTotal,
