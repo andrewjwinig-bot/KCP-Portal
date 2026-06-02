@@ -452,6 +452,7 @@ export default function UnitDetailPage() {
             unitRef={unit.unitRef}
             unitSqft={unit.sqft}
             buildingSqft={buildingSqft}
+            baseYear={baseYearVal}
           />
         )}
 
