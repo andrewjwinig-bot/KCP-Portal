@@ -4,6 +4,7 @@ import { nextYearEstimate } from "@/lib/cam/office/exports";
 import { assembleTenantInputs, type OfficeLeaseConfig, type ResetInfo } from "@/lib/cam/office/assemble";
 import { OFFICE_RECON_FIXTURES, availableOfficeRecons } from "@/lib/cam/office/registry";
 import { getOverrides, mergeConfig, saveOverride } from "@/lib/cam/office/configStore";
+import { getUnitConfigs } from "@/lib/cam/office/unitConfig";
 import { getContactOverrides, mergeContacts, saveContact } from "@/lib/cam/office/contactStore";
 import { getExpenseOverrides, saveExpenseField } from "@/lib/cam/office/expenseStore";
 import { finalsFromSummary, mergeExpenseSummary, type ExpenseOverride } from "@/lib/cam/office/expenseSummary";
@@ -61,8 +62,22 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: `No ${year} recon for ${property}` }, { status: 404 });
   }
 
+  // Precedence (low → high): seed lease config < per-unit lease-level config
+  // edited on the tenant detail page (pro-rata share, gross-up — year-
+  // agnostic) < per-building/year recon-time override.
+  const unitConfigs = await getUnitConfigs();
+  const seededWithUnit: Record<string, OfficeLeaseConfig> = {};
+  for (const [unitRef, base] of Object.entries(reconYear.leaseConfig)) {
+    const uc = unitConfigs[unitRef] ?? {};
+    seededWithUnit[unitRef] = {
+      ...base,
+      ...(uc.proRataPct != null ? { proRataPct: uc.proRataPct } : {}),
+      ...(uc.grossUp != null ? { grossUp: uc.grossUp } : {}),
+    };
+  }
+
   const overrides = await getOverrides(property, year);
-  const config = mergeConfig(reconYear.leaseConfig, overrides);
+  const config = mergeConfig(seededWithUnit, overrides);
   // Seeded resets, overridden by any recorded via the base-year-reset tool.
   const resets = { ...reconYear.resets, ...(await loadResets()) };
   const tenants = assembleTenantInputs(reconYear.roster, year, config, resets);
