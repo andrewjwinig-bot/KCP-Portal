@@ -594,7 +594,7 @@ function FinalExpenseSummary({ rows, onEdit }: {
           <span style={{ width: 12, height: 12, borderRadius: 3, background: EDIT_BG, border: "1px solid var(--border)", display: "inline-block" }} /> editable (Excel Avid · FINAL · Description)
         </span>
         <span className="small" style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
-          <span style={{ width: 12, height: 12, borderRadius: 3, background: MATCH_BG, display: "inline-block" }} /> FINAL matches TB Detail or Excel Avid
+          <span style={{ width: 12, height: 12, borderRadius: 3, background: MATCH_BG, display: "inline-block" }} /> source FINAL matches (TB Detail or Excel Avid)
         </span>
       </div>
       <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 10, minWidth: 860 }}>
@@ -611,15 +611,16 @@ function FinalExpenseSummary({ rows, onEdit }: {
         </thead>
         <tbody>
           {rows.map((r) => {
-            const matches = Math.round(r.final) === Math.round(r.tbDetail) || Math.round(r.final) === Math.round(r.excelAvid);
+            const matchesTB = Math.round(r.final) === Math.round(r.tbDetail);
+            const matchesAvid = Math.round(r.final) === Math.round(r.excelAvid);
             return (
               <tr key={r.account} style={{ borderBottom: "1px solid var(--border)", ...(isSep(r.account) ? { borderTop: "2px solid var(--border)" } : {}) }}>
                 <td style={{ ...td, textAlign: "left", color: "var(--muted)", fontSize: 12 }}>{r.account}</td>
                 <td style={{ ...td, textAlign: "left" }}>{r.label}</td>
-                <td style={td}>{money0(r.tbDetail)}</td>
-                <td style={td}><EditableMoney value={r.excelAvid} whole onCommit={(v) => onEdit(r.account, "excelAvid", v)} /></td>
+                <td style={{ ...td, ...(matchesTB ? { background: MATCH_BG } : {}) }}>{money0(r.tbDetail)}</td>
+                <td style={td}><EditableMoney value={r.excelAvid} whole bg={matchesAvid ? MATCH_BG : EDIT_BG} onCommit={(v) => onEdit(r.account, "excelAvid", v)} /></td>
                 <td style={{ ...td, color: Math.abs(r.variance) < 0.5 ? "var(--muted)" : r.variance < 0 ? "#b91c1c" : "#15803d" }}>{money0(r.variance)}</td>
-                <td style={{ ...td, fontWeight: 700 }}><EditableMoney value={r.final} whole bg={matches ? MATCH_BG : EDIT_BG} onCommit={(v) => onEdit(r.account, "final", v)} /></td>
+                <td style={{ ...td, fontWeight: 700 }}><EditableMoney value={r.final} whole onCommit={(v) => onEdit(r.account, "final", v)} /></td>
                 <td style={{ ...td, textAlign: "left" }}><EditableText value={r.description} placeholder="—" onCommit={(v) => onEdit(r.account, "description", v)} /></td>
               </tr>
             );
