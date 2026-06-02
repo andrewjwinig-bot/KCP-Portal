@@ -141,7 +141,17 @@ export default function CamEstimatesPage() {
                 return (
                   <tr key={t.unitRef} style={{ borderBottom: "1px solid var(--border)" }}>
                     <td style={{ ...td, textAlign: "left", fontWeight: 700 }}>{t.suite}</td>
-                    <td style={{ ...td, textAlign: "left" }}>{t.name}</td>
+                    <td style={{ ...td, textAlign: "left" }}>
+                      <span style={{ display: "inline-flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
+                        <span>{t.name}</span>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", whiteSpace: "nowrap" }}>
+                          BY {t.baseYear}
+                          {t.baseYearResetISO && (
+                            <span title={`Base year reset ${t.baseYearResetISO}`} style={{ color: "#b45309" }}> ↺</span>
+                          )}
+                        </span>
+                      </span>
+                    </td>
                     <td style={td}>{money0(t.camMonthly)}</td>
                     <td style={{ ...td, fontWeight: 700 }}>{money0(newCam)}</td>
                     <td style={td}>{changeCell(t.camMonthly, newCam)}</td>
