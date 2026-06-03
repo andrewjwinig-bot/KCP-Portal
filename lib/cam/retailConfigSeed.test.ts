@@ -24,4 +24,28 @@ describe("retail CAMPRep config seed", () => {
     expect(RETAIL_CONFIG_SEED["1100-30"]).toBeUndefined();
     expect(RETAIL_CONFIG_SEED["1100-32"]).toBeUndefined();
   });
+
+  it("seeds Planet Fitness's CAM cap (2300-1851)", () => {
+    const c = seedCamConfig("2300-1851");
+    expect(c!.cam.adminFeePct).toBe(7);
+    expect(c!.camCap?.priorYear).toBe(2024);
+    expect(c!.camCap?.controllableAmount).toBe(105457);
+    expect(c!.camCap?.growthPct).toBe(4);
+  });
+
+  it("seeds M&T's expense exclusion + T-Mobile's admin-fee exclusion", () => {
+    const mt = seedCamConfig("2300-1817");
+    expect(mt!.hasExpenseExclusions).toBe(true);
+    expect(mt!.camExcludedLines).toContain("Building Maintenance");
+    const tmo = seedCamConfig("2300-1867");
+    expect(tmo!.hasAdminFeeExclusions).toBe(true);
+    expect(tmo!.camAdminExcludedLines).toContain("Liability Insurance");
+  });
+
+  it("does NOT seed PRS for 2300 (propertyRules prefills the denominators)", () => {
+    const c = seedCamConfig("2300-1847");
+    expect(c!.cam.stipulatedPrs).toBeNull();
+    expect(c!.ins.stipulatedPrs).toBeNull();
+    expect(c!.ret.stipulatedPrs).toBeNull();
+  });
 });
