@@ -5,6 +5,9 @@ import { RETAIL_RECON_FIXTURES, availableRetailRecons } from "@/lib/cam/retail/r
 import { getCamConfig } from "@/lib/cam/configStorage";
 import { seedCamConfig } from "@/lib/cam/retailConfigSeed";
 import { emptyCamConfig } from "@/lib/cam/config";
+import { getSuiteContactsMap } from "@/lib/suites/contactsStorage";
+import { camRecipientEmails } from "@/lib/suites/contacts";
+import { DEFAULT_CC } from "@/lib/cam/office/contacts";
 
 export const runtime = "nodejs";
 
@@ -42,5 +45,13 @@ export async function GET(req: NextRequest) {
 
   const tenants = assembleRetail(fixture.pool, reconYear.roster, fixture.gla, configFor);
   const result = reconcileRetailBuilding(fixture.pool, tenants);
-  return NextResponse.json({ result });
+
+  // Statement recipients from the master Contacts directory (flagged
+  // recipients), CC the internal default — same as the office side.
+  const suiteContacts = await getSuiteContactsMap(reconYear.roster.map((u) => u.unitRef));
+  const contacts: Record<string, { email: string; cc: string }> = {};
+  for (const u of reconYear.roster) {
+    contacts[u.unitRef] = { email: camRecipientEmails(suiteContacts[u.unitRef] ?? []), cc: DEFAULT_CC };
+  }
+  return NextResponse.json({ result, contacts });
 }

@@ -72,8 +72,13 @@ export type RetailTenantResult = {
   retPrs: number;
   adminFeePct: number;
   retDiscountPct: number;
+  /** Full CAM pool before this tenant's exclusions/cap (for the statement). */
+  camPoolFull: number;
   /** Effective CAM pool this tenant is billed against (after exclusions/cap). */
   camPoolEffective: number;
+  /** Insurance + tax pools this tenant is billed against (for the statement). */
+  insPool: number;
+  retPool: number;
   capped: boolean;
   camShare: number;
   camAdmin: number;
