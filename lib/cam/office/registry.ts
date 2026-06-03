@@ -12,6 +12,7 @@ import type { OfficeLeaseConfig, RosterUnit, ResetInfo } from "./assemble";
 import { POOL_4070, LEASE_CONFIG_4070_2025, ROSTER_4070_2025, RESETS_4070_2025 } from "./seed/4070";
 import { POOL_4050, LEASE_CONFIG_4050_2025, ROSTER_4050_2025, RESETS_4050_2025 } from "./seed/4050";
 import { POOL_4060, LEASE_CONFIG_4060_2025, ROSTER_4060_2025, RESETS_4060_2025 } from "./seed/4060";
+import { POOL_4080, LEASE_CONFIG_4080_2025, ROSTER_4080_2025, RESETS_4080_2025 } from "./seed/4080";
 
 export type OfficeReconYear = {
   roster: RosterUnit[];
@@ -73,6 +74,25 @@ export const OFFICE_RECON_FIXTURES: Record<string, OfficeReconFixture> = {
           "4060-217": "Conference Center — amenity, no base year",
           "4060-208B": "BSG Provisions — former, no base year",
           "4060-117A": "Vein Clinics — former, no base year",
+        },
+      },
+    },
+  },
+  "4080": {
+    propertyCode: "4080",
+    name: "Building 8",
+    pool: POOL_4080,
+    byYear: {
+      2025: {
+        roster: ROSTER_4080_2025,
+        leaseConfig: LEASE_CONFIG_4080_2025,
+        resets: RESETS_4080_2025,
+        excludedUnits: {
+          "4080-221": "CIMPLIFI — lease commences 2026 (no 2025 occupancy)",
+          "4080-201": "Conference Center — amenity, no base year",
+          "4080-GYM": "Gym fees — not a CAM tenant",
+          "4080-RT1": "Outfront Media — rooftop/billboard, not a CAM tenant",
+          "4080-112B": "DermaBeauty — former, settled separately (not on the Building tab)",
         },
       },
     },

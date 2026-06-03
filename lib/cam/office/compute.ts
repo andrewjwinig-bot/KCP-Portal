@@ -62,8 +62,11 @@ function scheduleLine(
   baseYear: number,
   reconYear: number,
   finals?: Record<string, number>,
+  noBaseStop?: boolean,
 ): ReconScheduleLine {
-  const baseCost = amountFor(pool, account, baseYear);
+  // A true-NNN tenant has no base-year stop: it recovers its share of the
+  // full current-year expense, so the base cost is $0 (no floor).
+  const baseCost = noBaseStop ? 0 : amountFor(pool, account, baseYear);
   const actual = actualFor(pool, account, reconYear, finals);
   return { glAccount: account, label, baseCost, actual, netIncrease: Math.max(0, actual - baseCost) };
 }
@@ -77,16 +80,17 @@ export function reconcileTenant(
   finals?: Record<string, number>,
 ): TenantReconResult {
   const share = t.proRataPct / 100;
-  // A base year after the reconciliation year means the tenant's expense
-  // floor hasn't been set yet — there's no increase to recover, so nothing
-  // is due (every line's net increase is forced to zero).
-  const futureBase = t.baseYear > reconYear;
+  // A true-NNN tenant pays its share of the full expense with no base-year
+  // stop (base cost $0). Otherwise a base year after the reconciliation year
+  // means the floor hasn't been set yet — nothing is due.
+  const noBaseStop = !!t.noBaseStop;
+  const futureBase = !noBaseStop && t.baseYear > reconYear;
 
   const opexLines = pool.opexLines.map((line) => {
     const useGrossUp = t.grossUp && !!line.grossUpAccount;
     const account = useGrossUp ? line.grossUpAccount! : line.glAccount;
     const label = useGrossUp ? `${line.label} (95%)` : line.label;
-    const sl = scheduleLine(pool, account, label, t.baseYear, reconYear, finals);
+    const sl = scheduleLine(pool, account, label, t.baseYear, reconYear, finals, noBaseStop);
     if (futureBase) sl.netIncrease = 0;
     return sl;
   });
@@ -97,7 +101,7 @@ export function reconcileTenant(
   const opexAmountDue = opexNetIncrease * share * t.recoveryPct;
   const opexBalance = opexAmountDue - t.opexEscrow;
 
-  const retLine = scheduleLine(pool, pool.retAccount, pool.retLabel, t.baseYear, reconYear, finals);
+  const retLine = scheduleLine(pool, pool.retAccount, pool.retLabel, t.baseYear, reconYear, finals, noBaseStop);
   if (futureBase) retLine.netIncrease = 0;
   const retAmountDue = retLine.netIncrease * share * t.recoveryPct;
   const retBalance = retAmountDue - t.retEscrow;
@@ -106,8 +110,9 @@ export function reconcileTenant(
   // every base cost reads as $0, so the tenant recovers the full current-year
   // pool instead of the increase over its base — a large silent over-bill.
   // Surface it rather than letting it flow through as a (wrong) number.
+  // (A true-NNN tenant recovers the full pool by design, so it's exempt.)
   const dataWarnings: string[] = [];
-  if (!futureBase) {
+  if (!futureBase && !noBaseStop) {
     const earliest = earliestPoolYear(pool);
     if (earliest != null && t.baseYear < earliest) {
       dataWarnings.push(
@@ -130,6 +135,7 @@ export function reconcileTenant(
     isVacant: false,
     baseYearResetISO: t.baseYearResetISO ?? null,
     futureBaseYear: futureBase,
+    noBaseStop: noBaseStop || undefined,
     rcd: t.rcd ?? null,
     dataWarnings: dataWarnings.length ? dataWarnings : undefined,
     opexLines,
