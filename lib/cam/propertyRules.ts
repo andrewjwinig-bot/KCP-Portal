@@ -48,9 +48,9 @@ export const PROPERTY_CAM_RULES: Record<string, PropertyCamRule> = {
     },
     ins: {
       denominator: 48772,
-      excludeTenantPatterns: ["m&t", "m & t"],
+      excludeTenantPatterns: ["m&t", "m & t", "dunkin"],
       tenantOverrides: [{ pattern: "wawa", denominator: 61572 }],
-      footnote: "Insurance denominator excludes Wawa outparcel and M&T Bank (Wawa's insurance is on full GLA).",
+      footnote: "Insurance denominator excludes Wawa outparcel, M&T Bank and Dunkin (Wawa's insurance is on full GLA).",
     },
     // RET intentionally omitted → falls back to building GLA for everyone.
   },
