@@ -13,6 +13,7 @@ import { POOL_4070, LEASE_CONFIG_4070_2025, ROSTER_4070_2025, RESETS_4070_2025 }
 import { POOL_4050, LEASE_CONFIG_4050_2025, ROSTER_4050_2025, RESETS_4050_2025 } from "./seed/4050";
 import { POOL_4060, LEASE_CONFIG_4060_2025, ROSTER_4060_2025, RESETS_4060_2025 } from "./seed/4060";
 import { POOL_4080, LEASE_CONFIG_4080_2025, ROSTER_4080_2025, RESETS_4080_2025 } from "./seed/4080";
+import { POOL_40A0, LEASE_CONFIG_40A0_2025, ROSTER_40A0_2025, RESETS_40A0_2025 } from "./seed/40A0";
 
 export type OfficeReconYear = {
   roster: RosterUnit[];
@@ -95,6 +96,14 @@ export const OFFICE_RECON_FIXTURES: Record<string, OfficeReconFixture> = {
           "4080-112B": "DermaBeauty — former, settled separately (not on the Building tab)",
         },
       },
+    },
+  },
+  "40A0": {
+    propertyCode: "40A0",
+    name: "Building 40A0",
+    pool: POOL_40A0,
+    byYear: {
+      2025: { roster: ROSTER_40A0_2025, leaseConfig: LEASE_CONFIG_40A0_2025, resets: RESETS_40A0_2025 },
     },
   },
 };
