@@ -60,6 +60,10 @@ export type OfficeTenantInput = {
   /** 4-digit base year. A base year with no expense data → base costs of
    *  $0 → tenant reconciles against the full pool. */
   baseYear: number;
+  /** True for a full-NNN tenant with no base-year stop: recovers its share of
+   *  the full current-year expense (base costs forced to $0). baseYear is then
+   *  irrelevant and displayed as "NNN". */
+  noBaseStop?: boolean;
   /** True when the lease grosses expenses up to 95% occupancy. */
   grossUp: boolean;
   /** Pro-rata share as a percent, e.g. 2.2 means 2.2%. */
@@ -115,6 +119,8 @@ export type TenantReconResult = {
   baseYearResetISO?: string | null;
   /** True when the base year is after the recon year — nothing is due. */
   futureBaseYear?: boolean;
+  /** True for a full-NNN tenant (no base-year stop) — base year shows "NNN". */
+  noBaseStop?: boolean;
   /** Rent commencement date (lease start), "M/D/YYYY". */
   rcd?: string | null;
   /** Non-fatal data-integrity warnings surfaced to staff (e.g. a base year

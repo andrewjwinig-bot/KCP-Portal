@@ -134,7 +134,7 @@ function drawTenantStatement(doc: any, t: TenantReconResult, year: number, propL
   y += 16; ink(MUTED); doc.setFont("helvetica", "normal"); doc.setFontSize(10);
   at(`${propLabel}   ·   Suite ${t.suite}`, L);
   y += 14;
-  at(`Base Year ${t.baseYear}   ·   ${t.grossUp ? "Grossed Up to 95%" : "Not Grossed Up"}   ·   ${pct(t.proRataPct / 100)} Share   ·   ${pct(t.occPct, 1)} Occupancy`, L);
+  at(`${t.noBaseStop ? "NNN — No Base Year" : `Base Year ${t.baseYear}`}   ·   ${t.grossUp ? "Grossed Up to 95%" : "Not Grossed Up"}   ·   ${pct(t.proRataPct / 100)} Share   ·   ${pct(t.occPct, 1)} Occupancy`, L);
   y += 28;
 
   const sectionBar = (title: string, withCols: boolean) => {
@@ -143,7 +143,7 @@ function drawTenantStatement(doc: any, t: TenantReconResult, year: number, propL
     at(title.toUpperCase(), L + 6);
     if (withCols) {
       doc.setFontSize(8);
-      at(`B/Y ${t.baseYear}`, cols[0], { align: "right" });
+      at(`B/Y ${t.noBaseStop ? "—" : t.baseYear}`, cols[0], { align: "right" });
       at(`Actual ${year}`, cols[1], { align: "right" });
       at("Net Increase", cols[2] - 6, { align: "right" });
     }
@@ -429,7 +429,7 @@ export default function OfficeCamReconPage() {
         <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           {selected ? (
             <>
-              <Pill tone={TONE_NEUTRAL}>{selected.baseYear} Base Year</Pill>
+              <Pill tone={TONE_NEUTRAL}>{selected.noBaseStop ? "NNN — No Base Year" : `${selected.baseYear} Base Year`}</Pill>
               <Pill tone={TONE_NEUTRAL}>{selected.grossUp ? "Grossed Up 95%" : "Not Grossed Up"}</Pill>
               <Pill tone={TONE_NEUTRAL}>{pct(selected.proRataPct / 100)} Share</Pill>
               {selected.occPct < 0.9999 && <Pill tone={TONE_NEUTRAL}>{pct(selected.occPct, 1)} Occupancy{selected.rcd ? ` (${fmtRCD(selected.rcd)} RCD)` : ""}</Pill>}
@@ -595,7 +595,7 @@ function BuildingSummary({ result, onPick, onEditEscrow }: {
             <tr key={t.unitRef} style={{ borderBottom: "1px solid var(--border)", cursor: "pointer" }} onClick={() => onPick(t.unitRef)}>
               <td style={{ ...td, textAlign: "left", fontWeight: 700 }}>{t.suite}</td>
               <td style={{ ...td, textAlign: "left" }}>{t.name}</td>
-              <td style={td}>{t.baseYear}{t.baseYearResetISO && <span title={`Base year reset ${new Date(t.baseYearResetISO + "T00:00:00").toLocaleDateString("en-US")}`} style={{ color: "#b45309", fontWeight: 800, marginLeft: 3, cursor: "help" }}>↺</span>}</td>
+              <td style={td}>{t.noBaseStop ? "NNN" : t.baseYear}{t.baseYearResetISO && <span title={`Base year reset ${new Date(t.baseYearResetISO + "T00:00:00").toLocaleDateString("en-US")}`} style={{ color: "#b45309", fontWeight: 800, marginLeft: 3, cursor: "help" }}>↺</span>}</td>
               <td style={td}>{pct(t.proRataPct / 100)}</td>
               <td style={td}>{pct(t.occPct, 1)}{t.occPct < 0.9999 && t.rcd ? <span className="muted" style={{ fontSize: 11 }}> ({fmtRCD(t.rcd)})</span> : null}</td>
               <td style={cam(true)}>{money(t.opexAmountDue)}</td>
@@ -811,7 +811,7 @@ function Legend({ color, label }: { color: string; label: string }) {
 // ── Per-tenant statement ─────────────────────────────────────────────────────
 
 function ScheduleTable({ title, lines, baseYear, reconYear, totalLabel }: {
-  title: string; lines: TenantReconResult["opexLines"]; baseYear: number; reconYear: number; totalLabel?: string;
+  title: string; lines: TenantReconResult["opexLines"]; baseYear: number | string; reconYear: number; totalLabel?: string;
 }) {
   const baseTotal = lines.reduce((s, l) => s + l.baseCost, 0);
   const actualTotal = lines.reduce((s, l) => s + l.actual, 0);
@@ -917,10 +917,10 @@ function TenantStatement({ t, reconYear, estimate, contact }: {
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       {/* Expense schedules — CAM then RET */}
       <div className="card" style={{ overflowX: "auto" }}>
-        <ScheduleTable title="Schedule of Operating Expenses" lines={t.opexLines} baseYear={t.baseYear} reconYear={reconYear} totalLabel="Total Operating Expenses" />
+        <ScheduleTable title="Schedule of Operating Expenses" lines={t.opexLines} baseYear={t.noBaseStop ? "none" : t.baseYear} reconYear={reconYear} totalLabel="Total Operating Expenses" />
       </div>
       <div className="card" style={{ overflowX: "auto" }}>
-        <ScheduleTable title="Real Estate Taxes" lines={[t.retLine]} baseYear={t.baseYear} reconYear={reconYear} />
+        <ScheduleTable title="Real Estate Taxes" lines={[t.retLine]} baseYear={t.noBaseStop ? "none" : t.baseYear} reconYear={reconYear} />
       </div>
 
       {/* Side-by-side reconciliation — CAM and RET calculations */}

@@ -26,6 +26,9 @@ export type OfficeLeaseConfig = {
   proRataPct: number;
   opexEscrow?: number;
   retEscrow?: number;
+  /** Full-NNN tenant: no base-year stop, recovers its share of the full
+   *  current-year expense. baseYear is then irrelevant. */
+  noBaseStop?: boolean;
 };
 
 /** The slice of a rent-roll unit the assembler needs (subset of
@@ -134,6 +137,7 @@ export function assembleTenantInputs(
       suite: suiteOf(u.unitRef),
       name: u.occupantName,
       baseYear: cfg.baseYear,
+      noBaseStop: cfg.noBaseStop,
       grossUp: cfg.grossUp,
       proRataPct: cfg.proRataPct,
       sqft: u.sqft,

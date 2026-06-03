@@ -144,7 +144,7 @@ export default function CamEstimatesPage() {
                     <td style={{ ...td, textAlign: "left", fontWeight: 700 }}>{t.suite}</td>
                     <td style={{ ...td, textAlign: "left" }}>{t.name}</td>
                     <td style={{ ...td, textAlign: "center", fontWeight: 700 }}>
-                      {t.baseYear}
+                      {t.noBaseStop ? "NNN" : t.baseYear}
                       {t.baseYearResetISO && (
                         <span title={`Base year reset ${t.baseYearResetISO}`} style={{ color: "#b45309" }}> ↺</span>
                       )}
