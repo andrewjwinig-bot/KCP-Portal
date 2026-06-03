@@ -52,6 +52,45 @@ export function finalsFromSummary(rows: { account: string; final: number }[]): R
   return out;
 }
 
+/** Derive the Final Expense Summary rows straight from the historic expense
+ *  pool (the operating-expense history) for a given year — every operating-
+ *  expense line plus RET, with TB Detail / Excel Avid / FINAL all equal to
+ *  the booked figure. This is the basis when the history itself is the final
+ *  (2025): nothing is adjusted, so there's no variance. The gross-up "-95"
+ *  variants and separately-billed charges aren't recovered line items, so the
+ *  schedule lists the raw operating accounts that drive the recon. */
+export function summaryRowsFromPool(
+  pool: { opexLines: { glAccount: string; label: string }[]; retAccount: string; values: Record<string, Record<string, number>> },
+  year: number,
+): ExpenseSummaryRow[] {
+  const y = String(year);
+  const rows: ExpenseSummaryRow[] = pool.opexLines.map((l) => {
+    const v = pool.values[l.glAccount]?.[y] ?? 0;
+    return { account: l.glAccount, label: l.label, tbDetail: v, excelAvid: v, final: v, description: "" };
+  });
+  const ret = pool.values[pool.retAccount]?.[y] ?? 0;
+  rows.push({ account: pool.retAccount, label: "Real Estate Taxes", tbDetail: ret, excelAvid: ret, final: ret, description: "" });
+  return rows;
+}
+
+/** Pool-derived summary with the same shape as mergeExpenseSummary (variance
+ *  column), and stored overrides applied on top. With no overrides every
+ *  column equals the booked figure and the variance is zero — the
+ *  "history is final" case. */
+export function mergeExpenseSummaryFromPool(
+  pool: { opexLines: { glAccount: string; label: string }[]; retAccount: string; values: Record<string, Record<string, number>> },
+  year: number,
+  overrides: ExpenseOverrides,
+): (ExpenseSummaryRow & { variance: number })[] {
+  return summaryRowsFromPool(pool, year).map((row) => {
+    const ov = overrides[row.account] ?? {};
+    const excelAvid = ov.excelAvid ?? row.excelAvid;
+    const final = ov.final ?? row.final;
+    const description = ov.description ?? row.description;
+    return { ...row, excelAvid, final, description, variance: excelAvid - row.tbDetail };
+  });
+}
+
 export type ExpenseOverride = { excelAvid?: number; final?: number; description?: string };
 export type ExpenseOverrides = Record<string, ExpenseOverride>;
 

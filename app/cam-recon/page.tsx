@@ -267,6 +267,7 @@ export default function OfficeCamReconPage() {
   const [estimates, setEstimates] = useState<NextYearEstimate[]>([]);
   const [contacts, setContacts] = useState<Record<string, { email: string; cc: string }>>({});
   const [expenseSummary, setExpenseSummary] = useState<ExpRow[]>([]);
+  const [expenseEditable, setExpenseEditable] = useState(false);
   const [warnings, setWarnings] = useState<{ unitRef: string; name: string; kind: string; message: string }[]>([]);
   const [loading, setLoading] = useState(false);
   const [yeDate, setYeDate] = useState("");
@@ -296,6 +297,7 @@ export default function OfficeCamReconPage() {
       setEstimates(j?.estimates ?? []);
       setContacts(j?.contacts ?? {});
       setExpenseSummary(j?.expenseSummary ?? []);
+      setExpenseEditable(!!j?.expenseEditable);
       setWarnings(j?.warnings ?? []);
     } finally {
       setLoading(false);
@@ -468,7 +470,7 @@ export default function OfficeCamReconPage() {
 
       {!selected && result && <BuildingSummary result={result} onPick={setUnit} onEditEscrow={saveField} />}
       {!selected && result && <RecoveryByBaseYear result={result} />}
-      {!selected && expenseSummary.length > 0 && <FinalExpenseSummary rows={expenseSummary} onEdit={saveExpense} />}
+      {!selected && expenseSummary.length > 0 && <FinalExpenseSummary rows={expenseSummary} editable={expenseEditable} year={year} onEdit={saveExpense} />}
       {selected && <TenantStatement t={selected} reconYear={year} estimate={estimates.find((e) => e.unitRef === selected.unitRef)} contact={contacts[selected.unitRef]} />}
 
       {/* Year-End Adjustments — one compiled schedule across every office
@@ -633,8 +635,10 @@ type ExpRow = {
   final: number; description: string; variance: number;
 };
 
-function FinalExpenseSummary({ rows, onEdit }: {
+function FinalExpenseSummary({ rows, editable, year, onEdit }: {
   rows: ExpRow[];
+  editable: boolean;
+  year: number;
   onEdit: (account: string, field: string, value: number | string | null) => void;
 }) {
   const isSep = (a: string) => a.startsWith("6120") || a.startsWith("6410"); // Electric / RET
@@ -642,27 +646,41 @@ function FinalExpenseSummary({ rows, onEdit }: {
   return (
     <div className="card" style={{ overflowX: "auto" }}>
       <div style={SECTION_LABEL}>Final Expense Summary</div>
-      <p className="small muted" style={{ marginTop: 4 }}>
-        TB Detail is the general ledger. Import Excel Avid, review the variance, then set FINAL — FINAL drives every tenant&rsquo;s CAM/RET calc and is recorded as the year&rsquo;s expense history.
-      </p>
-      <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap", marginTop: 6 }}>
-        <span className="small" style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
-          <span style={{ width: 12, height: 12, borderRadius: 3, background: EDIT_BG, border: "1px solid var(--border)", display: "inline-block" }} /> editable (Excel Avid · FINAL · Description)
-        </span>
-        <span className="small" style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
-          <span style={{ width: 12, height: 12, borderRadius: 3, background: MATCH_BG, display: "inline-block" }} /> source FINAL matches (TB Detail or Excel Avid)
-        </span>
-      </div>
-      <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 10, minWidth: 860 }}>
+      {editable ? (
+        <>
+          <p className="small muted" style={{ marginTop: 4 }}>
+            TB Detail is the general ledger. Import Excel Avid, review the variance, then set FINAL — FINAL drives every tenant&rsquo;s CAM/RET calc and is recorded as the year&rsquo;s expense history.
+          </p>
+          <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap", marginTop: 6 }}>
+            <span className="small" style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+              <span style={{ width: 12, height: 12, borderRadius: 3, background: EDIT_BG, border: "1px solid var(--border)", display: "inline-block" }} /> editable (Excel Avid · FINAL · Description)
+            </span>
+            <span className="small" style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+              <span style={{ width: 12, height: 12, borderRadius: 3, background: MATCH_BG, display: "inline-block" }} /> source FINAL matches (TB Detail or Excel Avid)
+            </span>
+          </div>
+        </>
+      ) : (
+        <p className="small muted" style={{ marginTop: 4 }}>
+          {year} uses the operating-expense history as the final — these are the booked figures that drive every tenant&rsquo;s CAM/RET calc. GL/Avid adjustments become available from 2026.
+        </p>
+      )}
+      <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 10, minWidth: editable ? 860 : 420 }}>
         <thead>
           <tr>
             <th style={{ ...th, textAlign: "left" }}>Acc Code</th>
             <th style={{ ...th, textAlign: "left" }}>Expense</th>
-            <th style={th}>TB Detail (GL)</th>
-            <th style={th}>Excel Avid</th>
-            <th style={th}>Variance</th>
-            <th style={th}>FINAL</th>
-            <th style={{ ...th, textAlign: "left" }}>Description</th>
+            {editable ? (
+              <>
+                <th style={th}>TB Detail (GL)</th>
+                <th style={th}>Excel Avid</th>
+                <th style={th}>Variance</th>
+                <th style={th}>FINAL</th>
+                <th style={{ ...th, textAlign: "left" }}>Description</th>
+              </>
+            ) : (
+              <th style={th}>Expense (Final)</th>
+            )}
           </tr>
         </thead>
         <tbody>
@@ -673,20 +691,26 @@ function FinalExpenseSummary({ rows, onEdit }: {
               <tr key={r.account} style={{ borderBottom: "1px solid var(--border)", ...(isSep(r.account) ? { borderTop: "2px solid var(--border)" } : {}) }}>
                 <td style={{ ...td, textAlign: "left", color: "var(--muted)", fontSize: 12 }}>{r.account}</td>
                 <td style={{ ...td, textAlign: "left" }}>{r.label}</td>
-                <td style={{ ...td, ...(matchesTB ? { background: MATCH_BG } : {}) }}>{money0(r.tbDetail)}</td>
-                <td style={td}><EditableMoney value={r.excelAvid} whole bg={matchesAvid ? MATCH_BG : EDIT_BG} onCommit={(v) => onEdit(r.account, "excelAvid", v)} /></td>
-                <td style={{ ...td, color: Math.abs(r.variance) < 0.5 ? "var(--muted)" : r.variance < 0 ? "#b91c1c" : "#15803d" }}>{money0(r.variance)}</td>
-                <td style={{ ...td, fontWeight: 700 }}><EditableMoney value={r.final} whole onCommit={(v) => onEdit(r.account, "final", v)} /></td>
-                <td style={{ ...td, textAlign: "left" }}><EditableText value={r.description} placeholder="—" onCommit={(v) => onEdit(r.account, "description", v)} /></td>
+                {editable ? (
+                  <>
+                    <td style={{ ...td, ...(matchesTB ? { background: MATCH_BG } : {}) }}>{money0(r.tbDetail)}</td>
+                    <td style={td}><EditableMoney value={r.excelAvid} whole bg={matchesAvid ? MATCH_BG : EDIT_BG} onCommit={(v) => onEdit(r.account, "excelAvid", v)} /></td>
+                    <td style={{ ...td, color: Math.abs(r.variance) < 0.5 ? "var(--muted)" : r.variance < 0 ? "#b91c1c" : "#15803d" }}>{money0(r.variance)}</td>
+                    <td style={{ ...td, fontWeight: 700 }}><EditableMoney value={r.final} whole onCommit={(v) => onEdit(r.account, "final", v)} /></td>
+                    <td style={{ ...td, textAlign: "left" }}><EditableText value={r.description} placeholder="—" onCommit={(v) => onEdit(r.account, "description", v)} /></td>
+                  </>
+                ) : (
+                  <td style={{ ...td, fontWeight: 700 }}>{money0(r.final)}</td>
+                )}
               </tr>
             );
           })}
         </tbody>
         <tfoot>
           <tr style={{ fontWeight: 800, borderTop: "2px solid var(--border)" }}>
-            <td style={{ ...td, textAlign: "left" }} colSpan={5}>Total Operating Expenses (excl. Electric / RET)</td>
+            <td style={{ ...td, textAlign: "left" }} colSpan={editable ? 5 : 2}>Total Operating Expenses (excl. Electric / RET)</td>
             <td style={td}>{money0(opexTotal)}</td>
-            <td />
+            {editable && <td />}
           </tr>
         </tfoot>
       </table>

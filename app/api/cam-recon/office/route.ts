@@ -10,7 +10,7 @@ import { DEFAULT_CC } from "@/lib/cam/office/contacts";
 import { getSuiteContactsMap } from "@/lib/suites/contactsStorage";
 import { camRecipientEmails } from "@/lib/suites/contacts";
 import { getExpenseOverrides, saveExpenseField } from "@/lib/cam/office/expenseStore";
-import { finalsFromSummary, mergeExpenseSummary, type ExpenseOverride } from "@/lib/cam/office/expenseSummary";
+import { finalsFromSummary, mergeExpenseSummary, mergeExpenseSummaryFromPool, type ExpenseOverride } from "@/lib/cam/office/expenseSummary";
 import { listHistoricalOpEx, upsertHistoricalOpEx } from "@/lib/financials/historical-opex/storage";
 import { getJSON } from "@/lib/storage";
 
@@ -85,24 +85,26 @@ export async function GET(req: NextRequest) {
   const resets = { ...reconYear.resets, ...(await loadResets()) };
   const tenants = assembleTenantInputs(reconYear.roster, year, config, resets);
 
-  // Final Expense Summary → per-account FINALs drive the current-year pool.
-  // For 2025 the historic operating-expense pool IS the final — no GL/Avid
-  // adjustment layer; the reconciliation uses the expense history directly.
-  // The override capability only applies from 2026 on (when budgets/GL pulls
-  // may differ from the booked history). The Condo expense (6990) only
-  // applies to the JV III condo buildings (3610 / 3620 / 3640); hide it
-  // everywhere else (NI LLC + shopping centers).
-  const ADJUSTMENTS_FROM_YEAR = 2026;
+  // The Condo expense (6990) only applies to the JV III condo buildings
+  // (3610 / 3620 / 3640); hide it everywhere else (NI LLC + shopping centers).
   const JV_III = new Set(["3610", "3620", "3640"]);
-  const expenseSummary = year >= ADJUSTMENTS_FROM_YEAR
-    ? mergeExpenseSummary(property, year, await getExpenseOverrides(property, year))
-        .filter((r) => r.account !== "6990-8502" || JV_III.has(property))
-    : [];
-  const finals = expenseSummary.length ? finalsFromSummary(expenseSummary) : undefined;
-
   const pool = JV_III.has(property)
     ? fixture.pool
     : { ...fixture.pool, opexLines: fixture.pool.opexLines.filter((l) => !l.glAccount.startsWith("6990")) };
+
+  // Final Expense Summary. For 2025 the historic operating-expense pool IS the
+  // final — the schedule is derived straight from the expense history (every
+  // column equals the booked figure, zero variance) and shown read-only; the
+  // reconciliation uses the pool directly (no FINAL overrides). The GL/Avid
+  // adjustment capability only applies from 2026 on, when a budget/GL pull may
+  // differ from the booked history.
+  const ADJUSTMENTS_FROM_YEAR = 2026;
+  const expenseEditable = year >= ADJUSTMENTS_FROM_YEAR;
+  const expenseSummary = (expenseEditable
+    ? mergeExpenseSummary(property, year, await getExpenseOverrides(property, year))
+    : mergeExpenseSummaryFromPool(pool, year, {})
+  ).filter((r) => r.account !== "6990-8502" || JV_III.has(property));
+  const finals = expenseEditable && expenseSummary.length ? finalsFromSummary(expenseSummary) : undefined;
 
   const result = reconcileBuilding(pool, tenants, year, finals);
   const estimates = result.tenants.map(nextYearEstimate);
@@ -146,7 +148,7 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ result, estimates, contacts, expenseSummary, warnings });
+  return NextResponse.json({ result, estimates, contacts, expenseSummary, expenseEditable, warnings });
 }
 
 const EDITABLE_FIELDS = new Set<keyof OfficeLeaseConfig>([
