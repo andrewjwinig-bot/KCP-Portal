@@ -780,10 +780,53 @@ function RetailStmtBlock({ title, accent, children, balanceLabel, balance }: {
     <div className="card" style={{ flex: "1 1 240px", minWidth: 0, borderTop: `3px solid ${accent}` }}>
       <div style={{ ...SECTION_LABEL, color: accent }}>{title}</div>
       <div style={{ marginTop: 8 }}>{children}</div>
-      <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <span style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--muted)" }}>{balanceLabel}</span>
-        <Pill tone={reconBalanceTone(balance)}>{money(balance)}</Pill>
-      </div>
+      <FinalBalanceRow label={balanceLabel} value={balance} />
+    </div>
+  );
+}
+
+function RetailScheduleTable({ t }: { t: RetailTenantResult }) {
+  const billedTotal = t.camSchedule.filter((l) => l.billed).reduce((a, l) => a + l.amount, 0);
+  const capped = t.camPoolEffective < billedTotal - 0.005;
+  const sth: React.CSSProperties = { ...th, fontSize: 12, padding: "7px 10px" };
+  const std: React.CSSProperties = { ...td, fontSize: 14.5, padding: "7px 10px" };
+  return (
+    <div className="card" style={{ overflowX: "auto" }}>
+      <div style={SECTION_LABEL}>Schedule of Operating Expenses</div>
+      <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 10, minWidth: 360 }}>
+        <thead>
+          <tr>
+            <th style={{ ...sth, textAlign: "left" }}>Expense</th>
+            <th style={sth}>2025 Actual</th>
+          </tr>
+        </thead>
+        <tbody>
+          {t.camSchedule.map((l, i) => (
+            <tr key={i} style={{ borderBottom: "1px solid var(--border)" }}>
+              <td style={{ ...std, textAlign: "left", ...(l.billed ? {} : { color: "var(--muted)" }) }}>
+                <span style={l.billed ? {} : { textDecoration: "line-through" }}>{l.label}</span>
+                {!l.billed && <span style={{ fontStyle: "italic", fontSize: 11 }}> (not billed)</span>}
+              </td>
+              <td style={{ ...std, ...(l.billed ? {} : { color: "var(--muted)" }) }}>{money(l.amount)}</td>
+            </tr>
+          ))}
+        </tbody>
+        <tfoot>
+          <tr style={{ fontWeight: 800, borderTop: "2px solid var(--border)" }}>
+            <td style={{ ...std, textAlign: "left" }}>Total Operating Expenses</td>
+            <td style={std}>{money(billedTotal)}</td>
+          </tr>
+          {capped && (
+            <>
+              <tr><td style={{ ...std, textAlign: "left", color: "#b45309" }}>Less: Controllable Expense Cap</td><td style={{ ...std, color: "#b45309" }}>{money(t.camPoolEffective - billedTotal)}</td></tr>
+              <tr style={{ fontWeight: 800 }}><td style={{ ...std, textAlign: "left" }}>Applicable CAM Pool</td><td style={std}>{money(t.camPoolEffective)}</td></tr>
+            </>
+          )}
+        </tfoot>
+      </table>
+      <p className="small muted" style={{ marginTop: 8 }}>
+        Insurance pool {money(t.insPool)} · Real estate tax pool {money(t.retPool)} (billed separately below).
+      </p>
     </div>
   );
 }
@@ -795,6 +838,7 @@ function RetailTenantStatement({ t, reconYear, contact }: {
   const credit = net < -0.005;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <RetailScheduleTable t={t} />
       <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
         {/* CAM */}
         <RetailStmtBlock title={`CAM — ${reconYear}`} accent="#0b4a7d" balanceLabel="Balance, CAM Due" balance={t.camBalance}>
@@ -889,6 +933,22 @@ function drawRetailStatement(doc: any, t: RetailTenantResult, year: number, prop
     at(title.toUpperCase(), L + 6); y += 22; ink(INK); doc.setFontSize(10);
   };
 
+  // Schedule of operating expenses (the CAM line items).
+  bar("Schedule of Operating Expenses");
+  doc.setFontSize(9);
+  t.camSchedule.forEach((l, i) => {
+    if (i % 2 === 1) { fill([247, 249, 251]); doc.rect(L, y - 9, W, 13, "F"); }
+    doc.setFont("helvetica", l.billed ? "normal" : "italic"); ink(l.billed ? INK : MUTED);
+    at(l.billed ? l.label : `${l.label} (not billed)`, L + 6);
+    at(money(l.amount), R - 6, { align: "right" }); y += 13; ink(INK);
+  });
+  const billedTotal = t.camSchedule.filter((l) => l.billed).reduce((a, l) => a + l.amount, 0);
+  stroke(NAVY); doc.setLineWidth(0.8); doc.line(L, y - 9, R, y - 9);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(9.5);
+  at("Total Operating Expenses", L + 6); at(money(billedTotal), R - 6, { align: "right" }); y += 14;
+  if (t.capped) { doc.setFont("helvetica", "normal"); doc.setFontSize(9); ink(AMBER); at(`Less: Controllable Expense Cap → Applicable CAM Pool ${money(t.camPoolEffective)}`, L + 6); y += 14; ink(INK); }
+  y += 8; doc.setFontSize(10);
+
   bar("Common Area Maintenance");
   sumRow(`CAM Pool${t.capped ? " (capped)" : t.camPoolEffective < t.camPoolFull ? " (after exclusions)" : ""}`, money(t.camPoolEffective));
   sumRow(`× CAM Share ${pct(t.camPrs / 100)}`, money(t.camShare));
@@ -896,14 +956,14 @@ function drawRetailStatement(doc: any, t: RetailTenantResult, year: number, prop
   sumRow("CAM Due", money(t.camDue), true);
   sumRow("Less: Escrow Billed", money(-t.camEscrow));
   sumRow("Balance, CAM Due", money(t.camBalance), true);
-  y += 16;
+  y += 8;
 
   bar("Insurance");
   sumRow("Insurance Pool", money(t.insPool));
   sumRow(`× INS Share ${pct(t.insPrs / 100)}`, money(t.insDue));
   sumRow("Less: Escrow Billed", money(-t.insEscrow));
   sumRow("Balance, INS Due", money(t.insBalance), true);
-  y += 16;
+  y += 8;
 
   bar("Real Estate Taxes");
   sumRow("Real Estate Tax Pool", money(t.retPool));

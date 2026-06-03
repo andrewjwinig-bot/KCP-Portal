@@ -67,6 +67,9 @@ export function reconcileRetailTenant(pool: RetailExpensePool, t: RetailTenantIn
     adminFeePct: t.adminFeePct, retDiscountPct: t.retDiscountPct,
     camExcludedLabels: t.camExcludedLabels, adminExcludedLabels: t.adminExcludedLabels,
     camCap: t.camCap,
+    camSchedule: pool.camLines.map((l) => ({
+      label: l.label, amount: l.amount, billed: !excluded.has(lc(l.label)), nonControllable: !!l.nonControllable,
+    })),
     camPoolFull: pool.camLines.reduce((a, l) => a + l.amount, 0),
     camPoolEffective, insPool, retPool: pool.retAmount, capped,
     camShare, camAdmin, camDue, camEscrow: t.camEscrow, camBalance,
