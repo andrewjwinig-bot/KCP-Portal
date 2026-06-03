@@ -40,6 +40,9 @@ describe("retail CAMPRep config seed", () => {
     const tmo = seedCamConfig("2300-1867");
     expect(tmo!.hasAdminFeeExclusions).toBe(true);
     expect(tmo!.camAdminExcludedLines).toContain("Liability Insurance");
+    const dunkin = seedCamConfig("2300-1885");
+    expect(dunkin!.hasExpenseExclusions).toBe(true);
+    expect(dunkin!.camExcludedLines).toEqual(["Building Maintenance", "Security"]);
   });
 
   it("does NOT seed PRS for 2300 (propertyRules prefills the denominators)", () => {

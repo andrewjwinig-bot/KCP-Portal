@@ -69,6 +69,9 @@ export const RETAIL_CONFIG_SEED: Record<string, RetailConfigSeedEntry> = {
   "2300-1877": { adminFeePct: 10 }, // Evolve Nails
   "2300-1879": { adminFeePct: 10 }, // GNC / Live Well
   "2300-1881": { adminFeePct: 10 }, // Citizens Bank
+  // Dunkin — no admin fee; CAM excludes Building Maintenance + Security
+  // (exact pool match: 23,786 + 27,752.96 = 51,538.96).
+  "2300-1885": { excludedCamLines: ["Building Maintenance", "Security"] },
 };
 
 /** Build a full CamConfig for a unit from its seed entry, or null when the
