@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { reconcileRetailBuilding } from "@/lib/cam/retail/compute";
 import { assembleRetail } from "@/lib/cam/retail/assemble";
 import { RETAIL_RECON_FIXTURES, availableRetailRecons } from "@/lib/cam/retail/registry";
+import { allocationFor } from "@/lib/cam/retail/allocation";
 import { getCamConfig } from "@/lib/cam/configStorage";
 import { seedCamConfig } from "@/lib/cam/retailConfigSeed";
 import { emptyCamConfig } from "@/lib/cam/config";
@@ -53,5 +54,5 @@ export async function GET(req: NextRequest) {
   for (const u of reconYear.roster) {
     contacts[u.unitRef] = { email: camRecipientEmails(suiteContacts[u.unitRef] ?? []), cc: DEFAULT_CC };
   }
-  return NextResponse.json({ result, contacts });
+  return NextResponse.json({ result, contacts, allocation: allocationFor(fixture.pool.propertyCode) });
 }

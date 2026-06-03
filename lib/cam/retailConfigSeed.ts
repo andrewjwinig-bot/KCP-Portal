@@ -91,6 +91,13 @@ export const RETAIL_CONFIG_SEED: Record<string, RetailConfigSeedEntry> = {
     adminFeeExcludedLines: ["Liability Insurance", "Security", "Electric (Common)", "Water / Sewer"],
   },
   "4500-3009": { grossLease: true }, // PLCB — gross lease
+
+  // ── 7010 · Parkwood Shopping/Office Center (mixed retail + office) ──────
+  // PRS / admin come from the per-tenant roster (bespoke). Only the gross
+  // leases need a config entry.
+  "7010-12361": { grossLease: true }, // Senator Sabatina (retail) — gross
+  "7010-201": { grossLease: true },   // Foot & Ankle (office) — gross
+  "7010-218": { grossLease: true },   // Parkwood Medical Storage (office) — gross
 };
 
 /** Build a full CamConfig for a unit from its seed entry, or null when the
