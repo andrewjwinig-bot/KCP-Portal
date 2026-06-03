@@ -528,8 +528,8 @@ export default function OfficeCamReconPage() {
         </div>
       )}
 
-      {isRetail && !rSelected && retailResult && <RetailConfigTable result={retailResult} onPick={setUnit} />}
       {isRetail && !rSelected && retailResult && <RetailBuildingSummary result={retailResult} onPick={setUnit} />}
+      {isRetail && !rSelected && retailResult && <RetailConfigTable result={retailResult} onPick={setUnit} />}
       {isRetail && !rSelected && retailResult && (
         <div className="card">
           <div style={SECTION_LABEL}>Year-End Adjustments — {propName}</div>
