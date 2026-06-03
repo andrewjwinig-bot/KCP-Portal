@@ -246,7 +246,7 @@ const SEED_3620: PropertyExpenses = {
     { glAccount: "6330-8502", label: "Parking Lot Maint.", values: zip(YEARS_3620, [0, 0, 1297, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) },
     { glAccount: "6350-8502", label: "Security", values: zip(YEARS_3620, [0, 0, 998, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) },
     { glAccount: "6370-8502", label: "Snow Removal", values: zip(YEARS_3620, [0, 0, 10318, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) },
-    { glAccount: "6380-8502", label: "Landscaping", values: zip(YEARS_3620, [0, 0, 1078, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 597, 0]) },
+    { glAccount: "6380-8502", label: "Landscaping", values: zip(YEARS_3620, [0, 0, 1078, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 597]) },
     { glAccount: "6510-8502", label: "Insurance", values: zip(YEARS_3620, [13021, 9442, 9884, 12059, 9585, 10090, 12034, 9792, 13027, 12904, 19359, 20138, 18466, 20880, 21017]) },
     { glAccount: "6990-8502", label: "Condo", values: zip(YEARS_3620, [35786, 51557, 21809, 69516, 66648, 71405, 52201, 63984, 61440, 71400, 69084, 69084, 69084, 69084, 51813]) },
     { glAccount: "6610-8502", label: "Management Fee", values: zip(YEARS_3620, [28693, 22076, 50357, 21290, 21511, 5332, 14258, 27588, 20046, 20475, 20305, 25345, 20838, 16922, 17726]) },

@@ -17,6 +17,7 @@ import { POOL_40A0, LEASE_CONFIG_40A0_2025, ROSTER_40A0_2025, RESETS_40A0_2025 }
 import { POOL_40B0, LEASE_CONFIG_40B0_2025, ROSTER_40B0_2025, RESETS_40B0_2025 } from "./seed/40B0";
 import { POOL_40C0, LEASE_CONFIG_40C0_2025, ROSTER_40C0_2025, RESETS_40C0_2025 } from "./seed/40C0";
 import { POOL_3610, LEASE_CONFIG_3610_2025, ROSTER_3610_2025, RESETS_3610_2025 } from "./seed/3610";
+import { POOL_3620, LEASE_CONFIG_3620_2025, ROSTER_3620_2025, RESETS_3620_2025 } from "./seed/3620";
 
 export type OfficeReconYear = {
   roster: RosterUnit[];
@@ -131,6 +132,14 @@ export const OFFICE_RECON_FIXTURES: Record<string, OfficeReconFixture> = {
     pool: POOL_3610,
     byYear: {
       2025: { roster: ROSTER_3610_2025, leaseConfig: LEASE_CONFIG_3610_2025, resets: RESETS_3610_2025 },
+    },
+  },
+  "3620": {
+    propertyCode: "3620",
+    name: "Building 3620 (JV III)",
+    pool: POOL_3620,
+    byYear: {
+      2025: { roster: ROSTER_3620_2025, leaseConfig: LEASE_CONFIG_3620_2025, resets: RESETS_3620_2025 },
     },
   },
 };
