@@ -48,7 +48,7 @@ const th: React.CSSProperties = {
   textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--muted)",
   borderBottom: "1px solid var(--border)", whiteSpace: "nowrap",
 };
-const td: React.CSSProperties = { textAlign: "right", padding: "6px 10px", fontSize: 13, whiteSpace: "nowrap" };
+const td: React.CSSProperties = { textAlign: "right", padding: "7px 10px", fontSize: 14, whiteSpace: "nowrap" };
 
 type Available = { propertyCode: string; name: string; years: number[]; kind?: "office" | "retail" };
 
@@ -607,8 +607,8 @@ function UnitChip({ unitRef, backTo }: { unitRef: string; backTo?: string }) {
       onClick={(e) => e.stopPropagation()}
       title="Open unit detail page"
       style={{
-        background: "#0b1220", color: "#e0f0ff", padding: "2px 8px", borderRadius: 5,
-        fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", textDecoration: "none",
+        color: "#0b4a7d", fontSize: 13, fontWeight: 700,
+        textDecoration: "underline", textUnderlineOffset: 2,
         fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", whiteSpace: "nowrap",
       }}
     >
