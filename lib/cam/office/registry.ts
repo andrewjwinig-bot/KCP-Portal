@@ -14,6 +14,8 @@ import { POOL_4050, LEASE_CONFIG_4050_2025, ROSTER_4050_2025, RESETS_4050_2025 }
 import { POOL_4060, LEASE_CONFIG_4060_2025, ROSTER_4060_2025, RESETS_4060_2025 } from "./seed/4060";
 import { POOL_4080, LEASE_CONFIG_4080_2025, ROSTER_4080_2025, RESETS_4080_2025 } from "./seed/4080";
 import { POOL_40A0, LEASE_CONFIG_40A0_2025, ROSTER_40A0_2025, RESETS_40A0_2025 } from "./seed/40A0";
+import { POOL_40B0, LEASE_CONFIG_40B0_2025, ROSTER_40B0_2025, RESETS_40B0_2025 } from "./seed/40B0";
+import { POOL_40C0, LEASE_CONFIG_40C0_2025, ROSTER_40C0_2025, RESETS_40C0_2025 } from "./seed/40C0";
 
 export type OfficeReconYear = {
   roster: RosterUnit[];
@@ -104,6 +106,22 @@ export const OFFICE_RECON_FIXTURES: Record<string, OfficeReconFixture> = {
     pool: POOL_40A0,
     byYear: {
       2025: { roster: ROSTER_40A0_2025, leaseConfig: LEASE_CONFIG_40A0_2025, resets: RESETS_40A0_2025 },
+    },
+  },
+  "40B0": {
+    propertyCode: "40B0",
+    name: "Kor Center B",
+    pool: POOL_40B0,
+    byYear: {
+      2025: { roster: ROSTER_40B0_2025, leaseConfig: LEASE_CONFIG_40B0_2025, resets: RESETS_40B0_2025 },
+    },
+  },
+  "40C0": {
+    propertyCode: "40C0",
+    name: "Kor Center C",
+    pool: POOL_40C0,
+    byYear: {
+      2025: { roster: ROSTER_40C0_2025, leaseConfig: LEASE_CONFIG_40C0_2025, resets: RESETS_40C0_2025 },
     },
   },
 };
