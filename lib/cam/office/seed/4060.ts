@@ -18,11 +18,13 @@ export const POOL_4060: OfficeExpensePool = poolFromSeedExpenses(SEED_EXPENSES["
 
 // Lease-level config (pro-rata + gross-up from CAMPRep, base years matching
 // tenant-meta, escrow = collected during 2025 from the Building tab). All
-// reconciling tenants gross up to 95%. Note: 4060-208 has a 2026 base year in
-// a 2025 reconciliation — like GLT at 4070, a future base year recovers $0
-// (the workbook's full-pool recovery is treated as the bug it is). 4060-403's
-// 2025 base year is 2024 per the workbook (tenant-meta currently shows 2026 —
-// flagged for verification).
+// reconciling tenants gross up to 95%. Two point-in-time notes:
+//   • 4060-208 has a 2026 base year — its base year hadn't started in 2025,
+//     so it has no 2025 pro-rata share (0%) and recovers nothing. (The
+//     workbook billed a full-pool recovery; that's the bug.)
+//   • 4060-403's 2025 base year is 2024 (per the workbook). tenant-meta now
+//     shows 2026 — its base year reset AFTER this reconciliation, which must
+//     not rewrite the 2025 calc, so 2024 stays frozen here.
 export const LEASE_CONFIG_4060_2025: Record<string, OfficeLeaseConfig> = {
   "4060-100": { baseYear: 2025, grossUp: true, proRataPct: 1.14,  opexEscrow: 0,     retEscrow: 0 },
   "4060-105": { baseYear: 2025, grossUp: true, proRataPct: 1.52,  opexEscrow: 0,     retEscrow: 0 },
@@ -32,7 +34,7 @@ export const LEASE_CONFIG_4060_2025: Record<string, OfficeLeaseConfig> = {
   "4060-205": { baseYear: 2023, grossUp: true, proRataPct: 1.06,  opexEscrow: 2100,  retEscrow: 0 },
   "4060-206": { baseYear: 2024, grossUp: true, proRataPct: 2.04,  opexEscrow: 900,   retEscrow: 0 },
   "4060-207": { baseYear: 2023, grossUp: true, proRataPct: 1.07,  opexEscrow: 300,   retEscrow: 0 },
-  "4060-208": { baseYear: 2026, grossUp: true, proRataPct: 0.85,  opexEscrow: 0,     retEscrow: 0 },
+  "4060-208": { baseYear: 2026, grossUp: true, proRataPct: 0,     opexEscrow: 0,     retEscrow: 0 },
   "4060-210": { baseYear: 2022, grossUp: true, proRataPct: 1.98,  opexEscrow: 2000,  retEscrow: 0 },
   "4060-211": { baseYear: 2022, grossUp: true, proRataPct: 1.47,  opexEscrow: 960,   retEscrow: 0 },
   "4060-212": { baseYear: 2024, grossUp: true, proRataPct: 2.52,  opexEscrow: 900,   retEscrow: 0 },

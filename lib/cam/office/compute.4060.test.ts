@@ -15,9 +15,9 @@ describe("4060 reconciliation — connected from app data", () => {
   const byUnit = Object.fromEntries(result.tenants.map((t) => [t.unitRef, t]));
 
   // Workbook Building tab: Op Ex balance (col L) and RET balance (col P).
-  // 4060-208 intentionally diverges: its 2026 base year is after the 2025
-  // recon year, so nothing is due (workbook showed a full-pool recovery of
-  // 953.26 / 262.75, which — like GLT at 4070 — we treat as the bug it is).
+  // 4060-208 intentionally diverges: its 2026 base year hadn't started in
+  // 2025, so it carries no 2025 share (0%) and nothing is due (the workbook
+  // billed a full-pool recovery of 953.26 / 262.75, which is the bug).
   const expectedOpex: Record<string, number> = {
     "4060-100": 0, "4060-105": 0, "4060-111": 0, "4060-113": 484.85,
     "4060-204": 0, "4060-205": -1227.80, "4060-206": 196.73, "4060-207": 580.42,
