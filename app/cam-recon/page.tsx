@@ -12,6 +12,7 @@ import {
 } from "@/lib/cam/office/exports";
 import type { BuildingReconResult, TenantReconResult } from "@/lib/cam/office/types";
 import type { RetailBuildingResult, RetailTenantResult } from "@/lib/cam/retail/types";
+import type { PropertyAllocation } from "@/lib/cam/retail/allocation";
 import { retailYearEndRows } from "@/lib/cam/retail/exports";
 
 // ── formatting ───────────────────────────────────────────────────────────────
@@ -268,6 +269,7 @@ export default function OfficeCamReconPage() {
   const [unit, setUnit] = useState<string>("ALL");
   const [result, setResult] = useState<BuildingReconResult | null>(null);
   const [retailResult, setRetailResult] = useState<RetailBuildingResult | null>(null);
+  const [allocation, setAllocation] = useState<PropertyAllocation | null>(null);
   const [estimates, setEstimates] = useState<NextYearEstimate[]>([]);
   const [contacts, setContacts] = useState<Record<string, { email: string; cc: string }>>({});
   const [expenseSummary, setExpenseSummary] = useState<ExpRow[]>([]);
@@ -314,6 +316,7 @@ export default function OfficeCamReconPage() {
         const j = r.ok ? await r.json() : null;
         setRetailResult(j?.result ?? null);
         setContacts(j?.contacts ?? {});
+        setAllocation(j?.allocation ?? null);
         // Clear the office-shaped state so its sections don't render.
         setResult(null); setEstimates([]); setExpenseSummary([]); setWarnings([]);
         return;
@@ -321,6 +324,7 @@ export default function OfficeCamReconPage() {
       const r = await fetch(`/api/cam-recon/office?property=${property}&year=${year}`);
       const j = r.ok ? await r.json() : null;
       setRetailResult(null);
+      setAllocation(null);
       setResult(j?.result ?? null);
       setEstimates(j?.estimates ?? []);
       setContacts(j?.contacts ?? {});
@@ -542,6 +546,7 @@ export default function OfficeCamReconPage() {
 
       {isRetail && !rSelected && retailResult && <RetailBuildingSummary result={retailResult} onPick={setUnit} />}
       {isRetail && !rSelected && retailResult && <RetailConfigTable result={retailResult} onPick={setUnit} />}
+      {isRetail && !rSelected && allocation && <AllocationBreakdown a={allocation} />}
       {isRetail && !rSelected && retailResult && (
         <div className="card">
           <div style={SECTION_LABEL}>Year-End Adjustments — {propName}</div>
@@ -769,6 +774,53 @@ function RetailConfigTable({ result, onPick }: { result: RetailBuildingResult; o
               </Fragment>
             );
           })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// ── Mixed-center allocation breakdown (retail vs office) ─────────────────────
+
+function AllocationBreakdown({ a }: { a: PropertyAllocation }) {
+  const scope = (l: { retail: number; office: number }) =>
+    l.retail === 0 ? "Office only" : l.office === 0 ? "Retail only" : `${Math.round((l.retail / (l.retail + l.office)) * 100)}% retail`;
+  const pctCell = (part: number, full: number) => full > 0 ? ` (${Math.round((part / full) * 100)}%)` : "";
+  const camRetail = a.cam.reduce((s, l) => s + l.retail, 0);
+  const camOffice = a.cam.reduce((s, l) => s + l.office, 0);
+  const Row = ({ l, bold }: { l: { label: string; retail: number; office: number }; bold?: boolean }) => {
+    const full = l.retail + l.office;
+    return (
+      <tr style={{ borderBottom: "1px solid var(--border)", fontWeight: bold ? 800 : 500 }}>
+        <td style={{ ...td, textAlign: "left" }}>{l.label}</td>
+        <td style={td}>{money(full)}</td>
+        <td style={td}>{money(l.retail)}<span className="muted" style={{ fontSize: 11 }}>{pctCell(l.retail, full)}</span></td>
+        <td style={td}>{money(l.office)}<span className="muted" style={{ fontSize: 11 }}>{pctCell(l.office, full)}</span></td>
+        <td style={{ ...td, textAlign: "left", color: "var(--muted)", fontSize: 12 }}>{bold ? "" : scope(l)}</td>
+      </tr>
+    );
+  };
+  return (
+    <div className="card" style={{ overflowX: "auto" }}>
+      <div style={SECTION_LABEL}>Retail / Office Allocation — {a.propertyCode} · {a.reconYear}</div>
+      <p className="small muted" style={{ marginTop: 4 }}>
+        {a.name} is a mixed center. Each operating-expense line is split between the retail (8502) and office (8503) reconciliations — some shared by %, some retail- or office-only.
+      </p>
+      <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 10, minWidth: 720 }}>
+        <thead>
+          <tr>
+            <th style={{ ...th, textAlign: "left" }}>Expense</th>
+            <th style={th}>Full</th>
+            <th style={th}>Retail (8502)</th>
+            <th style={th}>Office (8503)</th>
+            <th style={{ ...th, textAlign: "left" }}>Split</th>
+          </tr>
+        </thead>
+        <tbody>
+          {a.cam.map((l, i) => <Row key={i} l={l} />)}
+          <Row l={{ label: "Total Operating Expenses", retail: camRetail, office: camOffice }} bold />
+          <Row l={a.insurance} />
+          <Row l={a.realEstateTaxes} />
         </tbody>
       </table>
     </div>

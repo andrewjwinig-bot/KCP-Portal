@@ -9,6 +9,8 @@ import type { RetailRosterUnit } from "./assemble";
 import { POOL_2300, ROSTER_2300_2025 } from "./seed/2300";
 import { POOL_1100, ROSTER_1100_2025 } from "./seed/1100";
 import { POOL_4500, ROSTER_4500_2025 } from "./seed/4500";
+import { POOL_7010_RETAIL, ROSTER_7010_RETAIL_2025 } from "./seed/7010-retail";
+import { POOL_7010_OFFICE, ROSTER_7010_OFFICE_2025 } from "./seed/7010-office";
 
 export type RetailReconYear = { roster: RetailRosterUnit[] };
 
@@ -42,6 +44,23 @@ export const RETAIL_RECON_FIXTURES: Record<string, RetailReconFixture> = {
     gla: 82809,
     pool: POOL_4500,
     byYear: { 2025: { roster: ROSTER_4500_2025 } },
+  },
+  // 7010 is a mixed center — two reconciliations sharing the building. The
+  // fixture key (= dropdown value) differs ("7010" / "7010O"), but both pools
+  // carry propertyCode "7010" so unit links + the allocation breakdown resolve.
+  "7010": {
+    propertyCode: "7010",
+    name: "Parkwood SC (Retail)",
+    gla: 61036,
+    pool: POOL_7010_RETAIL,
+    byYear: { 2025: { roster: ROSTER_7010_RETAIL_2025 } },
+  },
+  "7010O": {
+    propertyCode: "7010O",
+    name: "Parkwood SC (Office)",
+    gla: 12179,
+    pool: POOL_7010_OFFICE,
+    byYear: { 2025: { roster: ROSTER_7010_OFFICE_2025 } },
   },
 };
 

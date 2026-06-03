@@ -24,6 +24,13 @@ export type RetailRosterUnit = {
   insPoolOverride?: number;
   /** Fixed RET charge (own-parcel billboard) that replaces the pro-rata RET. */
   flatRet?: number;
+  // Explicit per-tenant overrides for bespoke mixed-use centers (7010). When
+  // provided they win over the propertyRules/SF computation.
+  camPrs?: number;
+  insPrs?: number;
+  retPrs?: number;
+  adminFeePct?: number;
+  camPoolOverride?: number;
   camEscrow: number;
   insEscrow: number;
   retEscrow: number;
@@ -60,10 +67,11 @@ export function assembleRetail(
       sqft: u.sqft,
       occPct: u.occPct ?? 1,
       flatRet: u.flatRet,
-      camPrs: prsFor(pool.propertyCode, "cam", u.name, u.sqft, buildingGla, cfg.cam.stipulatedPrs),
-      insPrs: prsFor(pool.propertyCode, "ins", u.name, u.sqft, buildingGla, cfg.ins.stipulatedPrs),
-      retPrs: prsFor(pool.propertyCode, "ret", u.name, u.sqft, buildingGla, cfg.ret.stipulatedPrs),
-      adminFeePct: cfg.cam.adminFeePct ?? 0,
+      camPoolOverride: u.camPoolOverride,
+      camPrs: u.camPrs ?? prsFor(pool.propertyCode, "cam", u.name, u.sqft, buildingGla, cfg.cam.stipulatedPrs),
+      insPrs: u.insPrs ?? prsFor(pool.propertyCode, "ins", u.name, u.sqft, buildingGla, cfg.ins.stipulatedPrs),
+      retPrs: u.retPrs ?? prsFor(pool.propertyCode, "ret", u.name, u.sqft, buildingGla, cfg.ret.stipulatedPrs),
+      adminFeePct: u.adminFeePct ?? cfg.cam.adminFeePct ?? 0,
       grossLease: cfg.grossLease,
       camExcludedLabels: cfg.camExcludedLines,
       adminExcludedLabels: cfg.camAdminExcludedLines,
