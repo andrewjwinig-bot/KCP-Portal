@@ -11,6 +11,7 @@ import {
 } from "@/lib/cam/office/exports";
 import type { BuildingReconResult, TenantReconResult } from "@/lib/cam/office/types";
 import type { RetailBuildingResult, RetailTenantResult } from "@/lib/cam/retail/types";
+import { retailYearEndRows } from "@/lib/cam/retail/exports";
 
 // ── formatting ───────────────────────────────────────────────────────────────
 
@@ -410,6 +411,13 @@ export default function OfficeCamReconPage() {
     }
   }
 
+  // Retail year-end true-up CSV for the selected center (CAM / INS / RET net
+  // due per tenant) — the Skyline one-time upload.
+  function downloadRetailYearEnd() {
+    if (!retailResult) return;
+    downloadCSV(`${property}_${year}_YearEndAdjustments.csv`, chargeRowsToCSV(retailYearEndRows(retailResult, yeDate)));
+  }
+
   return (
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
       <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
@@ -522,6 +530,26 @@ export default function OfficeCamReconPage() {
 
       {isRetail && !rSelected && retailResult && <RetailConfigTable result={retailResult} onPick={setUnit} />}
       {isRetail && !rSelected && retailResult && <RetailBuildingSummary result={retailResult} onPick={setUnit} />}
+      {isRetail && !rSelected && retailResult && (
+        <div className="card">
+          <div style={SECTION_LABEL}>Year-End Adjustments — {propName}</div>
+          <p className="small muted" style={{ marginTop: 6 }}>
+            One-time CAM / INS / RET true-up per tenant (net due) for {year} — the Skyline upload.
+          </p>
+          <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "flex-end", marginTop: 12 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <span className="small muted">One-time true-up posted on:</span>
+              <Calendar value={yeDate} variant="card" onChange={setYeDate} />
+            </div>
+            <button onClick={downloadRetailYearEnd} className="btn primary" style={{ fontSize: 13, padding: "9px 14px", fontWeight: 700 }}>
+              Download Year-End Adjustments CSV
+            </button>
+          </div>
+          <p className="small muted" style={{ marginTop: 14, marginBottom: 0 }}>
+            Values-only, $0 rows omitted — charge codes YEC (CAM) · YEI (INS) · YER (RET), unit &lt;suite&gt;-CU. Paste into Skyline → Unit Charges.
+          </p>
+        </div>
+      )}
       {isRetail && rSelected && <RetailTenantStatement t={rSelected} reconYear={year} contact={contacts[rSelected.unitRef]} />}
       {!selected && result && <BuildingSummary result={result} onPick={setUnit} onEditEscrow={saveField} />}
       {!selected && result && <RecoveryByBaseYear result={result} />}
