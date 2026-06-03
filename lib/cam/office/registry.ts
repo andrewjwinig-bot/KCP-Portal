@@ -18,6 +18,7 @@ import { POOL_40B0, LEASE_CONFIG_40B0_2025, ROSTER_40B0_2025, RESETS_40B0_2025 }
 import { POOL_40C0, LEASE_CONFIG_40C0_2025, ROSTER_40C0_2025, RESETS_40C0_2025 } from "./seed/40C0";
 import { POOL_3610, LEASE_CONFIG_3610_2025, ROSTER_3610_2025, RESETS_3610_2025 } from "./seed/3610";
 import { POOL_3620, LEASE_CONFIG_3620_2025, ROSTER_3620_2025, RESETS_3620_2025 } from "./seed/3620";
+import { POOL_3640, LEASE_CONFIG_3640_2025, ROSTER_3640_2025, RESETS_3640_2025 } from "./seed/3640";
 
 export type OfficeReconYear = {
   roster: RosterUnit[];
@@ -140,6 +141,24 @@ export const OFFICE_RECON_FIXTURES: Record<string, OfficeReconFixture> = {
     pool: POOL_3620,
     byYear: {
       2025: { roster: ROSTER_3620_2025, leaseConfig: LEASE_CONFIG_3620_2025, resets: RESETS_3620_2025 },
+    },
+  },
+  "3640": {
+    propertyCode: "3640",
+    name: "Building 3640 (JV III)",
+    pool: POOL_3640,
+    byYear: {
+      2025: {
+        roster: ROSTER_3640_2025,
+        leaseConfig: LEASE_CONFIG_3640_2025,
+        resets: RESETS_3640_2025,
+        excludedUnits: {
+          "3640-101B": "Sound Medical — former (succeeded by Land Medical at 101)",
+          "3640-202A": "Canal Works Advertising — former, no base year",
+          "3640-207E": "Wigs 360 — former",
+          "3640-207": "University MRO — zero-day 2025 occupancy ($0)",
+        },
+      },
     },
   },
 };
