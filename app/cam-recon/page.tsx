@@ -10,6 +10,7 @@ import {
   type NextYearEstimate,
 } from "@/lib/cam/office/exports";
 import type { BuildingReconResult, TenantReconResult } from "@/lib/cam/office/types";
+import type { RetailBuildingResult } from "@/lib/cam/retail/types";
 
 // ── formatting ───────────────────────────────────────────────────────────────
 
@@ -47,7 +48,7 @@ const th: React.CSSProperties = {
 };
 const td: React.CSSProperties = { textAlign: "right", padding: "6px 10px", fontSize: 13, whiteSpace: "nowrap" };
 
-type Available = { propertyCode: string; name: string; years: number[] };
+type Available = { propertyCode: string; name: string; years: number[]; kind?: "office" | "retail" };
 
 function downloadCSV(filename: string, csv: string) {
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
@@ -264,6 +265,7 @@ export default function OfficeCamReconPage() {
   const [year, setYear] = useState<number>(0);
   const [unit, setUnit] = useState<string>("ALL");
   const [result, setResult] = useState<BuildingReconResult | null>(null);
+  const [retailResult, setRetailResult] = useState<RetailBuildingResult | null>(null);
   const [estimates, setEstimates] = useState<NextYearEstimate[]>([]);
   const [contacts, setContacts] = useState<Record<string, { email: string; cc: string }>>({});
   const [expenseSummary, setExpenseSummary] = useState<ExpRow[]>([]);
@@ -274,25 +276,39 @@ export default function OfficeCamReconPage() {
   const [estDate, setEstDate] = useState("");
 
   useEffect(() => {
-    fetch("/api/cam-recon/office")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j) => {
-        const list: Available[] = j?.available ?? [];
-        setAvailable(list);
-        if (list.length) {
-          setProperty(list[0].propertyCode);
-          setYear(list[0].years[0]);
-        }
-      })
-      .catch(() => {});
+    Promise.all([
+      fetch("/api/cam-recon/office").then((r) => (r.ok ? r.json() : null)).catch(() => null),
+      fetch("/api/cam-recon/retail").then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    ]).then(([oJ, rJ]) => {
+      const office: Available[] = (oJ?.available ?? []).map((a: Available) => ({ ...a, kind: "office" as const }));
+      const retail: Available[] = (rJ?.available ?? []).map((a: Available) => ({ ...a, kind: "retail" as const }));
+      const list = [...office, ...retail];
+      setAvailable(list);
+      if (list.length) {
+        setProperty(list[0].propertyCode);
+        setYear(list[0].years[0]);
+      }
+    });
   }, []);
+
+  const isRetail = available.find((a) => a.propertyCode === property)?.kind === "retail";
 
   const loadResult = useCallback(async () => {
     if (!property || !year) return;
+    const retail = available.find((a) => a.propertyCode === property)?.kind === "retail";
     setLoading(true);
     try {
+      if (retail) {
+        const r = await fetch(`/api/cam-recon/retail?property=${property}&year=${year}`);
+        const j = r.ok ? await r.json() : null;
+        setRetailResult(j?.result ?? null);
+        // Clear the office-shaped state so its sections don't render.
+        setResult(null); setEstimates([]); setContacts({}); setExpenseSummary([]); setWarnings([]);
+        return;
+      }
       const r = await fetch(`/api/cam-recon/office?property=${property}&year=${year}`);
       const j = r.ok ? await r.json() : null;
+      setRetailResult(null);
       setResult(j?.result ?? null);
       setEstimates(j?.estimates ?? []);
       setContacts(j?.contacts ?? {});
@@ -302,7 +318,7 @@ export default function OfficeCamReconPage() {
     } finally {
       setLoading(false);
     }
-  }, [property, year]);
+  }, [property, year, available]);
 
   // Property/year change: reset selection + export dates, then load.
   useEffect(() => {
@@ -350,9 +366,15 @@ export default function OfficeCamReconPage() {
   // Headline pills follow the selection: a tenant's balances when one is
   // picked, otherwise the building totals. Office has no separate insurance
   // recovery (insurance is a CAM line), so INS shows $0.
-  const camDue = selected ? selected.opexBalance : totals?.opexBalance ?? 0;
-  const retDue = selected ? selected.retBalance : totals?.retBalance ?? 0;
-  const insDue = 0;
+  // Retail surfaces real CAM/INS/RET pools; office has no separate insurance
+  // recovery (insurance is a CAM line), so its INS shows $0.
+  const camDue = isRetail
+    ? (retailResult?.totals.camBalance ?? 0)
+    : selected ? selected.opexBalance : totals?.opexBalance ?? 0;
+  const retDue = isRetail
+    ? (retailResult?.totals.retBalance ?? 0)
+    : selected ? selected.retBalance : totals?.retBalance ?? 0;
+  const insDue = isRetail ? (retailResult?.totals.insBalance ?? 0) : 0;
   const totalDue = camDue + insDue + retDue;
   // A negative balance is a credit owed back to the tenant; positive is
   // collected from the tenant. (Zero → no direction shown.)
@@ -398,32 +420,36 @@ export default function OfficeCamReconPage() {
             <HeaderSelect value={property} onChange={setProperty} displayLabel={property ? `${property} — ${propName}` : "—"} ariaLabel="Property">
               {available.map((a) => <option key={a.propertyCode} value={a.propertyCode}>{a.propertyCode} — {a.name}</option>)}
             </HeaderSelect>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 2 }}>
-              {selected && (
-                <button type="button" onClick={() => goTenant(-1)} disabled={tenantIdx <= 0} aria-label="Previous tenant"
-                  title="Previous tenant"
-                  style={{ ...arrowBtn, opacity: tenantIdx <= 0 ? 0.35 : 1, cursor: tenantIdx <= 0 ? "default" : "pointer" }}>‹</button>
-              )}
-              <HeaderSelect value={unit} onChange={setUnit} displayLabel={selected ? `${selected.suite} — ${selected.name}` : "All Tenants"} ariaLabel="Tenant" muted>
-                <option value="ALL">All Tenants</option>
-                {tenants.map((t) => <option key={t.unitRef} value={t.unitRef}>{t.suite} — {t.name}</option>)}
-              </HeaderSelect>
-              {selected && (
-                <button type="button" onClick={() => goTenant(1)} disabled={tenantIdx >= tenants.length - 1} aria-label="Next tenant"
-                  title="Next tenant"
-                  style={{ ...arrowBtn, opacity: tenantIdx >= tenants.length - 1 ? 0.35 : 1, cursor: tenantIdx >= tenants.length - 1 ? "default" : "pointer" }}>›</button>
-              )}
-            </span>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-            {selected && (
-              <button onClick={() => downloadTenantPdf(selected, year, `${property} — ${propName}`, contacts[selected.unitRef])} className="btn primary" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}>Download PDF</button>
+            {!isRetail && (
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 2 }}>
+                {selected && (
+                  <button type="button" onClick={() => goTenant(-1)} disabled={tenantIdx <= 0} aria-label="Previous tenant"
+                    title="Previous tenant"
+                    style={{ ...arrowBtn, opacity: tenantIdx <= 0 ? 0.35 : 1, cursor: tenantIdx <= 0 ? "default" : "pointer" }}>‹</button>
+                )}
+                <HeaderSelect value={unit} onChange={setUnit} displayLabel={selected ? `${selected.suite} — ${selected.name}` : "All Tenants"} ariaLabel="Tenant" muted>
+                  <option value="ALL">All Tenants</option>
+                  {tenants.map((t) => <option key={t.unitRef} value={t.unitRef}>{t.suite} — {t.name}</option>)}
+                </HeaderSelect>
+                {selected && (
+                  <button type="button" onClick={() => goTenant(1)} disabled={tenantIdx >= tenants.length - 1} aria-label="Next tenant"
+                    title="Next tenant"
+                    style={{ ...arrowBtn, opacity: tenantIdx >= tenants.length - 1 ? 0.35 : 1, cursor: tenantIdx >= tenants.length - 1 ? "default" : "pointer" }}>›</button>
+                )}
+              </span>
             )}
-            {!selected && (
-              <button onClick={() => result && downloadAllTenantPdfs(result.tenants, year, `${property} — ${propName}`, contacts)} disabled={!result} className="btn" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}>All Tenant PDFs</button>
-            )}
-            <button onClick={exportEstimate} disabled={!result} className="btn" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}>{year + 1} Estimate</button>
           </div>
+          {!isRetail && (
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              {selected && (
+                <button onClick={() => downloadTenantPdf(selected, year, `${property} — ${propName}`, contacts[selected.unitRef])} className="btn primary" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}>Download PDF</button>
+              )}
+              {!selected && (
+                <button onClick={() => result && downloadAllTenantPdfs(result.tenants, year, `${property} — ${propName}`, contacts)} disabled={!result} className="btn" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}>All Tenant PDFs</button>
+              )}
+              <button onClick={exportEstimate} disabled={!result} className="btn" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}>{year + 1} Estimate</button>
+            </div>
+          )}
         </div>
 
         <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
@@ -436,6 +462,8 @@ export default function OfficeCamReconPage() {
               {selected.baseYearResetISO && <Pill tone={TONE_AMBER}>Base Year Reset {new Date(selected.baseYearResetISO + "T00:00:00").toLocaleDateString("en-US", { month: "numeric", day: "numeric", year: "2-digit" })}</Pill>}
               {selected.futureBaseYear && <Pill tone={TONE_AMBER}>No Recovery — Future Base Year</Pill>}
             </>
+          ) : isRetail ? (
+            <span className="muted small">{retailResult?.tenants.length ?? 0} tenants reconciled · retail CAM / INS / RET pro-rata share, year-end true-up</span>
           ) : (
             <span className="muted small">{tenants.length} tenants reconciled · base-year expense recovery, year-end true-up</span>
           )}
@@ -468,6 +496,7 @@ export default function OfficeCamReconPage() {
         </div>
       )}
 
+      {isRetail && retailResult && <RetailBuildingSummary result={retailResult} />}
       {!selected && result && <BuildingSummary result={result} onPick={setUnit} onEditEscrow={saveField} />}
       {!selected && result && <RecoveryByBaseYear result={result} />}
       {!selected && expenseSummary.length > 0 && <FinalExpenseSummary rows={expenseSummary} editable={expenseEditable} year={year} onEdit={saveExpense} />}
@@ -497,6 +526,86 @@ export default function OfficeCamReconPage() {
         </div>
       )}
     </main>
+  );
+}
+
+// ── Retail building summary ──────────────────────────────────────────────────
+
+const INS_TINT = "rgba(13,148,136,0.06)";
+
+function RetailBuildingSummary({ result }: { result: RetailBuildingResult }) {
+  const { tenants, totals } = result;
+  const cam = (first = false): React.CSSProperties => ({ ...td, background: CAM_TINT, ...(first ? { borderLeft: BLOCK_SEP } : {}) });
+  const ins = (first = false): React.CSSProperties => ({ ...td, background: INS_TINT, ...(first ? { borderLeft: BLOCK_SEP } : {}) });
+  const ret = (first = false): React.CSSProperties => ({ ...td, background: RET_TINT, ...(first ? { borderLeft: BLOCK_SEP } : {}) });
+  const camH = (first = false): React.CSSProperties => ({ ...th, background: CAM_TINT, ...(first ? { borderLeft: BLOCK_SEP } : {}) });
+  const insH = (first = false): React.CSSProperties => ({ ...th, background: INS_TINT, ...(first ? { borderLeft: BLOCK_SEP } : {}) });
+  const retH = (first = false): React.CSSProperties => ({ ...th, background: RET_TINT, ...(first ? { borderLeft: BLOCK_SEP } : {}) });
+  return (
+    <div className="card" style={{ overflowX: "auto" }}>
+      <div style={SECTION_LABEL}>Building Summary — {result.propertyCode} · {result.reconYear}</div>
+      <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 10, minWidth: 1040 }}>
+        <thead>
+          <tr>
+            <th colSpan={4} style={{ borderBottom: "1px solid var(--border)" }} />
+            <th colSpan={3} style={{ ...groupTh, color: "#0b4a7d", background: CAM_TINT, borderLeft: BLOCK_SEP, borderBottom: "1px solid var(--border)" }}>CAM</th>
+            <th colSpan={3} style={{ ...groupTh, color: "#0f766e", background: INS_TINT, borderLeft: BLOCK_SEP, borderBottom: "1px solid var(--border)" }}>INS</th>
+            <th colSpan={3} style={{ ...groupTh, color: "#854d0e", background: RET_TINT, borderLeft: BLOCK_SEP, borderBottom: "1px solid var(--border)" }}>RET</th>
+          </tr>
+          <tr>
+            <th style={{ ...th, textAlign: "left" }}>Suite</th>
+            <th style={{ ...th, textAlign: "left" }}>Tenant</th>
+            <th style={th}>CAM %</th>
+            <th style={th}>Admin</th>
+            <th style={camH(true)}>Due</th>
+            <th style={camH()}>Escrow</th>
+            <th style={camH()}>Balance</th>
+            <th style={insH(true)}>Due</th>
+            <th style={insH()}>Escrow</th>
+            <th style={insH()}>Balance</th>
+            <th style={retH(true)}>Due</th>
+            <th style={retH()}>Escrow</th>
+            <th style={retH()}>Balance</th>
+          </tr>
+        </thead>
+        <tbody>
+          {tenants.map((t) => (
+            <tr key={t.unitRef} style={{ borderBottom: "1px solid var(--border)" }}>
+              <td style={{ ...td, textAlign: "left", fontWeight: 700 }}>{t.suite}</td>
+              <td style={{ ...td, textAlign: "left" }}>{t.name}{t.grossLease ? <span className="muted" style={{ fontSize: 11 }}> (gross)</span> : t.capped ? <span style={{ fontSize: 11, color: "#b45309" }}> (capped)</span> : null}</td>
+              <td style={td}>{pct(t.camPrs / 100)}</td>
+              <td style={td}>{t.adminFeePct ? `${t.adminFeePct}%` : "—"}</td>
+              <td style={cam(true)}>{money(t.camDue)}</td>
+              <td style={cam()}>{money(t.camEscrow)}</td>
+              <td style={cam()}><Pill tone={reconBalanceTone(t.camBalance)}>{money(t.camBalance)}</Pill></td>
+              <td style={ins(true)}>{money(t.insDue)}</td>
+              <td style={ins()}>{money(t.insEscrow)}</td>
+              <td style={ins()}><Pill tone={reconBalanceTone(t.insBalance)}>{money(t.insBalance)}</Pill></td>
+              <td style={ret(true)}>{money(t.retDue)}</td>
+              <td style={ret()}>{money(t.retEscrow)}</td>
+              <td style={ret()}><Pill tone={reconBalanceTone(t.retBalance)}>{money(t.retBalance)}</Pill></td>
+            </tr>
+          ))}
+        </tbody>
+        <tfoot>
+          <tr style={{ fontWeight: 800, borderTop: "2px solid var(--border)" }}>
+            <td style={{ ...td, textAlign: "left" }} colSpan={4}>Total</td>
+            <td style={cam(true)}>{money(totals.camDue)}</td>
+            <td style={cam()}>{money(totals.camEscrow)}</td>
+            <td style={cam()}>{money(totals.camBalance)}</td>
+            <td style={ins(true)}>{money(totals.insDue)}</td>
+            <td style={ins()}>{money(totals.insEscrow)}</td>
+            <td style={ins()}>{money(totals.insBalance)}</td>
+            <td style={ret(true)}>{money(totals.retDue)}</td>
+            <td style={ret()}>{money(totals.retEscrow)}</td>
+            <td style={ret()}>{money(totals.retBalance)}</td>
+          </tr>
+        </tfoot>
+      </table>
+      <p className="small muted" style={{ marginTop: 8 }}>
+        Retail pro-rata: CAM = share × pool × (1 + admin), less excluded lines and any controllable cap; INS &amp; RET = share × pool (RET net of any lease discount). Balance = due − escrow billed; negative is a credit to the tenant.
+      </p>
+    </div>
   );
 }
 
