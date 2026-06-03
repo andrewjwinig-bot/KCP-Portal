@@ -10,7 +10,7 @@ import {
   type NextYearEstimate,
 } from "@/lib/cam/office/exports";
 import type { BuildingReconResult, TenantReconResult } from "@/lib/cam/office/types";
-import type { RetailBuildingResult } from "@/lib/cam/retail/types";
+import type { RetailBuildingResult, RetailTenantResult } from "@/lib/cam/retail/types";
 
 // ── formatting ───────────────────────────────────────────────────────────────
 
@@ -302,8 +302,9 @@ export default function OfficeCamReconPage() {
         const r = await fetch(`/api/cam-recon/retail?property=${property}&year=${year}`);
         const j = r.ok ? await r.json() : null;
         setRetailResult(j?.result ?? null);
+        setContacts(j?.contacts ?? {});
         // Clear the office-shaped state so its sections don't render.
-        setResult(null); setEstimates([]); setContacts({}); setExpenseSummary([]); setWarnings([]);
+        setResult(null); setEstimates([]); setExpenseSummary([]); setWarnings([]);
         return;
       }
       const r = await fetch(`/api/cam-recon/office?property=${property}&year=${year}`);
@@ -353,28 +354,34 @@ export default function OfficeCamReconPage() {
 
   const years = available.find((a) => a.propertyCode === property)?.years ?? [];
   const tenants = result?.tenants ?? [];
-  const selected = unit === "ALL" ? null : tenants.find((t) => t.unitRef === unit) ?? null;
-  const tenantIdx = selected ? tenants.findIndex((t) => t.unitRef === selected.unitRef) : -1;
+  const rTenants = retailResult?.tenants ?? [];
+  // The dropdown + prev/next operate over whichever building's tenants are
+  // active. `selected` is the office tenant; `rSelected` the retail one.
+  const dropdownTenants = isRetail ? rTenants : tenants;
+  const selected = !isRetail && unit !== "ALL" ? tenants.find((t) => t.unitRef === unit) ?? null : null;
+  const rSelected = isRetail && unit !== "ALL" ? rTenants.find((t) => t.unitRef === unit) ?? null : null;
+  const hasSel = !!(selected || rSelected);
+  const selLabel = selected ? `${selected.suite} — ${selected.name}`
+    : rSelected ? `${rSelected.suite} — ${rSelected.name}` : "All Tenants";
+  const tenantIdx = hasSel ? dropdownTenants.findIndex((t) => t.unitRef === unit) : -1;
   const goTenant = (dir: 1 | -1) => {
     if (tenantIdx < 0) return;
     const next = tenantIdx + dir;
-    if (next >= 0 && next < tenants.length) setUnit(tenants[next].unitRef);
+    if (next >= 0 && next < dropdownTenants.length) setUnit(dropdownTenants[next].unitRef);
   };
   const totals = result?.totals;
   const propName = available.find((a) => a.propertyCode === property)?.name ?? "";
 
   // Headline pills follow the selection: a tenant's balances when one is
-  // picked, otherwise the building totals. Office has no separate insurance
-  // recovery (insurance is a CAM line), so INS shows $0.
-  // Retail surfaces real CAM/INS/RET pools; office has no separate insurance
-  // recovery (insurance is a CAM line), so its INS shows $0.
+  // picked, otherwise the building totals. Retail surfaces real CAM/INS/RET
+  // pools; office has no separate insurance recovery (it's a CAM line) → $0.
   const camDue = isRetail
-    ? (retailResult?.totals.camBalance ?? 0)
+    ? (rSelected ? rSelected.camBalance : retailResult?.totals.camBalance ?? 0)
     : selected ? selected.opexBalance : totals?.opexBalance ?? 0;
   const retDue = isRetail
-    ? (retailResult?.totals.retBalance ?? 0)
+    ? (rSelected ? rSelected.retBalance : retailResult?.totals.retBalance ?? 0)
     : selected ? selected.retBalance : totals?.retBalance ?? 0;
-  const insDue = isRetail ? (retailResult?.totals.insBalance ?? 0) : 0;
+  const insDue = isRetail ? (rSelected ? rSelected.insBalance : retailResult?.totals.insBalance ?? 0) : 0;
   const totalDue = camDue + insDue + retDue;
   // A negative balance is a credit owed back to the tenant; positive is
   // collected from the tenant. (Zero → no direction shown.)
@@ -420,36 +427,44 @@ export default function OfficeCamReconPage() {
             <HeaderSelect value={property} onChange={setProperty} displayLabel={property ? `${property} — ${propName}` : "—"} ariaLabel="Property">
               {available.map((a) => <option key={a.propertyCode} value={a.propertyCode}>{a.propertyCode} — {a.name}</option>)}
             </HeaderSelect>
-            {!isRetail && (
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 2 }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 2 }}>
+              {hasSel && (
+                <button type="button" onClick={() => goTenant(-1)} disabled={tenantIdx <= 0} aria-label="Previous tenant"
+                  title="Previous tenant"
+                  style={{ ...arrowBtn, opacity: tenantIdx <= 0 ? 0.35 : 1, cursor: tenantIdx <= 0 ? "default" : "pointer" }}>‹</button>
+              )}
+              <HeaderSelect value={unit} onChange={setUnit} displayLabel={selLabel} ariaLabel="Tenant" muted>
+                <option value="ALL">All Tenants</option>
+                {dropdownTenants.map((t) => <option key={t.unitRef} value={t.unitRef}>{t.suite} — {t.name}</option>)}
+              </HeaderSelect>
+              {hasSel && (
+                <button type="button" onClick={() => goTenant(1)} disabled={tenantIdx >= dropdownTenants.length - 1} aria-label="Next tenant"
+                  title="Next tenant"
+                  style={{ ...arrowBtn, opacity: tenantIdx >= dropdownTenants.length - 1 ? 0.35 : 1, cursor: tenantIdx >= dropdownTenants.length - 1 ? "default" : "pointer" }}>›</button>
+              )}
+            </span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            {/* Per-tenant / all-tenant PDFs — office and retail each draw their
+                own statement; the Estimate export is office-only for now. */}
+            {isRetail ? (
+              rSelected ? (
+                <button onClick={() => downloadRetailTenantPdf(rSelected, year, `${property} — ${propName}`, contacts[rSelected.unitRef])} className="btn primary" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}>Download PDF</button>
+              ) : (
+                <button onClick={() => retailResult && downloadAllRetailPdfs(retailResult.tenants, year, `${property} — ${propName}`, contacts)} disabled={!retailResult} className="btn" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}>All Tenant PDFs</button>
+              )
+            ) : (
+              <>
                 {selected && (
-                  <button type="button" onClick={() => goTenant(-1)} disabled={tenantIdx <= 0} aria-label="Previous tenant"
-                    title="Previous tenant"
-                    style={{ ...arrowBtn, opacity: tenantIdx <= 0 ? 0.35 : 1, cursor: tenantIdx <= 0 ? "default" : "pointer" }}>‹</button>
+                  <button onClick={() => downloadTenantPdf(selected, year, `${property} — ${propName}`, contacts[selected.unitRef])} className="btn primary" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}>Download PDF</button>
                 )}
-                <HeaderSelect value={unit} onChange={setUnit} displayLabel={selected ? `${selected.suite} — ${selected.name}` : "All Tenants"} ariaLabel="Tenant" muted>
-                  <option value="ALL">All Tenants</option>
-                  {tenants.map((t) => <option key={t.unitRef} value={t.unitRef}>{t.suite} — {t.name}</option>)}
-                </HeaderSelect>
-                {selected && (
-                  <button type="button" onClick={() => goTenant(1)} disabled={tenantIdx >= tenants.length - 1} aria-label="Next tenant"
-                    title="Next tenant"
-                    style={{ ...arrowBtn, opacity: tenantIdx >= tenants.length - 1 ? 0.35 : 1, cursor: tenantIdx >= tenants.length - 1 ? "default" : "pointer" }}>›</button>
+                {!selected && (
+                  <button onClick={() => result && downloadAllTenantPdfs(result.tenants, year, `${property} — ${propName}`, contacts)} disabled={!result} className="btn" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}>All Tenant PDFs</button>
                 )}
-              </span>
+                <button onClick={exportEstimate} disabled={!result} className="btn" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}>{year + 1} Estimate</button>
+              </>
             )}
           </div>
-          {!isRetail && (
-            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-              {selected && (
-                <button onClick={() => downloadTenantPdf(selected, year, `${property} — ${propName}`, contacts[selected.unitRef])} className="btn primary" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}>Download PDF</button>
-              )}
-              {!selected && (
-                <button onClick={() => result && downloadAllTenantPdfs(result.tenants, year, `${property} — ${propName}`, contacts)} disabled={!result} className="btn" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}>All Tenant PDFs</button>
-              )}
-              <button onClick={exportEstimate} disabled={!result} className="btn" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}>{year + 1} Estimate</button>
-            </div>
-          )}
         </div>
 
         <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
@@ -461,6 +476,15 @@ export default function OfficeCamReconPage() {
               {selected.occPct < 0.9999 && <Pill tone={TONE_NEUTRAL}>{pct(selected.occPct, 1)} Occupancy{selected.rcd ? ` (${fmtRCD(selected.rcd)} RCD)` : ""}</Pill>}
               {selected.baseYearResetISO && <Pill tone={TONE_AMBER}>Base Year Reset {new Date(selected.baseYearResetISO + "T00:00:00").toLocaleDateString("en-US", { month: "numeric", day: "numeric", year: "2-digit" })}</Pill>}
               {selected.futureBaseYear && <Pill tone={TONE_AMBER}>No Recovery — Future Base Year</Pill>}
+            </>
+          ) : rSelected ? (
+            <>
+              <Pill tone={TONE_NEUTRAL}>{pct(rSelected.camPrs / 100)} CAM Share</Pill>
+              <Pill tone={TONE_NEUTRAL}>{rSelected.adminFeePct ? `${rSelected.adminFeePct}% Admin` : "No Admin Fee"}</Pill>
+              <Pill tone={TONE_NEUTRAL}>{pct(rSelected.insPrs / 100)} INS · {pct(rSelected.retPrs / 100)} RET</Pill>
+              {rSelected.capped && <Pill tone={TONE_AMBER}>CAM Capped</Pill>}
+              {rSelected.retDiscountPct > 0 && <Pill tone={TONE_NEUTRAL}>{rSelected.retDiscountPct}% RET Discount</Pill>}
+              {rSelected.grossLease && <Pill tone={TONE_AMBER}>Gross Lease</Pill>}
             </>
           ) : isRetail ? (
             <span className="muted small">{retailResult?.tenants.length ?? 0} tenants reconciled · retail CAM / INS / RET pro-rata share, year-end true-up</span>
@@ -496,7 +520,8 @@ export default function OfficeCamReconPage() {
         </div>
       )}
 
-      {isRetail && retailResult && <RetailBuildingSummary result={retailResult} />}
+      {isRetail && !rSelected && retailResult && <RetailBuildingSummary result={retailResult} onPick={setUnit} />}
+      {isRetail && rSelected && <RetailTenantStatement t={rSelected} reconYear={year} contact={contacts[rSelected.unitRef]} />}
       {!selected && result && <BuildingSummary result={result} onPick={setUnit} onEditEscrow={saveField} />}
       {!selected && result && <RecoveryByBaseYear result={result} />}
       {!selected && expenseSummary.length > 0 && <FinalExpenseSummary rows={expenseSummary} editable={expenseEditable} year={year} onEdit={saveExpense} />}
@@ -533,7 +558,7 @@ export default function OfficeCamReconPage() {
 
 const INS_TINT = "rgba(13,148,136,0.06)";
 
-function RetailBuildingSummary({ result }: { result: RetailBuildingResult }) {
+function RetailBuildingSummary({ result, onPick }: { result: RetailBuildingResult; onPick: (u: string) => void }) {
   const { tenants, totals } = result;
   const cam = (first = false): React.CSSProperties => ({ ...td, background: CAM_TINT, ...(first ? { borderLeft: BLOCK_SEP } : {}) });
   const ins = (first = false): React.CSSProperties => ({ ...td, background: INS_TINT, ...(first ? { borderLeft: BLOCK_SEP } : {}) });
@@ -570,7 +595,7 @@ function RetailBuildingSummary({ result }: { result: RetailBuildingResult }) {
         </thead>
         <tbody>
           {tenants.map((t) => (
-            <tr key={t.unitRef} style={{ borderBottom: "1px solid var(--border)" }}>
+            <tr key={t.unitRef} style={{ borderBottom: "1px solid var(--border)", cursor: "pointer" }} onClick={() => onPick(t.unitRef)}>
               <td style={{ ...td, textAlign: "left", fontWeight: 700 }}>{t.suite}</td>
               <td style={{ ...td, textAlign: "left" }}>{t.name}{t.grossLease ? <span className="muted" style={{ fontSize: 11 }}> (gross)</span> : t.capped ? <span style={{ fontSize: 11, color: "#b45309" }}> (capped)</span> : null}</td>
               <td style={td}>{pct(t.camPrs / 100)}</td>
@@ -607,6 +632,190 @@ function RetailBuildingSummary({ result }: { result: RetailBuildingResult }) {
       </p>
     </div>
   );
+}
+
+// ── Retail per-tenant statement ──────────────────────────────────────────────
+
+function StmtRow({ label, value, bold, muted }: { label: string; value: string; bold?: boolean; muted?: boolean }) {
+  return (
+    <div style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "3px 0", fontSize: bold ? 14 : 13, fontWeight: bold ? 800 : 500, color: muted ? "var(--muted)" : "var(--text)" }}>
+      <span>{label}</span>
+      <span style={{ fontVariantNumeric: "tabular-nums" }}>{value}</span>
+    </div>
+  );
+}
+
+function RetailStmtBlock({ title, accent, children, balanceLabel, balance }: {
+  title: string; accent: string; children: React.ReactNode; balanceLabel: string; balance: number;
+}) {
+  return (
+    <div className="card" style={{ flex: "1 1 240px", minWidth: 0, borderTop: `3px solid ${accent}` }}>
+      <div style={{ ...SECTION_LABEL, color: accent }}>{title}</div>
+      <div style={{ marginTop: 8 }}>{children}</div>
+      <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <span style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--muted)" }}>{balanceLabel}</span>
+        <Pill tone={reconBalanceTone(balance)}>{money(balance)}</Pill>
+      </div>
+    </div>
+  );
+}
+
+function RetailTenantStatement({ t, reconYear, contact }: {
+  t: RetailTenantResult; reconYear: number; contact?: { email: string; cc: string };
+}) {
+  const net = t.camBalance + t.insBalance + t.retBalance;
+  const credit = net < -0.005;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+        {/* CAM */}
+        <RetailStmtBlock title={`CAM — ${reconYear}`} accent="#0b4a7d" balanceLabel="Balance, CAM Due" balance={t.camBalance}>
+          <StmtRow label={`CAM Pool${t.capped ? " (capped)" : t.camPoolEffective < t.camPoolFull ? " (after exclusions)" : ""}`} value={money(t.camPoolEffective)} muted />
+          <StmtRow label={`× CAM Share ${pct(t.camPrs / 100)}`} value={money(t.camShare)} />
+          {t.adminFeePct > 0 && <StmtRow label={`+ Admin Fee ${t.adminFeePct}%`} value={money(t.camAdmin)} />}
+          <StmtRow label="CAM Due" value={money(t.camDue)} bold />
+          <StmtRow label="Less: Escrow Billed" value={money(-t.camEscrow)} muted />
+        </RetailStmtBlock>
+        {/* INS */}
+        <RetailStmtBlock title={`INS — ${reconYear}`} accent="#0f766e" balanceLabel="Balance, INS Due" balance={t.insBalance}>
+          <StmtRow label="Insurance Pool" value={money(t.insPool)} muted />
+          <StmtRow label={`× INS Share ${pct(t.insPrs / 100)}`} value={money(t.insDue)} />
+          <StmtRow label="INS Due" value={money(t.insDue)} bold />
+          <StmtRow label="Less: Escrow Billed" value={money(-t.insEscrow)} muted />
+        </RetailStmtBlock>
+        {/* RET */}
+        <RetailStmtBlock title={`RET — ${reconYear}`} accent="#854d0e" balanceLabel="Balance, RET Due" balance={t.retBalance}>
+          <StmtRow label="Real Estate Tax Pool" value={money(t.retPool)} muted />
+          <StmtRow label={`× RET Share ${pct(t.retPrs / 100)}`} value={money((t.retPrs / 100) * t.retPool)} />
+          {t.retDiscountPct > 0 && <StmtRow label={`× (1 − ${t.retDiscountPct}% discount)`} value={money(t.retDue)} />}
+          <StmtRow label="RET Due" value={money(t.retDue)} bold />
+          <StmtRow label="Less: Escrow Billed" value={money(-t.retEscrow)} muted />
+        </RetailStmtBlock>
+      </div>
+
+      {/* Net true-up + billing contact */}
+      <div className="card" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 12,
+        borderLeft: `4px solid ${credit ? "#15803d" : "#b45309"}` }}>
+        <div>
+          <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.04em", textTransform: "uppercase", color: credit ? "#15803d" : "#b45309" }}>
+            {credit ? "Net Credit to Tenant" : "Net Balance Due from Tenant"}
+          </div>
+          <div className="small muted" style={{ marginTop: 2 }}>CAM {money(t.camBalance)} · INS {money(t.insBalance)} · RET {money(t.retBalance)}</div>
+        </div>
+        <div style={{ fontSize: 24, fontWeight: 900, color: credit ? "#15803d" : "#b45309", fontVariantNumeric: "tabular-nums" }}>{money(Math.abs(net))}</div>
+      </div>
+
+      <div className="card" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10 }}>
+        <span style={{ ...SECTION_LABEL, whiteSpace: "nowrap" }}>Statement to</span>
+        {contact?.email
+          ? <span style={{ fontSize: 13, fontWeight: 700, wordBreak: "break-all" }}>{contact.email}</span>
+          : <span style={{ fontSize: 13, color: "#b91c1c", fontWeight: 600 }}>No CAM/RET recipient flagged — set one on the Contacts page</span>}
+        <a href={`/rentroll/units/${encodeURIComponent(t.unitRef)}`} style={{ fontSize: 12, fontWeight: 600, color: "#0b4a7d", textDecoration: "none", marginLeft: "auto" }}>Edit contacts →</a>
+      </div>
+    </div>
+  );
+}
+
+// One retail tenant's CAM/INS/RET statement as a branded PDF.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function drawRetailStatement(doc: any, t: RetailTenantResult, year: number, propLabel: string, contact?: { email: string; cc: string }) {
+  const money = money0;
+  const PAGE_W = 612;
+  const L = 48, R = 564, W = R - L;
+  const NAVY: [number, number, number] = [11, 74, 125];
+  const TINT: [number, number, number] = [230, 238, 245];
+  const MUTED: [number, number, number] = [110, 110, 110];
+  const INK: [number, number, number] = [20, 20, 20];
+  const LINE: [number, number, number] = [205, 210, 216];
+  const GREEN: [number, number, number] = [21, 128, 61];
+  const AMBER: [number, number, number] = [180, 83, 9];
+  const fill = (c: number[]) => doc.setFillColor(c[0], c[1], c[2]);
+  const ink = (c: number[]) => doc.setTextColor(c[0], c[1], c[2]);
+  const stroke = (c: number[]) => doc.setDrawColor(c[0], c[1], c[2]);
+  let y = 0;
+  const at = (s: string, x: number, opts?: { align?: "right" | "center" | "left" }) => doc.text(s, x, y, opts);
+
+  fill(NAVY); doc.rect(0, 0, PAGE_W, 84, "F");
+  ink([255, 255, 255]); doc.setFont("helvetica", "bold"); doc.setFontSize(24); doc.text("KORMAN", L, 46);
+  stroke([255, 255, 255]); doc.setLineWidth(0.7); doc.line(170, 26, 170, 50);
+  doc.setFont("helvetica", "normal"); doc.setFontSize(7.5);
+  doc.text("COMMERCIAL", 180, 34); doc.text("PROPERTIES", 180, 45);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(15); doc.text("CAM / INS / RET Reconciliation", R, 38, { align: "right" });
+  doc.setFont("helvetica", "normal"); doc.setFontSize(9.5); doc.text(`${year} Year-End Statement`, R, 54, { align: "right" });
+
+  y = 112; ink(INK); doc.setFont("helvetica", "bold"); doc.setFontSize(15); at(t.name, L);
+  y += 16; ink(MUTED); doc.setFont("helvetica", "normal"); doc.setFontSize(10);
+  at(`${propLabel}   ·   Suite ${t.suite}`, L);
+  y += 14;
+  const bits = [`CAM ${pct(t.camPrs / 100)}`, `INS ${pct(t.insPrs / 100)}`, `RET ${pct(t.retPrs / 100)}`, t.adminFeePct ? `${t.adminFeePct}% Admin` : "No Admin", ...(t.capped ? ["CAM Capped"] : []), ...(t.retDiscountPct ? [`${t.retDiscountPct}% RET Disc`] : [])];
+  at(bits.join("   ·   "), L);
+  y += 28;
+
+  const sumRow = (label: string, value: string, bold = false) => {
+    doc.setFont("helvetica", bold ? "bold" : "normal"); doc.setFontSize(bold ? 10.5 : 10);
+    ink(bold ? INK : MUTED); at(label, L + 6); ink(INK); at(value, R - 6, { align: "right" });
+    y += 15; doc.setFontSize(10);
+  };
+  const bar = (title: string) => {
+    fill(TINT); doc.rect(L, y - 11, W, 18, "F"); ink(NAVY); doc.setFont("helvetica", "bold"); doc.setFontSize(9);
+    at(title.toUpperCase(), L + 6); y += 22; ink(INK); doc.setFontSize(10);
+  };
+
+  bar("Common Area Maintenance");
+  sumRow(`CAM Pool${t.capped ? " (capped)" : t.camPoolEffective < t.camPoolFull ? " (after exclusions)" : ""}`, money(t.camPoolEffective));
+  sumRow(`× CAM Share ${pct(t.camPrs / 100)}`, money(t.camShare));
+  if (t.adminFeePct > 0) sumRow(`+ Admin Fee ${t.adminFeePct}%`, money(t.camAdmin));
+  sumRow("CAM Due", money(t.camDue), true);
+  sumRow("Less: Escrow Billed", money(-t.camEscrow));
+  sumRow("Balance, CAM Due", money(t.camBalance), true);
+  y += 16;
+
+  bar("Insurance");
+  sumRow("Insurance Pool", money(t.insPool));
+  sumRow(`× INS Share ${pct(t.insPrs / 100)}`, money(t.insDue));
+  sumRow("Less: Escrow Billed", money(-t.insEscrow));
+  sumRow("Balance, INS Due", money(t.insBalance), true);
+  y += 16;
+
+  bar("Real Estate Taxes");
+  sumRow("Real Estate Tax Pool", money(t.retPool));
+  sumRow(`× RET Share ${pct(t.retPrs / 100)}${t.retDiscountPct ? ` (less ${t.retDiscountPct}%)` : ""}`, money(t.retDue));
+  sumRow("Less: Escrow Billed", money(-t.retEscrow));
+  sumRow("Balance, RET Due", money(t.retBalance), true);
+  y += 22;
+
+  const net = t.camBalance + t.insBalance + t.retBalance;
+  const credit = net < 0; const theme = credit ? GREEN : AMBER;
+  fill(credit ? [235, 247, 239] : [252, 245, 235]); stroke(theme); doc.setLineWidth(1.2); doc.rect(L, y, W, 46, "FD");
+  ink(theme); doc.setFont("helvetica", "bold"); doc.setFontSize(10);
+  doc.text(credit ? "NET CREDIT TO TENANT" : "NET BALANCE DUE FROM TENANT", L + 16, y + 20);
+  doc.setFontSize(8); ink(MUTED);
+  doc.text(`CAM ${money(t.camBalance)}   ·   INS ${money(t.insBalance)}   ·   RET ${money(t.retBalance)}`, L + 16, y + 34);
+  ink(theme); doc.setFont("helvetica", "bold"); doc.setFontSize(22);
+  doc.text(money(Math.abs(net)), R - 16, y + 30, { align: "right" });
+  y += 64;
+
+  if (contact?.email) { ink(MUTED); doc.setFont("helvetica", "normal"); doc.setFontSize(8.5); at(`Statement to: ${contact.email}`, L); y += 14; }
+  stroke(LINE); doc.setLineWidth(0.6); doc.line(L, 752, R, 752);
+  ink(MUTED); doc.setFontSize(8);
+  doc.text("Korman Commercial Properties", L, 766);
+  doc.text(`${year} CAM / INS / RET Reconciliation  ·  Suite ${t.suite}`, R, 766, { align: "right" });
+}
+
+async function downloadRetailTenantPdf(t: RetailTenantResult, year: number, propLabel: string, contact?: { email: string; cc: string }) {
+  const { jsPDF } = await import("jspdf");
+  const doc = new jsPDF({ unit: "pt", format: "letter" });
+  drawRetailStatement(doc, t, year, propLabel, contact);
+  const propCode = propLabel.split(" ")[0];
+  doc.save(`${propCode}_${year}_Suite${t.suite}_${t.name.replace(/[^\w]+/g, "_")}_CAM.pdf`);
+}
+
+async function downloadAllRetailPdfs(tenants: RetailTenantResult[], year: number, propLabel: string, contacts: Record<string, { email: string; cc: string }>) {
+  const { jsPDF } = await import("jspdf");
+  const doc = new jsPDF({ unit: "pt", format: "letter" });
+  tenants.forEach((t, i) => { if (i > 0) doc.addPage(); drawRetailStatement(doc, t, year, propLabel, contacts[t.unitRef]); });
+  const propCode = propLabel.split(" ")[0];
+  doc.save(`${propCode}_${year}_AllTenantStatements_CAM.pdf`);
 }
 
 // ── Building summary table ───────────────────────────────────────────────────
