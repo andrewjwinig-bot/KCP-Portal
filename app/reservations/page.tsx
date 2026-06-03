@@ -286,6 +286,10 @@ function ReservationsPageInner() {
             setReservations((prev) => prev?.map((r) => r.id === updated.id ? updated : r) ?? prev);
             setSelected(updated);
           }}
+          onDelete={(id) => {
+            setReservations((prev) => prev?.filter((r) => r.id !== id) ?? prev);
+            setSelected(null);
+          }}
         />
       )}
     </main>
@@ -295,13 +299,14 @@ function ReservationsPageInner() {
 // ── modal ──────────────────────────────────────────────────────────────
 
 function ReservationModal({
-  reservation, sameDay, currentUser, onClose, onChange,
+  reservation, sameDay, currentUser, onClose, onChange, onDelete,
 }: {
   reservation: Reservation;
   sameDay: Reservation[];
   currentUser: string;
   onClose: () => void;
   onChange: (r: Reservation) => void;
+  onDelete: (id: string) => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -369,6 +374,22 @@ function ReservationModal({
     } catch (e) {
       setError(e instanceof Error ? e.message : "Update failed");
     } finally { setBusy(false); }
+  }
+
+  async function remove() {
+    if (!confirm("Delete this reservation? This cannot be undone.")) return;
+    setBusy(true); setError(null);
+    try {
+      const res = await fetch(`/api/reservations/${reservation.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j.error ?? "Delete failed");
+      }
+      onDelete(reservation.id);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Delete failed");
+      setBusy(false);
+    }
   }
 
   async function approve() {
@@ -589,6 +610,9 @@ function ReservationModal({
                 Decline
               </button>
             )}
+            <button onClick={remove} disabled={busy} className="btn" style={{ fontSize: 13, padding: "8px 14px", color: "#b91c1c", borderColor: "rgba(220,38,38,0.35)" }} title="Delete this reservation">
+              🗑 Delete
+            </button>
           </div>
           <div style={{ display: "flex", gap: 8 }}>
             <button onClick={() => setComposer("modify")} disabled={busy} className="btn" style={{ fontSize: 13, padding: "8px 14px" }}>
