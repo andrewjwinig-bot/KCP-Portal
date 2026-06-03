@@ -7,6 +7,7 @@
 import type { RetailExpensePool } from "./types";
 import type { RetailRosterUnit } from "./assemble";
 import { POOL_2300, ROSTER_2300_2025 } from "./seed/2300";
+import { POOL_1100, ROSTER_1100_2025 } from "./seed/1100";
 
 export type RetailReconYear = { roster: RetailRosterUnit[] };
 
@@ -20,6 +21,13 @@ export type RetailReconFixture = {
 };
 
 export const RETAIL_RECON_FIXTURES: Record<string, RetailReconFixture> = {
+  "1100": {
+    propertyCode: "1100",
+    name: "Parkwood Professional Center",
+    gla: 8287,
+    pool: POOL_1100,
+    byYear: { 2025: { roster: ROSTER_1100_2025 } },
+  },
   "2300": {
     propertyCode: "2300",
     name: "Brookwood Shopping Center",
