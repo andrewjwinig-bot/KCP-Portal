@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { Pill, StatPill, reconBalanceTone, TONE_NEUTRAL, TONE_AMBER } from "@/app/components/Pill";
 import { Calendar } from "@/app/components/Calendar";
 import {
@@ -520,6 +520,7 @@ export default function OfficeCamReconPage() {
         </div>
       )}
 
+      {isRetail && !rSelected && retailResult && <RetailConfigTable result={retailResult} onPick={setUnit} />}
       {isRetail && !rSelected && retailResult && <RetailBuildingSummary result={retailResult} onPick={setUnit} />}
       {isRetail && rSelected && <RetailTenantStatement t={rSelected} reconYear={year} contact={contacts[rSelected.unitRef]} />}
       {!selected && result && <BuildingSummary result={result} onPick={setUnit} onEditEscrow={saveField} />}
@@ -630,6 +631,84 @@ function RetailBuildingSummary({ result, onPick }: { result: RetailBuildingResul
       <p className="small muted" style={{ marginTop: 8 }}>
         Retail pro-rata: CAM = share × pool × (1 + admin), less excluded lines and any controllable cap; INS &amp; RET = share × pool (RET net of any lease discount). Balance = due − escrow billed; negative is a credit to the tenant.
       </p>
+    </div>
+  );
+}
+
+// ── Retail config (methodology) — at-a-glance verification table ─────────────
+// Mirrors the Brookwood CAM tab: admin fee + PRS per category for every tenant,
+// with an info chip that expands the exceptions (exclusions / cap / discount /
+// gross lease) so the whole center can be verified without opening each unit.
+
+function retailExceptions(t: RetailTenantResult): string[] {
+  const out: string[] = [];
+  if (t.grossLease) out.push("Gross lease — no CAM / INS / RET reconciliation.");
+  if (t.camCap) {
+    const cap = t.camCap.priorControllable * (1 + t.camCap.growthPct / 100);
+    out.push(`CAM cap: controllable held to prior ${money0(t.camCap.priorControllable)} × ${(1 + t.camCap.growthPct / 100).toFixed(2)} = ${money0(cap)} (effective pool ${money0(t.camPoolEffective)}).`);
+  }
+  if (t.camExcludedLabels.length) out.push(`Not billed for CAM line(s): ${t.camExcludedLabels.join(", ")}.`);
+  if (t.adminExcludedLabels.length) out.push(`Admin fee excludes: ${t.adminExcludedLabels.join(", ")}.`);
+  if (t.retDiscountPct > 0) out.push(`RET discount: ${t.retDiscountPct}%.`);
+  return out;
+}
+
+function RetailConfigTable({ result, onPick }: { result: RetailBuildingResult; onPick: (u: string) => void }) {
+  const [open, setOpen] = useState<string | null>(null);
+  const colN = 7;
+  return (
+    <div className="card" style={{ overflowX: "auto" }}>
+      <div style={SECTION_LABEL}>Tenant CAM Methodology — {result.propertyCode} · {result.reconYear}</div>
+      <p className="small muted" style={{ marginTop: 4 }}>
+        Admin fee + pro-rata share per category, at a glance. ⓘ marks a lease exception — click it for the exclusions / cap / discount detail.
+      </p>
+      <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 10, minWidth: 640 }}>
+        <thead>
+          <tr>
+            <th style={{ ...th, textAlign: "left" }}>Suite</th>
+            <th style={{ ...th, textAlign: "left" }}>Tenant</th>
+            <th style={th}>CAM Admin</th>
+            <th style={th}>CAM PRS</th>
+            <th style={th}>INS PRS</th>
+            <th style={th}>RET PRS</th>
+            <th style={{ ...th, textAlign: "center" }}>Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          {result.tenants.map((t) => {
+            const ex = retailExceptions(t);
+            const isOpen = open === t.unitRef;
+            return (
+              <Fragment key={t.unitRef}>
+                <tr style={{ borderBottom: ex.length && isOpen ? "none" : "1px solid var(--border)" }}>
+                  <td style={{ ...td, textAlign: "left", fontWeight: 700, cursor: "pointer" }} onClick={() => onPick(t.unitRef)}>{t.suite}</td>
+                  <td style={{ ...td, textAlign: "left", cursor: "pointer" }} onClick={() => onPick(t.unitRef)}>{t.name}</td>
+                  <td style={td}>{t.adminFeePct ? `${t.adminFeePct}%` : "—"}</td>
+                  <td style={td}>{t.grossLease ? "—" : pct(t.camPrs / 100)}</td>
+                  <td style={td}>{t.grossLease ? "—" : pct(t.insPrs / 100)}</td>
+                  <td style={td}>{t.grossLease ? "—" : pct(t.retPrs / 100)}</td>
+                  <td style={{ ...td, textAlign: "center" }}>
+                    {ex.length > 0 ? (
+                      <button type="button" onClick={() => setOpen(isOpen ? null : t.unitRef)} title="Show lease exceptions"
+                        style={{ border: "none", background: "none", cursor: "pointer", color: "#b45309", fontWeight: 800, fontSize: 14 }}>ⓘ</button>
+                    ) : <span style={{ color: "var(--muted)" }}>—</span>}
+                  </td>
+                </tr>
+                {ex.length > 0 && isOpen && (
+                  <tr style={{ borderBottom: "1px solid var(--border)", background: "rgba(180,83,9,0.05)" }}>
+                    <td />
+                    <td colSpan={colN - 1} style={{ ...td, textAlign: "left", padding: "8px 10px" }}>
+                      <ul style={{ margin: 0, paddingLeft: 18, display: "flex", flexDirection: "column", gap: 3 }}>
+                        {ex.map((e, i) => <li key={i} style={{ fontSize: 12.5, color: "#7c4a12" }}>{e}</li>)}
+                      </ul>
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 }

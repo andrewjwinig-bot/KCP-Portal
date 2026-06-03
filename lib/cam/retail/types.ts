@@ -72,6 +72,12 @@ export type RetailTenantResult = {
   retPrs: number;
   adminFeePct: number;
   retDiscountPct: number;
+  /** CAM lines this tenant isn't billed for / the admin fee skips (for the
+   *  at-a-glance config table's exception details). */
+  camExcludedLabels: string[];
+  adminExcludedLabels: string[];
+  /** Lease cap inputs when capped. */
+  camCap?: { priorControllable: number; growthPct: number };
   /** Full CAM pool before this tenant's exclusions/cap (for the statement). */
   camPoolFull: number;
   /** Effective CAM pool this tenant is billed against (after exclusions/cap). */
