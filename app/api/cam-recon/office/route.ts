@@ -86,12 +86,18 @@ export async function GET(req: NextRequest) {
   const tenants = assembleTenantInputs(reconYear.roster, year, config, resets);
 
   // Final Expense Summary → per-account FINALs drive the current-year pool.
-  // The Condo expense (6990) only applies to the JV III condo buildings
-  // (3610 / 3620 / 3640); hide it everywhere else (NI LLC + shopping
-  // centers) — both the summary and the per-tenant schedule.
+  // For 2025 the historic operating-expense pool IS the final — no GL/Avid
+  // adjustment layer; the reconciliation uses the expense history directly.
+  // The override capability only applies from 2026 on (when budgets/GL pulls
+  // may differ from the booked history). The Condo expense (6990) only
+  // applies to the JV III condo buildings (3610 / 3620 / 3640); hide it
+  // everywhere else (NI LLC + shopping centers).
+  const ADJUSTMENTS_FROM_YEAR = 2026;
   const JV_III = new Set(["3610", "3620", "3640"]);
-  const expenseSummary = mergeExpenseSummary(property, year, await getExpenseOverrides(property, year))
-    .filter((r) => r.account !== "6990-8502" || JV_III.has(property));
+  const expenseSummary = year >= ADJUSTMENTS_FROM_YEAR
+    ? mergeExpenseSummary(property, year, await getExpenseOverrides(property, year))
+        .filter((r) => r.account !== "6990-8502" || JV_III.has(property))
+    : [];
   const finals = expenseSummary.length ? finalsFromSummary(expenseSummary) : undefined;
 
   const pool = JV_III.has(property)
@@ -163,9 +169,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unknown property/year" }, { status: 400 });
     }
 
-    // Final Expense Summary edits are keyed by GL account, not unit.
+    // Final Expense Summary edits are keyed by GL account, not unit. Expense
+    // adjustments only apply from 2026 on — for 2025 the historic pool is the
+    // final, so reject edits to keep that year locked to the expense history.
     const account = typeof body?.account === "string" ? body.account.trim() : "";
     if (account && (field === "excelAvid" || field === "final" || field === "description")) {
+      if (year < 2026) {
+        return NextResponse.json({ error: "Expense adjustments apply from 2026 on; 2025 uses the expense history as final." }, { status: 400 });
+      }
       let value: number | string | null;
       if (body?.value === null || body?.value === "") value = null;
       else if (field === "description") value = String(body.value).slice(0, 200);
