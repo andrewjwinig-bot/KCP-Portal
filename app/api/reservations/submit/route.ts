@@ -11,7 +11,7 @@ import { findConflicts, tenantRoomDaysInMonth, MONTHLY_DAY_LIMIT } from "@/lib/r
 import { upsertContact } from "@/lib/maintenance/tenants";
 import { companiesForProperty } from "@/lib/tenants/companies";
 import { bestTenantMatch } from "@/lib/tenants/match";
-import { sendMail } from "@/lib/mail";
+import { sendMail, NEW_REQUEST_NOTIFY } from "@/lib/mail";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 // Public submission endpoint. Same honeypot + rate-limit + middleware
@@ -191,8 +191,8 @@ export async function POST(req: NextRequest) {
   // reservation never slips through. Fires every submission.
   try {
     await sendMail({
-      to: "service@kormancommercial.com",
-      subject: `New conference room reservation — ${r.roomLabel}, ${r.propertyName}`,
+      to: NEW_REQUEST_NOTIFY,
+      subject: `NEW Conference Room Request - ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}`,
       textBody: teamNotificationBody(r),
     });
   } catch { /* ignore */ }

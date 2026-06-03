@@ -6,6 +6,16 @@
 
 import "server-only";
 
+// Internal team notified on every new tenant service request + conference
+// room reservation, so nothing gets lost. Postmark accepts a comma-separated
+// recipient list in the To field.
+export const NEW_REQUEST_NOTIFY = [
+  "gmasciantonio@kormancommercial.com",
+  "cloiseau@kormancommercial.com",
+  "jgosik@kormancommercial.com",
+  "nfox@kormancommercial.com",
+].join(", ");
+
 export type MailAttachment = {
   /** Filename the recipient sees, e.g. "Invoice - 4080 - 207 - Pragmatics.pdf". */
   name: string;
