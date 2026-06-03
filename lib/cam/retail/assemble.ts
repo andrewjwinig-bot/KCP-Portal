@@ -17,9 +17,13 @@ export type RetailRosterUnit = {
   name: string;
   sqft: number;
   vacant?: boolean;
+  /** Fraction of the year occupied (0–1); defaults to 1. */
+  occPct?: number;
   retDiscountPct?: number;
   /** Override INS pool (Wawa's insurance is the liability line). */
   insPoolOverride?: number;
+  /** Fixed RET charge (own-parcel billboard) that replaces the pro-rata RET. */
+  flatRet?: number;
   camEscrow: number;
   insEscrow: number;
   retEscrow: number;
@@ -54,6 +58,8 @@ export function assembleRetail(
       suite: u.suite,
       name: u.name,
       sqft: u.sqft,
+      occPct: u.occPct ?? 1,
+      flatRet: u.flatRet,
       camPrs: prsFor(pool.propertyCode, "cam", u.name, u.sqft, buildingGla, cfg.cam.stipulatedPrs),
       insPrs: prsFor(pool.propertyCode, "ins", u.name, u.sqft, buildingGla, cfg.ins.stipulatedPrs),
       retPrs: prsFor(pool.propertyCode, "ret", u.name, u.sqft, buildingGla, cfg.ret.stipulatedPrs),

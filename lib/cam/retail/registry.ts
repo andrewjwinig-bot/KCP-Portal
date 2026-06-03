@@ -8,6 +8,7 @@ import type { RetailExpensePool } from "./types";
 import type { RetailRosterUnit } from "./assemble";
 import { POOL_2300, ROSTER_2300_2025 } from "./seed/2300";
 import { POOL_1100, ROSTER_1100_2025 } from "./seed/1100";
+import { POOL_4500, ROSTER_4500_2025 } from "./seed/4500";
 
 export type RetailReconYear = { roster: RetailRosterUnit[] };
 
@@ -34,6 +35,13 @@ export const RETAIL_RECON_FIXTURES: Record<string, RetailReconFixture> = {
     gla: 61572,
     pool: POOL_2300,
     byYear: { 2025: { roster: ROSTER_2300_2025 } },
+  },
+  "4500": {
+    propertyCode: "4500",
+    name: "Gray's Ferry Shopping Center",
+    gla: 82809,
+    pool: POOL_4500,
+    byYear: { 2025: { roster: ROSTER_4500_2025 } },
   },
 };
 

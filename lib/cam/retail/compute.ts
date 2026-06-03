@@ -44,25 +44,34 @@ export function reconcileRetailTenant(pool: RetailExpensePool, t: RetailTenantIn
     camPoolEffective = cappedControllable + uncontrollable;
   }
 
-  const camShare = (t.camPrs / 100) * camPoolEffective;
+  // Occupancy prorates all three shares (a tenant who occupied part of the
+  // year recovers proportionally).
+  const occ = t.occPct;
+  const camShare = (t.camPrs / 100) * camPoolEffective * occ;
   // Admin fee applies to the effective pool less any admin-excluded lines
   // (scaled by the same exclusion/cap treatment via the billed lines).
   const adminExcludedAmt = billedLines.filter((l) => adminExcluded.has(lc(l.label))).reduce((a, l) => a + l.amount, 0);
   const adminBase = Math.max(0, camPoolEffective - adminExcludedAmt);
-  const camAdmin = (t.adminFeePct / 100) * (t.camPrs / 100) * adminBase;
+  const camAdmin = (t.adminFeePct / 100) * (t.camPrs / 100) * adminBase * occ;
   const camDue = t.grossLease ? 0 : camShare + camAdmin;
   const camBalance = camDue - t.camEscrow;
 
   const insPool = t.insPoolOverride ?? pool.insAmount;
-  const insDue = t.grossLease ? 0 : (t.insPrs / 100) * insPool;
+  const insDue = t.grossLease ? 0 : (t.insPrs / 100) * insPool * occ;
   const insBalance = insDue - t.insEscrow;
 
-  const retDue = t.grossLease ? 0 : (t.retPrs / 100) * pool.retAmount * (1 - t.retDiscountPct / 100);
+  // A fixed RET (own-parcel billboard, etc.) replaces the pro-rata RET.
+  const retDue = t.grossLease
+    ? 0
+    : t.flatRet != null
+      ? t.flatRet
+      : (t.retPrs / 100) * pool.retAmount * (1 - t.retDiscountPct / 100) * occ;
   const retBalance = retDue - t.retEscrow;
 
   return {
     unitRef: t.unitRef, suite: t.suite, name: t.name, sqft: t.sqft,
     grossLease: t.grossLease,
+    occPct: t.occPct, flatRet: t.flatRet,
     camPrs: t.camPrs, insPrs: t.insPrs, retPrs: t.retPrs,
     adminFeePct: t.adminFeePct, retDiscountPct: t.retDiscountPct,
     camExcludedLabels: t.camExcludedLabels, adminExcludedLabels: t.adminExcludedLabels,
