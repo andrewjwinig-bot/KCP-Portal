@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { Pill, StatPill, reconBalanceTone, TONE_NEUTRAL, TONE_AMBER } from "@/app/components/Pill";
 import { Calendar } from "@/app/components/Calendar";
 import {
@@ -585,6 +586,26 @@ export default function OfficeCamReconPage() {
 
 // ── Retail building summary ──────────────────────────────────────────────────
 
+// Unit ref rendered as the rent-roll code chip, linking to the unit detail
+// page (where the CAM methodology is edited). stopPropagation so it doesn't
+// also trigger the row's in-page drill-down.
+function UnitChip({ unitRef }: { unitRef: string }) {
+  return (
+    <Link
+      href={`/rentroll/units/${encodeURIComponent(unitRef)}`}
+      onClick={(e) => e.stopPropagation()}
+      title="Open unit detail page"
+      style={{
+        background: "#0b1220", color: "#e0f0ff", padding: "2px 8px", borderRadius: 5,
+        fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", textDecoration: "none",
+        fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", whiteSpace: "nowrap",
+      }}
+    >
+      {unitRef}
+    </Link>
+  );
+}
+
 const INS_TINT = "rgba(13,148,136,0.06)";
 
 function RetailBuildingSummary({ result, onPick }: { result: RetailBuildingResult; onPick: (u: string) => void }) {
@@ -607,7 +628,7 @@ function RetailBuildingSummary({ result, onPick }: { result: RetailBuildingResul
             <th colSpan={3} style={{ ...groupTh, color: "#854d0e", background: RET_TINT, borderLeft: BLOCK_SEP, borderBottom: "1px solid var(--border)" }}>RET</th>
           </tr>
           <tr>
-            <th style={{ ...th, textAlign: "left" }}>Suite</th>
+            <th style={{ ...th, textAlign: "left" }}>Unit</th>
             <th style={{ ...th, textAlign: "left" }}>Tenant</th>
             <th style={th}>CAM %</th>
             <th style={th}>Admin</th>
@@ -625,7 +646,7 @@ function RetailBuildingSummary({ result, onPick }: { result: RetailBuildingResul
         <tbody>
           {tenants.map((t) => (
             <tr key={t.unitRef} style={{ borderBottom: "1px solid var(--border)", cursor: "pointer" }} onClick={() => onPick(t.unitRef)}>
-              <td style={{ ...td, textAlign: "left", fontWeight: 700 }}>{t.suite}</td>
+              <td style={{ ...td, textAlign: "left" }}><UnitChip unitRef={t.unitRef} /></td>
               <td style={{ ...td, textAlign: "left" }}>{t.name}{t.grossLease ? <span className="muted" style={{ fontSize: 11 }}> (gross)</span> : t.capped ? <span style={{ fontSize: 11, color: "#b45309" }}> (capped)</span> : null}</td>
               <td style={td}>{pct(t.camPrs / 100)}</td>
               <td style={td}>{t.adminFeePct ? `${t.adminFeePct}%` : "—"}</td>
@@ -693,7 +714,7 @@ function RetailConfigTable({ result, onPick }: { result: RetailBuildingResult; o
       <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 10, minWidth: 640 }}>
         <thead>
           <tr>
-            <th style={{ ...th, textAlign: "left" }}>Suite</th>
+            <th style={{ ...th, textAlign: "left" }}>Unit</th>
             <th style={{ ...th, textAlign: "left" }}>Tenant</th>
             <th style={th}>CAM Admin</th>
             <th style={th}>CAM PRS</th>
@@ -709,7 +730,7 @@ function RetailConfigTable({ result, onPick }: { result: RetailBuildingResult; o
             return (
               <Fragment key={t.unitRef}>
                 <tr style={{ borderBottom: ex.length && isOpen ? "none" : "1px solid var(--border)" }}>
-                  <td style={{ ...td, textAlign: "left", fontWeight: 700, cursor: "pointer" }} onClick={() => onPick(t.unitRef)}>{t.suite}</td>
+                  <td style={{ ...td, textAlign: "left" }}><UnitChip unitRef={t.unitRef} /></td>
                   <td style={{ ...td, textAlign: "left", cursor: "pointer" }} onClick={() => onPick(t.unitRef)}>{t.name}</td>
                   <td style={td}>{t.adminFeePct ? `${t.adminFeePct}%` : "—"}</td>
                   <td style={td}>{t.grossLease ? "—" : pct(t.camPrs / 100)}</td>
@@ -1002,7 +1023,7 @@ function BuildingSummary({ result, onPick, onEditEscrow }: {
             <th colSpan={3} style={{ ...groupTh, color: "#854d0e", background: RET_TINT, borderLeft: BLOCK_SEP, borderBottom: "1px solid var(--border)" }}>RET</th>
           </tr>
           <tr>
-            <th style={{ ...th, textAlign: "left" }}>Suite</th>
+            <th style={{ ...th, textAlign: "left" }}>Unit</th>
             <th style={{ ...th, textAlign: "left" }}>Tenant</th>
             <th style={th}>Base Yr</th>
             <th style={th}>% Share</th>
@@ -1018,7 +1039,7 @@ function BuildingSummary({ result, onPick, onEditEscrow }: {
         <tbody>
           {tenants.map((t) => (
             <tr key={t.unitRef} style={{ borderBottom: "1px solid var(--border)", cursor: "pointer" }} onClick={() => onPick(t.unitRef)}>
-              <td style={{ ...td, textAlign: "left", fontWeight: 700 }}>{t.suite}</td>
+              <td style={{ ...td, textAlign: "left" }}><UnitChip unitRef={t.unitRef} /></td>
               <td style={{ ...td, textAlign: "left" }}>{t.name}</td>
               <td style={td}>{t.noBaseStop ? "NNN" : t.baseYear}{t.baseYearResetISO && <span title={`Base year reset ${new Date(t.baseYearResetISO + "T00:00:00").toLocaleDateString("en-US")}`} style={{ color: "#b45309", fontWeight: 800, marginLeft: 3, cursor: "help" }}>↺</span>}</td>
               <td style={td}>{pct(t.proRataPct / 100)}</td>
