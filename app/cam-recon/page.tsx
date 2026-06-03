@@ -286,7 +286,16 @@ export default function OfficeCamReconPage() {
       const retail: Available[] = (rJ?.available ?? []).map((a: Available) => ({ ...a, kind: "retail" as const }));
       const list = [...office, ...retail];
       setAvailable(list);
-      if (list.length) {
+      // Restore the building/year from the URL when arriving back from a unit
+      // page (?property=&year=); otherwise default to the first available.
+      const sp = new URLSearchParams(window.location.search);
+      const wantProp = sp.get("property");
+      const wantYear = Number(sp.get("year"));
+      const match = wantProp ? list.find((a) => a.propertyCode === wantProp) : undefined;
+      if (match) {
+        setProperty(match.propertyCode);
+        setYear(match.years.includes(wantYear) ? wantYear : match.years[0]);
+      } else if (list.length) {
         setProperty(list[0].propertyCode);
         setYear(list[0].years[0]);
       }
@@ -589,10 +598,12 @@ export default function OfficeCamReconPage() {
 // Unit ref rendered as the rent-roll code chip, linking to the unit detail
 // page (where the CAM methodology is edited). stopPropagation so it doesn't
 // also trigger the row's in-page drill-down.
-function UnitChip({ unitRef }: { unitRef: string }) {
+function UnitChip({ unitRef, backTo }: { unitRef: string; backTo?: string }) {
+  const href = `/rentroll/units/${encodeURIComponent(unitRef)}`
+    + (backTo ? `?from=${encodeURIComponent(backTo)}` : "");
   return (
     <Link
-      href={`/rentroll/units/${encodeURIComponent(unitRef)}`}
+      href={href}
       onClick={(e) => e.stopPropagation()}
       title="Open unit detail page"
       style={{
@@ -646,7 +657,7 @@ function RetailBuildingSummary({ result, onPick }: { result: RetailBuildingResul
         <tbody>
           {tenants.map((t) => (
             <tr key={t.unitRef} style={{ borderBottom: "1px solid var(--border)", cursor: "pointer" }} onClick={() => onPick(t.unitRef)}>
-              <td style={{ ...td, textAlign: "left" }}><UnitChip unitRef={t.unitRef} /></td>
+              <td style={{ ...td, textAlign: "left" }}><UnitChip unitRef={t.unitRef} backTo={`/cam-recon?property=${result.propertyCode}&year=${result.reconYear}`} /></td>
               <td style={{ ...td, textAlign: "left" }}>{t.name}{t.grossLease ? <span className="muted" style={{ fontSize: 11 }}> (gross)</span> : t.capped ? <span style={{ fontSize: 11, color: "#b45309" }}> (capped)</span> : null}</td>
               <td style={td}>{pct(t.camPrs / 100)}</td>
               <td style={td}>{t.adminFeePct ? `${t.adminFeePct}%` : "—"}</td>
@@ -730,7 +741,7 @@ function RetailConfigTable({ result, onPick }: { result: RetailBuildingResult; o
             return (
               <Fragment key={t.unitRef}>
                 <tr style={{ borderBottom: ex.length && isOpen ? "none" : "1px solid var(--border)" }}>
-                  <td style={{ ...td, textAlign: "left" }}><UnitChip unitRef={t.unitRef} /></td>
+                  <td style={{ ...td, textAlign: "left" }}><UnitChip unitRef={t.unitRef} backTo={`/cam-recon?property=${result.propertyCode}&year=${result.reconYear}`} /></td>
                   <td style={{ ...td, textAlign: "left", cursor: "pointer" }} onClick={() => onPick(t.unitRef)}>{t.name}</td>
                   <td style={td}>{t.adminFeePct ? `${t.adminFeePct}%` : "—"}</td>
                   <td style={td}>{t.grossLease ? "—" : pct(t.camPrs / 100)}</td>
@@ -1099,7 +1110,7 @@ function BuildingSummary({ result, onPick, onEditEscrow }: {
         <tbody>
           {tenants.map((t) => (
             <tr key={t.unitRef} style={{ borderBottom: "1px solid var(--border)", cursor: "pointer" }} onClick={() => onPick(t.unitRef)}>
-              <td style={{ ...td, textAlign: "left" }}><UnitChip unitRef={t.unitRef} /></td>
+              <td style={{ ...td, textAlign: "left" }}><UnitChip unitRef={t.unitRef} backTo={`/cam-recon?property=${result.propertyCode}&year=${result.reconYear}`} /></td>
               <td style={{ ...td, textAlign: "left" }}>{t.name}</td>
               <td style={td}>{t.noBaseStop ? "NNN" : t.baseYear}{t.baseYearResetISO && <span title={`Base year reset ${new Date(t.baseYearResetISO + "T00:00:00").toLocaleDateString("en-US")}`} style={{ color: "#b45309", fontWeight: 800, marginLeft: 3, cursor: "help" }}>↺</span>}</td>
               <td style={td}>{pct(t.proRataPct / 100)}</td>

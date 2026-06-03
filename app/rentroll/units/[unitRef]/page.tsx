@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import type { RentRollData } from "../../../../lib/rentroll/parseRentRollExcel";
 import { amenityFor } from "../../../../lib/rentroll/amenities";
 import { PROPERTY_DEFS } from "../../../../lib/properties/data";
@@ -46,6 +46,16 @@ function isRetailUnit(propertyCode: string): boolean {
 function isOfficeUnit(propertyCode: string): boolean {
   const c = propertyCode.toUpperCase();
   return JV_III_CODES.has(c) || NI_LLC_CODES.has(c);
+}
+
+// Friendly back-link label for a known internal path (used with ?from=).
+function labelForPath(p: string): string {
+  if (p.startsWith("/cam-recon")) return "← CAM / RET Reconciliation";
+  if (p.startsWith("/rentroll")) return "← Rent roll";
+  if (p.startsWith("/properties")) return "← Property";
+  if (p.startsWith("/maintenance")) return "← Maintenance";
+  if (p.startsWith("/reservations")) return "← Reservations";
+  return "← Back";
 }
 
 function parseRentDate(s: string | null | undefined): Date | null {
@@ -101,6 +111,7 @@ type MaintRequest = {
 
 export default function UnitDetailPage() {
   const params = useParams<{ unitRef: string }>();
+  const router = useRouter();
   const rawRef = params?.unitRef ?? "";
   const decodedUnitRef = decodeURIComponent(Array.isArray(rawRef) ? rawRef[0] : rawRef);
   const { user } = useUser();
@@ -276,26 +287,42 @@ export default function UnitDetailPage() {
   };
   const navDisabled: React.CSSProperties = { ...navBtn, opacity: 0.4, cursor: "default" };
 
+  // Universal back: return to wherever the user came from. An explicit
+  // ?from=<internal path> (passed by pages that want a labeled, state-
+  // preserving return — e.g. the CAM recon page restoring its building) is
+  // used as a real link; otherwise just go back in history. Falls back to the
+  // rent roll only on a direct load with no history. Prev/next preserve the
+  // param so the back target stays correct as you step through tenants.
+  const fromParam = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("from") : null;
+  const hasFrom = !!fromParam && fromParam.startsWith("/") && !fromParam.startsWith("//");
+  const backLabel = hasFrom ? labelForPath(fromParam!) : "← Back";
+  const fromSuffix = fromParam ? `?from=${encodeURIComponent(fromParam)}` : "";
+  const goBack = () => {
+    if (typeof window !== "undefined" && window.history.length > 1) router.back();
+    else router.push("/rentroll");
+  };
+  const backStyle: React.CSSProperties = {
+    fontSize: 12, fontWeight: 600, color: "var(--muted)", textDecoration: "none",
+    width: "fit-content", background: "none", border: "none", padding: 0, cursor: "pointer", font: "inherit",
+  };
+
   return (
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
       <header style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-          <Link
-            href={`/rentroll#unit-${unit.unitRef.replace(/[^a-zA-Z0-9]/g, "-")}`}
-            style={{ fontSize: 12, fontWeight: 600, color: "var(--muted)", textDecoration: "none", width: "fit-content" }}
-          >
-            ← Rent roll
-          </Link>
+          {hasFrom
+            ? <Link href={fromParam!} style={backStyle}>{backLabel}</Link>
+            : <button type="button" onClick={goBack} style={backStyle}>← Back</button>}
           {propUnits.length > 1 && (
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
               {prevUnit
-                ? <Link href={`/rentroll/units/${encodeURIComponent(prevUnit.unitRef)}`} title={`${prevUnit.unitRef} · ${navName(prevUnit)}`} style={navBtn}>‹ Prev</Link>
+                ? <Link href={`/rentroll/units/${encodeURIComponent(prevUnit.unitRef)}${fromSuffix}`} title={`${prevUnit.unitRef} · ${navName(prevUnit)}`} style={navBtn}>‹ Prev</Link>
                 : <span style={navDisabled}>‹ Prev</span>}
               <span style={{ fontSize: 11, color: "var(--muted)", whiteSpace: "nowrap" }}>
                 {navIdx + 1} / {propUnits.length} · {propertyCode}
               </span>
               {nextUnit
-                ? <Link href={`/rentroll/units/${encodeURIComponent(nextUnit.unitRef)}`} title={`${nextUnit.unitRef} · ${navName(nextUnit)}`} style={navBtn}>Next ›</Link>
+                ? <Link href={`/rentroll/units/${encodeURIComponent(nextUnit.unitRef)}${fromSuffix}`} title={`${nextUnit.unitRef} · ${navName(nextUnit)}`} style={navBtn}>Next ›</Link>
                 : <span style={navDisabled}>Next ›</span>}
             </div>
           )}
