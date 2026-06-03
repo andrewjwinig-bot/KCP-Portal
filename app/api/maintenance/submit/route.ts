@@ -11,7 +11,7 @@ import {
   type RequestPriority,
 } from "@/lib/maintenance/requests";
 import { saveRequest } from "@/lib/maintenance/requestsStorage";
-import { sendMail } from "@/lib/mail";
+import { sendMail, NEW_REQUEST_NOTIFY } from "@/lib/mail";
 import { upsertContact } from "@/lib/maintenance/tenants";
 import { classify } from "@/lib/maintenance/triage";
 import { summarize } from "@/lib/maintenance/summarize";
@@ -244,8 +244,8 @@ export async function POST(req: NextRequest) {
   // request is never missed. Fires every submission; failure is silent.
   try {
     await sendMail({
-      to: "service@kormancommercial.com",
-      subject: `New service request — ${propertyName || "KCP"}${tenantSuite ? ` · ${tenantSuite}` : ""}`,
+      to: NEW_REQUEST_NOTIFY,
+      subject: `NEW Service Request - ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}`,
       textBody: teamNotificationBody({
         tenantName,
         tenantEmail,
@@ -254,7 +254,9 @@ export async function POST(req: NextRequest) {
         propertyName,
         tenantSuite,
         category: r.categories.join(", "),
+        priority,
         description,
+        photoUrls: r.attachments.map((a) => a.url),
         requestId: r.id,
       }),
     });
@@ -318,24 +320,31 @@ function teamNotificationBody(args: {
   propertyName: string;
   tenantSuite: string;
   category: string;
+  priority: string;
   description: string;
+  photoUrls: string[];
   requestId: string;
 }): string {
   const where = [args.propertyName, args.tenantSuite].filter(Boolean).join(" · ");
-  return [
-    "A new service request was just submitted in the KCP Portal.",
+  const lines = [
+    "A new tenant service request was just submitted in the KCP Portal.",
     "",
-    `Property:    ${where || "—"}`,
-    `Company:     ${args.company || "—"}`,
-    `Submitted by: ${args.tenantName}`,
-    `Email:       ${args.tenantEmail || "—"}`,
-    `Phone:       ${args.tenantPhone || "—"}`,
-    `Category:    ${args.category || "—"}`,
-    `Reference:   ${args.requestId}`,
+    `Property:     ${where || "—"}`,
+    `Suite:        ${args.tenantSuite || "—"}`,
+    `Company:      ${args.company || "—"}`,
+    `Submitted by: ${args.tenantName || "—"}`,
+    `Email:        ${args.tenantEmail || "—"}`,
+    `Phone:        ${args.tenantPhone || "—"}`,
+    `Category:     ${args.category || "—"}`,
+    `Priority:     ${args.priority || "—"}`,
+    `Reference:    ${args.requestId}`,
     "",
-    "Description:",
+    "Message:",
     args.description.split("\n").map((l) => `  ${l}`).join("\n"),
-    "",
-    "Open the request in the portal: https://kcp-portal.vercel.app/maintenance",
-  ].join("\n");
+  ];
+  if (args.photoUrls.length) {
+    lines.push("", `Photos (${args.photoUrls.length}):`, ...args.photoUrls.map((u) => `  ${u}`));
+  }
+  lines.push("", "Open the request in the portal: https://kcp-portal.vercel.app/maintenance");
+  return lines.join("\n");
 }
