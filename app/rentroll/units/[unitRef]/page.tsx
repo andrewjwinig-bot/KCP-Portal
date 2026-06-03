@@ -262,15 +262,44 @@ export default function UnitDetailPage() {
       ? `$${(unit.annualRentPerSqft || annualPerSf).toFixed(2)}`
       : "—";
 
+  // Prev/next within the same property (rent-roll order) so you can step
+  // through a building's tenants without going back to the rent roll.
+  const propUnits = rentroll.properties.find((p) => p.propertyCode === propertyCode)?.units ?? [];
+  const navIdx = propUnits.findIndex((u) => u.unitRef === decodedUnitRef);
+  const prevUnit = navIdx > 0 ? propUnits[navIdx - 1] : null;
+  const nextUnit = navIdx >= 0 && navIdx < propUnits.length - 1 ? propUnits[navIdx + 1] : null;
+  const navName = (u: typeof unit) => (u.amenity ?? amenityFor(u.unitRef))?.label || u.occupantName || "Vacant";
+  const navBtn: React.CSSProperties = {
+    display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 600,
+    padding: "4px 10px", borderRadius: 7, border: "1px solid var(--border)",
+    background: "var(--card)", color: "var(--text)", textDecoration: "none", whiteSpace: "nowrap",
+  };
+  const navDisabled: React.CSSProperties = { ...navBtn, opacity: 0.4, cursor: "default" };
+
   return (
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
       <header style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        <Link
-          href={`/rentroll#unit-${unit.unitRef.replace(/[^a-zA-Z0-9]/g, "-")}`}
-          style={{ fontSize: 12, fontWeight: 600, color: "var(--muted)", textDecoration: "none", width: "fit-content" }}
-        >
-          ← Rent roll
-        </Link>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+          <Link
+            href={`/rentroll#unit-${unit.unitRef.replace(/[^a-zA-Z0-9]/g, "-")}`}
+            style={{ fontSize: 12, fontWeight: 600, color: "var(--muted)", textDecoration: "none", width: "fit-content" }}
+          >
+            ← Rent roll
+          </Link>
+          {propUnits.length > 1 && (
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              {prevUnit
+                ? <Link href={`/rentroll/units/${encodeURIComponent(prevUnit.unitRef)}`} title={`${prevUnit.unitRef} · ${navName(prevUnit)}`} style={navBtn}>‹ Prev</Link>
+                : <span style={navDisabled}>‹ Prev</span>}
+              <span style={{ fontSize: 11, color: "var(--muted)", whiteSpace: "nowrap" }}>
+                {navIdx + 1} / {propUnits.length} · {propertyCode}
+              </span>
+              {nextUnit
+                ? <Link href={`/rentroll/units/${encodeURIComponent(nextUnit.unitRef)}`} title={`${nextUnit.unitRef} · ${navName(nextUnit)}`} style={navBtn}>Next ›</Link>
+                : <span style={navDisabled}>Next ›</span>}
+            </div>
+          )}
+        </div>
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16 }}>
           <h1 style={{ margin: 0, flex: 1, minWidth: 0, overflowWrap: "anywhere" }}>{headerTitle}</h1>
           <div style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
