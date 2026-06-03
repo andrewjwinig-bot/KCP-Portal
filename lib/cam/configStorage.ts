@@ -6,6 +6,7 @@
 import "server-only";
 import { getJSON, storeJSON } from "@/lib/storage";
 import { emptyCamConfig, sanitizeCamConfig, type CamConfig } from "./config";
+import { seedCamConfig } from "./retailConfigSeed";
 
 const PREFIX = "cam-config-manifest";
 const ID = "all";
@@ -32,7 +33,10 @@ export async function getCamConfig(unitRef: string): Promise<CamConfig | null> {
 }
 
 export async function getOrEmptyCamConfig(unitRef: string): Promise<CamConfig> {
-  return (await getCamConfig(unitRef)) ?? emptyCamConfig(unitRef);
+  // Saved config wins; otherwise fall back to the CAMPRep seed (pre-populated
+  // from the property's CAM workbook) so a tenant's card isn't blank before
+  // anyone has edited it. Empty config only when neither exists.
+  return (await getCamConfig(unitRef)) ?? seedCamConfig(unitRef) ?? emptyCamConfig(unitRef);
 }
 
 export async function saveCamConfig(config: CamConfig): Promise<CamConfig> {
