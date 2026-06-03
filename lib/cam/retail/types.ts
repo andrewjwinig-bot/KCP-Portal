@@ -36,6 +36,9 @@ export type RetailTenantInput = {
   suite: string;
   name: string;
   sqft: number;
+  /** Fraction of the year occupied (0–1) — prorates all three shares. 1 for
+   *  a full-year tenant. */
+  occPct: number;
   /** Pro-rata shares as percents (0 when carved out of a category). */
   camPrs: number;
   insPrs: number;
@@ -44,6 +47,9 @@ export type RetailTenantInput = {
   adminFeePct: number;
   /** Gross lease — no reconciliation at all. */
   grossLease: boolean;
+  /** Fixed RET charge that replaces the pro-rata RET (e.g. a billboard
+   *  parcel billed at 100% of its own tax bill). */
+  flatRet?: number;
   /** CAM line labels this tenant isn't billed for. */
   camExcludedLabels: string[];
   /** CAM line labels the admin fee does not apply to. */
@@ -67,6 +73,8 @@ export type RetailTenantResult = {
   name: string;
   sqft: number;
   grossLease: boolean;
+  occPct: number;
+  flatRet?: number;
   camPrs: number;
   insPrs: number;
   retPrs: number;

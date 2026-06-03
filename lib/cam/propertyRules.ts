@@ -54,6 +54,29 @@ export const PROPERTY_CAM_RULES: Record<string, PropertyCamRule> = {
     },
     // RET intentionally omitted → falls back to building GLA for everyone.
   },
+  // Gray's Ferry Shopping Center — full GLA 82,809 sf.
+  //   • McDonald's is an outparcel pad: carries its own insurance (no INS),
+  //     so the INS denominator excludes its 3,675 sf → 79,134.
+  //   • USPS recovers RET only (no CAM / INS).
+  //   • Victra's RET share uses the reduced 79,134 GLA (excludes the
+  //     McDonald's outparcel building) per its lease.
+  "4500": {
+    cam: {
+      denominator: 82809,
+      excludeTenantPatterns: ["usps"],
+      footnote: "USPS recovers RET only — no CAM.",
+    },
+    ins: {
+      denominator: 79134,
+      excludeTenantPatterns: ["mcdonald", "usps"],
+      footnote: "Insurance denominator excludes the McDonald's outparcel; USPS and McDonald's pay no INS.",
+    },
+    ret: {
+      denominator: 82809,
+      tenantOverrides: [{ pattern: "victra", denominator: 79134 }],
+      footnote: "Victra's RET share uses the reduced GLA (excludes the McDonald's outparcel building).",
+    },
+  },
 };
 
 function matchesPattern(occupantName: string, pattern: string): boolean {

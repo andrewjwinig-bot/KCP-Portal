@@ -72,6 +72,25 @@ export const RETAIL_CONFIG_SEED: Record<string, RetailConfigSeedEntry> = {
   // Dunkin — no admin fee; CAM excludes Building Maintenance + Security
   // (exact pool match: 23,786 + 27,752.96 = 51,538.96).
   "2300-1885": { excludedCamLines: ["Building Maintenance", "Security"] },
+
+  // ── 4500 · Gray's Ferry Shopping Center ────────────────────────────────
+  // PRS comes from propertyRules (CAM 82,809 / INS 79,134 / RET 82,809 with
+  // Victra's RET on the reduced GLA). Seeded here: admin fees + line
+  // exclusions + the PLCB gross lease. McDonald's and Fresh Grocer exclude
+  // Building Maintenance from CAM. Victra (0% admin), USPS (RET only) and
+  // Clear Channel (billboard parcel) need no config entry.
+  "4500-2851": { adminFeePct: 15, excludedCamLines: ["Building Maintenance"] }, // McDonald's outparcel
+  "4500-2891": { adminFeePct: 10 }, // JP Morgan
+  "4500-2895": { adminFeePct: 10 }, // Nail Parlor
+  "4500-2899": { adminFeePct: 10 }, // Curl & Care
+  "4500-3001": { adminFeePct: 10 }, // Hilti
+  "4500-3021": { // Fresh Grocer (anchor) — 5% admin; CAM excludes Building
+    // Maintenance; admin fee excludes Liability INS, Security, utilities.
+    adminFeePct: 5,
+    excludedCamLines: ["Building Maintenance"],
+    adminFeeExcludedLines: ["Liability Insurance", "Security", "Electric (Common)", "Water / Sewer"],
+  },
+  "4500-3009": { grossLease: true }, // PLCB — gross lease
 };
 
 /** Build a full CamConfig for a unit from its seed entry, or null when the

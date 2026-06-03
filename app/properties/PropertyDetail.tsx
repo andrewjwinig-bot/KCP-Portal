@@ -801,9 +801,6 @@ export function PropertyDetailBody({
                         }
                         {p.label && <span style={{ fontSize: 13, color: "var(--muted)", fontWeight: 500 }}>{p.label}</span>}
                       </div>
-                      {p.method && (
-                        <span style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600 }}>{p.method}</span>
-                      )}
                     </div>
                   ))}
                 </div>

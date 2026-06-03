@@ -500,8 +500,10 @@ export default function OfficeCamReconPage() {
               <Pill tone={TONE_NEUTRAL}>{pct(rSelected.camPrs / 100)} CAM Share</Pill>
               <Pill tone={TONE_NEUTRAL}>{rSelected.adminFeePct ? `${rSelected.adminFeePct}% Admin` : "No Admin Fee"}</Pill>
               <Pill tone={TONE_NEUTRAL}>{pct(rSelected.insPrs / 100)} INS · {pct(rSelected.retPrs / 100)} RET</Pill>
+              {rSelected.occPct < 0.9999 && <Pill tone={TONE_AMBER}>{pct(rSelected.occPct, 1)} Occupancy</Pill>}
               {rSelected.capped && <Pill tone={TONE_AMBER}>CAM Capped</Pill>}
               {rSelected.retDiscountPct > 0 && <Pill tone={TONE_NEUTRAL}>{rSelected.retDiscountPct}% RET Discount</Pill>}
+              {rSelected.flatRet != null && <Pill tone={TONE_AMBER}>Own-Parcel RET</Pill>}
               {rSelected.grossLease && <Pill tone={TONE_AMBER}>Gross Lease</Pill>}
             </>
           ) : isRetail ? (
@@ -658,7 +660,7 @@ function RetailBuildingSummary({ result, onPick }: { result: RetailBuildingResul
           {tenants.map((t) => (
             <tr key={t.unitRef} style={{ borderBottom: "1px solid var(--border)", cursor: "pointer" }} onClick={() => onPick(t.unitRef)}>
               <td style={{ ...td, textAlign: "left" }}><UnitChip unitRef={t.unitRef} backTo={`/cam-recon?property=${result.propertyCode}&year=${result.reconYear}`} /></td>
-              <td style={{ ...td, textAlign: "left" }}>{t.name}{t.grossLease ? <span className="muted" style={{ fontSize: 11 }}> (gross)</span> : t.capped ? <span style={{ fontSize: 11, color: "#b45309" }}> (capped)</span> : null}</td>
+              <td style={{ ...td, textAlign: "left" }}>{t.name}{t.grossLease ? <span className="muted" style={{ fontSize: 11 }}> (gross)</span> : t.capped ? <span style={{ fontSize: 11, color: "#b45309" }}> (capped)</span> : t.flatRet != null ? <span style={{ fontSize: 11, color: "#b45309" }}> (own-parcel RET)</span> : t.occPct < 0.9999 ? <span style={{ fontSize: 11, color: "#b45309" }}> ({pct(t.occPct, 0)} occ)</span> : null}</td>
               <td style={td}>{pct(t.camPrs / 100)}</td>
               <td style={td}>{t.adminFeePct ? `${t.adminFeePct}%` : "—"}</td>
               <td style={cam(true)}>{money(t.camDue)}</td>
@@ -847,6 +849,10 @@ function RetailTenantStatement({ t, reconYear, contact }: {
 }) {
   const net = t.camBalance + t.insBalance + t.retBalance;
   const credit = net < -0.005;
+  const occLine = t.occPct < 0.9999;
+  const camFull = (t.camPrs / 100) * t.camPoolEffective;
+  const insFull = (t.insPrs / 100) * t.insPool;
+  const retFull = (t.retPrs / 100) * t.retPool * (1 - t.retDiscountPct / 100);
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <RetailScheduleTable t={t} />
@@ -854,7 +860,8 @@ function RetailTenantStatement({ t, reconYear, contact }: {
         {/* CAM */}
         <RetailStmtBlock title={`CAM — ${reconYear}`} accent="#0b4a7d" balanceLabel="Balance, CAM Due" balance={t.camBalance}>
           <StmtRow label={`CAM Pool${t.capped ? " (capped)" : t.camPoolEffective < t.camPoolFull ? " (after exclusions)" : ""}`} value={money(t.camPoolEffective)} muted />
-          <StmtRow label={`× CAM Share ${pct(t.camPrs / 100)}`} value={money(t.camShare)} />
+          <StmtRow label={`× CAM Share ${pct(t.camPrs / 100)}`} value={money(camFull)} />
+          {occLine && <StmtRow label={`× Occupancy ${pct(t.occPct, 1)}`} value={money(t.camShare)} />}
           {t.adminFeePct > 0 && <StmtRow label={`+ Admin Fee ${t.adminFeePct}%`} value={money(t.camAdmin)} />}
           <StmtRow label="CAM Due" value={money(t.camDue)} bold />
           <StmtRow label="Less: Escrow Billed" value={money(-t.camEscrow)} muted />
@@ -862,15 +869,22 @@ function RetailTenantStatement({ t, reconYear, contact }: {
         {/* INS */}
         <RetailStmtBlock title={`INS — ${reconYear}`} accent="#0f766e" balanceLabel="Balance, INS Due" balance={t.insBalance}>
           <StmtRow label="Insurance Pool" value={money(t.insPool)} muted />
-          <StmtRow label={`× INS Share ${pct(t.insPrs / 100)}`} value={money(t.insDue)} />
+          <StmtRow label={`× INS Share ${pct(t.insPrs / 100)}`} value={money(insFull)} />
+          {occLine && <StmtRow label={`× Occupancy ${pct(t.occPct, 1)}`} value={money(t.insDue)} />}
           <StmtRow label="INS Due" value={money(t.insDue)} bold />
           <StmtRow label="Less: Escrow Billed" value={money(-t.insEscrow)} muted />
         </RetailStmtBlock>
         {/* RET */}
         <RetailStmtBlock title={`RET — ${reconYear}`} accent="#854d0e" balanceLabel="Balance, RET Due" balance={t.retBalance}>
-          <StmtRow label="Real Estate Tax Pool" value={money(t.retPool)} muted />
-          <StmtRow label={`× RET Share ${pct(t.retPrs / 100)}`} value={money((t.retPrs / 100) * t.retPool)} />
-          {t.retDiscountPct > 0 && <StmtRow label={`× (1 − ${t.retDiscountPct}% discount)`} value={money(t.retDue)} />}
+          {t.flatRet != null ? (
+            <StmtRow label="Own-parcel RET (100%)" value={money(t.flatRet)} muted />
+          ) : (
+            <>
+              <StmtRow label="Real Estate Tax Pool" value={money(t.retPool)} muted />
+              <StmtRow label={`× RET Share ${pct(t.retPrs / 100)}${t.retDiscountPct > 0 ? ` less ${t.retDiscountPct}%` : ""}`} value={money(retFull)} />
+              {occLine && <StmtRow label={`× Occupancy ${pct(t.occPct, 1)}`} value={money(t.retDue)} />}
+            </>
+          )}
           <StmtRow label="RET Due" value={money(t.retDue)} bold />
           <StmtRow label="Less: Escrow Billed" value={money(-t.retEscrow)} muted />
         </RetailStmtBlock>
