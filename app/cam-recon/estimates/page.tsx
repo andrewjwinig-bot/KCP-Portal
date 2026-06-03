@@ -16,7 +16,7 @@ const th: React.CSSProperties = {
   textAlign: "right", padding: "6px 10px", fontSize: 11, fontWeight: 700, textTransform: "uppercase",
   letterSpacing: "0.04em", color: "var(--muted)", borderBottom: "1px solid var(--border)", whiteSpace: "nowrap",
 };
-const td: React.CSSProperties = { textAlign: "right", padding: "6px 10px", fontSize: 13, whiteSpace: "nowrap" };
+const td: React.CSSProperties = { textAlign: "right", padding: "7px 10px", fontSize: 14, whiteSpace: "nowrap" };
 
 function HeaderSelect({ value, onChange, displayLabel, ariaLabel, muted = false, children }: {
   value: string; onChange: (next: string) => void; displayLabel: string; ariaLabel: string; muted?: boolean; children: React.ReactNode;
