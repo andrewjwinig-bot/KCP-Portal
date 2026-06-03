@@ -11,6 +11,7 @@ import type { OfficeExpensePool } from "./types";
 import type { OfficeLeaseConfig, RosterUnit, ResetInfo } from "./assemble";
 import { POOL_4070, LEASE_CONFIG_4070_2025, ROSTER_4070_2025, RESETS_4070_2025 } from "./seed/4070";
 import { POOL_4050, LEASE_CONFIG_4050_2025, ROSTER_4050_2025, RESETS_4050_2025 } from "./seed/4050";
+import { POOL_4060, LEASE_CONFIG_4060_2025, ROSTER_4060_2025, RESETS_4060_2025 } from "./seed/4060";
 
 export type OfficeReconYear = {
   roster: RosterUnit[];
@@ -53,6 +54,26 @@ export const OFFICE_RECON_FIXTURES: Record<string, OfficeReconFixture> = {
         // intentionally absent from the lease config. Declared here so the
         // live rent roll doesn't flag it as a missing-config error.
         excludedUnits: { "4050-315": "Gross lease — does not reconcile" },
+      },
+    },
+  },
+  "4060": {
+    propertyCode: "4060",
+    name: "Building 6",
+    pool: POOL_4060,
+    byYear: {
+      2025: {
+        roster: ROSTER_4060_2025,
+        leaseConfig: LEASE_CONFIG_4060_2025,
+        resets: RESETS_4060_2025,
+        // Tenants on the rent roll that intentionally don't reconcile:
+        excludedUnits: {
+          "4060-300": "J.J. White — gross lease",
+          "4060-500": "Salem Financial — lease commences 1/1/2026 (no 2025 occupancy)",
+          "4060-217": "Conference Center — amenity, no base year",
+          "4060-208B": "BSG Provisions — former, no base year",
+          "4060-117A": "Vein Clinics — former, no base year",
+        },
       },
     },
   },
