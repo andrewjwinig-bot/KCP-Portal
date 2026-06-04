@@ -51,7 +51,7 @@ const th: React.CSSProperties = {
 };
 const td: React.CSSProperties = { textAlign: "right", padding: "7px 10px", fontSize: 14, whiteSpace: "nowrap" };
 
-type Available = { propertyCode: string; name: string; years: number[]; kind?: "office" | "retail" };
+type Available = { propertyCode: string; name: string; years: number[]; kind?: "office" | "retail"; mixedOfficeCode?: string };
 
 function downloadCSV(filename: string, csv: string) {
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
@@ -269,6 +269,9 @@ export default function OfficeCamReconPage() {
   const [unit, setUnit] = useState<string>("ALL");
   const [result, setResult] = useState<BuildingReconResult | null>(null);
   const [retailResult, setRetailResult] = useState<RetailBuildingResult | null>(null);
+  // Office part of a mixed center (e.g. 7010 office), shown as a sub-tab.
+  const [retailOffice, setRetailOffice] = useState<RetailBuildingResult | null>(null);
+  const [mixedTab, setMixedTab] = useState<"retail" | "office">("retail");
   const [allocation, setAllocation] = useState<PropertyAllocation | null>(null);
   const [estimates, setEstimates] = useState<NextYearEstimate[]>([]);
   const [contacts, setContacts] = useState<Record<string, { email: string; cc: string }>>({});
@@ -305,6 +308,10 @@ export default function OfficeCamReconPage() {
   }, []);
 
   const isRetail = available.find((a) => a.propertyCode === property)?.kind === "retail";
+  // Mixed center (retail + office on one page). `activeRetail` is whichever
+  // sub-tab is showing; the rest of the retail render keys off it.
+  const isMixed = isRetail && !!available.find((a) => a.propertyCode === property)?.mixedOfficeCode;
+  const activeRetail = isMixed && mixedTab === "office" ? retailOffice : retailResult;
 
   const loadResult = useCallback(async () => {
     if (!property || !year) return;
@@ -317,6 +324,16 @@ export default function OfficeCamReconPage() {
         setRetailResult(j?.result ?? null);
         setContacts(j?.contacts ?? {});
         setAllocation(j?.allocation ?? null);
+        // Mixed center: also load the office part for its sub-tab.
+        const officeCode = available.find((a) => a.propertyCode === property)?.mixedOfficeCode;
+        if (officeCode) {
+          const ro = await fetch(`/api/cam-recon/retail?property=${officeCode}&year=${year}`)
+            .then((x) => (x.ok ? x.json() : null)).catch(() => null);
+          setRetailOffice(ro?.result ?? null);
+          setContacts((c) => ({ ...c, ...(ro?.contacts ?? {}) }));
+        } else {
+          setRetailOffice(null);
+        }
         // Clear the office-shaped state so its sections don't render.
         setResult(null); setEstimates([]); setExpenseSummary([]); setWarnings([]);
         return;
@@ -324,6 +341,7 @@ export default function OfficeCamReconPage() {
       const r = await fetch(`/api/cam-recon/office?property=${property}&year=${year}`);
       const j = r.ok ? await r.json() : null;
       setRetailResult(null);
+      setRetailOffice(null);
       setAllocation(null);
       setResult(j?.result ?? null);
       setEstimates(j?.estimates ?? []);
@@ -342,6 +360,7 @@ export default function OfficeCamReconPage() {
     setYeDate(`${year + 1}-04-30`);
     setEstDate(`${year + 1}-01-01`);
     setUnit("ALL");
+    setMixedTab("retail");
     loadResult();
   }, [property, year, loadResult]);
 
@@ -369,7 +388,7 @@ export default function OfficeCamReconPage() {
 
   const years = available.find((a) => a.propertyCode === property)?.years ?? [];
   const tenants = result?.tenants ?? [];
-  const rTenants = retailResult?.tenants ?? [];
+  const rTenants = activeRetail?.tenants ?? [];
   // The dropdown + prev/next operate over whichever building's tenants are
   // active. `selected` is the office tenant; `rSelected` the retail one.
   const dropdownTenants = isRetail ? rTenants : tenants;
@@ -391,12 +410,12 @@ export default function OfficeCamReconPage() {
   // picked, otherwise the building totals. Retail surfaces real CAM/INS/RET
   // pools; office has no separate insurance recovery (it's a CAM line) → $0.
   const camDue = isRetail
-    ? (rSelected ? rSelected.camBalance : retailResult?.totals.camBalance ?? 0)
+    ? (rSelected ? rSelected.camBalance : activeRetail?.totals.camBalance ?? 0)
     : selected ? selected.opexBalance : totals?.opexBalance ?? 0;
   const retDue = isRetail
-    ? (rSelected ? rSelected.retBalance : retailResult?.totals.retBalance ?? 0)
+    ? (rSelected ? rSelected.retBalance : activeRetail?.totals.retBalance ?? 0)
     : selected ? selected.retBalance : totals?.retBalance ?? 0;
-  const insDue = isRetail ? (rSelected ? rSelected.insBalance : retailResult?.totals.insBalance ?? 0) : 0;
+  const insDue = isRetail ? (rSelected ? rSelected.insBalance : activeRetail?.totals.insBalance ?? 0) : 0;
   const totalDue = camDue + insDue + retDue;
   // A negative balance is a credit owed back to the tenant; positive is
   // collected from the tenant. (Zero → no direction shown.)
@@ -413,7 +432,7 @@ export default function OfficeCamReconPage() {
     setCompiling(true);
     try {
       const rows: ReturnType<typeof yearEndAdjustmentRows> = [];
-      for (const a of available) {
+      for (const a of available.filter((x) => x.kind === "office")) {
         if (!a.years.includes(year)) continue;
         const j = await fetch(`/api/cam-recon/office?property=${a.propertyCode}&year=${year}`)
           .then((r) => (r.ok ? r.json() : null)).catch(() => null);
@@ -424,12 +443,38 @@ export default function OfficeCamReconPage() {
       setCompiling(false);
     }
   }
+  // One compiled year-end schedule across every shopping center for the year
+  // (incl. both parts of a mixed center) — the retail counterpart.
+  const [compilingRetail, setCompilingRetail] = useState(false);
+  async function downloadAllRetailYearEnd() {
+    setCompilingRetail(true);
+    try {
+      const rows: ReturnType<typeof retailYearEndRows> = [];
+      for (const a of available.filter((x) => x.kind === "retail")) {
+        if (!a.years.includes(year)) continue;
+        const codes = [a.propertyCode, ...(a.mixedOfficeCode ? [a.mixedOfficeCode] : [])];
+        for (const code of codes) {
+          const j = await fetch(`/api/cam-recon/retail?property=${code}&year=${year}`)
+            .then((r) => (r.ok ? r.json() : null)).catch(() => null);
+          if (j?.result) rows.push(...retailYearEndRows(j.result, yeDate));
+        }
+      }
+      downloadCSV(`AllShoppingCenters_${year}_YearEndAdjustments.csv`, chargeRowsToCSV(rows));
+    } finally {
+      setCompilingRetail(false);
+    }
+  }
 
   // Retail year-end true-up CSV for the selected center (CAM / INS / RET net
   // due per tenant) — the Skyline one-time upload.
   function downloadRetailYearEnd() {
     if (!retailResult) return;
-    downloadCSV(`${property}_${year}_YearEndAdjustments.csv`, chargeRowsToCSV(retailYearEndRows(retailResult, yeDate)));
+    // Mixed center: one CSV covering both the retail and office parts.
+    const rows = [
+      ...retailYearEndRows(retailResult, yeDate),
+      ...(retailOffice ? retailYearEndRows(retailOffice, yeDate) : []),
+    ];
+    downloadCSV(`${property}_${year}_YearEndAdjustments.csv`, chargeRowsToCSV(rows));
   }
 
   return (
@@ -473,7 +518,7 @@ export default function OfficeCamReconPage() {
               rSelected ? (
                 <button onClick={() => downloadRetailTenantPdf(rSelected, year, `${property} — ${propName}`, contacts[rSelected.unitRef])} className="btn primary" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}>Download PDF</button>
               ) : (
-                <button onClick={() => retailResult && downloadAllRetailPdfs(retailResult.tenants, year, `${property} — ${propName}`, contacts)} disabled={!retailResult} className="btn" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}>All Tenant PDFs</button>
+                <button onClick={() => activeRetail && downloadAllRetailPdfs(activeRetail.tenants, year, `${property} — ${propName}`, contacts)} disabled={!activeRetail} className="btn" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}>All Tenant PDFs</button>
               )
             ) : (
               <>
@@ -511,7 +556,7 @@ export default function OfficeCamReconPage() {
               {rSelected.grossLease && <Pill tone={TONE_AMBER}>Gross Lease</Pill>}
             </>
           ) : isRetail ? (
-            <span className="muted small">{retailResult?.tenants.length ?? 0} tenants reconciled · retail CAM / INS / RET pro-rata share, year-end true-up</span>
+            <span className="muted small">{activeRetail?.tenants.length ?? 0} tenants reconciled · {isMixed ? `${mixedTab} portion · ` : ""}CAM / INS / RET pro-rata share, year-end true-up</span>
           ) : (
             <span className="muted small">{tenants.length} tenants reconciled · base-year expense recovery, year-end true-up</span>
           )}
@@ -544,14 +589,20 @@ export default function OfficeCamReconPage() {
         </div>
       )}
 
-      {isRetail && !rSelected && retailResult && <RetailBuildingSummary result={retailResult} onPick={setUnit} />}
-      {isRetail && !rSelected && retailResult && <RetailConfigTable result={retailResult} onPick={setUnit} />}
-      {isRetail && !rSelected && allocation && <AllocationBreakdown a={allocation} />}
-      {isRetail && !rSelected && retailResult && (
+      {isRetail && !rSelected && isMixed && allocation && <AllocationBreakdown a={allocation} />}
+      {isRetail && !rSelected && isMixed && (
+        <MixedTabs tab={mixedTab} onChange={(t) => { setMixedTab(t); setUnit("ALL"); }}
+          retailTotal={retailResult?.totals.camBalance ?? 0}
+          officeTotal={retailOffice?.totals.camBalance ?? 0} />
+      )}
+      {isRetail && !rSelected && activeRetail && <RetailBuildingSummary result={activeRetail} onPick={setUnit} />}
+      {isRetail && !rSelected && activeRetail && <RetailConfigTable result={activeRetail} onPick={setUnit} />}
+      {isRetail && !rSelected && !isMixed && allocation && <AllocationBreakdown a={allocation} />}
+      {isRetail && !rSelected && activeRetail && (
         <div className="card">
           <div style={SECTION_LABEL}>Year-End Adjustments — {propName}</div>
           <p className="small muted" style={{ marginTop: 6 }}>
-            One-time CAM / INS / RET true-up per tenant (net due) for {year} — the Skyline upload.
+            One-time CAM / INS / RET true-up per tenant (net due) for {year}{isMixed ? " — retail + office in one file" : ""} — the Skyline upload.
           </p>
           <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "flex-end", marginTop: 12 }}>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -568,6 +619,31 @@ export default function OfficeCamReconPage() {
         </div>
       )}
       {isRetail && rSelected && <RetailTenantStatement t={rSelected} reconYear={year} contact={contacts[rSelected.unitRef]} />}
+
+      {/* Year-End Adjustments — one compiled schedule across every shopping
+          center (incl. both parts of a mixed center), the retail counterpart
+          of the all-office report. */}
+      {isRetail && !rSelected && activeRetail && (
+        <div className="card">
+          <div style={SECTION_LABEL}>Year-End Adjustments — All Shopping Centers</div>
+          <p className="small muted" style={{ marginTop: 6 }}>
+            One compiled YEC / YEI / YER schedule across every shopping center for {year} — a single one-time Skyline import.
+          </p>
+          <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "flex-end", marginTop: 12 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <span className="small muted">One-time true-up posted on:</span>
+              <Calendar value={yeDate} variant="card" onChange={setYeDate} />
+            </div>
+            <button onClick={downloadAllRetailYearEnd} disabled={compilingRetail} className="btn primary" style={{ fontSize: 13, padding: "9px 14px", fontWeight: 700 }}>
+              {compilingRetail ? "Compiling…" : "Download All Shopping Centers CSV"}
+            </button>
+          </div>
+          <p className="small muted" style={{ marginTop: 14, marginBottom: 0 }}>
+            Values-only, $0 rows omitted — charge codes YEC (CAM) · YEI (INS) · YER (RET), unit &lt;suite&gt;-CU. Paste into Skyline → Unit Charges.
+          </p>
+        </div>
+      )}
+
       {!selected && result && <BuildingSummary result={result} onPick={setUnit} onEditEscrow={saveField} />}
       {!selected && result && <RecoveryByBaseYear result={result} />}
       {!selected && expenseSummary.length > 0 && <FinalExpenseSummary rows={expenseSummary} editable={expenseEditable} year={year} onEdit={saveExpense} />}
@@ -776,6 +852,42 @@ function RetailConfigTable({ result, onPick }: { result: RetailBuildingResult; o
           })}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+// ── Mixed-center sub-tabs (Retail | Office) ──────────────────────────────────
+
+function MixedTabs({ tab, onChange, retailTotal, officeTotal }: {
+  tab: "retail" | "office";
+  onChange: (t: "retail" | "office") => void;
+  retailTotal: number;
+  officeTotal: number;
+}) {
+  const Tab = ({ id, label, total }: { id: "retail" | "office"; label: string; total: number }) => {
+    const active = tab === id;
+    return (
+      <button onClick={() => onChange(id)} style={{
+        flex: 1, padding: "10px 14px", borderRadius: 10, cursor: "pointer", textAlign: "left",
+        border: active ? "1px solid var(--accent)" : "1px solid var(--border)",
+        background: active ? "rgba(11,74,125,0.06)" : "var(--card)",
+        fontWeight: active ? 800 : 600,
+      }}>
+        <div style={{ fontSize: 13 }}>{label}</div>
+        <div className="muted" style={{ fontSize: 11, marginTop: 2 }}>CAM balance {money0(total)}</div>
+      </button>
+    );
+  };
+  return (
+    <div className="card">
+      <div style={SECTION_LABEL}>Reconciliation Portion</div>
+      <p className="small muted" style={{ marginTop: 4, marginBottom: 10 }}>
+        One property, two reconciliations — each keeps its own tenants, pools, and escrows per the allocation above.
+      </p>
+      <div style={{ display: "flex", gap: 10 }}>
+        <Tab id="retail" label="Retail (8502)" total={retailTotal} />
+        <Tab id="office" label="Office (8503)" total={officeTotal} />
+      </div>
     </div>
   );
 }
