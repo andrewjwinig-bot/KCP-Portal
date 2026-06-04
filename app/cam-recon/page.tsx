@@ -407,6 +407,20 @@ export default function OfficeCamReconPage() {
     await loadResult();
   }, [property, year, loadResult]);
 
+  // Persist a single per-unit retail escrow override, then reload so balances
+  // recompute. For a mixed center the office-portion tenants live under the
+  // mixedOfficeCode fixture, so route the save there.
+  const saveRetailField = useCallback(async (unitRef: string, field: string, value: number | null, portion?: "retail" | "office") => {
+    const officeCode = available.find((a) => a.propertyCode === property)?.mixedOfficeCode;
+    const targetProperty = portion === "office" && officeCode ? officeCode : property;
+    await fetch("/api/cam-recon/retail", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ property: targetProperty, year, unitRef, field, value }),
+    });
+    await loadResult();
+  }, [property, year, loadResult, available]);
+
   // Save a Final Expense Summary edit (keyed by GL account), then reload so
   // the FINAL flows back into every tenant's calc.
   const saveExpense = useCallback(async (account: string, field: string, value: number | string | null) => {
@@ -616,7 +630,7 @@ export default function OfficeCamReconPage() {
       )}
 
       {/* Building Summary is always the top content card. */}
-      {isRetail && !rSelected && activeRetail && <RetailBuildingSummary result={activeRetail} onPick={setUnit} />}
+      {isRetail && !rSelected && activeRetail && <RetailBuildingSummary result={activeRetail} onPick={setUnit} onEditEscrow={saveRetailField} />}
       {isRetail && !rSelected && allocation && <AllocationBreakdown a={allocation} />}
       {isRetail && !rSelected && activeRetail && <RetailConfigTable result={activeRetail} onPick={setUnit} />}
       {isRetail && rSelected && <RetailTenantStatement t={rSelected} reconYear={year} contact={contacts[rSelected.unitRef]} />}
@@ -696,7 +710,11 @@ function PortionPill({ portion }: { portion?: "retail" | "office" }) {
 
 const INS_TINT = "rgba(13,148,136,0.06)";
 
-function RetailBuildingSummary({ result, onPick }: { result: RetailBuildingResult; onPick: (u: string) => void }) {
+function RetailBuildingSummary({ result, onPick, onEditEscrow }: {
+  result: RetailBuildingResult;
+  onPick: (u: string) => void;
+  onEditEscrow: (unitRef: string, field: string, value: number | null, portion?: "retail" | "office") => void;
+}) {
   const { tenants, totals } = result;
   const cam = (first = false): React.CSSProperties => ({ ...td, background: CAM_TINT, ...(first ? { borderLeft: BLOCK_SEP } : {}) });
   const ins = (first = false): React.CSSProperties => ({ ...td, background: INS_TINT, ...(first ? { borderLeft: BLOCK_SEP } : {}) });
@@ -739,13 +757,19 @@ function RetailBuildingSummary({ result, onPick }: { result: RetailBuildingResul
               <td style={td}>{pct(t.camPrs / 100)}</td>
               <td style={td}>{t.adminFeePct ? `${t.adminFeePct}%` : "—"}</td>
               <td style={cam(true)}>{money0(t.camDue)}</td>
-              <td style={cam()}>{money0(t.camEscrow)}</td>
+              <td style={cam()} onClick={(e) => e.stopPropagation()}>
+                <EditableMoney value={t.camEscrow} onCommit={(v) => onEditEscrow(t.unitRef, "camEscrow", v, t.portion)} />
+              </td>
               <td style={cam()}><Pill tone={reconBalanceTone(t.camBalance)}>{money0(t.camBalance)}</Pill></td>
               <td style={ins(true)}>{money0(t.insDue)}</td>
-              <td style={ins()}>{money0(t.insEscrow)}</td>
+              <td style={ins()} onClick={(e) => e.stopPropagation()}>
+                <EditableMoney value={t.insEscrow} onCommit={(v) => onEditEscrow(t.unitRef, "insEscrow", v, t.portion)} />
+              </td>
               <td style={ins()}><Pill tone={reconBalanceTone(t.insBalance)}>{money0(t.insBalance)}</Pill></td>
               <td style={ret(true)}>{money0(t.retDue)}</td>
-              <td style={ret()}>{money0(t.retEscrow)}</td>
+              <td style={ret()} onClick={(e) => e.stopPropagation()}>
+                <EditableMoney value={t.retEscrow} onCommit={(v) => onEditEscrow(t.unitRef, "retEscrow", v, t.portion)} />
+              </td>
               <td style={ret()}><Pill tone={reconBalanceTone(t.retBalance)}>{money0(t.retBalance)}</Pill></td>
             </tr>
           ))}
