@@ -71,7 +71,7 @@ export function reconcileRetailTenant(pool: RetailExpensePool, t: RetailTenantIn
   return {
     unitRef: t.unitRef, suite: t.suite, name: t.name, sqft: t.sqft,
     grossLease: t.grossLease,
-    occPct: t.occPct, flatRet: t.flatRet,
+    occPct: t.occPct, rcd: t.rcd, vacatedISO: t.vacatedISO, flatRet: t.flatRet,
     camPrs: t.camPrs, insPrs: t.insPrs, retPrs: t.retPrs,
     adminFeePct: t.adminFeePct, retDiscountPct: t.retDiscountPct,
     camExcludedLabels: t.camExcludedLabels, adminExcludedLabels: t.adminExcludedLabels,
