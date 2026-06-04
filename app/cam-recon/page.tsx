@@ -2,7 +2,7 @@
 
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Pill, StatPill, reconBalanceTone, TONE_NEUTRAL, TONE_AMBER } from "@/app/components/Pill";
+import { Pill, StatPill, reconBalanceTone, TONE_NEUTRAL, TONE_AMBER, TONE_BLUE, TONE_PURPLE } from "@/app/components/Pill";
 import { Calendar } from "@/app/components/Calendar";
 import {
   yearEndAdjustmentRows,
@@ -271,7 +271,6 @@ export default function OfficeCamReconPage() {
   const [retailResult, setRetailResult] = useState<RetailBuildingResult | null>(null);
   // Office part of a mixed center (e.g. 7010 office), shown as a sub-tab.
   const [retailOffice, setRetailOffice] = useState<RetailBuildingResult | null>(null);
-  const [mixedTab, setMixedTab] = useState<"retail" | "office">("retail");
   const [allocation, setAllocation] = useState<PropertyAllocation | null>(null);
   const [estimates, setEstimates] = useState<NextYearEstimate[]>([]);
   const [contacts, setContacts] = useState<Record<string, { email: string; cc: string }>>({});
@@ -308,10 +307,28 @@ export default function OfficeCamReconPage() {
   }, []);
 
   const isRetail = available.find((a) => a.propertyCode === property)?.kind === "retail";
-  // Mixed center (retail + office on one page). `activeRetail` is whichever
-  // sub-tab is showing; the rest of the retail render keys off it.
+  // Mixed center (retail + office on one page). Both parts are merged into one
+  // result — tenants tagged with a RETAIL / OFFICE portion pill, totals summed —
+  // so the whole property shows in a single building summary + methodology table.
   const isMixed = isRetail && !!available.find((a) => a.propertyCode === property)?.mixedOfficeCode;
-  const activeRetail = isMixed && mixedTab === "office" ? retailOffice : retailResult;
+  const activeRetail: RetailBuildingResult | null = (() => {
+    if (!isMixed) return retailResult;
+    if (!retailResult && !retailOffice) return null;
+    const tag = (r: RetailBuildingResult | null, portion: "retail" | "office") =>
+      (r?.tenants ?? []).map((t) => ({ ...t, portion }));
+    const k = (key: keyof RetailBuildingResult["totals"]) =>
+      (retailResult?.totals[key] ?? 0) + (retailOffice?.totals[key] ?? 0);
+    return {
+      propertyCode: retailResult?.propertyCode ?? "7010",
+      reconYear: retailResult?.reconYear ?? year,
+      tenants: [...tag(retailResult, "retail"), ...tag(retailOffice, "office")],
+      totals: {
+        camDue: k("camDue"), camEscrow: k("camEscrow"), camBalance: k("camBalance"),
+        insDue: k("insDue"), insEscrow: k("insEscrow"), insBalance: k("insBalance"),
+        retDue: k("retDue"), retEscrow: k("retEscrow"), retBalance: k("retBalance"),
+      },
+    };
+  })();
 
   const loadResult = useCallback(async () => {
     if (!property || !year) return;
@@ -360,7 +377,6 @@ export default function OfficeCamReconPage() {
     setYeDate(`${year + 1}-04-30`);
     setEstDate(`${year + 1}-01-01`);
     setUnit("ALL");
-    setMixedTab("retail");
     loadResult();
   }, [property, year, loadResult]);
 
@@ -556,7 +572,7 @@ export default function OfficeCamReconPage() {
               {rSelected.grossLease && <Pill tone={TONE_AMBER}>Gross Lease</Pill>}
             </>
           ) : isRetail ? (
-            <span className="muted small">{activeRetail?.tenants.length ?? 0} tenants reconciled · {isMixed ? `${mixedTab} portion · ` : ""}CAM / INS / RET pro-rata share, year-end true-up</span>
+            <span className="muted small">{activeRetail?.tenants.length ?? 0} tenants reconciled · {isMixed ? "retail + office · " : ""}CAM / INS / RET pro-rata share, year-end true-up</span>
           ) : (
             <span className="muted small">{tenants.length} tenants reconciled · base-year expense recovery, year-end true-up</span>
           )}
@@ -590,11 +606,6 @@ export default function OfficeCamReconPage() {
       )}
 
       {isRetail && !rSelected && isMixed && allocation && <AllocationBreakdown a={allocation} />}
-      {isRetail && !rSelected && isMixed && (
-        <MixedTabs tab={mixedTab} onChange={(t) => { setMixedTab(t); setUnit("ALL"); }}
-          retailTotal={retailResult?.totals.camBalance ?? 0}
-          officeTotal={retailOffice?.totals.camBalance ?? 0} />
-      )}
       {isRetail && !rSelected && activeRetail && <RetailBuildingSummary result={activeRetail} onPick={setUnit} />}
       {isRetail && !rSelected && activeRetail && <RetailConfigTable result={activeRetail} onPick={setUnit} />}
       {isRetail && !rSelected && !isMixed && allocation && <AllocationBreakdown a={allocation} />}
@@ -700,6 +711,16 @@ function UnitChip({ unitRef, backTo }: { unitRef: string; backTo?: string }) {
   );
 }
 
+// RETAIL / OFFICE tag for mixed-center (7010) rows.
+function PortionPill({ portion }: { portion?: "retail" | "office" }) {
+  if (!portion) return null;
+  return (
+    <Pill tone={portion === "office" ? TONE_PURPLE : TONE_BLUE}>
+      {portion === "office" ? "OFFICE" : "RETAIL"}
+    </Pill>
+  );
+}
+
 const INS_TINT = "rgba(13,148,136,0.06)";
 
 function RetailBuildingSummary({ result, onPick }: { result: RetailBuildingResult; onPick: (u: string) => void }) {
@@ -741,7 +762,7 @@ function RetailBuildingSummary({ result, onPick }: { result: RetailBuildingResul
           {tenants.map((t) => (
             <tr key={t.unitRef} style={{ borderBottom: "1px solid var(--border)", cursor: "pointer" }} onClick={() => onPick(t.unitRef)}>
               <td style={{ ...td, textAlign: "left" }}><UnitChip unitRef={t.unitRef} backTo={`/cam-recon?property=${result.propertyCode}&year=${result.reconYear}`} /></td>
-              <td style={{ ...td, textAlign: "left" }}>{t.name}{t.grossLease ? <span className="muted" style={{ fontSize: 11 }}> (gross)</span> : t.capped ? <span style={{ fontSize: 11, color: "#b45309" }}> (capped)</span> : t.flatRet != null ? <span style={{ fontSize: 11, color: "#b45309" }}> (own-parcel RET)</span> : t.occPct < 0.9999 ? <span style={{ fontSize: 11, color: "#b45309" }}> ({pct(t.occPct, 0)} occ)</span> : null}</td>
+              <td style={{ ...td, textAlign: "left" }}><span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>{t.portion && <PortionPill portion={t.portion} />}<span>{t.name}{t.grossLease ? <span className="muted" style={{ fontSize: 11 }}> (gross)</span> : t.capped ? <span style={{ fontSize: 11, color: "#b45309" }}> (capped)</span> : t.flatRet != null ? <span style={{ fontSize: 11, color: "#b45309" }}> (own-parcel RET)</span> : t.occPct < 0.9999 ? <span style={{ fontSize: 11, color: "#b45309" }}> ({pct(t.occPct, 0)} occ)</span> : null}</span></span></td>
               <td style={td}>{pct(t.camPrs / 100)}</td>
               <td style={td}>{t.adminFeePct ? `${t.adminFeePct}%` : "—"}</td>
               <td style={cam(true)}>{money0(t.camDue)}</td>
@@ -825,7 +846,7 @@ function RetailConfigTable({ result, onPick }: { result: RetailBuildingResult; o
               <Fragment key={t.unitRef}>
                 <tr style={{ borderBottom: ex.length && isOpen ? "none" : "1px solid var(--border)" }}>
                   <td style={{ ...td, textAlign: "left" }}><UnitChip unitRef={t.unitRef} backTo={`/cam-recon?property=${result.propertyCode}&year=${result.reconYear}`} /></td>
-                  <td style={{ ...td, textAlign: "left", cursor: "pointer" }} onClick={() => onPick(t.unitRef)}>{t.name}</td>
+                  <td style={{ ...td, textAlign: "left", cursor: "pointer" }} onClick={() => onPick(t.unitRef)}><span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>{t.portion && <PortionPill portion={t.portion} />}{t.name}</span></td>
                   <td style={td}>{t.adminFeePct ? `${t.adminFeePct}%` : "—"}</td>
                   <td style={td}>{t.grossLease ? "—" : pct(t.camPrs / 100)}</td>
                   <td style={td}>{t.grossLease ? "—" : pct(t.insPrs / 100)}</td>
@@ -852,42 +873,6 @@ function RetailConfigTable({ result, onPick }: { result: RetailBuildingResult; o
           })}
         </tbody>
       </table>
-    </div>
-  );
-}
-
-// ── Mixed-center sub-tabs (Retail | Office) ──────────────────────────────────
-
-function MixedTabs({ tab, onChange, retailTotal, officeTotal }: {
-  tab: "retail" | "office";
-  onChange: (t: "retail" | "office") => void;
-  retailTotal: number;
-  officeTotal: number;
-}) {
-  const Tab = ({ id, label, total }: { id: "retail" | "office"; label: string; total: number }) => {
-    const active = tab === id;
-    return (
-      <button onClick={() => onChange(id)} style={{
-        flex: 1, padding: "10px 14px", borderRadius: 10, cursor: "pointer", textAlign: "left",
-        border: active ? "1px solid var(--accent)" : "1px solid var(--border)",
-        background: active ? "rgba(11,74,125,0.06)" : "var(--card)",
-        fontWeight: active ? 800 : 600,
-      }}>
-        <div style={{ fontSize: 13 }}>{label}</div>
-        <div className="muted" style={{ fontSize: 11, marginTop: 2 }}>CAM balance {money0(total)}</div>
-      </button>
-    );
-  };
-  return (
-    <div className="card">
-      <div style={SECTION_LABEL}>Reconciliation Portion</div>
-      <p className="small muted" style={{ marginTop: 4, marginBottom: 10 }}>
-        One property, two reconciliations — each keeps its own tenants, pools, and escrows per the allocation above.
-      </p>
-      <div style={{ display: "flex", gap: 10 }}>
-        <Tab id="retail" label="Retail (8502)" total={retailTotal} />
-        <Tab id="office" label="Office (8503)" total={officeTotal} />
-      </div>
     </div>
   );
 }

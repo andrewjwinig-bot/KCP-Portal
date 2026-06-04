@@ -75,6 +75,8 @@ export type RetailTenantResult = {
   unitRef: string;
   suite: string;
   name: string;
+  /** Mixed-center portion tag (7010) — shown as a RETAIL / OFFICE pill. */
+  portion?: "retail" | "office";
   sqft: number;
   grossLease: boolean;
   occPct: number;
