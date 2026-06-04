@@ -103,6 +103,10 @@ export type CamConfig = {
   /** RET discount % (lease-negotiated reduction of the RET share, e.g. 2).
    *  Null/undefined → no discount. */
   retDiscountPct?: number | null;
+  /** Manual insurance $ this tenant is billed against, replacing the property
+   *  insurance pool (e.g. a Wawa outparcel billed on its own liability-line
+   *  figure, which isn't pulled from the GL). Null/undefined → use the pool. */
+  insAmountOverride?: number | null;
   updatedAt: string;
 };
 
@@ -131,6 +135,15 @@ function asPct(value: unknown): number | null {
   if (n < 0) return 0;
   if (n > 100) return 100;
   return Math.round(n * 1000) / 1000;
+}
+
+/** A non-negative dollar amount, or null. Unlike asPct it isn't clamped to
+ *  100 — used for manual $ inputs (e.g. a tenant's manual insurance figure). */
+function asAmount(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") return null;
+  const n = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(n) || n < 0) return null;
+  return Math.round(n * 100) / 100;
 }
 
 function asCategory(value: unknown): CamCategoryConfig {
@@ -217,6 +230,7 @@ export function sanitizeCamConfig(unitRef: string, body: unknown): CamConfig {
     camExcludedOther: asCamExcludedOther(b.camExcludedOther),
     camCap: asCamCap(b.camCap),
     retDiscountPct: asPct(b.retDiscountPct),
+    insAmountOverride: asAmount(b.insAmountOverride),
     updatedAt: new Date().toISOString(),
   };
 }

@@ -902,16 +902,17 @@ function RetailScheduleTable({ t }: { t: RetailTenantResult }) {
           </tr>
         </thead>
         <tbody>
-          {t.camSchedule.map((l, i) => (
+          {t.camSchedule.map((l, i) => {
+            // Excluded lines: strike the whole row through (matches the workbook).
+            const struck = l.billed ? {} : { textDecoration: "line-through" as const, color: "var(--muted)" };
+            return (
             <tr key={i} style={{ borderBottom: "1px solid var(--border)" }}>
-              <td style={{ ...std, textAlign: "left", whiteSpace: "nowrap", color: "var(--muted)", fontVariantNumeric: "tabular-nums" }}>{l.glAccount}</td>
-              <td style={{ ...std, textAlign: "left", ...(l.billed ? {} : { color: "var(--muted)" }) }}>
-                <span style={l.billed ? {} : { textDecoration: "line-through" }}>{l.label}</span>
-                {!l.billed && <span style={{ fontStyle: "italic", fontSize: 11 }}> (not billed)</span>}
-              </td>
-              <td style={{ ...std, ...(l.billed ? {} : { color: "var(--muted)" }) }}>{money(l.amount)}</td>
+              <td style={{ ...std, textAlign: "left", whiteSpace: "nowrap", color: "var(--muted)", fontVariantNumeric: "tabular-nums", ...struck }}>{l.glAccount}</td>
+              <td style={{ ...std, textAlign: "left", ...struck }}>{l.label}</td>
+              <td style={{ ...std, ...struck }}>{money(l.amount)}</td>
             </tr>
-          ))}
+            );
+          })}
         </tbody>
         <tfoot>
           <tr style={{ fontWeight: 800, borderTop: "2px solid var(--border)" }}>
@@ -1050,11 +1051,14 @@ function drawRetailStatement(doc: any, t: RetailTenantResult, year: number, prop
   doc.setFontSize(9);
   t.camSchedule.forEach((l, i) => {
     if (i % 2 === 1) { fill([247, 249, 251]); doc.rect(L, y - 9, W, 13, "F"); }
-    doc.setFont("helvetica", l.billed ? "normal" : "italic");
+    doc.setFont("helvetica", "normal");
     ink(MUTED); at(l.glAccount, L + 6);
     ink(l.billed ? INK : MUTED);
-    at(l.billed ? l.label : `${l.label} (not billed)`, L + 74);
-    at(money(l.amount), R - 6, { align: "right" }); y += 13; ink(INK);
+    at(l.label, L + 74);
+    at(money(l.amount), R - 6, { align: "right" });
+    // Excluded lines: strike the whole row through (matches the source workbook).
+    if (!l.billed) { stroke(MUTED); doc.setLineWidth(0.6); doc.line(L + 6, y - 3, R - 6, y - 3); }
+    y += 13; ink(INK);
   });
   const billedTotal = t.camSchedule.filter((l) => l.billed).reduce((a, l) => a + l.amount, 0);
   stroke(NAVY); doc.setLineWidth(0.8); doc.line(L, y - 9, R, y - 9);

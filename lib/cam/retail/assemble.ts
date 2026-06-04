@@ -80,7 +80,7 @@ export function assembleRetail(
       camExcludedLabels: cfg.camExcludedLines,
       adminExcludedLabels: cfg.camAdminExcludedLines,
       retDiscountPct: u.retDiscountPct ?? cfg.retDiscountPct ?? 0,
-      insPoolOverride: u.insPoolOverride,
+      insPoolOverride: u.insPoolOverride ?? cfg.insAmountOverride ?? undefined,
       camCap: cfg.camCap
         ? { priorControllable: cfg.camCap.controllableAmount, growthPct: cfg.camCap.growthPct }
         : undefined,

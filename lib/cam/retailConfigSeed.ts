@@ -24,6 +24,9 @@ export type RetailConfigSeedEntry = {
   adminFeePct?: number;
   /** RET discount % (lease-negotiated reduction of the RET share, e.g. 2). */
   retDiscountPct?: number;
+  /** Manual insurance $ that replaces the property INS pool for this tenant
+   *  (e.g. a Wawa outparcel billed on its own liability figure). */
+  insPoolOverride?: number;
   /** Gross lease — no CAM/INS/RET reconciliation. */
   grossLease?: boolean;
   /** Lease-level CAM cap (e.g. Planet Fitness at Brookwood). */
@@ -73,7 +76,7 @@ export const RETAIL_CONFIG_SEED: Record<string, RetailConfigSeedEntry> = {
   "2300-1877": { adminFeePct: 10 }, // Evolve Nails
   "2300-1879": { adminFeePct: 10 }, // GNC / Live Well
   "2300-1881": { adminFeePct: 10, retDiscountPct: 2 }, // Citizens Bank
-  "2300-1883": { retDiscountPct: 2 }, // Wawa (PRS via propertyRules) — RET discount
+  "2300-1883": { retDiscountPct: 2, insPoolOverride: 40126.88 }, // Wawa — RET discount; INS billed on its manual liability figure (not GL)
   // Dunkin — no admin fee; CAM excludes Building Maintenance + Security
   // (exact pool match: 23,786 + 27,752.96 = 51,538.96).
   "2300-1885": { retDiscountPct: 2, excludedCamLines: ["Building Maintenance", "Security"] },
@@ -140,6 +143,7 @@ export function seedCamConfig(unitRef: string): CamConfig | null {
   if (e.retPrs != null) c.ret.stipulatedPrs = e.retPrs;
   if (e.adminFeePct != null) c.cam.adminFeePct = e.adminFeePct;
   if (e.retDiscountPct != null) c.retDiscountPct = e.retDiscountPct;
+  if (e.insPoolOverride != null) c.insAmountOverride = e.insPoolOverride;
   if (e.camCap) c.camCap = e.camCap;
   if (e.adminFeeExcludedLines?.length) {
     c.hasAdminFeeExclusions = true;
