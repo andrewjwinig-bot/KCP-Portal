@@ -932,11 +932,19 @@ function RetailScheduleTable({ t }: { t: RetailTenantResult }) {
               <tr style={{ fontWeight: 800 }}><td style={std} /><td style={{ ...std, textAlign: "left" }}>Applicable CAM Pool</td><td style={std}>{money0(t.camPoolEffective)}</td></tr>
             </>
           )}
+          {/* Insurance + RET pools — billed separately from the CAM pool. */}
+          <tr style={{ borderTop: "2px solid var(--border)" }}>
+            <td style={{ ...std, color: "var(--muted)" }}>—</td>
+            <td style={{ ...std, textAlign: "left" }}>Property Insurance</td>
+            <td style={std}>{money0(t.insPool)}</td>
+          </tr>
+          <tr>
+            <td style={{ ...std, color: "var(--muted)", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>6410-8502</td>
+            <td style={{ ...std, textAlign: "left" }}>Real Estate Taxes</td>
+            <td style={std}>{money0(t.retPool)}</td>
+          </tr>
         </tfoot>
       </table>
-      <p className="small muted" style={{ marginTop: 8 }}>
-        Insurance pool {money0(t.insPool)} · Real estate tax pool {money0(t.retPool)} (billed separately below).
-      </p>
       {t.portion && (
         <p className="small muted" style={{ marginTop: 6, fontStyle: "italic" }}>
           Operating expenses for this mixed-use center are allocated between its Retail (8502) and Office (8503) portions; the pool above is the {t.portion} portion&rsquo;s share.
@@ -955,7 +963,7 @@ function RetailTenantStatement({ t, reconYear, contact }: {
   const retFull = (t.retPrs / 100) * t.retPool * (1 - t.retDiscountPct / 100);
   // Inline PRS basis: tenant SF ÷ center GLA (back-solved from the share, so it
   // reflects each category's own denominator). No extra rows.
-  const basis = (prs: number) => prs > 0 ? ` (${t.sqft.toLocaleString()} / ${Math.round(t.sqft / (prs / 100)).toLocaleString()} SF)` : "";
+  const basis = (prs: number, denom: number) => prs > 0 && denom > 0 ? ` (${t.sqft.toLocaleString()} / ${denom.toLocaleString()} SF)` : "";
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <RetailScheduleTable t={t} />
@@ -965,7 +973,7 @@ function RetailTenantStatement({ t, reconYear, contact }: {
         <div style={{ flex: "1 1 240px", minWidth: 230 }}>
           <div style={{ ...CAT_LABEL, color: "#0b4a7d" }}>CAM</div>
           <BalanceRow label={`CAM Pool${t.capped ? " (capped)" : t.camPoolEffective < t.camPoolFull ? " (after exclusions)" : ""}`} value={money0(t.camPoolEffective)} />
-          <BalanceRow label={`× CAM Share ${pct(t.camPrs / 100)}${basis(t.camPrs)}`} value={money0(camFull)} />
+          <BalanceRow label={`× CAM Share${basis(t.camPrs, t.camDenom)} ${pct(t.camPrs / 100)}`} value={money0(camFull)} />
           {occLine && <BalanceRow label={`× Occupancy ${pct(t.occPct, 1)}`} value={money0(t.camShare)} />}
           {t.adminFeePct > 0 && <BalanceRow label={`+ Admin Fee ${t.adminFeePct}%`} value={money0(t.camAdmin)} />}
           <BalanceRow label="CAM Due" value={money0(t.camDue)} strong />
@@ -975,7 +983,7 @@ function RetailTenantStatement({ t, reconYear, contact }: {
         <div style={{ flex: "1 1 240px", minWidth: 230 }}>
           <div style={{ ...CAT_LABEL, color: "#0f766e" }}>INS</div>
           <BalanceRow label="Insurance Pool" value={money0(t.insPool)} />
-          <BalanceRow label={`× INS Share ${pct(t.insPrs / 100)}${basis(t.insPrs)}`} value={money0(insFull)} />
+          <BalanceRow label={`× INS Share${basis(t.insPrs, t.insDenom)} ${pct(t.insPrs / 100)}`} value={money0(insFull)} />
           {occLine && <BalanceRow label={`× Occupancy ${pct(t.occPct, 1)}`} value={money0(t.insDue)} />}
           <BalanceRow label="INS Due" value={money0(t.insDue)} strong />
           <BalanceRow label="Less: Escrow Billed" value={money0(-t.insEscrow)} />
@@ -988,7 +996,7 @@ function RetailTenantStatement({ t, reconYear, contact }: {
           ) : (
             <>
               <BalanceRow label="Real Estate Tax Pool" value={money0(t.retPool)} />
-              <BalanceRow label={`× RET Share ${pct(t.retPrs / 100)}${t.retDiscountPct > 0 ? ` less ${t.retDiscountPct}%` : ""}${basis(t.retPrs)}`} value={money0(retFull)} />
+              <BalanceRow label={`× RET Share${basis(t.retPrs, t.retDenom)} ${pct(t.retPrs / 100)}${t.retDiscountPct > 0 ? ` less ${t.retDiscountPct}%` : ""}`} value={money0(retFull)} />
               {occLine && <BalanceRow label={`× Occupancy ${pct(t.occPct, 1)}`} value={money0(t.retDue)} />}
             </>
           )}
@@ -1082,11 +1090,11 @@ function drawRetailStatement(doc: any, t: RetailTenantResult, year: number, prop
   const camFull = (t.camPrs / 100) * t.camPoolEffective;
   const insFull = (t.insPrs / 100) * t.insPool;
   const retFull = (t.retPrs / 100) * t.retPool * (1 - t.retDiscountPct / 100);
-  const basis = (prs: number) => prs > 0 ? ` (${t.sqft.toLocaleString()} / ${Math.round(t.sqft / (prs / 100)).toLocaleString()} SF)` : "";
+  const basis = (prs: number, denom: number) => prs > 0 && denom > 0 ? ` (${t.sqft.toLocaleString()} / ${denom.toLocaleString()} SF)` : "";
 
   bar("Common Area Maintenance");
   sumRow(`CAM Pool${t.capped ? " (capped)" : t.camPoolEffective < t.camPoolFull ? " (after exclusions)" : ""}`, money(t.camPoolEffective));
-  sumRow(`× CAM Share ${pct(t.camPrs / 100)}${basis(t.camPrs)}`, money(camFull));
+  sumRow(`× CAM Share${basis(t.camPrs, t.camDenom)} ${pct(t.camPrs / 100)}`, money(camFull));
   if (occLine) sumRow(`× Occupancy ${pct(t.occPct, 1)}`, money(t.camShare));
   if (t.adminFeePct > 0) sumRow(`+ Admin Fee ${t.adminFeePct}%`, money(t.camAdmin));
   sumRow("CAM Due", money(t.camDue), true);
@@ -1096,7 +1104,7 @@ function drawRetailStatement(doc: any, t: RetailTenantResult, year: number, prop
 
   bar("Insurance");
   sumRow("Insurance Pool", money(t.insPool));
-  sumRow(`× INS Share ${pct(t.insPrs / 100)}${basis(t.insPrs)}`, money(insFull));
+  sumRow(`× INS Share${basis(t.insPrs, t.insDenom)} ${pct(t.insPrs / 100)}`, money(insFull));
   if (occLine) sumRow(`× Occupancy ${pct(t.occPct, 1)}`, money(t.insDue));
   sumRow("INS Due", money(t.insDue), true);
   sumRow("Less: Escrow Billed", money(-t.insEscrow));
@@ -1108,7 +1116,7 @@ function drawRetailStatement(doc: any, t: RetailTenantResult, year: number, prop
     sumRow("Own-parcel RET (100%)", money(t.flatRet));
   } else {
     sumRow("Real Estate Tax Pool", money(t.retPool));
-    sumRow(`× RET Share ${pct(t.retPrs / 100)}${t.retDiscountPct ? ` (less ${t.retDiscountPct}%)` : ""}${basis(t.retPrs)}`, money(retFull));
+    sumRow(`× RET Share${basis(t.retPrs, t.retDenom)} ${pct(t.retPrs / 100)}${t.retDiscountPct ? ` (less ${t.retDiscountPct}%)` : ""}`, money(retFull));
     if (occLine) sumRow(`× Occupancy ${pct(t.occPct, 1)}`, money(t.retDue));
   }
   sumRow("RET Due", money(t.retDue), true);
@@ -1470,7 +1478,9 @@ function ScheduleTable({ title, lines, baseYear, reconYear, totalLabel }: {
   return (
     // Fixed layout + shared column widths so the Op Ex and RET schedules
     // stack cleanly (B/Y over B/Y, Actual over Actual).
-    <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed", minWidth: 560 }}>
+    <>
+    <div style={CARD_TITLE}>{title}</div>
+    <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed", minWidth: 560, marginTop: 10 }}>
       <colgroup>
         <col style={{ width: "12%" }} />
         <col style={{ width: "32%" }} />
@@ -1481,7 +1491,7 @@ function ScheduleTable({ title, lines, baseYear, reconYear, totalLabel }: {
       <thead>
         <tr>
           <th style={{ ...sth, textAlign: "left" }}>Acct</th>
-          <th style={{ ...sth, textAlign: "left" }}>{title}</th>
+          <th style={{ ...sth, textAlign: "left" }}>Expense</th>
           <th style={sth}>B/Y Costs ({baseYear})</th>
           <th style={sth}>Actual ({reconYear})</th>
           <th style={sth}>Net Increase</th>
@@ -1510,6 +1520,7 @@ function ScheduleTable({ title, lines, baseYear, reconYear, totalLabel }: {
         </tfoot>
       )}
     </table>
+    </>
   );
 }
 

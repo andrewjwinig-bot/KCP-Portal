@@ -73,6 +73,7 @@ export function reconcileRetailTenant(pool: RetailExpensePool, t: RetailTenantIn
     grossLease: t.grossLease,
     occPct: t.occPct, rcd: t.rcd, vacatedISO: t.vacatedISO, flatRet: t.flatRet,
     camPrs: t.camPrs, insPrs: t.insPrs, retPrs: t.retPrs,
+    camDenom: t.camDenom, insDenom: t.insDenom, retDenom: t.retDenom,
     adminFeePct: t.adminFeePct, retDiscountPct: t.retDiscountPct,
     camExcludedLabels: t.camExcludedLabels, adminExcludedLabels: t.adminExcludedLabels,
     camCap: t.camCap,

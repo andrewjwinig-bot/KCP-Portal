@@ -77,6 +77,37 @@ export const PROPERTY_CAM_RULES: Record<string, PropertyCamRule> = {
       footnote: "Victra's RET share uses the reduced GLA (excludes the McDonald's outparcel building).",
     },
   },
+  // Parkwood Shopping/Office Center (7010) — mixed retail + office.
+  //   • Retail CAM/INS over the 61,036 sf CAM GLA; RET over the 73,215 sf
+  //     leasable GLA. Pad tenants carry their own CAM GLA (Forge 73,215,
+  //     Trumark 76,608); a few carry their own INS GLA (40,388); Wawa & Dunkin
+  //     pay no INS. Office (Parkwood Medical) is over the 12,179 sf office GLA.
+  "7010": {
+    cam: {
+      denominator: 61036,
+      tenantOverrides: [
+        { pattern: "forge", denominator: 73215 },
+        { pattern: "trumark", denominator: 76608 },
+        { pattern: "parkwood medical", denominator: 12179 },
+      ],
+    },
+    ins: {
+      denominator: 61036,
+      excludeTenantPatterns: ["wawa", "dunkin"],
+      tenantOverrides: [
+        { pattern: "forge", denominator: 73215 },
+        { pattern: "petroski", denominator: 40388 },
+        { pattern: "hair wizards", denominator: 40388 },
+        { pattern: "zen", denominator: 40388 },
+        { pattern: "we rock", denominator: 40388 },
+        { pattern: "parkwood medical", denominator: 12179 },
+      ],
+    },
+    ret: {
+      denominator: 73215,
+      tenantOverrides: [{ pattern: "parkwood medical", denominator: 12179 }],
+    },
+  },
 };
 
 function matchesPattern(occupantName: string, pattern: string): boolean {

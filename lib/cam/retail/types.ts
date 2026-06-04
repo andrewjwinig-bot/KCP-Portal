@@ -47,6 +47,11 @@ export type RetailTenantInput = {
   camPrs: number;
   insPrs: number;
   retPrs: number;
+  /** Category GLA (SF) the share is taken over — for the "(unit SF / GLA)"
+   *  basis on the statement. 0 when carved out. */
+  camDenom: number;
+  insDenom: number;
+  retDenom: number;
   /** CAM admin fee % (0 = none). */
   adminFeePct: number;
   /** Gross lease — no reconciliation at all. */
@@ -88,6 +93,10 @@ export type RetailTenantResult = {
   camPrs: number;
   insPrs: number;
   retPrs: number;
+  /** Category GLA (SF) the share is taken over — for the statement basis. */
+  camDenom: number;
+  insDenom: number;
+  retDenom: number;
   adminFeePct: number;
   retDiscountPct: number;
   /** CAM lines this tenant isn't billed for / the admin fee skips (for the
