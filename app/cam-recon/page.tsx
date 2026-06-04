@@ -915,7 +915,7 @@ function AllocationBreakdown({ a }: { a: PropertyAllocation }) {
 
 // ── Retail per-tenant statement ──────────────────────────────────────────────
 
-function RetailScheduleTable({ t }: { t: RetailTenantResult }) {
+function RetailScheduleTable({ t, reconYear }: { t: RetailTenantResult; reconYear: number }) {
   const billedTotal = t.camSchedule.filter((l) => l.billed).reduce((a, l) => a + l.amount, 0);
   const capped = t.camPoolEffective < billedTotal - 0.005;
   const sth: React.CSSProperties = { ...th, fontSize: 12, padding: "7px 10px" };
@@ -928,7 +928,7 @@ function RetailScheduleTable({ t }: { t: RetailTenantResult }) {
           <tr>
             <th style={{ ...sth, textAlign: "left", width: "1%", whiteSpace: "nowrap" }}>Acct</th>
             <th style={{ ...sth, textAlign: "left" }}>Expense</th>
-            <th style={sth}>2025 Actual</th>
+            <th style={sth}>{reconYear} Actual</th>
           </tr>
         </thead>
         <tbody>
@@ -956,17 +956,6 @@ function RetailScheduleTable({ t }: { t: RetailTenantResult }) {
               <tr style={{ fontWeight: 800 }}><td style={std} /><td style={{ ...std, textAlign: "left" }}>Applicable CAM Pool</td><td style={std}>{money0(t.camPoolEffective)}</td></tr>
             </>
           )}
-          {/* Insurance + RET pools — billed separately from the CAM pool. */}
-          <tr style={{ borderTop: "2px solid var(--border)" }}>
-            <td style={{ ...std, color: "var(--muted)" }}>—</td>
-            <td style={{ ...std, textAlign: "left" }}>Property Insurance</td>
-            <td style={std}>{money0(t.insPool)}</td>
-          </tr>
-          <tr>
-            <td style={{ ...std, color: "var(--muted)", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>6410-8502</td>
-            <td style={{ ...std, textAlign: "left" }}>Real Estate Taxes</td>
-            <td style={std}>{money0(t.retPool)}</td>
-          </tr>
         </tfoot>
       </table>
       {t.portion && (
@@ -974,6 +963,38 @@ function RetailScheduleTable({ t }: { t: RetailTenantResult }) {
           Operating expenses for this mixed-use center are allocated between its Retail (8502) and Office (8503) portions; the pool above is the {t.portion} portion&rsquo;s share.
         </p>
       )}
+    </div>
+  );
+}
+
+// A single-line expense-schedule card for the Insurance and Real Estate Taxes
+// pools — so retail mirrors the office statement, where each recovery category
+// is its own titled card rather than being folded into the Op Ex footer. The
+// tenant's pro-rata share of the pool is taken in the waterfall below.
+function RetailPoolCard({ title, acct, label, amount, reconYear }: {
+  title: string; acct: string; label: string; amount: number; reconYear: number;
+}) {
+  const sth: React.CSSProperties = { ...th, fontSize: 12, padding: "7px 10px" };
+  const std: React.CSSProperties = { ...td, fontSize: 14.5, padding: "7px 10px" };
+  return (
+    <div className="card" style={{ overflowX: "auto" }}>
+      <div style={CARD_TITLE}>{title}</div>
+      <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 10, minWidth: 420 }}>
+        <thead>
+          <tr>
+            <th style={{ ...sth, textAlign: "left", width: "1%", whiteSpace: "nowrap" }}>Acct</th>
+            <th style={{ ...sth, textAlign: "left" }}>Expense</th>
+            <th style={sth}>{reconYear} Actual</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style={{ ...std, textAlign: "left", whiteSpace: "nowrap", color: "var(--muted)", fontVariantNumeric: "tabular-nums" }}>{acct}</td>
+            <td style={{ ...std, textAlign: "left" }}>{label}</td>
+            <td style={std}>{money0(amount)}</td>
+          </tr>
+        </tbody>
+      </table>
     </div>
   );
 }
@@ -990,7 +1011,11 @@ function RetailTenantStatement({ t, reconYear, contact }: {
   const basis = (prs: number, denom: number) => prs > 0 && denom > 0 ? ` (${t.sqft.toLocaleString()} / ${denom.toLocaleString()} SF)` : "";
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      <RetailScheduleTable t={t} />
+      {/* Expense schedules — CAM, then Insurance and Real Estate Taxes as their
+          own cards, mirroring the office statement (one card per category). */}
+      <RetailScheduleTable t={t} reconYear={reconYear} />
+      <RetailPoolCard title="Insurance" acct="—" label="Property Insurance" amount={t.insPool} reconYear={reconYear} />
+      <RetailPoolCard title="Real Estate Taxes" acct="6410-8502" label="Real Estate Tax Pool" amount={t.retPool} reconYear={reconYear} />
       {/* Side-by-side reconciliation — CAM / INS / RET, matching the office
           statement's single-card, multi-column layout. */}
       <div className="card" style={{ display: "flex", flexWrap: "wrap", gap: 28 }}>
