@@ -21,6 +21,10 @@ export type RetailReconFixture = {
   gla: number;
   pool: RetailExpensePool;
   byYear: Record<number, RetailReconYear>;
+  /** Mixed center: code of the office-part fixture rendered as a sub-tab. */
+  mixedOfficeCode?: string;
+  /** Hidden from the dropdown (reached only as a mixed-center sub-tab). */
+  hidden?: boolean;
 };
 
 export const RETAIL_RECON_FIXTURES: Record<string, RetailReconFixture> = {
@@ -45,15 +49,17 @@ export const RETAIL_RECON_FIXTURES: Record<string, RetailReconFixture> = {
     pool: POOL_4500,
     byYear: { 2025: { roster: ROSTER_4500_2025 } },
   },
-  // 7010 is a mixed center — two reconciliations sharing the building. The
-  // fixture key (= dropdown value) differs ("7010" / "7010O"), but both pools
-  // carry propertyCode "7010" so unit links + the allocation breakdown resolve.
+  // 7010 is a mixed center — retail + office reconciliations sharing the
+  // building, shown on one page with Retail / Office sub-tabs. Both pools carry
+  // propertyCode "7010" so unit links + the allocation breakdown resolve. The
+  // office part ("7010O") is hidden from the dropdown and fetched as a sub-tab.
   "7010": {
     propertyCode: "7010",
-    name: "Parkwood SC (Retail)",
+    name: "Parkwood Shopping/Office Center",
     gla: 61036,
     pool: POOL_7010_RETAIL,
     byYear: { 2025: { roster: ROSTER_7010_RETAIL_2025 } },
+    mixedOfficeCode: "7010O",
   },
   "7010O": {
     propertyCode: "7010O",
@@ -61,13 +67,17 @@ export const RETAIL_RECON_FIXTURES: Record<string, RetailReconFixture> = {
     gla: 12179,
     pool: POOL_7010_OFFICE,
     byYear: { 2025: { roster: ROSTER_7010_OFFICE_2025 } },
+    hidden: true,
   },
 };
 
-export function availableRetailRecons(): { propertyCode: string; name: string; years: number[] }[] {
-  return Object.values(RETAIL_RECON_FIXTURES).map((f) => ({
-    propertyCode: f.propertyCode,
-    name: f.name,
-    years: Object.keys(f.byYear).map(Number).sort((a, b) => b - a),
-  }));
+export function availableRetailRecons(): { propertyCode: string; name: string; years: number[]; mixedOfficeCode?: string }[] {
+  return Object.values(RETAIL_RECON_FIXTURES)
+    .filter((f) => !f.hidden)
+    .map((f) => ({
+      propertyCode: f.propertyCode,
+      name: f.name,
+      years: Object.keys(f.byYear).map(Number).sort((a, b) => b - a),
+      mixedOfficeCode: f.mixedOfficeCode,
+    }));
 }

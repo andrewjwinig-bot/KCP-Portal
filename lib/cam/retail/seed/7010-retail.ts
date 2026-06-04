@@ -1,36 +1,17 @@
 // Parkwood Shopping/Office Center (7010) — RETAIL portion (8502 accounts).
-// 7010 is a mixed retail + office center; expenses are allocated per line
-// (see lib/cam/retail/allocation.ts). This file is the retail reconciliation;
-// seed/7010-office.ts is the office side.
+// 7010 is a mixed retail + office center. The expense POOL is derived from the
+// single allocation source (lib/cam/retail/allocation.ts → MIXED_7010), so
+// adding/changing an expense there updates retail, office, and the breakdown
+// together. This file holds only the retail rent-roll roster + assembly.
 //
-// Retail is unusually bespoke per tenant (pads on reduced pools, varying CAM /
-// INS denominators, partial occupancy, mixed admin), so each tenant carries
+// Retail is bespoke per tenant (pads on reduced pools, varying CAM / INS
+// denominators, partial occupancy, mixed admin), so each tenant carries
 // explicit figures from the workbook rather than a single shared denominator.
-// Pool/INS/RET totals are the retail (8502) allocated amounts.
 
-import type { RetailExpensePool } from "../types";
 import { assembleRetail, type RetailRosterUnit } from "../assemble";
+import { POOL_7010_RETAIL } from "../allocation";
 
-const FULL = 460614.18; // full retail CAM pool (8502, allocated)
-
-export const POOL_7010_RETAIL: RetailExpensePool = {
-  propertyCode: "7010",
-  reconYear: 2025,
-  camLines: [
-    { glAccount: "6030-8502", label: "Maintenance Salaries (86%)", amount: 24045.60 },
-    { glAccount: "6120-8502", label: "Electric (Common)", amount: 7321 },
-    { glAccount: "6130-8502", label: "Water / Sewer", amount: 0 },
-    { glAccount: "6220-8502", label: "Building Maintenance", amount: 87239 },
-    { glAccount: "6330-8502", label: "Parking Lot Cleaning", amount: 31810.32 },
-    { glAccount: "6350-8502", label: "Security", amount: 143149.50 },
-    { glAccount: "6360-8502", label: "Parking Lot Maintenance", amount: 69256 },
-    { glAccount: "6370-8502", label: "Snow Removal", amount: 42844.20 },
-    { glAccount: "6380-8502", label: "Landscaping", amount: 17347.68 },
-    { glAccount: "—", label: "Liability Insurance", amount: 37600.88 },
-  ],
-  insAmount: 7869.41,
-  retAmount: 141941.88,
-};
+export { POOL_7010_RETAIL };
 
 // camPrs / insPrs / retPrs are percents; camPoolOverride only where the
 // tenant's CAM pool differs from the full retail pool (pads).
@@ -58,5 +39,4 @@ export const ROSTER_7010_RETAIL_2025: RetailRosterUnit[] = [
   { unitRef: "7010-12361", suite: "12361", name: "Senator John P. Sabatina's Office", sqft: 1456, camPrs: 0, insPrs: 0, retPrs: 0, camEscrow: 0, insEscrow: 0, retEscrow: 0 },
 ];
 
-void FULL;
 export const TENANTS_7010_RETAIL_2025 = assembleRetail(POOL_7010_RETAIL, ROSTER_7010_RETAIL_2025, 61036);

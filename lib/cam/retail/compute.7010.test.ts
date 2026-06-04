@@ -7,7 +7,7 @@ import { describe, it, expect } from "vitest";
 import { reconcileRetailBuilding } from "./compute";
 import { POOL_7010_RETAIL, TENANTS_7010_RETAIL_2025 } from "./seed/7010-retail";
 import { POOL_7010_OFFICE, TENANTS_7010_OFFICE_2025 } from "./seed/7010-office";
-import { ALLOCATION_7010 } from "./allocation";
+import { ALLOCATION_7010, retailPoolFor, officePoolFor, splitAmounts, type MixedCenter } from "./allocation";
 
 const near = (a: number, b: number, tol = 3) => Math.abs(a - b) <= tol;
 
@@ -60,5 +60,39 @@ describe("7010 allocation breakdown", () => {
     // Office-only lines carry no retail share.
     const water = ALLOCATION_7010.cam.find((l) => l.label.startsWith("Water"))!;
     expect(water.retail).toBe(0);
+  });
+});
+
+describe("mixed-center single source is dynamic", () => {
+  // Adding/changing a line in one place must flow to BOTH derived pools and
+  // the breakdown — this guards that behavior on a tiny synthetic center.
+  const mc: MixedCenter = {
+    propertyCode: "TEST",
+    name: "Test Center",
+    reconYear: 2025,
+    cam: [
+      { label: "Shared salaries", full: 1000, retailPct: 80 }, // 800 / 200
+      { label: "Separate electric", retail: 300, office: 50 },
+      { label: "Office-only trash", retail: 0, office: 120 },
+    ],
+    insurance: { label: "Insurance", full: 100, retailPct: 90 }, // 90 / 10
+    realEstateTaxes: { label: "RET", retail: 500, office: 75 },
+  };
+  it("splits a % line and an explicit line correctly", () => {
+    expect(splitAmounts(mc.cam[0])).toEqual({ retail: 800, office: 200 });
+    expect(splitAmounts(mc.cam[1])).toEqual({ retail: 300, office: 50 });
+  });
+  it("derives the retail pool (office-only lines dropped)", () => {
+    const p = retailPoolFor(mc);
+    expect(p.camLines.map((l) => l.label)).toEqual(["Shared salaries", "Separate electric"]);
+    expect(p.camLines.reduce((a, l) => a + l.amount, 0)).toBe(1100);
+    expect(p.insAmount).toBe(90);
+    expect(p.retAmount).toBe(500);
+  });
+  it("derives the office pool from the same source", () => {
+    const p = officePoolFor(mc);
+    expect(p.camLines.reduce((a, l) => a + l.amount, 0)).toBe(370); // 200 + 50 + 120
+    expect(p.insAmount).toBe(10);
+    expect(p.retAmount).toBe(75);
   });
 });
