@@ -54,10 +54,6 @@ export type RetailTenantInput = {
   /** Fixed RET charge that replaces the pro-rata RET (e.g. a billboard
    *  parcel billed at 100% of its own tax bill). */
   flatRet?: number;
-  /** Per-tenant effective CAM pool override (mixed centers where a tenant's
-   *  pool differs from the building total — e.g. a pad on a reduced pool).
-   *  When set it's used directly as the effective pool (no line math/cap). */
-  camPoolOverride?: number;
   /** CAM line labels this tenant isn't billed for. */
   camExcludedLabels: string[];
   /** CAM line labels the admin fee does not apply to. */
