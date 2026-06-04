@@ -129,8 +129,10 @@ export const USERS: Record<UserId, UserDef> = {
   harry: {
     id: "harry",
     label: "HARRY",
+    // Drew's Task Tracker is surfaced on Harry's dashboard; allow him to open
+    // the full tracker (its "View all" link) without adding it to his sidebar.
     navKeys: new Set([...universalNav, "expenses", "expenses-history", "payroll-invoicer", "investors", "commissions-retail", "deposits", "bank-transfers"]),
-    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/expenses", "/investors", "/commissions/retail", "/deposits", "/bank-transfers", "/"],
+    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/expenses", "/investors", "/commissions/retail", "/deposits", "/bank-transfers", "/tracker", "/"],
     defaultRentRollCategory: "Retail",
     defaultPropertyType: "Retail",
     dashboardScope: { codes: SC_INDIVIDUAL },
