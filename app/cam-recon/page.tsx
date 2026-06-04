@@ -296,11 +296,16 @@ export default function OfficeCamReconPage() {
       const retail: Available[] = (rJ?.available ?? []).map((a: Available) => ({ ...a, kind: "retail" as const }));
       const list = [...office, ...retail];
       setAvailable(list);
-      // Restore the building/year from the URL when arriving back from a unit
-      // page (?property=&year=); otherwise default to the first available.
+      // Restore the building/year: URL param (arriving back from a unit page)
+      // wins, then the last-viewed selection (localStorage), then the first
+      // available. This keeps you on your property when you click out and back.
       const sp = new URLSearchParams(window.location.search);
-      const wantProp = sp.get("property");
-      const wantYear = Number(sp.get("year"));
+      const stored = (() => {
+        try { return { p: localStorage.getItem("camRecon:property"), y: Number(localStorage.getItem("camRecon:year")) }; }
+        catch { return { p: null, y: 0 }; }
+      })();
+      const wantProp = sp.get("property") || stored.p || "";
+      const wantYear = Number(sp.get("year")) || stored.y || 0;
       const match = wantProp ? list.find((a) => a.propertyCode === wantProp) : undefined;
       if (match) {
         setProperty(match.propertyCode);
@@ -380,6 +385,8 @@ export default function OfficeCamReconPage() {
   // Property/year change: reset selection + export dates, then load.
   useEffect(() => {
     if (!property || !year) return;
+    // Remember the last-viewed selection so clicking out and back stays here.
+    try { localStorage.setItem("camRecon:property", property); localStorage.setItem("camRecon:year", String(year)); } catch {}
     setEstDate(`${year + 1}-01-01`);
     setUnit("ALL");
     loadResult();
@@ -607,6 +614,18 @@ export default function OfficeCamReconPage() {
       {!selected && result && <BuildingSummary result={result} onPick={setUnit} onEditEscrow={saveField} />}
       {!selected && result && <RecoveryByBaseYear result={result} />}
       {!selected && expenseSummary.length > 0 && <FinalExpenseSummary rows={expenseSummary} editable={expenseEditable} year={year} onEdit={saveExpense} />}
+      {!selected && result && (
+        <div className="card">
+          <div style={SECTION_LABEL}>{year + 1} CAM / RET Estimate — {propName}</div>
+          <p className="small muted" style={{ marginTop: 6 }}>
+            Next year&rsquo;s recurring monthly CAM / RET estimate per tenant, effective {fmtYe(estDate)}.
+          </p>
+          <button onClick={exportEstimate} disabled={!result} className="btn primary" style={{ fontSize: 13, padding: "9px 14px", fontWeight: 700, marginTop: 12 }}>
+            Download {year + 1} Estimate CSV
+          </button>
+          <ImportInstructions stop />
+        </div>
+      )}
       {selected && <TenantStatement t={selected} reconYear={year} estimate={estimates.find((e) => e.unitRef === selected.unitRef)} contact={contacts[selected.unitRef]} />}
 
       {/* One compiled year-end schedule per portfolio (shopping centers /
@@ -657,6 +676,29 @@ function UnitChip({ unitRef, backTo }: { unitRef: string; backTo?: string }) {
   );
 }
 
+// Skyline upload steps shown under each export. `stop` adds the prominent
+// "stop the current charges first" warning — required when replacing recurring
+// charges (estimates) so tenants aren't double-charged.
+function ImportInstructions({ stop }: { stop?: boolean }) {
+  return (
+    <div style={{ marginTop: 14 }}>
+      <div style={SECTION_LABEL}>Skyline Import Steps</div>
+      {stop && (
+        <div style={{ marginTop: 8, background: "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.4)", borderRadius: 8, padding: "9px 12px" }}>
+          <div style={{ color: "#b91c1c", fontWeight: 800, fontSize: 12.5 }}>⚠ STOP the current year&rsquo;s charges BEFORE importing — otherwise tenants are double-charged.</div>
+          <div style={{ color: "#7f1d1d", fontSize: 12, marginTop: 3 }}>Property Management → Additional Functions → Universal Charges → Stop CAM, INS &amp; RET.</div>
+        </div>
+      )}
+      <ol style={{ margin: "8px 0 0", paddingLeft: 18, fontSize: 12.5, color: "var(--muted)", lineHeight: 1.7 }}>
+        <li>Paste values into a blank workbook — <strong>do not paste headers</strong>.</li>
+        <li>Clear all blank or $0 rows once pasted.</li>
+        {stop && <li><strong style={{ color: "#b91c1c" }}>Stop the current year&rsquo;s charges</strong> (Universal Charges → Stop CAM, INS &amp; RET) so they aren&rsquo;t charged twice.</li>}
+        <li>Upload new data — Skyline → Other Modules → Data Import → <strong>Unit Charges → Tenant Monthly Charges</strong>. Report Destination: <strong>Screen</strong>.</li>
+      </ol>
+    </div>
+  );
+}
+
 // One compiled portfolio-wide year-end export card (fixed 4/30 posting, no
 // date input). Used for both the shopping-centers and business-parks reports.
 function CompiledYearEnd({ title, blurb, buttonLabel, disabled, onClick }: {
@@ -669,9 +711,10 @@ function CompiledYearEnd({ title, blurb, buttonLabel, disabled, onClick }: {
       <button onClick={onClick} disabled={disabled} className="btn primary" style={{ fontSize: 13, padding: "9px 14px", fontWeight: 700, marginTop: 12 }}>
         {buttonLabel}
       </button>
-      <p className="small muted" style={{ marginTop: 14, marginBottom: 0 }}>
-        Values-only, $0 rows omitted — charge codes YEC (CAM) · YEI (INS) · YER (RET), unit &lt;suite&gt;-CU. Paste into Skyline → Unit Charges.
+      <p className="small muted" style={{ marginTop: 14 }}>
+        Values-only, $0 rows omitted — charge codes YEC (CAM) · YEI (INS) · YER (RET), unit &lt;suite&gt;-CU.
       </p>
+      <ImportInstructions />
     </div>
   );
 }
@@ -743,9 +786,9 @@ function RetailBuildingSummary({ result, onPick }: { result: RetailBuildingResul
         </thead>
         <tbody>
           {tenants.map((t) => (
-            <tr key={t.unitRef} style={{ borderBottom: "1px solid var(--border)", cursor: "pointer" }} onClick={() => onPick(t.unitRef)}>
+            <tr key={t.unitRef} style={{ borderBottom: "1px solid var(--border)", cursor: "pointer", ...(t.grossLease ? { opacity: 0.5 } : {}) }} onClick={() => onPick(t.unitRef)}>
               <td style={{ ...td, textAlign: "left" }}><UnitChip unitRef={t.unitRef} backTo={`/cam-recon?property=${result.propertyCode}&year=${result.reconYear}`} /></td>
-              <td style={{ ...td, textAlign: "left" }}><span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>{t.portion && <PortionPill portion={t.portion} />}<span>{t.name}{t.grossLease ? <span className="muted" style={{ fontSize: 11 }}> (gross)</span> : t.capped ? <span style={{ fontSize: 11, color: "#b45309" }}> (capped)</span> : t.flatRet != null ? <span style={{ fontSize: 11, color: "#b45309" }}> (own-parcel RET)</span> : null}<OccCallout occPct={t.occPct} year={result.reconYear} rcd={t.rcd} vacatedISO={t.vacatedISO} /></span></span></td>
+              <td style={{ ...td, textAlign: "left" }}><span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>{t.portion && <PortionPill portion={t.portion} />}<span>{t.name}{t.grossLease ? <span className="muted" style={{ fontSize: 11 }}> (Gross)</span> : t.capped ? <span style={{ fontSize: 11, color: "#b45309" }}> (capped)</span> : t.flatRet != null ? <span style={{ fontSize: 11, color: "#b45309" }}> (own-parcel RET)</span> : null}<OccCallout occPct={t.occPct} year={result.reconYear} rcd={t.rcd} vacatedISO={t.vacatedISO} /></span></span></td>
               <td style={td}>{pct(t.camPrs / 100)}</td>
               <td style={td}>{t.adminFeePct ? `${t.adminFeePct}%` : "—"}</td>
               <td style={cam(true)}>{money0(t.camDue)}</td>
@@ -827,9 +870,9 @@ function RetailConfigTable({ result, onPick }: { result: RetailBuildingResult; o
             const isOpen = open === t.unitRef;
             return (
               <Fragment key={t.unitRef}>
-                <tr style={{ borderBottom: ex.length && isOpen ? "none" : "1px solid var(--border)" }}>
+                <tr style={{ borderBottom: ex.length && isOpen ? "none" : "1px solid var(--border)", ...(t.grossLease ? { opacity: 0.5 } : {}) }}>
                   <td style={{ ...td, textAlign: "left" }}><UnitChip unitRef={t.unitRef} backTo={`/cam-recon?property=${result.propertyCode}&year=${result.reconYear}`} /></td>
-                  <td style={{ ...td, textAlign: "left", cursor: "pointer" }} onClick={() => onPick(t.unitRef)}><span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>{t.portion && <PortionPill portion={t.portion} />}<span>{t.name}<OccCallout occPct={t.occPct} year={result.reconYear} rcd={t.rcd} vacatedISO={t.vacatedISO} /></span></span></td>
+                  <td style={{ ...td, textAlign: "left", cursor: "pointer" }} onClick={() => onPick(t.unitRef)}><span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>{t.portion && <PortionPill portion={t.portion} />}<span>{t.name}{t.grossLease ? <span className="muted" style={{ fontSize: 11 }}> (Gross)</span> : null}<OccCallout occPct={t.occPct} year={result.reconYear} rcd={t.rcd} vacatedISO={t.vacatedISO} /></span></span></td>
                   <td style={td}>{t.adminFeePct ? `${t.adminFeePct}%` : "—"}</td>
                   <td style={td}>{t.grossLease ? "—" : pct(t.camPrs / 100)}</td>
                   <td style={td}>{t.grossLease ? "—" : pct(t.insPrs / 100)}</td>
