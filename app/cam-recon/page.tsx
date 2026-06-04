@@ -942,8 +942,6 @@ function RetailScheduleTable({ t }: { t: RetailTenantResult }) {
 function RetailTenantStatement({ t, reconYear, contact }: {
   t: RetailTenantResult; reconYear: number; contact?: { email: string; cc: string };
 }) {
-  const net = t.camBalance + t.insBalance + t.retBalance;
-  const credit = net < -0.005;
   const occLine = t.occPct < 0.9999; // only show the proration step when it prorates
   const camFull = (t.camPrs / 100) * t.camPoolEffective;
   const insFull = (t.insPrs / 100) * t.insPool;
@@ -990,18 +988,7 @@ function RetailTenantStatement({ t, reconYear, contact }: {
         </div>
       </div>
 
-      {/* Net true-up + billing contact */}
-      <div className="card" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 12,
-        borderLeft: `4px solid ${credit ? "#15803d" : "#b45309"}` }}>
-        <div>
-          <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.04em", textTransform: "uppercase", color: credit ? "#15803d" : "#b45309" }}>
-            {credit ? "Net Credit to Tenant" : "Net Balance Due from Tenant"}
-          </div>
-          <div className="small muted" style={{ marginTop: 2 }}>CAM {money(t.camBalance)} · INS {money(t.insBalance)} · RET {money(t.retBalance)}</div>
-        </div>
-        <div style={{ fontSize: 24, fontWeight: 900, color: credit ? "#15803d" : "#b45309", fontVariantNumeric: "tabular-nums" }}>{money(Math.abs(net))}</div>
-      </div>
-
+      {/* Net total lives in the header KPI pills (matches the office statement). */}
       <div className="card" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10 }}>
         <span style={{ ...SECTION_LABEL, whiteSpace: "nowrap" }}>Statement to</span>
         {contact?.email
