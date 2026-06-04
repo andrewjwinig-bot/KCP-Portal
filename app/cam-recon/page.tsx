@@ -779,12 +779,12 @@ function RetailBuildingSummary({ result, onPick }: { result: RetailBuildingResul
 
 function retailExceptions(t: RetailTenantResult): string[] {
   const out: string[] = [];
-  if (t.grossLease) out.push("Gross lease — no CAM / INS / RET reconciliation.");
+  if (t.grossLease) out.push("Gross Lease");
   if (t.camCap) {
     const cap = t.camCap.priorControllable * (1 + t.camCap.growthPct / 100);
     out.push(`CAM cap: controllable held to prior ${money0(t.camCap.priorControllable)} × ${(1 + t.camCap.growthPct / 100).toFixed(2)} = ${money0(cap)} (effective pool ${money0(t.camPoolEffective)}).`);
   }
-  if (t.camExcludedLabels.length) out.push(`Not billed for CAM line(s): ${t.camExcludedLabels.join(", ")}.`);
+  if (t.camExcludedLabels.length) out.push(`CAM Exclusions: ${t.camExcludedLabels.join(", ")}.`);
   if (t.adminExcludedLabels.length) out.push(`Admin fee excludes: ${t.adminExcludedLabels.join(", ")}.`);
   if (t.retDiscountPct > 0) out.push(`RET discount: ${t.retDiscountPct}%.`);
   return out;
