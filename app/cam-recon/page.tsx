@@ -758,17 +758,17 @@ function RetailBuildingSummary({ result, onPick, onEditEscrow }: {
               <td style={td}>{t.adminFeePct ? `${t.adminFeePct}%` : "—"}</td>
               <td style={cam(true)}>{money0(t.camDue)}</td>
               <td style={cam()} onClick={(e) => e.stopPropagation()}>
-                <EditableMoney value={t.camEscrow} onCommit={(v) => onEditEscrow(t.unitRef, "camEscrow", v, t.portion)} />
+                <EditableMoney value={t.camEscrow} whole onCommit={(v) => onEditEscrow(t.unitRef, "camEscrow", v, t.portion)} />
               </td>
               <td style={cam()}><Pill tone={reconBalanceTone(t.camBalance)}>{money0(t.camBalance)}</Pill></td>
               <td style={ins(true)}>{money0(t.insDue)}</td>
               <td style={ins()} onClick={(e) => e.stopPropagation()}>
-                <EditableMoney value={t.insEscrow} onCommit={(v) => onEditEscrow(t.unitRef, "insEscrow", v, t.portion)} />
+                <EditableMoney value={t.insEscrow} whole onCommit={(v) => onEditEscrow(t.unitRef, "insEscrow", v, t.portion)} />
               </td>
               <td style={ins()}><Pill tone={reconBalanceTone(t.insBalance)}>{money0(t.insBalance)}</Pill></td>
               <td style={ret(true)}>{money0(t.retDue)}</td>
               <td style={ret()} onClick={(e) => e.stopPropagation()}>
-                <EditableMoney value={t.retEscrow} onCommit={(v) => onEditEscrow(t.unitRef, "retEscrow", v, t.portion)} />
+                <EditableMoney value={t.retEscrow} whole onCommit={(v) => onEditEscrow(t.unitRef, "retEscrow", v, t.portion)} />
               </td>
               <td style={ret()}><Pill tone={reconBalanceTone(t.retBalance)}>{money0(t.retBalance)}</Pill></td>
             </tr>
@@ -1305,12 +1305,12 @@ function BuildingSummary({ result, onPick, onEditEscrow }: {
               <td style={td}>{pct(t.proRataPct / 100)}</td>
               <td style={cam(true)}>{money0(t.opexAmountDue)}</td>
               <td style={cam()} onClick={(e) => e.stopPropagation()}>
-                <EditableMoney value={t.opexEscrow} onCommit={(v) => onEditEscrow(t.unitRef, "opexEscrow", v)} />
+                <EditableMoney value={t.opexEscrow} whole onCommit={(v) => onEditEscrow(t.unitRef, "opexEscrow", v)} />
               </td>
               <td style={cam()}><Pill tone={reconBalanceTone(t.opexBalance)}>{money0(t.opexBalance)}</Pill></td>
               <td style={ret(true)}>{money0(t.retAmountDue)}</td>
               <td style={ret()} onClick={(e) => e.stopPropagation()}>
-                <EditableMoney value={t.retEscrow} onCommit={(v) => onEditEscrow(t.unitRef, "retEscrow", v)} />
+                <EditableMoney value={t.retEscrow} whole onCommit={(v) => onEditEscrow(t.unitRef, "retEscrow", v)} />
               </td>
               <td style={ret()}><Pill tone={reconBalanceTone(t.retBalance)}>{money0(t.retBalance)}</Pill></td>
             </tr>

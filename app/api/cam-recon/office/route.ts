@@ -221,7 +221,9 @@ export async function POST(req: NextRequest) {
       if (!Number.isFinite(n)) {
         return NextResponse.json({ error: "Invalid value" }, { status: 400 });
       }
-      value = field === "baseYear" ? Math.round(n) : n;
+      // Base year and escrow (billed in whole dollars) round to integers;
+      // pro-rata share keeps its decimals.
+      value = field === "baseYear" || field === "opexEscrow" || field === "retEscrow" ? Math.round(n) : n;
     }
 
     await saveOverride(property, year, unitRef, { [field]: value });
