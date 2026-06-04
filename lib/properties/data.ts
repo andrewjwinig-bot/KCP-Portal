@@ -105,6 +105,9 @@ export interface BankAccount {
 }
 
 export const BANK_ACCOUNTS: Record<string, BankAccount[]> = {
+  "0300": [
+    { bank: "M&T",     label: "Operating",               last4: "x6063", link: "https://treasurycenter.mtb.com/ui/BANK_ACC_INFO/depositPreviousDayAccountsTransactions" },
+  ],
   "2300": [
     { bank: "Chase",   label: "Operating",               last4: "x5615", link: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/745774880/DDA/CHK" },
     { bank: "Liberty", label: "Operating",               last4: "x6888", link: "https://secure.myvirtualbranch.com/LibertyBank/React/Accounts.aspx?p_r=1#Accounts/4" },
