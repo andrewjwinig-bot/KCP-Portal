@@ -81,7 +81,7 @@ export function assembleRetail(
       grossLease: cfg.grossLease,
       camExcludedLabels: cfg.camExcludedLines,
       adminExcludedLabels: cfg.camAdminExcludedLines,
-      retDiscountPct: u.retDiscountPct ?? 0,
+      retDiscountPct: u.retDiscountPct ?? cfg.retDiscountPct ?? 0,
       insPoolOverride: u.insPoolOverride,
       camCap: cfg.camCap
         ? { priorControllable: cfg.camCap.controllableAmount, growthPct: cfg.camCap.growthPct }

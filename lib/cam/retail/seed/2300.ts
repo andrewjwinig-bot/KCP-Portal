@@ -34,21 +34,24 @@ export const POOL_2300: RetailExpensePool = {
 
 const LIABILITY = 40126.88; // Wawa's insurance is billed on the liability line.
 
+// RET discount %, admin, exclusions, cap all live in the CAM config seed
+// (lib/cam/retailConfigSeed.ts) — the unit-page source of truth. The roster
+// carries only rent-roll facts (SF, escrow billed) + the Wawa INS override.
 export const ROSTER_2300_2025: RetailRosterUnit[] = [
-  { unitRef: "2300-1817", suite: "1817", name: "M&T Bank",            sqft: 3800,  retDiscountPct: 2, camEscrow: 16656, insEscrow: 0,    retEscrow: 8364 },
-  { unitRef: "2300-1847", suite: "1847", name: "Crafty Crab",         sqft: 12759,                  camEscrow: 68400, insEscrow: 2496, retEscrow: 28644 },
-  { unitRef: "2300-1851", suite: "1851", name: "Planet Fitness",      sqft: 20433, retDiscountPct: 2, camEscrow: 69600, insEscrow: 5376, retEscrow: 44952 },
-  { unitRef: "2300-1861", suite: "1861", name: "Edible Arrangements", sqft: 2000,                   camEscrow: 10896, insEscrow: 528,  retEscrow: 4488 },
-  { unitRef: "2300-1863", suite: "1863", name: "Cohen Fashion Optical", sqft: 1600,                 camEscrow: 7920,  insEscrow: 420,  retEscrow: 3588 },
-  { unitRef: "2300-1867", suite: "1867", name: "T-Mobile Northeast LLC", sqft: 3200, retDiscountPct: 2, camEscrow: 16776, insEscrow: 840, retEscrow: 7044 },
-  { unitRef: "2300-1869", suite: "1869", name: "China Sun",           sqft: 1600,                   camEscrow: 8712,  insEscrow: 420,  retEscrow: 3588 },
-  { unitRef: "2300-1871", suite: "1871", name: "Lee's Hoagie House",  sqft: 1600,                   camEscrow: 7920,  insEscrow: 420,  retEscrow: 3588 },
-  { unitRef: "2300-1877", suite: "1877", name: "Evolve Nails",        sqft: 1600,                   camEscrow: 5112,  insEscrow: 420,  retEscrow: 2100 },
-  { unitRef: "2300-1879", suite: "1879", name: "GNC/Live Well",       sqft: 1280,                   camEscrow: 6391,  insEscrow: 308,  retEscrow: 2629 },
-  { unitRef: "2300-1881", suite: "1881", name: "Citizens Bank of PA", sqft: 2700,  retDiscountPct: 2, camEscrow: 14700, insEscrow: 708,  retEscrow: 5940 },
-  { unitRef: "2300-1885", suite: "1885", name: "Dunkin Donuts",       sqft: 4000,  retDiscountPct: 2, camEscrow: 15936, insEscrow: 0,    retEscrow: 8796 },
+  { unitRef: "2300-1817", suite: "1817", name: "M&T Bank",            sqft: 3800,  camEscrow: 16656, insEscrow: 0,    retEscrow: 8364 },
+  { unitRef: "2300-1847", suite: "1847", name: "Crafty Crab",         sqft: 12759, camEscrow: 68400, insEscrow: 2496, retEscrow: 28644 },
+  { unitRef: "2300-1851", suite: "1851", name: "Planet Fitness",      sqft: 20433, camEscrow: 69600, insEscrow: 5376, retEscrow: 44952 },
+  { unitRef: "2300-1861", suite: "1861", name: "Edible Arrangements", sqft: 2000,  camEscrow: 10896, insEscrow: 528,  retEscrow: 4488 },
+  { unitRef: "2300-1863", suite: "1863", name: "Cohen Fashion Optical", sqft: 1600, camEscrow: 7920,  insEscrow: 420,  retEscrow: 3588 },
+  { unitRef: "2300-1867", suite: "1867", name: "T-Mobile Northeast LLC", sqft: 3200, camEscrow: 16776, insEscrow: 840, retEscrow: 7044 },
+  { unitRef: "2300-1869", suite: "1869", name: "China Sun",           sqft: 1600,  camEscrow: 8712,  insEscrow: 420,  retEscrow: 3588 },
+  { unitRef: "2300-1871", suite: "1871", name: "Lee's Hoagie House",  sqft: 1600,  camEscrow: 7920,  insEscrow: 420,  retEscrow: 3588 },
+  { unitRef: "2300-1877", suite: "1877", name: "Evolve Nails",        sqft: 1600,  camEscrow: 5112,  insEscrow: 420,  retEscrow: 2100 },
+  { unitRef: "2300-1879", suite: "1879", name: "GNC/Live Well",       sqft: 1280,  camEscrow: 6391,  insEscrow: 308,  retEscrow: 2629 },
+  { unitRef: "2300-1881", suite: "1881", name: "Citizens Bank of PA", sqft: 2700,  camEscrow: 14700, insEscrow: 708,  retEscrow: 5940 },
+  { unitRef: "2300-1885", suite: "1885", name: "Dunkin Donuts",       sqft: 4000,  camEscrow: 15936, insEscrow: 0,    retEscrow: 8796 },
   // Wawa outparcel: no CAM; insurance billed on the liability line at full GLA.
-  { unitRef: "2300-1883", suite: "1883", name: "Wawa",               sqft: 5000,  retDiscountPct: 2, insPoolOverride: LIABILITY, camEscrow: 0, insEscrow: 1812, retEscrow: 11004 },
+  { unitRef: "2300-1883", suite: "1883", name: "Wawa",               sqft: 5000,  insPoolOverride: LIABILITY, camEscrow: 0, insEscrow: 1812, retEscrow: 11004 },
 ];
 
 export const TENANTS_2300_2025 = assembleRetail(POOL_2300, ROSTER_2300_2025, GLA_2300);
