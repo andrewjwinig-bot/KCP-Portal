@@ -783,10 +783,10 @@ function retailExceptions(t: RetailTenantResult): string[] {
 }
 
 function RetailConfigTable({ result, onPick }: { result: RetailBuildingResult; onPick: (u: string) => void }) {
-  // Narrow numeric columns (shrink to content) so the Notes column gets the
-  // remaining width and the lease exceptions can be written out inline.
-  const numTh: React.CSSProperties = { ...th, width: "1%" };
-  const numTd: React.CSSProperties = { ...td, width: "1%" };
+  // Notes column is capped (~30%) and wraps; the other columns keep their
+  // natural width so nothing looks cramped.
+  const noteTh: React.CSSProperties = { ...th, textAlign: "left", width: "30%" };
+  const noteTd: React.CSSProperties = { ...td, textAlign: "left", whiteSpace: "normal", width: "30%" };
   return (
     <div className="card" style={{ overflowX: "auto" }}>
       <div style={CARD_TITLE}>Tenant CAM Methodology</div>
@@ -796,13 +796,13 @@ function RetailConfigTable({ result, onPick }: { result: RetailBuildingResult; o
       <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 10, minWidth: 720 }}>
         <thead>
           <tr>
-            <th style={{ ...numTh, textAlign: "left" }}>Unit</th>
-            <th style={{ ...th, textAlign: "left", width: "1%" }}>Tenant</th>
-            <th style={numTh}>CAM Admin</th>
-            <th style={numTh}>CAM PRS</th>
-            <th style={numTh}>INS PRS</th>
-            <th style={numTh}>RET PRS</th>
-            <th style={{ ...th, textAlign: "left" }}>Notes</th>
+            <th style={{ ...th, textAlign: "left" }}>Unit</th>
+            <th style={{ ...th, textAlign: "left" }}>Tenant</th>
+            <th style={th}>CAM Admin</th>
+            <th style={th}>CAM PRS</th>
+            <th style={th}>INS PRS</th>
+            <th style={th}>RET PRS</th>
+            <th style={noteTh}>Notes</th>
           </tr>
         </thead>
         <tbody>
@@ -810,13 +810,13 @@ function RetailConfigTable({ result, onPick }: { result: RetailBuildingResult; o
             const ex = retailExceptions(t);
             return (
               <tr key={t.unitRef} style={{ borderBottom: "1px solid var(--border)", ...(t.grossLease ? { opacity: 0.5 } : {}) }}>
-                <td style={{ ...numTd, textAlign: "left" }}><UnitChip unitRef={t.unitRef} backTo={`/cam-recon?property=${result.propertyCode}&year=${result.reconYear}`} /></td>
-                <td style={{ ...td, textAlign: "left", width: "1%", cursor: "pointer" }} onClick={() => onPick(t.unitRef)}><span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>{t.portion && <PortionPill portion={t.portion} />}<span>{t.name}{t.grossLease ? <span className="muted" style={{ fontSize: 11 }}> (Gross)</span> : null}<OccCallout occPct={t.occPct} year={result.reconYear} rcd={t.rcd} vacatedISO={t.vacatedISO} /></span></span></td>
-                <td style={numTd}>{t.adminFeePct ? `${t.adminFeePct}%` : "—"}</td>
-                <td style={numTd}>{t.grossLease ? "—" : pct(t.camPrs / 100)}</td>
-                <td style={numTd}>{t.grossLease ? "—" : pct(t.insPrs / 100)}</td>
-                <td style={numTd}>{t.grossLease ? "—" : pct(t.retPrs / 100)}</td>
-                <td style={{ ...td, textAlign: "left", whiteSpace: "normal" }}>
+                <td style={{ ...td, textAlign: "left" }}><UnitChip unitRef={t.unitRef} backTo={`/cam-recon?property=${result.propertyCode}&year=${result.reconYear}`} /></td>
+                <td style={{ ...td, textAlign: "left", cursor: "pointer" }} onClick={() => onPick(t.unitRef)}><span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>{t.portion && <PortionPill portion={t.portion} />}<span>{t.name}{t.grossLease ? <span className="muted" style={{ fontSize: 11 }}> (Gross)</span> : null}<OccCallout occPct={t.occPct} year={result.reconYear} rcd={t.rcd} vacatedISO={t.vacatedISO} /></span></span></td>
+                <td style={td}>{t.adminFeePct ? `${t.adminFeePct}%` : "—"}</td>
+                <td style={td}>{t.grossLease ? "—" : pct(t.camPrs / 100)}</td>
+                <td style={td}>{t.grossLease ? "—" : pct(t.insPrs / 100)}</td>
+                <td style={td}>{t.grossLease ? "—" : pct(t.retPrs / 100)}</td>
+                <td style={noteTd}>
                   {ex.length > 0 ? (
                     <ul style={{ margin: 0, paddingLeft: 16, display: "flex", flexDirection: "column", gap: 2 }}>
                       {ex.map((e, i) => <li key={i} style={{ fontSize: 12, color: "#7c4a12", lineHeight: 1.4 }}>{e}</li>)}
