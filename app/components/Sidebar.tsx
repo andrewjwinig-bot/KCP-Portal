@@ -23,7 +23,7 @@ const NAV_ROLE_KEY: Record<string, string> = {
   "Commissions":        "commissions",
   "Retail Commissions": "commissions-retail",
   "Security Deposits":  "deposits",
-  "Task Tracker":       "tracker",
+  "Task Tracker":       "task-tracker",
   "Filing Tracker":     "tracker",
   "Bank Acc Tracker":   "bank-rec-tracker",
   "Payroll Invoicer":   "payroll-invoicer",

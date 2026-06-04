@@ -67,6 +67,7 @@ export const USERS: Record<UserId, UserDef> = {
       "investors",
       "base-years",
       "leasing-activity",
+      "task-tracker",
       "tracker",
       "allocated",
       "deposits",
@@ -97,6 +98,7 @@ export const USERS: Record<UserId, UserDef> = {
     // or per-employee payroll detail.
     navKeys: new Set([
       ...universalNav,
+      "task-tracker",
       "tracker",
       "bank-rec-tracker",
       "bank-transfers",
@@ -129,9 +131,9 @@ export const USERS: Record<UserId, UserDef> = {
   harry: {
     id: "harry",
     label: "HARRY",
-    // Drew's Task Tracker is surfaced on Harry's dashboard; allow him to open
-    // the full tracker (its "View all" link) without adding it to his sidebar.
-    navKeys: new Set([...universalNav, "expenses", "expenses-history", "payroll-invoicer", "investors", "commissions-retail", "deposits", "bank-transfers"]),
+    // Harry gets Drew's Task Tracker (dashboard card + sidebar item) but not
+    // the Filing Tracker (which is the separate "tracker" key).
+    navKeys: new Set([...universalNav, "expenses", "expenses-history", "payroll-invoicer", "investors", "commissions-retail", "deposits", "bank-transfers", "task-tracker"]),
     allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/expenses", "/investors", "/commissions/retail", "/deposits", "/bank-transfers", "/tracker", "/"],
     defaultRentRollCategory: "Retail",
     defaultPropertyType: "Retail",
