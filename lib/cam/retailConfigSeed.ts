@@ -93,9 +93,32 @@ export const RETAIL_CONFIG_SEED: Record<string, RetailConfigSeedEntry> = {
   "4500-3009": { grossLease: true }, // PLCB — gross lease
 
   // ── 7010 · Parkwood Shopping/Office Center (mixed retail + office) ──────
-  // PRS / admin come from the per-tenant roster (bespoke). Only the gross
-  // leases need a config entry.
+  // Per-tenant PRS + admin live here (the unit-page source of truth); the
+  // reconciliation reads them from here. The roster only carries rent-roll
+  // facts (SF, escrow billed, occupancy) and the pad CAM-pool overrides.
+  // Retail (8502):
+  "7010-1230A": { camPrs: 10.218560, insPrs: 0, retPrs: 8.518746, adminFeePct: 0 },   // Wawa (pad, no INS, no admin)
+  "7010-12315": { camPrs: 5.242808, insPrs: 5.242808, retPrs: 4.370689, adminFeePct: 10 }, // Pat's Pizzaria
+  "7010-12319": { camPrs: 7.339931, insPrs: 7.339931, retPrs: 6.118965, adminFeePct: 10 }, // Reen's Deli
+  "7010-12325": { camPrs: 2.359263, insPrs: 2.359263, retPrs: 1.966810, adminFeePct: 10 }, // Parkwood Pack & Ship
+  "7010-12327": { camPrs: 2.797241, insPrs: 2.797241, retPrs: 2.797241, adminFeePct: 10 }, // The Forge MMA
+  "7010-12329": { camPrs: 2.621404, insPrs: 2.621404, retPrs: 2.185345, adminFeePct: 10 }, // Parkwood Super Valet
+  "7010-12331": { camPrs: 3.932106, insPrs: 5.942359, retPrs: 3.278017, adminFeePct: 10 }, // Petroski Physiotherapy
+  "7010-12333": { camPrs: 2.064355, insPrs: 2.064355, retPrs: 1.720959, adminFeePct: 10 }, // Hong Kong
+  "7010-12337": { camPrs: 3.145685, insPrs: 3.145685, retPrs: 2.622413, adminFeePct: 10 }, // Parkwood Hairstylist
+  "7010-12339": { camPrs: 2.424798, insPrs: 2.424798, retPrs: 2.021444, adminFeePct: 10 }, // Coldwell Banker
+  "7010-12341": { camPrs: 2.424798, insPrs: 3.664455, retPrs: 2.021444, adminFeePct: 10 }, // Hair Wizards
+  "7010-12343": { camPrs: 2.359263, insPrs: 2.359263, retPrs: 1.966810, adminFeePct: 10 }, // Philadelphia Flower
+  "7010-12345": { camPrs: 2.359263, insPrs: 2.359263, retPrs: 1.966810, adminFeePct: 10 }, // Miss Beauty Salon
+  "7010-12349": { camPrs: 6.299561, insPrs: 6.299561, retPrs: 5.251656, adminFeePct: 10 }, // North Inc
+  "7010-12353": { camPrs: 3.550364, insPrs: 5.365455, retPrs: 2.959776, adminFeePct: 10 }, // Zen Serenity
+  "7010-12357": { camPrs: 5.426306, insPrs: 8.200456, retPrs: 4.523663, adminFeePct: 10 }, // We Rock the Spectrum
+  "7010-12360": { camPrs: 2.976190, insPrs: 3.735500, retPrs: 3.114116, adminFeePct: 15 }, // Trumark Fin. (pad)
+  "7010-12363": { camPrs: 3.257094, insPrs: 3.257094, retPrs: 2.715291, adminFeePct: 10 }, // Philly Soft Pretzel
+  "7010-12375": { camPrs: 5.242808, insPrs: 0, retPrs: 4.370689, adminFeePct: 10 }, // Dunkin (pad, no INS)
   "7010-12361": { grossLease: true }, // Senator Sabatina (retail) — gross
+  // Office (8503), pro-rata over 12,179 sf:
+  "7010-203": { camPrs: 17.710814, insPrs: 17.710814, retPrs: 17.710814, adminFeePct: 0 }, // Parkwood Medical
   "7010-201": { grossLease: true },   // Foot & Ankle (office) — gross
   "7010-218": { grossLease: true },   // Parkwood Medical Storage (office) — gross
 };
