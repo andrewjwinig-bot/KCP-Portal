@@ -39,6 +39,10 @@ export type RetailTenantInput = {
   /** Fraction of the year occupied (0–1) — prorates all three shares. 1 for
    *  a full-year tenant. */
   occPct: number;
+  /** Rent commencement date (lease start), "M/D/YYYY" — occ tooltip. */
+  rcd?: string | null;
+  /** Move-out date (ISO) when a tenant vacated mid-year — occ tooltip. */
+  vacatedISO?: string | null;
   /** Pro-rata shares as percents (0 when carved out of a category). */
   camPrs: number;
   insPrs: number;
@@ -80,6 +84,10 @@ export type RetailTenantResult = {
   sqft: number;
   grossLease: boolean;
   occPct: number;
+  /** Rent commencement date (lease start), "M/D/YYYY" — for the occ tooltip. */
+  rcd?: string | null;
+  /** Move-out date (ISO) when a tenant vacated mid-year — for the occ tooltip. */
+  vacatedISO?: string | null;
   flatRet?: number;
   camPrs: number;
   insPrs: number;

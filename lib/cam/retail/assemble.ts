@@ -19,6 +19,10 @@ export type RetailRosterUnit = {
   vacant?: boolean;
   /** Fraction of the year occupied (0–1); defaults to 1. */
   occPct?: number;
+  /** Rent commencement (lease start), "M/D/YYYY" — occ tooltip. */
+  rcd?: string | null;
+  /** Move-out date (ISO) when vacated mid-year — occ tooltip. */
+  vacatedISO?: string | null;
   retDiscountPct?: number;
   /** Override INS pool (Wawa's insurance is the liability line). */
   insPoolOverride?: number;
@@ -66,6 +70,8 @@ export function assembleRetail(
       name: u.name,
       sqft: u.sqft,
       occPct: u.occPct ?? 1,
+      rcd: u.rcd,
+      vacatedISO: u.vacatedISO,
       flatRet: u.flatRet,
       camPoolOverride: u.camPoolOverride,
       camPrs: u.camPrs ?? prsFor(pool.propertyCode, "cam", u.name, u.sqft, buildingGla, cfg.cam.stipulatedPrs),

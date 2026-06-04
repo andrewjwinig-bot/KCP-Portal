@@ -3,7 +3,6 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Pill, StatPill, reconBalanceTone, TONE_NEUTRAL, TONE_AMBER, TONE_BLUE, TONE_PURPLE } from "@/app/components/Pill";
-import { Calendar } from "@/app/components/Calendar";
 import {
   yearEndAdjustmentRows,
   estimateChargeRows,
@@ -34,6 +33,12 @@ function fmtRCD(d?: string | null): string {
   if (!d) return "";
   const m = d.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
   return m ? `${m[1].padStart(2, "0")}/${m[2].padStart(2, "0")}/${m[3].slice(2)}` : d;
+}
+
+/** ISO "2026-04-30" → "4/30/2026" for the year-end posting note. */
+function fmtYe(iso: string): string {
+  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return m ? `${Number(m[2])}/${Number(m[3])}/${m[1]}` : iso;
 }
 
 const SECTION_LABEL: React.CSSProperties = {
@@ -278,7 +283,8 @@ export default function OfficeCamReconPage() {
   const [expenseEditable, setExpenseEditable] = useState(false);
   const [warnings, setWarnings] = useState<{ unitRef: string; name: string; kind: string; message: string }[]>([]);
   const [loading, setLoading] = useState(false);
-  const [yeDate, setYeDate] = useState("");
+  // Year-end true-up always posts on 4/30 of the following year.
+  const yeDate = year ? `${year + 1}-04-30` : "";
   const [estDate, setEstDate] = useState("");
 
   useEffect(() => {
@@ -374,7 +380,6 @@ export default function OfficeCamReconPage() {
   // Property/year change: reset selection + export dates, then load.
   useEffect(() => {
     if (!property || !year) return;
-    setYeDate(`${year + 1}-04-30`);
     setEstDate(`${year + 1}-01-01`);
     setUnit("ALL");
     loadResult();
@@ -479,18 +484,6 @@ export default function OfficeCamReconPage() {
     } finally {
       setCompilingRetail(false);
     }
-  }
-
-  // Retail year-end true-up CSV for the selected center (CAM / INS / RET net
-  // due per tenant) — the Skyline one-time upload.
-  function downloadRetailYearEnd() {
-    if (!retailResult) return;
-    // Mixed center: one CSV covering both the retail and office parts.
-    const rows = [
-      ...retailYearEndRows(retailResult, yeDate),
-      ...(retailOffice ? retailYearEndRows(retailOffice, yeDate) : []),
-    ];
-    downloadCSV(`${property}_${year}_YearEndAdjustments.csv`, chargeRowsToCSV(rows));
   }
 
   return (
@@ -605,83 +598,36 @@ export default function OfficeCamReconPage() {
         </div>
       )}
 
-      {isRetail && !rSelected && isMixed && allocation && <AllocationBreakdown a={allocation} />}
+      {/* Building Summary is always the top content card. */}
       {isRetail && !rSelected && activeRetail && <RetailBuildingSummary result={activeRetail} onPick={setUnit} />}
+      {isRetail && !rSelected && allocation && <AllocationBreakdown a={allocation} />}
       {isRetail && !rSelected && activeRetail && <RetailConfigTable result={activeRetail} onPick={setUnit} />}
-      {isRetail && !rSelected && !isMixed && allocation && <AllocationBreakdown a={allocation} />}
-      {isRetail && !rSelected && activeRetail && (
-        <div className="card">
-          <div style={SECTION_LABEL}>Year-End Adjustments — {propName}</div>
-          <p className="small muted" style={{ marginTop: 6 }}>
-            One-time CAM / INS / RET true-up per tenant (net due) for {year}{isMixed ? " — retail + office in one file" : ""} — the Skyline upload.
-          </p>
-          <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "flex-end", marginTop: 12 }}>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              <span className="small muted">One-time true-up posted on:</span>
-              <Calendar value={yeDate} variant="card" onChange={setYeDate} />
-            </div>
-            <button onClick={downloadRetailYearEnd} className="btn primary" style={{ fontSize: 13, padding: "9px 14px", fontWeight: 700 }}>
-              Download Year-End Adjustments CSV
-            </button>
-          </div>
-          <p className="small muted" style={{ marginTop: 14, marginBottom: 0 }}>
-            Values-only, $0 rows omitted — charge codes YEC (CAM) · YEI (INS) · YER (RET), unit &lt;suite&gt;-CU. Paste into Skyline → Unit Charges.
-          </p>
-        </div>
-      )}
       {isRetail && rSelected && <RetailTenantStatement t={rSelected} reconYear={year} contact={contacts[rSelected.unitRef]} />}
-
-      {/* Year-End Adjustments — one compiled schedule across every shopping
-          center (incl. both parts of a mixed center), the retail counterpart
-          of the all-office report. */}
-      {isRetail && !rSelected && activeRetail && (
-        <div className="card">
-          <div style={SECTION_LABEL}>Year-End Adjustments — All Shopping Centers</div>
-          <p className="small muted" style={{ marginTop: 6 }}>
-            One compiled YEC / YEI / YER schedule across every shopping center for {year} — a single one-time Skyline import.
-          </p>
-          <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "flex-end", marginTop: 12 }}>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              <span className="small muted">One-time true-up posted on:</span>
-              <Calendar value={yeDate} variant="card" onChange={setYeDate} />
-            </div>
-            <button onClick={downloadAllRetailYearEnd} disabled={compilingRetail} className="btn primary" style={{ fontSize: 13, padding: "9px 14px", fontWeight: 700 }}>
-              {compilingRetail ? "Compiling…" : "Download All Shopping Centers CSV"}
-            </button>
-          </div>
-          <p className="small muted" style={{ marginTop: 14, marginBottom: 0 }}>
-            Values-only, $0 rows omitted — charge codes YEC (CAM) · YEI (INS) · YER (RET), unit &lt;suite&gt;-CU. Paste into Skyline → Unit Charges.
-          </p>
-        </div>
-      )}
 
       {!selected && result && <BuildingSummary result={result} onPick={setUnit} onEditEscrow={saveField} />}
       {!selected && result && <RecoveryByBaseYear result={result} />}
       {!selected && expenseSummary.length > 0 && <FinalExpenseSummary rows={expenseSummary} editable={expenseEditable} year={year} onEdit={saveExpense} />}
       {selected && <TenantStatement t={selected} reconYear={year} estimate={estimates.find((e) => e.unitRef === selected.unitRef)} contact={contacts[selected.unitRef]} />}
 
-      {/* Year-End Adjustments — one compiled schedule across every office
-          property, hit once at year end. Lives at the bottom for that
-          reason. */}
+      {/* One compiled year-end schedule per portfolio (shopping centers /
+          business parks) — there's no per-building export. Posts 4/30. */}
+      {isRetail && !rSelected && activeRetail && (
+        <CompiledYearEnd
+          title="Year-End Adjustments — All Shopping Centers"
+          blurb={`One compiled YEC / YEI / YER schedule across every shopping center for ${year}, posted ${fmtYe(yeDate)} — a single one-time Skyline import.`}
+          buttonLabel={compilingRetail ? "Compiling…" : "Download All Shopping Centers CSV"}
+          disabled={compilingRetail}
+          onClick={downloadAllRetailYearEnd}
+        />
+      )}
       {!selected && result && (
-        <div className="card">
-          <div style={SECTION_LABEL}>Year-End Adjustments — All Office Properties</div>
-          <p className="small muted" style={{ marginTop: 6 }}>
-            One compiled YEC / YER schedule across every office property for {year} — a single one-time Skyline import.
-          </p>
-          <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "flex-end", marginTop: 12 }}>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              <span className="small muted">One-time true-up posted on:</span>
-              <Calendar value={yeDate} variant="card" onChange={setYeDate} />
-            </div>
-            <button onClick={downloadAllYearEnd} disabled={compiling} className="btn primary" style={{ fontSize: 13, padding: "9px 14px", fontWeight: 700 }}>
-              {compiling ? "Compiling…" : "Download All Year-End Adjustments CSV"}
-            </button>
-          </div>
-          <p className="small muted" style={{ marginTop: 14, marginBottom: 0 }}>
-            Values-only (no header), $0 rows omitted — paste into Skyline Data Import → Unit Charges.
-          </p>
-        </div>
+        <CompiledYearEnd
+          title="Year-End Adjustments — All Business Parks"
+          blurb={`One compiled YEC / YER schedule across every business-park property for ${year}, posted ${fmtYe(yeDate)} — a single one-time Skyline import.`}
+          buttonLabel={compiling ? "Compiling…" : "Download All Business Parks CSV"}
+          disabled={compiling}
+          onClick={downloadAllYearEnd}
+        />
       )}
     </main>
   );
@@ -708,6 +654,43 @@ function UnitChip({ unitRef, backTo }: { unitRef: string; backTo?: string }) {
     >
       {unitRef}
     </Link>
+  );
+}
+
+// One compiled portfolio-wide year-end export card (fixed 4/30 posting, no
+// date input). Used for both the shopping-centers and business-parks reports.
+function CompiledYearEnd({ title, blurb, buttonLabel, disabled, onClick }: {
+  title: string; blurb: string; buttonLabel: string; disabled: boolean; onClick: () => void;
+}) {
+  return (
+    <div className="card">
+      <div style={SECTION_LABEL}>{title}</div>
+      <p className="small muted" style={{ marginTop: 6 }}>{blurb}</p>
+      <button onClick={onClick} disabled={disabled} className="btn primary" style={{ fontSize: 13, padding: "9px 14px", fontWeight: 700, marginTop: 12 }}>
+        {buttonLabel}
+      </button>
+      <p className="small muted" style={{ marginTop: 14, marginBottom: 0 }}>
+        Values-only, $0 rows omitted — charge codes YEC (CAM) · YEI (INS) · YER (RET), unit &lt;suite&gt;-CU. Paste into Skyline → Unit Charges.
+      </p>
+    </div>
+  );
+}
+
+// Occupancy callout — consistent across office + retail building summaries:
+// assume 100% (render nothing), only flag partial-year tenants in amber, with
+// a hover tooltip surfacing the lease term (start / move-out) behind it.
+function OccCallout({ occPct, year, rcd, vacatedISO }: {
+  occPct: number; year: number; rcd?: string | null; vacatedISO?: string | null;
+}) {
+  if (occPct >= 0.9999) return null;
+  const bits: string[] = [];
+  if (rcd) bits.push(`Lease commenced ${fmtRCD(rcd)}`);
+  if (vacatedISO) bits.push(`Vacated ${new Date(vacatedISO + "T00:00:00").toLocaleDateString("en-US")}`);
+  bits.push(`${pct(occPct, 1)} of ${year} occupied`);
+  return (
+    <span title={bits.join(" · ")} style={{ fontSize: 11, color: "#b45309", cursor: "help", whiteSpace: "nowrap" }}>
+      {" "}({pct(occPct, 0)} occ)
+    </span>
   );
 }
 
@@ -762,7 +745,7 @@ function RetailBuildingSummary({ result, onPick }: { result: RetailBuildingResul
           {tenants.map((t) => (
             <tr key={t.unitRef} style={{ borderBottom: "1px solid var(--border)", cursor: "pointer" }} onClick={() => onPick(t.unitRef)}>
               <td style={{ ...td, textAlign: "left" }}><UnitChip unitRef={t.unitRef} backTo={`/cam-recon?property=${result.propertyCode}&year=${result.reconYear}`} /></td>
-              <td style={{ ...td, textAlign: "left" }}><span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>{t.portion && <PortionPill portion={t.portion} />}<span>{t.name}{t.grossLease ? <span className="muted" style={{ fontSize: 11 }}> (gross)</span> : t.capped ? <span style={{ fontSize: 11, color: "#b45309" }}> (capped)</span> : t.flatRet != null ? <span style={{ fontSize: 11, color: "#b45309" }}> (own-parcel RET)</span> : t.occPct < 0.9999 ? <span style={{ fontSize: 11, color: "#b45309" }}> ({pct(t.occPct, 0)} occ)</span> : null}</span></span></td>
+              <td style={{ ...td, textAlign: "left" }}><span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>{t.portion && <PortionPill portion={t.portion} />}<span>{t.name}{t.grossLease ? <span className="muted" style={{ fontSize: 11 }}> (gross)</span> : t.capped ? <span style={{ fontSize: 11, color: "#b45309" }}> (capped)</span> : t.flatRet != null ? <span style={{ fontSize: 11, color: "#b45309" }}> (own-parcel RET)</span> : null}<OccCallout occPct={t.occPct} year={result.reconYear} rcd={t.rcd} vacatedISO={t.vacatedISO} /></span></span></td>
               <td style={td}>{pct(t.camPrs / 100)}</td>
               <td style={td}>{t.adminFeePct ? `${t.adminFeePct}%` : "—"}</td>
               <td style={cam(true)}>{money0(t.camDue)}</td>
@@ -846,7 +829,7 @@ function RetailConfigTable({ result, onPick }: { result: RetailBuildingResult; o
               <Fragment key={t.unitRef}>
                 <tr style={{ borderBottom: ex.length && isOpen ? "none" : "1px solid var(--border)" }}>
                   <td style={{ ...td, textAlign: "left" }}><UnitChip unitRef={t.unitRef} backTo={`/cam-recon?property=${result.propertyCode}&year=${result.reconYear}`} /></td>
-                  <td style={{ ...td, textAlign: "left", cursor: "pointer" }} onClick={() => onPick(t.unitRef)}><span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>{t.portion && <PortionPill portion={t.portion} />}{t.name}</span></td>
+                  <td style={{ ...td, textAlign: "left", cursor: "pointer" }} onClick={() => onPick(t.unitRef)}><span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>{t.portion && <PortionPill portion={t.portion} />}<span>{t.name}<OccCallout occPct={t.occPct} year={result.reconYear} rcd={t.rcd} vacatedISO={t.vacatedISO} /></span></span></td>
                   <td style={td}>{t.adminFeePct ? `${t.adminFeePct}%` : "—"}</td>
                   <td style={td}>{t.grossLease ? "—" : pct(t.camPrs / 100)}</td>
                   <td style={td}>{t.grossLease ? "—" : pct(t.insPrs / 100)}</td>
@@ -1252,7 +1235,7 @@ function BuildingSummary({ result, onPick, onEditEscrow }: {
         <thead>
           {/* Group header: identity columns, then the CAM and RET blocks */}
           <tr>
-            <th colSpan={5} style={{ borderBottom: "1px solid var(--border)" }} />
+            <th colSpan={4} style={{ borderBottom: "1px solid var(--border)" }} />
             <th colSpan={3} style={{ ...groupTh, color: "#0b4a7d", background: CAM_TINT, borderLeft: BLOCK_SEP, borderBottom: "1px solid var(--border)" }}>CAM</th>
             <th colSpan={3} style={{ ...groupTh, color: "#854d0e", background: RET_TINT, borderLeft: BLOCK_SEP, borderBottom: "1px solid var(--border)" }}>RET</th>
           </tr>
@@ -1261,7 +1244,6 @@ function BuildingSummary({ result, onPick, onEditEscrow }: {
             <th style={{ ...th, textAlign: "left" }}>Tenant</th>
             <th style={th}>Base Yr</th>
             <th style={th}>% Share</th>
-            <th style={th}>% Occ</th>
             <th style={camH(true)}>Due</th>
             <th style={camH()}>Escrow</th>
             <th style={camH()}>Balance</th>
@@ -1274,10 +1256,9 @@ function BuildingSummary({ result, onPick, onEditEscrow }: {
           {tenants.map((t) => (
             <tr key={t.unitRef} style={{ borderBottom: "1px solid var(--border)", cursor: "pointer" }} onClick={() => onPick(t.unitRef)}>
               <td style={{ ...td, textAlign: "left" }}><UnitChip unitRef={t.unitRef} backTo={`/cam-recon?property=${result.propertyCode}&year=${result.reconYear}`} /></td>
-              <td style={{ ...td, textAlign: "left" }}>{t.name}</td>
+              <td style={{ ...td, textAlign: "left" }}>{t.name}<OccCallout occPct={t.occPct} year={result.reconYear} rcd={t.rcd} /></td>
               <td style={td}>{t.noBaseStop ? "NNN" : t.baseYear}{t.baseYearResetISO && <span title={`Base year reset ${new Date(t.baseYearResetISO + "T00:00:00").toLocaleDateString("en-US")}`} style={{ color: "#b45309", fontWeight: 800, marginLeft: 3, cursor: "help" }}>↺</span>}</td>
               <td style={td}>{pct(t.proRataPct / 100)}</td>
-              <td style={td}>{pct(t.occPct, 1)}{t.occPct < 0.9999 && t.rcd ? <span className="muted" style={{ fontSize: 11 }}> ({fmtRCD(t.rcd)})</span> : null}</td>
               <td style={cam(true)}>{money0(t.opexAmountDue)}</td>
               <td style={cam()} onClick={(e) => e.stopPropagation()}>
                 <EditableMoney value={t.opexEscrow} onCommit={(v) => onEditEscrow(t.unitRef, "opexEscrow", v)} />
@@ -1293,7 +1274,7 @@ function BuildingSummary({ result, onPick, onEditEscrow }: {
         </tbody>
         <tfoot>
           <tr style={{ fontWeight: 800, borderTop: "2px solid var(--border)" }}>
-            <td style={{ ...td, textAlign: "left" }} colSpan={5}>Total</td>
+            <td style={{ ...td, textAlign: "left" }} colSpan={4}>Total</td>
             <td style={cam(true)}>{money0(totals.opexAmountDue)}</td>
             <td style={cam()}>{money0(totals.opexEscrow)}</td>
             <td style={cam()}>{money0(totals.opexBalance)}</td>
