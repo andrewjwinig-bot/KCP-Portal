@@ -97,6 +97,7 @@ function HeaderSelect({
 function drawTenantStatement(doc: any, t: TenantReconResult, year: number, propLabel: string, contact?: { email: string; cc: string }) {
   // Whole-dollar formatting throughout the PDF for a cleaner statement.
   const money = money0;
+  const occLine = t.occPct < 0.9999; // only show the proration step when it prorates
   const resetRel = t.occPct > 0 ? t.recoveryPct / t.occPct : 0;
   const resetShort = t.baseYearResetISO
     ? new Date(t.baseYearResetISO + "T00:00:00").toLocaleDateString("en-US", { month: "numeric", day: "numeric", year: "2-digit" })
@@ -181,7 +182,7 @@ function drawTenantStatement(doc: any, t: TenantReconResult, year: number, propL
   y += 6;
   sumRow("Net Increase Over Base Year", money(t.opexNetIncrease));
   sumRow("× Tenant Proportionate Share", pct(t.proRataPct / 100));
-  sumRow("× Occupancy % For The Year", pct(t.occPct, 1));
+  if (occLine) sumRow("× Occupancy % For The Year", pct(t.occPct, 1));
   if (t.baseYearResetISO) sumRow(`× Base Year Reset Proration (${resetShort})`, pct(resetRel, 1));
   sumRow("Amount Due", money(t.opexAmountDue), true);
   sumRow("Less: Escrow Payments for the Year", money(-t.opexEscrow));
@@ -193,7 +194,7 @@ function drawTenantStatement(doc: any, t: TenantReconResult, year: number, propL
   lineRow(0, t.retLine.label, t.retLine.baseCost, t.retLine.actual, t.retLine.netIncrease, false, t.retLine.glAccount);
   y += 6;
   sumRow("× Tenant Proportionate Share", pct(t.proRataPct / 100));
-  sumRow("× Occupancy % For The Year", pct(t.occPct, 1));
+  if (occLine) sumRow("× Occupancy % For The Year", pct(t.occPct, 1));
   if (t.baseYearResetISO) sumRow(`× Base Year Reset Proration (${resetShort})`, pct(resetRel, 1));
   sumRow("Amount Due", money(t.retAmountDue), true);
   sumRow("Less: Escrow Payments for the Year", money(-t.retEscrow));
@@ -929,6 +930,11 @@ function RetailScheduleTable({ t }: { t: RetailTenantResult }) {
       <p className="small muted" style={{ marginTop: 8 }}>
         Insurance pool {money(t.insPool)} · Real estate tax pool {money(t.retPool)} (billed separately below).
       </p>
+      {t.portion && (
+        <p className="small muted" style={{ marginTop: 6, fontStyle: "italic" }}>
+          Operating expenses for this mixed-use center are allocated between its Retail (8502) and Office (8503) portions; the pool above is the {t.portion} portion&rsquo;s share.
+        </p>
+      )}
     </div>
   );
 }
@@ -938,6 +944,7 @@ function RetailTenantStatement({ t, reconYear, contact }: {
 }) {
   const net = t.camBalance + t.insBalance + t.retBalance;
   const credit = net < -0.005;
+  const occLine = t.occPct < 0.9999; // only show the proration step when it prorates
   const camFull = (t.camPrs / 100) * t.camPoolEffective;
   const insFull = (t.insPrs / 100) * t.insPool;
   const retFull = (t.retPrs / 100) * t.retPool * (1 - t.retDiscountPct / 100);
@@ -951,7 +958,7 @@ function RetailTenantStatement({ t, reconYear, contact }: {
           <div style={{ ...SECTION_LABEL, color: "#0b4a7d", marginBottom: 8 }}>CAM — {reconYear}</div>
           <BalanceRow label={`CAM Pool${t.capped ? " (capped)" : t.camPoolEffective < t.camPoolFull ? " (after exclusions)" : ""}`} value={money(t.camPoolEffective)} />
           <BalanceRow label={`× CAM Share ${pct(t.camPrs / 100)}`} value={money(camFull)} />
-          <BalanceRow label={`× Occupancy ${pct(t.occPct, 1)}`} value={money(t.camShare)} />
+          {occLine && <BalanceRow label={`× Occupancy ${pct(t.occPct, 1)}`} value={money(t.camShare)} />}
           {t.adminFeePct > 0 && <BalanceRow label={`+ Admin Fee ${t.adminFeePct}%`} value={money(t.camAdmin)} />}
           <BalanceRow label="CAM Due" value={money(t.camDue)} strong />
           <BalanceRow label="Less: Escrow Billed" value={money(-t.camEscrow)} />
@@ -961,7 +968,7 @@ function RetailTenantStatement({ t, reconYear, contact }: {
           <div style={{ ...SECTION_LABEL, color: "#0f766e", marginBottom: 8 }}>INS — {reconYear}</div>
           <BalanceRow label="Insurance Pool" value={money(t.insPool)} />
           <BalanceRow label={`× INS Share ${pct(t.insPrs / 100)}`} value={money(insFull)} />
-          <BalanceRow label={`× Occupancy ${pct(t.occPct, 1)}`} value={money(t.insDue)} />
+          {occLine && <BalanceRow label={`× Occupancy ${pct(t.occPct, 1)}`} value={money(t.insDue)} />}
           <BalanceRow label="INS Due" value={money(t.insDue)} strong />
           <BalanceRow label="Less: Escrow Billed" value={money(-t.insEscrow)} />
           <FinalBalanceRow label="Balance, INS Due" value={t.insBalance} />
@@ -974,7 +981,7 @@ function RetailTenantStatement({ t, reconYear, contact }: {
             <>
               <BalanceRow label="Real Estate Tax Pool" value={money(t.retPool)} />
               <BalanceRow label={`× RET Share ${pct(t.retPrs / 100)}${t.retDiscountPct > 0 ? ` less ${t.retDiscountPct}%` : ""}`} value={money(retFull)} />
-              <BalanceRow label={`× Occupancy ${pct(t.occPct, 1)}`} value={money(t.retDue)} />
+              {occLine && <BalanceRow label={`× Occupancy ${pct(t.occPct, 1)}`} value={money(t.retDue)} />}
             </>
           )}
           <BalanceRow label="RET Due" value={money(t.retDue)} strong />
@@ -1067,9 +1074,11 @@ function drawRetailStatement(doc: any, t: RetailTenantResult, year: number, prop
   doc.setFont("helvetica", "bold"); doc.setFontSize(9.5);
   at("Total Operating Expenses", L + 6); at(money(billedTotal), R - 6, { align: "right" }); y += 14;
   if (t.capped) { doc.setFont("helvetica", "normal"); doc.setFontSize(9); ink(AMBER); at(`Less: Controllable Expense Cap → Applicable CAM Pool ${money(t.camPoolEffective)}`, L + 6); y += 14; ink(INK); }
+  if (t.portion) { doc.setFont("helvetica", "italic"); doc.setFontSize(8); ink(MUTED); at(`Expenses are allocated between the center's Retail (8502) and Office (8503) portions — this is the ${t.portion} portion.`, L + 6); y += 13; ink(INK); doc.setFont("helvetica", "normal"); }
   y += 8; doc.setFontSize(10);
 
-  // Full waterfall — show share, occupancy, and admin as separate steps.
+  // Full waterfall — show share, occupancy (only when < 100%), and admin.
+  const occLine = t.occPct < 0.9999;
   const camFull = (t.camPrs / 100) * t.camPoolEffective;
   const insFull = (t.insPrs / 100) * t.insPool;
   const retFull = (t.retPrs / 100) * t.retPool * (1 - t.retDiscountPct / 100);
@@ -1077,7 +1086,7 @@ function drawRetailStatement(doc: any, t: RetailTenantResult, year: number, prop
   bar("Common Area Maintenance");
   sumRow(`CAM Pool${t.capped ? " (capped)" : t.camPoolEffective < t.camPoolFull ? " (after exclusions)" : ""}`, money(t.camPoolEffective));
   sumRow(`× CAM Share ${pct(t.camPrs / 100)}`, money(camFull));
-  sumRow(`× Occupancy ${pct(t.occPct, 1)}`, money(t.camShare));
+  if (occLine) sumRow(`× Occupancy ${pct(t.occPct, 1)}`, money(t.camShare));
   if (t.adminFeePct > 0) sumRow(`+ Admin Fee ${t.adminFeePct}%`, money(t.camAdmin));
   sumRow("CAM Due", money(t.camDue), true);
   sumRow("Less: Escrow Billed", money(-t.camEscrow));
@@ -1087,7 +1096,7 @@ function drawRetailStatement(doc: any, t: RetailTenantResult, year: number, prop
   bar("Insurance");
   sumRow("Insurance Pool", money(t.insPool));
   sumRow(`× INS Share ${pct(t.insPrs / 100)}`, money(insFull));
-  sumRow(`× Occupancy ${pct(t.occPct, 1)}`, money(t.insDue));
+  if (occLine) sumRow(`× Occupancy ${pct(t.occPct, 1)}`, money(t.insDue));
   sumRow("INS Due", money(t.insDue), true);
   sumRow("Less: Escrow Billed", money(-t.insEscrow));
   sumRow("Balance, INS Due", money(t.insBalance), true);
@@ -1099,7 +1108,7 @@ function drawRetailStatement(doc: any, t: RetailTenantResult, year: number, prop
   } else {
     sumRow("Real Estate Tax Pool", money(t.retPool));
     sumRow(`× RET Share ${pct(t.retPrs / 100)}${t.retDiscountPct ? ` (less ${t.retDiscountPct}%)` : ""}`, money(retFull));
-    sumRow(`× Occupancy ${pct(t.occPct, 1)}`, money(t.retDue));
+    if (occLine) sumRow(`× Occupancy ${pct(t.occPct, 1)}`, money(t.retDue));
   }
   sumRow("RET Due", money(t.retDue), true);
   sumRow("Less: Escrow Billed", money(-t.retEscrow));
@@ -1550,6 +1559,7 @@ function TenantStatement({ t, reconYear, estimate, contact }: {
   t: TenantReconResult; reconYear: number; estimate?: NextYearEstimate;
   contact?: { email: string; cc: string };
 }) {
+  const occLine = t.occPct < 0.9999; // only show the proration step when it prorates
   const occLabel = `${pct(t.occPct, 1)}${t.occPct < 0.9999 && t.rcd ? ` (${fmtRCD(t.rcd)} RCD)` : ""}`;
   const resetRel = t.occPct > 0 ? t.recoveryPct / t.occPct : 0;
   const resetShort = t.baseYearResetISO
@@ -1571,7 +1581,7 @@ function TenantStatement({ t, reconYear, estimate, contact }: {
           <div style={{ ...SECTION_LABEL, color: "#0b4a7d", marginBottom: 8 }}>CAM</div>
           <BalanceRow label="Net Increase Over Base Year" value={money0(t.opexNetIncrease)} />
           <BalanceRow label="× Tenant Proportionate Share" value={pct(t.proRataPct / 100)} />
-          <BalanceRow label="× Occupancy % For The Year" value={occLabel} />
+          {occLine && <BalanceRow label="× Occupancy % For The Year" value={occLabel} />}
           {t.baseYearResetISO && <BalanceRow label={`× Base Year Reset Proration (${resetShort})`} value={pct(resetRel, 1)} />}
           <BalanceRow label="Amount Due" value={money0(t.opexAmountDue)} strong />
           <BalanceRow label="Less: Escrow Payments for the Year" value={money0(-t.opexEscrow)} />
@@ -1581,7 +1591,7 @@ function TenantStatement({ t, reconYear, estimate, contact }: {
           <div style={{ ...SECTION_LABEL, color: "#854d0e", marginBottom: 8 }}>RET</div>
           <BalanceRow label="Net Increase Over Base Year" value={money0(t.retLine.netIncrease)} />
           <BalanceRow label="× Tenant Proportionate Share" value={pct(t.proRataPct / 100)} />
-          <BalanceRow label="× Occupancy % For The Year" value={occLabel} />
+          {occLine && <BalanceRow label="× Occupancy % For The Year" value={occLabel} />}
           {t.baseYearResetISO && <BalanceRow label={`× Base Year Reset Proration (${resetShort})`} value={pct(resetRel, 1)} />}
           <BalanceRow label="Amount Due" value={money0(t.retAmountDue)} strong />
           <BalanceRow label="Less: Escrow Payments for the Year" value={money0(-t.retEscrow)} />
