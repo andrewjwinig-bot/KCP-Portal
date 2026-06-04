@@ -668,30 +668,30 @@ function RetailBuildingSummary({ result, onPick }: { result: RetailBuildingResul
               <td style={{ ...td, textAlign: "left" }}>{t.name}{t.grossLease ? <span className="muted" style={{ fontSize: 11 }}> (gross)</span> : t.capped ? <span style={{ fontSize: 11, color: "#b45309" }}> (capped)</span> : t.flatRet != null ? <span style={{ fontSize: 11, color: "#b45309" }}> (own-parcel RET)</span> : t.occPct < 0.9999 ? <span style={{ fontSize: 11, color: "#b45309" }}> ({pct(t.occPct, 0)} occ)</span> : null}</td>
               <td style={td}>{pct(t.camPrs / 100)}</td>
               <td style={td}>{t.adminFeePct ? `${t.adminFeePct}%` : "—"}</td>
-              <td style={cam(true)}>{money(t.camDue)}</td>
-              <td style={cam()}>{money(t.camEscrow)}</td>
-              <td style={cam()}><Pill tone={reconBalanceTone(t.camBalance)}>{money(t.camBalance)}</Pill></td>
-              <td style={ins(true)}>{money(t.insDue)}</td>
-              <td style={ins()}>{money(t.insEscrow)}</td>
-              <td style={ins()}><Pill tone={reconBalanceTone(t.insBalance)}>{money(t.insBalance)}</Pill></td>
-              <td style={ret(true)}>{money(t.retDue)}</td>
-              <td style={ret()}>{money(t.retEscrow)}</td>
-              <td style={ret()}><Pill tone={reconBalanceTone(t.retBalance)}>{money(t.retBalance)}</Pill></td>
+              <td style={cam(true)}>{money0(t.camDue)}</td>
+              <td style={cam()}>{money0(t.camEscrow)}</td>
+              <td style={cam()}><Pill tone={reconBalanceTone(t.camBalance)}>{money0(t.camBalance)}</Pill></td>
+              <td style={ins(true)}>{money0(t.insDue)}</td>
+              <td style={ins()}>{money0(t.insEscrow)}</td>
+              <td style={ins()}><Pill tone={reconBalanceTone(t.insBalance)}>{money0(t.insBalance)}</Pill></td>
+              <td style={ret(true)}>{money0(t.retDue)}</td>
+              <td style={ret()}>{money0(t.retEscrow)}</td>
+              <td style={ret()}><Pill tone={reconBalanceTone(t.retBalance)}>{money0(t.retBalance)}</Pill></td>
             </tr>
           ))}
         </tbody>
         <tfoot>
           <tr style={{ fontWeight: 800, borderTop: "2px solid var(--border)" }}>
             <td style={{ ...td, textAlign: "left" }} colSpan={4}>Total</td>
-            <td style={cam(true)}>{money(totals.camDue)}</td>
-            <td style={cam()}>{money(totals.camEscrow)}</td>
-            <td style={cam()}>{money(totals.camBalance)}</td>
-            <td style={ins(true)}>{money(totals.insDue)}</td>
-            <td style={ins()}>{money(totals.insEscrow)}</td>
-            <td style={ins()}>{money(totals.insBalance)}</td>
-            <td style={ret(true)}>{money(totals.retDue)}</td>
-            <td style={ret()}>{money(totals.retEscrow)}</td>
-            <td style={ret()}>{money(totals.retBalance)}</td>
+            <td style={cam(true)}>{money0(totals.camDue)}</td>
+            <td style={cam()}>{money0(totals.camEscrow)}</td>
+            <td style={cam()}>{money0(totals.camBalance)}</td>
+            <td style={ins(true)}>{money0(totals.insDue)}</td>
+            <td style={ins()}>{money0(totals.insEscrow)}</td>
+            <td style={ins()}>{money0(totals.insBalance)}</td>
+            <td style={ret(true)}>{money0(totals.retDue)}</td>
+            <td style={ret()}>{money0(totals.retEscrow)}</td>
+            <td style={ret()}>{money0(totals.retBalance)}</td>
           </tr>
         </tfoot>
       </table>
@@ -1181,28 +1181,28 @@ function BuildingSummary({ result, onPick, onEditEscrow }: {
               <td style={td}>{t.noBaseStop ? "NNN" : t.baseYear}{t.baseYearResetISO && <span title={`Base year reset ${new Date(t.baseYearResetISO + "T00:00:00").toLocaleDateString("en-US")}`} style={{ color: "#b45309", fontWeight: 800, marginLeft: 3, cursor: "help" }}>↺</span>}</td>
               <td style={td}>{pct(t.proRataPct / 100)}</td>
               <td style={td}>{pct(t.occPct, 1)}{t.occPct < 0.9999 && t.rcd ? <span className="muted" style={{ fontSize: 11 }}> ({fmtRCD(t.rcd)})</span> : null}</td>
-              <td style={cam(true)}>{money(t.opexAmountDue)}</td>
+              <td style={cam(true)}>{money0(t.opexAmountDue)}</td>
               <td style={cam()} onClick={(e) => e.stopPropagation()}>
                 <EditableMoney value={t.opexEscrow} onCommit={(v) => onEditEscrow(t.unitRef, "opexEscrow", v)} />
               </td>
-              <td style={cam()}><Pill tone={reconBalanceTone(t.opexBalance)}>{money(t.opexBalance)}</Pill></td>
-              <td style={ret(true)}>{money(t.retAmountDue)}</td>
+              <td style={cam()}><Pill tone={reconBalanceTone(t.opexBalance)}>{money0(t.opexBalance)}</Pill></td>
+              <td style={ret(true)}>{money0(t.retAmountDue)}</td>
               <td style={ret()} onClick={(e) => e.stopPropagation()}>
                 <EditableMoney value={t.retEscrow} onCommit={(v) => onEditEscrow(t.unitRef, "retEscrow", v)} />
               </td>
-              <td style={ret()}><Pill tone={reconBalanceTone(t.retBalance)}>{money(t.retBalance)}</Pill></td>
+              <td style={ret()}><Pill tone={reconBalanceTone(t.retBalance)}>{money0(t.retBalance)}</Pill></td>
             </tr>
           ))}
         </tbody>
         <tfoot>
           <tr style={{ fontWeight: 800, borderTop: "2px solid var(--border)" }}>
             <td style={{ ...td, textAlign: "left" }} colSpan={5}>Total</td>
-            <td style={cam(true)}>{money(totals.opexAmountDue)}</td>
-            <td style={cam()}>{money(totals.opexEscrow)}</td>
-            <td style={cam()}>{money(totals.opexBalance)}</td>
-            <td style={ret(true)}>{money(totals.retAmountDue)}</td>
-            <td style={ret()}>{money(totals.retEscrow)}</td>
-            <td style={ret()}>{money(totals.retBalance)}</td>
+            <td style={cam(true)}>{money0(totals.opexAmountDue)}</td>
+            <td style={cam()}>{money0(totals.opexEscrow)}</td>
+            <td style={cam()}>{money0(totals.opexBalance)}</td>
+            <td style={ret(true)}>{money0(totals.retAmountDue)}</td>
+            <td style={ret()}>{money0(totals.retEscrow)}</td>
+            <td style={ret()}>{money0(totals.retBalance)}</td>
           </tr>
         </tfoot>
       </table>
