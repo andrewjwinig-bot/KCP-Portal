@@ -137,6 +137,56 @@ function AdminFeeTile({
   );
 }
 
+// RET discount % — lease-negotiated reduction of the RET share (e.g. 2%).
+// Edits here flow into the reconciliation via the CAM config (single source).
+function DiscountTile({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: number | null;
+  onChange: (next: number | null) => void;
+  disabled?: boolean;
+}) {
+  const [text, setText] = useState<string>(value == null ? "" : String(value));
+  useEffect(() => { setText(value == null ? "" : String(value)); }, [value]);
+  return (
+    <div style={tileStyle}>
+      <span style={tileLabelStyle}>RET Discount</span>
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "center", gap: 4 }}>
+        <input
+          type="number"
+          inputMode="decimal"
+          step="0.1"
+          min={0}
+          max={100}
+          value={text}
+          placeholder="—"
+          disabled={disabled}
+          onChange={(e) => {
+            const t = e.target.value;
+            setText(t);
+            if (t === "") { onChange(null); return; }
+            const n = Number(t);
+            if (Number.isFinite(n)) onChange(n);
+          }}
+          onBlur={() => {
+            if (text === "") return;
+            const n = Number(text);
+            if (!Number.isFinite(n)) { setText(value == null ? "" : String(value)); return; }
+            const clamped = Math.max(0, Math.min(100, Math.round(n * 1000) / 1000));
+            setText(String(clamped));
+            onChange(clamped);
+          }}
+          style={tileInputStyle(disabled, 120)}
+        />
+        <span style={{ fontSize: 18, fontWeight: 700, color: "var(--muted)", opacity: disabled ? 0.5 : 1 }}>%</span>
+      </div>
+      <span style={tileSubStyle}>off RET share</span>
+    </div>
+  );
+}
+
 // ── Shared big-tile styling so PrsTile + AdminFeeTile look identical ────
 const tileStyle: React.CSSProperties = {
   flex: "1 1 0", minWidth: 0,
@@ -364,6 +414,11 @@ export default function CamConfigCard({
               disabled={isGross}
             />
           ))}
+          <DiscountTile
+            value={config.retDiscountPct ?? null}
+            onChange={(v) => update({ retDiscountPct: v })}
+            disabled={isGross}
+          />
         </div>
 
         {/* Property-rule footnotes (e.g. "* CAM denominator excludes

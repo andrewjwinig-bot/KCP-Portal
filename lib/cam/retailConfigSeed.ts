@@ -22,6 +22,8 @@ export type RetailConfigSeedEntry = {
   retPrs?: number;
   /** CAM admin fee % (e.g. 10). Applies to CAM only. */
   adminFeePct?: number;
+  /** RET discount % (lease-negotiated reduction of the RET share, e.g. 2). */
+  retDiscountPct?: number;
   /** Gross lease — no CAM/INS/RET reconciliation. */
   grossLease?: boolean;
   /** Lease-level CAM cap (e.g. Planet Fitness at Brookwood). */
@@ -49,10 +51,11 @@ export const RETAIL_CONFIG_SEED: Record<string, RetailConfigSeedEntry> = {
   // documented line exclusions. Admin fee is 10% unless noted; Cohen, Lee's
   // Hoagies and Dunkin carry no admin fee (no entry needed). Wawa is handled
   // entirely by propertyRules.
-  "2300-1817": { adminFeePct: 10, excludedCamLines: ["Building Maintenance"] }, // M&T Bank — CAM excludes Bldg Maintenance
+  "2300-1817": { adminFeePct: 10, retDiscountPct: 2, excludedCamLines: ["Building Maintenance"] }, // M&T Bank — CAM excludes Bldg Maintenance
   "2300-1847": { adminFeePct: 10 }, // Crafty Crab
   "2300-1851": { // Planet Fitness (National Fitness Partners) — 7% admin + CAM cap
     adminFeePct: 7,
+    retDiscountPct: 2,
     camCap: {
       priorYear: 2024,
       controllableAmount: 105457,
@@ -63,15 +66,17 @@ export const RETAIL_CONFIG_SEED: Record<string, RetailConfigSeedEntry> = {
   "2300-1861": { adminFeePct: 10 }, // Edible Arrangements
   "2300-1867": { // T-Mobile — 7% admin; admin fee excludes Liability INS + utilities
     adminFeePct: 7,
+    retDiscountPct: 2,
     adminFeeExcludedLines: ["Liability Insurance", "Electric (Common)", "Water / Sewer"],
   },
   "2300-1869": { adminFeePct: 10 }, // China Sun
   "2300-1877": { adminFeePct: 10 }, // Evolve Nails
   "2300-1879": { adminFeePct: 10 }, // GNC / Live Well
-  "2300-1881": { adminFeePct: 10 }, // Citizens Bank
+  "2300-1881": { adminFeePct: 10, retDiscountPct: 2 }, // Citizens Bank
+  "2300-1883": { retDiscountPct: 2 }, // Wawa (PRS via propertyRules) — RET discount
   // Dunkin — no admin fee; CAM excludes Building Maintenance + Security
   // (exact pool match: 23,786 + 27,752.96 = 51,538.96).
-  "2300-1885": { excludedCamLines: ["Building Maintenance", "Security"] },
+  "2300-1885": { retDiscountPct: 2, excludedCamLines: ["Building Maintenance", "Security"] },
 
   // ── 4500 · Gray's Ferry Shopping Center ────────────────────────────────
   // PRS comes from propertyRules (CAM 82,809 / INS 79,134 / RET 82,809 with
@@ -134,6 +139,7 @@ export function seedCamConfig(unitRef: string): CamConfig | null {
   if (e.insPrs != null) c.ins.stipulatedPrs = e.insPrs;
   if (e.retPrs != null) c.ret.stipulatedPrs = e.retPrs;
   if (e.adminFeePct != null) c.cam.adminFeePct = e.adminFeePct;
+  if (e.retDiscountPct != null) c.retDiscountPct = e.retDiscountPct;
   if (e.camCap) c.camCap = e.camCap;
   if (e.adminFeeExcludedLines?.length) {
     c.hasAdminFeeExclusions = true;

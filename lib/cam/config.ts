@@ -99,6 +99,9 @@ export type CamConfig = {
   camExcludedOther?: { description: string; amount: number };
   /** Optional CAM cap rider (outlier — currently only NFP at 2300). */
   camCap?: CamCap;
+  /** RET discount % (lease-negotiated reduction of the RET share, e.g. 2).
+   *  Null/undefined → no discount. */
+  retDiscountPct?: number | null;
   updatedAt: string;
 };
 
@@ -212,6 +215,7 @@ export function sanitizeCamConfig(unitRef: string, body: unknown): CamConfig {
     camExcludedLines,
     camExcludedOther: asCamExcludedOther(b.camExcludedOther),
     camCap: asCamCap(b.camCap),
+    retDiscountPct: asPct(b.retDiscountPct),
     updatedAt: new Date().toISOString(),
   };
 }
