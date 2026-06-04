@@ -35,14 +35,12 @@ function fmtRCD(d?: string | null): string {
   return m ? `${m[1].padStart(2, "0")}/${m[2].padStart(2, "0")}/${m[3].slice(2)}` : d;
 }
 
-/** ISO "2026-04-30" → "4/30/2026" for the year-end posting note. */
-function fmtYe(iso: string): string {
-  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  return m ? `${Number(m[2])}/${Number(m[3])}/${m[1]}` : iso;
-}
-
 const SECTION_LABEL: React.CSSProperties = {
   fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)",
+};
+// Larger title for the main recon cards (Building Summary, Methodology, etc.).
+const CARD_TITLE: React.CSSProperties = {
+  fontSize: 15, fontWeight: 800, letterSpacing: "0.01em", color: "var(--text)",
 };
 const arrowBtn: React.CSSProperties = {
   width: 26, height: 26, borderRadius: 999, border: "1px solid var(--border)",
@@ -522,8 +520,8 @@ export default function OfficeCamReconPage() {
             </span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-            {/* Per-tenant / all-tenant PDFs — office and retail each draw their
-                own statement; the Estimate export is office-only for now. */}
+            {/* Per-tenant / all-tenant PDFs, then the portfolio year-end export
+                (with an info popover for the Skyline import steps). */}
             {isRetail ? (
               rSelected ? (
                 <button onClick={() => downloadRetailTenantPdf(rSelected, year, `${property} — ${propName}`, contacts[rSelected.unitRef])} className="btn primary" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}>Download PDF</button>
@@ -539,6 +537,17 @@ export default function OfficeCamReconPage() {
                   <button onClick={() => result && downloadAllTenantPdfs(result.tenants, year, `${property} — ${propName}`, contacts)} disabled={!result} className="btn" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}>All Tenant PDFs</button>
                 )}
               </>
+            )}
+            {isRetail ? (
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                <button onClick={downloadAllRetailYearEnd} disabled={compilingRetail} className="btn" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}>{compilingRetail ? "Compiling…" : "SC Year-End Adjustments"}</button>
+                <InfoPopover><ImportInstructions /></InfoPopover>
+              </span>
+            ) : (
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                <button onClick={downloadAllYearEnd} disabled={compiling} className="btn" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}>{compiling ? "Compiling…" : "BP Year-End Adjustments"}</button>
+                <InfoPopover><ImportInstructions /></InfoPopover>
+              </span>
             )}
           </div>
         </div>
@@ -608,27 +617,6 @@ export default function OfficeCamReconPage() {
       {!selected && result && <RecoveryByBaseYear result={result} />}
       {!selected && expenseSummary.length > 0 && <FinalExpenseSummary rows={expenseSummary} editable={expenseEditable} year={year} onEdit={saveExpense} />}
       {selected && <TenantStatement t={selected} reconYear={year} estimate={estimates.find((e) => e.unitRef === selected.unitRef)} contact={contacts[selected.unitRef]} />}
-
-      {/* One compiled year-end schedule per portfolio (shopping centers /
-          business parks) — there's no per-building export. Posts 4/30. */}
-      {isRetail && !rSelected && activeRetail && (
-        <CompiledYearEnd
-          title="Year-End Adjustments — All Shopping Centers"
-          blurb={`One compiled YEC / YEI / YER schedule across every shopping center for ${year}, posted ${fmtYe(yeDate)} — a single one-time Skyline import.`}
-          buttonLabel={compilingRetail ? "Compiling…" : "Download All Shopping Centers CSV"}
-          disabled={compilingRetail}
-          onClick={downloadAllRetailYearEnd}
-        />
-      )}
-      {!selected && result && (
-        <CompiledYearEnd
-          title="Year-End Adjustments — All Business Parks"
-          blurb={`One compiled YEC / YER schedule across every business-park property for ${year}, posted ${fmtYe(yeDate)} — a single one-time Skyline import.`}
-          buttonLabel={compiling ? "Compiling…" : "Download All Business Parks CSV"}
-          disabled={compiling}
-          onClick={downloadAllYearEnd}
-        />
-      )}
     </main>
   );
 }
@@ -641,39 +629,32 @@ export default function OfficeCamReconPage() {
 function UnitChip({ unitRef, backTo }: { unitRef: string; backTo?: string }) {
   const href = `/rentroll/units/${encodeURIComponent(unitRef)}`
     + (backTo ? `?from=${encodeURIComponent(backTo)}` : "");
+  // Matches the Rent Roll unit column exactly: a <code> element (default
+  // monospace), 12px / 700, accent blue, underlined.
   return (
-    <Link
-      href={href}
-      onClick={(e) => e.stopPropagation()}
-      title="Open unit detail page"
-      style={{
-        color: "#0b4a7d", fontSize: 13, fontWeight: 700,
-        textDecoration: "underline", textUnderlineOffset: 2,
-        fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", whiteSpace: "nowrap",
-      }}
-    >
-      {unitRef}
+    <Link href={href} onClick={(e) => e.stopPropagation()} title="Open unit detail page" style={{ textDecoration: "none", whiteSpace: "nowrap" }}>
+      <code style={{ fontSize: 12, fontWeight: 700, color: "#0b4a7d", whiteSpace: "nowrap", textDecoration: "underline", textUnderlineOffset: 2 }}>{unitRef}</code>
     </Link>
   );
 }
 
-// One compiled portfolio-wide year-end export card (fixed 4/30 posting, no
-// date input). Used for both the shopping-centers and business-parks reports.
-function CompiledYearEnd({ title, blurb, buttonLabel, disabled, onClick }: {
-  title: string; blurb: string; buttonLabel: string; disabled: boolean; onClick: () => void;
-}) {
+// Info (ⓘ) button that reveals the Skyline import steps in a small popover —
+// keeps the year-end export buttons clean in the header.
+function InfoPopover({ children }: { children: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
   return (
-    <div className="card">
-      <div style={SECTION_LABEL}>{title}</div>
-      <p className="small muted" style={{ marginTop: 6 }}>{blurb}</p>
-      <button onClick={onClick} disabled={disabled} className="btn primary" style={{ fontSize: 13, padding: "9px 14px", fontWeight: 700, marginTop: 12 }}>
-        {buttonLabel}
-      </button>
-      <p className="small muted" style={{ marginTop: 14 }}>
-        Values-only, $0 rows omitted — charge codes YEC (CAM) · YEI (INS) · YER (RET), unit &lt;suite&gt;-CU.
-      </p>
-      <ImportInstructions />
-    </div>
+    <span style={{ position: "relative", display: "inline-flex" }}>
+      <button type="button" onClick={() => setOpen((o) => !o)} aria-label="Import steps" title="Skyline import steps"
+        style={{ width: 22, height: 22, borderRadius: 999, border: "1px solid var(--border)", background: "var(--card)", color: "var(--muted)", cursor: "pointer", fontSize: 13, fontWeight: 800, lineHeight: 1, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>i</button>
+      {open && (
+        <>
+          <div onClick={() => setOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 40 }} />
+          <div style={{ position: "absolute", top: "calc(100% + 8px)", right: 0, zIndex: 50, width: 380, maxWidth: "90vw", background: "var(--card)", border: "1px solid var(--border)", borderRadius: 12, padding: "12px 16px", boxShadow: "0 10px 30px rgba(0,0,0,0.15)" }}>
+            {children}
+          </div>
+        </>
+      )}
+    </span>
   );
 }
 
@@ -717,7 +698,7 @@ function RetailBuildingSummary({ result, onPick }: { result: RetailBuildingResul
   const retH = (first = false): React.CSSProperties => ({ ...th, background: RET_TINT, ...(first ? { borderLeft: BLOCK_SEP } : {}) });
   return (
     <div className="card" style={{ overflowX: "auto" }}>
-      <div style={SECTION_LABEL}>Building Summary — {result.propertyCode} · {result.reconYear}</div>
+      <div style={CARD_TITLE}>Building Summary</div>
       <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 10, minWidth: 1040 }}>
         <thead>
           <tr>
@@ -808,7 +789,7 @@ function RetailConfigTable({ result, onPick }: { result: RetailBuildingResult; o
   const numTd: React.CSSProperties = { ...td, width: "1%" };
   return (
     <div className="card" style={{ overflowX: "auto" }}>
-      <div style={SECTION_LABEL}>Tenant CAM Methodology — {result.propertyCode} · {result.reconYear}</div>
+      <div style={CARD_TITLE}>Tenant CAM Methodology</div>
       <p className="small muted" style={{ marginTop: 4 }}>
         Admin fee + pro-rata share per category, at a glance. Lease exceptions (exclusions / cap / discount / gross) are spelled out under Notes.
       </p>
@@ -873,7 +854,7 @@ function AllocationBreakdown({ a }: { a: PropertyAllocation }) {
   };
   return (
     <div className="card" style={{ overflowX: "auto" }}>
-      <div style={SECTION_LABEL}>Retail / Office Allocation — {a.propertyCode} · {a.reconYear}</div>
+      <div style={CARD_TITLE}>Retail / Office Allocation</div>
       <p className="small muted" style={{ marginTop: 4 }}>
         {a.name} is a mixed center. Each operating-expense line is split between the retail (8502) and office (8503) reconciliations — some shared by %, some retail- or office-only.
       </p>
@@ -928,7 +909,7 @@ function RetailScheduleTable({ t }: { t: RetailTenantResult }) {
   const std: React.CSSProperties = { ...td, fontSize: 14.5, padding: "7px 10px" };
   return (
     <div className="card" style={{ overflowX: "auto" }}>
-      <div style={SECTION_LABEL}>Schedule of Operating Expenses</div>
+      <div style={CARD_TITLE}>Schedule of Operating Expenses</div>
       <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 10, minWidth: 360 }}>
         <thead>
           <tr>
@@ -1221,7 +1202,7 @@ function BuildingSummary({ result, onPick, onEditEscrow }: {
   const retH = (first = false): React.CSSProperties => ({ ...th, background: RET_TINT, ...(first ? { borderLeft: BLOCK_SEP } : {}) });
   return (
     <div className="card" style={{ overflowX: "auto" }}>
-      <div style={SECTION_LABEL}>Building Summary — {result.propertyCode} · {result.reconYear}</div>
+      <div style={CARD_TITLE}>Building Summary</div>
       <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 10, minWidth: 920 }}>
         <thead>
           {/* Group header: identity columns, then the CAM and RET blocks */}
@@ -1297,7 +1278,7 @@ function FinalExpenseSummary({ rows, editable, year, onEdit }: {
   const opexTotal = rows.filter((r) => !isSep(r.account)).reduce((s, r) => s + r.final, 0);
   return (
     <div className="card" style={{ overflowX: "auto" }}>
-      <div style={SECTION_LABEL}>Final Expense Summary</div>
+      <div style={CARD_TITLE}>Final Expense Summary</div>
       {editable ? (
         <>
           <p className="small muted" style={{ marginTop: 4 }}>
@@ -1399,7 +1380,7 @@ function RecoveryByBaseYear({ result }: { result: BuildingReconResult }) {
   return (
     <div className="card">
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-        <div style={SECTION_LABEL}>Recovery Analysis by Base Year</div>
+        <div style={CARD_TITLE}>Recovery Analysis by Base Year</div>
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
           <Legend color={REC_CAM} label="CAM" />
           <Legend color={REC_RET} label="RET" />
