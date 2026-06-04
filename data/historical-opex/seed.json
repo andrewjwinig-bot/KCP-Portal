@@ -4,7 +4,7 @@
       "propertyCode": "4080",
       "lineLabel": "Real Estate Taxes",
       "glAccount": "6410-8502",
-      "source": "Drew — historical RET pull, 2025-05",
+      "source": "Drew \u2014 historical RET pull, 2025-05",
       "yearly": {
         "2005": 322176.96,
         "2009": 294050.4,
@@ -24,6 +24,547 @@
         "2023": 262275.93,
         "2024": 233111.44
       }
+    },
+    {
+      "propertyCode": "4500",
+      "lineLabel": "Maintenance Salaries",
+      "glAccount": "6030-8502",
+      "yearly": {
+        "2025": 31440.0,
+        "2024": 30559.0,
+        "2023": 23880.0
+      },
+      "source": "2025 CAM billing workbook (2025 reconciled; 2024 & 2023 from workbook history)"
+    },
+    {
+      "propertyCode": "4500",
+      "lineLabel": "Electric",
+      "glAccount": "6120-8502",
+      "yearly": {
+        "2025": 8532.48,
+        "2024": 8357.0,
+        "2023": 7240.56
+      },
+      "source": "2025 CAM billing workbook (2025 reconciled; 2024 & 2023 from workbook history)"
+    },
+    {
+      "propertyCode": "4500",
+      "lineLabel": "Water & Sewer",
+      "glAccount": "6130-8502",
+      "yearly": {
+        "2025": 1010.84,
+        "2024": 2225.0,
+        "2023": 792.0
+      },
+      "source": "2025 CAM billing workbook (2025 reconciled; 2024 & 2023 from workbook history)"
+    },
+    {
+      "propertyCode": "4500",
+      "lineLabel": "Building Maintenance",
+      "glAccount": "6220-8502",
+      "yearly": {
+        "2025": 21141.73,
+        "2024": 23900.0,
+        "2023": 46489.88
+      },
+      "source": "2025 CAM billing workbook (2025 reconciled; 2024 & 2023 from workbook history)"
+    },
+    {
+      "propertyCode": "4500",
+      "lineLabel": "Parking Lot Cleaning",
+      "glAccount": "6330-8502",
+      "yearly": {
+        "2025": 50810.0,
+        "2024": 47215.0,
+        "2023": 49940.0
+      },
+      "source": "2025 CAM billing workbook (2025 reconciled; 2024 & 2023 from workbook history)"
+    },
+    {
+      "propertyCode": "4500",
+      "lineLabel": "Security",
+      "glAccount": "6350-8502",
+      "yearly": {
+        "2025": 100080.83,
+        "2024": 128750.0,
+        "2023": 142939.4
+      },
+      "source": "2025 CAM billing workbook (2025 reconciled; 2024 & 2023 from workbook history)"
+    },
+    {
+      "propertyCode": "4500",
+      "lineLabel": "Parking Lot Maintenance",
+      "glAccount": "6360-8502",
+      "yearly": {
+        "2025": 64512.8,
+        "2024": 37975.0,
+        "2023": 75034.35
+      },
+      "source": "2025 CAM billing workbook (2025 reconciled; 2024 & 2023 from workbook history)"
+    },
+    {
+      "propertyCode": "4500",
+      "lineLabel": "Snow Removal",
+      "glAccount": "6370-8502",
+      "yearly": {
+        "2025": 51290.0,
+        "2024": 32445.0,
+        "2023": 0.0
+      },
+      "source": "2025 CAM billing workbook (2025 reconciled; 2024 & 2023 from workbook history)"
+    },
+    {
+      "propertyCode": "4500",
+      "lineLabel": "Trash Removal",
+      "glAccount": "6270-8502",
+      "yearly": {
+        "2025": 13548.44,
+        "2024": 20832.0,
+        "2023": 11105.37
+      },
+      "source": "2025 CAM billing workbook (2025 reconciled; 2024 & 2023 from workbook history)"
+    },
+    {
+      "propertyCode": "4500",
+      "lineLabel": "Landscaping",
+      "glAccount": "6380-8502",
+      "yearly": {
+        "2025": 20796.15,
+        "2024": 20724.0,
+        "2023": 17090.29
+      },
+      "source": "2025 CAM billing workbook (2025 reconciled; 2024 & 2023 from workbook history)"
+    },
+    {
+      "propertyCode": "4500",
+      "lineLabel": "Liability Insurance",
+      "yearly": {
+        "2025": 68587.04,
+        "2024": 67496.0
+      },
+      "source": "2025 CAM billing workbook (2025 reconciled; 2024 & 2023 from workbook history)"
+    },
+    {
+      "propertyCode": "4500",
+      "lineLabel": "Property Insurance",
+      "yearly": {
+        "2025": 11645.4,
+        "2024": 11932.0
+      },
+      "source": "2025 CAM billing workbook (2025 reconciled; 2024 & 2023 from workbook history)"
+    },
+    {
+      "propertyCode": "4500",
+      "lineLabel": "Real Estate Taxes",
+      "glAccount": "6410-8502",
+      "yearly": {
+        "2025": 159405.02,
+        "2024": 189959.0
+      },
+      "source": "2025 CAM billing workbook (2025 reconciled; 2024 & 2023 from workbook history)"
+    },
+    {
+      "propertyCode": "2300",
+      "lineLabel": "Maintenance Salaries",
+      "glAccount": "6030-8502",
+      "yearly": {
+        "2025": 23520.0,
+        "2024": 22752.0,
+        "2023": 17880.0
+      },
+      "source": "2025 CAM billing workbook (2025 reconciled; 2024 & 2023 from workbook history)"
+    },
+    {
+      "propertyCode": "2300",
+      "lineLabel": "Electric",
+      "glAccount": "6120-8502",
+      "yearly": {
+        "2025": 7118.67,
+        "2024": 8078.0,
+        "2023": 6426.54
+      },
+      "source": "2025 CAM billing workbook (2025 reconciled; 2024 & 2023 from workbook history)"
+    },
+    {
+      "propertyCode": "2300",
+      "lineLabel": "Water & Sewer",
+      "glAccount": "6130-8502",
+      "yearly": {
+        "2025": 0.0,
+        "2024": 0.0,
+        "2023": 0.0
+      },
+      "source": "2025 CAM billing workbook (2025 reconciled; 2024 & 2023 from workbook history)"
+    },
+    {
+      "propertyCode": "2300",
+      "lineLabel": "Building Maintenance",
+      "glAccount": "6220-8502",
+      "yearly": {
+        "2025": 23786.0,
+        "2024": 35350.0,
+        "2023": 19484.44
+      },
+      "source": "2025 CAM billing workbook (2025 reconciled; 2024 & 2023 from workbook history)"
+    },
+    {
+      "propertyCode": "2300",
+      "lineLabel": "Parking Lot Cleaning",
+      "glAccount": "6330-8502",
+      "yearly": {
+        "2025": 9116.94,
+        "2024": 34608.0,
+        "2023": 32134.44
+      },
+      "source": "2025 CAM billing workbook (2025 reconciled; 2024 & 2023 from workbook history)"
+    },
+    {
+      "propertyCode": "2300",
+      "lineLabel": "Trash Removal",
+      "glAccount": "6270-8502",
+      "yearly": {
+        "2025": 12530.92,
+        "2024": 1236.0
+      },
+      "source": "2025 CAM billing workbook (2025 reconciled; 2024 & 2023 from workbook history)"
+    },
+    {
+      "propertyCode": "2300",
+      "lineLabel": "Security",
+      "glAccount": "6350-8502",
+      "yearly": {
+        "2025": 27752.96,
+        "2024": 14400.0,
+        "2023": 0.0
+      },
+      "source": "2025 CAM billing workbook (2025 reconciled; 2024 & 2023 from workbook history)"
+    },
+    {
+      "propertyCode": "2300",
+      "lineLabel": "Parking Lot Maintenance",
+      "glAccount": "6360-8502",
+      "yearly": {
+        "2025": 46775.4,
+        "2024": 31600.0,
+        "2023": 62821.44
+      },
+      "source": "2025 CAM billing workbook (2025 reconciled; 2024 & 2023 from workbook history)"
+    },
+    {
+      "propertyCode": "2300",
+      "lineLabel": "Snow Removal",
+      "glAccount": "6370-8502",
+      "yearly": {
+        "2025": 47294.0,
+        "2024": 44290.0,
+        "2023": 1655.0
+      },
+      "source": "2025 CAM billing workbook (2025 reconciled; 2024 & 2023 from workbook history)"
+    },
+    {
+      "propertyCode": "2300",
+      "lineLabel": "Landscaping",
+      "glAccount": "6380-8502",
+      "yearly": {
+        "2025": 15257.98,
+        "2024": 33339.0,
+        "2023": 11255.02
+      },
+      "source": "2025 CAM billing workbook (2025 reconciled; 2024 & 2023 from workbook history)"
+    },
+    {
+      "propertyCode": "2300",
+      "lineLabel": "Liability Insurance",
+      "yearly": {
+        "2025": 40126.88,
+        "2024": 39479.0
+      },
+      "source": "2025 CAM billing workbook (2025 reconciled; 2024 & 2023 from workbook history)"
+    },
+    {
+      "propertyCode": "2300",
+      "lineLabel": "Property Insurance",
+      "yearly": {
+        "2025": 9259.34,
+        "2024": 9488.0
+      },
+      "source": "2025 CAM billing workbook (2025 reconciled; 2024 & 2023 from workbook history)"
+    },
+    {
+      "propertyCode": "2300",
+      "lineLabel": "Real Estate Taxes",
+      "glAccount": "6410-8502",
+      "yearly": {
+        "2025": 152574.95,
+        "2024": 147961.59
+      },
+      "source": "2025 CAM billing workbook (2025 reconciled; 2024 & 2023 from workbook history)"
+    },
+    {
+      "propertyCode": "1100",
+      "lineLabel": "Maintenance Salaries",
+      "glAccount": "6030-8502",
+      "yearly": {
+        "2025": 3120.0,
+        "2024": 3257.0,
+        "2023": 2400.0
+      },
+      "source": "2025 CAM billing workbook (2025 reconciled; 2024 & 2023 from workbook history)"
+    },
+    {
+      "propertyCode": "1100",
+      "lineLabel": "Electric",
+      "glAccount": "6120-8502",
+      "yearly": {
+        "2025": 5037.63,
+        "2024": 6008.0,
+        "2023": 4048.33
+      },
+      "source": "2025 CAM billing workbook (2025 reconciled; 2024 & 2023 from workbook history)"
+    },
+    {
+      "propertyCode": "1100",
+      "lineLabel": "Water & Sewer",
+      "glAccount": "6130-8502",
+      "yearly": {
+        "2025": 0.0,
+        "2024": 0.0,
+        "2023": 248.05
+      },
+      "source": "2025 CAM billing workbook (2025 reconciled; 2024 & 2023 from workbook history)"
+    },
+    {
+      "propertyCode": "1100",
+      "lineLabel": "Building Maintenance",
+      "glAccount": "6220-8502",
+      "yearly": {
+        "2025": 16574.0,
+        "2024": 6250.0,
+        "2023": 1955.65
+      },
+      "source": "2025 CAM billing workbook (2025 reconciled; 2024 & 2023 from workbook history)"
+    },
+    {
+      "propertyCode": "1100",
+      "lineLabel": "Parking Lot Cleaning",
+      "glAccount": "6330-8502",
+      "yearly": {
+        "2025": 4628.64,
+        "2024": 3600.0,
+        "2023": 5040.56
+      },
+      "source": "2025 CAM billing workbook (2025 reconciled; 2024 & 2023 from workbook history)"
+    },
+    {
+      "propertyCode": "1100",
+      "lineLabel": "Security",
+      "glAccount": "6350-8502",
+      "yearly": {
+        "2025": 15461.75,
+        "2024": 16068.0,
+        "2023": 13824.41
+      },
+      "source": "2025 CAM billing workbook (2025 reconciled; 2024 & 2023 from workbook history)"
+    },
+    {
+      "propertyCode": "1100",
+      "lineLabel": "Parking Lot Maintenance",
+      "glAccount": "6360-8502",
+      "yearly": {
+        "2025": 10767.9,
+        "2024": 5000.0,
+        "2023": 584.0
+      },
+      "source": "2025 CAM billing workbook (2025 reconciled; 2024 & 2023 from workbook history)"
+    },
+    {
+      "propertyCode": "1100",
+      "lineLabel": "Snow Removal",
+      "glAccount": "6370-8502",
+      "yearly": {
+        "2025": 21696.35,
+        "2024": 11330.0,
+        "2023": 517.0
+      },
+      "source": "2025 CAM billing workbook (2025 reconciled; 2024 & 2023 from workbook history)"
+    },
+    {
+      "propertyCode": "1100",
+      "lineLabel": "Landscaping",
+      "glAccount": "6380-8502",
+      "yearly": {
+        "2025": 9675.58,
+        "2024": 4353.0,
+        "2023": 5387.97
+      },
+      "source": "2025 CAM billing workbook (2025 reconciled; 2024 & 2023 from workbook history)"
+    },
+    {
+      "propertyCode": "1100",
+      "lineLabel": "Liability Insurance",
+      "yearly": {
+        "2025": 6858.08,
+        "2024": 6742.0,
+        "2023": 6933.05
+      },
+      "source": "2025 CAM billing workbook (2025 reconciled; 2024 & 2023 from workbook history)"
+    },
+    {
+      "propertyCode": "1100",
+      "lineLabel": "Property Insurance",
+      "yearly": {
+        "2025": 1067.15,
+        "2024": 1120.0
+      },
+      "source": "2025 CAM billing workbook (2025 reconciled; 2024 & 2023 from workbook history)"
+    },
+    {
+      "propertyCode": "1100",
+      "lineLabel": "Real Estate Taxes",
+      "glAccount": "6410-8502",
+      "yearly": {
+        "2025": 16692.61,
+        "2024": 16693.0
+      },
+      "source": "2025 CAM billing workbook (2025 reconciled; 2024 & 2023 from workbook history)"
+    },
+    {
+      "propertyCode": "7010",
+      "lineLabel": "Maintenance Salaries",
+      "glAccount": "6030-8502",
+      "yearly": {
+        "2025": 24045.6,
+        "2024": 24747.0,
+        "2023": 23880.0
+      },
+      "source": "2025 CAM billing workbook (2025 reconciled; 2024 & 2023 from workbook history)"
+    },
+    {
+      "propertyCode": "7010",
+      "lineLabel": "Electric",
+      "glAccount": "6120-8502",
+      "yearly": {
+        "2025": 7321.0,
+        "2024": 7654.0,
+        "2023": 7240.56
+      },
+      "source": "2025 CAM billing workbook (2025 reconciled; 2024 & 2023 from workbook history)"
+    },
+    {
+      "propertyCode": "7010",
+      "lineLabel": "Water & Sewer",
+      "glAccount": "6130-8502",
+      "yearly": {
+        "2025": 0.0,
+        "2024": 0.0,
+        "2023": 792.0
+      },
+      "source": "2025 CAM billing workbook (2025 reconciled; 2024 & 2023 from workbook history)"
+    },
+    {
+      "propertyCode": "7010",
+      "lineLabel": "Building Maintenance",
+      "glAccount": "6220-8502",
+      "yearly": {
+        "2025": 87239.0,
+        "2024": 75406.0,
+        "2023": 46489.88
+      },
+      "source": "2025 CAM billing workbook (2025 reconciled; 2024 & 2023 from workbook history)"
+    },
+    {
+      "propertyCode": "7010",
+      "lineLabel": "Parking Lot Cleaning",
+      "glAccount": "6330-8502",
+      "yearly": {
+        "2025": 31810.32,
+        "2024": 33483.0,
+        "2023": 49940.0
+      },
+      "source": "2025 CAM billing workbook (2025 reconciled; 2024 & 2023 from workbook history)"
+    },
+    {
+      "propertyCode": "7010",
+      "lineLabel": "Security",
+      "glAccount": "6350-8502",
+      "yearly": {
+        "2025": 143149.5,
+        "2024": 130548.0,
+        "2023": 142939.4
+      },
+      "source": "2025 CAM billing workbook (2025 reconciled; 2024 & 2023 from workbook history)"
+    },
+    {
+      "propertyCode": "7010",
+      "lineLabel": "Parking Lot Maintenance",
+      "glAccount": "6360-8502",
+      "yearly": {
+        "2025": 69256.0,
+        "2024": 52634.0,
+        "2023": 75034.35
+      },
+      "source": "2025 CAM billing workbook (2025 reconciled; 2024 & 2023 from workbook history)"
+    },
+    {
+      "propertyCode": "7010",
+      "lineLabel": "Snow Removal",
+      "glAccount": "6370-8502",
+      "yearly": {
+        "2025": 42844.2,
+        "2024": 35875.0,
+        "2023": 0.0
+      },
+      "source": "2025 CAM billing workbook (2025 reconciled; 2024 & 2023 from workbook history)"
+    },
+    {
+      "propertyCode": "7010",
+      "lineLabel": "Cleaning",
+      "glAccount": "6270-8502",
+      "yearly": {
+        "2025": 0.0,
+        "2024": 0.0,
+        "2023": 11105.37
+      },
+      "source": "2025 CAM billing workbook (2025 reconciled; 2024 & 2023 from workbook history)"
+    },
+    {
+      "propertyCode": "7010",
+      "lineLabel": "Landscaping",
+      "glAccount": "6380-8502",
+      "yearly": {
+        "2025": 17347.68,
+        "2024": 19089.0,
+        "2023": 17090.29
+      },
+      "source": "2025 CAM billing workbook (2025 reconciled; 2024 & 2023 from workbook history)"
+    },
+    {
+      "propertyCode": "7010",
+      "lineLabel": "Liability Insurance",
+      "yearly": {
+        "2025": 37600.88,
+        "2024": 37007.0
+      },
+      "source": "2025 CAM billing workbook (2025 reconciled; 2024 & 2023 from workbook history)"
+    },
+    {
+      "propertyCode": "7010",
+      "lineLabel": "Property Insurance",
+      "yearly": {
+        "2025": 7869.41,
+        "2024": 8056.0
+      },
+      "source": "2025 CAM billing workbook (2025 reconciled; 2024 & 2023 from workbook history)"
+    },
+    {
+      "propertyCode": "7010",
+      "lineLabel": "Real Estate Taxes",
+      "glAccount": "6410-8502",
+      "yearly": {
+        "2025": 141941.88,
+        "2024": 135936.0
+      },
+      "source": "2025 CAM billing workbook (2025 reconciled; 2024 & 2023 from workbook history)"
     }
   ]
 }
