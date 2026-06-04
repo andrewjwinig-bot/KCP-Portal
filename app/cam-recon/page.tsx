@@ -236,7 +236,7 @@ function drawTenantStatement(doc: any, t: TenantReconResult, year: number, propL
 
   stroke(LINE); doc.setLineWidth(0.6); doc.line(L, 752, R, 752);
   ink(MUTED); doc.setFontSize(8);
-  doc.text("Korman Commercial Properties", L, 766);
+  doc.text("Invoices available, upon request.", L, 766);
   doc.text(`${year} CAM / RET Reconciliation  ·  Suite ${t.suite}`, R, 766, { align: "right" });
 }
 
@@ -1130,7 +1130,7 @@ function drawRetailStatement(doc: any, t: RetailTenantResult, year: number, prop
   if (contact?.email) { ink(MUTED); doc.setFont("helvetica", "normal"); doc.setFontSize(8.5); at(`Statement to: ${contact.email}`, L); y += 14; }
   stroke(LINE); doc.setLineWidth(0.6); doc.line(L, 752, R, 752);
   ink(MUTED); doc.setFontSize(8);
-  doc.text("Korman Commercial Properties", L, 766);
+  doc.text("Invoices available, upon request.", L, 766);
   doc.text(`${year} CAM / INS / RET Reconciliation  ·  Suite ${t.suite}`, R, 766, { align: "right" });
 }
 
