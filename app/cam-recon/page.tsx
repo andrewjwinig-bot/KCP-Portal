@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Pill, StatPill, reconBalanceTone, TONE_NEUTRAL, TONE_AMBER, TONE_BLUE, TONE_PURPLE } from "@/app/components/Pill";
 import { ImportInstructions } from "@/app/components/ImportInstructions";
@@ -802,57 +802,47 @@ function retailExceptions(t: RetailTenantResult): string[] {
 }
 
 function RetailConfigTable({ result, onPick }: { result: RetailBuildingResult; onPick: (u: string) => void }) {
-  const [open, setOpen] = useState<string | null>(null);
-  const colN = 7;
+  // Narrow numeric columns (shrink to content) so the Notes column gets the
+  // remaining width and the lease exceptions can be written out inline.
+  const numTh: React.CSSProperties = { ...th, width: "1%" };
+  const numTd: React.CSSProperties = { ...td, width: "1%" };
   return (
     <div className="card" style={{ overflowX: "auto" }}>
       <div style={SECTION_LABEL}>Tenant CAM Methodology — {result.propertyCode} · {result.reconYear}</div>
       <p className="small muted" style={{ marginTop: 4 }}>
-        Admin fee + pro-rata share per category, at a glance. ⓘ marks a lease exception — click it for the exclusions / cap / discount detail.
+        Admin fee + pro-rata share per category, at a glance. Lease exceptions (exclusions / cap / discount / gross) are spelled out under Notes.
       </p>
-      <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 10, minWidth: 640 }}>
+      <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 10, minWidth: 720 }}>
         <thead>
           <tr>
-            <th style={{ ...th, textAlign: "left" }}>Unit</th>
-            <th style={{ ...th, textAlign: "left" }}>Tenant</th>
-            <th style={th}>CAM Admin</th>
-            <th style={th}>CAM PRS</th>
-            <th style={th}>INS PRS</th>
-            <th style={th}>RET PRS</th>
-            <th style={{ ...th, textAlign: "center" }}>Notes</th>
+            <th style={{ ...numTh, textAlign: "left" }}>Unit</th>
+            <th style={{ ...th, textAlign: "left", width: "1%" }}>Tenant</th>
+            <th style={numTh}>CAM Admin</th>
+            <th style={numTh}>CAM PRS</th>
+            <th style={numTh}>INS PRS</th>
+            <th style={numTh}>RET PRS</th>
+            <th style={{ ...th, textAlign: "left" }}>Notes</th>
           </tr>
         </thead>
         <tbody>
           {result.tenants.map((t) => {
             const ex = retailExceptions(t);
-            const isOpen = open === t.unitRef;
             return (
-              <Fragment key={t.unitRef}>
-                <tr style={{ borderBottom: ex.length && isOpen ? "none" : "1px solid var(--border)", ...(t.grossLease ? { opacity: 0.5 } : {}) }}>
-                  <td style={{ ...td, textAlign: "left" }}><UnitChip unitRef={t.unitRef} backTo={`/cam-recon?property=${result.propertyCode}&year=${result.reconYear}`} /></td>
-                  <td style={{ ...td, textAlign: "left", cursor: "pointer" }} onClick={() => onPick(t.unitRef)}><span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>{t.portion && <PortionPill portion={t.portion} />}<span>{t.name}{t.grossLease ? <span className="muted" style={{ fontSize: 11 }}> (Gross)</span> : null}<OccCallout occPct={t.occPct} year={result.reconYear} rcd={t.rcd} vacatedISO={t.vacatedISO} /></span></span></td>
-                  <td style={td}>{t.adminFeePct ? `${t.adminFeePct}%` : "—"}</td>
-                  <td style={td}>{t.grossLease ? "—" : pct(t.camPrs / 100)}</td>
-                  <td style={td}>{t.grossLease ? "—" : pct(t.insPrs / 100)}</td>
-                  <td style={td}>{t.grossLease ? "—" : pct(t.retPrs / 100)}</td>
-                  <td style={{ ...td, textAlign: "center" }}>
-                    {ex.length > 0 ? (
-                      <button type="button" onClick={() => setOpen(isOpen ? null : t.unitRef)} title="Show lease exceptions"
-                        style={{ border: "none", background: "none", cursor: "pointer", color: "#b45309", fontWeight: 800, fontSize: 14 }}>ⓘ</button>
-                    ) : <span style={{ color: "var(--muted)" }}>—</span>}
-                  </td>
-                </tr>
-                {ex.length > 0 && isOpen && (
-                  <tr style={{ borderBottom: "1px solid var(--border)", background: "rgba(180,83,9,0.05)" }}>
-                    <td />
-                    <td colSpan={colN - 1} style={{ ...td, textAlign: "left", padding: "8px 10px" }}>
-                      <ul style={{ margin: 0, paddingLeft: 18, display: "flex", flexDirection: "column", gap: 3 }}>
-                        {ex.map((e, i) => <li key={i} style={{ fontSize: 12.5, color: "#7c4a12" }}>{e}</li>)}
-                      </ul>
-                    </td>
-                  </tr>
-                )}
-              </Fragment>
+              <tr key={t.unitRef} style={{ borderBottom: "1px solid var(--border)", ...(t.grossLease ? { opacity: 0.5 } : {}) }}>
+                <td style={{ ...numTd, textAlign: "left" }}><UnitChip unitRef={t.unitRef} backTo={`/cam-recon?property=${result.propertyCode}&year=${result.reconYear}`} /></td>
+                <td style={{ ...td, textAlign: "left", width: "1%", cursor: "pointer" }} onClick={() => onPick(t.unitRef)}><span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>{t.portion && <PortionPill portion={t.portion} />}<span>{t.name}{t.grossLease ? <span className="muted" style={{ fontSize: 11 }}> (Gross)</span> : null}<OccCallout occPct={t.occPct} year={result.reconYear} rcd={t.rcd} vacatedISO={t.vacatedISO} /></span></span></td>
+                <td style={numTd}>{t.adminFeePct ? `${t.adminFeePct}%` : "—"}</td>
+                <td style={numTd}>{t.grossLease ? "—" : pct(t.camPrs / 100)}</td>
+                <td style={numTd}>{t.grossLease ? "—" : pct(t.insPrs / 100)}</td>
+                <td style={numTd}>{t.grossLease ? "—" : pct(t.retPrs / 100)}</td>
+                <td style={{ ...td, textAlign: "left", whiteSpace: "normal" }}>
+                  {ex.length > 0 ? (
+                    <ul style={{ margin: 0, paddingLeft: 16, display: "flex", flexDirection: "column", gap: 2 }}>
+                      {ex.map((e, i) => <li key={i} style={{ fontSize: 12, color: "#7c4a12", lineHeight: 1.4 }}>{e}</li>)}
+                    </ul>
+                  ) : <span style={{ color: "var(--muted)" }}>—</span>}
+                </td>
+              </tr>
             );
           })}
         </tbody>
