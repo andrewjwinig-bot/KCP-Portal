@@ -103,7 +103,7 @@ export type RetailTenantResult = {
   /** The building CAM lines as they apply to this tenant — for the statement's
    *  Schedule of Operating Expenses. `billed` is false for lines this tenant
    *  is carved out of. */
-  camSchedule: { label: string; amount: number; billed: boolean; nonControllable: boolean }[];
+  camSchedule: { glAccount: string; label: string; amount: number; billed: boolean; nonControllable: boolean }[];
   /** Full CAM pool before this tenant's exclusions/cap (for the statement). */
   camPoolFull: number;
   /** Effective CAM pool this tenant is billed against (after exclusions/cap). */

@@ -156,11 +156,12 @@ function drawTenantStatement(doc: any, t: TenantReconResult, year: number, propL
     }
     y += 22; ink(INK); doc.setFontSize(10);
   };
-  const lineRow = (i: number, label: string, b: number, a: number, n: number, bold = false) => {
+  const lineRow = (i: number, label: string, b: number, a: number, n: number, bold = false, acct = "") => {
     if (!bold && i % 2 === 1) { fill(ZEBRA); doc.rect(L, y - 10, W, 15, "F"); }
     doc.setFont("helvetica", bold ? "bold" : "normal");
+    if (acct) { ink(MUTED); at(acct, L + 6); }
     ink(bold ? NAVY : INK);
-    at(label, L + 6);
+    at(label, L + 62);
     at(money(b), cols[0], { align: "right" });
     at(money(a), cols[1], { align: "right" });
     at(money(n), cols[2] - 6, { align: "right" });
@@ -174,7 +175,7 @@ function drawTenantStatement(doc: any, t: TenantReconResult, year: number, propL
 
   // ── Operating expenses ───────────────────────────────────────────────────
   sectionBar("Schedule of Operating Expenses", true);
-  t.opexLines.forEach((l, i) => lineRow(i, l.label, l.baseCost, l.actual, l.netIncrease));
+  t.opexLines.forEach((l, i) => lineRow(i, l.label, l.baseCost, l.actual, l.netIncrease, false, l.glAccount));
   stroke(NAVY); doc.setLineWidth(0.8); doc.line(L, y - 11, R, y - 11);
   lineRow(0, "Total Operating Expenses", t.opexBaseTotal, t.opexActualTotal, t.opexNetIncrease, true);
   y += 6;
@@ -189,7 +190,7 @@ function drawTenantStatement(doc: any, t: TenantReconResult, year: number, propL
 
   // ── Real estate taxes ────────────────────────────────────────────────────
   sectionBar("Real Estate Taxes", true);
-  lineRow(0, t.retLine.label, t.retLine.baseCost, t.retLine.actual, t.retLine.netIncrease);
+  lineRow(0, t.retLine.label, t.retLine.baseCost, t.retLine.actual, t.retLine.netIncrease, false, t.retLine.glAccount);
   y += 6;
   sumRow("× Tenant Proportionate Share", pct(t.proRataPct / 100));
   sumRow("× Occupancy % For The Year", pct(t.occPct, 1));
@@ -526,7 +527,7 @@ export default function OfficeCamReconPage() {
               rSelected ? (
                 <button onClick={() => downloadRetailTenantPdf(rSelected, year, `${property} — ${propName}`, contacts[rSelected.unitRef])} className="btn primary" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}>Download PDF</button>
               ) : (
-                <button onClick={() => activeRetail && downloadAllRetailPdfs(activeRetail.tenants, year, `${property} — ${propName}`, contacts)} disabled={!activeRetail} className="btn" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}>All Tenant PDFs</button>
+                <button onClick={() => activeRetail && downloadAllRetailPdfs(activeRetail.tenants, year, `${property} — ${propName}`, contacts)} disabled={!activeRetail} className="btn primary" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}>All Tenant PDFs</button>
               )
             ) : (
               <>
@@ -534,7 +535,7 @@ export default function OfficeCamReconPage() {
                   <button onClick={() => downloadTenantPdf(selected, year, `${property} — ${propName}`, contacts[selected.unitRef])} className="btn primary" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}>Download PDF</button>
                 )}
                 {!selected && (
-                  <button onClick={() => result && downloadAllTenantPdfs(result.tenants, year, `${property} — ${propName}`, contacts)} disabled={!result} className="btn" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}>All Tenant PDFs</button>
+                  <button onClick={() => result && downloadAllTenantPdfs(result.tenants, year, `${property} — ${propName}`, contacts)} disabled={!result} className="btn primary" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}>All Tenant PDFs</button>
                 )}
               </>
             )}
@@ -582,7 +583,7 @@ export default function OfficeCamReconPage() {
 
         <div className="pills">
           <StatPill label={`CAM Due${direction(camDue) ? ` ${direction(camDue)}` : ""}`} value={money0(Math.abs(camDue))} accent={reconBalanceTone(camDue).fg} />
-          <StatPill label={`INS Due${direction(insDue) ? ` ${direction(insDue)}` : ""}`} value={money0(Math.abs(insDue))} />
+          <StatPill label={`INS Due${direction(insDue) ? ` ${direction(insDue)}` : ""}`} value={money0(Math.abs(insDue))} accent={reconBalanceTone(insDue).fg} />
           <StatPill label={`RET Due${direction(retDue) ? ` ${direction(retDue)}` : ""}`} value={money0(Math.abs(retDue))} accent={reconBalanceTone(retDue).fg} />
           <StatPill label={`Total Due${direction(totalDue) ? ` ${direction(totalDue)}` : ""}`} value={money0(Math.abs(totalDue))} accent={reconBalanceTone(totalDue).fg} />
         </div>
@@ -840,10 +841,11 @@ function AllocationBreakdown({ a }: { a: PropertyAllocation }) {
   const pctCell = (part: number, full: number) => full > 0 ? ` (${Math.round((part / full) * 100)}%)` : "";
   const camRetail = a.cam.reduce((s, l) => s + l.retail, 0);
   const camOffice = a.cam.reduce((s, l) => s + l.office, 0);
-  const Row = ({ l, bold }: { l: { label: string; retail: number; office: number }; bold?: boolean }) => {
+  const Row = ({ l, bold }: { l: { account?: string; label: string; retail: number; office: number }; bold?: boolean }) => {
     const full = l.retail + l.office;
     return (
       <tr style={{ borderBottom: "1px solid var(--border)", fontWeight: bold ? 800 : 500 }}>
+        <td style={{ ...td, textAlign: "left", color: "var(--muted)", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>{l.account ?? ""}</td>
         <td style={{ ...td, textAlign: "left" }}>{l.label}</td>
         <td style={td}>{money(full)}</td>
         <td style={td}>{money(l.retail)}<span className="muted" style={{ fontSize: 11 }}>{pctCell(l.retail, full)}</span></td>
@@ -861,6 +863,7 @@ function AllocationBreakdown({ a }: { a: PropertyAllocation }) {
       <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 10, minWidth: 720 }}>
         <thead>
           <tr>
+            <th style={{ ...th, textAlign: "left" }}>Acct</th>
             <th style={{ ...th, textAlign: "left" }}>Expense</th>
             <th style={th}>Full</th>
             <th style={th}>Retail (8502)</th>
@@ -889,9 +892,10 @@ function RetailScheduleTable({ t }: { t: RetailTenantResult }) {
   return (
     <div className="card" style={{ overflowX: "auto" }}>
       <div style={CARD_TITLE}>Schedule of Operating Expenses</div>
-      <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 10, minWidth: 360 }}>
+      <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 10, minWidth: 420 }}>
         <thead>
           <tr>
+            <th style={{ ...sth, textAlign: "left", width: "1%", whiteSpace: "nowrap" }}>Acct</th>
             <th style={{ ...sth, textAlign: "left" }}>Expense</th>
             <th style={sth}>2025 Actual</th>
           </tr>
@@ -899,6 +903,7 @@ function RetailScheduleTable({ t }: { t: RetailTenantResult }) {
         <tbody>
           {t.camSchedule.map((l, i) => (
             <tr key={i} style={{ borderBottom: "1px solid var(--border)" }}>
+              <td style={{ ...std, textAlign: "left", whiteSpace: "nowrap", color: "var(--muted)", fontVariantNumeric: "tabular-nums" }}>{l.glAccount}</td>
               <td style={{ ...std, textAlign: "left", ...(l.billed ? {} : { color: "var(--muted)" }) }}>
                 <span style={l.billed ? {} : { textDecoration: "line-through" }}>{l.label}</span>
                 {!l.billed && <span style={{ fontStyle: "italic", fontSize: 11 }}> (not billed)</span>}
@@ -909,13 +914,14 @@ function RetailScheduleTable({ t }: { t: RetailTenantResult }) {
         </tbody>
         <tfoot>
           <tr style={{ fontWeight: 800, borderTop: "2px solid var(--border)" }}>
+            <td style={std} />
             <td style={{ ...std, textAlign: "left" }}>Total Operating Expenses</td>
             <td style={std}>{money(billedTotal)}</td>
           </tr>
           {capped && (
             <>
-              <tr><td style={{ ...std, textAlign: "left", color: "#b45309" }}>Less: Controllable Expense Cap</td><td style={{ ...std, color: "#b45309" }}>{money(t.camPoolEffective - billedTotal)}</td></tr>
-              <tr style={{ fontWeight: 800 }}><td style={{ ...std, textAlign: "left" }}>Applicable CAM Pool</td><td style={std}>{money(t.camPoolEffective)}</td></tr>
+              <tr><td style={std} /><td style={{ ...std, textAlign: "left", color: "#b45309" }}>Less: Controllable Expense Cap</td><td style={{ ...std, color: "#b45309" }}>{money(t.camPoolEffective - billedTotal)}</td></tr>
+              <tr style={{ fontWeight: 800 }}><td style={std} /><td style={{ ...std, textAlign: "left" }}>Applicable CAM Pool</td><td style={std}>{money(t.camPoolEffective)}</td></tr>
             </>
           )}
         </tfoot>
@@ -932,7 +938,6 @@ function RetailTenantStatement({ t, reconYear, contact }: {
 }) {
   const net = t.camBalance + t.insBalance + t.retBalance;
   const credit = net < -0.005;
-  const occLine = t.occPct < 0.9999;
   const camFull = (t.camPrs / 100) * t.camPoolEffective;
   const insFull = (t.insPrs / 100) * t.insPool;
   const retFull = (t.retPrs / 100) * t.retPool * (1 - t.retDiscountPct / 100);
@@ -946,7 +951,7 @@ function RetailTenantStatement({ t, reconYear, contact }: {
           <div style={{ ...SECTION_LABEL, color: "#0b4a7d", marginBottom: 8 }}>CAM — {reconYear}</div>
           <BalanceRow label={`CAM Pool${t.capped ? " (capped)" : t.camPoolEffective < t.camPoolFull ? " (after exclusions)" : ""}`} value={money(t.camPoolEffective)} />
           <BalanceRow label={`× CAM Share ${pct(t.camPrs / 100)}`} value={money(camFull)} />
-          {occLine && <BalanceRow label={`× Occupancy ${pct(t.occPct, 1)}`} value={money(t.camShare)} />}
+          <BalanceRow label={`× Occupancy ${pct(t.occPct, 1)}`} value={money(t.camShare)} />
           {t.adminFeePct > 0 && <BalanceRow label={`+ Admin Fee ${t.adminFeePct}%`} value={money(t.camAdmin)} />}
           <BalanceRow label="CAM Due" value={money(t.camDue)} strong />
           <BalanceRow label="Less: Escrow Billed" value={money(-t.camEscrow)} />
@@ -956,7 +961,7 @@ function RetailTenantStatement({ t, reconYear, contact }: {
           <div style={{ ...SECTION_LABEL, color: "#0f766e", marginBottom: 8 }}>INS — {reconYear}</div>
           <BalanceRow label="Insurance Pool" value={money(t.insPool)} />
           <BalanceRow label={`× INS Share ${pct(t.insPrs / 100)}`} value={money(insFull)} />
-          {occLine && <BalanceRow label={`× Occupancy ${pct(t.occPct, 1)}`} value={money(t.insDue)} />}
+          <BalanceRow label={`× Occupancy ${pct(t.occPct, 1)}`} value={money(t.insDue)} />
           <BalanceRow label="INS Due" value={money(t.insDue)} strong />
           <BalanceRow label="Less: Escrow Billed" value={money(-t.insEscrow)} />
           <FinalBalanceRow label="Balance, INS Due" value={t.insBalance} />
@@ -969,7 +974,7 @@ function RetailTenantStatement({ t, reconYear, contact }: {
             <>
               <BalanceRow label="Real Estate Tax Pool" value={money(t.retPool)} />
               <BalanceRow label={`× RET Share ${pct(t.retPrs / 100)}${t.retDiscountPct > 0 ? ` less ${t.retDiscountPct}%` : ""}`} value={money(retFull)} />
-              {occLine && <BalanceRow label={`× Occupancy ${pct(t.occPct, 1)}`} value={money(t.retDue)} />}
+              <BalanceRow label={`× Occupancy ${pct(t.occPct, 1)}`} value={money(t.retDue)} />
             </>
           )}
           <BalanceRow label="RET Due" value={money(t.retDue)} strong />
@@ -1051,8 +1056,10 @@ function drawRetailStatement(doc: any, t: RetailTenantResult, year: number, prop
   doc.setFontSize(9);
   t.camSchedule.forEach((l, i) => {
     if (i % 2 === 1) { fill([247, 249, 251]); doc.rect(L, y - 9, W, 13, "F"); }
-    doc.setFont("helvetica", l.billed ? "normal" : "italic"); ink(l.billed ? INK : MUTED);
-    at(l.billed ? l.label : `${l.label} (not billed)`, L + 6);
+    doc.setFont("helvetica", l.billed ? "normal" : "italic");
+    ink(MUTED); at(l.glAccount, L + 6);
+    ink(l.billed ? INK : MUTED);
+    at(l.billed ? l.label : `${l.label} (not billed)`, L + 74);
     at(money(l.amount), R - 6, { align: "right" }); y += 13; ink(INK);
   });
   const billedTotal = t.camSchedule.filter((l) => l.billed).reduce((a, l) => a + l.amount, 0);
@@ -1062,9 +1069,15 @@ function drawRetailStatement(doc: any, t: RetailTenantResult, year: number, prop
   if (t.capped) { doc.setFont("helvetica", "normal"); doc.setFontSize(9); ink(AMBER); at(`Less: Controllable Expense Cap → Applicable CAM Pool ${money(t.camPoolEffective)}`, L + 6); y += 14; ink(INK); }
   y += 8; doc.setFontSize(10);
 
+  // Full waterfall — show share, occupancy, and admin as separate steps.
+  const camFull = (t.camPrs / 100) * t.camPoolEffective;
+  const insFull = (t.insPrs / 100) * t.insPool;
+  const retFull = (t.retPrs / 100) * t.retPool * (1 - t.retDiscountPct / 100);
+
   bar("Common Area Maintenance");
   sumRow(`CAM Pool${t.capped ? " (capped)" : t.camPoolEffective < t.camPoolFull ? " (after exclusions)" : ""}`, money(t.camPoolEffective));
-  sumRow(`× CAM Share ${pct(t.camPrs / 100)}`, money(t.camShare));
+  sumRow(`× CAM Share ${pct(t.camPrs / 100)}`, money(camFull));
+  sumRow(`× Occupancy ${pct(t.occPct, 1)}`, money(t.camShare));
   if (t.adminFeePct > 0) sumRow(`+ Admin Fee ${t.adminFeePct}%`, money(t.camAdmin));
   sumRow("CAM Due", money(t.camDue), true);
   sumRow("Less: Escrow Billed", money(-t.camEscrow));
@@ -1073,14 +1086,22 @@ function drawRetailStatement(doc: any, t: RetailTenantResult, year: number, prop
 
   bar("Insurance");
   sumRow("Insurance Pool", money(t.insPool));
-  sumRow(`× INS Share ${pct(t.insPrs / 100)}`, money(t.insDue));
+  sumRow(`× INS Share ${pct(t.insPrs / 100)}`, money(insFull));
+  sumRow(`× Occupancy ${pct(t.occPct, 1)}`, money(t.insDue));
+  sumRow("INS Due", money(t.insDue), true);
   sumRow("Less: Escrow Billed", money(-t.insEscrow));
   sumRow("Balance, INS Due", money(t.insBalance), true);
   y += 8;
 
   bar("Real Estate Taxes");
-  sumRow("Real Estate Tax Pool", money(t.retPool));
-  sumRow(`× RET Share ${pct(t.retPrs / 100)}${t.retDiscountPct ? ` (less ${t.retDiscountPct}%)` : ""}`, money(t.retDue));
+  if (t.flatRet != null) {
+    sumRow("Own-parcel RET (100%)", money(t.flatRet));
+  } else {
+    sumRow("Real Estate Tax Pool", money(t.retPool));
+    sumRow(`× RET Share ${pct(t.retPrs / 100)}${t.retDiscountPct ? ` (less ${t.retDiscountPct}%)` : ""}`, money(retFull));
+    sumRow(`× Occupancy ${pct(t.occPct, 1)}`, money(t.retDue));
+  }
+  sumRow("RET Due", money(t.retDue), true);
   sumRow("Less: Escrow Billed", money(-t.retEscrow));
   sumRow("Balance, RET Due", money(t.retBalance), true);
   y += 22;
@@ -1439,15 +1460,17 @@ function ScheduleTable({ title, lines, baseYear, reconYear, totalLabel }: {
   return (
     // Fixed layout + shared column widths so the Op Ex and RET schedules
     // stack cleanly (B/Y over B/Y, Actual over Actual).
-    <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed", minWidth: 520 }}>
+    <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed", minWidth: 560 }}>
       <colgroup>
-        <col style={{ width: "40%" }} />
-        <col style={{ width: "20%" }} />
-        <col style={{ width: "20%" }} />
-        <col style={{ width: "20%" }} />
+        <col style={{ width: "12%" }} />
+        <col style={{ width: "32%" }} />
+        <col style={{ width: "18.66%" }} />
+        <col style={{ width: "18.66%" }} />
+        <col style={{ width: "18.66%" }} />
       </colgroup>
       <thead>
         <tr>
+          <th style={{ ...sth, textAlign: "left" }}>Acct</th>
           <th style={{ ...sth, textAlign: "left" }}>{title}</th>
           <th style={sth}>B/Y Costs ({baseYear})</th>
           <th style={sth}>Actual ({reconYear})</th>
@@ -1457,6 +1480,7 @@ function ScheduleTable({ title, lines, baseYear, reconYear, totalLabel }: {
       <tbody>
         {lines.map((l) => (
           <tr key={l.glAccount} style={{ borderBottom: "1px solid var(--border)" }}>
+            <td style={{ ...std, textAlign: "left", color: "var(--muted)", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>{l.glAccount}</td>
             <td style={{ ...std, textAlign: "left" }}>{l.label}</td>
             <td style={std}>{money0(l.baseCost)}</td>
             <td style={std}>{money0(l.actual)}</td>
@@ -1467,6 +1491,7 @@ function ScheduleTable({ title, lines, baseYear, reconYear, totalLabel }: {
       {totalLabel && (
         <tfoot>
           <tr style={{ fontWeight: 800, borderTop: "2px solid var(--border)" }}>
+            <td style={std} />
             <td style={{ ...std, textAlign: "left" }}>{totalLabel}</td>
             <td style={std}>{money0(baseTotal)}</td>
             <td style={std}>{money0(actualTotal)}</td>

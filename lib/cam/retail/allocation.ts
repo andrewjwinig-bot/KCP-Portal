@@ -80,7 +80,7 @@ export const retailPoolFor = (mc: MixedCenter) => poolFor(mc, "retail");
 export const officePoolFor = (mc: MixedCenter) => poolFor(mc, "office");
 
 // ── Allocation breakdown (the at-a-glance "what's for what" table) ──
-export type AllocationLine = { label: string; retail: number; office: number };
+export type AllocationLine = { account: string; label: string; retail: number; office: number };
 export type PropertyAllocation = {
   propertyCode: string;
   name: string;
@@ -91,7 +91,9 @@ export type PropertyAllocation = {
 };
 
 function allocationOf(mc: MixedCenter): PropertyAllocation {
-  const line = (l: SplitLine): AllocationLine => ({ label: l.label, ...splitAmounts(l) });
+  // Base GL account (e.g. "6120-8502" / "6120-8503" → "6120").
+  const acct = (l: SplitLine) => (l.glRetail ?? l.glOffice ?? "—").split("-")[0];
+  const line = (l: SplitLine): AllocationLine => ({ account: acct(l), label: l.label, ...splitAmounts(l) });
   return {
     propertyCode: mc.propertyCode,
     name: mc.name,
