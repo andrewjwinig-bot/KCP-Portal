@@ -1,14 +1,28 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { StatPill } from "@/app/components/Pill";
+import { PROPERTY_DEFS } from "@/lib/properties/data";
 import type { HistoricalOpExEntry } from "@/lib/financials/historical-opex/types";
+
+const PROP_NAME = new Map(PROPERTY_DEFS.map((p) => [p.id.toUpperCase(), p.name]));
 
 function money(n: number): string {
   if (n === 0) return "—";
   const sign = n < 0 ? "-" : "";
   const abs = Math.abs(n);
   return `${sign}$${Math.round(abs).toLocaleString("en-US")}`;
+}
+
+const isRetLine = (label: string) => /real estate tax/i.test(label);
+
+function downloadCSV(filename: string, csv: string) {
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 type EntryStats = {
@@ -150,10 +164,146 @@ export default function HistoricalOpExPage() {
         </div>
       )}
 
+      {entries && entries.length > 0 && <SummaryTable entries={entries} />}
+
+      {entries && entries.length > 0 && (
+        <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginTop: 6 }}>
+          Property &amp; Line Detail
+        </div>
+      )}
+
       {entries && entries.map((entry) => (
         <EntryCard key={`${entry.propertyCode}-${entry.lineLabel}`} entry={entry} />
       ))}
     </main>
+  );
+}
+
+// ── All-properties summary (Op Ex / RET / Total per year) ────────────────────
+
+type PropRow = { code: string; name: string; byYear: Map<number, { opex: number; ret: number }> };
+
+function buildSummary(entries: HistoricalOpExEntry[]): { rows: PropRow[]; years: number[] } {
+  const byProp = new Map<string, Map<number, { opex: number; ret: number }>>();
+  const yearSet = new Set<number>();
+  for (const e of entries) {
+    const ret = isRetLine(e.lineLabel);
+    const pm = byProp.get(e.propertyCode) ?? new Map<number, { opex: number; ret: number }>();
+    for (const [yStr, v] of Object.entries(e.yearly)) {
+      const y = Number(yStr);
+      if (!Number.isFinite(y) || typeof v !== "number") continue;
+      yearSet.add(y);
+      const cell = pm.get(y) ?? { opex: 0, ret: 0 };
+      if (ret) cell.ret += v; else cell.opex += v;
+      pm.set(y, cell);
+    }
+    byProp.set(e.propertyCode, pm);
+  }
+  const rows: PropRow[] = [...byProp.entries()]
+    .map(([code, byYear]) => ({ code, name: PROP_NAME.get(code.toUpperCase()) ?? "", byYear }))
+    .sort((a, b) => a.code.localeCompare(b.code));
+  const years = [...yearSet].sort((a, b) => b - a); // newest first
+  return { rows, years };
+}
+
+function SummaryTable({ entries }: { entries: HistoricalOpExEntry[] }) {
+  const { rows, years } = useMemo(() => buildSummary(entries), [entries]);
+  // On screen: the six most recent years (full history goes in the download).
+  const shown = years.slice(0, 6);
+
+  const cell = (r: PropRow, y: number) => r.byYear.get(y) ?? { opex: 0, ret: 0 };
+
+  function exportCSV() {
+    const head = ["Property", "Name"];
+    for (const y of years) head.push(`${y} Op Ex`, `${y} RET`, `${y} Total`);
+    const lines = [head.join(",")];
+    for (const r of rows) {
+      const cols: (string | number)[] = [r.code, `"${r.name}"`];
+      for (const y of years) {
+        const c = cell(r, y);
+        cols.push(Math.round(c.opex), Math.round(c.ret), Math.round(c.opex + c.ret));
+      }
+      lines.push(cols.join(","));
+    }
+    downloadCSV(`Expense_History_Summary.csv`, lines.join("\n"));
+  }
+
+  const num: React.CSSProperties = { textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", padding: "6px 10px" };
+  const grp: React.CSSProperties = { ...num, borderLeft: "1px solid var(--border)" };
+
+  return (
+    <div className="card" style={{ overflowX: "auto" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 800 }}>All Properties — Expense Summary</div>
+          <div className="muted small" style={{ marginTop: 2 }}>
+            Operating expenses, real estate taxes, and total per year, every property at a glance. Showing the {shown.length} most recent years; download for the full history.
+          </div>
+        </div>
+        <button onClick={exportCSV} className="btn primary" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}>Download CSV</button>
+      </div>
+
+      <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 12, minWidth: 720 }}>
+        <thead>
+          <tr>
+            <th style={{ textAlign: "left", padding: "6px 10px", borderBottom: "1px solid var(--border)" }} />
+            {shown.map((y) => (
+              <th key={y} colSpan={3} style={{ textAlign: "center", padding: "4px 10px", fontSize: 13, fontWeight: 800, borderLeft: "1px solid var(--border)", borderBottom: "1px solid var(--border)" }}>{y}</th>
+            ))}
+          </tr>
+          <tr style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--muted)" }}>
+            <th style={{ textAlign: "left", padding: "4px 10px", borderBottom: "1px solid var(--border)" }}>Property</th>
+            {shown.map((y) => (
+              <Fragment key={y}>
+                <th style={{ ...grp, fontSize: 11 }}>Op Ex</th>
+                <th style={{ ...num, fontSize: 11 }}>RET</th>
+                <th style={{ ...num, fontSize: 11, fontWeight: 800 }}>Total</th>
+              </Fragment>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.code} style={{ borderBottom: "1px solid var(--border)" }}>
+              <td style={{ textAlign: "left", padding: "6px 10px", whiteSpace: "nowrap" }}>
+                <span style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontWeight: 700, fontSize: 12 }}>{r.code}</span>
+                {r.name && <span className="muted" style={{ marginLeft: 8, fontSize: 12.5 }}>{r.name}</span>}
+              </td>
+              {shown.map((y) => {
+                const c = cell(r, y);
+                const tot = c.opex + c.ret;
+                return (
+                  <Fragment key={y}>
+                    <td style={grp}>{money(c.opex)}</td>
+                    <td style={num}>{money(c.ret)}</td>
+                    <td style={{ ...num, fontWeight: 800 }}>{money(tot)}</td>
+                  </Fragment>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+        <tfoot>
+          <tr style={{ fontWeight: 800, borderTop: "2px solid var(--border)" }}>
+            <td style={{ textAlign: "left", padding: "6px 10px" }}>Portfolio Total</td>
+            {shown.map((y) => {
+              const opex = rows.reduce((s, r) => s + cell(r, y).opex, 0);
+              const ret = rows.reduce((s, r) => s + cell(r, y).ret, 0);
+              return (
+                <Fragment key={y}>
+                  <td style={grp}>{money(opex)}</td>
+                  <td style={num}>{money(ret)}</td>
+                  <td style={{ ...num }}>{money(opex + ret)}</td>
+                </Fragment>
+              );
+            })}
+          </tr>
+        </tfoot>
+      </table>
+      <p className="muted small" style={{ marginTop: 8, marginBottom: 0 }}>
+        Op Ex = sum of operating-expense lines (incl. insurance); RET = real estate taxes; Total = Op Ex + RET. More properties and years populate as their workbooks are loaded.
+      </p>
+    </div>
   );
 }
 
