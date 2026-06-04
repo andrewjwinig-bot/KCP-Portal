@@ -845,7 +845,7 @@ function AllocationBreakdown({ a }: { a: PropertyAllocation }) {
     const full = l.retail + l.office;
     return (
       <tr style={{ borderBottom: "1px solid var(--border)", fontWeight: bold ? 800 : 500 }}>
-        <td style={{ ...td, textAlign: "left", color: "var(--muted)", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>{l.account ?? ""}</td>
+        <td style={{ ...td, textAlign: "left", color: "var(--muted)", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums", fontSize: 12 }}>{l.account ?? ""}</td>
         <td style={{ ...td, textAlign: "left" }}>{l.label}</td>
         <td style={td}>{money(full)}</td>
         <td style={td}>{money(l.retail)}<span className="muted" style={{ fontSize: 11 }}>{pctCell(l.retail, full)}</span></td>
