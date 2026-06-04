@@ -2,11 +2,21 @@
 
 import { useEffect, useState } from "react";
 import type { BuildingReconResult } from "@/lib/cam/office/types";
-import type { NextYearEstimate } from "@/lib/cam/office/exports";
+import { estimateChargeRows, chargeRowsToCSV, type NextYearEstimate } from "@/lib/cam/office/exports";
+import { ImportInstructions } from "@/app/components/ImportInstructions";
 
 function money0(n: number): string {
   const v = Math.round(n);
   return (v < 0 ? "-$" : "$") + Math.abs(v).toLocaleString("en-US");
+}
+
+function downloadCSV(filename: string, csv: string) {
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 const SECTION_LABEL: React.CSSProperties = {
@@ -94,6 +104,12 @@ export default function CamEstimatesPage() {
   const prevYear = year;        // current rent-roll charge = the recon year's estimate
   const newYear = year + 1;     // budget/recon-derived new estimate
 
+  // New recurring monthly charges start 1/1 of the estimate year.
+  function exportEstimate() {
+    if (!result) return;
+    downloadCSV(`${property}_${newYear}_CAM_RET_Estimate.csv`, chargeRowsToCSV(estimateChargeRows(result, `${newYear}-01-01`)));
+  }
+
   return (
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
       <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
@@ -163,6 +179,19 @@ export default function CamEstimatesPage() {
           <p className="small muted" style={{ marginTop: 8 }}>
             {prevYear} = current monthly charge on the rent roll. {newYear} = recon-derived estimate (will switch to budget-driven once the {newYear} budget is loaded). Δ flags spikes ≥ {Math.round(SPIKE * 100)}%.
           </p>
+        </div>
+      )}
+
+      {result && (
+        <div className="card">
+          <div style={SECTION_LABEL}>Export {newYear} Estimate — {result.propertyCode}</div>
+          <p className="small muted" style={{ marginTop: 6 }}>
+            New recurring monthly CAM / RET charges per tenant, effective 1/1/{newYear}.
+          </p>
+          <button onClick={exportEstimate} className="btn primary" style={{ fontSize: 13, padding: "9px 14px", fontWeight: 700, marginTop: 12 }}>
+            Download {newYear} Estimate CSV
+          </button>
+          <ImportInstructions stop />
         </div>
       )}
     </main>
