@@ -915,87 +915,60 @@ function AllocationBreakdown({ a }: { a: PropertyAllocation }) {
 
 // ── Retail per-tenant statement ──────────────────────────────────────────────
 
-function RetailScheduleTable({ t, reconYear }: { t: RetailTenantResult; reconYear: number }) {
-  const billedTotal = t.camSchedule.filter((l) => l.billed).reduce((a, l) => a + l.amount, 0);
-  const capped = t.camPoolEffective < billedTotal - 0.005;
-  const sth: React.CSSProperties = { ...th, fontSize: 12, padding: "7px 10px" };
-  const std: React.CSSProperties = { ...td, fontSize: 14.5, padding: "7px 10px" };
+// Compact per-column expense schedule (Acct / Expense / Actual) for the
+// consolidated retail statement. Each CAM / INS / RET column stacks its
+// schedule above its reconciliation, so the single-line Insurance and RET
+// pools sit beside the longer CAM schedule instead of each eating a full-width
+// card of whitespace.
+function ColumnSchedule({ rows, reconYear, total, footRows }: {
+  rows: { acct: string; label: string; amount: number; billed?: boolean }[];
+  reconYear: number;
+  total?: { label: string; amount: number };
+  footRows?: { label: string; amount: number; strong?: boolean; amber?: boolean }[];
+}) {
+  const sth: React.CSSProperties = { ...th, fontSize: 11, padding: "5px 8px" };
+  const std: React.CSSProperties = { ...td, fontSize: 13.5, padding: "5px 8px" };
   return (
-    <div className="card" style={{ overflowX: "auto" }}>
-      <div style={CARD_TITLE}>Schedule of Operating Expenses</div>
-      <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 10, minWidth: 420 }}>
-        <thead>
-          <tr>
-            <th style={{ ...sth, textAlign: "left", width: "1%", whiteSpace: "nowrap" }}>Acct</th>
-            <th style={{ ...sth, textAlign: "left" }}>Expense</th>
-            <th style={sth}>{reconYear} Actual</th>
-          </tr>
-        </thead>
-        <tbody>
-          {t.camSchedule.map((l, i) => {
-            // Excluded lines: strike the whole row through (matches the workbook).
-            const struck = l.billed ? {} : { textDecoration: "line-through" as const, color: "var(--muted)" };
-            return (
+    <table style={{ width: "100%", borderCollapse: "collapse" }}>
+      <thead>
+        <tr>
+          <th style={{ ...sth, textAlign: "left", width: "1%", whiteSpace: "nowrap" }}>Acct</th>
+          <th style={{ ...sth, textAlign: "left" }}>Expense</th>
+          <th style={sth}>{reconYear} Actual</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((l, i) => {
+          // Excluded lines: strike the whole row through (matches the workbook).
+          const struck = l.billed === false ? { textDecoration: "line-through" as const, color: "var(--muted)" } : {};
+          return (
             <tr key={i} style={{ borderBottom: "1px solid var(--border)" }}>
-              <td style={{ ...std, textAlign: "left", whiteSpace: "nowrap", color: "var(--muted)", fontVariantNumeric: "tabular-nums", ...struck }}>{l.glAccount}</td>
+              <td style={{ ...std, textAlign: "left", whiteSpace: "nowrap", color: "var(--muted)", fontVariantNumeric: "tabular-nums", ...struck }}>{l.acct}</td>
               <td style={{ ...std, textAlign: "left", ...struck }}>{l.label}</td>
               <td style={{ ...std, ...struck }}>{money0(l.amount)}</td>
             </tr>
-            );
-          })}
-        </tbody>
+          );
+        })}
+      </tbody>
+      {(total || (footRows && footRows.length > 0)) && (
         <tfoot>
-          <tr style={{ fontWeight: 800, borderTop: "2px solid var(--border)" }}>
-            <td style={std} />
-            <td style={{ ...std, textAlign: "left" }}>Total Operating Expenses</td>
-            <td style={std}>{money0(billedTotal)}</td>
-          </tr>
-          {capped && (
-            <>
-              <tr><td style={std} /><td style={{ ...std, textAlign: "left", color: "#b45309" }}>Less: Controllable Expense Cap</td><td style={{ ...std, color: "#b45309" }}>{money0(t.camPoolEffective - billedTotal)}</td></tr>
-              <tr style={{ fontWeight: 800 }}><td style={std} /><td style={{ ...std, textAlign: "left" }}>Applicable CAM Pool</td><td style={std}>{money0(t.camPoolEffective)}</td></tr>
-            </>
+          {total && (
+            <tr style={{ fontWeight: 800, borderTop: "2px solid var(--border)" }}>
+              <td style={std} />
+              <td style={{ ...std, textAlign: "left" }}>{total.label}</td>
+              <td style={std}>{money0(total.amount)}</td>
+            </tr>
           )}
+          {footRows?.map((c, i) => (
+            <tr key={i} style={c.strong ? { fontWeight: 800 } : undefined}>
+              <td style={std} />
+              <td style={{ ...std, textAlign: "left", ...(c.amber ? { color: "#b45309" } : {}) }}>{c.label}</td>
+              <td style={{ ...std, ...(c.amber ? { color: "#b45309" } : {}) }}>{money0(c.amount)}</td>
+            </tr>
+          ))}
         </tfoot>
-      </table>
-      {t.portion && (
-        <p className="small muted" style={{ marginTop: 6, fontStyle: "italic" }}>
-          Operating expenses for this mixed-use center are allocated between its Retail (8502) and Office (8503) portions; the pool above is the {t.portion} portion&rsquo;s share.
-        </p>
       )}
-    </div>
-  );
-}
-
-// A single-line expense-schedule card for the Insurance and Real Estate Taxes
-// pools — so retail mirrors the office statement, where each recovery category
-// is its own titled card rather than being folded into the Op Ex footer. The
-// tenant's pro-rata share of the pool is taken in the waterfall below.
-function RetailPoolCard({ title, acct, label, amount, reconYear }: {
-  title: string; acct: string; label: string; amount: number; reconYear: number;
-}) {
-  const sth: React.CSSProperties = { ...th, fontSize: 12, padding: "7px 10px" };
-  const std: React.CSSProperties = { ...td, fontSize: 14.5, padding: "7px 10px" };
-  return (
-    <div className="card" style={{ overflowX: "auto" }}>
-      <div style={CARD_TITLE}>{title}</div>
-      <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 10, minWidth: 420 }}>
-        <thead>
-          <tr>
-            <th style={{ ...sth, textAlign: "left", width: "1%", whiteSpace: "nowrap" }}>Acct</th>
-            <th style={{ ...sth, textAlign: "left" }}>Expense</th>
-            <th style={sth}>{reconYear} Actual</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td style={{ ...std, textAlign: "left", whiteSpace: "nowrap", color: "var(--muted)", fontVariantNumeric: "tabular-nums" }}>{acct}</td>
-            <td style={{ ...std, textAlign: "left" }}>{label}</td>
-            <td style={std}>{money0(amount)}</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+    </table>
   );
 }
 
@@ -1009,49 +982,72 @@ function RetailTenantStatement({ t, reconYear, contact }: {
   // Inline PRS basis: tenant SF ÷ center GLA (back-solved from the share, so it
   // reflects each category's own denominator). No extra rows.
   const basis = (prs: number, denom: number) => prs > 0 && denom > 0 ? ` (${t.sqft.toLocaleString()} / ${denom.toLocaleString()} SF)` : "";
+  const billedTotal = t.camSchedule.filter((l) => l.billed).reduce((a, l) => a + l.amount, 0);
+  const capped = t.camPoolEffective < billedTotal - 0.005;
+  // Separates a column's expense schedule from the reconciliation beneath it.
+  const calcHead: React.CSSProperties = { borderTop: "1px solid var(--border)", marginTop: 12, paddingTop: 10 };
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      {/* Expense schedules — CAM, then Insurance and Real Estate Taxes as their
-          own cards, mirroring the office statement (one card per category). */}
-      <RetailScheduleTable t={t} reconYear={reconYear} />
-      <RetailPoolCard title="Insurance" acct="—" label="Property Insurance" amount={t.insPool} reconYear={reconYear} />
-      <RetailPoolCard title="Real Estate Taxes" acct="6410-8502" label="Real Estate Tax Pool" amount={t.retPool} reconYear={reconYear} />
-      {/* Side-by-side reconciliation — CAM / INS / RET, matching the office
-          statement's single-card, multi-column layout. */}
+      {/* Consolidated CAM / INS / RET — one card, three columns, each stacking
+          its expense schedule above its reconciliation. Keeps the single-line
+          Insurance and RET pools beside the longer CAM schedule instead of in
+          their own near-empty full-width cards. */}
       <div className="card" style={{ display: "flex", flexWrap: "wrap", gap: 28 }}>
-        <div style={{ flex: "1 1 240px", minWidth: 230 }}>
+        <div style={{ flex: "2 1 360px", minWidth: 300 }}>
           <div style={{ ...CAT_LABEL, color: "#0b4a7d" }}>CAM</div>
-          <BalanceRow label={`CAM Pool${t.capped ? " (capped)" : t.camPoolEffective < t.camPoolFull ? " (after exclusions)" : ""}`} value={money0(t.camPoolEffective)} />
-          <BalanceRow label={`× CAM Share${basis(t.camPrs, t.camDenom)} ${pct(t.camPrs / 100)}`} value={money0(camFull)} />
-          {occLine && <BalanceRow label={`× Occupancy ${pct(t.occPct, 1)}`} value={money0(t.camShare)} />}
-          {t.adminFeePct > 0 && <BalanceRow label={`+ Admin Fee ${t.adminFeePct}%`} value={money0(t.camAdmin)} />}
-          <BalanceRow label="CAM Due" value={money0(t.camDue)} strong />
-          <BalanceRow label="Less: Escrow Billed" value={money0(-t.camEscrow)} />
-          <FinalBalanceRow label="Balance, CAM Due" value={t.camBalance} />
+          <ColumnSchedule
+            reconYear={reconYear}
+            rows={t.camSchedule.map((l) => ({ acct: l.glAccount, label: l.label, amount: l.amount, billed: l.billed }))}
+            total={{ label: "Total Operating Expenses", amount: billedTotal }}
+            footRows={capped ? [
+              { label: "Less: Controllable Expense Cap", amount: t.camPoolEffective - billedTotal, amber: true },
+              { label: "Applicable CAM Pool", amount: t.camPoolEffective, strong: true },
+            ] : undefined}
+          />
+          {t.portion && (
+            <p className="small muted" style={{ marginTop: 6, fontStyle: "italic" }}>
+              Operating expenses for this mixed-use center are allocated between its Retail (8502) and Office (8503) portions; the pool above is the {t.portion} portion&rsquo;s share.
+            </p>
+          )}
+          <div style={calcHead}>
+            <BalanceRow label={`CAM Pool${t.capped ? " (capped)" : t.camPoolEffective < t.camPoolFull ? " (after exclusions)" : ""}`} value={money0(t.camPoolEffective)} />
+            <BalanceRow label={`× CAM Share${basis(t.camPrs, t.camDenom)} ${pct(t.camPrs / 100)}`} value={money0(camFull)} />
+            {occLine && <BalanceRow label={`× Occupancy ${pct(t.occPct, 1)}`} value={money0(t.camShare)} />}
+            {t.adminFeePct > 0 && <BalanceRow label={`+ Admin Fee ${t.adminFeePct}%`} value={money0(t.camAdmin)} />}
+            <BalanceRow label="CAM Due" value={money0(t.camDue)} strong />
+            <BalanceRow label="Less: Escrow Billed" value={money0(-t.camEscrow)} />
+            <FinalBalanceRow label="Balance, CAM Due" value={t.camBalance} />
+          </div>
         </div>
         <div style={{ flex: "1 1 240px", minWidth: 230 }}>
           <div style={{ ...CAT_LABEL, color: "#0f766e" }}>INS</div>
-          <BalanceRow label="Insurance Pool" value={money0(t.insPool)} />
-          <BalanceRow label={`× INS Share${basis(t.insPrs, t.insDenom)} ${pct(t.insPrs / 100)}`} value={money0(insFull)} />
-          {occLine && <BalanceRow label={`× Occupancy ${pct(t.occPct, 1)}`} value={money0(t.insDue)} />}
-          <BalanceRow label="INS Due" value={money0(t.insDue)} strong />
-          <BalanceRow label="Less: Escrow Billed" value={money0(-t.insEscrow)} />
-          <FinalBalanceRow label="Balance, INS Due" value={t.insBalance} />
+          <ColumnSchedule reconYear={reconYear} rows={[{ acct: "—", label: "Property Insurance", amount: t.insPool }]} />
+          <div style={calcHead}>
+            <BalanceRow label="Insurance Pool" value={money0(t.insPool)} />
+            <BalanceRow label={`× INS Share${basis(t.insPrs, t.insDenom)} ${pct(t.insPrs / 100)}`} value={money0(insFull)} />
+            {occLine && <BalanceRow label={`× Occupancy ${pct(t.occPct, 1)}`} value={money0(t.insDue)} />}
+            <BalanceRow label="INS Due" value={money0(t.insDue)} strong />
+            <BalanceRow label="Less: Escrow Billed" value={money0(-t.insEscrow)} />
+            <FinalBalanceRow label="Balance, INS Due" value={t.insBalance} />
+          </div>
         </div>
         <div style={{ flex: "1 1 240px", minWidth: 230 }}>
           <div style={{ ...CAT_LABEL, color: "#854d0e" }}>RET</div>
-          {t.flatRet != null ? (
-            <BalanceRow label="Own-parcel RET (100%)" value={money0(t.flatRet)} />
-          ) : (
-            <>
-              <BalanceRow label="Real Estate Tax Pool" value={money0(t.retPool)} />
-              <BalanceRow label={`× RET Share${basis(t.retPrs, t.retDenom)} ${pct(t.retPrs / 100)}${t.retDiscountPct > 0 ? ` less ${t.retDiscountPct}%` : ""}`} value={money0(retFull)} />
-              {occLine && <BalanceRow label={`× Occupancy ${pct(t.occPct, 1)}`} value={money0(t.retDue)} />}
-            </>
-          )}
-          <BalanceRow label="RET Due" value={money0(t.retDue)} strong />
-          <BalanceRow label="Less: Escrow Billed" value={money0(-t.retEscrow)} />
-          <FinalBalanceRow label="Balance, RET Due" value={t.retBalance} />
+          <ColumnSchedule reconYear={reconYear} rows={[{ acct: "6410-8502", label: "Real Estate Tax Pool", amount: t.retPool }]} />
+          <div style={calcHead}>
+            {t.flatRet != null ? (
+              <BalanceRow label="Own-parcel RET (100%)" value={money0(t.flatRet)} />
+            ) : (
+              <>
+                <BalanceRow label="Real Estate Tax Pool" value={money0(t.retPool)} />
+                <BalanceRow label={`× RET Share${basis(t.retPrs, t.retDenom)} ${pct(t.retPrs / 100)}${t.retDiscountPct > 0 ? ` less ${t.retDiscountPct}%` : ""}`} value={money0(retFull)} />
+                {occLine && <BalanceRow label={`× Occupancy ${pct(t.occPct, 1)}`} value={money0(t.retDue)} />}
+              </>
+            )}
+            <BalanceRow label="RET Due" value={money0(t.retDue)} strong />
+            <BalanceRow label="Less: Escrow Billed" value={money0(-t.retEscrow)} />
+            <FinalBalanceRow label="Balance, RET Due" value={t.retBalance} />
+          </div>
         </div>
       </div>
 
