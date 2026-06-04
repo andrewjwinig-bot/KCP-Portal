@@ -34,7 +34,6 @@ export type RetailRosterUnit = {
   insPrs?: number;
   retPrs?: number;
   adminFeePct?: number;
-  camPoolOverride?: number;
   camEscrow: number;
   insEscrow: number;
   retEscrow: number;
@@ -73,7 +72,6 @@ export function assembleRetail(
       rcd: u.rcd,
       vacatedISO: u.vacatedISO,
       flatRet: u.flatRet,
-      camPoolOverride: u.camPoolOverride,
       camPrs: u.camPrs ?? prsFor(pool.propertyCode, "cam", u.name, u.sqft, buildingGla, cfg.cam.stipulatedPrs),
       insPrs: u.insPrs ?? prsFor(pool.propertyCode, "ins", u.name, u.sqft, buildingGla, cfg.ins.stipulatedPrs),
       retPrs: u.retPrs ?? prsFor(pool.propertyCode, "ret", u.name, u.sqft, buildingGla, cfg.ret.stipulatedPrs),

@@ -30,12 +30,12 @@ export function reconcileRetailTenant(pool: RetailExpensePool, t: RetailTenantIn
 
   // Lines this tenant is actually billed for (full pool minus their exclusions).
   const billedLines = pool.camLines.filter((l) => !excluded.has(lc(l.label)));
-  const camPoolTenant = t.camPoolOverride ?? billedLines.reduce((a, l) => a + l.amount, 0);
+  const camPoolTenant = billedLines.reduce((a, l) => a + l.amount, 0);
 
-  // Optional controllable-CAM cap (skipped when the pool is overridden).
+  // Optional controllable-CAM cap.
   let camPoolEffective = camPoolTenant;
   let capped = false;
-  if (t.camCap && t.camPoolOverride == null) {
+  if (t.camCap) {
     const uncontrollable = billedLines.filter((l) => l.nonControllable).reduce((a, l) => a + l.amount, 0);
     const controllable = camPoolTenant - uncontrollable;
     const capAmount = t.camCap.priorControllable * (1 + t.camCap.growthPct / 100);

@@ -42,6 +42,7 @@ export const CAM_LINE_ITEMS = [
   "Pest Control",
   "Sprinkler / Fire Safety",
   "Sign Maintenance",
+  "Liability Insurance",
 ] as const;
 
 export type CamCategoryConfig = {

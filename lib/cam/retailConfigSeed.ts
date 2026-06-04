@@ -102,7 +102,7 @@ export const RETAIL_CONFIG_SEED: Record<string, RetailConfigSeedEntry> = {
   // reconciliation reads them from here. The roster only carries rent-roll
   // facts (SF, escrow billed, occupancy) and the pad CAM-pool overrides.
   // Retail (8502):
-  "7010-1230A": { camPrs: 10.218560, insPrs: 0, retPrs: 8.518746, adminFeePct: 0 },   // Wawa (pad, no INS, no admin)
+  "7010-1230A": { camPrs: 10.218560, insPrs: 0, retPrs: 8.518746, adminFeePct: 0, excludedCamLines: ["Maintenance Salaries", "Building Maintenance", "Liability Insurance"] }, // Wawa (pad) — no INS, no admin; CAM excludes salaries, bldg maint, liability ins
   "7010-12315": { camPrs: 5.242808, insPrs: 5.242808, retPrs: 4.370689, adminFeePct: 10 }, // Pat's Pizzaria
   "7010-12319": { camPrs: 7.339931, insPrs: 7.339931, retPrs: 6.118965, adminFeePct: 10 }, // Reen's Deli
   "7010-12325": { camPrs: 2.359263, insPrs: 2.359263, retPrs: 1.966810, adminFeePct: 10 }, // Parkwood Pack & Ship
@@ -118,9 +118,9 @@ export const RETAIL_CONFIG_SEED: Record<string, RetailConfigSeedEntry> = {
   "7010-12349": { camPrs: 6.299561, insPrs: 6.299561, retPrs: 5.251656, adminFeePct: 10 }, // North Inc
   "7010-12353": { camPrs: 3.550364, insPrs: 5.365455, retPrs: 2.959776, adminFeePct: 10 }, // Zen Serenity
   "7010-12357": { camPrs: 5.426306, insPrs: 8.200456, retPrs: 4.523663, adminFeePct: 10 }, // We Rock the Spectrum
-  "7010-12360": { camPrs: 2.976190, insPrs: 3.735500, retPrs: 3.114116, adminFeePct: 15 }, // Trumark Fin. (pad)
+  "7010-12360": { camPrs: 2.976190, insPrs: 3.735500, retPrs: 3.114116, adminFeePct: 15, excludedCamLines: ["Building Maintenance"] }, // Trumark Fin. (pad) — CAM excludes bldg maint
   "7010-12363": { camPrs: 3.257094, insPrs: 3.257094, retPrs: 2.715291, adminFeePct: 10 }, // Philly Soft Pretzel
-  "7010-12375": { camPrs: 5.242808, insPrs: 0, retPrs: 4.370689, adminFeePct: 10 }, // Dunkin (pad, no INS)
+  "7010-12375": { camPrs: 5.242808, insPrs: 0, retPrs: 4.370689, adminFeePct: 10, excludedCamLines: ["Building Maintenance"] }, // Dunkin (pad) — no INS; CAM excludes bldg maint
   "7010-12361": { grossLease: true }, // Senator Sabatina (retail) — gross
   // Office (8503), pro-rata over 12,179 sf:
   "7010-203": { camPrs: 17.710814, insPrs: 17.710814, retPrs: 17.710814, adminFeePct: 0 }, // Parkwood Medical
