@@ -910,8 +910,8 @@ function DashboardInner() {
         </div>
         )}
 
-        {/* ── Drew: tasks this week + payroll & CC expense saved-status ── */}
-        {user.id === "drew" && <DrewTasksThisWeek />}
+        {/* ── Drew's task tracker (Harry can view it too) + Drew's payroll & CC saved-status ── */}
+        {(user.id === "drew" || user.id === "harry") && <DrewTasksThisWeek />}
         {user.id === "drew" && <DrewSavedStatus />}
 
         {/* ── New Bank Transfers — surface recent transfers for admin /
