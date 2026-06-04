@@ -92,7 +92,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid field" }, { status: 400 });
     }
 
-    // Coerce; null/empty clears the override.
+    // Coerce; null/empty clears the override. Escrow is billed in whole
+    // dollars, so round to the nearest dollar.
     let value: number | null;
     if (body?.value === null || body?.value === "") {
       value = null;
@@ -101,7 +102,7 @@ export async function POST(req: NextRequest) {
       if (!Number.isFinite(n)) {
         return NextResponse.json({ error: "Invalid value" }, { status: 400 });
       }
-      value = Math.round(n * 100) / 100;
+      value = Math.round(n);
     }
 
     await saveEscrowOverride(property, year, unitRef, field as RetailEscrowField, value);
