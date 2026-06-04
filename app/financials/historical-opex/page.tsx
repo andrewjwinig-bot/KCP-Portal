@@ -114,8 +114,11 @@ function Sparkline({ years, values, width = 320, height = 56 }: {
   );
 }
 
+type BudgetSummary = { year: number; byProperty: Record<string, { opex: number; ret: number }> };
+
 export default function HistoricalOpExPage() {
   const [entries, setEntries] = useState<HistoricalOpExEntry[] | null>(null);
+  const [budget, setBudget] = useState<BudgetSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -124,6 +127,11 @@ export default function HistoricalOpExPage() {
       .then((r) => r.json())
       .then((j) => alive && setEntries(j.entries ?? []))
       .catch((e) => alive && setError(e instanceof Error ? e.message : "Failed to load"));
+    // Budget column (2026 budgeted opex / RET per property) — best-effort.
+    fetch("/api/financials/budgets/opex-summary", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => alive && j?.byProperty && setBudget(j))
+      .catch(() => {});
     return () => { alive = false; };
   }, []);
 
@@ -164,7 +172,7 @@ export default function HistoricalOpExPage() {
         </div>
       )}
 
-      {entries && entries.length > 0 && <SummaryTable entries={entries} />}
+      {entries && entries.length > 0 && <SummaryTable entries={entries} budget={budget} />}
 
       {entries && entries.length > 0 && (
         <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginTop: 6 }}>
@@ -206,23 +214,35 @@ function buildSummary(entries: HistoricalOpExEntry[]): { rows: PropRow[]; years:
   return { rows, years };
 }
 
-function SummaryTable({ entries }: { entries: HistoricalOpExEntry[] }) {
+function SummaryTable({ entries, budget }: { entries: HistoricalOpExEntry[]; budget: BudgetSummary | null }) {
   const { rows, years } = useMemo(() => buildSummary(entries), [entries]);
-  // On screen: the six most recent years (full history goes in the download).
-  const shown = years.slice(0, 6);
+  const shown = years.slice(0, 6); // six most recent actual years on screen
+
+  // Rows = union of properties with actuals and properties with a budget.
+  const allRows = useMemo(() => {
+    const codes = new Set(rows.map((r) => r.code));
+    const merged = [...rows];
+    if (budget) {
+      for (const code of Object.keys(budget.byProperty)) {
+        if (!codes.has(code)) merged.push({ code, name: PROP_NAME.get(code.toUpperCase()) ?? "", byYear: new Map() });
+      }
+    }
+    return merged.sort((a, b) => a.code.localeCompare(b.code));
+  }, [rows, budget]);
 
   const cell = (r: PropRow, y: number) => r.byYear.get(y) ?? { opex: 0, ret: 0 };
+  const bud = (code: string) => budget?.byProperty[code.toUpperCase()] ?? null;
+  const byr = budget?.year;
 
   function exportCSV() {
     const head = ["Property", "Name"];
+    if (byr) head.push(`${byr} Budget Op Ex`, `${byr} Budget RET`, `${byr} Budget Total`);
     for (const y of years) head.push(`${y} Op Ex`, `${y} RET`, `${y} Total`);
     const lines = [head.join(",")];
-    for (const r of rows) {
+    for (const r of allRows) {
       const cols: (string | number)[] = [r.code, `"${r.name}"`];
-      for (const y of years) {
-        const c = cell(r, y);
-        cols.push(Math.round(c.opex), Math.round(c.ret), Math.round(c.opex + c.ret));
-      }
+      if (byr) { const b = bud(r.code); cols.push(Math.round(b?.opex ?? 0), Math.round(b?.ret ?? 0), Math.round((b?.opex ?? 0) + (b?.ret ?? 0))); }
+      for (const y of years) { const c = cell(r, y); cols.push(Math.round(c.opex), Math.round(c.ret), Math.round(c.opex + c.ret)); }
       lines.push(cols.join(","));
     }
     downloadCSV(`Expense_History_Summary.csv`, lines.join("\n"));
@@ -230,6 +250,7 @@ function SummaryTable({ entries }: { entries: HistoricalOpExEntry[] }) {
 
   const num: React.CSSProperties = { textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", padding: "6px 10px" };
   const grp: React.CSSProperties = { ...num, borderLeft: "1px solid var(--border)" };
+  const budTint = "rgba(11,74,125,0.05)";
 
   return (
     <div className="card" style={{ overflowX: "auto" }}>
@@ -237,7 +258,7 @@ function SummaryTable({ entries }: { entries: HistoricalOpExEntry[] }) {
         <div>
           <div style={{ fontSize: 15, fontWeight: 800 }}>All Properties — Expense Summary</div>
           <div className="muted small" style={{ marginTop: 2 }}>
-            Operating expenses, real estate taxes, and total per year, every property at a glance. Showing the {shown.length} most recent years; download for the full history.
+            {byr ? `${byr} budget` : "Budget"} vs. historical actuals — operating expenses, real estate taxes, and total per property. Showing the {shown.length} most recent actual years; download for the full history.
           </div>
         </div>
         <button onClick={exportCSV} className="btn primary" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}>Download CSV</button>
@@ -247,12 +268,20 @@ function SummaryTable({ entries }: { entries: HistoricalOpExEntry[] }) {
         <thead>
           <tr>
             <th style={{ textAlign: "left", padding: "6px 10px", borderBottom: "1px solid var(--border)" }} />
+            {byr && <th colSpan={3} style={{ textAlign: "center", padding: "4px 10px", fontSize: 13, fontWeight: 800, borderLeft: "1px solid var(--border)", borderBottom: "1px solid var(--border)", background: budTint, color: "#0b4a7d" }}>{byr} Budget</th>}
             {shown.map((y) => (
               <th key={y} colSpan={3} style={{ textAlign: "center", padding: "4px 10px", fontSize: 13, fontWeight: 800, borderLeft: "1px solid var(--border)", borderBottom: "1px solid var(--border)" }}>{y}</th>
             ))}
           </tr>
           <tr style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--muted)" }}>
             <th style={{ textAlign: "left", padding: "4px 10px", borderBottom: "1px solid var(--border)" }}>Property</th>
+            {byr && (
+              <Fragment>
+                <th style={{ ...grp, fontSize: 11, background: budTint }}>Op Ex</th>
+                <th style={{ ...num, fontSize: 11, background: budTint }}>RET</th>
+                <th style={{ ...num, fontSize: 11, fontWeight: 800, background: budTint }}>Total</th>
+              </Fragment>
+            )}
             {shown.map((y) => (
               <Fragment key={y}>
                 <th style={{ ...grp, fontSize: 11 }}>Op Ex</th>
@@ -263,32 +292,52 @@ function SummaryTable({ entries }: { entries: HistoricalOpExEntry[] }) {
           </tr>
         </thead>
         <tbody>
-          {rows.map((r) => (
+          {allRows.map((r) => {
+            const b = bud(r.code);
+            return (
             <tr key={r.code} style={{ borderBottom: "1px solid var(--border)" }}>
               <td style={{ textAlign: "left", padding: "6px 10px", whiteSpace: "nowrap" }}>
                 <span style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontWeight: 700, fontSize: 12 }}>{r.code}</span>
                 {r.name && <span className="muted" style={{ marginLeft: 8, fontSize: 12.5 }}>{r.name}</span>}
               </td>
+              {byr && (
+                <Fragment>
+                  <td style={{ ...grp, background: budTint }}>{money(b?.opex ?? 0)}</td>
+                  <td style={{ ...num, background: budTint }}>{money(b?.ret ?? 0)}</td>
+                  <td style={{ ...num, fontWeight: 800, background: budTint }}>{money((b?.opex ?? 0) + (b?.ret ?? 0))}</td>
+                </Fragment>
+              )}
               {shown.map((y) => {
                 const c = cell(r, y);
-                const tot = c.opex + c.ret;
                 return (
                   <Fragment key={y}>
                     <td style={grp}>{money(c.opex)}</td>
                     <td style={num}>{money(c.ret)}</td>
-                    <td style={{ ...num, fontWeight: 800 }}>{money(tot)}</td>
+                    <td style={{ ...num, fontWeight: 800 }}>{money(c.opex + c.ret)}</td>
                   </Fragment>
                 );
               })}
             </tr>
-          ))}
+            );
+          })}
         </tbody>
         <tfoot>
           <tr style={{ fontWeight: 800, borderTop: "2px solid var(--border)" }}>
             <td style={{ textAlign: "left", padding: "6px 10px" }}>Portfolio Total</td>
+            {byr && (() => {
+              const o = allRows.reduce((s, r) => s + (bud(r.code)?.opex ?? 0), 0);
+              const rt = allRows.reduce((s, r) => s + (bud(r.code)?.ret ?? 0), 0);
+              return (
+                <Fragment>
+                  <td style={{ ...grp, background: budTint }}>{money(o)}</td>
+                  <td style={{ ...num, background: budTint }}>{money(rt)}</td>
+                  <td style={{ ...num, background: budTint }}>{money(o + rt)}</td>
+                </Fragment>
+              );
+            })()}
             {shown.map((y) => {
-              const opex = rows.reduce((s, r) => s + cell(r, y).opex, 0);
-              const ret = rows.reduce((s, r) => s + cell(r, y).ret, 0);
+              const opex = allRows.reduce((s, r) => s + cell(r, y).opex, 0);
+              const ret = allRows.reduce((s, r) => s + cell(r, y).ret, 0);
               return (
                 <Fragment key={y}>
                   <td style={grp}>{money(opex)}</td>
@@ -301,7 +350,7 @@ function SummaryTable({ entries }: { entries: HistoricalOpExEntry[] }) {
         </tfoot>
       </table>
       <p className="muted small" style={{ marginTop: 8, marginBottom: 0 }}>
-        Op Ex = sum of operating-expense lines (incl. insurance); RET = real estate taxes; Total = Op Ex + RET. More properties and years populate as their workbooks are loaded.
+        Budget = the {byr ?? "budget"} reimbursable operating-expense lines; actuals from the CAM reconciliation workbooks. Op Ex = operating lines, RET = real estate taxes, Total = both. More properties and years populate as workbooks load.
       </p>
     </div>
   );
