@@ -12,10 +12,11 @@ export { POOL_7010_OFFICE };
 
 const OFFICE_GLA = 12179;
 
+// PRS + admin live in the CAM config seed (lib/cam/retailConfigSeed.ts); the
+// roster carries only rent-roll facts. 201 / 218 are gross (config seed).
 export const ROSTER_7010_OFFICE_2025: RetailRosterUnit[] = [
-  // Foot & Ankle (201) and Storage (218) are gross (grossLease in config seed).
   { unitRef: "7010-201", suite: "201", name: "Foot and Ankle Center of Phila", sqft: 2471, camEscrow: 0, insEscrow: 0, retEscrow: 0 },
-  { unitRef: "7010-203", suite: "203", name: "Parkwood Medical", sqft: 2157, adminFeePct: 0, camEscrow: 18156, insEscrow: 180, retEscrow: 4308 },
+  { unitRef: "7010-203", suite: "203", name: "Parkwood Medical", sqft: 2157, camEscrow: 18156, insEscrow: 180, retEscrow: 4308 },
   { unitRef: "7010-218", suite: "218", name: "Parkwood Medical (storage)", sqft: 557, camEscrow: 0, insEscrow: 0, retEscrow: 0 },
 ];
 
