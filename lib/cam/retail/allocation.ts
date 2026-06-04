@@ -91,8 +91,12 @@ export type PropertyAllocation = {
 };
 
 function allocationOf(mc: MixedCenter): PropertyAllocation {
-  // Base GL account (e.g. "6120-8502" / "6120-8503" → "6120").
-  const acct = (l: SplitLine) => (l.glRetail ?? l.glOffice ?? "—").split("-")[0];
+  // Full GL account(s). When retail (8502) and office (8503) differ, show both.
+  const acct = (l: SplitLine) => {
+    const r = l.glRetail, o = l.glOffice;
+    if (r && o) return r === o ? r : `${r} / ${o}`;
+    return r ?? o ?? "—";
+  };
   const line = (l: SplitLine): AllocationLine => ({ account: acct(l), label: l.label, ...splitAmounts(l) });
   return {
     propertyCode: mc.propertyCode,
