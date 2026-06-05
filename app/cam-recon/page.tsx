@@ -664,7 +664,7 @@ export default function OfficeCamReconPage() {
         <RetailFinalExpenseSummary
           data={expenseFinal}
           onEdit={(key, value) => (key === "INS" ? saveInsPool(value) : saveRetailFinal(key, value))}
-          historyHref={`/cam-recon/expense-history?property=${property}`}
+          historyHref={`/rentroll/base-years?property=${property}`}
         />
       )}
       {isRetail && !rSelected && allocation && <AllocationBreakdown a={allocation} />}

@@ -9,6 +9,11 @@ import {
   reimbursement,
   type PropertyExpenses,
 } from "@/lib/rentroll/baseYearExpenses";
+import { RETAIL_EXPENSE_HISTORY } from "@/lib/cam/retail/expenseHistory";
+import { PROPERTY_DEFS } from "@/lib/properties/data";
+
+const RETAIL_NAME = new Map(PROPERTY_DEFS.map((p) => [p.id.toUpperCase(), p.name]));
+const RETAIL_HISTORY_CODES = Object.keys(RETAIL_EXPENSE_HISTORY).sort();
 
 // ── rent-roll shapes (subset of /api/rentroll) ───────────────────────────────
 
@@ -87,11 +92,12 @@ export default function BaseYearExpensesPage() {
   // totals; CAM = Total OpEx less RET & Electric).
   const [budget2026, setBudget2026] = useState<{ camAsIs: number; ret: number; electric: number } | null>(null);
 
-  // Deep-link from the recon's "Full Expense History" button: ?property=4070.
+  // Deep-link from the recon's "Full Expense History" button: ?property=4070
+  // (office) or ?property=2300 (retail).
   useEffect(() => {
     try {
       const want = new URLSearchParams(window.location.search).get("property");
-      if (want && SEED_EXPENSES[want]) setPropCode(want);
+      if (want && (SEED_EXPENSES[want] || RETAIL_EXPENSE_HISTORY[want])) setPropCode(want);
     } catch { /* ignore */ }
   }, []);
 
@@ -149,6 +155,9 @@ export default function BaseYearExpensesPage() {
 
   const expenses: PropertyExpenses | null = SEED_EXPENSES[propCode] ?? null;
   const years = useMemo(() => (expenses ? expenseYears(expenses) : []), [expenses]);
+  // Retail shopping centers get a simpler year-by-year table (no base-year
+  // recovery model) on the same page.
+  const retailHist = RETAIL_EXPENSE_HISTORY[propCode] ?? null;
 
   const rrProp = useMemo(
     () => (rrProps ?? []).find((p) => p.propertyCode.toUpperCase() === propCode.toUpperCase()) ?? null,
@@ -185,8 +194,8 @@ export default function BaseYearExpensesPage() {
     <main>
       <h1>Operating Expense History</h1>
       <p className="muted" style={{ marginTop: 8, fontSize: 15 }}>
-        Office operating-expense and occupancy history by year for the JV III
-        and NI LLC buildings.
+        Operating-expense history by year — office buildings (JV III &amp; NI LLC,
+        with base-year tools) and retail shopping centers.
       </p>
 
       {/* Building selector — big header dropdown (matches CAM Recon / Budgets) */}
@@ -194,14 +203,23 @@ export default function BaseYearExpensesPage() {
         <HeaderSelect
           value={propCode}
           onChange={setPropCode}
-          displayLabel={`${propCode} — ${meta?.name ?? propCode}`}
-          ariaLabel="Building"
+          displayLabel={`${propCode} — ${meta?.name ?? RETAIL_NAME.get(propCode.toUpperCase()) ?? propCode}`}
+          ariaLabel="Property"
         >
-          {OFFICE_BUILDINGS.map((b) => (
-            <option key={b.code} value={b.code}>
-              {b.code} — {b.name}{SEED_EXPENSES[b.code] ? "" : " (no data)"}
-            </option>
-          ))}
+          <optgroup label="Office buildings">
+            {OFFICE_BUILDINGS.map((b) => (
+              <option key={b.code} value={b.code}>
+                {b.code} — {b.name}{SEED_EXPENSES[b.code] ? "" : " (no data)"}
+              </option>
+            ))}
+          </optgroup>
+          <optgroup label="Shopping centers">
+            {RETAIL_HISTORY_CODES.map((c) => (
+              <option key={c} value={c}>
+                {c} — {RETAIL_NAME.get(c.toUpperCase()) ?? c}
+              </option>
+            ))}
+          </optgroup>
         </HeaderSelect>
         {expenses && (
           <span className="small muted">
@@ -210,7 +228,9 @@ export default function BaseYearExpensesPage() {
         )}
       </div>
 
-      {!expenses ? (
+      {retailHist ? (
+        <RetailHistoryCard property={propCode} hist={retailHist} />
+      ) : !expenses ? (
         <div className="card" style={{ marginTop: 16 }}>
           <p style={{ fontWeight: 700 }}>
             {meta?.name ?? propCode} — expense history not loaded yet
@@ -232,13 +252,72 @@ export default function BaseYearExpensesPage() {
         </>
       )}
 
-      <p className="muted small" style={{ marginTop: 16 }}>
-        To model the income impact of resetting a tenant&rsquo;s base year, use{" "}
-        <a href="/rentroll/leasing" style={{ color: "var(--brand)", fontWeight: 700 }}>
-          Leasing Activity → Base Year Resets
-        </a>.
-      </p>
+      {!retailHist && (
+        <p className="muted small" style={{ marginTop: 16 }}>
+          To model the income impact of resetting a tenant&rsquo;s base year, use{" "}
+          <a href="/rentroll/leasing" style={{ color: "var(--brand)", fontWeight: 700 }}>
+            Leasing Activity → Base Year Resets
+          </a>.
+        </p>
+      )}
     </main>
+  );
+}
+
+// ── retail shopping-center expense history (year-by-year, no base-year model) ──
+
+function RetailHistoryCard({ property, hist }: {
+  property: string;
+  hist: { lines: Record<string, Record<string, number>>; ins: Record<string, number>; ret: Record<string, number> };
+}) {
+  const money = (n: number | null | undefined) =>
+    n == null ? "—" : n === 0 ? "$0" : "$" + Math.round(n).toLocaleString("en-US");
+  const yearSet = new Set<number>();
+  const collect = (m: Record<string, number>) => Object.keys(m).forEach((y) => yearSet.add(Number(y)));
+  Object.values(hist.lines).forEach(collect);
+  collect(hist.ins);
+  collect(hist.ret);
+  const years = [...yearSet].sort((a, b) => b - a); // newest first
+  const lineRows = Object.entries(hist.lines);
+  const totals = Object.fromEntries(years.map((y) => [String(y), lineRows.reduce((a, [, v]) => a + (v[String(y)] ?? 0), 0)]));
+
+  const num: React.CSSProperties = { textAlign: "right", padding: "6px 12px", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" };
+  const head: React.CSSProperties = { ...num, fontSize: 12, fontWeight: 800, color: "var(--muted)", borderBottom: "1px solid var(--border)" };
+  return (
+    <div className="card" style={{ marginTop: 16, overflowX: "auto" }}>
+      <div style={{ fontSize: 15, fontWeight: 800 }}>{property} — {RETAIL_NAME.get(property.toUpperCase()) ?? ""}</div>
+      <div className="muted small" style={{ marginTop: 2 }}>Year-by-year actuals per expense line. 2025 is the finalized figure from the CAM/RET reconciliation.</div>
+      <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 12, minWidth: 480 }}>
+        <thead>
+          <tr>
+            <th style={{ textAlign: "left", padding: "6px 12px", borderBottom: "1px solid var(--border)", fontSize: 12, fontWeight: 800, color: "var(--muted)" }}>Expense</th>
+            {years.map((y) => <th key={y} style={head}>{y}</th>)}
+          </tr>
+        </thead>
+        <tbody>
+          {lineRows.map(([label, values]) => (
+            <tr key={label} style={{ borderBottom: "1px solid var(--border)" }}>
+              <td style={{ textAlign: "left", padding: "6px 12px" }}>{label}</td>
+              {years.map((y) => <td key={y} style={num}>{money(values[String(y)])}</td>)}
+            </tr>
+          ))}
+        </tbody>
+        <tfoot>
+          <tr style={{ fontWeight: 800, borderTop: "2px solid var(--border)" }}>
+            <td style={{ textAlign: "left", padding: "6px 12px" }}>Total Operating Expenses</td>
+            {years.map((y) => <td key={y} style={num}>{money(totals[String(y)])}</td>)}
+          </tr>
+          <tr style={{ borderTop: "2px solid var(--border)" }}>
+            <td style={{ textAlign: "left", padding: "6px 12px" }}>Property Insurance</td>
+            {years.map((y) => <td key={y} style={num}>{money(hist.ins[String(y)])}</td>)}
+          </tr>
+          <tr>
+            <td style={{ textAlign: "left", padding: "6px 12px" }}>Real Estate Taxes</td>
+            {years.map((y) => <td key={y} style={num}>{money(hist.ret[String(y)])}</td>)}
+          </tr>
+        </tfoot>
+      </table>
+    </div>
   );
 }
 

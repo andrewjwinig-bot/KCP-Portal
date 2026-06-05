@@ -9,9 +9,9 @@ describe("retail CAMPRep config seed", () => {
   it("builds a config from a seeded Parkwood tenant", () => {
     const c = seedCamConfig("1100-34");
     expect(c).not.toBeNull();
-    expect(c!.cam.stipulatedPrs).toBe(23.338);
-    expect(c!.ins.stipulatedPrs).toBe(23.338);
-    expect(c!.ret.stipulatedPrs).toBe(23.338);
+    expect(c!.cam.stipulatedPrs).toBe(23.3378);
+    expect(c!.ins.stipulatedPrs).toBe(23.3378);
+    expect(c!.ret.stipulatedPrs).toBe(23.3378);
     expect(c!.cam.adminFeePct).toBe(10);
     expect(c!.grossLease).toBe(false);
   });
