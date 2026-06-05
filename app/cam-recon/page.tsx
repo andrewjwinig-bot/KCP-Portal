@@ -283,6 +283,8 @@ export default function OfficeCamReconPage() {
   // Office part of a mixed center (e.g. 7010 office), shown as a sub-tab.
   const [retailOffice, setRetailOffice] = useState<RetailBuildingResult | null>(null);
   const [allocation, setAllocation] = useState<PropertyAllocation | null>(null);
+  // Property-wide retail insurance pool (effective value, seed, overridden flag).
+  const [insPool, setInsPool] = useState<{ amount: number; seed: number; overridden: boolean } | null>(null);
   const [estimates, setEstimates] = useState<NextYearEstimate[]>([]);
   const [contacts, setContacts] = useState<Record<string, { email: string; cc: string }>>({});
   const [expenseSummary, setExpenseSummary] = useState<ExpRow[]>([]);
@@ -357,6 +359,9 @@ export default function OfficeCamReconPage() {
         setRetailResult(j?.result ?? null);
         setContacts(j?.contacts ?? {});
         setAllocation(j?.allocation ?? null);
+        setInsPool(j && typeof j.insPool === "number"
+          ? { amount: j.insPool, seed: j.insPoolSeed ?? j.insPool, overridden: !!j.insPoolOverridden }
+          : null);
         // Mixed center: also load the office part for its sub-tab.
         const officeCode = available.find((a) => a.propertyCode === property)?.mixedOfficeCode;
         if (officeCode) {
@@ -376,6 +381,7 @@ export default function OfficeCamReconPage() {
       setRetailResult(null);
       setRetailOffice(null);
       setAllocation(null);
+      setInsPool(null);
       setResult(j?.result ?? null);
       setEstimates(j?.estimates ?? []);
       setContacts(j?.contacts ?? {});
@@ -420,6 +426,17 @@ export default function OfficeCamReconPage() {
     });
     await loadResult();
   }, [property, year, loadResult, available]);
+
+  // Persist the property-wide retail insurance pool override (value null
+  // reverts to the seed), then reload so every tenant's INS recomputes.
+  const saveInsPool = useCallback(async (value: number | null) => {
+    await fetch("/api/cam-recon/retail", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ property, year, field: "insAmount", value }),
+    });
+    await loadResult();
+  }, [property, year, loadResult]);
 
   // Save a Final Expense Summary edit (keyed by GL account), then reload so
   // the FINAL flows back into every tenant's calc.
@@ -631,6 +648,7 @@ export default function OfficeCamReconPage() {
 
       {/* Building Summary is always the top content card. */}
       {isRetail && !rSelected && activeRetail && <RetailBuildingSummary result={activeRetail} onPick={setUnit} onEditEscrow={saveRetailField} />}
+      {isRetail && !rSelected && !isMixed && insPool && <InsurancePoolCard insPool={insPool} onEdit={saveInsPool} />}
       {isRetail && !rSelected && allocation && <AllocationBreakdown a={allocation} />}
       {isRetail && !rSelected && activeRetail && <RetailConfigTable result={activeRetail} onPick={setUnit} />}
       {isRetail && rSelected && <RetailTenantStatement t={rSelected} reconYear={year} contact={contacts[rSelected.unitRef]} />}
@@ -812,6 +830,37 @@ function retailExceptions(t: RetailTenantResult): string[] {
   if (t.adminExcludedLabels.length) out.push(`Admin fee excludes: ${t.adminExcludedLabels.join(", ")}.`);
   if (t.retDiscountPct > 0) out.push(`RET discount: ${t.retDiscountPct}%.`);
   return out;
+}
+
+// Property-wide insurance pool — editable on the recon page (not per tenant),
+// because insurance is a single building figure allocated by INS pro-rata
+// share. A genuine outparcel billed on its own liability figure is still a
+// per-tenant override on the unit page and is unaffected by this.
+function InsurancePoolCard({ insPool, onEdit }: {
+  insPool: { amount: number; seed: number; overridden: boolean };
+  onEdit: (value: number | null) => void;
+}) {
+  return (
+    <div className="card">
+      <div style={CARD_TITLE}>Property Insurance</div>
+      <p className="small muted" style={{ marginTop: 4, marginBottom: 12, maxWidth: 680 }}>
+        The property-wide insurance pool, allocated to every tenant by their INS pro-rata share. Edit it here when the booked figure differs from the seed. Outparcels billed on their own liability figure (set per-tenant on the unit page) are unaffected.
+      </p>
+      <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+        <span style={SECTION_LABEL}>Insurance Pool</span>
+        <span style={{ fontSize: 18, fontWeight: 800 }}>
+          <EditableMoney value={insPool.amount} onCommit={(v) => onEdit(v)} />
+        </span>
+        {insPool.overridden && (
+          <span className="small muted">
+            overrides seed {money0(insPool.seed)}
+            {" · "}
+            <button type="button" onClick={() => onEdit(null)} style={{ border: "none", background: "none", padding: 0, color: "#0b4a7d", fontWeight: 600, cursor: "pointer", textDecoration: "underline", fontSize: "inherit" }}>revert to seed</button>
+          </span>
+        )}
+      </div>
+    </div>
+  );
 }
 
 function RetailConfigTable({ result, onPick }: { result: RetailBuildingResult; onPick: (u: string) => void }) {
