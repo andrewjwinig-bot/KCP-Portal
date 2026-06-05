@@ -152,7 +152,7 @@ export const RETAIL_CONFIG_SEED: Record<string, RetailConfigSeedEntry> = {
   // discounts at this center). Wawa (406) excludes the Parking Lot Cap Ex
   // amortization and is billed QUARTERLY (year-end escrow billed = 0; the
   // quarterly billings live on the task tracker — to be linked).
-  "9510-406": { camPrs: 20, insPrs: 0, retPrs: 20, adminFeePct: 0, excludedCamLines: ["Parking Lot Cap Ex"] }, // Wawa — quarterly billed; no admin
+  "9510-406": { camPrs: 21, insPrs: 0, retPrs: 21, adminFeePct: 0, excludedCamLines: ["Parking Lot Cap Ex"] }, // Wawa — 21% lease share (matches the quarterly bill); quarterly billed; no admin
   "9510-408": { camPrs: 5.53, insPrs: 0, retPrs: 5.53, adminFeePct: 10 },   // Vino's Pizza
   "9510-410": { camPrs: 5.441, insPrs: 0, retPrs: 5.441, adminFeePct: 10 }, // Hunan Wok
   "9510-412": { camPrs: 6.28, insPrs: 0, retPrs: 6.28, adminFeePct: 10 },   // Touch of Class

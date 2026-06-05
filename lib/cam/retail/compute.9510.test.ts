@@ -10,11 +10,11 @@ describe("9510 Shops of Lafayette Hill — 2025 tie-out", () => {
   const by = (u: string) => result.tenants.find((t) => t.unitRef === u)!;
   const near = (a: number, b: number) => expect(Math.abs(a - b)).toBeLessThan(1);
 
-  it("Wawa (406): 20% of the pool less Parking Lot Cap Ex, no admin, billed $0 (quarterly)", () => {
+  it("Wawa (406): 21% lease share of the pool less Parking Lot Cap Ex, no admin, billed $0 (quarterly)", () => {
     const w = by("9510-406");
     near(w.camPoolEffective, 138209.53); // full pool 173,780.53 less the 35,571 cap-ex line
-    near(w.camBalance, 27641.91);
-    near(w.retBalance, 6582.49);
+    near(w.camBalance, 29024.00);        // 21% × 138,209.53
+    near(w.retBalance, 6911.61);         // 21% × 32,912.45
     near(w.insBalance, 0);
   });
 
