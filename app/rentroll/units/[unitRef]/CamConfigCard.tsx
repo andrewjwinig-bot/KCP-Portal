@@ -548,7 +548,7 @@ export default function CamConfigCard({
             Manual Insurance Amount
           </div>
           <div className="small muted" style={{ marginTop: 2, marginBottom: 10 }}>
-            This tenant&rsquo;s insurance is billed against a manual figure (e.g. an outparcel&rsquo;s own liability insurance), not the property insurance pool pulled from the GL. Update it each reconciliation.
+            Outparcels only: use this when a single tenant&rsquo;s insurance is billed against its own liability figure (e.g. a Wawa pad), not the property insurance pool. The property-wide insurance pool itself is edited on the CAM Reconciliation page, not here.
           </div>
           <label style={{ display: "flex", flexDirection: "column", gap: 4, maxWidth: 220 }}>
             <span style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", letterSpacing: "0.06em", textTransform: "uppercase" }}>

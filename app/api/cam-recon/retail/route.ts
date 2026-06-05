@@ -5,6 +5,7 @@ import { RETAIL_RECON_FIXTURES, availableRetailRecons } from "@/lib/cam/retail/r
 import { allocationFor } from "@/lib/cam/retail/allocation";
 import { getCamConfig } from "@/lib/cam/configStorage";
 import { getEscrowOverrides, saveEscrowOverride, type RetailEscrowField } from "@/lib/cam/retail/escrowStore";
+import { getPoolOverride, savePoolOverride, type RetailPoolField } from "@/lib/cam/retail/poolStore";
 import { seedCamConfig } from "@/lib/cam/retailConfigSeed";
 import { emptyCamConfig } from "@/lib/cam/config";
 import { getSuiteContactsMap } from "@/lib/suites/contactsStorage";
@@ -58,8 +59,16 @@ export async function GET(req: NextRequest) {
     };
   });
 
-  const tenants = assembleRetail(fixture.pool, roster, fixture.gla, configFor);
-  const result = reconcileRetailBuilding(fixture.pool, tenants);
+  // Property-wide insurance-pool override wins over the seeded pool for every
+  // tenant — except outparcels with their own per-tenant insAmountOverride,
+  // which still win via the assemble/compute precedence.
+  const poolOverride = await getPoolOverride(property, year);
+  const pool = poolOverride.insAmount != null
+    ? { ...fixture.pool, insAmount: poolOverride.insAmount }
+    : fixture.pool;
+
+  const tenants = assembleRetail(pool, roster, fixture.gla, configFor);
+  const result = reconcileRetailBuilding(pool, tenants);
 
   // Statement recipients from the master Contacts directory (flagged
   // recipients), CC the internal default — same as the office side.
@@ -68,15 +77,27 @@ export async function GET(req: NextRequest) {
   for (const u of reconYear.roster) {
     contacts[u.unitRef] = { email: camRecipientEmails(suiteContacts[u.unitRef] ?? []), cc: DEFAULT_CC };
   }
-  return NextResponse.json({ result, contacts, allocation: allocationFor(fixture.pool.propertyCode) });
+  return NextResponse.json({
+    result,
+    contacts,
+    allocation: allocationFor(fixture.pool.propertyCode),
+    // Property-wide insurance pool: effective value, seed, and whether it's
+    // currently overridden (so the recon page can edit it / offer a revert).
+    insPool: pool.insAmount,
+    insPoolSeed: fixture.pool.insAmount,
+    insPoolOverridden: poolOverride.insAmount != null,
+  });
 }
 
 const EDITABLE_ESCROW = new Set<RetailEscrowField>(["camEscrow", "insEscrow", "retEscrow"]);
+const EDITABLE_POOL = new Set<RetailPoolField>(["insAmount"]);
 
 /** POST /api/cam-recon/retail
- *  Body: { property, year, unitRef, field, value }
- *  Saves a single per-unit escrow override (CAM/INS/RET escrow billed).
- *  value null clears it (revert to the roster-seeded escrow). */
+ *  Body: { property, year, field, value, unitRef? }
+ *  Two kinds of override, distinguished by field:
+ *   • per-unit escrow billed (camEscrow / insEscrow / retEscrow) — needs unitRef
+ *   • property-wide pool (insAmount) — no unitRef
+ *  value null clears it (revert to the seeded value). */
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -88,6 +109,23 @@ export async function POST(req: NextRequest) {
     if (!RETAIL_RECON_FIXTURES[property]?.byYear[year]) {
       return NextResponse.json({ error: "Unknown property/year" }, { status: 400 });
     }
+
+    // Property-wide pool override (insurance) — no unitRef. Stored to cents.
+    if (EDITABLE_POOL.has(field as RetailPoolField)) {
+      let value: number | null;
+      if (body?.value === null || body?.value === "") {
+        value = null;
+      } else {
+        const n = Number(body.value);
+        if (!Number.isFinite(n)) {
+          return NextResponse.json({ error: "Invalid value" }, { status: 400 });
+        }
+        value = Math.round(n * 100) / 100;
+      }
+      await savePoolOverride(property, year, field as RetailPoolField, value);
+      return NextResponse.json({ ok: true });
+    }
+
     if (!unitRef || !EDITABLE_ESCROW.has(field as RetailEscrowField)) {
       return NextResponse.json({ error: "Invalid field" }, { status: 400 });
     }
