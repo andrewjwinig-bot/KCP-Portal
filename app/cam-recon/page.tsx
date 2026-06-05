@@ -13,6 +13,14 @@ import type { BuildingReconResult, TenantReconResult } from "@/lib/cam/office/ty
 import type { RetailBuildingResult, RetailTenantResult } from "@/lib/cam/retail/types";
 import type { PropertyAllocation } from "@/lib/cam/retail/allocation";
 import { retailYearEndRows } from "@/lib/cam/retail/exports";
+import {
+  QUARTERS,
+  computeQuarterly,
+  emptyQuarterlyData,
+  type Quarter,
+  type QuarterlyBillingDef,
+  type QuarterlyData,
+} from "@/lib/cam/retail/quarterly";
 
 // ── formatting ───────────────────────────────────────────────────────────────
 
@@ -60,7 +68,7 @@ const th: React.CSSProperties = {
 };
 const td: React.CSSProperties = { textAlign: "right", padding: "7px 10px", fontSize: 14, whiteSpace: "nowrap" };
 
-type Available = { propertyCode: string; name: string; years: number[]; kind?: "office" | "retail"; mixedOfficeCode?: string };
+type Available = { propertyCode: string; name: string; years: number[]; kind?: "office" | "retail"; mixedOfficeCode?: string; quarterly?: boolean };
 
 function downloadCSV(filename: string, csv: string) {
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
@@ -327,6 +335,9 @@ export default function OfficeCamReconPage() {
   }, []);
 
   const isRetail = available.find((a) => a.propertyCode === property)?.kind === "retail";
+  // Quarter-billed pseudo-property (e.g. Wawa @ 9510) — its own dropdown entry
+  // that renders the quarterly billing worksheet instead of the standard recon.
+  const isQuarterly = !!available.find((a) => a.propertyCode === property)?.quarterly;
   // Mixed center (retail + office on one page). Both parts are merged into one
   // result — tenants tagged with a RETAIL / OFFICE portion pill, totals summed —
   // so the whole property shows in a single building summary + methodology table.
@@ -352,6 +363,14 @@ export default function OfficeCamReconPage() {
 
   const loadResult = useCallback(async () => {
     if (!property || !year) return;
+    const entry = available.find((a) => a.propertyCode === property);
+    // Quarterly pseudo-property — no standard recon to load; the quarterly
+    // worksheet fetches its own data. Clear the recon-shaped state.
+    if (entry?.quarterly) {
+      setResult(null); setRetailResult(null); setRetailOffice(null); setAllocation(null);
+      setExpenseFinal(null); setEstimates([]); setExpenseSummary([]); setWarnings([]);
+      return;
+    }
     const retail = available.find((a) => a.propertyCode === property)?.kind === "retail";
     setLoading(true);
     try {
@@ -553,6 +572,7 @@ export default function OfficeCamReconPage() {
             <HeaderSelect value={property} onChange={setProperty} displayLabel={property ? `${property} — ${propName}` : "—"} ariaLabel="Property">
               {available.map((a) => <option key={a.propertyCode} value={a.propertyCode}>{a.propertyCode} — {a.name}</option>)}
             </HeaderSelect>
+            {!isQuarterly && (
             <span style={{ display: "inline-flex", alignItems: "center", gap: 2 }}>
               {hasSel && (
                 <button type="button" onClick={() => goTenant(-1)} disabled={tenantIdx <= 0} aria-label="Previous tenant"
@@ -569,11 +589,12 @@ export default function OfficeCamReconPage() {
                   style={{ ...arrowBtn, opacity: tenantIdx >= dropdownTenants.length - 1 ? 0.35 : 1, cursor: tenantIdx >= dropdownTenants.length - 1 ? "default" : "pointer" }}>›</button>
               )}
             </span>
+            )}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             {/* Per-tenant / all-tenant PDFs, then the portfolio year-end export
                 (with an info popover for the Skyline import steps). */}
-            {isRetail ? (
+            {isQuarterly ? null : isRetail ? (
               rSelected ? (
                 <button onClick={() => downloadRetailTenantPdf(rSelected, year, `${property} — ${propName}`, contacts[rSelected.unitRef])} className="btn primary" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}>Download PDF</button>
               ) : (
@@ -589,7 +610,7 @@ export default function OfficeCamReconPage() {
                 )}
               </>
             )}
-            {isRetail ? (
+            {isQuarterly ? null : isRetail ? (
               <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
                 <button onClick={downloadAllRetailYearEnd} disabled={compilingRetail} className="btn" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}>{compilingRetail ? "Compiling…" : "SC Year-End Adjustments"}</button>
                 <InfoPopover><ImportInstructions /></InfoPopover>
@@ -624,6 +645,8 @@ export default function OfficeCamReconPage() {
               {rSelected.flatRet != null && <Pill tone={TONE_AMBER}>Own-Parcel RET</Pill>}
               {rSelected.grossLease && <Pill tone={TONE_AMBER}>Gross Lease</Pill>}
             </>
+          ) : isQuarterly ? (
+            <span className="muted small">Quarterly CAM / RET billing — enter each quarter&rsquo;s eligible expenses; the YTD balance backs out what&rsquo;s been billed / paid.</span>
           ) : isRetail ? (
             <span className="muted small">{activeRetail?.tenants.length ?? 0} tenants reconciled · {isMixed ? "retail + office · " : ""}CAM / INS / RET pro-rata share, year-end true-up</span>
           ) : (
@@ -631,12 +654,14 @@ export default function OfficeCamReconPage() {
           )}
         </div>
 
+        {!isQuarterly && (
         <div className="pills">
           <StatPill label={`CAM Due${direction(camDue) ? ` ${direction(camDue)}` : ""}`} value={money0(Math.abs(camDue))} accent={reconBalanceTone(camDue).fg} />
           <StatPill label={`INS Due${direction(insDue) ? ` ${direction(insDue)}` : ""}`} value={money0(Math.abs(insDue))} accent={reconBalanceTone(insDue).fg} />
           <StatPill label={`RET Due${direction(retDue) ? ` ${direction(retDue)}` : ""}`} value={money0(Math.abs(retDue))} accent={reconBalanceTone(retDue).fg} />
           <StatPill label={`Total Due${direction(totalDue) ? ` ${direction(totalDue)}` : ""}`} value={money0(Math.abs(totalDue))} accent={reconBalanceTone(totalDue).fg} />
         </div>
+        )}
       </div>
 
       {loading && <div className="card"><div className="muted small">Loading…</div></div>}
@@ -658,8 +683,11 @@ export default function OfficeCamReconPage() {
         </div>
       )}
 
+      {/* Quarter-billed pseudo-property (e.g. Wawa @ 9510) — its own worksheet. */}
+      {isQuarterly && <QuarterlyBilling billingKey={property} year={year} />}
+
       {/* Building Summary is always the top content card. */}
-      {isRetail && !rSelected && activeRetail && <RetailBuildingSummary result={activeRetail} onPick={setUnit} onEditEscrow={saveRetailField} />}
+      {!isQuarterly && isRetail && !rSelected && activeRetail && <RetailBuildingSummary result={activeRetail} onPick={setUnit} onEditEscrow={saveRetailField} />}
       {isRetail && !rSelected && !isMixed && expenseFinal && (
         <RetailFinalExpenseSummary
           data={expenseFinal}
@@ -860,6 +888,123 @@ function retailExceptions(t: RetailTenantResult, propertyCode?: string): string[
   if (t.adminExcludedLabels.length) out.push(`Admin fee excludes: ${t.adminExcludedLabels.join(", ")}.`);
   if (t.retDiscountPct > 0) out.push(`RET discount: ${t.retDiscountPct}%.`);
   return out;
+}
+
+// ── Quarterly CAM/RET billing worksheet (e.g. Wawa @ 9510) ───────────────────
+// A quarter-billed tenant gets its own dropdown entry below its parent
+// property. Staff enter each quarter's eligible expenses; the lease share
+// applies per quarter and the YTD balance backs out what's been billed/paid.
+function QuarterlyBilling({ billingKey, year }: { billingKey: string; year: number }) {
+  const [def, setDef] = useState<QuarterlyBillingDef | null>(null);
+  const [data, setData] = useState<QuarterlyData>(emptyQuarterlyData());
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let alive = true;
+    setLoading(true);
+    fetch(`/api/cam-recon/quarterly?key=${encodeURIComponent(billingKey)}&year=${year}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => { if (!alive) return; setDef(j?.def ?? null); setData(j?.data ?? emptyQuarterlyData()); })
+      .finally(() => { if (alive) setLoading(false); });
+    return () => { alive = false; };
+  }, [billingKey, year]);
+
+  const computed = useMemo(() => (def ? computeQuarterly(def, data) : null), [def, data]);
+
+  function save(field: "camCost" | "retCost" | "billed", label: string, q: Quarter, value: number) {
+    setData((prev) => {
+      const next: QuarterlyData = { camCosts: { ...prev.camCosts }, retCosts: { ...prev.retCosts }, billed: { ...prev.billed } };
+      if (field === "camCost") {
+        const row = { ...(next.camCosts[label] ?? {}) };
+        if (value === 0) delete row[q]; else row[q] = value;
+        if (Object.keys(row).length === 0) delete next.camCosts[label]; else next.camCosts[label] = row;
+      } else {
+        const target = field === "retCost" ? next.retCosts : next.billed;
+        if (value === 0) delete target[q]; else target[q] = value;
+      }
+      return next;
+    });
+    void fetch("/api/cam-recon/quarterly", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key: billingKey, year, field, label, quarter: q, value: value === 0 ? null : value }),
+    }).catch(() => { /* ignore */ });
+  }
+
+  if (loading) return <div className="card"><div className="muted small">Loading…</div></div>;
+  if (!def || !computed) return <div className="card"><div className="muted small">No quarterly billing on file.</div></div>;
+
+  const sth: React.CSSProperties = { ...th, fontSize: 12, padding: "7px 10px" };
+  const std: React.CSSProperties = { ...td, fontSize: 14, padding: "6px 10px" };
+  const ytdTd: React.CSSProperties = { ...std, borderLeft: "2px solid var(--border)" };
+
+  return (
+    <div className="card" style={{ overflowX: "auto" }}>
+      <div style={CARD_TITLE}>{def.name} — Quarterly CAM / RET ({year})</div>
+      <p className="small muted" style={{ marginTop: 4, maxWidth: 780 }}>
+        {def.sharePct}% lease share{def.occPct < 1 ? ` · ${pct(def.occPct, 0)} occupancy` : ""}. Enter each quarter&rsquo;s eligible expenses — the share applies per quarter and the YTD balance backs out what&rsquo;s been billed / paid. Billed quarterly (payments aren&rsquo;t escrow).
+      </p>
+      <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 10, minWidth: 640 }}>
+        <thead>
+          <tr>
+            <th style={{ ...sth, textAlign: "left" }}>Eligible Expense</th>
+            {QUARTERS.map((q) => <th key={q} style={sth}>{q}</th>)}
+            <th style={{ ...sth, borderLeft: "2px solid var(--border)" }}>YTD</th>
+          </tr>
+        </thead>
+        <tbody>
+          {def.camLines.map((label) => (
+            <tr key={label} style={{ borderBottom: "1px solid var(--border)" }}>
+              <td style={{ ...std, textAlign: "left" }}>{label}</td>
+              {QUARTERS.map((q) => (
+                <td key={q} style={std}><EditableMoney value={data.camCosts[label]?.[q] ?? 0} onCommit={(v) => save("camCost", label, q, v)} /></td>
+              ))}
+              <td style={{ ...ytdTd, color: "var(--muted)" }}>{money0(QUARTERS.reduce((a, q) => a + (data.camCosts[label]?.[q] ?? 0), 0))}</td>
+            </tr>
+          ))}
+        </tbody>
+        <tfoot>
+          <tr style={{ fontWeight: 800, borderTop: "2px solid var(--border)" }}>
+            <td style={{ ...std, textAlign: "left" }}>Total Eligible CAM</td>
+            {QUARTERS.map((q) => <td key={q} style={std}>{money0(computed.camCostByQ[q])}</td>)}
+            <td style={ytdTd}>{money0(computed.camCostYtd)}</td>
+          </tr>
+          <tr>
+            <td style={{ ...std, textAlign: "left" }}>CAM Due ({def.sharePct}%)</td>
+            {QUARTERS.map((q) => <td key={q} style={std}>{money0(computed.camDueByQ[q])}</td>)}
+            <td style={{ ...ytdTd, fontWeight: 700 }}>{money0(computed.camDueYtd)}</td>
+          </tr>
+          <tr style={{ borderTop: "2px solid var(--border)" }}>
+            <td style={{ ...std, textAlign: "left" }}>Real Estate Taxes</td>
+            {QUARTERS.map((q) => (
+              <td key={q} style={std}><EditableMoney value={data.retCosts[q] ?? 0} onCommit={(v) => save("retCost", "", q, v)} /></td>
+            ))}
+            <td style={{ ...ytdTd, color: "var(--muted)" }}>{money0(computed.retCostYtd)}</td>
+          </tr>
+          <tr>
+            <td style={{ ...std, textAlign: "left" }}>RET Due ({def.sharePct}%)</td>
+            {QUARTERS.map((q) => <td key={q} style={std}>{money0(computed.retDueByQ[q])}</td>)}
+            <td style={{ ...ytdTd, fontWeight: 700 }}>{money0(computed.retDueYtd)}</td>
+          </tr>
+          <tr style={{ fontWeight: 800, borderTop: "2px solid var(--border)" }}>
+            <td style={{ ...std, textAlign: "left" }}>Total Due</td>
+            {QUARTERS.map((q) => <td key={q} style={std}>{money0(computed.dueByQ[q])}</td>)}
+            <td style={ytdTd}>{money0(computed.dueYtd)}</td>
+          </tr>
+          <tr style={{ borderTop: "2px solid var(--border)" }}>
+            <td style={{ ...std, textAlign: "left" }}>Less: Billed / Paid</td>
+            {QUARTERS.map((q) => (
+              <td key={q} style={std}><EditableMoney value={data.billed[q] ?? 0} onCommit={(v) => save("billed", "", q, v)} /></td>
+            ))}
+            <td style={{ ...ytdTd, color: "var(--muted)" }}>{money0(computed.billedYtd)}</td>
+          </tr>
+        </tfoot>
+      </table>
+      <div style={{ marginTop: 14, maxWidth: 380 }}>
+        <FinalBalanceRow label="Balance Due (YTD)" value={computed.balanceYtd} />
+      </div>
+    </div>
+  );
 }
 
 // ── Retail Final Expense Summary ─────────────────────────────────────────────
