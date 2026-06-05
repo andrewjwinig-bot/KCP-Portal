@@ -39,6 +39,27 @@ export const RETAIL_EXPENSE_HISTORY: Record<string, RetailExpenseHistory> = {
     ins: { "2024": 9488 },
     ret: { "2024": 147961.59 },
   },
+
+  // Gray's Ferry Shopping Center (4500). Labels match POOL_4500's camLines.
+  // Recon year (2025) is pulled live from the reconciliation; only frozen prior
+  // years live here.
+  "4500": {
+    lines: {
+      "Maintenance Salaries": { "2024": 30559, "2023": 23880 },
+      "Electric (Common)": { "2024": 8357, "2023": 7240.56 },
+      "Water / Sewer": { "2024": 2225, "2023": 792 },
+      "Building Maintenance": { "2024": 23900, "2023": 46489.88 },
+      "Parking Lot Cleaning": { "2024": 47215, "2023": 49940 },
+      "Security": { "2024": 128750, "2023": 142939.4 },
+      "Parking Lot Maintenance": { "2024": 37975, "2023": 75034.35 },
+      "Snow Removal": { "2024": 32445, "2023": 0 },
+      "Trash Removal": { "2024": 20832, "2023": 11105.37 },
+      "Landscaping": { "2024": 20724, "2023": 17090.29 },
+      "Liability Insurance": { "2024": 67496 },
+    },
+    ins: { "2024": 11932 },
+    ret: { "2024": 189959 },
+  },
 };
 
 /** The up-to-`n` most recent years strictly before `reconYear` that carry any
