@@ -12,6 +12,7 @@ import { camRecipientEmails } from "@/lib/suites/contacts";
 import { getExpenseOverrides, saveExpenseField } from "@/lib/cam/office/expenseStore";
 import { finalsFromSummary, mergeExpenseSummary, mergeExpenseSummaryFromPool, type ExpenseOverride } from "@/lib/cam/office/expenseSummary";
 import { listHistoricalOpEx, upsertHistoricalOpEx } from "@/lib/financials/historical-opex/storage";
+import { SEED_EXPENSES, expenseYears } from "@/lib/rentroll/baseYearExpenses";
 import { getJSON } from "@/lib/storage";
 
 /** Record a FINAL into the historical OpEx dataset for the recon year only,
@@ -106,6 +107,25 @@ export async function GET(req: NextRequest) {
   ).filter((r) => r.account !== "6990-8502" || JV_III.has(property));
   const finals = expenseEditable && expenseSummary.length ? finalsFromSummary(expenseSummary) : undefined;
 
+  // Trend columns for the Final Expense Summary: the up-to-3 years before the
+  // recon year from the already-saved operating-expense history
+  // (baseYearExpenses) — the same source the Operating Expense History page
+  // uses. Moving window. Per row by GL account (RET from the ret series).
+  const hx = SEED_EXPENSES[property];
+  const expenseHistoryYears = hx ? expenseYears(hx).filter((y) => y < year).slice(-3).reverse() : [];
+  const histValuesFor = (account: string): Record<string, number> => {
+    if (!hx) return {};
+    if (account.startsWith("6410")) return hx.ret;
+    return hx.lines.find((l) => l.glAccount === account)?.values ?? {};
+  };
+  const expenseSummaryWithHistory = expenseSummary.map((r) => ({
+    ...r,
+    history: expenseHistoryYears.map((hy) => {
+      const v = histValuesFor(r.account)[String(hy)];
+      return v != null ? v : null;
+    }),
+  }));
+
   const result = reconcileBuilding(pool, tenants, year, finals);
   const estimates = result.tenants.map(nextYearEstimate);
 
@@ -148,7 +168,7 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ result, estimates, contacts, expenseSummary, expenseEditable, warnings });
+  return NextResponse.json({ result, estimates, contacts, expenseSummary: expenseSummaryWithHistory, expenseEditable, expenseHistoryYears, warnings });
 }
 
 const EDITABLE_FIELDS = new Set<keyof OfficeLeaseConfig>([

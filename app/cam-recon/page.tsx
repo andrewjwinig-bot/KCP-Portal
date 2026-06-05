@@ -290,6 +290,7 @@ export default function OfficeCamReconPage() {
   const [contacts, setContacts] = useState<Record<string, { email: string; cc: string }>>({});
   const [expenseSummary, setExpenseSummary] = useState<ExpRow[]>([]);
   const [expenseEditable, setExpenseEditable] = useState(false);
+  const [expenseHistoryYears, setExpenseHistoryYears] = useState<number[]>([]);
   const [warnings, setWarnings] = useState<{ unitRef: string; name: string; kind: string; message: string }[]>([]);
   const [loading, setLoading] = useState(false);
   // Year-end true-up always posts on 4/30 of the following year.
@@ -372,7 +373,7 @@ export default function OfficeCamReconPage() {
           setRetailOffice(null);
         }
         // Clear the office-shaped state so its sections don't render.
-        setResult(null); setEstimates([]); setExpenseSummary([]); setWarnings([]);
+        setResult(null); setEstimates([]); setExpenseSummary([]); setExpenseHistoryYears([]); setWarnings([]);
         return;
       }
       const r = await fetch(`/api/cam-recon/office?property=${property}&year=${year}`);
@@ -386,6 +387,7 @@ export default function OfficeCamReconPage() {
       setContacts(j?.contacts ?? {});
       setExpenseSummary(j?.expenseSummary ?? []);
       setExpenseEditable(!!j?.expenseEditable);
+      setExpenseHistoryYears(j?.expenseHistoryYears ?? []);
       setWarnings(j?.warnings ?? []);
     } finally {
       setLoading(false);
@@ -670,7 +672,7 @@ export default function OfficeCamReconPage() {
 
       {!selected && result && <BuildingSummary result={result} onPick={setUnit} onEditEscrow={saveField} />}
       {!selected && result && <RecoveryByBaseYear result={result} />}
-      {!selected && expenseSummary.length > 0 && <FinalExpenseSummary rows={expenseSummary} editable={expenseEditable} year={year} onEdit={saveExpense} />}
+      {!selected && expenseSummary.length > 0 && <FinalExpenseSummary rows={expenseSummary} editable={expenseEditable} year={year} onEdit={saveExpense} historyYears={expenseHistoryYears} />}
       {selected && <TenantStatement t={selected} reconYear={year} estimate={estimates.find((e) => e.unitRef === selected.unitRef)} contact={contacts[selected.unitRef]} />}
     </main>
   );
@@ -1468,20 +1470,34 @@ function BuildingSummary({ result, onPick, onEditEscrow }: {
 
 type ExpRow = {
   account: string; label: string; tbDetail: number; excelAvid: number;
-  final: number; description: string; variance: number;
+  final: number; description: string; variance: number; history?: (number | null)[];
 };
 
-function FinalExpenseSummary({ rows, editable, year, onEdit }: {
+function FinalExpenseSummary({ rows, editable, year, onEdit, historyYears = [] }: {
   rows: ExpRow[];
   editable: boolean;
   year: number;
   onEdit: (account: string, field: string, value: number | string | null) => void;
+  historyYears?: number[];
 }) {
   const isSep = (a: string) => a.startsWith("6120") || a.startsWith("6410"); // Electric / RET
   const opexTotal = rows.filter((r) => !isSep(r.account)).reduce((s, r) => s + r.final, 0);
+  // Moving expense-history window, separated from FINAL by a vertical divider.
+  const years = historyYears;
+  const HIST_SEP = "2px solid rgba(15,23,42,0.18)";
+  const histTh = (i: number): React.CSSProperties => ({ ...th, ...(i === 0 ? { borderLeft: HIST_SEP } : {}) });
+  const histTd = (i: number): React.CSSProperties => ({ ...td, color: "var(--muted)", ...(i === 0 ? { borderLeft: HIST_SEP } : {}) });
+  const histTotals = years.map((_, i) => rows.filter((r) => !isSep(r.account)).reduce((a, r) => a + (r.history?.[i] ?? 0), 0));
   return (
     <div className="card" style={{ overflowX: "auto" }}>
-      <div style={CARD_TITLE}>Final Expense Summary</div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+        <div style={CARD_TITLE}>Final Expense Summary</div>
+        {years.length > 0 && (
+          <Link href="/rentroll/base-years" style={{ fontSize: 12, fontWeight: 700, color: "#0b4a7d", textDecoration: "none", whiteSpace: "nowrap" }}>
+            Expense History →
+          </Link>
+        )}
+      </div>
       {editable ? (
         <>
           <p className="small muted" style={{ marginTop: 4 }}>
@@ -1517,6 +1533,7 @@ function FinalExpenseSummary({ rows, editable, year, onEdit }: {
             ) : (
               <th style={th}>Expense (Final)</th>
             )}
+            {years.map((y, i) => <th key={y} style={histTh(i)}>{y}</th>)}
           </tr>
         </thead>
         <tbody>
@@ -1538,6 +1555,9 @@ function FinalExpenseSummary({ rows, editable, year, onEdit }: {
                 ) : (
                   <td style={{ ...td, fontWeight: 700 }}>{money0(r.final)}</td>
                 )}
+                {years.map((y, i) => (
+                  <td key={y} style={histTd(i)}>{r.history?.[i] != null ? money0(r.history[i] as number) : "—"}</td>
+                ))}
               </tr>
             );
           })}
@@ -1547,6 +1567,7 @@ function FinalExpenseSummary({ rows, editable, year, onEdit }: {
             <td style={{ ...td, textAlign: "left" }} colSpan={editable ? 5 : 2}>Total Operating Expenses (excl. Electric / RET)</td>
             <td style={td}>{money0(opexTotal)}</td>
             {editable && <td />}
+            {years.map((y, i) => <td key={y} style={{ ...histTd(i), fontWeight: 800 }}>{money0(histTotals[i])}</td>)}
           </tr>
         </tfoot>
       </table>
