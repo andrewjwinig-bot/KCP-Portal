@@ -88,6 +88,15 @@ export async function GET(req: NextRequest) {
       seed: l.amount,
       overridden: finals[l.label] != null,
     })),
+    // Property insurance pool — edited here (stored in poolStore, not finalStore)
+    // and shown in the same card, just before RET.
+    ins: {
+      account: "—",
+      label: "Property Insurance",
+      amount: pool.insAmount,
+      seed: fixture.pool.insAmount,
+      overridden: poolOverride.insAmount != null,
+    },
     ret: {
       account: "6410",
       label: "Real Estate Taxes",
@@ -108,11 +117,8 @@ export async function GET(req: NextRequest) {
     result,
     contacts,
     allocation: allocationFor(fixture.pool.propertyCode),
-    // Property-wide insurance pool: effective value, seed, and whether it's
-    // currently overridden (so the recon page can edit it / offer a revert).
-    insPool: pool.insAmount,
-    insPoolSeed: fixture.pool.insAmount,
-    insPoolOverridden: poolOverride.insAmount != null,
+    // expenseFinal carries the editable CAM lines + property insurance + RET
+    // pool for the Final Expense Summary card (insurance row included).
     expenseFinal,
   });
 }
