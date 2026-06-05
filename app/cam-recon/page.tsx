@@ -866,8 +866,8 @@ function retailExceptions(t: RetailTenantResult, propertyCode?: string): string[
 // year. Every tenant's CAM/RET recomputes off the FINAL. Insurance is set on
 // the Property Insurance card.
 
-type RetailFinalRow = { account: string; label: string; amount: number; seed: number; overridden: boolean };
-type RetailFinalData = { lines: RetailFinalRow[]; ins: RetailFinalRow; ret: RetailFinalRow };
+type RetailFinalRow = { account: string; label: string; amount: number; seed: number; overridden: boolean; history?: (number | null)[] };
+type RetailFinalData = { historyYears?: number[]; lines: RetailFinalRow[]; ins: RetailFinalRow; ret: RetailFinalRow };
 
 // Storage key for the RET pool (mirrors RET_FINAL_KEY on the server).
 const RET_FINAL_KEY = "RET";
@@ -880,6 +880,13 @@ function RetailFinalExpenseSummary({ data, onEdit }: {
   const std: React.CSSProperties = { ...td, fontSize: 14, padding: "7px 10px" };
   const camSeedTotal = data.lines.reduce((a, l) => a + l.seed, 0);
   const camFinalTotal = data.lines.reduce((a, l) => a + l.amount, 0);
+  // Moving expense-history window (years before the recon year). A vertical
+  // divider separates it from the FINAL columns.
+  const years = data.historyYears ?? [];
+  const HIST_SEP = "2px solid rgba(15,23,42,0.18)";
+  const histTh = (i: number): React.CSSProperties => ({ ...sth, ...(i === 0 ? { borderLeft: HIST_SEP } : {}) });
+  const histTd = (i: number): React.CSSProperties => ({ ...std, color: "var(--muted)", ...(i === 0 ? { borderLeft: HIST_SEP } : {}) });
+  const camHistTotals = years.map((_, i) => data.lines.reduce((a, l) => a + (l.history?.[i] ?? 0), 0));
 
   const Row = ({ r, k, strongTop }: { r: RetailFinalRow; k: string; strongTop?: boolean }) => (
     <tr style={{ borderBottom: "1px solid var(--border)", ...(strongTop ? { borderTop: "2px solid var(--border)" } : {}) }}>
@@ -892,14 +899,24 @@ function RetailFinalExpenseSummary({ data, onEdit }: {
           ? <button type="button" onClick={() => onEdit(k, null)} style={{ border: "none", background: "none", padding: 0, color: "#0b4a7d", fontWeight: 600, cursor: "pointer", textDecoration: "underline" }}>revert</button>
           : <span className="muted">—</span>}
       </td>
+      {years.map((y, i) => (
+        <td key={y} style={histTd(i)}>{r.history?.[i] != null ? money0(r.history[i] as number) : "—"}</td>
+      ))}
     </tr>
   );
 
   return (
     <div className="card" style={{ overflowX: "auto" }}>
-      <div style={CARD_TITLE}>Final Expense Summary</div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+        <div style={CARD_TITLE}>Final Expense Summary</div>
+        {years.length > 0 && (
+          <Link href="/financials/historical-opex" style={{ fontSize: 12, fontWeight: 700, color: "#0b4a7d", textDecoration: "none", whiteSpace: "nowrap" }}>
+            Expense History →
+          </Link>
+        )}
+      </div>
       <p className="small muted" style={{ marginTop: 4, marginBottom: 4, maxWidth: 760 }}>
-        The operating-expense lines, property insurance, and real-estate-tax pool used in this reconciliation. Edit a FINAL to override the workbook amount for this property/year — every tenant&rsquo;s CAM/INS/RET recomputes.
+        The operating-expense lines, property insurance, and real-estate-tax pool used in this reconciliation. Edit a FINAL to override the workbook amount for this property/year — every tenant&rsquo;s CAM/INS/RET recomputes.{years.length > 0 ? " The columns past the divider are the prior years’ actuals (trend at a glance)." : ""}
       </p>
       <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 10, minWidth: 560 }}>
         <thead>
@@ -909,6 +926,7 @@ function RetailFinalExpenseSummary({ data, onEdit }: {
             <th style={sth}>Workbook</th>
             <th style={sth}>Final</th>
             <th style={{ ...sth, width: 70 }} />
+            {years.map((y, i) => <th key={y} style={histTh(i)}>{y}</th>)}
           </tr>
         </thead>
         <tbody>
@@ -921,6 +939,7 @@ function RetailFinalExpenseSummary({ data, onEdit }: {
             <td style={{ ...std, color: "var(--muted)" }}>{money0(camSeedTotal)}</td>
             <td style={std}>{money0(camFinalTotal)}</td>
             <td style={std} />
+            {years.map((y, i) => <td key={y} style={{ ...histTd(i), fontWeight: 800 }}>{money0(camHistTotals[i])}</td>)}
           </tr>
           <Row r={data.ins} k="INS" strongTop />
           <Row r={data.ret} k={RET_FINAL_KEY} />
