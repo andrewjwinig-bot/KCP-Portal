@@ -10,6 +10,7 @@ import { POOL_2300, ROSTER_2300_2025 } from "./seed/2300";
 import { POOL_1100, ROSTER_1100_2025 } from "./seed/1100";
 import { POOL_4500, ROSTER_4500_2025 } from "./seed/4500";
 import { POOL_9510, ROSTER_9510_2025 } from "./seed/9510";
+import { availableQuarterly } from "./quarterly";
 import { POOL_7010_RETAIL, ROSTER_7010_RETAIL_2025 } from "./seed/7010-retail";
 import { POOL_7010_OFFICE, ROSTER_7010_OFFICE_2025 } from "./seed/7010-office";
 
@@ -79,13 +80,20 @@ export const RETAIL_RECON_FIXTURES: Record<string, RetailReconFixture> = {
   },
 };
 
-export function availableRetailRecons(): { propertyCode: string; name: string; years: number[]; mixedOfficeCode?: string }[] {
-  return Object.values(RETAIL_RECON_FIXTURES)
-    .filter((f) => !f.hidden)
-    .map((f) => ({
+export function availableRetailRecons(): { propertyCode: string; name: string; years: number[]; mixedOfficeCode?: string; quarterly?: boolean }[] {
+  const quarterly = availableQuarterly();
+  const out: { propertyCode: string; name: string; years: number[]; mixedOfficeCode?: string; quarterly?: boolean }[] = [];
+  for (const f of Object.values(RETAIL_RECON_FIXTURES).filter((x) => !x.hidden)) {
+    out.push({
       propertyCode: f.propertyCode,
       name: f.name,
       years: Object.keys(f.byYear).map(Number).sort((a, b) => b - a),
       mixedOfficeCode: f.mixedOfficeCode,
-    }));
+    });
+    // Quarter-billed tenants (e.g. Wawa @ 9510) render right under their parent.
+    for (const q of quarterly.filter((x) => x.parentProperty === f.propertyCode)) {
+      out.push({ propertyCode: q.key, name: q.label, years: q.years, quarterly: true });
+    }
+  }
+  return out;
 }
