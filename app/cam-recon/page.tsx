@@ -284,8 +284,7 @@ export default function OfficeCamReconPage() {
   const [retailOffice, setRetailOffice] = useState<RetailBuildingResult | null>(null);
   const [allocation, setAllocation] = useState<PropertyAllocation | null>(null);
   // Property-wide retail insurance pool (effective value, seed, overridden flag).
-  const [insPool, setInsPool] = useState<{ amount: number; seed: number; overridden: boolean } | null>(null);
-  // Retail Final Expense Summary (CAM lines + RET pool) for the property view.
+  // Retail Final Expense Summary (CAM lines + INS + RET) for the property view.
   const [expenseFinal, setExpenseFinal] = useState<RetailFinalData | null>(null);
   const [estimates, setEstimates] = useState<NextYearEstimate[]>([]);
   const [contacts, setContacts] = useState<Record<string, { email: string; cc: string }>>({});
@@ -361,9 +360,6 @@ export default function OfficeCamReconPage() {
         setRetailResult(j?.result ?? null);
         setContacts(j?.contacts ?? {});
         setAllocation(j?.allocation ?? null);
-        setInsPool(j && typeof j.insPool === "number"
-          ? { amount: j.insPool, seed: j.insPoolSeed ?? j.insPool, overridden: !!j.insPoolOverridden }
-          : null);
         setExpenseFinal(j?.expenseFinal ?? null);
         // Mixed center: also load the office part for its sub-tab.
         const officeCode = available.find((a) => a.propertyCode === property)?.mixedOfficeCode;
@@ -384,7 +380,6 @@ export default function OfficeCamReconPage() {
       setRetailResult(null);
       setRetailOffice(null);
       setAllocation(null);
-      setInsPool(null);
       setExpenseFinal(null);
       setResult(j?.result ?? null);
       setEstimates(j?.estimates ?? []);
@@ -663,8 +658,12 @@ export default function OfficeCamReconPage() {
 
       {/* Building Summary is always the top content card. */}
       {isRetail && !rSelected && activeRetail && <RetailBuildingSummary result={activeRetail} onPick={setUnit} onEditEscrow={saveRetailField} />}
-      {isRetail && !rSelected && !isMixed && expenseFinal && <RetailFinalExpenseSummary data={expenseFinal} onEdit={saveRetailFinal} />}
-      {isRetail && !rSelected && !isMixed && insPool && <InsurancePoolCard insPool={insPool} onEdit={saveInsPool} />}
+      {isRetail && !rSelected && !isMixed && expenseFinal && (
+        <RetailFinalExpenseSummary
+          data={expenseFinal}
+          onEdit={(key, value) => (key === "INS" ? saveInsPool(value) : saveRetailFinal(key, value))}
+        />
+      )}
       {isRetail && !rSelected && allocation && <AllocationBreakdown a={allocation} />}
       {isRetail && !rSelected && activeRetail && <RetailConfigTable result={activeRetail} onPick={setUnit} />}
       {isRetail && rSelected && <RetailTenantStatement t={rSelected} reconYear={year} contact={contacts[rSelected.unitRef]} />}
@@ -868,7 +867,7 @@ function retailExceptions(t: RetailTenantResult, propertyCode?: string): string[
 // the Property Insurance card.
 
 type RetailFinalRow = { account: string; label: string; amount: number; seed: number; overridden: boolean };
-type RetailFinalData = { lines: RetailFinalRow[]; ret: RetailFinalRow };
+type RetailFinalData = { lines: RetailFinalRow[]; ins: RetailFinalRow; ret: RetailFinalRow };
 
 // Storage key for the RET pool (mirrors RET_FINAL_KEY on the server).
 const RET_FINAL_KEY = "RET";
@@ -900,7 +899,7 @@ function RetailFinalExpenseSummary({ data, onEdit }: {
     <div className="card" style={{ overflowX: "auto" }}>
       <div style={CARD_TITLE}>Final Expense Summary</div>
       <p className="small muted" style={{ marginTop: 4, marginBottom: 4, maxWidth: 760 }}>
-        The operating-expense lines and real-estate-tax pool used in this reconciliation. Edit a FINAL to override the workbook amount for this property/year — every tenant&rsquo;s CAM/RET recomputes. Insurance is set on the Property Insurance card.
+        The operating-expense lines, property insurance, and real-estate-tax pool used in this reconciliation. Edit a FINAL to override the workbook amount for this property/year — every tenant&rsquo;s CAM/INS/RET recomputes.
       </p>
       <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 10, minWidth: 560 }}>
         <thead>
@@ -923,40 +922,10 @@ function RetailFinalExpenseSummary({ data, onEdit }: {
             <td style={std}>{money0(camFinalTotal)}</td>
             <td style={std} />
           </tr>
-          <Row r={data.ret} k={RET_FINAL_KEY} strongTop />
+          <Row r={data.ins} k="INS" strongTop />
+          <Row r={data.ret} k={RET_FINAL_KEY} />
         </tfoot>
       </table>
-    </div>
-  );
-}
-
-// Property-wide insurance pool — editable on the recon page (not per tenant),
-// because insurance is a single building figure allocated by INS pro-rata
-// share. A genuine outparcel billed on its own liability figure is still a
-// per-tenant override on the unit page and is unaffected by this.
-function InsurancePoolCard({ insPool, onEdit }: {
-  insPool: { amount: number; seed: number; overridden: boolean };
-  onEdit: (value: number | null) => void;
-}) {
-  return (
-    <div className="card">
-      <div style={CARD_TITLE}>Property Insurance</div>
-      <p className="small muted" style={{ marginTop: 4, marginBottom: 12, maxWidth: 680 }}>
-        The property-wide insurance pool, allocated to every tenant by their INS pro-rata share. Edit it here when the booked figure differs from the seed. Outparcels billed on their own liability figure (set per-tenant on the unit page) are unaffected.
-      </p>
-      <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
-        <span style={SECTION_LABEL}>Insurance Pool</span>
-        <span style={{ fontSize: 18, fontWeight: 800 }}>
-          <EditableMoney value={insPool.amount} onCommit={(v) => onEdit(v)} />
-        </span>
-        {insPool.overridden && (
-          <span className="small muted">
-            overrides seed {money0(insPool.seed)}
-            {" · "}
-            <button type="button" onClick={() => onEdit(null)} style={{ border: "none", background: "none", padding: 0, color: "#0b4a7d", fontWeight: 600, cursor: "pointer", textDecoration: "underline", fontSize: "inherit" }}>revert to seed</button>
-          </span>
-        )}
-      </div>
     </div>
   );
 }
