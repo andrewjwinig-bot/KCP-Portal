@@ -91,6 +91,9 @@ export default function BaseYearExpensesPage() {
   // 2026 budget figures for the Summary's "2026 Est" column (as-is annual
   // totals; CAM = Total OpEx less RET & Electric).
   const [budget2026, setBudget2026] = useState<{ camAsIs: number; ret: number; electric: number } | null>(null);
+  // Live recon-year FINAL for a retail center (the finalized CAM/RET recon
+  // amounts), so the history's recon-year column reflects the actual final.
+  const [retailRecon, setRetailRecon] = useState<{ year: number; lines: Record<string, number>; ins: number; ret: number } | null>(null);
 
   // Deep-link from the recon's "Full Expense History" button: ?property=4070
   // (office) or ?property=2300 (retail).
@@ -158,6 +161,30 @@ export default function BaseYearExpensesPage() {
   // Retail shopping centers get a simpler year-by-year table (no base-year
   // recovery model) on the same page.
   const retailHist = RETAIL_EXPENSE_HISTORY[propCode] ?? null;
+
+  // For a retail center, pull the FINAL reconciliation amounts (effective pool
+  // incl. any Final Expense Summary overrides) so the recon year shows live.
+  useEffect(() => {
+    if (!retailHist) { setRetailRecon(null); return; }
+    let alive = true;
+    (async () => {
+      try {
+        const avail = await fetch("/api/cam-recon/retail").then((r) => (r.ok ? r.json() : null));
+        const entry = (avail?.available ?? []).find((a: { propertyCode: string }) => a.propertyCode === propCode);
+        const year = Math.max(0, ...((entry?.years ?? []) as number[]));
+        if (!year) { if (alive) setRetailRecon(null); return; }
+        const j = await fetch(`/api/cam-recon/retail?property=${propCode}&year=${year}`).then((r) => (r.ok ? r.json() : null));
+        const ef = j?.expenseFinal;
+        if (!ef || !alive) { if (alive) setRetailRecon(null); return; }
+        const lines: Record<string, number> = {};
+        for (const l of ef.lines ?? []) lines[l.label] = l.amount;
+        setRetailRecon({ year, lines, ins: ef.ins?.amount ?? 0, ret: ef.ret?.amount ?? 0 });
+      } catch {
+        if (alive) setRetailRecon(null);
+      }
+    })();
+    return () => { alive = false; };
+  }, [retailHist, propCode]);
 
   const rrProp = useMemo(
     () => (rrProps ?? []).find((p) => p.propertyCode.toUpperCase() === propCode.toUpperCase()) ?? null,
@@ -229,7 +256,7 @@ export default function BaseYearExpensesPage() {
       </div>
 
       {retailHist ? (
-        <RetailHistoryCard property={propCode} hist={retailHist} />
+        <RetailHistoryCard property={propCode} hist={retailHist} recon={retailRecon} />
       ) : !expenses ? (
         <div className="card" style={{ marginTop: 16 }}>
           <p style={{ fontWeight: 700 }}>
@@ -266,27 +293,37 @@ export default function BaseYearExpensesPage() {
 
 // ── retail shopping-center expense history (year-by-year, no base-year model) ──
 
-function RetailHistoryCard({ property, hist }: {
+function RetailHistoryCard({ property, hist, recon }: {
   property: string;
   hist: { lines: Record<string, Record<string, number>>; ins: Record<string, number>; ret: Record<string, number> };
+  recon: { year: number; lines: Record<string, number>; ins: number; ret: number } | null;
 }) {
   const money = (n: number | null | undefined) =>
     n == null ? "—" : n === 0 ? "$0" : "$" + Math.round(n).toLocaleString("en-US");
+  // The recon year column comes live from the reconciliation FINAL; prior years
+  // from the frozen seed. lookups resolve the recon year from `recon`.
+  const reconYear = recon?.year ?? null;
+  const lineAt = (label: string, y: number): number | null | undefined =>
+    reconYear === y ? recon?.lines[label] : hist.lines[label]?.[String(y)];
+  const insAt = (y: number) => (reconYear === y ? recon?.ins : hist.ins[String(y)]);
+  const retAt = (y: number) => (reconYear === y ? recon?.ret : hist.ret[String(y)]);
+
   const yearSet = new Set<number>();
   const collect = (m: Record<string, number>) => Object.keys(m).forEach((y) => yearSet.add(Number(y)));
   Object.values(hist.lines).forEach(collect);
   collect(hist.ins);
   collect(hist.ret);
+  if (reconYear) yearSet.add(reconYear);
   const years = [...yearSet].sort((a, b) => b - a); // newest first
   const lineRows = Object.entries(hist.lines);
-  const totals = Object.fromEntries(years.map((y) => [String(y), lineRows.reduce((a, [, v]) => a + (v[String(y)] ?? 0), 0)]));
+  const totals = Object.fromEntries(years.map((y) => [String(y), lineRows.reduce((a, [label]) => a + (lineAt(label, y) ?? 0), 0)]));
 
   const num: React.CSSProperties = { textAlign: "right", padding: "6px 12px", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" };
   const head: React.CSSProperties = { ...num, fontSize: 12, fontWeight: 800, color: "var(--muted)", borderBottom: "1px solid var(--border)" };
   return (
     <div className="card" style={{ marginTop: 16, overflowX: "auto" }}>
       <div style={{ fontSize: 15, fontWeight: 800 }}>{property} — {RETAIL_NAME.get(property.toUpperCase()) ?? ""}</div>
-      <div className="muted small" style={{ marginTop: 2 }}>Year-by-year actuals per expense line. 2025 is the finalized figure from the CAM/RET reconciliation.</div>
+      <div className="muted small" style={{ marginTop: 2 }}>Year-by-year actuals per expense line.{reconYear ? ` ${reconYear} is the finalized figure pulled live from the CAM/RET reconciliation.` : ""}</div>
       <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 12, minWidth: 480 }}>
         <thead>
           <tr>
@@ -295,10 +332,10 @@ function RetailHistoryCard({ property, hist }: {
           </tr>
         </thead>
         <tbody>
-          {lineRows.map(([label, values]) => (
+          {lineRows.map(([label]) => (
             <tr key={label} style={{ borderBottom: "1px solid var(--border)" }}>
               <td style={{ textAlign: "left", padding: "6px 12px" }}>{label}</td>
-              {years.map((y) => <td key={y} style={num}>{money(values[String(y)])}</td>)}
+              {years.map((y) => <td key={y} style={num}>{money(lineAt(label, y))}</td>)}
             </tr>
           ))}
         </tbody>
@@ -309,11 +346,11 @@ function RetailHistoryCard({ property, hist }: {
           </tr>
           <tr style={{ borderTop: "2px solid var(--border)" }}>
             <td style={{ textAlign: "left", padding: "6px 12px" }}>Property Insurance</td>
-            {years.map((y) => <td key={y} style={num}>{money(hist.ins[String(y)])}</td>)}
+            {years.map((y) => <td key={y} style={num}>{money(insAt(y))}</td>)}
           </tr>
           <tr>
             <td style={{ textAlign: "left", padding: "6px 12px" }}>Real Estate Taxes</td>
-            {years.map((y) => <td key={y} style={num}>{money(hist.ret[String(y)])}</td>)}
+            {years.map((y) => <td key={y} style={num}>{money(retAt(y))}</td>)}
           </tr>
         </tfoot>
       </table>

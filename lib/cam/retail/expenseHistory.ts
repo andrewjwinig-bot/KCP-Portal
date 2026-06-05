@@ -18,23 +18,26 @@ export type RetailExpenseHistory = {
 
 export const RETAIL_EXPENSE_HISTORY: Record<string, RetailExpenseHistory> = {
   // Brookwood Shopping Center (2300). Labels match POOL_2300's camLines.
-  // 2025 = the finalized figures from the 2025 CAM/RET reconciliation (POOL_2300).
+  // NOTE: the recon year (2025) is NOT seeded here — it's pulled live from the
+  // CAM/RET reconciliation FINAL (seed pool + any Final Expense Summary
+  // overrides) so the history always shows the actual finalized amount. Only
+  // prior, frozen years live in this seed.
   "2300": {
     lines: {
-      "Maintenance Salaries": { "2025": 23520, "2024": 22752, "2023": 17880 },
-      "Electric (Common)": { "2025": 7118.67, "2024": 8078, "2023": 6426.54 },
-      "Water / Sewer": { "2025": 0, "2024": 0, "2023": 0 },
-      "Building Maintenance": { "2025": 23786, "2024": 35350, "2023": 19484.44 },
-      "Parking Lot Cleaning": { "2025": 9116.94, "2024": 34608, "2023": 32134.44 },
-      "Trash Removal": { "2025": 12530.92, "2024": 1236 },
-      "Security": { "2025": 27752.96, "2024": 14400, "2023": 0 },
-      "Parking Lot Maintenance": { "2025": 46775.40, "2024": 31600, "2023": 62821.44 },
-      "Snow Removal": { "2025": 47294, "2024": 44290, "2023": 1655 },
-      "Landscaping": { "2025": 15257.98, "2024": 33339, "2023": 11255.02 },
-      "Liability Insurance": { "2025": 40126.88, "2024": 39479 },
+      "Maintenance Salaries": { "2024": 22752, "2023": 17880 },
+      "Electric (Common)": { "2024": 8078, "2023": 6426.54 },
+      "Water / Sewer": { "2024": 0, "2023": 0 },
+      "Building Maintenance": { "2024": 35350, "2023": 19484.44 },
+      "Parking Lot Cleaning": { "2024": 34608, "2023": 32134.44 },
+      "Trash Removal": { "2024": 1236 },
+      "Security": { "2024": 14400, "2023": 0 },
+      "Parking Lot Maintenance": { "2024": 31600, "2023": 62821.44 },
+      "Snow Removal": { "2024": 44290, "2023": 1655 },
+      "Landscaping": { "2024": 33339, "2023": 11255.02 },
+      "Liability Insurance": { "2024": 39479 },
     },
-    ins: { "2025": 9259.34, "2024": 9488 },
-    ret: { "2025": 152574.95, "2024": 147961.59 },
+    ins: { "2024": 9488 },
+    ret: { "2024": 147961.59 },
   },
 };
 
