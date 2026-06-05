@@ -117,12 +117,21 @@ export default function BaseYearExpensesPage() {
           (p: { propertyCode: string }) => p.propertyCode.toUpperCase() === propCode.toUpperCase(),
         );
         if (!prop) { if (alive) setBudget2026(null); return; }
-        const totalOpEx = (prop.rollups ?? []).find((r: { name: string }) => r.name.toUpperCase().trim() === "TOTAL OPERATING EXPENSES")?.total ?? 0;
-        const lines = (prop.sections ?? []).flatMap((s: { lines: { label: string; total: number }[] }) => s.lines);
-        const lineTotal = (re: RegExp) => lines.find((l: { label: string }) => re.test(l.label))?.total ?? 0;
+        // Source only the CAM-reimbursable operating-expense section (the same
+        // lines the recon reimburses) — NOT the "TOTAL OPERATING EXPENSES"
+        // rollup (which also includes non-reimbursable expenses) and NOT the
+        // Reimbursements income section (which carries its own RET / Electric /
+        // CAM lines). Mirrors lib/financials/budgets/opexSummary.ts.
+        const sec = (prop.sections ?? []).find(
+          (s: { name: string }) => /reimbursable expenses?/i.test(s.name) && !/non-?reimbursable/i.test(s.name),
+        );
+        const secLines = ((sec?.lines ?? []) as { label: string; total: number; isSubtotal?: boolean }[])
+          .filter((l) => !l.isSubtotal);
+        const lineTotal = (re: RegExp) => secLines.find((l) => re.test(l.label))?.total ?? 0;
         const ret = lineTotal(/real estate tax/i);
         const electric = lineTotal(/electric/i);
-        if (alive) setBudget2026({ camAsIs: Math.max(0, totalOpEx - ret - electric), ret, electric });
+        const totalReimb = secLines.reduce((a, l) => a + (typeof l.total === "number" ? l.total : 0), 0);
+        if (alive) setBudget2026({ camAsIs: Math.max(0, totalReimb - ret - electric), ret, electric });
       } catch {
         if (alive) setBudget2026(null);
       }
@@ -357,7 +366,7 @@ function SummaryTable({ expenses, budget2026 }: {
             : `$ / SF divides the 95%-grossed-up figures by ${rentable.toLocaleString()} rentable SF.`}
         {" "}RET and Electric have no grossed-up variant, so they read the same
         in every mode. Electric is billed separately.
-        {budget2026 && " 2026 Est is the operating budget (CAM = Total Operating Expenses less RET & Electric), 95% grossed up to match the CAM row."}
+        {budget2026 && " 2026 Est is the operating budget's reimbursable expenses (CAM = Total Reimbursable Expenses less RET & Electric), 95% grossed up to match the CAM row."}
       </p>
     </div>
   );

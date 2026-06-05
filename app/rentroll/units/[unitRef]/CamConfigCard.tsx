@@ -747,6 +747,26 @@ export default function CamConfigCard({
                 <span style={{ fontSize: 12, color: "var(--muted)" }}>
                   CAM lines this tenant is not billed for under their lease.
                 </span>
+                {/* Quick toggles — e.g. an outparcel that pays no CAM excludes
+                    every line at once (its real share × an empty pool = $0). */}
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button
+                    type="button"
+                    disabled={isGross}
+                    onClick={() => update({ camExcludedLines: [...lineOptions] })}
+                    style={{ fontSize: 12, fontWeight: 600, padding: "3px 10px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--card)", color: "#0b4a7d", cursor: isGross ? "not-allowed" : "pointer", opacity: isGross ? 0.5 : 1 }}
+                  >
+                    Exclude all CAM
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isGross || (config.camExcludedLines ?? []).length === 0}
+                    onClick={() => update({ camExcludedLines: [] })}
+                    style={{ fontSize: 12, fontWeight: 600, padding: "3px 10px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--card)", color: "var(--muted)", cursor: (isGross || (config.camExcludedLines ?? []).length === 0) ? "not-allowed" : "pointer", opacity: (isGross || (config.camExcludedLines ?? []).length === 0) ? 0.5 : 1 }}
+                  >
+                    Clear
+                  </button>
+                </div>
                 <MultiSelect
                   options={lineOptions}
                   selected={config.camExcludedLines ?? []}
