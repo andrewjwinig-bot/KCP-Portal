@@ -819,10 +819,16 @@ function RetailBuildingSummary({ result, onPick, onEditEscrow }: {
 // with an info chip that expands the exceptions (exclusions / cap / discount /
 // gross lease) so the whole center can be verified without opening each unit.
 
-function retailExceptions(t: RetailTenantResult): string[] {
+function retailExceptions(t: RetailTenantResult, propertyCode?: string): string[] {
   // A gross lease has no CAM/INS/RET recovery — keep the note to just that.
   if (t.grossLease) return ["Gross Lease"];
   const out: string[] = [];
+  // SPECIAL CASE — Wawa @ Brookwood (2300): INS is billed on the building's
+  // Liability Insurance line, not the property INS pool. Footnoted so it isn't
+  // forgotten. (Forced in lib/cam/retail/assemble.ts.)
+  if (propertyCode === "2300" && /wawa/i.test(t.name)) {
+    out.push(`INS special case: billed on the building's Liability Insurance line (${money0(t.insPool)}), not the property INS pool.`);
+  }
   if (t.camCap) {
     const cap = t.camCap.priorControllable * (1 + t.camCap.growthPct / 100);
     out.push(`CAM cap: controllable held to prior ${money0(t.camCap.priorControllable)} × ${(1 + t.camCap.growthPct / 100).toFixed(2)} = ${money0(cap)} (effective pool ${money0(t.camPoolEffective)}).`);
@@ -894,7 +900,7 @@ function RetailConfigTable({ result, onPick }: { result: RetailBuildingResult; o
         </thead>
         <tbody>
           {result.tenants.map((t) => {
-            const ex = retailExceptions(t);
+            const ex = retailExceptions(t, result.propertyCode);
             return (
               <tr key={t.unitRef} style={{ borderBottom: "1px solid var(--border)", ...(t.grossLease ? { opacity: 0.5 } : {}) }}>
                 <td style={{ ...td, textAlign: "left" }}><UnitChip unitRef={t.unitRef} backTo={`/cam-recon?property=${result.propertyCode}&year=${result.reconYear}`} /></td>

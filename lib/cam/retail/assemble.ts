@@ -68,6 +68,16 @@ export function assembleRetail(
   for (const u of roster) {
     if (u.vacant) continue;
     const cfg = configFor(u.unitRef);
+    // SPECIAL CASE — Wawa at Brookwood (2300): per its lease, insurance is
+    // billed on the building's Liability Insurance line (~$40K), NOT the
+    // property INS pool (~$9K). Forced here off the pool line so it holds
+    // regardless of saved config. (Surfaced as a footnote in the methodology
+    // table.) If this ever needs to apply elsewhere, generalize it.
+    const liabilityLine = pool.camLines.find((l) => /liability insurance/i.test(l.label));
+    const insPoolOverride =
+      pool.propertyCode === "2300" && /wawa/i.test(u.name) && liabilityLine
+        ? liabilityLine.amount
+        : u.insPoolOverride ?? cfg.insAmountOverride ?? undefined;
     out.push({
       unitRef: u.unitRef,
       suite: u.suite,
@@ -88,7 +98,7 @@ export function assembleRetail(
       camExcludedLabels: cfg.camExcludedLines,
       adminExcludedLabels: cfg.camAdminExcludedLines,
       retDiscountPct: u.retDiscountPct ?? cfg.retDiscountPct ?? 0,
-      insPoolOverride: u.insPoolOverride ?? cfg.insAmountOverride ?? undefined,
+      insPoolOverride,
       camCap: cfg.camCap
         ? { priorControllable: cfg.camCap.controllableAmount, growthPct: cfg.camCap.growthPct }
         : undefined,
