@@ -35,6 +35,9 @@ function pct(n: number): string {
 export default function BudgetsPage() {
   const { user } = useUser();
   const canUpload = CAN_UPLOAD.has(user.id);
+  // View scope: when set, only workbooks containing an in-scope property show
+  // (e.g. Nancy → the office/business-park books + The Office Works 4900).
+  const budgetScope = user.budgetScope?.codes ?? null;
 
   const [summaries, setSummaries] = useState<WorkbookSummary[] | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -56,7 +59,12 @@ export default function BudgetsPage() {
       const res = await fetch("/api/financials/budgets", { cache: "no-store" });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error ?? "Failed to load");
-      const list: WorkbookSummary[] = body.workbooks ?? [];
+      const all: WorkbookSummary[] = body.workbooks ?? [];
+      // Apply the user's budget view scope (view-only personas see only the
+      // workbooks that contain a property they're scoped to).
+      const list = budgetScope
+        ? all.filter((s) => s.properties.some((p) => budgetScope.has(p.propertyCode)))
+        : all;
       setSummaries(list);
       if (list.length > 0 && !selectedId) setSelectedId(list[0].id);
       setError(null);
@@ -65,7 +73,7 @@ export default function BudgetsPage() {
     } finally {
       setLoading(false);
     }
-  }, [selectedId]);
+  }, [selectedId, budgetScope]);
   useEffect(() => { reload(); }, [reload]);
 
   // Fetch the selected workbook in full.

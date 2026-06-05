@@ -31,6 +31,12 @@ export type UserDef = {
    * limited to these property codes. Absent → all deposits.
    */
   depositsScope?: { codes: Set<string> };
+  /**
+   * When set, the Operating Budgets page is limited to workbooks that contain
+   * at least one of these property codes (view-only — uploading stays gated by
+   * CAN_UPLOAD). Absent → all budgets.
+   */
+  budgetScope?: { codes: Set<string> };
 };
 
 const SC_INDIVIDUAL = new Set(["1100", "2300", "4500", "7010", "9510", "7200", "7300", "1500", "9200", "5600", "8200"]);
@@ -118,8 +124,8 @@ export const USERS: Record<UserId, UserDef> = {
   nancy: {
     id: "nancy",
     label: "NANCY",
-    navKeys: new Set([...universalNav, "leasing-activity", "base-years", "commissions", "reservations", "maintenance", "deposits"]),
-    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/commissions", "/reservations", "/maintenance", "/deposits", "/cam-recon"],
+    navKeys: new Set([...universalNav, "leasing-activity", "base-years", "commissions", "reservations", "maintenance", "deposits", "financials-budgets"]),
+    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/commissions", "/reservations", "/maintenance", "/deposits", "/financials", "/cam-recon"],
     defaultRentRollCategory: "Office",
     defaultPropertyType: "Office",
     dashboardScope: { codes: OFFICE_AND_OW_INDIVIDUAL },
@@ -127,6 +133,9 @@ export const USERS: Record<UserId, UserDef> = {
     maintenanceView: { readOnly: true, codes: OFFICE_AND_OW_INDIVIDUAL },
     // Security deposits scoped to office tenants.
     depositsScope: { codes: OFFICE_AND_OW_INDIVIDUAL },
+    // View-only budgets for the business-park (office) workbooks + The Office
+    // Works (4900). Uploading stays gated by CAN_UPLOAD (she's not in it).
+    budgetScope: { codes: OFFICE_AND_OW_INDIVIDUAL },
   },
   harry: {
     id: "harry",
