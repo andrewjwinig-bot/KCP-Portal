@@ -9,6 +9,7 @@ import type { RetailRosterUnit } from "./assemble";
 import { POOL_2300, ROSTER_2300_2025 } from "./seed/2300";
 import { POOL_1100, ROSTER_1100_2025 } from "./seed/1100";
 import { POOL_4500, ROSTER_4500_2025 } from "./seed/4500";
+import { POOL_9510, ROSTER_9510_2025 } from "./seed/9510";
 import { POOL_7010_RETAIL, ROSTER_7010_RETAIL_2025 } from "./seed/7010-retail";
 import { POOL_7010_OFFICE, ROSTER_7010_OFFICE_2025 } from "./seed/7010-office";
 
@@ -48,6 +49,13 @@ export const RETAIL_RECON_FIXTURES: Record<string, RetailReconFixture> = {
     gla: 82809,
     pool: POOL_4500,
     byYear: { 2025: { roster: ROSTER_4500_2025 } },
+  },
+  "9510": {
+    propertyCode: "9510",
+    name: "Shops of Lafayette Hill",
+    gla: 19983,
+    pool: POOL_9510,
+    byYear: { 2025: { roster: ROSTER_9510_2025 } },
   },
   // 7010 is a mixed center — retail + office reconciliations sharing the
   // building, shown on one page with Retail / Office sub-tabs. Both pools carry

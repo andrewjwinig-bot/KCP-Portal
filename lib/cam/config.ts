@@ -33,6 +33,7 @@ export const CAM_LINE_ITEMS = [
   "Trash Removal",
   "Parking Lot Maintenance",
   "Parking Lot Cleaning",
+  "Parking Lot Cap Ex",
   "Security",
   "Snow Removal",
   "Landscaping",

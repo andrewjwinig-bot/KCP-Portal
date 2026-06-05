@@ -60,6 +60,29 @@ export const RETAIL_EXPENSE_HISTORY: Record<string, RetailExpenseHistory> = {
     ins: { "2024": 11932 },
     ret: { "2024": 189959 },
   },
+
+  // Shops of Lafayette Hill (9510). Labels match POOL_9510's camLines. No
+  // separate INS pool here (insurance is in CAM), so `ins` is empty. Recon year
+  // (2025) is pulled live; 2024 is from the CAM Billings schedule's prior-year
+  // column.
+  "9510": {
+    lines: {
+      "Parking Lot Cap Ex": { "2024": 35571 },
+      "Maintenance Salaries": { "2024": 7200 },
+      "Electric (Common)": { "2024": 1755.89 },
+      "Water / Sewer": { "2024": 0 },
+      "Building Maintenance": { "2024": 9651.36 },
+      "Parking Lot Cleaning": { "2024": 18349.96 },
+      "Security": { "2024": 0 },
+      "Parking Lot Maintenance": { "2024": 16377.20 },
+      "Snow Removal": { "2024": 22678.81 },
+      "Trash Removal": { "2024": 27555.22 },
+      "Landscaping": { "2024": 1314.40 },
+      "Liability Insurance": { "2024": 30581.37 },
+    },
+    ins: {},
+    ret: { "2024": 31692.54 },
+  },
 };
 
 /** The up-to-`n` most recent years strictly before `reconYear` that carry any
