@@ -42,3 +42,38 @@ Office and retail recon pages + the per-tenant statement must look/behave the sa
 - Unit refs render as a `<code>` element (12px, default monospace) matching the Rent Roll. Building summary tables use whole dollars (`money0`); detail statements use cents (`money`). Gross-lease rows are dimmed (opacity) with a `(Gross)` marker. The recon page remembers the last-viewed property/year via `localStorage`.
 
 When the user reports a value mismatch between pages, trace it to the shared source above and fix it there once — don't patch the symptom on one page.
+
+# CAM / RET reconciliation — planned capabilities (roadmap / TODO)
+
+Not built yet — captured so we build to them. The recon engine is a pure
+function (pool + tenant inputs → CAM/INS/RET result) and fixtures are keyed
+`byYear`, so these layer on top rather than requiring a rewrite. Near-term
+sequence the user is following: finish the **9510** CAM/RET rec → the **condo
+budget** → then stand up **monthly operating statements**. Long-term vision:
+this program eventually replaces **Skyline** (the accounting system); until
+then the user imports Skyline reports, so keep ingestion paths import-friendly.
+
+- **Annual new-year reconciliations (all properties).** A 2026 rec runs early
+  2027 (and so on each year). Add `byYear[<year>]` per fixture; methodology
+  (PRS/admin/exclusions/cap/discount/gross lease) carries forward from the
+  unit-page config automatically. The new-year work is sourcing that year's
+  **final expenses** + **tenancy** (below).
+- **Final expenses ← monthly operating statements.** Once operating statements
+  exist, pull each year's CAM/INS/RET expense actuals from them (YTD during the
+  year, finalized at year-end) instead of hand-seeding `seed/<code>.ts`; the
+  Final Expense Summary becomes the reconcile-and-finalize step. Also drives a
+  real-time **budget vs. actual** comparison.
+- **Full-year tenancy roster (don't drop mid-year vacates).** Build the roster
+  from the **whole year's** rent-roll snapshots + move-out/leasing data, NOT
+  just the December rent roll — a tenant who vacated mid-year must still be
+  reconciled for their occupied time. The engine already prorates partial years
+  via `occPct` / `rcd` / `vacatedISO`.
+- **On-demand YTD move-out reconciliation.** Close out a departing tenant on
+  command (don't wait for the annual run): feed the engine YTD expense pools
+  (from operating statements), the tenant's YTD escrow billed, and occupancy
+  through the move-out date → `balance = YTD due − YTD escrow`. An interim/
+  move-out statement layered on the existing per-tenant compute + PDF.
+- **Per-year methodology snapshot.** Retail methodology is currently "current
+  state" (the unit page), shared across years. For correct multi-year + mid-year
+  close-outs, freeze each recon year's methodology when it closes (like office
+  base years) so later edits don't retroactively change a closed year.
