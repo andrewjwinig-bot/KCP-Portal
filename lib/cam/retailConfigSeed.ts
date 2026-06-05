@@ -52,8 +52,10 @@ export const RETAIL_CONFIG_SEED: Record<string, RetailConfigSeedEntry> = {
   // Wawa (no CAM) / M&T (no INS) carve-outs. Only the CAMPRep extras the card
   // can't derive are seeded: CAM admin fee, Planet Fitness's cap, and the two
   // documented line exclusions. Admin fee is 10% unless noted; Cohen, Lee's
-  // Hoagies and Dunkin carry no admin fee (no entry needed). Wawa is handled
-  // entirely by propertyRules.
+  // Hoagies and Dunkin carry no admin fee (no entry needed). Wawa keeps its
+  // real pro-rata CAM share but excludes every CAM line (outparcel maintains
+  // its own lot) so its effective CAM pool is $0 — modeled as exclusions, not a
+  // forced 0% share, so the unit page and the recon agree on the share.
   "2300-1817": { adminFeePct: 10, retDiscountPct: 2, excludedCamLines: ["Building Maintenance"] }, // M&T Bank — CAM excludes Bldg Maintenance
   "2300-1847": { adminFeePct: 10 }, // Crafty Crab
   "2300-1851": { // Planet Fitness (National Fitness Partners) — 7% admin + CAM cap
@@ -76,7 +78,18 @@ export const RETAIL_CONFIG_SEED: Record<string, RetailConfigSeedEntry> = {
   "2300-1877": { adminFeePct: 10 }, // Evolve Nails
   "2300-1879": { adminFeePct: 10 }, // GNC / Live Well
   "2300-1881": { adminFeePct: 10, retDiscountPct: 2 }, // Citizens Bank
-  "2300-1883": { retDiscountPct: 2, insPoolOverride: 40126.88 }, // Wawa — RET discount; INS billed on its manual liability figure (not GL)
+  "2300-1883": { // Wawa — outparcel pays no CAM; RET discount; INS on manual liability figure (not GL)
+    camPrs: 8.121,
+    retDiscountPct: 2,
+    insPoolOverride: 40126.88,
+    // Every CAM line excluded → effective CAM pool is $0, so CAM share × $0 = $0.
+    excludedCamLines: [
+      "Maintenance Salaries", "Electric (Common)", "Water / Sewer",
+      "Building Maintenance", "Parking Lot Cleaning", "Trash Removal",
+      "Security", "Parking Lot Maintenance", "Snow Removal", "Landscaping",
+      "Liability Insurance",
+    ],
+  },
   // Dunkin — no admin fee; CAM excludes Building Maintenance + Security
   // (exact pool match: 23,786 + 27,752.96 = 51,538.96).
   "2300-1885": { retDiscountPct: 2, excludedCamLines: ["Building Maintenance", "Security"] },
