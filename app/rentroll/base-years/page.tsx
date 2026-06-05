@@ -858,85 +858,7 @@ function BaseYearBreakdown({
             />
           </div>
 
-          {/* Hover detail panel — appears when a bar segment or legend row
-              is hovered. Lists every tenant in that base-year cohort with
-              their PRS, CAM / RET contribution, and total. */}
-          {hoverYear && (() => {
-            const g = groups.find((x) => x.year === hoverYear);
-            if (!g) return null;
-            const color = g.isNumeric ? colorForYear(g.year) : "#94a3b8";
-            return (
-              <div style={{
-                marginTop: 14,
-                padding: "12px 14px",
-                borderRadius: 8,
-                border: `1px solid ${color}`,
-                background: "rgba(15,23,42,0.02)",
-                boxShadow: "0 1px 3px rgba(15,23,42,0.04)",
-              }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <span style={{
-                      display: "inline-block", width: 14, height: 14, borderRadius: 3,
-                      background: color, border: "1px solid rgba(15,23,42,0.15)",
-                    }} />
-                    <span style={{ fontSize: 15, fontWeight: 800 }}>Base year {g.year}</span>
-                    <span className="muted small">
-                      {g.tenants.length} tenant{g.tenants.length === 1 ? "" : "s"} · {g.sqft.toLocaleString()} sf
-                    </span>
-                  </div>
-                  <span className="muted small" style={{ fontVariantNumeric: "tabular-nums" }}>
-                    {g.isNumeric
-                      ? `${money(g.total)} / yr · ${((g.total / Math.max(1, totals.total)) * 100).toFixed(1)}% of recoveries`
-                      : "no recovery $ (base year not numeric)"}
-                  </span>
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                  <div style={{
-                    display: "grid",
-                    gridTemplateColumns: "minmax(0, 1.6fr) 60px 80px 80px 90px",
-                    gap: 10, alignItems: "center",
-                    fontSize: 10, fontWeight: 700, letterSpacing: "0.04em",
-                    textTransform: "uppercase", color: "var(--muted)",
-                    padding: "0 8px",
-                  }}>
-                    <span>Tenant</span>
-                    <span style={{ textAlign: "right" }}>Bldg %</span>
-                    <span style={{ textAlign: "right" }}>CAM</span>
-                    <span style={{ textAlign: "right" }}>RET</span>
-                    <span style={{ textAlign: "right" }}>Total</span>
-                  </div>
-                  {g.tenants.map((t) => (
-                    <div key={t.unitRef} style={{
-                      display: "grid",
-                      gridTemplateColumns: "minmax(0, 1.6fr) 60px 80px 80px 90px",
-                      gap: 10, alignItems: "center",
-                      fontSize: 12,
-                      padding: "4px 8px",
-                      borderRadius: 6,
-                      background: "rgba(15,23,42,0.03)",
-                    }}>
-                      <span style={{ fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={`${t.unitRef} · ${t.sqft.toLocaleString()} sf`}>
-                        {t.name}
-                      </span>
-                      <span className="muted" style={{ fontVariantNumeric: "tabular-nums", textAlign: "right" }}>
-                        {t.prsPct.toFixed(2)}%
-                      </span>
-                      <span style={{ fontVariantNumeric: "tabular-nums", textAlign: "right" }}>
-                        {g.isNumeric ? money(t.cam) : "—"}
-                      </span>
-                      <span style={{ fontVariantNumeric: "tabular-nums", textAlign: "right" }}>
-                        {g.isNumeric ? money(t.ret) : "—"}
-                      </span>
-                      <span style={{ fontVariantNumeric: "tabular-nums", textAlign: "right", fontWeight: 700, color }}>
-                        {g.isNumeric ? money(t.total) : "—"}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            );
-          })()}
+          {/* Hover detail panel is rendered AFTER the legend (below). */}
 
           {/* Legend — one row per base year showing color, count, total
               recovered, and share of recoveries. Includes non-numeric /
@@ -1018,6 +940,86 @@ function BaseYearBreakdown({
               );
             })}
           </div>
+
+          {/* Hover detail — tenant breakdown for the hovered base year.
+              Rendered last so toggling it never reflows the bars or legend
+              rows the cursor is on (that shift caused a hover flicker loop). */}
+          {hoverYear && (() => {
+            const g = groups.find((x) => x.year === hoverYear);
+            if (!g) return null;
+            const color = g.isNumeric ? colorForYear(g.year) : "#94a3b8";
+            return (
+              <div style={{
+                marginTop: 16,
+                padding: "12px 14px",
+                borderRadius: 8,
+                border: `1px solid ${color}`,
+                background: "rgba(15,23,42,0.02)",
+                boxShadow: "0 1px 3px rgba(15,23,42,0.04)",
+              }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <span style={{
+                      display: "inline-block", width: 14, height: 14, borderRadius: 3,
+                      background: color, border: "1px solid rgba(15,23,42,0.15)",
+                    }} />
+                    <span style={{ fontSize: 15, fontWeight: 800 }}>Base year {g.year}</span>
+                    <span className="muted small">
+                      {g.tenants.length} tenant{g.tenants.length === 1 ? "" : "s"} · {g.sqft.toLocaleString()} sf
+                    </span>
+                  </div>
+                  <span className="muted small" style={{ fontVariantNumeric: "tabular-nums" }}>
+                    {g.isNumeric
+                      ? `${money(g.total)} / yr · ${((g.total / Math.max(1, totals.total)) * 100).toFixed(1)}% of recoveries`
+                      : "no recovery $ (base year not numeric)"}
+                  </span>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  <div style={{
+                    display: "grid",
+                    gridTemplateColumns: "minmax(0, 1.6fr) 60px 80px 80px 90px",
+                    gap: 10, alignItems: "center",
+                    fontSize: 10, fontWeight: 700, letterSpacing: "0.04em",
+                    textTransform: "uppercase", color: "var(--muted)",
+                    padding: "0 8px",
+                  }}>
+                    <span>Tenant</span>
+                    <span style={{ textAlign: "right" }}>Bldg %</span>
+                    <span style={{ textAlign: "right" }}>CAM</span>
+                    <span style={{ textAlign: "right" }}>RET</span>
+                    <span style={{ textAlign: "right" }}>Total</span>
+                  </div>
+                  {g.tenants.map((t) => (
+                    <div key={t.unitRef} style={{
+                      display: "grid",
+                      gridTemplateColumns: "minmax(0, 1.6fr) 60px 80px 80px 90px",
+                      gap: 10, alignItems: "center",
+                      fontSize: 12,
+                      padding: "4px 8px",
+                      borderRadius: 6,
+                      background: "rgba(15,23,42,0.03)",
+                    }}>
+                      <span style={{ fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={`${t.unitRef} · ${t.sqft.toLocaleString()} sf`}>
+                        {t.name}
+                      </span>
+                      <span className="muted" style={{ fontVariantNumeric: "tabular-nums", textAlign: "right" }}>
+                        {t.prsPct.toFixed(2)}%
+                      </span>
+                      <span style={{ fontVariantNumeric: "tabular-nums", textAlign: "right" }}>
+                        {g.isNumeric ? money(t.cam) : "—"}
+                      </span>
+                      <span style={{ fontVariantNumeric: "tabular-nums", textAlign: "right" }}>
+                        {g.isNumeric ? money(t.ret) : "—"}
+                      </span>
+                      <span style={{ fontVariantNumeric: "tabular-nums", textAlign: "right", fontWeight: 700, color }}>
+                        {g.isNumeric ? money(t.total) : "—"}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
         </>
       )}
     </div>
