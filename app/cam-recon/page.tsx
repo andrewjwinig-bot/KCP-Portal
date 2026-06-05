@@ -285,6 +285,8 @@ export default function OfficeCamReconPage() {
   const [allocation, setAllocation] = useState<PropertyAllocation | null>(null);
   // Property-wide retail insurance pool (effective value, seed, overridden flag).
   const [insPool, setInsPool] = useState<{ amount: number; seed: number; overridden: boolean } | null>(null);
+  // Retail Final Expense Summary (CAM lines + RET pool) for the property view.
+  const [expenseFinal, setExpenseFinal] = useState<RetailFinalData | null>(null);
   const [estimates, setEstimates] = useState<NextYearEstimate[]>([]);
   const [contacts, setContacts] = useState<Record<string, { email: string; cc: string }>>({});
   const [expenseSummary, setExpenseSummary] = useState<ExpRow[]>([]);
@@ -362,6 +364,7 @@ export default function OfficeCamReconPage() {
         setInsPool(j && typeof j.insPool === "number"
           ? { amount: j.insPool, seed: j.insPoolSeed ?? j.insPool, overridden: !!j.insPoolOverridden }
           : null);
+        setExpenseFinal(j?.expenseFinal ?? null);
         // Mixed center: also load the office part for its sub-tab.
         const officeCode = available.find((a) => a.propertyCode === property)?.mixedOfficeCode;
         if (officeCode) {
@@ -382,6 +385,7 @@ export default function OfficeCamReconPage() {
       setRetailOffice(null);
       setAllocation(null);
       setInsPool(null);
+      setExpenseFinal(null);
       setResult(j?.result ?? null);
       setEstimates(j?.estimates ?? []);
       setContacts(j?.contacts ?? {});
@@ -434,6 +438,17 @@ export default function OfficeCamReconPage() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ property, year, field: "insAmount", value }),
+    });
+    await loadResult();
+  }, [property, year, loadResult]);
+
+  // Persist a retail FINAL expense override (CAM line by label, or "RET" pool);
+  // null reverts to the workbook seed. Reload so every tenant recomputes.
+  const saveRetailFinal = useCallback(async (key: string, value: number | null) => {
+    await fetch("/api/cam-recon/retail", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ property, year, field: "final", account: key, value }),
     });
     await loadResult();
   }, [property, year, loadResult]);
@@ -648,6 +663,7 @@ export default function OfficeCamReconPage() {
 
       {/* Building Summary is always the top content card. */}
       {isRetail && !rSelected && activeRetail && <RetailBuildingSummary result={activeRetail} onPick={setUnit} onEditEscrow={saveRetailField} />}
+      {isRetail && !rSelected && !isMixed && expenseFinal && <RetailFinalExpenseSummary data={expenseFinal} onEdit={saveRetailFinal} />}
       {isRetail && !rSelected && !isMixed && insPool && <InsurancePoolCard insPool={insPool} onEdit={saveInsPool} />}
       {isRetail && !rSelected && allocation && <AllocationBreakdown a={allocation} />}
       {isRetail && !rSelected && activeRetail && <RetailConfigTable result={activeRetail} onPick={setUnit} />}
@@ -842,6 +858,76 @@ function retailExceptions(t: RetailTenantResult, propertyCode?: string): string[
   if (t.adminExcludedLabels.length) out.push(`Admin fee excludes: ${t.adminExcludedLabels.join(", ")}.`);
   if (t.retDiscountPct > 0) out.push(`RET discount: ${t.retDiscountPct}%.`);
   return out;
+}
+
+// ── Retail Final Expense Summary ─────────────────────────────────────────────
+// Property-level editable expense table (the retail counterpart of the office
+// Final Expense Summary): each CAM operating-expense line plus the RET pool,
+// with an editable FINAL that overrides the workbook seed for this property/
+// year. Every tenant's CAM/RET recomputes off the FINAL. Insurance is set on
+// the Property Insurance card.
+
+type RetailFinalRow = { account: string; label: string; amount: number; seed: number; overridden: boolean };
+type RetailFinalData = { lines: RetailFinalRow[]; ret: RetailFinalRow };
+
+// Storage key for the RET pool (mirrors RET_FINAL_KEY on the server).
+const RET_FINAL_KEY = "RET";
+
+function RetailFinalExpenseSummary({ data, onEdit }: {
+  data: RetailFinalData;
+  onEdit: (key: string, value: number | null) => void;
+}) {
+  const sth: React.CSSProperties = { ...th, fontSize: 12, padding: "7px 10px" };
+  const std: React.CSSProperties = { ...td, fontSize: 14, padding: "7px 10px" };
+  const camSeedTotal = data.lines.reduce((a, l) => a + l.seed, 0);
+  const camFinalTotal = data.lines.reduce((a, l) => a + l.amount, 0);
+
+  const Row = ({ r, k, strongTop }: { r: RetailFinalRow; k: string; strongTop?: boolean }) => (
+    <tr style={{ borderBottom: "1px solid var(--border)", ...(strongTop ? { borderTop: "2px solid var(--border)" } : {}) }}>
+      <td style={{ ...std, textAlign: "left", whiteSpace: "nowrap", color: "var(--muted)", fontVariantNumeric: "tabular-nums" }}>{r.account}</td>
+      <td style={{ ...std, textAlign: "left" }}>{r.label}</td>
+      <td style={{ ...std, color: "var(--muted)" }}>{money0(r.seed)}</td>
+      <td style={std} onClick={(e) => e.stopPropagation()}><EditableMoney value={r.amount} onCommit={(v) => onEdit(k, v)} /></td>
+      <td style={{ ...std, fontSize: 12, width: 70 }}>
+        {r.overridden
+          ? <button type="button" onClick={() => onEdit(k, null)} style={{ border: "none", background: "none", padding: 0, color: "#0b4a7d", fontWeight: 600, cursor: "pointer", textDecoration: "underline" }}>revert</button>
+          : <span className="muted">—</span>}
+      </td>
+    </tr>
+  );
+
+  return (
+    <div className="card" style={{ overflowX: "auto" }}>
+      <div style={CARD_TITLE}>Final Expense Summary</div>
+      <p className="small muted" style={{ marginTop: 4, marginBottom: 4, maxWidth: 760 }}>
+        The operating-expense lines and real-estate-tax pool used in this reconciliation. Edit a FINAL to override the workbook amount for this property/year — every tenant&rsquo;s CAM/RET recomputes. Insurance is set on the Property Insurance card.
+      </p>
+      <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 10, minWidth: 560 }}>
+        <thead>
+          <tr>
+            <th style={{ ...sth, textAlign: "left", width: "1%", whiteSpace: "nowrap" }}>Acct</th>
+            <th style={{ ...sth, textAlign: "left" }}>Expense</th>
+            <th style={sth}>Workbook</th>
+            <th style={sth}>Final</th>
+            <th style={{ ...sth, width: 70 }} />
+          </tr>
+        </thead>
+        <tbody>
+          {data.lines.map((l) => <Row key={l.label} r={l} k={l.label} />)}
+        </tbody>
+        <tfoot>
+          <tr style={{ fontWeight: 800, borderTop: "2px solid var(--border)" }}>
+            <td style={std} />
+            <td style={{ ...std, textAlign: "left" }}>Total Operating Expenses</td>
+            <td style={{ ...std, color: "var(--muted)" }}>{money0(camSeedTotal)}</td>
+            <td style={std}>{money0(camFinalTotal)}</td>
+            <td style={std} />
+          </tr>
+          <Row r={data.ret} k={RET_FINAL_KEY} strongTop />
+        </tfoot>
+      </table>
+    </div>
+  );
 }
 
 // Property-wide insurance pool — editable on the recon page (not per tenant),

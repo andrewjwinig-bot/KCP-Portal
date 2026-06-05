@@ -6,6 +6,7 @@ import { allocationFor } from "@/lib/cam/retail/allocation";
 import { getCamConfig } from "@/lib/cam/configStorage";
 import { getEscrowOverrides, saveEscrowOverride, type RetailEscrowField } from "@/lib/cam/retail/escrowStore";
 import { getPoolOverride, savePoolOverride, type RetailPoolField } from "@/lib/cam/retail/poolStore";
+import { getFinalOverrides, saveFinalOverride, RET_FINAL_KEY } from "@/lib/cam/retail/finalStore";
 import { seedCamConfig } from "@/lib/cam/retailConfigSeed";
 import { emptyCamConfig } from "@/lib/cam/config";
 import { getSuiteContactsMap } from "@/lib/suites/contactsStorage";
@@ -63,12 +64,38 @@ export async function GET(req: NextRequest) {
   // tenant — except outparcels with their own per-tenant insAmountOverride,
   // which still win via the assemble/compute precedence.
   const poolOverride = await getPoolOverride(property, year);
-  const pool = poolOverride.insAmount != null
-    ? { ...fixture.pool, insAmount: poolOverride.insAmount }
-    : fixture.pool;
+  // Final Expense Summary overrides: per CAM line (by label) + the RET pool.
+  const finals = await getFinalOverrides(property, year);
+  const pool = {
+    ...fixture.pool,
+    camLines: fixture.pool.camLines.map((l) =>
+      finals[l.label] != null ? { ...l, amount: finals[l.label] } : l,
+    ),
+    insAmount: poolOverride.insAmount ?? fixture.pool.insAmount,
+    retAmount: finals[RET_FINAL_KEY] ?? fixture.pool.retAmount,
+  };
 
   const tenants = assembleRetail(pool, roster, fixture.gla, configFor);
   const result = reconcileRetailBuilding(pool, tenants);
+
+  // Final Expense Summary rows for the property view: effective amount, seed,
+  // and whether it's been overridden (so the page can edit / show a revert).
+  const expenseFinal = {
+    lines: fixture.pool.camLines.map((l) => ({
+      account: l.glAccount,
+      label: l.label,
+      amount: finals[l.label] ?? l.amount,
+      seed: l.amount,
+      overridden: finals[l.label] != null,
+    })),
+    ret: {
+      account: "6410",
+      label: "Real Estate Taxes",
+      amount: finals[RET_FINAL_KEY] ?? fixture.pool.retAmount,
+      seed: fixture.pool.retAmount,
+      overridden: finals[RET_FINAL_KEY] != null,
+    },
+  };
 
   // Statement recipients from the master Contacts directory (flagged
   // recipients), CC the internal default — same as the office side.
@@ -86,6 +113,7 @@ export async function GET(req: NextRequest) {
     insPool: pool.insAmount,
     insPoolSeed: fixture.pool.insAmount,
     insPoolOverridden: poolOverride.insAmount != null,
+    expenseFinal,
   });
 }
 
@@ -108,6 +136,23 @@ export async function POST(req: NextRequest) {
 
     if (!RETAIL_RECON_FIXTURES[property]?.byYear[year]) {
       return NextResponse.json({ error: "Unknown property/year" }, { status: 400 });
+    }
+
+    // Final Expense Summary override — a CAM line (keyed by label) or the RET
+    // pool (keyed by RET_FINAL_KEY). No unitRef. Stored to cents.
+    if (field === "final") {
+      const key = String(body?.account ?? "").trim();
+      if (!key) return NextResponse.json({ error: "Missing account" }, { status: 400 });
+      let value: number | null;
+      if (body?.value === null || body?.value === "") {
+        value = null;
+      } else {
+        const n = Number(body.value);
+        if (!Number.isFinite(n)) return NextResponse.json({ error: "Invalid value" }, { status: 400 });
+        value = Math.round(n * 100) / 100;
+      }
+      await saveFinalOverride(property, year, key, value);
+      return NextResponse.json({ ok: true });
     }
 
     // Property-wide pool override (insurance) — no unitRef. Stored to cents.
