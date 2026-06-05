@@ -820,13 +820,19 @@ function RetailBuildingSummary({ result, onPick, onEditEscrow }: {
 // gross lease) so the whole center can be verified without opening each unit.
 
 function retailExceptions(t: RetailTenantResult): string[] {
+  // A gross lease has no CAM/INS/RET recovery — keep the note to just that.
+  if (t.grossLease) return ["Gross Lease"];
   const out: string[] = [];
-  if (t.grossLease) out.push("Gross Lease");
   if (t.camCap) {
     const cap = t.camCap.priorControllable * (1 + t.camCap.growthPct / 100);
     out.push(`CAM cap: controllable held to prior ${money0(t.camCap.priorControllable)} × ${(1 + t.camCap.growthPct / 100).toFixed(2)} = ${money0(cap)} (effective pool ${money0(t.camPoolEffective)}).`);
   }
-  if (t.camExcludedLabels.length) out.push(`CAM Exclusions: ${t.camExcludedLabels.join(", ")}.`);
+  // When every CAM line in the pool is excluded (e.g. an outparcel that pays no
+  // CAM), summarize rather than listing all of them. Otherwise list the specific
+  // excluded lines.
+  const allCamExcluded = t.camSchedule.length > 0 && t.camSchedule.every((l) => !l.billed);
+  if (allCamExcluded) out.push("All CAM excluded.");
+  else if (t.camExcludedLabels.length) out.push(`CAM Exclusions: ${t.camExcludedLabels.join(", ")}.`);
   if (t.adminExcludedLabels.length) out.push(`Admin fee excludes: ${t.adminExcludedLabels.join(", ")}.`);
   if (t.retDiscountPct > 0) out.push(`RET discount: ${t.retDiscountPct}%.`);
   return out;

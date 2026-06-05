@@ -240,7 +240,7 @@ function SummaryTable({ expenses, budget2026 }: {
   expenses: PropertyExpenses;
   budget2026: { camAsIs: number; ret: number; electric: number } | null;
 }) {
-  const [mode, setMode] = useState<"total" | "gross" | "psf">("psf");
+  const [mode, setMode] = useState<"total" | "psf">("psf");
   const last5 = expenseYears(expenses).slice(-5).reverse();
   const recent3 = last5.slice(0, 3); // most recent 3 years, for the 3-Yr Avg
   const avgBg = "rgba(11,74,125,0.06)";
@@ -248,25 +248,20 @@ function SummaryTable({ expenses, budget2026 }: {
   const rentable = expenses.rentableSqft;
   const elec = expenses.lines.find((l) => l.separateCharge);
 
-  // Gross the 2026 budget CAM up to 95% to match the historical CAM row,
-  // using the latest year's grossed-up ÷ as-is ratio.
-  const latestY = String(expenseYears(expenses).slice(-1)[0] ?? "");
-  const grossFactor = expenses.opEx[latestY] ? (expenses.opExGrossedUp[latestY] / expenses.opEx[latestY]) : 1;
+  // Everything is shown as-is (not grossed up) so the 2026 Est reads exactly
+  // like the budget — no grossed-up variant anywhere on the summary.
   const est = (label: string): number | undefined => {
     if (!budget2026) return undefined;
     if (label === "RET") return budget2026.ret || undefined;
     if (label === "Electric") return budget2026.electric || undefined;
-    const camGross = mode === "total" ? budget2026.camAsIs : budget2026.camAsIs * grossFactor;
-    if (label === "CAM") return camGross || undefined;
-    if (label.startsWith("Total")) return (camGross || 0) + (budget2026.ret || 0); // CAM + RET
+    if (label === "CAM") return budget2026.camAsIs || undefined;
+    if (label.startsWith("Total")) return (budget2026.camAsIs || 0) + (budget2026.ret || 0); // CAM + RET
     return undefined;
   };
 
-  // CAM is the 95%-grossed-up Op Ex except in "Totals" mode, which uses the
-  // as-is total. RET and Electric have no grossed-up variant, so they read
-  // the same in every mode. "$ / SF" divides the grossed-up figures by SF.
-  const cam = (y: string) =>
-    mode === "total" ? expenses.opEx[y] : expenses.opExGrossedUp[y];
+  // CAM is the as-is operating-expense total (RET and Electric excluded);
+  // "$ / SF" just divides by rentable SF. No gross-up.
+  const cam = (y: string) => expenses.opEx[y];
   const ret = (y: string) => expenses.ret[y];
   const el = (y: string) => elec?.values[y];
 
@@ -296,9 +291,8 @@ function SummaryTable({ expenses, budget2026 }: {
         <div style={{ display: "flex", gap: 6 }}>
           {([
             ["total", "Totals"],
-            ["gross", "Grossed up"],
             ["psf", "$ / SF"],
-          ] as ["total" | "gross" | "psf", string][]).map(([val, label]) => (
+          ] as ["total" | "psf", string][]).map(([val, label]) => (
             <button
               key={val}
               className="btn"
@@ -321,7 +315,7 @@ function SummaryTable({ expenses, budget2026 }: {
           <thead>
             <tr>
               <th>
-                {mode === "psf" ? "$ / SF" : mode === "gross" ? "Grossed-up $" : "Total $"}
+                {mode === "psf" ? "$ / SF" : "Total $"}
               </th>
               <th style={{ textAlign: "right", background: estBg }}>2026 Est</th>
               <th style={{ textAlign: "right", background: avgBg }}>3-Yr Avg</th>
@@ -359,14 +353,11 @@ function SummaryTable({ expenses, budget2026 }: {
         </table>
       </div>
       <p className="small muted" style={{ marginTop: 8 }}>
-        {mode === "total"
-          ? "Totals mode shows CAM as the as-is operating-expense total (not grossed up)."
-          : mode === "gross"
-            ? "CAM is the 95%-grossed-up operating-expense total."
-            : `$ / SF divides the 95%-grossed-up figures by ${rentable.toLocaleString()} rentable SF.`}
-        {" "}RET and Electric have no grossed-up variant, so they read the same
-        in every mode. Electric is billed separately.
-        {budget2026 && " 2026 Est is the operating budget's reimbursable expenses (CAM = Total Reimbursable Expenses less RET & Electric), 95% grossed up to match the CAM row."}
+        {mode === "psf"
+          ? `$ / SF divides each as-is figure by ${rentable.toLocaleString()} rentable SF.`
+          : "Figures are the as-is annual totals."}
+        {" "}CAM is operating expenses (RET &amp; Electric excluded); Electric is billed separately. No gross-up.
+        {budget2026 && " 2026 Est is the operating budget's reimbursable expenses (CAM = Total Reimbursable Expenses less RET & Electric), shown exactly as budgeted."}
       </p>
     </div>
   );
