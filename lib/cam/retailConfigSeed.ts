@@ -144,6 +144,23 @@ export const RETAIL_CONFIG_SEED: Record<string, RetailConfigSeedEntry> = {
   "7010-203": { adminFeePct: 0 }, // Parkwood Medical
   "7010-201": { grossLease: true },   // Foot & Ankle (office) — gross
   "7010-218": { grossLease: true },   // Parkwood Medical Storage (office) — gross
+
+  // ── 9510 · Shops of Lafayette Hill ─────────────────────────────────────
+  // PRS is LEASE-stipulated per tenant (seeded here, not SF-derived). 10% CAM
+  // admin (Wawa 0%). No separate INS pool — insurance is the Liability
+  // Insurance CAM line — so insPrs is 0 for everyone. RET PRS = CAM PRS (no RET
+  // discounts at this center). Wawa (406) excludes the Parking Lot Cap Ex
+  // amortization and is billed QUARTERLY (year-end escrow billed = 0; the
+  // quarterly billings live on the task tracker — to be linked).
+  "9510-406": { camPrs: 20, insPrs: 0, retPrs: 20, adminFeePct: 0, excludedCamLines: ["Parking Lot Cap Ex"] }, // Wawa — quarterly billed; no admin
+  "9510-408": { camPrs: 5.53, insPrs: 0, retPrs: 5.53, adminFeePct: 10 },   // Vino's Pizza
+  "9510-410": { camPrs: 5.441, insPrs: 0, retPrs: 5.441, adminFeePct: 10 }, // Hunan Wok
+  "9510-412": { camPrs: 6.28, insPrs: 0, retPrs: 6.28, adminFeePct: 10 },   // Touch of Class
+  "9510-414": { camPrs: 5.32, insPrs: 0, retPrs: 5.32, adminFeePct: 10 },   // Hair Concepts
+  "9510-420": { camPrs: 8.99, insPrs: 0, retPrs: 8.99, adminFeePct: 10 },   // Lafayette Hill Cleaners
+  "9510-422": { camPrs: 4.48, insPrs: 0, retPrs: 4.48, adminFeePct: 10 },   // Liang Jiang
+  "9510-424": { camPrs: 4.48, insPrs: 0, retPrs: 4.48, adminFeePct: 10 },   // DKMNK
+  "9510-426": { camPrs: 4.48, insPrs: 0, retPrs: 4.48, adminFeePct: 10 },   // Marvel Agency
 };
 
 /** Build a full CamConfig for a unit from its seed entry, or null when the
