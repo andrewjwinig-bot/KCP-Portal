@@ -5,9 +5,10 @@
 //   • NO separate INS pool: insurance is the "Liability Insurance" CAM line, so
 //     insAmount = 0 and this center reconciles CAM (insurance included) + RET.
 //   • Wawa (406) excludes the "Parking Lot Cap Ex" amortization and is billed
-//     QUARTERLY — the year-end book carries $0 escrow for Wawa because its
-//     quarterly billings are tracked separately (on the task tracker; to be
-//     linked later). The year-end recon uses Wawa's 20% PRS.
+//     QUARTERLY — its quarterly payments are NOT escrow, so escrow stays $0 and
+//     the recon shows the full-year amount (the quarterly billings are tracked
+//     separately on the task tracker; to be linked later). Wawa's share is its
+//     21% lease share (matching the quarterly bill), not the 20% SF share.
 //   Pools + escrow billed ← the 2025 "Lafayette Hill CAM Billings" workbook
 //   ("9510 LH" master + per-tenant sheets). Line labels match CAM_LINE_ITEMS
 //   where a tenant excludes them so the exclusion lookup resolves.
