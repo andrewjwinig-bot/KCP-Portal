@@ -47,8 +47,13 @@ function prsFor(
   buildingGla: number,
   stipulated: number | null,
 ): number {
-  if (isTenantExcluded(propertyCode, category, name)) return 0;
+  // A stipulated PRS from the unit page (the source of truth) always wins —
+  // even for a tenant otherwise carved out of this category. The carve-out
+  // only forces 0 when there's no explicit share, so a tenant whose CAM is
+  // zeroed purely by line exclusions (e.g. Wawa: real pro-rata share, every
+  // CAM line excluded → $0 pool) still shows its true share on the statement.
   if (stipulated != null) return stipulated;
+  if (isTenantExcluded(propertyCode, category, name)) return 0;
   const denom = getCategoryDenominator(propertyCode, category, name, buildingGla);
   return denom > 0 ? (sqft / denom) * 100 : 0;
 }

@@ -32,6 +32,7 @@ export const CAM_LINE_ITEMS = [
   "Maintenance Salaries",
   "Trash Removal",
   "Parking Lot Maintenance",
+  "Parking Lot Cleaning",
   "Security",
   "Snow Removal",
   "Landscaping",
