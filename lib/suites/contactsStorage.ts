@@ -34,7 +34,6 @@ function seededContactsFor(unitRef: string): SuiteContact[] {
     title: "",
     email,
     phone: "",
-    address: "",
     notes: "",
     // On-file emails are the billing addresses, so they default to CAM/RET
     // recipients — staff can clear the flag if a contact shouldn't be billed.

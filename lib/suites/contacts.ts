@@ -8,7 +8,6 @@ export type SuiteContact = {
   title: string;    // role / title — free text
   email: string;
   phone: string;
-  address: string;
   notes: string;
   /** Marks this contact as a recipient of the CAM/RET reconciliation
    *  statement. The Contacts directory is the master source of truth for
@@ -32,7 +31,7 @@ export function newContactId(): string {
 }
 
 export function emptyContact(): SuiteContact {
-  return { id: newContactId(), name: "", title: "", email: "", phone: "", address: "", notes: "", camRecipient: false };
+  return { id: newContactId(), name: "", title: "", email: "", phone: "", notes: "", camRecipient: false };
 }
 
 /** The CAM/RET statement recipients for a suite: contacts explicitly flagged
@@ -70,12 +69,11 @@ export function sanitizeContacts(body: unknown): SuiteContact[] {
       title: asText(c.title, 200),
       email: asText(c.email, 200),
       phone: asText(c.phone, 60),
-      address: asText(c.address, 400),
       notes: asText(c.notes, 1000),
       camRecipient: c.camRecipient === true,
     };
     // Skip fully empty rows.
-    if (contact.name || contact.email || contact.phone || contact.address || contact.title || contact.notes) {
+    if (contact.name || contact.email || contact.phone || contact.title || contact.notes) {
       out.push(contact);
     }
   }
