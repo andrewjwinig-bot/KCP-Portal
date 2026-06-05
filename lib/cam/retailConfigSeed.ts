@@ -78,10 +78,11 @@ export const RETAIL_CONFIG_SEED: Record<string, RetailConfigSeedEntry> = {
   "2300-1877": { adminFeePct: 10 }, // Evolve Nails
   "2300-1879": { adminFeePct: 10 }, // GNC / Live Well
   "2300-1881": { adminFeePct: 10, retDiscountPct: 2 }, // Citizens Bank
-  "2300-1883": { // Wawa — outparcel pays no CAM; RET discount; INS on manual liability figure (not GL)
+  "2300-1883": { // Wawa — outparcel pays no CAM; RET discount. INS is a special
+    // case handled in assemble.ts (billed on the building's Liability Insurance
+    // line, not the property INS pool), so it's NOT a per-tenant config field here.
     camPrs: 8.121,
     retDiscountPct: 2,
-    insPoolOverride: 40126.88,
     // Every CAM line excluded → effective CAM pool is $0, so CAM share × $0 = $0.
     excludedCamLines: [
       "Maintenance Salaries", "Electric (Common)", "Water / Sewer",
