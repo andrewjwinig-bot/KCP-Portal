@@ -7,6 +7,7 @@ import { getCamConfig } from "@/lib/cam/configStorage";
 import { getEscrowOverrides, saveEscrowOverride, type RetailEscrowField } from "@/lib/cam/retail/escrowStore";
 import { getPoolOverride, savePoolOverride, type RetailPoolField } from "@/lib/cam/retail/poolStore";
 import { getFinalOverrides, saveFinalOverride, RET_FINAL_KEY } from "@/lib/cam/retail/finalStore";
+import { retailHistoryYears, retailLineHistory, retailInsHistory, retailRetHistory } from "@/lib/cam/retail/expenseHistory";
 import { seedCamConfig } from "@/lib/cam/retailConfigSeed";
 import { emptyCamConfig } from "@/lib/cam/config";
 import { getSuiteContactsMap } from "@/lib/suites/contactsStorage";
@@ -80,13 +81,17 @@ export async function GET(req: NextRequest) {
 
   // Final Expense Summary rows for the property view: effective amount, seed,
   // and whether it's been overridden (so the page can edit / show a revert).
+  // Moving expense-history window: the up-to-3 years before the recon year.
+  const histYears = retailHistoryYears(property, year, 3);
   const expenseFinal = {
+    historyYears: histYears,
     lines: fixture.pool.camLines.map((l) => ({
       account: l.glAccount,
       label: l.label,
       amount: finals[l.label] ?? l.amount,
       seed: l.amount,
       overridden: finals[l.label] != null,
+      history: retailLineHistory(property, l.label, histYears),
     })),
     // Property insurance pool — edited here (stored in poolStore, not finalStore)
     // and shown in the same card, just before RET.
@@ -96,6 +101,7 @@ export async function GET(req: NextRequest) {
       amount: pool.insAmount,
       seed: fixture.pool.insAmount,
       overridden: poolOverride.insAmount != null,
+      history: retailInsHistory(property, histYears),
     },
     ret: {
       account: "6410",
@@ -103,6 +109,7 @@ export async function GET(req: NextRequest) {
       amount: finals[RET_FINAL_KEY] ?? fixture.pool.retAmount,
       seed: fixture.pool.retAmount,
       overridden: finals[RET_FINAL_KEY] != null,
+      history: retailRetHistory(property, histYears),
     },
   };
 
