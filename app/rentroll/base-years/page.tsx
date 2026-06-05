@@ -87,6 +87,14 @@ export default function BaseYearExpensesPage() {
   // totals; CAM = Total OpEx less RET & Electric).
   const [budget2026, setBudget2026] = useState<{ camAsIs: number; ret: number; electric: number } | null>(null);
 
+  // Deep-link from the recon's "Full Expense History" button: ?property=4070.
+  useEffect(() => {
+    try {
+      const want = new URLSearchParams(window.location.search).get("property");
+      if (want && SEED_EXPENSES[want]) setPropCode(want);
+    } catch { /* ignore */ }
+  }, []);
+
   useEffect(() => {
     Promise.all([
       fetch("/api/rentroll").then((r) => (r.ok ? r.json() : null)).catch(() => null),

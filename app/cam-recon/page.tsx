@@ -664,6 +664,7 @@ export default function OfficeCamReconPage() {
         <RetailFinalExpenseSummary
           data={expenseFinal}
           onEdit={(key, value) => (key === "INS" ? saveInsPool(value) : saveRetailFinal(key, value))}
+          historyHref={`/cam-recon/expense-history?property=${property}`}
         />
       )}
       {isRetail && !rSelected && allocation && <AllocationBreakdown a={allocation} />}
@@ -672,7 +673,7 @@ export default function OfficeCamReconPage() {
 
       {!selected && result && <BuildingSummary result={result} onPick={setUnit} onEditEscrow={saveField} />}
       {!selected && result && <RecoveryByBaseYear result={result} />}
-      {!selected && expenseSummary.length > 0 && <FinalExpenseSummary rows={expenseSummary} editable={expenseEditable} year={year} onEdit={saveExpense} historyYears={expenseHistoryYears} />}
+      {!selected && expenseSummary.length > 0 && <FinalExpenseSummary rows={expenseSummary} editable={expenseEditable} year={year} onEdit={saveExpense} historyYears={expenseHistoryYears} historyHref={`/rentroll/base-years?property=${property}`} />}
       {selected && <TenantStatement t={selected} reconYear={year} estimate={estimates.find((e) => e.unitRef === selected.unitRef)} contact={contacts[selected.unitRef]} />}
     </main>
   );
@@ -874,9 +875,10 @@ type RetailFinalData = { historyYears?: number[]; lines: RetailFinalRow[]; ins: 
 // Storage key for the RET pool (mirrors RET_FINAL_KEY on the server).
 const RET_FINAL_KEY = "RET";
 
-function RetailFinalExpenseSummary({ data, onEdit }: {
+function RetailFinalExpenseSummary({ data, onEdit, historyHref }: {
   data: RetailFinalData;
   onEdit: (key: string, value: number | null) => void;
+  historyHref?: string;
 }) {
   const sth: React.CSSProperties = { ...th, fontSize: 12, padding: "7px 10px" };
   const std: React.CSSProperties = { ...td, fontSize: 14, padding: "7px 10px" };
@@ -911,9 +913,9 @@ function RetailFinalExpenseSummary({ data, onEdit }: {
     <div className="card" style={{ overflowX: "auto" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
         <div style={CARD_TITLE}>Final Expense Summary</div>
-        {years.length > 0 && (
-          <Link href="/financials/historical-opex" style={{ fontSize: 12, fontWeight: 700, color: "#0b4a7d", textDecoration: "none", whiteSpace: "nowrap" }}>
-            Expense History →
+        {historyHref && (
+          <Link href={historyHref} style={{ fontSize: 12, fontWeight: 700, color: "#0b4a7d", textDecoration: "none", whiteSpace: "nowrap" }}>
+            Full Expense History →
           </Link>
         )}
       </div>
@@ -1473,12 +1475,13 @@ type ExpRow = {
   final: number; description: string; variance: number; history?: (number | null)[];
 };
 
-function FinalExpenseSummary({ rows, editable, year, onEdit, historyYears = [] }: {
+function FinalExpenseSummary({ rows, editable, year, onEdit, historyYears = [], historyHref }: {
   rows: ExpRow[];
   editable: boolean;
   year: number;
   onEdit: (account: string, field: string, value: number | string | null) => void;
   historyYears?: number[];
+  historyHref?: string;
 }) {
   const isSep = (a: string) => a.startsWith("6120") || a.startsWith("6410"); // Electric / RET
   const opexTotal = rows.filter((r) => !isSep(r.account)).reduce((s, r) => s + r.final, 0);
@@ -1492,9 +1495,9 @@ function FinalExpenseSummary({ rows, editable, year, onEdit, historyYears = [] }
     <div className="card" style={{ overflowX: "auto" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
         <div style={CARD_TITLE}>Final Expense Summary</div>
-        {years.length > 0 && (
-          <Link href="/rentroll/base-years" style={{ fontSize: 12, fontWeight: 700, color: "#0b4a7d", textDecoration: "none", whiteSpace: "nowrap" }}>
-            Expense History →
+        {historyHref && (
+          <Link href={historyHref} style={{ fontSize: 12, fontWeight: 700, color: "#0b4a7d", textDecoration: "none", whiteSpace: "nowrap" }}>
+            Full Expense History →
           </Link>
         )}
       </div>
