@@ -43,8 +43,8 @@ export const RETAIL_CONFIG_SEED: Record<string, RetailConfigSeedEntry> = {
   // ── 1100 · Parkwood Professional Center ────────────────────────────────
   // CAM/INS/RET share a single GLA of 8,287 SF; PRS = unit SF ÷ 8,287.
   // CAM admin fee 10%. Vacant suites (30/32/38) carry no methodology.
-  "1100-34": { camPrs: 23.338, insPrs: 23.338, retPrs: 23.338, adminFeePct: 10 }, // Shear Sensation
-  "1100-36": { camPrs: 13.274, insPrs: 13.274, retPrs: 13.274, adminFeePct: 10 }, // Honest Real Estate
+  "1100-34": { camPrs: 23.3378, insPrs: 23.3378, retPrs: 23.3378, adminFeePct: 10 }, // Shear Sensation (1934/8287)
+  "1100-36": { camPrs: 13.2738, insPrs: 13.2738, retPrs: 13.2738, adminFeePct: 10 }, // Honest Real Estate (1100/8287)
 
   // ── 2300 · Brookwood Shopping Center ───────────────────────────────────
   // PRS is NOT seeded here — propertyRules.ts already prefills the correct
@@ -81,7 +81,7 @@ export const RETAIL_CONFIG_SEED: Record<string, RetailConfigSeedEntry> = {
   "2300-1883": { // Wawa — outparcel pays no CAM; RET discount. INS is a special
     // case handled in assemble.ts (billed on the building's Liability Insurance
     // line, not the property INS pool), so it's NOT a per-tenant config field here.
-    camPrs: 8.121,
+    camPrs: 8.1206,
     retDiscountPct: 2,
     // Every CAM line excluded → effective CAM pool is $0, so CAM share × $0 = $0.
     excludedCamLines: [

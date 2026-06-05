@@ -257,11 +257,11 @@ export default function CamConfigCard({
     for (const cat of CAM_CATEGORIES) {
       const excluded = isTenantExcluded(propertyCode, cat, occupantName);
       const denom = getCategoryDenominator(propertyCode, cat, occupantName, buildingSqft);
-      // Three decimals so the reverse-computed SF lands within ~1 sf of
-      // the actual denominator on edits, and the stored value carries
-      // enough precision for reconciliation math.
+      // Four decimals: the share is displayed at 2 digits but the stored value
+      // carries 4 so reconciliation math is more precise (avoids rounding drift
+      // on big pools). The reverse-computed SF still lands within ~1 sf.
       const prefill = !excluded && unitSqft > 0 && denom > 0
-        ? Math.round((unitSqft / denom) * 100000) / 1000
+        ? Math.round((unitSqft / denom) * 1000000) / 10000
         : excluded ? 0 : null;
       out[cat] = {
         prefillPrs: prefill,
