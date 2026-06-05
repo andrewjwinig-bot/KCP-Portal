@@ -80,17 +80,30 @@ export default function ContactsCard({
     schedule(next);
   }
 
+  // Load this suite's saved contacts. Keyed ONLY on the unit (api), so it
+  // never re-fetches when occupantName/propertyCode change — that re-fetch
+  // used to overwrite local state and could wipe a just-added, unsaved contact.
   useEffect(() => {
     let alive = true;
     setLoading(true);
+    fetch(api).then((r) => (r.ok ? r.json() : null)).catch(() => null)
+      .then((cJ) => {
+        if (!alive) return;
+        setContacts(Array.isArray(cJ?.contacts?.contacts) ? cJ.contacts.contacts : []);
+      })
+      .finally(() => { if (alive) setLoading(false); });
+    return () => { alive = false; };
+  }, [api]);
+
+  // Suggested contacts derived from maintenance + reservations. Separate effect
+  // so refreshing suggestions never touches the saved-contacts list.
+  useEffect(() => {
+    let alive = true;
     Promise.all([
-      fetch(api).then((r) => (r.ok ? r.json() : null)).catch(() => null),
       fetch("/api/maintenance/requests").then((r) => (r.ok ? r.json() : null)).catch(() => null),
       fetch("/api/reservations").then((r) => (r.ok ? r.json() : null)).catch(() => null),
-    ]).then(([cJ, mJ, rJ]) => {
+    ]).then(([mJ, rJ]) => {
       if (!alive) return;
-      setContacts(Array.isArray(cJ?.contacts?.contacts) ? cJ.contacts.contacts : []);
-
       const occ = norm(occupantName);
       const seen = new Set<string>();
       const out: Suggestion[] = [];
@@ -126,9 +139,9 @@ export default function ContactsCard({
       }
 
       setSuggestions(out);
-    }).finally(() => { if (alive) setLoading(false); });
+    });
     return () => { alive = false; };
-  }, [api, unitRef, propertyCode, occupantName]);
+  }, [unitRef, propertyCode, occupantName]);
 
   // Suggestions not already represented in the saved list.
   const openSuggestions = useMemo(() => {
@@ -154,7 +167,7 @@ export default function ContactsCard({
   function addFromSuggestion(s: Suggestion) {
     mutate([
       ...(contacts ?? []),
-      { id: newContactId(), name: s.name, title: s.title, email: s.email, phone: s.phone, address: "", notes: "" },
+      { id: newContactId(), name: s.name, title: s.title, email: s.email, phone: s.phone, notes: "" },
     ]);
   }
 
@@ -248,10 +261,6 @@ export default function ContactsCard({
                 <ContactField label="Phone">
                   <input style={inputStyle} value={c.phone} placeholder="(215) 555-0100"
                     onChange={(e) => update(c.id, { phone: e.target.value })} />
-                </ContactField>
-                <ContactField label="Address" span2>
-                  <input style={inputStyle} value={c.address} placeholder="Mailing address"
-                    onChange={(e) => update(c.id, { address: e.target.value })} />
                 </ContactField>
                 <ContactField label="Notes" span2>
                   <input style={inputStyle} value={c.notes} placeholder="Anything else worth noting"
