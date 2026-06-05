@@ -523,55 +523,12 @@ export default function CamConfigCard({
           />
           <span style={{ fontWeight: 600, color: "var(--text)" }}>CAM Cap</span>
         </label>
-        <label style={{
-          display: "flex", alignItems: "center", gap: 8, fontSize: 13,
-          cursor: isGross ? "not-allowed" : "pointer",
-          opacity: isGross ? 0.5 : 1,
-        }} title="Insurance billed on a manual amount instead of the property INS pool">
-          <input
-            type="checkbox"
-            checked={config.insAmountOverride != null}
-            disabled={isGross}
-            onChange={(e) => update({ insAmountOverride: e.target.checked ? (config.insAmountOverride ?? 0) : null })}
-            style={{ width: 15, height: 15, cursor: "pointer" }}
-          />
-          <span style={{ fontWeight: 600, color: "var(--text)" }}>Manual Insurance</span>
-        </label>
       </div>
 
-      {/* Manual insurance panel — for outparcels (e.g. Wawa) whose insurance is
-          a manual figure, not pulled from the GL. Replaces the property INS
-          pool for this tenant only. */}
-      {config.insAmountOverride != null && !isGross && (
-        <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--border)" }}>
-          <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>
-            Manual Insurance Amount
-          </div>
-          <div className="small muted" style={{ marginTop: 2, marginBottom: 10 }}>
-            Outparcels only: use this when a single tenant&rsquo;s insurance is billed against its own liability figure (e.g. a Wawa pad), not the property insurance pool. The property-wide insurance pool itself is edited on the CAM Reconciliation page, not here.
-          </div>
-          <label style={{ display: "flex", flexDirection: "column", gap: 4, maxWidth: 220 }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", letterSpacing: "0.06em", textTransform: "uppercase" }}>
-              Insurance ($)
-            </span>
-            <div style={{ position: "relative" }}>
-              <span style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", fontSize: 13, color: "var(--muted)", pointerEvents: "none" }}>$</span>
-              <input
-                type="text"
-                inputMode="decimal"
-                value={config.insAmountOverride > 0 ? config.insAmountOverride.toLocaleString("en-US") : ""}
-                placeholder="0"
-                onChange={(e) => {
-                  const raw = e.target.value.replace(/[^0-9.]/g, "");
-                  const v = raw === "" ? 0 : Number(raw);
-                  if (Number.isFinite(v)) update({ insAmountOverride: Math.max(0, v) });
-                }}
-                style={{ padding: "8px 10px 8px 22px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--card)", color: "var(--text)", fontSize: 13, fontFamily: "inherit", width: "100%" }}
-              />
-            </div>
-          </label>
-        </div>
-      )}
+      {/* Manual (per-tenant) insurance was removed from the unit level — the
+          insurance pool is now edited only at the property level on the CAM
+          Reconciliation page. The insAmountOverride field is still honored by
+          the seed (e.g. the Wawa outparcel) so existing recons stay correct. */}
 
       {/* CAM Cap panel — appears when CAM Cap is checked. Single-tenant
           outlier feature so it stays scoped to this card only. */}
