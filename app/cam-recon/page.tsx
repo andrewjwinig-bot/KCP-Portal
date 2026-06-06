@@ -569,8 +569,8 @@ export default function OfficeCamReconPage() {
             <HeaderSelect value={String(year)} onChange={(v) => setYear(Number(v))} displayLabel={String(year || "—")} ariaLabel="Year" muted>
               {years.map((y) => <option key={y} value={y}>{y}</option>)}
             </HeaderSelect>
-            <HeaderSelect value={property} onChange={setProperty} displayLabel={property ? `${property} — ${propName}` : "—"} ariaLabel="Property">
-              {available.map((a) => <option key={a.propertyCode} value={a.propertyCode}>{a.propertyCode} — {a.name}</option>)}
+            <HeaderSelect value={property} onChange={setProperty} displayLabel={property ? (isQuarterly ? propName : `${property} — ${propName}`) : "—"} ariaLabel="Property">
+              {available.map((a) => <option key={a.propertyCode} value={a.propertyCode}>{a.quarterly ? a.name : `${a.propertyCode} — ${a.name}`}</option>)}
             </HeaderSelect>
             {!isQuarterly && (
             <span style={{ display: "inline-flex", alignItems: "center", gap: 2 }}>

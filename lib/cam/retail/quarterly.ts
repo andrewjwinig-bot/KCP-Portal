@@ -36,7 +36,7 @@ export const QUARTERLY_BILLINGS: Record<string, QuarterlyBillingDef> = {
     parentProperty: "9510",
     unitRef: "9510-406",
     name: "Wawa",
-    label: "↳ Wawa — Quarterly CAM / RET",
+    label: "9510 — Shops of Lafayette Hill — Wawa",
     sharePct: 21,
     occPct: 1,
     // Wawa's eligible CAM lines (no Parking Lot Cap Ex — Wawa excludes it).
