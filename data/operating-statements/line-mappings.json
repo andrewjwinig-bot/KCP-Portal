@@ -1,0 +1,6130 @@
+{
+ "CONDO": {
+  "propertyCode": "PIIICO",
+  "entityName": "Neshaminy III Condo Assoc",
+  "sections": [
+   {
+    "name": "Revenues",
+    "role": "revenue",
+    "lines": [
+     {
+      "label": "Rental income",
+      "mask": "4230-*"
+     },
+     {
+      "label": "Percentage Rents",
+      "mask": "4240-*"
+     },
+     {
+      "label": "Miscellaneous",
+      "mask": "4980..4999-*"
+     },
+     {
+      "label": "Interest Income",
+      "mask": "9190-*"
+     }
+    ]
+   },
+   {
+    "name": "Reimbursements",
+    "role": "reimbursement",
+    "lines": [
+     {
+      "label": "Electric",
+      "mask": "4710-*,4910-8503"
+     },
+     {
+      "label": "Common Area",
+      "mask": "4910-0000,4910-8501,4910-8502,4910-8506"
+     },
+     {
+      "label": "Real Estate Taxes",
+      "mask": "4920-*"
+     },
+     {
+      "label": "Insurance",
+      "mask": "4930-*"
+     },
+     {
+      "label": "Condo Expense Reimbursement",
+      "mask": "4970-8502"
+     },
+     {
+      "label": "Condo Expense True up",
+      "mask": "4970-9999"
+     }
+    ]
+   },
+   {
+    "name": "Reimbursable Expenses",
+    "role": "reimbursable-expense",
+    "lines": [
+     {
+      "label": "Maintenance Salaries",
+      "mask": "6030-8502"
+     },
+     {
+      "label": "Electric",
+      "mask": "6120-8502"
+     },
+     {
+      "label": "Water and Sewer",
+      "mask": "6130-8502"
+     },
+     {
+      "label": "Building Maintenance",
+      "mask": "6220-8502"
+     },
+     {
+      "label": "Parking Lot Cleaning",
+      "mask": "6330-8502"
+     },
+     {
+      "label": "Parking Lot Maintenance",
+      "mask": "6360-8502"
+     },
+     {
+      "label": "Snow Removal",
+      "mask": "6370-8502"
+     },
+     {
+      "label": "Landscaping",
+      "mask": "6380-*"
+     },
+     {
+      "label": "Security",
+      "mask": "6350-8502"
+     },
+     {
+      "label": "Management Fee",
+      "mask": "6610-8502"
+     },
+     {
+      "label": "Trash Removal",
+      "mask": "6270-8502"
+     },
+     {
+      "label": "Real Estate Taxes",
+      "mask": "6410-*"
+     },
+     {
+      "label": "Insurance",
+      "mask": "6510-8501,6510-8502"
+     },
+     {
+      "label": "Cleaning and Supplies",
+      "mask": "6250-8501,6250-8502"
+     },
+     {
+      "label": "Office Center/Other",
+      "mask": "6*-8503"
+     },
+     {
+      "label": "Other-Condo Fee",
+      "mask": "6990-8502"
+     }
+    ]
+   },
+   {
+    "name": "Non-Reimbursable Expenses",
+    "role": "non-reimbursable-expense",
+    "lines": [
+     {
+      "label": "Bad Debt",
+      "mask": "5210-*"
+     },
+     {
+      "label": "Supervisory Salaries",
+      "mask": "6010-8501,6620-8501"
+     },
+     {
+      "label": "Building Maintenance",
+      "mask": "6220-8501"
+     },
+     {
+      "label": "Insurance",
+      "mask": "6510-8501"
+     },
+     {
+      "label": "Management Fee",
+      "mask": "6610-8501"
+     },
+     {
+      "label": "Office Rent",
+      "mask": "8110-8501"
+     },
+     {
+      "label": "Marketing",
+      "mask": "7*-*"
+     },
+     {
+      "label": "General and Administrative",
+      "mask": "8120..8999-*"
+     }
+    ]
+   },
+   {
+    "name": "Capital",
+    "role": "capital",
+    "lines": [
+     {
+      "label": "Capital Improvements",
+      "mask": "1410-0000,1420-0000,1430-0000,1450-0000,1460-0000,1470-0000,1480-0000,1490-0000"
+     },
+     {
+      "label": "Tenant improvements",
+      "mask": "1440-0000"
+     },
+     {
+      "label": "Capitalized Lease Costs",
+      "mask": "1940-8501"
+     },
+     {
+      "label": "Extraordinary Expense",
+      "mask": "6990-8599,8990-8599"
+     }
+    ]
+   },
+   {
+    "name": "Debt Service",
+    "role": "debt-service",
+    "lines": [
+     {
+      "label": "Interest",
+      "mask": "9210-*,9430-8501"
+     },
+     {
+      "label": "Mortgage Amortization",
+      "mask": "2720-8501,2740-8501"
+     }
+    ]
+   }
+  ]
+ },
+ "PJV3": {
+  "propertyCode": "PJV3",
+  "entityName": "Lincoln JV III",
+  "sections": [
+   {
+    "name": "Revenues",
+    "role": "revenue",
+    "lines": [
+     {
+      "label": "Rental income",
+      "mask": "4230-*"
+     },
+     {
+      "label": "Percentage Rents",
+      "mask": "4240-*"
+     },
+     {
+      "label": "Miscellaneous",
+      "mask": "4980..4999-*"
+     },
+     {
+      "label": "Interest Income",
+      "mask": "9190-*"
+     }
+    ]
+   },
+   {
+    "name": "Reimbursements",
+    "role": "reimbursement",
+    "lines": [
+     {
+      "label": "Electric",
+      "mask": "4710-*,4910-8503"
+     },
+     {
+      "label": "Common Area",
+      "mask": "4910-0000,4910-8501,4910-8502,4910-8506"
+     },
+     {
+      "label": "Real Estate Taxes",
+      "mask": "4920-*"
+     },
+     {
+      "label": "Insurance",
+      "mask": "4930-*"
+     },
+     {
+      "label": "Condo Expense Reimbursement",
+      "mask": "4970-8502"
+     },
+     {
+      "label": "Condo Expense True up",
+      "mask": "4970-9999"
+     }
+    ]
+   },
+   {
+    "name": "Reimbursable Expenses",
+    "role": "reimbursable-expense",
+    "lines": [
+     {
+      "label": "Maintenance Salaries",
+      "mask": "6030-8502"
+     },
+     {
+      "label": "Electric",
+      "mask": "6120-8502"
+     },
+     {
+      "label": "Water and Sewer",
+      "mask": "6130-8502"
+     },
+     {
+      "label": "Building Maintenance",
+      "mask": "6220-8502"
+     },
+     {
+      "label": "Parking Lot Cleaning",
+      "mask": "6330-8502"
+     },
+     {
+      "label": "Parking Lot Maintenance",
+      "mask": "6360-8502"
+     },
+     {
+      "label": "Snow Removal",
+      "mask": "6370-8502"
+     },
+     {
+      "label": "Landscaping",
+      "mask": "6380-*"
+     },
+     {
+      "label": "Security",
+      "mask": "6350-8502"
+     },
+     {
+      "label": "Management Fee",
+      "mask": "6610-8502"
+     },
+     {
+      "label": "Trash Removal",
+      "mask": "6270-8502"
+     },
+     {
+      "label": "Real Estate Taxes",
+      "mask": "6410-*"
+     },
+     {
+      "label": "Insurance",
+      "mask": "6510-8501,6510-8502"
+     },
+     {
+      "label": "Cleaning and Supplies",
+      "mask": "6250-8501,6250-8502"
+     },
+     {
+      "label": "Office Center/Other",
+      "mask": "6*-8503"
+     },
+     {
+      "label": "Other-Condo Fee",
+      "mask": "6990-8502"
+     }
+    ]
+   },
+   {
+    "name": "Non-Reimbursable Expenses",
+    "role": "non-reimbursable-expense",
+    "lines": [
+     {
+      "label": "Bad Debt",
+      "mask": "5210-*"
+     },
+     {
+      "label": "Supervisory Salaries",
+      "mask": "6010-8501,6620-8501"
+     },
+     {
+      "label": "Utilities",
+      "mask": "6120-8501,6110-8501,6130-8501"
+     },
+     {
+      "label": "Building Maintenance",
+      "mask": "6220-8501"
+     },
+     {
+      "label": "Insurance",
+      "mask": "6510-8501"
+     },
+     {
+      "label": "Management Fee",
+      "mask": "6610-8501"
+     },
+     {
+      "label": "Office Rent",
+      "mask": "8110-8501"
+     },
+     {
+      "label": "Marketing",
+      "mask": "7*-*"
+     },
+     {
+      "label": "General and Administrative",
+      "mask": "8120..8999-*"
+     }
+    ]
+   },
+   {
+    "name": "Capital",
+    "role": "capital",
+    "lines": [
+     {
+      "label": "Capital Improvements",
+      "mask": "1410-0000,1420-0000,1430-0000,1450-0000,1460-0000,1470-0000,1480-0000,1490-0000"
+     },
+     {
+      "label": "Tenant improvements",
+      "mask": "1440-0000"
+     },
+     {
+      "label": "Capitalized Lease Costs",
+      "mask": "1940-8501"
+     },
+     {
+      "label": "Extraordinary Expense",
+      "mask": "6990-8599,8990-8599"
+     }
+    ]
+   },
+   {
+    "name": "Debt Service",
+    "role": "debt-service",
+    "lines": [
+     {
+      "label": "Interest",
+      "mask": "9210-*,9430-8501"
+     },
+     {
+      "label": "Mortgage Amortization",
+      "mask": "2720-8501,2740-8501"
+     }
+    ]
+   }
+  ]
+ },
+ "3610": {
+  "propertyCode": "3610",
+  "entityName": "1 Neshaminy Interplex",
+  "sections": [
+   {
+    "name": "Revenues",
+    "role": "revenue",
+    "lines": [
+     {
+      "label": "Rental income",
+      "mask": "4230-*"
+     },
+     {
+      "label": "Percentage Rents",
+      "mask": "4240-*"
+     },
+     {
+      "label": "Miscellaneous",
+      "mask": "4980..4999-*"
+     },
+     {
+      "label": "Interest Income",
+      "mask": "9190-*"
+     }
+    ]
+   },
+   {
+    "name": "Reimbursements",
+    "role": "reimbursement",
+    "lines": [
+     {
+      "label": "Electric",
+      "mask": "4710-*,4910-8503"
+     },
+     {
+      "label": "Common Area",
+      "mask": "4910-0000,4910-8501,4910-8502,4910-8506"
+     },
+     {
+      "label": "Real Estate Taxes",
+      "mask": "4920-*"
+     },
+     {
+      "label": "Insurance",
+      "mask": "4930-*"
+     },
+     {
+      "label": "Condo Expense Reimbursement",
+      "mask": "4970-8502"
+     },
+     {
+      "label": "Condo Expense True up",
+      "mask": "4970-9999"
+     }
+    ]
+   },
+   {
+    "name": "Reimbursable Expenses",
+    "role": "reimbursable-expense",
+    "lines": [
+     {
+      "label": "Maintenance Salaries",
+      "mask": "6030-8502"
+     },
+     {
+      "label": "Electric",
+      "mask": "6120-8502"
+     },
+     {
+      "label": "Water and Sewer",
+      "mask": "6130-8502"
+     },
+     {
+      "label": "Building Maintenance",
+      "mask": "6220-8502"
+     },
+     {
+      "label": "Parking Lot Cleaning",
+      "mask": "6330-8502"
+     },
+     {
+      "label": "Parking Lot Maintenance",
+      "mask": "6360-8502"
+     },
+     {
+      "label": "Snow Removal",
+      "mask": "6370-8502"
+     },
+     {
+      "label": "Landscaping",
+      "mask": "6380-*"
+     },
+     {
+      "label": "Security",
+      "mask": "6350-8502"
+     },
+     {
+      "label": "Management Fee",
+      "mask": "6610-8502"
+     },
+     {
+      "label": "Trash Removal",
+      "mask": "6270-8502"
+     },
+     {
+      "label": "Real Estate Taxes",
+      "mask": "6410-*"
+     },
+     {
+      "label": "Insurance",
+      "mask": "6510-8501,6510-8502"
+     },
+     {
+      "label": "Cleaning and Supplies",
+      "mask": "6250-8501,6250-8502"
+     },
+     {
+      "label": "Office Center/Other",
+      "mask": "6*-8503"
+     },
+     {
+      "label": "Other-Condo Fee",
+      "mask": "6990-8502"
+     }
+    ]
+   },
+   {
+    "name": "Non-Reimbursable Expenses",
+    "role": "non-reimbursable-expense",
+    "lines": [
+     {
+      "label": "Bad Debt",
+      "mask": "5210-*"
+     },
+     {
+      "label": "Supervisory Salaries",
+      "mask": "6010-8501,6620-8501"
+     },
+     {
+      "label": "Utilities",
+      "mask": "6120-8501,6110-8501,6130-8501"
+     },
+     {
+      "label": "Building Maintenance",
+      "mask": "6220-8501"
+     },
+     {
+      "label": "Insurance",
+      "mask": "6510-8501"
+     },
+     {
+      "label": "Management Fee",
+      "mask": "6610-8501"
+     },
+     {
+      "label": "Office Rent",
+      "mask": "8110-8501"
+     },
+     {
+      "label": "Marketing",
+      "mask": "7*-*"
+     },
+     {
+      "label": "General and Administrative",
+      "mask": "8120..8999-*"
+     }
+    ]
+   },
+   {
+    "name": "Capital",
+    "role": "capital",
+    "lines": [
+     {
+      "label": "Capital Improvements",
+      "mask": "1410-0000,1420-0000,1430-0000,1450-0000,1460-0000,1470-0000,1480-0000,1490-0000"
+     },
+     {
+      "label": "Tenant improvements",
+      "mask": "1440-0000"
+     },
+     {
+      "label": "Capitalized Lease Costs",
+      "mask": "1940-8501"
+     },
+     {
+      "label": "Extraordinary Expense",
+      "mask": "6990-8599,8990-8599"
+     }
+    ]
+   },
+   {
+    "name": "Debt Service",
+    "role": "debt-service",
+    "lines": [
+     {
+      "label": "Interest",
+      "mask": "9210-*,9430-8501"
+     },
+     {
+      "label": "Mortgage Amortization",
+      "mask": "2720-8501,2740-8501"
+     }
+    ]
+   }
+  ]
+ },
+ "3620": {
+  "propertyCode": "3620",
+  "entityName": "2 Neshaminy Interplex",
+  "sections": [
+   {
+    "name": "Revenues",
+    "role": "revenue",
+    "lines": [
+     {
+      "label": "Rental income",
+      "mask": "4230-*"
+     },
+     {
+      "label": "Percentage Rents",
+      "mask": "4240-*"
+     },
+     {
+      "label": "Miscellaneous",
+      "mask": "4980..4999-*"
+     },
+     {
+      "label": "Interest Income",
+      "mask": "9190-*"
+     }
+    ]
+   },
+   {
+    "name": "Reimbursements",
+    "role": "reimbursement",
+    "lines": [
+     {
+      "label": "Electric",
+      "mask": "4710-*,4910-8503"
+     },
+     {
+      "label": "Common Area",
+      "mask": "4910-0000,4910-8501,4910-8502,4910-8506"
+     },
+     {
+      "label": "Real Estate Taxes",
+      "mask": "4920-*"
+     },
+     {
+      "label": "Insurance",
+      "mask": "4930-*"
+     },
+     {
+      "label": "Condo Expense Reimbursement",
+      "mask": "4970-8502"
+     },
+     {
+      "label": "Condo Expense True up",
+      "mask": "4970-9999"
+     }
+    ]
+   },
+   {
+    "name": "Reimbursable Expenses",
+    "role": "reimbursable-expense",
+    "lines": [
+     {
+      "label": "Maintenance Salaries",
+      "mask": "6030-8502"
+     },
+     {
+      "label": "Electric",
+      "mask": "6120-8502"
+     },
+     {
+      "label": "Water and Sewer",
+      "mask": "6130-8502"
+     },
+     {
+      "label": "Building Maintenance",
+      "mask": "6220-8502"
+     },
+     {
+      "label": "Parking Lot Cleaning",
+      "mask": "6330-8502"
+     },
+     {
+      "label": "Parking Lot Maintenance",
+      "mask": "6360-8502"
+     },
+     {
+      "label": "Snow Removal",
+      "mask": "6370-8502"
+     },
+     {
+      "label": "Landscaping",
+      "mask": "6380-*"
+     },
+     {
+      "label": "Security",
+      "mask": "6350-8502"
+     },
+     {
+      "label": "Management Fee",
+      "mask": "6610-8502"
+     },
+     {
+      "label": "Trash Removal",
+      "mask": "6270-8502"
+     },
+     {
+      "label": "Real Estate Taxes",
+      "mask": "6410-*"
+     },
+     {
+      "label": "Insurance",
+      "mask": "6510-8501,6510-8502"
+     },
+     {
+      "label": "Cleaning and Supplies",
+      "mask": "6250-8501,6250-8502"
+     },
+     {
+      "label": "Office Center/Other",
+      "mask": "6*-8503"
+     },
+     {
+      "label": "Other-Condo Fee",
+      "mask": "6990-8502"
+     }
+    ]
+   },
+   {
+    "name": "Non-Reimbursable Expenses",
+    "role": "non-reimbursable-expense",
+    "lines": [
+     {
+      "label": "Bad Debt",
+      "mask": "5210-*"
+     },
+     {
+      "label": "Supervisory Salaries",
+      "mask": "6010-8501,6620-8501"
+     },
+     {
+      "label": "Utilities",
+      "mask": "6120-8501,6110-8501,6130-8501"
+     },
+     {
+      "label": "Building Maintenance",
+      "mask": "6220-8501"
+     },
+     {
+      "label": "Insurance",
+      "mask": "6510-8501"
+     },
+     {
+      "label": "Management Fee",
+      "mask": "6610-8501"
+     },
+     {
+      "label": "Office Rent",
+      "mask": "8110-8501"
+     },
+     {
+      "label": "Marketing",
+      "mask": "7*-*"
+     },
+     {
+      "label": "General and Administrative",
+      "mask": "8120..8999-*"
+     }
+    ]
+   },
+   {
+    "name": "Capital",
+    "role": "capital",
+    "lines": [
+     {
+      "label": "Capital Improvements",
+      "mask": "1410-0000,1420-0000,1430-0000,1450-0000,1460-0000,1470-0000,1480-0000,1490-0000"
+     },
+     {
+      "label": "Tenant improvements",
+      "mask": "1440-0000"
+     },
+     {
+      "label": "Capitalized Lease Costs",
+      "mask": "1940-8501"
+     },
+     {
+      "label": "Extraordinary Expense",
+      "mask": "6990-8599,8990-8599"
+     }
+    ]
+   },
+   {
+    "name": "Debt Service",
+    "role": "debt-service",
+    "lines": [
+     {
+      "label": "Interest",
+      "mask": "9210-*,9430-8501"
+     },
+     {
+      "label": "Mortgage Amortization",
+      "mask": "2720-8501,2740-8501"
+     }
+    ]
+   }
+  ]
+ },
+ "3640": {
+  "propertyCode": "3640",
+  "entityName": "4 Neshaminy Interplex",
+  "sections": [
+   {
+    "name": "Revenues",
+    "role": "revenue",
+    "lines": [
+     {
+      "label": "Rental income",
+      "mask": "4230-*"
+     },
+     {
+      "label": "Percentage Rents",
+      "mask": "4240-*"
+     },
+     {
+      "label": "Miscellaneous",
+      "mask": "4980..4999-*"
+     },
+     {
+      "label": "Interest Income",
+      "mask": "9190-*"
+     }
+    ]
+   },
+   {
+    "name": "Reimbursements",
+    "role": "reimbursement",
+    "lines": [
+     {
+      "label": "Electric",
+      "mask": "4710-*,4910-8503"
+     },
+     {
+      "label": "Common Area",
+      "mask": "4910-0000,4910-8501,4910-8502,4910-8506"
+     },
+     {
+      "label": "Real Estate Taxes",
+      "mask": "4920-*"
+     },
+     {
+      "label": "Insurance",
+      "mask": "4930-*"
+     },
+     {
+      "label": "Condo Expense Reimbursement",
+      "mask": "4970-8502"
+     },
+     {
+      "label": "Condo Expense True up",
+      "mask": "4970-9999"
+     }
+    ]
+   },
+   {
+    "name": "Reimbursable Expenses",
+    "role": "reimbursable-expense",
+    "lines": [
+     {
+      "label": "Maintenance Salaries",
+      "mask": "6030-8502"
+     },
+     {
+      "label": "Electric",
+      "mask": "6120-8502"
+     },
+     {
+      "label": "Water and Sewer",
+      "mask": "6130-8502"
+     },
+     {
+      "label": "Building Maintenance",
+      "mask": "6220-8502"
+     },
+     {
+      "label": "Parking Lot Cleaning",
+      "mask": "6330-8502"
+     },
+     {
+      "label": "Parking Lot Maintenance",
+      "mask": "6360-8502"
+     },
+     {
+      "label": "Snow Removal",
+      "mask": "6370-8502"
+     },
+     {
+      "label": "Landscaping",
+      "mask": "6380-*"
+     },
+     {
+      "label": "Security",
+      "mask": "6350-8502"
+     },
+     {
+      "label": "Management Fee",
+      "mask": "6610-8502"
+     },
+     {
+      "label": "Trash Removal",
+      "mask": "6270-8502"
+     },
+     {
+      "label": "Real Estate Taxes",
+      "mask": "6410-*"
+     },
+     {
+      "label": "Insurance",
+      "mask": "6510-8501,6510-8502"
+     },
+     {
+      "label": "Cleaning and Supplies",
+      "mask": "6250-8501,6250-8502"
+     },
+     {
+      "label": "Office Center/Other",
+      "mask": "6*-8503"
+     },
+     {
+      "label": "Other-Condo Fee",
+      "mask": "6990-8502"
+     }
+    ]
+   },
+   {
+    "name": "Non-Reimbursable Expenses",
+    "role": "non-reimbursable-expense",
+    "lines": [
+     {
+      "label": "Bad Debt",
+      "mask": "5210-*"
+     },
+     {
+      "label": "Supervisory Salaries",
+      "mask": "6010-8501,6620-8501"
+     },
+     {
+      "label": "Utilities",
+      "mask": "6120-8501,6110-8501,6130-8501"
+     },
+     {
+      "label": "Building Maintenance",
+      "mask": "6220-8501"
+     },
+     {
+      "label": "Insurance",
+      "mask": "6510-8501"
+     },
+     {
+      "label": "Management Fee",
+      "mask": "6610-8501"
+     },
+     {
+      "label": "Office Rent",
+      "mask": "8110-8501"
+     },
+     {
+      "label": "Marketing",
+      "mask": "7*-*"
+     },
+     {
+      "label": "General and Administrative",
+      "mask": "8120..8999-*"
+     }
+    ]
+   },
+   {
+    "name": "Capital",
+    "role": "capital",
+    "lines": [
+     {
+      "label": "Capital Improvements",
+      "mask": "1410-0000,1420-0000,1430-0000,1450-0000,1460-0000,1470-0000,1480-0000,1490-0000"
+     },
+     {
+      "label": "Tenant improvements",
+      "mask": "1440-0000"
+     },
+     {
+      "label": "Capitalized Lease Costs",
+      "mask": "1940-8501"
+     },
+     {
+      "label": "Extraordinary Expense",
+      "mask": "6990-8599,8990-8599"
+     }
+    ]
+   },
+   {
+    "name": "Debt Service",
+    "role": "debt-service",
+    "lines": [
+     {
+      "label": "Interest",
+      "mask": "9210-*,9430-8501"
+     },
+     {
+      "label": "Mortgage Amortization",
+      "mask": "2720-8501,2740-8501"
+     }
+    ]
+   }
+  ]
+ },
+ "KORMAN HOMES": {
+  "propertyCode": "PHOMES",
+  "entityName": "",
+  "sections": [
+   {
+    "name": "Revenues",
+    "role": "revenue",
+    "lines": [
+     {
+      "label": "Rental income",
+      "mask": "4230-*"
+     },
+     {
+      "label": "Miscellaneous",
+      "mask": "4980..4999-*"
+     },
+     {
+      "label": "Interest Income",
+      "mask": "9190-*"
+     }
+    ]
+   },
+   {
+    "name": "Reimbursements",
+    "role": "reimbursement",
+    "lines": [
+     {
+      "label": "Electric",
+      "mask": "4710-*,4910-8503"
+     },
+     {
+      "label": "Common Area",
+      "mask": "4910-0000,4910-8501,4910-8502,4910-8506"
+     },
+     {
+      "label": "Real Estate Taxes",
+      "mask": "4920-*"
+     },
+     {
+      "label": "Insurance",
+      "mask": "4930-*"
+     },
+     {
+      "label": "Condo Assn",
+      "mask": "4970-*"
+     }
+    ]
+   },
+   {
+    "name": "Residential Expenses",
+    "role": "residential-expense",
+    "lines": [
+     {
+      "label": "Maintenance Salaries",
+      "mask": "6030-8502"
+     },
+     {
+      "label": "Electric",
+      "mask": "6120-*"
+     },
+     {
+      "label": "Water and Sewer",
+      "mask": "6130-*"
+     },
+     {
+      "label": "Building Maintenance",
+      "mask": "6220-*"
+     },
+     {
+      "label": "Parking Lot Maintenance",
+      "mask": "6360-8501"
+     },
+     {
+      "label": "Snow Removal",
+      "mask": "6370-8502"
+     },
+     {
+      "label": "Landscaping",
+      "mask": "6380-8501"
+     },
+     {
+      "label": "Management Fee",
+      "mask": "6610-8502"
+     },
+     {
+      "label": "Trash Removal",
+      "mask": "6270-8502"
+     },
+     {
+      "label": "Real Estate Taxes",
+      "mask": "6410-*"
+     },
+     {
+      "label": "Insurance",
+      "mask": "6510-*"
+     },
+     {
+      "label": "Cleaning and Supplies",
+      "mask": "6250-8501,6250-8502"
+     },
+     {
+      "label": "Marketing",
+      "mask": "7110-8501"
+     },
+     {
+      "label": "General and Administrative",
+      "mask": "8*-85*"
+     }
+    ]
+   },
+   {
+    "name": "Capital",
+    "role": "capital",
+    "lines": [
+     {
+      "label": "Capital Improvements",
+      "mask": "1410-0000,1420-0000,1430-0000,1450-0000,1460-0000,1470-0000,1480-0000,1490-0000"
+     },
+     {
+      "label": "Tenant improvements",
+      "mask": "1440-0000"
+     },
+     {
+      "label": "Capitalized Lease Costs",
+      "mask": "1940-8501"
+     },
+     {
+      "label": "Extraordinary Expense",
+      "mask": "6990-8599,8990-8599"
+     }
+    ]
+   },
+   {
+    "name": "Debt Service",
+    "role": "debt-service",
+    "lines": [
+     {
+      "label": "Interest",
+      "mask": "9210-*,9430-8501"
+     },
+     {
+      "label": "Mortgage Amortization",
+      "mask": "2720-8501,2740-8501"
+     }
+    ]
+   }
+  ]
+ },
+ "9800": {
+  "propertyCode": "9800",
+  "entityName": "KH 509 LLC",
+  "sections": [
+   {
+    "name": "Revenues",
+    "role": "revenue",
+    "lines": [
+     {
+      "label": "Rental income",
+      "mask": "4230-*"
+     },
+     {
+      "label": "Miscellaneous",
+      "mask": "4980..4999-*"
+     },
+     {
+      "label": "Interest Income",
+      "mask": "9190-*"
+     }
+    ]
+   },
+   {
+    "name": "Reimbursements",
+    "role": "reimbursement",
+    "lines": [
+     {
+      "label": "Electric",
+      "mask": "4710-*,4910-8503"
+     },
+     {
+      "label": "Common Area",
+      "mask": "4910-0000,4910-8501,4910-8502,4910-8506"
+     },
+     {
+      "label": "Real Estate Taxes",
+      "mask": "4920-*"
+     },
+     {
+      "label": "Insurance",
+      "mask": "4930-*"
+     },
+     {
+      "label": "Condo Assn",
+      "mask": "4970-*"
+     }
+    ]
+   },
+   {
+    "name": "Residential Expenses",
+    "role": "residential-expense",
+    "lines": [
+     {
+      "label": "Maintenance Salaries",
+      "mask": "6030-8502"
+     },
+     {
+      "label": "Electric",
+      "mask": "6120-*"
+     },
+     {
+      "label": "Water and Sewer",
+      "mask": "6130-*"
+     },
+     {
+      "label": "Building Maintenance",
+      "mask": "6220-*"
+     },
+     {
+      "label": "Parking Lot Maintenance",
+      "mask": "6360-8501"
+     },
+     {
+      "label": "Snow Removal",
+      "mask": "6370-8502"
+     },
+     {
+      "label": "Landscaping",
+      "mask": "6380-8501"
+     },
+     {
+      "label": "Management Fee",
+      "mask": "6610-8502"
+     },
+     {
+      "label": "Trash Removal",
+      "mask": "6270-8502"
+     },
+     {
+      "label": "Real Estate Taxes",
+      "mask": "6410-*"
+     },
+     {
+      "label": "Insurance",
+      "mask": "6510-*"
+     },
+     {
+      "label": "Cleaning and Supplies",
+      "mask": "6250-8501,6250-8502"
+     },
+     {
+      "label": "Marketing",
+      "mask": "7110-8501"
+     },
+     {
+      "label": "General and Administrative",
+      "mask": "8*-85*"
+     }
+    ]
+   },
+   {
+    "name": "Capital",
+    "role": "capital",
+    "lines": [
+     {
+      "label": "Capital Improvements",
+      "mask": "1410-0000,1420-0000,1430-0000,1450-0000,1460-0000,1470-0000,1480-0000,1490-0000"
+     },
+     {
+      "label": "Tenant improvements",
+      "mask": "1440-0000"
+     },
+     {
+      "label": "Capitalized Lease Costs",
+      "mask": "1940-8501"
+     },
+     {
+      "label": "Extraordinary Expense",
+      "mask": "6990-8599,8990-8599"
+     }
+    ]
+   },
+   {
+    "name": "Debt Service",
+    "role": "debt-service",
+    "lines": [
+     {
+      "label": "Interest",
+      "mask": "9210-*,9430-8501"
+     },
+     {
+      "label": "Mortgage Amortization",
+      "mask": "2720-8501,2740-8501"
+     }
+    ]
+   }
+  ]
+ },
+ "9840": {
+  "propertyCode": "9840",
+  "entityName": "KH Joshua 3044 LLC",
+  "sections": [
+   {
+    "name": "Revenues",
+    "role": "revenue",
+    "lines": [
+     {
+      "label": "Rental income",
+      "mask": "4230-*"
+     },
+     {
+      "label": "Miscellaneous",
+      "mask": "4980..4999-*"
+     },
+     {
+      "label": "Interest Income",
+      "mask": "9190-*"
+     }
+    ]
+   },
+   {
+    "name": "Reimbursements",
+    "role": "reimbursement",
+    "lines": [
+     {
+      "label": "Electric",
+      "mask": "4710-*,4910-8503"
+     },
+     {
+      "label": "Common Area",
+      "mask": "4910-0000,4910-8501,4910-8502,4910-8506"
+     },
+     {
+      "label": "Real Estate Taxes",
+      "mask": "4920-*"
+     },
+     {
+      "label": "Insurance",
+      "mask": "4930-*"
+     },
+     {
+      "label": "Condo Assn",
+      "mask": "4970-*"
+     }
+    ]
+   },
+   {
+    "name": "Residential Expenses",
+    "role": "residential-expense",
+    "lines": [
+     {
+      "label": "Maintenance Salaries",
+      "mask": "6030-8502"
+     },
+     {
+      "label": "Electric",
+      "mask": "6120-*"
+     },
+     {
+      "label": "Water and Sewer",
+      "mask": "6130-*"
+     },
+     {
+      "label": "Building Maintenance",
+      "mask": "6220-*"
+     },
+     {
+      "label": "Parking Lot Maintenance",
+      "mask": "6360-8501"
+     },
+     {
+      "label": "Snow Removal",
+      "mask": "6370-8502"
+     },
+     {
+      "label": "Landscaping",
+      "mask": "6380-8501"
+     },
+     {
+      "label": "Management Fee",
+      "mask": "6610-8502"
+     },
+     {
+      "label": "Trash Removal",
+      "mask": "6270-8502"
+     },
+     {
+      "label": "Real Estate Taxes",
+      "mask": "6410-*"
+     },
+     {
+      "label": "Insurance",
+      "mask": "6510-*"
+     },
+     {
+      "label": "Cleaning and Supplies",
+      "mask": "6250-8501,6250-8502"
+     },
+     {
+      "label": "Marketing",
+      "mask": "7110-8501"
+     },
+     {
+      "label": "General and Administrative",
+      "mask": "8*-85*"
+     }
+    ]
+   },
+   {
+    "name": "Capital",
+    "role": "capital",
+    "lines": [
+     {
+      "label": "Capital Improvements",
+      "mask": "1410-0000,1420-0000,1430-0000,1450-0000,1460-0000,1470-0000,1480-0000,1490-0000"
+     },
+     {
+      "label": "Tenant improvements",
+      "mask": "1440-0000"
+     },
+     {
+      "label": "Capitalized Lease Costs",
+      "mask": "1940-8501"
+     },
+     {
+      "label": "Extraordinary Expense",
+      "mask": "6990-8599,8990-8599"
+     }
+    ]
+   },
+   {
+    "name": "Debt Service",
+    "role": "debt-service",
+    "lines": [
+     {
+      "label": "Interest",
+      "mask": "9210-*,9430-8501"
+     },
+     {
+      "label": "Mortgage Amortization",
+      "mask": "2720-8501,2740-8501"
+     }
+    ]
+   }
+  ]
+ },
+ "9820": {
+  "propertyCode": "9820",
+  "entityName": "KH - Spring Garden Street LLC",
+  "sections": [
+   {
+    "name": "Revenues",
+    "role": "revenue",
+    "lines": [
+     {
+      "label": "Rental income",
+      "mask": "4230-*"
+     },
+     {
+      "label": "Miscellaneous",
+      "mask": "4980..4999-*"
+     },
+     {
+      "label": "Interest Income",
+      "mask": "9190-*"
+     }
+    ]
+   },
+   {
+    "name": "Reimbursements",
+    "role": "reimbursement",
+    "lines": [
+     {
+      "label": "Electric",
+      "mask": "4710-*,4910-8503"
+     },
+     {
+      "label": "Common Area",
+      "mask": "4910-0000,4910-8501,4910-8502,4910-8506"
+     },
+     {
+      "label": "Real Estate Taxes",
+      "mask": "4920-*"
+     },
+     {
+      "label": "Insurance",
+      "mask": "4930-*"
+     },
+     {
+      "label": "Condo Assn",
+      "mask": "4970-*"
+     }
+    ]
+   },
+   {
+    "name": "Residential Expenses",
+    "role": "residential-expense",
+    "lines": [
+     {
+      "label": "Maintenance Salaries",
+      "mask": "6030-8502"
+     },
+     {
+      "label": "Electric",
+      "mask": "6120-*"
+     },
+     {
+      "label": "Water and Sewer",
+      "mask": "6130-*"
+     },
+     {
+      "label": "Building Maintenance",
+      "mask": "6220-*"
+     },
+     {
+      "label": "Parking Lot Maintenance",
+      "mask": "6360-8501"
+     },
+     {
+      "label": "Snow Removal",
+      "mask": "6370-8502"
+     },
+     {
+      "label": "Landscaping",
+      "mask": "6380-8501"
+     },
+     {
+      "label": "Management Fee",
+      "mask": "6610-8502"
+     },
+     {
+      "label": "Trash Removal",
+      "mask": "6270-8502"
+     },
+     {
+      "label": "Real Estate Taxes",
+      "mask": "6410-*"
+     },
+     {
+      "label": "Insurance",
+      "mask": "6510-*"
+     },
+     {
+      "label": "Cleaning and Supplies",
+      "mask": "6250-8501,6250-8502"
+     },
+     {
+      "label": "Marketing",
+      "mask": "7110-8501"
+     },
+     {
+      "label": "General and Administrative",
+      "mask": "8*-85*"
+     }
+    ]
+   },
+   {
+    "name": "Capital",
+    "role": "capital",
+    "lines": [
+     {
+      "label": "Capital Improvements",
+      "mask": "1410-0000,1420-0000,1430-0000,1450-0000,1460-0000,1470-0000,1480-0000,1490-0000"
+     },
+     {
+      "label": "Tenant improvements",
+      "mask": "1440-0000"
+     },
+     {
+      "label": "Capitalized Lease Costs",
+      "mask": "1940-8501"
+     },
+     {
+      "label": "Extraordinary Expense",
+      "mask": "6990-8599,8990-8599"
+     }
+    ]
+   },
+   {
+    "name": "Debt Service",
+    "role": "debt-service",
+    "lines": [
+     {
+      "label": "Interest",
+      "mask": "9210-*,9430-8501"
+     },
+     {
+      "label": "Mortgage Amortization",
+      "mask": "2720-8501,2740-8501"
+     }
+    ]
+   }
+  ]
+ },
+ "LIK": {
+  "propertyCode": "2010",
+  "entityName": "LIK Management, Inc.",
+  "sections": [
+   {
+    "name": "Revenues",
+    "role": "revenue",
+    "lines": [
+     {
+      "label": "Management Fees",
+      "mask": "4510-*,4230-8501"
+     },
+     {
+      "label": "Miscellaneous",
+      "mask": "4980..4999-*"
+     },
+     {
+      "label": "Interest Income",
+      "mask": "9190-*"
+     }
+    ]
+   },
+   {
+    "name": "Reimbursable Expenses",
+    "role": "reimbursable-expense",
+    "lines": [
+     {
+      "label": "LIK Management Clearing",
+      "mask": "8000-*"
+     },
+     {
+      "label": "Building Management",
+      "mask": "8220-*"
+     }
+    ]
+   },
+   {
+    "name": "Non-Reimbursable Expenses",
+    "role": "non-reimbursable-expense",
+    "lines": [
+     {
+      "label": "Office Rental",
+      "mask": "8110-*"
+     },
+     {
+      "label": "Bank Fees",
+      "mask": "8190-8501"
+     },
+     {
+      "label": "Business Taxes",
+      "mask": "8210-*"
+     },
+     {
+      "label": "Legal and Accounting",
+      "mask": "8310-8501"
+     },
+     {
+      "label": "Outside Consultants",
+      "mask": "8030-9800,8320-9800"
+     },
+     {
+      "label": "Office Supplies",
+      "mask": "8930-9800"
+     },
+     {
+      "label": "Telephone",
+      "mask": "8940-9800"
+     },
+     {
+      "label": "Auto/ Vehicle",
+      "mask": "8980-9800"
+     },
+     {
+      "label": "Other G&A Expense",
+      "mask": "8000-0000,8890-9800,8910-9800,8990-*"
+     },
+     {
+      "label": "Insurance",
+      "mask": "6510-*,8510-9800"
+     },
+     {
+      "label": "Interest Expense",
+      "mask": "9210-0000"
+     }
+    ]
+   },
+   {
+    "name": "Capital",
+    "role": "capital",
+    "lines": [
+     {
+      "label": "Capital Improvements",
+      "mask": "1410-0000,1420-0000,1430-0000,1450-0000,1460-0000,1470-0000,1480-0000,1490-0000"
+     },
+     {
+      "label": "Tenant improvements",
+      "mask": "1440-0000"
+     },
+     {
+      "label": "Capitalized Lease Costs",
+      "mask": "1940-8501"
+     },
+     {
+      "label": "Extraordinary Expense",
+      "mask": "6990-8599,8990-8599"
+     }
+    ]
+   },
+   {
+    "name": "Debt Service",
+    "role": "debt-service",
+    "lines": [
+     {
+      "label": "Interest",
+      "mask": "9210-*"
+     },
+     {
+      "label": "Mortgage Amortization",
+      "mask": "2590-*"
+     }
+    ]
+   }
+  ]
+ },
+ "PNIPLX": {
+  "propertyCode": "PNIPLX",
+  "entityName": "Neshaminy Interplex LLC",
+  "sections": [
+   {
+    "name": "Revenues",
+    "role": "revenue",
+    "lines": [
+     {
+      "label": "Rental income",
+      "mask": "4230-*"
+     },
+     {
+      "label": "Percentage Rents",
+      "mask": "4240-*"
+     },
+     {
+      "label": "Miscellaneous",
+      "mask": "4980..4999-*"
+     },
+     {
+      "label": "Interest Income",
+      "mask": "9190-*"
+     }
+    ]
+   },
+   {
+    "name": "Reimbursements",
+    "role": "reimbursement",
+    "lines": [
+     {
+      "label": "Electric",
+      "mask": "4710-*,4910-8503"
+     },
+     {
+      "label": "Common Area",
+      "mask": "4910-0000,4910-8501,4910-8502,4910-8506"
+     },
+     {
+      "label": "Real Estate Taxes",
+      "mask": "4920-*"
+     },
+     {
+      "label": "Insurance",
+      "mask": "4930-*"
+     },
+     {
+      "label": "Condo Expense Reimbursement",
+      "mask": "4970-8502"
+     },
+     {
+      "label": "Condo Expense True up",
+      "mask": "4970-9999"
+     }
+    ]
+   },
+   {
+    "name": "Reimbursable Expenses",
+    "role": "reimbursable-expense",
+    "lines": [
+     {
+      "label": "Maintenance Salaries",
+      "mask": "6030-8502"
+     },
+     {
+      "label": "Electric",
+      "mask": "6120-8502"
+     },
+     {
+      "label": "Water and Sewer",
+      "mask": "6130-8502"
+     },
+     {
+      "label": "Building Maintenance",
+      "mask": "6220-8502"
+     },
+     {
+      "label": "Parking Lot Cleaning",
+      "mask": "6330-8502"
+     },
+     {
+      "label": "Parking Lot Maintenance",
+      "mask": "6360-8502"
+     },
+     {
+      "label": "Snow Removal",
+      "mask": "6370-8502"
+     },
+     {
+      "label": "Landscaping",
+      "mask": "6380-*"
+     },
+     {
+      "label": "Security",
+      "mask": "6350-8502"
+     },
+     {
+      "label": "Management Fee",
+      "mask": "6610-8502"
+     },
+     {
+      "label": "Trash Removal",
+      "mask": "6270-8502"
+     },
+     {
+      "label": "Real Estate Taxes",
+      "mask": "6410-*"
+     },
+     {
+      "label": "Insurance",
+      "mask": "6510-8501,6510-8502"
+     },
+     {
+      "label": "Cleaning and Supplies",
+      "mask": "6250-8501,6250-8502"
+     },
+     {
+      "label": "Office Center/Other",
+      "mask": "6*-8503"
+     },
+     {
+      "label": "Other-Condo Fee",
+      "mask": "6990-8502"
+     }
+    ]
+   },
+   {
+    "name": "Non-Reimbursable Expenses",
+    "role": "non-reimbursable-expense",
+    "lines": [
+     {
+      "label": "Bad Debt",
+      "mask": "5210-*"
+     },
+     {
+      "label": "Supervisory Salaries",
+      "mask": "6010-8501,6620-8501"
+     },
+     {
+      "label": "Utilities",
+      "mask": "6120-8501,6110-8501,6130-8501"
+     },
+     {
+      "label": "Building Maintenance",
+      "mask": "6220-8501"
+     },
+     {
+      "label": "Insurance",
+      "mask": "6510-8501"
+     },
+     {
+      "label": "Management Fee",
+      "mask": "6610-8501"
+     },
+     {
+      "label": "Office Rent",
+      "mask": "8110-8501"
+     },
+     {
+      "label": "Marketing",
+      "mask": "7*-*"
+     },
+     {
+      "label": "General and Administrative",
+      "mask": "8120..8999-*"
+     }
+    ]
+   },
+   {
+    "name": "Capital",
+    "role": "capital",
+    "lines": [
+     {
+      "label": "Capital Improvements",
+      "mask": "1410-0000,1420-0000,1430-0000,1450-0000,1460-0000,1470-0000,1480-0000,1490-0000"
+     },
+     {
+      "label": "Tenant improvements",
+      "mask": "1440-0000"
+     },
+     {
+      "label": "Capitalized Lease Costs",
+      "mask": "1940-8501"
+     },
+     {
+      "label": "Extraordinary Expense",
+      "mask": "6990-8599,8990-8599"
+     }
+    ]
+   },
+   {
+    "name": "Debt Service",
+    "role": "debt-service",
+    "lines": [
+     {
+      "label": "Interest",
+      "mask": "9210-*,9430-8501"
+     },
+     {
+      "label": "Mortgage Amortization",
+      "mask": "2720-8501,2740-8501"
+     }
+    ]
+   }
+  ]
+ },
+ "4050": {
+  "propertyCode": "4050",
+  "entityName": "NI LLC-Bldg 5",
+  "sections": [
+   {
+    "name": "Revenues",
+    "role": "revenue",
+    "lines": [
+     {
+      "label": "Rental income",
+      "mask": "4230-*"
+     },
+     {
+      "label": "Percentage Rents",
+      "mask": "4240-*"
+     },
+     {
+      "label": "Miscellaneous",
+      "mask": "4980..4999-*"
+     },
+     {
+      "label": "Interest Income",
+      "mask": "9190-*"
+     }
+    ]
+   },
+   {
+    "name": "Reimbursements",
+    "role": "reimbursement",
+    "lines": [
+     {
+      "label": "Electric",
+      "mask": "4710-*,4910-8503"
+     },
+     {
+      "label": "Common Area",
+      "mask": "4910-0000,4910-8501,4910-8502,4910-8506"
+     },
+     {
+      "label": "Real Estate Taxes",
+      "mask": "4920-*"
+     },
+     {
+      "label": "Insurance",
+      "mask": "4930-*"
+     },
+     {
+      "label": "Condo Expense Reimbursement",
+      "mask": "4970-8502"
+     },
+     {
+      "label": "Condo Expense True up",
+      "mask": "4970-9999"
+     }
+    ]
+   },
+   {
+    "name": "Reimbursable Expenses",
+    "role": "reimbursable-expense",
+    "lines": [
+     {
+      "label": "Maintenance Salaries",
+      "mask": "6030-8502"
+     },
+     {
+      "label": "Electric",
+      "mask": "6120-8502"
+     },
+     {
+      "label": "Water and Sewer",
+      "mask": "6130-8502"
+     },
+     {
+      "label": "Building Maintenance",
+      "mask": "6220-8502"
+     },
+     {
+      "label": "Parking Lot Cleaning",
+      "mask": "6330-8502"
+     },
+     {
+      "label": "Parking Lot Maintenance",
+      "mask": "6360-8502"
+     },
+     {
+      "label": "Snow Removal",
+      "mask": "6370-8502"
+     },
+     {
+      "label": "Landscaping",
+      "mask": "6380-*"
+     },
+     {
+      "label": "Security",
+      "mask": "6350-8502"
+     },
+     {
+      "label": "Management Fee",
+      "mask": "6610-8502"
+     },
+     {
+      "label": "Trash Removal",
+      "mask": "6270-8502"
+     },
+     {
+      "label": "Real Estate Taxes",
+      "mask": "6410-*"
+     },
+     {
+      "label": "Insurance",
+      "mask": "6510-8501,6510-8502"
+     },
+     {
+      "label": "Cleaning and Supplies",
+      "mask": "6250-8501,6250-8502"
+     },
+     {
+      "label": "Office Center/Other",
+      "mask": "6*-8503"
+     },
+     {
+      "label": "Other-Condo Fee",
+      "mask": "6990-8502"
+     }
+    ]
+   },
+   {
+    "name": "Non-Reimbursable Expenses",
+    "role": "non-reimbursable-expense",
+    "lines": [
+     {
+      "label": "Bad Debt",
+      "mask": "5210-*"
+     },
+     {
+      "label": "Supervisory Salaries",
+      "mask": "6010-8501,6620-8501"
+     },
+     {
+      "label": "Utilities",
+      "mask": "6120-8501,6110-8501,6130-8501"
+     },
+     {
+      "label": "Building Maintenance",
+      "mask": "6220-8501"
+     },
+     {
+      "label": "Insurance",
+      "mask": "6510-8501"
+     },
+     {
+      "label": "Management Fee",
+      "mask": "6610-8501"
+     },
+     {
+      "label": "Office Rent",
+      "mask": "8110-8501"
+     },
+     {
+      "label": "Marketing",
+      "mask": "7*-*"
+     },
+     {
+      "label": "General and Administrative",
+      "mask": "8120..8999-*"
+     }
+    ]
+   },
+   {
+    "name": "Capital",
+    "role": "capital",
+    "lines": [
+     {
+      "label": "Capital Improvements",
+      "mask": "1410-0000,1420-0000,1430-0000,1450-0000,1460-0000,1470-0000,1480-0000,1490-0000"
+     },
+     {
+      "label": "Tenant improvements",
+      "mask": "1440-0000"
+     },
+     {
+      "label": "Capitalized Lease Costs",
+      "mask": "1940-8501"
+     },
+     {
+      "label": "Extraordinary Expense",
+      "mask": "6990-8599,8990-8599"
+     }
+    ]
+   },
+   {
+    "name": "Debt Service",
+    "role": "debt-service",
+    "lines": [
+     {
+      "label": "Interest",
+      "mask": "9210-*,9430-8501"
+     },
+     {
+      "label": "Mortgage Amortization",
+      "mask": "2720-8501,2740-8501"
+     }
+    ]
+   }
+  ]
+ },
+ "4060": {
+  "propertyCode": "4060",
+  "entityName": "NI LLC-Bldg 6",
+  "sections": [
+   {
+    "name": "Revenues",
+    "role": "revenue",
+    "lines": [
+     {
+      "label": "Rental income",
+      "mask": "4230-*"
+     },
+     {
+      "label": "Percentage Rents",
+      "mask": "4240-*"
+     },
+     {
+      "label": "Miscellaneous",
+      "mask": "4980..4999-*"
+     },
+     {
+      "label": "Interest Income",
+      "mask": "9190-*"
+     }
+    ]
+   },
+   {
+    "name": "Reimbursements",
+    "role": "reimbursement",
+    "lines": [
+     {
+      "label": "Electric",
+      "mask": "4710-*,4910-8503"
+     },
+     {
+      "label": "Common Area",
+      "mask": "4910-0000,4910-8501,4910-8502,4910-8506"
+     },
+     {
+      "label": "Real Estate Taxes",
+      "mask": "4920-*"
+     },
+     {
+      "label": "Insurance",
+      "mask": "4930-*"
+     },
+     {
+      "label": "Condo Expense Reimbursement",
+      "mask": "4970-8502"
+     },
+     {
+      "label": "Condo Expense True up",
+      "mask": "4970-9999"
+     }
+    ]
+   },
+   {
+    "name": "Reimbursable Expenses",
+    "role": "reimbursable-expense",
+    "lines": [
+     {
+      "label": "Maintenance Salaries",
+      "mask": "6030-8502"
+     },
+     {
+      "label": "Electric",
+      "mask": "6120-8502"
+     },
+     {
+      "label": "Water and Sewer",
+      "mask": "6130-8502"
+     },
+     {
+      "label": "Building Maintenance",
+      "mask": "6220-8502"
+     },
+     {
+      "label": "Parking Lot Cleaning",
+      "mask": "6330-8502"
+     },
+     {
+      "label": "Parking Lot Maintenance",
+      "mask": "6360-8502"
+     },
+     {
+      "label": "Snow Removal",
+      "mask": "6370-8502"
+     },
+     {
+      "label": "Landscaping",
+      "mask": "6380-*"
+     },
+     {
+      "label": "Security",
+      "mask": "6350-8502"
+     },
+     {
+      "label": "Management Fee",
+      "mask": "6610-8502"
+     },
+     {
+      "label": "Trash Removal",
+      "mask": "6270-8502"
+     },
+     {
+      "label": "Real Estate Taxes",
+      "mask": "6410-*"
+     },
+     {
+      "label": "Insurance",
+      "mask": "6510-8501,6510-8502"
+     },
+     {
+      "label": "Cleaning and Supplies",
+      "mask": "6250-8501,6250-8502"
+     },
+     {
+      "label": "Office Center/Other",
+      "mask": "6*-8503"
+     },
+     {
+      "label": "Other-Condo Fee",
+      "mask": "6990-8502"
+     }
+    ]
+   },
+   {
+    "name": "Non-Reimbursable Expenses",
+    "role": "non-reimbursable-expense",
+    "lines": [
+     {
+      "label": "Bad Debt",
+      "mask": "5210-*"
+     },
+     {
+      "label": "Supervisory Salaries",
+      "mask": "6010-8501,6620-8501"
+     },
+     {
+      "label": "Utilities",
+      "mask": "6120-8501,6110-8501,6130-8501"
+     },
+     {
+      "label": "Building Maintenance",
+      "mask": "6220-8501"
+     },
+     {
+      "label": "Insurance",
+      "mask": "6510-8501"
+     },
+     {
+      "label": "Management Fee",
+      "mask": "6610-8501"
+     },
+     {
+      "label": "Office Rent",
+      "mask": "8110-8501"
+     },
+     {
+      "label": "Marketing",
+      "mask": "7*-*"
+     },
+     {
+      "label": "General and Administrative",
+      "mask": "8120..8999-*"
+     }
+    ]
+   },
+   {
+    "name": "Capital",
+    "role": "capital",
+    "lines": [
+     {
+      "label": "Capital Improvements",
+      "mask": "1410-0000,1420-0000,1430-0000,1450-0000,1460-0000,1470-0000,1480-0000,1490-0000"
+     },
+     {
+      "label": "Tenant improvements",
+      "mask": "1440-0000"
+     },
+     {
+      "label": "Capitalized Lease Costs",
+      "mask": "1940-8501"
+     },
+     {
+      "label": "Extraordinary Expense",
+      "mask": "6990-8599,8990-8599"
+     }
+    ]
+   },
+   {
+    "name": "Debt Service",
+    "role": "debt-service",
+    "lines": [
+     {
+      "label": "Interest",
+      "mask": "9210-*,9430-8501"
+     },
+     {
+      "label": "Mortgage Amortization",
+      "mask": "2720-8501,2740-8501"
+     }
+    ]
+   }
+  ]
+ },
+ "4070": {
+  "propertyCode": "4070",
+  "entityName": "NI LLC-Bldg 7",
+  "sections": [
+   {
+    "name": "Revenues",
+    "role": "revenue",
+    "lines": [
+     {
+      "label": "Rental income",
+      "mask": "4230-*"
+     },
+     {
+      "label": "Percentage Rents",
+      "mask": "4240-*"
+     },
+     {
+      "label": "Miscellaneous",
+      "mask": "4980..4999-*"
+     },
+     {
+      "label": "Interest Income",
+      "mask": "9190-*"
+     }
+    ]
+   },
+   {
+    "name": "Reimbursements",
+    "role": "reimbursement",
+    "lines": [
+     {
+      "label": "Electric",
+      "mask": "4710-*,4910-8503"
+     },
+     {
+      "label": "Common Area",
+      "mask": "4910-0000,4910-8501,4910-8502,4910-8506"
+     },
+     {
+      "label": "Real Estate Taxes",
+      "mask": "4920-*"
+     },
+     {
+      "label": "Insurance",
+      "mask": "4930-*"
+     },
+     {
+      "label": "Condo Expense Reimbursement",
+      "mask": "4970-8502"
+     },
+     {
+      "label": "Condo Expense True up",
+      "mask": "4970-9999"
+     }
+    ]
+   },
+   {
+    "name": "Reimbursable Expenses",
+    "role": "reimbursable-expense",
+    "lines": [
+     {
+      "label": "Maintenance Salaries",
+      "mask": "6030-8502"
+     },
+     {
+      "label": "Electric",
+      "mask": "6120-8502"
+     },
+     {
+      "label": "Water and Sewer",
+      "mask": "6130-8502"
+     },
+     {
+      "label": "Building Maintenance",
+      "mask": "6220-8502"
+     },
+     {
+      "label": "Parking Lot Cleaning",
+      "mask": "6330-8502"
+     },
+     {
+      "label": "Parking Lot Maintenance",
+      "mask": "6360-8502"
+     },
+     {
+      "label": "Snow Removal",
+      "mask": "6370-8502"
+     },
+     {
+      "label": "Landscaping",
+      "mask": "6380-*"
+     },
+     {
+      "label": "Security",
+      "mask": "6350-8502"
+     },
+     {
+      "label": "Management Fee",
+      "mask": "6610-8502"
+     },
+     {
+      "label": "Trash Removal",
+      "mask": "6270-8502"
+     },
+     {
+      "label": "Real Estate Taxes",
+      "mask": "6410-*"
+     },
+     {
+      "label": "Insurance",
+      "mask": "6510-8501,6510-8502"
+     },
+     {
+      "label": "Cleaning and Supplies",
+      "mask": "6250-8501,6250-8502"
+     },
+     {
+      "label": "Office Center/Other",
+      "mask": "6*-8503"
+     },
+     {
+      "label": "Other-Condo Fee",
+      "mask": "6990-8502"
+     }
+    ]
+   },
+   {
+    "name": "Non-Reimbursable Expenses",
+    "role": "non-reimbursable-expense",
+    "lines": [
+     {
+      "label": "Bad Debt",
+      "mask": "5210-*"
+     },
+     {
+      "label": "Supervisory Salaries",
+      "mask": "6010-8501,6620-8501"
+     },
+     {
+      "label": "Utilities",
+      "mask": "6120-8501,6110-8501,6130-8501"
+     },
+     {
+      "label": "Building Maintenance",
+      "mask": "6220-8501"
+     },
+     {
+      "label": "Insurance",
+      "mask": "6510-8501"
+     },
+     {
+      "label": "Management Fee",
+      "mask": "6610-8501"
+     },
+     {
+      "label": "Office Rent",
+      "mask": "8110-8501"
+     },
+     {
+      "label": "Marketing",
+      "mask": "7*-*"
+     },
+     {
+      "label": "General and Administrative",
+      "mask": "8120..8999-*"
+     }
+    ]
+   },
+   {
+    "name": "Capital",
+    "role": "capital",
+    "lines": [
+     {
+      "label": "Capital Improvements",
+      "mask": "1410-0000,1420-0000,1430-0000,1450-0000,1460-0000,1470-0000,1480-0000,1490-0000"
+     },
+     {
+      "label": "Tenant improvements",
+      "mask": "1440-0000"
+     },
+     {
+      "label": "Capitalized Lease Costs",
+      "mask": "1940-8501"
+     },
+     {
+      "label": "Extraordinary Expense",
+      "mask": "6990-8599,8990-8599"
+     }
+    ]
+   },
+   {
+    "name": "Debt Service",
+    "role": "debt-service",
+    "lines": [
+     {
+      "label": "Interest",
+      "mask": "9210-*,9430-8501"
+     },
+     {
+      "label": "Mortgage Amortization",
+      "mask": "2720-8501,2740-8501"
+     }
+    ]
+   }
+  ]
+ },
+ "4080": {
+  "propertyCode": "4080",
+  "entityName": "NI LLC-Bldg 8",
+  "sections": [
+   {
+    "name": "Revenues",
+    "role": "revenue",
+    "lines": [
+     {
+      "label": "Rental income",
+      "mask": "4230-*"
+     },
+     {
+      "label": "Percentage Rents",
+      "mask": "4240-*"
+     },
+     {
+      "label": "Miscellaneous",
+      "mask": "4980..4999-*"
+     },
+     {
+      "label": "Interest Income",
+      "mask": "9190-*"
+     }
+    ]
+   },
+   {
+    "name": "Reimbursements",
+    "role": "reimbursement",
+    "lines": [
+     {
+      "label": "Electric",
+      "mask": "4710-*,4910-8503"
+     },
+     {
+      "label": "Common Area",
+      "mask": "4910-0000,4910-8501,4910-8502,4910-8506"
+     },
+     {
+      "label": "Real Estate Taxes",
+      "mask": "4920-*"
+     },
+     {
+      "label": "Insurance",
+      "mask": "4930-*"
+     },
+     {
+      "label": "Condo Expense Reimbursement",
+      "mask": "4970-8502"
+     },
+     {
+      "label": "Condo Expense True up",
+      "mask": "4970-9999"
+     }
+    ]
+   },
+   {
+    "name": "Reimbursable Expenses",
+    "role": "reimbursable-expense",
+    "lines": [
+     {
+      "label": "Maintenance Salaries",
+      "mask": "6030-8502"
+     },
+     {
+      "label": "Electric",
+      "mask": "6120-8502"
+     },
+     {
+      "label": "Water and Sewer",
+      "mask": "6130-8502"
+     },
+     {
+      "label": "Building Maintenance",
+      "mask": "6220-8502"
+     },
+     {
+      "label": "Parking Lot Cleaning",
+      "mask": "6330-8502"
+     },
+     {
+      "label": "Parking Lot Maintenance",
+      "mask": "6360-8502"
+     },
+     {
+      "label": "Snow Removal",
+      "mask": "6370-8502"
+     },
+     {
+      "label": "Landscaping",
+      "mask": "6380-*"
+     },
+     {
+      "label": "Security",
+      "mask": "6350-8502"
+     },
+     {
+      "label": "Management Fee",
+      "mask": "6610-8502"
+     },
+     {
+      "label": "Trash Removal",
+      "mask": "6270-8502"
+     },
+     {
+      "label": "Real Estate Taxes",
+      "mask": "6410-*"
+     },
+     {
+      "label": "Insurance",
+      "mask": "6510-8501,6510-8502"
+     },
+     {
+      "label": "Cleaning and Supplies",
+      "mask": "6250-8501,6250-8502"
+     },
+     {
+      "label": "Office Center/Other",
+      "mask": "6*-8503"
+     },
+     {
+      "label": "Other-Condo Fee",
+      "mask": "6990-8502"
+     }
+    ]
+   },
+   {
+    "name": "Non-Reimbursable Expenses",
+    "role": "non-reimbursable-expense",
+    "lines": [
+     {
+      "label": "Bad Debt",
+      "mask": "5210-*"
+     },
+     {
+      "label": "Supervisory Salaries",
+      "mask": "6010-8501,6620-8501"
+     },
+     {
+      "label": "Utilities",
+      "mask": "6120-8501,6110-8501,6130-8501"
+     },
+     {
+      "label": "Building Maintenance",
+      "mask": "6220-8501"
+     },
+     {
+      "label": "Insurance",
+      "mask": "6510-8501"
+     },
+     {
+      "label": "Management Fee",
+      "mask": "6610-8501"
+     },
+     {
+      "label": "Office Rent",
+      "mask": "8110-8501"
+     },
+     {
+      "label": "Marketing",
+      "mask": "7*-*"
+     },
+     {
+      "label": "General and Administrative",
+      "mask": "8120..8999-*"
+     }
+    ]
+   },
+   {
+    "name": "Capital",
+    "role": "capital",
+    "lines": [
+     {
+      "label": "Capital Improvements",
+      "mask": "1410-0000,1420-0000,1430-0000,1450-0000,1460-0000,1470-0000,1480-0000,1490-0000"
+     },
+     {
+      "label": "Tenant improvements",
+      "mask": "1440-0000"
+     },
+     {
+      "label": "Capitalized Lease Costs",
+      "mask": "1940-8501"
+     },
+     {
+      "label": "Extraordinary Expense",
+      "mask": "6990-8599,8990-8599"
+     }
+    ]
+   },
+   {
+    "name": "Debt Service",
+    "role": "debt-service",
+    "lines": [
+     {
+      "label": "Interest",
+      "mask": "9210-*,9430-8501"
+     },
+     {
+      "label": "Mortgage Amortization",
+      "mask": "2720-8501,2740-8501"
+     }
+    ]
+   }
+  ]
+ },
+ "40A0": {
+  "propertyCode": "40A0",
+  "entityName": "NI LLC-Kor Center A",
+  "sections": [
+   {
+    "name": "Revenues",
+    "role": "revenue",
+    "lines": [
+     {
+      "label": "Rental income",
+      "mask": "4230-*"
+     },
+     {
+      "label": "Percentage Rents",
+      "mask": "4240-*"
+     },
+     {
+      "label": "Miscellaneous",
+      "mask": "4980..4999-*"
+     },
+     {
+      "label": "Interest Income",
+      "mask": "9190-*"
+     }
+    ]
+   },
+   {
+    "name": "Reimbursements",
+    "role": "reimbursement",
+    "lines": [
+     {
+      "label": "Electric",
+      "mask": "4710-*,4910-8503"
+     },
+     {
+      "label": "Common Area",
+      "mask": "4910-0000,4910-8501,4910-8502,4910-8506"
+     },
+     {
+      "label": "Real Estate Taxes",
+      "mask": "4920-*"
+     },
+     {
+      "label": "Insurance",
+      "mask": "4930-*"
+     },
+     {
+      "label": "Condo Expense Reimbursement",
+      "mask": "4970-8502"
+     },
+     {
+      "label": "Condo Expense True up",
+      "mask": "4970-9999"
+     }
+    ]
+   },
+   {
+    "name": "Reimbursable Expenses",
+    "role": "reimbursable-expense",
+    "lines": [
+     {
+      "label": "Maintenance Salaries",
+      "mask": "6030-8502"
+     },
+     {
+      "label": "Electric",
+      "mask": "6120-8502"
+     },
+     {
+      "label": "Water and Sewer",
+      "mask": "6130-8502"
+     },
+     {
+      "label": "Building Maintenance",
+      "mask": "6220-8502"
+     },
+     {
+      "label": "Parking Lot Cleaning",
+      "mask": "6330-8502"
+     },
+     {
+      "label": "Parking Lot Maintenance",
+      "mask": "6360-8502"
+     },
+     {
+      "label": "Snow Removal",
+      "mask": "6370-8502"
+     },
+     {
+      "label": "Landscaping",
+      "mask": "6380-*"
+     },
+     {
+      "label": "Security",
+      "mask": "6350-8502"
+     },
+     {
+      "label": "Management Fee",
+      "mask": "6610-8502"
+     },
+     {
+      "label": "Trash Removal",
+      "mask": "6270-8502"
+     },
+     {
+      "label": "Real Estate Taxes",
+      "mask": "6410-*"
+     },
+     {
+      "label": "Insurance",
+      "mask": "6510-8501,6510-8502"
+     },
+     {
+      "label": "Cleaning and Supplies",
+      "mask": "6250-8501,6250-8502"
+     },
+     {
+      "label": "Office Center/Other",
+      "mask": "6*-8503"
+     },
+     {
+      "label": "Other-Condo Fee",
+      "mask": "6990-8502"
+     }
+    ]
+   },
+   {
+    "name": "Non-Reimbursable Expenses",
+    "role": "non-reimbursable-expense",
+    "lines": [
+     {
+      "label": "Bad Debt",
+      "mask": "5210-*"
+     },
+     {
+      "label": "Supervisory Salaries",
+      "mask": "6010-8501,6620-8501"
+     },
+     {
+      "label": "Utilities",
+      "mask": "6120-8501,6110-8501,6130-8501"
+     },
+     {
+      "label": "Building Maintenance",
+      "mask": "6220-8501"
+     },
+     {
+      "label": "Insurance",
+      "mask": "6510-8501"
+     },
+     {
+      "label": "Management Fee",
+      "mask": "6610-8501"
+     },
+     {
+      "label": "Office Rent",
+      "mask": "8110-8501"
+     },
+     {
+      "label": "Marketing",
+      "mask": "7*-*"
+     },
+     {
+      "label": "General and Administrative",
+      "mask": "8120..8999-*"
+     }
+    ]
+   },
+   {
+    "name": "Capital",
+    "role": "capital",
+    "lines": [
+     {
+      "label": "Capital Improvements",
+      "mask": "1410-0000,1420-0000,1430-0000,1450-0000,1460-0000,1470-0000,1480-0000,1490-0000"
+     },
+     {
+      "label": "Tenant improvements",
+      "mask": "1440-0000"
+     },
+     {
+      "label": "Capitalized Lease Costs",
+      "mask": "1940-8501"
+     },
+     {
+      "label": "Extraordinary Expense",
+      "mask": "6990-8599,8990-8599"
+     }
+    ]
+   },
+   {
+    "name": "Debt Service",
+    "role": "debt-service",
+    "lines": [
+     {
+      "label": "Interest",
+      "mask": "9210-*,9430-8501"
+     },
+     {
+      "label": "Mortgage Amortization",
+      "mask": "2720-8501,2740-8501"
+     }
+    ]
+   }
+  ]
+ },
+ "40B0": {
+  "propertyCode": "40B0",
+  "entityName": "NI LLC-Kor Center B",
+  "sections": [
+   {
+    "name": "Revenues",
+    "role": "revenue",
+    "lines": [
+     {
+      "label": "Rental income",
+      "mask": "4230-*"
+     },
+     {
+      "label": "Percentage Rents",
+      "mask": "4240-*"
+     },
+     {
+      "label": "Miscellaneous",
+      "mask": "4980..4999-*"
+     },
+     {
+      "label": "Interest Income",
+      "mask": "9190-*"
+     }
+    ]
+   },
+   {
+    "name": "Reimbursements",
+    "role": "reimbursement",
+    "lines": [
+     {
+      "label": "Electric",
+      "mask": "4710-*,4910-8503"
+     },
+     {
+      "label": "Common Area",
+      "mask": "4910-0000,4910-8501,4910-8502,4910-8506"
+     },
+     {
+      "label": "Real Estate Taxes",
+      "mask": "4920-*"
+     },
+     {
+      "label": "Insurance",
+      "mask": "4930-*"
+     },
+     {
+      "label": "Condo Expense Reimbursement",
+      "mask": "4970-8502"
+     },
+     {
+      "label": "Condo Expense True up",
+      "mask": "4970-9999"
+     }
+    ]
+   },
+   {
+    "name": "Reimbursable Expenses",
+    "role": "reimbursable-expense",
+    "lines": [
+     {
+      "label": "Maintenance Salaries",
+      "mask": "6030-8502"
+     },
+     {
+      "label": "Electric",
+      "mask": "6120-8502"
+     },
+     {
+      "label": "Water and Sewer",
+      "mask": "6130-8502"
+     },
+     {
+      "label": "Building Maintenance",
+      "mask": "6220-8502"
+     },
+     {
+      "label": "Parking Lot Cleaning",
+      "mask": "6330-8502"
+     },
+     {
+      "label": "Parking Lot Maintenance",
+      "mask": "6360-8502"
+     },
+     {
+      "label": "Snow Removal",
+      "mask": "6370-8502"
+     },
+     {
+      "label": "Landscaping",
+      "mask": "6380-*"
+     },
+     {
+      "label": "Security",
+      "mask": "6350-8502"
+     },
+     {
+      "label": "Management Fee",
+      "mask": "6610-8502"
+     },
+     {
+      "label": "Trash Removal",
+      "mask": "6270-8502"
+     },
+     {
+      "label": "Real Estate Taxes",
+      "mask": "6410-*"
+     },
+     {
+      "label": "Insurance",
+      "mask": "6510-8501,6510-8502"
+     },
+     {
+      "label": "Cleaning and Supplies",
+      "mask": "6250-8501,6250-8502"
+     },
+     {
+      "label": "Office Center/Other",
+      "mask": "6*-8503"
+     },
+     {
+      "label": "Other-Condo Fee",
+      "mask": "6990-8502"
+     }
+    ]
+   },
+   {
+    "name": "Non-Reimbursable Expenses",
+    "role": "non-reimbursable-expense",
+    "lines": [
+     {
+      "label": "Bad Debt",
+      "mask": "5210-*"
+     },
+     {
+      "label": "Supervisory Salaries",
+      "mask": "6010-8501,6620-8501"
+     },
+     {
+      "label": "Utilities",
+      "mask": "6120-8501,6110-8501,6130-8501"
+     },
+     {
+      "label": "Building Maintenance",
+      "mask": "6220-8501"
+     },
+     {
+      "label": "Insurance",
+      "mask": "6510-8501"
+     },
+     {
+      "label": "Management Fee",
+      "mask": "6610-8501"
+     },
+     {
+      "label": "Office Rent",
+      "mask": "8110-8501"
+     },
+     {
+      "label": "Marketing",
+      "mask": "7*-*"
+     },
+     {
+      "label": "General and Administrative",
+      "mask": "8120..8999-*"
+     }
+    ]
+   },
+   {
+    "name": "Capital",
+    "role": "capital",
+    "lines": [
+     {
+      "label": "Capital Improvements",
+      "mask": "1410-0000,1420-0000,1430-0000,1450-0000,1460-0000,1470-0000,1480-0000,1490-0000"
+     },
+     {
+      "label": "Tenant improvements",
+      "mask": "1440-0000"
+     },
+     {
+      "label": "Capitalized Lease Costs",
+      "mask": "1940-8501"
+     },
+     {
+      "label": "Extraordinary Expense",
+      "mask": "6990-8599,8990-8599"
+     }
+    ]
+   },
+   {
+    "name": "Debt Service",
+    "role": "debt-service",
+    "lines": [
+     {
+      "label": "Interest",
+      "mask": "9210-*,9430-8501"
+     },
+     {
+      "label": "Mortgage Amortization",
+      "mask": "2720-8501,2740-8501"
+     }
+    ]
+   }
+  ]
+ },
+ "40C0": {
+  "propertyCode": "40C0",
+  "entityName": "NI LLC-Kor Center C",
+  "sections": [
+   {
+    "name": "Revenues",
+    "role": "revenue",
+    "lines": [
+     {
+      "label": "Rental income",
+      "mask": "4230-*"
+     },
+     {
+      "label": "Percentage Rents",
+      "mask": "4240-*"
+     },
+     {
+      "label": "Miscellaneous",
+      "mask": "4980..4999-*"
+     },
+     {
+      "label": "Interest Income",
+      "mask": "9190-*"
+     }
+    ]
+   },
+   {
+    "name": "Reimbursements",
+    "role": "reimbursement",
+    "lines": [
+     {
+      "label": "Electric",
+      "mask": "4710-*,4910-8503"
+     },
+     {
+      "label": "Common Area",
+      "mask": "4910-0000,4910-8501,4910-8502,4910-8506"
+     },
+     {
+      "label": "Real Estate Taxes",
+      "mask": "4920-*"
+     },
+     {
+      "label": "Insurance",
+      "mask": "4930-*"
+     },
+     {
+      "label": "Condo Expense Reimbursement",
+      "mask": "4970-8502"
+     },
+     {
+      "label": "Condo Expense True up",
+      "mask": "4970-9999"
+     }
+    ]
+   },
+   {
+    "name": "Reimbursable Expenses",
+    "role": "reimbursable-expense",
+    "lines": [
+     {
+      "label": "Maintenance Salaries",
+      "mask": "6030-8502"
+     },
+     {
+      "label": "Electric",
+      "mask": "6120-8502"
+     },
+     {
+      "label": "Water and Sewer",
+      "mask": "6130-8502"
+     },
+     {
+      "label": "Building Maintenance",
+      "mask": "6220-8502"
+     },
+     {
+      "label": "Parking Lot Cleaning",
+      "mask": "6330-8502"
+     },
+     {
+      "label": "Parking Lot Maintenance",
+      "mask": "6360-8502"
+     },
+     {
+      "label": "Snow Removal",
+      "mask": "6370-8502"
+     },
+     {
+      "label": "Landscaping",
+      "mask": "6380-*"
+     },
+     {
+      "label": "Security",
+      "mask": "6350-8502"
+     },
+     {
+      "label": "Management Fee",
+      "mask": "6610-8502"
+     },
+     {
+      "label": "Trash Removal",
+      "mask": "6270-8502"
+     },
+     {
+      "label": "Real Estate Taxes",
+      "mask": "6410-*"
+     },
+     {
+      "label": "Insurance",
+      "mask": "6510-8501,6510-8502"
+     },
+     {
+      "label": "Cleaning and Supplies",
+      "mask": "6250-8501,6250-8502"
+     },
+     {
+      "label": "Office Center/Other",
+      "mask": "6*-8503"
+     },
+     {
+      "label": "Other-Condo Fee",
+      "mask": "6990-8502"
+     }
+    ]
+   },
+   {
+    "name": "Non-Reimbursable Expenses",
+    "role": "non-reimbursable-expense",
+    "lines": [
+     {
+      "label": "Bad Debt",
+      "mask": "5210-*"
+     },
+     {
+      "label": "Supervisory Salaries",
+      "mask": "6010-8501,6620-8501"
+     },
+     {
+      "label": "Utilities",
+      "mask": "6120-8501,6110-8501,6130-8501"
+     },
+     {
+      "label": "Building Maintenance",
+      "mask": "6220-8501"
+     },
+     {
+      "label": "Insurance",
+      "mask": "6510-8501"
+     },
+     {
+      "label": "Management Fee",
+      "mask": "6610-8501"
+     },
+     {
+      "label": "Office Rent",
+      "mask": "8110-8501"
+     },
+     {
+      "label": "Marketing",
+      "mask": "7*-*"
+     },
+     {
+      "label": "General and Administrative",
+      "mask": "8120..8999-*"
+     }
+    ]
+   },
+   {
+    "name": "Capital",
+    "role": "capital",
+    "lines": [
+     {
+      "label": "Capital Improvements",
+      "mask": "1410-0000,1420-0000,1430-0000,1450-0000,1460-0000,1470-0000,1480-0000,1490-0000"
+     },
+     {
+      "label": "Tenant improvements",
+      "mask": "1440-0000"
+     },
+     {
+      "label": "Capitalized Lease Costs",
+      "mask": "1940-8501"
+     },
+     {
+      "label": "Extraordinary Expense",
+      "mask": "6990-8599,8990-8599"
+     }
+    ]
+   },
+   {
+    "name": "Debt Service",
+    "role": "debt-service",
+    "lines": [
+     {
+      "label": "Interest",
+      "mask": "9210-*,9430-8501"
+     },
+     {
+      "label": "Mortgage Amortization",
+      "mask": "2720-8501,2740-8501"
+     }
+    ]
+   }
+  ]
+ },
+ "OFFICE WORKS": {
+  "propertyCode": "4900",
+  "entityName": "The Office Works",
+  "sections": [
+   {
+    "name": "Revenues",
+    "role": "revenue",
+    "lines": [
+     {
+      "label": "Rental income",
+      "mask": "4230-*"
+     },
+     {
+      "label": "Percentage Rents",
+      "mask": "4240-*"
+     },
+     {
+      "label": "Miscellaneous",
+      "mask": "4980..4999-*"
+     },
+     {
+      "label": "Interest Income",
+      "mask": "9190-*"
+     }
+    ]
+   },
+   {
+    "name": "Reimbursements",
+    "role": "reimbursement",
+    "lines": [
+     {
+      "label": "Memberships (Corporate Identity)",
+      "mask": "4810-8502"
+     },
+     {
+      "label": "Conference Room Rental",
+      "mask": "4820-8502"
+     },
+     {
+      "label": "Supplies",
+      "mask": "4830-8502"
+     },
+     {
+      "label": "Postage",
+      "mask": "4840-8502"
+     },
+     {
+      "label": "Clerical",
+      "mask": "4850-8502"
+     },
+     {
+      "label": "Black and White Copier",
+      "mask": "4860-8502"
+     },
+     {
+      "label": "Color Copier",
+      "mask": "4890-8502"
+     },
+     {
+      "label": "Start-up",
+      "mask": "4870-8502"
+     },
+     {
+      "label": "Fax Machine",
+      "mask": "4880-8502"
+     },
+     {
+      "label": "Telephone",
+      "mask": "4900-8502"
+     },
+     {
+      "label": "Internet",
+      "mask": "4950-8502"
+     },
+     {
+      "label": "Secretarial Salaries",
+      "mask": "6030-8502,8030-8502"
+     },
+     {
+      "label": "Postage",
+      "mask": "6950-8502"
+     },
+     {
+      "label": "Office Supplies",
+      "mask": "6960-8502"
+     },
+     {
+      "label": "Telephone",
+      "mask": "6970-8502"
+     },
+     {
+      "label": "B/W Copier Expense",
+      "mask": "6650-8502"
+     },
+     {
+      "label": "Color Copier expense",
+      "mask": "6660-8502"
+     },
+     {
+      "label": "Internet Expense",
+      "mask": "6680-8502"
+     },
+     {
+      "label": "Office Center/Other",
+      "mask": "6*-8503"
+     },
+     {
+      "label": "Start-up",
+      "mask": "6220-8502"
+     }
+    ]
+   },
+   {
+    "name": "Non-Reimbursable Expenses",
+    "role": "non-reimbursable-expense",
+    "lines": [
+     {
+      "label": "Bad Debt",
+      "mask": "5210-*"
+     },
+     {
+      "label": "Supervisory Salaries",
+      "mask": "6010-8501,6620-8501"
+     },
+     {
+      "label": "Building Maintenance",
+      "mask": "6220-8501"
+     },
+     {
+      "label": "Insurance",
+      "mask": "6510-8501"
+     },
+     {
+      "label": "Management Fee",
+      "mask": "6610-8501"
+     },
+     {
+      "label": "Office Rent",
+      "mask": "8110-8501"
+     },
+     {
+      "label": "Marketing",
+      "mask": "7*-*"
+     },
+     {
+      "label": "General and Administrative",
+      "mask": "8120..8999-*"
+     }
+    ]
+   },
+   {
+    "name": "Capital",
+    "role": "capital",
+    "lines": [
+     {
+      "label": "Capital Improvements",
+      "mask": "1410-0000,1420-0000,1430-0000,1450-0000,1460-0000,1470-0000,1480-0000,1490-0000"
+     },
+     {
+      "label": "Tenant improvements",
+      "mask": "1440-0000"
+     },
+     {
+      "label": "Capitalized Lease Costs",
+      "mask": "1940-8501"
+     },
+     {
+      "label": "Extraordinary Expense",
+      "mask": "6990-8599,8990-8599"
+     }
+    ]
+   },
+   {
+    "name": "Debt Service",
+    "role": "debt-service",
+    "lines": [
+     {
+      "label": "Interest",
+      "mask": "9210-*,9430-8501"
+     },
+     {
+      "label": "Mortgage Amortization",
+      "mask": "2720-8501,2740-8501"
+     }
+    ]
+   }
+  ]
+ },
+ "1100": {
+  "propertyCode": "1100",
+  "entityName": "Parkwood Professional Building",
+  "sections": [
+   {
+    "name": "Revenues",
+    "role": "revenue",
+    "lines": [
+     {
+      "label": "Rental income",
+      "mask": "4230-*"
+     },
+     {
+      "label": "Percentage Rents",
+      "mask": "4240-*"
+     },
+     {
+      "label": "Miscellaneous",
+      "mask": "4980..4999-*"
+     },
+     {
+      "label": "Interest Income",
+      "mask": "9190-*"
+     }
+    ]
+   },
+   {
+    "name": "Reimbursements",
+    "role": "reimbursement",
+    "lines": [
+     {
+      "label": "Electric",
+      "mask": "4710-*,4910-8503"
+     },
+     {
+      "label": "Common Area",
+      "mask": "4910-8501,4910-8502,4901-8506"
+     },
+     {
+      "label": "Real Estate Taxes",
+      "mask": "4920-*"
+     },
+     {
+      "label": "Insurance",
+      "mask": "4930-*"
+     },
+     {
+      "label": "Condo Assn",
+      "mask": "4970-*"
+     }
+    ]
+   },
+   {
+    "name": "Reimbursable Expenses",
+    "role": "reimbursable-expense",
+    "lines": [
+     {
+      "label": "Maintenance Salaries",
+      "mask": "6030-8502"
+     },
+     {
+      "label": "Electric",
+      "mask": "6120-8502"
+     },
+     {
+      "label": "Water and Sewer",
+      "mask": "6130-8502"
+     },
+     {
+      "label": "Building Maintenance",
+      "mask": "6220-8502,6220-8503"
+     },
+     {
+      "label": "Parking Lot Cleaning",
+      "mask": "6330-8502"
+     },
+     {
+      "label": "Parking Lot Maintenance",
+      "mask": "6360-8502"
+     },
+     {
+      "label": "Snow Removal",
+      "mask": "6370-8502"
+     },
+     {
+      "label": "Landscaping",
+      "mask": "6380-8502,6380-8501"
+     },
+     {
+      "label": "Security",
+      "mask": "6350-8502"
+     },
+     {
+      "label": "Management Fee",
+      "mask": "6610-8502"
+     },
+     {
+      "label": "Trash Removal",
+      "mask": "6270-8502"
+     },
+     {
+      "label": "Real Estate Taxes",
+      "mask": "6410-*"
+     },
+     {
+      "label": "Insurance",
+      "mask": "6510-*"
+     },
+     {
+      "label": "Cleaning and Supplies",
+      "mask": "6250-8501,6250-8502"
+     },
+     {
+      "label": "Office Center/Other",
+      "mask": "6*-8503"
+     }
+    ]
+   },
+   {
+    "name": "Non-Reimbursable Expenses",
+    "role": "non-reimbursable-expense",
+    "lines": [
+     {
+      "label": "Bad Debt",
+      "mask": "5210-*"
+     },
+     {
+      "label": "Management/Leasing Salaries",
+      "mask": "6010-8501,6620-8501"
+     },
+     {
+      "label": "Utilities",
+      "mask": "6120-8501,6110-8501,6130-8501"
+     },
+     {
+      "label": "Building Maintenance",
+      "mask": "6220-8501"
+     },
+     {
+      "label": "Management Fee",
+      "mask": "6610-8501"
+     },
+     {
+      "label": "Marketing",
+      "mask": "7*-*"
+     },
+     {
+      "label": "Business Taxes",
+      "mask": "8210-8501"
+     },
+     {
+      "label": "Legal and Accounting",
+      "mask": "8310-8501"
+     },
+     {
+      "label": "General and Administrative",
+      "mask": "8190-8501,89*-*"
+     }
+    ]
+   },
+   {
+    "name": "Capital",
+    "role": "capital",
+    "lines": [
+     {
+      "label": "Capital Improvements",
+      "mask": "1410-0000,1420-0000,1430-0000,1450-0000,1460-0000,1470-0000,1480-0000,1490-0000"
+     },
+     {
+      "label": "Tenant improvements",
+      "mask": "1440-0000"
+     },
+     {
+      "label": "Capitalized Lease Costs",
+      "mask": "1940-8501"
+     },
+     {
+      "label": "Extraordinary Expense",
+      "mask": "6990-8599,8990-8599"
+     }
+    ]
+   },
+   {
+    "name": "Debt Service",
+    "role": "debt-service",
+    "lines": [
+     {
+      "label": "Interest",
+      "mask": "9210-*"
+     },
+     {
+      "label": "Mortgage Amortization",
+      "mask": "2720-8501,2740-8501,9430-8501"
+     }
+    ]
+   }
+  ]
+ },
+ "1500": {
+  "propertyCode": "1500",
+  "entityName": "Eastwick JV I",
+  "sections": [
+   {
+    "name": "Revenues",
+    "role": "revenue",
+    "lines": [
+     {
+      "label": "Rental income",
+      "mask": "4230-*"
+     },
+     {
+      "label": "Percentage Rents",
+      "mask": "4240-*"
+     },
+     {
+      "label": "Miscellaneous",
+      "mask": "4980..4999-*"
+     },
+     {
+      "label": "Interest Income",
+      "mask": "9190-*"
+     }
+    ]
+   },
+   {
+    "name": "Reimbursements",
+    "role": "reimbursement",
+    "lines": [
+     {
+      "label": "Electric",
+      "mask": "4710-*,4910-8503"
+     },
+     {
+      "label": "Common Area",
+      "mask": "4910-8501,4910-8502,4901-8506"
+     },
+     {
+      "label": "Real Estate Taxes",
+      "mask": "4920-*"
+     },
+     {
+      "label": "Insurance",
+      "mask": "4930-*"
+     },
+     {
+      "label": "Condo Assn",
+      "mask": "4970-*"
+     }
+    ]
+   },
+   {
+    "name": "Reimbursable Expenses",
+    "role": "reimbursable-expense",
+    "lines": [
+     {
+      "label": "Maintenance Salaries",
+      "mask": "6030-8502"
+     },
+     {
+      "label": "Electric",
+      "mask": "6120-8502"
+     },
+     {
+      "label": "Water and Sewer",
+      "mask": "6130-8502"
+     },
+     {
+      "label": "Building Maintenance",
+      "mask": "6220-8502"
+     },
+     {
+      "label": "Parking Lot Cleaning",
+      "mask": "6330-8502"
+     },
+     {
+      "label": "Parking Lot Maintenance",
+      "mask": "6360-*"
+     },
+     {
+      "label": "Snow Removal",
+      "mask": "6370-8502"
+     },
+     {
+      "label": "Landscaping",
+      "mask": "6380-8502,6380-8501"
+     },
+     {
+      "label": "Security",
+      "mask": "6350-8502"
+     },
+     {
+      "label": "Management Fee",
+      "mask": "6610-8502"
+     },
+     {
+      "label": "Trash Removal",
+      "mask": "6270-8502"
+     },
+     {
+      "label": "Real Estate Taxes",
+      "mask": "6410-*"
+     },
+     {
+      "label": "Insurance",
+      "mask": "6510-*"
+     },
+     {
+      "label": "Cleaning and Supplies",
+      "mask": "6250-8501,6250-8502"
+     }
+    ]
+   },
+   {
+    "name": "Non-Reimbursable Expenses",
+    "role": "non-reimbursable-expense",
+    "lines": [
+     {
+      "label": "Bad Debt",
+      "mask": "5210-*"
+     },
+     {
+      "label": "Management/Leasing Salaries",
+      "mask": "6010-8501,6620-8501"
+     },
+     {
+      "label": "Utilities",
+      "mask": "6120-8501,6110-8501,6130-8501"
+     },
+     {
+      "label": "Building Maintenance",
+      "mask": "6220-8501,6220-8503"
+     },
+     {
+      "label": "Management Fee",
+      "mask": "6610-8501"
+     },
+     {
+      "label": "Marketing",
+      "mask": "7*-*"
+     },
+     {
+      "label": "Business Taxes",
+      "mask": "8210-8501"
+     },
+     {
+      "label": "Legal and Accounting",
+      "mask": "8310-8501"
+     },
+     {
+      "label": "General and Administrative",
+      "mask": "8*-*"
+     }
+    ]
+   },
+   {
+    "name": "Capital",
+    "role": "capital",
+    "lines": [
+     {
+      "label": "Capital Improvements",
+      "mask": "1410-0000,1420-0000,1430-0000,1450-0000,1460-0000,1470-0000,1480-0000,1490-0000"
+     },
+     {
+      "label": "Tenant improvements",
+      "mask": "1440-0000"
+     },
+     {
+      "label": "Capitalized Lease Costs",
+      "mask": "1940-8501"
+     },
+     {
+      "label": "Extraordinary Expense",
+      "mask": "6990-8599,8990-8599"
+     }
+    ]
+   },
+   {
+    "name": "Debt Service",
+    "role": "debt-service",
+    "lines": [
+     {
+      "label": "Interest",
+      "mask": "9210-*"
+     },
+     {
+      "label": "Mortgage Amortization",
+      "mask": "2720-8501,2740-8501,9430-8501"
+     }
+    ]
+   }
+  ]
+ },
+ "2300": {
+  "propertyCode": "2300",
+  "entityName": "Brookwood Shopping Center",
+  "sections": [
+   {
+    "name": "Revenues",
+    "role": "revenue",
+    "lines": [
+     {
+      "label": "Rental income",
+      "mask": "4230-*"
+     },
+     {
+      "label": "Percentage Rents",
+      "mask": "4240-*"
+     },
+     {
+      "label": "Miscellaneous",
+      "mask": "4980..4999-*"
+     },
+     {
+      "label": "Interest Income",
+      "mask": "9190-*"
+     }
+    ]
+   },
+   {
+    "name": "Reimbursements",
+    "role": "reimbursement",
+    "lines": [
+     {
+      "label": "Electric",
+      "mask": "4710-*,4910-8503"
+     },
+     {
+      "label": "Common Area",
+      "mask": "4910-8501,4910-8502,4901-8506"
+     },
+     {
+      "label": "Real Estate Taxes",
+      "mask": "4920-*"
+     },
+     {
+      "label": "Insurance",
+      "mask": "4930-*"
+     },
+     {
+      "label": "Condo Assn",
+      "mask": "4970-*"
+     }
+    ]
+   },
+   {
+    "name": "Reimbursable Expenses",
+    "role": "reimbursable-expense",
+    "lines": [
+     {
+      "label": "Maintenance Salaries",
+      "mask": "6030-8502"
+     },
+     {
+      "label": "Electric",
+      "mask": "6120-8502"
+     },
+     {
+      "label": "Water and Sewer",
+      "mask": "6130-8502"
+     },
+     {
+      "label": "Building Maintenance",
+      "mask": "6220-8502"
+     },
+     {
+      "label": "Parking Lot Cleaning",
+      "mask": "6330-8502"
+     },
+     {
+      "label": "Parking Lot Maintenance",
+      "mask": "6360-8502"
+     },
+     {
+      "label": "Snow Removal",
+      "mask": "6370-8502"
+     },
+     {
+      "label": "Landscaping",
+      "mask": "6380-8502,6380-8501"
+     },
+     {
+      "label": "Security",
+      "mask": "6350-8502"
+     },
+     {
+      "label": "Management Fee",
+      "mask": "6610-8502"
+     },
+     {
+      "label": "Trash Removal",
+      "mask": "6270-8502"
+     },
+     {
+      "label": "Real Estate Taxes",
+      "mask": "6410-*"
+     },
+     {
+      "label": "Insurance",
+      "mask": "6510-*"
+     },
+     {
+      "label": "Cleaning and Supplies",
+      "mask": "6250-8501,6250-8502"
+     },
+     {
+      "label": "Office Center/Other",
+      "mask": "6*-8503"
+     }
+    ]
+   },
+   {
+    "name": "Non-Reimbursable Expenses",
+    "role": "non-reimbursable-expense",
+    "lines": [
+     {
+      "label": "Bad Debt",
+      "mask": "5210-*"
+     },
+     {
+      "label": "Management/Leasing Salaries",
+      "mask": "6010-8501,6620-8501"
+     },
+     {
+      "label": "Utilities",
+      "mask": "6120-8501,6110-8501,6130-8501"
+     },
+     {
+      "label": "Building Maintenance",
+      "mask": "6220-8501,6360-8501"
+     },
+     {
+      "label": "Management Fee",
+      "mask": "6610-8501"
+     },
+     {
+      "label": "Marketing",
+      "mask": "7*-*"
+     },
+     {
+      "label": "Business Taxes",
+      "mask": "8210-8501"
+     },
+     {
+      "label": "Legal and Accounting",
+      "mask": "8310-8501"
+     },
+     {
+      "label": "General and Administrative",
+      "mask": "8*-*"
+     }
+    ]
+   },
+   {
+    "name": "Capital",
+    "role": "capital",
+    "lines": [
+     {
+      "label": "Capital Improvements",
+      "mask": "1410-0000,1420-0000,1430-0000,1450-0000,1460-0000,1470-0000,1480-0000,1490-0000"
+     },
+     {
+      "label": "Tenant improvements",
+      "mask": "1440-0000"
+     },
+     {
+      "label": "Capitalized Lease Costs",
+      "mask": "1940-8501"
+     },
+     {
+      "label": "Extraordinary Expense",
+      "mask": "6990-8599,8990-8599"
+     }
+    ]
+   },
+   {
+    "name": "Debt Service",
+    "role": "debt-service",
+    "lines": [
+     {
+      "label": "Interest",
+      "mask": "9210-*"
+     },
+     {
+      "label": "Mortgage Amortization",
+      "mask": "2720-8501,2740-8501,9430-8501"
+     }
+    ]
+   }
+  ]
+ },
+ "4500": {
+  "propertyCode": "4500",
+  "entityName": "Grays Ferry Partners L.P.",
+  "sections": [
+   {
+    "name": "Revenues",
+    "role": "revenue",
+    "lines": [
+     {
+      "label": "Rental income",
+      "mask": "4230-*"
+     },
+     {
+      "label": "Percentage Rents",
+      "mask": "4240-*"
+     },
+     {
+      "label": "Miscellaneous",
+      "mask": "4980..4999-*"
+     },
+     {
+      "label": "Interest Income",
+      "mask": "9190-*"
+     }
+    ]
+   },
+   {
+    "name": "Reimbursements",
+    "role": "reimbursement",
+    "lines": [
+     {
+      "label": "Common Area",
+      "mask": "4910-8501,4910-8502,4901-8506"
+     },
+     {
+      "label": "Real Estate Taxes",
+      "mask": "4920-*"
+     },
+     {
+      "label": "Insurance",
+      "mask": "4930-*"
+     },
+     {
+      "label": "Condo Assn",
+      "mask": "4970-*"
+     }
+    ]
+   },
+   {
+    "name": "Reimbursable Expenses",
+    "role": "reimbursable-expense",
+    "lines": [
+     {
+      "label": "Maintenance Salaries",
+      "mask": "6030-8502"
+     },
+     {
+      "label": "Electric",
+      "mask": "6120-8502"
+     },
+     {
+      "label": "Water and Sewer",
+      "mask": "6130-8502"
+     },
+     {
+      "label": "Building Maintenance",
+      "mask": "6220-8502"
+     },
+     {
+      "label": "Parking Lot Cleaning",
+      "mask": "6330-8502"
+     },
+     {
+      "label": "Parking Lot Maintenance",
+      "mask": "6360-*"
+     },
+     {
+      "label": "Snow Removal",
+      "mask": "6370-8502"
+     },
+     {
+      "label": "Landscaping",
+      "mask": "6380-8502,6380-8501"
+     },
+     {
+      "label": "Security",
+      "mask": "6350-8502"
+     },
+     {
+      "label": "Management Fee",
+      "mask": "6610-8502"
+     },
+     {
+      "label": "Trash Removal",
+      "mask": "6270-8502"
+     },
+     {
+      "label": "Real Estate Taxes",
+      "mask": "6410-*"
+     },
+     {
+      "label": "Insurance",
+      "mask": "6510-*"
+     },
+     {
+      "label": "Cleaning and Supplies",
+      "mask": "6250-8501,6250-8502"
+     }
+    ]
+   },
+   {
+    "name": "Non-Reimbursable Expenses",
+    "role": "non-reimbursable-expense",
+    "lines": [
+     {
+      "label": "Bad Debt",
+      "mask": "5210-*"
+     },
+     {
+      "label": "Management/Leasing Salaries",
+      "mask": "6010-8501,6620-8501"
+     },
+     {
+      "label": "Utilities",
+      "mask": "6120-8501,6110-8501,6130-8501"
+     },
+     {
+      "label": "Building Maintenance",
+      "mask": "6220-8501"
+     },
+     {
+      "label": "Management Fee",
+      "mask": "6610-8501"
+     },
+     {
+      "label": "Marketing",
+      "mask": "7*-*"
+     },
+     {
+      "label": "Business Taxes",
+      "mask": "8210-8501"
+     },
+     {
+      "label": "Legal and Accounting",
+      "mask": "8310-8501"
+     },
+     {
+      "label": "General and Administrative",
+      "mask": "8*-*"
+     }
+    ]
+   },
+   {
+    "name": "Capital",
+    "role": "capital",
+    "lines": [
+     {
+      "label": "Capital Improvements",
+      "mask": "1410-0000,1420-0000,1430-0000,1450-0000,1460-0000,1470-0000,1480-0000,1490-0000"
+     },
+     {
+      "label": "Tenant improvements",
+      "mask": "1440-0000"
+     },
+     {
+      "label": "Capitalized Lease Costs",
+      "mask": "1940-8501"
+     },
+     {
+      "label": "Extraordinary Expense",
+      "mask": "6990-8599,8990-8599"
+     }
+    ]
+   },
+   {
+    "name": "Debt Service",
+    "role": "debt-service",
+    "lines": [
+     {
+      "label": "Interest",
+      "mask": "9210-*"
+     },
+     {
+      "label": "Mortgage Amortization",
+      "mask": "2720-8501,2740-8501,9430-8501"
+     }
+    ]
+   }
+  ]
+ },
+ "5600": {
+  "propertyCode": "5600",
+  "entityName": "Hyman Korman Co",
+  "sections": [
+   {
+    "name": "Revenues",
+    "role": "revenue",
+    "lines": [
+     {
+      "label": "Rental income",
+      "mask": "4230-*"
+     },
+     {
+      "label": "Percentage Rents",
+      "mask": "4240-*"
+     },
+     {
+      "label": "Miscellaneous",
+      "mask": "4980..4999-*"
+     },
+     {
+      "label": "Interest Income",
+      "mask": "9190-*"
+     }
+    ]
+   },
+   {
+    "name": "Reimbursements",
+    "role": "reimbursement",
+    "lines": [
+     {
+      "label": "Electric",
+      "mask": "4710-*,4910-8503"
+     },
+     {
+      "label": "Common Area",
+      "mask": "4910-8501,4910-8502,4901-8506"
+     },
+     {
+      "label": "Real Estate Taxes",
+      "mask": "4920-*"
+     },
+     {
+      "label": "Insurance",
+      "mask": "4930-*"
+     },
+     {
+      "label": "Condo Assn",
+      "mask": "4970-*"
+     }
+    ]
+   },
+   {
+    "name": "Reimbursable Expenses",
+    "role": "reimbursable-expense",
+    "lines": [
+     {
+      "label": "Maintenance Salaries",
+      "mask": "6030-8502"
+     },
+     {
+      "label": "Electric",
+      "mask": "6120-8502"
+     },
+     {
+      "label": "Water and Sewer",
+      "mask": "6130-8502"
+     },
+     {
+      "label": "Building Maintenance",
+      "mask": "6220-8502"
+     },
+     {
+      "label": "Parking Lot Cleaning",
+      "mask": "6330-8502"
+     },
+     {
+      "label": "Parking Lot Maintenance",
+      "mask": "6360-8502"
+     },
+     {
+      "label": "Snow Removal",
+      "mask": "6370-8502"
+     },
+     {
+      "label": "Landscaping",
+      "mask": "6380-8502,6380-8501"
+     },
+     {
+      "label": "Security",
+      "mask": "6350-8502"
+     },
+     {
+      "label": "Management Fee",
+      "mask": "6610-8502"
+     },
+     {
+      "label": "Trash Removal",
+      "mask": "6270-8502"
+     },
+     {
+      "label": "Real Estate Taxes",
+      "mask": "6410-*"
+     },
+     {
+      "label": "Insurance",
+      "mask": "6510-*"
+     },
+     {
+      "label": "Cleaning and Supplies",
+      "mask": "6250-8501,6250-8502"
+     },
+     {
+      "label": "Office Center/Other",
+      "mask": "6*-8503"
+     }
+    ]
+   },
+   {
+    "name": "Non-Reimbursable Expenses",
+    "role": "non-reimbursable-expense",
+    "lines": [
+     {
+      "label": "Bad Debt",
+      "mask": "5210-*"
+     },
+     {
+      "label": "Management/Leasing Salaries",
+      "mask": "6010-8501,6620-8501"
+     },
+     {
+      "label": "Utilities",
+      "mask": "6120-8501,6110-8501,6130-8501"
+     },
+     {
+      "label": "Building Maintenance",
+      "mask": "6220-8501"
+     },
+     {
+      "label": "Management Fee",
+      "mask": "6610-8501"
+     },
+     {
+      "label": "Marketing",
+      "mask": "7*-*"
+     },
+     {
+      "label": "Business Taxes",
+      "mask": "8210-8501"
+     },
+     {
+      "label": "Legal and Accounting",
+      "mask": "8310-8501"
+     },
+     {
+      "label": "General and Administrative",
+      "mask": "8*-*"
+     }
+    ]
+   },
+   {
+    "name": "Capital",
+    "role": "capital",
+    "lines": [
+     {
+      "label": "Capital Improvements",
+      "mask": "1410-0000,1420-0000,1430-0000,1450-0000,1460-0000,1470-0000,1480-0000,1490-0000"
+     },
+     {
+      "label": "Tenant improvements",
+      "mask": "1440-0000"
+     },
+     {
+      "label": "Capitalized Lease Costs",
+      "mask": "1940-*"
+     },
+     {
+      "label": "Extraordinary Expense",
+      "mask": "6990-8599,8990-8599"
+     }
+    ]
+   },
+   {
+    "name": "Debt Service",
+    "role": "debt-service",
+    "lines": [
+     {
+      "label": "Interest",
+      "mask": "9210-*"
+     },
+     {
+      "label": "Mortgage Amortization",
+      "mask": "2720-8501,2740-8501,9430-8501"
+     }
+    ]
+   }
+  ]
+ },
+ "7010": {
+  "propertyCode": "7010",
+  "entityName": "Parkwood Joint Venture",
+  "sections": [
+   {
+    "name": "Revenues",
+    "role": "revenue",
+    "lines": [
+     {
+      "label": "Rental income",
+      "mask": "4230-*"
+     },
+     {
+      "label": "Percentage Rents",
+      "mask": "4240-*"
+     },
+     {
+      "label": "Miscellaneous",
+      "mask": "4980..4999-*"
+     },
+     {
+      "label": "Interest Income",
+      "mask": "9190-*"
+     }
+    ]
+   },
+   {
+    "name": "Reimbursements",
+    "role": "reimbursement",
+    "lines": [
+     {
+      "label": "Electric",
+      "mask": "4710-*,4910-8503"
+     },
+     {
+      "label": "Common Area",
+      "mask": "4910-8501,4910-8502,4901-8506"
+     },
+     {
+      "label": "Real Estate Taxes",
+      "mask": "4920-*"
+     },
+     {
+      "label": "Insurance",
+      "mask": "4930-*"
+     },
+     {
+      "label": "Condo Assn",
+      "mask": "4970-*"
+     }
+    ]
+   },
+   {
+    "name": "Reimbursable Expenses",
+    "role": "reimbursable-expense",
+    "lines": [
+     {
+      "label": "Maintenance Salaries",
+      "mask": "6030-8502,6030-8503"
+     },
+     {
+      "label": "Electric",
+      "mask": "6120-8502,6120-8503"
+     },
+     {
+      "label": "Water and Sewer",
+      "mask": "6130-8503"
+     },
+     {
+      "label": "Building Maintenance",
+      "mask": "6220-8502,6220-8503"
+     },
+     {
+      "label": "Parking Lot Cleaning",
+      "mask": "6330-8502,6330-8503"
+     },
+     {
+      "label": "Parking Lot Maintenance",
+      "mask": "6360-8502,6360-8503"
+     },
+     {
+      "label": "Snow Removal",
+      "mask": "6370-8502,6370-8503"
+     },
+     {
+      "label": "Landscaping",
+      "mask": "6380-8501,6380-8502,6380-8503"
+     },
+     {
+      "label": "Security",
+      "mask": "6350-8502,6350-8503"
+     },
+     {
+      "label": "Management Fee",
+      "mask": "6610-8502"
+     },
+     {
+      "label": "Trash Removal",
+      "mask": "6270-8502,6270-8503"
+     },
+     {
+      "label": "Cleaning - Office Center",
+      "mask": "6250-8503"
+     },
+     {
+      "label": "Real Estate Taxes",
+      "mask": "6410-*"
+     },
+     {
+      "label": "Insurance",
+      "mask": "6510-*"
+     },
+     {
+      "label": "Cleaning and Supplies",
+      "mask": "6250-8501,6250-8502"
+     }
+    ]
+   },
+   {
+    "name": "Non-Reimbursable Expenses",
+    "role": "non-reimbursable-expense",
+    "lines": [
+     {
+      "label": "Bad Debt",
+      "mask": "5210-*"
+     },
+     {
+      "label": "Management/Leasing Salaries",
+      "mask": "6010-8501,6620-8501"
+     },
+     {
+      "label": "Utilities",
+      "mask": "6120-8501,6110-8501,6130-8501"
+     },
+     {
+      "label": "Building Maintenance",
+      "mask": "6220-8501,6360-8501"
+     },
+     {
+      "label": "Management Fee",
+      "mask": "6610-8501"
+     },
+     {
+      "label": "Marketing",
+      "mask": "7*-*"
+     },
+     {
+      "label": "Business Taxes",
+      "mask": "8210-8501"
+     },
+     {
+      "label": "Legal and Accounting",
+      "mask": "8310-8501"
+     },
+     {
+      "label": "General and Administrative",
+      "mask": "8*-*"
+     }
+    ]
+   },
+   {
+    "name": "Capital",
+    "role": "capital",
+    "lines": [
+     {
+      "label": "Capital Improvements",
+      "mask": "1410-0000,1420-0000,1430-0000,1450-0000,1460-0000,1470-0000,1480-0000,1490-0000"
+     },
+     {
+      "label": "Tenant improvements",
+      "mask": "1440-0000"
+     },
+     {
+      "label": "Capitalized Lease Costs",
+      "mask": "1940-8501"
+     },
+     {
+      "label": "Extraordinary Expense",
+      "mask": "6990-8599,8990-8599"
+     }
+    ]
+   },
+   {
+    "name": "Debt Service",
+    "role": "debt-service",
+    "lines": [
+     {
+      "label": "Interest",
+      "mask": "9210-*"
+     },
+     {
+      "label": "Mortgage Amortization",
+      "mask": "2720-8501,2740-8501,9430-8501"
+     }
+    ]
+   }
+  ]
+ },
+ "7200": {
+  "propertyCode": "7200",
+  "entityName": "Elbridge Shopping Center",
+  "sections": [
+   {
+    "name": "Revenues",
+    "role": "revenue",
+    "lines": [
+     {
+      "label": "Rental income",
+      "mask": "4230-*"
+     },
+     {
+      "label": "Percentage Rents",
+      "mask": "4240-*"
+     },
+     {
+      "label": "Miscellaneous",
+      "mask": "4980..4999-*"
+     },
+     {
+      "label": "Interest Income",
+      "mask": "9190-*"
+     }
+    ]
+   },
+   {
+    "name": "Reimbursements",
+    "role": "reimbursement",
+    "lines": [
+     {
+      "label": "Electric",
+      "mask": "4710-*,4910-8503"
+     },
+     {
+      "label": "Common Area",
+      "mask": "4910-8501,4910-8502,4901-8506"
+     },
+     {
+      "label": "Real Estate Taxes",
+      "mask": "4920-*"
+     },
+     {
+      "label": "Insurance",
+      "mask": "4930-*"
+     },
+     {
+      "label": "Condo Assn",
+      "mask": "4970-*"
+     }
+    ]
+   },
+   {
+    "name": "Reimbursable Expenses",
+    "role": "reimbursable-expense",
+    "lines": [
+     {
+      "label": "Maintenance Salaries",
+      "mask": "6030-8502"
+     },
+     {
+      "label": "Electric",
+      "mask": "6120-8502"
+     },
+     {
+      "label": "Water and Sewer",
+      "mask": "6130-8502"
+     },
+     {
+      "label": "Building Maintenance",
+      "mask": "6220-8502"
+     },
+     {
+      "label": "Parking Lot Cleaning",
+      "mask": "6330-8502"
+     },
+     {
+      "label": "Parking Lot Maintenance",
+      "mask": "6360-8502"
+     },
+     {
+      "label": "Snow Removal",
+      "mask": "6370-8502"
+     },
+     {
+      "label": "Landscaping",
+      "mask": "6380-8502,6380-8501"
+     },
+     {
+      "label": "Security",
+      "mask": "6350-8502"
+     },
+     {
+      "label": "Management Fee",
+      "mask": "6610-8502"
+     },
+     {
+      "label": "Trash Removal",
+      "mask": "6270-8502"
+     },
+     {
+      "label": "Real Estate Taxes",
+      "mask": "6410-*"
+     },
+     {
+      "label": "Insurance",
+      "mask": "6510-*"
+     },
+     {
+      "label": "Cleaning and Supplies",
+      "mask": "6250-8501,6250-8502"
+     },
+     {
+      "label": "Office Center/Other",
+      "mask": "6*-8503"
+     }
+    ]
+   },
+   {
+    "name": "Non-Reimbursable Expenses",
+    "role": "non-reimbursable-expense",
+    "lines": [
+     {
+      "label": "Bad Debt",
+      "mask": "5210-*"
+     },
+     {
+      "label": "Management/Leasing Salaries",
+      "mask": "6010-8501,6620-8501"
+     },
+     {
+      "label": "Utilities",
+      "mask": "6120-8501,6110-8501,6130-8501"
+     },
+     {
+      "label": "Building Maintenance",
+      "mask": "6220-8501"
+     },
+     {
+      "label": "Management Fee",
+      "mask": "6610-8501"
+     },
+     {
+      "label": "Marketing",
+      "mask": "7*-*"
+     },
+     {
+      "label": "Business Taxes",
+      "mask": "8210-8501"
+     },
+     {
+      "label": "Legal and Accounting",
+      "mask": "8310-8501"
+     },
+     {
+      "label": "General and Administrative",
+      "mask": "8*-*"
+     }
+    ]
+   },
+   {
+    "name": "Capital",
+    "role": "capital",
+    "lines": [
+     {
+      "label": "Capital Improvements",
+      "mask": "1410-0000,1420-0000,1430-0000,1450-0000,1460-0000,1470-0000,1480-0000,1490-0000,1980-0000"
+     },
+     {
+      "label": "Tenant improvements",
+      "mask": "1440-0000"
+     },
+     {
+      "label": "Capitalized Lease Costs",
+      "mask": "1940-8501"
+     },
+     {
+      "label": "Extraordinary Expense",
+      "mask": "6990-8599,8990-8599"
+     }
+    ]
+   },
+   {
+    "name": "Debt Service",
+    "role": "debt-service",
+    "lines": [
+     {
+      "label": "Interest",
+      "mask": "9210-*"
+     },
+     {
+      "label": "Mortgage Amortization",
+      "mask": "2720-8501,2740-8501,9430-8501"
+     }
+    ]
+   }
+  ]
+ },
+ "7300": {
+  "propertyCode": "7300",
+  "entityName": "Revere Shopping Center",
+  "sections": [
+   {
+    "name": "Revenues",
+    "role": "revenue",
+    "lines": [
+     {
+      "label": "Rental income",
+      "mask": "4230-*"
+     },
+     {
+      "label": "Percentage Rents",
+      "mask": "4240-*"
+     },
+     {
+      "label": "Miscellaneous",
+      "mask": "4980..4999-*"
+     },
+     {
+      "label": "Interest Income",
+      "mask": "9190-*"
+     }
+    ]
+   },
+   {
+    "name": "Reimbursements",
+    "role": "reimbursement",
+    "lines": [
+     {
+      "label": "Electric",
+      "mask": "4710-*,4910-8503"
+     },
+     {
+      "label": "Common Area",
+      "mask": "4910-8501,4910-8502,4901-8506"
+     },
+     {
+      "label": "Real Estate Taxes",
+      "mask": "4920-*"
+     },
+     {
+      "label": "Insurance",
+      "mask": "4930-*"
+     },
+     {
+      "label": "Condo Assn",
+      "mask": "4970-*"
+     }
+    ]
+   },
+   {
+    "name": "Reimbursable Expenses",
+    "role": "reimbursable-expense",
+    "lines": [
+     {
+      "label": "Maintenance Salaries",
+      "mask": "6030-8502"
+     },
+     {
+      "label": "Electric",
+      "mask": "6120-8502"
+     },
+     {
+      "label": "Water and Sewer",
+      "mask": "6130-8502"
+     },
+     {
+      "label": "Building Maintenance",
+      "mask": "6220-8502"
+     },
+     {
+      "label": "Parking Lot Cleaning",
+      "mask": "6330-8502"
+     },
+     {
+      "label": "Parking Lot Maintenance",
+      "mask": "6360-8502"
+     },
+     {
+      "label": "Snow Removal",
+      "mask": "6370-8502"
+     },
+     {
+      "label": "Landscaping",
+      "mask": "6380-8502,6380-8501"
+     },
+     {
+      "label": "Security",
+      "mask": "6350-8502"
+     },
+     {
+      "label": "Management Fee",
+      "mask": "6610-8502"
+     },
+     {
+      "label": "Trash Removal",
+      "mask": "6270-8502"
+     },
+     {
+      "label": "Real Estate Taxes",
+      "mask": "6410-*"
+     },
+     {
+      "label": "Insurance",
+      "mask": "6510-*"
+     },
+     {
+      "label": "Cleaning and Supplies",
+      "mask": "6250-8501,6250-8502"
+     },
+     {
+      "label": "Office Center/Other",
+      "mask": "6*-8503"
+     }
+    ]
+   },
+   {
+    "name": "Non-Reimbursable Expenses",
+    "role": "non-reimbursable-expense",
+    "lines": [
+     {
+      "label": "Bad Debt",
+      "mask": "5210-*"
+     },
+     {
+      "label": "Management/Leasing Salaries",
+      "mask": "6010-8501,6620-8501"
+     },
+     {
+      "label": "Utilities",
+      "mask": "6120-8501,6110-8501,6130-8501"
+     },
+     {
+      "label": "Building Maintenance",
+      "mask": "6220-8501"
+     },
+     {
+      "label": "Management Fee",
+      "mask": "6610-8501"
+     },
+     {
+      "label": "Marketing",
+      "mask": "7*-*"
+     },
+     {
+      "label": "Business Taxes",
+      "mask": "8210-8501"
+     },
+     {
+      "label": "Legal and Accounting",
+      "mask": "8310-8501"
+     },
+     {
+      "label": "General and Administrative",
+      "mask": "8*-*"
+     }
+    ]
+   },
+   {
+    "name": "Capital",
+    "role": "capital",
+    "lines": [
+     {
+      "label": "Capital Improvements",
+      "mask": "1410-0000,1420-0000,1430-0000,1450-0000,1460-0000,1470-0000,1480-0000,1490-0000"
+     },
+     {
+      "label": "Tenant improvements",
+      "mask": "1440-0000"
+     },
+     {
+      "label": "Capitalized Lease Costs",
+      "mask": "1940-8501"
+     },
+     {
+      "label": "Extraordinary Expense",
+      "mask": "6990-8599,8990-8599"
+     }
+    ]
+   },
+   {
+    "name": "Debt Service",
+    "role": "debt-service",
+    "lines": [
+     {
+      "label": "Interest",
+      "mask": "9210-*"
+     },
+     {
+      "label": "Mortgage Amortization",
+      "mask": "2720-8501,2740-8501,9430-8501"
+     }
+    ]
+   }
+  ]
+ },
+ "8200": {
+  "propertyCode": "8200",
+  "entityName": "Trust # 4",
+  "sections": [
+   {
+    "name": "Revenues",
+    "role": "revenue",
+    "lines": [
+     {
+      "label": "Rental income",
+      "mask": "4230-*"
+     },
+     {
+      "label": "Percentage Rents",
+      "mask": "4240-*"
+     },
+     {
+      "label": "Miscellaneous",
+      "mask": "4980..4999-*"
+     },
+     {
+      "label": "Interest Income",
+      "mask": "9190-*"
+     }
+    ]
+   },
+   {
+    "name": "Reimbursements",
+    "role": "reimbursement",
+    "lines": [
+     {
+      "label": "Common Area",
+      "mask": "4910-8501,4910-8502,4901-8506"
+     },
+     {
+      "label": "Real Estate Taxes",
+      "mask": "4920-*"
+     },
+     {
+      "label": "Insurance",
+      "mask": "4930-*"
+     },
+     {
+      "label": "Condo Assn",
+      "mask": "4970-*"
+     }
+    ]
+   },
+   {
+    "name": "Reimbursable Expenses",
+    "role": "reimbursable-expense",
+    "lines": [
+     {
+      "label": "Maintenance Salaries",
+      "mask": "6030-8502"
+     },
+     {
+      "label": "Electric",
+      "mask": "6120-8502"
+     },
+     {
+      "label": "Water and Sewer",
+      "mask": "6130-8502"
+     },
+     {
+      "label": "Building Maintenance",
+      "mask": "6220-8502"
+     },
+     {
+      "label": "Parking Lot Cleaning",
+      "mask": "6330-8502"
+     },
+     {
+      "label": "Parking Lot Maintenance",
+      "mask": "6360-8502"
+     },
+     {
+      "label": "Snow Removal",
+      "mask": "6370-8502"
+     },
+     {
+      "label": "Landscaping",
+      "mask": "6380-8502,6380-8501"
+     },
+     {
+      "label": "Security",
+      "mask": "6350-8502"
+     },
+     {
+      "label": "Management Fee",
+      "mask": "6610-8502"
+     },
+     {
+      "label": "Trash Removal",
+      "mask": "6270-8502"
+     },
+     {
+      "label": "Real Estate Taxes",
+      "mask": "6410-*"
+     },
+     {
+      "label": "Insurance",
+      "mask": "6510-*"
+     },
+     {
+      "label": "Cleaning and Supplies",
+      "mask": "6250-8501,6250-8502"
+     }
+    ]
+   },
+   {
+    "name": "Non-Reimbursable Expenses",
+    "role": "non-reimbursable-expense",
+    "lines": [
+     {
+      "label": "Bad Debt",
+      "mask": "5210-*"
+     },
+     {
+      "label": "Management/Leasing Salaries",
+      "mask": "6010-8501,6620-8501"
+     },
+     {
+      "label": "Utilities",
+      "mask": "6120-8501,6110-8501,6130-8501"
+     },
+     {
+      "label": "Building Maintenance",
+      "mask": "6220-8501"
+     },
+     {
+      "label": "Management Fee",
+      "mask": "6610-8501"
+     },
+     {
+      "label": "Marketing",
+      "mask": "7*-*"
+     },
+     {
+      "label": "Business Taxes",
+      "mask": "8210-8501"
+     },
+     {
+      "label": "Legal and Accounting",
+      "mask": "8310-8501"
+     },
+     {
+      "label": "General and Administrative",
+      "mask": "8*-*"
+     }
+    ]
+   },
+   {
+    "name": "Capital",
+    "role": "capital",
+    "lines": [
+     {
+      "label": "Capital Improvements",
+      "mask": "1410-0000,1420-0000,1430-0000,1450-0000,1460-0000,1470-0000,1480-0000,1490-0000"
+     },
+     {
+      "label": "Tenant improvements",
+      "mask": "1440-0000"
+     },
+     {
+      "label": "Capitalized Lease Costs",
+      "mask": "1940-8501"
+     },
+     {
+      "label": "Extraordinary Expense",
+      "mask": "6990-8599,8990-8599"
+     }
+    ]
+   },
+   {
+    "name": "Debt Service",
+    "role": "debt-service",
+    "lines": [
+     {
+      "label": "Interest",
+      "mask": "9210-*"
+     },
+     {
+      "label": "Mortgage Amortization",
+      "mask": "2720-8501,2740-8501,9430-8501"
+     }
+    ]
+   }
+  ]
+ },
+ "9510": {
+  "propertyCode": "9510",
+  "entityName": "Shops at Lafayette Hill",
+  "sections": [
+   {
+    "name": "Revenues",
+    "role": "revenue",
+    "lines": [
+     {
+      "label": "Rental income",
+      "mask": "4230-*"
+     },
+     {
+      "label": "Percentage Rents",
+      "mask": "4240-*"
+     },
+     {
+      "label": "Miscellaneous",
+      "mask": "4980..4999-*"
+     },
+     {
+      "label": "Interest Income",
+      "mask": "9190-*"
+     }
+    ]
+   },
+   {
+    "name": "Reimbursements",
+    "role": "reimbursement",
+    "lines": [
+     {
+      "label": "Common Area",
+      "mask": "4910-8501,4910-8502,4901-8506"
+     },
+     {
+      "label": "Real Estate Taxes",
+      "mask": "4920-*"
+     },
+     {
+      "label": "Insurance",
+      "mask": "4930-*"
+     },
+     {
+      "label": "Condo Assn",
+      "mask": "4970-*"
+     }
+    ]
+   },
+   {
+    "name": "Reimbursable Expenses",
+    "role": "reimbursable-expense",
+    "lines": [
+     {
+      "label": "Maintenance Salaries",
+      "mask": "6030-8502"
+     },
+     {
+      "label": "Electric",
+      "mask": "6120-8502"
+     },
+     {
+      "label": "Water and Sewer",
+      "mask": "6130-8502"
+     },
+     {
+      "label": "Building Maintenance",
+      "mask": "6220-8502,6220-8503"
+     },
+     {
+      "label": "Parking Lot Cleaning",
+      "mask": "6330-8502"
+     },
+     {
+      "label": "Parking Lot Maintenance",
+      "mask": "6360-*"
+     },
+     {
+      "label": "Snow Removal",
+      "mask": "6370-8502"
+     },
+     {
+      "label": "Landscaping",
+      "mask": "6380-8502,6380-8501"
+     },
+     {
+      "label": "Security",
+      "mask": "6350-8502"
+     },
+     {
+      "label": "Management Fee",
+      "mask": "6610-8502"
+     },
+     {
+      "label": "Trash Removal",
+      "mask": "6270-8502"
+     },
+     {
+      "label": "Real Estate Taxes",
+      "mask": "6410-*"
+     },
+     {
+      "label": "Insurance",
+      "mask": "6510-*"
+     },
+     {
+      "label": "Cleaning and Supplies",
+      "mask": "6250-8501,6250-8502"
+     }
+    ]
+   },
+   {
+    "name": "Non-Reimbursable Expenses",
+    "role": "non-reimbursable-expense",
+    "lines": [
+     {
+      "label": "Bad Debt",
+      "mask": "5210-*"
+     },
+     {
+      "label": "Management/Leasing Salaries",
+      "mask": "6010-8501,6620-8501"
+     },
+     {
+      "label": "Utilities",
+      "mask": "6120-8501,6110-8501,6130-8501"
+     },
+     {
+      "label": "Building Maintenance",
+      "mask": "6220-8501"
+     },
+     {
+      "label": "Management Fee",
+      "mask": "6610-8501"
+     },
+     {
+      "label": "Marketing",
+      "mask": "7*-*"
+     },
+     {
+      "label": "Business Taxes",
+      "mask": "8210-8501"
+     },
+     {
+      "label": "Legal and Accounting",
+      "mask": "8310-8501"
+     },
+     {
+      "label": "General and Administrative",
+      "mask": "8*-*"
+     }
+    ]
+   },
+   {
+    "name": "Capital",
+    "role": "capital",
+    "lines": [
+     {
+      "label": "Capital Improvements",
+      "mask": "1410-0000,1420-0000,1430-0000,1450-0000,1460-0000,1470-0000,1480-0000,1490-0000,1980-0000"
+     },
+     {
+      "label": "Tenant improvements",
+      "mask": "1440-0000"
+     },
+     {
+      "label": "Capitalized Lease Costs",
+      "mask": "1940-8501"
+     },
+     {
+      "label": "Extraordinary Expense",
+      "mask": "6990-8599,8990-8599"
+     }
+    ]
+   },
+   {
+    "name": "Debt Service",
+    "role": "debt-service",
+    "lines": [
+     {
+      "label": "Interest",
+      "mask": "9210-*"
+     },
+     {
+      "label": "Mortgage Amortization",
+      "mask": "2720-8501,2740-8501,9430-8501"
+     }
+    ]
+   }
+  ]
+ },
+ "0800": {
+  "propertyCode": "0800",
+  "entityName": "Interstate Business Park",
+  "sections": [
+   {
+    "name": "Revenues",
+    "role": "revenue",
+    "lines": [
+     {
+      "label": "Rental income",
+      "mask": "4230-*"
+     },
+     {
+      "label": "Percentage Rents",
+      "mask": "4240-*"
+     },
+     {
+      "label": "Miscellaneous",
+      "mask": "4980..4999-*"
+     },
+     {
+      "label": "Interest Income",
+      "mask": "9190-*"
+     }
+    ]
+   },
+   {
+    "name": "Reimbursements",
+    "role": "reimbursement",
+    "lines": [
+     {
+      "label": "Electric",
+      "mask": "4710-*,4910-8503"
+     },
+     {
+      "label": "Common Area",
+      "mask": "4910-8501,4910-8502,4901-8506"
+     },
+     {
+      "label": "Real Estate Taxes",
+      "mask": "4920-*"
+     },
+     {
+      "label": "Insurance",
+      "mask": "4930-*"
+     },
+     {
+      "label": "Condo Assn",
+      "mask": "4970-*"
+     }
+    ]
+   },
+   {
+    "name": "Reimbursable Expenses",
+    "role": "reimbursable-expense",
+    "lines": [
+     {
+      "label": "Maintenance Salaries",
+      "mask": "6030-8502"
+     },
+     {
+      "label": "Electric",
+      "mask": "6120-8502"
+     },
+     {
+      "label": "Water and Sewer",
+      "mask": "6130-8502"
+     },
+     {
+      "label": "Building Maintenance",
+      "mask": "6220-8502"
+     },
+     {
+      "label": "Parking Lot Cleaning",
+      "mask": "6330-8502"
+     },
+     {
+      "label": "Parking Lot Maintenance",
+      "mask": "6360-8502"
+     },
+     {
+      "label": "Snow Removal",
+      "mask": "6370-8502"
+     },
+     {
+      "label": "Landscaping",
+      "mask": "6380-8502,6380-8501"
+     },
+     {
+      "label": "Security",
+      "mask": "6350-8502"
+     },
+     {
+      "label": "Management Fee",
+      "mask": "6610-8502"
+     },
+     {
+      "label": "Trash Removal",
+      "mask": "6270-8502"
+     },
+     {
+      "label": "Real Estate Taxes",
+      "mask": "6410-*"
+     },
+     {
+      "label": "Insurance",
+      "mask": "6510-*"
+     },
+     {
+      "label": "Cleaning and Supplies",
+      "mask": "6250-8501,6250-8502"
+     },
+     {
+      "label": "Office Center/Other",
+      "mask": "6*-8503"
+     }
+    ]
+   },
+   {
+    "name": "Non-Reimbursable Expenses",
+    "role": "non-reimbursable-expense",
+    "lines": [
+     {
+      "label": "Bad Debt",
+      "mask": "5210-*"
+     },
+     {
+      "label": "Management/Leasing Salaries",
+      "mask": "6010-8501,6620-8501"
+     },
+     {
+      "label": "Utilities",
+      "mask": "6120-8501,6110-8501,6130-8501"
+     },
+     {
+      "label": "Building Maintenance",
+      "mask": "6220-8501"
+     },
+     {
+      "label": "Management Fee",
+      "mask": "6610-8501"
+     },
+     {
+      "label": "Marketing",
+      "mask": "7*-*"
+     },
+     {
+      "label": "Business Taxes",
+      "mask": "8210-8501"
+     },
+     {
+      "label": "Legal and Accounting",
+      "mask": "8310-8501"
+     },
+     {
+      "label": "General and Administrative",
+      "mask": "8*-*"
+     }
+    ]
+   },
+   {
+    "name": "Capital",
+    "role": "capital",
+    "lines": [
+     {
+      "label": "Capital Improvements",
+      "mask": "1410-0000,1420-0000,1430-0000,1450-0000,1460-0000,1470-0000,1480-0000,1490-0000"
+     },
+     {
+      "label": "Tenant improvements",
+      "mask": "1440-0000"
+     },
+     {
+      "label": "Capitalized Lease Costs",
+      "mask": "1940-8501"
+     },
+     {
+      "label": "Extraordinary Expense",
+      "mask": "6990-8599,8990-8599"
+     }
+    ]
+   },
+   {
+    "name": "Debt Service",
+    "role": "debt-service",
+    "lines": [
+     {
+      "label": "Interest",
+      "mask": "9210-*"
+     },
+     {
+      "label": "Mortgage Amortization",
+      "mask": "2720-8501,2740-8501,9430-8501"
+     }
+    ]
+   }
+  ]
+ },
+ "0900": {
+  "propertyCode": "0900",
+  "entityName": "Lincoln JV I",
+  "sections": [
+   {
+    "name": "Revenues",
+    "role": "revenue",
+    "lines": [
+     {
+      "label": "Rental income",
+      "mask": "4230-*"
+     },
+     {
+      "label": "Percentage Rents",
+      "mask": "4240-*"
+     },
+     {
+      "label": "Miscellaneous",
+      "mask": "4980..4999-*"
+     },
+     {
+      "label": "Interest Income",
+      "mask": "9190-*"
+     }
+    ]
+   },
+   {
+    "name": "Reimbursements",
+    "role": "reimbursement",
+    "lines": [
+     {
+      "label": "Electric",
+      "mask": "4710-*,4910-8503"
+     },
+     {
+      "label": "Common Area",
+      "mask": "4910-8501,4910-8502,4901-8506"
+     },
+     {
+      "label": "Real Estate Taxes",
+      "mask": "4920-*"
+     },
+     {
+      "label": "Insurance",
+      "mask": "4930-*"
+     },
+     {
+      "label": "Condo Assn",
+      "mask": "4970-*"
+     }
+    ]
+   },
+   {
+    "name": "Reimbursable Expenses",
+    "role": "reimbursable-expense",
+    "lines": [
+     {
+      "label": "Maintenance Salaries",
+      "mask": "6030-8502"
+     },
+     {
+      "label": "Electric",
+      "mask": "6120-8502"
+     },
+     {
+      "label": "Water and Sewer",
+      "mask": "6130-8502"
+     },
+     {
+      "label": "Building Maintenance",
+      "mask": "6220-8502"
+     },
+     {
+      "label": "Parking Lot Cleaning",
+      "mask": "6330-8502"
+     },
+     {
+      "label": "Parking Lot Maintenance",
+      "mask": "6360-8502"
+     },
+     {
+      "label": "Snow Removal",
+      "mask": "6370-8502"
+     },
+     {
+      "label": "Landscaping",
+      "mask": "6380-8502,6380-8501"
+     },
+     {
+      "label": "Security",
+      "mask": "6350-8502"
+     },
+     {
+      "label": "Management Fee",
+      "mask": "6610-8502"
+     },
+     {
+      "label": "Trash Removal",
+      "mask": "6270-8502"
+     },
+     {
+      "label": "Real Estate Taxes",
+      "mask": "6410-*"
+     },
+     {
+      "label": "Insurance",
+      "mask": "6510-*"
+     },
+     {
+      "label": "Cleaning and Supplies",
+      "mask": "6250-8501,6250-8502"
+     },
+     {
+      "label": "Office Center/Other",
+      "mask": "6*-8503"
+     }
+    ]
+   },
+   {
+    "name": "Non-Reimbursable Expenses",
+    "role": "non-reimbursable-expense",
+    "lines": [
+     {
+      "label": "Bad Debt",
+      "mask": "5210-*"
+     },
+     {
+      "label": "Management/Leasing Salaries",
+      "mask": "6010-8501,6620-8501"
+     },
+     {
+      "label": "Utilities",
+      "mask": "6120-8501,6110-8501,6130-8501"
+     },
+     {
+      "label": "Building Maintenance",
+      "mask": "6220-8501"
+     },
+     {
+      "label": "Management Fee",
+      "mask": "6610-8501"
+     },
+     {
+      "label": "Marketing",
+      "mask": "7*-*"
+     },
+     {
+      "label": "Business Taxes",
+      "mask": "8210-8501"
+     },
+     {
+      "label": "Legal and Accounting",
+      "mask": "8310-8501"
+     },
+     {
+      "label": "General and Administrative",
+      "mask": "8*-*"
+     }
+    ]
+   },
+   {
+    "name": "Capital",
+    "role": "capital",
+    "lines": [
+     {
+      "label": "Capital Improvements",
+      "mask": "1410-0000,1420-0000,1430-0000,1450-0000,1460-0000,1470-0000,1480-0000,1490-0000"
+     },
+     {
+      "label": "Tenant improvements",
+      "mask": "1440-0000"
+     },
+     {
+      "label": "Capitalized Lease Costs",
+      "mask": "1940-8501"
+     },
+     {
+      "label": "Extraordinary Expense",
+      "mask": "6990-8599,8990-8599"
+     }
+    ]
+   },
+   {
+    "name": "Debt Service",
+    "role": "debt-service",
+    "lines": [
+     {
+      "label": "Interest",
+      "mask": "9210-*"
+     },
+     {
+      "label": "Mortgage Amortization",
+      "mask": "2720-8501,2740-8501,9430-8501"
+     }
+    ]
+   }
+  ]
+ },
+ "9200": {
+  "propertyCode": "9200",
+  "entityName": "Eastwick JV XII",
+  "sections": [
+   {
+    "name": "Revenues",
+    "role": "revenue",
+    "lines": [
+     {
+      "label": "Rental income",
+      "mask": "4230-*"
+     },
+     {
+      "label": "Percentage Rents",
+      "mask": "4240-*"
+     },
+     {
+      "label": "Miscellaneous",
+      "mask": "4980..4999-*"
+     },
+     {
+      "label": "Interest Income",
+      "mask": "9190-*"
+     },
+     {
+      "label": "Cost of Sale",
+      "mask": "5190-0000"
+     }
+    ]
+   },
+   {
+    "name": "Reimbursements",
+    "role": "reimbursement",
+    "lines": [
+     {
+      "label": "Electric",
+      "mask": "4710-*,4910-8503"
+     },
+     {
+      "label": "Common Area",
+      "mask": "4910-8501,4910-8502,4901-8506"
+     },
+     {
+      "label": "Real Estate Taxes",
+      "mask": "4920-*"
+     },
+     {
+      "label": "Insurance",
+      "mask": "4930-*"
+     },
+     {
+      "label": "Condo Assn",
+      "mask": "4970-*"
+     }
+    ]
+   },
+   {
+    "name": "Reimbursable Expenses",
+    "role": "reimbursable-expense",
+    "lines": [
+     {
+      "label": "Maintenance Salaries",
+      "mask": "6030-8502"
+     },
+     {
+      "label": "Electric",
+      "mask": "6120-8502"
+     },
+     {
+      "label": "Water and Sewer",
+      "mask": "6130-8502"
+     },
+     {
+      "label": "Building Maintenance",
+      "mask": "6220-8502"
+     },
+     {
+      "label": "Parking Lot Cleaning",
+      "mask": "6330-8502"
+     },
+     {
+      "label": "Parking Lot Maintenance",
+      "mask": "6360-8502,6360-8501"
+     },
+     {
+      "label": "Snow Removal",
+      "mask": "6370-8502"
+     },
+     {
+      "label": "Landscaping",
+      "mask": "6380-8502,6380-8501"
+     },
+     {
+      "label": "Security",
+      "mask": "6350-8502"
+     },
+     {
+      "label": "Management Fee",
+      "mask": "6610-8502"
+     },
+     {
+      "label": "Trash Removal",
+      "mask": "6270-8502"
+     },
+     {
+      "label": "Real Estate Taxes",
+      "mask": "6410-*"
+     },
+     {
+      "label": "Insurance",
+      "mask": "6510-*"
+     },
+     {
+      "label": "Cleaning and Supplies",
+      "mask": "6250-8501,6250-8502"
+     },
+     {
+      "label": "Office Center/Other",
+      "mask": "6*-8503"
+     }
+    ]
+   },
+   {
+    "name": "Non-Reimbursable Expenses",
+    "role": "non-reimbursable-expense",
+    "lines": [
+     {
+      "label": "Bad Debt",
+      "mask": "5210-*"
+     },
+     {
+      "label": "Management/Leasing Salaries",
+      "mask": "6010-8501,6620-8501"
+     },
+     {
+      "label": "Utilities",
+      "mask": "6120-8501,6110-8501,6130-8501"
+     },
+     {
+      "label": "Building Maintenance",
+      "mask": "6220-8501"
+     },
+     {
+      "label": "Management Fee",
+      "mask": "6610-8501"
+     },
+     {
+      "label": "Marketing",
+      "mask": "7*-*"
+     },
+     {
+      "label": "Business Taxes",
+      "mask": "8210-8501"
+     },
+     {
+      "label": "Legal and Accounting",
+      "mask": "8310-8501"
+     },
+     {
+      "label": "General and Administrative",
+      "mask": "8*-*"
+     }
+    ]
+   },
+   {
+    "name": "Capital",
+    "role": "capital",
+    "lines": [
+     {
+      "label": "Capital Improvements",
+      "mask": "1410-0000,1420-0000,1430-0000,1450-0000,1460-0000,1470-0000,1480-0000,1490-0000"
+     },
+     {
+      "label": "Tenant improvements",
+      "mask": "1440-0000"
+     },
+     {
+      "label": "Capitalized Lease Costs",
+      "mask": "1940-8501"
+     },
+     {
+      "label": "Extraordinary Expense",
+      "mask": "6990-8599,8990-8599"
+     }
+    ]
+   },
+   {
+    "name": "Debt Service",
+    "role": "debt-service",
+    "lines": [
+     {
+      "label": "Interest",
+      "mask": "9210-*"
+     },
+     {
+      "label": "Mortgage Amortization",
+      "mask": "2720-8501,2740-8501,9430-8501"
+     }
+    ]
+   }
+  ]
+ }
+}
