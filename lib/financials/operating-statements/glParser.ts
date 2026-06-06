@@ -36,6 +36,16 @@ export type GlParseResult = {
   rows: GlSummaryRow[];
 };
 
+/** Per-account monthly nets (Debit − Credit), index 0 = Jan. This is what gets
+ *  stored from one upload so any period can be computed without re-uploading. */
+export type GlMonthly = {
+  propertyCode: string | null;
+  year: number | null;
+  maxPeriodInFile: number;
+  /** account → 12 monthly nets (Jan–Dec). */
+  monthly: Record<string, number[]>;
+};
+
 type Cell = string | number | null | undefined;
 type Row = Cell[];
 
@@ -90,7 +100,8 @@ function findFirst(rows: Row[], re: RegExp): RegExpMatchArray | null {
   return null;
 }
 
-export function parseGeneralLedger(rows: Row[], requestedPeriod: number): GlParseResult {
+/** Parse the GL into per-account monthly nets + header meta. */
+export function parseGeneralLedgerMonthly(rows: Row[]): GlMonthly {
   const cols = findColumns(rows);
   // Debit value can land one column left of its header (merged cells); scan a
   // small window from the header column.
@@ -102,8 +113,7 @@ export function parseGeneralLedger(rows: Row[], requestedPeriod: number): GlPars
   const yearMatch = findFirst(rows, /(\d{1,2})\/(\d{1,2})\/(\d{4})\s+To\s+/i);
   const year = yearMatch ? Number(yearMatch[3]) : null;
 
-  // account → 12 monthly nets (Debit − Credit), index 0 = Jan.
-  const monthly = new Map<string, number[]>();
+  const monthly: Record<string, number[]> = {};
   let current: string | null = null;
   let maxMonth = 0;
 
@@ -111,7 +121,7 @@ export function parseGeneralLedger(rows: Row[], requestedPeriod: number): GlPars
     const c1 = asStr(row[1]);
     if (ACCOUNT_RE.test(c1)) {
       current = c1;
-      if (!monthly.has(current)) monthly.set(current, new Array(12).fill(0));
+      if (!monthly[current]) monthly[current] = new Array(12).fill(0);
       continue;
     }
     if (!current) continue;
@@ -124,21 +134,34 @@ export function parseGeneralLedger(rows: Row[], requestedPeriod: number): GlPars
     if (mIdx >= 0) {
       const debit = numIn(row, debitLo, debitHi);
       const credit = numIn(row, creditLo, creditHi);
-      monthly.get(current)![mIdx] = debit - credit;
+      monthly[current][mIdx] = debit - credit;
       if (mIdx + 1 > maxMonth) maxMonth = mIdx + 1;
     }
   }
 
-  const maxPeriodInFile = maxMonth || 12;
-  const period = Math.min(Math.max(1, requestedPeriod), maxPeriodInFile);
+  return { propertyCode, year, maxPeriodInFile: maxMonth || 12, monthly };
+}
 
+/** Collapse monthly nets into the period + YTD summary the compute consumes. */
+export function summaryForPeriod(monthly: Record<string, number[]>, period: number): GlSummaryRow[] {
   const out: GlSummaryRow[] = [];
-  for (const [account, nets] of monthly) {
+  for (const [account, nets] of Object.entries(monthly)) {
     const periodActual = nets[period - 1] ?? 0;
     const ytdActual = nets.slice(0, period).reduce((a, n) => a + n, 0);
     if (periodActual === 0 && ytdActual === 0) continue; // skip dormant accounts
     out.push({ account, periodActual, ytdActual });
   }
+  return out;
+}
 
-  return { propertyCode, year, period, maxPeriodInFile, rows: out };
+export function parseGeneralLedger(rows: Row[], requestedPeriod: number): GlParseResult {
+  const m = parseGeneralLedgerMonthly(rows);
+  const period = Math.min(Math.max(1, requestedPeriod), m.maxPeriodInFile);
+  return {
+    propertyCode: m.propertyCode,
+    year: m.year,
+    period,
+    maxPeriodInFile: m.maxPeriodInFile,
+    rows: summaryForPeriod(m.monthly, period),
+  };
 }

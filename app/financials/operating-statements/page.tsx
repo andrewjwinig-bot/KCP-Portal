@@ -1,12 +1,151 @@
 "use client";
 
-// Operating Statements — the actuals twin of Operating Budgets. The pure
-// engine (lib/financials/operating-statements) is built and tested; this page
-// is a placeholder until the GL/Trial-Balance import + API are wired (the
-// statement view will mirror the Operating Budgets layout: period + property
-// selectors, the same section ladder, and Actual / Budget / Variance columns).
+// Operating Statements — the actuals twin of Operating Budgets. Upload a
+// property's Skyline GL export; the page renders the Comparative Income
+// Statement (Current Period + YTD, Actual / Budget / Variance) using the same
+// section ladder as the budget. Budget columns fill in step 2 (cross-walk to
+// the portal budget); for now they read blank.
+
+import { useCallback, useEffect, useRef, useState } from "react";
+import { StatPill } from "@/app/components/Pill";
+import type {
+  PropertyStatement,
+  StatementSection,
+  StatementTotals,
+  SectionRole,
+} from "@/lib/financials/operating-statements/types";
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] as const;
+
+type Available = { key: string; propertyCode: string; entityName: string; name: string; years: number[] };
+
+function money0(v: number | null): string {
+  if (v == null) return "—";
+  const n = Math.round(v);
+  const s = Math.abs(n).toLocaleString("en-US");
+  return n < 0 ? `(${s})` : s;
+}
+
+function varColor(v: number | null): string {
+  if (v == null || Math.abs(v) < 0.5) return "var(--muted)";
+  return v > 0 ? "#15803d" : "#b91c1c";
+}
+
+// Big-label dropdown (label + chevron over an invisible native select) — the
+// same pattern the CAM recon + budget headers use.
+function HeaderSelect({
+  value, onChange, displayLabel, ariaLabel, muted, children,
+}: {
+  value: string; onChange: (v: string) => void; displayLabel: string;
+  ariaLabel: string; muted?: boolean; children: React.ReactNode;
+}) {
+  return (
+    <span style={{ position: "relative", display: "inline-flex", alignItems: "center", gap: 4, cursor: "pointer" }}>
+      <span style={{ fontSize: muted ? 20 : 24, fontWeight: 800, color: muted ? "var(--muted)" : "inherit", whiteSpace: "nowrap" }}>{displayLabel}</span>
+      <span style={{ color: "var(--muted)", fontSize: 14 }}>▾</span>
+      <select
+        aria-label={ariaLabel}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        style={{ position: "absolute", inset: 0, opacity: 0, cursor: "pointer", width: "100%" }}
+      >
+        {children}
+      </select>
+    </span>
+  );
+}
+
+const th: React.CSSProperties = { textAlign: "right", padding: "6px 10px", fontSize: 11, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.04em", whiteSpace: "nowrap" };
+const td: React.CSSProperties = { textAlign: "right", padding: "5px 10px", fontSize: 13.5, whiteSpace: "nowrap" };
+const SEP = "2px solid var(--border)";
+
+const ROLE_COLOR: Partial<Record<SectionRole, string>> = {
+  revenue: "#15803d",
+  reimbursement: "#0f766e",
+  "reimbursable-expense": "#854d0e",
+  "non-reimbursable-expense": "#854d0e",
+  "residential-expense": "#854d0e",
+  capital: "#6d28d9",
+  "debt-service": "#0b4a7d",
+};
 
 export default function OperatingStatementsPage() {
+  const [available, setAvailable] = useState<Available[]>([]);
+  const [key, setKey] = useState("");
+  const [year, setYear] = useState(0);
+  const [period, setPeriod] = useState(0);
+  const [maxPeriod, setMaxPeriod] = useState(12);
+  const [statement, setStatement] = useState<PropertyStatement | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  // Load the picker payload once.
+  useEffect(() => {
+    fetch("/api/financials/operating-statements")
+      .then((r) => r.json())
+      .then((j) => {
+        const list: Available[] = j.available ?? [];
+        setAvailable(list);
+        const withData = list.find((a) => a.years.length);
+        const first = withData ?? list[0];
+        if (first) {
+          setKey(first.key);
+          setYear(first.years[0] ?? new Date().getFullYear());
+        }
+      })
+      .catch(() => setError("Failed to load properties."));
+  }, []);
+
+  const load = useCallback(async () => {
+    if (!key || !year) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const qs = new URLSearchParams({ key, year: String(year) });
+      if (period) qs.set("period", String(period));
+      const j = await fetch(`/api/financials/operating-statements?${qs}`).then((r) => r.json());
+      setStatement(j.statement ?? null);
+      setMessage(j.message ?? null);
+      if (j.maxPeriodInFile) setMaxPeriod(j.maxPeriodInFile);
+      if (j.statement && !period) setPeriod(j.statement.period);
+    } finally {
+      setLoading(false);
+    }
+  }, [key, year, period]);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function onUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    setError(null);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      if (key) fd.append("key", key);
+      const j = await fetch("/api/financials/operating-statements", { method: "POST", body: fd }).then((r) => r.json());
+      if (j.error) { setError(j.error); return; }
+      // Refresh picker + jump to the uploaded property/year.
+      const av = await fetch("/api/financials/operating-statements").then((r) => r.json());
+      setAvailable(av.available ?? []);
+      setKey(j.key);
+      setYear(j.year);
+      setPeriod(0);
+    } catch {
+      setError("Upload failed.");
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  }
+
+  const cur = available.find((a) => a.key === key);
+  const yearOptions = cur?.years.length ? cur.years : [year || new Date().getFullYear()];
+
   return (
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
       <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
@@ -18,16 +157,181 @@ export default function OperatingStatementsPage() {
         </div>
       </header>
 
-      <div className="card">
-        <div style={{ fontWeight: 700, marginBottom: 4 }}>Coming soon</div>
-        <div className="muted small" style={{ lineHeight: 1.6 }}>
-          The operating-statement engine is in place — per-property GL line
-          mappings, the account-mask matcher, and the compute (Actual / Budget /
-          Variance, current period + YTD, with a trial-balance tie-out). This
-          view turns on once the monthly GL / Trial-Balance import is wired; it
-          will mirror the Operating Budgets layout for consistency.
+      {error && (
+        <div className="card" style={{ borderColor: "rgba(220,38,38,0.35)", background: "rgba(220,38,38,0.04)" }}>
+          <div style={{ fontWeight: 700, color: "#b91c1c" }}>Error</div>
+          <div className="muted small">{error}</div>
         </div>
+      )}
+
+      <div className="card">
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", minWidth: 0 }}>
+            <HeaderSelect value={String(year)} onChange={(v) => { setYear(Number(v)); setPeriod(0); }} displayLabel={String(year || "—")} ariaLabel="Year" muted>
+              {yearOptions.map((y) => <option key={y} value={y}>{y}</option>)}
+            </HeaderSelect>
+            <HeaderSelect value={key} onChange={(v) => { setKey(v); setPeriod(0); }} displayLabel={cur ? `${cur.propertyCode} — ${cur.name}` : "—"} ariaLabel="Property">
+              {available.map((a) => (
+                <option key={a.key} value={a.key}>{a.propertyCode} — {a.name}{a.years.length ? "" : " (no GL)"}</option>
+              ))}
+            </HeaderSelect>
+            {statement && (
+              <HeaderSelect value={String(period || statement.period)} onChange={(v) => setPeriod(Number(v))} displayLabel={`Period ${period || statement.period}`} ariaLabel="Period" muted>
+                {Array.from({ length: maxPeriod }, (_, i) => i + 1).map((p) => (
+                  <option key={p} value={p}>Period {p} — {MONTHS[p - 1]}</option>
+                ))}
+              </HeaderSelect>
+            )}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <button className="btn primary" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }} disabled={uploading} onClick={() => fileRef.current?.click()}>
+              {uploading ? "Uploading…" : "Upload GL"}
+            </button>
+            <input ref={fileRef} type="file" accept=".xls,.xlsx,.xlsm" style={{ display: "none" }} onChange={onUpload} />
+          </div>
+        </div>
+
+        {statement && (
+          <div className="pills" style={{ marginTop: 12 }}>
+            <StatPill label="Total Revenues (YTD)" value={money0(statement.rollups.totalRevenues.ytdActual)} />
+            <StatPill label="Operating Expenses (YTD)" value={money0(statement.rollups.totalOperatingExpenses.ytdActual)} />
+            <StatPill label="NOI (YTD)" value={money0(statement.rollups.netOperatingIncome.ytdActual)} accent={statement.rollups.netOperatingIncome.ytdActual >= 0 ? "#15803d" : "#b91c1c"} />
+            <StatPill label="Cash Flow After Debt (YTD)" value={money0(statement.rollups.cashFlowAfterDebtService.ytdActual)} accent={statement.rollups.cashFlowAfterDebtService.ytdActual >= 0 ? "#15803d" : "#b91c1c"} />
+          </div>
+        )}
       </div>
+
+      {loading && <div className="card"><div className="muted small">Loading…</div></div>}
+
+      {!loading && !statement && (
+        <div className="card">
+          <div style={{ fontWeight: 700, marginBottom: 4 }}>No statement yet</div>
+          <div className="muted small">{message ?? "Upload this property's Skyline GL export to generate its operating statement."}</div>
+        </div>
+      )}
+
+      {!loading && statement && <StatementTable s={statement} />}
     </main>
+  );
+}
+
+// ── Statement table ──────────────────────────────────────────────────────────
+
+function StatementTable({ s }: { s: PropertyStatement }) {
+  const byRole = (roles: SectionRole[]) => s.sections.filter((x) => roles.includes(x.role));
+  const revenueSecs = byRole(["revenue", "reimbursement"]);
+  const expenseSecs = byRole(["reimbursable-expense", "non-reimbursable-expense", "residential-expense"]);
+  const capitalSecs = byRole(["capital"]);
+  const debtSecs = byRole(["debt-service"]);
+  const r = s.rollups;
+
+  return (
+    <div className="card" style={{ overflowX: "auto" }}>
+      <div style={{ fontSize: 17, fontWeight: 800 }}>{s.propertyCode} — {s.propertyName}</div>
+      <div className="muted small">{s.entityName} · Comparative Income Statement · {MONTHS[s.period - 1]} {s.year}</div>
+
+      <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 12, minWidth: 920 }}>
+        <thead>
+          <tr>
+            <th style={{ ...th, textAlign: "left" }} />
+            <th style={{ ...th, textAlign: "left" }} />
+            <th colSpan={3} style={{ ...th, textAlign: "center", borderLeft: SEP }}>Current Period</th>
+            <th colSpan={3} style={{ ...th, textAlign: "center", borderLeft: SEP }}>Year-To-Date</th>
+            <th style={{ ...th, borderLeft: SEP }}>Ann.</th>
+          </tr>
+          <tr>
+            <th style={{ ...th, textAlign: "left" }}>Acct</th>
+            <th style={{ ...th, textAlign: "left" }}>Description</th>
+            <th style={{ ...th, borderLeft: SEP }}>Actual</th>
+            <th style={th}>Budget</th>
+            <th style={th}>Var</th>
+            <th style={{ ...th, borderLeft: SEP }}>Actual</th>
+            <th style={th}>Budget</th>
+            <th style={th}>Var</th>
+            <th style={{ ...th, borderLeft: SEP }}>Budget</th>
+          </tr>
+        </thead>
+        <tbody>
+          {revenueSecs.map((sec) => <Section key={sec.name} sec={sec} />)}
+          <Rollup label="Total Revenues" t={r.totalRevenues} />
+          {expenseSecs.map((sec) => <Section key={sec.name} sec={sec} />)}
+          <Rollup label="Total Operating Expenses" t={r.totalOperatingExpenses} />
+          <Rollup label="Net Operating Income" t={r.netOperatingIncome} strong />
+          {capitalSecs.map((sec) => <Section key={sec.name} sec={sec} hideSubtotal />)}
+          <Rollup label="Cash Flow Before Debt Service" t={r.cashFlowBeforeDebtService} strong />
+          {debtSecs.map((sec) => <Section key={sec.name} sec={sec} />)}
+          {debtSecs.length > 0 && <Rollup label="Total Debt Service" t={r.totalDebtService} />}
+          <Rollup label="Cash Flow After Debt Service" t={r.cashFlowAfterDebtService} strong />
+        </tbody>
+      </table>
+
+      {s.unmappedAccounts.length > 0 && (
+        <div style={{ marginTop: 14, padding: "10px 12px", borderRadius: 8, background: "rgba(180,83,9,0.06)", border: "1px solid rgba(180,83,9,0.3)" }}>
+          <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.04em", color: "#b45309" }}>
+            Trial-balance tie-out — {s.unmappedAccounts.length} GL account{s.unmappedAccounts.length === 1 ? "" : "s"} not on the statement
+          </div>
+          <div className="muted small" style={{ marginTop: 4, lineHeight: 1.6 }}>
+            These carry a YTD balance but map to no statement line (depreciation, interest, balance-sheet, deferred costs, rounding). Expected for non-operating accounts; review if an operating account appears here.
+          </div>
+          <div style={{ marginTop: 6, display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {s.unmappedAccounts.slice(0, 24).map((u) => (
+              <code key={u.account} style={{ fontSize: 11, color: "#7c2d12" }}>{u.account}: {money0(u.ytdActual)}</code>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <p className="small muted" style={{ marginTop: 10 }}>
+        Actual = GL Debit − Credit (revenue shown positive). Variance is favorable when positive (revenue over budget / expense under budget). Budget columns line up to the {s.year} portal budget — populated in the next step.
+      </p>
+    </div>
+  );
+}
+
+function figureCells(t: StatementTotals) {
+  return (
+    <>
+      <td style={{ ...td, borderLeft: SEP }}>{money0(t.periodActual)}</td>
+      <td style={{ ...td, color: "var(--muted)" }}>{money0(t.periodBudget)}</td>
+      <td style={{ ...td, color: varColor(t.periodVariance) }}>{money0(t.periodVariance)}</td>
+      <td style={{ ...td, borderLeft: SEP }}>{money0(t.ytdActual)}</td>
+      <td style={{ ...td, color: "var(--muted)" }}>{money0(t.ytdBudget)}</td>
+      <td style={{ ...td, color: varColor(t.ytdVariance) }}>{money0(t.ytdVariance)}</td>
+      <td style={{ ...td, borderLeft: SEP, color: "var(--muted)" }}>{money0(t.annualBudget)}</td>
+    </>
+  );
+}
+
+function Section({ sec, hideSubtotal }: { sec: StatementSection; hideSubtotal?: boolean }) {
+  return (
+    <>
+      <tr>
+        <td colSpan={9} style={{ padding: "10px 10px 3px", fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em", color: ROLE_COLOR[sec.role] ?? "var(--muted)" }}>{sec.name}</td>
+      </tr>
+      {sec.lines.map((l) => (
+        <tr key={l.label} style={{ borderBottom: "1px solid var(--border)" }}>
+          <td style={{ ...td, textAlign: "left" }}><code style={{ fontSize: 11, color: "var(--muted)" }}>{l.mask}</code></td>
+          <td style={{ ...td, textAlign: "left" }}>{l.label}</td>
+          {figureCells(l)}
+        </tr>
+      ))}
+      {!hideSubtotal && (
+        <tr style={{ fontWeight: 700, borderBottom: "1px solid var(--border)" }}>
+          <td style={td} />
+          <td style={{ ...td, textAlign: "left" }}>Total {sec.name}</td>
+          {figureCells(sec.subtotal)}
+        </tr>
+      )}
+    </>
+  );
+}
+
+function Rollup({ label, t, strong }: { label: string; t: StatementTotals; strong?: boolean }) {
+  return (
+    <tr style={{ fontWeight: 800, borderTop: strong ? SEP : "1px solid var(--border)", borderBottom: strong ? SEP : undefined, background: strong ? "var(--hover, rgba(0,0,0,0.02))" : undefined }}>
+      <td style={td} />
+      <td style={{ ...td, textAlign: "left" }}>{label}</td>
+      {figureCells(t)}
+    </tr>
   );
 }
