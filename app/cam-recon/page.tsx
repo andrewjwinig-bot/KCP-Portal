@@ -509,10 +509,20 @@ export default function OfficeCamReconPage() {
   const selLabel = selected ? `${selected.suite} — ${selected.name}`
     : rSelected ? `${rSelected.suite} — ${rSelected.name}` : "All Tenants";
   const tenantIdx = hasSel ? dropdownTenants.findIndex((t) => t.unitRef === unit) : -1;
+  // Selecting a tenant that is billed quarterly (e.g. Wawa @ 9510) redirects to
+  // its dedicated quarterly CAM/RET page rather than opening the (empty) annual
+  // statement — it's reconciled as its own pseudo-property.
+  const pickUnit = (unitRef: string) => {
+    const q = Object.values(QUARTERLY_BILLINGS).find(
+      (d) => d.parentProperty === property && d.unitRef === unitRef
+    );
+    if (q) { setProperty(q.key); return; }
+    setUnit(unitRef);
+  };
   const goTenant = (dir: 1 | -1) => {
     if (tenantIdx < 0) return;
     const next = tenantIdx + dir;
-    if (next >= 0 && next < dropdownTenants.length) setUnit(dropdownTenants[next].unitRef);
+    if (next >= 0 && next < dropdownTenants.length) pickUnit(dropdownTenants[next].unitRef);
   };
   const totals = result?.totals;
   const propName = available.find((a) => a.propertyCode === property)?.name ?? "";
@@ -596,7 +606,7 @@ export default function OfficeCamReconPage() {
                   title="Previous tenant"
                   style={{ ...arrowBtn, opacity: tenantIdx <= 0 ? 0.35 : 1, cursor: tenantIdx <= 0 ? "default" : "pointer" }}>‹</button>
               )}
-              <HeaderSelect value={unit} onChange={setUnit} displayLabel={selLabel} ariaLabel="Tenant" muted>
+              <HeaderSelect value={unit} onChange={pickUnit} displayLabel={selLabel} ariaLabel="Tenant" muted>
                 <option value="ALL">All Tenants</option>
                 {dropdownTenants.map((t) => <option key={t.unitRef} value={t.unitRef}>{t.suite} — {t.name}</option>)}
               </HeaderSelect>
@@ -718,7 +728,7 @@ export default function OfficeCamReconPage() {
       {isQuarterly && <QuarterlyBilling billingKey={property} year={year} />}
 
       {/* Building Summary is always the top content card. */}
-      {!isQuarterly && isRetail && !rSelected && activeRetail && <RetailBuildingSummary result={activeRetail} onPick={setUnit} onEditEscrow={saveRetailField} />}
+      {!isQuarterly && isRetail && !rSelected && activeRetail && <RetailBuildingSummary result={activeRetail} onPick={pickUnit} onEditEscrow={saveRetailField} />}
       {isRetail && !rSelected && !isMixed && expenseFinal && (
         <RetailFinalExpenseSummary
           data={expenseFinal}
@@ -727,10 +737,10 @@ export default function OfficeCamReconPage() {
         />
       )}
       {isRetail && !rSelected && allocation && <AllocationBreakdown a={allocation} />}
-      {isRetail && !rSelected && activeRetail && <RetailConfigTable result={activeRetail} onPick={setUnit} />}
+      {isRetail && !rSelected && activeRetail && <RetailConfigTable result={activeRetail} onPick={pickUnit} />}
       {isRetail && rSelected && <RetailTenantStatement t={rSelected} reconYear={year} contact={contacts[rSelected.unitRef]} />}
 
-      {!selected && result && <BuildingSummary result={result} onPick={setUnit} onEditEscrow={saveField} />}
+      {!selected && result && <BuildingSummary result={result} onPick={pickUnit} onEditEscrow={saveField} />}
       {!selected && result && <RecoveryByBaseYear result={result} />}
       {!selected && expenseSummary.length > 0 && <FinalExpenseSummary rows={expenseSummary} editable={expenseEditable} year={year} onEdit={saveExpense} historyYears={expenseHistoryYears} historyHref={`/rentroll/base-years?property=${property}`} />}
       {selected && <TenantStatement t={selected} reconYear={year} estimate={estimates.find((e) => e.unitRef === selected.unitRef)} contact={contacts[selected.unitRef]} />}
