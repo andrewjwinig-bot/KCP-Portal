@@ -530,17 +530,40 @@ export default function OfficeCamReconPage() {
   // Headline pills follow the selection: a tenant's balances when one is
   // picked, otherwise the building totals. Retail surfaces real CAM/INS/RET
   // pools; office has no separate insurance recovery (it's a CAM line) → $0.
+  // Building totals exclude quarter-billed tenants (e.g. Wawa @ 9510) — they're
+  // reconciled on their own worksheet, so their annual figures don't apply here.
+  const retailBuildingTotals = activeRetail
+    ? activeRetail.tenants.reduce(
+        (a, t) => {
+          const isQ = Object.values(QUARTERLY_BILLINGS).some(
+            (d) => d.parentProperty === activeRetail.propertyCode && d.unitRef === t.unitRef
+          );
+          return isQ ? a : { cam: a.cam + t.camBalance, ins: a.ins + t.insBalance, ret: a.ret + t.retBalance };
+        },
+        { cam: 0, ins: 0, ret: 0 }
+      )
+    : { cam: 0, ins: 0, ret: 0 };
   const camDue = isRetail
-    ? (rSelected ? rSelected.camBalance : activeRetail?.totals.camBalance ?? 0)
+    ? (rSelected ? rSelected.camBalance : retailBuildingTotals.cam)
     : selected ? selected.opexBalance : totals?.opexBalance ?? 0;
   const retDue = isRetail
-    ? (rSelected ? rSelected.retBalance : activeRetail?.totals.retBalance ?? 0)
+    ? (rSelected ? rSelected.retBalance : retailBuildingTotals.ret)
     : selected ? selected.retBalance : totals?.retBalance ?? 0;
-  const insDue = isRetail ? (rSelected ? rSelected.insBalance : activeRetail?.totals.insBalance ?? 0) : 0;
+  const insDue = isRetail ? (rSelected ? rSelected.insBalance : retailBuildingTotals.ins) : 0;
   const totalDue = camDue + insDue + retDue;
   // A negative balance is a credit owed back to the tenant; positive is
   // collected from the tenant. (Zero → no direction shown.)
   const direction = (v: number) => (v < -0.005 ? "to Tenant" : v > 0.005 ? "from Tenant" : "");
+  // Reconciliation balance tiles — shown in the header for a selected tenant,
+  // or at the bottom of the Building Summary card for the building view.
+  const kpiTiles = !isQuarterly ? (
+    <div className="pills">
+      <StatPill label={`CAM Due${direction(camDue) ? ` ${direction(camDue)}` : ""}`} value={money0(Math.abs(camDue))} accent={reconBalanceTone(camDue).fg} />
+      <StatPill label={`INS Due${direction(insDue) ? ` ${direction(insDue)}` : ""}`} value={money0(Math.abs(insDue))} accent={reconBalanceTone(insDue).fg} />
+      <StatPill label={`RET Due${direction(retDue) ? ` ${direction(retDue)}` : ""}`} value={money0(Math.abs(retDue))} accent={reconBalanceTone(retDue).fg} />
+      <StatPill label={`Total Due${direction(totalDue) ? ` ${direction(totalDue)}` : ""}`} value={money0(Math.abs(totalDue))} accent={reconBalanceTone(totalDue).fg} />
+    </div>
+  ) : null;
 
   // One compiled year-end adjustment schedule across every office property
   // for the selected year — a single one-time Skyline import.
@@ -695,14 +718,9 @@ export default function OfficeCamReconPage() {
           )}
         </div>
 
-        {!isQuarterly && (
-        <div className="pills">
-          <StatPill label={`CAM Due${direction(camDue) ? ` ${direction(camDue)}` : ""}`} value={money0(Math.abs(camDue))} accent={reconBalanceTone(camDue).fg} />
-          <StatPill label={`INS Due${direction(insDue) ? ` ${direction(insDue)}` : ""}`} value={money0(Math.abs(insDue))} accent={reconBalanceTone(insDue).fg} />
-          <StatPill label={`RET Due${direction(retDue) ? ` ${direction(retDue)}` : ""}`} value={money0(Math.abs(retDue))} accent={reconBalanceTone(retDue).fg} />
-          <StatPill label={`Total Due${direction(totalDue) ? ` ${direction(totalDue)}` : ""}`} value={money0(Math.abs(totalDue))} accent={reconBalanceTone(totalDue).fg} />
-        </div>
-        )}
+        {/* For a selected tenant the balance tiles sit in the header; for the
+            building view they move to the bottom of the Building Summary card. */}
+        {hasSel && kpiTiles}
       </div>
 
       {loading && <div className="card"><div className="muted small">Loading…</div></div>}
@@ -728,7 +746,7 @@ export default function OfficeCamReconPage() {
       {isQuarterly && <QuarterlyBilling billingKey={property} year={year} />}
 
       {/* Building Summary is always the top content card. */}
-      {!isQuarterly && isRetail && !rSelected && activeRetail && <RetailBuildingSummary result={activeRetail} onPick={pickUnit} onEditEscrow={saveRetailField} />}
+      {!isQuarterly && isRetail && !rSelected && activeRetail && <RetailBuildingSummary result={activeRetail} onPick={pickUnit} onEditEscrow={saveRetailField} footer={kpiTiles} />}
       {isRetail && !rSelected && !isMixed && expenseFinal && (
         <RetailFinalExpenseSummary
           data={expenseFinal}
@@ -740,7 +758,7 @@ export default function OfficeCamReconPage() {
       {isRetail && !rSelected && activeRetail && <RetailConfigTable result={activeRetail} onPick={pickUnit} />}
       {isRetail && rSelected && <RetailTenantStatement t={rSelected} reconYear={year} contact={contacts[rSelected.unitRef]} />}
 
-      {!selected && result && <BuildingSummary result={result} onPick={pickUnit} onEditEscrow={saveField} />}
+      {!selected && result && <BuildingSummary result={result} onPick={pickUnit} onEditEscrow={saveField} footer={kpiTiles} />}
       {!selected && result && <RecoveryByBaseYear result={result} />}
       {!selected && expenseSummary.length > 0 && <FinalExpenseSummary rows={expenseSummary} editable={expenseEditable} year={year} onEdit={saveExpense} historyYears={expenseHistoryYears} historyHref={`/rentroll/base-years?property=${property}`} />}
       {selected && <TenantStatement t={selected} reconYear={year} estimate={estimates.find((e) => e.unitRef === selected.unitRef)} contact={contacts[selected.unitRef]} />}
@@ -815,10 +833,11 @@ function PortionPill({ portion }: { portion?: "retail" | "office" }) {
 
 const INS_TINT = "rgba(13,148,136,0.06)";
 
-function RetailBuildingSummary({ result, onPick, onEditEscrow }: {
+function RetailBuildingSummary({ result, onPick, onEditEscrow, footer }: {
   result: RetailBuildingResult;
   onPick: (u: string) => void;
   onEditEscrow: (unitRef: string, field: string, value: number | null, portion?: "retail" | "office") => void;
+  footer?: React.ReactNode;
 }) {
   const { tenants } = result;
   const isQuarterlyTenant = (u: string) => Object.values(QUARTERLY_BILLINGS).some(
@@ -928,6 +947,7 @@ function RetailBuildingSummary({ result, onPick, onEditEscrow }: {
       <p className="small muted" style={{ marginTop: 8 }}>
         Retail pro-rata: CAM = share × pool × (1 + admin), less excluded lines and any controllable cap; INS &amp; RET = share × pool (RET net of any lease discount). Balance = due − escrow billed; negative is a credit to the tenant.
       </p>
+      {footer && <div style={{ marginTop: 12 }}>{footer}</div>}
     </div>
   );
 }
@@ -1614,10 +1634,11 @@ function EditableMoney({ value, onCommit, whole = false, bg = EDIT_BG }: {
   );
 }
 
-function BuildingSummary({ result, onPick, onEditEscrow }: {
+function BuildingSummary({ result, onPick, onEditEscrow, footer }: {
   result: BuildingReconResult;
   onPick: (u: string) => void;
   onEditEscrow: (unitRef: string, field: string, value: number | null) => void;
+  footer?: React.ReactNode;
 }) {
   const { tenants, totals } = result;
   const cam = (first = false): React.CSSProperties => ({ ...td, background: CAM_TINT, ...(first ? { borderLeft: BLOCK_SEP } : {}) });
@@ -1681,6 +1702,7 @@ function BuildingSummary({ result, onPick, onEditEscrow }: {
         </tfoot>
       </table>
       <p className="small muted" style={{ marginTop: 8 }}>Click a row to open that tenant&rsquo;s reconciliation statement.</p>
+      {footer && <div style={{ marginTop: 12 }}>{footer}</div>}
     </div>
   );
 }
