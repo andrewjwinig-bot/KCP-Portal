@@ -820,7 +820,21 @@ function RetailBuildingSummary({ result, onPick, onEditEscrow }: {
   onPick: (u: string) => void;
   onEditEscrow: (unitRef: string, field: string, value: number | null, portion?: "retail" | "office") => void;
 }) {
-  const { tenants, totals } = result;
+  const { tenants } = result;
+  const isQuarterlyTenant = (u: string) => Object.values(QUARTERLY_BILLINGS).some(
+    (d) => d.parentProperty === result.propertyCode && d.unitRef === u
+  );
+  // Footer totals exclude quarter-billed tenants (e.g. Wawa @ 9510) — they're
+  // reconciled on their own worksheet, so their annual figures don't belong in
+  // the building total. Re-summed from the visible rows so the column foots.
+  const totals = tenants.filter((t) => !isQuarterlyTenant(t.unitRef)).reduce(
+    (a, t) => ({
+      camDue: a.camDue + t.camDue, camEscrow: a.camEscrow + t.camEscrow, camBalance: a.camBalance + t.camBalance,
+      insDue: a.insDue + t.insDue, insEscrow: a.insEscrow + t.insEscrow, insBalance: a.insBalance + t.insBalance,
+      retDue: a.retDue + t.retDue, retEscrow: a.retEscrow + t.retEscrow, retBalance: a.retBalance + t.retBalance,
+    }),
+    { camDue: 0, camEscrow: 0, camBalance: 0, insDue: 0, insEscrow: 0, insBalance: 0, retDue: 0, retEscrow: 0, retBalance: 0 }
+  );
   const cam = (first = false): React.CSSProperties => ({ ...td, background: CAM_TINT, ...(first ? { borderLeft: BLOCK_SEP } : {}) });
   const ins = (first = false): React.CSSProperties => ({ ...td, background: INS_TINT, ...(first ? { borderLeft: BLOCK_SEP } : {}) });
   const ret = (first = false): React.CSSProperties => ({ ...td, background: RET_TINT, ...(first ? { borderLeft: BLOCK_SEP } : {}) });
@@ -855,7 +869,23 @@ function RetailBuildingSummary({ result, onPick, onEditEscrow }: {
           </tr>
         </thead>
         <tbody>
-          {tenants.map((t) => (
+          {tenants.map((t) => {
+            // Quarter-billed tenants (e.g. Wawa @ 9510) are reconciled on their
+            // own quarterly worksheet — the annual CAM/INS/RET + escrow columns
+            // don't apply, so collapse the row into a link to that page.
+            const quarterly = Object.values(QUARTERLY_BILLINGS).find(
+              (d) => d.parentProperty === result.propertyCode && d.unitRef === t.unitRef
+            );
+            if (quarterly) return (
+              <tr key={t.unitRef} style={{ borderBottom: "1px solid var(--border)", cursor: "pointer" }} onClick={() => onPick(t.unitRef)}>
+                <td style={{ ...td, textAlign: "left" }}><UnitChip unitRef={t.unitRef} backTo={`/cam-recon?property=${result.propertyCode}&year=${result.reconYear}`} /></td>
+                <td style={{ ...td, textAlign: "left" }}>{t.name}</td>
+                <td colSpan={11} style={{ ...td, textAlign: "left" }}>
+                  <span style={{ color: "#0b4a7d", fontWeight: 700 }}>CAM / RET billed quarterly — open worksheet →</span>
+                </td>
+              </tr>
+            );
+            return (
             <tr key={t.unitRef} style={{ borderBottom: "1px solid var(--border)", cursor: "pointer", ...(t.grossLease ? { opacity: 0.5 } : {}) }} onClick={() => onPick(t.unitRef)}>
               <td style={{ ...td, textAlign: "left" }}><UnitChip unitRef={t.unitRef} backTo={`/cam-recon?property=${result.propertyCode}&year=${result.reconYear}`} /></td>
               <td style={{ ...td, textAlign: "left" }}><span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>{t.portion && <PortionPill portion={t.portion} />}<span>{t.name}{t.grossLease ? <span className="muted" style={{ fontSize: 11 }}> (Gross)</span> : t.capped ? <span style={{ fontSize: 11, color: "#b45309" }}> (capped)</span> : t.flatRet != null ? <span style={{ fontSize: 11, color: "#b45309" }}> (own-parcel RET)</span> : null}<OccCallout occPct={t.occPct} year={result.reconYear} rcd={t.rcd} vacatedISO={t.vacatedISO} /></span></span></td>
@@ -877,7 +907,8 @@ function RetailBuildingSummary({ result, onPick, onEditEscrow }: {
               </td>
               <td style={ret()}><Pill tone={reconBalanceTone(t.retBalance)}>{money0(t.retBalance)}</Pill></td>
             </tr>
-          ))}
+            );
+          })}
         </tbody>
         <tfoot>
           <tr style={{ fontWeight: 800, borderTop: "2px solid var(--border)" }}>
