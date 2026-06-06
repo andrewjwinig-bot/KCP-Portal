@@ -687,7 +687,7 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
       {/* Nav links — items rendered in source order; items with a
           groupId collapse under their group header at the point of
           first occurrence so order is preserved. */}
-      <nav style={{ flex: 1, padding: open ? "4px 8px" : "8px 6px", display: "flex", flexDirection: "column", gap: 2, minHeight: 0, overflowY: "auto", overflowX: "hidden" }}>
+      <nav className="sidebar-nav" style={{ flex: 1, padding: open ? "4px 8px" : "8px 6px", display: "flex", flexDirection: "column", gap: 2, minHeight: 0, overflowY: "auto", overflowX: "hidden" }}>
         {(() => {
           const visible = NAV.filter((item) => isVisible(item));
           const renderedGroups = new Set<string>();

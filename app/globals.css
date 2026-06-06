@@ -335,3 +335,26 @@ code {
   from { transform: rotate(0deg); }
   to   { transform: rotate(360deg); }
 }
+
+/* Sidebar nav scrollbar — thin, translucent, blends with the dark blue
+ * sidebar (#1e4976) instead of the default light browser scrollbar. */
+.sidebar-nav {
+  scrollbar-width: thin; /* Firefox */
+  scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
+}
+.sidebar-nav::-webkit-scrollbar {
+  width: 8px;
+}
+.sidebar-nav::-webkit-scrollbar-track {
+  background: transparent;
+}
+.sidebar-nav::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.sidebar-nav::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.32);
+  background-clip: padding-box;
+}
