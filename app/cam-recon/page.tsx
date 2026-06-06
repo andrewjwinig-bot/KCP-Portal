@@ -618,7 +618,7 @@ export default function OfficeCamReconPage() {
                 style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700, textDecoration: "none" }}
                 title="Open this unit's information page to edit its inputs"
               >
-                Unit Info →
+                Unit Info
               </Link>
             )}
             {/* Per-tenant / all-tenant PDFs, then the portfolio year-end export
@@ -641,12 +641,12 @@ export default function OfficeCamReconPage() {
             )}
             {isQuarterly ? null : isRetail ? (
               <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-                <button onClick={downloadAllRetailYearEnd} disabled={compilingRetail} className="btn" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}>{compilingRetail ? "Compiling…" : "SC Year-End Adjustments"}</button>
+                <button onClick={downloadAllRetailYearEnd} disabled={compilingRetail} className="btn" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}>{compilingRetail ? "Compiling…" : "SC Y/E Adjustments"}</button>
                 <InfoPopover><ImportInstructions /></InfoPopover>
               </span>
             ) : (
               <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-                <button onClick={downloadAllYearEnd} disabled={compiling} className="btn" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}>{compiling ? "Compiling…" : "BP Year-End Adjustments"}</button>
+                <button onClick={downloadAllYearEnd} disabled={compiling} className="btn" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}>{compiling ? "Compiling…" : "BP Y/E Adjustments"}</button>
                 <InfoPopover><ImportInstructions /></InfoPopover>
               </span>
             )}
