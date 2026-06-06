@@ -609,18 +609,6 @@ export default function OfficeCamReconPage() {
             )}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-            {/* Jump to the selected tenant's unit detail page (where the CAM
-                methodology inputs are edited), returning to this exact view. */}
-            {unitInfoHref && (
-              <Link
-                href={unitInfoHref}
-                className="btn"
-                style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700, textDecoration: "none" }}
-                title="Open this unit's information page to edit its inputs"
-              >
-                Unit Info
-              </Link>
-            )}
             {/* Per-tenant / all-tenant PDFs, then the portfolio year-end export
                 (with an info popover for the Skyline import steps). */}
             {isQuarterly ? null : isRetail ? (
@@ -667,7 +655,8 @@ export default function OfficeCamReconPage() {
             <>
               <Pill tone={TONE_NEUTRAL}>{pct(rSelected.camPrs / 100)} CAM Share</Pill>
               <Pill tone={TONE_NEUTRAL}>{rSelected.adminFeePct ? `${rSelected.adminFeePct}% Admin` : "No Admin Fee"}</Pill>
-              <Pill tone={TONE_NEUTRAL}>{pct(rSelected.insPrs / 100)} INS · {pct(rSelected.retPrs / 100)} RET</Pill>
+              <Pill tone={TONE_NEUTRAL}>{pct(rSelected.insPrs / 100)} INS Share</Pill>
+              <Pill tone={TONE_NEUTRAL}>{pct(rSelected.retPrs / 100)} RET Share</Pill>
               {rSelected.occPct < 0.9999 && <Pill tone={TONE_AMBER}>{pct(rSelected.occPct, 1)} Occupancy</Pill>}
               {rSelected.capped && <Pill tone={TONE_AMBER}>CAM Capped</Pill>}
               {rSelected.retDiscountPct > 0 && <Pill tone={TONE_NEUTRAL}>{rSelected.retDiscountPct}% RET Discount</Pill>}
@@ -680,6 +669,19 @@ export default function OfficeCamReconPage() {
             <span className="muted small">{activeRetail?.tenants.length ?? 0} tenants reconciled · {isMixed ? "retail + office · " : ""}CAM / INS / RET pro-rata share, year-end true-up</span>
           ) : (
             <span className="muted small">{tenants.length} tenants reconciled · base-year expense recovery, year-end true-up</span>
+          )}
+          {/* Jump to the selected unit's detail page (where the CAM methodology
+              inputs are edited), returning to this exact view. Sits with the
+              per-tenant methodology pills, right-aligned. */}
+          {unitInfoHref && (
+            <Link
+              href={unitInfoHref}
+              className="btn"
+              style={{ marginLeft: "auto", fontSize: 12, padding: "5px 12px", fontWeight: 700, textDecoration: "none" }}
+              title="Open this unit's information page to edit its inputs"
+            >
+              Unit Info
+            </Link>
           )}
         </div>
 
