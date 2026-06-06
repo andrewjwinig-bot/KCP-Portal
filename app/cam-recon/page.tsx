@@ -15,6 +15,7 @@ import type { PropertyAllocation } from "@/lib/cam/retail/allocation";
 import { retailYearEndRows } from "@/lib/cam/retail/exports";
 import {
   QUARTERS,
+  QUARTERLY_BILLINGS,
   computeQuarterly,
   emptyQuarterlyData,
   type Quarter,
@@ -498,6 +499,13 @@ export default function OfficeCamReconPage() {
   const selected = !isRetail && unit !== "ALL" ? tenants.find((t) => t.unitRef === unit) ?? null : null;
   const rSelected = isRetail && unit !== "ALL" ? rTenants.find((t) => t.unitRef === unit) ?? null : null;
   const hasSel = !!(selected || rSelected);
+  // Target unit for the header "Unit Info" link: the selected tenant on a
+  // normal statement, or the quarter-billed tenant (e.g. Wawa) on a quarterly
+  // view. The back-link omits ?unit for quarterly since it has no tenant picker.
+  const unitInfoRef = isQuarterly ? (QUARTERLY_BILLINGS[property]?.unitRef ?? null) : (hasSel ? unit : null);
+  const unitInfoHref = unitInfoRef
+    ? `/rentroll/units/${encodeURIComponent(unitInfoRef)}?from=${encodeURIComponent(`/cam-recon?property=${property}&year=${year}${isQuarterly ? "" : `&unit=${unit}`}`)}`
+    : null;
   const selLabel = selected ? `${selected.suite} — ${selected.name}`
     : rSelected ? `${rSelected.suite} — ${rSelected.name}` : "All Tenants";
   const tenantIdx = hasSel ? dropdownTenants.findIndex((t) => t.unitRef === unit) : -1;
@@ -603,9 +611,9 @@ export default function OfficeCamReconPage() {
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             {/* Jump to the selected tenant's unit detail page (where the CAM
                 methodology inputs are edited), returning to this exact view. */}
-            {hasSel && !isQuarterly && (
+            {unitInfoHref && (
               <Link
-                href={`/rentroll/units/${encodeURIComponent(unit)}?from=${encodeURIComponent(`/cam-recon?property=${property}&year=${year}&unit=${unit}`)}`}
+                href={unitInfoHref}
                 className="btn"
                 style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700, textDecoration: "none" }}
                 title="Open this unit's information page to edit its inputs"
