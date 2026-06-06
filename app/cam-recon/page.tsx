@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { Pill, StatPill, reconBalanceTone, TONE_NEUTRAL, TONE_AMBER, TONE_BLUE, TONE_PURPLE } from "@/app/components/Pill";
 import { ImportInstructions } from "@/app/components/ImportInstructions";
@@ -286,6 +286,10 @@ export default function OfficeCamReconPage() {
   const [property, setProperty] = useState<string>("");
   const [year, setYear] = useState<number>(0);
   const [unit, setUnit] = useState<string>("ALL");
+  // A unit ref carried back via the URL (?unit=) when returning from a unit
+  // detail page — restored once after the property/year load so the round-trip
+  // lands on the same tenant statement.
+  const pendingUnitRef = useRef<string | null>(null);
   const [result, setResult] = useState<BuildingReconResult | null>(null);
   const [retailResult, setRetailResult] = useState<RetailBuildingResult | null>(null);
   // Office part of a mixed center (e.g. 7010 office), shown as a sub-tab.
@@ -327,6 +331,9 @@ export default function OfficeCamReconPage() {
       if (match) {
         setProperty(match.propertyCode);
         setYear(match.years.includes(wantYear) ? wantYear : match.years[0]);
+        // Returning from a unit page: restore the previously-open tenant.
+        const wantUnit = sp.get("unit");
+        if (wantUnit && wantUnit !== "ALL") pendingUnitRef.current = wantUnit;
       } else if (list.length) {
         setProperty(list[0].propertyCode);
         setYear(list[0].years[0]);
@@ -418,7 +425,9 @@ export default function OfficeCamReconPage() {
     if (!property || !year) return;
     // Remember the last-viewed selection so clicking out and back stays here.
     try { localStorage.setItem("camRecon:property", property); localStorage.setItem("camRecon:year", String(year)); } catch {}
-    setUnit("ALL");
+    // Restore the tenant carried back from a unit page once; otherwise reset.
+    if (pendingUnitRef.current) { setUnit(pendingUnitRef.current); pendingUnitRef.current = null; }
+    else setUnit("ALL");
     loadResult();
   }, [property, year, loadResult]);
 
@@ -592,6 +601,18 @@ export default function OfficeCamReconPage() {
             )}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            {/* Jump to the selected tenant's unit detail page (where the CAM
+                methodology inputs are edited), returning to this exact view. */}
+            {hasSel && !isQuarterly && (
+              <Link
+                href={`/rentroll/units/${encodeURIComponent(unit)}?from=${encodeURIComponent(`/cam-recon?property=${property}&year=${year}&unit=${unit}`)}`}
+                className="btn"
+                style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700, textDecoration: "none" }}
+                title="Open this unit's information page to edit its inputs"
+              >
+                Unit Info →
+              </Link>
+            )}
             {/* Per-tenant / all-tenant PDFs, then the portfolio year-end export
                 (with an info popover for the Skyline import steps). */}
             {isQuarterly ? null : isRetail ? (
