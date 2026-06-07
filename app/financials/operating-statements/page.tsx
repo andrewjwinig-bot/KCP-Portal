@@ -197,7 +197,10 @@ export default function OperatingStatementsPage() {
 
         <p className="muted small" style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 6 }}>
           <span>Import the <b>Detailed General Ledger</b> Excel file (.xls or .xlsx).</span>
-          <ImportInstructionsButton />
+          <ImportInstructionsButton
+            year={year || new Date().getFullYear()}
+            nextPeriod={statement ? Math.min(maxPeriod + 1, 12) : 1}
+          />
         </p>
 
         {statement && (
@@ -352,7 +355,11 @@ function Rollup({ label, t, strong }: { label: string; t: StatementTotals; stron
 
 // ── Import instructions (Skyline → Portal), mirroring the Rent Roll page ──────
 
-function ImportInstructionsButton() {
+function fmtMDY(d: Date): string {
+  return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`;
+}
+
+function ImportInstructionsButton({ year, nextPeriod }: { year: number; nextPeriod: number }) {
   const [open, setOpen] = useState(false);
   return (
     <>
@@ -370,12 +377,12 @@ function ImportInstructionsButton() {
       >
         i
       </button>
-      {open && <ImportInstructionsModal onClose={() => setOpen(false)} />}
+      {open && <ImportInstructionsModal onClose={() => setOpen(false)} year={year} nextPeriod={nextPeriod} />}
     </>
   );
 }
 
-function ImportInstructionsModal({ onClose }: { onClose: () => void }) {
+function ImportInstructionsModal({ onClose, year, nextPeriod }: { onClose: () => void; year: number; nextPeriod: number }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", onKey);
@@ -413,7 +420,12 @@ function ImportInstructionsModal({ onClose }: { onClose: () => void }) {
           <div style={sectionLabelStyle}>1. Export Detailed General Ledger from Skyline</div>
           <ol style={{ marginTop: 8, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 6, fontSize: 14 }}>
             <li>Skyline: <b>General Ledger → Reports → Detailed General Ledger</b>.</li>
-            <li>Select <b>Beginning Date</b> (1/1 of the year) and <b>End Date</b> (the month-end being reported) — year-to-date, so the report carries each month&rsquo;s totals.</li>
+            <li>{(() => {
+              const start = new Date(year, 0, 1);
+              const end = new Date(year, nextPeriod, 0);
+              const label = end.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+              return <>Select <b>Beginning Date</b> (<b>{fmtMDY(start)}</b>) and <b>End Date</b> (<b>{fmtMDY(end)}</b>) — year-to-date through <b>{label}</b>, so the report carries each month&rsquo;s totals.</>;
+            })()}</li>
             <li>From the Detailed General Ledger report, select <b>Export</b> in the upper left.</li>
             <li>Select <b>Microsoft Excel (97-2003) (.xls)</b> — the selection from the top.</li>
             <li>Hit <b>Save</b> and save to a location where the file can be accessed outside of Skyline (e.g. Desktop). File name is not important.</li>
