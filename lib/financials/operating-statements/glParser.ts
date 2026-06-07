@@ -1,43 +1,33 @@
-// Parses a Skyline "Year-To-Date / Multi-Year General Ledger" export into the
-// per-account period + YTD summary the statement compute consumes.
+// Parses a Skyline General Ledger export into per-account period + YTD
+// activity. Supports the two report layouts seen in the wild:
 //
-// The export is a transaction report grouped by account:
+//  A) "Detailed General Ledger" (the report staff actually run) — a single
+//     signed `Amount` column, transactions carrying a `Trans Date`, and an
+//     account header row that also holds the "Beginning Balance". P&L accounts
+//     carry a non-zero beginning balance (prior-period accumulation), so we
+//     sum the DATED TRANSACTIONS per month (verified to reproduce each
+//     account's "<Month> Total" exactly) rather than trusting balances.
 //
-//   <account>  <name>                                   <opening balance>
-//     MM/DD/YY  <description>           Jnl  Ref   Debit   Credit   Balance
-//     …
-//                 <Month> [YYYY] Total                  Σdr     Σcr   <running bal>
-//     … (one Total row per month) …
-//                                Total                  Σdr     Σcr   <ending bal>
+//  B) "Year-To-Date General Ledger" — separate Debit/Credit columns and one
+//     "<Month> Total" row per account; P&L opens at $0. (Older sample.)
 //
-// Key facts that make this robust (verified against the 7010 FY2025 export):
-//   • P&L accounts open at $0, so a single YTD-range report yields BOTH the
-//     current-period figure (that month's Total row) and YTD (Σ of monthly
-//     nets through the period) — no second file needed.
-//   • Net activity = Debit − Credit. Revenue/reimbursement accounts are
-//     credit-normal (net negative); compute.ts flips their sign to positive.
-//   • We read the MONTHLY TOTAL rows, not individual transactions — exact and
-//     cheap. (Transactions stay available for a future drill-down.)
-//   • The Debit column drifts (col 22 vs 23 across exports) while Credit/Balance
-//     are stable, so columns are located by header label with a scan window.
+// Either way the result is per-account monthly nets (Debit − Credit, i.e.
+// revenue credit-normal/negative; compute.ts flips revenue to positive). One
+// upload powers any reporting period.
 //
-// Pure + dependency-free: takes a row matrix (the API converts the .xls/.xlsx
-// via the `xlsx` lib) so it's trivially unit-tested.
+// Pure + dependency-free (takes a row matrix; the API converts the .xls/.xlsx
+// via the `xlsx` lib), so it's trivially unit-tested.
 
 import type { GlSummaryRow } from "./types";
 
 export type GlParseResult = {
   propertyCode: string | null;
   year: number | null;
-  /** Inclusive reporting period (1–12) requested. */
   period: number;
-  /** Last period present in the file (≥ requested period is clamped to this). */
   maxPeriodInFile: number;
   rows: GlSummaryRow[];
 };
 
-/** Per-account monthly nets (Debit − Credit), index 0 = Jan. This is what gets
- *  stored from one upload so any period can be computed without re-uploading. */
 export type GlMonthly = {
   propertyCode: string | null;
   year: number | null;
@@ -46,22 +36,21 @@ export type GlMonthly = {
   monthly: Record<string, number[]>;
 };
 
-type Cell = string | number | null | undefined;
+type Cell = string | number | boolean | Date | null | undefined;
 type Row = Cell[];
 
+const ACCOUNT_RE = /^\d{4}-\d{4}$/;
 const MONTHS = [
   "january", "february", "march", "april", "may", "june",
   "july", "august", "september", "october", "november", "december",
 ];
-
-const ACCOUNT_RE = /^\d{4}-\d{4}$/;
 const MONTH_TOTAL_RE = new RegExp(`^\\s*(${MONTHS.join("|")})(?:\\s+\\d{4})?\\s+total\\b`, "i");
 
 function asStr(v: Cell): string {
   return v == null ? "" : String(v).trim();
 }
 
-/** First finite number found in columns [lo, hi] inclusive. */
+/** First finite number in columns [lo, hi]. */
 function numIn(row: Row, lo: number, hi: number): number {
   for (let c = lo; c <= hi && c < row.length; c++) {
     const v = row[c];
@@ -74,20 +63,15 @@ function numIn(row: Row, lo: number, hi: number): number {
   return 0;
 }
 
-/** Locate the Debit / Credit / Balance columns from the header row that labels
- *  them. Falls back to the observed defaults if the header isn't found. */
-function findColumns(rows: Row[]): { debit: number; credit: number; balance: number } {
-  for (const row of rows.slice(0, 30)) {
-    let debit = -1, credit = -1, balance = -1;
-    row.forEach((v, c) => {
-      const s = asStr(v).toLowerCase();
-      if (s === "debit") debit = c;
-      else if (s === "credit") credit = c;
-      else if (s === "balance") balance = c;
-    });
-    if (debit >= 0 && credit >= 0 && balance >= 0) return { debit, credit, balance };
+/** Column whose header cell (in the first ~14 rows) contains any of the labels. */
+function headerCol(rows: Row[], ...labels: string[]): number | null {
+  for (const row of rows.slice(0, 14)) {
+    for (let c = 0; c < row.length; c++) {
+      const s = asStr(row[c]).toLowerCase().replace(/\s+/g, " ").trim();
+      if (s && labels.some((l) => s.includes(l))) return c;
+    }
   }
-  return { debit: 23, credit: 25, balance: 28 };
+  return null;
 }
 
 function findFirst(rows: Row[], re: RegExp): RegExpMatchArray | null {
@@ -100,23 +84,42 @@ function findFirst(rows: Row[], re: RegExp): RegExpMatchArray | null {
   return null;
 }
 
-/** Parse the GL into per-account monthly nets + header meta. */
-export function parseGeneralLedgerMonthly(rows: Row[]): GlMonthly {
-  const cols = findColumns(rows);
-  // Debit value can land one column left of its header (merged cells); scan a
-  // small window from the header column.
-  const debitLo = Math.max(0, cols.debit - 1), debitHi = cols.credit - 1;
-  const creditLo = cols.credit, creditHi = cols.balance - 1;
+/** Month (1–12) from a Trans Date cell — Excel serial number, Date, or
+ *  M/D/YY string. Returns null for non-dates (Beginning Balance / Total /
+ *  blank rows), which is how transactions are separated from subtotals. */
+function monthFromCell(v: Cell): number | null {
+  if (typeof v === "number") {
+    if (v > 20000 && v < 80000) {
+      const d = new Date(Math.round(v) * 86400000 + Date.UTC(1899, 11, 30));
+      return d.getUTCMonth() + 1;
+    }
+    return null;
+  }
+  if (v instanceof Date) return v.getUTCMonth() + 1;
+  if (typeof v === "string") {
+    const m = v.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+    if (m) {
+      const mm = Number(m[1]);
+      return mm >= 1 && mm <= 12 ? mm : null;
+    }
+  }
+  return null;
+}
 
+function parseHeader(rows: Row[]): { propertyCode: string | null; year: number | null } {
   const propMatch = findFirst(rows, /Property\/Company\s*:\s*([A-Za-z0-9]+)/);
-  const propertyCode = propMatch ? propMatch[1] : null;
   const yearMatch = findFirst(rows, /(\d{1,2})\/(\d{1,2})\/(\d{4})\s+To\s+/i);
-  const year = yearMatch ? Number(yearMatch[3]) : null;
+  return {
+    propertyCode: propMatch ? propMatch[1] : null,
+    year: yearMatch ? Number(yearMatch[3]) : null,
+  };
+}
 
+/** Detailed GL: sum dated transactions per account per month. */
+function monthlyFromDetailed(rows: Row[], amountCol: number, dateCol: number): { monthly: Record<string, number[]>; maxMonth: number } {
   const monthly: Record<string, number[]> = {};
   let current: string | null = null;
   let maxMonth = 0;
-
   for (const row of rows) {
     const c1 = asStr(row[1]);
     if (ACCOUNT_RE.test(c1)) {
@@ -125,19 +128,58 @@ export function parseGeneralLedgerMonthly(rows: Row[]): GlMonthly {
       continue;
     }
     if (!current) continue;
-    // Month-total row — the label sits in the description cluster (cols ~5–9).
+    const month = monthFromCell(row[dateCol]); // null for Beginning Balance / Total rows
+    if (month == null) continue;
+    monthly[current][month - 1] += numIn(row, amountCol, amountCol + 1);
+    if (month > maxMonth) maxMonth = month;
+  }
+  return { monthly, maxMonth };
+}
+
+/** Year-To-Date GL: read the per-account monthly "Total" rows (Debit − Credit). */
+function monthlyFromDebitCredit(rows: Row[]): { monthly: Record<string, number[]>; maxMonth: number } {
+  // Debit value can land one column left of its header (merged cells).
+  const debitCol = headerCol(rows, "debit") ?? 23;
+  const creditCol = headerCol(rows, "credit") ?? 25;
+  const balanceCol = headerCol(rows, "balance") ?? 28;
+  const debitLo = Math.max(0, debitCol - 1), debitHi = creditCol - 1;
+  const creditLo = creditCol, creditHi = balanceCol - 1;
+
+  const monthly: Record<string, number[]> = {};
+  let current: string | null = null;
+  let maxMonth = 0;
+  for (const row of rows) {
+    const c1 = asStr(row[1]);
+    if (ACCOUNT_RE.test(c1)) {
+      current = c1;
+      if (!monthly[current]) monthly[current] = new Array(12).fill(0);
+      continue;
+    }
+    if (!current) continue;
     let mIdx = -1;
     for (let c = 5; c <= 10 && c < row.length; c++) {
       const m = asStr(row[c]).match(MONTH_TOTAL_RE);
       if (m) { mIdx = MONTHS.indexOf(m[1].toLowerCase()); break; }
     }
     if (mIdx >= 0) {
-      const debit = numIn(row, debitLo, debitHi);
-      const credit = numIn(row, creditLo, creditHi);
-      monthly[current][mIdx] = debit - credit;
+      monthly[current][mIdx] = numIn(row, debitLo, debitHi) - numIn(row, creditLo, creditHi);
       if (mIdx + 1 > maxMonth) maxMonth = mIdx + 1;
     }
   }
+  return { monthly, maxMonth };
+}
+
+export function parseGeneralLedgerMonthly(rows: Row[]): GlMonthly {
+  const { propertyCode, year } = parseHeader(rows);
+
+  // Format detection: a single "Amount" column → Detailed GL; otherwise fall
+  // back to the Debit/Credit "Year-To-Date" layout.
+  const amountCol = headerCol(rows, "amount");
+  const hasDebit = headerCol(rows, "debit") != null;
+  const { monthly, maxMonth } =
+    amountCol != null && !hasDebit
+      ? monthlyFromDetailed(rows, amountCol, headerCol(rows, "trans date", "date") ?? 0)
+      : monthlyFromDebitCredit(rows);
 
   return { propertyCode, year, maxPeriodInFile: maxMonth || 12, monthly };
 }
