@@ -176,7 +176,7 @@ function fmtResetDate(iso: string): string {
 /** Click-to-open info pill that opens a modal with the step-by-step
  *  Skyline → Portal rent-roll import instructions. Sits inline next
  *  to the import hint under the page header. */
-function ImportInstructionsButton() {
+function ImportInstructionsButton({ nextMonth }: { nextMonth?: { year: number; month: number } }) {
   const [open, setOpen] = useState(false);
   return (
     <>
@@ -198,12 +198,17 @@ function ImportInstructionsButton() {
       >
         i
       </button>
-      {open && <ImportInstructionsModal onClose={() => setOpen(false)} />}
+      {open && <ImportInstructionsModal onClose={() => setOpen(false)} nextMonth={nextMonth} />}
     </>
   );
 }
 
-function ImportInstructionsModal({ onClose }: { onClose: () => void }) {
+// "2/1/2026" — Skyline date format for the import instructions.
+function fmtMDY(d: Date): string {
+  return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`;
+}
+
+function ImportInstructionsModal({ onClose, nextMonth }: { onClose: () => void; nextMonth?: { year: number; month: number } }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", onKey);
@@ -252,7 +257,12 @@ function ImportInstructionsModal({ onClose }: { onClose: () => void }) {
               Skyline: <b>Property Management → Reports → Rent Roll Reports → Commercial Rent Roll</b>.
             </li>
             <li>
-              Select <b>Beginning Date</b> and <b>End Date</b> for the month that will be imported.
+              {nextMonth ? (() => {
+                const start = new Date(nextMonth.year, nextMonth.month - 1, 1);
+                const end = new Date(nextMonth.year, nextMonth.month, 0);
+                const label = start.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+                return <>Select <b>Beginning Date</b> and <b>End Date</b> for the month being imported — next up is <b>{label}</b>: <b>{fmtMDY(start)}</b> to <b>{fmtMDY(end)}</b>.</>;
+              })() : <>Select <b>Beginning Date</b> and <b>End Date</b> for the month that will be imported.</>}
             </li>
             <li>
               From the Commercial Rent Roll report, select <b>Export</b> in the upper left.
@@ -1555,7 +1565,17 @@ export default function RentRollPage() {
         </div>
         <p className="muted small" style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 6 }}>
           <span>Import the <b>Commercial Rent Roll</b> Excel file (.xls or .xlsx).</span>
-          <ImportInstructionsButton />
+          <ImportInstructionsButton nextMonth={(() => {
+            // Next month to import = the month after the latest snapshot (or the
+            // current calendar month when nothing has been imported yet).
+            if (latestMonth) {
+              const [y, m] = latestMonth.split("-").map(Number);
+              const d = new Date(y, m, 1); // m is 1-based → first of the next month
+              return { year: d.getFullYear(), month: d.getMonth() + 1 };
+            }
+            const now = new Date();
+            return { year: now.getFullYear(), month: now.getMonth() + 1 };
+          })()} />
         </p>
         {rentroll?.uploadedAt && (
           <p className="muted small" style={{ marginTop: 4, fontStyle: "italic" }}>
