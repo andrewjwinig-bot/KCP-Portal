@@ -75,6 +75,8 @@ export default function OperatingStatementsPage() {
   const [year, setYear] = useState(0);
   const [period, setPeriod] = useState(0);
   const [maxPeriod, setMaxPeriod] = useState(12);
+  const [budgetYear, setBudgetYear] = useState<number | null>(null);
+  const [budgetFallback, setBudgetFallback] = useState(false);
   const [statement, setStatement] = useState<PropertyStatement | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -109,6 +111,8 @@ export default function OperatingStatementsPage() {
       const j = await fetch(`/api/financials/operating-statements?${qs}`).then((r) => r.json());
       setStatement(j.statement ?? null);
       setMessage(j.message ?? null);
+      setBudgetYear(j.budgetYear ?? null);
+      setBudgetFallback(!!j.budgetFallback);
       if (j.maxPeriodInFile) setMaxPeriod(j.maxPeriodInFile);
       if (j.statement && !period) setPeriod(j.statement.period);
     } finally {
@@ -210,14 +214,14 @@ export default function OperatingStatementsPage() {
         </div>
       )}
 
-      {!loading && statement && <StatementTable s={statement} />}
+      {!loading && statement && <StatementTable s={statement} budgetYear={budgetYear} budgetFallback={budgetFallback} />}
     </main>
   );
 }
 
 // ── Statement table ──────────────────────────────────────────────────────────
 
-function StatementTable({ s }: { s: PropertyStatement }) {
+function StatementTable({ s, budgetYear, budgetFallback }: { s: PropertyStatement; budgetYear: number | null; budgetFallback: boolean }) {
   const byRole = (roles: SectionRole[]) => s.sections.filter((x) => roles.includes(x.role));
   const revenueSecs = byRole(["revenue", "reimbursement"]);
   const expenseSecs = byRole(["reimbursable-expense", "non-reimbursable-expense", "residential-expense"]);
@@ -229,6 +233,11 @@ function StatementTable({ s }: { s: PropertyStatement }) {
     <div className="card" style={{ overflowX: "auto" }}>
       <div style={{ fontSize: 17, fontWeight: 800 }}>{s.propertyCode} — {s.propertyName}</div>
       <div className="muted small">{s.entityName} · Comparative Income Statement · {MONTHS[s.period - 1]} {s.year}</div>
+      {budgetFallback && budgetYear != null && (
+        <div style={{ marginTop: 6, fontSize: 12, color: "#b45309", fontWeight: 600 }}>
+          Budget columns use the {budgetYear} budget — no {s.year} budget is loaded for this property.
+        </div>
+      )}
 
       <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 12, minWidth: 920 }}>
         <thead>
@@ -282,7 +291,7 @@ function StatementTable({ s }: { s: PropertyStatement }) {
       )}
 
       <p className="small muted" style={{ marginTop: 10 }}>
-        Actual = GL Debit − Credit (revenue shown positive). Variance is favorable when positive (revenue over budget / expense under budget). Budget columns line up to the {s.year} portal budget — populated in the next step.
+        Actual = GL Debit − Credit (revenue shown positive). Variance is favorable when positive (revenue over budget / expense under budget). Budget columns line up to the {budgetYear ?? s.year} portal budget via the same GL account masks.
       </p>
     </div>
   );
