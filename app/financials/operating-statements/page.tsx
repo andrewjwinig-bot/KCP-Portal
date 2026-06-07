@@ -195,6 +195,11 @@ export default function OperatingStatementsPage() {
           </div>
         </div>
 
+        <p className="muted small" style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 6 }}>
+          <span>Import the <b>Detailed General Ledger</b> Excel file (.xls or .xlsx).</span>
+          <ImportInstructionsButton />
+        </p>
+
         {statement && (
           <div className="pills" style={{ marginTop: 12 }}>
             <StatPill label="Total Revenues (YTD)" value={money0(statement.rollups.totalRevenues.ytdActual)} />
@@ -342,5 +347,87 @@ function Rollup({ label, t, strong }: { label: string; t: StatementTotals; stron
       <td style={{ ...td, textAlign: "left" }}>{label}</td>
       {figureCells(t)}
     </tr>
+  );
+}
+
+// ── Import instructions (Skyline → Portal), mirroring the Rent Roll page ──────
+
+function ImportInstructionsButton() {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); setOpen(true); }}
+        title="How to export the Detailed General Ledger from Skyline and import it here"
+        aria-label="Import instructions"
+        style={{
+          display: "inline-flex", alignItems: "center", justifyContent: "center",
+          width: 16, height: 16, padding: 0, fontSize: 10, fontWeight: 800, lineHeight: 1,
+          background: "rgba(11,74,125,0.10)", color: "#0b4a7d",
+          border: "1px solid rgba(11,74,125,0.30)", borderRadius: "50%", cursor: "pointer",
+        }}
+      >
+        i
+      </button>
+      {open && <ImportInstructionsModal onClose={() => setOpen(false)} />}
+    </>
+  );
+}
+
+function ImportInstructionsModal({ onClose }: { onClose: () => void }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+  const sectionLabelStyle: React.CSSProperties = {
+    fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)",
+  };
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed", inset: 0, zIndex: 100, background: "rgba(15,23,42,0.55)",
+        display: "flex", alignItems: "flex-start", justifyContent: "center",
+        padding: "60px 20px", overflow: "auto",
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: "var(--card)", borderRadius: 12, maxWidth: 640, width: "100%", padding: 22,
+          boxShadow: "0 20px 60px rgba(0,0,0,0.35)", display: "flex", flexDirection: "column", gap: 16,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+          <div>
+            <div style={sectionLabelStyle}>Operating Statement Import Instructions</div>
+            <div style={{ fontSize: 18, fontWeight: 800, marginTop: 2 }}>Export from Skyline → Import here</div>
+          </div>
+          <button onClick={onClose} className="btn" style={{ padding: "6px 12px", fontSize: 13, fontWeight: 700 }}>Close</button>
+        </div>
+
+        {/* Step 1: Skyline export */}
+        <div>
+          <div style={sectionLabelStyle}>1. Export the Detailed General Ledger from Skyline</div>
+          <ol style={{ marginTop: 8, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 6, fontSize: 14 }}>
+            <li>Run the <b>Detailed General Ledger</b> report for the property (one property per file).</li>
+            <li>Set the date range from <b>1/1</b> of the year through the <b>month-end</b> you&rsquo;re reporting (year-to-date) so the report includes each month&rsquo;s totals — the period and YTD columns are read from these.</li>
+            <li>Select <b>Export</b> and choose <b>Microsoft Excel (97-2003) (.xls)</b> (.xlsx also works).</li>
+            <li>Hit <b>Save</b> and save to a location accessible outside Skyline (e.g. Desktop). The file name is not important — the property and year are read from the report header.</li>
+          </ol>
+        </div>
+
+        {/* Step 2: Portal import */}
+        <div>
+          <div style={sectionLabelStyle}>2. Import into the Portal</div>
+          <ol style={{ marginTop: 8, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 6, fontSize: 14 }}>
+            <li>Select <b>Upload GL</b> in the upper right of the Operating Statements page.</li>
+            <li>Choose the saved Excel file and hit <b>Open</b>. The statement renders automatically; pick the month from the <b>Period</b> dropdown.</li>
+          </ol>
+        </div>
+      </div>
+    </div>
   );
 }
