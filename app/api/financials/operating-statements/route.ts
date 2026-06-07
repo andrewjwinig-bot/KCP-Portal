@@ -3,6 +3,7 @@ import * as XLSX from "xlsx";
 import { parseGeneralLedgerMonthly, summaryForPeriod } from "@/lib/financials/operating-statements/glParser";
 import { computeStatement } from "@/lib/financials/operating-statements/compute";
 import { availableStatements, getMapping } from "@/lib/financials/operating-statements/mappingStore";
+import { resolvePropertyBudget, makeBudgetLookup } from "@/lib/financials/operating-statements/budgetCrosswalk";
 import { saveGl, latestGl, getGl, versionsFor, listGls } from "@/lib/financials/operating-statements/statementStore";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 
@@ -51,12 +52,20 @@ export async function GET(req: Request) {
   const requested = Number(url.searchParams.get("period")) || stored.maxPeriodInFile;
   const period = Math.min(Math.max(1, requested), stored.maxPeriodInFile);
   const gl = summaryForPeriod(stored.monthly, period);
+
+  // Budget columns: line up to the portal budget via the same masks. Falls back
+  // to the nearest available budget year (so a 2025 sample shows the 2026
+  // budget); the page labels the year used.
+  const budget = await resolvePropertyBudget(mapping.propertyCode, year);
+  const budgetLookup = budget ? makeBudgetLookup(budget, period) : undefined;
+
   const statement = computeStatement({
     mapping,
     propertyName: propertyName(key, mapping.entityName),
     year,
     period,
     gl,
+    budgetLookup,
   });
 
   return NextResponse.json({
@@ -65,6 +74,8 @@ export async function GET(req: Request) {
     selectedVersion: stored.id,
     maxPeriodInFile: stored.maxPeriodInFile,
     uploadedAt: stored.uploadedAt,
+    budgetYear: budget?.budgetYear ?? null,
+    budgetFallback: budget?.fallback ?? false,
     statement,
   });
 }

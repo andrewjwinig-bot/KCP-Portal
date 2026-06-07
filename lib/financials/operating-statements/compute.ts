@@ -103,9 +103,10 @@ export type ComputeInput = {
   year: number;
   period: number;
   gl: GlSummaryRow[];
-  /** Budget figures for a line, by (section name, line label). Return null for
-   *  no-budget — the column renders blank. */
-  budgetLookup?: (sectionName: string, lineLabel: string) => LineBudget | null;
+  /** Budget figures for a line, by (section name, line label, account mask).
+   *  The mask lets a crosswalk match the line to budget GL accounts. Return
+   *  null for no-budget — the column renders blank. */
+  budgetLookup?: (sectionName: string, lineLabel: string, mask: string) => LineBudget | null;
 };
 
 function computeLine(
@@ -128,7 +129,7 @@ function computeLine(
   }
   periodActual *= sign;
   ytdActual *= sign;
-  const b = budgetLookup?.(sectionName ?? "", line.label) ?? null;
+  const b = budgetLookup?.(sectionName ?? "", line.label, line.mask) ?? null;
   const t = mkTotals(
     periodActual,
     b?.periodBudget ?? null,
