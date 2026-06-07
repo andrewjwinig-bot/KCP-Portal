@@ -76,3 +76,57 @@ describe("Skyline GL parser", () => {
     expect(res.rows.some((r) => r.account === "6030-8502")).toBe(true);
   });
 });
+
+// ── Detailed General Ledger (single Amount column, dated transactions) ────────
+
+function serial(y: number, m: number, d: number): number {
+  return Math.round((Date.UTC(y, m - 1, d) - Date.UTC(1899, 11, 30)) / 86400000);
+}
+
+// Mirrors the real 1100 Detailed GL: Property/Company header with name, a date
+// range, an Amount column (col 19), a Trans Date column (col 0), account header
+// rows that also hold the Beginning Balance, dated transactions, and Total rows.
+const detailed: Cell[][] = [
+  row({ 10: "Property/Company : 1100 - Parkwood Professional Building" }),
+  row({ 10: "1/1/2026 To 2/28/2026" }),
+  row({ 0: "Trans Date", 4: "Vendor Name", 16: "Invoice Description", 19: "Amount" }),
+  // Expense account with a non-zero beginning balance (prior-period accrual).
+  row({ 1: "6030-8502", 5: "Maintenance Salaries", 16: "Beginning Balance", 19: 3120 }),
+  row({ 0: serial(2026, 1, 15), 4: "ADP", 19: 260 }),
+  row({ 16: "January Total", 19: 260 }),
+  row({ 16: "YTD Total", 19: 3380 }),
+  // Revenue account (credit-normal → negative amounts), two Jan txns + a Feb txn.
+  row({ 1: "4230-8501", 5: "Rental Income - Base Rent", 16: "Beginning Balance", 19: -39229.06 }),
+  row({ 0: serial(2026, 1, 10), 19: -3054.38 }),
+  row({ 0: serial(2026, 1, 20), 19: -2000 }),
+  row({ 16: "January Total", 19: -5054.38 }),
+  row({ 0: serial(2026, 2, 5), 19: -1000 }),
+  row({ 16: "February Total", 19: -1000 }),
+  row({ 16: "YTD Total", 19: -45283.44 }),
+];
+
+describe("Detailed General Ledger parser", () => {
+  it("reads property (with trailing name) + year from the header", () => {
+    const res = parseGeneralLedger(detailed, 1);
+    expect(res.propertyCode).toBe("1100");
+    expect(res.year).toBe(2026);
+  });
+
+  it("sums dated transactions per month, ignoring Beginning Balance + Total rows", () => {
+    const res = parseGeneralLedger(detailed, 1);
+    const maint = res.rows.find((r) => r.account === "6030-8502")!;
+    expect(maint.periodActual).toBe(260); // not 3120 (beginning balance) or 3380 (YTD Total)
+    const rent = res.rows.find((r) => r.account === "4230-8501")!;
+    expect(rent.periodActual).toBeCloseTo(-5054.38, 2); // two Jan txns
+    expect(rent.ytdActual).toBeCloseTo(-5054.38, 2);
+  });
+
+  it("buckets a multi-month range by transaction date", () => {
+    const res = parseGeneralLedger(detailed, 2);
+    expect(res.maxPeriodInFile).toBe(2);
+    const rent = res.rows.find((r) => r.account === "4230-8501")!;
+    expect(rent.periodActual).toBeCloseTo(-1000, 2); // February only
+    expect(rent.ytdActual).toBeCloseTo(-6054.38, 2); // Jan + Feb
+  });
+});
+
