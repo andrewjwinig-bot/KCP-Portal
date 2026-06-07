@@ -402,7 +402,7 @@ function ImportInstructionsModal({ onClose }: { onClose: () => void }) {
       >
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
           <div>
-            <div style={sectionLabelStyle}>Operating Statement Import Instructions</div>
+            <div style={sectionLabelStyle}>Detailed General Ledger Import Instructions</div>
             <div style={{ fontSize: 18, fontWeight: 800, marginTop: 2 }}>Export from Skyline → Import here</div>
           </div>
           <button onClick={onClose} className="btn" style={{ padding: "6px 12px", fontSize: 13, fontWeight: 700 }}>Close</button>
@@ -410,21 +410,22 @@ function ImportInstructionsModal({ onClose }: { onClose: () => void }) {
 
         {/* Step 1: Skyline export */}
         <div>
-          <div style={sectionLabelStyle}>1. Export the Detailed General Ledger from Skyline</div>
+          <div style={sectionLabelStyle}>1. Export Detailed General Ledger from Skyline</div>
           <ol style={{ marginTop: 8, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 6, fontSize: 14 }}>
-            <li>Run the <b>Detailed General Ledger</b> report for the property (one property per file).</li>
-            <li>Set the date range from <b>1/1</b> of the year through the <b>month-end</b> you&rsquo;re reporting (year-to-date) so the report includes each month&rsquo;s totals — the period and YTD columns are read from these.</li>
-            <li>Select <b>Export</b> and choose <b>Microsoft Excel (97-2003) (.xls)</b> (.xlsx also works).</li>
-            <li>Hit <b>Save</b> and save to a location accessible outside Skyline (e.g. Desktop). The file name is not important — the property and year are read from the report header.</li>
+            <li>Skyline: <b>General Ledger → Reports → Detailed General Ledger</b>.</li>
+            <li>Select <b>Beginning Date</b> (1/1 of the year) and <b>End Date</b> (the month-end being reported) — year-to-date, so the report carries each month&rsquo;s totals.</li>
+            <li>From the Detailed General Ledger report, select <b>Export</b> in the upper left.</li>
+            <li>Select <b>Microsoft Excel (97-2003) (.xls)</b> — the selection from the top.</li>
+            <li>Hit <b>Save</b> and save to a location where the file can be accessed outside of Skyline (e.g. Desktop). File name is not important.</li>
           </ol>
         </div>
 
         {/* Step 2: Portal import */}
         <div>
-          <div style={sectionLabelStyle}>2. Import into the Portal</div>
+          <div style={sectionLabelStyle}>2. Import Detailed General Ledger into Portal</div>
           <ol style={{ marginTop: 8, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 6, fontSize: 14 }}>
             <li>Select <b>Upload GL</b> in the upper right of the Operating Statements page.</li>
-            <li>Choose the saved Excel file and hit <b>Open</b>. The statement renders automatically; pick the month from the <b>Period</b> dropdown.</li>
+            <li>Select the saved Excel file from above and hit <b>Open</b>.</li>
           </ol>
         </div>
       </div>
