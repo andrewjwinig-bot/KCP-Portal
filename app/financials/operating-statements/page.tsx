@@ -748,7 +748,8 @@ function NoteModal({ lineKey, initial, isAi, onClose, onSave }: {
 
 // ── GL transaction drill-down ────────────────────────────────────────────────
 
-type TxRow = { account: string; date: string | null; description: string; ref: string; amount: number; month: number };
+type TxRow = { account: string; tenant?: string | null; date: string | null; description: string; ref: string; amount: number; month: number };
+type TenantGroup = { account: string; tenant: string | null; amount: number; count: number };
 
 function money2(v: number): string {
   const s = Math.abs(v).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -770,9 +771,11 @@ function LineDetailModal({ viewKey, property, year, period, monthLabel, line, in
   const [tab, setTab] = useState<"gl" | "budget">(initialTab);
   // GL has no "annual" scope (the file is YTD); clamp it to YTD.
   const [scope, setScope] = useState<"month" | "ytd" | "annual">(initialTab === "gl" && initialScope === "annual" ? "ytd" : initialScope);
-  const [gl, setGl] = useState<{ transactions: TxRow[]; total: number; count: number; accounts?: string[] } | null>(null);
+  const [gl, setGl] = useState<{ transactions: TxRow[]; total: number; count: number; accounts?: string[]; byTenant?: TenantGroup[] } | null>(null);
   const [bud, setBud] = useState<{ rows: BudRow[]; budgetYear: number | null } | null>(null);
   const [loading, setLoading] = useState(false);
+  // When set, the GL list is isolated to one tenant/unit account.
+  const [tenantFilter, setTenantFilter] = useState<string | null>(null);
   const effScope: "month" | "ytd" | "annual" = tab === "gl" && scope === "annual" ? "ytd" : scope;
 
   useEffect(() => {
@@ -783,6 +786,7 @@ function LineDetailModal({ viewKey, property, year, period, monthLabel, line, in
 
   useEffect(() => {
     setLoading(true);
+    setTenantFilter(null);
     if (tab === "gl") {
       const qs = new URLSearchParams({ key: viewKey, year: String(year), mask: line.mask, period: String(period), scope: effScope === "month" ? "month" : "ytd", sign: String(line.sign) });
       fetch(`/api/financials/operating-statements/transactions?${qs}`)
@@ -841,35 +845,69 @@ function LineDetailModal({ viewKey, property, year, period, monthLabel, line, in
               // Hide zero-amount lines — only show transactions with activity.
               const txns = gl.transactions.filter((t) => Math.abs(t.amount) >= 0.005);
               if (txns.length === 0) return <div className="muted small" style={{ padding: 18 }}>No transactions for this line in {scopeWord}.</div>;
-              const glTotal = txns.reduce((s, t) => s + t.amount, 0);
+              // Per-tenant/unit breakdown (non-zero). Shown when the line spans
+              // 2+ accounts (e.g. rental income) so each tenant can be isolated.
+              const groups = (gl.byTenant ?? []).filter((g) => Math.abs(g.amount) >= 0.005);
+              const multi = groups.length >= 2;
+              const shown = tenantFilter ? txns.filter((t) => t.account === tenantFilter) : txns;
+              const glTotal = shown.reduce((s, t) => s + t.amount, 0);
               // Standout drivers — transactions that are a large share of the
-              // line's activity (≥ a third of the total absolute, or the single
+              // shown activity (≥ a third of the total absolute, or the single
               // biggest when it's a meaningful slice). Highlighted so the items
               // worth investigating jump out.
-              const totalAbs = txns.reduce((s, t) => s + Math.abs(t.amount), 0);
-              const maxAbs = Math.max(0, ...txns.map((t) => Math.abs(t.amount)));
-              const isDriver = (amt: number) => totalAbs > 0 && (Math.abs(amt) >= totalAbs / 3 || (txns.length >= 3 && Math.abs(amt) === maxAbs && Math.abs(amt) >= 0.2 * totalAbs));
+              const totalAbs = shown.reduce((s, t) => s + Math.abs(t.amount), 0);
+              const maxAbs = Math.max(0, ...shown.map((t) => Math.abs(t.amount)));
+              const isDriver = (amt: number) => totalAbs > 0 && (Math.abs(amt) >= totalAbs / 3 || (shown.length >= 3 && Math.abs(amt) === maxAbs && Math.abs(amt) >= 0.2 * totalAbs));
+              const activeTenantName = tenantFilter ? (groups.find((g) => g.account === tenantFilter)?.tenant || tenantFilter) : null;
               return (
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                <thead><tr><th style={th}>Date</th><th style={th}>Description</th><th style={th}>Ref</th><th style={th}>Acct</th><th style={{ ...th, textAlign: "right" }}>Amount</th></tr></thead>
-                <tbody>
-                  {txns.map((t, i) => {
-                    const driver = isDriver(t.amount);
-                    return (
-                    <tr key={i} style={driver ? { background: "rgba(180,83,9,0.10)" } : undefined}>
-                      <td style={{ ...tdc, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>{fmtTxDate(t.date)}</td>
-                      <td style={tdc}>{driver && <span title="Major driver of this line" style={{ color: "#b45309", fontWeight: 800, marginRight: 5 }}>▲</span>}{t.description}</td>
-                      <td style={{ ...tdc, whiteSpace: "nowrap", color: "var(--muted)" }}>{t.ref}</td>
-                      <td style={{ ...tdc, whiteSpace: "nowrap", color: "var(--muted)", fontVariantNumeric: "tabular-nums" }}>{t.account}</td>
-                      <td style={{ ...tdc, textAlign: "right", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums", fontWeight: driver ? 800 : undefined, color: t.amount < 0 ? "#b91c1c" : undefined }}>{money2(t.amount)}</td>
-                    </tr>
-                  );})}
-                </tbody>
-                <tfoot><tr>
-                  <td colSpan={4} style={{ ...tdc, fontWeight: 800, borderTop: "2px solid var(--border)" }}>Total · {txns.length} transaction{txns.length === 1 ? "" : "s"}</td>
-                  <td style={{ ...tdc, textAlign: "right", fontWeight: 900, fontVariantNumeric: "tabular-nums", borderTop: "2px solid var(--border)" }}>{money2(glTotal)}</td>
-                </tr></tfoot>
-              </table>
+              <div>
+                {multi && (
+                  <div style={{ padding: "10px 10px 0" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                      <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.04em", textTransform: "uppercase", color: "var(--muted)" }}>By tenant / unit — click to isolate</div>
+                      {tenantFilter && <button type="button" onClick={() => setTenantFilter(null)} style={{ ...tabBtn(false), padding: "2px 8px", fontSize: 12 }}>Clear ✕</button>}
+                    </div>
+                    <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                      <thead><tr><th style={th}>Tenant</th><th style={th}>Unit</th><th style={{ ...th, textAlign: "right" }}>Txns</th><th style={{ ...th, textAlign: "right" }}>Amount</th></tr></thead>
+                      <tbody>
+                        {groups.map((g) => {
+                          const active = tenantFilter === g.account;
+                          return (
+                          <tr key={g.account} onClick={() => setTenantFilter(active ? null : g.account)} className="os-cell"
+                            style={{ cursor: "pointer", background: active ? "rgba(11,74,125,0.10)" : undefined }}>
+                            <td style={{ ...tdc, fontWeight: active ? 800 : undefined }}>{g.tenant || <span className="muted">— (unmatched)</span>}</td>
+                            <td style={{ ...tdc, whiteSpace: "nowrap", color: "var(--muted)", fontVariantNumeric: "tabular-nums" }}>{g.account}</td>
+                            <td style={{ ...tdc, textAlign: "right", fontVariantNumeric: "tabular-nums", color: "var(--muted)" }}>{g.count}</td>
+                            <td style={{ ...tdc, textAlign: "right", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums", fontWeight: active ? 800 : undefined, color: g.amount < 0 ? "#b91c1c" : undefined }}>{money2(g.amount)}</td>
+                          </tr>
+                        );})}
+                      </tbody>
+                    </table>
+                    <div style={{ borderTop: "2px solid var(--border)", marginTop: 10 }} />
+                  </div>
+                )}
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead><tr><th style={th}>Date</th><th style={th}>Description</th>{multi && <th style={th}>Tenant</th>}<th style={th}>Ref</th><th style={th}>Acct</th><th style={{ ...th, textAlign: "right" }}>Amount</th></tr></thead>
+                  <tbody>
+                    {shown.map((t, i) => {
+                      const driver = isDriver(t.amount);
+                      return (
+                      <tr key={i} style={driver ? { background: "rgba(180,83,9,0.10)" } : undefined}>
+                        <td style={{ ...tdc, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>{fmtTxDate(t.date)}</td>
+                        <td style={tdc}>{driver && <span title="Major driver of this line" style={{ color: "#b45309", fontWeight: 800, marginRight: 5 }}>▲</span>}{t.description}</td>
+                        {multi && <td style={{ ...tdc, whiteSpace: "nowrap" }}>{t.tenant || <span className="muted">—</span>}</td>}
+                        <td style={{ ...tdc, whiteSpace: "nowrap", color: "var(--muted)" }}>{t.ref}</td>
+                        <td style={{ ...tdc, whiteSpace: "nowrap", color: "var(--muted)", fontVariantNumeric: "tabular-nums" }}>{t.account}</td>
+                        <td style={{ ...tdc, textAlign: "right", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums", fontWeight: driver ? 800 : undefined, color: t.amount < 0 ? "#b91c1c" : undefined }}>{money2(t.amount)}</td>
+                      </tr>
+                    );})}
+                  </tbody>
+                  <tfoot><tr>
+                    <td colSpan={multi ? 5 : 4} style={{ ...tdc, fontWeight: 800, borderTop: "2px solid var(--border)" }}>{activeTenantName ? `${activeTenantName} · ` : ""}Total · {shown.length} transaction{shown.length === 1 ? "" : "s"}</td>
+                    <td style={{ ...tdc, textAlign: "right", fontWeight: 900, fontVariantNumeric: "tabular-nums", borderTop: "2px solid var(--border)" }}>{money2(glTotal)}</td>
+                  </tr></tfoot>
+                </table>
+              </div>
               );
             })()
           ) : budRows.length === 0 ? (

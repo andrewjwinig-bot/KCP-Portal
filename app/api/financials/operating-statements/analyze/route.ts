@@ -5,8 +5,7 @@ import { summaryForPeriod } from "@/lib/financials/operating-statements/glParser
 import { computeStatement } from "@/lib/financials/operating-statements/compute";
 import { resolvePropertyBudget, makeBudgetLookup, budgetDetailForMask } from "@/lib/financials/operating-statements/budgetCrosswalk";
 import { accountMatchesMask } from "@/lib/financials/operating-statements/mask";
-import { getJSON } from "@/lib/storage";
-import type { RentRollData } from "@/lib/rentroll/parseRentRollExcel";
+import { buildTenantLookup } from "@/lib/financials/operating-statements/tenants";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -47,26 +46,8 @@ export async function POST(req: Request) {
   const statement = computeStatement({ mapping, propertyName: mapping.entityName, year, period, gl, budgetLookup });
   const txByAccount = await getTransactions(stored.id);
 
-  // Tenant-name lookup: rental-income (and other tenant-attributable) lines split
-  // across per-tenant GL sub-accounts whose codes match the rent roll's unit refs.
-  // Resolving them lets notes name the tenant (e.g. "new lease for Acme Corp")
-  // instead of citing a raw GL/unit code like "1100-12330".
-  const rentroll = (await getJSON("rentroll", "current")) as RentRollData | null;
-  const tenantByCode = new Map<string, string>();
-  const normUnit = (code: string) => {
-    const seg = code.toUpperCase().split("-");
-    return seg.length >= 2 ? `${seg[0]}-${seg.slice(1).join("-").replace(/^0+/, "")}` : code.toUpperCase();
-  };
-  if (rentroll) {
-    for (const p of rentroll.properties) for (const u of p.units) {
-      const name = (u.occupantName || "").trim();
-      if (!name || u.isVacant) continue;
-      tenantByCode.set(u.unitRef.toUpperCase(), name);
-      tenantByCode.set(normUnit(u.unitRef), name);
-    }
-  }
-  const tenantFor = (acct: string): string | null =>
-    tenantByCode.get(acct.toUpperCase()) ?? tenantByCode.get(normUnit(acct)) ?? null;
+  // Tenant-name lookup so notes can name tenants instead of GL/unit codes.
+  const tenantFor = await buildTenantLookup();
 
   const flagged: Record<string, unknown>[] = [];
   for (const sec of statement.sections) {

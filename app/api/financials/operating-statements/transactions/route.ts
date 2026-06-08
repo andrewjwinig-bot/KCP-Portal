@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { latestGl, getGl, getTransactions } from "@/lib/financials/operating-statements/statementStore";
 import { accountMatchesMask } from "@/lib/financials/operating-statements/mask";
+import { buildTenantLookup } from "@/lib/financials/operating-statements/tenants";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,16 +31,28 @@ export async function GET(req: Request) {
 
   const byAccount = await getTransactions(stored.id);
   const accounts = Object.keys(byAccount).filter((a) => accountMatchesMask(mask, a));
+  const tenantFor = await buildTenantLookup();
 
-  const rows: { account: string; date: string | null; description: string; ref: string; amount: number; month: number }[] = [];
+  const rows: { account: string; tenant: string | null; date: string | null; description: string; ref: string; amount: number; month: number }[] = [];
   for (const account of accounts) {
+    const tenant = tenantFor(account);
     for (const t of byAccount[account]) {
       if (scope === "month" ? t.month !== period : t.month > period) continue;
-      rows.push({ account, date: t.date, description: t.description, ref: t.ref, amount: t.amount * sign, month: t.month });
+      rows.push({ account, tenant, date: t.date, description: t.description, ref: t.ref, amount: t.amount * sign, month: t.month });
     }
   }
   rows.sort((a, b) => (a.date && b.date ? (a.date < b.date ? 1 : -1) : b.month - a.month));
   const total = rows.reduce((s, r) => s + r.amount, 0);
 
-  return NextResponse.json({ transactions: rows, total, count: rows.length, accounts });
+  // Per-account (per-tenant/unit) breakdown so the drill-down can list each
+  // tenant/unit and isolate the ones driving the line. Sorted by magnitude.
+  const groups = new Map<string, { account: string; tenant: string | null; amount: number; count: number }>();
+  for (const r of rows) {
+    const g = groups.get(r.account) ?? { account: r.account, tenant: r.tenant, amount: 0, count: 0 };
+    g.amount += r.amount; g.count += 1;
+    groups.set(r.account, g);
+  }
+  const byTenant = [...groups.values()].sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount));
+
+  return NextResponse.json({ transactions: rows, total, count: rows.length, accounts, byTenant });
 }
