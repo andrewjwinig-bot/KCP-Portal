@@ -8,6 +8,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { StatPill } from "@/app/components/Pill";
+import { PROPERTY_DEFS } from "@/lib/properties/data";
 import type {
   PropertyStatement,
   StatementSection,
@@ -74,6 +75,68 @@ function varPct(variance: number | null, budget: number | null): number | null {
   return (variance / Math.abs(budget)) * 100;
 }
 
+type ViewOpts = { psf: boolean; sqft: number; hideEmpty: boolean; showGL: boolean };
+
+// Dollar amount in the active view — total $ or $/SF.
+function fmtAmt(v: number | null, psf: boolean, sqft: number): string {
+  if (v == null) return "—";
+  if (psf && sqft > 0) {
+    const x = v / sqft;
+    return `${x < 0 ? "-" : ""}$${Math.abs(x).toFixed(2)}`;
+  }
+  return money0(v);
+}
+
+const isZero = (v: number | null) => v == null || Math.abs(v) < 0.5;
+function isLineEmpty(t: StatementTotals): boolean {
+  return isZero(t.periodActual) && isZero(t.ytdActual) && isZero(t.periodBudget) && isZero(t.ytdBudget) && isZero(t.annualBudget);
+}
+
+// Segmented two-button toggle, matching the Operating Budgets controls.
+const toggleBtn: React.CSSProperties = {
+  fontSize: 11, fontWeight: 700, padding: "4px 10px",
+  border: "1px solid var(--border)", background: "var(--card)",
+  color: "var(--text)", cursor: "pointer", letterSpacing: "0.04em", textTransform: "uppercase",
+};
+const toggleActive: React.CSSProperties = { background: "#0b4a7d", color: "#fff", borderColor: "#0b4a7d" };
+const toggleLabel: React.CSSProperties = { fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase" };
+
+function ViewToggle({ psf, onChange, disabled }: { psf: boolean; onChange: (v: boolean) => void; disabled: boolean }) {
+  return (
+    <div style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+      <span className="muted small" style={toggleLabel}>View</span>
+      <div style={{ display: "inline-flex", borderRadius: 6, overflow: "hidden", opacity: disabled ? 0.5 : 1 }}>
+        <button type="button" disabled={disabled} onClick={() => !disabled && onChange(false)} style={{ ...toggleBtn, cursor: disabled ? "not-allowed" : "pointer", borderRadius: "6px 0 0 6px", ...(psf ? {} : toggleActive) }}>Total</button>
+        <button type="button" disabled={disabled} onClick={() => !disabled && onChange(true)} style={{ ...toggleBtn, cursor: disabled ? "not-allowed" : "pointer", borderLeft: "none", borderRadius: "0 6px 6px 0", ...(psf ? toggleActive : {}) }}>$/SF</button>
+      </div>
+    </div>
+  );
+}
+
+function EmptyRowsToggle({ hide, onChange }: { hide: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <div style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+      <span className="muted small" style={toggleLabel}>Empty rows</span>
+      <div style={{ display: "inline-flex", borderRadius: 6, overflow: "hidden" }}>
+        <button type="button" onClick={() => onChange(true)} style={{ ...toggleBtn, borderRadius: "6px 0 0 6px", ...(hide ? toggleActive : {}) }}>Hide</button>
+        <button type="button" onClick={() => onChange(false)} style={{ ...toggleBtn, borderLeft: "none", borderRadius: "0 6px 6px 0", ...(hide ? {} : toggleActive) }}>Show</button>
+      </div>
+    </div>
+  );
+}
+
+function GLToggle({ show, onChange }: { show: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <div style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+      <span className="muted small" style={toggleLabel}>GL</span>
+      <div style={{ display: "inline-flex", borderRadius: 6, overflow: "hidden" }}>
+        <button type="button" onClick={() => onChange(false)} style={{ ...toggleBtn, borderRadius: "6px 0 0 6px", ...(show ? {} : toggleActive) }}>Hide</button>
+        <button type="button" onClick={() => onChange(true)} style={{ ...toggleBtn, borderLeft: "none", borderRadius: "0 6px 6px 0", ...(show ? toggleActive : {}) }}>Show</button>
+      </div>
+    </div>
+  );
+}
+
 export default function OperatingStatementsPage() {
   const [available, setAvailable] = useState<Available[]>([]);
   const [key, setKey] = useState("");
@@ -88,6 +151,10 @@ export default function OperatingStatementsPage() {
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // View toggles (mirroring the Operating Budgets page).
+  const [psf, setPsf] = useState(false);
+  const [hideEmpty, setHideEmpty] = useState(false);
+  const [showGL, setShowGL] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   // Load the picker payload once.
@@ -165,6 +232,7 @@ export default function OperatingStatementsPage() {
 
   const cur = available.find((a) => a.key === key);
   const yearOptions = cur?.years.length ? cur.years : [year || new Date().getFullYear()];
+  const sqft = PROPERTY_DEFS.find((p) => p.id === key)?.sqft ?? 0;
 
   return (
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
@@ -211,13 +279,22 @@ export default function OperatingStatementsPage() {
           </div>
         </div>
 
-        <p className="muted small" style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 6 }}>
-          <span>Import the <b>Detailed General Ledger</b> Excel file (.xls or .xlsx).</span>
-          <ImportInstructionsButton
-            year={year || new Date().getFullYear()}
-            nextPeriod={statement ? Math.min(maxPeriod + 1, 12) : 1}
-          />
-        </p>
+        <div style={{ marginTop: 8, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+          <p className="muted small" style={{ margin: 0, display: "flex", alignItems: "center", gap: 6 }}>
+            <span>Import the <b>Detailed General Ledger</b> Excel file (.xls or .xlsx).</span>
+            <ImportInstructionsButton
+              year={year || new Date().getFullYear()}
+              nextPeriod={statement ? Math.min(maxPeriod + 1, 12) : 1}
+            />
+          </p>
+          {statement && (
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+              <ViewToggle psf={psf} onChange={setPsf} disabled={sqft <= 0} />
+              <EmptyRowsToggle hide={hideEmpty} onChange={setHideEmpty} />
+              <GLToggle show={showGL} onChange={setShowGL} />
+            </div>
+          )}
+        </div>
 
         {statement && (
           <div className="pills" style={{ marginTop: 12 }}>
@@ -238,7 +315,7 @@ export default function OperatingStatementsPage() {
         </div>
       )}
 
-      {!loading && statement && <StatementTable s={statement} budgetYear={budgetYear} budgetFallback={budgetFallback} notes={notes} onSaveNote={saveNote} />}
+      {!loading && statement && <StatementTable s={statement} budgetYear={budgetYear} budgetFallback={budgetFallback} notes={notes} onSaveNote={saveNote} view={{ psf, sqft, hideEmpty, showGL }} />}
     </main>
   );
 }
@@ -286,8 +363,8 @@ function HeaderRow({ monthLabel }: { monthLabel: string }) {
   );
 }
 
-function StatementTable({ s, budgetYear, budgetFallback, notes, onSaveNote }: {
-  s: PropertyStatement; budgetYear: number | null; budgetFallback: boolean;
+function StatementTable({ s, budgetYear, budgetFallback, notes, onSaveNote, view }: {
+  s: PropertyStatement; budgetYear: number | null; budgetFallback: boolean; view: ViewOpts;
 } & NoteFns) {
   const byRole = (roles: SectionRole[]) => s.sections.filter((x) => roles.includes(x.role));
   const revenueSecs = byRole(["revenue", "reimbursement"]);
@@ -297,6 +374,9 @@ function StatementTable({ s, budgetYear, budgetFallback, notes, onSaveNote }: {
   const r = s.rollups;
   const nf: NoteFns = { notes, onSaveNote };
   const monthLabel = MONTHS[s.period - 1];
+  const sc = (sec: StatementSection, hideSubtotal?: boolean) => (
+    <SectionCard key={sec.name} sec={sec} nf={nf} monthLabel={monthLabel} view={view} hideSubtotal={hideSubtotal} />
+  );
 
   return (
     <>
@@ -311,22 +391,22 @@ function StatementTable({ s, budgetYear, budgetFallback, notes, onSaveNote }: {
       </div>
 
       <GroupHeader label="Revenues" />
-      {revenueSecs.map((sec) => <SectionCard key={sec.name} sec={sec} nf={nf} monthLabel={monthLabel} />)}
-      <RollupCard label="Total Revenues" t={r.totalRevenues} />
+      {revenueSecs.map((sec) => sc(sec))}
+      <RollupCard label="Total Revenues" t={r.totalRevenues} view={view} />
 
       <GroupHeader label="Operating Expenses" />
-      {expenseSecs.map((sec) => <SectionCard key={sec.name} sec={sec} nf={nf} monthLabel={monthLabel} />)}
-      <RollupCard label="Total Operating Expenses" t={r.totalOperatingExpenses} />
-      <RollupCard label="Net Operating Income" t={r.netOperatingIncome} strong />
+      {expenseSecs.map((sec) => sc(sec))}
+      <RollupCard label="Total Operating Expenses" t={r.totalOperatingExpenses} view={view} />
+      <RollupCard label="Net Operating Income" t={r.netOperatingIncome} view={view} strong />
 
       {capitalSecs.length > 0 && <GroupHeader label="Capital" />}
-      {capitalSecs.map((sec) => <SectionCard key={sec.name} sec={sec} nf={nf} monthLabel={monthLabel} hideSubtotal />)}
-      <RollupCard label="Cash Flow Before Debt Service" t={r.cashFlowBeforeDebtService} strong />
+      {capitalSecs.map((sec) => sc(sec, true))}
+      <RollupCard label="Cash Flow Before Debt Service" t={r.cashFlowBeforeDebtService} view={view} strong />
 
       {debtSecs.length > 0 && <GroupHeader label="Debt Service" />}
-      {debtSecs.map((sec) => <SectionCard key={sec.name} sec={sec} nf={nf} monthLabel={monthLabel} />)}
-      {debtSecs.length > 0 && <RollupCard label="Total Debt Service" t={r.totalDebtService} />}
-      <RollupCard label="Cash Flow After Debt Service" t={r.cashFlowAfterDebtService} strong />
+      {debtSecs.map((sec) => sc(sec))}
+      {debtSecs.length > 0 && <RollupCard label="Total Debt Service" t={r.totalDebtService} view={view} />}
+      <RollupCard label="Cash Flow After Debt Service" t={r.cashFlowAfterDebtService} view={view} strong />
 
       <div className="card">
         {s.unmappedAccounts.length > 0 && (
@@ -357,7 +437,8 @@ function StatementTable({ s, budgetYear, budgetFallback, notes, onSaveNote }: {
 const subtotalLabel = (sec: StatementSection) =>
   sec.role === "revenue" ? "Total Revenue and Other" : `Total ${sec.name}`;
 
-function SectionCard({ sec, nf, monthLabel, hideSubtotal }: { sec: StatementSection; nf: NoteFns; monthLabel: string; hideSubtotal?: boolean }) {
+function SectionCard({ sec, nf, monthLabel, view, hideSubtotal }: { sec: StatementSection; nf: NoteFns; monthLabel: string; view: ViewOpts; hideSubtotal?: boolean }) {
+  const lines = view.hideEmpty ? sec.lines.filter((l) => !isLineEmpty(l)) : sec.lines;
   return (
     <div className="card" style={{ padding: 0, overflow: "hidden" }}>
       {/* Neutral section header bar, matching the Budgets page. */}
@@ -369,20 +450,20 @@ function SectionCard({ sec, nf, monthLabel, hideSubtotal }: { sec: StatementSect
           <StatementColgroup />
           <thead><HeaderRow monthLabel={monthLabel} /></thead>
           <tbody>
-            {sec.lines.map((l) => (
+            {lines.map((l) => (
               <tr key={l.label}>
                 <td style={labelStyle}>
                   <div>{l.label}</div>
-                  <div className="muted" style={{ fontSize: 11, fontVariantNumeric: "tabular-nums", marginTop: 1 }}>{l.mask}</div>
+                  {view.showGL && <div className="muted" style={{ fontSize: 11, fontVariantNumeric: "tabular-nums", marginTop: 1 }}>{l.mask}</div>}
                 </td>
-                {figureCells(l)}
+                {figureCells(l, { psf: view.psf, sqft: view.sqft })}
                 <NoteCell lineKey={lineKeyOf(sec.name, l.label)} {...nf} />
               </tr>
             ))}
             {!hideSubtotal && (
               <tr style={{ background: "rgba(11,74,125,0.06)", borderTop: "2px solid rgba(11,74,125,0.30)" }}>
                 <td style={{ ...labelStyle, fontWeight: 800, color: COLOR_BRAND, textTransform: "uppercase", letterSpacing: "0.04em", fontSize: 13.5 }}>{subtotalLabel(sec)}</td>
-                {figureCells(sec.subtotal, true, COLOR_BRAND)}
+                {figureCells(sec.subtotal, { bold: true, color: COLOR_BRAND, psf: view.psf, sqft: view.sqft })}
                 <td style={{ borderLeft: GROUP_DIV }} />
               </tr>
             )}
@@ -393,7 +474,7 @@ function SectionCard({ sec, nf, monthLabel, hideSubtotal }: { sec: StatementSect
   );
 }
 
-function RollupCard({ label, t, strong }: { label: string; t: StatementTotals; strong?: boolean }) {
+function RollupCard({ label, t, view, strong }: { label: string; t: StatementTotals; view: ViewOpts; strong?: boolean }) {
   return (
     <div className="card" style={{ padding: 0, overflow: "hidden", borderColor: COLOR_BRAND, background: strong ? "rgba(11,74,125,0.06)" : "rgba(11,74,125,0.035)" }}>
       <div className="tableWrap" style={{ marginTop: 0 }}>
@@ -402,7 +483,7 @@ function RollupCard({ label, t, strong }: { label: string; t: StatementTotals; s
           <tbody>
             <tr>
               <td style={{ ...labelStyle, fontSize: strong ? 15 : 13.5, fontWeight: 900, letterSpacing: "0.04em", textTransform: "uppercase", color: COLOR_BRAND, borderBottom: "none" }}>{label}</td>
-              {figureCells(t, true, COLOR_BRAND, true)}
+              {figureCells(t, { bold: true, color: COLOR_BRAND, noBorder: true, psf: view.psf, sqft: view.sqft })}
               <td style={{ borderLeft: GROUP_DIV, borderBottom: "none" }} />
             </tr>
           </tbody>
@@ -413,19 +494,21 @@ function RollupCard({ label, t, strong }: { label: string; t: StatementTotals; s
 }
 
 /** The seven figure cells (Period A/B/Var% · YTD A/B/Var% · Annual). */
-function figureCells(t: StatementTotals, bold?: boolean, color?: string, noBorder?: boolean) {
+function figureCells(t: StatementTotals, opts: { bold?: boolean; color?: string; noBorder?: boolean; psf?: boolean; sqft?: number } = {}) {
+  const { bold, color, noBorder, psf = false, sqft = 0 } = opts;
   const base: React.CSSProperties = { ...numStyle, ...(bold ? { fontWeight: 800 } : {}), ...(color ? { color } : {}), ...(noBorder ? { borderBottom: "none" } : {}) };
   const pV = varPct(t.periodVariance, t.periodBudget);
   const yV = varPct(t.ytdVariance, t.ytdBudget);
+  const amt = (v: number | null) => fmtAmt(v, psf, sqft);
   return (
     <>
-      <td style={{ ...base, borderLeft: GROUP_DIV }}>{money0(t.periodActual)}</td>
-      <td style={{ ...base, color: color ?? "var(--muted)" }}>{money0(t.periodBudget)}</td>
+      <td style={{ ...base, borderLeft: GROUP_DIV }}>{amt(t.periodActual)}</td>
+      <td style={{ ...base, color: color ?? "var(--muted)" }}>{amt(t.periodBudget)}</td>
       <td style={{ ...base, color: color ?? varColor(pV) }}>{fmtPct(pV)}</td>
-      <td style={{ ...base, borderLeft: GROUP_DIV }}>{money0(t.ytdActual)}</td>
-      <td style={{ ...base, color: color ?? "var(--muted)" }}>{money0(t.ytdBudget)}</td>
+      <td style={{ ...base, borderLeft: GROUP_DIV }}>{amt(t.ytdActual)}</td>
+      <td style={{ ...base, color: color ?? "var(--muted)" }}>{amt(t.ytdBudget)}</td>
       <td style={{ ...base, color: color ?? varColor(yV) }}>{fmtPct(yV)}</td>
-      <td style={{ ...base, borderLeft: GROUP_DIV, color: color ?? "var(--muted)" }}>{money0(t.annualBudget)}</td>
+      <td style={{ ...base, borderLeft: GROUP_DIV, color: color ?? "var(--muted)" }}>{amt(t.annualBudget)}</td>
     </>
   );
 }
