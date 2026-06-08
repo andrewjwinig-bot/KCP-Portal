@@ -435,11 +435,11 @@ const lineKeyOf = (sectionName: string, label: string) => `${sectionName}::${lab
 function StatementColgroup() {
   return (
     <colgroup>
-      <col style={{ width: "22%" }} />
-      <col style={{ width: "9%" }} /><col style={{ width: "9%" }} /><col style={{ width: "7%" }} />
-      <col style={{ width: "9%" }} /><col style={{ width: "9%" }} /><col style={{ width: "7%" }} />
-      <col style={{ width: "9%" }} />
-      <col style={{ width: "19%" }} />
+      <col style={{ width: "20%" }} />
+      <col style={{ width: "8%" }} /><col style={{ width: "8%" }} /><col style={{ width: "6%" }} />
+      <col style={{ width: "8%" }} /><col style={{ width: "8%" }} /><col style={{ width: "6%" }} />
+      <col style={{ width: "8%" }} />
+      <col style={{ width: "28%" }} />
     </colgroup>
   );
 }
@@ -594,10 +594,7 @@ function SectionCard({ sec, nf, monthLabel, view, thresh, onOpenDetail, filterCl
             {lines.map((l) => (
               <tr key={l.label}>
                 <td style={labelStyle}>
-                  <button type="button" onClick={() => onOpenDetail(sec, l, "gl", "ytd")} title="View the GL transactions behind this line"
-                    style={{ all: "unset", cursor: "pointer", color: "#0b4a7d", textDecorationLine: "underline", textDecorationColor: "rgba(11,74,125,0.35)", textUnderlineOffset: 2 }}>
-                    {l.label}
-                  </button>
+                  {l.label}
                   {view.showGL && <div className="muted" style={{ fontSize: 11, fontVariantNumeric: "tabular-nums", marginTop: 1 }}>{l.mask}</div>}
                 </td>
                 {figureCells(l, { psf: view.psf, sqft: view.sqft, flag: thresh, drill: (tab, scope) => onOpenDetail(sec, l, tab, scope) })}
@@ -651,18 +648,21 @@ function figureCells(t: StatementTotals, opts: { bold?: boolean; color?: string;
   const varCell = (pct: number | null, f: "fav" | "unf" | null): React.CSSProperties =>
     ({ ...base, color: color ?? varColor(pct), ...(f ? { background: flagTint(f), fontWeight: 800 } : {}) });
   // Actual cells drill into GL transactions; Budget/Annual cells into the
-  // budget detail. Clickable only on real line rows (drill provided).
-  const click = (tab: "gl" | "budget", scope: "month" | "ytd" | "annual"): React.HTMLAttributes<HTMLTableCellElement> =>
-    drill ? { onClick: () => drill(tab, scope), title: tab === "gl" ? "Click for GL transactions" : "Click for budget detail", className: "os-cell" } : {};
+  // budget detail. Clickable only on real line rows (drill provided) AND when
+  // the cell holds activity — a $0 cell has nothing to drill into.
+  const click = (tab: "gl" | "budget", scope: "month" | "ytd" | "annual", value: number | null): React.HTMLAttributes<HTMLTableCellElement> =>
+    drill && value != null && Math.abs(value) >= 0.005
+      ? { onClick: () => drill(tab, scope), title: tab === "gl" ? "Click for GL transactions" : "Click for budget detail", className: "os-cell" }
+      : {};
   return (
     <>
-      <td {...click("gl", "month")} style={{ ...base, borderLeft: GROUP_DIV }}>{amt(t.periodActual)}</td>
-      <td {...click("budget", "month")} style={{ ...base, color: color ?? "var(--muted)" }}>{amt(t.periodBudget)}</td>
+      <td {...click("gl", "month", t.periodActual)} style={{ ...base, borderLeft: GROUP_DIV }}>{amt(t.periodActual)}</td>
+      <td {...click("budget", "month", t.periodBudget)} style={{ ...base, color: color ?? "var(--muted)" }}>{amt(t.periodBudget)}</td>
       <td style={varCell(pV, mFlag)}>{fmtPct(pV)}</td>
-      <td {...click("gl", "ytd")} style={{ ...base, borderLeft: GROUP_DIV }}>{amt(t.ytdActual)}</td>
-      <td {...click("budget", "ytd")} style={{ ...base, color: color ?? "var(--muted)" }}>{amt(t.ytdBudget)}</td>
+      <td {...click("gl", "ytd", t.ytdActual)} style={{ ...base, borderLeft: GROUP_DIV }}>{amt(t.ytdActual)}</td>
+      <td {...click("budget", "ytd", t.ytdBudget)} style={{ ...base, color: color ?? "var(--muted)" }}>{amt(t.ytdBudget)}</td>
       <td style={varCell(yV, yFlag)}>{fmtPct(yV)}</td>
-      <td {...click("budget", "annual")} style={{ ...base, borderLeft: GROUP_DIV, color: color ?? "var(--muted)" }}>{amt(t.annualBudget)}</td>
+      <td {...click("budget", "annual", t.annualBudget)} style={{ ...base, borderLeft: GROUP_DIV, color: color ?? "var(--muted)" }}>{amt(t.annualBudget)}</td>
     </>
   );
 }
@@ -800,8 +800,10 @@ function LineDetailModal({ viewKey, property, year, period, monthLabel, line, in
   const tabBtn = (active: boolean): React.CSSProperties => ({ fontSize: 13, fontWeight: 700, padding: "6px 12px", border: "none", borderBottom: `2px solid ${active ? COLOR_BRAND : "transparent"}`, background: "none", color: active ? COLOR_BRAND : "var(--muted)", cursor: "pointer" });
   const scopeWord = effScope === "month" ? monthLabel : effScope === "annual" ? "Annual" : `YTD through ${monthLabel}`;
 
-  const budRows = bud?.rows ?? [];
   const budAmt = (r: BudRow) => effScope === "month" ? r.month : effScope === "annual" ? r.annual : r.ytd;
+  // Only show budget lines with a value in the current scope — a row that's $0
+  // for the period isn't activity worth listing.
+  const budRows = (bud?.rows ?? []).filter((r) => Math.abs(budAmt(r)) >= 0.005);
   const budTotal = budRows.reduce((s, r) => s + budAmt(r), 0);
 
   return (
@@ -836,18 +838,22 @@ function LineDetailModal({ viewKey, property, year, period, monthLabel, line, in
             !gl || gl.count === 0 ? (
               <div className="muted small" style={{ padding: 18 }}>No transactions for this line in {scopeWord}.</div>
             ) : (() => {
+              // Hide zero-amount lines — only show transactions with activity.
+              const txns = gl.transactions.filter((t) => Math.abs(t.amount) >= 0.005);
+              if (txns.length === 0) return <div className="muted small" style={{ padding: 18 }}>No transactions for this line in {scopeWord}.</div>;
+              const glTotal = txns.reduce((s, t) => s + t.amount, 0);
               // Standout drivers — transactions that are a large share of the
               // line's activity (≥ a third of the total absolute, or the single
               // biggest when it's a meaningful slice). Highlighted so the items
               // worth investigating jump out.
-              const totalAbs = gl.transactions.reduce((s, t) => s + Math.abs(t.amount), 0);
-              const maxAbs = Math.max(0, ...gl.transactions.map((t) => Math.abs(t.amount)));
-              const isDriver = (amt: number) => totalAbs > 0 && (Math.abs(amt) >= totalAbs / 3 || (gl.transactions.length >= 3 && Math.abs(amt) === maxAbs && Math.abs(amt) >= 0.2 * totalAbs));
+              const totalAbs = txns.reduce((s, t) => s + Math.abs(t.amount), 0);
+              const maxAbs = Math.max(0, ...txns.map((t) => Math.abs(t.amount)));
+              const isDriver = (amt: number) => totalAbs > 0 && (Math.abs(amt) >= totalAbs / 3 || (txns.length >= 3 && Math.abs(amt) === maxAbs && Math.abs(amt) >= 0.2 * totalAbs));
               return (
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <thead><tr><th style={th}>Date</th><th style={th}>Description</th><th style={th}>Ref</th><th style={th}>Acct</th><th style={{ ...th, textAlign: "right" }}>Amount</th></tr></thead>
                 <tbody>
-                  {gl.transactions.map((t, i) => {
+                  {txns.map((t, i) => {
                     const driver = isDriver(t.amount);
                     return (
                     <tr key={i} style={driver ? { background: "rgba(180,83,9,0.10)" } : undefined}>
@@ -860,14 +866,18 @@ function LineDetailModal({ viewKey, property, year, period, monthLabel, line, in
                   );})}
                 </tbody>
                 <tfoot><tr>
-                  <td colSpan={4} style={{ ...tdc, fontWeight: 800, borderTop: "2px solid var(--border)" }}>Total · {gl.count} transaction{gl.count === 1 ? "" : "s"}</td>
-                  <td style={{ ...tdc, textAlign: "right", fontWeight: 900, fontVariantNumeric: "tabular-nums", borderTop: "2px solid var(--border)" }}>{money2(gl.total)}</td>
+                  <td colSpan={4} style={{ ...tdc, fontWeight: 800, borderTop: "2px solid var(--border)" }}>Total · {txns.length} transaction{txns.length === 1 ? "" : "s"}</td>
+                  <td style={{ ...tdc, textAlign: "right", fontWeight: 900, fontVariantNumeric: "tabular-nums", borderTop: "2px solid var(--border)" }}>{money2(glTotal)}</td>
                 </tr></tfoot>
               </table>
               );
             })()
           ) : budRows.length === 0 ? (
-            <div className="muted small" style={{ padding: 18 }}>No budget lines map to this statement line{bud?.budgetYear ? ` in the ${bud.budgetYear} budget` : ""}.</div>
+            <div className="muted small" style={{ padding: 18 }}>
+              {(bud?.rows ?? []).length === 0
+                ? `No budget lines map to this statement line${bud?.budgetYear ? ` in the ${bud.budgetYear} budget` : ""}.`
+                : `No budgeted amount in ${scopeWord}.`}
+            </div>
           ) : (
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead><tr><th style={th}>Budget Line</th><th style={th}>Acct</th><th style={{ ...th, textAlign: "right" }}>{scopeWord} Budget</th></tr></thead>
