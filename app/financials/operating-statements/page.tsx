@@ -804,8 +804,8 @@ function NoteModal({ lineKey, initial, isAi, meta, editorLabel, onPersist, onClo
 
 // ── GL transaction drill-down ────────────────────────────────────────────────
 
-type TxRow = { account: string; tenant?: string | null; groupKey?: string; date: string | null; description: string; ref: string; amount: number; month: number };
-type TenantGroup = { groupKey: string; account: string; tenant: string | null; amount: number; count: number };
+type TxRow = { account: string; unit?: string | null; tenant?: string | null; groupKey?: string; date: string | null; description: string; ref: string; amount: number; month: number };
+type TenantGroup = { groupKey: string; account: string; unit: string | null; tenant: string | null; amount: number; count: number };
 
 function money2(v: number): string {
   const s = Math.abs(v).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -1022,15 +1022,15 @@ function LineDetailModal({ viewKey, property, year, period, monthLabel, line, in
                       {tenantFilter && <button type="button" onClick={() => setTenantFilter(null)} style={{ ...tabBtn(false), padding: "2px 8px", fontSize: 12 }}>Clear ✕</button>}
                     </div>
                     <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                      <thead><tr><th style={th}>Tenant</th><th style={th}>Acct</th><th style={{ ...th, textAlign: "right" }}>Txns</th><th style={{ ...th, textAlign: "right" }}>Amount</th></tr></thead>
+                      <thead><tr><th style={th}>Suite</th><th style={th}>Tenant</th><th style={{ ...th, textAlign: "right" }}>Txns</th><th style={{ ...th, textAlign: "right" }}>Amount</th></tr></thead>
                       <tbody>
                         {groups.map((g) => {
                           const active = tenantFilter === g.groupKey;
                           return (
                           <tr key={g.groupKey} onClick={() => setTenantFilter(active ? null : g.groupKey)} className="os-cell"
                             style={{ cursor: "pointer", background: active ? "rgba(11,74,125,0.10)" : undefined }}>
+                            <td style={{ ...tdc, whiteSpace: "nowrap", color: "var(--muted)", fontVariantNumeric: "tabular-nums" }}>{g.unit || "—"}</td>
                             <td style={{ ...tdc, fontWeight: active ? 800 : undefined }}>{g.tenant || <span className="muted">— (unmatched)</span>}</td>
-                            <td style={{ ...tdc, whiteSpace: "nowrap", color: "var(--muted)", fontVariantNumeric: "tabular-nums" }}>{g.account}</td>
                             <td style={{ ...tdc, textAlign: "right", fontVariantNumeric: "tabular-nums", color: "var(--muted)" }}>{g.count}</td>
                             <td style={{ ...tdc, textAlign: "right", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums", fontWeight: active ? 800 : undefined, color: g.amount < 0 ? "#b91c1c" : undefined }}>{money2(g.amount)}</td>
                           </tr>
@@ -1041,7 +1041,7 @@ function LineDetailModal({ viewKey, property, year, period, monthLabel, line, in
                   </div>
                 )}
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                  <thead><tr><th style={th}>Date</th><th style={th}>Description</th>{multi && <th style={th}>Tenant</th>}<th style={th}>Ref</th><th style={th}>Acct</th><th style={{ ...th, textAlign: "right" }}>Amount</th></tr></thead>
+                  <thead><tr><th style={th}>Date</th><th style={th}>Description</th>{multi && <th style={th}>Suite</th>}{multi && <th style={th}>Tenant</th>}<th style={th}>Ref</th><th style={th}>Acct</th><th style={{ ...th, textAlign: "right" }}>Amount</th></tr></thead>
                   <tbody>
                     {shown.map((t, i) => {
                       const driver = isDriver(t.amount);
@@ -1049,6 +1049,7 @@ function LineDetailModal({ viewKey, property, year, period, monthLabel, line, in
                       <tr key={i} style={driver ? { background: "rgba(180,83,9,0.10)" } : undefined}>
                         <td style={{ ...tdc, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>{fmtTxDate(t.date)}</td>
                         <td style={tdc}>{driver && <span title="Major driver of this line" style={{ color: "#b45309", fontWeight: 800, marginRight: 5 }}>▲</span>}{t.description}</td>
+                        {multi && <td style={{ ...tdc, whiteSpace: "nowrap", color: "var(--muted)", fontVariantNumeric: "tabular-nums" }}>{t.unit || "—"}</td>}
                         {multi && <td style={{ ...tdc, whiteSpace: "nowrap" }}>{t.tenant || <span className="muted">—</span>}</td>}
                         <td style={{ ...tdc, whiteSpace: "nowrap", color: "var(--muted)" }}>{t.ref}</td>
                         <td style={{ ...tdc, whiteSpace: "nowrap", color: "var(--muted)", fontVariantNumeric: "tabular-nums" }}>{t.account}</td>
@@ -1057,7 +1058,7 @@ function LineDetailModal({ viewKey, property, year, period, monthLabel, line, in
                     );})}
                   </tbody>
                   <tfoot><tr>
-                    <td colSpan={multi ? 5 : 4} style={{ ...tdc, fontWeight: 800, borderTop: "2px solid var(--border)" }}>{activeTenantName ? `${activeTenantName} · ` : ""}Total · {shown.length} transaction{shown.length === 1 ? "" : "s"}</td>
+                    <td colSpan={multi ? 6 : 4} style={{ ...tdc, fontWeight: 800, borderTop: "2px solid var(--border)" }}>{activeTenantName ? `${activeTenantName} · ` : ""}Total · {shown.length} transaction{shown.length === 1 ? "" : "s"}</td>
                     <td style={{ ...tdc, textAlign: "right", fontWeight: 900, fontVariantNumeric: "tabular-nums", borderTop: "2px solid var(--border)" }}>{money2(glTotal)}</td>
                   </tr></tfoot>
                 </table>
