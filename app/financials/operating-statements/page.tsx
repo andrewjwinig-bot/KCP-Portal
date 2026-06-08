@@ -352,6 +352,16 @@ export default function OperatingStatementsPage() {
               {uploading ? "Uploading…" : "Upload GL"}
             </button>
             <input ref={fileRef} type="file" accept=".xls,.xlsx,.xlsm" style={{ display: "none" }} onChange={onUpload} />
+            {cur && (
+              <a
+                className="btn"
+                href={`/financials/budgets?property=${encodeURIComponent(cur.propertyCode)}${year ? `&year=${year}` : ""}`}
+                title={`Open ${cur.propertyCode}'s full operating budget`}
+                style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700, textDecoration: "none" }}
+              >
+                View Budget
+              </a>
+            )}
           </div>
         </div>
 
