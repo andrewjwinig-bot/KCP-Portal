@@ -1,15 +1,20 @@
 // Editable overrides for tenant billing contacts, merged over the seed.
 // Stored per property (contacts aren't year-specific).
 
-import { getJSON, storeJSON } from "@/lib/storage";
+import { scopedMap } from "@/lib/collectionStore";
 import { CONTACTS_SEED, DEFAULT_CC, type TenantContact } from "./contacts";
-
-const PREFIX = "cam-office-contacts";
 
 export type ContactOverrides = Record<string, Partial<TenantContact>>;
 
+// One blob per unit (was a single per-property override map, read-modify-written
+// on every contact edit). Legacy per-property blob migrated on first read.
+const overrides = scopedMap<Partial<TenantContact>>({
+  prefix: "cam-office-contacts-v2",
+  legacyForScope: (property) => ({ prefix: "cam-office-contacts", id: property, extract: (b) => (b as ContactOverrides) ?? {} }),
+});
+
 export async function getContactOverrides(property: string): Promise<ContactOverrides> {
-  return ((await getJSON(PREFIX, property)) as ContactOverrides | null) ?? {};
+  return await overrides.forScope(property).all();
 }
 
 /** Merge seed + overrides into the effective contact map for a property.
@@ -35,8 +40,8 @@ export async function saveContact(
   unitRef: string,
   patch: Partial<TenantContact>,
 ): Promise<ContactOverrides> {
-  const current = await getContactOverrides(property);
-  current[unitRef] = { ...(current[unitRef] ?? {}), ...patch };
-  await storeJSON(PREFIX, property, current);
-  return current;
+  const scope = overrides.forScope(property);
+  const next = { ...((await scope.get(unitRef)) ?? {}), ...patch };
+  await scope.set(unitRef, next);
+  return await scope.all();
 }

@@ -11,21 +11,23 @@
 // fixed even if its current base year is later reset — tenant-meta holds the
 // single current value, this holds the value that applied to the recon year.
 
-import { getJSON, storeJSON } from "@/lib/storage";
+import { scopedMap } from "@/lib/collectionStore";
 import type { OfficeLeaseConfig } from "./assemble";
-
-const PREFIX = "cam-office-config";
 
 /** Sparse per-unit overrides; only changed fields are stored. */
 export type OfficeConfigOverrides = Record<string, Partial<OfficeLeaseConfig>>;
 
-function storeKey(property: string, year: number): string {
-  return `${property}-${year}`;
-}
+const storeKey = (property: string, year: number): string => `${property}-${year}`;
+
+// One blob per unit (was a single per-property/year override map, read-modify-
+// written on every recon cell edit). Legacy per-scope blob migrated on first read.
+const overrides = scopedMap<Partial<OfficeLeaseConfig>>({
+  prefix: "cam-office-config-v2",
+  legacyForScope: (scope) => ({ prefix: "cam-office-config", id: scope, extract: (b) => (b as OfficeConfigOverrides) ?? {} }),
+});
 
 export async function getOverrides(property: string, year: number): Promise<OfficeConfigOverrides> {
-  const data = (await getJSON(PREFIX, storeKey(property, year))) as OfficeConfigOverrides | null;
-  return data ?? {};
+  return await overrides.forScope(storeKey(property, year)).all();
 }
 
 /** Merge stored overrides over the seed config. Override fields set to
@@ -55,14 +57,13 @@ export async function saveOverride(
   unitRef: string,
   patch: Partial<Record<keyof OfficeLeaseConfig, number | boolean | null>>,
 ): Promise<OfficeConfigOverrides> {
-  const current = await getOverrides(property, year);
-  const next = { ...(current[unitRef] ?? {}) } as Record<string, unknown>;
+  const scope = overrides.forScope(storeKey(property, year));
+  const next = { ...((await scope.get(unitRef)) ?? {}) } as Record<string, unknown>;
   for (const [k, v] of Object.entries(patch)) {
     if (v === null) delete next[k];
     else next[k] = v;
   }
-  if (Object.keys(next).length === 0) delete current[unitRef];
-  else current[unitRef] = next as Partial<OfficeLeaseConfig>;
-  await storeJSON(PREFIX, storeKey(property, year), current);
-  return current;
+  if (Object.keys(next).length === 0) await scope.remove(unitRef);
+  else await scope.set(unitRef, next as Partial<OfficeLeaseConfig>);
+  return await scope.all();
 }
