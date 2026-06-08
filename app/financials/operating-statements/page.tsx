@@ -601,12 +601,21 @@ function StatementTable({ s, viewKey, budgetYear, budgetFallback, notes, noteSou
 
       {showCapital && <GroupHeader label="Capital" />}
       {showCapital && capitalSecs.map((sec) => sc(sec, true))}
-      <RollupCard label="Cash Flow Before Debt Service" t={r.cashFlowBeforeDebtService} view={view} strong />
 
-      {showDebt && <GroupHeader label="Debt Service" />}
-      {showDebt && debtSecs.map((sec) => sc(sec))}
-      {showDebt && <RollupCard label="Total Debt Service" t={r.totalDebtService} view={view} />}
-      <RollupCard label="Cash Flow After Debt Service" t={r.cashFlowAfterDebtService} view={view} strong />
+      {/* No debt service → a single "Cash Flow" line (nothing is deducted, so
+          before/after are identical), matching the budget page. With debt, show
+          the full before → Debt Service → after waterfall. */}
+      {showDebt ? (
+        <>
+          <RollupCard label="Cash Flow Before Debt Service" t={r.cashFlowBeforeDebtService} view={view} strong />
+          <GroupHeader label="Debt Service" />
+          {debtSecs.map((sec) => sc(sec))}
+          <RollupCard label="Total Debt Service" t={r.totalDebtService} view={view} />
+          <RollupCard label="Cash Flow After Debt Service" t={r.cashFlowAfterDebtService} view={view} strong />
+        </>
+      ) : (
+        <RollupCard label="Cash Flow" t={r.cashFlowBeforeDebtService} view={view} strong />
+      )}
 
       {footerCard}
       {detailModal}
