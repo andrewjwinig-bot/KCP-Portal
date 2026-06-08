@@ -1,8 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getJSON, storeJSON } from "@/lib/storage";
-
-const PREFIX = "base-year-resets";
-const ID     = "all";
+import { createMapStore } from "@/lib/collectionStore";
 
 export type BaseYearReset = {
   unitRef: string;
@@ -20,18 +17,16 @@ type Store = { resets: Record<string, BaseYearReset>; updatedAt: string };
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-async function load(): Promise<Record<string, BaseYearReset>> {
-  const s = (await getJSON(PREFIX, ID)) as Store | null;
-  return s?.resets ?? {};
-}
-async function save(resets: Record<string, BaseYearReset>): Promise<void> {
-  await storeJSON(PREFIX, ID, { resets, updatedAt: new Date().toISOString() });
-}
+// One blob per unitRef (was a single all-resets map, read-modify-written on
+// every reset). Legacy map migrated on first read.
+const store = createMapStore<BaseYearReset>({
+  prefix: "base-year-resets-v2",
+  legacy: { prefix: "base-year-resets", id: "all", extract: (b) => (b as Store)?.resets ?? {} },
+});
 
 export async function GET() {
   try {
-    const resets = await load();
-    return NextResponse.json({ resets });
+    return NextResponse.json({ resets: await store.all() });
   } catch {
     return NextResponse.json({ resets: {} });
   }
@@ -44,12 +39,9 @@ export async function POST(req: NextRequest) {
     const unitRef = String(body?.unitRef ?? "").trim();
     if (!unitRef) return NextResponse.json({ error: "Missing unitRef" }, { status: 400 });
 
-    const all = await load();
-
     if (body?.clear === true) {
-      delete all[unitRef];
-      await save(all);
-      return NextResponse.json({ ok: true, resets: all });
+      await store.remove(unitRef);
+      return NextResponse.json({ ok: true, resets: await store.all() });
     }
 
     const resetDate = String(body?.resetDate ?? "").trim();
@@ -74,9 +66,8 @@ export async function POST(req: NextRequest) {
       notes: typeof body?.notes === "string" ? body.notes.trim() : undefined,
       updatedAt: new Date().toISOString(),
     };
-    all[unitRef] = next;
-    await save(all);
-    return NextResponse.json({ ok: true, resets: all });
+    await store.set(unitRef, next);
+    return NextResponse.json({ ok: true, resets: await store.all() });
   } catch (err: any) {
     console.error("[POST /api/base-year-resets]", err?.message ?? err);
     return NextResponse.json({ error: err?.message ?? String(err) }, { status: 500 });

@@ -1,15 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getJSON, storeJSON } from "@/lib/storage";
+import { createMapStore } from "@/lib/collectionStore";
 import { BASE_YEAR_SEED } from "@/lib/rentroll/baseYears";
-
-const PREFIX = "tenant-meta";
-const ID     = "all";
 
 export type TenantMeta = {
   baseYear?: number | string | null;
 };
 
 type Store = Record<string, TenantMeta>;
+
+// One blob per unitRef (was a single all-tenants map, read-modify-written on
+// every base-year edit). Legacy map migrated on first read.
+const store = createMapStore<TenantMeta>({
+  prefix: "tenant-meta-v2",
+  legacy: { prefix: "tenant-meta", id: "all", extract: (b) => (b as Store) ?? {} },
+});
 
 export const runtime = "nodejs";
 
@@ -18,7 +22,7 @@ export const runtime = "nodejs";
  *  (edited through the base-year editor) win over the seed. */
 export async function GET() {
   try {
-    const data = (await getJSON(PREFIX, ID)) as Store | null;
+    const data = await store.all();
     const merged: Store = {};
     for (const [unitRef, year] of Object.entries(BASE_YEAR_SEED)) {
       merged[unitRef] = { baseYear: year };
@@ -59,21 +63,18 @@ export async function POST(req: NextRequest) {
       baseYear = String(raw).trim().toUpperCase().slice(0, 16);
     }
 
-    const current = ((await getJSON(PREFIX, ID)) as Store | null) ?? {};
-    const next: Store = { ...current };
-    const existing = next[unitRef] ?? {};
+    const existing: TenantMeta = (await store.get(unitRef)) ?? {};
     if (baseYear === null) {
-      delete (existing as TenantMeta).baseYear;
+      delete existing.baseYear;
     } else {
       existing.baseYear = baseYear;
     }
     if (Object.keys(existing).length === 0) {
-      delete next[unitRef];
+      await store.remove(unitRef);
     } else {
-      next[unitRef] = existing;
+      await store.set(unitRef, existing);
     }
-    await storeJSON(PREFIX, ID, next);
-    return NextResponse.json({ ok: true, tenantMeta: next });
+    return NextResponse.json({ ok: true, tenantMeta: await store.all() });
   } catch (err: any) {
     console.error("[POST /api/tenant-meta]", err?.message ?? err);
     return NextResponse.json({ error: err?.message ?? String(err) }, { status: 500 });

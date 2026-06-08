@@ -2,7 +2,7 @@
 // pattern (same as maintenance requests / reservations).
 
 import "server-only";
-import { getJSON, storeJSON } from "@/lib/storage";
+import { createMapStore } from "@/lib/collectionStore";
 
 export type PropertyFacts = {
   yearBuilt?: number | null;
@@ -29,33 +29,22 @@ export const PROPERTY_FACT_KEYS = [
   "restrooms",
 ] as const;
 
-const MANIFEST_PREFIX = "property-facts";
-const MANIFEST_ID = "all";
-
 type Manifest = { facts: Record<string, PropertyFacts>; updatedAt: string };
 
-async function load(): Promise<Record<string, PropertyFacts>> {
-  const m = (await getJSON(MANIFEST_PREFIX, MANIFEST_ID)) as Manifest | null;
-  return m?.facts ?? {};
-}
-
-async function save(facts: Record<string, PropertyFacts>): Promise<void> {
-  await storeJSON(MANIFEST_PREFIX, MANIFEST_ID, {
-    facts,
-    updatedAt: new Date().toISOString(),
-  });
-}
+// One blob per property (was a single all-properties map, read-modify-written
+// on every edit). Legacy manifest migrated to per-property blobs on first read.
+const store = createMapStore<PropertyFacts>({
+  prefix: "property-facts-v2",
+  legacy: { prefix: "property-facts", id: "all", extract: (b) => (b as Manifest)?.facts ?? {} },
+});
 
 export async function getFacts(id: string): Promise<PropertyFacts | null> {
-  const all = await load();
-  return all[id] ?? null;
+  return await store.get(id);
 }
 
 export async function saveFacts(id: string, patch: Partial<PropertyFacts>): Promise<PropertyFacts> {
-  const all = await load();
-  const current = all[id] ?? {};
+  const current = (await store.get(id)) ?? {};
   const next: PropertyFacts = { ...current, ...patch, updatedAt: new Date().toISOString() };
-  all[id] = next;
-  await save(all);
+  await store.set(id, next);
   return next;
 }
