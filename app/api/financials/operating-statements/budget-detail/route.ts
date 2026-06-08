@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { resolvePropertyBudget, budgetDetailForMask } from "@/lib/financials/operating-statements/budgetCrosswalk";
+import { accountMatchesMask } from "@/lib/financials/operating-statements/mask";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,5 +27,10 @@ export async function GET(req: Request) {
     return NextResponse.json({ rows: [], budgetYear: null, fallback: false });
   }
   const rows = budgetDetailForMask(budget, mask, period);
-  return NextResponse.json({ rows, budgetYear: budget.budgetYear, fallback: budget.fallback });
+  // For the rental-income line, also surface the workbook's per-tenant rent
+  // roster (suite/tenant × month, with renewal/new-lease colors) so the budget
+  // drill-down shows who makes up the budgeted rent.
+  const showsRent = budget.rentAccounts.some((a) => accountMatchesMask(mask, a));
+  const rentDetail = showsRent ? budget.rentDetail ?? null : null;
+  return NextResponse.json({ rows, rentDetail, budgetYear: budget.budgetYear, fallback: budget.fallback });
 }

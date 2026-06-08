@@ -793,6 +793,99 @@ function fmtTxDate(iso: string | null): string {
 
 type BudRow = { label: string; glAccount: string; month: number; ytd: number; annual: number };
 
+// Per-tenant rent roster (from the budget workbook) — same shape + colors as
+// the Operating Budgets "Rental Summary by Month" modal.
+type RentCat = "in-place" | "renewal" | "new" | "vacant";
+type RentEntry = { unitRef: string; tenantName: string; category: RentCat; monthCategories?: RentCat[]; months: number[]; total: number; leaseFrom?: string; leaseTo?: string };
+type RentDetailClient = { entries: RentEntry[]; total: number };
+const RENT_TINT: Record<RentCat, string> = {
+  "in-place": "rgba(21,128,61,0.55)",
+  "renewal":  "rgba(132,204,22,0.45)",
+  "new":      "rgba(217,249,157,0.65)",
+  "vacant":   "transparent",
+};
+const RENT_LABEL: Record<RentCat, string> = { "in-place": "In-Place", "renewal": "Renewal", "new": "New Lease", "vacant": "Vacant" };
+const RENT_ORDER: RentCat[] = ["in-place", "renewal", "new", "vacant"];
+
+// The Rental Summary by Month roster, copied from the Operating Budgets modal:
+// suite × month with renewal/new-lease color tints, a legend, rent-bump
+// underline, and monthly + annual totals.
+function RentRosterTable({ detail }: { detail: RentDetailClient }) {
+  const fmt = (n: number) => (n === 0 ? "—" : `$${Math.round(n).toLocaleString("en-US")}`);
+  const ordered = [...detail.entries].sort((a, b) => a.unitRef.localeCompare(b.unitRef, undefined, { numeric: true }));
+  const monthlyTotals = Array.from({ length: 12 }, (_, m) => detail.entries.reduce((s, e) => s + (e.months[m] ?? 0), 0));
+  const annual = detail.entries.reduce((s, e) => s + e.total, 0);
+  const totalByCategory = (cat: RentCat) =>
+    detail.entries.reduce((s, e) => { let d = 0; for (let j = 0; j < 12; j++) if ((e.monthCategories?.[j] ?? e.category) === cat) d += e.months[j] ?? 0; return s + d; }, 0);
+  const cell: React.CSSProperties = { padding: "5px 8px", fontSize: 11.5, fontVariantNumeric: "tabular-nums", borderTop: "1px solid var(--border)" };
+  const hcell: React.CSSProperties = { padding: "5px 8px", fontSize: 10.5, fontWeight: 800, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.04em", textAlign: "right" };
+  return (
+    <div style={{ padding: "12px 4px 0" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
+        <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>
+          Rental Summary by Month — {ordered.length} suite{ordered.length === 1 ? "" : "s"} · {fmt(annual)} annual
+        </div>
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+          {RENT_ORDER.map((cat) => {
+            if (cat === "vacant") return null;
+            const dollars = totalByCategory(cat);
+            if (dollars === 0) return null;
+            const p = annual > 0 ? (dollars / annual) * 100 : 0;
+            return (
+              <span key={cat} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11 }}>
+                <span style={{ display: "inline-block", width: 12, height: 12, background: RENT_TINT[cat], border: "1px solid rgba(22,163,74,0.35)", borderRadius: 2 }} />
+                <span className="muted small">{RENT_LABEL[cat]}: {fmt(dollars)} ({p >= 10 ? `${Math.round(p)}%` : `${p.toFixed(1)}%`})</span>
+              </span>
+            );
+          })}
+        </div>
+      </div>
+      <div style={{ overflowX: "auto" }}>
+        <table style={{ tableLayout: "fixed", width: "100%", minWidth: 1040, borderCollapse: "collapse" }}>
+          <colgroup>
+            <col style={{ width: 64 }} /><col style={{ width: 150 }} />
+            {MONTHS.map((m) => <col key={m} />)}
+            <col style={{ width: 76 }} />
+          </colgroup>
+          <thead>
+            <tr>
+              <th style={{ ...hcell, textAlign: "left" }}>Suite</th>
+              <th style={{ ...hcell, textAlign: "left" }}>Tenant</th>
+              {MONTHS.map((m) => <th key={m} style={hcell}>{m}</th>)}
+              <th style={hcell}>Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {ordered.map((e, idx) => {
+              const isVacant = e.category === "vacant";
+              const tip = [e.tenantName, e.leaseFrom && e.leaseTo ? `Lease: ${e.leaseFrom} – ${e.leaseTo}` : e.leaseTo ? `Expires: ${e.leaseTo}` : e.leaseFrom ? `Starts: ${e.leaseFrom}` : ""].filter(Boolean).join("\n");
+              const isBump = (j: number) => j > 0 && (e.months[j] ?? 0) > (e.months[j - 1] ?? 0) && (e.months[j - 1] ?? 0) > 0;
+              return (
+                <tr key={idx}>
+                  <td style={{ ...cell, whiteSpace: "nowrap" }} title={tip}>{e.unitRef}</td>
+                  <td style={{ ...cell, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: isVacant ? "var(--muted)" : undefined, fontStyle: isVacant ? "italic" : undefined }} title={tip}>{e.tenantName}</td>
+                  {e.months.map((m, j) => {
+                    const cat = e.monthCategories?.[j] ?? e.category;
+                    return (
+                      <td key={j} style={{ ...cell, textAlign: "right", background: m > 0 ? RENT_TINT[cat] : undefined, color: cat === "vacant" ? "var(--muted)" : undefined, boxShadow: isBump(j) ? "inset 0 -2px 0 rgba(15,23,42,0.55)" : undefined }}>{fmt(m)}</td>
+                    );
+                  })}
+                  <td style={{ ...cell, textAlign: "right", fontWeight: 700, color: isVacant ? "var(--muted)" : undefined }}>{fmt(e.total)}</td>
+                </tr>
+              );
+            })}
+            <tr style={{ borderTop: "2px solid var(--border)", fontWeight: 800 }}>
+              <td colSpan={2} style={{ ...cell, textTransform: "uppercase", letterSpacing: "0.04em", fontSize: 10.5 }}>Total</td>
+              {monthlyTotals.map((m, j) => <td key={j} style={{ ...cell, textAlign: "right", fontWeight: 800 }}>{fmt(m)}</td>)}
+              <td style={{ ...cell, textAlign: "right", fontWeight: 900 }}>{fmt(annual)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 function LineDetailModal({ viewKey, property, year, period, monthLabel, line, initialTab, initialScope, onClose }: {
   viewKey: string; property: string; year: number; period: number; monthLabel: string;
   line: { mask: string; label: string; sign: 1 | -1 };
@@ -802,7 +895,7 @@ function LineDetailModal({ viewKey, property, year, period, monthLabel, line, in
   // GL has no "annual" scope (the file is YTD); clamp it to YTD.
   const [scope, setScope] = useState<"month" | "ytd" | "annual">(initialTab === "gl" && initialScope === "annual" ? "ytd" : initialScope);
   const [gl, setGl] = useState<{ transactions: TxRow[]; total: number; count: number; accounts?: string[]; byTenant?: TenantGroup[] } | null>(null);
-  const [bud, setBud] = useState<{ rows: BudRow[]; budgetYear: number | null } | null>(null);
+  const [bud, setBud] = useState<{ rows: BudRow[]; budgetYear: number | null; rentDetail?: RentDetailClient | null } | null>(null);
   const [loading, setLoading] = useState(false);
   // When set, the GL list is isolated to one tenant/unit account.
   const [tenantFilter, setTenantFilter] = useState<string | null>(null);
@@ -842,7 +935,7 @@ function LineDetailModal({ viewKey, property, year, period, monthLabel, line, in
 
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(15,23,42,0.55)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "48px 20px", overflow: "auto" }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ background: "var(--card)", borderRadius: 12, maxWidth: 820, width: "100%", boxShadow: "0 20px 60px rgba(0,0,0,0.35)", display: "flex", flexDirection: "column", maxHeight: "82vh" }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: "var(--card)", borderRadius: 12, maxWidth: tab === "budget" && bud?.rentDetail ? 1240 : 820, width: "100%", boxShadow: "0 20px 60px rgba(0,0,0,0.35)", display: "flex", flexDirection: "column", maxHeight: "82vh" }}>
         <div style={{ padding: "16px 18px 0", borderBottom: "1px solid var(--border)" }}>
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
             <div>
@@ -940,29 +1033,36 @@ function LineDetailModal({ viewKey, property, year, period, monthLabel, line, in
               </div>
               );
             })()
-          ) : budRows.length === 0 ? (
-            <div className="muted small" style={{ padding: 18 }}>
-              {(bud?.rows ?? []).length === 0
-                ? `No budget lines map to this statement line${bud?.budgetYear ? ` in the ${bud.budgetYear} budget` : ""}.`
-                : `No budgeted amount in ${scopeWord}.`}
-            </div>
           ) : (
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead><tr><th style={th}>Budget Line</th><th style={th}>Acct</th><th style={{ ...th, textAlign: "right" }}>{scopeWord} Budget</th></tr></thead>
-              <tbody>
-                {budRows.map((r, i) => (
-                  <tr key={i}>
-                    <td style={tdc}>{r.label}</td>
-                    <td style={{ ...tdc, whiteSpace: "nowrap", color: "var(--muted)", fontVariantNumeric: "tabular-nums" }}>{r.glAccount}</td>
-                    <td style={{ ...tdc, textAlign: "right", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>{money2(budAmt(r))}</td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot><tr>
-                <td colSpan={2} style={{ ...tdc, fontWeight: 800, borderTop: "2px solid var(--border)" }}>Total budget{bud?.budgetYear ? ` (FY ${bud.budgetYear})` : ""}</td>
-                <td style={{ ...tdc, textAlign: "right", fontWeight: 900, fontVariantNumeric: "tabular-nums", borderTop: "2px solid var(--border)" }}>{money2(budTotal)}</td>
-              </tr></tfoot>
-            </table>
+            <div>
+              {bud?.rentDetail && bud.rentDetail.entries.length > 0 && <RentRosterTable detail={bud.rentDetail} />}
+              {budRows.length === 0 ? (
+                bud?.rentDetail ? null : (
+                  <div className="muted small" style={{ padding: 18 }}>
+                    {(bud?.rows ?? []).length === 0
+                      ? `No budget lines map to this statement line${bud?.budgetYear ? ` in the ${bud.budgetYear} budget` : ""}.`
+                      : `No budgeted amount in ${scopeWord}.`}
+                  </div>
+                )
+              ) : (
+                <table style={{ width: "100%", borderCollapse: "collapse", marginTop: bud?.rentDetail ? 16 : 0 }}>
+                  <thead><tr><th style={th}>Budget Line</th><th style={th}>Acct</th><th style={{ ...th, textAlign: "right" }}>{scopeWord} Budget</th></tr></thead>
+                  <tbody>
+                    {budRows.map((r, i) => (
+                      <tr key={i}>
+                        <td style={tdc}>{r.label}</td>
+                        <td style={{ ...tdc, whiteSpace: "nowrap", color: "var(--muted)", fontVariantNumeric: "tabular-nums" }}>{r.glAccount}</td>
+                        <td style={{ ...tdc, textAlign: "right", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>{money2(budAmt(r))}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot><tr>
+                    <td colSpan={2} style={{ ...tdc, fontWeight: 800, borderTop: "2px solid var(--border)" }}>Total budget{bud?.budgetYear ? ` (FY ${bud.budgetYear})` : ""}</td>
+                    <td style={{ ...tdc, textAlign: "right", fontWeight: 900, fontVariantNumeric: "tabular-nums", borderTop: "2px solid var(--border)" }}>{money2(budTotal)}</td>
+                  </tr></tfoot>
+                </table>
+              )}
+            </div>
           )}
         </div>
       </div>

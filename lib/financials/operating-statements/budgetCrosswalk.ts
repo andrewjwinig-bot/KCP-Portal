@@ -16,12 +16,23 @@
 
 import "server-only";
 import { listBudgets } from "@/lib/financials/budgets/storage";
-import type { BudgetLine } from "@/lib/financials/budgets/types";
+import type { BudgetLine, RentDetail } from "@/lib/financials/budgets/types";
 import { accountMatchesMask } from "./mask";
 import type { LineBudget } from "./types";
 
 /** Flattened budget line keyed by GL account. */
 type FlatBudgetLine = { glAccount: string; label: string; months: number[]; total: number };
+
+/** The per-tenant rent roster carried on the budget's "Total Rental and Other"
+ *  subtotal (when the workbook has it). Found by walking the tree. */
+function findRentDetail(lines: BudgetLine[]): RentDetail | undefined {
+  for (const l of lines) {
+    if (l.rentDetail && l.rentDetail.entries.length) return l.rentDetail;
+    const sub = l.subLines ? findRentDetail(l.subLines) : undefined;
+    if (sub) return sub;
+  }
+  return undefined;
+}
 
 /** Recursively flatten a budget line + its sub-lines into account-keyed rows
  *  (skipping subtotal rows with no GL account). */
@@ -72,6 +83,12 @@ export type ResolvedBudget = {
   lines: FlatBudgetLine[];
   /** Structured section lines with sub-lines intact (for the detail drill-down). */
   tree: BudgetLine[];
+  /** Per-tenant rent roster from the workbook (when present), surfaced on the
+   *  rental-income line's budget drill-down. */
+  rentDetail?: RentDetail;
+  /** GL accounts of the base-rent lines the roster ties to (so the drill-down
+   *  knows which statement line should show the roster). */
+  rentAccounts: string[];
 };
 
 /** Find the property's budget for `year`; if none, fall back to the nearest
@@ -98,10 +115,18 @@ export async function resolvePropertyBudget(
   }
   if (!byYear.size) return null;
 
-  if (byYear.has(year)) return { budgetYear: year, fallback: false, lines: byYear.get(year)!, tree: byYearTree.get(year)! };
+  const build = (budgetYear: number, fallback: boolean): ResolvedBudget => {
+    const lines = byYear.get(budgetYear)!;
+    const tree = byYearTree.get(budgetYear)!;
+    // Base-rent accounts the roster ties to (the "Rental Income" lines).
+    const rentAccounts = [...new Set(lines.filter((l) => /rental income/i.test(l.label)).map((l) => l.glAccount))];
+    return { budgetYear, fallback, lines, tree, rentDetail: findRentDetail(tree), rentAccounts };
+  };
+
+  if (byYear.has(year)) return build(year, false);
   // Nearest available year (prefer the most recent).
   const best = [...byYear.keys()].sort((a, b) => b - a)[0];
-  return { budgetYear: best, fallback: true, lines: byYear.get(best)!, tree: byYearTree.get(best)! };
+  return build(best, true);
 }
 
 /** Build the compute's budgetLookup from resolved budget lines. Matches a
