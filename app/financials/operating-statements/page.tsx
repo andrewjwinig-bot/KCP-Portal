@@ -92,6 +92,40 @@ function isLineEmpty(t: StatementTotals): boolean {
   return isZero(t.periodActual) && isZero(t.ytdActual) && isZero(t.periodBudget) && isZero(t.ytdBudget) && isZero(t.annualBudget);
 }
 
+const threshInput: React.CSSProperties = {
+  width: 64, fontSize: 12, fontWeight: 700, padding: "3px 6px", textAlign: "right",
+  border: "1px solid var(--border)", borderRadius: 6, background: "var(--card)", color: "var(--text)",
+};
+
+// Count line items whose variance vs budget is "high" — beyond EITHER the
+// dollar or the percent threshold — split favorable vs unfavorable, for the
+// current month and YTD. `flagged` maps a line key → its YTD (else month)
+// classification so the table can mark it.
+type VarCounts = { monthFav: number; monthUnf: number; ytdFav: number; ytdUnf: number; flagged: Record<string, "fav" | "unf"> };
+function varianceCounts(s: PropertyStatement, dollarThresh: number, pctThresh: number): VarCounts {
+  let monthFav = 0, monthUnf = 0, ytdFav = 0, ytdUnf = 0;
+  const flagged: Record<string, "fav" | "unf"> = {};
+  const hot = (v: number | null, budget: number | null) => {
+    if (v == null || budget == null) return false;
+    const vp = varPct(v, budget);
+    return Math.abs(v) > dollarThresh || (vp != null && Math.abs(vp) > pctThresh);
+  };
+  for (const sec of s.sections) for (const l of sec.lines) {
+    const key = `${sec.name}::${l.label}`;
+    if (hot(l.periodVariance, l.periodBudget)) {
+      const fav = (l.periodVariance ?? 0) >= 0;
+      if (fav) monthFav++; else monthUnf++;
+      flagged[key] = fav ? "fav" : "unf";
+    }
+    if (hot(l.ytdVariance, l.ytdBudget)) {
+      const fav = (l.ytdVariance ?? 0) >= 0;
+      if (fav) ytdFav++; else ytdUnf++;
+      flagged[key] = fav ? "fav" : "unf"; // YTD classification wins for the marker
+    }
+  }
+  return { monthFav, monthUnf, ytdFav, ytdUnf, flagged };
+}
+
 // Segmented two-button toggle, matching the Operating Budgets controls.
 const toggleBtn: React.CSSProperties = {
   fontSize: 11, fontWeight: 700, padding: "4px 10px",
@@ -155,6 +189,9 @@ export default function OperatingStatementsPage() {
   const [psf, setPsf] = useState(false);
   const [hideEmpty, setHideEmpty] = useState(false);
   const [showGL, setShowGL] = useState(false);
+  // Variance thresholds — a line is "high variance" if it exceeds either.
+  const [varDollar, setVarDollar] = useState(5000);
+  const [varPctThresh, setVarPctThresh] = useState(10);
   const fileRef = useRef<HTMLInputElement>(null);
 
   // Load the picker payload once.
@@ -233,6 +270,7 @@ export default function OperatingStatementsPage() {
   const cur = available.find((a) => a.key === key);
   const yearOptions = cur?.years.length ? cur.years : [year || new Date().getFullYear()];
   const sqft = PROPERTY_DEFS.find((p) => p.id === key)?.sqft ?? 0;
+  const variance = statement ? varianceCounts(statement, varDollar, varPctThresh) : null;
 
   return (
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
@@ -296,14 +334,31 @@ export default function OperatingStatementsPage() {
           )}
         </div>
 
-        {statement && (
-          <div className="pills" style={{ marginTop: 12 }}>
-            <StatPill label="Total Revenues (YTD)" value={money0(statement.rollups.totalRevenues.ytdActual)} />
-            <StatPill label="Operating Expenses (YTD)" value={money0(statement.rollups.totalOperatingExpenses.ytdActual)} />
-            <StatPill label="NOI (YTD)" value={money0(statement.rollups.netOperatingIncome.ytdActual)} accent={statement.rollups.netOperatingIncome.ytdActual >= 0 ? "#15803d" : "#b91c1c"} />
-            <StatPill label="Cash Flow After Debt (YTD)" value={money0(statement.rollups.cashFlowAfterDebtService.ytdActual)} accent={statement.rollups.cashFlowAfterDebtService.ytdActual >= 0 ? "#15803d" : "#b91c1c"} />
-          </div>
-        )}
+        {statement && variance && (() => {
+          const cfad = statement.rollups.cashFlowAfterDebtService;
+          const mPct = varPct(cfad.periodVariance, cfad.periodBudget);
+          const yPct = varPct(cfad.ytdVariance, cfad.ytdBudget);
+          const mon = MONTHS[statement.period - 1];
+          const pctAccent = (v: number | null) => (v == null ? undefined : v >= 0 ? "#15803d" : "#b91c1c");
+          return (
+            <>
+              <div className="pills" style={{ marginTop: 12 }}>
+                <StatPill label={`Cash Flow After Debt · ${mon} vs Budget`} value={fmtPct(mPct)} accent={pctAccent(mPct)} />
+                <StatPill label="Cash Flow After Debt · YTD vs Budget" value={fmtPct(yPct)} accent={pctAccent(yPct)} />
+                <StatPill label="Lines Unfavorable · YTD" value={variance.ytdUnf} sub={`${variance.monthUnf} in ${mon}`} accent={variance.ytdUnf > 0 ? "#b91c1c" : undefined} />
+                <StatPill label="Lines Favorable · YTD" value={variance.ytdFav} sub={`${variance.monthFav} in ${mon}`} accent={variance.ytdFav > 0 ? "#15803d" : undefined} />
+              </div>
+              <div style={{ marginTop: 8, display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 6 }} className="muted small">
+                <span style={{ fontWeight: 700 }}>Flag lines over</span>
+                <span>$</span>
+                <input type="number" min={0} value={varDollar} onChange={(e) => setVarDollar(Math.max(0, Number(e.target.value) || 0))} style={threshInput} />
+                <span>or</span>
+                <input type="number" min={0} value={varPctThresh} onChange={(e) => setVarPctThresh(Math.max(0, Number(e.target.value) || 0))} style={threshInput} />
+                <span>%</span>
+              </div>
+            </>
+          );
+        })()}
       </div>
 
       {loading && <div className="card"><div className="muted small">Loading…</div></div>}
@@ -315,7 +370,7 @@ export default function OperatingStatementsPage() {
         </div>
       )}
 
-      {!loading && statement && <StatementTable s={statement} budgetYear={budgetYear} budgetFallback={budgetFallback} notes={notes} onSaveNote={saveNote} view={{ psf, sqft, hideEmpty, showGL }} />}
+      {!loading && statement && <StatementTable s={statement} budgetYear={budgetYear} budgetFallback={budgetFallback} notes={notes} onSaveNote={saveNote} view={{ psf, sqft, hideEmpty, showGL }} flagged={variance?.flagged ?? {}} />}
     </main>
   );
 }
@@ -363,8 +418,8 @@ function HeaderRow({ monthLabel }: { monthLabel: string }) {
   );
 }
 
-function StatementTable({ s, budgetYear, budgetFallback, notes, onSaveNote, view }: {
-  s: PropertyStatement; budgetYear: number | null; budgetFallback: boolean; view: ViewOpts;
+function StatementTable({ s, budgetYear, budgetFallback, notes, onSaveNote, view, flagged }: {
+  s: PropertyStatement; budgetYear: number | null; budgetFallback: boolean; view: ViewOpts; flagged: Record<string, "fav" | "unf">;
 } & NoteFns) {
   const byRole = (roles: SectionRole[]) => s.sections.filter((x) => roles.includes(x.role));
   const revenueSecs = byRole(["revenue", "reimbursement"]);
@@ -375,7 +430,7 @@ function StatementTable({ s, budgetYear, budgetFallback, notes, onSaveNote, view
   const nf: NoteFns = { notes, onSaveNote };
   const monthLabel = MONTHS[s.period - 1];
   const sc = (sec: StatementSection, hideSubtotal?: boolean) => (
-    <SectionCard key={sec.name} sec={sec} nf={nf} monthLabel={monthLabel} view={view} hideSubtotal={hideSubtotal} />
+    <SectionCard key={sec.name} sec={sec} nf={nf} monthLabel={monthLabel} view={view} flagged={flagged} hideSubtotal={hideSubtotal} />
   );
 
   return (
@@ -437,7 +492,7 @@ function StatementTable({ s, budgetYear, budgetFallback, notes, onSaveNote, view
 const subtotalLabel = (sec: StatementSection) =>
   sec.role === "revenue" ? "Total Revenue and Other" : `Total ${sec.name}`;
 
-function SectionCard({ sec, nf, monthLabel, view, hideSubtotal }: { sec: StatementSection; nf: NoteFns; monthLabel: string; view: ViewOpts; hideSubtotal?: boolean }) {
+function SectionCard({ sec, nf, monthLabel, view, flagged, hideSubtotal }: { sec: StatementSection; nf: NoteFns; monthLabel: string; view: ViewOpts; flagged: Record<string, "fav" | "unf">; hideSubtotal?: boolean }) {
   const lines = view.hideEmpty ? sec.lines.filter((l) => !isLineEmpty(l)) : sec.lines;
   return (
     <div className="card" style={{ padding: 0, overflow: "hidden" }}>
@@ -450,16 +505,22 @@ function SectionCard({ sec, nf, monthLabel, view, hideSubtotal }: { sec: Stateme
           <StatementColgroup />
           <thead><HeaderRow monthLabel={monthLabel} /></thead>
           <tbody>
-            {lines.map((l) => (
-              <tr key={l.label}>
-                <td style={labelStyle}>
-                  <div>{l.label}</div>
-                  {view.showGL && <div className="muted" style={{ fontSize: 11, fontVariantNumeric: "tabular-nums", marginTop: 1 }}>{l.mask}</div>}
-                </td>
-                {figureCells(l, { psf: view.psf, sqft: view.sqft })}
-                <NoteCell lineKey={lineKeyOf(sec.name, l.label)} {...nf} />
-              </tr>
-            ))}
+            {lines.map((l) => {
+              const flag = flagged[lineKeyOf(sec.name, l.label)];
+              return (
+                <tr key={l.label}>
+                  <td style={labelStyle}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      {flag && <span title={`High variance vs budget (${flag === "unf" ? "unfavorable" : "favorable"})`} style={{ width: 8, height: 8, borderRadius: 999, flexShrink: 0, background: flag === "unf" ? "#b91c1c" : "#15803d" }} />}
+                      <span>{l.label}</span>
+                    </div>
+                    {view.showGL && <div className="muted" style={{ fontSize: 11, fontVariantNumeric: "tabular-nums", marginTop: 1 }}>{l.mask}</div>}
+                  </td>
+                  {figureCells(l, { psf: view.psf, sqft: view.sqft })}
+                  <NoteCell lineKey={lineKeyOf(sec.name, l.label)} {...nf} />
+                </tr>
+              );
+            })}
             {!hideSubtotal && (
               <tr style={{ background: "rgba(11,74,125,0.06)", borderTop: "2px solid rgba(11,74,125,0.30)" }}>
                 <td style={{ ...labelStyle, fontWeight: 800, color: COLOR_BRAND, textTransform: "uppercase", letterSpacing: "0.04em", fontSize: 13.5 }}>{subtotalLabel(sec)}</td>
