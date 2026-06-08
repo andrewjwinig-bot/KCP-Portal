@@ -810,27 +810,32 @@ const RENT_ORDER: RentCat[] = ["in-place", "renewal", "new", "vacant"];
 // The Rental Summary by Month roster, copied from the Operating Budgets modal:
 // suite × month with renewal/new-lease color tints, a legend, rent-bump
 // underline, and monthly + annual totals.
-function RentRosterTable({ detail }: { detail: RentDetailClient }) {
+function RentRosterTable({ detail, throughMonth }: { detail: RentDetailClient; throughMonth: number }) {
   const fmt = (n: number) => (n === 0 ? "—" : `$${Math.round(n).toLocaleString("en-US")}`);
+  // Only show YTD months — no future months. Slice every row to the period.
+  const m = Math.min(12, Math.max(1, throughMonth));
+  const shownMonths = MONTHS.slice(0, m);
+  const ytd = (e: RentEntry) => e.months.slice(0, m).reduce((s, v) => s + (v ?? 0), 0);
   const ordered = [...detail.entries].sort((a, b) => a.unitRef.localeCompare(b.unitRef, undefined, { numeric: true }));
-  const monthlyTotals = Array.from({ length: 12 }, (_, m) => detail.entries.reduce((s, e) => s + (e.months[m] ?? 0), 0));
-  const annual = detail.entries.reduce((s, e) => s + e.total, 0);
+  const monthlyTotals = Array.from({ length: m }, (_, i) => detail.entries.reduce((s, e) => s + (e.months[i] ?? 0), 0));
+  const total = detail.entries.reduce((s, e) => s + ytd(e), 0);
   const totalByCategory = (cat: RentCat) =>
-    detail.entries.reduce((s, e) => { let d = 0; for (let j = 0; j < 12; j++) if ((e.monthCategories?.[j] ?? e.category) === cat) d += e.months[j] ?? 0; return s + d; }, 0);
+    detail.entries.reduce((s, e) => { let d = 0; for (let j = 0; j < m; j++) if ((e.monthCategories?.[j] ?? e.category) === cat) d += e.months[j] ?? 0; return s + d; }, 0);
   const cell: React.CSSProperties = { padding: "5px 8px", fontSize: 11.5, fontVariantNumeric: "tabular-nums", borderTop: "1px solid var(--border)" };
   const hcell: React.CSSProperties = { padding: "5px 8px", fontSize: 10.5, fontWeight: 800, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.04em", textAlign: "right" };
+  const minW = m >= 10 ? 1040 : Math.max(560, 220 + m * 70);
   return (
     <div style={{ padding: "12px 4px 0" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
         <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>
-          Rental Summary by Month — {ordered.length} suite{ordered.length === 1 ? "" : "s"} · {fmt(annual)} annual
+          Rental Summary by Month — {ordered.length} suite{ordered.length === 1 ? "" : "s"} · {fmt(total)} {m < 12 ? `through ${shownMonths[m - 1]}` : "annual"}
         </div>
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
           {RENT_ORDER.map((cat) => {
             if (cat === "vacant") return null;
             const dollars = totalByCategory(cat);
             if (dollars === 0) return null;
-            const p = annual > 0 ? (dollars / annual) * 100 : 0;
+            const p = total > 0 ? (dollars / total) * 100 : 0;
             return (
               <span key={cat} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11 }}>
                 <span style={{ display: "inline-block", width: 12, height: 12, background: RENT_TINT[cat], border: "1px solid rgba(22,163,74,0.35)", borderRadius: 2 }} />
@@ -841,18 +846,18 @@ function RentRosterTable({ detail }: { detail: RentDetailClient }) {
         </div>
       </div>
       <div style={{ overflowX: "auto" }}>
-        <table style={{ tableLayout: "fixed", width: "100%", minWidth: 1040, borderCollapse: "collapse" }}>
+        <table style={{ tableLayout: "fixed", width: "100%", minWidth: minW, borderCollapse: "collapse" }}>
           <colgroup>
             <col style={{ width: 64 }} /><col style={{ width: 150 }} />
-            {MONTHS.map((m) => <col key={m} />)}
+            {shownMonths.map((mo) => <col key={mo} />)}
             <col style={{ width: 76 }} />
           </colgroup>
           <thead>
             <tr>
               <th style={{ ...hcell, textAlign: "left" }}>Suite</th>
               <th style={{ ...hcell, textAlign: "left" }}>Tenant</th>
-              {MONTHS.map((m) => <th key={m} style={hcell}>{m}</th>)}
-              <th style={hcell}>Total</th>
+              {shownMonths.map((mo) => <th key={mo} style={hcell}>{mo}</th>)}
+              <th style={hcell}>YTD</th>
             </tr>
           </thead>
           <tbody>
@@ -864,20 +869,20 @@ function RentRosterTable({ detail }: { detail: RentDetailClient }) {
                 <tr key={idx}>
                   <td style={{ ...cell, whiteSpace: "nowrap" }} title={tip}>{e.unitRef}</td>
                   <td style={{ ...cell, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: isVacant ? "var(--muted)" : undefined, fontStyle: isVacant ? "italic" : undefined }} title={tip}>{e.tenantName}</td>
-                  {e.months.map((m, j) => {
+                  {e.months.slice(0, m).map((mv, j) => {
                     const cat = e.monthCategories?.[j] ?? e.category;
                     return (
-                      <td key={j} style={{ ...cell, textAlign: "right", background: m > 0 ? RENT_TINT[cat] : undefined, color: cat === "vacant" ? "var(--muted)" : undefined, boxShadow: isBump(j) ? "inset 0 -2px 0 rgba(15,23,42,0.55)" : undefined }}>{fmt(m)}</td>
+                      <td key={j} style={{ ...cell, textAlign: "right", background: mv > 0 ? RENT_TINT[cat] : undefined, color: cat === "vacant" ? "var(--muted)" : undefined, boxShadow: isBump(j) ? "inset 0 -2px 0 rgba(15,23,42,0.55)" : undefined }}>{fmt(mv)}</td>
                     );
                   })}
-                  <td style={{ ...cell, textAlign: "right", fontWeight: 700, color: isVacant ? "var(--muted)" : undefined }}>{fmt(e.total)}</td>
+                  <td style={{ ...cell, textAlign: "right", fontWeight: 700, color: isVacant ? "var(--muted)" : undefined }}>{fmt(ytd(e))}</td>
                 </tr>
               );
             })}
             <tr style={{ borderTop: "2px solid var(--border)", fontWeight: 800 }}>
               <td colSpan={2} style={{ ...cell, textTransform: "uppercase", letterSpacing: "0.04em", fontSize: 10.5 }}>Total</td>
-              {monthlyTotals.map((m, j) => <td key={j} style={{ ...cell, textAlign: "right", fontWeight: 800 }}>{fmt(m)}</td>)}
-              <td style={{ ...cell, textAlign: "right", fontWeight: 900 }}>{fmt(annual)}</td>
+              {monthlyTotals.map((mv, j) => <td key={j} style={{ ...cell, textAlign: "right", fontWeight: 800 }}>{fmt(mv)}</td>)}
+              <td style={{ ...cell, textAlign: "right", fontWeight: 900 }}>{fmt(total)}</td>
             </tr>
           </tbody>
         </table>
@@ -935,7 +940,7 @@ function LineDetailModal({ viewKey, property, year, period, monthLabel, line, in
 
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(15,23,42,0.55)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "48px 20px", overflow: "auto" }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ background: "var(--card)", borderRadius: 12, maxWidth: tab === "budget" && bud?.rentDetail ? 1240 : 820, width: "100%", boxShadow: "0 20px 60px rgba(0,0,0,0.35)", display: "flex", flexDirection: "column", maxHeight: "82vh" }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: "var(--card)", borderRadius: 12, maxWidth: tab === "budget" && bud?.rentDetail && (effScope === "annual" ? 12 : period) > 7 ? 1240 : 820, width: "100%", boxShadow: "0 20px 60px rgba(0,0,0,0.35)", display: "flex", flexDirection: "column", maxHeight: "82vh" }}>
         <div style={{ padding: "16px 18px 0", borderBottom: "1px solid var(--border)" }}>
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
             <div>
@@ -1035,7 +1040,7 @@ function LineDetailModal({ viewKey, property, year, period, monthLabel, line, in
             })()
           ) : (
             <div>
-              {bud?.rentDetail && bud.rentDetail.entries.length > 0 && <RentRosterTable detail={bud.rentDetail} />}
+              {bud?.rentDetail && bud.rentDetail.entries.length > 0 && <RentRosterTable detail={bud.rentDetail} throughMonth={effScope === "annual" ? 12 : period} />}
               {budRows.length === 0 ? (
                 bud?.rentDetail ? null : (
                   <div className="muted small" style={{ padding: 18 }}>
