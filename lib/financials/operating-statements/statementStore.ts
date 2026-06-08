@@ -61,3 +61,26 @@ export async function latestGl(key: string, year: number): Promise<StoredGl | nu
   if (!versions.length) return null;
   return getGl(versions[0].id);
 }
+
+// ── Line notes (variance explanations) ───────────────────────────────────────
+// Free-text notes keyed by statement line, persisted per property/year so they
+// carry across periods. Line key = "<section>::<label>".
+
+const NOTES_PREFIX = "financials-operating-statements-notes";
+
+type NotesRecord = { key: string; year: number; notes: Record<string, string> };
+
+export async function getNotes(key: string, year: number): Promise<Record<string, string>> {
+  const rec = (await getJSON(NOTES_PREFIX, `${key}-${year}`)) as NotesRecord | null;
+  return rec?.notes ?? {};
+}
+
+export async function saveNote(key: string, year: number, lineKey: string, note: string): Promise<void> {
+  const id = `${key}-${year}`;
+  const rec = (await getJSON(NOTES_PREFIX, id)) as NotesRecord | null;
+  const notes = { ...(rec?.notes ?? {}) };
+  if (note.trim()) notes[lineKey] = note.trim();
+  else delete notes[lineKey];
+  await storeJSON(NOTES_PREFIX, id, { key, year, notes });
+}
+

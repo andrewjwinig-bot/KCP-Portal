@@ -4,7 +4,7 @@ import { parseGeneralLedgerMonthly, summaryForPeriod } from "@/lib/financials/op
 import { computeStatement } from "@/lib/financials/operating-statements/compute";
 import { availableStatements, getMapping } from "@/lib/financials/operating-statements/mappingStore";
 import { resolvePropertyBudget, makeBudgetLookup } from "@/lib/financials/operating-statements/budgetCrosswalk";
-import { saveGl, latestGl, getGl, versionsFor, listGls } from "@/lib/financials/operating-statements/statementStore";
+import { saveGl, latestGl, getGl, versionsFor, listGls, getNotes, saveNote } from "@/lib/financials/operating-statements/statementStore";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 
 export const runtime = "nodejs";
@@ -58,6 +58,7 @@ export async function GET(req: Request) {
   // budget); the page labels the year used.
   const budget = await resolvePropertyBudget(mapping.propertyCode, year);
   const budgetLookup = budget ? makeBudgetLookup(budget, period) : undefined;
+  const notes = await getNotes(key, year);
 
   const statement = computeStatement({
     mapping,
@@ -76,8 +77,24 @@ export async function GET(req: Request) {
     uploadedAt: stored.uploadedAt,
     budgetYear: budget?.budgetYear ?? null,
     budgetFallback: budget?.fallback ?? false,
+    notes,
     statement,
   });
+}
+
+// PATCH — save (or clear) a line note. Keyed by property/year + line key.
+export async function PATCH(req: Request) {
+  try {
+    const body = await req.json();
+    const { key, year, lineKey, note } = body ?? {};
+    if (!key || !year || !lineKey) {
+      return NextResponse.json({ error: "key, year and lineKey are required" }, { status: 400 });
+    }
+    await saveNote(String(key), Number(year), String(lineKey), typeof note === "string" ? note : "");
+    return NextResponse.json({ ok: true });
+  } catch (e) {
+    return NextResponse.json({ error: e instanceof Error ? e.message : "Failed to save note" }, { status: 500 });
+  }
 }
 
 // POST — multipart upload of one property's Skyline GL export. Parses, stores a
