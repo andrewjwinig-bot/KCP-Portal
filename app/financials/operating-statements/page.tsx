@@ -192,7 +192,7 @@ export default function OperatingStatementsPage() {
   const [error, setError] = useState<string | null>(null);
   // View toggles (mirroring the Operating Budgets page).
   const [psf, setPsf] = useState(false);
-  const [hideEmpty, setHideEmpty] = useState(false);
+  const [hideEmpty, setHideEmpty] = useState(true);
   const [showGL, setShowGL] = useState(false);
   // Variance thresholds — a line is "high variance" if it exceeds either.
   const [varDollar, setVarDollar] = useState(5000);
@@ -672,19 +672,66 @@ function ClickablePill({ active, activeColor, onClick, title, children }: { acti
 
 function NoteCell({ lineKey, notes, onSaveNote }: { lineKey: string } & NoteFns) {
   const value = notes[lineKey] ?? "";
-  const [text, setText] = useState(value);
-  useEffect(() => { setText(value); }, [value]);
+  const [open, setOpen] = useState(false);
   return (
     <td style={{ ...labelStyle, borderLeft: GROUP_DIV, padding: "4px 8px" }}>
-      <input
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        onBlur={(e) => { e.currentTarget.style.borderColor = "transparent"; e.currentTarget.style.background = "transparent"; if (text !== value) onSaveNote(lineKey, text); }}
-        onFocus={(e) => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.background = "var(--card)"; }}
-        placeholder="Add a note…"
-        style={{ width: "100%", border: "1px solid transparent", borderRadius: 6, background: "transparent", font: "inherit", fontSize: 13, padding: "4px 6px", color: "var(--text)" }}
-      />
+      <button
+        type="button"
+        className="os-cell"
+        onClick={() => setOpen(true)}
+        title={value || "Add a note"}
+        style={{
+          width: "100%", textAlign: "left", border: "1px solid transparent", borderRadius: 6,
+          background: "transparent", font: "inherit", fontSize: 13, padding: "4px 6px",
+          color: value ? "var(--text)" : "var(--muted)", cursor: "pointer",
+          whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "block",
+        }}
+      >
+        {value || "Add a note…"}
+      </button>
+      {open && (
+        <NoteModal
+          lineKey={lineKey}
+          initial={value}
+          onClose={() => setOpen(false)}
+          onSave={(t) => { if (t !== value) onSaveNote(lineKey, t); setOpen(false); }}
+        />
+      )}
     </td>
+  );
+}
+
+// Full-text note viewer/editor — the cell only shows one truncated line, so
+// clicking opens this modal to read and edit the whole note.
+function NoteModal({ lineKey, initial, onClose, onSave }: {
+  lineKey: string; initial: string; onClose: () => void; onSave: (t: string) => void;
+}) {
+  const [text, setText] = useState(initial);
+  const label = lineKey.split("::").pop() || "Note";
+  return (
+    <div className="modalOverlay" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()} style={{ width: "min(560px, 100%)" }}>
+        <div className="modalHeader">
+          <div>
+            <div className="modalTitle" style={{ fontSize: 20 }}>Note</div>
+            <div className="muted small" style={{ marginTop: 2 }}>{label}</div>
+          </div>
+          <button className="btn" onClick={onClose}>Close</button>
+        </div>
+        <textarea
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          autoFocus
+          rows={6}
+          placeholder="Explain the variance…"
+          style={{ width: "100%", border: "1px solid var(--border)", borderRadius: 10, background: "var(--card)", font: "inherit", fontSize: 14, lineHeight: 1.5, padding: "10px 12px", color: "var(--text)", resize: "vertical" }}
+        />
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 12 }}>
+          <button className="btn" onClick={onClose}>Cancel</button>
+          <button className="btn primary" onClick={() => onSave(text.trim())}>Save</button>
+        </div>
+      </div>
+    </div>
   );
 }
 
