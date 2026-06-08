@@ -109,6 +109,12 @@ const PAGES: PageEntry[] = [
   { label: "Bank Transfers", href: "/bank-transfers", navKey: "bank-transfers",
     description: "Inter-account transfer log",
     keywords: ["transfers", "wires", "advances", "reimbursements", "intercompany"] },
+  { label: "Operating Budgets", href: "/financials/budgets", navKey: "financials-budgets",
+    description: "Annual operating budgets by property — revenues, NOI, cash flow",
+    keywords: ["budget", "operating budget", "noi", "cash flow", "reforecast", "proforma", "financials"] },
+  { label: "Operating Statements", href: "/financials/operating-statements", navKey: "financials-budgets",
+    description: "Monthly actuals vs budget — comparative income statement by property",
+    keywords: ["operating statement", "income statement", "actuals", "variance", "p&l", "profit and loss", "comparative income", "gl", "general ledger", "financials"] },
   { label: "Payroll Invoicer", href: "/", navKey: "payroll-invoicer",
     description: "Generate payroll allocation invoices per property",
     keywords: ["payroll", "invoice", "allocation", "paychex"] },
@@ -423,24 +429,43 @@ export default function GlobalSearch() {
       }
     }
 
-    // Bank accounts
+    // Bank accounts — dedupe by (bank, label, last4) and aggregate the
+    // properties each account serves, so a shared account (e.g. one NI LLC
+    // operating account across several buildings) shows once. Searching the
+    // last four digits (with or without the "x") surfaces which property it's
+    // for; an exact 4-digit match floats it to the top.
+    const qDigits = q.replace(/\D/g, "");
+    const acctMap = new Map<string, { bank: string; label: string; last4: string; link?: string; props: string[] }>();
     for (const [propCode, accts] of Object.entries(BANK_ACCOUNTS)) {
       for (const a of accts) {
-        const s = Math.max(
-          score(q, a.last4) * 1.5,
-          score(q, a.label),
-          score(q, a.bank),
-        );
-        if (s > 0) {
-          out.push({
-            group: "Bank Account",
-            title: `${a.label} ${a.last4}`,
-            subtitle: `${a.bank} · ${propCode} ${propName(propCode)}`,
-            badge: a.last4,
-            href: a.link || "/bank-rec",
-            score: s,
-          });
-        }
+        const k = `${a.bank}|${a.label}|${a.last4}`;
+        const e = acctMap.get(k) ?? { bank: a.bank, label: a.label, last4: a.last4, link: a.link, props: [] };
+        if (!e.props.includes(propCode)) e.props.push(propCode);
+        acctMap.set(k, e);
+      }
+    }
+    for (const a of acctMap.values()) {
+      const last4Digits = a.last4.replace(/\D/g, "");
+      let s = Math.max(
+        score(q, a.last4) * 1.6,
+        score(q, a.label),
+        score(q, a.bank),
+      );
+      if (qDigits.length >= 3 && last4Digits.includes(qDigits)) {
+        s = Math.max(s, qDigits === last4Digits ? 160 : 90);
+      }
+      if (s > 0) {
+        const propsText = a.props.length === 1
+          ? `${a.props[0]} ${propName(a.props[0])}`
+          : `${a.props.length} properties (${a.props.join(", ")})`;
+        out.push({
+          group: "Bank Account",
+          title: `${a.label} ${a.last4}`,
+          subtitle: `${a.bank} · ${propsText}`,
+          badge: a.last4,
+          href: a.link || "/bank-rec",
+          score: s,
+        });
       }
     }
 
