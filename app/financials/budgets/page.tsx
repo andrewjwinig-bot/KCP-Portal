@@ -76,6 +76,24 @@ export default function BudgetsPage() {
   }, [selectedId, budgetScope]);
   useEffect(() => { reload(); }, [reload]);
 
+  // Deep link: /financials/budgets?property=<code>&year=<year> selects the
+  // workbook containing that property (preferring the requested year) and
+  // focuses it — used by the Operating Statements "View Budget" button.
+  const deepLinked = useRef(false);
+  useEffect(() => {
+    if (deepLinked.current || !summaries || summaries.length === 0) return;
+    deepLinked.current = true;
+    const params = new URLSearchParams(window.location.search);
+    const wantProp = params.get("property");
+    if (!wantProp) return;
+    const matches = summaries.filter((s) => s.properties.some((p) => p.propertyCode === wantProp));
+    if (!matches.length) return;
+    const wantYear = params.get("year");
+    const pick = (wantYear && matches.find((s) => String(s.year) === wantYear)) || [...matches].sort((a, b) => b.year - a.year)[0];
+    setSelectedId(pick.id);
+    setPropertyCode(wantProp);
+  }, [summaries]);
+
   // Fetch the selected workbook in full.
   useEffect(() => {
     if (!selectedId) { setWorkbook(null); return; }
