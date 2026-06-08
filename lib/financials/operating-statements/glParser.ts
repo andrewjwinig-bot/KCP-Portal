@@ -44,6 +44,9 @@ export type GlTransaction = {
   month: number;
   /** Trans date, ISO YYYY-MM-DD when parseable. */
   date: string | null;
+  /** Vendor / payer (tenant on a rent charge), kept separate from the merged
+   *  description so transactions can be grouped per tenant. */
+  vendor?: string;
   description: string;
   ref: string;
   amount: number;
@@ -193,6 +196,7 @@ function monthlyFromDetailed(rows: Row[], cols: DetailCols): { monthly: Record<s
     buffer.push({
       month: 0,
       date: dateFromCell(row[cols.date]),
+      vendor: vendor || undefined,
       description: [vendor, desc].filter(Boolean).join(" — ") || ref || "(no description)",
       ref,
       amount: numIn(row, cols.amount, cols.amount + 1),

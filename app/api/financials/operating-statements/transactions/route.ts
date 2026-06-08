@@ -33,24 +33,36 @@ export async function GET(req: Request) {
   const accounts = Object.keys(byAccount).filter((a) => accountMatchesMask(mask, a));
   const tenantFor = await buildTenantLookup();
 
-  const rows: { account: string; tenant: string | null; date: string | null; description: string; ref: string; amount: number; month: number }[] = [];
+  // Tenant/payer for a transaction. Two chart patterns are supported:
+  //  A) per-unit accounts — the account itself maps to a rent-roll tenant;
+  //  B) one revenue account, the tenant carried on each charge — use the
+  //     transaction's vendor (parsed out of the merged description for GLs
+  //     imported before vendor was stored separately).
+  const vendorOf = (t: { vendor?: string; description: string }): string =>
+    (t.vendor && t.vendor.trim()) || (t.description || "").split(" — ")[0].trim();
+
+  const rows: { account: string; tenant: string | null; groupKey: string; date: string | null; description: string; ref: string; amount: number; month: number }[] = [];
   for (const account of accounts) {
-    const tenant = tenantFor(account);
+    const acctTenant = tenantFor(account);
     for (const t of byAccount[account]) {
       if (scope === "month" ? t.month !== period : t.month > period) continue;
-      rows.push({ account, tenant, date: t.date, description: t.description, ref: t.ref, amount: t.amount * sign, month: t.month });
+      const payer = vendorOf(t);
+      const tenant = acctTenant ?? (payer || null);
+      // Group by the account when it identifies the tenant, else by the payer.
+      const groupKey = acctTenant ? `A:${account}` : `P:${payer || account}`;
+      rows.push({ account, tenant, groupKey, date: t.date, description: t.description, ref: t.ref, amount: t.amount * sign, month: t.month });
     }
   }
   rows.sort((a, b) => (a.date && b.date ? (a.date < b.date ? 1 : -1) : b.month - a.month));
   const total = rows.reduce((s, r) => s + r.amount, 0);
 
-  // Per-account (per-tenant/unit) breakdown so the drill-down can list each
-  // tenant/unit and isolate the ones driving the line. Sorted by magnitude.
-  const groups = new Map<string, { account: string; tenant: string | null; amount: number; count: number }>();
+  // Per-tenant breakdown so the drill-down can list each tenant and isolate the
+  // ones driving the line. Sorted by magnitude.
+  const groups = new Map<string, { groupKey: string; account: string; tenant: string | null; amount: number; count: number }>();
   for (const r of rows) {
-    const g = groups.get(r.account) ?? { account: r.account, tenant: r.tenant, amount: 0, count: 0 };
+    const g = groups.get(r.groupKey) ?? { groupKey: r.groupKey, account: r.account, tenant: r.tenant, amount: 0, count: 0 };
     g.amount += r.amount; g.count += 1;
-    groups.set(r.account, g);
+    groups.set(r.groupKey, g);
   }
   const byTenant = [...groups.values()].sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount));
 
