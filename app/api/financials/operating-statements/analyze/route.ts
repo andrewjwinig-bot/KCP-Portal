@@ -93,7 +93,7 @@ export async function POST(req: Request) {
         budgetedFor: bd.map((b) => ({ label: b.label, ytd: r0(b.ytd) })),
         ...(tenants.length ? { tenants } : {}),
         transactionCount: txs.length,
-        topTransactions: txs.slice(0, 6).map((t) => ({ date: t.date, description: t.description.slice(0, 80), amount: r2(t.amount) })),
+        topTransactions: txs.slice(0, 8).map((t) => ({ date: t.date, description: t.description.slice(0, 80), amount: r2(t.amount) })),
       });
     }
   }
@@ -105,9 +105,16 @@ export async function POST(req: Request) {
 
   const prompt =
     `You are a commercial real estate accountant reviewing ${statement.propertyCode} ${statement.propertyName}'s operating statement vs budget, YTD through period ${period}, year ${year}. ` +
-    `For each flagged line below, write one concise note (max ~35 words) giving ONLY the likely cause(s) and the action item(s) to verify — reference the budgeted line label(s), tenant name(s), and specific vendor(s)/transaction(s) when relevant (timing, reclassification/mis-coding, seasonal, one-time, missing accrual, new/renewed lease, step-up, vacancy, etc.). ` +
-    `When a line includes a "tenants" list, attribute the variance to those tenant NAME(S). NEVER cite a raw GL or unit code (e.g. "1100-12330", "unit 34") — always use the tenant's name instead; codes mean nothing to the reader. ` +
-    `Do NOT restate the actual amount, the budget amount, or the variance — those are already shown in the table next to the note. Start directly with the cause or action (e.g. "Confirm both PECO accounts…", "New lease for Acme Corp not in budget — verify lease abstract…"). No generic filler. ` +
+    `For each flagged line, write ONE concise note (max ~35 words) that explains the variance by pointing to the SPECIFIC item(s) driving it, then the action to verify.\n\n` +
+    `HARD RULES:\n` +
+    `1. Do NOT restate the line's actual total, budget total, or variance — they are already shown in the table beside the note. A note that opens with "Two PECO bills totaling $912 vs. $660 budget" or "$5,054 vs budgeted $3,056" is WRONG and unusable. Never begin with the line totals.\n` +
+    `2. LEAD with the concrete driver from the data: the specific GL transaction(s) (name the vendor and what it was) from "topTransactions", the specific budget sub-line that was or wasn't funded from "budgetedFor", or the specific tenant from "tenants". Identify WHICH item caused it, not that a variance exists.\n` +
+    `3. You MAY cite a single transaction's amount when it pinpoints the cause (e.g. "a one-time $848 charge from ABC Paving"), but NEVER the line or budget totals.\n` +
+    `4. When a line includes a "tenants" list, attribute the variance to those tenant NAME(S). NEVER cite a raw GL or unit code (e.g. "1100-12330", "unit 34") — use the tenant's name; codes mean nothing to the reader.\n` +
+    `5. End with what to verify. No generic filler, no hedging boilerplate.\n\n` +
+    `GOOD example: "Extra Q1 visit from Green Scapes appears one-time — budget assumed the standard monthly contract. Confirm whether the Jan 14 invoice is storm cleanup or a permanent rate increase."\n` +
+    `GOOD example: "New lease for Acme Corp not reflected in the budget model. Verify the lease abstract and that billed base rent matches the executed step-up schedule."\n` +
+    `BAD example (never do this): "Three rent charges total $5,054 vs. budgeted $3,056. Verify…"\n\n` +
     `Amounts are dollars; a "favorable" variance is good (revenue over / expense under budget). ` +
     `Return ONLY a JSON object mapping each line's exact "lineKey" to its note string.\n\n` +
     `FLAGGED LINES:\n${JSON.stringify(flagged, null, 1)}`;
