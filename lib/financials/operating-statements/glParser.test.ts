@@ -19,7 +19,7 @@ const monthTotal = (month: string, debit: number, credit: number, bal: number) =
 const sheet: Cell[][] = [
   row({ 10: "Property/Company : 7010" }),
   row({ 10: "Parkwood Joint Venture" }),
-  row({ 10: "1/1/2025 To 12/31/2025" }),
+  row({ 10: "1/1/2025 To 3/31/2025" }),
   row({ 5: "Description", 20: "Jnl", 21: "Ref", 23: "Debit", 25: "Credit", 28: "Balance" }),
   // Expense account (debit-normal)
   row({ 1: "6030-8502", 7: "Maintenance Salaries", 28: 0 }),
@@ -84,21 +84,25 @@ function serial(y: number, m: number, d: number): number {
 }
 
 // Mirrors the real 1100 Detailed GL: Property/Company header with name, a date
-// range, an Amount column (col 19), a Trans Date column (col 0), account header
-// rows that also hold the Beginning Balance, dated transactions, and Total rows.
+// range, an Amount column (col 19), account header rows that also hold the
+// Beginning Balance, dated transactions, and per-month "<Month> Total" rows.
+// Crucially the maintenance account has a DECEMBER-dated transaction (a prior-
+// month invoice posted in January) — period must come from the "January Total"
+// row, not the transaction date.
 const detailed: Cell[][] = [
   row({ 10: "Property/Company : 1100 - Parkwood Professional Building" }),
   row({ 10: "1/1/2026 To 2/28/2026" }),
   row({ 0: "Trans Date", 4: "Vendor Name", 16: "Invoice Description", 19: "Amount" }),
-  // Expense account with a non-zero beginning balance (prior-period accrual).
+  // Expense account with a non-zero beginning balance (prior-period accrual)
+  // and a December-dated invoice posted in January.
   row({ 1: "6030-8502", 5: "Maintenance Salaries", 16: "Beginning Balance", 19: 3120 }),
-  row({ 0: serial(2026, 1, 15), 4: "ADP", 19: 260 }),
+  row({ 0: serial(2025, 12, 28), 4: "ADP (Dec invoice)", 19: 60 }),
+  row({ 0: serial(2026, 1, 15), 4: "ADP", 19: 200 }),
   row({ 16: "January Total", 19: 260 }),
   row({ 16: "YTD Total", 19: 3380 }),
-  // Revenue account (credit-normal → negative amounts), two Jan txns + a Feb txn.
+  // Revenue account (credit-normal → negative amounts), Jan + Feb totals.
   row({ 1: "4230-8501", 5: "Rental Income - Base Rent", 16: "Beginning Balance", 19: -39229.06 }),
-  row({ 0: serial(2026, 1, 10), 19: -3054.38 }),
-  row({ 0: serial(2026, 1, 20), 19: -2000 }),
+  row({ 0: serial(2026, 1, 10), 19: -5054.38 }),
   row({ 16: "January Total", 19: -5054.38 }),
   row({ 0: serial(2026, 2, 5), 19: -1000 }),
   row({ 16: "February Total", 19: -1000 }),
@@ -112,18 +116,17 @@ describe("Detailed General Ledger parser", () => {
     expect(res.year).toBe(2026);
   });
 
-  it("sums dated transactions per month, ignoring Beginning Balance + Total rows", () => {
+  it("reads the monthly Total rows, not transaction dates — a December invoice posted in January stays in January", () => {
     const res = parseGeneralLedger(detailed, 1);
+    // maxPeriodInFile is 2 (Jan + Feb totals) — NOT 12 from the December txn date.
+    expect(res.maxPeriodInFile).toBe(2);
     const maint = res.rows.find((r) => r.account === "6030-8502")!;
-    expect(maint.periodActual).toBe(260); // not 3120 (beginning balance) or 3380 (YTD Total)
-    const rent = res.rows.find((r) => r.account === "4230-8501")!;
-    expect(rent.periodActual).toBeCloseTo(-5054.38, 2); // two Jan txns
-    expect(rent.ytdActual).toBeCloseTo(-5054.38, 2);
+    expect(maint.periodActual).toBe(260); // January Total, not 3120/3380
+    expect(maint.ytdActual).toBe(260);
   });
 
-  it("buckets a multi-month range by transaction date", () => {
+  it("derives period + YTD across months from the Total rows", () => {
     const res = parseGeneralLedger(detailed, 2);
-    expect(res.maxPeriodInFile).toBe(2);
     const rent = res.rows.find((r) => r.account === "4230-8501")!;
     expect(rent.periodActual).toBeCloseTo(-1000, 2); // February only
     expect(rent.ytdActual).toBeCloseTo(-6054.38, 2); // Jan + Feb

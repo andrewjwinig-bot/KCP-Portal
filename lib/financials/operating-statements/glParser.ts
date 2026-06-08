@@ -85,8 +85,9 @@ function findFirst(rows: Row[], re: RegExp): RegExpMatchArray | null {
 }
 
 /** Month (1–12) from a Trans Date cell — Excel serial number, Date, or
- *  M/D/YY string. Returns null for non-dates (Beginning Balance / Total /
- *  blank rows), which is how transactions are separated from subtotals. */
+ *  M/D/YY string. (Kept for completeness; the Detailed GL derives months from
+ *  the "<Month> Total" rows instead, since transaction Trans Dates can carry a
+ *  prior-month invoice date.) */
 function monthFromCell(v: Cell): number | null {
   if (typeof v === "number") {
     if (v > 20000 && v < 80000) {
@@ -105,18 +106,29 @@ function monthFromCell(v: Cell): number | null {
   }
   return null;
 }
+void monthFromCell;
 
-function parseHeader(rows: Row[]): { propertyCode: string | null; year: number | null } {
+// The report period range — e.g. "1/1/2026 To 1/31/2026" — lives near the top
+// (cell K8 on the Detailed GL). Its END month is the authoritative reporting
+// period: it tells us which month a single-month file covers, or the latest
+// period a YTD file runs through — independent of any transaction dates.
+function parseHeader(rows: Row[]): { propertyCode: string | null; year: number | null; endMonth: number | null } {
   const propMatch = findFirst(rows, /Property\/Company\s*:\s*([A-Za-z0-9]+)/);
-  const yearMatch = findFirst(rows, /(\d{1,2})\/(\d{1,2})\/(\d{4})\s+To\s+/i);
+  const rangeMatch = findFirst(rows, /(\d{1,2})\/(\d{1,2})\/(\d{4})\s+To\s+(\d{1,2})\/(\d{1,2})\/(\d{4})/i);
+  const endMonth = rangeMatch ? Number(rangeMatch[4]) : null;
   return {
     propertyCode: propMatch ? propMatch[1] : null,
-    year: yearMatch ? Number(yearMatch[3]) : null,
+    year: rangeMatch ? Number(rangeMatch[3]) : null,
+    endMonth: endMonth && endMonth >= 1 && endMonth <= 12 ? endMonth : null,
   };
 }
 
-/** Detailed GL: sum dated transactions per account per month. */
-function monthlyFromDetailed(rows: Row[], amountCol: number, dateCol: number): { monthly: Record<string, number[]>; maxMonth: number } {
+/** Detailed GL: read each account's per-month "<Month> Total" rows. The month
+ *  label reflects the accounting period, NOT individual transaction invoice
+ *  dates (which can fall in a prior month — e.g. a December invoice posted in
+ *  January), so bucketing by Trans Date would mis-assign the period. The amount
+ *  sits in the single signed Amount column. */
+function monthlyFromDetailed(rows: Row[], amountCol: number): { monthly: Record<string, number[]>; maxMonth: number } {
   const monthly: Record<string, number[]> = {};
   let current: string | null = null;
   let maxMonth = 0;
@@ -128,10 +140,15 @@ function monthlyFromDetailed(rows: Row[], amountCol: number, dateCol: number): {
       continue;
     }
     if (!current) continue;
-    const month = monthFromCell(row[dateCol]); // null for Beginning Balance / Total rows
-    if (month == null) continue;
-    monthly[current][month - 1] += numIn(row, amountCol, amountCol + 1);
-    if (month > maxMonth) maxMonth = month;
+    let mIdx = -1;
+    for (let c = 0; c < row.length; c++) {
+      const m = asStr(row[c]).match(MONTH_TOTAL_RE); // "<Month> Total" (not "YTD Total")
+      if (m) { mIdx = MONTHS.indexOf(m[1].toLowerCase()); break; }
+    }
+    if (mIdx >= 0) {
+      monthly[current][mIdx] = numIn(row, amountCol, amountCol + 1);
+      if (mIdx + 1 > maxMonth) maxMonth = mIdx + 1;
+    }
   }
   return { monthly, maxMonth };
 }
@@ -170,7 +187,7 @@ function monthlyFromDebitCredit(rows: Row[]): { monthly: Record<string, number[]
 }
 
 export function parseGeneralLedgerMonthly(rows: Row[]): GlMonthly {
-  const { propertyCode, year } = parseHeader(rows);
+  const { propertyCode, year, endMonth } = parseHeader(rows);
 
   // Format detection: a single "Amount" column → Detailed GL; otherwise fall
   // back to the Debit/Credit "Year-To-Date" layout.
@@ -178,10 +195,14 @@ export function parseGeneralLedgerMonthly(rows: Row[]): GlMonthly {
   const hasDebit = headerCol(rows, "debit") != null;
   const { monthly, maxMonth } =
     amountCol != null && !hasDebit
-      ? monthlyFromDetailed(rows, amountCol, headerCol(rows, "trans date", "date") ?? 0)
+      ? monthlyFromDetailed(rows, amountCol)
       : monthlyFromDebitCredit(rows);
 
-  return { propertyCode, year, maxPeriodInFile: maxMonth || 12, monthly };
+  // The report range's end month is authoritative for the reporting period;
+  // fall back to the last month with activity if the range can't be read.
+  const maxPeriodInFile = endMonth ?? (maxMonth || 12);
+
+  return { propertyCode, year, maxPeriodInFile, monthly };
 }
 
 /** Collapse monthly nets into the period + YTD summary the compute consumes. */
