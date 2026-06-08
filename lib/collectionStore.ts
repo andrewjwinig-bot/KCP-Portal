@@ -125,3 +125,57 @@ export function scopedCollection<T>(opts: {
     });
   return { forScope };
 }
+
+// ── Map variant ──────────────────────────────────────────────────────────────
+// For `Record<key, value>` stores where the value does NOT carry its own key.
+// Each entry is stored per-key (wrapped with its key) so concurrent edits to
+// different keys never collide.
+export type MapStore<V> = {
+  get(key: string): Promise<V | null>;
+  all(): Promise<Record<string, V>>;
+  set(key: string, value: V): Promise<void>;
+  remove(key: string): Promise<void>;
+};
+
+type Wrapped<V> = { key: string; value: V };
+
+function mapFromCollection<V>(inner: CollectionStore<Wrapped<V>>): MapStore<V> {
+  return {
+    async get(key) { return (await inner.get(key))?.value ?? null; },
+    async all() {
+      const out: Record<string, V> = {};
+      for (const w of await inner.all()) if (w?.key != null) out[w.key] = w.value;
+      return out;
+    },
+    async set(key, value) { await inner.set(key, { key, value }); },
+    async remove(key) { await inner.remove(key); },
+  };
+}
+
+/** A flat `Record<key, value>` map, one blob per entry. */
+export function createMapStore<V>(opts: {
+  prefix: string;
+  legacy?: { prefix: string; id: string; extract: (blob: unknown) => Record<string, V> };
+}): MapStore<V> {
+  const legacy = opts.legacy;
+  return mapFromCollection<V>(createCollectionStore<Wrapped<V>>({
+    prefix: opts.prefix,
+    keyOf: (w) => w.key,
+    legacy: legacy ? {
+      prefix: legacy.prefix,
+      id: legacy.id,
+      extract: (b) => Object.entries(legacy.extract(b) ?? {}).map(([key, value]) => ({ key, value })),
+    } : undefined,
+  }));
+}
+
+/** A `Record<key, value>` map grouped by a scope (e.g. `<property>-<year>`). */
+export function scopedMap<V>(opts: {
+  prefix: string;
+  legacyForScope?: (scope: string) => { prefix: string; id: string; extract: (blob: unknown) => Record<string, V> };
+}) {
+  const scopeId = (scope: string) => scope.replace(/[^a-zA-Z0-9_-]+/g, "_");
+  const forScope = (scope: string): MapStore<V> =>
+    createMapStore<V>({ prefix: `${opts.prefix}/${scopeId(scope)}`, legacy: opts.legacyForScope?.(scope) });
+  return { forScope };
+}

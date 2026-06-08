@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach } from "vitest";
 import { rm } from "fs/promises";
 import path from "path";
-import { createCollectionStore, scopedCollection } from "./collectionStore";
+import { createCollectionStore, scopedCollection, createMapStore } from "./collectionStore";
 import { storeJSON } from "@/lib/storage";
 
 // Runs against the local-filesystem storage backend (no BLOB token in tests).
@@ -78,6 +78,28 @@ describe("createCollectionStore", () => {
     expect(await store.get("x")).toEqual({ id: "x", value: 11 });
     const { getJSON } = await import("@/lib/storage");
     expect(await getJSON(legacyPrefix, "all")).toBeNull();
+  });
+
+  it("createMapStore: per-key map, concurrent writes, legacy migration", async () => {
+    const prefix = `test-map-${Date.now()}-a`;
+    const legacyPrefix = `test-map-${Date.now()}-a-legacy`;
+    cleanupPrefixes.add(prefix);
+    cleanupPrefixes.add(legacyPrefix);
+    await storeJSON(legacyPrefix, "all", { facts: { p1: { v: 1 }, p2: { v: 2 } } });
+
+    const m = createMapStore<{ v: number }>({
+      prefix,
+      legacy: { prefix: legacyPrefix, id: "all", extract: (b: any) => b?.facts ?? {} },
+    });
+    // Migrates the legacy map.
+    expect(await m.all()).toEqual({ p1: { v: 1 }, p2: { v: 2 } });
+    // Concurrent writes to different keys all survive.
+    await Promise.all(Array.from({ length: 20 }, (_, i) => m.set(`q${i}`, { v: i })));
+    const all = await m.all();
+    expect(Object.keys(all).length).toBe(22); // p1,p2 + 20
+    expect(await m.get("q5")).toEqual({ v: 5 });
+    await m.remove("q5");
+    expect(await m.get("q5")).toBeNull();
   });
 
   it("scopedCollection isolates records by scope", async () => {
