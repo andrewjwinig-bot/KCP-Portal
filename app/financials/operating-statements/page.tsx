@@ -274,6 +274,27 @@ export default function OperatingStatementsPage() {
     }).catch(() => {});
   }, [key, year]);
 
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analyzeMsg, setAnalyzeMsg] = useState<string | null>(null);
+  const analyzeFlagged = useCallback(async () => {
+    setAnalyzing(true);
+    setAnalyzeMsg(null);
+    try {
+      const j = await fetch("/api/financials/operating-statements/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key, year, period, dollar: varDollar, pct: varPctThresh }),
+      }).then((r) => r.json());
+      if (j.error) { setAnalyzeMsg(j.error); return; }
+      if (j.notes) setNotes((n) => ({ ...n, ...j.notes }));
+      setAnalyzeMsg(j.analyzed ? `Explained ${Object.keys(j.notes ?? {}).length} of ${j.analyzed} flagged lines.` : (j.message ?? "Nothing to analyze."));
+    } catch {
+      setAnalyzeMsg("Analysis failed.");
+    } finally {
+      setAnalyzing(false);
+    }
+  }, [key, year, period, varDollar, varPctThresh]);
+
   const cur = available.find((a) => a.key === key);
   const yearOptions = cur?.years.length ? cur.years : [year || new Date().getFullYear()];
   const sqft = PROPERTY_DEFS.find((p) => p.id === key)?.sqft ?? 0;
@@ -360,13 +381,23 @@ export default function OperatingStatementsPage() {
                   <StatPill label="Lines Favorable · YTD" value={variance.ytdFav} sub={`${variance.monthFav} in ${mon}`} accent={variance.ytdFav > 0 ? "#15803d" : undefined} />
                 </ClickablePill>
               </div>
-              <div style={{ marginTop: 8, display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 6 }} className="muted small">
-                <span style={{ fontWeight: 700 }}>Flag lines over</span>
-                <span>$</span>
-                <input type="number" min={0} value={varDollar} onChange={(e) => setVarDollar(Math.max(0, Number(e.target.value) || 0))} style={threshInput} />
-                <span>or</span>
-                <input type="number" min={0} value={varPctThresh} onChange={(e) => setVarPctThresh(Math.max(0, Number(e.target.value) || 0))} style={threshInput} />
-                <span>%</span>
+              <div style={{ marginTop: 8, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <button type="button" className="btn" disabled={analyzing} onClick={analyzeFlagged}
+                    title="Use AI to explain each flagged line and auto-fill its note (from budget detail + GL transactions)"
+                    style={{ fontSize: 12, padding: "5px 12px", fontWeight: 700 }}>
+                    {analyzing ? "Analyzing…" : "✨ Auto-explain flagged lines"}
+                  </button>
+                  {analyzeMsg && <span className="muted small">{analyzeMsg}</span>}
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }} className="muted small">
+                  <span style={{ fontWeight: 700 }}>Flag lines over</span>
+                  <span>$</span>
+                  <input type="number" min={0} value={varDollar} onChange={(e) => setVarDollar(Math.max(0, Number(e.target.value) || 0))} style={threshInput} />
+                  <span>or</span>
+                  <input type="number" min={0} value={varPctThresh} onChange={(e) => setVarPctThresh(Math.max(0, Number(e.target.value) || 0))} style={threshInput} />
+                  <span>%</span>
+                </div>
               </div>
             </>
           );
@@ -747,26 +778,37 @@ function LineDetailModal({ viewKey, property, year, period, monthLabel, line, in
           ) : tab === "gl" ? (
             !gl || gl.count === 0 ? (
               <div className="muted small" style={{ padding: 18 }}>No transactions for this line in {scopeWord}.</div>
-            ) : (
+            ) : (() => {
+              // Standout drivers — transactions that are a large share of the
+              // line's activity (≥ a third of the total absolute, or the single
+              // biggest when it's a meaningful slice). Highlighted so the items
+              // worth investigating jump out.
+              const totalAbs = gl.transactions.reduce((s, t) => s + Math.abs(t.amount), 0);
+              const maxAbs = Math.max(0, ...gl.transactions.map((t) => Math.abs(t.amount)));
+              const isDriver = (amt: number) => totalAbs > 0 && (Math.abs(amt) >= totalAbs / 3 || (gl.transactions.length >= 3 && Math.abs(amt) === maxAbs && Math.abs(amt) >= 0.2 * totalAbs));
+              return (
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <thead><tr><th style={th}>Date</th><th style={th}>Description</th><th style={th}>Ref</th><th style={th}>Acct</th><th style={{ ...th, textAlign: "right" }}>Amount</th></tr></thead>
                 <tbody>
-                  {gl.transactions.map((t, i) => (
-                    <tr key={i}>
+                  {gl.transactions.map((t, i) => {
+                    const driver = isDriver(t.amount);
+                    return (
+                    <tr key={i} style={driver ? { background: "rgba(180,83,9,0.10)" } : undefined}>
                       <td style={{ ...tdc, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>{fmtTxDate(t.date)}</td>
-                      <td style={tdc}>{t.description}</td>
+                      <td style={tdc}>{driver && <span title="Major driver of this line" style={{ color: "#b45309", fontWeight: 800, marginRight: 5 }}>▲</span>}{t.description}</td>
                       <td style={{ ...tdc, whiteSpace: "nowrap", color: "var(--muted)" }}>{t.ref}</td>
                       <td style={{ ...tdc, whiteSpace: "nowrap", color: "var(--muted)", fontVariantNumeric: "tabular-nums" }}>{t.account}</td>
-                      <td style={{ ...tdc, textAlign: "right", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums", color: t.amount < 0 ? "#b91c1c" : undefined }}>{money2(t.amount)}</td>
+                      <td style={{ ...tdc, textAlign: "right", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums", fontWeight: driver ? 800 : undefined, color: t.amount < 0 ? "#b91c1c" : undefined }}>{money2(t.amount)}</td>
                     </tr>
-                  ))}
+                  );})}
                 </tbody>
                 <tfoot><tr>
                   <td colSpan={4} style={{ ...tdc, fontWeight: 800, borderTop: "2px solid var(--border)" }}>Total · {gl.count} transaction{gl.count === 1 ? "" : "s"}</td>
                   <td style={{ ...tdc, textAlign: "right", fontWeight: 900, fontVariantNumeric: "tabular-nums", borderTop: "2px solid var(--border)" }}>{money2(gl.total)}</td>
                 </tr></tfoot>
               </table>
-            )
+              );
+            })()
           ) : budRows.length === 0 ? (
             <div className="muted small" style={{ padding: 18 }}>No budget lines map to this statement line{bud?.budgetYear ? ` in the ${bud.budgetYear} budget` : ""}.</div>
           ) : (
