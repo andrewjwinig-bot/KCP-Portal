@@ -768,8 +768,8 @@ function NoteModal({ lineKey, initial, isAi, onPersist, onClose }: {
 
 // ── GL transaction drill-down ────────────────────────────────────────────────
 
-type TxRow = { account: string; tenant?: string | null; date: string | null; description: string; ref: string; amount: number; month: number };
-type TenantGroup = { account: string; tenant: string | null; amount: number; count: number };
+type TxRow = { account: string; tenant?: string | null; groupKey?: string; date: string | null; description: string; ref: string; amount: number; month: number };
+type TenantGroup = { groupKey: string; account: string; tenant: string | null; amount: number; count: number };
 
 function money2(v: number): string {
   const s = Math.abs(v).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -869,7 +869,7 @@ function LineDetailModal({ viewKey, property, year, period, monthLabel, line, in
               // 2+ accounts (e.g. rental income) so each tenant can be isolated.
               const groups = (gl.byTenant ?? []).filter((g) => Math.abs(g.amount) >= 0.005);
               const multi = groups.length >= 2;
-              const shown = tenantFilter ? txns.filter((t) => t.account === tenantFilter) : txns;
+              const shown = tenantFilter ? txns.filter((t) => t.groupKey === tenantFilter) : txns;
               const glTotal = shown.reduce((s, t) => s + t.amount, 0);
               // Standout drivers — transactions that are a large share of the
               // shown activity (≥ a third of the total absolute, or the single
@@ -878,7 +878,7 @@ function LineDetailModal({ viewKey, property, year, period, monthLabel, line, in
               const totalAbs = shown.reduce((s, t) => s + Math.abs(t.amount), 0);
               const maxAbs = Math.max(0, ...shown.map((t) => Math.abs(t.amount)));
               const isDriver = (amt: number) => totalAbs > 0 && (Math.abs(amt) >= totalAbs / 3 || (shown.length >= 3 && Math.abs(amt) === maxAbs && Math.abs(amt) >= 0.2 * totalAbs));
-              const activeTenantName = tenantFilter ? (groups.find((g) => g.account === tenantFilter)?.tenant || tenantFilter) : null;
+              const activeTenantName = tenantFilter ? (groups.find((g) => g.groupKey === tenantFilter)?.tenant || tenantFilter) : null;
               return (
               <div>
                 {multi && (
@@ -888,12 +888,12 @@ function LineDetailModal({ viewKey, property, year, period, monthLabel, line, in
                       {tenantFilter && <button type="button" onClick={() => setTenantFilter(null)} style={{ ...tabBtn(false), padding: "2px 8px", fontSize: 12 }}>Clear ✕</button>}
                     </div>
                     <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                      <thead><tr><th style={th}>Tenant</th><th style={th}>Unit</th><th style={{ ...th, textAlign: "right" }}>Txns</th><th style={{ ...th, textAlign: "right" }}>Amount</th></tr></thead>
+                      <thead><tr><th style={th}>Tenant</th><th style={th}>Acct</th><th style={{ ...th, textAlign: "right" }}>Txns</th><th style={{ ...th, textAlign: "right" }}>Amount</th></tr></thead>
                       <tbody>
                         {groups.map((g) => {
-                          const active = tenantFilter === g.account;
+                          const active = tenantFilter === g.groupKey;
                           return (
-                          <tr key={g.account} onClick={() => setTenantFilter(active ? null : g.account)} className="os-cell"
+                          <tr key={g.groupKey} onClick={() => setTenantFilter(active ? null : g.groupKey)} className="os-cell"
                             style={{ cursor: "pointer", background: active ? "rgba(11,74,125,0.10)" : undefined }}>
                             <td style={{ ...tdc, fontWeight: active ? 800 : undefined }}>{g.tenant || <span className="muted">— (unmatched)</span>}</td>
                             <td style={{ ...tdc, whiteSpace: "nowrap", color: "var(--muted)", fontVariantNumeric: "tabular-nums" }}>{g.account}</td>
