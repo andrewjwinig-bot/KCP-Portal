@@ -59,7 +59,14 @@ export async function GET(req: Request) {
   const budget = await resolvePropertyBudget(mapping.propertyCode, year);
   const budgetLookup = budget ? makeBudgetLookup(budget, period) : undefined;
   const notes = await getNotes(key, year);
-  const noteSources = await getNoteSources(key, year);
+  const rawSources = await getNoteSources(key, year);
+  // Every existing note gets a source. A note with no recorded source can only
+  // be an AI note — manual saves always stamp "user" — so default missing to
+  // "ai". Keeps the ✨ on auto-explained notes across refreshes (incl. notes
+  // written before sources were tracked), and self-corrects: a manual edit
+  // flips it to "user" and drops the sparkle.
+  const noteSources: Record<string, "user" | "ai"> = {};
+  for (const lk of Object.keys(notes)) noteSources[lk] = rawSources[lk] ?? "ai";
 
   const statement = computeStatement({
     mapping,
