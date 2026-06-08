@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getMapping } from "@/lib/financials/operating-statements/mappingStore";
-import { latestGl, getTransactions, saveNote, getNotes, getNoteSources } from "@/lib/financials/operating-statements/statementStore";
+import { latestGl, getTransactions, saveNote, getNotesBundle } from "@/lib/financials/operating-statements/statementStore";
 import { summaryForPeriod } from "@/lib/financials/operating-statements/glParser";
 import { computeStatement } from "@/lib/financials/operating-statements/compute";
 import { resolvePropertyBudget, makeBudgetLookup, budgetDetailForMask } from "@/lib/financials/operating-statements/budgetCrosswalk";
@@ -52,8 +52,7 @@ export async function POST(req: Request) {
   // Preserve manual notes: don't analyze (or overwrite) a line the user has
   // already written/edited a note for. Auto-explain only fills empty lines and
   // refreshes its own prior AI notes.
-  const existingNotes = await getNotes(key, year);
-  const existingSources = await getNoteSources(key, year);
+  const { notes: existingNotes, sources: existingSources } = await getNotesBundle(key, year);
   const hasManualNote = (lk: string) => existingSources[lk] === "user" && !!(existingNotes[lk] || "").trim();
 
   const flagged: Record<string, unknown>[] = [];
