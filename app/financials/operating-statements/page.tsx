@@ -89,8 +89,11 @@ function fmtAmt(v: number | null, psf: boolean, sqft: number): string {
 }
 
 const isZero = (v: number | null) => v == null || Math.abs(v) < 0.5;
+// "Empty" for the Hide-empty toggle = no YTD activity on either side. A line
+// can carry a future annual budget (e.g. Parking Lot Maintenance budgeted later
+// in the year) and still be hidden until something hits YTD actual or YTD budget.
 function isLineEmpty(t: StatementTotals): boolean {
-  return isZero(t.periodActual) && isZero(t.ytdActual) && isZero(t.periodBudget) && isZero(t.ytdBudget) && isZero(t.annualBudget);
+  return isZero(t.ytdActual) && isZero(t.ytdBudget);
 }
 
 const threshInput: React.CSSProperties = {
@@ -490,7 +493,7 @@ function HeaderRow({ monthLabel }: { monthLabel: string }) {
       <th style={{ ...headStyle, borderLeft: GROUP_DIV }}>YTD Act</th>
       <th style={headStyle}>YTD Bud</th>
       <th style={headStyle}>YTD Var %</th>
-      <th style={{ ...headStyle, borderLeft: GROUP_DIV }}>Annual</th>
+      <th style={{ ...headStyle, borderLeft: GROUP_DIV }}>Ann Bud</th>
       <th style={{ ...headStyle, borderLeft: GROUP_DIV, textAlign: "left" }}>Notes</th>
     </tr>
   );
