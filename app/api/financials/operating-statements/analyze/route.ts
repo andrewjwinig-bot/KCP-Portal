@@ -74,7 +74,8 @@ export async function POST(req: Request) {
 
   const prompt =
     `You are a commercial real estate accountant reviewing ${statement.propertyCode} ${statement.propertyName}'s operating statement vs budget, YTD through period ${period}, year ${year}. ` +
-    `For each flagged line below, write one concise note (max ~40 words) giving the MOST LIKELY reason for the variance and what to verify — reference the budgeted line label(s) and specific transaction(s) when relevant (timing, reclassification/mis-coding, seasonal, one-time, missing accrual, etc.). Be concrete and useful; no generic filler. ` +
+    `For each flagged line below, write one concise note (max ~35 words) giving ONLY the likely cause(s) and the action item(s) to verify — reference the budgeted line label(s) and specific transaction(s)/vendor(s)/account(s) when relevant (timing, reclassification/mis-coding, seasonal, one-time, missing accrual, etc.). ` +
+    `Do NOT restate the actual amount, the budget amount, or the variance — those are already shown in the table next to the note. Start directly with the cause or action (e.g. "Confirm both PECO accounts…", "Likely timing — Jan invoice covers Dec usage…"). No generic filler. ` +
     `Amounts are dollars; a "favorable" variance is good (revenue over / expense under budget). ` +
     `Return ONLY a JSON object mapping each line's exact "lineKey" to its note string.\n\n` +
     `FLAGGED LINES:\n${JSON.stringify(flagged, null, 1)}`;
