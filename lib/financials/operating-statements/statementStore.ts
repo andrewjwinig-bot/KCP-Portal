@@ -81,19 +81,39 @@ export async function latestGl(key: string, year: number): Promise<StoredGl | nu
 
 const NOTES_PREFIX = "financials-operating-statements-notes";
 
-type NotesRecord = { key: string; year: number; notes: Record<string, string> };
+export type NoteSource = "user" | "ai";
+type NotesRecord = {
+  key: string;
+  year: number;
+  notes: Record<string, string>;
+  /** Per-line origin so the UI can flag AI-written notes with a sparkle. */
+  sources?: Record<string, NoteSource>;
+};
 
 export async function getNotes(key: string, year: number): Promise<Record<string, string>> {
   const rec = (await getJSON(NOTES_PREFIX, `${key}-${year}`)) as NotesRecord | null;
   return rec?.notes ?? {};
 }
 
-export async function saveNote(key: string, year: number, lineKey: string, note: string): Promise<void> {
+/** Per-line note origin ("user" | "ai"), keyed the same as getNotes. */
+export async function getNoteSources(key: string, year: number): Promise<Record<string, NoteSource>> {
+  const rec = (await getJSON(NOTES_PREFIX, `${key}-${year}`)) as NotesRecord | null;
+  return rec?.sources ?? {};
+}
+
+export async function saveNote(
+  key: string,
+  year: number,
+  lineKey: string,
+  note: string,
+  source: NoteSource = "user"
+): Promise<void> {
   const id = `${key}-${year}`;
   const rec = (await getJSON(NOTES_PREFIX, id)) as NotesRecord | null;
   const notes = { ...(rec?.notes ?? {}) };
-  if (note.trim()) notes[lineKey] = note.trim();
-  else delete notes[lineKey];
-  await storeJSON(NOTES_PREFIX, id, { key, year, notes });
+  const sources = { ...(rec?.sources ?? {}) };
+  if (note.trim()) { notes[lineKey] = note.trim(); sources[lineKey] = source; }
+  else { delete notes[lineKey]; delete sources[lineKey]; }
+  await storeJSON(NOTES_PREFIX, id, { key, year, notes, sources });
 }
 
