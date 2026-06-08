@@ -275,6 +275,7 @@ export default function OperatingStatementsPage() {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ key, year, lineKey, note }),
+      keepalive: true, // survive a page refresh/navigation mid-save
     }).catch(() => {});
   }, [key, year]);
 
@@ -704,8 +705,8 @@ function NoteCell({ lineKey, notes, noteSources, onSaveNote }: { lineKey: string
           lineKey={lineKey}
           initial={value}
           isAi={isAi}
+          onPersist={(t) => onSaveNote(lineKey, t)}
           onClose={() => setOpen(false)}
-          onSave={(t) => { if (t !== value) onSaveNote(lineKey, t); setOpen(false); }}
         />
       )}
     </td>
@@ -713,19 +714,39 @@ function NoteCell({ lineKey, notes, noteSources, onSaveNote }: { lineKey: string
 }
 
 // Full-text note viewer/editor — the cell only shows one truncated line, so
-// clicking opens this modal to read and edit the whole note.
-function NoteModal({ lineKey, initial, isAi, onClose, onSave }: {
-  lineKey: string; initial: string; isAi?: boolean; onClose: () => void; onSave: (t: string) => void;
+// clicking opens this modal to read and edit the whole note. Auto-saves: the
+// note is persisted as you type (debounced) and flushed on close / page
+// refresh, so an edit is never lost by closing or reloading.
+function NoteModal({ lineKey, initial, isAi, onPersist, onClose }: {
+  lineKey: string; initial: string; isAi?: boolean; onPersist: (t: string) => void; onClose: () => void;
 }) {
   const [text, setText] = useState(initial);
   const label = lineKey.split("::").pop() || "Note";
+  const savedRef = useRef(initial.trim());
+  const textRef = useRef(text);
+  textRef.current = text;
+  const persist = useCallback((t: string) => {
+    const v = t.trim();
+    if (v !== savedRef.current) { savedRef.current = v; onPersist(v); }
+  }, [onPersist]);
+  // Debounced auto-save while typing.
+  useEffect(() => {
+    const id = setTimeout(() => persist(textRef.current), 500);
+    return () => clearTimeout(id);
+  }, [text, persist]);
+  // Flush on page refresh/navigation and on unmount (close).
+  useEffect(() => {
+    const flush = () => persist(textRef.current);
+    window.addEventListener("beforeunload", flush);
+    return () => { window.removeEventListener("beforeunload", flush); persist(textRef.current); };
+  }, [persist]);
   return (
     <div className="modalOverlay" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()} style={{ width: "min(560px, 100%)" }}>
         <div className="modalHeader">
           <div>
             <div className="modalTitle" style={{ fontSize: 20 }}>{isAi && <span aria-label="AI-generated">✨ </span>}Note</div>
-            <div className="muted small" style={{ marginTop: 2 }}>{label}{isAi ? " · AI-generated — edit to mark as yours" : ""}</div>
+            <div className="muted small" style={{ marginTop: 2 }}>{label}{isAi ? " · AI-generated — edit to mark as yours" : ""} · saves automatically</div>
           </div>
           <button className="btn" onClick={onClose}>Close</button>
         </div>
@@ -738,8 +759,7 @@ function NoteModal({ lineKey, initial, isAi, onClose, onSave }: {
           style={{ width: "100%", border: "1px solid var(--border)", borderRadius: 10, background: "var(--card)", font: "inherit", fontSize: 14, lineHeight: 1.5, padding: "10px 12px", color: "var(--text)", resize: "vertical" }}
         />
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 12 }}>
-          <button className="btn" onClick={onClose}>Cancel</button>
-          <button className="btn primary" onClick={() => onSave(text.trim())}>Save</button>
+          <button className="btn primary" onClick={() => { persist(textRef.current); onClose(); }}>Done</button>
         </div>
       </div>
     </div>
