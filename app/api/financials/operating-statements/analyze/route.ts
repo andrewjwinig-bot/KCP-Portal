@@ -5,6 +5,8 @@ import { summaryForPeriod } from "@/lib/financials/operating-statements/glParser
 import { computeStatement } from "@/lib/financials/operating-statements/compute";
 import { resolvePropertyBudget, makeBudgetLookup, budgetDetailForMask } from "@/lib/financials/operating-statements/budgetCrosswalk";
 import { accountMatchesMask } from "@/lib/financials/operating-statements/mask";
+import { getJSON } from "@/lib/storage";
+import type { RentRollData } from "@/lib/rentroll/parseRentRollExcel";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -45,6 +47,27 @@ export async function POST(req: Request) {
   const statement = computeStatement({ mapping, propertyName: mapping.entityName, year, period, gl, budgetLookup });
   const txByAccount = await getTransactions(stored.id);
 
+  // Tenant-name lookup: rental-income (and other tenant-attributable) lines split
+  // across per-tenant GL sub-accounts whose codes match the rent roll's unit refs.
+  // Resolving them lets notes name the tenant (e.g. "new lease for Acme Corp")
+  // instead of citing a raw GL/unit code like "1100-12330".
+  const rentroll = (await getJSON("rentroll", "current")) as RentRollData | null;
+  const tenantByCode = new Map<string, string>();
+  const normUnit = (code: string) => {
+    const seg = code.toUpperCase().split("-");
+    return seg.length >= 2 ? `${seg[0]}-${seg.slice(1).join("-").replace(/^0+/, "")}` : code.toUpperCase();
+  };
+  if (rentroll) {
+    for (const p of rentroll.properties) for (const u of p.units) {
+      const name = (u.occupantName || "").trim();
+      if (!name || u.isVacant) continue;
+      tenantByCode.set(u.unitRef.toUpperCase(), name);
+      tenantByCode.set(normUnit(u.unitRef), name);
+    }
+  }
+  const tenantFor = (acct: string): string | null =>
+    tenantByCode.get(acct.toUpperCase()) ?? tenantByCode.get(normUnit(acct)) ?? null;
+
   const flagged: Record<string, unknown>[] = [];
   for (const sec of statement.sections) {
     const sign = sec.role === "revenue" || sec.role === "reimbursement" ? -1 : 1;
@@ -57,10 +80,18 @@ export async function POST(req: Request) {
       const txs: { date: string | null; description: string; amount: number }[] = [];
       for (const a of accts) for (const t of txByAccount[a]) if (t.month <= period) txs.push({ date: t.date, description: t.description, amount: t.amount * sign });
       txs.sort((x, y) => Math.abs(y.amount) - Math.abs(x.amount));
+      // Per-tenant contributors to this line (only where we can name the tenant).
+      const tenants = gl
+        .filter((g) => accountMatchesMask(l.mask, g.account))
+        .map((g) => ({ name: tenantFor(g.account), ytd: r0(g.ytdActual * sign) }))
+        .filter((c): c is { name: string; ytd: number } => !!c.name && c.ytd !== 0)
+        .sort((a, b) => Math.abs(b.ytd) - Math.abs(a.ytd))
+        .slice(0, 10);
       flagged.push({
         lineKey, section: sec.name, line: l.label, classification: cls === "unf" ? "unfavorable" : "favorable",
         ytdActual: r0(l.ytdActual), ytdBudget: l.ytdBudget == null ? null : r0(l.ytdBudget), ytdVariance: l.ytdVariance == null ? null : r0(l.ytdVariance),
         budgetedFor: bd.map((b) => ({ label: b.label, ytd: r0(b.ytd) })),
+        ...(tenants.length ? { tenants } : {}),
         transactionCount: txs.length,
         topTransactions: txs.slice(0, 6).map((t) => ({ date: t.date, description: t.description.slice(0, 80), amount: r2(t.amount) })),
       });
@@ -74,8 +105,9 @@ export async function POST(req: Request) {
 
   const prompt =
     `You are a commercial real estate accountant reviewing ${statement.propertyCode} ${statement.propertyName}'s operating statement vs budget, YTD through period ${period}, year ${year}. ` +
-    `For each flagged line below, write one concise note (max ~35 words) giving ONLY the likely cause(s) and the action item(s) to verify — reference the budgeted line label(s) and specific transaction(s)/vendor(s)/account(s) when relevant (timing, reclassification/mis-coding, seasonal, one-time, missing accrual, etc.). ` +
-    `Do NOT restate the actual amount, the budget amount, or the variance — those are already shown in the table next to the note. Start directly with the cause or action (e.g. "Confirm both PECO accounts…", "Likely timing — Jan invoice covers Dec usage…"). No generic filler. ` +
+    `For each flagged line below, write one concise note (max ~35 words) giving ONLY the likely cause(s) and the action item(s) to verify — reference the budgeted line label(s), tenant name(s), and specific vendor(s)/transaction(s) when relevant (timing, reclassification/mis-coding, seasonal, one-time, missing accrual, new/renewed lease, step-up, vacancy, etc.). ` +
+    `When a line includes a "tenants" list, attribute the variance to those tenant NAME(S). NEVER cite a raw GL or unit code (e.g. "1100-12330", "unit 34") — always use the tenant's name instead; codes mean nothing to the reader. ` +
+    `Do NOT restate the actual amount, the budget amount, or the variance — those are already shown in the table next to the note. Start directly with the cause or action (e.g. "Confirm both PECO accounts…", "New lease for Acme Corp not in budget — verify lease abstract…"). No generic filler. ` +
     `Amounts are dollars; a "favorable" variance is good (revenue over / expense under budget). ` +
     `Return ONLY a JSON object mapping each line's exact "lineKey" to its note string.\n\n` +
     `FLAGGED LINES:\n${JSON.stringify(flagged, null, 1)}`;
