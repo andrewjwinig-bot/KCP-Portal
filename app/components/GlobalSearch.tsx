@@ -43,6 +43,7 @@ type SearchReservation = {
 };
 
 type Group =
+  | "Answer"
   | "Page"
   | "Maintenance Request"
   | "Reservation"
@@ -196,6 +197,64 @@ function scoreFields(query: string, fields: Array<[string | null | undefined, nu
   return total;
 }
 
+// ── Smart answer ("1100 budgeted NOI") ──────────────────────────────────────
+type BudgetKpi = { code: string; name: string; year: number; rollups: { name: string; total: number }[] };
+
+function money(n: number): string {
+  const s = "$" + Math.round(Math.abs(n)).toLocaleString("en-US");
+  return n < 0 ? `(${s})` : s;
+}
+
+// Metric aliases → the budget rollup that answers them.
+const METRICS: { label: string; aliases: string[]; match: RegExp }[] = [
+  { label: "NOI", aliases: ["noi", "net operating income", "operating income"], match: /net operating income/i },
+  { label: "Total Revenues", aliases: ["total revenues", "total revenue", "revenues", "revenue", "income", "top line"], match: /total revenue/i },
+  { label: "Operating Expenses", aliases: ["total operating expenses", "operating expenses", "opex", "expenses"], match: /total operating expense/i },
+  { label: "Cash Flow Before Debt", aliases: ["cash flow before debt", "cfbds", "cf before debt"], match: /cash flow before debt/i },
+  { label: "Cash Flow After Debt", aliases: ["cash flow after debt", "cfads", "cf after debt", "cash flow", "cashflow"], match: /cash flow after debt/i },
+  { label: "Debt Service", aliases: ["total debt service", "debt service", "p&i"], match: /total debt service/i },
+];
+
+// Pick the metric whose longest alias appears in the query (so "cash flow
+// before debt" beats the generic "cash flow").
+function detectMetric(ql: string): typeof METRICS[number] | null {
+  let best: typeof METRICS[number] | null = null;
+  let bestLen = 0;
+  for (const m of METRICS) for (const a of m.aliases) {
+    if (ql.includes(a) && a.length > bestLen) { best = m; bestLen = a.length; }
+  }
+  return best;
+}
+
+function smartAnswer(q: string, kpis: BudgetKpi[]): Hit | null {
+  if (!kpis.length) return null;
+  const ql = normalize(q);
+  const metric = detectMetric(ql);
+  if (!metric) return null;
+  // Resolve the property — prefer an exact code token, else a name word.
+  let byCode: BudgetKpi | null = null;
+  let byName: BudgetKpi | null = null;
+  for (const k of kpis) {
+    if (ql.includes(normalize(k.code))) { byCode = k; break; }
+    if (!byName) {
+      const words = normalize(k.name).split(/\s+/).filter((w) => w.length > 3);
+      if (words.some((w) => ql.includes(w))) byName = k;
+    }
+  }
+  const prop = byCode ?? byName;
+  if (!prop) return null;
+  const rollup = prop.rollups.find((r) => metric.match.test(r.name));
+  if (!rollup) return null;
+  return {
+    group: "Answer",
+    title: `${metric.label} · ${money(rollup.total)}`,
+    subtitle: `${prop.code} ${prop.name} · Budgeted (FY ${prop.year})`,
+    badge: prop.code,
+    href: "/financials/budgets",
+    score: 10000,
+  };
+}
+
 type RentRollUnit = {
   unitRef: string;
   propertyCode: string;
@@ -219,6 +278,7 @@ export default function GlobalSearch() {
   const [tenantsLoading, setTenantsLoading] = useState(false);
   const [maintRequests, setMaintRequests] = useState<SearchMaintRequest[] | null>(null);
   const [reservations, setReservations] = useState<SearchReservation[] | null>(null);
+  const [budgetKpis, setBudgetKpis] = useState<BudgetKpi[] | null>(null);
 
   // ── Keyboard shortcut ⌘K / Ctrl+K + Esc + custom 'open-global-search' ──
   useEffect(() => {
@@ -289,13 +349,25 @@ export default function GlobalSearch() {
         .then((j) => setReservations(j?.reservations ?? []))
         .catch(() => setReservations([]));
     }
-  }, [open, maintRequests, reservations]);
+    if (budgetKpis === null) {
+      fetch("/api/financials/budgets/kpis")
+        .then((r) => (r.ok ? r.json() : null))
+        .then((j) => setBudgetKpis(j?.properties ?? []))
+        .catch(() => setBudgetKpis([]));
+    }
+  }, [open, maintRequests, reservations, budgetKpis]);
 
   // ── Build all hits ──────────────────────────────────────────────────────
   const hits: Hit[] = useMemo(() => {
     const q = query.trim();
     if (!q) return [];
     const out: Hit[] = [];
+
+    // Smart answer — "1100 budgeted NOI", "Brookwood cash flow", etc.
+    if (budgetKpis) {
+      const ans = smartAnswer(q, budgetKpis);
+      if (ans) out.push(ans);
+    }
 
     // Pages — surface navigation targets the current user has access to.
     // Score against the page label, its description, and a keyword list
@@ -550,11 +622,11 @@ export default function GlobalSearch() {
 
     out.sort((a, b) => b.score - a.score);
     return out;
-  }, [query, tenants, maintRequests, reservations, user.navKeys]);
+  }, [query, tenants, maintRequests, reservations, budgetKpis, user.navKeys]);
 
   // Group results into sections, limiting each group to 6 with "+N more".
   const grouped = useMemo(() => {
-    const order: Group[] = ["Page", "Maintenance Request", "Reservation", "Property", "Owner", "Vendor Code", "Tenant", "Tax Filing", "Bank Account", "Parcel"];
+    const order: Group[] = ["Answer", "Page", "Maintenance Request", "Reservation", "Property", "Owner", "Vendor Code", "Tenant", "Tax Filing", "Bank Account", "Parcel"];
     const map = new Map<Group, Hit[]>();
     for (const h of hits) {
       let arr = map.get(h.group);
