@@ -509,6 +509,13 @@ function StatementTable({ s, viewKey, budgetYear, budgetFallback, notes, noteSou
   const capitalSecs = byRole(["capital"]);
   const debtSecs = byRole(["debt-service"]);
   const r = s.rollups;
+  // Capital / Debt Service are often all-zero (no capital spend, no mortgage
+  // in the GL yet). With Hide Empty Rows on, drop the whole group — header,
+  // section, and its rollup — until something non-zero appears.
+  const groupHasActivity = (secs: StatementSection[]) =>
+    secs.some((sec) => sec.lines.some((l) => !isLineEmpty(l)) || !isLineEmpty(sec.subtotal));
+  const showCapital = capitalSecs.length > 0 && (!view.hideEmpty || groupHasActivity(capitalSecs));
+  const showDebt = debtSecs.length > 0 && (!view.hideEmpty || groupHasActivity(debtSecs));
   const nf: NoteFns = { notes, noteSources, noteMeta, editorLabel, onSaveNote };
   const monthLabel = MONTHS[s.period - 1];
   // Line drill-down — Budget detail ⇄ GL transactions, opened from a cell.
@@ -586,13 +593,13 @@ function StatementTable({ s, viewKey, budgetYear, budgetFallback, notes, noteSou
       <RollupCard label="Total Operating Expenses" t={r.totalOperatingExpenses} view={view} />
       <RollupCard label="Net Operating Income" t={r.netOperatingIncome} view={view} strong />
 
-      {capitalSecs.length > 0 && <GroupHeader label="Capital" />}
-      {capitalSecs.map((sec) => sc(sec, true))}
+      {showCapital && <GroupHeader label="Capital" />}
+      {showCapital && capitalSecs.map((sec) => sc(sec, true))}
       <RollupCard label="Cash Flow Before Debt Service" t={r.cashFlowBeforeDebtService} view={view} strong />
 
-      {debtSecs.length > 0 && <GroupHeader label="Debt Service" />}
-      {debtSecs.map((sec) => sc(sec))}
-      {debtSecs.length > 0 && <RollupCard label="Total Debt Service" t={r.totalDebtService} view={view} />}
+      {showDebt && <GroupHeader label="Debt Service" />}
+      {showDebt && debtSecs.map((sec) => sc(sec))}
+      {showDebt && <RollupCard label="Total Debt Service" t={r.totalDebtService} view={view} />}
       <RollupCard label="Cash Flow After Debt Service" t={r.cashFlowAfterDebtService} view={view} strong />
 
       {footerCard}
