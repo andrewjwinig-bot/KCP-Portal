@@ -97,7 +97,7 @@ export async function POST(req: Request) {
       const lk = f.lineKey as string;
       const note = notes[lk];
       if (typeof note === "string" && note.trim()) {
-        await saveNote(key, year, lk, note.trim());
+        await saveNote(key, year, lk, note.trim(), "ai");
         saved[lk] = note.trim();
       }
     }

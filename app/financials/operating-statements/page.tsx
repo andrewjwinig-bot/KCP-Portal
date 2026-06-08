@@ -186,6 +186,7 @@ export default function OperatingStatementsPage() {
   const [budgetFallback, setBudgetFallback] = useState(false);
   const [statement, setStatement] = useState<PropertyStatement | null>(null);
   const [notes, setNotes] = useState<Record<string, string>>({});
+  const [noteSources, setNoteSources] = useState<Record<string, "user" | "ai">>({});
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -228,6 +229,7 @@ export default function OperatingStatementsPage() {
       const j = await fetch(`/api/financials/operating-statements?${qs}`).then((r) => r.json());
       setStatement(j.statement ?? null);
       setNotes(j.notes ?? {});
+      setNoteSources(j.noteSources ?? {});
       setMessage(j.message ?? null);
       setBudgetYear(j.budgetYear ?? null);
       setBudgetFallback(!!j.budgetFallback);
@@ -267,6 +269,8 @@ export default function OperatingStatementsPage() {
 
   const saveNote = useCallback(async (lineKey: string, note: string) => {
     setNotes((n) => ({ ...n, [lineKey]: note }));
+    // A hand-edited note is now the user's — drop any AI flag on it.
+    setNoteSources((s) => ({ ...s, [lineKey]: "user" }));
     await fetch("/api/financials/operating-statements", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -286,7 +290,11 @@ export default function OperatingStatementsPage() {
         body: JSON.stringify({ key, year, period, dollar: varDollar, pct: varPctThresh }),
       }).then((r) => r.json());
       if (j.error) { setAnalyzeMsg(j.error); return; }
-      if (j.notes) setNotes((n) => ({ ...n, ...j.notes }));
+      if (j.notes) {
+        setNotes((n) => ({ ...n, ...j.notes }));
+        const aiKeys = Object.keys(j.notes as Record<string, string>);
+        setNoteSources((s) => { const next = { ...s }; for (const k of aiKeys) next[k] = "ai"; return next; });
+      }
       setAnalyzeMsg(j.analyzed ? `Explained ${Object.keys(j.notes ?? {}).length} of ${j.analyzed} flagged lines.` : (j.message ?? "Nothing to analyze."));
     } catch {
       setAnalyzeMsg("Analysis failed.");
@@ -413,14 +421,14 @@ export default function OperatingStatementsPage() {
         </div>
       )}
 
-      {!loading && statement && <StatementTable s={statement} viewKey={key} budgetYear={budgetYear} budgetFallback={budgetFallback} notes={notes} onSaveNote={saveNote} view={{ psf, sqft, hideEmpty, showGL }} thresh={thresh} flagFilter={flagFilter} onClearFilter={() => setFlagFilter(null)} />}
+      {!loading && statement && <StatementTable s={statement} viewKey={key} budgetYear={budgetYear} budgetFallback={budgetFallback} notes={notes} noteSources={noteSources} onSaveNote={saveNote} view={{ psf, sqft, hideEmpty, showGL }} thresh={thresh} flagFilter={flagFilter} onClearFilter={() => setFlagFilter(null)} />}
     </main>
   );
 }
 
 // ── Statement (one card per section, like the Budgets page) ──────────────────
 
-type NoteFns = { notes: Record<string, string>; onSaveNote: (lineKey: string, note: string) => void };
+type NoteFns = { notes: Record<string, string>; noteSources: Record<string, "user" | "ai">; onSaveNote: (lineKey: string, note: string) => void };
 const lineKeyOf = (sectionName: string, label: string) => `${sectionName}::${label}`;
 
 // Shared fixed-width columns so every section/subtotal card lines up.
@@ -461,7 +469,7 @@ function HeaderRow({ monthLabel }: { monthLabel: string }) {
   );
 }
 
-function StatementTable({ s, viewKey, budgetYear, budgetFallback, notes, onSaveNote, view, thresh, flagFilter, onClearFilter }: {
+function StatementTable({ s, viewKey, budgetYear, budgetFallback, notes, noteSources, onSaveNote, view, thresh, flagFilter, onClearFilter }: {
   s: PropertyStatement; viewKey: string; budgetYear: number | null; budgetFallback: boolean; view: ViewOpts;
   thresh: Thresh; flagFilter: "fav" | "unf" | null; onClearFilter: () => void;
 } & NoteFns) {
@@ -471,7 +479,7 @@ function StatementTable({ s, viewKey, budgetYear, budgetFallback, notes, onSaveN
   const capitalSecs = byRole(["capital"]);
   const debtSecs = byRole(["debt-service"]);
   const r = s.rollups;
-  const nf: NoteFns = { notes, onSaveNote };
+  const nf: NoteFns = { notes, noteSources, onSaveNote };
   const monthLabel = MONTHS[s.period - 1];
   // Line drill-down — Budget detail ⇄ GL transactions, opened from a cell.
   const [detail, setDetail] = useState<{ mask: string; label: string; sign: 1 | -1; tab: "gl" | "budget"; scope: "month" | "ytd" | "annual" } | null>(null);
@@ -670,8 +678,9 @@ function ClickablePill({ active, activeColor, onClick, title, children }: { acti
   );
 }
 
-function NoteCell({ lineKey, notes, onSaveNote }: { lineKey: string } & NoteFns) {
+function NoteCell({ lineKey, notes, noteSources, onSaveNote }: { lineKey: string } & NoteFns) {
   const value = notes[lineKey] ?? "";
+  const isAi = !!value && noteSources[lineKey] === "ai";
   const [open, setOpen] = useState(false);
   return (
     <td style={{ ...labelStyle, borderLeft: GROUP_DIV, padding: "4px 8px" }}>
@@ -679,7 +688,7 @@ function NoteCell({ lineKey, notes, onSaveNote }: { lineKey: string } & NoteFns)
         type="button"
         className="os-cell"
         onClick={() => setOpen(true)}
-        title={value || "Add a note"}
+        title={value ? (isAi ? "AI-generated note" : "Note") : "Add a note"}
         style={{
           width: "100%", textAlign: "left", border: "1px solid transparent", borderRadius: 6,
           background: "transparent", font: "inherit", fontSize: 13, padding: "4px 6px",
@@ -687,12 +696,14 @@ function NoteCell({ lineKey, notes, onSaveNote }: { lineKey: string } & NoteFns)
           whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "block",
         }}
       >
+        {isAi && <span aria-label="AI-generated" style={{ marginRight: 4 }}>✨</span>}
         {value || "Add a note…"}
       </button>
       {open && (
         <NoteModal
           lineKey={lineKey}
           initial={value}
+          isAi={isAi}
           onClose={() => setOpen(false)}
           onSave={(t) => { if (t !== value) onSaveNote(lineKey, t); setOpen(false); }}
         />
@@ -703,8 +714,8 @@ function NoteCell({ lineKey, notes, onSaveNote }: { lineKey: string } & NoteFns)
 
 // Full-text note viewer/editor — the cell only shows one truncated line, so
 // clicking opens this modal to read and edit the whole note.
-function NoteModal({ lineKey, initial, onClose, onSave }: {
-  lineKey: string; initial: string; onClose: () => void; onSave: (t: string) => void;
+function NoteModal({ lineKey, initial, isAi, onClose, onSave }: {
+  lineKey: string; initial: string; isAi?: boolean; onClose: () => void; onSave: (t: string) => void;
 }) {
   const [text, setText] = useState(initial);
   const label = lineKey.split("::").pop() || "Note";
@@ -713,8 +724,8 @@ function NoteModal({ lineKey, initial, onClose, onSave }: {
       <div className="modal" onClick={(e) => e.stopPropagation()} style={{ width: "min(560px, 100%)" }}>
         <div className="modalHeader">
           <div>
-            <div className="modalTitle" style={{ fontSize: 20 }}>Note</div>
-            <div className="muted small" style={{ marginTop: 2 }}>{label}</div>
+            <div className="modalTitle" style={{ fontSize: 20 }}>{isAi && <span aria-label="AI-generated">✨ </span>}Note</div>
+            <div className="muted small" style={{ marginTop: 2 }}>{label}{isAi ? " · AI-generated — edit to mark as yours" : ""}</div>
           </div>
           <button className="btn" onClick={onClose}>Close</button>
         </div>

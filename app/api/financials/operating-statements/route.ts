@@ -4,7 +4,7 @@ import { parseGeneralLedgerMonthly, summaryForPeriod } from "@/lib/financials/op
 import { computeStatement } from "@/lib/financials/operating-statements/compute";
 import { availableStatements, getMapping } from "@/lib/financials/operating-statements/mappingStore";
 import { resolvePropertyBudget, makeBudgetLookup } from "@/lib/financials/operating-statements/budgetCrosswalk";
-import { saveGl, latestGl, getGl, versionsFor, listGls, getNotes, saveNote, saveTransactions } from "@/lib/financials/operating-statements/statementStore";
+import { saveGl, latestGl, getGl, versionsFor, listGls, getNotes, getNoteSources, saveNote, saveTransactions } from "@/lib/financials/operating-statements/statementStore";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 
 export const runtime = "nodejs";
@@ -59,6 +59,7 @@ export async function GET(req: Request) {
   const budget = await resolvePropertyBudget(mapping.propertyCode, year);
   const budgetLookup = budget ? makeBudgetLookup(budget, period) : undefined;
   const notes = await getNotes(key, year);
+  const noteSources = await getNoteSources(key, year);
 
   const statement = computeStatement({
     mapping,
@@ -78,6 +79,7 @@ export async function GET(req: Request) {
     budgetYear: budget?.budgetYear ?? null,
     budgetFallback: budget?.fallback ?? false,
     notes,
+    noteSources,
     statement,
   });
 }
