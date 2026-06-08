@@ -7,6 +7,7 @@
 // the portal budget); for now they read blank.
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useUser } from "@/app/components/UserProvider";
 import { StatPill } from "@/app/components/Pill";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 import type {
@@ -177,6 +178,7 @@ function GLToggle({ show, onChange }: { show: boolean; onChange: (v: boolean) =>
 }
 
 export default function OperatingStatementsPage() {
+  const { user } = useUser();
   const [available, setAvailable] = useState<Available[]>([]);
   const [key, setKey] = useState("");
   const [year, setYear] = useState(0);
@@ -187,6 +189,7 @@ export default function OperatingStatementsPage() {
   const [statement, setStatement] = useState<PropertyStatement | null>(null);
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [noteSources, setNoteSources] = useState<Record<string, "user" | "ai">>({});
+  const [noteMeta, setNoteMeta] = useState<Record<string, { editedAt: string; editedBy: string }>>({});
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -230,6 +233,7 @@ export default function OperatingStatementsPage() {
       setStatement(j.statement ?? null);
       setNotes(j.notes ?? {});
       setNoteSources(j.noteSources ?? {});
+      setNoteMeta(j.noteMeta ?? {});
       setMessage(j.message ?? null);
       setBudgetYear(j.budgetYear ?? null);
       setBudgetFallback(!!j.budgetFallback);
@@ -271,13 +275,14 @@ export default function OperatingStatementsPage() {
     setNotes((n) => ({ ...n, [lineKey]: note }));
     // A hand-edited note is now the user's — drop any AI flag on it.
     setNoteSources((s) => ({ ...s, [lineKey]: "user" }));
+    setNoteMeta((m) => ({ ...m, [lineKey]: { editedAt: new Date().toISOString(), editedBy: user.label } }));
     await fetch("/api/financials/operating-statements", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key, year, lineKey, note }),
+      body: JSON.stringify({ key, year, lineKey, note, editedBy: user.label }),
       keepalive: true, // survive a page refresh/navigation mid-save
     }).catch(() => {});
-  }, [key, year]);
+  }, [key, year, user.label]);
 
   const [analyzing, setAnalyzing] = useState(false);
   const [analyzeMsg, setAnalyzeMsg] = useState<string | null>(null);
@@ -295,6 +300,8 @@ export default function OperatingStatementsPage() {
         setNotes((n) => ({ ...n, ...j.notes }));
         const aiKeys = Object.keys(j.notes as Record<string, string>);
         setNoteSources((s) => { const next = { ...s }; for (const k of aiKeys) next[k] = "ai"; return next; });
+        const now = new Date().toISOString();
+        setNoteMeta((m) => { const next = { ...m }; for (const k of aiKeys) next[k] = { editedAt: now, editedBy: "Auto-explain" }; return next; });
       }
       setAnalyzeMsg(j.analyzed ? `Explained ${Object.keys(j.notes ?? {}).length} of ${j.analyzed} flagged lines.` : (j.message ?? "Nothing to analyze."));
     } catch {
@@ -432,14 +439,23 @@ export default function OperatingStatementsPage() {
         </div>
       )}
 
-      {!loading && statement && <StatementTable s={statement} viewKey={key} budgetYear={budgetYear} budgetFallback={budgetFallback} notes={notes} noteSources={noteSources} onSaveNote={saveNote} view={{ psf, sqft, hideEmpty, showGL }} thresh={thresh} flagFilter={flagFilter} onClearFilter={() => setFlagFilter(null)} />}
+      {!loading && statement && <StatementTable s={statement} viewKey={key} budgetYear={budgetYear} budgetFallback={budgetFallback} notes={notes} noteSources={noteSources} noteMeta={noteMeta} editorLabel={user.label} onSaveNote={saveNote} view={{ psf, sqft, hideEmpty, showGL }} thresh={thresh} flagFilter={flagFilter} onClearFilter={() => setFlagFilter(null)} />}
     </main>
   );
 }
 
 // ── Statement (one card per section, like the Budgets page) ──────────────────
 
-type NoteFns = { notes: Record<string, string>; noteSources: Record<string, "user" | "ai">; onSaveNote: (lineKey: string, note: string) => void };
+type NoteFns = { notes: Record<string, string>; noteSources: Record<string, "user" | "ai">; noteMeta: Record<string, { editedAt: string; editedBy: string }>; editorLabel: string; onSaveNote: (lineKey: string, note: string) => void };
+
+// "Jun 1, 2026 at 10:19 AM" — matches the rent roll's last-imported stamp.
+function fmtNoteEdited(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  const date = d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  const time = d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+  return `${date} at ${time}`;
+}
 const lineKeyOf = (sectionName: string, label: string) => `${sectionName}::${label}`;
 
 // Shared fixed-width columns so every section/subtotal card lines up.
@@ -480,7 +496,7 @@ function HeaderRow({ monthLabel }: { monthLabel: string }) {
   );
 }
 
-function StatementTable({ s, viewKey, budgetYear, budgetFallback, notes, noteSources, onSaveNote, view, thresh, flagFilter, onClearFilter }: {
+function StatementTable({ s, viewKey, budgetYear, budgetFallback, notes, noteSources, noteMeta, editorLabel, onSaveNote, view, thresh, flagFilter, onClearFilter }: {
   s: PropertyStatement; viewKey: string; budgetYear: number | null; budgetFallback: boolean; view: ViewOpts;
   thresh: Thresh; flagFilter: "fav" | "unf" | null; onClearFilter: () => void;
 } & NoteFns) {
@@ -490,7 +506,7 @@ function StatementTable({ s, viewKey, budgetYear, budgetFallback, notes, noteSou
   const capitalSecs = byRole(["capital"]);
   const debtSecs = byRole(["debt-service"]);
   const r = s.rollups;
-  const nf: NoteFns = { notes, noteSources, onSaveNote };
+  const nf: NoteFns = { notes, noteSources, noteMeta, editorLabel, onSaveNote };
   const monthLabel = MONTHS[s.period - 1];
   // Line drill-down — Budget detail ⇄ GL transactions, opened from a cell.
   const [detail, setDetail] = useState<{ mask: string; label: string; sign: 1 | -1; tab: "gl" | "budget"; scope: "month" | "ytd" | "annual" } | null>(null);
@@ -689,7 +705,7 @@ function ClickablePill({ active, activeColor, onClick, title, children }: { acti
   );
 }
 
-function NoteCell({ lineKey, notes, noteSources, onSaveNote }: { lineKey: string } & NoteFns) {
+function NoteCell({ lineKey, notes, noteSources, noteMeta, editorLabel, onSaveNote }: { lineKey: string } & NoteFns) {
   const value = notes[lineKey] ?? "";
   const isAi = !!value && noteSources[lineKey] === "ai";
   const [open, setOpen] = useState(false);
@@ -715,6 +731,8 @@ function NoteCell({ lineKey, notes, noteSources, onSaveNote }: { lineKey: string
           lineKey={lineKey}
           initial={value}
           isAi={isAi}
+          meta={noteMeta[lineKey]}
+          editorLabel={editorLabel}
           onPersist={(t) => onSaveNote(lineKey, t)}
           onClose={() => setOpen(false)}
         />
@@ -727,18 +745,20 @@ function NoteCell({ lineKey, notes, noteSources, onSaveNote }: { lineKey: string
 // clicking opens this modal to read and edit the whole note. Auto-saves: the
 // note is persisted as you type (debounced) and flushed on close / page
 // refresh, so an edit is never lost by closing or reloading.
-function NoteModal({ lineKey, initial, isAi, onPersist, onClose }: {
-  lineKey: string; initial: string; isAi?: boolean; onPersist: (t: string) => void; onClose: () => void;
+function NoteModal({ lineKey, initial, isAi, meta, editorLabel, onPersist, onClose }: {
+  lineKey: string; initial: string; isAi?: boolean; meta?: { editedAt: string; editedBy: string }; editorLabel: string; onPersist: (t: string) => void; onClose: () => void;
 }) {
   const [text, setText] = useState(initial);
   const label = lineKey.split("::").pop() || "Note";
   const savedRef = useRef(initial.trim());
   const textRef = useRef(text);
   textRef.current = text;
+  // Track the live edit stamp so the footer updates after an in-modal save.
+  const [liveMeta, setLiveMeta] = useState<{ editedAt: string; editedBy: string } | null>(null);
   const persist = useCallback((t: string) => {
     const v = t.trim();
-    if (v !== savedRef.current) { savedRef.current = v; onPersist(v); }
-  }, [onPersist]);
+    if (v !== savedRef.current) { savedRef.current = v; onPersist(v); setLiveMeta({ editedAt: new Date().toISOString(), editedBy: editorLabel }); }
+  }, [onPersist, editorLabel]);
   // Debounced auto-save while typing.
   useEffect(() => {
     const id = setTimeout(() => persist(textRef.current), 500);
@@ -768,7 +788,13 @@ function NoteModal({ lineKey, initial, isAi, onPersist, onClose }: {
           placeholder="Explain the variance…"
           style={{ width: "100%", border: "1px solid var(--border)", borderRadius: 10, background: "var(--card)", font: "inherit", fontSize: 14, lineHeight: 1.5, padding: "10px 12px", color: "var(--text)", resize: "vertical" }}
         />
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginTop: 12 }}>
+          <span className="muted small">
+            {(() => {
+              const m = liveMeta ?? meta;
+              return m ? <>Last edited {fmtNoteEdited(m.editedAt)} by <b style={{ color: "var(--text)" }}>{m.editedBy}</b></> : null;
+            })()}
+          </span>
           <button className="btn primary" onClick={() => { persist(textRef.current); onClose(); }}>Done</button>
         </div>
       </div>

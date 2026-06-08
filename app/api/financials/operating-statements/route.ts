@@ -4,7 +4,7 @@ import { parseGeneralLedgerMonthly, summaryForPeriod } from "@/lib/financials/op
 import { computeStatement } from "@/lib/financials/operating-statements/compute";
 import { availableStatements, getMapping } from "@/lib/financials/operating-statements/mappingStore";
 import { resolvePropertyBudget, makeBudgetLookup } from "@/lib/financials/operating-statements/budgetCrosswalk";
-import { saveGl, latestGl, getGl, versionsFor, listGls, getNotes, getNoteSources, saveNote, saveTransactions } from "@/lib/financials/operating-statements/statementStore";
+import { saveGl, latestGl, getGl, versionsFor, listGls, getNotes, getNoteSources, getNoteMeta, saveNote, saveTransactions } from "@/lib/financials/operating-statements/statementStore";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 
 export const runtime = "nodejs";
@@ -67,6 +67,7 @@ export async function GET(req: Request) {
   // flips it to "user" and drops the sparkle.
   const noteSources: Record<string, "user" | "ai"> = {};
   for (const lk of Object.keys(notes)) noteSources[lk] = rawSources[lk] ?? "ai";
+  const noteMeta = await getNoteMeta(key, year);
 
   const statement = computeStatement({
     mapping,
@@ -87,6 +88,7 @@ export async function GET(req: Request) {
     budgetFallback: budget?.fallback ?? false,
     notes,
     noteSources,
+    noteMeta,
     statement,
   });
 }
@@ -95,11 +97,11 @@ export async function GET(req: Request) {
 export async function PATCH(req: Request) {
   try {
     const body = await req.json();
-    const { key, year, lineKey, note } = body ?? {};
+    const { key, year, lineKey, note, editedBy } = body ?? {};
     if (!key || !year || !lineKey) {
       return NextResponse.json({ error: "key, year and lineKey are required" }, { status: 400 });
     }
-    await saveNote(String(key), Number(year), String(lineKey), typeof note === "string" ? note : "");
+    await saveNote(String(key), Number(year), String(lineKey), typeof note === "string" ? note : "", "user", typeof editedBy === "string" ? editedBy : undefined);
     return NextResponse.json({ ok: true });
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "Failed to save note" }, { status: 500 });

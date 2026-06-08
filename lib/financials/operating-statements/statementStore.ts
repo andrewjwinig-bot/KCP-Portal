@@ -82,12 +82,16 @@ export async function latestGl(key: string, year: number): Promise<StoredGl | nu
 const NOTES_PREFIX = "financials-operating-statements-notes";
 
 export type NoteSource = "user" | "ai";
+/** Who last touched a note + when, for the "Last edited … by …" line. */
+export type NoteMeta = { editedAt: string; editedBy: string };
 type NotesRecord = {
   key: string;
   year: number;
   notes: Record<string, string>;
   /** Per-line origin so the UI can flag AI-written notes with a sparkle. */
   sources?: Record<string, NoteSource>;
+  /** Per-line last-edit author + timestamp. */
+  meta?: Record<string, NoteMeta>;
 };
 
 export async function getNotes(key: string, year: number): Promise<Record<string, string>> {
@@ -101,22 +105,35 @@ export async function getNoteSources(key: string, year: number): Promise<Record<
   return rec?.sources ?? {};
 }
 
+/** Per-line last-edit metadata (author + timestamp), keyed like getNotes. */
+export async function getNoteMeta(key: string, year: number): Promise<Record<string, NoteMeta>> {
+  const rec = (await getJSON(NOTES_PREFIX, `${key}-${year}`)) as NotesRecord | null;
+  return rec?.meta ?? {};
+}
+
 export async function saveNote(
   key: string,
   year: number,
   lineKey: string,
   note: string,
-  source: NoteSource = "user"
+  source: NoteSource = "user",
+  editor?: string
 ): Promise<void> {
   const id = `${key}-${year}`;
   const rec = (await getJSON(NOTES_PREFIX, id)) as NotesRecord | null;
   const notes = { ...(rec?.notes ?? {}) };
   const sources = { ...(rec?.sources ?? {}) };
+  const meta = { ...(rec?.meta ?? {}) };
   const prevNote = rec?.notes?.[lineKey];
   const prevSource = rec?.sources?.[lineKey];
-  if (note.trim()) { notes[lineKey] = note.trim(); sources[lineKey] = source; }
-  else { delete notes[lineKey]; delete sources[lineKey]; }
-  await storeJSON(NOTES_PREFIX, id, { key, year, notes, sources });
+  if (note.trim()) {
+    notes[lineKey] = note.trim();
+    sources[lineKey] = source;
+    meta[lineKey] = { editedAt: new Date().toISOString(), editedBy: source === "ai" ? "Auto-explain" : (editor || "Unknown") };
+  } else {
+    delete notes[lineKey]; delete sources[lineKey]; delete meta[lineKey];
+  }
+  await storeJSON(NOTES_PREFIX, id, { key, year, notes, sources, meta });
 
   // Training signal: when a human edits an AI-written note into something
   // different, record the (ai → user) pair so the note prompt can be tuned
