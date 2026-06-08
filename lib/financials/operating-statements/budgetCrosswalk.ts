@@ -32,20 +32,34 @@ function flatten(line: BudgetLine, out: FlatBudgetLine[]): void {
   for (const sub of line.subLines ?? []) flatten(sub, out);
 }
 
-/** Budget lines whose GL account matches a statement line's mask — the budget
- *  detail behind a budget cell. Returns each contributing budget line's label,
- *  account, and month/YTD/annual amounts. */
+/** Budget lines behind a statement line's budget cell. Walks the budget TREE
+ *  (not the flattened list) so a line's descriptive sub-rows show through: when
+ *  a matched line has sub-lines (e.g. Building Maintenance → "Misc Expenses"),
+ *  the breakdown rows are returned instead of the parent, so you see exactly
+ *  what the budgeted amount was for. */
 export function budgetDetailForMask(budget: ResolvedBudget, mask: string, period: number) {
-  return budget.lines
-    .filter((l) => accountMatchesMask(mask, l.glAccount))
-    .map((l) => ({
-      label: l.label || l.glAccount,
-      glAccount: l.glAccount,
-      month: l.months[period - 1] ?? 0,
-      ytd: l.months.slice(0, period).reduce((a, n) => a + (n ?? 0), 0),
-      annual: l.total,
-    }))
-    .filter((r) => r.month !== 0 || r.ytd !== 0 || r.annual !== 0);
+  const rows: { label: string; glAccount: string; month: number; ytd: number; annual: number }[] = [];
+  const toRow = (l: BudgetLine, parentAccount: string) => ({
+    label: l.label || parentAccount || l.glAccount || "(unlabeled)",
+    glAccount: l.glAccount || parentAccount || "",
+    month: l.months?.[period - 1] ?? 0,
+    ytd: (l.months ?? []).slice(0, period).reduce((a, n) => a + (n ?? 0), 0),
+    annual: l.total ?? 0,
+  });
+  const walk = (l: BudgetLine, parentMatched: boolean, parentAccount: string) => {
+    const selfMatch = !!l.glAccount && accountMatchesMask(mask, l.glAccount);
+    const inScope = parentMatched || selfMatch;
+    const acct = l.glAccount || parentAccount;
+    const subs = (l.subLines ?? []).filter((s) => !s.isSubtotal);
+    if (subs.length) {
+      // Descend; once a parent matches, its whole sub-tree is in scope.
+      for (const s of subs) walk(s, inScope, acct);
+    } else if (inScope) {
+      rows.push(toRow(l, parentAccount));
+    }
+  };
+  for (const l of budget.tree) walk(l, false, "");
+  return rows.filter((r) => r.month !== 0 || r.ytd !== 0 || r.annual !== 0);
 }
 
 export type ResolvedBudget = {
@@ -54,7 +68,10 @@ export type ResolvedBudget = {
   budgetYear: number;
   /** True when budgetYear ≠ the requested statement year. */
   fallback: boolean;
+  /** Flattened account-keyed lines (for the budget-column lookup). */
   lines: FlatBudgetLine[];
+  /** Structured section lines with sub-lines intact (for the detail drill-down). */
+  tree: BudgetLine[];
 };
 
 /** Find the property's budget for `year`; if none, fall back to the nearest
@@ -65,24 +82,26 @@ export async function resolvePropertyBudget(
   year: number
 ): Promise<ResolvedBudget | null> {
   const workbooks = await listBudgets();
-  // Candidate (year, lines) for this property across every workbook.
+  // Candidate (year → flat lines + structured tree) for this property.
   const byYear = new Map<number, FlatBudgetLine[]>();
+  const byYearTree = new Map<number, BudgetLine[]>();
   for (const wb of workbooks) {
     const prop = wb.properties.find((p) => p.propertyCode === propertyCode);
     if (!prop) continue;
     const flat: FlatBudgetLine[] = [];
-    for (const sec of prop.sections) for (const line of sec.lines) flatten(line, flat);
+    const tree: BudgetLine[] = [];
+    for (const sec of prop.sections) for (const line of sec.lines) { flatten(line, flat); tree.push(line); }
     if (flat.length) {
-      const existing = byYear.get(wb.year) ?? [];
-      byYear.set(wb.year, existing.concat(flat));
+      byYear.set(wb.year, (byYear.get(wb.year) ?? []).concat(flat));
+      byYearTree.set(wb.year, (byYearTree.get(wb.year) ?? []).concat(tree));
     }
   }
   if (!byYear.size) return null;
 
-  if (byYear.has(year)) return { budgetYear: year, fallback: false, lines: byYear.get(year)! };
+  if (byYear.has(year)) return { budgetYear: year, fallback: false, lines: byYear.get(year)!, tree: byYearTree.get(year)! };
   // Nearest available year (prefer the most recent).
   const best = [...byYear.keys()].sort((a, b) => b - a)[0];
-  return { budgetYear: best, fallback: true, lines: byYear.get(best)! };
+  return { budgetYear: best, fallback: true, lines: byYear.get(best)!, tree: byYearTree.get(best)! };
 }
 
 /** Build the compute's budgetLookup from resolved budget lines. Matches a

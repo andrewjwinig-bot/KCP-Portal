@@ -336,6 +336,16 @@ code {
   to   { transform: rotate(360deg); }
 }
 
+/* Operating-statement drill-down cells — clickable Actual (→ GL transactions)
+ * and Budget (→ budget detail) figures. Underline on hover signals the click. */
+.os-cell { cursor: pointer; }
+.os-cell:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-color: rgba(11, 74, 125, 0.55);
+  background: rgba(11, 74, 125, 0.05);
+}
+
 /* Sidebar nav scrollbar — thin, translucent, blends with the dark blue
  * sidebar (#1e4976) instead of the default light browser scrollbar. */
 .sidebar-nav {

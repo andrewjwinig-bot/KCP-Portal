@@ -645,17 +645,16 @@ function figureCells(t: StatementTotals, opts: { bold?: boolean; color?: string;
   // Actual cells drill into GL transactions; Budget/Annual cells into the
   // budget detail. Clickable only on real line rows (drill provided).
   const click = (tab: "gl" | "budget", scope: "month" | "ytd" | "annual"): React.HTMLAttributes<HTMLTableCellElement> =>
-    drill ? { onClick: () => drill(tab, scope), title: tab === "gl" ? "GL transactions" : "Budget detail" } : {};
-  const ptr = drill ? { cursor: "pointer" as const } : {};
+    drill ? { onClick: () => drill(tab, scope), title: tab === "gl" ? "Click for GL transactions" : "Click for budget detail", className: "os-cell" } : {};
   return (
     <>
-      <td {...click("gl", "month")} style={{ ...base, ...ptr, borderLeft: GROUP_DIV }}>{amt(t.periodActual)}</td>
-      <td {...click("budget", "month")} style={{ ...base, ...ptr, color: color ?? "var(--muted)" }}>{amt(t.periodBudget)}</td>
+      <td {...click("gl", "month")} style={{ ...base, borderLeft: GROUP_DIV }}>{amt(t.periodActual)}</td>
+      <td {...click("budget", "month")} style={{ ...base, color: color ?? "var(--muted)" }}>{amt(t.periodBudget)}</td>
       <td style={varCell(pV, mFlag)}>{fmtPct(pV)}</td>
-      <td {...click("gl", "ytd")} style={{ ...base, ...ptr, borderLeft: GROUP_DIV }}>{amt(t.ytdActual)}</td>
-      <td {...click("budget", "ytd")} style={{ ...base, ...ptr, color: color ?? "var(--muted)" }}>{amt(t.ytdBudget)}</td>
+      <td {...click("gl", "ytd")} style={{ ...base, borderLeft: GROUP_DIV }}>{amt(t.ytdActual)}</td>
+      <td {...click("budget", "ytd")} style={{ ...base, color: color ?? "var(--muted)" }}>{amt(t.ytdBudget)}</td>
       <td style={varCell(yV, yFlag)}>{fmtPct(yV)}</td>
-      <td {...click("budget", "annual")} style={{ ...base, ...ptr, borderLeft: GROUP_DIV, color: color ?? "var(--muted)" }}>{amt(t.annualBudget)}</td>
+      <td {...click("budget", "annual")} style={{ ...base, borderLeft: GROUP_DIV, color: color ?? "var(--muted)" }}>{amt(t.annualBudget)}</td>
     </>
   );
 }
