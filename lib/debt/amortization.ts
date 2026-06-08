@@ -332,17 +332,17 @@ export const GRAYS_FERRY_4500_LOAN: Loan = {
   annualRatePct: 3.55,
   amortYears: 25,
   scheduledPayment: 45297.82,
-  maturityDate: "2026-09-01",
+  maturityDate: "2028-10-01",
   anchorBalance: 7908407.12,
   anchorDate: "2026-04-01",
   interestOnly: false,
   notes:
-    "Refinanced 9/21/2021 at $9,000,000 on a 25-yr amortization; option to " +
-    "extend maturity one 5-yr period. Prepayment with 30 days notice: " +
-    "5/4/3/2/1% yrs 1-5. Per the latest Liberty statement: principal " +
-    "balance $7,908,407.12, escrow balance $33,678.44, rate 3.550%, YTD " +
-    "interest $94,226.94, prior-year interest $288,762.04. P&I $45,297.82/mo, " +
-    "payments auto-debit from account x0598.",
+    "Originated 9/21/2021 at $9,000,000 @ 3.55% on a 25-yr amortization, " +
+    "7-yr term — payments began 11/1/2021 and mature 10/1/2028. Prepayment " +
+    "with 30 days notice: 5/4/3/2/1% yrs 1-5. Per the latest Liberty " +
+    "statement: principal balance $7,908,407.12, escrow balance $33,678.44, " +
+    "rate 3.550%, YTD interest $94,226.94, prior-year interest $288,762.04. " +
+    "P&I $45,297.82/mo, payments auto-debit from account x0598.",
 };
 
 // Parkwood (property 7010) — Liberty Bank. Amortizing.
