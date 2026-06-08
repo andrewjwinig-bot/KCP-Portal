@@ -7,8 +7,10 @@
 
 import "server-only";
 import { storeJSON, listJSON, getJSON, deleteJSON } from "@/lib/storage";
+import type { GlTransaction } from "./glParser";
 
 const PREFIX = "financials-operating-statements";
+const TX_PREFIX = "financials-operating-statements-tx";
 
 export type StoredGl = {
   /** Stable id: gl-<key>-<year>-<timestamp>. */
@@ -29,6 +31,17 @@ export type StoredGl = {
 
 export async function saveGl(rec: StoredGl): Promise<void> {
   await storeJSON(PREFIX, rec.id, rec);
+}
+
+// Transactions are stored separately (keyed by the GL upload id) so the
+// compute path stays light; they're loaded only for the line-item drill-down.
+export async function saveTransactions(glId: string, transactions: Record<string, GlTransaction[]>): Promise<void> {
+  await storeJSON(TX_PREFIX, glId, { transactions });
+}
+
+export async function getTransactions(glId: string): Promise<Record<string, GlTransaction[]>> {
+  const rec = (await getJSON(TX_PREFIX, glId)) as { transactions: Record<string, GlTransaction[]> } | null;
+  return rec?.transactions ?? {};
 }
 
 export async function getGl(id: string): Promise<StoredGl | null> {
