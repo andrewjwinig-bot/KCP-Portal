@@ -12,22 +12,24 @@
 // Mirrors the escrow override store (escrowStore.ts) and the office
 // expense-override store (office/expenseStore.ts).
 
-import { getJSON, storeJSON } from "@/lib/storage";
-
-const PREFIX = "cam-retail-pool";
+import { scopedMap } from "@/lib/collectionStore";
 
 export type RetailPoolField = "insAmount";
 
 /** Sparse property-wide pool overrides; only changed fields are stored. */
 export type RetailPoolOverride = Partial<Record<RetailPoolField, number>>;
 
-function storeKey(property: string, year: number): string {
-  return `${property}-${year}`;
-}
+const storeKey = (property: string, year: number): string => `${property}-${year}`;
+
+// One blob per pool field (was a single per-property/year blob read-modify-
+// written on save). Legacy per-scope blob migrated on first read.
+const overrides = scopedMap<number>({
+  prefix: "cam-retail-pool-v2",
+  legacyForScope: (scope) => ({ prefix: "cam-retail-pool", id: scope, extract: (b) => (b as RetailPoolOverride) ?? {} }),
+});
 
 export async function getPoolOverride(property: string, year: number): Promise<RetailPoolOverride> {
-  const data = (await getJSON(PREFIX, storeKey(property, year))) as RetailPoolOverride | null;
-  return data ?? {};
+  return (await overrides.forScope(storeKey(property, year)).all()) as RetailPoolOverride;
 }
 
 /** Coerce + persist a single property-wide pool override. Pass null to clear it
@@ -38,9 +40,8 @@ export async function savePoolOverride(
   field: RetailPoolField,
   value: number | null,
 ): Promise<RetailPoolOverride> {
-  const current = await getPoolOverride(property, year);
-  if (value === null) delete current[field];
-  else current[field] = value;
-  await storeJSON(PREFIX, storeKey(property, year), current);
-  return current;
+  const scope = overrides.forScope(storeKey(property, year));
+  if (value === null) await scope.remove(field);
+  else await scope.set(field, value);
+  return (await scope.all()) as RetailPoolOverride;
 }

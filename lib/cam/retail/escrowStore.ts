@@ -9,22 +9,25 @@
 // ship with the code and only changed fields are persisted — mirroring the
 // office side (lib/cam/office/configStore.ts).
 
-import { getJSON, storeJSON } from "@/lib/storage";
-
-const PREFIX = "cam-retail-escrow";
+import { scopedMap } from "@/lib/collectionStore";
 
 export type RetailEscrowField = "camEscrow" | "insEscrow" | "retEscrow";
 
 /** Sparse per-unit escrow overrides; only changed fields are stored. */
 export type RetailEscrowOverrides = Record<string, Partial<Record<RetailEscrowField, number>>>;
 
-function storeKey(property: string, year: number): string {
-  return `${property}-${year}`;
-}
+const storeKey = (property: string, year: number): string => `${property}-${year}`;
+
+// One blob per unit (was a single per-property/year blob holding the whole
+// override map, read-modify-written on every escrow cell edit). Legacy per-scope
+// blob migrated on first read.
+const overrides = scopedMap<Partial<Record<RetailEscrowField, number>>>({
+  prefix: "cam-retail-escrow-v2",
+  legacyForScope: (scope) => ({ prefix: "cam-retail-escrow", id: scope, extract: (b) => (b as RetailEscrowOverrides) ?? {} }),
+});
 
 export async function getEscrowOverrides(property: string, year: number): Promise<RetailEscrowOverrides> {
-  const data = (await getJSON(PREFIX, storeKey(property, year))) as RetailEscrowOverrides | null;
-  return data ?? {};
+  return await overrides.forScope(storeKey(property, year)).all();
 }
 
 /** Coerce + persist a single unit's escrow override. Pass null to clear that
@@ -36,12 +39,11 @@ export async function saveEscrowOverride(
   field: RetailEscrowField,
   value: number | null,
 ): Promise<RetailEscrowOverrides> {
-  const current = await getEscrowOverrides(property, year);
-  const next = { ...(current[unitRef] ?? {}) } as Record<string, number>;
+  const scope = overrides.forScope(storeKey(property, year));
+  const next = { ...((await scope.get(unitRef)) ?? {}) } as Record<string, number>;
   if (value === null) delete next[field];
   else next[field] = value;
-  if (Object.keys(next).length === 0) delete current[unitRef];
-  else current[unitRef] = next as Partial<Record<RetailEscrowField, number>>;
-  await storeJSON(PREFIX, storeKey(property, year), current);
-  return current;
+  if (Object.keys(next).length === 0) await scope.remove(unitRef);
+  else await scope.set(unitRef, next as Partial<Record<RetailEscrowField, number>>);
+  return await scope.all();
 }

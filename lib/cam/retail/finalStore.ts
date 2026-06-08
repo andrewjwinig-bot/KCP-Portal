@@ -15,9 +15,7 @@
 // reserved key "RET" for the real-estate-tax pool. The property INS pool stays
 // in poolStore.ts / the Insurance card.
 
-import { getJSON, storeJSON } from "@/lib/storage";
-
-const PREFIX = "cam-retail-final";
+import { scopedMap } from "@/lib/collectionStore";
 
 /** Reserved key for the real-estate-tax pool. */
 export const RET_FINAL_KEY = "RET";
@@ -25,13 +23,18 @@ export const RET_FINAL_KEY = "RET";
 /** Sparse FINAL overrides; only changed lines are stored. */
 export type RetailFinalOverrides = Record<string, number>;
 
-function storeKey(property: string, year: number): string {
-  return `${property}-${year}`;
-}
+const storeKey = (property: string, year: number): string => `${property}-${year}`;
+
+// One blob per FINAL line (was a single per-property/year blob holding the whole
+// override map, read-modify-written on every cell edit — concurrent edits on the
+// recon page dropped each other). Legacy per-scope blob migrated on first read.
+const overrides = scopedMap<number>({
+  prefix: "cam-retail-final-v2",
+  legacyForScope: (scope) => ({ prefix: "cam-retail-final", id: scope, extract: (b) => (b as RetailFinalOverrides) ?? {} }),
+});
 
 export async function getFinalOverrides(property: string, year: number): Promise<RetailFinalOverrides> {
-  const data = (await getJSON(PREFIX, storeKey(property, year))) as RetailFinalOverrides | null;
-  return data ?? {};
+  return await overrides.forScope(storeKey(property, year)).all();
 }
 
 /** Coerce + persist a single FINAL override. Pass null to clear it (revert to
@@ -42,9 +45,8 @@ export async function saveFinalOverride(
   key: string,
   value: number | null,
 ): Promise<RetailFinalOverrides> {
-  const current = await getFinalOverrides(property, year);
-  if (value === null) delete current[key];
-  else current[key] = value;
-  await storeJSON(PREFIX, storeKey(property, year), current);
-  return current;
+  const scope = overrides.forScope(storeKey(property, year));
+  if (value === null) await scope.remove(key);
+  else await scope.set(key, value);
+  return await scope.all();
 }

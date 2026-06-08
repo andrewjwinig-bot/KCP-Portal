@@ -1,19 +1,41 @@
 // Storage for manually-entered quarterly CAM/RET billing figures (Wawa @ 9510,
 // etc.). Keyed by "<billingKey>-<year>". Sparse — only filled cells persist.
 
-import { getJSON, storeJSON } from "@/lib/storage";
+import { scopedMap } from "@/lib/collectionStore";
 import { emptyQuarterlyData, type Quarter, type QuarterlyData } from "./quarterly";
 
-const PREFIX = "cam-retail-quarterly";
+const storeKey = (key: string, year: number): string => `${key}-${year}`;
 
-function storeKey(key: string, year: number): string {
-  return `${key}-${year}`;
-}
+// One blob per row (each CAM line, plus "ret" and "billed") instead of the whole
+// grid in a single blob that every cell save read-modify-wrote. Concurrent edits
+// to different lines no longer clobber each other. Legacy per-scope blob is
+// migrated on first read.
+type QRow = Partial<Record<Quarter, number>>;
+const grid = scopedMap<QRow>({
+  prefix: "cam-retail-quarterly-v2",
+  legacyForScope: (scope) => ({
+    prefix: "cam-retail-quarterly",
+    id: scope,
+    extract: (b) => {
+      const d = b as QuarterlyData | null;
+      const out: Record<string, QRow> = {};
+      for (const [label, row] of Object.entries(d?.camCosts ?? {})) out[`cam:${label}`] = row;
+      if (d?.retCosts && Object.keys(d.retCosts).length) out["ret"] = d.retCosts;
+      if (d?.billed && Object.keys(d.billed).length) out["billed"] = d.billed;
+      return out;
+    },
+  }),
+});
 
 export async function getQuarterly(key: string, year: number): Promise<QuarterlyData> {
-  const data = (await getJSON(PREFIX, storeKey(key, year))) as QuarterlyData | null;
-  if (!data) return emptyQuarterlyData();
-  return { camCosts: data.camCosts ?? {}, retCosts: data.retCosts ?? {}, billed: data.billed ?? {} };
+  const all = await grid.forScope(storeKey(key, year)).all();
+  const out = emptyQuarterlyData();
+  for (const [k, row] of Object.entries(all)) {
+    if (k === "ret") out.retCosts = row;
+    else if (k === "billed") out.billed = row;
+    else if (k.startsWith("cam:")) out.camCosts[k.slice(4)] = row;
+  }
+  return out;
 }
 
 export type QuarterlyField = "camCost" | "retCost" | "billed";
@@ -28,18 +50,12 @@ export async function saveQuarterlyCell(
   quarter: Quarter,
   value: number | null,
 ): Promise<QuarterlyData> {
-  const d = await getQuarterly(key, year);
-  if (field === "camCost") {
-    const row = { ...(d.camCosts[label] ?? {}) };
-    if (value === null) delete row[quarter];
-    else row[quarter] = value;
-    if (Object.keys(row).length === 0) delete d.camCosts[label];
-    else d.camCosts[label] = row;
-  } else {
-    const target = field === "retCost" ? d.retCosts : d.billed;
-    if (value === null) delete target[quarter];
-    else target[quarter] = value;
-  }
-  await storeJSON(PREFIX, storeKey(key, year), d);
-  return d;
+  const scope = grid.forScope(storeKey(key, year));
+  const rowKey = field === "camCost" ? `cam:${label}` : field === "retCost" ? "ret" : "billed";
+  const row: QRow = { ...((await scope.get(rowKey)) ?? {}) };
+  if (value === null) delete row[quarter];
+  else row[quarter] = value;
+  if (Object.keys(row).length === 0) await scope.remove(rowKey);
+  else await scope.set(rowKey, row);
+  return await getQuarterly(key, year);
 }
