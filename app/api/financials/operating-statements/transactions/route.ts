@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { latestGl, getGl, getTransactions } from "@/lib/financials/operating-statements/statementStore";
 import { accountMatchesMask } from "@/lib/financials/operating-statements/mask";
-import { buildTenantLookup } from "@/lib/financials/operating-statements/tenants";
+import { buildTenantDirectory } from "@/lib/financials/operating-statements/tenants";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -31,7 +31,7 @@ export async function GET(req: Request) {
 
   const byAccount = await getTransactions(stored.id);
   const accounts = Object.keys(byAccount).filter((a) => accountMatchesMask(mask, a));
-  const tenantFor = await buildTenantLookup();
+  const { tenantForAccount, unitForName } = await buildTenantDirectory();
 
   // Tenant/payer for a transaction. Two chart patterns are supported:
   //  A) per-unit accounts — the account itself maps to a rent-roll tenant;
@@ -41,26 +41,32 @@ export async function GET(req: Request) {
   const vendorOf = (t: { vendor?: string; description: string }): string =>
     (t.vendor && t.vendor.trim()) || (t.description || "").split(" — ")[0].trim();
 
-  const rows: { account: string; tenant: string | null; groupKey: string; date: string | null; description: string; ref: string; amount: number; month: number }[] = [];
+  // Suite/unit for a row — the account itself when it's a unit ref (pattern A),
+  // else the rent-roll unit matched from the tenant name (pattern B), so the
+  // drill-down can show Suite + Tenant like the budget roster.
+  const unitOf = (account: string, acctTenant: string | null, tenant: string | null): string | null =>
+    acctTenant ? account : (tenant ? unitForName(tenant) : null);
+
+  const rows: { account: string; unit: string | null; tenant: string | null; groupKey: string; date: string | null; description: string; ref: string; amount: number; month: number }[] = [];
   for (const account of accounts) {
-    const acctTenant = tenantFor(account);
+    const acctTenant = tenantForAccount(account);
     for (const t of byAccount[account]) {
       if (scope === "month" ? t.month !== period : t.month > period) continue;
       const payer = vendorOf(t);
       const tenant = acctTenant ?? (payer || null);
       // Group by the account when it identifies the tenant, else by the payer.
       const groupKey = acctTenant ? `A:${account}` : `P:${payer || account}`;
-      rows.push({ account, tenant, groupKey, date: t.date, description: t.description, ref: t.ref, amount: t.amount * sign, month: t.month });
+      rows.push({ account, unit: unitOf(account, acctTenant, tenant), tenant, groupKey, date: t.date, description: t.description, ref: t.ref, amount: t.amount * sign, month: t.month });
     }
   }
   rows.sort((a, b) => (a.date && b.date ? (a.date < b.date ? 1 : -1) : b.month - a.month));
   const total = rows.reduce((s, r) => s + r.amount, 0);
 
-  // Per-tenant breakdown so the drill-down can list each tenant and isolate the
-  // ones driving the line. Sorted by magnitude.
-  const groups = new Map<string, { groupKey: string; account: string; tenant: string | null; amount: number; count: number }>();
+  // Per-tenant breakdown so the drill-down can list each tenant/suite and
+  // isolate the ones driving the line. Sorted by magnitude.
+  const groups = new Map<string, { groupKey: string; account: string; unit: string | null; tenant: string | null; amount: number; count: number }>();
   for (const r of rows) {
-    const g = groups.get(r.groupKey) ?? { groupKey: r.groupKey, account: r.account, tenant: r.tenant, amount: 0, count: 0 };
+    const g = groups.get(r.groupKey) ?? { groupKey: r.groupKey, account: r.account, unit: r.unit, tenant: r.tenant, amount: 0, count: 0 };
     g.amount += r.amount; g.count += 1;
     groups.set(r.groupKey, g);
   }
