@@ -97,33 +97,38 @@ const threshInput: React.CSSProperties = {
   border: "1px solid var(--border)", borderRadius: 6, background: "var(--card)", color: "var(--text)",
 };
 
-// Count line items whose variance vs budget is "high" — beyond EITHER the
-// dollar or the percent threshold — split favorable vs unfavorable, for the
-// current month and YTD. `flagged` maps a line key → its YTD (else month)
-// classification so the table can mark it.
-type VarCounts = { monthFav: number; monthUnf: number; ytdFav: number; ytdUnf: number; flagged: Record<string, "fav" | "unf"> };
-function varianceCounts(s: PropertyStatement, dollarThresh: number, pctThresh: number): VarCounts {
+type Thresh = { dollar: number; pct: number };
+
+// Is a single variance "high" — beyond EITHER the dollar or the percent
+// threshold — and if so, favorable or unfavorable?
+function cellFlag(variance: number | null, budget: number | null, th: Thresh): "fav" | "unf" | null {
+  if (variance == null || budget == null) return null;
+  const vp = varPct(variance, budget);
+  const hot = Math.abs(variance) > th.dollar || (vp != null && Math.abs(vp) > th.pct);
+  if (!hot) return null;
+  return variance >= 0 ? "fav" : "unf";
+}
+
+const flagTint = (f: "fav" | "unf" | null) =>
+  f === "unf" ? "rgba(185,28,28,0.13)" : f === "fav" ? "rgba(21,128,61,0.13)" : undefined;
+
+// Does a line have any high-variance cell of the given class (month or YTD)?
+function lineMatchesClass(l: StatementTotals, cls: "fav" | "unf", th: Thresh): boolean {
+  return cellFlag(l.periodVariance, l.periodBudget, th) === cls || cellFlag(l.ytdVariance, l.ytdBudget, th) === cls;
+}
+
+// Count line items whose variance vs budget is "high", split favorable vs
+// unfavorable, for the current month and YTD.
+type VarCounts = { monthFav: number; monthUnf: number; ytdFav: number; ytdUnf: number };
+function varianceCounts(s: PropertyStatement, th: Thresh): VarCounts {
   let monthFav = 0, monthUnf = 0, ytdFav = 0, ytdUnf = 0;
-  const flagged: Record<string, "fav" | "unf"> = {};
-  const hot = (v: number | null, budget: number | null) => {
-    if (v == null || budget == null) return false;
-    const vp = varPct(v, budget);
-    return Math.abs(v) > dollarThresh || (vp != null && Math.abs(vp) > pctThresh);
-  };
   for (const sec of s.sections) for (const l of sec.lines) {
-    const key = `${sec.name}::${l.label}`;
-    if (hot(l.periodVariance, l.periodBudget)) {
-      const fav = (l.periodVariance ?? 0) >= 0;
-      if (fav) monthFav++; else monthUnf++;
-      flagged[key] = fav ? "fav" : "unf";
-    }
-    if (hot(l.ytdVariance, l.ytdBudget)) {
-      const fav = (l.ytdVariance ?? 0) >= 0;
-      if (fav) ytdFav++; else ytdUnf++;
-      flagged[key] = fav ? "fav" : "unf"; // YTD classification wins for the marker
-    }
+    const m = cellFlag(l.periodVariance, l.periodBudget, th);
+    if (m === "fav") monthFav++; else if (m === "unf") monthUnf++;
+    const y = cellFlag(l.ytdVariance, l.ytdBudget, th);
+    if (y === "fav") ytdFav++; else if (y === "unf") ytdUnf++;
   }
-  return { monthFav, monthUnf, ytdFav, ytdUnf, flagged };
+  return { monthFav, monthUnf, ytdFav, ytdUnf };
 }
 
 // Segmented two-button toggle, matching the Operating Budgets controls.
@@ -192,6 +197,8 @@ export default function OperatingStatementsPage() {
   // Variance thresholds — a line is "high variance" if it exceeds either.
   const [varDollar, setVarDollar] = useState(5000);
   const [varPctThresh, setVarPctThresh] = useState(10);
+  // Click a Favorable/Unfavorable pill to filter the statement to those lines.
+  const [flagFilter, setFlagFilter] = useState<"fav" | "unf" | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   // Load the picker payload once.
@@ -270,7 +277,8 @@ export default function OperatingStatementsPage() {
   const cur = available.find((a) => a.key === key);
   const yearOptions = cur?.years.length ? cur.years : [year || new Date().getFullYear()];
   const sqft = PROPERTY_DEFS.find((p) => p.id === key)?.sqft ?? 0;
-  const variance = statement ? varianceCounts(statement, varDollar, varPctThresh) : null;
+  const thresh: Thresh = { dollar: varDollar, pct: varPctThresh };
+  const variance = statement ? varianceCounts(statement, thresh) : null;
 
   return (
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
@@ -293,7 +301,7 @@ export default function OperatingStatementsPage() {
       <div className="card">
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", minWidth: 0 }}>
-            <HeaderSelect value={String(year)} onChange={(v) => { setYear(Number(v)); setPeriod(0); }} displayLabel={String(year || "—")} ariaLabel="Year" muted>
+            <HeaderSelect value={String(year)} onChange={(v) => { setYear(Number(v)); setPeriod(0); setFlagFilter(null); }} displayLabel={String(year || "—")} ariaLabel="Year" muted>
               {yearOptions.map((y) => <option key={y} value={y}>{y}</option>)}
             </HeaderSelect>
             {statement && (
@@ -303,7 +311,7 @@ export default function OperatingStatementsPage() {
                 ))}
               </HeaderSelect>
             )}
-            <HeaderSelect value={key} onChange={(v) => { setKey(v); setPeriod(0); }} displayLabel={cur ? `${cur.propertyCode} — ${cur.name}` : "—"} ariaLabel="Property">
+            <HeaderSelect value={key} onChange={(v) => { setKey(v); setPeriod(0); setFlagFilter(null); }} displayLabel={cur ? `${cur.propertyCode} — ${cur.name}` : "—"} ariaLabel="Property">
               {available.map((a) => (
                 <option key={a.key} value={a.key}>{a.propertyCode} — {a.name}{a.years.length ? "" : " (no GL)"}</option>
               ))}
@@ -345,8 +353,12 @@ export default function OperatingStatementsPage() {
               <div className="pills" style={{ marginTop: 12 }}>
                 <StatPill label={`Cash Flow After Debt · ${mon} vs Budget`} value={fmtPct(mPct)} accent={pctAccent(mPct)} />
                 <StatPill label="Cash Flow After Debt · YTD vs Budget" value={fmtPct(yPct)} accent={pctAccent(yPct)} />
-                <StatPill label="Lines Unfavorable · YTD" value={variance.ytdUnf} sub={`${variance.monthUnf} in ${mon}`} accent={variance.ytdUnf > 0 ? "#b91c1c" : undefined} />
-                <StatPill label="Lines Favorable · YTD" value={variance.ytdFav} sub={`${variance.monthFav} in ${mon}`} accent={variance.ytdFav > 0 ? "#15803d" : undefined} />
+                <ClickablePill active={flagFilter === "unf"} activeColor="#b91c1c" onClick={() => setFlagFilter((f) => (f === "unf" ? null : "unf"))} title="Click to show only unfavorable lines">
+                  <StatPill label="Lines Unfavorable · YTD" value={variance.ytdUnf} sub={`${variance.monthUnf} in ${mon}`} accent={variance.ytdUnf > 0 ? "#b91c1c" : undefined} />
+                </ClickablePill>
+                <ClickablePill active={flagFilter === "fav"} activeColor="#15803d" onClick={() => setFlagFilter((f) => (f === "fav" ? null : "fav"))} title="Click to show only favorable lines">
+                  <StatPill label="Lines Favorable · YTD" value={variance.ytdFav} sub={`${variance.monthFav} in ${mon}`} accent={variance.ytdFav > 0 ? "#15803d" : undefined} />
+                </ClickablePill>
               </div>
               <div style={{ marginTop: 8, display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 6 }} className="muted small">
                 <span style={{ fontWeight: 700 }}>Flag lines over</span>
@@ -370,7 +382,7 @@ export default function OperatingStatementsPage() {
         </div>
       )}
 
-      {!loading && statement && <StatementTable s={statement} budgetYear={budgetYear} budgetFallback={budgetFallback} notes={notes} onSaveNote={saveNote} view={{ psf, sqft, hideEmpty, showGL }} flagged={variance?.flagged ?? {}} />}
+      {!loading && statement && <StatementTable s={statement} budgetYear={budgetYear} budgetFallback={budgetFallback} notes={notes} onSaveNote={saveNote} view={{ psf, sqft, hideEmpty, showGL }} thresh={thresh} flagFilter={flagFilter} onClearFilter={() => setFlagFilter(null)} />}
     </main>
   );
 }
@@ -418,8 +430,9 @@ function HeaderRow({ monthLabel }: { monthLabel: string }) {
   );
 }
 
-function StatementTable({ s, budgetYear, budgetFallback, notes, onSaveNote, view, flagged }: {
-  s: PropertyStatement; budgetYear: number | null; budgetFallback: boolean; view: ViewOpts; flagged: Record<string, "fav" | "unf">;
+function StatementTable({ s, budgetYear, budgetFallback, notes, onSaveNote, view, thresh, flagFilter, onClearFilter }: {
+  s: PropertyStatement; budgetYear: number | null; budgetFallback: boolean; view: ViewOpts;
+  thresh: Thresh; flagFilter: "fav" | "unf" | null; onClearFilter: () => void;
 } & NoteFns) {
   const byRole = (roles: SectionRole[]) => s.sections.filter((x) => roles.includes(x.role));
   const revenueSecs = byRole(["revenue", "reimbursement"]);
@@ -429,21 +442,73 @@ function StatementTable({ s, budgetYear, budgetFallback, notes, onSaveNote, view
   const r = s.rollups;
   const nf: NoteFns = { notes, onSaveNote };
   const monthLabel = MONTHS[s.period - 1];
+
+  const titleCard = (
+    <div className="card">
+      <div style={{ fontSize: 18, fontWeight: 800 }}>{s.propertyCode} — {s.propertyName}</div>
+      <div className="muted small">{s.entityName} · Comparative Income Statement · {monthLabel} {s.year}</div>
+      {budgetFallback && budgetYear != null && (
+        <div style={{ marginTop: 6, fontSize: 12, color: "#b45309", fontWeight: 600 }}>
+          Budget columns use the {budgetYear} budget — no {s.year} budget is loaded for this property.
+        </div>
+      )}
+    </div>
+  );
+
+  const footerCard = (
+    <div className="card">
+      {s.unmappedAccounts.length > 0 && (
+        <div style={{ padding: "10px 12px", borderRadius: 8, background: "rgba(180,83,9,0.06)", border: "1px solid rgba(180,83,9,0.3)" }}>
+          <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.04em", color: "#b45309" }}>
+            Trial-balance tie-out — {s.unmappedAccounts.length} GL account{s.unmappedAccounts.length === 1 ? "" : "s"} not on the statement
+          </div>
+          <div className="muted small" style={{ marginTop: 4, lineHeight: 1.6 }}>
+            These carry a YTD balance but map to no statement line (depreciation, interest, balance-sheet, deferred costs, rounding). Expected for non-operating accounts; review if an operating account appears here.
+          </div>
+          <div style={{ marginTop: 6, display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {s.unmappedAccounts.slice(0, 24).map((u) => (
+              <span key={u.account} className="muted" style={{ fontSize: 11, fontVariantNumeric: "tabular-nums", color: "#7c2d12" }}>{u.account}: {money0(u.ytdActual)}</span>
+            ))}
+          </div>
+        </div>
+      )}
+      <p className="small muted" style={{ marginTop: s.unmappedAccounts.length > 0 ? 12 : 0 }}>
+        Actual = GL Debit − Credit (revenue shown positive). Variance % is favorable when positive (revenue over budget / expense under budget). Budget columns line up to the {budgetYear ?? s.year} portal budget via the same GL account masks.
+      </p>
+    </div>
+  );
+
+  // Filter mode — show only the flagged lines of the clicked class, grouped by
+  // their section (no subtotals, rollups or group headers).
+  if (flagFilter) {
+    const matchSecs = s.sections.filter((sec) => sec.lines.some((l) => lineMatchesClass(l, flagFilter, thresh)));
+    const count = matchSecs.reduce((n, sec) => n + sec.lines.filter((l) => lineMatchesClass(l, flagFilter, thresh)).length, 0);
+    const color = flagFilter === "unf" ? "#b91c1c" : "#15803d";
+    const word = flagFilter === "unf" ? "unfavorable" : "favorable";
+    return (
+      <>
+        {titleCard}
+        <div className="card" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", borderColor: color, background: flagFilter === "unf" ? "rgba(185,28,28,0.05)" : "rgba(21,128,61,0.05)" }}>
+          <span style={{ fontWeight: 700, color }}>
+            Showing {count} {word} line{count === 1 ? "" : "s"} — variance beyond ${thresh.dollar.toLocaleString()} or {thresh.pct}% of budget
+          </span>
+          <button type="button" className="btn" onClick={onClearFilter} style={{ fontSize: 13, padding: "6px 12px", fontWeight: 700 }}>Clear filter</button>
+        </div>
+        {matchSecs.length === 0
+          ? <div className="card"><div className="muted small">No {word} lines beyond the threshold.</div></div>
+          : matchSecs.map((sec) => <SectionCard key={sec.name} sec={sec} nf={nf} monthLabel={monthLabel} view={view} thresh={thresh} filterClass={flagFilter} />)}
+        {footerCard}
+      </>
+    );
+  }
+
   const sc = (sec: StatementSection, hideSubtotal?: boolean) => (
-    <SectionCard key={sec.name} sec={sec} nf={nf} monthLabel={monthLabel} view={view} flagged={flagged} hideSubtotal={hideSubtotal} />
+    <SectionCard key={sec.name} sec={sec} nf={nf} monthLabel={monthLabel} view={view} thresh={thresh} hideSubtotal={hideSubtotal} />
   );
 
   return (
     <>
-      <div className="card">
-        <div style={{ fontSize: 18, fontWeight: 800 }}>{s.propertyCode} — {s.propertyName}</div>
-        <div className="muted small">{s.entityName} · Comparative Income Statement · {monthLabel} {s.year}</div>
-        {budgetFallback && budgetYear != null && (
-          <div style={{ marginTop: 6, fontSize: 12, color: "#b45309", fontWeight: 600 }}>
-            Budget columns use the {budgetYear} budget — no {s.year} budget is loaded for this property.
-          </div>
-        )}
-      </div>
+      {titleCard}
 
       <GroupHeader label="Revenues" />
       {revenueSecs.map((sec) => sc(sec))}
@@ -463,26 +528,7 @@ function StatementTable({ s, budgetYear, budgetFallback, notes, onSaveNote, view
       {debtSecs.length > 0 && <RollupCard label="Total Debt Service" t={r.totalDebtService} view={view} />}
       <RollupCard label="Cash Flow After Debt Service" t={r.cashFlowAfterDebtService} view={view} strong />
 
-      <div className="card">
-        {s.unmappedAccounts.length > 0 && (
-          <div style={{ padding: "10px 12px", borderRadius: 8, background: "rgba(180,83,9,0.06)", border: "1px solid rgba(180,83,9,0.3)" }}>
-            <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.04em", color: "#b45309" }}>
-              Trial-balance tie-out — {s.unmappedAccounts.length} GL account{s.unmappedAccounts.length === 1 ? "" : "s"} not on the statement
-            </div>
-            <div className="muted small" style={{ marginTop: 4, lineHeight: 1.6 }}>
-              These carry a YTD balance but map to no statement line (depreciation, interest, balance-sheet, deferred costs, rounding). Expected for non-operating accounts; review if an operating account appears here.
-            </div>
-            <div style={{ marginTop: 6, display: "flex", flexWrap: "wrap", gap: 6 }}>
-              {s.unmappedAccounts.slice(0, 24).map((u) => (
-                <span key={u.account} className="muted" style={{ fontSize: 11, fontVariantNumeric: "tabular-nums", color: "#7c2d12" }}>{u.account}: {money0(u.ytdActual)}</span>
-              ))}
-            </div>
-          </div>
-        )}
-        <p className="small muted" style={{ marginTop: s.unmappedAccounts.length > 0 ? 12 : 0 }}>
-          Actual = GL Debit − Credit (revenue shown positive). Variance % is favorable when positive (revenue over budget / expense under budget). Budget columns line up to the {budgetYear ?? s.year} portal budget via the same GL account masks.
-        </p>
-      </div>
+      {footerCard}
     </>
   );
 }
@@ -492,8 +538,10 @@ function StatementTable({ s, budgetYear, budgetFallback, notes, onSaveNote, view
 const subtotalLabel = (sec: StatementSection) =>
   sec.role === "revenue" ? "Total Revenue and Other" : `Total ${sec.name}`;
 
-function SectionCard({ sec, nf, monthLabel, view, flagged, hideSubtotal }: { sec: StatementSection; nf: NoteFns; monthLabel: string; view: ViewOpts; flagged: Record<string, "fav" | "unf">; hideSubtotal?: boolean }) {
-  const lines = view.hideEmpty ? sec.lines.filter((l) => !isLineEmpty(l)) : sec.lines;
+function SectionCard({ sec, nf, monthLabel, view, thresh, filterClass, hideSubtotal }: { sec: StatementSection; nf: NoteFns; monthLabel: string; view: ViewOpts; thresh: Thresh; filterClass?: "fav" | "unf"; hideSubtotal?: boolean }) {
+  const lines = filterClass
+    ? sec.lines.filter((l) => lineMatchesClass(l, filterClass, thresh))
+    : view.hideEmpty ? sec.lines.filter((l) => !isLineEmpty(l)) : sec.lines;
   return (
     <div className="card" style={{ padding: 0, overflow: "hidden" }}>
       {/* Neutral section header bar, matching the Budgets page. */}
@@ -505,23 +553,17 @@ function SectionCard({ sec, nf, monthLabel, view, flagged, hideSubtotal }: { sec
           <StatementColgroup />
           <thead><HeaderRow monthLabel={monthLabel} /></thead>
           <tbody>
-            {lines.map((l) => {
-              const flag = flagged[lineKeyOf(sec.name, l.label)];
-              return (
-                <tr key={l.label}>
-                  <td style={labelStyle}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      {flag && <span title={`High variance vs budget (${flag === "unf" ? "unfavorable" : "favorable"})`} style={{ width: 8, height: 8, borderRadius: 999, flexShrink: 0, background: flag === "unf" ? "#b91c1c" : "#15803d" }} />}
-                      <span>{l.label}</span>
-                    </div>
-                    {view.showGL && <div className="muted" style={{ fontSize: 11, fontVariantNumeric: "tabular-nums", marginTop: 1 }}>{l.mask}</div>}
-                  </td>
-                  {figureCells(l, { psf: view.psf, sqft: view.sqft })}
-                  <NoteCell lineKey={lineKeyOf(sec.name, l.label)} {...nf} />
-                </tr>
-              );
-            })}
-            {!hideSubtotal && (
+            {lines.map((l) => (
+              <tr key={l.label}>
+                <td style={labelStyle}>
+                  <div>{l.label}</div>
+                  {view.showGL && <div className="muted" style={{ fontSize: 11, fontVariantNumeric: "tabular-nums", marginTop: 1 }}>{l.mask}</div>}
+                </td>
+                {figureCells(l, { psf: view.psf, sqft: view.sqft, flag: thresh })}
+                <NoteCell lineKey={lineKeyOf(sec.name, l.label)} {...nf} />
+              </tr>
+            ))}
+            {!hideSubtotal && !filterClass && (
               <tr style={{ background: "rgba(11,74,125,0.06)", borderTop: "2px solid rgba(11,74,125,0.30)" }}>
                 <td style={{ ...labelStyle, fontWeight: 800, color: COLOR_BRAND, textTransform: "uppercase", letterSpacing: "0.04em", fontSize: 13.5 }}>{subtotalLabel(sec)}</td>
                 {figureCells(sec.subtotal, { bold: true, color: COLOR_BRAND, psf: view.psf, sqft: view.sqft })}
@@ -554,23 +596,40 @@ function RollupCard({ label, t, view, strong }: { label: string; t: StatementTot
   );
 }
 
-/** The seven figure cells (Period A/B/Var% · YTD A/B/Var% · Annual). */
-function figureCells(t: StatementTotals, opts: { bold?: boolean; color?: string; noBorder?: boolean; psf?: boolean; sqft?: number } = {}) {
-  const { bold, color, noBorder, psf = false, sqft = 0 } = opts;
+/** The seven figure cells (Period A/B/Var% · YTD A/B/Var% · Annual). When
+ *  `flag` (the thresholds) is supplied, the month/YTD Var % cells that are
+ *  high-variance get a green (favorable) / red (unfavorable) highlight. */
+function figureCells(t: StatementTotals, opts: { bold?: boolean; color?: string; noBorder?: boolean; psf?: boolean; sqft?: number; flag?: Thresh } = {}) {
+  const { bold, color, noBorder, psf = false, sqft = 0, flag } = opts;
   const base: React.CSSProperties = { ...numStyle, ...(bold ? { fontWeight: 800 } : {}), ...(color ? { color } : {}), ...(noBorder ? { borderBottom: "none" } : {}) };
   const pV = varPct(t.periodVariance, t.periodBudget);
   const yV = varPct(t.ytdVariance, t.ytdBudget);
   const amt = (v: number | null) => fmtAmt(v, psf, sqft);
+  const mFlag = flag ? cellFlag(t.periodVariance, t.periodBudget, flag) : null;
+  const yFlag = flag ? cellFlag(t.ytdVariance, t.ytdBudget, flag) : null;
+  const varCell = (pct: number | null, f: "fav" | "unf" | null): React.CSSProperties =>
+    ({ ...base, color: color ?? varColor(pct), ...(f ? { background: flagTint(f), fontWeight: 800 } : {}) });
   return (
     <>
       <td style={{ ...base, borderLeft: GROUP_DIV }}>{amt(t.periodActual)}</td>
       <td style={{ ...base, color: color ?? "var(--muted)" }}>{amt(t.periodBudget)}</td>
-      <td style={{ ...base, color: color ?? varColor(pV) }}>{fmtPct(pV)}</td>
+      <td style={varCell(pV, mFlag)}>{fmtPct(pV)}</td>
       <td style={{ ...base, borderLeft: GROUP_DIV }}>{amt(t.ytdActual)}</td>
       <td style={{ ...base, color: color ?? "var(--muted)" }}>{amt(t.ytdBudget)}</td>
-      <td style={{ ...base, color: color ?? varColor(yV) }}>{fmtPct(yV)}</td>
+      <td style={varCell(yV, yFlag)}>{fmtPct(yV)}</td>
       <td style={{ ...base, borderLeft: GROUP_DIV, color: color ?? "var(--muted)" }}>{amt(t.annualBudget)}</td>
     </>
+  );
+}
+
+// A pill wrapper that's clickable (filter toggle), showing an outline when active.
+function ClickablePill({ active, activeColor, onClick, title, children }: { active: boolean; activeColor: string; onClick: () => void; title?: string; children: React.ReactNode }) {
+  return (
+    <div role="button" tabIndex={0} title={title} onClick={onClick}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } }}
+      style={{ display: "flex", flex: "1 1 0", minWidth: 0, cursor: "pointer", borderRadius: 12, outline: active ? `2px solid ${activeColor}` : "2px solid transparent", outlineOffset: 2 }}>
+      {children}
+    </div>
   );
 }
 
@@ -667,7 +726,7 @@ function ImportInstructionsModal({ onClose, year, nextPeriod }: { onClose: () =>
             })()}</li>
             <li>From the Detailed General Ledger report, select <b>Export</b> in the upper left.</li>
             <li>Select <b>Microsoft Excel (97-2003) (.xls)</b> — the selection from the top.</li>
-            <li>Hit <b>Save</b> and save to a location where the file can be accessed outside of Skyline (e.g. Desktop). File name is not important.</li>
+            <li>Hit <b>Save</b> and save to <b>Data\Accounting\202X Year End\Reports to Eisner\Monthly GLs</b>. File name is not important.</li>
           </ol>
         </div>
 
