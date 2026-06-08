@@ -69,6 +69,22 @@ function fmtPct(v: number | null): string {
   if (v == null) return "—";
   return `${v > 0 ? "+" : ""}${v.toFixed(1)}%`;
 }
+// Compact signed dollar for KPI pills: $5.2K, -$1.3M, $850.
+function fmtVarK(v: number | null): string {
+  if (v == null) return "—";
+  const sign = v < 0 ? "-" : "";
+  const a = Math.abs(v);
+  if (a >= 1_000_000) return `${sign}$${(a / 1_000_000).toFixed(1)}M`;
+  if (a >= 1_000) return `${sign}$${(a / 1_000).toFixed(1)}K`;
+  return `${sign}$${Math.round(a)}`;
+}
+// "$5.2K (+3.4%)" — dollar variance with the % in parens (either alone if the
+// other is missing).
+function fmtVarValue(v: number | null, pct: number | null): string {
+  if (v == null) return fmtPct(pct);
+  if (pct == null) return fmtVarK(v);
+  return `${fmtVarK(v)} (${fmtPct(pct)})`;
+}
 // Variance % carries the favorability sign (positive = favorable). Blank when
 // there's no budget to compare against.
 function varPct(variance: number | null, budget: number | null): number | null {
@@ -401,8 +417,8 @@ export default function OperatingStatementsPage() {
           return (
             <>
               <div className="pills" style={{ marginTop: 12 }}>
-                <StatPill label={`Cash Flow After Debt · ${mon} vs Budget`} value={fmtPct(mPct)} accent={pctAccent(mPct)} />
-                <StatPill label="Cash Flow After Debt · YTD vs Budget" value={fmtPct(yPct)} accent={pctAccent(yPct)} />
+                <StatPill label={`Cash Flow After Debt · ${mon} vs Budget`} value={fmtVarValue(cfad.periodVariance, mPct)} accent={pctAccent(mPct)} />
+                <StatPill label="Cash Flow After Debt · YTD vs Budget" value={fmtVarValue(cfad.ytdVariance, yPct)} accent={pctAccent(yPct)} />
                 <ClickablePill active={flagFilter === "unf"} activeColor="#b91c1c" onClick={() => setFlagFilter((f) => (f === "unf" ? null : "unf"))} title="Click to show only unfavorable lines">
                   <StatPill label="Lines Unfavorable · YTD" value={variance.ytdUnf} sub={`${variance.monthUnf} in ${mon}`} accent={variance.ytdUnf > 0 ? "#b91c1c" : undefined} />
                 </ClickablePill>
