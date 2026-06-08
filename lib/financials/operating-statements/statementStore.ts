@@ -112,8 +112,43 @@ export async function saveNote(
   const rec = (await getJSON(NOTES_PREFIX, id)) as NotesRecord | null;
   const notes = { ...(rec?.notes ?? {}) };
   const sources = { ...(rec?.sources ?? {}) };
+  const prevNote = rec?.notes?.[lineKey];
+  const prevSource = rec?.sources?.[lineKey];
   if (note.trim()) { notes[lineKey] = note.trim(); sources[lineKey] = source; }
   else { delete notes[lineKey]; delete sources[lineKey]; }
   await storeJSON(NOTES_PREFIX, id, { key, year, notes, sources });
+
+  // Training signal: when a human edits an AI-written note into something
+  // different, record the (ai → user) pair so the note prompt can be tuned
+  // from real corrections over time.
+  if (source === "user" && prevSource === "ai" && prevNote && note.trim() && note.trim() !== prevNote) {
+    await recordNoteEdit({ key, year, lineKey, aiNote: prevNote, userNote: note.trim(), editedAt: new Date().toISOString() });
+  }
+}
+
+// ── Note feedback log (AI note → human correction) ───────────────────────────
+const FEEDBACK_PREFIX = "financials-operating-statements-note-feedback";
+
+export type NoteEdit = {
+  key: string;
+  year: number;
+  lineKey: string;
+  /** The note the AI originally wrote. */
+  aiNote: string;
+  /** What the human changed it to. */
+  userNote: string;
+  editedAt: string;
+};
+
+async function recordNoteEdit(edit: NoteEdit): Promise<void> {
+  // One record per edit; a slug keeps concurrent edits from clobbering.
+  const slug = `${edit.key}-${edit.year}-${edit.lineKey}-${Date.now()}`.replace(/[^a-zA-Z0-9_-]+/g, "_").slice(0, 200);
+  await storeJSON(FEEDBACK_PREFIX, slug, edit);
+}
+
+/** All captured AI→human note corrections, newest first. */
+export async function listNoteEdits(): Promise<NoteEdit[]> {
+  const all = (await listJSON(FEEDBACK_PREFIX)) as NoteEdit[];
+  return all.sort((a, b) => (b.editedAt || "").localeCompare(a.editedAt || ""));
 }
 
