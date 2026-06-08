@@ -63,25 +63,6 @@ const numStyle: React.CSSProperties = { textAlign: "right", fontVariantNumeric: 
 const labelStyle: React.CSSProperties = { textAlign: "left", fontSize: 14, padding: "9px 12px", verticalAlign: "middle" };
 const headStyle: React.CSSProperties = { fontSize: 12, fontWeight: 800, color: "var(--muted)", padding: "8px 12px", whiteSpace: "nowrap", textAlign: "right", verticalAlign: "bottom" };
 
-const ROLE_COLOR: Partial<Record<SectionRole, string>> = {
-  revenue: "#15803d",
-  reimbursement: "#0f766e",
-  "reimbursable-expense": "#854d0e",
-  "non-reimbursable-expense": "#854d0e",
-  "residential-expense": "#854d0e",
-  capital: "#6d28d9",
-  "debt-service": "#0b4a7d",
-};
-const ROLE_TINT: Partial<Record<SectionRole, string>> = {
-  revenue: "rgba(21,128,61,0.06)",
-  reimbursement: "rgba(15,118,110,0.06)",
-  "reimbursable-expense": "rgba(133,77,14,0.05)",
-  "non-reimbursable-expense": "rgba(133,77,14,0.05)",
-  "residential-expense": "rgba(133,77,14,0.05)",
-  capital: "rgba(109,40,217,0.05)",
-  "debt-service": "rgba(11,74,125,0.05)",
-};
-
 function fmtPct(v: number | null): string {
   if (v == null) return "—";
   return `${v > 0 ? "+" : ""}${v.toFixed(1)}%`;
@@ -280,10 +261,19 @@ function StatementColgroup() {
   );
 }
 
+// Group header bar above a band of section cards — matches the Budgets page.
+function GroupHeader({ label }: { label: string }) {
+  return (
+    <div style={{ marginTop: 4, paddingBottom: 6, borderBottom: `2px solid ${COLOR_BRAND}`, fontSize: 18, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", color: COLOR_BRAND }}>
+      {label}
+    </div>
+  );
+}
+
 function HeaderRow({ monthLabel }: { monthLabel: string }) {
   return (
     <tr>
-      <th style={{ ...headStyle, textAlign: "left" }}>Account / Line</th>
+      <th style={{ ...headStyle, textAlign: "left" }}>Line</th>
       <th style={{ ...headStyle, borderLeft: GROUP_DIV, color: COLOR_BRAND }}>{monthLabel} Act</th>
       <th style={{ ...headStyle, color: COLOR_BRAND }}>{monthLabel} Bud</th>
       <th style={{ ...headStyle, color: COLOR_BRAND }}>Var %</th>
@@ -320,13 +310,20 @@ function StatementTable({ s, budgetYear, budgetFallback, notes, onSaveNote }: {
         )}
       </div>
 
+      <GroupHeader label="Revenues" />
       {revenueSecs.map((sec) => <SectionCard key={sec.name} sec={sec} nf={nf} monthLabel={monthLabel} />)}
       <RollupCard label="Total Revenues" t={r.totalRevenues} />
+
+      <GroupHeader label="Operating Expenses" />
       {expenseSecs.map((sec) => <SectionCard key={sec.name} sec={sec} nf={nf} monthLabel={monthLabel} />)}
       <RollupCard label="Total Operating Expenses" t={r.totalOperatingExpenses} />
       <RollupCard label="Net Operating Income" t={r.netOperatingIncome} strong />
+
+      {capitalSecs.length > 0 && <GroupHeader label="Capital" />}
       {capitalSecs.map((sec) => <SectionCard key={sec.name} sec={sec} nf={nf} monthLabel={monthLabel} hideSubtotal />)}
       <RollupCard label="Cash Flow Before Debt Service" t={r.cashFlowBeforeDebtService} strong />
+
+      {debtSecs.length > 0 && <GroupHeader label="Debt Service" />}
       {debtSecs.map((sec) => <SectionCard key={sec.name} sec={sec} nf={nf} monthLabel={monthLabel} />)}
       {debtSecs.length > 0 && <RollupCard label="Total Debt Service" t={r.totalDebtService} />}
       <RollupCard label="Cash Flow After Debt Service" t={r.cashFlowAfterDebtService} strong />
@@ -355,10 +352,16 @@ function StatementTable({ s, budgetYear, budgetFallback, notes, onSaveNote }: {
   );
 }
 
+// Section subtotal label — mirrors the workbook ("Total Revenue and Other"
+// for the revenue section; "Total <name>" otherwise).
+const subtotalLabel = (sec: StatementSection) =>
+  sec.role === "revenue" ? "Total Revenue and Other" : `Total ${sec.name}`;
+
 function SectionCard({ sec, nf, monthLabel, hideSubtotal }: { sec: StatementSection; nf: NoteFns; monthLabel: string; hideSubtotal?: boolean }) {
   return (
     <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-      <div style={{ padding: "10px 14px", borderBottom: "1px solid var(--border)", background: ROLE_TINT[sec.role] ?? "rgba(15,23,42,0.03)", fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: ROLE_COLOR[sec.role] ?? "inherit" }}>
+      {/* Neutral section header bar, matching the Budgets page. */}
+      <div style={{ padding: "10px 14px", borderBottom: "1px solid var(--border)", background: "rgba(15,23,42,0.03)", fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase" }}>
         {sec.name}
       </div>
       <div className="tableWrap" style={{ marginTop: 0 }}>
@@ -377,9 +380,9 @@ function SectionCard({ sec, nf, monthLabel, hideSubtotal }: { sec: StatementSect
               </tr>
             ))}
             {!hideSubtotal && (
-              <tr style={{ background: "rgba(15,23,42,0.03)" }}>
-                <td style={{ ...labelStyle, fontWeight: 800 }}>Total {sec.name}</td>
-                {figureCells(sec.subtotal, true)}
+              <tr style={{ background: "rgba(11,74,125,0.06)", borderTop: "2px solid rgba(11,74,125,0.30)" }}>
+                <td style={{ ...labelStyle, fontWeight: 800, color: COLOR_BRAND, textTransform: "uppercase", letterSpacing: "0.04em", fontSize: 13.5 }}>{subtotalLabel(sec)}</td>
+                {figureCells(sec.subtotal, true, COLOR_BRAND)}
                 <td style={{ borderLeft: GROUP_DIV }} />
               </tr>
             )}
