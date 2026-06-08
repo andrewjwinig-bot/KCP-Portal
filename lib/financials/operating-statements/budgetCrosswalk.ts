@@ -21,15 +21,31 @@ import { accountMatchesMask } from "./mask";
 import type { LineBudget } from "./types";
 
 /** Flattened budget line keyed by GL account. */
-type FlatBudgetLine = { glAccount: string; months: number[]; total: number };
+type FlatBudgetLine = { glAccount: string; label: string; months: number[]; total: number };
 
 /** Recursively flatten a budget line + its sub-lines into account-keyed rows
  *  (skipping subtotal rows with no GL account). */
 function flatten(line: BudgetLine, out: FlatBudgetLine[]): void {
   if (line.glAccount && !line.isSubtotal) {
-    out.push({ glAccount: line.glAccount, months: line.months ?? [], total: line.total ?? 0 });
+    out.push({ glAccount: line.glAccount, label: line.label ?? "", months: line.months ?? [], total: line.total ?? 0 });
   }
   for (const sub of line.subLines ?? []) flatten(sub, out);
+}
+
+/** Budget lines whose GL account matches a statement line's mask — the budget
+ *  detail behind a budget cell. Returns each contributing budget line's label,
+ *  account, and month/YTD/annual amounts. */
+export function budgetDetailForMask(budget: ResolvedBudget, mask: string, period: number) {
+  return budget.lines
+    .filter((l) => accountMatchesMask(mask, l.glAccount))
+    .map((l) => ({
+      label: l.label || l.glAccount,
+      glAccount: l.glAccount,
+      month: l.months[period - 1] ?? 0,
+      ytd: l.months.slice(0, period).reduce((a, n) => a + (n ?? 0), 0),
+      annual: l.total,
+    }))
+    .filter((r) => r.month !== 0 || r.ytd !== 0 || r.annual !== 0);
 }
 
 export type ResolvedBudget = {
