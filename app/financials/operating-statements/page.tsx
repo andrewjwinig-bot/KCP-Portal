@@ -382,7 +382,7 @@ export default function OperatingStatementsPage() {
         </div>
       )}
 
-      {!loading && statement && <StatementTable s={statement} budgetYear={budgetYear} budgetFallback={budgetFallback} notes={notes} onSaveNote={saveNote} view={{ psf, sqft, hideEmpty, showGL }} thresh={thresh} flagFilter={flagFilter} onClearFilter={() => setFlagFilter(null)} />}
+      {!loading && statement && <StatementTable s={statement} viewKey={key} budgetYear={budgetYear} budgetFallback={budgetFallback} notes={notes} onSaveNote={saveNote} view={{ psf, sqft, hideEmpty, showGL }} thresh={thresh} flagFilter={flagFilter} onClearFilter={() => setFlagFilter(null)} />}
     </main>
   );
 }
@@ -430,8 +430,8 @@ function HeaderRow({ monthLabel }: { monthLabel: string }) {
   );
 }
 
-function StatementTable({ s, budgetYear, budgetFallback, notes, onSaveNote, view, thresh, flagFilter, onClearFilter }: {
-  s: PropertyStatement; budgetYear: number | null; budgetFallback: boolean; view: ViewOpts;
+function StatementTable({ s, viewKey, budgetYear, budgetFallback, notes, onSaveNote, view, thresh, flagFilter, onClearFilter }: {
+  s: PropertyStatement; viewKey: string; budgetYear: number | null; budgetFallback: boolean; view: ViewOpts;
   thresh: Thresh; flagFilter: "fav" | "unf" | null; onClearFilter: () => void;
 } & NoteFns) {
   const byRole = (roles: SectionRole[]) => s.sections.filter((x) => roles.includes(x.role));
@@ -442,6 +442,13 @@ function StatementTable({ s, budgetYear, budgetFallback, notes, onSaveNote, view
   const r = s.rollups;
   const nf: NoteFns = { notes, onSaveNote };
   const monthLabel = MONTHS[s.period - 1];
+  // Line drill-down to GL transactions.
+  const [txLine, setTxLine] = useState<{ mask: string; label: string; sign: 1 | -1 } | null>(null);
+  const openTx = (sec: StatementSection, l: { mask: string; label: string }) =>
+    setTxLine({ mask: l.mask, label: l.label, sign: sec.role === "revenue" || sec.role === "reimbursement" ? -1 : 1 });
+  const txModal = txLine && (
+    <TransactionsModal viewKey={viewKey} year={s.year} period={s.period} monthLabel={monthLabel} line={txLine} onClose={() => setTxLine(null)} />
+  );
 
   const titleCard = (
     <div className="card">
@@ -496,14 +503,15 @@ function StatementTable({ s, budgetYear, budgetFallback, notes, onSaveNote, view
         </div>
         {matchSecs.length === 0
           ? <div className="card"><div className="muted small">No {word} lines beyond the threshold.</div></div>
-          : matchSecs.map((sec) => <SectionCard key={sec.name} sec={sec} nf={nf} monthLabel={monthLabel} view={view} thresh={thresh} filterClass={flagFilter} />)}
+          : matchSecs.map((sec) => <SectionCard key={sec.name} sec={sec} nf={nf} monthLabel={monthLabel} view={view} thresh={thresh} onOpenTx={openTx} filterClass={flagFilter} />)}
         {footerCard}
+        {txModal}
       </>
     );
   }
 
   const sc = (sec: StatementSection, hideSubtotal?: boolean) => (
-    <SectionCard key={sec.name} sec={sec} nf={nf} monthLabel={monthLabel} view={view} thresh={thresh} hideSubtotal={hideSubtotal} />
+    <SectionCard key={sec.name} sec={sec} nf={nf} monthLabel={monthLabel} view={view} thresh={thresh} onOpenTx={openTx} hideSubtotal={hideSubtotal} />
   );
 
   return (
@@ -529,6 +537,7 @@ function StatementTable({ s, budgetYear, budgetFallback, notes, onSaveNote, view
       <RollupCard label="Cash Flow After Debt Service" t={r.cashFlowAfterDebtService} view={view} strong />
 
       {footerCard}
+      {txModal}
     </>
   );
 }
@@ -538,7 +547,7 @@ function StatementTable({ s, budgetYear, budgetFallback, notes, onSaveNote, view
 const subtotalLabel = (sec: StatementSection) =>
   sec.role === "revenue" ? "Total Revenue and Other" : `Total ${sec.name}`;
 
-function SectionCard({ sec, nf, monthLabel, view, thresh, filterClass, hideSubtotal }: { sec: StatementSection; nf: NoteFns; monthLabel: string; view: ViewOpts; thresh: Thresh; filterClass?: "fav" | "unf"; hideSubtotal?: boolean }) {
+function SectionCard({ sec, nf, monthLabel, view, thresh, onOpenTx, filterClass, hideSubtotal }: { sec: StatementSection; nf: NoteFns; monthLabel: string; view: ViewOpts; thresh: Thresh; onOpenTx: (sec: StatementSection, l: { mask: string; label: string }) => void; filterClass?: "fav" | "unf"; hideSubtotal?: boolean }) {
   const lines = filterClass
     ? sec.lines.filter((l) => lineMatchesClass(l, filterClass, thresh))
     : view.hideEmpty ? sec.lines.filter((l) => !isLineEmpty(l)) : sec.lines;
@@ -556,7 +565,10 @@ function SectionCard({ sec, nf, monthLabel, view, thresh, filterClass, hideSubto
             {lines.map((l) => (
               <tr key={l.label}>
                 <td style={labelStyle}>
-                  <div>{l.label}</div>
+                  <button type="button" onClick={() => onOpenTx(sec, l)} title="View the GL transactions behind this line"
+                    style={{ all: "unset", cursor: "pointer", color: "#0b4a7d", textDecorationLine: "underline", textDecorationColor: "rgba(11,74,125,0.35)", textUnderlineOffset: 2 }}>
+                    {l.label}
+                  </button>
                   {view.showGL && <div className="muted" style={{ fontSize: 11, fontVariantNumeric: "tabular-nums", marginTop: 1 }}>{l.mask}</div>}
                 </td>
                 {figureCells(l, { psf: view.psf, sqft: view.sqft, flag: thresh })}
@@ -648,6 +660,109 @@ function NoteCell({ lineKey, notes, onSaveNote }: { lineKey: string } & NoteFns)
         style={{ width: "100%", border: "1px solid transparent", borderRadius: 6, background: "transparent", font: "inherit", fontSize: 13, padding: "4px 6px", color: "var(--text)" }}
       />
     </td>
+  );
+}
+
+// ── GL transaction drill-down ────────────────────────────────────────────────
+
+type TxRow = { account: string; date: string | null; description: string; ref: string; amount: number; month: number };
+
+function money2(v: number): string {
+  const s = Math.abs(v).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return v < 0 ? `(${s})` : s;
+}
+function fmtTxDate(iso: string | null): string {
+  if (!iso) return "—";
+  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return m ? `${m[2]}/${m[3]}/${m[1].slice(2)}` : iso;
+}
+
+function TransactionsModal({ viewKey, year, period, monthLabel, line, onClose }: {
+  viewKey: string; year: number; period: number; monthLabel: string;
+  line: { mask: string; label: string; sign: 1 | -1 }; onClose: () => void;
+}) {
+  const [scope, setScope] = useState<"month" | "ytd">("ytd");
+  const [data, setData] = useState<{ transactions: TxRow[]; total: number; count: number; accounts?: string[] } | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  useEffect(() => {
+    setLoading(true);
+    const qs = new URLSearchParams({ key: viewKey, year: String(year), mask: line.mask, period: String(period), scope, sign: String(line.sign) });
+    fetch(`/api/financials/operating-statements/transactions?${qs}`)
+      .then((r) => r.json())
+      .then((j) => setData(j))
+      .catch(() => setData({ transactions: [], total: 0, count: 0 }))
+      .finally(() => setLoading(false));
+  }, [viewKey, year, period, line.mask, line.sign, scope]);
+
+  const th: React.CSSProperties = { textAlign: "left", fontSize: 11, fontWeight: 800, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.04em", padding: "6px 10px", position: "sticky", top: 0, background: "var(--card)" };
+  const tdc: React.CSSProperties = { padding: "6px 10px", fontSize: 13, borderTop: "1px solid var(--border)", verticalAlign: "top" };
+  const segBtn = (active: boolean): React.CSSProperties => ({ ...toggleBtn, ...(active ? toggleActive : {}) });
+
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(15,23,42,0.55)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "48px 20px", overflow: "auto" }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: "var(--card)", borderRadius: 12, maxWidth: 820, width: "100%", boxShadow: "0 20px 60px rgba(0,0,0,0.35)", display: "flex", flexDirection: "column", maxHeight: "82vh" }}>
+        <div style={{ padding: "16px 18px 12px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>GL Transactions</div>
+            <div style={{ fontSize: 17, fontWeight: 800 }}>{line.label}</div>
+            <div className="muted small" style={{ marginTop: 2 }}>
+              <code style={{ fontSize: 11 }}>{line.mask}</code>{data?.accounts?.length ? ` · ${data.accounts.length} account${data.accounts.length === 1 ? "" : "s"}` : ""}
+            </div>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ display: "inline-flex", borderRadius: 6, overflow: "hidden" }}>
+              <button type="button" onClick={() => setScope("month")} style={{ ...segBtn(scope === "month"), borderRadius: "6px 0 0 6px" }}>{monthLabel}</button>
+              <button type="button" onClick={() => setScope("ytd")} style={{ ...segBtn(scope === "ytd"), borderLeft: "none", borderRadius: "0 6px 6px 0" }}>YTD</button>
+            </div>
+            <button type="button" className="btn" onClick={onClose} style={{ padding: "6px 12px", fontSize: 13, fontWeight: 700 }}>Close</button>
+          </div>
+        </div>
+
+        <div style={{ overflow: "auto", flex: 1 }}>
+          {loading ? (
+            <div className="muted small" style={{ padding: 18 }}>Loading…</div>
+          ) : !data || data.count === 0 ? (
+            <div className="muted small" style={{ padding: 18 }}>No transactions for this line in {scope === "month" ? monthLabel : `YTD through ${monthLabel}`}.</div>
+          ) : (
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr>
+                  <th style={th}>Date</th>
+                  <th style={th}>Description</th>
+                  <th style={th}>Ref</th>
+                  <th style={th}>Acct</th>
+                  <th style={{ ...th, textAlign: "right" }}>Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.transactions.map((t, i) => (
+                  <tr key={i}>
+                    <td style={{ ...tdc, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>{fmtTxDate(t.date)}</td>
+                    <td style={tdc}>{t.description}</td>
+                    <td style={{ ...tdc, whiteSpace: "nowrap", color: "var(--muted)" }}>{t.ref}</td>
+                    <td style={{ ...tdc, whiteSpace: "nowrap", color: "var(--muted)", fontVariantNumeric: "tabular-nums" }}>{t.account}</td>
+                    <td style={{ ...tdc, textAlign: "right", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums", color: t.amount < 0 ? "#b91c1c" : undefined }}>{money2(t.amount)}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td colSpan={4} style={{ ...tdc, fontWeight: 800, borderTop: "2px solid var(--border)" }}>Total · {data.count} transaction{data.count === 1 ? "" : "s"}</td>
+                  <td style={{ ...tdc, textAlign: "right", fontWeight: 900, fontVariantNumeric: "tabular-nums", borderTop: "2px solid var(--border)" }}>{money2(data.total)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 

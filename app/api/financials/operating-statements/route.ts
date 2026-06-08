@@ -4,7 +4,7 @@ import { parseGeneralLedgerMonthly, summaryForPeriod } from "@/lib/financials/op
 import { computeStatement } from "@/lib/financials/operating-statements/compute";
 import { availableStatements, getMapping } from "@/lib/financials/operating-statements/mappingStore";
 import { resolvePropertyBudget, makeBudgetLookup } from "@/lib/financials/operating-statements/budgetCrosswalk";
-import { saveGl, latestGl, getGl, versionsFor, listGls, getNotes, saveNote } from "@/lib/financials/operating-statements/statementStore";
+import { saveGl, latestGl, getGl, versionsFor, listGls, getNotes, saveNote, saveTransactions } from "@/lib/financials/operating-statements/statementStore";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 
 export const runtime = "nodejs";
@@ -128,8 +128,9 @@ export async function POST(req: Request) {
 
     const uploadedByRaw = form.get("uploadedBy");
     const ts = new Date().toISOString();
+    const id = `gl-${key}-${parsed.year}-${Date.now()}`;
     await saveGl({
-      id: `gl-${key}-${parsed.year}-${Date.now()}`,
+      id,
       key,
       propertyCode: parsed.propertyCode,
       year: parsed.year,
@@ -139,6 +140,7 @@ export async function POST(req: Request) {
       maxPeriodInFile: parsed.maxPeriodInFile,
       monthly: parsed.monthly,
     });
+    await saveTransactions(id, parsed.transactions);
 
     return NextResponse.json({
       ok: true,
