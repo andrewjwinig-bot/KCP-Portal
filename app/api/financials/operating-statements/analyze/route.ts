@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getMapping } from "@/lib/financials/operating-statements/mappingStore";
-import { latestGl, getTransactions, saveNote } from "@/lib/financials/operating-statements/statementStore";
+import { latestGl, getTransactions, saveNote, getNotes, getNoteSources } from "@/lib/financials/operating-statements/statementStore";
 import { summaryForPeriod } from "@/lib/financials/operating-statements/glParser";
 import { computeStatement } from "@/lib/financials/operating-statements/compute";
 import { resolvePropertyBudget, makeBudgetLookup, budgetDetailForMask } from "@/lib/financials/operating-statements/budgetCrosswalk";
@@ -49,6 +49,13 @@ export async function POST(req: Request) {
   // Tenant-name lookup so notes can name tenants instead of GL/unit codes.
   const tenantFor = await buildTenantLookup();
 
+  // Preserve manual notes: don't analyze (or overwrite) a line the user has
+  // already written/edited a note for. Auto-explain only fills empty lines and
+  // refreshes its own prior AI notes.
+  const existingNotes = await getNotes(key, year);
+  const existingSources = await getNoteSources(key, year);
+  const hasManualNote = (lk: string) => existingSources[lk] === "user" && !!(existingNotes[lk] || "").trim();
+
   const flagged: Record<string, unknown>[] = [];
   for (const sec of statement.sections) {
     const sign = sec.role === "revenue" || sec.role === "reimbursement" ? -1 : 1;
@@ -56,6 +63,7 @@ export async function POST(req: Request) {
       const cls = hot(l.ytdVariance, l.ytdBudget, dollar, pct) ?? hot(l.periodVariance, l.periodBudget, dollar, pct);
       if (!cls) continue;
       const lineKey = `${sec.name}::${l.label}`;
+      if (hasManualNote(lineKey)) continue; // keep the user's manual note
       const bd = budget ? budgetDetailForMask(budget, l.mask, period) : [];
       const accts = Object.keys(txByAccount).filter((a) => accountMatchesMask(l.mask, a));
       const txs: { date: string | null; description: string; amount: number }[] = [];
