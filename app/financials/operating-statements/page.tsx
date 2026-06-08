@@ -420,9 +420,15 @@ export default function OperatingStatementsPage() {
                   {analyzeMsg && <span className="muted small">{analyzeMsg}</span>}
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }} className="muted small">
-                  <span style={{ fontWeight: 700 }}>Flag lines over</span>
+                  <span style={{ fontWeight: 700 }}>Flag Lines Over</span>
                   <span>$</span>
-                  <input type="number" min={0} value={varDollar} onChange={(e) => setVarDollar(Math.max(0, Number(e.target.value) || 0))} style={threshInput} />
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={varDollar.toLocaleString("en-US")}
+                    onChange={(e) => setVarDollar(Math.max(0, Number(e.target.value.replace(/[^\d]/g, "")) || 0))}
+                    style={threshInput}
+                  />
                   <span>or</span>
                   <input type="number" min={0} value={varPctThresh} onChange={(e) => setVarPctThresh(Math.max(0, Number(e.target.value) || 0))} style={threshInput} />
                   <span>%</span>
