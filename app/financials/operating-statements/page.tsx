@@ -55,9 +55,13 @@ function HeaderSelect({
   );
 }
 
-const th: React.CSSProperties = { textAlign: "right", padding: "6px 10px", fontSize: 11, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.04em", whiteSpace: "nowrap" };
-const td: React.CSSProperties = { textAlign: "right", padding: "5px 10px", fontSize: 13.5, whiteSpace: "nowrap" };
-const SEP = "2px solid var(--border)";
+const COLOR_BRAND = "#0b4a7d";
+const GROUP_DIV = "1px solid var(--border)"; // vertical divider between Period / YTD / Annual / Notes
+
+// Roomier, budget-matching cell metrics (larger font, more padding).
+const numStyle: React.CSSProperties = { textAlign: "right", fontVariantNumeric: "tabular-nums", fontSize: 14, padding: "9px 12px", whiteSpace: "nowrap", verticalAlign: "middle" };
+const labelStyle: React.CSSProperties = { textAlign: "left", fontSize: 14, padding: "9px 12px", verticalAlign: "middle" };
+const headStyle: React.CSSProperties = { fontSize: 12, fontWeight: 800, color: "var(--muted)", padding: "8px 12px", whiteSpace: "nowrap", textAlign: "right", verticalAlign: "bottom" };
 
 const ROLE_COLOR: Partial<Record<SectionRole, string>> = {
   revenue: "#15803d",
@@ -68,6 +72,26 @@ const ROLE_COLOR: Partial<Record<SectionRole, string>> = {
   capital: "#6d28d9",
   "debt-service": "#0b4a7d",
 };
+const ROLE_TINT: Partial<Record<SectionRole, string>> = {
+  revenue: "rgba(21,128,61,0.06)",
+  reimbursement: "rgba(15,118,110,0.06)",
+  "reimbursable-expense": "rgba(133,77,14,0.05)",
+  "non-reimbursable-expense": "rgba(133,77,14,0.05)",
+  "residential-expense": "rgba(133,77,14,0.05)",
+  capital: "rgba(109,40,217,0.05)",
+  "debt-service": "rgba(11,74,125,0.05)",
+};
+
+function fmtPct(v: number | null): string {
+  if (v == null) return "—";
+  return `${v > 0 ? "+" : ""}${v.toFixed(1)}%`;
+}
+// Variance % carries the favorability sign (positive = favorable). Blank when
+// there's no budget to compare against.
+function varPct(variance: number | null, budget: number | null): number | null {
+  if (variance == null || budget == null || Math.abs(budget) < 0.5) return null;
+  return (variance / Math.abs(budget)) * 100;
+}
 
 export default function OperatingStatementsPage() {
   const [available, setAvailable] = useState<Available[]>([]);
@@ -78,6 +102,7 @@ export default function OperatingStatementsPage() {
   const [budgetYear, setBudgetYear] = useState<number | null>(null);
   const [budgetFallback, setBudgetFallback] = useState(false);
   const [statement, setStatement] = useState<PropertyStatement | null>(null);
+  const [notes, setNotes] = useState<Record<string, string>>({});
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -110,6 +135,7 @@ export default function OperatingStatementsPage() {
       if (period) qs.set("period", String(period));
       const j = await fetch(`/api/financials/operating-statements?${qs}`).then((r) => r.json());
       setStatement(j.statement ?? null);
+      setNotes(j.notes ?? {});
       setMessage(j.message ?? null);
       setBudgetYear(j.budgetYear ?? null);
       setBudgetFallback(!!j.budgetFallback);
@@ -146,6 +172,15 @@ export default function OperatingStatementsPage() {
       if (fileRef.current) fileRef.current.value = "";
     }
   }
+
+  const saveNote = useCallback(async (lineKey: string, note: string) => {
+    setNotes((n) => ({ ...n, [lineKey]: note }));
+    await fetch("/api/financials/operating-statements", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key, year, lineKey, note }),
+    }).catch(() => {});
+  }, [key, year]);
 
   const cur = available.find((a) => a.key === key);
   const yearOptions = cur?.years.length ? cur.years : [year || new Date().getFullYear()];
@@ -222,121 +257,165 @@ export default function OperatingStatementsPage() {
         </div>
       )}
 
-      {!loading && statement && <StatementTable s={statement} budgetYear={budgetYear} budgetFallback={budgetFallback} />}
+      {!loading && statement && <StatementTable s={statement} budgetYear={budgetYear} budgetFallback={budgetFallback} notes={notes} onSaveNote={saveNote} />}
     </main>
   );
 }
 
 // ── Statement table ──────────────────────────────────────────────────────────
 
-function StatementTable({ s, budgetYear, budgetFallback }: { s: PropertyStatement; budgetYear: number | null; budgetFallback: boolean }) {
+type NoteFns = { notes: Record<string, string>; onSaveNote: (lineKey: string, note: string) => void };
+const lineKeyOf = (sectionName: string, label: string) => `${sectionName}::${label}`;
+
+function StatementTable({ s, budgetYear, budgetFallback, notes, onSaveNote }: {
+  s: PropertyStatement; budgetYear: number | null; budgetFallback: boolean;
+} & NoteFns) {
   const byRole = (roles: SectionRole[]) => s.sections.filter((x) => roles.includes(x.role));
   const revenueSecs = byRole(["revenue", "reimbursement"]);
   const expenseSecs = byRole(["reimbursable-expense", "non-reimbursable-expense", "residential-expense"]);
   const capitalSecs = byRole(["capital"]);
   const debtSecs = byRole(["debt-service"]);
   const r = s.rollups;
+  const nf: NoteFns = { notes, onSaveNote };
 
   return (
-    <div className="card" style={{ overflowX: "auto" }}>
-      <div style={{ fontSize: 17, fontWeight: 800 }}>{s.propertyCode} — {s.propertyName}</div>
-      <div className="muted small">{s.entityName} · Comparative Income Statement · {MONTHS[s.period - 1]} {s.year}</div>
-      {budgetFallback && budgetYear != null && (
-        <div style={{ marginTop: 6, fontSize: 12, color: "#b45309", fontWeight: 600 }}>
-          Budget columns use the {budgetYear} budget — no {s.year} budget is loaded for this property.
-        </div>
-      )}
-
-      <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 12, minWidth: 920 }}>
-        <thead>
-          <tr>
-            <th style={{ ...th, textAlign: "left" }} />
-            <th style={{ ...th, textAlign: "left" }} />
-            <th colSpan={3} style={{ ...th, textAlign: "center", borderLeft: SEP }}>Current Period</th>
-            <th colSpan={3} style={{ ...th, textAlign: "center", borderLeft: SEP }}>Year-To-Date</th>
-            <th style={{ ...th, borderLeft: SEP }}>Ann.</th>
-          </tr>
-          <tr>
-            <th style={{ ...th, textAlign: "left" }}>Acct</th>
-            <th style={{ ...th, textAlign: "left" }}>Description</th>
-            <th style={{ ...th, borderLeft: SEP }}>Actual</th>
-            <th style={th}>Budget</th>
-            <th style={th}>Var</th>
-            <th style={{ ...th, borderLeft: SEP }}>Actual</th>
-            <th style={th}>Budget</th>
-            <th style={th}>Var</th>
-            <th style={{ ...th, borderLeft: SEP }}>Budget</th>
-          </tr>
-        </thead>
-        <tbody>
-          {revenueSecs.map((sec) => <Section key={sec.name} sec={sec} />)}
-          <Rollup label="Total Revenues" t={r.totalRevenues} />
-          {expenseSecs.map((sec) => <Section key={sec.name} sec={sec} />)}
-          <Rollup label="Total Operating Expenses" t={r.totalOperatingExpenses} />
-          <Rollup label="Net Operating Income" t={r.netOperatingIncome} strong />
-          {capitalSecs.map((sec) => <Section key={sec.name} sec={sec} hideSubtotal />)}
-          <Rollup label="Cash Flow Before Debt Service" t={r.cashFlowBeforeDebtService} strong />
-          {debtSecs.map((sec) => <Section key={sec.name} sec={sec} />)}
-          {debtSecs.length > 0 && <Rollup label="Total Debt Service" t={r.totalDebtService} />}
-          <Rollup label="Cash Flow After Debt Service" t={r.cashFlowAfterDebtService} strong />
-        </tbody>
-      </table>
-
-      {s.unmappedAccounts.length > 0 && (
-        <div style={{ marginTop: 14, padding: "10px 12px", borderRadius: 8, background: "rgba(180,83,9,0.06)", border: "1px solid rgba(180,83,9,0.3)" }}>
-          <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.04em", color: "#b45309" }}>
-            Trial-balance tie-out — {s.unmappedAccounts.length} GL account{s.unmappedAccounts.length === 1 ? "" : "s"} not on the statement
+    <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+      <div style={{ padding: "16px 18px 12px" }}>
+        <div style={{ fontSize: 18, fontWeight: 800 }}>{s.propertyCode} — {s.propertyName}</div>
+        <div className="muted small">{s.entityName} · Comparative Income Statement · {MONTHS[s.period - 1]} {s.year}</div>
+        {budgetFallback && budgetYear != null && (
+          <div style={{ marginTop: 6, fontSize: 12, color: "#b45309", fontWeight: 600 }}>
+            Budget columns use the {budgetYear} budget — no {s.year} budget is loaded for this property.
           </div>
-          <div className="muted small" style={{ marginTop: 4, lineHeight: 1.6 }}>
-            These carry a YTD balance but map to no statement line (depreciation, interest, balance-sheet, deferred costs, rounding). Expected for non-operating accounts; review if an operating account appears here.
-          </div>
-          <div style={{ marginTop: 6, display: "flex", flexWrap: "wrap", gap: 6 }}>
-            {s.unmappedAccounts.slice(0, 24).map((u) => (
-              <code key={u.account} style={{ fontSize: 11, color: "#7c2d12" }}>{u.account}: {money0(u.ytdActual)}</code>
-            ))}
-          </div>
-        </div>
-      )}
+        )}
+      </div>
 
-      <p className="small muted" style={{ marginTop: 10 }}>
-        Actual = GL Debit − Credit (revenue shown positive). Variance is favorable when positive (revenue over budget / expense under budget). Budget columns line up to the {budgetYear ?? s.year} portal budget via the same GL account masks.
-      </p>
+      <div className="tableWrap" style={{ marginTop: 0 }}>
+        <table style={{ tableLayout: "fixed", width: "100%", minWidth: 1000 }}>
+          <colgroup>
+            <col style={{ width: "22%" }} />
+            <col style={{ width: "9%" }} /><col style={{ width: "9%" }} /><col style={{ width: "7%" }} />
+            <col style={{ width: "9%" }} /><col style={{ width: "9%" }} /><col style={{ width: "7%" }} />
+            <col style={{ width: "9%" }} />
+            <col style={{ width: "19%" }} />
+          </colgroup>
+          <thead>
+            <tr>
+              <th style={{ ...headStyle, textAlign: "left" }} />
+              <th colSpan={3} style={{ ...headStyle, textAlign: "center", borderLeft: GROUP_DIV, color: COLOR_BRAND }}>Current Period — {MONTHS[s.period - 1]}</th>
+              <th colSpan={3} style={{ ...headStyle, textAlign: "center", borderLeft: GROUP_DIV, color: COLOR_BRAND }}>Year-To-Date</th>
+              <th style={{ ...headStyle, borderLeft: GROUP_DIV }}>Annual</th>
+              <th style={{ ...headStyle, textAlign: "left", borderLeft: GROUP_DIV }}>Notes</th>
+            </tr>
+            <tr>
+              <th style={{ ...headStyle, textAlign: "left" }}>Account / Line</th>
+              <th style={{ ...headStyle, borderLeft: GROUP_DIV }}>Actual</th>
+              <th style={headStyle}>Budget</th>
+              <th style={headStyle}>Var %</th>
+              <th style={{ ...headStyle, borderLeft: GROUP_DIV }}>Actual</th>
+              <th style={headStyle}>Budget</th>
+              <th style={headStyle}>Var %</th>
+              <th style={{ ...headStyle, borderLeft: GROUP_DIV }}>Budget</th>
+              <th style={{ ...headStyle, borderLeft: GROUP_DIV, textAlign: "left" }} />
+            </tr>
+          </thead>
+          <tbody>
+            {revenueSecs.map((sec) => <Section key={sec.name} sec={sec} nf={nf} />)}
+            <Rollup label="Total Revenues" t={r.totalRevenues} />
+            {expenseSecs.map((sec) => <Section key={sec.name} sec={sec} nf={nf} />)}
+            <Rollup label="Total Operating Expenses" t={r.totalOperatingExpenses} />
+            <Rollup label="Net Operating Income" t={r.netOperatingIncome} strong />
+            {capitalSecs.map((sec) => <Section key={sec.name} sec={sec} nf={nf} hideSubtotal />)}
+            <Rollup label="Cash Flow Before Debt Service" t={r.cashFlowBeforeDebtService} strong />
+            {debtSecs.map((sec) => <Section key={sec.name} sec={sec} nf={nf} />)}
+            {debtSecs.length > 0 && <Rollup label="Total Debt Service" t={r.totalDebtService} />}
+            <Rollup label="Cash Flow After Debt Service" t={r.cashFlowAfterDebtService} strong />
+          </tbody>
+        </table>
+      </div>
+
+      <div style={{ padding: "0 18px 16px" }}>
+        {s.unmappedAccounts.length > 0 && (
+          <div style={{ marginTop: 14, padding: "10px 12px", borderRadius: 8, background: "rgba(180,83,9,0.06)", border: "1px solid rgba(180,83,9,0.3)" }}>
+            <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.04em", color: "#b45309" }}>
+              Trial-balance tie-out — {s.unmappedAccounts.length} GL account{s.unmappedAccounts.length === 1 ? "" : "s"} not on the statement
+            </div>
+            <div className="muted small" style={{ marginTop: 4, lineHeight: 1.6 }}>
+              These carry a YTD balance but map to no statement line (depreciation, interest, balance-sheet, deferred costs, rounding). Expected for non-operating accounts; review if an operating account appears here.
+            </div>
+            <div style={{ marginTop: 6, display: "flex", flexWrap: "wrap", gap: 6 }}>
+              {s.unmappedAccounts.slice(0, 24).map((u) => (
+                <span key={u.account} className="muted" style={{ fontSize: 11, fontVariantNumeric: "tabular-nums", color: "#7c2d12" }}>{u.account}: {money0(u.ytdActual)}</span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <p className="small muted" style={{ marginTop: 12 }}>
+          Actual = GL Debit − Credit (revenue shown positive). Variance % is favorable when positive (revenue over budget / expense under budget). Budget columns line up to the {budgetYear ?? s.year} portal budget via the same GL account masks.
+        </p>
+      </div>
     </div>
   );
 }
 
-function figureCells(t: StatementTotals) {
+/** The seven figure cells (Period A/B/Var% · YTD A/B/Var% · Annual). */
+function figureCells(t: StatementTotals, bold?: boolean, color?: string) {
+  const base: React.CSSProperties = { ...numStyle, ...(bold ? { fontWeight: 800 } : {}), ...(color ? { color } : {}) };
+  const pV = varPct(t.periodVariance, t.periodBudget);
+  const yV = varPct(t.ytdVariance, t.ytdBudget);
   return (
     <>
-      <td style={{ ...td, borderLeft: SEP }}>{money0(t.periodActual)}</td>
-      <td style={{ ...td, color: "var(--muted)" }}>{money0(t.periodBudget)}</td>
-      <td style={{ ...td, color: varColor(t.periodVariance) }}>{money0(t.periodVariance)}</td>
-      <td style={{ ...td, borderLeft: SEP }}>{money0(t.ytdActual)}</td>
-      <td style={{ ...td, color: "var(--muted)" }}>{money0(t.ytdBudget)}</td>
-      <td style={{ ...td, color: varColor(t.ytdVariance) }}>{money0(t.ytdVariance)}</td>
-      <td style={{ ...td, borderLeft: SEP, color: "var(--muted)" }}>{money0(t.annualBudget)}</td>
+      <td style={{ ...base, borderLeft: GROUP_DIV }}>{money0(t.periodActual)}</td>
+      <td style={{ ...base, color: color ?? "var(--muted)" }}>{money0(t.periodBudget)}</td>
+      <td style={{ ...base, color: color ?? varColor(pV) }}>{fmtPct(pV)}</td>
+      <td style={{ ...base, borderLeft: GROUP_DIV }}>{money0(t.ytdActual)}</td>
+      <td style={{ ...base, color: color ?? "var(--muted)" }}>{money0(t.ytdBudget)}</td>
+      <td style={{ ...base, color: color ?? varColor(yV) }}>{fmtPct(yV)}</td>
+      <td style={{ ...base, borderLeft: GROUP_DIV, color: color ?? "var(--muted)" }}>{money0(t.annualBudget)}</td>
     </>
   );
 }
 
-function Section({ sec, hideSubtotal }: { sec: StatementSection; hideSubtotal?: boolean }) {
+function NoteCell({ lineKey, notes, onSaveNote }: { lineKey: string } & NoteFns) {
+  const value = notes[lineKey] ?? "";
+  const [text, setText] = useState(value);
+  useEffect(() => { setText(value); }, [value]);
+  return (
+    <td style={{ ...labelStyle, borderLeft: GROUP_DIV, padding: "4px 8px" }}>
+      <input
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onBlur={(e) => { e.currentTarget.style.borderColor = "transparent"; e.currentTarget.style.background = "transparent"; if (text !== value) onSaveNote(lineKey, text); }}
+        onFocus={(e) => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.background = "var(--card)"; }}
+        placeholder="Add a note…"
+        style={{ width: "100%", border: "1px solid transparent", borderRadius: 6, background: "transparent", font: "inherit", fontSize: 13, padding: "4px 6px", color: "var(--text)" }}
+      />
+    </td>
+  );
+}
+
+function Section({ sec, nf, hideSubtotal }: { sec: StatementSection; nf: NoteFns; hideSubtotal?: boolean }) {
   return (
     <>
       <tr>
-        <td colSpan={9} style={{ padding: "10px 10px 3px", fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em", color: ROLE_COLOR[sec.role] ?? "var(--muted)" }}>{sec.name}</td>
+        <td colSpan={9} style={{ padding: "9px 12px", fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: ROLE_COLOR[sec.role] ?? "var(--muted)", background: ROLE_TINT[sec.role] ?? "rgba(15,23,42,0.03)", borderTop: GROUP_DIV, borderBottom: "1px solid var(--border)" }}>{sec.name}</td>
       </tr>
       {sec.lines.map((l) => (
-        <tr key={l.label} style={{ borderBottom: "1px solid var(--border)" }}>
-          <td style={{ ...td, textAlign: "left" }}><code style={{ fontSize: 11, color: "var(--muted)" }}>{l.mask}</code></td>
-          <td style={{ ...td, textAlign: "left" }}>{l.label}</td>
+        <tr key={l.label}>
+          <td style={labelStyle}>
+            <div>{l.label}</div>
+            <div className="muted" style={{ fontSize: 11, fontVariantNumeric: "tabular-nums", marginTop: 1 }}>{l.mask}</div>
+          </td>
           {figureCells(l)}
+          <NoteCell lineKey={lineKeyOf(sec.name, l.label)} {...nf} />
         </tr>
       ))}
       {!hideSubtotal && (
-        <tr style={{ fontWeight: 700, borderBottom: "1px solid var(--border)" }}>
-          <td style={td} />
-          <td style={{ ...td, textAlign: "left" }}>Total {sec.name}</td>
-          {figureCells(sec.subtotal)}
+        <tr style={{ background: "rgba(15,23,42,0.02)" }}>
+          <td style={{ ...labelStyle, fontWeight: 800 }}>Total {sec.name}</td>
+          {figureCells(sec.subtotal, true)}
+          <td style={{ borderLeft: GROUP_DIV }} />
         </tr>
       )}
     </>
@@ -345,10 +424,10 @@ function Section({ sec, hideSubtotal }: { sec: StatementSection; hideSubtotal?: 
 
 function Rollup({ label, t, strong }: { label: string; t: StatementTotals; strong?: boolean }) {
   return (
-    <tr style={{ fontWeight: 800, borderTop: strong ? SEP : "1px solid var(--border)", borderBottom: strong ? SEP : undefined, background: strong ? "var(--hover, rgba(0,0,0,0.02))" : undefined }}>
-      <td style={td} />
-      <td style={{ ...td, textAlign: "left" }}>{label}</td>
-      {figureCells(t)}
+    <tr style={{ background: strong ? "rgba(11,74,125,0.06)" : "rgba(11,74,125,0.03)", borderTop: strong ? `2px solid ${COLOR_BRAND}` : GROUP_DIV, borderBottom: strong ? `2px solid ${COLOR_BRAND}` : undefined }}>
+      <td style={{ ...labelStyle, fontSize: strong ? 14 : 13, fontWeight: 900, letterSpacing: "0.04em", textTransform: "uppercase", color: COLOR_BRAND }}>{label}</td>
+      {figureCells(t, true, COLOR_BRAND)}
+      <td style={{ borderLeft: GROUP_DIV }} />
     </tr>
   );
 }
