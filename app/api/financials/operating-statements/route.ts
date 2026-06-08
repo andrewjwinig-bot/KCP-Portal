@@ -4,7 +4,7 @@ import { parseGeneralLedgerMonthly, summaryForPeriod } from "@/lib/financials/op
 import { computeStatement } from "@/lib/financials/operating-statements/compute";
 import { availableStatements, getMapping } from "@/lib/financials/operating-statements/mappingStore";
 import { resolvePropertyBudget, makeBudgetLookup } from "@/lib/financials/operating-statements/budgetCrosswalk";
-import { saveGl, latestGl, getGl, versionsFor, listGls, getNotes, getNoteSources, getNoteMeta, saveNote, saveTransactions } from "@/lib/financials/operating-statements/statementStore";
+import { saveGl, latestGl, getGl, versionsFor, listGls, getNotesBundle, saveNote, saveTransactions } from "@/lib/financials/operating-statements/statementStore";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 
 export const runtime = "nodejs";
@@ -58,8 +58,7 @@ export async function GET(req: Request) {
   // budget); the page labels the year used.
   const budget = await resolvePropertyBudget(mapping.propertyCode, year);
   const budgetLookup = budget ? makeBudgetLookup(budget, period) : undefined;
-  const notes = await getNotes(key, year);
-  const rawSources = await getNoteSources(key, year);
+  const { notes, sources: rawSources, meta: noteMeta } = await getNotesBundle(key, year);
   // Every existing note gets a source. A note with no recorded source can only
   // be an AI note — manual saves always stamp "user" — so default missing to
   // "ai". Keeps the ✨ on auto-explained notes across refreshes (incl. notes
@@ -67,7 +66,6 @@ export async function GET(req: Request) {
   // flips it to "user" and drops the sparkle.
   const noteSources: Record<string, "user" | "ai"> = {};
   for (const lk of Object.keys(notes)) noteSources[lk] = rawSources[lk] ?? "ai";
-  const noteMeta = await getNoteMeta(key, year);
 
   const statement = computeStatement({
     mapping,
