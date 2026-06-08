@@ -209,18 +209,18 @@ export default function OperatingStatementsPage() {
             <HeaderSelect value={String(year)} onChange={(v) => { setYear(Number(v)); setPeriod(0); }} displayLabel={String(year || "—")} ariaLabel="Year" muted>
               {yearOptions.map((y) => <option key={y} value={y}>{y}</option>)}
             </HeaderSelect>
+            {statement && (
+              <HeaderSelect value={String(period || statement.period)} onChange={(v) => setPeriod(Number(v))} displayLabel={MONTHS[(period || statement.period) - 1]} ariaLabel="Period" muted>
+                {Array.from({ length: maxPeriod }, (_, i) => i + 1).map((p) => (
+                  <option key={p} value={p}>{MONTHS[p - 1]} — Period {p}</option>
+                ))}
+              </HeaderSelect>
+            )}
             <HeaderSelect value={key} onChange={(v) => { setKey(v); setPeriod(0); }} displayLabel={cur ? `${cur.propertyCode} — ${cur.name}` : "—"} ariaLabel="Property">
               {available.map((a) => (
                 <option key={a.key} value={a.key}>{a.propertyCode} — {a.name}{a.years.length ? "" : " (no GL)"}</option>
               ))}
             </HeaderSelect>
-            {statement && (
-              <HeaderSelect value={String(period || statement.period)} onChange={(v) => setPeriod(Number(v))} displayLabel={`Period ${period || statement.period}`} ariaLabel="Period" muted>
-                {Array.from({ length: maxPeriod }, (_, i) => i + 1).map((p) => (
-                  <option key={p} value={p}>Period {p} — {MONTHS[p - 1]}</option>
-                ))}
-              </HeaderSelect>
-            )}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <button className="btn primary" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }} disabled={uploading} onClick={() => fileRef.current?.click()}>
@@ -262,10 +262,39 @@ export default function OperatingStatementsPage() {
   );
 }
 
-// ── Statement table ──────────────────────────────────────────────────────────
+// ── Statement (one card per section, like the Budgets page) ──────────────────
 
 type NoteFns = { notes: Record<string, string>; onSaveNote: (lineKey: string, note: string) => void };
 const lineKeyOf = (sectionName: string, label: string) => `${sectionName}::${label}`;
+
+// Shared fixed-width columns so every section/subtotal card lines up.
+function StatementColgroup() {
+  return (
+    <colgroup>
+      <col style={{ width: "22%" }} />
+      <col style={{ width: "9%" }} /><col style={{ width: "9%" }} /><col style={{ width: "7%" }} />
+      <col style={{ width: "9%" }} /><col style={{ width: "9%" }} /><col style={{ width: "7%" }} />
+      <col style={{ width: "9%" }} />
+      <col style={{ width: "19%" }} />
+    </colgroup>
+  );
+}
+
+function HeaderRow({ monthLabel }: { monthLabel: string }) {
+  return (
+    <tr>
+      <th style={{ ...headStyle, textAlign: "left" }}>Account / Line</th>
+      <th style={{ ...headStyle, borderLeft: GROUP_DIV, color: COLOR_BRAND }}>{monthLabel} Act</th>
+      <th style={{ ...headStyle, color: COLOR_BRAND }}>{monthLabel} Bud</th>
+      <th style={{ ...headStyle, color: COLOR_BRAND }}>Var %</th>
+      <th style={{ ...headStyle, borderLeft: GROUP_DIV }}>YTD Act</th>
+      <th style={headStyle}>YTD Bud</th>
+      <th style={headStyle}>YTD Var %</th>
+      <th style={{ ...headStyle, borderLeft: GROUP_DIV }}>Annual</th>
+      <th style={{ ...headStyle, borderLeft: GROUP_DIV, textAlign: "left" }}>Notes</th>
+    </tr>
+  );
+}
 
 function StatementTable({ s, budgetYear, budgetFallback, notes, onSaveNote }: {
   s: PropertyStatement; budgetYear: number | null; budgetFallback: boolean;
@@ -277,12 +306,13 @@ function StatementTable({ s, budgetYear, budgetFallback, notes, onSaveNote }: {
   const debtSecs = byRole(["debt-service"]);
   const r = s.rollups;
   const nf: NoteFns = { notes, onSaveNote };
+  const monthLabel = MONTHS[s.period - 1];
 
   return (
-    <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-      <div style={{ padding: "16px 18px 12px" }}>
+    <>
+      <div className="card">
         <div style={{ fontSize: 18, fontWeight: 800 }}>{s.propertyCode} — {s.propertyName}</div>
-        <div className="muted small">{s.entityName} · Comparative Income Statement · {MONTHS[s.period - 1]} {s.year}</div>
+        <div className="muted small">{s.entityName} · Comparative Income Statement · {monthLabel} {s.year}</div>
         {budgetFallback && budgetYear != null && (
           <div style={{ marginTop: 6, fontSize: 12, color: "#b45309", fontWeight: 600 }}>
             Budget columns use the {budgetYear} budget — no {s.year} budget is loaded for this property.
@@ -290,53 +320,20 @@ function StatementTable({ s, budgetYear, budgetFallback, notes, onSaveNote }: {
         )}
       </div>
 
-      <div className="tableWrap" style={{ marginTop: 0 }}>
-        <table style={{ tableLayout: "fixed", width: "100%", minWidth: 1000 }}>
-          <colgroup>
-            <col style={{ width: "22%" }} />
-            <col style={{ width: "9%" }} /><col style={{ width: "9%" }} /><col style={{ width: "7%" }} />
-            <col style={{ width: "9%" }} /><col style={{ width: "9%" }} /><col style={{ width: "7%" }} />
-            <col style={{ width: "9%" }} />
-            <col style={{ width: "19%" }} />
-          </colgroup>
-          <thead>
-            <tr>
-              <th style={{ ...headStyle, textAlign: "left" }} />
-              <th colSpan={3} style={{ ...headStyle, textAlign: "center", borderLeft: GROUP_DIV, color: COLOR_BRAND }}>Current Period — {MONTHS[s.period - 1]}</th>
-              <th colSpan={3} style={{ ...headStyle, textAlign: "center", borderLeft: GROUP_DIV, color: COLOR_BRAND }}>Year-To-Date</th>
-              <th style={{ ...headStyle, borderLeft: GROUP_DIV }}>Annual</th>
-              <th style={{ ...headStyle, textAlign: "left", borderLeft: GROUP_DIV }}>Notes</th>
-            </tr>
-            <tr>
-              <th style={{ ...headStyle, textAlign: "left" }}>Account / Line</th>
-              <th style={{ ...headStyle, borderLeft: GROUP_DIV }}>Actual</th>
-              <th style={headStyle}>Budget</th>
-              <th style={headStyle}>Var %</th>
-              <th style={{ ...headStyle, borderLeft: GROUP_DIV }}>Actual</th>
-              <th style={headStyle}>Budget</th>
-              <th style={headStyle}>Var %</th>
-              <th style={{ ...headStyle, borderLeft: GROUP_DIV }}>Budget</th>
-              <th style={{ ...headStyle, borderLeft: GROUP_DIV, textAlign: "left" }} />
-            </tr>
-          </thead>
-          <tbody>
-            {revenueSecs.map((sec) => <Section key={sec.name} sec={sec} nf={nf} />)}
-            <Rollup label="Total Revenues" t={r.totalRevenues} />
-            {expenseSecs.map((sec) => <Section key={sec.name} sec={sec} nf={nf} />)}
-            <Rollup label="Total Operating Expenses" t={r.totalOperatingExpenses} />
-            <Rollup label="Net Operating Income" t={r.netOperatingIncome} strong />
-            {capitalSecs.map((sec) => <Section key={sec.name} sec={sec} nf={nf} hideSubtotal />)}
-            <Rollup label="Cash Flow Before Debt Service" t={r.cashFlowBeforeDebtService} strong />
-            {debtSecs.map((sec) => <Section key={sec.name} sec={sec} nf={nf} />)}
-            {debtSecs.length > 0 && <Rollup label="Total Debt Service" t={r.totalDebtService} />}
-            <Rollup label="Cash Flow After Debt Service" t={r.cashFlowAfterDebtService} strong />
-          </tbody>
-        </table>
-      </div>
+      {revenueSecs.map((sec) => <SectionCard key={sec.name} sec={sec} nf={nf} monthLabel={monthLabel} />)}
+      <RollupCard label="Total Revenues" t={r.totalRevenues} />
+      {expenseSecs.map((sec) => <SectionCard key={sec.name} sec={sec} nf={nf} monthLabel={monthLabel} />)}
+      <RollupCard label="Total Operating Expenses" t={r.totalOperatingExpenses} />
+      <RollupCard label="Net Operating Income" t={r.netOperatingIncome} strong />
+      {capitalSecs.map((sec) => <SectionCard key={sec.name} sec={sec} nf={nf} monthLabel={monthLabel} hideSubtotal />)}
+      <RollupCard label="Cash Flow Before Debt Service" t={r.cashFlowBeforeDebtService} strong />
+      {debtSecs.map((sec) => <SectionCard key={sec.name} sec={sec} nf={nf} monthLabel={monthLabel} />)}
+      {debtSecs.length > 0 && <RollupCard label="Total Debt Service" t={r.totalDebtService} />}
+      <RollupCard label="Cash Flow After Debt Service" t={r.cashFlowAfterDebtService} strong />
 
-      <div style={{ padding: "0 18px 16px" }}>
+      <div className="card">
         {s.unmappedAccounts.length > 0 && (
-          <div style={{ marginTop: 14, padding: "10px 12px", borderRadius: 8, background: "rgba(180,83,9,0.06)", border: "1px solid rgba(180,83,9,0.3)" }}>
+          <div style={{ padding: "10px 12px", borderRadius: 8, background: "rgba(180,83,9,0.06)", border: "1px solid rgba(180,83,9,0.3)" }}>
             <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.04em", color: "#b45309" }}>
               Trial-balance tie-out — {s.unmappedAccounts.length} GL account{s.unmappedAccounts.length === 1 ? "" : "s"} not on the statement
             </div>
@@ -350,18 +347,71 @@ function StatementTable({ s, budgetYear, budgetFallback, notes, onSaveNote }: {
             </div>
           </div>
         )}
-
-        <p className="small muted" style={{ marginTop: 12 }}>
+        <p className="small muted" style={{ marginTop: s.unmappedAccounts.length > 0 ? 12 : 0 }}>
           Actual = GL Debit − Credit (revenue shown positive). Variance % is favorable when positive (revenue over budget / expense under budget). Budget columns line up to the {budgetYear ?? s.year} portal budget via the same GL account masks.
         </p>
+      </div>
+    </>
+  );
+}
+
+function SectionCard({ sec, nf, monthLabel, hideSubtotal }: { sec: StatementSection; nf: NoteFns; monthLabel: string; hideSubtotal?: boolean }) {
+  return (
+    <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+      <div style={{ padding: "10px 14px", borderBottom: "1px solid var(--border)", background: ROLE_TINT[sec.role] ?? "rgba(15,23,42,0.03)", fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: ROLE_COLOR[sec.role] ?? "inherit" }}>
+        {sec.name}
+      </div>
+      <div className="tableWrap" style={{ marginTop: 0 }}>
+        <table style={{ tableLayout: "fixed", width: "100%", minWidth: 1000 }}>
+          <StatementColgroup />
+          <thead><HeaderRow monthLabel={monthLabel} /></thead>
+          <tbody>
+            {sec.lines.map((l) => (
+              <tr key={l.label}>
+                <td style={labelStyle}>
+                  <div>{l.label}</div>
+                  <div className="muted" style={{ fontSize: 11, fontVariantNumeric: "tabular-nums", marginTop: 1 }}>{l.mask}</div>
+                </td>
+                {figureCells(l)}
+                <NoteCell lineKey={lineKeyOf(sec.name, l.label)} {...nf} />
+              </tr>
+            ))}
+            {!hideSubtotal && (
+              <tr style={{ background: "rgba(15,23,42,0.03)" }}>
+                <td style={{ ...labelStyle, fontWeight: 800 }}>Total {sec.name}</td>
+                {figureCells(sec.subtotal, true)}
+                <td style={{ borderLeft: GROUP_DIV }} />
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function RollupCard({ label, t, strong }: { label: string; t: StatementTotals; strong?: boolean }) {
+  return (
+    <div className="card" style={{ padding: 0, overflow: "hidden", borderColor: COLOR_BRAND, background: strong ? "rgba(11,74,125,0.06)" : "rgba(11,74,125,0.035)" }}>
+      <div className="tableWrap" style={{ marginTop: 0 }}>
+        <table style={{ tableLayout: "fixed", width: "100%", minWidth: 1000 }}>
+          <StatementColgroup />
+          <tbody>
+            <tr>
+              <td style={{ ...labelStyle, fontSize: strong ? 15 : 13.5, fontWeight: 900, letterSpacing: "0.04em", textTransform: "uppercase", color: COLOR_BRAND, borderBottom: "none" }}>{label}</td>
+              {figureCells(t, true, COLOR_BRAND, true)}
+              <td style={{ borderLeft: GROUP_DIV, borderBottom: "none" }} />
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
   );
 }
 
 /** The seven figure cells (Period A/B/Var% · YTD A/B/Var% · Annual). */
-function figureCells(t: StatementTotals, bold?: boolean, color?: string) {
-  const base: React.CSSProperties = { ...numStyle, ...(bold ? { fontWeight: 800 } : {}), ...(color ? { color } : {}) };
+function figureCells(t: StatementTotals, bold?: boolean, color?: string, noBorder?: boolean) {
+  const base: React.CSSProperties = { ...numStyle, ...(bold ? { fontWeight: 800 } : {}), ...(color ? { color } : {}), ...(noBorder ? { borderBottom: "none" } : {}) };
   const pV = varPct(t.periodVariance, t.periodBudget);
   const yV = varPct(t.ytdVariance, t.ytdBudget);
   return (
@@ -392,43 +442,6 @@ function NoteCell({ lineKey, notes, onSaveNote }: { lineKey: string } & NoteFns)
         style={{ width: "100%", border: "1px solid transparent", borderRadius: 6, background: "transparent", font: "inherit", fontSize: 13, padding: "4px 6px", color: "var(--text)" }}
       />
     </td>
-  );
-}
-
-function Section({ sec, nf, hideSubtotal }: { sec: StatementSection; nf: NoteFns; hideSubtotal?: boolean }) {
-  return (
-    <>
-      <tr>
-        <td colSpan={9} style={{ padding: "9px 12px", fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: ROLE_COLOR[sec.role] ?? "var(--muted)", background: ROLE_TINT[sec.role] ?? "rgba(15,23,42,0.03)", borderTop: GROUP_DIV, borderBottom: "1px solid var(--border)" }}>{sec.name}</td>
-      </tr>
-      {sec.lines.map((l) => (
-        <tr key={l.label}>
-          <td style={labelStyle}>
-            <div>{l.label}</div>
-            <div className="muted" style={{ fontSize: 11, fontVariantNumeric: "tabular-nums", marginTop: 1 }}>{l.mask}</div>
-          </td>
-          {figureCells(l)}
-          <NoteCell lineKey={lineKeyOf(sec.name, l.label)} {...nf} />
-        </tr>
-      ))}
-      {!hideSubtotal && (
-        <tr style={{ background: "rgba(15,23,42,0.02)" }}>
-          <td style={{ ...labelStyle, fontWeight: 800 }}>Total {sec.name}</td>
-          {figureCells(sec.subtotal, true)}
-          <td style={{ borderLeft: GROUP_DIV }} />
-        </tr>
-      )}
-    </>
-  );
-}
-
-function Rollup({ label, t, strong }: { label: string; t: StatementTotals; strong?: boolean }) {
-  return (
-    <tr style={{ background: strong ? "rgba(11,74,125,0.06)" : "rgba(11,74,125,0.03)", borderTop: strong ? `2px solid ${COLOR_BRAND}` : GROUP_DIV, borderBottom: strong ? `2px solid ${COLOR_BRAND}` : undefined }}>
-      <td style={{ ...labelStyle, fontSize: strong ? 14 : 13, fontWeight: 900, letterSpacing: "0.04em", textTransform: "uppercase", color: COLOR_BRAND }}>{label}</td>
-      {figureCells(t, true, COLOR_BRAND)}
-      <td style={{ borderLeft: GROUP_DIV }} />
-    </tr>
   );
 }
 
