@@ -218,6 +218,9 @@ const underPrefix = (pathname: string, p: string) => pathname === p || pathname.
  *  sensitive API groups map to their governing page; everything else stays
  *  open to any signed-in user. */
 export function authorizeRequest(userId: UserId, pathname: string): boolean {
+  // Self-service 2FA — every signed-in user manages their own (the
+  // admin-only required-list endpoint is gated separately in middleware).
+  if (pathname === "/security" || pathname.startsWith("/security/") || pathname.startsWith("/api/2fa")) return true;
   if (pathname.startsWith("/api/")) {
     if (API_AUTHZ_EXEMPT.some((p) => underPrefix(pathname, p))) return true;
     const match = SENSITIVE_API_PREFIXES.find(([api]) => underPrefix(pathname, api));

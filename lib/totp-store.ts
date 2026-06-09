@@ -80,3 +80,32 @@ export async function totpEnabled(userId: string): Promise<boolean> {
   const rec = await get(userId);
   return !!rec?.enabled;
 }
+
+// ── "2FA required" roster ─────────────────────────────────────────────────────
+// Which users must set up 2FA. Admin-managed (stored) plus an always-on env
+// list (SITE_2FA_REQUIRED="alison,nancy"). A required user who hasn't enrolled
+// is funneled into guided setup at login.
+const REQ_PREFIX = "totp-config";
+const REQ_ID = "required";
+
+function envRequired(): string[] {
+  return (process.env.SITE_2FA_REQUIRED || "").split(",").map((s) => s.trim()).filter(Boolean);
+}
+
+export async function getRequiredUsers(): Promise<string[]> {
+  const rec = (await getJSON(REQ_PREFIX, REQ_ID)) as { users?: string[] } | null;
+  return [...new Set([...(rec?.users ?? []), ...envRequired()])];
+}
+
+export async function setRequiredUsers(users: string[]): Promise<void> {
+  await storeJSON(REQ_PREFIX, REQ_ID, { users: [...new Set(users)], updatedAt: new Date().toISOString() });
+}
+
+/** A user who must enroll before using the app: required, not globally
+ *  disabled, and not yet enrolled. */
+export async function mustEnroll(userId: string): Promise<boolean> {
+  if (twoFactorDisabled()) return false;
+  const required = await getRequiredUsers();
+  if (!required.includes(userId)) return false;
+  return !(await totpEnabled(userId));
+}

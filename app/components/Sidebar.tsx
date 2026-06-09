@@ -38,7 +38,8 @@ const NAV_ROLE_KEY: Record<string, string> = {
   "Operating Statements": "financials-budgets",
   "Budgets":            "financials-budgets",
   "Audit Log":          "audit",
-  "Two-Factor Auth":    "security",
+  // "Two-Factor Auth" intentionally omitted → visible to every signed-in user
+  // (self-service 2FA). The Security group shows whenever a user can see it.
 };
 
 // Group metadata. Sidebar items can opt into a group via `groupId`; the

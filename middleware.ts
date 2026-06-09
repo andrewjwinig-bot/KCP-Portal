@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { HISTORY_COOKIE, verifyHistoryToken } from "./lib/history-auth";
-import { SITE_COOKIE, verifySiteToken } from "./lib/site-auth";
+import { SITE_COOKIE, verifySiteTokenFull } from "./lib/site-auth";
 import { ALL_USERS, authorizeRequest, type UserId } from "./lib/users";
 
 // Two layers:
@@ -28,9 +28,9 @@ const ADMIN_PATH_PREFIXES = [
   "/api/periods",
   "/audit",
   "/api/audit",
-  // 2FA enrollment — rolled out to the admin tier first (admin + Drew).
-  "/security",
-  "/api/2fa",
+  // Managing who is REQUIRED to use 2FA is admin-only. Enrolling your own 2FA
+  // (/security, the rest of /api/2fa) is self-service for every signed-in user.
+  "/api/2fa/required",
 ];
 
 function isAdminPath(pathname: string): boolean {
@@ -54,8 +54,8 @@ export async function middleware(req: NextRequest) {
   }
   if (sitePassword && siteSecret) {
     const siteToken = req.cookies.get(SITE_COOKIE)?.value;
-    const siteUser = await verifySiteToken(siteToken, siteSecret);
-    if (!siteUser) {
+    const full = await verifySiteTokenFull(siteToken, siteSecret);
+    if (!full) {
       if (pathname.startsWith("/api/")) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
       }
@@ -63,6 +63,25 @@ export async function middleware(req: NextRequest) {
       url.pathname = "/login";
       url.searchParams.set("next", pathname);
       return NextResponse.redirect(url);
+    }
+    const siteUser = full.userId;
+
+    // ── Forced 2FA enrollment ─────────────────────────────────────────
+    // An enroll-pending session may only reach the 2FA setup page + its APIs
+    // (and logout / the status checks the shell needs). Everything else is
+    // funneled to /security until enrollment completes.
+    if (full.enrollPending) {
+      const allowed = pathname.startsWith("/security") || pathname.startsWith("/api/2fa")
+        || pathname === "/api/site/logout" || pathname === "/api/site/status" || pathname === "/api/history/status";
+      if (!allowed) {
+        if (pathname.startsWith("/api/")) {
+          return NextResponse.json({ error: "Two-factor setup required" }, { status: 403 });
+        }
+        const url = req.nextUrl.clone();
+        url.pathname = "/security";
+        url.search = "";
+        return NextResponse.redirect(url);
+      }
     }
     // ── Per-user authorization (server-side) ──────────────────────────
     // The signed cookie carries the real logged-in user; enforce their page
