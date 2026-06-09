@@ -4,8 +4,9 @@ import { parseGeneralLedgerMonthly, summaryForPeriod } from "@/lib/financials/op
 import { computeStatement } from "@/lib/financials/operating-statements/compute";
 import { availableStatements, getMapping, resolveStatementKey } from "@/lib/financials/operating-statements/mappingStore";
 import { resolvePropertyBudget, makeBudgetLookup } from "@/lib/financials/operating-statements/budgetCrosswalk";
-import { saveGl, latestGl, getGl, versionsFor, listGls, getNotes, getNoteSources, saveNote, saveTransactions } from "@/lib/financials/operating-statements/statementStore";
+import { saveGl, latestGl, getGl, versionsFor, listGls, mergeAccountNames, getNotesBundle, saveNote, saveTransactions } from "@/lib/financials/operating-statements/statementStore";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
+import { logAudit, auditIp } from "@/lib/audit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,9 +26,16 @@ export async function GET(req: Request) {
 
   const [mappings, gls] = await Promise.all([availableStatements(), listGls()]);
   const yearsByKey = new Map<string, Set<number>>();
+  // Furthest (year, period) imported per property — so the picker can flag who
+  // is behind. period = the last month present in the most-advanced upload.
+  const latestByKey = new Map<string, { year: number; period: number }>();
   for (const g of gls) {
     if (!yearsByKey.has(g.key)) yearsByKey.set(g.key, new Set());
     yearsByKey.get(g.key)!.add(g.year);
+    const cur = latestByKey.get(g.key);
+    if (!cur || g.year > cur.year || (g.year === cur.year && g.maxPeriodInFile > cur.period)) {
+      latestByKey.set(g.key, { year: g.year, period: g.maxPeriodInFile });
+    }
   }
   const available = mappings.map((m) => ({
     key: m.key,
@@ -35,6 +43,7 @@ export async function GET(req: Request) {
     entityName: m.entityName,
     name: propertyName(m.key, m.entityName),
     years: [...(yearsByKey.get(m.key) ?? [])].sort((a, b) => b - a),
+    latest: latestByKey.get(m.key) ?? null,
   }));
 
   if (!key || !year) return NextResponse.json({ available });
@@ -53,13 +62,28 @@ export async function GET(req: Request) {
   const period = Math.min(Math.max(1, requested), stored.maxPeriodInFile);
   const gl = summaryForPeriod(stored.monthly, period);
 
+  // Operating Cash — ending balance of the Cash-Operating account (0110-0000),
+  // read straight off the GL's "YTD Total" row (which already = beginning +
+  // YTD activity). Falls back to beginning + YTD net for older uploads that
+  // didn't capture the YTD Total. Balance-sheet account → not on the P&L.
+  const CASH_ACCT = "0110-0000";
+  const cashNets = stored.monthly[CASH_ACCT];
+  const operatingCash = stored.ytdTotal?.[CASH_ACCT] ??
+    (cashNets ? (stored.beginning?.[CASH_ACCT] ?? 0) + cashNets.slice(0, period).reduce((a, n) => a + n, 0) : null);
+
   // Budget columns: line up to the portal budget via the same masks. Falls back
   // to the nearest available budget year (so a 2025 sample shows the 2026
   // budget); the page labels the year used.
   const budget = await resolvePropertyBudget(mapping.propertyCode, year);
   const budgetLookup = budget ? makeBudgetLookup(budget, period) : undefined;
-  const notes = await getNotes(key, year);
-  const noteSources = await getNoteSources(key, year);
+  const { notes, sources: rawSources, meta: noteMeta } = await getNotesBundle(key, year);
+  // Every existing note gets a source. A note with no recorded source can only
+  // be an AI note — manual saves always stamp "user" — so default missing to
+  // "ai". Keeps the ✨ on auto-explained notes across refreshes (incl. notes
+  // written before sources were tracked), and self-corrects: a manual edit
+  // flips it to "user" and drops the sparkle.
+  const noteSources: Record<string, "user" | "ai"> = {};
+  for (const lk of Object.keys(notes)) noteSources[lk] = rawSources[lk] ?? "ai";
 
   const statement = computeStatement({
     mapping,
@@ -69,6 +93,13 @@ export async function GET(req: Request) {
     gl,
     budgetLookup,
   });
+  // Label the unmapped (non-operating) accounts with their GL account name,
+  // falling back to names captured on any other property's GL (codes are shared).
+  const acctNames = mergeAccountNames(gls);
+  statement.unmappedAccounts = statement.unmappedAccounts.map((u) => ({
+    ...u,
+    name: stored.names?.[u.account] ?? acctNames[u.account] ?? null,
+  }));
 
   return NextResponse.json({
     available,
@@ -80,6 +111,8 @@ export async function GET(req: Request) {
     budgetFallback: budget?.fallback ?? false,
     notes,
     noteSources,
+    noteMeta,
+    operatingCash,
     statement,
   });
 }
@@ -88,11 +121,11 @@ export async function GET(req: Request) {
 export async function PATCH(req: Request) {
   try {
     const body = await req.json();
-    const { key, year, lineKey, note } = body ?? {};
+    const { key, year, lineKey, note, editedBy } = body ?? {};
     if (!key || !year || !lineKey) {
       return NextResponse.json({ error: "key, year and lineKey are required" }, { status: 400 });
     }
-    await saveNote(String(key), Number(year), String(lineKey), typeof note === "string" ? note : "");
+    await saveNote(String(key), Number(year), String(lineKey), typeof note === "string" ? note : "", "user", typeof editedBy === "string" ? editedBy : undefined);
     return NextResponse.json({ ok: true });
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "Failed to save note" }, { status: 500 });
@@ -144,8 +177,12 @@ export async function POST(req: Request) {
       fileName: file.name,
       maxPeriodInFile: parsed.maxPeriodInFile,
       monthly: parsed.monthly,
+      beginning: parsed.beginning,
+      ytdTotal: parsed.ytdTotal,
+      names: parsed.names,
     });
     await saveTransactions(id, parsed.transactions);
+    await logAudit({ event: "gl.upload", user: typeof uploadedByRaw === "string" ? uploadedByRaw : key, ip: auditIp(req), detail: `${key} ${parsed.year} · ${file.name}` });
 
     return NextResponse.json({
       ok: true,
