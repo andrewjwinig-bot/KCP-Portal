@@ -1,5 +1,6 @@
+import { dailyExpiry } from "./auth-expiry";
+
 export const SITE_COOKIE = "site_auth";
-const MAX_AGE_SECONDS = 60 * 60 * 24 * 30; // 30 days
 
 function b64urlEncode(bytes: Uint8Array): string {
   let s = "";
@@ -43,10 +44,10 @@ export async function signSiteToken(
   secret: string,
   userId: string,
 ): Promise<{ value: string; maxAge: number }> {
-  const expires = Math.floor(Date.now() / 1000) + MAX_AGE_SECONDS;
-  const payload = `${expires}.${userId}`;
+  const { expiresSec, maxAge } = dailyExpiry();
+  const payload = `${expiresSec}.${userId}`;
   const sig = await hmac(secret, payload);
-  return { value: `${payload}.${b64urlEncode(sig)}`, maxAge: MAX_AGE_SECONDS };
+  return { value: `${payload}.${b64urlEncode(sig)}`, maxAge };
 }
 
 /** Verify a site token. Returns the signed-in user id, or null if invalid. */

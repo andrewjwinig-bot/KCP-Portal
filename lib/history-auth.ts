@@ -1,5 +1,6 @@
+import { dailyExpiry } from "./auth-expiry";
+
 export const HISTORY_COOKIE = "history_auth";
-const MAX_AGE_SECONDS = 60 * 60 * 24 * 30;
 
 function b64urlEncode(bytes: Uint8Array): string {
   let s = "";
@@ -36,9 +37,9 @@ function timingSafeEqual(a: Uint8Array, b: Uint8Array): boolean {
 
 /** Build a signed cookie value: "<expiresAtSec>.<hmac>". */
 export async function signHistoryToken(secret: string): Promise<{ value: string; maxAge: number }> {
-  const expires = Math.floor(Date.now() / 1000) + MAX_AGE_SECONDS;
-  const sig = await hmac(secret, String(expires));
-  return { value: `${expires}.${b64urlEncode(sig)}`, maxAge: MAX_AGE_SECONDS };
+  const { expiresSec, maxAge } = dailyExpiry();
+  const sig = await hmac(secret, String(expiresSec));
+  return { value: `${expiresSec}.${b64urlEncode(sig)}`, maxAge };
 }
 
 export async function verifyHistoryToken(token: string | undefined, secret: string): Promise<boolean> {
