@@ -35,6 +35,7 @@ const NAV_ROLE_KEY: Record<string, string> = {
   "Maintenance Reports":"maintenance",
   "Reservations":       "reservations",
   "Bank Transfers":     "bank-transfers",
+  "Cash Sheet":         "financials-budgets",
   "Operating Statements": "financials-budgets",
   "Budgets":            "financials-budgets",
   "Audit Log":          "audit",
@@ -506,6 +507,21 @@ const NAV = [
         <polyline points="13 4 16 7 13 10" />
         <path d="M21 17H8" />
         <polyline points="11 14 8 17 11 20" />
+      </svg>
+    ),
+  },
+  {
+    label: "Cash Sheet",
+    href: "/financials/cash-sheet",
+    external: false,
+    indent: false,
+    showFor: null as string | null,
+    groupId: "financials",
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="2" y="5" width="20" height="14" rx="2" />
+        <line x1="2" y1="10" x2="22" y2="10" />
+        <circle cx="7" cy="14.5" r="1.5" />
       </svg>
     ),
   },
