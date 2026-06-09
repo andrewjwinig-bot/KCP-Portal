@@ -26,6 +26,8 @@ export const config = {
 const ADMIN_PATH_PREFIXES = [
   "/history",
   "/api/periods",
+  "/audit",
+  "/api/audit",
 ];
 
 function isAdminPath(pathname: string): boolean {
