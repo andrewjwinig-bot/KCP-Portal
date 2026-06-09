@@ -150,7 +150,12 @@ export async function buildReprojXlsx(r: Reprojection, meta: ReprojMeta, notes: 
     money(gr.getCell(14), row.t.reprojTotal, { bold: true, brand2: true, col: 14 });
     money(gr.getCell(15), row.t.budgetTotal, { bold: isTotal, col: 15 });
     money(gr.getCell(16), row.t.variance, { bold: isTotal, col: 16 });
-    if (row.kind === "rollup") for (let c = 1; c <= nCols; c++) { gr.getCell(c).fill = { type: "pattern", pattern: "solid", fgColor: { argb: row.strong ? ROLLUP_FILL : BRAND_TINT } }; edge(gr.getCell(c), c); }
+    if (isTotal) for (let c = 1; c <= nCols; c++) {
+      const cell = gr.getCell(c);
+      cell.border = { ...(cell.border ?? {}), top: { style: "thin", color: { argb: BORDER } } };
+      if (row.kind === "rollup") cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: row.strong ? ROLLUP_FILL : BRAND_TINT } };
+      edge(cell, c);
+    }
   }
 
   if (r.unbudgetedAccounts.length) {
@@ -168,10 +173,13 @@ export async function buildReprojXlsx(r: Reprojection, meta: ReprojMeta, notes: 
     const nh = ws.addRow(["Notes"]);
     nh.getCell(1).font = { bold: true, size: 11, color: { argb: BRAND } };
     for (const f of list) {
-      const nr = ws.addRow([`[${f.n}] ${f.label}: ${f.note}`]);
+      const nr = ws.addRow([]);
       ws.mergeCells(nr.number, 1, nr.number, nCols);
+      nr.getCell(1).value = { richText: [
+        { font: { bold: true, size: 9.5, color: { argb: BRAND } }, text: `[${f.n}] ${f.label}: ` },
+        { font: { size: 9.5 }, text: f.note },
+      ] };
       nr.getCell(1).alignment = { wrapText: true, vertical: "top" };
-      nr.getCell(1).font = { size: 9.5 };
     }
   }
   ws.addRow([]);
@@ -209,7 +217,7 @@ export async function buildReprojPdf(r: Reprojection, meta: ReprojMeta, notes: N
   const rows = reprojRows(r);
   const { byKey, list } = collectFootnotes(rows, notes);
 
-  let page!: PDFPage, y = 0, tableTop = 0;
+  let page!: PDFPage, y = 0, tableTop = 0, pageHasColumns = false;
   const rightText = (s: string, xRight: number, yy: number, size: number, f: PDFFont, color = TEXT) => {
     const w = f.widthOfTextAtSize(s, size);
     page.drawText(s, { x: xRight - w, y: PAGE_H - yy, size, font: f, color });
@@ -220,24 +228,31 @@ export async function buildReprojPdf(r: Reprojection, meta: ReprojMeta, notes: N
     page.drawText(str, { x, y: PAGE_H - yy, size, font: f, color });
   };
   const flushDividers = () => {
+    if (!pageHasColumns) return;
     for (const x of DIVIDERS) page.drawLine({ start: { x, y: PAGE_H - tableTop }, end: { x, y: PAGE_H - y }, thickness: 0.6, color: RULE });
   };
-  const drawHeader = () => {
+  const drawHeader = (withColumns: boolean) => {
     page.drawRectangle({ x: 0, y: PAGE_H - 40, width: PAGE_W, height: 40, color: NAVY_DARK });
     leftText(`${meta.year} Reprojection — ${meta.propertyCode} ${meta.propertyName}`, MARGIN, 18, 13, bold, WHITE);
     leftText(`Actuals Jan–${through > 0 ? MONTHS[through - 1] : "(none)"}${meta.budgetYear ? ` · Budget FY ${meta.budgetYear}` : ""}`, MARGIN, 31, 8.5, font, rgb(0.85, 0.9, 0.95));
     drawKormanLogo(page, bold, font, { xRight: PAGE_W - MARGIN, centerTop: 20, color: WHITE, scale: 0.85 });
-    y = 54;
-    page.drawRectangle({ x: MARGIN, y: PAGE_H - (y + 14), width: PAGE_W - MARGIN * 2, height: 16, color: NAVY });
-    leftText("Line", LINE_X + 2, y + 11, 7.5, bold, WHITE);
-    MONTHS.forEach((m, i) => rightText(m, MON_X + MON_W * (i + 1) - 2, y + 11, 7, bold, WHITE));
-    rightText("Full Yr", FULL_X + FULL_W - 2, y + 11, 7.5, bold, WHITE);
-    rightText("Ann Bud", BUD_X + BUD_W - 2, y + 11, 7, bold, WHITE);
-    rightText("Var", VAR_X + VAR_W - 2, y + 11, 7.5, bold, WHITE);
-    y += 18;
-    tableTop = y - 2;
+    if (withColumns) {
+      y = 54;
+      page.drawRectangle({ x: MARGIN, y: PAGE_H - (y + 14), width: PAGE_W - MARGIN * 2, height: 16, color: NAVY });
+      leftText("Line", LINE_X + 2, y + 11, 7.5, bold, WHITE);
+      MONTHS.forEach((m, i) => rightText(m, MON_X + MON_W * (i + 1) - 2, y + 11, 7, bold, WHITE));
+      rightText("Full Yr", FULL_X + FULL_W - 2, y + 11, 7.5, bold, WHITE);
+      rightText("Ann Bud", BUD_X + BUD_W - 2, y + 11, 7, bold, WHITE);
+      rightText("Var", VAR_X + VAR_W - 2, y + 11, 7.5, bold, WHITE);
+      y += 18;
+      tableTop = y - 2;
+      pageHasColumns = true;
+    } else {
+      y = 52;
+      pageHasColumns = false;
+    }
   };
-  const newPage = () => { if (page) flushDividers(); page = doc.addPage([PAGE_W, PAGE_H]); drawHeader(); };
+  const newPage = (withColumns = true) => { if (page) flushDividers(); page = doc.addPage([PAGE_W, PAGE_H]); drawHeader(withColumns); };
   newPage();
 
   for (const row of rows) {
@@ -251,6 +266,7 @@ export async function buildReprojPdf(r: Reprojection, meta: ReprojMeta, notes: N
     }
     const isTotal = row.kind !== "line";
     const rowH = 13;
+    if (isTotal) page.drawLine({ start: { x: MARGIN, y: PAGE_H - (y - 1) }, end: { x: PAGE_W - MARGIN, y: PAGE_H - (y - 1) }, thickness: 0.8, color: rgb(0.55, 0.6, 0.66) });
     if (row.kind === "rollup") page.drawRectangle({ x: MARGIN, y: PAGE_H - (y + 11), width: PAGE_W - MARGIN * 2, height: rowH, color: ROLLUP });
     if (!isTotal && through > 0) page.drawRectangle({ x: MON_X, y: PAGE_H - (y + 11), width: MON_W * through, height: rowH, color: ACTUAL });
     const f = isTotal ? bold : font;
@@ -269,25 +285,29 @@ export async function buildReprojPdf(r: Reprojection, meta: ReprojMeta, notes: N
   flushDividers();
 
   if (list.length) {
-    if (y > PAGE_H - MARGIN - 40) newPage();
-    y += 10;
-    leftText("NOTES", MARGIN, y + 9, 9, bold, NAVY);
-    y += 16;
+    newPage(false); // notes on their own page, no column header
+    leftText("NOTES", MARGIN, y + 9, 11, bold, NAVY);
+    y += 20;
     const maxW = PAGE_W - MARGIN * 2;
     for (const f of list) {
-      const words = `[${f.n}] ${f.label}: ${f.note}`.split(" ");
-      let lineStr = ""; const lines: string[] = [];
-      for (const w of words) {
-        const test = lineStr ? `${lineStr} ${w}` : w;
-        if (font.widthOfTextAtSize(test, 8) > maxW) { lines.push(lineStr); lineStr = w; } else lineStr = test;
+      const prefix = `[${f.n}] ${f.label}: `;
+      const prefixW = bold.widthOfTextAtSize(prefix, 8);
+      const segs: { text: string; indent: number }[] = [];
+      let cur = "", avail = maxW - prefixW, first = true;
+      for (const w of f.note.split(" ")) {
+        const test = cur ? `${cur} ${w}` : w;
+        if (font.widthOfTextAtSize(test, 8) > avail) { segs.push({ text: cur, indent: first ? prefixW : 0 }); cur = w; first = false; avail = maxW; }
+        else cur = test;
       }
-      if (lineStr) lines.push(lineStr);
-      for (const ln of lines) {
-        if (y > PAGE_H - MARGIN - 14) newPage();
-        leftText(ln, MARGIN, y + 8, 8, font, TEXT);
+      segs.push({ text: cur, indent: first ? prefixW : 0 });
+      if (y > PAGE_H - MARGIN - 14) newPage(false);
+      leftText(prefix, MARGIN, y + 8, 8, bold, NAVY);
+      for (const seg of segs) {
+        if (y > PAGE_H - MARGIN - 14) newPage(false);
+        leftText(seg.text, MARGIN + seg.indent, y + 8, 8, font, TEXT);
         y += 11;
       }
-      y += 2;
+      y += 3;
     }
   }
 

@@ -38,6 +38,9 @@ export type GlMonthly = {
    *  absent for P&L; carries the prior-year carry-forward for balance-sheet
    *  accounts (e.g. Cash), so an ending balance = beginning + YTD net. */
   beginning: Record<string, number>;
+  /** account → the GL's "YTD Total" row. For a balance-sheet account this is
+   *  the ending balance directly (the Operating Cash KPI reads it). */
+  ytdTotal: Record<string, number>;
   /** account → individual transactions, for the line-item drill-down. */
   transactions: Record<string, GlTransaction[]>;
 };
@@ -65,6 +68,7 @@ const MONTHS = [
   "july", "august", "september", "october", "november", "december",
 ];
 const MONTH_TOTAL_RE = new RegExp(`^\\s*(${MONTHS.join("|")})(?:\\s+\\d{4})?\\s+total\\b`, "i");
+const YTD_TOTAL_RE = /^\s*ytd\s+total\b/i;
 
 function asStr(v: Cell): string {
   return v == null ? "" : String(v).trim();
@@ -162,9 +166,10 @@ function parseHeader(rows: Row[]): { propertyCode: string | null; year: number |
  *  January), so bucketing by Trans Date would mis-assign the period. The amount
  *  sits in the single signed Amount column. */
 type DetailCols = { amount: number; date: number; vendor: number; ref: number; desc: number };
-function monthlyFromDetailed(rows: Row[], cols: DetailCols): { monthly: Record<string, number[]>; beginning: Record<string, number>; maxMonth: number; transactions: Record<string, GlTransaction[]> } {
+function monthlyFromDetailed(rows: Row[], cols: DetailCols): { monthly: Record<string, number[]>; beginning: Record<string, number>; ytdTotal: Record<string, number>; maxMonth: number; transactions: Record<string, GlTransaction[]> } {
   const monthly: Record<string, number[]> = {};
   const beginning: Record<string, number> = {};
+  const ytdTotal: Record<string, number> = {};
   const transactions: Record<string, GlTransaction[]> = {};
   let current: string | null = null;
   let maxMonth = 0;
@@ -195,6 +200,13 @@ function monthlyFromDetailed(rows: Row[], cols: DetailCols): { monthly: Record<s
       buffer = [];
       continue;
     }
+    // The account's "YTD Total" row — for a balance-sheet account this IS the
+    // ending balance (beginning + YTD activity), captured for the Operating
+    // Cash KPI directly off the GL.
+    if (row.some((c) => YTD_TOTAL_RE.test(asStr(c)))) {
+      ytdTotal[current] = numIn(row, cols.amount, cols.amount + 1);
+      continue;
+    }
     // A transaction row carries a Trans Date (Beginning Balance / blank rows
     // don't, which keeps them out).
     if (dateFromCell(row[cols.date]) == null) continue;
@@ -210,7 +222,7 @@ function monthlyFromDetailed(rows: Row[], cols: DetailCols): { monthly: Record<s
       amount: numIn(row, cols.amount, cols.amount + 1),
     });
   }
-  return { monthly, beginning, maxMonth, transactions };
+  return { monthly, beginning, ytdTotal, maxMonth, transactions };
 }
 
 /** Year-To-Date GL: read the per-account monthly "Total" rows (Debit − Credit). */
@@ -255,6 +267,7 @@ export function parseGeneralLedgerMonthly(rows: Row[]): GlMonthly {
   const hasDebit = headerCol(rows, "debit") != null;
   let monthly: Record<string, number[]>;
   let beginning: Record<string, number> = {};
+  let ytdTotal: Record<string, number> = {};
   let maxMonth: number;
   let transactions: Record<string, GlTransaction[]> = {};
   if (amountCol != null && !hasDebit) {
@@ -265,7 +278,7 @@ export function parseGeneralLedgerMonthly(rows: Row[]): GlMonthly {
       ref: headerCol(rows, "check", "jnl ref") ?? 9,
       desc: headerCol(rows, "invoice description", "jnl description") ?? 16,
     };
-    ({ monthly, beginning, maxMonth, transactions } = monthlyFromDetailed(rows, cols));
+    ({ monthly, beginning, ytdTotal, maxMonth, transactions } = monthlyFromDetailed(rows, cols));
   } else {
     ({ monthly, maxMonth } = monthlyFromDebitCredit(rows));
   }
@@ -274,7 +287,7 @@ export function parseGeneralLedgerMonthly(rows: Row[]): GlMonthly {
   // fall back to the last month with activity if the range can't be read.
   const maxPeriodInFile = endMonth ?? (maxMonth || 12);
 
-  return { propertyCode, year, maxPeriodInFile, monthly, beginning, transactions };
+  return { propertyCode, year, maxPeriodInFile, monthly, beginning, ytdTotal, transactions };
 }
 
 /** Collapse monthly nets into the period + YTD summary the compute consumes. */
