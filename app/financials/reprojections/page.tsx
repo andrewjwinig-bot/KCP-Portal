@@ -10,6 +10,7 @@ import React, { Fragment, useCallback, useEffect, useState } from "react";
 import { StatPill } from "@/app/components/Pill";
 import { DownloadMenu } from "@/app/components/DownloadMenu";
 import { AccountListCard } from "@/app/components/AccountListCard";
+import { groupStatementOptions } from "@/lib/financials/operating-statements/propertyGroups";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] as const;
@@ -170,7 +171,11 @@ export default function ReprojectionsPage() {
               {yearOptions.map((y) => <option key={y} value={y}>{y}</option>)}
             </HeaderSelect>
             <HeaderSelect value={key} onChange={setKey} displayLabel={cur ? `${cur.propertyCode} — ${cur.name}` : "—"} ariaLabel="Property">
-              {available.map((a) => <option key={a.key} value={a.key}>{a.propertyCode} — {a.name}{a.years.length ? "" : " (no GL)"}</option>)}
+              {groupStatementOptions(available).map((grp) => (
+                <optgroup key={grp.label} label={grp.label}>
+                  {grp.items.map((a) => <option key={a.key} value={a.key}>{a.propertyCode} — {a.name}{a.years.length ? "" : " (no GL)"}</option>)}
+                </optgroup>
+              ))}
             </HeaderSelect>
           </div>
           <div style={{ display: "inline-flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
