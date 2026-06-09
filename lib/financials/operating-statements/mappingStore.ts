@@ -9,6 +9,7 @@ import "server-only";
 import fs from "fs/promises";
 import path from "path";
 import type { StatementMapping } from "./types";
+import { resolveKeyIn } from "./resolveKey";
 
 const SEED_PATH = path.join(
   process.cwd(),
@@ -27,9 +28,17 @@ export async function loadMappings(): Promise<Record<string, StatementMapping>> 
   return cache;
 }
 
+/** Resolve a GL header property code to its canonical mapping key, or null.
+ *  (See resolveKeyIn — handles direct keys, propertyCode matches and fund-code
+ *  aliases like FJVIII → PJV3.) */
+export async function resolveStatementKey(code: string): Promise<string | null> {
+  return resolveKeyIn(await loadMappings(), code);
+}
+
 export async function getMapping(key: string): Promise<StatementMapping | null> {
   const all = await loadMappings();
-  return all[key] ?? null;
+  const resolved = resolveKeyIn(all, key);
+  return resolved ? all[resolved] ?? null : null;
 }
 
 /** Dropdown list of every property/fund that has a statement mapping. */
