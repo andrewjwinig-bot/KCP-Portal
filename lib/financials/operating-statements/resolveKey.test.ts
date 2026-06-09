@@ -29,6 +29,7 @@ describe("resolveKeyIn", () => {
   it("resolves fund-code aliases", () => {
     expect(resolveKeyIn(all, "FJVIII")).toBe("PJV3");
     expect(resolveKeyIn(all, "FNIPLX")).toBe("PNIPLX");
+    expect(resolveKeyIn(all, "FIIICO")).toBe("CONDO");
   });
   it("returns null when nothing matches", () => {
     expect(resolveKeyIn(all, "ZZZZ")).toBeNull();
