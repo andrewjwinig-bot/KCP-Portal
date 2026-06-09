@@ -6,10 +6,10 @@ import { reproject, type Reprojection } from "./compute";
 import type { ReprojMeta } from "./reprojExport";
 import { getMapping } from "@/lib/financials/operating-statements/mappingStore";
 import { resolvePropertyBudget } from "@/lib/financials/operating-statements/budgetCrosswalk";
-import { latestGl } from "@/lib/financials/operating-statements/statementStore";
+import { latestGl, getNotesBundle } from "@/lib/financials/operating-statements/statementStore";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 
-export async function loadReprojection(key: string, year: number): Promise<{ reprojection: Reprojection; meta: ReprojMeta } | null> {
+export async function loadReprojection(key: string, year: number): Promise<{ reprojection: Reprojection; meta: ReprojMeta; notes: Record<string, string> } | null> {
   const mapping = await getMapping(key);
   if (!mapping) return null;
   const stored = await latestGl(key, year);
@@ -23,5 +23,6 @@ export async function loadReprojection(key: string, year: number): Promise<{ rep
     budgetLines: (budget?.lines ?? []).map((l) => ({ glAccount: l.glAccount, months: l.months })),
     actualThroughMonth: stored?.maxPeriodInFile ?? 0,
   });
-  return { reprojection, meta: { propertyCode: mapping.propertyCode, propertyName, year, budgetYear: budget?.budgetYear ?? null } };
+  const { notes } = await getNotesBundle(key, year);
+  return { reprojection, meta: { propertyCode: mapping.propertyCode, propertyName, year, budgetYear: budget?.budgetYear ?? null }, notes };
 }
