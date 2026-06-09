@@ -231,6 +231,17 @@ export default function OperatingStatementsPage() {
       .then((j) => {
         const list: Available[] = j.available ?? [];
         setAvailable(list);
+        // Deep link from the Reprojections/Budgets pages: ?key (or ?property) & year.
+        const params = new URLSearchParams(window.location.search);
+        const wantKey = params.get("key");
+        const wantProp = params.get("property");
+        const wantYear = params.get("year");
+        const match = wantKey ? list.find((a) => a.key === wantKey) : wantProp ? list.find((a) => a.propertyCode === wantProp) : null;
+        if (match) {
+          setKey(match.key);
+          setYear(wantYear ? Number(wantYear) : match.years[0] ?? new Date().getFullYear());
+          return;
+        }
         const withData = list.find((a) => a.years.length);
         const first = withData ?? list[0];
         if (first) {
@@ -378,6 +389,16 @@ export default function OperatingStatementsPage() {
               {uploading ? "Uploading…" : "Upload GL"}
             </button>
             <input ref={fileRef} type="file" accept=".xls,.xlsx,.xlsm" style={{ display: "none" }} onChange={onUpload} />
+            {cur && (
+              <a
+                className="btn"
+                href={`/financials/reprojections?key=${encodeURIComponent(key)}${year ? `&year=${year}` : ""}`}
+                title={`Open ${cur.propertyCode}'s full-year reprojection`}
+                style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700, textDecoration: "none" }}
+              >
+                Reprojection
+              </a>
+            )}
             {cur && (
               <a
                 className="btn"
