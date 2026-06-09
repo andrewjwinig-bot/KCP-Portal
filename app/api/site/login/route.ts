@@ -1,11 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createHmac, timingSafeEqual, randomBytes } from "crypto";
 import { SITE_COOKIE, signSiteToken } from "@/lib/site-auth";
 import { HISTORY_COOKIE, signHistoryToken } from "@/lib/history-auth";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { ALL_USERS } from "@/lib/users";
 
 export const runtime = "nodejs";
 
 const COOKIE_OPTS = { httpOnly: true, secure: true, sameSite: "lax" as const, path: "/" };
+// Brute-force throttle on the shared password: max attempts per IP per hour.
+const LOGIN_ATTEMPTS_PER_HOUR = 15;
+
+/** Constant-time, length-independent string equality (HMAC both sides under a
+ *  per-call random key, then compare digests) — avoids the timing side-channel
+ *  of `!==` on the password. */
+function safeEqual(a: string, b: string): boolean {
+  const k = randomBytes(32);
+  const da = createHmac("sha256", k).update(a).digest();
+  const db = createHmac("sha256", k).update(b).digest();
+  return timingSafeEqual(da, db);
+}
 
 /**
  * Site login. The caller picks which user they are signing in as plus a
@@ -25,6 +39,11 @@ export async function POST(req: NextRequest) {
       { error: "Site auth is not configured. Set SITE_PASSWORD and SITE_AUTH_SECRET env vars." },
       { status: 503 },
     );
+  }
+
+  // Throttle brute-force guessing of the shared password (per IP).
+  if (!checkRateLimit(`site-login:${getClientIp(req)}`, LOGIN_ATTEMPTS_PER_HOUR)) {
+    return NextResponse.json({ error: "Too many attempts. Try again later." }, { status: 429 });
   }
 
   let body: { user?: string; password?: string } = {};
@@ -48,7 +67,7 @@ export async function POST(req: NextRequest) {
   }
 
   const expected = isAdmin ? adminPassword : employeePassword;
-  if (!password || password !== expected) {
+  if (!password || !safeEqual(password, expected)) {
     // Generic message — don't leak which field was wrong.
     return NextResponse.json({ error: "Incorrect password" }, { status: 401 });
   }
