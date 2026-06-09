@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseGeneralLedger } from "./glParser";
+import { parseGeneralLedger, parseGeneralLedgerMonthly } from "./glParser";
 
 type Cell = string | number | null;
 
@@ -114,6 +114,14 @@ describe("Detailed General Ledger parser", () => {
     const res = parseGeneralLedger(detailed, 1);
     expect(res.propertyCode).toBe("1100");
     expect(res.year).toBe(2026);
+  });
+
+  it("captures the Beginning Balance per account (for balance-sheet ending balances)", () => {
+    const m = parseGeneralLedgerMonthly(detailed);
+    expect(m.beginning["6030-8502"]).toBe(3120);
+    // Ending balance = beginning + YTD net (the maintenance account's Jan total is 260).
+    const ytd = (m.monthly["6030-8502"] ?? []).slice(0, 1).reduce((a, n) => a + n, 0);
+    expect(m.beginning["6030-8502"] + ytd).toBe(3380);
   });
 
   it("reads the monthly Total rows, not transaction dates — a December invoice posted in January stays in January", () => {

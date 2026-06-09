@@ -27,6 +27,9 @@ export type StoredGl = {
   maxPeriodInFile: number;
   /** account → 12 monthly nets (Jan–Dec). */
   monthly: Record<string, number[]>;
+  /** account → Beginning Balance (opening). Present on uploads after this was
+   *  added; older uploads omit it (ending balances fall back to YTD net). */
+  beginning?: Record<string, number>;
 };
 
 export async function saveGl(rec: StoredGl): Promise<void> {
