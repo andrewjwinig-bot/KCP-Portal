@@ -9,6 +9,7 @@
 import React, { Fragment, useCallback, useEffect, useState } from "react";
 import { StatPill } from "@/app/components/Pill";
 import { DownloadMenu } from "@/app/components/DownloadMenu";
+import { AccountListCard } from "@/app/components/AccountListCard";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] as const;
@@ -27,7 +28,7 @@ type Reprojection = {
   propertyCode: string; propertyName: string; year: number; actualThroughMonth: number;
   sections: Section[];
   rollups: Record<"totalRevenues" | "totalOperatingExpenses" | "netOperatingIncome" | "capital" | "cashFlowBeforeDebtService" | "totalDebtService" | "cashFlowAfterDebtService", Totals>;
-  unbudgetedAccounts: { account: string; actualTotal: number }[];
+  unbudgetedAccounts: { account: string; actualTotal: number; name?: string | null }[];
 };
 type Available = { key: string; propertyCode: string; entityName: string; name: string; years: number[] };
 
@@ -263,7 +264,15 @@ function ReprojTable({ data, view, noteFor, osHref }: { data: Reprojection; view
         <SubtotalCard label="Cash Flow" t={r.cashFlowBeforeDebtService} view={view} strong />
       )}
 
-      {data.unbudgetedAccounts.length > 0 && <UnbudgetedCard rows={data.unbudgetedAccounts} />}
+      {data.unbudgetedAccounts.length > 0 && (
+        <AccountListCard
+          title="Unbudgeted Actuals — not in any reprojection line"
+          description="GL accounts with activity that don't map to a budget/statement line — surfaced so the full-year reprojection isn't silently short."
+          accent="#b45309"
+          rows={data.unbudgetedAccounts.map((r) => ({ account: r.account, name: r.name, amount: r.actualTotal }))}
+          format={(n) => money(n)}
+        />
+      )}
     </>
   );
 }
@@ -378,29 +387,3 @@ function SubtotalCard({ label, t, view, strong }: { label: string; t: Totals; vi
   );
 }
 
-function UnbudgetedCard({ rows }: { rows: { account: string; actualTotal: number }[] }) {
-  const total = rows.reduce((s, r) => s + r.actualTotal, 0);
-  return (
-    <div className="card" style={{ borderColor: "rgba(180,83,9,0.4)", background: "rgba(180,83,9,0.04)" }}>
-      <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.05em", textTransform: "uppercase", color: "#b45309", marginBottom: 6 }}>
-        Unbudgeted Actuals — not in any reprojection line ({rows.length})
-      </div>
-      <div className="muted small" style={{ marginBottom: 8 }}>GL accounts with activity that don&apos;t map to a budget/statement line — surfaced so the full-year reprojection isn&apos;t silently short.</div>
-      <table style={{ width: "100%" }}>
-        <thead><tr><th>Account</th><th style={{ textAlign: "right" }}>YTD Actual</th></tr></thead>
-        <tbody>
-          {rows.map((r) => (
-            <tr key={r.account}>
-              <td style={{ fontVariantNumeric: "tabular-nums" }}>{r.account}</td>
-              <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{money(r.actualTotal)}</td>
-            </tr>
-          ))}
-          <tr style={{ fontWeight: 800 }}>
-            <td style={{ fontWeight: 800 }}>Total</td>
-            <td style={{ textAlign: "right", fontWeight: 900, fontVariantNumeric: "tabular-nums" }}>{money(total)}</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  );
-}

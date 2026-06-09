@@ -85,6 +85,11 @@ export async function GET(req: Request) {
     gl,
     budgetLookup,
   });
+  // Label the unmapped (non-operating) accounts with their GL account name.
+  statement.unmappedAccounts = statement.unmappedAccounts.map((u) => ({
+    ...u,
+    name: stored.names?.[u.account] ?? null,
+  }));
 
   return NextResponse.json({
     available,
@@ -161,6 +166,7 @@ export async function POST(req: Request) {
       monthly: parsed.monthly,
       beginning: parsed.beginning,
       ytdTotal: parsed.ytdTotal,
+      names: parsed.names,
     });
     await saveTransactions(id, parsed.transactions);
     await logAudit({ event: "gl.upload", user: typeof uploadedByRaw === "string" ? uploadedByRaw : key, ip: auditIp(req), detail: `${key} ${parsed.year} · ${file.name}` });

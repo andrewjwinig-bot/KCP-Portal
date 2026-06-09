@@ -35,8 +35,11 @@ const NAV_ROLE_KEY: Record<string, string> = {
   "Maintenance Reports":"maintenance",
   "Reservations":       "reservations",
   "Bank Transfers":     "bank-transfers",
-  "Cash Sheet":         "financials-budgets",
-  "Operating Statements": "financials-budgets",
+  // Budgets is its own key (Nancy sees only Budgets); the other financials
+  // pages require the broader "financials-statements" key.
+  "Cash Sheet":         "financials-statements",
+  "Operating Statements": "financials-statements",
+  "Reprojections":      "financials-statements",
   "Budgets":            "financials-budgets",
   "Audit Log":          "audit",
   // Security group is admin-only in the sidebar (the "audit" key, which only

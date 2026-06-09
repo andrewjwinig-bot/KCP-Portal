@@ -83,7 +83,7 @@ export type Reprojection = {
   };
   /** GL accounts with actuals but no budget/mapping line — surfaced so the
    *  full-year number isn't silently short. */
-  unbudgetedAccounts: { account: string; actualTotal: number }[];
+  unbudgetedAccounts: { account: string; actualTotal: number; name?: string | null }[];
 };
 
 export type ReprojectInput = {
