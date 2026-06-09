@@ -232,6 +232,9 @@ export default function OperatingStatementsPage() {
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Bumped after an upload to force a statement reload even when the
+  // property/year/period are unchanged (e.g. re-importing the current view).
+  const [reloadNonce, setReloadNonce] = useState(0);
   type UploadResult = { name: string; ok: boolean; key?: string; year?: number; month?: number; accounts?: number; error?: string };
   const [uploadResults, setUploadResults] = useState<UploadResult[] | null>(null);
   // View toggles (mirroring the Operating Budgets page).
@@ -294,7 +297,7 @@ export default function OperatingStatementsPage() {
     } finally {
       setLoading(false);
     }
-  }, [key, year, period]);
+  }, [key, year, period, reloadNonce]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -328,6 +331,9 @@ export default function OperatingStatementsPage() {
       setAvailable(av.available ?? []);
     } catch { /* ignore refresh errors */ }
     if (last) { setKey(last.key); setYear(last.year); setPeriod(0); }
+    // Force the statement to reload so the new GL shows without a manual
+    // refresh — even when re-importing the property/year already on screen.
+    setReloadNonce((n) => n + 1);
     setUploadResults(results);
     setUploading(false);
     if (fileRef.current) fileRef.current.value = "";

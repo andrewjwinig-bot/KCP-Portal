@@ -8,6 +8,7 @@ import type { StatementMapping } from "./types";
 const KEY_ALIASES: Record<string, string> = {
   FJVIII: "PJV3",   // Lincoln JV III fund GL → PJV3 mapping
   FNIPLX: "PNIPLX", // Neshaminy Interplex LLC fund GL → PNIPLX mapping
+  FIIICO: "CONDO",  // Neshaminy III Condo fund GL → CONDO mapping
 };
 
 /** Resolve a GL header property code to its canonical mapping key, or null.
