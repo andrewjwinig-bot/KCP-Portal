@@ -191,7 +191,8 @@ export default function OperatingStatementsPage() {
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [uploadMsg, setUploadMsg] = useState<string | null>(null);
+  type UploadResult = { name: string; ok: boolean; key?: string; year?: number; month?: number; accounts?: number; error?: string };
+  const [uploadResults, setUploadResults] = useState<UploadResult[] | null>(null);
   // View toggles (mirroring the Operating Budgets page).
   const [psf, setPsf] = useState(false);
   const [hideEmpty, setHideEmpty] = useState(true);
@@ -222,10 +223,10 @@ export default function OperatingStatementsPage() {
 
   // Auto-dismiss the upload confirmation after a few seconds.
   useEffect(() => {
-    if (!uploadMsg) return;
-    const t = setTimeout(() => setUploadMsg(null), 8000);
+    if (!uploadResults) return;
+    const t = setTimeout(() => setUploadResults(null), 12000);
     return () => clearTimeout(t);
-  }, [uploadMsg]);
+  }, [uploadResults]);
 
   const load = useCallback(async () => {
     if (!key || !year) return;
@@ -251,34 +252,39 @@ export default function OperatingStatementsPage() {
   useEffect(() => { load(); }, [load]);
 
   async function onUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.target.files ?? []);
+    if (!files.length) return;
     setUploading(true);
     setError(null);
-    setUploadMsg(null);
-    try {
-      const fd = new FormData();
-      fd.append("file", file);
-      if (key) fd.append("key", key);
-      const j = await fetch("/api/financials/operating-statements", { method: "POST", body: fd }).then((r) => r.json());
-      if (j.error) { setError(j.error); return; }
-      // Refresh picker + jump to the uploaded property/year.
-      const av = await fetch("/api/financials/operating-statements").then((r) => r.json());
-      const list = av.available ?? [];
-      setAvailable(list);
-      setKey(j.key);
-      setYear(j.year);
-      setPeriod(0);
-      const up = list.find((a: Available) => a.key === j.key);
-      const label = up ? `${up.propertyCode} — ${up.name}` : j.key;
-      const through = j.maxPeriodInFile ? ` through ${MONTHS[j.maxPeriodInFile - 1]}` : "";
-      setUploadMsg(`✓ Uploaded ${file.name} — ${label}, ${j.year}${through} (${j.accounts} accounts).`);
-    } catch {
-      setError("Upload failed.");
-    } finally {
-      setUploading(false);
-      if (fileRef.current) fileRef.current.value = "";
+    setUploadResults(null);
+    const results: UploadResult[] = [];
+    let last: { key: string; year: number } | null = null;
+    // Each GL's header identifies its own property; for a single file we still
+    // pass the selected key as a fallback (e.g. a header missing the code).
+    for (const file of files) {
+      try {
+        const fd = new FormData();
+        fd.append("file", file);
+        if (files.length === 1 && key) fd.append("key", key);
+        const j = await fetch("/api/financials/operating-statements", { method: "POST", body: fd }).then((r) => r.json());
+        if (j.error) { results.push({ name: file.name, ok: false, error: j.error }); }
+        else {
+          last = { key: j.key, year: j.year };
+          results.push({ name: file.name, ok: true, key: j.key, year: j.year, month: j.maxPeriodInFile, accounts: j.accounts });
+        }
+      } catch {
+        results.push({ name: file.name, ok: false, error: "Upload failed" });
+      }
     }
+    try {
+      // Refresh picker + jump to the last successful upload.
+      const av = await fetch("/api/financials/operating-statements").then((r) => r.json());
+      setAvailable(av.available ?? []);
+    } catch { /* ignore refresh errors */ }
+    if (last) { setKey(last.key); setYear(last.year); setPeriod(0); }
+    setUploadResults(results);
+    setUploading(false);
+    if (fileRef.current) fileRef.current.value = "";
   }
 
   const saveNote = useCallback(async (lineKey: string, note: string) => {
@@ -341,12 +347,37 @@ export default function OperatingStatementsPage() {
         </div>
       )}
 
-      {uploadMsg && (
-        <div className="card" style={{ borderColor: "rgba(21,128,61,0.4)", background: "rgba(21,128,61,0.06)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-          <div style={{ fontWeight: 700, color: "#15803d" }}>{uploadMsg}</div>
-          <button onClick={() => setUploadMsg(null)} aria-label="Dismiss" style={{ background: "none", border: "none", cursor: "pointer", color: "#15803d", fontSize: 18, lineHeight: 1, fontWeight: 700, padding: "0 4px" }}>×</button>
-        </div>
-      )}
+      {uploadResults && (() => {
+        const okCount = uploadResults.filter((r) => r.ok).length;
+        const allOk = okCount === uploadResults.length;
+        const accent = allOk ? "#15803d" : okCount > 0 ? "#b45309" : "#b91c1c";
+        return (
+          <div className="card" style={{ borderColor: `${accent}66`, background: `${accent}0d` }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+              <div style={{ fontWeight: 800, color: accent }}>
+                {uploadResults.length === 1
+                  ? (allOk ? "Upload complete" : "Upload failed")
+                  : `Uploaded ${okCount} of ${uploadResults.length} files`}
+              </div>
+              <button onClick={() => setUploadResults(null)} aria-label="Dismiss" style={{ background: "none", border: "none", cursor: "pointer", color: accent, fontSize: 18, lineHeight: 1, fontWeight: 700, padding: "0 4px" }}>×</button>
+            </div>
+            <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 4 }}>
+              {uploadResults.map((r, i) => {
+                const up = r.ok ? available.find((a) => a.key === r.key) : null;
+                const label = up ? `${up.propertyCode} — ${up.name}` : r.key ?? "";
+                const through = r.month ? ` through ${MONTHS[r.month - 1]}` : "";
+                return (
+                  <div key={i} className="small" style={{ display: "flex", gap: 8, alignItems: "baseline" }}>
+                    <span style={{ color: r.ok ? "#15803d" : "#b91c1c", fontWeight: 800 }}>{r.ok ? "✓" : "✗"}</span>
+                    <span style={{ fontVariantNumeric: "tabular-nums", color: "var(--muted)", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 220 }}>{r.name}</span>
+                    <span>{r.ok ? `${label} · ${r.year}${through} · ${r.accounts} accounts` : r.error}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
 
       <div className="card">
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
@@ -368,16 +399,16 @@ export default function OperatingStatementsPage() {
             </HeaderSelect>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <button className="btn primary" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }} disabled={uploading} onClick={() => fileRef.current?.click()}>
+            <button className="btn primary" title="Upload one or more GL files — each file's header identifies its property" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }} disabled={uploading} onClick={() => fileRef.current?.click()}>
               {uploading ? "Uploading…" : "Upload GL"}
             </button>
-            <input ref={fileRef} type="file" accept=".xls,.xlsx,.xlsm" style={{ display: "none" }} onChange={onUpload} />
+            <input ref={fileRef} type="file" accept=".xls,.xlsx,.xlsm" multiple style={{ display: "none" }} onChange={onUpload} />
           </div>
         </div>
 
         <div style={{ marginTop: 8, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
           <p className="muted small" style={{ margin: 0, display: "flex", alignItems: "center", gap: 6 }}>
-            <span>Import the <b>Detailed General Ledger</b> Excel file (.xls or .xlsx).</span>
+            <span>Import the <b>Detailed General Ledger</b> Excel file (.xls or .xlsx). Select <b>multiple files</b> to upload several at once — each is matched to its property by the header code.</span>
             <ImportInstructionsButton
               year={year || new Date().getFullYear()}
               nextPeriod={statement ? Math.min(maxPeriod + 1, 12) : 1}
