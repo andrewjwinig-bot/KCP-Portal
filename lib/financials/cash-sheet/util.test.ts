@@ -42,12 +42,14 @@ describe("cash-sheet util", () => {
   it("groups operating properties by fund and excludes holding/condo entities", () => {
     const groups = cashSheetGroups();
     const byId = Object.fromEntries(groups.map((g) => [g.id, g]));
-    expect(groups.map((g) => g.id)).toEqual(["jv3", "nillc", "sc", "ow", "kh"]);
+    expect(groups.map((g) => g.id)).toEqual(["jv3", "nillc", "sc", "ow", "kh", "mgmt"]);
 
     const codes = cashSheetCodes();
-    // Shopping centers present; condo (3610A) + NI LLC holding (4000) excluded.
+    // Shopping centers + The Office Works (4900) + Management (2010) present;
+    // condo (3610A) + NI LLC holding (4000) excluded.
     expect(codes).toContain("1100");
     expect(codes).toContain("4900");
+    expect(codes).toContain("2010");
     expect(codes).not.toContain("3610A");
     expect(codes).not.toContain("4000");
     // JV III is exactly the three buildings.
