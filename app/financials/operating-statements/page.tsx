@@ -450,7 +450,7 @@ export default function OperatingStatementsPage() {
           return (
             <>
               <div className="pills" style={{ marginTop: 12 }}>
-                {operatingCash != null && <StatPill label="Operating Cash · YTD" value={money0(operatingCash)} accent="#0b4a7d" />}
+                {operatingCash != null && <StatPill label="Operating Cash · YTD" value={money0(operatingCash)} sub="Per GL" accent="#0b4a7d" />}
                 <StatPill label={`Cash Flow After Debt · ${mon} vs Budget`} value={fmtVarValue(cfad.periodVariance, mPct)} accent={pctAccent(mPct)} />
                 <StatPill label="Cash Flow After Debt · YTD vs Budget" value={fmtVarValue(cfad.ytdVariance, yPct)} accent={pctAccent(yPct)} />
                 <ClickablePill active={flagFilter === "unf"} activeColor="#b91c1c" onClick={() => setFlagFilter((f) => (f === "unf" ? null : "unf"))} title="Click to show only unfavorable lines">

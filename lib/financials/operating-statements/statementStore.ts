@@ -30,6 +30,9 @@ export type StoredGl = {
   /** account → Beginning Balance (opening). Present on uploads after this was
    *  added; older uploads omit it (ending balances fall back to YTD net). */
   beginning?: Record<string, number>;
+  /** account → the GL's "YTD Total" row (ending balance for balance-sheet
+   *  accounts). Drives the Operating Cash KPI. Present on newer uploads. */
+  ytdTotal?: Record<string, number>;
 };
 
 export async function saveGl(rec: StoredGl): Promise<void> {

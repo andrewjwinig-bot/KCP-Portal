@@ -116,10 +116,11 @@ describe("Detailed General Ledger parser", () => {
     expect(res.year).toBe(2026);
   });
 
-  it("captures the Beginning Balance per account (for balance-sheet ending balances)", () => {
+  it("captures the Beginning Balance + YTD Total per account (for balance-sheet ending balances)", () => {
     const m = parseGeneralLedgerMonthly(detailed);
     expect(m.beginning["6030-8502"]).toBe(3120);
-    // Ending balance = beginning + YTD net (the maintenance account's Jan total is 260).
+    // The GL's own "YTD Total" row = ending balance = beginning + YTD net.
+    expect(m.ytdTotal["6030-8502"]).toBe(3380);
     const ytd = (m.monthly["6030-8502"] ?? []).slice(0, 1).reduce((a, n) => a + n, 0);
     expect(m.beginning["6030-8502"] + ytd).toBe(3380);
   });
