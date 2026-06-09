@@ -8,6 +8,7 @@
 
 import React, { Fragment, useCallback, useEffect, useState } from "react";
 import { StatPill } from "@/app/components/Pill";
+import { DownloadMenu } from "@/app/components/DownloadMenu";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] as const;
@@ -172,6 +173,14 @@ export default function ReprojectionsPage() {
             </HeaderSelect>
           </div>
           <div style={{ display: "inline-flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            {data && (
+              <DownloadMenu
+                items={[
+                  { label: "Excel (.xlsx)", description: "Full-year blended reprojection by month", href: `/api/financials/reprojections/download?key=${encodeURIComponent(key)}&year=${year}` },
+                  { label: "PDF", description: "Presentation-ready reprojection summary", href: `/api/financials/reprojections/download/pdf?key=${encodeURIComponent(key)}&year=${year}` },
+                ]}
+              />
+            )}
             <a className="btn" href={osHref} style={crossLink} title="Open this property's Operating Statement">Operating Statements →</a>
             <a className="btn" href={budgetHref} style={crossLink} title="Open this property's Operating Budget">Budget →</a>
           </div>
