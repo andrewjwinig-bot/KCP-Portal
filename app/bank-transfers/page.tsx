@@ -8,7 +8,7 @@ import { UNIQUE_BANK_ACCOUNTS, type BankGroup } from "@/lib/bank-rec/accounts";
 import type { BankTransfer } from "@/lib/bankTransfers/storage";
 
 // Only admin / drew / harry can input or modify transfers. Alison and
-// stacie get read-only access (no New Transfer, no Edit, table rows
+// Marie get read-only access (no New Transfer, no Edit, table rows
 // don't open the editor).
 const CAN_EDIT_USERS = new Set(["admin", "drew", "harry"]);
 

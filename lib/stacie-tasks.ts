@@ -210,10 +210,10 @@ export const STACIE_TASKS: StacieTask[] = [
 
 /**
  * Drew's recurring tasks, mirrored from the Master Tracker (app/tracker/page.tsx)
- * so Stacie can view them inside her tracker via the owner filter.
+ * so Marie can view them inside her tracker via the owner filter.
  *
  * Drew's master tracker lives in localStorage on his page; checks here are
- * tracked separately in Stacie's blob store and reflect *her* view of progress.
+ * tracked separately in Marie's blob store and reflect *her* view of progress.
  * They do not sync to Drew's actual tracker.
  */
 export const DREW_TASKS: StacieTask[] = [

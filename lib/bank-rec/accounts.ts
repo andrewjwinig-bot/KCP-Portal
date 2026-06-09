@@ -1,6 +1,6 @@
 // Master list of unique bank accounts as tracked in the Bank Rec spreadsheet.
 // Source of truth for the Bank Rec Tracker. Keep in spreadsheet order within
-// each bank group so the on-screen order mirrors what Stacie sees in Excel.
+// each bank group so the on-screen order mirrors what Marie sees in Excel.
 
 export type BankGroup = "M&T" | "JPM-Chase" | "Liberty Bank";
 
