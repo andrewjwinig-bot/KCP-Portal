@@ -514,6 +514,21 @@ const NAV = [
     ),
   },
   {
+    label: "Reprojections",
+    href: "/financials/reprojections",
+    external: false,
+    indent: false,
+    showFor: null as string | null,
+    groupId: "financials",
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3 3v18h18" />
+        <path d="M7 14l4-4 3 3 5-6" />
+        <polyline points="16 4 19 4 19 7" />
+      </svg>
+    ),
+  },
+  {
     label: "Budgets",
     href: "/financials/budgets",
     external: false,
@@ -526,21 +541,6 @@ const NAV = [
         <line x1="3" y1="10" x2="21" y2="10" />
         <line x1="8" y1="14" x2="16" y2="14" />
         <line x1="8" y1="17" x2="13" y2="17" />
-      </svg>
-    ),
-  },
-  {
-    label: "Reprojections",
-    href: "/financials/reprojections",
-    external: false,
-    indent: false,
-    showFor: null as string | null,
-    groupId: "financials",
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M3 3v18h18" />
-        <path d="M7 14l4-4 3 3 5-6" />
-        <polyline points="16 4 19 4 19 7" />
       </svg>
     ),
   },
