@@ -59,14 +59,15 @@ export type CashSheetProperty = { code: string; name: string };
 export type CashSheetGroup = { id: string; label: string; properties: CashSheetProperty[] };
 
 // Fund groups, in display order. Derived from PROPERTY_DEFS so we never re-key
-// the property list. Holding/condo entities (entityKind set), Land, and the
-// management entity are excluded — they don't run an operating cash position.
+// the property list. Holding/condo entities (entityKind set) and Land are
+// excluded — they don't run an operating cash position.
 const GROUP_ORDER: { id: string; label: string; match: (p: typeof PROPERTY_DEFS[number]) => boolean }[] = [
   { id: "jv3",   label: "JV III",           match: (p) => p.type === "Office" && p.fundGroup === "JV III" && !p.entityKind },
   { id: "nillc", label: "NI LLC",           match: (p) => p.type === "Office" && p.fundGroup === "NI LLC" && !p.entityKind },
   { id: "sc",    label: "Shopping Centers", match: (p) => p.type === "Retail" },
   { id: "ow",    label: "The Office Works", match: (p) => p.id === "4900" },
   { id: "kh",    label: "Korman Homes",     match: (p) => p.type === "Residential" },
+  { id: "mgmt",  label: "Management",       match: (p) => p.id === "2010" },
 ];
 
 /** Operating properties grouped by fund, in display order. */
