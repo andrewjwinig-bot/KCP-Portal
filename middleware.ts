@@ -37,6 +37,15 @@ export async function middleware(req: NextRequest) {
   // ── Site-wide auth ──────────────────────────────────────────────────
   const sitePassword = process.env.SITE_PASSWORD;
   const siteSecret = process.env.SITE_AUTH_SECRET;
+  // Fail closed on any deployed (Vercel) environment when auth isn't
+  // configured — a financial app should never serve open on a public URL,
+  // including preview deployments. Local dev (no VERCEL env) stays open.
+  if (!(sitePassword && siteSecret) && process.env.VERCEL) {
+    const msg = "Site authentication is not configured (SITE_PASSWORD / SITE_AUTH_SECRET).";
+    return pathname.startsWith("/api/")
+      ? NextResponse.json({ error: msg }, { status: 503 })
+      : new NextResponse(msg, { status: 503, headers: { "content-type": "text/plain" } });
+  }
   if (sitePassword && siteSecret) {
     const siteToken = req.cookies.get(SITE_COOKIE)?.value;
     const siteUser = await verifySiteToken(siteToken, siteSecret);

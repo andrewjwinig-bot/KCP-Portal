@@ -3,6 +3,7 @@ import { createHmac, timingSafeEqual, randomBytes } from "crypto";
 import { SITE_COOKIE, signSiteToken } from "@/lib/site-auth";
 import { HISTORY_COOKIE, signHistoryToken } from "@/lib/history-auth";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { verifyUserPassword } from "@/lib/user-passwords";
 import { ALL_USERS } from "@/lib/users";
 
 export const runtime = "nodejs";
@@ -55,21 +56,38 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Select a valid user" }, { status: 400 });
   }
 
-  // admin and drew sign in at the admin tier — admin password + elevated cookie.
+  // admin and drew sign in at the admin tier — elevated cookie.
   const isAdmin = user === "admin" || user === "drew";
   const adminPassword = process.env.HISTORY_PASSWORD;
   const adminSecret = process.env.HISTORY_AUTH_SECRET;
-  if (isAdmin && (!adminPassword || !adminSecret)) {
-    return NextResponse.json(
-      { error: "Admin auth is not configured. Set HISTORY_PASSWORD and HISTORY_AUTH_SECRET env vars." },
-      { status: 503 },
-    );
-  }
 
-  const expected = isAdmin ? adminPassword : employeePassword;
-  if (!password || !safeEqual(password, expected)) {
+  // Verify against the user's OWN password when configured (proves identity);
+  // otherwise fall back to the shared tier password.
+  const perUser = verifyUserPassword(user, password);
+  let ok: boolean;
+  if (perUser !== null) {
+    ok = perUser;
+  } else {
+    if (isAdmin && (!adminPassword || !adminSecret)) {
+      return NextResponse.json(
+        { error: "Admin auth is not configured. Set HISTORY_PASSWORD and HISTORY_AUTH_SECRET env vars." },
+        { status: 503 },
+      );
+    }
+    const expected = isAdmin ? adminPassword : employeePassword;
+    ok = !!password && !!expected && safeEqual(password, expected);
+  }
+  if (!ok) {
     // Generic message — don't leak which field was wrong.
     return NextResponse.json({ error: "Incorrect password" }, { status: 401 });
+  }
+  // The elevated cookie is signed with the admin secret — required for admins
+  // even when they authenticated via a per-user password.
+  if (isAdmin && !adminSecret) {
+    return NextResponse.json(
+      { error: "Admin auth is not configured. Set HISTORY_AUTH_SECRET env var." },
+      { status: 503 },
+    );
   }
 
   const site = await signSiteToken(siteSecret, user);
