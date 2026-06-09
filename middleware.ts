@@ -28,6 +28,9 @@ const ADMIN_PATH_PREFIXES = [
   "/api/periods",
   "/audit",
   "/api/audit",
+  // 2FA enrollment — rolled out to the admin tier first (admin + Drew).
+  "/security",
+  "/api/2fa",
 ];
 
 function isAdminPath(pathname: string): boolean {

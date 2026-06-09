@@ -5,6 +5,8 @@ import { HISTORY_COOKIE, signHistoryToken } from "@/lib/history-auth";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { verifyUserPassword } from "@/lib/user-passwords";
 import { logAudit, auditIp } from "@/lib/audit";
+import { totpRequired, getSecret } from "@/lib/totp-store";
+import { verifyTotp } from "@/lib/totp";
 import { ALL_USERS } from "@/lib/users";
 
 export const runtime = "nodejs";
@@ -48,7 +50,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Too many attempts. Try again later." }, { status: 429 });
   }
 
-  let body: { user?: string; password?: string } = {};
+  let body: { user?: string; password?: string; code?: string } = {};
   try { body = await req.json(); } catch { /* ignore */ }
   const user = String(body?.user ?? "");
   const password = String(body?.password ?? "");
@@ -90,6 +92,20 @@ export async function POST(req: NextRequest) {
       { error: "Admin auth is not configured. Set HISTORY_AUTH_SECRET env var." },
       { status: 503 },
     );
+  }
+
+  // Second factor (when the user has 2FA enabled). Password is correct at this
+  // point; require a valid TOTP code before issuing the session.
+  if (await totpRequired(user)) {
+    const code = String(body?.code ?? "").trim();
+    if (!code) {
+      return NextResponse.json({ twoFactorRequired: true }, { status: 401 });
+    }
+    const secret = await getSecret(user);
+    if (!secret || !verifyTotp(secret, code)) {
+      await logAudit({ event: "2fa.fail", user, ip: auditIp(req) });
+      return NextResponse.json({ twoFactorRequired: true, error: "Incorrect code" }, { status: 401 });
+    }
   }
 
   const site = await signSiteToken(siteSecret, user);
