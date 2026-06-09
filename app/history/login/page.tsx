@@ -9,7 +9,7 @@ function LoginForm() {
   const next = params.get("next") || "/history";
   const personaParam = params.get("persona") || "admin";
   // Whitelist personas that may be set via the login redirect.
-  const targetPersona = ["admin", "stacie"].includes(personaParam) ? personaParam : "admin";
+  const targetPersona = ["admin", "marie"].includes(personaParam) ? personaParam : "admin";
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);

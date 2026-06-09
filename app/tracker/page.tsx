@@ -7,11 +7,11 @@ import {
   masterTrackerLabel, isTaskEffectivelyDone,
 } from "./tax-data";
 import {
-  STACIE_TASKS,
+  MARIE_TASKS,
   FREQUENCY_LABELS, FREQUENCY_ORDER,
   checkedKey, currentPeriod,
   type Frequency,
-} from "../../lib/stacie-tasks";
+} from "../../lib/marie-tasks";
 import { useUser } from "../components/UserProvider";
 import { UNIQUE_BANK_ACCOUNTS } from "../../lib/bank-rec/accounts";
 import { bankRecKey, bankRecPeriod } from "../../lib/bank-rec/util";
@@ -21,11 +21,11 @@ import {
   type Category, type TaskDef, type TaskInstructions,
 } from "../../lib/tracker/taskDefs";
 
-type OwnerFilter = "drew" | "stacie" | "both";
+type OwnerFilter = "drew" | "marie" | "both";
 
 const OWNER_FILTERS: { id: OwnerFilter; label: string }[] = [
   { id: "drew",   label: "Drew" },
-  { id: "stacie", label: "Marie" },
+  { id: "marie", label: "Marie" },
   { id: "both",   label: "Both" },
 ];
 
@@ -62,42 +62,42 @@ export default function TrackerPage() {
   const [filterCat, setFilterCat] = useState<Category | "all">("all");
   const [detailTask, setDetailTask] = useState<{ label: string; instructions?: TaskInstructions } | null>(null);
 
-  // ── Owner filter: Drew (default for admin/maint), Marie (default for stacie), Both ──
+  // ── Owner filter: Drew (default for admin/maint), Marie (default for marie), Both ──
   const [ownerFilter, setOwnerFilter] = useState<OwnerFilter>(
-    user.id === "stacie" ? "stacie" : "drew",
+    user.id === "marie" ? "marie" : "drew",
   );
   useEffect(() => {
-    setOwnerFilter(user.id === "stacie" ? "stacie" : "drew");
+    setOwnerFilter(user.id === "marie" ? "marie" : "drew");
   }, [user.id]);
 
-  // ── Marie task state (period-bucketed, synced to /api/stacie-tasks) ──
-  const [stacieChecked, setStacieChecked] = useState<Record<string, boolean>>({});
-  const [stacieLoading, setStacieLoading] = useState(true);
-  const [stacieError,   setStacieError]   = useState<string | null>(null);
+  // ── Marie task state (period-bucketed, synced to /api/marie-tasks) ──
+  const [marieChecked, setMarieChecked] = useState<Record<string, boolean>>({});
+  const [marieLoading, setMarieLoading] = useState(true);
+  const [marieError,   setMarieError]   = useState<string | null>(null);
   const [openFreqs, setOpenFreqs] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(FREQUENCY_ORDER.map((f) => [f, true])),
   );
 
   // Only fetch Marie's task state when the view actually needs it
-  const showStacie = ownerFilter !== "drew";
+  const showMarie = ownerFilter !== "drew";
   useEffect(() => {
-    if (!showStacie) return;
-    setStacieLoading(true);
-    fetch("/api/stacie-tasks")
+    if (!showMarie) return;
+    setMarieLoading(true);
+    fetch("/api/marie-tasks")
       .then((r) => r.json())
-      .then((j) => setStacieChecked(j.checked ?? {}))
+      .then((j) => setMarieChecked(j.checked ?? {}))
       .catch(() => {})
-      .finally(() => setStacieLoading(false));
-  }, [showStacie]);
+      .finally(() => setMarieLoading(false));
+  }, [showMarie]);
 
   // Live bank rec progress for the per-task progress bars
   const [bankStmtMap, setBankStmtMap] = useState<Record<string, boolean>>({});
   const [bankRecMap,  setBankRecMap]  = useState<Record<string, boolean>>({});
   useEffect(() => {
-    if (!showStacie) return;
+    if (!showMarie) return;
     fetch("/api/bank-rec/statements").then((r) => r.json()).then((j) => setBankStmtMap(j.statements ?? {})).catch(() => {});
     fetch("/api/bank-rec").then((r) => r.json()).then((j) => setBankRecMap(j.checked ?? {})).catch(() => {});
-  }, [showStacie]);
+  }, [showMarie]);
 
   function bankProgress(kind: "statements" | "reconciled"): { done: number; total: number } {
     const period = bankRecPeriod();
@@ -113,44 +113,44 @@ export default function TrackerPage() {
   }, [viewYear, viewMonth]);
 
   // ── Marie task helpers ───────────────────────────────────────────
-  const stacieByFreq = useMemo(() => {
-    const groups: Record<Frequency, typeof STACIE_TASKS> = {
+  const marieByFreq = useMemo(() => {
+    const groups: Record<Frequency, typeof MARIE_TASKS> = {
       weekly: [], monthly: [], quarterly: [], semiannual: [], annual: [], ongoing: [], eoy: [],
     };
-    for (const t of STACIE_TASKS) groups[t.frequency].push(t);
+    for (const t of MARIE_TASKS) groups[t.frequency].push(t);
     return groups;
   }, []);
 
-  async function toggleStacieTask(taskId: string, freq: Frequency) {
+  async function toggleMarieTask(taskId: string, freq: Frequency) {
     const period = currentPeriod(freq);
     const key = checkedKey(taskId, period);
-    const next = { ...stacieChecked };
+    const next = { ...marieChecked };
     if (next[key]) delete next[key];
     else next[key] = true;
-    setStacieChecked(next);
+    setMarieChecked(next);
     try {
-      const res = await fetch("/api/stacie-tasks", {
+      const res = await fetch("/api/marie-tasks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ checked: next }),
       });
       if (!res.ok) throw new Error("Save failed");
-      setStacieError(null);
+      setMarieError(null);
     } catch (e: any) {
-      setStacieError(e?.message ?? "Save failed");
+      setMarieError(e?.message ?? "Save failed");
     }
   }
 
   function toggleFreq(f: Frequency) {
     setOpenFreqs((prev) => ({ ...prev, [f]: !prev[f] }));
   }
-  function isStacieChecked(taskId: string, freq: Frequency): boolean {
-    return !!stacieChecked[checkedKey(taskId, currentPeriod(freq))];
+  function isMarieChecked(taskId: string, freq: Frequency): boolean {
+    return !!marieChecked[checkedKey(taskId, currentPeriod(freq))];
   }
   function freqCount(freq: Frequency): { total: number; done: number } {
-    const tasks = stacieByFreq[freq];
+    const tasks = marieByFreq[freq];
     let done = 0;
-    for (const t of tasks) if (isStacieChecked(t.id, freq)) done++;
+    for (const t of tasks) if (isMarieChecked(t.id, freq)) done++;
     return { total: tasks.length, done };
   }
 
@@ -304,12 +304,12 @@ export default function TrackerPage() {
             );
           })}
         </div>
-        {showStacie && stacieError && (
-          <span style={{ color: "#b91c1c", fontSize: 12, fontWeight: 600 }}>· {stacieError}</span>
+        {showMarie && marieError && (
+          <span style={{ color: "#b91c1c", fontSize: 12, fontWeight: 600 }}>· {marieError}</span>
         )}
       </div>
 
-      {ownerFilter !== "stacie" && (<>
+      {ownerFilter !== "marie" && (<>
       {/* ── Summary pills ────────────────────────────────────────────────── */}
       <div className="pills" style={{ justifyContent: "flex-start", marginBottom: 20 }}>
         <div className="pill">
@@ -813,7 +813,7 @@ export default function TrackerPage() {
       </>)}
 
       {/* ── Marie's recurring tasks (frequency-bucketed) ───────────────── */}
-      {showStacie && (
+      {showMarie && (
         <div className="card" style={{ marginTop: ownerFilter === "both" ? 18 : 0 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
             <b style={{ fontSize: 17 }}>
@@ -832,12 +832,12 @@ export default function TrackerPage() {
             Checkboxes auto-reset each new period (week, month, quarter, etc.). State syncs across devices.
           </p>
 
-          {stacieLoading ? (
+          {marieLoading ? (
             <div className="muted small" style={{ marginTop: 12 }}>Loading…</div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 14 }}>
               {FREQUENCY_ORDER.map((freq) => {
-                const tasks = stacieByFreq[freq];
+                const tasks = marieByFreq[freq];
                 if (!tasks.length) return null;
                 const { total: stTotal, done: stDone } = freqCount(freq);
                 const open = openFreqs[freq];
@@ -865,14 +865,14 @@ export default function TrackerPage() {
                     {open && (
                       <div style={{ borderTop: "1px solid var(--border)" }}>
                         {tasks.map((t, i) => {
-                          const isDone = isStacieChecked(t.id, freq);
+                          const isDone = isMarieChecked(t.id, freq);
                           const progress = t.bankRecProgress ? bankProgress(t.bankRecProgress) : null;
                           const pct = progress && progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0;
                           const progressColor = t.bankRecProgress === "reconciled" ? "#16a34a" : "#0b4a7d";
                           return (
                             <label
                               key={t.id}
-                              htmlFor={`stacie-task-${t.id}`}
+                              htmlFor={`marie-task-${t.id}`}
                               style={{
                                 display: "grid", gridTemplateColumns: "32px 1fr", gap: 12,
                                 padding: "12px 16px",
@@ -882,10 +882,10 @@ export default function TrackerPage() {
                               }}
                             >
                               <input
-                                id={`stacie-task-${t.id}`}
+                                id={`marie-task-${t.id}`}
                                 type="checkbox"
                                 checked={isDone}
-                                onChange={() => toggleStacieTask(t.id, freq)}
+                                onChange={() => toggleMarieTask(t.id, freq)}
                                 style={{ width: 20, height: 20, marginTop: 2, cursor: "pointer" }}
                               />
                               <div style={{ minWidth: 0 }}>

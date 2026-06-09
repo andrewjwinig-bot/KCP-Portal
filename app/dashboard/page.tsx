@@ -9,7 +9,7 @@ import { useUser } from "../components/UserProvider";
 import { PROPERTY_DEFS } from "../../lib/properties/data";
 import { UNIQUE_BANK_ACCOUNTS } from "../../lib/bank-rec/accounts";
 import { bankRecKey, nextBankRecDeadline, nextStatementsDeadline, bankRecPeriodLabel } from "../../lib/bank-rec/util";
-import { checkedKey, currentPeriod } from "../../lib/stacie-tasks";
+import { checkedKey, currentPeriod } from "../../lib/marie-tasks";
 import { fireNotification } from "../../lib/notifications";
 import ExpirationChart from "./ExpirationChart";
 import DrewSavedStatus from "./DrewSavedStatus";
@@ -112,11 +112,11 @@ function DashboardInner() {
   const [dismissedNotices, setDismissedNotices] = useState<Set<string>>(new Set());
   const [bankRecChecked, setBankRecChecked] = useState<Record<string, boolean>>({});
   const [bankStmtChecked, setBankStmtChecked] = useState<Record<string, boolean>>({});
-  const [stacieChecked, setStacieChecked] = useState<Record<string, boolean>>({});
+  const [marieChecked, setMarieChecked] = useState<Record<string, boolean>>({});
 
   // Marie & admin: bank-rec action items. Drew also sees the progress
   // donuts (status at a glance) but not the action items themselves.
-  const showBankRec = user.id === "stacie" || user.navKeys.has("all");
+  const showBankRec = user.id === "marie" || user.navKeys.has("all");
   const showBankDonuts = showBankRec || user.id === "drew";
   useEffect(() => {
     if (!showBankDonuts) return;
@@ -126,8 +126,8 @@ function DashboardInner() {
 
   // Marie: weekly task state — drives the ACH/wires action-item reminder.
   useEffect(() => {
-    if (user.id !== "stacie") return;
-    fetch("/api/stacie-tasks").then((r) => r.json()).then((j) => setStacieChecked(j.checked ?? {})).catch(() => {});
+    if (user.id !== "marie") return;
+    fetch("/api/marie-tasks").then((r) => r.json()).then((j) => setMarieChecked(j.checked ?? {})).catch(() => {});
   }, [user.id]);
 
   const bankRec = useMemo(() => {
@@ -186,13 +186,13 @@ function DashboardInner() {
   const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
   const isAdmin = user.id === "admin";
-  const isStacie = user.id === "stacie";
+  const isMarie = user.id === "marie";
   const isAlison = user.id === "alison";
   const isHarryUser = user.id === "harry";
 
   // Bank-transfer notifications — surface recent transfers on Harry,
   // Drew, Marie and admin's dashboards. Dismissible.
-  const showBankTransferNotices = isAdmin || isStacie || isHarryUser || user.id === "drew";
+  const showBankTransferNotices = isAdmin || isMarie || isHarryUser || user.id === "drew";
   const [bankTransferNotices, setBankTransferNotices] = useState<
     { id: string; date: string; from: string; to: string; amount: number; description: string; createdAt: string }[]
   >([]);
@@ -386,7 +386,7 @@ function DashboardInner() {
   const expiringScope: "office" | "retail" | "all" | "none" =
     user.id === "nancy"  ? "office" :
     user.id === "harry"  ? "retail" :
-    user.id === "stacie" ? "none"   :
+    user.id === "marie" ? "none"   :
     "all";
   const showExpiring = expiringScope !== "none";
 
@@ -544,7 +544,7 @@ function DashboardInner() {
           <PortfolioOccupancyPanel rentroll={rentroll} scopes={["retail"]} order={-1} />
         ) : isAlison ? (
           <PortfolioOccupancyPanel rentroll={rentroll} scopes={["category", "office", "jv3", "ni", "retail", "residential"]} order={-1} />
-        ) : isDrew ? null : isStacie ? null : (
+        ) : isDrew ? null : isMarie ? null : (
         <Link href="/rentroll" className="card" style={{ display: "block", textDecoration: "none", color: "inherit", cursor: "pointer", transition: "box-shadow 0.15s, transform 0.15s", order: 0 }}
           onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.boxShadow = "0 4px 16px rgba(15,23,42,0.08)"; }}
           onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.boxShadow = ""; }}>
@@ -819,8 +819,8 @@ function DashboardInner() {
                 );
               })()}
 
-              {isStacie && (() => {
-                const achDone = !!stacieChecked[checkedKey("wkly-dl-ach-wires", currentPeriod("weekly"))];
+              {isMarie && (() => {
+                const achDone = !!marieChecked[checkedKey("wkly-dl-ach-wires", currentPeriod("weekly"))];
                 if (achDone) return null;
                 const id = `ach-wires-${currentPeriod("weekly")}`;
                 if (dismissedNotices.has(id)) return null;
@@ -915,7 +915,7 @@ function DashboardInner() {
         {user.id === "drew" && <DrewSavedStatus />}
 
         {/* ── New Bank Transfers — surface recent transfers for admin /
-             drew / harry / stacie. Each card is dismissible. ── */}
+             drew / harry / marie. Each card is dismissible. ── */}
         {showBankTransferNotices && bankTransferNotices.some((n) => !dismissedNotices.has(n.id)) && (
           <div className="card" style={{ gridColumn: "1 / -1", order: -4 }}>
             <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 8 }}>
@@ -956,7 +956,7 @@ function DashboardInner() {
 
         {/* ── Monthly bank progress donuts (Marie + admin; Drew at a glance) ── */}
         {showBankDonuts && (
-          <div className="card" style={{ order: isStacie ? -1 : 0 }}>
+          <div className="card" style={{ order: isMarie ? -1 : 0 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
               <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
                 Monthly Progress · {bankRecPeriodLabel(bankRec.period)}
@@ -1069,7 +1069,7 @@ function DashboardInner() {
       )}
 
       {/* ── Upcoming filings (admin only) ── */}
-      {(isAdmin || isStacie) && (
+      {(isAdmin || isMarie) && (
       <div className="card">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
           <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>Upcoming Filings (next 45 days)</div>

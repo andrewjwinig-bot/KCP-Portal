@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
-export default function StacieTrackerRedirect() {
+export default function MarieTrackerRedirect() {
   redirect("/tracker");
 }
