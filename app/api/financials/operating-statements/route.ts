@@ -53,6 +53,15 @@ export async function GET(req: Request) {
   const period = Math.min(Math.max(1, requested), stored.maxPeriodInFile);
   const gl = summaryForPeriod(stored.monthly, period);
 
+  // Operating Cash — ending YTD balance of the Cash-Operating account
+  // (0110-0000): opening Beginning Balance + YTD net change. A balance-sheet
+  // account, so it's not on the P&L; surfaced as a KPI. Null when absent.
+  const CASH_ACCT = "0110-0000";
+  const cashNets = stored.monthly[CASH_ACCT];
+  const operatingCash = cashNets
+    ? (stored.beginning?.[CASH_ACCT] ?? 0) + cashNets.slice(0, period).reduce((a, n) => a + n, 0)
+    : null;
+
   // Budget columns: line up to the portal budget via the same masks. Falls back
   // to the nearest available budget year (so a 2025 sample shows the 2026
   // budget); the page labels the year used.
@@ -87,6 +96,7 @@ export async function GET(req: Request) {
     notes,
     noteSources,
     noteMeta,
+    operatingCash,
     statement,
   });
 }
@@ -148,6 +158,7 @@ export async function POST(req: Request) {
       fileName: file.name,
       maxPeriodInFile: parsed.maxPeriodInFile,
       monthly: parsed.monthly,
+      beginning: parsed.beginning,
     });
     await saveTransactions(id, parsed.transactions);
 

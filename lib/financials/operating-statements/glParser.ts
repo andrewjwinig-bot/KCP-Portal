@@ -34,6 +34,10 @@ export type GlMonthly = {
   maxPeriodInFile: number;
   /** account → 12 monthly nets (Jan–Dec). */
   monthly: Record<string, number[]>;
+  /** account → opening (Beginning Balance) on the account header row. Zero/
+   *  absent for P&L; carries the prior-year carry-forward for balance-sheet
+   *  accounts (e.g. Cash), so an ending balance = beginning + YTD net. */
+  beginning: Record<string, number>;
   /** account → individual transactions, for the line-item drill-down. */
   transactions: Record<string, GlTransaction[]>;
 };
@@ -158,8 +162,9 @@ function parseHeader(rows: Row[]): { propertyCode: string | null; year: number |
  *  January), so bucketing by Trans Date would mis-assign the period. The amount
  *  sits in the single signed Amount column. */
 type DetailCols = { amount: number; date: number; vendor: number; ref: number; desc: number };
-function monthlyFromDetailed(rows: Row[], cols: DetailCols): { monthly: Record<string, number[]>; maxMonth: number; transactions: Record<string, GlTransaction[]> } {
+function monthlyFromDetailed(rows: Row[], cols: DetailCols): { monthly: Record<string, number[]>; beginning: Record<string, number>; maxMonth: number; transactions: Record<string, GlTransaction[]> } {
   const monthly: Record<string, number[]> = {};
+  const beginning: Record<string, number> = {};
   const transactions: Record<string, GlTransaction[]> = {};
   let current: string | null = null;
   let maxMonth = 0;
@@ -170,6 +175,9 @@ function monthlyFromDetailed(rows: Row[], cols: DetailCols): { monthly: Record<s
       current = c1;
       if (!monthly[current]) monthly[current] = new Array(12).fill(0);
       if (!transactions[current]) transactions[current] = [];
+      // The account header row also carries the Beginning Balance in the Amount
+      // column — captured for balance-sheet ending balances (e.g. Cash).
+      beginning[current] = numIn(row, cols.amount, cols.amount + 1);
       buffer = [];
       continue;
     }
@@ -202,7 +210,7 @@ function monthlyFromDetailed(rows: Row[], cols: DetailCols): { monthly: Record<s
       amount: numIn(row, cols.amount, cols.amount + 1),
     });
   }
-  return { monthly, maxMonth, transactions };
+  return { monthly, beginning, maxMonth, transactions };
 }
 
 /** Year-To-Date GL: read the per-account monthly "Total" rows (Debit − Credit). */
@@ -246,6 +254,7 @@ export function parseGeneralLedgerMonthly(rows: Row[]): GlMonthly {
   const amountCol = headerCol(rows, "amount");
   const hasDebit = headerCol(rows, "debit") != null;
   let monthly: Record<string, number[]>;
+  let beginning: Record<string, number> = {};
   let maxMonth: number;
   let transactions: Record<string, GlTransaction[]> = {};
   if (amountCol != null && !hasDebit) {
@@ -256,7 +265,7 @@ export function parseGeneralLedgerMonthly(rows: Row[]): GlMonthly {
       ref: headerCol(rows, "check", "jnl ref") ?? 9,
       desc: headerCol(rows, "invoice description", "jnl description") ?? 16,
     };
-    ({ monthly, maxMonth, transactions } = monthlyFromDetailed(rows, cols));
+    ({ monthly, beginning, maxMonth, transactions } = monthlyFromDetailed(rows, cols));
   } else {
     ({ monthly, maxMonth } = monthlyFromDebitCredit(rows));
   }
@@ -265,7 +274,7 @@ export function parseGeneralLedgerMonthly(rows: Row[]): GlMonthly {
   // fall back to the last month with activity if the range can't be read.
   const maxPeriodInFile = endMonth ?? (maxMonth || 12);
 
-  return { propertyCode, year, maxPeriodInFile, monthly, transactions };
+  return { propertyCode, year, maxPeriodInFile, monthly, beginning, transactions };
 }
 
 /** Collapse monthly nets into the period + YTD summary the compute consumes. */

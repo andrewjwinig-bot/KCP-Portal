@@ -208,6 +208,7 @@ export default function OperatingStatementsPage() {
   const [budgetFallback, setBudgetFallback] = useState(false);
   const [statement, setStatement] = useState<PropertyStatement | null>(null);
   const [notes, setNotes] = useState<Record<string, string>>({});
+  const [operatingCash, setOperatingCash] = useState<number | null>(null);
   const [noteSources, setNoteSources] = useState<Record<string, "user" | "ai">>({});
   const [noteMeta, setNoteMeta] = useState<Record<string, { editedAt: string; editedBy: string }>>({});
   const [message, setMessage] = useState<string | null>(null);
@@ -263,6 +264,7 @@ export default function OperatingStatementsPage() {
       const j = await fetch(`/api/financials/operating-statements?${qs}`).then((r) => r.json());
       setStatement(j.statement ?? null);
       setNotes(j.notes ?? {});
+      setOperatingCash(j.operatingCash ?? null);
       setNoteSources(j.noteSources ?? {});
       setNoteMeta(j.noteMeta ?? {});
       setMessage(j.message ?? null);
@@ -448,6 +450,7 @@ export default function OperatingStatementsPage() {
           return (
             <>
               <div className="pills" style={{ marginTop: 12 }}>
+                {operatingCash != null && <StatPill label="Operating Cash · YTD" value={money0(operatingCash)} accent="#0b4a7d" />}
                 <StatPill label={`Cash Flow After Debt · ${mon} vs Budget`} value={fmtVarValue(cfad.periodVariance, mPct)} accent={pctAccent(mPct)} />
                 <StatPill label="Cash Flow After Debt · YTD vs Budget" value={fmtVarValue(cfad.ytdVariance, yPct)} accent={pctAccent(yPct)} />
                 <ClickablePill active={flagFilter === "unf"} activeColor="#b91c1c" onClick={() => setFlagFilter((f) => (f === "unf" ? null : "unf"))} title="Click to show only unfavorable lines">
@@ -587,16 +590,16 @@ function StatementTable({ s, viewKey, budgetYear, budgetFallback, notes, noteSou
         </div>
       )}
       {s.unmappedAccounts.length > 0 && (
-        <div style={{ padding: "10px 12px", borderRadius: 8, background: "rgba(180,83,9,0.06)", border: "1px solid rgba(180,83,9,0.3)" }}>
-          <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.04em", color: "#b45309" }}>
-            Trial-balance tie-out — {s.unmappedAccounts.length} GL account{s.unmappedAccounts.length === 1 ? "" : "s"} not on the statement
+        <div style={{ padding: "10px 12px", borderRadius: 8, background: "rgba(15,23,42,0.025)", border: "1px solid var(--border)" }}>
+          <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--muted)" }}>
+            Non-operating accounts — not on the operating statement ({s.unmappedAccounts.length})
           </div>
           <div className="muted small" style={{ marginTop: 4, lineHeight: 1.6 }}>
-            These carry a YTD balance but map to no statement line (depreciation, interest, balance-sheet, deferred costs, rounding). Expected for non-operating accounts; review if an operating account appears here.
+            Balance-sheet & offset accounts carrying a YTD balance but no P&L line — e.g. Prepaid Insurance (the offset to Insurance expense), Cash, depreciation, interest, deferred costs. Expected here; review only if a true operating account appears.
           </div>
           <div style={{ marginTop: 6, display: "flex", flexWrap: "wrap", gap: 6 }}>
             {s.unmappedAccounts.slice(0, 24).map((u) => (
-              <span key={u.account} className="muted" style={{ fontSize: 11, fontVariantNumeric: "tabular-nums", color: "#7c2d12" }}>{u.account}: {money0(u.ytdActual)}</span>
+              <span key={u.account} className="muted" style={{ fontSize: 11, fontVariantNumeric: "tabular-nums" }}>{u.account}: {money0(u.ytdActual)}</span>
             ))}
           </div>
         </div>
