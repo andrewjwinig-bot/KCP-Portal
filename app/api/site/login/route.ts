@@ -4,6 +4,7 @@ import { SITE_COOKIE, signSiteToken } from "@/lib/site-auth";
 import { HISTORY_COOKIE, signHistoryToken } from "@/lib/history-auth";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { verifyUserPassword } from "@/lib/user-passwords";
+import { logAudit, auditIp } from "@/lib/audit";
 import { ALL_USERS } from "@/lib/users";
 
 export const runtime = "nodejs";
@@ -78,6 +79,7 @@ export async function POST(req: NextRequest) {
     ok = !!password && !!expected && safeEqual(password, expected);
   }
   if (!ok) {
+    await logAudit({ event: "login.fail", user, ip: auditIp(req), detail: isAdmin ? "admin tier" : "employee tier" });
     // Generic message — don't leak which field was wrong.
     return NextResponse.json({ error: "Incorrect password" }, { status: 401 });
   }
@@ -100,5 +102,6 @@ export async function POST(req: NextRequest) {
     res.cookies.set(HISTORY_COOKIE, hist.value, { ...COOKIE_OPTS, maxAge: hist.maxAge });
   }
 
+  await logAudit({ event: "login.success", user, ip: auditIp(req), detail: isAdmin ? "admin tier" : "employee tier" });
   return res;
 }

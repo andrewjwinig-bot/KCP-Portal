@@ -6,6 +6,7 @@ import { availableStatements, getMapping } from "@/lib/financials/operating-stat
 import { resolvePropertyBudget, makeBudgetLookup } from "@/lib/financials/operating-statements/budgetCrosswalk";
 import { saveGl, latestGl, getGl, versionsFor, listGls, getNotesBundle, saveNote, saveTransactions } from "@/lib/financials/operating-statements/statementStore";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
+import { logAudit, auditIp } from "@/lib/audit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -162,6 +163,7 @@ export async function POST(req: Request) {
       ytdTotal: parsed.ytdTotal,
     });
     await saveTransactions(id, parsed.transactions);
+    await logAudit({ event: "gl.upload", user: typeof uploadedByRaw === "string" ? uploadedByRaw : key, ip: auditIp(req), detail: `${key} ${parsed.year} · ${file.name}` });
 
     return NextResponse.json({
       ok: true,

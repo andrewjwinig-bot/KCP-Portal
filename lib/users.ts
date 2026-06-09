@@ -79,6 +79,7 @@ export const USERS: Record<UserId, UserDef> = {
       "deposits",
       "bank-transfers",
       "financials-budgets",
+      "audit",
     ]),
     allowedPathPrefixes: [
       "/dashboard",
@@ -91,6 +92,7 @@ export const USERS: Record<UserId, UserDef> = {
       "/bank-transfers",
       "/financials",
       "/cam-recon",
+      "/audit",
     ],
     defaultRentRollCategory: "All",
     defaultPropertyType: "all",
