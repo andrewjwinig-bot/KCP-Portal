@@ -208,4 +208,4 @@ export function computeStatement(input: ComputeInput): PropertyStatement {
   };
 }
 
-export { isExpenseRole };
+export { isExpenseRole, roleSign, favorability, REVENUE_STORED_AS_CREDIT };
