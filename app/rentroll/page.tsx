@@ -413,7 +413,7 @@ function UnitsTable({ units, propertyCode, hideNNN, tenantMeta, onBaseYearChange
   const hideRent = user.id === "maint";
   // Base Year is editable for Nancy and admin only — everyone else sees it
   // as static text (no input). Stops other personas (Drew, Harry, Alison,
-  // Stacie) from accidentally rewriting a tenant's base year.
+  // Marie) from accidentally rewriting a tenant's base year.
   const baseYearReadOnly = !(user.id === "nancy" || user.id === "admin");
   const [showAll, setShowAll] = useState(true);
   const displayed = showAll ? units : units.slice(0, 10);

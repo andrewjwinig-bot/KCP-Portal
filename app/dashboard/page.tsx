@@ -114,7 +114,7 @@ function DashboardInner() {
   const [bankStmtChecked, setBankStmtChecked] = useState<Record<string, boolean>>({});
   const [stacieChecked, setStacieChecked] = useState<Record<string, boolean>>({});
 
-  // Stacie & admin: bank-rec action items. Drew also sees the progress
+  // Marie & admin: bank-rec action items. Drew also sees the progress
   // donuts (status at a glance) but not the action items themselves.
   const showBankRec = user.id === "stacie" || user.navKeys.has("all");
   const showBankDonuts = showBankRec || user.id === "drew";
@@ -124,7 +124,7 @@ function DashboardInner() {
     fetch("/api/bank-rec/statements").then((r) => r.json()).then((j) => setBankStmtChecked(j.statements ?? {})).catch(() => {});
   }, [showBankDonuts]);
 
-  // Stacie: weekly task state — drives the ACH/wires action-item reminder.
+  // Marie: weekly task state — drives the ACH/wires action-item reminder.
   useEffect(() => {
     if (user.id !== "stacie") return;
     fetch("/api/stacie-tasks").then((r) => r.json()).then((j) => setStacieChecked(j.checked ?? {})).catch(() => {});
@@ -191,7 +191,7 @@ function DashboardInner() {
   const isHarryUser = user.id === "harry";
 
   // Bank-transfer notifications — surface recent transfers on Harry,
-  // Drew, Stacie and admin's dashboards. Dismissible.
+  // Drew, Marie and admin's dashboards. Dismissible.
   const showBankTransferNotices = isAdmin || isStacie || isHarryUser || user.id === "drew";
   const [bankTransferNotices, setBankTransferNotices] = useState<
     { id: string; date: string; from: string; to: string; amount: number; description: string; createdAt: string }[]
@@ -381,7 +381,7 @@ function DashboardInner() {
   // Whether to render the Leases Expiring card for this persona, and how to scope it.
   //  - Nancy → office only
   //  - Harry → retail only
-  //  - Stacie → hidden entirely
+  //  - Marie → hidden entirely
   //  - everyone else (admin / maint) → all property types
   const expiringScope: "office" | "retail" | "all" | "none" =
     user.id === "nancy"  ? "office" :
@@ -458,7 +458,7 @@ function DashboardInner() {
       });
     }
 
-    // Bank statement downloads (Stacie + admin) — due 1st of the month
+    // Bank statement downloads (Marie + admin) — due 1st of the month
     if (showBankRec && bankStmt.status !== "later" && bankStmt.status !== "done") {
       fireNotification({
         title: `Download Bank Statements — ${bankRecPeriodLabel(bankStmt.period)}`,
@@ -468,7 +468,7 @@ function DashboardInner() {
       });
     }
 
-    // Bank reconciliations (Stacie + admin) — due 10th of the following month
+    // Bank reconciliations (Marie + admin) — due 10th of the following month
     if (showBankRec && bankRec.status !== "later" && bankRec.status !== "done") {
       fireNotification({
         title: `Reconcile Bank Statements — ${bankRecPeriodLabel(bankRec.period)}`,
@@ -954,7 +954,7 @@ function DashboardInner() {
           </div>
         )}
 
-        {/* ── Monthly bank progress donuts (Stacie + admin; Drew at a glance) ── */}
+        {/* ── Monthly bank progress donuts (Marie + admin; Drew at a glance) ── */}
         {showBankDonuts && (
           <div className="card" style={{ order: isStacie ? -1 : 0 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>

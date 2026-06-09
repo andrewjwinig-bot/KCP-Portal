@@ -62,7 +62,7 @@ export default function TrackerPage() {
   const [filterCat, setFilterCat] = useState<Category | "all">("all");
   const [detailTask, setDetailTask] = useState<{ label: string; instructions?: TaskInstructions } | null>(null);
 
-  // ── Owner filter: Drew (default for admin/maint), Stacie (default for stacie), Both ──
+  // ── Owner filter: Drew (default for admin/maint), Marie (default for stacie), Both ──
   const [ownerFilter, setOwnerFilter] = useState<OwnerFilter>(
     user.id === "stacie" ? "stacie" : "drew",
   );
@@ -70,7 +70,7 @@ export default function TrackerPage() {
     setOwnerFilter(user.id === "stacie" ? "stacie" : "drew");
   }, [user.id]);
 
-  // ── Stacie task state (period-bucketed, synced to /api/stacie-tasks) ──
+  // ── Marie task state (period-bucketed, synced to /api/stacie-tasks) ──
   const [stacieChecked, setStacieChecked] = useState<Record<string, boolean>>({});
   const [stacieLoading, setStacieLoading] = useState(true);
   const [stacieError,   setStacieError]   = useState<string | null>(null);
@@ -78,7 +78,7 @@ export default function TrackerPage() {
     Object.fromEntries(FREQUENCY_ORDER.map((f) => [f, true])),
   );
 
-  // Only fetch Stacie's task state when the view actually needs it
+  // Only fetch Marie's task state when the view actually needs it
   const showStacie = ownerFilter !== "drew";
   useEffect(() => {
     if (!showStacie) return;
@@ -112,7 +112,7 @@ export default function TrackerPage() {
     setSelDay(null);
   }, [viewYear, viewMonth]);
 
-  // ── Stacie task helpers ───────────────────────────────────────────
+  // ── Marie task helpers ───────────────────────────────────────────
   const stacieByFreq = useMemo(() => {
     const groups: Record<Frequency, typeof STACIE_TASKS> = {
       weekly: [], monthly: [], quarterly: [], semiannual: [], annual: [], ongoing: [], eoy: [],
@@ -277,7 +277,7 @@ export default function TrackerPage() {
         </div>
       </div>
 
-      {/* ── Owner filter (Drew / Stacie / Both) ─────────────────────────── */}
+      {/* ── Owner filter (Drew / Marie / Both) ─────────────────────────── */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18, flexWrap: "wrap" }}>
         <span style={{ fontSize: 11, fontWeight: 800, color: "var(--muted)", letterSpacing: "0.06em" }}>VIEW</span>
         <div role="tablist" aria-label="Owner filter" style={{
@@ -812,7 +812,7 @@ export default function TrackerPage() {
       </div>
       </>)}
 
-      {/* ── Stacie's recurring tasks (frequency-bucketed) ───────────────── */}
+      {/* ── Marie's recurring tasks (frequency-bucketed) ───────────────── */}
       {showStacie && (
         <div className="card" style={{ marginTop: ownerFilter === "both" ? 18 : 0 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>

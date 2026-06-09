@@ -20,7 +20,7 @@ export type CommissionEntry = {
   createdAt: number;
 };
 
-/** Per-year incentive rates mirroring Stacie's XLOOKUP table.
+/** Per-year incentive rates mirroring Marie's XLOOKUP table.
  *  Exact-match lookup just like the spreadsheet formula. */
 export const INCENTIVE_TIERS: { years: number; ratePerSqft: number }[] = [
   { years: 5,   ratePerSqft: 0.36  },

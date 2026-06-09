@@ -106,7 +106,7 @@ const PAGES: PageEntry[] = [
     keywords: ["taxes", "filings", "annual", "1065", "k1"] },
   { label: "Bank Acc Tracker", href: "/bank-rec", navKey: "bank-rec-tracker",
     description: "Bank reconciliation status by account, by month",
-    keywords: ["bank rec", "reconciliation", "accounts", "statements", "marie", "stacie"] },
+    keywords: ["bank rec", "reconciliation", "accounts", "statements", "marie"] },
   { label: "Bank Transfers", href: "/bank-transfers", navKey: "bank-transfers",
     description: "Inter-account transfer log",
     keywords: ["transfers", "wires", "advances", "reimbursements", "intercompany"] },
