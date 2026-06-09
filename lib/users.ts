@@ -1,4 +1,4 @@
-export const ALL_USERS = ["admin", "drew", "stacie", "nancy", "harry", "maint", "alison"] as const;
+export const ALL_USERS = ["admin", "drew", "marie", "nancy", "harry", "maint", "alison"] as const;
 export type UserId = typeof ALL_USERS[number];
 
 export type RentRollCategory = "All" | "Office" | "Retail" | "Residential" | "The Office Works";
@@ -98,8 +98,8 @@ export const USERS: Record<UserId, UserDef> = {
     defaultPropertyType: "all",
     dashboardScope: "groups",
   },
-  stacie: {
-    id: "stacie",
+  marie: {
+    id: "marie",
     label: "MARIE",
     // Marie sees the operational/reporting pages but not the financial
     // coding tools (Payroll Invoicer, CC Expense Coder, Allocated Invoicer)

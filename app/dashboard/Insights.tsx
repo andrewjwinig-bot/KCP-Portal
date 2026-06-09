@@ -143,7 +143,7 @@ function buildInsights(
 
   const wantsOffice = personaId === "admin" || personaId === "nancy";
   const wantsRetail = personaId === "admin" || personaId === "harry";
-  const wantsAll    = personaId === "admin" || personaId === "stacie";
+  const wantsAll    = personaId === "admin" || personaId === "marie";
 
   // ── Filings: overdue + due-soon ─────────────────────────────────────────
   if (wantsAll || personaId === "admin") {

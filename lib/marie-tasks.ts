@@ -1,6 +1,6 @@
 export type Frequency = "weekly" | "monthly" | "quarterly" | "semiannual" | "annual" | "ongoing" | "eoy";
 
-export type Owner = "stacie" | "drew";
+export type Owner = "marie" | "drew";
 
 // Rich, click-to-open task detail (numbered steps, bullets, quick links).
 export type TaskDetailStep = {
@@ -14,13 +14,13 @@ export type TaskDetail = {
   steps: TaskDetailStep[];
 };
 
-export type StacieTask = {
+export type MarieTask = {
   id: string;
   title: string;
   frequency: Frequency;
   instructions?: string; // line-broken plain text
   detail?: TaskDetail;   // rich detail shown in a modal when the task is clicked
-  owner?: Owner; // defaults to "stacie" when omitted
+  owner?: Owner; // defaults to "marie" when omitted
   /** Optional deep link rendered as a button next to the task title. */
   link?: string;
   /** When set, render a live progress bar for this task pulled from the
@@ -149,7 +149,7 @@ export const LEGAL_AP_DETAIL: TaskDetail = {
   ],
 };
 
-export const STACIE_TASKS: StacieTask[] = [
+export const MARIE_TASKS: MarieTask[] = [
   // ── Weekly ────────────────────────────────────────────────────
   {
     id: "wkly-dl-ach-wires",
@@ -216,7 +216,7 @@ export const STACIE_TASKS: StacieTask[] = [
  * tracked separately in Marie's blob store and reflect *her* view of progress.
  * They do not sync to Drew's actual tracker.
  */
-export const DREW_TASKS: StacieTask[] = [
+export const DREW_TASKS: MarieTask[] = [
   // ── Daily reminders → "ongoing" bucket ───────────────────────────
   { id: "drew-daily-chase", title: "Chase Bank Approvals", frequency: "ongoing", owner: "drew",
     instructions: "Check and approve checks and ACHs.\nhttps://secure.chase.com/" },

@@ -26,6 +26,6 @@ describe("per-user passwords", () => {
     expect(verifyUserPassword("harry", "nope")).toBe(false);
   });
   it("returns null for a user with no per-user credential (caller falls back)", () => {
-    expect(verifyUserPassword("stacie", "anything")).toBeNull();
+    expect(verifyUserPassword("marie", "anything")).toBeNull();
   });
 });
