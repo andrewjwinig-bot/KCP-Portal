@@ -1,0 +1,330 @@
+"use client";
+
+// Cash Sheet — a monthly cash-position worksheet that works in tandem with the
+// Operating Statements. Each row is an operating property (grouped by fund):
+//   Starting Cash (prior month-end Operating Cash, pulled from the statement)
+//   − Bills to Pay (one input per Wednesday in the month — paid weekly)
+//   − Reserves (a standing amount that carries month-to-month)
+//   = Operational Cash (net cash available).
+// Bills reset each month; reserves carry forward; history is browsable by month.
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useUser } from "@/app/components/UserProvider";
+import { StatPill } from "@/app/components/Pill";
+import {
+  MONTHS, wednesdayLabel, monthKey, parseMonthKey,
+  type CashSheetGroup,
+} from "@/lib/financials/cash-sheet/util";
+
+type Starting = { amount: number | null; sourceYm: string };
+type Row = { reserves: number; bills: Record<string, number> };
+type Payload = {
+  ym: string; year: number; month: number;
+  groups: CashSheetGroup[];
+  wednesdays: string[];
+  starting: Record<string, Starting>;
+  rows: Record<string, Row>;
+  carriedReserves: Record<string, number>;
+  months: string[];
+  updatedAt: string | null;
+};
+
+function money0(v: number | null): string {
+  if (v == null) return "—";
+  const n = Math.round(v);
+  const s = Math.abs(n).toLocaleString("en-US");
+  return n < 0 ? `($${s})` : `$${s}`;
+}
+function parseNum(s: string): number {
+  const n = Number(s.replace(/[$,\s]/g, ""));
+  return Number.isFinite(n) ? n : 0;
+}
+function sourceLabel(ym: string): string {
+  const p = parseMonthKey(ym);
+  return p ? `${MONTHS[p.month - 1].slice(0, 3)} ${p.year}` : ym;
+}
+
+const numCell: React.CSSProperties = { textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" };
+const cellInput: React.CSSProperties = {
+  width: 96, textAlign: "right", font: "inherit", fontSize: 13,
+  padding: "5px 7px", borderRadius: 6, border: "1px solid var(--border)",
+  background: "var(--card)", fontVariantNumeric: "tabular-nums",
+};
+
+export default function CashSheetPage() {
+  const { user } = useUser();
+  const today = new Date();
+  const [year, setYear] = useState(today.getFullYear());
+  const [month, setMonth] = useState(today.getMonth() + 1);
+  const [data, setData] = useState<Payload | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(0);
+
+  // Editable drafts (strings) keyed by property code.
+  const [billDraft, setBillDraft] = useState<Record<string, Record<string, string>>>({});
+  const [resDraft, setResDraft] = useState<Record<string, string>>({});
+
+  const ym = monthKey(year, month);
+
+  const load = useCallback(() => {
+    setLoading(true);
+    fetch(`/api/financials/cash-sheet?ym=${ym}`)
+      .then((r) => r.json())
+      .then((j: Payload) => {
+        setData(j);
+        // Seed drafts: saved value → carried reserve → blank.
+        const bd: Record<string, Record<string, string>> = {};
+        const rd: Record<string, string> = {};
+        for (const g of j.groups) for (const p of g.properties) {
+          const row = j.rows[p.code];
+          bd[p.code] = {};
+          for (const w of j.wednesdays) {
+            const v = row?.bills?.[w];
+            bd[p.code][w] = v ? String(v) : "";
+          }
+          const res = row?.reserves ?? j.carriedReserves[p.code] ?? 0;
+          rd[p.code] = res ? String(res) : "";
+        }
+        setBillDraft(bd);
+        setResDraft(rd);
+        setError(null);
+      })
+      .catch((e) => setError(e?.message ?? "Failed to load"))
+      .finally(() => setLoading(false));
+  }, [ym]);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function save(body: Record<string, unknown>) {
+    setSaving((s) => s + 1);
+    try {
+      const res = await fetch("/api/financials/cash-sheet", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...body, ym, editedBy: user.id }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.error ?? "Save failed");
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Save failed");
+    } finally {
+      setSaving((s) => s - 1);
+    }
+  }
+
+  function commitBill(code: string, wed: string) {
+    const value = parseNum(billDraft[code]?.[wed] ?? "");
+    save({ code, kind: "bill", wednesday: wed, value });
+  }
+  function commitReserves(code: string) {
+    const value = parseNum(resDraft[code] ?? "");
+    save({ code, kind: "reserves", value });
+  }
+
+  function prevMonth() { if (month === 1) { setYear((y) => y - 1); setMonth(12); } else setMonth((m) => m - 1); }
+  function nextMonth() { if (month === 12) { setYear((y) => y + 1); setMonth(1); } else setMonth((m) => m + 1); }
+  const isThisMonth = year === today.getFullYear() && month === today.getMonth() + 1;
+
+  // ── Per-row derived figures (live from drafts) ──
+  const wednesdays = data?.wednesdays ?? [];
+  function rowBillsTotal(code: string): number {
+    const b = billDraft[code] ?? {};
+    return wednesdays.reduce((a, w) => a + parseNum(b[w] ?? ""), 0);
+  }
+  function rowReserves(code: string): number { return parseNum(resDraft[code] ?? ""); }
+  function rowStarting(code: string): number | null { return data?.starting[code]?.amount ?? null; }
+  function rowOperational(code: string): number | null {
+    const s = rowStarting(code);
+    if (s == null) return null;
+    return s - rowBillsTotal(code) - rowReserves(code);
+  }
+
+  // ── Group + grand totals ──
+  type Totals = { starting: number; bills: number; reserves: number; operational: number; hasStarting: boolean };
+  function totalsFor(codes: string[]): Totals {
+    let starting = 0, bills = 0, reserves = 0, operational = 0, hasStarting = false;
+    for (const c of codes) {
+      const s = rowStarting(c);
+      bills += rowBillsTotal(c);
+      reserves += rowReserves(c);
+      if (s != null) { starting += s; operational += (s - rowBillsTotal(c) - rowReserves(c)); hasStarting = true; }
+    }
+    return { starting, bills, reserves, operational, hasStarting };
+  }
+  const allCodes = useMemo(
+    () => (data?.groups ?? []).flatMap((g) => g.properties.map((p) => p.code)),
+    [data],
+  );
+  const grand = totalsFor(allCodes);
+
+  const colCount = 2 + wednesdays.length + 3; // property + starting + weds + (total bills, reserves, operational)
+
+  return (
+    <main style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 14, flexWrap: "wrap" }}>
+        <div>
+          <h1 style={{ marginBottom: 4 }}>Cash Sheet</h1>
+          <p className="muted small" style={{ margin: 0 }}>
+            Monthly cash position by property. Starting cash is the prior month-end{" "}
+            <Link href="/financials/operating-statements" style={{ color: "var(--brand)", fontWeight: 600 }}>Operating Cash</Link>;
+            enter bills paid each Wednesday and a standing reserve to get net operational cash.
+          </p>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <button className="btn" onClick={prevMonth} style={{ padding: "6px 12px", fontWeight: 900 }}>←</button>
+          <span style={{ fontWeight: 800, fontSize: 15, minWidth: 150, textAlign: "center" }}>{MONTHS[month - 1]} {year}</span>
+          <button className="btn" onClick={nextMonth} style={{ padding: "6px 12px", fontWeight: 900 }}>→</button>
+          {!isThisMonth && (
+            <button className="btn" onClick={() => { setYear(today.getFullYear()); setMonth(today.getMonth() + 1); }} style={{ fontSize: 12, padding: "6px 9px" }}>This month</button>
+          )}
+        </div>
+      </div>
+
+      {/* Portfolio KPI pills */}
+      <div className="pills" style={{ justifyContent: "flex-start" }}>
+        <StatPill label="Starting Cash · Portfolio" value={money0(grand.hasStarting ? grand.starting : null)} accent="#0b4a7d" />
+        <StatPill label="Bills to Pay · Month" value={money0(grand.bills)} accent={grand.bills > 0 ? "#b45309" : undefined} />
+        <StatPill label="Reserves · Portfolio" value={money0(grand.reserves)} accent={grand.reserves > 0 ? "#6d28d9" : undefined} />
+        <StatPill label="Operational Cash · Net" value={money0(grand.hasStarting ? grand.operational : null)} accent={grand.operational >= 0 ? "#15803d" : "#b91c1c"} />
+      </div>
+
+      {error && <div className="small" style={{ color: "#b91c1c", fontWeight: 700 }}>· {error}</div>}
+
+      <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+        <div className="tableWrap" style={{ overflowX: "auto" }}>
+          <table style={{ minWidth: 720 }}>
+            <thead>
+              <tr>
+                <th style={{ textAlign: "left", minWidth: 200 }}>Property</th>
+                <th style={numCell}>Starting Cash</th>
+                {wednesdays.map((w) => (
+                  <th key={w} style={numCell} title={`Bills paid ${w}`}>{wednesdayLabel(w)}</th>
+                ))}
+                <th style={numCell}>Total Bills</th>
+                <th style={numCell}>Reserves</th>
+                <th style={numCell}>Operational Cash</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading && !data ? (
+                <tr><td colSpan={colCount} className="muted small" style={{ padding: 18 }}>Loading…</td></tr>
+              ) : (data?.groups ?? []).map((g) => {
+                const codes = g.properties.map((p) => p.code);
+                const gt = totalsFor(codes);
+                return (
+                  <GroupBlock key={g.id} group={g} totals={gt} weds={wednesdays} colCount={colCount}>
+                    {g.properties.map((p) => {
+                      const starting = rowStarting(p.code);
+                      const src = data?.starting[p.code]?.sourceYm;
+                      const op = rowOperational(p.code);
+                      return (
+                        <tr key={p.code}>
+                          <td style={{ textAlign: "left" }}>
+                            <code style={{ fontSize: 12 }}>{p.code}</code>
+                            <span style={{ marginLeft: 8 }}>{p.name}</span>
+                          </td>
+                          <td style={numCell} title={src ? `Month-end ${sourceLabel(src)}` : undefined}>
+                            {starting == null
+                              ? <span className="muted" title={src ? `${sourceLabel(src)} statement not uploaded` : undefined}>—</span>
+                              : money0(starting)}
+                          </td>
+                          {wednesdays.map((w) => (
+                            <td key={w} style={numCell}>
+                              <input
+                                style={cellInput}
+                                inputMode="decimal"
+                                placeholder="—"
+                                value={billDraft[p.code]?.[w] ?? ""}
+                                onChange={(e) => setBillDraft((d) => ({ ...d, [p.code]: { ...d[p.code], [w]: e.target.value } }))}
+                                onBlur={() => commitBill(p.code, w)}
+                                onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                              />
+                            </td>
+                          ))}
+                          <td style={{ ...numCell, fontWeight: 600 }}>{money0(rowBillsTotal(p.code))}</td>
+                          <td style={numCell}>
+                            <input
+                              style={cellInput}
+                              inputMode="decimal"
+                              placeholder="—"
+                              value={resDraft[p.code] ?? ""}
+                              onChange={(e) => setResDraft((d) => ({ ...d, [p.code]: e.target.value }))}
+                              onBlur={() => commitReserves(p.code)}
+                              onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                            />
+                          </td>
+                          <td style={{ ...numCell, fontWeight: 800, color: op == null ? "var(--muted)" : op >= 0 ? "#15803d" : "#b91c1c" }}>
+                            {money0(op)}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </GroupBlock>
+                );
+              })}
+            </tbody>
+            {data && (
+              <tfoot>
+                <tr style={{ borderTop: "2px solid var(--border)", fontWeight: 800, background: "rgba(11,74,125,0.05)" }}>
+                  <td style={{ textAlign: "left" }}>Portfolio Total</td>
+                  <td style={numCell}>{money0(grand.hasStarting ? grand.starting : null)}</td>
+                  {wednesdays.map((w) => (
+                    <td key={w} style={numCell}>
+                      {money0(allCodes.reduce((a, c) => a + parseNum(billDraft[c]?.[w] ?? ""), 0))}
+                    </td>
+                  ))}
+                  <td style={numCell}>{money0(grand.bills)}</td>
+                  <td style={numCell}>{money0(grand.reserves)}</td>
+                  <td style={{ ...numCell, color: grand.operational >= 0 ? "#15803d" : "#b91c1c" }}>
+                    {money0(grand.hasStarting ? grand.operational : null)}
+                  </td>
+                </tr>
+              </tfoot>
+            )}
+          </table>
+        </div>
+      </div>
+
+      <p className="muted small" style={{ margin: 0 }}>
+        {saving > 0 ? "Saving…" : data?.updatedAt ? `Saved · last edit ${new Date(data.updatedAt).toLocaleString()}` : "Edits save automatically."}
+        {" · "}Bills reset each month; reserves carry forward.
+      </p>
+    </main>
+  );
+}
+
+// A fund group: a header row, its property rows, then a subtotal row.
+function GroupBlock({
+  group, totals, weds, colCount, children,
+}: {
+  group: CashSheetGroup;
+  totals: { starting: number; bills: number; reserves: number; operational: number; hasStarting: boolean };
+  weds: string[];
+  colCount: number;
+  children: React.ReactNode;
+}) {
+  return (
+    <>
+      <tr>
+        <td colSpan={colCount} style={{
+          textAlign: "left", fontSize: 11, fontWeight: 700, textTransform: "uppercase",
+          letterSpacing: "0.06em", color: "var(--muted)", background: "rgba(15,23,42,0.03)",
+          padding: "8px 12px",
+        }}>
+          {group.label}
+        </td>
+      </tr>
+      {children}
+      <tr style={{ fontWeight: 700, color: "var(--muted)" }}>
+        <td style={{ textAlign: "left", fontSize: 12 }}>{group.label} subtotal</td>
+        <td style={numCell}>{totals.hasStarting ? money0(totals.starting) : "—"}</td>
+        {weds.map((w) => <td key={w} style={numCell} />)}
+        <td style={numCell}>{money0(totals.bills)}</td>
+        <td style={numCell}>{money0(totals.reserves)}</td>
+        <td style={numCell}>{totals.hasStarting ? money0(totals.operational) : "—"}</td>
+      </tr>
+    </>
+  );
+}
