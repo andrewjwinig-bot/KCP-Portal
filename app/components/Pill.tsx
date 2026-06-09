@@ -56,7 +56,7 @@ export function StatPill({
   accent,
 }: {
   label: string;
-  value: string | number;
+  value: React.ReactNode;
   sub?: string;
   accent?: string;
 }) {

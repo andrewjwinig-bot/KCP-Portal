@@ -86,6 +86,13 @@ function fmtVarValue(v: number | null, pct: number | null): string {
   if (pct == null) return fmtVarK(v);
   return `${fmtVarK(v)} (${fmtPct(pct)})`;
 }
+// Same as fmtVarValue, but renders the trailing (percent) at normal weight so
+// the dollar variance stays bold and the % reads as a lighter qualifier.
+function fmtVarValueNode(v: number | null, pct: number | null): React.ReactNode {
+  if (v == null) return fmtPct(pct);
+  if (pct == null) return fmtVarK(v);
+  return <>{fmtVarK(v)} <span style={{ fontWeight: 400 }}>({fmtPct(pct)})</span></>;
+}
 // Variance % carries the favorability sign (positive = favorable). Blank when
 // there's no budget to compare against.
 function varPct(variance: number | null, budget: number | null): number | null {
@@ -452,8 +459,8 @@ export default function OperatingStatementsPage() {
             <>
               <div className="pills" style={{ marginTop: 12 }}>
                 {operatingCash != null && <StatPill label="Operating Cash · YTD (Per GL)" value={`$${money0(operatingCash)}`} accent="#0b4a7d" />}
-                <StatPill label={`Net Operating Income · ${mon} vs Budget`} value={fmtVarValue(noi.periodVariance, mPct)} accent={pctAccent(mPct)} />
-                <StatPill label="Net Operating Income · YTD vs Budget" value={fmtVarValue(noi.ytdVariance, yPct)} accent={pctAccent(yPct)} />
+                <StatPill label={`Net Operating Income · ${mon} vs Budget`} value={fmtVarValueNode(noi.periodVariance, mPct)} accent={pctAccent(mPct)} />
+                <StatPill label="Net Operating Income · YTD vs Budget" value={fmtVarValueNode(noi.ytdVariance, yPct)} accent={pctAccent(yPct)} />
                 <ClickablePill active={flagFilter === "unf"} activeColor="#b91c1c" onClick={() => setFlagFilter((f) => (f === "unf" ? null : "unf"))} title={`Click to show only unfavorable lines in ${mon}`}>
                   <StatPill label={`Lines Unfavorable · ${mon}`} value={variance.monthUnf} accent={variance.monthUnf > 0 ? "#b91c1c" : undefined} />
                 </ClickablePill>
