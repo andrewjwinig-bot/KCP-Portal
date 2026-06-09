@@ -43,29 +43,44 @@ function timingSafeEqual(a: Uint8Array, b: Uint8Array): boolean {
 export async function signSiteToken(
   secret: string,
   userId: string,
+  enrollPending = false,
 ): Promise<{ value: string; maxAge: number }> {
   const { expiresSec, maxAge } = dailyExpiry();
-  const payload = `${expiresSec}.${userId}`;
+  // Normal sessions stay 3-part (unchanged); an enroll-pending session adds an
+  // "enroll" flag segment so the middleware can confine the user to 2FA setup.
+  const payload = enrollPending ? `${expiresSec}.${userId}.enroll` : `${expiresSec}.${userId}`;
   const sig = await hmac(secret, payload);
   return { value: `${payload}.${b64urlEncode(sig)}`, maxAge };
 }
 
-/** Verify a site token. Returns the signed-in user id, or null if invalid. */
+/** Verify a site token. Returns the signed-in user id + whether the session is
+ *  confined to 2FA enrollment, or null if invalid. */
+export async function verifySiteTokenFull(
+  token: string | undefined,
+  secret: string,
+): Promise<{ userId: string; enrollPending: boolean } | null> {
+  if (!token) return null;
+  const parts = token.split(".");
+  let expiresStr: string, userId: string, flag: string, sigStr: string;
+  if (parts.length === 3) { [expiresStr, userId, sigStr] = parts; flag = ""; }
+  else if (parts.length === 4) { [expiresStr, userId, flag, sigStr] = parts; }
+  else return null;
+  const expires = Number(expiresStr);
+  if (!Number.isFinite(expires) || expires < Math.floor(Date.now() / 1000)) return null;
+  if (!userId) return null;
+  const payload = flag ? `${expiresStr}.${userId}.${flag}` : `${expiresStr}.${userId}`;
+  const expected = await hmac(secret, payload);
+  let provided: Uint8Array;
+  try { provided = b64urlDecode(sigStr); } catch { return null; }
+  return timingSafeEqual(expected, provided) ? { userId, enrollPending: flag === "enroll" } : null;
+}
+
+/** Verify a site token → the signed-in user id (or null). */
 export async function verifySiteToken(
   token: string | undefined,
   secret: string,
 ): Promise<string | null> {
-  if (!token) return null;
-  const parts = token.split(".");
-  if (parts.length !== 3) return null;
-  const [expiresStr, userId, sigStr] = parts;
-  const expires = Number(expiresStr);
-  if (!Number.isFinite(expires) || expires < Math.floor(Date.now() / 1000)) return null;
-  if (!userId) return null;
-  const expected = await hmac(secret, `${expiresStr}.${userId}`);
-  let provided: Uint8Array;
-  try { provided = b64urlDecode(sigStr); } catch { return null; }
-  return timingSafeEqual(expected, provided) ? userId : null;
+  return (await verifySiteTokenFull(token, secret))?.userId ?? null;
 }
 
 /** True only when both env vars are configured. When either is missing, the

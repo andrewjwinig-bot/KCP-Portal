@@ -5,8 +5,9 @@
 
 import { useEffect, useState } from "react";
 
-type Status = { user: string | null; enabled: boolean; disabled: boolean };
+type Status = { user: string | null; enabled: boolean; required: boolean; disabled: boolean };
 type Enrollment = { otpauthUri: string; secret: string; manualKey: string; qrDataUrl: string };
+type ReqUser = { id: string; label: string; required: boolean };
 
 export default function SecurityPage() {
   const [status, setStatus] = useState<Status | null>(null);
@@ -15,8 +16,20 @@ export default function SecurityPage() {
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  const [reqUsers, setReqUsers] = useState<ReqUser[] | null>(null); // admin-only; null = not admin / not loaded
   const loadStatus = () => fetch("/api/2fa/status").then((r) => r.json()).then(setStatus).catch(() => {});
-  useEffect(() => { loadStatus(); }, []);
+  useEffect(() => {
+    loadStatus();
+    // Admins get the required-users manager; non-admins get 403 and skip it.
+    fetch("/api/2fa/required").then((r) => (r.ok ? r.json() : null)).then((j) => j && setReqUsers(j.users)).catch(() => {});
+  }, []);
+
+  async function toggleRequired(id: string, on: boolean) {
+    if (!reqUsers) return;
+    const next = reqUsers.map((u) => (u.id === id ? { ...u, required: on } : u));
+    setReqUsers(next);
+    await fetch("/api/2fa/required", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ users: next.filter((u) => u.required).map((u) => u.id) }) }).catch(() => {});
+  }
 
   async function startEnroll() {
     setBusy(true); setMsg(null);
@@ -45,6 +58,12 @@ export default function SecurityPage() {
   return (
     <main style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 640 }}>
       <h1>Security</h1>
+
+      {status?.required && !status?.enabled && !status?.disabled && (
+        <div style={{ padding: "10px 12px", borderRadius: 8, background: "rgba(180,83,9,0.08)", border: "1px solid rgba(180,83,9,0.35)", fontSize: 14, fontWeight: 600, color: "#b45309" }}>
+          Two-factor authentication is required for your account. Set it up below to continue using the portal.
+        </div>
+      )}
 
       <div className="card" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
@@ -106,6 +125,26 @@ export default function SecurityPage() {
           </div>
         )}
       </div>
+      {reqUsers && (
+        <div className="card" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 800 }}>Require two-factor (admin)</div>
+            <div className="muted small" style={{ marginTop: 2 }}>
+              A required user is walked through setup automatically the next time they log in — no manual onboarding.
+            </div>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {reqUsers.map((u) => (
+              <label key={u.id} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14, cursor: "pointer" }}>
+                <input type="checkbox" checked={u.required} onChange={(e) => toggleRequired(u.id, e.target.checked)} />
+                <span style={{ fontWeight: 600 }}>{u.label}</span>
+                <span className="muted small">{u.id}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
+
       <p className="muted small" style={{ margin: 0 }}>Lost your device? An admin can clear 2FA via the <code>SITE_2FA_DISABLED</code> env var to restore password-only login.</p>
     </main>
   );

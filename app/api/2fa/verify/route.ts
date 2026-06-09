@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { SITE_COOKIE, verifySiteToken } from "@/lib/site-auth";
+import { SITE_COOKIE, verifySiteToken, signSiteToken } from "@/lib/site-auth";
 import { verifyTotp } from "@/lib/totp";
 import { getSecret, enableTotp } from "@/lib/totp-store";
 import { logAudit, auditIp } from "@/lib/audit";
+
+const COOKIE_OPTS = { httpOnly: true, secure: true, sameSite: "lax" as const, path: "/" };
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -28,5 +30,13 @@ export async function POST(req: NextRequest) {
   }
   await enableTotp(user);
   await logAudit({ event: "2fa.enabled", user, ip: auditIp(req) });
-  return NextResponse.json({ ok: true });
+  const res = NextResponse.json({ ok: true });
+  // Lift any enroll-pending confinement: re-issue a full session now that the
+  // user has completed setup.
+  const siteSecret = process.env.SITE_AUTH_SECRET;
+  if (siteSecret) {
+    const site = await signSiteToken(siteSecret, user, false);
+    res.cookies.set(SITE_COOKIE, site.value, { ...COOKIE_OPTS, maxAge: site.maxAge });
+  }
+  return res;
 }

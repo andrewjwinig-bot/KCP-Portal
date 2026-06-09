@@ -5,7 +5,7 @@ import { HISTORY_COOKIE, signHistoryToken } from "@/lib/history-auth";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { verifyUserPassword } from "@/lib/user-passwords";
 import { logAudit, auditIp } from "@/lib/audit";
-import { totpRequired, getSecret } from "@/lib/totp-store";
+import { totpRequired, getSecret, mustEnroll } from "@/lib/totp-store";
 import { verifyTotp } from "@/lib/totp";
 import { ALL_USERS } from "@/lib/users";
 
@@ -108,8 +108,14 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const site = await signSiteToken(siteSecret, user);
-  const res = NextResponse.json({ ok: true });
+  // A 2FA-required user who hasn't enrolled yet gets an enroll-pending session
+  // — valid, but the middleware confines it to the setup page until they
+  // finish (guided rollout). Reaching here means they aren't yet enrolled
+  // (totpRequired would have challenged a code above otherwise).
+  const enrollPending = await mustEnroll(user);
+
+  const site = await signSiteToken(siteSecret, user, enrollPending);
+  const res = NextResponse.json({ ok: true, mustEnroll: enrollPending });
   res.cookies.set(SITE_COOKIE, site.value, { ...COOKIE_OPTS, maxAge: site.maxAge });
 
   // Signing in as admin also grants the elevated admin cookie.
@@ -118,6 +124,6 @@ export async function POST(req: NextRequest) {
     res.cookies.set(HISTORY_COOKIE, hist.value, { ...COOKIE_OPTS, maxAge: hist.maxAge });
   }
 
-  await logAudit({ event: "login.success", user, ip: auditIp(req), detail: isAdmin ? "admin tier" : "employee tier" });
+  await logAudit({ event: "login.success", user, ip: auditIp(req), detail: `${isAdmin ? "admin tier" : "employee tier"}${enrollPending ? " · enrollment required" : ""}` });
   return res;
 }
