@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { HISTORY_COOKIE, verifyHistoryToken } from "./lib/history-auth";
 import { SITE_COOKIE, verifySiteToken } from "./lib/site-auth";
+import { ALL_USERS, authorizeRequest, type UserId } from "./lib/users";
 
 // Two layers:
 //  - Site auth (SITE_PASSWORD / SITE_AUTH_SECRET): gates every page + API
@@ -56,6 +57,19 @@ export async function middleware(req: NextRequest) {
       const url = req.nextUrl.clone();
       url.pathname = "/login";
       url.searchParams.set("next", pathname);
+      return NextResponse.redirect(url);
+    }
+    // ── Per-user authorization (server-side) ──────────────────────────
+    // The signed cookie carries the real logged-in user; enforce their page
+    // access + sensitive-API access here (not just client-side in AppShell).
+    // Switchers (admin/drew/alison) keep broad access via their own profile.
+    if (!(ALL_USERS as readonly string[]).includes(siteUser) || !authorizeRequest(siteUser as UserId, pathname)) {
+      if (pathname.startsWith("/api/")) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+      const url = req.nextUrl.clone();
+      url.pathname = "/dashboard";
+      url.search = "";
       return NextResponse.redirect(url);
     }
   }

@@ -187,3 +187,37 @@ export function isPathAllowed(userId: UserId, pathname: string): boolean {
     return pathname === p || pathname.startsWith(p + "/");
   });
 }
+
+// Sensitive API groups → the page prefix that governs them. An API request is
+// authorized iff the user may visit the governing page. Listed most-specific
+// first (first match wins). APIs NOT listed here are cross-cutting (rent roll,
+// properties, dashboard, search, maintenance, reservations, tracker, …) and
+// stay available to any signed-in user — gating them would break shared flows.
+const SENSITIVE_API_PREFIXES: [apiPrefix: string, pagePrefix: string][] = [
+  ["/api/commissions/retail", "/commissions/retail"],
+  ["/api/commissions", "/commissions"],
+  ["/api/financials", "/financials"],
+  ["/api/cam-recon", "/cam-recon"],
+  ["/api/cam-config", "/cam-recon"],
+  ["/api/deposits", "/deposits"],
+  ["/api/bank-rec", "/bank-rec"],
+  ["/api/bank-transfers", "/bank-transfers"],
+  ["/api/debt", "/debt"],
+];
+// Cross-cutting endpoints under a sensitive prefix that must stay open (used by
+// global search / dashboard for everyone). Aggregate, low-detail.
+const API_AUTHZ_EXEMPT = ["/api/financials/budgets/kpis"];
+
+const underPrefix = (pathname: string, p: string) => pathname === p || pathname.startsWith(p + "/");
+
+/** Server-side authorization for a request path. Pages use isPathAllowed;
+ *  sensitive API groups map to their governing page; everything else stays
+ *  open to any signed-in user. */
+export function authorizeRequest(userId: UserId, pathname: string): boolean {
+  if (pathname.startsWith("/api/")) {
+    if (API_AUTHZ_EXEMPT.some((p) => underPrefix(pathname, p))) return true;
+    const match = SENSITIVE_API_PREFIXES.find(([api]) => underPrefix(pathname, api));
+    return match ? isPathAllowed(userId, match[1]) : true;
+  }
+  return isPathAllowed(userId, pathname);
+}
