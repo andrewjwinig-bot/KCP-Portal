@@ -11,6 +11,7 @@ import { useUser } from "@/app/components/UserProvider";
 import { DownloadMenu } from "@/app/components/DownloadMenu";
 import { StatPill } from "@/app/components/Pill";
 import { AccountListCard } from "@/app/components/AccountListCard";
+import { groupStatementOptions } from "@/lib/financials/operating-statements/propertyGroups";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 import type {
   PropertyStatement,
@@ -391,8 +392,12 @@ export default function OperatingStatementsPage() {
               </HeaderSelect>
             )}
             <HeaderSelect value={key} onChange={(v) => { setKey(v); setPeriod(0); setFlagFilter(null); }} displayLabel={cur ? `${cur.propertyCode} — ${cur.name}` : "—"} ariaLabel="Property">
-              {available.map((a) => (
-                <option key={a.key} value={a.key}>{a.propertyCode} — {a.name}{a.years.length ? "" : " (no GL)"}</option>
+              {groupStatementOptions(available).map((grp) => (
+                <optgroup key={grp.label} label={grp.label}>
+                  {grp.items.map((a) => (
+                    <option key={a.key} value={a.key}>{a.propertyCode} — {a.name}{a.years.length ? "" : " (no GL)"}</option>
+                  ))}
+                </optgroup>
               ))}
             </HeaderSelect>
           </div>
