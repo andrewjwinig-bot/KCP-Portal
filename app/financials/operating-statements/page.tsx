@@ -459,7 +459,7 @@ export default function OperatingStatementsPage() {
           return (
             <>
               <div className="pills" style={{ marginTop: 12 }}>
-                {operatingCash != null && <StatPill label="Operating Cash · YTD (Per GL)" value={`$${money0(operatingCash)}`} accent="#0b4a7d" />}
+                {operatingCash != null && <StatPill label={`Starting Cash · ${mon} (Per GL)`} value={`$${money0(operatingCash)}`} accent="#0b4a7d" />}
                 <StatPill label={`Net Operating Income · ${mon} vs Budget`} value={fmtVarValueNode(noi.periodVariance, mPct)} accent={pctAccent(mPct)} />
                 <StatPill label="Net Operating Income · YTD vs Budget" value={fmtVarValueNode(noi.ytdVariance, yPct)} accent={pctAccent(yPct)} />
                 <ClickablePill active={flagFilter === "unf"} activeColor="#b91c1c" onClick={() => setFlagFilter((f) => (f === "unf" ? null : "unf"))} title={`Click to show only unfavorable lines in ${mon}`}>

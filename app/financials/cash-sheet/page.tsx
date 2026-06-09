@@ -2,7 +2,7 @@
 
 // Cash Sheet — a monthly cash-position worksheet that works in tandem with the
 // Operating Statements. Each row is an operating property (grouped by fund):
-//   Starting Cash (prior month-end Operating Cash, pulled from the statement)
+//   Starting Cash (the month's opening Operating Cash balance, from the statement)
 //   − Bills to Pay (one input per Wednesday in the month — paid weekly)
 //   − Reserves (a standing amount that carries month-to-month)
 //   = Operational Cash (net cash available).
@@ -167,9 +167,9 @@ export default function CashSheetPage() {
         <div>
           <h1 style={{ marginBottom: 4 }}>Cash Sheet</h1>
           <p className="muted small" style={{ margin: 0 }}>
-            Monthly cash position by property. Starting cash is the prior month-end{" "}
-            <Link href="/financials/operating-statements" style={{ color: "var(--brand)", fontWeight: 600 }}>Operating Cash</Link>;
-            enter bills paid each Wednesday and a standing reserve to get net operational cash.
+            Monthly cash position by property. Starting cash is the month&apos;s opening{" "}
+            <Link href="/financials/operating-statements" style={{ color: "var(--brand)", fontWeight: 600 }}>Operating Cash</Link>{" "}
+            balance (Per GL); enter bills paid each Wednesday and a standing reserve to get net operational cash.
           </p>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -225,9 +225,9 @@ export default function CashSheetPage() {
                             <code style={{ fontSize: 12 }}>{p.code}</code>
                             <span style={{ marginLeft: 8 }}>{p.name}</span>
                           </td>
-                          <td style={numCell} title={src ? `Month-end ${sourceLabel(src)}` : undefined}>
+                          <td style={numCell} title={src ? `Opening balance · ${sourceLabel(src)} (Per GL)` : undefined}>
                             {starting == null
-                              ? <span className="muted" title={src ? `${sourceLabel(src)} statement not uploaded` : undefined}>—</span>
+                              ? <span className="muted" title={src ? `Operating Statement not uploaded for ${sourceLabel(src)}` : undefined}>—</span>
                               : money0(starting)}
                           </td>
                           {wednesdays.map((w) => (
