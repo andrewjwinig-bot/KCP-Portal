@@ -16,7 +16,7 @@ export async function GET(req: Request) {
     if (!key || !year) return NextResponse.json({ error: "key and year are required" }, { status: 400 });
     const loaded = await loadStatement(key, year, period);
     if (!loaded) return NextResponse.json({ error: "No statement for that property/year" }, { status: 404 });
-    const buf = await buildStatementXlsx(loaded.statement, loaded.meta);
+    const buf = await buildStatementXlsx(loaded.statement, loaded.meta, loaded.notes);
     return new NextResponse(new Uint8Array(buf), {
       status: 200,
       headers: {

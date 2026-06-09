@@ -15,7 +15,7 @@ export async function GET(req: Request) {
     if (!key || !year) return NextResponse.json({ error: "key and year are required" }, { status: 400 });
     const loaded = await loadReprojection(key, year);
     if (!loaded) return NextResponse.json({ error: "No mapping for that property" }, { status: 404 });
-    const buf = await buildReprojPdf(loaded.reprojection, loaded.meta);
+    const buf = await buildReprojPdf(loaded.reprojection, loaded.meta, loaded.notes);
     return new NextResponse(new Uint8Array(buf), {
       status: 200,
       headers: {

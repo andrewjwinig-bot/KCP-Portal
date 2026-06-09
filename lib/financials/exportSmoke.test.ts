@@ -30,25 +30,26 @@ const gl: GlSummaryRow[] = [
 const statement = computeStatement({ mapping, propertyName: "Test Center", year: 2026, period: 3, gl });
 
 const meta = { propertyCode: "TEST", propertyName: "Test Center", year: 2026, budgetYear: 2026 };
+const notes = { "Revenues::Rental income": "New lease for Acme Corp not in budget — verify the abstract." };
 
 describe("financial exports run", () => {
   it("reprojection xlsx is a valid zip", async () => {
-    const buf = await buildReprojXlsx(reprojection, meta);
+    const buf = await buildReprojXlsx(reprojection, meta, notes);
     expect(buf.length).toBeGreaterThan(1000);
     expect(buf.slice(0, 2).toString("latin1")).toBe("PK");
   });
   it("reprojection pdf is a valid PDF", async () => {
-    const buf = await buildReprojPdf(reprojection, meta);
+    const buf = await buildReprojPdf(reprojection, meta, notes);
     expect(buf.length).toBeGreaterThan(500);
     expect(Buffer.from(buf.slice(0, 5)).toString("latin1")).toBe("%PDF-");
   });
   it("statement xlsx is a valid zip", async () => {
-    const buf = await buildStatementXlsx(statement, { ...meta, period: 3 });
+    const buf = await buildStatementXlsx(statement, { ...meta, period: 3 }, notes);
     expect(buf.length).toBeGreaterThan(1000);
     expect(buf.slice(0, 2).toString("latin1")).toBe("PK");
   });
   it("statement pdf is a valid PDF", async () => {
-    const buf = await buildStatementPdf(statement, { ...meta, period: 3 });
+    const buf = await buildStatementPdf(statement, { ...meta, period: 3 }, notes);
     expect(Buffer.from(buf.slice(0, 5)).toString("latin1")).toBe("%PDF-");
   });
 });
