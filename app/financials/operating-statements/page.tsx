@@ -10,6 +10,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useUser } from "@/app/components/UserProvider";
 import { DownloadMenu } from "@/app/components/DownloadMenu";
 import { StatPill } from "@/app/components/Pill";
+import { AccountListCard } from "@/app/components/AccountListCard";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 import type {
   PropertyStatement,
@@ -598,19 +599,13 @@ function StatementTable({ s, viewKey, budgetYear, budgetFallback, notes, noteSou
         </div>
       )}
       {s.unmappedAccounts.length > 0 && (
-        <div style={{ padding: "10px 12px", borderRadius: 8, background: "rgba(15,23,42,0.025)", border: "1px solid var(--border)" }}>
-          <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--muted)" }}>
-            Non-operating accounts — not on the operating statement ({s.unmappedAccounts.length})
-          </div>
-          <div className="muted small" style={{ marginTop: 4, lineHeight: 1.6 }}>
-            Balance-sheet & offset accounts carrying a YTD balance but no P&L line — e.g. Prepaid Insurance (the offset to Insurance expense), Cash, depreciation, interest, deferred costs. Expected here; review only if a true operating account appears.
-          </div>
-          <div style={{ marginTop: 6, display: "flex", flexWrap: "wrap", gap: 6 }}>
-            {s.unmappedAccounts.slice(0, 24).map((u) => (
-              <span key={u.account} className="muted" style={{ fontSize: 11, fontVariantNumeric: "tabular-nums" }}>{u.account}: {money0(u.ytdActual)}</span>
-            ))}
-          </div>
-        </div>
+        <AccountListCard
+          title="Non-operating accounts — not on the operating statement"
+          description="Balance-sheet & offset accounts carrying a YTD balance but no P&L line — e.g. Prepaid Insurance (the offset to Insurance expense), Cash, depreciation, interest, deferred costs. Expected here; review only if a true operating account appears."
+          accent="#b45309"
+          rows={s.unmappedAccounts.map((u) => ({ account: u.account, name: u.name, amount: u.ytdActual }))}
+          format={(n) => (Math.abs(n) < 0.5 ? "$0" : `${n < 0 ? "-" : ""}$${Math.abs(Math.round(n)).toLocaleString("en-US")}`)}
+        />
       )}
       <p className="small muted" style={{ marginTop: s.unmappedAccounts.length > 0 ? 12 : 0 }}>
         Actual = GL Debit − Credit (revenue shown positive). Variance % is favorable when positive (revenue over budget / expense under budget). Budget columns line up to the {budgetYear ?? s.year} portal budget via the same GL account masks.

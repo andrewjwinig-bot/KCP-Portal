@@ -43,6 +43,12 @@ describe("Skyline GL parser", () => {
     expect(res.year).toBe(2025);
   });
 
+  it("captures the account name from the header row", () => {
+    const m = parseGeneralLedgerMonthly(sheet);
+    expect(m.names["6030-8502"]).toBe("Maintenance Salaries");
+    expect(m.names["0110-0000"]).toBe("Cash-Operating");
+  });
+
   it("derives period (month) and YTD net from monthly totals, handling the debit column drift", () => {
     const res = parseGeneralLedger(sheet, 2);
     const maint = res.rows.find((r) => r.account === "6030-8502")!;
@@ -114,6 +120,12 @@ describe("Detailed General Ledger parser", () => {
     const res = parseGeneralLedger(detailed, 1);
     expect(res.propertyCode).toBe("1100");
     expect(res.year).toBe(2026);
+  });
+
+  it("captures the account name from the header row", () => {
+    const m = parseGeneralLedgerMonthly(detailed);
+    expect(m.names["6030-8502"]).toBe("Maintenance Salaries");
+    expect(m.names["4230-8501"]).toBe("Rental Income - Base Rent");
   });
 
   it("captures the Beginning Balance + YTD Total per account (for balance-sheet ending balances)", () => {

@@ -53,6 +53,11 @@ export async function GET(req: Request) {
     budgetLines,
     actualThroughMonth: stored?.maxPeriodInFile ?? 0,
   });
+  // Label the unbudgeted accounts with their GL account name.
+  reprojection.unbudgetedAccounts = reprojection.unbudgetedAccounts.map((u) => ({
+    ...u,
+    name: stored?.names?.[u.account] ?? null,
+  }));
 
   // Operating-statement notes share the same `<section>::<line label>` key, so
   // the variance explanations written there surface directly on the matching

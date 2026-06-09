@@ -79,6 +79,7 @@ export const USERS: Record<UserId, UserDef> = {
       "deposits",
       "bank-transfers",
       "financials-budgets",
+      "financials-statements",
     ]),
     allowedPathPrefixes: [
       "/dashboard",
@@ -127,7 +128,9 @@ export const USERS: Record<UserId, UserDef> = {
     id: "nancy",
     label: "NANCY",
     navKeys: new Set([...universalNav, "leasing-activity", "base-years", "commissions", "reservations", "maintenance", "deposits", "financials-budgets"]),
-    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/commissions", "/reservations", "/maintenance", "/deposits", "/financials", "/cam-recon"],
+    // Financials is limited to Budgets only — no Operating Statements,
+    // Reprojections, or Cash Sheet.
+    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/commissions", "/reservations", "/maintenance", "/deposits", "/financials/budgets", "/cam-recon"],
     defaultRentRollCategory: "Office",
     defaultPropertyType: "Office",
     dashboardScope: { codes: OFFICE_AND_OW_INDIVIDUAL },
@@ -166,7 +169,7 @@ export const USERS: Record<UserId, UserDef> = {
     label: "ALISON",
     // President — a high-level view: dashboard, properties, investors,
     // rent roll, debt. No operational tools or action items.
-    navKeys: new Set([...universalNav, "investors", "debt", "base-years", "bank-transfers", "financials-budgets"]),
+    navKeys: new Set([...universalNav, "investors", "debt", "base-years", "bank-transfers", "financials-budgets", "financials-statements"]),
     allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/investors", "/debt", "/bank-transfers", "/financials", "/cam-recon"],
     defaultRentRollCategory: "All",
     defaultPropertyType: "all",
@@ -199,6 +202,9 @@ export function isPathAllowed(userId: UserId, pathname: string): boolean {
 const SENSITIVE_API_PREFIXES: [apiPrefix: string, pagePrefix: string][] = [
   ["/api/commissions/retail", "/commissions/retail"],
   ["/api/commissions", "/commissions"],
+  // Budgets API maps to the Budgets page specifically (Nancy is limited to it);
+  // listed before the broad /api/financials → /financials mapping.
+  ["/api/financials/budgets", "/financials/budgets"],
   ["/api/financials", "/financials"],
   ["/api/cam-recon", "/cam-recon"],
   ["/api/cam-config", "/cam-recon"],

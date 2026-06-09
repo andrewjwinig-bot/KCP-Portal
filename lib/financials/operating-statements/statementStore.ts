@@ -33,6 +33,10 @@ export type StoredGl = {
   /** account → the GL's "YTD Total" row (ending balance for balance-sheet
    *  accounts). Drives the Operating Cash KPI. Present on newer uploads. */
   ytdTotal?: Record<string, number>;
+  /** account → account name from the GL header (e.g. "Cash - Operating").
+   *  Present on uploads after account-name capture was added; older uploads
+   *  omit it (the UI then shows the bare account number). */
+  names?: Record<string, string>;
 };
 
 export async function saveGl(rec: StoredGl): Promise<void> {

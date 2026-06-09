@@ -21,10 +21,23 @@ describe("server-side authorizeRequest", () => {
   });
 
   it("allows in-scope sensitive APIs", () => {
-    expect(authorizeRequest("nancy", "/api/financials/operating-statements")).toBe(true); // nancy has /financials
     expect(authorizeRequest("harry", "/api/deposits")).toBe(true);                        // harry has /deposits
     expect(authorizeRequest("harry", "/api/commissions/retail")).toBe(true);
     expect(authorizeRequest("marie", "/api/bank-rec")).toBe(true);
+    expect(authorizeRequest("drew", "/api/financials/operating-statements")).toBe(true);  // drew has full /financials
+  });
+
+  it("limits nancy's financials to Budgets only", () => {
+    // Budgets page + API are allowed (mapped to the more-specific prefix).
+    expect(authorizeRequest("nancy", "/financials/budgets")).toBe(true);
+    expect(authorizeRequest("nancy", "/api/financials/budgets")).toBe(true);
+    expect(authorizeRequest("nancy", "/api/financials/budgets/kpis")).toBe(true);
+    // The other financials pages + their APIs are blocked.
+    expect(authorizeRequest("nancy", "/financials/operating-statements")).toBe(false);
+    expect(authorizeRequest("nancy", "/financials/cash-sheet")).toBe(false);
+    expect(authorizeRequest("nancy", "/api/financials/operating-statements")).toBe(false);
+    expect(authorizeRequest("nancy", "/api/financials/reprojections")).toBe(false);
+    expect(authorizeRequest("nancy", "/api/financials/cash-sheet")).toBe(false);
   });
 
   it("leaves cross-cutting APIs open to any signed-in user", () => {
