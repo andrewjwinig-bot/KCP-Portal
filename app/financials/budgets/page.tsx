@@ -753,6 +753,18 @@ function BudgetTable({
             </HeaderSelect>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            {property.propertyCode !== "CONSOLIDATED" && (
+              <>
+                <a className="btn" href={`/financials/operating-statements?property=${encodeURIComponent(property.propertyCode)}&year=${workbook.year}`}
+                  title={`Open ${property.propertyCode}'s operating statement`} style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700, textDecoration: "none" }}>
+                  Statements
+                </a>
+                <a className="btn" href={`/financials/reprojections?property=${encodeURIComponent(property.propertyCode)}&year=${workbook.year}`}
+                  title={`Open ${property.propertyCode}'s full-year reprojection`} style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700, textDecoration: "none" }}>
+                  Reprojection
+                </a>
+              </>
+            )}
             <ButtonMenu
               label="Download"
               variant="primary"

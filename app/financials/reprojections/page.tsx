@@ -93,6 +93,8 @@ export default function ReprojectionsPage() {
   const [budgetYear, setBudgetYear] = useState<number | null>(null);
   const [budgetFallback, setBudgetFallback] = useState(false);
   const [hasGl, setHasGl] = useState(true);
+  const [notes, setNotes] = useState<Record<string, string>>({});
+  const [noteSources, setNoteSources] = useState<Record<string, "user" | "ai">>({});
   const [loading, setLoading] = useState(false);
   const [psf, setPsf] = useState(false);
   const [hideEmpty, setHideEmpty] = useState(true);
@@ -102,6 +104,17 @@ export default function ReprojectionsPage() {
     fetch("/api/financials/reprojections").then((r) => r.json()).then((j) => {
       const av: Available[] = j.available ?? [];
       setAvailable(av);
+      // Deep link from the Statements/Budgets pages: ?key (or ?property) & year.
+      const params = new URLSearchParams(window.location.search);
+      const wantKey = params.get("key");
+      const wantProp = params.get("property");
+      const wantYear = params.get("year");
+      const match = wantKey ? av.find((a) => a.key === wantKey) : wantProp ? av.find((a) => a.propertyCode === wantProp) : null;
+      if (match) {
+        setKey(match.key);
+        setYear(wantYear ? Number(wantYear) : match.years[0] ?? new Date().getFullYear());
+        return;
+      }
       const withGl = av.find((a) => a.years.length);
       if (withGl) { setKey(withGl.key); setYear(withGl.years[0]); }
       else if (av[0]) { setKey(av[0].key); setYear(new Date().getFullYear()); }
@@ -117,6 +130,8 @@ export default function ReprojectionsPage() {
       setBudgetYear(j.budgetYear ?? null);
       setBudgetFallback(!!j.budgetFallback);
       setHasGl(!!j.hasGl);
+      setNotes(j.notes ?? {});
+      setNoteSources(j.noteSources ?? {});
     } finally {
       setLoading(false);
     }
@@ -128,6 +143,10 @@ export default function ReprojectionsPage() {
   const sqft = PROPERTY_DEFS.find((p) => p.id === key)?.sqft ?? 0;
   const through = data?.actualThroughMonth ?? 0;
   const view: ViewOpts = { psf, sqft, hideEmpty, showGL, through };
+  const osHref = key && year ? `/financials/operating-statements?key=${encodeURIComponent(key)}&year=${year}` : "#";
+  const budgetHref = cur && year ? `/financials/budgets?property=${encodeURIComponent(cur.propertyCode)}&year=${year}` : "#";
+  const noteFor = (lineKey: string) => (notes[lineKey] ? { note: notes[lineKey], ai: noteSources[lineKey] === "ai" } : null);
+  const crossLink: React.CSSProperties = { fontSize: 12, padding: "5px 11px", fontWeight: 700, textDecoration: "none" };
 
   const pills = data ? [
     { key: "rev", label: "Reprojected Revenue", value: money(data.rollups.totalRevenues.reprojTotal) },
@@ -152,10 +171,16 @@ export default function ReprojectionsPage() {
               {available.map((a) => <option key={a.key} value={a.key}>{a.propertyCode} — {a.name}{a.years.length ? "" : " (no GL)"}</option>)}
             </HeaderSelect>
           </div>
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11 }}>
-            <span style={{ width: 12, height: 12, background: ACTUAL_TINT, border: "1px solid rgba(21,128,61,0.4)", borderRadius: 2, display: "inline-block" }} /> Actual
-            <span style={{ width: 12, height: 12, border: "1px solid var(--border)", borderRadius: 2, display: "inline-block", marginLeft: 8 }} /> Budget
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <a className="btn" href={osHref} style={crossLink} title="Open this property's Operating Statement">Operating Statements →</a>
+            <a className="btn" href={budgetHref} style={crossLink} title="Open this property's Operating Budget">Budget →</a>
           </div>
+        </div>
+
+        <div style={{ marginTop: 8, display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11 }}>
+          <span style={{ width: 12, height: 12, background: ACTUAL_TINT, border: "1px solid rgba(21,128,61,0.4)", borderRadius: 2, display: "inline-block" }} /> Actual
+          <span style={{ width: 12, height: 12, border: "1px solid var(--border)", borderRadius: 2, display: "inline-block", marginLeft: 8 }} /> Budget
+          <span className="muted" style={{ marginLeft: 12 }}>📝 hover a line&apos;s note for the variance explanation (click → Operating Statements)</span>
         </div>
 
         <div style={{ marginTop: 6, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
@@ -180,7 +205,7 @@ export default function ReprojectionsPage() {
 
       {loading && <div className="card"><div className="muted small">Loading…</div></div>}
       {!loading && !data && <div className="card"><div className="muted small">Select a property and year.</div></div>}
-      {!loading && data && <ReprojTable data={data} view={view} />}
+      {!loading && data && <ReprojTable data={data} view={view} noteFor={noteFor} osHref={osHref} />}
     </main>
   );
 }
@@ -191,7 +216,9 @@ function lineEmpty(t: Totals): boolean {
   return isZero(t.reprojTotal) && isZero(t.budgetTotal);
 }
 
-function ReprojTable({ data, view }: { data: Reprojection; view: ViewOpts }) {
+type NoteFor = (lineKey: string) => { note: string; ai: boolean } | null;
+
+function ReprojTable({ data, view, noteFor, osHref }: { data: Reprojection; view: ViewOpts; noteFor: NoteFor; osHref: string }) {
   const r = data.rollups;
   const byRole = (roles: string[]) => data.sections.filter((s) => roles.includes(s.role));
   const revenueSecs = byRole(["revenue", "reimbursement"]);
@@ -205,21 +232,21 @@ function ReprojTable({ data, view }: { data: Reprojection; view: ViewOpts }) {
   return (
     <>
       <GroupHeader label="Revenues" />
-      {revenueSecs.map((s) => <SectionCard key={s.name} sec={s} view={view} />)}
+      {revenueSecs.map((s) => <SectionCard key={s.name} sec={s} view={view} noteFor={noteFor} osHref={osHref} />)}
       <SubtotalCard label="Total Revenues" t={r.totalRevenues} view={view} />
 
       <GroupHeader label="Operating Expenses" />
-      {expenseSecs.map((s) => <SectionCard key={s.name} sec={s} view={view} />)}
+      {expenseSecs.map((s) => <SectionCard key={s.name} sec={s} view={view} noteFor={noteFor} osHref={osHref} />)}
       <SubtotalCard label="Total Operating Expenses" t={r.totalOperatingExpenses} view={view} />
       <SubtotalCard label="Net Operating Income" t={r.netOperatingIncome} view={view} strong />
 
       {showCapital && <GroupHeader label="Capital Improvements" />}
-      {showCapital && capitalSecs.map((s) => <SectionCard key={s.name} sec={s} view={view} hideSubtotal />)}
+      {showCapital && capitalSecs.map((s) => <SectionCard key={s.name} sec={s} view={view} noteFor={noteFor} osHref={osHref} hideSubtotal />)}
       {showDebt ? (
         <>
           <SubtotalCard label="Cash Flow Before Debt Service" t={r.cashFlowBeforeDebtService} view={view} strong />
           <GroupHeader label="Debt Service" />
-          {debtSecs.map((s) => <SectionCard key={s.name} sec={s} view={view} />)}
+          {debtSecs.map((s) => <SectionCard key={s.name} sec={s} view={view} noteFor={noteFor} osHref={osHref} />)}
           <SubtotalCard label="Total Debt Service" t={r.totalDebtService} view={view} />
           <SubtotalCard label="Cash Flow After Debt Service" t={r.cashFlowAfterDebtService} view={view} strong />
         </>
@@ -283,7 +310,7 @@ function HeaderRow({ through }: { through: number }) {
   );
 }
 
-function SectionCard({ sec, view, hideSubtotal }: { sec: Section; view: ViewOpts; hideSubtotal?: boolean }) {
+function SectionCard({ sec, view, noteFor, osHref, hideSubtotal }: { sec: Section; view: ViewOpts; noteFor: NoteFor; osHref: string; hideSubtotal?: boolean }) {
   const lines = view.hideEmpty ? sec.lines.filter((l) => !lineEmpty(l)) : sec.lines;
   if (lines.length === 0 && view.hideEmpty) return null;
   return (
@@ -294,15 +321,23 @@ function SectionCard({ sec, view, hideSubtotal }: { sec: Section; view: ViewOpts
           <Colgroup through={view.through} />
           <thead><HeaderRow through={view.through} /></thead>
           <tbody>
-            {lines.map((l) => (
+            {lines.map((l) => {
+              const n = noteFor(`${sec.name}::${l.label}`);
+              return (
               <tr key={l.label}>
                 <td style={{ textAlign: "left" }}>
                   {l.label}
+                  {n && (
+                    <a href={osHref} title={`${n.ai ? "✨ AI note — " : ""}${n.note}\n\n(click → Operating Statements)`}
+                      aria-label="Variance note" style={{ marginLeft: 6, textDecoration: "none", cursor: "pointer" }}>
+                      {n.ai ? "✨" : "📝"}
+                    </a>
+                  )}
                   {view.showGL && <div className="muted" style={{ fontSize: 10.5, fontVariantNumeric: "tabular-nums", marginTop: 1 }}>{l.mask}</div>}
                 </td>
                 {figureCells(l, view)}
               </tr>
-            ))}
+            );})}
             {!hideSubtotal && (
               <tr style={{ background: "rgba(11,74,125,0.06)" }}>
                 <td style={{ fontWeight: 900, letterSpacing: "0.04em", textTransform: "uppercase", color: BRAND, fontSize: 12.5 }}>{sec.role === "revenue" ? "Total Revenue and Other" : `Total ${sec.name}`}</td>

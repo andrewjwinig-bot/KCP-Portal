@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { reproject } from "@/lib/financials/reprojections/compute";
 import { availableStatements, getMapping } from "@/lib/financials/operating-statements/mappingStore";
 import { resolvePropertyBudget } from "@/lib/financials/operating-statements/budgetCrosswalk";
-import { latestGl, listGls } from "@/lib/financials/operating-statements/statementStore";
+import { latestGl, listGls, getNotesBundle } from "@/lib/financials/operating-statements/statementStore";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 
 export const runtime = "nodejs";
@@ -54,6 +54,13 @@ export async function GET(req: Request) {
     actualThroughMonth: stored?.maxPeriodInFile ?? 0,
   });
 
+  // Operating-statement notes share the same `<section>::<line label>` key, so
+  // the variance explanations written there surface directly on the matching
+  // reprojection line (default a sourceless note to AI, as the statement does).
+  const { notes, sources } = await getNotesBundle(key, year);
+  const noteSources: Record<string, "user" | "ai"> = {};
+  for (const lk of Object.keys(notes)) noteSources[lk] = sources[lk] ?? "ai";
+
   return NextResponse.json({
     available,
     reprojection,
@@ -62,5 +69,7 @@ export async function GET(req: Request) {
     hasGl: !!stored,
     hasBudget: !!budget,
     uploadedAt: stored?.uploadedAt ?? null,
+    notes,
+    noteSources,
   });
 }
