@@ -25,10 +25,10 @@ const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "
 type Available = { key: string; propertyCode: string; entityName: string; name: string; years: number[]; latest?: { year: number; period: number } | null };
 
 /** Compact "most recent period imported" suffix for the property dropdown,
- *  e.g. " · thru May ’26", or " · no GL" when nothing is uploaded. */
+ *  e.g. " (01-26)" for January 2026, or " (no GL)" when nothing is uploaded. */
 function importedSuffix(a: Available): string {
-  if (!a.latest) return " · no GL";
-  return ` · thru ${MONTHS[a.latest.period - 1]} ’${String(a.latest.year).slice(2)}`;
+  if (!a.latest) return " (no GL)";
+  return ` (${String(a.latest.period).padStart(2, "0")}-${String(a.latest.year).slice(2)})`;
 }
 
 function money0(v: number | null): string {
@@ -439,6 +439,17 @@ export default function OperatingStatementsPage() {
       <div className="card">
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", minWidth: 0 }}>
+            {/* Property + Year are always rendered and kept first so the
+                conditional Period select (below) never reflows them. */}
+            <HeaderSelect value={key} onChange={(v) => { setKey(v); setPeriod(0); setFlagFilter(null); }} displayLabel={cur ? `${cur.propertyCode} — ${cur.name}` : "—"} ariaLabel="Property">
+              {groupStatementOptions(available).map((grp) => (
+                <optgroup key={grp.label} label={grp.label}>
+                  {grp.items.map((a) => (
+                    <option key={a.key} value={a.key}>{a.propertyCode} — {a.name}{importedSuffix(a)}</option>
+                  ))}
+                </optgroup>
+              ))}
+            </HeaderSelect>
             <HeaderSelect value={String(year)} onChange={(v) => { setYear(Number(v)); setPeriod(0); setFlagFilter(null); }} displayLabel={String(year || "—")} ariaLabel="Year" muted>
               {yearOptions.map((y) => <option key={y} value={y}>{y}</option>)}
             </HeaderSelect>
@@ -449,15 +460,6 @@ export default function OperatingStatementsPage() {
                 ))}
               </HeaderSelect>
             )}
-            <HeaderSelect value={key} onChange={(v) => { setKey(v); setPeriod(0); setFlagFilter(null); }} displayLabel={cur ? `${cur.propertyCode} — ${cur.name}` : "—"} ariaLabel="Property">
-              {groupStatementOptions(available).map((grp) => (
-                <optgroup key={grp.label} label={grp.label}>
-                  {grp.items.map((a) => (
-                    <option key={a.key} value={a.key}>{a.propertyCode} — {a.name}{importedSuffix(a)}</option>
-                  ))}
-                </optgroup>
-              ))}
-            </HeaderSelect>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <button className="btn primary" title="Upload one or more GL files — each file's header identifies its property" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }} disabled={uploading} onClick={() => fileRef.current?.click()}>
