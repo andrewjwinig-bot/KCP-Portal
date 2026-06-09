@@ -133,9 +133,10 @@ function cellFlag(variance: number | null, budget: number | null, th: Thresh): "
 const flagTint = (f: "fav" | "unf" | null) =>
   f === "unf" ? "rgba(185,28,28,0.13)" : f === "fav" ? "rgba(21,128,61,0.13)" : undefined;
 
-// Does a line have any high-variance cell of the given class (month or YTD)?
+// Does a line have a high-variance cell of the given class for the current
+// month? (Matches the month-based favorable/unfavorable pills.)
 function lineMatchesClass(l: StatementTotals, cls: "fav" | "unf", th: Thresh): boolean {
-  return cellFlag(l.periodVariance, l.periodBudget, th) === cls || cellFlag(l.ytdVariance, l.ytdBudget, th) === cls;
+  return cellFlag(l.periodVariance, l.periodBudget, th) === cls;
 }
 
 // Count line items whose variance vs budget is "high", split favorable vs
@@ -450,14 +451,14 @@ export default function OperatingStatementsPage() {
           return (
             <>
               <div className="pills" style={{ marginTop: 12 }}>
-                {operatingCash != null && <StatPill label="Operating Cash · YTD" value={money0(operatingCash)} sub="Per GL" accent="#0b4a7d" />}
+                {operatingCash != null && <StatPill label="Operating Cash · YTD (Per GL)" value={`$${money0(operatingCash)}`} accent="#0b4a7d" />}
                 <StatPill label={`Cash Flow After Debt · ${mon} vs Budget`} value={fmtVarValue(cfad.periodVariance, mPct)} accent={pctAccent(mPct)} />
                 <StatPill label="Cash Flow After Debt · YTD vs Budget" value={fmtVarValue(cfad.ytdVariance, yPct)} accent={pctAccent(yPct)} />
-                <ClickablePill active={flagFilter === "unf"} activeColor="#b91c1c" onClick={() => setFlagFilter((f) => (f === "unf" ? null : "unf"))} title="Click to show only unfavorable lines">
-                  <StatPill label="Lines Unfavorable · YTD" value={variance.ytdUnf} sub={`${variance.monthUnf} in ${mon}`} accent={variance.ytdUnf > 0 ? "#b91c1c" : undefined} />
+                <ClickablePill active={flagFilter === "unf"} activeColor="#b91c1c" onClick={() => setFlagFilter((f) => (f === "unf" ? null : "unf"))} title={`Click to show only unfavorable lines in ${mon}`}>
+                  <StatPill label={`Lines Unfavorable · ${mon}`} value={variance.monthUnf} accent={variance.monthUnf > 0 ? "#b91c1c" : undefined} />
                 </ClickablePill>
-                <ClickablePill active={flagFilter === "fav"} activeColor="#15803d" onClick={() => setFlagFilter((f) => (f === "fav" ? null : "fav"))} title="Click to show only favorable lines">
-                  <StatPill label="Lines Favorable · YTD" value={variance.ytdFav} sub={`${variance.monthFav} in ${mon}`} accent={variance.ytdFav > 0 ? "#15803d" : undefined} />
+                <ClickablePill active={flagFilter === "fav"} activeColor="#15803d" onClick={() => setFlagFilter((f) => (f === "fav" ? null : "fav"))} title={`Click to show only favorable lines in ${mon}`}>
+                  <StatPill label={`Lines Favorable · ${mon}`} value={variance.monthFav} accent={variance.monthFav > 0 ? "#15803d" : undefined} />
                 </ClickablePill>
               </div>
               <div style={{ marginTop: 8, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
