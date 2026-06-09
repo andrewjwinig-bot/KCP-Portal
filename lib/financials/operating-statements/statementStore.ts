@@ -72,6 +72,21 @@ export async function listGls(): Promise<GlMeta[]> {
     .sort((a, b) => (a.uploadedAt < b.uploadedAt ? 1 : -1));
 }
 
+/** Merge the account names captured across every uploaded GL into one
+ *  chart-of-accounts lookup. GL account codes are consistent across properties,
+ *  so a name captured on one property (e.g. 1100) labels the same account on
+ *  every property — used as a fallback for GLs uploaded before name capture. */
+export function mergeAccountNames(gls: GlMeta[]): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const g of gls) {
+    if (!g.names) continue;
+    for (const [acct, nm] of Object.entries(g.names)) {
+      if (nm && !out[acct]) out[acct] = nm;
+    }
+  }
+  return out;
+}
+
 /** Every version uploaded for a property/year, newest first. */
 export async function versionsFor(key: string, year: number): Promise<GlMeta[]> {
   const all = await listGls();

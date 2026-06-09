@@ -4,7 +4,7 @@ import { parseGeneralLedgerMonthly, summaryForPeriod } from "@/lib/financials/op
 import { computeStatement } from "@/lib/financials/operating-statements/compute";
 import { availableStatements, getMapping } from "@/lib/financials/operating-statements/mappingStore";
 import { resolvePropertyBudget, makeBudgetLookup } from "@/lib/financials/operating-statements/budgetCrosswalk";
-import { saveGl, latestGl, getGl, versionsFor, listGls, getNotesBundle, saveNote, saveTransactions } from "@/lib/financials/operating-statements/statementStore";
+import { saveGl, latestGl, getGl, versionsFor, listGls, mergeAccountNames, getNotesBundle, saveNote, saveTransactions } from "@/lib/financials/operating-statements/statementStore";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 import { logAudit, auditIp } from "@/lib/audit";
 
@@ -85,10 +85,12 @@ export async function GET(req: Request) {
     gl,
     budgetLookup,
   });
-  // Label the unmapped (non-operating) accounts with their GL account name.
+  // Label the unmapped (non-operating) accounts with their GL account name,
+  // falling back to names captured on any other property's GL (codes are shared).
+  const acctNames = mergeAccountNames(gls);
   statement.unmappedAccounts = statement.unmappedAccounts.map((u) => ({
     ...u,
-    name: stored.names?.[u.account] ?? null,
+    name: stored.names?.[u.account] ?? acctNames[u.account] ?? null,
   }));
 
   return NextResponse.json({

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { reproject } from "@/lib/financials/reprojections/compute";
 import { availableStatements, getMapping } from "@/lib/financials/operating-statements/mappingStore";
 import { resolvePropertyBudget } from "@/lib/financials/operating-statements/budgetCrosswalk";
-import { latestGl, listGls, getNotesBundle } from "@/lib/financials/operating-statements/statementStore";
+import { latestGl, listGls, mergeAccountNames, getNotesBundle } from "@/lib/financials/operating-statements/statementStore";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 
 export const runtime = "nodejs";
@@ -53,10 +53,12 @@ export async function GET(req: Request) {
     budgetLines,
     actualThroughMonth: stored?.maxPeriodInFile ?? 0,
   });
-  // Label the unbudgeted accounts with their GL account name.
+  // Label the unbudgeted accounts with their GL account name, falling back to
+  // names captured on any other property's GL (account codes are shared).
+  const acctNames = mergeAccountNames(gls);
   reprojection.unbudgetedAccounts = reprojection.unbudgetedAccounts.map((u) => ({
     ...u,
-    name: stored?.names?.[u.account] ?? null,
+    name: stored?.names?.[u.account] ?? acctNames[u.account] ?? null,
   }));
 
   // Operating-statement notes share the same `<section>::<line label>` key, so
