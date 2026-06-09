@@ -8,6 +8,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useUser } from "@/app/components/UserProvider";
+import { DownloadMenu } from "@/app/components/DownloadMenu";
 import { StatPill } from "@/app/components/Pill";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 import type {
@@ -389,6 +390,15 @@ export default function OperatingStatementsPage() {
               {uploading ? "Uploading…" : "Upload GL"}
             </button>
             <input ref={fileRef} type="file" accept=".xls,.xlsx,.xlsm" style={{ display: "none" }} onChange={onUpload} />
+            {cur && statement && (
+              <DownloadMenu
+                disabled={!statement}
+                items={[
+                  { label: "Excel (.xlsx)", description: "Full Period + YTD statement with budget & variance", href: `/api/financials/operating-statements/download?key=${encodeURIComponent(key)}&year=${year}${period ? `&period=${period}` : ""}` },
+                  { label: "PDF", description: "Presentation-ready single-property statement", href: `/api/financials/operating-statements/download/pdf?key=${encodeURIComponent(key)}&year=${year}${period ? `&period=${period}` : ""}` },
+                ]}
+              />
+            )}
             {cur && (
               <a
                 className="btn"
