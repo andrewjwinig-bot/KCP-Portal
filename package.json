@@ -11,6 +11,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@types/qrcode": "^1.5.5",
     "@vercel/blob": "^2.3.1",
     "archiver": "6.0.2",
     "exceljs": "^4.4.0",
@@ -19,6 +20,7 @@
     "jszip": "^3.10.1",
     "next": "14.2.5",
     "pdf-lib": "^1.17.1",
+    "qrcode": "^1.5.4",
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "server-only": "^0.0.1",

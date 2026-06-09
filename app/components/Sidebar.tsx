@@ -38,6 +38,7 @@ const NAV_ROLE_KEY: Record<string, string> = {
   "Operating Statements": "financials-budgets",
   "Budgets":            "financials-budgets",
   "Audit Log":          "audit",
+  "Security":           "security",
 };
 
 // Group metadata. Sidebar items can opt into a group via `groupId`; the
@@ -556,6 +557,19 @@ const NAV = [
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M9 11l3 3 8-8" />
         <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+      </svg>
+    ),
+  },
+  {
+    label: "Security",
+    href: "/security",
+    external: false,
+    indent: false,
+    showFor: null as string | null,
+    groupId: undefined as unknown as string,
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
       </svg>
     ),
   },

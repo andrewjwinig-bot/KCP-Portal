@@ -24,8 +24,11 @@ function LoginFormInner() {
   const inputRef = useRef<HTMLInputElement>(null);
   const [user, setUser] = useState("");
   const [password, setPassword] = useState("");
+  const [code, setCode] = useState("");
+  const [twoFactor, setTwoFactor] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const codeRef = useRef<HTMLInputElement>(null);
 
   // Prefill with whoever signed in last on this browser.
   useEffect(() => {
@@ -46,16 +49,28 @@ function LoginFormInner() {
       inputRef.current?.focus();
       return;
     }
+    if (twoFactor && code.length !== 6) {
+      codeRef.current?.focus();
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
       const res = await fetch("/api/site/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user, password }),
+        body: JSON.stringify({ user, password, code: twoFactor ? code : undefined }),
       });
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
+        if (j?.twoFactorRequired) {
+          // Password OK — now ask for the authenticator code.
+          setTwoFactor(true);
+          setBusy(false);
+          setError(j?.error ?? null); // e.g. "Incorrect code" on a retry
+          setTimeout(() => codeRef.current?.focus(), 0);
+          return;
+        }
         throw new Error(j?.error ?? "Login failed");
       }
       try {
@@ -125,10 +140,27 @@ function LoginFormInner() {
             autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            disabled={busy}
+            disabled={busy || twoFactor}
             style={fieldStyle}
           />
         </label>
+
+        {twoFactor && (
+          <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <span style={labelStyle}>Authenticator code</span>
+            <input
+              ref={codeRef}
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              placeholder="123456"
+              value={code}
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              disabled={busy}
+              style={{ ...fieldStyle, fontSize: 18, letterSpacing: 6, textAlign: "center" }}
+            />
+            <span className="muted small">Enter the 6-digit code from your authenticator app.</span>
+          </label>
+        )}
 
         {error && (
           <div style={{
@@ -148,7 +180,7 @@ function LoginFormInner() {
           disabled={busy}
           style={{ width: "100%" }}
         >
-          {busy ? "Signing in…" : "Sign In"}
+          {busy ? "Signing in…" : twoFactor ? "Verify & Sign In" : "Sign In"}
         </button>
       </form>
     </main>
