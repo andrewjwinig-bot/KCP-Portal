@@ -1,56 +1,51 @@
 // Cash Sheet — Starting Cash sourcing.
 //
-// Starting Cash for a month = the prior month's MONTH-END Operating Cash, i.e.
-// the ending balance of the Cash-Operating account (0110-0000) through that
-// month, read from the property's uploaded Operating Statement GL. (Same
-// figure as the "Operating Cash · YTD (Per GL)" KPI on the statement page.)
-// As statements get uploaded month over month, the Starting Cash updates
-// automatically.
+// Starting Cash for a month = that month's OPENING Operating Cash balance — the
+// balance of the Cash-Operating account (0110-0000) at the first of the month,
+// read from the property's uploaded Operating Statement GL. This is the same
+// figure the statement's "Starting Cash (Per GL)" KPI shows for the month.
+// Computed as the year's opening (Beginning Balance) plus net cash activity for
+// every month BEFORE the cash-sheet month. As statements get uploaded month
+// over month it updates automatically.
 
 import "server-only";
 import { latestGl, type StoredGl } from "@/lib/financials/operating-statements/statementStore";
-import { priorMonth, monthKey } from "./util";
+import { monthKey } from "./util";
 
 const CASH_ACCT = "0110-0000";
 
-/** Ending balance of Operating Cash through `period` (1–12), or null when the
- *  GL doesn't cover that month. */
-function cashAtPeriod(stored: StoredGl, period: number): number | null {
-  if (period < 1 || period > stored.maxPeriodInFile) return null;
-  // YTD Total row is the authoritative ending balance, but only through the
-  // last period in the file.
-  if (period === stored.maxPeriodInFile && stored.ytdTotal && stored.ytdTotal[CASH_ACCT] != null) {
-    return stored.ytdTotal[CASH_ACCT];
-  }
-  // Otherwise reconstruct: beginning balance + net activity through `period`.
+/** Operating Cash balance at the START of `month` (1–12): the year's opening
+ *  balance + net cash activity for every prior month. Null when the GL doesn't
+ *  yet cover the months needed. */
+function cashAtStartOfMonth(stored: StoredGl, month: number): number | null {
+  const begin = stored.beginning?.[CASH_ACCT];
+  if (begin == null) return null;
+  const priorMonths = month - 1; // activity for Jan..(month-1)
+  if (priorMonths === 0) return begin; // start of January = the year's opening balance
+  if (priorMonths > stored.maxPeriodInFile) return null; // those months aren't in the file yet
   const nets = stored.monthly[CASH_ACCT];
-  if (stored.beginning && nets) {
-    const begin = stored.beginning[CASH_ACCT] ?? 0;
-    return begin + nets.slice(0, period).reduce((a, n) => a + (n || 0), 0);
-  }
-  return null;
+  if (!nets) return null;
+  return begin + nets.slice(0, priorMonths).reduce((a, n) => a + (n || 0), 0);
 }
 
 export type StartingCash = {
-  /** Month-end cash, or null if the prior month's statement isn't available. */
+  /** Start-of-month Operating Cash, or null if the statement isn't available. */
   amount: number | null;
-  /** The month the figure is sourced from, "YYYY-MM" (always returned so the
-   *  UI can label it even when the amount is missing). */
+  /** The cash-sheet month this is the opening balance for ("YYYY-MM"). */
   sourceYm: string;
 };
 
-/** Starting Cash for each requested property for cash-sheet (year, month). */
+/** Starting (opening) Cash for each requested property for cash-sheet (year, month). */
 export async function startingCashFor(
   codes: string[],
   year: number,
   month: number,
 ): Promise<Record<string, StartingCash>> {
-  const prev = priorMonth(year, month);
-  const sourceYm = monthKey(prev.year, prev.month);
+  const sourceYm = monthKey(year, month);
   const entries = await Promise.all(
     codes.map(async (code) => {
-      const stored = await latestGl(code, prev.year);
-      const amount = stored ? cashAtPeriod(stored, prev.month) : null;
+      const stored = await latestGl(code, year);
+      const amount = stored ? cashAtStartOfMonth(stored, month) : null;
       return [code, { amount, sourceYm }] as const;
     }),
   );

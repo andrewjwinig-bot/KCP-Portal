@@ -195,10 +195,10 @@ function monthlyFromDetailed(rows: Row[], cols: DetailCols): { monthly: Record<s
       current = c1;
       if (!monthly[current]) monthly[current] = new Array(12).fill(0);
       if (!transactions[current]) transactions[current] = [];
-      const nm = accountNameFrom(row, 1);
+      // The account name sits in the Vendor-Name column (col G on the GL) on
+      // the account header row; fall back to the first text cell after the code.
+      const nm = asStr(row[cols.vendor]).trim() || accountNameFrom(row, 1);
       if (nm && !names[current]) names[current] = nm;
-      // The account header row also carries the Beginning Balance in the Amount
-      // column — captured for balance-sheet ending balances (e.g. Cash).
       beginning[current] = numIn(row, cols.amount, cols.amount + 1);
       buffer = [];
       continue;
