@@ -79,8 +79,6 @@ export const USERS: Record<UserId, UserDef> = {
       "deposits",
       "bank-transfers",
       "financials-budgets",
-      "audit",
-      "security",
     ]),
     allowedPathPrefixes: [
       "/dashboard",
@@ -176,9 +174,10 @@ export const USERS: Record<UserId, UserDef> = {
   },
 };
 
-/** admin, drew and alison may switch between user profiles after signing in. */
+/** Only admin and Drew may switch between user profiles after signing in.
+ *  Keyed off the authenticated (cookie) user, so no one else can toggle. */
 export function canSwitchUsers(userId: UserId): boolean {
-  return userId === "admin" || userId === "drew" || userId === "alison";
+  return userId === "admin" || userId === "drew";
 }
 
 export function isPathAllowed(userId: UserId, pathname: string): boolean {

@@ -104,9 +104,16 @@ export default function SecurityPage() {
         {enroll && (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             <ol style={{ ...step, margin: 0, paddingLeft: 18 }}>
-              <li>In your authenticator app, add an account.</li>
-              <li>Scan this QR code — or enter the key manually.</li>
-              <li>Type the current 6-digit code below to finish.</li>
+              <li>
+                Install <b>Authy</b> on your phone if you don&apos;t have it:{" "}
+                <a href="https://apps.apple.com/app/twilio-authy/id494168017" target="_blank" rel="noreferrer">iPhone (App Store)</a>
+                {" · "}
+                <a href="https://play.google.com/store/apps/details?id=com.authy.authy" target="_blank" rel="noreferrer">Android (Google Play)</a>
+              </li>
+              <li>Open Authy → <b>＋ Add Account</b> → <b>Scan QR Code</b>.</li>
+              <li>Scan the QR code below. (No camera? Tap <b>Enter key manually</b> and type the key shown.)</li>
+              <li>Authy now shows a 6-digit code for &ldquo;KCP Portal&rdquo; that changes every 30 seconds.</li>
+              <li>Type that current code below and press <b>Confirm &amp; turn on</b>.</li>
             </ol>
             <div style={{ display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap" }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}

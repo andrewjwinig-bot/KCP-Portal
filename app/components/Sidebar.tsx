@@ -38,8 +38,10 @@ const NAV_ROLE_KEY: Record<string, string> = {
   "Operating Statements": "financials-budgets",
   "Budgets":            "financials-budgets",
   "Audit Log":          "audit",
-  // "Two-Factor Auth" intentionally omitted → visible to every signed-in user
-  // (self-service 2FA). The Security group shows whenever a user can see it.
+  // Security group is admin-only in the sidebar (the "audit" key, which only
+  // the admin profile's "all" grants). Required non-admins are still routed to
+  // /security by the forced-enrollment redirect — they don't need the link.
+  "Two-Factor Auth":    "audit",
 };
 
 // Group metadata. Sidebar items can opt into a group via `groupId`; the
@@ -858,6 +860,8 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
                   onClick={() => toggleGroup(gid)}
                   title={meta.label}
                   style={{
+                    // Pin the Security group to the bottom of the nav, by Sign Out.
+                    ...(gid === "security" ? { marginTop: "auto" } : {}),
                     display: "flex",
                     alignItems: "center",
                     gap: 10,
