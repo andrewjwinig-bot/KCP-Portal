@@ -7,11 +7,7 @@
 // the portal budget); for now they read blank.
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useUser } from "@/app/components/UserProvider";
-import { DownloadMenu } from "@/app/components/DownloadMenu";
 import { StatPill } from "@/app/components/Pill";
-import { AccountListCard } from "@/app/components/AccountListCard";
-import { groupStatementOptions } from "@/lib/financials/operating-statements/propertyGroups";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 import type {
   PropertyStatement,
@@ -72,29 +68,6 @@ function fmtPct(v: number | null): string {
   if (v == null) return "—";
   return `${v > 0 ? "+" : ""}${v.toFixed(1)}%`;
 }
-// Compact signed dollar for KPI pills: $5.2K, -$1.3M, $850.
-function fmtVarK(v: number | null): string {
-  if (v == null) return "—";
-  const sign = v < 0 ? "-" : "";
-  const a = Math.abs(v);
-  if (a >= 1_000_000) return `${sign}$${(a / 1_000_000).toFixed(1)}M`;
-  if (a >= 1_000) return `${sign}$${(a / 1_000).toFixed(1)}K`;
-  return `${sign}$${Math.round(a)}`;
-}
-// "$5.2K (+3.4%)" — dollar variance with the % in parens (either alone if the
-// other is missing).
-function fmtVarValue(v: number | null, pct: number | null): string {
-  if (v == null) return fmtPct(pct);
-  if (pct == null) return fmtVarK(v);
-  return `${fmtVarK(v)} (${fmtPct(pct)})`;
-}
-// Same as fmtVarValue, but renders the trailing (percent) at normal weight so
-// the dollar variance stays bold and the % reads as a lighter qualifier.
-function fmtVarValueNode(v: number | null, pct: number | null): React.ReactNode {
-  if (v == null) return fmtPct(pct);
-  if (pct == null) return fmtVarK(v);
-  return <>{fmtVarK(v)} <span style={{ fontWeight: 400 }}>({fmtPct(pct)})</span></>;
-}
 // Variance % carries the favorability sign (positive = favorable). Blank when
 // there's no budget to compare against.
 function varPct(variance: number | null, budget: number | null): number | null {
@@ -115,11 +88,8 @@ function fmtAmt(v: number | null, psf: boolean, sqft: number): string {
 }
 
 const isZero = (v: number | null) => v == null || Math.abs(v) < 0.5;
-// "Empty" for the Hide-empty toggle = no YTD activity on either side. A line
-// can carry a future annual budget (e.g. Parking Lot Maintenance budgeted later
-// in the year) and still be hidden until something hits YTD actual or YTD budget.
 function isLineEmpty(t: StatementTotals): boolean {
-  return isZero(t.ytdActual) && isZero(t.ytdBudget);
+  return isZero(t.periodActual) && isZero(t.ytdActual) && isZero(t.periodBudget) && isZero(t.ytdBudget) && isZero(t.annualBudget);
 }
 
 const threshInput: React.CSSProperties = {
@@ -142,10 +112,9 @@ function cellFlag(variance: number | null, budget: number | null, th: Thresh): "
 const flagTint = (f: "fav" | "unf" | null) =>
   f === "unf" ? "rgba(185,28,28,0.13)" : f === "fav" ? "rgba(21,128,61,0.13)" : undefined;
 
-// Does a line have a high-variance cell of the given class for the current
-// month? (Matches the month-based favorable/unfavorable pills.)
+// Does a line have any high-variance cell of the given class (month or YTD)?
 function lineMatchesClass(l: StatementTotals, cls: "fav" | "unf", th: Thresh): boolean {
-  return cellFlag(l.periodVariance, l.periodBudget, th) === cls;
+  return cellFlag(l.periodVariance, l.periodBudget, th) === cls || cellFlag(l.ytdVariance, l.ytdBudget, th) === cls;
 }
 
 // Count line items whose variance vs budget is "high", split favorable vs
@@ -208,7 +177,6 @@ function GLToggle({ show, onChange }: { show: boolean; onChange: (v: boolean) =>
 }
 
 export default function OperatingStatementsPage() {
-  const { user } = useUser();
   const [available, setAvailable] = useState<Available[]>([]);
   const [key, setKey] = useState("");
   const [year, setYear] = useState(0);
@@ -218,13 +186,12 @@ export default function OperatingStatementsPage() {
   const [budgetFallback, setBudgetFallback] = useState(false);
   const [statement, setStatement] = useState<PropertyStatement | null>(null);
   const [notes, setNotes] = useState<Record<string, string>>({});
-  const [operatingCash, setOperatingCash] = useState<number | null>(null);
   const [noteSources, setNoteSources] = useState<Record<string, "user" | "ai">>({});
-  const [noteMeta, setNoteMeta] = useState<Record<string, { editedAt: string; editedBy: string }>>({});
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [uploadMsg, setUploadMsg] = useState<string | null>(null);
   // View toggles (mirroring the Operating Budgets page).
   const [psf, setPsf] = useState(false);
   const [hideEmpty, setHideEmpty] = useState(true);
@@ -243,17 +210,6 @@ export default function OperatingStatementsPage() {
       .then((j) => {
         const list: Available[] = j.available ?? [];
         setAvailable(list);
-        // Deep link from the Reprojections/Budgets pages: ?key (or ?property) & year.
-        const params = new URLSearchParams(window.location.search);
-        const wantKey = params.get("key");
-        const wantProp = params.get("property");
-        const wantYear = params.get("year");
-        const match = wantKey ? list.find((a) => a.key === wantKey) : wantProp ? list.find((a) => a.propertyCode === wantProp) : null;
-        if (match) {
-          setKey(match.key);
-          setYear(wantYear ? Number(wantYear) : match.years[0] ?? new Date().getFullYear());
-          return;
-        }
         const withData = list.find((a) => a.years.length);
         const first = withData ?? list[0];
         if (first) {
@@ -263,6 +219,13 @@ export default function OperatingStatementsPage() {
       })
       .catch(() => setError("Failed to load properties."));
   }, []);
+
+  // Auto-dismiss the upload confirmation after a few seconds.
+  useEffect(() => {
+    if (!uploadMsg) return;
+    const t = setTimeout(() => setUploadMsg(null), 8000);
+    return () => clearTimeout(t);
+  }, [uploadMsg]);
 
   const load = useCallback(async () => {
     if (!key || !year) return;
@@ -274,9 +237,7 @@ export default function OperatingStatementsPage() {
       const j = await fetch(`/api/financials/operating-statements?${qs}`).then((r) => r.json());
       setStatement(j.statement ?? null);
       setNotes(j.notes ?? {});
-      setOperatingCash(j.operatingCash ?? null);
       setNoteSources(j.noteSources ?? {});
-      setNoteMeta(j.noteMeta ?? {});
       setMessage(j.message ?? null);
       setBudgetYear(j.budgetYear ?? null);
       setBudgetFallback(!!j.budgetFallback);
@@ -294,6 +255,7 @@ export default function OperatingStatementsPage() {
     if (!file) return;
     setUploading(true);
     setError(null);
+    setUploadMsg(null);
     try {
       const fd = new FormData();
       fd.append("file", file);
@@ -302,10 +264,15 @@ export default function OperatingStatementsPage() {
       if (j.error) { setError(j.error); return; }
       // Refresh picker + jump to the uploaded property/year.
       const av = await fetch("/api/financials/operating-statements").then((r) => r.json());
-      setAvailable(av.available ?? []);
+      const list = av.available ?? [];
+      setAvailable(list);
       setKey(j.key);
       setYear(j.year);
       setPeriod(0);
+      const up = list.find((a: Available) => a.key === j.key);
+      const label = up ? `${up.propertyCode} — ${up.name}` : j.key;
+      const through = j.maxPeriodInFile ? ` through ${MONTHS[j.maxPeriodInFile - 1]}` : "";
+      setUploadMsg(`✓ Uploaded ${file.name} — ${label}, ${j.year}${through} (${j.accounts} accounts).`);
     } catch {
       setError("Upload failed.");
     } finally {
@@ -318,14 +285,12 @@ export default function OperatingStatementsPage() {
     setNotes((n) => ({ ...n, [lineKey]: note }));
     // A hand-edited note is now the user's — drop any AI flag on it.
     setNoteSources((s) => ({ ...s, [lineKey]: "user" }));
-    setNoteMeta((m) => ({ ...m, [lineKey]: { editedAt: new Date().toISOString(), editedBy: user.label } }));
     await fetch("/api/financials/operating-statements", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key, year, lineKey, note, editedBy: user.label }),
-      keepalive: true, // survive a page refresh/navigation mid-save
+      body: JSON.stringify({ key, year, lineKey, note }),
     }).catch(() => {});
-  }, [key, year, user.label]);
+  }, [key, year]);
 
   const [analyzing, setAnalyzing] = useState(false);
   const [analyzeMsg, setAnalyzeMsg] = useState<string | null>(null);
@@ -343,8 +308,6 @@ export default function OperatingStatementsPage() {
         setNotes((n) => ({ ...n, ...j.notes }));
         const aiKeys = Object.keys(j.notes as Record<string, string>);
         setNoteSources((s) => { const next = { ...s }; for (const k of aiKeys) next[k] = "ai"; return next; });
-        const now = new Date().toISOString();
-        setNoteMeta((m) => { const next = { ...m }; for (const k of aiKeys) next[k] = { editedAt: now, editedBy: "Auto-explain" }; return next; });
       }
       setAnalyzeMsg(j.analyzed ? `Explained ${Object.keys(j.notes ?? {}).length} of ${j.analyzed} flagged lines.` : (j.message ?? "Nothing to analyze."));
     } catch {
@@ -378,6 +341,13 @@ export default function OperatingStatementsPage() {
         </div>
       )}
 
+      {uploadMsg && (
+        <div className="card" style={{ borderColor: "rgba(21,128,61,0.4)", background: "rgba(21,128,61,0.06)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+          <div style={{ fontWeight: 700, color: "#15803d" }}>{uploadMsg}</div>
+          <button onClick={() => setUploadMsg(null)} aria-label="Dismiss" style={{ background: "none", border: "none", cursor: "pointer", color: "#15803d", fontSize: 18, lineHeight: 1, fontWeight: 700, padding: "0 4px" }}>×</button>
+        </div>
+      )}
+
       <div className="card">
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", minWidth: 0 }}>
@@ -392,12 +362,8 @@ export default function OperatingStatementsPage() {
               </HeaderSelect>
             )}
             <HeaderSelect value={key} onChange={(v) => { setKey(v); setPeriod(0); setFlagFilter(null); }} displayLabel={cur ? `${cur.propertyCode} — ${cur.name}` : "—"} ariaLabel="Property">
-              {groupStatementOptions(available).map((grp) => (
-                <optgroup key={grp.label} label={grp.label}>
-                  {grp.items.map((a) => (
-                    <option key={a.key} value={a.key}>{a.propertyCode} — {a.name}{a.years.length ? "" : " (no GL)"}</option>
-                  ))}
-                </optgroup>
+              {available.map((a) => (
+                <option key={a.key} value={a.key}>{a.propertyCode} — {a.name}{a.years.length ? "" : " (no GL)"}</option>
               ))}
             </HeaderSelect>
           </div>
@@ -406,35 +372,6 @@ export default function OperatingStatementsPage() {
               {uploading ? "Uploading…" : "Upload GL"}
             </button>
             <input ref={fileRef} type="file" accept=".xls,.xlsx,.xlsm" style={{ display: "none" }} onChange={onUpload} />
-            {cur && statement && (
-              <DownloadMenu
-                disabled={!statement}
-                items={[
-                  { label: "Excel (.xlsx)", description: "Full Period + YTD statement with budget & variance", href: `/api/financials/operating-statements/download?key=${encodeURIComponent(key)}&year=${year}${period ? `&period=${period}` : ""}` },
-                  { label: "PDF", description: "Presentation-ready single-property statement", href: `/api/financials/operating-statements/download/pdf?key=${encodeURIComponent(key)}&year=${year}${period ? `&period=${period}` : ""}` },
-                ]}
-              />
-            )}
-            {cur && (
-              <a
-                className="btn"
-                href={`/financials/reprojections?key=${encodeURIComponent(key)}${year ? `&year=${year}` : ""}`}
-                title={`Open ${cur.propertyCode}'s full-year reprojection`}
-                style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700, textDecoration: "none" }}
-              >
-                Reprojection
-              </a>
-            )}
-            {cur && (
-              <a
-                className="btn"
-                href={`/financials/budgets?property=${encodeURIComponent(cur.propertyCode)}${year ? `&year=${year}` : ""}`}
-                title={`Open ${cur.propertyCode}'s full operating budget`}
-                style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700, textDecoration: "none" }}
-              >
-                View Budget
-              </a>
-            )}
           </div>
         </div>
 
@@ -456,22 +393,21 @@ export default function OperatingStatementsPage() {
         </div>
 
         {statement && variance && (() => {
-          const noi = statement.rollups.netOperatingIncome;
-          const mPct = varPct(noi.periodVariance, noi.periodBudget);
-          const yPct = varPct(noi.ytdVariance, noi.ytdBudget);
+          const cfad = statement.rollups.cashFlowAfterDebtService;
+          const mPct = varPct(cfad.periodVariance, cfad.periodBudget);
+          const yPct = varPct(cfad.ytdVariance, cfad.ytdBudget);
           const mon = MONTHS[statement.period - 1];
           const pctAccent = (v: number | null) => (v == null ? undefined : v >= 0 ? "#15803d" : "#b91c1c");
           return (
             <>
               <div className="pills" style={{ marginTop: 12 }}>
-                {operatingCash != null && <StatPill label={`Starting Cash · ${mon} (Per GL)`} value={`$${money0(operatingCash)}`} accent="#0b4a7d" />}
-                <StatPill label={`Net Operating Income · ${mon} vs Budget`} value={fmtVarValueNode(noi.periodVariance, mPct)} accent={pctAccent(mPct)} />
-                <StatPill label="Net Operating Income · YTD vs Budget" value={fmtVarValueNode(noi.ytdVariance, yPct)} accent={pctAccent(yPct)} />
-                <ClickablePill active={flagFilter === "unf"} activeColor="#b91c1c" onClick={() => setFlagFilter((f) => (f === "unf" ? null : "unf"))} title={`Click to show only unfavorable lines in ${mon}`}>
-                  <StatPill label={`Lines Unfavorable · ${mon}`} value={variance.monthUnf} accent={variance.monthUnf > 0 ? "#b91c1c" : undefined} />
+                <StatPill label={`Cash Flow After Debt · ${mon} vs Budget`} value={fmtPct(mPct)} accent={pctAccent(mPct)} />
+                <StatPill label="Cash Flow After Debt · YTD vs Budget" value={fmtPct(yPct)} accent={pctAccent(yPct)} />
+                <ClickablePill active={flagFilter === "unf"} activeColor="#b91c1c" onClick={() => setFlagFilter((f) => (f === "unf" ? null : "unf"))} title="Click to show only unfavorable lines">
+                  <StatPill label="Lines Unfavorable · YTD" value={variance.ytdUnf} sub={`${variance.monthUnf} in ${mon}`} accent={variance.ytdUnf > 0 ? "#b91c1c" : undefined} />
                 </ClickablePill>
-                <ClickablePill active={flagFilter === "fav"} activeColor="#15803d" onClick={() => setFlagFilter((f) => (f === "fav" ? null : "fav"))} title={`Click to show only favorable lines in ${mon}`}>
-                  <StatPill label={`Lines Favorable · ${mon}`} value={variance.monthFav} accent={variance.monthFav > 0 ? "#15803d" : undefined} />
+                <ClickablePill active={flagFilter === "fav"} activeColor="#15803d" onClick={() => setFlagFilter((f) => (f === "fav" ? null : "fav"))} title="Click to show only favorable lines">
+                  <StatPill label="Lines Favorable · YTD" value={variance.ytdFav} sub={`${variance.monthFav} in ${mon}`} accent={variance.ytdFav > 0 ? "#15803d" : undefined} />
                 </ClickablePill>
               </div>
               <div style={{ marginTop: 8, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
@@ -484,15 +420,9 @@ export default function OperatingStatementsPage() {
                   {analyzeMsg && <span className="muted small">{analyzeMsg}</span>}
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }} className="muted small">
-                  <span style={{ fontWeight: 700 }}>Flag Lines Over</span>
+                  <span style={{ fontWeight: 700 }}>Flag lines over</span>
                   <span>$</span>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={varDollar.toLocaleString("en-US")}
-                    onChange={(e) => setVarDollar(Math.max(0, Number(e.target.value.replace(/[^\d]/g, "")) || 0))}
-                    style={threshInput}
-                  />
+                  <input type="number" min={0} value={varDollar} onChange={(e) => setVarDollar(Math.max(0, Number(e.target.value) || 0))} style={threshInput} />
                   <span>or</span>
                   <input type="number" min={0} value={varPctThresh} onChange={(e) => setVarPctThresh(Math.max(0, Number(e.target.value) || 0))} style={threshInput} />
                   <span>%</span>
@@ -512,34 +442,25 @@ export default function OperatingStatementsPage() {
         </div>
       )}
 
-      {!loading && statement && <StatementTable s={statement} viewKey={key} budgetYear={budgetYear} budgetFallback={budgetFallback} notes={notes} noteSources={noteSources} noteMeta={noteMeta} editorLabel={user.label} onSaveNote={saveNote} view={{ psf, sqft, hideEmpty, showGL }} thresh={thresh} flagFilter={flagFilter} onClearFilter={() => setFlagFilter(null)} />}
+      {!loading && statement && <StatementTable s={statement} viewKey={key} budgetYear={budgetYear} budgetFallback={budgetFallback} notes={notes} noteSources={noteSources} onSaveNote={saveNote} view={{ psf, sqft, hideEmpty, showGL }} thresh={thresh} flagFilter={flagFilter} onClearFilter={() => setFlagFilter(null)} />}
     </main>
   );
 }
 
 // ── Statement (one card per section, like the Budgets page) ──────────────────
 
-type NoteFns = { notes: Record<string, string>; noteSources: Record<string, "user" | "ai">; noteMeta: Record<string, { editedAt: string; editedBy: string }>; editorLabel: string; onSaveNote: (lineKey: string, note: string) => void };
-
-// "Jun 1, 2026 at 10:19 AM" — matches the rent roll's last-imported stamp.
-function fmtNoteEdited(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  const date = d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-  const time = d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
-  return `${date} at ${time}`;
-}
+type NoteFns = { notes: Record<string, string>; noteSources: Record<string, "user" | "ai">; onSaveNote: (lineKey: string, note: string) => void };
 const lineKeyOf = (sectionName: string, label: string) => `${sectionName}::${label}`;
 
 // Shared fixed-width columns so every section/subtotal card lines up.
 function StatementColgroup() {
   return (
     <colgroup>
-      <col style={{ width: "20%" }} />
-      <col style={{ width: "8%" }} /><col style={{ width: "8%" }} /><col style={{ width: "6%" }} />
-      <col style={{ width: "8%" }} /><col style={{ width: "8%" }} /><col style={{ width: "6%" }} />
-      <col style={{ width: "8%" }} />
-      <col style={{ width: "28%" }} />
+      <col style={{ width: "22%" }} />
+      <col style={{ width: "9%" }} /><col style={{ width: "9%" }} /><col style={{ width: "7%" }} />
+      <col style={{ width: "9%" }} /><col style={{ width: "9%" }} /><col style={{ width: "7%" }} />
+      <col style={{ width: "9%" }} />
+      <col style={{ width: "19%" }} />
     </colgroup>
   );
 }
@@ -563,13 +484,13 @@ function HeaderRow({ monthLabel }: { monthLabel: string }) {
       <th style={{ ...headStyle, borderLeft: GROUP_DIV }}>YTD Act</th>
       <th style={headStyle}>YTD Bud</th>
       <th style={headStyle}>YTD Var %</th>
-      <th style={{ ...headStyle, borderLeft: GROUP_DIV }}>Ann Bud</th>
+      <th style={{ ...headStyle, borderLeft: GROUP_DIV }}>Annual</th>
       <th style={{ ...headStyle, borderLeft: GROUP_DIV, textAlign: "left" }}>Notes</th>
     </tr>
   );
 }
 
-function StatementTable({ s, viewKey, budgetYear, budgetFallback, notes, noteSources, noteMeta, editorLabel, onSaveNote, view, thresh, flagFilter, onClearFilter }: {
+function StatementTable({ s, viewKey, budgetYear, budgetFallback, notes, noteSources, onSaveNote, view, thresh, flagFilter, onClearFilter }: {
   s: PropertyStatement; viewKey: string; budgetYear: number | null; budgetFallback: boolean; view: ViewOpts;
   thresh: Thresh; flagFilter: "fav" | "unf" | null; onClearFilter: () => void;
 } & NoteFns) {
@@ -579,14 +500,7 @@ function StatementTable({ s, viewKey, budgetYear, budgetFallback, notes, noteSou
   const capitalSecs = byRole(["capital"]);
   const debtSecs = byRole(["debt-service"]);
   const r = s.rollups;
-  // Capital / Debt Service are often all-zero (no capital spend, no mortgage
-  // in the GL yet). With Hide Empty Rows on, drop the whole group — header,
-  // section, and its rollup — until something non-zero appears.
-  const groupHasActivity = (secs: StatementSection[]) =>
-    secs.some((sec) => sec.lines.some((l) => !isLineEmpty(l)) || !isLineEmpty(sec.subtotal));
-  const showCapital = capitalSecs.length > 0 && (!view.hideEmpty || groupHasActivity(capitalSecs));
-  const showDebt = debtSecs.length > 0 && (!view.hideEmpty || groupHasActivity(debtSecs));
-  const nf: NoteFns = { notes, noteSources, noteMeta, editorLabel, onSaveNote };
+  const nf: NoteFns = { notes, noteSources, onSaveNote };
   const monthLabel = MONTHS[s.period - 1];
   // Line drill-down — Budget detail ⇄ GL transactions, opened from a cell.
   const [detail, setDetail] = useState<{ mask: string; label: string; sign: 1 | -1; tab: "gl" | "budget"; scope: "month" | "ytd" | "annual" } | null>(null);
@@ -604,13 +518,19 @@ function StatementTable({ s, viewKey, budgetYear, budgetFallback, notes, noteSou
         </div>
       )}
       {s.unmappedAccounts.length > 0 && (
-        <AccountListCard
-          title="Non-operating accounts — not on the operating statement"
-          description="Balance-sheet & offset accounts carrying a YTD balance but no P&L line — e.g. Prepaid Insurance (the offset to Insurance expense), Cash, depreciation, interest, deferred costs. Expected here; review only if a true operating account appears."
-          accent="#b45309"
-          rows={s.unmappedAccounts.map((u) => ({ account: u.account, name: u.name, amount: u.ytdActual }))}
-          format={(n) => (Math.abs(n) < 0.5 ? "$0" : `${n < 0 ? "-" : ""}$${Math.abs(Math.round(n)).toLocaleString("en-US")}`)}
-        />
+        <div style={{ padding: "10px 12px", borderRadius: 8, background: "rgba(180,83,9,0.06)", border: "1px solid rgba(180,83,9,0.3)" }}>
+          <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.04em", color: "#b45309" }}>
+            Trial-balance tie-out — {s.unmappedAccounts.length} GL account{s.unmappedAccounts.length === 1 ? "" : "s"} not on the statement
+          </div>
+          <div className="muted small" style={{ marginTop: 4, lineHeight: 1.6 }}>
+            These carry a YTD balance but map to no statement line (depreciation, interest, balance-sheet, deferred costs, rounding). Expected for non-operating accounts; review if an operating account appears here.
+          </div>
+          <div style={{ marginTop: 6, display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {s.unmappedAccounts.slice(0, 24).map((u) => (
+              <span key={u.account} className="muted" style={{ fontSize: 11, fontVariantNumeric: "tabular-nums", color: "#7c2d12" }}>{u.account}: {money0(u.ytdActual)}</span>
+            ))}
+          </div>
+        </div>
       )}
       <p className="small muted" style={{ marginTop: s.unmappedAccounts.length > 0 ? 12 : 0 }}>
         Actual = GL Debit − Credit (revenue shown positive). Variance % is favorable when positive (revenue over budget / expense under budget). Budget columns line up to the {budgetYear ?? s.year} portal budget via the same GL account masks.
@@ -657,23 +577,14 @@ function StatementTable({ s, viewKey, budgetYear, budgetFallback, notes, noteSou
       <RollupCard label="Total Operating Expenses" t={r.totalOperatingExpenses} view={view} />
       <RollupCard label="Net Operating Income" t={r.netOperatingIncome} view={view} strong />
 
-      {showCapital && <GroupHeader label="Capital" />}
-      {showCapital && capitalSecs.map((sec) => sc(sec, true))}
+      {capitalSecs.length > 0 && <GroupHeader label="Capital" />}
+      {capitalSecs.map((sec) => sc(sec, true))}
+      <RollupCard label="Cash Flow Before Debt Service" t={r.cashFlowBeforeDebtService} view={view} strong />
 
-      {/* No debt service → a single "Cash Flow" line (nothing is deducted, so
-          before/after are identical), matching the budget page. With debt, show
-          the full before → Debt Service → after waterfall. */}
-      {showDebt ? (
-        <>
-          <RollupCard label="Cash Flow Before Debt Service" t={r.cashFlowBeforeDebtService} view={view} strong />
-          <GroupHeader label="Debt Service" />
-          {debtSecs.map((sec) => sc(sec))}
-          <RollupCard label="Total Debt Service" t={r.totalDebtService} view={view} />
-          <RollupCard label="Cash Flow After Debt Service" t={r.cashFlowAfterDebtService} view={view} strong />
-        </>
-      ) : (
-        <RollupCard label="Cash Flow" t={r.cashFlowBeforeDebtService} view={view} strong />
-      )}
+      {debtSecs.length > 0 && <GroupHeader label="Debt Service" />}
+      {debtSecs.map((sec) => sc(sec))}
+      {debtSecs.length > 0 && <RollupCard label="Total Debt Service" t={r.totalDebtService} view={view} />}
+      <RollupCard label="Cash Flow After Debt Service" t={r.cashFlowAfterDebtService} view={view} strong />
 
       {footerCard}
       {detailModal}
@@ -704,7 +615,10 @@ function SectionCard({ sec, nf, monthLabel, view, thresh, onOpenDetail, filterCl
             {lines.map((l) => (
               <tr key={l.label}>
                 <td style={labelStyle}>
-                  {l.label}
+                  <button type="button" onClick={() => onOpenDetail(sec, l, "gl", "ytd")} title="View the GL transactions behind this line"
+                    style={{ all: "unset", cursor: "pointer", color: "#0b4a7d", textDecorationLine: "underline", textDecorationColor: "rgba(11,74,125,0.35)", textUnderlineOffset: 2 }}>
+                    {l.label}
+                  </button>
                   {view.showGL && <div className="muted" style={{ fontSize: 11, fontVariantNumeric: "tabular-nums", marginTop: 1 }}>{l.mask}</div>}
                 </td>
                 {figureCells(l, { psf: view.psf, sqft: view.sqft, flag: thresh, drill: (tab, scope) => onOpenDetail(sec, l, tab, scope) })}
@@ -758,21 +672,18 @@ function figureCells(t: StatementTotals, opts: { bold?: boolean; color?: string;
   const varCell = (pct: number | null, f: "fav" | "unf" | null): React.CSSProperties =>
     ({ ...base, color: color ?? varColor(pct), ...(f ? { background: flagTint(f), fontWeight: 800 } : {}) });
   // Actual cells drill into GL transactions; Budget/Annual cells into the
-  // budget detail. Clickable only on real line rows (drill provided) AND when
-  // the cell holds activity — a $0 cell has nothing to drill into.
-  const click = (tab: "gl" | "budget", scope: "month" | "ytd" | "annual", value: number | null): React.HTMLAttributes<HTMLTableCellElement> =>
-    drill && value != null && Math.abs(value) >= 0.005
-      ? { onClick: () => drill(tab, scope), title: tab === "gl" ? "Click for GL transactions" : "Click for budget detail", className: "os-cell" }
-      : {};
+  // budget detail. Clickable only on real line rows (drill provided).
+  const click = (tab: "gl" | "budget", scope: "month" | "ytd" | "annual"): React.HTMLAttributes<HTMLTableCellElement> =>
+    drill ? { onClick: () => drill(tab, scope), title: tab === "gl" ? "Click for GL transactions" : "Click for budget detail", className: "os-cell" } : {};
   return (
     <>
-      <td {...click("gl", "month", t.periodActual)} style={{ ...base, borderLeft: GROUP_DIV }}>{amt(t.periodActual)}</td>
-      <td {...click("budget", "month", t.periodBudget)} style={{ ...base, color: color ?? "var(--muted)" }}>{amt(t.periodBudget)}</td>
+      <td {...click("gl", "month")} style={{ ...base, borderLeft: GROUP_DIV }}>{amt(t.periodActual)}</td>
+      <td {...click("budget", "month")} style={{ ...base, color: color ?? "var(--muted)" }}>{amt(t.periodBudget)}</td>
       <td style={varCell(pV, mFlag)}>{fmtPct(pV)}</td>
-      <td {...click("gl", "ytd", t.ytdActual)} style={{ ...base, borderLeft: GROUP_DIV }}>{amt(t.ytdActual)}</td>
-      <td {...click("budget", "ytd", t.ytdBudget)} style={{ ...base, color: color ?? "var(--muted)" }}>{amt(t.ytdBudget)}</td>
+      <td {...click("gl", "ytd")} style={{ ...base, borderLeft: GROUP_DIV }}>{amt(t.ytdActual)}</td>
+      <td {...click("budget", "ytd")} style={{ ...base, color: color ?? "var(--muted)" }}>{amt(t.ytdBudget)}</td>
       <td style={varCell(yV, yFlag)}>{fmtPct(yV)}</td>
-      <td {...click("budget", "annual", t.annualBudget)} style={{ ...base, borderLeft: GROUP_DIV, color: color ?? "var(--muted)" }}>{amt(t.annualBudget)}</td>
+      <td {...click("budget", "annual")} style={{ ...base, borderLeft: GROUP_DIV, color: color ?? "var(--muted)" }}>{amt(t.annualBudget)}</td>
     </>
   );
 }
@@ -788,7 +699,7 @@ function ClickablePill({ active, activeColor, onClick, title, children }: { acti
   );
 }
 
-function NoteCell({ lineKey, notes, noteSources, noteMeta, editorLabel, onSaveNote }: { lineKey: string } & NoteFns) {
+function NoteCell({ lineKey, notes, noteSources, onSaveNote }: { lineKey: string } & NoteFns) {
   const value = notes[lineKey] ?? "";
   const isAi = !!value && noteSources[lineKey] === "ai";
   const [open, setOpen] = useState(false);
@@ -814,10 +725,8 @@ function NoteCell({ lineKey, notes, noteSources, noteMeta, editorLabel, onSaveNo
           lineKey={lineKey}
           initial={value}
           isAi={isAi}
-          meta={noteMeta[lineKey]}
-          editorLabel={editorLabel}
-          onPersist={(t) => onSaveNote(lineKey, t)}
           onClose={() => setOpen(false)}
+          onSave={(t) => { if (t !== value) onSaveNote(lineKey, t); setOpen(false); }}
         />
       )}
     </td>
@@ -825,41 +734,19 @@ function NoteCell({ lineKey, notes, noteSources, noteMeta, editorLabel, onSaveNo
 }
 
 // Full-text note viewer/editor — the cell only shows one truncated line, so
-// clicking opens this modal to read and edit the whole note. Auto-saves: the
-// note is persisted as you type (debounced) and flushed on close / page
-// refresh, so an edit is never lost by closing or reloading.
-function NoteModal({ lineKey, initial, isAi, meta, editorLabel, onPersist, onClose }: {
-  lineKey: string; initial: string; isAi?: boolean; meta?: { editedAt: string; editedBy: string }; editorLabel: string; onPersist: (t: string) => void; onClose: () => void;
+// clicking opens this modal to read and edit the whole note.
+function NoteModal({ lineKey, initial, isAi, onClose, onSave }: {
+  lineKey: string; initial: string; isAi?: boolean; onClose: () => void; onSave: (t: string) => void;
 }) {
   const [text, setText] = useState(initial);
   const label = lineKey.split("::").pop() || "Note";
-  const savedRef = useRef(initial.trim());
-  const textRef = useRef(text);
-  textRef.current = text;
-  // Track the live edit stamp so the footer updates after an in-modal save.
-  const [liveMeta, setLiveMeta] = useState<{ editedAt: string; editedBy: string } | null>(null);
-  const persist = useCallback((t: string) => {
-    const v = t.trim();
-    if (v !== savedRef.current) { savedRef.current = v; onPersist(v); setLiveMeta({ editedAt: new Date().toISOString(), editedBy: editorLabel }); }
-  }, [onPersist, editorLabel]);
-  // Debounced auto-save while typing.
-  useEffect(() => {
-    const id = setTimeout(() => persist(textRef.current), 500);
-    return () => clearTimeout(id);
-  }, [text, persist]);
-  // Flush on page refresh/navigation and on unmount (close).
-  useEffect(() => {
-    const flush = () => persist(textRef.current);
-    window.addEventListener("beforeunload", flush);
-    return () => { window.removeEventListener("beforeunload", flush); persist(textRef.current); };
-  }, [persist]);
   return (
     <div className="modalOverlay" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()} style={{ width: "min(560px, 100%)" }}>
         <div className="modalHeader">
           <div>
             <div className="modalTitle" style={{ fontSize: 20 }}>{isAi && <span aria-label="AI-generated">✨ </span>}Note</div>
-            <div className="muted small" style={{ marginTop: 2 }}>{label}{isAi ? " · AI-generated — edit to mark as yours" : ""} · saves automatically</div>
+            <div className="muted small" style={{ marginTop: 2 }}>{label}{isAi ? " · AI-generated — edit to mark as yours" : ""}</div>
           </div>
           <button className="btn" onClick={onClose}>Close</button>
         </div>
@@ -871,14 +758,9 @@ function NoteModal({ lineKey, initial, isAi, meta, editorLabel, onPersist, onClo
           placeholder="Explain the variance…"
           style={{ width: "100%", border: "1px solid var(--border)", borderRadius: 10, background: "var(--card)", font: "inherit", fontSize: 14, lineHeight: 1.5, padding: "10px 12px", color: "var(--text)", resize: "vertical" }}
         />
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginTop: 12 }}>
-          <span className="muted small">
-            {(() => {
-              const m = liveMeta ?? meta;
-              return m ? <>Last edited {fmtNoteEdited(m.editedAt)} by <b style={{ color: "var(--text)" }}>{m.editedBy}</b></> : null;
-            })()}
-          </span>
-          <button className="btn primary" onClick={() => { persist(textRef.current); onClose(); }}>Done</button>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 12 }}>
+          <button className="btn" onClick={onClose}>Cancel</button>
+          <button className="btn primary" onClick={() => onSave(text.trim())}>Save</button>
         </div>
       </div>
     </div>
@@ -887,8 +769,7 @@ function NoteModal({ lineKey, initial, isAi, meta, editorLabel, onPersist, onClo
 
 // ── GL transaction drill-down ────────────────────────────────────────────────
 
-type TxRow = { account: string; unit?: string | null; tenant?: string | null; groupKey?: string; date: string | null; description: string; ref: string; amount: number; month: number };
-type TenantGroup = { groupKey: string; account: string; unit: string | null; tenant: string | null; amount: number; count: number };
+type TxRow = { account: string; date: string | null; description: string; ref: string; amount: number; month: number };
 
 function money2(v: number): string {
   const s = Math.abs(v).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -902,104 +783,6 @@ function fmtTxDate(iso: string | null): string {
 
 type BudRow = { label: string; glAccount: string; month: number; ytd: number; annual: number };
 
-// Per-tenant rent roster (from the budget workbook) — same shape + colors as
-// the Operating Budgets "Rental Summary by Month" modal.
-type RentCat = "in-place" | "renewal" | "new" | "vacant";
-type RentEntry = { unitRef: string; tenantName: string; category: RentCat; monthCategories?: RentCat[]; months: number[]; total: number; leaseFrom?: string; leaseTo?: string };
-type RentDetailClient = { entries: RentEntry[]; total: number };
-const RENT_TINT: Record<RentCat, string> = {
-  "in-place": "rgba(21,128,61,0.55)",
-  "renewal":  "rgba(132,204,22,0.45)",
-  "new":      "rgba(217,249,157,0.65)",
-  "vacant":   "transparent",
-};
-const RENT_LABEL: Record<RentCat, string> = { "in-place": "In-Place", "renewal": "Renewal", "new": "New Lease", "vacant": "Vacant" };
-const RENT_ORDER: RentCat[] = ["in-place", "renewal", "new", "vacant"];
-
-// The Rental Summary by Month roster, copied from the Operating Budgets modal:
-// suite × month with renewal/new-lease color tints, a legend, rent-bump
-// underline, and monthly + annual totals.
-function RentRosterTable({ detail, throughMonth }: { detail: RentDetailClient; throughMonth: number }) {
-  const fmt = (n: number) => (n === 0 ? "—" : `$${Math.round(n).toLocaleString("en-US")}`);
-  // Only show YTD months — no future months. Slice every row to the period.
-  const m = Math.min(12, Math.max(1, throughMonth));
-  const shownMonths = MONTHS.slice(0, m);
-  const ytd = (e: RentEntry) => e.months.slice(0, m).reduce((s, v) => s + (v ?? 0), 0);
-  const ordered = [...detail.entries].sort((a, b) => a.unitRef.localeCompare(b.unitRef, undefined, { numeric: true }));
-  const monthlyTotals = Array.from({ length: m }, (_, i) => detail.entries.reduce((s, e) => s + (e.months[i] ?? 0), 0));
-  const total = detail.entries.reduce((s, e) => s + ytd(e), 0);
-  const totalByCategory = (cat: RentCat) =>
-    detail.entries.reduce((s, e) => { let d = 0; for (let j = 0; j < m; j++) if ((e.monthCategories?.[j] ?? e.category) === cat) d += e.months[j] ?? 0; return s + d; }, 0);
-  const cell: React.CSSProperties = { padding: "5px 8px", fontSize: 11.5, fontVariantNumeric: "tabular-nums", borderTop: "1px solid var(--border)" };
-  const hcell: React.CSSProperties = { padding: "5px 8px", fontSize: 10.5, fontWeight: 800, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.04em", textAlign: "right" };
-  const minW = m >= 10 ? 1040 : Math.max(560, 220 + m * 70);
-  return (
-    <div style={{ padding: "12px 4px 0" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
-        <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>
-          Rental Summary by Month — {ordered.length} suite{ordered.length === 1 ? "" : "s"} · {fmt(total)} {m < 12 ? `through ${shownMonths[m - 1]}` : "annual"}
-        </div>
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-          {RENT_ORDER.map((cat) => {
-            if (cat === "vacant") return null;
-            const dollars = totalByCategory(cat);
-            if (dollars === 0) return null;
-            const p = total > 0 ? (dollars / total) * 100 : 0;
-            return (
-              <span key={cat} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11 }}>
-                <span style={{ display: "inline-block", width: 12, height: 12, background: RENT_TINT[cat], border: "1px solid rgba(22,163,74,0.35)", borderRadius: 2 }} />
-                <span className="muted small">{RENT_LABEL[cat]}: {fmt(dollars)} ({p >= 10 ? `${Math.round(p)}%` : `${p.toFixed(1)}%`})</span>
-              </span>
-            );
-          })}
-        </div>
-      </div>
-      <div style={{ overflowX: "auto" }}>
-        <table style={{ tableLayout: "fixed", width: "100%", minWidth: minW, borderCollapse: "collapse" }}>
-          <colgroup>
-            <col style={{ width: 64 }} /><col style={{ width: 150 }} />
-            {shownMonths.map((mo) => <col key={mo} />)}
-            <col style={{ width: 76 }} />
-          </colgroup>
-          <thead>
-            <tr>
-              <th style={{ ...hcell, textAlign: "left" }}>Suite</th>
-              <th style={{ ...hcell, textAlign: "left" }}>Tenant</th>
-              {shownMonths.map((mo) => <th key={mo} style={hcell}>{mo}</th>)}
-              <th style={hcell}>YTD</th>
-            </tr>
-          </thead>
-          <tbody>
-            {ordered.map((e, idx) => {
-              const isVacant = e.category === "vacant";
-              const tip = [e.tenantName, e.leaseFrom && e.leaseTo ? `Lease: ${e.leaseFrom} – ${e.leaseTo}` : e.leaseTo ? `Expires: ${e.leaseTo}` : e.leaseFrom ? `Starts: ${e.leaseFrom}` : ""].filter(Boolean).join("\n");
-              const isBump = (j: number) => j > 0 && (e.months[j] ?? 0) > (e.months[j - 1] ?? 0) && (e.months[j - 1] ?? 0) > 0;
-              return (
-                <tr key={idx}>
-                  <td style={{ ...cell, whiteSpace: "nowrap" }} title={tip}>{e.unitRef}</td>
-                  <td style={{ ...cell, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: isVacant ? "var(--muted)" : undefined, fontStyle: isVacant ? "italic" : undefined }} title={tip}>{e.tenantName}</td>
-                  {e.months.slice(0, m).map((mv, j) => {
-                    const cat = e.monthCategories?.[j] ?? e.category;
-                    return (
-                      <td key={j} style={{ ...cell, textAlign: "right", background: mv > 0 ? RENT_TINT[cat] : undefined, color: cat === "vacant" ? "var(--muted)" : undefined, boxShadow: isBump(j) ? "inset 0 -2px 0 rgba(15,23,42,0.55)" : undefined }}>{fmt(mv)}</td>
-                    );
-                  })}
-                  <td style={{ ...cell, textAlign: "right", fontWeight: 700, color: isVacant ? "var(--muted)" : undefined }}>{fmt(ytd(e))}</td>
-                </tr>
-              );
-            })}
-            <tr style={{ borderTop: "2px solid var(--border)", fontWeight: 800 }}>
-              <td colSpan={2} style={{ ...cell, textTransform: "uppercase", letterSpacing: "0.04em", fontSize: 10.5 }}>Total</td>
-              {monthlyTotals.map((mv, j) => <td key={j} style={{ ...cell, textAlign: "right", fontWeight: 800 }}>{fmt(mv)}</td>)}
-              <td style={{ ...cell, textAlign: "right", fontWeight: 900 }}>{fmt(total)}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
 function LineDetailModal({ viewKey, property, year, period, monthLabel, line, initialTab, initialScope, onClose }: {
   viewKey: string; property: string; year: number; period: number; monthLabel: string;
   line: { mask: string; label: string; sign: 1 | -1 };
@@ -1008,11 +791,9 @@ function LineDetailModal({ viewKey, property, year, period, monthLabel, line, in
   const [tab, setTab] = useState<"gl" | "budget">(initialTab);
   // GL has no "annual" scope (the file is YTD); clamp it to YTD.
   const [scope, setScope] = useState<"month" | "ytd" | "annual">(initialTab === "gl" && initialScope === "annual" ? "ytd" : initialScope);
-  const [gl, setGl] = useState<{ transactions: TxRow[]; total: number; count: number; accounts?: string[]; byTenant?: TenantGroup[] } | null>(null);
-  const [bud, setBud] = useState<{ rows: BudRow[]; budgetYear: number | null; rentDetail?: RentDetailClient | null } | null>(null);
+  const [gl, setGl] = useState<{ transactions: TxRow[]; total: number; count: number; accounts?: string[] } | null>(null);
+  const [bud, setBud] = useState<{ rows: BudRow[]; budgetYear: number | null } | null>(null);
   const [loading, setLoading] = useState(false);
-  // When set, the GL list is isolated to one tenant/unit account.
-  const [tenantFilter, setTenantFilter] = useState<string | null>(null);
   const effScope: "month" | "ytd" | "annual" = tab === "gl" && scope === "annual" ? "ytd" : scope;
 
   useEffect(() => {
@@ -1023,7 +804,6 @@ function LineDetailModal({ viewKey, property, year, period, monthLabel, line, in
 
   useEffect(() => {
     setLoading(true);
-    setTenantFilter(null);
     if (tab === "gl") {
       const qs = new URLSearchParams({ key: viewKey, year: String(year), mask: line.mask, period: String(period), scope: effScope === "month" ? "month" : "ytd", sign: String(line.sign) });
       fetch(`/api/financials/operating-statements/transactions?${qs}`)
@@ -1041,15 +821,13 @@ function LineDetailModal({ viewKey, property, year, period, monthLabel, line, in
   const tabBtn = (active: boolean): React.CSSProperties => ({ fontSize: 13, fontWeight: 700, padding: "6px 12px", border: "none", borderBottom: `2px solid ${active ? COLOR_BRAND : "transparent"}`, background: "none", color: active ? COLOR_BRAND : "var(--muted)", cursor: "pointer" });
   const scopeWord = effScope === "month" ? monthLabel : effScope === "annual" ? "Annual" : `YTD through ${monthLabel}`;
 
+  const budRows = bud?.rows ?? [];
   const budAmt = (r: BudRow) => effScope === "month" ? r.month : effScope === "annual" ? r.annual : r.ytd;
-  // Only show budget lines with a value in the current scope — a row that's $0
-  // for the period isn't activity worth listing.
-  const budRows = (bud?.rows ?? []).filter((r) => Math.abs(budAmt(r)) >= 0.005);
   const budTotal = budRows.reduce((s, r) => s + budAmt(r), 0);
 
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(15,23,42,0.55)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "48px 20px", overflow: "auto" }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ background: "var(--card)", borderRadius: 12, maxWidth: tab === "budget" && bud?.rentDetail && (effScope === "annual" ? 12 : period) > 7 ? 1240 : 820, width: "100%", boxShadow: "0 20px 60px rgba(0,0,0,0.35)", display: "flex", flexDirection: "column", maxHeight: "82vh" }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: "var(--card)", borderRadius: 12, maxWidth: 820, width: "100%", boxShadow: "0 20px 60px rgba(0,0,0,0.35)", display: "flex", flexDirection: "column", maxHeight: "82vh" }}>
         <div style={{ padding: "16px 18px 0", borderBottom: "1px solid var(--border)" }}>
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
             <div>
@@ -1079,105 +857,55 @@ function LineDetailModal({ viewKey, property, year, period, monthLabel, line, in
             !gl || gl.count === 0 ? (
               <div className="muted small" style={{ padding: 18 }}>No transactions for this line in {scopeWord}.</div>
             ) : (() => {
-              // Hide zero-amount lines — only show transactions with activity.
-              const txns = gl.transactions.filter((t) => Math.abs(t.amount) >= 0.005);
-              if (txns.length === 0) return <div className="muted small" style={{ padding: 18 }}>No transactions for this line in {scopeWord}.</div>;
-              // Per-tenant/unit breakdown (non-zero). Shown when the line spans
-              // 2+ accounts (e.g. rental income) so each tenant can be isolated.
-              const groups = (gl.byTenant ?? []).filter((g) => Math.abs(g.amount) >= 0.005);
-              const multi = groups.length >= 2;
-              const shown = tenantFilter ? txns.filter((t) => t.groupKey === tenantFilter) : txns;
-              const glTotal = shown.reduce((s, t) => s + t.amount, 0);
               // Standout drivers — transactions that are a large share of the
-              // shown activity (≥ a third of the total absolute, or the single
+              // line's activity (≥ a third of the total absolute, or the single
               // biggest when it's a meaningful slice). Highlighted so the items
               // worth investigating jump out.
-              const totalAbs = shown.reduce((s, t) => s + Math.abs(t.amount), 0);
-              const maxAbs = Math.max(0, ...shown.map((t) => Math.abs(t.amount)));
-              const isDriver = (amt: number) => totalAbs > 0 && (Math.abs(amt) >= totalAbs / 3 || (shown.length >= 3 && Math.abs(amt) === maxAbs && Math.abs(amt) >= 0.2 * totalAbs));
-              const activeTenantName = tenantFilter ? (groups.find((g) => g.groupKey === tenantFilter)?.tenant || tenantFilter) : null;
+              const totalAbs = gl.transactions.reduce((s, t) => s + Math.abs(t.amount), 0);
+              const maxAbs = Math.max(0, ...gl.transactions.map((t) => Math.abs(t.amount)));
+              const isDriver = (amt: number) => totalAbs > 0 && (Math.abs(amt) >= totalAbs / 3 || (gl.transactions.length >= 3 && Math.abs(amt) === maxAbs && Math.abs(amt) >= 0.2 * totalAbs));
               return (
-              <div>
-                {multi && (
-                  <div style={{ padding: "10px 10px 0" }}>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-                      <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.04em", textTransform: "uppercase", color: "var(--muted)" }}>By tenant / unit — click to isolate</div>
-                      {tenantFilter && <button type="button" onClick={() => setTenantFilter(null)} style={{ ...tabBtn(false), padding: "2px 8px", fontSize: 12 }}>Clear ✕</button>}
-                    </div>
-                    <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                      <thead><tr><th style={th}>Suite</th><th style={th}>Tenant</th><th style={{ ...th, textAlign: "right" }}>Txns</th><th style={{ ...th, textAlign: "right" }}>Amount</th></tr></thead>
-                      <tbody>
-                        {groups.map((g) => {
-                          const active = tenantFilter === g.groupKey;
-                          return (
-                          <tr key={g.groupKey} onClick={() => setTenantFilter(active ? null : g.groupKey)} className="os-cell"
-                            style={{ cursor: "pointer", background: active ? "rgba(11,74,125,0.10)" : undefined }}>
-                            <td style={{ ...tdc, whiteSpace: "nowrap", color: "var(--muted)", fontVariantNumeric: "tabular-nums" }}>{g.unit || "—"}</td>
-                            <td style={{ ...tdc, fontWeight: active ? 800 : undefined }}>{g.tenant || <span className="muted">— (unmatched)</span>}</td>
-                            <td style={{ ...tdc, textAlign: "right", fontVariantNumeric: "tabular-nums", color: "var(--muted)" }}>{g.count}</td>
-                            <td style={{ ...tdc, textAlign: "right", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums", fontWeight: active ? 800 : undefined, color: g.amount < 0 ? "#b91c1c" : undefined }}>{money2(g.amount)}</td>
-                          </tr>
-                        );})}
-                      </tbody>
-                    </table>
-                    <div style={{ borderTop: "2px solid var(--border)", marginTop: 10 }} />
-                  </div>
-                )}
-                <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                  <thead><tr><th style={th}>Date</th><th style={th}>Description</th>{multi && <th style={th}>Suite</th>}{multi && <th style={th}>Tenant</th>}<th style={th}>Ref</th><th style={th}>Acct</th><th style={{ ...th, textAlign: "right" }}>Amount</th></tr></thead>
-                  <tbody>
-                    {shown.map((t, i) => {
-                      const driver = isDriver(t.amount);
-                      return (
-                      <tr key={i} style={driver ? { background: "rgba(180,83,9,0.10)" } : undefined}>
-                        <td style={{ ...tdc, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>{fmtTxDate(t.date)}</td>
-                        <td style={tdc}>{driver && <span title="Major driver of this line" style={{ color: "#b45309", fontWeight: 800, marginRight: 5 }}>▲</span>}{t.description}</td>
-                        {multi && <td style={{ ...tdc, whiteSpace: "nowrap", color: "var(--muted)", fontVariantNumeric: "tabular-nums" }}>{t.unit || "—"}</td>}
-                        {multi && <td style={{ ...tdc, whiteSpace: "nowrap" }}>{t.tenant || <span className="muted">—</span>}</td>}
-                        <td style={{ ...tdc, whiteSpace: "nowrap", color: "var(--muted)" }}>{t.ref}</td>
-                        <td style={{ ...tdc, whiteSpace: "nowrap", color: "var(--muted)", fontVariantNumeric: "tabular-nums" }}>{t.account}</td>
-                        <td style={{ ...tdc, textAlign: "right", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums", fontWeight: driver ? 800 : undefined, color: t.amount < 0 ? "#b91c1c" : undefined }}>{money2(t.amount)}</td>
-                      </tr>
-                    );})}
-                  </tbody>
-                  <tfoot><tr>
-                    <td colSpan={multi ? 6 : 4} style={{ ...tdc, fontWeight: 800, borderTop: "2px solid var(--border)" }}>{activeTenantName ? `${activeTenantName} · ` : ""}Total · {shown.length} transaction{shown.length === 1 ? "" : "s"}</td>
-                    <td style={{ ...tdc, textAlign: "right", fontWeight: 900, fontVariantNumeric: "tabular-nums", borderTop: "2px solid var(--border)" }}>{money2(glTotal)}</td>
-                  </tr></tfoot>
-                </table>
-              </div>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead><tr><th style={th}>Date</th><th style={th}>Description</th><th style={th}>Ref</th><th style={th}>Acct</th><th style={{ ...th, textAlign: "right" }}>Amount</th></tr></thead>
+                <tbody>
+                  {gl.transactions.map((t, i) => {
+                    const driver = isDriver(t.amount);
+                    return (
+                    <tr key={i} style={driver ? { background: "rgba(180,83,9,0.10)" } : undefined}>
+                      <td style={{ ...tdc, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>{fmtTxDate(t.date)}</td>
+                      <td style={tdc}>{driver && <span title="Major driver of this line" style={{ color: "#b45309", fontWeight: 800, marginRight: 5 }}>▲</span>}{t.description}</td>
+                      <td style={{ ...tdc, whiteSpace: "nowrap", color: "var(--muted)" }}>{t.ref}</td>
+                      <td style={{ ...tdc, whiteSpace: "nowrap", color: "var(--muted)", fontVariantNumeric: "tabular-nums" }}>{t.account}</td>
+                      <td style={{ ...tdc, textAlign: "right", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums", fontWeight: driver ? 800 : undefined, color: t.amount < 0 ? "#b91c1c" : undefined }}>{money2(t.amount)}</td>
+                    </tr>
+                  );})}
+                </tbody>
+                <tfoot><tr>
+                  <td colSpan={4} style={{ ...tdc, fontWeight: 800, borderTop: "2px solid var(--border)" }}>Total · {gl.count} transaction{gl.count === 1 ? "" : "s"}</td>
+                  <td style={{ ...tdc, textAlign: "right", fontWeight: 900, fontVariantNumeric: "tabular-nums", borderTop: "2px solid var(--border)" }}>{money2(gl.total)}</td>
+                </tr></tfoot>
+              </table>
               );
             })()
+          ) : budRows.length === 0 ? (
+            <div className="muted small" style={{ padding: 18 }}>No budget lines map to this statement line{bud?.budgetYear ? ` in the ${bud.budgetYear} budget` : ""}.</div>
           ) : (
-            <div>
-              {bud?.rentDetail && bud.rentDetail.entries.length > 0 && <RentRosterTable detail={bud.rentDetail} throughMonth={effScope === "annual" ? 12 : period} />}
-              {budRows.length === 0 ? (
-                bud?.rentDetail ? null : (
-                  <div className="muted small" style={{ padding: 18 }}>
-                    {(bud?.rows ?? []).length === 0
-                      ? `No budget lines map to this statement line${bud?.budgetYear ? ` in the ${bud.budgetYear} budget` : ""}.`
-                      : `No budgeted amount in ${scopeWord}.`}
-                  </div>
-                )
-              ) : (
-                <table style={{ width: "100%", borderCollapse: "collapse", marginTop: bud?.rentDetail ? 16 : 0 }}>
-                  <thead><tr><th style={th}>Budget Line</th><th style={th}>Acct</th><th style={{ ...th, textAlign: "right" }}>{scopeWord} Budget</th></tr></thead>
-                  <tbody>
-                    {budRows.map((r, i) => (
-                      <tr key={i}>
-                        <td style={tdc}>{r.label}</td>
-                        <td style={{ ...tdc, whiteSpace: "nowrap", color: "var(--muted)", fontVariantNumeric: "tabular-nums" }}>{r.glAccount}</td>
-                        <td style={{ ...tdc, textAlign: "right", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>{money2(budAmt(r))}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                  <tfoot><tr>
-                    <td colSpan={2} style={{ ...tdc, fontWeight: 800, borderTop: "2px solid var(--border)" }}>Total budget{bud?.budgetYear ? ` (FY ${bud.budgetYear})` : ""}</td>
-                    <td style={{ ...tdc, textAlign: "right", fontWeight: 900, fontVariantNumeric: "tabular-nums", borderTop: "2px solid var(--border)" }}>{money2(budTotal)}</td>
-                  </tr></tfoot>
-                </table>
-              )}
-            </div>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead><tr><th style={th}>Budget Line</th><th style={th}>Acct</th><th style={{ ...th, textAlign: "right" }}>{scopeWord} Budget</th></tr></thead>
+              <tbody>
+                {budRows.map((r, i) => (
+                  <tr key={i}>
+                    <td style={tdc}>{r.label}</td>
+                    <td style={{ ...tdc, whiteSpace: "nowrap", color: "var(--muted)", fontVariantNumeric: "tabular-nums" }}>{r.glAccount}</td>
+                    <td style={{ ...tdc, textAlign: "right", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>{money2(budAmt(r))}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot><tr>
+                <td colSpan={2} style={{ ...tdc, fontWeight: 800, borderTop: "2px solid var(--border)" }}>Total budget{bud?.budgetYear ? ` (FY ${bud.budgetYear})` : ""}</td>
+                <td style={{ ...tdc, textAlign: "right", fontWeight: 900, fontVariantNumeric: "tabular-nums", borderTop: "2px solid var(--border)" }}>{money2(budTotal)}</td>
+              </tr></tfoot>
+            </table>
           )}
         </div>
       </div>
