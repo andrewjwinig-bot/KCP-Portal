@@ -208,6 +208,25 @@ export async function saveNote(
   }
 }
 
+// ── "?" investigate-flag dismissals ──────────────────────────────────────────
+// When a line's "looks off" flag has been investigated and confirmed fine, it's
+// dismissed for that (property, year, period). One blob per period.
+const FLAG_DISMISS_PREFIX = "financials-operating-statements-flagdismiss";
+const dismissId = (key: string, year: number, period: number): string =>
+  `${key}-${year}-${period}`.replace(/[^a-zA-Z0-9_-]+/g, "_");
+
+export async function getDismissedFlags(key: string, year: number, period: number): Promise<string[]> {
+  const rec = (await getJSON(FLAG_DISMISS_PREFIX, dismissId(key, year, period))) as { lineKeys?: string[] } | null;
+  return rec?.lineKeys ?? [];
+}
+
+export async function setFlagDismissed(key: string, year: number, period: number, lineKey: string, dismissed: boolean): Promise<string[]> {
+  const cur = new Set(await getDismissedFlags(key, year, period));
+  if (dismissed) cur.add(lineKey); else cur.delete(lineKey);
+  await storeJSON(FLAG_DISMISS_PREFIX, dismissId(key, year, period), { key, year, period, lineKeys: [...cur] });
+  return [...cur];
+}
+
 // ── Note feedback log (AI note → human correction) ───────────────────────────
 const FEEDBACK_PREFIX = "financials-operating-statements-note-feedback";
 
