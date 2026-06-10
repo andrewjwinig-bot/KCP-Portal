@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { reproject } from "@/lib/financials/reprojections/compute";
 import { availableStatements, getMapping } from "@/lib/financials/operating-statements/mappingStore";
 import { resolvePropertyBudget } from "@/lib/financials/operating-statements/budgetCrosswalk";
-import { latestGl, listGls, mergeAccountNames, getNotesBundle } from "@/lib/financials/operating-statements/statementStore";
+import { assembledGl, listGls, mergeAccountNames, getNotesBundle } from "@/lib/financials/operating-statements/statementStore";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 
 export const runtime = "nodejs";
@@ -40,7 +40,7 @@ export async function GET(req: Request) {
   const mapping = await getMapping(key);
   if (!mapping) return NextResponse.json({ available, error: "No mapping for that property" }, { status: 404 });
 
-  const stored = await latestGl(key, year);
+  const stored = await assembledGl(key, year);
   // Budget is the backbone of the reprojection; fall back to the nearest year.
   const budget = await resolvePropertyBudget(mapping.propertyCode, year);
   const budgetLines = (budget?.lines ?? []).map((l) => ({ glAccount: l.glAccount, months: l.months }));

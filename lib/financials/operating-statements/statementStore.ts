@@ -8,6 +8,7 @@
 import "server-only";
 import { storeJSON, listJSON, getJSON, deleteJSON } from "@/lib/storage";
 import type { GlTransaction } from "./glParser";
+import { assembleGls } from "./glAssemble";
 
 const PREFIX = "financials-operating-statements";
 const TX_PREFIX = "financials-operating-statements-tx";
@@ -72,6 +73,13 @@ export async function listGls(): Promise<GlMeta[]> {
     .sort((a, b) => (a.uploadedAt < b.uploadedAt ? 1 : -1));
 }
 
+/** Every stored GL with its full monthly payload, in one batch read. Used to
+ *  assemble/merge across uploads (and to compute the cash sheet for all
+ *  properties from a single fetch instead of one-per-property). */
+export async function listFullGls(): Promise<StoredGl[]> {
+  return (await listJSON(PREFIX)) as StoredGl[];
+}
+
 /** Merge the account names captured across every uploaded GL into one
  *  chart-of-accounts lookup. GL account codes are consistent across properties,
  *  so a name captured on one property (e.g. 1100) labels the same account on
@@ -98,6 +106,13 @@ export async function latestGl(key: string, year: number): Promise<StoredGl | nu
   const versions = await versionsFor(key, year);
   if (!versions.length) return null;
   return getGl(versions[0].id);
+}
+
+/** All uploaded GLs for a property/year merged into one continuous series, so
+ *  every uploaded month is present (cumulative or month-by-month uploads). */
+export async function assembledGl(key: string, year: number): Promise<StoredGl | null> {
+  const all = await listFullGls();
+  return assembleGls(all.filter((g) => g.key === key && g.year === year));
 }
 
 // ── Line notes (variance explanations) ───────────────────────────────────────
