@@ -56,14 +56,24 @@ export function wednesdayLabel(iso: string): string {
 }
 
 export type CashSheetProperty = { code: string; name: string };
-export type CashSheetGroup = { id: string; label: string; properties: CashSheetProperty[] };
+export type CashSheetGroup = {
+  id: string;
+  label: string;
+  properties: CashSheetProperty[];
+  /** When set, this fund holds ONE bank account in the fund-level GL of this
+   *  code (e.g. JV III → PJV3): cash is tracked once for the fund, and the
+   *  property rows carry only bills/reserves. Absent → cash is per property. */
+  fundCashCode?: string;
+};
 
 // Fund groups, in display order. Derived from PROPERTY_DEFS so we never re-key
 // the property list. Holding/condo entities (entityKind set) and Land are
-// excluded — they don't run an operating cash position.
-const GROUP_ORDER: { id: string; label: string; match: (p: typeof PROPERTY_DEFS[number]) => boolean }[] = [
-  { id: "jv3",   label: "JV III",           match: (p) => p.type === "Office" && p.fundGroup === "JV III" && !p.entityKind },
-  { id: "nillc", label: "NI LLC",           match: (p) => p.type === "Office" && p.fundGroup === "NI LLC" && !p.entityKind },
+// excluded — they don't run an operating cash position. `fundCashCode` marks a
+// fund whose buildings share ONE bank account (the fund-level GL); cash is
+// sourced + shown once for the fund.
+const GROUP_ORDER: { id: string; label: string; fundCashCode?: string; match: (p: typeof PROPERTY_DEFS[number]) => boolean }[] = [
+  { id: "jv3",   label: "JV III",           fundCashCode: "PJV3",   match: (p) => p.type === "Office" && p.fundGroup === "JV III" && !p.entityKind },
+  { id: "nillc", label: "NI LLC",           fundCashCode: "PNIPLX", match: (p) => p.type === "Office" && p.fundGroup === "NI LLC" && !p.entityKind },
   { id: "sc",    label: "Shopping Centers", match: (p) => p.type === "Retail" },
   { id: "ow",    label: "The Office Works", match: (p) => p.id === "4900" },
   { id: "kh",    label: "Korman Homes",     match: (p) => p.type === "Residential" },
@@ -75,6 +85,7 @@ export function cashSheetGroups(): CashSheetGroup[] {
   return GROUP_ORDER.map((g) => ({
     id: g.id,
     label: g.label,
+    fundCashCode: g.fundCashCode,
     properties: PROPERTY_DEFS.filter(g.match).map((p) => ({ code: p.id, name: p.name })),
   })).filter((g) => g.properties.length > 0);
 }
@@ -82,6 +93,11 @@ export function cashSheetGroups(): CashSheetGroup[] {
 /** Flat list of every property code that appears on the Cash Sheet. */
 export function cashSheetCodes(): string[] {
   return cashSheetGroups().flatMap((g) => g.properties.map((p) => p.code));
+}
+
+/** Fund-level GL codes whose cash is pooled (one bank account per fund). */
+export function cashSheetFundCodes(): string[] {
+  return cashSheetGroups().map((g) => g.fundCashCode).filter((c): c is string => !!c);
 }
 
 /** Per-property manual inputs for one month. */

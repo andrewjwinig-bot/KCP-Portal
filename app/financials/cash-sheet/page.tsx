@@ -9,7 +9,7 @@
 // Starting Cash and Operational (ending) Cash can be manually overridden.
 // Bills reset each month; reserves carry forward; history is browsable by month.
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useUser } from "@/app/components/UserProvider";
 import { StatPill } from "@/app/components/Pill";
@@ -59,6 +59,10 @@ const cellInput: React.CSSProperties = {
   background: "var(--card)", fontVariantNumeric: "tabular-nums",
 };
 const cashInput: React.CSSProperties = { ...cellInput, width: 112 };
+const groupHeaderCell: React.CSSProperties = {
+  textAlign: "left", fontSize: 11, fontWeight: 700, textTransform: "uppercase",
+  letterSpacing: "0.06em", color: "var(--muted)", background: "rgba(15,23,42,0.03)", padding: "8px 12px",
+};
 
 export default function CashSheetPage() {
   const { user } = useUser();
@@ -101,6 +105,14 @@ export default function CashSheetPage() {
           rd[p.code] = res ? String(res) : "";
           sd[p.code] = row?.startingOverride != null ? String(row.startingOverride) : "";
           ed[p.code] = row?.endingOverride != null ? String(row.endingOverride) : "";
+        }
+        // Pooled funds hold their cash (starting/operational overrides) under the
+        // fund-level GL code, not a property — seed those drafts too.
+        for (const g of j.groups) {
+          if (!g.fundCashCode) continue;
+          const row = j.rows[g.fundCashCode];
+          sd[g.fundCashCode] = row?.startingOverride != null ? String(row.startingOverride) : "";
+          ed[g.fundCashCode] = row?.endingOverride != null ? String(row.endingOverride) : "";
         }
         setBillDraft(bd);
         setResDraft(rd);
@@ -172,23 +184,51 @@ export default function CashSheetPage() {
 
   // ── Group + grand totals ──
   type Totals = { starting: number; bills: number; reserves: number; operational: number; hasStarting: boolean };
-  function totalsFor(codes: string[]): Totals {
-    let starting = 0, bills = 0, reserves = 0, operational = 0, hasStarting = false;
-    for (const c of codes) {
-      const s = rowStarting(c);
-      bills += rowBillsTotal(c);
-      reserves += rowReserves(c);
-      const op = rowOperational(c);
+  // Fund-level operational cash (pooled funds): the fund's opening − the whole
+  // fund's bills − reserves. Null when there's no opening to start from.
+  function fundComputedOperational(g: CashSheetGroup): number | null {
+    const code = g.fundCashCode!;
+    const s = rowStarting(code);
+    if (s == null) return null;
+    const bills = g.properties.reduce((a, p) => a + rowBillsTotal(p.code), 0);
+    const reserves = g.properties.reduce((a, p) => a + rowReserves(p.code), 0);
+    return s - bills - reserves;
+  }
+  // Totals for one group. A pooled fund's cash comes from its ONE fund account
+  // (PJV3, …); the buildings contribute only bills + reserves. A per-property
+  // group sums each property's own cash.
+  function groupTotals(g: CashSheetGroup): Totals {
+    const bills = g.properties.reduce((a, p) => a + rowBillsTotal(p.code), 0);
+    const reserves = g.properties.reduce((a, p) => a + rowReserves(p.code), 0);
+    if (g.fundCashCode) {
+      const s = rowStarting(g.fundCashCode);
+      const endOv = parseOpt(endDraft[g.fundCashCode]);
+      const operational = endOv != null ? endOv : (s == null ? 0 : s - bills - reserves);
+      return { starting: s ?? 0, bills, reserves, operational, hasStarting: s != null || endOv != null };
+    }
+    let starting = 0, operational = 0, hasStarting = false;
+    for (const p of g.properties) {
+      const s = rowStarting(p.code);
+      const op = rowOperational(p.code);
       if (s != null) { starting += s; hasStarting = true; }
       if (op != null) operational += op;
     }
     return { starting, bills, reserves, operational, hasStarting };
   }
+  // Building codes only (per-Wednesday bill totals in the footer).
   const allCodes = useMemo(
     () => (data?.groups ?? []).flatMap((g) => g.properties.map((p) => p.code)),
     [data],
   );
-  const grand = totalsFor(allCodes);
+  const grand = (() => {
+    let starting = 0, bills = 0, reserves = 0, operational = 0, hasStarting = false;
+    for (const g of data?.groups ?? []) {
+      const t = groupTotals(g);
+      bills += t.bills; reserves += t.reserves;
+      if (t.hasStarting) { starting += t.starting; operational += t.operational; hasStarting = true; }
+    }
+    return { starting, bills, reserves, operational, hasStarting };
+  })();
 
   const colCount = 2 + wednesdays.length + 3; // property + starting + weds + (total bills, reserves, operational)
 
@@ -248,10 +288,23 @@ export default function CashSheetPage() {
               {loading && !data ? (
                 <tr><td colSpan={colCount} className="muted small" style={{ padding: 18 }}>Loading…</td></tr>
               ) : (data?.groups ?? []).map((g) => {
-                const codes = g.properties.map((p) => p.code);
-                const gt = totalsFor(codes);
+                const gt = groupTotals(g);
+                const pooled = !!g.fundCashCode;
+                const fc = g.fundCashCode ?? "";
+                const fundAuto = pooled ? autoStarting(fc) : null;
+                const fundStartOverridden = pooled && parseOpt(startDraft[fc]) != null;
+                const fundEndOverridden = pooled && parseOpt(endDraft[fc]) != null;
+                const fundCompOp = pooled ? fundComputedOperational(g) : null;
                 return (
-                  <GroupBlock key={g.id} group={g} totals={gt} weds={wednesdays} colCount={colCount}>
+                  <Fragment key={g.id}>
+                    {/* Group header */}
+                    <tr>
+                      <td colSpan={colCount} style={groupHeaderCell}>
+                        {g.label}
+                        {pooled && <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 600 }}> · one fund account · <code style={{ fontSize: 11 }}>{fc}</code></span>}
+                      </td>
+                    </tr>
+                    {/* Property / building rows */}
                     {g.properties.map((p) => {
                       const auto = autoStarting(p.code);
                       const starting = rowStarting(p.code);
@@ -265,9 +318,11 @@ export default function CashSheetPage() {
                             <code style={{ fontSize: 12 }}>{p.code}</code>
                             <span style={{ marginLeft: 8 }}>{p.name}</span>
                           </td>
-                          {/* Starting Cash — editable override; placeholder shows the pulled value */}
-                          <td style={numCell} title={src ? `Opening balance · ${sourceLabel(src)} (Per GL)${startOverridden ? " · overridden" : ""}` : undefined}>
-                            {canEdit ? (
+                          {/* Starting Cash — blank for pooled-fund buildings (cash is at the fund) */}
+                          <td style={numCell} title={pooled ? "Cash is held in the fund account — see the fund row below" : (src ? `Opening balance · ${sourceLabel(src)} (Per GL)${startOverridden ? " · overridden" : ""}` : undefined)}>
+                            {pooled ? (
+                              <span className="muted">—</span>
+                            ) : canEdit ? (
                               <input
                                 style={{ ...cashInput, ...(startOverridden ? { borderColor: "#b45309", fontWeight: 700 } : {}) }}
                                 inputMode="decimal"
@@ -308,9 +363,11 @@ export default function CashSheetPage() {
                               onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
                             />
                           </td>
-                          {/* Operational (ending) Cash — editable override; placeholder shows the computed value */}
-                          <td style={numCell} title={endOverridden ? "Overridden — clear to use the computed value" : "Starting − bills − reserves"}>
-                            {canEdit ? (
+                          {/* Operational Cash — blank for pooled-fund buildings (computed at the fund) */}
+                          <td style={numCell} title={pooled ? "Operational cash is computed for the fund — see the fund row below" : (endOverridden ? "Overridden — clear to use the computed value" : "Starting − bills − reserves")}>
+                            {pooled ? (
+                              <span className="muted">—</span>
+                            ) : canEdit ? (
                               <input
                                 style={{ ...cashInput, fontWeight: 800, color: op == null ? undefined : op >= 0 ? "#15803d" : "#b91c1c", ...(endOverridden ? { borderColor: "#b45309" } : {}) }}
                                 inputMode="decimal"
@@ -327,7 +384,45 @@ export default function CashSheetPage() {
                         </tr>
                       );
                     })}
-                  </GroupBlock>
+                    {/* Subtotal — for a pooled fund this IS the bank account: the
+                        fund's Starting + Operational cash live here (overridable). */}
+                    <tr style={{ fontWeight: 700, color: "var(--muted)", ...(pooled ? { background: "rgba(11,74,125,0.05)" } : {}) }}>
+                      <td style={{ textAlign: "left", fontSize: 12 }}>{g.label} {pooled ? "· fund account" : "subtotal"}</td>
+                      <td style={numCell} title={pooled ? (data?.starting[fc]?.sourceYm ? `Fund opening balance · ${sourceLabel(data.starting[fc].sourceYm)} (Per GL · ${fc})${fundStartOverridden ? " · overridden" : ""}` : `Fund account ${fc}`) : undefined}>
+                        {pooled
+                          ? (canEdit
+                              ? <input
+                                  style={{ ...cashInput, fontWeight: 700, ...(fundStartOverridden ? { borderColor: "#b45309" } : {}) }}
+                                  inputMode="decimal"
+                                  placeholder={fundAuto != null ? money0(fundAuto) : "—"}
+                                  value={startDraft[fc] ?? ""}
+                                  onChange={(e) => setStartDraft((d) => ({ ...d, [fc]: e.target.value }))}
+                                  onBlur={() => commitStarting(fc)}
+                                  onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                                />
+                              : (gt.hasStarting ? <span style={fundStartOverridden ? { color: "#b45309" } : undefined}>{money0(gt.starting)}</span> : <span className="muted">—</span>))
+                          : (gt.hasStarting ? money0(gt.starting) : "—")}
+                      </td>
+                      {wednesdays.map((w) => <td key={w} style={numCell} />)}
+                      <td style={numCell}>{money0(gt.bills)}</td>
+                      <td style={numCell}>{money0(gt.reserves)}</td>
+                      <td style={numCell} title={pooled ? (fundEndOverridden ? "Overridden — clear to use the computed value" : "Fund opening − all building bills − reserves") : undefined}>
+                        {pooled
+                          ? (canEdit
+                              ? <input
+                                  style={{ ...cashInput, fontWeight: 800, color: gt.operational >= 0 ? "#15803d" : "#b91c1c", ...(fundEndOverridden ? { borderColor: "#b45309" } : {}) }}
+                                  inputMode="decimal"
+                                  placeholder={fundCompOp != null ? money0(fundCompOp) : "—"}
+                                  value={endDraft[fc] ?? ""}
+                                  onChange={(e) => setEndDraft((d) => ({ ...d, [fc]: e.target.value }))}
+                                  onBlur={() => commitEnding(fc)}
+                                  onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                                />
+                              : <span style={{ fontWeight: 800, color: gt.hasStarting ? (gt.operational >= 0 ? "#15803d" : "#b91c1c") : "var(--muted)" }}>{gt.hasStarting ? money0(gt.operational) : "—"}</span>)
+                          : (gt.hasStarting ? money0(gt.operational) : "—")}
+                      </td>
+                    </tr>
+                  </Fragment>
                 );
               })}
             </tbody>
@@ -363,36 +458,3 @@ export default function CashSheetPage() {
   );
 }
 
-// A fund group: a header row, its property rows, then a subtotal row.
-function GroupBlock({
-  group, totals, weds, colCount, children,
-}: {
-  group: CashSheetGroup;
-  totals: { starting: number; bills: number; reserves: number; operational: number; hasStarting: boolean };
-  weds: string[];
-  colCount: number;
-  children: React.ReactNode;
-}) {
-  return (
-    <>
-      <tr>
-        <td colSpan={colCount} style={{
-          textAlign: "left", fontSize: 11, fontWeight: 700, textTransform: "uppercase",
-          letterSpacing: "0.06em", color: "var(--muted)", background: "rgba(15,23,42,0.03)",
-          padding: "8px 12px",
-        }}>
-          {group.label}
-        </td>
-      </tr>
-      {children}
-      <tr style={{ fontWeight: 700, color: "var(--muted)" }}>
-        <td style={{ textAlign: "left", fontSize: 12 }}>{group.label} subtotal</td>
-        <td style={numCell}>{totals.hasStarting ? money0(totals.starting) : "—"}</td>
-        {weds.map((w) => <td key={w} style={numCell} />)}
-        <td style={numCell}>{money0(totals.bills)}</td>
-        <td style={numCell}>{money0(totals.reserves)}</td>
-        <td style={numCell}>{totals.hasStarting ? money0(totals.operational) : "—"}</td>
-      </tr>
-    </>
-  );
-}
