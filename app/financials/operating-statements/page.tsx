@@ -354,10 +354,10 @@ export default function OperatingStatementsPage() {
     await fetch("/api/financials/operating-statements", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key, year, lineKey, note, editedBy: user.label }),
+      body: JSON.stringify({ key, year, period: period || statement?.period, lineKey, note, editedBy: user.label }),
       keepalive: true, // survive a page refresh/navigation mid-save
     }).catch(() => {});
-  }, [key, year, user.label]);
+  }, [key, year, period, statement?.period, user.label]);
 
   const [analyzing, setAnalyzing] = useState(false);
   const [analyzeMsg, setAnalyzeMsg] = useState<string | null>(null);

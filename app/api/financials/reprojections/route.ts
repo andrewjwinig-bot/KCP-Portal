@@ -61,10 +61,9 @@ export async function GET(req: Request) {
     name: stored?.names?.[u.account] ?? acctNames[u.account] ?? null,
   }));
 
-  // Operating-statement notes share the same `<section>::<line label>` key, so
-  // the variance explanations written there surface directly on the matching
-  // reprojection line (default a sourceless note to AI, as the statement does).
-  const { notes, sources } = await getNotesBundle(key, year);
+  // Surface the latest actual month's operating-statement notes on the matching
+  // reprojection line (notes are per-month; show the most recent month's).
+  const { notes, sources } = await getNotesBundle(key, year, stored?.maxPeriodInFile || 1);
   const noteSources: Record<string, "user" | "ai"> = {};
   for (const lk of Object.keys(notes)) noteSources[lk] = sources[lk] ?? "ai";
 

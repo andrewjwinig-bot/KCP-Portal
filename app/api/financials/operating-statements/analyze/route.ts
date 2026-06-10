@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getMapping } from "@/lib/financials/operating-statements/mappingStore";
-import { latestGl, getTransactions, saveNote, getNotesBundle } from "@/lib/financials/operating-statements/statementStore";
+import { assembledGl, getTransactions, saveNote, getNotesBundle } from "@/lib/financials/operating-statements/statementStore";
 import { summaryForPeriod } from "@/lib/financials/operating-statements/glParser";
 import { computeStatement } from "@/lib/financials/operating-statements/compute";
 import { resolvePropertyBudget, makeBudgetLookup, budgetDetailForMask } from "@/lib/financials/operating-statements/budgetCrosswalk";
@@ -36,7 +36,7 @@ export async function POST(req: Request) {
   if (!key || !year) return NextResponse.json({ error: "key and year are required" }, { status: 400 });
 
   const mapping = await getMapping(key);
-  const stored = await latestGl(key, year);
+  const stored = await assembledGl(key, year);
   if (!mapping || !stored) return NextResponse.json({ error: "No statement to analyze." }, { status: 404 });
 
   const period = Math.min(Math.max(1, body.period || stored.maxPeriodInFile), stored.maxPeriodInFile);
@@ -52,7 +52,7 @@ export async function POST(req: Request) {
   // Preserve manual notes: don't analyze (or overwrite) a line the user has
   // already written/edited a note for. Auto-explain only fills empty lines and
   // refreshes its own prior AI notes.
-  const { notes: existingNotes, sources: existingSources } = await getNotesBundle(key, year);
+  const { notes: existingNotes, sources: existingSources } = await getNotesBundle(key, year, period);
   const hasManualNote = (lk: string) => existingSources[lk] === "user" && !!(existingNotes[lk] || "").trim();
 
   const flagged: Record<string, unknown>[] = [];
@@ -125,7 +125,7 @@ export async function POST(req: Request) {
       const lk = f.lineKey as string;
       const note = notes[lk];
       if (typeof note === "string" && note.trim()) {
-        await saveNote(key, year, lk, note.trim(), "ai");
+        await saveNote(key, year, period, lk, note.trim(), "ai");
         saved[lk] = note.trim();
       }
     }
