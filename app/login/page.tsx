@@ -1,10 +1,17 @@
 "use client";
 
-import { Suspense, useEffect, useRef, useState } from "react";
+import { Suspense, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { ALL_USERS, USERS } from "../../lib/users";
+import { ALL_USERS, USERS, type UserId } from "../../lib/users";
 
-const LAST_USER_KEY = "kcp:loginUser";
+/** Resolve a typed username (user id or display label, any case) to a user id. */
+function resolveUserId(input: string): UserId | null {
+  const t = input.trim().toLowerCase();
+  if (!t) return null;
+  return (ALL_USERS as readonly UserId[]).find(
+    (id) => id.toLowerCase() === t || USERS[id].label.toLowerCase() === t,
+  ) ?? null;
+}
 
 const labelStyle: React.CSSProperties = {
   fontSize: 11, fontWeight: 700, color: "var(--muted)",
@@ -30,19 +37,13 @@ function LoginFormInner() {
   const [error, setError] = useState<string | null>(null);
   const codeRef = useRef<HTMLInputElement>(null);
 
-  // Prefill with whoever signed in last on this browser.
-  useEffect(() => {
-    try {
-      const last = localStorage.getItem(LAST_USER_KEY);
-      if (last && (ALL_USERS as readonly string[]).includes(last)) setUser(last);
-    } catch { /* ignore */ }
-  }, []);
+  const resolvedId = resolveUserId(user);
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (busy) return;
-    if (!user) {
-      setError("Select your name.");
+    if (!resolvedId) {
+      setError("Enter your username (e.g. DREW).");
       return;
     }
     if (!password) {
@@ -59,7 +60,7 @@ function LoginFormInner() {
       const res = await fetch("/api/site/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user, password, code: twoFactor ? code : undefined }),
+        body: JSON.stringify({ user: resolvedId, password, code: twoFactor ? code : undefined }),
       });
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
@@ -74,8 +75,7 @@ function LoginFormInner() {
         throw new Error(j?.error ?? "Login failed");
       }
       try {
-        localStorage.setItem(LAST_USER_KEY, user);
-        localStorage.setItem("kcp:activeUser", user);
+        localStorage.setItem("kcp:activeUser", resolvedId);
       } catch { /* ignore */ }
       window.location.assign(nextPath);
     } catch (e: any) {
@@ -84,7 +84,7 @@ function LoginFormInner() {
     }
   }
 
-  const isAdmin = user === "admin";
+  const isAdmin = resolvedId === "admin";
 
   return (
     <main style={{
@@ -109,26 +109,23 @@ function LoginFormInner() {
           </div>
         </div>
         <p className="muted small" style={{ margin: 0 }}>
-          Select your name and enter the portal password to sign in.
+          Enter your username and the portal password to sign in.
         </p>
 
         <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          <span style={labelStyle}>User</span>
-          <select
+          <span style={labelStyle}>Username</span>
+          <input
             name="user"
+            type="text"
+            autoComplete="username"
+            autoCapitalize="characters"
+            placeholder="e.g. DREW"
             value={user}
             onChange={(e) => setUser(e.target.value)}
             disabled={busy}
             autoFocus
             style={fieldStyle}
-          >
-            <option value="">Select your name…</option>
-            {[...ALL_USERS]
-              .sort((a, b) => USERS[a].label.localeCompare(USERS[b].label))
-              .map((id) => (
-                <option key={id} value={id}>{USERS[id].label}</option>
-              ))}
-          </select>
+          />
         </label>
 
         <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
