@@ -238,9 +238,9 @@ export default function CashSheetPage() {
         <div>
           <h1 style={{ marginBottom: 4 }}>Cash Sheet</h1>
           <p className="muted small" style={{ margin: 0 }}>
-            Monthly cash position by property. Starting cash is the month&apos;s opening{" "}
+            Bills paid to AvidXchange each Wednesday and any Reserves are subtracted to get net Operational Cash — Starting Cash is the month&apos;s opening{" "}
             <Link href="/financials/operating-statements" style={{ color: "var(--brand)", fontWeight: 600 }}>Operating Cash</Link>{" "}
-            balance (Per GL){canEdit ? " — click Starting or Operational Cash to override it" : ""}; enter bills paid each Wednesday and a standing reserve to get net operational cash.
+            balance Per the Detailed General Ledger and may not tie to the bank statement exactly.
           </p>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
