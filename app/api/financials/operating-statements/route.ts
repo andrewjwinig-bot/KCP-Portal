@@ -85,7 +85,7 @@ export async function GET(req: Request) {
   // budget); the page labels the year used.
   const budget = await resolvePropertyBudget(mapping.propertyCode, year);
   const budgetLookup = budget ? makeBudgetLookup(budget, period) : undefined;
-  const { notes, sources: rawSources, meta: noteMeta } = await getNotesBundle(key, year);
+  const { notes, sources: rawSources, meta: noteMeta } = await getNotesBundle(key, year, period);
   // Every existing note gets a source. A note with no recorded source can only
   // be an AI note — manual saves always stamp "user" — so default missing to
   // "ai". Keeps the ✨ on auto-explained notes across refreshes (incl. notes
@@ -126,15 +126,15 @@ export async function GET(req: Request) {
   });
 }
 
-// PATCH — save (or clear) a line note. Keyed by property/year + line key.
+// PATCH — save (or clear) a line note. Keyed by property/year/PERIOD + line key.
 export async function PATCH(req: Request) {
   try {
     const body = await req.json();
-    const { key, year, lineKey, note, editedBy } = body ?? {};
-    if (!key || !year || !lineKey) {
-      return NextResponse.json({ error: "key, year and lineKey are required" }, { status: 400 });
+    const { key, year, period, lineKey, note, editedBy } = body ?? {};
+    if (!key || !year || !period || !lineKey) {
+      return NextResponse.json({ error: "key, year, period and lineKey are required" }, { status: 400 });
     }
-    await saveNote(String(key), Number(year), String(lineKey), typeof note === "string" ? note : "", "user", typeof editedBy === "string" ? editedBy : undefined);
+    await saveNote(String(key), Number(year), Number(period), String(lineKey), typeof note === "string" ? note : "", "user", typeof editedBy === "string" ? editedBy : undefined);
     return NextResponse.json({ ok: true });
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "Failed to save note" }, { status: 500 });

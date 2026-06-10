@@ -5,7 +5,7 @@ import "server-only";
 import { computeStatement } from "./compute";
 import { summaryForPeriod } from "./glParser";
 import { getMapping } from "./mappingStore";
-import { latestGl, getNotesBundle } from "./statementStore";
+import { assembledGl, getNotesBundle } from "./statementStore";
 import { resolvePropertyBudget, makeBudgetLookup } from "./budgetCrosswalk";
 import type { PropertyStatement } from "./types";
 import type { StatementMeta } from "./statementExport";
@@ -14,7 +14,7 @@ import { PROPERTY_DEFS } from "@/lib/properties/data";
 export async function loadStatement(key: string, year: number, requestedPeriod?: number): Promise<{ statement: PropertyStatement; meta: StatementMeta; notes: Record<string, string> } | null> {
   const mapping = await getMapping(key);
   if (!mapping) return null;
-  const stored = await latestGl(key, year);
+  const stored = await assembledGl(key, year);
   if (!stored) return null;
   const period = Math.min(Math.max(1, requestedPeriod || stored.maxPeriodInFile), stored.maxPeriodInFile);
   const gl = summaryForPeriod(stored.monthly, period);
@@ -22,6 +22,6 @@ export async function loadStatement(key: string, year: number, requestedPeriod?:
   const budgetLookup = budget ? makeBudgetLookup(budget, period) : undefined;
   const propertyName = PROPERTY_DEFS.find((p) => p.id === key)?.name ?? mapping.entityName;
   const statement = computeStatement({ mapping, propertyName, year, period, gl, budgetLookup });
-  const { notes } = await getNotesBundle(key, year);
+  const { notes } = await getNotesBundle(key, year, period);
   return { statement, meta: { propertyCode: mapping.propertyCode, propertyName, year, period, budgetYear: budget?.budgetYear ?? null }, notes };
 }

@@ -131,38 +131,17 @@ export type NoteMeta = { editedAt: string; editedBy: string };
 // notes in a single blob and did a read-modify-write on every save — with the
 // auto-save firing frequently, concurrent saves raced and silently dropped each
 // other's notes (lost-update). One blob per line removes the shared write path.
-type NoteLineRecord = { key: string; year: number; lineKey: string; note: string; source: NoteSource; editedAt: string; editedBy: string };
-/** Legacy shared record (pre per-line storage) — migrated then deleted. */
-type LegacyNotesRecord = { key: string; year: number; notes: Record<string, string>; sources?: Record<string, NoteSource>; meta?: Record<string, NoteMeta> };
+type NoteLineRecord = { key: string; year: number; period: number; lineKey: string; note: string; source: NoteSource; editedAt: string; editedBy: string };
 
-const noteScope = (key: string, year: number): string =>
-  `${NOTES_PREFIX}/${`${key}-${year}`.replace(/[^a-zA-Z0-9_-]+/g, "_")}`;
+// Notes are scoped per (property, year, PERIOD/month) so each month's variance
+// explanations are independent — a comment on January never shows on February.
+const noteScope = (key: string, year: number, period: number): string =>
+  `${NOTES_PREFIX}/${`${key}-${year}-${period}`.replace(/[^a-zA-Z0-9_-]+/g, "_")}`;
 const noteSlug = (lineKey: string): string => lineKey.replace(/[^a-zA-Z0-9]+/g, "_").slice(0, 180) || "note";
 
-/** Move any legacy single-blob record into per-line blobs, then drop it. Idempotent. */
-async function migrateLegacyNotes(key: string, year: number): Promise<void> {
-  const legacy = (await getJSON(NOTES_PREFIX, `${key}-${year}`)) as LegacyNotesRecord | null;
-  if (!legacy?.notes || Object.keys(legacy.notes).length === 0) return;
-  const scope = noteScope(key, year);
-  for (const [lineKey, note] of Object.entries(legacy.notes)) {
-    if (!note || !note.trim()) continue;
-    const slug = noteSlug(lineKey);
-    if (await getJSON(scope, slug)) continue; // never clobber a newer per-line edit
-    const source = legacy.sources?.[lineKey] ?? "ai";
-    const m = legacy.meta?.[lineKey];
-    await storeJSON(scope, slug, {
-      key, year, lineKey, note: note.trim(), source,
-      editedAt: m?.editedAt ?? new Date().toISOString(),
-      editedBy: m?.editedBy ?? (source === "ai" ? "Auto-explain" : "Unknown"),
-    } satisfies NoteLineRecord);
-  }
-  await deleteJSON(NOTES_PREFIX, `${key}-${year}`);
-}
-
-/** All of a property/year's notes, sources, and edit metadata in one read. */
-export async function getNotesBundle(key: string, year: number): Promise<{ notes: Record<string, string>; sources: Record<string, NoteSource>; meta: Record<string, NoteMeta> }> {
-  await migrateLegacyNotes(key, year);
-  const recs = (await listJSON(noteScope(key, year))) as NoteLineRecord[];
+/** All of a property/year/period's notes, sources, and edit metadata in one read. */
+export async function getNotesBundle(key: string, year: number, period: number): Promise<{ notes: Record<string, string>; sources: Record<string, NoteSource>; meta: Record<string, NoteMeta> }> {
+  const recs = (await listJSON(noteScope(key, year, period))) as NoteLineRecord[];
   const notes: Record<string, string> = {};
   const sources: Record<string, NoteSource> = {};
   const meta: Record<string, NoteMeta> = {};
@@ -175,30 +154,25 @@ export async function getNotesBundle(key: string, year: number): Promise<{ notes
   return { notes, sources, meta };
 }
 
-export async function getNotes(key: string, year: number): Promise<Record<string, string>> {
-  return (await getNotesBundle(key, year)).notes;
-}
-export async function getNoteSources(key: string, year: number): Promise<Record<string, NoteSource>> {
-  return (await getNotesBundle(key, year)).sources;
-}
-export async function getNoteMeta(key: string, year: number): Promise<Record<string, NoteMeta>> {
-  return (await getNotesBundle(key, year)).meta;
+export async function getNotes(key: string, year: number, period: number): Promise<Record<string, string>> {
+  return (await getNotesBundle(key, year, period)).notes;
 }
 
 export async function saveNote(
   key: string,
   year: number,
+  period: number,
   lineKey: string,
   note: string,
   source: NoteSource = "user",
   editor?: string
 ): Promise<void> {
-  const scope = noteScope(key, year);
+  const scope = noteScope(key, year, period);
   const slug = noteSlug(lineKey);
   if (note.trim()) {
     const prev = (await getJSON(scope, slug)) as NoteLineRecord | null;
     await storeJSON(scope, slug, {
-      key, year, lineKey, note: note.trim(), source,
+      key, year, period, lineKey, note: note.trim(), source,
       editedAt: new Date().toISOString(),
       editedBy: source === "ai" ? "Auto-explain" : (editor || "Unknown"),
     } satisfies NoteLineRecord);
@@ -208,15 +182,6 @@ export async function saveNote(
     }
   } else {
     await deleteJSON(scope, slug);
-    // Belt-and-suspenders: drain the line from any legacy record so a delete
-    // doesn't resurrect it on the next migration.
-    const legacy = (await getJSON(NOTES_PREFIX, `${key}-${year}`)) as LegacyNotesRecord | null;
-    if (legacy?.notes?.[lineKey] !== undefined) {
-      const notes = { ...legacy.notes }; delete notes[lineKey];
-      const sources = { ...(legacy.sources ?? {}) }; delete sources[lineKey];
-      const meta = { ...(legacy.meta ?? {}) }; delete meta[lineKey];
-      await storeJSON(NOTES_PREFIX, `${key}-${year}`, { key, year, notes, sources, meta });
-    }
   }
 }
 
