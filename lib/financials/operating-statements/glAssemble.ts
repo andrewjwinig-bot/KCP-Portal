@@ -15,6 +15,10 @@ export type AssembleInput = {
   beginning?: Record<string, number>;
   ytdTotal?: Record<string, number>;
   names?: Record<string, string>;
+  /** First month (1–12) the merged data covers — the month the Beginning
+   *  Balance opens. Set by assembleGls; lets cash math know a partial-year
+   *  import (e.g. Mar–May) has no valid opening for months before it. */
+  coverageStartMonth?: number;
 };
 
 /** A GL upload plus its per-account transactions (each carrying a reporting
@@ -104,7 +108,11 @@ export function assembleGls<T extends AssembleInput>(gls: T[]): T | null {
     else break;
   }
   const maxPeriodInFile = through || maxRangeEnd;
+  // The month the Beginning Balance opens at — the earliest-covering file's
+  // start. For a Mar–May import this is 3, so cash math knows Jan/Feb have no
+  // valid opening yet (rather than mislabeling March's opening as January's).
+  const coverageStartMonth = beginningStart === Infinity ? (firstActive || 1) : beginningStart;
 
   const base = ordered[ordered.length - 1]; // newest, for id/key/fileName/etc.
-  return { ...base, monthly, beginning, ytdTotal, names, maxPeriodInFile, uploadedAt };
+  return { ...base, monthly, beginning, ytdTotal, names, maxPeriodInFile, uploadedAt, coverageStartMonth };
 }
