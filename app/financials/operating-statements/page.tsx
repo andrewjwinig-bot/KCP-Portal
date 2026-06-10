@@ -134,12 +134,14 @@ const threshInput: React.CSSProperties = {
   border: "1px solid var(--border)", borderRadius: 6, background: "var(--card)", color: "var(--text)",
 };
 
-type Thresh = { dollar: number; pct: number };
+type Thresh = { dollar: number; pct: number; min: number };
 
 // Is a single variance "high" — beyond EITHER the dollar or the percent
-// threshold — and if so, favorable or unfavorable?
+// threshold — and if so, favorable or unfavorable? A minimum-dollar floor keeps
+// trivially small variances (e.g. $6 vs $3 = 100%) from flagging.
 function cellFlag(variance: number | null, budget: number | null, th: Thresh): "fav" | "unf" | null {
   if (variance == null || budget == null) return null;
+  if (Math.abs(variance) < (th.min ?? 0)) return null;
   const vp = varPct(variance, budget);
   const hot = Math.abs(variance) > th.dollar || (vp != null && Math.abs(vp) > th.pct);
   if (!hot) return null;
@@ -244,6 +246,7 @@ export default function OperatingStatementsPage() {
   // Variance thresholds — a line is "high variance" if it exceeds either.
   const [varDollar, setVarDollar] = useState(5000);
   const [varPctThresh, setVarPctThresh] = useState(10);
+  const [varFloor, setVarFloor] = useState(500); // ignore variances smaller than this
   // Click a Favorable/Unfavorable pill to filter the statement to those lines.
   const [flagFilter, setFlagFilter] = useState<"fav" | "unf" | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -368,7 +371,7 @@ export default function OperatingStatementsPage() {
       const j = await fetch("/api/financials/operating-statements/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key, year, period, dollar: varDollar, pct: varPctThresh }),
+        body: JSON.stringify({ key, year, period, dollar: varDollar, pct: varPctThresh, min: varFloor }),
       }).then((r) => r.json());
       if (j.error) { setAnalyzeMsg(j.error); return; }
       if (j.notes) {
@@ -384,12 +387,12 @@ export default function OperatingStatementsPage() {
     } finally {
       setAnalyzing(false);
     }
-  }, [key, year, period, varDollar, varPctThresh]);
+  }, [key, year, period, varDollar, varPctThresh, varFloor]);
 
   const cur = available.find((a) => a.key === key);
   const yearOptions = cur?.years.length ? cur.years : [year || new Date().getFullYear()];
   const sqft = PROPERTY_DEFS.find((p) => p.id === key)?.sqft ?? 0;
-  const thresh: Thresh = { dollar: varDollar, pct: varPctThresh };
+  const thresh: Thresh = { dollar: varDollar, pct: varPctThresh, min: varFloor };
   const variance = statement ? varianceCounts(statement, thresh) : null;
 
   return (
@@ -562,6 +565,15 @@ export default function OperatingStatementsPage() {
                   <span>or</span>
                   <input type="number" min={0} value={varPctThresh} onChange={(e) => setVarPctThresh(Math.max(0, Number(e.target.value) || 0))} style={threshInput} />
                   <span>%</span>
+                  <span style={{ marginLeft: 6, fontWeight: 700 }}>· min $</span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    title="Ignore variances smaller than this, even if the percentage is large"
+                    value={varFloor.toLocaleString("en-US")}
+                    onChange={(e) => setVarFloor(Math.max(0, Number(e.target.value.replace(/[^\d]/g, "")) || 0))}
+                    style={threshInput}
+                  />
                 </div>
               </div>
             </>

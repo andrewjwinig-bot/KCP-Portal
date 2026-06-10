@@ -22,8 +22,9 @@ function varPct(v: number | null, b: number | null): number | null {
   if (v == null || b == null || Math.abs(b) < 0.5) return null;
   return (v / Math.abs(b)) * 100;
 }
-function hot(v: number | null, b: number | null, dollar: number, pct: number): "fav" | "unf" | null {
+function hot(v: number | null, b: number | null, dollar: number, pct: number, min: number): "fav" | "unf" | null {
   if (v == null || b == null) return null;
+  if (Math.abs(v) < min) return null; // ignore trivially small variances
   const vp = varPct(v, b);
   if (!(Math.abs(v) > dollar || (vp != null && Math.abs(vp) > pct))) return null;
   return v >= 0 ? "fav" : "unf";
@@ -33,11 +34,12 @@ function hot(v: number | null, b: number | null, dollar: number, pct: number): "
 // an explanation. Gathers per-line budget detail + GL transactions and asks
 // Claude for a concise, accounting-savvy note per line, then saves them.
 export async function POST(req: Request) {
-  let body: { key?: string; year?: number; period?: number; dollar?: number; pct?: number };
+  let body: { key?: string; year?: number; period?: number; dollar?: number; pct?: number; min?: number };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Bad request" }, { status: 400 }); }
   const { key, year } = body;
   const dollar = body.dollar ?? 5000;
   const pct = body.pct ?? 10;
+  const min = body.min ?? 500;
   if (!key || !year) return NextResponse.json({ error: "key and year are required" }, { status: 400 });
 
   const mapping = await getMapping(key);
@@ -68,7 +70,7 @@ export async function POST(req: Request) {
       const lineKey = `${sec.name}::${l.label}`;
       if (hasManualNote(lineKey)) continue; // keep the user's manual note
 
-      const cls = hot(l.ytdVariance, l.ytdBudget, dollar, pct) ?? hot(l.periodVariance, l.periodBudget, dollar, pct);
+      const cls = hot(l.ytdVariance, l.ytdBudget, dollar, pct, min) ?? hot(l.periodVariance, l.periodBudget, dollar, pct, min);
       const amounts = lineMonthly(stored.monthly, l.mask, sign, period);
       const counts = lineTxnCounts(txByAccount, l.mask, period);
       const pyAmounts = storedPY ? lineMonthly(storedPY.monthly, l.mask, sign, 12) : [];
