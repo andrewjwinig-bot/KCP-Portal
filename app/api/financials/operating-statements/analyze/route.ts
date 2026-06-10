@@ -88,6 +88,9 @@ export async function POST(req: Request) {
       const txs: { date: string | null; description: string; amount: number }[] = [];
       for (const a of accts) for (const t of txByAccount[a]) if (t.month <= period) txs.push({ date: t.date, description: t.description, amount: t.amount * sign });
       txs.sort((x, y) => Math.abs(y.amount) - Math.abs(x.amount));
+      // A single transaction is self-evidently the cause — no note adds value,
+      // unless the line was surfaced for a trend reason (e.g. a missing 2nd bill).
+      if (trend.length === 0 && txs.length === 1) continue;
       // Per-tenant contributors to this line (only where we can name the tenant).
       const tenants = gl
         .filter((g) => accountMatchesMask(l.mask, g.account))
@@ -120,7 +123,7 @@ export async function POST(req: Request) {
   const trendMonths = MONTHS_SHORT.slice(0, period).join(", ");
   const prompt =
     `You are a commercial real estate accountant reviewing ${statement.propertyCode} ${statement.propertyName}'s operating statement for ${through} ${year} (YTD through ${through}). ` +
-    `Your goal is to SPOT POSSIBLE MISTAKES and things that look OFF — not merely restate budget variance. For each flagged line write ONE concise note (max ~35 words): the specific thing worth investigating, then the action to verify.\n\n` +
+    `Your goal is to SPOT POSSIBLE MISTAKES and things that look OFF — not merely restate budget variance. For each flagged line write ONE note that is SHORT and DIRECT (aim for ~20 words, max ~30): the specific thing to look into, then what to verify. Be terse — no descriptive filler, no narrating the obvious; only add detail when it points to the fix.\n\n` +
     `EACH LINE INCLUDES:\n` +
     `• monthlyTrend / monthlyTxnCount — this year's amount and number of transactions for each month so far, in order (${trendMonths}).\n` +
     `• priorYear (when present) — the same line LAST year: this same month's amount ("sameMonth"), the prior-year YTD, and its month-by-month trend.\n` +
