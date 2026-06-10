@@ -4,7 +4,8 @@ import { parseGeneralLedgerMonthly, summaryForPeriod } from "@/lib/financials/op
 import { computeStatement } from "@/lib/financials/operating-statements/compute";
 import { availableStatements, getMapping, resolveStatementKey } from "@/lib/financials/operating-statements/mappingStore";
 import { resolvePropertyBudget, makeBudgetLookup } from "@/lib/financials/operating-statements/budgetCrosswalk";
-import { saveGl, getGl, versionsFor, listGls, assembledGl, mergeAccountNames, getNotesBundle, saveNote, saveTransactions } from "@/lib/financials/operating-statements/statementStore";
+import { saveGl, getGl, versionsFor, listFullGls, assembledGl, mergeAccountNames, getNotesBundle, saveNote, saveTransactions, type StoredGl } from "@/lib/financials/operating-statements/statementStore";
+import { assembleGls } from "@/lib/financials/operating-statements/glAssemble";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 import { logAudit, auditIp } from "@/lib/audit";
 
@@ -24,18 +25,24 @@ export async function GET(req: Request) {
   const key = url.searchParams.get("key");
   const year = Number(url.searchParams.get("year"));
 
-  const [mappings, gls] = await Promise.all([availableStatements(), listGls()]);
+  const [mappings, fulls] = await Promise.all([availableStatements(), listFullGls()]);
   const yearsByKey = new Map<string, Set<number>>();
-  // Furthest (year, period) imported per property — so the picker can flag who
-  // is behind. period = the last month present in the most-advanced upload.
-  const latestByKey = new Map<string, { year: number; period: number }>();
-  for (const g of gls) {
+  const byKeyYear = new Map<string, Map<number, StoredGl[]>>();
+  for (const g of fulls) {
     if (!yearsByKey.has(g.key)) yearsByKey.set(g.key, new Set());
     yearsByKey.get(g.key)!.add(g.year);
-    const cur = latestByKey.get(g.key);
-    if (!cur || g.year > cur.year || (g.year === cur.year && g.maxPeriodInFile > cur.period)) {
-      latestByKey.set(g.key, { year: g.year, period: g.maxPeriodInFile });
-    }
+    let ym = byKeyYear.get(g.key);
+    if (!ym) byKeyYear.set(g.key, (ym = new Map()));
+    const arr = ym.get(g.year);
+    if (arr) arr.push(g); else ym.set(g.year, [g]);
+  }
+  // Latest imported period per property — the last ACTUAL month (assembled
+  // across uploads), so a full-year GL range doesn't read as "December".
+  const latestByKey = new Map<string, { year: number; period: number }>();
+  for (const [k, ym] of byKeyYear) {
+    const latestYear = Math.max(...ym.keys());
+    const asm = assembleGls(ym.get(latestYear)!);
+    if (asm) latestByKey.set(k, { year: latestYear, period: asm.maxPeriodInFile });
   }
   const available = mappings.map((m) => ({
     key: m.key,
@@ -97,7 +104,7 @@ export async function GET(req: Request) {
   });
   // Label the unmapped (non-operating) accounts with their GL account name,
   // falling back to names captured on any other property's GL (codes are shared).
-  const acctNames = mergeAccountNames(gls);
+  const acctNames = mergeAccountNames(fulls);
   statement.unmappedAccounts = statement.unmappedAccounts.map((u) => ({
     ...u,
     name: stored.names?.[u.account] ?? acctNames[u.account] ?? null,

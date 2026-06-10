@@ -58,14 +58,21 @@ export function assembleGls<T extends AssembleInput>(gls: T[]): T | null {
     if (g.uploadedAt > uploadedAt) uploadedAt = g.uploadedAt;
   }
 
-  // "Actuals through" = the last month with real activity, NOT the report
-  // range end. A GL run for the whole year (1/1–12/31) with only Jan–Feb posted
-  // must report Feb, so the reprojection fills Mar–Dec from budget.
-  let lastActive = 0;
-  for (let m = 1; m <= 12; m++) {
-    if (Object.values(monthly).some((nets) => Math.abs(nets[m - 1] ?? 0) > 0.005)) lastActive = m;
+  // "Actuals through" = the last month of the CONTIGUOUS run of active months
+  // from the first active month — NOT the report-range end, and not a stray
+  // later entry (e.g. a year-end balance-sheet line posted to December). That
+  // way a GL run for the whole year with only Jan–Feb posted reports Feb, so the
+  // reprojection fills Mar–Dec from budget.
+  const monthActive = (m: number) =>
+    Object.values(monthly).some((nets) => Math.abs(nets[m - 1] ?? 0) > 0.005);
+  let firstActive = 0;
+  for (let m = 1; m <= 12 && firstActive === 0; m++) if (monthActive(m)) firstActive = m;
+  let through = firstActive;
+  for (let m = firstActive + 1; m <= 12; m++) {
+    if (monthActive(m)) through = m;
+    else break;
   }
-  const maxPeriodInFile = lastActive || maxRangeEnd;
+  const maxPeriodInFile = through || maxRangeEnd;
 
   const base = ordered[ordered.length - 1]; // newest, for id/key/fileName/etc.
   return { ...base, monthly, beginning, ytdTotal, names, maxPeriodInFile, uploadedAt };
