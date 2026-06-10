@@ -2,27 +2,27 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useUser } from "./UserProvider";
-import { ALL_USERS, USERS, type UserId } from "../../lib/users";
+import { ALL_USERS, USERS, accessGroup, type AccessGroup, type UserId } from "../../lib/users";
 
-const AVATAR_COLOR: Record<UserId, string> = {
-  admin:  "#16a34a",
-  drew:   "#4338ca",
-  marie:  "#db2777",
-  nancy:  "#0b4a7d",
-  harry:  "#d97706",
-  maint:  "#7c3aed",
-  greg:   "#9333ea",
-  charles:"#c026d3",
-  jay:    "#7e22ce",
-  alison: "#0d9488",
+// Avatar color follows the user's ACCESS GROUP, not the individual — so clones
+// (SERVICE: maint/greg/charles/jay) and the admin tier (admin/drew) read as
+// grouped at a glance. Add a color here when adding an access group.
+const GROUP_COLOR: Record<AccessGroup, string> = {
+  admin:      "#4338ca", // elevated admin tier
+  service:    "#7c3aed", // SERVICE clones
+  office:     "#0b4a7d", // Nancy
+  retail:     "#d97706", // Harry
+  operations: "#db2777", // Marie
+  executive:  "#0d9488", // Alison
 };
+const avatarColor = (id: UserId): string => GROUP_COLOR[accessGroup(id)];
 
 function Avatar({ id, size = 24 }: { id: UserId; size?: number }) {
   return (
     <div
       style={{
         width: size, height: size, borderRadius: 999,
-        background: AVATAR_COLOR[id],
+        background: avatarColor(id),
         color: "#fff",
         display: "flex", alignItems: "center", justifyContent: "center",
         fontSize: size <= 24 ? 11 : 13,

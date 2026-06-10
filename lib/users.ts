@@ -194,6 +194,34 @@ export const USERS: Record<UserId, UserDef> = {
   },
 };
 
+// Access groups — users who share a role / access tier belong to one group, so
+// related logins can be shown "grouped" (e.g. one avatar color per group). The
+// SERVICE clones (maint/greg/charles/jay) are one group; admin + drew are the
+// elevated admin tier; the rest are their own role. The switch is exhaustive
+// over UserId, so adding a user forces assigning it a group here.
+export type AccessGroup = "admin" | "service" | "office" | "retail" | "operations" | "executive";
+
+export function accessGroup(userId: UserId): AccessGroup {
+  switch (userId) {
+    case "admin":
+    case "drew":
+      return "admin";
+    case "maint":
+    case "greg":
+    case "charles":
+    case "jay":
+      return "service";
+    case "nancy":
+      return "office";
+    case "harry":
+      return "retail";
+    case "marie":
+      return "operations";
+    case "alison":
+      return "executive";
+  }
+}
+
 /** Only admin and Drew may switch between user profiles after signing in.
  *  Keyed off the authenticated (cookie) user, so no one else can toggle. */
 export function canSwitchUsers(userId: UserId): boolean {
