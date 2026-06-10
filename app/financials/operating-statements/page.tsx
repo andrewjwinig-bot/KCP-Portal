@@ -771,6 +771,12 @@ function SectionCard({ sec, nf, monthLabel, view, thresh, onOpenDetail, filterCl
               <tr key={l.label}>
                 <td style={labelStyle}>
                   {l.label}
+                  {l.flags?.length ? (
+                    <span
+                      title={`Looks off this month — worth investigating: ${l.flags.join("; ")}`}
+                      style={{ marginLeft: 6, display: "inline-flex", alignItems: "center", justifyContent: "center", width: 15, height: 15, borderRadius: "50%", background: "rgba(180,83,9,0.12)", border: "1px solid rgba(180,83,9,0.45)", color: "#b45309", fontSize: 10, fontWeight: 800, cursor: "help", verticalAlign: "middle" }}
+                    >?</span>
+                  ) : null}
                   {view.showGL && <div className="muted" style={{ fontSize: 11, fontVariantNumeric: "tabular-nums", marginTop: 1 }}>{l.mask}</div>}
                 </td>
                 {figureCells(l, { psf: view.psf, sqft: view.sqft, flag: thresh, drill: (tab, scope) => onOpenDetail(sec, l, tab, scope) })}

@@ -4,8 +4,10 @@ import { parseGeneralLedgerMonthly, summaryForPeriod } from "@/lib/financials/op
 import { computeStatement } from "@/lib/financials/operating-statements/compute";
 import { availableStatements, getMapping, resolveStatementKey } from "@/lib/financials/operating-statements/mappingStore";
 import { resolvePropertyBudget, makeBudgetLookup } from "@/lib/financials/operating-statements/budgetCrosswalk";
-import { saveGl, getGl, versionsFor, listFullGls, assembledGl, mergeAccountNames, getNotesBundle, saveNote, saveTransactions, type StoredGl } from "@/lib/financials/operating-statements/statementStore";
+import { saveGl, getGl, versionsFor, listFullGls, mergeAccountNames, getNotesBundle, saveNote, saveTransactions, type StoredGl } from "@/lib/financials/operating-statements/statementStore";
 import { assembleGls } from "@/lib/financials/operating-statements/glAssemble";
+import { lineMonthly } from "@/lib/financials/operating-statements/lineSeries";
+import { trendFlags } from "@/lib/financials/operating-statements/trends";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 import { logAudit, auditIp } from "@/lib/audit";
 
@@ -60,8 +62,10 @@ export async function GET(req: Request) {
 
   const versionId = url.searchParams.get("version");
   // Default view merges every uploaded month (cumulative or month-by-month);
-  // picking a specific version shows just that upload.
-  const stored = versionId ? await getGl(versionId) : await assembledGl(key, year);
+  // picking a specific version shows just that upload. Reuse `fulls` (already
+  // loaded) for the merge — current year and the prior year for YoY signals.
+  const stored = versionId ? await getGl(versionId) : assembleGls(fulls.filter((g) => g.key === key && g.year === year));
+  const storedPY = versionId ? null : assembleGls(fulls.filter((g) => g.key === key && g.year === year - 1));
   const versions = await versionsFor(key, year);
   if (!stored) {
     return NextResponse.json({ available, versions, statement: null, message: "No GL uploaded for this property/year yet." });
@@ -102,6 +106,20 @@ export async function GET(req: Request) {
     gl,
     budgetLookup,
   });
+  // "Looks off this month" markers — a "?" on lines whose amount jumps vs recent
+  // months or swings vs the same month last year. (Cheap: amount + YoY only; the
+  // richer transaction-count checks run inside auto-explain.)
+  for (const sec of statement.sections) {
+    const sign = sec.role === "revenue" || sec.role === "reimbursement" ? -1 : 1;
+    for (const l of sec.lines) {
+      const amounts = lineMonthly(stored.monthly, l.mask, sign, period);
+      const pyAmounts = storedPY ? lineMonthly(storedPY.monthly, l.mask, sign, 12) : [];
+      const pySame = pyAmounts.length >= period ? pyAmounts[period - 1] : null;
+      const flags = trendFlags(amounts, [], amounts[period - 1] ?? null, pySame);
+      if (flags.length) l.flags = flags;
+    }
+  }
+
   // Label the unmapped (non-operating) accounts with their GL account name,
   // falling back to names captured on any other property's GL (codes are shared).
   const acctNames = mergeAccountNames(fulls);

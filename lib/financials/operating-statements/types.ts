@@ -92,6 +92,9 @@ export type StatementLine = {
   annualBudget: number | null;
   /** GL accounts that matched this line's mask (for the click-through). */
   accounts: string[];
+  /** "Looks off this month" reasons (month-over-month / YoY trend signals).
+   *  Drives a "?" investigate marker on the line. */
+  flags?: string[];
 };
 
 /** A section with its lines + a subtotal row (e.g. "Total Reimbursements"). */
