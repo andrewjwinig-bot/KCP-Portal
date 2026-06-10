@@ -90,6 +90,12 @@ export type CashSheetRow = {
   reserves: number;
   /** Bills paid, keyed by Wednesday ISO date. Reset each month. */
   bills: Record<string, number>;
+  /** Manual override of the auto-pulled Starting Cash (null = use the pulled
+   *  value). */
+  startingOverride?: number | null;
+  /** Manual override of the Operational (ending) cash (null = use the computed
+   *  Starting − bills − reserves). */
+  endingOverride?: number | null;
 };
 
 /** Net operational cash for a row given its starting cash. Null when starting
