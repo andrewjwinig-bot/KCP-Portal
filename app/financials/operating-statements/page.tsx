@@ -109,7 +109,8 @@ function varPct(variance: number | null, budget: number | null): number | null {
   return (variance / Math.abs(budget)) * 100;
 }
 
-type ViewOpts = { psf: boolean; sqft: number; hideEmpty: boolean; showGL: boolean };
+type VarMode = "pct" | "dollar";
+type ViewOpts = { psf: boolean; sqft: number; hideEmpty: boolean; showGL: boolean; varMode: VarMode };
 
 // Dollar amount in the active view — total $ or $/SF.
 function fmtAmt(v: number | null, psf: boolean, sqft: number): string {
@@ -119,6 +120,18 @@ function fmtAmt(v: number | null, psf: boolean, sqft: number): string {
     return `${x < 0 ? "-" : ""}$${Math.abs(x).toFixed(2)}`;
   }
   return money0(v);
+}
+
+// Signed dollar variance for the Var column ($-mode), respecting the $/SF view.
+// Favorable (positive) carries a leading "+", matching the "+%" convention.
+function fmtVarAmt(v: number | null, psf: boolean, sqft: number): string {
+  if (v == null) return "—";
+  if (Math.abs(v) < 0.5) return psf && sqft > 0 ? "$0.00" : "$0";
+  if (psf && sqft > 0) {
+    const x = v / sqft;
+    return `${x < 0 ? "-" : "+"}$${Math.abs(x).toFixed(2)}`;
+  }
+  return `${v < 0 ? "-" : "+"}$${Math.abs(Math.round(v)).toLocaleString("en-US")}`;
 }
 
 const isZero = (v: number | null) => v == null || Math.abs(v) < 0.5;
@@ -180,38 +193,67 @@ const toggleBtn: React.CSSProperties = {
 const toggleActive: React.CSSProperties = { background: "#0b4a7d", color: "#fff", borderColor: "#0b4a7d" };
 const toggleLabel: React.CSSProperties = { fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase" };
 
-function ViewToggle({ psf, onChange, disabled }: { psf: boolean; onChange: (v: boolean) => void; disabled: boolean }) {
+// A single segmented two-button control. Rendered as a labeled row (label left,
+// buttons right) so a stack of them reads like a settings menu.
+function ToggleRow({ label, left, right, active, onLeft, onRight, disabled }: {
+  label: string; left: string; right: string; active: "left" | "right";
+  onLeft: () => void; onRight: () => void; disabled?: boolean;
+}) {
   return (
-    <div style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-      <span className="muted small" style={toggleLabel}>View</span>
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, width: "100%" }}>
+      <span className="muted small" style={toggleLabel}>{label}</span>
       <div style={{ display: "inline-flex", borderRadius: 6, overflow: "hidden", opacity: disabled ? 0.5 : 1 }}>
-        <button type="button" disabled={disabled} onClick={() => !disabled && onChange(false)} style={{ ...toggleBtn, cursor: disabled ? "not-allowed" : "pointer", borderRadius: "6px 0 0 6px", ...(psf ? {} : toggleActive) }}>Total</button>
-        <button type="button" disabled={disabled} onClick={() => !disabled && onChange(true)} style={{ ...toggleBtn, cursor: disabled ? "not-allowed" : "pointer", borderLeft: "none", borderRadius: "0 6px 6px 0", ...(psf ? toggleActive : {}) }}>$/SF</button>
+        <button type="button" disabled={disabled} onClick={() => !disabled && onLeft()} style={{ ...toggleBtn, cursor: disabled ? "not-allowed" : "pointer", borderRadius: "6px 0 0 6px", ...(active === "left" ? toggleActive : {}) }}>{left}</button>
+        <button type="button" disabled={disabled} onClick={() => !disabled && onRight()} style={{ ...toggleBtn, cursor: disabled ? "not-allowed" : "pointer", borderLeft: "none", borderRadius: "0 6px 6px 0", ...(active === "right" ? toggleActive : {}) }}>{right}</button>
       </div>
     </div>
   );
 }
 
-function EmptyRowsToggle({ hide, onChange }: { hide: boolean; onChange: (v: boolean) => void }) {
+// Consolidated "View ▾" popover — the four display toggles (Amounts, Variance,
+// Empty rows, GL) in one menu instead of cluttering the toolbar. Closes on
+// outside click or Escape, mirroring the Download menu.
+function ViewMenu({ psf, setPsf, psfDisabled, varMode, setVarMode, hideEmpty, setHideEmpty, showGL, setShowGL }: {
+  psf: boolean; setPsf: (v: boolean) => void; psfDisabled: boolean;
+  varMode: VarMode; setVarMode: (v: VarMode) => void;
+  hideEmpty: boolean; setHideEmpty: (v: boolean) => void;
+  showGL: boolean; setShowGL: (v: boolean) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onDocClick = (e: MouseEvent) => { if (!wrapRef.current?.contains(e.target as Node)) setOpen(false); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("mousedown", onDocClick);
+    document.addEventListener("keydown", onKey);
+    return () => { document.removeEventListener("mousedown", onDocClick); document.removeEventListener("keydown", onKey); };
+  }, [open]);
   return (
-    <div style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-      <span className="muted small" style={toggleLabel}>Empty rows</span>
-      <div style={{ display: "inline-flex", borderRadius: 6, overflow: "hidden" }}>
-        <button type="button" onClick={() => onChange(true)} style={{ ...toggleBtn, borderRadius: "6px 0 0 6px", ...(hide ? toggleActive : {}) }}>Hide</button>
-        <button type="button" onClick={() => onChange(false)} style={{ ...toggleBtn, borderLeft: "none", borderRadius: "0 6px 6px 0", ...(hide ? {} : toggleActive) }}>Show</button>
-      </div>
-    </div>
-  );
-}
-
-function GLToggle({ show, onChange }: { show: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <div style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-      <span className="muted small" style={toggleLabel}>GL</span>
-      <div style={{ display: "inline-flex", borderRadius: 6, overflow: "hidden" }}>
-        <button type="button" onClick={() => onChange(false)} style={{ ...toggleBtn, borderRadius: "6px 0 0 6px", ...(show ? {} : toggleActive) }}>Hide</button>
-        <button type="button" onClick={() => onChange(true)} style={{ ...toggleBtn, borderLeft: "none", borderRadius: "0 6px 6px 0", ...(show ? toggleActive : {}) }}>Show</button>
-      </div>
+    <div ref={wrapRef} style={{ position: "relative", display: "inline-flex" }}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="btn"
+        style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 6 }}
+        aria-haspopup="menu"
+        aria-expanded={open}
+      >
+        Display
+        <span aria-hidden style={{ fontSize: 10, opacity: 0.75, lineHeight: 1 }}>▾</span>
+      </button>
+      {open && (
+        <div role="menu" style={{
+          position: "absolute", top: "calc(100% + 6px)", right: 0, zIndex: 40, minWidth: 250,
+          background: "var(--card)", border: "1px solid var(--border)", borderRadius: 10,
+          boxShadow: "0 8px 24px rgba(15,23,42,0.18)", padding: 14, display: "flex", flexDirection: "column", gap: 12,
+        }}>
+          <ToggleRow label="Amounts" left="Total" right="$/SF" active={psf ? "right" : "left"} onLeft={() => setPsf(false)} onRight={() => setPsf(true)} disabled={psfDisabled} />
+          <ToggleRow label="Variance" left="%" right="$" active={varMode === "dollar" ? "right" : "left"} onLeft={() => setVarMode("pct")} onRight={() => setVarMode("dollar")} />
+          <ToggleRow label="Empty rows" left="Hide" right="Show" active={hideEmpty ? "left" : "right"} onLeft={() => setHideEmpty(true)} onRight={() => setHideEmpty(false)} />
+          <ToggleRow label="GL accounts" left="Hide" right="Show" active={showGL ? "right" : "left"} onLeft={() => setShowGL(false)} onRight={() => setShowGL(true)} />
+        </div>
+      )}
     </div>
   );
 }
@@ -244,6 +286,7 @@ export default function OperatingStatementsPage() {
   const [psf, setPsf] = useState(false);
   const [hideEmpty, setHideEmpty] = useState(true);
   const [showGL, setShowGL] = useState(false);
+  const [varMode, setVarMode] = useState<VarMode>("pct");
   // Variance thresholds — a line is "high variance" if it exceeds either.
   const [varDollar, setVarDollar] = useState(5000);
   const [varPctThresh, setVarPctThresh] = useState(10);
@@ -487,6 +530,14 @@ export default function OperatingStatementsPage() {
               {uploading ? "Uploading…" : "Upload GL"}
             </button>
             <input ref={fileRef} type="file" accept=".xls,.xlsx,.xlsm" multiple style={{ display: "none" }} onChange={onUpload} />
+            {statement && (
+              <ViewMenu
+                psf={psf} setPsf={setPsf} psfDisabled={sqft <= 0}
+                varMode={varMode} setVarMode={setVarMode}
+                hideEmpty={hideEmpty} setHideEmpty={setHideEmpty}
+                showGL={showGL} setShowGL={setShowGL}
+              />
+            )}
             {cur && statement && (
               <DownloadMenu
                 disabled={!statement}
@@ -519,7 +570,7 @@ export default function OperatingStatementsPage() {
           </div>
         </div>
 
-        <div style={{ marginTop: 8, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+        <div style={{ marginTop: 8 }}>
           <p className="muted small" style={{ margin: 0, display: "flex", alignItems: "center", gap: 6 }}>
             <span>Import the <b>Detailed General Ledger</b> Excel file (.xls or .xlsx). Select <b>multiple files</b> to upload several at once — each is matched to its property by the header code.</span>
             <ImportInstructionsButton
@@ -527,13 +578,6 @@ export default function OperatingStatementsPage() {
               nextPeriod={statement ? Math.min(maxPeriod + 1, 12) : 1}
             />
           </p>
-          {statement && (
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 16, flexWrap: "wrap", marginLeft: "auto" }}>
-              <ViewToggle psf={psf} onChange={setPsf} disabled={sqft <= 0} />
-              <EmptyRowsToggle hide={hideEmpty} onChange={setHideEmpty} />
-              <GLToggle show={showGL} onChange={setShowGL} />
-            </div>
-          )}
         </div>
 
         {statement && variance && (() => {
@@ -602,7 +646,7 @@ export default function OperatingStatementsPage() {
         </div>
       )}
 
-      {!loading && statement && <StatementTable s={statement} viewKey={key} budgetYear={budgetYear} budgetFallback={budgetFallback} notes={notes} noteSources={noteSources} noteMeta={noteMeta} editorLabel={user.label} onSaveNote={saveNote} dismissedFlags={dismissedFlags} onDismissFlag={onDismissFlag} view={{ psf, sqft, hideEmpty, showGL }} thresh={thresh} flagFilter={flagFilter} onClearFilter={() => setFlagFilter(null)} />}
+      {!loading && statement && <StatementTable s={statement} viewKey={key} budgetYear={budgetYear} budgetFallback={budgetFallback} notes={notes} noteSources={noteSources} noteMeta={noteMeta} editorLabel={user.label} onSaveNote={saveNote} dismissedFlags={dismissedFlags} onDismissFlag={onDismissFlag} view={{ psf, sqft, hideEmpty, showGL, varMode }} thresh={thresh} flagFilter={flagFilter} onClearFilter={() => setFlagFilter(null)} />}
     </main>
   );
 }
@@ -626,10 +670,10 @@ function StatementColgroup() {
   return (
     <colgroup>
       <col style={{ width: "20%" }} />
-      <col style={{ width: "8%" }} /><col style={{ width: "8%" }} /><col style={{ width: "6%" }} />
-      <col style={{ width: "8%" }} /><col style={{ width: "8%" }} /><col style={{ width: "6%" }} />
+      <col style={{ width: "8%" }} /><col style={{ width: "8%" }} /><col style={{ width: "8%" }} />
+      <col style={{ width: "8%" }} /><col style={{ width: "8%" }} /><col style={{ width: "8%" }} />
       <col style={{ width: "8%" }} />
-      <col style={{ width: "28%" }} />
+      <col style={{ width: "24%" }} />
     </colgroup>
   );
 }
@@ -643,16 +687,17 @@ function GroupHeader({ label }: { label: string }) {
   );
 }
 
-function HeaderRow({ monthLabel }: { monthLabel: string }) {
+function HeaderRow({ monthLabel, varMode }: { monthLabel: string; varMode: VarMode }) {
+  const varSuffix = varMode === "dollar" ? "Var $" : "Var %";
   return (
     <tr>
       <th style={{ ...headStyle, textAlign: "left" }}>Line</th>
       <th style={{ ...headStyle, borderLeft: GROUP_DIV, color: COLOR_BRAND }}>{monthLabel} Act</th>
       <th style={{ ...headStyle, color: COLOR_BRAND }}>{monthLabel} Bud</th>
-      <th style={{ ...headStyle, color: COLOR_BRAND }}>Var %</th>
+      <th style={{ ...headStyle, color: COLOR_BRAND }}>{varSuffix}</th>
       <th style={{ ...headStyle, borderLeft: GROUP_DIV }}>YTD Act</th>
       <th style={headStyle}>YTD Bud</th>
-      <th style={headStyle}>YTD Var %</th>
+      <th style={headStyle}>YTD {varSuffix}</th>
       <th style={{ ...headStyle, borderLeft: GROUP_DIV }}>Ann Bud</th>
       <th style={{ ...headStyle, borderLeft: GROUP_DIV, textAlign: "left" }}>Notes</th>
     </tr>
@@ -789,7 +834,7 @@ function SectionCard({ sec, nf, monthLabel, view, thresh, onOpenDetail, filterCl
       <div className="tableWrap" style={{ marginTop: 0 }}>
         <table style={{ tableLayout: "fixed", width: "100%", minWidth: 1000 }}>
           <StatementColgroup />
-          <thead><HeaderRow monthLabel={monthLabel} /></thead>
+          <thead><HeaderRow monthLabel={monthLabel} varMode={view.varMode} /></thead>
           <tbody>
             {lines.map((l) => (
               <tr key={l.label}>
@@ -805,14 +850,14 @@ function SectionCard({ sec, nf, monthLabel, view, thresh, onOpenDetail, filterCl
                   ) : null}
                   {view.showGL && <div className="muted" style={{ fontSize: 11, fontVariantNumeric: "tabular-nums", marginTop: 1 }}>{l.mask}</div>}
                 </td>
-                {figureCells(l, { psf: view.psf, sqft: view.sqft, flag: thresh, drill: (tab, scope) => onOpenDetail(sec, l, tab, scope) })}
+                {figureCells(l, { psf: view.psf, sqft: view.sqft, varMode: view.varMode, flag: thresh, drill: (tab, scope) => onOpenDetail(sec, l, tab, scope) })}
                 <NoteCell lineKey={lineKeyOf(sec.name, l.label)} {...nf} />
               </tr>
             ))}
             {!hideSubtotal && !filterClass && (
               <tr style={{ background: "rgba(11,74,125,0.06)", borderTop: "2px solid rgba(11,74,125,0.30)" }}>
                 <td style={{ ...labelStyle, fontWeight: 800, color: COLOR_BRAND, textTransform: "uppercase", letterSpacing: "0.04em", fontSize: 13.5 }}>{subtotalLabel(sec)}</td>
-                {figureCells(sec.subtotal, { bold: true, color: COLOR_BRAND, psf: view.psf, sqft: view.sqft })}
+                {figureCells(sec.subtotal, { bold: true, color: COLOR_BRAND, psf: view.psf, sqft: view.sqft, varMode: view.varMode })}
                 <td style={{ borderLeft: GROUP_DIV }} />
               </tr>
             )}
@@ -832,7 +877,7 @@ function RollupCard({ label, t, view, strong }: { label: string; t: StatementTot
           <tbody>
             <tr>
               <td style={{ ...labelStyle, fontSize: strong ? 15 : 13.5, fontWeight: 900, letterSpacing: "0.04em", textTransform: "uppercase", color: COLOR_BRAND, borderBottom: "none" }}>{label}</td>
-              {figureCells(t, { bold: true, color: COLOR_BRAND, noBorder: true, psf: view.psf, sqft: view.sqft })}
+              {figureCells(t, { bold: true, color: COLOR_BRAND, noBorder: true, psf: view.psf, sqft: view.sqft, varMode: view.varMode })}
               <td style={{ borderLeft: GROUP_DIV, borderBottom: "none" }} />
             </tr>
           </tbody>
@@ -845,16 +890,20 @@ function RollupCard({ label, t, view, strong }: { label: string; t: StatementTot
 /** The seven figure cells (Period A/B/Var% · YTD A/B/Var% · Annual). When
  *  `flag` (the thresholds) is supplied, the month/YTD Var % cells that are
  *  high-variance get a green (favorable) / red (unfavorable) highlight. */
-function figureCells(t: StatementTotals, opts: { bold?: boolean; color?: string; noBorder?: boolean; psf?: boolean; sqft?: number; flag?: Thresh; drill?: (tab: "gl" | "budget", scope: "month" | "ytd" | "annual") => void } = {}) {
-  const { bold, color, noBorder, psf = false, sqft = 0, flag, drill } = opts;
+function figureCells(t: StatementTotals, opts: { bold?: boolean; color?: string; noBorder?: boolean; psf?: boolean; sqft?: number; varMode?: VarMode; flag?: Thresh; drill?: (tab: "gl" | "budget", scope: "month" | "ytd" | "annual") => void } = {}) {
+  const { bold, color, noBorder, psf = false, sqft = 0, varMode = "pct", flag, drill } = opts;
   const base: React.CSSProperties = { ...numStyle, ...(bold ? { fontWeight: 800 } : {}), ...(color ? { color } : {}), ...(noBorder ? { borderBottom: "none" } : {}) };
   const pV = varPct(t.periodVariance, t.periodBudget);
   const yV = varPct(t.ytdVariance, t.ytdBudget);
   const amt = (v: number | null) => fmtAmt(v, psf, sqft);
   const mFlag = flag ? cellFlag(t.periodVariance, t.periodBudget, flag) : null;
   const yFlag = flag ? cellFlag(t.ytdVariance, t.ytdBudget, flag) : null;
-  const varCell = (pct: number | null, f: "fav" | "unf" | null): React.CSSProperties =>
-    ({ ...base, color: color ?? varColor(pct), ...(f ? { background: flagTint(f), fontWeight: 800 } : {}) });
+  // The Var column shows either the % (default) or the signed $ variance. Color
+  // tracks favorability — sign of the $ variance matches the sign of the %.
+  const varText = (variance: number | null, pct: number | null) =>
+    varMode === "dollar" ? fmtVarAmt(variance, psf, sqft) : fmtPct(pct);
+  const varCell = (colorVal: number | null, f: "fav" | "unf" | null): React.CSSProperties =>
+    ({ ...base, color: color ?? varColor(colorVal), ...(f ? { background: flagTint(f), fontWeight: 800 } : {}) });
   // Actual cells drill into GL transactions; Budget/Annual cells into the
   // budget detail. Clickable only on real line rows (drill provided) AND when
   // the cell holds activity — a $0 cell has nothing to drill into.
@@ -866,10 +915,10 @@ function figureCells(t: StatementTotals, opts: { bold?: boolean; color?: string;
     <>
       <td {...click("gl", "month", t.periodActual)} style={{ ...base, borderLeft: GROUP_DIV }}>{amt(t.periodActual)}</td>
       <td {...click("budget", "month", t.periodBudget)} style={{ ...base, color: color ?? "var(--muted)" }}>{amt(t.periodBudget)}</td>
-      <td style={varCell(pV, mFlag)}>{fmtPct(pV)}</td>
+      <td style={varCell(varMode === "dollar" ? t.periodVariance : pV, mFlag)}>{varText(t.periodVariance, pV)}</td>
       <td {...click("gl", "ytd", t.ytdActual)} style={{ ...base, borderLeft: GROUP_DIV }}>{amt(t.ytdActual)}</td>
       <td {...click("budget", "ytd", t.ytdBudget)} style={{ ...base, color: color ?? "var(--muted)" }}>{amt(t.ytdBudget)}</td>
-      <td style={varCell(yV, yFlag)}>{fmtPct(yV)}</td>
+      <td style={varCell(varMode === "dollar" ? t.ytdVariance : yV, yFlag)}>{varText(t.ytdVariance, yV)}</td>
       <td {...click("budget", "annual", t.annualBudget)} style={{ ...base, borderLeft: GROUP_DIV, color: color ?? "var(--muted)" }}>{amt(t.annualBudget)}</td>
     </>
   );
