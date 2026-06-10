@@ -17,6 +17,37 @@ export type AssembleInput = {
   names?: Record<string, string>;
 };
 
+/** A GL upload plus its per-account transactions (each carrying a reporting
+ *  month 1–12), for merging transactions across uploads. */
+export type TxnVersion<T extends { month: number }> = AssembleInput & {
+  transactions: Record<string, T[]>;
+};
+
+/**
+ * Merge several uploads' transactions for one property/year, applying the same
+ * coverage rule as {@link assembleGls}: each upload owns the months it covers
+ * (its first active month → its max period), and a newer upload's months
+ * supersede an older one's. Returns account → transactions. Pure, so the
+ * drill-down's "every month" behavior is unit-tested.
+ */
+export function mergeTransactions<T extends { month: number }>(versions: TxnVersion<T>[]): Record<string, T[]> {
+  const ordered = [...versions].sort((a, b) => (a.uploadedAt < b.uploadedAt ? -1 : 1)); // oldest → newest
+  const byAccount: Record<string, T[]> = {};
+  for (const v of ordered) {
+    const start = coverageStart(v);
+    const end = Math.min(12, v.maxPeriodInFile || 0);
+    for (const acct of Object.keys(byAccount)) {
+      byAccount[acct] = byAccount[acct].filter((t) => t.month < start || t.month > end);
+    }
+    for (const [acct, list] of Object.entries(v.transactions)) {
+      const keep = list.filter((t) => t.month >= start && t.month <= end);
+      if (keep.length) (byAccount[acct] ??= []).push(...keep);
+    }
+  }
+  for (const acct of Object.keys(byAccount)) if (!byAccount[acct].length) delete byAccount[acct];
+  return byAccount;
+}
+
 /** First month (1–12) with any activity in a file = where its coverage starts. */
 export function coverageStart(g: AssembleInput): number {
   const max = Math.max(1, Math.min(12, g.maxPeriodInFile || 12));

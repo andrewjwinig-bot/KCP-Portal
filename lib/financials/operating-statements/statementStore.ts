@@ -8,7 +8,7 @@
 import "server-only";
 import { storeJSON, listJSON, getJSON, deleteJSON } from "@/lib/storage";
 import type { GlTransaction } from "./glParser";
-import { assembleGls } from "./glAssemble";
+import { assembleGls, mergeTransactions } from "./glAssemble";
 
 const PREFIX = "financials-operating-statements";
 const TX_PREFIX = "financials-operating-statements-tx";
@@ -53,6 +53,21 @@ export async function saveTransactions(glId: string, transactions: Record<string
 export async function getTransactions(glId: string): Promise<Record<string, GlTransaction[]>> {
   const rec = (await getJSON(TX_PREFIX, glId)) as { transactions: Record<string, GlTransaction[]> } | null;
   return rec?.transactions ?? {};
+}
+
+/** Transactions for a property/year merged across every uploaded GL — the
+ *  transaction-level counterpart to {@link assembledGl}. Mirrors the same
+ *  coverage rule: each upload owns the months it covers, and a newer upload's
+ *  months supersede an older one's. Without this the line-detail drill-down
+ *  reads only the newest single upload, so a property uploaded as multiple
+ *  files (monthly, or a revision) shows incomplete — or zero — line detail. */
+export async function assembledTransactions(key: string, year: number): Promise<Record<string, GlTransaction[]>> {
+  const gls = (await listFullGls()).filter((g) => g.key === key && g.year === year);
+  if (!gls.length) return {};
+  const versions = await Promise.all(
+    gls.map(async (g) => ({ ...g, transactions: await getTransactions(g.id) }))
+  );
+  return mergeTransactions(versions);
 }
 
 export async function getGl(id: string): Promise<StoredGl | null> {

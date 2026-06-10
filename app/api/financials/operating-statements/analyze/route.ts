@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getMapping } from "@/lib/financials/operating-statements/mappingStore";
-import { assembledGl, getTransactions, saveNote, getNotesBundle } from "@/lib/financials/operating-statements/statementStore";
+import { assembledGl, assembledTransactions, saveNote, getNotesBundle } from "@/lib/financials/operating-statements/statementStore";
 import { summaryForPeriod } from "@/lib/financials/operating-statements/glParser";
 import { computeStatement } from "@/lib/financials/operating-statements/compute";
 import { resolvePropertyBudget, makeBudgetLookup, budgetDetailForMask } from "@/lib/financials/operating-statements/budgetCrosswalk";
@@ -51,7 +51,7 @@ export async function POST(req: Request) {
   const budget = await resolvePropertyBudget(mapping.propertyCode, year);
   const budgetLookup = budget ? makeBudgetLookup(budget, period) : undefined;
   const statement = computeStatement({ mapping, propertyName: mapping.entityName, year, period, gl, budgetLookup });
-  const txByAccount = await getTransactions(stored.id);
+  const txByAccount = await assembledTransactions(key, year);
   const storedPY = await assembledGl(key, year - 1); // prior year, for same-month-last-year context
 
   // Tenant-name lookup so notes can name tenants instead of GL/unit codes.

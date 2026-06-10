@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { assembleGls, coverageStart, type AssembleInput } from "./glAssemble";
+import { assembleGls, coverageStart, mergeTransactions, type AssembleInput, type TxnVersion } from "./glAssemble";
 
 // Build a GL fixture: monthly nets for one account "X" at the given months.
 function gl(uploadedAt: string, maxPeriod: number, monthsX: Record<number, number>, beginningX?: number): AssembleInput {
@@ -61,5 +61,45 @@ describe("glAssemble", () => {
 
   it("returns null for no GLs", () => {
     expect(assembleGls([])).toBeNull();
+  });
+});
+
+// Build a transactions fixture: account "X" with one transaction per given
+// month (amount = month for identification), reusing the same monthly nets so
+// coverage is inferred the same way as the statement.
+type Txn = { month: number; amount: number };
+function txnVer(uploadedAt: string, maxPeriod: number, months: number[]): TxnVersion<Txn> {
+  const nets = new Array(12).fill(0);
+  for (const m of months) nets[m - 1] = m;
+  return {
+    uploadedAt,
+    maxPeriodInFile: maxPeriod,
+    monthly: { X: nets },
+    transactions: { X: months.map((m) => ({ month: m, amount: m })) },
+  };
+}
+
+describe("mergeTransactions", () => {
+  it("keeps every month across month-by-month uploads (the drill-down bug)", () => {
+    const jan = txnVer("2026-02-01T00:00:00Z", 1, [1]);
+    const feb = txnVer("2026-03-01T00:00:00Z", 2, [2]); // Feb-only, newer
+    const merged = mergeTransactions([jan, feb]);
+    expect(merged.X.map((t) => t.month).sort()).toEqual([1, 2]); // Jan NOT erased
+  });
+
+  it("a cumulative YTD upload supplies all its months", () => {
+    const ytd = txnVer("2026-03-01T00:00:00Z", 3, [1, 2, 3]);
+    expect(mergeTransactions([ytd]).X.map((t) => t.month).sort()).toEqual([1, 2, 3]);
+  });
+
+  it("a newer upload supersedes an overlapping month (no duplicates)", () => {
+    const v1 = txnVer("2026-03-01T00:00:00Z", 1, [1]);
+    const v2 = txnVer("2026-03-02T00:00:00Z", 1, [1]); // correction for January
+    const merged = mergeTransactions([v1, v2]);
+    expect(merged.X.filter((t) => t.month === 1).length).toBe(1); // not doubled
+  });
+
+  it("returns an empty map for no uploads", () => {
+    expect(mergeTransactions<Txn>([])).toEqual({});
   });
 });
