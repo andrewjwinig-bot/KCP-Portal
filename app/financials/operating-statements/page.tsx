@@ -1160,7 +1160,9 @@ function LineDetailModal({ viewKey, property, year, period, monthLabel, line, in
               // worth investigating jump out.
               const totalAbs = shown.reduce((s, t) => s + Math.abs(t.amount), 0);
               const maxAbs = Math.max(0, ...shown.map((t) => Math.abs(t.amount)));
-              const isDriver = (amt: number) => totalAbs > 0 && (Math.abs(amt) >= totalAbs / 3 || (shown.length >= 3 && Math.abs(amt) === maxAbs && Math.abs(amt) >= 0.2 * totalAbs));
+              // Needs ≥2 transactions — a lone transaction is trivially 100% of
+              // the line, so flagging it as "the driver" tells you nothing.
+              const isDriver = (amt: number) => shown.length >= 2 && totalAbs > 0 && (Math.abs(amt) >= totalAbs / 3 || (shown.length >= 3 && Math.abs(amt) === maxAbs && Math.abs(amt) >= 0.2 * totalAbs));
               const activeTenantName = tenantFilter ? (groups.find((g) => g.groupKey === tenantFilter)?.tenant || tenantFilter) : null;
               return (
               <div>
