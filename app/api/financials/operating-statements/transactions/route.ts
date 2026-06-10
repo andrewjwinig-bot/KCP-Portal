@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { latestGl, getGl, getTransactions } from "@/lib/financials/operating-statements/statementStore";
+import { getGl, getTransactions, assembledTransactions } from "@/lib/financials/operating-statements/statementStore";
 import { accountMatchesMask } from "@/lib/financials/operating-statements/mask";
 import { buildTenantDirectory } from "@/lib/financials/operating-statements/tenants";
 
@@ -26,10 +26,13 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "key, year and mask are required" }, { status: 400 });
   }
 
-  const stored = versionId ? await getGl(versionId) : await latestGl(key, year);
-  if (!stored) return NextResponse.json({ transactions: [], total: 0, count: 0 });
-
-  const byAccount = await getTransactions(stored.id);
+  // A specific version pick reads just that upload; the default view merges
+  // every upload's transactions (matching the assembled statement) so the
+  // drill-down has every month, not only the newest file's.
+  const byAccount = versionId
+    ? await (async () => { const v = await getGl(versionId); return v ? getTransactions(v.id) : {}; })()
+    : await assembledTransactions(key, year);
+  if (!Object.keys(byAccount).length) return NextResponse.json({ transactions: [], total: 0, count: 0 });
   const accounts = Object.keys(byAccount).filter((a) => accountMatchesMask(mask, a));
   const { tenantForAccount, unitForName } = await buildTenantDirectory();
 
