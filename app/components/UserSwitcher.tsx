@@ -17,11 +17,33 @@ const GROUP_COLOR: Record<AccessGroup, string> = {
 };
 const avatarColor = (id: UserId): string => GROUP_COLOR[accessGroup(id)];
 
+// Group display order in the switcher (no headers — the colors + ordering do
+// the grouping). Admin tier first, then the service team, then the role users.
+const GROUP_ORDER: AccessGroup[] = ["admin", "service", "office", "retail", "operations", "executive"];
+
+// The master account — pinned to the very top and given a distinct (square)
+// avatar so it stands apart from the circular team avatars.
+const MASTER_ID: UserId = "admin";
+
+// Order users by group, master account first, then alphabetically within group.
+const orderedUsers = (): UserId[] =>
+  [...ALL_USERS].sort((a, b) => {
+    if (a === MASTER_ID) return -1;
+    if (b === MASTER_ID) return 1;
+    const ga = GROUP_ORDER.indexOf(accessGroup(a));
+    const gb = GROUP_ORDER.indexOf(accessGroup(b));
+    if (ga !== gb) return ga - gb;
+    return USERS[a].label.localeCompare(USERS[b].label);
+  });
+
 function Avatar({ id, size = 24 }: { id: UserId; size?: number }) {
+  // Master account reads as a rounded square; everyone else is a circle.
+  const isMaster = id === MASTER_ID;
   return (
     <div
       style={{
-        width: size, height: size, borderRadius: 999,
+        width: size, height: size,
+        borderRadius: isMaster ? Math.max(5, Math.round(size * 0.28)) : 999,
         background: avatarColor(id),
         color: "#fff",
         display: "flex", alignItems: "center", justifyContent: "center",
@@ -135,7 +157,7 @@ export default function UserSwitcher({ collapsed }: { collapsed: boolean }) {
             zIndex: 100,
           }}
         >
-          {[...ALL_USERS].sort((a, b) => USERS[a].label.localeCompare(USERS[b].label)).map((id) => {
+          {orderedUsers().map((id) => {
             const isActive = id === user.id;
             return (
               <button
