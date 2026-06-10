@@ -52,6 +52,13 @@ describe("glAssemble", () => {
     expect(assembleGls([fullYear])!.maxPeriodInFile).toBe(2);
   });
 
+  it("ignores a stray later-month entry (e.g. a year-end balance-sheet line)", () => {
+    // Jan–Feb posted, plus a stray December value (range run for the full year).
+    // Actuals-through should be Feb (the contiguous run), not December.
+    const g = gl("2026-03-01T00:00:00Z", 12, { 1: 100, 2: 200, 12: 5000 });
+    expect(assembleGls([g])!.maxPeriodInFile).toBe(2);
+  });
+
   it("returns null for no GLs", () => {
     expect(assembleGls([])).toBeNull();
   });
