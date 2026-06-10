@@ -4,7 +4,7 @@ import { parseGeneralLedgerMonthly, summaryForPeriod } from "@/lib/financials/op
 import { computeStatement } from "@/lib/financials/operating-statements/compute";
 import { availableStatements, getMapping, resolveStatementKey } from "@/lib/financials/operating-statements/mappingStore";
 import { resolvePropertyBudget, makeBudgetLookup } from "@/lib/financials/operating-statements/budgetCrosswalk";
-import { saveGl, latestGl, getGl, versionsFor, listGls, mergeAccountNames, getNotesBundle, saveNote, saveTransactions } from "@/lib/financials/operating-statements/statementStore";
+import { saveGl, getGl, versionsFor, listGls, assembledGl, mergeAccountNames, getNotesBundle, saveNote, saveTransactions } from "@/lib/financials/operating-statements/statementStore";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 import { logAudit, auditIp } from "@/lib/audit";
 
@@ -52,7 +52,9 @@ export async function GET(req: Request) {
   if (!mapping) return NextResponse.json({ available, error: "No mapping for that property" }, { status: 404 });
 
   const versionId = url.searchParams.get("version");
-  const stored = versionId ? await getGl(versionId) : await latestGl(key, year);
+  // Default view merges every uploaded month (cumulative or month-by-month);
+  // picking a specific version shows just that upload.
+  const stored = versionId ? await getGl(versionId) : await assembledGl(key, year);
   const versions = await versionsFor(key, year);
   if (!stored) {
     return NextResponse.json({ available, versions, statement: null, message: "No GL uploaded for this property/year yet." });
