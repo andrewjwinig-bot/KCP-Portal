@@ -1,5 +1,14 @@
 import { describe, it, expect } from "vitest";
-import { authorizeRequest } from "./users";
+import { authorizeRequest, canEditCashSheet } from "./users";
+
+describe("cash sheet edit access", () => {
+  it("admin and drew can edit; alison (and others) are view-only", () => {
+    expect(canEditCashSheet("admin")).toBe(true);
+    expect(canEditCashSheet("drew")).toBe(true);
+    expect(canEditCashSheet("alison")).toBe(false);
+    expect(canEditCashSheet("nancy")).toBe(false);
+  });
+});
 
 describe("server-side authorizeRequest", () => {
   it("admin can reach everything (pages + sensitive APIs)", () => {

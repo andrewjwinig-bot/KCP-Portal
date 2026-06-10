@@ -60,9 +60,10 @@ export async function applyEdit(params: {
   year: number;
   month: number;
   code: string;
-  kind: "reserves" | "bill";
+  kind: "reserves" | "bill" | "startingOverride" | "endingOverride";
   wednesday?: string;
-  value: number;
+  /** The new value, or null to clear an override. */
+  value: number | null;
   updatedBy?: string;
 }): Promise<CashSheetMonth> {
   const { year, month, code, kind, wednesday, value, updatedBy } = params;
@@ -77,10 +78,16 @@ export async function applyEdit(params: {
   }
   const row = doc.rows[code] ?? emptyRow();
   if (kind === "reserves") {
-    row.reserves = value;
+    row.reserves = value ?? 0;
   } else if (kind === "bill" && wednesday) {
     if (value) row.bills[wednesday] = value;
     else delete row.bills[wednesday];
+  } else if (kind === "startingOverride") {
+    if (value == null) delete row.startingOverride;
+    else row.startingOverride = value;
+  } else if (kind === "endingOverride") {
+    if (value == null) delete row.endingOverride;
+    else row.endingOverride = value;
   }
   doc.rows[code] = row;
   doc.updatedAt = new Date().toISOString();

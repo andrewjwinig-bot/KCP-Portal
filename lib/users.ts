@@ -183,6 +183,12 @@ export function canSwitchUsers(userId: UserId): boolean {
   return userId === "admin" || userId === "drew";
 }
 
+/** Who may EDIT the Cash Sheet. Others with access (e.g. Alison) are view-only.
+ *  Enforced both in the page (inputs disabled) and the save API. */
+export function canEditCashSheet(userId: UserId): boolean {
+  return userId === "admin" || userId === "drew";
+}
+
 export function isPathAllowed(userId: UserId, pathname: string): boolean {
   const u = USERS[userId];
   if (u.allowedPathPrefixes.includes("*")) return true;

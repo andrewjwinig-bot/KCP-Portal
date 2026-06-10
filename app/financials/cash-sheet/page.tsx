@@ -6,19 +6,21 @@
 //   − Bills to Pay (one input per Wednesday in the month — paid weekly)
 //   − Reserves (a standing amount that carries month-to-month)
 //   = Operational Cash (net cash available).
+// Starting Cash and Operational (ending) Cash can be manually overridden.
 // Bills reset each month; reserves carry forward; history is browsable by month.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useUser } from "@/app/components/UserProvider";
 import { StatPill } from "@/app/components/Pill";
+import { canEditCashSheet } from "@/lib/users";
 import {
   MONTHS, wednesdayLabel, monthKey, parseMonthKey,
   type CashSheetGroup,
 } from "@/lib/financials/cash-sheet/util";
 
 type Starting = { amount: number | null; sourceYm: string };
-type Row = { reserves: number; bills: Record<string, number> };
+type Row = { reserves: number; bills: Record<string, number>; startingOverride?: number | null; endingOverride?: number | null };
 type Payload = {
   ym: string; year: number; month: number;
   groups: CashSheetGroup[];
@@ -40,6 +42,11 @@ function parseNum(s: string): number {
   const n = Number(s.replace(/[$,\s]/g, ""));
   return Number.isFinite(n) ? n : 0;
 }
+/** Draft string → number, or null when blank (= no override). */
+function parseOpt(s: string | undefined): number | null {
+  if (s == null || s.trim() === "") return null;
+  return parseNum(s);
+}
 function sourceLabel(ym: string): string {
   const p = parseMonthKey(ym);
   return p ? `${MONTHS[p.month - 1].slice(0, 3)} ${p.year}` : ym;
@@ -51,9 +58,11 @@ const cellInput: React.CSSProperties = {
   padding: "5px 7px", borderRadius: 6, border: "1px solid var(--border)",
   background: "var(--card)", fontVariantNumeric: "tabular-nums",
 };
+const cashInput: React.CSSProperties = { ...cellInput, width: 112 };
 
 export default function CashSheetPage() {
   const { user } = useUser();
+  const canEdit = canEditCashSheet(user.id);
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth() + 1);
@@ -65,6 +74,8 @@ export default function CashSheetPage() {
   // Editable drafts (strings) keyed by property code.
   const [billDraft, setBillDraft] = useState<Record<string, Record<string, string>>>({});
   const [resDraft, setResDraft] = useState<Record<string, string>>({});
+  const [startDraft, setStartDraft] = useState<Record<string, string>>({}); // starting-cash override
+  const [endDraft, setEndDraft] = useState<Record<string, string>>({});     // operational (ending) override
 
   const ym = monthKey(year, month);
 
@@ -77,6 +88,8 @@ export default function CashSheetPage() {
         // Seed drafts: saved value → carried reserve → blank.
         const bd: Record<string, Record<string, string>> = {};
         const rd: Record<string, string> = {};
+        const sd: Record<string, string> = {};
+        const ed: Record<string, string> = {};
         for (const g of j.groups) for (const p of g.properties) {
           const row = j.rows[p.code];
           bd[p.code] = {};
@@ -86,9 +99,13 @@ export default function CashSheetPage() {
           }
           const res = row?.reserves ?? j.carriedReserves[p.code] ?? 0;
           rd[p.code] = res ? String(res) : "";
+          sd[p.code] = row?.startingOverride != null ? String(row.startingOverride) : "";
+          ed[p.code] = row?.endingOverride != null ? String(row.endingOverride) : "";
         }
         setBillDraft(bd);
         setResDraft(rd);
+        setStartDraft(sd);
+        setEndDraft(ed);
         setError(null);
       })
       .catch((e) => setError(e?.message ?? "Failed to load"))
@@ -103,7 +120,7 @@ export default function CashSheetPage() {
       const res = await fetch("/api/financials/cash-sheet", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...body, ym, editedBy: user.id }),
+        body: JSON.stringify({ ...body, ym }),
       });
       if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.error ?? "Save failed");
       setError(null);
@@ -115,30 +132,42 @@ export default function CashSheetPage() {
   }
 
   function commitBill(code: string, wed: string) {
-    const value = parseNum(billDraft[code]?.[wed] ?? "");
-    save({ code, kind: "bill", wednesday: wed, value });
+    save({ code, kind: "bill", wednesday: wed, value: parseNum(billDraft[code]?.[wed] ?? "") });
   }
   function commitReserves(code: string) {
-    const value = parseNum(resDraft[code] ?? "");
-    save({ code, kind: "reserves", value });
+    save({ code, kind: "reserves", value: parseNum(resDraft[code] ?? "") });
+  }
+  function commitStarting(code: string) {
+    save({ code, kind: "startingOverride", value: parseOpt(startDraft[code]) });
+  }
+  function commitEnding(code: string) {
+    save({ code, kind: "endingOverride", value: parseOpt(endDraft[code]) });
   }
 
   function prevMonth() { if (month === 1) { setYear((y) => y - 1); setMonth(12); } else setMonth((m) => m - 1); }
   function nextMonth() { if (month === 12) { setYear((y) => y + 1); setMonth(1); } else setMonth((m) => m + 1); }
   const isThisMonth = year === today.getFullYear() && month === today.getMonth() + 1;
 
-  // ── Per-row derived figures (live from drafts) ──
+  // ── Per-row derived figures (live from drafts; overrides win) ──
   const wednesdays = data?.wednesdays ?? [];
   function rowBillsTotal(code: string): number {
     const b = billDraft[code] ?? {};
     return wednesdays.reduce((a, w) => a + parseNum(b[w] ?? ""), 0);
   }
   function rowReserves(code: string): number { return parseNum(resDraft[code] ?? ""); }
-  function rowStarting(code: string): number | null { return data?.starting[code]?.amount ?? null; }
-  function rowOperational(code: string): number | null {
+  function autoStarting(code: string): number | null { return data?.starting[code]?.amount ?? null; }
+  function rowStarting(code: string): number | null {
+    const ov = parseOpt(startDraft[code]);
+    return ov != null ? ov : autoStarting(code);
+  }
+  function computedOperational(code: string): number | null {
     const s = rowStarting(code);
     if (s == null) return null;
     return s - rowBillsTotal(code) - rowReserves(code);
+  }
+  function rowOperational(code: string): number | null {
+    const ov = parseOpt(endDraft[code]);
+    return ov != null ? ov : computedOperational(code);
   }
 
   // ── Group + grand totals ──
@@ -149,7 +178,9 @@ export default function CashSheetPage() {
       const s = rowStarting(c);
       bills += rowBillsTotal(c);
       reserves += rowReserves(c);
-      if (s != null) { starting += s; operational += (s - rowBillsTotal(c) - rowReserves(c)); hasStarting = true; }
+      const op = rowOperational(c);
+      if (s != null) { starting += s; hasStarting = true; }
+      if (op != null) operational += op;
     }
     return { starting, bills, reserves, operational, hasStarting };
   }
@@ -169,7 +200,7 @@ export default function CashSheetPage() {
           <p className="muted small" style={{ margin: 0 }}>
             Monthly cash position by property. Starting cash is the month&apos;s opening{" "}
             <Link href="/financials/operating-statements" style={{ color: "var(--brand)", fontWeight: 600 }}>Operating Cash</Link>{" "}
-            balance (Per GL); enter bills paid each Wednesday and a standing reserve to get net operational cash.
+            balance (Per GL){canEdit ? " — click Starting or Operational Cash to override it" : ""}; enter bills paid each Wednesday and a standing reserve to get net operational cash.
           </p>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -181,6 +212,12 @@ export default function CashSheetPage() {
           )}
         </div>
       </div>
+
+      {!canEdit && (
+        <div className="small" style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(11,74,125,0.06)", border: "1px solid rgba(11,74,125,0.25)", color: "#0b4a7d", fontWeight: 600 }}>
+          View-only — you can browse the Cash Sheet but not edit it.
+        </div>
+      )}
 
       {/* Portfolio KPI pills */}
       <div className="pills" style={{ justifyContent: "flex-start" }}>
@@ -216,19 +253,33 @@ export default function CashSheetPage() {
                 return (
                   <GroupBlock key={g.id} group={g} totals={gt} weds={wednesdays} colCount={colCount}>
                     {g.properties.map((p) => {
+                      const auto = autoStarting(p.code);
                       const starting = rowStarting(p.code);
                       const src = data?.starting[p.code]?.sourceYm;
                       const op = rowOperational(p.code);
+                      const startOverridden = parseOpt(startDraft[p.code]) != null;
+                      const endOverridden = parseOpt(endDraft[p.code]) != null;
                       return (
                         <tr key={p.code}>
                           <td style={{ textAlign: "left" }}>
                             <code style={{ fontSize: 12 }}>{p.code}</code>
                             <span style={{ marginLeft: 8 }}>{p.name}</span>
                           </td>
-                          <td style={numCell} title={src ? `Opening balance · ${sourceLabel(src)} (Per GL)` : undefined}>
-                            {starting == null
-                              ? <span className="muted" title={src ? `Operating Statement not uploaded for ${sourceLabel(src)}` : undefined}>—</span>
-                              : money0(starting)}
+                          {/* Starting Cash — editable override; placeholder shows the pulled value */}
+                          <td style={numCell} title={src ? `Opening balance · ${sourceLabel(src)} (Per GL)${startOverridden ? " · overridden" : ""}` : undefined}>
+                            {canEdit ? (
+                              <input
+                                style={{ ...cashInput, ...(startOverridden ? { borderColor: "#b45309", fontWeight: 700 } : {}) }}
+                                inputMode="decimal"
+                                placeholder={auto != null ? money0(auto) : "—"}
+                                value={startDraft[p.code] ?? ""}
+                                onChange={(e) => setStartDraft((d) => ({ ...d, [p.code]: e.target.value }))}
+                                onBlur={() => commitStarting(p.code)}
+                                onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                              />
+                            ) : starting == null
+                              ? <span className="muted">—</span>
+                              : <span style={startOverridden ? { color: "#b45309", fontWeight: 700 } : undefined}>{money0(starting)}</span>}
                           </td>
                           {wednesdays.map((w) => (
                             <td key={w} style={numCell}>
@@ -236,6 +287,7 @@ export default function CashSheetPage() {
                                 style={cellInput}
                                 inputMode="decimal"
                                 placeholder="—"
+                                disabled={!canEdit}
                                 value={billDraft[p.code]?.[w] ?? ""}
                                 onChange={(e) => setBillDraft((d) => ({ ...d, [p.code]: { ...d[p.code], [w]: e.target.value } }))}
                                 onBlur={() => commitBill(p.code, w)}
@@ -249,14 +301,28 @@ export default function CashSheetPage() {
                               style={cellInput}
                               inputMode="decimal"
                               placeholder="—"
+                              disabled={!canEdit}
                               value={resDraft[p.code] ?? ""}
                               onChange={(e) => setResDraft((d) => ({ ...d, [p.code]: e.target.value }))}
                               onBlur={() => commitReserves(p.code)}
                               onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
                             />
                           </td>
-                          <td style={{ ...numCell, fontWeight: 800, color: op == null ? "var(--muted)" : op >= 0 ? "#15803d" : "#b91c1c" }}>
-                            {money0(op)}
+                          {/* Operational (ending) Cash — editable override; placeholder shows the computed value */}
+                          <td style={numCell} title={endOverridden ? "Overridden — clear to use the computed value" : "Starting − bills − reserves"}>
+                            {canEdit ? (
+                              <input
+                                style={{ ...cashInput, fontWeight: 800, color: op == null ? undefined : op >= 0 ? "#15803d" : "#b91c1c", ...(endOverridden ? { borderColor: "#b45309" } : {}) }}
+                                inputMode="decimal"
+                                placeholder={computedOperational(p.code) != null ? money0(computedOperational(p.code)) : "—"}
+                                value={endDraft[p.code] ?? ""}
+                                onChange={(e) => setEndDraft((d) => ({ ...d, [p.code]: e.target.value }))}
+                                onBlur={() => commitEnding(p.code)}
+                                onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                              />
+                            ) : (
+                              <span style={{ fontWeight: 800, color: op == null ? "var(--muted)" : op >= 0 ? "#15803d" : "#b91c1c" }}>{money0(op)}</span>
+                            )}
                           </td>
                         </tr>
                       );
@@ -288,8 +354,10 @@ export default function CashSheetPage() {
       </div>
 
       <p className="muted small" style={{ margin: 0 }}>
-        {saving > 0 ? "Saving…" : data?.updatedAt ? `Saved · last edit ${new Date(data.updatedAt).toLocaleString()}` : "Edits save automatically."}
-        {" · "}Bills reset each month; reserves carry forward.
+        {canEdit
+          ? (saving > 0 ? "Saving…" : data?.updatedAt ? `Saved · last edit ${new Date(data.updatedAt).toLocaleString()}` : "Edits save automatically.")
+          : "View-only access."}
+        {" · "}Bills reset each month; reserves carry forward. Starting/Operational cash can be overridden{canEdit ? " (amber border = overridden; clear the field to revert)" : ""}.
       </p>
     </main>
   );
