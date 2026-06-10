@@ -45,6 +45,13 @@ describe("glAssemble", () => {
     expect(assembleGls([v1, v2])!.monthly.X[0]).toBe(150);
   });
 
+  it("reports the last ACTIVE month, not the report-range end", () => {
+    // A GL run for the whole year (range end Dec / maxPeriod 12) but only
+    // Jan–Feb posted → actuals through Feb, so the reprojection budgets Mar–Dec.
+    const fullYear = gl("2026-03-01T00:00:00Z", 12, { 1: 100, 2: 200 }, 1000);
+    expect(assembleGls([fullYear])!.maxPeriodInFile).toBe(2);
+  });
+
   it("returns null for no GLs", () => {
     expect(assembleGls([])).toBeNull();
   });

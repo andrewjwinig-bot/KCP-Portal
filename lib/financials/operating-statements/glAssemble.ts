@@ -42,7 +42,7 @@ export function assembleGls<T extends AssembleInput>(gls: T[]): T | null {
   let beginning: Record<string, number> | undefined;
   let beginningStart = Infinity;
   let ytdTotal: Record<string, number> | undefined;
-  let maxPeriodInFile = 0;
+  let maxRangeEnd = 0;
   let uploadedAt = ordered[0].uploadedAt;
 
   for (const g of ordered) {
@@ -54,9 +54,18 @@ export function assembleGls<T extends AssembleInput>(gls: T[]): T | null {
     }
     if (g.names) for (const [a, n] of Object.entries(g.names)) if (n && !names[a]) names[a] = n;
     if (g.beginning && start < beginningStart) { beginning = g.beginning; beginningStart = start; }
-    if (end >= maxPeriodInFile) { maxPeriodInFile = end; if (g.ytdTotal) ytdTotal = g.ytdTotal; }
+    if (end >= maxRangeEnd) { maxRangeEnd = end; if (g.ytdTotal) ytdTotal = g.ytdTotal; }
     if (g.uploadedAt > uploadedAt) uploadedAt = g.uploadedAt;
   }
+
+  // "Actuals through" = the last month with real activity, NOT the report
+  // range end. A GL run for the whole year (1/1–12/31) with only Jan–Feb posted
+  // must report Feb, so the reprojection fills Mar–Dec from budget.
+  let lastActive = 0;
+  for (let m = 1; m <= 12; m++) {
+    if (Object.values(monthly).some((nets) => Math.abs(nets[m - 1] ?? 0) > 0.005)) lastActive = m;
+  }
+  const maxPeriodInFile = lastActive || maxRangeEnd;
 
   const base = ordered[ordered.length - 1]; // newest, for id/key/fileName/etc.
   return { ...base, monthly, beginning, ytdTotal, names, maxPeriodInFile, uploadedAt };
