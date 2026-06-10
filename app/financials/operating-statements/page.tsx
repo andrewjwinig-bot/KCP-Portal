@@ -1240,10 +1240,13 @@ function LineDetailModal({ viewKey, property, year, period, monthLabel, line, in
               // biggest when it's a meaningful slice). Highlighted so the items
               // worth investigating jump out.
               const totalAbs = shown.reduce((s, t) => s + Math.abs(t.amount), 0);
-              const maxAbs = Math.max(0, ...shown.map((t) => Math.abs(t.amount)));
-              // Needs ≥2 transactions — a lone transaction is trivially 100% of
-              // the line, so flagging it as "the driver" tells you nothing.
-              const isDriver = (amt: number) => shown.length >= 2 && totalAbs > 0 && (Math.abs(amt) >= totalAbs / 3 || (shown.length >= 3 && Math.abs(amt) === maxAbs && Math.abs(amt) >= 0.2 * totalAbs));
+              // A transaction "drives" the line when it's a large share of the
+              // shown activity — a third or more on its own, or (once there are
+              // several transactions) a fifth or more. Share-based, so two
+              // near-equal large items are flagged the same rather than singling
+              // out only the single biggest. Needs ≥2 transactions — a lone one
+              // is trivially 100% of the line, so flagging it tells you nothing.
+              const isDriver = (amt: number) => shown.length >= 2 && totalAbs > 0 && (Math.abs(amt) >= totalAbs / 3 || (shown.length >= 3 && Math.abs(amt) >= 0.2 * totalAbs));
               const activeTenantName = tenantFilter ? (groups.find((g) => g.groupKey === tenantFilter)?.tenant || tenantFilter) : null;
               return (
               <div>
