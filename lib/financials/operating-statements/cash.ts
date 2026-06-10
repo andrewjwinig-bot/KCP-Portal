@@ -11,25 +11,32 @@
 export const CASH_ACCT = "0110-0000";
 
 export type CashGl = {
-  /** account → Beginning Balance (year opening). */
+  /** account → Beginning Balance (opens at coverageStartMonth, or Jan). */
   beginning?: Record<string, number>;
   /** account → 12 monthly nets (Jan–Dec). */
   monthly: Record<string, number[]>;
   /** Last (contiguous) month present in the file. */
   maxPeriodInFile: number;
+  /** First month (1–12) the data covers — the month the opening balance applies
+   *  to. A partial-year import (e.g. Mar–May) has no valid opening before it. */
+  coverageStartMonth?: number;
 };
 
 /**
- * Opening (start-of-month) Operating Cash for `month` (1–12): the year's
- * opening balance plus net cash activity for every PRIOR month. Returns null
- * when the GL has no captured opening balance, or doesn't yet cover the prior
- * months needed (so the caller shows nothing rather than a wrong number).
+ * Opening (start-of-month) Operating Cash for `month` (1–12): the opening
+ * balance plus net cash activity for every PRIOR covered month. Returns null
+ * when the GL has no captured opening, when `month` is before the data starts
+ * (a partial-year import has no opening for earlier months), or when the prior
+ * months aren't loaded yet — so the caller shows nothing rather than a wrong
+ * number.
  */
 export function cashAtStartOfMonth(gl: CashGl, month: number): number | null {
   const begin = gl.beginning?.[CASH_ACCT];
   if (begin == null) return null;
-  const priorMonths = month - 1; // net activity for Jan..(month-1)
-  if (priorMonths <= 0) return begin; // start of January = the year's opening
+  const openMonth = gl.coverageStartMonth ?? 1; // the month `begin` opens at
+  if (month < openMonth) return null; // before the data starts — no valid opening
+  const priorMonths = month - 1; // net activity for Jan..(month-1); pre-coverage months are 0
+  if (priorMonths <= 0) return begin; // start of the opening month = the opening balance
   if (priorMonths > gl.maxPeriodInFile) return null; // those months aren't in the file yet
   const nets = gl.monthly[CASH_ACCT];
   if (!nets) return null;

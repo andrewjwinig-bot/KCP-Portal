@@ -38,6 +38,10 @@ export type StoredGl = {
    *  Present on uploads after account-name capture was added; older uploads
    *  omit it (the UI then shows the bare account number). */
   names?: Record<string, string>;
+  /** First month (1–12) the data covers — set when GLs are merged
+   *  (assembleGls), so cash math knows a partial-year import has no opening
+   *  before this month. Absent on a single raw upload. */
+  coverageStartMonth?: number;
 };
 
 export async function saveGl(rec: StoredGl): Promise<void> {

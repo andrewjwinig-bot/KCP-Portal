@@ -8,7 +8,8 @@ function marMayCash(): CashGl {
   nets[2] = 20_000; // March
   nets[3] = -5_000; // April
   nets[4] = 8_000;  // May
-  return { beginning: { [CASH_ACCT]: 100_000 }, monthly: { [CASH_ACCT]: nets }, maxPeriodInFile: 5 };
+  // Opens in March — a Mar–May catch-up import has no January/February opening.
+  return { beginning: { [CASH_ACCT]: 100_000 }, monthly: { [CASH_ACCT]: nets }, maxPeriodInFile: 5, coverageStartMonth: 3 };
 }
 
 describe("cashAtStartOfMonth", () => {
@@ -27,6 +28,12 @@ describe("cashAtStartOfMonth", () => {
 
   it("returns null past the months the file covers", () => {
     expect(cashAtStartOfMonth(marMayCash(), 7)).toBeNull(); // needs Jun activity, not in the file
+  });
+
+  it("returns null before the import's coverage starts (no false January opening)", () => {
+    const gl = marMayCash(); // opens in March
+    expect(cashAtStartOfMonth(gl, 1)).toBeNull(); // January — not loaded, don't show March's opening
+    expect(cashAtStartOfMonth(gl, 2)).toBeNull(); // February — same
   });
 
   it("returns null with no captured opening balance", () => {
