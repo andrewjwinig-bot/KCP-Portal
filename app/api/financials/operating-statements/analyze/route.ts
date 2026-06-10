@@ -6,6 +6,10 @@ import { computeStatement } from "@/lib/financials/operating-statements/compute"
 import { resolvePropertyBudget, makeBudgetLookup, budgetDetailForMask } from "@/lib/financials/operating-statements/budgetCrosswalk";
 import { accountMatchesMask } from "@/lib/financials/operating-statements/mask";
 import { buildTenantLookup } from "@/lib/financials/operating-statements/tenants";
+import { trendFlags } from "@/lib/financials/operating-statements/trends";
+
+const MONTHS_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const MONTHS_LONG = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -45,9 +49,28 @@ export async function POST(req: Request) {
   const budgetLookup = budget ? makeBudgetLookup(budget, period) : undefined;
   const statement = computeStatement({ mapping, propertyName: mapping.entityName, year, period, gl, budgetLookup });
   const txByAccount = await getTransactions(stored.id);
+  const storedPY = await assembledGl(key, year - 1); // prior year, for same-month-last-year context
 
   // Tenant-name lookup so notes can name tenants instead of GL/unit codes.
   const tenantFor = await buildTenantLookup();
+
+  // Per-line month-over-month series from the merged monthly nets + line masks.
+  const lineMonthly = (monthly: Record<string, number[]>, mask: string, sign: number, upto: number): number[] => {
+    const out = new Array(upto).fill(0);
+    for (const [acct, nets] of Object.entries(monthly)) {
+      if (!accountMatchesMask(mask, acct)) continue;
+      for (let m = 0; m < upto; m++) out[m] += (nets[m] ?? 0) * sign;
+    }
+    return out.map(r0);
+  };
+  const lineCounts = (mask: string, upto: number): number[] => {
+    const out = new Array(upto).fill(0);
+    for (const [acct, txns] of Object.entries(txByAccount)) {
+      if (!accountMatchesMask(mask, acct)) continue;
+      for (const t of txns) if (t.month >= 1 && t.month <= upto) out[t.month - 1]++;
+    }
+    return out;
+  };
 
   // Preserve manual notes: don't analyze (or overwrite) a line the user has
   // already written/edited a note for. Auto-explain only fills empty lines and
@@ -59,10 +82,22 @@ export async function POST(req: Request) {
   for (const sec of statement.sections) {
     const sign = sec.role === "revenue" || sec.role === "reimbursement" ? -1 : 1;
     for (const l of sec.lines) {
-      const cls = hot(l.ytdVariance, l.ytdBudget, dollar, pct) ?? hot(l.periodVariance, l.periodBudget, dollar, pct);
-      if (!cls) continue;
       const lineKey = `${sec.name}::${l.label}`;
       if (hasManualNote(lineKey)) continue; // keep the user's manual note
+
+      const cls = hot(l.ytdVariance, l.ytdBudget, dollar, pct) ?? hot(l.periodVariance, l.periodBudget, dollar, pct);
+      const amounts = lineMonthly(stored.monthly, l.mask, sign, period);
+      const counts = lineCounts(l.mask, period);
+      const pyAmounts = storedPY ? lineMonthly(storedPY.monthly, l.mask, sign, 12) : [];
+      const pySameMonth = pyAmounts.length >= period ? pyAmounts[period - 1] : null;
+      const trend = trendFlags(amounts, counts, amounts[period - 1] ?? null, pySameMonth);
+      // Surface a line if it's off budget OR shows a month-over-month / YoY signal.
+      if (!cls && trend.length === 0) continue;
+
+      const flagReasons = [
+        ...(cls ? [cls === "unf" ? "unfavorable vs budget" : "favorable vs budget"] : []),
+        ...trend,
+      ];
       const bd = budget ? budgetDetailForMask(budget, l.mask, period) : [];
       const accts = Object.keys(txByAccount).filter((a) => accountMatchesMask(l.mask, a));
       const txs: { date: string | null; description: string; amount: number }[] = [];
@@ -76,8 +111,13 @@ export async function POST(req: Request) {
         .sort((a, b) => Math.abs(b.ytd) - Math.abs(a.ytd))
         .slice(0, 10);
       flagged.push({
-        lineKey, section: sec.name, line: l.label, classification: cls === "unf" ? "unfavorable" : "favorable",
+        lineKey, section: sec.name, line: l.label,
+        classification: cls ? (cls === "unf" ? "unfavorable" : "favorable") : "trend",
+        flagReasons,
         ytdActual: r0(l.ytdActual), ytdBudget: l.ytdBudget == null ? null : r0(l.ytdBudget), ytdVariance: l.ytdVariance == null ? null : r0(l.ytdVariance),
+        monthlyTrend: amounts,
+        monthlyTxnCount: counts,
+        ...(storedPY ? { priorYear: { sameMonth: pySameMonth, ytd: pyAmounts.length ? r0(pyAmounts.slice(0, period).reduce((a, b) => a + b, 0)) : null, monthlyTrend: pyAmounts.slice(0, period) } } : {}),
         budgetedFor: bd.map((b) => ({ label: b.label, ytd: r0(b.ytd) })),
         ...(tenants.length ? { tenants } : {}),
         transactionCount: txs.length,
@@ -91,18 +131,29 @@ export async function POST(req: Request) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return NextResponse.json({ error: "AI analysis isn't configured (ANTHROPIC_API_KEY not set)." }, { status: 503 });
 
+  const through = MONTHS_LONG[period - 1];
+  const trendMonths = MONTHS_SHORT.slice(0, period).join(", ");
   const prompt =
-    `You are a commercial real estate accountant reviewing ${statement.propertyCode} ${statement.propertyName}'s operating statement vs budget, YTD through period ${period}, year ${year}. ` +
-    `For each flagged line, write ONE concise note (max ~35 words) that explains the variance by pointing to the SPECIFIC item(s) driving it, then the action to verify.\n\n` +
+    `You are a commercial real estate accountant reviewing ${statement.propertyCode} ${statement.propertyName}'s operating statement for ${through} ${year} (YTD through ${through}). ` +
+    `Your goal is to SPOT POSSIBLE MISTAKES and things that look OFF — not merely restate budget variance. For each flagged line write ONE concise note (max ~35 words): the specific thing worth investigating, then the action to verify.\n\n` +
+    `EACH LINE INCLUDES:\n` +
+    `• monthlyTrend / monthlyTxnCount — this year's amount and number of transactions for each month so far, in order (${trendMonths}).\n` +
+    `• priorYear (when present) — the same line LAST year: this same month's amount ("sameMonth"), the prior-year YTD, and its month-by-month trend.\n` +
+    `• flagReasons — why it surfaced (budget variance and/or a trend/inconsistency signal).\n` +
+    `• topTransactions / budgetedFor / tenants — the underlying detail.\n\n` +
+    `THINGS TO CALL OUT (be specific — name the vendor, tenant, and month):\n` +
+    `• A line that jumped or dropped vs its recent months or vs the same month last year — and the likely cause.\n` +
+    `• A recurring item with a different transaction count than usual — e.g. a utility that posts twice most months but once here (a missed bill) or three times (a possible double-payment).\n` +
+    `• A one-time / unusual charge, a missing expected payment, or a likely posting/coding error.\n\n` +
     `HARD RULES:\n` +
-    `1. Do NOT restate the line's actual total, budget total, or variance — they are already shown in the table beside the note. A note that opens with "Two PECO bills totaling $912 vs. $660 budget" or "$5,054 vs budgeted $3,056" is WRONG and unusable. Never begin with the line totals.\n` +
-    `2. LEAD with the concrete driver from the data: the specific GL transaction(s) (name the vendor and what it was) from "topTransactions", the specific budget sub-line that was or wasn't funded from "budgetedFor", or the specific tenant from "tenants". Identify WHICH item caused it, not that a variance exists.\n` +
-    `3. You MAY cite a single transaction's amount when it pinpoints the cause (e.g. "a one-time $848 charge from ABC Paving"), but NEVER the line or budget totals.\n` +
-    `4. When a line includes a "tenants" list, attribute the variance to those tenant NAME(S). NEVER cite a raw GL or unit code (e.g. "1100-12330", "unit 34") — use the tenant's name; codes mean nothing to the reader.\n` +
-    `5. End with what to verify. No generic filler, no hedging boilerplate.\n\n` +
-    `GOOD example: "Extra Q1 visit from Green Scapes appears one-time — budget assumed the standard monthly contract. Confirm whether the Jan 14 invoice is storm cleanup or a permanent rate increase."\n` +
-    `GOOD example: "New lease for Acme Corp not reflected in the budget model. Verify the lease abstract and that billed base rent matches the executed step-up schedule."\n` +
-    `BAD example (never do this): "Three rent charges total $5,054 vs. budgeted $3,056. Verify…"\n\n` +
+    `1. NEVER restate the line's actual, budget, or variance totals — they're shown beside the note. Don't open with totals.\n` +
+    `2. LEAD with the concrete item: a specific transaction (vendor + what it was) from topTransactions, a specific budget sub-line from budgetedFor, a specific tenant from tenants, or the specific month-over-month / year-over-year change.\n` +
+    `3. You MAY cite one transaction's amount when it pinpoints the cause (e.g. "a one-time $848 charge from ABC Paving"); never the line/budget totals.\n` +
+    `4. Use tenant NAMES, never raw GL/unit codes (e.g. "1100-12330").\n` +
+    `5. End with what to verify. No generic filler or hedging.\n\n` +
+    `GOOD: "Only one PECO payment posted this month vs two in prior months — a utility bill may be unposted. Confirm the second meter was paid."\n` +
+    `GOOD: "Insurance is ~30% above the same month last year after the renewal. Verify the new premium and that it isn't double-booked with escrow."\n` +
+    `BAD (never): "Electric is $785 vs $660 budget. Verify…"\n\n` +
     `Amounts are dollars; a "favorable" variance is good (revenue over / expense under budget). ` +
     `Return ONLY a JSON object mapping each line's exact "lineKey" to its note string.\n\n` +
     `FLAGGED LINES:\n${JSON.stringify(flagged, null, 1)}`;
