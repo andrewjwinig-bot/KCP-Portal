@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getMonth, listMonths, carriedReserves, applyEdit } from "@/lib/financials/cash-sheet/store";
 import { startingCashFor } from "@/lib/financials/cash-sheet/startingCash";
-import { cashSheetGroups, cashSheetCodes, wednesdaysInMonth, parseMonthKey, monthKey } from "@/lib/financials/cash-sheet/util";
+import { cashSheetGroups, cashSheetCodes, cashSheetFundCodes, wednesdaysInMonth, parseMonthKey, monthKey } from "@/lib/financials/cash-sheet/util";
 import { logAudit, auditIp } from "@/lib/audit";
 import { SITE_COOKIE, verifySiteToken } from "@/lib/site-auth";
 import { ALL_USERS, canEditCashSheet, type UserId } from "@/lib/users";
@@ -36,7 +36,9 @@ export async function GET(req: Request) {
   const month = parsed?.month ?? now.getMonth() + 1;
   const ym = monthKey(year, month);
 
-  const codes = cashSheetCodes();
+  // Property codes for per-property funds + the fund-level GL codes (PJV3, …)
+  // whose cash is pooled into one bank account.
+  const codes = [...cashSheetCodes(), ...cashSheetFundCodes()];
   const [doc, carried, starting, months] = await Promise.all([
     getMonth(ym),
     carriedReserves(year, month),

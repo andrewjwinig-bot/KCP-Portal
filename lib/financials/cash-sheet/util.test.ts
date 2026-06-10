@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   wednesdaysInMonth, priorMonth, monthKey, parseMonthKey,
-  operationalCash, totalBills, cashSheetGroups, cashSheetCodes, wednesdayLabel,
+  operationalCash, totalBills, cashSheetGroups, cashSheetCodes, cashSheetFundCodes, wednesdayLabel,
 } from "./util";
 
 describe("cash-sheet util", () => {
@@ -54,5 +54,16 @@ describe("cash-sheet util", () => {
     expect(codes).not.toContain("4000");
     // JV III is exactly the three buildings.
     expect(byId.jv3.properties.map((p) => p.code)).toEqual(["3610", "3620", "3640"]);
+  });
+
+  it("marks the pooled funds (one bank account) with their fund GL code", () => {
+    const byId = Object.fromEntries(cashSheetGroups().map((g) => [g.id, g]));
+    // JV III + NI LLC pool into one fund account each.
+    expect(byId.jv3.fundCashCode).toBe("PJV3");
+    expect(byId.nillc.fundCashCode).toBe("PNIPLX");
+    // Shopping centers + homes are per-property (no shared fund account).
+    expect(byId.sc.fundCashCode).toBeUndefined();
+    expect(byId.kh.fundCashCode).toBeUndefined();
+    expect(cashSheetFundCodes().sort()).toEqual(["PJV3", "PNIPLX"]);
   });
 });
