@@ -42,15 +42,21 @@ export default function SecurityPage() {
     setBusy(true); setMsg(null);
     try {
       const j = await fetch("/api/2fa/verify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code }) }).then((r) => r.json());
-      if (j.ok) { setEnroll(null); setMsg("Two-factor authentication is on."); await loadStatus(); }
-      else setMsg(j.error ?? "Could not verify the code.");
+      if (j.ok) {
+        setEnroll(null);
+        setMsg("Two-factor authentication is on.");
+        // The server confirmed enablement — reflect it immediately rather than
+        // relying on a status read that can lag the blob write.
+        setStatus((s) => (s ? { ...s, enabled: true } : s));
+      } else setMsg(j.error ?? "Could not verify the code.");
     } finally { setBusy(false); }
   }
   async function disable() {
     setBusy(true); setMsg(null);
     try {
       await fetch("/api/2fa/disable", { method: "POST" });
-      setMsg("Two-factor authentication is off."); await loadStatus();
+      setMsg("Two-factor authentication is off.");
+      setStatus((s) => (s ? { ...s, enabled: false } : s));
     } finally { setBusy(false); }
   }
 

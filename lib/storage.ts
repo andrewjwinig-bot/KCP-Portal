@@ -51,6 +51,10 @@ export async function storeJSON(prefix: string, id: string, data: object): Promi
       addRandomSuffix: false,
       allowOverwrite: true,
       contentType: "application/json",
+      // Stable URL + overwrite means the CDN can serve a stale body after an
+      // update (e.g. flipping a 2FA record to enabled). Don't cache, so reads
+      // immediately reflect the latest write.
+      cacheControlMaxAge: 0,
     });
   } else {
     const dir = localDir(prefix);
