@@ -18,8 +18,9 @@ const GROUP_COLOR: Record<AccessGroup, string> = {
 const avatarColor = (id: UserId): string => GROUP_COLOR[accessGroup(id)];
 
 // Group display order in the switcher (no headers — the colors + ordering do
-// the grouping). Admin tier first, then the service team, then the role users.
-const GROUP_ORDER: AccessGroup[] = ["admin", "service", "office", "retail", "operations", "executive"];
+// the grouping). Admin tier first, then the role users, with the shared
+// service team last.
+const GROUP_ORDER: AccessGroup[] = ["admin", "executive", "retail", "office", "operations", "service"];
 
 // The master account — pinned to the very top and given a distinct (square)
 // avatar so it stands apart from the circular team avatars.
