@@ -528,7 +528,7 @@ export default function OperatingStatementsPage() {
             />
           </p>
           {statement && (
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 16, flexWrap: "wrap", marginLeft: "auto" }}>
               <ViewToggle psf={psf} onChange={setPsf} disabled={sqft <= 0} />
               <EmptyRowsToggle hide={hideEmpty} onChange={setHideEmpty} />
               <GLToggle show={showGL} onChange={setShowGL} />
