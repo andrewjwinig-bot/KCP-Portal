@@ -11,23 +11,8 @@
 import "server-only";
 import { listFullGls, type StoredGl } from "@/lib/financials/operating-statements/statementStore";
 import { assembleGls } from "@/lib/financials/operating-statements/glAssemble";
+import { cashAtStartOfMonth } from "@/lib/financials/operating-statements/cash";
 import { monthKey } from "./util";
-
-const CASH_ACCT = "0110-0000";
-
-/** Operating Cash balance at the START of `month` (1–12): the year's opening
- *  balance + net cash activity for every prior month. Null when the GL doesn't
- *  yet cover the months needed. */
-function cashAtStartOfMonth(stored: StoredGl, month: number): number | null {
-  const begin = stored.beginning?.[CASH_ACCT];
-  if (begin == null) return null;
-  const priorMonths = month - 1; // activity for Jan..(month-1)
-  if (priorMonths === 0) return begin; // start of January = the year's opening balance
-  if (priorMonths > stored.maxPeriodInFile) return null; // those months aren't in the file yet
-  const nets = stored.monthly[CASH_ACCT];
-  if (!nets) return null;
-  return begin + nets.slice(0, priorMonths).reduce((a, n) => a + (n || 0), 0);
-}
 
 export type StartingCash = {
   /** Start-of-month Operating Cash, or null if the statement isn't available. */
