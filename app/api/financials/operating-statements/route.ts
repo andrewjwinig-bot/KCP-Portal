@@ -6,6 +6,7 @@ import { availableStatements, getMapping, resolveStatementKey } from "@/lib/fina
 import { resolvePropertyBudget, makeBudgetLookup } from "@/lib/financials/operating-statements/budgetCrosswalk";
 import { saveGl, getGl, versionsFor, listFullGls, mergeAccountNames, getNotesBundle, saveNote, saveTransactions, getDismissedFlags, type StoredGl } from "@/lib/financials/operating-statements/statementStore";
 import { assembleGls } from "@/lib/financials/operating-statements/glAssemble";
+import { cashAtStartOfMonth } from "@/lib/financials/operating-statements/cash";
 import { lineMonthly } from "@/lib/financials/operating-statements/lineSeries";
 import { trendFlags } from "@/lib/financials/operating-statements/trends";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
@@ -75,14 +76,13 @@ export async function GET(req: Request) {
   const period = Math.min(Math.max(1, requested), stored.maxPeriodInFile);
   const gl = summaryForPeriod(stored.monthly, period);
 
-  // Operating Cash — ending balance of the Cash-Operating account (0110-0000),
-  // read straight off the GL's "YTD Total" row (which already = beginning +
-  // YTD activity). Falls back to beginning + YTD net for older uploads that
-  // didn't capture the YTD Total. Balance-sheet account → not on the P&L.
-  const CASH_ACCT = "0110-0000";
-  const cashNets = stored.monthly[CASH_ACCT];
-  const operatingCash = stored.ytdTotal?.[CASH_ACCT] ??
-    (cashNets ? (stored.beginning?.[CASH_ACCT] ?? 0) + cashNets.slice(0, period).reduce((a, n) => a + n, 0) : null);
+  // Starting Cash — OPENING balance of the Cash-Operating account (0110-0000)
+  // for the selected month: the year's opening + net activity of every prior
+  // month, so a multi-month GL shows the true running balance for each month
+  // (Mar-open, Apr-open, …) rather than one static year-end figure. Shared with
+  // the Cash Sheet so the two always agree. Null for uploads with no captured
+  // opening balance (older files). Balance-sheet account → not on the P&L.
+  const operatingCash = cashAtStartOfMonth(stored, period);
 
   // Budget columns: line up to the portal budget via the same masks. Falls back
   // to the nearest available budget year (so a 2025 sample shows the 2026
