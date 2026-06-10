@@ -4,6 +4,7 @@ import { PassThrough } from "stream";
 import { z } from "zod";
 import { buildInvoices } from "../../../lib/invoicing/buildInvoices";
 import { renderInvoicePdf } from "../../../lib/pdf/renderInvoicePdf";
+import { payrollInvoiceNumber } from "../../../lib/payroll/invoiceNumber";
 import { parseAllocationWorkbook } from "../../../lib/allocation/parseAllocationWorkbook";
 import { buildPayrollExportXlsx, buildPayrollGLXlsx } from "../../../lib/payroll/export";
 import { readFile } from "fs/promises";
@@ -35,7 +36,7 @@ export async function POST(req: Request) {
       const pdfBytes = await renderInvoicePdf({
         invoice: inv,
         payroll: body.payroll,
-        invoiceNumber: makeInvoiceNumber(),
+        invoiceNumber: inv.invoiceNumber || payrollInvoiceNumber(inv, body.payroll?.payDate),
       });
 
       const safeName = (inv.propertyLabel || inv.propertyKey || "invoice").replace(/[^a-z0-9\-_. ]/gi, "_");
@@ -69,10 +70,6 @@ export async function POST(req: Request) {
   } catch (e: any) {
     return NextResponse.json({ error: e?.message ?? "Failed to generate PDFs" }, { status: 400 });
   }
-}
-
-function makeInvoiceNumber() {
-  return Math.floor(10000000 + Math.random() * 90000000).toString();
 }
 
 /** Format payDate (e.g. "01/15/2026") to "01-15-26" for safe filenames */

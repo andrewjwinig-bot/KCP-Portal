@@ -964,9 +964,11 @@ export default function Page() {
                 className="btn"
                 style={{ fontSize: 12, padding: "5px 10px" }}
                 onClick={() => downloadSinglePdf(r)}
+                title={r.invoiceNumber ? `Invoice ${r.invoiceNumber}` : undefined}
               >
                 {r.propertyCode || r.propertyKey} — {r.propertyLabel || r.propertyKey}{" "}
                 <span style={{ color: "var(--muted)", marginLeft: 4 }}>({money(r.total)})</span>
+                {r.invoiceNumber && <span style={{ color: "var(--muted)", marginLeft: 4, fontVariantNumeric: "tabular-nums" }}>· {r.invoiceNumber}</span>}
               </button>
             ))}
           </div>

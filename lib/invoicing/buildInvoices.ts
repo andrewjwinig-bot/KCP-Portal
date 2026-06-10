@@ -1,4 +1,5 @@
 import { AllocationEmployee, AllocationTable, PayrollParseResult, PropertyInvoice } from "../types";
+import { payrollInvoiceNumber } from "../payroll/invoiceNumber";
 
 /** Normalize ADP "LAST, FIRST" → "first last" for name matching. */
 function normalizePayrollName(name: string): string {
@@ -246,6 +247,7 @@ export function buildInvoices(payroll: PayrollParseResult, alloc: AllocationTabl
       propertyLabel: meta.label,
       propertyCode: meta.code,
       payDate: payroll.payDate,
+      invoiceNumber: payrollInvoiceNumber({ propertyCode: meta.code, propertyKey: meta.code || meta.label }, payroll.payDate),
       lines,
       salaryREC: acc.salaryREC,
       salaryNR: acc.salaryNR,
