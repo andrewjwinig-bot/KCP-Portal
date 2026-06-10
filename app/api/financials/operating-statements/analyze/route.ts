@@ -7,6 +7,7 @@ import { resolvePropertyBudget, makeBudgetLookup, budgetDetailForMask } from "@/
 import { accountMatchesMask } from "@/lib/financials/operating-statements/mask";
 import { buildTenantLookup } from "@/lib/financials/operating-statements/tenants";
 import { trendFlags } from "@/lib/financials/operating-statements/trends";
+import { lineMonthly, lineTxnCounts } from "@/lib/financials/operating-statements/lineSeries";
 
 const MONTHS_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const MONTHS_LONG = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -54,24 +55,6 @@ export async function POST(req: Request) {
   // Tenant-name lookup so notes can name tenants instead of GL/unit codes.
   const tenantFor = await buildTenantLookup();
 
-  // Per-line month-over-month series from the merged monthly nets + line masks.
-  const lineMonthly = (monthly: Record<string, number[]>, mask: string, sign: number, upto: number): number[] => {
-    const out = new Array(upto).fill(0);
-    for (const [acct, nets] of Object.entries(monthly)) {
-      if (!accountMatchesMask(mask, acct)) continue;
-      for (let m = 0; m < upto; m++) out[m] += (nets[m] ?? 0) * sign;
-    }
-    return out.map(r0);
-  };
-  const lineCounts = (mask: string, upto: number): number[] => {
-    const out = new Array(upto).fill(0);
-    for (const [acct, txns] of Object.entries(txByAccount)) {
-      if (!accountMatchesMask(mask, acct)) continue;
-      for (const t of txns) if (t.month >= 1 && t.month <= upto) out[t.month - 1]++;
-    }
-    return out;
-  };
-
   // Preserve manual notes: don't analyze (or overwrite) a line the user has
   // already written/edited a note for. Auto-explain only fills empty lines and
   // refreshes its own prior AI notes.
@@ -87,7 +70,7 @@ export async function POST(req: Request) {
 
       const cls = hot(l.ytdVariance, l.ytdBudget, dollar, pct) ?? hot(l.periodVariance, l.periodBudget, dollar, pct);
       const amounts = lineMonthly(stored.monthly, l.mask, sign, period);
-      const counts = lineCounts(l.mask, period);
+      const counts = lineTxnCounts(txByAccount, l.mask, period);
       const pyAmounts = storedPY ? lineMonthly(storedPY.monthly, l.mask, sign, 12) : [];
       const pySameMonth = pyAmounts.length >= period ? pyAmounts[period - 1] : null;
       const trend = trendFlags(amounts, counts, amounts[period - 1] ?? null, pySameMonth);
