@@ -7,7 +7,9 @@
 // standing Reserves column, and a final Operational Cash =
 //   Starting Cash − Σ(weekly bills) − Reserves.
 
-import { PROPERTY_DEFS } from "@/lib/properties/data";
+import { PROPERTY_DEFS, BANK_ACCOUNTS, type BankAccount } from "@/lib/properties/data";
+
+export type { BankAccount };
 
 export const MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -67,17 +69,19 @@ export type CashSheetGroup = {
 };
 
 // Fund groups, in display order. Derived from PROPERTY_DEFS so we never re-key
-// the property list. Holding/condo entities (entityKind set) and Land are
-// excluded — they don't run an operating cash position. `fundCashCode` marks a
-// fund whose buildings share ONE bank account (the fund-level GL); cash is
-// sourced + shown once for the fund.
+// the property list. Holding/condo entities (entityKind set) are excluded.
+// Management leads (it holds the clearing + money-market accounts); Land trails
+// (no operating GL, but its bank accounts are still tracked here). `fundCashCode`
+// marks a fund whose buildings share ONE bank account (the fund-level GL); cash
+// is sourced + shown once for the fund.
 const GROUP_ORDER: { id: string; label: string; fundCashCode?: string; match: (p: typeof PROPERTY_DEFS[number]) => boolean }[] = [
+  { id: "mgmt",  label: "Management",       match: (p) => p.id === "2010" },
   { id: "jv3",   label: "JV III",           fundCashCode: "PJV3",   match: (p) => p.type === "Office" && p.fundGroup === "JV III" && !p.entityKind },
   { id: "nillc", label: "NI LLC",           fundCashCode: "PNIPLX", match: (p) => p.type === "Office" && p.fundGroup === "NI LLC" && !p.entityKind },
   { id: "sc",    label: "Shopping Centers", match: (p) => p.type === "Retail" },
   { id: "ow",    label: "The Office Works", match: (p) => p.id === "4900" },
   { id: "kh",    label: "Korman Homes",     match: (p) => p.type === "Residential" },
-  { id: "mgmt",  label: "Management",       match: (p) => p.id === "2010" },
+  { id: "land",  label: "Land",             match: (p) => p.type === "Land" },
 ];
 
 /** Operating properties grouped by fund, in display order. */
@@ -98,6 +102,23 @@ export function cashSheetCodes(): string[] {
 /** Fund-level GL codes whose cash is pooled (one bank account per fund). */
 export function cashSheetFundCodes(): string[] {
   return cashSheetGroups().map((g) => g.fundCashCode).filter((c): c is string => !!c);
+}
+
+/** Bank accounts (from Property Info) to surface for a Cash Sheet row, deduped
+ *  by account number. Pass one property code for a per-property row, or all of
+ *  a pooled fund's building codes for the fund row (they share accounts, so the
+ *  dedupe collapses the repeats to the fund's actual account(s)). */
+export function bankAccountsForCodes(codes: string[]): BankAccount[] {
+  const seen = new Set<string>();
+  const out: BankAccount[] = [];
+  for (const code of codes) {
+    for (const a of BANK_ACCOUNTS[code.toUpperCase()] ?? []) {
+      if (seen.has(a.last4)) continue;
+      seen.add(a.last4);
+      out.push(a);
+    }
+  }
+  return out;
 }
 
 /** Per-property manual inputs for one month. */

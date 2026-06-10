@@ -15,8 +15,8 @@ import { useUser } from "@/app/components/UserProvider";
 import { StatPill } from "@/app/components/Pill";
 import { canEditCashSheet } from "@/lib/users";
 import {
-  MONTHS, wednesdayLabel, monthKey, parseMonthKey,
-  type CashSheetGroup,
+  MONTHS, wednesdayLabel, monthKey, parseMonthKey, bankAccountsForCodes,
+  type CashSheetGroup, type BankAccount,
 } from "@/lib/financials/cash-sheet/util";
 
 type Starting = { amount: number | null; sourceYm: string };
@@ -315,8 +315,12 @@ export default function CashSheetPage() {
                       return (
                         <tr key={p.code}>
                           <td style={{ textAlign: "left" }}>
-                            <code style={{ fontSize: 12 }}>{p.code}</code>
-                            <span style={{ marginLeft: 8 }}>{p.name}</span>
+                            <div>
+                              <code style={{ fontSize: 12 }}>{p.code}</code>
+                              <span style={{ marginLeft: 8 }}>{p.name}</span>
+                            </div>
+                            {/* Per-property accounts; pooled-fund buildings share the fund's account (shown on the fund row). */}
+                            {!pooled && <BankLinks accounts={bankAccountsForCodes([p.code])} />}
                           </td>
                           {/* Starting Cash — blank for pooled-fund buildings (cash is at the fund) */}
                           <td style={numCell} title={pooled ? "Cash is held in the fund account — see the fund row below" : (src ? `Opening balance · ${sourceLabel(src)} (Per GL)${startOverridden ? " · overridden" : ""}` : undefined)}>
@@ -387,7 +391,11 @@ export default function CashSheetPage() {
                     {/* Subtotal — for a pooled fund this IS the bank account: the
                         fund's Starting + Operational cash live here (overridable). */}
                     <tr style={{ fontWeight: 700, color: "var(--muted)", ...(pooled ? { background: "rgba(11,74,125,0.05)" } : {}) }}>
-                      <td style={{ textAlign: "left", fontSize: 12 }}>{g.label} {pooled ? "· fund account" : "subtotal"}</td>
+                      <td style={{ textAlign: "left", fontSize: 12 }}>
+                        {g.label} {pooled ? "· fund account" : "subtotal"}
+                        {/* Pooled fund's shared bank account(s) live on this row. */}
+                        {pooled && <BankLinks accounts={bankAccountsForCodes(g.properties.map((p) => p.code))} />}
+                      </td>
                       <td style={numCell} title={pooled ? (data?.starting[fc]?.sourceYm ? `Fund opening balance · ${sourceLabel(data.starting[fc].sourceYm)} (Per GL · ${fc})${fundStartOverridden ? " · overridden" : ""}` : `Fund account ${fc}`) : undefined}>
                         {pooled
                           ? (canEdit
@@ -455,6 +463,30 @@ export default function CashSheetPage() {
         {" · "}Bills reset each month; reserves carry forward. Starting/Operational cash can be overridden{canEdit ? " (amber border = overridden; clear the field to revert)" : ""}.
       </p>
     </main>
+  );
+}
+
+// Bank-account chips (from Property Info) — click to open the bank login for
+// that account, so the accounts behind each row are trackable from the sheet.
+function BankLinks({ accounts }: { accounts: BankAccount[] }) {
+  if (!accounts.length) return null;
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 3 }}>
+      {accounts.map((a, i) => (
+        <a
+          key={i}
+          href={a.link}
+          target="_blank"
+          rel="noreferrer"
+          title={`${a.bank} · ${a.label}`}
+          style={{ fontSize: 11, fontWeight: 700, color: "#0b4a7d", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 3 }}
+          onMouseEnter={(e) => (e.currentTarget.style.textDecoration = "underline")}
+          onMouseLeave={(e) => (e.currentTarget.style.textDecoration = "none")}
+        >
+          {a.bank} {a.last4}<span aria-hidden style={{ fontSize: 9, opacity: 0.7 }}>↗</span>
+        </a>
+      ))}
+    </div>
   );
 }
 

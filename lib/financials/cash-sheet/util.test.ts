@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   wednesdaysInMonth, priorMonth, monthKey, parseMonthKey,
-  operationalCash, totalBills, cashSheetGroups, cashSheetCodes, cashSheetFundCodes, wednesdayLabel,
+  operationalCash, totalBills, cashSheetGroups, cashSheetCodes, cashSheetFundCodes, bankAccountsForCodes, wednesdayLabel,
 } from "./util";
 
 describe("cash-sheet util", () => {
@@ -42,18 +42,29 @@ describe("cash-sheet util", () => {
   it("groups operating properties by fund and excludes holding/condo entities", () => {
     const groups = cashSheetGroups();
     const byId = Object.fromEntries(groups.map((g) => [g.id, g]));
-    expect(groups.map((g) => g.id)).toEqual(["jv3", "nillc", "sc", "ow", "kh", "mgmt"]);
+    // Management leads; Land trails; holding/condo entities still excluded.
+    expect(groups.map((g) => g.id)).toEqual(["mgmt", "jv3", "nillc", "sc", "ow", "kh", "land"]);
 
     const codes = cashSheetCodes();
-    // Shopping centers + The Office Works (4900) + Management (2010) present;
+    // Shopping centers + The Office Works (4900) + Management (2010) + Land present;
     // condo (3610A) + NI LLC holding (4000) excluded.
     expect(codes).toContain("1100");
     expect(codes).toContain("4900");
     expect(codes).toContain("2010");
+    expect(codes).toContain("0800"); // Land now tracked
     expect(codes).not.toContain("3610A");
     expect(codes).not.toContain("4000");
     // JV III is exactly the three buildings.
     expect(byId.jv3.properties.map((p) => p.code)).toEqual(["3610", "3620", "3640"]);
+    // Land carries the land entities (with bank accounts).
+    expect(byId.land.properties.map((p) => p.code)).toEqual(expect.arrayContaining(["0300", "0800"]));
+  });
+
+  it("resolves bank accounts for a row, deduped across a pooled fund's buildings", () => {
+    // JV III's three buildings share one account (x5631) → a single chip.
+    expect(bankAccountsForCodes(["3610", "3620", "3640"]).map((a) => a.last4)).toEqual(["x5631"]);
+    // A per-property row returns its own account(s).
+    expect(bankAccountsForCodes(["0800"]).map((a) => a.last4)).toEqual(["x8822"]);
   });
 
   it("marks the pooled funds (one bank account) with their fund GL code", () => {
