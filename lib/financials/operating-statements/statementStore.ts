@@ -139,8 +139,31 @@ const noteScope = (key: string, year: number, period: number): string =>
   `${NOTES_PREFIX}/${`${key}-${year}-${period}`.replace(/[^a-zA-Z0-9_-]+/g, "_")}`;
 const noteSlug = (lineKey: string): string => lineKey.replace(/[^a-zA-Z0-9]+/g, "_").slice(0, 180) || "note";
 
+// Old (pre per-month) notes lived in a year-level scope. Before per-month notes
+// existed they were entered against January's view, so — one time — move any
+// that remain into January (period 1) and delete the old blobs, so prior work
+// (auto-explained + manual) isn't lost and this doesn't re-run.
+const legacyYearScope = (key: string, year: number): string =>
+  `${NOTES_PREFIX}/${`${key}-${year}`.replace(/[^a-zA-Z0-9_-]+/g, "_")}`;
+
+async function recoverLegacyYearNotes(key: string, year: number): Promise<void> {
+  const oldScope = legacyYearScope(key, year);
+  const recs = (await listJSON(oldScope)) as NoteLineRecord[];
+  if (!recs.length) return;
+  const target = noteScope(key, year, 1);
+  for (const r of recs) {
+    if (!r?.lineKey || !r.note) continue;
+    const slug = noteSlug(r.lineKey);
+    if (!(await getJSON(target, slug))) {
+      await storeJSON(target, slug, { ...r, period: 1 } satisfies NoteLineRecord);
+    }
+  }
+  for (const r of recs) if (r?.lineKey) await deleteJSON(oldScope, noteSlug(r.lineKey));
+}
+
 /** All of a property/year/period's notes, sources, and edit metadata in one read. */
 export async function getNotesBundle(key: string, year: number, period: number): Promise<{ notes: Record<string, string>; sources: Record<string, NoteSource>; meta: Record<string, NoteMeta> }> {
+  await recoverLegacyYearNotes(key, year);
   const recs = (await listJSON(noteScope(key, year, period))) as NoteLineRecord[];
   const notes: Record<string, string> = {};
   const sources: Record<string, NoteSource> = {};
