@@ -4,7 +4,7 @@ import { parseGeneralLedgerMonthly, summaryForPeriod } from "@/lib/financials/op
 import { computeStatement } from "@/lib/financials/operating-statements/compute";
 import { availableStatements, getMapping, resolveStatementKey } from "@/lib/financials/operating-statements/mappingStore";
 import { resolvePropertyBudget, makeBudgetLookup } from "@/lib/financials/operating-statements/budgetCrosswalk";
-import { saveGl, getGl, versionsFor, listFullGls, mergeAccountNames, getNotesBundle, saveNote, saveTransactions, type StoredGl } from "@/lib/financials/operating-statements/statementStore";
+import { saveGl, getGl, versionsFor, listFullGls, mergeAccountNames, getNotesBundle, saveNote, saveTransactions, getDismissedFlags, type StoredGl } from "@/lib/financials/operating-statements/statementStore";
 import { assembleGls } from "@/lib/financials/operating-statements/glAssemble";
 import { lineMonthly } from "@/lib/financials/operating-statements/lineSeries";
 import { trendFlags } from "@/lib/financials/operating-statements/trends";
@@ -108,10 +108,13 @@ export async function GET(req: Request) {
   });
   // "Looks off this month" markers — a "?" on lines whose amount jumps vs recent
   // months or swings vs the same month last year. (Cheap: amount + YoY only; the
-  // richer transaction-count checks run inside auto-explain.)
+  // richer transaction-count checks run inside auto-explain.) Lines the user has
+  // investigated + dismissed are suppressed.
+  const dismissed = new Set(await getDismissedFlags(key, year, period));
   for (const sec of statement.sections) {
     const sign = sec.role === "revenue" || sec.role === "reimbursement" ? -1 : 1;
     for (const l of sec.lines) {
+      if (dismissed.has(`${sec.name}::${l.label}`)) continue;
       const amounts = lineMonthly(stored.monthly, l.mask, sign, period);
       const pyAmounts = storedPY ? lineMonthly(storedPY.monthly, l.mask, sign, 12) : [];
       const pySame = pyAmounts.length >= period ? pyAmounts[period - 1] : null;

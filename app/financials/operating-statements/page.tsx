@@ -230,6 +230,7 @@ export default function OperatingStatementsPage() {
   const [operatingCash, setOperatingCash] = useState<number | null>(null);
   const [noteSources, setNoteSources] = useState<Record<string, "user" | "ai">>({});
   const [noteMeta, setNoteMeta] = useState<Record<string, { editedAt: string; editedBy: string }>>({});
+  const [dismissedFlags, setDismissedFlags] = useState<Set<string>>(new Set()); // "?" flags dismissed this session
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -289,6 +290,7 @@ export default function OperatingStatementsPage() {
       const j = await fetch(`/api/financials/operating-statements?${qs}`).then((r) => r.json());
       setStatement(j.statement ?? null);
       setNotes(j.notes ?? {});
+      setDismissedFlags(new Set()); // server already filtered dismissed flags
       setOperatingCash(j.operatingCash ?? null);
       setNoteSources(j.noteSources ?? {});
       setNoteMeta(j.noteMeta ?? {});
@@ -361,6 +363,16 @@ export default function OperatingStatementsPage() {
       keepalive: true, // survive a page refresh/navigation mid-save
     }).catch(() => {});
   }, [key, year, period, statement?.period, user.label]);
+
+  const onDismissFlag = useCallback((lineKey: string) => {
+    setDismissedFlags((s) => new Set(s).add(lineKey)); // hide immediately
+    fetch("/api/financials/operating-statements/dismiss-flag", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key, year, period: period || statement?.period, lineKey, dismissed: true }),
+      keepalive: true,
+    }).catch(() => {});
+  }, [key, year, period, statement?.period]);
 
   const [analyzing, setAnalyzing] = useState(false);
   const [analyzeMsg, setAnalyzeMsg] = useState<string | null>(null);
@@ -590,14 +602,14 @@ export default function OperatingStatementsPage() {
         </div>
       )}
 
-      {!loading && statement && <StatementTable s={statement} viewKey={key} budgetYear={budgetYear} budgetFallback={budgetFallback} notes={notes} noteSources={noteSources} noteMeta={noteMeta} editorLabel={user.label} onSaveNote={saveNote} view={{ psf, sqft, hideEmpty, showGL }} thresh={thresh} flagFilter={flagFilter} onClearFilter={() => setFlagFilter(null)} />}
+      {!loading && statement && <StatementTable s={statement} viewKey={key} budgetYear={budgetYear} budgetFallback={budgetFallback} notes={notes} noteSources={noteSources} noteMeta={noteMeta} editorLabel={user.label} onSaveNote={saveNote} dismissedFlags={dismissedFlags} onDismissFlag={onDismissFlag} view={{ psf, sqft, hideEmpty, showGL }} thresh={thresh} flagFilter={flagFilter} onClearFilter={() => setFlagFilter(null)} />}
     </main>
   );
 }
 
 // ── Statement (one card per section, like the Budgets page) ──────────────────
 
-type NoteFns = { notes: Record<string, string>; noteSources: Record<string, "user" | "ai">; noteMeta: Record<string, { editedAt: string; editedBy: string }>; editorLabel: string; onSaveNote: (lineKey: string, note: string) => void };
+type NoteFns = { notes: Record<string, string>; noteSources: Record<string, "user" | "ai">; noteMeta: Record<string, { editedAt: string; editedBy: string }>; editorLabel: string; onSaveNote: (lineKey: string, note: string) => void; dismissedFlags: Set<string>; onDismissFlag: (lineKey: string) => void };
 
 // "Jun 1, 2026 at 10:19 AM" — matches the rent roll's last-imported stamp.
 function fmtNoteEdited(iso: string): string {
@@ -647,7 +659,7 @@ function HeaderRow({ monthLabel }: { monthLabel: string }) {
   );
 }
 
-function StatementTable({ s, viewKey, budgetYear, budgetFallback, notes, noteSources, noteMeta, editorLabel, onSaveNote, view, thresh, flagFilter, onClearFilter }: {
+function StatementTable({ s, viewKey, budgetYear, budgetFallback, notes, noteSources, noteMeta, editorLabel, onSaveNote, dismissedFlags, onDismissFlag, view, thresh, flagFilter, onClearFilter }: {
   s: PropertyStatement; viewKey: string; budgetYear: number | null; budgetFallback: boolean; view: ViewOpts;
   thresh: Thresh; flagFilter: "fav" | "unf" | null; onClearFilter: () => void;
 } & NoteFns) {
@@ -664,7 +676,7 @@ function StatementTable({ s, viewKey, budgetYear, budgetFallback, notes, noteSou
     secs.some((sec) => sec.lines.some((l) => !isLineEmpty(l)) || !isLineEmpty(sec.subtotal));
   const showCapital = capitalSecs.length > 0 && (!view.hideEmpty || groupHasActivity(capitalSecs));
   const showDebt = debtSecs.length > 0 && (!view.hideEmpty || groupHasActivity(debtSecs));
-  const nf: NoteFns = { notes, noteSources, noteMeta, editorLabel, onSaveNote };
+  const nf: NoteFns = { notes, noteSources, noteMeta, editorLabel, onSaveNote, dismissedFlags, onDismissFlag };
   const monthLabel = MONTHS[s.period - 1];
   // Line drill-down — Budget detail ⇄ GL transactions, opened from a cell.
   const [detail, setDetail] = useState<{ mask: string; label: string; sign: 1 | -1; tab: "gl" | "budget"; scope: "month" | "ytd" | "annual" } | null>(null);
@@ -783,11 +795,13 @@ function SectionCard({ sec, nf, monthLabel, view, thresh, onOpenDetail, filterCl
               <tr key={l.label}>
                 <td style={labelStyle}>
                   {l.label}
-                  {l.flags?.length ? (
-                    <span
-                      title={`Looks off this month — worth investigating: ${l.flags.join("; ")}`}
-                      style={{ marginLeft: 6, display: "inline-flex", alignItems: "center", justifyContent: "center", width: 15, height: 15, borderRadius: "50%", background: "rgba(180,83,9,0.12)", border: "1px solid rgba(180,83,9,0.45)", color: "#b45309", fontSize: 10, fontWeight: 800, cursor: "help", verticalAlign: "middle" }}
-                    >?</span>
+                  {l.flags?.length && !nf.dismissedFlags.has(lineKeyOf(sec.name, l.label)) ? (
+                    <button
+                      type="button"
+                      onClick={() => nf.onDismissFlag(lineKeyOf(sec.name, l.label))}
+                      title={`Looks off this month — ${l.flags.join("; ")}. Click to dismiss once you've confirmed it's correct.`}
+                      style={{ marginLeft: 6, display: "inline-flex", alignItems: "center", justifyContent: "center", width: 16, height: 16, borderRadius: "50%", background: "rgba(180,83,9,0.12)", border: "1px solid rgba(180,83,9,0.45)", color: "#b45309", fontSize: 10, fontWeight: 800, cursor: "pointer", verticalAlign: "middle", padding: 0, fontFamily: "inherit" }}
+                    >?</button>
                   ) : null}
                   {view.showGL && <div className="muted" style={{ fontSize: 11, fontVariantNumeric: "tabular-nums", marginTop: 1 }}>{l.mask}</div>}
                 </td>
