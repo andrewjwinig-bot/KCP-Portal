@@ -119,7 +119,6 @@ function LoginFormInner() {
             type="text"
             autoComplete="username"
             autoCapitalize="characters"
-            placeholder="e.g. DREW"
             value={user}
             onChange={(e) => setUser(e.target.value)}
             disabled={busy}
