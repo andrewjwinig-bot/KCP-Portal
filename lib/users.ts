@@ -1,4 +1,4 @@
-export const ALL_USERS = ["admin", "drew", "marie", "nancy", "harry", "maint", "alison"] as const;
+export const ALL_USERS = ["admin", "drew", "marie", "nancy", "harry", "maint", "greg", "charles", "jay", "alison"] as const;
 export type UserId = typeof ALL_USERS[number];
 
 export type RentRollCategory = "All" | "Office" | "Retail" | "Residential" | "The Office Works";
@@ -50,6 +50,23 @@ const RESIDENTIAL_INDIVIDUAL = new Set(["9800", "9820", "9840", "9860"]);
 const SC_AND_RESIDENTIAL = new Set([...SC_INDIVIDUAL, ...RESIDENTIAL_INDIVIDUAL]);
 
 const universalNav = new Set(["dashboard", "properties", "rentroll"]);
+
+// SERVICE-tier access — maintenance, expenses, reservations. Shared by the
+// field/service staff. Each person gets their OWN user id (so they each enroll
+// 2FA on their own phone and are individually accountable in the audit log)
+// while keeping identical access + visibility. Cloned via `serviceUser` so the
+// profiles never drift — change the access once, here.
+const SERVICE_NAV = new Set([...universalNav, "maintenance", "expenses", "reservations"]);
+const SERVICE_PATHS = ["/dashboard", "/properties", "/rentroll", "/expenses", "/maintenance", "/reservations"];
+const serviceUser = (id: UserId, label: string): UserDef => ({
+  id,
+  label,
+  navKeys: new Set(SERVICE_NAV),
+  allowedPathPrefixes: [...SERVICE_PATHS],
+  defaultRentRollCategory: "All",
+  defaultPropertyType: "all",
+  dashboardScope: "groups",
+});
 
 export const USERS: Record<UserId, UserDef> = {
   admin: {
@@ -155,15 +172,15 @@ export const USERS: Record<UserId, UserDef> = {
     // Security deposits scoped to shopping centers + residential.
     depositsScope: { codes: SC_AND_RESIDENTIAL },
   },
-  maint: {
-    id: "maint",
-    label: "SERVICE",
-    navKeys: new Set([...universalNav, "maintenance", "expenses", "reservations"]),
-    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/expenses", "/maintenance", "/reservations"],
-    defaultRentRollCategory: "All",
-    defaultPropertyType: "all",
-    dashboardScope: "groups",
-  },
+  // Shared SERVICE persona, kept as a fallback during rollout. Greg/Charles/Jay
+  // are the individual clones (below) — once they've each enrolled 2FA, this
+  // shared login can be retired so no one bypasses the second factor.
+  maint: serviceUser("maint", "SERVICE"),
+  // Individual service-staff users — identical access to SERVICE, but each
+  // enrolls their own 2FA on their own phone.
+  greg: serviceUser("greg", "GREG"),
+  charles: serviceUser("charles", "CHARLES"),
+  jay: serviceUser("jay", "JAY"),
   alison: {
     id: "alison",
     label: "ALISON",

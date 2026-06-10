@@ -11,6 +11,9 @@ const AVATAR_COLOR: Record<UserId, string> = {
   nancy:  "#0b4a7d",
   harry:  "#d97706",
   maint:  "#7c3aed",
+  greg:   "#9333ea",
+  charles:"#c026d3",
+  jay:    "#7e22ce",
   alison: "#0d9488",
 };
 
