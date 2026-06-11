@@ -15,7 +15,7 @@ import { useUser } from "@/app/components/UserProvider";
 import { StatPill } from "@/app/components/Pill";
 import { canEditCashSheet } from "@/lib/users";
 import {
-  MONTHS, wednesdayLabel, monthKey, parseMonthKey, bankAccountsForCodes,
+  MONTHS, weekOfLabel, visibleWednesdays, monthKey, parseMonthKey, bankAccountsForCodes,
   type CashSheetGroup, type BankAccount,
 } from "@/lib/financials/cash-sheet/util";
 
@@ -245,7 +245,14 @@ export default function CashSheetPage() {
     return { starting, revenue, bills, reserves, operational, hasStarting };
   })();
 
-  const colCount = 2 + wednesdays.length + 4; // property + starting + revenue + weds + (total bills, reserves, operational)
+  // Only show weeks that have started — future weeks stay hidden until their
+  // Monday (bills come in weekly from the AP Selection Report). Totals still sum
+  // over every Wednesday, so nothing is lost. Weekly bills appear under one
+  // "AvidXchange Bills Paid" header.
+  const visibleWeds = useMemo(() => visibleWednesdays(wednesdays), [wednesdays]);
+  const colCount = 3 + visibleWeds.length + 3; // property + starting + revenue + weeks + (total bills, reserves, operational)
+  // Wednesday nudge for the editors (Drew/admin) to bring in the week's bills.
+  const isWednesday = today.getDay() === 3;
 
   return (
     <main style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -274,6 +281,12 @@ export default function CashSheetPage() {
         </div>
       )}
 
+      {canEdit && isWednesday && isThisMonth && (
+        <div className="small" style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(180,83,9,0.08)", border: "1px solid rgba(180,83,9,0.35)", color: "#b45309", fontWeight: 700 }}>
+          📋 It&apos;s Wednesday — pull the <b>AP Selection Report</b> from AvidXchange and enter this week&apos;s bills below.
+        </div>
+      )}
+
       {/* Portfolio KPI pills */}
       <div className="pills" style={{ justifyContent: "flex-start" }}>
         <StatPill label="Starting Cash · Portfolio" value={money0(grand.hasStarting ? grand.starting : null)} accent="#0b4a7d" />
@@ -290,15 +303,22 @@ export default function CashSheetPage() {
           <table style={{ minWidth: 720 }}>
             <thead>
               <tr>
-                <th style={{ textAlign: "left", minWidth: 200 }}>Property</th>
-                <th style={numCell}>Starting Cash</th>
-                <th style={numCell} title="Anticipated monthly billings from the rent roll (base + CAM/RET + reimbursements)">Anticipated Revenue</th>
-                {wednesdays.map((w) => (
-                  <th key={w} style={numCell} title={`Bills paid ${w}`}>{wednesdayLabel(w)}</th>
+                <th rowSpan={2} style={{ textAlign: "left", minWidth: 200, verticalAlign: "bottom" }}>Property</th>
+                <th rowSpan={2} style={{ ...numCell, verticalAlign: "bottom" }}>Starting Cash</th>
+                <th rowSpan={2} style={{ ...numCell, verticalAlign: "bottom" }} title="Anticipated monthly billings from the rent roll (base + CAM/RET + reimbursements)">Anticipated Revenue</th>
+                {visibleWeds.length > 0 && (
+                  <th colSpan={visibleWeds.length} style={{ ...numCell, textAlign: "center", borderBottom: "1px solid var(--border)", color: "#b45309" }}>
+                    AvidXchange Bills Paid
+                  </th>
+                )}
+                <th rowSpan={2} style={{ ...numCell, verticalAlign: "bottom" }}>Total Bills</th>
+                <th rowSpan={2} style={{ ...numCell, verticalAlign: "bottom" }}>Reserves</th>
+                <th rowSpan={2} style={{ ...numCell, verticalAlign: "bottom" }}>Operational Cash</th>
+              </tr>
+              <tr>
+                {visibleWeds.map((w) => (
+                  <th key={w} style={numCell} title={`Bills paid the week of ${w}`}>{weekOfLabel(w)}</th>
                 ))}
-                <th style={numCell}>Total Bills</th>
-                <th style={numCell}>Reserves</th>
-                <th style={numCell}>Operational Cash</th>
               </tr>
             </thead>
             <tbody>
@@ -362,7 +382,7 @@ export default function CashSheetPage() {
                           <td style={numCell}>
                             <RevenueLink code={p.code} amount={revVal} ym={ym} />
                           </td>
-                          {wednesdays.map((w) => (
+                          {visibleWeds.map((w) => (
                             <td key={w} style={numCell}>
                               <input
                                 style={cellInput}
@@ -437,7 +457,7 @@ export default function CashSheetPage() {
                       <td style={numCell} title={pooled ? "Total anticipated revenue (rent roll, all buildings)" : undefined}>
                         {money0(gt.revenue)}
                       </td>
-                      {wednesdays.map((w) => <td key={w} style={numCell} />)}
+                      {visibleWeds.map((w) => <td key={w} style={numCell} />)}
                       <td style={numCell}>{money0(gt.bills)}</td>
                       <td style={numCell}>{money0(gt.reserves)}</td>
                       <td style={numCell} title={pooled ? (fundEndOverridden ? "Overridden — clear to use the computed value" : "Fund opening − all building bills − reserves") : undefined}>
@@ -466,7 +486,7 @@ export default function CashSheetPage() {
                   <td style={{ textAlign: "left" }}>Portfolio Total</td>
                   <td style={numCell}>{money0(grand.hasStarting ? grand.starting : null)}</td>
                   <td style={numCell}>{money0(grand.revenue)}</td>
-                  {wednesdays.map((w) => (
+                  {visibleWeds.map((w) => (
                     <td key={w} style={numCell}>
                       {money0(allCodes.reduce((a, c) => a + parseNum(billDraft[c]?.[w] ?? ""), 0))}
                     </td>

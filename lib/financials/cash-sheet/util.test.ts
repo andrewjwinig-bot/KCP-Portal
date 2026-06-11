@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
   wednesdaysInMonth, priorMonth, monthKey, parseMonthKey,
-  operationalCash, totalBills, cashSheetGroups, cashSheetCodes, cashSheetFundCodes, bankAccountsForCodes, wednesdayLabel,
+  operationalCash, totalBills, cashSheetGroups, cashSheetCodes, cashSheetFundCodes, bankAccountsForCodes,
+  wednesdayLabel, weekOfLabel, visibleWednesdays,
 } from "./util";
 
 describe("cash-sheet util", () => {
@@ -15,6 +16,18 @@ describe("cash-sheet util", () => {
   it("labels a Wednesday compactly", () => {
     expect(wednesdayLabel("2026-02-04")).toBe("Wed 2/4");
     expect(wednesdayLabel("2026-12-30")).toBe("Wed 12/30");
+    expect(weekOfLabel("2026-06-10")).toBe("Week of 6/10");
+  });
+
+  it("hides Wednesdays whose week hasn't started yet", () => {
+    const weds = ["2026-06-03", "2026-06-10", "2026-06-17", "2026-06-24"];
+    // On Thu 6/11 the week of 6/10 is current; 6/17 and 6/24 are future weeks.
+    expect(visibleWednesdays(weds, new Date(2026, 5, 11))).toEqual(["2026-06-03", "2026-06-10"]);
+    // A week appears on its Monday: the week of 6/17 opens Mon 6/15.
+    expect(visibleWednesdays(weds, new Date(2026, 5, 15))).toEqual(["2026-06-03", "2026-06-10", "2026-06-17"]);
+    // A past month shows them all; a future month none.
+    expect(visibleWednesdays(weds, new Date(2026, 11, 1))).toEqual(weds);
+    expect(visibleWednesdays(weds, new Date(2026, 0, 1))).toEqual([]);
   });
 
   it("rolls the prior month across the year boundary", () => {
