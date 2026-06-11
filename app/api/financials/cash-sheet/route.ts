@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 import { getMonth, listMonths, carriedReserves, applyEdit } from "@/lib/financials/cash-sheet/store";
 import { startingCashFor } from "@/lib/financials/cash-sheet/startingCash";
+import { anticipatedRevenueFor } from "@/lib/financials/cash-sheet/revenue";
 import { cashSheetGroups, cashSheetCodes, cashSheetFundCodes, wednesdaysInMonth, parseMonthKey, monthKey } from "@/lib/financials/cash-sheet/util";
 import { logAudit, auditIp } from "@/lib/audit";
 import { SITE_COOKIE, verifySiteToken } from "@/lib/site-auth";
 import { ALL_USERS, canEditCashSheet, type UserId } from "@/lib/users";
 import { cookies } from "next/headers";
 
-const EDIT_KINDS = ["reserves", "bill", "startingOverride", "endingOverride"] as const;
+const EDIT_KINDS = ["reserves", "bill", "startingOverride", "revenueOverride", "endingOverride"] as const;
 type EditKind = (typeof EDIT_KINDS)[number];
 
 /** The signed-in user from the site cookie (authoritative — not client-supplied). */
@@ -39,10 +40,11 @@ export async function GET(req: Request) {
   // Property codes for per-property funds + the fund-level GL codes (PJV3, …)
   // whose cash is pooled into one bank account.
   const codes = [...cashSheetCodes(), ...cashSheetFundCodes()];
-  const [doc, carried, starting, months] = await Promise.all([
+  const [doc, carried, starting, revenue, months] = await Promise.all([
     getMonth(ym),
     carriedReserves(year, month),
     startingCashFor(codes, year, month),
+    anticipatedRevenueFor(year, month),
     listMonths(),
   ]);
 
@@ -53,6 +55,7 @@ export async function GET(req: Request) {
     groups: cashSheetGroups(),
     wednesdays: wednesdaysInMonth(year, month),
     starting,
+    revenue,
     rows: doc?.rows ?? {},
     carriedReserves: carried,
     months,

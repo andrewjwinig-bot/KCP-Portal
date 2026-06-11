@@ -130,21 +130,26 @@ export type CashSheetRow = {
   /** Manual override of the auto-pulled Starting Cash (null = use the pulled
    *  value). */
   startingOverride?: number | null;
+  /** Manual override of the auto-pulled Anticipated Revenue (null = use the
+   *  rent-roll value). */
+  revenueOverride?: number | null;
   /** Manual override of the Operational (ending) cash (null = use the computed
-   *  Starting − bills − reserves). */
+   *  Starting + revenue − bills − reserves). */
   endingOverride?: number | null;
 };
 
-/** Net operational cash for a row given its starting cash. Null when starting
- *  cash isn't available yet (prior month's statement not uploaded). */
+/** Net operational cash for a row given its starting cash + anticipated
+ *  revenue. Null when starting cash isn't available yet (prior month's
+ *  statement not uploaded). Revenue defaults to 0 when not provided. */
 export function operationalCash(
   startingCash: number | null,
   row: CashSheetRow | undefined,
+  revenue = 0,
 ): number | null {
   if (startingCash == null) return null;
   const bills = row ? Object.values(row.bills).reduce((a, n) => a + (n || 0), 0) : 0;
   const reserves = row?.reserves ?? 0;
-  return startingCash - bills - reserves;
+  return startingCash + revenue - bills - reserves;
 }
 
 /** Total of a row's weekly bills. */

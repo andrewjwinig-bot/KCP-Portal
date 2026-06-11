@@ -29,14 +29,17 @@ describe("cash-sheet util", () => {
     expect(parseMonthKey("2026-13")).toBeNull();
   });
 
-  it("computes operational cash = starting − bills − reserves", () => {
+  it("computes operational cash = starting + revenue − bills − reserves", () => {
     const row = { reserves: 5, bills: { "2026-02-04": 10, "2026-02-11": 20 } };
     expect(totalBills(row)).toBe(30);
+    // No revenue (default) → starting − bills − reserves.
     expect(operationalCash(100, row)).toBe(65);
-    // No starting cash yet → null (can't net).
-    expect(operationalCash(null, row)).toBeNull();
-    // No row → starting passes through.
-    expect(operationalCash(100, undefined)).toBe(100);
+    // With anticipated revenue the inflow is added: 100 + 50 − 30 − 5.
+    expect(operationalCash(100, row, 50)).toBe(115);
+    // No starting cash yet → null (can't net), even with revenue.
+    expect(operationalCash(null, row, 50)).toBeNull();
+    // No row → starting + revenue passes through.
+    expect(operationalCash(100, undefined, 40)).toBe(140);
   });
 
   it("groups operating properties by fund and excludes holding/condo entities", () => {
