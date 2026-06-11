@@ -58,8 +58,9 @@ describe("cash-sheet util", () => {
   it("groups operating properties by fund and excludes holding/condo entities", () => {
     const groups = cashSheetGroups();
     const byId = Object.fromEntries(groups.map((g) => [g.id, g]));
-    // Management leads; Land trails; holding/condo entities still excluded.
-    expect(groups.map((g) => g.id)).toEqual(["mgmt", "jv3", "nillc", "sc", "ow", "kh", "land"]);
+    // Management leads; the JV III Condo follows JV III; Land trails.
+    expect(groups.map((g) => g.id)).toEqual(["mgmt", "jv3", "condo", "nillc", "sc", "ow", "kh", "land"]);
+    expect(byId.condo.properties.map((p) => p.code)).toEqual(["CONDO"]);
 
     const codes = cashSheetCodes();
     // Shopping centers + The Office Works (4900) + Management (2010) + Land present;

@@ -107,12 +107,18 @@ const GROUP_ORDER: { id: string; label: string; fundCashCode?: string; match: (p
 
 /** Operating properties grouped by fund, in display order. */
 export function cashSheetGroups(): CashSheetGroup[] {
-  return GROUP_ORDER.map((g) => ({
+  const groups: CashSheetGroup[] = GROUP_ORDER.map((g) => ({
     id: g.id,
     label: g.label,
     fundCashCode: g.fundCashCode,
     properties: PROPERTY_DEFS.filter(g.match).map((p) => ({ code: p.id, name: p.name })),
   })).filter((g) => g.properties.length > 0);
+  // The JV III Condo association is its own entity (own bank account + GL keyed
+  // "CONDO"), not in PROPERTY_DEFS as an operating property — add it after JV III.
+  const condo: CashSheetGroup = { id: "condo", label: "JV III Condo", properties: [{ code: "CONDO", name: "Neshaminy III Condo Assoc" }] };
+  const i = groups.findIndex((g) => g.id === "jv3");
+  if (i >= 0) groups.splice(i + 1, 0, condo); else groups.push(condo);
+  return groups;
 }
 
 /** Flat list of every property code that appears on the Cash Sheet. */

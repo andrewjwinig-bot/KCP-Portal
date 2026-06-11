@@ -9,7 +9,7 @@
 // Starting Cash and Operational (ending) Cash can be manually overridden.
 // Bills reset each month; reserves carry forward; history is browsable by month.
 
-import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useUser } from "@/app/components/UserProvider";
 import { StatPill } from "@/app/components/Pill";
@@ -88,6 +88,9 @@ export default function CashSheetPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(0);
+  const apRef = useRef<HTMLInputElement | null>(null);
+  const [apUploading, setApUploading] = useState(false);
+  const [apSummary, setApSummary] = useState<{ wednesday: string; total: number; count: number } | null>(null);
 
   // Editable drafts (strings) keyed by property code.
   const [billDraft, setBillDraft] = useState<Record<string, Record<string, string>>>({});
@@ -120,13 +123,18 @@ export default function CashSheetPage() {
           sd[p.code] = row?.startingOverride != null ? String(row.startingOverride) : "";
           ed[p.code] = row?.endingOverride != null ? String(row.endingOverride) : "";
         }
-        // Pooled funds hold their cash (starting/operational overrides) under the
-        // fund-level GL code, not a property — seed those drafts too.
+        // Pooled funds hold their cash (starting/operational overrides) AND their
+        // weekly bills under the fund-level code, not a property — seed those too.
         for (const g of j.groups) {
           if (!g.fundCashCode) continue;
           const row = j.rows[g.fundCashCode];
           sd[g.fundCashCode] = row?.startingOverride != null ? String(row.startingOverride) : "";
           ed[g.fundCashCode] = row?.endingOverride != null ? String(row.endingOverride) : "";
+          bd[g.fundCashCode] = {};
+          for (const w of j.wednesdays) {
+            const v = row?.bills?.[w];
+            bd[g.fundCashCode][w] = v ? String(v) : "";
+          }
         }
         setBillDraft(bd);
         setResDraft(rd);
@@ -154,6 +162,31 @@ export default function CashSheetPage() {
       setError(e instanceof Error ? e.message : "Save failed");
     } finally {
       setSaving((s) => s - 1);
+    }
+  }
+
+  // AP AutoPay Selections Reports → auto-fill the week's bill column. Drop the
+  // weekly files (JV III, NI LLC, Condo, all-other); the server parses each,
+  // maps every property's payment total to its bill cell for the report's week.
+  async function onApUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = e.target.files;
+    if (!files?.length) return;
+    setApUploading(true); setApSummary(null); setError(null);
+    try {
+      const fd = new FormData();
+      for (const f of Array.from(files)) fd.append("files", f);
+      const res = await fetch("/api/financials/cash-sheet/ap-upload", { method: "POST", body: fd });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j?.error ?? "Upload failed");
+      const pm = parseMonthKey(String(j.wednesday).slice(0, 7));
+      if (pm && (pm.year !== year || pm.month !== month)) { setYear(pm.year); setMonth(pm.month); }
+      setApSummary({ wednesday: j.wednesday, total: j.total, count: (j.filled ?? []).length });
+      load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setApUploading(false);
+      if (apRef.current) apRef.current.value = "";
     }
   }
 
@@ -224,16 +257,15 @@ export default function CashSheetPage() {
     const code = g.fundCashCode!;
     const s = rowStarting(code);
     if (s == null) return null;
-    const bills = g.properties.reduce((a, p) => a + rowBillsTotal(p.code), 0);
     const reserves = g.properties.reduce((a, p) => a + rowReserves(p.code), 0);
-    return s + (fundRevenue(g) ?? 0) - bills - rowMortgage(code) - reserves;
+    return s + (fundRevenue(g) ?? 0) - rowBillsTotal(code) - rowMortgage(code) - reserves;
   }
   // Totals for one group. A pooled fund's cash comes from its ONE fund account
-  // (PJV3, …); the buildings contribute only bills + reserves + rent-roll
-  // revenue, and the fund carries the mortgage. A per-property group sums each
+  // (PJV3, …): the fund carries the bills (one AP run) + mortgage; the buildings
+  // contribute only reserves + rent-roll revenue. A per-property group sums each
   // property's own cash.
   function groupTotals(g: CashSheetGroup): Totals {
-    const bills = g.properties.reduce((a, p) => a + rowBillsTotal(p.code), 0);
+    const bills = g.fundCashCode ? rowBillsTotal(g.fundCashCode) : g.properties.reduce((a, p) => a + rowBillsTotal(p.code), 0);
     const reserves = g.properties.reduce((a, p) => a + rowReserves(p.code), 0);
     if (g.fundCashCode) {
       const s = rowStarting(g.fundCashCode);
@@ -258,6 +290,12 @@ export default function CashSheetPage() {
   // Building codes only (per-Wednesday bill totals in the footer).
   const allCodes = useMemo(
     () => (data?.groups ?? []).flatMap((g) => g.properties.map((p) => p.code)),
+    [data],
+  );
+  // Codes that carry weekly bills: per-property rows + the pooled-fund codes
+  // (where the fund's bills live). Used for the per-Wednesday footer totals.
+  const billCodes = useMemo(
+    () => (data?.groups ?? []).flatMap((g) => g.fundCashCode ? [g.fundCashCode] : g.properties.map((p) => p.code)),
     [data],
   );
   const grand = (() => {
@@ -291,6 +329,14 @@ export default function CashSheetPage() {
           </p>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {canEdit && (
+            <>
+              <button className="btn primary" onClick={() => apRef.current?.click()} disabled={apUploading} style={{ fontSize: 13, padding: "6px 12px", fontWeight: 700 }} title="Drop the weekly AP AutoPay Selections Reports (JV III, NI LLC, Condo, all-other) to auto-fill the week's bills">
+                {apUploading ? "Uploading…" : "Upload AP Report"}
+              </button>
+              <input ref={apRef} type="file" accept=".xls,.xlsx" multiple style={{ display: "none" }} onChange={onApUpload} />
+            </>
+          )}
           <button className="btn" onClick={prevMonth} style={{ padding: "6px 12px", fontWeight: 900 }}>←</button>
           <span style={{ fontWeight: 800, fontSize: 15, minWidth: 150, textAlign: "center" }}>{MONTHS[month - 1]} {year}</span>
           <button className="btn" onClick={nextMonth} style={{ padding: "6px 12px", fontWeight: 900 }}>→</button>
@@ -300,15 +346,22 @@ export default function CashSheetPage() {
         </div>
       </div>
 
+      {apSummary && (
+        <div className="small" style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(21,128,61,0.08)", border: "1px solid rgba(21,128,61,0.35)", color: "#15803d", fontWeight: 700 }}>
+          ✓ Filled {apSummary.count} {apSummary.count === 1 ? "property" : "properties"} · {money0(apSummary.total)} for the {weekOfLabel(apSummary.wednesday).toLowerCase()} from the AP Selection Report.
+        </div>
+      )}
+
       {!canEdit && (
         <div className="small" style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(11,74,125,0.06)", border: "1px solid rgba(11,74,125,0.25)", color: "#0b4a7d", fontWeight: 600 }}>
           View-only — you can browse the Cash Sheet but not edit it.
         </div>
       )}
 
-      {canEdit && isWednesday && isThisMonth && (
-        <div className="small" style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(180,83,9,0.08)", border: "1px solid rgba(180,83,9,0.35)", color: "#b45309", fontWeight: 700 }}>
-          📋 It&apos;s Wednesday — pull the <b>AP Selection Report</b> from AvidXchange and enter this week&apos;s bills below.
+      {canEdit && isWednesday && isThisMonth && !apSummary && (
+        <div className="small" style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(180,83,9,0.08)", border: "1px solid rgba(180,83,9,0.35)", color: "#b45309", fontWeight: 700, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          <span>📋 It&apos;s Wednesday — pull this week&apos;s <b>AP Selection Reports</b> (JV III, NI LLC, Condo, all-other) and upload them to fill the bills.</span>
+          <button className="btn" onClick={() => apRef.current?.click()} disabled={apUploading} style={{ fontSize: 12, padding: "4px 10px", fontWeight: 700 }}>{apUploading ? "Uploading…" : "Upload AP Report"}</button>
         </div>
       )}
 
@@ -411,21 +464,24 @@ export default function CashSheetPage() {
                           <td style={numCell}>
                             <RevenueLink code={p.code} amount={revVal} ym={ym} onMgmtClick={() => setMgmtOpen(true)} />
                           </td>
+                          {/* Weekly bills — for pooled funds the bills are at the fund level (shown on the fund row), so building cells are blank. */}
                           {visibleWeds.map((w) => (
                             <td key={w} style={numCell}>
-                              <input
-                                style={cellInput}
-                                inputMode="decimal"
-                                placeholder="—"
-                                disabled={!canEdit}
-                                value={billDraft[p.code]?.[w] ?? ""}
-                                onChange={(e) => setBillDraft((d) => ({ ...d, [p.code]: { ...d[p.code], [w]: e.target.value } }))}
-                                onBlur={() => commitBill(p.code, w)}
-                                onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
-                              />
+                              {pooled ? null : (
+                                <input
+                                  style={cellInput}
+                                  inputMode="decimal"
+                                  placeholder="—"
+                                  disabled={!canEdit}
+                                  value={billDraft[p.code]?.[w] ?? ""}
+                                  onChange={(e) => setBillDraft((d) => ({ ...d, [p.code]: { ...d[p.code], [w]: e.target.value } }))}
+                                  onBlur={() => commitBill(p.code, w)}
+                                  onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                                />
+                              )}
                             </td>
                           ))}
-                          <td style={{ ...numCell, fontWeight: 600 }}>{money0(rowBillsTotal(p.code))}</td>
+                          <td style={{ ...numCell, fontWeight: 600 }}>{pooled ? "" : money0(rowBillsTotal(p.code))}</td>
                           {/* Mortgage — scheduled P&I from the debt tracker; blank for pooled-fund buildings (on the fund row). */}
                           <td style={numCell} title={pooled ? "Mortgage is on the fund row below" : "Scheduled mortgage P&I (debt tracker)"}>
                             {pooled ? <span className="muted">—</span> : <MortgageLink amount={rowMortgage(p.code)} />}
@@ -490,7 +546,23 @@ export default function CashSheetPage() {
                       <td style={numCell} title={pooled ? "Total anticipated revenue (rent roll, all buildings)" : undefined}>
                         {money0(gt.revenue)}
                       </td>
-                      {visibleWeds.map((w) => <td key={w} style={numCell} />)}
+                      {/* Pooled fund's weekly bills live here (one account pays for all buildings) — filled by the AP Selection Report. */}
+                      {visibleWeds.map((w) => (
+                        <td key={w} style={numCell}>
+                          {pooled ? (
+                            <input
+                              style={cellInput}
+                              inputMode="decimal"
+                              placeholder="—"
+                              disabled={!canEdit}
+                              value={billDraft[fc]?.[w] ?? ""}
+                              onChange={(e) => setBillDraft((d) => ({ ...d, [fc]: { ...d[fc], [w]: e.target.value } }))}
+                              onBlur={() => commitBill(fc, w)}
+                              onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                            />
+                          ) : null}
+                        </td>
+                      ))}
                       <td style={numCell}>{money0(gt.bills)}</td>
                       <td style={numCell} title="Scheduled mortgage P&I (debt tracker)">{pooled ? <MortgageLink amount={gt.mortgage} /> : money0(gt.mortgage)}</td>
                       <td style={numCell}>{money0(gt.reserves)}</td>
@@ -522,7 +594,7 @@ export default function CashSheetPage() {
                   <td style={numCell}>{money0(grand.revenue)}</td>
                   {visibleWeds.map((w) => (
                     <td key={w} style={numCell}>
-                      {money0(allCodes.reduce((a, c) => a + parseNum(billDraft[c]?.[w] ?? ""), 0))}
+                      {money0(billCodes.reduce((a, c) => a + parseNum(billDraft[c]?.[w] ?? ""), 0))}
                     </td>
                   ))}
                   <td style={numCell}>{money0(grand.bills)}</td>
