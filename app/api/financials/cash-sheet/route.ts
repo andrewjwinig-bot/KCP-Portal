@@ -8,7 +8,7 @@ import { SITE_COOKIE, verifySiteToken } from "@/lib/site-auth";
 import { ALL_USERS, canEditCashSheet, type UserId } from "@/lib/users";
 import { cookies } from "next/headers";
 
-const EDIT_KINDS = ["reserves", "bill", "startingOverride", "revenueOverride", "endingOverride"] as const;
+const EDIT_KINDS = ["reserves", "bill", "startingOverride", "endingOverride"] as const;
 type EditKind = (typeof EDIT_KINDS)[number];
 
 /** The signed-in user from the site cookie (authoritative — not client-supplied). */

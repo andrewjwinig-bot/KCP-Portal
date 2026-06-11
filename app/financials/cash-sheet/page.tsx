@@ -20,7 +20,7 @@ import {
 } from "@/lib/financials/cash-sheet/util";
 
 type Starting = { amount: number | null; sourceYm: string };
-type Row = { reserves: number; bills: Record<string, number>; startingOverride?: number | null; revenueOverride?: number | null; endingOverride?: number | null };
+type Row = { reserves: number; bills: Record<string, number>; startingOverride?: number | null; endingOverride?: number | null };
 type Payload = {
   ym: string; year: number; month: number;
   groups: CashSheetGroup[];
@@ -81,7 +81,6 @@ export default function CashSheetPage() {
   const [billDraft, setBillDraft] = useState<Record<string, Record<string, string>>>({});
   const [resDraft, setResDraft] = useState<Record<string, string>>({});
   const [startDraft, setStartDraft] = useState<Record<string, string>>({}); // starting-cash override
-  const [revDraft, setRevDraft] = useState<Record<string, string>>({});     // anticipated-revenue override
   const [endDraft, setEndDraft] = useState<Record<string, string>>({});     // operational (ending) override
 
   const ym = monthKey(year, month);
@@ -96,7 +95,6 @@ export default function CashSheetPage() {
         const bd: Record<string, Record<string, string>> = {};
         const rd: Record<string, string> = {};
         const sd: Record<string, string> = {};
-        const vd: Record<string, string> = {};
         const ed: Record<string, string> = {};
         for (const g of j.groups) for (const p of g.properties) {
           const row = j.rows[p.code];
@@ -108,22 +106,19 @@ export default function CashSheetPage() {
           const res = row?.reserves ?? j.carriedReserves[p.code] ?? 0;
           rd[p.code] = res ? String(res) : "";
           sd[p.code] = row?.startingOverride != null ? String(row.startingOverride) : "";
-          vd[p.code] = row?.revenueOverride != null ? String(row.revenueOverride) : "";
           ed[p.code] = row?.endingOverride != null ? String(row.endingOverride) : "";
         }
-        // Pooled funds hold their cash (starting/revenue/operational overrides)
-        // under the fund-level GL code, not a property — seed those drafts too.
+        // Pooled funds hold their cash (starting/operational overrides) under the
+        // fund-level GL code, not a property — seed those drafts too.
         for (const g of j.groups) {
           if (!g.fundCashCode) continue;
           const row = j.rows[g.fundCashCode];
           sd[g.fundCashCode] = row?.startingOverride != null ? String(row.startingOverride) : "";
-          vd[g.fundCashCode] = row?.revenueOverride != null ? String(row.revenueOverride) : "";
           ed[g.fundCashCode] = row?.endingOverride != null ? String(row.endingOverride) : "";
         }
         setBillDraft(bd);
         setResDraft(rd);
         setStartDraft(sd);
-        setRevDraft(vd);
         setEndDraft(ed);
         setError(null);
       })
@@ -159,9 +154,6 @@ export default function CashSheetPage() {
   function commitStarting(code: string) {
     save({ code, kind: "startingOverride", value: parseOpt(startDraft[code]) });
   }
-  function commitRevenue(code: string) {
-    save({ code, kind: "revenueOverride", value: parseOpt(revDraft[code]) });
-  }
   function commitEnding(code: string) {
     save({ code, kind: "endingOverride", value: parseOpt(endDraft[code]) });
   }
@@ -183,21 +175,14 @@ export default function CashSheetPage() {
     return ov != null ? ov : autoStarting(code);
   }
   // Anticipated revenue (rent-roll gross billings) is keyed by property code,
-  // uppercased on the server. Pooled funds have no rent roll of their own, so
-  // the fund's auto value is the sum of its buildings' revenue.
-  function autoRevenue(code: string): number | null { return data?.revenue?.[code.toUpperCase()] ?? null; }
-  function rowRevenue(code: string): number | null {
-    const ov = parseOpt(revDraft[code]);
-    return ov != null ? ov : autoRevenue(code);
-  }
-  function fundAutoRevenue(g: CashSheetGroup): number | null {
-    let sum = 0, has = false;
-    for (const p of g.properties) { const r = autoRevenue(p.code); if (r != null) { sum += r; has = true; } }
-    return has ? sum : null;
-  }
+  // uppercased on the server, and read-only here — click it to open the rent
+  // roll for that property/month. Pooled funds have no rent roll of their own,
+  // so the fund's value is the sum of its buildings' revenue.
+  function rowRevenue(code: string): number | null { return data?.revenue?.[code.toUpperCase()] ?? null; }
   function fundRevenue(g: CashSheetGroup): number | null {
-    const ov = parseOpt(revDraft[g.fundCashCode!]);
-    return ov != null ? ov : fundAutoRevenue(g);
+    let sum = 0, has = false;
+    for (const p of g.properties) { const r = rowRevenue(p.code); if (r != null) { sum += r; has = true; } }
+    return has ? sum : null;
   }
   function computedOperational(code: string): number | null {
     const s = rowStarting(code);
@@ -324,9 +309,7 @@ export default function CashSheetPage() {
                 const pooled = !!g.fundCashCode;
                 const fc = g.fundCashCode ?? "";
                 const fundAuto = pooled ? autoStarting(fc) : null;
-                const fundAutoRev = pooled ? fundAutoRevenue(g) : null;
                 const fundStartOverridden = pooled && parseOpt(startDraft[fc]) != null;
-                const fundRevOverridden = pooled && parseOpt(revDraft[fc]) != null;
                 const fundEndOverridden = pooled && parseOpt(endDraft[fc]) != null;
                 const fundCompOp = pooled ? fundComputedOperational(g) : null;
                 return (
@@ -343,11 +326,9 @@ export default function CashSheetPage() {
                       const auto = autoStarting(p.code);
                       const starting = rowStarting(p.code);
                       const src = data?.starting[p.code]?.sourceYm;
-                      const autoRev = autoRevenue(p.code);
                       const revVal = rowRevenue(p.code);
                       const op = rowOperational(p.code);
                       const startOverridden = parseOpt(startDraft[p.code]) != null;
-                      const revOverridden = parseOpt(revDraft[p.code]) != null;
                       const endOverridden = parseOpt(endDraft[p.code]) != null;
                       return (
                         <tr key={p.code}>
@@ -377,23 +358,9 @@ export default function CashSheetPage() {
                               ? <span className="muted">—</span>
                               : <span style={startOverridden ? { color: "#b45309", fontWeight: 700 } : undefined}>{money0(starting)}</span>}
                           </td>
-                          {/* Anticipated Revenue — blank for pooled-fund buildings (rolled up on the fund row) */}
-                          <td style={numCell} title={pooled ? "Rent-roll revenue is rolled up to the fund row below" : `Anticipated monthly billings (rent roll)${revOverridden ? " · overridden" : ""}`}>
-                            {pooled ? (
-                              <span className="muted">—</span>
-                            ) : canEdit ? (
-                              <input
-                                style={{ ...cashInput, ...(revOverridden ? { borderColor: "#b45309", fontWeight: 700 } : {}) }}
-                                inputMode="decimal"
-                                placeholder={autoRev != null ? money0(autoRev) : "—"}
-                                value={revDraft[p.code] ?? ""}
-                                onChange={(e) => setRevDraft((d) => ({ ...d, [p.code]: e.target.value }))}
-                                onBlur={() => commitRevenue(p.code)}
-                                onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
-                              />
-                            ) : revVal == null
-                              ? <span className="muted">—</span>
-                              : <span style={revOverridden ? { color: "#b45309", fontWeight: 700 } : undefined}>{money0(revVal)}</span>}
+                          {/* Anticipated Revenue — read-only; click to open the rent roll for this property/month. Shown per building (incl. pooled funds). */}
+                          <td style={numCell}>
+                            <RevenueLink code={p.code} amount={revVal} ym={ym} />
                           </td>
                           {wednesdays.map((w) => (
                             <td key={w} style={numCell}>
@@ -466,21 +433,9 @@ export default function CashSheetPage() {
                               : (gt.hasStarting ? <span style={fundStartOverridden ? { color: "#b45309" } : undefined}>{money0(gt.starting)}</span> : <span className="muted">—</span>))
                           : (gt.hasStarting ? money0(gt.starting) : "—")}
                       </td>
-                      {/* Anticipated Revenue — pooled fund rolls up its buildings' rent-roll revenue here (overridable). */}
-                      <td style={numCell} title={pooled ? `Fund anticipated revenue (rent roll, all buildings)${fundRevOverridden ? " · overridden" : ""}` : undefined}>
-                        {pooled
-                          ? (canEdit
-                              ? <input
-                                  style={{ ...cashInput, ...(fundRevOverridden ? { borderColor: "#b45309", fontWeight: 700 } : {}) }}
-                                  inputMode="decimal"
-                                  placeholder={fundAutoRev != null ? money0(fundAutoRev) : "—"}
-                                  value={revDraft[fc] ?? ""}
-                                  onChange={(e) => setRevDraft((d) => ({ ...d, [fc]: e.target.value }))}
-                                  onBlur={() => commitRevenue(fc)}
-                                  onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
-                                />
-                              : <span style={fundRevOverridden ? { color: "#b45309", fontWeight: 700 } : undefined}>{money0(gt.revenue)}</span>)
-                          : money0(gt.revenue)}
+                      {/* Anticipated Revenue — pooled fund's total (sum of its buildings, shown per building above). */}
+                      <td style={numCell} title={pooled ? "Total anticipated revenue (rent roll, all buildings)" : undefined}>
+                        {money0(gt.revenue)}
                       </td>
                       {wednesdays.map((w) => <td key={w} style={numCell} />)}
                       <td style={numCell}>{money0(gt.bills)}</td>
@@ -535,6 +490,24 @@ export default function CashSheetPage() {
         {" · "}Bills reset each month; reserves carry forward. Starting/Operational cash can be overridden{canEdit ? " (amber border = overridden; clear the field to revert)" : ""}.
       </p>
     </main>
+  );
+}
+
+// Anticipated Revenue value — read-only, links to the rent roll for that
+// property + month (the source of the figure). Dash when there's no rent roll.
+function RevenueLink({ code, amount, ym }: { code: string; amount: number | null; ym: string }) {
+  if (amount == null) return <span className="muted">—</span>;
+  const href = `/rentroll?month=${ym}#prop-${code.toUpperCase()}`;
+  return (
+    <Link
+      href={href}
+      title={`${code} anticipated billings · open the rent roll`}
+      style={{ color: "#0b4a7d", fontWeight: 600, textDecoration: "none" }}
+      onMouseEnter={(e) => (e.currentTarget.style.textDecoration = "underline")}
+      onMouseLeave={(e) => (e.currentTarget.style.textDecoration = "none")}
+    >
+      {money0(amount)}
+    </Link>
   );
 }
 

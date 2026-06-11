@@ -130,9 +130,6 @@ export type CashSheetRow = {
   /** Manual override of the auto-pulled Starting Cash (null = use the pulled
    *  value). */
   startingOverride?: number | null;
-  /** Manual override of the auto-pulled Anticipated Revenue (null = use the
-   *  rent-roll value). */
-  revenueOverride?: number | null;
   /** Manual override of the Operational (ending) cash (null = use the computed
    *  Starting + revenue − bills − reserves). */
   endingOverride?: number | null;

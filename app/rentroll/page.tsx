@@ -603,15 +603,18 @@ function PropertyCard({ prop, tenantMeta, onBaseYearChange, vacatingUnitRefs }: 
   const hideRent = user.id === "maint";
   const [open, setOpen] = useState(false);
 
-  // Auto-expand and scroll into view when the URL hash points at one of our units
+  // Auto-expand and scroll into view when the URL hash points at one of our
+  // units, or at this property (e.g. deep-linked from the Cash Sheet revenue).
   useEffect(() => {
     if (typeof window === "undefined" || !window.location.hash) return;
     const hash = window.location.hash.replace(/^#/, "");
-    const match = prop.units.some((u) => `unit-${u.unitRef.replace(/[^a-zA-Z0-9]/g, "-")}` === hash);
-    if (match) {
+    const propAnchor = `prop-${prop.propertyCode.toUpperCase()}`;
+    const unitMatch = prop.units.some((u) => `unit-${u.unitRef.replace(/[^a-zA-Z0-9]/g, "-")}` === hash);
+    if (unitMatch || hash === propAnchor) {
       setOpen(true);
+      const target = hash === propAnchor ? propAnchor : hash;
       // Defer until after the row is rendered
-      setTimeout(() => document.getElementById(hash)?.scrollIntoView({ behavior: "smooth", block: "center" }), 60);
+      setTimeout(() => document.getElementById(target)?.scrollIntoView({ behavior: "smooth", block: hash === propAnchor ? "start" : "center" }), 60);
     }
   }, [prop]);
 
@@ -635,7 +638,7 @@ function PropertyCard({ prop, tenantMeta, onBaseYearChange, vacatingUnitRefs }: 
   }).length;
 
   return (
-    <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+    <div id={`prop-${prop.propertyCode.toUpperCase()}`} className="card" style={{ padding: 0, overflow: "hidden", scrollMarginTop: 80 }}>
       {/* Card header */}
       <button
         className="linkBtn"
@@ -1390,10 +1393,14 @@ export default function RentRollPage() {
       .then((j) => {
         const snaps = (j.snapshots ?? []) as import("../../lib/rentroll/snapshot").RentRollSnapshotSummary[];
         setSnapshotList(snaps);
-        // Default the period to the most recent month (snapshots are sorted
-        // ascending). "Current" and the latest month are the same roll, so
-        // there's no separate "Current" option — newest month is the default.
-        if (snaps.length > 0) {
+        // Deep link (?month=YYYY-MM, e.g. from the Cash Sheet) wins when a
+        // snapshot exists for it; otherwise default the period to the most
+        // recent month (snapshots are sorted ascending). "Current" and the
+        // latest month are the same roll, so newest month is the default.
+        const wantMonth = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("month") : null;
+        if (wantMonth && snaps.some((s) => s.month === wantMonth)) {
+          setReportMonth(wantMonth);
+        } else if (snaps.length > 0) {
           setReportMonth((prev) => prev || snaps[snaps.length - 1].month);
         }
       })
