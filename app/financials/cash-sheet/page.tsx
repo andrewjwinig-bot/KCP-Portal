@@ -31,8 +31,10 @@ type Payload = {
   revenue: Record<string, number>;
   /** Per-property management fees behind LIK's (2010) revenue. */
   mgmtFee: MgmtFeeRow[];
+  /** Auto reserve per property code — budget "Big Projects" over the next 3
+   *  months (this month + 2). */
+  reservesAuto: Record<string, number>;
   rows: Record<string, Row>;
-  carriedReserves: Record<string, number>;
   months: string[];
   updatedAt: string | null;
 };
@@ -95,7 +97,8 @@ export default function CashSheetPage() {
       .then((r) => r.json())
       .then((j: Payload) => {
         setData(j);
-        // Seed drafts: saved value → carried reserve → blank.
+        // Seed drafts. Reserves/starting/ending are overrides — blank = use the
+        // auto value; only a saved override prefills the field.
         const bd: Record<string, Record<string, string>> = {};
         const rd: Record<string, string> = {};
         const sd: Record<string, string> = {};
@@ -107,8 +110,7 @@ export default function CashSheetPage() {
             const v = row?.bills?.[w];
             bd[p.code][w] = v ? String(v) : "";
           }
-          const res = row?.reserves ?? j.carriedReserves[p.code] ?? 0;
-          rd[p.code] = res ? String(res) : "";
+          rd[p.code] = row?.reserves != null ? String(row.reserves) : "";
           sd[p.code] = row?.startingOverride != null ? String(row.startingOverride) : "";
           ed[p.code] = row?.endingOverride != null ? String(row.endingOverride) : "";
         }
@@ -172,7 +174,13 @@ export default function CashSheetPage() {
     const b = billDraft[code] ?? {};
     return wednesdays.reduce((a, w) => a + parseNum(b[w] ?? ""), 0);
   }
-  function rowReserves(code: string): number { return parseNum(resDraft[code] ?? ""); }
+  // Reserves are auto-derived from the budget (Big Projects, next 3 months) and
+  // overridable per property: a typed value wins, blank uses the auto value.
+  function autoReserve(code: string): number | null { return data?.reservesAuto?.[code.toUpperCase()] ?? null; }
+  function rowReserves(code: string): number {
+    const ov = parseOpt(resDraft[code]);
+    return ov != null ? ov : (autoReserve(code) ?? 0);
+  }
   function autoStarting(code: string): number | null { return data?.starting[code]?.amount ?? null; }
   function rowStarting(code: string): number | null {
     const ov = parseOpt(startDraft[code]);
@@ -351,8 +359,10 @@ export default function CashSheetPage() {
                       const starting = rowStarting(p.code);
                       const src = data?.starting[p.code]?.sourceYm;
                       const revVal = rowRevenue(p.code);
+                      const autoRes = autoReserve(p.code);
                       const op = rowOperational(p.code);
                       const startOverridden = parseOpt(startDraft[p.code]) != null;
+                      const resOverridden = parseOpt(resDraft[p.code]) != null;
                       const endOverridden = parseOpt(endDraft[p.code]) != null;
                       return (
                         <tr key={p.code}>
@@ -401,11 +411,12 @@ export default function CashSheetPage() {
                             </td>
                           ))}
                           <td style={{ ...numCell, fontWeight: 600 }}>{money0(rowBillsTotal(p.code))}</td>
-                          <td style={numCell}>
+                          {/* Reserves — auto from the budget (Big Projects, next 3 mo); placeholder shows it, override to adjust. */}
+                          <td style={numCell} title={`Budgeted Big Projects over the next 3 months${resOverridden ? " · overridden" : ""}`}>
                             <input
-                              style={cellInput}
+                              style={{ ...cellInput, ...(resOverridden ? { borderColor: "#b45309", fontWeight: 700 } : {}) }}
                               inputMode="decimal"
-                              placeholder="—"
+                              placeholder={autoRes != null ? money0(autoRes) : "—"}
                               disabled={!canEdit}
                               value={resDraft[p.code] ?? ""}
                               onChange={(e) => setResDraft((d) => ({ ...d, [p.code]: e.target.value }))}
@@ -511,7 +522,7 @@ export default function CashSheetPage() {
         {canEdit
           ? (saving > 0 ? "Saving…" : data?.updatedAt ? `Saved · last edit ${new Date(data.updatedAt).toLocaleString()}` : "Edits save automatically.")
           : "View-only access."}
-        {" · "}Bills reset each month; reserves carry forward. Starting/Operational cash can be overridden{canEdit ? " (amber border = overridden; clear the field to revert)" : ""}.
+        {" · "}Bills reset each month; Reserves auto-pull from the budget (Big Projects, next 3 months). Starting / Reserves / Operational can be overridden{canEdit ? " (amber border = overridden; clear the field to revert)" : ""}.
       </p>
 
       {mgmtOpen && data && (
