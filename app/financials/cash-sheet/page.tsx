@@ -37,6 +37,8 @@ type Payload = {
   reservesAuto: Record<string, number>;
   /** Per-property reserve breakdown (the Big Projects lines behind the total). */
   reserveDetail: Record<string, ReserveDetail>;
+  /** Scheduled mortgage P&I payment per cash-sheet code (from the debt tracker). */
+  mortgage: Record<string, number>;
   rows: Record<string, Row>;
   months: string[];
   updatedAt: string | null;
@@ -200,10 +202,14 @@ export default function CashSheetPage() {
     for (const p of g.properties) { const r = rowRevenue(p.code); if (r != null) { sum += r; has = true; } }
     return has ? sum : null;
   }
+  // Scheduled mortgage P&I from the debt tracker — a known monthly outflow.
+  // Keyed by cash-sheet code (shopping centers to themselves; JV III / NI LLC to
+  // their fund). Read-only; pooled-fund mortgage sits on the fund row.
+  function rowMortgage(code: string): number { return data?.mortgage?.[code.toUpperCase()] ?? 0; }
   function computedOperational(code: string): number | null {
     const s = rowStarting(code);
     if (s == null) return null;
-    return s + (rowRevenue(code) ?? 0) - rowBillsTotal(code) - rowReserves(code);
+    return s + (rowRevenue(code) ?? 0) - rowBillsTotal(code) - rowMortgage(code) - rowReserves(code);
   }
   function rowOperational(code: string): number | null {
     const ov = parseOpt(endDraft[code]);
@@ -211,40 +217,43 @@ export default function CashSheetPage() {
   }
 
   // ── Group + grand totals ──
-  type Totals = { starting: number; revenue: number; bills: number; reserves: number; operational: number; hasStarting: boolean };
+  type Totals = { starting: number; revenue: number; bills: number; mortgage: number; reserves: number; operational: number; hasStarting: boolean };
   // Fund-level operational cash (pooled funds): opening + anticipated revenue −
-  // the whole fund's bills − reserves. Null when there's no opening to start from.
+  // the whole fund's bills − mortgage − reserves. Null when no opening to start.
   function fundComputedOperational(g: CashSheetGroup): number | null {
     const code = g.fundCashCode!;
     const s = rowStarting(code);
     if (s == null) return null;
     const bills = g.properties.reduce((a, p) => a + rowBillsTotal(p.code), 0);
     const reserves = g.properties.reduce((a, p) => a + rowReserves(p.code), 0);
-    return s + (fundRevenue(g) ?? 0) - bills - reserves;
+    return s + (fundRevenue(g) ?? 0) - bills - rowMortgage(code) - reserves;
   }
   // Totals for one group. A pooled fund's cash comes from its ONE fund account
   // (PJV3, …); the buildings contribute only bills + reserves + rent-roll
-  // revenue. A per-property group sums each property's own cash.
+  // revenue, and the fund carries the mortgage. A per-property group sums each
+  // property's own cash.
   function groupTotals(g: CashSheetGroup): Totals {
     const bills = g.properties.reduce((a, p) => a + rowBillsTotal(p.code), 0);
     const reserves = g.properties.reduce((a, p) => a + rowReserves(p.code), 0);
     if (g.fundCashCode) {
       const s = rowStarting(g.fundCashCode);
       const revenue = fundRevenue(g) ?? 0;
+      const mortgage = rowMortgage(g.fundCashCode);
       const endOv = parseOpt(endDraft[g.fundCashCode]);
-      const operational = endOv != null ? endOv : (s == null ? 0 : s + revenue - bills - reserves);
-      return { starting: s ?? 0, revenue, bills, reserves, operational, hasStarting: s != null || endOv != null };
+      const operational = endOv != null ? endOv : (s == null ? 0 : s + revenue - bills - mortgage - reserves);
+      return { starting: s ?? 0, revenue, bills, mortgage, reserves, operational, hasStarting: s != null || endOv != null };
     }
-    let starting = 0, revenue = 0, operational = 0, hasStarting = false;
+    let starting = 0, revenue = 0, mortgage = 0, operational = 0, hasStarting = false;
     for (const p of g.properties) {
       const s = rowStarting(p.code);
       const r = rowRevenue(p.code);
       const op = rowOperational(p.code);
+      mortgage += rowMortgage(p.code);
       if (r != null) revenue += r;
       if (s != null) { starting += s; hasStarting = true; }
       if (op != null) operational += op;
     }
-    return { starting, revenue, bills, reserves, operational, hasStarting };
+    return { starting, revenue, bills, mortgage, reserves, operational, hasStarting };
   }
   // Building codes only (per-Wednesday bill totals in the footer).
   const allCodes = useMemo(
@@ -252,13 +261,13 @@ export default function CashSheetPage() {
     [data],
   );
   const grand = (() => {
-    let starting = 0, revenue = 0, bills = 0, reserves = 0, operational = 0, hasStarting = false;
+    let starting = 0, revenue = 0, bills = 0, mortgage = 0, reserves = 0, operational = 0, hasStarting = false;
     for (const g of data?.groups ?? []) {
       const t = groupTotals(g);
-      bills += t.bills; reserves += t.reserves; revenue += t.revenue;
+      bills += t.bills; reserves += t.reserves; revenue += t.revenue; mortgage += t.mortgage;
       if (t.hasStarting) { starting += t.starting; operational += t.operational; hasStarting = true; }
     }
-    return { starting, revenue, bills, reserves, operational, hasStarting };
+    return { starting, revenue, bills, mortgage, reserves, operational, hasStarting };
   })();
 
   // Only show weeks that have started — future weeks stay hidden until their
@@ -266,7 +275,7 @@ export default function CashSheetPage() {
   // over every Wednesday, so nothing is lost. Weekly bills appear under one
   // "AvidXchange Bills Paid" header.
   const visibleWeds = useMemo(() => visibleWednesdays(wednesdays), [wednesdays]);
-  const colCount = 3 + visibleWeds.length + 3; // property + starting + revenue + weeks + (total bills, reserves, operational)
+  const colCount = 3 + visibleWeds.length + 4; // property + starting + revenue + weeks + (total bills, mortgage, reserves, operational)
   // Wednesday nudge for the editors (Drew/admin) to bring in the week's bills.
   const isWednesday = today.getDay() === 3;
 
@@ -276,7 +285,7 @@ export default function CashSheetPage() {
         <div>
           <h1 style={{ marginBottom: 4 }}>Cash Sheet</h1>
           <p className="muted small" style={{ margin: 0 }}>
-            Anticipated Revenue (rent-roll billings) is added and Bills paid to AvidXchange each Wednesday plus any Reserves are subtracted to get net Operational Cash — Starting Cash is the month&apos;s opening{" "}
+            Anticipated Revenue (rent-roll billings) is added and Bills paid to AvidXchange each Wednesday, Mortgage payments (from the debt tracker), and any Reserves are subtracted to get net Operational Cash — Starting Cash is the month&apos;s opening{" "}
             <Link href="/financials/operating-statements" style={{ color: "var(--brand)", fontWeight: 600 }}>Operating Cash</Link>{" "}
             balance Per the Detailed General Ledger and may not tie to the bank statement exactly.
           </p>
@@ -308,6 +317,7 @@ export default function CashSheetPage() {
         <StatPill label="Starting Cash · Portfolio" value={money0(grand.hasStarting ? grand.starting : null)} accent="#0b4a7d" />
         <StatPill label="Anticipated Revenue · Month" value={money0(grand.revenue)} accent={grand.revenue > 0 ? "#15803d" : undefined} />
         <StatPill label="Bills to Pay · Month" value={money0(grand.bills)} accent={grand.bills > 0 ? "#b45309" : undefined} />
+        <StatPill label="Mortgage · Month" value={money0(grand.mortgage)} accent={grand.mortgage > 0 ? "#b45309" : undefined} />
         <StatPill label="Reserves · Portfolio" value={money0(grand.reserves)} accent={grand.reserves > 0 ? "#6d28d9" : undefined} />
         <StatPill label="Operational Cash · Net" value={money0(grand.hasStarting ? grand.operational : null)} accent={grand.operational >= 0 ? "#15803d" : "#b91c1c"} />
       </div>
@@ -328,6 +338,7 @@ export default function CashSheetPage() {
                   </th>
                 )}
                 <th rowSpan={2} style={{ ...numCell, verticalAlign: "bottom" }}>Total Bills</th>
+                <th rowSpan={2} style={{ ...numCell, verticalAlign: "bottom" }} title="Scheduled mortgage P&amp;I from the debt tracker">Mortgage</th>
                 <th rowSpan={2} style={{ ...numCell, verticalAlign: "bottom" }}>Reserves</th>
                 <th rowSpan={2} style={{ ...numCell, verticalAlign: "bottom" }}>Operational Cash</th>
               </tr>
@@ -415,6 +426,10 @@ export default function CashSheetPage() {
                             </td>
                           ))}
                           <td style={{ ...numCell, fontWeight: 600 }}>{money0(rowBillsTotal(p.code))}</td>
+                          {/* Mortgage — scheduled P&I from the debt tracker; blank for pooled-fund buildings (on the fund row). */}
+                          <td style={numCell} title={pooled ? "Mortgage is on the fund row below" : "Scheduled mortgage P&I (debt tracker)"}>
+                            {pooled ? <span className="muted">—</span> : <MortgageLink amount={rowMortgage(p.code)} />}
+                          </td>
                           {/* Reserves — budget Big Projects (next 3 mo); click for the breakdown + override. */}
                           <td style={numCell} title={`Budgeted Big Projects over the next 3 months${resOverridden ? " · overridden" : ""} — click for the breakdown`}>
                             <button
@@ -477,6 +492,7 @@ export default function CashSheetPage() {
                       </td>
                       {visibleWeds.map((w) => <td key={w} style={numCell} />)}
                       <td style={numCell}>{money0(gt.bills)}</td>
+                      <td style={numCell} title="Scheduled mortgage P&I (debt tracker)">{pooled ? <MortgageLink amount={gt.mortgage} /> : money0(gt.mortgage)}</td>
                       <td style={numCell}>{money0(gt.reserves)}</td>
                       <td style={numCell} title={pooled ? (fundEndOverridden ? "Overridden — clear to use the computed value" : "Fund opening − all building bills − reserves") : undefined}>
                         {pooled
@@ -510,6 +526,7 @@ export default function CashSheetPage() {
                     </td>
                   ))}
                   <td style={numCell}>{money0(grand.bills)}</td>
+                  <td style={numCell}>{money0(grand.mortgage)}</td>
                   <td style={numCell}>{money0(grand.reserves)}</td>
                   <td style={{ ...numCell, color: grand.operational >= 0 ? "#15803d" : "#b91c1c" }}>
                     {money0(grand.hasStarting ? grand.operational : null)}
@@ -720,6 +737,23 @@ function ReserveModal({ code, name, year, detail, autoTotal, canEdit, overrideVa
         </div>
       </div>
     </div>
+  );
+}
+
+// Scheduled mortgage P&I — read-only, links to the debt tracker. Dash when no
+// payment is due that month.
+function MortgageLink({ amount }: { amount: number }) {
+  if (!amount) return <span className="muted">—</span>;
+  return (
+    <Link
+      href="/debt"
+      title="Scheduled mortgage P&I · open the debt tracker"
+      style={{ color: "#0b4a7d", fontWeight: 600, textDecoration: "none" }}
+      onMouseEnter={(e) => (e.currentTarget.style.textDecoration = "underline")}
+      onMouseLeave={(e) => (e.currentTarget.style.textDecoration = "none")}
+    >
+      {money0(amount)}
+    </Link>
   );
 }
 
