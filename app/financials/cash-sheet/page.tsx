@@ -21,6 +21,7 @@ import {
 
 type Starting = { amount: number | null; sourceYm: string };
 type Row = { reserves: number; bills: Record<string, number>; startingOverride?: number | null; endingOverride?: number | null };
+type MgmtFeeRow = { code: string; name: string; revenue: number; feePct: number; fee: number };
 type Payload = {
   ym: string; year: number; month: number;
   groups: CashSheetGroup[];
@@ -28,6 +29,8 @@ type Payload = {
   starting: Record<string, Starting>;
   /** Anticipated monthly gross billings per property code (from the rent roll). */
   revenue: Record<string, number>;
+  /** Per-property management fees behind LIK's (2010) revenue. */
+  mgmtFee: MgmtFeeRow[];
   rows: Record<string, Row>;
   carriedReserves: Record<string, number>;
   months: string[];
@@ -73,6 +76,7 @@ export default function CashSheetPage() {
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth() + 1);
   const [data, setData] = useState<Payload | null>(null);
+  const [mgmtOpen, setMgmtOpen] = useState(false); // LIK management-fee breakdown modal
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(0);
@@ -378,9 +382,9 @@ export default function CashSheetPage() {
                               ? <span className="muted">—</span>
                               : <span style={startOverridden ? { color: "#b45309", fontWeight: 700 } : undefined}>{money0(starting)}</span>}
                           </td>
-                          {/* Anticipated Revenue — read-only; click to open the rent roll for this property/month. Shown per building (incl. pooled funds). */}
+                          {/* Anticipated Revenue — read-only; click to open the rent roll for this property/month. Shown per building (incl. pooled funds). LIK (2010) opens its fee breakdown. */}
                           <td style={numCell}>
-                            <RevenueLink code={p.code} amount={revVal} ym={ym} />
+                            <RevenueLink code={p.code} amount={revVal} ym={ym} onMgmtClick={() => setMgmtOpen(true)} />
                           </td>
                           {visibleWeds.map((w) => (
                             <td key={w} style={numCell}>
@@ -509,6 +513,10 @@ export default function CashSheetPage() {
           : "View-only access."}
         {" · "}Bills reset each month; reserves carry forward. Starting/Operational cash can be overridden{canEdit ? " (amber border = overridden; clear the field to revert)" : ""}.
       </p>
+
+      {mgmtOpen && data && (
+        <MgmtFeeModal rows={data.mgmtFee} monthLabel={`${MONTHS[month - 1]} ${year}`} onClose={() => setMgmtOpen(false)} />
+      )}
     </main>
   );
 }
@@ -516,11 +524,22 @@ export default function CashSheetPage() {
 // Anticipated Revenue value — read-only, links to the rent roll for that
 // property + month (the source of the figure). Dash when there's no rent roll.
 // LIK Management (2010) earns its revenue as management fees across the
-// portfolio, so it's a computed total, not a single property's rent roll.
-function RevenueLink({ code, amount, ym }: { code: string; amount: number | null; ym: string }) {
+// portfolio, so it's a computed total — click to see the per-property breakdown.
+function RevenueLink({ code, amount, ym, onMgmtClick }: { code: string; amount: number | null; ym: string; onMgmtClick?: () => void }) {
   if (amount == null) return <span className="muted">—</span>;
   if (code === "2010") {
-    return <span title="Management fees earned — a % of each managed property's revenue (rate varies by property)" style={{ fontWeight: 600 }}>{money0(amount)}</span>;
+    return (
+      <button
+        type="button"
+        onClick={onMgmtClick}
+        title="Management fees earned — click for the per-property breakdown"
+        style={{ background: "none", border: "none", padding: 0, font: "inherit", color: "#0b4a7d", fontWeight: 600, cursor: "pointer", textDecoration: "none" }}
+        onMouseEnter={(e) => (e.currentTarget.style.textDecoration = "underline")}
+        onMouseLeave={(e) => (e.currentTarget.style.textDecoration = "none")}
+      >
+        {money0(amount)}
+      </button>
+    );
   }
   const href = `/rentroll?month=${ym}#prop-${code.toUpperCase()}`;
   return (
@@ -533,6 +552,67 @@ function RevenueLink({ code, amount, ym }: { code: string; amount: number | null
     >
       {money0(amount)}
     </Link>
+  );
+}
+
+// LIK (2010) management-fee breakdown — the anticipated fee earned from each
+// managed property (its revenue × its rate), summing to LIK's revenue figure.
+function MgmtFeeModal({ rows, monthLabel, onClose }: { rows: MgmtFeeRow[]; monthLabel: string; onClose: () => void }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+  const total = rows.reduce((a, r) => a + r.fee, 0);
+  const th: React.CSSProperties = { textAlign: "left", fontSize: 11, fontWeight: 800, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.04em", padding: "6px 10px", position: "sticky", top: 0, background: "var(--card)" };
+  const td: React.CSSProperties = { padding: "6px 10px", fontSize: 13, borderTop: "1px solid var(--border)", verticalAlign: "middle" };
+  const num: React.CSSProperties = { ...td, textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" };
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(15,23,42,0.55)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "48px 20px", overflow: "auto" }}>
+      <div onClick={(e) => e.stopPropagation()} className="card" style={{ width: "min(640px, 100%)", padding: 0, overflow: "hidden" }}>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, padding: "14px 16px", borderBottom: "1px solid var(--border)" }}>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>LIK Management · Anticipated Fees</div>
+            <div style={{ fontSize: 17, fontWeight: 800 }}>Management Fee by Property · {monthLabel}</div>
+          </div>
+          <button type="button" className="btn" onClick={onClose} style={{ fontSize: 13, padding: "6px 12px", fontWeight: 700 }}>Close</button>
+        </div>
+        {rows.length === 0 ? (
+          <div className="muted small" style={{ padding: 18 }}>No management fees — a property needs a loaded budget with a Management Fee line (and rent-roll revenue) to appear here.</div>
+        ) : (
+          <div className="tableWrap" style={{ maxHeight: "60vh", overflow: "auto", marginTop: 0 }}>
+            <table style={{ width: "100%" }}>
+              <thead>
+                <tr>
+                  <th style={th}>Property</th>
+                  <th style={{ ...th, textAlign: "right" }}>Revenue</th>
+                  <th style={{ ...th, textAlign: "right" }}>Rate</th>
+                  <th style={{ ...th, textAlign: "right" }}>Fee</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r.code}>
+                    <td style={td}><code style={{ fontSize: 12 }}>{r.code}</code><span style={{ marginLeft: 8 }}>{r.name}</span></td>
+                    <td style={num}>{money0(r.revenue)}</td>
+                    <td style={num}>{r.feePct}%</td>
+                    <td style={{ ...num, fontWeight: 700 }}>{money0(r.fee)}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr style={{ borderTop: "2px solid var(--border)", fontWeight: 800, background: "rgba(11,74,125,0.05)" }}>
+                  <td style={td}>Total · LIK Revenue</td>
+                  <td style={num} />
+                  <td style={num} />
+                  <td style={{ ...num, fontWeight: 800, color: "#15803d" }}>{money0(total)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 
