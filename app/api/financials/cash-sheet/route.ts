@@ -3,6 +3,7 @@ import { getMonth, listMonths, applyEdit } from "@/lib/financials/cash-sheet/sto
 import { startingCashFor } from "@/lib/financials/cash-sheet/startingCash";
 import { anticipatedRevenueFor } from "@/lib/financials/cash-sheet/revenue";
 import { bigProjectsReserveFor } from "@/lib/financials/cash-sheet/reserves";
+import { mortgagePaymentsFor } from "@/lib/financials/cash-sheet/mortgage";
 import { cashSheetGroups, cashSheetCodes, cashSheetFundCodes, wednesdaysInMonth, parseMonthKey, monthKey } from "@/lib/financials/cash-sheet/util";
 import { logAudit, auditIp } from "@/lib/audit";
 import { SITE_COOKIE, verifySiteToken } from "@/lib/site-auth";
@@ -41,11 +42,12 @@ export async function GET(req: Request) {
   // Property codes for per-property funds + the fund-level GL codes (PJV3, …)
   // whose cash is pooled into one bank account.
   const codes = [...cashSheetCodes(), ...cashSheetFundCodes()];
-  const [doc, starting, revenueData, reservesData, months] = await Promise.all([
+  const [doc, starting, revenueData, reservesData, mortgage, months] = await Promise.all([
     getMonth(ym),
     startingCashFor(codes, year, month),
     anticipatedRevenueFor(year, month),
     bigProjectsReserveFor(year, month),
+    mortgagePaymentsFor(year, month),
     listMonths(),
   ]);
 
@@ -60,6 +62,7 @@ export async function GET(req: Request) {
     mgmtFee: revenueData.mgmtFee,
     reservesAuto: reservesData.byCode,
     reserveDetail: reservesData.detail,
+    mortgage,
     rows: doc?.rows ?? {},
     months,
     updatedAt: doc?.updatedAt ?? null,
