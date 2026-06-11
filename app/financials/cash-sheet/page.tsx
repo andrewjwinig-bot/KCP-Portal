@@ -515,8 +515,13 @@ export default function CashSheetPage() {
 
 // Anticipated Revenue value — read-only, links to the rent roll for that
 // property + month (the source of the figure). Dash when there's no rent roll.
+// LIK Management (2010) earns its revenue as management fees across the
+// portfolio, so it's a computed total, not a single property's rent roll.
 function RevenueLink({ code, amount, ym }: { code: string; amount: number | null; ym: string }) {
   if (amount == null) return <span className="muted">—</span>;
+  if (code === "2010") {
+    return <span title="Management fees earned — a % of each managed property's revenue (rate varies by property)" style={{ fontWeight: 600 }}>{money0(amount)}</span>;
+  }
   const href = `/rentroll?month=${ym}#prop-${code.toUpperCase()}`;
   return (
     <Link
