@@ -40,7 +40,7 @@ export async function GET(req: Request) {
   // Property codes for per-property funds + the fund-level GL codes (PJV3, …)
   // whose cash is pooled into one bank account.
   const codes = [...cashSheetCodes(), ...cashSheetFundCodes()];
-  const [doc, carried, starting, revenue, months] = await Promise.all([
+  const [doc, carried, starting, revenueData, months] = await Promise.all([
     getMonth(ym),
     carriedReserves(year, month),
     startingCashFor(codes, year, month),
@@ -55,7 +55,8 @@ export async function GET(req: Request) {
     groups: cashSheetGroups(),
     wednesdays: wednesdaysInMonth(year, month),
     starting,
-    revenue,
+    revenue: revenueData.byCode,
+    mgmtFee: revenueData.mgmtFee,
     rows: doc?.rows ?? {},
     carriedReserves: carried,
     months,
