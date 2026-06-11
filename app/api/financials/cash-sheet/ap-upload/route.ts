@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import * as XLSX from "xlsx";
 import { parseApSelection } from "@/lib/financials/cash-sheet/apSelection";
-import { applyEdit } from "@/lib/financials/cash-sheet/store";
+import { applyBills } from "@/lib/financials/cash-sheet/store";
 import { parseMonthKey } from "@/lib/financials/cash-sheet/util";
 import { SITE_COOKIE, verifySiteToken } from "@/lib/site-auth";
 import { ALL_USERS, canEditCashSheet, type UserId } from "@/lib/users";
@@ -58,13 +58,10 @@ export async function POST(req: Request) {
     const pm = parseMonthKey(wednesday.slice(0, 7));
     if (!pm) return NextResponse.json({ error: "Bad week." }, { status: 400 });
 
-    const filled: { code: string; amount: number }[] = [];
-    for (const [code, amount] of Object.entries(byCode)) {
-      const value = Math.round(amount * 100) / 100;
-      await applyEdit({ year: pm.year, month: pm.month, code, kind: "bill", wednesday, value, updatedBy: user ?? undefined });
-      filled.push({ code, amount: value });
-    }
-    filled.sort((a, b) => b.amount - a.amount);
+    const rounded: Record<string, number> = {};
+    for (const [code, amount] of Object.entries(byCode)) rounded[code] = Math.round(amount * 100) / 100;
+    await applyBills(pm.year, pm.month, wednesday, rounded, user ?? undefined);
+    const filled = Object.entries(rounded).map(([code, amount]) => ({ code, amount })).sort((a, b) => b.amount - a.amount);
     const total = filled.reduce((s, f) => s + f.amount, 0);
     await logAudit({ event: "cash-sheet.ap-upload", user: user ?? "?", ip: auditIp(req), detail: `${wednesday} · ${files.length} file(s) · ${filled.length} props · $${Math.round(total).toLocaleString()}` });
 

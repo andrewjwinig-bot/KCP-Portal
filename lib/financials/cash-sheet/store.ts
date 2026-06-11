@@ -77,3 +77,28 @@ export async function applyEdit(params: {
   await storeJSON(PREFIX, ym, doc);
   return doc;
 }
+
+/**
+ * Set the `wednesday` bill for many codes in ONE read-modify-write — used by the
+ * AP report upload so all properties save atomically (a per-code loop would be
+ * 15+ blob writes and could fail partway, leaving only some filled).
+ */
+export async function applyBills(
+  year: number,
+  month: number,
+  wednesday: string,
+  byCode: Record<string, number>,
+  updatedBy?: string,
+): Promise<CashSheetMonth> {
+  const ym = monthKey(year, month);
+  const doc = (await getMonth(ym)) ?? { ym, year, month, rows: {}, updatedAt: new Date().toISOString(), updatedBy };
+  for (const [code, value] of Object.entries(byCode)) {
+    const row = doc.rows[code] ?? emptyRow();
+    if (value) row.bills[wednesday] = value; else delete row.bills[wednesday];
+    doc.rows[code] = row;
+  }
+  doc.updatedAt = new Date().toISOString();
+  if (updatedBy) doc.updatedBy = updatedBy;
+  await storeJSON(PREFIX, ym, doc);
+  return doc;
+}
