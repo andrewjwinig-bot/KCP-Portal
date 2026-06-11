@@ -548,31 +548,21 @@ export default function OperatingStatementsPage() {
               />
             )}
             {cur && (
-              <a
-                className="btn"
-                href={`/financials/reprojections?key=${encodeURIComponent(key)}${year ? `&year=${year}` : ""}`}
-                title={`Open ${cur.propertyCode}'s full-year reprojection`}
-                style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700, textDecoration: "none" }}
-              >
-                Reprojection
-              </a>
-            )}
-            {cur && (
-              <a
-                className="btn"
-                href={`/financials/budgets?property=${encodeURIComponent(cur.propertyCode)}${year ? `&year=${year}` : ""}`}
-                title={`Open ${cur.propertyCode}'s full operating budget`}
-                style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700, textDecoration: "none" }}
-              >
-                View Budget
-              </a>
+              <DownloadMenu
+                label="Open"
+                variant="default"
+                items={[
+                  { label: "Reprojection", description: `${cur.propertyCode}'s full-year reprojection`, href: `/financials/reprojections?key=${encodeURIComponent(key)}${year ? `&year=${year}` : ""}` },
+                  { label: "Budget", description: `${cur.propertyCode}'s operating budget`, href: `/financials/budgets?property=${encodeURIComponent(cur.propertyCode)}${year ? `&year=${year}` : ""}` },
+                ]}
+              />
             )}
           </div>
         </div>
 
         <div style={{ marginTop: 8 }}>
           <p className="muted small" style={{ margin: 0, display: "flex", alignItems: "center", gap: 6 }}>
-            <span>Import the <b>Detailed General Ledger</b> Excel file (.xls or .xlsx). Select <b>multiple files</b> to upload several at once — each is matched to its property by the header code.</span>
+            <span>Import <b>Detailed General Ledger</b> Excel file (.xls or .xlsx). Able to select multiple at once.</span>
             <ImportInstructionsButton
               year={year || new Date().getFullYear()}
               nextPeriod={statement ? Math.min(maxPeriod + 1, 12) : 1}
