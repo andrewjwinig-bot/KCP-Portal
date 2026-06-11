@@ -57,6 +57,27 @@ export function wednesdayLabel(iso: string): string {
   return `Wed ${Number(m[1])}/${Number(m[2])}`;
 }
 
+/** "Week of M/D" label for a Wednesday ISO date (bills are paid that week). */
+export function weekOfLabel(iso: string): string {
+  const m = /^\d{4}-(\d{2})-(\d{2})$/.exec(iso);
+  if (!m) return iso;
+  return `Week of ${Number(m[1])}/${Number(m[2])}`;
+}
+
+/** Of the given Wednesdays, those whose week has STARTED as of `today` (its
+ *  Monday is on/before today) — so future weeks stay hidden until they begin.
+ *  Bills are entered weekly as the AP report comes in, so future-week columns
+ *  are just clutter. A past month shows them all; a future month shows none. */
+export function visibleWednesdays(weds: string[], today: Date = new Date()): string[] {
+  const t = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+  return weds.filter((iso) => {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+    if (!m) return true;
+    const monday = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]) - 2).getTime(); // Wed → Mon
+    return monday <= t;
+  });
+}
+
 export type CashSheetProperty = { code: string; name: string };
 export type CashSheetGroup = {
   id: string;
