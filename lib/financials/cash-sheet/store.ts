@@ -60,7 +60,7 @@ export async function applyEdit(params: {
   year: number;
   month: number;
   code: string;
-  kind: "reserves" | "bill" | "startingOverride" | "revenueOverride" | "endingOverride";
+  kind: "reserves" | "bill" | "startingOverride" | "endingOverride";
   wednesday?: string;
   /** The new value, or null to clear an override. */
   value: number | null;
@@ -85,9 +85,6 @@ export async function applyEdit(params: {
   } else if (kind === "startingOverride") {
     if (value == null) delete row.startingOverride;
     else row.startingOverride = value;
-  } else if (kind === "revenueOverride") {
-    if (value == null) delete row.revenueOverride;
-    else row.revenueOverride = value;
   } else if (kind === "endingOverride") {
     if (value == null) delete row.endingOverride;
     else row.endingOverride = value;
