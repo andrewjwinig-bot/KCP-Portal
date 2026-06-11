@@ -9,7 +9,7 @@
 
 import "server-only";
 import { storeJSON, listJSON, getJSON } from "@/lib/storage";
-import { type CashSheetRow, priorMonth, monthKey } from "./util";
+import { type CashSheetRow, monthKey } from "./util";
 
 const PREFIX = "financials-cash-sheet";
 
@@ -32,29 +32,14 @@ export async function listMonths(): Promise<string[]> {
   return all.map((m) => m.ym).sort((a, b) => (a < b ? 1 : -1));
 }
 
-/** Reserve amounts per property from a month (for carry-forward prefill). */
-async function reservesFrom(ym: string): Promise<Record<string, number>> {
-  const doc = await getMonth(ym);
-  const out: Record<string, number> = {};
-  if (doc) for (const [code, row] of Object.entries(doc.rows)) {
-    if (row.reserves) out[code] = row.reserves;
-  }
-  return out;
-}
-
-/** Reserve amounts carried into (year, month) from the prior month. */
-export async function carriedReserves(year: number, month: number): Promise<Record<string, number>> {
-  const prev = priorMonth(year, month);
-  return reservesFrom(monthKey(prev.year, prev.month));
-}
-
 function emptyRow(): CashSheetRow {
-  return { reserves: 0, bills: {} };
+  return { bills: {} };
 }
 
 /**
- * Apply a single-cell edit to a month, creating + seeding the doc on first
- * write (reserves carried from the prior month). Returns the updated doc.
+ * Apply a single-cell edit to a month, creating the doc on first write.
+ * Reserves are auto-derived from the budget (see reserves.ts); a saved reserves
+ * value is a per-month OVERRIDE (null clears it).
  */
 export async function applyEdit(params: {
   year: number;
@@ -70,15 +55,12 @@ export async function applyEdit(params: {
   const ym = monthKey(year, month);
   let doc = await getMonth(ym);
   if (!doc) {
-    // Seed a fresh month: carry the prior month's reserves into each row.
-    const carried = await carriedReserves(year, month);
-    const rows: Record<string, CashSheetRow> = {};
-    for (const [c, reserves] of Object.entries(carried)) rows[c] = { reserves, bills: {} };
-    doc = { ym, year, month, rows, updatedAt: new Date().toISOString(), updatedBy };
+    doc = { ym, year, month, rows: {}, updatedAt: new Date().toISOString(), updatedBy };
   }
   const row = doc.rows[code] ?? emptyRow();
   if (kind === "reserves") {
-    row.reserves = value ?? 0;
+    if (value == null) delete row.reserves;
+    else row.reserves = value;
   } else if (kind === "bill" && wednesday) {
     if (value) row.bills[wednesday] = value;
     else delete row.bills[wednesday];

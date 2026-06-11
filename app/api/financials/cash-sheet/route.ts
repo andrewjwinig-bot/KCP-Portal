@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
-import { getMonth, listMonths, carriedReserves, applyEdit } from "@/lib/financials/cash-sheet/store";
+import { getMonth, listMonths, applyEdit } from "@/lib/financials/cash-sheet/store";
 import { startingCashFor } from "@/lib/financials/cash-sheet/startingCash";
 import { anticipatedRevenueFor } from "@/lib/financials/cash-sheet/revenue";
+import { bigProjectsReserveFor } from "@/lib/financials/cash-sheet/reserves";
 import { cashSheetGroups, cashSheetCodes, cashSheetFundCodes, wednesdaysInMonth, parseMonthKey, monthKey } from "@/lib/financials/cash-sheet/util";
 import { logAudit, auditIp } from "@/lib/audit";
 import { SITE_COOKIE, verifySiteToken } from "@/lib/site-auth";
@@ -40,11 +41,11 @@ export async function GET(req: Request) {
   // Property codes for per-property funds + the fund-level GL codes (PJV3, …)
   // whose cash is pooled into one bank account.
   const codes = [...cashSheetCodes(), ...cashSheetFundCodes()];
-  const [doc, carried, starting, revenueData, months] = await Promise.all([
+  const [doc, starting, revenueData, reservesAuto, months] = await Promise.all([
     getMonth(ym),
-    carriedReserves(year, month),
     startingCashFor(codes, year, month),
     anticipatedRevenueFor(year, month),
+    bigProjectsReserveFor(year, month),
     listMonths(),
   ]);
 
@@ -57,8 +58,8 @@ export async function GET(req: Request) {
     starting,
     revenue: revenueData.byCode,
     mgmtFee: revenueData.mgmtFee,
+    reservesAuto,
     rows: doc?.rows ?? {},
-    carriedReserves: carried,
     months,
     updatedAt: doc?.updatedAt ?? null,
   });
@@ -83,9 +84,10 @@ export async function POST(req: Request) {
     if (kind === "bill" && (typeof wednesday !== "string" || !wednesday)) {
       return NextResponse.json({ error: "wednesday required for bill edits" }, { status: 400 });
     }
-    // Overrides accept null (clear); other kinds coerce to a number.
+    // Overrides accept null (clear); bills coerce to a number. Reserves are now
+    // an override of the auto budget value, so they accept null too.
     const num = Number(value);
-    const isOverride = kind === "startingOverride" || kind === "endingOverride";
+    const isOverride = kind === "startingOverride" || kind === "endingOverride" || kind === "reserves";
     const amount: number | null = value == null && isOverride ? null : (Number.isFinite(num) ? num : 0);
 
     const doc = await applyEdit({

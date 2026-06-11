@@ -144,8 +144,9 @@ export function bankAccountsForCodes(codes: string[]): BankAccount[] {
 
 /** Per-property manual inputs for one month. */
 export type CashSheetRow = {
-  /** Standing reserve held back (carries month-to-month until changed). */
-  reserves: number;
+  /** Manual override of the auto-derived (budget Big Projects) reserve.
+   *  Absent/null = use the auto value. */
+  reserves?: number | null;
   /** Bills paid, keyed by Wednesday ISO date. Reset each month. */
   bills: Record<string, number>;
   /** Manual override of the auto-pulled Starting Cash (null = use the pulled
