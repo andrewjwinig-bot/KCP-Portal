@@ -41,7 +41,7 @@ export async function GET(req: Request) {
   // Property codes for per-property funds + the fund-level GL codes (PJV3, …)
   // whose cash is pooled into one bank account.
   const codes = [...cashSheetCodes(), ...cashSheetFundCodes()];
-  const [doc, starting, revenueData, reservesAuto, months] = await Promise.all([
+  const [doc, starting, revenueData, reservesData, months] = await Promise.all([
     getMonth(ym),
     startingCashFor(codes, year, month),
     anticipatedRevenueFor(year, month),
@@ -58,7 +58,8 @@ export async function GET(req: Request) {
     starting,
     revenue: revenueData.byCode,
     mgmtFee: revenueData.mgmtFee,
-    reservesAuto,
+    reservesAuto: reservesData.byCode,
+    reserveDetail: reservesData.detail,
     rows: doc?.rows ?? {},
     months,
     updatedAt: doc?.updatedAt ?? null,

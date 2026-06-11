@@ -22,6 +22,7 @@ import {
 type Starting = { amount: number | null; sourceYm: string };
 type Row = { reserves: number; bills: Record<string, number>; startingOverride?: number | null; endingOverride?: number | null };
 type MgmtFeeRow = { code: string; name: string; revenue: number; feePct: number; fee: number };
+type ReserveDetail = { windowMonths: number[]; lines: { label: string; amounts: number[] }[]; total: number };
 type Payload = {
   ym: string; year: number; month: number;
   groups: CashSheetGroup[];
@@ -34,6 +35,8 @@ type Payload = {
   /** Auto reserve per property code — budget "Big Projects" over the next 3
    *  months (this month + 2). */
   reservesAuto: Record<string, number>;
+  /** Per-property reserve breakdown (the Big Projects lines behind the total). */
+  reserveDetail: Record<string, ReserveDetail>;
   rows: Record<string, Row>;
   months: string[];
   updatedAt: string | null;
@@ -79,6 +82,7 @@ export default function CashSheetPage() {
   const [month, setMonth] = useState(today.getMonth() + 1);
   const [data, setData] = useState<Payload | null>(null);
   const [mgmtOpen, setMgmtOpen] = useState(false); // LIK management-fee breakdown modal
+  const [reserveModal, setReserveModal] = useState<{ code: string; name: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(0);
@@ -411,18 +415,17 @@ export default function CashSheetPage() {
                             </td>
                           ))}
                           <td style={{ ...numCell, fontWeight: 600 }}>{money0(rowBillsTotal(p.code))}</td>
-                          {/* Reserves — auto from the budget (Big Projects, next 3 mo); placeholder shows it, override to adjust. */}
-                          <td style={numCell} title={`Budgeted Big Projects over the next 3 months${resOverridden ? " · overridden" : ""}`}>
-                            <input
-                              style={{ ...cellInput, ...(resOverridden ? { borderColor: "#b45309", fontWeight: 700 } : {}) }}
-                              inputMode="decimal"
-                              placeholder={autoRes != null ? money0(autoRes) : "—"}
-                              disabled={!canEdit}
-                              value={resDraft[p.code] ?? ""}
-                              onChange={(e) => setResDraft((d) => ({ ...d, [p.code]: e.target.value }))}
-                              onBlur={() => commitReserves(p.code)}
-                              onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
-                            />
+                          {/* Reserves — budget Big Projects (next 3 mo); click for the breakdown + override. */}
+                          <td style={numCell} title={`Budgeted Big Projects over the next 3 months${resOverridden ? " · overridden" : ""} — click for the breakdown`}>
+                            <button
+                              type="button"
+                              onClick={() => setReserveModal({ code: p.code, name: p.name })}
+                              style={{ background: "none", border: "none", padding: 0, font: "inherit", cursor: "pointer", color: "#0b4a7d", fontWeight: resOverridden ? 700 : 600, textDecoration: "none", ...(resOverridden ? { color: "#b45309" } : (autoRes == null ? { color: "var(--muted)" } : {})) }}
+                              onMouseEnter={(e) => (e.currentTarget.style.textDecoration = "underline")}
+                              onMouseLeave={(e) => (e.currentTarget.style.textDecoration = "none")}
+                            >
+                              {autoRes == null && !resOverridden ? "—" : money0(rowReserves(p.code))}
+                            </button>
                           </td>
                           {/* Operational Cash — blank for pooled-fund buildings (computed at the fund) */}
                           <td style={numCell} title={pooled ? "Operational cash is computed for the fund — see the fund row below" : (endOverridden ? "Overridden — clear to use the computed value" : "Starting − bills − reserves")}>
@@ -528,6 +531,21 @@ export default function CashSheetPage() {
       {mgmtOpen && data && (
         <MgmtFeeModal rows={data.mgmtFee} monthLabel={`${MONTHS[month - 1]} ${year}`} onClose={() => setMgmtOpen(false)} />
       )}
+
+      {reserveModal && data && (
+        <ReserveModal
+          code={reserveModal.code}
+          name={reserveModal.name}
+          year={year}
+          detail={data.reserveDetail[reserveModal.code.toUpperCase()]}
+          autoTotal={autoReserve(reserveModal.code)}
+          canEdit={canEdit}
+          overrideValue={resDraft[reserveModal.code] ?? ""}
+          onOverrideChange={(v) => setResDraft((d) => ({ ...d, [reserveModal.code]: v }))}
+          onOverrideCommit={() => commitReserves(reserveModal.code)}
+          onClose={() => setReserveModal(null)}
+        />
+      )}
     </main>
   );
 }
@@ -622,6 +640,84 @@ function MgmtFeeModal({ rows, monthLabel, onClose }: { rows: MgmtFeeRow[]; month
             </table>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+// Reserve breakdown for one property — the budgeted "Big Projects" lines over
+// the look-ahead window (this month + next 2), with a per-month grid, plus the
+// per-month override.
+function ReserveModal({ code, name, year, detail, autoTotal, canEdit, overrideValue, onOverrideChange, onOverrideCommit, onClose }: {
+  code: string; name: string; year: number; detail?: ReserveDetail; autoTotal: number | null; canEdit: boolean;
+  overrideValue: string; onOverrideChange: (v: string) => void; onOverrideCommit: () => void; onClose: () => void;
+}) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+  const months = detail?.windowMonths ?? [];
+  const th: React.CSSProperties = { textAlign: "left", fontSize: 11, fontWeight: 800, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.04em", padding: "6px 10px", position: "sticky", top: 0, background: "var(--card)" };
+  const td: React.CSSProperties = { padding: "6px 10px", fontSize: 13, borderTop: "1px solid var(--border)", verticalAlign: "middle" };
+  const num: React.CSSProperties = { ...td, textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" };
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(15,23,42,0.55)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "48px 20px", overflow: "auto" }}>
+      <div onClick={(e) => e.stopPropagation()} className="card" style={{ width: "min(620px, 100%)", padding: 0, overflow: "hidden" }}>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, padding: "14px 16px", borderBottom: "1px solid var(--border)" }}>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>Reserve · Big Projects (next 3 months)</div>
+            <div style={{ fontSize: 17, fontWeight: 800 }}><code style={{ fontSize: 14 }}>{code}</code> {name}</div>
+          </div>
+          <button type="button" className="btn" onClick={onClose} style={{ fontSize: 13, padding: "6px 12px", fontWeight: 700 }}>Close</button>
+        </div>
+        {!detail || detail.lines.length === 0 ? (
+          <div className="muted small" style={{ padding: 18 }}>No budgeted Big Projects for this property in the next 3 months.</div>
+        ) : (
+          <div className="tableWrap" style={{ maxHeight: "50vh", overflow: "auto", marginTop: 0 }}>
+            <table style={{ width: "100%" }}>
+              <thead>
+                <tr>
+                  <th style={th}>Line</th>
+                  {months.map((m) => <th key={m} style={{ ...th, textAlign: "right" }}>{MONTHS[m - 1].slice(0, 3)} {year}</th>)}
+                  <th style={{ ...th, textAlign: "right" }}>Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {detail.lines.map((l, i) => (
+                  <tr key={i}>
+                    <td style={td}>{l.label}</td>
+                    {l.amounts.map((a, j) => <td key={j} style={num}>{money0(a)}</td>)}
+                    <td style={{ ...num, fontWeight: 700 }}>{money0(l.amounts.reduce((x, y) => x + y, 0))}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr style={{ borderTop: "2px solid var(--border)", fontWeight: 800, background: "rgba(11,74,125,0.05)" }}>
+                  <td style={td}>Total Reserve</td>
+                  {months.map((m, j) => <td key={m} style={num}>{money0(detail.lines.reduce((s, l) => s + (l.amounts[j] ?? 0), 0))}</td>)}
+                  <td style={{ ...num, fontWeight: 800, color: "#6d28d9" }}>{money0(detail.total)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        )}
+        <div style={{ padding: "12px 16px", borderTop: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+          <span className="muted small">Override this month&apos;s reserve {canEdit ? "(blank = use the budgeted amount)" : ""}:</span>
+          {canEdit ? (
+            <input
+              style={{ ...cashInput, ...(overrideValue.trim() ? { borderColor: "#b45309", fontWeight: 700 } : {}) }}
+              inputMode="decimal"
+              placeholder={autoTotal != null ? money0(autoTotal) : "—"}
+              value={overrideValue}
+              onChange={(e) => onOverrideChange(e.target.value)}
+              onBlur={onOverrideCommit}
+              onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+            />
+          ) : (
+            <span style={{ fontWeight: 700 }}>{overrideValue.trim() ? money0(parseNum(overrideValue)) : (autoTotal != null ? money0(autoTotal) : "—")}</span>
+          )}
+        </div>
       </div>
     </div>
   );
