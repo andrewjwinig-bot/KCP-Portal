@@ -67,6 +67,7 @@ export default function BankTransfersPage() {
   const [editing, setEditing] = useState<BankTransfer | "new" | null>(null);
   const [savedPrompt, setSavedPrompt] = useState<boolean>(false);
   const [search, setSearch] = useState("");
+  const [showFlows, setShowFlows] = useState(false);
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -122,18 +123,21 @@ export default function BankTransfersPage() {
     [filtered]
   );
 
-  // Distinct labels currently in use that are NOT in UNIQUE_BANK_ACCOUNTS.
-  // Surfaced in the dropdowns as "Legacy" entries so existing rows still
-  // show their value and can be remapped to a canonical account.
-  const legacyLabels = useMemo(() => {
-    const canonical = new Set(UNIQUE_BANK_ACCOUNTS.map(accountLabel));
-    const set = new Set<string>();
-    (transfers ?? []).forEach((t) => {
-      if (t.fromLabel && !canonical.has(t.fromLabel)) set.add(t.fromLabel);
-      if (t.toLabel && !canonical.has(t.toLabel)) set.add(t.toLabel);
-    });
-    return Array.from(set).sort();
-  }, [transfers]);
+  // Total cash moved between each account pair (directed From → To) over the
+  // filtered set, so you can see how much has flowed from one entity to another.
+  const flows = useMemo(() => {
+    const map = new Map<string, { from: string; to: string; count: number; total: number; last: string }>();
+    for (const t of filtered) {
+      if (!t.fromLabel || !t.toLabel) continue;
+      const key = `${t.fromLabel}${t.toLabel}`;
+      const e = map.get(key) ?? { from: t.fromLabel, to: t.toLabel, count: 0, total: 0, last: t.date };
+      e.count += 1;
+      e.total += t.amount || 0;
+      if (t.date > e.last) e.last = t.date;
+      map.set(key, e);
+    }
+    return Array.from(map.values()).sort((a, b) => b.total - a.total);
+  }, [filtered]);
 
   async function saveTransfer(
     draft: Partial<BankTransfer> & { id?: string; createdAt?: string },
@@ -217,7 +221,45 @@ export default function BankTransfersPage() {
       <div className="pills">
         <StatPill label="Transfers" value={filtered.length} />
         <StatPill label="Total volume" value={fmtMoney(totalAmount)} />
+        <StatPill label="Account pairs" value={flows.length} />
         <StatPill label="Missing PDF" value={missingPdf} accent={missingPdf > 0 ? "#b91c1c" : undefined} />
+      </div>
+
+      <div className="card" style={{ padding: 0 }}>
+        <button
+          onClick={() => setShowFlows((s) => !s)}
+          style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "12px 16px", background: "none", border: "none", cursor: "pointer", textAlign: "left", color: "var(--text)" }}
+        >
+          <span style={{ fontWeight: 700 }}>Cash Flow Between Accounts <span className="muted small" style={{ fontWeight: 500 }}>· total moved from one account to another{search ? " (filtered)" : ""}</span></span>
+          <span className="muted" style={{ transform: showFlows ? "rotate(90deg)" : undefined, transition: "transform 0.15s" }}>▶</span>
+        </button>
+        {showFlows && (
+          <div className="tableWrap" style={{ borderTop: "1px solid var(--border)" }}>
+            <table>
+              <thead>
+                <tr>
+                  <th>From</th>
+                  <th>To</th>
+                  <th style={{ textAlign: "right", whiteSpace: "nowrap" }}>Transfers</th>
+                  <th style={{ textAlign: "right", whiteSpace: "nowrap" }}>Total Moved</th>
+                  <th style={{ whiteSpace: "nowrap" }}>Last</th>
+                </tr>
+              </thead>
+              <tbody>
+                {flows.length === 0 && <tr><td colSpan={5} className="muted small" style={{ padding: 16 }}>No transfers.</td></tr>}
+                {flows.map((f) => (
+                  <tr key={`${f.from}→${f.to}`}>
+                    <td><AccountCell label={f.from} /></td>
+                    <td><AccountCell label={f.to} /></td>
+                    <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{f.count}</td>
+                    <td style={{ textAlign: "right", fontWeight: 700, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{fmtMoney(f.total)}</td>
+                    <td className="muted small" style={{ whiteSpace: "nowrap" }}>{prettyDate(f.last)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       <div className="card" style={{ padding: 0 }}>
@@ -284,7 +326,6 @@ export default function BankTransfersPage() {
       {editing !== null && (
         <EditModal
           item={editing === "new" ? null : editing}
-          legacyLabels={legacyLabels}
           onClose={() => setEditing(null)}
           onSave={saveTransfer}
           onDelete={deleteTransfer}
@@ -529,13 +570,11 @@ function Toolbar({
 
 function EditModal({
   item,
-  legacyLabels,
   onClose,
   onSave,
   onDelete,
 }: {
   item: BankTransfer | null;
-  legacyLabels: string[];
   onClose: () => void;
   onSave: (draft: Partial<BankTransfer> & { id?: string; createdAt?: string }, isNew: boolean) => void | Promise<void>;
   onDelete: (id: string) => void | Promise<void>;
@@ -635,7 +674,6 @@ function EditModal({
                 onChange={setFromLabel}
                 accounts={accountsForBank}
                 inBankLabels={accountLabelsForBank}
-                legacyLabels={legacyLabels}
               />
             </Field>
             <Field label="To">
@@ -644,7 +682,6 @@ function EditModal({
                 onChange={setToLabel}
                 accounts={accountsForBank}
                 inBankLabels={accountLabelsForBank}
-                legacyLabels={legacyLabels}
               />
             </Field>
           </div>
@@ -710,16 +747,14 @@ function AccountSelect({
   onChange,
   accounts,
   inBankLabels,
-  legacyLabels,
 }: {
   value: string;
   onChange: (next: string) => void;
-  accounts: { key: string; accountName: string; last4: string }[];
+  accounts: { key: string; accountName: string; last4: string; propertyCode?: string }[];
   inBankLabels: Set<string>;
-  legacyLabels: string[];
 }) {
   // If the current value isn't one of the in-bank canonical options, show
-  // it as a "Legacy" option at the top so the existing data is preserved
+  // it as a "Legacy" option at the top so an existing row's value is preserved
   // until staff remaps it.
   const valueIsCanonical = !value || inBankLabels.has(value);
   return (
@@ -732,17 +767,12 @@ function AccountSelect({
       )}
       <optgroup label="Accounts">
         {accounts.map((a) => {
+          // Stored value stays the canonical account label; the property code is
+          // prepended to the visible text so the To/From lists are easy to scan.
           const label = `${a.key || a.accountName} (${a.last4})`;
-          return <option key={a.last4} value={label}>{label}</option>;
+          return <option key={a.last4} value={label}>{a.propertyCode ? `${a.propertyCode} · ${label}` : label}</option>;
         })}
       </optgroup>
-      {legacyLabels.length > 0 && (
-        <optgroup label="Other legacy labels">
-          {legacyLabels.filter((l) => l !== value).map((l) => (
-            <option key={l} value={l}>{l}</option>
-          ))}
-        </optgroup>
-      )}
     </select>
   );
 }
