@@ -50,6 +50,10 @@ function money0(v: number | null): string {
   const s = Math.abs(n).toLocaleString("en-US");
   return n < 0 ? `($${s})` : `$${s}`;
 }
+/** Bill-input display value — currency with commas, rounded to the dollar. */
+function fmtBillDraft(v: number): string {
+  return v ? `$${Math.round(v).toLocaleString("en-US")}` : "";
+}
 function parseNum(s: string): number {
   const n = Number(s.replace(/[$,\s]/g, ""));
   return Number.isFinite(n) ? n : 0;
@@ -65,10 +69,12 @@ function sourceLabel(ym: string): string {
 }
 
 const numCell: React.CSSProperties = { textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" };
+// Editable cells read like plain text — borderless + transparent — and only show
+// a field outline on hover/focus (the `cs-edit` class in globals.css).
 const cellInput: React.CSSProperties = {
   width: 96, textAlign: "right", font: "inherit", fontSize: 13,
-  padding: "5px 7px", borderRadius: 6, border: "1px solid var(--border)",
-  background: "var(--card)", fontVariantNumeric: "tabular-nums",
+  padding: "5px 7px", borderRadius: 6, border: "1px solid transparent",
+  background: "transparent", fontVariantNumeric: "tabular-nums",
 };
 const cashInput: React.CSSProperties = { ...cellInput, width: 112 };
 const groupHeaderCell: React.CSSProperties = {
@@ -116,8 +122,7 @@ export default function CashSheetPage() {
           const row = j.rows[p.code];
           bd[p.code] = {};
           for (const w of j.wednesdays) {
-            const v = row?.bills?.[w];
-            bd[p.code][w] = v ? String(v) : "";
+            bd[p.code][w] = fmtBillDraft(row?.bills?.[w] ?? 0);
           }
           rd[p.code] = row?.reserves != null ? String(row.reserves) : "";
           sd[p.code] = row?.startingOverride != null ? String(row.startingOverride) : "";
@@ -132,8 +137,7 @@ export default function CashSheetPage() {
           ed[g.fundCashCode] = row?.endingOverride != null ? String(row.endingOverride) : "";
           bd[g.fundCashCode] = {};
           for (const w of j.wednesdays) {
-            const v = row?.bills?.[w];
-            bd[g.fundCashCode][w] = v ? String(v) : "";
+            bd[g.fundCashCode][w] = fmtBillDraft(row?.bills?.[w] ?? 0);
           }
         }
         setBillDraft(bd);
@@ -191,7 +195,9 @@ export default function CashSheetPage() {
   }
 
   function commitBill(code: string, wed: string) {
-    save({ code, kind: "bill", wednesday: wed, value: parseNum(billDraft[code]?.[wed] ?? "") });
+    const n = Math.round(parseNum(billDraft[code]?.[wed] ?? ""));
+    setBillDraft((d) => ({ ...d, [code]: { ...d[code], [wed]: fmtBillDraft(n) } }));
+    save({ code, kind: "bill", wednesday: wed, value: n });
   }
   function commitReserves(code: string) {
     save({ code, kind: "reserves", value: parseNum(resDraft[code] ?? "") });
@@ -449,7 +455,7 @@ export default function CashSheetPage() {
                             ) : canEdit ? (
                               <input
                                 style={{ ...cashInput, ...(startOverridden ? { borderColor: "#b45309", fontWeight: 700 } : {}) }}
-                                inputMode="decimal"
+                                className="cs-edit" inputMode="decimal"
                                 placeholder={auto != null ? money0(auto) : "—"}
                                 value={startDraft[p.code] ?? ""}
                                 onChange={(e) => setStartDraft((d) => ({ ...d, [p.code]: e.target.value }))}
@@ -470,7 +476,7 @@ export default function CashSheetPage() {
                               {pooled ? null : (
                                 <input
                                   style={cellInput}
-                                  inputMode="decimal"
+                                  className="cs-edit" inputMode="decimal"
                                   placeholder="—"
                                   disabled={!canEdit}
                                   value={billDraft[p.code]?.[w] ?? ""}
@@ -505,7 +511,7 @@ export default function CashSheetPage() {
                             ) : canEdit ? (
                               <input
                                 style={{ ...cashInput, fontWeight: 800, color: op == null ? undefined : op >= 0 ? "#15803d" : "#b91c1c", ...(endOverridden ? { borderColor: "#b45309" } : {}) }}
-                                inputMode="decimal"
+                                className="cs-edit" inputMode="decimal"
                                 placeholder={computedOperational(p.code) != null ? money0(computedOperational(p.code)) : "—"}
                                 value={endDraft[p.code] ?? ""}
                                 onChange={(e) => setEndDraft((d) => ({ ...d, [p.code]: e.target.value }))}
@@ -532,7 +538,7 @@ export default function CashSheetPage() {
                           ? (canEdit
                               ? <input
                                   style={{ ...cashInput, fontWeight: 700, ...(fundStartOverridden ? { borderColor: "#b45309" } : {}) }}
-                                  inputMode="decimal"
+                                  className="cs-edit" inputMode="decimal"
                                   placeholder={fundAuto != null ? money0(fundAuto) : "—"}
                                   value={startDraft[fc] ?? ""}
                                   onChange={(e) => setStartDraft((d) => ({ ...d, [fc]: e.target.value }))}
@@ -552,7 +558,7 @@ export default function CashSheetPage() {
                           {pooled ? (
                             <input
                               style={cellInput}
-                              inputMode="decimal"
+                              className="cs-edit" inputMode="decimal"
                               placeholder="—"
                               disabled={!canEdit}
                               value={billDraft[fc]?.[w] ?? ""}
@@ -571,7 +577,7 @@ export default function CashSheetPage() {
                           ? (canEdit
                               ? <input
                                   style={{ ...cashInput, fontWeight: 800, color: gt.operational >= 0 ? "#15803d" : "#b91c1c", ...(fundEndOverridden ? { borderColor: "#b45309" } : {}) }}
-                                  inputMode="decimal"
+                                  className="cs-edit" inputMode="decimal"
                                   placeholder={fundCompOp != null ? money0(fundCompOp) : "—"}
                                   value={endDraft[fc] ?? ""}
                                   onChange={(e) => setEndDraft((d) => ({ ...d, [fc]: e.target.value }))}
@@ -796,7 +802,7 @@ function ReserveModal({ code, name, year, detail, autoTotal, canEdit, overrideVa
           {canEdit ? (
             <input
               style={{ ...cashInput, ...(overrideValue.trim() ? { borderColor: "#b45309", fontWeight: 700 } : {}) }}
-              inputMode="decimal"
+              className="cs-edit" inputMode="decimal"
               placeholder={autoTotal != null ? money0(autoTotal) : "—"}
               value={overrideValue}
               onChange={(e) => onOverrideChange(e.target.value)}
