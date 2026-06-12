@@ -75,6 +75,10 @@ describe("cash-sheet util", () => {
     expect(byId.jv3.properties.map((p) => p.code)).toEqual(["3610", "3620", "3640"]);
     // Land carries the land entities (with bank accounts).
     expect(byId.land.properties.map((p) => p.code)).toEqual(expect.arrayContaining(["0300", "0800"]));
+    // Shopping Centers are sorted ascending by property code.
+    const sc = byId.sc.properties.map((p) => p.code);
+    expect(sc).toEqual([...sc].sort((a, b) => a.localeCompare(b)));
+    expect(sc[0]).toBe("1100");
   });
 
   it("resolves bank accounts for a row, deduped across a pooled fund's buildings", () => {
