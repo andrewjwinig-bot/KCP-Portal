@@ -526,6 +526,9 @@ export default function OperatingStatementsPage() {
             )}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <a className="btn" href="/financials/operating-statements/review" title="All '?' lines to investigate, across every property — one exportable list" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700, textDecoration: "none" }}>
+              Flags to Investigate
+            </a>
             <button className="btn primary" title="Upload one or more GL files — each file's header identifies its property" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }} disabled={uploading} onClick={() => fileRef.current?.click()}>
               {uploading ? "Uploading…" : "Upload GL"}
             </button>
