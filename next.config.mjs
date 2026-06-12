@@ -18,6 +18,9 @@ const securityHeaders = [
 ];
 
 const nextConfig = {
+  // pdf-parse (and its pdfjs core) ship their own runtime assets — keep them out
+  // of the bundle so the Cash Sheet AP PDF parser loads them at runtime.
+  serverExternalPackages: ["pdf-parse"],
   experimental: {
     serverActions: { bodySizeLimit: "20mb" },
   },

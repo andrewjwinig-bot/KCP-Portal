@@ -15,6 +15,7 @@ const AP_TO_CASHSHEET: Record<string, string> = {
   FNIPLX: "PNIPLX", // Neshaminy Interplex LLC fund
   FIIICO: "CONDO",  // Neshaminy III Condo Association
   "2000": "2010",   // 2000 Clearing → LIK Management
+  "9500": "9510",   // 9500 LH LLC (holding) → Shops at Lafayette Hill
 };
 
 export type ApSelectionResult = {
@@ -45,12 +46,20 @@ export function parseApSelection(rows: (string | number | null)[][]): ApSelectio
     const cells = (row ?? []).map((c) => (c == null ? "" : String(c)));
     const m = /Property\/Company\s+(\S+)\s+Total/i.exec(cells.join(" "));
     if (!m) continue;
-    // Money cells on the total row are [Invoice, Payment, Discount, Net].
+    // The total row carries Invoice | Payment | Discount | Net — equal in these
+    // reports (no partials/discounts). Take the max money value, which is robust
+    // to the column shuffling that PDF text extraction introduces.
     const amounts = cells.map(parseMoney).filter((n): n is number => n != null);
     if (!amounts.length) continue;
-    const payment = amounts.length >= 4 ? amounts[1] : amounts[amounts.length - 1];
+    const payment = Math.max(...amounts);
     const code = AP_TO_CASHSHEET[m[1].toUpperCase()] ?? m[1].toUpperCase();
     byCode[code] = (byCode[code] ?? 0) + payment;
   }
   return { reportDate, byCode };
+}
+
+/** Turn extracted PDF text into the same row shape the Excel path produces:
+ *  one row per line, split into whitespace-separated tokens. */
+export function apTextToRows(text: string): string[][] {
+  return text.split(/\r?\n/).map((line) => line.split(/\s+/).filter(Boolean));
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseApSelection } from "./apSelection";
+import { parseApSelection, apTextToRows } from "./apSelection";
 
 // A trimmed AP AutoPay Selections Report: the header date + a couple of
 // "Property/Company <CODE> Total" lines (Invoice | Payment | Discount | Net).
@@ -28,5 +28,17 @@ describe("parseApSelection", () => {
 
   it("ignores non-AP sheets (no Property/Company totals)", () => {
     expect(parseApSelection([["Some GL", "", "stuff"], ["1100", "", "12,345.67"]]).byCode).toEqual({});
+  });
+
+  it("parses PDF-extracted text (shuffled columns) via apTextToRows", () => {
+    // PDF text extraction reorders the money columns; the max value still wins.
+    const text = [
+      "6/3/2026",
+      "1,681.36\tProperty/Company FJVIII Total 3 Check(s) 1,681.36\t0.00\t1,681.36",
+      "2,501.50 Property/Company 9500 Total 1 Check(s) 2,501.50 0.00 2,501.50",
+    ].join("\n");
+    const r = parseApSelection(apTextToRows(text));
+    expect(r.reportDate).toBe("2026-06-03");
+    expect(r.byCode).toEqual({ PJV3: 1681.36, "9510": 2501.5 }); // 9500 → 9510
   });
 });
