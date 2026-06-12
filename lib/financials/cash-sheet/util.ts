@@ -118,6 +118,10 @@ export function cashSheetGroups(): CashSheetGroup[] {
   const condo: CashSheetGroup = { id: "condo", label: "JV III Condo", properties: [{ code: "CONDO", name: "Neshaminy III Condo Assoc" }] };
   const i = groups.findIndex((g) => g.id === "jv3");
   if (i >= 0) groups.splice(i + 1, 0, condo); else groups.push(condo);
+  // The 2000 Clearing account is its own bank account under LIK Management — add
+  // it as a second row in that group (the AP report keys its bills to "2000").
+  const mgmt = groups.find((g) => g.id === "mgmt");
+  if (mgmt) mgmt.properties.push({ code: "2000", name: "2000 Clearing" });
   return groups;
 }
 
