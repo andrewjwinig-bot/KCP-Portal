@@ -9,13 +9,13 @@
 // Starting Cash and Operational (ending) Cash can be manually overridden.
 // Bills reset each month; reserves carry forward; history is browsable by month.
 
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useUser } from "@/app/components/UserProvider";
 import { StatPill } from "@/app/components/Pill";
 import { canEditCashSheet } from "@/lib/users";
 import {
-  MONTHS, weekOfLabel, visibleWednesdays, monthKey, parseMonthKey, bankAccountsForCodes,
+  MONTHS, weekOfLabel, monthKey, parseMonthKey, bankAccountsForCodes,
   type CashSheetGroup, type BankAccount,
 } from "@/lib/financials/cash-sheet/util";
 
@@ -91,6 +91,7 @@ export default function CashSheetPage() {
   const [data, setData] = useState<Payload | null>(null);
   const [mgmtOpen, setMgmtOpen] = useState(false); // LIK management-fee breakdown modal
   const [reserveModal, setReserveModal] = useState<{ code: string; name: string } | null>(null);
+  const [billsModal, setBillsModal] = useState<{ code: string; name: string } | null>(null); // weekly AvidXchange bills breakdown
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(0);
@@ -294,16 +295,6 @@ export default function CashSheetPage() {
     return { starting, revenue, bills, mortgage, reserves, operational, hasStarting };
   }
   // Building codes only (per-Wednesday bill totals in the footer).
-  const allCodes = useMemo(
-    () => (data?.groups ?? []).flatMap((g) => g.properties.map((p) => p.code)),
-    [data],
-  );
-  // Codes that carry weekly bills: per-property rows + the pooled-fund codes
-  // (where the fund's bills live). Used for the per-Wednesday footer totals.
-  const billCodes = useMemo(
-    () => (data?.groups ?? []).flatMap((g) => g.fundCashCode ? [g.fundCashCode] : g.properties.map((p) => p.code)),
-    [data],
-  );
   const grand = (() => {
     let starting = 0, revenue = 0, bills = 0, mortgage = 0, reserves = 0, operational = 0, hasStarting = false;
     for (const g of data?.groups ?? []) {
@@ -314,12 +305,10 @@ export default function CashSheetPage() {
     return { starting, revenue, bills, mortgage, reserves, operational, hasStarting };
   })();
 
-  // Only show weeks that have started — future weeks stay hidden until their
-  // Monday (bills come in weekly from the AP Selection Report). Totals still sum
-  // over every Wednesday, so nothing is lost. Weekly bills appear under one
-  // "AvidXchange Bills Paid" header.
-  const visibleWeds = useMemo(() => visibleWednesdays(wednesdays), [wednesdays]);
-  const colCount = 3 + visibleWeds.length + 4; // property + starting + revenue + weeks + (total bills, mortgage, reserves, operational)
+  // Bills are imported weekly from AvidXchange (AP Selection Report); the sheet
+  // shows one month-to-date "Avid Bills" column, with the per-week detail in a
+  // click-through modal.
+  const colCount = 7; // property + starting + revenue + avid bills + mortgage + reserves + operational
   // Wednesday nudge for the editors (Drew/admin) to bring in the week's bills.
   const isWednesday = today.getDay() === 3;
 
@@ -388,23 +377,13 @@ export default function CashSheetPage() {
           <table style={{ minWidth: 720 }}>
             <thead>
               <tr>
-                <th rowSpan={2} style={{ textAlign: "left", minWidth: 200, verticalAlign: "bottom" }}>Property</th>
-                <th rowSpan={2} style={{ ...numCell, verticalAlign: "bottom" }}>Starting Cash</th>
-                <th rowSpan={2} style={{ ...numCell, verticalAlign: "bottom" }} title="Anticipated monthly billings from the rent roll (base + CAM/RET + reimbursements)">Anticipated Revenue</th>
-                {visibleWeds.length > 0 && (
-                  <th colSpan={visibleWeds.length} style={{ ...numCell, textAlign: "center", borderBottom: "1px solid var(--border)", color: "#b45309" }}>
-                    AvidXchange Bills Paid
-                  </th>
-                )}
-                <th rowSpan={2} style={{ ...numCell, verticalAlign: "bottom" }}>Total Bills</th>
-                <th rowSpan={2} style={{ ...numCell, verticalAlign: "bottom" }} title="Scheduled mortgage P&amp;I from the debt tracker">Mortgage</th>
-                <th rowSpan={2} style={{ ...numCell, verticalAlign: "bottom" }}>Reserves</th>
-                <th rowSpan={2} style={{ ...numCell, verticalAlign: "bottom" }}>Operational Cash</th>
-              </tr>
-              <tr>
-                {visibleWeds.map((w) => (
-                  <th key={w} style={numCell} title={`Bills paid the week of ${w}`}>{weekOfLabel(w)}</th>
-                ))}
+                <th style={{ textAlign: "left", minWidth: 200 }}>Property</th>
+                <th style={numCell}>Starting Cash</th>
+                <th style={numCell} title="Anticipated monthly billings from the rent roll (base + CAM/RET + reimbursements)">Anticipated Revenue</th>
+                <th style={numCell} title="AvidXchange bills paid month-to-date — click a row for the weekly detail">Avid Bills</th>
+                <th style={numCell} title="Scheduled mortgage P&amp;I from the debt tracker">Mortgage</th>
+                <th style={numCell}>Reserves</th>
+                <th style={numCell}>Operational Cash</th>
               </tr>
             </thead>
             <tbody>
@@ -470,24 +449,20 @@ export default function CashSheetPage() {
                           <td style={numCell}>
                             <RevenueLink code={p.code} amount={revVal} ym={ym} onMgmtClick={() => setMgmtOpen(true)} />
                           </td>
-                          {/* Weekly bills — for pooled funds the bills are at the fund level (shown on the fund row), so building cells are blank. */}
-                          {visibleWeds.map((w) => (
-                            <td key={w} style={numCell}>
-                              {pooled ? null : (
-                                <input
-                                  style={cellInput}
-                                  className="cs-edit" inputMode="decimal"
-                                  placeholder="—"
-                                  disabled={!canEdit}
-                                  value={billDraft[p.code]?.[w] ?? ""}
-                                  onChange={(e) => setBillDraft((d) => ({ ...d, [p.code]: { ...d[p.code], [w]: e.target.value } }))}
-                                  onBlur={() => commitBill(p.code, w)}
-                                  onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
-                                />
-                              )}
-                            </td>
-                          ))}
-                          <td style={{ ...numCell, fontWeight: 600 }}>{pooled ? "" : money0(rowBillsTotal(p.code))}</td>
+                          {/* Avid Bills — month-to-date AvidXchange bills; click for the weekly detail. Pooled-fund bills are on the fund row. */}
+                          <td style={numCell} title={pooled ? "Bills are on the fund row below" : "AvidXchange bills month-to-date — click for the weekly detail"}>
+                            {pooled ? <span className="muted">—</span> : (
+                              <button
+                                type="button"
+                                onClick={() => setBillsModal({ code: p.code, name: p.name })}
+                                style={{ background: "none", border: "none", padding: 0, font: "inherit", cursor: "pointer", color: rowBillsTotal(p.code) ? "#0b4a7d" : "var(--muted)", fontWeight: 600, textDecoration: "none" }}
+                                onMouseEnter={(e) => (e.currentTarget.style.textDecoration = "underline")}
+                                onMouseLeave={(e) => (e.currentTarget.style.textDecoration = "none")}
+                              >
+                                {rowBillsTotal(p.code) ? money0(rowBillsTotal(p.code)) : "—"}
+                              </button>
+                            )}
+                          </td>
                           {/* Mortgage — scheduled P&I from the debt tracker; blank for pooled-fund buildings (on the fund row). */}
                           <td style={numCell} title={pooled ? "Mortgage is on the fund row below" : "Scheduled mortgage P&I (debt tracker)"}>
                             {pooled ? <span className="muted">—</span> : <MortgageLink amount={rowMortgage(p.code)} />}
@@ -552,24 +527,20 @@ export default function CashSheetPage() {
                       <td style={numCell} title={pooled ? "Total anticipated revenue (rent roll, all buildings)" : undefined}>
                         {money0(gt.revenue)}
                       </td>
-                      {/* Pooled fund's weekly bills live here (one account pays for all buildings) — filled by the AP Selection Report. */}
-                      {visibleWeds.map((w) => (
-                        <td key={w} style={numCell}>
-                          {pooled ? (
-                            <input
-                              style={cellInput}
-                              className="cs-edit" inputMode="decimal"
-                              placeholder="—"
-                              disabled={!canEdit}
-                              value={billDraft[fc]?.[w] ?? ""}
-                              onChange={(e) => setBillDraft((d) => ({ ...d, [fc]: { ...d[fc], [w]: e.target.value } }))}
-                              onBlur={() => commitBill(fc, w)}
-                              onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
-                            />
-                          ) : null}
-                        </td>
-                      ))}
-                      <td style={numCell}>{money0(gt.bills)}</td>
+                      {/* Avid Bills — the fund's month-to-date bills (one account pays for all buildings); click for the weekly detail. */}
+                      <td style={numCell} title="AvidXchange bills month-to-date — click for the weekly detail">
+                        {pooled ? (
+                          <button
+                            type="button"
+                            onClick={() => setBillsModal({ code: fc, name: `${g.label}` })}
+                            style={{ background: "none", border: "none", padding: 0, font: "inherit", cursor: "pointer", color: gt.bills ? "#0b4a7d" : "var(--muted)", fontWeight: 700, textDecoration: "none" }}
+                            onMouseEnter={(e) => (e.currentTarget.style.textDecoration = "underline")}
+                            onMouseLeave={(e) => (e.currentTarget.style.textDecoration = "none")}
+                          >
+                            {gt.bills ? money0(gt.bills) : "—"}
+                          </button>
+                        ) : money0(gt.bills)}
+                      </td>
                       <td style={numCell} title="Scheduled mortgage P&I (debt tracker)">{pooled ? <MortgageLink amount={gt.mortgage} /> : money0(gt.mortgage)}</td>
                       <td style={numCell}>{money0(gt.reserves)}</td>
                       <td style={numCell} title={pooled ? (fundEndOverridden ? "Overridden — clear to use the computed value" : "Fund opening − all building bills − reserves") : undefined}>
@@ -598,11 +569,6 @@ export default function CashSheetPage() {
                   <td style={{ textAlign: "left" }}>Portfolio Total</td>
                   <td style={numCell}>{money0(grand.hasStarting ? grand.starting : null)}</td>
                   <td style={numCell}>{money0(grand.revenue)}</td>
-                  {visibleWeds.map((w) => (
-                    <td key={w} style={numCell}>
-                      {money0(billCodes.reduce((a, c) => a + parseNum(billDraft[c]?.[w] ?? ""), 0))}
-                    </td>
-                  ))}
                   <td style={numCell}>{money0(grand.bills)}</td>
                   <td style={numCell}>{money0(grand.mortgage)}</td>
                   <td style={numCell}>{money0(grand.reserves)}</td>
@@ -620,7 +586,7 @@ export default function CashSheetPage() {
         {canEdit
           ? (saving > 0 ? "Saving…" : data?.updatedAt ? `Saved · last edit ${new Date(data.updatedAt).toLocaleString()}` : "Edits save automatically.")
           : "View-only access."}
-        {" · "}Bills reset each month; Reserves auto-pull from the budget (Big Projects, next 3 months). Starting / Reserves / Operational can be overridden{canEdit ? " (amber border = overridden; clear the field to revert)" : ""}.
+        {" · "}Avid Bills import weekly from AvidXchange (click a row for the weekly detail); Reserves auto-pull from the budget (Big Projects, next 3 months). Starting / Reserves / Operational can be overridden{canEdit ? " (amber border = overridden; clear the field to revert)" : ""}.
       </p>
 
       {mgmtOpen && data && (
@@ -641,7 +607,83 @@ export default function CashSheetPage() {
           onClose={() => setReserveModal(null)}
         />
       )}
+
+      {billsModal && data && (
+        <BillsModal
+          code={billsModal.code}
+          name={billsModal.name}
+          monthLabel={`${MONTHS[month - 1]} ${year}`}
+          wednesdays={data.wednesdays}
+          draft={billDraft[billsModal.code] ?? {}}
+          total={rowBillsTotal(billsModal.code)}
+          canEdit={canEdit}
+          onChange={(w, v) => setBillDraft((d) => ({ ...d, [billsModal.code]: { ...d[billsModal.code], [w]: v } }))}
+          onCommit={(w) => commitBill(billsModal.code, w)}
+          onClose={() => setBillsModal(null)}
+        />
+      )}
     </main>
+  );
+}
+
+// Weekly AvidXchange bills behind a row's month-to-date "Avid Bills" total —
+// one row per Wednesday (week), editable, summing to the total.
+function BillsModal({ code, name, monthLabel, wednesdays, draft, total, canEdit, onChange, onCommit, onClose }: {
+  code: string; name: string; monthLabel: string; wednesdays: string[];
+  draft: Record<string, string>; total: number; canEdit: boolean;
+  onChange: (w: string, v: string) => void; onCommit: (w: string) => void; onClose: () => void;
+}) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+  const th: React.CSSProperties = { textAlign: "left", fontSize: 11, fontWeight: 800, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.04em", padding: "6px 10px" };
+  const td: React.CSSProperties = { padding: "6px 10px", fontSize: 13, borderTop: "1px solid var(--border)", verticalAlign: "middle" };
+  const num: React.CSSProperties = { ...td, textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" };
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(15,23,42,0.55)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "48px 20px", overflow: "auto" }}>
+      <div onClick={(e) => e.stopPropagation()} className="card" style={{ width: "min(440px, 100%)", padding: 0, overflow: "hidden" }}>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, padding: "14px 16px", borderBottom: "1px solid var(--border)" }}>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>AvidXchange Bills · {monthLabel}</div>
+            <div style={{ fontSize: 17, fontWeight: 800 }}>{/^[0-9]/.test(code) ? <code style={{ fontSize: 14 }}>{code}</code> : null} {name}</div>
+          </div>
+          <button type="button" className="btn" onClick={onClose} style={{ fontSize: 13, padding: "6px 12px", fontWeight: 700 }}>Close</button>
+        </div>
+        <div className="tableWrap" style={{ marginTop: 0 }}>
+          <table style={{ width: "100%" }}>
+            <thead><tr><th style={th}>Week</th><th style={{ ...th, textAlign: "right" }}>Bills Paid</th></tr></thead>
+            <tbody>
+              {wednesdays.map((w) => (
+                <tr key={w}>
+                  <td style={td}>{weekOfLabel(w)}</td>
+                  <td style={num}>
+                    {canEdit ? (
+                      <input
+                        style={{ ...cellInput, width: 120, border: "1px solid var(--border)", background: "var(--card)" }}
+                        inputMode="decimal"
+                        placeholder="—"
+                        value={draft[w] ?? ""}
+                        onChange={(e) => onChange(w, e.target.value)}
+                        onBlur={() => onCommit(w)}
+                        onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                      />
+                    ) : (draft[w] || "—")}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr style={{ borderTop: "2px solid var(--border)", fontWeight: 800, background: "rgba(11,74,125,0.05)" }}>
+                <td style={td}>Total · Month</td>
+                <td style={{ ...num, color: "#b45309" }}>{money0(total)}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
   );
 }
 
