@@ -19,11 +19,11 @@ describe("parseApSelection", () => {
     expect(r.byCode).toEqual({ "0800": 4042, "1100": 70 });
   });
 
-  it("maps fund / clearing codes to their Cash-Sheet codes", () => {
+  it("maps fund codes to their Cash-Sheet codes (2000 Clearing keeps its own row)", () => {
     const r = parseApSelection(rows("6/11/2026", [
       ["FJVIII", 7801.8], ["FNIPLX", 33250.26], ["FIIICO", 6722.09], ["2000", 36532.49],
     ]));
-    expect(r.byCode).toEqual({ PJV3: 7801.8, PNIPLX: 33250.26, CONDO: 6722.09, "2010": 36532.49 });
+    expect(r.byCode).toEqual({ PJV3: 7801.8, PNIPLX: 33250.26, CONDO: 6722.09, "2000": 36532.49 });
   });
 
   it("ignores non-AP sheets (no Property/Company totals)", () => {

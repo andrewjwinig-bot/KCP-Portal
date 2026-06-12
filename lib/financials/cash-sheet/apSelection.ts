@@ -14,7 +14,6 @@ const AP_TO_CASHSHEET: Record<string, string> = {
   FJVIII: "PJV3",   // Lincoln JV III fund
   FNIPLX: "PNIPLX", // Neshaminy Interplex LLC fund
   FIIICO: "CONDO",  // Neshaminy III Condo Association
-  "2000": "2010",   // 2000 Clearing → LIK Management
   "9500": "9510",   // 9500 LH LLC (holding) → Shops at Lafayette Hill
 };
 

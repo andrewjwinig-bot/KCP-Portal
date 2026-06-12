@@ -68,6 +68,8 @@ describe("cash-sheet util", () => {
     expect(codes).toContain("1100");
     expect(codes).toContain("4900");
     expect(codes).toContain("2010");
+    expect(codes).toContain("2000"); // Clearing account, under Management
+    expect(byId.mgmt.properties.map((p) => p.code)).toEqual(["2010", "2000"]);
     expect(codes).toContain("0800"); // Land now tracked
     expect(codes).not.toContain("3610A");
     expect(codes).not.toContain("4000");
