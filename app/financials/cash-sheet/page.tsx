@@ -340,7 +340,7 @@ export default function CashSheetPage() {
               <button className="btn primary" onClick={() => apRef.current?.click()} disabled={apUploading} style={{ fontSize: 13, padding: "6px 12px", fontWeight: 700 }} title="Drop the weekly AP AutoPay Selections Reports (JV III, NI LLC, Condo, all-other) to auto-fill the week's bills">
                 {apUploading ? "Uploading…" : "Upload AP Report"}
               </button>
-              <input ref={apRef} type="file" accept=".xls,.xlsx" multiple style={{ display: "none" }} onChange={onApUpload} />
+              <input ref={apRef} type="file" accept=".xls,.xlsx,.pdf" multiple style={{ display: "none" }} onChange={onApUpload} />
             </>
           )}
           <button className="btn" onClick={prevMonth} style={{ padding: "6px 12px", fontWeight: 900 }}>←</button>

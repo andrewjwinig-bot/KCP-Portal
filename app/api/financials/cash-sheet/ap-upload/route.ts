@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import * as XLSX from "xlsx";
-import { parseApSelection } from "@/lib/financials/cash-sheet/apSelection";
+import { parseApSelection, apTextToRows } from "@/lib/financials/cash-sheet/apSelection";
 import { applyBills } from "@/lib/financials/cash-sheet/store";
 import { parseMonthKey } from "@/lib/financials/cash-sheet/util";
 import { SITE_COOKIE, verifySiteToken } from "@/lib/site-auth";
@@ -42,8 +42,18 @@ export async function POST(req: Request) {
     const byCode: Record<string, number> = {};
     let reportDate: string | null = null;
     for (const file of files) {
-      const wb = XLSX.read(Buffer.from(await file.arrayBuffer()), { type: "buffer" });
-      const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, raw: false, defval: "" }) as (string | number | null)[][];
+      const buf = Buffer.from(await file.arrayBuffer());
+      let rows: (string | number | null)[][];
+      if (file.name.toLowerCase().endsWith(".pdf") || file.type === "application/pdf") {
+        // Skyline can export the report as a PDF; extract its text and parse the
+        // same "Property/Company <CODE> Total" lines.
+        const { PDFParse } = await import("pdf-parse");
+        const { text } = await new PDFParse({ data: buf }).getText();
+        rows = apTextToRows(text);
+      } else {
+        const wb = XLSX.read(buf, { type: "buffer" });
+        rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, raw: false, defval: "" }) as (string | number | null)[][];
+      }
       const r = parseApSelection(rows);
       if (!reportDate && r.reportDate) reportDate = r.reportDate;
       for (const [c, v] of Object.entries(r.byCode)) byCode[c] = (byCode[c] ?? 0) + v;
