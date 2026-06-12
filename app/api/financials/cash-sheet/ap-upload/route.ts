@@ -59,7 +59,7 @@ export async function POST(req: Request) {
     if (!pm) return NextResponse.json({ error: "Bad week." }, { status: 400 });
 
     const rounded: Record<string, number> = {};
-    for (const [code, amount] of Object.entries(byCode)) rounded[code] = Math.round(amount * 100) / 100;
+    for (const [code, amount] of Object.entries(byCode)) rounded[code] = Math.round(amount);
     await applyBills(pm.year, pm.month, wednesday, rounded, user ?? undefined);
     const filled = Object.entries(rounded).map(([code, amount]) => ({ code, amount })).sort((a, b) => b.amount - a.amount);
     const total = filled.reduce((s, f) => s + f.amount, 0);
