@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import JSZip from "jszip";
 import { parseGLExcel, GLParseResult, GLTransaction } from "../../lib/allocated-invoicer/glParser";
 import { buildAllocInvoicePdf, makeAllocInvoiceId, AllocLineItem } from "../../lib/allocated-invoicer/invoice";
@@ -166,6 +166,27 @@ export default function AllocatedInvoicerPage() {
   const [txOpen, setTxOpen] = useState(true);
   const [allocPreviewOpen, setAllocPreviewOpen] = useState(true);
   const [showAllocModal, setShowAllocModal] = useState(false);
+
+  // Run log — the last allocation that was generated (period invoiced + when),
+  // so staff know where to pick up. Loaded on mount; updated when invoices are
+  // generated.
+  type AllocRun = { periodText: string; periodEndDate: string; statementMonth: string; ranAt: string; ranBy?: string };
+  const [runs, setRuns] = useState<AllocRun[] | null>(null);
+  useEffect(() => {
+    fetch("/api/allocation/last-run").then((r) => r.json()).then((j) => setRuns(j.runs ?? [])).catch(() => setRuns([]));
+  }, []);
+  async function recordRun() {
+    if (!glResult) return;
+    try {
+      const res = await fetch("/api/allocation/last-run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ periodText: glResult.periodText, periodEndDate: glResult.periodEndDate, statementMonth: glResult.statementMonth }),
+      });
+      const j = await res.json();
+      if (res.ok && j.runs) setRuns(j.runs);
+    } catch { /* non-fatal */ }
+  }
 
   // ── Derived: allocation rows ────────────────────────────────────────────────
 
@@ -361,6 +382,7 @@ export default function AllocatedInvoicerPage() {
     }
     const zipBlob = await zip.generateAsync({ type: "blob" });
     download(`${month} - Allocated Invoices.zip`, zipBlob);
+    recordRun();
   }
 
   function downloadExcel() {
@@ -373,6 +395,7 @@ export default function AllocatedInvoicerPage() {
     });
     const month = glResult.statementMonth || "Statement";
     download(`${month} - Allocated Expenses.xlsx`, blob);
+    recordRun();
   }
 
   // ── Render helpers ─────────────────────────────────────────────────────────
@@ -396,6 +419,23 @@ export default function AllocatedInvoicerPage() {
           <div style={{ fontSize: 11, letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}><div>COMMERCIAL</div><div>PROPERTIES</div></div>
         </div>
       </header>
+
+      {/* ── Last allocation run ── */}
+      {runs !== null && (
+        runs.length === 0 ? (
+          <div className="small" style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(15,23,42,0.04)", border: "1px solid var(--border)", color: "var(--muted)", fontWeight: 600 }}>
+            No allocation runs recorded yet — generate the invoices and the period will be logged here.
+          </div>
+        ) : (
+          <div className="small" style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(11,74,125,0.06)", border: "1px solid rgba(11,74,125,0.25)", color: "#0b4a7d", fontWeight: 600, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+            <span>📌 Last allocated: <b>{runs[0].statementMonth || runs[0].periodText || "—"}</b>{runs[0].periodText && runs[0].statementMonth && runs[0].periodText !== runs[0].statementMonth ? ` (${runs[0].periodText})` : ""}</span>
+            <span>· Run <b>{new Date(runs[0].ranAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</b>{runs[0].ranBy ? ` by ${runs[0].ranBy}` : ""}</span>
+            {runs.length > 1 && (
+              <span className="muted" style={{ fontWeight: 500 }}>· Prior: {runs.slice(1, 4).map((r) => r.statementMonth || r.periodText).filter(Boolean).join(", ")}</span>
+            )}
+          </div>
+        )
+      )}
 
       {/* ── Import GL ── */}
       <div className="card">
