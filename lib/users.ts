@@ -88,6 +88,7 @@ export const USERS: Record<UserId, UserDef> = {
     navKeys: new Set([
       ...universalNav,
       "investors",
+      "debt",
       "base-years",
       "leasing-activity",
       "task-tracker",
@@ -103,6 +104,7 @@ export const USERS: Record<UserId, UserDef> = {
       "/tracker",
       "/properties",
       "/investors",
+      "/debt",
       "/rentroll",
       "/allocated-invoicer",
       "/deposits",
@@ -274,6 +276,14 @@ const underPrefix = (pathname: string, p: string) => pathname === p || pathname.
  *  sensitive API groups map to their governing page; everything else stays
  *  open to any signed-in user. */
 export function authorizeRequest(userId: UserId, pathname: string): boolean {
+  // Profile-switchers (admin / Drew) may view ANY user's profile, so the server
+  // grants them full access. The signed cookie carries the switcher — not the
+  // profile they're currently viewing — so without this, a switcher viewing
+  // another profile gets bounced to /dashboard the moment they open a page their
+  // OWN curated profile lacks (e.g. Drew viewing Alison's Debt Tracker). The
+  // client already gates faithfully to the viewed profile; elevated paths
+  // (/history, /audit) stay behind the separate admin-auth layer in middleware.
+  if (canSwitchUsers(userId)) return true;
   // Self-service 2FA — every signed-in user manages their own (the
   // admin-only required-list endpoint is gated separately in middleware).
   if (pathname === "/security" || pathname.startsWith("/security/") || pathname.startsWith("/api/2fa")) return true;

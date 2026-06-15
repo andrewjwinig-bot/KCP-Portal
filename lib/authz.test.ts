@@ -36,6 +36,17 @@ describe("server-side authorizeRequest", () => {
     expect(authorizeRequest("drew", "/api/financials/operating-statements")).toBe(true);  // drew has full /financials
   });
 
+  it("profile-switchers (admin/drew) reach pages outside their own profile", () => {
+    // Drew switches to view another user's profile; the cookie still carries
+    // Drew, so the server must grant him access to pages his curated profile
+    // doesn't list (e.g. viewing Alison's Debt Tracker, or the Bank Acc
+    // Tracker). Regression guard: this used to redirect to /dashboard.
+    expect(authorizeRequest("drew", "/debt")).toBe(true);
+    expect(authorizeRequest("drew", "/bank-rec")).toBe(true);      // not in drew's profile
+    expect(authorizeRequest("drew", "/api/bank-rec")).toBe(true);
+    expect(authorizeRequest("drew", "/commissions/retail")).toBe(true);
+  });
+
   it("limits nancy's financials to Budgets only", () => {
     // Budgets page + API are allowed (mapped to the more-specific prefix).
     expect(authorizeRequest("nancy", "/financials/budgets")).toBe(true);
