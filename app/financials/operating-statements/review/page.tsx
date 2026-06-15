@@ -9,6 +9,7 @@ import Link from "next/link";
 import * as XLSX from "xlsx";
 import { jsPDF } from "jspdf";
 import { StatPill } from "@/app/components/Pill";
+import { rentRollGroupFor, RENTROLL_GROUP_ORDER, type RentRollGroup } from "@/lib/financials/operating-statements/propertyGroups";
 
 type ReviewLine = {
   key: string; propertyCode: string; propertyName: string; period: number; monthLabel: string;
@@ -41,7 +42,7 @@ function exportExcel(data: ReviewResult) {
   XLSX.writeFile(wb, `Operating Statements - Flags to Investigate - ${data.year}.xlsx`);
 }
 
-function exportPdf(data: ReviewResult, byProp: { meta: ReviewProperty; lines: ReviewLine[] }[]) {
+function exportPdf(data: ReviewResult, grouped: { group: string; rows: { meta: ReviewProperty; lines: ReviewLine[] }[] }[]) {
   const doc = new jsPDF({ unit: "pt", format: "letter" });
   const W = doc.internal.pageSize.getWidth();
   const H = doc.internal.pageSize.getHeight();
@@ -51,31 +52,42 @@ function exportPdf(data: ReviewResult, byProp: { meta: ReviewProperty; lines: Re
   doc.setFont("helvetica", "bold"); doc.setFontSize(16);
   doc.text(`Flags to Investigate — ${data.year}`, M, y); y += 20;
   doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(120);
-  const withFlags = byProp.filter((p) => p.lines.length).length;
+  const withFlags = grouped.reduce((s, g) => s + g.rows.filter((r) => r.lines.length).length, 0);
   doc.text(`Operating Statements · generated ${new Date(data.generatedAt).toLocaleString()} · ${data.flagged.length} lines across ${withFlags} properties`, M, y);
   doc.setTextColor(0); y += 20;
 
-  for (const { meta, lines } of byProp) {
-    if (!lines.length) continue;
-    ensure(34);
-    doc.setFont("helvetica", "bold"); doc.setFontSize(11.5);
-    doc.text(`${meta.propertyCode} — ${meta.propertyName} · ${meta.monthLabel} · ${lines.length} flag${lines.length === 1 ? "" : "s"}`, M, y);
-    y += 6; doc.setDrawColor(200); doc.line(M, y, W - M, y); y += 12;
-    for (const l of lines) {
-      ensure(46);
-      doc.setFont("helvetica", "bold"); doc.setFontSize(9.5); doc.setTextColor(0);
-      doc.text(`• ${l.line}`, M + 10, y);
-      doc.setFont("helvetica", "normal"); doc.setTextColor(120);
-      doc.text(`(${l.section})`, M + 12 + doc.getTextWidth(`• ${l.line} `), y);
-      y += 12;
-      doc.setTextColor(90);
-      for (const wl of doc.splitTextToSize(`Looks off: ${l.flags.join("; ")}`, W - 2 * M - 24) as string[]) { ensure(12); doc.text(wl, M + 18, y); y += 11; }
-      ensure(12);
-      doc.text(`Actual ${money(l.periodActual)}  ·  Budget ${money(l.periodBudget)}  ·  Variance ${money(l.periodVariance)}`, M + 18, y); y += 11;
-      if (l.note) for (const nl of doc.splitTextToSize(`Note: ${l.note}`, W - 2 * M - 24) as string[]) { ensure(11); doc.text(nl, M + 18, y); y += 11; }
-      doc.setTextColor(0); y += 6;
+  for (const { group, rows } of grouped) {
+    if (!rows.some((r) => r.lines.length)) continue;
+    // Portfolio-group header (matches the rent-roll grouping on screen).
+    ensure(30);
+    doc.setFont("helvetica", "bold"); doc.setFontSize(12.5); doc.setTextColor(11, 74, 125);
+    doc.text(group.toUpperCase(), M, y); y += 5;
+    doc.setDrawColor(11, 74, 125); doc.setLineWidth(1.2); doc.line(M, y, W - M, y);
+    doc.setLineWidth(0.5); doc.setTextColor(0); y += 14;
+
+    for (const { meta, lines } of rows) {
+      if (!lines.length) continue;
+      ensure(34);
+      doc.setFont("helvetica", "bold"); doc.setFontSize(11.5);
+      doc.text(`${meta.propertyCode} — ${meta.propertyName} · ${meta.monthLabel} · ${lines.length} flag${lines.length === 1 ? "" : "s"}`, M, y);
+      y += 6; doc.setDrawColor(200); doc.line(M, y, W - M, y); y += 12;
+      for (const l of lines) {
+        ensure(46);
+        doc.setFont("helvetica", "bold"); doc.setFontSize(9.5); doc.setTextColor(0);
+        doc.text(`• ${l.line}`, M + 10, y);
+        doc.setFont("helvetica", "normal"); doc.setTextColor(120);
+        doc.text(`(${l.section})`, M + 12 + doc.getTextWidth(`• ${l.line} `), y);
+        y += 12;
+        doc.setTextColor(90);
+        for (const wl of doc.splitTextToSize(`Looks off: ${l.flags.join("; ")}`, W - 2 * M - 24) as string[]) { ensure(12); doc.text(wl, M + 18, y); y += 11; }
+        ensure(12);
+        doc.text(`Actual ${money(l.periodActual)}  ·  Budget ${money(l.periodBudget)}  ·  Variance ${money(l.periodVariance)}`, M + 18, y); y += 11;
+        if (l.note) for (const nl of doc.splitTextToSize(`Note: ${l.note}`, W - 2 * M - 24) as string[]) { ensure(11); doc.text(nl, M + 18, y); y += 11; }
+        doc.setTextColor(0); y += 6;
+      }
+      y += 8;
     }
-    y += 8;
+    y += 6;
   }
   doc.save(`Operating Statements - Flags to Investigate - ${data.year}.pdf`);
 }
@@ -115,6 +127,18 @@ export default function OperatingStatementsReviewPage() {
       .sort((a, b) => b.lines.length - a.lines.length || a.meta.propertyCode.localeCompare(b.meta.propertyCode));
   }, [data]);
 
+  // Same portfolio buckets the rent roll uses (JV III, NI LLC, Shopping Centers,
+  // Korman Homes, The Office Works, Other). Each group keeps byProp's order
+  // (most flags first), so the worst offenders still float to the top of a group.
+  const grouped = useMemo(() => {
+    const buckets = new Map<RentRollGroup, typeof byProp>();
+    for (const row of byProp) {
+      const g = rentRollGroupFor(row.meta.propertyCode);
+      (buckets.get(g) ?? buckets.set(g, []).get(g)!).push(row);
+    }
+    return RENTROLL_GROUP_ORDER.filter((g) => buckets.has(g)).map((g) => ({ group: g, rows: buckets.get(g)! }));
+  }, [byProp]);
+
   const propsWithFlags = byProp.filter((p) => p.lines.length).length;
   const allExpanded = byProp.length > 0 && expanded.size >= propsWithFlags && propsWithFlags > 0;
   function toggleAll() {
@@ -140,7 +164,7 @@ export default function OperatingStatementsReviewPage() {
           <span style={{ fontWeight: 800, fontSize: 15, minWidth: 60, textAlign: "center" }}>{year}</span>
           <button className="btn" onClick={() => setYear((y) => y + 1)} style={{ padding: "6px 12px", fontWeight: 900 }}>→</button>
           <button className="btn" onClick={() => data && exportExcel(data)} disabled={!data?.flagged.length} style={{ fontSize: 13, padding: "6px 14px", fontWeight: 700 }}>Download Excel</button>
-          <button className="btn primary" onClick={() => data && exportPdf(data, byProp)} disabled={!data?.flagged.length} style={{ fontSize: 13, padding: "6px 14px", fontWeight: 700 }}>Download PDF</button>
+          <button className="btn primary" onClick={() => data && exportPdf(data, grouped)} disabled={!data?.flagged.length} style={{ fontSize: 13, padding: "6px 14px", fontWeight: 700 }}>Download PDF</button>
         </div>
       </div>
 
@@ -164,8 +188,19 @@ export default function OperatingStatementsReviewPage() {
       ) : byProp.length === 0 ? (
         <div className="card muted small" style={{ padding: 18 }}>No properties with an uploaded GL for {year}.</div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {byProp.map(({ meta, lines }) => {
+        <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+          {grouped.map(({ group, rows }) => {
+            const groupFlags = rows.reduce((s, r) => s + r.lines.length, 0);
+            return (
+            <div key={group} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ fontSize: 13, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>{group}</span>
+                <span style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600 }}>
+                  {rows.length} {rows.length === 1 ? "property" : "properties"}{groupFlags > 0 ? ` · ${groupFlags} flag${groupFlags === 1 ? "" : "s"}` : ""}
+                </span>
+                <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
+              </div>
+              {rows.map(({ meta, lines }) => {
             const open = expanded.has(meta.key);
             const has = lines.length > 0;
             return (
@@ -225,6 +260,9 @@ export default function OperatingStatementsReviewPage() {
                   </div>
                 )}
               </div>
+            );
+              })}
+            </div>
             );
           })}
         </div>
