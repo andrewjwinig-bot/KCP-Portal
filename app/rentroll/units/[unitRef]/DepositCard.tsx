@@ -112,6 +112,21 @@ export default function DepositCard({
         <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 8 }}>Loading…</div>
       ) : (deposits && deposits.length > 0) ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
+          {deposits.length > 1 && (() => {
+            const held = deposits.filter((d) => !d.refunded).reduce((s, d) => s + d.amount, 0);
+            return (
+              <div style={{
+                display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10,
+                padding: "8px 12px", borderRadius: 10,
+                background: "rgba(11,74,125,0.06)", border: "1px solid rgba(11,74,125,0.18)",
+              }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: "var(--muted)" }}>
+                  Total held · {deposits.length} checks
+                </span>
+                <span style={{ fontSize: 16, fontWeight: 800 }}>{money(held)}</span>
+              </div>
+            );
+          })()}
           {deposits.map((d) => (
             <div key={d.id}
               onClick={() => { setEditing(d); setAdding(false); }}
