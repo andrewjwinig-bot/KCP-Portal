@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Calendar } from "@/app/components/Calendar";
 import { accountForProperty, DEPOSIT_ACCOUNTS, type SecurityDeposit } from "@/lib/deposits/deposits";
 
@@ -95,6 +95,7 @@ export default function DepositForm({
   const [error, setError] = useState<string | null>(null);
   // Checks saved during this modal session via "add another" (for a running tally).
   const [addedChecks, setAddedChecks] = useState<{ checkNumber: string; amount: number }[]>([]);
+  const [autoStatus, setAutoStatus] = useState<"idle" | "pending" | "saving" | "saved" | "error">("idle");
   const fileRef = useRef<HTMLInputElement>(null);
 
   // Fall back to the deposit's stored unit when the tenant has since left
@@ -137,57 +138,118 @@ export default function DepositForm({
     }
   }
 
+  // The id is mirrored in a ref so async saves never read a stale closure value
+  // (which would otherwise let two quick saves each POST a new record).
+  const editIdRef = useRef<string | undefined>(deposit?.id);
+  function rememberId(id: string | undefined) { editIdRef.current = id; setEditId(id); }
+
+  // Core persistence: upsert the deposit (PUT once we have an id, else POST)
+  // plus any staged check image. Returns the saved record; leaves UI flow
+  // (close / reset) to the caller.
+  async function persist(): Promise<SecurityDeposit> {
+    if (!unit) throw new Error("Pick a unit.");
+    const id = editIdRef.current;
+    const payload = {
+      id,
+      unitRef: unit.unitRef,
+      propertyCode: unit.propertyCode,
+      tenantCompany: unit.tenantCompany,
+      checkNumber,
+      amount: Number(amount) || 0,
+      checkDate,
+      notes,
+      refunded,
+      refundDate: refunded ? refundDate : "",
+    };
+    const res = await fetch(id ? `/api/deposits/${id}` : "/api/deposits", {
+      method: id ? "PUT" : "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const j = await readJson(res);
+    if (!res.ok || !j.deposit) throw new Error((j.error as string) ?? "Couldn't save the deposit.");
+    let saved = j.deposit as SecurityDeposit;
+    rememberId(saved.id);
+
+    // Image upload is optional — only attempt it when a file is staged.
+    if (stagedFile) {
+      const fd = new FormData();
+      fd.append("file", stagedFile);
+      const up = await fetch(`/api/deposits/${saved.id}/check-image`, { method: "POST", body: fd });
+      const uj = await readJson(up);
+      if (!up.ok || !uj.deposit) {
+        throw new Error(
+          (uj.error as string) ??
+          "The deposit was saved, but the check image upload failed — it may be too large.",
+        );
+      }
+      saved = uj.deposit as SecurityDeposit;
+      setExistingImage(saved.checkImage ?? null);
+      setStagedFile(null);
+      setStagedPreview(null);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+    return saved;
+  }
+
+  // ── Auto-save ──────────────────────────────────────────────────────────────
+  // Persist edits automatically (debounced) so nothing is lost if the user never
+  // clicks a button. Only fires once there's a unit and a real amount, so simply
+  // opening the form never creates a blank record.
+  const savingRef = useRef(false);
+  const dirtyRef = useRef(false);
+  const firstRun = useRef(true);
+
+  async function autosave() {
+    if (!unit || !(Number(amount) > 0)) return;
+    if (savingRef.current) { dirtyRef.current = true; return; }
+    savingRef.current = true;
+    setAutoStatus("saving");
+    try {
+      const saved = await persist();
+      onCheckAdded?.(saved);
+      setAutoStatus("saved");
+      setError(null);
+    } catch (e) {
+      setAutoStatus("error");
+      setError(e instanceof Error ? e.message : "Auto-save failed");
+    } finally {
+      savingRef.current = false;
+      if (dirtyRef.current) { dirtyRef.current = false; void autosave(); }
+    }
+  }
+
+  useEffect(() => {
+    if (firstRun.current) { firstRun.current = false; return; }
+    if (!unit || !(Number(amount) > 0)) return;
+    setAutoStatus("pending");
+    const t = setTimeout(() => { void autosave(); }, 700);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [unitRef, checkNumber, amount, checkDate, notes, refunded, refundDate]);
+
   async function save(addAnother = false) {
     if (!unit) { setError("Pick a unit."); return; }
+    // "Done" on an untouched new form (no record yet, no amount) just closes —
+    // never create a blank deposit.
+    if (!addAnother && !editIdRef.current && !(Number(amount) > 0)) { onCancel(); return; }
     if (addAnother && !(Number(amount) > 0)) {
       setError("Enter this check's amount before adding another.");
       return;
     }
     setSaving(true);
     setError(null);
+    // Serialize with any in-flight auto-save so we never double-create.
+    while (savingRef.current) { await new Promise((r) => setTimeout(r, 40)); }
+    savingRef.current = true;
     try {
-      const payload = {
-        id: editId,
-        unitRef: unit.unitRef,
-        propertyCode: unit.propertyCode,
-        tenantCompany: unit.tenantCompany,
-        checkNumber,
-        amount: Number(amount) || 0,
-        checkDate,
-        notes,
-        refunded,
-        refundDate: refunded ? refundDate : "",
-      };
-      const res = await fetch(editId ? `/api/deposits/${editId}` : "/api/deposits", {
-        method: editId ? "PUT" : "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const j = await readJson(res);
-      if (!res.ok || !j.deposit) throw new Error((j.error as string) ?? "Couldn't save the deposit.");
-      let saved: SecurityDeposit = j.deposit as SecurityDeposit;
-
-      // Image upload is optional — only attempt it when a file is staged.
-      if (stagedFile) {
-        const fd = new FormData();
-        fd.append("file", stagedFile);
-        const up = await fetch(`/api/deposits/${saved.id}/check-image`, { method: "POST", body: fd });
-        const uj = await readJson(up);
-        if (!up.ok || !uj.deposit) {
-          throw new Error(
-            (uj.error as string) ??
-            "The deposit was saved, but the check image upload failed — it may be too large.",
-          );
-        }
-        saved = uj.deposit as SecurityDeposit;
-      }
-
+      const saved = await persist();
       if (addAnother) {
         // Keep the modal open, pinned to the same tenant; reset for the next
         // check (the saved one becomes a fresh new record).
-        (onCheckAdded ?? onSaved)(saved);
+        onCheckAdded?.(saved);
         setAddedChecks((prev) => [...prev, { checkNumber: saved.checkNumber, amount: saved.amount }]);
-        setEditId(undefined);
+        rememberId(undefined);
         setCheckNumber("");
         setAmount("");
         setCheckDate("");
@@ -198,6 +260,7 @@ export default function DepositForm({
         setStagedPreview(null);
         setExistingImage(null);
         setExtractNote(null);
+        setAutoStatus("idle");
         if (fileRef.current) fileRef.current.value = "";
       } else {
         onSaved(saved);
@@ -205,6 +268,7 @@ export default function DepositForm({
     } catch (e) {
       setError(e instanceof Error ? e.message : "Save failed");
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   }
@@ -380,11 +444,11 @@ export default function DepositForm({
         </div>
       )}
 
-      {/* Actions */}
+      {/* Actions — changes save automatically; the button just closes. */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
         <button type="button" onClick={() => save(false)} disabled={saving || extracting}
           className="btn primary" style={{ fontSize: 13, padding: "8px 18px", fontWeight: 700 }}>
-          {saving ? "Saving…" : editId ? "Save Changes" : "Add Deposit"}
+          {saving ? "Saving…" : "Done"}
         </button>
         {onCheckAdded && (
           <button type="button" onClick={() => save(true)} disabled={saving || extracting}
@@ -393,10 +457,15 @@ export default function DepositForm({
             + Add another check
           </button>
         )}
-        <button type="button" onClick={onCancel} disabled={saving}
-          className="btn" style={{ fontSize: 13, padding: "8px 16px", fontWeight: 600 }}>
-          {addedChecks.length > 0 ? "Done" : "Cancel"}
-        </button>
+        <span style={{ fontSize: 12, fontWeight: 600, color: autoStatus === "error" ? "#b91c1c" : "var(--muted)" }}>
+          {autoStatus === "saving" || autoStatus === "pending"
+            ? "Saving…"
+            : autoStatus === "saved"
+              ? "✓ Saved automatically"
+              : autoStatus === "error"
+                ? "Auto-save failed — click Done to retry"
+                : ""}
+        </span>
         {editId && onDeleted && (
           <button type="button" onClick={del} disabled={saving}
             style={{
