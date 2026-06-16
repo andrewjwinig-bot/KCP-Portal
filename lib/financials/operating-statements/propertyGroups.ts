@@ -48,14 +48,15 @@ export function groupStatementOptions<T extends { propertyCode: string }>(
 }
 
 // ── Rent-roll-style portfolio grouping ───────────────────────────────────────
-// The same buckets /rentroll uses (JV III LLC, NI LLC, Shopping Centers, Korman
-// Homes, The Office Works, then Other). Fund-level statement codes map to their
-// venture: PJV3 + PIIICO (Neshaminy III Condo) → JV III; PNIPLX → NI LLC;
+// The same buckets + order the rent roll's property cards use: JV III LLC,
+// NI LLC, Shopping Centers, Korman Homes, then Other Properties (which is where
+// the rent roll puts The Office Works / misc). Fund-level statement codes map to
+// their venture: PJV3 + PIIICO (Neshaminy III Condo) → JV III; PNIPLX → NI LLC;
 // PHOMES → Korman Homes. Used by the Flags to Investigate review so it reads the
 // same way the rent roll does.
 
 export const RENTROLL_GROUP_ORDER = [
-  "JV III LLC", "NI LLC", "Shopping Centers", "Korman Homes", "The Office Works", "Other",
+  "JV III LLC", "NI LLC", "Shopping Centers", "Korman Homes", "Other Properties",
 ] as const;
 export type RentRollGroup = typeof RENTROLL_GROUP_ORDER[number];
 
@@ -64,14 +65,13 @@ const RENTROLL_GROUPS: { label: RentRollGroup; codes: string[] }[] = [
   { label: "NI LLC",           codes: ["4050", "4060", "4070", "4080", "40A0", "40B0", "40C0", "PNIPLX"] },
   { label: "Shopping Centers", codes: ["1100", "1500", "2300", "4500", "5600", "7010", "7200", "7300", "8200", "9200", "9510"] },
   { label: "Korman Homes",     codes: ["9800", "9820", "9840", "9860", "PHOMES"] },
-  { label: "The Office Works", codes: ["4900"] },
 ];
 const RENTROLL_GROUP_BY_CODE = new Map<string, RentRollGroup>();
 for (const g of RENTROLL_GROUPS) for (const c of g.codes) RENTROLL_GROUP_BY_CODE.set(c.toUpperCase(), g.label);
 
 /** Which rent-roll portfolio group a statement property/fund belongs to. */
 export function rentRollGroupFor(propertyCode: string): RentRollGroup {
-  return RENTROLL_GROUP_BY_CODE.get(propertyCode.toUpperCase()) ?? "Other";
+  return RENTROLL_GROUP_BY_CODE.get(propertyCode.toUpperCase()) ?? "Other Properties";
 }
 
 /** Bucket items into the rent-roll group order, preserving each group's input
