@@ -97,8 +97,9 @@ export const RETAIL_CONFIG_SEED: Record<string, RetailConfigSeedEntry> = {
 
   // ── 4500 · Gray's Ferry Shopping Center ────────────────────────────────
   // PRS comes from propertyRules (CAM 82,809 / INS 79,134 / RET 82,809 with
-  // Victra's RET on the reduced GLA). Seeded here: admin fees + line
-  // exclusions + the PLCB gross lease. McDonald's and Fresh Grocer exclude
+  // Victra's RET on the reduced GLA) EXCEPT Fresh Grocer's CAM PRS, which the
+  // lease stipulates at 67.96% (seeded below). Also seeded here: admin fees +
+  // line exclusions + the PLCB gross lease. McDonald's and Fresh Grocer exclude
   // Building Maintenance from CAM. Victra (0% admin), USPS (RET only) and
   // Clear Channel (billboard parcel) need no config entry.
   "4500-2851": { adminFeePct: 15, excludedCamLines: ["Building Maintenance"] }, // McDonald's outparcel
@@ -106,8 +107,10 @@ export const RETAIL_CONFIG_SEED: Record<string, RetailConfigSeedEntry> = {
   "4500-2895": { adminFeePct: 10 }, // Nail Parlor
   "4500-2899": { adminFeePct: 10 }, // Curl & Care
   "4500-3001": { adminFeePct: 10 }, // Hilti
-  "4500-3021": { // Fresh Grocer (anchor) — 5% admin; CAM excludes Building
+  "4500-3021": { // Fresh Grocer (anchor) — CAM PRS lease-stipulated at 67.96%
+    // (overrides the ~68.41% SF share); 5% admin; CAM excludes Building
     // Maintenance; admin fee excludes Liability INS, Security, utilities.
+    camPrs: 67.96,
     adminFeePct: 5,
     excludedCamLines: ["Building Maintenance"],
     adminFeeExcludedLines: ["Liability Insurance", "Security", "Electric (Common)", "Water / Sewer"],
