@@ -22,7 +22,7 @@ describe("4500 retail reconciliation — connected from app data", () => {
     "4500-2897": [3782.74, 3.22, 178.18],      // Victra — 69.3% occ, reduced RET GLA
     "4500-2899": [-3051.70, 7.46, -28.04],     // Curl & Care
     "4500-3001": [-6091.39, 26.91, -44.09],    // Hilti
-    "4500-3021": [57238.13, 1136.35, 1045.82], // Fresh Grocer — 5% admin, excl Bldg Maint
+    "4500-3021": [55346.45, 1136.35, 1045.82], // Fresh Grocer — CAM PRS stipulated 67.96%, 5% admin, excl Bldg Maint
     "4500-3000": [0, 0, 3017],                 // Clear Channel — flat billboard RET
     "4500-3005": [0, 0, 3079.96],              // USPS — RET only
     "4500-3009": [0, 0, 0],                    // PLCB — gross
@@ -55,7 +55,7 @@ describe("4500 retail reconciliation — connected from app data", () => {
   });
 
   it("building balance totals tie to the workbook (±$5)", () => {
-    expect(near(result.totals.camBalance, 38475.63, 5)).toBe(true);
+    expect(near(result.totals.camBalance, 36583.96, 5)).toBe(true);
     expect(near(result.totals.insBalance, 1199.24, 5)).toBe(true);
   });
 });
