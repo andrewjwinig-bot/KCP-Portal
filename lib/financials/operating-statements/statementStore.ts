@@ -229,21 +229,51 @@ export async function saveNote(
 
 // ── "?" investigate-flag dismissals ──────────────────────────────────────────
 // When a line's "looks off" flag has been investigated and confirmed fine, it's
-// dismissed for that (property, year, period). One blob per period.
+// dismissed for that (property, year, period). Stored ONE BLOB PER dismissed line
+// (like notes) — the old single-blob read-modify-write raced when several flags
+// were dismissed in quick succession and silently lost one, so a dismissal could
+// "reappear" on the next refresh.
 const FLAG_DISMISS_PREFIX = "financials-operating-statements-flagdismiss";
+type DismissRecord = { key: string; year: number; period: number; lineKey: string; dismissedAt: string };
+
+// Legacy single-blob id ({ lineKeys: [...] } per period) — migrated on read.
 const dismissId = (key: string, year: number, period: number): string =>
   `${key}-${year}-${period}`.replace(/[^a-zA-Z0-9_-]+/g, "_");
+const dismissScope = (key: string, year: number, period: number): string =>
+  `${FLAG_DISMISS_PREFIX}/${`${key}-${year}-${period}`.replace(/[^a-zA-Z0-9_-]+/g, "_")}`;
+const dismissSlug = (lineKey: string): string => lineKey.replace(/[^a-zA-Z0-9]+/g, "_").slice(0, 180) || "flag";
+
+// One-time migration: fan the old single blob's lineKeys out into per-line blobs,
+// then delete the legacy blob so existing dismissals aren't lost and this stops
+// running once migrated.
+async function recoverLegacyDismissals(key: string, year: number, period: number): Promise<void> {
+  const rec = (await getJSON(FLAG_DISMISS_PREFIX, dismissId(key, year, period))) as { lineKeys?: string[] } | null;
+  if (!rec?.lineKeys?.length) return;
+  const scope = dismissScope(key, year, period);
+  for (const lk of rec.lineKeys) {
+    const slug = dismissSlug(lk);
+    if (!(await getJSON(scope, slug))) {
+      await storeJSON(scope, slug, { key, year, period, lineKey: lk, dismissedAt: new Date().toISOString() } satisfies DismissRecord);
+    }
+  }
+  await deleteJSON(FLAG_DISMISS_PREFIX, dismissId(key, year, period));
+}
 
 export async function getDismissedFlags(key: string, year: number, period: number): Promise<string[]> {
-  const rec = (await getJSON(FLAG_DISMISS_PREFIX, dismissId(key, year, period))) as { lineKeys?: string[] } | null;
-  return rec?.lineKeys ?? [];
+  await recoverLegacyDismissals(key, year, period);
+  const recs = (await listJSON(dismissScope(key, year, period))) as DismissRecord[];
+  return recs.filter((r) => r?.lineKey).map((r) => r.lineKey);
 }
 
 export async function setFlagDismissed(key: string, year: number, period: number, lineKey: string, dismissed: boolean): Promise<string[]> {
-  const cur = new Set(await getDismissedFlags(key, year, period));
-  if (dismissed) cur.add(lineKey); else cur.delete(lineKey);
-  await storeJSON(FLAG_DISMISS_PREFIX, dismissId(key, year, period), { key, year, period, lineKeys: [...cur] });
-  return [...cur];
+  const scope = dismissScope(key, year, period);
+  const slug = dismissSlug(lineKey);
+  if (dismissed) {
+    await storeJSON(scope, slug, { key, year, period, lineKey, dismissedAt: new Date().toISOString() } satisfies DismissRecord);
+  } else {
+    await deleteJSON(scope, slug);
+  }
+  return getDismissedFlags(key, year, period);
 }
 
 // ── Note feedback log (AI note → human correction) ───────────────────────────

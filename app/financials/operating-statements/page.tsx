@@ -414,7 +414,14 @@ export default function OperatingStatementsPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ key, year, period: period || statement?.period, lineKey, dismissed: true }),
       keepalive: true,
-    }).catch(() => {});
+    })
+      .then((res) => { if (!res.ok) throw new Error("save failed"); })
+      .catch(() => {
+        // Persisting the dismissal failed — restore the "?" so the UI reflects
+        // what's actually saved (otherwise it looks dismissed until a refresh
+        // brings it back, which reads as the state "resetting").
+        setDismissedFlags((s) => { const n = new Set(s); n.delete(lineKey); return n; });
+      });
   }, [key, year, period, statement?.period]);
 
   const [analyzing, setAnalyzing] = useState(false);
