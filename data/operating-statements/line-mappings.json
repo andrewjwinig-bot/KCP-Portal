@@ -68,7 +68,7 @@
       "mask": "6120-8502"
      },
      {
-      "label": "Water and Sewer",
+      "label": "Water & Sewer",
       "mask": "6130-8502"
      },
      {
@@ -112,7 +112,7 @@
       "mask": "6510-8501,6510-8502"
      },
      {
-      "label": "Cleaning and Supplies",
+      "label": "Cleaning & Supplies",
       "mask": "6250-8501,6250-8502"
      },
      {
@@ -158,7 +158,7 @@
       "mask": "7*-*"
      },
      {
-      "label": "General and Administrative",
+      "label": "General & Administrative",
       "mask": "8120..8999-*"
      }
     ]
@@ -270,7 +270,7 @@
       "mask": "6120-8502"
      },
      {
-      "label": "Water and Sewer",
+      "label": "Water & Sewer",
       "mask": "6130-8502"
      },
      {
@@ -314,7 +314,7 @@
       "mask": "6510-8501,6510-8502"
      },
      {
-      "label": "Cleaning and Supplies",
+      "label": "Cleaning & Supplies",
       "mask": "6250-8501,6250-8502"
      },
      {
@@ -364,7 +364,7 @@
       "mask": "7*-*"
      },
      {
-      "label": "General and Administrative",
+      "label": "General & Administrative",
       "mask": "8120..8999-*"
      }
     ]
@@ -476,7 +476,7 @@
       "mask": "6120-8502"
      },
      {
-      "label": "Water and Sewer",
+      "label": "Water & Sewer",
       "mask": "6130-8502"
      },
      {
@@ -520,7 +520,7 @@
       "mask": "6510-8501,6510-8502"
      },
      {
-      "label": "Cleaning and Supplies",
+      "label": "Cleaning & Supplies",
       "mask": "6250-8501,6250-8502"
      },
      {
@@ -570,7 +570,7 @@
       "mask": "7*-*"
      },
      {
-      "label": "General and Administrative",
+      "label": "General & Administrative",
       "mask": "8120..8999-*"
      }
     ]
@@ -682,7 +682,7 @@
       "mask": "6120-8502"
      },
      {
-      "label": "Water and Sewer",
+      "label": "Water & Sewer",
       "mask": "6130-8502"
      },
      {
@@ -726,7 +726,7 @@
       "mask": "6510-8501,6510-8502"
      },
      {
-      "label": "Cleaning and Supplies",
+      "label": "Cleaning & Supplies",
       "mask": "6250-8501,6250-8502"
      },
      {
@@ -776,7 +776,7 @@
       "mask": "7*-*"
      },
      {
-      "label": "General and Administrative",
+      "label": "General & Administrative",
       "mask": "8120..8999-*"
      }
     ]
@@ -888,7 +888,7 @@
       "mask": "6120-8502"
      },
      {
-      "label": "Water and Sewer",
+      "label": "Water & Sewer",
       "mask": "6130-8502"
      },
      {
@@ -932,7 +932,7 @@
       "mask": "6510-8501,6510-8502"
      },
      {
-      "label": "Cleaning and Supplies",
+      "label": "Cleaning & Supplies",
       "mask": "6250-8501,6250-8502"
      },
      {
@@ -982,7 +982,7 @@
       "mask": "7*-*"
      },
      {
-      "label": "General and Administrative",
+      "label": "General & Administrative",
       "mask": "8120..8999-*"
      }
     ]
@@ -1086,7 +1086,7 @@
       "mask": "6120-*"
      },
      {
-      "label": "Water and Sewer",
+      "label": "Water & Sewer",
       "mask": "6130-*"
      },
      {
@@ -1122,7 +1122,7 @@
       "mask": "6510-*"
      },
      {
-      "label": "Cleaning and Supplies",
+      "label": "Cleaning & Supplies",
       "mask": "6250-8501,6250-8502"
      },
      {
@@ -1130,7 +1130,7 @@
       "mask": "7110-8501"
      },
      {
-      "label": "General and Administrative",
+      "label": "General & Administrative",
       "mask": "8*-85*"
      }
     ]
@@ -1234,7 +1234,7 @@
       "mask": "6120-*"
      },
      {
-      "label": "Water and Sewer",
+      "label": "Water & Sewer",
       "mask": "6130-*"
      },
      {
@@ -1270,7 +1270,7 @@
       "mask": "6510-*"
      },
      {
-      "label": "Cleaning and Supplies",
+      "label": "Cleaning & Supplies",
       "mask": "6250-8501,6250-8502"
      },
      {
@@ -1278,7 +1278,7 @@
       "mask": "7110-8501"
      },
      {
-      "label": "General and Administrative",
+      "label": "General & Administrative",
       "mask": "8*-85*"
      }
     ]
@@ -1382,7 +1382,7 @@
       "mask": "6120-*"
      },
      {
-      "label": "Water and Sewer",
+      "label": "Water & Sewer",
       "mask": "6130-*"
      },
      {
@@ -1418,7 +1418,7 @@
       "mask": "6510-*"
      },
      {
-      "label": "Cleaning and Supplies",
+      "label": "Cleaning & Supplies",
       "mask": "6250-8501,6250-8502"
      },
      {
@@ -1426,7 +1426,7 @@
       "mask": "7110-8501"
      },
      {
-      "label": "General and Administrative",
+      "label": "General & Administrative",
       "mask": "8*-85*"
      }
     ]
@@ -1530,7 +1530,7 @@
       "mask": "6120-*"
      },
      {
-      "label": "Water and Sewer",
+      "label": "Water & Sewer",
       "mask": "6130-*"
      },
      {
@@ -1566,7 +1566,7 @@
       "mask": "6510-*"
      },
      {
-      "label": "Cleaning and Supplies",
+      "label": "Cleaning & Supplies",
       "mask": "6250-8501,6250-8502"
      },
      {
@@ -1574,7 +1574,7 @@
       "mask": "7110-8501"
      },
      {
-      "label": "General and Administrative",
+      "label": "General & Administrative",
       "mask": "8*-85*"
      }
     ]
@@ -1670,7 +1670,7 @@
       "mask": "8210-*"
      },
      {
-      "label": "Legal and Accounting",
+      "label": "Legal & Accounting",
       "mask": "8310-8501"
      },
      {
@@ -1810,7 +1810,7 @@
       "mask": "6120-8502"
      },
      {
-      "label": "Water and Sewer",
+      "label": "Water & Sewer",
       "mask": "6130-8502"
      },
      {
@@ -1854,7 +1854,7 @@
       "mask": "6510-8501,6510-8502"
      },
      {
-      "label": "Cleaning and Supplies",
+      "label": "Cleaning & Supplies",
       "mask": "6250-8501,6250-8502"
      },
      {
@@ -1904,7 +1904,7 @@
       "mask": "7*-*"
      },
      {
-      "label": "General and Administrative",
+      "label": "General & Administrative",
       "mask": "8120..8999-*"
      }
     ]
@@ -2016,7 +2016,7 @@
       "mask": "6120-8502"
      },
      {
-      "label": "Water and Sewer",
+      "label": "Water & Sewer",
       "mask": "6130-8502"
      },
      {
@@ -2060,7 +2060,7 @@
       "mask": "6510-8501,6510-8502"
      },
      {
-      "label": "Cleaning and Supplies",
+      "label": "Cleaning & Supplies",
       "mask": "6250-8501,6250-8502"
      },
      {
@@ -2110,7 +2110,7 @@
       "mask": "7*-*"
      },
      {
-      "label": "General and Administrative",
+      "label": "General & Administrative",
       "mask": "8120..8999-*"
      }
     ]
@@ -2222,7 +2222,7 @@
       "mask": "6120-8502"
      },
      {
-      "label": "Water and Sewer",
+      "label": "Water & Sewer",
       "mask": "6130-8502"
      },
      {
@@ -2266,7 +2266,7 @@
       "mask": "6510-8501,6510-8502"
      },
      {
-      "label": "Cleaning and Supplies",
+      "label": "Cleaning & Supplies",
       "mask": "6250-8501,6250-8502"
      },
      {
@@ -2316,7 +2316,7 @@
       "mask": "7*-*"
      },
      {
-      "label": "General and Administrative",
+      "label": "General & Administrative",
       "mask": "8120..8999-*"
      }
     ]
@@ -2428,7 +2428,7 @@
       "mask": "6120-8502"
      },
      {
-      "label": "Water and Sewer",
+      "label": "Water & Sewer",
       "mask": "6130-8502"
      },
      {
@@ -2472,7 +2472,7 @@
       "mask": "6510-8501,6510-8502"
      },
      {
-      "label": "Cleaning and Supplies",
+      "label": "Cleaning & Supplies",
       "mask": "6250-8501,6250-8502"
      },
      {
@@ -2522,7 +2522,7 @@
       "mask": "7*-*"
      },
      {
-      "label": "General and Administrative",
+      "label": "General & Administrative",
       "mask": "8120..8999-*"
      }
     ]
@@ -2634,7 +2634,7 @@
       "mask": "6120-8502"
      },
      {
-      "label": "Water and Sewer",
+      "label": "Water & Sewer",
       "mask": "6130-8502"
      },
      {
@@ -2678,7 +2678,7 @@
       "mask": "6510-8501,6510-8502"
      },
      {
-      "label": "Cleaning and Supplies",
+      "label": "Cleaning & Supplies",
       "mask": "6250-8501,6250-8502"
      },
      {
@@ -2728,7 +2728,7 @@
       "mask": "7*-*"
      },
      {
-      "label": "General and Administrative",
+      "label": "General & Administrative",
       "mask": "8120..8999-*"
      }
     ]
@@ -2840,7 +2840,7 @@
       "mask": "6120-8502"
      },
      {
-      "label": "Water and Sewer",
+      "label": "Water & Sewer",
       "mask": "6130-8502"
      },
      {
@@ -2884,7 +2884,7 @@
       "mask": "6510-8501,6510-8502"
      },
      {
-      "label": "Cleaning and Supplies",
+      "label": "Cleaning & Supplies",
       "mask": "6250-8501,6250-8502"
      },
      {
@@ -2934,7 +2934,7 @@
       "mask": "7*-*"
      },
      {
-      "label": "General and Administrative",
+      "label": "General & Administrative",
       "mask": "8120..8999-*"
      }
     ]
@@ -3046,7 +3046,7 @@
       "mask": "6120-8502"
      },
      {
-      "label": "Water and Sewer",
+      "label": "Water & Sewer",
       "mask": "6130-8502"
      },
      {
@@ -3090,7 +3090,7 @@
       "mask": "6510-8501,6510-8502"
      },
      {
-      "label": "Cleaning and Supplies",
+      "label": "Cleaning & Supplies",
       "mask": "6250-8501,6250-8502"
      },
      {
@@ -3140,7 +3140,7 @@
       "mask": "7*-*"
      },
      {
-      "label": "General and Administrative",
+      "label": "General & Administrative",
       "mask": "8120..8999-*"
      }
     ]
@@ -3252,7 +3252,7 @@
       "mask": "6120-8502"
      },
      {
-      "label": "Water and Sewer",
+      "label": "Water & Sewer",
       "mask": "6130-8502"
      },
      {
@@ -3296,7 +3296,7 @@
       "mask": "6510-8501,6510-8502"
      },
      {
-      "label": "Cleaning and Supplies",
+      "label": "Cleaning & Supplies",
       "mask": "6250-8501,6250-8502"
      },
      {
@@ -3346,7 +3346,7 @@
       "mask": "7*-*"
      },
      {
-      "label": "General and Administrative",
+      "label": "General & Administrative",
       "mask": "8120..8999-*"
      }
     ]
@@ -3440,7 +3440,7 @@
       "mask": "4850-8502"
      },
      {
-      "label": "Black and White Copier",
+      "label": "Black & White Copier",
       "mask": "4860-8502"
      },
      {
@@ -3534,7 +3534,7 @@
       "mask": "7*-*"
      },
      {
-      "label": "General and Administrative",
+      "label": "General & Administrative",
       "mask": "8120..8999-*"
      }
     ]
@@ -3642,7 +3642,7 @@
       "mask": "6120-8502"
      },
      {
-      "label": "Water and Sewer",
+      "label": "Water & Sewer",
       "mask": "6130-8502"
      },
      {
@@ -3686,7 +3686,7 @@
       "mask": "6510-*"
      },
      {
-      "label": "Cleaning and Supplies",
+      "label": "Cleaning & Supplies",
       "mask": "6250-8501,6250-8502"
      },
      {
@@ -3728,12 +3728,12 @@
       "mask": "8210-8501"
      },
      {
-      "label": "Legal and Accounting",
+      "label": "Legal & Accounting",
       "mask": "8310-8501"
      },
      {
-      "label": "General and Administrative",
-      "mask": "8190-8501,89*-*"
+      "label": "General & Administrative",
+      "mask": "8190-8501,8330-8501,8400-8501,89*-*"
      }
     ]
    },
@@ -3840,7 +3840,7 @@
       "mask": "6120-8502"
      },
      {
-      "label": "Water and Sewer",
+      "label": "Water & Sewer",
       "mask": "6130-8502"
      },
      {
@@ -3884,7 +3884,7 @@
       "mask": "6510-*"
      },
      {
-      "label": "Cleaning and Supplies",
+      "label": "Cleaning & Supplies",
       "mask": "6250-8501,6250-8502"
      }
     ]
@@ -3922,11 +3922,11 @@
       "mask": "8210-8501"
      },
      {
-      "label": "Legal and Accounting",
+      "label": "Legal & Accounting",
       "mask": "8310-8501"
      },
      {
-      "label": "General and Administrative",
+      "label": "General & Administrative",
       "mask": "8*-*"
      }
     ]
@@ -4034,7 +4034,7 @@
       "mask": "6120-8502"
      },
      {
-      "label": "Water and Sewer",
+      "label": "Water & Sewer",
       "mask": "6130-8502"
      },
      {
@@ -4078,7 +4078,7 @@
       "mask": "6510-*"
      },
      {
-      "label": "Cleaning and Supplies",
+      "label": "Cleaning & Supplies",
       "mask": "6250-8501,6250-8502"
      },
      {
@@ -4120,11 +4120,11 @@
       "mask": "8210-8501"
      },
      {
-      "label": "Legal and Accounting",
+      "label": "Legal & Accounting",
       "mask": "8310-8501"
      },
      {
-      "label": "General and Administrative",
+      "label": "General & Administrative",
       "mask": "8*-*"
      }
     ]
@@ -4228,7 +4228,7 @@
       "mask": "6120-8502"
      },
      {
-      "label": "Water and Sewer",
+      "label": "Water & Sewer",
       "mask": "6130-8502"
      },
      {
@@ -4272,7 +4272,7 @@
       "mask": "6510-*"
      },
      {
-      "label": "Cleaning and Supplies",
+      "label": "Cleaning & Supplies",
       "mask": "6250-8501,6250-8502"
      }
     ]
@@ -4310,11 +4310,11 @@
       "mask": "8210-8501"
      },
      {
-      "label": "Legal and Accounting",
+      "label": "Legal & Accounting",
       "mask": "8310-8501"
      },
      {
-      "label": "General and Administrative",
+      "label": "General & Administrative",
       "mask": "8*-*"
      }
     ]
@@ -4422,7 +4422,7 @@
       "mask": "6120-8502"
      },
      {
-      "label": "Water and Sewer",
+      "label": "Water & Sewer",
       "mask": "6130-8502"
      },
      {
@@ -4466,7 +4466,7 @@
       "mask": "6510-*"
      },
      {
-      "label": "Cleaning and Supplies",
+      "label": "Cleaning & Supplies",
       "mask": "6250-8501,6250-8502"
      },
      {
@@ -4508,11 +4508,11 @@
       "mask": "8210-8501"
      },
      {
-      "label": "Legal and Accounting",
+      "label": "Legal & Accounting",
       "mask": "8310-8501"
      },
      {
-      "label": "General and Administrative",
+      "label": "General & Administrative",
       "mask": "8*-*"
      }
     ]
@@ -4620,7 +4620,7 @@
       "mask": "6120-8502,6120-8503"
      },
      {
-      "label": "Water and Sewer",
+      "label": "Water & Sewer",
       "mask": "6130-8503"
      },
      {
@@ -4668,7 +4668,7 @@
       "mask": "6510-*"
      },
      {
-      "label": "Cleaning and Supplies",
+      "label": "Cleaning & Supplies",
       "mask": "6250-8501,6250-8502"
      }
     ]
@@ -4706,11 +4706,11 @@
       "mask": "8210-8501"
      },
      {
-      "label": "Legal and Accounting",
+      "label": "Legal & Accounting",
       "mask": "8310-8501"
      },
      {
-      "label": "General and Administrative",
+      "label": "General & Administrative",
       "mask": "8*-*"
      }
     ]
@@ -4818,7 +4818,7 @@
       "mask": "6120-8502"
      },
      {
-      "label": "Water and Sewer",
+      "label": "Water & Sewer",
       "mask": "6130-8502"
      },
      {
@@ -4862,7 +4862,7 @@
       "mask": "6510-*"
      },
      {
-      "label": "Cleaning and Supplies",
+      "label": "Cleaning & Supplies",
       "mask": "6250-8501,6250-8502"
      },
      {
@@ -4904,11 +4904,11 @@
       "mask": "8210-8501"
      },
      {
-      "label": "Legal and Accounting",
+      "label": "Legal & Accounting",
       "mask": "8310-8501"
      },
      {
-      "label": "General and Administrative",
+      "label": "General & Administrative",
       "mask": "8*-*"
      }
     ]
@@ -5016,7 +5016,7 @@
       "mask": "6120-8502"
      },
      {
-      "label": "Water and Sewer",
+      "label": "Water & Sewer",
       "mask": "6130-8502"
      },
      {
@@ -5060,7 +5060,7 @@
       "mask": "6510-*"
      },
      {
-      "label": "Cleaning and Supplies",
+      "label": "Cleaning & Supplies",
       "mask": "6250-8501,6250-8502"
      },
      {
@@ -5102,11 +5102,11 @@
       "mask": "8210-8501"
      },
      {
-      "label": "Legal and Accounting",
+      "label": "Legal & Accounting",
       "mask": "8310-8501"
      },
      {
-      "label": "General and Administrative",
+      "label": "General & Administrative",
       "mask": "8*-*"
      }
     ]
@@ -5210,7 +5210,7 @@
       "mask": "6120-8502"
      },
      {
-      "label": "Water and Sewer",
+      "label": "Water & Sewer",
       "mask": "6130-8502"
      },
      {
@@ -5254,7 +5254,7 @@
       "mask": "6510-*"
      },
      {
-      "label": "Cleaning and Supplies",
+      "label": "Cleaning & Supplies",
       "mask": "6250-8501,6250-8502"
      }
     ]
@@ -5292,11 +5292,11 @@
       "mask": "8210-8501"
      },
      {
-      "label": "Legal and Accounting",
+      "label": "Legal & Accounting",
       "mask": "8310-8501"
      },
      {
-      "label": "General and Administrative",
+      "label": "General & Administrative",
       "mask": "8*-*"
      }
     ]
@@ -5400,7 +5400,7 @@
       "mask": "6120-8502"
      },
      {
-      "label": "Water and Sewer",
+      "label": "Water & Sewer",
       "mask": "6130-8502"
      },
      {
@@ -5444,7 +5444,7 @@
       "mask": "6510-*"
      },
      {
-      "label": "Cleaning and Supplies",
+      "label": "Cleaning & Supplies",
       "mask": "6250-8501,6250-8502"
      }
     ]
@@ -5482,11 +5482,11 @@
       "mask": "8210-8501"
      },
      {
-      "label": "Legal and Accounting",
+      "label": "Legal & Accounting",
       "mask": "8310-8501"
      },
      {
-      "label": "General and Administrative",
+      "label": "General & Administrative",
       "mask": "8*-*"
      }
     ]
@@ -5594,7 +5594,7 @@
       "mask": "6120-8502"
      },
      {
-      "label": "Water and Sewer",
+      "label": "Water & Sewer",
       "mask": "6130-8502"
      },
      {
@@ -5638,7 +5638,7 @@
       "mask": "6510-*"
      },
      {
-      "label": "Cleaning and Supplies",
+      "label": "Cleaning & Supplies",
       "mask": "6250-8501,6250-8502"
      },
      {
@@ -5680,11 +5680,11 @@
       "mask": "8210-8501"
      },
      {
-      "label": "Legal and Accounting",
+      "label": "Legal & Accounting",
       "mask": "8310-8501"
      },
      {
-      "label": "General and Administrative",
+      "label": "General & Administrative",
       "mask": "8*-*"
      }
     ]
@@ -5792,7 +5792,7 @@
       "mask": "6120-8502"
      },
      {
-      "label": "Water and Sewer",
+      "label": "Water & Sewer",
       "mask": "6130-8502"
      },
      {
@@ -5836,7 +5836,7 @@
       "mask": "6510-*"
      },
      {
-      "label": "Cleaning and Supplies",
+      "label": "Cleaning & Supplies",
       "mask": "6250-8501,6250-8502"
      },
      {
@@ -5878,11 +5878,11 @@
       "mask": "8210-8501"
      },
      {
-      "label": "Legal and Accounting",
+      "label": "Legal & Accounting",
       "mask": "8310-8501"
      },
      {
-      "label": "General and Administrative",
+      "label": "General & Administrative",
       "mask": "8*-*"
      }
     ]
@@ -5994,7 +5994,7 @@
       "mask": "6120-8502"
      },
      {
-      "label": "Water and Sewer",
+      "label": "Water & Sewer",
       "mask": "6130-8502"
      },
      {
@@ -6038,7 +6038,7 @@
       "mask": "6510-*"
      },
      {
-      "label": "Cleaning and Supplies",
+      "label": "Cleaning & Supplies",
       "mask": "6250-8501,6250-8502"
      },
      {
@@ -6080,11 +6080,11 @@
       "mask": "8210-8501"
      },
      {
-      "label": "Legal and Accounting",
+      "label": "Legal & Accounting",
       "mask": "8310-8501"
      },
      {
-      "label": "General and Administrative",
+      "label": "General & Administrative",
       "mask": "8*-*"
      }
     ]

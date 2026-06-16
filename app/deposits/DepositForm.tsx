@@ -199,6 +199,7 @@ export default function DepositForm({
   const savingRef = useRef(false);
   const dirtyRef = useRef(false);
   const firstRun = useRef(true);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   async function autosave() {
     if (!unit || !(Number(amount) > 0)) return;
@@ -223,10 +224,18 @@ export default function DepositForm({
     if (firstRun.current) { firstRun.current = false; return; }
     if (!unit || !(Number(amount) > 0)) return;
     setAutoStatus("pending");
-    const t = setTimeout(() => { void autosave(); }, 700);
-    return () => clearTimeout(t);
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => { void autosave(); }, 500);
+    return () => { if (saveTimer.current) clearTimeout(saveTimer.current); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [unitRef, checkNumber, amount, checkDate, notes, refunded, refundDate]);
+
+  // Persist immediately when a field loses focus, so tabbing/clicking away saves
+  // right then instead of waiting out the debounce.
+  function flushSave() {
+    if (saveTimer.current) { clearTimeout(saveTimer.current); saveTimer.current = null; }
+    if (unit && Number(amount) > 0) void autosave();
+  }
 
   async function save(addAnother = false) {
     if (!unit) { setError("Pick a unit."); return; }
@@ -394,12 +403,12 @@ export default function DepositForm({
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           <span style={labelStyle}>Check #</span>
           <input style={inputStyle} value={checkNumber} placeholder="1234"
-            onChange={(e) => setCheckNumber(e.target.value)} />
+            onChange={(e) => setCheckNumber(e.target.value)} onBlur={flushSave} />
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           <span style={labelStyle}>Amount</span>
           <input style={inputStyle} value={amount} inputMode="decimal" placeholder="0.00"
-            onChange={(e) => setAmount(e.target.value)} />
+            onChange={(e) => setAmount(e.target.value)} onBlur={flushSave} />
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           <span style={labelStyle}>Check Date</span>
@@ -410,7 +419,7 @@ export default function DepositForm({
       <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
         <span style={labelStyle}>Notes</span>
         <input style={inputStyle} value={notes} placeholder="Anything worth noting"
-          onChange={(e) => setNotes(e.target.value)} />
+          onChange={(e) => setNotes(e.target.value)} onBlur={flushSave} />
       </div>
 
       {/* Refund status */}
