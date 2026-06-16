@@ -60,6 +60,7 @@ export default function DepositForm({
   unitOptions,
   fixedUnitRef,
   onSaved,
+  onCheckAdded,
   onCancel,
   onDeleted,
 }: {
@@ -67,12 +68,18 @@ export default function DepositForm({
   unitOptions: UnitOption[];
   fixedUnitRef?: string;
   onSaved: (d: SecurityDeposit) => void;
+  /** Called when a check is saved via "Save & add another check" — the parent
+   *  updates its list but the modal stays open for the next check. */
+  onCheckAdded?: (d: SecurityDeposit) => void;
   onCancel: () => void;
   onDeleted?: (id: string) => void;
 }) {
   const [unitRef, setUnitRef] = useState(
     deposit?.unitRef ?? fixedUnitRef ?? unitOptions[0]?.unitRef ?? "",
   );
+  // The record currently being saved. Starts as the edited deposit (if any);
+  // after "Save & add another check" it clears so the next check is a new record.
+  const [editId, setEditId] = useState<string | undefined>(deposit?.id);
   const [checkNumber, setCheckNumber] = useState(deposit?.checkNumber ?? "");
   const [amount, setAmount] = useState(deposit?.amount ? String(deposit.amount) : "");
   const [checkDate, setCheckDate] = useState(deposit?.checkDate ?? "");
@@ -86,6 +93,8 @@ export default function DepositForm({
   const [extractNote, setExtractNote] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Checks saved during this modal session via "add another" (for a running tally).
+  const [addedChecks, setAddedChecks] = useState<{ checkNumber: string; amount: number }[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
 
   // Fall back to the deposit's stored unit when the tenant has since left
@@ -128,13 +137,17 @@ export default function DepositForm({
     }
   }
 
-  async function save() {
+  async function save(addAnother = false) {
     if (!unit) { setError("Pick a unit."); return; }
+    if (addAnother && !(Number(amount) > 0)) {
+      setError("Enter this check's amount before adding another.");
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
       const payload = {
-        id: deposit?.id,
+        id: editId,
         unitRef: unit.unitRef,
         propertyCode: unit.propertyCode,
         tenantCompany: unit.tenantCompany,
@@ -145,8 +158,8 @@ export default function DepositForm({
         refunded,
         refundDate: refunded ? refundDate : "",
       };
-      const res = await fetch(deposit ? `/api/deposits/${deposit.id}` : "/api/deposits", {
-        method: deposit ? "PUT" : "POST",
+      const res = await fetch(editId ? `/api/deposits/${editId}` : "/api/deposits", {
+        method: editId ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
@@ -168,7 +181,27 @@ export default function DepositForm({
         }
         saved = uj.deposit as SecurityDeposit;
       }
-      onSaved(saved);
+
+      if (addAnother) {
+        // Keep the modal open, pinned to the same tenant; reset for the next
+        // check (the saved one becomes a fresh new record).
+        (onCheckAdded ?? onSaved)(saved);
+        setAddedChecks((prev) => [...prev, { checkNumber: saved.checkNumber, amount: saved.amount }]);
+        setEditId(undefined);
+        setCheckNumber("");
+        setAmount("");
+        setCheckDate("");
+        setNotes("");
+        setRefunded(false);
+        setRefundDate("");
+        setStagedFile(null);
+        setStagedPreview(null);
+        setExistingImage(null);
+        setExtractNote(null);
+        if (fileRef.current) fileRef.current.value = "";
+      } else {
+        onSaved(saved);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Save failed");
     } finally {
@@ -177,8 +210,8 @@ export default function DepositForm({
   }
 
   async function removeImage() {
-    if (deposit && existingImage) {
-      try { await fetch(`/api/deposits/${deposit.id}/check-image`, { method: "DELETE" }); }
+    if (editId && existingImage) {
+      try { await fetch(`/api/deposits/${editId}/check-image`, { method: "DELETE" }); }
       catch { /* ignore */ }
       setExistingImage(null);
     }
@@ -188,12 +221,12 @@ export default function DepositForm({
   }
 
   async function del() {
-    if (!deposit || !onDeleted) return;
+    if (!editId || !onDeleted) return;
     if (!confirm("Delete this security deposit record? This cannot be undone.")) return;
     setSaving(true);
     try {
-      await fetch(`/api/deposits/${deposit.id}`, { method: "DELETE" });
-      onDeleted(deposit.id);
+      await fetch(`/api/deposits/${editId}`, { method: "DELETE" });
+      onDeleted(editId);
     } catch {
       setError("Delete failed");
       setSaving(false);
@@ -335,17 +368,36 @@ export default function DepositForm({
         )}
       </div>
 
+      {/* Running tally of checks added this session (multi-check deposits). */}
+      {addedChecks.length > 0 && (
+        <div style={{
+          fontSize: 12, color: "var(--muted)", padding: "8px 10px", borderRadius: 8,
+          background: "rgba(22,163,74,0.06)", border: "1px solid rgba(22,163,74,0.25)",
+        }}>
+          ✓ Added {addedChecks.length} check{addedChecks.length === 1 ? "" : "s"} for this tenant
+          {" "}({addedChecks.map((c) => `${c.checkNumber ? `#${c.checkNumber} ` : ""}$${c.amount.toLocaleString("en-US")}`).join(", ")}).
+          {" "}Enter the next check, or finish below.
+        </div>
+      )}
+
       {/* Actions */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <button type="button" onClick={save} disabled={saving || extracting}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        <button type="button" onClick={() => save(false)} disabled={saving || extracting}
           className="btn primary" style={{ fontSize: 13, padding: "8px 18px", fontWeight: 700 }}>
-          {saving ? "Saving…" : deposit ? "Save Changes" : "Add Deposit"}
+          {saving ? "Saving…" : editId ? "Save Changes" : "Add Deposit"}
         </button>
+        {onCheckAdded && (
+          <button type="button" onClick={() => save(true)} disabled={saving || extracting}
+            className="btn" style={{ fontSize: 13, padding: "8px 16px", fontWeight: 700 }}
+            title="Save this check and add another for the same tenant">
+            + Add another check
+          </button>
+        )}
         <button type="button" onClick={onCancel} disabled={saving}
           className="btn" style={{ fontSize: 13, padding: "8px 16px", fontWeight: 600 }}>
-          Cancel
+          {addedChecks.length > 0 ? "Done" : "Cancel"}
         </button>
-        {deposit && onDeleted && (
+        {editId && onDeleted && (
           <button type="button" onClick={del} disabled={saving}
             style={{
               marginLeft: "auto", fontSize: 12, fontWeight: 600, color: "#b91c1c",
