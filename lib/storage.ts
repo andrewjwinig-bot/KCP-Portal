@@ -28,18 +28,31 @@ function safeId(id: string) {
   return id.replace(/[^a-zA-Z0-9\-_]/g, "");
 }
 
-/** Fetch a blob URL server-side, including the auth token for private stores. */
-async function fetchBlobJson(url: string): Promise<any> {
+/** Fetch a blob URL server-side, including the auth token for private stores.
+ *  Retries a few times with backoff so a transient blob hiccup (a momentary
+ *  403 on a stale URL, a network blip) doesn't make the caller drop the record
+ *  — listJSON skips anything that ultimately fails, so without this a single
+ *  blip can blank a whole page (statements, dismissed flags, etc.). */
+async function fetchBlobJson(url: string, attempts = 3): Promise<any> {
   const token = process.env.BLOB_READ_WRITE_TOKEN;
-  // cache: "no-store" — Vercel Blob URLs are stable across overwrites
-  // (addRandomSuffix: false), so Next.js's default fetch cache would
-  // happily return a stale manifest body after a write. Force fresh.
-  const res = await fetch(url, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-    cache: "no-store",
-  });
-  if (!res.ok) throw new Error(`Blob fetch failed: ${res.status} ${res.statusText}`);
-  return res.json();
+  let lastErr: unknown;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      // cache: "no-store" — Vercel Blob URLs are stable across overwrites
+      // (addRandomSuffix: false), so Next.js's default fetch cache would
+      // happily return a stale manifest body after a write. Force fresh.
+      const res = await fetch(url, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        cache: "no-store",
+      });
+      if (!res.ok) throw new Error(`Blob fetch failed: ${res.status} ${res.statusText}`);
+      return await res.json();
+    } catch (e) {
+      lastErr = e;
+      if (i < attempts - 1) await new Promise((r) => setTimeout(r, 150 * (i + 1)));
+    }
+  }
+  throw lastErr;
 }
 
 /** Write a JSON object. Overwrites if id already exists. */
