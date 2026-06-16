@@ -66,17 +66,9 @@ export default function SecurityDepositsPage() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<SecurityDeposit | null>(null);
   const [adding, setAdding] = useState(false);
-  // When set, the form opens pre-pinned to this tenant's unit (adding another
-  // check to an existing deposit). Null → the global add with a tenant picker.
-  const [addUnit, setAddUnit] = useState<UnitOption | null>(null);
 
-  function startGlobalAdd() { setAddUnit(null); setAdding(true); setEditing(null); }
-  function startAddCheck(g: TenantGroup) {
-    setAddUnit({ unitRef: g.unitRef, label: `${g.tenant || g.unitRef} — ${g.unitRef}`, propertyCode: g.propertyCode, tenantCompany: g.tenant });
-    setAdding(true);
-    setEditing(null);
-  }
-  function closeForm() { setAdding(false); setEditing(null); setAddUnit(null); }
+  function startGlobalAdd() { setAdding(true); setEditing(null); }
+  function closeForm() { setAdding(false); setEditing(null); }
 
   useEffect(() => {
     let alive = true;
@@ -134,6 +126,16 @@ export default function SecurityDepositsPage() {
       return [...list, d];
     });
     closeForm();
+  }
+
+  // A check saved via "+ Add another check" — update the list, keep modal open.
+  function onCheckAdded(d: SecurityDeposit) {
+    setDeposits((prev) => {
+      const list = prev ?? [];
+      const idx = list.findIndex((x) => x.id === d.id);
+      if (idx >= 0) { const next = [...list]; next[idx] = d; return next; }
+      return [...list, d];
+    });
   }
 
   function onDeleted(id: string) {
@@ -210,15 +212,7 @@ export default function SecurityDepositsPage() {
                           : <span className="muted small">—</span>}</td>
                       </>
                     );
-                    const addBtn = (
-                      <button type="button" className="btn"
-                        onClick={(e) => { e.stopPropagation(); startAddCheck(g); }}
-                        style={{ fontSize: 11, padding: "3px 9px", fontWeight: 600 }}>
-                        + check
-                      </button>
-                    );
-
-                    // Single check → one ordinary row (with a quick "+ check").
+                    // Single check → one ordinary row.
                     if (g.checks.length === 1) {
                       const d = g.checks[0];
                       return (
@@ -231,7 +225,6 @@ export default function SecurityDepositsPage() {
                             <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                               <span>{g.tenant || "—"}</span>
                               {d.refunded && <RefundedBadge date={d.refundDate} />}
-                              {addBtn}
                             </div>
                           </td>
                           <td><code style={{ fontSize: 12 }}>{g.unitRef}</code></td>
@@ -250,7 +243,6 @@ export default function SecurityDepositsPage() {
                             <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                               <span>{g.tenant || "—"}</span>
                               {allRefunded && <RefundedBadge date="" />}
-                              {addBtn}
                             </div>
                           </td>
                           <td><code style={{ fontSize: 12 }}>{g.unitRef}</code></td>
@@ -293,13 +285,13 @@ export default function SecurityDepositsPage() {
           <div onClick={(e) => e.stopPropagation()} className="card"
             style={{ maxWidth: 860, width: "100%", boxShadow: "0 24px 60px rgba(15,23,42,0.32)" }}>
             <div style={{ fontSize: 16, fontWeight: 800, marginBottom: 14 }}>
-              {editing ? "Edit Security Deposit" : addUnit ? `Add check — ${addUnit.tenantCompany || addUnit.unitRef}` : "New Security Deposit"}
+              {editing ? "Edit Security Deposit" : "New Security Deposit"}
             </div>
             <DepositForm
               deposit={editing}
-              unitOptions={addUnit ? [addUnit] : unitOptions}
-              fixedUnitRef={addUnit?.unitRef}
+              unitOptions={unitOptions}
               onSaved={onSaved}
+              onCheckAdded={onCheckAdded}
               onCancel={closeForm}
               onDeleted={editing ? onDeleted : undefined}
             />

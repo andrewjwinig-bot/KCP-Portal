@@ -71,6 +71,15 @@ export default function DepositCard({
     setEditing(null);
     setAdding(false);
   }
+  // A check saved via "+ Add another check" — update the list, keep modal open.
+  function onCheckAdded(d: SecurityDeposit) {
+    setDeposits((prev) => {
+      const list = prev ?? [];
+      const idx = list.findIndex((x) => x.id === d.id);
+      if (idx >= 0) { const next = [...list]; next[idx] = d; return next; }
+      return [...list, d];
+    });
+  }
   function onDeleted(id: string) {
     setDeposits((prev) => prev?.filter((x) => x.id !== id) ?? prev);
     setEditing(null);
@@ -104,6 +113,7 @@ export default function DepositCard({
             unitOptions={unitOptions}
             fixedUnitRef={unitRef}
             onSaved={onSaved}
+            onCheckAdded={onCheckAdded}
             onCancel={() => { setAdding(false); setEditing(null); }}
             onDeleted={editing ? onDeleted : undefined}
           />
