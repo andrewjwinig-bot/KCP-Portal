@@ -39,9 +39,9 @@ describe("rent-roll-style grouping (Flags to Investigate)", () => {
     expect(rentRollGroupFor("2300")).toBe("Shopping Centers");
     expect(rentRollGroupFor("9800")).toBe("Korman Homes");
     expect(rentRollGroupFor("PHOMES")).toBe("Korman Homes");
-    expect(rentRollGroupFor("4900")).toBe("The Office Works");
-    expect(rentRollGroupFor("0800")).toBe("Other");          // Land
-    expect(rentRollGroupFor("2010")).toBe("Other");          // LIK Management
+    expect(rentRollGroupFor("4900")).toBe("Other Properties");   // Office Works (as on the rent roll)
+    expect(rentRollGroupFor("0800")).toBe("Other Properties");   // Land
+    expect(rentRollGroupFor("2010")).toBe("Other Properties");   // LIK Management
   });
 
   it("buckets in rent-roll order, preserving input order within a group", () => {
@@ -50,10 +50,12 @@ describe("rent-roll-style grouping (Flags to Investigate)", () => {
       { propertyCode: "3610" }, { propertyCode: "1100" }, { propertyCode: "2010" },
     ];
     const groups = groupByRentRoll(items);
-    // JV III before Shopping Centers before The Office Works before Other.
-    expect(groups.map((g) => g.label)).toEqual(["JV III LLC", "Shopping Centers", "The Office Works", "Other"]);
+    // JV III before Shopping Centers before Other Properties.
+    expect(groups.map((g) => g.label)).toEqual(["JV III LLC", "Shopping Centers", "Other Properties"]);
     // Input order kept inside the JV III group (PJV3 came before 3610).
     expect(groups[0].items.map((i) => i.propertyCode)).toEqual(["PJV3", "3610"]);
     expect(groups[1].items.map((i) => i.propertyCode)).toEqual(["2300", "1100"]);
+    // 4900 and 2010 fall into Other Properties (kept in input order).
+    expect(groups[2].items.map((i) => i.propertyCode)).toEqual(["4900", "2010"]);
   });
 });
