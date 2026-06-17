@@ -3,6 +3,7 @@ import { availableStatements } from "@/lib/financials/operating-statements/mappi
 import { listFullGls, mergeAccountNames } from "@/lib/financials/operating-statements/statementStore";
 import { assembleGls } from "@/lib/financials/operating-statements/glAssemble";
 import { cashAtStartOfMonth } from "@/lib/financials/operating-statements/cash";
+import { mortgagePaymentsFor } from "@/lib/financials/cash-sheet/mortgage";
 import { computeCashFlow, CASH_FLOW_BUCKETS } from "@/lib/financials/cash-analysis/compute";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 
@@ -34,7 +35,13 @@ export async function GET(req: Request) {
   const period = Math.min(12, Math.max(1, Number(url.searchParams.get("period")) || 12));
   const ytd = url.searchParams.get("ytd") === "1";
 
-  const [mappings, fulls] = await Promise.all([availableStatements(), listFullGls()]);
+  const [mappings, fulls, scheduledDebt] = await Promise.all([
+    availableStatements(),
+    listFullGls(),
+    // Scheduled P&I per cash key for this month (from the Debt Tracker) — lets us
+    // flag properties that SHOULD show debt but posted $0 (a missing GL posting).
+    mortgagePaymentsFor(year, period),
+  ]);
   // Account-name lookup (GL account → its name), merged across every upload so a
   // name captured on one property labels the same account everywhere.
   const acctNames = mergeAccountNames(fulls);
@@ -45,6 +52,10 @@ export async function GET(req: Request) {
     const p = Math.min(period, maxPeriod);
     const flow = computeCashFlow(stored.monthly, p, { ytd });
     const startingCash = cashAtStartOfMonth(stored, p);
+    // Debt expectation: a scheduled P&I this month but a $0 Mortgage P&I bucket
+    // (code 4) means the debt hasn't posted to the GL.
+    const scheduled = scheduledDebt[m.key.toUpperCase()] ?? scheduledDebt[m.propertyCode.toUpperCase()] ?? 0;
+    const debtPosted = (flow.byBucket[4] ?? 0) !== 0;
     return {
       key: m.key,
       propertyCode: m.propertyCode,
@@ -56,6 +67,10 @@ export async function GET(req: Request) {
       netChange: flow.netChange,
       startingCash,
       endingCash: startingCash == null ? null : startingCash + flow.netChange,
+      scheduledDebt: scheduled,
+      debtExpected: scheduled > 0,
+      debtPosted,
+      debtMissing: scheduled > 0 && !debtPosted,
       unmappedCount: flow.unmapped.length,
       unmapped: flow.unmapped.slice(0, 8).map((u) => ({
         ...u,
