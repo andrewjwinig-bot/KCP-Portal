@@ -105,6 +105,12 @@ export default function CashSheetPage() {
   const [resDraft, setResDraft] = useState<Record<string, string>>({});
   const [startDraft, setStartDraft] = useState<Record<string, string>>({}); // starting-cash override
   const [endDraft, setEndDraft] = useState<Record<string, string>>({});     // operational (ending) override
+  // Pooled funds (JV III, NI LLC) are one bank account, so their buildings are
+  // collapsed by default — expand to see/override per-building reserves.
+  const [expandedFunds, setExpandedFunds] = useState<Set<string>>(new Set());
+  function toggleFund(id: string) {
+    setExpandedFunds((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  }
 
   const ym = monthKey(year, month);
 
@@ -401,17 +407,29 @@ export default function CashSheetPage() {
                 const fundStartOverridden = pooled && parseOpt(startDraft[fc]) != null;
                 const fundEndOverridden = pooled && parseOpt(endDraft[fc]) != null;
                 const fundCompOp = pooled ? fundComputedOperational(g) : null;
+                const expanded = expandedFunds.has(g.id);
                 return (
                   <Fragment key={g.id}>
                     {/* Group header */}
                     <tr>
                       <td colSpan={colCount} style={groupHeaderCell}>
-                        {g.label}
-                        {pooled && <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 600 }}> · one fund account · <code style={{ fontSize: 11 }}>{fc}</code></span>}
+                        {pooled ? (
+                          <button
+                            type="button"
+                            onClick={() => toggleFund(g.id)}
+                            style={{ background: "none", border: "none", padding: 0, font: "inherit", color: "inherit", textTransform: "inherit", letterSpacing: "inherit", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8 }}
+                          >
+                            <span style={{ fontSize: 11, width: 10, display: "inline-block", transform: expanded ? "rotate(90deg)" : undefined, transition: "transform 0.15s" }}>▶</span>
+                            {g.label}
+                            <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 600, color: "var(--muted)" }}>
+                              · one fund account · <code style={{ fontSize: 11 }}>{fc}</code> · {g.properties.length} building{g.properties.length === 1 ? "" : "s"}{expanded ? "" : " (collapsed)"}
+                            </span>
+                          </button>
+                        ) : g.label}
                       </td>
                     </tr>
-                    {/* Property / building rows */}
-                    {g.properties.map((p) => {
+                    {/* Property / building rows (pooled funds collapse to just the fund row) */}
+                    {(!pooled || expanded) && g.properties.map((p) => {
                       // Manual single-balance account: one editable cell (its
                       // current cash), no GL/rent-roll columns. Stored as the
                       // ending override so it flows into the operational totals.
