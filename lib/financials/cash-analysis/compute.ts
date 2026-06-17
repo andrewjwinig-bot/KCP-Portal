@@ -56,3 +56,24 @@ export function computeCashFlow(
   unmapped.sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount));
   return { byBucket, netChange, unmapped };
 }
+
+/** The individual GL accounts that roll into one bucket for a period — for the
+ *  drill-down. Cash-flow signed, biggest first, zero-activity dropped. */
+export function breakdownForCode(
+  monthly: Record<string, number[]>,
+  period: number,
+  code: CashFlowCode,
+  opts: { ytd?: boolean } = {},
+): { account: string; amount: number }[] {
+  const out: { account: string; amount: number }[] = [];
+  for (const [account, nets] of Object.entries(monthly)) {
+    if (bucketCodeFor(account) !== code) continue;
+    const raw = opts.ytd
+      ? nets.slice(0, period).reduce((a, n) => a + (n || 0), 0)
+      : (nets[period - 1] ?? 0);
+    if (!raw) continue;
+    out.push({ account, amount: -raw });
+  }
+  out.sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount));
+  return out;
+}
