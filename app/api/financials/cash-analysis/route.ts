@@ -9,6 +9,18 @@ import { getMonth } from "@/lib/financials/cash-sheet/store";
 import { totalBills, monthKey, cashSheetGroups } from "@/lib/financials/cash-sheet/util";
 import { computeCashFlow, CASH_FLOW_BUCKETS, type CashFlowCode } from "@/lib/financials/cash-analysis/compute";
 import { PROPERTY_DEFS, BANK_ACCOUNTS } from "@/lib/properties/data";
+import { SITE_COOKIE, verifySiteToken } from "@/lib/site-auth";
+import { ALL_USERS, canEditCashSheet, type UserId } from "@/lib/users";
+import { cookies } from "next/headers";
+
+/** The signed-in user from the site cookie (authoritative — not client-supplied). */
+async function currentUser(): Promise<UserId | null> {
+  const secret = process.env.SITE_AUTH_SECRET;
+  if (!secret) return null;
+  const token = (await cookies()).get(SITE_COOKIE)?.value;
+  const id = await verifySiteToken(token, secret);
+  return id && (ALL_USERS as readonly string[]).includes(id) ? (id as UserId) : null;
+}
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -70,6 +82,8 @@ export async function GET(req: Request) {
   const ytd = url.searchParams.get("ytd") === "1";
   const curYear = now.getFullYear();
   const curMonth = now.getMonth() + 1;
+  const user = await currentUser();
+  const canEdit = !!user && canEditCashSheet(user); // admin/Drew edit; others view-only
 
   const [mappings, fulls, scheduledDebt, overrideDoc] = await Promise.all([
     availableStatements(),
@@ -266,7 +280,8 @@ export async function GET(req: Request) {
     year, period, ytd,
     buckets: CASH_FLOW_BUCKETS,
     rows,
-    canEditOpening: !ytd,
+    canEdit,
+    canEditOpening: !ytd && canEdit,
     ym: monthKey(year, period),
     estimateAsOf: estimateApplies && gapMonths.length ? `${MONTHS[curMonth - 1]} ${curYear}` : null,
     gapMonthLabels: gapMonths.map((mo) => MONTHS[mo - 1]),
