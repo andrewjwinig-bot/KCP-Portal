@@ -43,6 +43,22 @@ export default function CashAnalysisDraftPage() {
   const [data, setData] = useState<Payload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Drill-down: the GL accounts behind one property's bucket.
+  type DrillAcct = { account: string; name: string | null; amount: number };
+  const [drill, setDrill] = useState<{ key: string; propName: string; code: number; label: string } | null>(null);
+  const [drillData, setDrillData] = useState<{ accounts: DrillAcct[]; total: number } | null>(null);
+  const [drillLoading, setDrillLoading] = useState(false);
+
+  const openDrill = useCallback((row: Row, code: number, label: string) => {
+    setDrill({ key: row.key, propName: row.name, code, label });
+    setDrillData(null);
+    setDrillLoading(true);
+    fetch(`/api/financials/cash-analysis/drill?key=${encodeURIComponent(row.key)}&year=${year}&period=${period}&code=${code}&ytd=${ytd ? 1 : 0}`)
+      .then((r) => r.json())
+      .then((j) => setDrillData({ accounts: j.accounts ?? [], total: j.total ?? 0 }))
+      .catch(() => setDrillData({ accounts: [], total: 0 }))
+      .finally(() => setDrillLoading(false));
+  }, [year, period, ytd]);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -139,7 +155,18 @@ export default function CashAnalysisDraftPage() {
                       <td style={numCell} title={r.startingCash == null ? "No opening balance captured in this GL upload" : undefined}>{money0(r.startingCash)}</td>
                       {buckets.map((b) => {
                         const v = r.byBucket[b.code] ?? 0;
-                        return <td key={b.code} style={{ ...numCell, color: v < 0 ? "#b91c1c" : v > 0 ? "#15803d" : "var(--muted)" }}>{v ? money0(v) : "—"}</td>;
+                        if (!v) return <td key={b.code} style={{ ...numCell, color: "var(--muted)" }}>—</td>;
+                        return (
+                          <td key={b.code} style={{ ...numCell, color: v < 0 ? "#b91c1c" : "#15803d" }}>
+                            <button type="button" onClick={() => openDrill(r, b.code, b.label)}
+                              title="Show the GL accounts behind this"
+                              style={{ background: "none", border: "none", padding: 0, font: "inherit", color: "inherit", cursor: "pointer", textDecoration: "none" }}
+                              onMouseEnter={(e) => (e.currentTarget.style.textDecoration = "underline")}
+                              onMouseLeave={(e) => (e.currentTarget.style.textDecoration = "none")}>
+                              {money0(v)}
+                            </button>
+                          </td>
+                        );
                       })}
                       <td style={{ ...numCell, fontWeight: 800, color: r.netChange >= 0 ? "#15803d" : "#b91c1c" }}>{money0(r.netChange)}</td>
                       <td style={{ ...numCell, fontWeight: 800 }}>{money0(r.endingCash)}</td>
@@ -187,8 +214,46 @@ export default function CashAnalysisDraftPage() {
       )}
 
       <p className="muted small" style={{ margin: 0 }}>
-        Draft for verification — compare to the December CASH ANALYSIS. Once it ties, we wire the weekly overlay (AvidXchange bills + mortgage) and the bank tie-out, then promote it.
+        Draft for verification — compare to the December CASH ANALYSIS. Once it ties, we wire the weekly overlay (AvidXchange bills + mortgage) and the bank tie-out, then promote it. Tip: click any bucket amount to see the GL accounts behind it.
       </p>
+
+      {drill && (
+        <div onClick={() => setDrill(null)}
+          style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.55)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "48px 16px 32px", zIndex: 100, overflow: "auto" }}>
+          <div onClick={(e) => e.stopPropagation()} className="card" style={{ maxWidth: 640, width: "100%", boxShadow: "0 24px 60px rgba(15,23,42,0.32)" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 4 }}>
+              <div style={{ fontSize: 16, fontWeight: 800 }}>{drill.label}</div>
+              <button className="btn" onClick={() => setDrill(null)} style={{ padding: "6px 14px" }}>Close</button>
+            </div>
+            <div className="muted small" style={{ marginBottom: 12 }}>{drill.propName} · {ytd ? "YTD through" : ""} {MONTHS[period - 1]} {year} · GL accounts</div>
+            {drillLoading ? (
+              <div className="muted small">Loading…</div>
+            ) : !drillData?.accounts.length ? (
+              <div className="muted small">No GL accounts for this bucket.</div>
+            ) : (
+              <div className="tableWrap">
+                <table>
+                  <thead><tr><th style={{ textAlign: "left" }}>Account</th><th style={{ textAlign: "left" }}>Description</th><th style={numCell}>Amount</th></tr></thead>
+                  <tbody>
+                    {drillData.accounts.map((a) => (
+                      <tr key={a.account}>
+                        <td style={{ textAlign: "left" }}><code style={{ fontSize: 12 }}>{a.account}</code></td>
+                        <td style={{ textAlign: "left" }}>{a.name || <span className="muted">—</span>}</td>
+                        <td style={{ ...numCell, color: a.amount < 0 ? "#b91c1c" : "#15803d" }}>{money0(a.amount)}</td>
+                      </tr>
+                    ))}
+                    <tr style={{ borderTop: "1px solid var(--border)", fontWeight: 800 }}>
+                      <td style={{ textAlign: "left" }}>Total</td>
+                      <td />
+                      <td style={{ ...numCell, color: drillData.total < 0 ? "#b91c1c" : "#15803d" }}>{money0(drillData.total)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </main>
   );
 }
