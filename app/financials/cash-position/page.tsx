@@ -70,7 +70,7 @@ function bankLink(code?: string, last4?: string) {
   );
 }
 
-export default function CashPositionPage() {
+export default function CashPositionPage({ embedded = false }: { embedded?: boolean } = {}) {
   const [week, setWeek] = useState<string>(weekEndingFriday());
   const [data, setData] = useState<Payload | null>(null);
   const [loading, setLoading] = useState(true);
@@ -184,15 +184,24 @@ export default function CashPositionPage() {
     return saved == null ? <span className="muted">—</span> : <span style={saved < 0 ? { color: "#b91c1c" } : undefined}>{money0(saved)}</span>;
   }
 
+  const Outer = (embedded ? "section" : "main") as "section";
   return (
-    <main style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+    <Outer style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 14, flexWrap: "wrap" }}>
         <div>
-          <h1 style={{ marginBottom: 4 }}>Cash Position</h1>
-          <p className="muted small" style={{ margin: 0 }}>
-            Available cash by entity, refreshed weekly. Operating + A/P + escrows + reserves + money market = Net Available. Enter deductions as negatives; balances carry forward each week.{" "}
-            <Link href="/financials/cash-sheet" style={{ color: "var(--brand)", fontWeight: 600 }}>Cash Sheet (weekly bills) →</Link>
-          </p>
+          {embedded ? (
+            <div style={{ fontSize: 15, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+              Available Cash <span style={{ fontWeight: 600, color: "var(--muted)", textTransform: "none", letterSpacing: 0 }}>· weekly snapshot</span>
+            </div>
+          ) : (
+            <>
+              <h1 style={{ marginBottom: 4 }}>Cash Position</h1>
+              <p className="muted small" style={{ margin: 0 }}>
+                Available cash by entity, refreshed weekly. Operating + A/P + escrows + reserves + money market = Net Available. Enter deductions as negatives; balances carry forward each week.{" "}
+                <Link href="/financials/cash-sheet" style={{ color: "var(--brand)", fontWeight: 600 }}>Cash Sheet (weekly bills) →</Link>
+              </p>
+            </>
+          )}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <button className="btn" onClick={() => setWeek((w) => shiftWeek(w, -1))} style={{ padding: "6px 12px", fontWeight: 900 }}>←</button>
@@ -295,6 +304,6 @@ export default function CashPositionPage() {
       <p className="muted small" style={{ margin: 0 }}>
         {saving ? "Saving…" : "Deductions (A/P, escrows, reserves) are entered as negative amounts; Money Market and Operating as positive. Net Available = the row total."}
       </p>
-    </main>
+    </Outer>
   );
 }

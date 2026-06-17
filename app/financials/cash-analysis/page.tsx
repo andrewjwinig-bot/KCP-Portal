@@ -43,7 +43,7 @@ const groupHeaderCell: React.CSSProperties = {
 };
 const GROUP_ORDER = ["Business Parks", "Eastwick Joint Venture", "Shopping Centers", "LIK Management", "GP / LP – Property Owner", "Nockamixon", "Korman Homes", "Other"];
 
-export default function CashAnalysisDraftPage() {
+export default function CashAnalysisDraftPage({ embedded = false }: { embedded?: boolean } = {}) {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [period, setPeriod] = useState(now.getMonth() + 1);
@@ -102,12 +102,21 @@ export default function CashAnalysisDraftPage() {
   const dates = periodDates(year, period, ytd);
   const colCount = buckets.length + 4; // entity + opening + buckets + net + ending
 
+  const Outer = (embedded ? "section" : "main") as "section";
   return (
-    <main style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+    <Outer style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 14, flexWrap: "wrap" }}>
         <div>
-          <div style={{ display: "inline-block", fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", color: "#b45309", background: "rgba(180,83,9,0.12)", border: "1px solid rgba(180,83,9,0.35)", borderRadius: 999, padding: "2px 10px", marginBottom: 6 }}>DRAFT — verifying accuracy</div>
-          <h1 style={{ marginBottom: 4 }}>Cash Analysis</h1>
+          {embedded ? (
+            <div style={{ fontSize: 15, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>
+              Cash Flow <span style={{ fontWeight: 600, color: "var(--muted)", textTransform: "none", letterSpacing: 0 }}>· from the GL · monthly</span>
+            </div>
+          ) : (
+            <>
+              <div style={{ display: "inline-block", fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", color: "#b45309", background: "rgba(180,83,9,0.12)", border: "1px solid rgba(180,83,9,0.35)", borderRadius: 999, padding: "2px 10px", marginBottom: 6 }}>DRAFT — verifying accuracy</div>
+              <h1 style={{ marginBottom: 4 }}>Cash Analysis</h1>
+            </>
+          )}
           <div style={{ fontSize: 14, fontWeight: 800, color: "var(--text)", marginBottom: 4 }}>
             {ytd ? "Year to date" : MONTHS[period - 1] + " " + year} · <span style={{ color: "var(--muted)", fontWeight: 600 }}>{dates.range}</span>
           </div>
@@ -292,6 +301,6 @@ export default function CashAnalysisDraftPage() {
           </div>
         </div>
       )}
-    </main>
+    </Outer>
   );
 }
