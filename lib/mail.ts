@@ -27,6 +27,8 @@ export type MailAttachment = {
 
 export type MailMessage = {
   to: string;
+  /** Optional carbon-copy recipient(s) — comma-separated. */
+  cc?: string;
   subject: string;
   textBody: string;
   /** Extra RFC-style headers; "Auto-Submitted: auto-replied" is added
@@ -77,6 +79,7 @@ export async function sendMail(msg: MailMessage): Promise<boolean> {
       body: JSON.stringify({
         From: from,
         To: msg.to,
+        ...(msg.cc ? { Cc: msg.cc } : {}),
         Subject: msg.subject,
         TextBody: msg.textBody,
         MessageStream: "outbound",

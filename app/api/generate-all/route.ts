@@ -7,8 +7,15 @@ import { renderInvoicePdf } from "../../../lib/pdf/renderInvoicePdf";
 import { payrollInvoiceNumber } from "../../../lib/payroll/invoiceNumber";
 import { parseAllocationWorkbook } from "../../../lib/allocation/parseAllocationWorkbook";
 import { buildPayrollExportXlsx, buildPayrollGLXlsx } from "../../../lib/payroll/export";
+import { sendMail, isMailConfigured } from "@/lib/mail";
+import { allocReportAlreadySent, markAllocReportSent } from "@/lib/payroll/allocReportSent";
 import { readFile } from "fs/promises";
 import path from "path";
+
+// When payroll is processed, the property-level allocation report goes to the
+// controller. NEVER the confidential by-employee allocation.
+const ALLOC_REPORT_TO = "mjaster@kormancommercial.com";
+const ALLOC_REPORT_CC = "dwinig@kormancommercial.com";
 
 export const runtime = "nodejs";
 
@@ -50,6 +57,33 @@ export async function POST(req: Request) {
     const summaryBlob = buildPayrollExportXlsx({ payDate, invoices });
     const summaryBuf = Buffer.from(await summaryBlob.arrayBuffer());
     archive.append(summaryBuf, { name: `${datePrefix} payroll-summary.xlsx` });
+
+    // Auto-email the PROPERTY allocation report (the per-property Payroll Summary
+    // above — property-level totals only, no per-employee detail) to the
+    // controller when payroll is processed. Best-effort and once per pay date so
+    // re-downloading the batch doesn't resend. The confidential by-employee
+    // allocation is never attached.
+    try {
+      if (payDate && invoices.length && isMailConfigured() && !(await allocReportAlreadySent(payDate))) {
+        const ok = await sendMail({
+          to: ALLOC_REPORT_TO,
+          cc: ALLOC_REPORT_CC,
+          from: ALLOC_REPORT_CC, // verified sender (also used by the commissions batch)
+          subject: `Payroll Property Allocation — ${payDate}`,
+          textBody:
+            `Attached is the property allocation report for the ${payDate} payroll — per-property totals only.\n\n` +
+            `Sent automatically when the payroll invoices were processed. This report does not include any per-employee allocation detail.`,
+          attachments: [{
+            name: `${datePrefix} Payroll Property Allocation.xlsx`,
+            content: summaryBuf,
+            contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          }],
+        });
+        if (ok) await markAllocReportSent(payDate, ALLOC_REPORT_TO);
+      }
+    } catch {
+      // Never let the report email block invoice generation.
+    }
 
     const glBlob = buildPayrollGLXlsx({ payDate, invoices });
     const glBuf = Buffer.from(await glBlob.arrayBuffer());
