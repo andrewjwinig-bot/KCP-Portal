@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { availableStatements } from "@/lib/financials/operating-statements/mappingStore";
-import { listFullGls } from "@/lib/financials/operating-statements/statementStore";
+import { listFullGls, mergeAccountNames } from "@/lib/financials/operating-statements/statementStore";
 import { assembleGls } from "@/lib/financials/operating-statements/glAssemble";
 import { cashAtStartOfMonth } from "@/lib/financials/operating-statements/cash";
 import { computeCashFlow, CASH_FLOW_BUCKETS } from "@/lib/financials/cash-analysis/compute";
@@ -35,6 +35,9 @@ export async function GET(req: Request) {
   const ytd = url.searchParams.get("ytd") === "1";
 
   const [mappings, fulls] = await Promise.all([availableStatements(), listFullGls()]);
+  // Account-name lookup (GL account → its name), merged across every upload so a
+  // name captured on one property labels the same account everywhere.
+  const acctNames = mergeAccountNames(fulls);
   const rows = mappings.map((m) => {
     const stored = assembleGls(fulls.filter((g) => g.key === m.key && g.year === year));
     if (!stored) return null;
@@ -54,7 +57,10 @@ export async function GET(req: Request) {
       startingCash,
       endingCash: startingCash == null ? null : startingCash + flow.netChange,
       unmappedCount: flow.unmapped.length,
-      unmapped: flow.unmapped.slice(0, 8),
+      unmapped: flow.unmapped.slice(0, 8).map((u) => ({
+        ...u,
+        name: stored.names?.[u.account] ?? acctNames[u.account] ?? null,
+      })),
     };
   }).filter((r): r is NonNullable<typeof r> => r != null);
 

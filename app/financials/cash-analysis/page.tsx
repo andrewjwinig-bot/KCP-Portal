@@ -16,7 +16,7 @@ type Row = {
   period: number; maxPeriod: number;
   byBucket: Record<string, number>; netChange: number;
   startingCash: number | null; endingCash: number | null;
-  unmappedCount: number; unmapped: { account: string; amount: number }[];
+  unmappedCount: number; unmapped: { account: string; amount: number; name?: string | null }[];
 };
 type Payload = { year: number; period: number; ytd: boolean; buckets: Bucket[]; rows: Row[]; generatedAt: string };
 
@@ -170,12 +170,13 @@ export default function CashAnalysisDraftPage() {
           <p className="muted small" style={{ marginTop: 0 }}>Accounts with activity this period that aren&apos;t in the code map — they&apos;re excluded from the buckets until tagged. If any are real cash items, tell me the bucket and I&apos;ll add them.</p>
           <div className="tableWrap">
             <table>
-              <thead><tr><th style={{ textAlign: "left" }}>Entity</th><th style={{ textAlign: "left" }}>Account</th><th style={numCell}>Amount</th></tr></thead>
+              <thead><tr><th style={{ textAlign: "left" }}>Entity</th><th style={{ textAlign: "left" }}>Account</th><th style={{ textAlign: "left" }}>Description</th><th style={numCell}>Amount</th></tr></thead>
               <tbody>
                 {(data?.rows ?? []).flatMap((r) => r.unmapped.map((u) => (
                   <tr key={`${r.key}-${u.account}`}>
                     <td style={{ textAlign: "left" }}><code style={{ fontSize: 12 }}>{r.propertyCode}</code> {r.name}</td>
                     <td style={{ textAlign: "left" }}><code style={{ fontSize: 12 }}>{u.account}</code></td>
+                    <td style={{ textAlign: "left" }}>{u.name || <span className="muted">—</span>}</td>
                     <td style={{ ...numCell, color: u.amount < 0 ? "#b91c1c" : "#15803d" }}>{money0(u.amount)}</td>
                   </tr>
                 )))}
