@@ -97,6 +97,8 @@ export default function CashAnalysisDraftPage() {
   }, [data?.ym, load]);
 
   const buckets = data?.buckets ?? [];
+  // Hide a bucket column when it's zero for every property (e.g. Change in Escrows).
+  const visibleBuckets = buckets.filter((b) => (data?.rows ?? []).some((r) => (r.byBucket[b.code] ?? 0) !== 0));
   const grouped = useMemo(() => {
     const by: Record<string, Row[]> = {};
     for (const r of data?.rows ?? []) (by[r.group] = by[r.group] || []).push(r);
@@ -119,7 +121,7 @@ export default function CashAnalysisDraftPage() {
   const dates = periodDates(year, period, ytd);
   const showEst = !!data?.estimateAsOf;
   const estTotal = (data?.rows ?? []).reduce((s, r) => s + (r.estimate?.estimatedCash ?? 0), 0);
-  const colCount = buckets.length + 4 + (showEst ? 1 : 0); // entity + opening + buckets + net + ending (+ est)
+  const colCount = visibleBuckets.length + 4 + (showEst ? 1 : 0); // entity + opening + buckets + net + ending (+ est)
 
   return (
     <main style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -186,7 +188,7 @@ export default function CashAnalysisDraftPage() {
               <tr>
                 <th style={{ textAlign: "left" }}>Entity</th>
                 <th style={keyCol}>Opening Cash<div style={{ fontWeight: 600, fontSize: 10, color: "var(--muted)", textTransform: "none" }}>{dates.open}</div></th>
-                {buckets.map((b) => <th key={b.code} style={numCell}>{b.label}</th>)}
+                {visibleBuckets.map((b) => <th key={b.code} style={numCell}>{b.label}</th>)}
                 <th style={numCell}>Net Change</th>
                 <th style={keyCol}>Ending Cash<div style={{ fontWeight: 600, fontSize: 10, color: "var(--muted)", textTransform: "none" }}>{dates.end}</div></th>
                 {showEst && <th style={{ ...keyCol, background: "rgba(21,128,61,0.08)" }}>Est. Cash Today<div style={{ fontWeight: 600, fontSize: 10, color: "var(--muted)", textTransform: "none" }}>{data?.estimateAsOf}</div></th>}
@@ -227,7 +229,7 @@ export default function CashAnalysisDraftPage() {
                           />
                         ) : money0(r.startingCash)}
                       </td>
-                      {buckets.map((b) => {
+                      {visibleBuckets.map((b) => {
                         const v = r.byBucket[b.code] ?? 0;
                         if (!v) return <td key={b.code} style={{ ...numCell, color: "var(--muted)" }}>—</td>;
                         return (
@@ -260,7 +262,7 @@ export default function CashAnalysisDraftPage() {
                 <tr style={{ borderTop: "2px solid var(--border)", fontWeight: 800, background: "rgba(11,74,125,0.05)" }}>
                   <td style={{ textAlign: "left" }}>Portfolio Total</td>
                   <td style={keyCol}>{grand.hasOpening ? money0(grand.opening) : "—"}</td>
-                  {buckets.map((b) => <td key={b.code} style={numCell}>{money0(grand.byBucket[b.code] ?? 0)}</td>)}
+                  {visibleBuckets.map((b) => <td key={b.code} style={numCell}>{money0(grand.byBucket[b.code] ?? 0)}</td>)}
                   <td style={{ ...numCell, color: grand.net >= 0 ? "#15803d" : "#b91c1c" }}>{money0(grand.net)}</td>
                   <td style={keyCol}>{grand.hasOpening ? money0(grand.ending) : "—"}</td>
                   {showEst && <td style={{ ...keyCol, background: "rgba(21,128,61,0.10)" }}>{money0(estTotal)}</td>}
@@ -293,7 +295,7 @@ export default function CashAnalysisDraftPage() {
                   <tr>
                     <th style={{ textAlign: "left" }}>Building</th>
                     <th style={numCell}>Opening</th>
-                    {buckets.map((b) => <th key={b.code} style={numCell}>{b.label}</th>)}
+                    {visibleBuckets.map((b) => <th key={b.code} style={numCell}>{b.label}</th>)}
                     <th style={numCell}>Net</th>
                     <th style={numCell}>Ending</th>
                   </tr>
@@ -303,7 +305,7 @@ export default function CashAnalysisDraftPage() {
                     <tr key={br.key}>
                       <td style={{ textAlign: "left" }}><code style={{ fontSize: 12 }}>{br.key}</code> {br.name}</td>
                       <td style={numCell}>{money0(br.startingCash)}</td>
-                      {buckets.map((b) => <td key={b.code} style={{ ...numCell, color: (br.byBucket[b.code] ?? 0) < 0 ? "#b91c1c" : (br.byBucket[b.code] ?? 0) > 0 ? "#15803d" : "var(--muted)" }}>{br.byBucket[b.code] ? money0(br.byBucket[b.code]) : "—"}</td>)}
+                      {visibleBuckets.map((b) => <td key={b.code} style={{ ...numCell, color: (br.byBucket[b.code] ?? 0) < 0 ? "#b91c1c" : (br.byBucket[b.code] ?? 0) > 0 ? "#15803d" : "var(--muted)" }}>{br.byBucket[b.code] ? money0(br.byBucket[b.code]) : "—"}</td>)}
                       <td style={{ ...numCell, fontWeight: 700 }}>{money0(br.netChange)}</td>
                       <td style={{ ...numCell, fontWeight: 700 }}>{money0(br.endingCash)}</td>
                     </tr>
