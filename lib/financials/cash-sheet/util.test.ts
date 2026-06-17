@@ -58,9 +58,13 @@ describe("cash-sheet util", () => {
   it("groups operating properties by fund and excludes holding/condo entities", () => {
     const groups = cashSheetGroups();
     const byId = Object.fromEntries(groups.map((g) => [g.id, g]));
-    // Management leads; the JV III Condo follows JV III; Land trails.
-    expect(groups.map((g) => g.id)).toEqual(["mgmt", "jv3", "condo", "nillc", "sc", "ow", "kh", "land"]);
+    // Management leads; the JV III Condo follows JV III; the manual business-park
+    // accounts follow NI LLC; Land trails.
+    expect(groups.map((g) => g.id)).toEqual(["mgmt", "jv3", "condo", "nillc", "bpother", "sc", "ow", "kh", "land"]);
     expect(byId.condo.properties.map((p) => p.code)).toEqual(["CONDO"]);
+    // Manual single-balance accounts under Business Parks.
+    expect(byId.bpother.properties.map((p) => p.code)).toEqual(["LK-TRUST", "NILLC-TSD"]);
+    expect(byId.bpother.properties.every((p) => p.manual)).toBe(true);
 
     const codes = cashSheetCodes();
     // Shopping centers + The Office Works (4900) + Management (2010) + Land present;
