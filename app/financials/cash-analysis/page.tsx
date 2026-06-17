@@ -7,7 +7,6 @@
 // negative; Net Change = the row sum (the change in operating cash).
 
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { StatPill } from "@/app/components/Pill";
 
 type Bucket = { code: number; label: string };
@@ -16,6 +15,7 @@ type Row = {
   period: number; maxPeriod: number;
   byBucket: Record<string, number>; netChange: number;
   startingCash: number | null; endingCash: number | null;
+  scheduledDebt: number; debtExpected: boolean; debtPosted: boolean; debtMissing: boolean;
   unmappedCount: number; unmapped: { account: string; amount: number; name?: string | null }[];
 };
 type Payload = { year: number; period: number; ytd: boolean; buckets: Bucket[]; rows: Row[]; generatedAt: string };
@@ -28,6 +28,14 @@ function money0(n: number | null): string {
   return v < 0 ? `($${s})` : `$${s}`;
 }
 const numCell: React.CSSProperties = { textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" };
+// Opening / Ending cash are the headline numbers — give them a prominent, tinted column.
+const keyCol: React.CSSProperties = { ...numCell, fontWeight: 800, fontSize: 14, background: "rgba(11,74,125,0.06)" };
+function periodDates(year: number, period: number, ytd: boolean) {
+  const endDay = new Date(year, period, 0).getDate(); // last day of the period month
+  const end = `${MONTHS[period - 1]} ${endDay}, ${year}`;
+  const open = ytd ? `Jan 1, ${year}` : `${MONTHS[period - 1]} 1, ${year}`;
+  return { open, end, range: `${open} – ${end}` };
+}
 const groupHeaderCell: React.CSSProperties = {
   textAlign: "left", fontSize: 13, fontWeight: 800, textTransform: "uppercase",
   letterSpacing: "0.06em", color: "var(--text)", background: "rgba(15,23,42,0.04)",
@@ -90,6 +98,8 @@ export default function CashAnalysisDraftPage() {
   }, [data, buckets]);
 
   const totalUnmapped = (data?.rows ?? []).reduce((s, r) => s + r.unmappedCount, 0);
+  const debtMissingRows = (data?.rows ?? []).filter((r) => r.debtMissing);
+  const dates = periodDates(year, period, ytd);
   const colCount = buckets.length + 4; // entity + opening + buckets + net + ending
 
   return (
@@ -98,9 +108,11 @@ export default function CashAnalysisDraftPage() {
         <div>
           <div style={{ display: "inline-block", fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", color: "#b45309", background: "rgba(180,83,9,0.12)", border: "1px solid rgba(180,83,9,0.35)", borderRadius: 999, padding: "2px 10px", marginBottom: 6 }}>DRAFT — verifying accuracy</div>
           <h1 style={{ marginBottom: 4 }}>Cash Analysis</h1>
+          <div style={{ fontSize: 14, fontWeight: 800, color: "var(--text)", marginBottom: 4 }}>
+            {ytd ? "Year to date" : MONTHS[period - 1] + " " + year} · <span style={{ color: "var(--muted)", fontWeight: 600 }}>{dates.range}</span>
+          </div>
           <p className="muted small" style={{ margin: 0 }}>
-            Each property&apos;s cash flow, computed from the uploaded GL via the account→bucket map ported from the legacy workbook. Inflows positive, outflows negative; Net Change = the row total.{" "}
-            <Link href="/financials/cash-position" style={{ color: "var(--brand)", fontWeight: 600 }}>Cash Position →</Link>
+            Each property&apos;s cash flow, computed from the uploaded GL via the account→bucket map ported from the legacy workbook. Inflows positive, outflows negative; Net Change = the row total. Click any bucket to drill to its GL accounts.
           </p>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
@@ -119,6 +131,16 @@ export default function CashAnalysisDraftPage() {
 
       {error && <div className="small" style={{ color: "#b91c1c", fontWeight: 700 }}>· {error}</div>}
 
+      {debtMissingRows.length > 0 && (
+        <div style={{ padding: "10px 14px", borderRadius: 10, background: "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.35)", color: "#b91c1c", fontSize: 13 }}>
+          <b>⚠ Debt expected but not posted</b> for {ytd ? "the year" : MONTHS[period - 1]}:{" "}
+          {debtMissingRows.map((r, i) => (
+            <span key={r.key}>{i > 0 ? ", " : ""}<b>{r.propertyCode}</b> {r.name} (scheduled {money0(r.scheduledDebt)})</span>
+          ))}
+          . These properties have a loan but their Mortgage P&amp;I posted $0 — the charge may not be entered, or the GL needs re-uploading.
+        </div>
+      )}
+
       <div className="pills" style={{ justifyContent: "flex-start" }}>
         <StatPill label={`Net Change · ${ytd ? "YTD" : MONTHS[period - 1]}`} value={money0(grand.net)} accent={grand.net >= 0 ? "#15803d" : "#b91c1c"} />
         <StatPill label="Properties" value={data?.rows.length ?? 0} accent="#0b4a7d" />
@@ -131,10 +153,10 @@ export default function CashAnalysisDraftPage() {
             <thead>
               <tr>
                 <th style={{ textAlign: "left" }}>Entity</th>
-                <th style={numCell}>Opening Cash</th>
+                <th style={keyCol}>Opening Cash<div style={{ fontWeight: 600, fontSize: 10, color: "var(--muted)", textTransform: "none" }}>{dates.open}</div></th>
                 {buckets.map((b) => <th key={b.code} style={numCell}>{b.label}</th>)}
                 <th style={numCell}>Net Change</th>
-                <th style={numCell}>Ending Cash</th>
+                <th style={keyCol}>Ending Cash<div style={{ fontWeight: 600, fontSize: 10, color: "var(--muted)", textTransform: "none" }}>{dates.end}</div></th>
               </tr>
             </thead>
             <tbody>
@@ -151,8 +173,9 @@ export default function CashAnalysisDraftPage() {
                         <code style={{ fontSize: 12 }}>{r.propertyCode}</code>
                         <span style={{ marginLeft: 8 }}>{r.name}</span>
                         {r.unmappedCount > 0 && <span title={`${r.unmappedCount} GL line(s) with activity not coded`} style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, color: "#b45309" }}>⚠ {r.unmappedCount}</span>}
+                        {r.debtMissing && <span title={`Loan scheduled (${money0(r.scheduledDebt)}) but $0 posted`} style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, color: "#b91c1c" }}>⚠ debt $0</span>}
                       </td>
-                      <td style={numCell} title={r.startingCash == null ? "No opening balance captured in this GL upload" : undefined}>{money0(r.startingCash)}</td>
+                      <td style={keyCol} title={r.startingCash == null ? "No opening balance captured in this GL upload" : undefined}>{money0(r.startingCash)}</td>
                       {buckets.map((b) => {
                         const v = r.byBucket[b.code] ?? 0;
                         if (!v) return <td key={b.code} style={{ ...numCell, color: "var(--muted)" }}>—</td>;
@@ -169,7 +192,7 @@ export default function CashAnalysisDraftPage() {
                         );
                       })}
                       <td style={{ ...numCell, fontWeight: 800, color: r.netChange >= 0 ? "#15803d" : "#b91c1c" }}>{money0(r.netChange)}</td>
-                      <td style={{ ...numCell, fontWeight: 800 }}>{money0(r.endingCash)}</td>
+                      <td style={keyCol}>{money0(r.endingCash)}</td>
                     </tr>
                   ))}
                 </Fragment>
@@ -179,10 +202,10 @@ export default function CashAnalysisDraftPage() {
               <tfoot>
                 <tr style={{ borderTop: "2px solid var(--border)", fontWeight: 800, background: "rgba(11,74,125,0.05)" }}>
                   <td style={{ textAlign: "left" }}>Portfolio Total</td>
-                  <td style={numCell}>{grand.hasOpening ? money0(grand.opening) : "—"}</td>
+                  <td style={keyCol}>{grand.hasOpening ? money0(grand.opening) : "—"}</td>
                   {buckets.map((b) => <td key={b.code} style={numCell}>{money0(grand.byBucket[b.code] ?? 0)}</td>)}
                   <td style={{ ...numCell, color: grand.net >= 0 ? "#15803d" : "#b91c1c" }}>{money0(grand.net)}</td>
-                  <td style={numCell}>{grand.hasOpening ? money0(grand.ending) : "—"}</td>
+                  <td style={keyCol}>{grand.hasOpening ? money0(grand.ending) : "—"}</td>
                 </tr>
               </tfoot>
             )}
