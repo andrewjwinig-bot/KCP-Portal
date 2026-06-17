@@ -68,7 +68,14 @@ export default function SecurityDepositsPage() {
   const [adding, setAdding] = useState(false);
 
   function startGlobalAdd() { setAdding(true); setEditing(null); }
-  function closeForm() { setAdding(false); setEditing(null); }
+  // Pull the authoritative list from the server (so optimistic updates can never
+  // drop a check — every saved check shows, no limit).
+  function reloadDeposits() {
+    fetch("/api/deposits").then((r) => (r.ok ? r.json() : null))
+      .then((j) => { if (Array.isArray(j?.deposits)) setDeposits(j.deposits); })
+      .catch(() => {});
+  }
+  function closeForm() { setAdding(false); setEditing(null); reloadDeposits(); }
 
   useEffect(() => {
     let alive = true;
@@ -136,6 +143,7 @@ export default function SecurityDepositsPage() {
       if (idx >= 0) { const next = [...list]; next[idx] = d; return next; }
       return [...list, d];
     });
+    reloadDeposits(); // reconcile with the server so every check persists/show
   }
 
   function onDeleted(id: string) {
