@@ -58,7 +58,10 @@ export type ExtractedCheck = {
 };
 
 export function newDepositId(): string {
-  return `dep_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+  // UUID when available (server + modern browsers) so rapidly-added checks can
+  // never collide on an id and overwrite each other; timestamp+random fallback.
+  const uuid = globalThis.crypto?.randomUUID?.();
+  return `dep_${uuid ?? `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`}`;
 }
 
 function asText(value: unknown, max = 300): string {
