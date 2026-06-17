@@ -18,7 +18,6 @@ type Row = {
   scheduledDebt: number; debtExpected: boolean; debtPosted: boolean; debtMissing: boolean;
   latestGLMonth: number;
   estimate: { months: number; revenue: number; bills: number; mortgage: number; estimatedCash: number | null; latestEnding: number | null } | null;
-  unmappedCount: number; unmapped: { account: string; amount: number; name?: string | null }[];
 };
 type Payload = { year: number; period: number; ytd: boolean; buckets: Bucket[]; rows: Row[]; estimateAsOf: string | null; gapMonthLabels: string[]; generatedAt: string };
 
@@ -58,14 +57,6 @@ export default function CashAnalysisDraftPage() {
   const [drill, setDrill] = useState<{ key: string; propName: string; code: number; label: string } | null>(null);
   const [drillData, setDrillData] = useState<{ accounts: DrillAcct[]; total: number } | null>(null);
   const [drillLoading, setDrillLoading] = useState(false);
-
-  const resolveAccount = useCallback((account: string) => {
-    fetch("/api/financials/cash-analysis/resolve", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ account, resolved: true }),
-    }).then((r) => { if (r.ok) load(); }).catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const openDrill = useCallback((row: Row, code: number, label: string) => {
     setDrill({ key: row.key, propName: row.name, code, label });
@@ -107,7 +98,6 @@ export default function CashAnalysisDraftPage() {
     return { byBucket, net, opening, ending, hasOpening };
   }, [data, buckets]);
 
-  const totalUnmapped = (data?.rows ?? []).reduce((s, r) => s + r.unmappedCount, 0);
   const debtMissingRows = (data?.rows ?? []).filter((r) => r.debtMissing);
   const dates = periodDates(year, period, ytd);
   const showEst = !!data?.estimateAsOf;
@@ -160,8 +150,7 @@ export default function CashAnalysisDraftPage() {
             ? <>Opening <b>{money0(grand.opening)}</b> → Ending <b>{money0(grand.ending)}</b>, </>
             : null}
           a net cash {grand.net >= 0 ? "increase" : "decrease"} of <b style={{ color: grand.net >= 0 ? "#15803d" : "#b91c1c" }}>{money0(Math.abs(grand.net))}</b> across {data.rows.length} properties
-          {debtMissingRows.length > 0 && <> · <b style={{ color: "#b91c1c" }}>{debtMissingRows.length} with debt not posted</b></>}
-          {totalUnmapped > 0 && <> · <b style={{ color: "#b45309" }}>{totalUnmapped} line{totalUnmapped === 1 ? "" : "s"} to review</b></>}.
+          {debtMissingRows.length > 0 && <> · <b style={{ color: "#b91c1c" }}>{debtMissingRows.length} with debt not posted</b></>}.
         </div>
       )}
 
@@ -171,7 +160,6 @@ export default function CashAnalysisDraftPage() {
         <StatPill label={`Ending Cash · ${dates.end}`} value={grand.hasOpening ? money0(grand.ending) : "—"} accent="#0b4a7d" />
         <StatPill label="Properties" value={data?.rows.length ?? 0} />
         {debtMissingRows.length > 0 && <StatPill label="Debt Not Posted" value={debtMissingRows.length} accent="#b91c1c" />}
-        <StatPill label="Unmapped GL lines" value={totalUnmapped} accent={totalUnmapped > 0 ? "#b45309" : "#15803d"} sub={totalUnmapped > 0 ? "review below" : "all coded"} />
       </div>
 
       <div className="card" style={{ padding: 0, overflow: "hidden" }}>
@@ -200,7 +188,6 @@ export default function CashAnalysisDraftPage() {
                       <td style={{ textAlign: "left" }}>
                         <code style={{ fontSize: 12 }}>{r.propertyCode}</code>
                         <span style={{ marginLeft: 8 }}>{r.name}</span>
-                        {r.unmappedCount > 0 && <span title={`${r.unmappedCount} GL line(s) with activity not coded`} style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, color: "#b45309" }}>⚠ {r.unmappedCount}</span>}
                         {r.debtMissing && <span title={`Loan scheduled (${money0(r.scheduledDebt)}) but $0 posted`} style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, color: "#b91c1c" }}>⚠ debt $0</span>}
                       </td>
                       <td style={keyCol} title={r.startingCash == null ? "No opening balance captured in this GL upload" : undefined}>{money0(r.startingCash)}</td>
@@ -247,34 +234,6 @@ export default function CashAnalysisDraftPage() {
           </table>
         </div>
       </div>
-
-      {/* Unmapped review — accounts with activity that carry no code yet. */}
-      {(data?.rows ?? []).some((r) => r.unmapped.length > 0) && (
-        <div className="card">
-          <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 8 }}>Unmapped GL lines (review)</div>
-          <p className="muted small" style={{ marginTop: 0 }}>Accounts with activity that aren&apos;t in the code map (already excluded from the buckets). If one is a real cash item, tell me the bucket and I&apos;ll map it; otherwise click <b>Resolve</b> to confirm it&apos;s not cash and hide it from this list.</p>
-          <div className="tableWrap">
-            <table>
-              <thead><tr><th style={{ textAlign: "left" }}>Entity</th><th style={{ textAlign: "left" }}>Account</th><th style={{ textAlign: "left" }}>Description</th><th style={numCell}>Amount</th><th /></tr></thead>
-              <tbody>
-                {(data?.rows ?? []).flatMap((r) => r.unmapped.map((u) => (
-                  <tr key={`${r.key}-${u.account}`}>
-                    <td style={{ textAlign: "left" }}><code style={{ fontSize: 12 }}>{r.propertyCode}</code> {r.name}</td>
-                    <td style={{ textAlign: "left" }}><code style={{ fontSize: 12 }}>{u.account}</code></td>
-                    <td style={{ textAlign: "left" }}>{u.name || <span className="muted">—</span>}</td>
-                    <td style={{ ...numCell, color: u.amount < 0 ? "#b91c1c" : "#15803d" }}>{money0(u.amount)}</td>
-                    <td style={{ textAlign: "right" }}>
-                      <button type="button" className="btn" onClick={() => resolveAccount(u.account)}
-                        title="Not a cash item — hide this account from the review (applies everywhere)"
-                        style={{ fontSize: 11, padding: "3px 10px", fontWeight: 600 }}>Resolve</button>
-                    </td>
-                  </tr>
-                )))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
 
       <p className="muted small" style={{ margin: 0 }}>
         {showEst
