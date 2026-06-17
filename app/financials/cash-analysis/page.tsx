@@ -25,6 +25,8 @@ type Row = {
   estimate: { months: number; revenue: number; bills: number; mortgage: number; estimatedCash: number | null; latestEnding: number | null } | null;
   isFund?: boolean; manual?: boolean; bankCodes?: string[]; bankLast4?: string; breakdown?: Breakdown[];
   billsMTD?: number; weeklyBills?: { wednesday: string; amount: number }[];
+  accounts?: { last4: string; bank: string; label: string; balance: number | null; updatedAt: string | null }[];
+  bankTotal?: number | null; variance?: number | null;
 };
 type Payload = { year: number; period: number; ytd: boolean; buckets: Bucket[]; rows: Row[]; canEdit: boolean; canEditOpening: boolean; ym: string; estimateAsOf: string | null; gapMonthLabels: string[]; generatedAt: string };
 
@@ -34,6 +36,13 @@ function money0(n: number | null): string {
   const v = Math.round(n);
   const s = Math.abs(v).toLocaleString("en-US");
   return v < 0 ? `($${s})` : `$${s}`;
+}
+// Tie-out note under a bank balance: green "ties" when actual ≈ book, else the
+// amber variance (actual − book) so a mismatch is obvious.
+function VarianceNote({ variance }: { variance: number | null | undefined }) {
+  if (variance == null) return null;
+  const tied = Math.abs(variance) < 1;
+  return <div style={{ fontWeight: 600, fontSize: 10, textTransform: "none", color: tied ? "#15803d" : "#b45309" }}>{tied ? "✓ ties" : `${money0(variance)} vs book`}</div>;
 }
 const numCell: React.CSSProperties = { textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" };
 // Column headers wrap so long bucket labels ("Change in Escrows") don't force a wide column.
@@ -87,6 +96,7 @@ export default function CashSheetPage() {
   // Editable opening-cash override (shared with the Cash Sheet) + fund breakdown modal.
   const [openDraft, setOpenDraft] = useState<Record<string, string>>({});
   const [manualDraft, setManualDraft] = useState<Record<string, string>>({});
+  const [bankDraft, setBankDraft] = useState<Record<string, string>>({}); // actual bank balance, keyed by account last4
   const [breakdown, setBreakdown] = useState<{ name: string; rows: Breakdown[] } | null>(null);
   // Weekly AvidXchange bills drill-down (per-Wednesday detail behind a row's Avid Bills).
   const [billsModal, setBillsModal] = useState<{ name: string; weekly: { wednesday: string; amount: number }[]; total: number } | null>(null);
@@ -116,7 +126,19 @@ export default function CashSheetPage() {
       .finally(() => setLoading(false));
   }, [year, period, ytd]);
   useEffect(() => { load(); }, [load]);
-  useEffect(() => { setOpenDraft({}); setManualDraft({}); }, [year, period, ytd]);
+  useEffect(() => { setOpenDraft({}); setManualDraft({}); setBankDraft({}); }, [year, period, ytd]);
+
+  // Save one account's actual bank balance (null clears), then reload to refresh
+  // the per-row total + variance.
+  const saveBankBalance = useCallback((last4: string, raw: string) => {
+    const t = raw.replace(/[$,\s]/g, "");
+    const amount = t === "" ? null : Number(t);
+    if (amount != null && !Number.isFinite(amount)) return;
+    fetch("/api/financials/cash-analysis/bank-balances", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ym: data?.ym, last4, amount }),
+    }).then((r) => { if (r.ok) load(); }).catch(() => {});
+  }, [data?.ym, load]);
 
   // Save an opening-cash override (or clear it) via the Cash Sheet store, then reload.
   const saveOverride = useCallback((code: string, kind: "startingOverride" | "endingOverride", raw: string) => {
@@ -180,7 +202,17 @@ export default function CashSheetPage() {
       bills += r.billsMTD ?? 0;
       if (r.startingCash != null) { opening += r.startingCash; ending += (r.endingCash ?? 0); hasOpening = true; }
     }
-    return { byBucket, net, opening, ending, bills, hasOpening };
+    // Bank total dedups by account last4 (shared accounts appear on >1 row).
+    const seen = new Set<string>();
+    let bank = 0, variance = 0, hasBank = false, hasVar = false;
+    for (const r of data?.rows ?? []) {
+      for (const a of r.accounts ?? []) {
+        if (a.balance == null || seen.has(a.last4)) continue;
+        seen.add(a.last4); bank += a.balance; hasBank = true;
+      }
+      if (r.variance != null) { variance += r.variance; hasVar = true; }
+    }
+    return { byBucket, net, opening, ending, bills, hasOpening, bank: hasBank ? bank : null, variance: hasVar ? variance : null };
   }, [data, buckets]);
 
   const debtMissingRows = (data?.rows ?? []).filter((r) => r.debtMissing);
@@ -188,7 +220,24 @@ export default function CashSheetPage() {
   const showEst = !!data?.estimateAsOf;
   const estTotal = (data?.rows ?? []).reduce((s, r) => s + (r.estimate?.estimatedCash ?? 0), 0);
   const showBills = (data?.rows ?? []).some((r) => (r.billsMTD ?? 0) !== 0);
-  const colCount = visibleBuckets.length + 4 + (showBills ? 1 : 0) + (showEst ? 1 : 0); // entity + opening + buckets + [bills] + net + ending (+ est)
+  const showBank = !!data && (data.canEdit || (data.rows ?? []).some((r) => r.bankTotal != null));
+  const colCount = visibleBuckets.length + 4 + (showBills ? 1 : 0) + (showBank ? 1 : 0) + (showEst ? 1 : 0); // entity + opening + buckets + [bills] + net + ending (+ bank) (+ est)
+  // Number of columns between Entity and the Bank Balance column (for account sub-rows).
+  const midCols = visibleBuckets.length + 3 + (showBills ? 1 : 0); // opening + buckets + [bills] + net + ending
+
+  // Editable actual-bank-balance input for one account (keyed by last4).
+  const balanceInput = (last4: string, balance: number | null) => (
+    <input
+      inputMode="decimal"
+      value={bankDraft[last4] ?? (balance != null ? String(balance) : "")}
+      placeholder="—"
+      onChange={(e) => setBankDraft((d) => ({ ...d, [last4]: e.target.value }))}
+      onBlur={() => { if (bankDraft[last4] !== undefined) saveBankBalance(last4, bankDraft[last4]); }}
+      onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+      style={{ width: 96, textAlign: "right", fontWeight: 700, fontSize: 13, fontVariantNumeric: "tabular-nums", border: "1px solid var(--border)", borderRadius: 6, padding: "2px 6px", background: "var(--card)", color: balance == null ? "var(--muted)" : balance >= 0 ? "#15803d" : "#b91c1c" }}
+      className="cs-edit"
+    />
+  );
 
   return (
     <main style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -271,7 +320,8 @@ export default function CashSheetPage() {
                 {visibleBuckets.map((b) => <th key={b.code} style={headWrap}>{b.label}</th>)}
                 {showBills && <th style={headWrap} title="AvidXchange bills paid this month — click a row for the weekly detail">Avid Bills</th>}
                 <th style={headWrap}>Net Change</th>
-                <th style={keyCol}>Ending Cash<div style={{ fontWeight: 600, fontSize: 10, color: "var(--muted)", textTransform: "none" }}>{dates.end}</div></th>
+                <th style={keyCol}>Ending Cash<div style={{ fontWeight: 600, fontSize: 10, color: "var(--muted)", textTransform: "none" }}>{dates.end} · book</div></th>
+                {showBank && <th style={headWrap} title="Actual bank-statement balance per account; variance vs. the computed (book) cash">Bank Balance<div style={{ fontWeight: 600, fontSize: 10, color: "var(--muted)", textTransform: "none" }}>actual · vs book</div></th>}
                 {showEst && <th style={{ ...keyCol, background: "rgba(21,128,61,0.08)" }}>Est. Cash Today<div style={{ fontWeight: 600, fontSize: 10, color: "var(--muted)", textTransform: "none" }}>{data?.estimateAsOf}</div></th>}
               </tr>
             </thead>
@@ -284,7 +334,8 @@ export default function CashSheetPage() {
                 <Fragment key={group}>
                   <tr><td colSpan={colCount} style={groupHeaderCell}>{group}</td></tr>
                   {rows.map((r) => (
-                    <tr key={r.key} title={r.period < r.maxPeriod ? "" : undefined}>
+                    <Fragment key={r.key}>
+                    <tr title={r.period < r.maxPeriod ? "" : undefined}>
                       <td style={{ textAlign: "left" }}>
                         <code style={{ fontSize: 12 }}>{r.propertyCode}</code>
                         {r.isFund && r.breakdown?.length ? (
@@ -363,6 +414,16 @@ export default function CashSheetPage() {
                       )}
                       <td style={{ ...numCell, fontWeight: 800, color: r.netChange >= 0 ? "#15803d" : "#b91c1c" }}>{money0(r.netChange)}</td>
                       <td style={keyCol}>{money0(r.endingCash)}</td>
+                      {showBank && (() => {
+                        const accts = r.accounts ?? [];
+                        return (
+                          <td style={numCell} title="Actual bank-statement balance · variance vs. book cash">
+                            {accts.length === 0 ? <span className="muted">—</span>
+                              : accts.length === 1 && data?.canEdit ? <>{balanceInput(accts[0].last4, accts[0].balance)}<VarianceNote variance={r.variance} /></>
+                              : <><span style={{ fontWeight: 700 }}>{r.bankTotal != null ? money0(r.bankTotal) : "—"}</span><VarianceNote variance={r.variance} /></>}
+                          </td>
+                        );
+                      })()}
                       {showEst && (
                         <td style={{ ...keyCol, background: "rgba(21,128,61,0.08)" }}
                           title={r.estimate ? `From ${MONTHS[r.latestGLMonth - 1]} GL ending ${money0(r.estimate.latestEnding)}: + receipts ${money0(r.estimate.revenue)} − bills ${money0(r.estimate.bills)} − mortgage ${money0(r.estimate.mortgage)} (${r.estimate.months} un-posted mo)` : "GL is current — no estimate needed"}>
@@ -370,6 +431,15 @@ export default function CashSheetPage() {
                         </td>
                       )}
                     </tr>
+                    {showBank && (r.accounts?.length ?? 0) > 1 && r.accounts!.map((a) => (
+                      <tr key={r.key + a.last4} style={{ background: "rgba(15,23,42,0.015)" }}>
+                        <td style={{ textAlign: "left", paddingLeft: 30, color: "var(--muted)", fontSize: 12 }}>↳ <code style={{ fontSize: 11 }}>{a.last4}</code> {a.bank} · {a.label}</td>
+                        <td colSpan={midCols} />
+                        <td style={numCell}>{data?.canEdit ? balanceInput(a.last4, a.balance) : (a.balance != null ? money0(a.balance) : <span className="muted">—</span>)}</td>
+                        {showEst && <td />}
+                      </tr>
+                    ))}
+                    </Fragment>
                   ))}
                 </Fragment>
               ))}
@@ -383,6 +453,7 @@ export default function CashSheetPage() {
                   {showBills && <td style={{ ...numCell, color: grand.bills ? "#b45309" : "var(--muted)" }}>{grand.bills ? money0(grand.bills) : "—"}</td>}
                   <td style={{ ...numCell, color: grand.net >= 0 ? "#15803d" : "#b91c1c" }}>{money0(grand.net)}</td>
                   <td style={keyCol}>{grand.hasOpening ? money0(grand.ending) : "—"}</td>
+                  {showBank && <td style={numCell}>{grand.bank != null ? money0(grand.bank) : "—"}<VarianceNote variance={grand.variance} /></td>}
                   {showEst && <td style={{ ...keyCol, background: "rgba(21,128,61,0.10)" }}>{money0(estTotal)}</td>}
                 </tr>
               </tfoot>
@@ -396,6 +467,7 @@ export default function CashSheetPage() {
           ? <><b>Est. Cash Today</b> carries each property&apos;s latest posted GL ending forward through the un-posted month(s) ({data?.gapMonthLabels.join(", ")}) — adding expected receipts and subtracting that month&apos;s AvidXchange bills + scheduled mortgage. It&apos;s an estimate until those months post to the GL (then it equals the GL ending). </>
           : "GL is current through the latest month — Ending Cash is the actual position. "}
         Tip: click any bucket amount to see the GL accounts behind it; click a fund name (e.g. JV III) for its building breakdown; click an <b>Avid Bills</b> amount for the week-by-week detail.
+        {showBank && <> <b>Bank Balance</b> is the actual statement balance you enter per account (each account on its own line); the note beneath shows the variance vs. the computed book cash — a clean tie-out flags posting errors and timing differences.</>}
         {debtMissingRows.length > 0 && <> <span style={{ color: "#b45309", fontWeight: 700 }}>⚠ amber Mortgage P&amp;I with an asterisk (*)</span> is the scheduled debt service — an estimate shown because the actual charge has not posted to the GL yet; it is not rolled into Net Change or Ending Cash.</>}
       </p>
 
