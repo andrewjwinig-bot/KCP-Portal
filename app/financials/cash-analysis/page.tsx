@@ -45,7 +45,7 @@ const groupHeaderCell: React.CSSProperties = {
 };
 const GROUP_ORDER = ["Business Parks", "Eastwick Joint Venture", "Shopping Centers", "LIK Management", "GP / LP – Property Owner", "Nockamixon", "Korman Homes", "Other"];
 
-export default function CashAnalysisDraftPage({ embedded = false }: { embedded?: boolean } = {}) {
+export default function CashAnalysisDraftPage() {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [period, setPeriod] = useState(now.getMonth() + 1);
@@ -58,6 +58,14 @@ export default function CashAnalysisDraftPage({ embedded = false }: { embedded?:
   const [drill, setDrill] = useState<{ key: string; propName: string; code: number; label: string } | null>(null);
   const [drillData, setDrillData] = useState<{ accounts: DrillAcct[]; total: number } | null>(null);
   const [drillLoading, setDrillLoading] = useState(false);
+
+  const resolveAccount = useCallback((account: string) => {
+    fetch("/api/financials/cash-analysis/resolve", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ account, resolved: true }),
+    }).then((r) => { if (r.ok) load(); }).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const openDrill = useCallback((row: Row, code: number, label: string) => {
     setDrill({ key: row.key, propName: row.name, code, label });
@@ -106,21 +114,12 @@ export default function CashAnalysisDraftPage({ embedded = false }: { embedded?:
   const estTotal = (data?.rows ?? []).reduce((s, r) => s + (r.estimate?.estimatedCash ?? 0), 0);
   const colCount = buckets.length + 4 + (showEst ? 1 : 0); // entity + opening + buckets + net + ending (+ est)
 
-  const Outer = (embedded ? "section" : "main") as "section";
   return (
-    <Outer style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+    <main style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 14, flexWrap: "wrap" }}>
         <div>
-          {embedded ? (
-            <div style={{ fontSize: 15, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>
-              Cash Flow <span style={{ fontWeight: 600, color: "var(--muted)", textTransform: "none", letterSpacing: 0 }}>· from the GL · monthly</span>
-            </div>
-          ) : (
-            <>
-              <div style={{ display: "inline-block", fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", color: "#b45309", background: "rgba(180,83,9,0.12)", border: "1px solid rgba(180,83,9,0.35)", borderRadius: 999, padding: "2px 10px", marginBottom: 6 }}>DRAFT — verifying accuracy</div>
-              <h1 style={{ marginBottom: 4 }}>Cash Analysis</h1>
-            </>
-          )}
+          <div style={{ display: "inline-block", fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", color: "#b45309", background: "rgba(180,83,9,0.12)", border: "1px solid rgba(180,83,9,0.35)", borderRadius: 999, padding: "2px 10px", marginBottom: 6 }}>DRAFT — verifying accuracy</div>
+          <h1 style={{ marginBottom: 4 }}>Cash Analysis</h1>
           <div style={{ fontSize: 14, fontWeight: 800, color: "var(--text)", marginBottom: 4 }}>
             {ytd ? "Year to date" : MONTHS[period - 1] + " " + year} · <span style={{ color: "var(--muted)", fontWeight: 600 }}>{dates.range}</span>
           </div>
@@ -253,10 +252,10 @@ export default function CashAnalysisDraftPage({ embedded = false }: { embedded?:
       {(data?.rows ?? []).some((r) => r.unmapped.length > 0) && (
         <div className="card">
           <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 8 }}>Unmapped GL lines (review)</div>
-          <p className="muted small" style={{ marginTop: 0 }}>Accounts with activity this period that aren&apos;t in the code map — they&apos;re excluded from the buckets until tagged. If any are real cash items, tell me the bucket and I&apos;ll add them.</p>
+          <p className="muted small" style={{ marginTop: 0 }}>Accounts with activity that aren&apos;t in the code map (already excluded from the buckets). If one is a real cash item, tell me the bucket and I&apos;ll map it; otherwise click <b>Resolve</b> to confirm it&apos;s not cash and hide it from this list.</p>
           <div className="tableWrap">
             <table>
-              <thead><tr><th style={{ textAlign: "left" }}>Entity</th><th style={{ textAlign: "left" }}>Account</th><th style={{ textAlign: "left" }}>Description</th><th style={numCell}>Amount</th></tr></thead>
+              <thead><tr><th style={{ textAlign: "left" }}>Entity</th><th style={{ textAlign: "left" }}>Account</th><th style={{ textAlign: "left" }}>Description</th><th style={numCell}>Amount</th><th /></tr></thead>
               <tbody>
                 {(data?.rows ?? []).flatMap((r) => r.unmapped.map((u) => (
                   <tr key={`${r.key}-${u.account}`}>
@@ -264,6 +263,11 @@ export default function CashAnalysisDraftPage({ embedded = false }: { embedded?:
                     <td style={{ textAlign: "left" }}><code style={{ fontSize: 12 }}>{u.account}</code></td>
                     <td style={{ textAlign: "left" }}>{u.name || <span className="muted">—</span>}</td>
                     <td style={{ ...numCell, color: u.amount < 0 ? "#b91c1c" : "#15803d" }}>{money0(u.amount)}</td>
+                    <td style={{ textAlign: "right" }}>
+                      <button type="button" className="btn" onClick={() => resolveAccount(u.account)}
+                        title="Not a cash item — hide this account from the review (applies everywhere)"
+                        style={{ fontSize: 11, padding: "3px 10px", fontWeight: 600 }}>Resolve</button>
+                    </td>
                   </tr>
                 )))}
               </tbody>
@@ -316,6 +320,6 @@ export default function CashAnalysisDraftPage({ embedded = false }: { embedded?:
           </div>
         </div>
       )}
-    </Outer>
+    </main>
   );
 }

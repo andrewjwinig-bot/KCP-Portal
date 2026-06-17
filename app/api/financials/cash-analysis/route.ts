@@ -7,6 +7,7 @@ import { mortgagePaymentsFor } from "@/lib/financials/cash-sheet/mortgage";
 import { anticipatedRevenueFor } from "@/lib/financials/cash-sheet/revenue";
 import { getMonth } from "@/lib/financials/cash-sheet/store";
 import { totalBills, monthKey } from "@/lib/financials/cash-sheet/util";
+import { getResolvedAccounts } from "@/lib/financials/cash-analysis/resolvedStore";
 import { computeCashFlow, CASH_FLOW_BUCKETS } from "@/lib/financials/cash-analysis/compute";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 
@@ -50,12 +51,14 @@ export async function GET(req: Request) {
   const curYear = now.getFullYear();
   const curMonth = now.getMonth() + 1;
 
-  const [mappings, fulls, scheduledDebt] = await Promise.all([
+  const [mappings, fulls, scheduledDebt, resolvedList] = await Promise.all([
     availableStatements(),
     listFullGls(),
     mortgagePaymentsFor(year, period), // for the debt-not-posted check
+    getResolvedAccounts(),
   ]);
   const acctNames = mergeAccountNames(fulls);
+  const resolved = new Set(resolvedList);
 
   // Pass 1: assemble each property's GL for the year.
   type Entry = { m: typeof mappings[number]; stored: NonNullable<ReturnType<typeof assembleGls>> };
@@ -134,8 +137,8 @@ export async function GET(req: Request) {
       estimate: hasEstimate
         ? { months: myGap.length, revenue: estRevenue, bills: estBills, mortgage: estMortgage, estimatedCash, latestEnding }
         : null,
-      unmappedCount: flow.unmapped.length,
-      unmapped: flow.unmapped.slice(0, 8).map((u) => ({
+      unmappedCount: flow.unmapped.filter((u) => !resolved.has(u.account)).length,
+      unmapped: flow.unmapped.filter((u) => !resolved.has(u.account)).slice(0, 8).map((u) => ({
         ...u,
         name: stored.names?.[u.account] ?? acctNames[u.account] ?? null,
       })),
