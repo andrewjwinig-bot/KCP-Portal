@@ -44,7 +44,9 @@ export function twoFactorDisabled(): boolean {
 }
 
 async function get(userId: string): Promise<TotpRecord | null> {
-  return (await getJSON(PREFIX, userId)) as TotpRecord | null;
+  // retryOnMiss: a transient empty storage lookup must not read as "not
+  // enrolled" — that would re-prompt an already-paired user to set up again.
+  return (await getJSON(PREFIX, userId, { retryOnMiss: true })) as TotpRecord | null;
 }
 
 /** Store a not-yet-confirmed secret (enrollment step 1). */

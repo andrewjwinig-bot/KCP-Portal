@@ -126,14 +126,34 @@ export async function listJSON(prefix: string): Promise<any[]> {
   return out;
 }
 
-/** Fetch a single JSON object by id. Returns null if not found. */
-export async function getJSON(prefix: string, id: string): Promise<any | null> {
+/** Fetch a single JSON object by id. Returns null if not found.
+ *
+ *  `retryOnMiss` re-checks a few times when the lookup comes back empty — for
+ *  records where a transient empty `list` must NOT be read as "absent" (e.g. a
+ *  user's 2FA enrollment: a blip there would wrongly treat an enrolled user as
+ *  never set up and re-prompt pairing). The blob `list` call is always retried
+ *  on a thrown error regardless. */
+export async function getJSON(prefix: string, id: string, opts?: { retryOnMiss?: boolean }): Promise<any | null> {
   const clean = safeId(id);
   if (USE_BLOB) {
-    const { blobs } = await list({ prefix: blobPath(prefix, clean) });
-    const blob = blobs.find((b) => b.pathname === blobPath(prefix, clean));
-    if (!blob) return null;
-    return fetchBlobJson(blob.url);
+    const target = blobPath(prefix, clean);
+    const maxAttempts = 3;
+    for (let i = 0; i < maxAttempts; i++) {
+      let blobs: Awaited<ReturnType<typeof list>>["blobs"];
+      try {
+        ({ blobs } = await list({ prefix: target }));
+      } catch (e) {
+        if (i < maxAttempts - 1) { await new Promise((r) => setTimeout(r, 150 * (i + 1))); continue; }
+        throw e;
+      }
+      const blob = blobs.find((b) => b.pathname === target);
+      if (blob) return fetchBlobJson(blob.url);
+      // Empty result. Treat as a real miss unless the caller asked us to absorb
+      // a possible transient empty (then retry with backoff).
+      if (opts?.retryOnMiss && i < maxAttempts - 1) { await new Promise((r) => setTimeout(r, 150 * (i + 1))); continue; }
+      return null;
+    }
+    return null;
   } else {
     const filePath = path.join(localDir(prefix), `${clean}.json`);
     if (!existsSync(filePath)) return null;
