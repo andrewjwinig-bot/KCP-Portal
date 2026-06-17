@@ -38,9 +38,7 @@ const NAV_ROLE_KEY: Record<string, string> = {
   // Budgets is its own key (Nancy sees only Budgets); the other financials
   // pages require the broader "financials-statements" key.
   "Cash Sheet":         "financials-statements",
-  "Cash Position":      "financials-statements",
   "Cash Analysis (Draft)": "cash-analysis-draft",
-  "Cash Sheet (Master Draft)": "cash-analysis-draft",
   "Operating Statements": "financials-statements",
   "Flags to Investigate": "financials-statements",
   "Reprojections":      "financials-statements",
@@ -529,34 +527,6 @@ const NAV = [
         <rect x="2" y="5" width="20" height="14" rx="2" />
         <line x1="2" y1="10" x2="22" y2="10" />
         <circle cx="7" cy="14.5" r="1.5" />
-      </svg>
-    ),
-  },
-  {
-    label: "Cash Position",
-    href: "/financials/cash-position",
-    external: false,
-    indent: false,
-    showFor: null as string | null,
-    groupId: "financials",
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <line x1="12" y1="1" x2="12" y2="23" />
-        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-      </svg>
-    ),
-  },
-  {
-    label: "Cash Sheet (Master Draft)",
-    href: "/financials/cash-sheet-master",
-    external: false,
-    indent: false,
-    showFor: null as string | null,
-    groupId: "financials",
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="3" y="3" width="18" height="18" rx="2" />
-        <path d="M3 9h18M9 21V9" />
       </svg>
     ),
   },
