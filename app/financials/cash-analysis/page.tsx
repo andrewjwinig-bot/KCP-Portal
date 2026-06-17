@@ -10,16 +10,18 @@ import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { StatPill } from "@/app/components/Pill";
 
 type Bucket = { code: number; label: string };
+type Breakdown = { key: string; name: string; startingCash: number | null; netChange: number; endingCash: number | null; byBucket: Record<string, number> };
 type Row = {
   key: string; propertyCode: string; name: string; group: string;
   period: number; maxPeriod: number;
   byBucket: Record<string, number>; netChange: number;
-  startingCash: number | null; endingCash: number | null;
+  glOpening: number | null; startingCash: number | null; openingOverridden: boolean; endingCash: number | null;
   scheduledDebt: number; debtExpected: boolean; debtPosted: boolean; debtMissing: boolean;
   latestGLMonth: number;
   estimate: { months: number; revenue: number; bills: number; mortgage: number; estimatedCash: number | null; latestEnding: number | null } | null;
+  isFund?: boolean; breakdown?: Breakdown[];
 };
-type Payload = { year: number; period: number; ytd: boolean; buckets: Bucket[]; rows: Row[]; estimateAsOf: string | null; gapMonthLabels: string[]; generatedAt: string };
+type Payload = { year: number; period: number; ytd: boolean; buckets: Bucket[]; rows: Row[]; canEditOpening: boolean; ym: string; estimateAsOf: string | null; gapMonthLabels: string[]; generatedAt: string };
 
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 function money0(n: number | null): string {
@@ -57,6 +59,9 @@ export default function CashAnalysisDraftPage() {
   const [drill, setDrill] = useState<{ key: string; propName: string; code: number; label: string } | null>(null);
   const [drillData, setDrillData] = useState<{ accounts: DrillAcct[]; total: number } | null>(null);
   const [drillLoading, setDrillLoading] = useState(false);
+  // Editable opening-cash override (shared with the Cash Sheet) + fund breakdown modal.
+  const [openDraft, setOpenDraft] = useState<Record<string, string>>({});
+  const [breakdown, setBreakdown] = useState<{ name: string; rows: Breakdown[] } | null>(null);
 
   const openDrill = useCallback((row: Row, code: number, label: string) => {
     setDrill({ key: row.key, propName: row.name, code, label });
@@ -78,6 +83,18 @@ export default function CashAnalysisDraftPage() {
       .finally(() => setLoading(false));
   }, [year, period, ytd]);
   useEffect(() => { load(); }, [load]);
+  useEffect(() => { setOpenDraft({}); }, [year, period, ytd]);
+
+  // Save an opening-cash override (or clear it) via the Cash Sheet store, then reload.
+  const saveOpening = useCallback((row: Row, raw: string) => {
+    const t = raw.replace(/[$,\s]/g, "");
+    const value = t === "" ? null : Number(t);
+    if (value != null && !Number.isFinite(value)) return;
+    fetch("/api/financials/cash-sheet", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ym: data?.ym, code: row.key, kind: "startingOverride", value }),
+    }).then((r) => { if (r.ok) load(); }).catch(() => {});
+  }, [data?.ym, load]);
 
   const buckets = data?.buckets ?? [];
   const grouped = useMemo(() => {
@@ -187,10 +204,29 @@ export default function CashAnalysisDraftPage() {
                     <tr key={r.key} title={r.period < r.maxPeriod ? "" : undefined}>
                       <td style={{ textAlign: "left" }}>
                         <code style={{ fontSize: 12 }}>{r.propertyCode}</code>
-                        <span style={{ marginLeft: 8 }}>{r.name}</span>
+                        {r.isFund && r.breakdown?.length ? (
+                          <button type="button" onClick={() => setBreakdown({ name: r.name, rows: r.breakdown! })}
+                            title="Show the buildings behind this fund account"
+                            style={{ marginLeft: 8, background: "none", border: "none", padding: 0, font: "inherit", color: "#0b4a7d", fontWeight: 700, cursor: "pointer" }}>
+                            {r.name} <span style={{ fontSize: 10, opacity: 0.7 }}>▤ {r.breakdown.length}</span>
+                          </button>
+                        ) : <span style={{ marginLeft: 8 }}>{r.name}</span>}
                         {r.debtMissing && <span title={`Loan scheduled (${money0(r.scheduledDebt)}) but $0 posted`} style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, color: "#b91c1c" }}>⚠ debt $0</span>}
                       </td>
-                      <td style={keyCol} title={r.startingCash == null ? "No opening balance captured in this GL upload" : undefined}>{money0(r.startingCash)}</td>
+                      <td style={keyCol} title={r.openingOverridden ? "Overridden — clear to use the GL value" : (r.glOpening == null ? "No opening balance captured in this GL upload" : "Opening per GL — type to override")}>
+                        {data?.canEditOpening ? (
+                          <input
+                            inputMode="decimal"
+                            value={openDraft[r.key] ?? (r.openingOverridden && r.startingCash != null ? String(r.startingCash) : "")}
+                            placeholder={r.glOpening != null ? money0(r.glOpening) : "—"}
+                            onChange={(e) => setOpenDraft((d) => ({ ...d, [r.key]: e.target.value }))}
+                            onBlur={() => { if ((openDraft[r.key] ?? "") !== "") saveOpening(r, openDraft[r.key]); else if (r.openingOverridden) saveOpening(r, ""); }}
+                            onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                            style={{ width: 96, textAlign: "right", fontWeight: 800, fontSize: 14, fontVariantNumeric: "tabular-nums", border: "1px solid transparent", borderRadius: 6, padding: "2px 6px", background: "transparent", color: r.openingOverridden ? "#b45309" : "inherit" }}
+                            className="cs-edit"
+                          />
+                        ) : money0(r.startingCash)}
+                      </td>
                       {buckets.map((b) => {
                         const v = r.byBucket[b.code] ?? 0;
                         if (!v) return <td key={b.code} style={{ ...numCell, color: "var(--muted)" }}>—</td>;
@@ -239,8 +275,45 @@ export default function CashAnalysisDraftPage() {
         {showEst
           ? <><b>Est. Cash Today</b> carries each property&apos;s latest posted GL ending forward through the un-posted month(s) ({data?.gapMonthLabels.join(", ")}) — adding expected receipts and subtracting that month&apos;s AvidXchange bills + scheduled mortgage. It&apos;s an estimate until those months post to the GL (then it equals the GL ending). </>
           : "GL is current through the latest month — Ending Cash is the actual position. "}
-        Tip: click any bucket amount to see the GL accounts behind it.
+        Tip: click any bucket amount to see the GL accounts behind it; click a fund name (e.g. JV III) for its building breakdown.
       </p>
+
+      {breakdown && (
+        <div onClick={() => setBreakdown(null)}
+          style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.55)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "48px 16px 32px", zIndex: 100, overflow: "auto" }}>
+          <div onClick={(e) => e.stopPropagation()} className="card" style={{ maxWidth: 760, width: "100%", boxShadow: "0 24px 60px rgba(15,23,42,0.32)" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 4 }}>
+              <div style={{ fontSize: 16, fontWeight: 800 }}>{breakdown.name} — buildings</div>
+              <button className="btn" onClick={() => setBreakdown(null)} style={{ padding: "6px 14px" }}>Close</button>
+            </div>
+            <div className="muted small" style={{ marginBottom: 12 }}>One bank account; the buildings below roll up into the fund line. {ytd ? "YTD through" : ""} {MONTHS[period - 1]} {year}.</div>
+            <div className="tableWrap" style={{ overflowX: "auto" }}>
+              <table style={{ minWidth: 720 }}>
+                <thead>
+                  <tr>
+                    <th style={{ textAlign: "left" }}>Building</th>
+                    <th style={numCell}>Opening</th>
+                    {buckets.map((b) => <th key={b.code} style={numCell}>{b.label}</th>)}
+                    <th style={numCell}>Net</th>
+                    <th style={numCell}>Ending</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {breakdown.rows.map((br) => (
+                    <tr key={br.key}>
+                      <td style={{ textAlign: "left" }}><code style={{ fontSize: 12 }}>{br.key}</code> {br.name}</td>
+                      <td style={numCell}>{money0(br.startingCash)}</td>
+                      {buckets.map((b) => <td key={b.code} style={{ ...numCell, color: (br.byBucket[b.code] ?? 0) < 0 ? "#b91c1c" : (br.byBucket[b.code] ?? 0) > 0 ? "#15803d" : "var(--muted)" }}>{br.byBucket[b.code] ? money0(br.byBucket[b.code]) : "—"}</td>)}
+                      <td style={{ ...numCell, fontWeight: 700 }}>{money0(br.netChange)}</td>
+                      <td style={{ ...numCell, fontWeight: 700 }}>{money0(br.endingCash)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
 
       {drill && (
         <div onClick={() => setDrill(null)}

@@ -7,14 +7,13 @@ import { mortgagePaymentsFor } from "@/lib/financials/cash-sheet/mortgage";
 import { anticipatedRevenueFor } from "@/lib/financials/cash-sheet/revenue";
 import { getMonth } from "@/lib/financials/cash-sheet/store";
 import { totalBills, monthKey } from "@/lib/financials/cash-sheet/util";
-import { computeCashFlow, CASH_FLOW_BUCKETS } from "@/lib/financials/cash-analysis/compute";
+import { computeCashFlow, CASH_FLOW_BUCKETS, type CashFlowCode } from "@/lib/financials/cash-analysis/compute";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-// Legacy CASH ANALYSIS entity grouping (by statement key / property code).
 const GROUP_OF: Record<string, string> = {};
 const addGroup = (label: string, codes: string[]) => codes.forEach((c) => (GROUP_OF[c] = label));
 addGroup("Business Parks", ["0800", "PJV3", "PIIICO", "CONDO", "PNIPLX", "4900", "3610", "3620", "3640", "4050", "4060", "4070", "4080", "40A0", "40B0", "40C0"]);
@@ -25,22 +24,37 @@ addGroup("GP / LP – Property Owner", ["0200", "0300", "0900", "4210", "4410"])
 addGroup("Nockamixon", ["2070", "2040", "2080"]);
 addGroup("Korman Homes", ["9800", "9820", "9840", "9860", "PHOMES", "KORMAN HOMES"]);
 
-// Pooled funds carry their rent-roll revenue on the underlying buildings.
-const FUND_BUILDINGS: Record<string, string[]> = {
-  PJV3: ["3610", "3620", "3640"],
-  PNIPLX: ["4050", "4060", "4070", "4080", "40A0", "40B0", "40C0"],
-};
+// Pooled funds: the buildings share ONE bank account, so the page shows ONE line
+// per fund (sum of the buildings, or the consolidated fund GL if uploaded), with
+// a per-building breakdown in a modal. Codes also carry the funds' rent-roll
+// revenue on the buildings.
+const FUND_GROUPS = [
+  { fundKey: "PJV3", name: "JV III", propertyCode: "PJV3", buildings: ["3610", "3620", "3640"] },
+  { fundKey: "PNIPLX", name: "NI LLC", propertyCode: "PNIPLX", buildings: ["4050", "4060", "4070", "4080", "40A0", "40B0", "40C0"] },
+];
+const FUND_BUILDINGS: Record<string, string[]> = Object.fromEntries(FUND_GROUPS.map((g) => [g.fundKey, g.buildings]));
 
 function nameFor(key: string, fallback: string): string {
   return PROPERTY_DEFS.find((p) => p.id === key)?.name ?? fallback;
 }
-
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const emptyBuckets = (): Record<CashFlowCode, number> => ({ 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0 });
 
-// GET ?year=YYYY&period=1-12 (&ytd=1). Per property: GL-bucketed cash flow
-// (Opening→Ending) PLUS an "Estimated Cash Today" that brings the latest posted
-// GL forward through the un-posted months using the live weekly bills + scheduled
-// mortgage + anticipated receipts. Draft / read-only.
+type Estimate = { months: number; revenue: number; bills: number; mortgage: number; estimatedCash: number | null; latestEnding: number | null };
+type Row = {
+  key: string; propertyCode: string; name: string; group: string;
+  period: number; maxPeriod: number;
+  byBucket: Record<CashFlowCode, number>; netChange: number;
+  glOpening: number | null; startingCash: number | null; openingOverridden: boolean; endingCash: number | null;
+  scheduledDebt: number; debtExpected: boolean; debtPosted: boolean; debtMissing: boolean;
+  latestGLMonth: number; estimate: Estimate | null;
+  isFund?: boolean;
+  breakdown?: { key: string; name: string; startingCash: number | null; netChange: number; endingCash: number | null; byBucket: Record<CashFlowCode, number> }[];
+};
+
+// GET ?year=&period=&ytd= — GL-bucketed cash flow per bank account (JV III / NI
+// LLC buildings collapsed to one fund line), with an editable opening-cash
+// override (shared with the Cash Sheet) and an Estimated-Cash-Today overlay.
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const now = new Date();
@@ -50,11 +64,14 @@ export async function GET(req: Request) {
   const curYear = now.getFullYear();
   const curMonth = now.getMonth() + 1;
 
-  const [mappings, fulls, scheduledDebt] = await Promise.all([
+  const [mappings, fulls, scheduledDebt, overrideDoc] = await Promise.all([
     availableStatements(),
     listFullGls(),
-    mortgagePaymentsFor(year, period), // for the debt-not-posted check
+    mortgagePaymentsFor(year, period),
+    getMonth(monthKey(year, period)), // opening-cash overrides (shared w/ Cash Sheet)
   ]);
+  const overrideFor = (code: string): number | null =>
+    ytd ? null : (overrideDoc?.rows?.[code]?.startingOverride ?? null);
 
   // Pass 1: assemble each property's GL for the year.
   type Entry = { m: typeof mappings[number]; stored: NonNullable<ReturnType<typeof assembleGls>> };
@@ -64,43 +81,30 @@ export async function GET(req: Request) {
     if (stored) entries.push({ m, stored });
   }
 
-  // The estimate only applies to the current year, for months after the latest
-  // posted GL month, through the current month. Pre-pull the weekly overlay
-  // inputs (bills / mortgage / receipts) once per un-posted month.
+  // Weekly-overlay inputs for the un-posted months (current year only).
   const estimateApplies = year === curYear;
   const minLatest = entries.length ? Math.min(...entries.map((e) => e.stored.maxPeriodInFile)) : 12;
   const gapMonths: number[] = [];
   if (estimateApplies) for (let mo = minLatest + 1; mo <= curMonth; mo++) gapMonths.push(mo);
-
   const billsByMonth: Record<number, Awaited<ReturnType<typeof getMonth>>> = {};
   const mortgageByMonth: Record<number, Record<string, number>> = {};
   const revenueByMonth: Record<number, Record<string, number>> = {};
   await Promise.all(gapMonths.map(async (mo) => {
-    const [doc, mort, rev] = await Promise.all([
-      getMonth(monthKey(year, mo)),
-      mortgagePaymentsFor(year, mo),
-      anticipatedRevenueFor(year, mo),
-    ]);
-    billsByMonth[mo] = doc;
-    mortgageByMonth[mo] = mort;
-    revenueByMonth[mo] = rev.byCode;
+    const [doc, mort, rev] = await Promise.all([getMonth(monthKey(year, mo)), mortgagePaymentsFor(year, mo), anticipatedRevenueFor(year, mo)]);
+    billsByMonth[mo] = doc; mortgageByMonth[mo] = mort; revenueByMonth[mo] = rev.byCode;
   }));
-
   const revenueForKey = (byCode: Record<string, number>, key: string, propertyCode: string): number => {
     if (FUND_BUILDINGS[key]) return FUND_BUILDINGS[key].reduce((s, b) => s + (byCode[b.toUpperCase()] ?? 0), 0);
     return byCode[key.toUpperCase()] ?? byCode[propertyCode.toUpperCase()] ?? 0;
   };
 
-  const rows = entries.map(({ m, stored }) => {
+  // Pass 2: raw per-key rows (GL opening, no override yet).
+  const raw: Row[] = entries.map(({ m, stored }) => {
     const maxPeriod = stored.maxPeriodInFile;
     const p = Math.min(period, maxPeriod);
     const flow = computeCashFlow(stored.monthly, p, { ytd });
-    const startingCash = cashAtStartOfMonth(stored, p);
+    const glOpening = cashAtStartOfMonth(stored, p);
     const scheduled = scheduledDebt[m.key.toUpperCase()] ?? scheduledDebt[m.propertyCode.toUpperCase()] ?? 0;
-    const debtPosted = (flow.byBucket[4] ?? 0) !== 0;
-
-    // ── Estimated Cash Today ──
-    // latest posted GL ending + (receipts − bills − mortgage) for un-posted months.
     const latestStart = cashAtStartOfMonth(stored, maxPeriod);
     const latestEnding = latestStart == null ? null : latestStart + computeCashFlow(stored.monthly, maxPeriod).netChange;
     const myGap = gapMonths.filter((mo) => mo > maxPeriod);
@@ -110,36 +114,80 @@ export async function GET(req: Request) {
       estBills += totalBills(billsByMonth[mo]?.rows?.[m.key] ?? billsByMonth[mo]?.rows?.[m.propertyCode]);
       estMortgage += (mortgageByMonth[mo]?.[m.key.toUpperCase()] ?? mortgageByMonth[mo]?.[m.propertyCode.toUpperCase()] ?? 0);
     }
-    const hasEstimate = latestEnding != null && myGap.length > 0;
-    const estimatedCash = latestEnding == null ? null : latestEnding + estRevenue - estBills - estMortgage;
-
+    const estimate: Estimate | null = latestEnding != null && myGap.length > 0
+      ? { months: myGap.length, revenue: estRevenue, bills: estBills, mortgage: estMortgage, estimatedCash: latestEnding + estRevenue - estBills - estMortgage, latestEnding }
+      : null;
     return {
-      key: m.key,
-      propertyCode: m.propertyCode,
-      name: nameFor(m.key, m.entityName),
+      key: m.key, propertyCode: m.propertyCode, name: nameFor(m.key, m.entityName),
       group: GROUP_OF[m.key] ?? GROUP_OF[m.propertyCode] ?? "Other",
-      period: p,
-      maxPeriod,
-      byBucket: flow.byBucket,
-      netChange: flow.netChange,
-      startingCash,
-      endingCash: startingCash == null ? null : startingCash + flow.netChange,
-      scheduledDebt: scheduled,
-      debtExpected: scheduled > 0,
-      debtPosted,
-      debtMissing: scheduled > 0 && !debtPosted,
-      // Weekly overlay → current snapshot.
-      latestGLMonth: maxPeriod,
-      estimate: hasEstimate
-        ? { months: myGap.length, revenue: estRevenue, bills: estBills, mortgage: estMortgage, estimatedCash, latestEnding }
-        : null,
+      period: p, maxPeriod, byBucket: flow.byBucket, netChange: flow.netChange,
+      glOpening, startingCash: glOpening, openingOverridden: false, endingCash: glOpening == null ? null : glOpening + flow.netChange,
+      scheduledDebt: scheduled, debtExpected: scheduled > 0, debtPosted: (flow.byBucket[4] ?? 0) !== 0, debtMissing: scheduled > 0 && (flow.byBucket[4] ?? 0) === 0,
+      latestGLMonth: maxPeriod, estimate,
     };
   });
+
+  // Apply the opening override (and recompute ending) for one row.
+  const withOverride = (r: Row, code: string): Row => {
+    const ov = overrideFor(code);
+    const opening = ov != null ? ov : r.glOpening;
+    return { ...r, startingCash: opening, openingOverridden: ov != null, endingCash: opening == null ? null : opening + r.netChange };
+  };
+
+  const byKey = new Map(raw.map((r) => [r.key, r]));
+  const fundMemberKeys = new Set(FUND_GROUPS.flatMap((g) => [g.fundKey, ...g.buildings]));
+
+  const sumEstimate = (rs: Row[]): Estimate | null => {
+    const es = rs.map((r) => r.estimate).filter((e): e is Estimate => !!e);
+    if (!es.length) return null;
+    return {
+      months: Math.max(...es.map((e) => e.months)),
+      revenue: es.reduce((s, e) => s + e.revenue, 0),
+      bills: es.reduce((s, e) => s + e.bills, 0),
+      mortgage: es.reduce((s, e) => s + e.mortgage, 0),
+      latestEnding: es.reduce((s, e) => s + (e.latestEnding ?? 0), 0),
+      estimatedCash: es.every((e) => e.estimatedCash != null) ? es.reduce((s, e) => s + (e.estimatedCash ?? 0), 0) : null,
+    };
+  };
+
+  const rows: Row[] = [];
+  // Non-fund rows: pass through with their own override.
+  for (const r of raw) if (!fundMemberKeys.has(r.key)) rows.push(withOverride(r, r.key));
+
+  // Fund rows: one line per bank account (consolidated GL if present, else sum of buildings).
+  for (const g of FUND_GROUPS) {
+    const consolidated = byKey.get(g.fundKey);
+    const buildingRows = g.buildings.map((b) => byKey.get(b)).filter((r): r is Row => !!r);
+    const basis = consolidated ? [consolidated] : buildingRows;
+    if (basis.length === 0) continue;
+    const byBucket = emptyBuckets();
+    for (const c of CASH_FLOW_BUCKETS) byBucket[c.code] = basis.reduce((s, r) => s + (r.byBucket[c.code] ?? 0), 0);
+    const netChange = basis.reduce((s, r) => s + r.netChange, 0);
+    const anyOpen = basis.some((r) => r.glOpening != null);
+    const glOpening = anyOpen ? basis.reduce((s, r) => s + (r.glOpening ?? 0), 0) : null;
+    const ov = overrideFor(g.fundKey);
+    const opening = ov != null ? ov : glOpening;
+    const scheduled = scheduledDebt[g.fundKey.toUpperCase()] ?? 0;
+    const maxPeriod = Math.max(...basis.map((r) => r.maxPeriod));
+    const breakdown = (consolidated ? buildingRows : buildingRows).map((r) => ({
+      key: r.key, name: r.name, startingCash: r.glOpening, netChange: r.netChange, endingCash: r.endingCash, byBucket: r.byBucket,
+    }));
+    rows.push({
+      key: g.fundKey, propertyCode: g.propertyCode, name: g.name, group: "Business Parks",
+      period: Math.min(period, maxPeriod), maxPeriod, byBucket, netChange,
+      glOpening, startingCash: opening, openingOverridden: ov != null, endingCash: opening == null ? null : opening + netChange,
+      scheduledDebt: scheduled, debtExpected: scheduled > 0, debtPosted: byBucket[4] !== 0, debtMissing: scheduled > 0 && byBucket[4] === 0,
+      latestGLMonth: maxPeriod, estimate: sumEstimate(basis),
+      isFund: true, breakdown: breakdown.length ? breakdown : undefined,
+    });
+  }
 
   return NextResponse.json({
     year, period, ytd,
     buckets: CASH_FLOW_BUCKETS,
     rows,
+    canEditOpening: !ytd,
+    ym: monthKey(year, period),
     estimateAsOf: estimateApplies && gapMonths.length ? `${MONTHS[curMonth - 1]} ${curYear}` : null,
     gapMonthLabels: gapMonths.map((mo) => MONTHS[mo - 1]),
     generatedAt: new Date().toISOString(),
