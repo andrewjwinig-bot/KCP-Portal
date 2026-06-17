@@ -273,6 +273,7 @@ export default function OperatingStatementsPage() {
   const [noteSources, setNoteSources] = useState<Record<string, "user" | "ai">>({});
   const [noteMeta, setNoteMeta] = useState<Record<string, { editedAt: string; editedBy: string }>>({});
   const [dismissedFlags, setDismissedFlags] = useState<Set<string>>(new Set()); // "?" flags dismissed this session
+  const [debtCheck, setDebtCheck] = useState<{ scheduled: number; posted: number; missing: boolean } | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -332,6 +333,7 @@ export default function OperatingStatementsPage() {
       if (period) qs.set("period", String(period));
       const j = await fetch(`/api/financials/operating-statements?${qs}`).then((r) => r.json());
       setStatement(j.statement ?? null);
+      setDebtCheck(j.debtCheck ?? null);
       setNotes(j.notes ?? {});
       setDismissedFlags(new Set()); // server already filtered dismissed flags
       setOperatingCash(j.operatingCash ?? null);
@@ -643,6 +645,11 @@ export default function OperatingStatementsPage() {
         </div>
       )}
 
+      {!loading && statement && debtCheck?.missing && (
+        <div style={{ margin: "0 0 12px", padding: "10px 14px", borderRadius: 10, background: "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.35)", color: "#b91c1c", fontSize: 13, fontWeight: 600 }}>
+          ⚠ This property has a loan (scheduled P&amp;I ${money0(debtCheck.scheduled)}/mo) but <b>$0 debt service posted</b> this month — the mortgage charge may be missing. Re-post the charge or re-upload the GL.
+        </div>
+      )}
       {!loading && statement && <StatementTable s={statement} viewKey={key} budgetYear={budgetYear} budgetFallback={budgetFallback} notes={notes} noteSources={noteSources} noteMeta={noteMeta} editorLabel={user.label} onSaveNote={saveNote} dismissedFlags={dismissedFlags} onDismissFlag={onDismissFlag} view={{ psf, sqft, hideEmpty, showGL, varMode }} thresh={thresh} flagFilter={flagFilter} onClearFilter={() => setFlagFilter(null)} />}
     </main>
   );

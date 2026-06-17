@@ -9,6 +9,7 @@ import { assembleGls } from "@/lib/financials/operating-statements/glAssemble";
 import { cashAtStartOfMonth } from "@/lib/financials/operating-statements/cash";
 import { lineMonthly } from "@/lib/financials/operating-statements/lineSeries";
 import { trendFlags } from "@/lib/financials/operating-statements/trends";
+import { mortgagePaymentsFor } from "@/lib/financials/cash-sheet/mortgage";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 import { logAudit, auditIp } from "@/lib/audit";
 
@@ -131,7 +132,18 @@ export async function GET(req: Request) {
     name: stored.names?.[u.account] ?? acctNames[u.account] ?? null,
   }));
 
+  // Debt check — this property carries a loan (scheduled P&I from the Debt
+  // Tracker) but $0 debt service posted this month means the charge is missing.
+  const debtByCode = await mortgagePaymentsFor(year, period);
+  const scheduledDebt = debtByCode[key.toUpperCase()] ?? debtByCode[(mapping.propertyCode || "").toUpperCase()] ?? 0;
+  let postedDebt = 0;
+  for (const sec of statement.sections) {
+    if (sec.role === "debt-service") for (const l of sec.lines) postedDebt += l.periodActual;
+  }
+  const debtCheck = { scheduled: scheduledDebt, posted: postedDebt, missing: scheduledDebt > 0 && Math.round(postedDebt) === 0 };
+
   return NextResponse.json({
+    debtCheck,
     available,
     versions,
     selectedVersion: stored.id,
