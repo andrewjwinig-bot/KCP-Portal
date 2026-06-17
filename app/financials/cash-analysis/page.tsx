@@ -31,6 +31,8 @@ function money0(n: number | null): string {
   return v < 0 ? `($${s})` : `$${s}`;
 }
 const numCell: React.CSSProperties = { textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" };
+// Column headers wrap so long bucket labels ("Change in Escrows") don't force a wide column.
+const headWrap: React.CSSProperties = { textAlign: "right", whiteSpace: "normal", lineHeight: 1.15, verticalAlign: "bottom", minWidth: 70 };
 // Opening / Ending cash are the headline numbers — give them a prominent, tinted column.
 const keyCol: React.CSSProperties = { ...numCell, fontWeight: 800, fontSize: 14, background: "rgba(11,74,125,0.06)" };
 function periodDates(year: number, period: number, ytd: boolean) {
@@ -98,7 +100,11 @@ export default function CashAnalysisDraftPage() {
 
   const buckets = data?.buckets ?? [];
   // Hide a bucket column when it's zero for every property (e.g. Change in Escrows).
-  const visibleBuckets = buckets.filter((b) => (data?.rows ?? []).some((r) => (r.byBucket[b.code] ?? 0) !== 0));
+  // Keep Mortgage P&I (4) visible when any loan is scheduled-but-unposted so its
+  // estimate still shows even if nothing has posted to that column yet.
+  const visibleBuckets = buckets.filter((b) =>
+    (b.code === 4 && (data?.rows ?? []).some((r) => r.debtMissing)) ||
+    (data?.rows ?? []).some((r) => (r.byBucket[b.code] ?? 0) !== 0));
   const grouped = useMemo(() => {
     const by: Record<string, Row[]> = {};
     for (const r of data?.rows ?? []) (by[r.group] = by[r.group] || []).push(r);
@@ -188,8 +194,8 @@ export default function CashAnalysisDraftPage() {
               <tr>
                 <th style={{ textAlign: "left" }}>Entity</th>
                 <th style={keyCol}>Opening Cash<div style={{ fontWeight: 600, fontSize: 10, color: "var(--muted)", textTransform: "none" }}>{dates.open}</div></th>
-                {visibleBuckets.map((b) => <th key={b.code} style={numCell}>{b.label}</th>)}
-                <th style={numCell}>Net Change</th>
+                {visibleBuckets.map((b) => <th key={b.code} style={headWrap}>{b.label}</th>)}
+                <th style={headWrap}>Net Change</th>
                 <th style={keyCol}>Ending Cash<div style={{ fontWeight: 600, fontSize: 10, color: "var(--muted)", textTransform: "none" }}>{dates.end}</div></th>
                 {showEst && <th style={{ ...keyCol, background: "rgba(21,128,61,0.08)" }}>Est. Cash Today<div style={{ fontWeight: 600, fontSize: 10, color: "var(--muted)", textTransform: "none" }}>{data?.estimateAsOf}</div></th>}
               </tr>
@@ -231,6 +237,16 @@ export default function CashAnalysisDraftPage() {
                       </td>
                       {visibleBuckets.map((b) => {
                         const v = r.byBucket[b.code] ?? 0;
+                        // Mortgage P&I scheduled but not yet posted: show the scheduled
+                        // amount as an amber estimate, flagged ⚠*; not in Net Change/Ending.
+                        if (!v && b.code === 4 && r.debtMissing) {
+                          return (
+                            <td key={b.code} style={{ ...numCell, color: "#b45309", fontWeight: 700 }}
+                              title={`Estimated — scheduled mortgage P&I of ${money0(r.scheduledDebt)} has not posted to the GL yet. Shown for reference; not included in Net Change or Ending Cash until it posts.`}>
+                              ⚠ {money0(-r.scheduledDebt)}*
+                            </td>
+                          );
+                        }
                         if (!v) return <td key={b.code} style={{ ...numCell, color: "var(--muted)" }}>—</td>;
                         return (
                           <td key={b.code} style={{ ...numCell, color: v < 0 ? "#b91c1c" : "#15803d" }}>
@@ -278,6 +294,7 @@ export default function CashAnalysisDraftPage() {
           ? <><b>Est. Cash Today</b> carries each property&apos;s latest posted GL ending forward through the un-posted month(s) ({data?.gapMonthLabels.join(", ")}) — adding expected receipts and subtracting that month&apos;s AvidXchange bills + scheduled mortgage. It&apos;s an estimate until those months post to the GL (then it equals the GL ending). </>
           : "GL is current through the latest month — Ending Cash is the actual position. "}
         Tip: click any bucket amount to see the GL accounts behind it; click a fund name (e.g. JV III) for its building breakdown.
+        {debtMissingRows.length > 0 && <> <span style={{ color: "#b45309", fontWeight: 700 }}>⚠ amber Mortgage P&amp;I with an asterisk (*)</span> is the scheduled debt service — an estimate shown because the actual charge has not posted to the GL yet; it is not rolled into Net Change or Ending Cash.</>}
       </p>
 
       {breakdown && (
@@ -295,8 +312,8 @@ export default function CashAnalysisDraftPage() {
                   <tr>
                     <th style={{ textAlign: "left" }}>Building</th>
                     <th style={numCell}>Opening</th>
-                    {visibleBuckets.map((b) => <th key={b.code} style={numCell}>{b.label}</th>)}
-                    <th style={numCell}>Net</th>
+                    {visibleBuckets.map((b) => <th key={b.code} style={headWrap}>{b.label}</th>)}
+                    <th style={headWrap}>Net</th>
                     <th style={numCell}>Ending</th>
                   </tr>
                 </thead>
