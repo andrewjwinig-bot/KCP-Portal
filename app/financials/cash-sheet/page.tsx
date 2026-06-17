@@ -421,8 +421,13 @@ export default function CashSheetPage() {
                         return (
                           <tr key={p.code}>
                             <td style={{ textAlign: "left" }}>
-                              <code style={{ fontSize: 12 }}>{p.code}</code>
-                              <span style={{ marginLeft: 8 }}>{p.name}</span>
+                              <div>
+                                <code style={{ fontSize: 12 }}>{p.code}</code>
+                                <span style={{ marginLeft: 8 }}>{p.name}</span>
+                              </div>
+                              {p.bankCode && (
+                                <BankLinks accounts={bankAccountsForCodes([p.bankCode]).filter((a) => !p.bankLast4 || a.last4 === p.bankLast4)} />
+                              )}
                             </td>
                             <td style={numCell}><span className="muted">—</span></td>
                             <td style={numCell}><span className="muted">—</span></td>

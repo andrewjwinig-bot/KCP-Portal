@@ -78,7 +78,16 @@ export function visibleWednesdays(weds: string[], today: Date = new Date()): str
   });
 }
 
-export type CashSheetProperty = { code: string; name: string; /** Manually-entered single balance (no GL/rent-roll feed); shown as one editable cell. */ manual?: boolean };
+export type CashSheetProperty = {
+  code: string;
+  name: string;
+  /** Manually-entered single balance (no GL/rent-roll feed); shown as one editable cell. */
+  manual?: boolean;
+  /** Link a specific bank account to this row: the property/entity code it's
+   *  filed under in BANK_ACCOUNTS, narrowed to one account by last4. */
+  bankCode?: string;
+  bankLast4?: string;
+};
 export type CashSheetGroup = {
   id: string;
   label: string;
@@ -130,7 +139,7 @@ export function cashSheetGroups(): CashSheetGroup[] {
     label: "Business Parks — Other Accounts",
     properties: [
       { code: "LK-TRUST",  name: "Leonard Korman Trust",            manual: true },
-      { code: "NILLC-TSD", name: "NI LLC – Tenant Security Deposits", manual: true },
+      { code: "NILLC-TSD", name: "NI LLC – Tenant Security Deposits", manual: true, bankCode: "4000", bankLast4: "x7448" },
     ],
   };
   const ni = groups.findIndex((g) => g.id === "nillc");
