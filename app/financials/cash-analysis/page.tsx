@@ -16,9 +16,11 @@ type Row = {
   byBucket: Record<string, number>; netChange: number;
   startingCash: number | null; endingCash: number | null;
   scheduledDebt: number; debtExpected: boolean; debtPosted: boolean; debtMissing: boolean;
+  latestGLMonth: number;
+  estimate: { months: number; revenue: number; bills: number; mortgage: number; estimatedCash: number | null; latestEnding: number | null } | null;
   unmappedCount: number; unmapped: { account: string; amount: number; name?: string | null }[];
 };
-type Payload = { year: number; period: number; ytd: boolean; buckets: Bucket[]; rows: Row[]; generatedAt: string };
+type Payload = { year: number; period: number; ytd: boolean; buckets: Bucket[]; rows: Row[]; estimateAsOf: string | null; gapMonthLabels: string[]; generatedAt: string };
 
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 function money0(n: number | null): string {
@@ -100,7 +102,9 @@ export default function CashAnalysisDraftPage({ embedded = false }: { embedded?:
   const totalUnmapped = (data?.rows ?? []).reduce((s, r) => s + r.unmappedCount, 0);
   const debtMissingRows = (data?.rows ?? []).filter((r) => r.debtMissing);
   const dates = periodDates(year, period, ytd);
-  const colCount = buckets.length + 4; // entity + opening + buckets + net + ending
+  const showEst = !!data?.estimateAsOf;
+  const estTotal = (data?.rows ?? []).reduce((s, r) => s + (r.estimate?.estimatedCash ?? 0), 0);
+  const colCount = buckets.length + 4 + (showEst ? 1 : 0); // entity + opening + buckets + net + ending (+ est)
 
   const Outer = (embedded ? "section" : "main") as "section";
   return (
@@ -181,6 +185,7 @@ export default function CashAnalysisDraftPage({ embedded = false }: { embedded?:
                 {buckets.map((b) => <th key={b.code} style={numCell}>{b.label}</th>)}
                 <th style={numCell}>Net Change</th>
                 <th style={keyCol}>Ending Cash<div style={{ fontWeight: 600, fontSize: 10, color: "var(--muted)", textTransform: "none" }}>{dates.end}</div></th>
+                {showEst && <th style={{ ...keyCol, background: "rgba(21,128,61,0.08)" }}>Est. Cash Today<div style={{ fontWeight: 600, fontSize: 10, color: "var(--muted)", textTransform: "none" }}>{data?.estimateAsOf}</div></th>}
               </tr>
             </thead>
             <tbody>
@@ -217,6 +222,12 @@ export default function CashAnalysisDraftPage({ embedded = false }: { embedded?:
                       })}
                       <td style={{ ...numCell, fontWeight: 800, color: r.netChange >= 0 ? "#15803d" : "#b91c1c" }}>{money0(r.netChange)}</td>
                       <td style={keyCol}>{money0(r.endingCash)}</td>
+                      {showEst && (
+                        <td style={{ ...keyCol, background: "rgba(21,128,61,0.08)" }}
+                          title={r.estimate ? `From ${MONTHS[r.latestGLMonth - 1]} GL ending ${money0(r.estimate.latestEnding)}: + receipts ${money0(r.estimate.revenue)} − bills ${money0(r.estimate.bills)} − mortgage ${money0(r.estimate.mortgage)} (${r.estimate.months} un-posted mo)` : "GL is current — no estimate needed"}>
+                          {r.estimate ? money0(r.estimate.estimatedCash) : <span className="muted">{money0(r.endingCash)}</span>}
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </Fragment>
@@ -230,6 +241,7 @@ export default function CashAnalysisDraftPage({ embedded = false }: { embedded?:
                   {buckets.map((b) => <td key={b.code} style={numCell}>{money0(grand.byBucket[b.code] ?? 0)}</td>)}
                   <td style={{ ...numCell, color: grand.net >= 0 ? "#15803d" : "#b91c1c" }}>{money0(grand.net)}</td>
                   <td style={keyCol}>{grand.hasOpening ? money0(grand.ending) : "—"}</td>
+                  {showEst && <td style={{ ...keyCol, background: "rgba(21,128,61,0.10)" }}>{money0(estTotal)}</td>}
                 </tr>
               </tfoot>
             )}
@@ -261,7 +273,10 @@ export default function CashAnalysisDraftPage({ embedded = false }: { embedded?:
       )}
 
       <p className="muted small" style={{ margin: 0 }}>
-        Draft for verification — compare to the December CASH ANALYSIS. Once it ties, we wire the weekly overlay (AvidXchange bills + mortgage) and the bank tie-out, then promote it. Tip: click any bucket amount to see the GL accounts behind it.
+        {showEst
+          ? <><b>Est. Cash Today</b> carries each property&apos;s latest posted GL ending forward through the un-posted month(s) ({data?.gapMonthLabels.join(", ")}) — adding expected receipts and subtracting that month&apos;s AvidXchange bills + scheduled mortgage. It&apos;s an estimate until those months post to the GL (then it equals the GL ending). </>
+          : "GL is current through the latest month — Ending Cash is the actual position. "}
+        Tip: click any bucket amount to see the GL accounts behind it.
       </p>
 
       {drill && (
