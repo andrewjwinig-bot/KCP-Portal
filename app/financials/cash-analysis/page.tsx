@@ -8,6 +8,7 @@
 
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { StatPill } from "@/app/components/Pill";
+import { bankAccountsForCodes, type BankAccount } from "@/lib/financials/cash-sheet/util";
 
 type Bucket = { code: number; label: string };
 type Breakdown = { key: string; name: string; startingCash: number | null; netChange: number; endingCash: number | null; byBucket: Record<string, number> };
@@ -47,6 +48,24 @@ const groupHeaderCell: React.CSSProperties = {
   padding: "10px 12px", borderTop: "2px solid var(--border)",
 };
 const GROUP_ORDER = ["Business Parks", "Eastwick Joint Venture", "Shopping Centers", "LIK Management", "GP / LP – Property Owner", "Nockamixon", "Korman Homes", "Other"];
+
+// Bank-account chips (from Property Info) — click to open the bank login for the
+// account behind each row, matching the Cash Sheet.
+function BankLinks({ accounts }: { accounts: BankAccount[] }) {
+  if (!accounts.length) return null;
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 3 }}>
+      {accounts.map((a, i) => (
+        <a key={i} href={a.link} target="_blank" rel="noreferrer" title={`${a.bank} · ${a.label}`}
+          style={{ fontSize: 11, fontWeight: 700, color: "#0b4a7d", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 3 }}
+          onMouseEnter={(e) => (e.currentTarget.style.textDecoration = "underline")}
+          onMouseLeave={(e) => (e.currentTarget.style.textDecoration = "none")}>
+          {a.bank} {a.last4}<span aria-hidden style={{ fontSize: 9, opacity: 0.7 }}>↗</span>
+        </a>
+      ))}
+    </div>
+  );
+}
 
 export default function CashAnalysisDraftPage() {
   const now = new Date();
@@ -220,6 +239,7 @@ export default function CashAnalysisDraftPage() {
                           </button>
                         ) : <span style={{ marginLeft: 8 }}>{r.name}</span>}
                         {r.debtMissing && <span title={`Loan scheduled (${money0(r.scheduledDebt)}) but $0 posted`} style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, color: "#b91c1c" }}>⚠ debt $0</span>}
+                        <BankLinks accounts={r.isFund && r.breakdown?.length ? bankAccountsForCodes(r.breakdown.map((b) => b.key)) : bankAccountsForCodes([r.propertyCode, r.key])} />
                       </td>
                       <td style={keyCol} title={r.openingOverridden ? "Overridden — clear to use the GL value" : (r.glOpening == null ? "No opening balance captured in this GL upload" : "Opening per GL — type to override")}>
                         {data?.canEditOpening ? (
