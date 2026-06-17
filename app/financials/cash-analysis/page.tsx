@@ -141,9 +141,24 @@ export default function CashAnalysisDraftPage() {
         </div>
       )}
 
+      {data && data.rows.length > 0 && (
+        <div className="card" style={{ padding: "12px 16px", fontSize: 14 }}>
+          <b>{dates.range}:</b>{" "}
+          {grand.hasOpening
+            ? <>Opening <b>{money0(grand.opening)}</b> → Ending <b>{money0(grand.ending)}</b>, </>
+            : null}
+          a net cash {grand.net >= 0 ? "increase" : "decrease"} of <b style={{ color: grand.net >= 0 ? "#15803d" : "#b91c1c" }}>{money0(Math.abs(grand.net))}</b> across {data.rows.length} properties
+          {debtMissingRows.length > 0 && <> · <b style={{ color: "#b91c1c" }}>{debtMissingRows.length} with debt not posted</b></>}
+          {totalUnmapped > 0 && <> · <b style={{ color: "#b45309" }}>{totalUnmapped} line{totalUnmapped === 1 ? "" : "s"} to review</b></>}.
+        </div>
+      )}
+
       <div className="pills" style={{ justifyContent: "flex-start" }}>
+        <StatPill label={`Opening Cash · ${dates.open}`} value={grand.hasOpening ? money0(grand.opening) : "—"} />
         <StatPill label={`Net Change · ${ytd ? "YTD" : MONTHS[period - 1]}`} value={money0(grand.net)} accent={grand.net >= 0 ? "#15803d" : "#b91c1c"} />
-        <StatPill label="Properties" value={data?.rows.length ?? 0} accent="#0b4a7d" />
+        <StatPill label={`Ending Cash · ${dates.end}`} value={grand.hasOpening ? money0(grand.ending) : "—"} accent="#0b4a7d" />
+        <StatPill label="Properties" value={data?.rows.length ?? 0} />
+        {debtMissingRows.length > 0 && <StatPill label="Debt Not Posted" value={debtMissingRows.length} accent="#b91c1c" />}
         <StatPill label="Unmapped GL lines" value={totalUnmapped} accent={totalUnmapped > 0 ? "#b45309" : "#15803d"} sub={totalUnmapped > 0 ? "review below" : "all coded"} />
       </div>
 
