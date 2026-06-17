@@ -64,16 +64,17 @@ export default function CashAnalysisDraftPage() {
 
   const grand = useMemo(() => {
     const byBucket: Record<string, number> = {};
-    let net = 0;
+    let net = 0, opening = 0, ending = 0, hasOpening = false;
     for (const r of data?.rows ?? []) {
       for (const b of buckets) byBucket[b.code] = (byBucket[b.code] ?? 0) + (r.byBucket[b.code] ?? 0);
       net += r.netChange;
+      if (r.startingCash != null) { opening += r.startingCash; ending += (r.endingCash ?? 0); hasOpening = true; }
     }
-    return { byBucket, net };
+    return { byBucket, net, opening, ending, hasOpening };
   }, [data, buckets]);
 
   const totalUnmapped = (data?.rows ?? []).reduce((s, r) => s + r.unmappedCount, 0);
-  const colCount = 2 + buckets.length + 1;
+  const colCount = buckets.length + 4; // entity + opening + buckets + net + ending
 
   return (
     <main style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -114,8 +115,10 @@ export default function CashAnalysisDraftPage() {
             <thead>
               <tr>
                 <th style={{ textAlign: "left" }}>Entity</th>
+                <th style={numCell}>Opening Cash</th>
                 {buckets.map((b) => <th key={b.code} style={numCell}>{b.label}</th>)}
                 <th style={numCell}>Net Change</th>
+                <th style={numCell}>Ending Cash</th>
               </tr>
             </thead>
             <tbody>
@@ -133,11 +136,13 @@ export default function CashAnalysisDraftPage() {
                         <span style={{ marginLeft: 8 }}>{r.name}</span>
                         {r.unmappedCount > 0 && <span title={`${r.unmappedCount} GL line(s) with activity not coded`} style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, color: "#b45309" }}>⚠ {r.unmappedCount}</span>}
                       </td>
+                      <td style={numCell} title={r.startingCash == null ? "No opening balance captured in this GL upload" : undefined}>{money0(r.startingCash)}</td>
                       {buckets.map((b) => {
                         const v = r.byBucket[b.code] ?? 0;
                         return <td key={b.code} style={{ ...numCell, color: v < 0 ? "#b91c1c" : v > 0 ? "#15803d" : "var(--muted)" }}>{v ? money0(v) : "—"}</td>;
                       })}
                       <td style={{ ...numCell, fontWeight: 800, color: r.netChange >= 0 ? "#15803d" : "#b91c1c" }}>{money0(r.netChange)}</td>
+                      <td style={{ ...numCell, fontWeight: 800 }}>{money0(r.endingCash)}</td>
                     </tr>
                   ))}
                 </Fragment>
@@ -147,8 +152,10 @@ export default function CashAnalysisDraftPage() {
               <tfoot>
                 <tr style={{ borderTop: "2px solid var(--border)", fontWeight: 800, background: "rgba(11,74,125,0.05)" }}>
                   <td style={{ textAlign: "left" }}>Portfolio Total</td>
+                  <td style={numCell}>{grand.hasOpening ? money0(grand.opening) : "—"}</td>
                   {buckets.map((b) => <td key={b.code} style={numCell}>{money0(grand.byBucket[b.code] ?? 0)}</td>)}
                   <td style={{ ...numCell, color: grand.net >= 0 ? "#15803d" : "#b91c1c" }}>{money0(grand.net)}</td>
+                  <td style={numCell}>{grand.hasOpening ? money0(grand.ending) : "—"}</td>
                 </tr>
               </tfoot>
             )}
