@@ -1,14 +1,17 @@
 "use client";
 
-// Cash Analysis (DRAFT) — computes each property's monthly cash-flow buckets
-// straight from the uploaded GL, using the account→code map ported from the
-// legacy workbook. Read-only; kept as a draft until it ties out against the
-// December CASH ANALYSIS. Receipts are positive inflows; expenses/outflows
-// negative; Net Change = the row sum (the change in operating cash).
+// Cash Sheet — the unified cash-management page (formerly "Cash Analysis"; the
+// old weekly Cash Sheet was merged in). Lists every property/entity bank account
+// with its cash position: monthly cash-flow buckets computed from the uploaded
+// GL (account→code map ported from the legacy workbook), non-GL accounts as flat
+// manual balances, and an "Est. Cash Today" column that carries each balance
+// forward through the weekly AvidXchange bills for months not yet posted.
+// Receipts are positive inflows; expenses/outflows negative; Net Change = the
+// row sum (the change in operating cash).
 
-import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { StatPill } from "@/app/components/Pill";
-import { bankAccountsForCodes, type BankAccount } from "@/lib/financials/cash-sheet/util";
+import { bankAccountsForCodes, weekOfLabel, parseMonthKey, type BankAccount } from "@/lib/financials/cash-sheet/util";
 
 type Bucket = { code: number; label: string };
 type Breakdown = { key: string; name: string; startingCash: number | null; netChange: number; endingCash: number | null; byBucket: Record<string, number> };
@@ -22,7 +25,7 @@ type Row = {
   estimate: { months: number; revenue: number; bills: number; mortgage: number; estimatedCash: number | null; latestEnding: number | null } | null;
   isFund?: boolean; manual?: boolean; bankCodes?: string[]; bankLast4?: string; breakdown?: Breakdown[];
 };
-type Payload = { year: number; period: number; ytd: boolean; buckets: Bucket[]; rows: Row[]; canEditOpening: boolean; ym: string; estimateAsOf: string | null; gapMonthLabels: string[]; generatedAt: string };
+type Payload = { year: number; period: number; ytd: boolean; buckets: Bucket[]; rows: Row[]; canEdit: boolean; canEditOpening: boolean; ym: string; estimateAsOf: string | null; gapMonthLabels: string[]; generatedAt: string };
 
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 function money0(n: number | null): string {
@@ -67,7 +70,7 @@ function BankLinks({ accounts }: { accounts: BankAccount[] }) {
   );
 }
 
-export default function CashAnalysisDraftPage() {
+export default function CashSheetPage() {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [period, setPeriod] = useState(now.getMonth() + 1);
@@ -82,7 +85,13 @@ export default function CashAnalysisDraftPage() {
   const [drillLoading, setDrillLoading] = useState(false);
   // Editable opening-cash override (shared with the Cash Sheet) + fund breakdown modal.
   const [openDraft, setOpenDraft] = useState<Record<string, string>>({});
+  const [manualDraft, setManualDraft] = useState<Record<string, string>>({});
   const [breakdown, setBreakdown] = useState<{ name: string; rows: Breakdown[] } | null>(null);
+  // Weekly AvidXchange bills — the bridge that keeps the monthly GL position
+  // current between postings. Uploaded here, consumed by "Est. Cash Today".
+  const apRef = useRef<HTMLInputElement | null>(null);
+  const [apUploading, setApUploading] = useState(false);
+  const [apSummary, setApSummary] = useState<{ wednesday: string; total: number; count: number } | null>(null);
 
   const openDrill = useCallback((row: Row, code: number, label: string) => {
     setDrill({ key: row.key, propName: row.name, code, label });
@@ -104,18 +113,46 @@ export default function CashAnalysisDraftPage() {
       .finally(() => setLoading(false));
   }, [year, period, ytd]);
   useEffect(() => { load(); }, [load]);
-  useEffect(() => { setOpenDraft({}); }, [year, period, ytd]);
+  useEffect(() => { setOpenDraft({}); setManualDraft({}); }, [year, period, ytd]);
 
   // Save an opening-cash override (or clear it) via the Cash Sheet store, then reload.
-  const saveOpening = useCallback((row: Row, raw: string) => {
+  const saveOverride = useCallback((code: string, kind: "startingOverride" | "endingOverride", raw: string) => {
     const t = raw.replace(/[$,\s]/g, "");
     const value = t === "" ? null : Number(t);
     if (value != null && !Number.isFinite(value)) return;
     fetch("/api/financials/cash-sheet", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ym: data?.ym, code: row.key, kind: "startingOverride", value }),
+      body: JSON.stringify({ ym: data?.ym, code, kind, value }),
     }).then((r) => { if (r.ok) load(); }).catch(() => {});
   }, [data?.ym, load]);
+  // GL rows override the opening (startingOverride); manual accounts store a
+  // single current balance (endingOverride) — same store the Cash Sheet uses.
+  const saveOpening = useCallback((row: Row, raw: string) => saveOverride(row.key, "startingOverride", raw), [saveOverride]);
+  const saveManual = useCallback((row: Row, raw: string) => saveOverride(row.key, "endingOverride", raw), [saveOverride]);
+
+  // Upload the weekly AP AutoPay Selections Reports → auto-fills the week's bills
+  // (reused from the Cash Sheet), refreshing the "Est. Cash Today" bridge.
+  async function onApUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = e.target.files;
+    if (!files?.length) return;
+    setApUploading(true); setApSummary(null); setError(null);
+    try {
+      const fd = new FormData();
+      for (const f of Array.from(files)) fd.append("files", f);
+      const res = await fetch("/api/financials/cash-sheet/ap-upload", { method: "POST", body: fd });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j?.error ?? "Upload failed");
+      const pm = parseMonthKey(String(j.wednesday).slice(0, 7));
+      if (pm && (pm.year !== year || pm.month !== period)) { setYear(pm.year); setPeriod(pm.month); }
+      setApSummary({ wednesday: j.wednesday, total: j.total, count: (j.filled ?? []).length });
+      load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setApUploading(false);
+      if (apRef.current) apRef.current.value = "";
+    }
+  }
 
   const buckets = data?.buckets ?? [];
   // Hide a bucket column when it's zero for every property (e.g. Change in Escrows).
@@ -152,16 +189,23 @@ export default function CashAnalysisDraftPage() {
     <main style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 14, flexWrap: "wrap" }}>
         <div>
-          <div style={{ display: "inline-block", fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", color: "#b45309", background: "rgba(180,83,9,0.12)", border: "1px solid rgba(180,83,9,0.35)", borderRadius: 999, padding: "2px 10px", marginBottom: 6 }}>DRAFT — verifying accuracy</div>
-          <h1 style={{ marginBottom: 4 }}>Cash Analysis</h1>
+          <h1 style={{ marginBottom: 4 }}>Cash Sheet</h1>
           <div style={{ fontSize: 14, fontWeight: 800, color: "var(--text)", marginBottom: 4 }}>
             {ytd ? "Year to date" : MONTHS[period - 1] + " " + year} · <span style={{ color: "var(--muted)", fontWeight: 600 }}>{dates.range}</span>
           </div>
           <p className="muted small" style={{ margin: 0 }}>
-            Each property&apos;s cash flow, computed from the uploaded GL via the account→bucket map ported from the legacy workbook. Inflows positive, outflows negative; Net Change = the row total. Click any bucket to drill to its GL accounts.
+            Every property and entity bank account with its cash position — monthly actuals computed from the GL (click any bucket to drill to its accounts), with <b>Est. Cash Today</b> carrying each balance forward through the weekly AvidXchange bills for the months not yet posted.
           </p>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          {data?.canEdit && (
+            <>
+              <button className="btn primary" onClick={() => apRef.current?.click()} disabled={apUploading} style={{ fontSize: 13, padding: "6px 12px", fontWeight: 700 }} title="Drop the weekly AP AutoPay Selections Reports (JV III, NI LLC, Condo, all-other) to auto-fill the week's bills">
+                {apUploading ? "Uploading…" : "Upload AP Report"}
+              </button>
+              <input ref={apRef} type="file" accept=".xls,.xlsx,.pdf" multiple style={{ display: "none" }} onChange={onApUpload} />
+            </>
+          )}
           <button className="btn" onClick={() => setYear((y) => y - 1)} style={{ padding: "6px 10px", fontWeight: 900 }}>←</button>
           <span style={{ fontWeight: 800, fontSize: 15, minWidth: 44, textAlign: "center" }}>{year}</span>
           <button className="btn" onClick={() => setYear((y) => y + 1)} style={{ padding: "6px 10px", fontWeight: 900 }}>→</button>
@@ -176,6 +220,12 @@ export default function CashAnalysisDraftPage() {
       </div>
 
       {error && <div className="small" style={{ color: "#b91c1c", fontWeight: 700 }}>· {error}</div>}
+
+      {apSummary && (
+        <div className="small" style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(21,128,61,0.08)", border: "1px solid rgba(21,128,61,0.35)", color: "#15803d", fontWeight: 700 }}>
+          ✓ Filled {apSummary.count} {apSummary.count === 1 ? "property" : "properties"} · {money0(apSummary.total)} for the {weekOfLabel(apSummary.wednesday).toLowerCase()} from the AP Selection Report.
+        </div>
+      )}
 
       {debtMissingRows.length > 0 && (
         <div style={{ padding: "10px 14px", borderRadius: 10, background: "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.35)", color: "#b91c1c", fontSize: 13 }}>
@@ -238,12 +288,23 @@ export default function CashAnalysisDraftPage() {
                             {r.name} <span style={{ fontSize: 10, opacity: 0.7 }}>▤ {r.breakdown.length}</span>
                           </button>
                         ) : <span style={{ marginLeft: 8 }}>{r.name}</span>}
-                        {r.manual && <span title="Manually-tracked balance — edited on the Cash Sheet" style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--muted)" }}>manual</span>}
+                        {r.manual && <span title="No GL feed — enter the current balance directly" style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--muted)" }}>manual</span>}
                         {r.debtMissing && <span title={`Loan scheduled (${money0(r.scheduledDebt)}) but $0 posted`} style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, color: "#b91c1c" }}>⚠ debt $0</span>}
                         <BankLinks accounts={(r.bankCodes ? bankAccountsForCodes(r.bankCodes) : r.isFund && r.breakdown?.length ? bankAccountsForCodes(r.breakdown.map((b) => b.key)) : bankAccountsForCodes([r.propertyCode, r.key])).filter((a) => !r.bankLast4 || a.last4 === r.bankLast4)} />
                       </td>
-                      <td style={keyCol} title={r.manual ? "Manually-tracked balance — edited on the Cash Sheet" : r.openingOverridden ? "Overridden — clear to use the GL value" : (r.glOpening == null ? "No opening balance captured in this GL upload" : "Opening per GL — type to override")}>
-                        {data?.canEditOpening && !r.manual ? (
+                      <td style={keyCol} title={r.manual ? "Manually-entered current balance (no GL feed)" : r.openingOverridden ? "Overridden — clear to use the GL value" : (r.glOpening == null ? "No opening balance captured in this GL upload" : "Opening per GL — type to override")}>
+                        {data?.canEditOpening && r.manual ? (
+                          <input
+                            inputMode="decimal"
+                            value={manualDraft[r.key] ?? (r.startingCash != null ? String(r.startingCash) : "")}
+                            placeholder="—"
+                            onChange={(e) => setManualDraft((d) => ({ ...d, [r.key]: e.target.value }))}
+                            onBlur={() => saveManual(r, manualDraft[r.key] ?? "")}
+                            onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                            style={{ width: 96, textAlign: "right", fontWeight: 800, fontSize: 14, fontVariantNumeric: "tabular-nums", border: "1px solid transparent", borderRadius: 6, padding: "2px 6px", background: "transparent", color: r.startingCash == null ? undefined : r.startingCash >= 0 ? "#15803d" : "#b91c1c" }}
+                            className="cs-edit"
+                          />
+                        ) : data?.canEditOpening && !r.manual ? (
                           <input
                             inputMode="decimal"
                             value={openDraft[r.key] ?? (r.openingOverridden && r.startingCash != null ? String(r.startingCash) : "")}

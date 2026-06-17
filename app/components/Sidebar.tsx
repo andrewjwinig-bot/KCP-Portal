@@ -38,7 +38,6 @@ const NAV_ROLE_KEY: Record<string, string> = {
   // Budgets is its own key (Nancy sees only Budgets); the other financials
   // pages require the broader "financials-statements" key.
   "Cash Sheet":         "financials-statements",
-  "Cash Analysis (Draft)": "cash-analysis-draft",
   "Operating Statements": "financials-statements",
   "Flags to Investigate": "financials-statements",
   "Reprojections":      "financials-statements",
@@ -517,7 +516,7 @@ const NAV = [
   },
   {
     label: "Cash Sheet",
-    href: "/financials/cash-sheet",
+    href: "/financials/cash-analysis",
     external: false,
     indent: false,
     showFor: null as string | null,
@@ -527,20 +526,6 @@ const NAV = [
         <rect x="2" y="5" width="20" height="14" rx="2" />
         <line x1="2" y1="10" x2="22" y2="10" />
         <circle cx="7" cy="14.5" r="1.5" />
-      </svg>
-    ),
-  },
-  {
-    label: "Cash Analysis (Draft)",
-    href: "/financials/cash-analysis",
-    external: false,
-    indent: false,
-    showFor: null as string | null,
-    groupId: "financials",
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M3 3v18h18" />
-        <path d="M7 14l4-4 3 3 5-6" />
       </svg>
     ),
   },
