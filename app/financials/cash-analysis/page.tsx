@@ -24,6 +24,7 @@ type Row = {
   latestGLMonth: number;
   estimate: { months: number; revenue: number; bills: number; mortgage: number; estimatedCash: number | null; latestEnding: number | null } | null;
   isFund?: boolean; manual?: boolean; bankCodes?: string[]; bankLast4?: string; breakdown?: Breakdown[];
+  billsMTD?: number; weeklyBills?: { wednesday: string; amount: number }[];
 };
 type Payload = { year: number; period: number; ytd: boolean; buckets: Bucket[]; rows: Row[]; canEdit: boolean; canEditOpening: boolean; ym: string; estimateAsOf: string | null; gapMonthLabels: string[]; generatedAt: string };
 
@@ -87,6 +88,8 @@ export default function CashSheetPage() {
   const [openDraft, setOpenDraft] = useState<Record<string, string>>({});
   const [manualDraft, setManualDraft] = useState<Record<string, string>>({});
   const [breakdown, setBreakdown] = useState<{ name: string; rows: Breakdown[] } | null>(null);
+  // Weekly AvidXchange bills drill-down (per-Wednesday detail behind a row's Avid Bills).
+  const [billsModal, setBillsModal] = useState<{ name: string; weekly: { wednesday: string; amount: number }[]; total: number } | null>(null);
   // Weekly AvidXchange bills — the bridge that keeps the monthly GL position
   // current between postings. Uploaded here, consumed by "Est. Cash Today".
   const apRef = useRef<HTMLInputElement | null>(null);
@@ -170,20 +173,22 @@ export default function CashSheetPage() {
 
   const grand = useMemo(() => {
     const byBucket: Record<string, number> = {};
-    let net = 0, opening = 0, ending = 0, hasOpening = false;
+    let net = 0, opening = 0, ending = 0, bills = 0, hasOpening = false;
     for (const r of data?.rows ?? []) {
       for (const b of buckets) byBucket[b.code] = (byBucket[b.code] ?? 0) + (r.byBucket[b.code] ?? 0);
       net += r.netChange;
+      bills += r.billsMTD ?? 0;
       if (r.startingCash != null) { opening += r.startingCash; ending += (r.endingCash ?? 0); hasOpening = true; }
     }
-    return { byBucket, net, opening, ending, hasOpening };
+    return { byBucket, net, opening, ending, bills, hasOpening };
   }, [data, buckets]);
 
   const debtMissingRows = (data?.rows ?? []).filter((r) => r.debtMissing);
   const dates = periodDates(year, period, ytd);
   const showEst = !!data?.estimateAsOf;
   const estTotal = (data?.rows ?? []).reduce((s, r) => s + (r.estimate?.estimatedCash ?? 0), 0);
-  const colCount = visibleBuckets.length + 4 + (showEst ? 1 : 0); // entity + opening + buckets + net + ending (+ est)
+  const showBills = (data?.rows ?? []).some((r) => (r.billsMTD ?? 0) !== 0);
+  const colCount = visibleBuckets.length + 4 + (showBills ? 1 : 0) + (showEst ? 1 : 0); // entity + opening + buckets + [bills] + net + ending (+ est)
 
   return (
     <main style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -264,6 +269,7 @@ export default function CashSheetPage() {
                 <th style={{ textAlign: "left" }}>Entity</th>
                 <th style={keyCol}>Opening Cash<div style={{ fontWeight: 600, fontSize: 10, color: "var(--muted)", textTransform: "none" }}>{dates.open}</div></th>
                 {visibleBuckets.map((b) => <th key={b.code} style={headWrap}>{b.label}</th>)}
+                {showBills && <th style={headWrap} title="AvidXchange bills paid this month — click a row for the weekly detail">Avid Bills</th>}
                 <th style={headWrap}>Net Change</th>
                 <th style={keyCol}>Ending Cash<div style={{ fontWeight: 600, fontSize: 10, color: "var(--muted)", textTransform: "none" }}>{dates.end}</div></th>
                 {showEst && <th style={{ ...keyCol, background: "rgba(21,128,61,0.08)" }}>Est. Cash Today<div style={{ fontWeight: 600, fontSize: 10, color: "var(--muted)", textTransform: "none" }}>{data?.estimateAsOf}</div></th>}
@@ -342,6 +348,19 @@ export default function CashSheetPage() {
                           </td>
                         );
                       })}
+                      {showBills && (
+                        <td style={{ ...numCell, color: r.billsMTD ? "#b45309" : "var(--muted)" }}
+                          title={r.billsMTD ? "AvidXchange bills paid this month — click for the weekly detail" : "No bills recorded this month"}>
+                          {r.billsMTD && r.weeklyBills ? (
+                            <button type="button" onClick={() => setBillsModal({ name: r.name, weekly: r.weeklyBills!, total: r.billsMTD! })}
+                              style={{ background: "none", border: "none", padding: 0, font: "inherit", color: "inherit", cursor: "pointer", fontWeight: 700 }}
+                              onMouseEnter={(e) => (e.currentTarget.style.textDecoration = "underline")}
+                              onMouseLeave={(e) => (e.currentTarget.style.textDecoration = "none")}>
+                              {money0(r.billsMTD)}
+                            </button>
+                          ) : "—"}
+                        </td>
+                      )}
                       <td style={{ ...numCell, fontWeight: 800, color: r.netChange >= 0 ? "#15803d" : "#b91c1c" }}>{money0(r.netChange)}</td>
                       <td style={keyCol}>{money0(r.endingCash)}</td>
                       {showEst && (
@@ -361,6 +380,7 @@ export default function CashSheetPage() {
                   <td style={{ textAlign: "left" }}>Portfolio Total</td>
                   <td style={keyCol}>{grand.hasOpening ? money0(grand.opening) : "—"}</td>
                   {visibleBuckets.map((b) => <td key={b.code} style={numCell}>{money0(grand.byBucket[b.code] ?? 0)}</td>)}
+                  {showBills && <td style={{ ...numCell, color: grand.bills ? "#b45309" : "var(--muted)" }}>{grand.bills ? money0(grand.bills) : "—"}</td>}
                   <td style={{ ...numCell, color: grand.net >= 0 ? "#15803d" : "#b91c1c" }}>{money0(grand.net)}</td>
                   <td style={keyCol}>{grand.hasOpening ? money0(grand.ending) : "—"}</td>
                   {showEst && <td style={{ ...keyCol, background: "rgba(21,128,61,0.10)" }}>{money0(estTotal)}</td>}
@@ -375,9 +395,39 @@ export default function CashSheetPage() {
         {showEst
           ? <><b>Est. Cash Today</b> carries each property&apos;s latest posted GL ending forward through the un-posted month(s) ({data?.gapMonthLabels.join(", ")}) — adding expected receipts and subtracting that month&apos;s AvidXchange bills + scheduled mortgage. It&apos;s an estimate until those months post to the GL (then it equals the GL ending). </>
           : "GL is current through the latest month — Ending Cash is the actual position. "}
-        Tip: click any bucket amount to see the GL accounts behind it; click a fund name (e.g. JV III) for its building breakdown.
+        Tip: click any bucket amount to see the GL accounts behind it; click a fund name (e.g. JV III) for its building breakdown; click an <b>Avid Bills</b> amount for the week-by-week detail.
         {debtMissingRows.length > 0 && <> <span style={{ color: "#b45309", fontWeight: 700 }}>⚠ amber Mortgage P&amp;I with an asterisk (*)</span> is the scheduled debt service — an estimate shown because the actual charge has not posted to the GL yet; it is not rolled into Net Change or Ending Cash.</>}
       </p>
+
+      {billsModal && (
+        <div onClick={() => setBillsModal(null)}
+          style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.55)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "48px 16px 32px", zIndex: 100, overflow: "auto" }}>
+          <div onClick={(e) => e.stopPropagation()} className="card" style={{ maxWidth: 460, width: "100%", boxShadow: "0 24px 60px rgba(15,23,42,0.32)" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 4 }}>
+              <div style={{ fontSize: 16, fontWeight: 800 }}>{billsModal.name} — Avid Bills</div>
+              <button className="btn" onClick={() => setBillsModal(null)} style={{ padding: "6px 14px" }}>Close</button>
+            </div>
+            <div className="muted small" style={{ marginBottom: 12 }}>AvidXchange bills paid by week · {MONTHS[period - 1]} {year}</div>
+            <div className="tableWrap">
+              <table>
+                <thead><tr><th style={{ textAlign: "left" }}>Week of</th><th style={numCell}>Bills Paid</th></tr></thead>
+                <tbody>
+                  {billsModal.weekly.map((w) => (
+                    <tr key={w.wednesday}>
+                      <td style={{ textAlign: "left" }}>{weekOfLabel(w.wednesday)}</td>
+                      <td style={{ ...numCell, color: w.amount ? "#b45309" : "var(--muted)" }}>{w.amount ? money0(w.amount) : "—"}</td>
+                    </tr>
+                  ))}
+                  <tr style={{ borderTop: "1px solid var(--border)", fontWeight: 800 }}>
+                    <td style={{ textAlign: "left" }}>Total</td>
+                    <td style={{ ...numCell, color: "#b45309" }}>{money0(billsModal.total)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
 
       {breakdown && (
         <div onClick={() => setBreakdown(null)}

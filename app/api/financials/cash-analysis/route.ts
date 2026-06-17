@@ -6,7 +6,7 @@ import { cashAtStartOfMonth } from "@/lib/financials/operating-statements/cash";
 import { mortgagePaymentsFor } from "@/lib/financials/cash-sheet/mortgage";
 import { anticipatedRevenueFor } from "@/lib/financials/cash-sheet/revenue";
 import { getMonth } from "@/lib/financials/cash-sheet/store";
-import { totalBills, monthKey, cashSheetGroups } from "@/lib/financials/cash-sheet/util";
+import { totalBills, monthKey, cashSheetGroups, wednesdaysInMonth } from "@/lib/financials/cash-sheet/util";
 import { computeCashFlow, CASH_FLOW_BUCKETS, type CashFlowCode } from "@/lib/financials/cash-analysis/compute";
 import { PROPERTY_DEFS, BANK_ACCOUNTS } from "@/lib/properties/data";
 import { SITE_COOKIE, verifySiteToken } from "@/lib/site-auth";
@@ -61,6 +61,10 @@ type Row = {
   scheduledDebt: number; debtExpected: boolean; debtPosted: boolean; debtMissing: boolean;
   latestGLMonth: number; estimate: Estimate | null;
   isFund?: boolean;
+  /** AvidXchange bills paid this month (from the Cash Sheet store) + the
+   *  per-Wednesday breakdown, for the weekly drill-down. */
+  billsMTD?: number;
+  weeklyBills?: { wednesday: string; amount: number }[];
   /** A non-GL account (clearing, money market, security deposits, land, condo,
    *  trust) — flat balance from the Cash Sheet store, no bucket detail. */
   manual?: boolean;
@@ -274,6 +278,18 @@ export async function GET(req: Request) {
         manual: true, bankCodes: [code], bankLast4: a.last4,
       });
     }
+  }
+
+  // Weekly AvidXchange bills for the selected month (per-Wednesday + total), so
+  // the page can show an "Avid Bills" column with a weekly drill-down. Bills are
+  // keyed by the fund code for pooled funds, otherwise the property/GL key.
+  const wednesdays = wednesdaysInMonth(year, period);
+  for (const r of rows) {
+    if (r.manual) continue;
+    const billDoc = overrideDoc?.rows?.[r.key]?.bills ?? overrideDoc?.rows?.[r.propertyCode]?.bills ?? {};
+    const weeklyBills = wednesdays.map((w) => ({ wednesday: w, amount: billDoc[w] ?? 0 }));
+    const billsMTD = weeklyBills.reduce((s, b) => s + b.amount, 0);
+    if (billsMTD !== 0) { r.weeklyBills = weeklyBills; r.billsMTD = billsMTD; }
   }
 
   return NextResponse.json({
