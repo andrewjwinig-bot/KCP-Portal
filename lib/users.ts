@@ -98,6 +98,7 @@ export const USERS: Record<UserId, UserDef> = {
       "bank-transfers",
       "financials-budgets",
       "financials-statements",
+      "cash-analysis-draft",
     ]),
     allowedPathPrefixes: [
       "/dashboard",
