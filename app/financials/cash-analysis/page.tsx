@@ -20,7 +20,7 @@ type Row = {
   scheduledDebt: number; debtExpected: boolean; debtPosted: boolean; debtMissing: boolean;
   latestGLMonth: number;
   estimate: { months: number; revenue: number; bills: number; mortgage: number; estimatedCash: number | null; latestEnding: number | null } | null;
-  isFund?: boolean; breakdown?: Breakdown[];
+  isFund?: boolean; manual?: boolean; bankCodes?: string[]; bankLast4?: string; breakdown?: Breakdown[];
 };
 type Payload = { year: number; period: number; ytd: boolean; buckets: Bucket[]; rows: Row[]; canEditOpening: boolean; ym: string; estimateAsOf: string | null; gapMonthLabels: string[]; generatedAt: string };
 
@@ -238,11 +238,12 @@ export default function CashAnalysisDraftPage() {
                             {r.name} <span style={{ fontSize: 10, opacity: 0.7 }}>▤ {r.breakdown.length}</span>
                           </button>
                         ) : <span style={{ marginLeft: 8 }}>{r.name}</span>}
+                        {r.manual && <span title="Manually-tracked balance — edited on the Cash Sheet" style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--muted)" }}>manual</span>}
                         {r.debtMissing && <span title={`Loan scheduled (${money0(r.scheduledDebt)}) but $0 posted`} style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, color: "#b91c1c" }}>⚠ debt $0</span>}
-                        <BankLinks accounts={r.isFund && r.breakdown?.length ? bankAccountsForCodes(r.breakdown.map((b) => b.key)) : bankAccountsForCodes([r.propertyCode, r.key])} />
+                        <BankLinks accounts={(r.bankCodes ? bankAccountsForCodes(r.bankCodes) : r.isFund && r.breakdown?.length ? bankAccountsForCodes(r.breakdown.map((b) => b.key)) : bankAccountsForCodes([r.propertyCode, r.key])).filter((a) => !r.bankLast4 || a.last4 === r.bankLast4)} />
                       </td>
-                      <td style={keyCol} title={r.openingOverridden ? "Overridden — clear to use the GL value" : (r.glOpening == null ? "No opening balance captured in this GL upload" : "Opening per GL — type to override")}>
-                        {data?.canEditOpening ? (
+                      <td style={keyCol} title={r.manual ? "Manually-tracked balance — edited on the Cash Sheet" : r.openingOverridden ? "Overridden — clear to use the GL value" : (r.glOpening == null ? "No opening balance captured in this GL upload" : "Opening per GL — type to override")}>
+                        {data?.canEditOpening && !r.manual ? (
                           <input
                             inputMode="decimal"
                             value={openDraft[r.key] ?? (r.openingOverridden && r.startingCash != null ? String(r.startingCash) : "")}

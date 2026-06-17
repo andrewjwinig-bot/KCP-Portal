@@ -6,9 +6,9 @@ import { cashAtStartOfMonth } from "@/lib/financials/operating-statements/cash";
 import { mortgagePaymentsFor } from "@/lib/financials/cash-sheet/mortgage";
 import { anticipatedRevenueFor } from "@/lib/financials/cash-sheet/revenue";
 import { getMonth } from "@/lib/financials/cash-sheet/store";
-import { totalBills, monthKey } from "@/lib/financials/cash-sheet/util";
+import { totalBills, monthKey, cashSheetGroups } from "@/lib/financials/cash-sheet/util";
 import { computeCashFlow, CASH_FLOW_BUCKETS, type CashFlowCode } from "@/lib/financials/cash-analysis/compute";
-import { PROPERTY_DEFS } from "@/lib/properties/data";
+import { PROPERTY_DEFS, BANK_ACCOUNTS } from "@/lib/properties/data";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -49,6 +49,13 @@ type Row = {
   scheduledDebt: number; debtExpected: boolean; debtPosted: boolean; debtMissing: boolean;
   latestGLMonth: number; estimate: Estimate | null;
   isFund?: boolean;
+  /** A non-GL account (clearing, money market, security deposits, land, condo,
+   *  trust) — flat balance from the Cash Sheet store, no bucket detail. */
+  manual?: boolean;
+  /** Property codes whose bank accounts this row should surface (chips). */
+  bankCodes?: string[];
+  /** When set, only the account with this last4 is shown for the row. */
+  bankLast4?: string;
   breakdown?: { key: string; name: string; startingCash: number | null; netChange: number; endingCash: number | null; byBucket: Record<CashFlowCode, number> }[];
 };
 
@@ -124,6 +131,8 @@ export async function GET(req: Request) {
       glOpening, startingCash: glOpening, openingOverridden: false, endingCash: glOpening == null ? null : glOpening + flow.netChange,
       scheduledDebt: scheduled, debtExpected: scheduled > 0, debtPosted: (flow.byBucket[4] ?? 0) !== 0, debtMissing: scheduled > 0 && (flow.byBucket[4] ?? 0) === 0,
       latestGLMonth: maxPeriod, estimate,
+      // Condo's bank account is keyed 3610A in Property Info, not CONDO.
+      bankCodes: (m.key.toUpperCase() === "CONDO" || m.propertyCode.toUpperCase() === "CONDO") ? ["3610A"] : [m.propertyCode, m.key],
     };
   });
 
@@ -179,7 +188,78 @@ export async function GET(req: Request) {
       scheduledDebt: scheduled, debtExpected: scheduled > 0, debtPosted: byBucket[4] !== 0, debtMissing: scheduled > 0 && byBucket[4] === 0,
       latestGLMonth: maxPeriod, estimate: sumEstimate(basis),
       isFund: true, breakdown: breakdown.length ? breakdown : undefined,
+      bankCodes: g.buildings,
     });
+  }
+
+  // ── Non-GL / manual accounts ──────────────────────────────────────────────
+  // Both pages share one goal: list EVERY bank account for every property/entity
+  // and show its cash position. GL-driven rows above cover the operating
+  // properties; this pass adds the rest from the Cash Sheet's canonical roster
+  // (clearing, money market, security deposits, land, condo, trust) as flat
+  // balances pulled from the shared Cash Sheet store (edited there), each with
+  // its bank chips.
+  const present = new Set<string>();
+  for (const r of rows) {
+    present.add(r.key.toUpperCase());
+    present.add(r.propertyCode.toUpperCase());
+    if (r.breakdown) for (const b of r.breakdown) present.add(b.key.toUpperCase());
+  }
+  for (const g of FUND_GROUPS) for (const b of g.buildings) present.add(b.toUpperCase());
+
+  // Map the Cash Sheet's group ids onto this page's group headings.
+  const CS_GROUP_OF: Record<string, string> = {
+    mgmt: "LIK Management", jv3: "Business Parks", condo: "Business Parks",
+    nillc: "Business Parks", bpother: "Business Parks", sc: "Shopping Centers",
+    ow: "Business Parks", kh: "Korman Homes", land: "Other",
+  };
+  for (const g of cashSheetGroups()) {
+    for (const p of g.properties) {
+      const uc = p.code.toUpperCase();
+      if (present.has(uc)) continue;
+      present.add(uc);
+      const bankCodes = p.code === "CONDO" ? ["3610A"] : [p.bankCode ?? p.code];
+      const rowDoc = overrideDoc?.rows?.[p.code];
+      const balance = rowDoc?.endingOverride ?? rowDoc?.startingOverride ?? null;
+      const hasBank = bankCodes.some((c) => (BANK_ACCOUNTS[c.toUpperCase()] ?? []).length > 0);
+      if (balance == null && !hasBank) continue; // nothing to show
+      rows.push({
+        key: p.code, propertyCode: p.code, name: nameFor(p.code, p.name),
+        group: GROUP_OF[uc] ?? CS_GROUP_OF[g.id] ?? "Other",
+        period, maxPeriod: period, byBucket: emptyBuckets(), netChange: 0,
+        glOpening: balance, startingCash: balance, openingOverridden: false, endingCash: balance,
+        scheduledDebt: 0, debtExpected: false, debtPosted: false, debtMissing: false,
+        latestGLMonth: period, estimate: null,
+        manual: true, bankCodes, bankLast4: p.bankLast4,
+      });
+    }
+  }
+
+  // Safety net: guarantee EVERY bank account in Property Info is shown. Anything
+  // not already surfaced by a row above gets its own flat account row, so no
+  // account can silently fall off the page.
+  const shownLast4 = new Set<string>();
+  for (const r of rows) {
+    for (const c of r.bankCodes ?? [r.propertyCode, r.key]) {
+      for (const a of BANK_ACCOUNTS[c.toUpperCase()] ?? []) {
+        if (!r.bankLast4 || a.last4 === r.bankLast4) shownLast4.add(a.last4);
+      }
+    }
+  }
+  for (const [code, accts] of Object.entries(BANK_ACCOUNTS)) {
+    for (const a of accts) {
+      if (shownLast4.has(a.last4)) continue;
+      shownLast4.add(a.last4);
+      rows.push({
+        key: `${code}-${a.last4}`, propertyCode: code, name: `${nameFor(code, a.label)} · ${a.label}`,
+        group: GROUP_OF[code.toUpperCase()] ?? "Other",
+        period, maxPeriod: period, byBucket: emptyBuckets(), netChange: 0,
+        glOpening: null, startingCash: null, openingOverridden: false, endingCash: null,
+        scheduledDebt: 0, debtExpected: false, debtPosted: false, debtMissing: false,
+        latestGLMonth: period, estimate: null,
+        manual: true, bankCodes: [code], bankLast4: a.last4,
+      });
+    }
   }
 
   return NextResponse.json({
