@@ -78,7 +78,7 @@ export function visibleWednesdays(weds: string[], today: Date = new Date()): str
   });
 }
 
-export type CashSheetProperty = { code: string; name: string };
+export type CashSheetProperty = { code: string; name: string; /** Manually-entered single balance (no GL/rent-roll feed); shown as one editable cell. */ manual?: boolean };
 export type CashSheetGroup = {
   id: string;
   label: string;
@@ -122,6 +122,19 @@ export function cashSheetGroups(): CashSheetGroup[] {
   // it as a second row in that group (the AP report keys its bills to "2000").
   const mgmt = groups.find((g) => g.id === "mgmt");
   if (mgmt) mgmt.properties.push({ code: "2000", name: "2000 Clearing" });
+  // Other business-park accounts that aren't fed by a GL/rent roll — staff key a
+  // single current balance each month. Sits in the business-parks area, after
+  // NI LLC.
+  const bpOther: CashSheetGroup = {
+    id: "bpother",
+    label: "Business Parks — Other Accounts",
+    properties: [
+      { code: "LK-TRUST",  name: "Leonard Korman Trust",            manual: true },
+      { code: "NILLC-TSD", name: "NI LLC – Tenant Security Deposits", manual: true },
+    ],
+  };
+  const ni = groups.findIndex((g) => g.id === "nillc");
+  if (ni >= 0) groups.splice(ni + 1, 0, bpOther); else groups.push(bpOther);
   return groups;
 }
 

@@ -78,8 +78,9 @@ const cellInput: React.CSSProperties = {
 };
 const cashInput: React.CSSProperties = { ...cellInput, width: 112 };
 const groupHeaderCell: React.CSSProperties = {
-  textAlign: "left", fontSize: 11, fontWeight: 700, textTransform: "uppercase",
-  letterSpacing: "0.06em", color: "var(--muted)", background: "rgba(15,23,42,0.03)", padding: "8px 12px",
+  textAlign: "left", fontSize: 13, fontWeight: 800, textTransform: "uppercase",
+  letterSpacing: "0.06em", color: "var(--text)", background: "rgba(15,23,42,0.04)",
+  padding: "10px 12px", borderTop: "2px solid var(--border)",
 };
 
 export default function CashSheetPage() {
@@ -290,7 +291,10 @@ export default function CashSheetPage() {
       mortgage += rowMortgage(p.code);
       if (r != null) revenue += r;
       if (s != null) { starting += s; hasStarting = true; }
-      if (op != null) operational += op;
+      // A manual account has no starting cash but its entered balance is real
+      // operational cash — count it (and mark the group as having a value so the
+      // grand total includes it).
+      if (op != null) { operational += op; hasStarting = true; }
     }
     return { starting, revenue, bills, mortgage, reserves, operational, hasStarting };
   }
@@ -408,6 +412,41 @@ export default function CashSheetPage() {
                     </tr>
                     {/* Property / building rows */}
                     {g.properties.map((p) => {
+                      // Manual single-balance account: one editable cell (its
+                      // current cash), no GL/rent-roll columns. Stored as the
+                      // ending override so it flows into the operational totals.
+                      if (p.manual) {
+                        const bal = rowOperational(p.code);
+                        const overridden = parseOpt(endDraft[p.code]) != null;
+                        return (
+                          <tr key={p.code}>
+                            <td style={{ textAlign: "left" }}>
+                              <code style={{ fontSize: 12 }}>{p.code}</code>
+                              <span style={{ marginLeft: 8 }}>{p.name}</span>
+                            </td>
+                            <td style={numCell}><span className="muted">—</span></td>
+                            <td style={numCell}><span className="muted">—</span></td>
+                            <td style={numCell}><span className="muted">—</span></td>
+                            <td style={numCell}><span className="muted">—</span></td>
+                            <td style={numCell}><span className="muted">—</span></td>
+                            <td style={numCell} title="Manually-entered current balance">
+                              {canEdit ? (
+                                <input
+                                  style={{ ...cashInput, fontWeight: 800, color: bal == null ? undefined : bal >= 0 ? "#15803d" : "#b91c1c", ...(overridden ? { borderColor: "#b45309" } : {}) }}
+                                  className="cs-edit" inputMode="decimal"
+                                  placeholder="—"
+                                  value={endDraft[p.code] ?? ""}
+                                  onChange={(e) => setEndDraft((d) => ({ ...d, [p.code]: e.target.value }))}
+                                  onBlur={() => commitEnding(p.code)}
+                                  onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                                />
+                              ) : (
+                                <span style={{ fontWeight: 800, color: bal == null ? "var(--muted)" : bal >= 0 ? "#15803d" : "#b91c1c" }}>{bal == null ? "—" : money0(bal)}</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      }
                       const auto = autoStarting(p.code);
                       const starting = rowStarting(p.code);
                       const src = data?.starting[p.code]?.sourceYm;
