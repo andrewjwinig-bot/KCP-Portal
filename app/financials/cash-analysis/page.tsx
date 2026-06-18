@@ -339,7 +339,10 @@ export default function CashSheetPage() {
             </label>
           </div>
         </div>
-        <div style={{ display: "flex", marginTop: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginTop: 8, flexWrap: "wrap" }}>
+          <p className="muted small" style={{ margin: 0 }}>
+            Import the weekly <b>AP Selection Report</b> (.xls, .xlsx, or .pdf) to fill bills paid.
+          </p>
           <div style={{ display: "inline-flex", border: "1px solid rgba(11,74,125,0.3)", borderRadius: 999, overflow: "hidden" }} title="How much detail to show for cash movement">
             {([["net", "Net"], ["io", "Cash In/Out"], ["detail", "Detail"]] as const).map(([v, label]) => (
               <button key={v} type="button" onClick={() => setViewPersist(v)}
@@ -349,9 +352,6 @@ export default function CashSheetPage() {
             ))}
           </div>
         </div>
-        <p className="muted small" style={{ marginTop: 8 }}>
-          Import the weekly <b>AP Selection Report</b> (.xls, .xlsx, or .pdf) to fill bills paid.
-        </p>
         <p className="muted small" style={{ marginTop: 4 }}>
           <b>Snapshot · {ytd ? "Year to date" : MONTHS[period - 1] + " " + year}</b>
           {" "}— every property and entity bank account with its cash position.
@@ -422,7 +422,7 @@ export default function CashSheetPage() {
                 <th style={{ ...keyCol, textAlign: "center" }}>Ending Cash<div style={{ fontWeight: 800, fontSize: 16, color: "var(--text)", textTransform: "none", marginTop: 1 }}>{glDates.endShort}</div></th>
                 {showBills && <th style={headWrap} title={`AvidXchange bills paid in ${MONTHS[period - 1]} — click a row for the weekly detail`}>Avid Bills<div style={{ fontWeight: 700, fontSize: 13, color: "var(--text)", textTransform: "none" }}>{MONTHS[period - 1]}</div></th>}
                 {showReserves && <th style={headWrap} title="Budgeted Big Projects reserve set aside (from the budget; type to override)">Reserves</th>}
-                {showEst && <th style={{ ...keyCol, textAlign: "center", background: "rgba(21,128,61,0.08)" }}>Est. Available Cash<div style={{ fontWeight: 800, fontSize: 16, color: "var(--text)", textTransform: "none", marginTop: 1 }}>{lastBillWed ?? data?.estimateAsOf}</div><div style={{ fontWeight: 600, fontSize: 10, color: "var(--muted)", textTransform: "none" }}>net of reserves</div></th>}
+                {showEst && <th style={{ ...keyCol, textAlign: "center", background: "rgba(21,128,61,0.08)" }}>Est. Available Cash<div style={{ fontWeight: 800, fontSize: 16, color: "var(--text)", textTransform: "none", marginTop: 1 }}>{lastBillWed ?? data?.estimateAsOf}</div></th>}
               </tr>
             </thead>
             <tbody>
