@@ -10,6 +10,7 @@
 // row sum (the change in operating cash).
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { StatPill, Pill, Badge, TONE_RED, TONE_AMBER } from "@/app/components/Pill";
 import { LastImported } from "@/app/components/LastImported";
 import { bankAccountsForCodes, weekOfLabel, parseMonthKey, type BankAccount } from "@/lib/financials/cash-sheet/util";
@@ -231,7 +232,7 @@ export default function CashSheetPage() {
     return base == null ? null : base - (r.reserves ?? 0);
   };
   const estAvailTotal = (data?.rows ?? []).reduce((s, r) => laggingKeys.has(r.key) ? s : s + (estAvail(r) ?? 0), 0);
-  const colCount = visibleBuckets.length + 4 + (showBills ? 1 : 0) + (showReserves ? 1 : 0) + (showEst ? 1 : 0); // asof + entity + opening + buckets + ending (+ bills) (+ reserves) (+ est)
+  const colCount = visibleBuckets.length + 3 + (showBills ? 1 : 0) + (showReserves ? 1 : 0) + (showEst ? 1 : 0); // entity + opening + buckets + ending (+ bills) (+ reserves) (+ est)
 
   return (
     <main style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: "none", width: "100%" }}>
@@ -326,11 +327,10 @@ export default function CashSheetPage() {
           <table style={{ minWidth: 1100, width: "100%" }}>
             <thead>
               <tr>
-                <th style={{ textAlign: "left", width: 56, color: "var(--muted)", fontSize: 11 }} title="Month the figures are as of (GL posted through), or Manual for hand-entered balances">As Of</th>
                 <th style={{ textAlign: "left", minWidth: 260 }}>Entity</th>
-                <th style={keyCol}>Opening Cash<div style={{ fontWeight: 700, fontSize: 13, color: "var(--text)", textTransform: "none" }}>{glDates.openShort}</div></th>
+                <th style={{ ...keyCol, textAlign: "center" }}>Opening Cash<div style={{ fontWeight: 800, fontSize: 16, color: "var(--text)", textTransform: "none", marginTop: 1 }}>{glDates.openShort}</div></th>
                 {visibleBuckets.map((b) => <th key={b.code} style={headWrap}>{b.label}</th>)}
-                <th style={keyCol}>Ending Cash<div style={{ fontWeight: 700, fontSize: 13, color: "var(--text)", textTransform: "none" }}>{glDates.endShort}</div></th>
+                <th style={{ ...keyCol, textAlign: "center" }}>Ending Cash<div style={{ fontWeight: 800, fontSize: 16, color: "var(--text)", textTransform: "none", marginTop: 1 }}>{glDates.endShort}</div></th>
                 {showBills && <th style={headWrap} title={`AvidXchange bills paid in ${MONTHS[period - 1]} — click a row for the weekly detail`}>Avid Bills<div style={{ fontWeight: 700, fontSize: 13, color: "var(--text)", textTransform: "none" }}>{MONTHS[period - 1]}</div></th>}
                 {showReserves && <th style={headWrap} title="Budgeted Big Projects reserve set aside (from the budget; type to override)">Reserves</th>}
                 {showEst && <th style={{ ...keyCol, background: "rgba(21,128,61,0.08)" }}>Est. Available Cash<div style={{ fontWeight: 600, fontSize: 10, color: "var(--muted)", textTransform: "none" }}>{data?.estimateAsOf} · net of reserves</div></th>}
@@ -347,32 +347,32 @@ export default function CashSheetPage() {
                   {rows.map((r) => laggingKeys.has(r.key) ? (
                     // Behind the snapshot month — blanked out; import its GL to include it.
                     <tr key={r.key} style={{ background: "rgba(217,119,6,0.04)" }}>
-                      <td style={{ textAlign: "left", fontSize: 11, fontWeight: 700, whiteSpace: "nowrap", color: "#b45309" }} title={`Posted through ${MONTHS[r.maxPeriod - 1]} ${year}`}>{MONTHS[r.maxPeriod - 1]}</td>
                       <td style={{ textAlign: "left" }}>
                         <code style={{ fontSize: 12 }}>{r.propertyCode}</code>
                         <span style={{ marginLeft: 8 }}>{r.name}</span>
                         <BankLinks accounts={(r.bankCodes ? bankAccountsForCodes(r.bankCodes) : bankAccountsForCodes([r.propertyCode, r.key])).filter((a) => (!r.bankLast4 || a.last4 === r.bankLast4) && !r.excludeLast4?.includes(a.last4))} />
                       </td>
-                      <td colSpan={colCount - 2} className="muted small" style={{ fontStyle: "italic", color: "#b45309" }}>
-                        Import the {MONTHS[glMonth - 1]} {year} GL to include this property in the snapshot.
+                      <td colSpan={colCount - 1} className="muted small" style={{ fontStyle: "italic", color: "#b45309" }}>
+                        Posted through {MONTHS[r.maxPeriod - 1]} — import the {MONTHS[glMonth - 1]} {year} GL to include this property in the snapshot.
                       </td>
                     </tr>
                   ) : (
                     <Fragment key={r.key}>
                     <tr title={r.period < r.maxPeriod ? "" : undefined}>
-                      <td style={{ textAlign: "left", fontSize: 11, fontWeight: 700, whiteSpace: "nowrap", color: "var(--muted)" }}
-                        title={r.manual ? "Manually-entered balance (no GL feed)" : r.readOnly ? "Auto-computed balance" : `GL posted through ${MONTHS[r.maxPeriod - 1]} ${year}`}>
-                        {r.manual ? "Manual" : MONTHS[r.maxPeriod - 1]}
-                      </td>
                       <td style={{ textAlign: "left" }}>
                         <code style={{ fontSize: 12 }}>{r.propertyCode}</code>
+                        {!r.manual && !r.readOnly ? (
+                          <Link href={`/financials/operating-statements?key=${encodeURIComponent(r.key)}&year=${year}&period=${glMonth}`}
+                            title="Open this entity's Operating Statement for this month"
+                            style={{ marginLeft: 8, color: "#0b4a7d", fontWeight: 600, textDecoration: "none" }}
+                            onMouseEnter={(e) => (e.currentTarget.style.textDecoration = "underline")}
+                            onMouseLeave={(e) => (e.currentTarget.style.textDecoration = "none")}>{r.name}</Link>
+                        ) : <span style={{ marginLeft: 8 }}>{r.name}</span>}
                         {r.isFund && r.breakdown?.length ? (
                           <button type="button" onClick={() => setBreakdown({ name: r.name, rows: r.breakdown! })}
                             title="Show the buildings behind this fund account"
-                            style={{ marginLeft: 8, background: "none", border: "none", padding: 0, font: "inherit", color: "#0b4a7d", fontWeight: 700, cursor: "pointer" }}>
-                            {r.name} <span style={{ fontSize: 10, opacity: 0.7 }}>▤ {r.breakdown.length}</span>
-                          </button>
-                        ) : <span style={{ marginLeft: 8 }}>{r.name}</span>}
+                            style={{ marginLeft: 6, background: "none", border: "none", padding: 0, font: "inherit", color: "var(--muted)", fontWeight: 700, cursor: "pointer", fontSize: 10 }}>▤ {r.breakdown.length}</button>
+                        ) : null}
                         <BankLinks accounts={(r.bankCodes ? bankAccountsForCodes(r.bankCodes) : r.isFund && r.breakdown?.length ? bankAccountsForCodes(r.breakdown.map((b) => b.key)) : bankAccountsForCodes([r.propertyCode, r.key])).filter((a) => (!r.bankLast4 || a.last4 === r.bankLast4) && !r.excludeLast4?.includes(a.last4))} />
                       </td>
                       <td style={keyCol} title={r.readOnly ? "Auto-computed balance" : r.manual ? "Manually-entered current balance (no GL feed)" : r.openingOverridden ? "Overridden — clear to use the GL value" : (r.glOpening == null ? "No opening balance captured in this GL upload" : "Opening per GL — type to override")}>
@@ -488,7 +488,6 @@ export default function CashSheetPage() {
             {data && grouped.length > 0 && (
               <tfoot>
                 <tr style={{ borderTop: "2px solid var(--border)", fontWeight: 800, background: "rgba(11,74,125,0.05)" }}>
-                  <td />
                   <td style={{ textAlign: "left" }}>Portfolio Total</td>
                   <td style={keyCol}>{grand.hasOpening ? money0(grand.opening) : "—"}</td>
                   {visibleBuckets.map((b) => <td key={b.code} style={numCell}>{money0(grand.byBucket[b.code] ?? 0)}</td>)}
