@@ -21,6 +21,38 @@ function propertyName(key: string, fallback: string): string {
   return PROPERTY_DEFS.find((p) => p.id === key)?.name ?? fallback;
 }
 
+// Funds are cash-sweep shells (no P&L); their operating statement is the rollup
+// of the member buildings + the shell (for the swept cash). Keyed by mapping key.
+const FUND_BUILDINGS: Record<string, string[]> = {
+  PJV3: ["3610", "3620", "3640"],
+  PNIPLX: ["4050", "4060", "4070", "4080", "40A0", "40B0", "40C0"],
+};
+
+/** Sum several entities' GLs (shell + buildings) into one consolidated GL —
+ *  account-level addition of monthly nets, beginning + YTD balances. P&L masks
+ *  match across the office buildings; inter-entity accounts aren't on the P&L. */
+function combineGls(gls: StoredGl[]): StoredGl {
+  const monthly: Record<string, number[]> = {};
+  const beginning: Record<string, number> = {};
+  const ytdTotal: Record<string, number> = {};
+  const names: Record<string, string> = {};
+  let maxPeriodInFile = 0, coverageEnd = 0;
+  let coverageStartMonth: number | undefined;
+  for (const g of gls) {
+    for (const [a, nets] of Object.entries(g.monthly)) {
+      const arr = (monthly[a] ??= new Array(12).fill(0));
+      for (let i = 0; i < 12; i++) arr[i] += nets[i] ?? 0;
+    }
+    if (g.beginning) for (const [a, v] of Object.entries(g.beginning)) beginning[a] = (beginning[a] ?? 0) + v;
+    if (g.ytdTotal) for (const [a, v] of Object.entries(g.ytdTotal)) ytdTotal[a] = (ytdTotal[a] ?? 0) + v;
+    if (g.names) for (const [a, n] of Object.entries(g.names)) if (n && !names[a]) names[a] = n;
+    maxPeriodInFile = Math.max(maxPeriodInFile, g.maxPeriodInFile || 0);
+    coverageEnd = Math.max(coverageEnd, g.coverageEnd ?? g.maxPeriodInFile ?? 0);
+    if (g.coverageStartMonth != null) coverageStartMonth = Math.min(coverageStartMonth ?? 12, g.coverageStartMonth);
+  }
+  return { ...gls[gls.length - 1], monthly, beginning, ytdTotal, names, maxPeriodInFile, coverageEnd, coverageStartMonth };
+}
+
 // GET — without params: the picker payload (every mapped property/fund + which
 // have uploads + the years available). With ?key&year[&period][&version]:
 // the computed statement for that selection.
@@ -66,8 +98,16 @@ export async function GET(req: Request) {
   // Default view merges every uploaded month (cumulative or month-by-month);
   // picking a specific version shows just that upload. Reuse `fulls` (already
   // loaded) for the merge — current year and the prior year for YoY signals.
-  const stored = versionId ? await getGl(versionId) : assembleGls(fulls.filter((g) => g.key === key && g.year === year));
-  const storedPY = versionId ? null : assembleGls(fulls.filter((g) => g.key === key && g.year === year - 1));
+  // A fund key rolls up its member buildings + the shell into one consolidated
+  // GL (the shell holds only swept cash; the buildings hold the P&L + debt).
+  const fundParts = FUND_BUILDINGS[key];
+  const assembleFor = (k: string, yr: number) => assembleGls(fulls.filter((g) => g.key === k && g.year === yr));
+  const consolidateFund = (yr: number): StoredGl | null => {
+    const parts = [key, ...fundParts!].map((k) => assembleFor(k, yr)).filter((g): g is StoredGl => !!g);
+    return parts.length ? combineGls(parts) : null;
+  };
+  const stored = versionId ? await getGl(versionId) : (fundParts ? consolidateFund(year) : assembleFor(key, year));
+  const storedPY = versionId ? null : (fundParts ? consolidateFund(year - 1) : assembleFor(key, year - 1));
   const versions = await versionsFor(key, year);
   if (!stored) {
     return NextResponse.json({ available, versions, statement: null, message: "No GL uploaded for this property/year yet." });
