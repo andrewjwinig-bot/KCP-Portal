@@ -75,6 +75,7 @@ const INTEREST_ACCOUNTS: InterestAccount[] = [
   { code: "4500-MM", name: "Gray's Ferry Money Market", group: "Shopping Centers", parent: "4500", bankCodes: ["4500"], bankLast4: "x8086", anchor: { year: 2026, month: 6, balance: 839_877.68 }, rate: 0.03 },
   { code: "7010-MM", name: "Parkwood Money Market", group: "Shopping Centers", parent: "7010", bankCodes: ["7010"], bankLast4: "x9436", anchor: { year: 2026, month: 5, balance: 351_901.78 }, rate: 0.03 },
   { code: "7300-MM", name: "Revere Money Market", group: "Shopping Centers", parent: "7300", bankCodes: ["7300"], bankLast4: "x8177", anchor: { year: 2026, month: 6, balance: 831_254.00 }, rate: 0.03 },
+  { code: "2010-MM", name: "LIK Money Market", group: "LIK Management", parent: "2010", bankCodes: ["2010"], bankLast4: "x8276", anchor: { year: 2026, month: 6, balance: 507_649.44 }, rate: 0.03 },
 ];
 const INTEREST_CODES = new Set(INTEREST_ACCOUNTS.map((a) => a.code.toUpperCase()));
 /** Opening, the month's gross interest (opening × rate ÷ 12), any recurring fee,

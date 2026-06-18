@@ -134,9 +134,11 @@ export const BANK_ACCOUNTS: Record<string, BankAccount[]> = {
   ],
   "2010": [
     { bank: "Chase",   label: "2010 Operating",          last4: "x9629", link: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/747621599/DDA/CHK" },
-    { bank: "Chase",   label: "2000 Clearing",           last4: "x1622", link: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/747627664/DDA/CHK" },
     { bank: "Liberty", label: "Money Market",            last4: "x8276", link: "https://secure.myvirtualbranch.com/LibertyBank/React/Accounts.aspx?p_r=1#AccountSummary" },
     { bank: "Liberty", label: "Security Deposits — All but NI LLC", last4: "x7216", link: "https://secure.myvirtualbranch.com/LibertyBank/React/Accounts.aspx?p_r=1#Accounts/1" },
+  ],
+  "2000": [
+    { bank: "Chase",   label: "2000 Clearing",           last4: "x1622", link: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/747627664/DDA/CHK" },
   ],
   "4050": [
     { bank: "Chase",   label: "NI LLC",                  last4: "x2190", link: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/747627665/DDA/CHK" },
