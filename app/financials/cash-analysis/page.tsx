@@ -112,6 +112,15 @@ export default function CashSheetPage() {
     try { localStorage.setItem("cash-sheet-collapsed", JSON.stringify([...n])); } catch { /* ignore */ }
     return n;
   });
+  // Column view: the cash-flow buckets collapse to Cash In/Out (default) or a
+  // single Net column; Detail shows all 8 buckets. Remembered across visits.
+  type View = "net" | "io" | "detail";
+  const [view, setView] = useState<View>(() => {
+    if (typeof window === "undefined") return "io";
+    const v = localStorage.getItem("cash-sheet-view");
+    return v === "net" || v === "detail" || v === "io" ? v : "io";
+  });
+  const setViewPersist = (v: View) => { setView(v); try { localStorage.setItem("cash-sheet-view", v); } catch { /* ignore */ } };
   // Editable opening-cash override (shared with the Cash Sheet) + fund breakdown modal.
   const [openDraft, setOpenDraft] = useState<Record<string, string>>({});
   const [manualDraft, setManualDraft] = useState<Record<string, string>>({});
@@ -274,7 +283,16 @@ export default function CashSheetPage() {
     }
     return { byBucket, opening, ending, bills, reserves, est, hasOpening };
   };
-  const colCount = visibleBuckets.length + 3 + (showBills ? 1 : 0) + (showReserves ? 1 : 0) + (showEst ? 1 : 0); // entity + opening + buckets + ending (+ bills) (+ reserves) (+ est)
+  // Cash In / Cash Out / Net from a set of bucket totals (positive buckets in,
+  // negative buckets out). `out` comes back negative; show its magnitude.
+  const ioFrom = (bb: Record<string, number>) => {
+    let cin = 0, cout = 0;
+    for (const b of buckets) { const v = bb[b.code] ?? 0; if (v > 0) cin += v; else cout += v; }
+    return { cin, cout, net: cin + cout };
+  };
+  // Middle columns vary by view: all visible buckets (detail), 2 (in/out), or 1 (net).
+  const midCount = view === "detail" ? visibleBuckets.length : view === "io" ? 2 : 1;
+  const colCount = midCount + 3 + (showBills ? 1 : 0) + (showReserves ? 1 : 0) + (showEst ? 1 : 0); // entity + opening + middle + ending (+ bills) (+ reserves) (+ est)
 
   return (
     <main style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: "none", width: "100%" }}>
@@ -299,6 +317,14 @@ export default function CashSheetPage() {
             )}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <div style={{ display: "inline-flex", border: "1px solid rgba(11,74,125,0.3)", borderRadius: 999, overflow: "hidden" }} title="How much detail to show for cash movement">
+              {([["net", "Net"], ["io", "Cash In/Out"], ["detail", "Detail"]] as const).map(([v, label]) => (
+                <button key={v} type="button" onClick={() => setViewPersist(v)}
+                  style={{ padding: "7px 12px", fontSize: 12, fontWeight: 700, border: "none", cursor: "pointer", background: view === v ? "#0b4a7d" : "var(--card)", color: view === v ? "#fff" : "#0b4a7d" }}>
+                  {label}
+                </button>
+              ))}
+            </div>
             {!ytd && glMonth !== period && <span style={{ fontSize: 12, fontWeight: 600, color: "var(--muted)" }}>{MONTHS[glMonth - 1]} GL actuals + {MONTHS[period - 1]} bills</span>}
             <select
               value={`${year}-${period}`}
@@ -381,7 +407,9 @@ export default function CashSheetPage() {
               <tr>
                 <th style={{ textAlign: "left", minWidth: 260 }}>Entity</th>
                 <th style={{ ...keyCol, textAlign: "center" }}>Opening Cash<div style={{ fontWeight: 800, fontSize: 16, color: "var(--text)", textTransform: "none", marginTop: 1 }}>{glDates.openShort}</div></th>
-                {visibleBuckets.map((b) => <th key={b.code} style={headWrap}>{b.label}</th>)}
+                {view === "detail" ? visibleBuckets.map((b) => <th key={b.code} style={headWrap}>{b.label}</th>)
+                  : view === "io" ? [<th key="in" style={headWrap}>Cash In</th>, <th key="out" style={headWrap}>Cash Out</th>]
+                  : <th style={headWrap}>Net Change</th>}
                 <th style={{ ...keyCol, textAlign: "center" }}>Ending Cash<div style={{ fontWeight: 800, fontSize: 16, color: "var(--text)", textTransform: "none", marginTop: 1 }}>{glDates.endShort}</div></th>
                 {showBills && <th style={headWrap} title={`AvidXchange bills paid in ${MONTHS[period - 1]} — click a row for the weekly detail`}>Avid Bills<div style={{ fontWeight: 700, fontSize: 13, color: "var(--text)", textTransform: "none" }}>{MONTHS[period - 1]}</div></th>}
                 {showReserves && <th style={headWrap} title="Budgeted Big Projects reserve set aside (from the budget; type to override)">Reserves</th>}
@@ -401,7 +429,11 @@ export default function CashSheetPage() {
                   <tr onClick={() => toggleGroup(group)} style={{ cursor: "pointer" }} title={isCollapsed ? "Expand" : "Collapse"}>
                     <td style={groupHeaderCell}><span style={{ display: "inline-block", width: 16, color: "var(--muted)" }}>{isCollapsed ? "▸" : "▾"}</span>{group}</td>
                     <td style={groupSubCell}>{gt.hasOpening ? money0(gt.opening) : "—"}</td>
-                    {visibleBuckets.map((b) => <td key={b.code} style={groupSubCell}>{gt.byBucket[b.code] ? money0(gt.byBucket[b.code]) : "—"}</td>)}
+                    {view === "detail" ? visibleBuckets.map((b) => <td key={b.code} style={groupSubCell}>{gt.byBucket[b.code] ? money0(gt.byBucket[b.code]) : "—"}</td>)
+                      : view === "io" ? (() => { const io = ioFrom(gt.byBucket); return [
+                          <td key="in" style={groupSubCell}>{io.cin ? money0(io.cin) : "—"}</td>,
+                          <td key="out" style={groupSubCell}>{io.cout ? money0(-io.cout) : "—"}</td>]; })()
+                      : <td style={groupSubCell}>{ioFrom(gt.byBucket).net ? money0(ioFrom(gt.byBucket).net) : "—"}</td>}
                     <td style={groupSubCell}>{gt.hasOpening ? money0(gt.ending) : "—"}</td>
                     {showBills && <td style={groupSubCell}>{gt.bills ? money0(gt.bills) : "—"}</td>}
                     {showReserves && <td style={groupSubCell}>{gt.reserves ? money0(gt.reserves) : "—"}</td>}
@@ -476,7 +508,7 @@ export default function CashSheetPage() {
                           </div>
                         )}
                       </td>
-                      {visibleBuckets.map((b) => {
+                      {view === "detail" && visibleBuckets.map((b) => {
                         const v = r.byBucket[b.code] ?? 0;
                         // Mortgage P&I scheduled but not yet posted: show the scheduled
                         // amount as an amber estimate, flagged ⚠*; not in Net Change/Ending.
@@ -514,6 +546,13 @@ export default function CashSheetPage() {
                           </td>
                         );
                       })}
+                      {view === "io" && (() => { const io = ioFrom(r.byBucket); return (<>
+                        <td style={{ ...numCell, color: io.cin ? "#15803d" : "var(--muted)" }} title="Cash in — sum of the categories that netted positive this month">{io.cin ? money0(io.cin) : "—"}</td>
+                        <td style={{ ...numCell, color: io.cout ? "#b91c1c" : "var(--muted)" }} title="Cash out — sum of the categories that netted negative this month">{io.cout ? money0(-io.cout) : "—"}</td>
+                      </>); })()}
+                      {view === "net" && (() => { const io = ioFrom(r.byBucket); return (
+                        <td style={{ ...numCell, color: io.net > 0 ? "#15803d" : io.net < 0 ? "#b91c1c" : "var(--muted)" }} title="Net cash movement this month (cash in − cash out)">{io.net ? money0(io.net) : "—"}</td>
+                      ); })()}
                       <td style={{ ...keyCol, color: r.startingCash == null || r.endingCash == null ? undefined : r.netChange > 0 ? "#15803d" : r.netChange < 0 ? "#b91c1c" : undefined }}
                         title={`Net change ${money0(r.netChange)}${r.startingCash != null ? ` (Opening ${money0(r.startingCash)})` : ""}`}>
                         {money0(r.endingCash)}
@@ -565,7 +604,11 @@ export default function CashSheetPage() {
                 <tr style={{ borderTop: "2px solid var(--border)", fontWeight: 800, background: "rgba(11,74,125,0.05)" }}>
                   <td style={{ textAlign: "left" }}>Portfolio Total</td>
                   <td style={keyCol}>{grand.hasOpening ? money0(grand.opening) : "—"}</td>
-                  {visibleBuckets.map((b) => <td key={b.code} style={numCell}>{money0(grand.byBucket[b.code] ?? 0)}</td>)}
+                  {view === "detail" ? visibleBuckets.map((b) => <td key={b.code} style={numCell}>{money0(grand.byBucket[b.code] ?? 0)}</td>)
+                    : view === "io" ? [
+                        <td key="in" style={{ ...numCell, color: "#15803d" }}>{money0(grand.inflows)}</td>,
+                        <td key="out" style={{ ...numCell, color: "#b91c1c" }}>{money0(-grand.outflows)}</td>]
+                    : <td style={{ ...numCell, color: grand.net > 0 ? "#15803d" : grand.net < 0 ? "#b91c1c" : undefined }}>{money0(grand.net)}</td>}
                   <td style={{ ...keyCol, color: grand.net > 0 ? "#15803d" : grand.net < 0 ? "#b91c1c" : undefined }}
                     title={`Net change ${money0(grand.net)}`}>
                     {grand.hasOpening ? money0(grand.ending) : "—"}
@@ -584,7 +627,10 @@ export default function CashSheetPage() {
         {showEst
           ? <><b>Est. Available Cash</b> carries each property&apos;s latest posted GL ending forward through the un-posted month(s) ({data?.gapMonthLabels.join(", ")}) — backing out that period&apos;s AvidXchange bills (which already include any mortgage paid via AP) and the <b>Reserves</b> set aside. No anticipated rent is added — it stays conservative. </>
           : "GL is current through the latest month — Ending Cash is the actual position. "}
-        Tip: click any bucket amount to see the GL accounts behind it; click a fund name (e.g. JV III) for its building breakdown; click an <b>Avid Bills</b> amount for the week-by-week detail. Override <b>Opening Cash</b> with a property&apos;s actual bank balance and the cell footnotes the GL value + variance, so the tie-out is right there without a separate column.
+        Tip: {view === "detail"
+          ? <>click any bucket amount to see the GL accounts behind it; </>
+          : <>switch to <b>Detail</b> (top right) to break <b>Cash In/Out</b> into the cash-flow categories and drill into the GL accounts behind each; </>}
+        click a fund name (e.g. JV III) for its building breakdown; click an <b>Avid Bills</b> amount for the week-by-week detail. Override <b>Opening Cash</b> with a property&apos;s actual bank balance and the cell footnotes the GL value + variance, so the tie-out is right there without a separate column.
         {debtMissingRows.length > 0 && <> <span style={{ color: "#b45309", fontWeight: 700 }}>⚠ amber Mortgage P&amp;I with an asterisk (*)</span> is the scheduled debt service — an estimate shown because the actual charge has not posted to the GL yet; it is not rolled into Net Change or Ending Cash.</>}
       </p>
 
