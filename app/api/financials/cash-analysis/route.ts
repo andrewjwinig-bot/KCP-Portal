@@ -183,14 +183,16 @@ export async function GET(req: Request) {
     const latestStart = cashAtStartOfMonth(stored, maxPeriod);
     const latestEnding = latestStart == null ? null : latestStart + computeCashFlow(stored.monthly, maxPeriod).netChange;
     const myGap = gapMonths.filter((mo) => mo > maxPeriod);
-    let estRevenue = 0, estBills = 0, estMortgage = 0;
+    let estBills = 0;
     for (const mo of myGap) {
-      estRevenue += revenueForKey(revenueByMonth[mo] ?? {}, m.key, m.propertyCode);
       estBills += totalBills(billsByMonth[mo]?.rows?.[m.key] ?? billsByMonth[mo]?.rows?.[m.propertyCode]);
-      estMortgage += (mortgageByMonth[mo]?.[m.key.toUpperCase()] ?? mortgageByMonth[mo]?.[m.propertyCode.toUpperCase()] ?? 0);
     }
+    // Est. Available Cash carries the latest GL ending forward and only backs out
+    // the un-posted AvidXchange bills (which already include any mortgage paid via
+    // AP). No anticipated rent is added — keep it conservative. Reserves are
+    // netted on the page.
     const estimate: Estimate | null = latestEnding != null && myGap.length > 0
-      ? { months: myGap.length, revenue: estRevenue, bills: estBills, mortgage: estMortgage, estimatedCash: latestEnding + estRevenue - estBills - estMortgage, latestEnding }
+      ? { months: myGap.length, revenue: 0, bills: estBills, mortgage: 0, estimatedCash: latestEnding - estBills, latestEnding }
       : null;
     return {
       key: m.key, propertyCode: m.propertyCode, name: nameFor(m.key, m.entityName),

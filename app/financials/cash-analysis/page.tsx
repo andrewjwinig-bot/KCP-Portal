@@ -485,7 +485,7 @@ export default function CashSheetPage() {
                       )}
                       {showEst && (
                         <td style={{ ...keyCol, background: "rgba(21,128,61,0.08)" }}
-                          title={`${r.estimate ? `From ${MONTHS[r.latestGLMonth - 1]} GL ending ${money0(r.estimate.latestEnding)}: + receipts ${money0(r.estimate.revenue)} − bills ${money0(r.estimate.bills)} − mortgage ${money0(r.estimate.mortgage)} (${r.estimate.months} un-posted mo)` : "GL is current"}${r.reserves ? ` − reserves ${money0(r.reserves)}` : ""}`}>
+                          title={`${r.estimate ? `From ${MONTHS[r.latestGLMonth - 1]} GL ending ${money0(r.estimate.latestEnding)}: − bills ${money0(r.estimate.bills)} (${r.estimate.months} un-posted mo)` : "GL is current"}${r.reserves ? ` − reserves ${money0(r.reserves)}` : ""}`}>
                           {estAvail(r) != null ? (r.estimate ? money0(estAvail(r)) : <span className="muted">{money0(estAvail(r))}</span>) : "—"}
                         </td>
                       )}
@@ -517,7 +517,7 @@ export default function CashSheetPage() {
 
       <p className="muted small" style={{ margin: 0 }}>
         {showEst
-          ? <><b>Est. Available Cash</b> carries each property&apos;s latest posted GL ending forward through the un-posted month(s) ({data?.gapMonthLabels.join(", ")}) — adding expected receipts, subtracting that month&apos;s AvidXchange bills + scheduled mortgage, then netting out the <b>Reserves</b> set aside. It&apos;s an estimate until those months post to the GL. </>
+          ? <><b>Est. Available Cash</b> carries each property&apos;s latest posted GL ending forward through the un-posted month(s) ({data?.gapMonthLabels.join(", ")}) — backing out that period&apos;s AvidXchange bills (which already include any mortgage paid via AP) and the <b>Reserves</b> set aside. No anticipated rent is added — it stays conservative. </>
           : "GL is current through the latest month — Ending Cash is the actual position. "}
         Tip: click any bucket amount to see the GL accounts behind it; click a fund name (e.g. JV III) for its building breakdown; click an <b>Avid Bills</b> amount for the week-by-week detail. Override <b>Opening Cash</b> with a property&apos;s actual bank balance and the cell footnotes the GL value + variance, so the tie-out is right there without a separate column.
         {debtMissingRows.length > 0 && <> <span style={{ color: "#b45309", fontWeight: 700 }}>⚠ amber Mortgage P&amp;I with an asterisk (*)</span> is the scheduled debt service — an estimate shown because the actual charge has not posted to the GL yet; it is not rolled into Net Change or Ending Cash.</>}
