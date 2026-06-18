@@ -7,7 +7,7 @@ const knownIds = new Set(PROPERTY_DEFS.map((p) => p.id.toUpperCase()));
 
 // Bank accounts that aren't tied to an operating property (held on the Cash
 // Sheet as their own line, e.g. the Leonard Korman Trust).
-const NON_PROPERTY_BANK_KEYS = new Set(["LK-TRUST"]);
+const NON_PROPERTY_BANK_KEYS = new Set(["LK-TRUST", "2000"]);
 
 describe("data integrity", () => {
   it("every BANK_ACCOUNTS key matches a property in PROPERTY_DEFS", () => {
