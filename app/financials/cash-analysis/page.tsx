@@ -30,7 +30,7 @@ type Row = {
   reserves?: number; reservesAuto?: number; reservesOverridden?: boolean;
   interest?: { opening: number; rate: number; amount: number; fee: number };
 };
-type Payload = { year: number; period: number; ytd: boolean; buckets: Bucket[]; rows: Row[]; canEdit: boolean; canEditOpening: boolean; ym: string; estimateAsOf: string | null; gapMonthLabels: string[]; latestPostedPeriod: number; lastImport: { at: string; by: string | null } | null; generatedAt: string };
+type Payload = { year: number; period: number; ytd: boolean; buckets: Bucket[]; rows: Row[]; canEdit: boolean; canEditOpening: boolean; ym: string; estimateAsOf: string | null; gapMonthLabels: string[]; latestPostedPeriod: number; lastImport: { at: string; by: string | null } | null; apImport: { at: string; by: string | null } | null; generatedAt: string };
 
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 function money0(n: number | null): string {
@@ -57,6 +57,11 @@ const groupHeaderCell: React.CSSProperties = {
   textAlign: "left", fontSize: 13, fontWeight: 800, textTransform: "uppercase",
   letterSpacing: "0.06em", color: "var(--text)", background: "rgba(15,23,42,0.04)",
   padding: "10px 12px", borderTop: "2px solid var(--border)",
+};
+// Right-aligned subtotal cells on the collapsible group header row.
+const groupSubCell: React.CSSProperties = {
+  ...numCell, fontWeight: 800, fontSize: 13, color: "var(--text)",
+  background: "rgba(15,23,42,0.04)", padding: "10px 12px", borderTop: "2px solid var(--border)",
 };
 const GROUP_ORDER = ["Business Parks", "Shopping Centers", "LIK Management", "Korman Homes", "Eastwick Joint Venture", "Land & Other", "Other"];
 
@@ -91,6 +96,17 @@ export default function CashSheetPage() {
   const [drill, setDrill] = useState<{ key: string; propName: string; code: number; label: string } | null>(null);
   const [drillData, setDrillData] = useState<{ accounts: DrillAcct[]; total: number } | null>(null);
   const [drillLoading, setDrillLoading] = useState(false);
+  // Collapsible groups — remembered across visits. Collapsed groups still show
+  // their subtotal on the header row.
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => {
+    if (typeof window === "undefined") return new Set();
+    try { return new Set(JSON.parse(localStorage.getItem("cash-sheet-collapsed") || "[]")); } catch { return new Set(); }
+  });
+  const toggleGroup = (g: string) => setCollapsed((s) => {
+    const n = new Set(s); n.has(g) ? n.delete(g) : n.add(g);
+    try { localStorage.setItem("cash-sheet-collapsed", JSON.stringify([...n])); } catch { /* ignore */ }
+    return n;
+  });
   // Editable opening-cash override (shared with the Cash Sheet) + fund breakdown modal.
   const [openDraft, setOpenDraft] = useState<Record<string, string>>({});
   const [manualDraft, setManualDraft] = useState<Record<string, string>>({});
@@ -232,6 +248,18 @@ export default function CashSheetPage() {
     return base == null ? null : base - (r.reserves ?? 0);
   };
   const estAvailTotal = (data?.rows ?? []).reduce((s, r) => laggingKeys.has(r.key) ? s : s + (estAvail(r) ?? 0), 0);
+  // Per-group subtotals (excluding behind rows) — shown on the collapsible group header.
+  const groupTotals = (gr: Row[]) => {
+    const byBucket: Record<string, number> = {};
+    let opening = 0, ending = 0, bills = 0, reserves = 0, est = 0, hasOpening = false;
+    for (const r of gr) {
+      if (laggingKeys.has(r.key)) continue;
+      for (const b of visibleBuckets) byBucket[b.code] = (byBucket[b.code] ?? 0) + (r.byBucket[b.code] ?? 0);
+      bills += r.billsMTD ?? 0; reserves += r.reserves ?? 0; est += estAvail(r) ?? 0;
+      if (r.startingCash != null) { opening += r.startingCash; ending += (r.endingCash ?? 0); hasOpening = true; }
+    }
+    return { byBucket, opening, ending, bills, reserves, est, hasOpening };
+  };
   const colCount = visibleBuckets.length + 3 + (showBills ? 1 : 0) + (showReserves ? 1 : 0) + (showEst ? 1 : 0); // entity + opening + buckets + ending (+ bills) (+ reserves) (+ est)
 
   return (
@@ -257,6 +285,7 @@ export default function CashSheetPage() {
             )}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            {!ytd && glMonth !== period && <span style={{ fontSize: 12, fontWeight: 600, color: "var(--muted)" }}>{MONTHS[glMonth - 1]} GL actuals + {MONTHS[period - 1]} bills</span>}
             <select
               value={`${year}-${period}`}
               onChange={(e) => { const [y, m] = e.target.value.split("-").map(Number); setYear(y); setPeriod(m); }}
@@ -272,14 +301,13 @@ export default function CashSheetPage() {
           </div>
         </div>
         <p className="muted small" style={{ marginTop: 8 }}>
-          Import the weekly <b>AP Selection Report</b> (.xls, .xlsx, or .pdf) to fill bills paid. GLs are imported on the <Link href="/financials/operating-statements" style={{ color: "var(--brand)", fontWeight: 600 }}>Operating Statements</Link> page.
+          Import the weekly <b>AP Selection Report</b> (.xls, .xlsx, or .pdf) to fill bills paid.
         </p>
         <p className="muted small" style={{ marginTop: 4 }}>
           <b>Snapshot · {ytd ? "Year to date" : MONTHS[period - 1] + " " + year}</b>
-          {!ytd && glMonth !== period && <> · {MONTHS[glMonth - 1]} GL actuals + {MONTHS[period - 1]} bills</>}
           {" "}— every property and entity bank account with its cash position.
         </p>
-        <LastImported at={data?.lastImport?.at} by={data?.lastImport?.by} label="GL last imported" />
+        <LastImported at={data?.apImport?.at} by={data?.apImport?.by} label="AP Report last imported" />
         {apSummary && (
           <div className="small" style={{ marginTop: 6, color: "#15803d", fontWeight: 700 }}>
             ✓ Filled {apSummary.count} {apSummary.count === 1 ? "property" : "properties"} · {money0(apSummary.total)} for the {weekOfLabel(apSummary.wednesday).toLowerCase()} from the AP Selection Report.
@@ -351,10 +379,21 @@ export default function CashSheetPage() {
                 <tr><td colSpan={colCount} className="muted small" style={{ padding: 18 }}>Computing from the GL…</td></tr>
               ) : grouped.length === 0 ? (
                 <tr><td colSpan={colCount} className="muted small" style={{ padding: 18 }}>No GL uploaded for {year}.</td></tr>
-              ) : grouped.map(({ group, rows }) => (
+              ) : grouped.map(({ group, rows }) => {
+                const gt = groupTotals(rows);
+                const isCollapsed = collapsed.has(group);
+                return (
                 <Fragment key={group}>
-                  <tr><td colSpan={colCount} style={groupHeaderCell}>{group}</td></tr>
-                  {rows.map((r) => laggingKeys.has(r.key) ? (
+                  <tr onClick={() => toggleGroup(group)} style={{ cursor: "pointer" }} title={isCollapsed ? "Expand" : "Collapse"}>
+                    <td style={groupHeaderCell}><span style={{ display: "inline-block", width: 16, color: "var(--muted)" }}>{isCollapsed ? "▸" : "▾"}</span>{group}</td>
+                    <td style={groupSubCell}>{gt.hasOpening ? money0(gt.opening) : "—"}</td>
+                    {visibleBuckets.map((b) => <td key={b.code} style={groupSubCell}>{gt.byBucket[b.code] ? money0(gt.byBucket[b.code]) : "—"}</td>)}
+                    <td style={groupSubCell}>{gt.hasOpening ? money0(gt.ending) : "—"}</td>
+                    {showBills && <td style={groupSubCell}>{gt.bills ? money0(gt.bills) : "—"}</td>}
+                    {showReserves && <td style={groupSubCell}>{gt.reserves ? money0(gt.reserves) : "—"}</td>}
+                    {showEst && <td style={{ ...groupSubCell, background: "rgba(21,128,61,0.06)" }}>{money0(gt.est)}</td>}
+                  </tr>
+                  {!isCollapsed && rows.map((r) => laggingKeys.has(r.key) ? (
                     // Behind the snapshot month — blanked out; import its GL to include it.
                     <tr key={r.key} style={{ background: "rgba(217,119,6,0.04)" }}>
                       <td style={{ textAlign: "left" }}>
@@ -494,7 +533,8 @@ export default function CashSheetPage() {
                     </Fragment>
                   ))}
                 </Fragment>
-              ))}
+                );
+              })}
             </tbody>
             {data && grouped.length > 0 && (
               <tfoot>
