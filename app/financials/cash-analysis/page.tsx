@@ -236,47 +236,52 @@ export default function CashSheetPage() {
 
   return (
     <main style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: "none", width: "100%" }}>
-      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 14, flexWrap: "wrap" }}>
-        <div>
-          <h1 style={{ marginBottom: 4 }}>Cash Sheet</h1>
-          <div style={{ fontSize: 14, fontWeight: 800, color: "var(--text)", marginBottom: 4 }}>
-            Snapshot · {ytd ? "Year to date" : MONTHS[period - 1] + " " + year}
-            {!ytd && glMonth !== period && <span style={{ color: "var(--muted)", fontWeight: 600 }}> · {MONTHS[glMonth - 1]} GL actuals + {MONTHS[period - 1]} bills</span>}
-          </div>
-          <p className="muted small" style={{ margin: 0 }}>
-            Every property and entity bank account with its cash position — monthly actuals computed from the GL (click any bucket to drill to its accounts), with <b>Est. Cash Today</b> carrying each balance forward through the weekly AvidXchange bills for the months not yet posted.
-          </p>
-          <LastImported at={data?.lastImport?.at} by={data?.lastImport?.by} label="GL last imported" />
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          {data?.canEdit && (
-            <>
-              <button className="btn primary" onClick={() => apRef.current?.click()} disabled={apUploading} style={{ fontSize: 13, padding: "6px 12px", fontWeight: 700 }} title="Drop the weekly AP AutoPay Selections Reports (JV III, NI LLC, Condo, all-other) to auto-fill the week's bills">
-                {apUploading ? "Uploading…" : "Upload AP Report"}
-              </button>
-              <input ref={apRef} type="file" accept=".xls,.xlsx,.pdf" multiple style={{ display: "none" }} onChange={onApUpload} />
-            </>
-          )}
-          <button className="btn" onClick={() => setYear((y) => y - 1)} style={{ padding: "6px 10px", fontWeight: 900 }}>←</button>
-          <span style={{ fontWeight: 800, fontSize: 15, minWidth: 44, textAlign: "center" }}>{year}</span>
-          <button className="btn" onClick={() => setYear((y) => y + 1)} style={{ padding: "6px 10px", fontWeight: 900 }}>→</button>
-          <select value={period} onChange={(e) => setPeriod(Number(e.target.value))}
-            style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--card)", color: "var(--text)", fontWeight: 700 }}>
-            {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
-          </select>
-          <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600 }}>
-            <input type="checkbox" checked={ytd} onChange={(e) => setYtd(e.target.checked)} /> YTD
-          </label>
-        </div>
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+        <h1 style={{ margin: 0 }}>Cash Sheet</h1>
+        <span style={{ fontSize: 20, fontWeight: 700, color: "var(--muted)", whiteSpace: "nowrap" }}>
+          {ytd ? `${year} YTD` : `${MONTHS[period - 1]} ${year}`}
+        </span>
       </div>
 
-      {error && <div className="small" style={{ color: "#b91c1c", fontWeight: 700 }}>· {error}</div>}
-
-      {apSummary && (
-        <div className="small" style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(21,128,61,0.08)", border: "1px solid rgba(21,128,61,0.35)", color: "#15803d", fontWeight: 700 }}>
-          ✓ Filled {apSummary.count} {apSummary.count === 1 ? "property" : "properties"} · {money0(apSummary.total)} for the {weekOfLabel(apSummary.wednesday).toLowerCase()} from the AP Selection Report.
+      {/* ── Controls card ─────────────────────────────────────────────────── */}
+      <div className="card">
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            {data?.canEdit && (
+              <>
+                <button className="btn primary" onClick={() => apRef.current?.click()} disabled={apUploading} style={{ whiteSpace: "nowrap", fontSize: 13, padding: "8px 16px", fontWeight: 700 }} title="Drop the weekly AP AutoPay Selections Reports (JV III, NI LLC, Condo, all-other) to auto-fill the week's bills">
+                  {apUploading ? "Uploading…" : "Upload AP Report"}
+                </button>
+                <input ref={apRef} type="file" accept=".xls,.xlsx,.pdf" multiple style={{ display: "none" }} onChange={onApUpload} />
+              </>
+            )}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <button className="btn" onClick={() => setYear((y) => y - 1)} style={{ padding: "6px 10px", fontWeight: 900 }}>←</button>
+            <span style={{ fontWeight: 800, fontSize: 15, minWidth: 44, textAlign: "center" }}>{year}</span>
+            <button className="btn" onClick={() => setYear((y) => y + 1)} style={{ padding: "6px 10px", fontWeight: 900 }}>→</button>
+            <select value={period} onChange={(e) => setPeriod(Number(e.target.value))}
+              style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--card)", color: "var(--text)", fontWeight: 700 }}>
+              {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+            </select>
+            <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600 }}>
+              <input type="checkbox" checked={ytd} onChange={(e) => setYtd(e.target.checked)} /> YTD
+            </label>
+          </div>
         </div>
-      )}
+        <p className="muted small" style={{ marginTop: 8 }}>
+          <b>Snapshot · {ytd ? "Year to date" : MONTHS[period - 1] + " " + year}</b>
+          {!ytd && glMonth !== period && <> · {MONTHS[glMonth - 1]} GL actuals + {MONTHS[period - 1]} bills</>}
+          {" "}— every property and entity bank account with its cash position; monthly actuals from the GL (click any bucket to drill), with <b>Est. Cash Today</b> bridging the weekly AvidXchange bills for months not yet posted.
+        </p>
+        <LastImported at={data?.lastImport?.at} by={data?.lastImport?.by} label="GL last imported" />
+        {apSummary && (
+          <div className="small" style={{ marginTop: 6, color: "#15803d", fontWeight: 700 }}>
+            ✓ Filled {apSummary.count} {apSummary.count === 1 ? "property" : "properties"} · {money0(apSummary.total)} for the {weekOfLabel(apSummary.wednesday).toLowerCase()} from the AP Selection Report.
+          </div>
+        )}
+        {error && <div style={{ color: "#b42318", fontSize: 13, marginTop: 6 }}>{error}</div>}
+      </div>
 
       {laggingRows.length > 0 && (
         <div className="card" style={{ padding: "12px 16px", borderLeft: "3px solid #d97706" }}>
