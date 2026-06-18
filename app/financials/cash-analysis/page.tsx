@@ -24,7 +24,7 @@ type Row = {
   scheduledDebt: number; debtExpected: boolean; debtPosted: boolean; debtMissing: boolean;
   latestGLMonth: number;
   estimate: { months: number; revenue: number; bills: number; mortgage: number; estimatedCash: number | null; latestEnding: number | null } | null;
-  isFund?: boolean; manual?: boolean; bankCodes?: string[]; bankLast4?: string; breakdown?: Breakdown[];
+  isFund?: boolean; manual?: boolean; bankCodes?: string[]; bankLast4?: string; excludeLast4?: string[]; breakdown?: Breakdown[];
   billsMTD?: number; weeklyBills?: { wednesday: string; amount: number }[];
 };
 type Payload = { year: number; period: number; ytd: boolean; buckets: Bucket[]; rows: Row[]; canEdit: boolean; canEditOpening: boolean; ym: string; estimateAsOf: string | null; gapMonthLabels: string[]; lastImport: { at: string; by: string | null } | null; generatedAt: string };
@@ -185,15 +185,14 @@ export default function CashSheetPage() {
   }, [data, buckets]);
 
   const debtMissingRows = (data?.rows ?? []).filter((r) => r.debtMissing);
-  const laggingRows = (data?.rows ?? []).filter((r) => !r.manual && !ytd && period > r.maxPeriod);
   const dates = periodDates(year, period, ytd);
   const showEst = !!data?.estimateAsOf;
   const estTotal = (data?.rows ?? []).reduce((s, r) => s + (r.estimate?.estimatedCash ?? 0), 0);
   const showBills = (data?.rows ?? []).some((r) => (r.billsMTD ?? 0) !== 0);
-  const colCount = visibleBuckets.length + 4 + (showBills ? 1 : 0) + (showEst ? 1 : 0); // entity + opening + buckets + net + ending (+ bills) (+ est)
+  const colCount = visibleBuckets.length + 5 + (showBills ? 1 : 0) + (showEst ? 1 : 0); // asof + entity + opening + buckets + net + ending (+ bills) (+ est)
 
   return (
-    <main style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+    <main style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: "none", width: "100%" }}>
       <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 14, flexWrap: "wrap" }}>
         <div>
           <h1 style={{ marginBottom: 4 }}>Cash Sheet</h1>
@@ -253,18 +252,6 @@ export default function CashSheetPage() {
         </div>
       )}
 
-      {data && data.rows.length > 0 && (
-        <div className="card" style={{ padding: "12px 16px", fontSize: 14 }}>
-          <b>{dates.range}:</b>{" "}
-          {grand.hasOpening
-            ? <>Opening <b>{money0(grand.opening)}</b> → Ending <b>{money0(grand.ending)}</b>, </>
-            : null}
-          a net cash {grand.net >= 0 ? "increase" : "decrease"} of <b style={{ color: grand.net >= 0 ? "#15803d" : "#b91c1c" }}>{money0(Math.abs(grand.net))}</b> across {data.rows.length} properties
-          {debtMissingRows.length > 0 && <> · <b style={{ color: "#b91c1c" }}>{debtMissingRows.length} with debt not posted</b></>}
-          {laggingRows.length > 0 && <> · <b style={{ color: "#b45309" }}>{laggingRows.length} as of an earlier month</b></>}.
-        </div>
-      )}
-
       <div className="pills" style={{ justifyContent: "flex-start" }}>
         <StatPill label={`Opening Cash · ${dates.open}`} value={grand.hasOpening ? money0(grand.opening) : "—"} />
         <StatPill label={`Net Change · ${ytd ? "YTD" : MONTHS[period - 1]}`} value={money0(grand.net)} accent={grand.net >= 0 ? "#15803d" : "#b91c1c"} />
@@ -275,9 +262,10 @@ export default function CashSheetPage() {
 
       <div className="card" style={{ padding: 0, overflow: "hidden" }}>
         <div className="tableWrap" style={{ overflowX: "auto" }}>
-          <table style={{ minWidth: 1100 }}>
+          <table style={{ minWidth: 1100, width: "100%" }}>
             <thead>
               <tr>
+                <th style={{ textAlign: "left", width: 56, color: "var(--muted)", fontSize: 11 }} title="Month the figures are as of (GL posted through), or Manual for hand-entered balances">As Of</th>
                 <th style={{ textAlign: "left" }}>Entity</th>
                 <th style={keyCol}>Opening Cash<div style={{ fontWeight: 600, fontSize: 10, color: "var(--muted)", textTransform: "none" }}>{dates.open}</div></th>
                 {visibleBuckets.map((b) => <th key={b.code} style={headWrap}>{b.label}</th>)}
@@ -298,6 +286,10 @@ export default function CashSheetPage() {
                   {rows.map((r) => (
                     <Fragment key={r.key}>
                     <tr title={r.period < r.maxPeriod ? "" : undefined}>
+                      <td style={{ textAlign: "left", fontSize: 11, fontWeight: 700, whiteSpace: "nowrap", color: !r.manual && !ytd && period > r.maxPeriod ? "#b45309" : "var(--muted)" }}
+                        title={r.manual ? "Manually-entered balance (no GL feed)" : `GL posted through ${MONTHS[r.maxPeriod - 1]} ${year}${!ytd && period > r.maxPeriod ? " — earlier than the selected month; Est. Cash Today bridges to now" : ""}`}>
+                        {r.manual ? "Manual" : MONTHS[r.maxPeriod - 1]}
+                      </td>
                       <td style={{ textAlign: "left" }}>
                         <code style={{ fontSize: 12 }}>{r.propertyCode}</code>
                         {r.isFund && r.breakdown?.length ? (
@@ -307,15 +299,7 @@ export default function CashSheetPage() {
                             {r.name} <span style={{ fontSize: 10, opacity: 0.7 }}>▤ {r.breakdown.length}</span>
                           </button>
                         ) : <span style={{ marginLeft: 8 }}>{r.name}</span>}
-                        {r.manual && <span title="No GL feed — enter the current balance directly" style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--muted)" }}>manual</span>}
-                        {r.debtMissing && <span title={`Loan scheduled (${money0(r.scheduledDebt)}) but $0 posted`} style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, color: "#b91c1c" }}>⚠ debt $0</span>}
-                        {!r.manual && !ytd && period > r.maxPeriod && (
-                          <span title={`GL posted through ${MONTHS[r.maxPeriod - 1]} ${year} — Opening/Ending are as of then; Est. Cash Today bridges to now`}
-                            style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", color: "#b45309" }}>
-                            as of {MONTHS[r.maxPeriod - 1]}
-                          </span>
-                        )}
-                        <BankLinks accounts={(r.bankCodes ? bankAccountsForCodes(r.bankCodes) : r.isFund && r.breakdown?.length ? bankAccountsForCodes(r.breakdown.map((b) => b.key)) : bankAccountsForCodes([r.propertyCode, r.key])).filter((a) => !r.bankLast4 || a.last4 === r.bankLast4)} />
+                        <BankLinks accounts={(r.bankCodes ? bankAccountsForCodes(r.bankCodes) : r.isFund && r.breakdown?.length ? bankAccountsForCodes(r.breakdown.map((b) => b.key)) : bankAccountsForCodes([r.propertyCode, r.key])).filter((a) => (!r.bankLast4 || a.last4 === r.bankLast4) && !r.excludeLast4?.includes(a.last4))} />
                       </td>
                       <td style={keyCol} title={r.manual ? "Manually-entered current balance (no GL feed)" : r.openingOverridden ? "Overridden — clear to use the GL value" : (r.glOpening == null ? "No opening balance captured in this GL upload" : "Opening per GL — type to override")}>
                         {data?.canEditOpening && r.manual ? (
@@ -402,6 +386,7 @@ export default function CashSheetPage() {
             {data && grouped.length > 0 && (
               <tfoot>
                 <tr style={{ borderTop: "2px solid var(--border)", fontWeight: 800, background: "rgba(11,74,125,0.05)" }}>
+                  <td />
                   <td style={{ textAlign: "left" }}>Portfolio Total</td>
                   <td style={keyCol}>{grand.hasOpening ? money0(grand.opening) : "—"}</td>
                   {visibleBuckets.map((b) => <td key={b.code} style={numCell}>{money0(grand.byBucket[b.code] ?? 0)}</td>)}

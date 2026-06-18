@@ -72,6 +72,8 @@ type Row = {
   bankCodes?: string[];
   /** When set, only the account with this last4 is shown for the row. */
   bankLast4?: string;
+  /** Account last4s to hide from this row's chips (split out to their own row). */
+  excludeLast4?: string[];
   breakdown?: { key: string; name: string; startingCash: number | null; netChange: number; endingCash: number | null; byBucket: Record<CashFlowCode, number> }[];
 };
 
@@ -290,6 +292,32 @@ export async function GET(req: Request) {
     const weeklyBills = wednesdays.map((w) => ({ wednesday: w, amount: billDoc[w] ?? 0 }));
     const billsMTD = weeklyBills.reduce((s, b) => s + b.amount, 0);
     if (billsMTD !== 0) { r.weeklyBills = weeklyBills; r.billsMTD = billsMTD; }
+  }
+
+  // Split the Security Deposits — All but NI LLC account (Liberty x7216) off the
+  // 2010 LIK Management row into its own line below it. 2010 is the operating
+  // account, so the Security Deposits bucket movement belongs to the dedicated
+  // security-deposit account, not operating cash.
+  const opRow = rows.find((r) => r.key === "2010");
+  if (opRow) {
+    const sd8 = opRow.byBucket[8] ?? 0;
+    opRow.byBucket = { ...opRow.byBucket, 8: 0 };
+    opRow.netChange -= sd8;
+    if (opRow.endingCash != null) opRow.endingCash -= sd8;
+    opRow.excludeLast4 = [...(opRow.excludeLast4 ?? []), "x7216"];
+    const sdBuckets = emptyBuckets();
+    sdBuckets[8] = sd8;
+    const sdOv = overrideFor("2010-SD-ALLBUTNI");
+    rows.push({
+      key: "2010-SD-ALLBUTNI", propertyCode: "2010", name: "Security Deposits — All but NI LLC",
+      group: opRow.group, period: opRow.period, maxPeriod: opRow.maxPeriod,
+      byBucket: sdBuckets, netChange: sd8,
+      glOpening: null, startingCash: sdOv, openingOverridden: sdOv != null,
+      endingCash: sdOv != null ? sdOv + sd8 : null,
+      scheduledDebt: 0, debtExpected: false, debtPosted: false, debtMissing: false,
+      latestGLMonth: opRow.latestGLMonth, estimate: null,
+      bankCodes: ["2010"], bankLast4: "x7216",
+    });
   }
 
   // Most recent GL import for this year (drives the "Last imported" line).
