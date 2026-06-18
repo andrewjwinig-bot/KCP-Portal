@@ -398,12 +398,12 @@ export default function CashSheetPage() {
                           {data?.canEditOpening && !r.readOnly ? (
                             <input
                               inputMode="decimal"
-                              value={reservesDraft[r.key] ?? (r.reservesOverridden && r.reserves != null ? String(r.reserves) : "")}
-                              placeholder={r.reservesAuto ? money0(r.reservesAuto) : "—"}
+                              value={reservesDraft[r.key] ?? (r.reserves ? money0(r.reserves) : "")}
+                              placeholder="—"
                               onChange={(e) => setReservesDraft((d) => ({ ...d, [r.key]: e.target.value }))}
                               onBlur={() => { if ((reservesDraft[r.key] ?? "") !== "") saveReserves(r.key, reservesDraft[r.key]); else if (r.reservesOverridden) saveReserves(r.key, ""); }}
                               onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
-                              style={{ width: 84, textAlign: "right", fontVariantNumeric: "tabular-nums", border: "1px solid transparent", borderRadius: 6, padding: "2px 6px", background: "transparent", color: r.reservesOverridden ? "#6d28d9" : "inherit" }}
+                              style={{ width: 90, textAlign: "right", fontVariantNumeric: "tabular-nums", border: "1px solid transparent", borderRadius: 6, padding: "2px 4px", background: "transparent", color: r.reservesOverridden ? "#6d28d9" : "inherit" }}
                               className="cs-edit"
                             />
                           ) : (r.reserves ? money0(r.reserves) : <span className="muted">—</span>)}
