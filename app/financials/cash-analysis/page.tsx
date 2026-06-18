@@ -11,7 +11,7 @@
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { StatPill, Pill, Badge, TONE_RED, TONE_AMBER } from "@/app/components/Pill";
+import { StatPill, Pill, Badge, TONE_RED, TONE_AMBER, TONE_GREEN } from "@/app/components/Pill";
 import { LastImported } from "@/app/components/LastImported";
 import { bankAccountsForCodes, weekOfLabel, parseMonthKey, type BankAccount } from "@/lib/financials/cash-sheet/util";
 
@@ -25,7 +25,7 @@ type Row = {
   scheduledDebt: number; debtExpected: boolean; debtPosted: boolean; debtMissing: boolean;
   latestGLMonth: number;
   estimate: { months: number; revenue: number; bills: number; mortgage: number; estimatedCash: number | null; latestEnding: number | null } | null;
-  isFund?: boolean; manual?: boolean; readOnly?: boolean; bankCodes?: string[]; bankLast4?: string; excludeLast4?: string[]; breakdown?: Breakdown[];
+  isFund?: boolean; manual?: boolean; readOnly?: boolean; mm?: boolean; bankCodes?: string[]; bankLast4?: string; excludeLast4?: string[]; breakdown?: Breakdown[];
   billsMTD?: number; weeklyBills?: { wednesday: string; amount: number }[];
   reserves?: number; reservesAuto?: number; reservesOverridden?: boolean;
   interest?: { opening: number; rate: number; amount: number; fee: number };
@@ -58,7 +58,7 @@ const groupHeaderCell: React.CSSProperties = {
   letterSpacing: "0.06em", color: "var(--text)", background: "rgba(15,23,42,0.04)",
   padding: "10px 12px", borderTop: "2px solid var(--border)",
 };
-const GROUP_ORDER = ["Business Parks", "Eastwick Joint Venture", "Shopping Centers", "LIK Management", "GP / LP – Property Owner", "Nockamixon", "Korman Homes", "Other"];
+const GROUP_ORDER = ["Business Parks", "Shopping Centers", "LIK Management", "Korman Homes", "Eastwick Joint Venture", "Land & Other", "Other"];
 
 // Bank-account chips (from Property Info) — click to open the bank login for the
 // account behind each row, matching the Cash Sheet.
@@ -378,6 +378,7 @@ export default function CashSheetPage() {
                             onMouseEnter={(e) => (e.currentTarget.style.textDecoration = "underline")}
                             onMouseLeave={(e) => (e.currentTarget.style.textDecoration = "none")}>{r.name}</Link>
                         ) : <span style={{ marginLeft: 8 }}>{r.name}</span>}
+                        {r.mm && <span style={{ marginLeft: 6 }}><Pill tone={TONE_GREEN}>MM</Pill></span>}
                         {r.isFund && r.breakdown?.length ? (
                           <button type="button" onClick={() => setBreakdown({ name: r.name, rows: r.breakdown! })}
                             title="Show the buildings behind this fund account"
