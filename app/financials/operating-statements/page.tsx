@@ -10,6 +10,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useUser } from "@/app/components/UserProvider";
 import { DownloadMenu } from "@/app/components/DownloadMenu";
 import { StatPill } from "@/app/components/Pill";
+import { LastImported } from "@/app/components/LastImported";
 import { AccountListCard } from "@/app/components/AccountListCard";
 import { groupStatementOptions } from "@/lib/financials/operating-statements/propertyGroups";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
@@ -268,6 +269,7 @@ export default function OperatingStatementsPage() {
   const [budgetYear, setBudgetYear] = useState<number | null>(null);
   const [budgetFallback, setBudgetFallback] = useState(false);
   const [statement, setStatement] = useState<PropertyStatement | null>(null);
+  const [lastImport, setLastImport] = useState<{ at: string; by: string | null } | null>(null);
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [operatingCash, setOperatingCash] = useState<number | null>(null);
   const [noteSources, setNoteSources] = useState<Record<string, "user" | "ai">>({});
@@ -333,6 +335,7 @@ export default function OperatingStatementsPage() {
       if (period) qs.set("period", String(period));
       const j = await fetch(`/api/financials/operating-statements?${qs}`).then((r) => r.json());
       setStatement(j.statement ?? null);
+      setLastImport(j.uploadedAt ? { at: j.uploadedAt, by: j.uploadedBy ?? null } : null);
       setDebtCheck(j.debtCheck ?? null);
       setNotes(j.notes ?? {});
       setDismissedFlags(new Set()); // server already filtered dismissed flags
@@ -462,7 +465,10 @@ export default function OperatingStatementsPage() {
   return (
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
       <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
-        <h1>Operating Statements</h1>
+        <div>
+          <h1 style={{ margin: 0 }}>Operating Statements</h1>
+          {cur && <LastImported at={lastImport?.at} by={lastImport?.by} label={`${cur.name} GL last imported`} />}
+        </div>
         <div style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
           <span style={{ fontFamily: "'Arial Black', 'Arial Bold', Arial, sans-serif", fontWeight: 900, fontSize: 30, letterSpacing: "-0.5px", lineHeight: 1 }}>KORMAN</span>
           <div style={{ width: 1, height: 36, background: "#000", flexShrink: 0 }} />

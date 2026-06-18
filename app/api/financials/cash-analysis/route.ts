@@ -292,6 +292,10 @@ export async function GET(req: Request) {
     if (billsMTD !== 0) { r.weeklyBills = weeklyBills; r.billsMTD = billsMTD; }
   }
 
+  // Most recent GL import for this year (drives the "Last imported" line).
+  const yearGls = fulls.filter((g) => g.year === year);
+  const latestGl = yearGls.length ? yearGls.reduce((a, b) => (a.uploadedAt >= b.uploadedAt ? a : b)) : null;
+
   return NextResponse.json({
     year, period, ytd,
     buckets: CASH_FLOW_BUCKETS,
@@ -301,6 +305,7 @@ export async function GET(req: Request) {
     ym: monthKey(year, period),
     estimateAsOf: estimateApplies && gapMonths.length ? `${MONTHS[curMonth - 1]} ${curYear}` : null,
     gapMonthLabels: gapMonths.map((mo) => MONTHS[mo - 1]),
+    lastImport: latestGl ? { at: latestGl.uploadedAt, by: latestGl.uploadedBy ?? null } : null,
     generatedAt: new Date().toISOString(),
   });
 }

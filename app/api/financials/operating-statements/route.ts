@@ -149,6 +149,7 @@ export async function GET(req: Request) {
     selectedVersion: stored.id,
     maxPeriodInFile: stored.maxPeriodInFile,
     uploadedAt: stored.uploadedAt,
+    uploadedBy: stored.uploadedBy ?? null,
     budgetYear: budget?.budgetYear ?? null,
     budgetFallback: budget?.fallback ?? false,
     notes,
