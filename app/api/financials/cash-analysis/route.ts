@@ -29,13 +29,13 @@ export const revalidate = 0;
 
 const GROUP_OF: Record<string, string> = {};
 const addGroup = (label: string, codes: string[]) => codes.forEach((c) => (GROUP_OF[c] = label));
-addGroup("Business Parks", ["0800", "PJV3", "PIIICO", "CONDO", "PNIPLX", "4900", "3610", "3620", "3640", "4050", "4060", "4070", "4080", "40A0", "40B0", "40C0"]);
+addGroup("Business Parks", ["PJV3", "PIIICO", "CONDO", "PNIPLX", "4900", "3610", "3620", "3640", "4050", "4060", "4070", "4080", "40A0", "40B0", "40C0"]);
 addGroup("Eastwick Joint Venture", ["1500", "9200"]);
 addGroup("Shopping Centers", ["1100", "2300", "4500", "4510", "5600", "7010", "7200", "7300", "8200", "9500", "9510"]);
 addGroup("LIK Management", ["2010", "2000"]);
-addGroup("GP / LP – Property Owner", ["0200", "0300", "0900", "4210", "4410"]);
-addGroup("Nockamixon", ["2070", "2040", "2080"]);
 addGroup("Korman Homes", ["9800", "9820", "9840", "9860", "PHOMES", "KORMAN HOMES"]);
+// Land & Other — land parcels + GP/LP property-owner entities + Nockamixon.
+addGroup("Land & Other", ["0800", "0200", "0300", "0900", "4210", "4410", "2070", "2040", "2080"]);
 
 // Pooled funds: the buildings share ONE bank account, so the page shows ONE line
 // per fund (sum of the buildings, or the consolidated fund GL if uploaded), with
@@ -297,7 +297,7 @@ export async function GET(req: Request) {
   const CS_GROUP_OF: Record<string, string> = {
     mgmt: "LIK Management", jv3: "Business Parks", condo: "Business Parks",
     nillc: "Business Parks", bpother: "Business Parks", sc: "Shopping Centers",
-    ow: "Business Parks", kh: "Korman Homes", land: "Other",
+    ow: "Business Parks", kh: "Korman Homes", land: "Land & Other",
   };
   for (const g of cashSheetGroups()) {
     for (const p of g.properties) {

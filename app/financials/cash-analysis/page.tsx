@@ -58,7 +58,7 @@ const groupHeaderCell: React.CSSProperties = {
   letterSpacing: "0.06em", color: "var(--text)", background: "rgba(15,23,42,0.04)",
   padding: "10px 12px", borderTop: "2px solid var(--border)",
 };
-const GROUP_ORDER = ["Business Parks", "Eastwick Joint Venture", "Shopping Centers", "LIK Management", "GP / LP – Property Owner", "Nockamixon", "Korman Homes", "Other"];
+const GROUP_ORDER = ["Business Parks", "Shopping Centers", "LIK Management", "Korman Homes", "Eastwick Joint Venture", "Land & Other", "Other"];
 
 // Bank-account chips (from Property Info) — click to open the bank login for the
 // account behind each row, matching the Cash Sheet.
