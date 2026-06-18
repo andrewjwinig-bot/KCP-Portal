@@ -152,7 +152,11 @@ export async function GET(req: Request) {
   const estimateApplies = year === curYear;
   const coverageEndOf = (s: typeof entries[number]["stored"]) => s.coverageEnd ?? s.maxPeriodInFile;
   const minLatest = entries.length ? Math.min(...entries.map((e) => coverageEndOf(e.stored))) : 12;
-  const latestPostedPeriod = entries.length ? Math.max(...entries.map((e) => coverageEndOf(e.stored))) : 0;
+  // The snapshot's consensus month is driven by actual ACTIVITY (the close
+  // month), not the report-range end — so one GL run with a wider To-date can't
+  // drag the snapshot forward and mark everyone else behind. Per-property
+  // "behind" still uses the report range (coverageEnd) below.
+  const latestPostedPeriod = entries.length ? Math.max(...entries.map((e) => e.stored.maxPeriodInFile)) : 0;
   const gapMonths: number[] = [];
   if (estimateApplies) for (let mo = minLatest + 1; mo <= curMonth; mo++) gapMonths.push(mo);
   const billsByMonth: Record<number, Awaited<ReturnType<typeof getMonth>>> = {};
