@@ -26,6 +26,7 @@ type Row = {
   estimate: { months: number; revenue: number; bills: number; mortgage: number; estimatedCash: number | null; latestEnding: number | null } | null;
   isFund?: boolean; manual?: boolean; readOnly?: boolean; bankCodes?: string[]; bankLast4?: string; excludeLast4?: string[]; breakdown?: Breakdown[];
   billsMTD?: number; weeklyBills?: { wednesday: string; amount: number }[];
+  reserves?: number; reservesAuto?: number; reservesOverridden?: boolean;
 };
 type Payload = { year: number; period: number; ytd: boolean; buckets: Bucket[]; rows: Row[]; canEdit: boolean; canEditOpening: boolean; ym: string; estimateAsOf: string | null; gapMonthLabels: string[]; lastImport: { at: string; by: string | null } | null; generatedAt: string };
 
@@ -88,6 +89,7 @@ export default function CashSheetPage() {
   // Editable opening-cash override (shared with the Cash Sheet) + fund breakdown modal.
   const [openDraft, setOpenDraft] = useState<Record<string, string>>({});
   const [manualDraft, setManualDraft] = useState<Record<string, string>>({});
+  const [reservesDraft, setReservesDraft] = useState<Record<string, string>>({});
   const [breakdown, setBreakdown] = useState<{ name: string; rows: Breakdown[] } | null>(null);
   // Weekly AvidXchange bills drill-down (per-Wednesday detail behind a row's Avid Bills).
   const [billsModal, setBillsModal] = useState<{ name: string; weekly: { wednesday: string; amount: number }[]; total: number } | null>(null);
@@ -117,7 +119,18 @@ export default function CashSheetPage() {
       .finally(() => setLoading(false));
   }, [year, period, ytd]);
   useEffect(() => { load(); }, [load]);
-  useEffect(() => { setOpenDraft({}); setManualDraft({}); }, [year, period, ytd]);
+  useEffect(() => { setOpenDraft({}); setManualDraft({}); setReservesDraft({}); }, [year, period, ytd]);
+
+  // Save (or clear) a row's reserve override via the Cash Sheet store, then reload.
+  const saveReserves = useCallback((code: string, raw: string) => {
+    const t = raw.replace(/[$,\s]/g, "");
+    const value = t === "" ? null : Number(t);
+    if (value != null && !Number.isFinite(value)) return;
+    fetch("/api/financials/cash-sheet", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ym: data?.ym, code, kind: "reserves", value }),
+    }).then((r) => { if (r.ok) load(); }).catch(() => {});
+  }, [data?.ym, load]);
 
   // Save an opening-cash override (or clear it) via the Cash Sheet store, then reload.
   const saveOverride = useCallback((code: string, kind: "startingOverride" | "endingOverride", raw: string) => {
@@ -174,22 +187,29 @@ export default function CashSheetPage() {
 
   const grand = useMemo(() => {
     const byBucket: Record<string, number> = {};
-    let net = 0, opening = 0, ending = 0, bills = 0, hasOpening = false;
+    let net = 0, opening = 0, ending = 0, bills = 0, reserves = 0, hasOpening = false;
     for (const r of data?.rows ?? []) {
       for (const b of buckets) byBucket[b.code] = (byBucket[b.code] ?? 0) + (r.byBucket[b.code] ?? 0);
       net += r.netChange;
       bills += r.billsMTD ?? 0;
+      reserves += r.reserves ?? 0;
       if (r.startingCash != null) { opening += r.startingCash; ending += (r.endingCash ?? 0); hasOpening = true; }
     }
-    return { byBucket, net, opening, ending, bills, hasOpening };
+    return { byBucket, net, opening, ending, bills, reserves, hasOpening };
   }, [data, buckets]);
 
   const debtMissingRows = (data?.rows ?? []).filter((r) => r.debtMissing);
   const dates = periodDates(year, period, ytd);
   const showEst = !!data?.estimateAsOf;
-  const estTotal = (data?.rows ?? []).reduce((s, r) => s + (r.estimate?.estimatedCash ?? 0), 0);
   const showBills = (data?.rows ?? []).some((r) => (r.billsMTD ?? 0) !== 0);
-  const colCount = visibleBuckets.length + 5 + (showBills ? 1 : 0) + (showEst ? 1 : 0); // asof + entity + opening + buckets + net + ending (+ bills) (+ est)
+  const showReserves = !!data && (data.canEdit || (data.rows ?? []).some((r) => (r.reserves ?? 0) !== 0));
+  // Est. Available Cash = projected (or current) cash less the reserve set-aside.
+  const estAvail = (r: Row): number | null => {
+    const base = r.estimate?.estimatedCash ?? r.endingCash;
+    return base == null ? null : base - (r.reserves ?? 0);
+  };
+  const estAvailTotal = (data?.rows ?? []).reduce((s, r) => s + (estAvail(r) ?? 0), 0);
+  const colCount = visibleBuckets.length + 4 + (showBills ? 1 : 0) + (showReserves ? 1 : 0) + (showEst ? 1 : 0); // asof + entity + opening + buckets + ending (+ bills) (+ reserves) (+ est)
 
   return (
     <main style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: "none", width: "100%" }}>
@@ -266,13 +286,13 @@ export default function CashSheetPage() {
             <thead>
               <tr>
                 <th style={{ textAlign: "left", width: 56, color: "var(--muted)", fontSize: 11 }} title="Month the figures are as of (GL posted through), or Manual for hand-entered balances">As Of</th>
-                <th style={{ textAlign: "left" }}>Entity</th>
+                <th style={{ textAlign: "left", minWidth: 260 }}>Entity</th>
                 <th style={keyCol}>Opening Cash<div style={{ fontWeight: 600, fontSize: 10, color: "var(--muted)", textTransform: "none" }}>{dates.open}</div></th>
                 {visibleBuckets.map((b) => <th key={b.code} style={headWrap}>{b.label}</th>)}
-                <th style={headWrap}>Net Change</th>
                 <th style={keyCol}>Ending Cash<div style={{ fontWeight: 600, fontSize: 10, color: "var(--muted)", textTransform: "none" }}>{dates.end}</div></th>
                 {showBills && <th style={headWrap} title="AvidXchange bills paid this month — click a row for the weekly detail">Avid Bills</th>}
-                {showEst && <th style={{ ...keyCol, background: "rgba(21,128,61,0.08)" }}>Est. Cash Today<div style={{ fontWeight: 600, fontSize: 10, color: "var(--muted)", textTransform: "none" }}>{data?.estimateAsOf}</div></th>}
+                {showReserves && <th style={headWrap} title="Budgeted Big Projects reserve set aside (from the budget; type to override)">Reserves</th>}
+                {showEst && <th style={{ ...keyCol, background: "rgba(21,128,61,0.08)" }}>Est. Available Cash<div style={{ fontWeight: 600, fontSize: 10, color: "var(--muted)", textTransform: "none" }}>{data?.estimateAsOf} · net of reserves</div></th>}
               </tr>
             </thead>
             <tbody>
@@ -356,8 +376,10 @@ export default function CashSheetPage() {
                           </td>
                         );
                       })}
-                      <td style={{ ...numCell, fontWeight: 800, color: r.netChange >= 0 ? "#15803d" : "#b91c1c" }}>{money0(r.netChange)}</td>
-                      <td style={keyCol}>{money0(r.endingCash)}</td>
+                      <td style={{ ...keyCol, color: r.startingCash == null || r.endingCash == null ? undefined : r.netChange > 0 ? "#15803d" : r.netChange < 0 ? "#b91c1c" : undefined }}
+                        title={`Net change ${money0(r.netChange)}${r.startingCash != null ? ` (Opening ${money0(r.startingCash)})` : ""}`}>
+                        {money0(r.endingCash)}
+                      </td>
                       {showBills && (
                         <td style={{ ...numCell, color: r.billsMTD ? "#b45309" : "var(--muted)" }}
                           title={r.billsMTD ? "AvidXchange bills paid this month — click for the weekly detail" : "No bills recorded this month"}>
@@ -371,10 +393,26 @@ export default function CashSheetPage() {
                           ) : "—"}
                         </td>
                       )}
+                      {showReserves && (
+                        <td style={numCell} title={r.reservesOverridden ? "Reserve overridden — clear to use the budget value" : "Budgeted Big Projects reserve (type to override)"}>
+                          {data?.canEditOpening && !r.readOnly ? (
+                            <input
+                              inputMode="decimal"
+                              value={reservesDraft[r.key] ?? (r.reservesOverridden && r.reserves != null ? String(r.reserves) : "")}
+                              placeholder={r.reservesAuto ? money0(r.reservesAuto) : "—"}
+                              onChange={(e) => setReservesDraft((d) => ({ ...d, [r.key]: e.target.value }))}
+                              onBlur={() => { if ((reservesDraft[r.key] ?? "") !== "") saveReserves(r.key, reservesDraft[r.key]); else if (r.reservesOverridden) saveReserves(r.key, ""); }}
+                              onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                              style={{ width: 84, textAlign: "right", fontVariantNumeric: "tabular-nums", border: "1px solid transparent", borderRadius: 6, padding: "2px 6px", background: "transparent", color: r.reservesOverridden ? "#6d28d9" : "inherit" }}
+                              className="cs-edit"
+                            />
+                          ) : (r.reserves ? money0(r.reserves) : <span className="muted">—</span>)}
+                        </td>
+                      )}
                       {showEst && (
                         <td style={{ ...keyCol, background: "rgba(21,128,61,0.08)" }}
-                          title={r.estimate ? `From ${MONTHS[r.latestGLMonth - 1]} GL ending ${money0(r.estimate.latestEnding)}: + receipts ${money0(r.estimate.revenue)} − bills ${money0(r.estimate.bills)} − mortgage ${money0(r.estimate.mortgage)} (${r.estimate.months} un-posted mo)` : "GL is current — no estimate needed"}>
-                          {r.estimate ? money0(r.estimate.estimatedCash) : <span className="muted">{money0(r.endingCash)}</span>}
+                          title={`${r.estimate ? `From ${MONTHS[r.latestGLMonth - 1]} GL ending ${money0(r.estimate.latestEnding)}: + receipts ${money0(r.estimate.revenue)} − bills ${money0(r.estimate.bills)} − mortgage ${money0(r.estimate.mortgage)} (${r.estimate.months} un-posted mo)` : "GL is current"}${r.reserves ? ` − reserves ${money0(r.reserves)}` : ""}`}>
+                          {estAvail(r) != null ? (r.estimate ? money0(estAvail(r)) : <span className="muted">{money0(estAvail(r))}</span>) : "—"}
                         </td>
                       )}
                     </tr>
@@ -390,10 +428,13 @@ export default function CashSheetPage() {
                   <td style={{ textAlign: "left" }}>Portfolio Total</td>
                   <td style={keyCol}>{grand.hasOpening ? money0(grand.opening) : "—"}</td>
                   {visibleBuckets.map((b) => <td key={b.code} style={numCell}>{money0(grand.byBucket[b.code] ?? 0)}</td>)}
-                  <td style={{ ...numCell, color: grand.net >= 0 ? "#15803d" : "#b91c1c" }}>{money0(grand.net)}</td>
-                  <td style={keyCol}>{grand.hasOpening ? money0(grand.ending) : "—"}</td>
+                  <td style={{ ...keyCol, color: grand.net > 0 ? "#15803d" : grand.net < 0 ? "#b91c1c" : undefined }}
+                    title={`Net change ${money0(grand.net)}`}>
+                    {grand.hasOpening ? money0(grand.ending) : "—"}
+                  </td>
                   {showBills && <td style={{ ...numCell, color: grand.bills ? "#b45309" : "var(--muted)" }}>{grand.bills ? money0(grand.bills) : "—"}</td>}
-                  {showEst && <td style={{ ...keyCol, background: "rgba(21,128,61,0.10)" }}>{money0(estTotal)}</td>}
+                  {showReserves && <td style={{ ...numCell, color: grand.reserves ? "#6d28d9" : "var(--muted)" }}>{grand.reserves ? money0(grand.reserves) : "—"}</td>}
+                  {showEst && <td style={{ ...keyCol, background: "rgba(21,128,61,0.10)" }}>{money0(estAvailTotal)}</td>}
                 </tr>
               </tfoot>
             )}
@@ -403,7 +444,7 @@ export default function CashSheetPage() {
 
       <p className="muted small" style={{ margin: 0 }}>
         {showEst
-          ? <><b>Est. Cash Today</b> carries each property&apos;s latest posted GL ending forward through the un-posted month(s) ({data?.gapMonthLabels.join(", ")}) — adding expected receipts and subtracting that month&apos;s AvidXchange bills + scheduled mortgage. It&apos;s an estimate until those months post to the GL (then it equals the GL ending). </>
+          ? <><b>Est. Available Cash</b> carries each property&apos;s latest posted GL ending forward through the un-posted month(s) ({data?.gapMonthLabels.join(", ")}) — adding expected receipts, subtracting that month&apos;s AvidXchange bills + scheduled mortgage, then netting out the <b>Reserves</b> set aside. It&apos;s an estimate until those months post to the GL. </>
           : "GL is current through the latest month — Ending Cash is the actual position. "}
         Tip: click any bucket amount to see the GL accounts behind it; click a fund name (e.g. JV III) for its building breakdown; click an <b>Avid Bills</b> amount for the week-by-week detail. Override <b>Opening Cash</b> with a property&apos;s actual bank balance and the cell footnotes the GL value + variance, so the tie-out is right there without a separate column.
         {debtMissingRows.length > 0 && <> <span style={{ color: "#b45309", fontWeight: 700 }}>⚠ amber Mortgage P&amp;I with an asterisk (*)</span> is the scheduled debt service — an estimate shown because the actual charge has not posted to the GL yet; it is not rolled into Net Change or Ending Cash.</>}
