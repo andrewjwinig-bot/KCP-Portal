@@ -17,6 +17,9 @@ export type CashGl = {
   monthly: Record<string, number[]>;
   /** Last (contiguous) month present in the file. */
   maxPeriodInFile: number;
+  /** Last month of the report range (the "To" date); the cash nets are filled
+   *  through here even for quiet months. Falls back to maxPeriodInFile. */
+  coverageEnd?: number;
   /** First month (1–12) the data covers — the month the opening balance applies
    *  to. A partial-year import (e.g. Mar–May) has no valid opening before it. */
   coverageStartMonth?: number;
@@ -37,7 +40,10 @@ export function cashAtStartOfMonth(gl: CashGl, month: number): number | null {
   if (month < openMonth) return null; // before the data starts — no valid opening
   const priorMonths = month - 1; // net activity for Jan..(month-1); pre-coverage months are 0
   if (priorMonths <= 0) return begin; // start of the opening month = the opening balance
-  if (priorMonths > gl.maxPeriodInFile) return null; // those months aren't in the file yet
+  // Bound by the report coverage (the "To" date), not the last *active* month —
+  // a quiet month still has a (zero) net and a valid running balance.
+  const coverage = gl.coverageEnd ?? gl.maxPeriodInFile;
+  if (priorMonths > coverage) return null; // those months aren't in the file yet
   const nets = gl.monthly[CASH_ACCT];
   if (!nets) return null;
   return begin + nets.slice(0, priorMonths).reduce((a, n) => a + (n || 0), 0);
