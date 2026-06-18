@@ -27,6 +27,7 @@ type Row = {
   isFund?: boolean; manual?: boolean; readOnly?: boolean; bankCodes?: string[]; bankLast4?: string; excludeLast4?: string[]; breakdown?: Breakdown[];
   billsMTD?: number; weeklyBills?: { wednesday: string; amount: number }[];
   reserves?: number; reservesAuto?: number; reservesOverridden?: boolean;
+  interest?: { opening: number; rate: number; amount: number };
 };
 type Payload = { year: number; period: number; ytd: boolean; buckets: Bucket[]; rows: Row[]; canEdit: boolean; canEditOpening: boolean; ym: string; estimateAsOf: string | null; gapMonthLabels: string[]; lastImport: { at: string; by: string | null } | null; generatedAt: string };
 
@@ -93,6 +94,8 @@ export default function CashSheetPage() {
   const [breakdown, setBreakdown] = useState<{ name: string; rows: Breakdown[] } | null>(null);
   // Weekly AvidXchange bills drill-down (per-Wednesday detail behind a row's Avid Bills).
   const [billsModal, setBillsModal] = useState<{ name: string; weekly: { wednesday: string; amount: number }[]; total: number } | null>(null);
+  // Interest-bearing accounts: clicking Receipts shows the rate calc, not a GL drill.
+  const [interestModal, setInterestModal] = useState<{ name: string; opening: number; rate: number; amount: number } | null>(null);
   // Weekly AvidXchange bills — the bridge that keeps the monthly GL position
   // current between postings. Uploaded here, consumed by "Est. Cash Today".
   const apRef = useRef<HTMLInputElement | null>(null);
@@ -322,10 +325,17 @@ export default function CashSheetPage() {
                         <BankLinks accounts={(r.bankCodes ? bankAccountsForCodes(r.bankCodes) : r.isFund && r.breakdown?.length ? bankAccountsForCodes(r.breakdown.map((b) => b.key)) : bankAccountsForCodes([r.propertyCode, r.key])).filter((a) => (!r.bankLast4 || a.last4 === r.bankLast4) && !r.excludeLast4?.includes(a.last4))} />
                       </td>
                       <td style={keyCol} title={r.readOnly ? "Auto-computed balance" : r.manual ? "Manually-entered current balance (no GL feed)" : r.openingOverridden ? "Overridden — clear to use the GL value" : (r.glOpening == null ? "No opening balance captured in this GL upload" : "Opening per GL — type to override")}>
-                        {data?.canEditOpening && r.manual && !r.readOnly ? (
+                        {data?.canEditOpening && r.readOnly ? (
+                          <input
+                            inputMode="decimal" readOnly tabIndex={-1}
+                            value={r.startingCash != null ? money0(r.startingCash) : "—"}
+                            style={{ width: 96, textAlign: "right", fontWeight: 800, fontSize: 14, fontVariantNumeric: "tabular-nums", border: "1px solid transparent", borderRadius: 6, padding: "2px 6px", background: "transparent", color: "inherit", cursor: "default" }}
+                            className="cs-edit"
+                          />
+                        ) : data?.canEditOpening && r.manual ? (
                           <input
                             inputMode="decimal"
-                            value={manualDraft[r.key] ?? (r.startingCash != null ? String(r.startingCash) : "")}
+                            value={manualDraft[r.key] ?? (r.startingCash != null ? money0(r.startingCash) : "")}
                             placeholder="—"
                             onChange={(e) => setManualDraft((d) => ({ ...d, [r.key]: e.target.value }))}
                             onBlur={() => saveManual(r, manualDraft[r.key] ?? "")}
@@ -333,10 +343,10 @@ export default function CashSheetPage() {
                             style={{ width: 96, textAlign: "right", fontWeight: 800, fontSize: 14, fontVariantNumeric: "tabular-nums", border: "1px solid transparent", borderRadius: 6, padding: "2px 6px", background: "transparent", color: r.startingCash == null ? undefined : r.startingCash >= 0 ? "#15803d" : "#b91c1c" }}
                             className="cs-edit"
                           />
-                        ) : data?.canEditOpening && !r.manual && !r.readOnly ? (
+                        ) : data?.canEditOpening && !r.manual ? (
                           <input
                             inputMode="decimal"
-                            value={openDraft[r.key] ?? (r.openingOverridden && r.startingCash != null ? String(r.startingCash) : "")}
+                            value={openDraft[r.key] ?? (r.openingOverridden && r.startingCash != null ? money0(r.startingCash) : "")}
                             placeholder={r.glOpening != null ? money0(r.glOpening) : "—"}
                             onChange={(e) => setOpenDraft((d) => ({ ...d, [r.key]: e.target.value }))}
                             onBlur={() => { if ((openDraft[r.key] ?? "") !== "") saveOpening(r, openDraft[r.key]); else if (r.openingOverridden) saveOpening(r, ""); }}
@@ -364,10 +374,13 @@ export default function CashSheetPage() {
                           );
                         }
                         if (!v) return <td key={b.code} style={{ ...numCell, color: "var(--muted)" }}>—</td>;
+                        // Interest-bearing account: Receipts is the accrued interest — click for the rate calc, not a GL drill.
+                        const isInterest = b.code === 1 && r.interest;
                         return (
                           <td key={b.code} style={{ ...numCell, color: v < 0 ? "#b91c1c" : "#15803d" }}>
-                            <button type="button" onClick={() => openDrill(r, b.code, b.label)}
-                              title="Show the GL accounts behind this"
+                            <button type="button"
+                              onClick={() => isInterest ? setInterestModal({ name: r.name, opening: r.interest!.opening, rate: r.interest!.rate, amount: r.interest!.amount }) : openDrill(r, b.code, b.label)}
+                              title={isInterest ? "Show the interest calculation" : "Show the GL accounts behind this"}
                               style={{ background: "none", border: "none", padding: 0, font: "inherit", color: "inherit", cursor: "pointer", textDecoration: "none" }}
                               onMouseEnter={(e) => (e.currentTarget.style.textDecoration = "underline")}
                               onMouseLeave={(e) => (e.currentTarget.style.textDecoration = "none")}>
@@ -449,6 +462,35 @@ export default function CashSheetPage() {
         Tip: click any bucket amount to see the GL accounts behind it; click a fund name (e.g. JV III) for its building breakdown; click an <b>Avid Bills</b> amount for the week-by-week detail. Override <b>Opening Cash</b> with a property&apos;s actual bank balance and the cell footnotes the GL value + variance, so the tie-out is right there without a separate column.
         {debtMissingRows.length > 0 && <> <span style={{ color: "#b45309", fontWeight: 700 }}>⚠ amber Mortgage P&amp;I with an asterisk (*)</span> is the scheduled debt service — an estimate shown because the actual charge has not posted to the GL yet; it is not rolled into Net Change or Ending Cash.</>}
       </p>
+
+      {interestModal && (
+        <div onClick={() => setInterestModal(null)}
+          style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.55)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "48px 16px 32px", zIndex: 100, overflow: "auto" }}>
+          <div onClick={(e) => e.stopPropagation()} className="card" style={{ maxWidth: 440, width: "100%", boxShadow: "0 24px 60px rgba(15,23,42,0.32)" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 4 }}>
+              <div style={{ fontSize: 16, fontWeight: 800 }}>{interestModal.name} — Interest</div>
+              <button className="btn" onClick={() => setInterestModal(null)} style={{ padding: "6px 14px" }}>Close</button>
+            </div>
+            <div className="muted small" style={{ marginBottom: 12 }}>No GL feed — interest is accrued from the balance and rate. {MONTHS[period - 1]} {year}.</div>
+            <div className="tableWrap">
+              <table>
+                <tbody>
+                  <tr><td style={{ textAlign: "left" }}>Opening balance</td><td style={numCell}>{money0(interestModal.opening)}</td></tr>
+                  <tr><td style={{ textAlign: "left" }}>Annual rate</td><td style={numCell}>{(interestModal.rate * 100).toFixed(2)}%</td></tr>
+                  <tr><td style={{ textAlign: "left" }}>Monthly factor</td><td style={numCell}>÷ 12 = {(interestModal.rate / 12 * 100).toFixed(4)}%</td></tr>
+                  <tr style={{ borderTop: "1px solid var(--border)", fontWeight: 800 }}>
+                    <td style={{ textAlign: "left" }}>Interest this month</td>
+                    <td style={{ ...numCell, color: "#15803d" }}>{money0(interestModal.amount)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div className="muted small" style={{ marginTop: 10 }}>
+              {money0(interestModal.opening)} × {(interestModal.rate * 100).toFixed(2)}% ÷ 12 = <b>{money0(interestModal.amount)}</b>, booked as Receipts From Operations.
+            </div>
+          </div>
+        </div>
+      )}
 
       {billsModal && (
         <div onClick={() => setBillsModal(null)}
