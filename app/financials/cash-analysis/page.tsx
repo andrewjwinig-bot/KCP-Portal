@@ -10,7 +10,7 @@
 // row sum (the change in operating cash).
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { StatPill, Pill, Badge, TONE_RED } from "@/app/components/Pill";
+import { StatPill, Pill, Badge, TONE_RED, TONE_AMBER } from "@/app/components/Pill";
 import { LastImported } from "@/app/components/LastImported";
 import { bankAccountsForCodes, weekOfLabel, parseMonthKey, type BankAccount } from "@/lib/financials/cash-sheet/util";
 
@@ -47,7 +47,10 @@ function periodDates(year: number, period: number, ytd: boolean) {
   const endDay = new Date(year, period, 0).getDate(); // last day of the period month
   const end = `${MONTHS[period - 1]} ${endDay}, ${year}`;
   const open = ytd ? `Jan 1, ${year}` : `${MONTHS[period - 1]} 1, ${year}`;
-  return { open, end, range: `${open} – ${end}` };
+  const mm = String(period).padStart(2, "0");
+  const openShort = ytd ? "01-01" : `${mm}-01`;
+  const endShort = `${mm}-${String(endDay).padStart(2, "0")}`;
+  return { open, end, range: `${open} – ${end}`, openShort, endShort };
 }
 const groupHeaderCell: React.CSSProperties = {
   textAlign: "left", fontSize: 13, fontWeight: 800, textTransform: "uppercase",
@@ -202,6 +205,9 @@ export default function CashSheetPage() {
   }, [data, buckets]);
 
   const debtMissingRows = (data?.rows ?? []).filter((r) => r.debtMissing);
+  // Properties still posted through an earlier month than the snapshot month —
+  // their GL needs importing so the whole sheet is one point in time.
+  const laggingRows = (data?.rows ?? []).filter((r) => !r.manual && !r.readOnly && !ytd && period > r.maxPeriod);
   const dates = periodDates(year, period, ytd);
   const showEst = !!data?.estimateAsOf;
   const showBills = (data?.rows ?? []).some((r) => (r.billsMTD ?? 0) !== 0);
@@ -220,7 +226,7 @@ export default function CashSheetPage() {
         <div>
           <h1 style={{ marginBottom: 4 }}>Cash Sheet</h1>
           <div style={{ fontSize: 14, fontWeight: 800, color: "var(--text)", marginBottom: 4 }}>
-            {ytd ? "Year to date" : MONTHS[period - 1] + " " + year} · <span style={{ color: "var(--muted)", fontWeight: 600 }}>{dates.range}</span>
+            Snapshot · {ytd ? "Year to date" : MONTHS[period - 1] + " " + year} <span style={{ color: "var(--muted)", fontWeight: 600 }}>({dates.range})</span>
           </div>
           <p className="muted small" style={{ margin: 0 }}>
             Every property and entity bank account with its cash position — monthly actuals computed from the GL (click any bucket to drill to its accounts), with <b>Est. Cash Today</b> carrying each balance forward through the weekly AvidXchange bills for the months not yet posted.
@@ -257,6 +263,24 @@ export default function CashSheetPage() {
         </div>
       )}
 
+      {laggingRows.length > 0 && (
+        <div className="card" style={{ padding: "12px 16px", borderLeft: "3px solid #d97706" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6, fontWeight: 800, color: "#b45309", fontSize: 14 }}>
+            <span>⚠ Snapshot blends time periods</span><Badge>{laggingRows.length}</Badge>
+          </div>
+          <div className="muted small" style={{ marginBottom: 8 }}>
+            These aren&apos;t on the <b>{MONTHS[period - 1]} {year}</b> snapshot yet — their GL is only posted through an earlier month. Import their {MONTHS[period - 1]} {year} GL so the whole sheet is one point in time.
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {laggingRows.map((r) => (
+              <span key={r.key} title={`${r.name} — posted through ${MONTHS[r.maxPeriod - 1]} ${year}`}>
+                <Pill tone={TONE_AMBER}>{r.propertyCode} · through {MONTHS[r.maxPeriod - 1]}</Pill>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
       {debtMissingRows.length > 0 && (
         <div className="card" style={{ padding: "12px 16px", borderLeft: "3px solid #dc2626" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, fontWeight: 800, color: "#b91c1c", fontSize: 14 }}>
@@ -290,9 +314,9 @@ export default function CashSheetPage() {
               <tr>
                 <th style={{ textAlign: "left", width: 56, color: "var(--muted)", fontSize: 11 }} title="Month the figures are as of (GL posted through), or Manual for hand-entered balances">As Of</th>
                 <th style={{ textAlign: "left", minWidth: 260 }}>Entity</th>
-                <th style={keyCol}>Opening Cash<div style={{ fontWeight: 600, fontSize: 10, color: "var(--muted)", textTransform: "none" }}>{dates.open}</div></th>
+                <th style={keyCol}>Opening Cash<div style={{ fontWeight: 700, fontSize: 13, color: "var(--text)", textTransform: "none" }}>{dates.openShort}</div></th>
                 {visibleBuckets.map((b) => <th key={b.code} style={headWrap}>{b.label}</th>)}
-                <th style={keyCol}>Ending Cash<div style={{ fontWeight: 600, fontSize: 10, color: "var(--muted)", textTransform: "none" }}>{dates.end}</div></th>
+                <th style={keyCol}>Ending Cash<div style={{ fontWeight: 700, fontSize: 13, color: "var(--text)", textTransform: "none" }}>{dates.endShort}</div></th>
                 {showBills && <th style={headWrap} title="AvidXchange bills paid this month — click a row for the weekly detail">Avid Bills</th>}
                 {showReserves && <th style={headWrap} title="Budgeted Big Projects reserve set aside (from the budget; type to override)">Reserves</th>}
                 {showEst && <th style={{ ...keyCol, background: "rgba(21,128,61,0.08)" }}>Est. Available Cash<div style={{ fontWeight: 600, fontSize: 10, color: "var(--muted)", textTransform: "none" }}>{data?.estimateAsOf} · net of reserves</div></th>}
