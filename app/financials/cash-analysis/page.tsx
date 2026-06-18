@@ -10,7 +10,7 @@
 // row sum (the change in operating cash).
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { StatPill } from "@/app/components/Pill";
+import { StatPill, Pill, Badge, TONE_RED } from "@/app/components/Pill";
 import { bankAccountsForCodes, weekOfLabel, parseMonthKey, type BankAccount } from "@/lib/financials/cash-sheet/util";
 
 type Bucket = { code: number; label: string };
@@ -233,12 +233,20 @@ export default function CashSheetPage() {
       )}
 
       {debtMissingRows.length > 0 && (
-        <div style={{ padding: "10px 14px", borderRadius: 10, background: "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.35)", color: "#b91c1c", fontSize: 13 }}>
-          <b>⚠ Debt expected but not posted</b> for {ytd ? "the year" : MONTHS[period - 1]}:{" "}
-          {debtMissingRows.map((r, i) => (
-            <span key={r.key}>{i > 0 ? ", " : ""}<b>{r.propertyCode}</b> {r.name} (scheduled {money0(r.scheduledDebt)})</span>
-          ))}
-          . These properties have a loan but their Mortgage P&amp;I posted $0 — the charge may not be entered, or the GL needs re-uploading.
+        <div className="card" style={{ padding: "12px 16px", borderLeft: "3px solid #dc2626" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, fontWeight: 800, color: "#b91c1c", fontSize: 14 }}>
+            <span>⚠ Mortgage P&amp;I not posted</span><Badge>{debtMissingRows.length}</Badge>
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+            {debtMissingRows.map((r) => (
+              <span key={r.key} title={`${r.name} — scheduled ${money0(r.scheduledDebt)}`}>
+                <Pill tone={TONE_RED}>{r.propertyCode} · {money0(r.scheduledDebt)}</Pill>
+              </span>
+            ))}
+          </div>
+          <div className="muted small" style={{ margin: 0 }}>
+            Scheduled debt service for {ytd ? "the year" : MONTHS[period - 1]} hasn&apos;t hit the GL — the charge may not be entered yet, or the GL needs re-uploading.
+          </div>
         </div>
       )}
 
