@@ -19,6 +19,11 @@ export type AssembleInput = {
    *  Balance opens. Set by assembleGls; lets cash math know a partial-year
    *  import (e.g. Mar–May) has no valid opening for months before it. */
   coverageStartMonth?: number;
+  /** Last month (1–12) the report RANGE covers (the GL's "To" date), regardless
+   *  of whether the latest months had activity. Set by assembleGls. The cash
+   *  sheet uses this as "posted through"; reprojections use maxPeriodInFile (the
+   *  last contiguous active month). */
+  coverageEnd?: number;
 };
 
 /** A GL upload plus its per-account transactions (each carrying a reporting
@@ -114,5 +119,5 @@ export function assembleGls<T extends AssembleInput>(gls: T[]): T | null {
   const coverageStartMonth = beginningStart === Infinity ? (firstActive || 1) : beginningStart;
 
   const base = ordered[ordered.length - 1]; // newest, for id/key/fileName/etc.
-  return { ...base, monthly, beginning, ytdTotal, names, maxPeriodInFile, uploadedAt, coverageStartMonth };
+  return { ...base, monthly, beginning, ytdTotal, names, maxPeriodInFile, uploadedAt, coverageStartMonth, coverageEnd: maxRangeEnd };
 }

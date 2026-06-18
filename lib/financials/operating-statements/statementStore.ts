@@ -42,6 +42,8 @@ export type StoredGl = {
    *  (assembleGls), so cash math knows a partial-year import has no opening
    *  before this month. Absent on a single raw upload. */
   coverageStartMonth?: number;
+  /** Last month of the report range ("posted through"); set by assembleGls. */
+  coverageEnd?: number;
 };
 
 export async function saveGl(rec: StoredGl): Promise<void> {
