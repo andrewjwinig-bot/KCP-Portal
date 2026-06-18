@@ -64,6 +64,11 @@ const groupSubCell: React.CSSProperties = {
   background: "rgba(15,23,42,0.04)", padding: "10px 12px", borderTop: "2px solid var(--border)",
 };
 const GROUP_ORDER = ["Business Parks", "Shopping Centers", "LIK Management", "Korman Homes", "Eastwick Joint Venture", "Land & Other", "Other"];
+// Explicit within-group row order (by displayed property code). Codes listed
+// here lead in this order; anything else in the group trails alphabetically.
+const ROW_ORDER: Record<string, string[]> = {
+  "Business Parks": ["FJVIII", "FIIICO", "FNIPLX", "4000", "LK-TRUST", "4900"],
+};
 
 // Bank-account chips (from Property Info) — click to open the bank login for the
 // account behind each row, matching the Cash Sheet.
@@ -204,7 +209,16 @@ export default function CashSheetPage() {
   const grouped = useMemo(() => {
     const by: Record<string, Row[]> = {};
     for (const r of data?.rows ?? []) (by[r.group] = by[r.group] || []).push(r);
-    for (const g of Object.values(by)) g.sort((a, b) => a.propertyCode.localeCompare(b.propertyCode));
+    for (const [g, rs] of Object.entries(by)) {
+      const order = ROW_ORDER[g];
+      rs.sort((a, b) => {
+        if (order) {
+          const ia = order.indexOf(a.propertyCode), ib = order.indexOf(b.propertyCode);
+          if (ia !== -1 || ib !== -1) return (ia === -1 ? Infinity : ia) - (ib === -1 ? Infinity : ib);
+        }
+        return a.propertyCode.localeCompare(b.propertyCode);
+      });
+    }
     return GROUP_ORDER.filter((g) => by[g]?.length).map((g) => ({ group: g, rows: by[g] }));
   }, [data]);
 
