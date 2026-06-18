@@ -436,41 +436,41 @@ export default function DepositForm({
 
       {/* Refund status */}
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        <label style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
-          <input
-            type="checkbox"
-            checked={refunded}
-            onChange={(e) => setRefunded(e.target.checked)}
-            style={{ width: 16, height: 16, cursor: "pointer" }}
-          />
-          <span style={{ fontSize: 13, fontWeight: 700 }}>Refunded to tenant</span>
-        </label>
+        <div style={{ display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap" }}>
+          <label style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+            <input
+              type="checkbox"
+              checked={refunded}
+              onChange={(e) => setRefunded(e.target.checked)}
+              style={{ width: 16, height: 16, cursor: "pointer" }}
+            />
+            <span style={{ fontSize: 13, fontWeight: 700 }}>Refunded to tenant</span>
+          </label>
+          <label style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+            <input
+              type="checkbox"
+              checked={tenantDefaulted}
+              onChange={(e) => setTenantDefaulted(e.target.checked)}
+              style={{ width: 16, height: 16, cursor: "pointer" }}
+            />
+            <span style={{ fontSize: 13, fontWeight: 700 }}>Tenant Defaulted</span>
+          </label>
+          <label style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+            <input
+              type="checkbox"
+              checked={partialRefund}
+              onChange={(e) => setPartialRefund(e.target.checked)}
+              style={{ width: 16, height: 16, cursor: "pointer" }}
+            />
+            <span style={{ fontSize: 13, fontWeight: 700 }}>Partial Refund</span>
+          </label>
+        </div>
         {refunded && (
           <div style={{ display: "flex", flexDirection: "column", gap: 4, maxWidth: 260 }}>
             <span style={labelStyle}>Refund Date</span>
             <Calendar value={refundDate} onChange={setRefundDate} variant="card" />
           </div>
         )}
-
-        <label style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
-          <input
-            type="checkbox"
-            checked={tenantDefaulted}
-            onChange={(e) => setTenantDefaulted(e.target.checked)}
-            style={{ width: 16, height: 16, cursor: "pointer" }}
-          />
-          <span style={{ fontSize: 13, fontWeight: 700 }}>Tenant Defaulted</span>
-        </label>
-
-        <label style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
-          <input
-            type="checkbox"
-            checked={partialRefund}
-            onChange={(e) => setPartialRefund(e.target.checked)}
-            style={{ width: 16, height: 16, cursor: "pointer" }}
-          />
-          <span style={{ fontSize: 13, fontWeight: 700 }}>Partial Refund</span>
-        </label>
         {partialRefund && (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             <div style={{ display: "flex", flexDirection: "column", gap: 4, maxWidth: 200 }}>
