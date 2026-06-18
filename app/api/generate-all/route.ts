@@ -74,12 +74,11 @@ export async function POST(req: Request) {
           to: ALLOC_REPORT_TO,
           cc: ALLOC_REPORT_CC,
           from: ALLOC_REPORT_CC, // verified sender (also used by the commissions batch)
-          subject: `Payroll Property Allocation — ${payDate}`,
+          subject: `Payroll Processed — ${payDate}`,
           textBody:
-            `Attached for the ${payDate} payroll:\n` +
-            `  • Property allocation report (per-property totals only)\n` +
-            `  • GL Journal Entry import file\n\n` +
-            `Sent automatically when the payroll invoices were processed. Neither attachment includes any per-employee allocation detail.`,
+            `Marie,\n\n` +
+            `Attached are the GL Skyline import file and the corresponding property allocation report for the ${payDate} payroll.\n\n` +
+            `Sent automatically when the payroll invoices were processed.`,
           attachments: [
             {
               name: `${datePrefix} Payroll Property Allocation.xlsx`,
