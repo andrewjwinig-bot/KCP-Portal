@@ -370,7 +370,7 @@ code {
 }
 
 /* Cash Sheet editable cells — look like plain text, reveal a field on hover/focus. */
-.cs-edit { cursor: text; }
+.cs-edit { cursor: text; font: inherit; font-variant-numeric: tabular-nums; }
 .cs-edit::placeholder { color: var(--muted); }
 .cs-edit:hover { border-color: var(--border) !important; }
 .cs-edit:focus { border-color: #0b4a7d !important; background: var(--card) !important; outline: none; }
