@@ -27,7 +27,7 @@ type Row = {
   isFund?: boolean; manual?: boolean; readOnly?: boolean; bankCodes?: string[]; bankLast4?: string; excludeLast4?: string[]; breakdown?: Breakdown[];
   billsMTD?: number; weeklyBills?: { wednesday: string; amount: number }[];
   reserves?: number; reservesAuto?: number; reservesOverridden?: boolean;
-  interest?: { opening: number; rate: number; amount: number };
+  interest?: { opening: number; rate: number; amount: number; fee: number };
 };
 type Payload = { year: number; period: number; ytd: boolean; buckets: Bucket[]; rows: Row[]; canEdit: boolean; canEditOpening: boolean; ym: string; estimateAsOf: string | null; gapMonthLabels: string[]; lastImport: { at: string; by: string | null } | null; generatedAt: string };
 
@@ -95,7 +95,7 @@ export default function CashSheetPage() {
   // Weekly AvidXchange bills drill-down (per-Wednesday detail behind a row's Avid Bills).
   const [billsModal, setBillsModal] = useState<{ name: string; weekly: { wednesday: string; amount: number }[]; total: number } | null>(null);
   // Interest-bearing accounts: clicking Receipts shows the rate calc, not a GL drill.
-  const [interestModal, setInterestModal] = useState<{ name: string; opening: number; rate: number; amount: number } | null>(null);
+  const [interestModal, setInterestModal] = useState<{ name: string; opening: number; rate: number; amount: number; fee: number } | null>(null);
   // Weekly AvidXchange bills — the bridge that keeps the monthly GL position
   // current between postings. Uploaded here, consumed by "Est. Cash Today".
   const apRef = useRef<HTMLInputElement | null>(null);
@@ -379,7 +379,7 @@ export default function CashSheetPage() {
                         return (
                           <td key={b.code} style={{ ...numCell, color: v < 0 ? "#b91c1c" : "#15803d" }}>
                             <button type="button"
-                              onClick={() => isInterest ? setInterestModal({ name: r.name, opening: r.interest!.opening, rate: r.interest!.rate, amount: r.interest!.amount }) : openDrill(r, b.code, b.label)}
+                              onClick={() => isInterest ? setInterestModal({ name: r.name, opening: r.interest!.opening, rate: r.interest!.rate, amount: r.interest!.amount, fee: r.interest!.fee }) : openDrill(r, b.code, b.label)}
                               title={isInterest ? "Show the interest calculation" : "Show the GL accounts behind this"}
                               style={{ background: "none", border: "none", padding: 0, font: "inherit", color: "inherit", cursor: "pointer", textDecoration: "none" }}
                               onMouseEnter={(e) => (e.currentTarget.style.textDecoration = "underline")}
@@ -478,15 +478,24 @@ export default function CashSheetPage() {
                   <tr><td style={{ textAlign: "left" }}>Opening balance</td><td style={numCell}>{money0(interestModal.opening)}</td></tr>
                   <tr><td style={{ textAlign: "left" }}>Annual rate</td><td style={numCell}>{(interestModal.rate * 100).toFixed(2)}%</td></tr>
                   <tr><td style={{ textAlign: "left" }}>Monthly factor</td><td style={numCell}>÷ 12 = {(interestModal.rate / 12 * 100).toFixed(4)}%</td></tr>
-                  <tr style={{ borderTop: "1px solid var(--border)", fontWeight: 800 }}>
+                  <tr style={interestModal.fee ? undefined : { borderTop: "1px solid var(--border)", fontWeight: 800 }}>
                     <td style={{ textAlign: "left" }}>Interest this month</td>
-                    <td style={{ ...numCell, color: "#15803d" }}>{money0(interestModal.amount)}</td>
+                    <td style={{ ...numCell, color: "#15803d", fontWeight: interestModal.fee ? 400 : 800 }}>{money0(interestModal.amount)}</td>
                   </tr>
+                  {!!interestModal.fee && (
+                    <>
+                      <tr><td style={{ textAlign: "left" }}>Less: Paper Statement Charge</td><td style={{ ...numCell, color: "#b91c1c" }}>{money0(-interestModal.fee)}</td></tr>
+                      <tr style={{ borderTop: "1px solid var(--border)", fontWeight: 800 }}>
+                        <td style={{ textAlign: "left" }}>Net to account</td>
+                        <td style={{ ...numCell, color: "#15803d" }}>{money0(interestModal.amount - interestModal.fee)}</td>
+                      </tr>
+                    </>
+                  )}
                 </tbody>
               </table>
             </div>
             <div className="muted small" style={{ marginTop: 10 }}>
-              {money0(interestModal.opening)} × {(interestModal.rate * 100).toFixed(2)}% ÷ 12 = <b>{money0(interestModal.amount)}</b>, booked as Receipts From Operations.
+              {money0(interestModal.opening)} × {(interestModal.rate * 100).toFixed(2)}% ÷ 12 = <b>{money0(interestModal.amount)}</b> interest{interestModal.fee ? <>, less the {money0(interestModal.fee)} statement charge</> : null} — booked as Receipts From Operations{interestModal.fee ? " / Operating Expenses" : ""}.
             </div>
           </div>
         </div>

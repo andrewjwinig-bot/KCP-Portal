@@ -62,20 +62,24 @@ type InterestAccount = {
   bankCodes: string[]; bankLast4?: string;
   anchor: { year: number; month: number; balance: number };
   rate: number; // annual nominal rate (e.g. 0.0315)
+  monthlyFee?: number; // recurring monthly bank charge backed out of the interest
 };
 const INTEREST_ACCOUNTS: InterestAccount[] = [
-  { code: "LK-TRUST", name: "Leonard Korman Trust", group: "Business Parks", bankCodes: ["LK-TRUST"], anchor: { year: 2026, month: 6, balance: 1_845_989.33 }, rate: 0.0315 },
+  { code: "LK-TRUST", name: "Leonard Korman Trust", group: "Business Parks", bankCodes: ["LK-TRUST"], anchor: { year: 2026, month: 6, balance: 1_845_989.33 }, rate: 0.0315, monthlyFee: 2 },
 ];
 const INTEREST_CODES = new Set(INTEREST_ACCOUNTS.map((a) => a.code.toUpperCase()));
-/** Opening, the month's interest (opening × rate ÷ 12), and ending — whole
- *  dollars so the row ties out and the modal calc reads cleanly. */
-function interestMonth(acct: InterestAccount, year: number, period: number): { opening: number; interest: number; ending: number } {
-  const monthsToStart = (year * 12 + period) - (acct.anchor.year * 12 + acct.anchor.month);
+/** Opening, the month's gross interest (opening × rate ÷ 12), any recurring fee,
+ *  and ending — whole dollars, compounded from the anchor net of the fee. */
+function interestMonth(acct: InterestAccount, year: number, period: number): { opening: number; interest: number; fee: number; ending: number } {
   const mr = acct.rate / 12;
-  const openingRaw = monthsToStart <= 0 ? acct.anchor.balance : acct.anchor.balance * Math.pow(1 + mr, monthsToStart);
+  const fee = acct.monthlyFee ?? 0;
+  const target = year * 12 + period;
+  const start = acct.anchor.year * 12 + acct.anchor.month;
+  let openingRaw = acct.anchor.balance;
+  for (let m = start; m < target; m++) openingRaw = openingRaw + openingRaw * mr - fee; // compound net of fee
   const opening = Math.round(openingRaw);
   const interest = Math.round(opening * mr);
-  return { opening, interest, ending: opening + interest };
+  return { opening, interest, fee, ending: opening + interest - fee };
 }
 
 type Estimate = { months: number; revenue: number; bills: number; mortgage: number; estimatedCash: number | null; latestEnding: number | null };
@@ -108,7 +112,7 @@ type Row = {
    *  not hand-editable. */
   readOnly?: boolean;
   /** For interest-bearing accounts: the month's interest calc, for the modal. */
-  interest?: { opening: number; rate: number; amount: number };
+  interest?: { opening: number; rate: number; amount: number; fee: number };
   breakdown?: { key: string; name: string; startingCash: number | null; netChange: number; endingCash: number | null; byBucket: Record<CashFlowCode, number> }[];
 };
 
@@ -300,15 +304,16 @@ export async function GET(req: Request) {
     present.add(uc);
     const t = interestMonth(acct, year, period);
     const b = emptyBuckets();
-    b[1] = t.interest;
+    b[1] = t.interest;            // gross interest → Receipts From Operations
+    if (t.fee) b[2] = -t.fee;     // recurring bank charge → Operating Expenses
     rows.push({
       key: acct.code, propertyCode: acct.code, name: acct.name,
-      group: acct.group, period, maxPeriod: period, byBucket: b, netChange: t.interest,
+      group: acct.group, period, maxPeriod: period, byBucket: b, netChange: t.interest - t.fee,
       glOpening: t.opening, startingCash: t.opening, openingOverridden: false, endingCash: t.ending,
       scheduledDebt: 0, debtExpected: false, debtPosted: false, debtMissing: false,
       latestGLMonth: period, estimate: null,
       readOnly: true, bankCodes: acct.bankCodes, bankLast4: acct.bankLast4,
-      interest: { opening: t.opening, rate: acct.rate, amount: t.interest },
+      interest: { opening: t.opening, rate: acct.rate, amount: t.interest, fee: t.fee },
     });
   }
 
