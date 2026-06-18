@@ -46,6 +46,14 @@ export type SecurityDeposit = {
   refunded: boolean;
   /** ISO YYYY-MM-DD the refund was issued. Empty when not refunded. */
   refundDate: string;
+  /** Tenant defaulted — the deposit was forfeited / applied rather than returned. */
+  tenantDefaulted: boolean;
+  /** Only part of the deposit was refunded (the rest applied to damages/charges). */
+  partialRefund: boolean;
+  /** Dollar amount actually refunded to the tenant on a partial refund. */
+  partialRefundAmount: number;
+  /** Note describing how the withheld portion was applied. */
+  partialRefundNote: string;
   createdAt: string;
   updatedAt: string;
 };
@@ -99,6 +107,10 @@ export function sanitizeDeposit(body: unknown, existing?: SecurityDeposit): Secu
     refunded,
     // A refund date is only meaningful when the deposit is refunded.
     refundDate: refunded ? asISODate(b.refundDate) : "",
+    tenantDefaulted: !!b.tenantDefaulted,
+    partialRefund: !!b.partialRefund,
+    partialRefundAmount: b.partialRefund ? asAmount(b.partialRefundAmount) : 0,
+    partialRefundNote: b.partialRefund ? asText(b.partialRefundNote, 500) : "",
     createdAt: existing?.createdAt ?? now,
     updatedAt: now,
   };
