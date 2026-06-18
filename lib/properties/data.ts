@@ -221,6 +221,9 @@ export const BANK_ACCOUNTS: Record<string, BankAccount[]> = {
     { bank: "Liberty", label: "Operating",               last4: "x0598", link: "https://secure.myvirtualbranch.com/LibertyBank/React/Accounts.aspx?p_r=1#Accounts/6" },
     { bank: "Liberty", label: "Money Market",            last4: "x8086", link: "https://secure.myvirtualbranch.com/LibertyBank/React/Accounts.aspx?p_r=1#Accounts/7" },
   ],
+  "LK-TRUST": [
+    { bank: "Liberty", label: "Leonard Korman Trust",    last4: "x9245", link: "https://secure.myvirtualbranch.com/LibertyBank/React/Accounts.aspx?p_r=1#AccountSummary" },
+  ],
 };
 
 // ─── ALLOCATED INVOICER PERCENTAGES ──────────────────────────────────────────
