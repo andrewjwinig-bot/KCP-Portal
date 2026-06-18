@@ -60,12 +60,19 @@ const emptyBuckets = (): Record<CashFlowCode, number> => ({ 1: 0, 2: 0, 3: 0, 4:
 type InterestAccount = {
   code: string; name: string; group: string;
   bankCodes: string[]; bankLast4?: string;
+  /** Parent operating property this account sits beneath (its row sorts next to
+   *  it, and the account is dropped from the parent's bank chips). Defaults to
+   *  the account's own code (a standalone row, like the Trust). */
+  parent?: string;
   anchor: { year: number; month: number; balance: number };
   rate: number; // annual nominal rate (e.g. 0.0315)
   monthlyFee?: number; // recurring monthly bank charge backed out of the interest
 };
 const INTEREST_ACCOUNTS: InterestAccount[] = [
   { code: "LK-TRUST", name: "Leonard Korman Trust", group: "Business Parks", bankCodes: ["LK-TRUST"], anchor: { year: 2026, month: 6, balance: 1_845_989.33 }, rate: 0.0315, monthlyFee: 2 },
+  // Property money-market accounts — sit beneath their operating row.
+  { code: "2300-MM", name: "Brookwood Money Market", group: "Shopping Centers", parent: "2300", bankCodes: ["2300"], bankLast4: "x6888", anchor: { year: 2026, month: 5, balance: 1_245_207.10 }, rate: 0.0315 },
+  { code: "4500-MM", name: "Gray's Ferry Money Market", group: "Shopping Centers", parent: "4500", bankCodes: ["4500"], bankLast4: "x8086", anchor: { year: 2026, month: 6, balance: 839_877.68 }, rate: 0.03 },
 ];
 const INTEREST_CODES = new Set(INTEREST_ACCOUNTS.map((a) => a.code.toUpperCase()));
 /** Opening, the month's gross interest (opening × rate ÷ 12), any recurring fee,
@@ -320,7 +327,7 @@ export async function GET(req: Request) {
     b[1] = t.interest;            // gross interest → Receipts From Operations
     if (t.fee) b[2] = -t.fee;     // recurring bank charge → Operating Expenses
     rows.push({
-      key: acct.code, propertyCode: acct.code, name: acct.name,
+      key: acct.code, propertyCode: acct.parent ?? acct.code, name: acct.name,
       group: acct.group, period, maxPeriod: period, byBucket: b, netChange: t.interest - t.fee,
       glOpening: t.opening, startingCash: t.opening, openingOverridden: false, endingCash: t.ending,
       scheduledDebt: 0, debtExpected: false, debtPosted: false, debtMissing: false,
@@ -328,6 +335,11 @@ export async function GET(req: Request) {
       readOnly: true, bankCodes: acct.bankCodes, bankLast4: acct.bankLast4,
       interest: { opening: t.opening, rate: acct.rate, amount: t.interest, fee: t.fee },
     });
+    // Drop this account from the parent operating row's chips so it shows once.
+    if (acct.parent && acct.bankLast4) {
+      const parent = rows.find((r) => r.key === acct.parent);
+      if (parent) parent.excludeLast4 = [...(parent.excludeLast4 ?? []), acct.bankLast4];
+    }
   }
 
   // Safety net: guarantee EVERY bank account in Property Info is shown. Anything
