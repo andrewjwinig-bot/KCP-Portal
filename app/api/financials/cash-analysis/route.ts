@@ -10,6 +10,7 @@ import { getMonth } from "@/lib/financials/cash-sheet/store";
 import { totalBills, monthKey, cashSheetGroups, wednesdaysInMonth } from "@/lib/financials/cash-sheet/util";
 import { computeCashFlow, CASH_FLOW_BUCKETS, type CashFlowCode } from "@/lib/financials/cash-analysis/compute";
 import { PROPERTY_DEFS, BANK_ACCOUNTS } from "@/lib/properties/data";
+import { FUND_BUILDINGS } from "@/lib/financials/cash-analysis/funds";
 import { SITE_COOKIE, verifySiteToken } from "@/lib/site-auth";
 import { ALL_USERS, canEditCashSheet, type UserId } from "@/lib/users";
 import { cookies } from "next/headers";
@@ -42,10 +43,9 @@ addGroup("Land & Other", ["0800", "0200", "0300", "0900", "4210", "4410", "2070"
 // a per-building breakdown in a modal. Codes also carry the funds' rent-roll
 // revenue on the buildings.
 const FUND_GROUPS = [
-  { fundKey: "PJV3", name: "JV III", propertyCode: "PJV3", buildings: ["3610", "3620", "3640"] },
-  { fundKey: "PNIPLX", name: "NI LLC", propertyCode: "PNIPLX", buildings: ["4050", "4060", "4070", "4080", "40A0", "40B0", "40C0"] },
+  { fundKey: "PJV3", name: "JV III", propertyCode: "PJV3", buildings: FUND_BUILDINGS.PJV3 },
+  { fundKey: "PNIPLX", name: "NI LLC", propertyCode: "PNIPLX", buildings: FUND_BUILDINGS.PNIPLX },
 ];
-const FUND_BUILDINGS: Record<string, string[]> = Object.fromEntries(FUND_GROUPS.map((g) => [g.fundKey, g.buildings]));
 
 function nameFor(key: string, fallback: string): string {
   return PROPERTY_DEFS.find((p) => p.id === key)?.name ?? fallback;
