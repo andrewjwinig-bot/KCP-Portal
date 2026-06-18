@@ -231,11 +231,14 @@ export async function GET(req: Request) {
   // Non-fund rows: pass through with their own override.
   for (const r of raw) if (!fundMemberKeys.has(r.key)) rows.push(withOverride(r, r.key));
 
-  // Fund rows: one line per bank account (consolidated GL if present, else sum of buildings).
+  // Fund rows: one line per fund bank account. Combine the cash-sweep shell
+  // (FNIPLX/FJVIII — holds the consolidated swept cash + inter-entity) with the
+  // member buildings (which hold the operating P&L + debt). Inter-entity nets
+  // out across the two, so the sum is the true consolidated picture.
   for (const g of FUND_GROUPS) {
     const consolidated = byKey.get(g.fundKey);
     const buildingRows = g.buildings.map((b) => byKey.get(b)).filter((r): r is Row => !!r);
-    const basis = consolidated ? [consolidated] : buildingRows;
+    const basis = [consolidated, ...buildingRows].filter((r): r is Row => !!r);
     if (basis.length === 0) continue;
     const byBucket = emptyBuckets();
     for (const c of CASH_FLOW_BUCKETS) byBucket[c.code] = basis.reduce((s, r) => s + (r.byBucket[c.code] ?? 0), 0);
@@ -246,7 +249,7 @@ export async function GET(req: Request) {
     const opening = ov != null ? ov : glOpening;
     const scheduled = scheduledDebt[g.fundKey.toUpperCase()] ?? 0;
     const maxPeriod = Math.max(...basis.map((r) => r.maxPeriod));
-    const breakdown = (consolidated ? buildingRows : buildingRows).map((r) => ({
+    const breakdown = basis.map((r) => ({
       key: r.key, name: r.name, startingCash: r.glOpening, netChange: r.netChange, endingCash: r.endingCash, byBucket: r.byBucket,
     }));
     rows.push({
