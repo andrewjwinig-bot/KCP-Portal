@@ -310,10 +310,12 @@ export default function OperatingStatementsPage() {
         const wantKey = params.get("key");
         const wantProp = params.get("property");
         const wantYear = params.get("year");
+        const wantPeriod = params.get("period");
         const match = wantKey ? list.find((a) => a.key === wantKey) : wantProp ? list.find((a) => a.propertyCode === wantProp) : null;
         if (match) {
           setKey(match.key);
           setYear(wantYear ? Number(wantYear) : match.years[0] ?? new Date().getFullYear());
+          if (wantPeriod) { const p = Number(wantPeriod); if (p >= 1 && p <= 12) setPeriod(p); }
           return;
         }
         const withData = list.find((a) => a.years.length);
