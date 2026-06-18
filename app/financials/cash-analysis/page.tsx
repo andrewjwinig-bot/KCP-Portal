@@ -584,17 +584,17 @@ export default function CashSheetPage() {
       {breakdown && (
         <div onClick={() => setBreakdown(null)}
           style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.55)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "48px 16px 32px", zIndex: 100, overflow: "auto" }}>
-          <div onClick={(e) => e.stopPropagation()} className="card" style={{ maxWidth: 760, width: "100%", boxShadow: "0 24px 60px rgba(15,23,42,0.32)" }}>
+          <div onClick={(e) => e.stopPropagation()} className="card" style={{ maxWidth: "min(1200px, 96vw)", width: "100%", boxShadow: "0 24px 60px rgba(15,23,42,0.32)" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 4 }}>
               <div style={{ fontSize: 16, fontWeight: 800 }}>{breakdown.name} — buildings</div>
               <button className="btn" onClick={() => setBreakdown(null)} style={{ padding: "6px 14px" }}>Close</button>
             </div>
             <div className="muted small" style={{ marginBottom: 12 }}>One bank account; the buildings below roll up into the fund line. {ytd ? "YTD through" : ""} {MONTHS[period - 1]} {year}.</div>
             <div className="tableWrap" style={{ overflowX: "auto" }}>
-              <table style={{ minWidth: 720 }}>
+              <table style={{ minWidth: 1040, width: "100%" }}>
                 <thead>
                   <tr>
-                    <th style={{ textAlign: "left" }}>Building</th>
+                    <th style={{ textAlign: "left", whiteSpace: "nowrap", minWidth: 200 }}>Building</th>
                     <th style={numCell}>Opening</th>
                     {visibleBuckets.map((b) => <th key={b.code} style={headWrap}>{b.label}</th>)}
                     <th style={headWrap}>Net</th>
@@ -604,7 +604,7 @@ export default function CashSheetPage() {
                 <tbody>
                   {breakdown.rows.map((br) => (
                     <tr key={br.key}>
-                      <td style={{ textAlign: "left" }}><code style={{ fontSize: 12 }}>{br.key}</code> {br.name}</td>
+                      <td style={{ textAlign: "left", whiteSpace: "nowrap" }}><code style={{ fontSize: 12 }}>{br.key}</code> {br.name}</td>
                       <td style={numCell}>{money0(br.startingCash)}</td>
                       {visibleBuckets.map((b) => <td key={b.code} style={{ ...numCell, color: (br.byBucket[b.code] ?? 0) < 0 ? "#b91c1c" : (br.byBucket[b.code] ?? 0) > 0 ? "#15803d" : "var(--muted)" }}>{br.byBucket[b.code] ? money0(br.byBucket[b.code]) : "—"}</td>)}
                       <td style={{ ...numCell, fontWeight: 700 }}>{money0(br.netChange)}</td>
