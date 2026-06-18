@@ -102,7 +102,6 @@ export default function CashSheetPage() {
   // Weekly AvidXchange bills — the bridge that keeps the monthly GL position
   // current between postings. Uploaded here, consumed by "Est. Cash Today".
   const apRef = useRef<HTMLInputElement | null>(null);
-  const didDefaultPeriod = useRef(false); // center on the latest posted month once on first load
   const [apUploading, setApUploading] = useState(false);
   const [apSummary, setApSummary] = useState<{ wednesday: string; total: number; count: number } | null>(null);
 
@@ -121,16 +120,7 @@ export default function CashSheetPage() {
     setLoading(true);
     fetch(`/api/financials/cash-analysis?year=${year}&period=${period}&ytd=${ytd ? 1 : 0}`)
       .then((r) => r.json())
-      .then((j: Payload & { error?: string }) => {
-        if (j.error) { setError(j.error); return; }
-        // On first load, center the snapshot on the latest posted month (you post
-        // a month after it closes, so "current" data is the prior month).
-        if (!didDefaultPeriod.current) {
-          didDefaultPeriod.current = true;
-          if (!ytd && j.latestPostedPeriod && j.latestPostedPeriod !== period) { setPeriod(j.latestPostedPeriod); return; }
-        }
-        setData(j); setError(null);
-      })
+      .then((j: Payload & { error?: string }) => { if (j.error) setError(j.error); else { setData(j); setError(null); } })
       .catch((e) => setError(e?.message ?? "Failed to load"))
       .finally(() => setLoading(false));
   }, [year, period, ytd]);
@@ -201,12 +191,19 @@ export default function CashSheetPage() {
     return GROUP_ORDER.filter((g) => by[g]?.length).map((g) => ({ group: g, rows: by[g] }));
   }, [data]);
 
+  // The GL-actuals month for the snapshot = the latest month posted across the
+  // portfolio, capped at the selected report month. GLs post a month in arrears,
+  // so a June report shows MAY GL actuals (with June Avid bills bridging to now).
+  // A property is "behind" only if its GL hasn't reached this month yet.
+  const glMonth = data?.latestPostedPeriod ? Math.min(period, data.latestPostedPeriod) : period;
+  const isBehind = (r: Row) => !r.manual && !r.readOnly && !ytd && r.maxPeriod < glMonth;
+
   const grand = useMemo(() => {
     const byBucket: Record<string, number> = {};
     let inflows = 0, outflows = 0, opening = 0, ending = 0, bills = 0, reserves = 0, hasOpening = false;
     for (const r of data?.rows ?? []) {
       // Behind properties are excluded from the snapshot (their row is blanked).
-      if (!r.manual && !r.readOnly && !ytd && period > r.maxPeriod) continue;
+      if (!r.manual && !r.readOnly && !ytd && r.maxPeriod < glMonth) continue;
       for (const b of buckets) {
         const v = r.byBucket[b.code] ?? 0;
         byBucket[b.code] = (byBucket[b.code] ?? 0) + v;
@@ -222,9 +219,9 @@ export default function CashSheetPage() {
   const debtMissingRows = (data?.rows ?? []).filter((r) => r.debtMissing);
   // Properties still posted through an earlier month than the snapshot month —
   // their GL needs importing so the whole sheet is one point in time.
-  const laggingRows = (data?.rows ?? []).filter((r) => !r.manual && !r.readOnly && !ytd && period > r.maxPeriod);
+  const laggingRows = (data?.rows ?? []).filter(isBehind);
   const laggingKeys = new Set(laggingRows.map((r) => r.key));
-  const dates = periodDates(year, period, ytd);
+  const glDates = periodDates(year, glMonth, ytd); // GL-actuals month (e.g. May) for the Opening/Ending headers
   const showEst = !!data?.estimateAsOf;
   const showBills = (data?.rows ?? []).some((r) => (r.billsMTD ?? 0) !== 0);
   const showReserves = !!data && (data.canEdit || (data.rows ?? []).some((r) => (r.reserves ?? 0) !== 0));
@@ -242,7 +239,8 @@ export default function CashSheetPage() {
         <div>
           <h1 style={{ marginBottom: 4 }}>Cash Sheet</h1>
           <div style={{ fontSize: 14, fontWeight: 800, color: "var(--text)", marginBottom: 4 }}>
-            Snapshot · {ytd ? "Year to date" : MONTHS[period - 1] + " " + year} <span style={{ color: "var(--muted)", fontWeight: 600 }}>({dates.range})</span>
+            Snapshot · {ytd ? "Year to date" : MONTHS[period - 1] + " " + year}
+            {!ytd && glMonth !== period && <span style={{ color: "var(--muted)", fontWeight: 600 }}> · {MONTHS[glMonth - 1]} GL actuals + {MONTHS[period - 1]} bills</span>}
           </div>
           <p className="muted small" style={{ margin: 0 }}>
             Every property and entity bank account with its cash position — monthly actuals computed from the GL (click any bucket to drill to its accounts), with <b>Est. Cash Today</b> carrying each balance forward through the weekly AvidXchange bills for the months not yet posted.
@@ -285,7 +283,7 @@ export default function CashSheetPage() {
             <span>⚠ Snapshot blends time periods</span><Badge>{laggingRows.length}</Badge>
           </div>
           <div className="muted small" style={{ marginBottom: 8 }}>
-            These aren&apos;t on the <b>{MONTHS[period - 1]} {year}</b> snapshot yet — their GL is only posted through an earlier month. Import their {MONTHS[period - 1]} {year} GL so the whole sheet is one point in time.
+            Their GL isn&apos;t posted through <b>{MONTHS[glMonth - 1]} {year}</b> yet (the latest month the rest of the portfolio is on). Import their {MONTHS[glMonth - 1]} {year} GL so the whole sheet is one point in time.
           </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
             {laggingRows.map((r) => (
@@ -316,10 +314,10 @@ export default function CashSheetPage() {
       )}
 
       <div className="pills" style={{ justifyContent: "flex-start" }}>
-        <StatPill label={`Opening Cash · ${dates.openShort}`} value={grand.hasOpening ? money0(grand.opening) : "—"} />
+        <StatPill label={`Opening Cash · ${glDates.openShort}`} value={grand.hasOpening ? money0(grand.opening) : "—"} />
         <StatPill label="Total Cash Inflows" value={money0(grand.inflows)} accent="#15803d" />
         <StatPill label="Total Cash Outflows" value={money0(grand.outflows)} accent="#b91c1c" />
-        <StatPill label={`Ending Cash · ${dates.endShort}`} value={grand.hasOpening ? money0(grand.ending) : "—"} accent="#0b4a7d" />
+        <StatPill label={`Ending Cash · ${glDates.endShort}`} value={grand.hasOpening ? money0(grand.ending) : "—"} accent="#0b4a7d" />
         <StatPill label="Est. Available Cash" value={money0(estAvailTotal)} accent="#15803d" />
       </div>
 
@@ -330,10 +328,10 @@ export default function CashSheetPage() {
               <tr>
                 <th style={{ textAlign: "left", width: 56, color: "var(--muted)", fontSize: 11 }} title="Month the figures are as of (GL posted through), or Manual for hand-entered balances">As Of</th>
                 <th style={{ textAlign: "left", minWidth: 260 }}>Entity</th>
-                <th style={keyCol}>Opening Cash<div style={{ fontWeight: 700, fontSize: 13, color: "var(--text)", textTransform: "none" }}>{dates.openShort}</div></th>
+                <th style={keyCol}>Opening Cash<div style={{ fontWeight: 700, fontSize: 13, color: "var(--text)", textTransform: "none" }}>{glDates.openShort}</div></th>
                 {visibleBuckets.map((b) => <th key={b.code} style={headWrap}>{b.label}</th>)}
-                <th style={keyCol}>Ending Cash<div style={{ fontWeight: 700, fontSize: 13, color: "var(--text)", textTransform: "none" }}>{dates.endShort}</div></th>
-                {showBills && <th style={headWrap} title="AvidXchange bills paid this month — click a row for the weekly detail">Avid Bills</th>}
+                <th style={keyCol}>Ending Cash<div style={{ fontWeight: 700, fontSize: 13, color: "var(--text)", textTransform: "none" }}>{glDates.endShort}</div></th>
+                {showBills && <th style={headWrap} title={`AvidXchange bills paid in ${MONTHS[period - 1]} — click a row for the weekly detail`}>Avid Bills<div style={{ fontWeight: 700, fontSize: 13, color: "var(--text)", textTransform: "none" }}>{MONTHS[period - 1]}</div></th>}
                 {showReserves && <th style={headWrap} title="Budgeted Big Projects reserve set aside (from the budget; type to override)">Reserves</th>}
                 {showEst && <th style={{ ...keyCol, background: "rgba(21,128,61,0.08)" }}>Est. Available Cash<div style={{ fontWeight: 600, fontSize: 10, color: "var(--muted)", textTransform: "none" }}>{data?.estimateAsOf} · net of reserves</div></th>}
               </tr>
@@ -356,7 +354,7 @@ export default function CashSheetPage() {
                         <BankLinks accounts={(r.bankCodes ? bankAccountsForCodes(r.bankCodes) : bankAccountsForCodes([r.propertyCode, r.key])).filter((a) => (!r.bankLast4 || a.last4 === r.bankLast4) && !r.excludeLast4?.includes(a.last4))} />
                       </td>
                       <td colSpan={colCount - 2} className="muted small" style={{ fontStyle: "italic", color: "#b45309" }}>
-                        Import the {MONTHS[period - 1]} {year} GL to include this property in the snapshot.
+                        Import the {MONTHS[glMonth - 1]} {year} GL to include this property in the snapshot.
                       </td>
                     </tr>
                   ) : (
