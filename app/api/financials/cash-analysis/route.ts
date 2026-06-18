@@ -5,6 +5,7 @@ import { assembleGls } from "@/lib/financials/operating-statements/glAssemble";
 import { cashAtStartOfMonth } from "@/lib/financials/operating-statements/cash";
 import { mortgagePaymentsFor } from "@/lib/financials/cash-sheet/mortgage";
 import { anticipatedRevenueFor } from "@/lib/financials/cash-sheet/revenue";
+import { bigProjectsReserveFor } from "@/lib/financials/cash-sheet/reserves";
 import { getMonth } from "@/lib/financials/cash-sheet/store";
 import { totalBills, monthKey, cashSheetGroups, wednesdaysInMonth } from "@/lib/financials/cash-sheet/util";
 import { computeCashFlow, CASH_FLOW_BUCKETS, type CashFlowCode } from "@/lib/financials/cash-analysis/compute";
@@ -82,6 +83,10 @@ type Row = {
    *  per-Wednesday breakdown, for the weekly drill-down. */
   billsMTD?: number;
   weeklyBills?: { wednesday: string; amount: number }[];
+  /** Budgeted Big Projects reserve set aside (auto from budget, override-able). */
+  reserves?: number;
+  reservesAuto?: number;
+  reservesOverridden?: boolean;
   /** A non-GL account (clearing, money market, security deposits, land, condo,
    *  trust) — flat balance from the Cash Sheet store, no bucket detail. */
   manual?: boolean;
@@ -111,11 +116,12 @@ export async function GET(req: Request) {
   const user = await currentUser();
   const canEdit = !!user && canEditCashSheet(user); // admin/Drew edit; others view-only
 
-  const [mappings, fulls, scheduledDebt, overrideDoc] = await Promise.all([
+  const [mappings, fulls, scheduledDebt, overrideDoc, reserveData] = await Promise.all([
     availableStatements(),
     listFullGls(),
     mortgagePaymentsFor(year, period),
-    getMonth(monthKey(year, period)), // opening-cash overrides (shared w/ Cash Sheet)
+    getMonth(monthKey(year, period)), // opening-cash + reserves overrides (shared w/ Cash Sheet)
+    bigProjectsReserveFor(year, period), // budgeted Big Projects reserve per property
   ]);
   const overrideFor = (code: string): number | null =>
     ytd ? null : (overrideDoc?.rows?.[code]?.startingOverride ?? null);
@@ -356,6 +362,18 @@ export async function GET(req: Request) {
       latestGLMonth: opRow.latestGLMonth, estimate: null,
       bankCodes: ["2010"], bankLast4: "x7216",
     });
+  }
+
+  // Budgeted Big Projects reserve per row (override → budget auto). Funds sum
+  // their buildings' reserves; manual/non-GL accounts default to none.
+  for (const r of rows) {
+    const autoRes = r.isFund
+      ? (FUND_BUILDINGS[r.key] ?? []).reduce((s, b) => s + (reserveData.byCode[b.toUpperCase()] ?? 0), 0)
+      : (reserveData.byCode[r.key.toUpperCase()] ?? reserveData.byCode[r.propertyCode.toUpperCase()] ?? 0);
+    const ov = overrideDoc?.rows?.[r.key]?.reserves;
+    r.reservesAuto = autoRes;
+    r.reserves = ov != null ? ov : autoRes;
+    r.reservesOverridden = ov != null;
   }
 
   // Most recent GL import for this year (drives the "Last imported" line).
