@@ -249,20 +249,22 @@ export default function CashSheetPage() {
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             {data?.canEdit && (
               <>
-                <button className="btn primary" onClick={() => apRef.current?.click()} disabled={apUploading} style={{ whiteSpace: "nowrap", fontSize: 13, padding: "8px 16px", fontWeight: 700 }} title="Drop the weekly AP AutoPay Selections Reports (JV III, NI LLC, Condo, all-other) to auto-fill the week's bills">
-                  {apUploading ? "Uploading…" : "Upload AP Report"}
+                <button className="btn" onClick={() => apRef.current?.click()} disabled={apUploading} style={{ whiteSpace: "nowrap", fontSize: 13, padding: "8px 16px" }} title="Import the weekly AP Selection Report (.xls, .xlsx, or .pdf) to fill bills paid">
+                  {apUploading ? "Importing…" : "Import"}
                 </button>
                 <input ref={apRef} type="file" accept=".xls,.xlsx,.pdf" multiple style={{ display: "none" }} onChange={onApUpload} />
               </>
             )}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-            <button className="btn" onClick={() => setYear((y) => y - 1)} style={{ padding: "6px 10px", fontWeight: 900 }}>←</button>
-            <span style={{ fontWeight: 800, fontSize: 15, minWidth: 44, textAlign: "center" }}>{year}</span>
-            <button className="btn" onClick={() => setYear((y) => y + 1)} style={{ padding: "6px 10px", fontWeight: 900 }}>→</button>
-            <select value={period} onChange={(e) => setPeriod(Number(e.target.value))}
-              style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--card)", color: "var(--text)", fontWeight: 700 }}>
-              {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+            <select
+              value={`${year}-${period}`}
+              onChange={(e) => { const [y, m] = e.target.value.split("-").map(Number); setYear(y); setPeriod(m); }}
+              title="View period"
+              style={{ borderRadius: 999, padding: "8px 12px", fontSize: 13, fontWeight: 600, border: "1px solid rgba(11,74,125,0.3)", background: "var(--card)", color: "#0b4a7d", cursor: "pointer" }}>
+              {Array.from({ length: 18 }, (_, i) => { const d = new Date(now.getFullYear(), now.getMonth() - i, 1); return { y: d.getFullYear(), m: d.getMonth() + 1 }; }).map(({ y, m }) => (
+                <option key={`${y}-${m}`} value={`${y}-${m}`}>{MONTHS[m - 1]} {y}</option>
+              ))}
             </select>
             <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600 }}>
               <input type="checkbox" checked={ytd} onChange={(e) => setYtd(e.target.checked)} /> YTD
@@ -270,9 +272,12 @@ export default function CashSheetPage() {
           </div>
         </div>
         <p className="muted small" style={{ marginTop: 8 }}>
+          Import the weekly <b>AP Selection Report</b> (.xls, .xlsx, or .pdf) to fill bills paid. GLs are imported on the <Link href="/financials/operating-statements" style={{ color: "var(--brand)", fontWeight: 600 }}>Operating Statements</Link> page.
+        </p>
+        <p className="muted small" style={{ marginTop: 4 }}>
           <b>Snapshot · {ytd ? "Year to date" : MONTHS[period - 1] + " " + year}</b>
           {!ytd && glMonth !== period && <> · {MONTHS[glMonth - 1]} GL actuals + {MONTHS[period - 1]} bills</>}
-          {" "}— every property and entity bank account with its cash position; monthly actuals from the GL (click any bucket to drill), with <b>Est. Cash Today</b> bridging the weekly AvidXchange bills for months not yet posted.
+          {" "}— every property and entity bank account with its cash position.
         </p>
         <LastImported at={data?.lastImport?.at} by={data?.lastImport?.by} label="GL last imported" />
         {apSummary && (
