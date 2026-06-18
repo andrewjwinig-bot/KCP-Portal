@@ -52,6 +52,19 @@ function nameFor(key: string, fallback: string): string {
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const emptyBuckets = (): Record<CashFlowCode, number> => ({ 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0 });
 
+// Leonard Korman Trust (Liberty x9245) — an untouched account that just accrues
+// interest, so its balance is auto-grown from a known anchor instead of keyed
+// monthly. APY is the effective annual yield (0 = held flat at the anchor until
+// the yield is provided). A manual override on the Cash Sheet still wins.
+const LK_TRUST_ANCHOR = { year: 2026, month: 6, balance: 1_845_989.33 }; // as of 6/5/2026
+const LK_TRUST_APY = 0; // TODO: set to the account's APY (e.g. 0.045) to grow it monthly
+function lkTrustBalanceAt(year: number, period: number): number {
+  const monthsElapsed = (year * 12 + period) - (LK_TRUST_ANCHOR.year * 12 + LK_TRUST_ANCHOR.month);
+  if (monthsElapsed <= 0 || LK_TRUST_APY <= 0) return LK_TRUST_ANCHOR.balance;
+  const monthlyRate = Math.pow(1 + LK_TRUST_APY, 1 / 12) - 1;
+  return LK_TRUST_ANCHOR.balance * Math.pow(1 + monthlyRate, monthsElapsed);
+}
+
 type Estimate = { months: number; revenue: number; bills: number; mortgage: number; estimatedCash: number | null; latestEnding: number | null };
 type Row = {
   key: string; propertyCode: string; name: string; group: string;
@@ -240,7 +253,8 @@ export async function GET(req: Request) {
       present.add(uc);
       const bankCodes = p.code === "CONDO" ? ["3610A"] : [p.bankCode ?? p.code];
       const rowDoc = overrideDoc?.rows?.[p.code];
-      const balance = rowDoc?.endingOverride ?? rowDoc?.startingOverride ?? null;
+      const auto = p.code === "LK-TRUST" ? lkTrustBalanceAt(year, period) : null;
+      const balance = rowDoc?.endingOverride ?? rowDoc?.startingOverride ?? auto;
       const hasBank = bankCodes.some((c) => (BANK_ACCOUNTS[c.toUpperCase()] ?? []).length > 0);
       if (balance == null && !hasBank) continue; // nothing to show
       rows.push({
