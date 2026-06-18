@@ -53,21 +53,29 @@ function nameFor(key: string, fallback: string): string {
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const emptyBuckets = (): Record<CashFlowCode, number> => ({ 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0 });
 
-// Leonard Korman Trust (Liberty x9245) — an untouched account that just accrues
-// interest, so its balance is auto-grown from a known anchor instead of keyed
-// monthly. APY is the effective annual yield (0 = held flat at the anchor until
-// the yield is provided). A manual override on the Cash Sheet still wins.
-const LK_TRUST_ANCHOR = { year: 2026, month: 6, balance: 1_845_989.33 }; // as of 6/5/2026
-const LK_TRUST_APY = 0.032; // 3.20% APY earned (3.15% nominal rate) — grows the balance monthly
-/** Opening/ending (and the month's interest) for the trust at the given month,
- *  grown from the anchor; whole dollars so the row ties out. */
-function lkTrustMonth(year: number, period: number): { opening: number; ending: number; interest: number } {
-  const monthsToStart = (year * 12 + period) - (LK_TRUST_ANCHOR.year * 12 + LK_TRUST_ANCHOR.month);
-  const monthlyRate = LK_TRUST_APY > 0 ? Math.pow(1 + LK_TRUST_APY, 1 / 12) - 1 : 0;
-  const openingRaw = monthsToStart <= 0 ? LK_TRUST_ANCHOR.balance : LK_TRUST_ANCHOR.balance * Math.pow(1 + monthlyRate, monthsToStart);
+// Untouched interest-bearing accounts (trust, money markets): no GL feed, so the
+// balance is auto-grown from a known anchor at a fixed rate. Each month books
+// (opening × rate ÷ 12) of interest as Receipts From Operations, compounding
+// forward. Add more here as the same balance + rate.
+type InterestAccount = {
+  code: string; name: string; group: string;
+  bankCodes: string[]; bankLast4?: string;
+  anchor: { year: number; month: number; balance: number };
+  rate: number; // annual nominal rate (e.g. 0.0315)
+};
+const INTEREST_ACCOUNTS: InterestAccount[] = [
+  { code: "LK-TRUST", name: "Leonard Korman Trust", group: "Business Parks", bankCodes: ["LK-TRUST"], anchor: { year: 2026, month: 6, balance: 1_845_989.33 }, rate: 0.0315 },
+];
+const INTEREST_CODES = new Set(INTEREST_ACCOUNTS.map((a) => a.code.toUpperCase()));
+/** Opening, the month's interest (opening × rate ÷ 12), and ending — whole
+ *  dollars so the row ties out and the modal calc reads cleanly. */
+function interestMonth(acct: InterestAccount, year: number, period: number): { opening: number; interest: number; ending: number } {
+  const monthsToStart = (year * 12 + period) - (acct.anchor.year * 12 + acct.anchor.month);
+  const mr = acct.rate / 12;
+  const openingRaw = monthsToStart <= 0 ? acct.anchor.balance : acct.anchor.balance * Math.pow(1 + mr, monthsToStart);
   const opening = Math.round(openingRaw);
-  const ending = Math.round(openingRaw * (1 + monthlyRate));
-  return { opening, ending, interest: ending - opening };
+  const interest = Math.round(opening * mr);
+  return { opening, interest, ending: opening + interest };
 }
 
 type Estimate = { months: number; revenue: number; bills: number; mortgage: number; estimatedCash: number | null; latestEnding: number | null };
@@ -99,6 +107,8 @@ type Row = {
   /** Auto-computed balance (e.g. interest-accruing trust) — shown formatted and
    *  not hand-editable. */
   readOnly?: boolean;
+  /** For interest-bearing accounts: the month's interest calc, for the modal. */
+  interest?: { opening: number; rate: number; amount: number };
   breakdown?: { key: string; name: string; startingCash: number | null; netChange: number; endingCash: number | null; byBucket: Record<CashFlowCode, number> }[];
 };
 
@@ -263,25 +273,8 @@ export async function GET(req: Request) {
     for (const p of g.properties) {
       const uc = p.code.toUpperCase();
       if (present.has(uc)) continue;
+      if (INTEREST_CODES.has(uc)) continue; // interest accounts are added in their own pass
       present.add(uc);
-      // Leonard Korman Trust — untouched, interest-accruing: auto-grow the
-      // balance from the anchor and book the month's interest as Receipts From
-      // Operations (bucket 1), the way interest-bearing accounts were handled.
-      if (p.code === "LK-TRUST") {
-        const t = lkTrustMonth(year, period);
-        const lkBuckets = emptyBuckets();
-        lkBuckets[1] = t.interest;
-        rows.push({
-          key: p.code, propertyCode: p.code, name: nameFor(p.code, p.name),
-          group: GROUP_OF[uc] ?? CS_GROUP_OF[g.id] ?? "Other",
-          period, maxPeriod: period, byBucket: lkBuckets, netChange: t.interest,
-          glOpening: t.opening, startingCash: t.opening, openingOverridden: false, endingCash: t.ending,
-          scheduledDebt: 0, debtExpected: false, debtPosted: false, debtMissing: false,
-          latestGLMonth: period, estimate: null,
-          readOnly: true, bankCodes: ["LK-TRUST"],
-        });
-        continue;
-      }
       const bankCodes = p.code === "CONDO" ? ["3610A"] : [p.bankCode ?? p.code];
       const rowDoc = overrideDoc?.rows?.[p.code];
       const balance = rowDoc?.endingOverride ?? rowDoc?.startingOverride ?? null;
@@ -297,6 +290,26 @@ export async function GET(req: Request) {
         manual: true, bankCodes, bankLast4: p.bankLast4,
       });
     }
+  }
+
+  // Interest-bearing accounts (trust, money markets): auto-grown balance with the
+  // month's interest booked as Receipts From Operations (bucket 1), read-only.
+  for (const acct of INTEREST_ACCOUNTS) {
+    const uc = acct.code.toUpperCase();
+    if (present.has(uc)) continue;
+    present.add(uc);
+    const t = interestMonth(acct, year, period);
+    const b = emptyBuckets();
+    b[1] = t.interest;
+    rows.push({
+      key: acct.code, propertyCode: acct.code, name: acct.name,
+      group: acct.group, period, maxPeriod: period, byBucket: b, netChange: t.interest,
+      glOpening: t.opening, startingCash: t.opening, openingOverridden: false, endingCash: t.ending,
+      scheduledDebt: 0, debtExpected: false, debtPosted: false, debtMissing: false,
+      latestGLMonth: period, estimate: null,
+      readOnly: true, bankCodes: acct.bankCodes, bankLast4: acct.bankLast4,
+      interest: { opening: t.opening, rate: acct.rate, amount: t.interest },
+    });
   }
 
   // Safety net: guarantee EVERY bank account in Property Info is shown. Anything
