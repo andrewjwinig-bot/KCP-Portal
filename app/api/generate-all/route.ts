@@ -58,11 +58,16 @@ export async function POST(req: Request) {
     const summaryBuf = Buffer.from(await summaryBlob.arrayBuffer());
     archive.append(summaryBuf, { name: `${datePrefix} payroll-summary.xlsx` });
 
+    const glBlob = buildPayrollGLXlsx({ payDate, invoices });
+    const glBuf = Buffer.from(await glBlob.arrayBuffer());
+    archive.append(glBuf, { name: `${datePrefix} GL Journal Entry.xlsx` });
+
     // Auto-email the PROPERTY allocation report (the per-property Payroll Summary
-    // above — property-level totals only, no per-employee detail) to the
-    // controller when payroll is processed. Best-effort and once per pay date so
-    // re-downloading the batch doesn't resend. The confidential by-employee
-    // allocation is never attached.
+    // above — property-level totals only, no per-employee detail) plus the GL
+    // Journal Entry import file (account/property-level journal lines, also no
+    // per-employee detail) to the controller when payroll is processed.
+    // Best-effort and once per pay date so re-downloading the batch doesn't
+    // resend. The confidential by-employee allocation is never attached.
     try {
       if (payDate && invoices.length && isMailConfigured() && !(await allocReportAlreadySent(payDate))) {
         const ok = await sendMail({
@@ -71,23 +76,28 @@ export async function POST(req: Request) {
           from: ALLOC_REPORT_CC, // verified sender (also used by the commissions batch)
           subject: `Payroll Property Allocation — ${payDate}`,
           textBody:
-            `Attached is the property allocation report for the ${payDate} payroll — per-property totals only.\n\n` +
-            `Sent automatically when the payroll invoices were processed. This report does not include any per-employee allocation detail.`,
-          attachments: [{
-            name: `${datePrefix} Payroll Property Allocation.xlsx`,
-            content: summaryBuf,
-            contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-          }],
+            `Attached for the ${payDate} payroll:\n` +
+            `  • Property allocation report (per-property totals only)\n` +
+            `  • GL Journal Entry import file\n\n` +
+            `Sent automatically when the payroll invoices were processed. Neither attachment includes any per-employee allocation detail.`,
+          attachments: [
+            {
+              name: `${datePrefix} Payroll Property Allocation.xlsx`,
+              content: summaryBuf,
+              contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            },
+            {
+              name: `${datePrefix} GL Journal Entry.xlsx`,
+              content: glBuf,
+              contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            },
+          ],
         });
         if (ok) await markAllocReportSent(payDate, ALLOC_REPORT_TO);
       }
     } catch {
       // Never let the report email block invoice generation.
     }
-
-    const glBlob = buildPayrollGLXlsx({ payDate, invoices });
-    const glBuf = Buffer.from(await glBlob.arrayBuffer());
-    archive.append(glBuf, { name: `${datePrefix} GL Journal Entry.xlsx` });
 
     await archive.finalize();
 
