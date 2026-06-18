@@ -29,7 +29,7 @@ type Row = {
   reserves?: number; reservesAuto?: number; reservesOverridden?: boolean;
   interest?: { opening: number; rate: number; amount: number; fee: number };
 };
-type Payload = { year: number; period: number; ytd: boolean; buckets: Bucket[]; rows: Row[]; canEdit: boolean; canEditOpening: boolean; ym: string; estimateAsOf: string | null; gapMonthLabels: string[]; lastImport: { at: string; by: string | null } | null; generatedAt: string };
+type Payload = { year: number; period: number; ytd: boolean; buckets: Bucket[]; rows: Row[]; canEdit: boolean; canEditOpening: boolean; ym: string; estimateAsOf: string | null; gapMonthLabels: string[]; latestPostedPeriod: number; lastImport: { at: string; by: string | null } | null; generatedAt: string };
 
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 function money0(n: number | null): string {
@@ -102,6 +102,7 @@ export default function CashSheetPage() {
   // Weekly AvidXchange bills — the bridge that keeps the monthly GL position
   // current between postings. Uploaded here, consumed by "Est. Cash Today".
   const apRef = useRef<HTMLInputElement | null>(null);
+  const didDefaultPeriod = useRef(false); // center on the latest posted month once on first load
   const [apUploading, setApUploading] = useState(false);
   const [apSummary, setApSummary] = useState<{ wednesday: string; total: number; count: number } | null>(null);
 
@@ -120,7 +121,16 @@ export default function CashSheetPage() {
     setLoading(true);
     fetch(`/api/financials/cash-analysis?year=${year}&period=${period}&ytd=${ytd ? 1 : 0}`)
       .then((r) => r.json())
-      .then((j: Payload & { error?: string }) => { if (j.error) setError(j.error); else { setData(j); setError(null); } })
+      .then((j: Payload & { error?: string }) => {
+        if (j.error) { setError(j.error); return; }
+        // On first load, center the snapshot on the latest posted month (you post
+        // a month after it closes, so "current" data is the prior month).
+        if (!didDefaultPeriod.current) {
+          didDefaultPeriod.current = true;
+          if (!ytd && j.latestPostedPeriod && j.latestPostedPeriod !== period) { setPeriod(j.latestPostedPeriod); return; }
+        }
+        setData(j); setError(null);
+      })
       .catch((e) => setError(e?.message ?? "Failed to load"))
       .finally(() => setLoading(false));
   }, [year, period, ytd]);
@@ -193,21 +203,27 @@ export default function CashSheetPage() {
 
   const grand = useMemo(() => {
     const byBucket: Record<string, number> = {};
-    let net = 0, opening = 0, ending = 0, bills = 0, reserves = 0, hasOpening = false;
+    let inflows = 0, outflows = 0, opening = 0, ending = 0, bills = 0, reserves = 0, hasOpening = false;
     for (const r of data?.rows ?? []) {
-      for (const b of buckets) byBucket[b.code] = (byBucket[b.code] ?? 0) + (r.byBucket[b.code] ?? 0);
-      net += r.netChange;
+      // Behind properties are excluded from the snapshot (their row is blanked).
+      if (!r.manual && !r.readOnly && !ytd && period > r.maxPeriod) continue;
+      for (const b of buckets) {
+        const v = r.byBucket[b.code] ?? 0;
+        byBucket[b.code] = (byBucket[b.code] ?? 0) + v;
+        if (v > 0) inflows += v; else outflows += v;
+      }
       bills += r.billsMTD ?? 0;
       reserves += r.reserves ?? 0;
       if (r.startingCash != null) { opening += r.startingCash; ending += (r.endingCash ?? 0); hasOpening = true; }
     }
-    return { byBucket, net, opening, ending, bills, reserves, hasOpening };
-  }, [data, buckets]);
+    return { byBucket, inflows, outflows, net: inflows + outflows, opening, ending, bills, reserves, hasOpening };
+  }, [data, buckets, period, ytd]);
 
   const debtMissingRows = (data?.rows ?? []).filter((r) => r.debtMissing);
   // Properties still posted through an earlier month than the snapshot month —
   // their GL needs importing so the whole sheet is one point in time.
   const laggingRows = (data?.rows ?? []).filter((r) => !r.manual && !r.readOnly && !ytd && period > r.maxPeriod);
+  const laggingKeys = new Set(laggingRows.map((r) => r.key));
   const dates = periodDates(year, period, ytd);
   const showEst = !!data?.estimateAsOf;
   const showBills = (data?.rows ?? []).some((r) => (r.billsMTD ?? 0) !== 0);
@@ -217,7 +233,7 @@ export default function CashSheetPage() {
     const base = r.estimate?.estimatedCash ?? r.endingCash;
     return base == null ? null : base - (r.reserves ?? 0);
   };
-  const estAvailTotal = (data?.rows ?? []).reduce((s, r) => s + (estAvail(r) ?? 0), 0);
+  const estAvailTotal = (data?.rows ?? []).reduce((s, r) => laggingKeys.has(r.key) ? s : s + (estAvail(r) ?? 0), 0);
   const colCount = visibleBuckets.length + 4 + (showBills ? 1 : 0) + (showReserves ? 1 : 0) + (showEst ? 1 : 0); // asof + entity + opening + buckets + ending (+ bills) (+ reserves) (+ est)
 
   return (
@@ -300,11 +316,11 @@ export default function CashSheetPage() {
       )}
 
       <div className="pills" style={{ justifyContent: "flex-start" }}>
-        <StatPill label={`Opening Cash · ${dates.open}`} value={grand.hasOpening ? money0(grand.opening) : "—"} />
-        <StatPill label={`Net Change · ${ytd ? "YTD" : MONTHS[period - 1]}`} value={money0(grand.net)} accent={grand.net >= 0 ? "#15803d" : "#b91c1c"} />
-        <StatPill label={`Ending Cash · ${dates.end}`} value={grand.hasOpening ? money0(grand.ending) : "—"} accent="#0b4a7d" />
-        <StatPill label="Properties" value={data?.rows.length ?? 0} />
-        {debtMissingRows.length > 0 && <StatPill label="Debt Not Posted" value={debtMissingRows.length} accent="#b91c1c" />}
+        <StatPill label={`Opening Cash · ${dates.openShort}`} value={grand.hasOpening ? money0(grand.opening) : "—"} />
+        <StatPill label="Total Cash Inflows" value={money0(grand.inflows)} accent="#15803d" />
+        <StatPill label="Total Cash Outflows" value={money0(grand.outflows)} accent="#b91c1c" />
+        <StatPill label={`Ending Cash · ${dates.endShort}`} value={grand.hasOpening ? money0(grand.ending) : "—"} accent="#0b4a7d" />
+        <StatPill label="Est. Available Cash" value={money0(estAvailTotal)} accent="#15803d" />
       </div>
 
       <div className="card" style={{ padding: 0, overflow: "hidden" }}>
@@ -330,11 +346,24 @@ export default function CashSheetPage() {
               ) : grouped.map(({ group, rows }) => (
                 <Fragment key={group}>
                   <tr><td colSpan={colCount} style={groupHeaderCell}>{group}</td></tr>
-                  {rows.map((r) => (
+                  {rows.map((r) => laggingKeys.has(r.key) ? (
+                    // Behind the snapshot month — blanked out; import its GL to include it.
+                    <tr key={r.key} style={{ background: "rgba(217,119,6,0.04)" }}>
+                      <td style={{ textAlign: "left", fontSize: 11, fontWeight: 700, whiteSpace: "nowrap", color: "#b45309" }} title={`Posted through ${MONTHS[r.maxPeriod - 1]} ${year}`}>{MONTHS[r.maxPeriod - 1]}</td>
+                      <td style={{ textAlign: "left" }}>
+                        <code style={{ fontSize: 12 }}>{r.propertyCode}</code>
+                        <span style={{ marginLeft: 8 }}>{r.name}</span>
+                        <BankLinks accounts={(r.bankCodes ? bankAccountsForCodes(r.bankCodes) : bankAccountsForCodes([r.propertyCode, r.key])).filter((a) => (!r.bankLast4 || a.last4 === r.bankLast4) && !r.excludeLast4?.includes(a.last4))} />
+                      </td>
+                      <td colSpan={colCount - 2} className="muted small" style={{ fontStyle: "italic", color: "#b45309" }}>
+                        Import the {MONTHS[period - 1]} {year} GL to include this property in the snapshot.
+                      </td>
+                    </tr>
+                  ) : (
                     <Fragment key={r.key}>
                     <tr title={r.period < r.maxPeriod ? "" : undefined}>
-                      <td style={{ textAlign: "left", fontSize: 11, fontWeight: 700, whiteSpace: "nowrap", color: !r.manual && !ytd && period > r.maxPeriod ? "#b45309" : "var(--muted)" }}
-                        title={r.manual ? "Manually-entered balance (no GL feed)" : `GL posted through ${MONTHS[r.maxPeriod - 1]} ${year}${!ytd && period > r.maxPeriod ? " — earlier than the selected month; Est. Cash Today bridges to now" : ""}`}>
+                      <td style={{ textAlign: "left", fontSize: 11, fontWeight: 700, whiteSpace: "nowrap", color: "var(--muted)" }}
+                        title={r.manual ? "Manually-entered balance (no GL feed)" : r.readOnly ? "Auto-computed balance" : `GL posted through ${MONTHS[r.maxPeriod - 1]} ${year}`}>
                         {r.manual ? "Manual" : MONTHS[r.maxPeriod - 1]}
                       </td>
                       <td style={{ textAlign: "left" }}>

@@ -151,6 +151,7 @@ export async function GET(req: Request) {
   // Weekly-overlay inputs for the un-posted months (current year only).
   const estimateApplies = year === curYear;
   const minLatest = entries.length ? Math.min(...entries.map((e) => e.stored.maxPeriodInFile)) : 12;
+  const latestPostedPeriod = entries.length ? Math.max(...entries.map((e) => e.stored.maxPeriodInFile)) : 0;
   const gapMonths: number[] = [];
   if (estimateApplies) for (let mo = minLatest + 1; mo <= curMonth; mo++) gapMonths.push(mo);
   const billsByMonth: Record<number, Awaited<ReturnType<typeof getMonth>>> = {};
@@ -407,6 +408,7 @@ export async function GET(req: Request) {
     ym: monthKey(year, period),
     estimateAsOf: estimateApplies && gapMonths.length ? `${MONTHS[curMonth - 1]} ${curYear}` : null,
     gapMonthLabels: gapMonths.map((mo) => MONTHS[mo - 1]),
+    latestPostedPeriod,
     lastImport: latestGl ? { at: latestGl.uploadedAt, by: latestGl.uploadedBy ?? null } : null,
     generatedAt: new Date().toISOString(),
   });
