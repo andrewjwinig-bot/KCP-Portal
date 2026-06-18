@@ -184,6 +184,7 @@ export default function CashSheetPage() {
   }, [data, buckets]);
 
   const debtMissingRows = (data?.rows ?? []).filter((r) => r.debtMissing);
+  const laggingRows = (data?.rows ?? []).filter((r) => !r.manual && !ytd && period > r.maxPeriod);
   const dates = periodDates(year, period, ytd);
   const showEst = !!data?.estimateAsOf;
   const estTotal = (data?.rows ?? []).reduce((s, r) => s + (r.estimate?.estimatedCash ?? 0), 0);
@@ -257,7 +258,8 @@ export default function CashSheetPage() {
             ? <>Opening <b>{money0(grand.opening)}</b> → Ending <b>{money0(grand.ending)}</b>, </>
             : null}
           a net cash {grand.net >= 0 ? "increase" : "decrease"} of <b style={{ color: grand.net >= 0 ? "#15803d" : "#b91c1c" }}>{money0(Math.abs(grand.net))}</b> across {data.rows.length} properties
-          {debtMissingRows.length > 0 && <> · <b style={{ color: "#b91c1c" }}>{debtMissingRows.length} with debt not posted</b></>}.
+          {debtMissingRows.length > 0 && <> · <b style={{ color: "#b91c1c" }}>{debtMissingRows.length} with debt not posted</b></>}
+          {laggingRows.length > 0 && <> · <b style={{ color: "#b45309" }}>{laggingRows.length} as of an earlier month</b></>}.
         </div>
       )}
 
@@ -305,6 +307,12 @@ export default function CashSheetPage() {
                         ) : <span style={{ marginLeft: 8 }}>{r.name}</span>}
                         {r.manual && <span title="No GL feed — enter the current balance directly" style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--muted)" }}>manual</span>}
                         {r.debtMissing && <span title={`Loan scheduled (${money0(r.scheduledDebt)}) but $0 posted`} style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, color: "#b91c1c" }}>⚠ debt $0</span>}
+                        {!r.manual && !ytd && period > r.maxPeriod && (
+                          <span title={`GL posted through ${MONTHS[r.maxPeriod - 1]} ${year} — Opening/Ending are as of then; Est. Cash Today bridges to now`}
+                            style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", color: "#b45309" }}>
+                            as of {MONTHS[r.maxPeriod - 1]}
+                          </span>
+                        )}
                         <BankLinks accounts={(r.bankCodes ? bankAccountsForCodes(r.bankCodes) : r.isFund && r.breakdown?.length ? bankAccountsForCodes(r.breakdown.map((b) => b.key)) : bankAccountsForCodes([r.propertyCode, r.key])).filter((a) => !r.bankLast4 || a.last4 === r.bankLast4)} />
                       </td>
                       <td style={keyCol} title={r.manual ? "Manually-entered current balance (no GL feed)" : r.openingOverridden ? "Overridden — clear to use the GL value" : (r.glOpening == null ? "No opening balance captured in this GL upload" : "Opening per GL — type to override")}>
