@@ -86,6 +86,10 @@ export default function DepositForm({
   const [notes, setNotes] = useState(deposit?.notes ?? "");
   const [refunded, setRefunded] = useState(deposit?.refunded ?? false);
   const [refundDate, setRefundDate] = useState(deposit?.refundDate ?? "");
+  const [tenantDefaulted, setTenantDefaulted] = useState(deposit?.tenantDefaulted ?? false);
+  const [partialRefund, setPartialRefund] = useState(deposit?.partialRefund ?? false);
+  const [partialRefundAmount, setPartialRefundAmount] = useState(deposit?.partialRefundAmount ? String(deposit.partialRefundAmount) : "");
+  const [partialRefundNote, setPartialRefundNote] = useState(deposit?.partialRefundNote ?? "");
   const [stagedFile, setStagedFile] = useState<File | null>(null);
   const [stagedPreview, setStagedPreview] = useState<string | null>(null);
   const [existingImage, setExistingImage] = useState(deposit?.checkImage ?? null);
@@ -160,6 +164,10 @@ export default function DepositForm({
       notes,
       refunded,
       refundDate: refunded ? refundDate : "",
+      tenantDefaulted,
+      partialRefund,
+      partialRefundAmount: partialRefund ? (Number(partialRefundAmount) || 0) : 0,
+      partialRefundNote: partialRefund ? partialRefundNote : "",
     };
     const res = await fetch(id ? `/api/deposits/${id}` : "/api/deposits", {
       method: id ? "PUT" : "POST",
@@ -228,7 +236,7 @@ export default function DepositForm({
     saveTimer.current = setTimeout(() => { void autosave(); }, 500);
     return () => { if (saveTimer.current) clearTimeout(saveTimer.current); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [unitRef, checkNumber, amount, checkDate, notes, refunded, refundDate]);
+  }, [unitRef, checkNumber, amount, checkDate, notes, refunded, refundDate, tenantDefaulted, partialRefund, partialRefundAmount, partialRefundNote]);
 
   // Persist immediately when a field loses focus, so tabbing/clicking away saves
   // right then instead of waiting out the debounce.
@@ -265,6 +273,10 @@ export default function DepositForm({
         setNotes("");
         setRefunded(false);
         setRefundDate("");
+        setTenantDefaulted(false);
+        setPartialRefund(false);
+        setPartialRefundAmount("");
+        setPartialRefundNote("");
         setStagedFile(null);
         setStagedPreview(null);
         setExistingImage(null);
@@ -437,6 +449,40 @@ export default function DepositForm({
           <div style={{ display: "flex", flexDirection: "column", gap: 4, maxWidth: 260 }}>
             <span style={labelStyle}>Refund Date</span>
             <Calendar value={refundDate} onChange={setRefundDate} variant="card" />
+          </div>
+        )}
+
+        <label style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+          <input
+            type="checkbox"
+            checked={tenantDefaulted}
+            onChange={(e) => setTenantDefaulted(e.target.checked)}
+            style={{ width: 16, height: 16, cursor: "pointer" }}
+          />
+          <span style={{ fontSize: 13, fontWeight: 700 }}>Tenant Defaulted</span>
+        </label>
+
+        <label style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+          <input
+            type="checkbox"
+            checked={partialRefund}
+            onChange={(e) => setPartialRefund(e.target.checked)}
+            style={{ width: 16, height: 16, cursor: "pointer" }}
+          />
+          <span style={{ fontSize: 13, fontWeight: 700 }}>Partial Refund</span>
+        </label>
+        {partialRefund && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4, maxWidth: 200 }}>
+              <span style={labelStyle}>Amount Refunded</span>
+              <input style={inputStyle} value={partialRefundAmount} inputMode="decimal" placeholder="0.00"
+                onChange={(e) => setPartialRefundAmount(e.target.value)} onBlur={flushSave} />
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <span style={labelStyle}>Partial Application Note</span>
+              <input style={inputStyle} value={partialRefundNote} placeholder="Describe how the withheld portion was applied (e.g. damages, unpaid rent)"
+                onChange={(e) => setPartialRefundNote(e.target.value)} onBlur={flushSave} />
+            </div>
           </div>
         )}
       </div>
