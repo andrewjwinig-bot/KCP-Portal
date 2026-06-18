@@ -24,7 +24,7 @@ type Row = {
   scheduledDebt: number; debtExpected: boolean; debtPosted: boolean; debtMissing: boolean;
   latestGLMonth: number;
   estimate: { months: number; revenue: number; bills: number; mortgage: number; estimatedCash: number | null; latestEnding: number | null } | null;
-  isFund?: boolean; manual?: boolean; bankCodes?: string[]; bankLast4?: string; excludeLast4?: string[]; breakdown?: Breakdown[];
+  isFund?: boolean; manual?: boolean; readOnly?: boolean; bankCodes?: string[]; bankLast4?: string; excludeLast4?: string[]; breakdown?: Breakdown[];
   billsMTD?: number; weeklyBills?: { wednesday: string; amount: number }[];
 };
 type Payload = { year: number; period: number; ytd: boolean; buckets: Bucket[]; rows: Row[]; canEdit: boolean; canEditOpening: boolean; ym: string; estimateAsOf: string | null; gapMonthLabels: string[]; lastImport: { at: string; by: string | null } | null; generatedAt: string };
@@ -301,8 +301,8 @@ export default function CashSheetPage() {
                         ) : <span style={{ marginLeft: 8 }}>{r.name}</span>}
                         <BankLinks accounts={(r.bankCodes ? bankAccountsForCodes(r.bankCodes) : r.isFund && r.breakdown?.length ? bankAccountsForCodes(r.breakdown.map((b) => b.key)) : bankAccountsForCodes([r.propertyCode, r.key])).filter((a) => (!r.bankLast4 || a.last4 === r.bankLast4) && !r.excludeLast4?.includes(a.last4))} />
                       </td>
-                      <td style={keyCol} title={r.manual ? "Manually-entered current balance (no GL feed)" : r.openingOverridden ? "Overridden — clear to use the GL value" : (r.glOpening == null ? "No opening balance captured in this GL upload" : "Opening per GL — type to override")}>
-                        {data?.canEditOpening && r.manual ? (
+                      <td style={keyCol} title={r.readOnly ? "Auto-computed balance" : r.manual ? "Manually-entered current balance (no GL feed)" : r.openingOverridden ? "Overridden — clear to use the GL value" : (r.glOpening == null ? "No opening balance captured in this GL upload" : "Opening per GL — type to override")}>
+                        {data?.canEditOpening && r.manual && !r.readOnly ? (
                           <input
                             inputMode="decimal"
                             value={manualDraft[r.key] ?? (r.startingCash != null ? String(r.startingCash) : "")}
@@ -313,7 +313,7 @@ export default function CashSheetPage() {
                             style={{ width: 96, textAlign: "right", fontWeight: 800, fontSize: 14, fontVariantNumeric: "tabular-nums", border: "1px solid transparent", borderRadius: 6, padding: "2px 6px", background: "transparent", color: r.startingCash == null ? undefined : r.startingCash >= 0 ? "#15803d" : "#b91c1c" }}
                             className="cs-edit"
                           />
-                        ) : data?.canEditOpening && !r.manual ? (
+                        ) : data?.canEditOpening && !r.manual && !r.readOnly ? (
                           <input
                             inputMode="decimal"
                             value={openDraft[r.key] ?? (r.openingOverridden && r.startingCash != null ? String(r.startingCash) : "")}
