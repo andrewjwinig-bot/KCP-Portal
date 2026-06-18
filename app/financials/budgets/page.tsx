@@ -3,6 +3,7 @@
 import React, { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useUser } from "@/app/components/UserProvider";
 import { Pill, StatPill, type PillTone } from "@/app/components/Pill";
+import { LastImported } from "@/app/components/LastImported";
 import type { BudgetWorkbook, OccupancyDetailRow } from "@/lib/financials/budgets/types";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] as const;
@@ -149,7 +150,10 @@ export default function BudgetsPage() {
   return (
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
       <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
-        <h1>Operating Budgets</h1>
+        <div>
+          <h1 style={{ margin: 0 }}>Operating Budgets</h1>
+          {workbook && workbook.kind !== "live" && <LastImported at={workbook.uploadedAt} by={workbook.uploadedBy} label="Budget last imported" />}
+        </div>
         <div style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
           <span style={{ fontFamily: "'Arial Black', 'Arial Bold', Arial, sans-serif", fontWeight: 900, fontSize: 30, letterSpacing: "-0.5px", lineHeight: 1 }}>KORMAN</span>
           <div style={{ width: 1, height: 36, background: "#000", flexShrink: 0 }} />
