@@ -11,6 +11,7 @@ import { lineMonthly } from "@/lib/financials/operating-statements/lineSeries";
 import { trendFlags } from "@/lib/financials/operating-statements/trends";
 import { mortgagePaymentsFor } from "@/lib/financials/cash-sheet/mortgage";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
+import { FUND_BUILDINGS } from "@/lib/financials/cash-analysis/funds";
 import { logAudit, auditIp } from "@/lib/audit";
 
 export const runtime = "nodejs";
@@ -21,12 +22,6 @@ function propertyName(key: string, fallback: string): string {
   return PROPERTY_DEFS.find((p) => p.id === key)?.name ?? fallback;
 }
 
-// Funds are cash-sweep shells (no P&L); their operating statement is the rollup
-// of the member buildings + the shell (for the swept cash). Keyed by mapping key.
-const FUND_BUILDINGS: Record<string, string[]> = {
-  PJV3: ["3610", "3620", "3640"],
-  PNIPLX: ["4050", "4060", "4070", "4080", "40A0", "40B0", "40C0"],
-};
 
 /** Sum several entities' GLs (shell + buildings) into one consolidated GL —
  *  account-level addition of monthly nets, beginning + YTD balances. P&L masks

@@ -2,13 +2,17 @@ import { NextResponse } from "next/server";
 import { listFullGls, mergeAccountNames } from "@/lib/financials/operating-statements/statementStore";
 import { assembleGls } from "@/lib/financials/operating-statements/glAssemble";
 import { breakdownForCode, CASH_FLOW_BUCKETS, type CashFlowCode } from "@/lib/financials/cash-analysis/compute";
+import { glKeysFor } from "@/lib/financials/cash-analysis/funds";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 // GET ?key=&year=&period=&code=(1-8)(&ytd=1) — the GL accounts (code, name,
-// amount) that make up one property's cash-flow bucket, for the drill-down.
+// amount) that make up one property's cash-flow bucket, for the drill-down. For
+// a FUND row (PJV3 / PNIPLX) the displayed value sums the shell + every member
+// building, so the breakdown aggregates the same set of GLs — otherwise a
+// building-level line would show "no GL accounts behind it".
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const key = url.searchParams.get("key") || "";
@@ -22,14 +26,24 @@ export async function GET(req: Request) {
   }
 
   const fulls = await listFullGls();
-  const stored = assembleGls(fulls.filter((g) => g.key === key && g.year === year));
-  if (!stored) return NextResponse.json({ key, code, bucket: bucket.label, accounts: [], total: 0 });
-  const p = Math.min(period, stored.maxPeriodInFile);
   const acctNames = mergeAccountNames(fulls);
-  const accounts = breakdownForCode(stored.monthly, p, code, { ytd }).map((a) => ({
-    ...a,
-    name: stored.names?.[a.account] ?? acctNames[a.account] ?? null,
-  }));
+  // Sum the per-account breakdown across the shell + member buildings (a fund),
+  // or just the one key (everything else).
+  const merged = new Map<string, { account: string; amount: number; name: string | null }>();
+  for (const glKey of glKeysFor(key)) {
+    const stored = assembleGls(fulls.filter((g) => g.key === glKey && g.year === year));
+    if (!stored) continue;
+    const p = Math.min(period, stored.maxPeriodInFile);
+    for (const a of breakdownForCode(stored.monthly, p, code, { ytd })) {
+      const prev = merged.get(a.account);
+      const name = stored.names?.[a.account] ?? acctNames[a.account] ?? null;
+      if (prev) prev.amount += a.amount;
+      else merged.set(a.account, { account: a.account, amount: a.amount, name });
+    }
+  }
+  const accounts = [...merged.values()]
+    .filter((a) => a.amount !== 0)
+    .sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount));
   const total = accounts.reduce((s, a) => s + a.amount, 0);
-  return NextResponse.json({ key, code, bucket: bucket.label, period: p, accounts, total });
+  return NextResponse.json({ key, code, bucket: bucket.label, period, accounts, total });
 }
