@@ -84,16 +84,28 @@ const INTEREST_CODES = new Set(INTEREST_ACCOUNTS.map((a) => a.code.toUpperCase()
 // here (not in the operating accounts), so the Security Deposits (bucket 8)
 // movement posted across the property GLs is carved OUT of the operating rows and
 // pooled onto these two: NI LLC's deposits in x7448, every other property's in
-// x7216. Opening balance is hand-entered (startingOverride); both earn 0.40%
-// interest (booked separately as Receipts), so ending = opening + interest +
-// deposit movement. Deposit activity comes straight from the GLs — never keyed.
+// x7216. Each earns 0.40% interest (booked separately as Receipts), so ending =
+// opening + interest + deposit movement. Deposit activity comes straight from the
+// GLs — never keyed. Opening is seeded from a known `anchor` balance (compounded
+// forward at the rate, like the money-market accounts) when set, else hand-entered.
 const SD_RATE = 0.004;
-const SD_ACCOUNTS = [
-  { key: "NILLC-TSD", name: "NI LLC – Tenant Security Deposits", group: "Business Parks", bankCode: "4000", bankLast4: "x7448", isNi: true, parentKey: "PNIPLX" },
+type SdAccount = { key: string; name: string; group: string; bankCode: string; bankLast4: string; isNi: boolean; parentKey: string; anchor?: { year: number; month: number; balance: number } };
+const SD_ACCOUNTS: SdAccount[] = [
+  { key: "NILLC-TSD", name: "NI LLC – Tenant Security Deposits", group: "Business Parks", bankCode: "4000", bankLast4: "x7448", isNi: true, parentKey: "PNIPLX", anchor: { year: 2026, month: 6, balance: 643_900.93 } },
   { key: "2010-SD-ALLBUTNI", name: "Security Deposits — All but NI LLC", group: "LIK Management", bankCode: "2010", bankLast4: "x7216", isNi: false, parentKey: "2010" },
 ];
 const SD_KEYS = new Set(SD_ACCOUNTS.map((s) => s.key.toUpperCase()));
 const NI_FUND_KEYS = new Set(["PNIPLX", ...FUND_BUILDINGS.PNIPLX].map((k) => k.toUpperCase()));
+/** SD opening seeded from a known anchor balance, compounded forward at SD_RATE
+ *  (interest only — deposit movement is added per month, not carried). */
+function sdOpeningFromAnchor(anchor: { year: number; month: number; balance: number }, year: number, period: number): number {
+  const mr = SD_RATE / 12;
+  const target = year * 12 + period;
+  const start = anchor.year * 12 + anchor.month;
+  let bal = anchor.balance;
+  for (let m = start; m < target; m++) bal = bal + bal * mr;
+  return Math.round(bal);
+}
 /** Opening, the month's gross interest (opening × rate ÷ 12), any recurring fee,
  *  and ending — whole dollars, compounded from the anchor net of the fee. */
 function interestMonth(acct: InterestAccount, year: number, period: number): { opening: number; interest: number; fee: number; ending: number } {
@@ -387,20 +399,24 @@ export async function GET(req: Request) {
   }
   for (const sd of SD_ACCOUNTS) {
     const movement = sd.isNi ? niSd : otherSd;
-    const ov = overrideFor(sd.key);          // hand-entered opening (startingOverride)
-    const interest = ov != null ? Math.round(ov * SD_RATE / 12) : 0;
+    // Opening: a known anchor balance (compounded forward at the rate, shown solid
+    // like the money-market accounts) when set, else a hand-entered override.
+    const anchored = sd.anchor ? sdOpeningFromAnchor(sd.anchor, year, period) : null;
+    const ov = anchored == null ? overrideFor(sd.key) : null;
+    const opening = anchored != null ? anchored : ov;
+    const interest = opening != null ? Math.round(opening * SD_RATE / 12) : 0;
     const b = emptyBuckets();
     b[1] = interest;   // 0.40% interest → Receipts (its own thing)
     b[8] = movement;   // net deposit movement (collected − refunded), from the GLs
     rows.push({
       key: sd.key, propertyCode: sd.bankCode, name: sd.name, group: sd.group,
       period, maxPeriod: period, byBucket: b, netChange: interest + movement,
-      glOpening: null, startingCash: ov, openingOverridden: ov != null,
-      endingCash: ov != null ? ov + interest + movement : null,
+      glOpening: anchored, startingCash: opening, openingOverridden: ov != null,
+      endingCash: opening != null ? opening + interest + movement : null,
       scheduledDebt: 0, debtExpected: false, debtPosted: false, debtMissing: false,
       latestGLMonth: period, estimate: null,
-      sd: true, bankCodes: [sd.bankCode], bankLast4: sd.bankLast4,
-      interest: { opening: ov ?? 0, rate: SD_RATE, amount: interest, fee: 0 },
+      sd: true, readOnly: anchored != null, bankCodes: [sd.bankCode], bankLast4: sd.bankLast4,
+      interest: { opening: opening ?? 0, rate: SD_RATE, amount: interest, fee: 0 },
     });
     // The deposit cash lives in this account, so hide it from the operating row's
     // chips (the NI LLC fund row surfaces x7448 via its buildings; 2010 via 2010).
