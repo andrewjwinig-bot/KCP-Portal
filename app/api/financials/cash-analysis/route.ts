@@ -452,6 +452,7 @@ export async function GET(req: Request) {
     gapMonthLabels: gapMonths.map((mo) => MONTHS[mo - 1]),
     latestPostedPeriod,
     lastImport: latestGl ? { at: latestGl.uploadedAt, by: latestGl.uploadedBy ?? null } : null,
+    apImport: overrideDoc?.apImportedAt ? { at: overrideDoc.apImportedAt, by: overrideDoc.apImportedBy ?? null } : null,
     generatedAt: new Date().toISOString(),
   });
 }

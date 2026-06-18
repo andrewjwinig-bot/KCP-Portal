@@ -20,6 +20,9 @@ export type CashSheetMonth = {
   rows: Record<string, CashSheetRow>;
   updatedAt: string;
   updatedBy?: string;
+  /** Last AP Selection Report import (set only by applyBills). */
+  apImportedAt?: string;
+  apImportedBy?: string;
 };
 
 export async function getMonth(ym: string): Promise<CashSheetMonth | null> {
@@ -97,8 +100,10 @@ export async function applyBills(
     if (value) row.bills[wednesday] = value; else delete row.bills[wednesday];
     doc.rows[code] = row;
   }
-  doc.updatedAt = new Date().toISOString();
-  if (updatedBy) doc.updatedBy = updatedBy;
+  const now = new Date().toISOString();
+  doc.updatedAt = now;
+  doc.apImportedAt = now; // bulk bill fill = an AP Selection Report import
+  if (updatedBy) { doc.updatedBy = updatedBy; doc.apImportedBy = updatedBy; }
   await storeJSON(PREFIX, ym, doc);
   return doc;
 }
