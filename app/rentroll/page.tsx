@@ -6,6 +6,7 @@ import { PROPERTY_DEFS } from "../../lib/properties/data";
 import type { RentRollData, RentRollUnit, RentRollProperty } from "../../lib/rentroll/parseRentRollExcel";
 import { amenityFor } from "../../lib/rentroll/amenities";
 import { useUser } from "../components/UserProvider";
+import { LastImported } from "../components/LastImported";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -291,16 +292,6 @@ function ImportInstructionsModal({ onClose, nextMonth }: { onClose: () => void; 
       </div>
     </div>
   );
-}
-
-/** "May 28, 2026 at 2:34 PM" — local-time format for the
- *  Last-imported timestamp under the page header. */
-function formatImportedAt(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  const date = d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-  const time = d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
-  return `${date} at ${time}`;
 }
 
 function BaseYearCell({ unitRef, isVacant, value, onChange, readOnly }: {
@@ -1584,12 +1575,7 @@ export default function RentRollPage() {
             return { year: now.getFullYear(), month: now.getMonth() + 1 };
           })()} />
         </p>
-        {rentroll?.uploadedAt && (
-          <p className="muted small" style={{ marginTop: 4, fontStyle: "italic" }}>
-            Last imported {formatImportedAt(rentroll.uploadedAt)}
-            {rentroll.uploadedBy ? <> by <b style={{ color: "var(--text)" }}>{rentroll.uploadedBy}</b></> : null}
-          </p>
-        )}
+        <LastImported at={rentroll?.uploadedAt} by={rentroll?.uploadedBy} />
         {uploadError && <div style={{ color: "#b42318", fontSize: 13, marginTop: 6 }}>{uploadError}</div>}
         {uploadNote && <div style={{ color: "#0b4a7d", fontSize: 13, marginTop: 6 }}>{uploadNote}</div>}
         {(loading || monthLoading) && <div style={{ color: "var(--muted)", fontSize: 13, marginTop: 10 }}>Loading…</div>}

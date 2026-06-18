@@ -11,6 +11,7 @@
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { StatPill, Pill, Badge, TONE_RED } from "@/app/components/Pill";
+import { LastImported } from "@/app/components/LastImported";
 import { bankAccountsForCodes, weekOfLabel, parseMonthKey, type BankAccount } from "@/lib/financials/cash-sheet/util";
 
 type Bucket = { code: number; label: string };
@@ -26,7 +27,7 @@ type Row = {
   isFund?: boolean; manual?: boolean; bankCodes?: string[]; bankLast4?: string; breakdown?: Breakdown[];
   billsMTD?: number; weeklyBills?: { wednesday: string; amount: number }[];
 };
-type Payload = { year: number; period: number; ytd: boolean; buckets: Bucket[]; rows: Row[]; canEdit: boolean; canEditOpening: boolean; ym: string; estimateAsOf: string | null; gapMonthLabels: string[]; generatedAt: string };
+type Payload = { year: number; period: number; ytd: boolean; buckets: Bucket[]; rows: Row[]; canEdit: boolean; canEditOpening: boolean; ym: string; estimateAsOf: string | null; gapMonthLabels: string[]; lastImport: { at: string; by: string | null } | null; generatedAt: string };
 
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 function money0(n: number | null): string {
@@ -202,6 +203,7 @@ export default function CashSheetPage() {
           <p className="muted small" style={{ margin: 0 }}>
             Every property and entity bank account with its cash position — monthly actuals computed from the GL (click any bucket to drill to its accounts), with <b>Est. Cash Today</b> carrying each balance forward through the weekly AvidXchange bills for the months not yet posted.
           </p>
+          <LastImported at={data?.lastImport?.at} by={data?.lastImport?.by} label="GL last imported" />
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           {data?.canEdit && (
