@@ -58,11 +58,15 @@ const emptyBuckets = (): Record<CashFlowCode, number> => ({ 1: 0, 2: 0, 3: 0, 4:
 // the yield is provided). A manual override on the Cash Sheet still wins.
 const LK_TRUST_ANCHOR = { year: 2026, month: 6, balance: 1_845_989.33 }; // as of 6/5/2026
 const LK_TRUST_APY = 0.032; // 3.20% APY earned (3.15% nominal rate) — grows the balance monthly
-function lkTrustBalanceAt(year: number, period: number): number {
-  const monthsElapsed = (year * 12 + period) - (LK_TRUST_ANCHOR.year * 12 + LK_TRUST_ANCHOR.month);
-  if (monthsElapsed <= 0 || LK_TRUST_APY <= 0) return LK_TRUST_ANCHOR.balance;
-  const monthlyRate = Math.pow(1 + LK_TRUST_APY, 1 / 12) - 1;
-  return LK_TRUST_ANCHOR.balance * Math.pow(1 + monthlyRate, monthsElapsed);
+/** Opening/ending (and the month's interest) for the trust at the given month,
+ *  grown from the anchor; whole dollars so the row ties out. */
+function lkTrustMonth(year: number, period: number): { opening: number; ending: number; interest: number } {
+  const monthsToStart = (year * 12 + period) - (LK_TRUST_ANCHOR.year * 12 + LK_TRUST_ANCHOR.month);
+  const monthlyRate = LK_TRUST_APY > 0 ? Math.pow(1 + LK_TRUST_APY, 1 / 12) - 1 : 0;
+  const openingRaw = monthsToStart <= 0 ? LK_TRUST_ANCHOR.balance : LK_TRUST_ANCHOR.balance * Math.pow(1 + monthlyRate, monthsToStart);
+  const opening = Math.round(openingRaw);
+  const ending = Math.round(openingRaw * (1 + monthlyRate));
+  return { opening, ending, interest: ending - opening };
 }
 
 type Estimate = { months: number; revenue: number; bills: number; mortgage: number; estimatedCash: number | null; latestEnding: number | null };
@@ -87,6 +91,9 @@ type Row = {
   bankLast4?: string;
   /** Account last4s to hide from this row's chips (split out to their own row). */
   excludeLast4?: string[];
+  /** Auto-computed balance (e.g. interest-accruing trust) — shown formatted and
+   *  not hand-editable. */
+  readOnly?: boolean;
   breakdown?: { key: string; name: string; startingCash: number | null; netChange: number; endingCash: number | null; byBucket: Record<CashFlowCode, number> }[];
 };
 
@@ -251,10 +258,27 @@ export async function GET(req: Request) {
       const uc = p.code.toUpperCase();
       if (present.has(uc)) continue;
       present.add(uc);
+      // Leonard Korman Trust — untouched, interest-accruing: auto-grow the
+      // balance from the anchor and book the month's interest as Receipts From
+      // Operations (bucket 1), the way interest-bearing accounts were handled.
+      if (p.code === "LK-TRUST") {
+        const t = lkTrustMonth(year, period);
+        const lkBuckets = emptyBuckets();
+        lkBuckets[1] = t.interest;
+        rows.push({
+          key: p.code, propertyCode: p.code, name: nameFor(p.code, p.name),
+          group: GROUP_OF[uc] ?? CS_GROUP_OF[g.id] ?? "Other",
+          period, maxPeriod: period, byBucket: lkBuckets, netChange: t.interest,
+          glOpening: t.opening, startingCash: t.opening, openingOverridden: false, endingCash: t.ending,
+          scheduledDebt: 0, debtExpected: false, debtPosted: false, debtMissing: false,
+          latestGLMonth: period, estimate: null,
+          readOnly: true, bankCodes: ["LK-TRUST"],
+        });
+        continue;
+      }
       const bankCodes = p.code === "CONDO" ? ["3610A"] : [p.bankCode ?? p.code];
       const rowDoc = overrideDoc?.rows?.[p.code];
-      const auto = p.code === "LK-TRUST" ? lkTrustBalanceAt(year, period) : null;
-      const balance = rowDoc?.endingOverride ?? rowDoc?.startingOverride ?? auto;
+      const balance = rowDoc?.endingOverride ?? rowDoc?.startingOverride ?? null;
       const hasBank = bankCodes.some((c) => (BANK_ACCOUNTS[c.toUpperCase()] ?? []).length > 0);
       if (balance == null && !hasBank) continue; // nothing to show
       rows.push({

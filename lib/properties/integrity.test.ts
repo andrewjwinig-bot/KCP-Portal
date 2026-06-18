@@ -5,9 +5,14 @@ import { PARCEL_INFO } from "../../app/tracker/tax-data";
 
 const knownIds = new Set(PROPERTY_DEFS.map((p) => p.id.toUpperCase()));
 
+// Bank accounts that aren't tied to an operating property (held on the Cash
+// Sheet as their own line, e.g. the Leonard Korman Trust).
+const NON_PROPERTY_BANK_KEYS = new Set(["LK-TRUST"]);
+
 describe("data integrity", () => {
   it("every BANK_ACCOUNTS key matches a property in PROPERTY_DEFS", () => {
     for (const code of Object.keys(BANK_ACCOUNTS)) {
+      if (NON_PROPERTY_BANK_KEYS.has(code.toUpperCase())) continue;
       expect(knownIds.has(code.toUpperCase()), `BANK_ACCOUNTS has ${code} but PROPERTY_DEFS does not`).toBe(true);
     }
   });
