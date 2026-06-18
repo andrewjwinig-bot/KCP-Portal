@@ -137,6 +137,9 @@ export default function CashSheetPage() {
   // Bucket breakdown behind a summary cell (Cash In / Cash Out / Net Change) — the
   // 8 categories, each still drillable to its GL accounts, so summary views stay traceable.
   const [bucketModal, setBucketModal] = useState<{ row: Row; filter: "in" | "out" | "all" } | null>(null);
+  // The "To Available" drawdown (Net view) — the reserves + un-posted bills that
+  // bridge Ending Cash to Est. Available Cash.
+  const [bridgeModal, setBridgeModal] = useState<{ row: Row } | null>(null);
   // Weekly AvidXchange bills — the bridge that keeps the monthly GL position
   // current between postings. Uploaded here, consumed by "Est. Cash Today".
   const apRef = useRef<HTMLInputElement | null>(null);
@@ -620,9 +623,12 @@ export default function CashSheetPage() {
                         </td>
                       )}
                       {netBridge && (() => { const br = bridgeVal(estAvail(r), r.endingCash); return (
-                        <td style={{ ...numCell, color: br ? "#b91c1c" : "var(--muted)" }}
-                          title={`Bridge from Ending Cash to Est. Available — reserves ${money0(r.reserves ?? 0)}${r.estimate ? ` + ${r.estimate.months} un-posted mo of bills ${money0(r.estimate.bills)}` : ""}`}>
-                          {br ? money0(br) : "—"}
+                        <td style={{ ...numCell, color: br ? "#b91c1c" : "var(--muted)" }}>
+                          {br ? (
+                            <button type="button" onClick={() => setBridgeModal({ row: r })}
+                              title="Reserves + un-posted bills that bridge Ending Cash to Est. Available — click for the breakdown"
+                              style={summaryBtn} onMouseEnter={ulOn} onMouseLeave={ulOff}>{money0(br)}</button>
+                          ) : "—"}
                         </td>
                       ); })()}
                       {showEst && (
@@ -754,6 +760,44 @@ export default function CashSheetPage() {
                     </tr>
                   </tfoot>
                 </table>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {bridgeModal && (() => {
+        const r = bridgeModal.row;
+        const ending = r.endingCash;
+        const avail = estAvail(r);
+        const reserves = r.reserves ?? 0;
+        const bills = r.estimate ? r.estimate.bills : 0;
+        const carry = r.estimate ? (r.estimate.latestEnding ?? 0) - (ending ?? 0) : 0; // latest posted vs snapshot ending
+        return (
+          <div onClick={() => setBridgeModal(null)}
+            style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.55)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "48px 16px 32px", zIndex: 100, overflow: "auto" }}>
+            <div onClick={(e) => e.stopPropagation()} className="card" style={{ maxWidth: 480, width: "100%", boxShadow: "0 24px 60px rgba(15,23,42,0.32)" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 4 }}>
+                <div style={{ fontSize: 16, fontWeight: 800 }}>{r.name} — To Est. Available</div>
+                <button className="btn" onClick={() => setBridgeModal(null)} style={{ padding: "6px 14px" }}>Close</button>
+              </div>
+              <div className="muted small" style={{ marginBottom: 12 }}>Reserves + un-posted bills that bridge Ending Cash to Est. Available. {MONTHS[period - 1]} {year}.</div>
+              <div className="tableWrap">
+                <table>
+                  <tbody>
+                    <tr><td style={{ textAlign: "left" }}>Ending Cash</td><td style={numCell}>{money0(ending)}</td></tr>
+                    {!!reserves && <tr><td style={{ textAlign: "left" }}>Less: Reserves set aside</td><td style={{ ...numCell, color: "#b91c1c" }}>{money0(-reserves)}</td></tr>}
+                    {!!bills && <tr><td style={{ textAlign: "left" }}>Less: Un-posted Avid bills ({r.estimate!.months} mo)</td><td style={{ ...numCell, color: "#b91c1c" }}>{money0(-bills)}</td></tr>}
+                    {!!carry && <tr><td style={{ textAlign: "left" }}>Posted-month carry-forward</td><td style={{ ...numCell, color: carry < 0 ? "#b91c1c" : "#15803d" }}>{money0(carry)}</td></tr>}
+                    <tr style={{ borderTop: "1px solid var(--border)", fontWeight: 800 }}>
+                      <td style={{ textAlign: "left" }}>Est. Available Cash</td>
+                      <td style={{ ...numCell, color: "#15803d" }}>{money0(avail)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div className="muted small" style={{ marginTop: 10 }}>
+                Drawdown of <b>{money0(bridgeVal(avail, ending))}</b> from Ending Cash to Est. Available Cash.
               </div>
             </div>
           </div>
