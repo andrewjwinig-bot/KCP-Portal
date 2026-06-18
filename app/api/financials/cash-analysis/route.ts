@@ -6,9 +6,8 @@ import { cashAtStartOfMonth } from "@/lib/financials/operating-statements/cash";
 import { mortgagePaymentsFor } from "@/lib/financials/cash-sheet/mortgage";
 import { anticipatedRevenueFor } from "@/lib/financials/cash-sheet/revenue";
 import { getMonth } from "@/lib/financials/cash-sheet/store";
-import { totalBills, monthKey, cashSheetGroups, wednesdaysInMonth, bankAccountsForCodes } from "@/lib/financials/cash-sheet/util";
+import { totalBills, monthKey, cashSheetGroups, wednesdaysInMonth } from "@/lib/financials/cash-sheet/util";
 import { computeCashFlow, CASH_FLOW_BUCKETS, type CashFlowCode } from "@/lib/financials/cash-analysis/compute";
-import { getBankBalances } from "@/lib/financials/cash-analysis/bankBalanceStore";
 import { PROPERTY_DEFS, BANK_ACCOUNTS } from "@/lib/properties/data";
 import { SITE_COOKIE, verifySiteToken } from "@/lib/site-auth";
 import { ALL_USERS, canEditCashSheet, type UserId } from "@/lib/users";
@@ -66,12 +65,6 @@ type Row = {
    *  per-Wednesday breakdown, for the weekly drill-down. */
   billsMTD?: number;
   weeklyBills?: { wednesday: string; amount: number }[];
-  /** Bank accounts behind this row, each with its actual statement balance (for
-   *  the per-account tie-out). bankTotal = sum of entered balances; variance =
-   *  bankTotal − endingCash (book) when a balance has been entered. */
-  accounts?: { last4: string; bank: string; label: string; balance: number | null; updatedAt: string | null }[];
-  bankTotal?: number | null;
-  variance?: number | null;
   /** A non-GL account (clearing, money market, security deposits, land, condo,
    *  trust) — flat balance from the Cash Sheet store, no bucket detail. */
   manual?: boolean;
@@ -96,12 +89,11 @@ export async function GET(req: Request) {
   const user = await currentUser();
   const canEdit = !!user && canEditCashSheet(user); // admin/Drew edit; others view-only
 
-  const [mappings, fulls, scheduledDebt, overrideDoc, bankBalanceDoc] = await Promise.all([
+  const [mappings, fulls, scheduledDebt, overrideDoc] = await Promise.all([
     availableStatements(),
     listFullGls(),
     mortgagePaymentsFor(year, period),
     getMonth(monthKey(year, period)), // opening-cash overrides (shared w/ Cash Sheet)
-    getBankBalances(monthKey(year, period)), // actual per-account bank balances (tie-out)
   ]);
   const overrideFor = (code: string): number | null =>
     ytd ? null : (overrideDoc?.rows?.[code]?.startingOverride ?? null);
@@ -293,25 +285,11 @@ export async function GET(req: Request) {
   // keyed by the fund code for pooled funds, otherwise the property/GL key.
   const wednesdays = wednesdaysInMonth(year, period);
   for (const r of rows) {
-    if (!r.manual) {
-      const billDoc = overrideDoc?.rows?.[r.key]?.bills ?? overrideDoc?.rows?.[r.propertyCode]?.bills ?? {};
-      const weeklyBills = wednesdays.map((w) => ({ wednesday: w, amount: billDoc[w] ?? 0 }));
-      const billsMTD = weeklyBills.reduce((s, b) => s + b.amount, 0);
-      if (billsMTD !== 0) { r.weeklyBills = weeklyBills; r.billsMTD = billsMTD; }
-    }
-
-    // Per-account bank balances + tie-out variance vs. the computed (book) cash.
-    const accts = (r.bankCodes ? bankAccountsForCodes(r.bankCodes) : bankAccountsForCodes([r.propertyCode, r.key]))
-      .filter((a) => !r.bankLast4 || a.last4 === r.bankLast4);
-    if (accts.length) {
-      r.accounts = accts.map((a) => {
-        const e = bankBalanceDoc?.balances?.[a.last4];
-        return { last4: a.last4, bank: a.bank, label: a.label, balance: e?.amount ?? null, updatedAt: e?.updatedAt ?? null };
-      });
-      const entered = r.accounts.filter((a) => a.balance != null);
-      r.bankTotal = entered.length ? entered.reduce((s, a) => s + (a.balance ?? 0), 0) : null;
-      r.variance = r.bankTotal != null && r.endingCash != null ? r.bankTotal - r.endingCash : null;
-    }
+    if (r.manual) continue;
+    const billDoc = overrideDoc?.rows?.[r.key]?.bills ?? overrideDoc?.rows?.[r.propertyCode]?.bills ?? {};
+    const weeklyBills = wednesdays.map((w) => ({ wednesday: w, amount: billDoc[w] ?? 0 }));
+    const billsMTD = weeklyBills.reduce((s, b) => s + b.amount, 0);
+    if (billsMTD !== 0) { r.weeklyBills = weeklyBills; r.billsMTD = billsMTD; }
   }
 
   return NextResponse.json({
