@@ -150,8 +150,9 @@ export async function GET(req: Request) {
 
   // Weekly-overlay inputs for the un-posted months (current year only).
   const estimateApplies = year === curYear;
-  const minLatest = entries.length ? Math.min(...entries.map((e) => e.stored.maxPeriodInFile)) : 12;
-  const latestPostedPeriod = entries.length ? Math.max(...entries.map((e) => e.stored.maxPeriodInFile)) : 0;
+  const coverageEndOf = (s: typeof entries[number]["stored"]) => s.coverageEnd ?? s.maxPeriodInFile;
+  const minLatest = entries.length ? Math.min(...entries.map((e) => coverageEndOf(e.stored))) : 12;
+  const latestPostedPeriod = entries.length ? Math.max(...entries.map((e) => coverageEndOf(e.stored))) : 0;
   const gapMonths: number[] = [];
   if (estimateApplies) for (let mo = minLatest + 1; mo <= curMonth; mo++) gapMonths.push(mo);
   const billsByMonth: Record<number, Awaited<ReturnType<typeof getMonth>>> = {};
@@ -168,7 +169,9 @@ export async function GET(req: Request) {
 
   // Pass 2: raw per-key rows (GL opening, no override yet).
   const raw: Row[] = entries.map(({ m, stored }) => {
-    const maxPeriod = stored.maxPeriodInFile;
+    // "Posted through" = the report-range end (the GL's To date), so a property
+    // with no activity in the latest month still counts as current.
+    const maxPeriod = stored.coverageEnd ?? stored.maxPeriodInFile;
     const p = Math.min(period, maxPeriod);
     const flow = computeCashFlow(stored.monthly, p, { ytd });
     const glOpening = cashAtStartOfMonth(stored, p);
