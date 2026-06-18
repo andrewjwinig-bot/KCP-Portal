@@ -67,15 +67,16 @@ type InterestAccount = {
   anchor: { year: number; month: number; balance: number };
   rate: number; // annual nominal rate (e.g. 0.0315)
   monthlyFee?: number; // recurring monthly bank charge backed out of the interest
+  mm?: boolean; // a money-market account — shows a green "MM" pill
 };
 const INTEREST_ACCOUNTS: InterestAccount[] = [
   { code: "LK-TRUST", name: "Leonard Korman Trust", group: "Business Parks", bankCodes: ["LK-TRUST"], anchor: { year: 2026, month: 6, balance: 1_845_989.33 }, rate: 0.0315, monthlyFee: 2 },
   // Property money-market accounts — sit beneath their operating row.
-  { code: "2300-MM", name: "Brookwood Money Market", group: "Shopping Centers", parent: "2300", bankCodes: ["2300"], bankLast4: "x6888", anchor: { year: 2026, month: 5, balance: 1_245_207.10 }, rate: 0.0315 },
-  { code: "4500-MM", name: "Gray's Ferry Money Market", group: "Shopping Centers", parent: "4500", bankCodes: ["4500"], bankLast4: "x8086", anchor: { year: 2026, month: 6, balance: 839_877.68 }, rate: 0.03 },
-  { code: "7010-MM", name: "Parkwood Money Market", group: "Shopping Centers", parent: "7010", bankCodes: ["7010"], bankLast4: "x9436", anchor: { year: 2026, month: 5, balance: 351_901.78 }, rate: 0.03 },
-  { code: "7300-MM", name: "Revere Money Market", group: "Shopping Centers", parent: "7300", bankCodes: ["7300"], bankLast4: "x8177", anchor: { year: 2026, month: 6, balance: 831_254.00 }, rate: 0.03 },
-  { code: "2010-MM", name: "LIK Money Market", group: "LIK Management", parent: "2010", bankCodes: ["2010"], bankLast4: "x8276", anchor: { year: 2026, month: 6, balance: 507_649.44 }, rate: 0.03 },
+  { code: "2300-MM", name: "Brookwood", group: "Shopping Centers", parent: "2300", bankCodes: ["2300"], bankLast4: "x6888", anchor: { year: 2026, month: 5, balance: 1_245_207.10 }, rate: 0.0315, mm: true },
+  { code: "4500-MM", name: "Gray's Ferry", group: "Shopping Centers", parent: "4500", bankCodes: ["4500"], bankLast4: "x8086", anchor: { year: 2026, month: 6, balance: 839_877.68 }, rate: 0.03, mm: true },
+  { code: "7010-MM", name: "Parkwood", group: "Shopping Centers", parent: "7010", bankCodes: ["7010"], bankLast4: "x9436", anchor: { year: 2026, month: 5, balance: 351_901.78 }, rate: 0.03, mm: true },
+  { code: "7300-MM", name: "Revere", group: "Shopping Centers", parent: "7300", bankCodes: ["7300"], bankLast4: "x8177", anchor: { year: 2026, month: 6, balance: 831_254.00 }, rate: 0.03, mm: true },
+  { code: "2010-MM", name: "LIK", group: "LIK Management", parent: "2010", bankCodes: ["2010"], bankLast4: "x8276", anchor: { year: 2026, month: 6, balance: 507_649.44 }, rate: 0.03, mm: true },
 ];
 const INTEREST_CODES = new Set(INTEREST_ACCOUNTS.map((a) => a.code.toUpperCase()));
 /** Opening, the month's gross interest (opening × rate ÷ 12), any recurring fee,
@@ -121,6 +122,8 @@ type Row = {
   /** Auto-computed balance (e.g. interest-accruing trust) — shown formatted and
    *  not hand-editable. */
   readOnly?: boolean;
+  /** Money-market account — shows a green "MM" pill. */
+  mm?: boolean;
   /** For interest-bearing accounts: the month's interest calc, for the modal. */
   interest?: { opening: number; rate: number; amount: number; fee: number };
   breakdown?: { key: string; name: string; startingCash: number | null; netChange: number; endingCash: number | null; byBucket: Record<CashFlowCode, number> }[];
@@ -335,7 +338,7 @@ export async function GET(req: Request) {
       glOpening: t.opening, startingCash: t.opening, openingOverridden: false, endingCash: t.ending,
       scheduledDebt: 0, debtExpected: false, debtPosted: false, debtMissing: false,
       latestGLMonth: period, estimate: null,
-      readOnly: true, bankCodes: acct.bankCodes, bankLast4: acct.bankLast4,
+      readOnly: true, mm: acct.mm, bankCodes: acct.bankCodes, bankLast4: acct.bankLast4,
       interest: { opening: t.opening, rate: acct.rate, amount: t.interest, fee: t.fee },
     });
     // Drop this account from the parent operating row's chips so it shows once.
