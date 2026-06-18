@@ -25,7 +25,7 @@ type Row = {
   scheduledDebt: number; debtExpected: boolean; debtPosted: boolean; debtMissing: boolean;
   latestGLMonth: number;
   estimate: { months: number; revenue: number; bills: number; mortgage: number; estimatedCash: number | null; latestEnding: number | null } | null;
-  isFund?: boolean; manual?: boolean; readOnly?: boolean; mm?: boolean; bankCodes?: string[]; bankLast4?: string; excludeLast4?: string[]; breakdown?: Breakdown[];
+  isFund?: boolean; manual?: boolean; readOnly?: boolean; mm?: boolean; sd?: boolean; bankCodes?: string[]; bankLast4?: string; excludeLast4?: string[]; breakdown?: Breakdown[];
   billsMTD?: number; weeklyBills?: { wednesday: string; amount: number }[];
   reserves?: number; reservesAuto?: number; reservesOverridden?: boolean;
   interest?: { opening: number; rate: number; amount: number; fee: number };
@@ -410,7 +410,7 @@ export default function CashSheetPage() {
                     <tr title={r.period < r.maxPeriod ? "" : undefined}>
                       <td style={{ textAlign: "left" }}>
                         <code style={{ fontSize: 12 }}>{r.propertyCode}</code>
-                        {!r.manual && !r.readOnly ? (
+                        {!r.manual && !r.readOnly && !r.sd ? (
                           <Link href={`/financials/operating-statements?key=${encodeURIComponent(r.key)}&year=${year}&period=${glMonth}`}
                             title="Open this entity's Operating Statement for this month"
                             style={{ marginLeft: 8, color: "#0b4a7d", fontWeight: 600, textDecoration: "none" }}
@@ -475,6 +475,16 @@ export default function CashSheetPage() {
                           );
                         }
                         if (!v) return <td key={b.code} style={{ ...numCell, color: "var(--muted)" }}>—</td>;
+                        // Pooled SD account: the deposit movement is summed from the member
+                        // properties' GLs, so there's nothing to drill on this row's own key.
+                        if (b.code === 8 && r.sd) {
+                          return (
+                            <td key={b.code} style={{ ...numCell, color: v < 0 ? "#b91c1c" : "#15803d" }}
+                              title="Net tenant-deposit movement this month (collected − refunded), pooled from the member properties' GLs">
+                              {money0(v)}
+                            </td>
+                          );
+                        }
                         // Interest-bearing account: Receipts is the accrued interest — click for the rate calc, not a GL drill.
                         const isInterest = b.code === 1 && r.interest;
                         return (
