@@ -79,6 +79,21 @@ const INTEREST_ACCOUNTS: InterestAccount[] = [
   { code: "2010-MM", name: "LIK", group: "LIK Management", parent: "2010", bankCodes: ["2010"], bankLast4: "x8276", anchor: { year: 2026, month: 6, balance: 507_649.44 }, rate: 0.03, mm: true },
 ];
 const INTEREST_CODES = new Set(INTEREST_ACCOUNTS.map((a) => a.code.toUpperCase()));
+
+// Pooled Tenant Security-Deposit bank accounts. The deposit cash physically sits
+// here (not in the operating accounts), so the Security Deposits (bucket 8)
+// movement posted across the property GLs is carved OUT of the operating rows and
+// pooled onto these two: NI LLC's deposits in x7448, every other property's in
+// x7216. Opening balance is hand-entered (startingOverride); both earn 0.40%
+// interest (booked separately as Receipts), so ending = opening + interest +
+// deposit movement. Deposit activity comes straight from the GLs — never keyed.
+const SD_RATE = 0.004;
+const SD_ACCOUNTS = [
+  { key: "NILLC-TSD", name: "NI LLC – Tenant Security Deposits", group: "Business Parks", bankCode: "4000", bankLast4: "x7448", isNi: true, parentKey: "PNIPLX" },
+  { key: "2010-SD-ALLBUTNI", name: "Security Deposits — All but NI LLC", group: "LIK Management", bankCode: "2010", bankLast4: "x7216", isNi: false, parentKey: "2010" },
+];
+const SD_KEYS = new Set(SD_ACCOUNTS.map((s) => s.key.toUpperCase()));
+const NI_FUND_KEYS = new Set(["PNIPLX", ...FUND_BUILDINGS.PNIPLX].map((k) => k.toUpperCase()));
 /** Opening, the month's gross interest (opening × rate ÷ 12), any recurring fee,
  *  and ending — whole dollars, compounded from the anchor net of the fee. */
 function interestMonth(acct: InterestAccount, year: number, period: number): { opening: number; interest: number; fee: number; ending: number } {
@@ -124,6 +139,10 @@ type Row = {
   readOnly?: boolean;
   /** Money-market account — shows a green "MM" pill. */
   mm?: boolean;
+  /** A pooled Tenant Security-Deposit account: its deposit movement (bucket 8)
+   *  is carved from the member properties' GLs, opening is hand-entered, and it
+   *  earns interest. No Operating Statement, so the name doesn't link out. */
+  sd?: boolean;
   /** For interest-bearing accounts: the month's interest calc, for the modal. */
   interest?: { opening: number; rate: number; amount: number; fee: number };
   breakdown?: { key: string; name: string; startingCash: number | null; netChange: number; endingCash: number | null; byBucket: Record<CashFlowCode, number> }[];
@@ -304,6 +323,7 @@ export async function GET(req: Request) {
       const uc = p.code.toUpperCase();
       if (present.has(uc)) continue;
       if (INTEREST_CODES.has(uc)) continue; // interest accounts are added in their own pass
+      if (SD_KEYS.has(uc)) continue;        // security-deposit accounts get their own pass
       present.add(uc);
       const bankCodes = p.code === "CONDO" ? ["3610A"] : [p.bankCode ?? p.code];
       const rowDoc = overrideDoc?.rows?.[p.code];
@@ -348,6 +368,46 @@ export async function GET(req: Request) {
     }
   }
 
+  // Pooled Tenant Security-Deposit accounts. Carve the Security Deposits (bucket
+  // 8) movement out of every operating row — the deposit cash sits in a dedicated
+  // SD bank account, not the operating account — and pool it onto the two SD
+  // rows (NI LLC → x7448, all others → x7216). Each SD row then carries its
+  // hand-entered opening + 0.40% interest (booked as Receipts) + the GL-derived
+  // deposit movement; deposit activity is never hand-keyed. Runs before the
+  // safety net so the SD rows claim x7448 / x7216 (no duplicate account rows).
+  let niSd = 0, otherSd = 0;
+  for (const r of rows) {
+    if (SD_KEYS.has(r.key.toUpperCase())) continue;
+    const sd8 = r.byBucket[8] ?? 0;
+    if (sd8 === 0) continue;
+    r.byBucket = { ...r.byBucket, 8: 0 };
+    r.netChange -= sd8;
+    if (r.endingCash != null) r.endingCash -= sd8;
+    if (NI_FUND_KEYS.has(r.key.toUpperCase())) niSd += sd8; else otherSd += sd8;
+  }
+  for (const sd of SD_ACCOUNTS) {
+    const movement = sd.isNi ? niSd : otherSd;
+    const ov = overrideFor(sd.key);          // hand-entered opening (startingOverride)
+    const interest = ov != null ? Math.round(ov * SD_RATE / 12) : 0;
+    const b = emptyBuckets();
+    b[1] = interest;   // 0.40% interest → Receipts (its own thing)
+    b[8] = movement;   // net deposit movement (collected − refunded), from the GLs
+    rows.push({
+      key: sd.key, propertyCode: sd.bankCode, name: sd.name, group: sd.group,
+      period, maxPeriod: period, byBucket: b, netChange: interest + movement,
+      glOpening: null, startingCash: ov, openingOverridden: ov != null,
+      endingCash: ov != null ? ov + interest + movement : null,
+      scheduledDebt: 0, debtExpected: false, debtPosted: false, debtMissing: false,
+      latestGLMonth: period, estimate: null,
+      sd: true, bankCodes: [sd.bankCode], bankLast4: sd.bankLast4,
+      interest: { opening: ov ?? 0, rate: SD_RATE, amount: interest, fee: 0 },
+    });
+    // The deposit cash lives in this account, so hide it from the operating row's
+    // chips (the NI LLC fund row surfaces x7448 via its buildings; 2010 via 2010).
+    const parent = rows.find((r) => r.key === sd.parentKey);
+    if (parent) parent.excludeLast4 = [...(parent.excludeLast4 ?? []), sd.bankLast4];
+  }
+
   // Safety net: guarantee EVERY bank account in Property Info is shown. Anything
   // not already surfaced by a row above gets its own flat account row, so no
   // account can silently fall off the page.
@@ -385,32 +445,6 @@ export async function GET(req: Request) {
     const weeklyBills = wednesdays.map((w) => ({ wednesday: w, amount: billDoc[w] ?? 0 }));
     const billsMTD = weeklyBills.reduce((s, b) => s + b.amount, 0);
     if (billsMTD !== 0) { r.weeklyBills = weeklyBills; r.billsMTD = billsMTD; }
-  }
-
-  // Split the Security Deposits — All but NI LLC account (Liberty x7216) off the
-  // 2010 LIK Management row into its own line below it. 2010 is the operating
-  // account, so the Security Deposits bucket movement belongs to the dedicated
-  // security-deposit account, not operating cash.
-  const opRow = rows.find((r) => r.key === "2010");
-  if (opRow) {
-    const sd8 = opRow.byBucket[8] ?? 0;
-    opRow.byBucket = { ...opRow.byBucket, 8: 0 };
-    opRow.netChange -= sd8;
-    if (opRow.endingCash != null) opRow.endingCash -= sd8;
-    opRow.excludeLast4 = [...(opRow.excludeLast4 ?? []), "x7216"];
-    const sdBuckets = emptyBuckets();
-    sdBuckets[8] = sd8;
-    const sdOv = overrideFor("2010-SD-ALLBUTNI");
-    rows.push({
-      key: "2010-SD-ALLBUTNI", propertyCode: "2010", name: "Security Deposits — All but NI LLC",
-      group: opRow.group, period: opRow.period, maxPeriod: opRow.maxPeriod,
-      byBucket: sdBuckets, netChange: sd8,
-      glOpening: null, startingCash: sdOv, openingOverridden: sdOv != null,
-      endingCash: sdOv != null ? sdOv + sd8 : null,
-      scheduledDebt: 0, debtExpected: false, debtPosted: false, debtMissing: false,
-      latestGLMonth: opRow.latestGLMonth, estimate: null,
-      bankCodes: ["2010"], bankLast4: "x7216",
-    });
   }
 
   // Budgeted Big Projects reserve per row (override → budget auto). Funds sum
