@@ -1469,6 +1469,154 @@
    }
   ]
  },
+ "9860": {
+  "propertyCode": "9860",
+  "entityName": "KH Fort Washington",
+  "sections": [
+   {
+    "name": "Revenues",
+    "role": "revenue",
+    "lines": [
+     {
+      "label": "Rental income",
+      "mask": "4230-*"
+     },
+     {
+      "label": "Miscellaneous",
+      "mask": "4980..4999-*"
+     },
+     {
+      "label": "Interest Income",
+      "mask": "9190-*"
+     }
+    ]
+   },
+   {
+    "name": "Reimbursements",
+    "role": "reimbursement",
+    "lines": [
+     {
+      "label": "Electric",
+      "mask": "4710-*,4910-8503"
+     },
+     {
+      "label": "Common Area",
+      "mask": "4910-0000,4910-8501,4910-8502,4910-8506"
+     },
+     {
+      "label": "Real Estate Taxes",
+      "mask": "4920-*"
+     },
+     {
+      "label": "Insurance",
+      "mask": "4930-*"
+     },
+     {
+      "label": "Condo Assn",
+      "mask": "4970-*"
+     }
+    ]
+   },
+   {
+    "name": "Residential Expenses",
+    "role": "residential-expense",
+    "lines": [
+     {
+      "label": "Maintenance Salaries",
+      "mask": "6030-8502"
+     },
+     {
+      "label": "Electric",
+      "mask": "6120-*"
+     },
+     {
+      "label": "Water & Sewer",
+      "mask": "6130-*"
+     },
+     {
+      "label": "Building Maintenance",
+      "mask": "6220-*"
+     },
+     {
+      "label": "Parking Lot Maintenance",
+      "mask": "6360-8501"
+     },
+     {
+      "label": "Snow Removal",
+      "mask": "6370-8502"
+     },
+     {
+      "label": "Landscaping",
+      "mask": "6380-8501"
+     },
+     {
+      "label": "Management Fee",
+      "mask": "6610-8502"
+     },
+     {
+      "label": "Trash Removal",
+      "mask": "6270-8502"
+     },
+     {
+      "label": "Real Estate Taxes",
+      "mask": "6410-*"
+     },
+     {
+      "label": "Insurance",
+      "mask": "6510-*"
+     },
+     {
+      "label": "Cleaning & Supplies",
+      "mask": "6250-8501,6250-8502"
+     },
+     {
+      "label": "Marketing",
+      "mask": "7110-8501"
+     },
+     {
+      "label": "General & Administrative",
+      "mask": "8*-85*"
+     }
+    ]
+   },
+   {
+    "name": "Capital",
+    "role": "capital",
+    "lines": [
+     {
+      "label": "Capital Improvements",
+      "mask": "1410-0000,1420-0000,1430-0000,1450-0000,1460-0000,1470-0000,1480-0000,1490-0000"
+     },
+     {
+      "label": "Tenant improvements",
+      "mask": "1440-0000"
+     },
+     {
+      "label": "Capitalized Lease Costs",
+      "mask": "1940-8501"
+     },
+     {
+      "label": "Extraordinary Expense",
+      "mask": "6990-8599,8990-8599"
+     }
+    ]
+   },
+   {
+    "name": "Debt Service",
+    "role": "debt-service",
+    "lines": [
+     {
+      "label": "Interest",
+      "mask": "9210-*,9430-8501"
+     },
+     {
+      "label": "Mortgage Amortization",
+      "mask": "2720-8501,2740-8501"
+     }
+    ]
+   }
+  ]
+ },
  "9820": {
   "propertyCode": "9820",
   "entityName": "KH - Spring Garden Street LLC",
