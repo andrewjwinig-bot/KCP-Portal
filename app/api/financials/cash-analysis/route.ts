@@ -399,6 +399,18 @@ export async function GET(req: Request) {
   const yearGls = fulls.filter((g) => g.year === year);
   const latestGl = yearGls.length ? yearGls.reduce((a, b) => (a.uploadedAt >= b.uploadedAt ? a : b)) : null;
 
+  // Display the fund account code (where the GL detail is held) on the fund rows
+  // instead of the internal P-code: FJVIII / FNIPLX / FIIICO.
+  const FUND_DISPLAY_CODE: Record<string, string> = {
+    PJV3: "FJVIII", FJVIII: "FJVIII",
+    PNIPLX: "FNIPLX", FNIPLX: "FNIPLX",
+    CONDO: "FIIICO", PIIICO: "FIIICO",
+  };
+  for (const r of rows) {
+    const d = FUND_DISPLAY_CODE[r.key.toUpperCase()] ?? FUND_DISPLAY_CODE[r.propertyCode.toUpperCase()];
+    if (d) r.propertyCode = d;
+  }
+
   return NextResponse.json({
     year, period, ytd,
     buckets: CASH_FLOW_BUCKETS,
