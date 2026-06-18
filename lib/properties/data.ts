@@ -130,7 +130,7 @@ export const BANK_ACCOUNTS: Record<string, BankAccount[]> = {
   ],
   "7010": [
     { bank: "Chase",   label: "Operating",               last4: "x5656", link: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/745774883/DDA/CHK" },
-    { bank: "Liberty", label: "Operating",               last4: "x9436", link: "https://secure.myvirtualbranch.com/LibertyBank/React/Accounts.aspx?p_r=1#Accounts/5" },
+    { bank: "Liberty", label: "Money Market",            last4: "x9436", link: "https://secure.myvirtualbranch.com/LibertyBank/React/Accounts.aspx?p_r=1#Accounts/5" },
   ],
   "2010": [
     { bank: "Chase",   label: "2010 Operating",          last4: "x9629", link: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/747621599/DDA/CHK" },
