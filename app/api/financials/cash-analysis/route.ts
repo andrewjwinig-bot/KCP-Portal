@@ -475,6 +475,14 @@ export async function GET(req: Request) {
     if (d) r.propertyCode = d;
   }
 
+  // Shorter display names for the Cash Sheet only — Property Info keeps the full
+  // property name used by Rent Roll / CAM, etc.
+  const CASH_SHEET_NAME: Record<string, string> = { "2300": "Brookwood", "4500": "Gray's Ferry" };
+  for (const r of rows) {
+    const n = CASH_SHEET_NAME[r.key.toUpperCase()] ?? CASH_SHEET_NAME[r.propertyCode.toUpperCase()];
+    if (n) r.name = n;
+  }
+
   return NextResponse.json({
     year, period, ytd,
     buckets: CASH_FLOW_BUCKETS,
