@@ -262,6 +262,13 @@ export default function CashSheetPage() {
   const laggingRows = (data?.rows ?? []).filter(isBehind);
   const laggingKeys = new Set(laggingRows.map((r) => r.key));
   const glDates = periodDates(year, glMonth, ytd); // GL-actuals month (e.g. May) for the Opening/Ending headers
+  // Most recent Wednesday that bills were uploaded for — the "as of" date for the
+  // Est. Available Cash column (it carries the GL forward net of those bills).
+  const lastBillWed = (() => {
+    let max = "";
+    for (const r of data?.rows ?? []) for (const w of r.weeklyBills ?? []) if (w.amount && w.wednesday > max) max = w.wednesday;
+    return max ? max.slice(5) : null; // "YYYY-MM-DD" → "MM-DD"
+  })();
   const showEst = !!data?.estimateAsOf;
   const showBills = (data?.rows ?? []).some((r) => (r.billsMTD ?? 0) !== 0);
   const showReserves = !!data && (data.canEdit || (data.rows ?? []).some((r) => (r.reserves ?? 0) !== 0));
@@ -317,14 +324,6 @@ export default function CashSheetPage() {
             )}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-            <div style={{ display: "inline-flex", border: "1px solid rgba(11,74,125,0.3)", borderRadius: 999, overflow: "hidden" }} title="How much detail to show for cash movement">
-              {([["net", "Net"], ["io", "Cash In/Out"], ["detail", "Detail"]] as const).map(([v, label]) => (
-                <button key={v} type="button" onClick={() => setViewPersist(v)}
-                  style={{ padding: "7px 12px", fontSize: 12, fontWeight: 700, border: "none", cursor: "pointer", background: view === v ? "#0b4a7d" : "var(--card)", color: view === v ? "#fff" : "#0b4a7d" }}>
-                  {label}
-                </button>
-              ))}
-            </div>
             {!ytd && glMonth !== period && <span style={{ fontSize: 12, fontWeight: 600, color: "var(--muted)" }}>{MONTHS[glMonth - 1]} GL actuals + {MONTHS[period - 1]} bills</span>}
             <select
               value={`${year}-${period}`}
@@ -338,6 +337,16 @@ export default function CashSheetPage() {
             <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600 }}>
               <input type="checkbox" checked={ytd} onChange={(e) => setYtd(e.target.checked)} /> YTD
             </label>
+          </div>
+        </div>
+        <div style={{ display: "flex", marginTop: 10 }}>
+          <div style={{ display: "inline-flex", border: "1px solid rgba(11,74,125,0.3)", borderRadius: 999, overflow: "hidden" }} title="How much detail to show for cash movement">
+            {([["net", "Net"], ["io", "Cash In/Out"], ["detail", "Detail"]] as const).map(([v, label]) => (
+              <button key={v} type="button" onClick={() => setViewPersist(v)}
+                style={{ padding: "7px 12px", fontSize: 12, fontWeight: 700, border: "none", cursor: "pointer", background: view === v ? "#0b4a7d" : "var(--card)", color: view === v ? "#fff" : "#0b4a7d" }}>
+                {label}
+              </button>
+            ))}
           </div>
         </div>
         <p className="muted small" style={{ marginTop: 8 }}>
@@ -413,7 +422,7 @@ export default function CashSheetPage() {
                 <th style={{ ...keyCol, textAlign: "center" }}>Ending Cash<div style={{ fontWeight: 800, fontSize: 16, color: "var(--text)", textTransform: "none", marginTop: 1 }}>{glDates.endShort}</div></th>
                 {showBills && <th style={headWrap} title={`AvidXchange bills paid in ${MONTHS[period - 1]} — click a row for the weekly detail`}>Avid Bills<div style={{ fontWeight: 700, fontSize: 13, color: "var(--text)", textTransform: "none" }}>{MONTHS[period - 1]}</div></th>}
                 {showReserves && <th style={headWrap} title="Budgeted Big Projects reserve set aside (from the budget; type to override)">Reserves</th>}
-                {showEst && <th style={{ ...keyCol, background: "rgba(21,128,61,0.08)" }}>Est. Available Cash<div style={{ fontWeight: 600, fontSize: 10, color: "var(--muted)", textTransform: "none" }}>{data?.estimateAsOf} · net of reserves</div></th>}
+                {showEst && <th style={{ ...keyCol, textAlign: "center", background: "rgba(21,128,61,0.08)" }}>Est. Available Cash<div style={{ fontWeight: 800, fontSize: 16, color: "var(--text)", textTransform: "none", marginTop: 1 }}>{lastBillWed ?? data?.estimateAsOf}</div><div style={{ fontWeight: 600, fontSize: 10, color: "var(--muted)", textTransform: "none" }}>net of reserves</div></th>}
               </tr>
             </thead>
             <tbody>
