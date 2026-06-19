@@ -195,6 +195,16 @@ p { margin: 0; }
   cursor: not-allowed;
 }
 
+/* Secondary buttons in dark mode: a darker grey surface with light text. The
+ * default white background reads as low-contrast (near-white text on white) on
+ * dark pages. Primary buttons keep their brand fill. */
+[data-theme="dark"] .btn:not(.primary) {
+  background: #334155;
+  border-color: rgba(255, 255, 255, 0.16);
+  color: #e6edf6;
+}
+[data-theme="dark"] .btn:not(.primary):hover { background: #3d4d63; }
+
 .tableWrap {
   width: 100%;
   overflow: auto;
