@@ -66,6 +66,11 @@ export default function SecurityDepositsPage() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<SecurityDeposit | null>(null);
   const [adding, setAdding] = useState(false);
+  // Multi-check tenants collapse to one row; expand to reveal the per-check rows.
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const toggleExpand = (unitRef: string) => setExpanded((s) => {
+    const n = new Set(s); n.has(unitRef) ? n.delete(unitRef) : n.add(unitRef); return n;
+  });
 
   function startGlobalAdd() { setAdding(true); setEditing(null); }
   // Pull the authoritative list from the server (so optimistic updates can never
@@ -241,31 +246,39 @@ export default function SecurityDepositsPage() {
                       );
                     }
 
-                    // Multiple checks → a tenant subtotal header + one row per check.
+                    // Multiple checks → ONE collapsible row per tenant; expand to
+                    // reveal the individual check rows.
                     const held = heldTotal(g.checks);
                     const allRefunded = g.checks.every((c) => c.refunded);
+                    const isOpen = expanded.has(g.unitRef);
                     return (
                       <Fragment key={g.unitRef}>
-                        <tr style={{ background: "rgba(15,23,42,0.035)" }}>
+                        <tr style={{ background: "rgba(15,23,42,0.035)", cursor: "pointer" }}
+                          onClick={() => toggleExpand(g.unitRef)}
+                          title={isOpen ? "Hide checks" : "Show checks"}
+                          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.filter = "brightness(0.97)"; }}
+                          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.filter = ""; }}>
                           <td style={{ fontWeight: 700 }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                              <span style={{ display: "inline-block", width: 12, color: "var(--muted)" }}>{isOpen ? "▾" : "▸"}</span>
                               <span>{g.tenant || "—"}</span>
                               {allRefunded && <RefundedBadge date="" />}
                             </div>
                           </td>
                           <td><code style={{ fontSize: 12 }}>{g.unitRef}</code></td>
-                          <td className="muted small">{g.checks.length} checks</td>
+                          <td className="muted small">—</td>
                           <td style={{ textAlign: "right", fontSize: 13, fontWeight: 800 }}>{money(held)}</td>
-                          <td colSpan={2} className="muted small">total held</td>
+                          <td className="muted small">{g.checks.length} Checks</td>
+                          <td className="muted small">—</td>
                         </tr>
-                        {g.checks.map((d) => (
+                        {isOpen && g.checks.map((d) => (
                           <tr key={d.id}
                             style={{ cursor: "pointer", opacity: d.refunded ? 0.55 : 1 }}
-                            onClick={() => { setEditing(d); setAdding(false); }}
+                            onClick={(e) => { e.stopPropagation(); setEditing(d); setAdding(false); }}
                             onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.filter = "brightness(0.97)"; }}
                             onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.filter = ""; }}>
-                            <td style={{ paddingLeft: 26 }} className="muted small">
-                              {d.refunded ? <RefundedBadge date={d.refundDate} /> : "↳"}
+                            <td style={{ paddingLeft: 30 }} className="muted small">
+                              {d.refunded ? <RefundedBadge date={d.refundDate} /> : ""}
                             </td>
                             <td />
                             {checkCell(d)}
