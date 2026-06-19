@@ -7,7 +7,9 @@
 
 import React, { useEffect, useRef, useState } from "react";
 
-export type DownloadItem = { label: string; description?: string; href: string };
+// An item is either a download link (href) or a client-side action (onClick) —
+// e.g. a workbook/PDF generated in the browser.
+export type DownloadItem = { label: string; description?: string; href?: string; onClick?: () => void };
 
 export function DownloadMenu({ label = "Download", items, variant = "primary", disabled }: {
   label?: string;
@@ -47,20 +49,22 @@ export function DownloadMenu({ label = "Download", items, variant = "primary", d
           background: "var(--card)", border: "1px solid var(--border)", borderRadius: 10,
           boxShadow: "0 8px 24px rgba(15,23,42,0.18)", padding: 4, display: "flex", flexDirection: "column",
         }}>
-          {items.map((item, i) => (
-            <a
-              key={i}
-              href={item.href}
-              role="menuitem"
-              onClick={() => setOpen(false)}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(15,23,42,0.05)"; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
-              style={{ display: "block", textAlign: "left", textDecoration: "none", background: "transparent", border: 0, borderRadius: 6, padding: "8px 10px", cursor: "pointer", width: "100%" }}
-            >
-              <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text)" }}>{item.label}</div>
-              {item.description && <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2, lineHeight: 1.35 }}>{item.description}</div>}
-            </a>
-          ))}
+          {items.map((item, i) => {
+            const itemStyle: React.CSSProperties = { display: "block", textAlign: "left", textDecoration: "none", background: "transparent", border: 0, borderRadius: 6, padding: "8px 10px", cursor: "pointer", width: "100%", fontFamily: "inherit" };
+            const onEnter = (e: React.MouseEvent<HTMLElement>) => { e.currentTarget.style.background = "rgba(15,23,42,0.05)"; };
+            const onLeave = (e: React.MouseEvent<HTMLElement>) => { e.currentTarget.style.background = "transparent"; };
+            const inner = (
+              <>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text)" }}>{item.label}</div>
+                {item.description && <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2, lineHeight: 1.35 }}>{item.description}</div>}
+              </>
+            );
+            return item.onClick ? (
+              <button key={i} type="button" role="menuitem" onClick={() => { setOpen(false); item.onClick!(); }} onMouseEnter={onEnter} onMouseLeave={onLeave} style={itemStyle}>{inner}</button>
+            ) : (
+              <a key={i} href={item.href} role="menuitem" onClick={() => setOpen(false)} onMouseEnter={onEnter} onMouseLeave={onLeave} style={itemStyle}>{inner}</a>
+            );
+          })}
         </div>
       )}
     </div>
