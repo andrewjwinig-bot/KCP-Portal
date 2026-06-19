@@ -39,15 +39,17 @@ export default function DrewSavedStatus() {
   const [runs, setRuns] = useState<AllocRun[] | null>(null);
 
   useEffect(() => {
-    fetch("/api/periods")
+    // no-store so the browser/edge never serves a stale "most recent" snapshot.
+    const opts = { cache: "no-store" as const };
+    fetch("/api/periods", opts)
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => setPeriods(j?.periods ?? []))
       .catch(() => setPeriods([]));
-    fetch("/api/statements")
+    fetch("/api/statements", opts)
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => setStatements(Array.isArray(j) ? j : []))
       .catch(() => setStatements([]));
-    fetch("/api/allocation/last-run")
+    fetch("/api/allocation/last-run", opts)
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => setRuns(j?.runs ?? []))
       .catch(() => setRuns([]));

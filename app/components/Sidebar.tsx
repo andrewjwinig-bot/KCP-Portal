@@ -817,7 +817,24 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
           first occurrence so order is preserved. */}
       <nav className="sidebar-nav" style={{ flex: 1, padding: open ? "4px 8px" : "8px 6px", display: "flex", flexDirection: "column", gap: 2, minHeight: 0, overflowY: "auto", overflowX: "hidden" }}>
         {(() => {
-          const visible = NAV.filter((item) => isVisible(item));
+          let visible = NAV.filter((item) => isVisible(item));
+          // Drew's preferred category order (ungrouped items stay on top; the
+          // groups follow in this order, then any others; Security still pins to
+          // the bottom via its own marginTop). Stable so order within a group is
+          // preserved and the render loop emits each group at its first child.
+          if (user.id === "drew") {
+            const DREW_ORDER = ["financials", "banking", "tenancy", "directory", "cam", "invoicing"];
+            const rank = (item: (typeof NAV)[number]) => {
+              const gid = (item as { groupId?: string }).groupId;
+              if (!gid || !GROUPS[gid]) return 0; // ungrouped → top
+              const i = DREW_ORDER.indexOf(gid);
+              return i === -1 ? 100 : i + 1;
+            };
+            visible = visible
+              .map((item, idx) => ({ item, idx }))
+              .sort((a, b) => rank(a.item) - rank(b.item) || a.idx - b.idx)
+              .map((x) => x.item);
+          }
           const renderedGroups = new Set<string>();
           const out: React.ReactNode[] = [];
 
