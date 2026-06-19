@@ -14,6 +14,7 @@ import Link from "next/link";
 import { StatPill, Pill, Badge, TONE_RED, TONE_AMBER, TONE_GREEN } from "@/app/components/Pill";
 import { LastImported } from "@/app/components/LastImported";
 import { bankAccountsForCodes, weekOfLabel, parseMonthKey, type BankAccount } from "@/lib/financials/cash-sheet/util";
+import { ACCOUNT_CODE, PREFIX_CODE } from "@/lib/financials/cash-analysis/accountCodes";
 
 type Bucket = { code: number; label: string };
 type Breakdown = { key: string; name: string; startingCash: number | null; netChange: number; endingCash: number | null; byBucket: Record<string, number> };
@@ -126,6 +127,17 @@ export default function CashSheetPage() {
     return v === "net" || v === "detail" || v === "io" ? v : "io";
   });
   const setViewPersist = (v: View) => { setView(v); try { localStorage.setItem("cash-sheet-view", v); } catch { /* ignore */ } };
+  const [showCodeMap, setShowCodeMap] = useState(false);
+  // GL account → cash-flow bucket map (the legacy DATA tab), inverted to list the
+  // accounts under each bucket. Exact account codes + the base-4 prefix fallbacks.
+  const codeMap = useMemo(() => {
+    const exact: Record<number, string[]> = {};
+    for (const [a, c] of Object.entries(ACCOUNT_CODE)) (exact[c] ||= []).push(a);
+    const prefix: Record<number, string[]> = {};
+    for (const [p, c] of Object.entries(PREFIX_CODE)) (prefix[c] ||= []).push(p);
+    for (const m of [exact, prefix]) for (const k of Object.keys(m)) m[+k].sort();
+    return { exact, prefix };
+  }, []);
   // Editable opening-cash override (shared with the Cash Sheet) + fund breakdown modal.
   const [openDraft, setOpenDraft] = useState<Record<string, string>>({});
   const [manualDraft, setManualDraft] = useState<Record<string, string>>({});
@@ -685,6 +697,54 @@ export default function CashSheetPage() {
         click a fund name (e.g. JV III) for its building breakdown; click an <b>Avid Bills</b> amount for the week-by-week detail. Override <b>Opening Cash</b> with a property&apos;s actual bank balance and the cell footnotes the GL value + variance, so the tie-out is right there without a separate column.
         {debtMissingRows.length > 0 && <> <span style={{ color: "#b45309", fontWeight: 700 }}>⚠ amber Mortgage P&amp;I with an asterisk (*)</span> is the scheduled debt service — an estimate shown because the actual charge has not posted to the GL yet; it is not rolled into Net Change or Ending Cash.</>}
       </p>
+
+      {/* ── GL account → bucket reference (the legacy DATA tab) ──────────────── */}
+      <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+        <button type="button" onClick={() => setShowCodeMap((s) => !s)}
+          style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "12px 16px", background: "none", border: "none", cursor: "pointer", font: "inherit", textAlign: "left" }}>
+          <span style={{ display: "inline-block", width: 16, color: "var(--muted)" }}>{showCodeMap ? "▾" : "▸"}</span>
+          <span style={{ fontWeight: 800, fontSize: 14 }}>GL account → bucket map</span>
+          <span className="muted small">which account codes roll into each cash-flow bucket</span>
+        </button>
+        {showCodeMap && (
+          <div style={{ padding: "0 16px 16px" }}>
+            <div className="tableWrap" style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%" }}>
+                <thead>
+                  <tr>
+                    <th style={{ textAlign: "left", whiteSpace: "nowrap" }}>Bucket</th>
+                    <th style={{ textAlign: "left" }}>GL accounts</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(data?.buckets ?? []).map((b) => {
+                    const exact = codeMap.exact[b.code] ?? [];
+                    const prefix = codeMap.prefix[b.code] ?? [];
+                    return (
+                      <tr key={b.code} style={{ verticalAlign: "top" }}>
+                        <td style={{ textAlign: "left", whiteSpace: "nowrap", fontWeight: 700, paddingTop: 8 }}>{b.code}. {b.label}</td>
+                        <td style={{ textAlign: "left", paddingTop: 8 }}>
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 8px" }}>
+                            {exact.map((a) => <code key={a} style={{ fontSize: 11 }}>{a}</code>)}
+                          </div>
+                          {prefix.length > 0 && (
+                            <div className="muted small" style={{ marginTop: 6 }}>
+                              Prefix fallback (any unlisted account starting with): {prefix.map((p, i) => <span key={p}>{i > 0 ? " · " : ""}<code style={{ fontSize: 11 }}>{p}</code></span>)}
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <p className="muted small" style={{ marginTop: 10, marginBottom: 0 }}>
+              Ported from the legacy Cash Analysis workbook&apos;s DATA tab. Cash accounts (0110, 0130-0000) and non-cash (depreciation) accounts are intentionally excluded from the flow. An account with activity but no mapping is surfaced for review.
+            </p>
+          </div>
+        )}
+      </div>
 
       {interestModal && (
         <div onClick={() => setInterestModal(null)}
