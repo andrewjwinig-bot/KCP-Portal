@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { QUARTERLY_BILLINGS, QUARTERS, computeQuarterly, type Quarter } from "@/lib/cam/retail/quarterly";
+import { QUARTERLY_BILLINGS, QUARTERS, computeQuarterly, autoQuarterlyFromGl, mergeQuarterly, type Quarter } from "@/lib/cam/retail/quarterly";
 import { getQuarterly, saveQuarterlyCell, type QuarterlyField } from "@/lib/cam/retail/quarterlyStore";
+import { assembledGl } from "@/lib/financials/operating-statements/statementStore";
 
 export const runtime = "nodejs";
 
 /** GET /api/cam-recon/quarterly?key=9510-WAWA-Q&year=2025
- *    → { def, data, computed }
- *  Quarterly CAM/RET billing for a quarter-billed tenant (e.g. Wawa @ 9510). */
+ *    → { def, data, auto, effective, computed, gl }
+ *  Quarterly CAM/RET billing for a quarter-billed tenant (e.g. Wawa @ 9510).
+ *  Eligible expenses auto-populate from the parent property's GL (the "Working
+ *  Trial Balance"); a manually-entered cell overrides the GL value. */
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const key = searchParams.get("key") ?? "";
@@ -15,9 +18,16 @@ export async function GET(req: NextRequest) {
   if (!def || !def.years.includes(year)) {
     return NextResponse.json({ error: `No quarterly billing for ${key} ${year}` }, { status: 404 });
   }
-  const data = await getQuarterly(key, year);
-  const computed = computeQuarterly(def, data);
-  return NextResponse.json({ def, data, computed });
+  const manual = await getQuarterly(key, year);
+  const gl = await assembledGl(def.parentProperty, year);
+  const maxPosted = gl?.maxPeriodInFile ?? 0;
+  const auto = gl ? autoQuarterlyFromGl(def, gl.monthly, maxPosted) : { camCosts: {}, retCosts: {}, billed: {} };
+  const effective = mergeQuarterly(auto, manual);
+  const computed = computeQuarterly(def, effective);
+  return NextResponse.json({
+    def, data: manual, auto, effective, computed,
+    gl: { hasGl: !!gl, maxPosted, uploadedAt: gl?.uploadedAt ?? null },
+  });
 }
 
 const FIELDS = new Set<QuarterlyField>(["camCost", "retCost", "billed"]);

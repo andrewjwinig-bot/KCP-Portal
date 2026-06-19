@@ -17,6 +17,7 @@ import {
   QUARTERS,
   QUARTERLY_BILLINGS,
   computeQuarterly,
+  mergeQuarterly,
   emptyQuarterlyData,
   type Quarter,
   type QuarterlyBillingDef,
@@ -988,7 +989,10 @@ function retailExceptions(t: RetailTenantResult, propertyCode?: string): string[
 // applies per quarter and the YTD balance backs out what's been billed/paid.
 function QuarterlyBilling({ billingKey, year }: { billingKey: string; year: number }) {
   const [def, setDef] = useState<QuarterlyBillingDef | null>(null);
-  const [data, setData] = useState<QuarterlyData>(emptyQuarterlyData());
+  const [auto, setAuto] = useState<QuarterlyData>(emptyQuarterlyData());
+  const [manual, setManual] = useState<QuarterlyData>(emptyQuarterlyData());
+  const [gl, setGl] = useState<{ hasGl: boolean; maxPosted: number; uploadedAt: string | null }>({ hasGl: false, maxPosted: 0, uploadedAt: null });
+  const [billingQ, setBillingQ] = useState<Quarter>("Q1");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -996,15 +1000,24 @@ function QuarterlyBilling({ billingKey, year }: { billingKey: string; year: numb
     setLoading(true);
     fetch(`/api/cam-recon/quarterly?key=${encodeURIComponent(billingKey)}&year=${year}`)
       .then((r) => (r.ok ? r.json() : null))
-      .then((j) => { if (!alive) return; setDef(j?.def ?? null); setData(j?.data ?? emptyQuarterlyData()); })
+      .then((j) => {
+        if (!alive) return;
+        setDef(j?.def ?? null);
+        setAuto(j?.auto ?? emptyQuarterlyData());
+        setManual(j?.data ?? emptyQuarterlyData());
+        const mp = j?.gl?.maxPosted ?? 0;
+        setGl(j?.gl ?? { hasGl: false, maxPosted: 0, uploadedAt: null });
+        setBillingQ(QUARTERS[Math.min(3, Math.max(0, Math.ceil(mp / 3) - 1))] ?? "Q1");
+      })
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
   }, [billingKey, year]);
 
-  const computed = useMemo(() => (def ? computeQuarterly(def, data) : null), [def, data]);
+  const effective = useMemo(() => mergeQuarterly(auto, manual), [auto, manual]);
+  const computed = useMemo(() => (def ? computeQuarterly(def, effective) : null), [def, effective]);
 
   function save(field: "camCost" | "retCost" | "billed", label: string, q: Quarter, value: number) {
-    setData((prev) => {
+    setManual((prev) => {
       const next: QuarterlyData = { camCosts: { ...prev.camCosts }, retCosts: { ...prev.retCosts }, billed: { ...prev.billed } };
       if (field === "camCost") {
         const row = { ...(next.camCosts[label] ?? {}) };
@@ -1029,71 +1042,97 @@ function QuarterlyBilling({ billingKey, year }: { billingKey: string; year: numb
   const sth: React.CSSProperties = { ...th, fontSize: 12, padding: "7px 10px" };
   const std: React.CSSProperties = { ...td, fontSize: 14, padding: "6px 10px" };
   const ytdTd: React.CSSProperties = { ...std, borderLeft: "2px solid var(--border)" };
+  const acctTd: React.CSSProperties = { ...std, textAlign: "left", color: "var(--muted)", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums", fontSize: 12 };
+  const overridden = (label: string | null, q: Quarter, field: "cam" | "ret") =>
+    field === "cam" ? manual.camCosts[label!]?.[q] != null : manual.retCosts[q] != null;
+  // Eligible-cost cell: GL value by default, manual override shown in purple.
+  const costCell = (val: number, isOv: boolean, onCommit: (v: number) => void) => (
+    <td style={{ ...std, color: isOv ? "#6d28d9" : undefined }}><EditableMoney value={val} onCommit={onCommit} /></td>
+  );
+
+  // Per-quarter statement figures (the billed quarter).
+  const q = billingQ;
+  const camCostQ = computed.camCostByQ[q];
+  const mgmtFeeQ = camCostQ * (def.mgmtFeePct / 100);
+  const totalCostQ = camCostQ + mgmtFeeQ;
+  const grossDueQ = computed.camDueByQ[q]; // share × cost × occ (mgmt fee 0 today)
+  const billedCamQ = manual.billed[q] ?? 0; // escrow/payments (combined CAM+RET)
+  const opexBalanceQ = grossDueQ - billedCamQ;
+  const retDueQ = computed.retDueByQ[q];
+  const totalChargesQ = opexBalanceQ + retDueQ;
 
   return (
     <div className="card" style={{ overflowX: "auto" }}>
       <div style={CARD_TITLE}>{def.name} — Quarterly CAM / RET ({year})</div>
-      <p className="small muted" style={{ marginTop: 4, maxWidth: 780 }}>
-        {def.sharePct}% lease share{def.occPct < 1 ? ` · ${pct(def.occPct, 0)} occupancy` : ""}. Enter each quarter&rsquo;s eligible expenses — the share applies per quarter and the YTD balance backs out what&rsquo;s been billed / paid. Billed quarterly (payments aren&rsquo;t escrow).
+      <p className="small muted" style={{ marginTop: 4, maxWidth: 820 }}>
+        {def.sharePct}% lease share{def.occPct < 1 ? ` · ${pct(def.occPct, 0)} occupancy` : ""}.{" "}
+        {gl.hasGl
+          ? <>Eligible expenses pull live from the <b>{def.parentProperty} GL</b> (posted through month {gl.maxPosted}); type a cell to override.</>
+          : <>No {def.parentProperty} GL uploaded for {year} — enter eligible expenses manually.</>}{" "}
+        The share applies per quarter; the YTD balance backs out what&rsquo;s billed / paid. Billed quarterly (payments aren&rsquo;t escrow).
       </p>
-      <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 10, minWidth: 640 }}>
+
+      <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 10, minWidth: 720 }}>
         <thead>
           <tr>
+            <th style={{ ...sth, textAlign: "left" }}>Acct</th>
             <th style={{ ...sth, textAlign: "left" }}>Eligible Expense</th>
-            {QUARTERS.map((q) => <th key={q} style={sth}>{q}</th>)}
             <th style={{ ...sth, borderLeft: "2px solid var(--border)" }}>YTD</th>
+            {QUARTERS.map((qq) => <th key={qq} style={{ ...sth, ...(qq === q ? { background: "rgba(11,74,125,0.06)" } : {}) }}>{qq}</th>)}
           </tr>
         </thead>
         <tbody>
           {def.camLines.map((label) => (
             <tr key={label} style={{ borderBottom: "1px solid var(--border)" }}>
+              <td style={acctTd}><code style={{ fontSize: 11 }}>{def.camAccounts[label] ?? "—"}</code></td>
               <td style={{ ...std, textAlign: "left" }}>{label}</td>
-              {QUARTERS.map((q) => (
-                <td key={q} style={std}><EditableMoney value={data.camCosts[label]?.[q] ?? 0} onCommit={(v) => save("camCost", label, q, v)} /></td>
-              ))}
-              <td style={{ ...ytdTd, color: "var(--muted)" }}>{money0(QUARTERS.reduce((a, q) => a + (data.camCosts[label]?.[q] ?? 0), 0))}</td>
+              <td style={{ ...ytdTd, color: "var(--muted)" }}>{money0(QUARTERS.reduce((a, qq) => a + (effective.camCosts[label]?.[qq] ?? 0), 0))}</td>
+              {QUARTERS.map((qq) => costCell(effective.camCosts[label]?.[qq] ?? 0, overridden(label, qq, "cam"), (v) => save("camCost", label, qq, v)))}
             </tr>
           ))}
         </tbody>
         <tfoot>
           <tr style={{ fontWeight: 800, borderTop: "2px solid var(--border)" }}>
-            <td style={{ ...std, textAlign: "left" }}>Total Eligible CAM</td>
-            {QUARTERS.map((q) => <td key={q} style={std}>{money0(computed.camCostByQ[q])}</td>)}
+            <td style={acctTd} /><td style={{ ...std, textAlign: "left" }}>Sub-total</td>
             <td style={ytdTd}>{money0(computed.camCostYtd)}</td>
+            {QUARTERS.map((qq) => <td key={qq} style={std}>{money0(computed.camCostByQ[qq])}</td>)}
           </tr>
-          <tr>
-            <td style={{ ...std, textAlign: "left" }}>CAM Due ({def.sharePct}%)</td>
-            {QUARTERS.map((q) => <td key={q} style={std}>{money0(computed.camDueByQ[q])}</td>)}
-            <td style={{ ...ytdTd, fontWeight: 700 }}>{money0(computed.camDueYtd)}</td>
+          <tr className="muted">
+            <td style={acctTd} /><td style={{ ...std, textAlign: "left" }}>Management Fee @ {def.mgmtFeePct}%</td>
+            <td style={ytdTd}>{def.mgmtFeePct ? money0(computed.camCostYtd * def.mgmtFeePct / 100) : "—"}</td>
+            {QUARTERS.map((qq) => <td key={qq} style={std}>{def.mgmtFeePct ? money0(computed.camCostByQ[qq] * def.mgmtFeePct / 100) : "—"}</td>)}
+          </tr>
+          <tr style={{ fontWeight: 800 }}>
+            <td style={acctTd} /><td style={{ ...std, textAlign: "left" }}>Total Costs</td>
+            <td style={ytdTd}>{money0(computed.camCostYtd * (1 + def.mgmtFeePct / 100))}</td>
+            {QUARTERS.map((qq) => <td key={qq} style={std}>{money0(computed.camCostByQ[qq] * (1 + def.mgmtFeePct / 100))}</td>)}
           </tr>
           <tr style={{ borderTop: "2px solid var(--border)" }}>
-            <td style={{ ...std, textAlign: "left" }}>Real Estate Taxes</td>
-            {QUARTERS.map((q) => (
-              <td key={q} style={std}><EditableMoney value={data.retCosts[q] ?? 0} onCommit={(v) => save("retCost", "", q, v)} /></td>
-            ))}
+            <td style={acctTd}><code style={{ fontSize: 11 }}>{def.retAccount}</code></td>
+            <td style={{ ...std, textAlign: "left" }}>Total Taxes</td>
             <td style={{ ...ytdTd, color: "var(--muted)" }}>{money0(computed.retCostYtd)}</td>
-          </tr>
-          <tr>
-            <td style={{ ...std, textAlign: "left" }}>RET Due ({def.sharePct}%)</td>
-            {QUARTERS.map((q) => <td key={q} style={std}>{money0(computed.retDueByQ[q])}</td>)}
-            <td style={{ ...ytdTd, fontWeight: 700 }}>{money0(computed.retDueYtd)}</td>
-          </tr>
-          <tr style={{ fontWeight: 800, borderTop: "2px solid var(--border)" }}>
-            <td style={{ ...std, textAlign: "left" }}>Total Due</td>
-            {QUARTERS.map((q) => <td key={q} style={std}>{money0(computed.dueByQ[q])}</td>)}
-            <td style={ytdTd}>{money0(computed.dueYtd)}</td>
-          </tr>
-          <tr style={{ borderTop: "2px solid var(--border)" }}>
-            <td style={{ ...std, textAlign: "left" }}>Less: Billed / Paid</td>
-            {QUARTERS.map((q) => (
-              <td key={q} style={std}><EditableMoney value={data.billed[q] ?? 0} onCommit={(v) => save("billed", "", q, v)} /></td>
-            ))}
-            <td style={{ ...ytdTd, color: "var(--muted)" }}>{money0(computed.billedYtd)}</td>
+            {QUARTERS.map((qq) => costCell(effective.retCosts[qq] ?? 0, overridden(null, qq, "ret"), (v) => save("retCost", "", qq, v)))}
           </tr>
         </tfoot>
       </table>
-      <div style={{ marginTop: 14, maxWidth: 380 }}>
-        <FinalBalanceRow label="Balance Due (YTD)" value={computed.balanceYtd} />
+
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 18, marginBottom: 6 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>Quarterly Statement</div>
+        <select value={billingQ} onChange={(e) => setBillingQ(e.target.value as Quarter)}
+          style={{ borderRadius: 8, padding: "4px 10px", fontSize: 13, fontWeight: 700, border: "1px solid rgba(11,74,125,0.3)", background: "var(--card)", color: "#0b4a7d", cursor: "pointer" }}>
+          {QUARTERS.map((qq) => <option key={qq} value={qq}>{qq} {year}</option>)}
+        </select>
+      </div>
+      <div style={{ maxWidth: 460 }}>
+        <BalanceRow label="Total Costs" value={money0(totalCostQ)} />
+        <BalanceRow label={`Percent of GLA (${def.sharePct}%) · Occupancy ${pct(def.occPct, 0)}`} value={money0(grossDueQ)} />
+        <BalanceRow label="Less: Escrow / Payments" value={money0(-billedCamQ)} />
+        <BalanceRow label="Balance, OpEx Costs Due" value={money0(opexBalanceQ)} strong />
+        <div style={{ height: 8 }} />
+        <BalanceRow label={`RET — Your Share (${def.sharePct}%)`} value={money0(computed.retDueByQ[q])} />
+        <BalanceRow label="Balance, RET Costs Due" value={money0(retDueQ)} strong />
+        <FinalBalanceRow label={`Total Charges — ${q} ${year}`} value={totalChargesQ} />
+        <p className="small muted" style={{ marginTop: 8 }}>Add CAM charge to the tenant in Skyline for &ldquo;{q} CAM&rdquo;.</p>
       </div>
     </div>
   );
