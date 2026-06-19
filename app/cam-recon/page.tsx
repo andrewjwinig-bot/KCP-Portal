@@ -1739,7 +1739,7 @@ function ScheduleTable({ title, lines, baseYear, reconYear, totalLabel }: {
       <tbody>
         {lines.map((l) => (
           <tr key={l.glAccount} style={{ borderBottom: "1px solid var(--border)" }}>
-            <td style={{ ...std, textAlign: "left", color: "var(--muted)", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>{l.glAccount}</td>
+            <td style={{ ...std, textAlign: "left", color: "var(--muted)", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>{l.glAccount.replace(/-95$/, "")}</td>
             <td style={{ ...std, textAlign: "left" }}>{l.label}</td>
             <td style={std}>{money0(l.baseCost)}</td>
             <td style={std}>{money0(l.actual)}</td>
