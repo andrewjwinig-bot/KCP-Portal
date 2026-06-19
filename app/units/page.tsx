@@ -56,6 +56,7 @@ function categoryOf(code: string): Cat {
 }
 
 const FROM = "?from=/units";
+const COLS_KEY = "unit-info-columns";
 
 const th: React.CSSProperties = {
   fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em",
@@ -77,12 +78,49 @@ function specCell(v: string) {
   return <span style={{ color: yes ? "#15803d" : "var(--muted)", fontWeight: yes ? 600 : 400 }}>{v}</span>;
 }
 
+// Optional, user-selectable columns (Unit + Occupant are always shown).
+type ColKey = "sf" | "floorplan" | "restrooms" | "kitchen" | "paint" | "hvac" | "flooring" | "attachments";
+type ColDef = { key: ColKey; label: string; width: number; align?: "right"; def: boolean };
+const COLUMNS: ColDef[] = [
+  { key: "sf",          label: "SF",         width: 70,  align: "right", def: true },
+  { key: "floorplan",   label: "Floorplan",  width: 110,                 def: true },
+  { key: "restrooms",   label: "Restrooms",  width: 90,                  def: true },
+  { key: "kitchen",     label: "Kitchen",    width: 80,                  def: true },
+  { key: "paint",       label: "Paint",      width: 80,                  def: true },
+  { key: "hvac",        label: "HVAC",       width: 150,                 def: false },
+  { key: "flooring",    label: "Flooring",   width: 150,                 def: false },
+  { key: "attachments", label: "Files",      width: 60,  align: "right", def: false },
+];
+
 export default function UnitInfoIndexPage() {
   const router = useRouter();
   const [data, setData] = useState<RentRollData | null>(null);
   const [specs, setSpecs] = useState<Record<string, SuiteSummary>>({});
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
+  const [vacantOnly, setVacantOnly] = useState(false);
+  const [cols, setCols] = useState<Set<ColKey>>(() => new Set(COLUMNS.filter((c) => c.def).map((c) => c.key)));
+  const [colMenu, setColMenu] = useState(false);
+
+  // Restore + persist the chosen columns.
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(COLS_KEY);
+      if (saved) {
+        const keys = JSON.parse(saved) as string[];
+        const valid = keys.filter((k): k is ColKey => COLUMNS.some((c) => c.key === k));
+        setCols(new Set(valid));
+      }
+    } catch { /* ignore */ }
+  }, []);
+  function toggleCol(key: ColKey) {
+    setCols((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      try { localStorage.setItem(COLS_KEY, JSON.stringify([...next])); } catch { /* ignore */ }
+      return next;
+    });
+  }
 
   useEffect(() => {
     let alive = true;
@@ -98,6 +136,8 @@ export default function UnitInfoIndexPage() {
     return () => { alive = false; };
   }, []);
 
+  const visibleCols = useMemo(() => COLUMNS.filter((c) => cols.has(c.key)), [cols]);
+
   // Flat, searchable list of every unit with its property name, grouped back
   // into properties for display. Properties sorted by name, units by ref.
   const groups = useMemo(() => {
@@ -108,6 +148,7 @@ export default function UnitInfoIndexPage() {
       const name = propName(p.propertyCode);
       const units = p.units
         .filter((u) => {
+          if (vacantOnly && !u.isVacant) return false;
           if (!q) return true;
           return (
             u.unitRef.toLowerCase().includes(q) ||
@@ -123,7 +164,7 @@ export default function UnitInfoIndexPage() {
     }
     out.sort((a, b) => a.name.localeCompare(b.name));
     return out;
-  }, [data, query]);
+  }, [data, query, vacantOnly]);
 
   // Bucket the property groups into portfolio categories, in canonical order.
   const byCategory = useMemo(() => {
@@ -143,6 +184,37 @@ export default function UnitInfoIndexPage() {
   const total = useMemo(() => groups.reduce((n, g) => n + g.units.length, 0), [groups]);
   const withPlans = useMemo(() => Object.values(specs).filter((s) => s.floorplan).length, [specs]);
 
+  function renderCell(c: ColDef, u: RentRollUnit, s: SuiteSummary | undefined) {
+    switch (c.key) {
+      case "sf":
+        return <td style={{ ...td, textAlign: "right", ...muted, whiteSpace: "nowrap" }}>{u.sqft.toLocaleString("en-US")}</td>;
+      case "floorplan": {
+        const fp = s?.floorplan;
+        const isImg = fp?.contentType?.startsWith("image/");
+        return (
+          <td style={td} onClick={(e) => e.stopPropagation()}>
+            {fp ? (
+              <a href={blobSrc(fp.url)} target="_blank" rel="noreferrer" title={fp.name}
+                style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: "#0b4a7d", textDecoration: "none" }}>
+                {isImg ? (
+                  <img src={blobSrc(fp.url)} alt="" loading="lazy"
+                    style={{ width: 34, height: 26, objectFit: "cover", borderRadius: 4, border: "1px solid var(--border)" }} />
+                ) : "📄"}
+                View
+              </a>
+            ) : <span style={muted}>—</span>}
+          </td>
+        );
+      }
+      case "restrooms": return <td style={td}>{specCell(s?.restrooms ?? "")}</td>;
+      case "kitchen":   return <td style={td}>{specCell(s?.kitchen ?? "")}</td>;
+      case "paint":     return <td style={td}>{s?.paint ? <span>{s.paint}</span> : <span style={muted}>—</span>}</td>;
+      case "hvac":      return <td style={{ ...td, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={s?.hvac || undefined}>{s?.hvac ? s.hvac : <span style={muted}>—</span>}</td>;
+      case "flooring":  return <td style={{ ...td, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s?.flooring?.length ? s.flooring.join(", ") : <span style={muted}>—</span>}</td>;
+      case "attachments": return <td style={{ ...td, textAlign: "right", ...muted }}>{s?.attachments ? s.attachments : <span style={muted}>—</span>}</td>;
+    }
+  }
+
   return (
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
       <header style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -156,20 +228,56 @@ export default function UnitInfoIndexPage() {
           <span style={{ fontSize: 12, color: "var(--muted)" }}>
             {loading
               ? "Loading…"
-              : `${total} unit${total === 1 ? "" : "s"} · ${groups.length} propert${groups.length === 1 ? "y" : "ies"}${withPlans ? ` · ${withPlans} with floorplan` : ""}`}
+              : `${total} unit${total === 1 ? "" : "s"} · ${byCategory.reduce((n, c) => n + c.groups.length, 0)} propert${byCategory.reduce((n, c) => n + c.groups.length, 0) === 1 ? "y" : "ies"}${withPlans ? ` · ${withPlans} with floorplan` : ""}`}
           </span>
         </div>
-        <input
-          type="text"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search by tenant, unit, or property…"
-          style={{
-            width: "100%", maxWidth: 420, padding: "8px 12px", fontSize: 14,
-            borderRadius: 9, border: "1px solid var(--border)", background: "var(--card)",
-            color: "var(--text)",
-          }}
-        />
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search by tenant, unit, or property…"
+            style={{
+              flex: "1 1 260px", maxWidth: 420, padding: "8px 12px", fontSize: 14,
+              borderRadius: 9, border: "1px solid var(--border)", background: "var(--card)",
+              color: "var(--text)",
+            }}
+          />
+          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "var(--text)", cursor: "pointer", whiteSpace: "nowrap" }}>
+            <input type="checkbox" checked={vacantOnly} onChange={(e) => setVacantOnly(e.target.checked)} />
+            Vacant only
+          </label>
+          <div style={{ position: "relative" }}>
+            <button
+              type="button"
+              className="btn"
+              onClick={() => setColMenu((v) => !v)}
+              style={{ fontSize: 13, padding: "7px 12px", fontWeight: 600 }}
+            >
+              Columns ▾
+            </button>
+            {colMenu && (
+              <>
+                <div onClick={() => setColMenu(false)} style={{ position: "fixed", inset: 0, zIndex: 20 }} />
+                <div style={{
+                  position: "absolute", top: "calc(100% + 6px)", right: 0, zIndex: 21,
+                  background: "var(--card)", border: "1px solid var(--border)", borderRadius: 10,
+                  padding: "8px 6px", minWidth: 180, boxShadow: "0 8px 24px rgba(15,23,42,0.16)",
+                }}>
+                  {COLUMNS.map((c) => (
+                    <label key={c.key} style={{
+                      display: "flex", alignItems: "center", gap: 8, padding: "6px 10px",
+                      fontSize: 13, cursor: "pointer", borderRadius: 6, whiteSpace: "nowrap",
+                    }}>
+                      <input type="checkbox" checked={cols.has(c.key)} onChange={() => toggleCol(c.key)} />
+                      {c.label}
+                    </label>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
       </header>
 
       {loading ? (
@@ -178,7 +286,7 @@ export default function UnitInfoIndexPage() {
         <div className="card" style={{ fontSize: 13, color: "var(--muted)" }}>
           No rent roll imported yet. Import one on the <a href="/rentroll" style={{ fontWeight: 600, color: "#0b4a7d" }}>Rent Roll</a> page.
         </div>
-      ) : groups.length === 0 ? (
+      ) : byCategory.length === 0 ? (
         <div className="card" style={{ fontSize: 13, color: "var(--muted)" }}>No units match your filters.</div>
       ) : (
         byCategory.map(({ cat, groups: catGroups, units }) => (
@@ -193,85 +301,49 @@ export default function UnitInfoIndexPage() {
             {catGroups.map((g) => (
               <div className="card" key={g.code} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 <SectionLabel>{g.name} · {g.code}</SectionLabel>
-            <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed", minWidth: 720 }}>
-                <colgroup>
-                  <col style={{ width: 92 }} />
-                  <col />
-                  <col style={{ width: 70 }} />
-                  <col style={{ width: 110 }} />
-                  <col style={{ width: 90 }} />
-                  <col style={{ width: 80 }} />
-                  <col style={{ width: 80 }} />
-                </colgroup>
-                <thead>
-                  <tr>
-                    <th style={th}>Unit</th>
-                    <th style={th}>Occupant</th>
-                    <th style={{ ...th, textAlign: "right" }}>SF</th>
-                    <th style={th}>Floorplan</th>
-                    <th style={th}>Restrooms</th>
-                    <th style={th}>Kitchen</th>
-                    <th style={th}>Paint</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {g.units.map((u) => {
-                    const s = specs[u.unitRef];
-                    const fp = s?.floorplan;
-                    const isImg = fp?.contentType?.startsWith("image/");
-                    return (
-                      <tr
-                        key={u.unitRef}
-                        onClick={() => router.push(`/units/${encodeURIComponent(u.unitRef)}${FROM}`)}
-                        style={{ cursor: "pointer" }}
-                      >
-                        <td style={td}>
-                          <code style={{ fontSize: 12, color: "var(--muted)" }}>{u.unitRef}</code>
-                        </td>
-                        <td style={{ ...td, overflow: "hidden" }}>
-                          <span style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-                            <span style={{ fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                              {unitLabel(u)}
-                            </span>
-                            {u.isVacant && <Pill tone={TONE_NEUTRAL}>Vacant</Pill>}
-                          </span>
-                        </td>
-                        <td style={{ ...td, textAlign: "right", ...muted, whiteSpace: "nowrap" }}>
-                          {u.sqft.toLocaleString("en-US")}
-                        </td>
-                        <td style={td} onClick={(e) => e.stopPropagation()}>
-                          {fp ? (
-                            <a
-                              href={blobSrc(fp.url)}
-                              target="_blank"
-                              rel="noreferrer"
-                              title={fp.name}
-                              style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: "#0b4a7d", textDecoration: "none" }}
-                            >
-                              {isImg ? (
-                                <img
-                                  src={blobSrc(fp.url)}
-                                  alt=""
-                                  loading="lazy"
-                                  style={{ width: 34, height: 26, objectFit: "cover", borderRadius: 4, border: "1px solid var(--border)" }}
-                                />
-                              ) : "📄"}
-                              View
-                            </a>
-                          ) : (
-                            <span style={muted}>—</span>
-                          )}
-                        </td>
-                        <td style={td}>{specCell(s?.restrooms ?? "")}</td>
-                        <td style={td}>{specCell(s?.kitchen ?? "")}</td>
-                        <td style={td}>{s?.paint ? <span>{s.paint}</span> : <span style={muted}>—</span>}</td>
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed", minWidth: 380 + visibleCols.length * 90 }}>
+                    <colgroup>
+                      <col style={{ width: 92 }} />
+                      <col />
+                      {visibleCols.map((c) => <col key={c.key} style={{ width: c.width }} />)}
+                    </colgroup>
+                    <thead>
+                      <tr>
+                        <th style={th}>Unit</th>
+                        <th style={th}>Occupant</th>
+                        {visibleCols.map((c) => (
+                          <th key={c.key} style={c.align === "right" ? { ...th, textAlign: "right" } : th}>{c.label}</th>
+                        ))}
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                    </thead>
+                    <tbody>
+                      {g.units.map((u) => {
+                        const s = specs[u.unitRef];
+                        return (
+                          <tr
+                            key={u.unitRef}
+                            onClick={() => router.push(`/units/${encodeURIComponent(u.unitRef)}${FROM}`)}
+                            style={{ cursor: "pointer" }}
+                          >
+                            <td style={td}>
+                              <code style={{ fontSize: 12, color: "var(--muted)" }}>{u.unitRef}</code>
+                            </td>
+                            <td style={{ ...td, overflow: "hidden" }}>
+                              <span style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                                <span style={{ fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                  {unitLabel(u)}
+                                </span>
+                                {u.isVacant && <Pill tone={TONE_NEUTRAL}>Vacant</Pill>}
+                              </span>
+                            </td>
+                            {visibleCols.map((c) => <Fragment key={c.key}>{renderCell(c, u, s)}</Fragment>)}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             ))}
           </Fragment>
