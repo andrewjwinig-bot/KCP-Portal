@@ -202,7 +202,7 @@ export async function POST(req: NextRequest) {
         );
       }
       const result = await put(`maintenance/${r.id}/${file.name}`, file, {
-        access: "public",
+        access: "private",
         addRandomSuffix: true,
         contentType: file.type || undefined,
       });

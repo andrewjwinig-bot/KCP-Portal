@@ -106,7 +106,7 @@ export async function POST(
   let info;
   try {
     const result = await put(`suites/${encodeURIComponent(unitRef)}/${file.name}`, file, {
-      access: "public",
+      access: "private",
       addRandomSuffix: true,
       contentType: file.type || undefined,
     });

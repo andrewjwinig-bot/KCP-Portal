@@ -43,7 +43,7 @@ export async function POST(
 
   const name = (file as File).name || "attachment";
   const result = await put(`maintenance/${r.id}/${name}`, file, {
-    access: "public",
+    access: "private",
     addRandomSuffix: true,
     contentType: file.type || undefined,
   });

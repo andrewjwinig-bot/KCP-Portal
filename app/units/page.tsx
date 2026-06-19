@@ -7,6 +7,7 @@ import type { RentRollData, RentRollUnit } from "@/lib/rentroll/parseRentRollExc
 import { amenityFor } from "@/lib/rentroll/amenities";
 import { SectionLabel } from "@/app/properties/PropertyDetail";
 import { Pill, TONE_NEUTRAL } from "@/app/components/Pill";
+import { blobSrc } from "@/lib/blobProxy";
 
 // Unit Info — a standalone top-level page for the PHYSICAL side of each unit:
 // floorplans + suite specs (restrooms, kitchen, paint, flooring, HVAC) at a
@@ -242,7 +243,7 @@ export default function UnitInfoIndexPage() {
                         <td style={td} onClick={(e) => e.stopPropagation()}>
                           {fp ? (
                             <a
-                              href={fp.url}
+                              href={blobSrc(fp.url)}
                               target="_blank"
                               rel="noreferrer"
                               title={fp.name}
@@ -250,7 +251,7 @@ export default function UnitInfoIndexPage() {
                             >
                               {isImg ? (
                                 <img
-                                  src={fp.url}
+                                  src={blobSrc(fp.url)}
                                   alt=""
                                   loading="lazy"
                                   style={{ width: 34, height: 26, objectFit: "cover", borderRadius: 4, border: "1px solid var(--border)" }}

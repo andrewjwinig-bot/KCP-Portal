@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { SectionLabel } from "@/app/properties/PropertyDetail";
 import { MultiSelect } from "@/app/components/MultiSelect";
 import { AutosaveStatus, useAutosave } from "@/app/components/useAutosave";
+import { blobSrc } from "@/lib/blobProxy";
 import {
   FLOORING_OPTIONS,
   LIGHTING_OPTIONS,
@@ -299,7 +300,7 @@ export default function SuiteInformationCard({ unitRef }: { unitRef: string }) {
                       padding: "6px 10px", border: "1px solid var(--border)",
                       borderRadius: 8, background: "rgba(15,23,42,0.015)",
                     }}>
-                      <a href={a.url} target="_blank" rel="noreferrer"
+                      <a href={blobSrc(a.url)} target="_blank" rel="noreferrer"
                         style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 600,
                           color: "#0b4a7d", textDecoration: "none",
                           overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
