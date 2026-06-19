@@ -53,6 +53,12 @@ const NAV_ROLE_KEY: Record<string, string> = {
 // Group metadata. Sidebar items can opt into a group via `groupId`; the
 // group renders as a collapsible header with its children indented
 // beneath, replacing the inline order they'd otherwise appear in.
+// Explicit within-group item order (by label). Listed items lead in this order;
+// anything else in the group trails in nav order.
+const GROUP_CHILD_ORDER: Record<string, string[]> = {
+  banking: ["Bank Transfers", "Security Deposits", "Debt Tracker"],
+};
+
 // Visible cue: chevron + slightly tinted background distinguishes a
 // group header from a plain link.
 const GROUPS: Record<string, { label: string; icon: React.ReactNode }> = {
@@ -918,6 +924,15 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
               renderedGroups.add(gid);
               const meta = GROUPS[gid];
               const children = visible.filter((x) => (x as { groupId?: string }).groupId === gid);
+              // Explicit within-group order for select groups; listed items lead,
+              // anything else trails in nav order.
+              const childOrder = GROUP_CHILD_ORDER[gid];
+              if (childOrder) {
+                children.sort((a, b) => {
+                  const ia = childOrder.indexOf(a.label), ib = childOrder.indexOf(b.label);
+                  return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+                });
+              }
               const expanded = !collapsedGroups.has(gid);
               // Sum child badges and roll up onto the group header when
               // collapsed, so a pending Request / Reservation isn't
