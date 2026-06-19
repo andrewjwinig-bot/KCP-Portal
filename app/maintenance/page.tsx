@@ -14,6 +14,7 @@ import {
 import { STAFF, staffName, type StaffId } from "@/lib/maintenance/staff";
 import { summarize } from "@/lib/maintenance/summarize";
 import { useUser } from "@/app/components/UserProvider";
+import { blobSrc } from "@/lib/blobProxy";
 import { bestTenantMatch, isResolvedTenant } from "@/lib/tenants/match";
 import {
   Pill,
@@ -1702,16 +1703,16 @@ function AttachmentsSection({
             >
               {isImage ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <a href={a.url} target="_blank" rel="noopener noreferrer">
+                <a href={blobSrc(a.url)} target="_blank" rel="noopener noreferrer">
                   <img
-                    src={a.url}
+                    src={blobSrc(a.url)}
                     alt={a.name}
                     style={{ width: "100%", height: 100, objectFit: "cover", display: "block" }}
                   />
                 </a>
               ) : (
                 <a
-                  href={a.url}
+                  href={blobSrc(a.url)}
                   target="_blank"
                   rel="noopener noreferrer"
                   style={{
@@ -1724,7 +1725,7 @@ function AttachmentsSection({
               )}
               <div style={{ padding: "6px 8px", fontSize: 11, display: "flex", flexDirection: "column", gap: 2 }}>
                 <a
-                  href={a.url}
+                  href={blobSrc(a.url)}
                   target="_blank"
                   rel="noopener noreferrer"
                   title={a.name}

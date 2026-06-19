@@ -38,7 +38,7 @@ export async function POST(
 
   const name = (file as File).name || "check";
   const result = await put(`deposits/${deposit.id}/${name}`, file, {
-    access: "public",
+    access: "private",
     addRandomSuffix: true,
     contentType: file.type || undefined,
   });

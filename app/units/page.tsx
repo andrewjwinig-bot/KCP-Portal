@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 import type { RentRollData, RentRollUnit } from "@/lib/rentroll/parseRentRollExcel";
 import { amenityFor } from "@/lib/rentroll/amenities";
 import { SectionLabel } from "@/app/properties/PropertyDetail";
 import { Pill, TONE_NEUTRAL } from "@/app/components/Pill";
+import { blobSrc } from "@/lib/blobProxy";
 
 // Unit Info — a standalone top-level page for the PHYSICAL side of each unit:
 // floorplans + suite specs (restrooms, kitchen, paint, flooring, HVAC) at a
@@ -33,6 +34,27 @@ function unitLabel(u: RentRollUnit): string {
   return (u.amenity ?? amenityFor(u.unitRef))?.label || u.occupantName || "Vacant";
 }
 
+// Portfolio categories — mirror the Rent Roll's grouping (4900 = The Office
+// Works is split out of Office), and keep the same order + accent colors.
+type Cat = "Office" | "Retail" | "Residential" | "The Office Works" | "Other";
+const CAT_ORDER: Cat[] = ["Office", "Retail", "Residential", "The Office Works", "Other"];
+const CAT_COLOR: Record<Cat, string> = {
+  Office: "#0b4a7d",
+  Retail: "#0d9488",
+  Residential: "#6d28d9",
+  "The Office Works": "#475569",
+  Other: "#94a3b8",
+};
+function categoryOf(code: string): Cat {
+  const c = code.toUpperCase();
+  if (c === "4900") return "The Office Works";
+  const def = PROPERTY_DEFS.find((p) => p.id.toUpperCase() === c);
+  if (def?.type === "Office") return "Office";
+  if (def?.type === "Retail") return "Retail";
+  if (def?.type === "Residential") return "Residential";
+  return "Other";
+}
+
 const FROM = "?from=/units";
 
 const th: React.CSSProperties = {
@@ -43,6 +65,10 @@ const td: React.CSSProperties = {
   fontSize: 13, padding: "8px 10px", borderTop: "1px solid var(--border)", verticalAlign: "middle",
 };
 const muted: React.CSSProperties = { color: "var(--muted)" };
+const catHeading: React.CSSProperties = {
+  display: "flex", alignItems: "center", gap: 10, marginTop: 6,
+  fontSize: 15, fontWeight: 800, color: "var(--text)",
+};
 
 // Yes/No-style spec cell: green for Yes, muted for No / N/A / blank.
 function specCell(v: string) {
@@ -57,7 +83,6 @@ export default function UnitInfoIndexPage() {
   const [specs, setSpecs] = useState<Record<string, SuiteSummary>>({});
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
-  const [onlyFloorplans, setOnlyFloorplans] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -83,7 +108,6 @@ export default function UnitInfoIndexPage() {
       const name = propName(p.propertyCode);
       const units = p.units
         .filter((u) => {
-          if (onlyFloorplans && !specs[u.unitRef]?.floorplan) return false;
           if (!q) return true;
           return (
             u.unitRef.toLowerCase().includes(q) ||
@@ -99,7 +123,22 @@ export default function UnitInfoIndexPage() {
     }
     out.sort((a, b) => a.name.localeCompare(b.name));
     return out;
-  }, [data, query, specs, onlyFloorplans]);
+  }, [data, query]);
+
+  // Bucket the property groups into portfolio categories, in canonical order.
+  const byCategory = useMemo(() => {
+    const map = new Map<Cat, typeof groups>();
+    for (const g of groups) {
+      const cat = categoryOf(g.code);
+      if (!map.has(cat)) map.set(cat, []);
+      map.get(cat)!.push(g);
+    }
+    return CAT_ORDER.filter((c) => map.has(c)).map((c) => ({
+      cat: c,
+      groups: map.get(c)!,
+      units: map.get(c)!.reduce((n, g) => n + g.units.length, 0),
+    }));
+  }, [groups]);
 
   const total = useMemo(() => groups.reduce((n, g) => n + g.units.length, 0), [groups]);
   const withPlans = useMemo(() => Object.values(specs).filter((s) => s.floorplan).length, [specs]);
@@ -109,7 +148,7 @@ export default function UnitInfoIndexPage() {
       <header style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
           <div>
-            <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800 }}>Unit Info</h1>
+            <h1 style={{ margin: 0 }}>Unit Info</h1>
             <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>
               Floorplans &amp; physical suite specs — tenant &amp; lease details live on the Rent Roll.
             </div>
@@ -120,23 +159,17 @@ export default function UnitInfoIndexPage() {
               : `${total} unit${total === 1 ? "" : "s"} · ${groups.length} propert${groups.length === 1 ? "y" : "ies"}${withPlans ? ` · ${withPlans} with floorplan` : ""}`}
           </span>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search by tenant, unit, or property…"
-            style={{
-              flex: "1 1 280px", maxWidth: 420, padding: "8px 12px", fontSize: 14,
-              borderRadius: 9, border: "1px solid var(--border)", background: "var(--card)",
-              color: "var(--text)",
-            }}
-          />
-          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "var(--text)", cursor: "pointer", whiteSpace: "nowrap" }}>
-            <input type="checkbox" checked={onlyFloorplans} onChange={(e) => setOnlyFloorplans(e.target.checked)} />
-            Only units with a floorplan
-          </label>
-        </div>
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search by tenant, unit, or property…"
+          style={{
+            width: "100%", maxWidth: 420, padding: "8px 12px", fontSize: 14,
+            borderRadius: 9, border: "1px solid var(--border)", background: "var(--card)",
+            color: "var(--text)",
+          }}
+        />
       </header>
 
       {loading ? (
@@ -148,9 +181,18 @@ export default function UnitInfoIndexPage() {
       ) : groups.length === 0 ? (
         <div className="card" style={{ fontSize: 13, color: "var(--muted)" }}>No units match your filters.</div>
       ) : (
-        groups.map((g) => (
-          <div className="card" key={g.code} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            <SectionLabel>{g.name} · {g.code}</SectionLabel>
+        byCategory.map(({ cat, groups: catGroups, units }) => (
+          <Fragment key={cat}>
+            <div style={catHeading}>
+              <span style={{ width: 9, height: 9, borderRadius: 999, background: CAT_COLOR[cat], display: "inline-block" }} />
+              {cat}
+              <span style={{ fontWeight: 600, color: "var(--muted)", fontSize: 12 }}>
+                {units} unit{units === 1 ? "" : "s"} · {catGroups.length} propert{catGroups.length === 1 ? "y" : "ies"}
+              </span>
+            </div>
+            {catGroups.map((g) => (
+              <div className="card" key={g.code} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <SectionLabel>{g.name} · {g.code}</SectionLabel>
             <div style={{ overflowX: "auto" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed", minWidth: 720 }}>
                 <colgroup>
@@ -201,7 +243,7 @@ export default function UnitInfoIndexPage() {
                         <td style={td} onClick={(e) => e.stopPropagation()}>
                           {fp ? (
                             <a
-                              href={fp.url}
+                              href={blobSrc(fp.url)}
                               target="_blank"
                               rel="noreferrer"
                               title={fp.name}
@@ -209,7 +251,7 @@ export default function UnitInfoIndexPage() {
                             >
                               {isImg ? (
                                 <img
-                                  src={fp.url}
+                                  src={blobSrc(fp.url)}
                                   alt=""
                                   loading="lazy"
                                   style={{ width: 34, height: 26, objectFit: "cover", borderRadius: 4, border: "1px solid var(--border)" }}
@@ -230,7 +272,9 @@ export default function UnitInfoIndexPage() {
                 </tbody>
               </table>
             </div>
-          </div>
+              </div>
+            ))}
+          </Fragment>
         ))
       )}
     </main>

@@ -6,6 +6,7 @@ import { SectionLabel } from "@/app/properties/PropertyDetail";
 import { DEPOSIT_ACCOUNTS, type SecurityDeposit } from "@/lib/deposits/deposits";
 import { useUser } from "@/app/components/UserProvider";
 import DepositForm, { type UnitOption } from "@/app/deposits/DepositForm";
+import { blobSrc } from "@/lib/blobProxy";
 
 function money(n: number): string {
   return n.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -147,8 +148,8 @@ export default function DepositCard({
                 opacity: d.refunded ? 0.7 : 1,
               }}>
               {d.checkImage && d.checkImage.contentType.startsWith("image/") && (
-                <a href={d.checkImage.url} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>
-                  <img src={d.checkImage.url} alt="Check"
+                <a href={blobSrc(d.checkImage.url)} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>
+                  <img src={blobSrc(d.checkImage.url)} alt="Check"
                     style={{ width: 64, height: 40, objectFit: "cover", borderRadius: 6, border: "1px solid var(--border)", display: "block" }} />
                 </a>
               )}
@@ -174,7 +175,7 @@ export default function DepositCard({
                 </div>
               </div>
               {d.checkImage && !d.checkImage.contentType.startsWith("image/") && (
-                <a href={d.checkImage.url} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}
+                <a href={blobSrc(d.checkImage.url)} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}
                   style={{ fontSize: 12, fontWeight: 600, color: "#0b4a7d" }}>View file</a>
               )}
             </div>

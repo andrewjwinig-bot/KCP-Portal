@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { SectionLabel } from "@/app/properties/PropertyDetail";
 import type { SuiteAttachment } from "@/lib/suites/information";
+import { blobSrc } from "@/lib/blobProxy";
 
 // Standalone Floorplan card — sits in the top row of the unit page next
 // to Lease Term and the shared-drive folder. Reads the floorplan field
@@ -94,9 +95,9 @@ export default function FloorplanCard({ unitRef }: { unitRef: string }) {
       ) : floorplan ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {floorplan.contentType.startsWith("image/") ? (
-            <a href={floorplan.url} target="_blank" rel="noreferrer">
+            <a href={blobSrc(floorplan.url)} target="_blank" rel="noreferrer">
               <img
-                src={floorplan.url}
+                src={blobSrc(floorplan.url)}
                 alt="Suite floorplan"
                 style={{
                   width: "100%", maxHeight: 180, borderRadius: 10,
@@ -107,7 +108,7 @@ export default function FloorplanCard({ unitRef }: { unitRef: string }) {
             </a>
           ) : (
             <a
-              href={floorplan.url}
+              href={blobSrc(floorplan.url)}
               target="_blank"
               rel="noreferrer"
               style={{ fontSize: 13, fontWeight: 600, color: "#0b4a7d" }}

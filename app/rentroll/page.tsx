@@ -7,6 +7,7 @@ import type { RentRollData, RentRollUnit, RentRollProperty } from "../../lib/ren
 import { amenityFor } from "../../lib/rentroll/amenities";
 import { useUser } from "../components/UserProvider";
 import { LastImported } from "../components/LastImported";
+import { blobSrc } from "../../lib/blobProxy";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -737,9 +738,29 @@ function PropertyCard({ prop, tenantMeta, onBaseYearChange, vacatingUnitRefs }: 
 
 // ─── Alerts Panel ─────────────────────────────────────────────────────────────
 
+type FloorplanRef = { url: string; name: string; contentType: string };
+
 function AlertsPanel({ rentroll }: { rentroll: RentRollData }) {
   const [expOpen, setExpOpen] = useState(false);
   const [vacOpen, setVacOpen] = useState(false);
+  // Floorplans per unit (private-store summary), so the Vacancy Summary can
+  // surface a vacant suite's floorplan for leasing at a glance.
+  const [floorplans, setFloorplans] = useState<Record<string, FloorplanRef>>({});
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/suites/summary", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((j) => {
+        if (!alive) return;
+        const out: Record<string, FloorplanRef> = {};
+        for (const [ref, s] of Object.entries((j.suites ?? {}) as Record<string, { floorplan: FloorplanRef | null }>)) {
+          if (s.floorplan) out[ref] = s.floorplan;
+        }
+        setFloorplans(out);
+      })
+      .catch(() => { /* ignore */ });
+    return () => { alive = false; };
+  }, []);
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -896,6 +917,7 @@ function AlertsPanel({ rentroll }: { rentroll: RentRollData }) {
                       <tr>
                         <th>Property</th>
                         <th>Unit</th>
+                        <th>Floorplan</th>
                         <th style={{ textAlign: "right" }}>Sq Ft</th>
                       </tr>
                     </thead>
@@ -905,16 +927,33 @@ function AlertsPanel({ rentroll }: { rentroll: RentRollData }) {
                         return (
                           <>
                             <tr key={`hdr-${label}`} style={{ background: "rgba(15,23,42,0.04)" }}>
-                              <td colSpan={2} style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", paddingTop: 6, paddingBottom: 6 }}>{label}</td>
+                              <td colSpan={3} style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", paddingTop: 6, paddingBottom: 6 }}>{label}</td>
                               <td style={{ textAlign: "right", fontSize: 11, color: "var(--muted)", paddingTop: 6, paddingBottom: 6 }}>{rows.length} unit{rows.length !== 1 ? "s" : ""} · {sqftFmt(groupSqft)} sf</td>
                             </tr>
-                            {rows.map(({ propertyCode, unit }, i) => (
+                            {rows.map(({ propertyCode, unit }, i) => {
+                              const fp = floorplans[unit.unitRef];
+                              return (
                               <tr key={`${label}-${i}`} style={{ background: "rgba(15,23,42,0.012)" }}>
                                 <td style={{ fontSize: 13, paddingLeft: 20 }}>{propName(propertyCode)}</td>
                                 <td><code style={{ fontSize: 12 }}>{unit.unitRef}</code></td>
+                                <td>
+                                  {fp ? (
+                                    <a href={blobSrc(fp.url)} target="_blank" rel="noreferrer" title={fp.name}
+                                      style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: "#0b4a7d", textDecoration: "none" }}>
+                                      {fp.contentType.startsWith("image/") ? (
+                                        <img src={blobSrc(fp.url)} alt="" loading="lazy"
+                                          style={{ width: 34, height: 26, objectFit: "cover", borderRadius: 4, border: "1px solid var(--border)" }} />
+                                      ) : "📄"}
+                                      View
+                                    </a>
+                                  ) : (
+                                    <span style={{ color: "var(--muted)" }}>—</span>
+                                  )}
+                                </td>
                                 <td style={{ textAlign: "right", fontSize: 13 }}>{sqftFmt(unit.sqft)}</td>
                               </tr>
-                            ))}
+                              );
+                            })}
                           </>
                         );
                       })}
