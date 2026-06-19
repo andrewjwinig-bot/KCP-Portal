@@ -21,6 +21,10 @@ import DebtSummaryCard from "./DebtSummaryCard";
 
 function sqftFmt(n: number) { return n.toLocaleString(); }
 
+// Office buildings with interim (as-of-month) CAM/RET recon support — the
+// "View statement" button on a vacating tenant deep-links to it.
+const OFFICE_INTERIM = new Set(["3610", "3620", "3640", "4050", "4060", "4070", "4080", "40A0", "40B0", "40C0"]);
+
 /** 2-digit base year for the B/Y column — 4-digit year → last 2 digits;
  *  non-numeric markers (NNN, GROSS, …) shown as-is; missing → dash. */
 function baseYear2(raw: number | string | null | undefined): string {
@@ -1016,6 +1020,7 @@ function DashboardInner() {
                   <th>Lease To</th>
                   <th style={{ textAlign: "center" }}>B/Y</th>
                   <th style={{ textAlign: "right" }}>Days</th>
+                  <th style={{ textAlign: "right" }}>CAM/RET</th>
                 </tr>
               </thead>
               <tbody>
@@ -1044,6 +1049,23 @@ function DashboardInner() {
                       <td style={{ textAlign: "center", fontSize: 13 }}>{baseYear2(tenantMeta[unit.unitRef]?.baseYear)}</td>
                       <td style={{ textAlign: "right", fontSize: 13, fontWeight: 600, color: overdue ? "#b91c1c" : urgent ? "#b91c1c" : "#b45309" }}>
                         {overdue ? `${Math.abs(days)} ago` : `${days}`}
+                      </td>
+                      <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                        {OFFICE_INTERIM.has(propertyCode.toUpperCase()) ? (() => {
+                          const d = parseLeaseTo(unit.leaseTo);
+                          const y = d ? d.getFullYear() : new Date().getFullYear();
+                          const m = d ? d.getMonth() + 1 : 12;
+                          return (
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); router.push(`/cam-recon/interim?property=${propertyCode}&unitRef=${encodeURIComponent(unit.unitRef)}&year=${y}&asOf=${m}`); }}
+                              title="Generate this tenant's interim (as-of-month) CAM/RET statement"
+                              style={{ fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 999, border: "1px solid rgba(11,74,125,0.35)", background: "var(--card)", color: "#0b4a7d", cursor: "pointer" }}
+                            >
+                              Statement →
+                            </button>
+                          );
+                        })() : <span className="muted" style={{ fontSize: 12 }}>—</span>}
                       </td>
                     </tr>
                   );
