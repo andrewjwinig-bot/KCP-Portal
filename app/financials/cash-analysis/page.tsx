@@ -15,6 +15,7 @@ import { StatPill, Pill, Badge, TONE_RED, TONE_AMBER, TONE_GREEN } from "@/app/c
 import { LastImported } from "@/app/components/LastImported";
 import { bankAccountsForCodes, weekOfLabel, parseMonthKey, type BankAccount } from "@/lib/financials/cash-sheet/util";
 import { ACCOUNT_CODE, PREFIX_CODE } from "@/lib/financials/cash-analysis/accountCodes";
+import { exportCashSheetXlsx, exportCashSheetPdf, type CashSheetExportInput, type ExportTotals } from "@/lib/financials/cash-sheet/export";
 
 type Bucket = { code: number; label: string };
 type Breakdown = { key: string; name: string; startingCash: number | null; netChange: number; endingCash: number | null; byBucket: Record<string, number> };
@@ -342,6 +343,36 @@ export default function CashSheetPage() {
   const bridgeVal = (avail: number | null, ending: number | null) => (avail == null || ending == null ? null : avail - ending);
   const colCount = midCount + 3 + (showBillsCol ? 1 : 0) + (showReservesCol ? 1 : 0) + (netBridge ? 1 : 0) + (showEst ? 1 : 0); // entity + opening + middle + ending (+ bills) (+ reserves) (+ bridge) (+ est)
 
+  // Assemble the export payload from the on-screen snapshot (always full detail —
+  // every visible bucket, Bills, Reserves, Est. Available — regardless of the
+  // current view). Behind/lagging rows are excluded, matching the totals.
+  const buildExportInput = (): CashSheetExportInput => {
+    const toTotals = (t: { byBucket: Record<string, number>; opening: number; ending: number; bills: number; reserves: number; est: number; hasOpening: boolean }): ExportTotals => ({
+      opening: t.hasOpening ? t.opening : null, byBucket: t.byBucket,
+      ending: t.hasOpening ? t.ending : null, bills: t.bills, reserves: t.reserves, estAvail: t.est,
+    });
+    const groups = grouped.map(({ group, rows }) => ({
+      group,
+      rows: rows.filter((r) => !laggingKeys.has(r.key)).map((r) => ({
+        code: r.propertyCode, name: r.name, opening: r.startingCash, byBucket: r.byBucket,
+        ending: r.endingCash, bills: r.billsMTD ?? 0, reserves: r.reserves ?? 0, estAvail: estAvail(r),
+      })),
+      subtotal: toTotals(groupTotals(rows)),
+    })).filter((g) => g.rows.length > 0);
+    const total: ExportTotals = {
+      opening: grand.hasOpening ? grand.opening : null, byBucket: grand.byBucket,
+      ending: grand.hasOpening ? grand.ending : null, bills: grand.bills, reserves: grand.reserves, estAvail: estAvailTotal,
+    };
+    const label = ytd ? `${year} YTD` : `${MONTHS[period - 1]} ${year}`;
+    return {
+      title: `Cash Sheet — ${label}`,
+      subtitle: `Snapshot ${label} · generated ${new Date().toLocaleDateString()}`,
+      buckets: visibleBuckets, openLabel: glDates.openShort, endLabel: glDates.endShort,
+      estLabel: lastBillWed ?? data?.estimateAsOf ?? "", showBills, showReserves, showEst,
+      groups, total, fileBase: `Cash_Sheet_${label.replace(/ /g, "_")}`,
+    };
+  };
+
   return (
     <main style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: "none", width: "100%" }}>
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
@@ -361,6 +392,12 @@ export default function CashSheetPage() {
                   {apUploading ? "Importing…" : "Import"}
                 </button>
                 <input ref={apRef} type="file" accept=".xls,.xlsx,.pdf" multiple style={{ display: "none" }} onChange={onApUpload} />
+              </>
+            )}
+            {data && grouped.length > 0 && (
+              <>
+                <button className="btn" onClick={() => exportCashSheetXlsx(buildExportInput())} style={{ whiteSpace: "nowrap", fontSize: 13, padding: "8px 14px" }} title="Download the snapshot as an Excel workbook">⬇ Excel</button>
+                <button className="btn" onClick={() => exportCashSheetPdf(buildExportInput())} style={{ whiteSpace: "nowrap", fontSize: 13, padding: "8px 14px" }} title="Download the snapshot as a PDF">⬇ PDF</button>
               </>
             )}
           </div>
