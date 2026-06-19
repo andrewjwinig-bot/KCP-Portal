@@ -16,6 +16,8 @@ import { LastImported } from "@/app/components/LastImported";
 import { bankAccountsForCodes, weekOfLabel, parseMonthKey, type BankAccount } from "@/lib/financials/cash-sheet/util";
 import { ACCOUNT_CODE, PREFIX_CODE } from "@/lib/financials/cash-analysis/accountCodes";
 import { exportCashSheetXlsx, exportCashSheetPdf, type CashSheetExportInput, type ExportTotals } from "@/lib/financials/cash-sheet/export";
+import { DownloadMenu } from "@/app/components/DownloadMenu";
+import { AccountListCard } from "@/app/components/AccountListCard";
 
 type Bucket = { code: number; label: string };
 type Breakdown = { key: string; name: string; startingCash: number | null; netChange: number; endingCash: number | null; byBucket: Record<string, number> };
@@ -395,10 +397,12 @@ export default function CashSheetPage() {
               </>
             )}
             {data && grouped.length > 0 && (
-              <>
-                <button className="btn" onClick={() => exportCashSheetXlsx(buildExportInput())} style={{ whiteSpace: "nowrap", fontSize: 13, padding: "8px 14px" }} title="Download the snapshot as an Excel workbook">⬇ Excel</button>
-                <button className="btn" onClick={() => exportCashSheetPdf(buildExportInput())} style={{ whiteSpace: "nowrap", fontSize: 13, padding: "8px 14px" }} title="Download the snapshot as a PDF">⬇ PDF</button>
-              </>
+              <DownloadMenu
+                items={[
+                  { label: "Excel (.xlsx)", description: "The full snapshot as a filterable workbook", onClick: () => exportCashSheetXlsx(buildExportInput()) },
+                  { label: "PDF", description: "A grouped, landscape snapshot to print or share", onClick: () => exportCashSheetPdf(buildExportInput()) },
+                ]}
+              />
             )}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
@@ -475,24 +479,6 @@ export default function CashSheetPage() {
           </div>
           <div className="muted small" style={{ margin: 0 }}>
             Scheduled debt service for {ytd ? "the year" : MONTHS[period - 1]} hasn&apos;t hit the GL — the charge may not be entered yet, or the GL needs re-uploading.
-          </div>
-        </div>
-      )}
-
-      {(data?.unmapped?.length ?? 0) > 0 && (
-        <div className="card" style={{ padding: "12px 16px", borderLeft: "3px solid #d97706" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6, fontWeight: 800, color: "#b45309", fontSize: 14 }}>
-            <span>⚠ Accounts not mapped to a bucket</span><Badge>{data!.unmapped!.length}</Badge>
-          </div>
-          <div className="muted small" style={{ marginBottom: 8 }}>
-            These GL accounts had activity this period but aren&apos;t assigned to a cash-flow bucket, so they&apos;re excluded from Net Change. Add them to the account&nbsp;→&nbsp;bucket map (see the reference at the bottom) so the tie-out stays complete.
-          </div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-            {data!.unmapped!.map((u, i) => (
-              <span key={`${u.key}-${u.account}-${i}`} title={`${u.name} · ${money0(u.amount)}`}>
-                <Pill tone={TONE_AMBER}><code style={{ fontSize: 11 }}>{u.account}</code> · {u.key} · {money0(u.amount)}</Pill>
-              </span>
-            ))}
           </div>
         </div>
       )}
@@ -752,6 +738,18 @@ export default function CashSheetPage() {
         click a fund name (e.g. JV III) for its building breakdown; click an <b>Avid Bills</b> amount for the week-by-week detail. Override <b>Opening Cash</b> with a property&apos;s actual bank balance and the cell footnotes the GL value + variance, so the tie-out is right there without a separate column.
         {debtMissingRows.length > 0 && <> <span style={{ color: "#b45309", fontWeight: 700 }}>⚠ amber Mortgage P&amp;I with an asterisk (*)</span> is the scheduled debt service — an estimate shown because the actual charge has not posted to the GL yet; it is not rolled into Net Change or Ending Cash.</>}
       </p>
+
+      {/* ── Accounts with activity but no bucket (collapsed, like Operating Statements) ── */}
+      {(data?.unmapped?.length ?? 0) > 0 && (
+        <AccountListCard
+          title="Accounts not mapped to a bucket"
+          description="GL accounts with activity this period that aren't assigned to a cash-flow bucket, so they're excluded from Net Change. Add them to the account → bucket map below so the tie-out stays complete."
+          accent="#b45309"
+          amountLabel="Activity"
+          rows={data!.unmapped!.map((u) => ({ account: u.account, name: `${u.key} · ${u.name}`, amount: u.amount }))}
+          format={(n) => (Math.abs(n) < 0.5 ? "$0" : `${n < 0 ? "-" : ""}$${Math.abs(Math.round(n)).toLocaleString("en-US")}`)}
+        />
+      )}
 
       {/* ── GL account → bucket reference (the legacy DATA tab) ──────────────── */}
       <div className="card" style={{ padding: 0, overflow: "hidden" }}>

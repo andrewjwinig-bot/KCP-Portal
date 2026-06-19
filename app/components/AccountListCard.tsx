@@ -17,6 +17,7 @@ export function AccountListCard({
   rows,
   format,
   defaultOpen = false,
+  amountLabel = "YTD Actual",
 }: {
   title: string;
   description: string;
@@ -24,6 +25,7 @@ export function AccountListCard({
   rows: AccountListRow[];
   format: (n: number) => string;
   defaultOpen?: boolean;
+  amountLabel?: string;
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const total = rows.reduce((s, r) => s + r.amount, 0);
@@ -58,12 +60,12 @@ export function AccountListCard({
               <tr>
                 <th style={{ textAlign: "left", whiteSpace: "nowrap" }}>Account</th>
                 <th style={{ textAlign: "left", width: "100%" }}>Name</th>
-                <th style={numCell}>YTD Actual</th>
+                <th style={numCell}>{amountLabel}</th>
               </tr>
             </thead>
             <tbody>
-              {rows.map((r) => (
-                <tr key={r.account}>
+              {rows.map((r, i) => (
+                <tr key={`${r.account}-${i}`}>
                   <td style={{ fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}><code style={{ fontSize: 12 }}>{r.account}</code></td>
                   <td>{r.name || <span className="muted">—</span>}</td>
                   <td style={numCell}>{format(r.amount)}</td>
