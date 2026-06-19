@@ -1048,7 +1048,7 @@ export function PropertyDetailBody({
                     return (
                     <tr
                       key={i}
-                      onClick={() => router.push(`/rentroll/units/${encodeURIComponent(u.unitRef)}`)}
+                      onClick={() => router.push(`/units/${encodeURIComponent(u.unitRef)}`)}
                       onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.filter = "brightness(0.97)"; }}
                       onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.filter = ""; }}
                       style={{

@@ -468,7 +468,7 @@ function UnitsTable({ units, propertyCode, hideNNN, tenantMeta, onBaseYearChange
                 <tr
                   key={i}
                   id={rowId}
-                  onClick={() => router.push(`/rentroll/units/${encodeURIComponent(unit.unitRef)}`)}
+                  onClick={() => router.push(`/units/${encodeURIComponent(unit.unitRef)}`)}
                   style={{ background: rowBg, cursor: "pointer" }}
                   onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.filter = "brightness(0.97)"; }}
                   onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.filter = ""; }}

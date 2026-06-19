@@ -30,6 +30,12 @@ export async function getOrEmptySuiteInformation(
   return (await getSuiteInformation(unitRef)) ?? emptySuiteInformation(unitRef);
 }
 
+// Every stored suite record. Used by the Unit Info index to show which units
+// have a floorplan / suite data without a per-unit round trip.
+export async function getAllSuiteInformation(): Promise<SuiteInformation[]> {
+  return store.all();
+}
+
 export async function saveSuiteInformation(
   info: SuiteInformation,
 ): Promise<SuiteInformation> {
