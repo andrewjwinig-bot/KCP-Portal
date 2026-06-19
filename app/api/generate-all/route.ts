@@ -9,6 +9,7 @@ import { parseAllocationWorkbook } from "../../../lib/allocation/parseAllocation
 import { buildPayrollExportXlsx, buildPayrollGLXlsx } from "../../../lib/payroll/export";
 import { sendMail, isMailConfigured } from "@/lib/mail";
 import { allocReportAlreadySent, markAllocReportSent } from "@/lib/payroll/allocReportSent";
+import { storeJSON, listJSON } from "@/lib/storage";
 import { readFile } from "fs/promises";
 import path from "path";
 
@@ -98,6 +99,13 @@ export async function POST(req: Request) {
       // Never let the report email block invoice generation.
     }
 
+    // Processing the invoices is the save — record the period so the dashboard
+    // reflects the latest run without anyone clicking "Save". Best-effort.
+    if (payDate && invoices.length) {
+      try { await recordProcessedPeriod(payDate, body.payroll, invoices, body.employees ?? []); }
+      catch { /* never let the save block the download */ }
+    }
+
     await archive.finalize();
 
     const chunks: Buffer[] = [];
@@ -113,6 +121,27 @@ export async function POST(req: Request) {
   } catch (e: any) {
     return NextResponse.json({ error: e?.message ?? "Failed to generate PDFs" }, { status: 400 });
   }
+}
+
+/** Auto-save the processed payroll as a period (the same shape the manual
+ *  "Save" button writes), so processing the invoices IS the save — the user no
+ *  longer has to click Save and the dashboard shows the latest run. Deduped by
+ *  pay date (re-processing the same payroll updates that period, not a dupe). */
+async function recordProcessedPeriod(
+  payDate: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  payroll: any, invoices: any[], employees: any[],
+): Promise<void> {
+  const name = payDate || new Date().toLocaleDateString();
+  // Drop per-invoice drilldown to keep the stored payload small (matches Save).
+  const invoicesSlim = (invoices ?? []).map(({ drilldown: _d, ...rest }) => rest);
+  const all = (await listJSON("periods")) as Array<{ id: string; name?: string; payDate?: string }>;
+  const existing = all.find((p) => p?.payDate === payDate || p?.name === name);
+  const id = existing?.id ?? `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  await storeJSON("periods", id, {
+    id, name, payDate: payDate || null, savedAt: new Date().toISOString(),
+    payroll, invoices: invoicesSlim, employees: employees ?? [],
+  });
 }
 
 /** Format payDate (e.g. "01/15/2026") to "01-15-26" for safe filenames */
