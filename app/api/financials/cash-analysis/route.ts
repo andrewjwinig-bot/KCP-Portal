@@ -155,6 +155,9 @@ type Row = {
    *  is carved from the member properties' GLs, opening is hand-entered, and it
    *  earns interest. No Operating Statement, so the name doesn't link out. */
   sd?: boolean;
+  /** For an SD account: the member properties whose deposit movement (bucket 8)
+   *  pooled into it this month — for the per-property breakdown modal. */
+  sdBreakdown?: { key: string; name: string; amount: number }[];
   /** For interest-bearing accounts: the month's interest calc, for the modal. */
   interest?: { opening: number; rate: number; amount: number; fee: number };
   breakdown?: { key: string; name: string; startingCash: number | null; netChange: number; endingCash: number | null; byBucket: Record<CashFlowCode, number> }[];
@@ -388,6 +391,8 @@ export async function GET(req: Request) {
   // deposit movement; deposit activity is never hand-keyed. Runs before the
   // safety net so the SD rows claim x7448 / x7216 (no duplicate account rows).
   let niSd = 0, otherSd = 0;
+  const niContrib: { key: string; name: string; amount: number }[] = [];
+  const otherContrib: { key: string; name: string; amount: number }[] = [];
   for (const r of rows) {
     if (SD_KEYS.has(r.key.toUpperCase())) continue;
     const sd8 = r.byBucket[8] ?? 0;
@@ -395,10 +400,12 @@ export async function GET(req: Request) {
     r.byBucket = { ...r.byBucket, 8: 0 };
     r.netChange -= sd8;
     if (r.endingCash != null) r.endingCash -= sd8;
-    if (NI_FUND_KEYS.has(r.key.toUpperCase())) niSd += sd8; else otherSd += sd8;
+    if (NI_FUND_KEYS.has(r.key.toUpperCase())) { niSd += sd8; niContrib.push({ key: r.key, name: r.name, amount: sd8 }); }
+    else { otherSd += sd8; otherContrib.push({ key: r.key, name: r.name, amount: sd8 }); }
   }
   for (const sd of SD_ACCOUNTS) {
     const movement = sd.isNi ? niSd : otherSd;
+    const contrib = (sd.isNi ? niContrib : otherContrib).slice().sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount));
     // Opening: a known anchor balance (compounded forward at the rate, shown solid
     // like the money-market accounts) when set, else a hand-entered override.
     const anchored = sd.anchor ? sdOpeningFromAnchor(sd.anchor, year, period) : null;
@@ -416,6 +423,7 @@ export async function GET(req: Request) {
       scheduledDebt: 0, debtExpected: false, debtPosted: false, debtMissing: false,
       latestGLMonth: period, estimate: null,
       sd: true, readOnly: anchored != null, bankCodes: [sd.bankCode], bankLast4: sd.bankLast4,
+      sdBreakdown: contrib.length ? contrib : undefined,
       interest: { opening: opening ?? 0, rate: SD_RATE, amount: interest, fee: 0 },
     });
     // The deposit cash lives in this account, so hide it from the operating row's
