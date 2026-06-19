@@ -8,13 +8,21 @@ import { amenityFor } from "@/lib/rentroll/amenities";
 import { SectionLabel } from "@/app/properties/PropertyDetail";
 import { Pill, TONE_NEUTRAL } from "@/app/components/Pill";
 
-// Unit Info — a standalone top-level page (its own sidebar section, not a
-// Rent Roll subpage). Search across every property and jump straight to any
-// unit page. Reuses the same /api/rentroll data the Rent Roll loads, plus a
-// floorplan index from /api/suites/floorplans, so the set always matches the
-// latest import.
+// Unit Info — a standalone top-level page for the PHYSICAL side of each unit:
+// floorplans + suite specs (restrooms, kitchen, paint, flooring, HVAC) at a
+// glance. Tenant/lease facts live on the Rent Roll; this is the building/space
+// view. Pulls unit refs + sqft from /api/rentroll and the physical specs from
+// /api/suites/summary, so the set always matches the latest rent-roll import.
 
-type Floorplan = { url: string; name: string; contentType: string };
+type SuiteSummary = {
+  floorplan: { url: string; name: string; contentType: string } | null;
+  restrooms: string;
+  kitchen: string;
+  paint: string;
+  hvac: string;
+  flooring: string[];
+  attachments: number;
+};
 
 function propName(code: string): string {
   const def = PROPERTY_DEFS.find((p) => p.id.toUpperCase() === code.toUpperCase());
@@ -23,27 +31,6 @@ function propName(code: string): string {
 
 function unitLabel(u: RentRollUnit): string {
   return (u.amenity ?? amenityFor(u.unitRef))?.label || u.occupantName || "Vacant";
-}
-
-function parseRentDate(s: string | null | undefined): Date | null {
-  if (!s) return null;
-  const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if (!m) return null;
-  return new Date(Number(m[3]), Number(m[1]) - 1, Number(m[2]));
-}
-
-// Lease expiration cell: short date colored by proximity (red expired / ≤30d,
-// amber ≤90d, otherwise default).
-function leaseExp(leaseTo: string | null | undefined): { label: string; color: string } {
-  const d = parseRentDate(leaseTo);
-  if (!d) return { label: "—", color: "var(--muted)" };
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const days = Math.ceil((d.getTime() - today.getTime()) / 86400000);
-  const label = `${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")}/${String(d.getFullYear()).slice(2)}`;
-  if (days < 0 || days <= 30) return { label, color: "#dc2626" };
-  if (days <= 90) return { label, color: "#d97706" };
-  return { label, color: "var(--text)" };
 }
 
 const FROM = "?from=/units";
@@ -55,13 +42,22 @@ const th: React.CSSProperties = {
 const td: React.CSSProperties = {
   fontSize: 13, padding: "8px 10px", borderTop: "1px solid var(--border)", verticalAlign: "middle",
 };
+const muted: React.CSSProperties = { color: "var(--muted)" };
+
+// Yes/No-style spec cell: green for Yes, muted for No / N/A / blank.
+function specCell(v: string) {
+  if (!v) return <span style={muted}>—</span>;
+  const yes = v.toLowerCase() === "yes";
+  return <span style={{ color: yes ? "#15803d" : "var(--muted)", fontWeight: yes ? 600 : 400 }}>{v}</span>;
+}
 
 export default function UnitInfoIndexPage() {
   const router = useRouter();
   const [data, setData] = useState<RentRollData | null>(null);
-  const [floorplans, setFloorplans] = useState<Record<string, Floorplan>>({});
+  const [specs, setSpecs] = useState<Record<string, SuiteSummary>>({});
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
+  const [onlyFloorplans, setOnlyFloorplans] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -70,9 +66,9 @@ export default function UnitInfoIndexPage() {
       .then((j) => { if (alive) setData(j.rentroll ?? null); })
       .catch(() => { /* ignore */ })
       .finally(() => { if (alive) setLoading(false); });
-    fetch("/api/suites/floorplans", { cache: "no-store" })
+    fetch("/api/suites/summary", { cache: "no-store" })
       .then((r) => r.json())
-      .then((j) => { if (alive) setFloorplans(j.floorplans ?? {}); })
+      .then((j) => { if (alive) setSpecs(j.suites ?? {}); })
       .catch(() => { /* ignore */ });
     return () => { alive = false; };
   }, []);
@@ -87,6 +83,7 @@ export default function UnitInfoIndexPage() {
       const name = propName(p.propertyCode);
       const units = p.units
         .filter((u) => {
+          if (onlyFloorplans && !specs[u.unitRef]?.floorplan) return false;
           if (!q) return true;
           return (
             u.unitRef.toLowerCase().includes(q) ||
@@ -102,33 +99,44 @@ export default function UnitInfoIndexPage() {
     }
     out.sort((a, b) => a.name.localeCompare(b.name));
     return out;
-  }, [data, query]);
+  }, [data, query, specs, onlyFloorplans]);
 
   const total = useMemo(() => groups.reduce((n, g) => n + g.units.length, 0), [groups]);
-  const withPlans = useMemo(() => Object.keys(floorplans).length, [floorplans]);
+  const withPlans = useMemo(() => Object.values(specs).filter((s) => s.floorplan).length, [specs]);
 
   return (
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
       <header style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800 }}>Unit Info</h1>
+          <div>
+            <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800 }}>Unit Info</h1>
+            <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>
+              Floorplans &amp; physical suite specs — tenant &amp; lease details live on the Rent Roll.
+            </div>
+          </div>
           <span style={{ fontSize: 12, color: "var(--muted)" }}>
             {loading
               ? "Loading…"
               : `${total} unit${total === 1 ? "" : "s"} · ${groups.length} propert${groups.length === 1 ? "y" : "ies"}${withPlans ? ` · ${withPlans} with floorplan` : ""}`}
           </span>
         </div>
-        <input
-          type="text"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search by tenant, unit, or property…"
-          style={{
-            width: "100%", maxWidth: 420, padding: "8px 12px", fontSize: 14,
-            borderRadius: 9, border: "1px solid var(--border)", background: "var(--card)",
-            color: "var(--text)",
-          }}
-        />
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search by tenant, unit, or property…"
+            style={{
+              flex: "1 1 280px", maxWidth: 420, padding: "8px 12px", fontSize: 14,
+              borderRadius: 9, border: "1px solid var(--border)", background: "var(--card)",
+              color: "var(--text)",
+            }}
+          />
+          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "var(--text)", cursor: "pointer", whiteSpace: "nowrap" }}>
+            <input type="checkbox" checked={onlyFloorplans} onChange={(e) => setOnlyFloorplans(e.target.checked)} />
+            Only units with a floorplan
+          </label>
+        </div>
       </header>
 
       {loading ? (
@@ -138,74 +146,90 @@ export default function UnitInfoIndexPage() {
           No rent roll imported yet. Import one on the <a href="/rentroll" style={{ fontWeight: 600, color: "#0b4a7d" }}>Rent Roll</a> page.
         </div>
       ) : groups.length === 0 ? (
-        <div className="card" style={{ fontSize: 13, color: "var(--muted)" }}>No units match “{query}”.</div>
+        <div className="card" style={{ fontSize: 13, color: "var(--muted)" }}>No units match your filters.</div>
       ) : (
         groups.map((g) => (
           <div className="card" key={g.code} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             <SectionLabel>{g.name} · {g.code}</SectionLabel>
-            <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
-              <colgroup>
-                <col style={{ width: "13%" }} />
-                <col />
-                <col style={{ width: "11%" }} />
-                <col style={{ width: "13%" }} />
-                <col style={{ width: "16%" }} />
-              </colgroup>
-              <thead>
-                <tr>
-                  <th style={th}>Unit</th>
-                  <th style={th}>Tenant</th>
-                  <th style={{ ...th, textAlign: "right" }}>SF</th>
-                  <th style={{ ...th, textAlign: "right" }}>Lease Exp</th>
-                  <th style={th}>Floorplan</th>
-                </tr>
-              </thead>
-              <tbody>
-                {g.units.map((u) => {
-                  const fp = floorplans[u.unitRef];
-                  const exp = leaseExp(u.leaseTo);
-                  return (
-                    <tr
-                      key={u.unitRef}
-                      onClick={() => router.push(`/units/${encodeURIComponent(u.unitRef)}${FROM}`)}
-                      style={{ cursor: "pointer" }}
-                    >
-                      <td style={td}>
-                        <code style={{ fontSize: 12, color: "var(--muted)" }}>{u.unitRef}</code>
-                      </td>
-                      <td style={{ ...td, overflow: "hidden" }}>
-                        <span style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-                          <span style={{ fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            {unitLabel(u)}
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed", minWidth: 720 }}>
+                <colgroup>
+                  <col style={{ width: 92 }} />
+                  <col />
+                  <col style={{ width: 70 }} />
+                  <col style={{ width: 110 }} />
+                  <col style={{ width: 90 }} />
+                  <col style={{ width: 80 }} />
+                  <col style={{ width: 80 }} />
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th style={th}>Unit</th>
+                    <th style={th}>Occupant</th>
+                    <th style={{ ...th, textAlign: "right" }}>SF</th>
+                    <th style={th}>Floorplan</th>
+                    <th style={th}>Restrooms</th>
+                    <th style={th}>Kitchen</th>
+                    <th style={th}>Paint</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {g.units.map((u) => {
+                    const s = specs[u.unitRef];
+                    const fp = s?.floorplan;
+                    const isImg = fp?.contentType?.startsWith("image/");
+                    return (
+                      <tr
+                        key={u.unitRef}
+                        onClick={() => router.push(`/units/${encodeURIComponent(u.unitRef)}${FROM}`)}
+                        style={{ cursor: "pointer" }}
+                      >
+                        <td style={td}>
+                          <code style={{ fontSize: 12, color: "var(--muted)" }}>{u.unitRef}</code>
+                        </td>
+                        <td style={{ ...td, overflow: "hidden" }}>
+                          <span style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                            <span style={{ fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              {unitLabel(u)}
+                            </span>
+                            {u.isVacant && <Pill tone={TONE_NEUTRAL}>Vacant</Pill>}
                           </span>
-                          {u.isVacant && <Pill tone={TONE_NEUTRAL}>Vacant</Pill>}
-                        </span>
-                      </td>
-                      <td style={{ ...td, textAlign: "right", color: "var(--muted)", whiteSpace: "nowrap" }}>
-                        {u.sqft.toLocaleString("en-US")}
-                      </td>
-                      <td style={{ ...td, textAlign: "right", color: exp.color, whiteSpace: "nowrap", fontWeight: exp.color === "var(--text)" ? 400 : 700 }}>
-                        {exp.label}
-                      </td>
-                      <td style={td} onClick={(e) => e.stopPropagation()}>
-                        {fp ? (
-                          <a
-                            href={fp.url}
-                            target="_blank"
-                            rel="noreferrer"
-                            style={{ fontSize: 12, fontWeight: 600, color: "#0b4a7d", textDecoration: "none" }}
-                          >
-                            📄 View
-                          </a>
-                        ) : (
-                          <span style={{ color: "var(--muted)" }}>—</span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                        </td>
+                        <td style={{ ...td, textAlign: "right", ...muted, whiteSpace: "nowrap" }}>
+                          {u.sqft.toLocaleString("en-US")}
+                        </td>
+                        <td style={td} onClick={(e) => e.stopPropagation()}>
+                          {fp ? (
+                            <a
+                              href={fp.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              title={fp.name}
+                              style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: "#0b4a7d", textDecoration: "none" }}
+                            >
+                              {isImg ? (
+                                <img
+                                  src={fp.url}
+                                  alt=""
+                                  loading="lazy"
+                                  style={{ width: 34, height: 26, objectFit: "cover", borderRadius: 4, border: "1px solid var(--border)" }}
+                                />
+                              ) : "📄"}
+                              View
+                            </a>
+                          ) : (
+                            <span style={muted}>—</span>
+                          )}
+                        </td>
+                        <td style={td}>{specCell(s?.restrooms ?? "")}</td>
+                        <td style={td}>{specCell(s?.kitchen ?? "")}</td>
+                        <td style={td}>{s?.paint ? <span>{s.paint}</span> : <span style={muted}>—</span>}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         ))
       )}
