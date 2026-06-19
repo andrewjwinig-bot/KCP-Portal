@@ -51,6 +51,7 @@ function isOfficeUnit(propertyCode: string): boolean {
 // Friendly back-link label for a known internal path (used with ?from=).
 function labelForPath(p: string): string {
   if (p.startsWith("/cam-recon")) return "← CAM / RET Reconciliation";
+  if (p.startsWith("/rentroll/units")) return "← All Units";
   if (p.startsWith("/rentroll")) return "← Rent roll";
   if (p.startsWith("/properties")) return "← Property";
   if (p.startsWith("/maintenance")) return "← Maintenance";

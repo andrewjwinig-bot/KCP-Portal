@@ -16,6 +16,7 @@ const NAV_ROLE_KEY: Record<string, string> = {
   "Investor Info":      "investors",
   "Debt Tracker":       "debt",
   "Rent Roll":          "rentroll",
+  "Unit Info":          "rentroll",
   "Leasing Activity":   "leasing-activity",
   "Expense History":    "base-years",
   "Expense Trends":     "base-years",
@@ -207,6 +208,22 @@ const NAV = [
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
         <polyline points="9 22 9 12 15 12 15 22" />
+      </svg>
+    ),
+  },
+  {
+    label: "Unit Info",
+    href: "/rentroll/units",
+    external: false,
+    indent: false,
+    showFor: null as string | null,
+    groupId: "directory",
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="3" width="7" height="7" rx="1" />
+        <rect x="14" y="3" width="7" height="7" rx="1" />
+        <rect x="14" y="14" width="7" height="7" rx="1" />
+        <rect x="3" y="14" width="7" height="7" rx="1" />
       </svg>
     ),
   },
@@ -730,7 +747,18 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
   function isActive(item: (typeof NAV)[number]) {
     if (item.external) return false;
     if (item.href === "/") return pathname === "/";
-    return pathname.startsWith(item.href);
+    if (!pathname.startsWith(item.href)) return false;
+    // Most-specific wins: defer to any nav item whose href is a longer
+    // descendant of this one that also matches the current path (so on
+    // /rentroll/units the "Unit Info" item lights up, not "Rent Roll").
+    const moreSpecific = NAV.some(
+      (o) =>
+        !o.external && o.href !== "/" &&
+        o.href.length > item.href.length &&
+        o.href.startsWith(item.href) &&
+        pathname.startsWith(o.href),
+    );
+    return !moreSpecific;
   }
 
   function isVisible(item: (typeof NAV)[number]) {
