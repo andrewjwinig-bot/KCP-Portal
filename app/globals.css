@@ -10,6 +10,9 @@
   /* Color used for text that sits directly on the page background (outside cards). */
   --page-text: var(--text);
   --page-muted: var(--muted);
+  /* Scrollbars — thin translucent pill (matches the sidebar nav scrollbar). */
+  --scrollbar-thumb: rgba(15, 23, 42, 0.28);
+  --scrollbar-thumb-hover: rgba(15, 23, 42, 0.45);
 }
 
 /* ── Dark mode ───────────────────────────────────────────────────────────
@@ -26,6 +29,8 @@
   --shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
   --page-text: var(--text);
   --page-muted: #94a3b8;
+  --scrollbar-thumb: rgba(255, 255, 255, 0.18);
+  --scrollbar-thumb-hover: rgba(255, 255, 255, 0.32);
 }
 
 /* Bump default text/link contrast inside cards on dark mode. */
@@ -346,8 +351,36 @@ code {
   background: rgba(11, 74, 125, 0.05);
 }
 
-/* Sidebar nav scrollbar — thin, translucent, blends with the dark blue
- * sidebar (#1e4976) instead of the default light browser scrollbar. */
+/* ── Scrollbars — the app standard ───────────────────────────────────────
+ * A thin, rounded, translucent pill on a transparent track, for BOTH vertical
+ * and horizontal scrollbars everywhere (matching the sidebar nav). Theme-aware
+ * via --scrollbar-thumb. Any new scrollable area inherits this automatically —
+ * don't hand-roll a scrollbar style. */
+* {
+  scrollbar-width: thin; /* Firefox */
+  scrollbar-color: var(--scrollbar-thumb) transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-track,
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+  background-clip: padding-box;
+}
+
+/* Sidebar nav scrollbar — always the dark-blue sidebar (#1e4976) regardless of
+ * theme, so it keeps the white-translucent thumb even in light mode. */
 .sidebar-nav {
   scrollbar-width: thin; /* Firefox */
   scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
