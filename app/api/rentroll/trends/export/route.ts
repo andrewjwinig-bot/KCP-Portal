@@ -9,6 +9,9 @@ const RENTROLL_ID     = "current";
 const HISTORY_PREFIX  = "rentroll-history";
 
 export const runtime = "nodejs";
+// Read fresh — this export reads the live rent-roll history, not a static file.
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export async function GET() {
   let snapshots = await listJSON(HISTORY_PREFIX) as RentRollData[];
