@@ -115,6 +115,9 @@ function DashboardInner() {
   const [checkedByYear, setCheckedByYear] = useState<Record<number, Record<string, boolean>>>({});
   const [vacatingMatchers, setVacatingMatchers] = useState<{ unitRefs: Set<string>; names: Set<string> }>({ unitRefs: new Set(), names: new Set() });
   const [tenantMeta, setTenantMeta] = useState<Record<string, { baseYear?: number | string | null }>>({});
+  // Security deposits (for the vacating-tenants "owed" column): per-unit held
+  // amount = deposits not yet refunded / defaulted / partially resolved.
+  const [depositOwed, setDepositOwed] = useState<Record<string, number>>({});
   const [upcomingNotices, setUpcomingNotices] = useState<{ id: string; tenant: string; building: string; noticeDate: string; daysUntil: number }[]>([]);
   const [dismissedNotices, setDismissedNotices] = useState<Set<string>>(new Set());
   const [bankRecChecked, setBankRecChecked] = useState<Record<string, boolean>>({});
@@ -236,6 +239,15 @@ function DashboardInner() {
   useEffect(() => {
     fetch("/api/rentroll").then((r) => r.json()).then((j) => setRentroll(j.rentroll ?? null)).catch(() => setRentroll(null)).finally(() => setLoading(false));
     fetch("/api/tenant-meta").then((r) => (r.ok ? r.json() : null)).then((j) => setTenantMeta(j?.tenantMeta ?? {})).catch(() => {});
+    fetch("/api/deposits", { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).then((j) => {
+      const owed: Record<string, number> = {};
+      for (const d of (j?.deposits ?? []) as { unitRef?: string; amount?: number; refunded?: boolean; tenantDefaulted?: boolean; partialRefund?: boolean }[]) {
+        if (!d.unitRef) continue;
+        const held = d.refunded || d.tenantDefaulted || d.partialRefund ? 0 : (d.amount ?? 0);
+        owed[d.unitRef] = (owed[d.unitRef] ?? 0) + held;
+      }
+      setDepositOwed(owed);
+    }).catch(() => {});
     fetch("/api/leasing-activity").then((r) => r.json()).then((j) => {
       const la = j?.leasingActivity ?? {};
       const list = (la?.tenantsVacating ?? []) as { unitRef?: string; tenant?: string }[];
@@ -1023,6 +1035,7 @@ function DashboardInner() {
                   <th>Lease To</th>
                   <th style={{ textAlign: "center" }}>B/Y</th>
                   <th style={{ textAlign: "right" }}>Days</th>
+                  <th style={{ textAlign: "right" }}>Sec. Deposit</th>
                   <th style={{ textAlign: "right" }}>CAM/RET</th>
                 </tr>
               </thead>
@@ -1052,6 +1065,12 @@ function DashboardInner() {
                       <td style={{ textAlign: "center", fontSize: 13 }}>{baseYear2(tenantMeta[unit.unitRef]?.baseYear)}</td>
                       <td style={{ textAlign: "right", fontSize: 13, fontWeight: 600, color: overdue ? "#b91c1c" : urgent ? "#b91c1c" : "#b45309" }}>
                         {overdue ? `${Math.abs(days)} ago` : `${days}`}
+                      </td>
+                      <td style={{ textAlign: "right", fontSize: 13, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}
+                        title={depositOwed[unit.unitRef] ? "Security deposit held / owed back to the tenant" : "No security deposit on file"}>
+                        {depositOwed[unit.unitRef]
+                          ? "$" + Math.round(depositOwed[unit.unitRef]).toLocaleString("en-US")
+                          : <span className="muted">—</span>}
                       </td>
                       <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
                         {OFFICE_INTERIM.has(propertyCode.toUpperCase()) ? (() => {
