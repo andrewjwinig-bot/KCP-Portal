@@ -44,9 +44,9 @@ function money0(n: number | null): string {
   const s = Math.abs(v).toLocaleString("en-US");
   return v < 0 ? `($${s})` : `$${s}`;
 }
-const numCell: React.CSSProperties = { textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" };
+const numCell: React.CSSProperties = { textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", padding: "9px 7px" };
 // Column headers wrap so long bucket labels ("Change in Escrows") don't force a wide column.
-const headWrap: React.CSSProperties = { textAlign: "right", whiteSpace: "normal", lineHeight: 1.15, verticalAlign: "bottom", minWidth: 70 };
+const headWrap: React.CSSProperties = { textAlign: "right", whiteSpace: "normal", lineHeight: 1.15, verticalAlign: "bottom", minWidth: 58, padding: "9px 7px" };
 // Opening / Ending cash are the headline numbers — give them a prominent, tinted column.
 const keyCol: React.CSSProperties = { ...numCell, fontWeight: 800, fontSize: 14, background: "rgba(11,74,125,0.06)" };
 function periodDates(year: number, period: number, ytd: boolean) {
@@ -436,16 +436,6 @@ export default function CashSheetPage() {
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             {!ytd && glMonth !== period && <span style={{ fontSize: 12, fontWeight: 600, color: "var(--muted)" }}>{MONTHS[glMonth - 1]} GL actuals + {MONTHS[period - 1]} bills</span>}
-            {banksPresent.length > 1 && (
-              <select
-                value={bankFilter}
-                onChange={(e) => setBankFilter(e.target.value)}
-                title="Filter the accounts to one bank"
-                style={{ borderRadius: 999, padding: "8px 12px", fontSize: 13, fontWeight: 600, border: "1px solid rgba(11,74,125,0.3)", background: "var(--card)", color: "#0b4a7d", cursor: "pointer" }}>
-                <option value="All">All banks</option>
-                {banksPresent.map((b) => <option key={b} value={b}>{b}</option>)}
-              </select>
-            )}
             <select
               value={`${year}-${period}`}
               onChange={(e) => { const [y, m] = e.target.value.split("-").map(Number); setYear(y); setPeriod(m); }}
@@ -464,13 +454,25 @@ export default function CashSheetPage() {
           <p className="muted small" style={{ margin: 0 }}>
             Import the weekly <b>AP Selection Report</b> (.xls, .xlsx, or .pdf) to fill bills paid.
           </p>
-          <div style={{ display: "inline-flex", border: "1px solid rgba(11,74,125,0.3)", borderRadius: 999, overflow: "hidden" }} title="How much detail to show for cash movement">
-            {([["net", "Net"], ["io", "Cash In/Out"], ["detail", "Detail"]] as const).map(([v, label]) => (
-              <button key={v} type="button" onClick={() => setViewPersist(v)}
-                style={{ padding: "7px 12px", fontSize: 12, fontWeight: 700, border: "none", cursor: "pointer", background: view === v ? "#0b4a7d" : "var(--card)", color: view === v ? "#fff" : "#0b4a7d" }}>
-                {label}
-              </button>
-            ))}
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <div style={{ display: "inline-flex", border: "1px solid rgba(11,74,125,0.3)", borderRadius: 999, overflow: "hidden" }} title="How much detail to show for cash movement">
+              {([["net", "Net"], ["io", "Cash In/Out"], ["detail", "Detail"]] as const).map(([v, label]) => (
+                <button key={v} type="button" onClick={() => setViewPersist(v)}
+                  style={{ padding: "7px 12px", fontSize: 12, fontWeight: 700, border: "none", cursor: "pointer", background: view === v ? "#0b4a7d" : "var(--card)", color: view === v ? "#fff" : "#0b4a7d" }}>
+                  {label}
+                </button>
+              ))}
+            </div>
+            {banksPresent.length > 1 && (
+              <select
+                value={bankFilter}
+                onChange={(e) => setBankFilter(e.target.value)}
+                title="Filter the accounts to one bank"
+                style={{ borderRadius: 999, padding: "7px 12px", fontSize: 12, fontWeight: 600, border: "1px solid rgba(11,74,125,0.3)", background: "var(--card)", color: "#0b4a7d", cursor: "pointer" }}>
+                <option value="All">All banks</option>
+                {banksPresent.map((b) => <option key={b} value={b}>{b}</option>)}
+              </select>
+            )}
           </div>
         </div>
         <p className="muted small" style={{ marginTop: 4 }}>
@@ -532,10 +534,10 @@ export default function CashSheetPage() {
 
       <div className="card" style={{ padding: 0, overflow: "hidden" }}>
         <div className="tableWrap" style={{ overflowX: "auto" }}>
-          <table style={{ minWidth: 1100, width: "100%" }}>
+          <table style={{ width: "100%" }}>
             <thead>
               <tr>
-                <th style={{ textAlign: "left", minWidth: 260 }}>Entity</th>
+                <th style={{ textAlign: "left", minWidth: 180, padding: "9px 8px" }}>Entity</th>
                 <th style={{ ...keyCol, textAlign: "center" }}>Opening Cash<div style={{ fontWeight: 800, fontSize: 16, color: "var(--text)", textTransform: "none", marginTop: 1 }}>{glDates.openShort}</div></th>
                 {view === "detail" ? visibleBuckets.map((b) => <th key={b.code} style={headWrap}>{b.label}</th>)
                   : view === "io" ? [<th key="in" style={headWrap}>Cash In</th>, <th key="out" style={headWrap}>Cash Out</th>]
@@ -544,7 +546,7 @@ export default function CashSheetPage() {
                 {showBillsCol && <th style={headWrap} title={`AvidXchange bills paid in ${MONTHS[period - 1]} — click a row for the weekly detail`}>Avid Bills<div style={{ fontWeight: 700, fontSize: 13, color: "var(--text)", textTransform: "none" }}>{MONTHS[period - 1]}</div></th>}
                 {showReservesCol && <th style={headWrap} title="Budgeted Big Projects reserve set aside (from the budget; type to override)">Reserves</th>}
                 {netBridge && <th style={headWrap} title="Bills & reserves drawdown from Ending Cash to Est. Available Cash">To Available</th>}
-                {showEst && <th style={{ ...keyCol, textAlign: "center", background: "rgba(21,128,61,0.08)" }}>Est. Available Cash<div style={{ fontWeight: 800, fontSize: 16, color: "var(--text)", textTransform: "none", marginTop: 1 }}>{lastBillWed ?? data?.estimateAsOf}</div></th>}
+                {showEst && <th style={{ ...keyCol, textAlign: "center", background: "rgba(21,128,61,0.08)" }}>Avail. Cash<div style={{ fontWeight: 800, fontSize: 16, color: "var(--text)", textTransform: "none", marginTop: 1 }}>{lastBillWed ?? data?.estimateAsOf}</div></th>}
               </tr>
             </thead>
             <tbody>
