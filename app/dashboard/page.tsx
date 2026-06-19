@@ -21,9 +21,12 @@ import DebtSummaryCard from "./DebtSummaryCard";
 
 function sqftFmt(n: number) { return n.toLocaleString(); }
 
-// Office buildings with interim (as-of-month) CAM/RET recon support — the
-// "View statement" button on a vacating tenant deep-links to it.
-const OFFICE_INTERIM = new Set(["3610", "3620", "3640", "4050", "4060", "4070", "4080", "40A0", "40B0", "40C0"]);
+// Buildings with interim (as-of-month) CAM/RET recon support — the "Statement →"
+// button on a vacating tenant deep-links to it (office + retail).
+const OFFICE_INTERIM = new Set([
+  "3610", "3620", "3640", "4050", "4060", "4070", "4080", "40A0", "40B0", "40C0", // office
+  "1100", "2300", "4500", "7010", "9510", // retail
+]);
 
 /** 2-digit base year for the B/Y column — 4-digit year → last 2 digits;
  *  non-numeric markers (NNN, GROSS, …) shown as-is; missing → dash. */
