@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type { RentRollData } from "@/lib/rentroll/parseRentRollExcel";
 import {
@@ -66,11 +66,6 @@ export default function SecurityDepositsPage() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<SecurityDeposit | null>(null);
   const [adding, setAdding] = useState(false);
-  // Multi-check tenants collapse to one row; expand to reveal the per-check rows.
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  const toggleExpand = (unitRef: string) => setExpanded((s) => {
-    const n = new Set(s); n.has(unitRef) ? n.delete(unitRef) : n.add(unitRef); return n;
-  });
 
   function startGlobalAdd() { setAdding(true); setEditing(null); }
   // Pull the authoritative list from the server (so optimistic updates can never
@@ -204,12 +199,11 @@ export default function SecurityDepositsPage() {
                     <th>Check #</th>
                     <th style={{ textAlign: "right" }}>Amount</th>
                     <th>Check Date</th>
-                    <th>Image</th>
                   </tr>
                 </thead>
                 <tbody>
                   {byAccount[acct].length === 0 && (
-                    <tr><td colSpan={6} className="muted small" style={{ padding: 16 }}>
+                    <tr><td colSpan={5} className="muted small" style={{ padding: 16 }}>
                       No deposits recorded for this account.
                     </td></tr>
                   )}
@@ -219,10 +213,6 @@ export default function SecurityDepositsPage() {
                         <td style={{ fontSize: 13 }}>{d.checkNumber ? `#${d.checkNumber}` : "—"}</td>
                         <td style={{ textAlign: "right", fontSize: 13, fontWeight: 600 }}>{d.amount ? money(d.amount) : "—"}</td>
                         <td style={{ fontSize: 13 }}>{prettyDate(d.checkDate)}</td>
-                        <td>{d.checkImage
-                          ? <a href={d.checkImage.url} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}
-                              style={{ fontSize: 12, fontWeight: 600, color: "#0b4a7d" }}>View</a>
-                          : <span className="muted small">—</span>}</td>
                       </>
                     );
                     // Single check → one ordinary row.
@@ -246,45 +236,24 @@ export default function SecurityDepositsPage() {
                       );
                     }
 
-                    // Multiple checks → ONE collapsible row per tenant; expand to
-                    // reveal the individual check rows.
+                    // Multiple checks → one uniform row per tenant; the "N Checks"
+                    // in the Check Date column flags it. (Edit individual checks
+                    // from the tenant's unit page.)
                     const held = heldTotal(g.checks);
                     const allRefunded = g.checks.every((c) => c.refunded);
-                    const isOpen = expanded.has(g.unitRef);
                     return (
-                      <Fragment key={g.unitRef}>
-                        <tr style={{ background: "rgba(15,23,42,0.035)", cursor: "pointer" }}
-                          onClick={() => toggleExpand(g.unitRef)}
-                          title={isOpen ? "Hide checks" : "Show checks"}
-                          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.filter = "brightness(0.97)"; }}
-                          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.filter = ""; }}>
-                          <td style={{ fontWeight: 700 }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                              <span style={{ display: "inline-block", width: 12, color: "var(--muted)" }}>{isOpen ? "▾" : "▸"}</span>
-                              <span>{g.tenant || "—"}</span>
-                              {allRefunded && <RefundedBadge date="" />}
-                            </div>
-                          </td>
-                          <td><code style={{ fontSize: 12 }}>{g.unitRef}</code></td>
-                          <td className="muted small">—</td>
-                          <td style={{ textAlign: "right", fontSize: 13, fontWeight: 800 }}>{money(held)}</td>
-                          <td className="muted small">{g.checks.length} Checks</td>
-                          <td className="muted small">—</td>
-                        </tr>
-                        {isOpen && g.checks.map((d) => (
-                          <tr key={d.id}
-                            style={{ cursor: "pointer", opacity: d.refunded ? 0.55 : 1 }}
-                            onClick={(e) => { e.stopPropagation(); setEditing(d); setAdding(false); }}
-                            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.filter = "brightness(0.97)"; }}
-                            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.filter = ""; }}>
-                            <td style={{ paddingLeft: 30 }} className="muted small">
-                              {d.refunded ? <RefundedBadge date={d.refundDate} /> : ""}
-                            </td>
-                            <td />
-                            {checkCell(d)}
-                          </tr>
-                        ))}
-                      </Fragment>
+                      <tr key={g.unitRef} style={{ opacity: allRefunded ? 0.7 : 1 }}>
+                        <td style={{ fontWeight: 600 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                            <span>{g.tenant || "—"}</span>
+                            {allRefunded && <RefundedBadge date="" />}
+                          </div>
+                        </td>
+                        <td><code style={{ fontSize: 12 }}>{g.unitRef}</code></td>
+                        <td className="muted" style={{ fontSize: 13 }}>—</td>
+                        <td style={{ textAlign: "right", fontSize: 13, fontWeight: 600 }}>{money(held)}</td>
+                        <td style={{ fontSize: 13, fontWeight: 600 }}>{g.checks.length} Checks</td>
+                      </tr>
                     );
                   })}
                 </tbody>
