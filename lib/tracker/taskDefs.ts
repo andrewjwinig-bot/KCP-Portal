@@ -307,6 +307,7 @@ export const TASK_DEFS: TaskDef[] = [
     label: "Cash Analysis Report",
     category: "routine",
     dueDay: 20,
+    link: "/financials/cash-analysis",
     instructions: {
       steps: [
         {
@@ -353,6 +354,7 @@ export const TASK_DEFS: TaskDef[] = [
     label: "Operating Statements",
     category: "routine",
     dueDay: 20,
+    link: "/financials/operating-statements",
     notes: "Update and record variances.",
   },
   {
@@ -495,7 +497,8 @@ export const TASK_DEFS: TaskDef[] = [
     dueDay: 31,
     endOfMonth: true,
     months: [1, 4, 7, 10],
-    notes: "Q4 (Jan) · Q1 (Apr) · Q2 (Jul) · Q3 (Oct)",
+    link: "/cam-recon?property=9510-WAWA-Q&year=2026",
+    notes: "Due the end of the month following the quarter close — Q4 (Jan) · Q1 (Apr) · Q2 (Jul) · Q3 (Oct). Eligible expenses auto-pull from the 9510 GL.",
   },
 
   // ── SEASONAL / ANNUAL — specific months only ──────────────────────────────
