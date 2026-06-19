@@ -100,12 +100,33 @@ export default function FloorplanCard({ unitRef }: { unitRef: string }) {
                 src={blobSrc(floorplan.url)}
                 alt="Suite floorplan"
                 style={{
-                  width: "100%", maxHeight: 180, borderRadius: 10,
+                  width: "100%", maxHeight: 300, borderRadius: 10,
                   border: "1px solid var(--border)", display: "block",
                   objectFit: "contain", background: "rgba(15,23,42,0.02)",
                 }}
               />
             </a>
+          ) : floorplan.contentType === "application/pdf" || floorplan.name.toLowerCase().endsWith(".pdf") ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <a
+                href={blobSrc(floorplan.url)}
+                target="_blank"
+                rel="noreferrer"
+                title={floorplan.name}
+                style={{ fontSize: 12, fontWeight: 600, color: "#0b4a7d", textDecoration: "none",
+                  overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+              >
+                {floorplan.name} ↗
+              </a>
+              <iframe
+                title="Suite floorplan"
+                src={`${blobSrc(floorplan.url)}#toolbar=0&navpanes=0&view=FitH`}
+                style={{
+                  width: "100%", height: 300, borderRadius: 10,
+                  border: "1px solid var(--border)", background: "rgba(15,23,42,0.02)",
+                }}
+              />
+            </div>
           ) : (
             <a
               href={blobSrc(floorplan.url)}

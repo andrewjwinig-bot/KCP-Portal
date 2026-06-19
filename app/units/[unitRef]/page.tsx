@@ -242,7 +242,6 @@ export default function UnitDetailPage() {
   // Annual values
   const annualRent = unit.baseRent * 12;
   const annualPerSf = unit.sqft > 0 ? annualRent / unit.sqft : 0;
-  const hasNNN = unit.opexMonth > 0 || unit.reTaxMonth > 0 || unit.otherMonth > 0;
 
   const futureEsc = unit.futureEscalations ?? [];
 
@@ -387,6 +386,19 @@ export default function UnitDetailPage() {
           value={daysToExpiryValue}
           accent={daysToExpiryAccent}
         />
+        {baseYearShown && (
+          <StatPill
+            label="Base Year"
+            value={
+              <>
+                {baseYearVal != null ? baseYearVal : "—"}
+                {reset && <sup style={{ fontSize: 10, fontWeight: 800, color: "#b91c1c", lineHeight: 1 }}>※</sup>}
+              </>
+            }
+            accent={reset ? "#b91c1c" : undefined}
+            sub={reset ? `Reset ${fmtResetDate(reset.resetDate)}${reset.originalBaseYear != null ? ` (was ${reset.originalBaseYear})` : ""}` : undefined}
+          />
+        )}
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -424,43 +436,17 @@ export default function UnitDetailPage() {
           />
         </div>
 
-        {/* Rent card — only renders when there's content beyond the
-            hero-pill repeats. Non-retail tenants still see NNN breakouts
-            and Gross Rent here; everyone sees Last Increase when it
-            exists. Hidden entirely for the maint persona. */}
-        {!isMaint && !isAmenity && (
-          (!isRetailUnit(propertyCode) && (hasNNN || unit.grossRentTotal > 0))
-          || Boolean(unit.lastIncreaseDate || unit.lastIncreaseAmount)
-        ) && (
+        {/* Last Increase — the NNN breakout that used to live here just
+            repeated the Other Charges card (CAM/RET/INS) and the hero Gross
+            Rent pill, so it was removed. Only the Last Increase remains, as
+            its own card, when present. Hidden for the maint persona. */}
+        {!isMaint && !isAmenity && Boolean(unit.lastIncreaseDate || unit.lastIncreaseAmount) && (
           <div className="card">
-            <SectionLabel>Rent</SectionLabel>
-            {!isRetailUnit(propertyCode) && (hasNNN || unit.grossRentTotal > 0) && (
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "14px 32px" }}>
-                {hasNNN && unit.opexMonth > 0  && <InfoField label="CAM / mo"    value={money(unit.opexMonth)} />}
-                {hasNNN && unit.otherMonth > 0 && <InfoField label="INS / mo"    value={money(unit.otherMonth)} />}
-                {hasNNN && unit.reTaxMonth > 0 && <InfoField label="RE Tax / mo" value={money(unit.reTaxMonth)} />}
-                {unit.grossRentTotal > 0 && (
-                  <InfoField label="Gross Rent / mo" value={money(unit.grossRentTotal)} />
-                )}
-              </div>
-            )}
-            {Boolean(unit.lastIncreaseDate || unit.lastIncreaseAmount) && (() => {
-              const hasNonRetailNNN = !isRetailUnit(propertyCode) && (hasNNN || unit.grossRentTotal > 0);
-              return (
-                <div style={{
-                  marginTop: hasNonRetailNNN ? 14 : 0,
-                  paddingTop: hasNonRetailNNN ? 14 : 0,
-                  borderTop: hasNonRetailNNN ? "1px solid var(--border)" : undefined,
-                  display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "14px 32px",
-                }}>
-                  <div style={{ gridColumn: "1 / -1", fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", color: "var(--muted)", textTransform: "uppercase" }}>
-                    Last Increase
-                  </div>
-                  <InfoField label="Date" value={formatModalDate(unit.lastIncreaseDate)} />
-                  <InfoField label="Amount" value={unit.lastIncreaseAmount ? money(unit.lastIncreaseAmount) : "—"} />
-                </div>
-              );
-            })()}
+            <SectionLabel>Last Increase</SectionLabel>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "14px 32px" }}>
+              <InfoField label="Date" value={formatModalDate(unit.lastIncreaseDate)} />
+              <InfoField label="Amount" value={unit.lastIncreaseAmount ? money(unit.lastIncreaseAmount) : "—"} />
+            </div>
           </div>
         )}
 
@@ -475,33 +461,7 @@ export default function UnitDetailPage() {
           />
         )}
 
-        {/* ── Base Year (office only) ── */}
-        {baseYearShown && (
-          <div className="card">
-            <SectionLabel>Base Year</SectionLabel>
-            {reset ? (
-              <div>
-                <span style={{
-                  display: "inline-flex", alignItems: "center", gap: 4,
-                  padding: "4px 10px", borderRadius: 6,
-                  border: "1.5px solid rgba(220,38,38,0.55)",
-                  background: "rgba(220,38,38,0.08)",
-                  color: "#b91c1c", fontWeight: 700, fontSize: 14,
-                }}>
-                  {baseYearVal != null ? baseYearVal : "—"}
-                  <sup style={{ fontSize: 10, fontWeight: 800, color: "#b91c1c", lineHeight: 1 }}>※</sup>
-                </span>
-                <div style={{ fontSize: 12, color: "#b91c1c", marginTop: 6, fontWeight: 500 }}>
-                  Reset on {fmtResetDate(reset.resetDate)}
-                  {reset.originalBaseYear != null ? ` (was ${reset.originalBaseYear})` : ""}
-                  {reset.notes ? ` — ${reset.notes}` : ""}
-                </div>
-              </div>
-            ) : (
-              <InfoField label="Current Base Year" value={baseYearVal != null ? String(baseYearVal) : "—"} />
-            )}
-          </div>
-        )}
+        {/* ── Base Year now lives in the hero KPI strip (office only) ── */}
 
         {/* ── CAM / RET config (office only, occupied suites, hidden from maint) ── */}
         {!isMaint && isOfficeUnit(propertyCode) && !isAmenity && !unit.isVacant && (
