@@ -1,0 +1,224 @@
+"use client";
+
+// Interim ("as-of month") CAM/RET reconciliation — for a mid-year move-out.
+// Pick an office building + tenant + as-of month; the statement recovers the
+// tenant's share of the YTD increase over a prorated base, less billed. Office
+// only for now (retail interim is a later phase).
+
+import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
+
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+function money(n: number | null | undefined): string {
+  if (n == null) return "—";
+  return (n < 0 ? "-" : "") + "$" + Math.abs(Math.round(n)).toLocaleString("en-US");
+}
+
+type ScheduleLine = { glAccount: string; label: string; baseCost: number; actual: number; netIncrease: number };
+type Result = {
+  name: string; suite: string; unitRef: string; baseYear: number; proRataPct: number; grossUp: boolean;
+  opexLines: ScheduleLine[]; opexBaseTotal: number; opexActualTotal: number; opexNetIncrease: number;
+  opexAmountDue: number; opexEscrow: number; opexBalance: number;
+  retLine: ScheduleLine; retAmountDue: number; retEscrow: number; retBalance: number;
+  occupiedMonths: number; asOfMonth: number; unpostedMonths: number; noBaseStop?: boolean; futureBaseYear?: boolean;
+  dataWarnings?: string[];
+};
+type Meta = { property: string; propertyName: string; unitRef: string; name: string; year: number; asOfMonth: number; effectiveThrough: number; occupiedMonths: number; unpostedMonths: number; maxPosted: number; startMonth: number; leaseFrom: string | null; leaseTo: string | null; sqft: number; opexMonth: number; reTaxMonth: number; baseYear: number; proRataPct: number; glAsOf: string | null };
+type Tenant = { unitRef: string; name: string; leaseTo: string | null; expiresInYear: number | null };
+
+const selectStyle: React.CSSProperties = { borderRadius: 8, padding: "8px 12px", fontSize: 13, fontWeight: 600, border: "1px solid rgba(11,74,125,0.3)", background: "var(--card)", color: "#0b4a7d", cursor: "pointer" };
+const numTd: React.CSSProperties = { textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" };
+const secLabel: React.CSSProperties = { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
+
+function BalanceRow({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
+  return (
+    <div style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", fontWeight: strong ? 800 : 500, fontSize: strong ? 14 : 13 }}>
+      <span>{label}</span><span style={{ fontVariantNumeric: "tabular-nums" }}>{value}</span>
+    </div>
+  );
+}
+function FinalBalanceRow({ label, value }: { label: string; value: number }) {
+  const owed = value > 0.5; const credit = value < -0.5;
+  const bg = owed ? "rgba(217,119,6,0.12)" : credit ? "rgba(21,128,61,0.12)" : "rgba(15,23,42,0.04)";
+  const fg = owed ? "#b45309" : credit ? "#15803d" : "var(--text)";
+  const border = owed ? "#d97706" : credit ? "#15803d" : "var(--border)";
+  return (
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8, padding: "8px 12px", borderRadius: 8, background: bg, border: `1.5px solid ${border}`, fontWeight: 800 }}>
+      <span>{label}</span><span style={{ color: fg, fontVariantNumeric: "tabular-nums" }}>{money(value)}{credit ? " (credit)" : owed ? " (due)" : ""}</span>
+    </div>
+  );
+}
+
+function Column({ title, lines, base, actual, net, due, escrow, balance, proRataPct, occupiedMonths, asOfLabel, reconYear, monthly }: {
+  title: string; lines: ScheduleLine[]; base: number; actual: number; net: number; due: number; escrow: number; balance: number;
+  proRataPct: number; occupiedMonths: number; asOfLabel: string; reconYear: number; monthly: number;
+}) {
+  return (
+    <div style={{ flex: 1, minWidth: 280 }}>
+      <div style={{ ...secLabel, color: "#0b4a7d", marginBottom: 6 }}>{title}</div>
+      <table style={{ width: "100%", fontSize: 12, marginBottom: 8 }}>
+        <thead>
+          <tr style={{ color: "var(--muted)", textAlign: "left" }}>
+            <th style={{ textAlign: "left", paddingRight: 6 }}>Acct</th>
+            <th style={{ textAlign: "left", width: "100%" }}>Expense</th>
+            <th style={numTd}>Base ×{occupiedMonths}/12</th>
+            <th style={numTd}>{asOfLabel} Actual</th>
+            <th style={numTd}>Net Incr.</th>
+          </tr>
+        </thead>
+        <tbody>
+          {lines.map((l) => (
+            <tr key={l.glAccount}>
+              <td style={{ whiteSpace: "nowrap" }}><code style={{ fontSize: 11 }}>{l.glAccount}</code></td>
+              <td>{l.label}</td>
+              <td style={numTd}>{money(l.baseCost)}</td>
+              <td style={numTd}>{money(l.actual)}</td>
+              <td style={{ ...numTd, color: l.netIncrease > 0 ? "#15803d" : "var(--muted)" }}>{money(l.netIncrease)}</td>
+            </tr>
+          ))}
+          <tr style={{ fontWeight: 800, borderTop: "1px solid var(--border)" }}>
+            <td /><td>Total</td>
+            <td style={numTd}>{money(base)}</td>
+            <td style={numTd}>{money(actual)}</td>
+            <td style={numTd}>{money(net)}</td>
+          </tr>
+        </tbody>
+      </table>
+      <BalanceRow label="Net increase over prorated base" value={money(net)} />
+      <BalanceRow label={`× Pro-rata share (${proRataPct}%)`} value={money(due)} />
+      <BalanceRow label={`Less: Billed (${money(monthly)}/mo × ${occupiedMonths})`} value={money(-escrow)} />
+      <FinalBalanceRow label={`${title} Balance`} value={balance} />
+    </div>
+  );
+}
+
+export default function InterimReconPage() {
+  const now = new Date();
+  const [properties, setProperties] = useState<{ code: string; name: string }[]>([]);
+  const [property, setProperty] = useState("");
+  const [year, setYear] = useState(now.getFullYear());
+  const [tenants, setTenants] = useState<Tenant[]>([]);
+  const [unitRef, setUnitRef] = useState("");
+  const [asOf, setAsOf] = useState<number | "">("");
+  const [data, setData] = useState<{ result: Result; meta: Meta } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => { fetch("/api/cam-recon/interim").then((r) => r.json()).then((j) => setProperties(j.properties ?? [])); }, []);
+  // Load the tenant list whenever the building/year change (no clearing — that's
+  // done in the dropdown handler so a deep-link can pre-select a tenant).
+  useEffect(() => {
+    if (!property) { setTenants([]); return; }
+    fetch(`/api/cam-recon/interim?property=${property}&year=${year}`).then((r) => r.json()).then((j) => setTenants(j.tenants ?? []));
+  }, [property, year]);
+
+  const runWith = useCallback((p: string, y: number, ref: string, a: number | "") => {
+    if (!p || !ref) return;
+    setLoading(true); setError(null);
+    const q = `property=${p}&year=${y}&unitRef=${encodeURIComponent(ref)}${a ? `&asOf=${a}` : ""}`;
+    fetch(`/api/cam-recon/interim?${q}`).then((r) => r.json()).then((j) => {
+      if (j.error) { setError(j.error); setData(null); } else { setData(j); setError(null); }
+    }).catch((e) => setError(String(e))).finally(() => setLoading(false));
+  }, []);
+  const run = useCallback(() => runWith(property, year, unitRef, asOf), [runWith, property, year, unitRef, asOf]);
+
+  // Deep link from the dashboard's vacating-tenants list: pre-fill + auto-run.
+  useEffect(() => {
+    const sp = new URLSearchParams(window.location.search);
+    const p = sp.get("property"); const ref = sp.get("unitRef");
+    if (!p || !ref) return;
+    const y = Number(sp.get("year")) || now.getFullYear();
+    const a = sp.get("asOf") ? Number(sp.get("asOf")) : "";
+    setProperty(p); setYear(y); setUnitRef(ref); setAsOf(a);
+    runWith(p, y, ref, a);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const tenant = tenants.find((t) => t.unitRef === unitRef);
+  const r = data?.result; const meta = data?.meta;
+  const asOfLabel = r ? MONTHS[r.asOfMonth - 1].slice(0, 3) : "";
+
+  return (
+    <main style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 1100, width: "100%" }}>
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+        <h1 style={{ margin: 0 }}>Interim CAM/RET — Move-out</h1>
+        <Link href="/cam-recon" style={{ color: "#0b4a7d", fontWeight: 600, fontSize: 13 }}>← Year-end Reconciliation</Link>
+      </div>
+
+      <div className="card">
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
+          <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12, fontWeight: 600 }}>Building
+            <select value={property} onChange={(e) => { setProperty(e.target.value); setUnitRef(""); setData(null); setAsOf(""); }} style={selectStyle}>
+              <option value="">Select…</option>
+              {properties.map((p) => <option key={p.code} value={p.code}>{p.code} · {p.name}</option>)}
+            </select>
+          </label>
+          <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12, fontWeight: 600 }}>Year
+            <select value={year} onChange={(e) => setYear(Number(e.target.value))} style={selectStyle}>
+              {[now.getFullYear(), now.getFullYear() - 1].map((y) => <option key={y} value={y}>{y}</option>)}
+            </select>
+          </label>
+          <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12, fontWeight: 600 }}>Tenant
+            <select value={unitRef} onChange={(e) => { setUnitRef(e.target.value); const t = tenants.find((x) => x.unitRef === e.target.value); setAsOf(t?.expiresInYear ?? ""); }} style={{ ...selectStyle, minWidth: 240 }} disabled={!property}>
+              <option value="">Select…</option>
+              {tenants.map((t) => <option key={t.unitRef} value={t.unitRef}>{t.unitRef} · {t.name}{t.expiresInYear ? ` (expires ${MONTHS[t.expiresInYear - 1].slice(0, 3)})` : ""}</option>)}
+            </select>
+          </label>
+          <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12, fontWeight: 600 }}>As of
+            <select value={asOf} onChange={(e) => setAsOf(e.target.value ? Number(e.target.value) : "")} style={selectStyle} disabled={!unitRef}>
+              <option value="">{tenant?.expiresInYear ? `Expiration (${MONTHS[tenant.expiresInYear - 1].slice(0, 3)})` : "Year end (Dec)"}</option>
+              {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+            </select>
+          </label>
+          <button className="btn primary" onClick={run} disabled={!unitRef || loading} style={{ fontSize: 13, padding: "8px 18px", fontWeight: 700 }}>
+            {loading ? "Computing…" : "Generate"}
+          </button>
+        </div>
+        <p className="muted small" style={{ marginTop: 8, marginBottom: 0 }}>
+          Recovers the tenant&apos;s pro-rata share of the YTD increase over a <b>prorated base year</b>, less the CAM/RET billed (rent-roll monthly estimate × occupied months). Expenses come live from the building&apos;s GL.
+        </p>
+        {error && <div style={{ color: "#b42318", fontSize: 13, marginTop: 8 }}>{error}</div>}
+      </div>
+
+      {r && meta && (
+        <div className="card">
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, flexWrap: "wrap", marginBottom: 4 }}>
+            <div style={{ fontSize: 18, fontWeight: 800 }}>{r.name} <code style={{ fontSize: 13 }}>{r.unitRef}</code></div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: "#0b4a7d" }}>Interim CAM/RET · as of {MONTHS[r.asOfMonth - 1]} {meta.year}</div>
+          </div>
+          <div className="muted small" style={{ marginBottom: 10 }}>
+            Base year <b>{r.noBaseStop ? "NNN (full pool)" : r.baseYear}</b> · pro-rata <b>{r.proRataPct}%</b> · occupied <b>{r.occupiedMonths}</b> of 12 months{meta.leaseTo ? <> · lease to <b>{meta.leaseTo}</b></> : null} · {meta.sqft.toLocaleString()} sf
+          </div>
+
+          {r.unpostedMonths > 0 && (
+            <div style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(217,119,6,0.10)", border: "1px solid #d9770655", color: "#b45309", fontSize: 12, fontWeight: 600, marginBottom: 10 }}>
+              ⚠ {r.unpostedMonths} occupied month{r.unpostedMonths > 1 ? "s" : ""} not yet posted to the GL (posted through {MONTHS[meta.maxPosted - 1] ?? "—"}). Expenses are computed through the latest posted month; re-run once the remaining month{r.unpostedMonths > 1 ? "s" : ""} post for the final figure.
+            </div>
+          )}
+          {r.futureBaseYear && (
+            <div style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(21,128,61,0.08)", border: "1px solid #15803d55", color: "#15803d", fontSize: 12, fontWeight: 600, marginBottom: 10 }}>
+              Base year is after {meta.year} — no recovery is due (the base stop hasn&apos;t been set yet).
+            </div>
+          )}
+          {(r.dataWarnings ?? []).map((w, i) => (
+            <div key={i} style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(220,38,38,0.08)", border: "1px solid #dc262655", color: "#b91c1c", fontSize: 12, fontWeight: 600, marginBottom: 10 }}>⚠ {w}</div>
+          ))}
+
+          <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
+            <Column title="CAM / Operating Expenses" lines={r.opexLines} base={r.opexBaseTotal} actual={r.opexActualTotal} net={r.opexNetIncrease}
+              due={r.opexAmountDue} escrow={r.opexEscrow} balance={r.opexBalance} proRataPct={r.proRataPct}
+              occupiedMonths={r.occupiedMonths} asOfLabel={asOfLabel} reconYear={meta.year} monthly={meta.opexMonth} />
+            <Column title="Real Estate Taxes" lines={[r.retLine]} base={r.retLine.baseCost} actual={r.retLine.actual} net={r.retLine.netIncrease}
+              due={r.retAmountDue} escrow={r.retEscrow} balance={r.retBalance} proRataPct={r.proRataPct}
+              occupiedMonths={r.occupiedMonths} asOfLabel={asOfLabel} reconYear={meta.year} monthly={meta.reTaxMonth} />
+          </div>
+
+          <FinalBalanceRow label="Total Interim Balance" value={r.opexBalance + r.retBalance} />
+          <p className="muted small" style={{ marginTop: 10, marginBottom: 0 }}>
+            A positive balance is owed by the tenant; a credit is refunded. This is an interim figure as of {MONTHS[r.asOfMonth - 1]} {meta.year} — the move-out close-out (with the security-deposit return) follows.
+          </p>
+        </div>
+      )}
+    </main>
+  );
+}
