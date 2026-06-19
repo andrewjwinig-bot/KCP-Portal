@@ -68,7 +68,7 @@ export function exportCashSheetXlsx(i: CashSheetExportInput): void {
   if (i.showEst) widths.push({ wch: 15 });
   ws["!cols"] = widths;
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Cash Sheet");
+  XLSX.utils.book_append_sheet(wb, ws, "Cash Analysis");
   XLSX.writeFile(wb, `${i.fileBase}.xlsx`);
 }
 

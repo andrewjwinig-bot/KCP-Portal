@@ -367,18 +367,18 @@ export default function CashSheetPage() {
     };
     const label = ytd ? `${year} YTD` : `${MONTHS[period - 1]} ${year}`;
     return {
-      title: `Cash Sheet — ${label}`,
+      title: `Cash Analysis — ${label}`,
       subtitle: `Snapshot ${label} · generated ${new Date().toLocaleDateString()}`,
       buckets: visibleBuckets, openLabel: glDates.openShort, endLabel: glDates.endShort,
       estLabel: lastBillWed ?? data?.estimateAsOf ?? "", showBills, showReserves, showEst,
-      groups, total, fileBase: `Cash_Sheet_${label.replace(/ /g, "_")}`,
+      groups, total, fileBase: `Cash_Analysis_${label.replace(/ /g, "_")}`,
     };
   };
 
   return (
     <main style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: "none", width: "100%" }}>
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-        <h1 style={{ margin: 0 }}>Cash Sheet</h1>
+        <h1 style={{ margin: 0 }}>Cash Analysis</h1>
         <span style={{ fontSize: 20, fontWeight: 700, color: "var(--muted)", whiteSpace: "nowrap" }}>
           {ytd ? `${year} YTD` : `${MONTHS[period - 1]} ${year}`}
         </span>

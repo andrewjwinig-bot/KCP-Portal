@@ -37,7 +37,7 @@ const NAV_ROLE_KEY: Record<string, string> = {
   "Bank Transfers":     "bank-transfers",
   // Budgets is its own key (Nancy sees only Budgets); the other financials
   // pages require the broader "financials-statements" key.
-  "Cash Sheet":         "financials-statements",
+  "Cash Analysis":      "financials-statements",
   "Operating Statements": "financials-statements",
   "Flags to Investigate": "financials-statements",
   "Reprojections":      "financials-statements",
@@ -515,7 +515,7 @@ const NAV = [
     ),
   },
   {
-    label: "Cash Sheet",
+    label: "Cash Analysis",
     href: "/financials/cash-analysis",
     external: false,
     indent: false,
