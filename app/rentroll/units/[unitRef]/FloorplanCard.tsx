@@ -33,13 +33,25 @@ export default function FloorplanCard({ unitRef }: { unitRef: string }) {
   async function upload(file: File) {
     setBusy(true);
     setError(null);
+    // Catch oversized files before they hit (and get silently dropped by) the
+    // platform's ~4.5 MB request cap, which returns an empty body.
+    const MAX_MB = 4;
+    if (file.size > MAX_MB * 1024 * 1024) {
+      setError(`That file is ${(file.size / 1024 / 1024).toFixed(1)} MB — please upload a floorplan under ${MAX_MB} MB (compress the image, or export the PDF at a lower resolution).`);
+      setBusy(false);
+      return;
+    }
     try {
       const fd = new FormData();
       fd.append("kind", "floorplan");
       fd.append("file", file);
       const res = await fetch(api, { method: "POST", body: fd });
-      const j = await res.json();
-      if (!res.ok) throw new Error(j.error ?? "Upload failed");
+      const text = await res.text();
+      let j: { info?: { floorplan?: SuiteAttachment | null }; error?: string } | null = null;
+      try { j = text ? JSON.parse(text) : null; } catch { /* non-JSON / empty body */ }
+      if (!res.ok || !j) {
+        throw new Error(j?.error ?? (res.status === 413 ? `File too large — keep it under ${MAX_MB} MB.` : `Upload failed (${res.status || "no response"}).`));
+      }
       setFloorplan(j.info?.floorplan ?? null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Upload failed");
@@ -53,8 +65,10 @@ export default function FloorplanCard({ unitRef }: { unitRef: string }) {
     setError(null);
     try {
       const res = await fetch(`${api}?kind=floorplan`, { method: "DELETE" });
-      const j = await res.json();
-      if (!res.ok) throw new Error(j.error ?? "Delete failed");
+      const text = await res.text();
+      let j: { info?: { floorplan?: SuiteAttachment | null }; error?: string } | null = null;
+      try { j = text ? JSON.parse(text) : null; } catch { /* non-JSON / empty body */ }
+      if (!res.ok || !j) throw new Error(j?.error ?? `Delete failed (${res.status || "no response"}).`);
       setFloorplan(j.info?.floorplan ?? null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Delete failed");

@@ -103,27 +103,36 @@ export async function POST(
     );
   }
 
-  const result = await put(`suites/${encodeURIComponent(unitRef)}/${file.name}`, file, {
-    access: "public",
-    addRandomSuffix: true,
-    contentType: file.type || undefined,
-  });
+  let info;
+  try {
+    const result = await put(`suites/${encodeURIComponent(unitRef)}/${file.name}`, file, {
+      access: "public",
+      addRandomSuffix: true,
+      contentType: file.type || undefined,
+    });
 
-  const attachment: SuiteAttachment = {
-    id: "satt_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
-    name: file.name,
-    url: result.url,
-    contentType: file.type || "application/octet-stream",
-    size: file.size,
-    uploadedAt: new Date().toISOString(),
-  };
+    const attachment: SuiteAttachment = {
+      id: "satt_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
+      name: file.name,
+      url: result.url,
+      contentType: file.type || "application/octet-stream",
+      size: file.size,
+      uploadedAt: new Date().toISOString(),
+    };
 
-  const existing = await getOrEmptySuiteInformation(unitRef);
-  const next =
-    kind === "floorplan"
-      ? { ...existing, floorplan: attachment }
-      : { ...existing, attachments: [...existing.attachments, attachment] };
-  const info = await saveSuiteInformation(next);
+    const existing = await getOrEmptySuiteInformation(unitRef);
+    const next =
+      kind === "floorplan"
+        ? { ...existing, floorplan: attachment }
+        : { ...existing, attachments: [...existing.attachments, attachment] };
+    info = await saveSuiteInformation(next);
+  } catch (e) {
+    // Always return JSON so the client doesn't choke on an empty error body.
+    return NextResponse.json(
+      { error: `Upload failed: ${e instanceof Error ? e.message : "storage error"}` },
+      { status: 500 },
+    );
+  }
   return NextResponse.json({ info });
 }
 
