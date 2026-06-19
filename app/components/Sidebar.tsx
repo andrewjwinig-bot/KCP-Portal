@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
+import { taskOccurrencesBetween } from "@/lib/tracker/taskDefs";
 import { useUser } from "./UserProvider";
 import UserSwitcher from "./UserSwitcher";
 import ThemeToggle from "./ThemeToggle";
@@ -703,6 +704,16 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
     return () => { alive = false; clearInterval(timer); };
   }, [canSeeMaintenance]);
 
+  // Tasks due this calendar week (Mon–Sun containing today) — a badge on the
+  // Task Tracker nav so the tracker stays present.
+  const tasksThisWeek = useMemo(() => {
+    const now = new Date();
+    const monday = new Date(now); monday.setHours(0, 0, 0, 0);
+    monday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+    const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6); sunday.setHours(23, 59, 59, 999);
+    return taskOccurrencesBetween(monday, sunday).length;
+  }, []);
+
   function isActive(item: (typeof NAV)[number]) {
     if (item.external) return false;
     if (item.href === "/") return pathname === "/";
@@ -724,6 +735,7 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
   function badgeFor(item: (typeof NAV)[number]): number {
     if (item.label === "Reservations") return reservationPending;
     if (item.label === "Requests") return maintenancePending;
+    if (item.label === "Task Tracker") return tasksThisWeek;
     return 0;
   }
 
