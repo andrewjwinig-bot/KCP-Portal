@@ -66,6 +66,36 @@ export default function SecurityDepositsPage() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<SecurityDeposit | null>(null);
   const [adding, setAdding] = useState(false);
+  // Column sort (shared across the per-account tables).
+  type SortKey = "tenant" | "unit" | "check" | "amount" | "date";
+  const [sortKey, setSortKey] = useState<SortKey>("tenant");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const clickSort = (k: SortKey) => {
+    if (k === sortKey) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else { setSortKey(k); setSortDir(k === "amount" || k === "date" ? "desc" : "asc"); }
+  };
+  const sortMark = (k: SortKey) => (sortKey === k ? (sortDir === "asc" ? " ▲" : " ▼") : "");
+  const sortThStyle = (k: SortKey, align: "left" | "right" = "left"): React.CSSProperties =>
+    ({ cursor: "pointer", userSelect: "none", textAlign: align, color: sortKey === k ? "var(--text)" : undefined });
+  const sortGroups = (groups: TenantGroup[]): TenantGroup[] => {
+    const dir = sortDir === "asc" ? 1 : -1;
+    const num = (s: string) => { const n = Number(String(s).replace(/[^0-9.]/g, "")); return Number.isFinite(n) ? n : 0; };
+    const val = (g: TenantGroup): string | number => {
+      switch (sortKey) {
+        case "unit": return g.unitRef.toLowerCase();
+        case "amount": return heldTotal(g.checks);
+        case "date": return g.checks.reduce((m, c) => (c.checkDate > m ? c.checkDate : m), ""); // latest check
+        case "check": return num(g.checks[0]?.checkNumber ?? "");
+        default: return g.tenant.toLowerCase();
+      }
+    };
+    return [...groups].sort((a, b) => {
+      const va = val(a), vb = val(b);
+      if (va < vb) return -dir;
+      if (va > vb) return dir;
+      return a.tenant.localeCompare(b.tenant);
+    });
+  };
 
   function startGlobalAdd() { setAdding(true); setEditing(null); }
   // Pull the authoritative list from the server (so optimistic updates can never
@@ -194,11 +224,11 @@ export default function SecurityDepositsPage() {
               <table>
                 <thead>
                   <tr>
-                    <th>Tenant</th>
-                    <th>Unit</th>
-                    <th>Check #</th>
-                    <th style={{ textAlign: "right" }}>Amount</th>
-                    <th>Check Date</th>
+                    <th style={sortThStyle("tenant")} onClick={() => clickSort("tenant")} title="Sort by tenant">Tenant{sortMark("tenant")}</th>
+                    <th style={sortThStyle("unit")} onClick={() => clickSort("unit")} title="Sort by unit">Unit{sortMark("unit")}</th>
+                    <th style={sortThStyle("check")} onClick={() => clickSort("check")} title="Sort by check #">Check #{sortMark("check")}</th>
+                    <th style={sortThStyle("amount", "right")} onClick={() => clickSort("amount")} title="Sort by amount">Amount{sortMark("amount")}</th>
+                    <th style={sortThStyle("date")} onClick={() => clickSort("date")} title="Sort by check date">Check Date{sortMark("date")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -207,7 +237,7 @@ export default function SecurityDepositsPage() {
                       No deposits recorded for this account.
                     </td></tr>
                   )}
-                  {groupByTenant(byAccount[acct]).map((g) => {
+                  {sortGroups(groupByTenant(byAccount[acct])).map((g) => {
                     const checkCell = (d: SecurityDeposit) => (
                       <>
                         <td style={{ fontSize: 13 }}>{d.checkNumber ? `#${d.checkNumber}` : "—"}</td>
