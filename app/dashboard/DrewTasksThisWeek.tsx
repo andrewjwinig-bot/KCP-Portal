@@ -44,11 +44,16 @@ export default function DrewTasksThisWeek() {
   const todayKey = new Date().toDateString();
   const startOfToday = new Date(new Date().toDateString()).getTime();
 
+  // Completed tasks clear out of the list (check one and it disappears); undo
+  // from the Tracker. Keep the count of how many were finished this week.
+  const visible = occ.filter((o) => !checked[monthKey(o.date)]?.[o.id]);
+  const doneCount = occ.length - visible.length;
+
   return (
     <div className="card" style={{ order: -1 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
         <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
-          Tasks This Week
+          Tasks This Week{doneCount > 0 && <span style={{ marginLeft: 8, color: "#15803d", letterSpacing: 0 }}>· {doneCount} done</span>}
         </div>
         <Link href="/tracker" style={{ fontSize: 12, fontWeight: 600, color: "#0b4a7d", textDecoration: "none" }}>
           Tracker →
@@ -56,9 +61,11 @@ export default function DrewTasksThisWeek() {
       </div>
       {occ.length === 0 ? (
         <div className="muted small">No tracker tasks due this week.</div>
+      ) : visible.length === 0 ? (
+        <div className="muted small" style={{ color: "#15803d", fontWeight: 600 }}>✓ All {occ.length} task{occ.length === 1 ? "" : "s"} this week are done.</div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          {occ.map((o) => {
+          {visible.map((o) => {
             const isToday = o.date.toDateString() === todayKey;
             const isPast = o.date.getTime() < startOfToday;
             const done = !!checked[monthKey(o.date)]?.[o.id];

@@ -29,10 +29,14 @@ function money(n: number): string {
   return "$" + Math.round(n ?? 0).toLocaleString("en-US");
 }
 
-/** Drew's at-a-glance status: when payroll and CC expenses were last saved. */
+type AllocRun = { periodText: string; periodEndDate: string; statementMonth: string; ranAt: string; ranBy?: string };
+
+/** Drew's at-a-glance status: the most recent Payroll, CC Expenses, and
+ *  Allocated Expenses run. */
 export default function DrewSavedStatus() {
   const [periods, setPeriods] = useState<Period[] | null>(null);
   const [statements, setStatements] = useState<Statement[] | null>(null);
+  const [runs, setRuns] = useState<AllocRun[] | null>(null);
 
   useEffect(() => {
     fetch("/api/periods")
@@ -43,15 +47,20 @@ export default function DrewSavedStatus() {
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => setStatements(Array.isArray(j) ? j : []))
       .catch(() => setStatements([]));
+    fetch("/api/allocation/last-run")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => setRuns(j?.runs ?? []))
+      .catch(() => setRuns([]));
   }, []);
 
   const payroll = periods?.[0] ?? null;
   const cc = statements?.[0] ?? null;
+  const alloc = runs?.[0] ?? null;
 
   return (
     <div className="card" style={{ order: -1 }}>
       <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 12 }}>
-        Payroll &amp; CC Expenses
+        Payroll, CC &amp; Allocated Expenses
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <Row
@@ -75,6 +84,13 @@ export default function DrewSavedStatus() {
               ? `Saved ${fmtDate(cc.savedAt)} · ${cc.txCount} transaction${cc.txCount === 1 ? "" : "s"} · ${money(cc.total)}`
               : undefined
           }
+        />
+        <Row
+          title="Allocated Expenses"
+          loading={runs == null}
+          saved={!!alloc}
+          line1={alloc ? (alloc.statementMonth || alloc.periodText || "Last run") : "Nothing run yet"}
+          line2={alloc ? `Generated ${fmtDate(alloc.ranAt)}${alloc.ranBy ? ` · by ${alloc.ranBy}` : ""}` : undefined}
         />
       </div>
     </div>

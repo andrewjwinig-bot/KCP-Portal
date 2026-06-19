@@ -704,14 +704,21 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
     return () => { alive = false; clearInterval(timer); };
   }, [canSeeMaintenance]);
 
-  // Tasks due this calendar week (Mon–Sun containing today) — a badge on the
-  // Task Tracker nav so the tracker stays present.
+  // Tasks still to do this calendar week (Mon–Sun containing today) — a badge on
+  // the Task Tracker nav. Completed tasks (checked off, per the tracker's
+  // localStorage) drop out of the count.
   const tasksThisWeek = useMemo(() => {
     const now = new Date();
     const monday = new Date(now); monday.setHours(0, 0, 0, 0);
     monday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
     const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6); sunday.setHours(23, 59, 59, 999);
-    return taskOccurrencesBetween(monday, sunday).length;
+    const occ = taskOccurrencesBetween(monday, sunday);
+    const maps: Record<string, Record<string, boolean>> = {};
+    return occ.filter((o) => {
+      const k = `tracker-v2-${o.date.getFullYear()}-${o.date.getMonth()}`;
+      if (!(k in maps)) { try { maps[k] = JSON.parse(localStorage.getItem(k) ?? "{}"); } catch { maps[k] = {}; } }
+      return !maps[k]?.[o.id];
+    }).length;
   }, []);
 
   function isActive(item: (typeof NAV)[number]) {
