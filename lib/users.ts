@@ -57,7 +57,7 @@ const universalNav = new Set(["dashboard", "properties", "rentroll"]);
 // while keeping identical access + visibility. Cloned via `serviceUser` so the
 // profiles never drift — change the access once, here.
 const SERVICE_NAV = new Set([...universalNav, "maintenance", "expenses", "reservations"]);
-const SERVICE_PATHS = ["/dashboard", "/properties", "/rentroll", "/expenses", "/maintenance", "/reservations"];
+const SERVICE_PATHS = ["/dashboard", "/properties", "/rentroll", "/units", "/expenses", "/maintenance", "/reservations"];
 const serviceUser = (id: UserId, label: string): UserDef => ({
   id,
   label,
@@ -107,6 +107,7 @@ export const USERS: Record<UserId, UserDef> = {
       "/investors",
       "/debt",
       "/rentroll",
+      "/units",
       "/allocated-invoicer",
       "/deposits",
       "/bank-transfers",
@@ -136,6 +137,7 @@ export const USERS: Record<UserId, UserDef> = {
       "/dashboard",
       "/properties",
       "/rentroll",
+      "/units",
       "/tracker",
       "/bank-rec",
       "/bank-transfers",
@@ -150,7 +152,7 @@ export const USERS: Record<UserId, UserDef> = {
     navKeys: new Set([...universalNav, "leasing-activity", "base-years", "commissions", "reservations", "maintenance", "deposits", "financials-budgets"]),
     // Financials is limited to Budgets only — no Operating Statements,
     // Reprojections, or Cash Sheet.
-    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/commissions", "/reservations", "/maintenance", "/deposits", "/financials/budgets", "/cam-recon"],
+    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/units", "/commissions", "/reservations", "/maintenance", "/deposits", "/financials/budgets", "/cam-recon"],
     defaultRentRollCategory: "Office",
     defaultPropertyType: "Office",
     dashboardScope: { codes: OFFICE_AND_OW_INDIVIDUAL },
@@ -168,7 +170,7 @@ export const USERS: Record<UserId, UserDef> = {
     // Harry gets Drew's Task Tracker (dashboard card + sidebar item) but not
     // the Filing Tracker (which is the separate "tracker" key).
     navKeys: new Set([...universalNav, "expenses", "expenses-history", "payroll-invoicer", "investors", "commissions-retail", "deposits", "bank-transfers", "task-tracker"]),
-    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/expenses", "/investors", "/commissions/retail", "/deposits", "/bank-transfers", "/tracker", "/"],
+    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/units", "/expenses", "/investors", "/commissions/retail", "/deposits", "/bank-transfers", "/tracker", "/"],
     defaultRentRollCategory: "Retail",
     defaultPropertyType: "Retail",
     dashboardScope: { codes: SC_INDIVIDUAL },
@@ -190,7 +192,7 @@ export const USERS: Record<UserId, UserDef> = {
     // President — a high-level view: dashboard, properties, investors,
     // rent roll, debt. No operational tools or action items.
     navKeys: new Set([...universalNav, "investors", "debt", "base-years", "bank-transfers", "financials-budgets", "financials-statements"]),
-    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/investors", "/debt", "/bank-transfers", "/financials", "/cam-recon"],
+    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/units", "/investors", "/debt", "/bank-transfers", "/financials", "/cam-recon"],
     defaultRentRollCategory: "All",
     defaultPropertyType: "all",
     dashboardScope: "groups",
