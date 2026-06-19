@@ -109,7 +109,7 @@ export default function UnitInfoIndexPage() {
       <header style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
           <div>
-            <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800 }}>Unit Info</h1>
+            <h1 style={{ margin: 0 }}>Unit Info</h1>
             <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>
               Floorplans &amp; physical suite specs — tenant &amp; lease details live on the Rent Roll.
             </div>
