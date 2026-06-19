@@ -1017,7 +1017,7 @@ function QuarterlyBilling({ billingKey, year }: { billingKey: string; year: numb
 // the Property Insurance card.
 
 type RetailFinalRow = { account: string; label: string; amount: number; seed: number; overridden: boolean; history?: (number | null)[] };
-type RetailFinalData = { historyYears?: number[]; lines: RetailFinalRow[]; ins: RetailFinalRow; ret: RetailFinalRow };
+type RetailFinalData = { historyYears?: number[]; fromGl?: boolean; lines: RetailFinalRow[]; ins: RetailFinalRow; ret: RetailFinalRow };
 
 // Storage key for the RET pool (mirrors RET_FINAL_KEY on the server).
 const RET_FINAL_KEY = "RET";
@@ -1067,14 +1067,14 @@ function RetailFinalExpenseSummary({ data, onEdit, historyHref }: {
         )}
       </div>
       <p className="small muted" style={{ marginTop: 4, marginBottom: 4, maxWidth: 760 }}>
-        The operating-expense lines, property insurance, and real-estate-tax pool used in this reconciliation. Edit a FINAL to override the workbook amount for this property/year — every tenant&rsquo;s CAM/INS/RET recomputes.{years.length > 0 ? " The columns past the divider are the prior years’ actuals (trend at a glance)." : ""}
+        The operating-expense lines, property insurance, and real-estate-tax pool used in this reconciliation. {data.fromGl ? <>The CAM lines + RET <b>pull live from the property GL</b> by account; edit a FINAL to back out anything that doesn&rsquo;t apply.</> : <>Edit a FINAL to override the workbook amount for this property/year.</>} Every tenant&rsquo;s CAM/INS/RET recomputes.{years.length > 0 ? " The columns past the divider are the prior years’ actuals (trend at a glance)." : ""}
       </p>
       <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 10, minWidth: 560 }}>
         <thead>
           <tr>
             <th style={{ ...sth, textAlign: "left", width: "1%", whiteSpace: "nowrap" }}>Acct</th>
             <th style={{ ...sth, textAlign: "left" }}>Expense</th>
-            <th style={sth}>Workbook</th>
+            <th style={sth}>{data.fromGl ? "GL Actual" : "Workbook"}</th>
             <th style={sth}>Final</th>
             <th style={{ ...sth, width: 70 }} />
             {years.map((y, i) => <th key={y} style={histTh(i)}>{y}</th>)}

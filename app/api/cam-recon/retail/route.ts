@@ -13,6 +13,13 @@ import { emptyCamConfig } from "@/lib/cam/config";
 import { getSuiteContactsMap } from "@/lib/suites/contactsStorage";
 import { camRecipientEmails } from "@/lib/suites/contacts";
 import { DEFAULT_CC } from "@/lib/cam/office/contacts";
+import { assembledGl } from "@/lib/financials/operating-statements/statementStore";
+
+// From this year on, the Final Expense Summary's CAM lines + RET pull live from
+// the property GL by account (the "workbook" base); a FINAL override then backs
+// out anything that doesn't apply. Earlier years stay locked to the seeded
+// workbook / expense history.
+const GL_FROM_YEAR = 2026;
 
 export const runtime = "nodejs";
 
@@ -67,13 +74,22 @@ export async function GET(req: NextRequest) {
   const poolOverride = await getPoolOverride(property, year);
   // Final Expense Summary overrides: per CAM line (by label) + the RET pool.
   const finals = await getFinalOverrides(property, year);
+
+  // From 2026 on, the "workbook" base for each CAM line + RET is the property
+  // GL's full-year actual for that account (the prior years stay seeded). A line
+  // with no GL entry reads $0 (the GL is the source of truth that year).
+  const gl = year >= GL_FROM_YEAR ? await assembledGl(property, year) : null;
+  const glFull: Record<string, number> = {};
+  if (gl) for (const [acct, nets] of Object.entries(gl.monthly)) glFull[acct] = Math.round(nets.reduce((a, n) => a + (n || 0), 0));
+  const glBase = (account: string, seed: number) => (gl ? (glFull[account] ?? 0) : seed);
+
   const pool = {
     ...fixture.pool,
     camLines: fixture.pool.camLines.map((l) =>
-      finals[l.label] != null ? { ...l, amount: finals[l.label] } : l,
+      finals[l.label] != null ? { ...l, amount: finals[l.label] } : { ...l, amount: glBase(l.glAccount, l.amount) },
     ),
     insAmount: poolOverride.insAmount ?? fixture.pool.insAmount,
-    retAmount: finals[RET_FINAL_KEY] ?? fixture.pool.retAmount,
+    retAmount: finals[RET_FINAL_KEY] ?? glBase("6410-8502", fixture.pool.retAmount),
   };
 
   const tenants = assembleRetail(pool, roster, fixture.gla, configFor);
@@ -85,14 +101,18 @@ export async function GET(req: NextRequest) {
   const histYears = retailHistoryYears(property, year, 3);
   const expenseFinal = {
     historyYears: histYears,
-    lines: fixture.pool.camLines.map((l) => ({
-      account: l.glAccount,
-      label: l.label,
-      amount: finals[l.label] ?? l.amount,
-      seed: l.amount,
-      overridden: finals[l.label] != null,
-      history: retailLineHistory(property, l.label, histYears),
-    })),
+    fromGl: !!gl,
+    lines: fixture.pool.camLines.map((l) => {
+      const base = glBase(l.glAccount, l.amount);
+      return {
+        account: l.glAccount,
+        label: l.label,
+        amount: finals[l.label] ?? base,
+        seed: base,
+        overridden: finals[l.label] != null,
+        history: retailLineHistory(property, l.label, histYears),
+      };
+    }),
     // Property insurance pool — edited here (stored in poolStore, not finalStore)
     // and shown in the same card, just before RET.
     ins: {
@@ -106,8 +126,8 @@ export async function GET(req: NextRequest) {
     ret: {
       account: "6410",
       label: "Real Estate Taxes",
-      amount: finals[RET_FINAL_KEY] ?? fixture.pool.retAmount,
-      seed: fixture.pool.retAmount,
+      amount: finals[RET_FINAL_KEY] ?? glBase("6410-8502", fixture.pool.retAmount),
+      seed: glBase("6410-8502", fixture.pool.retAmount),
       overridden: finals[RET_FINAL_KEY] != null,
       history: retailRetHistory(property, histYears),
     },
