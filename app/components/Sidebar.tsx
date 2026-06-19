@@ -552,7 +552,7 @@ const NAV = [
     href: "/financials/operating-statements/review",
     external: false,
     indent: true,
-    showFor: null as string | null,
+    showFor: "/financials/operating-statements" as string | null,
     groupId: "financials",
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
