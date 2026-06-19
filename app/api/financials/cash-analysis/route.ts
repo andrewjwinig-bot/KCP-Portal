@@ -218,6 +218,9 @@ export async function GET(req: Request) {
     return byCode[key.toUpperCase()] ?? byCode[propertyCode.toUpperCase()] ?? 0;
   };
 
+  // Accounts with activity that carry no bucket — surfaced so a new chart-of-
+  // accounts code can't silently drop out of the cash flow.
+  const unmapped: { key: string; name: string; account: string; amount: number }[] = [];
   // Pass 2: raw per-key rows (GL opening, no override yet).
   const raw: Row[] = entries.map(({ m, stored }) => {
     // "Posted through" = the report-range end (the GL's To date), so a property
@@ -225,6 +228,7 @@ export async function GET(req: Request) {
     const maxPeriod = stored.coverageEnd ?? stored.maxPeriodInFile;
     const p = Math.min(period, maxPeriod);
     const flow = computeCashFlow(stored.monthly, p, { ytd });
+    for (const u of flow.unmapped) unmapped.push({ key: m.key, name: nameFor(m.key, m.entityName), account: u.account, amount: u.amount });
     const glOpening = cashAtStartOfMonth(stored, p);
     const scheduled = scheduledDebt[m.key.toUpperCase()] ?? scheduledDebt[m.propertyCode.toUpperCase()] ?? 0;
     const latestStart = cashAtStartOfMonth(stored, maxPeriod);
@@ -519,6 +523,7 @@ export async function GET(req: Request) {
     latestPostedPeriod,
     lastImport: latestGl ? { at: latestGl.uploadedAt, by: latestGl.uploadedBy ?? null } : null,
     apImport: overrideDoc?.apImportedAt ? { at: overrideDoc.apImportedAt, by: overrideDoc.apImportedBy ?? null } : null,
+    unmapped: unmapped.sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount)),
     generatedAt: new Date().toISOString(),
   });
 }

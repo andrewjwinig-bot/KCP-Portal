@@ -33,7 +33,7 @@ type Row = {
   reserves?: number; reservesAuto?: number; reservesOverridden?: boolean;
   interest?: { opening: number; rate: number; amount: number; fee: number };
 };
-type Payload = { year: number; period: number; ytd: boolean; buckets: Bucket[]; rows: Row[]; canEdit: boolean; canEditOpening: boolean; ym: string; estimateAsOf: string | null; gapMonthLabels: string[]; latestPostedPeriod: number; lastImport: { at: string; by: string | null } | null; apImport: { at: string; by: string | null } | null; generatedAt: string };
+type Payload = { year: number; period: number; ytd: boolean; buckets: Bucket[]; rows: Row[]; canEdit: boolean; canEditOpening: boolean; ym: string; estimateAsOf: string | null; gapMonthLabels: string[]; latestPostedPeriod: number; lastImport: { at: string; by: string | null } | null; apImport: { at: string; by: string | null } | null; unmapped?: { key: string; name: string; account: string; amount: number }[]; generatedAt: string };
 
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 function money0(n: number | null): string {
@@ -475,6 +475,24 @@ export default function CashSheetPage() {
           </div>
           <div className="muted small" style={{ margin: 0 }}>
             Scheduled debt service for {ytd ? "the year" : MONTHS[period - 1]} hasn&apos;t hit the GL — the charge may not be entered yet, or the GL needs re-uploading.
+          </div>
+        </div>
+      )}
+
+      {(data?.unmapped?.length ?? 0) > 0 && (
+        <div className="card" style={{ padding: "12px 16px", borderLeft: "3px solid #d97706" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6, fontWeight: 800, color: "#b45309", fontSize: 14 }}>
+            <span>⚠ Accounts not mapped to a bucket</span><Badge>{data!.unmapped!.length}</Badge>
+          </div>
+          <div className="muted small" style={{ marginBottom: 8 }}>
+            These GL accounts had activity this period but aren&apos;t assigned to a cash-flow bucket, so they&apos;re excluded from Net Change. Add them to the account&nbsp;→&nbsp;bucket map (see the reference at the bottom) so the tie-out stays complete.
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {data!.unmapped!.map((u, i) => (
+              <span key={`${u.key}-${u.account}-${i}`} title={`${u.name} · ${money0(u.amount)}`}>
+                <Pill tone={TONE_AMBER}><code style={{ fontSize: 11 }}>{u.account}</code> · {u.key} · {money0(u.amount)}</Pill>
+              </span>
+            ))}
           </div>
         </div>
       )}
