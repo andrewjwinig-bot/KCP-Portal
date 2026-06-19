@@ -78,6 +78,29 @@ export const QUARTERLY_BILLINGS: Record<string, QuarterlyBillingDef> = {
   },
 };
 
+// Finalized per-cell figures that override the raw GL auto-pull — for items
+// backed out of a quarter (excluded charges) that the GL still carries. Keyed
+// "<key>-<year>"; layered between the GL auto value and any staff manual edit.
+// (Source: the quarter's CAM/RET billing workbook.)
+export const QUARTERLY_OVERRIDE_SEED: Record<string, QuarterlyData> = {
+  "9510-WAWA-Q-2026": {
+    camCosts: {
+      "Building Maintenance": { Q1: 7255 },
+      "Maintenance Salaries": { Q1: 2227 },
+      "Parking Lot Sweeping/Cleaning": { Q1: 3900 },
+      "Parking Lot Maintenance/Repairs": { Q1: 100 },
+      "Trash Removal": { Q1: 7499 },
+      "Snow Removal": { Q1: 46431 },
+      "Landscaping": { Q1: 0 },
+      "Security": { Q1: 720 },
+      "Utilities": { Q1: 1539 },
+      "Liability Insurance": { Q1: 9219 },
+    },
+    retCosts: { Q1: 7976 },
+    billed: {},
+  },
+};
+
 /** The 1-based months that make up a quarter. */
 export function quarterMonths(q: Quarter): number[] {
   const i = QUARTERS.indexOf(q);

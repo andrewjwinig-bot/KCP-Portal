@@ -7,6 +7,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { drawTenantStatement } from "@/lib/cam/office/statementPdf";
+import type { TenantReconResult } from "@/lib/cam/office/types";
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 function money(n: number | null | undefined): string {
@@ -15,14 +17,7 @@ function money(n: number | null | undefined): string {
 }
 
 type ScheduleLine = { glAccount: string; label: string; baseCost: number; actual: number; netIncrease: number };
-type Result = {
-  name: string; suite: string; unitRef: string; baseYear: number; proRataPct: number; grossUp: boolean;
-  opexLines: ScheduleLine[]; opexBaseTotal: number; opexActualTotal: number; opexNetIncrease: number;
-  opexAmountDue: number; opexEscrow: number; opexBalance: number;
-  retLine: ScheduleLine; retAmountDue: number; retEscrow: number; retBalance: number;
-  occupiedMonths: number; asOfMonth: number; unpostedMonths: number; noBaseStop?: boolean; futureBaseYear?: boolean;
-  dataWarnings?: string[];
-};
+type Result = TenantReconResult & { occupiedMonths: number; asOfMonth: number; unpostedMonths: number };
 type Meta = { property: string; propertyName: string; unitRef: string; name: string; year: number; asOfMonth: number; effectiveThrough: number; occupiedMonths: number; unpostedMonths: number; maxPosted: number; startMonth: number; leaseFrom: string | null; leaseTo: string | null; sqft: number; opexMonth: number; reTaxMonth: number; baseYear: number; proRataPct: number; glAsOf: string | null };
 type Tenant = { unitRef: string; name: string; leaseTo: string | null; expiresInYear: number | null };
 
@@ -138,6 +133,24 @@ export default function InterimReconPage() {
   const r = data?.result; const meta = data?.meta;
   const asOfLabel = r ? MONTHS[r.asOfMonth - 1].slice(0, 3) : "";
 
+  const downloadPdf = useCallback(async () => {
+    if (!r || !meta) return;
+    const { jsPDF } = await import("jspdf");
+    const doc = new jsPDF({ unit: "pt", format: "letter" });
+    const asOf = `${MONTHS[r.asOfMonth - 1]} ${meta.year}`;
+    drawTenantStatement(doc, r, meta.year, `${meta.property} — ${meta.propertyName}`, undefined, {
+      subtitle: `Interim Statement · as of ${asOf}`,
+      baseColLabel: `B/Y ${r.noBaseStop ? "—" : r.baseYear} ×${r.occupiedMonths}/12`,
+      actualColLabel: `${MONTHS[r.asOfMonth - 1].slice(0, 3)} YTD`,
+      footerRight: `Interim CAM / RET · Suite ${r.suite}`,
+      footnotes: [
+        `Interim reconciliation for the ${r.occupiedMonths} occupied month${r.occupiedMonths > 1 ? "s" : ""} of ${meta.year}; the base year is prorated to the same period.`,
+        ...(r.unpostedMonths > 0 ? [`${r.unpostedMonths} occupied month(s) are not yet posted to the GL — figures are through the latest posted month.`] : []),
+      ],
+    });
+    doc.save(`${meta.property}_${meta.year}_Suite${r.suite}_${r.name.replace(/[^\w]+/g, "_")}_Interim_CAM_RET.pdf`);
+  }, [r, meta]);
+
   return (
     <main style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 1100, width: "100%" }}>
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
@@ -184,7 +197,10 @@ export default function InterimReconPage() {
         <div className="card">
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, flexWrap: "wrap", marginBottom: 4 }}>
             <div style={{ fontSize: 18, fontWeight: 800 }}>{r.name} <code style={{ fontSize: 13 }}>{r.unitRef}</code></div>
-            <div style={{ fontSize: 14, fontWeight: 700, color: "#0b4a7d" }}>Interim CAM/RET · as of {MONTHS[r.asOfMonth - 1]} {meta.year}</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "#0b4a7d" }}>Interim CAM/RET · as of {MONTHS[r.asOfMonth - 1]} {meta.year}</div>
+              <button className="btn primary" onClick={downloadPdf} style={{ fontSize: 13, padding: "7px 14px", fontWeight: 700 }}>Download PDF</button>
+            </div>
           </div>
           <div className="muted small" style={{ marginBottom: 10 }}>
             Base year <b>{r.noBaseStop ? "NNN (full pool)" : r.baseYear}</b> · pro-rata <b>{r.proRataPct}%</b> · occupied <b>{r.occupiedMonths}</b> of 12 months{meta.leaseTo ? <> · lease to <b>{meta.leaseTo}</b></> : null} · {meta.sqft.toLocaleString()} sf

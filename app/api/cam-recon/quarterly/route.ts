@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { QUARTERLY_BILLINGS, QUARTERS, computeQuarterly, autoQuarterlyFromGl, mergeQuarterly, type Quarter } from "@/lib/cam/retail/quarterly";
+import { QUARTERLY_BILLINGS, QUARTERS, computeQuarterly, autoQuarterlyFromGl, mergeQuarterly, QUARTERLY_OVERRIDE_SEED, type Quarter } from "@/lib/cam/retail/quarterly";
 import { getQuarterly, saveQuarterlyCell, type QuarterlyField } from "@/lib/cam/retail/quarterlyStore";
 import { assembledGl } from "@/lib/financials/operating-statements/statementStore";
 
@@ -21,7 +21,10 @@ export async function GET(req: NextRequest) {
   const manual = await getQuarterly(key, year);
   const gl = await assembledGl(def.parentProperty, year);
   const maxPosted = gl?.maxPeriodInFile ?? 0;
-  const auto = gl ? autoQuarterlyFromGl(def, gl.monthly, maxPosted) : { camCosts: {}, retCosts: {}, billed: {} };
+  const glAuto = gl ? autoQuarterlyFromGl(def, gl.monthly, maxPosted) : { camCosts: {}, retCosts: {}, billed: {} };
+  // GL raw < finalized override seed (backed-out items) < staff manual edit.
+  const seed = QUARTERLY_OVERRIDE_SEED[`${key}-${year}`] ?? { camCosts: {}, retCosts: {}, billed: {} };
+  const auto = mergeQuarterly(glAuto, seed);
   const effective = mergeQuarterly(auto, manual);
   const computed = computeQuarterly(def, effective);
   return NextResponse.json({
