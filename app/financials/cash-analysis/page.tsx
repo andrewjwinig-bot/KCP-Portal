@@ -26,6 +26,7 @@ type Row = {
   latestGLMonth: number;
   estimate: { months: number; revenue: number; bills: number; mortgage: number; estimatedCash: number | null; latestEnding: number | null } | null;
   isFund?: boolean; manual?: boolean; readOnly?: boolean; mm?: boolean; sd?: boolean; bankCodes?: string[]; bankLast4?: string; excludeLast4?: string[]; breakdown?: Breakdown[];
+  sdBreakdown?: { key: string; name: string; amount: number }[];
   billsMTD?: number; weeklyBills?: { wednesday: string; amount: number }[];
   reserves?: number; reservesAuto?: number; reservesOverridden?: boolean;
   interest?: { opening: number; rate: number; amount: number; fee: number };
@@ -140,22 +141,25 @@ export default function CashSheetPage() {
   // The "To Available" drawdown (Net view) — the reserves + un-posted bills that
   // bridge Ending Cash to Est. Available Cash.
   const [bridgeModal, setBridgeModal] = useState<{ row: Row } | null>(null);
+  // The properties whose deposit movement pooled into an SD account this month.
+  const [sdModal, setSdModal] = useState<{ name: string; rows: { key: string; name: string; amount: number }[] } | null>(null);
   // Weekly AvidXchange bills — the bridge that keeps the monthly GL position
   // current between postings. Uploaded here, consumed by "Est. Cash Today".
   const apRef = useRef<HTMLInputElement | null>(null);
   const [apUploading, setApUploading] = useState(false);
   const [apSummary, setApSummary] = useState<{ wednesday: string; total: number; count: number } | null>(null);
 
-  const openDrill = useCallback((row: Row, code: number, label: string) => {
-    setDrill({ key: row.key, propName: row.name, code, label });
+  const runDrill = useCallback((key: string, propName: string, code: number, label: string) => {
+    setDrill({ key, propName, code, label });
     setDrillData(null);
     setDrillLoading(true);
-    fetch(`/api/financials/cash-analysis/drill?key=${encodeURIComponent(row.key)}&year=${year}&period=${period}&code=${code}&ytd=${ytd ? 1 : 0}`)
+    fetch(`/api/financials/cash-analysis/drill?key=${encodeURIComponent(key)}&year=${year}&period=${period}&code=${code}&ytd=${ytd ? 1 : 0}`)
       .then((r) => r.json())
       .then((j) => setDrillData({ accounts: j.accounts ?? [], total: j.total ?? 0 }))
       .catch(() => setDrillData({ accounts: [], total: 0 }))
       .finally(() => setDrillLoading(false));
   }, [year, period, ytd]);
+  const openDrill = useCallback((row: Row, code: number, label: string) => runDrill(row.key, row.name, code, label), [runDrill]);
 
   // What a single bucket does when clicked (from a Detail cell or the breakdown
   // modal): interest accounts show the rate calc, pooled SD movement isn't
@@ -558,12 +562,14 @@ export default function CashSheetPage() {
                         }
                         if (!v) return <td key={b.code} style={{ ...numCell, color: "var(--muted)" }}>—</td>;
                         // Pooled SD account: the deposit movement is summed from the member
-                        // properties' GLs, so there's nothing to drill on this row's own key.
+                        // properties' GLs — click for the per-property breakdown (each drillable).
                         if (b.code === 8 && r.sd) {
                           return (
-                            <td key={b.code} style={{ ...numCell, color: v < 0 ? "#b91c1c" : "#15803d" }}
-                              title="Net tenant-deposit movement this month (collected − refunded), pooled from the member properties' GLs">
-                              {money0(v)}
+                            <td key={b.code} style={{ ...numCell, color: v < 0 ? "#b91c1c" : "#15803d" }}>
+                              {r.sdBreakdown?.length ? (
+                                <button type="button" onClick={() => setSdModal({ name: r.name, rows: r.sdBreakdown! })}
+                                  title="Net tenant-deposit movement — click for the per-property breakdown" style={summaryBtn} onMouseEnter={ulOn} onMouseLeave={ulOff}>{money0(v)}</button>
+                              ) : money0(v)}
                             </td>
                           );
                         }
@@ -739,13 +745,17 @@ export default function CashSheetPage() {
                   <thead><tr><th style={{ textAlign: "left" }}>Category</th><th style={numCell}>Amount</th></tr></thead>
                   <tbody>
                     {items.map((x) => {
-                      const drillable = !(x.code === 8 && r.sd); // pooled SD movement has no GL on this key
+                      const sdBucket = x.code === 8 && r.sd; // pooled SD movement → per-property breakdown
+                      const clickable = sdBucket ? !!r.sdBreakdown?.length : true;
+                      const onClick = sdBucket
+                        ? () => { setBucketModal(null); setSdModal({ name: r.name, rows: r.sdBreakdown! }); }
+                        : () => { setBucketModal(null); onBucketClick(r, x.code, x.label); };
                       return (
                         <tr key={x.code}>
                           <td style={{ textAlign: "left" }}>
-                            {drillable ? (
-                              <button type="button" onClick={() => { setBucketModal(null); onBucketClick(r, x.code, x.label); }}
-                                title="Show the GL accounts behind this" style={summaryBtn} onMouseEnter={ulOn} onMouseLeave={ulOff}>{x.label}</button>
+                            {clickable ? (
+                              <button type="button" onClick={onClick}
+                                title={sdBucket ? "Show the per-property breakdown" : "Show the GL accounts behind this"} style={summaryBtn} onMouseEnter={ulOn} onMouseLeave={ulOff}>{x.label}</button>
                             ) : x.label}
                           </td>
                           <td style={{ ...numCell, color: x.amount < 0 ? "#b91c1c" : "#15803d" }}>{money0(x.amount)}</td>
@@ -803,6 +813,41 @@ export default function CashSheetPage() {
           </div>
         );
       })()}
+
+      {sdModal && (
+        <div onClick={() => setSdModal(null)}
+          style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.55)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "48px 16px 32px", zIndex: 100, overflow: "auto" }}>
+          <div onClick={(e) => e.stopPropagation()} className="card" style={{ maxWidth: 520, width: "100%", boxShadow: "0 24px 60px rgba(15,23,42,0.32)" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 4 }}>
+              <div style={{ fontSize: 16, fontWeight: 800 }}>{sdModal.name} — deposit movement by property</div>
+              <button className="btn" onClick={() => setSdModal(null)} style={{ padding: "6px 14px" }}>Close</button>
+            </div>
+            <div className="muted small" style={{ marginBottom: 12 }}>{MONTHS[period - 1]} {year} · which properties had tenant-deposit (bucket 8) activity. Click one for its GL accounts.</div>
+            <div className="tableWrap">
+              <table>
+                <thead><tr><th style={{ textAlign: "left" }}>Property</th><th style={numCell}>Movement</th></tr></thead>
+                <tbody>
+                  {sdModal.rows.map((p) => (
+                    <tr key={p.key}>
+                      <td style={{ textAlign: "left" }}>
+                        <button type="button" onClick={() => { setSdModal(null); runDrill(p.key, p.name, 8, "Security Deposits"); }}
+                          title="Show the GL accounts behind this" style={summaryBtn} onMouseEnter={ulOn} onMouseLeave={ulOff}>{p.name}</button>
+                      </td>
+                      <td style={{ ...numCell, color: p.amount < 0 ? "#b91c1c" : "#15803d" }}>{money0(p.amount)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr style={{ borderTop: "1px solid var(--border)", fontWeight: 800 }}>
+                    <td style={{ textAlign: "left" }}>Total</td>
+                    <td style={numCell}>{money0(sdModal.rows.reduce((s, p) => s + p.amount, 0))}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
 
       {billsModal && (
         <div onClick={() => setBillsModal(null)}
