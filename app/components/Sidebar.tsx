@@ -213,7 +213,7 @@ const NAV = [
   },
   {
     label: "Unit Info",
-    href: "/rentroll/units",
+    href: "/units",
     external: false,
     indent: false,
     showFor: null as string | null,
@@ -750,7 +750,7 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
     if (!pathname.startsWith(item.href)) return false;
     // Most-specific wins: defer to any nav item whose href is a longer
     // descendant of this one that also matches the current path (so on
-    // /rentroll/units the "Unit Info" item lights up, not "Rent Roll").
+    // /units/[ref] the "Unit Info" item lights up, not a broader parent).
     const moreSpecific = NAV.some(
       (o) =>
         !o.external && o.href !== "/" &&

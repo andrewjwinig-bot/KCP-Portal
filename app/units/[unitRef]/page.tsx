@@ -3,24 +3,24 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import type { RentRollData } from "../../../../lib/rentroll/parseRentRollExcel";
-import { amenityFor } from "../../../../lib/rentroll/amenities";
-import { PROPERTY_DEFS } from "../../../../lib/properties/data";
+import type { RentRollData } from "@/lib/rentroll/parseRentRollExcel";
+import { amenityFor } from "@/lib/rentroll/amenities";
+import { PROPERTY_DEFS } from "@/lib/properties/data";
 import {
   SectionLabel,
   CollapsibleSection,
   InfoField,
   formatModalDate,
-} from "../../../properties/PropertyDetail";
-import { StatPill } from "../../../components/Pill";
+} from "@/app/properties/PropertyDetail";
+import { StatPill } from "@/app/components/Pill";
 import SuiteInformationCard from "./SuiteInformationCard";
 import ContactsCard from "./ContactsCard";
 import DepositCard from "./DepositCard";
 import CamConfigCard from "./CamConfigCard";
 import OfficeCamConfigCard from "./OfficeCamConfigCard";
 import FloorplanCard from "./FloorplanCard";
-import ShareFolderCard from "../../../components/ShareFolderCard";
-import { useUser } from "../../../components/UserProvider";
+import ShareFolderCard from "@/app/components/ShareFolderCard";
+import { useUser } from "@/app/components/UserProvider";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -51,7 +51,7 @@ function isOfficeUnit(propertyCode: string): boolean {
 // Friendly back-link label for a known internal path (used with ?from=).
 function labelForPath(p: string): string {
   if (p.startsWith("/cam-recon")) return "← CAM / RET Reconciliation";
-  if (p.startsWith("/rentroll/units")) return "← All Units";
+  if (p.startsWith("/units")) return "← All Units";
   if (p.startsWith("/rentroll")) return "← Rent roll";
   if (p.startsWith("/properties")) return "← Property";
   if (p.startsWith("/maintenance")) return "← Maintenance";
@@ -317,13 +317,13 @@ export default function UnitDetailPage() {
           {propUnits.length > 1 && (
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
               {prevUnit
-                ? <Link href={`/rentroll/units/${encodeURIComponent(prevUnit.unitRef)}${fromSuffix}`} title={`${prevUnit.unitRef} · ${navName(prevUnit)}`} style={navBtn}>‹ Prev</Link>
+                ? <Link href={`/units/${encodeURIComponent(prevUnit.unitRef)}${fromSuffix}`} title={`${prevUnit.unitRef} · ${navName(prevUnit)}`} style={navBtn}>‹ Prev</Link>
                 : <span style={navDisabled}>‹ Prev</span>}
               <span style={{ fontSize: 11, color: "var(--muted)", whiteSpace: "nowrap" }}>
                 {navIdx + 1} / {propUnits.length} · {propertyCode}
               </span>
               {nextUnit
-                ? <Link href={`/rentroll/units/${encodeURIComponent(nextUnit.unitRef)}${fromSuffix}`} title={`${nextUnit.unitRef} · ${navName(nextUnit)}`} style={navBtn}>Next ›</Link>
+                ? <Link href={`/units/${encodeURIComponent(nextUnit.unitRef)}${fromSuffix}`} title={`${nextUnit.unitRef} · ${navName(nextUnit)}`} style={navBtn}>Next ›</Link>
                 : <span style={navDisabled}>Next ›</span>}
             </div>
           )}

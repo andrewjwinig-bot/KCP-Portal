@@ -376,7 +376,7 @@ export default function OfficeCamReconPage() {
   // view. The back-link omits ?unit for quarterly since it has no tenant picker.
   const unitInfoRef = isQuarterly ? (QUARTERLY_BILLINGS[property]?.unitRef ?? null) : (hasSel ? unit : null);
   const unitInfoHref = unitInfoRef
-    ? `/rentroll/units/${encodeURIComponent(unitInfoRef)}?from=${encodeURIComponent(`/cam-recon?property=${property}&year=${year}${isQuarterly ? "" : `&unit=${unit}`}`)}`
+    ? `/units/${encodeURIComponent(unitInfoRef)}?from=${encodeURIComponent(`/cam-recon?property=${property}&year=${year}${isQuarterly ? "" : `&unit=${unit}`}`)}`
     : null;
   const selLabel = selected ? `${selected.suite} — ${selected.name}`
     : rSelected ? `${rSelected.suite} — ${rSelected.name}` : "All Tenants";
@@ -644,7 +644,7 @@ export default function OfficeCamReconPage() {
 // page (where the CAM methodology is edited). stopPropagation so it doesn't
 // also trigger the row's in-page drill-down.
 function UnitChip({ unitRef, backTo }: { unitRef: string; backTo?: string }) {
-  const href = `/rentroll/units/${encodeURIComponent(unitRef)}`
+  const href = `/units/${encodeURIComponent(unitRef)}`
     + (backTo ? `?from=${encodeURIComponent(backTo)}` : "");
   // Matches the Rent Roll unit column exactly: a <code> element (default
   // monospace), 12px / 700, accent blue, underlined.
@@ -1343,7 +1343,7 @@ function RetailTenantStatement({ t, reconYear, contact }: {
         {contact?.email
           ? <span style={{ fontSize: 13, fontWeight: 700, wordBreak: "break-all" }}>{contact.email}</span>
           : <span style={{ fontSize: 13, color: "#b91c1c", fontWeight: 600 }}>No CAM/RET recipient flagged — set one on the Contacts page</span>}
-        <a href={`/rentroll/units/${encodeURIComponent(t.unitRef)}`} style={{ fontSize: 12, fontWeight: 600, color: "#0b4a7d", textDecoration: "none", marginLeft: "auto" }}>Edit contacts →</a>
+        <a href={`/units/${encodeURIComponent(t.unitRef)}`} style={{ fontSize: 12, fontWeight: 600, color: "#0b4a7d", textDecoration: "none", marginLeft: "auto" }}>Edit contacts →</a>
       </div>
     </div>
   );
@@ -1874,7 +1874,7 @@ function TenantStatement({ t, reconYear, estimate, contact }: {
           </span>
         )}
         <a
-          href={`/rentroll/units/${encodeURIComponent(t.unitRef)}`}
+          href={`/units/${encodeURIComponent(t.unitRef)}`}
           style={{ fontSize: 12, fontWeight: 600, color: "#0b4a7d", textDecoration: "none", marginLeft: "auto" }}
         >
           Edit contacts →
