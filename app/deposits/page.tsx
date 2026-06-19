@@ -221,14 +221,21 @@ export default function SecurityDepositsPage() {
               </div>
             </div>
             <div className="tableWrap">
-              <table>
+              <table style={{ width: "100%", tableLayout: "fixed" }}>
+                <colgroup>
+                  <col style={{ width: "32%" }} />
+                  <col style={{ width: "16%" }} />
+                  <col style={{ width: "16%" }} />
+                  <col style={{ width: "18%" }} />
+                  <col style={{ width: "18%" }} />
+                </colgroup>
                 <thead>
                   <tr>
                     <th style={sortThStyle("tenant")} onClick={() => clickSort("tenant")} title="Sort by tenant">Tenant{sortMark("tenant")}</th>
                     <th style={sortThStyle("unit")} onClick={() => clickSort("unit")} title="Sort by unit">Unit{sortMark("unit")}</th>
-                    <th style={sortThStyle("check")} onClick={() => clickSort("check")} title="Sort by check #">Check #{sortMark("check")}</th>
                     <th style={sortThStyle("amount", "right")} onClick={() => clickSort("amount")} title="Sort by amount">Amount{sortMark("amount")}</th>
                     <th style={sortThStyle("date")} onClick={() => clickSort("date")} title="Sort by check date">Check Date{sortMark("date")}</th>
+                    <th style={sortThStyle("check")} onClick={() => clickSort("check")} title="Sort by check #">Check #{sortMark("check")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -240,9 +247,9 @@ export default function SecurityDepositsPage() {
                   {sortGroups(groupByTenant(byAccount[acct])).map((g) => {
                     const checkCell = (d: SecurityDeposit) => (
                       <>
-                        <td style={{ fontSize: 13 }}>{d.checkNumber ? `#${d.checkNumber}` : "—"}</td>
                         <td style={{ textAlign: "right", fontSize: 13, fontWeight: 600 }}>{d.amount ? money(d.amount) : "—"}</td>
                         <td style={{ fontSize: 13 }}>{prettyDate(d.checkDate)}</td>
+                        <td style={{ fontSize: 13 }}>{d.checkNumber ? `#${d.checkNumber}` : "—"}</td>
                       </>
                     );
                     // Single check → one ordinary row.
@@ -280,9 +287,9 @@ export default function SecurityDepositsPage() {
                           </div>
                         </td>
                         <td><code style={{ fontSize: 12 }}>{g.unitRef}</code></td>
-                        <td className="muted" style={{ fontSize: 13 }}>—</td>
                         <td style={{ textAlign: "right", fontSize: 13, fontWeight: 600 }}>{money(held)}</td>
                         <td style={{ fontSize: 13, fontWeight: 600 }}>{g.checks.length} Checks</td>
+                        <td className="muted" style={{ fontSize: 13 }}>—</td>
                       </tr>
                     );
                   })}
