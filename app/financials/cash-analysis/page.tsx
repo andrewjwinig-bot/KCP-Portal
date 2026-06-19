@@ -367,18 +367,18 @@ export default function CashSheetPage() {
     };
     const label = ytd ? `${year} YTD` : `${MONTHS[period - 1]} ${year}`;
     return {
-      title: `Cash Sheet — ${label}`,
+      title: `Cash Analysis — ${label}`,
       subtitle: `Snapshot ${label} · generated ${new Date().toLocaleDateString()}`,
       buckets: visibleBuckets, openLabel: glDates.openShort, endLabel: glDates.endShort,
       estLabel: lastBillWed ?? data?.estimateAsOf ?? "", showBills, showReserves, showEst,
-      groups, total, fileBase: `Cash_Sheet_${label.replace(/ /g, "_")}`,
+      groups, total, fileBase: `Cash_Analysis_${label.replace(/ /g, "_")}`,
     };
   };
 
   return (
     <main style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: "none", width: "100%" }}>
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-        <h1 style={{ margin: 0 }}>Cash Sheet</h1>
+        <h1 style={{ margin: 0 }}>Cash Analysis</h1>
         <span style={{ fontSize: 20, fontWeight: 700, color: "var(--muted)", whiteSpace: "nowrap" }}>
           {ytd ? `${year} YTD` : `${MONTHS[period - 1]} ${year}`}
         </span>
@@ -751,16 +751,14 @@ export default function CashSheetPage() {
         />
       )}
 
-      {/* ── GL account → bucket reference (the legacy DATA tab) ──────────────── */}
-      <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-        <button type="button" onClick={() => setShowCodeMap((s) => !s)}
-          style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "12px 16px", background: "none", border: "none", cursor: "pointer", font: "inherit", textAlign: "left" }}>
-          <span style={{ display: "inline-block", width: 16, color: "var(--muted)" }}>{showCodeMap ? "▾" : "▸"}</span>
-          <span style={{ fontWeight: 800, fontSize: 14 }}>GL account → bucket map</span>
-          <span className="muted small">which account codes roll into each cash-flow bucket</span>
+      {/* ── GL account → bucket reference (the legacy DATA tab) — a small, out-of-the-way backup ── */}
+      <div>
+        <button type="button" onClick={() => setShowCodeMap((s) => !s)} className="muted small"
+          style={{ background: "none", border: "none", padding: 0, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 600 }}>
+          <span>{showCodeMap ? "▾" : "▸"}</span> GL account → bucket map
         </button>
         {showCodeMap && (
-          <div style={{ padding: "0 16px 16px" }}>
+          <div className="card" style={{ marginTop: 8, padding: 16 }}>
             <div className="tableWrap" style={{ overflowX: "auto" }}>
               <table style={{ width: "100%" }}>
                 <thead>
