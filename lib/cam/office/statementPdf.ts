@@ -93,7 +93,8 @@ export function drawTenantStatement(doc: any, t: TenantReconResult, year: number
   const lineRow = (i: number, label: string, b: number, a: number, n: number, bold = false, acct = "") => {
     if (!bold && i % 2 === 1) { fill(ZEBRA); doc.rect(L, y - 10, W, 15, "F"); }
     doc.setFont("helvetica", bold ? "bold" : "normal");
-    if (acct) { ink(MUTED); at(acct, L + 6); }
+    // Hide the internal "-95" gross-up marker — it's not part of the GL account.
+    if (acct) { ink(MUTED); at(acct.replace(/-95$/, ""), L + 6); }
     ink(bold ? NAVY : INK);
     at(label, L + 62);
     at(money(b), cols[0], { align: "right" });

@@ -67,7 +67,7 @@ function Column({ title, lines, base, actual, net, due, escrow, balance, proRata
         <tbody>
           {lines.map((l) => (
             <tr key={l.glAccount}>
-              <td style={{ whiteSpace: "nowrap" }}><code style={{ fontSize: 11 }}>{l.glAccount}</code></td>
+              <td style={{ whiteSpace: "nowrap" }}><code style={{ fontSize: 11 }}>{l.glAccount.replace(/-95$/, "")}</code></td>
               <td>{l.label}</td>
               <td style={numTd}>{money(l.baseCost)}</td>
               <td style={numTd}>{money(l.actual)}</td>
