@@ -8,6 +8,15 @@ import { assembledGl } from "@/lib/financials/operating-statements/statementStor
 import { getJSON } from "@/lib/storage";
 import type { RentRollData } from "@/lib/rentroll/parseRentRollExcel";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
+import { RETAIL_RECON_FIXTURES } from "@/lib/cam/retail/registry";
+import { assembleRetail } from "@/lib/cam/retail/assemble";
+import { reconcileInterimRetailTenant } from "@/lib/cam/retail/interim";
+import { getCamConfig } from "@/lib/cam/configStorage";
+import { seedCamConfig } from "@/lib/cam/retailConfigSeed";
+import { emptyCamConfig } from "@/lib/cam/config";
+import { getEscrowOverrides } from "@/lib/cam/retail/escrowStore";
+import { getPoolOverride } from "@/lib/cam/retail/poolStore";
+import { getFinalOverrides, RET_FINAL_KEY } from "@/lib/cam/retail/finalStore";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -57,17 +66,108 @@ export async function GET(req: NextRequest) {
   const unitRef = searchParams.get("unitRef");
 
   if (!property) {
-    const properties = Object.values(OFFICE_RECON_FIXTURES).map((f) => ({ code: f.propertyCode, name: propName(f.propertyCode) }));
+    const properties = [
+      ...Object.values(OFFICE_RECON_FIXTURES).map((f) => ({ code: f.propertyCode, name: propName(f.propertyCode), kind: "office" as const })),
+      ...Object.values(RETAIL_RECON_FIXTURES).filter((f) => !f.hidden).map((f) => ({ code: f.propertyCode, name: propName(f.propertyCode), kind: "retail" as const })),
+    ].sort((a, b) => a.code.localeCompare(b.code));
     return NextResponse.json({ properties });
   }
 
-  const fixture = OFFICE_RECON_FIXTURES[property];
-  if (!fixture || !year) return NextResponse.json({ error: `No office recon for ${property}` }, { status: 404 });
-
-  const config = await configFor(property, year);
   const rentroll = (await getJSON("rentroll", "current")) as RentRollData | null;
   const liveUnits = (rentroll?.properties.flatMap((p) => p.units) ?? []).filter((u) => !u.isVacant);
   const liveByRef = new Map(liveUnits.map((u) => [u.unitRef, u]));
+
+  // ── Retail interim ────────────────────────────────────────────────────────
+  const retailFix = RETAIL_RECON_FIXTURES[property];
+  if (retailFix && year) {
+    const ry = Object.keys(retailFix.byYear).map(Number).sort((a, b) => b - a)[0];
+    const roster = retailFix.byYear[ry]?.roster ?? [];
+    if (!unitRef) {
+      const tenants = roster.filter((u) => !u.vacant).map((u) => {
+        const live = liveByRef.get(u.unitRef);
+        const leaseTo = live?.leaseTo ?? null;
+        const exp = parseUS(leaseTo);
+        return { unitRef: u.unitRef, name: live?.occupantName ?? u.name, leaseTo, expiresInYear: exp?.y === year ? exp.m : null };
+      }).sort((a, b) => a.unitRef.localeCompare(b.unitRef));
+      return NextResponse.json({ tenants, kind: "retail" });
+    }
+    const rosterU = roster.find((u) => u.unitRef === unitRef);
+    if (!rosterU) return NextResponse.json({ error: `${unitRef} isn't on the ${property} roster.` }, { status: 404 });
+    const live = liveByRef.get(unitRef);
+    const leaseFrom = live?.leaseFrom ?? rosterU.rcd ?? null;
+    const leaseTo = live?.leaseTo ?? null;
+    const name = live?.occupantName ?? rosterU.name;
+    const opexMonth = live?.opexMonth ?? 0;
+    const reTaxMonth = live?.reTaxMonth ?? 0;
+
+    const start = parseUS(leaseFrom);
+    const startMonth = start && start.y === year ? start.m : 1;
+    const exp = parseUS(leaseTo);
+    const expMonth = exp && exp.y === year ? exp.m : 12;
+    const asOfMonth = Math.min(12, Math.max(1, Number(searchParams.get("asOf")) || expMonth));
+
+    const gl = await assembledGl(property, year);
+    const maxPosted = gl?.maxPeriodInFile ?? 0;
+    const effectiveThrough = Math.min(asOfMonth, maxPosted);
+    const occupiedMonths = Math.max(0, effectiveThrough - startMonth + 1);
+    const unpostedMonths = Math.max(0, asOfMonth - maxPosted);
+    if (!gl || occupiedMonths <= 0) {
+      return NextResponse.json({
+        error: gl ? `No posted GL for ${name} through its occupied period (posted through month ${maxPosted}).` : `No GL uploaded for ${property} ${year}.`,
+        meta: { property, propertyName: propName(property), unitRef, name, year, asOfMonth, maxPosted, startMonth },
+      }, { status: 422 });
+    }
+    const ytdCamByAccount: Record<string, number> = {};
+    for (const [account, nets] of Object.entries(gl.monthly)) {
+      let s = 0;
+      for (let mo = startMonth; mo <= effectiveThrough; mo++) s += nets[mo - 1] || 0;
+      ytdCamByAccount[account] = s;
+    }
+
+    // Pool with the Final Expense Summary + insurance overrides (same as the
+    // year-end retail recon), then assemble the tenant input from the config.
+    const finals = await getFinalOverrides(property, year);
+    const poolOverride = await getPoolOverride(property, year);
+    const pool = {
+      ...retailFix.pool,
+      camLines: retailFix.pool.camLines.map((l) => (finals[l.label] != null ? { ...l, amount: finals[l.label] } : l)),
+      insAmount: poolOverride.insAmount ?? retailFix.pool.insAmount,
+      retAmount: finals[RET_FINAL_KEY] ?? retailFix.pool.retAmount,
+    };
+    const escrowOverrides = await getEscrowOverrides(property, year);
+    const rosterWithEscrow = roster.map((u) => ({ ...u, ...(escrowOverrides[u.unitRef] ?? {}) }));
+    const configFor2 = async (ref: string) => (await getCamConfig(ref)) ?? seedCamConfig(ref) ?? emptyCamConfig(ref);
+    const cfg = await configFor2(unitRef);
+    const tenants = assembleRetail(pool, rosterWithEscrow, retailFix.gla, () => cfg).filter((t) => t.unitRef === unitRef);
+    const base = tenants[0];
+    if (!base) return NextResponse.json({ error: `${unitRef} has no CAM config — it isn't reconciled.` }, { status: 404 });
+
+    const result = reconcileInterimRetailTenant({
+      pool,
+      // Escrow for the window: rent-roll CAM/RET monthly × occupied months; INS
+      // escrow isn't on the rent roll, so 0 (adjust if billed separately).
+      tenant: { ...base, camEscrow: opexMonth * occupiedMonths, retEscrow: reTaxMonth * occupiedMonths, insEscrow: 0, rcd: leaseFrom },
+      ytdCamByAccount,
+      occupiedMonths,
+      asOfMonth,
+      unpostedMonths,
+    });
+    return NextResponse.json({
+      result, kind: "retail",
+      meta: {
+        property, propertyName: propName(property), unitRef, name, year,
+        asOfMonth, effectiveThrough, occupiedMonths, unpostedMonths, maxPosted,
+        startMonth, leaseFrom, leaseTo, sqft: base.sqft, opexMonth, reTaxMonth,
+        proRataPct: base.camPrs, glAsOf: gl.uploadedAt ?? null,
+      },
+    });
+  }
+
+  // ── Office interim ────────────────────────────────────────────────────────
+  const fixture = OFFICE_RECON_FIXTURES[property];
+  if (!fixture || !year) return NextResponse.json({ error: `No recon for ${property}` }, { status: 404 });
+
+  const config = await configFor(property, year);
 
   // Tenant picker: occupied units that have a lease config (can be reconciled).
   if (!unitRef) {
@@ -85,7 +185,7 @@ export async function GET(req: NextRequest) {
         return { unitRef: ref, name, leaseTo, expiresInYear: exp?.y === year ? exp.m : null };
       })
       .sort((a, b) => a.unitRef.localeCompare(b.unitRef));
-    return NextResponse.json({ tenants });
+    return NextResponse.json({ tenants, kind: "office" });
   }
 
   if (!config[unitRef]) return NextResponse.json({ error: `${unitRef} has no lease config — it isn't reconciled.` }, { status: 404 });
@@ -158,7 +258,7 @@ export async function GET(req: NextRequest) {
   });
 
   return NextResponse.json({
-    result,
+    result, kind: "office",
     meta: {
       property, propertyName: propName(property), unitRef, name, year,
       asOfMonth, effectiveThrough, occupiedMonths, unpostedMonths, maxPosted,

@@ -18,7 +18,16 @@ function money(n: number | null | undefined): string {
 
 type ScheduleLine = { glAccount: string; label: string; baseCost: number; actual: number; netIncrease: number };
 type Result = TenantReconResult & { occupiedMonths: number; asOfMonth: number; unpostedMonths: number };
-type Meta = { property: string; propertyName: string; unitRef: string; name: string; year: number; asOfMonth: number; effectiveThrough: number; occupiedMonths: number; unpostedMonths: number; maxPosted: number; startMonth: number; leaseFrom: string | null; leaseTo: string | null; sqft: number; opexMonth: number; reTaxMonth: number; baseYear: number; proRataPct: number; glAsOf: string | null };
+type RetailResult = {
+  name: string; suite: string; unitRef: string; grossLease: boolean;
+  camPrs: number; insPrs: number; retPrs: number; adminFeePct: number; retDiscountPct: number;
+  camSchedule: { glAccount: string; label: string; amount: number; billed: boolean }[];
+  camPoolEffective: number; camShare: number; camAdmin: number; camDue: number; camEscrow: number; camBalance: number;
+  insPool: number; insDue: number; insEscrow: number; insBalance: number;
+  retPool: number; retDue: number; retEscrow: number; retBalance: number;
+  occupiedMonths: number; asOfMonth: number; unpostedMonths: number;
+};
+type Meta = { property: string; propertyName: string; unitRef: string; name: string; year: number; asOfMonth: number; effectiveThrough: number; occupiedMonths: number; unpostedMonths: number; maxPosted: number; startMonth: number; leaseFrom: string | null; leaseTo: string | null; sqft: number; opexMonth: number; reTaxMonth: number; baseYear?: number; proRataPct: number; grossUp?: boolean; glAsOf: string | null };
 type Tenant = { unitRef: string; name: string; leaseTo: string | null; expiresInYear: number | null };
 
 const selectStyle: React.CSSProperties = { borderRadius: 8, padding: "8px 12px", fontSize: 13, fontWeight: 600, border: "1px solid rgba(11,74,125,0.3)", background: "var(--card)", color: "#0b4a7d", cursor: "pointer" };
@@ -95,7 +104,7 @@ export default function InterimReconPage() {
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [unitRef, setUnitRef] = useState("");
   const [asOf, setAsOf] = useState<number | "">("");
-  const [data, setData] = useState<{ result: Result; meta: Meta } | null>(null);
+  const [data, setData] = useState<{ result: Result | RetailResult; meta: Meta; kind?: "office" | "retail" } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -130,7 +139,9 @@ export default function InterimReconPage() {
   }, []);
 
   const tenant = tenants.find((t) => t.unitRef === unitRef);
-  const r = data?.result; const meta = data?.meta;
+  const r = data?.kind !== "retail" ? (data?.result as Result | undefined) : undefined;
+  const retail = data?.kind === "retail" ? (data?.result as RetailResult | undefined) : undefined;
+  const meta = data?.meta;
   const asOfLabel = r ? MONTHS[r.asOfMonth - 1].slice(0, 3) : "";
 
   const downloadPdf = useCallback(async () => {
@@ -232,6 +243,64 @@ export default function InterimReconPage() {
           <FinalBalanceRow label="Total Interim Balance" value={r.opexBalance + r.retBalance} />
           <p className="muted small" style={{ marginTop: 10, marginBottom: 0 }}>
             A positive balance is owed by the tenant; a credit is refunded. This is an interim figure as of {MONTHS[r.asOfMonth - 1]} {meta.year} — the move-out close-out (with the security-deposit return) follows.
+          </p>
+        </div>
+      )}
+
+      {retail && meta && (
+        <div className="card">
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, flexWrap: "wrap", marginBottom: 4 }}>
+            <div style={{ fontSize: 18, fontWeight: 800 }}>{retail.name} <code style={{ fontSize: 13 }}>{retail.unitRef}</code></div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: "#0b4a7d" }}>Interim CAM/INS/RET · as of {MONTHS[retail.asOfMonth - 1]} {meta.year}</div>
+          </div>
+          <div className="muted small" style={{ marginBottom: 10 }}>
+            Pro-rata <b>{retail.camPrs}%</b> CAM (+{retail.adminFeePct}% admin) · <b>{retail.insPrs}%</b> INS · <b>{retail.retPrs}%</b> RET · occupied <b>{retail.occupiedMonths}</b> of 12 months{meta.leaseTo ? <> · lease to <b>{meta.leaseTo}</b></> : null} · {meta.sqft.toLocaleString()} sf
+          </div>
+          {retail.unpostedMonths > 0 && (
+            <div style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(217,119,6,0.10)", border: "1px solid #d9770655", color: "#b45309", fontSize: 12, fontWeight: 600, marginBottom: 10 }}>
+              ⚠ {retail.unpostedMonths} occupied month{retail.unpostedMonths > 1 ? "s" : ""} not yet posted to the GL (posted through {MONTHS[meta.maxPosted - 1] ?? "—"}). CAM is computed through the latest posted month; re-run once the rest post.
+            </div>
+          )}
+          {retail.grossLease && <div className="muted small" style={{ marginBottom: 10 }}>Gross lease — no reconciliation is due.</div>}
+          <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
+            <div style={{ flex: 2, minWidth: 320 }}>
+              <div style={{ ...secLabel, color: "#0b4a7d", marginBottom: 6 }}>CAM / Operating Expenses</div>
+              <table style={{ width: "100%", fontSize: 12, marginBottom: 8 }}>
+                <thead><tr style={{ color: "var(--muted)", textAlign: "left" }}><th style={{ textAlign: "left", paddingRight: 6 }}>Acct</th><th style={{ textAlign: "left", width: "100%" }}>Expense</th><th style={numTd}>{MONTHS[retail.asOfMonth - 1].slice(0, 3)} YTD</th></tr></thead>
+                <tbody>
+                  {retail.camSchedule.map((l) => (
+                    <tr key={l.glAccount + l.label} style={{ textDecoration: l.billed ? "none" : "line-through", opacity: l.billed ? 1 : 0.5 }}>
+                      <td style={{ whiteSpace: "nowrap" }}><code style={{ fontSize: 11 }}>{l.glAccount}</code></td>
+                      <td>{l.label}</td>
+                      <td style={numTd}>{money(l.amount)}</td>
+                    </tr>
+                  ))}
+                  <tr style={{ fontWeight: 800, borderTop: "1px solid var(--border)" }}><td /><td>Total billed pool</td><td style={numTd}>{money(retail.camPoolEffective)}</td></tr>
+                </tbody>
+              </table>
+              <BalanceRow label={`× Share (${retail.camPrs}%)`} value={money(retail.camShare)} />
+              <BalanceRow label={`+ Admin fee (${retail.adminFeePct}%)`} value={money(retail.camAdmin)} />
+              <BalanceRow label="CAM Due" value={money(retail.camDue)} strong />
+              <BalanceRow label={`Less: Billed (${money(meta.opexMonth)}/mo × ${retail.occupiedMonths})`} value={money(-retail.camEscrow)} />
+              <FinalBalanceRow label="CAM Balance" value={retail.camBalance} />
+            </div>
+            <div style={{ flex: 1, minWidth: 220 }}>
+              <div style={{ ...secLabel, color: "#0b4a7d", marginBottom: 6 }}>Insurance</div>
+              <BalanceRow label={`Property INS pool ×${retail.occupiedMonths}/12`} value={money(retail.insPool)} />
+              <BalanceRow label={`× Share (${retail.insPrs}%)`} value={money(retail.insDue)} strong />
+              <BalanceRow label="Less: Billed" value={money(-retail.insEscrow)} />
+              <FinalBalanceRow label="INS Balance" value={retail.insBalance} />
+              <div style={{ height: 14 }} />
+              <div style={{ ...secLabel, color: "#0b4a7d", marginBottom: 6 }}>Real Estate Taxes</div>
+              <BalanceRow label={`RET pool ×${retail.occupiedMonths}/12`} value={money(retail.retPool)} />
+              <BalanceRow label={`× Share (${retail.retPrs}%)${retail.retDiscountPct ? ` − ${retail.retDiscountPct}% disc` : ""}`} value={money(retail.retDue)} strong />
+              <BalanceRow label={`Less: Billed (${money(meta.reTaxMonth)}/mo × ${retail.occupiedMonths})`} value={money(-retail.retEscrow)} />
+              <FinalBalanceRow label="RET Balance" value={retail.retBalance} />
+            </div>
+          </div>
+          <FinalBalanceRow label="Total Interim Balance" value={retail.camBalance + retail.insBalance + retail.retBalance} />
+          <p className="muted small" style={{ marginTop: 10, marginBottom: 0 }}>
+            A positive balance is owed by the tenant; a credit is refunded. CAM pulls live YTD actuals from the GL; INS &amp; RET prorate the property pool to the occupied months. Interim figure as of {MONTHS[retail.asOfMonth - 1]} {meta.year} — the move-out close-out (with the security-deposit return) follows.
           </p>
         </div>
       )}
