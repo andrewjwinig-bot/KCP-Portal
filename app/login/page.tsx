@@ -74,10 +74,16 @@ function LoginFormInner() {
         }
         throw new Error(j?.error ?? "Login failed");
       }
+      // First login of the day lands on the dashboard (to see the day's tasks),
+      // ignoring any deep-link `next`; later logins the same day honor `next`.
+      let dest = nextPath;
       try {
         localStorage.setItem("kcp:activeUser", resolvedId);
+        const today = new Date().toDateString();
+        if (localStorage.getItem("kcp:lastLoginDay") !== today) dest = "/dashboard";
+        localStorage.setItem("kcp:lastLoginDay", today);
       } catch { /* ignore */ }
-      window.location.assign(nextPath);
+      window.location.assign(dest);
     } catch (e: any) {
       setError(e?.message ?? "Login failed");
       setBusy(false);
