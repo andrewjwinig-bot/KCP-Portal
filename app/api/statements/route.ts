@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { storeJSON, listJSON } from "@/lib/storage";
 
+// Always read fresh — otherwise Next caches the GET and the dashboard freezes on
+// a stale "most recent CC statement".
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export async function GET() {
   try {
     const all = await listJSON("statements");
