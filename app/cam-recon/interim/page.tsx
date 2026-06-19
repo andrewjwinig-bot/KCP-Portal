@@ -8,7 +8,9 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { drawTenantStatement } from "@/lib/cam/office/statementPdf";
+import { drawRetailStatement } from "@/lib/cam/retail/statementPdf";
 import type { TenantReconResult } from "@/lib/cam/office/types";
+import type { RetailTenantResult } from "@/lib/cam/retail/types";
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 function money(n: number | null | undefined): string {
@@ -18,15 +20,7 @@ function money(n: number | null | undefined): string {
 
 type ScheduleLine = { glAccount: string; label: string; baseCost: number; actual: number; netIncrease: number };
 type Result = TenantReconResult & { occupiedMonths: number; asOfMonth: number; unpostedMonths: number };
-type RetailResult = {
-  name: string; suite: string; unitRef: string; grossLease: boolean;
-  camPrs: number; insPrs: number; retPrs: number; adminFeePct: number; retDiscountPct: number;
-  camSchedule: { glAccount: string; label: string; amount: number; billed: boolean }[];
-  camPoolEffective: number; camShare: number; camAdmin: number; camDue: number; camEscrow: number; camBalance: number;
-  insPool: number; insDue: number; insEscrow: number; insBalance: number;
-  retPool: number; retDue: number; retEscrow: number; retBalance: number;
-  occupiedMonths: number; asOfMonth: number; unpostedMonths: number;
-};
+type RetailResult = RetailTenantResult & { occupiedMonths: number; asOfMonth: number; unpostedMonths: number };
 type Meta = { property: string; propertyName: string; unitRef: string; name: string; year: number; asOfMonth: number; effectiveThrough: number; occupiedMonths: number; unpostedMonths: number; maxPosted: number; startMonth: number; leaseFrom: string | null; leaseTo: string | null; sqft: number; opexMonth: number; reTaxMonth: number; baseYear?: number; proRataPct: number; grossUp?: boolean; glAsOf: string | null };
 type Tenant = { unitRef: string; name: string; leaseTo: string | null; expiresInYear: number | null };
 
@@ -162,6 +156,22 @@ export default function InterimReconPage() {
     doc.save(`${meta.property}_${meta.year}_Suite${r.suite}_${r.name.replace(/[^\w]+/g, "_")}_Interim_CAM_RET.pdf`);
   }, [r, meta]);
 
+  const downloadRetailPdf = useCallback(async () => {
+    if (!retail || !meta) return;
+    const { jsPDF } = await import("jspdf");
+    const doc = new jsPDF({ unit: "pt", format: "letter" });
+    const asOf = `${MONTHS[retail.asOfMonth - 1]} ${meta.year}`;
+    drawRetailStatement(doc, retail, meta.year, `${meta.property} — ${meta.propertyName}`, undefined, {
+      subtitle: `Interim Statement · as of ${asOf}`,
+      footerRight: `Interim CAM / INS / RET · Suite ${retail.suite}`,
+      footnotes: [
+        `Interim reconciliation for the ${retail.occupiedMonths} occupied month${retail.occupiedMonths > 1 ? "s" : ""} of ${meta.year}: CAM is live YTD GL actuals; INS & RET prorate the property pool to the occupied months.`,
+        ...(retail.unpostedMonths > 0 ? [`${retail.unpostedMonths} occupied month(s) are not yet posted to the GL — figures are through the latest posted month.`] : []),
+      ],
+    });
+    doc.save(`${meta.property}_${meta.year}_Suite${retail.suite}_${retail.name.replace(/[^\w]+/g, "_")}_Interim_CAM_INS_RET.pdf`);
+  }, [retail, meta]);
+
   return (
     <main style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 1100, width: "100%" }}>
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
@@ -251,7 +261,10 @@ export default function InterimReconPage() {
         <div className="card">
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, flexWrap: "wrap", marginBottom: 4 }}>
             <div style={{ fontSize: 18, fontWeight: 800 }}>{retail.name} <code style={{ fontSize: 13 }}>{retail.unitRef}</code></div>
-            <div style={{ fontSize: 14, fontWeight: 700, color: "#0b4a7d" }}>Interim CAM/INS/RET · as of {MONTHS[retail.asOfMonth - 1]} {meta.year}</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "#0b4a7d" }}>Interim CAM/INS/RET · as of {MONTHS[retail.asOfMonth - 1]} {meta.year}</div>
+              <button className="btn primary" onClick={downloadRetailPdf} style={{ fontSize: 13, padding: "7px 14px", fontWeight: 700 }}>Download PDF</button>
+            </div>
           </div>
           <div className="muted small" style={{ marginBottom: 10 }}>
             Pro-rata <b>{retail.camPrs}%</b> CAM (+{retail.adminFeePct}% admin) · <b>{retail.insPrs}%</b> INS · <b>{retail.retPrs}%</b> RET · occupied <b>{retail.occupiedMonths}</b> of 12 months{meta.leaseTo ? <> · lease to <b>{meta.leaseTo}</b></> : null} · {meta.sqft.toLocaleString()} sf
