@@ -751,16 +751,14 @@ export default function CashSheetPage() {
         />
       )}
 
-      {/* ── GL account → bucket reference (the legacy DATA tab) ──────────────── */}
-      <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-        <button type="button" onClick={() => setShowCodeMap((s) => !s)}
-          style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "12px 16px", background: "none", border: "none", cursor: "pointer", font: "inherit", textAlign: "left" }}>
-          <span style={{ display: "inline-block", width: 16, color: "var(--muted)" }}>{showCodeMap ? "▾" : "▸"}</span>
-          <span style={{ fontWeight: 800, fontSize: 14 }}>GL account → bucket map</span>
-          <span className="muted small">which account codes roll into each cash-flow bucket</span>
+      {/* ── GL account → bucket reference (the legacy DATA tab) — a small, out-of-the-way backup ── */}
+      <div>
+        <button type="button" onClick={() => setShowCodeMap((s) => !s)} className="muted small"
+          style={{ background: "none", border: "none", padding: 0, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 600 }}>
+          <span>{showCodeMap ? "▾" : "▸"}</span> GL account → bucket map
         </button>
         {showCodeMap && (
-          <div style={{ padding: "0 16px 16px" }}>
+          <div className="card" style={{ marginTop: 8, padding: 16 }}>
             <div className="tableWrap" style={{ overflowX: "auto" }}>
               <table style={{ width: "100%" }}>
                 <thead>
