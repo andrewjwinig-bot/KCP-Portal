@@ -131,6 +131,10 @@ export default function CashSheetPage() {
   });
   const setViewPersist = (v: View) => { setView(v); try { localStorage.setItem("cash-sheet-view", v); } catch { /* ignore */ } };
   const [showCodeMap, setShowCodeMap] = useState(false);
+  // Filter the displayed accounts to one bank (Chase / Liberty / M&T) — a treasury
+  // "by bank" view. Defaults to All; the group subtotals + Portfolio Total then
+  // reflect the selected bank, giving its rollup.
+  const [bankFilter, setBankFilter] = useState("All");
   // GL account → cash-flow bucket map (the legacy DATA tab), inverted to list the
   // accounts under each bucket. Exact account codes + the base-4 prefix fallbacks.
   const codeMap = useMemo(() => {
@@ -247,15 +251,36 @@ export default function CashSheetPage() {
   }
 
   const buckets = data?.buckets ?? [];
+  // The bank accounts a row surfaces (mirrors the chips), and the distinct banks
+  // they belong to — for the "by bank" filter.
+  const rowAccounts = (r: Row): BankAccount[] => {
+    const base = r.bankCodes ? bankAccountsForCodes(r.bankCodes)
+      : r.isFund && r.breakdown?.length ? bankAccountsForCodes(r.breakdown.map((b) => b.key))
+      : bankAccountsForCodes([r.propertyCode, r.key]);
+    return base.filter((a) => (!r.bankLast4 || a.last4 === r.bankLast4) && !r.excludeLast4?.includes(a.last4));
+  };
+  const rowBanks = (r: Row): string[] => [...new Set(rowAccounts(r).map((a) => a.bank))];
+  const banksPresent = useMemo(() => {
+    const s = new Set<string>();
+    for (const r of data?.rows ?? []) for (const b of rowBanks(r)) s.add(b);
+    return [...s].sort();
+  }, [data]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Rows after the bank filter — everything downstream (groups, totals, callouts)
+  // is computed from this so a selected bank shows its own rollup.
+  const viewRows = useMemo(() => {
+    const all = data?.rows ?? [];
+    return bankFilter === "All" ? all : all.filter((r) => rowBanks(r).includes(bankFilter));
+  }, [data, bankFilter]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Hide a bucket column when it's zero for every property (e.g. Change in Escrows).
   // Keep Mortgage P&I (4) visible when any loan is scheduled-but-unposted so its
   // estimate still shows even if nothing has posted to that column yet.
   const visibleBuckets = buckets.filter((b) =>
-    (b.code === 4 && (data?.rows ?? []).some((r) => r.debtMissing)) ||
-    (data?.rows ?? []).some((r) => (r.byBucket[b.code] ?? 0) !== 0));
+    (b.code === 4 && viewRows.some((r) => r.debtMissing)) ||
+    viewRows.some((r) => (r.byBucket[b.code] ?? 0) !== 0));
   const grouped = useMemo(() => {
     const by: Record<string, Row[]> = {};
-    for (const r of data?.rows ?? []) (by[r.group] = by[r.group] || []).push(r);
+    for (const r of viewRows) (by[r.group] = by[r.group] || []).push(r);
     for (const [g, rs] of Object.entries(by)) {
       const order = ROW_ORDER[g];
       rs.sort((a, b) => {
@@ -267,7 +292,7 @@ export default function CashSheetPage() {
       });
     }
     return GROUP_ORDER.filter((g) => by[g]?.length).map((g) => ({ group: g, rows: by[g] }));
-  }, [data]);
+  }, [viewRows]);
 
   // The GL-actuals month for the snapshot = the latest month posted across the
   // portfolio, capped at the selected report month. GLs post a month in arrears,
@@ -279,7 +304,7 @@ export default function CashSheetPage() {
   const grand = useMemo(() => {
     const byBucket: Record<string, number> = {};
     let inflows = 0, outflows = 0, opening = 0, ending = 0, bills = 0, reserves = 0, hasOpening = false;
-    for (const r of data?.rows ?? []) {
+    for (const r of viewRows) {
       // Behind properties are excluded from the snapshot (their row is blanked).
       if (!r.manual && !r.readOnly && !ytd && r.maxPeriod < glMonth) continue;
       for (const b of buckets) {
@@ -292,30 +317,34 @@ export default function CashSheetPage() {
       if (r.startingCash != null) { opening += r.startingCash; ending += (r.endingCash ?? 0); hasOpening = true; }
     }
     return { byBucket, inflows, outflows, net: inflows + outflows, opening, ending, bills, reserves, hasOpening };
-  }, [data, buckets, period, ytd]);
+  }, [viewRows, buckets, period, ytd]);
 
-  const debtMissingRows = (data?.rows ?? []).filter((r) => r.debtMissing);
+  const debtMissingRows = viewRows.filter((r) => r.debtMissing);
   // Properties still posted through an earlier month than the snapshot month —
   // their GL needs importing so the whole sheet is one point in time.
-  const laggingRows = (data?.rows ?? []).filter(isBehind);
+  const laggingRows = viewRows.filter(isBehind);
   const laggingKeys = new Set(laggingRows.map((r) => r.key));
   const glDates = periodDates(year, glMonth, ytd); // GL-actuals month (e.g. May) for the Opening/Ending headers
   // Most recent Wednesday that bills were uploaded for — the "as of" date for the
   // Est. Available Cash column (it carries the GL forward net of those bills).
   const lastBillWed = (() => {
     let max = "";
-    for (const r of data?.rows ?? []) for (const w of r.weeklyBills ?? []) if (w.amount && w.wednesday > max) max = w.wednesday;
+    for (const r of viewRows) for (const w of r.weeklyBills ?? []) if (w.amount && w.wednesday > max) max = w.wednesday;
     return max ? max.slice(5) : null; // "YYYY-MM-DD" → "MM-DD"
   })();
   const showEst = !!data?.estimateAsOf;
-  const showBills = (data?.rows ?? []).some((r) => (r.billsMTD ?? 0) !== 0);
-  const showReserves = !!data && (data.canEdit || (data.rows ?? []).some((r) => (r.reserves ?? 0) !== 0));
+  const showBills = viewRows.some((r) => (r.billsMTD ?? 0) !== 0);
+  const showReserves = !!data && (data.canEdit || viewRows.some((r) => (r.reserves ?? 0) !== 0));
   // Est. Available Cash = projected (or current) cash less the reserve set-aside.
   const estAvail = (r: Row): number | null => {
     const base = r.estimate?.estimatedCash ?? r.endingCash;
     return base == null ? null : base - (r.reserves ?? 0);
   };
-  const estAvailTotal = (data?.rows ?? []).reduce((s, r) => laggingKeys.has(r.key) ? s : s + (estAvail(r) ?? 0), 0);
+  const estAvailTotal = viewRows.reduce((s, r) => laggingKeys.has(r.key) ? s : s + (estAvail(r) ?? 0), 0);
+  // Low available-cash highlight: flag an account whose available cash dips below
+  // $5K (amber) or goes negative (red).
+  const lowCashBg = (v: number | null): string | undefined =>
+    v == null ? undefined : v < 0 ? "rgba(220,38,38,0.13)" : v < 5000 ? "rgba(217,119,6,0.14)" : undefined;
   // Per-group subtotals (excluding behind rows) — shown on the collapsible group header.
   const groupTotals = (gr: Row[]) => {
     const byBucket: Record<string, number> = {};
@@ -407,6 +436,16 @@ export default function CashSheetPage() {
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             {!ytd && glMonth !== period && <span style={{ fontSize: 12, fontWeight: 600, color: "var(--muted)" }}>{MONTHS[glMonth - 1]} GL actuals + {MONTHS[period - 1]} bills</span>}
+            {banksPresent.length > 1 && (
+              <select
+                value={bankFilter}
+                onChange={(e) => setBankFilter(e.target.value)}
+                title="Filter the accounts to one bank"
+                style={{ borderRadius: 999, padding: "8px 12px", fontSize: 13, fontWeight: 600, border: "1px solid rgba(11,74,125,0.3)", background: "var(--card)", color: "#0b4a7d", cursor: "pointer" }}>
+                <option value="All">All banks</option>
+                {banksPresent.map((b) => <option key={b} value={b}>{b}</option>)}
+              </select>
+            )}
             <select
               value={`${year}-${period}`}
               onChange={(e) => { const [y, m] = e.target.value.split("-").map(Number); setYear(y); setPeriod(m); }}
@@ -648,8 +687,8 @@ export default function CashSheetPage() {
                       {view === "net" && (() => { const io = ioFrom(r.byBucket); return (
                         <td style={{ ...numCell, color: io.net > 0 ? "#15803d" : io.net < 0 ? "#b91c1c" : "var(--muted)" }}>{io.net ? <button type="button" onClick={() => setBucketModal({ row: r, filter: "all" })} title="Net cash movement — click for the category breakdown" style={summaryBtn} onMouseEnter={ulOn} onMouseLeave={ulOff}>{money0(io.net)}</button> : "—"}</td>
                       ); })()}
-                      <td style={{ ...keyCol, color: r.startingCash == null || r.endingCash == null ? undefined : r.netChange > 0 ? "#15803d" : r.netChange < 0 ? "#b91c1c" : undefined }}
-                        title={`Net change ${money0(r.netChange)}${r.startingCash != null ? ` (Opening ${money0(r.startingCash)})` : ""}`}>
+                      <td style={{ ...keyCol, background: showEst ? undefined : lowCashBg(r.endingCash), color: r.startingCash == null || r.endingCash == null ? undefined : r.netChange > 0 ? "#15803d" : r.netChange < 0 ? "#b91c1c" : undefined }}
+                        title={`Net change ${money0(r.netChange)}${r.startingCash != null ? ` (Opening ${money0(r.startingCash)})` : ""}${!showEst && (r.endingCash ?? Infinity) < 5000 ? " · low cash (<$5K)" : ""}`}>
                         {money0(r.endingCash)}
                       </td>
                       {showBillsCol && (
@@ -691,8 +730,8 @@ export default function CashSheetPage() {
                         </td>
                       ); })()}
                       {showEst && (
-                        <td style={{ ...keyCol, background: "rgba(21,128,61,0.08)" }}
-                          title={`${r.estimate ? `From ${MONTHS[r.latestGLMonth - 1]} GL ending ${money0(r.estimate.latestEnding)}: − bills ${money0(r.estimate.bills)} (${r.estimate.months} un-posted mo)` : "GL is current"}${r.reserves ? ` − reserves ${money0(r.reserves)}` : ""}`}>
+                        <td style={{ ...keyCol, background: lowCashBg(estAvail(r)) ?? "rgba(21,128,61,0.08)" }}
+                          title={`${r.estimate ? `From ${MONTHS[r.latestGLMonth - 1]} GL ending ${money0(r.estimate.latestEnding)}: − bills ${money0(r.estimate.bills)} (${r.estimate.months} un-posted mo)` : "GL is current"}${r.reserves ? ` − reserves ${money0(r.reserves)}` : ""}${(estAvail(r) ?? Infinity) < 5000 ? " · low cash (<$5K)" : ""}`}>
                           {estAvail(r) != null ? (r.estimate ? money0(estAvail(r)) : <span className="muted">{money0(estAvail(r))}</span>) : "—"}
                         </td>
                       )}
