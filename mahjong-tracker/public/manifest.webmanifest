@@ -1,0 +1,17 @@
+{
+  "name": "Mahjong Tracker",
+  "short_name": "Mahjong",
+  "description": "Track your American Mahjong wins and clear all 70 hands this year.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#EFF5FF",
+  "theme_color": "#2F6BFF",
+  "categories": ["games", "lifestyle", "social"],
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
