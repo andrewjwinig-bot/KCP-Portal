@@ -36,6 +36,10 @@ export type BuildInvoicePdfArgs = {
   periodText?: string;
   periodCompact?: string;  // MM/DD/YY-MM/DD/YY (short form for the header row)
   invoiceId?: string;
+  /** Accrued balance from prior held months, shown as a single summary line and
+   *  added to the grand total (the held months' charges are itemized in the GL /
+   *  TOP SHEET, not re-listed here). */
+  priorBalance?: number;
 };
 
 // ─── Lookup tables (mirrored from App.tsx) ──────────────────────────────────
@@ -224,7 +228,8 @@ export function buildInvoicePdf(args: BuildInvoicePdfArgs): Blob {
   }
 
   // ── Compute grand total up front (used on both pages) ──────────────────
-  let grandTotal = 0;
+  const priorBalance = Number(args.priorBalance || 0);
+  let grandTotal = priorBalance;
   for (const cg of args.categoryGroups) {
     for (const t of cg.items) grandTotal += Number(t.amount || 0);
   }
@@ -386,6 +391,20 @@ export function buildInvoicePdf(args: BuildInvoicePdfArgs): Blob {
     }
   }
 
+  // Prior balance carried forward — a single summary line (the held months'
+  // charges are itemized in the GL Journal Entry / TOP SHEET, not re-listed).
+  if (priorBalance > 0) {
+    doc.setFillColor(SUBTOTAL_BG.r, SUBTOTAL_BG.g, SUBTOTAL_BG.b);
+    doc.rect(margin, sumY, contentW, sumRowH, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.setTextColor(TEAL.r, TEAL.g, TEAL.b);
+    doc.text("PRIOR BALANCE CARRIED FORWARD", sumXCat + 8, sumY + 15);
+    doc.setTextColor(0, 0, 0);
+    doc.text(toMoney(priorBalance), sumXTotal + sumColTotal - 8, sumY + 15, { align: "right" });
+    sumY += sumRowH;
+  }
+
   // Footer: payable-to text + TOTAL box
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10);
@@ -451,6 +470,20 @@ export function buildInvoicePdf(args: BuildInvoicePdfArgs): Blob {
   let y = margin;
   drawDetailHeader(y);
   y += detHeaderH;
+
+  // Prior balance carried forward — leading line so the detail rows reconcile
+  // to the grand total (held months' detail lives in the GL / TOP SHEET).
+  if (priorBalance > 0) {
+    doc.setFillColor(SUBTOTAL_BG.r, SUBTOTAL_BG.g, SUBTOTAL_BG.b);
+    doc.rect(margin, y, contentW, detSubRowH, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.setTextColor(TEAL.r, TEAL.g, TEAL.b);
+    doc.text("Prior balance carried forward", xDesc2 + 6, y + 14);
+    doc.setTextColor(0, 0, 0);
+    doc.text(toMoney(priorBalance), xPrice2 + colPrice - 6, y + 14, { align: "right" });
+    y += detSubRowH + 4;
+  }
 
   for (const cg of args.categoryGroups) {
     const lines = buildLinesForCategory(cg.category, args.propertyCode, cg.items);
