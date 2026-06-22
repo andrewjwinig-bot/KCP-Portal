@@ -14,6 +14,7 @@ import {
   type HeldTx,
   type PropertyCarry,
 } from "../../lib/expenses/carryover";
+import { emailInvoicerReport, XLSX_CONTENT_TYPE } from "../../lib/invoicing/sendReport";
 import { useUser } from "../components/UserProvider";
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -802,15 +803,16 @@ export default function ExpensesPage() {
     if (!confirm(`Generate ${billingGroups.length} property invoice${billingGroups.length !== 1 ? "s" : ""} + TOP SHEET as a ZIP?${onHoldGroups.length ? `\n\n${onHoldGroups.length} propert${onHoldGroups.length === 1 ? "y is" : "ies are"} held under $${CARRYOVER_THRESHOLD} and excluded.` : ""}`)) return;
     const zip = new JSZip();
     const filenameMonth = statementMonth || "Statement";
+    let summaryBlob: Blob | null = null;
     if (effectiveExpandedCoded.length) {
-      const topBlob = buildTopSheetXlsx({
+      summaryBlob = buildTopSheetXlsx({
         statementPeriodText: statementPeriodText || "",
         statementMonth: statementMonth || "",
         tx: effectiveExpandedCoded.map((t: any) => ({ date: t.date, cardMember: t.cardMember, description: t.description, codedDescription: t.codedDescription, amount: t.amount, originalAmount: t.originalAmount, category: t.category, propertyId: t.propertyId, propertyName: propName(t.propertyId), suite: t.suite } as TopSheetTx)),
         propertyOrder: properties.map((p) => ({ id: p.id, name: p.name })),
         categoryOrder: [...TOP_SHEET_CATEGORIES],
       });
-      zip.file(`${filenameMonth} - TOP SHEET.xlsx`, topBlob);
+      zip.file(`${filenameMonth} - TOP SHEET.xlsx`, summaryBlob);
     }
     for (const g of billingGroups) {
       const invoiceBlob = buildInvoicePdf({
@@ -858,10 +860,20 @@ export default function ExpensesPage() {
     const zipBlob = await zip.generateAsync({ type: "blob" });
     download(`${filenameMonth} - Invoices.zip`, zipBlob);
     setShowAfterZipModal(true);
+
+    // Processing the batch → email the GL Skyline import + summary report to the
+    // controller (same as payroll). Best-effort, deduped once per statement month.
+    const gl = buildGLJournalEntry();
+    const reportAttachments: { name: string; blob: Blob; contentType: string }[] = [];
+    if (gl) reportAttachments.push({ name: gl.filename, blob: gl.blob, contentType: XLSX_CONTENT_TYPE });
+    if (summaryBlob) reportAttachments.push({ name: `${filenameMonth} - TOP SHEET.xlsx`, blob: summaryBlob, contentType: XLSX_CONTENT_TYPE });
+    if (statementMonth && reportAttachments.length) {
+      void emailInvoicerReport({ source: "credit-card", period: statementMonth, attachments: reportAttachments });
+    }
   }
 
-  function downloadGLExport() {
-    if (!effectiveInvoiceGroups.length) return;
+  function buildGLJournalEntry(): { blob: Blob; filename: string } | null {
+    if (!effectiveInvoiceGroups.length) return null;
     const invoiceGroups = effectiveInvoiceGroups; // post-carryover: only billing properties, held detail folded in
     const filenameMonth = statementMonth || "Statement";
 
@@ -942,7 +954,12 @@ export default function ExpensesPage() {
     XLSX.utils.book_append_sheet(wb, ws, "GL Journal Entry");
     const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
     const blob = new Blob([wbout], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-    download(`${filenameMonth} - GL Journal Entry.xlsx`, blob);
+    return { blob, filename: `${filenameMonth} - GL Journal Entry.xlsx` };
+  }
+
+  function downloadGLExport() {
+    const r = buildGLJournalEntry();
+    if (r) download(r.filename, r.blob);
   }
 
   function downloadExcelSummary() {
@@ -1640,6 +1657,9 @@ export default function ExpensesPage() {
             <b style={{ fontSize: 16 }}>Reminder</b>
             <div style={{ fontSize: 15, lineHeight: 1.5, marginTop: 8 }}>
               Save files to Accounting drive and send invoices to <b>kormancommercial@avidbill.com</b>.
+              <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 8 }}>
+                The GL Journal Entry + TOP SHEET summary are emailed automatically to Marie Jaster.
+              </div>
             </div>
             <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 16 }}>
               <button className="btn primary large" onClick={() => setShowAfterZipModal(false)}>Sent</button>
