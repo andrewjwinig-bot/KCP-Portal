@@ -7,6 +7,13 @@ import { PDFDocument } from "pdf-lib";
 import { buildInvoicePdf, makeInvoiceId, CategoryGroup } from "../../lib/expenses/invoice";
 import { buildTopSheetXlsx, TopSheetTx } from "../../lib/expenses/topSheet";
 import { groupBy, normalizeAmount, toMoney } from "../../lib/expenses/utils";
+import {
+  CARRYOVER_THRESHOLD,
+  isBilled,
+  isYearEndMonth,
+  type HeldTx,
+  type PropertyCarry,
+} from "../../lib/expenses/carryover";
 import { useUser } from "../components/UserProvider";
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -431,6 +438,26 @@ function download(filename: string, blob: Blob) {
   URL.revokeObjectURL(url);
 }
 
+type InvoiceGroup = { propId: string; categoryGroups: CategoryGroup[]; total: number; itemCount: number };
+
+// One invoice per property: group expanded+coded charges by property then
+// category. Shared so the on-screen "this month" groups and the "effective"
+// groups (this month + carried-forward held detail) build identically.
+function buildInvoiceGroups(items: any[]): InvoiceGroup[] {
+  const byProp = groupBy(items, (t: any) => t.propertyId);
+  const groups: InvoiceGroup[] = [];
+  for (const [propId, propItems] of byProp.entries()) {
+    const byCat = groupBy(propItems as any[], (t: any) => t.category);
+    const categoryGroups: CategoryGroup[] = [];
+    for (const [cat, catItems] of byCat.entries()) {
+      categoryGroups.push({ category: cat, items: catItems as any[] });
+    }
+    const total = (propItems as any[]).reduce((a: number, t: any) => a + Number(t.amount), 0);
+    groups.push({ propId, categoryGroups, total, itemCount: (propItems as any[]).length });
+  }
+  return groups.sort((a, b) => a.propId.localeCompare(b.propId));
+}
+
 const LS_KEY = "cc-expenses:v1";
 
 // ── Component ────────────────────────────────────────────────────────────────
@@ -578,20 +605,84 @@ export default function ExpensesPage() {
     return arr;
   }, [filteredTx, colFilters, tableSortCol, tableSortDir, properties]);
 
-  const invoiceGroups = useMemo(() => {
-    const byProp = groupBy(expandedCoded, (t: any) => t.propertyId);
-    const groups: { propId: string; categoryGroups: CategoryGroup[]; total: number; itemCount: number }[] = [];
-    for (const [propId, items] of byProp.entries()) {
-      const byCat = groupBy(items, (t: any) => t.category);
-      const categoryGroups: CategoryGroup[] = [];
-      for (const [cat, catItems] of byCat.entries()) {
-        categoryGroups.push({ category: cat, items: catItems as Tx[] });
-      }
-      const total = (items as any[]).reduce((a: number, t: any) => a + Number(t.amount), 0);
-      groups.push({ propId, categoryGroups, total, itemCount: (items as any[]).length });
-    }
-    return groups.sort((a, b) => a.propId.localeCompare(b.propId));
-  }, [expandedCoded]);
+  const invoiceGroups = useMemo(() => buildInvoiceGroups(expandedCoded), [expandedCoded]);
+
+  // ── Carryover ("hold under $100") ──────────────────────────────────────────
+  // Persistent per-property held balances, loaded from the server so they
+  // survive the monthly localStorage clear.
+  const [carryover, setCarryover] = useState<Record<string, PropertyCarry>>({});
+  const [committedPeriods, setCommittedPeriods] = useState<string[]>([]);
+  const [finalizing, setFinalizing] = useState(false);
+
+  function loadLedger() {
+    fetch("/api/expenses/carryover")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (j?.ledger) {
+          setCarryover(j.ledger.balances ?? {});
+          setCommittedPeriods(Array.isArray(j.ledger.committedPeriods) ? j.ledger.committedPeriods : []);
+        }
+      })
+      .catch(() => {});
+  }
+  useEffect(() => { loadLedger(); }, []);
+
+  const yearEnd = isYearEndMonth(statementMonth);
+  const alreadyFinalized = !!statementMonth && committedPeriods.includes(statementMonth);
+
+  // Decorate this-month groups with their carried-forward balance + bill/hold.
+  const decoratedGroups = useMemo(() => {
+    return invoiceGroups.map((g) => {
+      const prior = carryover[g.propId]?.heldTotal ?? 0;
+      const accrued = Math.round((g.total + prior) * 100) / 100;
+      return { ...g, prior, accrued, billed: isBilled(g.propId, accrued, statementMonth) };
+    });
+  }, [invoiceGroups, carryover, statementMonth]);
+
+  // Properties carrying a balance with NO charges this month. They stay held
+  // (and out of invoicing) until year-end, when they flush as a prior-balance
+  // -only invoice.
+  const heldOnlyGroups = useMemo(() => {
+    const currentIds = new Set(invoiceGroups.map((g) => g.propId));
+    return Object.values(carryover)
+      .filter((c) => !currentIds.has(c.propertyId) && (c.heldTotal ?? 0) > 0)
+      .map((c) => ({
+        propId: c.propertyId,
+        categoryGroups: [] as CategoryGroup[],
+        total: 0,
+        itemCount: 0,
+        prior: c.heldTotal,
+        accrued: c.heldTotal,
+        billed: isBilled(c.propertyId, c.heldTotal, statementMonth),
+      }))
+      .sort((a, b) => a.propId.localeCompare(b.propId));
+  }, [carryover, invoiceGroups, statementMonth]);
+
+  const billingGroups = useMemo(
+    () => [...decoratedGroups.filter((g) => g.billed), ...heldOnlyGroups.filter((g) => g.billed)]
+      .sort((a, b) => a.propId.localeCompare(b.propId)),
+    [decoratedGroups, heldOnlyGroups],
+  );
+  const onHoldGroups = useMemo(
+    () => [...decoratedGroups.filter((g) => !g.billed), ...heldOnlyGroups.filter((g) => !g.billed)]
+      .sort((a, b) => a.propId.localeCompare(b.propId)),
+    [decoratedGroups, heldOnlyGroups],
+  );
+
+  // Charges that actually post this month: billed properties' current charges
+  // plus any held detail rolling forward into their now-billing invoice. Drives
+  // the GL Journal Entry + TOP SHEET ("hold everything together").
+  const effectiveExpandedCoded = useMemo(() => {
+    const billedIds = new Set(billingGroups.map((g) => g.propId));
+    const thisMonth = expandedCoded.filter((t: any) => billedIds.has(t.propertyId));
+    const heldDetail = billingGroups.flatMap((g) => carryover[g.propId]?.heldTx ?? []);
+    return [...thisMonth, ...heldDetail];
+  }, [billingGroups, expandedCoded, carryover]);
+
+  const effectiveInvoiceGroups = useMemo(
+    () => buildInvoiceGroups(effectiveExpandedCoded),
+    [effectiveExpandedCoded],
+  );
 
   const chartDataByProperty = useMemo<PieSlice[]>(() => {
     const pos = tx.filter((t) => Number(t.amount) > 0);
@@ -707,21 +798,21 @@ export default function ExpensesPage() {
   }
 
   async function generateAllPdfsZip() {
-    if (!invoiceGroups.length) return;
-    if (!confirm(`Generate ${invoiceGroups.length} property invoice${invoiceGroups.length !== 1 ? "s" : ""} + TOP SHEET as a ZIP?`)) return;
+    if (!billingGroups.length) return;
+    if (!confirm(`Generate ${billingGroups.length} property invoice${billingGroups.length !== 1 ? "s" : ""} + TOP SHEET as a ZIP?${onHoldGroups.length ? `\n\n${onHoldGroups.length} propert${onHoldGroups.length === 1 ? "y is" : "ies are"} held under $${CARRYOVER_THRESHOLD} and excluded.` : ""}`)) return;
     const zip = new JSZip();
     const filenameMonth = statementMonth || "Statement";
-    if (expandedCoded.length) {
+    if (effectiveExpandedCoded.length) {
       const topBlob = buildTopSheetXlsx({
         statementPeriodText: statementPeriodText || "",
         statementMonth: statementMonth || "",
-        tx: expandedCoded.map((t: any) => ({ date: t.date, cardMember: t.cardMember, description: t.description, codedDescription: t.codedDescription, amount: t.amount, originalAmount: t.originalAmount, category: t.category, propertyId: t.propertyId, propertyName: propName(t.propertyId), suite: t.suite } as TopSheetTx)),
+        tx: effectiveExpandedCoded.map((t: any) => ({ date: t.date, cardMember: t.cardMember, description: t.description, codedDescription: t.codedDescription, amount: t.amount, originalAmount: t.originalAmount, category: t.category, propertyId: t.propertyId, propertyName: propName(t.propertyId), suite: t.suite } as TopSheetTx)),
         propertyOrder: properties.map((p) => ({ id: p.id, name: p.name })),
         categoryOrder: [...TOP_SHEET_CATEGORIES],
       });
       zip.file(`${filenameMonth} - TOP SHEET.xlsx`, topBlob);
     }
-    for (const g of invoiceGroups) {
+    for (const g of billingGroups) {
       const invoiceBlob = buildInvoicePdf({
         propertyName: propName(g.propId),
         propertyCode: g.propId,
@@ -731,6 +822,7 @@ export default function ExpensesPage() {
         periodText: statementPeriodText || "",
         periodCompact: (statementStart && effectiveEnd) ? `${formatDateCompact(statementStart)}-${formatDateCompact(effectiveEnd)}` : undefined,
         invoiceId: makeInvoiceId(g.propId),
+        priorBalance: g.prior,
       });
 
       // Collect unique attachments for transactions in this property group
@@ -769,7 +861,8 @@ export default function ExpensesPage() {
   }
 
   function downloadGLExport() {
-    if (!invoiceGroups.length) return;
+    if (!effectiveInvoiceGroups.length) return;
+    const invoiceGroups = effectiveInvoiceGroups; // post-carryover: only billing properties, held detail folded in
     const filenameMonth = statementMonth || "Statement";
 
     // Format date as M/D/YYYY to match GL system format
@@ -853,19 +946,19 @@ export default function ExpensesPage() {
   }
 
   function downloadExcelSummary() {
-    if (!expandedCoded.length) return;
+    if (!effectiveExpandedCoded.length) return;
     const filenameMonth = statementMonth || "Statement";
     const blob = buildTopSheetXlsx({
       statementPeriodText: statementPeriodText || "",
       statementMonth: statementMonth || "",
-      tx: expandedCoded.map((t: any) => ({ date: t.date, cardMember: t.cardMember, description: t.description, codedDescription: t.codedDescription, amount: t.amount, originalAmount: t.originalAmount, category: t.category, propertyId: t.propertyId, propertyName: propName(t.propertyId), suite: t.suite } as TopSheetTx)),
+      tx: effectiveExpandedCoded.map((t: any) => ({ date: t.date, cardMember: t.cardMember, description: t.description, codedDescription: t.codedDescription, amount: t.amount, originalAmount: t.originalAmount, category: t.category, propertyId: t.propertyId, propertyName: propName(t.propertyId), suite: t.suite } as TopSheetTx)),
       propertyOrder: properties.map((p) => ({ id: p.id, name: p.name })),
       categoryOrder: [...TOP_SHEET_CATEGORIES],
     });
     download(`${filenameMonth} - TOP SHEET.xlsx`, blob);
   }
 
-  async function downloadSingleInvoicePdf(g: typeof invoiceGroups[number]) {
+  async function downloadSingleInvoicePdf(g: InvoiceGroup & { prior?: number }) {
     const filenameMonth = statementMonth || "Statement";
     const invoiceBlob = buildInvoicePdf({
       propertyName: propName(g.propId),
@@ -876,6 +969,7 @@ export default function ExpensesPage() {
       periodText: statementPeriodText || "",
       periodCompact: (statementStart && effectiveEnd) ? `${formatDateCompact(statementStart)}-${formatDateCompact(effectiveEnd)}` : undefined,
       invoiceId: makeInvoiceId(g.propId),
+      priorBalance: g.prior,
     });
 
     const seenTxIds = new Set<string>();
@@ -905,6 +999,54 @@ export default function ExpensesPage() {
       }
     }
     download(`${filenameMonth} - ${g.propId}.pdf`, finalBlob);
+  }
+
+  // Finalize the month: the single moment the carryover ledger is mutated.
+  // Billed properties reset to $0; held properties accrue. December flushes all.
+  async function finalizeMonthAction() {
+    if (!statementMonth) { alert("No statement month detected — import a statement first."); return; }
+    if (alreadyFinalized) { alert(`${statementMonth} has already been finalized.`); return; }
+    const billCount = billingGroups.length;
+    const holdCount = onHoldGroups.length;
+    const lines = [
+      `Finalize ${statementMonth} and update the carryover ledger?`,
+      "",
+      `• ${billCount} propert${billCount === 1 ? "y" : "ies"} will bill`,
+      `• ${holdCount} held under $${CARRYOVER_THRESHOLD} (carried forward)`,
+      yearEnd ? "\nYear-end (December): ALL balances are flushed so every expense books this year." : "",
+      "\nDo this AFTER you've downloaded and sent this month's invoices. It can't be repeated for this month.",
+    ].filter(Boolean);
+    if (!confirm(lines.join("\n"))) return;
+
+    setFinalizing(true);
+    try {
+      const byProp = new Map<string, HeldTx[]>();
+      for (const t of expandedCoded as any[]) {
+        const arr = byProp.get(t.propertyId) ?? [];
+        arr.push({
+          date: t.date, cardMember: t.cardMember ?? "", description: t.description ?? "",
+          codedDescription: t.codedDescription ?? "", category: t.category, propertyId: t.propertyId,
+          suite: t.suite ?? "", amount: Number(t.amount) || 0, originalAmount: t.originalAmount,
+          statementMonth,
+        });
+        byProp.set(t.propertyId, arr);
+      }
+      const propertiesPayload = [...byProp.entries()].map(([propertyId, txList]) => ({ propertyId, tx: txList }));
+      const res = await fetch("/api/expenses/carryover", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ statementMonth, properties: propertiesPayload }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(j?.error ?? `Finalize failed (${res.status})`);
+      setCarryover(j.ledger?.balances ?? {});
+      setCommittedPeriods(Array.isArray(j.ledger?.committedPeriods) ? j.ledger.committedPeriods : []);
+      alert(`Finalized ${statementMonth}. Carryover ledger updated.`);
+    } catch (e: any) {
+      alert(e?.message ?? "Finalize failed");
+    } finally {
+      setFinalizing(false);
+    }
   }
 
   // The Code Transactions card is the only card on the maint persona's
@@ -1192,7 +1334,10 @@ export default function ExpensesPage() {
             </button>
             <div>
               <b>Allocation Preview</b>
-              <div className="small muted" style={{ marginTop: 4 }}>One invoice per property — summary page + detailed charges. BP &amp; SC expenses are pre-allocated by schedule.</div>
+              <div className="small muted" style={{ marginTop: 4 }}>
+                One invoice per property — summary page + detailed charges. BP &amp; SC expenses are pre-allocated by schedule.
+                {" "}Properties under ${CARRYOVER_THRESHOLD} are held and carried forward{yearEnd ? " — except in December, when all balances flush" : ""}.
+              </div>
             </div>
           </div>
           <button className="btn" onClick={() => setShowAllocModal(true)}>Allocations</button>
@@ -1209,7 +1354,7 @@ export default function ExpensesPage() {
                 </tr>
               </thead>
               <tbody>
-                {invoiceGroups.map((g) => (
+                {billingGroups.map((g) => (
                   <tr key={g.propId}>
                     <td>
                       <button className="linkBtn left" onClick={() => setAllocPropModal({ propId: g.propId, name: propName(g.propId), categoryGroups: g.categoryGroups })}>
@@ -1217,55 +1362,99 @@ export default function ExpensesPage() {
                       </button>
                     </td>
                     <td>
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 4, alignItems: "center" }}>
                         {g.categoryGroups.map((cg) => (
                           <span key={cg.category} style={{ fontSize: 11, background: "#e8f0fe", color: "#1e4976", borderRadius: 999, padding: "2px 8px", fontWeight: 500, whiteSpace: "nowrap" }}>
                             {cg.category}
                           </span>
                         ))}
+                        {g.prior > 0 && (
+                          <span title={`Includes ${toMoney(g.prior)} carried forward from prior months`} style={{ fontSize: 11, background: "#fef3c7", color: "#92400e", borderRadius: 999, padding: "2px 8px", fontWeight: 600, whiteSpace: "nowrap" }}>
+                            +{toMoney(g.prior)} prior
+                          </span>
+                        )}
                       </div>
                     </td>
                     <td style={{ textAlign: "right" }}>{g.itemCount}</td>
-                    <td style={{ textAlign: "right" }}>{toMoney(g.total)}</td>
+                    <td style={{ textAlign: "right" }}>{toMoney(g.accrued)}</td>
                   </tr>
                 ))}
-                {!invoiceGroups.length && (
-                  <tr><td colSpan={4} className="muted">Code at least one transaction to generate invoices.</td></tr>
+                {!billingGroups.length && (
+                  <tr><td colSpan={4} className="muted">No properties bill this month{onHoldGroups.length ? " — all coded amounts are under the threshold and held." : "."}</td></tr>
                 )}
               </tbody>
-              {invoiceGroups.length > 0 && (
+              {billingGroups.length > 0 && (
                 <tfoot>
                   <tr>
                     <td colSpan={2}>Totals</td>
-                    <td style={{ textAlign: "right" }}>{invoiceGroups.reduce((s, g) => s + g.itemCount, 0)}</td>
-                    <td style={{ textAlign: "right" }}>{toMoney(invoiceGroups.reduce((s, g) => s + g.total, 0))}</td>
+                    <td style={{ textAlign: "right" }}>{billingGroups.reduce((s, g) => s + g.itemCount, 0)}</td>
+                    <td style={{ textAlign: "right" }}>{toMoney(billingGroups.reduce((s, g) => s + g.accrued, 0))}</td>
                   </tr>
                 </tfoot>
               )}
             </table>
           </div>
         )}
+        {allocPreviewOpen && onHoldGroups.length > 0 && (
+          <div style={{ marginTop: 14 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "#92400e", marginBottom: 6 }}>
+              Held — under ${CARRYOVER_THRESHOLD} (carried forward)
+            </div>
+            <div className="tableWrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Property</th>
+                    <th style={{ textAlign: "right" }}>This Month</th>
+                    <th style={{ textAlign: "right" }}>Prior Balance</th>
+                    <th style={{ textAlign: "right" }}>Accrued</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {onHoldGroups.map((g) => (
+                    <tr key={g.propId} style={{ opacity: 0.85 }}>
+                      <td>{g.propId} — {propName(g.propId)}</td>
+                      <td style={{ textAlign: "right" }}>{toMoney(g.total)}</td>
+                      <td style={{ textAlign: "right" }}>{toMoney(g.prior)}</td>
+                      <td style={{ textAlign: "right", fontWeight: 600 }}>{toMoney(g.accrued)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td>Held total</td>
+                    <td style={{ textAlign: "right" }}>{toMoney(onHoldGroups.reduce((s, g) => s + g.total, 0))}</td>
+                    <td style={{ textAlign: "right" }}>{toMoney(onHoldGroups.reduce((s, g) => s + g.prior, 0))}</td>
+                    <td style={{ textAlign: "right" }}>{toMoney(onHoldGroups.reduce((s, g) => s + g.accrued, 0))}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
       )}
 
       {/* ── Generate Invoices — hidden from maint. ── */}
-      {!isMaint && invoiceGroups.length > 0 && (
+      {!isMaint && (billingGroups.length > 0 || onHoldGroups.length > 0) && (
         <div className="card">
           <b>Generate Invoices</b>
-          <div className="small muted" style={{ marginTop: 4, marginBottom: 14 }}>One PDF invoice per property. Only properties with coded amounts greater than $0 are included.</div>
+          <div className="small muted" style={{ marginTop: 4, marginBottom: 14 }}>
+            One PDF invoice per billing property. Properties whose accrued balance is under ${CARRYOVER_THRESHOLD} are held and excluded from the invoices, GL Journal Entry, and TOP SHEET until they cross it{yearEnd ? " (December flushes everything)" : ""}.
+          </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
-            <button className="btn primary large" onClick={generateAllPdfsZip}>
+            <button className="btn primary large" onClick={generateAllPdfsZip} disabled={!billingGroups.length}>
               Download All Invoices
             </button>
-            <button className="btn large" onClick={downloadExcelSummary} disabled={!expandedCoded.length}>
+            <button className="btn large" onClick={downloadExcelSummary} disabled={!effectiveExpandedCoded.length}>
               Download Excel Summary
             </button>
-            <button className="btn large" onClick={downloadGLExport} disabled={!invoiceGroups.length}>
+            <button className="btn large" onClick={downloadGLExport} disabled={!effectiveInvoiceGroups.length}>
               Download GL Journal Entry
             </button>
           </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-            {invoiceGroups.map((g) => (
+            {billingGroups.map((g) => (
               <button
                 key={g.propId}
                 className="btn"
@@ -1273,9 +1462,26 @@ export default function ExpensesPage() {
                 onClick={() => downloadSingleInvoicePdf(g)}
               >
                 {g.propId} — {propName(g.propId)}{" "}
-                <span style={{ color: "var(--muted)", marginLeft: 4 }}>({toMoney(g.total)})</span>
+                <span style={{ color: "var(--muted)", marginLeft: 4 }}>({toMoney(g.accrued)})</span>
               </button>
             ))}
+          </div>
+
+          {/* Finalize — the single moment the carryover ledger is updated. */}
+          <div style={{ marginTop: 18, paddingTop: 16, borderTop: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <button
+              className="btn"
+              onClick={finalizeMonthAction}
+              disabled={finalizing || alreadyFinalized || !statementMonth}
+              style={{ fontSize: 13, padding: "8px 16px", fontWeight: 700, background: alreadyFinalized ? undefined : "rgba(22,163,74,0.9)", color: alreadyFinalized ? undefined : "#fff", border: "1px solid transparent" }}
+            >
+              {finalizing ? "Finalizing…" : alreadyFinalized ? `✓ ${statementMonth} finalized` : "Finalize Month & Update Carryover"}
+            </button>
+            <span className="small muted" style={{ maxWidth: 560 }}>
+              {alreadyFinalized
+                ? `Carryover for ${statementMonth} is locked in. Held balances roll into next month.`
+                : `Run this once, after you've downloaded and sent this month's invoices. ${yearEnd ? "December flushes all held balances so every expense books this year." : `Held properties accrue until they cross $${CARRYOVER_THRESHOLD}.`}`}
+            </span>
           </div>
         </div>
       )}
