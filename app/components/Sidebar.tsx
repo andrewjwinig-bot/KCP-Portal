@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import { taskOccurrencesBetween } from "@/lib/tracker/taskDefs";
+import { accessGroup } from "@/lib/users";
 import { useUser } from "./UserProvider";
 import UserSwitcher from "./UserSwitcher";
 import ThemeToggle from "./ThemeToggle";
@@ -852,16 +853,23 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
       <nav className="sidebar-nav" style={{ flex: 1, padding: open ? "4px 8px" : "8px 6px", display: "flex", flexDirection: "column", gap: 2, minHeight: 0, overflowY: "auto", overflowX: "hidden" }}>
         {(() => {
           let visible = NAV.filter((item) => isVisible(item));
-          // Drew's preferred category order (ungrouped items stay on top; the
-          // groups follow in this order, then any others; Security still pins to
-          // the bottom via its own marginTop). Stable so order within a group is
-          // preserved and the render loop emits each group at its first child.
-          if (user.id === "drew") {
-            const DREW_ORDER = ["financials", "banking", "tenancy", "directory", "cam", "invoicing"];
+          // Per-persona category order (ungrouped items stay on top; the listed
+          // groups lead in this order, then any others in nav order; Security
+          // still pins to the bottom via its own marginTop). Stable so order
+          // within a group is preserved and the render loop emits each group at
+          // its first child. Drew has a curated order; service staff lead with
+          // the Service group (Requests + Reservations) since that's their job.
+          const groupOrder: string[] | null =
+            user.id === "drew"
+              ? ["financials", "banking", "tenancy", "directory", "cam", "invoicing"]
+              : accessGroup(user.id) === "service"
+                ? ["service"]
+                : null;
+          if (groupOrder) {
             const rank = (item: (typeof NAV)[number]) => {
               const gid = (item as { groupId?: string }).groupId;
               if (!gid || !GROUPS[gid]) return 0; // ungrouped → top
-              const i = DREW_ORDER.indexOf(gid);
+              const i = groupOrder.indexOf(gid);
               return i === -1 ? 100 : i + 1;
             };
             visible = visible
