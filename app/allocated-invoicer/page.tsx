@@ -5,6 +5,7 @@ import JSZip from "jszip";
 import { parseGLExcel, GLParseResult, GLTransaction } from "../../lib/allocated-invoicer/glParser";
 import { buildAllocInvoicePdf, makeAllocInvoiceId, AllocLineItem } from "../../lib/allocated-invoicer/invoice";
 import { buildAllocExportXlsx, AllocExportRow } from "../../lib/allocated-invoicer/export";
+import { emailInvoicerReport, XLSX_CONTENT_TYPE } from "../../lib/invoicing/sendReport";
 import { toMoney } from "../../lib/expenses/utils";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -383,6 +384,23 @@ export default function AllocatedInvoicerPage() {
     const zipBlob = await zip.generateAsync({ type: "blob" });
     download(`${month} - Allocated Invoices.zip`, zipBlob);
     recordRun();
+
+    // Email the GL allocation import + summary report to the controller (same as
+    // payroll). Best-effort, deduped once per period.
+    try {
+      const summaryBlob = buildAllocExportXlsx({
+        periodText: glResult.periodText,
+        rows: allocationRows,
+        propertyOrder: ALLOC_PROPERTIES.map((p) => ({ id: p.id, name: p.name })),
+        accountCodes: allAccountCodes,
+      });
+      const period = glResult.statementMonth || glResult.periodEndDate || "Statement";
+      void emailInvoicerReport({
+        source: "allocated",
+        period,
+        attachments: [{ name: `${month} - Allocated Expenses.xlsx`, blob: summaryBlob, contentType: XLSX_CONTENT_TYPE }],
+      });
+    } catch { /* best-effort: never block invoice generation */ }
   }
 
   function downloadExcel() {
