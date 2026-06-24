@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, Fragment } from "react";
 import Link from "next/link";
 import type { RentRollData } from "@/lib/rentroll/parseRentRollExcel";
 import {
@@ -66,6 +66,14 @@ export default function SecurityDepositsPage() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<SecurityDeposit | null>(null);
   const [adding, setAdding] = useState(false);
+  // Which multi-check tenant groups are expanded to show their individual checks.
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const toggleExpanded = (key: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
   // Column sort (shared across the per-account tables).
   type SortKey = "tenant" | "unit" | "check" | "amount" | "date";
   const [sortKey, setSortKey] = useState<SortKey>("tenant");
@@ -273,24 +281,49 @@ export default function SecurityDepositsPage() {
                       );
                     }
 
-                    // Multiple checks → one uniform row per tenant; the "N Checks"
-                    // in the Check Date column flags it. (Edit individual checks
-                    // from the tenant's unit page.)
+                    // Multiple checks → an expandable summary row. Click it to
+                    // reveal each check as its own row that opens the editor (to
+                    // re-enter the check #, edit, or delete it).
                     const held = heldTotal(g.checks);
                     const allRefunded = g.checks.every((c) => c.refunded);
+                    const isOpen = expanded.has(g.unitRef);
                     return (
-                      <tr key={g.unitRef} style={{ opacity: allRefunded ? 0.7 : 1 }}>
-                        <td style={{ fontWeight: 600 }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                            <span>{g.tenant || "—"}</span>
-                            {allRefunded && <RefundedBadge date="" />}
-                          </div>
-                        </td>
-                        <td><code style={{ fontSize: 12 }}>{g.unitRef}</code></td>
-                        <td style={{ textAlign: "right", fontSize: 13, fontWeight: 600 }}>{money(held)}</td>
-                        <td style={{ fontSize: 13, fontWeight: 600 }}>{g.checks.length} Checks</td>
-                        <td className="muted" style={{ fontSize: 13 }}>—</td>
-                      </tr>
+                      <Fragment key={g.unitRef}>
+                        <tr
+                          style={{ opacity: allRefunded ? 0.7 : 1, cursor: "pointer" }}
+                          onClick={() => toggleExpanded(g.unitRef)}
+                          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.filter = "brightness(0.97)"; }}
+                          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.filter = ""; }}>
+                          <td style={{ fontWeight: 600 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                              <span style={{ fontSize: 11, color: "var(--muted)", width: 10, display: "inline-block" }}>{isOpen ? "▾" : "▸"}</span>
+                              <span>{g.tenant || "—"}</span>
+                              {allRefunded && <RefundedBadge date="" />}
+                            </div>
+                          </td>
+                          <td><code style={{ fontSize: 12 }}>{g.unitRef}</code></td>
+                          <td style={{ textAlign: "right", fontSize: 13, fontWeight: 600 }}>{money(held)}</td>
+                          <td style={{ fontSize: 13, fontWeight: 600 }}>{g.checks.length} Checks</td>
+                          <td className="muted small" style={{ fontSize: 12 }}>{isOpen ? "Hide" : "Show checks"}</td>
+                        </tr>
+                        {isOpen && g.checks.map((d) => (
+                          <tr key={d.id}
+                            style={{ cursor: "pointer", opacity: d.refunded ? 0.7 : 1, background: "rgba(15,23,42,0.02)" }}
+                            onClick={() => { setEditing(d); setAdding(false); }}
+                            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.filter = "brightness(0.97)"; }}
+                            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.filter = ""; }}>
+                            <td style={{ paddingLeft: 28 }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                                <span style={{ color: "var(--muted)", fontSize: 12 }}>↳</span>
+                                <span style={{ fontSize: 13 }}>{g.tenant || "—"}</span>
+                                {d.refunded && <RefundedBadge date={d.refundDate} />}
+                              </div>
+                            </td>
+                            <td><code style={{ fontSize: 12 }}>{g.unitRef}</code></td>
+                            {checkCell(d)}
+                          </tr>
+                        ))}
+                      </Fragment>
                     );
                   })}
                 </tbody>
