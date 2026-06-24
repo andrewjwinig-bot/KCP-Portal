@@ -8,7 +8,6 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Calendar } from "@/app/components/Calendar";
 import { drawTenantStatement } from "@/lib/cam/office/statementPdf";
 import { drawRetailStatement } from "@/lib/cam/retail/statementPdf";
 import type { TenantReconResult } from "@/lib/cam/office/types";
@@ -23,7 +22,7 @@ function money(n: number | null | undefined): string {
 type ScheduleLine = { glAccount: string; label: string; baseCost: number; actual: number; netIncrease: number };
 type Result = TenantReconResult & { occupiedMonths: number; asOfMonth: number; unpostedMonths: number };
 type RetailResult = RetailTenantResult & { occupiedMonths: number; asOfMonth: number; unpostedMonths: number };
-type Meta = { property: string; propertyName: string; unitRef: string; name: string; year: number; asOfMonth: number; effectiveThrough: number; occupiedMonths: number; unpostedMonths: number; maxPosted: number; startMonth: number; leaseFrom: string | null; leaseTo: string | null; sqft: number; opexMonth: number; reTaxMonth: number; baseYear?: number; proRataPct: number; grossUp?: boolean; glAsOf: string | null };
+type Meta = { property: string; propertyName: string; unitRef: string; name: string; year: number; asOfMonth: number; effectiveThrough: number; occupiedMonths: number; unpostedMonths: number; maxPosted: number; startMonth: number; leaseFrom: string | null; leaseTo: string | null; sqft: number; opexMonth: number; reTaxMonth: number; baseYear?: number; proRataPct: number; grossUp?: boolean; glAsOf: string | null; manual?: boolean };
 type Tenant = { unitRef: string; name: string; leaseTo: string | null; expiresInYear: number | null };
 
 type Draft = {
@@ -123,6 +122,189 @@ function Column({ title, lines, base, actual, net, due, escrow, balance, proRata
   );
 }
 
+const editInput: React.CSSProperties = {
+  width: 90, textAlign: "right", fontVariantNumeric: "tabular-nums", padding: "3px 6px",
+  fontSize: 12, border: "1px solid var(--border)", borderRadius: 6, background: "var(--card)", color: "var(--text)",
+};
+
+// A manual office tenant's statement rendered as a live worksheet: pick the
+// base year (re-pulls the building's real base-year expenses), type the
+// pro-rata, override any "Actual" line, and enter escrow — everything
+// recomputes in real time. Bridges manual entry with the auto recon by leaning
+// on the same expense history + GL the roster tenants use.
+function EditableOfficeStatement({ r, meta, baseYears, onBaseYear }: {
+  r: Result; meta: Meta; baseYears: number[]; onBaseYear: (y: string) => void;
+}) {
+  const [pr, setPr] = useState(r.proRataPct ? String(r.proRataPct) : "");
+  const [actualOv, setActualOv] = useState<Record<string, string>>({});
+  const [retActualOv, setRetActualOv] = useState<string | null>(null);
+  const [opexEsc, setOpexEsc] = useState(r.opexEscrow ? String(r.opexEscrow) : "");
+  const [retEsc, setRetEsc] = useState(r.retEscrow ? String(r.retEscrow) : "");
+
+  const num = (s: string) => { const n = Number(String(s).replace(/[^0-9.\-]/g, "")); return Number.isFinite(n) ? n : 0; };
+  const prF = num(pr) / 100;
+  const asOfLabel = MONTHS[r.asOfMonth - 1].slice(0, 3);
+
+  const lines = r.opexLines.map((l) => {
+    const actualStr = actualOv[l.glAccount] ?? String(Math.round(l.actual));
+    const a = num(actualStr);
+    return { ...l, actualStr, a, net: Math.max(0, a - l.baseCost) };
+  });
+  const opexBase = r.opexBaseTotal;
+  const opexActual = lines.reduce((s, l) => s + l.a, 0);
+  const opexNet = lines.reduce((s, l) => s + l.net, 0);
+  const opexDue = opexNet * prF;
+  const opexEscN = num(opexEsc);
+  const opexBal = opexDue - opexEscN;
+
+  const retActualStr = retActualOv ?? String(Math.round(r.retLine.actual));
+  const retA = num(retActualStr);
+  const retNet = Math.max(0, retA - r.retLine.baseCost);
+  const retDue = retNet * prF;
+  const retEscN = num(retEsc);
+  const retBal = retDue - retEscN;
+  const totalBal = opexBal + retBal;
+
+  const editedResult: Result = {
+    ...r,
+    proRataPct: num(pr),
+    opexLines: lines.map((l) => ({ glAccount: l.glAccount, label: l.label, baseCost: l.baseCost, actual: l.a, netIncrease: l.net })),
+    opexBaseTotal: opexBase, opexActualTotal: opexActual, opexNetIncrease: opexNet,
+    opexAmountDue: opexDue, opexEscrow: opexEscN, opexBalance: opexBal,
+    retLine: { ...r.retLine, actual: retA, netIncrease: retNet },
+    retAmountDue: retDue, retEscrow: retEscN, retBalance: retBal,
+  };
+
+  const downloadPdf = async () => {
+    const { jsPDF } = await import("jspdf");
+    const doc = new jsPDF({ unit: "pt", format: "letter" });
+    const asOf = `${MONTHS[r.asOfMonth - 1]} ${meta.year}`;
+    drawTenantStatement(doc, editedResult, meta.year, `${meta.property} — ${meta.propertyName}`, undefined, {
+      subtitle: `Interim Statement (manual) · as of ${asOf}`,
+      baseColLabel: `B/Y ${r.noBaseStop ? "—" : r.baseYear} ×${r.occupiedMonths}/12`,
+      actualColLabel: `${asOfLabel} YTD`,
+      footerRight: `Interim CAM / RET · Suite ${r.suite}`,
+      footnotes: [`Manual interim reconciliation for ${r.occupiedMonths} occupied month${r.occupiedMonths > 1 ? "s" : ""} of ${meta.year}; the base year is prorated to the same period.`],
+    });
+    doc.save(`${meta.property}_${meta.year}_${r.name.replace(/[^\w]+/g, "_")}_Interim_CAM_RET.pdf`);
+  };
+
+  return (
+    <div className="card">
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, flexWrap: "wrap", marginBottom: 4 }}>
+        <div style={{ fontSize: 18, fontWeight: 800 }}>{r.name} <code style={{ fontSize: 13 }}>{r.unitRef}</code></div>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: "#0b4a7d" }}>Interim CAM/RET · as of {MONTHS[r.asOfMonth - 1]} {meta.year}</div>
+          <button className="btn primary" onClick={downloadPdf} style={{ fontSize: 13, padding: "7px 14px", fontWeight: 700 }}>Download PDF</button>
+        </div>
+      </div>
+      <div className="muted small" style={{ marginBottom: 12, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <span>Base year</span>
+        <select value={r.noBaseStop ? "" : String(r.baseYear)} disabled={r.noBaseStop}
+          onChange={(e) => onBaseYear(e.target.value)}
+          style={{ ...editInput, width: 90, cursor: "pointer", textAlign: "left" }}>
+          {r.noBaseStop && <option value="">NNN</option>}
+          {baseYears.map((y) => <option key={y} value={y}>{y}</option>)}
+        </select>
+        <span>· pro-rata</span>
+        <input value={pr} onChange={(e) => setPr(e.target.value)} inputMode="decimal" placeholder="0.00"
+          style={{ ...editInput, width: 70 }} /> <span>%</span>
+        <span>· occupied <b>{r.occupiedMonths}</b> of 12 months · {meta.sqft.toLocaleString()} sf · <span style={{ color: "#b45309" }}>editable — recomputes live</span></span>
+      </div>
+
+      <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
+        {/* CAM / Operating Expenses */}
+        <div style={{ flex: 1, minWidth: 280 }}>
+          <div style={{ ...secLabel, color: "#0b4a7d", marginBottom: 6 }}>CAM / Operating Expenses</div>
+          <table style={{ width: "100%", fontSize: 12, marginBottom: 8 }}>
+            <thead>
+              <tr style={{ color: "var(--muted)", textAlign: "left" }}>
+                <th style={{ textAlign: "left", paddingRight: 6 }}>Acct</th>
+                <th style={{ textAlign: "left", width: "100%" }}>Expense</th>
+                <th style={numTd}>Base ×{r.occupiedMonths}/12</th>
+                <th style={numTd}>{asOfLabel} Actual</th>
+                <th style={numTd}>Net Incr.</th>
+              </tr>
+            </thead>
+            <tbody>
+              {lines.map((l) => (
+                <tr key={l.glAccount}>
+                  <td style={{ whiteSpace: "nowrap" }}><code style={{ fontSize: 11 }}>{l.glAccount.replace(/-95$/, "")}</code></td>
+                  <td>{l.label}</td>
+                  <td style={numTd}>{money(l.baseCost)}</td>
+                  <td style={numTd}>
+                    <input value={l.actualStr} onChange={(e) => setActualOv((o) => ({ ...o, [l.glAccount]: e.target.value }))}
+                      inputMode="decimal" style={editInput} />
+                  </td>
+                  <td style={{ ...numTd, color: l.net > 0 ? "#15803d" : "var(--muted)" }}>{money(l.net)}</td>
+                </tr>
+              ))}
+              <tr style={{ fontWeight: 800, borderTop: "1px solid var(--border)" }}>
+                <td /><td>Total</td>
+                <td style={numTd}>{money(opexBase)}</td>
+                <td style={numTd}>{money(opexActual)}</td>
+                <td style={numTd}>{money(opexNet)}</td>
+              </tr>
+            </tbody>
+          </table>
+          <BalanceRow label="Net increase over prorated base" value={money(opexNet)} />
+          <BalanceRow label={`× Pro-rata share (${num(pr)}%)`} value={money(opexDue)} />
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "3px 0", fontSize: 13 }}>
+            <span>Less: Billed (escrow)</span>
+            <input value={opexEsc} onChange={(e) => setOpexEsc(e.target.value)} inputMode="decimal" placeholder="0" style={editInput} />
+          </div>
+          <FinalBalanceRow label="CAM / Operating Expenses Balance" value={opexBal} />
+        </div>
+
+        {/* Real Estate Taxes */}
+        <div style={{ flex: 1, minWidth: 280 }}>
+          <div style={{ ...secLabel, color: "#0b4a7d", marginBottom: 6 }}>Real Estate Taxes</div>
+          <table style={{ width: "100%", fontSize: 12, marginBottom: 8 }}>
+            <thead>
+              <tr style={{ color: "var(--muted)", textAlign: "left" }}>
+                <th style={{ textAlign: "left", paddingRight: 6 }}>Acct</th>
+                <th style={{ textAlign: "left", width: "100%" }}>Expense</th>
+                <th style={numTd}>Base ×{r.occupiedMonths}/12</th>
+                <th style={numTd}>{asOfLabel} Actual</th>
+                <th style={numTd}>Net Incr.</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style={{ whiteSpace: "nowrap" }}><code style={{ fontSize: 11 }}>{r.retLine.glAccount.replace(/-95$/, "")}</code></td>
+                <td>{r.retLine.label}</td>
+                <td style={numTd}>{money(r.retLine.baseCost)}</td>
+                <td style={numTd}>
+                  <input value={retActualStr} onChange={(e) => setRetActualOv(e.target.value)} inputMode="decimal" style={editInput} />
+                </td>
+                <td style={{ ...numTd, color: retNet > 0 ? "#15803d" : "var(--muted)" }}>{money(retNet)}</td>
+              </tr>
+              <tr style={{ fontWeight: 800, borderTop: "1px solid var(--border)" }}>
+                <td /><td>Total</td>
+                <td style={numTd}>{money(r.retLine.baseCost)}</td>
+                <td style={numTd}>{money(retA)}</td>
+                <td style={numTd}>{money(retNet)}</td>
+              </tr>
+            </tbody>
+          </table>
+          <BalanceRow label="Net increase over prorated base" value={money(retNet)} />
+          <BalanceRow label={`× Pro-rata share (${num(pr)}%)`} value={money(retDue)} />
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "3px 0", fontSize: 13 }}>
+            <span>Less: Billed (escrow)</span>
+            <input value={retEsc} onChange={(e) => setRetEsc(e.target.value)} inputMode="decimal" placeholder="0" style={editInput} />
+          </div>
+          <FinalBalanceRow label="Real Estate Taxes Balance" value={retBal} />
+        </div>
+      </div>
+
+      <FinalBalanceRow label="Total Interim Balance" value={totalBal} />
+      <p className="muted small" style={{ marginTop: 10, marginBottom: 0 }}>
+        Manual worksheet — base year &amp; actuals are seeded from the building&apos;s expense history + GL; edit any of them live. A positive balance is owed by the tenant; a credit is refunded.
+      </p>
+    </div>
+  );
+}
+
 export default function InterimReconPage() {
   const now = new Date();
   const [properties, setProperties] = useState<{ code: string; name: string; kind?: "office" | "retail" }[]>([]);
@@ -153,16 +335,25 @@ export default function InterimReconPage() {
 
   // Generate a one-off statement from the building's live expenses + the typed
   // tenant terms/escrow. Nothing is saved; the result renders in the card below.
-  const generateManual = useCallback(async () => {
+  // Office leans on the building's real base-year expenses (baseYearArg); the
+  // statement is then edited live. opts.baseYear lets the in-statement base-year
+  // dropdown re-pull a different year without touching the rest.
+  const generateManual = useCallback(async (opts?: { baseYear?: string }) => {
     if (!property) return;
     if (!draft.name.trim()) { setManualMsg("Enter a tenant name."); return; }
+    const kind = properties.find((p) => p.code === property)?.kind ?? "office";
+    let baseYear = opts?.baseYear ?? draft.baseYear ?? "";
+    // Office leans on the building's real base years — default to the most recent.
+    if (kind === "office" && !baseYear) baseYear = baseYears[0] != null ? String(baseYears[0]) : "";
     setGenerating(true); setManualMsg(null); setError(null);
+    if (baseYear !== draft.baseYear) setDraft((d) => ({ ...d, baseYear }));
     const opt = (s: string) => (s.trim() === "" ? null : Number(s));
     const tenant = {
       unitRef: draft.unitRef.trim() || null, name: draft.name.trim(), sqft: Number(draft.sqft) || 0,
-      leaseFrom: draft.leaseFrom ? isoToUS(draft.leaseFrom) : null, vacatedISO: draft.vacatedISO ? isoToUS(draft.vacatedISO) : null,
+      // No lease-from: the occupied window runs Jan → the As-of month.
+      leaseFrom: null, vacatedISO: draft.vacatedISO ? isoToUS(draft.vacatedISO) : null,
       opexMonth: Number(draft.opexMonth) || 0, reTaxMonth: Number(draft.reTaxMonth) || 0,
-      baseYear: opt(draft.baseYear), noBaseStop: draft.noBaseStop, grossUp: draft.grossUp, proRataPct: opt(draft.proRataPct),
+      baseYear: baseYear.trim() === "" ? null : Number(baseYear), noBaseStop: draft.noBaseStop, grossUp: draft.grossUp, proRataPct: opt(draft.proRataPct),
       camPrs: opt(draft.camPrs), insPrs: opt(draft.insPrs), retPrs: opt(draft.retPrs), adminFeePct: opt(draft.adminFeePct), retDiscountPct: opt(draft.retDiscountPct),
       opexActualOverride: opt(draft.opexActualOverride), retActualOverride: opt(draft.retActualOverride), insActualOverride: opt(draft.insActualOverride),
       camEscrowOverride: opt(draft.camEscrowOverride), insEscrowOverride: opt(draft.insEscrowOverride), retEscrowOverride: opt(draft.retEscrowOverride),
@@ -172,7 +363,7 @@ export default function InterimReconPage() {
       const j = await res.json();
       if (j.error) { setManualMsg(j.error); setData(null); } else { setData(j); setManualMsg(null); }
     } catch (e) { setManualMsg(String(e)); } finally { setGenerating(false); }
-  }, [property, year, asOf, draft]);
+  }, [property, year, asOf, draft, properties, baseYears]);
 
   const runWith = useCallback((p: string, y: number, ref: string, a: number | "") => {
     if (!p || !ref) return;
@@ -269,7 +460,7 @@ export default function InterimReconPage() {
               {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
             </select>
           </label>
-          <button className="btn primary" onClick={isManual ? generateManual : run} disabled={!unitRef || loading || generating} style={{ fontSize: 13, padding: "8px 18px", fontWeight: 700 }}>
+          <button className="btn primary" onClick={isManual ? () => generateManual() : run} disabled={!unitRef || loading || generating} style={{ fontSize: 13, padding: "8px 18px", fontWeight: 700 }}>
             {loading || generating ? "Computing…" : "Generate"}
           </button>
         </div>
@@ -280,65 +471,65 @@ export default function InterimReconPage() {
 
         {isManual && (
           <div style={{ marginTop: 14, borderTop: "1px solid var(--border)", paddingTop: 14, display: "flex", flexDirection: "column", gap: 14 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
-              Manual tenant — {selectedKind === "retail" ? "retail" : "office"} {property} · pulls the building&apos;s live expenses; enter the terms, escrow, and any expense override
-            </div>
-            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-              <Field label="Tenant name" wide><input style={inputStyle} value={draft.name} onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))} placeholder="Reliant Care Solutions, LP" /></Field>
-              <Field label="Unit / suite" hint="(optional)"><input style={inputStyle} value={draft.unitRef} onChange={(e) => setDraft((d) => ({ ...d, unitRef: e.target.value }))} placeholder={`${property}-102`} /></Field>
-              <Field label="SF"><input style={inputStyle} value={draft.sqft} onChange={(e) => setDraft((d) => ({ ...d, sqft: e.target.value }))} inputMode="numeric" /></Field>
-            </div>
-            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-              <Field label="Lease from"><Calendar variant="card" value={draft.leaseFrom} onChange={(iso) => setDraft((d) => ({ ...d, leaseFrom: iso }))} /></Field>
-              <Field label="Vacated (move-out)"><Calendar variant="card" value={draft.vacatedISO} onChange={(iso) => setDraft((d) => ({ ...d, vacatedISO: iso }))} /></Field>
-              <Field label="CAM/opex escrow $/mo"><input style={inputStyle} value={draft.opexMonth} onChange={(e) => setDraft((d) => ({ ...d, opexMonth: e.target.value }))} inputMode="decimal" /></Field>
-              <Field label="RET escrow $/mo"><input style={inputStyle} value={draft.reTaxMonth} onChange={(e) => setDraft((d) => ({ ...d, reTaxMonth: e.target.value }))} inputMode="decimal" /></Field>
-            </div>
-
             {selectedKind === "office" ? (
-              <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
-                <Field label="Base year" hint="(building history)">
-                  <select style={{ ...inputStyle, cursor: draft.noBaseStop ? "default" : "pointer" }} value={draft.baseYear} disabled={draft.noBaseStop}
-                    onChange={(e) => setDraft((d) => ({ ...d, baseYear: e.target.value }))}>
-                    <option value="">{draft.noBaseStop ? "— (NNN)" : "Select…"}</option>
-                    {baseYears.map((y) => <option key={y} value={y}>{y}</option>)}
-                  </select>
-                </Field>
-                <Field label="Pro-rata %"><input style={inputStyle} value={draft.proRataPct} onChange={(e) => setDraft((d) => ({ ...d, proRataPct: e.target.value }))} inputMode="decimal" placeholder="1.20" /></Field>
-                <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, paddingBottom: 8 }}>
-                  <input type="checkbox" checked={draft.grossUp} onChange={(e) => setDraft((d) => ({ ...d, grossUp: e.target.checked }))} /> Gross up (95%)
-                </label>
-                <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, paddingBottom: 8 }}>
-                  <input type="checkbox" checked={draft.noBaseStop} onChange={(e) => setDraft((d) => ({ ...d, noBaseStop: e.target.checked }))} /> Full NNN (no base stop)
-                </label>
-              </div>
+              <>
+                <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
+                  Manual tenant — office {property} · enter the name, then pick the base year, pro-rata and escrow right on the statement and edit it live.
+                </div>
+                <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
+                  <Field label="Tenant name" wide><input style={inputStyle} value={draft.name} onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))} placeholder="Reliant Care Solutions, LP" /></Field>
+                  <Field label="Unit / suite" hint="(optional)"><input style={inputStyle} value={draft.unitRef} onChange={(e) => setDraft((d) => ({ ...d, unitRef: e.target.value }))} placeholder={`${property}-102`} /></Field>
+                  <Field label="SF" hint="(optional)"><input style={inputStyle} value={draft.sqft} onChange={(e) => setDraft((d) => ({ ...d, sqft: e.target.value }))} inputMode="numeric" /></Field>
+                  <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, paddingBottom: 8 }}>
+                    <input type="checkbox" checked={draft.grossUp} onChange={(e) => setDraft((d) => ({ ...d, grossUp: e.target.checked }))} /> Gross up (95%)
+                  </label>
+                  <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, paddingBottom: 8 }}>
+                    <input type="checkbox" checked={draft.noBaseStop} onChange={(e) => setDraft((d) => ({ ...d, noBaseStop: e.target.checked }))} /> Full NNN (no base stop)
+                  </label>
+                </div>
+              </>
             ) : (
-              <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                <Field label="CAM share %"><input style={inputStyle} value={draft.camPrs} onChange={(e) => setDraft((d) => ({ ...d, camPrs: e.target.value }))} inputMode="decimal" /></Field>
-                <Field label="INS share %"><input style={inputStyle} value={draft.insPrs} onChange={(e) => setDraft((d) => ({ ...d, insPrs: e.target.value }))} inputMode="decimal" /></Field>
-                <Field label="RET share %"><input style={inputStyle} value={draft.retPrs} onChange={(e) => setDraft((d) => ({ ...d, retPrs: e.target.value }))} inputMode="decimal" /></Field>
-                <Field label="Admin fee %"><input style={inputStyle} value={draft.adminFeePct} onChange={(e) => setDraft((d) => ({ ...d, adminFeePct: e.target.value }))} inputMode="decimal" /></Field>
-                <Field label="RET discount %"><input style={inputStyle} value={draft.retDiscountPct} onChange={(e) => setDraft((d) => ({ ...d, retDiscountPct: e.target.value }))} inputMode="decimal" /></Field>
-              </div>
+              <>
+                <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
+                  Manual tenant — retail {property} · pulls the building&apos;s live expenses; enter the terms, escrow, and any expense override
+                </div>
+                <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                  <Field label="Tenant name" wide><input style={inputStyle} value={draft.name} onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))} placeholder="Acme Retail" /></Field>
+                  <Field label="Unit / suite" hint="(optional)"><input style={inputStyle} value={draft.unitRef} onChange={(e) => setDraft((d) => ({ ...d, unitRef: e.target.value }))} placeholder={`${property}-1817`} /></Field>
+                  <Field label="SF"><input style={inputStyle} value={draft.sqft} onChange={(e) => setDraft((d) => ({ ...d, sqft: e.target.value }))} inputMode="numeric" /></Field>
+                </div>
+                <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                  <Field label="CAM share %"><input style={inputStyle} value={draft.camPrs} onChange={(e) => setDraft((d) => ({ ...d, camPrs: e.target.value }))} inputMode="decimal" /></Field>
+                  <Field label="INS share %"><input style={inputStyle} value={draft.insPrs} onChange={(e) => setDraft((d) => ({ ...d, insPrs: e.target.value }))} inputMode="decimal" /></Field>
+                  <Field label="RET share %"><input style={inputStyle} value={draft.retPrs} onChange={(e) => setDraft((d) => ({ ...d, retPrs: e.target.value }))} inputMode="decimal" /></Field>
+                  <Field label="Admin fee %"><input style={inputStyle} value={draft.adminFeePct} onChange={(e) => setDraft((d) => ({ ...d, adminFeePct: e.target.value }))} inputMode="decimal" /></Field>
+                  <Field label="RET discount %"><input style={inputStyle} value={draft.retDiscountPct} onChange={(e) => setDraft((d) => ({ ...d, retDiscountPct: e.target.value }))} inputMode="decimal" /></Field>
+                  <Field label="CAM escrow $/mo"><input style={inputStyle} value={draft.opexMonth} onChange={(e) => setDraft((d) => ({ ...d, opexMonth: e.target.value }))} inputMode="decimal" /></Field>
+                  <Field label="RET escrow $/mo"><input style={inputStyle} value={draft.reTaxMonth} onChange={(e) => setDraft((d) => ({ ...d, reTaxMonth: e.target.value }))} inputMode="decimal" /></Field>
+                </div>
+                <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
+                  YTD overrides <span style={{ fontWeight: 500, textTransform: "none", letterSpacing: 0 }}>— blank = live GL / monthly × months</span>
+                </div>
+                <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                  <Field label="CAM pool YTD $"><input style={inputStyle} value={draft.opexActualOverride} onChange={(e) => setDraft((d) => ({ ...d, opexActualOverride: e.target.value }))} inputMode="decimal" /></Field>
+                  <Field label="INS pool YTD $"><input style={inputStyle} value={draft.insActualOverride} onChange={(e) => setDraft((d) => ({ ...d, insActualOverride: e.target.value }))} inputMode="decimal" /></Field>
+                  <Field label="RET pool YTD $"><input style={inputStyle} value={draft.retActualOverride} onChange={(e) => setDraft((d) => ({ ...d, retActualOverride: e.target.value }))} inputMode="decimal" /></Field>
+                  <Field label="CAM escrow billed $"><input style={inputStyle} value={draft.camEscrowOverride} onChange={(e) => setDraft((d) => ({ ...d, camEscrowOverride: e.target.value }))} inputMode="decimal" /></Field>
+                  <Field label="INS escrow billed $"><input style={inputStyle} value={draft.insEscrowOverride} onChange={(e) => setDraft((d) => ({ ...d, insEscrowOverride: e.target.value }))} inputMode="decimal" /></Field>
+                  <Field label="RET escrow billed $"><input style={inputStyle} value={draft.retEscrowOverride} onChange={(e) => setDraft((d) => ({ ...d, retEscrowOverride: e.target.value }))} inputMode="decimal" /></Field>
+                </div>
+              </>
             )}
-
-            <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
-              YTD overrides <span style={{ fontWeight: 500, textTransform: "none", letterSpacing: 0 }}>— blank = live GL / monthly × months</span>
-            </div>
-            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-              <Field label={selectedKind === "retail" ? "CAM pool YTD $" : "Opex YTD $"}><input style={inputStyle} value={draft.opexActualOverride} onChange={(e) => setDraft((d) => ({ ...d, opexActualOverride: e.target.value }))} inputMode="decimal" /></Field>
-              {selectedKind === "retail" && <Field label="INS pool YTD $"><input style={inputStyle} value={draft.insActualOverride} onChange={(e) => setDraft((d) => ({ ...d, insActualOverride: e.target.value }))} inputMode="decimal" /></Field>}
-              <Field label="RET pool YTD $"><input style={inputStyle} value={draft.retActualOverride} onChange={(e) => setDraft((d) => ({ ...d, retActualOverride: e.target.value }))} inputMode="decimal" /></Field>
-              <Field label="CAM escrow billed $"><input style={inputStyle} value={draft.camEscrowOverride} onChange={(e) => setDraft((d) => ({ ...d, camEscrowOverride: e.target.value }))} inputMode="decimal" /></Field>
-              {selectedKind === "retail" && <Field label="INS escrow billed $"><input style={inputStyle} value={draft.insEscrowOverride} onChange={(e) => setDraft((d) => ({ ...d, insEscrowOverride: e.target.value }))} inputMode="decimal" /></Field>}
-              <Field label="RET escrow billed $"><input style={inputStyle} value={draft.retEscrowOverride} onChange={(e) => setDraft((d) => ({ ...d, retEscrowOverride: e.target.value }))} inputMode="decimal" /></Field>
-            </div>
             {manualMsg && <span style={{ fontSize: 13, color: "#b42318" }}>{manualMsg}</span>}
           </div>
         )}
       </div>
 
-      {r && meta && (
+      {r && meta && meta.manual && (
+        <EditableOfficeStatement key={`${meta.unitRef}|${meta.name}`} r={r} meta={meta} baseYears={baseYears} onBaseYear={(y) => generateManual({ baseYear: y })} />
+      )}
+
+      {r && meta && !meta.manual && (
         <div className="card">
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, flexWrap: "wrap", marginBottom: 4 }}>
             <div style={{ fontSize: 18, fontWeight: 800 }}>{r.name} <code style={{ fontSize: 13 }}>{r.unitRef}</code></div>
