@@ -134,14 +134,13 @@ export default function InterimReconPage() {
   const [data, setData] = useState<{ result: Result | RetailResult; meta: Meta; kind?: "office" | "retail" } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  // Ad-hoc ("blank") manual statement — not persisted.
-  const [showManual, setShowManual] = useState(false);
+  // Ad-hoc ("manual") tenant entered from the Tenant dropdown — not persisted.
   const [draft, setDraft] = useState<Draft>(emptyDraft);
-  const [manualAsOf, setManualAsOf] = useState<number | "">("");
   const [generating, setGenerating] = useState(false);
   const [manualMsg, setManualMsg] = useState<string | null>(null);
 
   const selectedKind = properties.find((p) => p.code === property)?.kind ?? "office";
+  const isManual = unitRef === "__MANUAL__";
 
   useEffect(() => { fetch("/api/cam-recon/interim").then((r) => r.json()).then((j) => setProperties(j.properties ?? [])); }, []);
   // Load the tenant list whenever the building/year change (no clearing — that's
@@ -168,11 +167,11 @@ export default function InterimReconPage() {
       camEscrowOverride: opt(draft.camEscrowOverride), insEscrowOverride: opt(draft.insEscrowOverride), retEscrowOverride: opt(draft.retEscrowOverride),
     };
     try {
-      const res = await fetch("/api/cam-recon/interim", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ property, year, asOf: manualAsOf || 0, tenant }) });
+      const res = await fetch("/api/cam-recon/interim", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ property, year, asOf: asOf || 0, tenant }) });
       const j = await res.json();
-      if (j.error) { setManualMsg(j.error); setData(null); } else { setData(j); setUnitRef(""); setManualMsg(null); }
+      if (j.error) { setManualMsg(j.error); setData(null); } else { setData(j); setManualMsg(null); }
     } catch (e) { setManualMsg(String(e)); } finally { setGenerating(false); }
-  }, [property, year, draft, manualAsOf]);
+  }, [property, year, asOf, draft]);
 
   const runWith = useCallback((p: string, y: number, ref: string, a: number | "") => {
     if (!p || !ref) return;
@@ -257,62 +256,40 @@ export default function InterimReconPage() {
             </select>
           </label>
           <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12, fontWeight: 600 }}>Tenant
-            <select value={unitRef} onChange={(e) => { setUnitRef(e.target.value); const t = tenants.find((x) => x.unitRef === e.target.value); setAsOf(t?.expiresInYear ?? ""); }} style={{ ...selectStyle, minWidth: 240 }} disabled={!property}>
+            <select value={unitRef} onChange={(e) => { setUnitRef(e.target.value); const t = tenants.find((x) => x.unitRef === e.target.value); setAsOf(t?.expiresInYear ?? ""); setData(null); setError(null); }} style={{ ...selectStyle, minWidth: 240 }} disabled={!property}>
               <option value="">Select…</option>
+              <option value="__MANUAL__">＋ Enter a tenant manually…</option>
               {tenants.map((t) => <option key={t.unitRef} value={t.unitRef}>{t.unitRef} · {t.name}{t.expiresInYear ? ` (expires ${MONTHS[t.expiresInYear - 1].slice(0, 3)})` : ""}</option>)}
             </select>
           </label>
           <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12, fontWeight: 600 }}>As of
             <select value={asOf} onChange={(e) => setAsOf(e.target.value ? Number(e.target.value) : "")} style={selectStyle} disabled={!unitRef}>
-              <option value="">{tenant?.expiresInYear ? `Expiration (${MONTHS[tenant.expiresInYear - 1].slice(0, 3)})` : "Year end (Dec)"}</option>
+              <option value="">{isManual ? "Vacate / year end" : tenant?.expiresInYear ? `Expiration (${MONTHS[tenant.expiresInYear - 1].slice(0, 3)})` : "Year end (Dec)"}</option>
               {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
             </select>
           </label>
-          <button className="btn primary" onClick={run} disabled={!unitRef || loading} style={{ fontSize: 13, padding: "8px 18px", fontWeight: 700 }}>
-            {loading ? "Computing…" : "Generate"}
+          <button className="btn primary" onClick={isManual ? generateManual : run} disabled={!unitRef || loading || generating} style={{ fontSize: 13, padding: "8px 18px", fontWeight: 700 }}>
+            {loading || generating ? "Computing…" : "Generate"}
           </button>
         </div>
         <p className="muted small" style={{ marginTop: 8, marginBottom: 0 }}>
           Recovers the tenant&apos;s pro-rata share of the YTD increase over a <b>prorated base year</b>, less the CAM/RET billed (rent-roll monthly estimate × occupied months). Expenses come live from the building&apos;s GL.
         </p>
         {error && <div style={{ color: "#b42318", fontSize: 13, marginTop: 8 }}>{error}</div>}
-      </div>
 
-      {/* ── Blank / manual statement (e.g. a tenant off the rent roll) ────── */}
-      <div className="card">
-        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-          <div>
-            <div style={{ fontSize: 15, fontWeight: 800 }}>Blank / manual statement</div>
-            <div className="muted small" style={{ marginTop: 2 }}>
-              For a tenant not on the rent roll (e.g. already vacated). Pulls the <b>{property || "selected"} building&apos;s expenses</b> automatically — you enter the tenant&apos;s name, terms and escrow. Leave a YTD/escrow override blank to use the live GL / monthly × months. Nothing is saved.
-            </div>
-          </div>
-          <button className="btn" onClick={() => { setShowManual((v) => !v); setManualMsg(null); }} disabled={!property} style={{ fontSize: 13, padding: "7px 14px", fontWeight: 700 }}>
-            {showManual ? "Close" : "+ New blank statement"}
-          </button>
-        </div>
-
-        {!property && <p className="muted small" style={{ marginTop: 8, marginBottom: 0 }}>Select a building above first.</p>}
-
-        {property && showManual && (
+        {isManual && (
           <div style={{ marginTop: 14, borderTop: "1px solid var(--border)", paddingTop: 14, display: "flex", flexDirection: "column", gap: 14 }}>
             <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
-              {selectedKind === "retail" ? "Retail" : "Office"} terms — {property}
+              Manual tenant — {selectedKind === "retail" ? "retail" : "office"} {property} · pulls the building&apos;s live expenses; enter the terms, escrow, and any expense override
             </div>
             <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-              <Field label="Tenant name" wide><input style={inputStyle} value={draft.name} onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))} placeholder="Jensen & Jensen" /></Field>
-              <Field label="Unit / suite" hint="(optional)"><input style={inputStyle} value={draft.unitRef} onChange={(e) => setDraft((d) => ({ ...d, unitRef: e.target.value }))} placeholder={`${property}-111A`} /></Field>
+              <Field label="Tenant name" wide><input style={inputStyle} value={draft.name} onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))} placeholder="Reliant Care Solutions, LP" /></Field>
+              <Field label="Unit / suite" hint="(optional)"><input style={inputStyle} value={draft.unitRef} onChange={(e) => setDraft((d) => ({ ...d, unitRef: e.target.value }))} placeholder={`${property}-102`} /></Field>
               <Field label="SF"><input style={inputStyle} value={draft.sqft} onChange={(e) => setDraft((d) => ({ ...d, sqft: e.target.value }))} inputMode="numeric" /></Field>
             </div>
             <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
               <Field label="Lease from"><Calendar variant="card" value={draft.leaseFrom} onChange={(iso) => setDraft((d) => ({ ...d, leaseFrom: iso }))} /></Field>
               <Field label="Vacated (move-out)"><Calendar variant="card" value={draft.vacatedISO} onChange={(iso) => setDraft((d) => ({ ...d, vacatedISO: iso }))} /></Field>
-              <Field label="As of" hint="(default: vacate mo.)">
-                <select style={{ ...inputStyle, cursor: "pointer" }} value={manualAsOf} onChange={(e) => setManualAsOf(e.target.value ? Number(e.target.value) : "")}>
-                  <option value="">Vacate / year-end</option>
-                  {MONTHS.map((mo, i) => <option key={mo} value={i + 1}>{mo}</option>)}
-                </select>
-              </Field>
               <Field label="CAM/opex escrow $/mo"><input style={inputStyle} value={draft.opexMonth} onChange={(e) => setDraft((d) => ({ ...d, opexMonth: e.target.value }))} inputMode="decimal" /></Field>
               <Field label="RET escrow $/mo"><input style={inputStyle} value={draft.reTaxMonth} onChange={(e) => setDraft((d) => ({ ...d, reTaxMonth: e.target.value }))} inputMode="decimal" /></Field>
             </div>
@@ -349,12 +326,7 @@ export default function InterimReconPage() {
               {selectedKind === "retail" && <Field label="INS escrow billed $"><input style={inputStyle} value={draft.insEscrowOverride} onChange={(e) => setDraft((d) => ({ ...d, insEscrowOverride: e.target.value }))} inputMode="decimal" /></Field>}
               <Field label="RET escrow billed $"><input style={inputStyle} value={draft.retEscrowOverride} onChange={(e) => setDraft((d) => ({ ...d, retEscrowOverride: e.target.value }))} inputMode="decimal" /></Field>
             </div>
-
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <button className="btn primary" onClick={generateManual} disabled={generating} style={{ fontSize: 13, padding: "8px 18px", fontWeight: 700 }}>{generating ? "Computing…" : "Generate statement"}</button>
-              <button className="btn" onClick={() => setDraft(emptyDraft)} disabled={generating} style={{ fontSize: 13, padding: "8px 14px" }}>Clear</button>
-              {manualMsg && <span style={{ fontSize: 13, color: "#b42318" }}>{manualMsg}</span>}
-            </div>
+            {manualMsg && <span style={{ fontSize: 13, color: "#b42318" }}>{manualMsg}</span>}
           </div>
         )}
       </div>
