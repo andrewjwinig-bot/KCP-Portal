@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { RentRollData } from "@/lib/rentroll/parseRentRollExcel";
 import {
   DEPOSIT_ACCOUNTS,
+  duplicateDepositIds,
   type DepositAccount,
   type SecurityDeposit,
 } from "@/lib/deposits/deposits";
@@ -46,6 +47,17 @@ function groupByTenant(deposits: SecurityDeposit[]): TenantGroup[] {
 function heldTotal(checks: SecurityDeposit[]): number {
   return checks.filter((c) => !c.refunded).reduce((s, c) => s + c.amount, 0);
 }
+
+const DupBadge = ({ title }: { title?: string }) => (
+  <span title={title ?? "Looks like a duplicate of another check for this tenant — open each to compare, then delete the extra."}
+    style={{
+      fontSize: 10, fontWeight: 800, letterSpacing: "0.04em", textTransform: "uppercase",
+      padding: "2px 8px", borderRadius: 999, cursor: "help",
+      background: "rgba(217,119,6,0.12)", color: "#b45309", border: "1px solid rgba(217,119,6,0.35)",
+    }}>
+    ⚠ Possible duplicate
+  </span>
+);
 
 const RefundedBadge = ({ date }: { date: string }) => (
   <span style={{
@@ -136,6 +148,10 @@ export default function SecurityDepositsPage() {
     return deposits.filter((d) => scopeCodes.has(d.propertyCode));
   }, [deposits, scopeCodes]);
 
+  // Records that look like accidental duplicates (same unit + same check #, or
+  // same amount + date) — flagged so staff can open and remove the extras.
+  const dupIds = useMemo(() => duplicateDepositIds(visibleDeposits ?? []), [visibleDeposits]);
+
   const unitOptions = useMemo<UnitOption[]>(() => {
     if (!rentroll) return [];
     const out: UnitOption[] = [];
@@ -217,6 +233,16 @@ export default function SecurityDepositsPage() {
           sub={`All but NI LLC · ${heldByAccount["all-but-ni"].length} checks`} />
       </div>
 
+      {!loading && dupIds.size > 0 && (
+        <div style={{
+          padding: "10px 14px", borderRadius: 10, fontSize: 13, fontWeight: 600,
+          background: "rgba(217,119,6,0.10)", border: "1px solid rgba(217,119,6,0.35)", color: "#b45309",
+        }}>
+          ⚠ {dupIds.size} deposit{dupIds.size === 1 ? "" : "s"} look like possible duplicates (same tenant &amp; check # or amount/date).
+          They&apos;re flagged below — expand the tenant, open each check to compare, then delete the extra.
+        </div>
+      )}
+
       {loading ? (
         <div className="muted small">Loading…</div>
       ) : (
@@ -273,6 +299,7 @@ export default function SecurityDepositsPage() {
                             <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                               <span>{g.tenant || "—"}</span>
                               {d.refunded && <RefundedBadge date={d.refundDate} />}
+                              {dupIds.has(d.id) && <DupBadge />}
                             </div>
                           </td>
                           <td><code style={{ fontSize: 12 }}>{g.unitRef}</code></td>
@@ -287,6 +314,7 @@ export default function SecurityDepositsPage() {
                     const held = heldTotal(g.checks);
                     const allRefunded = g.checks.every((c) => c.refunded);
                     const isOpen = expanded.has(g.unitRef);
+                    const hasDup = g.checks.some((c) => dupIds.has(c.id));
                     return (
                       <Fragment key={g.unitRef}>
                         <tr
@@ -299,6 +327,7 @@ export default function SecurityDepositsPage() {
                               <span style={{ fontSize: 11, color: "var(--muted)", width: 10, display: "inline-block" }}>{isOpen ? "▾" : "▸"}</span>
                               <span>{g.tenant || "—"}</span>
                               {allRefunded && <RefundedBadge date="" />}
+                              {hasDup && <DupBadge title="This tenant has checks that look like duplicates — expand to review and delete the extra." />}
                             </div>
                           </td>
                           <td><code style={{ fontSize: 12 }}>{g.unitRef}</code></td>
@@ -317,6 +346,7 @@ export default function SecurityDepositsPage() {
                                 <span style={{ color: "var(--muted)", fontSize: 12 }}>↳</span>
                                 <span style={{ fontSize: 13 }}>{g.tenant || "—"}</span>
                                 {d.refunded && <RefundedBadge date={d.refundDate} />}
+                                {dupIds.has(d.id) && <DupBadge />}
                               </div>
                             </td>
                             <td><code style={{ fontSize: 12 }}>{g.unitRef}</code></td>
@@ -350,6 +380,7 @@ export default function SecurityDepositsPage() {
             <DepositForm
               deposit={editing}
               unitOptions={unitOptions}
+              allDeposits={deposits ?? []}
               onSaved={onSaved}
               onCheckAdded={onCheckAdded}
               onCancel={closeForm}

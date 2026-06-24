@@ -65,6 +65,41 @@ export type ExtractedCheck = {
   checkDate: string;       // ISO YYYY-MM-DD, or ""
 };
 
+/** Normalize a check number for duplicate comparison (alphanumerics only,
+ *  lowercased) so "#1234" and "1234" match. */
+export function normalizeCheckNumber(s: string): string {
+  return (s ?? "").replace(/[^a-z0-9]/gi, "").toLowerCase();
+}
+
+/** A within-unit signature for spotting an accidental duplicate entry: the
+ *  check number when present, else the amount + date. Returns null when there
+ *  isn't enough to call it a duplicate (no check #, no amount). */
+export function depositDupKey(d: Pick<SecurityDeposit, "checkNumber" | "amount" | "checkDate">): string | null {
+  const cn = normalizeCheckNumber(d.checkNumber);
+  if (cn) return `c:${cn}`;
+  if (d.amount > 0) return `a:${Math.round(d.amount * 100)}|${d.checkDate || "?"}`;
+  return null;
+}
+
+/** Ids of deposits that look like duplicates: 2+ records for the SAME unit that
+ *  share a dup signature (same check #, or same amount + date). */
+export function duplicateDepositIds(deposits: SecurityDeposit[]): Set<string> {
+  const byKey = new Map<string, SecurityDeposit[]>();
+  for (const d of deposits) {
+    const sig = depositDupKey(d);
+    if (!sig) continue;
+    const k = `${d.unitRef}|${sig}`;
+    const arr = byKey.get(k);
+    if (arr) arr.push(d);
+    else byKey.set(k, [d]);
+  }
+  const dups = new Set<string>();
+  for (const arr of byKey.values()) {
+    if (arr.length > 1) for (const d of arr) dups.add(d.id);
+  }
+  return dups;
+}
+
 export function newDepositId(): string {
   // UUID when available (server + modern browsers) so rapidly-added checks can
   // never collide on an id and overwrite each other; timestamp+random fallback.
