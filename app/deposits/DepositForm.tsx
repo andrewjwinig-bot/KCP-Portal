@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Calendar } from "@/app/components/Calendar";
-import { accountForProperty, DEPOSIT_ACCOUNTS, type SecurityDeposit } from "@/lib/deposits/deposits";
+import { accountForProperty, DEPOSIT_ACCOUNTS, depositDupKey, type SecurityDeposit } from "@/lib/deposits/deposits";
 
 export type UnitOption = {
   unitRef: string;
@@ -59,6 +59,7 @@ export default function DepositForm({
   deposit,
   unitOptions,
   fixedUnitRef,
+  allDeposits,
   onSaved,
   onCheckAdded,
   onCancel,
@@ -67,6 +68,8 @@ export default function DepositForm({
   deposit: SecurityDeposit | null;
   unitOptions: UnitOption[];
   fixedUnitRef?: string;
+  /** All deposits (for a live "looks like a duplicate" warning on entry). */
+  allDeposits?: SecurityDeposit[];
   onSaved: (d: SecurityDeposit) => void;
   /** Called when a check is saved via "Save & add another check" — the parent
    *  updates its list but the modal stays open for the next check. */
@@ -115,6 +118,18 @@ export default function DepositForm({
         }
       : null);
   const account = unit ? accountForProperty(unit.propertyCode) : null;
+
+  // Live duplicate guard: another saved check for this same unit matching the
+  // current check # (or amount + date). Informational only — a tenant can
+  // legitimately pay via multiple checks — but a match is usually a double-entry.
+  const dupMatch = (() => {
+    if (!unit) return null;
+    const sig = depositDupKey({ checkNumber, amount: Number(amount) || 0, checkDate });
+    if (!sig) return null;
+    return (allDeposits ?? []).find(
+      (x) => x.id !== editId && x.unitRef === unit.unitRef && depositDupKey(x) === sig,
+    ) ?? null;
+  })();
 
   async function onPickFile(rawFile: File) {
     setExtractNote(null);
@@ -409,6 +424,18 @@ export default function DepositForm({
           <span style={{ fontSize: 12, color: "var(--muted)" }}>{extractNote}</span>
         )}
       </div>
+
+      {dupMatch && (
+        <div style={{
+          padding: "8px 10px", borderRadius: 8,
+          background: "rgba(217,119,6,0.10)", border: "1px solid rgba(217,119,6,0.35)",
+          color: "#b45309", fontSize: 12, fontWeight: 600,
+        }}>
+          ⚠ This tenant already has {dupMatch.checkNumber ? `check #${dupMatch.checkNumber}` : "a check"}
+          {dupMatch.amount ? ` for $${dupMatch.amount.toLocaleString("en-US")}` : ""}
+          {dupMatch.checkDate ? ` dated ${dupMatch.checkDate}` : ""} on file. If it&apos;s the same check, don&apos;t enter it twice.
+        </div>
+      )}
 
       {/* Check fields */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
