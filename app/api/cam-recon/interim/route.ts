@@ -17,7 +17,6 @@ import { emptyCamConfig } from "@/lib/cam/config";
 import { getEscrowOverrides } from "@/lib/cam/retail/escrowStore";
 import { getPoolOverride } from "@/lib/cam/retail/poolStore";
 import { getFinalOverrides, RET_FINAL_KEY } from "@/lib/cam/retail/finalStore";
-import { listFormerTenants, type FormerTenant } from "@/lib/cam/formerTenants";
 import type { RetailTenantInput } from "@/lib/cam/retail/types";
 import type { OfficeTenantInput, OfficeExpensePool } from "@/lib/cam/office/types";
 
@@ -25,6 +24,39 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const JV_III = new Set(["3610", "3620", "3640"]);
+
+/** Ad-hoc ("blank") tenant inputs for a manual interim statement — entered by
+ *  staff, NOT persisted. The building's expense pool is pulled live; the caller
+ *  supplies the tenant's name, terms and escrow, and may override the YTD
+ *  expense / escrow figures (blank → live GL / monthly × months). */
+type ManualInput = {
+  unitRef?: string | null;
+  name: string;
+  sqft: number;
+  leaseFrom: string | null;
+  vacatedISO: string | null;
+  opexMonth: number;
+  reTaxMonth: number;
+  // Office methodology
+  baseYear?: number;
+  noBaseStop?: boolean;
+  grossUp?: boolean;
+  proRataPct?: number;
+  // Retail methodology
+  camPrs?: number;
+  insPrs?: number;
+  retPrs?: number;
+  adminFeePct?: number;
+  retDiscountPct?: number;
+  // YTD-actual overrides (windowed totals; null → live)
+  opexActualOverride?: number | null;
+  retActualOverride?: number | null;
+  insActualOverride?: number | null;
+  // Escrow overrides (windowed totals; null → monthly × months)
+  camEscrowOverride?: number | null;
+  insEscrowOverride?: number | null;
+  retEscrowOverride?: number | null;
+};
 
 /** "M/D/YYYY" → { y, m } (1–12), or null. */
 function parseUS(s: string | null | undefined): { y: number; m: number } | null {
@@ -56,25 +88,26 @@ async function configFor(property: string, year: number): Promise<Record<string,
   return mergeConfig(seededWithUnit, await getOverrides(property, year));
 }
 
-/** Interim statement for a FORMER (vacated) retail tenant — sourced from the
- *  manually-entered record (lib/cam/formerTenants) instead of the rent roll.
- *  CAM/INS/RET YTD-actual + escrow overrides win when set; otherwise CAM pulls
- *  live from the GL and INS/RET prorate the property pool. */
-async function retailFormerResult(
+/** Interim statement for an ad-hoc RETAIL tenant entered by staff — the
+ *  building's CAM/INS/RET pools are pulled live; the caller supplies the
+ *  tenant's terms + escrow. CAM/INS/RET YTD-actual + escrow overrides win when
+ *  set; otherwise CAM pulls live from the GL and INS/RET prorate the pool. */
+async function retailManualResult(
   property: string,
   year: number,
-  former: FormerTenant,
+  m: ManualInput,
   asOfParam: number,
   retailFix: (typeof RETAIL_RECON_FIXTURES)[string],
 ): Promise<NextResponse> {
-  const start = parseUS(former.leaseFrom);
+  const unitRef = (m.unitRef ?? "").trim() || `${property}-MANUAL`;
+  const start = parseUS(m.leaseFrom);
   const startMonth = start && start.y === year ? start.m : 1;
-  const vac = parseUS(former.vacatedISO);
+  const vac = parseUS(m.vacatedISO);
   const vacMonth = vac && vac.y === year ? vac.m : 12;
   const asOfMonth = Math.min(12, Math.max(1, asOfParam || vacMonth));
-  const name = former.name;
+  const name = m.name;
 
-  const hasCamOverride = former.opexActualOverride != null;
+  const hasCamOverride = m.opexActualOverride != null;
   const gl = await assembledGl(property, year);
   const maxPosted = gl?.maxPeriodInFile ?? 0;
   // A manual CAM override is already the full occupied-window pool, so window to
@@ -85,9 +118,9 @@ async function retailFormerResult(
   if (occupiedMonths <= 0 || (!hasCamOverride && !gl)) {
     return NextResponse.json({
       error: !hasCamOverride && !gl
-        ? `No GL uploaded for ${property} ${year} — enter a manual CAM (YTD) override for ${name}, or upload the GL.`
-        : `No occupied months for ${name} through the as-of month (lease from ${former.leaseFrom ?? "?"}, vacated ${former.vacatedISO ?? "?"}).`,
-      meta: { property, propertyName: propName(property), unitRef: former.unitRef, name, year, asOfMonth, maxPosted, startMonth },
+        ? `No GL uploaded for ${property} ${year} — enter a manual CAM (YTD) figure, or upload the GL.`
+        : `No occupied months for ${name} through the as-of month (lease from ${m.leaseFrom ?? "?"}, vacated ${m.vacatedISO ?? "?"}).`,
+      meta: { property, propertyName: propName(property), unitRef, name, year, asOfMonth, maxPosted, startMonth },
     }, { status: 422 });
   }
 
@@ -112,58 +145,60 @@ async function retailFormerResult(
     }
   }
 
-  const camEscrow = former.camEscrowOverride ?? former.opexMonth * occupiedMonths;
-  const retEscrow = former.retEscrowOverride ?? former.reTaxMonth * occupiedMonths;
-  const insEscrow = former.insEscrowOverride ?? 0;
+  const camEscrow = m.camEscrowOverride ?? m.opexMonth * occupiedMonths;
+  const retEscrow = m.retEscrowOverride ?? m.reTaxMonth * occupiedMonths;
+  const insEscrow = m.insEscrowOverride ?? 0;
 
   const tenant: RetailTenantInput = {
-    unitRef: former.unitRef, suite: former.unitRef.split("-").slice(1).join("-"), name, sqft: former.sqft,
-    occPct: 1, rcd: former.leaseFrom, vacatedISO: former.vacatedISO,
-    camPrs: former.camPrs ?? 0, insPrs: former.insPrs ?? 0, retPrs: former.retPrs ?? 0,
+    unitRef, suite: unitRef.split("-").slice(1).join("-"), name, sqft: m.sqft,
+    occPct: 1, rcd: m.leaseFrom, vacatedISO: m.vacatedISO,
+    camPrs: m.camPrs ?? 0, insPrs: m.insPrs ?? 0, retPrs: m.retPrs ?? 0,
     camDenom: 0, insDenom: 0, retDenom: 0,
-    adminFeePct: former.adminFeePct ?? 0, grossLease: false,
-    camExcludedLabels: [], adminExcludedLabels: [], retDiscountPct: former.retDiscountPct ?? 0,
+    adminFeePct: m.adminFeePct ?? 0, grossLease: false,
+    camExcludedLabels: [], adminExcludedLabels: [], retDiscountPct: m.retDiscountPct ?? 0,
     camEscrow, insEscrow, retEscrow,
   };
 
   const result = reconcileInterimRetailTenant({
     pool, tenant, ytdCamByAccount, occupiedMonths, asOfMonth, unpostedMonths,
     overrides: {
-      camPool: former.opexActualOverride ?? null,
-      insPool: former.insActualOverride ?? null,
-      retPool: former.retActualOverride ?? null,
+      camPool: m.opexActualOverride ?? null,
+      insPool: m.insActualOverride ?? null,
+      retPool: m.retActualOverride ?? null,
     },
   });
   return NextResponse.json({
     result, kind: "retail",
     meta: {
-      property, propertyName: propName(property), unitRef: former.unitRef, name, year,
+      property, propertyName: propName(property), unitRef, name, year,
       asOfMonth, effectiveThrough, occupiedMonths, unpostedMonths, maxPosted,
-      startMonth, leaseFrom: former.leaseFrom, leaseTo: former.vacatedISO, sqft: former.sqft,
+      startMonth, leaseFrom: m.leaseFrom, leaseTo: m.vacatedISO, sqft: m.sqft,
       opexMonth: occupiedMonths ? camEscrow / occupiedMonths : 0,
       reTaxMonth: occupiedMonths ? retEscrow / occupiedMonths : 0,
-      proRataPct: result.camPrs, glAsOf: gl?.uploadedAt ?? null, former: true,
+      proRataPct: result.camPrs, glAsOf: gl?.uploadedAt ?? null, manual: true,
     },
   });
 }
 
-/** Interim statement for a FORMER (vacated) office tenant. Opex/RET YTD-actual
- *  + escrow overrides win when set; otherwise actuals come live from the GL. */
-async function officeFormerResult(
+/** Interim statement for an ad-hoc OFFICE tenant entered by staff. Opex/RET
+ *  YTD-actual + escrow overrides win when set; otherwise actuals come live from
+ *  the building's GL. */
+async function officeManualResult(
   property: string,
   year: number,
-  former: FormerTenant,
+  m: ManualInput,
   asOfParam: number,
   fixture: (typeof OFFICE_RECON_FIXTURES)[string],
 ): Promise<NextResponse> {
-  const start = parseUS(former.leaseFrom);
+  const unitRef = (m.unitRef ?? "").trim() || `${property}-MANUAL`;
+  const start = parseUS(m.leaseFrom);
   const startMonth = start && start.y === year ? start.m : 1;
-  const vac = parseUS(former.vacatedISO);
+  const vac = parseUS(m.vacatedISO);
   const vacMonth = vac && vac.y === year ? vac.m : 12;
   const asOfMonth = Math.min(12, Math.max(1, asOfParam || vacMonth));
-  const name = former.name;
+  const name = m.name;
 
-  const hasExpenseOverride = former.opexActualOverride != null || former.retActualOverride != null;
+  const hasExpenseOverride = m.opexActualOverride != null || m.retActualOverride != null;
   const gl = await assembledGl(property, year);
   const maxPosted = gl?.maxPeriodInFile ?? 0;
   const effectiveThrough = hasExpenseOverride ? asOfMonth : Math.min(asOfMonth, maxPosted);
@@ -172,9 +207,9 @@ async function officeFormerResult(
   if (occupiedMonths <= 0 || (!hasExpenseOverride && !gl)) {
     return NextResponse.json({
       error: !hasExpenseOverride && !gl
-        ? `No GL uploaded for ${property} ${year} — enter a manual YTD expense override for ${name}, or upload the GL.`
-        : `No occupied months for ${name} through the as-of month (lease from ${former.leaseFrom ?? "?"}, vacated ${former.vacatedISO ?? "?"}).`,
-      meta: { property, propertyName: propName(property), unitRef: former.unitRef, name, year, asOfMonth, maxPosted, startMonth },
+        ? `No GL uploaded for ${property} ${year} — enter a manual YTD expense figure, or upload the GL.`
+        : `No occupied months for ${name} through the as-of month (lease from ${m.leaseFrom ?? "?"}, vacated ${m.vacatedISO ?? "?"}).`,
+      meta: { property, propertyName: propName(property), unitRef, name, year, asOfMonth, maxPosted, startMonth },
     }, { status: 422 });
   }
 
@@ -193,35 +228,93 @@ async function officeFormerResult(
     }
   }
 
-  const opexEscrow = former.camEscrowOverride ?? former.opexMonth * occupiedMonths;
-  const retEscrow = former.retEscrowOverride ?? former.reTaxMonth * occupiedMonths;
+  const opexEscrow = m.camEscrowOverride ?? m.opexMonth * occupiedMonths;
+  const retEscrow = m.retEscrowOverride ?? m.reTaxMonth * occupiedMonths;
 
   const tenant: OfficeTenantInput = {
-    unitRef: former.unitRef, skylineUnit: `${former.unitRef}-CU`, suite: former.unitRef.split("-").slice(1).join("-"), name,
-    baseYear: former.baseYear ?? 0, noBaseStop: former.noBaseStop, grossUp: !!former.grossUp, proRataPct: former.proRataPct ?? 0,
-    sqft: former.sqft, occPct: 1, recoveryPct: 1,
+    unitRef, skylineUnit: `${unitRef}-CU`, suite: unitRef.split("-").slice(1).join("-"), name,
+    baseYear: m.baseYear ?? 0, noBaseStop: m.noBaseStop, grossUp: !!m.grossUp, proRataPct: m.proRataPct ?? 0,
+    sqft: m.sqft, occPct: 1, recoveryPct: 1,
     opexEscrow, retEscrow,
     camMonthly: occupiedMonths ? opexEscrow / occupiedMonths : 0,
     retMonthly: occupiedMonths ? retEscrow / occupiedMonths : 0,
-    rcd: former.leaseFrom,
+    rcd: m.leaseFrom,
   };
 
   const result = reconcileInterimTenant({
     pool, tenant, reconYear: year, ytdRawByAccount, occupiedMonths, asOfMonth, unpostedMonths,
-    opexActualOverride: former.opexActualOverride ?? null,
-    retActualOverride: former.retActualOverride ?? null,
+    opexActualOverride: m.opexActualOverride ?? null,
+    retActualOverride: m.retActualOverride ?? null,
   });
   return NextResponse.json({
     result, kind: "office",
     meta: {
-      property, propertyName: propName(property), unitRef: former.unitRef, name, year,
+      property, propertyName: propName(property), unitRef, name, year,
       asOfMonth, effectiveThrough, occupiedMonths, unpostedMonths, maxPosted,
-      startMonth, leaseFrom: former.leaseFrom, leaseTo: former.vacatedISO, sqft: former.sqft,
+      startMonth, leaseFrom: m.leaseFrom, leaseTo: m.vacatedISO, sqft: m.sqft,
       opexMonth: tenant.camMonthly, reTaxMonth: tenant.retMonthly,
-      baseYear: former.baseYear ?? 0, proRataPct: former.proRataPct ?? 0, grossUp: !!former.grossUp,
-      glAsOf: gl?.uploadedAt ?? null, former: true,
+      baseYear: m.baseYear ?? 0, proRataPct: m.proRataPct ?? 0, grossUp: !!m.grossUp,
+      glAsOf: gl?.uploadedAt ?? null, manual: true,
     },
   });
+}
+
+/** Coerce a raw request body into ManualInput. */
+function parseManual(t: any): ManualInput {
+  const optNum = (v: unknown): number | null => {
+    if (v === null || v === undefined || v === "") return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  };
+  const num = (v: unknown): number => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
+  const str = (v: unknown): string => (typeof v === "string" ? v.trim() : "");
+  return {
+    unitRef: str(t?.unitRef) || null,
+    name: str(t?.name) || "Manual tenant",
+    sqft: num(t?.sqft),
+    leaseFrom: str(t?.leaseFrom) || null,
+    vacatedISO: str(t?.vacatedISO) || null,
+    opexMonth: num(t?.opexMonth),
+    reTaxMonth: num(t?.reTaxMonth),
+    baseYear: optNum(t?.baseYear) ?? undefined,
+    noBaseStop: !!t?.noBaseStop,
+    grossUp: !!t?.grossUp,
+    proRataPct: optNum(t?.proRataPct) ?? undefined,
+    camPrs: optNum(t?.camPrs) ?? undefined,
+    insPrs: optNum(t?.insPrs) ?? undefined,
+    retPrs: optNum(t?.retPrs) ?? undefined,
+    adminFeePct: optNum(t?.adminFeePct) ?? undefined,
+    retDiscountPct: optNum(t?.retDiscountPct) ?? undefined,
+    opexActualOverride: optNum(t?.opexActualOverride),
+    retActualOverride: optNum(t?.retActualOverride),
+    insActualOverride: optNum(t?.insActualOverride),
+    camEscrowOverride: optNum(t?.camEscrowOverride),
+    insEscrowOverride: optNum(t?.insEscrowOverride),
+    retEscrowOverride: optNum(t?.retEscrowOverride),
+  };
+}
+
+/** POST /api/cam-recon/interim — ad-hoc ("blank") interim statement.
+ *  Body: { property, year, asOf?, tenant: ManualInput }. The building's expense
+ *  pool is pulled live; the supplied terms + escrow drive the statement. Kind
+ *  (office/retail) is taken from the building's fixture. */
+export async function POST(req: NextRequest) {
+  try {
+    const body = await req.json();
+    const property = typeof body?.property === "string" ? body.property : "";
+    const year = Number(body?.year);
+    const asOf = Number(body?.asOf) || 0;
+    if (!property || !year) return NextResponse.json({ error: "property + year required" }, { status: 400 });
+    const m = parseManual(body?.tenant);
+
+    const retailFix = RETAIL_RECON_FIXTURES[property];
+    if (retailFix) return await retailManualResult(property, year, m, asOf, retailFix);
+    const fixture = OFFICE_RECON_FIXTURES[property];
+    if (fixture) return await officeManualResult(property, year, m, asOf, fixture);
+    return NextResponse.json({ error: `No reconciliation fixture for ${property}` }, { status: 404 });
+  } catch (err: any) {
+    return NextResponse.json({ error: err?.message ?? String(err) }, { status: 500 });
+  }
 }
 
 /** GET /api/cam-recon/interim
@@ -247,11 +340,6 @@ export async function GET(req: NextRequest) {
   const rentroll = (await getJSON("rentroll", "current")) as RentRollData | null;
   const liveUnits = (rentroll?.properties.flatMap((p) => p.units) ?? []).filter((u) => !u.isVacant);
   const liveByRef = new Map(liveUnits.map((u) => [u.unitRef, u]));
-
-  // Manually-entered former (vacated) tenants — off the rent roll, but still
-  // reconcilable. They join the picker and route to a dedicated compute path.
-  const formers = year ? await listFormerTenants(property, year) : [];
-  const formerByRef = new Map(formers.map((f) => [f.unitRef, f]));
   const asOfParam = Number(searchParams.get("asOf"));
 
   // ── Retail interim ────────────────────────────────────────────────────────
@@ -260,21 +348,14 @@ export async function GET(req: NextRequest) {
     const ry = Object.keys(retailFix.byYear).map(Number).sort((a, b) => b - a)[0];
     const roster = retailFix.byYear[ry]?.roster ?? [];
     if (!unitRef) {
-      const rosterTenants = roster.filter((u) => !u.vacant).map((u) => {
+      const tenants = roster.filter((u) => !u.vacant).map((u) => {
         const live = liveByRef.get(u.unitRef);
         const leaseTo = live?.leaseTo ?? null;
         const exp = parseUS(leaseTo);
-        return { unitRef: u.unitRef, name: live?.occupantName ?? u.name, leaseTo, expiresInYear: exp?.y === year ? exp.m : null, former: false };
-      });
-      const formerTenants = formers.map((f) => {
-        const vac = parseUS(f.vacatedISO);
-        return { unitRef: f.unitRef, name: f.name, leaseTo: f.vacatedISO, expiresInYear: vac?.y === year ? vac.m : null, former: true };
-      });
-      const tenants = [...rosterTenants, ...formerTenants].sort((a, b) => a.unitRef.localeCompare(b.unitRef));
+        return { unitRef: u.unitRef, name: live?.occupantName ?? u.name, leaseTo, expiresInYear: exp?.y === year ? exp.m : null };
+      }).sort((a, b) => a.unitRef.localeCompare(b.unitRef));
       return NextResponse.json({ tenants, kind: "retail" });
     }
-    const former = formerByRef.get(unitRef);
-    if (former) return retailFormerResult(property, year, former, asOfParam, retailFix);
     const rosterU = roster.find((u) => u.unitRef === unitRef);
     if (!rosterU) return NextResponse.json({ error: `${unitRef} isn't on the ${property} roster.` }, { status: 404 });
     const live = liveByRef.get(unitRef);
@@ -353,13 +434,12 @@ export async function GET(req: NextRequest) {
 
   const config = await configFor(property, year);
 
-  // Tenant picker: occupied units that have a lease config (can be reconciled),
-  // plus any manually-entered former (vacated) tenants.
+  // Tenant picker: occupied units that have a lease config (can be reconciled).
   if (!unitRef) {
     const seenRefs = new Set<string>([...liveByRef.keys()]);
     const cfgYear = Object.keys(fixture.byYear).map(Number).sort((a, b) => b - a)[0];
     for (const u of fixture.byYear[cfgYear]?.roster ?? []) if (!u.isVacant) seenRefs.add(u.unitRef);
-    const rosterTenants = [...seenRefs]
+    const tenants = [...seenRefs]
       .filter((ref) => ref.startsWith(`${property}-`) && config[ref])
       .map((ref) => {
         const live = liveByRef.get(ref);
@@ -367,18 +447,11 @@ export async function GET(req: NextRequest) {
         const name = live?.occupantName ?? rosterU?.occupantName ?? ref;
         const leaseTo = live?.leaseTo ?? rosterU?.leaseTo ?? null;
         const exp = parseUS(leaseTo);
-        return { unitRef: ref, name, leaseTo, expiresInYear: exp?.y === year ? exp.m : null, former: false };
-      });
-    const formerTenants = formers.map((f) => {
-      const vac = parseUS(f.vacatedISO);
-      return { unitRef: f.unitRef, name: f.name, leaseTo: f.vacatedISO, expiresInYear: vac?.y === year ? vac.m : null, former: true };
-    });
-    const tenants = [...rosterTenants, ...formerTenants].sort((a, b) => a.unitRef.localeCompare(b.unitRef));
+        return { unitRef: ref, name, leaseTo, expiresInYear: exp?.y === year ? exp.m : null };
+      })
+      .sort((a, b) => a.unitRef.localeCompare(b.unitRef));
     return NextResponse.json({ tenants, kind: "office" });
   }
-
-  const formerOffice = formerByRef.get(unitRef);
-  if (formerOffice) return officeFormerResult(property, year, formerOffice, asOfParam, fixture);
 
   if (!config[unitRef]) return NextResponse.json({ error: `${unitRef} has no lease config — it isn't reconciled.` }, { status: 404 });
 
