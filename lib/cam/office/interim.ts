@@ -56,7 +56,14 @@ export type InterimReconResult = TenantReconResult & {
 };
 
 /** Reconcile one office tenant as-of a month. `ytdRawByAccount` is the GL YTD
- *  over the occupied/posted window (raw GL accounts → dollars). */
+ *  over the occupied/posted window (raw GL accounts → dollars).
+ *
+ *  For a former (vacated) tenant whose GL is unreliable or who isn't on the
+ *  rent roll, the caller can pass `opexActualOverride` / `retActualOverride` —
+ *  the windowed YTD actual the share is computed against. When set, that
+ *  category collapses to a single "manual YTD" schedule line (base still
+ *  prorated from the seeded base year) so the typed total IS the actual. A
+ *  null/undefined override falls back to the live GL above. */
 export function reconcileInterimTenant(args: {
   pool: OfficeExpensePool;
   tenant: OfficeTenantInput; // baseYear, grossUp, proRataPct, camMonthly, retMonthly, sqft…
@@ -65,6 +72,8 @@ export function reconcileInterimTenant(args: {
   occupiedMonths: number;
   asOfMonth: number;
   unpostedMonths?: number;
+  opexActualOverride?: number | null;
+  retActualOverride?: number | null;
 }): InterimReconResult {
   const { pool, tenant, reconYear, ytdRawByAccount, occupiedMonths, asOfMonth } = args;
   const fraction = occupiedMonths / 12;
@@ -93,5 +102,50 @@ export function reconcileInterimTenant(args: {
   // captured — don't double-prorate via occPct/recoveryPct.
   const t: OfficeTenantInput = { ...tenant, occPct: 1, recoveryPct: 1 };
   const res = reconcileTenant(scaledPool, t, reconYear);
-  return { ...res, occupiedMonths, asOfMonth, unpostedMonths: args.unpostedMonths ?? 0 };
+  const withOverrides = applyManualActuals(res, t, args.opexActualOverride, args.retActualOverride);
+  return { ...withOverrides, occupiedMonths, asOfMonth, unpostedMonths: args.unpostedMonths ?? 0 };
+}
+
+/** Replace the opex and/or RET actuals with a manually-entered windowed YTD
+ *  total, recomputing net increase, amount due and balance. The (already
+ *  prorated) base from the live computation is kept, so the recovery is the
+ *  tenant's share of (manual actual − prorated base). */
+function applyManualActuals(
+  res: TenantReconResult,
+  t: OfficeTenantInput,
+  opexActualOverride?: number | null,
+  retActualOverride?: number | null,
+): TenantReconResult {
+  const share = t.proRataPct / 100;
+  let out = res;
+
+  if (opexActualOverride != null) {
+    const base = res.opexBaseTotal;
+    const actual = opexActualOverride;
+    const net = Math.max(0, actual - base);
+    const due = net * share * t.recoveryPct;
+    out = {
+      ...out,
+      opexLines: [{ glAccount: "MANUAL", label: "Operating Expenses (manual YTD)", baseCost: base, actual, netIncrease: net }],
+      opexActualTotal: actual,
+      opexNetIncrease: net,
+      opexAmountDue: due,
+      opexBalance: due - t.opexEscrow,
+    };
+  }
+
+  if (retActualOverride != null) {
+    const base = res.retLine.baseCost;
+    const actual = retActualOverride;
+    const net = Math.max(0, actual - base);
+    const due = net * share * t.recoveryPct;
+    out = {
+      ...out,
+      retLine: { ...out.retLine, actual, netIncrease: net },
+      retAmountDue: due,
+      retBalance: due - t.retEscrow,
+    };
+  }
+
+  return out;
 }

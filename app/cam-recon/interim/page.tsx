@@ -1,12 +1,14 @@
 "use client";
 
 // Interim ("as-of month") CAM/RET reconciliation — for a mid-year move-out.
-// Pick an office building + tenant + as-of month; the statement recovers the
-// tenant's share of the YTD increase over a prorated base, less billed. Office
-// only for now (retail interim is a later phase).
+// Pick a building (office or retail) + tenant + as-of month; the statement
+// recovers the tenant's share of the YTD increase over a prorated base, less
+// billed. Former (vacated) tenants who've dropped off the rent roll can be
+// entered here too, with optional YTD-expense + escrow overrides.
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { Calendar } from "@/app/components/Calendar";
 import { drawTenantStatement } from "@/lib/cam/office/statementPdf";
 import { drawRetailStatement } from "@/lib/cam/retail/statementPdf";
 import type { TenantReconResult } from "@/lib/cam/office/types";
@@ -22,11 +24,56 @@ type ScheduleLine = { glAccount: string; label: string; baseCost: number; actual
 type Result = TenantReconResult & { occupiedMonths: number; asOfMonth: number; unpostedMonths: number };
 type RetailResult = RetailTenantResult & { occupiedMonths: number; asOfMonth: number; unpostedMonths: number };
 type Meta = { property: string; propertyName: string; unitRef: string; name: string; year: number; asOfMonth: number; effectiveThrough: number; occupiedMonths: number; unpostedMonths: number; maxPosted: number; startMonth: number; leaseFrom: string | null; leaseTo: string | null; sqft: number; opexMonth: number; reTaxMonth: number; baseYear?: number; proRataPct: number; grossUp?: boolean; glAsOf: string | null };
-type Tenant = { unitRef: string; name: string; leaseTo: string | null; expiresInYear: number | null };
+type Tenant = { unitRef: string; name: string; leaseTo: string | null; expiresInYear: number | null; former?: boolean };
+type FormerTenant = {
+  unitRef: string; kind: "office" | "retail"; name: string; sqft: number;
+  leaseFrom: string | null; vacatedISO: string | null; opexMonth: number; reTaxMonth: number;
+  baseYear?: number; noBaseStop?: boolean; grossUp?: boolean; proRataPct?: number;
+  camPrs?: number; insPrs?: number; retPrs?: number; adminFeePct?: number; retDiscountPct?: number;
+  opexActualOverride?: number | null; retActualOverride?: number | null; insActualOverride?: number | null;
+  camEscrowOverride?: number | null; insEscrowOverride?: number | null; retEscrowOverride?: number | null;
+};
+
+type Draft = {
+  unitRef: string; name: string; sqft: string; leaseFrom: string; vacatedISO: string; opexMonth: string; reTaxMonth: string;
+  baseYear: string; noBaseStop: boolean; grossUp: boolean; proRataPct: string;
+  camPrs: string; insPrs: string; retPrs: string; adminFeePct: string; retDiscountPct: string;
+  opexActualOverride: string; retActualOverride: string; insActualOverride: string;
+  camEscrowOverride: string; insEscrowOverride: string; retEscrowOverride: string;
+};
+const emptyDraft: Draft = {
+  unitRef: "", name: "", sqft: "", leaseFrom: "", vacatedISO: "", opexMonth: "", reTaxMonth: "",
+  baseYear: "", noBaseStop: false, grossUp: true, proRataPct: "",
+  camPrs: "", insPrs: "", retPrs: "", adminFeePct: "", retDiscountPct: "",
+  opexActualOverride: "", retActualOverride: "", insActualOverride: "",
+  camEscrowOverride: "", insEscrowOverride: "", retEscrowOverride: "",
+};
 
 const selectStyle: React.CSSProperties = { borderRadius: 8, padding: "8px 12px", fontSize: 13, fontWeight: 600, border: "1px solid rgba(11,74,125,0.3)", background: "var(--card)", color: "#0b4a7d", cursor: "pointer" };
+const inputStyle: React.CSSProperties = { borderRadius: 6, padding: "8px 10px", fontSize: 13, border: "1px solid var(--border)", background: "var(--card)", color: "var(--text)", width: "100%", boxSizing: "border-box" };
+
+/** "YYYY-MM-DD" → "M/D/YYYY" (the format the recon engine + rent roll use). */
+function isoToUS(iso: string): string {
+  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return m ? `${Number(m[2])}/${Number(m[3])}/${m[1]}` : iso;
+}
+/** "M/D/YYYY" → "YYYY-MM-DD" for the Calendar value. */
+function usToISO(us: string | null | undefined): string {
+  if (!us) return "";
+  const m = us.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  return m ? `${m[3]}-${m[1].padStart(2, "0")}-${m[2].padStart(2, "0")}` : "";
+}
 const numTd: React.CSSProperties = { textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" };
 const secLabel: React.CSSProperties = { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
+
+function Field({ label, hint, wide, children }: { label: string; hint?: string; wide?: boolean; children: React.ReactNode }) {
+  return (
+    <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12, fontWeight: 600, width: wide ? 220 : 130 }}>
+      <span>{label}{hint ? <span className="muted" style={{ fontWeight: 400 }}> {hint}</span> : null}</span>
+      {children}
+    </label>
+  );
+}
 
 function BalanceRow({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
   return (
@@ -92,7 +139,7 @@ function Column({ title, lines, base, actual, net, due, escrow, balance, proRata
 
 export default function InterimReconPage() {
   const now = new Date();
-  const [properties, setProperties] = useState<{ code: string; name: string }[]>([]);
+  const [properties, setProperties] = useState<{ code: string; name: string; kind?: "office" | "retail" }[]>([]);
   const [property, setProperty] = useState("");
   const [year, setYear] = useState(now.getFullYear());
   const [tenants, setTenants] = useState<Tenant[]>([]);
@@ -101,14 +148,75 @@ export default function InterimReconPage() {
   const [data, setData] = useState<{ result: Result | RetailResult; meta: Meta; kind?: "office" | "retail" } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  // Former (vacated) tenant manager.
+  const [formers, setFormers] = useState<FormerTenant[]>([]);
+  const [showFormer, setShowFormer] = useState(false);
+  const [draft, setDraft] = useState<Draft>(emptyDraft);
+  const [savingFormer, setSavingFormer] = useState(false);
+  const [formerMsg, setFormerMsg] = useState<string | null>(null);
+
+  const selectedKind = properties.find((p) => p.code === property)?.kind ?? "office";
 
   useEffect(() => { fetch("/api/cam-recon/interim").then((r) => r.json()).then((j) => setProperties(j.properties ?? [])); }, []);
   // Load the tenant list whenever the building/year change (no clearing — that's
   // done in the dropdown handler so a deep-link can pre-select a tenant).
-  useEffect(() => {
+  const loadTenants = useCallback(() => {
     if (!property) { setTenants([]); return; }
     fetch(`/api/cam-recon/interim?property=${property}&year=${year}`).then((r) => r.json()).then((j) => setTenants(j.tenants ?? []));
   }, [property, year]);
+  useEffect(() => { loadTenants(); }, [loadTenants]);
+  const loadFormers = useCallback(() => {
+    if (!property) { setFormers([]); return; }
+    fetch(`/api/cam-recon/former-tenants?property=${property}&year=${year}`).then((r) => r.json()).then((j) => setFormers(j.tenants ?? []));
+  }, [property, year]);
+  useEffect(() => { loadFormers(); }, [loadFormers]);
+
+  const editFormer = useCallback((f: FormerTenant) => {
+    setDraft({
+      unitRef: f.unitRef, name: f.name, sqft: String(f.sqft ?? ""),
+      leaseFrom: usToISO(f.leaseFrom), vacatedISO: usToISO(f.vacatedISO),
+      opexMonth: String(f.opexMonth ?? ""), reTaxMonth: String(f.reTaxMonth ?? ""),
+      baseYear: f.baseYear != null ? String(f.baseYear) : "", noBaseStop: !!f.noBaseStop, grossUp: f.grossUp !== false,
+      proRataPct: f.proRataPct != null ? String(f.proRataPct) : "",
+      camPrs: f.camPrs != null ? String(f.camPrs) : "", insPrs: f.insPrs != null ? String(f.insPrs) : "", retPrs: f.retPrs != null ? String(f.retPrs) : "",
+      adminFeePct: f.adminFeePct != null ? String(f.adminFeePct) : "", retDiscountPct: f.retDiscountPct != null ? String(f.retDiscountPct) : "",
+      opexActualOverride: f.opexActualOverride != null ? String(f.opexActualOverride) : "",
+      retActualOverride: f.retActualOverride != null ? String(f.retActualOverride) : "",
+      insActualOverride: f.insActualOverride != null ? String(f.insActualOverride) : "",
+      camEscrowOverride: f.camEscrowOverride != null ? String(f.camEscrowOverride) : "",
+      insEscrowOverride: f.insEscrowOverride != null ? String(f.insEscrowOverride) : "",
+      retEscrowOverride: f.retEscrowOverride != null ? String(f.retEscrowOverride) : "",
+    });
+    setShowFormer(true);
+    setFormerMsg(null);
+  }, []);
+
+  const saveFormer = useCallback(async () => {
+    if (!property) return;
+    if (!draft.unitRef.trim()) { setFormerMsg("Unit ref is required (e.g. " + property + "-111A)."); return; }
+    setSavingFormer(true); setFormerMsg(null);
+    const opt = (s: string) => (s.trim() === "" ? null : Number(s));
+    const tenant = {
+      unitRef: draft.unitRef.trim(), kind: selectedKind, name: draft.name.trim(), sqft: Number(draft.sqft) || 0,
+      leaseFrom: draft.leaseFrom ? isoToUS(draft.leaseFrom) : null, vacatedISO: draft.vacatedISO ? isoToUS(draft.vacatedISO) : null,
+      opexMonth: Number(draft.opexMonth) || 0, reTaxMonth: Number(draft.reTaxMonth) || 0,
+      baseYear: opt(draft.baseYear), noBaseStop: draft.noBaseStop, grossUp: draft.grossUp, proRataPct: opt(draft.proRataPct),
+      camPrs: opt(draft.camPrs), insPrs: opt(draft.insPrs), retPrs: opt(draft.retPrs), adminFeePct: opt(draft.adminFeePct), retDiscountPct: opt(draft.retDiscountPct),
+      opexActualOverride: opt(draft.opexActualOverride), retActualOverride: opt(draft.retActualOverride), insActualOverride: opt(draft.insActualOverride),
+      camEscrowOverride: opt(draft.camEscrowOverride), insEscrowOverride: opt(draft.insEscrowOverride), retEscrowOverride: opt(draft.retEscrowOverride),
+    };
+    try {
+      const res = await fetch("/api/cam-recon/former-tenants", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ property, year, tenant }) });
+      const j = await res.json();
+      if (j.error) { setFormerMsg(j.error); } else { setFormerMsg("Saved."); setDraft(emptyDraft); loadFormers(); loadTenants(); }
+    } catch (e) { setFormerMsg(String(e)); } finally { setSavingFormer(false); }
+  }, [property, year, draft, selectedKind, loadFormers, loadTenants]);
+
+  const deleteFormer = useCallback(async (unitRef: string) => {
+    if (!property) return;
+    await fetch(`/api/cam-recon/former-tenants?property=${property}&year=${year}&unitRef=${encodeURIComponent(unitRef)}`, { method: "DELETE" });
+    loadFormers(); loadTenants();
+  }, [property, year, loadFormers, loadTenants]);
 
   const runWith = useCallback((p: string, y: number, ref: string, a: number | "") => {
     if (!p || !ref) return;
@@ -195,7 +303,7 @@ export default function InterimReconPage() {
           <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12, fontWeight: 600 }}>Tenant
             <select value={unitRef} onChange={(e) => { setUnitRef(e.target.value); const t = tenants.find((x) => x.unitRef === e.target.value); setAsOf(t?.expiresInYear ?? ""); }} style={{ ...selectStyle, minWidth: 240 }} disabled={!property}>
               <option value="">Select…</option>
-              {tenants.map((t) => <option key={t.unitRef} value={t.unitRef}>{t.unitRef} · {t.name}{t.expiresInYear ? ` (expires ${MONTHS[t.expiresInYear - 1].slice(0, 3)})` : ""}</option>)}
+              {tenants.map((t) => <option key={t.unitRef} value={t.unitRef}>{t.former ? "✦ " : ""}{t.unitRef} · {t.name}{t.former ? (t.expiresInYear ? ` (former · left ${MONTHS[t.expiresInYear - 1].slice(0, 3)})` : " (former)") : (t.expiresInYear ? ` (expires ${MONTHS[t.expiresInYear - 1].slice(0, 3)})` : "")}</option>)}
             </select>
           </label>
           <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12, fontWeight: 600 }}>As of
@@ -212,6 +320,105 @@ export default function InterimReconPage() {
           Recovers the tenant&apos;s pro-rata share of the YTD increase over a <b>prorated base year</b>, less the CAM/RET billed (rent-roll monthly estimate × occupied months). Expenses come live from the building&apos;s GL.
         </p>
         {error && <div style={{ color: "#b42318", fontSize: 13, marginTop: 8 }}>{error}</div>}
+      </div>
+
+      {/* ── Former / vacated tenants ─────────────────────────────────────── */}
+      <div className="card">
+        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 800 }}>Former / vacated tenants</div>
+            <div className="muted small" style={{ marginTop: 2 }}>
+              Tenants off the rent roll. They appear in the picker above (✦) so you can pull a move-out statement. Leave an override blank to use the live GL / monthly-escrow value.
+            </div>
+          </div>
+          <button className="btn" onClick={() => { setDraft(emptyDraft); setShowFormer((v) => !v); setFormerMsg(null); }} disabled={!property} style={{ fontSize: 13, padding: "7px 14px", fontWeight: 700 }}>
+            {showFormer ? "Close" : "+ Add former tenant"}
+          </button>
+        </div>
+
+        {!property && <p className="muted small" style={{ marginTop: 8, marginBottom: 0 }}>Select a building above first.</p>}
+
+        {property && formers.length > 0 && (
+          <table style={{ width: "100%", fontSize: 13, marginTop: 12, borderCollapse: "collapse" }}>
+            <thead>
+              <tr style={{ color: "var(--muted)", textAlign: "left" }}>
+                <th style={{ padding: "4px 8px" }}>Unit</th><th style={{ padding: "4px 8px" }}>Name</th>
+                <th style={{ padding: "4px 8px" }}>Vacated</th><th style={numTd}>SF</th><th style={{ padding: "4px 8px" }} />
+              </tr>
+            </thead>
+            <tbody>
+              {formers.map((f) => (
+                <tr key={f.unitRef} style={{ borderTop: "1px solid var(--border)" }}>
+                  <td style={{ padding: "5px 8px" }}><code style={{ fontSize: 12 }}>{f.unitRef}</code></td>
+                  <td style={{ padding: "5px 8px" }}>{f.name}</td>
+                  <td style={{ padding: "5px 8px" }}>{f.vacatedISO ?? "—"}</td>
+                  <td style={numTd}>{f.sqft.toLocaleString()}</td>
+                  <td style={{ padding: "5px 8px", textAlign: "right", whiteSpace: "nowrap" }}>
+                    <button className="btn" onClick={() => editFormer(f)} style={{ fontSize: 12, padding: "3px 10px", marginRight: 6 }}>Edit</button>
+                    <button className="btn" onClick={() => deleteFormer(f.unitRef)} style={{ fontSize: 12, padding: "3px 10px", color: "#b42318" }}>Delete</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+
+        {property && showFormer && (
+          <div style={{ marginTop: 14, borderTop: "1px solid var(--border)", paddingTop: 14, display: "flex", flexDirection: "column", gap: 14 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
+              {selectedKind === "retail" ? "Retail" : "Office"} former tenant — {property}
+            </div>
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+              <Field label="Unit ref" hint={`${property}-…`}><input style={inputStyle} value={draft.unitRef} onChange={(e) => setDraft((d) => ({ ...d, unitRef: e.target.value }))} placeholder={`${property}-111A`} /></Field>
+              <Field label="Tenant name" wide><input style={inputStyle} value={draft.name} onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))} placeholder="Jensen & Jensen" /></Field>
+              <Field label="SF"><input style={inputStyle} value={draft.sqft} onChange={(e) => setDraft((d) => ({ ...d, sqft: e.target.value }))} inputMode="numeric" /></Field>
+            </div>
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+              <Field label="Lease from"><Calendar variant="card" value={draft.leaseFrom} onChange={(iso) => setDraft((d) => ({ ...d, leaseFrom: iso }))} /></Field>
+              <Field label="Vacated (move-out)"><Calendar variant="card" value={draft.vacatedISO} onChange={(iso) => setDraft((d) => ({ ...d, vacatedISO: iso }))} /></Field>
+              <Field label="CAM/opex escrow $/mo"><input style={inputStyle} value={draft.opexMonth} onChange={(e) => setDraft((d) => ({ ...d, opexMonth: e.target.value }))} inputMode="decimal" /></Field>
+              <Field label="RET escrow $/mo"><input style={inputStyle} value={draft.reTaxMonth} onChange={(e) => setDraft((d) => ({ ...d, reTaxMonth: e.target.value }))} inputMode="decimal" /></Field>
+            </div>
+
+            {selectedKind === "office" ? (
+              <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
+                <Field label="Base year"><input style={inputStyle} value={draft.baseYear} onChange={(e) => setDraft((d) => ({ ...d, baseYear: e.target.value }))} inputMode="numeric" placeholder="2023" /></Field>
+                <Field label="Pro-rata %"><input style={inputStyle} value={draft.proRataPct} onChange={(e) => setDraft((d) => ({ ...d, proRataPct: e.target.value }))} inputMode="decimal" placeholder="1.20" /></Field>
+                <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, paddingBottom: 8 }}>
+                  <input type="checkbox" checked={draft.grossUp} onChange={(e) => setDraft((d) => ({ ...d, grossUp: e.target.checked }))} /> Gross up (95%)
+                </label>
+                <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, paddingBottom: 8 }}>
+                  <input type="checkbox" checked={draft.noBaseStop} onChange={(e) => setDraft((d) => ({ ...d, noBaseStop: e.target.checked }))} /> Full NNN (no base stop)
+                </label>
+              </div>
+            ) : (
+              <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                <Field label="CAM share %"><input style={inputStyle} value={draft.camPrs} onChange={(e) => setDraft((d) => ({ ...d, camPrs: e.target.value }))} inputMode="decimal" /></Field>
+                <Field label="INS share %"><input style={inputStyle} value={draft.insPrs} onChange={(e) => setDraft((d) => ({ ...d, insPrs: e.target.value }))} inputMode="decimal" /></Field>
+                <Field label="RET share %"><input style={inputStyle} value={draft.retPrs} onChange={(e) => setDraft((d) => ({ ...d, retPrs: e.target.value }))} inputMode="decimal" /></Field>
+                <Field label="Admin fee %"><input style={inputStyle} value={draft.adminFeePct} onChange={(e) => setDraft((d) => ({ ...d, adminFeePct: e.target.value }))} inputMode="decimal" /></Field>
+                <Field label="RET discount %"><input style={inputStyle} value={draft.retDiscountPct} onChange={(e) => setDraft((d) => ({ ...d, retDiscountPct: e.target.value }))} inputMode="decimal" /></Field>
+              </div>
+            )}
+
+            <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
+              YTD overrides <span style={{ fontWeight: 500, textTransform: "none", letterSpacing: 0 }}>— blank = live GL / monthly × months</span>
+            </div>
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+              <Field label={selectedKind === "retail" ? "CAM pool YTD $" : "Opex YTD $"}><input style={inputStyle} value={draft.opexActualOverride} onChange={(e) => setDraft((d) => ({ ...d, opexActualOverride: e.target.value }))} inputMode="decimal" /></Field>
+              {selectedKind === "retail" && <Field label="INS pool YTD $"><input style={inputStyle} value={draft.insActualOverride} onChange={(e) => setDraft((d) => ({ ...d, insActualOverride: e.target.value }))} inputMode="decimal" /></Field>}
+              <Field label="RET pool YTD $"><input style={inputStyle} value={draft.retActualOverride} onChange={(e) => setDraft((d) => ({ ...d, retActualOverride: e.target.value }))} inputMode="decimal" /></Field>
+              <Field label="CAM escrow billed $"><input style={inputStyle} value={draft.camEscrowOverride} onChange={(e) => setDraft((d) => ({ ...d, camEscrowOverride: e.target.value }))} inputMode="decimal" /></Field>
+              {selectedKind === "retail" && <Field label="INS escrow billed $"><input style={inputStyle} value={draft.insEscrowOverride} onChange={(e) => setDraft((d) => ({ ...d, insEscrowOverride: e.target.value }))} inputMode="decimal" /></Field>}
+              <Field label="RET escrow billed $"><input style={inputStyle} value={draft.retEscrowOverride} onChange={(e) => setDraft((d) => ({ ...d, retEscrowOverride: e.target.value }))} inputMode="decimal" /></Field>
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <button className="btn primary" onClick={saveFormer} disabled={savingFormer} style={{ fontSize: 13, padding: "8px 18px", fontWeight: 700 }}>{savingFormer ? "Saving…" : "Save former tenant"}</button>
+              {formerMsg && <span style={{ fontSize: 13, color: formerMsg === "Saved." ? "#15803d" : "#b42318" }}>{formerMsg}</span>}
+            </div>
+          </div>
+        )}
       </div>
 
       {r && meta && (
