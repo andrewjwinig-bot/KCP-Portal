@@ -450,7 +450,18 @@ export async function GET(req: NextRequest) {
         return { unitRef: ref, name, leaseTo, expiresInYear: exp?.y === year ? exp.m : null };
       })
       .sort((a, b) => a.unitRef.localeCompare(b.unitRef));
-    return NextResponse.json({ tenants, kind: "office" });
+    // Base years available for a manual tenant = the years the building's expense
+    // history carries (so picking one pulls that year's expenses as the base
+    // stop). Newest first, capped at the recon year.
+    const yearSet = new Set<number>();
+    for (const byYear of Object.values(fixture.pool.values)) {
+      for (const y of Object.keys(byYear)) {
+        const n = Number(y);
+        if (Number.isFinite(n) && n <= year) yearSet.add(n);
+      }
+    }
+    const baseYears = [...yearSet].sort((a, b) => b - a);
+    return NextResponse.json({ tenants, kind: "office", baseYears });
   }
 
   if (!config[unitRef]) return NextResponse.json({ error: `${unitRef} has no lease config — it isn't reconciled.` }, { status: 404 });

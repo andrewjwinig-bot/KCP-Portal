@@ -129,6 +129,7 @@ export default function InterimReconPage() {
   const [property, setProperty] = useState("");
   const [year, setYear] = useState(now.getFullYear());
   const [tenants, setTenants] = useState<Tenant[]>([]);
+  const [baseYears, setBaseYears] = useState<number[]>([]);
   const [unitRef, setUnitRef] = useState("");
   const [asOf, setAsOf] = useState<number | "">("");
   const [data, setData] = useState<{ result: Result | RetailResult; meta: Meta; kind?: "office" | "retail" } | null>(null);
@@ -146,8 +147,8 @@ export default function InterimReconPage() {
   // Load the tenant list whenever the building/year change (no clearing — that's
   // done in the dropdown handler so a deep-link can pre-select a tenant).
   useEffect(() => {
-    if (!property) { setTenants([]); return; }
-    fetch(`/api/cam-recon/interim?property=${property}&year=${year}`).then((r) => r.json()).then((j) => setTenants(j.tenants ?? []));
+    if (!property) { setTenants([]); setBaseYears([]); return; }
+    fetch(`/api/cam-recon/interim?property=${property}&year=${year}`).then((r) => r.json()).then((j) => { setTenants(j.tenants ?? []); setBaseYears(j.baseYears ?? []); });
   }, [property, year]);
 
   // Generate a one-off statement from the building's live expenses + the typed
@@ -296,7 +297,13 @@ export default function InterimReconPage() {
 
             {selectedKind === "office" ? (
               <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
-                <Field label="Base year"><input style={inputStyle} value={draft.baseYear} onChange={(e) => setDraft((d) => ({ ...d, baseYear: e.target.value }))} inputMode="numeric" placeholder="2023" /></Field>
+                <Field label="Base year" hint="(building history)">
+                  <select style={{ ...inputStyle, cursor: draft.noBaseStop ? "default" : "pointer" }} value={draft.baseYear} disabled={draft.noBaseStop}
+                    onChange={(e) => setDraft((d) => ({ ...d, baseYear: e.target.value }))}>
+                    <option value="">{draft.noBaseStop ? "— (NNN)" : "Select…"}</option>
+                    {baseYears.map((y) => <option key={y} value={y}>{y}</option>)}
+                  </select>
+                </Field>
                 <Field label="Pro-rata %"><input style={inputStyle} value={draft.proRataPct} onChange={(e) => setDraft((d) => ({ ...d, proRataPct: e.target.value }))} inputMode="decimal" placeholder="1.20" /></Field>
                 <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, paddingBottom: 8 }}>
                   <input type="checkbox" checked={draft.grossUp} onChange={(e) => setDraft((d) => ({ ...d, grossUp: e.target.checked }))} /> Gross up (95%)
