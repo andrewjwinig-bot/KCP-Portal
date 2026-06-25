@@ -231,9 +231,19 @@ async function officeManualResult(
   const opexEscrow = m.camEscrowOverride ?? m.opexMonth * occupiedMonths;
   const retEscrow = m.retEscrowOverride ?? m.reTaxMonth * occupiedMonths;
 
+  // Default the pro-rata share from the entered SF ÷ building rentable SF
+  // (rentable SF from the pool, else the roster's total leased SF) when the
+  // caller didn't supply a share. Staff can still override it on the statement.
+  const cfgYear = Object.keys(fixture.byYear).map(Number).sort((a, b) => b - a)[0];
+  const buildingSqft = fixture.pool.rentableSqft
+    ?? (fixture.byYear[cfgYear]?.roster ?? []).reduce((s, u) => s + (u.sqft || 0), 0);
+  const proRataPct = m.proRataPct != null
+    ? m.proRataPct
+    : (m.sqft > 0 && buildingSqft > 0 ? Math.round((m.sqft / buildingSqft) * 10000) / 100 : 0);
+
   const tenant: OfficeTenantInput = {
     unitRef, skylineUnit: `${unitRef}-CU`, suite: unitRef.split("-").slice(1).join("-"), name,
-    baseYear: m.baseYear ?? 0, noBaseStop: m.noBaseStop, grossUp: !!m.grossUp, proRataPct: m.proRataPct ?? 0,
+    baseYear: m.baseYear ?? 0, noBaseStop: m.noBaseStop, grossUp: !!m.grossUp, proRataPct,
     sqft: m.sqft, occPct: 1, recoveryPct: 1,
     opexEscrow, retEscrow,
     camMonthly: occupiedMonths ? opexEscrow / occupiedMonths : 0,
@@ -253,7 +263,7 @@ async function officeManualResult(
       asOfMonth, effectiveThrough, occupiedMonths, unpostedMonths, maxPosted,
       startMonth, leaseFrom: m.leaseFrom, leaseTo: m.vacatedISO, sqft: m.sqft,
       opexMonth: tenant.camMonthly, reTaxMonth: tenant.retMonthly,
-      baseYear: m.baseYear ?? 0, proRataPct: m.proRataPct ?? 0, grossUp: !!m.grossUp,
+      baseYear: m.baseYear ?? 0, proRataPct, grossUp: !!m.grossUp,
       glAsOf: gl?.uploadedAt ?? null, manual: true,
     },
   });

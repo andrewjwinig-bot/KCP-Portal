@@ -127,6 +127,29 @@ const editInput: React.CSSProperties = {
   fontSize: 12, border: "1px solid var(--border)", borderRadius: 6, background: "var(--card)", color: "var(--text)",
 };
 
+/** Group digits with thousands separators for display in a text input, keeping
+ *  any trailing decimal the user is mid-typing. "" stays "". */
+function fmtThousands(s: string): string {
+  const cleaned = String(s).replace(/[^0-9.]/g, "");
+  if (cleaned === "") return "";
+  const [intPart, ...rest] = cleaned.split(".");
+  const n = Number(intPart);
+  const intFmt = Number.isFinite(n) ? n.toLocaleString("en-US") : intPart;
+  return rest.length ? `${intFmt}.${rest.join("")}` : intFmt;
+}
+
+/** A right-aligned "$ 1,234" text input. Stores the raw digit string via
+ *  onChange; displays it comma-grouped so it matches the read-only money cells. */
+function MoneyInput({ value, onChange, width = 90 }: { value: string; onChange: (raw: string) => void; width?: number }) {
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 2, justifyContent: "flex-end" }}>
+      <span style={{ color: "var(--muted)", fontSize: 12 }}>$</span>
+      <input value={fmtThousands(value)} onChange={(e) => onChange(e.target.value.replace(/[^0-9.]/g, ""))}
+        inputMode="decimal" style={{ ...editInput, width }} />
+    </span>
+  );
+}
+
 // A manual office tenant's statement rendered as a live worksheet: pick the
 // base year (re-pulls the building's real base-year expenses), type the
 // pro-rata, override any "Actual" line, and enter escrow — everything
@@ -233,8 +256,7 @@ function EditableOfficeStatement({ r, meta, baseYears, onBaseYear }: {
                   <td>{l.label}</td>
                   <td style={numTd}>{money(l.baseCost)}</td>
                   <td style={numTd}>
-                    <input value={l.actualStr} onChange={(e) => setActualOv((o) => ({ ...o, [l.glAccount]: e.target.value }))}
-                      inputMode="decimal" style={editInput} />
+                    <MoneyInput value={l.actualStr} onChange={(raw) => setActualOv((o) => ({ ...o, [l.glAccount]: raw }))} />
                   </td>
                   <td style={{ ...numTd, color: l.net > 0 ? "#15803d" : "var(--muted)" }}>{money(l.net)}</td>
                 </tr>
@@ -251,7 +273,7 @@ function EditableOfficeStatement({ r, meta, baseYears, onBaseYear }: {
           <BalanceRow label={`× Pro-rata share (${num(pr)}%)`} value={money(opexDue)} />
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "3px 0", fontSize: 13 }}>
             <span>Less: Billed (escrow)</span>
-            <input value={opexEsc} onChange={(e) => setOpexEsc(e.target.value)} inputMode="decimal" placeholder="0" style={editInput} />
+            <MoneyInput value={opexEsc} onChange={setOpexEsc} />
           </div>
           <FinalBalanceRow label="CAM / Operating Expenses Balance" value={opexBal} />
         </div>
@@ -275,7 +297,7 @@ function EditableOfficeStatement({ r, meta, baseYears, onBaseYear }: {
                 <td>{r.retLine.label}</td>
                 <td style={numTd}>{money(r.retLine.baseCost)}</td>
                 <td style={numTd}>
-                  <input value={retActualStr} onChange={(e) => setRetActualOv(e.target.value)} inputMode="decimal" style={editInput} />
+                  <MoneyInput value={retActualStr} onChange={setRetActualOv} />
                 </td>
                 <td style={{ ...numTd, color: retNet > 0 ? "#15803d" : "var(--muted)" }}>{money(retNet)}</td>
               </tr>
@@ -291,7 +313,7 @@ function EditableOfficeStatement({ r, meta, baseYears, onBaseYear }: {
           <BalanceRow label={`× Pro-rata share (${num(pr)}%)`} value={money(retDue)} />
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "3px 0", fontSize: 13 }}>
             <span>Less: Billed (escrow)</span>
-            <input value={retEsc} onChange={(e) => setRetEsc(e.target.value)} inputMode="decimal" placeholder="0" style={editInput} />
+            <MoneyInput value={retEsc} onChange={setRetEsc} />
           </div>
           <FinalBalanceRow label="Real Estate Taxes Balance" value={retBal} />
         </div>
@@ -479,7 +501,7 @@ export default function InterimReconPage() {
                 <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
                   <Field label="Tenant name" wide><input style={inputStyle} value={draft.name} onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))} placeholder="Reliant Care Solutions, LP" /></Field>
                   <Field label="Unit / suite" hint="(optional)"><input style={inputStyle} value={draft.unitRef} onChange={(e) => setDraft((d) => ({ ...d, unitRef: e.target.value }))} placeholder={`${property}-102`} /></Field>
-                  <Field label="SF" hint="(optional)"><input style={inputStyle} value={draft.sqft} onChange={(e) => setDraft((d) => ({ ...d, sqft: e.target.value }))} inputMode="numeric" /></Field>
+                  <Field label="SF" hint="(sets pro-rata)"><input style={inputStyle} value={fmtThousands(draft.sqft)} onChange={(e) => setDraft((d) => ({ ...d, sqft: e.target.value.replace(/[^0-9]/g, "") }))} inputMode="numeric" /></Field>
                   <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, paddingBottom: 8 }}>
                     <input type="checkbox" checked={draft.grossUp} onChange={(e) => setDraft((d) => ({ ...d, grossUp: e.target.checked }))} /> Gross up (95%)
                   </label>
@@ -496,7 +518,7 @@ export default function InterimReconPage() {
                 <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                   <Field label="Tenant name" wide><input style={inputStyle} value={draft.name} onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))} placeholder="Acme Retail" /></Field>
                   <Field label="Unit / suite" hint="(optional)"><input style={inputStyle} value={draft.unitRef} onChange={(e) => setDraft((d) => ({ ...d, unitRef: e.target.value }))} placeholder={`${property}-1817`} /></Field>
-                  <Field label="SF"><input style={inputStyle} value={draft.sqft} onChange={(e) => setDraft((d) => ({ ...d, sqft: e.target.value }))} inputMode="numeric" /></Field>
+                  <Field label="SF"><input style={inputStyle} value={fmtThousands(draft.sqft)} onChange={(e) => setDraft((d) => ({ ...d, sqft: e.target.value.replace(/[^0-9]/g, "") }))} inputMode="numeric" /></Field>
                 </div>
                 <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                   <Field label="CAM share %"><input style={inputStyle} value={draft.camPrs} onChange={(e) => setDraft((d) => ({ ...d, camPrs: e.target.value }))} inputMode="decimal" /></Field>
@@ -526,7 +548,7 @@ export default function InterimReconPage() {
       </div>
 
       {r && meta && meta.manual && (
-        <EditableOfficeStatement key={`${meta.unitRef}|${meta.name}`} r={r} meta={meta} baseYears={baseYears} onBaseYear={(y) => generateManual({ baseYear: y })} />
+        <EditableOfficeStatement key={`${meta.unitRef}|${meta.name}|${meta.proRataPct}`} r={r} meta={meta} baseYears={baseYears} onBaseYear={(y) => generateManual({ baseYear: y })} />
       )}
 
       {r && meta && !meta.manual && (
