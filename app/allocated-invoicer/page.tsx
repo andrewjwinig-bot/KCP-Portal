@@ -197,7 +197,11 @@ export default function AllocatedInvoicerPage() {
     for (const [, accData] of glResult.accountTotals.entries()) {
       const suffix = accData.accountSuffix;
       for (const prop of ALLOC_PROPERTIES) {
-        const pctVal = ALLOCATION_TABLE[prop.id]?.[suffix] ?? 0;
+        // Unified basis: every 2000 G&A account (9301/9302/9303) is pooled and
+        // allocated across ALL properties by the single 9303 share (≈75% SC /
+        // 25% BP, then pro-rata within each group). The suffix is kept only for
+        // display/grouping on the invoice, not for the allocation %.
+        const pctVal = ALLOCATION_TABLE[prop.id]?.["9303"] ?? 0;
         if (pctVal === 0) continue;
         result.push({
           propertyId: prop.id,
@@ -416,6 +420,29 @@ export default function AllocatedInvoicerPage() {
     recordRun();
   }
 
+  // Download the allocation % per property (the applied 9303 basis) so staff can
+  // verify the allocations independently of any GL run.
+  function downloadAllocationPct() {
+    const esc = (s: string) => `"${String(s).replace(/"/g, '""')}"`;
+    const lines = [
+      ["Code", "Property", "Applied Allocation % (9303)", "Group", "BP sub-split (9301)", "SC sub-split (9302)"].map(esc).join(","),
+    ];
+    for (const p of ALLOC_PROPERTIES) {
+      const row = ALLOCATION_TABLE[p.id];
+      const group = row["9301"] > 0 ? "Business Park" : row["9302"] > 0 ? "Shopping Center" : "—";
+      lines.push([
+        esc(p.id), esc(p.name),
+        (row["9303"] * 100).toFixed(2) + "%",
+        esc(group),
+        row["9301"] ? (row["9301"] * 100).toFixed(2) + "%" : "—",
+        row["9302"] ? (row["9302"] * 100).toFixed(2) + "%" : "—",
+      ].join(","));
+    }
+    const total = ALLOC_PROPERTIES.reduce((s, p) => s + ALLOCATION_TABLE[p.id]["9303"], 0);
+    lines.push([esc(""), esc("TOTAL"), (total * 100).toFixed(2) + "%", esc(""), esc(""), esc("")].join(","));
+    download("Allocation Percentages.csv", new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" }));
+  }
+
   // ── Render helpers ─────────────────────────────────────────────────────────
 
   const grandAllocTotal = useMemo(
@@ -460,6 +487,8 @@ export default function AllocatedInvoicerPage() {
         <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
           <b>Import General Ledger</b>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <button className="btn" style={{ borderRadius: 999, fontWeight: 700, whiteSpace: "nowrap" }} onClick={() => setShowAllocModal(true)} title="View / download the allocation percentages">Allocation %</button>
+            <button className="btn" style={{ borderRadius: 999, fontWeight: 700, whiteSpace: "nowrap" }} onClick={downloadAllocationPct} title="Download the allocation percentages as CSV">⭳ %</button>
             <span style={{ background: "rgba(22, 163, 74, 0.85)", color: "#fff", borderRadius: 999, padding: "12px 18px", fontSize: 15, fontWeight: 700, border: "1px solid transparent", display: "inline-flex", alignItems: "center" }}>Monthly</span>
           </div>
         </div>
@@ -716,18 +745,21 @@ export default function AllocatedInvoicerPage() {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
               <div>
                 <b style={{ fontSize: 15 }}>Allocation Percentages</b>
-                <div className="small muted" style={{ marginTop: 2 }}>Allocations based on property square feet.</div>
+                <div className="small muted" style={{ marginTop: 2 }}>Based on property square feet. Every G&amp;A account is allocated by the unified <b>9303</b> share (≈75% shopping centers / 25% business parks); the 9301/9302 columns are the legacy within-group sub-splits (no longer applied).</div>
               </div>
-              <button className="btn" style={{ padding: "4px 10px" }} onClick={() => setShowAllocModal(false)}>✕</button>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <button className="btn" style={{ padding: "4px 10px", fontWeight: 700 }} onClick={downloadAllocationPct}>⭳ Download %</button>
+                <button className="btn" style={{ padding: "4px 10px" }} onClick={() => setShowAllocModal(false)}>✕</button>
+              </div>
             </div>
             <div className="tableWrap" style={{ overflowY: "auto" }}>
               <table>
                 <thead>
                   <tr>
                     <th>Property</th>
-                    <th style={{ textAlign: "right" }}>9301 (BP)</th>
-                    <th style={{ textAlign: "right" }}>9302 (SC)</th>
-                    <th style={{ textAlign: "right" }}>BP &amp; SC (9303)</th>
+                    <th style={{ textAlign: "right" }}>9301 (BP, legacy)</th>
+                    <th style={{ textAlign: "right" }}>9302 (SC, legacy)</th>
+                    <th style={{ textAlign: "right", color: "#0b4a7d" }}>Applied % (9303)</th>
                   </tr>
                 </thead>
                 <tbody>
