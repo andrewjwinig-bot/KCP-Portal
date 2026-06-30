@@ -1,16 +1,24 @@
 version: 2
 updates:
   # npm dependencies — weekly, grouped to keep PR noise down.
+  # Major-version bumps are ignored: they're breaking upgrades (e.g. Next 14→16,
+  # React 18→19, TypeScript 5→6) that fail the build and need a deliberate
+  # migration, not an auto-PR. Minor/patch updates are grouped and proposed.
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
       production-deps:
         dependency-type: "production"
+        update-types: ["minor", "patch"]
       dev-deps:
         dependency-type: "development"
+        update-types: ["minor", "patch"]
   # Keep GitHub Actions pinned + patched.
   - package-ecosystem: "github-actions"
     directory: "/"
