@@ -48,12 +48,13 @@ export function computeIncentive(termYears: number, sqft: number): number | null
   return Math.round(rate * sqft * 100) / 100;
 }
 
-/** Harry's retail leasing commission rate — 3% of total lease value. */
-export const RETAIL_COMMISSION_RATE = 0.03;
+/** Harry's retail leasing commission — a flat $1 per square foot leased. */
+export const RETAIL_COMMISSION_PER_SQFT = 1;
 
-/** Retail commission = 3% of lease value (SF × annual $/SF × term years). */
-export function retailCommission(sqft: number, ratePerSqft: number, termYears: number): number {
-  const v = sqft * ratePerSqft * termYears * RETAIL_COMMISSION_RATE;
+/** Retail commission = $1 per square foot leased. (Rate/term are lease detail
+ *  shown on the memo but no longer factor into the commission.) */
+export function retailCommission(sqft: number): number {
+  const v = sqft * RETAIL_COMMISSION_PER_SQFT;
   return Number.isFinite(v) ? Math.round(v * 100) / 100 : 0;
 }
 
