@@ -15,6 +15,7 @@ import {
   type PropertyCarry,
 } from "../../lib/expenses/carryover";
 import { emailInvoicerReport, XLSX_CONTENT_TYPE } from "../../lib/invoicing/sendReport";
+import { ALLOC_PCT } from "../../lib/properties/data";
 import { useUser } from "../components/UserProvider";
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -147,55 +148,18 @@ const PROPERTY_ACC2: Record<(typeof PROPERTIES)[number]["id"], string[]> = {
   "0800": ["8501"],
 };
 
-// 9301 percentages from ALLOCATION_TABLE (BP buildings only)
-const ALLOC_BP: Record<string, number> = {
-  "3610": 0.0779,
-  "3620": 0.0913,
-  "3640": 0.0909,
-  "4050": 0.1006,
-  "4060": 0.2009,
-  "4070": 0.1146,
-  "4080": 0.2380,
-  "40A0": 0.0281,
-  "40B0": 0.0242,
-  "40C0": 0.0335,
-};
-
-// 9302 percentages from ALLOCATION_TABLE (SC properties only)
-const ALLOC_SC: Record<string, number> = {
-  "1100": 0.0299,
-  "1500": 0.0082,
-  "2300": 0.2224,
-  "4500": 0.2993,
-  "5600": 0.0048,
-  "7010": 0.2645,
-  "7200": 0.0535,
-  "7300": 0.0813,
-  "8200": 0.0361,
-};
-
-const ALLOC_BP_SC: Record<string, number> = {
-  "3610": 0.0514,
-  "3620": 0.0602,
-  "3640": 0.06,
-  "4050": 0.0664,
-  "4060": 0.1326,
-  "4070": 0.0756,
-  "4080": 0.1571,
-  "40A0": 0.0185,
-  "40B0": 0.0159,
-  "40C0": 0.0221,
-  "1100": 0.0102,
-  "1500": 0.0028,
-  "2300": 0.0757,
-  "4500": 0.1018,
-  "5600": 0.0016,
-  "7010": 0.09,
-  "7200": 0.0182,
-  "7300": 0.0276,
-  "8200": 0.0123,
-  "9510": 0.0,
-};
+// Overhead-allocation shares — derived from the single source of truth
+// (ALLOC_PCT in lib/properties/data.ts). BP = 9301 (business parks), SC = 9302
+// (shopping centers), BP & SC = 9303 (all-property combined share).
+const ALLOC_BP: Record<string, number> = Object.fromEntries(
+  Object.entries(ALLOC_PCT).filter(([, v]) => v["9301"] > 0).map(([id, v]) => [id, v["9301"]]),
+);
+const ALLOC_SC: Record<string, number> = Object.fromEntries(
+  Object.entries(ALLOC_PCT).filter(([, v]) => v["9302"] > 0).map(([id, v]) => [id, v["9302"]]),
+);
+const ALLOC_BP_SC: Record<string, number> = Object.fromEntries(
+  Object.entries(ALLOC_PCT).map(([id, v]) => [id, v["9303"]]),
+);
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
