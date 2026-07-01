@@ -6,7 +6,7 @@ import type { RentRollData } from "../../../lib/rentroll/parseRentRollExcel";
 import { PROPERTY_DEFS } from "../../../lib/properties/data";
 import {
   type CommissionEntry,
-  RETAIL_COMMISSION_RATE,
+  RETAIL_COMMISSION_PER_SQFT,
   retailCommission,
   buildingFromUnitRef,
   parseQuarterLabel,
@@ -168,11 +168,7 @@ export default function RetailCommissionsPage() {
     });
   }
 
-  const commission = retailCommission(
-    Number(form.sqft) || 0,
-    Number(form.rate) || 0,
-    Number(form.termYears) || 0,
-  );
+  const commission = retailCommission(Number(form.sqft) || 0);
 
   async function persist(next: CommissionEntry[]) {
     setSaving(true);
@@ -384,12 +380,10 @@ export default function RetailCommissionsPage() {
               <input type="text" value={commission ? toMoney(commission) : "—"} readOnly tabIndex={-1}
                 style={{ ...lockedStyle, width: 160, textAlign: "right", fontWeight: 700, fontSize: 15 }} />
               <span style={{ fontSize: 13, color: "var(--text)" }}>
-                <span style={{ color: "var(--muted)", marginRight: 8 }}>= 3% ×</span>
+                <span style={{ color: "var(--muted)", marginRight: 8 }}>=</span>
                 <span style={{ fontWeight: 600 }}>{(Number(form.sqft) || 0).toLocaleString()} sf</span>
                 <span style={{ color: "var(--muted)", margin: "0 6px" }}>×</span>
-                <span style={{ fontWeight: 600 }}>${(Number(form.rate) || 0).toFixed(2)}/sf</span>
-                <span style={{ color: "var(--muted)", margin: "0 6px" }}>×</span>
-                <span style={{ fontWeight: 600 }}>{Number(form.termYears) || 0} yr</span>
+                <span style={{ fontWeight: 600 }}>${RETAIL_COMMISSION_PER_SQFT.toFixed(2)}/sf</span>
               </span>
             </div>
           </div>
@@ -402,7 +396,7 @@ export default function RetailCommissionsPage() {
         </div>
 
         <p className="muted small" style={{ marginTop: 12, marginBottom: 0, fontSize: 11 }}>
-          Retail leasing commission is <b>3%</b> of total lease value (square feet × annual rent $/SF × term years).
+          Retail leasing commission is <b>$1.00 per square foot</b> leased (square feet × $1).
         </p>
 
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 14 }}>
@@ -467,10 +461,10 @@ export default function RetailCommissionsPage() {
                     <button className="btn primary large" onClick={() => downloadMemoPdf(quarter, list)}>
                       Download PDF Memo
                     </button>
-                    {/* Retail commissions are already the 3 %-of-
-                        lease-value figure stored on `incentiveAmount`,
-                        so the per-row billable equals the stored
-                        value with no markup. */}
+                    {/* Retail commissions are already the $1-per-SF
+                        figure stored on `incentiveAmount`, so the
+                        per-row billable equals the stored value with
+                        no markup. */}
                     <button
                       className="btn large"
                       onClick={() => downloadCommissionInvoicesZip(quarter, list.map((e) => ({
@@ -702,9 +696,9 @@ async function buildRetailMemoPdf(opts: {
   y -= 34;
 
   // Footnote
-  txt("*  Commission is 3% of total lease value — square feet × annual rent $/SF × term years.", margin, y, { size: 8.5, color: gray });
+  txt("*  Commission is $1.00 per square foot leased (square feet × $1).", margin, y, { size: 8.5, color: gray });
   y -= 14;
-  void RETAIL_COMMISSION_RATE;
+  void RETAIL_COMMISSION_PER_SQFT;
 
   // Footer
   y -= 16;
