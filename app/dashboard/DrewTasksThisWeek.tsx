@@ -30,6 +30,36 @@ export default function DrewTasksThisWeek() {
       catch { maps[k] = {}; }
     }
     setChecked(maps);
+
+    // Merge in SERVER-recorded completions (e.g. Harry processing the CC
+    // invoicer auto-checks "Allocate CC Charges"), so a task finished by
+    // someone else shows done here too — even in this browser's tracker.
+    // Keyed `<year>-<month0>-<taskId>`, mapped onto the local month buckets.
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/tracker/completions", { cache: "no-store" });
+        if (!res.ok) return;
+        const { completions } = (await res.json()) as {
+          completions: Record<string, { at: string }>;
+        };
+        if (cancelled || !completions) return;
+        setChecked((prev) => {
+          const next = { ...prev };
+          for (const key of Object.keys(completions)) {
+            const idx = key.indexOf("-", key.indexOf("-") + 1); // after "<year>-<month0>"
+            if (idx < 0) continue;
+            const prefix = key.slice(0, idx);       // "<year>-<month0>"
+            const taskId = key.slice(idx + 1);      // "<taskId>"
+            const k = `tracker-v2-${prefix}`;
+            if (!next[k]) next[k] = { ...(prev[k] ?? {}) };
+            next[k] = { ...next[k], [taskId]: true };
+          }
+          return next;
+        });
+      } catch { /* best-effort — dashboard still works from localStorage */ }
+    })();
+    return () => { cancelled = true; };
   }, [occ]);
 
   function toggle(o: TaskOccurrence) {
