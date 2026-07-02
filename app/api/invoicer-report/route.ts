@@ -2,6 +2,14 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { sendMail, isMailConfigured } from "@/lib/mail";
 import { reportAlreadySent, markReportSent } from "@/lib/invoicing/reportSent";
+import { markTaskComplete } from "@/lib/tracker/completionStore";
+
+// Processing an invoicer run auto-completes its tracker task, so it drops off
+// the weekly digest / dashboard once it's actually done.
+const TASK_FOR_SOURCE: Record<string, string> = {
+  "credit-card": "m-alloc-cc",  // "Allocate CC Charges"
+  "allocated": "m-alloc-exp",   // "Allocate Expenses"
+};
 
 export const runtime = "nodejs";
 
@@ -43,8 +51,16 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   }
 
+  // Mark the tracker task done for this month — regardless of whether the email
+  // goes out — because the run itself is the completion signal.
+  const taskId = TASK_FOR_SOURCE[body.source];
+  if (taskId) {
+    const now = new Date();
+    try { await markTaskComplete(now.getFullYear(), now.getMonth(), taskId, { at: now.toISOString(), source: body.source }); } catch { /* best-effort */ }
+  }
+
   if (!isMailConfigured()) {
-    return NextResponse.json({ sent: false, reason: "mail-not-configured" });
+    return NextResponse.json({ sent: false, reason: "mail-not-configured", taskCompleted: !!taskId });
   }
 
   try {

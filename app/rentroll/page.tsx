@@ -1454,6 +1454,26 @@ export default function RentRollPage() {
       const data = await res.json();
       if (!res.ok || data.error) throw new Error(data.error ?? "Upload failed");
       setRawRentroll(data.rentroll);
+
+      // Refresh the snapshot list + jump the on-screen period to the roll
+      // just imported. Without this the new month wasn't in the dropdown and
+      // reportMonth still pointed at the old snapshot, so the page looked
+      // unchanged until a manual browser refresh re-ran the mount effect.
+      const importedMonth: string | undefined = data.imported?.month;
+      const becameCurrent = !data.imported || data.imported.becameCurrent !== false;
+      try {
+        const hist = await fetch("/api/rentroll/history", { cache: "no-store" }).then((r) => r.json());
+        const snaps = (hist.snapshots ?? []) as import("../../lib/rentroll/snapshot").RentRollSnapshotSummary[];
+        setSnapshotList(snaps);
+        if (becameCurrent && snaps.length > 0) {
+          // Current roll is the newest month — show it so the import is visible.
+          setReportMonth(snaps[snaps.length - 1].month);
+        } else if (importedMonth && snaps.some((s) => s.month === importedMonth)) {
+          // Back-dated import: show the month that was actually imported.
+          setReportMonth(importedMonth);
+        }
+      } catch { /* list refresh is best-effort; the roll already updated */ }
+
       // When the imported roll isn't the newest month it's filed to history
       // and the more-recent roll stays current — say so, so the unchanged
       // on-screen roll isn't surprising.
@@ -1461,6 +1481,8 @@ export default function RentRollPage() {
         setUploadNote(
           `Imported ${data.imported.month} into history. ${data.currentMonth} remains the current rent roll.`,
         );
+      } else if (importedMonth) {
+        setUploadNote(`Imported ${importedMonth} — now showing as the current rent roll.`);
       }
     } catch (err: any) {
       setUploadError(err?.message ?? "Upload failed");
