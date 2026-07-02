@@ -7,6 +7,7 @@ import {
   FUND_LABEL,
   type PropertyDef, type PropType, type FundGroup,
 } from "../../lib/properties/data";
+import { soleOwnerName } from "../../lib/properties/ownership";
 import { useUser } from "../components/UserProvider";
 import { loadTaxChecked } from "../tracker/tax-data";
 import { TypePill } from "./PropertyDetail";
@@ -81,6 +82,15 @@ function PropertyCard({ prop, onClick }: { prop: PropertyDef; onClick: () => voi
         <div style={{ fontSize: 16, fontWeight: 500, lineHeight: 1.3, color: "var(--text)", marginBottom: 4 }}>
           {prop.name}
         </div>
+
+        {/* Owning entity — surfaced so the property is recognizable / findable
+            by its owner (e.g. 5600 "Castor Ave – USPS" owned by Hyman Korman Co). */}
+        {(() => {
+          const owner = soleOwnerName(prop.id);
+          return owner && owner.replace(/\.$/, "") !== prop.name
+            ? <div style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.3, marginBottom: 2 }}>{owner}</div>
+            : null;
+        })()}
 
 
         {/* Address / city */}
