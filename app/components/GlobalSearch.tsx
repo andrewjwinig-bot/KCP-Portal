@@ -7,7 +7,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { PROPERTY_DEFS, BANK_ACCOUNTS, type PropertyDef } from "../../lib/properties/data";
-import { PROPERTY_OWNERSHIP } from "../../lib/properties/ownership";
+import { PROPERTY_OWNERSHIP, ownerNamesForProperty, soleOwnerName } from "../../lib/properties/ownership";
 import { useUser } from "./UserProvider";
 import { TAX_TASKS, PARCEL_INFO, filingLabel, baseEntityName } from "../tracker/tax-data";
 import { STAFF } from "@/lib/maintenance/staff";
@@ -396,6 +396,7 @@ export default function GlobalSearch() {
 
     // Properties
     for (const p of PROPERTY_DEFS) {
+      const ownerNames = ownerNamesForProperty(p.id);
       const s = Math.max(
         score(q, p.id) * 1.5,
         score(q, p.name),
@@ -404,12 +405,15 @@ export default function GlobalSearch() {
         score(q, p.notes ?? null),
         score(q, p.fundGroup ?? null),
         score(q, p.ein ?? null) * 1.2,
+        // Findable by the owning entity (e.g. 5600 by "Hyman Korman Co").
+        ...ownerNames.map((n) => score(q, n)),
       );
       if (s > 0) {
+        const owner = soleOwnerName(p.id);
         out.push({
           group: "Property",
           title: p.name,
-          subtitle: [p.type, p.address, p.city].filter(Boolean).join(" · "),
+          subtitle: [p.type, owner && owner.replace(/\.$/, "") !== p.name ? owner : null, p.address, p.city].filter(Boolean).join(" · "),
           badge: p.id,
           href: `/properties#prop-${p.id}`,
           score: s,

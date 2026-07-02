@@ -243,3 +243,18 @@ export function getOwnersForProperty(propertyCode: string): PropertyOwner[] {
   const entry = PROPERTY_OWNERSHIP.find((p) => p.propertyCode === propertyCode);
   return entry?.owners ?? [];
 }
+
+/** Distinct owner name(s) for a property code — for search indexing so a
+ *  property is findable by its owning entity (e.g. 5600 by "Hyman Korman Co"). */
+export function ownerNamesForProperty(propertyCode: string): string[] {
+  const owners = getOwnersForProperty(propertyCode);
+  return [...new Set(owners.map((o) => o.name.trim()).filter(Boolean))];
+}
+
+/** The owning-entity label for the directory card: the sole owner's name when a
+ *  property is wholly owned by one entity, else null (multi-owner properties
+ *  show their owners on the detail page instead of cluttering the card). */
+export function soleOwnerName(propertyCode: string): string | null {
+  const owners = getOwnersForProperty(propertyCode);
+  return owners.length === 1 ? owners[0].name.trim() : null;
+}
