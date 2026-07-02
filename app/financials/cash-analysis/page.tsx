@@ -189,9 +189,16 @@ export default function CashSheetPage() {
     openDrill(row, code, label);
   }, [openDrill]);
 
-  const load = useCallback(() => {
+  // Reload the snapshot. Accepts an explicit period so a post-import refresh
+  // fetches the RIGHT month even before the year/period state has re-rendered
+  // (importing a report for a different month would otherwise race the stale
+  // closure). `cache: "no-store"` guarantees a fresh body, never a cached one.
+  const load = useCallback((override?: { year?: number; period?: number; ytd?: boolean }) => {
+    const y = override?.year ?? year;
+    const p = override?.period ?? period;
+    const yt = override?.ytd ?? ytd;
     setLoading(true);
-    fetch(`/api/financials/cash-analysis?year=${year}&period=${period}&ytd=${ytd ? 1 : 0}`)
+    return fetch(`/api/financials/cash-analysis?year=${y}&period=${p}&ytd=${yt ? 1 : 0}`, { cache: "no-store" })
       .then((r) => r.json())
       .then((j: Payload & { error?: string }) => { if (j.error) setError(j.error); else { setData(j); setError(null); } })
       .catch((e) => setError(e?.message ?? "Failed to load"))
@@ -239,9 +246,11 @@ export default function CashSheetPage() {
       const j = await res.json();
       if (!res.ok) throw new Error(j?.error ?? "Upload failed");
       const pm = parseMonthKey(String(j.wednesday).slice(0, 7));
+      // Jump to the imported report's month if it differs, and refresh the
+      // snapshot for THAT month explicitly so the new bills show immediately.
       if (pm && (pm.year !== year || pm.month !== period)) { setYear(pm.year); setPeriod(pm.month); }
       setApSummary({ wednesday: j.wednesday, total: j.total, count: (j.filled ?? []).length });
-      load();
+      await load(pm ? { year: pm.year, period: pm.month } : undefined);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed");
     } finally {
