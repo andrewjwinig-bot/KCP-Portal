@@ -178,7 +178,7 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ result, estimates, contacts, expenseSummary: expenseSummaryWithHistory, expenseEditable, expenseHistoryYears, warnings });
+  return NextResponse.json({ result, estimates, contacts, expenseSummary: expenseSummaryWithHistory, expenseEditable, expenseHistoryYears, warnings, glImport: glLive ? { at: glLive.uploadedAt, by: glLive.uploadedBy ?? null } : null });
 }
 
 const EDITABLE_FIELDS = new Set<keyof OfficeLeaseConfig>([

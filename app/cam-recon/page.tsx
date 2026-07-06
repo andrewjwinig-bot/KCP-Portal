@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { Pill, StatPill, reconBalanceTone, TONE_NEUTRAL, TONE_AMBER, TONE_BLUE, TONE_PURPLE } from "@/app/components/Pill";
 import { ImportInstructions } from "@/app/components/ImportInstructions";
+import { LastImported } from "@/app/components/LastImported";
 import {
   yearEndAdjustmentRows,
   chargeRowsToCSV,
@@ -171,6 +172,7 @@ export default function OfficeCamReconPage() {
   // Property-wide retail insurance pool (effective value, seed, overridden flag).
   // Retail Final Expense Summary (CAM lines + INS + RET) for the property view.
   const [expenseFinal, setExpenseFinal] = useState<RetailFinalData | null>(null);
+  const [glImport, setGlImport] = useState<{ at: string; by: string | null } | null>(null);
   const [estimates, setEstimates] = useState<NextYearEstimate[]>([]);
   const [contacts, setContacts] = useState<Record<string, { email: string; cc: string }>>({});
   const [expenseSummary, setExpenseSummary] = useState<ExpRow[]>([]);
@@ -287,6 +289,7 @@ export default function OfficeCamReconPage() {
       setExpenseSummary(j?.expenseSummary ?? []);
       setExpenseEditable(!!j?.expenseEditable);
       setExpenseHistoryYears(j?.expenseHistoryYears ?? []);
+      setGlImport(j?.glImport ?? null);
       setWarnings(j?.warnings ?? []);
     } finally {
       setLoading(false);
@@ -632,7 +635,7 @@ export default function OfficeCamReconPage() {
 
       {!selected && result && <BuildingSummary result={result} onPick={pickUnit} onEditEscrow={saveField} footer={kpiTiles} />}
       {!selected && result && <RecoveryByBaseYear result={result} />}
-      {!selected && expenseSummary.length > 0 && <FinalExpenseSummary rows={expenseSummary} editable={expenseEditable} year={year} onEdit={saveExpense} historyYears={expenseHistoryYears} historyHref={`/rentroll/base-years?property=${property}`} />}
+      {!selected && expenseSummary.length > 0 && <FinalExpenseSummary rows={expenseSummary} editable={expenseEditable} year={year} onEdit={saveExpense} historyYears={expenseHistoryYears} historyHref={`/rentroll/base-years?property=${property}`} glImport={glImport} />}
       {selected && <TenantStatement t={selected} reconYear={year} estimate={estimates.find((e) => e.unitRef === selected.unitRef)} contact={contacts[selected.unitRef]} />}
     </main>
   );
@@ -1017,7 +1020,7 @@ function QuarterlyBilling({ billingKey, year }: { billingKey: string; year: numb
 // the Property Insurance card.
 
 type RetailFinalRow = { account: string; label: string; amount: number; seed: number; overridden: boolean; history?: (number | null)[] };
-type RetailFinalData = { historyYears?: number[]; fromGl?: boolean; lines: RetailFinalRow[]; ins: RetailFinalRow; ret: RetailFinalRow };
+type RetailFinalData = { historyYears?: number[]; fromGl?: boolean; glImport?: { at: string; by: string | null } | null; lines: RetailFinalRow[]; ins: RetailFinalRow; ret: RetailFinalRow };
 
 // Storage key for the RET pool (mirrors RET_FINAL_KEY on the server).
 const RET_FINAL_KEY = "RET";
@@ -1069,6 +1072,7 @@ function RetailFinalExpenseSummary({ data, onEdit, historyHref }: {
       <p className="small muted" style={{ marginTop: 4, marginBottom: 4, maxWidth: 760 }}>
         The operating-expense lines, property insurance, and real-estate-tax pool used in this reconciliation. {data.fromGl ? <>The CAM lines + RET <b>pull live from the property GL</b> by account; edit a FINAL to back out anything that doesn&rsquo;t apply.</> : <>Edit a FINAL to override the workbook amount for this property/year.</>} Every tenant&rsquo;s CAM/INS/RET recomputes.{years.length > 0 ? " The columns past the divider are the prior years’ actuals (trend at a glance)." : ""}
       </p>
+      {data.glImport && <LastImported at={data.glImport.at} by={data.glImport.by} label="GL last imported" style={{ marginTop: 0 }} />}
       <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 10, minWidth: 560 }}>
         <thead>
           <tr>
@@ -1512,13 +1516,14 @@ type ExpRow = {
   glActual?: number | null;
 };
 
-function FinalExpenseSummary({ rows, editable, year, onEdit, historyYears = [], historyHref }: {
+function FinalExpenseSummary({ rows, editable, year, onEdit, historyYears = [], historyHref, glImport }: {
   rows: ExpRow[];
   editable: boolean;
   year: number;
   onEdit: (account: string, field: string, value: number | string | null) => void;
   historyYears?: number[];
   historyHref?: string;
+  glImport?: { at: string; by: string | null } | null;
 }) {
   const isSep = (a: string) => a.startsWith("6120") || a.startsWith("6410"); // Electric / RET
   const hasGlActual = rows.some((r) => r.glActual != null); // live GL loaded (2026+)
@@ -1558,6 +1563,7 @@ function FinalExpenseSummary({ rows, editable, year, onEdit, historyYears = [], 
           {year} uses the operating-expense history as the final — these are the booked figures that drive every tenant&rsquo;s CAM/RET calc. GL/Avid adjustments become available from 2026.
         </p>
       )}
+      {glImport && <LastImported at={glImport.at} by={glImport.by} label="GL last imported" style={{ marginTop: 4 }} />}
       <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 10, minWidth: editable ? 860 : 420 }}>
         <thead>
           <tr>
