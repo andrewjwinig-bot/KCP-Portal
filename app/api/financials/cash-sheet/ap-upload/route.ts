@@ -6,7 +6,6 @@ import { parseMonthKey } from "@/lib/financials/cash-sheet/util";
 import { SITE_COOKIE, verifySiteToken } from "@/lib/site-auth";
 import { ALL_USERS, USERS, canEditCashSheet, type UserId } from "@/lib/users";
 import { recordImport } from "@/lib/tracker/importEvents";
-import { markTaskComplete } from "@/lib/tracker/completionStore";
 import { cookies } from "next/headers";
 import { logAudit, auditIp } from "@/lib/audit";
 
@@ -76,20 +75,11 @@ export async function POST(req: Request) {
     const filled = Object.entries(rounded).map(([code, amount]) => ({ code, amount })).sort((a, b) => b.amount - a.amount);
     const total = filled.reduce((s, f) => s + f.amount, 0);
     await logAudit({ event: "cash-sheet.ap-upload", user: user ?? "?", ip: auditIp(req), detail: `${wednesday} · ${files.length} file(s) · ${filled.length} props · $${Math.round(total).toLocaleString()}` });
+    // Tracks the AP import reminder only — "Pay Avid Bills" is its own separate
+    // tracker task and is NOT auto-completed by importing the report.
     try { await recordImport("imp-ap", { at: new Date().toISOString(), by: user ? USERS[user as UserId]?.label ?? user : null }); } catch { /* best-effort */ }
 
-    // The AP Selection Report is produced by the weekly Avid pay run, so
-    // importing it checks off that week's "Pay Avid Bills" tracker task (the
-    // Wednesday occurrence for the pay week). Idempotent; uncheck in the tracker
-    // if a report was imported without the run.
-    let avidTaskCompleted: string | null = null;
-    try {
-      const [y, mo, d] = wednesday.split("-").map(Number);
-      avidTaskCompleted = `m-avid-${y}-${mo}-${d}`;
-      await markTaskComplete(y, mo - 1, avidTaskCompleted, { at: new Date().toISOString(), source: "ap-upload" });
-    } catch { /* best-effort */ }
-
-    return NextResponse.json({ ok: true, wednesday, reportDate, filled, total, avidTaskCompleted });
+    return NextResponse.json({ ok: true, wednesday, reportDate, filled, total });
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "Failed to parse the AP report(s)." }, { status: 500 });
   }
