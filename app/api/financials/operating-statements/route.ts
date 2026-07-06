@@ -10,7 +10,7 @@ import { cashAtStartOfMonth } from "@/lib/financials/operating-statements/cash";
 import { lineMonthly } from "@/lib/financials/operating-statements/lineSeries";
 import { trendFlags } from "@/lib/financials/operating-statements/trends";
 import { mortgagePaymentsFor } from "@/lib/financials/cash-sheet/mortgage";
-import { PROPERTY_DEFS } from "@/lib/properties/data";
+import { PROPERTY_DEFS, ALLOC_PCT } from "@/lib/properties/data";
 import { FUND_BUILDINGS } from "@/lib/financials/cash-analysis/funds";
 import { logAudit, auditIp } from "@/lib/audit";
 import { savePendingGl } from "@/lib/allocated-invoicer/pendingGlStore";
@@ -178,8 +178,31 @@ export async function GET(req: Request) {
   }
   const debtCheck = { scheduled: scheduledDebt, posted: postedDebt, missing: scheduledDebt > 0 && Math.round(postedDebt) === 0 };
 
+  // Allocated G&A — this property's slice of the 2000 G&A pool (accounts ending
+  // -9301/-9302/-9303) for the period, by the 9303 basis (ALLOC_PCT). It's a
+  // MEMO, not folded into the GL-based totals: the cost posts to this property's
+  // own GL only once the allocation invoice is processed, so folding it in would
+  // double-count. Surfaced so the coming overhead is visible on the statement.
+  const allocPct = ALLOC_PCT[mapping.propertyCode]?.["9303"] ?? 0;
+  let allocatedGA: { pct: number; periodShare: number; ytdShare: number; poolPeriod: number; poolYtd: number } | null = null;
+  if (allocPct > 0) {
+    const gl2000 = assembleGls(fulls.filter((g) => g.propertyCode === "2000" && g.year === year));
+    if (gl2000) {
+      let poolPeriod = 0, poolYtd = 0;
+      for (const [acct, nets] of Object.entries(gl2000.monthly)) {
+        if (!/-(9301|9302|9303)$/.test(acct)) continue;
+        poolPeriod += nets[period - 1] ?? 0;
+        for (let i = 0; i < period; i++) poolYtd += nets[i] ?? 0;
+      }
+      if (Math.abs(poolPeriod) > 0.5 || Math.abs(poolYtd) > 0.5) {
+        allocatedGA = { pct: allocPct, periodShare: poolPeriod * allocPct, ytdShare: poolYtd * allocPct, poolPeriod, poolYtd };
+      }
+    }
+  }
+
   return NextResponse.json({
     debtCheck,
+    allocatedGA,
     available,
     versions,
     selectedVersion: stored.id,
