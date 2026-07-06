@@ -5,6 +5,7 @@ import { taskOccurrencesBetween, CATEGORIES, type TaskOccurrence } from "@/lib/t
 import { getCompletions, completionKey } from "@/lib/tracker/completionStore";
 import { importsForWeek } from "@/lib/tracker/imports";
 import { outstandingGlUploads, type OutstandingGl } from "@/lib/financials/operating-statements/outstanding";
+import { recentlyVacatedTenants, type VacatedTenant } from "@/lib/leasing/recentlyVacated";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -67,6 +68,7 @@ function buildDigest(
   tasks: TaskOccurrence[],
   completions: Record<string, unknown>,
   outstanding: { expected: { year: number; period: number }; behind: OutstandingGl[] } | null,
+  vacated: VacatedTenant[],
 ) {
   const { start, end } = weekBounds(now);
 
@@ -121,6 +123,16 @@ function buildDigest(
     lines.push("");
   }
 
+  // ── Tenants to close out (recently vacated) ──────────────────────────────
+  if (vacated.length) {
+    lines.push(`TENANTS TO CLOSE OUT — vacated in the last ~60 days (${vacated.length})`);
+    for (const v of vacated) {
+      lines.push(`  • ${v.occupantName} — ${v.propertyCode} · ${v.unitRef}${v.sqft ? ` · ${v.sqft.toLocaleString()} sf` : ""}`);
+    }
+    lines.push(`  → Run each move-out CAM/RET close-out: https://portal.kormancommercial.com/cam-recon/interim`);
+    lines.push("");
+  }
+
   lines.push(`Open the tracker: https://portal.kormancommercial.com/tracker`);
   lines.push("");
   lines.push(`— KCP Portal`);
@@ -128,9 +140,10 @@ function buildDigest(
   const parts: string[] = [];
   if (open.length) parts.push(`${open.length} task${open.length === 1 ? "" : "s"}`);
   if (behind.length) parts.push(`${behind.length} GL upload${behind.length === 1 ? "" : "s"} behind`);
+  if (vacated.length) parts.push(`${vacated.length} to close out`);
   const subject = parts.length ? `Your week — ${parts.join(", ")} (${range})` : `Your week — all clear (${range})`;
 
-  return { subject, textBody: lines.join("\n"), open, doneCount, imports, behind };
+  return { subject, textBody: lines.join("\n"), open, doneCount, imports, behind, vacated };
 }
 
 async function runDigest(req: Request) {
@@ -144,7 +157,10 @@ async function runDigest(req: Request) {
   let outstanding: { expected: { year: number; period: number }; behind: OutstandingGl[] } | null = null;
   try { outstanding = await outstandingGlUploads(now); } catch { /* best-effort */ }
 
-  const { subject, textBody, open, doneCount, imports, behind } = buildDigest(now, tasks, completions, outstanding);
+  let vacated: VacatedTenant[] = [];
+  try { vacated = await recentlyVacatedTenants(now); } catch { /* best-effort */ }
+
+  const { subject, textBody, open, doneCount, imports, behind } = buildDigest(now, tasks, completions, outstanding, vacated);
 
   const url = new URL(req.url);
   const toOverride = url.searchParams.get("to");
@@ -163,6 +179,7 @@ async function runDigest(req: Request) {
     done: doneCount,
     imports: imports.length,
     outstandingGl: behind.length,
+    toCloseOut: vacated.length,
   });
 }
 
