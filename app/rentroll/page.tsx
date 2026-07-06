@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { PROPERTY_DEFS } from "../../lib/properties/data";
 import type { RentRollData, RentRollUnit, RentRollProperty } from "../../lib/rentroll/parseRentRollExcel";
@@ -1296,6 +1297,8 @@ export default function RentRollPage() {
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadNote, setUploadNote] = useState<string | null>(null);
+  type ChangeRow = { propertyCode: string; unitRef: string; occupantName: string; sqft: number; leaseTo: string | null };
+  const [uploadChanges, setUploadChanges] = useState<{ newTenants: ChangeRow[]; vacated: ChangeRow[] } | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>(user.defaultRentRollCategory as CategoryFilter);
   // Re-apply persona default when the active user changes (until the user clicks a different chip)
   useEffect(() => { setCategoryFilter(user.defaultRentRollCategory as CategoryFilter); }, [user.id, user.defaultRentRollCategory]);
@@ -1454,6 +1457,7 @@ export default function RentRollPage() {
       const data = await res.json();
       if (!res.ok || data.error) throw new Error(data.error ?? "Upload failed");
       setRawRentroll(data.rentroll);
+      setUploadChanges(data.changes && (data.changes.newTenants?.length || data.changes.vacated?.length) ? data.changes : null);
 
       // Refresh the snapshot list + jump the on-screen period to the roll
       // just imported. Without this the new month wasn't in the dropdown and
@@ -1639,6 +1643,31 @@ export default function RentRollPage() {
         <LastImported at={rentroll?.uploadedAt} by={rentroll?.uploadedBy} />
         {uploadError && <div style={{ color: "#b42318", fontSize: 13, marginTop: 6 }}>{uploadError}</div>}
         {uploadNote && <div style={{ color: "#0b4a7d", fontSize: 13, marginTop: 6 }}>{uploadNote}</div>}
+        {uploadChanges && (
+          <div style={{ marginTop: 10, padding: "10px 14px", borderRadius: 10, border: "1px solid rgba(11,74,125,0.28)", background: "rgba(11,74,125,0.05)", display: "flex", flexWrap: "wrap", gap: 14, alignItems: "center" }}>
+            <span style={{ fontWeight: 700, color: "#0b4a7d" }}>Changes vs last roll:</span>
+            {uploadChanges.newTenants.length > 0 && (
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 13 }}>
+                <b>{uploadChanges.newTenants.length}</b> new tenant{uploadChanges.newTenants.length === 1 ? "" : "s"}
+                <span className="muted" style={{ maxWidth: 340, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  ({uploadChanges.newTenants.slice(0, 3).map((t) => t.occupantName).join(", ")}{uploadChanges.newTenants.length > 3 ? "…" : ""})
+                </span>
+                <Link href="/commissions" style={{ fontWeight: 700, color: "#0b4a7d", textDecoration: "none" }}>Log commissions →</Link>
+              </span>
+            )}
+            {uploadChanges.vacated.length > 0 && (
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 13 }}>
+                <b>{uploadChanges.vacated.length}</b> vacated
+                <span className="muted" style={{ maxWidth: 340, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  ({uploadChanges.vacated.slice(0, 3).map((t) => t.occupantName).join(", ")}{uploadChanges.vacated.length > 3 ? "…" : ""})
+                </span>
+                <Link href="/deposits" style={{ fontWeight: 700, color: "#0b4a7d", textDecoration: "none" }}>Return deposits →</Link>
+                <Link href="/cam-recon/interim" style={{ fontWeight: 700, color: "#0b4a7d", textDecoration: "none" }}>Close out →</Link>
+              </span>
+            )}
+            <button onClick={() => setUploadChanges(null)} aria-label="Dismiss" style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "#0b4a7d", fontSize: 16, fontWeight: 700 }}>×</button>
+          </div>
+        )}
         {(loading || monthLoading) && <div style={{ color: "var(--muted)", fontSize: 13, marginTop: 10 }}>Loading…</div>}
         {filteredRentroll && (
           <>

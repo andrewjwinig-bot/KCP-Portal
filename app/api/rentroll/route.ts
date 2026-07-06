@@ -133,6 +133,42 @@ export async function POST(req: NextRequest) {
     // Mark the rent-roll import reminder satisfied for the weekly digest / dashboard.
     try { await recordImport("imp-rentroll", { at: uploadedAt, by: uploadedBy ?? null }); } catch { /* best-effort */ }
 
+    // Diff vs the prior month's roll → downstream prompts: new leases to
+    // commission, vacated tenants to close out / return their deposit.
+    type ChangeRow = { propertyCode: string; unitRef: string; occupantName: string; sqft: number; leaseTo: string | null };
+    const changes: { newTenants: ChangeRow[]; vacated: ChangeRow[] } = { newTenants: [], vacated: [] };
+    try {
+      let prior: any = null, priorMonth = "";
+      for (const snap of all) {
+        const m = snapshotMonthKey(snap);
+        if (m.localeCompare(importedMonth) < 0 && m.localeCompare(priorMonth) > 0) { prior = snap; priorMonth = m; }
+      }
+      if (prior) {
+        const norm = (s: string) => (s ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
+        const occ = (r: any) => {
+          const map = new Map<string, any>();
+          for (const p of r.properties ?? []) for (const u of p.units ?? []) {
+            if (u.isVacant || u.amenity || !u.occupantName) continue;
+            map.set(u.unitRef, { ...u, propertyCode: p.propertyCode });
+          }
+          return map;
+        };
+        const now = occ(imported), was = occ(prior);
+        for (const [ref, u] of now) {
+          const b = was.get(ref);
+          if (!b || norm(b.occupantName) !== norm(u.occupantName)) {
+            changes.newTenants.push({ propertyCode: u.propertyCode, unitRef: ref, occupantName: u.occupantName, sqft: u.sqft ?? 0, leaseTo: u.leaseTo ?? null });
+          }
+        }
+        for (const [ref, u] of was) {
+          const a = now.get(ref);
+          if (!a || norm(a.occupantName) !== norm(u.occupantName)) {
+            changes.vacated.push({ propertyCode: u.propertyCode, unitRef: ref, occupantName: u.occupantName, sqft: u.sqft ?? 0, leaseTo: u.leaseTo ?? null });
+          }
+        }
+      }
+    } catch { /* best-effort — diff is a prompt, not core */ }
+
     // Always hand back the *current* (latest-month) roll for display, plus
     // what was imported and whether it became current.
     return NextResponse.json({
@@ -141,6 +177,7 @@ export async function POST(req: NextRequest) {
       rentroll: normalizeOccupantNames(current),
       imported: { month: importedMonth, becameCurrent },
       currentMonth: latestMonth,
+      changes,
     });
   } catch (err: any) {
     console.error("[POST /api/rentroll]", err?.message ?? err);
