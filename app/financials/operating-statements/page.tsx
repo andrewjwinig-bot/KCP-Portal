@@ -276,6 +276,7 @@ export default function OperatingStatementsPage() {
   const [noteMeta, setNoteMeta] = useState<Record<string, { editedAt: string; editedBy: string }>>({});
   const [dismissedFlags, setDismissedFlags] = useState<Set<string>>(new Set()); // "?" flags dismissed this session
   const [debtCheck, setDebtCheck] = useState<{ scheduled: number; posted: number; missing: boolean } | null>(null);
+  const [allocatedGA, setAllocatedGA] = useState<{ pct: number; periodShare: number; ytdShare: number; poolPeriod: number; poolYtd: number } | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -339,6 +340,7 @@ export default function OperatingStatementsPage() {
       setStatement(j.statement ?? null);
       setLastImport(j.uploadedAt ? { at: j.uploadedAt, by: j.uploadedBy ?? null } : null);
       setDebtCheck(j.debtCheck ?? null);
+      setAllocatedGA(j.allocatedGA ?? null);
       setNotes(j.notes ?? {});
       setDismissedFlags(new Set()); // server already filtered dismissed flags
       setOperatingCash(j.operatingCash ?? null);
@@ -736,6 +738,29 @@ export default function OperatingStatementsPage() {
           ⚠ This property has a loan (scheduled P&amp;I ${money0(debtCheck.scheduled)}/mo) but <b>$0 debt service posted</b> this month — the mortgage charge may be missing. Re-post the charge or re-upload the GL.
         </div>
       )}
+      {!loading && statement && allocatedGA && (() => {
+        const mon = MONTHS[statement.period - 1];
+        return (
+          <div className="card" style={{ borderColor: "rgba(180,83,9,0.4)", background: "rgba(217,119,6,0.06)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
+              <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "#b45309" }}>
+                G&amp;A / Admin Allocation · Non-Reimbursable
+              </div>
+              <span className="muted small" style={{ fontWeight: 700 }}>Memo — not in totals</span>
+            </div>
+            <div className="pills" style={{ marginTop: 10 }}>
+              <StatPill label={`Allocated Share · ${mon}`} value={`$${money0(allocatedGA.periodShare)}`} accent="#b45309" />
+              <StatPill label="Allocated Share · YTD" value={`$${money0(allocatedGA.ytdShare)}`} accent="#b45309" />
+              <StatPill label="Your Basis (9303)" value={`${(allocatedGA.pct * 100).toFixed(2)}%`} />
+              <StatPill label={`2000 G&A Pool · ${mon}`} value={`$${money0(allocatedGA.poolPeriod)}`} />
+            </div>
+            <p className="small muted" style={{ marginTop: 10, marginBottom: 0 }}>
+              This property&rsquo;s share of the <b>2000 G&amp;A pool</b> ({(allocatedGA.pct * 100).toFixed(2)}% of ${money0(allocatedGA.poolPeriod)} for {mon}).
+              It&rsquo;s a <b>pending memo</b> — it posts to this property&rsquo;s own GL, and folds into the totals above, only once the <a href="/allocated-invoicer" style={{ color: "#0b4a7d", fontWeight: 600 }}>allocated invoice</a> is processed. Shown here so the coming overhead is visible.
+            </p>
+          </div>
+        );
+      })()}
       {!loading && statement && <StatementTable s={statement} viewKey={key} budgetYear={budgetYear} budgetFallback={budgetFallback} notes={notes} noteSources={noteSources} noteMeta={noteMeta} editorLabel={user.label} onSaveNote={saveNote} dismissedFlags={dismissedFlags} onDismissFlag={onDismissFlag} view={{ psf, sqft, hideEmpty, showGL, varMode }} thresh={thresh} flagFilter={flagFilter} onClearFilter={() => setFlagFilter(null)} />}
     </main>
   );
