@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { CATEGORIES, taskOccurrencesBetween, type TaskOccurrence } from "../../lib/tracker/taskDefs";
+import { importsForWeek, type ImportReminder } from "../../lib/tracker/imports";
 
 // Mirrors the tracker page's per-month localStorage key, so checking a task
 // off here keeps it in sync with the Task Tracker on the same browser.
@@ -12,12 +13,12 @@ function monthKey(d: Date): string {
 
 /** Drew's master-tracker tasks due this calendar week, checkable in place. */
 export default function DrewTasksThisWeek() {
-  const occ = useMemo<TaskOccurrence[]>(() => {
+  const { occ, imports } = useMemo<{ occ: TaskOccurrence[]; imports: ImportReminder[] }>(() => {
     const now = new Date();
     const sinceMon = (now.getDay() + 6) % 7; // 0=Sun → start week on Monday
     const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - sinceMon);
     const end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 6, 23, 59, 59);
-    return taskOccurrencesBetween(start, end);
+    return { occ: taskOccurrencesBetween(start, end), imports: importsForWeek(start, end) };
   }, []);
 
   const [checked, setChecked] = useState<Record<string, Record<string, boolean>>>({});
@@ -137,6 +138,41 @@ export default function DrewTasksThisWeek() {
               </label>
             );
           })}
+        </div>
+      )}
+
+      {imports.length > 0 && (
+        <div style={{ marginTop: 14 }}>
+          <div style={{
+            fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em",
+            color: "#b45309", marginBottom: 8,
+            display: "flex", alignItems: "center", gap: 6,
+          }}>
+            <span style={{ width: 9, height: 9, borderRadius: 999, background: "#b45309", flexShrink: 0 }} />
+            Files to Import This Week
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {imports.map((r) => (
+              <Link
+                key={r.id}
+                href={r.link}
+                style={{
+                  display: "flex", alignItems: "center", gap: 10,
+                  padding: "8px 10px", borderRadius: 8,
+                  border: "1px solid rgba(180,83,9,0.28)",
+                  background: "rgba(180,83,9,0.06)",
+                  textDecoration: "none", color: "inherit",
+                }}
+              >
+                <span style={{ width: 9, height: 9, borderRadius: 999, background: "#b45309", flexShrink: 0 }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "#7c3d06" }}>{r.label}</div>
+                  <div className="muted small" style={{ marginTop: 1 }}>feeds {r.feeds}</div>
+                </div>
+                <div style={{ flexShrink: 0, fontSize: 12, fontWeight: 700, color: "#b45309" }}>{r.when}</div>
+              </Link>
+            ))}
+          </div>
         </div>
       )}
     </div>
