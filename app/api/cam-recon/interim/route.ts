@@ -15,6 +15,7 @@ import { getCamConfig } from "@/lib/cam/configStorage";
 import { seedCamConfig } from "@/lib/cam/retailConfigSeed";
 import { emptyCamConfig } from "@/lib/cam/config";
 import { getEscrowOverrides } from "@/lib/cam/retail/escrowStore";
+import { sumRentRollEscrow } from "@/lib/cam/escrowFromRolls";
 import { getPoolOverride } from "@/lib/cam/retail/poolStore";
 import { getFinalOverrides, RET_FINAL_KEY } from "@/lib/cam/retail/finalStore";
 import type { RetailTenantInput } from "@/lib/cam/retail/types";
@@ -145,9 +146,15 @@ async function retailManualResult(
     }
   }
 
-  const camEscrow = m.camEscrowOverride ?? m.opexMonth * occupiedMonths;
-  const retEscrow = m.retEscrowOverride ?? m.reTaxMonth * occupiedMonths;
+  // Billed escrow: an explicit override wins; else SUM the actual monthly escrow
+  // from each occupied month's rent roll; else fall back to monthly × months.
+  const summed = (m.camEscrowOverride == null || m.retEscrowOverride == null)
+    ? await sumRentRollEscrow(unitRef, year, startMonth, effectiveThrough)
+    : null;
+  const camEscrow = m.camEscrowOverride ?? summed?.camEscrow ?? m.opexMonth * occupiedMonths;
+  const retEscrow = m.retEscrowOverride ?? summed?.retEscrow ?? m.reTaxMonth * occupiedMonths;
   const insEscrow = m.insEscrowOverride ?? 0;
+  const escrowSource = summed ? "monthly-rolls" : "estimate";
 
   const tenant: RetailTenantInput = {
     unitRef, suite: unitRef.split("-").slice(1).join("-"), name, sqft: m.sqft,
@@ -175,6 +182,7 @@ async function retailManualResult(
       startMonth, leaseFrom: m.leaseFrom, leaseTo: m.vacatedISO, sqft: m.sqft,
       opexMonth: occupiedMonths ? camEscrow / occupiedMonths : 0,
       reTaxMonth: occupiedMonths ? retEscrow / occupiedMonths : 0,
+      escrowSource, escrowMonthsFound: summed?.monthsFound ?? 0,
       proRataPct: result.camPrs, glAsOf: gl?.uploadedAt ?? null, manual: true,
     },
   });
@@ -228,8 +236,14 @@ async function officeManualResult(
     }
   }
 
-  const opexEscrow = m.camEscrowOverride ?? m.opexMonth * occupiedMonths;
-  const retEscrow = m.retEscrowOverride ?? m.reTaxMonth * occupiedMonths;
+  // Billed escrow: override wins; else sum the actual monthly rent-roll escrow;
+  // else fall back to monthly × months.
+  const summedEsc = (m.camEscrowOverride == null || m.retEscrowOverride == null)
+    ? await sumRentRollEscrow(unitRef, year, startMonth, effectiveThrough)
+    : null;
+  const opexEscrow = m.camEscrowOverride ?? summedEsc?.camEscrow ?? m.opexMonth * occupiedMonths;
+  const retEscrow = m.retEscrowOverride ?? summedEsc?.retEscrow ?? m.reTaxMonth * occupiedMonths;
+  const escrowSource = summedEsc ? "monthly-rolls" : "estimate";
 
   // Default the pro-rata share from the entered SF ÷ building rentable SF
   // (rentable SF from the pool, else the roster's total leased SF) when the
@@ -263,6 +277,7 @@ async function officeManualResult(
       asOfMonth, effectiveThrough, occupiedMonths, unpostedMonths, maxPosted,
       startMonth, leaseFrom: m.leaseFrom, leaseTo: m.vacatedISO, sqft: m.sqft,
       opexMonth: tenant.camMonthly, reTaxMonth: tenant.retMonthly,
+      escrowSource, escrowMonthsFound: summedEsc?.monthsFound ?? 0,
       baseYear: m.baseYear ?? 0, proRataPct, grossUp: !!m.grossUp,
       glAsOf: gl?.uploadedAt ?? null, manual: true,
     },
@@ -417,11 +432,13 @@ export async function GET(req: NextRequest) {
     const base = tenants[0];
     if (!base) return NextResponse.json({ error: `${unitRef} has no CAM config — it isn't reconciled.` }, { status: 404 });
 
+    // Escrow for the window: SUM the actual monthly rent-roll CAM/RET escrow
+    // across the occupied months (falls back to monthly × months). INS escrow
+    // isn't on the rent roll, so 0 (adjust if billed separately).
+    const summedEsc = await sumRentRollEscrow(unitRef, year, startMonth, effectiveThrough);
     const result = reconcileInterimRetailTenant({
       pool,
-      // Escrow for the window: rent-roll CAM/RET monthly × occupied months; INS
-      // escrow isn't on the rent roll, so 0 (adjust if billed separately).
-      tenant: { ...base, camEscrow: opexMonth * occupiedMonths, retEscrow: reTaxMonth * occupiedMonths, insEscrow: 0, rcd: leaseFrom },
+      tenant: { ...base, camEscrow: summedEsc?.camEscrow ?? opexMonth * occupiedMonths, retEscrow: summedEsc?.retEscrow ?? reTaxMonth * occupiedMonths, insEscrow: 0, rcd: leaseFrom },
       ytdCamByAccount,
       occupiedMonths,
       asOfMonth,
@@ -433,6 +450,7 @@ export async function GET(req: NextRequest) {
         property, propertyName: propName(property), unitRef, name, year,
         asOfMonth, effectiveThrough, occupiedMonths, unpostedMonths, maxPosted,
         startMonth, leaseFrom, leaseTo, sqft: base.sqft, opexMonth, reTaxMonth,
+        escrowSource: summedEsc ? "monthly-rolls" : "estimate", escrowMonthsFound: summedEsc?.monthsFound ?? 0,
         proRataPct: base.camPrs, glAsOf: gl.uploadedAt ?? null,
       },
     });
@@ -526,13 +544,16 @@ export async function GET(req: NextRequest) {
     : { ...fixture.pool, opexLines: fixture.pool.opexLines.filter((l) => !l.glAccount.startsWith("6990")) };
 
   const cfg = config[unitRef];
+  // Billed escrow: SUM the actual monthly rent-roll escrow across the occupied
+  // months (falls back to monthly × months).
+  const summedEsc = await sumRentRollEscrow(unitRef, year, startMonth, effectiveThrough);
   const result = reconcileInterimTenant({
     pool,
     tenant: {
       unitRef, skylineUnit: `${unitRef}-CU`, suite: unitRef.split("-").slice(1).join("-"), name,
       baseYear: cfg.baseYear, noBaseStop: cfg.noBaseStop, grossUp: cfg.grossUp, proRataPct: cfg.proRataPct,
       sqft, occPct: 1, recoveryPct: 1,
-      opexEscrow: opexMonth * occupiedMonths, retEscrow: reTaxMonth * occupiedMonths,
+      opexEscrow: summedEsc?.camEscrow ?? opexMonth * occupiedMonths, retEscrow: summedEsc?.retEscrow ?? reTaxMonth * occupiedMonths,
       camMonthly: opexMonth, retMonthly: reTaxMonth, rcd: leaseFrom,
     },
     reconYear: year,
@@ -548,6 +569,7 @@ export async function GET(req: NextRequest) {
       property, propertyName: propName(property), unitRef, name, year,
       asOfMonth, effectiveThrough, occupiedMonths, unpostedMonths, maxPosted,
       startMonth, leaseFrom, leaseTo, sqft, opexMonth, reTaxMonth,
+      escrowSource: summedEsc ? "monthly-rolls" : "estimate", escrowMonthsFound: summedEsc?.monthsFound ?? 0,
       baseYear: cfg.baseYear, proRataPct: cfg.proRataPct, grossUp: cfg.grossUp,
       glAsOf: gl.uploadedAt ?? null,
     },
