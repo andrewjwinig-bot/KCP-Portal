@@ -14,6 +14,8 @@ import { PROPERTY_DEFS, ALLOC_PCT } from "@/lib/properties/data";
 import { FUND_BUILDINGS } from "@/lib/financials/cash-analysis/funds";
 import { logAudit, auditIp } from "@/lib/audit";
 import { savePendingGl } from "@/lib/allocated-invoicer/pendingGlStore";
+import { markTaskComplete } from "@/lib/tracker/completionStore";
+import { expectedPostedThrough } from "@/lib/financials/operating-statements/outstanding";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -289,6 +291,23 @@ export async function POST(req: Request) {
     // The 2000 G&A GL is the same Detailed GL the Allocated Expense Invoicer
     // runs on. Stash it so the invoicer can pick it up (prompt to generate the
     // allocated invoices) instead of re-uploading the identical file.
+    // Exporting a month's Detailed GL from Skyline is only possible AFTER posting
+    // + closing that period — so importing the prior-month GL is proof those
+    // tracker tasks are done. When the GL brings a property current through the
+    // expected prior month, auto-complete Post PM & AP, Close Prior Month, and
+    // Operating Statements for the month the work falls in (idempotent).
+    let tasksCompleted: string[] = [];
+    try {
+      const now = new Date();
+      const expected = expectedPostedThrough(now);
+      if (parsed.year === expected.year && parsed.maxPeriodInFile === expected.period) {
+        tasksCompleted = ["m-post", "m-close", "m-opstmt"];
+        for (const taskId of tasksCompleted) {
+          await markTaskComplete(now.getFullYear(), now.getMonth(), taskId, { at: now.toISOString(), source: "gl-upload" });
+        }
+      }
+    } catch { /* best-effort — the statement upload still succeeds */ }
+
     const isGandA = rawCode === "2000" || parsed.propertyCode === "2000" || key === "2000";
     if (isGandA) {
       try {
@@ -311,6 +330,7 @@ export async function POST(req: Request) {
       maxPeriodInFile: parsed.maxPeriodInFile,
       accounts: Object.keys(parsed.monthly).length,
       allocatedGlReady: isGandA,
+      tasksCompleted,
     });
   } catch (e) {
     return NextResponse.json(
