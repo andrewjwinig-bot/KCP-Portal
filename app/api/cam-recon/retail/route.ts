@@ -102,6 +102,7 @@ export async function GET(req: NextRequest) {
   const expenseFinal = {
     historyYears: histYears,
     fromGl: !!gl,
+    glImport: gl ? { at: gl.uploadedAt, by: gl.uploadedBy ?? null } : null,
     lines: fixture.pool.camLines.map((l) => {
       const base = glBase(l.glAccount, l.amount);
       return {

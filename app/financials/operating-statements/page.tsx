@@ -373,6 +373,7 @@ export default function OperatingStatementsPage() {
         const fd = new FormData();
         fd.append("file", file);
         if (files.length === 1 && key) fd.append("key", key);
+        fd.append("uploadedBy", user.label);
         const j = await fetch("/api/financials/operating-statements", { method: "POST", body: fd }).then((r) => r.json());
         if (j.error) { results.push({ name: file.name, ok: false, error: j.error }); }
         else {
@@ -501,7 +502,6 @@ export default function OperatingStatementsPage() {
       <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
         <div>
           <h1 style={{ margin: 0 }}>Operating Statements</h1>
-          {cur && <LastImported at={lastImport?.at} by={lastImport?.by} label={`${cur.name} GL last imported`} />}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
           <span style={{ fontFamily: "'Arial Black', 'Arial Bold', Arial, sans-serif", fontWeight: 900, fontSize: 30, letterSpacing: "-0.5px", lineHeight: 1 }}>KORMAN</span>
@@ -671,6 +671,7 @@ export default function OperatingStatementsPage() {
               nextPeriod={statement ? Math.min(maxPeriod + 1, 12) : 1}
             />
           </p>
+          {cur && <LastImported at={lastImport?.at} by={lastImport?.by} label={`${cur.name} GL last imported`} />}
         </div>
 
         {statement && variance && (() => {

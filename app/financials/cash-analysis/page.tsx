@@ -488,6 +488,7 @@ export default function CashSheetPage() {
           <b>Snapshot · {ytd ? "Year to date" : MONTHS[period - 1] + " " + year}</b>
           {" "}— every property and entity bank account with its cash position.
         </p>
+        <LastImported at={data?.lastImport?.at} by={data?.lastImport?.by} label="GL last imported" style={{ marginTop: 4, marginBottom: 0 }} />
         <LastImported at={data?.apImport?.at} by={data?.apImport?.by} label="AP Report last imported" />
         {apSummary && (
           <div className="small" style={{ marginTop: 6, color: "#15803d", fontWeight: 700 }}>
