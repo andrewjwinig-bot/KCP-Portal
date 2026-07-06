@@ -13,6 +13,7 @@ import { mortgagePaymentsFor } from "@/lib/financials/cash-sheet/mortgage";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 import { FUND_BUILDINGS } from "@/lib/financials/cash-analysis/funds";
 import { logAudit, auditIp } from "@/lib/audit";
+import { savePendingGl } from "@/lib/allocated-invoicer/pendingGlStore";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -262,12 +263,31 @@ export async function POST(req: Request) {
     await saveTransactions(id, parsed.transactions);
     await logAudit({ event: "gl.upload", user: typeof uploadedByRaw === "string" ? uploadedByRaw : key, ip: auditIp(req), detail: `${key} ${parsed.year} · ${file.name}` });
 
+    // The 2000 G&A GL is the same Detailed GL the Allocated Expense Invoicer
+    // runs on. Stash it so the invoicer can pick it up (prompt to generate the
+    // allocated invoices) instead of re-uploading the identical file.
+    const isGandA = rawCode === "2000" || parsed.propertyCode === "2000" || key === "2000";
+    if (isGandA) {
+      try {
+        await savePendingGl({
+          fileBase64: buf.toString("base64"),
+          fileName: file.name,
+          propertyCode: parsed.propertyCode || "2000",
+          year: parsed.year,
+          month: parsed.maxPeriodInFile,
+          uploadedAt: ts,
+          uploadedBy: typeof uploadedByRaw === "string" ? uploadedByRaw : null,
+        });
+      } catch { /* best-effort — the statement upload still succeeds */ }
+    }
+
     return NextResponse.json({
       ok: true,
       key,
       year: parsed.year,
       maxPeriodInFile: parsed.maxPeriodInFile,
       accounts: Object.keys(parsed.monthly).length,
+      allocatedGlReady: isGandA,
     });
   } catch (e) {
     return NextResponse.json(
