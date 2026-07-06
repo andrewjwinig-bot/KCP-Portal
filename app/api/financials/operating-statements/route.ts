@@ -16,6 +16,7 @@ import { logAudit, auditIp } from "@/lib/audit";
 import { savePendingGl } from "@/lib/allocated-invoicer/pendingGlStore";
 import { markTaskComplete } from "@/lib/tracker/completionStore";
 import { expectedPostedThrough } from "@/lib/financials/operating-statements/outstanding";
+import { recordImport } from "@/lib/tracker/importEvents";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -308,8 +309,14 @@ export async function POST(req: Request) {
       }
     } catch { /* best-effort — the statement upload still succeeds */ }
 
+    // Mark the GL import reminder satisfied (and the 2000 G&A GL reminder when
+    // it's the G&A entity) for the weekly digest / dashboard.
+    const importedBy = typeof uploadedByRaw === "string" ? uploadedByRaw : null;
+    try { await recordImport("imp-gl", { at: ts, by: importedBy }); } catch { /* best-effort */ }
+
     const isGandA = rawCode === "2000" || parsed.propertyCode === "2000" || key === "2000";
     if (isGandA) {
+      try { await recordImport("imp-alloc-gl", { at: ts, by: importedBy }); } catch { /* best-effort */ }
       try {
         await savePendingGl({
           fileBase64: buf.toString("base64"),

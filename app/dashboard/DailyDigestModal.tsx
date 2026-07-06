@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { CATEGORIES, taskOccurrencesBetween, type TaskOccurrence } from "../../lib/tracker/taskDefs";
-import { importsForWeek, type ImportReminder } from "../../lib/tracker/imports";
+import { importsForWeek, reminderSatisfied, type ImportReminder, type ImportEvent } from "../../lib/tracker/imports";
 
 // Same per-month localStorage bucket the Tracker + Tasks-This-Week card use,
 // so "done" state is shared.
@@ -35,6 +35,15 @@ export default function DailyDigestModal({ userId }: { userId: string }) {
 
   const [open, setOpen] = useState(false);
   const [checked, setChecked] = useState<Record<string, Record<string, boolean>>>({});
+  const [importEvents, setImportEvents] = useState<Record<string, ImportEvent>>({});
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/tracker/import-events", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => { if (!cancelled && j?.events) setImportEvents(j.events); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     // Only pop if we haven't shown it yet today.
@@ -162,21 +171,28 @@ export default function DailyDigestModal({ userId }: { userId: string }) {
                   Files to Import This Week
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 8 }}>
-                  {imports.map((r) => (
-                    <Link key={r.id} href={r.link} onClick={dismiss} style={{
-                      display: "flex", alignItems: "center", gap: 10,
-                      padding: "8px 10px", borderRadius: 8,
-                      border: "1px solid rgba(180,83,9,0.28)", background: "rgba(180,83,9,0.06)",
-                      textDecoration: "none", color: "inherit",
-                    }}>
-                      <span style={{ width: 9, height: 9, borderRadius: 999, background: "#b45309", flexShrink: 0 }} />
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: "#7c3d06" }}>{r.label}</div>
-                        <div className="muted small" style={{ marginTop: 1 }}>feeds {r.feeds}</div>
-                      </div>
-                      <div style={{ flexShrink: 0, fontSize: 12, fontWeight: 700, color: "#b45309" }}>{r.when}</div>
-                    </Link>
-                  ))}
+                  {imports.map((r) => {
+                    const ev = importEvents[r.id];
+                    const done = reminderSatisfied(r, ev?.at, new Date());
+                    return (
+                      <Link key={r.id} href={r.link} onClick={dismiss} style={{
+                        display: "flex", alignItems: "center", gap: 10,
+                        padding: "8px 10px", borderRadius: 8,
+                        border: done ? "1px solid rgba(21,128,61,0.3)" : "1px solid rgba(180,83,9,0.28)",
+                        background: done ? "rgba(22,163,74,0.06)" : "rgba(180,83,9,0.06)",
+                        textDecoration: "none", color: "inherit",
+                      }}>
+                        <span style={{ width: 9, height: 9, borderRadius: 999, background: done ? "#15803d" : "#b45309", flexShrink: 0 }} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: done ? "var(--muted)" : "#7c3d06", textDecoration: done ? "line-through" : undefined }}>{r.label}</div>
+                          <div className="muted small" style={{ marginTop: 1 }}>
+                            {done && ev ? `✓ imported ${new Date(ev.at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}${ev.by ? ` by ${ev.by}` : ""}` : `feeds ${r.feeds}`}
+                          </div>
+                        </div>
+                        <div style={{ flexShrink: 0, fontSize: 12, fontWeight: 700, color: done ? "#15803d" : "#b45309" }}>{done ? "Done" : r.when}</div>
+                      </Link>
+                    );
+                  })}
                 </div>
               </>
             )}

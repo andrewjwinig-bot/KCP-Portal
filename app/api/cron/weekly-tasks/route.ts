@@ -4,6 +4,7 @@ import { SITE_COOKIE, verifySiteToken } from "@/lib/site-auth";
 import { taskOccurrencesBetween, CATEGORIES, type TaskOccurrence } from "@/lib/tracker/taskDefs";
 import { getCompletions, completionKey } from "@/lib/tracker/completionStore";
 import { importsForWeek } from "@/lib/tracker/imports";
+import { getImportEvents, reminderSatisfied, type ImportEvent } from "@/lib/tracker/importEvents";
 import { outstandingGlUploads, type OutstandingGl } from "@/lib/financials/operating-statements/outstanding";
 import { recentlyVacatedTenants, type VacatedTenant } from "@/lib/leasing/recentlyVacated";
 
@@ -69,6 +70,7 @@ function buildDigest(
   completions: Record<string, unknown>,
   outstanding: { expected: { year: number; period: number }; behind: OutstandingGl[] } | null,
   vacated: VacatedTenant[],
+  importEvents: Record<string, ImportEvent>,
 ) {
   const { start, end } = weekBounds(now);
 
@@ -100,12 +102,19 @@ function buildDigest(
   }
   lines.push("");
 
-  // ── Files to import ──────────────────────────────────────────────────
+  // ── Files to import (with what's already been imported this period) ──────
   const imports = importsForWeek(start, end);
+  const outstandingImports = imports.filter((r) => !reminderSatisfied(r, importEvents[r.id]?.at, now));
+  const doneImports = imports.filter((r) => reminderSatisfied(r, importEvents[r.id]?.at, now));
   if (imports.length) {
-    lines.push(`FILES TO IMPORT THIS WEEK`);
-    for (const r of imports) {
+    lines.push(outstandingImports.length ? `FILES TO IMPORT (${outstandingImports.length} outstanding)` : `FILES TO IMPORT — ✓ all done`);
+    for (const r of outstandingImports) {
       lines.push(`  • ${r.label} — ${r.when}  (feeds ${r.feeds})`);
+    }
+    for (const r of doneImports) {
+      const ev = importEvents[r.id];
+      const when = ev ? new Date(ev.at).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "";
+      lines.push(`  ✓ ${r.label} — imported ${when}${ev?.by ? ` by ${ev.by}` : ""}`);
     }
     lines.push("");
   }
@@ -160,7 +169,10 @@ async function runDigest(req: Request) {
   let vacated: VacatedTenant[] = [];
   try { vacated = await recentlyVacatedTenants(now); } catch { /* best-effort */ }
 
-  const { subject, textBody, open, doneCount, imports, behind } = buildDigest(now, tasks, completions, outstanding, vacated);
+  let importEvents: Record<string, ImportEvent> = {};
+  try { importEvents = await getImportEvents(); } catch { /* best-effort */ }
+
+  const { subject, textBody, open, doneCount, imports, behind } = buildDigest(now, tasks, completions, outstanding, vacated, importEvents);
 
   const url = new URL(req.url);
   const toOverride = url.searchParams.get("to");

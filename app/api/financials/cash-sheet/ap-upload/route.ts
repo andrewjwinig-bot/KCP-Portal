@@ -4,7 +4,8 @@ import { parseApSelection, apTextToRows } from "@/lib/financials/cash-sheet/apSe
 import { applyBills } from "@/lib/financials/cash-sheet/store";
 import { parseMonthKey } from "@/lib/financials/cash-sheet/util";
 import { SITE_COOKIE, verifySiteToken } from "@/lib/site-auth";
-import { ALL_USERS, canEditCashSheet, type UserId } from "@/lib/users";
+import { ALL_USERS, USERS, canEditCashSheet, type UserId } from "@/lib/users";
+import { recordImport } from "@/lib/tracker/importEvents";
 import { cookies } from "next/headers";
 import { logAudit, auditIp } from "@/lib/audit";
 
@@ -74,6 +75,7 @@ export async function POST(req: Request) {
     const filled = Object.entries(rounded).map(([code, amount]) => ({ code, amount })).sort((a, b) => b.amount - a.amount);
     const total = filled.reduce((s, f) => s + f.amount, 0);
     await logAudit({ event: "cash-sheet.ap-upload", user: user ?? "?", ip: auditIp(req), detail: `${wednesday} · ${files.length} file(s) · ${filled.length} props · $${Math.round(total).toLocaleString()}` });
+    try { await recordImport("imp-ap", { at: new Date().toISOString(), by: user ? USERS[user as UserId]?.label ?? user : null }); } catch { /* best-effort */ }
 
     return NextResponse.json({ ok: true, wednesday, reportDate, filled, total });
   } catch (e) {

@@ -730,6 +730,12 @@ export default function ExpensesPage() {
     setFileName(file.name);
     setImportedAt(new Date().toISOString());
     setImportedBy(user.label);
+    // Record the CC-statement import server-side so the weekly digest / dashboard
+    // can mark that reminder done (this coder is otherwise browser-local).
+    fetch("/api/tracker/import-events", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: "imp-cc", by: user.label }), keepalive: true,
+    }).catch(() => {});
   }
 
   function updateTx(id: string, patch: Partial<Tx>) {
