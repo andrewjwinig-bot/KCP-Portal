@@ -116,6 +116,52 @@ const FLAG_PILL: React.CSSProperties = {
   fontSize: 12, fontWeight: 800, padding: "2px 10px", borderRadius: 999,
 };
 
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+// Distinct calendar months a property has any flag in (≤ months imported) — so
+// the pill never reads a summed line-month count higher than the year's months.
+function distinctFlaggedMonths(p: ReviewProperty): number {
+  return new Set(p.lines.flatMap((l) => l.months.map((m) => m.period))).size;
+}
+
+// Immutably drop one (property, line, month) flag from the loaded result after
+// it's dismissed, so the list condenses without a full reload.
+function removeFlag(data: ReviewResult, propKey: string, lineKey: string, period: number): ReviewResult {
+  return {
+    ...data,
+    properties: data.properties.map((p) => {
+      if (p.key !== propKey) return p;
+      const lines = p.lines
+        .map((l) => (l.lineKey === lineKey ? { ...l, months: l.months.filter((m) => m.period !== period) } : l))
+        .filter((l) => l.months.length > 0);
+      return { ...p, lines, flaggedMonthCount: lines.reduce((s, l) => s + l.months.length, 0) };
+    }),
+  };
+}
+
+// Animated "scanning" loader — pulsing bars + a sweeping progress bar, so it's
+// obvious the audit is running across every property/month.
+function ScanningLoader() {
+  return (
+    <div className="card" style={{ padding: 30, display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
+      <style>{`
+        @keyframes fti-bar { 0%,100% { transform: scaleY(0.35); opacity: 0.5; } 50% { transform: scaleY(1); opacity: 1; } }
+        @keyframes fti-sweep { 0% { left: -35%; } 100% { left: 100%; } }
+      `}</style>
+      <div style={{ display: "flex", alignItems: "flex-end", gap: 5, height: 42 }} aria-hidden>
+        {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
+          <div key={i} style={{ width: 7, height: 42, borderRadius: 4, background: "linear-gradient(180deg,#2b7fc4,#0b4a7d)", transformOrigin: "bottom", animation: `fti-bar 1s ${(i * 0.1).toFixed(2)}s ease-in-out infinite` }} />
+        ))}
+      </div>
+      <div style={{ position: "relative", width: "70%", maxWidth: 340, height: 6, borderRadius: 999, background: "rgba(11,74,125,0.12)", overflow: "hidden" }}>
+        <div style={{ position: "absolute", top: 0, width: "35%", height: "100%", borderRadius: 999, background: "#0b4a7d", animation: "fti-sweep 1.1s ease-in-out infinite" }} />
+      </div>
+      <div style={{ fontWeight: 700 }}>Scanning every month of every property…</div>
+      <div className="muted small">Auditing GL lines for anything that looks off</div>
+    </div>
+  );
+}
+
 export default function OperatingStatementsReviewPage() {
   const [year, setYear] = useState(new Date().getFullYear());
   const [data, setData] = useState<ReviewResult | null>(null);
@@ -123,6 +169,27 @@ export default function OperatingStatementsReviewPage() {
   const [error, setError] = useState<string | null>(null);
   const [openProps, setOpenProps] = useState<Set<string>>(new Set());
   const [openLines, setOpenLines] = useState<Set<string>>(new Set());
+  const [monthFilter, setMonthFilter] = useState<number | null>(null);
+  const [dismissing, setDismissing] = useState<Set<string>>(new Set());
+
+  // Dismiss a flagged line-month right here (no round-trip to the statement),
+  // then drop it from the list so the page condenses to what's left.
+  const dismissMonth = useCallback(async (propKey: string, lineKey: string, period: number) => {
+    const id = `${propKey}::${lineKey}::${period}`;
+    setDismissing((s) => new Set(s).add(id));
+    try {
+      const res = await fetch("/api/financials/operating-statements/dismiss-flag", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: propKey, year, period, lineKey, dismissed: true }),
+      });
+      if (!res.ok) throw new Error("save failed");
+      setData((prev) => (prev ? removeFlag(prev, propKey, lineKey, period) : prev));
+    } catch {
+      alert("Couldn't dismiss that flag — please try again.");
+    } finally {
+      setDismissing((s) => { const n = new Set(s); n.delete(id); return n; });
+    }
+  }, [year]);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -138,8 +205,21 @@ export default function OperatingStatementsReviewPage() {
   useEffect(() => { load(); }, [load]);
 
   // Properties with an uploaded GL, grouped like the rent roll; worst (most
-  // flagged months) first within each group.
-  const reviewed = useMemo(() => (data?.properties ?? []).filter((p) => p.hasData), [data]);
+  // flagged months) first within each group. When a month filter is set, each
+  // property's lines are narrowed to that month (counts recompute to match).
+  const reviewed = useMemo(() => {
+    const base = (data?.properties ?? []).filter((p) => p.hasData);
+    if (monthFilter == null) return base;
+    return base.map((p) => {
+      const lines = p.lines
+        .map((l) => ({ ...l, months: l.months.filter((m) => m.period === monthFilter) }))
+        .filter((l) => l.months.length > 0);
+      return { ...p, lines, flaggedMonthCount: lines.reduce((s, l) => s + l.months.length, 0) };
+    });
+  }, [data, monthFilter]);
+
+  // Months available to filter by (1 … latest month imported anywhere).
+  const maxMonth = useMemo(() => Math.max(0, ...(data?.properties ?? []).map((p) => p.monthsCovered)), [data]);
   const grouped = useMemo(() => {
     return groupByRentRoll(reviewed)
       .map(({ label, items }) => ({
@@ -177,6 +257,19 @@ export default function OperatingStatementsReviewPage() {
           <button className="btn" onClick={() => setYear((y) => y - 1)} style={{ padding: "6px 12px", fontWeight: 900 }}>←</button>
           <span style={{ fontWeight: 800, fontSize: 15, minWidth: 60, textAlign: "center" }}>{year}</span>
           <button className="btn" onClick={() => setYear((y) => y + 1)} style={{ padding: "6px 12px", fontWeight: 900 }}>→</button>
+          {maxMonth > 0 && (
+            <select
+              value={monthFilter ?? ""}
+              onChange={(e) => setMonthFilter(e.target.value ? Number(e.target.value) : null)}
+              aria-label="Filter by month"
+              style={{ fontSize: 13, fontWeight: 700, padding: "6px 10px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--card)", color: "var(--text)" }}
+            >
+              <option value="">All months</option>
+              {Array.from({ length: maxMonth }, (_, i) => i + 1).map((m) => (
+                <option key={m} value={m}>{MONTHS[m - 1]}</option>
+              ))}
+            </select>
+          )}
           <button className="btn" onClick={() => data && exportExcel(data)} disabled={!totalMonths} style={{ fontSize: 13, padding: "6px 14px", fontWeight: 700 }}>Download Excel</button>
           <button className="btn primary" onClick={() => data && exportPdf(data, grouped)} disabled={!totalMonths} style={{ fontSize: 13, padding: "6px 14px", fontWeight: 700 }}>Download PDF</button>
         </div>
@@ -198,7 +291,7 @@ export default function OperatingStatementsReviewPage() {
       )}
 
       {loading && !data ? (
-        <div className="card muted small" style={{ padding: 18 }}>Scanning every month of every property…</div>
+        <ScanningLoader />
       ) : reviewed.length === 0 ? (
         <div className="card muted small" style={{ padding: 18 }}>No properties with an uploaded GL for {year}.</div>
       ) : (
@@ -237,7 +330,7 @@ export default function OperatingStatementsReviewPage() {
                             background: has ? "rgba(180,83,9,0.12)" : "rgba(21,128,61,0.10)",
                             color: has ? "#b45309" : "#15803d", border: `1px solid ${has ? "rgba(180,83,9,0.35)" : "rgba(21,128,61,0.30)"}`,
                           }}>
-                            {has ? `${p.lines.length} line${p.lines.length === 1 ? "" : "s"} · ${p.flaggedMonthCount} month${p.flaggedMonthCount === 1 ? "" : "s"}` : "clear"}
+                            {has ? (() => { const dm = distinctFlaggedMonths(p); return `${p.lines.length} line${p.lines.length === 1 ? "" : "s"} · ${dm} month${dm === 1 ? "" : "s"}`; })() : "clear"}
                           </span>
                         </button>
 
@@ -248,16 +341,24 @@ export default function OperatingStatementsReviewPage() {
                               const lOpen = openLines.has(lid);
                               return (
                                 <Fragment key={lid}>
-                                  <button type="button" onClick={() => toggleLine(lid)}
-                                    style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "10px 16px 10px 22px", background: "rgba(15,23,42,0.02)", border: "none", borderTop: "1px solid var(--border)", cursor: "pointer", textAlign: "left", color: "var(--text)" }}>
-                                    <span style={{ width: 12, color: "var(--muted)", fontSize: 11, transform: lOpen ? "rotate(90deg)" : undefined, transition: "transform 0.15s" }}>▶</span>
-                                    <span style={{ fontWeight: 600 }}>{l.line}</span>
-                                    <span className="muted small">{l.section}</span>
-                                    <span style={{ marginLeft: "auto" }} />
-                                    <span className="muted small" style={{ fontWeight: 700 }}>
-                                      {l.months.length} month{l.months.length === 1 ? "" : "s"} flagged
-                                    </span>
-                                  </button>
+                                  <div style={{ display: "flex", alignItems: "center", background: "rgba(15,23,42,0.02)", borderTop: "1px solid var(--border)" }}>
+                                    <button type="button" onClick={() => toggleLine(lid)}
+                                      style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 10, padding: "10px 8px 10px 22px", background: "none", border: "none", cursor: "pointer", textAlign: "left", color: "var(--text)" }}>
+                                      <span style={{ width: 12, color: "var(--muted)", fontSize: 11, transform: lOpen ? "rotate(90deg)" : undefined, transition: "transform 0.15s" }}>▶</span>
+                                      <span style={{ fontWeight: 600 }}>{l.line}</span>
+                                      <span className="muted small">{l.section}</span>
+                                      <span style={{ marginLeft: "auto" }} />
+                                      <span className="muted small" style={{ fontWeight: 700 }}>
+                                        {l.months.length} month{l.months.length === 1 ? "" : "s"} flagged
+                                      </span>
+                                    </button>
+                                    <button type="button"
+                                      onClick={() => { if (confirm(`Dismiss all ${l.months.length} flagged month${l.months.length === 1 ? "" : "s"} for “${l.line}”?`)) l.months.forEach((mo) => dismissMonth(p.key, l.lineKey, mo.period)); }}
+                                      title="Dismiss every flagged month for this line"
+                                      style={{ flexShrink: 0, margin: "0 16px 0 12px", fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 999, border: "1px solid rgba(15,23,42,0.18)", background: "var(--card)", color: "var(--muted)", cursor: "pointer" }}>
+                                      Dismiss all
+                                    </button>
+                                  </div>
                                   {lOpen && (
                                     <div className="tableWrap" style={{ borderTop: "1px solid var(--border)", overflowX: "auto" }}>
                                       <table style={{ minWidth: 720 }}>
@@ -269,6 +370,7 @@ export default function OperatingStatementsReviewPage() {
                                             <th style={num}>Variance</th>
                                             <th style={{ textAlign: "left" }}>Looks off because</th>
                                             <th style={{ textAlign: "left" }}>Note</th>
+                                            <th style={{ textAlign: "right" }} />
                                           </tr>
                                         </thead>
                                         <tbody>
@@ -285,6 +387,15 @@ export default function OperatingStatementsReviewPage() {
                                               <td style={{ ...num, fontWeight: 700, color: mo.variance == null ? undefined : mo.variance >= 0 ? "#15803d" : "#b91c1c" }}>{money(mo.variance)}</td>
                                               <td style={{ textAlign: "left", maxWidth: 260, whiteSpace: "normal" }} className="small">{mo.flags.join("; ")}</td>
                                               <td style={{ textAlign: "left", maxWidth: 260, whiteSpace: "normal" }} className="muted small">{mo.note || "—"}</td>
+                                              <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                                                <button type="button"
+                                                  disabled={dismissing.has(`${p.key}::${l.lineKey}::${mo.period}`)}
+                                                  onClick={() => dismissMonth(p.key, l.lineKey, mo.period)}
+                                                  title="Investigated & fine — dismiss this flag"
+                                                  style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 999, border: "1px solid rgba(21,128,61,0.35)", background: "rgba(21,128,61,0.06)", color: "#15803d", cursor: "pointer" }}>
+                                                  {dismissing.has(`${p.key}::${l.lineKey}::${mo.period}`) ? "…" : "Dismiss"}
+                                                </button>
+                                              </td>
                                             </tr>
                                           ))}
                                         </tbody>
@@ -307,7 +418,7 @@ export default function OperatingStatementsReviewPage() {
       )}
 
       <p className="muted small" style={{ margin: 0 }}>
-        Download the Excel or PDF and send it to your accountant. Dismiss a line on its statement (the &ldquo;?&rdquo;) for a given month and it drops off this list.
+        Download the Excel or PDF and send it to your accountant. <b>Dismiss</b> a flag here once you&rsquo;ve investigated it (or dismiss it on the statement) and it drops off this list.
       </p>
     </main>
   );
