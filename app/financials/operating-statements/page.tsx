@@ -485,6 +485,33 @@ export default function OperatingStatementsPage() {
     }
   }, [key, year, period, varDollar, varPctThresh, varFloor]);
 
+  // Monthly brief — a short AI narrative of how the property is tracking.
+  const [brief, setBrief] = useState<string | null>(null);
+  const [briefing, setBriefing] = useState(false);
+  const briefPeriod = period || statement?.period || 0;
+  useEffect(() => {
+    setBrief(null);
+    if (!key || !year || !briefPeriod) return;
+    let alive = true;
+    fetch(`/api/financials/operating-statements/brief?key=${encodeURIComponent(key)}&year=${year}&period=${briefPeriod}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => { if (alive) setBrief(j?.brief ?? null); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [key, year, briefPeriod]);
+  const generateBrief = useCallback(async () => {
+    setBriefing(true);
+    try {
+      const j = await fetch("/api/financials/operating-statements/brief", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key, year, period: briefPeriod }),
+      }).then((r) => r.json());
+      if (j.brief) setBrief(j.brief);
+      else if (j.error) alert(j.error);
+    } catch { alert("Couldn't generate the brief."); }
+    finally { setBriefing(false); }
+  }, [key, year, briefPeriod]);
+
   const cur = available.find((a) => a.key === key);
   const yearOptions = cur?.years.length ? cur.years : [year || new Date().getFullYear()];
   const sqft = PROPERTY_DEFS.find((p) => p.id === key)?.sqft ?? 0;
@@ -742,11 +769,16 @@ export default function OperatingStatementsPage() {
                 </ClickablePill>
               </div>
               <div style={{ marginTop: 8, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                   <button type="button" className="btn" disabled={analyzing} onClick={analyzeFlagged}
                     title="Use AI to explain each flagged line and auto-fill its note (from budget detail + GL transactions)"
                     style={{ fontSize: 12, padding: "5px 12px", fontWeight: 700 }}>
                     {analyzing ? "Analyzing…" : "✨ Auto-explain flagged lines"}
+                  </button>
+                  <button type="button" className="btn" disabled={briefing} onClick={generateBrief}
+                    title="Generate a short AI monthly brief — how this property is tracking vs budget, the drivers, and what to watch"
+                    style={{ fontSize: 12, padding: "5px 12px", fontWeight: 700 }}>
+                    {briefing ? "Writing…" : brief ? "✨ Regenerate brief" : "✨ Monthly brief"}
                   </button>
                   {analyzeMsg && <span className="muted small">{analyzeMsg}</span>}
                 </div>
@@ -778,6 +810,18 @@ export default function OperatingStatementsPage() {
           );
         })()}
       </div>
+
+      {!loading && statement && brief && (
+        <div className="card" style={{ borderColor: "rgba(109,40,217,0.35)", background: "rgba(109,40,217,0.05)" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 6 }}>
+            <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "#6d28d9", display: "flex", alignItems: "center", gap: 6 }}>
+              ✨ Monthly Brief · {cur?.name} · {MONTHS[(briefPeriod || 1) - 1]} {year}
+            </div>
+            <span className="muted small" style={{ fontStyle: "italic" }}>AI-generated · review before relying on it</span>
+          </div>
+          <div style={{ fontSize: 14, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{brief}</div>
+        </div>
+      )}
 
       {loading && <div className="card"><div className="muted small">Loading…</div></div>}
 
