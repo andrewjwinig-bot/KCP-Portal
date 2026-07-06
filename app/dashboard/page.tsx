@@ -115,6 +115,9 @@ function DashboardInner() {
   const [loading, setLoading] = useState(true);
   const [checkedByYear, setCheckedByYear] = useState<Record<number, Record<string, boolean>>>({});
   const [vacatingMatchers, setVacatingMatchers] = useState<{ unitRefs: Set<string>; names: Set<string> }>({ unitRefs: new Set(), names: new Set() });
+  // A rent-roll snapshot from ~60 days ago, diffed against the current roll to
+  // surface tenants who already vacated (so Drew can run their close-out).
+  const [priorSnapshot, setPriorSnapshot] = useState<RentRollData | null>(null);
   const [tenantMeta, setTenantMeta] = useState<Record<string, { baseYear?: number | string | null }>>({});
   // Security deposits (for the vacating-tenants "owed" column): per-unit held
   // amount = deposits not yet refunded / defaulted / partially resolved.
@@ -284,6 +287,30 @@ function DashboardInner() {
     return vacatingMatchers.unitRefs.has(unitRef) || vacatingMatchers.names.has(tenantName.toLowerCase().trim());
   }
 
+  // Pull the snapshot from ~60 days back so we can detect who's since vacated.
+  // Only Drew's dashboard uses it, so gate the extra fetches on that.
+  useEffect(() => {
+    if (user.id !== "drew") return;
+    let alive = true;
+    (async () => {
+      try {
+        const hist = await fetch("/api/rentroll/history").then((r) => (r.ok ? r.json() : null));
+        const snaps = (hist?.snapshots ?? []) as { month: string }[];
+        if (!snaps.length) return;
+        const target = new Date();
+        target.setDate(target.getDate() - 60);
+        const targetKey = `${target.getFullYear()}-${String(target.getMonth() + 1).padStart(2, "0")}`;
+        // Newest snapshot at or before ~60 days ago; fall back to the oldest we have.
+        const atOrBefore = snaps.filter((s) => s.month <= targetKey).sort((a, b) => b.month.localeCompare(a.month));
+        const pick = atOrBefore[0] ?? [...snaps].sort((a, b) => a.month.localeCompare(b.month))[0];
+        if (!pick) return;
+        const full = await fetch(`/api/rentroll/history/${pick.month}`).then((r) => (r.ok ? r.json() : null));
+        if (alive && full?.rentroll) setPriorSnapshot(full.rentroll as RentRollData);
+      } catch { /* best-effort — card still shows upcoming vacates */ }
+    })();
+    return () => { alive = false; };
+  }, [user.id]);
+
   useEffect(() => {
     const y = new Date().getFullYear();
     setCheckedByYear({ [y]: loadTaxChecked(y), [y + 1]: loadTaxChecked(y + 1) });
@@ -437,6 +464,98 @@ function DashboardInner() {
   const expiringRows = isDrew
     ? expiring.filter((r) => isVacating(r.unit.unitRef, r.unit.occupantName))
     : expiring;
+
+  // ── Tenants who already vacated in the last ~60 days (Drew only) ──
+  // Diff the ~60-day-old snapshot against the current roll: a unit occupied by
+  // a named tenant then, now vacant or taken by someone else, means that tenant
+  // left — a close-out candidate. These are gone from the live roll, so they'd
+  // never surface in `expiring` above.
+  const recentlyVacated = useMemo(() => {
+    if (!isDrew || !rentroll || !priorSnapshot || !showExpiring) return [];
+    const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+    const currentByRef = new Map<string, RentRollUnit>();
+    for (const p of rentroll.properties) for (const u of p.units) currentByRef.set(u.unitRef, u);
+
+    const rows: { propertyCode: string; unit: RentRollUnit; days: number }[] = [];
+    for (const prop of priorSnapshot.properties) {
+      if (expiringScope !== "all") {
+        const def = PROPERTY_DEFS.find((p) => p.id.toUpperCase() === prop.propertyCode.toUpperCase());
+        const t = def?.type;
+        if (expiringScope === "office" && t !== "Office") continue;
+        if (expiringScope === "retail" && t !== "Retail") continue;
+      }
+      for (const unit of prop.units) {
+        if (unit.isVacant || unit.amenity || !unit.occupantName) continue;
+        const cur = currentByRef.get(unit.unitRef);
+        const gone = !cur || cur.isVacant || norm(cur.occupantName) !== norm(unit.occupantName);
+        if (!gone) continue;
+        const d = parseLeaseTo(unit.leaseTo);
+        rows.push({ propertyCode: prop.propertyCode, unit, days: d ? daysBetween(new Date(), d) : -1 });
+      }
+    }
+    return rows.sort((a, b) => a.unit.occupantName.localeCompare(b.unit.occupantName));
+  }, [isDrew, rentroll, priorSnapshot, showExpiring, expiringScope]);
+
+  // Shared row renderer for both the upcoming-vacates table and the
+  // recently-vacated section, so they stay visually identical. `vacated` flips
+  // the badge (VACATED vs VACATING) and the row tint.
+  function renderLeaseRow(propertyCode: string, unit: RentRollUnit, days: number, key: string, vacated: boolean) {
+    const overdue = days < 0;
+    const urgent = days >= 0 && days <= 30;
+    const bg = vacated
+      ? "rgba(100,116,139,0.08)"
+      : overdue ? "rgba(220,38,38,0.10)" : urgent ? "rgba(220,38,38,0.06)" : days <= 60 ? "rgba(234,88,12,0.06)" : undefined;
+    return (
+      <tr
+        key={key}
+        style={{ background: bg, cursor: "pointer" }}
+        onClick={() => router.push(`/rentroll#unit-${unit.unitRef.replace(/[^a-zA-Z0-9]/g, "-")}`)}
+        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.filter = "brightness(0.97)"; }}
+        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.filter = ""; }}
+      >
+        <td style={{ fontWeight: 600 }}>
+          {unit.occupantName}
+          {vacated && (
+            <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 999, background: "rgba(100,116,139,0.14)", color: "#475569", border: "1px solid rgba(100,116,139,0.4)", letterSpacing: "0.04em" }}>VACATED</span>
+          )}
+          {!vacated && !isDrew && isVacating(unit.unitRef, unit.occupantName) && (
+            <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 999, background: "rgba(220,38,38,0.1)", color: "#b91c1c", border: "1px solid rgba(220,38,38,0.35)", letterSpacing: "0.04em" }}>VACATING</span>
+          )}
+        </td>
+        <td style={{ fontSize: 13, color: "var(--muted)" }}>{propLabel(propertyCode)}</td>
+        <td style={{ whiteSpace: "nowrap" }}><code style={{ fontSize: 12, whiteSpace: "nowrap" }}>{unit.unitRef}</code></td>
+        <td style={{ textAlign: "right", fontSize: 13 }}>{sqftFmt(unit.sqft)}</td>
+        <td style={{ fontSize: 13, whiteSpace: "nowrap" }}>{unit.leaseTo}</td>
+        <td style={{ textAlign: "center", fontSize: 13 }}>{baseYear2(tenantMeta[unit.unitRef]?.baseYear)}</td>
+        <td style={{ textAlign: "right", fontSize: 13, fontWeight: 600, color: vacated ? "#64748b" : overdue ? "#b91c1c" : urgent ? "#b91c1c" : "#b45309" }}>
+          {vacated ? "gone" : overdue ? `${Math.abs(days)} ago` : `${days}`}
+        </td>
+        <td style={{ textAlign: "right", fontSize: 13, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}
+          title={depositOwed[unit.unitRef] ? "Security deposit held / owed back to the tenant" : "No security deposit on file"}>
+          {depositOwed[unit.unitRef]
+            ? "$" + Math.round(depositOwed[unit.unitRef]).toLocaleString("en-US")
+            : <span className="muted">—</span>}
+        </td>
+        <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+          {OFFICE_INTERIM.has(propertyCode.toUpperCase()) ? (() => {
+            const d = parseLeaseTo(unit.leaseTo);
+            const y = d ? d.getFullYear() : new Date().getFullYear();
+            const m = d ? d.getMonth() + 1 : 12;
+            return (
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); router.push(`/cam-recon/interim?property=${propertyCode}&unitRef=${encodeURIComponent(unit.unitRef)}&year=${y}&asOf=${m}`); }}
+                title={vacated ? "Close out this vacated tenant — interim (as-of-month) CAM/RET statement" : "Generate this tenant's interim (as-of-month) CAM/RET statement"}
+                style={{ fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 999, border: "1px solid rgba(11,74,125,0.35)", background: "var(--card)", color: "#0b4a7d", cursor: "pointer" }}
+              >
+                {vacated ? "Close out →" : "Statement →"}
+              </button>
+            );
+          })() : <span className="muted" style={{ fontSize: 12 }}>—</span>}
+        </td>
+      </tr>
+    );
+  }
 
   // ── Upcoming filings in next 30 days, undone ──
   const upcomingFilings = useMemo(() => {
@@ -1021,9 +1140,9 @@ function DashboardInner() {
           <div className="muted small">Loading…</div>
         ) : !rentroll ? (
           <div className="muted small">No rent roll uploaded.</div>
-        ) : expiringRows.length === 0 ? (
+        ) : expiringRows.length === 0 && recentlyVacated.length === 0 ? (
           <div className="muted small">
-            {isDrew ? "No tenants vacating in the next 60 days." : "Nothing expiring in the next 60 days."}
+            {isDrew ? "No tenants vacating or recently vacated." : "Nothing expiring in the next 60 days."}
           </div>
         ) : (
           <div className="tableWrap">
@@ -1042,58 +1161,21 @@ function DashboardInner() {
                 </tr>
               </thead>
               <tbody>
-                {expiringRows.map(({ propertyCode, unit, days }, i) => {
-                  const overdue = days < 0;
-                  const urgent = days >= 0 && days <= 30;
-                  const bg = overdue ? "rgba(220,38,38,0.10)" : urgent ? "rgba(220,38,38,0.06)" : days <= 60 ? "rgba(234,88,12,0.06)" : undefined;
-                  return (
-                    <tr
-                      key={i}
-                      style={{ background: bg, cursor: "pointer" }}
-                      onClick={() => router.push(`/rentroll#unit-${unit.unitRef.replace(/[^a-zA-Z0-9]/g, "-")}`)}
-                      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.filter = "brightness(0.97)"; }}
-                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.filter = ""; }}
-                    >
-                      <td style={{ fontWeight: 600 }}>
-                        {unit.occupantName}
-                        {!isDrew && isVacating(unit.unitRef, unit.occupantName) && (
-                          <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 999, background: "rgba(220,38,38,0.1)", color: "#b91c1c", border: "1px solid rgba(220,38,38,0.35)", letterSpacing: "0.04em" }}>VACATING</span>
-                        )}
-                      </td>
-                      <td style={{ fontSize: 13, color: "var(--muted)" }}>{propLabel(propertyCode)}</td>
-                      <td style={{ whiteSpace: "nowrap" }}><code style={{ fontSize: 12, whiteSpace: "nowrap" }}>{unit.unitRef}</code></td>
-                      <td style={{ textAlign: "right", fontSize: 13 }}>{sqftFmt(unit.sqft)}</td>
-                      <td style={{ fontSize: 13, whiteSpace: "nowrap" }}>{unit.leaseTo}</td>
-                      <td style={{ textAlign: "center", fontSize: 13 }}>{baseYear2(tenantMeta[unit.unitRef]?.baseYear)}</td>
-                      <td style={{ textAlign: "right", fontSize: 13, fontWeight: 600, color: overdue ? "#b91c1c" : urgent ? "#b91c1c" : "#b45309" }}>
-                        {overdue ? `${Math.abs(days)} ago` : `${days}`}
-                      </td>
-                      <td style={{ textAlign: "right", fontSize: 13, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}
-                        title={depositOwed[unit.unitRef] ? "Security deposit held / owed back to the tenant" : "No security deposit on file"}>
-                        {depositOwed[unit.unitRef]
-                          ? "$" + Math.round(depositOwed[unit.unitRef]).toLocaleString("en-US")
-                          : <span className="muted">—</span>}
-                      </td>
-                      <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
-                        {OFFICE_INTERIM.has(propertyCode.toUpperCase()) ? (() => {
-                          const d = parseLeaseTo(unit.leaseTo);
-                          const y = d ? d.getFullYear() : new Date().getFullYear();
-                          const m = d ? d.getMonth() + 1 : 12;
-                          return (
-                            <button
-                              type="button"
-                              onClick={(e) => { e.stopPropagation(); router.push(`/cam-recon/interim?property=${propertyCode}&unitRef=${encodeURIComponent(unit.unitRef)}&year=${y}&asOf=${m}`); }}
-                              title="Generate this tenant's interim (as-of-month) CAM/RET statement"
-                              style={{ fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 999, border: "1px solid rgba(11,74,125,0.35)", background: "var(--card)", color: "#0b4a7d", cursor: "pointer" }}
-                            >
-                              Statement →
-                            </button>
-                          );
-                        })() : <span className="muted" style={{ fontSize: 12 }}>—</span>}
+                {expiringRows.map(({ propertyCode, unit, days }, i) =>
+                  renderLeaseRow(propertyCode, unit, days, `up-${i}`, false),
+                )}
+                {isDrew && recentlyVacated.length > 0 && (
+                  <>
+                    <tr>
+                      <td colSpan={9} style={{ padding: "10px 8px 4px", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "#475569" }}>
+                        Recently vacated (last ~60 days) — run their close-out
                       </td>
                     </tr>
-                  );
-                })}
+                    {recentlyVacated.map(({ propertyCode, unit, days }, i) =>
+                      renderLeaseRow(propertyCode, unit, days, `vac-${i}`, true),
+                    )}
+                  </>
+                )}
               </tbody>
             </table>
           </div>
