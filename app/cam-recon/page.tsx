@@ -1508,6 +1508,8 @@ function BuildingSummary({ result, onPick, onEditEscrow, footer }: {
 type ExpRow = {
   account: string; label: string; tbDetail: number; excelAvid: number;
   final: number; description: string; variance: number; history?: (number | null)[];
+  /** Live GL actual for the recon year (read-only reference); null when no GL. */
+  glActual?: number | null;
 };
 
 function FinalExpenseSummary({ rows, editable, year, onEdit, historyYears = [], historyHref }: {
@@ -1519,6 +1521,7 @@ function FinalExpenseSummary({ rows, editable, year, onEdit, historyYears = [], 
   historyHref?: string;
 }) {
   const isSep = (a: string) => a.startsWith("6120") || a.startsWith("6410"); // Electric / RET
+  const hasGlActual = rows.some((r) => r.glActual != null); // live GL loaded (2026+)
   const opexTotal = rows.filter((r) => !isSep(r.account)).reduce((s, r) => s + r.final, 0);
   // Moving expense-history window, separated from FINAL by a vertical divider.
   const years = historyYears;
@@ -1539,7 +1542,7 @@ function FinalExpenseSummary({ rows, editable, year, onEdit, historyYears = [], 
       {editable ? (
         <>
           <p className="small muted" style={{ marginTop: 4 }}>
-            TB Detail is the general ledger. Import Excel Avid, review the variance, then set FINAL — FINAL drives every tenant&rsquo;s CAM/RET calc and is recorded as the year&rsquo;s expense history.
+            TB Detail is the general ledger. Import Excel Avid, review the variance, then set FINAL — FINAL drives every tenant&rsquo;s CAM/RET calc and is recorded as the year&rsquo;s expense history.{hasGlActual ? " GL Actual is the live full-year figure posted on the property GL (Operating Statements) — reference only; amber cells differ from FINAL." : ""}
           </p>
           <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap", marginTop: 6 }}>
             <span className="small" style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
@@ -1563,6 +1566,7 @@ function FinalExpenseSummary({ rows, editable, year, onEdit, historyYears = [], 
             {editable ? (
               <>
                 <th style={th}>TB Detail (GL)</th>
+                {hasGlActual && <th style={th} title="Live full-year actual from the property GL (Operating Statements) — reference only">GL Actual</th>}
                 <th style={th}>Excel Avid</th>
                 <th style={th}>Variance</th>
                 <th style={th}>FINAL</th>
@@ -1585,6 +1589,12 @@ function FinalExpenseSummary({ rows, editable, year, onEdit, historyYears = [], 
                 {editable ? (
                   <>
                     <td style={{ ...td, ...(matchesTB ? { background: MATCH_BG } : {}) }}>{money0(r.tbDetail)}</td>
+                    {hasGlActual && (
+                      <td style={{ ...td, color: "var(--muted)", ...(r.glActual != null && Math.round(r.glActual) !== Math.round(r.final) ? { background: "rgba(217,119,6,0.10)" } : {}) }}
+                        title={r.glActual != null && Math.round(r.glActual) !== Math.round(r.final) ? "Differs from FINAL — review" : undefined}>
+                        {r.glActual != null ? money0(r.glActual) : "—"}
+                      </td>
+                    )}
                     <td style={td}><EditableMoney value={r.excelAvid} whole bg={matchesAvid ? MATCH_BG : EDIT_BG} onCommit={(v) => onEdit(r.account, "excelAvid", v)} /></td>
                     <td style={{ ...td, color: Math.abs(r.variance) < 0.5 ? "var(--muted)" : r.variance < 0 ? "#b91c1c" : "#15803d" }}>{money0(r.variance)}</td>
                     <td style={{ ...td, fontWeight: 700 }}><EditableMoney value={r.final} whole onCommit={(v) => onEdit(r.account, "final", v)} /></td>
@@ -1602,7 +1612,7 @@ function FinalExpenseSummary({ rows, editable, year, onEdit, historyYears = [], 
         </tbody>
         <tfoot>
           <tr style={{ fontWeight: 800, borderTop: "2px solid var(--border)" }}>
-            <td style={{ ...td, textAlign: "left" }} colSpan={editable ? 5 : 2}>Total Operating Expenses (excl. Electric / RET)</td>
+            <td style={{ ...td, textAlign: "left" }} colSpan={editable ? (hasGlActual ? 6 : 5) : 2}>Total Operating Expenses (excl. Electric / RET)</td>
             <td style={td}>{money0(opexTotal)}</td>
             {editable && <td />}
             {years.map((y, i) => <td key={y} style={{ ...histTd(i), fontWeight: 800 }}>{money0(histTotals[i])}</td>)}
