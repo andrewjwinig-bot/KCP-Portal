@@ -5,6 +5,7 @@ import { money, num, pct as fmtPct } from "../lib/utils";
 import { buildPayrollExportXlsx, buildPayrollGLXlsx } from "../lib/payroll/export";
 import { buildAllocationTemplateXlsx } from "../lib/allocation/export";
 import { useUser } from "./components/UserProvider";
+import { LastImported } from "./components/LastImported";
 
 function toTitleCase(s: string): string {
   if (!s) return s;
@@ -145,6 +146,8 @@ export default function Page() {
   const [employeesOpen, setEmployeesOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [fileName, setFileName] = useState<string>("");
+  const [importedAt, setImportedAt] = useState<string | null>(null);
+  const [importedBy, setImportedBy] = useState<string | null>(null);
   const [empTab, setEmpTab] = useState<"breakdown" | "history">("breakdown");
   const [empHistory, setEmpHistory] = useState<EmpHistoryRow[] | null>(null);
   const [empHistoryLoading, setEmpHistoryLoading] = useState(false);
@@ -266,6 +269,8 @@ export default function Page() {
           setInvoices(d.invoices ?? []);
           setEmployees(d.employees ?? []);
           setFileName(d.fileName ?? "");
+          setImportedAt(d.importedAt ?? null);
+          setImportedBy(d.importedBy ?? null);
         }
       }
     } catch { /* ignore corrupt cache */ }
@@ -276,12 +281,12 @@ export default function Page() {
     if (!hydrated || typeof window === "undefined") return;
     try {
       if (payroll) {
-        localStorage.setItem("kcp:lastPayroll", JSON.stringify({ payroll, invoices, employees, fileName }));
+        localStorage.setItem("kcp:lastPayroll", JSON.stringify({ payroll, invoices, employees, fileName, importedAt, importedBy }));
       } else {
         localStorage.removeItem("kcp:lastPayroll");
       }
     } catch { /* quota or disabled storage — no-op */ }
-  }, [hydrated, payroll, invoices, employees, fileName]);
+  }, [hydrated, payroll, invoices, employees, fileName, importedAt, importedBy]);
 
   async function savePeriod() {
     const name = payroll?.payDate ?? new Date().toLocaleDateString();
@@ -366,6 +371,8 @@ export default function Page() {
       setPayroll(j.payroll);
       setInvoices(j.invoices ?? []);
       setFileName(file.name);
+      setImportedAt(new Date().toISOString());
+      setImportedBy(user.label);
       // Sort by position in payroll register so the table matches the report order
       setEmployees((j.employees ?? []).slice().sort(
         (a: EmployeeSummary, b: EmployeeSummary) => (a.payrollIndex ?? 9999) - (b.payrollIndex ?? 9999)
@@ -706,6 +713,7 @@ export default function Page() {
           Import the <b>Payroll Register</b> Excel file (.xls or .xlsx). Allocation is fixed on the backend.
           {fileName && <span style={{ marginLeft: 8 }}>· {fileName}</span>}
         </p>
+        <LastImported at={importedAt} by={importedBy} label="Register last imported" />
         {employees.length > 0 && (
           <div className="pills">
             {employeeTotals.salary   > 0 && <span className="pill" style={{ cursor: "pointer" }} title="Click to see employee breakdown" onClick={() => openPillDrill("Salary",      employeeTotals.salary,   "salaryAmt"  )}><b>{money(employeeTotals.salary)}</b><span className="muted small">Salary</span></span>}

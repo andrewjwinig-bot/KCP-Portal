@@ -17,6 +17,7 @@ import {
 import { emailInvoicerReport, XLSX_CONTENT_TYPE } from "../../lib/invoicing/sendReport";
 import { ALLOC_PCT } from "../../lib/properties/data";
 import { useUser } from "../components/UserProvider";
+import { LastImported } from "@/app/components/LastImported";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -444,6 +445,16 @@ export default function ExpensesPage() {
   });
   const [statementStart, setStatementStart] = useState<Date | null>(null);
   const [statementEnd, setStatementEnd] = useState<Date | null>(null);
+  // When/who last imported the AmEx statement — persisted so the import bar
+  // shows the same "Last imported … by USER" line as the other import pages.
+  const [importedAt, setImportedAt] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    try { const r = localStorage.getItem(LS_KEY); return r ? JSON.parse(r).importedAt ?? null : null; } catch { return null; }
+  });
+  const [importedBy, setImportedBy] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    try { const r = localStorage.getItem(LS_KEY); return r ? JSON.parse(r).importedBy ?? null : null; } catch { return null; }
+  });
   const [showAfterZipModal, setShowAfterZipModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -476,8 +487,8 @@ export default function ExpensesPage() {
   const attachInputRefs = useRef<Map<string, HTMLInputElement>>(new Map());
 
   useEffect(() => {
-    try { localStorage.setItem(LS_KEY, JSON.stringify({ tx, statementPeriodText })); } catch { /* ignore */ }
-  }, [tx, statementPeriodText]);
+    try { localStorage.setItem(LS_KEY, JSON.stringify({ tx, statementPeriodText, importedAt, importedBy })); } catch { /* ignore */ }
+  }, [tx, statementPeriodText, importedAt, importedBy]);
 
   useEffect(() => {
     if (statementPeriodText) return;
@@ -717,6 +728,8 @@ export default function ExpensesPage() {
     }).filter((t) => Number(t.amount) > 0);
     upsertTx(imported);
     setFileName(file.name);
+    setImportedAt(new Date().toISOString());
+    setImportedBy(user.label);
   }
 
   function updateTx(id: string, patch: Partial<Tx>) {
@@ -1096,6 +1109,7 @@ export default function ExpensesPage() {
           Import the <b>American Express</b> Excel file (.xls or .xlsx).
           {fileName && <span style={{ marginLeft: 8 }}>· {fileName}</span>}
         </p>
+        <LastImported at={importedAt} by={importedBy} label="Statement last imported" />
         {tx.length > 0 && (
           <div className="pills">
             <div className="pill"><b>{totals.count}</b><span className="small muted">Transactions</span></div>
