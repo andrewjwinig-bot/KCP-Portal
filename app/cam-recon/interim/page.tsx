@@ -14,6 +14,11 @@ import type { TenantReconResult } from "@/lib/cam/office/types";
 import type { RetailTenantResult } from "@/lib/cam/retail/types";
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+/** Percent to at most 2 decimals, trailing zeros dropped (2.2626… → "2.26", 5 → "5"). */
+function pct2(n: number | null | undefined): string {
+  if (n == null || !Number.isFinite(n)) return "0";
+  return String(Number(n.toFixed(2)));
+}
 function money(n: number | null | undefined): string {
   if (n == null) return "—";
   return (n < 0 ? "-" : "") + "$" + Math.abs(Math.round(n)).toLocaleString("en-US");
@@ -115,7 +120,7 @@ function Column({ title, lines, base, actual, net, due, escrow, balance, proRata
         </tbody>
       </table>
       <BalanceRow label="Net increase over prorated base" value={money(net)} />
-      <BalanceRow label={`× Pro-rata share (${proRataPct}%)`} value={money(due)} />
+      <BalanceRow label={`× Pro-rata share (${pct2(proRataPct)}%)`} value={money(due)} />
       <BalanceRow label={`Less: Billed (${money(monthly)}/mo × ${occupiedMonths})`} value={money(-escrow)} />
       <FinalBalanceRow label={`${title} Balance`} value={balance} />
     </div>
@@ -584,7 +589,7 @@ export default function InterimReconPage() {
             </div>
           </div>
           <div className="muted small" style={{ marginBottom: 10 }}>
-            Base year <b>{r.noBaseStop ? "NNN (full pool)" : r.baseYear}</b> · pro-rata <b>{r.proRataPct}%</b> · occupied <b>{r.occupiedMonths}</b> of 12 months{meta.leaseTo ? <> · lease to <b>{meta.leaseTo}</b></> : null} · {meta.sqft.toLocaleString()} sf
+            Base year <b>{r.noBaseStop ? "NNN (full pool)" : r.baseYear}</b> · pro-rata <b>{pct2(r.proRataPct)}%</b> · occupied <b>{r.occupiedMonths}</b> of 12 months{meta.leaseTo ? <> · lease to <b>{meta.leaseTo}</b></> : null} · {meta.sqft.toLocaleString()} sf
           </div>
 
           {r.unpostedMonths > 0 && (
@@ -627,7 +632,7 @@ export default function InterimReconPage() {
             </div>
           </div>
           <div className="muted small" style={{ marginBottom: 10 }}>
-            Pro-rata <b>{retail.camPrs}%</b> CAM (+{retail.adminFeePct}% admin) · <b>{retail.insPrs}%</b> INS · <b>{retail.retPrs}%</b> RET · occupied <b>{retail.occupiedMonths}</b> of 12 months{meta.leaseTo ? <> · lease to <b>{meta.leaseTo}</b></> : null} · {meta.sqft.toLocaleString()} sf
+            Pro-rata <b>{pct2(retail.camPrs)}%</b> CAM (+{pct2(retail.adminFeePct)}% admin) · <b>{pct2(retail.insPrs)}%</b> INS · <b>{pct2(retail.retPrs)}%</b> RET · occupied <b>{retail.occupiedMonths}</b> of 12 months{meta.leaseTo ? <> · lease to <b>{meta.leaseTo}</b></> : null} · {meta.sqft.toLocaleString()} sf
           </div>
           {retail.unpostedMonths > 0 && (
             <div style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(217,119,6,0.10)", border: "1px solid #d9770655", color: "#b45309", fontSize: 12, fontWeight: 600, marginBottom: 10 }}>
@@ -651,8 +656,8 @@ export default function InterimReconPage() {
                   <tr style={{ fontWeight: 800, borderTop: "1px solid var(--border)" }}><td /><td>Total billed pool</td><td style={numTd}>{money(retail.camPoolEffective)}</td></tr>
                 </tbody>
               </table>
-              <BalanceRow label={`× Share (${retail.camPrs}%)`} value={money(retail.camShare)} />
-              <BalanceRow label={`+ Admin fee (${retail.adminFeePct}%)`} value={money(retail.camAdmin)} />
+              <BalanceRow label={`× Share (${pct2(retail.camPrs)}%)`} value={money(retail.camShare)} />
+              <BalanceRow label={`+ Admin fee (${pct2(retail.adminFeePct)}%)`} value={money(retail.camAdmin)} />
               <BalanceRow label="CAM Due" value={money(retail.camDue)} strong />
               <BalanceRow label={`Less: Billed (${money(meta.opexMonth)}/mo × ${retail.occupiedMonths})`} value={money(-retail.camEscrow)} />
               <FinalBalanceRow label="CAM Balance" value={retail.camBalance} />
@@ -660,13 +665,13 @@ export default function InterimReconPage() {
             <div style={{ flex: 1, minWidth: 220 }}>
               <div style={{ ...secLabel, color: "#0b4a7d", marginBottom: 6 }}>Insurance</div>
               <BalanceRow label={`Property INS pool ×${retail.occupiedMonths}/12`} value={money(retail.insPool)} />
-              <BalanceRow label={`× Share (${retail.insPrs}%)`} value={money(retail.insDue)} strong />
+              <BalanceRow label={`× Share (${pct2(retail.insPrs)}%)`} value={money(retail.insDue)} strong />
               <BalanceRow label="Less: Billed" value={money(-retail.insEscrow)} />
               <FinalBalanceRow label="INS Balance" value={retail.insBalance} />
               <div style={{ height: 14 }} />
               <div style={{ ...secLabel, color: "#0b4a7d", marginBottom: 6 }}>Real Estate Taxes</div>
               <BalanceRow label={`RET pool ×${retail.occupiedMonths}/12`} value={money(retail.retPool)} />
-              <BalanceRow label={`× Share (${retail.retPrs}%)${retail.retDiscountPct ? ` − ${retail.retDiscountPct}% disc` : ""}`} value={money(retail.retDue)} strong />
+              <BalanceRow label={`× Share (${pct2(retail.retPrs)}%)${retail.retDiscountPct ? ` − ${pct2(retail.retDiscountPct)}% disc` : ""}`} value={money(retail.retDue)} strong />
               <BalanceRow label={`Less: Billed (${money(meta.reTaxMonth)}/mo × ${retail.occupiedMonths})`} value={money(-retail.retEscrow)} />
               <FinalBalanceRow label="RET Balance" value={retail.retBalance} />
             </div>
