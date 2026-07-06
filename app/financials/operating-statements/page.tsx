@@ -476,6 +476,21 @@ export default function OperatingStatementsPage() {
     (latestPost.year === expectedPost.year && latestPost.period < expectedPost.period)
   );
 
+  // When viewing the 2000 G&A statement, surface whether its allocated
+  // invoices still need to be generated/processed — the same GL feeds both, so
+  // the statement nudges you over to run the allocation.
+  const isGandA = cur?.propertyCode === "2000";
+  const [pendingAlloc, setPendingAlloc] = useState<{ statementMonth: string; alreadyProcessed: boolean; uploadedAt: string } | null>(null);
+  useEffect(() => {
+    if (!isGandA) { setPendingAlloc(null); return; }
+    let alive = true;
+    fetch("/api/allocation/pending-gl")
+      .then((r) => r.json())
+      .then((j) => { if (alive) setPendingAlloc(j.pending ?? null); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [isGandA]);
+
   const thresh: Thresh = { dollar: varDollar, pct: varPctThresh, min: varFloor };
   const variance = statement ? varianceCounts(statement, thresh) : null;
 
@@ -557,6 +572,25 @@ export default function OperatingStatementsPage() {
             <button className="btn primary" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700, flexShrink: 0 }} disabled={uploading} onClick={() => fileRef.current?.click()}>
               {uploading ? "Uploading…" : "Upload GL"}
             </button>
+          </div>
+        </div>
+      )}
+
+      {isGandA && pendingAlloc && !pendingAlloc.alreadyProcessed && (
+        <div className="card" style={{ borderColor: "rgba(22,163,74,0.5)", background: "rgba(22,163,74,0.07)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 20 }}>🧾</span>
+            <div style={{ flex: 1, minWidth: 220 }}>
+              <div style={{ fontWeight: 800, color: "#15803d" }}>
+                Allocated invoices for {pendingAlloc.statementMonth} are ready to process
+              </div>
+              <div className="muted small" style={{ marginTop: 2 }}>
+                This is the same 2000 G&amp;A GL the Allocated Expense Invoicer runs on. Generate the property invoices there, then send.
+              </div>
+            </div>
+            <a href="/allocated-invoicer" className="btn primary" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700, textDecoration: "none", flexShrink: 0 }}>
+              Go to Allocated Invoicer →
+            </a>
           </div>
         </div>
       )}
