@@ -1455,10 +1455,10 @@ function ImportInstructionsModal({ onClose, year, nextPeriod }: { onClose: () =>
           <ol style={{ marginTop: 8, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 6, fontSize: 14 }}>
             <li>Skyline: <b>General Ledger → Reports → Detailed General Ledger</b>.</li>
             <li>{(() => {
-              const start = new Date(year, 0, 1);
-              const end = new Date(year, nextPeriod, 0);
+              const start = new Date(year, nextPeriod - 1, 1);  // first day of the next month to import
+              const end = new Date(year, nextPeriod, 0);          // last day of that month
               const label = end.toLocaleDateString("en-US", { month: "long", year: "numeric" });
-              return <>Select <b>Beginning Date</b> (<b>{fmtMDY(start)}</b>) and <b>End Date</b> (<b>{fmtMDY(end)}</b>) — year-to-date through <b>{label}</b>, so the report carries each month&rsquo;s totals.</>;
+              return <>Select <b>Beginning Date</b> (<b>{fmtMDY(start)}</b>) and <b>End Date</b> (<b>{fmtMDY(end)}</b>) — just <b>{label}</b>, the next month to import.</>;
             })()}</li>
             <li>From the Detailed General Ledger report, select <b>Export</b> in the upper left.</li>
             <li>Select <b>Microsoft Excel (97-2003) (.xls)</b> — the selection from the top.</li>
