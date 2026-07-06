@@ -551,6 +551,12 @@ export default function OperatingStatementsPage() {
                 <a href="/allocated-invoicer" className="btn primary" style={{ fontSize: 12, padding: "6px 12px", fontWeight: 700, textDecoration: "none" }}>Go to Allocated Invoicer →</a>
               </div>
             )}
+            {allOk && (
+              <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px solid ${accent}22`, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                <span className="muted small" style={{ fontWeight: 600 }}>↔ This GL also feeds <b>Cash Analysis</b> and <b>Operating Expense History</b> — no re-import needed.</span>
+                <a href="/financials/cash-analysis" className="btn" style={{ fontSize: 12, padding: "5px 11px", fontWeight: 700, textDecoration: "none" }}>Cash Analysis →</a>
+              </div>
+            )}
           </div>
         );
       })()}
