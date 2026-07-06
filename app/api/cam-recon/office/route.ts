@@ -14,6 +14,7 @@ import { finalsFromSummary, mergeExpenseSummary, mergeExpenseSummaryFromPool, ty
 import { listHistoricalOpEx, upsertHistoricalOpEx } from "@/lib/financials/historical-opex/storage";
 import { SEED_EXPENSES, expenseYears } from "@/lib/rentroll/baseYearExpenses";
 import { getJSON } from "@/lib/storage";
+import { assembledGl } from "@/lib/financials/operating-statements/statementStore";
 
 /** Record a FINAL into the historical OpEx dataset for the recon year only,
  *  preserving every other year — prior years are already adjusted and stay
@@ -118,12 +119,21 @@ export async function GET(req: NextRequest) {
     if (account.startsWith("6410")) return hx.ret;
     return hx.lines.find((l) => l.glAccount === account)?.values ?? {};
   };
+  // Live GL actual per account for the recon year (from the same operating-
+  // statement GL store) — a READ-ONLY reference beside the FINAL so staff can
+  // reconcile the booked history against what's actually posted. Does not drive
+  // the recon math; office FINAL stays on the expense-history dataset.
+  const glLive = expenseEditable ? await assembledGl(property, year) : null;
+  const glActualByAccount: Record<string, number> = {};
+  if (glLive) for (const [acct, nets] of Object.entries(glLive.monthly)) glActualByAccount[acct] = Math.round(nets.reduce((a, n) => a + (n || 0), 0));
+
   const expenseSummaryWithHistory = expenseSummary.map((r) => ({
     ...r,
     history: expenseHistoryYears.map((hy) => {
       const v = histValuesFor(r.account)[String(hy)];
       return v != null ? v : null;
     }),
+    glActual: glLive ? (glActualByAccount[r.account] ?? 0) : null,
   }));
 
   const result = reconcileBuilding(pool, tenants, year, finals);
