@@ -504,6 +504,46 @@ export default function InterimReconPage() {
       {sanityLoading ? "Checking…" : "✨ Sanity check"}
     </button>
   );
+
+  const [letterText, setLetterText] = useState<string | null>(null);
+  const openLetter = useCallback(async () => {
+    if (!meta) return;
+    const kind = retail ? "retail" : "office";
+    const totalBalance = retail
+      ? retail.camBalance + retail.insBalance + retail.retBalance
+      : (r ? r.opexBalance + r.retBalance : 0);
+    const { moveOutCloseOutLetter } = await import("@/lib/cam/letters");
+    setLetterText(moveOutCloseOutLetter({
+      propertyName: meta.propertyName, tenant: meta.name, suite: meta.unitRef.split("-").slice(1).join("-"),
+      year: meta.year, asOfMonth: meta.asOfMonth, occupiedMonths: meta.occupiedMonths, totalBalance, kind,
+    }));
+  }, [retail, r, meta]);
+  const letterButton = (
+    <button className="btn" onClick={openLetter} title="Draft a move-out close-out letter with these figures"
+      style={{ fontSize: 13, padding: "7px 14px", fontWeight: 700 }}>Draft letter</button>
+  );
+  const letterModal = letterText != null && (
+    <div onClick={() => setLetterText(null)} style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(15,23,42,0.45)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "6vh 16px 16px", overflowY: "auto" }}>
+      <div onClick={(e) => e.stopPropagation()} className="card" style={{ width: "100%", maxWidth: 640, margin: 0 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+          <div style={{ fontSize: 16, fontWeight: 800 }}>Move-out close-out letter</div>
+          <button onClick={() => setLetterText(null)} style={{ border: "none", background: "none", cursor: "pointer", fontSize: 20, color: "var(--muted)" }} aria-label="Close">×</button>
+        </div>
+        <p className="muted small" style={{ marginTop: 0 }}>Draft — review and edit before sending. Figures are pulled from the statement.</p>
+        <textarea value={letterText} onChange={(e) => setLetterText(e.target.value)}
+          style={{ width: "100%", minHeight: 300, fontSize: 13, lineHeight: 1.5, padding: 12, borderRadius: 8, border: "1px solid var(--border)", background: "var(--card)", color: "var(--text)", fontFamily: "inherit", resize: "vertical" }} />
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 10 }}>
+          <button className="btn" onClick={() => { navigator.clipboard?.writeText(letterText).catch(() => {}); }} style={{ fontSize: 13, padding: "7px 14px", fontWeight: 700 }}>Copy</button>
+          <button className="btn primary" onClick={() => {
+            const blob = new Blob([letterText], { type: "text/plain" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a"); a.href = url; a.download = `${meta?.name?.replace(/[^\w]+/g, "_") ?? "tenant"}_close_out_letter.txt`; a.click();
+            setTimeout(() => URL.revokeObjectURL(url), 2000);
+          }} style={{ fontSize: 13, padding: "7px 14px", fontWeight: 700 }}>Download .txt</button>
+        </div>
+      </div>
+    </div>
+  );
   const sanityCard = sanity && (
     <div className="card" style={{ borderColor: sanity.ok ? "rgba(21,128,61,0.4)" : "rgba(180,83,9,0.45)", background: sanity.ok ? "rgba(22,163,74,0.05)" : "rgba(217,119,6,0.06)" }}>
       <div style={{ fontWeight: 800, color: sanity.ok ? "#15803d" : "#b45309", marginBottom: sanity.findings.length ? 8 : 0 }}>
@@ -632,6 +672,7 @@ export default function InterimReconPage() {
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <div style={{ fontSize: 14, fontWeight: 700, color: "#0b4a7d" }}>Interim CAM/RET · as of {MONTHS[r.asOfMonth - 1]} {meta.year}</div>
               {sanityButton}
+              {letterButton}
               <button className="btn primary" onClick={downloadPdf} style={{ fontSize: 13, padding: "7px 14px", fontWeight: 700 }}>Download PDF</button>
             </div>
           </div>
@@ -678,6 +719,7 @@ export default function InterimReconPage() {
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <div style={{ fontSize: 14, fontWeight: 700, color: "#0b4a7d" }}>Interim CAM/INS/RET · as of {MONTHS[retail.asOfMonth - 1]} {meta.year}</div>
               {sanityButton}
+              {letterButton}
               <button className="btn primary" onClick={downloadRetailPdf} style={{ fontSize: 13, padding: "7px 14px", fontWeight: 700 }}>Download PDF</button>
             </div>
           </div>
@@ -734,6 +776,7 @@ export default function InterimReconPage() {
           </p>
         </div>
       )}
+      {letterModal}
     </main>
   );
 }
