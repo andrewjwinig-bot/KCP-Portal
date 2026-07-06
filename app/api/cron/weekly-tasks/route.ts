@@ -4,6 +4,7 @@ import { SITE_COOKIE, verifySiteToken } from "@/lib/site-auth";
 import { taskOccurrencesBetween, CATEGORIES, type TaskOccurrence } from "@/lib/tracker/taskDefs";
 import { getCompletions, completionKey } from "@/lib/tracker/completionStore";
 import { importsForWeek } from "@/lib/tracker/imports";
+import { outstandingGlUploads, type OutstandingGl } from "@/lib/financials/operating-statements/outstanding";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -59,7 +60,14 @@ function fmtDate(d: Date): string {
   return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
 }
 
-function buildDigest(now: Date, tasks: TaskOccurrence[], completions: Record<string, unknown>) {
+const MON_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+function buildDigest(
+  now: Date,
+  tasks: TaskOccurrence[],
+  completions: Record<string, unknown>,
+  outstanding: { expected: { year: number; period: number }; behind: OutstandingGl[] } | null,
+) {
   const { start, end } = weekBounds(now);
 
   const open = tasks.filter(
@@ -100,16 +108,29 @@ function buildDigest(now: Date, tasks: TaskOccurrence[], completions: Record<str
     lines.push("");
   }
 
+  // ── Outstanding GL uploads (operating statements behind the prior month) ──
+  const behind = outstanding?.behind ?? [];
+  if (outstanding && behind.length) {
+    const exp = `${MON_SHORT[outstanding.expected.period - 1]} ${outstanding.expected.year}`;
+    lines.push(`OUTSTANDING GL UPLOADS — not yet posted through ${exp} (${behind.length})`);
+    for (const b of behind) {
+      const through = b.latest ? `through ${MON_SHORT[b.latest.period - 1]} ${b.latest.year}` : "no GL yet";
+      lines.push(`  • ${b.propertyCode} — ${b.name}  (${through})`);
+    }
+    lines.push(`  → Post PM & AP, close the month, then upload each GL: https://portal.kormancommercial.com/financials/operating-statements`);
+    lines.push("");
+  }
+
   lines.push(`Open the tracker: https://portal.kormancommercial.com/tracker`);
   lines.push("");
   lines.push(`— KCP Portal`);
 
-  const subject =
-    open.length === 0
-      ? `Your week — all clear (${range})`
-      : `Your week — ${open.length} task${open.length === 1 ? "" : "s"} (${range})`;
+  const parts: string[] = [];
+  if (open.length) parts.push(`${open.length} task${open.length === 1 ? "" : "s"}`);
+  if (behind.length) parts.push(`${behind.length} GL upload${behind.length === 1 ? "" : "s"} behind`);
+  const subject = parts.length ? `Your week — ${parts.join(", ")} (${range})` : `Your week — all clear (${range})`;
 
-  return { subject, textBody: lines.join("\n"), open, doneCount, imports };
+  return { subject, textBody: lines.join("\n"), open, doneCount, imports, behind };
 }
 
 async function runDigest(req: Request) {
@@ -120,7 +141,10 @@ async function runDigest(req: Request) {
   let completions: Record<string, unknown> = {};
   try { completions = await getCompletions(); } catch { /* best-effort */ }
 
-  const { subject, textBody, open, doneCount, imports } = buildDigest(now, tasks, completions);
+  let outstanding: { expected: { year: number; period: number }; behind: OutstandingGl[] } | null = null;
+  try { outstanding = await outstandingGlUploads(now); } catch { /* best-effort */ }
+
+  const { subject, textBody, open, doneCount, imports, behind } = buildDigest(now, tasks, completions, outstanding);
 
   const url = new URL(req.url);
   const toOverride = url.searchParams.get("to");
@@ -138,6 +162,7 @@ async function runDigest(req: Request) {
     open: open.length,
     done: doneCount,
     imports: imports.length,
+    outstandingGl: behind.length,
   });
 }
 

@@ -461,6 +461,21 @@ export default function OperatingStatementsPage() {
   const cur = available.find((a) => a.key === key);
   const yearOptions = cur?.years.length ? cur.years : [year || new Date().getFullYear()];
   const sqft = PROPERTY_DEFS.find((p) => p.id === key)?.sqft ?? 0;
+
+  // Prior-month posting reminder: a property's GL should be posted through the
+  // prior calendar month. If this property's newest GL is behind that, nudge to
+  // post + upload it, so an un-posted month is visible right on the page.
+  const nowP = new Date();
+  const expectedPost = nowP.getMonth() === 0
+    ? { year: nowP.getFullYear() - 1, period: 12 }             // January → prior Dec
+    : { year: nowP.getFullYear(), period: nowP.getMonth() };   // else prior month (getMonth() is already 1-behind, 1-indexed)
+  const latestPost = cur?.latest ?? null;
+  const behindPosting = !!cur && (
+    !latestPost ||
+    latestPost.year < expectedPost.year ||
+    (latestPost.year === expectedPost.year && latestPost.period < expectedPost.period)
+  );
+
   const thresh: Thresh = { dollar: varDollar, pct: varPctThresh, min: varFloor };
   const variance = statement ? varianceCounts(statement, thresh) : null;
 
@@ -516,6 +531,29 @@ export default function OperatingStatementsPage() {
           </div>
         );
       })()}
+
+      {behindPosting && (
+        <div className="card" style={{ borderColor: "rgba(180,83,9,0.45)", background: "rgba(217,119,6,0.08)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 20 }}>⏰</span>
+            <div style={{ flex: 1, minWidth: 220 }}>
+              <div style={{ fontWeight: 800, color: "#b45309" }}>
+                Time to post {MONTHS[expectedPost.period - 1]} {expectedPost.year}
+              </div>
+              <div className="muted small" style={{ marginTop: 2 }}>
+                <b>{cur?.propertyCode} — {cur?.name}</b>{" "}
+                {latestPost
+                  ? <>is posted through <b>{MONTHS[latestPost.period - 1]} {latestPost.year}</b>. </>
+                  : <>has <b>no GL imported yet</b>. </>}
+                Run <b>Post PM and AP</b> then <b>Close Prior Month</b> in Skyline, then upload the GL here.
+              </div>
+            </div>
+            <button className="btn primary" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700, flexShrink: 0 }} disabled={uploading} onClick={() => fileRef.current?.click()}>
+              {uploading ? "Uploading…" : "Upload GL"}
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="card">
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>

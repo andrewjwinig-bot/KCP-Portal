@@ -204,14 +204,14 @@ export const TASK_DEFS: TaskDef[] = [
     },
   },
   {
-    id: "m-close",
-    label: "Close Prior Month",
+    id: "m-post",
+    label: "Post PM and AP",
     category: "routine",
     dueDay: 20,
     approxDay: true,
-    notes: "Post and close period in Skyline.",
+    notes: "Post revenues + expenses, consolidate, and run the pre-close prep/status reports in Skyline.",
     instructions: {
-      intro: "Post revenues and expenses, then run the full month-end close sequence",
+      intro: "Post revenues and expenses, consolidate, and run the prep + status reports — the steps before closing periods (do the Close Prior Month task next)",
       steps: [
         {
           title: "Post PM to GL (Revenues)",
@@ -273,12 +273,26 @@ export const TASK_DEFS: TaskDef[] = [
             "Save as Excel",
             "This shows which period each Prop/Co is in and which ones need to be closed",
           ],
+          note: "Carry this report into the Close Prior Month task — it drives which periods to close.",
         },
+      ],
+    },
+  },
+  {
+    id: "m-close",
+    label: "Close Prior Month",
+    category: "routine",
+    dueDay: 20,
+    approxDay: true,
+    notes: "Close periods in Skyline (after Post PM and AP).",
+    instructions: {
+      intro: "After Post PM and AP: close each period, re-consolidate, and verify final status",
+      steps: [
         {
           title: "Close Each Period",
           path: "General Ledger → Period Processing → Month End Closing",
           items: [
-            "Reference the Prop/Co list from the Property/Company Status Report",
+            "Reference the Prop/Co list from the Property/Company Status Report (from Post PM and AP)",
             "Close all individual properties",
             "Close all Fund properties",
           ],
