@@ -27,7 +27,7 @@ function money(n: number | null | undefined): string {
 type ScheduleLine = { glAccount: string; label: string; baseCost: number; actual: number; netIncrease: number };
 type Result = TenantReconResult & { occupiedMonths: number; asOfMonth: number; unpostedMonths: number };
 type RetailResult = RetailTenantResult & { occupiedMonths: number; asOfMonth: number; unpostedMonths: number };
-type Meta = { property: string; propertyName: string; unitRef: string; name: string; year: number; asOfMonth: number; effectiveThrough: number; occupiedMonths: number; unpostedMonths: number; maxPosted: number; startMonth: number; leaseFrom: string | null; leaseTo: string | null; sqft: number; opexMonth: number; reTaxMonth: number; baseYear?: number; proRataPct: number; grossUp?: boolean; glAsOf: string | null; manual?: boolean };
+type Meta = { property: string; propertyName: string; unitRef: string; name: string; year: number; asOfMonth: number; effectiveThrough: number; occupiedMonths: number; unpostedMonths: number; maxPosted: number; startMonth: number; leaseFrom: string | null; leaseTo: string | null; sqft: number; opexMonth: number; reTaxMonth: number; baseYear?: number; proRataPct: number; grossUp?: boolean; glAsOf: string | null; manual?: boolean; escrowSource?: "monthly-rolls" | "estimate"; escrowMonthsFound?: number };
 type Tenant = { unitRef: string; name: string; leaseTo: string | null; expiresInYear: number | null };
 
 type Draft = {
@@ -590,6 +590,7 @@ export default function InterimReconPage() {
           </div>
           <div className="muted small" style={{ marginBottom: 10 }}>
             Base year <b>{r.noBaseStop ? "NNN (full pool)" : r.baseYear}</b> · pro-rata <b>{pct2(r.proRataPct)}%</b> · occupied <b>{r.occupiedMonths}</b> of 12 months{meta.leaseTo ? <> · lease to <b>{meta.leaseTo}</b></> : null} · {meta.sqft.toLocaleString()} sf
+            {meta.escrowSource === "monthly-rolls" && <> · <span style={{ color: "#15803d", fontWeight: 600 }}>escrow summed from {meta.escrowMonthsFound} monthly rent roll{meta.escrowMonthsFound === 1 ? "" : "s"}</span></>}
           </div>
 
           {r.unpostedMonths > 0 && (
@@ -633,6 +634,7 @@ export default function InterimReconPage() {
           </div>
           <div className="muted small" style={{ marginBottom: 10 }}>
             Pro-rata <b>{pct2(retail.camPrs)}%</b> CAM (+{pct2(retail.adminFeePct)}% admin) · <b>{pct2(retail.insPrs)}%</b> INS · <b>{pct2(retail.retPrs)}%</b> RET · occupied <b>{retail.occupiedMonths}</b> of 12 months{meta.leaseTo ? <> · lease to <b>{meta.leaseTo}</b></> : null} · {meta.sqft.toLocaleString()} sf
+            {meta.escrowSource === "monthly-rolls" && <> · <span style={{ color: "#15803d", fontWeight: 600 }}>escrow summed from {meta.escrowMonthsFound} monthly rent roll{meta.escrowMonthsFound === 1 ? "" : "s"}</span></>}
           </div>
           {retail.unpostedMonths > 0 && (
             <div style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(217,119,6,0.10)", border: "1px solid #d9770655", color: "#b45309", fontSize: 12, fontWeight: 600, marginBottom: 10 }}>
