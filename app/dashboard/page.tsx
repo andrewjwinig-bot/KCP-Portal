@@ -14,6 +14,7 @@ import { fireNotification } from "../../lib/notifications";
 import ExpirationChart from "./ExpirationChart";
 import DrewSavedStatus from "./DrewSavedStatus";
 import DrewTasksThisWeek from "./DrewTasksThisWeek";
+import DailyDigestModal from "./DailyDigestModal";
 import MaintenanceOverview from "./MaintenanceOverview";
 import PendingReservationsCard from "./PendingReservationsCard";
 import PortfolioOccupancyPanel from "./PortfolioOccupancyPanel";
@@ -931,6 +932,7 @@ function DashboardInner() {
 
         {/* ── Drew's task tracker (Harry can view it too) + Drew's payroll & CC saved-status ── */}
         {(user.id === "drew" || user.id === "harry") && <DrewTasksThisWeek />}
+        {(user.id === "drew" || user.id === "harry") && <DailyDigestModal userId={user.id} />}
         {user.id === "drew" && <DrewSavedStatus />}
 
         {/* ── New Bank Transfers — surface recent transfers for admin /
