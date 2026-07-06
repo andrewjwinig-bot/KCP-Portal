@@ -32,6 +32,24 @@ export const IMPORT_REMINDERS: ImportReminder[] = [
     link: "/expenses", feeds: "Credit Card Expense Coder" },
 ];
 
+/** A recorded import event (client-safe mirror of the server store's value). */
+export type ImportEvent = { at: string; by?: string | null };
+
+/** Is a reminder satisfied by its last import, given its cadence?
+ *  weekly → imported within the current week (Mon–now); monthly/quarterly →
+ *  imported within the current calendar month. Pure — safe on client + server. */
+export function reminderSatisfied(reminder: ImportReminder, lastAt: string | undefined, now: Date): boolean {
+  if (!lastAt) return false;
+  const at = new Date(lastAt);
+  if (Number.isNaN(at.getTime())) return false;
+  if (reminder.cadence === "weekly") {
+    const sinceMon = (now.getDay() + 6) % 7;
+    const weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - sinceMon);
+    return at >= weekStart;
+  }
+  return at.getFullYear() === now.getFullYear() && at.getMonth() === now.getMonth();
+}
+
 /** Import reminders whose cadence makes them relevant in a given week —
  *  weeklies always, monthlies when the week contains the 1st. */
 export function importsForWeek(weekStart: Date, weekEnd: Date): ImportReminder[] {

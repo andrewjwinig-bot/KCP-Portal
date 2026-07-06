@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { parseRentRollExcel, stripStoreNumber } from "@/lib/rentroll/parseRentRollExcel";
 import { snapshotMonthKey } from "@/lib/rentroll/snapshot";
 import { storeJSON, getJSON, listJSON } from "@/lib/storage";
+import { recordImport } from "@/lib/tracker/importEvents";
 
 const RENTROLL_PREFIX = "rentroll";
 const RENTROLL_ID     = "current";
@@ -128,6 +129,9 @@ export async function POST(req: NextRequest) {
       occupiedSqft:   imported.properties.reduce((s, p) => s + p.occupiedSqft, 0),
       vacantSqft:     imported.properties.reduce((s, p) => s + p.vacantSqft, 0),
     };
+
+    // Mark the rent-roll import reminder satisfied for the weekly digest / dashboard.
+    try { await recordImport("imp-rentroll", { at: uploadedAt, by: uploadedBy ?? null }); } catch { /* best-effort */ }
 
     // Always hand back the *current* (latest-month) roll for display, plus
     // what was imported and whether it became current.
