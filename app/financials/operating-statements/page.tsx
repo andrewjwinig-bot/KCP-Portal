@@ -284,7 +284,7 @@ export default function OperatingStatementsPage() {
   // Bumped after an upload to force a statement reload even when the
   // property/year/period are unchanged (e.g. re-importing the current view).
   const [reloadNonce, setReloadNonce] = useState(0);
-  type UploadResult = { name: string; ok: boolean; key?: string; year?: number; month?: number; accounts?: number; error?: string; allocatedGlReady?: boolean };
+  type UploadResult = { name: string; ok: boolean; key?: string; year?: number; month?: number; accounts?: number; error?: string; allocatedGlReady?: boolean; tasksCompleted?: string[] };
   const [uploadResults, setUploadResults] = useState<UploadResult[] | null>(null);
   // View toggles (mirroring the Operating Budgets page).
   const [psf, setPsf] = useState(false);
@@ -378,7 +378,7 @@ export default function OperatingStatementsPage() {
         if (j.error) { results.push({ name: file.name, ok: false, error: j.error }); }
         else {
           last = { key: j.key, year: j.year };
-          results.push({ name: file.name, ok: true, key: j.key, year: j.year, month: j.maxPeriodInFile, accounts: j.accounts, allocatedGlReady: j.allocatedGlReady });
+          results.push({ name: file.name, ok: true, key: j.key, year: j.year, month: j.maxPeriodInFile, accounts: j.accounts, allocatedGlReady: j.allocatedGlReady, tasksCompleted: j.tasksCompleted });
         }
       } catch {
         results.push({ name: file.name, ok: false, error: "Upload failed" });
@@ -551,6 +551,17 @@ export default function OperatingStatementsPage() {
                 <a href="/allocated-invoicer" className="btn primary" style={{ fontSize: 12, padding: "6px 12px", fontWeight: 700, textDecoration: "none" }}>Go to Allocated Invoicer →</a>
               </div>
             )}
+            {(() => {
+              const TASK_LABELS: Record<string, string> = { "m-post": "Post PM and AP", "m-close": "Close Prior Month", "m-opstmt": "Operating Statements" };
+              const done = Array.from(new Set(uploadResults.flatMap((r) => r.tasksCompleted ?? [])));
+              return done.length ? (
+                <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px solid ${accent}33`, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  <span style={{ fontWeight: 700, color: "#15803d" }}>✓ Checked off for this month:</span>
+                  <span className="muted small">{done.map((id) => TASK_LABELS[id] ?? id).join(" · ")}</span>
+                  <a href="/tracker" className="btn" style={{ fontSize: 12, padding: "5px 11px", fontWeight: 700, textDecoration: "none" }}>Tracker →</a>
+                </div>
+              ) : null;
+            })()}
             {allOk && (
               <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px solid ${accent}22`, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                 <span className="muted small" style={{ fontWeight: 600 }}>↔ This GL also feeds <b>Cash Analysis</b> and <b>Operating Expense History</b> — no re-import needed.</span>
