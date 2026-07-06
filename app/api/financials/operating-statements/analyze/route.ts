@@ -34,9 +34,10 @@ function hot(v: number | null, b: number | null, dollar: number, pct: number, mi
 // an explanation. Gathers per-line budget detail + GL transactions and asks
 // Claude for a concise, accounting-savvy note per line, then saves them.
 export async function POST(req: Request) {
-  let body: { key?: string; year?: number; period?: number; dollar?: number; pct?: number; min?: number };
+  let body: { key?: string; year?: number; period?: number; dollar?: number; pct?: number; min?: number; force?: boolean };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Bad request" }, { status: 400 }); }
   const { key, year } = body;
+  const force = body.force === true; // re-explain lines that already have an AI note
   const dollar = body.dollar ?? 5000;
   const pct = body.pct ?? 10;
   const min = body.min ?? 500;
@@ -62,13 +63,18 @@ export async function POST(req: Request) {
   // refreshes its own prior AI notes.
   const { notes: existingNotes, sources: existingSources } = await getNotesBundle(key, year, period);
   const hasManualNote = (lk: string) => existingSources[lk] === "user" && !!(existingNotes[lk] || "").trim();
+  // Skip lines already auto-explained (an AI note on file) unless force=true, so
+  // re-runs and re-imports don't re-spend tokens on months already done.
+  const hasAiNote = (lk: string) => existingSources[lk] === "ai" && !!(existingNotes[lk] || "").trim();
 
   const flagged: Record<string, unknown>[] = [];
+  let skippedExplained = 0;
   for (const sec of statement.sections) {
     const sign = sec.role === "revenue" || sec.role === "reimbursement" ? -1 : 1;
     for (const l of sec.lines) {
       const lineKey = `${sec.name}::${l.label}`;
       if (hasManualNote(lineKey)) continue; // keep the user's manual note
+      if (!force && hasAiNote(lineKey)) { skippedExplained++; continue; } // already auto-explained
 
       const cls = hot(l.ytdVariance, l.ytdBudget, dollar, pct, min) ?? hot(l.periodVariance, l.periodBudget, dollar, pct, min);
       const amounts = lineMonthly(stored.monthly, l.mask, sign, period);
@@ -114,7 +120,7 @@ export async function POST(req: Request) {
     }
   }
 
-  if (!flagged.length) return NextResponse.json({ notes: {}, message: "No flagged lines to analyze." });
+  if (!flagged.length) return NextResponse.json({ notes: {}, skippedExplained, message: skippedExplained ? `All ${skippedExplained} flagged line(s) already explained.` : "No flagged lines to analyze." });
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return NextResponse.json({ error: "AI analysis isn't configured (ANTHROPIC_API_KEY not set)." }, { status: 503 });

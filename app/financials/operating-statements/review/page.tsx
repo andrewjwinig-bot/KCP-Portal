@@ -172,6 +172,7 @@ export default function OperatingStatementsReviewPage() {
   const [monthFilter, setMonthFilter] = useState<number | null>(null);
   const [dismissing, setDismissing] = useState<Set<string>>(new Set());
   const [explaining, setExplaining] = useState<{ done: number; total: number } | null>(null);
+  const [forceReexplain, setForceReexplain] = useState(false);
 
   // Dismiss a flagged line-month right here (no round-trip to the statement),
   // then drop it from the list so the page condenses to what's left.
@@ -222,14 +223,14 @@ export default function OperatingStatementsReviewPage() {
       try {
         await fetch("/api/financials/operating-statements/analyze", {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ key: pairs[i].key, year, period: pairs[i].period }),
+          body: JSON.stringify({ key: pairs[i].key, year, period: pairs[i].period, force: forceReexplain }),
         });
       } catch { /* skip a failed property, keep going */ }
       setExplaining({ done: i + 1, total: pairs.length });
     }
     setExplaining(null);
     load(); // refresh so the freshly-written notes show
-  }, [data, year, load]);
+  }, [data, year, load, forceReexplain]);
 
   // Properties with an uploaded GL, grouped like the rent roll; worst (most
   // flagged months) first within each group. When a month filter is set, each
@@ -297,10 +298,14 @@ export default function OperatingStatementsReviewPage() {
               ))}
             </select>
           )}
-          <button className="btn" onClick={autoExplainAll} disabled={!totalMonths || !!explaining} title="Use AI to explain every flagged line-month across all properties"
+          <button className="btn" onClick={autoExplainAll} disabled={!totalMonths || !!explaining} title="Use AI to explain flagged lines across all properties (skips months already explained unless re-explain is checked)"
             style={{ fontSize: 13, padding: "6px 14px", fontWeight: 700 }}>
             {explaining ? `Explaining… ${explaining.done}/${explaining.total}` : "✨ Auto-explain all"}
           </button>
+          <label className="muted small" style={{ display: "inline-flex", alignItems: "center", gap: 5, cursor: "pointer", userSelect: "none" }} title="Re-run even on months already explained (uses tokens again)">
+            <input type="checkbox" checked={forceReexplain} onChange={(e) => setForceReexplain(e.target.checked)} style={{ cursor: "pointer" }} />
+            re-explain done
+          </label>
           <button className="btn" onClick={() => data && exportExcel(data)} disabled={!totalMonths} style={{ fontSize: 13, padding: "6px 14px", fontWeight: 700 }}>Download Excel</button>
           <button className="btn primary" onClick={() => data && exportPdf(data, grouped)} disabled={!totalMonths} style={{ fontSize: 13, padding: "6px 14px", fontWeight: 700 }}>Download PDF</button>
         </div>
