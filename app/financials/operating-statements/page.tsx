@@ -286,6 +286,8 @@ export default function OperatingStatementsPage() {
   const [reloadNonce, setReloadNonce] = useState(0);
   type UploadResult = { name: string; ok: boolean; key?: string; year?: number; month?: number; accounts?: number; error?: string; allocatedGlReady?: boolean; tasksCompleted?: string[] };
   const [uploadResults, setUploadResults] = useState<UploadResult[] | null>(null);
+  // Background auto-explain progress after an import (audits the new GLs).
+  const [autoExplain, setAutoExplain] = useState<{ done: number; total: number } | null>(null);
   // View toggles (mirroring the Operating Budgets page).
   const [psf, setPsf] = useState(false);
   const [hideEmpty, setHideEmpty] = useState(true);
@@ -395,6 +397,28 @@ export default function OperatingStatementsPage() {
     setUploadResults(results);
     setUploading(false);
     if (fileRef.current) fileRef.current.value = "";
+
+    // Auto-audit the newly-imported GL(s): run Auto-explain for each uploaded
+    // property's month in the background, so the Flags to Investigate report is
+    // annotated without opening each property by hand.
+    const toExplain = results.filter((r) => r.ok && r.key && r.year && r.month).map((r) => ({ key: r.key!, year: r.year!, period: r.month! }));
+    if (toExplain.length) {
+      setAutoExplain({ done: 0, total: toExplain.length });
+      (async () => {
+        for (let i = 0; i < toExplain.length; i++) {
+          try {
+            await fetch("/api/financials/operating-statements/analyze", {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(toExplain[i]),
+            });
+          } catch { /* skip; keep going */ }
+          setAutoExplain({ done: i + 1, total: toExplain.length });
+        }
+        setAutoExplain((s) => (s ? { ...s, done: s.total } : s));
+        setReloadNonce((n) => n + 1); // reload current statement so new notes show
+        setTimeout(() => setAutoExplain(null), 8000);
+      })();
+    }
   }
 
   // Auto-dismiss the upload result banner after a few seconds.
@@ -571,6 +595,19 @@ export default function OperatingStatementsPage() {
           </div>
         );
       })()}
+
+      {autoExplain && (
+        <div className="card" style={{ borderColor: "rgba(109,40,217,0.4)", background: "rgba(109,40,217,0.06)", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 18 }}>✨</span>
+          <div style={{ flex: 1, minWidth: 220 }}>
+            <div style={{ fontWeight: 800, color: "#6d28d9" }}>
+              {autoExplain.done < autoExplain.total ? `Auto-explaining flagged lines… ${autoExplain.done}/${autoExplain.total}` : "✓ Flagged lines explained"}
+            </div>
+            <div className="muted small" style={{ marginTop: 2 }}>Auditing the imported GL{autoExplain.total === 1 ? "" : "s"} so the Flags to Investigate report is ready.</div>
+          </div>
+          <a href="/financials/operating-statements/review" className="btn primary" style={{ fontSize: 12, padding: "6px 12px", fontWeight: 700, textDecoration: "none", flexShrink: 0 }}>Flags to Investigate →</a>
+        </div>
+      )}
 
       {behindPosting && (
         <div className="card" style={{ borderColor: "rgba(180,83,9,0.45)", background: "rgba(217,119,6,0.08)" }}>
