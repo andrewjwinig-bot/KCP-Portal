@@ -155,6 +155,39 @@ export default function AllocatedInvoicerPage() {
   useEffect(() => {
     fetch("/api/allocation/last-run").then((r) => r.json()).then((j) => setRuns(j.runs ?? [])).catch(() => setRuns([]));
   }, []);
+
+  // Hand-off from Operating Statements: when the 2000 G&A GL is uploaded there,
+  // it's stashed for us. Offer to load + generate the allocated invoices from
+  // the same file instead of re-uploading it.
+  type PendingGl = { fileName: string; year: number; month: number; statementMonth: string; uploadedAt: string; uploadedBy?: string | null; alreadyProcessed: boolean };
+  const [pendingGl, setPendingGl] = useState<PendingGl | null>(null);
+  const [pendingDismissed, setPendingDismissed] = useState(false);
+  const [loadingPending, setLoadingPending] = useState(false);
+  useEffect(() => {
+    fetch("/api/allocation/pending-gl").then((r) => r.json()).then((j) => setPendingGl(j.pending ?? null)).catch(() => {});
+  }, []);
+
+  async function loadPendingGl() {
+    setLoadingPending(true);
+    try {
+      const j = await fetch("/api/allocation/pending-gl?file=1").then((r) => r.json());
+      if (!j.fileBase64) throw new Error("File not available");
+      const bin = atob(j.fileBase64);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const result = parseGLExcel(bytes.buffer);
+      setGlResult(result);
+      setFileName(j.fileName ?? pendingGl?.fileName ?? "2000 G&A GL");
+      setAcctFilter("all");
+      setSearch("");
+      setTxDetailModal(null);
+      setAllocPropModal(null);
+    } catch (e: any) {
+      alert("Failed to load the imported 2000 GL: " + (e?.message ?? String(e)));
+    } finally {
+      setLoadingPending(false);
+    }
+  }
   async function recordRun() {
     if (!glResult) return;
     try {
@@ -459,6 +492,31 @@ export default function AllocatedInvoicerPage() {
             )}
           </div>
         )
+      )}
+
+      {/* ── Ready-to-process hand-off from Operating Statements ── */}
+      {pendingGl && !pendingDismissed && !glResult && !pendingGl.alreadyProcessed && (
+        <div className="card" style={{ borderColor: "rgba(22,163,74,0.5)", background: "rgba(22,163,74,0.07)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 20 }}>✅</span>
+            <div style={{ flex: 1, minWidth: 220 }}>
+              <div style={{ fontWeight: 800, color: "#15803d" }}>
+                {pendingGl.statementMonth} 2000 G&amp;A GL is ready to process
+              </div>
+              <div className="muted small" style={{ marginTop: 2 }}>
+                Imported on Operating Statements{pendingGl.uploadedBy ? ` by ${pendingGl.uploadedBy}` : ""}
+                {pendingGl.uploadedAt ? ` · ${new Date(pendingGl.uploadedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}` : ""}.
+                Same file — load it here to generate the allocated invoices (review before sending).
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+              <button className="btn primary" style={{ fontWeight: 700, whiteSpace: "nowrap" }} disabled={loadingPending} onClick={loadPendingGl}>
+                {loadingPending ? "Loading…" : "Load & generate →"}
+              </button>
+              <button className="btn" style={{ fontWeight: 700 }} onClick={() => setPendingDismissed(true)}>Dismiss</button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ── Import GL ── */}

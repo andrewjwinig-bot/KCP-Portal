@@ -283,7 +283,7 @@ export default function OperatingStatementsPage() {
   // Bumped after an upload to force a statement reload even when the
   // property/year/period are unchanged (e.g. re-importing the current view).
   const [reloadNonce, setReloadNonce] = useState(0);
-  type UploadResult = { name: string; ok: boolean; key?: string; year?: number; month?: number; accounts?: number; error?: string };
+  type UploadResult = { name: string; ok: boolean; key?: string; year?: number; month?: number; accounts?: number; error?: string; allocatedGlReady?: boolean };
   const [uploadResults, setUploadResults] = useState<UploadResult[] | null>(null);
   // View toggles (mirroring the Operating Budgets page).
   const [psf, setPsf] = useState(false);
@@ -375,7 +375,7 @@ export default function OperatingStatementsPage() {
         if (j.error) { results.push({ name: file.name, ok: false, error: j.error }); }
         else {
           last = { key: j.key, year: j.year };
-          results.push({ name: file.name, ok: true, key: j.key, year: j.year, month: j.maxPeriodInFile, accounts: j.accounts });
+          results.push({ name: file.name, ok: true, key: j.key, year: j.year, month: j.maxPeriodInFile, accounts: j.accounts, allocatedGlReady: j.allocatedGlReady });
         }
       } catch {
         results.push({ name: file.name, ok: false, error: "Upload failed" });
@@ -528,6 +528,12 @@ export default function OperatingStatementsPage() {
                 );
               })}
             </div>
+            {uploadResults.some((r) => r.allocatedGlReady) && (
+              <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${accent}33`, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                <span style={{ fontWeight: 700, color: "#15803d" }}>✅ 2000 G&amp;A GL — the Allocated Expense Invoicer is ready to generate its invoices from this file.</span>
+                <a href="/allocated-invoicer" className="btn primary" style={{ fontSize: 12, padding: "6px 12px", fontWeight: 700, textDecoration: "none" }}>Go to Allocated Invoicer →</a>
+              </div>
+            )}
           </div>
         );
       })()}
