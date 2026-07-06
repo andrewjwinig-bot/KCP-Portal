@@ -477,6 +477,52 @@ export default function InterimReconPage() {
     doc.save(`${meta.property}_${meta.year}_Suite${retail.suite}_${retail.name.replace(/[^\w]+/g, "_")}_Interim_CAM_INS_RET.pdf`);
   }, [retail, meta]);
 
+  const [sanity, setSanity] = useState<{ ok: boolean; findings: { severity?: string; note?: string }[] } | null>(null);
+  const [sanityLoading, setSanityLoading] = useState(false);
+  useEffect(() => { setSanity(null); }, [r, retail, meta]);
+  const runSanityCheck = useCallback(async () => {
+    const kind = retail ? "retail" : "office";
+    const result = retail ?? r;
+    if (!result || !meta) return;
+    setSanityLoading(true);
+    setSanity(null);
+    try {
+      const j = await fetch("/api/cam-recon/sanity-check", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kind, meta, result }),
+      }).then((res) => res.json());
+      if (j.error) alert(j.error);
+      else setSanity({ ok: !!j.ok, findings: j.findings ?? [] });
+    } catch { alert("Sanity check failed."); }
+    finally { setSanityLoading(false); }
+  }, [retail, r, meta]);
+
+  const sanityButton = (
+    <button className="btn" onClick={runSanityCheck} disabled={sanityLoading}
+      title="AI review — flag anything that looks off before sending"
+      style={{ fontSize: 13, padding: "7px 14px", fontWeight: 700 }}>
+      {sanityLoading ? "Checking…" : "✨ Sanity check"}
+    </button>
+  );
+  const sanityCard = sanity && (
+    <div className="card" style={{ borderColor: sanity.ok ? "rgba(21,128,61,0.4)" : "rgba(180,83,9,0.45)", background: sanity.ok ? "rgba(22,163,74,0.05)" : "rgba(217,119,6,0.06)" }}>
+      <div style={{ fontWeight: 800, color: sanity.ok ? "#15803d" : "#b45309", marginBottom: sanity.findings.length ? 8 : 0 }}>
+        {sanity.ok ? "✓ Looks reasonable — nothing flagged" : `⚠ ${sanity.findings.length} thing${sanity.findings.length === 1 ? "" : "s"} to check before sending`}
+      </div>
+      {sanity.findings.length > 0 && (
+        <ul style={{ margin: 0, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 4 }}>
+          {sanity.findings.map((f, i) => (
+            <li key={i} style={{ fontSize: 13 }}>
+              {f.severity === "warn" && <span style={{ color: "#b45309", fontWeight: 700, marginRight: 4 }}>⚠</span>}
+              {f.note}
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="muted small" style={{ marginTop: 8, fontStyle: "italic" }}>AI review · a sanity check, not a guarantee — verify anything flagged.</div>
+    </div>
+  );
+
   return (
     <main style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 1100, width: "100%" }}>
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
@@ -585,6 +631,7 @@ export default function InterimReconPage() {
             <div style={{ fontSize: 18, fontWeight: 800 }}>{r.name} <code style={{ fontSize: 13 }}>{r.unitRef}</code></div>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <div style={{ fontSize: 14, fontWeight: 700, color: "#0b4a7d" }}>Interim CAM/RET · as of {MONTHS[r.asOfMonth - 1]} {meta.year}</div>
+              {sanityButton}
               <button className="btn primary" onClick={downloadPdf} style={{ fontSize: 13, padding: "7px 14px", fontWeight: 700 }}>Download PDF</button>
             </div>
           </div>
@@ -592,6 +639,7 @@ export default function InterimReconPage() {
             Base year <b>{r.noBaseStop ? "NNN (full pool)" : r.baseYear}</b> · pro-rata <b>{pct2(r.proRataPct)}%</b> · occupied <b>{r.occupiedMonths}</b> of 12 months{meta.leaseTo ? <> · lease to <b>{meta.leaseTo}</b></> : null} · {meta.sqft.toLocaleString()} sf
             {meta.escrowSource === "monthly-rolls" && <> · <span style={{ color: "#15803d", fontWeight: 600 }}>escrow summed from {meta.escrowMonthsFound} monthly rent roll{meta.escrowMonthsFound === 1 ? "" : "s"}</span></>}
           </div>
+          {sanityCard}
 
           {r.unpostedMonths > 0 && (
             <div style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(217,119,6,0.10)", border: "1px solid #d9770655", color: "#b45309", fontSize: 12, fontWeight: 600, marginBottom: 10 }}>
@@ -629,6 +677,7 @@ export default function InterimReconPage() {
             <div style={{ fontSize: 18, fontWeight: 800 }}>{retail.name} <code style={{ fontSize: 13 }}>{retail.unitRef}</code></div>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <div style={{ fontSize: 14, fontWeight: 700, color: "#0b4a7d" }}>Interim CAM/INS/RET · as of {MONTHS[retail.asOfMonth - 1]} {meta.year}</div>
+              {sanityButton}
               <button className="btn primary" onClick={downloadRetailPdf} style={{ fontSize: 13, padding: "7px 14px", fontWeight: 700 }}>Download PDF</button>
             </div>
           </div>
@@ -636,6 +685,7 @@ export default function InterimReconPage() {
             Pro-rata <b>{pct2(retail.camPrs)}%</b> CAM (+{pct2(retail.adminFeePct)}% admin) · <b>{pct2(retail.insPrs)}%</b> INS · <b>{pct2(retail.retPrs)}%</b> RET · occupied <b>{retail.occupiedMonths}</b> of 12 months{meta.leaseTo ? <> · lease to <b>{meta.leaseTo}</b></> : null} · {meta.sqft.toLocaleString()} sf
             {meta.escrowSource === "monthly-rolls" && <> · <span style={{ color: "#15803d", fontWeight: 600 }}>escrow summed from {meta.escrowMonthsFound} monthly rent roll{meta.escrowMonthsFound === 1 ? "" : "s"}</span></>}
           </div>
+          {sanityCard}
           {retail.unpostedMonths > 0 && (
             <div style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(217,119,6,0.10)", border: "1px solid #d9770655", color: "#b45309", fontSize: 12, fontWeight: 600, marginBottom: 10 }}>
               ⚠ {retail.unpostedMonths} occupied month{retail.unpostedMonths > 1 ? "s" : ""} not yet posted to the GL (posted through {MONTHS[meta.maxPosted - 1] ?? "—"}). CAM is computed through the latest posted month; re-run once the rest post.
