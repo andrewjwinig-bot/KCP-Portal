@@ -58,7 +58,51 @@ const ROUTES = [
   { path: "/units", desc: "Unit info + CAM config" },
   { path: "/investors", desc: "Investor info" },
   { path: "/debt", desc: "Debt tracker" },
+  { path: "/rentroll/base-years", desc: "Operating expense history (office base years + retail year-by-year)" },
 ];
+
+// ── Deep links ────────────────────────────────────────────────────────────
+// The assistant can point directly at a specific record, not just a page.
+// Everything is validated server-side so only known routes/params/segments
+// survive (no open redirects, no arbitrary paths).
+const DYNAMIC_LINK_PREFIXES: { prefix: string; pattern: RegExp }[] = [
+  { prefix: "/units/", pattern: /^[A-Za-z0-9-]{1,20}$/ },      // /units/2300-01
+  { prefix: "/properties/", pattern: /^[A-Za-z0-9-]{1,20}$/ }, // /properties/4500
+];
+// Query params each page actually reads (anything else is stripped).
+const DEEP_LINK_PARAMS: Record<string, string[]> = {
+  "/maintenance": ["tab", "priority", "status", "assignee", "property", "category"],
+  "/reservations": ["openId"],
+  "/debt": ["openId"],
+  "/rentroll/base-years": ["property"],
+};
+function sanitizeDeepLink(raw: unknown, validPaths: Set<string>): string | null {
+  if (typeof raw !== "string" || !raw.startsWith("/") || raw.startsWith("//")) return null;
+  const [pathPart, queryPart] = raw.split("?");
+  let outPath: string | null = null;
+  for (const d of DYNAMIC_LINK_PREFIXES) {
+    if (pathPart.startsWith(d.prefix)) {
+      const seg = pathPart.slice(d.prefix.length);
+      if (seg.includes("/") || !d.pattern.test(seg)) return null;
+      outPath = `${d.prefix}${seg}`;
+      break;
+    }
+  }
+  if (!outPath) {
+    if (!validPaths.has(pathPart)) return null;
+    outPath = pathPart;
+  }
+  if (queryPart) {
+    const allowed = DEEP_LINK_PARAMS[outPath] ?? [];
+    const out = new URLSearchParams();
+    for (const [k, v] of new URLSearchParams(queryPart)) {
+      if (allowed.includes(k) && v && v.length <= 40 && /^[A-Za-z0-9 _.-]+$/.test(v)) out.set(k, v);
+    }
+    const qs = out.toString();
+    if (qs) return `${outPath}?${qs}`;
+  }
+  return outPath;
+}
 
 // ── Tool definitions handed to the model ──────────────────────────────────
 type ToolDef = { name: string; description: string; input_schema: Record<string, unknown> };
@@ -808,7 +852,8 @@ export async function POST(req: Request) {
     (showFinancials ? "" : "You do NOT have access to financial figures (NOI, budget, debt) for this user — do not attempt to state them.\n\n") +
     `When you have enough to answer, reply with ONLY a JSON object (no prose around it): ` +
     `{"answer": "markdown string", "links": [{"label": "...", "href": "/route"}], "chart": null | {"type": "bar"|"line", "title": "...", "unit": "dollars"|"percent"|"sqft"|"count", "series": [{"label": "...", "value": number}]}, "letter": null | {"kind": "...", "to": "...", "subject": "...", "body": "..."}}. ` +
-    `Put 1-4 relevant page links in "links", choosing hrefs ONLY from this list of routes: ${ROUTES.map((r) => r.path).join(", ")}. ` +
+    `Put 1-4 relevant page links in "links", choosing hrefs from this list of routes: ${ROUTES.map((r) => r.path).join(", ")}. ` +
+    `Prefer DEEP links straight to the specific record when you know it, using these exact shapes: /units/<unitRef> (a unit's tenant + CAM config page, e.g. /units/2300-01), /properties/<code> (a property page, e.g. /properties/4500), /maintenance?property=<code> (also tab=completed, priority, status, assignee, category), /rentroll/base-years?property=<code> (a property's expense history), /reservations?openId=<id>, /debt?openId=<id>. Use real unit refs / property codes from your tool results — never guess an id you don't have. ` +
     `Include a "chart" ONLY when the answer is naturally visual — a multi-year/YoY trend (use "line"), a ranking or a breakdown/comparison across properties or categories (use "bar"). Otherwise set "chart" to null. ` +
     `CRITICAL: every value in chart.series must be an exact number copied from a tool result — never invent, round differently, or interpolate. For year-over-year use the period-aligned series so the years are comparable. Pick the single most useful chart; keep it to at most ~12 points. Keep the text answer complete on its own — the chart supplements it. ` +
     `Include a "letter" ONLY when the user asks you to write/draft a letter, memo, email, or notice (e.g. a CAM statement cover letter, a lease-renewal inquiry, a move-out close-out notice). Compose it professionally on behalf of Korman Commercial Properties, using the tenant name, property, unit, and lease dates you looked up via tools. ` +
@@ -865,9 +910,10 @@ export async function POST(req: Request) {
     try { parsed = JSON.parse(match[0]); } catch { return NextResponse.json({ answer: finalText.trim(), links: [] }); }
     const validPaths = new Set(ROUTES.map((r) => r.path));
     const links = (parsed.links ?? [])
-      .filter((l) => l && typeof l.href === "string" && l.href.startsWith("/") && validPaths.has(l.href.split("?")[0]))
+      .map((l) => ({ raw: l, href: sanitizeDeepLink(l?.href, validPaths) }))
+      .filter((l): l is { raw: { label?: string; href?: string }; href: string } => l.href !== null)
       .slice(0, 4)
-      .map((l) => ({ label: String(l.label ?? l.href), href: l.href as string }));
+      .map((l) => ({ label: String(l.raw.label ?? l.href), href: l.href }));
     // Validate the chart: only a bar/line with finite numeric series survives.
     let chart: { type: "bar" | "line"; title: string; unit: string; series: { label: string; value: number }[] } | null = null;
     const c = parsed.chart;
