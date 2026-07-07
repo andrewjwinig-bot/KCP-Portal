@@ -801,8 +801,10 @@ export async function POST(req: Request) {
     `Every figure in your answer must come from a tool result. For totals, rankings, year-over-year, averages, or any cross-record math, ALWAYS use the aggregate/rank/rollup/trend tools that compute the number in code — do NOT add, subtract, or average figures yourself. When comparing years, prefer get_noi_trend's period-aligned series. Today is ${new Date().toISOString().slice(0, 10)}.\n\n` +
     (showFinancials ? "" : "You do NOT have access to financial figures (NOI, budget, debt) for this user — do not attempt to state them.\n\n") +
     `When you have enough to answer, reply with ONLY a JSON object (no prose around it): ` +
-    `{"answer": "markdown string", "links": [{"label": "...", "href": "/route"}]}. ` +
+    `{"answer": "markdown string", "links": [{"label": "...", "href": "/route"}], "chart": null | {"type": "bar"|"line", "title": "...", "unit": "dollars"|"percent"|"sqft"|"count", "series": [{"label": "...", "value": number}]}}. ` +
     `Put 1-4 relevant page links in "links", choosing hrefs ONLY from this list of routes: ${ROUTES.map((r) => r.path).join(", ")}. ` +
+    `Include a "chart" ONLY when the answer is naturally visual — a multi-year/YoY trend (use "line"), a ranking or a breakdown/comparison across properties or categories (use "bar"). Otherwise set "chart" to null. ` +
+    `CRITICAL: every value in chart.series must be an exact number copied from a tool result — never invent, round differently, or interpolate. For year-over-year use the period-aligned series so the years are comparable. Pick the single most useful chart; keep it to at most ~12 points. Keep the text answer complete on its own — the chart supplements it. ` +
     `Keep the answer focused on what was asked. Use short markdown (bullets, bold) where it helps.`;
 
   const messages: { role: "user" | "assistant"; content: unknown }[] = [{ role: "user", content: q }];
@@ -843,14 +845,26 @@ export async function POST(req: Request) {
 
     const match = finalText.match(/\{[\s\S]*\}/);
     if (!match) return NextResponse.json({ answer: finalText.trim() || "No answer.", links: [] });
-    let parsed: { answer?: string; links?: { label?: string; href?: string }[] };
+    type ChartIn = { type?: string; title?: string; unit?: string; series?: { label?: unknown; value?: unknown }[] };
+    let parsed: { answer?: string; links?: { label?: string; href?: string }[]; chart?: ChartIn | null };
     try { parsed = JSON.parse(match[0]); } catch { return NextResponse.json({ answer: finalText.trim(), links: [] }); }
     const validPaths = new Set(ROUTES.map((r) => r.path));
     const links = (parsed.links ?? [])
       .filter((l) => l && typeof l.href === "string" && l.href.startsWith("/") && validPaths.has(l.href.split("?")[0]))
       .slice(0, 4)
       .map((l) => ({ label: String(l.label ?? l.href), href: l.href as string }));
-    return NextResponse.json({ answer: (parsed.answer ?? "").trim() || "No answer.", links });
+    // Validate the chart: only a bar/line with finite numeric series survives.
+    let chart: { type: "bar" | "line"; title: string; unit: string; series: { label: string; value: number }[] } | null = null;
+    const c = parsed.chart;
+    if (c && (c.type === "bar" || c.type === "line") && Array.isArray(c.series)) {
+      const series = c.series
+        .map((p) => ({ label: String(p?.label ?? ""), value: Number(p?.value) }))
+        .filter((p) => p.label && Number.isFinite(p.value))
+        .slice(0, 12);
+      const unit = ["dollars", "percent", "sqft", "count"].includes(String(c.unit)) ? String(c.unit) : "count";
+      if (series.length >= 2) chart = { type: c.type, title: String(c.title ?? "").slice(0, 80), unit, series };
+    }
+    return NextResponse.json({ answer: (parsed.answer ?? "").trim() || "No answer.", links, chart });
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "Assistant failed" }, { status: 500 });
   }

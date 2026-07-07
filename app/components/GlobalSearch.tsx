@@ -278,6 +278,70 @@ function renderLightMarkdown(text: string): React.ReactNode {
   );
 }
 
+// ── AI chart (server sends a validated spec; numbers already come from tools) ──
+type AiChartSpec = { type: "bar" | "line"; title: string; unit: "dollars" | "percent" | "sqft" | "count"; series: { label: string; value: number }[] };
+function fmtChartValue(v: number, unit: AiChartSpec["unit"]): string {
+  if (unit === "percent") return `${Math.round(v * 10) / 10}%`;
+  if (unit === "dollars") {
+    const a = Math.abs(v);
+    const s = a >= 1_000_000 ? `$${(v / 1_000_000).toFixed(1)}M` : a >= 1_000 ? `$${Math.round(v / 1000)}K` : `$${Math.round(v)}`;
+    return s;
+  }
+  return v >= 1000 ? v.toLocaleString() : String(Math.round(v));
+}
+function AiChart({ spec }: { spec: AiChartSpec }) {
+  const vals = spec.series.map((p) => p.value);
+  const maxV = Math.max(...vals, 0);
+  const minV = Math.min(...vals, 0);
+  const span = maxV - minV || 1;
+  const accent = "#0b4a7d";
+  return (
+    <div style={{ marginTop: 10, padding: "10px 12px", borderRadius: 9, background: "var(--card)", border: "1px solid var(--border)" }}>
+      <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 8 }}>{spec.title}</div>
+      {spec.type === "bar" ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+          {spec.series.map((p, i) => {
+            const frac = (p.value - Math.min(minV, 0)) / span;
+            return (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ width: 74, flexShrink: 0, fontSize: 11, color: "var(--muted)", textAlign: "right", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={p.label}>{p.label}</div>
+                <div style={{ flex: 1, height: 16, background: "rgba(15,23,42,0.05)", borderRadius: 4, overflow: "hidden" }}>
+                  <div style={{ width: `${Math.max(2, frac * 100)}%`, height: "100%", background: accent, borderRadius: 4 }} />
+                </div>
+                <div style={{ width: 56, flexShrink: 0, fontSize: 11, fontWeight: 700, textAlign: "right" }}>{fmtChartValue(p.value, spec.unit)}</div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        (() => {
+          const W = 300, H = 90, pad = 4;
+          const n = spec.series.length;
+          const x = (i: number) => pad + (i * (W - 2 * pad)) / Math.max(1, n - 1);
+          const y = (v: number) => H - pad - ((v - minV) / span) * (H - 2 * pad);
+          const pts = spec.series.map((p, i) => `${x(i)},${y(p.value)}`).join(" ");
+          return (
+            <div>
+              <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H} preserveAspectRatio="none" style={{ display: "block" }}>
+                <polyline points={pts} fill="none" stroke={accent} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+                {spec.series.map((p, i) => <circle key={i} cx={x(i)} cy={y(p.value)} r={2.5} fill={accent} />)}
+              </svg>
+              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
+                {spec.series.map((p, i) => (
+                  <div key={i} style={{ fontSize: 10, color: "var(--muted)", textAlign: "center", flex: 1 }}>
+                    <div style={{ fontWeight: 700, color: "var(--text)" }}>{fmtChartValue(p.value, spec.unit)}</div>
+                    <div>{p.label}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })()
+      )}
+    </div>
+  );
+}
+
 export default function GlobalSearch() {
   const { user } = useUser();
   const [open, setOpen] = useState(false);
@@ -289,16 +353,16 @@ export default function GlobalSearch() {
   const [maintRequests, setMaintRequests] = useState<SearchMaintRequest[] | null>(null);
   const [reservations, setReservations] = useState<SearchReservation[] | null>(null);
   const [budgetKpis, setBudgetKpis] = useState<BudgetKpi[] | null>(null);
-  // AI assistant ("ask the brain") — grounded answer + page links.
-  const [ai, setAi] = useState<{ loading: boolean; forQuery: string; answer: string | null; links: { label: string; href: string }[]; error: string | null } | null>(null);
+  // AI assistant ("ask the brain") — grounded answer + page links + optional chart.
+  const [ai, setAi] = useState<{ loading: boolean; forQuery: string; answer: string | null; links: { label: string; href: string }[]; chart: AiChartSpec | null; error: string | null } | null>(null);
   const askAi = () => {
     const q = query.trim();
     if (!q) return;
-    setAi({ loading: true, forQuery: q, answer: null, links: [], error: null });
+    setAi({ loading: true, forQuery: q, answer: null, links: [], chart: null, error: null });
     fetch("/api/search/agent", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ q }) })
       .then((r) => r.json())
-      .then((j) => setAi(j.error ? { loading: false, forQuery: q, answer: null, links: [], error: j.error } : { loading: false, forQuery: q, answer: j.answer ?? "No answer.", links: j.links ?? [], error: null }))
-      .catch(() => setAi({ loading: false, forQuery: q, answer: null, links: [], error: "Couldn't reach the assistant." }));
+      .then((j) => setAi(j.error ? { loading: false, forQuery: q, answer: null, links: [], chart: null, error: j.error } : { loading: false, forQuery: q, answer: j.answer ?? "No answer.", links: j.links ?? [], chart: j.chart ?? null, error: null }))
+      .catch(() => setAi({ loading: false, forQuery: q, answer: null, links: [], chart: null, error: "Couldn't reach the assistant." }));
   };
 
   // ── Keyboard shortcut ⌘K / Ctrl+K + Esc + custom 'open-global-search' ──
@@ -752,6 +816,7 @@ export default function GlobalSearch() {
                   ) : (
                     <>
                       <div style={{ fontSize: 13, lineHeight: 1.55, whiteSpace: "pre-wrap" }}>{renderLightMarkdown(ai.answer ?? "")}</div>
+                      {ai.chart && ai.chart.series.length >= 2 && <AiChart spec={ai.chart} />}
                       {ai.links.length > 0 && (
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
                           {ai.links.map((l, i) => (
