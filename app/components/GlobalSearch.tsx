@@ -268,6 +268,16 @@ type RentRollData = {
   }>;
 };
 
+// Minimal markdown for the assistant's answer: **bold** + preserved newlines
+// (the container is whitespace: pre-wrap). Good enough for short answers.
+function renderLightMarkdown(text: string): React.ReactNode {
+  return text.split(/(\*\*[^*]+\*\*)/g).map((seg, i) =>
+    seg.startsWith("**") && seg.endsWith("**")
+      ? <b key={i}>{seg.slice(2, -2)}</b>
+      : <span key={i}>{seg}</span>,
+  );
+}
+
 export default function GlobalSearch() {
   const { user } = useUser();
   const [open, setOpen] = useState(false);
@@ -279,6 +289,17 @@ export default function GlobalSearch() {
   const [maintRequests, setMaintRequests] = useState<SearchMaintRequest[] | null>(null);
   const [reservations, setReservations] = useState<SearchReservation[] | null>(null);
   const [budgetKpis, setBudgetKpis] = useState<BudgetKpi[] | null>(null);
+  // AI assistant ("ask the brain") — grounded answer + page links.
+  const [ai, setAi] = useState<{ loading: boolean; forQuery: string; answer: string | null; links: { label: string; href: string }[]; error: string | null } | null>(null);
+  const askAi = () => {
+    const q = query.trim();
+    if (!q) return;
+    setAi({ loading: true, forQuery: q, answer: null, links: [], error: null });
+    fetch("/api/search/ask", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ q }) })
+      .then((r) => r.json())
+      .then((j) => setAi(j.error ? { loading: false, forQuery: q, answer: null, links: [], error: j.error } : { loading: false, forQuery: q, answer: j.answer ?? "No answer.", links: j.links ?? [], error: null }))
+      .catch(() => setAi({ loading: false, forQuery: q, answer: null, links: [], error: "Couldn't reach the assistant." }));
+  };
 
   // ── Keyboard shortcut ⌘K / Ctrl+K + Esc + custom 'open-global-search' ──
   useEffect(() => {
@@ -661,6 +682,8 @@ export default function GlobalSearch() {
       setActiveIdx((i) => Math.max(0, i - 1));
     } else if (e.key === "Enter") {
       e.preventDefault();
+      // ⌘/Ctrl+Enter (or Enter with no matches) asks the AI assistant.
+      if (e.metaKey || e.ctrlKey || visible.length === 0) { askAi(); return; }
       const hit = visible[activeIdx];
       if (hit) activate(hit);
     }
@@ -697,7 +720,7 @@ export default function GlobalSearch() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={onKeyDown}
-            placeholder="Search requests, reservations, properties, owners, tenants, filings, banks…"
+            placeholder="Search, or ask a question — try 'who vacated last month?' then ⌘⏎"
             style={{
               width: "100%", padding: "10px 12px",
               border: "1px solid var(--border)", borderRadius: 9,
@@ -708,6 +731,44 @@ export default function GlobalSearch() {
         </div>
 
         <div style={{ flex: 1, overflowY: "auto", padding: "4px 0" }}>
+          {query.trim() && (
+            <div style={{ padding: "8px 12px", borderBottom: "1px solid var(--border)" }}>
+              <button
+                type="button"
+                onClick={askAi}
+                disabled={ai?.loading}
+                style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", borderRadius: 9, border: "1px solid rgba(109,40,217,0.35)", background: "rgba(109,40,217,0.06)", cursor: "pointer", textAlign: "left", color: "inherit" }}
+              >
+                <span style={{ fontSize: 16 }}>✨</span>
+                <span style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 600, color: "#6d28d9", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {ai?.loading ? "Thinking…" : <>Ask the assistant: &ldquo;{query.trim()}&rdquo;</>}
+                </span>
+                <span className="muted" style={{ fontSize: 11, flexShrink: 0 }}>⌘⏎</span>
+              </button>
+              {ai && ai.forQuery === query.trim() && !ai.loading && (
+                <div style={{ marginTop: 8, padding: "10px 12px", borderRadius: 9, background: "rgba(15,23,42,0.03)", border: "1px solid var(--border)" }}>
+                  {ai.error ? (
+                    <div className="small" style={{ color: "#b91c1c" }}>{ai.error}</div>
+                  ) : (
+                    <>
+                      <div style={{ fontSize: 13, lineHeight: 1.55, whiteSpace: "pre-wrap" }}>{renderLightMarkdown(ai.answer ?? "")}</div>
+                      {ai.links.length > 0 && (
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
+                          {ai.links.map((l, i) => (
+                            <a key={i} href={l.href} onClick={() => setOpen(false)}
+                              style={{ fontSize: 12, fontWeight: 700, padding: "3px 10px", borderRadius: 999, border: "1px solid rgba(11,74,125,0.3)", background: "var(--card)", color: "#0b4a7d", textDecoration: "none" }}>
+                              {l.label} →
+                            </a>
+                          ))}
+                        </div>
+                      )}
+                      <div className="muted" style={{ fontSize: 10, marginTop: 8, fontStyle: "italic" }}>AI · grounded in live portal data — verify anything critical.</div>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
           {!query.trim() ? (
             <div style={{ padding: "20px 16px", color: "var(--muted)", fontSize: 13 }}>
               Start typing to search across the whole portal — maintenance requests, reservations, properties, owners, vendor codes, tenants, filings, parcels, banks.
