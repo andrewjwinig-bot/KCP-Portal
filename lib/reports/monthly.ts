@@ -28,7 +28,7 @@ export type ReportGroupKey = (typeof REPORT_GROUP_ORDER)[number];
 export const REPORT_GROUP_LABELS: Record<ReportGroupKey, string> = {
   bp: "Business Parks", sc: "Shopping Centers", lik: "LIK", other: "Other",
 };
-function groupOf(code: string): ReportGroupKey {
+export function groupOf(code: string): ReportGroupKey {
   const c = code.toUpperCase();
   if (BUSINESS_PARKS.has(c)) return "bp";
   if (SHOPPING_CENTERS.has(c)) return "sc";
