@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import type { RentRollData, RentRollUnit } from "../../lib/rentroll/parseRentRollExcel";
 import { TAX_TASKS, TAX_CATEGORIES, filingLabel, isTaskEffectivelyDone, loadTaxChecked, type TaxTask } from "../tracker/tax-data";
 import { useUser } from "../components/UserProvider";
+import { isPathAllowed } from "../../lib/users";
 import { PROPERTY_DEFS } from "../../lib/properties/data";
 import { UNIQUE_BANK_ACCOUNTS } from "../../lib/bank-rec/accounts";
 import { bankRecKey, nextBankRecDeadline, nextStatementsDeadline, bankRecPeriodLabel } from "../../lib/bank-rec/util";
@@ -670,6 +671,7 @@ function DashboardInner() {
         </div>
       </header>
 
+      {isPathAllowed(user.id, "/reports/monthly") && (
       <Link href="/reports/monthly" className="card" style={{ display: "flex", alignItems: "center", gap: 14, textDecoration: "none", color: "inherit", borderColor: "rgba(11,74,125,0.3)", background: "rgba(11,74,125,0.04)" }}>
         <span aria-hidden style={{ display: "inline-flex", color: "#0b4a7d", flexShrink: 0 }}>
           <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -682,6 +684,7 @@ function DashboardInner() {
         </div>
         <span style={{ fontWeight: 700, color: "#0b4a7d", flexShrink: 0 }}>Open →</span>
       </Link>
+      )}
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 14 }}>
         {/* ── Pending reservation requests (anyone with reservations access) ── */}
