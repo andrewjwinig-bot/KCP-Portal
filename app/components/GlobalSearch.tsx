@@ -280,6 +280,9 @@ function renderLightMarkdown(text: string): React.ReactNode {
 
 // ── AI chart (server sends a validated spec; numbers already come from tools) ──
 type AiChartSpec = { type: "bar" | "line"; title: string; unit: "dollars" | "percent" | "sqft" | "count"; series: { label: string; value: number }[] };
+type ChatTurn =
+  | { role: "user"; text: string }
+  | { role: "assistant"; answer: string; links: { label: string; href: string }[]; chart: AiChartSpec | null };
 function fmtChartValue(v: number, unit: AiChartSpec["unit"]): string {
   if (unit === "percent") return `${Math.round(v * 10) / 10}%`;
   if (unit === "dollars") {
@@ -353,17 +356,25 @@ export default function GlobalSearch() {
   const [maintRequests, setMaintRequests] = useState<SearchMaintRequest[] | null>(null);
   const [reservations, setReservations] = useState<SearchReservation[] | null>(null);
   const [budgetKpis, setBudgetKpis] = useState<BudgetKpi[] | null>(null);
-  // AI assistant ("ask the brain") — grounded answer + page links + optional chart.
-  const [ai, setAi] = useState<{ loading: boolean; forQuery: string; answer: string | null; links: { label: string; href: string }[]; chart: AiChartSpec | null; error: string | null } | null>(null);
+  // AI assistant ("ask the brain") — a running conversation: grounded answers
+  // with page links + optional charts, and follow-ups that keep prior context.
+  const [chat, setChat] = useState<{ turns: ChatTurn[]; loading: boolean; error: string | null }>({ turns: [], loading: false, error: null });
   const askAi = () => {
     const q = query.trim();
-    if (!q) return;
-    setAi({ loading: true, forQuery: q, answer: null, links: [], chart: null, error: null });
-    fetch("/api/search/agent", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ q }) })
+    if (!q || chat.loading) return;
+    // Send the prior turns as plain text so follow-ups ("now just the business
+    // parks", "chart that") resolve against what was already asked/answered.
+    const history = chat.turns.slice(-8).map((t) => ({ role: t.role, content: t.role === "user" ? t.text : t.answer }));
+    setChat((c) => ({ turns: [...c.turns, { role: "user", text: q }], loading: true, error: null }));
+    setQuery("");
+    fetch("/api/search/agent", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ q, history }) })
       .then((r) => r.json())
-      .then((j) => setAi(j.error ? { loading: false, forQuery: q, answer: null, links: [], chart: null, error: j.error } : { loading: false, forQuery: q, answer: j.answer ?? "No answer.", links: j.links ?? [], chart: j.chart ?? null, error: null }))
-      .catch(() => setAi({ loading: false, forQuery: q, answer: null, links: [], chart: null, error: "Couldn't reach the assistant." }));
+      .then((j) => setChat((c) => j.error
+        ? { ...c, loading: false, error: j.error }
+        : { turns: [...c.turns, { role: "assistant", answer: j.answer ?? "No answer.", links: j.links ?? [], chart: j.chart ?? null }], loading: false, error: null }))
+      .catch(() => setChat((c) => ({ ...c, loading: false, error: "Couldn't reach the assistant." })));
   };
+  const resetChat = () => setChat({ turns: [], loading: false, error: null });
 
   // ── Keyboard shortcut ⌘K / Ctrl+K + Esc + custom 'open-global-search' ──
   useEffect(() => {
@@ -795,31 +806,39 @@ export default function GlobalSearch() {
         </div>
 
         <div style={{ flex: 1, overflowY: "auto", padding: "4px 0" }}>
-          {query.trim() && (
+          {(query.trim() || chat.turns.length > 0 || chat.loading || chat.error) && (
             <div style={{ padding: "8px 12px", borderBottom: "1px solid var(--border)" }}>
-              <button
-                type="button"
-                onClick={askAi}
-                disabled={ai?.loading}
-                style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", borderRadius: 9, border: "1px solid rgba(109,40,217,0.35)", background: "rgba(109,40,217,0.06)", cursor: "pointer", textAlign: "left", color: "inherit" }}
-              >
-                <span style={{ fontSize: 16 }}>✨</span>
-                <span style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 600, color: "#6d28d9", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {ai?.loading ? "Thinking…" : <>Ask the assistant: &ldquo;{query.trim()}&rdquo;</>}
-                </span>
-                <span className="muted" style={{ fontSize: 11, flexShrink: 0 }}>⌘⏎</span>
-              </button>
-              {ai && ai.forQuery === query.trim() && !ai.loading && (
-                <div style={{ marginTop: 8, padding: "10px 12px", borderRadius: 9, background: "rgba(15,23,42,0.03)", border: "1px solid var(--border)" }}>
-                  {ai.error ? (
-                    <div className="small" style={{ color: "#b91c1c" }}>{ai.error}</div>
+              {query.trim() && (
+                <button
+                  type="button"
+                  onClick={askAi}
+                  disabled={chat.loading}
+                  style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", borderRadius: 9, border: "1px solid rgba(109,40,217,0.35)", background: "rgba(109,40,217,0.06)", cursor: "pointer", textAlign: "left", color: "inherit" }}
+                >
+                  <span style={{ fontSize: 16 }}>✨</span>
+                  <span style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 600, color: "#6d28d9", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {chat.loading ? "Thinking…" : chat.turns.length > 0 ? <>Ask follow-up: &ldquo;{query.trim()}&rdquo;</> : <>Ask the assistant: &ldquo;{query.trim()}&rdquo;</>}
+                  </span>
+                  <span className="muted" style={{ fontSize: 11, flexShrink: 0 }}>⌘⏎</span>
+                </button>
+              )}
+              {(chat.turns.length > 0 || chat.loading || chat.error) && (
+                <div style={{ marginTop: query.trim() ? 8 : 0, display: "flex", flexDirection: "column", gap: 8 }}>
+                  {chat.turns.length > 0 && (
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <span className="muted" style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase" }}>✨ Assistant</span>
+                      <button type="button" onClick={resetChat} className="muted" style={{ fontSize: 11, background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: 0 }}>Clear</button>
+                    </div>
+                  )}
+                  {chat.turns.map((t, ti) => t.role === "user" ? (
+                    <div key={ti} style={{ alignSelf: "flex-end", maxWidth: "85%", fontSize: 12.5, fontWeight: 600, padding: "6px 10px", borderRadius: 9, background: "rgba(109,40,217,0.08)", color: "#6d28d9" }}>{t.text}</div>
                   ) : (
-                    <>
-                      <div style={{ fontSize: 13, lineHeight: 1.55, whiteSpace: "pre-wrap" }}>{renderLightMarkdown(ai.answer ?? "")}</div>
-                      {ai.chart && ai.chart.series.length >= 2 && <AiChart spec={ai.chart} />}
-                      {ai.links.length > 0 && (
+                    <div key={ti} style={{ padding: "10px 12px", borderRadius: 9, background: "rgba(15,23,42,0.03)", border: "1px solid var(--border)" }}>
+                      <div style={{ fontSize: 13, lineHeight: 1.55, whiteSpace: "pre-wrap" }}>{renderLightMarkdown(t.answer)}</div>
+                      {t.chart && t.chart.series.length >= 2 && <AiChart spec={t.chart} />}
+                      {t.links.length > 0 && (
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
-                          {ai.links.map((l, i) => (
+                          {t.links.map((l, i) => (
                             <a key={i} href={l.href} onClick={() => setOpen(false)}
                               style={{ fontSize: 12, fontWeight: 700, padding: "3px 10px", borderRadius: 999, border: "1px solid rgba(11,74,125,0.3)", background: "var(--card)", color: "#0b4a7d", textDecoration: "none" }}>
                               {l.label} →
@@ -827,19 +846,25 @@ export default function GlobalSearch() {
                           ))}
                         </div>
                       )}
-                      <div className="muted" style={{ fontSize: 10, marginTop: 8, fontStyle: "italic" }}>AI · grounded in live portal data — verify anything critical.</div>
-                    </>
+                    </div>
+                  ))}
+                  {chat.loading && <div className="muted" style={{ fontSize: 12, fontStyle: "italic", padding: "2px 4px" }}>Thinking…</div>}
+                  {chat.error && <div className="small" style={{ color: "#b91c1c" }}>{chat.error}</div>}
+                  {chat.turns.length > 0 && !chat.loading && (
+                    <div className="muted" style={{ fontSize: 10, fontStyle: "italic" }}>AI · grounded in live portal data — verify anything critical. Type a follow-up above and press ⌘⏎.</div>
                   )}
                 </div>
               )}
             </div>
           )}
           {!query.trim() ? (
-            <div style={{ padding: "20px 16px", color: "var(--muted)", fontSize: 13 }}>
-              Start typing to search across the whole portal — maintenance requests, reservations, properties, owners, vendor codes, tenants, filings, parcels, banks.
-              Multi-word queries match all words (try <code>jay plumbing</code> or <code>conference apple</code>).
-              {tenantsLoading && <div style={{ marginTop: 8, fontStyle: "italic" }}>Loading tenant data…</div>}
-            </div>
+            chat.turns.length > 0 || chat.loading ? null : (
+              <div style={{ padding: "20px 16px", color: "var(--muted)", fontSize: 13 }}>
+                Start typing to search across the whole portal — maintenance requests, reservations, properties, owners, vendor codes, tenants, filings, parcels, banks.
+                Multi-word queries match all words (try <code>jay plumbing</code> or <code>conference apple</code>).
+                {tenantsLoading && <div style={{ marginTop: 8, fontStyle: "italic" }}>Loading tenant data…</div>}
+              </div>
+            )
           ) : grouped.length === 0 ? (
             <div style={{ padding: "20px 16px", color: "var(--muted)", fontSize: 13 }}>
               No matches.
