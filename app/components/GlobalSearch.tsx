@@ -295,7 +295,7 @@ export default function GlobalSearch() {
     const q = query.trim();
     if (!q) return;
     setAi({ loading: true, forQuery: q, answer: null, links: [], error: null });
-    fetch("/api/search/ask", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ q }) })
+    fetch("/api/search/agent", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ q }) })
       .then((r) => r.json())
       .then((j) => setAi(j.error ? { loading: false, forQuery: q, answer: null, links: [], error: j.error } : { loading: false, forQuery: q, answer: j.answer ?? "No answer.", links: j.links ?? [], error: null }))
       .catch(() => setAi({ loading: false, forQuery: q, answer: null, links: [], error: "Couldn't reach the assistant." }));
