@@ -281,6 +281,17 @@ function renderLightMarkdown(text: string): React.ReactNode {
 // ── AI chart (server sends a validated spec; numbers already come from tools) ──
 type AiChartSpec = { type: "bar" | "line"; title: string; unit: "dollars" | "percent" | "sqft" | "count"; series: { label: string; value: number }[] };
 type AiLetterSpec = { kind: string; to: string; subject: string; body: string };
+
+// Sample questions shown on the empty search bar so users see the range of
+// what the assistant can do — analytics, trends, lookups, drafting.
+const SAMPLE_SEARCHES = [
+  "NOI for 4500 from 2022 to 2025",
+  "Which shopping center has the highest NOI?",
+  "Who's expiring in the next 90 days?",
+  "Occupancy across the business parks",
+  "Who has a CAM exclusion of security?",
+  "Draft a renewal inquiry letter for a tenant at 4500",
+];
 type ChatTurn =
   | { role: "user"; text: string }
   | { role: "assistant"; answer: string; links: { label: string; href: string }[]; chart: AiChartSpec | null; letter: AiLetterSpec | null };
@@ -387,6 +398,18 @@ function AiLetter({ spec }: { spec: AiLetterSpec }) {
   );
 }
 
+// Small "Copy" affordance for an assistant answer.
+function AnswerCopy({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button type="button"
+      onClick={() => { navigator.clipboard?.writeText(text).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500); }).catch(() => {}); }}
+      className="muted" style={{ fontSize: 11, background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: 0 }}>
+      {copied ? "Copied" : "Copy"}
+    </button>
+  );
+}
+
 export default function GlobalSearch() {
   const { user } = useUser();
   const [open, setOpen] = useState(false);
@@ -401,8 +424,8 @@ export default function GlobalSearch() {
   // AI assistant ("ask the brain") — a running conversation: grounded answers
   // with page links + optional charts, and follow-ups that keep prior context.
   const [chat, setChat] = useState<{ turns: ChatTurn[]; loading: boolean; error: string | null }>({ turns: [], loading: false, error: null });
-  const askAi = () => {
-    const q = query.trim();
+  const askAi = (qOverride?: string) => {
+    const q = (typeof qOverride === "string" ? qOverride : query).trim();
     if (!q || chat.loading) return;
     // Send the prior turns as plain text so follow-ups ("now just the business
     // parks", "chart that", "make the letter more formal") resolve against what
@@ -421,6 +444,7 @@ export default function GlobalSearch() {
       .catch(() => setChat((c) => ({ ...c, loading: false, error: "Couldn't reach the assistant." })));
   };
   const resetChat = () => setChat({ turns: [], loading: false, error: null });
+  const askSample = (text: string) => { setQuery(text); askAi(text); };
 
   // ── Keyboard shortcut ⌘K / Ctrl+K + Esc + custom 'open-global-search' ──
   useEffect(() => {
@@ -857,7 +881,7 @@ export default function GlobalSearch() {
               {query.trim() && (
                 <button
                   type="button"
-                  onClick={askAi}
+                  onClick={() => askAi()}
                   disabled={chat.loading}
                   style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", borderRadius: 9, border: "1px solid rgba(109,40,217,0.35)", background: "rgba(109,40,217,0.06)", cursor: "pointer", textAlign: "left", color: "inherit" }}
                 >
@@ -893,6 +917,9 @@ export default function GlobalSearch() {
                           ))}
                         </div>
                       )}
+                      <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 6 }}>
+                        <AnswerCopy text={t.answer} />
+                      </div>
                     </div>
                   ))}
                   {chat.loading && <div className="muted" style={{ fontSize: 12, fontStyle: "italic", padding: "2px 4px" }}>Thinking…</div>}
@@ -910,6 +937,17 @@ export default function GlobalSearch() {
                 Start typing to search across the whole portal — maintenance requests, reservations, properties, owners, vendor codes, tenants, filings, parcels, banks.
                 Multi-word queries match all words (try <code>jay plumbing</code> or <code>conference apple</code>).
                 {tenantsLoading && <div style={{ marginTop: 8, fontStyle: "italic" }}>Loading tenant data…</div>}
+                <div style={{ marginTop: 14 }}>
+                  <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 8 }}>✨ Or ask the assistant</div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {SAMPLE_SEARCHES.map((s) => (
+                      <button key={s} type="button" onClick={() => askSample(s)}
+                        style={{ fontSize: 12, fontWeight: 600, padding: "5px 11px", borderRadius: 999, border: "1px solid rgba(109,40,217,0.3)", background: "rgba(109,40,217,0.05)", color: "#6d28d9", cursor: "pointer", textAlign: "left" }}>
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
             )
           ) : grouped.length === 0 ? (

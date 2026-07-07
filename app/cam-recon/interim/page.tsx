@@ -452,13 +452,16 @@ export default function InterimReconPage() {
     : (r ? r.opexBalance + r.retBalance : 0);
 
   // The departing tenant's security deposit — the third leg of the move-out
-  // package (CAM statement + deposit + letter). Pulled by unit ref.
+  // package (CAM statement + deposit + letter). Pulled by unit ref, falling
+  // back to the tenant name if the deposit was filed under the company.
   const [deposit, setDeposit] = useState<DepositInfo | null>(null);
+  const metaName = meta?.name;
   useEffect(() => {
     const ref = meta?.unitRef;
     if (!ref) { setDeposit(null); return; }
     let cancelled = false;
-    fetch(`/api/deposits?unitRef=${encodeURIComponent(ref)}`)
+    const nameQ = metaName ? `&tenant=${encodeURIComponent(metaName)}` : "";
+    fetch(`/api/deposits?unitRef=${encodeURIComponent(ref)}${nameQ}`)
       .then((res) => res.json())
       .then((j) => {
         if (cancelled) return;
@@ -474,7 +477,7 @@ export default function InterimReconPage() {
       })
       .catch(() => { if (!cancelled) setDeposit(null); });
     return () => { cancelled = true; };
-  }, [meta?.unitRef]);
+  }, [meta?.unitRef, metaName]);
 
   const downloadPdf = useCallback(async () => {
     if (!r || !meta) return;
