@@ -10,6 +10,7 @@ import { seedCamConfig, RETAIL_CONFIG_SEED } from "@/lib/cam/retailConfigSeed";
 import { buildMonthlyReport, groupOf, REPORT_GROUP_LABELS, type ReportGroupKey } from "@/lib/reports/monthly";
 import { listLoans } from "@/lib/debt/storage";
 import { summarizeLoan } from "@/lib/debt/amortization";
+import { listDeposits } from "@/lib/deposits/storage";
 import { availableStatements } from "@/lib/financials/operating-statements/mappingStore";
 import { listFullGls, type StoredGl } from "@/lib/financials/operating-statements/statementStore";
 import type { StatementMapping } from "@/lib/financials/operating-statements/types";
@@ -200,6 +201,18 @@ const OPERATIONAL_TOOLS: ToolDef[] = [
       type: "object",
       properties: { property_code: { type: "string", description: "Property code, e.g. '4500'" } },
       required: ["property_code"],
+    },
+  },
+  {
+    name: "get_security_deposit",
+    description:
+      "Look up a tenant's security deposit by unit ref (e.g. '2300-01') or tenant name: amount held, status (on file / refunded / forfeited / partially refunded), check number, and property. Use for move-out close-outs and any deposit question.",
+    input_schema: {
+      type: "object",
+      properties: {
+        unit_ref: { type: "string", description: "Unit ref, e.g. '2300-01'" },
+        tenant: { type: "string", description: "Tenant/company name substring (used if no unit ref)" },
+      },
     },
   },
   {
@@ -546,6 +559,27 @@ async function runTool(name: string, input: Record<string, unknown>, showFinanci
       };
     }
 
+    case "get_security_deposit": {
+      const unitRef = String(input.unit_ref ?? "").trim().toLowerCase();
+      const tenantQ = String(input.tenant ?? "").trim().toLowerCase();
+      if (!unitRef && !tenantQ) return { error: "unit_ref or tenant is required" };
+      try {
+        const all = await listDeposits();
+        let matches = unitRef ? all.filter((d) => d.unitRef.toLowerCase() === unitRef) : [];
+        if (!matches.length && tenantQ) matches = all.filter((d) => d.tenantCompany.toLowerCase().includes(tenantQ));
+        if (!matches.length) return { error: `No security deposit on record for ${input.unit_ref || input.tenant}.` };
+        const statusOf = (d: (typeof all)[number]) => d.refunded ? "refunded" : d.tenantDefaulted ? "forfeited" : d.partialRefund ? "partially refunded" : "on file";
+        return {
+          count: matches.length,
+          deposits: matches.slice(0, 10).map((d) => ({
+            unitRef: d.unitRef, tenant: d.tenantCompany, property: d.propertyCode,
+            amount: Math.round(d.amount), status: statusOf(d), checkNumber: d.checkNumber || null,
+            partialRefundAmount: d.partialRefund ? Math.round(d.partialRefundAmount) : null,
+          })),
+        };
+      } catch { return { error: "Deposit data unavailable." }; }
+    }
+
     case "find_tenants_by_cam_term": {
       const termType = String(input.term ?? "").trim();
       const matchQ = String(input.match ?? "").trim().toLowerCase();
@@ -857,7 +891,7 @@ export async function POST(req: Request) {
     `Include a "chart" ONLY when the answer is naturally visual — a multi-year/YoY trend (use "line"), a ranking or a breakdown/comparison across properties or categories (use "bar"). Otherwise set "chart" to null. ` +
     `CRITICAL: every value in chart.series must be an exact number copied from a tool result — never invent, round differently, or interpolate. For year-over-year use the period-aligned series so the years are comparable. Pick the single most useful chart; keep it to at most ~12 points. Keep the text answer complete on its own — the chart supplements it. ` +
     `Include a "letter" ONLY when the user asks you to write/draft a letter, memo, email, or notice (e.g. a CAM statement cover letter, a lease-renewal inquiry, a move-out close-out notice). Compose it professionally on behalf of Korman Commercial Properties, using the tenant name, property, unit, and lease dates you looked up via tools. ` +
-    `The letter is a DRAFT the user will review and send themselves — do NOT claim it has been sent. For any figure you do not have from a tool result (e.g. a CAM balance you couldn't fetch), insert a clearly-bracketed placeholder like [CAM balance due: $____] rather than inventing a number. Set "kind" to a short label ("Renewal inquiry", "CAM cover letter", "Move-out close-out", etc.). When you include a letter, keep "answer" to one short line (e.g. "Draft renewal letter for Acme Corp — review before sending.") Otherwise set "letter" to null. ` +
+    `The letter is a DRAFT the user will review and send themselves — do NOT claim it has been sent. For a move-out close-out letter, call get_security_deposit for the tenant's real deposit amount and status and reference it. For any figure you still do not have from a tool result (e.g. a CAM balance you couldn't fetch), insert a clearly-bracketed placeholder like [CAM balance due: $____] rather than inventing a number. Set "kind" to a short label ("Renewal inquiry", "CAM cover letter", "Move-out close-out", etc.). When you include a letter, keep "answer" to one short line (e.g. "Draft renewal letter for Acme Corp — review before sending.") Otherwise set "letter" to null. ` +
     `Keep the answer focused on what was asked. Use short markdown (bullets, bold) where it helps. ` +
     `This may be a multi-turn conversation — resolve follow-ups ("now just the business parks", "chart that", "what about 2024") against the earlier turns, and re-run whatever tools you need for the new question.`;
 

@@ -7,11 +7,18 @@ export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   try {
-    let deposits = await listDeposits();
-    // Optional ?unitRef= filter so the move-out close-out can pull just the
-    // departing tenant's deposit without loading the whole list.
-    const unitRef = req.nextUrl.searchParams.get("unitRef")?.trim();
-    if (unitRef) deposits = deposits.filter((d) => d.unitRef.toLowerCase() === unitRef.toLowerCase());
+    const all = await listDeposits();
+    // Optional filters so the move-out close-out can pull just the departing
+    // tenant's deposit. Unit ref is exact and takes precedence; if it matches
+    // nothing (deposit filed under the company, not the unit), fall back to a
+    // tenant-name contains match.
+    const unitRef = req.nextUrl.searchParams.get("unitRef")?.trim().toLowerCase();
+    const tenant = req.nextUrl.searchParams.get("tenant")?.trim().toLowerCase();
+    let deposits = all;
+    if (unitRef || tenant) {
+      deposits = unitRef ? all.filter((d) => d.unitRef.toLowerCase() === unitRef) : [];
+      if (!deposits.length && tenant) deposits = all.filter((d) => d.tenantCompany.toLowerCase().includes(tenant));
+    }
     return NextResponse.json({ deposits });
   } catch (e) {
     return NextResponse.json(
