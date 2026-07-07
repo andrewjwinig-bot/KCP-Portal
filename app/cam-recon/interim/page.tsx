@@ -29,6 +29,9 @@ type Result = TenantReconResult & { occupiedMonths: number; asOfMonth: number; u
 type RetailResult = RetailTenantResult & { occupiedMonths: number; asOfMonth: number; unpostedMonths: number };
 type Meta = { property: string; propertyName: string; unitRef: string; name: string; year: number; asOfMonth: number; effectiveThrough: number; occupiedMonths: number; unpostedMonths: number; maxPosted: number; startMonth: number; leaseFrom: string | null; leaseTo: string | null; sqft: number; opexMonth: number; reTaxMonth: number; baseYear?: number; proRataPct: number; grossUp?: boolean; glAsOf: string | null; manual?: boolean; escrowSource?: "monthly-rolls" | "estimate"; escrowMonthsFound?: number };
 type Tenant = { unitRef: string; name: string; leaseTo: string | null; expiresInYear: number | null };
+type DepositStatus = "held" | "refunded" | "forfeited" | "partial";
+type RawDeposit = { amount: number; checkNumber: string; refunded: boolean; tenantDefaulted: boolean; partialRefund: boolean; partialRefundAmount?: number };
+type DepositInfo = { amount: number; checkNumber: string; status: DepositStatus; partialRefundAmount: number };
 
 type Draft = {
   unitRef: string; name: string; sqft: string; leaseFrom: string; vacatedISO: string; opexMonth: string; reTaxMonth: string;
@@ -443,6 +446,36 @@ export default function InterimReconPage() {
   const meta = data?.meta;
   const asOfLabel = r ? MONTHS[r.asOfMonth - 1].slice(0, 3) : "";
 
+  // Total interim reconciliation balance (positive = owed by tenant).
+  const totalBalance = retail
+    ? retail.camBalance + retail.insBalance + retail.retBalance
+    : (r ? r.opexBalance + r.retBalance : 0);
+
+  // The departing tenant's security deposit — the third leg of the move-out
+  // package (CAM statement + deposit + letter). Pulled by unit ref.
+  const [deposit, setDeposit] = useState<DepositInfo | null>(null);
+  useEffect(() => {
+    const ref = meta?.unitRef;
+    if (!ref) { setDeposit(null); return; }
+    let cancelled = false;
+    fetch(`/api/deposits?unitRef=${encodeURIComponent(ref)}`)
+      .then((res) => res.json())
+      .then((j) => {
+        if (cancelled) return;
+        const list = (j.deposits ?? []) as RawDeposit[];
+        // Prefer a deposit still on file; otherwise the most recent record.
+        const pick = list.find((d) => !d.refunded && !d.tenantDefaulted) ?? list[list.length - 1] ?? null;
+        setDeposit(pick ? {
+          amount: pick.amount,
+          checkNumber: pick.checkNumber,
+          status: pick.refunded ? "refunded" : pick.tenantDefaulted ? "forfeited" : pick.partialRefund ? "partial" : "held",
+          partialRefundAmount: pick.partialRefundAmount ?? 0,
+        } : null);
+      })
+      .catch(() => { if (!cancelled) setDeposit(null); });
+    return () => { cancelled = true; };
+  }, [meta?.unitRef]);
+
   const downloadPdf = useCallback(async () => {
     if (!r || !meta) return;
     const { jsPDF } = await import("jspdf");
@@ -509,15 +542,14 @@ export default function InterimReconPage() {
   const openLetter = useCallback(async () => {
     if (!meta) return;
     const kind = retail ? "retail" : "office";
-    const totalBalance = retail
-      ? retail.camBalance + retail.insBalance + retail.retBalance
-      : (r ? r.opexBalance + r.retBalance : 0);
     const { moveOutCloseOutLetter } = await import("@/lib/cam/letters");
     setLetterText(moveOutCloseOutLetter({
       propertyName: meta.propertyName, tenant: meta.name, suite: meta.unitRef.split("-").slice(1).join("-"),
       year: meta.year, asOfMonth: meta.asOfMonth, occupiedMonths: meta.occupiedMonths, totalBalance, kind,
+      securityDeposit: deposit ? deposit.amount : null,
+      depositStatus: deposit ? deposit.status : null,
     }));
-  }, [retail, r, meta]);
+  }, [retail, r, meta, totalBalance, deposit]);
   const letterButton = (
     <button className="btn" onClick={openLetter} title="Draft a move-out close-out letter with these figures"
       style={{ fontSize: 13, padding: "7px 14px", fontWeight: 700 }}>Draft letter</button>
@@ -560,6 +592,49 @@ export default function InterimReconPage() {
         </ul>
       )}
       <div className="muted small" style={{ marginTop: 8, fontStyle: "italic" }}>AI review · a sanity check, not a guarantee — verify anything flagged.</div>
+    </div>
+  );
+
+  // ── Move-out close-out package: CAM statement balance + security deposit +
+  // letter, netted into a single settlement. The third leg the user asked for. ──
+  const owedByTenant = Math.round(totalBalance) >= 0;
+  const depositApplies = deposit != null && (deposit.status === "held" || deposit.status === "partial");
+  const netToTenant = depositApplies ? deposit!.amount - totalBalance : null; // >0 refund, <0 still due
+  const depositStatusLabel: Record<DepositStatus, string> = { held: "On file", refunded: "Already refunded", forfeited: "Applied / forfeited", partial: "Partially refunded" };
+  const closeOutCard = (r || retail) && meta && (
+    <div className="card">
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, flexWrap: "wrap", marginBottom: 10 }}>
+        <div style={{ fontSize: 16, fontWeight: 800 }}>Move-out close-out package</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <Link href={`/deposits?unitRef=${encodeURIComponent(meta.unitRef)}`} style={{ color: "#0b4a7d", fontWeight: 600, fontSize: 13 }}>Deposits →</Link>
+          {letterButton}
+        </div>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 12, fontSize: 14 }}>
+          <span>1 · Final {retail ? "CAM/INS/RET" : "CAM/RET"} reconciliation {owedByTenant ? "due from tenant" : "credit to tenant"}</span>
+          <b style={{ color: owedByTenant ? "#b91c1c" : "#15803d" }}>{money(Math.abs(totalBalance))}</b>
+        </div>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 12, fontSize: 14, borderTop: "1px solid var(--border)", paddingTop: 8 }}>
+          <span>2 · Security deposit {deposit ? <span className="muted" style={{ fontWeight: 600 }}>· {depositStatusLabel[deposit.status]}{deposit.checkNumber ? ` · ck# ${deposit.checkNumber}` : ""}</span> : ""}</span>
+          {deposit
+            ? <b>{money(deposit.amount)}</b>
+            : <span className="muted" style={{ fontStyle: "italic" }}>None on record — <Link href={`/deposits?unitRef=${encodeURIComponent(meta.unitRef)}`} style={{ color: "#0b4a7d" }}>add one</Link></span>}
+        </div>
+        {netToTenant != null && (
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 12, fontSize: 15, fontWeight: 800, borderTop: "2px solid var(--border)", paddingTop: 8, marginTop: 2 }}>
+            <span>3 · Net settlement — {netToTenant >= 0 ? "refund to tenant" : "still due from tenant"}</span>
+            <span style={{ color: netToTenant >= 0 ? "#15803d" : "#b91c1c" }}>{money(Math.abs(netToTenant))}</span>
+          </div>
+        )}
+      </div>
+      <p className="muted small" style={{ marginTop: 10, marginBottom: 0 }}>
+        {deposit
+          ? (depositApplies
+              ? "The deposit is applied against the reconciliation balance to net the settlement. Draft the letter to send all three together; nothing is sent automatically."
+              : "This deposit is no longer on file, so it isn't netted here. Draft the letter for the reconciliation balance.")
+          : "No security deposit is on record for this unit. Add it on the Deposits page to net it into the settlement and the letter."}
+      </p>
     </div>
   );
 
@@ -776,6 +851,7 @@ export default function InterimReconPage() {
           </p>
         </div>
       )}
+      {closeOutCard}
       {letterModal}
     </main>
   );
