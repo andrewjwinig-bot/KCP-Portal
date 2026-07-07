@@ -670,6 +670,19 @@ function DashboardInner() {
         </div>
       </header>
 
+      <Link href="/reports/monthly" className="card" style={{ display: "flex", alignItems: "center", gap: 14, textDecoration: "none", color: "inherit", borderColor: "rgba(11,74,125,0.3)", background: "rgba(11,74,125,0.04)" }}>
+        <span aria-hidden style={{ display: "inline-flex", color: "#0b4a7d", flexShrink: 0 }}>
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 3v18h18" /><rect x="7" y="12" width="3" height="6" /><rect x="12" y="8" width="3" height="10" /><rect x="17" y="5" width="3" height="13" />
+          </svg>
+        </span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontWeight: 800, color: "#0b4a7d" }}>Monthly Review</div>
+          <div className="muted small">Company-wide snapshot — occupancy, NOI vs budget, leasing, service &amp; upcoming deadlines.</div>
+        </div>
+        <span style={{ fontWeight: 700, color: "#0b4a7d", flexShrink: 0 }}>Open →</span>
+      </Link>
+
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 14 }}>
         {/* ── Pending reservation requests (anyone with reservations access) ── */}
         {(user.navKeys.has("all") || user.navKeys.has("reservations")) && (
