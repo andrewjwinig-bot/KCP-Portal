@@ -5,9 +5,13 @@ import { sanitizeDeposit } from "@/lib/deposits/deposits";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    const deposits = await listDeposits();
+    let deposits = await listDeposits();
+    // Optional ?unitRef= filter so the move-out close-out can pull just the
+    // departing tenant's deposit without loading the whole list.
+    const unitRef = req.nextUrl.searchParams.get("unitRef")?.trim();
+    if (unitRef) deposits = deposits.filter((d) => d.unitRef.toLowerCase() === unitRef.toLowerCase());
     return NextResponse.json({ deposits });
   } catch (e) {
     return NextResponse.json(
