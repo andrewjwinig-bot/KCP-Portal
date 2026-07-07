@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import { taskOccurrencesBetween } from "@/lib/tracker/taskDefs";
-import { accessGroup } from "@/lib/users";
+import { accessGroup, isPathAllowed } from "@/lib/users";
 import { useUser } from "./UserProvider";
 import UserSwitcher from "./UserSwitcher";
 import ThemeToggle from "./ThemeToggle";
@@ -782,6 +782,10 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
     const roleKey = NAV_ROLE_KEY[item.label];
     const passesRole = !roleKey || user.navKeys.has("all") || user.navKeys.has(roleKey);
     if (!passesRole) return false;
+
+    // Company report is path-gated (financials) — hide the link for users who
+    // can't open it so it doesn't bounce them to the dashboard.
+    if (item.label === "Monthly Review" && !isPathAllowed(user.id, item.href)) return false;
 
     // Existing context-based visibility (e.g. show child item only on parent route)
     if (item.showFor === null) return true;
