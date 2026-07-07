@@ -280,9 +280,10 @@ function renderLightMarkdown(text: string): React.ReactNode {
 
 // ── AI chart (server sends a validated spec; numbers already come from tools) ──
 type AiChartSpec = { type: "bar" | "line"; title: string; unit: "dollars" | "percent" | "sqft" | "count"; series: { label: string; value: number }[] };
+type AiLetterSpec = { kind: string; to: string; subject: string; body: string };
 type ChatTurn =
   | { role: "user"; text: string }
-  | { role: "assistant"; answer: string; links: { label: string; href: string }[]; chart: AiChartSpec | null };
+  | { role: "assistant"; answer: string; links: { label: string; href: string }[]; chart: AiChartSpec | null; letter: AiLetterSpec | null };
 function fmtChartValue(v: number, unit: AiChartSpec["unit"]): string {
   if (unit === "percent") return `${Math.round(v * 10) / 10}%`;
   if (unit === "dollars") {
@@ -345,6 +346,47 @@ function AiChart({ spec }: { spec: AiChartSpec }) {
   );
 }
 
+// ── AI letter draft (review-and-send: copy / download / email, never auto-sent) ──
+function AiLetter({ spec }: { spec: AiLetterSpec }) {
+  const [copied, setCopied] = useState(false);
+  const fullText = [spec.to ? `To: ${spec.to}` : "", spec.subject ? `Re: ${spec.subject}` : "", "", spec.body].filter((l, i) => i > 1 || l).join("\n");
+  const copy = () => {
+    navigator.clipboard?.writeText(fullText).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500); }).catch(() => {});
+  };
+  const download = () => {
+    const blob = new Blob([fullText], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${spec.kind.replace(/[^a-z0-9]+/gi, "-").toLowerCase() || "letter"}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+  const mailto = `mailto:?subject=${encodeURIComponent(spec.subject || spec.kind)}&body=${encodeURIComponent(spec.body)}`;
+  return (
+    <div style={{ marginTop: 10, borderRadius: 9, border: "1px solid rgba(180,83,9,0.35)", overflow: "hidden" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "6px 10px", background: "rgba(180,83,9,0.08)" }}>
+        <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "#b45309" }}>✎ Draft · {spec.kind}</span>
+        <div style={{ display: "flex", gap: 6 }}>
+          <button type="button" onClick={copy} style={{ fontSize: 11, fontWeight: 700, padding: "2px 9px", borderRadius: 999, border: "1px solid rgba(180,83,9,0.35)", background: "var(--card)", color: "#b45309", cursor: "pointer" }}>{copied ? "Copied" : "Copy"}</button>
+          <button type="button" onClick={download} style={{ fontSize: 11, fontWeight: 700, padding: "2px 9px", borderRadius: 999, border: "1px solid rgba(180,83,9,0.35)", background: "var(--card)", color: "#b45309", cursor: "pointer" }}>Download</button>
+          <a href={mailto} style={{ fontSize: 11, fontWeight: 700, padding: "2px 9px", borderRadius: 999, border: "1px solid rgba(180,83,9,0.35)", background: "var(--card)", color: "#b45309", textDecoration: "none" }}>Email</a>
+        </div>
+      </div>
+      <div style={{ padding: "10px 12px", background: "var(--card)" }}>
+        {(spec.to || spec.subject) && (
+          <div style={{ fontSize: 11.5, color: "var(--muted)", marginBottom: 6, borderBottom: "1px solid var(--border)", paddingBottom: 6 }}>
+            {spec.to && <div><b>To:</b> {spec.to}</div>}
+            {spec.subject && <div><b>Re:</b> {spec.subject}</div>}
+          </div>
+        )}
+        <div style={{ fontSize: 12.5, lineHeight: 1.6, whiteSpace: "pre-wrap", fontFamily: "var(--font-serif, Georgia, 'Times New Roman', serif)" }}>{spec.body}</div>
+        <div className="muted" style={{ fontSize: 10, marginTop: 8, fontStyle: "italic" }}>Draft — review and send yourself. Bracketed [placeholders] need your input; nothing is sent automatically.</div>
+      </div>
+    </div>
+  );
+}
+
 export default function GlobalSearch() {
   const { user } = useUser();
   const [open, setOpen] = useState(false);
@@ -363,15 +405,19 @@ export default function GlobalSearch() {
     const q = query.trim();
     if (!q || chat.loading) return;
     // Send the prior turns as plain text so follow-ups ("now just the business
-    // parks", "chart that") resolve against what was already asked/answered.
-    const history = chat.turns.slice(-8).map((t) => ({ role: t.role, content: t.role === "user" ? t.text : t.answer }));
+    // parks", "chart that", "make the letter more formal") resolve against what
+    // was already asked/answered — include any drafted letter so it can revise.
+    const history = chat.turns.slice(-8).map((t) => ({
+      role: t.role,
+      content: t.role === "user" ? t.text : t.answer + (t.letter ? `\n\n[Draft ${t.letter.kind}]\nTo: ${t.letter.to}\nSubject: ${t.letter.subject}\n\n${t.letter.body}` : ""),
+    }));
     setChat((c) => ({ turns: [...c.turns, { role: "user", text: q }], loading: true, error: null }));
     setQuery("");
     fetch("/api/search/agent", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ q, history }) })
       .then((r) => r.json())
       .then((j) => setChat((c) => j.error
         ? { ...c, loading: false, error: j.error }
-        : { turns: [...c.turns, { role: "assistant", answer: j.answer ?? "No answer.", links: j.links ?? [], chart: j.chart ?? null }], loading: false, error: null }))
+        : { turns: [...c.turns, { role: "assistant", answer: j.answer ?? "No answer.", links: j.links ?? [], chart: j.chart ?? null, letter: j.letter ?? null }], loading: false, error: null }))
       .catch(() => setChat((c) => ({ ...c, loading: false, error: "Couldn't reach the assistant." })));
   };
   const resetChat = () => setChat({ turns: [], loading: false, error: null });
@@ -836,6 +882,7 @@ export default function GlobalSearch() {
                     <div key={ti} style={{ padding: "10px 12px", borderRadius: 9, background: "rgba(15,23,42,0.03)", border: "1px solid var(--border)" }}>
                       <div style={{ fontSize: 13, lineHeight: 1.55, whiteSpace: "pre-wrap" }}>{renderLightMarkdown(t.answer)}</div>
                       {t.chart && t.chart.series.length >= 2 && <AiChart spec={t.chart} />}
+                      {t.letter && <AiLetter spec={t.letter} />}
                       {t.links.length > 0 && (
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
                           {t.links.map((l, i) => (
