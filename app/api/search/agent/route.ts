@@ -782,10 +782,16 @@ type Block =
   | { type: string; [k: string]: unknown };
 
 export async function POST(req: Request) {
-  let body: { q?: string };
+  let body: { q?: string; history?: { role?: string; content?: string }[] };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Bad request" }, { status: 400 }); }
   const q = (body.q ?? "").trim();
   if (!q) return NextResponse.json({ error: "Empty question" }, { status: 400 });
+
+  // Prior turns (plain text) so follow-ups keep context. Keep it bounded.
+  const history = (Array.isArray(body.history) ? body.history : [])
+    .filter((t) => (t?.role === "user" || t?.role === "assistant") && typeof t?.content === "string" && t.content.trim())
+    .slice(-8)
+    .map((t) => ({ role: t.role as "user" | "assistant", content: (t.content as string).slice(0, 4000) }));
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return NextResponse.json({ error: "AI isn't configured (ANTHROPIC_API_KEY not set)." }, { status: 503 });
@@ -805,9 +811,15 @@ export async function POST(req: Request) {
     `Put 1-4 relevant page links in "links", choosing hrefs ONLY from this list of routes: ${ROUTES.map((r) => r.path).join(", ")}. ` +
     `Include a "chart" ONLY when the answer is naturally visual — a multi-year/YoY trend (use "line"), a ranking or a breakdown/comparison across properties or categories (use "bar"). Otherwise set "chart" to null. ` +
     `CRITICAL: every value in chart.series must be an exact number copied from a tool result — never invent, round differently, or interpolate. For year-over-year use the period-aligned series so the years are comparable. Pick the single most useful chart; keep it to at most ~12 points. Keep the text answer complete on its own — the chart supplements it. ` +
-    `Keep the answer focused on what was asked. Use short markdown (bullets, bold) where it helps.`;
+    `Keep the answer focused on what was asked. Use short markdown (bullets, bold) where it helps. ` +
+    `This may be a multi-turn conversation — resolve follow-ups ("now just the business parks", "chart that", "what about 2024") against the earlier turns, and re-run whatever tools you need for the new question.`;
 
-  const messages: { role: "user" | "assistant"; content: unknown }[] = [{ role: "user", content: q }];
+  // Seed the conversation with prior turns so follow-ups have context, then the
+  // new question. The agentic loop appends tool_use / tool_result for this turn.
+  const messages: { role: "user" | "assistant"; content: unknown }[] = [
+    ...history.map((t) => ({ role: t.role, content: t.content })),
+    { role: "user", content: q },
+  ];
 
   try {
     const MAX_TURNS = 6;
