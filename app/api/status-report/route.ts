@@ -1024,8 +1024,8 @@ export async function POST(req: Request) {
       const hasAny = buckets.some(b => b.rows.length > 0);
       if (hasAny) {
         const EXP_COLS: ColDef[] = [
-          { header: "Property",      width: 116, align: "left"  },
           { header: "Tenant",        width: 150, align: "left"  },
+          { header: "Property",      width: 116, align: "left"  },
           { header: "Unit",          width: 58,  align: "left"  },
           { header: "Sq Ft",         width: 46,  align: "right" },
           { header: "Lease Expires", width: 66,  align: "left"  },
@@ -1067,8 +1067,11 @@ export async function POST(req: Request) {
             bucketSqft += row.sqft;
             if (i % 2 === 1) page.drawRectangle({ x: tableX, y: py(curY + ROW_H), width: tableW, height: ROW_H, color: C_ALT });
             const comment = expirationComments[row.unit] ?? {};
+            // Drop the building-code prefix from the unit (the Property column
+            // is right beside it). "4060-207" → "207".
+            const suite = row.unit.includes("-") ? row.unit.slice(row.unit.indexOf("-") + 1) : row.unit;
             const vals: Record<string, string> = {
-              "Property": row.propName, "Tenant": row.tenant, "Unit": row.unit,
+              "Property": row.propName, "Tenant": row.tenant, "Unit": suite,
               "Sq Ft": sqftFmt(row.sqft), "Lease Expires": row.leaseTo,
               "Tenant Status": comment.tenantStatus ?? "",
             };
