@@ -1,16 +1,32 @@
 "use client";
 
-// Global search modal. Indexes everything we have static data for
-// (properties, owners, vendor codes, tax filings, parcels, bank
-// accounts) plus tenants from the rent roll (lazily fetched).
-// Open with ⌘K / Ctrl+K or via the sidebar trigger.
+// Global search + AI assistant modal ("the brain of the portal"). One field,
+// two modes: Enter opens the highlighted search hit; ⌘Enter asks the assistant.
+// Search stays blue/grey and keyboard-first; asking wraps the whole modal in
+// the violet glow frame (see app/components/ai/AiKit.tsx for the reusable AI
+// visual language). Open with ⌘K / Ctrl+K or via the sidebar trigger.
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { PROPERTY_DEFS, BANK_ACCOUNTS, type PropertyDef } from "../../lib/properties/data";
+import { PROPERTY_DEFS, BANK_ACCOUNTS } from "../../lib/properties/data";
 import { PROPERTY_OWNERSHIP, ownerNamesForProperty, soleOwnerName } from "../../lib/properties/ownership";
 import { useUser } from "./UserProvider";
 import { TAX_TASKS, PARCEL_INFO, filingLabel, baseEntityName } from "../tracker/tax-data";
 import { STAFF } from "@/lib/maintenance/staff";
+import {
+  SparkleMark,
+  GradientSparkle,
+  InlineSparkle,
+  GlowFrame,
+  AnswerCard,
+  DraftLetterCard,
+  MemoryStrip,
+  ThinkingCard,
+  renderAiMarkdown,
+  exportAnswerPdf,
+  MONO,
+  type AiChartSpec,
+  type AiLetterSpec,
+} from "./ai/AiKit";
 
 // Minimal shapes — keeps us off the server-only Reservation export.
 type SearchMaintRequest = {
@@ -54,6 +70,22 @@ type Group =
   | "Tax Filing"
   | "Bank Account"
   | "Parcel";
+
+// Single-letter type badge shown at the left of each result row (search stays
+// neutral; a matched/selected row uses the blue "match" treatment).
+const GROUP_LETTER: Record<Group, string> = {
+  Answer: "✦",
+  Page: "▸",
+  "Maintenance Request": "M",
+  Reservation: "R",
+  Property: "P",
+  Owner: "O",
+  "Vendor Code": "V",
+  Tenant: "T",
+  "Tax Filing": "F",
+  "Bank Account": "B",
+  Parcel: "#",
+};
 
 // Pages exposed to the search. Each entry lists the page title plus a
 // handful of keywords / aliases so a user can find a page by what they
@@ -143,7 +175,7 @@ type Hit = {
   group: Group;
   title: string;            // primary line
   subtitle?: string;        // secondary line
-  badge?: string;           // chip text (property code, vendor, etc.)
+  badge?: string;           // right-aligned mono id / status
   href: string;             // where clicking jumps to
   score: number;            // higher = better match
 };
@@ -268,195 +300,18 @@ type RentRollData = {
   }>;
 };
 
-// Minimal markdown for the assistant's answer: **bold** + preserved newlines
-// (the container is whitespace: pre-wrap). Good enough for short answers.
-function renderLightMarkdown(text: string): React.ReactNode {
-  return text.split(/(\*\*[^*]+\*\*)/g).map((seg, i) =>
-    seg.startsWith("**") && seg.endsWith("**")
-      ? <b key={i}>{seg.slice(2, -2)}</b>
-      : <span key={i}>{seg}</span>,
-  );
-}
-
-// ── AI chart (server sends a validated spec; numbers already come from tools) ──
-type AiChartSpec = { type: "bar" | "line"; title: string; unit: "dollars" | "percent" | "sqft" | "count"; series: { label: string; value: number }[] };
-type AiLetterSpec = { kind: string; to: string; subject: string; body: string };
-
 // Sample questions shown on the empty search bar so users see the range of
 // what the assistant can do — analytics, trends, lookups, drafting.
 const SAMPLE_SEARCHES = [
-  "NOI for 4500 from 2022 to 2025",
   "Which shopping center has the highest NOI?",
   "Who's expiring in the next 90 days?",
-  "Occupancy across the business parks",
+  "NOI for 4500, 2022–2025",
   "Who has a CAM exclusion of security?",
-  "Draft a renewal inquiry letter for a tenant at 4500",
 ];
+
 type ChatTurn =
   | { role: "user"; text: string }
   | { role: "assistant"; answer: string; links: { label: string; href: string }[]; chart: AiChartSpec | null; letter: AiLetterSpec | null };
-function fmtChartValue(v: number, unit: AiChartSpec["unit"]): string {
-  if (unit === "percent") return `${Math.round(v * 10) / 10}%`;
-  if (unit === "dollars") {
-    const a = Math.abs(v);
-    const s = a >= 1_000_000 ? `$${(v / 1_000_000).toFixed(1)}M` : a >= 1_000 ? `$${Math.round(v / 1000)}K` : `$${Math.round(v)}`;
-    return s;
-  }
-  return v >= 1000 ? v.toLocaleString() : String(Math.round(v));
-}
-function AiChart({ spec }: { spec: AiChartSpec }) {
-  const vals = spec.series.map((p) => p.value);
-  const maxV = Math.max(...vals, 0);
-  const minV = Math.min(...vals, 0);
-  const span = maxV - minV || 1;
-  const accent = "#6d28d9"; // AI violet (matches --ai) so the assistant's chart reads as AI output
-  return (
-    <div style={{ marginTop: 10, padding: "10px 12px", borderRadius: 9, background: "var(--card)", border: "1px solid var(--border)" }}>
-      <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 8 }}>{spec.title}</div>
-      {spec.type === "bar" ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-          {spec.series.map((p, i) => {
-            const frac = (p.value - Math.min(minV, 0)) / span;
-            return (
-              <div key={i} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <div style={{ width: 74, flexShrink: 0, fontSize: 11, color: "var(--muted)", textAlign: "right", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={p.label}>{p.label}</div>
-                <div style={{ flex: 1, height: 16, background: "rgba(15,23,42,0.05)", borderRadius: 4, overflow: "hidden" }}>
-                  <div style={{ width: `${Math.max(2, frac * 100)}%`, height: "100%", background: accent, borderRadius: 4 }} />
-                </div>
-                <div style={{ width: 56, flexShrink: 0, fontSize: 11, fontWeight: 700, textAlign: "right" }}>{fmtChartValue(p.value, spec.unit)}</div>
-              </div>
-            );
-          })}
-        </div>
-      ) : (
-        (() => {
-          const W = 300, H = 90, pad = 4;
-          const n = spec.series.length;
-          const x = (i: number) => pad + (i * (W - 2 * pad)) / Math.max(1, n - 1);
-          const y = (v: number) => H - pad - ((v - minV) / span) * (H - 2 * pad);
-          const pts = spec.series.map((p, i) => `${x(i)},${y(p.value)}`).join(" ");
-          return (
-            <div>
-              <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H} preserveAspectRatio="none" style={{ display: "block" }}>
-                <polyline points={pts} fill="none" stroke={accent} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
-                {spec.series.map((p, i) => <circle key={i} cx={x(i)} cy={y(p.value)} r={2.5} fill={accent} />)}
-              </svg>
-              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
-                {spec.series.map((p, i) => (
-                  <div key={i} style={{ fontSize: 10, color: "var(--muted)", textAlign: "center", flex: 1 }}>
-                    <div style={{ fontWeight: 700, color: "var(--text)" }}>{fmtChartValue(p.value, spec.unit)}</div>
-                    <div>{p.label}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          );
-        })()
-      )}
-    </div>
-  );
-}
-
-// ── AI letter draft (review-and-send: copy / download / email, never auto-sent) ──
-function AiLetter({ spec }: { spec: AiLetterSpec }) {
-  const [copied, setCopied] = useState(false);
-  const fullText = [spec.to ? `To: ${spec.to}` : "", spec.subject ? `Re: ${spec.subject}` : "", "", spec.body].filter((l, i) => i > 1 || l).join("\n");
-  const copy = () => {
-    navigator.clipboard?.writeText(fullText).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500); }).catch(() => {});
-  };
-  const download = () => {
-    const blob = new Blob([fullText], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${spec.kind.replace(/[^a-z0-9]+/gi, "-").toLowerCase() || "letter"}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-  const mailto = `mailto:?subject=${encodeURIComponent(spec.subject || spec.kind)}&body=${encodeURIComponent(spec.body)}`;
-  return (
-    <div style={{ marginTop: 10, borderRadius: 9, border: "1px solid rgba(180,83,9,0.35)", overflow: "hidden" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "6px 10px", background: "rgba(180,83,9,0.08)" }}>
-        <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "#b45309" }}>✎ Draft · {spec.kind}</span>
-        <div style={{ display: "flex", gap: 6 }}>
-          <button type="button" onClick={copy} style={{ fontSize: 11, fontWeight: 700, padding: "2px 9px", borderRadius: 999, border: "1px solid rgba(180,83,9,0.35)", background: "var(--card)", color: "#b45309", cursor: "pointer" }}>{copied ? "Copied" : "Copy"}</button>
-          <button type="button" onClick={download} style={{ fontSize: 11, fontWeight: 700, padding: "2px 9px", borderRadius: 999, border: "1px solid rgba(180,83,9,0.35)", background: "var(--card)", color: "#b45309", cursor: "pointer" }}>Download</button>
-          <a href={mailto} style={{ fontSize: 11, fontWeight: 700, padding: "2px 9px", borderRadius: 999, border: "1px solid rgba(180,83,9,0.35)", background: "var(--card)", color: "#b45309", textDecoration: "none" }}>Email</a>
-        </div>
-      </div>
-      <div style={{ padding: "10px 12px", background: "var(--card)" }}>
-        {(spec.to || spec.subject) && (
-          <div style={{ fontSize: 11.5, color: "var(--muted)", marginBottom: 6, borderBottom: "1px solid var(--border)", paddingBottom: 6 }}>
-            {spec.to && <div><b>To:</b> {spec.to}</div>}
-            {spec.subject && <div><b>Re:</b> {spec.subject}</div>}
-          </div>
-        )}
-        <div style={{ fontSize: 12.5, lineHeight: 1.6, whiteSpace: "pre-wrap", fontFamily: "var(--font-serif, Georgia, 'Times New Roman', serif)" }}>{spec.body}</div>
-        <div className="muted" style={{ fontSize: 10, marginTop: 8, fontStyle: "italic" }}>Draft — review and send yourself. Bracketed [placeholders] need your input; nothing is sent automatically.</div>
-      </div>
-    </div>
-  );
-}
-
-// Export an assistant answer (question + answer + chart data + links) to a
-// clean PDF — board-packet ready. Numbers are already computed server-side.
-async function exportAnswerPdf(opts: { question: string; answer: string; chart: AiChartSpec | null; links: { label: string; href: string }[] }) {
-  const { jsPDF } = await import("jspdf");
-  const doc = new jsPDF({ unit: "pt", format: "letter" });
-  const W = doc.internal.pageSize.getWidth();
-  const H = doc.internal.pageSize.getHeight();
-  const margin = 48;
-  let y = margin;
-  const line = (h: number) => { y += h; if (y > H - margin) { doc.addPage(); y = margin; } };
-
-  doc.setFont("helvetica", "bold"); doc.setFontSize(15); doc.setTextColor(11, 74, 125);
-  doc.text("Korman Commercial Properties", margin, y);
-  doc.setFontSize(10); doc.setTextColor(120);
-  doc.text(new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }), W - margin, y, { align: "right" });
-  line(22);
-  doc.setTextColor(90); doc.setFont("helvetica", "normal"); doc.setFontSize(11);
-  doc.text("Assistant answer", margin, y); line(20);
-
-  if (opts.question) {
-    doc.setFont("helvetica", "bold"); doc.setFontSize(11); doc.setTextColor(20);
-    for (const l of doc.splitTextToSize(`Q: ${opts.question}`, W - margin * 2)) { doc.text(l, margin, y); line(15); }
-    line(6);
-  }
-  doc.setFont("helvetica", "normal"); doc.setFontSize(11); doc.setTextColor(30);
-  for (const l of doc.splitTextToSize(opts.answer.replace(/\*\*/g, ""), W - margin * 2)) { doc.text(l, margin, y); line(15); }
-
-  if (opts.chart && opts.chart.series.length) {
-    line(12);
-    doc.setFont("helvetica", "bold"); doc.setFontSize(11); doc.setTextColor(11, 74, 125);
-    doc.text(opts.chart.title || "Data", margin, y); line(16);
-    doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.setTextColor(40);
-    const fmt = (v: number) => opts.chart!.unit === "percent" ? `${v}%` : opts.chart!.unit === "dollars" ? `$${Math.round(v).toLocaleString()}` : v.toLocaleString();
-    for (const p of opts.chart.series) {
-      doc.text(String(p.label), margin, y);
-      doc.text(fmt(p.value), W - margin, y, { align: "right" });
-      line(14);
-    }
-  }
-  if (opts.links.length) {
-    line(10); doc.setFontSize(9); doc.setTextColor(120);
-    for (const lk of opts.links) { doc.text(`• ${lk.label}  ${lk.href}`, margin, y); line(12); }
-  }
-  line(14); doc.setFontSize(8); doc.setTextColor(150);
-  doc.text("Generated by the KCP portal assistant — grounded in live portal data. Verify anything critical.", margin, y);
-  doc.save(`kcp-assistant-answer-${Date.now()}.pdf`);
-}
-
-// Small "Copy" affordance for an assistant answer.
-function AnswerCopy({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false);
-  return (
-    <button type="button"
-      onClick={() => { navigator.clipboard?.writeText(text).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500); }).catch(() => {}); }}
-      className="muted" style={{ fontSize: 11, background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: 0 }}>
-      {copied ? "Copied" : "Copy"}
-    </button>
-  );
-}
 
 export default function GlobalSearch() {
   const { user } = useUser();
@@ -464,6 +319,7 @@ export default function GlobalSearch() {
   const [query, setQuery] = useState("");
   const [activeIdx, setActiveIdx] = useState(0);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const bodyRef = useRef<HTMLDivElement | null>(null);
   const [tenants, setTenants] = useState<RentRollUnit[] | null>(null);
   const [tenantsLoading, setTenantsLoading] = useState(false);
   const [maintRequests, setMaintRequests] = useState<SearchMaintRequest[] | null>(null);
@@ -541,6 +397,13 @@ export default function GlobalSearch() {
     else { setQuery(""); setActiveIdx(0); }
   }, [open]);
 
+  // Keep the thread pinned to the newest turn as it grows.
+  useEffect(() => {
+    if (bodyRef.current && (chat.turns.length || chat.loading)) {
+      bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
+    }
+  }, [chat.turns.length, chat.loading]);
+
   // Lazy-load tenants the first time the modal opens.
   useEffect(() => {
     if (!open || tenants !== null || tenantsLoading) return;
@@ -604,9 +467,6 @@ export default function GlobalSearch() {
     }
 
     // Pages — surface navigation targets the current user has access to.
-    // Score against the page label, its description, and a keyword list
-    // so people can search by what they call the page (e.g. "tickets" →
-    // Service Requests, "opex" → Expense History).
     const canSee = (navKey: string | null) =>
       navKey === null || user.navKeys.has("all") || user.navKeys.has(navKey);
     for (const p of PAGES) {
@@ -740,10 +600,7 @@ export default function GlobalSearch() {
     }
 
     // Bank accounts — dedupe by (bank, label, last4) and aggregate the
-    // properties each account serves, so a shared account (e.g. one NI LLC
-    // operating account across several buildings) shows once. Searching the
-    // last four digits (with or without the "x") surfaces which property it's
-    // for; an exact 4-digit match floats it to the top.
+    // properties each account serves.
     const qDigits = q.replace(/\D/g, "");
     const acctMap = new Map<string, { bank: string; label: string; last4: string; link?: string; props: string[] }>();
     for (const [propCode, accts] of Object.entries(BANK_ACCOUNTS)) {
@@ -822,7 +679,7 @@ export default function GlobalSearch() {
             group: "Maintenance Request",
             title: m.subject || "(no subject)",
             subtitle: parts.join(" · "),
-            badge: m.id.slice(0, 8),
+            badge: `#${m.id.slice(0, 8)}`,
             href: `/maintenance?openId=${encodeURIComponent(m.id)}`,
             score: s,
           });
@@ -850,7 +707,7 @@ export default function GlobalSearch() {
             group: "Reservation",
             title: r.roomLabel || "(no room)",
             subtitle: parts.join(" · "),
-            badge: r.id.slice(0, 8),
+            badge: `#${r.id.slice(0, 8)}`,
             href: `/reservations?openId=${encodeURIComponent(r.id)}`,
             score: s,
           });
@@ -904,246 +761,276 @@ export default function GlobalSearch() {
 
   if (!open) return null;
 
+  const assistantMode = chat.turns.length > 0 || chat.loading || !!chat.error;
+  const hasQuery = query.trim().length > 0;
+
+  // ── Header (input row) ─────────────────────────────────────────────────
+  const inputEl = (
+    <input
+      ref={inputRef}
+      type="text"
+      value={query}
+      onChange={(e) => setQuery(e.target.value)}
+      onKeyDown={onKeyDown}
+      placeholder={assistantMode ? "Ask a follow-up…" : "Search, or ask the assistant…"}
+      className="kcp-input"
+      style={{ flex: 1, minWidth: 0, border: "none", background: "transparent", outline: "none", fontSize: 16, color: "var(--text)", fontFamily: "inherit" }}
+    />
+  );
+
+  const header = assistantMode ? (
+    <div style={{ padding: "14px 14px 16px", borderBottom: "1px solid var(--ai-border-soft)", background: "var(--ai-header-grad)" }}>
+      <div
+        style={{
+          display: "flex", alignItems: "center", gap: 13, padding: "9px 11px", borderRadius: 11,
+          border: "1px solid transparent",
+          background: "linear-gradient(var(--ai-input-fill), var(--ai-input-fill)) padding-box, var(--ai-input-grad) border-box",
+          boxShadow: "0 0 18px var(--ai-input-glow)",
+        }}
+      >
+        <SparkleMark size={30} twinkle fast={chat.loading} />
+        {inputEl}
+        <span style={{ flex: "0 0 auto", fontFamily: MONO, fontSize: 11, color: "var(--ai-text)", background: "var(--ai-soft)", border: "1px solid var(--ai-border)", borderBottomWidth: 2, borderRadius: 5, padding: "3px 7px" }}>⌘⏎ ask</span>
+      </div>
+    </div>
+  ) : (
+    <div style={{ display: "flex", alignItems: "center", gap: 13, padding: "16px 16px", borderBottom: "1px solid var(--border)" }}>
+      <SparkleMark size={32} />
+      {inputEl}
+      <span style={{ display: "flex", gap: 6, flex: "0 0 auto", fontFamily: MONO, fontSize: 11, color: "var(--kbd-color)" }}>
+        {hasQuery ? (
+          <Kbd>↵ open</Kbd>
+        ) : (
+          <>
+            <Kbd>↵ search</Kbd>
+            <span style={{ border: "1px solid var(--ai-border)", borderBottomWidth: 2, borderRadius: 5, padding: "2px 6px", color: "var(--ai-text)", background: "var(--ai-soft)" }}>⌘⏎ ask</span>
+          </>
+        )}
+      </span>
+    </div>
+  );
+
+  // ── Body ───────────────────────────────────────────────────────────────
+  const teachBox = (ti: number) => (
+    <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+      <input autoFocus value={teachText} onChange={(e) => setTeachText(e.target.value)}
+        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); savePref(teachText); } if (e.key === "Escape") setTeachFor(null); }}
+        placeholder="e.g. 'keep answers to one sentence', 'always whole dollars', 'skip the links'"
+        style={{ flex: 1, fontSize: 12, padding: "6px 9px", borderRadius: 7, border: "1px solid var(--ai-border)", background: "var(--ai-modal)", color: "var(--text)", outline: "none" }} />
+      <button type="button" onClick={() => savePref(teachText)} style={{ fontSize: 12, fontWeight: 700, padding: "6px 11px", borderRadius: 7, border: "1px solid var(--ai-border)", background: "var(--ai-soft)", color: "var(--ai-text)", cursor: "pointer" }}>Save</button>
+    </div>
+  );
+
+  const assistantBody = (
+    <div style={{ padding: "16px 18px", display: "flex", flexDirection: "column", gap: 16 }}>
+      {chat.turns.length > 0 && (
+        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: -8 }}>
+          <button type="button" onClick={resetChat} style={{ all: "unset", cursor: "pointer", fontSize: 11, color: "var(--muted)" }}>Clear conversation</button>
+        </div>
+      )}
+      {chat.turns.map((t, ti) => t.role === "user" ? (
+        <div key={ti} style={{ alignSelf: "flex-end", maxWidth: "78%", background: "var(--ai-bubble-bg)", color: "var(--ai-bubble-text)", fontSize: 14, lineHeight: 1.45, borderRadius: "12px 12px 4px 12px", padding: "9px 13px" }}>{t.text}</div>
+      ) : t.letter ? (
+        <div key={ti} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div style={{ border: "1px solid var(--ai-border-card)", borderLeft: "3px solid var(--ai)", borderRadius: 11, background: "linear-gradient(180deg, var(--ai-tint-panel), var(--ai-modal))", padding: "15px 16px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 9 }}>
+              <InlineSparkle />
+              <span style={{ fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ai-text)", fontWeight: 600 }}>Assistant</span>
+            </div>
+            <div style={{ fontSize: 16, lineHeight: 1.5, color: "var(--text)", fontWeight: 500 }}>{renderAiMarkdown(t.answer)}</div>
+          </div>
+          <DraftLetterCard letter={t.letter} />
+        </div>
+      ) : (
+        <div key={ti}>
+          <AnswerCard
+            answer={t.answer}
+            chart={t.chart}
+            links={t.links}
+            onTeach={() => { setTeachFor(teachFor === ti ? null : ti); setTeachText(""); }}
+            onExport={() => {
+              const prev = chat.turns[ti - 1];
+              const question = prev && prev.role === "user" ? prev.text : "";
+              exportAnswerPdf({ question, answer: t.answer, chart: t.chart, links: t.links }).catch(() => {});
+            }}
+            copyText={t.answer}
+            onLinkClick={() => setOpen(false)}
+          />
+          {teachFor === ti && teachBox(ti)}
+        </div>
+      ))}
+      {chat.loading && <ThinkingCard status="Reading live portal data…" />}
+      {chat.error && <div style={{ color: "#b91c1c", fontSize: 13 }}>{chat.error}</div>}
+    </div>
+  );
+
+  const emptyBody = (
+    <div>
+      <div style={{ padding: "16px 18px 6px" }}>
+        <div style={{ fontSize: 12, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 12 }}>
+          Search anything — properties · tenants · owners · vendor codes · tickets · parcels · banks
+        </div>
+      </div>
+      <div style={{ padding: "2px 18px 18px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, color: "var(--ai-text)", fontSize: 12, fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase" }}>
+          <GradientSparkle /> Or ask the brain of the portal
+        </div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 9 }}>
+          {SAMPLE_SEARCHES.map((s) => (
+            <button key={s} type="button" onClick={() => askSample(s)}
+              style={{ all: "unset", cursor: "pointer", padding: "9px 13px", borderRadius: 9, border: "1px solid var(--ai-border)", background: "var(--ai-tint-panel-2)", color: "var(--ai-text)", fontSize: 13, fontWeight: 500 }}>
+              {s}
+            </button>
+          ))}
+        </div>
+        {tenantsLoading && <div style={{ marginTop: 12, fontSize: 12, fontStyle: "italic", color: "var(--muted)" }}>Loading tenant data…</div>}
+      </div>
+    </div>
+  );
+
+  const searchBody = grouped.length === 0 ? (
+    <div style={{ padding: "20px 16px", color: "var(--muted)", fontSize: 13 }}>
+      No matches.
+      {tenants === null && <div style={{ marginTop: 8, fontStyle: "italic" }}>Tenant data still loading…</div>}
+    </div>
+  ) : (
+    (() => {
+      let globalIdx = -1;
+      return (
+        <div style={{ padding: "8px 10px 6px" }}>
+          {grouped.map(({ group, hits: groupHits }) => {
+            const shown = groupHits.slice(0, 6);
+            const moreCount = groupHits.length - shown.length;
+            return (
+              <div key={group} style={{ marginBottom: 4 }}>
+                <div style={{ padding: "10px 8px 4px", fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--muted)" }}>
+                  {group}{groupHits.length > 1 ? ` · ${groupHits.length}` : ""}
+                </div>
+                {shown.map((h) => {
+                  globalIdx += 1;
+                  const isActive = globalIdx === activeIdx;
+                  return (
+                    <button
+                      key={`${h.group}-${h.title}-${h.href}-${globalIdx}`}
+                      type="button"
+                      onClick={() => activate(h)}
+                      onMouseEnter={() => setActiveIdx(globalIdx)}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "9px 10px",
+                        borderRadius: 9, border: "none", cursor: "pointer", textAlign: "left", fontFamily: "inherit",
+                        background: isActive ? "var(--search-blue-tint)" : "transparent",
+                        boxShadow: isActive ? "inset 0 0 0 1px var(--search-blue-ring)" : "none",
+                      }}
+                    >
+                      <span style={{
+                        width: 26, height: 26, borderRadius: 7, flexShrink: 0, fontSize: 11, fontWeight: 700,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        background: isActive ? "var(--badge-match-bg)" : "var(--badge-neutral-bg)",
+                        color: isActive ? "var(--search-blue)" : "var(--badge-neutral-text)",
+                      }}>{GROUP_LETTER[h.group]}</span>
+                      <span style={{ display: "flex", flexDirection: "column", minWidth: 0, flex: 1 }}>
+                        <span style={{ fontSize: 14, fontWeight: 500, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{h.title}</span>
+                        {h.subtitle && <span style={{ fontSize: 12, color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{h.subtitle}</span>}
+                      </span>
+                      {h.badge && <span style={{ flexShrink: 0, fontFamily: MONO, fontSize: 11, color: "var(--muted)" }}>{h.badge}</span>}
+                    </button>
+                  );
+                })}
+                {moreCount > 0 && <div style={{ padding: "2px 10px 6px", fontSize: 11, color: "var(--muted)" }}>+ {moreCount} more</div>}
+              </div>
+            );
+          })}
+        </div>
+      );
+    })()
+  );
+
+  const body = assistantMode ? assistantBody : hasQuery ? searchBody : emptyBody;
+
+  // ── Footer ─────────────────────────────────────────────────────────────
+  let footer: React.ReactNode;
+  if (chat.loading) {
+    footer = (
+      <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "11px 18px", borderTop: "1px solid var(--ai-border-soft)", background: "var(--ai-header-grad)", fontFamily: MONO, fontSize: 11, color: "var(--muted)" }}>
+        <span style={{ color: "var(--ai)" }}>✦</span> Thinking · querying live portal data
+        <span style={{ marginLeft: "auto" }}>esc to cancel</span>
+      </div>
+    );
+  } else if (assistantMode) {
+    footer = prefs.length > 0 ? (
+      <MemoryStrip prefs={prefs} onForget={removePref} />
+    ) : (
+      <div style={{ padding: "11px 18px", borderTop: "1px solid var(--ai-border-soft)", background: "var(--ai-header-grad)", fontSize: 10.5, color: "var(--muted)", fontStyle: "italic" }}>
+        AI · grounded in live portal data — verify anything critical. Teach it a preference and it&apos;ll remember.
+      </div>
+    );
+  } else if (hasQuery) {
+    footer = (
+      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "11px 18px", borderTop: "1px solid var(--border)", background: "var(--ai-tint-panel-2)", fontSize: 12.5, color: "var(--ai-text)" }}>
+        <GradientSparkle /> Press <b style={{ fontFamily: MONO }}>⌘⏎</b> to ask the assistant about &ldquo;{query.trim()}&rdquo; instead
+      </div>
+    );
+  } else {
+    footer = (
+      <div style={{ display: "flex", gap: 18, padding: "11px 18px", borderTop: "1px solid var(--border)", background: "var(--footer-bg, var(--card))", fontFamily: MONO, fontSize: 11, color: "var(--kbd-color)" }}>
+        <span>↑↓ navigate</span><span>↵ open</span><span>⌘⏎ ask</span><span style={{ marginLeft: "auto" }}>esc</span>
+      </div>
+    );
+  }
+
+  // ── Modal inner (header / scrolling body / footer) ─────────────────────
+  const inner = (
+    <>
+      {header}
+      <div ref={bodyRef} style={{ flex: "1 1 auto", overflowY: "auto", minHeight: 0 }}>{body}</div>
+      {footer}
+    </>
+  );
+
+  const MODAL_W = 600;
+
   return (
     <div
       onClick={() => setOpen(false)}
       style={{
         position: "fixed", inset: 0, zIndex: 1100,
-        background: "rgba(15,23,42,0.45)",
+        background: "rgba(17,20,28,0.5)",
+        backdropFilter: "blur(2px)", WebkitBackdropFilter: "blur(2px)",
         display: "flex", alignItems: "flex-start", justifyContent: "center",
         paddingTop: "10vh",
       }}
     >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          width: "min(640px, calc(100vw - 32px))",
-          maxHeight: "75vh",
-          display: "flex", flexDirection: "column",
-          background: "var(--card)", borderRadius: 14,
-          border: "1px solid var(--border)",
-          boxShadow: "0 22px 60px rgba(2,6,23,0.30)",
-          overflow: "hidden",
-        }}
-      >
-        <div style={{ padding: "14px 16px", borderBottom: "1px solid var(--border)" }}>
-          <input
-            ref={inputRef}
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={onKeyDown}
-            placeholder="Search, or ask a question — try 'who vacated last month?' then ⌘⏎"
-            style={{
-              width: "100%", padding: "10px 12px",
-              border: "1px solid var(--border)", borderRadius: 9,
-              background: "var(--card)", color: "var(--text)",
-              fontSize: 14, outline: "none", fontFamily: "inherit",
-            }}
-          />
-        </div>
-
-        <div style={{ flex: 1, overflowY: "auto", padding: "4px 0" }}>
-          {(query.trim() || chat.turns.length > 0 || chat.loading || chat.error) && (
-            <div style={{ padding: "8px 12px", borderBottom: "1px solid var(--border)" }}>
-              {query.trim() && (
-                <button
-                  type="button"
-                  onClick={() => askAi()}
-                  disabled={chat.loading}
-                  style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", borderRadius: 9, border: "1px solid rgba(109,40,217,0.35)", background: "rgba(109,40,217,0.06)", cursor: "pointer", textAlign: "left", color: "inherit" }}
-                >
-                  <span style={{ fontSize: 16 }}>✨</span>
-                  <span style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 600, color: "#6d28d9", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {chat.loading ? "Thinking…" : chat.turns.length > 0 ? <>Ask follow-up: &ldquo;{query.trim()}&rdquo;</> : <>Ask the assistant: &ldquo;{query.trim()}&rdquo;</>}
-                  </span>
-                  <span className="muted" style={{ fontSize: 11, flexShrink: 0 }}>⌘⏎</span>
-                </button>
-              )}
-              {(chat.turns.length > 0 || chat.loading || chat.error) && (
-                <div style={{ marginTop: query.trim() ? 8 : 0, display: "flex", flexDirection: "column", gap: 8 }}>
-                  {chat.turns.length > 0 && (
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                      <span className="muted" style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase" }}>✨ Assistant</span>
-                      <button type="button" onClick={resetChat} className="muted" style={{ fontSize: 11, background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: 0 }}>Clear</button>
-                    </div>
-                  )}
-                  {chat.turns.map((t, ti) => t.role === "user" ? (
-                    <div key={ti} style={{ alignSelf: "flex-end", maxWidth: "85%", fontSize: 12.5, fontWeight: 600, padding: "6px 10px", borderRadius: 9, background: "rgba(109,40,217,0.08)", color: "#6d28d9" }}>{t.text}</div>
-                  ) : (
-                    <div key={ti} style={{ padding: "10px 12px", borderRadius: 9, background: "rgba(15,23,42,0.03)", border: "1px solid var(--border)" }}>
-                      <div style={{ fontSize: 13, lineHeight: 1.55, whiteSpace: "pre-wrap" }}>{renderLightMarkdown(t.answer)}</div>
-                      {t.chart && t.chart.series.length >= 2 && <AiChart spec={t.chart} />}
-                      {t.letter && <AiLetter spec={t.letter} />}
-                      {t.links.length > 0 && (
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
-                          {t.links.map((l, i) => (
-                            <a key={i} href={l.href} onClick={() => setOpen(false)}
-                              style={{ fontSize: 12, fontWeight: 700, padding: "3px 10px", borderRadius: 999, border: "1px solid rgba(11,74,125,0.3)", background: "var(--card)", color: "#0b4a7d", textDecoration: "none" }}>
-                              {l.label} →
-                            </a>
-                          ))}
-                        </div>
-                      )}
-                      <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, marginTop: 6 }}>
-                        <button type="button"
-                          onClick={() => { setTeachFor(teachFor === ti ? null : ti); setTeachText(""); }}
-                          title="Teach the assistant a standing preference from this answer"
-                          className="muted" style={{ fontSize: 11, background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: 0 }}>
-                          ✎ Teach it
-                        </button>
-                        <button type="button"
-                          onClick={() => {
-                            const prev = chat.turns[ti - 1];
-                            const question = prev && prev.role === "user" ? prev.text : "";
-                            exportAnswerPdf({ question, answer: t.answer, chart: t.chart, links: t.links }).catch(() => {});
-                          }}
-                          className="muted" style={{ fontSize: 11, background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: 0 }}>
-                          Export PDF
-                        </button>
-                        <AnswerCopy text={t.answer} />
-                      </div>
-                      {teachFor === ti && (
-                        <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
-                          <input autoFocus value={teachText} onChange={(e) => setTeachText(e.target.value)}
-                            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); savePref(teachText); } if (e.key === "Escape") setTeachFor(null); }}
-                            placeholder="e.g. 'keep answers to one sentence', 'always whole dollars', 'skip the links'"
-                            style={{ flex: 1, fontSize: 12, padding: "5px 9px", borderRadius: 7, border: "1px solid rgba(109,40,217,0.35)", background: "var(--card)", color: "var(--text)", outline: "none" }} />
-                          <button type="button" onClick={() => savePref(teachText)} style={{ fontSize: 12, fontWeight: 700, padding: "5px 11px", borderRadius: 7, border: "1px solid rgba(109,40,217,0.4)", background: "rgba(109,40,217,0.08)", color: "#6d28d9", cursor: "pointer" }}>Save</button>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                  {chat.loading && <div className="muted" style={{ fontSize: 12, fontStyle: "italic", padding: "2px 4px" }}>Thinking…</div>}
-                  {chat.error && <div className="small" style={{ color: "#b91c1c" }}>{chat.error}</div>}
-                  {chat.turns.length > 0 && !chat.loading && (
-                    <div className="muted" style={{ fontSize: 10, fontStyle: "italic" }}>AI · grounded in live portal data — verify anything critical. Type a follow-up above and press ⌘⏎.</div>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-          {!query.trim() ? (
-            chat.turns.length > 0 || chat.loading ? null : (
-              <div style={{ padding: "20px 16px", color: "var(--muted)", fontSize: 13 }}>
-                Start typing to search across the whole portal — maintenance requests, reservations, properties, owners, vendor codes, tenants, filings, parcels, banks.
-                Multi-word queries match all words (try <code>jay plumbing</code> or <code>conference apple</code>).
-                {tenantsLoading && <div style={{ marginTop: 8, fontStyle: "italic" }}>Loading tenant data…</div>}
-                <div style={{ marginTop: 14 }}>
-                  <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 8 }}>✨ Or ask the assistant</div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                    {SAMPLE_SEARCHES.map((s) => (
-                      <button key={s} type="button" onClick={() => askSample(s)}
-                        style={{ fontSize: 12, fontWeight: 600, padding: "5px 11px", borderRadius: 999, border: "1px solid rgba(109,40,217,0.3)", background: "rgba(109,40,217,0.05)", color: "#6d28d9", cursor: "pointer", textAlign: "left" }}>
-                        {s}
-                      </button>
-                    ))}
-                  </div>
-                  {prefs.length > 0 && (
-                    <div style={{ marginTop: 14 }}>
-                      <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 8 }}>What the assistant remembers</div>
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                        {prefs.map((p) => (
-                          <span key={p} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, padding: "4px 6px 4px 10px", borderRadius: 999, border: "1px solid var(--border)", background: "var(--card)", color: "var(--text)" }}>
-                            {p}
-                            <button type="button" onClick={() => removePref(p)} aria-label="Forget" title="Forget this" style={{ border: "none", background: "none", cursor: "pointer", color: "var(--muted)", fontSize: 14, lineHeight: 1, padding: 0 }}>×</button>
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )
-          ) : grouped.length === 0 ? (
-            <div style={{ padding: "20px 16px", color: "var(--muted)", fontSize: 13 }}>
-              No matches.
-              {tenants === null && (
-                <div style={{ marginTop: 8, fontStyle: "italic" }}>Tenant data still loading…</div>
-              )}
-            </div>
-          ) : (
-            (() => {
-              let globalIdx = -1;
-              return grouped.map(({ group, hits: groupHits }) => {
-                const shown = groupHits.slice(0, 6);
-                const moreCount = groupHits.length - shown.length;
-                return (
-                  <div key={group} style={{ marginBottom: 4 }}>
-                    <div style={{
-                      padding: "8px 16px 4px", fontSize: 10, fontWeight: 800,
-                      letterSpacing: "0.08em", textTransform: "uppercase",
-                      color: "var(--muted)",
-                    }}>
-                      {group}{groupHits.length > 1 ? ` · ${groupHits.length}` : ""}
-                    </div>
-                    {shown.map((h) => {
-                      globalIdx += 1;
-                      const isActive = globalIdx === activeIdx;
-                      return (
-                        <button
-                          key={`${h.group}-${h.title}-${h.href}-${globalIdx}`}
-                          type="button"
-                          onClick={() => activate(h)}
-                          onMouseEnter={() => setActiveIdx(globalIdx)}
-                          style={{
-                            display: "flex", alignItems: "center", gap: 10,
-                            width: "100%", padding: "8px 16px",
-                            background: isActive ? "rgba(11,74,125,0.08)" : "transparent",
-                            border: "none", cursor: "pointer",
-                            textAlign: "left", fontFamily: "inherit",
-                            borderLeft: isActive ? "3px solid #0b4a7d" : "3px solid transparent",
-                          }}
-                        >
-                          {h.badge && (
-                            <span style={{
-                              fontSize: 10, fontWeight: 700, letterSpacing: "0.04em",
-                              padding: "2px 7px", borderRadius: 999,
-                              background: "rgba(15,23,42,0.05)", color: "var(--text)",
-                              border: "1px solid var(--border)",
-                              flexShrink: 0,
-                            }}>{h.badge}</span>
-                          )}
-                          <span style={{ display: "flex", flexDirection: "column", minWidth: 0, flex: 1 }}>
-                            <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                              {h.title}
-                            </span>
-                            {h.subtitle && (
-                              <span style={{ fontSize: 12, color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                {h.subtitle}
-                              </span>
-                            )}
-                          </span>
-                        </button>
-                      );
-                    })}
-                    {moreCount > 0 && (
-                      <div style={{ padding: "2px 16px 6px 16px", fontSize: 11, color: "var(--muted)" }}>
-                        + {moreCount} more
-                      </div>
-                    )}
-                  </div>
-                );
-              });
-            })()
-          )}
-        </div>
-
-        <div style={{
-          padding: "8px 16px", borderTop: "1px solid var(--border)",
-          fontSize: 11, color: "var(--muted)", display: "flex", gap: 14, flexWrap: "wrap",
-        }}>
-          <span>↑↓ navigate</span>
-          <span>↵ open</span>
-          <span>esc to close</span>
-        </div>
+      <div onClick={(e) => e.stopPropagation()} style={{ display: "flex", maxHeight: "78vh" }}>
+        {assistantMode ? (
+          <GlowFrame width={MODAL_W}>
+            <div style={{ display: "flex", flexDirection: "column", maxHeight: "78vh" }}>{inner}</div>
+          </GlowFrame>
+        ) : (
+          <div style={{
+            width: `min(${MODAL_W}px, calc(100vw - 32px))`, maxHeight: "78vh",
+            display: "flex", flexDirection: "column",
+            background: "var(--ai-modal)", borderRadius: 14,
+            border: "1px solid var(--border)", boxShadow: "var(--ai-modal-shadow)",
+            overflow: "hidden",
+          }}>
+            {inner}
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
+// Small neutral keycap hint.
+function Kbd({ children }: { children: React.ReactNode }) {
+  return (
+    <span style={{ border: "1px solid var(--kbd-border)", borderBottomWidth: 2, borderRadius: 5, padding: "2px 6px" }}>{children}</span>
+  );
+}
+
 /** Sidebar trigger button — opens the global search via a custom event
- *  that the always-mounted <GlobalSearch /> listens for. */
+ *  that the always-mounted <GlobalSearch /> listens for. Styled with the AI
+ *  sparkle language so "Ask AI" reads as an AI affordance. */
 export function GlobalSearchTrigger({ collapsed }: { collapsed: boolean }) {
   function openSearch() {
     document.dispatchEvent(new Event("open-global-search"));
@@ -1153,21 +1040,21 @@ export function GlobalSearchTrigger({ collapsed }: { collapsed: boolean }) {
       onClick={openSearch}
       title="Ask AI (⌘K)"
       style={{
-        display: "flex", alignItems: "center", gap: 8,
+        display: "flex", alignItems: "center", gap: 9,
         width: "100%", padding: collapsed ? "8px" : "8px 10px",
-        background: "linear-gradient(90deg, rgba(139,92,246,0.28), rgba(255,255,255,0.06))",
-        border: "1px solid rgba(167,139,250,0.55)",
+        background: "linear-gradient(90deg, rgba(108,76,224,0.30), rgba(177,75,230,0.14))",
+        border: "1px solid rgba(155,130,245,0.55)",
         borderRadius: 10,
         color: "#fff", cursor: "pointer",
         fontFamily: "inherit", fontSize: 13,
         justifyContent: collapsed ? "center" : "flex-start",
       }}
     >
-      <span style={{ fontSize: 14, flexShrink: 0, lineHeight: 1 }}>✨</span>
+      <span aria-hidden style={{ fontSize: 14, flexShrink: 0, lineHeight: 1 }}>✦</span>
       {!collapsed && (
         <>
           <span style={{ fontWeight: 600 }}>Ask AI</span>
-          <span style={{ marginLeft: "auto", fontSize: 11, opacity: 0.6, border: "1px solid rgba(255,255,255,0.25)", borderRadius: 5, padding: "1px 5px" }}>⌘K</span>
+          <span style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 11, opacity: 0.7, border: "1px solid rgba(255,255,255,0.25)", borderRadius: 5, padding: "1px 5px" }}>⌘K</span>
         </>
       )}
     </button>
