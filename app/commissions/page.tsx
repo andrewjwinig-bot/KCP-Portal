@@ -1,5 +1,6 @@
 "use client";
 
+import LoadingState from "@/app/components/LoadingState";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import * as XLSX from "xlsx";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
@@ -596,7 +597,7 @@ export default function CommissionsPage() {
         </div>
 
         {loading ? (
-          <div className="muted small">Loading…</div>
+          <LoadingState card={false} status="Loading commissions…" rows={4} />
         ) : entries.length === 0 ? (
           <div className="muted small">No commission entries yet. Add one above.</div>
         ) : (() => {

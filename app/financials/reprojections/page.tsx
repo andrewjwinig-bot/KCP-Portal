@@ -1,4 +1,5 @@
 "use client";
+import LoadingState from "@/app/components/LoadingState";
 
 // Reprojections — the blended full-year forecast: actuals for the months we
 // have, budget for the rest. Mirrors the Operating Budgets page chrome (header
@@ -248,7 +249,7 @@ export default function ReprojectionsPage() {
         )}
       </div>
 
-      {loading && <div className="card"><div className="muted small">Loading…</div></div>}
+      {loading && <LoadingState status="Loading full-year figures…" columns={4} rows={4} />}
       {!loading && !data && <div className="card"><div className="muted small">Select a property and year.</div></div>}
       {!loading && data && <ReprojTable data={data} view={view} noteFor={noteFor} osHref={osHref} />}
     </main>

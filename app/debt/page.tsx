@@ -1,5 +1,6 @@
 "use client";
 
+import LoadingState from "@/app/components/LoadingState";
 import { Fragment, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
@@ -211,7 +212,7 @@ function DebtPageInner() {
       {/* Loan table */}
       <div className="card" style={{ marginTop: 14 }}>
         {loading ? (
-          <p className="muted">Loading loans…</p>
+          <LoadingState card={false} status="Loading loans…" columns={4} rows={4} />
         ) : totalVisible === 0 ? (
           <p className="muted">No loans yet.</p>
         ) : (

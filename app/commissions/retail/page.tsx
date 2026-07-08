@@ -1,5 +1,6 @@
 "use client";
 
+import LoadingState from "@/app/components/LoadingState";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import type { RentRollData } from "../../../lib/rentroll/parseRentRollExcel";
@@ -421,7 +422,7 @@ export default function RetailCommissionsPage() {
         </div>
 
         {loading ? (
-          <div className="muted small">Loading…</div>
+          <LoadingState card={false} status="Loading retail commissions…" rows={4} />
         ) : entries.length === 0 ? (
           <div className="muted small">No commission entries yet. Add one above.</div>
         ) : (() => {

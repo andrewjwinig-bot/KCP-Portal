@@ -1,4 +1,5 @@
 "use client";
+import LoadingState from "@/app/components/LoadingState";
 
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -910,7 +911,7 @@ function BaseYearBreakdown({
       </p>
 
       {!rrProp ? (
-        <p className="muted small">Loading rent roll…</p>
+        <LoadingState card={false} status="Loading expense history…" columns={4} rows={4} />
       ) : !latestYear ? (
         <p className="muted small">No expense history available for this building.</p>
       ) : groups.length === 0 ? (

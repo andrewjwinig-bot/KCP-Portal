@@ -1,4 +1,5 @@
 "use client";
+import LoadingState from "@/app/components/LoadingState";
 
 import { useEffect, useState } from "react";
 import * as XLSX from "xlsx";
@@ -134,7 +135,7 @@ export default function ExpenseHistoryPage() {
           Saved statements for reference. Use &ldquo;Save to History&rdquo; on the Expense Coder page to archive each statement.
         </div>
 
-        {loading && <div className="small muted">Loading…</div>}
+        {loading && <LoadingState card={false} status="Loading saved statements…" rows={4} />}
 
         {!loading && statements.length === 0 && (
           <div className="small muted" style={{ padding: "20px 0" }}>

@@ -89,9 +89,12 @@ export type LoadingStateProps = {
   columns?: number;
   /** Whether to render the heavier subtotal row (default true). */
   subtotal?: boolean;
+  /** Render the card chrome (border + shadow). Set false when embedding inside
+   *  an existing card so the loader doesn't nest a card in a card. */
+  card?: boolean;
 };
 
-export default function LoadingState({ status, context, rows = 3, columns = 3, subtotal = true }: LoadingStateProps) {
+export default function LoadingState({ status, context, rows = 3, columns = 3, subtotal = true, card = true }: LoadingStateProps) {
   const gridTemplate = `1fr ${Array(columns).fill("120px").join(" ")}`;
   const rowStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: gridTemplate, gap: 16, alignItems: "center" };
   // Varying label widths so the rows don't look mechanically identical.
@@ -103,10 +106,10 @@ export default function LoadingState({ status, context, rows = 3, columns = 3, s
       aria-live="polite"
       aria-busy="true"
       style={{
-        background: "var(--load-card)",
-        border: "1px solid var(--load-card-border)",
+        background: card ? "var(--load-card)" : "transparent",
+        border: card ? "1px solid var(--load-card-border)" : "none",
         borderRadius: 12,
-        boxShadow: "var(--load-card-shadow)",
+        boxShadow: card ? "var(--load-card-shadow)" : "none",
         overflow: "hidden",
       }}
     >

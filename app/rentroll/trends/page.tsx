@@ -1,4 +1,5 @@
 "use client";
+import LoadingState from "@/app/components/LoadingState";
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
@@ -274,7 +275,7 @@ export default function TrendsPage() {
         </div>
 
         {loading ? (
-          <div className="muted small">Loading…</div>
+          <LoadingState card={false} status="Loading occupancy trends…" rows={4} />
         ) : visibleSnapshots.length === 0 ? (
           <div className="muted small">No rent roll history in this window. Adjust the horizon or upload a rent roll.</div>
         ) : (
