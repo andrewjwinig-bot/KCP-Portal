@@ -49,7 +49,8 @@ function applyCategory(properties: any[], category: string): any[] {
   if (category === "All") return properties;
   return properties.filter((p) => {
     const c = String(p.propertyCode).toUpperCase();
-    if (category === "Office")           return CATEGORY_OFFICE_CODES.has(c);
+    // The Office report includes The Office Works (4900) alongside JV III + NI LLC.
+    if (category === "Office")           return CATEGORY_OFFICE_CODES.has(c) || CATEGORY_OW_CODES.has(c);
     if (category === "Retail")           return CATEGORY_RETAIL_CODES.has(c);
     if (category === "Residential")      return CATEGORY_RESIDENTIAL_CODES.has(c);
     if (category === "The Office Works") return CATEGORY_OW_CODES.has(c);

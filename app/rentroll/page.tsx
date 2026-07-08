@@ -1363,7 +1363,15 @@ export default function RentRollPage() {
       if (isHistorical) {
         requestBody.month = reportMonth;
       } else {
-        requestBody.properties = categoryRentroll!.properties;
+        let reportProps = categoryRentroll!.properties;
+        // The Office status report also includes The Office Works (4900), even
+        // though 4900 is its own category tab elsewhere.
+        if (categoryFilter === "Office") {
+          const has4900 = reportProps.some((p) => p.propertyCode.toUpperCase() === "4900");
+          const ow = filteredRentroll!.properties.find((p) => p.propertyCode.toUpperCase() === "4900");
+          if (ow && !has4900) reportProps = [...reportProps, ow];
+        }
+        requestBody.properties = reportProps;
         requestBody.reportFrom = filteredRentroll!.reportFrom;
       }
       const res = await fetch("/api/status-report", {
