@@ -1045,7 +1045,7 @@ export function GlobalSearchTrigger({ collapsed }: { collapsed: boolean }) {
       onMouseEnter={(e) => { e.currentTarget.style.boxShadow = hoverGlow; }}
       onMouseLeave={(e) => { e.currentTarget.style.boxShadow = restGlow; }}
       style={{
-        display: "flex", alignItems: "center", justifyContent: "center",
+        display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
         width: "100%", padding: collapsed ? "9px 6px" : "10px 12px",
         // Violet gradient rim over an opaque dark fill + a slight glow — the
         // reusable "there is AI here" treatment. The fill must be opaque or the
@@ -1059,7 +1059,9 @@ export function GlobalSearchTrigger({ collapsed }: { collapsed: boolean }) {
         transition: "box-shadow 0.18s ease",
       }}
     >
-      {collapsed ? "AI" : "Ask AI"}
+      {/* Gradient sparkle — the AI signature indicator. */}
+      <span aria-hidden style={{ flexShrink: 0, lineHeight: 1, fontSize: 14, background: "linear-gradient(135deg, #B7A6FF, #E0A9FF)", WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent" }}>✦</span>
+      {!collapsed && <span>Ask AI</span>}
     </button>
   );
 }
