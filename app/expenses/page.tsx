@@ -763,6 +763,15 @@ export default function ExpensesPage() {
     return p ? p.name : propId;
   }
 
+  // Harry's reimbursement (full statement total, per-property lines) — reused by
+  // the reimbursement invoice PDF and the TOP SHEET note.
+  function reimbursementForBatch() {
+    const lines = invoiceGroups.map((ig) => ({ label: `${ig.propId} · ${propName(ig.propId)}`, amount: ig.total }));
+    const total = Math.round(invoiceGroups.reduce((a, ig) => a + ig.total, 0) * 100) / 100;
+    return { lines, total };
+  }
+  const periodCompactStr = (statementStart && effectiveEnd) ? `${formatDateCompact(statementStart)}-${formatDateCompact(effectiveEnd)}` : undefined;
+
   async function saveStatement() {
     const coded = tx.filter((t) => Number(t.amount) > 0).filter(isRowCoded);
     if (!coded.length) { alert("No coded transactions to save."); return; }
@@ -789,14 +798,18 @@ export default function ExpensesPage() {
     if (!confirm(`Generate ${billingGroups.length} property invoice${billingGroups.length !== 1 ? "s" : ""} + TOP SHEET as a ZIP?${onHoldGroups.length ? `\n\n${onHoldGroups.length} propert${onHoldGroups.length === 1 ? "y is" : "ies are"} held under $${CARRYOVER_THRESHOLD} and excluded.` : ""}`)) return;
     const zip = new JSZip();
     const filenameMonth = statementMonth || "Statement";
+    const reimb = reimbursementForBatch();
     let summaryBlob: Blob | null = null;
     if (effectiveExpandedCoded.length) {
-      summaryBlob = buildTopSheetXlsx({
+      summaryBlob = await buildTopSheetXlsx({
         statementPeriodText: statementPeriodText || "",
         statementMonth: statementMonth || "",
+        periodCompact: periodCompactStr,
+        processedBy: user.label,
         tx: effectiveExpandedCoded.map((t: any) => ({ date: t.date, cardMember: t.cardMember, description: t.description, codedDescription: t.codedDescription, amount: t.amount, originalAmount: t.originalAmount, category: t.category, propertyId: t.propertyId, propertyName: propName(t.propertyId), suite: t.suite } as TopSheetTx)),
         propertyOrder: properties.map((p) => ({ id: p.id, name: p.name })),
         categoryOrder: [...TOP_SHEET_CATEGORIES],
+        reimbursement: isHarry ? { vendorCode: "HARRY", payeeName: "Harry Feldman", total: reimb.total } : undefined,
       });
       zip.file(`${filenameMonth} - TOP SHEET.xlsx`, summaryBlob);
     }
@@ -847,18 +860,16 @@ export default function ExpensesPage() {
     // Harry fronts the whole statement — cut one reimbursement invoice for the
     // full statement total (the sum of every property's charges), payable to him.
     if (isHarry && invoiceGroups.length) {
-      const reimbLines = invoiceGroups.map((ig) => ({ label: `${ig.propId} · ${propName(ig.propId)}`, amount: ig.total }));
-      const reimbTotal = Math.round(invoiceGroups.reduce((a, ig) => a + ig.total, 0) * 100) / 100;
       const reimbBlob = buildReimbursementInvoicePdf({
         payeeName: "Harry Feldman",
         payeeVendorCode: "HARRY",
         statementMonth: statementMonth || "",
         invoiceDate: invoiceDate || "",
         periodText: statementPeriodText || "",
-        periodCompact: (statementStart && effectiveEnd) ? `${formatDateCompact(statementStart)}-${formatDateCompact(effectiveEnd)}` : undefined,
+        periodCompact: periodCompactStr,
         invoiceId: makeInvoiceId("REIMB"),
-        lines: reimbLines,
-        total: reimbTotal,
+        lines: reimb.lines,
+        total: reimb.total,
       });
       zip.file(`${filenameMonth} - REIMBURSEMENT - Harry Feldman.pdf`, reimbBlob);
     }
@@ -968,15 +979,19 @@ export default function ExpensesPage() {
     if (r) download(r.filename, r.blob);
   }
 
-  function downloadExcelSummary() {
+  async function downloadExcelSummary() {
     if (!effectiveExpandedCoded.length) return;
     const filenameMonth = statementMonth || "Statement";
-    const blob = buildTopSheetXlsx({
+    const reimb = reimbursementForBatch();
+    const blob = await buildTopSheetXlsx({
       statementPeriodText: statementPeriodText || "",
       statementMonth: statementMonth || "",
+      periodCompact: periodCompactStr,
+      processedBy: user.label,
       tx: effectiveExpandedCoded.map((t: any) => ({ date: t.date, cardMember: t.cardMember, description: t.description, codedDescription: t.codedDescription, amount: t.amount, originalAmount: t.originalAmount, category: t.category, propertyId: t.propertyId, propertyName: propName(t.propertyId), suite: t.suite } as TopSheetTx)),
       propertyOrder: properties.map((p) => ({ id: p.id, name: p.name })),
       categoryOrder: [...TOP_SHEET_CATEGORIES],
+      reimbursement: isHarry ? { vendorCode: "HARRY", payeeName: "Harry Feldman", total: reimb.total } : undefined,
     });
     download(`${filenameMonth} - TOP SHEET.xlsx`, blob);
   }
