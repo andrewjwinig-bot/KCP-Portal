@@ -118,8 +118,8 @@ function buildCols(hideNNN: boolean, showBaseYear: boolean): ColDef[] {
       { header: "Lease From",   width: 60,  align: "left"  },
       { header: "Lease To",     width: 60,  align: "left"  },
       ...(showBaseYear ? [{ header: "B/Y", width: 30, align: "right" as const }] : []),
-      { header: "Base Rent/mo", width: 75,  align: "right" },
       { header: "Annual $/sf",  width: 55,  align: "right" },
+      { header: "Base Rent/mo", width: 75,  align: "right" },
       { header: "Gross/mo",     width: 75,  align: "right" },
     ];
   }
@@ -130,8 +130,8 @@ function buildCols(hideNNN: boolean, showBaseYear: boolean): ColDef[] {
     { header: "Lease From",   width: 56,  align: "left"  },
     { header: "Lease To",     width: 56,  align: "left"  },
     ...(showBaseYear ? [{ header: "B/Y", width: 28, align: "right" as const }] : []),
-    { header: "Base Rent/mo", width: 62,  align: "right" },
     { header: "Annual $/sf",  width: 50,  align: "right" },
+    { header: "Base Rent/mo", width: 62,  align: "right" },
     { header: "CAM/mo",       width: 50,  align: "right" },
     { header: "RET/mo",       width: 50,  align: "right" },
     { header: "Other/mo",     width: 50,  align: "right" },
