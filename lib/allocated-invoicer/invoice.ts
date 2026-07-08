@@ -227,7 +227,7 @@ export function buildAllocInvoicePdf(args: BuildAllocInvoicePdfArgs): Blob {
     const accName = group[0]?.accountName ?? "";
 
     // Keep an account's rows + its subtotal together on one page.
-    const blockH = group.length * rowH + subRowH + 4;
+    const blockH = group.length * rowH + subRowH + 13;
     if (y + blockH > pageH - bottomMgn) pageBreak();
 
     // The per-suffix rows (9301, 9303, …) are reference detail — muted — and
@@ -263,7 +263,13 @@ export function buildAllocInvoicePdf(args: BuildAllocInvoicePdfArgs): Blob {
     doc.setFontSize(11.5);
     doc.text(toMoney(groupTotal), xAmount + colAmount - 6, y + 15, { align: "right" });
     doc.setTextColor(0, 0, 0);
-    y += subRowH + 4;
+    y += subRowH;
+
+    // Divider + whitespace between account groups so each account's block is
+    // easy to read and code.
+    doc.setDrawColor(190, 190, 190);
+    doc.line(margin, y + 6, margin + contentW, y + 6);
+    y += 13;
   }
 
   // Footer / TOTAL box on last page
