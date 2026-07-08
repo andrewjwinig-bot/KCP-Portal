@@ -21,6 +21,11 @@ const ACTUAL_EDGE = "2px solid rgba(21,128,61,0.5)";
 
 // line + 12 months + Full Year + Ann Bud + Var = 100%
 const COL = { line: 17, month: 5, full: 9, bud: 7, varc: 7 };
+// Actuals-only mode drops the Ann Bud + Var columns: line + 12 months + Total.
+const COL_ACT = { line: 17, month: 5, full: 23 };
+
+type Mode = "reproject" | "actuals";
+const sum = (a: number[]) => a.reduce((x, y) => x + y, 0);
 
 type Totals = { actual: number[]; budget: number[]; blended: number[]; reprojTotal: number; budgetTotal: number; variance: number | null };
 type Line = { label: string; mask: string } & Totals;
@@ -102,6 +107,10 @@ export default function ReprojectionsPage() {
   const [psf, setPsf] = useState(false);
   const [hideEmpty, setHideEmpty] = useState(true);
   const [showGL, setShowGL] = useState(false);
+  // "reproject" = actuals blended with budget for the rest of the year (+ Ann
+  // Bud / Var columns). "actuals" = a clean full-year-actuals statement: every
+  // month's real GL figure in its own column + a Full Year total, no budget.
+  const [mode, setMode] = useState<Mode>("reproject");
 
   useEffect(() => {
     fetch("/api/financials/reprojections").then((r) => r.json()).then((j) => {
@@ -112,6 +121,8 @@ export default function ReprojectionsPage() {
       const wantKey = params.get("key");
       const wantProp = params.get("property");
       const wantYear = params.get("year");
+      // Deep-linked "Full Year" entry point from Operating Statements.
+      if (params.get("mode") === "actuals") setMode("actuals");
       const match = wantKey ? av.find((a) => a.key === wantKey) : wantProp ? av.find((a) => a.propertyCode === wantProp) : null;
       if (match) {
         setKey(match.key);
@@ -145,23 +156,29 @@ export default function ReprojectionsPage() {
   const yearOptions = cur?.years.length ? cur.years : [year || new Date().getFullYear()];
   const sqft = PROPERTY_DEFS.find((p) => p.id === key)?.sqft ?? 0;
   const through = data?.actualThroughMonth ?? 0;
-  const view: ViewOpts = { psf, sqft, hideEmpty, showGL, through };
+  const view: ViewOpts = { psf, sqft, hideEmpty, showGL, through, mode };
+  const actuals = mode === "actuals";
   const osHref = key && year ? `/financials/operating-statements?key=${encodeURIComponent(key)}&year=${year}` : "#";
   const budgetHref = cur && year ? `/financials/budgets?property=${encodeURIComponent(cur.propertyCode)}&year=${year}` : "#";
   const noteFor = (lineKey: string) => (notes[lineKey] ? { note: notes[lineKey], ai: noteSources[lineKey] === "ai" } : null);
   const crossLink: React.CSSProperties = { fontSize: 12, padding: "5px 11px", fontWeight: 700, textDecoration: "none" };
 
-  const pills = data ? [
+  const pills = data ? (actuals ? [
+    { key: "rev", label: "Actual Revenue", value: money(sum(data.rollups.totalRevenues.actual)) },
+    { key: "noi", label: "Actual NOI", value: money(sum(data.rollups.netOperatingIncome.actual)) },
+    { key: "cf", label: "Actual Cash Flow", value: money(sum(data.rollups.cashFlowAfterDebtService.actual)) },
+    { key: "thru", label: through >= 12 ? "Full Year" : "Actuals Through", value: through > 0 ? (through >= 12 ? "Jan–Dec" : `Jan–${MONTHS[through - 1]}`) : "—" },
+  ] : [
     { key: "rev", label: "Reprojected Revenue", value: money(data.rollups.totalRevenues.reprojTotal) },
     { key: "noi", label: "Reprojected NOI", value: money(data.rollups.netOperatingIncome.reprojTotal) },
     { key: "cf", label: "Reprojected Cash Flow", value: money(data.rollups.cashFlowAfterDebtService.reprojTotal) },
     { key: "noivar", label: "NOI vs Budget", value: money(data.rollups.netOperatingIncome.variance ?? 0), accent: varColor(data.rollups.netOperatingIncome.variance) },
     { key: "thru", label: "Actuals Through", value: through > 0 ? MONTHS[through - 1] : "—" },
-  ] : [];
+  ]) : [];
 
   return (
     <main style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      <h1>Reprojections</h1>
+      <h1>{actuals ? "Full-Year Actuals" : "Reprojections"}</h1>
 
       {/* Header card — title selectors + meta + toggles + KPI pills, like Budgets. */}
       <div className="card">
@@ -192,19 +209,32 @@ export default function ReprojectionsPage() {
           </div>
         </div>
 
-        <div style={{ marginTop: 8, display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11 }}>
-          <span style={{ width: 12, height: 12, background: ACTUAL_TINT, border: "1px solid rgba(21,128,61,0.4)", borderRadius: 2, display: "inline-block" }} /> Actual
-          <span style={{ width: 12, height: 12, border: "1px solid var(--border)", borderRadius: 2, display: "inline-block", marginLeft: 8 }} /> Budget
-          <span className="muted" style={{ marginLeft: 12 }}>📝 hover a line&apos;s note for the variance explanation (click → Operating Statements)</span>
-        </div>
+        {!actuals && (
+          <div style={{ marginTop: 8, display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11 }}>
+            <span style={{ width: 12, height: 12, background: ACTUAL_TINT, border: "1px solid rgba(21,128,61,0.4)", borderRadius: 2, display: "inline-block" }} /> Actual
+            <span style={{ width: 12, height: 12, border: "1px solid var(--border)", borderRadius: 2, display: "inline-block", marginLeft: 8 }} /> Budget
+            <span className="muted" style={{ marginLeft: 12 }}>📝 hover a line&apos;s note for the variance explanation (click → Operating Statements)</span>
+          </div>
+        )}
 
         <div style={{ marginTop: 6, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
           <div className="muted small">
-            Blends actuals {through > 0 ? <>(Jan–{MONTHS[through - 1]})</> : "(none yet)"} with budget{through < 12 ? <> ({MONTHS[Math.min(through, 11)]}–Dec)</> : ""} for the full year.
-            {budgetYear ? <> Budget: FY {budgetYear}{budgetFallback ? " (nearest)" : ""}.</> : <> No budget for this property.</>}
-            {!hasGl && <> No GL uploaded — projecting from budget.</>}
+            {actuals ? (
+              <>
+                Every month&apos;s actual GL figure {through > 0 ? <>(Jan–{MONTHS[Math.min(through, 12) - 1]})</> : "(none yet)"} + a Full Year total.
+                {through < 12 && through > 0 && <> {MONTHS[through]}–Dec not yet imported.</>}
+                {!hasGl && <> No GL uploaded for this property/year yet.</>}
+              </>
+            ) : (
+              <>
+                Blends actuals {through > 0 ? <>(Jan–{MONTHS[through - 1]})</> : "(none yet)"} with budget{through < 12 ? <> ({MONTHS[Math.min(through, 11)]}–Dec)</> : ""} for the full year.
+                {budgetYear ? <> Budget: FY {budgetYear}{budgetFallback ? " (nearest)" : ""}.</> : <> No budget for this property.</>}
+                {!hasGl && <> No GL uploaded — projecting from budget.</>}
+              </>
+            )}
           </div>
           <div style={{ display: "inline-flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+            <SegToggle label="Show" leftLabel="Reproject" rightLabel="Actuals" leftActive={!actuals} onLeft={() => setMode("reproject")} onRight={() => setMode("actuals")} />
             <SegToggle label="View" leftLabel="Total" rightLabel="$/SF" leftActive={!psf} onLeft={() => setPsf(false)} onRight={() => setPsf(true)} disabled={sqft <= 0} />
             <SegToggle label="Empty rows" leftLabel="Hide" rightLabel="Show" leftActive={hideEmpty} onLeft={() => setHideEmpty(true)} onRight={() => setHideEmpty(false)} />
             <SegToggle label="GL" leftLabel="Hide" rightLabel="Show" leftActive={!showGL} onLeft={() => setShowGL(false)} onRight={() => setShowGL(true)} />
@@ -225,9 +255,10 @@ export default function ReprojectionsPage() {
   );
 }
 
-type ViewOpts = { psf: boolean; sqft: number; hideEmpty: boolean; showGL: boolean; through: number };
+type ViewOpts = { psf: boolean; sqft: number; hideEmpty: boolean; showGL: boolean; through: number; mode: Mode };
 
-function lineEmpty(t: Totals): boolean {
+function lineEmpty(t: Totals, mode: Mode): boolean {
+  if (mode === "actuals") return isZero(sum(t.actual));
   return isZero(t.reprojTotal) && isZero(t.budgetTotal);
 }
 
@@ -240,7 +271,7 @@ function ReprojTable({ data, view, noteFor, osHref }: { data: Reprojection; view
   const expenseSecs = byRole(["reimbursable-expense", "non-reimbursable-expense", "residential-expense"]);
   const capitalSecs = byRole(["capital"]);
   const debtSecs = byRole(["debt-service"]);
-  const groupHasActivity = (secs: Section[]) => secs.some((s) => s.lines.some((l) => !lineEmpty(l)) || !lineEmpty(s.subtotal));
+  const groupHasActivity = (secs: Section[]) => secs.some((s) => s.lines.some((l) => !lineEmpty(l, view.mode)) || !lineEmpty(s.subtotal, view.mode));
   const showCapital = capitalSecs.length > 0 && (!view.hideEmpty || groupHasActivity(capitalSecs));
   const showDebt = debtSecs.length > 0 && (!view.hideEmpty || groupHasActivity(debtSecs));
 
@@ -282,16 +313,17 @@ function ReprojTable({ data, view, noteFor, osHref }: { data: Reprojection; view
   );
 }
 
-function Colgroup({ through }: { through: number }) {
+function Colgroup({ through, mode }: { through: number; mode: Mode }) {
+  const actuals = mode === "actuals";
   return (
     <colgroup>
-      <col style={{ width: `${COL.line}%` }} />
+      <col style={{ width: `${(actuals ? COL_ACT : COL).line}%` }} />
       {MONTHS.map((m, i) => (
-        <col key={m} style={{ width: `${COL.month}%`, background: i < through ? ACTUAL_TINT : i % 2 === 0 ? MONTH_TINT : undefined }} />
+        <col key={m} style={{ width: `${(actuals ? COL_ACT : COL).month}%`, background: i < through ? ACTUAL_TINT : actuals ? undefined : i % 2 === 0 ? MONTH_TINT : undefined }} />
       ))}
-      <col style={{ width: `${COL.full}%` }} />
-      <col style={{ width: `${COL.bud}%` }} />
-      <col style={{ width: `${COL.varc}%` }} />
+      <col style={{ width: `${(actuals ? COL_ACT : COL).full}%` }} />
+      {!actuals && <col style={{ width: `${COL.bud}%` }} />}
+      {!actuals && <col style={{ width: `${COL.varc}%` }} />}
     </colgroup>
   );
 }
@@ -299,27 +331,35 @@ function Colgroup({ through }: { through: number }) {
 const td: React.CSSProperties = { textAlign: "right", fontVariantNumeric: "tabular-nums", fontSize: 12.5 };
 
 function figureCells(t: Totals, view: ViewOpts, opts: { bold?: boolean; color?: string } = {}) {
-  const { psf, sqft, through } = view;
+  const { psf, sqft, through, mode } = view;
+  const actuals = mode === "actuals";
+  // Actuals mode shows the real per-month figure and a Full Year = sum of
+  // actuals; only imported months carry a value (later months read blank).
+  const cells = actuals ? t.actual : t.blended;
+  const totalVal = actuals ? sum(t.actual) : t.reprojTotal;
   return (
     <>
-      {t.blended.map((v, i) => (
+      {cells.map((v, i) => (
         <td key={i} style={{
           ...td,
           fontWeight: opts.bold ? 800 : undefined,
           borderLeft: i === through && through > 0 ? ACTUAL_EDGE : undefined,
           color: opts.color ?? (v < 0 ? "#b91c1c" : i < through ? "var(--text)" : "var(--muted)"),
-        }}>{money(v, psf, sqft)}</td>
+        }}>{actuals && i >= through ? "" : money(v, psf, sqft)}</td>
       ))}
-      <td style={{ ...td, borderLeft: "1px solid var(--border)", fontSize: opts.bold ? 14 : 13, fontWeight: 900, color: opts.color ?? BRAND }}>{money(t.reprojTotal, psf, sqft)}</td>
-      <td style={{ ...td, fontWeight: opts.bold ? 800 : undefined, color: opts.color ?? "var(--muted)" }}>{money(t.budgetTotal, psf, sqft)}</td>
-      <td style={{ ...td, fontWeight: 800, color: opts.color ?? varColor(t.variance) }} title={fmtVarPct(t.variance, t.budgetTotal)}>
-        {t.variance == null ? "—" : money(t.variance, psf, sqft)}
-      </td>
+      <td style={{ ...td, borderLeft: "1px solid var(--border)", fontSize: opts.bold ? 14 : 13, fontWeight: 900, color: opts.color ?? BRAND }}>{money(totalVal, psf, sqft)}</td>
+      {!actuals && <td style={{ ...td, fontWeight: opts.bold ? 800 : undefined, color: opts.color ?? "var(--muted)" }}>{money(t.budgetTotal, psf, sqft)}</td>}
+      {!actuals && (
+        <td style={{ ...td, fontWeight: 800, color: opts.color ?? varColor(t.variance) }} title={fmtVarPct(t.variance, t.budgetTotal)}>
+          {t.variance == null ? "—" : money(t.variance, psf, sqft)}
+        </td>
+      )}
     </>
   );
 }
 
-function HeaderRow({ through }: { through: number }) {
+function HeaderRow({ through, mode }: { through: number; mode: Mode }) {
+  const actuals = mode === "actuals";
   return (
     <tr>
       <th>Line</th>
@@ -327,22 +367,22 @@ function HeaderRow({ through }: { through: number }) {
         <th key={m} style={{ textAlign: "right", borderLeft: i === through && through > 0 ? ACTUAL_EDGE : undefined }}>{m}</th>
       ))}
       <th style={{ textAlign: "right", borderLeft: "1px solid var(--border)", color: BRAND }}>Full Year</th>
-      <th style={{ textAlign: "right" }}>Ann Bud</th>
-      <th style={{ textAlign: "right" }}>Var</th>
+      {!actuals && <th style={{ textAlign: "right" }}>Ann Bud</th>}
+      {!actuals && <th style={{ textAlign: "right" }}>Var</th>}
     </tr>
   );
 }
 
 function SectionCard({ sec, view, noteFor, osHref, hideSubtotal }: { sec: Section; view: ViewOpts; noteFor: NoteFor; osHref: string; hideSubtotal?: boolean }) {
-  const lines = view.hideEmpty ? sec.lines.filter((l) => !lineEmpty(l)) : sec.lines;
+  const lines = view.hideEmpty ? sec.lines.filter((l) => !lineEmpty(l, view.mode)) : sec.lines;
   if (lines.length === 0 && view.hideEmpty) return null;
   return (
     <div className="card" style={{ padding: 0 }}>
       <div style={{ padding: "10px 14px", borderBottom: "1px solid var(--border)", background: "rgba(15,23,42,0.03)", fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase" }}>{sec.name}</div>
       <div className="tableWrap">
         <table style={{ tableLayout: "fixed", width: "100%", minWidth: 1180 }}>
-          <Colgroup through={view.through} />
-          <thead><HeaderRow through={view.through} /></thead>
+          <Colgroup through={view.through} mode={view.mode} />
+          <thead><HeaderRow through={view.through} mode={view.mode} /></thead>
           <tbody>
             {lines.map((l) => {
               const n = noteFor(`${sec.name}::${l.label}`);
@@ -379,7 +419,7 @@ function SubtotalCard({ label, t, view, strong }: { label: string; t: Totals; vi
     <div className="card" style={{ padding: 0, borderColor: BRAND, background: strong ? "rgba(11,74,125,0.06)" : "rgba(11,74,125,0.04)" }}>
       <div className="tableWrap" style={{ marginTop: 0 }}>
         <table style={{ tableLayout: "fixed", width: "100%", minWidth: 1180 }}>
-          <Colgroup through={view.through} />
+          <Colgroup through={view.through} mode={view.mode} />
           <tbody>
             <tr style={{ fontWeight: 800 }}>
               <td style={{ fontSize: strong ? 14 : 13, fontWeight: 900, letterSpacing: "0.04em", textTransform: "uppercase", color: BRAND, verticalAlign: "middle", borderBottom: "none" }}>{label}</td>
