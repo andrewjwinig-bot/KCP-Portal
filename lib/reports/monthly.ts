@@ -142,14 +142,15 @@ export async function buildMonthlyReport(year: number, month: number, now: Date)
   for (const l of newLeases) groups[l.group].newLeases += 1;
   for (const l of vacated) groups[l.group].vacated += 1;
 
-  // ── Expirations in the next 90 days ──
+  // ── Lease-ends in the window: expired in the last 60 days … expiring in the
+  //    next 90. The Monthly Review surfaces these as one movement section. ──
   const expirations: Expiration[] = [];
   if (roll) {
     for (const prop of roll.properties ?? []) for (const u of prop.units ?? []) {
       if (u.isVacant || u.amenity || !u.occupantName || !u.leaseTo) continue;
       const d = parseUSDate(u.leaseTo); if (!d) continue;
       const days = Math.round((d.getTime() - now.getTime()) / 86400000);
-      if (days >= -30 && days <= 90) expirations.push({ propertyCode: prop.propertyCode, group: groupOf(prop.propertyCode), unitRef: u.unitRef, tenant: u.occupantName, sqft: u.sqft ?? 0, leaseTo: u.leaseTo, days });
+      if (days >= -60 && days <= 90) expirations.push({ propertyCode: prop.propertyCode, group: groupOf(prop.propertyCode), unitRef: u.unitRef, tenant: u.occupantName, sqft: u.sqft ?? 0, leaseTo: u.leaseTo, days });
     }
     expirations.sort((a, b) => a.days - b.days);
   }

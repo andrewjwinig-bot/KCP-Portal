@@ -5,7 +5,7 @@
 // Other. Rendered both as the standalone /reports/monthly page (for a clean
 // Print/PDF) and folded into the Dashboard (embedded) for finance users.
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState, type CSSProperties } from "react";
 import Link from "next/link";
 import { StatPill } from "@/app/components/Pill";
 import LoadingState from "@/app/components/LoadingState";
@@ -242,12 +242,14 @@ export default function MonthlyReviewPanel({ embedded = false }: { embedded?: bo
             })}
           </div>
 
-          {/* ── Leasing highlights ── */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 14 }}>
-            <HighlightCard title="New Leases" accent={GREEN} rows={report.newLeases.map((l) => ({ left: l.tenant, mid: `${l.propertyCode} · ${l.unitRef}`, right: `${sf(l.sqft)} sf` }))} empty="No new tenants vs last month." />
-            <HighlightCard title="Vacated" accent={RED} rows={report.vacated.map((l) => ({ left: l.tenant, mid: `${l.propertyCode} · ${l.unitRef}`, right: `${sf(l.sqft)} sf` }))} empty="No vacates vs last month." href="/cam-recon/interim" hrefLabel="Close-outs →" />
-            <HighlightCard title="Leases Expiring (90 days)" accent={AMBER} rows={report.expirations.slice(0, 8).map((e) => ({ left: e.tenant, mid: `${e.propertyCode} · ${e.unitRef}`, right: e.days < 0 ? `${Math.abs(e.days)}d ago` : `${e.days}d` }))} empty="Nothing expiring in 90 days." />
-          </div>
+          {/* ── New leases — shown only when there are any this month ── */}
+          {report.newLeases.length > 0 && (
+            <HighlightCard title="New Leases" accent={GREEN} rows={report.newLeases.map((l) => ({ left: l.tenant, mid: `${l.propertyCode} · ${l.unitRef}`, right: `${sf(l.sqft)} sf` }))} empty="" />
+          )}
+
+          {/* ── Vacating & Expiring — one detailed section: recently vacated /
+               expired (last 60 days) + vacating / expiring (next 90 days) ── */}
+          <LeaseMovement report={report} reconYear={report.year} />
 
           {/* ── Upcoming & seasonal ── */}
           {report.upcoming.length > 0 && (
@@ -294,6 +296,88 @@ function HighlightCard({ title, accent, rows, empty, href, hrefLabel }: {
               <span style={{ flexShrink: 0, fontWeight: 700, color: accent }}>{r.right}</span>
             </div>
           ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Lease-end parts from a US date string ("MM/DD/YYYY").
+function leaseToParts(s: string | null): { y: number; m: number } | null {
+  const m = s?.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  return m ? { y: Number(m[3]), m: Number(m[1]) } : null;
+}
+
+const subHead: CSSProperties = { padding: "10px 8px 4px", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "#475569" };
+function StatusPill({ text, fg, bg, bd }: { text: string; fg: string; bg: string; bd: string }) {
+  return <span style={{ fontSize: 10, fontWeight: 700, padding: "1px 8px", borderRadius: 999, background: bg, color: fg, border: `1px solid ${bd}`, whiteSpace: "nowrap" }}>{text}</span>;
+}
+
+// The consolidated leasing-movement section: recently vacated / expired (last
+// 60 days) and vacating / expiring (next 90 days), each row deep-linking to the
+// interim move-out statement — replaces the old separate Vacated + Expiring
+// mini-lists.
+function LeaseMovement({ report, reconYear }: { report: Report; reconYear: number }) {
+  type Row = { propertyCode: string; unitRef: string; tenant: string; sqft: number; leaseTo: string | null; days: number | null; status: "expiring" | "expired" | "vacated" };
+  const upcoming: Row[] = report.expirations
+    .filter((e) => e.days >= 0)
+    .map((e) => ({ propertyCode: e.propertyCode, unitRef: e.unitRef, tenant: e.tenant, sqft: e.sqft, leaseTo: e.leaseTo, days: e.days, status: "expiring" }));
+  const recent: Row[] = [
+    ...report.vacated.map((v) => ({ propertyCode: v.propertyCode, unitRef: v.unitRef, tenant: v.tenant, sqft: v.sqft, leaseTo: null as string | null, days: null as number | null, status: "vacated" as const })),
+    ...report.expirations.filter((e) => e.days < 0).map((e) => ({ propertyCode: e.propertyCode, unitRef: e.unitRef, tenant: e.tenant, sqft: e.sqft, leaseTo: e.leaseTo, days: e.days, status: "expired" as const })),
+  ].sort((a, b) => a.tenant.localeCompare(b.tenant));
+
+  const stmtHref = (r: Row) => {
+    const p = leaseToParts(r.leaseTo);
+    const y = p?.y ?? reconYear;
+    const asOf = p?.m ?? null;
+    return `/cam-recon/interim?property=${r.propertyCode}&unitRef=${encodeURIComponent(r.unitRef)}&year=${y}${asOf ? `&asOf=${asOf}` : ""}`;
+  };
+  const badge = (r: Row) =>
+    r.status === "vacated" ? <StatusPill text="Vacated" fg="#b91c1c" bg="rgba(220,38,38,0.1)" bd="rgba(220,38,38,0.35)" />
+    : r.status === "expired" ? <StatusPill text={`Expired ${Math.abs(r.days ?? 0)}d ago`} fg="#b91c1c" bg="rgba(220,38,38,0.1)" bd="rgba(220,38,38,0.35)" />
+    : <StatusPill text={`Expires in ${r.days}d`} fg="#b45309" bg="rgba(180,83,9,0.1)" bd="rgba(180,83,9,0.35)" />;
+
+  const renderRows = (rows: Row[]) => rows.map((r, i) => (
+    <tr key={`${r.status}-${r.unitRef}-${i}`}>
+      <td style={{ fontWeight: 600 }}>{r.tenant}</td>
+      <td className="muted small">{r.propertyCode}</td>
+      <td><code style={{ fontSize: 11 }}>{r.unitRef}</code></td>
+      <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{r.sqft ? sf(Math.round(r.sqft)) : "—"}</td>
+      <td className="muted small" style={{ whiteSpace: "nowrap" }}>{r.leaseTo ?? "—"}</td>
+      <td style={{ textAlign: "center" }}>{badge(r)}</td>
+      <td style={{ textAlign: "right" }}><Link href={stmtHref(r)} className="noprint" style={{ color: "#0b4a7d", fontWeight: 600, fontSize: 12, textDecoration: "none", whiteSpace: "nowrap" }}>Statement →</Link></td>
+    </tr>
+  ));
+
+  const total = upcoming.length + recent.length;
+  return (
+    <div className="card">
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: 8, flexWrap: "wrap" }}>
+        <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "#0b4a7d" }}>
+          Vacating &amp; Expiring <span className="muted" style={{ fontWeight: 600, textTransform: "none", letterSpacing: 0 }}>· recently vacated (60d) + expiring (90d)</span>
+        </div>
+        <Link href="/rentroll/leasing" className="noprint muted small" style={{ color: "#0b4a7d", fontWeight: 600, textDecoration: "none" }}>Leasing activity →</Link>
+      </div>
+      {total === 0 ? (
+        <div className="muted small">No tenants vacating, recently vacated, or expiring in the window.</div>
+      ) : (
+        <div className="tableWrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Tenant</th><th>Property</th><th>Unit</th>
+                <th style={{ textAlign: "right" }}>Sq Ft</th><th>Lease To</th>
+                <th style={{ textAlign: "center" }}>Status</th><th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {upcoming.length > 0 && <tr><td colSpan={7} style={subHead}>Expiring soon — next 90 days</td></tr>}
+              {renderRows(upcoming)}
+              {recent.length > 0 && <tr><td colSpan={7} style={subHead}>Recently vacated / expired — last 60 days · run their close-out</td></tr>}
+              {renderRows(recent)}
+            </tbody>
+          </table>
         </div>
       )}
     </div>
