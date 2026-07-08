@@ -1324,46 +1324,67 @@ export async function POST(req: Request) {
       }
 
       if (rows.length) {
-        // Single full-width column (portrait). The old report used two
-        // side-by-side tables to fill the wide landscape page; in portrait one
-        // column reads cleanly and there's no room for two.
+        // Two balanced side-by-side columns so short lists fill the horizontal
+        // space (and long ones stay on one page) instead of a tall single
+        // column with a blank right half. Each sub-table is portrait-sized.
+        const COL_W = 256, GAP = 22;
         const VAC_COLS: ColDef[] = [
-          { header: "Property", width: 340, align: "left"  },
-          { header: "Unit",     width: 110, align: "left"  },
-          { header: "Sq Ft",    width: 90,  align: "right" },
+          { header: "Property", width: 148, align: "left"  },
+          { header: "Unit",     width: 62,  align: "left"  },
+          { header: "Sq Ft",    width: 46,  align: "right" },
         ];
-        const tableW = VAC_COLS.reduce((s, c) => s + c.width, 0);
-        const tableX = M;
+        const colXs = [M, M + COL_W + GAP];
+
+        const drawVacRow = (page: PDFPage, xBase: number, y: number, row: VacRow, alt: boolean) => {
+          if (alt) page.drawRectangle({ x: xBase, y: py(y + ROW_H), width: COL_W, height: ROW_H, color: C_ALT });
+          const vals: Record<string, string> = { "Property": row.propName, "Unit": row.unit, "Sq Ft": sqftFmt(row.sqft) };
+          let cx = xBase;
+          for (const col of VAC_COLS) {
+            const val = col.header === "Property" ? fitText(vals[col.header] || "", font, 8, col.width - 6) : (vals[col.header] || "");
+            const tw  = font.widthOfTextAtSize(val, 8);
+            const tx  = col.align === "right" ? cx + col.width - 4 - tw : cx + 4;
+            page.drawText(val, { x: tx, y: py(y + ROW_H - 5), size: 8, font, color: C_DARK });
+            cx += col.width;
+          }
+          page.drawLine({ start: { x: xBase, y: py(y + ROW_H) }, end: { x: xBase + COL_W, y: py(y + ROW_H) }, thickness: 0.2, color: C_LINE });
+        };
 
         let { page, curY } = newPage();
         page.drawText("Vacancy Summary", { x: M, y: py(curY + 18), size: 16, font: fontBold, color: C_DARK });
         curY += 28;
 
-        curY += drawHeader(page, curY, VAC_COLS, tableX, tableW);
-
         let grandUnits = 0;
         let grandSqft  = 0;
+        for (const r of rows) { grandUnits += 1; grandSqft += r.sqft; }
 
-        for (let i = 0; i < rows.length; i++) {
-          if (curY + ROW_H > PH - M - 30) {
-            ({ page, curY } = newPage());
-            curY += drawHeader(page, curY, VAC_COLS, tableX, tableW);
+        // Fill the page with as many rows as two columns hold, balanced, then
+        // continue on a new page if the list is longer than one page.
+        let idx = 0;
+        let firstChunk = true;
+        while (idx < rows.length) {
+          let pageStartY: number;
+          if (firstChunk) { pageStartY = curY; firstChunk = false; }
+          else { ({ page, curY } = newPage()); pageStartY = curY; }
+
+          const capacity = Math.max(1, Math.floor((PH - M - 30 - (pageStartY + HEAD_H)) / ROW_H));
+          const chunk = rows.slice(idx, idx + capacity * 2);
+          const half = Math.ceil(chunk.length / 2);
+          const columns = [chunk.slice(0, half), chunk.slice(half)];
+
+          let maxBottom = pageStartY;
+          for (let c = 0; c < columns.length; c++) {
+            if (columns[c].length === 0) continue;
+            let y = pageStartY;
+            drawHeader(page, y, VAC_COLS, colXs[c], COL_W);
+            y += HEAD_H;
+            for (let r = 0; r < columns[c].length; r++) {
+              drawVacRow(page, colXs[c], y, columns[c][r], r % 2 === 1);
+              y += ROW_H;
+            }
+            maxBottom = Math.max(maxBottom, y);
           }
-          const row = rows[i];
-          grandUnits += 1;
-          grandSqft  += row.sqft;
-          if (i % 2 === 1) page.drawRectangle({ x: tableX, y: py(curY + ROW_H), width: tableW, height: ROW_H, color: C_ALT });
-          const vals: Record<string, string> = { "Property": row.propName, "Unit": row.unit, "Sq Ft": sqftFmt(row.sqft) };
-          let cx = tableX;
-          for (const col of VAC_COLS) {
-            const val = col.header === "Property" ? fitText(vals[col.header] || "", font, 8, col.width - 6) : (vals[col.header] || "");
-            const tw  = font.widthOfTextAtSize(val, 8);
-            const tx  = col.align === "right" ? cx + col.width - 4 - tw : cx + 4;
-            page.drawText(val, { x: tx, y: py(curY + ROW_H - 5), size: 8, font, color: C_DARK });
-            cx += col.width;
-          }
-          page.drawLine({ start: { x: tableX, y: py(curY + ROW_H) }, end: { x: tableX + tableW, y: py(curY + ROW_H) }, thickness: 0.2, color: C_LINE });
-          curY += ROW_H;
+          curY = maxBottom;
+          idx += capacity * 2;
         }
 
         // Grand total
