@@ -53,32 +53,19 @@ export async function buildTopSheetXlsx(args: BuildTopSheetArgs): Promise<Blob> 
   const wb = new ExcelJS.Workbook();
   wb.creator = "KCP Portal";
 
-  // ── Sheet 1: Charges ──────────────────────────────────────────────────────
+  // Charges data is built into its own sheet below; the Summary is added first
+  // so it's the leading tab. Formulas reference the Charges sheet by name, so
+  // the tab order doesn't matter to them.
   const sortedTx = [...args.tx].sort((a, b) =>
     a.date < b.date ? -1 : a.date > b.date ? 1 : a.propertyId.localeCompare(b.propertyId)
   );
-  const ch = wb.addWorksheet("Charges", { views: [{ state: "frozen", ySplit: 1 }] });
-  const chHeaders = ["Date", "Card Member", "Description", "Invoice Description", "Category", "Property", "Property Name", "Suite", "Original Amount", "Amount"];
-  ch.addRow(chHeaders);
-  for (const t of sortedTx) {
-    ch.addRow([
-      t.date, t.cardMember, t.description, t.codedDescription, t.category,
-      t.propertyId, t.propertyName, t.suite || "",
-      t.originalAmount !== undefined ? t.originalAmount : t.amount, t.amount,
-    ]);
-  }
-  ch.columns.forEach((c, i) => { c.width = [12, 18, 42, 42, 16, 10, 30, 8, 15, 12][i] ?? 14; });
-  ch.getColumn(9).numFmt = MONEY_FMT;
-  ch.getColumn(10).numFmt = MONEY_FMT;
-  ch.getRow(1).eachCell((cell) => { cell.font = HEADER_FONT; cell.fill = HEADER_FILL; });
-
   const N = sortedTx.length;
   const N1 = N + 1;                      // last Charges data row
   const CH_SUM = `Charges!$J$2:$J$${N1}`; // Amount
   const CH_PROP = `Charges!$F$2:$F$${N1}`; // Property
   const CH_CAT = `Charges!$E$2:$E$${N1}`;  // Category
 
-  // ── Sheet 2: Summary ──────────────────────────────────────────────────────
+  // ── Sheet 1: Summary ──────────────────────────────────────────────────────
   const allCatSet = new Set(args.tx.map((t) => t.category).filter(Boolean));
   const orderedCats = [
     ...args.categoryOrder.filter((c) => allCatSet.has(c)),
@@ -156,6 +143,21 @@ export async function buildTopSheetXlsx(args: BuildTopSheetArgs): Promise<Blob> 
   }
 
   sm.views = [{ state: "frozen", ySplit: HEADER_ROW }];
+
+  // ── Sheet 2: Charges (the itemized detail the Summary formulas point at) ───
+  const ch = wb.addWorksheet("Charges", { views: [{ state: "frozen", ySplit: 1 }] });
+  ch.addRow(["Date", "Card Member", "Description", "Invoice Description", "Category", "Property", "Property Name", "Suite", "Original Amount", "Amount"]);
+  for (const t of sortedTx) {
+    ch.addRow([
+      t.date, t.cardMember, t.description, t.codedDescription, t.category,
+      t.propertyId, t.propertyName, t.suite || "",
+      t.originalAmount !== undefined ? t.originalAmount : t.amount, t.amount,
+    ]);
+  }
+  ch.columns.forEach((c, i) => { c.width = [12, 18, 42, 42, 16, 10, 30, 8, 15, 12][i] ?? 14; });
+  ch.getColumn(9).numFmt = MONEY_FMT;
+  ch.getColumn(10).numFmt = MONEY_FMT;
+  ch.getRow(1).eachCell((cell) => { cell.font = HEADER_FONT; cell.fill = HEADER_FILL; });
 
   const buf = await wb.xlsx.writeBuffer();
   return new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
