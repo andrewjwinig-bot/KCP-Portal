@@ -1406,12 +1406,31 @@ export async function POST(req: Request) {
     // a typical heading + stats + small unit table + totals.
     let kHomesPage: PDFPage | null = null;
     let kHomesY = 0;
+    const PROP_ROW_H = 21; // taller than the base ROW_H so rent rolls aren't scrunched
     for (const prop of properties) {
       const code    = (prop.propertyCode as string).toUpperCase();
       const units   = prop.units as any[];
       const hideNNN = KH_CODES.has(code) || OW_CODES.has(code);
       const showBaseYear = isOfficeCode(code);
-      const cols    = fitCols(buildCols(hideNNN, showBaseYear), PW - 2 * M);
+
+      // Property totals — also used to decide which columns to hide.
+      const totSqft  = units.reduce((s: number, u: any) => s + u.sqft,           0);
+      const totBase  = units.reduce((s: number, u: any) => s + u.baseRent,        0);
+      const totCAM   = units.reduce((s: number, u: any) => s + u.opexMonth,       0);
+      const totRET   = units.reduce((s: number, u: any) => s + u.reTaxMonth,      0);
+      const totOther = units.reduce((s: number, u: any) => s + u.otherMonth,      0);
+      const totGross = units.reduce((s: number, u: any) => s + u.grossRentTotal,  0);
+      const avgPerSf = totSqft > 0 ? (totBase * 12) / totSqft : null;
+
+      // Hide the per-month dollar columns that are zero for every tenant in this
+      // property, and give the reclaimed width to the Tenant column.
+      const colTotals: Record<string, number> = { "CAM/mo": totCAM, "RET/mo": totRET, "Other/mo": totOther };
+      const dropped = new Set(Object.entries(colTotals).filter(([, v]) => v === 0).map(([k]) => k));
+      const built   = buildCols(hideNNN, showBaseYear);
+      const freed    = built.filter((c) => dropped.has(c.header)).reduce((s, c) => s + c.width, 0);
+      const kept     = built.filter((c) => !dropped.has(c.header)).map((c) => (c.header === "Tenant" ? { ...c, width: c.width + freed } : c));
+      const cols     = fitCols(kept, PW - 2 * M);
+
       const tableW  = cols.reduce((s, c) => s + c.width, 0);
       const tableX  = (PW - tableW) / 2;
       const name    = propDisplayName(code, prop.reportedPropertyName || code);
@@ -1419,7 +1438,7 @@ export async function POST(req: Request) {
       const isKHomes = KH_CODES.has(code);
       // Approx vertical budget for this property: header + address +
       // stats + rule + table header + N rows + totals row + spacing.
-      const projectedHeight = 22 + (address ? 16 : 0) + 16 + 10 + HEAD_H + units.length * ROW_H + ROW_H + 24;
+      const projectedHeight = 22 + (address ? 16 : 0) + 16 + 10 + HEAD_H + units.length * PROP_ROW_H + PROP_ROW_H + 24;
 
       let page: PDFPage;
       let curY: number;
@@ -1465,26 +1484,18 @@ export async function POST(req: Request) {
       curY += drawHeader(page, curY, cols, tableX, tableW);
 
       // Unit rows
-      const totSqft  = units.reduce((s: number, u: any) => s + u.sqft,           0);
-      const totBase  = units.reduce((s: number, u: any) => s + u.baseRent,        0);
-      const totCAM   = units.reduce((s: number, u: any) => s + u.opexMonth,       0);
-      const totRET   = units.reduce((s: number, u: any) => s + u.reTaxMonth,      0);
-      const totOther = units.reduce((s: number, u: any) => s + u.otherMonth,      0);
-      const totGross = units.reduce((s: number, u: any) => s + u.grossRentTotal,  0);
-      const avgPerSf = totSqft > 0 ? (totBase * 12) / totSqft : null;
-
       for (let i = 0; i < units.length; i++) {
         const unit = units[i];
 
         // Page break check (leave room for totals row)
-        if (curY + ROW_H > PH - M - 30) {
+        if (curY + PROP_ROW_H > PH - M - 30) {
           ({ page, curY } = newPage());
           curY += drawHeader(page, curY, cols, tableX, tableW);
         }
 
         // Alternating bg
         if (i % 2 === 1) {
-          page.drawRectangle({ x: tableX, y: py(curY + ROW_H), width: tableW, height: ROW_H, color: C_ALT });
+          page.drawRectangle({ x: tableX, y: py(curY + PROP_ROW_H), width: tableW, height: PROP_ROW_H, color: C_ALT });
         }
 
         let cx = tableX;
@@ -1498,23 +1509,23 @@ export async function POST(req: Request) {
           const tw   = (useBold ? fontBold : font).widthOfTextAtSize(val, fs);
           const tx   = col.align === "right" ? cx + col.width - 4 - tw : cx + 4;
           page.drawText(val, {
-            x: tx, y: py(curY + ROW_H - 5),
+            x: tx, y: py(curY + PROP_ROW_H - 7),
             size: fs,
             font: useBold ? fontBold : font,
             color: unit.isVacant ? C_MUTED : C_DARK,
           });
           cx += col.width;
         }
-        page.drawLine({ start: { x: tableX, y: py(curY + ROW_H) }, end: { x: tableX + tableW, y: py(curY + ROW_H) }, thickness: 0.2, color: C_LINE });
-        curY += ROW_H;
+        page.drawLine({ start: { x: tableX, y: py(curY + PROP_ROW_H) }, end: { x: tableX + tableW, y: py(curY + PROP_ROW_H) }, thickness: 0.2, color: C_LINE });
+        curY += PROP_ROW_H;
       }
 
       // Totals row
-      if (curY + ROW_H + 4 > PH - M - 10) {
+      if (curY + PROP_ROW_H + 4 > PH - M - 10) {
         ({ page, curY } = newPage());
       }
       page.drawLine({ start: { x: tableX, y: py(curY + 1) }, end: { x: tableX + tableW, y: py(curY + 1) }, thickness: 1.5, color: C_DARK });
-      page.drawRectangle({ x: tableX, y: py(curY + ROW_H + 1), width: tableW, height: ROW_H, color: C_HBKG });
+      page.drawRectangle({ x: tableX, y: py(curY + PROP_ROW_H + 1), width: tableW, height: PROP_ROW_H, color: C_HBKG });
       const totalVals: Record<string, string> = {
         "Tenant":       "Totals",
         "Sq Ft":        sqftFmt(totSqft),
@@ -1530,7 +1541,7 @@ export async function POST(req: Request) {
         const val = totalVals[col.header] || "";
         const tw  = fontBold.widthOfTextAtSize(val, 8);
         const tx  = col.align === "right" ? cx2 + col.width - 4 - tw : cx2 + 4;
-        page.drawText(val, { x: tx, y: py(curY + ROW_H - 4), size: 8, font: fontBold, color: C_DARK });
+        page.drawText(val, { x: tx, y: py(curY + PROP_ROW_H - 6), size: 8, font: fontBold, color: C_DARK });
         cx2 += col.width;
       }
 
@@ -1538,7 +1549,7 @@ export async function POST(req: Request) {
       // residential property so it can stack on the same page.
       if (isKHomes) {
         kHomesPage = page;
-        kHomesY = curY + ROW_H + 8;
+        kHomesY = curY + PROP_ROW_H + 8;
       }
 
       // ── Floorplan page ──────────────────────────────────────────────────────
