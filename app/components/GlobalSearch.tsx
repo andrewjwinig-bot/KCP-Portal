@@ -494,6 +494,26 @@ export default function GlobalSearch() {
   const resetChat = () => setChat({ turns: [], loading: false, error: null });
   const askSample = (text: string) => { setQuery(text); askAi(text); };
 
+  // Standing preferences the assistant remembers ("learn from feedback").
+  const [prefs, setPrefs] = useState<string[]>([]);
+  const [teachFor, setTeachFor] = useState<number | null>(null); // which turn's teach box is open
+  const [teachText, setTeachText] = useState("");
+  useEffect(() => {
+    if (!open) return;
+    fetch("/api/search/preferences").then((r) => r.json()).then((j) => setPrefs(j.instructions ?? [])).catch(() => {});
+  }, [open]);
+  const savePref = (text: string) => {
+    const t = text.trim();
+    if (!t) { setTeachFor(null); return; }
+    fetch("/api/search/preferences", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: t }) })
+      .then((r) => r.json()).then((j) => setPrefs(j.instructions ?? [])).catch(() => {});
+    setTeachFor(null); setTeachText("");
+  };
+  const removePref = (text: string) => {
+    fetch("/api/search/preferences", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }) })
+      .then((r) => r.json()).then((j) => setPrefs(j.instructions ?? [])).catch(() => {});
+  };
+
   // ── Keyboard shortcut ⌘K / Ctrl+K + Esc + custom 'open-global-search' ──
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -967,6 +987,12 @@ export default function GlobalSearch() {
                       )}
                       <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, marginTop: 6 }}>
                         <button type="button"
+                          onClick={() => { setTeachFor(teachFor === ti ? null : ti); setTeachText(""); }}
+                          title="Teach the assistant a standing preference from this answer"
+                          className="muted" style={{ fontSize: 11, background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: 0 }}>
+                          ✎ Teach it
+                        </button>
+                        <button type="button"
                           onClick={() => {
                             const prev = chat.turns[ti - 1];
                             const question = prev && prev.role === "user" ? prev.text : "";
@@ -977,6 +1003,15 @@ export default function GlobalSearch() {
                         </button>
                         <AnswerCopy text={t.answer} />
                       </div>
+                      {teachFor === ti && (
+                        <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+                          <input autoFocus value={teachText} onChange={(e) => setTeachText(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); savePref(teachText); } if (e.key === "Escape") setTeachFor(null); }}
+                            placeholder="e.g. 'keep answers to one sentence', 'always whole dollars', 'skip the links'"
+                            style={{ flex: 1, fontSize: 12, padding: "5px 9px", borderRadius: 7, border: "1px solid rgba(109,40,217,0.35)", background: "var(--card)", color: "var(--text)", outline: "none" }} />
+                          <button type="button" onClick={() => savePref(teachText)} style={{ fontSize: 12, fontWeight: 700, padding: "5px 11px", borderRadius: 7, border: "1px solid rgba(109,40,217,0.4)", background: "rgba(109,40,217,0.08)", color: "#6d28d9", cursor: "pointer" }}>Save</button>
+                        </div>
+                      )}
                     </div>
                   ))}
                   {chat.loading && <div className="muted" style={{ fontSize: 12, fontStyle: "italic", padding: "2px 4px" }}>Thinking…</div>}
@@ -1004,6 +1039,19 @@ export default function GlobalSearch() {
                       </button>
                     ))}
                   </div>
+                  {prefs.length > 0 && (
+                    <div style={{ marginTop: 14 }}>
+                      <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 8 }}>What the assistant remembers</div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                        {prefs.map((p) => (
+                          <span key={p} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, padding: "4px 6px 4px 10px", borderRadius: 999, border: "1px solid var(--border)", background: "var(--card)", color: "var(--text)" }}>
+                            {p}
+                            <button type="button" onClick={() => removePref(p)} aria-label="Forget" title="Forget this" style={{ border: "none", background: "none", cursor: "pointer", color: "var(--muted)", fontSize: 14, lineHeight: 1, padding: 0 }}>×</button>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )

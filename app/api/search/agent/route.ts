@@ -11,6 +11,7 @@ import { buildMonthlyReport, groupOf, REPORT_GROUP_LABELS, type ReportGroupKey }
 import { listLoans } from "@/lib/debt/storage";
 import { summarizeLoan } from "@/lib/debt/amortization";
 import { listDeposits } from "@/lib/deposits/storage";
+import { getAssistantPrefs } from "@/lib/assistant/preferences";
 import { availableStatements } from "@/lib/financials/operating-statements/mappingStore";
 import { listFullGls, type StoredGl } from "@/lib/financials/operating-statements/statementStore";
 import type { StatementMapping } from "@/lib/financials/operating-statements/types";
@@ -878,6 +879,13 @@ export async function POST(req: Request) {
   const showFinancials = await canSeeFinancials();
   const tools = showFinancials ? [...OPERATIONAL_TOOLS, ...FINANCIAL_TOOLS] : OPERATIONAL_TOOLS;
 
+  // Standing preferences the team taught the assistant — injected so it "learns"
+  // from feedback ("keep it to one sentence", "always whole dollars", etc.).
+  const prefs = await getAssistantPrefs().catch(() => ({ instructions: [] as string[] }));
+  const prefsBlock = prefs.instructions.length
+    ? `\n\nSTANDING PREFERENCES from the team (follow these unless the question overrides them):\n${prefs.instructions.map((p) => `- ${p}`).join("\n")}`
+    : "";
+
   const system =
     `You are the built-in assistant for Korman Commercial Properties' internal property-management portal — the "brain" of the program. ` +
     `Answer the user's question by calling the provided tools to look up live data, then giving a concise, direct answer. ` +
@@ -890,11 +898,12 @@ export async function POST(req: Request) {
     `Put 1-4 relevant page links in "links", choosing hrefs from this list of routes: ${ROUTES.map((r) => r.path).join(", ")}. ` +
     `Prefer DEEP links straight to the specific record when you know it, using these exact shapes: /units/<unitRef> (a unit's tenant + CAM config page, e.g. /units/2300-01), /properties/<code> (a property page, e.g. /properties/4500), /maintenance?property=<code> (also tab=completed, priority, status, assignee, category), /rentroll/base-years?property=<code> (a property's expense history), /cam-recon/interim?property=<code>&unitRef=<ref>&asOf=<month 1-12> (the move-out close-out — pre-fills and computes the exact interim CAM/RET balance, the security deposit, and a letter), /reservations?openId=<id>, /debt?openId=<id>. Use real unit refs / property codes from your tool results — never guess an id you don't have. ` +
     `Include a "chart" ONLY when the answer is naturally visual — a multi-year/YoY trend (use "line"), a ranking or a breakdown/comparison across properties or categories (use "bar"). Otherwise set "chart" to null. ` +
-    `CRITICAL: every value in chart.series must be an exact number copied from a tool result — never invent, round differently, or interpolate. For year-over-year use the period-aligned series so the years are comparable. Pick the single most useful chart; keep it to at most ~12 points. Keep the text answer complete on its own — the chart supplements it. ` +
+    `CRITICAL: every value in chart.series must be an exact number copied from a tool result — never invent, round differently, or interpolate. For year-over-year use the period-aligned series so the years are comparable. Pick the single most useful chart; keep it to at most ~12 points. When you include a chart, keep "answer" to a SINGLE sentence stating the headline — do NOT restate the chart's rows as text, and NEVER output a markdown table (it renders poorly); the chart carries the detail. ` +
     `Include a "letter" ONLY when the user asks you to write/draft a letter, memo, email, or notice (e.g. a CAM statement cover letter, a lease-renewal inquiry, a move-out close-out notice). Compose it professionally on behalf of Korman Commercial Properties, using the tenant name, property, unit, and lease dates you looked up via tools. ` +
     `The letter is a DRAFT the user will review and send themselves — do NOT claim it has been sent. For a move-out close-out letter, call get_security_deposit for the tenant's real deposit amount and status and reference it. For any figure you still do not have from a tool result (e.g. a reconciled CAM balance, which isn't a tool), insert a clearly-bracketed placeholder like [CAM balance due: $____] rather than inventing a number — and add a link to /cam-recon/interim?property=<code>&unitRef=<ref> so the user gets the exact computed balance and full close-out package. Set "kind" to a short label ("Renewal inquiry", "CAM cover letter", "Move-out close-out", etc.). When you include a letter, keep "answer" to one short line (e.g. "Draft renewal letter for Acme Corp — review before sending.") Otherwise set "letter" to null. ` +
-    `Keep the answer focused on what was asked. Use short markdown (bullets, bold) where it helps. ` +
-    `This may be a multi-turn conversation — resolve follow-ups ("now just the business parks", "chart that", "what about 2024") against the earlier turns, and re-run whatever tools you need for the new question.`;
+    `Answer style: DEFAULT to ONE concise sentence that directly answers the question. Add a second short sentence only if genuinely needed. Never output markdown tables — put any tabular / ranking / breakdown data in the chart, not the text. Bold the single key figure or name where it helps. ` +
+    `This may be a multi-turn conversation — resolve follow-ups ("now just the business parks", "chart that", "what about 2024") against the earlier turns, and re-run whatever tools you need for the new question.` +
+    prefsBlock;
 
   // Seed the conversation with prior turns so follow-ups have context, then the
   // new question. The agentic loop appends tool_use / tool_result for this turn.
