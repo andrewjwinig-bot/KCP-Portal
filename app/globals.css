@@ -7,11 +7,68 @@
   --shadow: 0 10px 30px rgba(2, 6, 23, 0.08);
   --brand: #0b4a7d;
   --brand2: #0a3e69;
-  /* AI accent — violet, distinct from the blue brand so AI features read as
-   * clearly AI (and don't collide with amber, which means warning here). */
-  --ai: #6d28d9;
-  --ai-soft: rgba(109, 40, 217, 0.08);
-  --ai-border: rgba(109, 40, 217, 0.35);
+  /* ── AI accent — the reusable "there is AI here" violet ramp ──────────────
+   * Distinct from the blue brand (search/neutral) and from amber (drafts /
+   * warnings). This is the single source of truth for every AI surface in the
+   * program — the ⌘K assistant, `.btn.ai` action buttons, inline "ask"
+   * affordances. Values follow the AI-assistant design handoff exactly.
+   * NOTE: the general-purpose portal purple used for Residential / Entity /
+   * Quarterly semantics is a separate hard-coded #6d28d9 — it is NOT this
+   * token and must not be folded into it. */
+  --ai: #6C4CE0;                 /* AI primary */
+  --ai-bright: #B14BE6;          /* sparkle-gradient end */
+  --ai-text: #5B34C7;            /* AI text on light */
+  --ai-text-strong: #3d2596;     /* AI headline text on light */
+  --ai-soft: #F3EFFE;            /* AI tint bg (badges, teach-it) */
+  --ai-tint-panel: #FBFAFF;      /* answer-card base fill */
+  --ai-tint-panel-2: #F7F4FE;    /* sample-chip / ask-band bg */
+  --ai-border: #E2D8FA;          /* AI border (badges, chips) */
+  --ai-border-card: #E7DEFB;     /* answer-card border */
+  --ai-border-soft: #efe9fb;     /* faint divider inside AI surfaces */
+  --ai-sparkle: linear-gradient(135deg, #6C4CE0, #B14BE6);
+  --ai-input-grad: linear-gradient(120deg, #6C4CE0, #B14BE6);
+  --ai-input-fill: #ffffff;      /* padding-box fill under the gradient border */
+  --ai-input-glow: rgba(108, 76, 224, 0.16);
+  --ai-header-grad: linear-gradient(180deg, #FBFAFF, #fff);
+  --ai-modal: #ffffff;           /* the modal content surface */
+  --ai-modal-shadow: 0 30px 60px -18px rgba(9, 12, 20, 0.55);
+  --ai-glow-shadow: 0 24px 55px -14px rgba(40, 20, 90, 0.6);
+  --ai-aura: conic-gradient(from 0deg, #6C4CE0, #4C7DF0, #B14BE6, #6C4CE0);
+  --ai-rim: conic-gradient(from 0deg, #6C4CE0, #4C7DF0, #B14BE6, #F3EEFF, #6C4CE0);
+  --ai-aura-inset: -20px;
+  --ai-aura-radius: 34px;
+  --ai-aura-blur: 26px;
+  --ai-aura-opacity: 0.3;
+  --ai-chart-track: #f3f4f6;
+  --ai-chart-track-think: #f0f1f4;
+  --ai-chart-leader: linear-gradient(90deg, #6C4CE0, #9578F0);
+  --ai-chart-rest: rgba(108, 76, 224, 0.4);
+  --ai-chart-scan: rgba(108, 76, 224, 0.28);
+  --ai-line-fill: rgba(108, 76, 224, 0.1);
+  --ai-shimmer: linear-gradient(90deg, #b7bcc6 30%, #5B34C7 50%, #b7bcc6 70%);
+  --ai-hero-metric: #3d2596;
+  --ai-hero-sub: #7a6bb0;
+  --ai-bubble-bg: #eef1f5;       /* user follow-up bubble */
+  --ai-bubble-text: #2b303a;
+  /* Search / neutral (blue-grey) chrome for the palette */
+  --search-blue: #2f6bed;
+  --search-blue-tint: #eef3fe;
+  --search-blue-ring: #d9e4fd;
+  --badge-neutral-bg: #eef1f5;
+  --badge-neutral-text: #5b6472;
+  --badge-match-bg: #dbe6ff;
+  --kbd-color: #6b7280;
+  --kbd-border: #e6e8ee;
+  --danger-meta: #c0392b;
+  /* Draft / warning — amber (drafts only; never general AI chrome) */
+  --amber-primary: #E0910C;
+  --amber-text: #B4720A;
+  --amber-soft: #FDF7EC;
+  --amber-border: #F2DFB6;
+  --amber-letter-bg: #FDF9F0;
+  --amber-preview-bg: #ffffff;
+  --amber-preview-border: #eef0f3;
+  --amber-on-solid: #1a1204;
   /* Color used for text that sits directly on the page background (outside cards). */
   --page-text: var(--text);
   --page-muted: var(--muted);
@@ -36,6 +93,58 @@
   --page-muted: #94a3b8;
   --scrollbar-thumb: rgba(255, 255, 255, 0.18);
   --scrollbar-thumb-hover: rgba(255, 255, 255, 0.32);
+  /* AI ramp — dark */
+  --ai: #9B82F5;
+  --ai-bright: #C25BF0;
+  --ai-text: #B7A6FF;
+  --ai-text-strong: #C9B8FF;
+  --ai-soft: rgba(155, 130, 245, 0.1);
+  --ai-tint-panel: rgba(155, 130, 245, 0.05);
+  --ai-tint-panel-2: rgba(155, 130, 245, 0.05);
+  --ai-border: rgba(155, 130, 245, 0.35);
+  --ai-border-card: rgba(155, 130, 245, 0.22);
+  --ai-border-soft: #241f33;
+  --ai-sparkle: linear-gradient(135deg, #8B6CFF, #C25BF0);
+  --ai-input-grad: linear-gradient(120deg, #8B6CFF, #C25BF0);
+  --ai-input-fill: #181b22;
+  --ai-input-glow: rgba(139, 108, 255, 0.22);
+  --ai-header-grad: linear-gradient(180deg, #1a1726, #16191f);
+  --ai-modal: #16191f;
+  --ai-glow-shadow: 0 24px 55px -14px rgba(0, 0, 0, 0.7);
+  --ai-aura: conic-gradient(from 0deg, #7C5CF0, #4C7DF0, #C25BF0, #7C5CF0);
+  --ai-rim: conic-gradient(from 0deg, #8B6CFF, #4C7DF0, #C25BF0, #EAD9FF, #8B6CFF);
+  --ai-aura-inset: -22px;
+  --ai-aura-radius: 36px;
+  --ai-aura-blur: 30px;
+  --ai-aura-opacity: 0.42;
+  --ai-chart-track: #22262f;
+  --ai-chart-track-think: #20242d;
+  --ai-chart-leader: linear-gradient(90deg, #8B6CFF, #B79BFF);
+  --ai-chart-rest: rgba(139, 108, 255, 0.42);
+  --ai-chart-scan: rgba(155, 130, 245, 0.4);
+  --ai-line-fill: rgba(139, 108, 255, 0.14);
+  --ai-shimmer: linear-gradient(90deg, #6a7180 30%, #C9B8FF 50%, #6a7180 70%);
+  --ai-hero-metric: #C9B8FF;
+  --ai-hero-sub: #9aa1ad;
+  --ai-bubble-bg: #232833;
+  --ai-bubble-text: #d6dbe4;
+  --search-blue: #6f9bff;
+  --search-blue-tint: rgba(111, 155, 255, 0.12);
+  --search-blue-ring: rgba(111, 155, 255, 0.3);
+  --badge-neutral-bg: rgba(255, 255, 255, 0.06);
+  --badge-neutral-text: #aeb5c2;
+  --badge-match-bg: rgba(111, 155, 255, 0.18);
+  --kbd-color: #9aa1ad;
+  --kbd-border: rgba(255, 255, 255, 0.14);
+  --danger-meta: #f0857a;
+  --amber-primary: #E0910C;
+  --amber-text: #F6C462;
+  --amber-soft: rgba(224, 145, 12, 0.1);
+  --amber-border: rgba(224, 145, 12, 0.35);
+  --amber-letter-bg: #1e1a12;
+  --amber-preview-bg: #14171d;
+  --amber-preview-border: #262b34;
+  --amber-on-solid: #1a1204;
 }
 
 /* Bump default text/link contrast inside cards on dark mode. */
@@ -196,7 +305,7 @@ p { margin: 0; }
   background: var(--ai-soft);
   color: var(--ai);
 }
-.btn.ai:hover { background: rgba(109, 40, 217, 0.14); }
+.btn.ai:hover { background: rgba(108, 76, 224, 0.13); }
 [data-theme="dark"] .btn.ai {
   background: rgba(139, 92, 246, 0.16);
   border-color: rgba(167, 139, 250, 0.5);
@@ -437,3 +546,31 @@ code {
 .cs-edit::placeholder { color: var(--muted); }
 .cs-edit:hover { border-color: var(--border) !important; }
 .cs-edit:focus { border-color: #0b4a7d !important; background: var(--card) !important; outline: none; }
+
+/* ── AI assistant surface — motion (⌘K glow frame, thinking state) ─────────
+ * The "there is AI here" affordance. Motion stays deliberately subtle: the
+ * aura breathes (no rotation), the rim shimmer is slow (16s). The thinking
+ * state keeps the SAME background subtlety — only foreground cues speed up.
+ * All of it is disabled under prefers-reduced-motion (static glow). */
+@keyframes kcpTwinkle { 0%, 100% { opacity: 0.8; transform: scale(1); } 50% { opacity: 1; transform: scale(1.15); } }
+@keyframes kcpSpin { to { transform: translate(-50%, -50%) rotate(360deg); } }
+@keyframes kcpBreathe { 0%, 100% { transform: scale(0.98); } 50% { transform: scale(1.04); } }
+@keyframes kcpShimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+@keyframes kcpDot { 0%, 70%, 100% { opacity: 0.25; transform: translateY(0); } 35% { opacity: 1; transform: translateY(-4px); } }
+@keyframes kcpScan { 0% { transform: translateX(-140%); } 100% { transform: translateX(340%); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .kcp-aura, .kcp-rim, .kcp-twinkle, .kcp-dot, .kcp-scan, .kcp-shimmer {
+    animation: none !important;
+  }
+  /* Keep the shimmer status line legible when its sweep is disabled. */
+  .kcp-shimmer { color: var(--ai-text) !important; -webkit-text-fill-color: var(--ai-text) !important; }
+}
+
+/* The ⌘K palette input is chrome-free (the header row / gradient border is the
+ * visible field). Override the global dark input background so it reads clean. */
+input.kcp-input,
+[data-theme="dark"] input.kcp-input {
+  background: transparent !important;
+  border-color: transparent !important;
+}
