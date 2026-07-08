@@ -428,6 +428,12 @@ function UnitsTable({ units, propertyCode, hideNNN, tenantMeta, onBaseYearChange
       <div className="tableWrap" style={{ marginTop: 0 }}>
         <table>
           <thead>
+            {!hideRent && (
+              <tr>
+                <th colSpan={6 + (showBaseYear ? 1 : 0)} style={{ border: "none", background: "transparent" }} />
+                <th colSpan={hideNNN ? 2 : 5} style={{ textAlign: "center", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--muted)", borderBottom: "1px solid var(--border)", paddingBottom: 3 }}>Monthly</th>
+              </tr>
+            )}
             <tr>
               <th>Tenant</th>
               <th>Unit</th>
@@ -435,12 +441,12 @@ function UnitsTable({ units, propertyCode, hideNNN, tenantMeta, onBaseYearChange
               <th>Lease From</th>
               <th>Lease To</th>
               {showBaseYear && <th style={{ textAlign: "center" }}>Base<br/>Year</th>}
-              {!hideRent && <th style={{ textAlign: "right" }}>Base Rent<br/>/mo</th>}
               {!hideRent && <th style={{ textAlign: "right" }}>Annual<br/>$/sf</th>}
-              {!hideRent && !hideNNN && <th style={{ textAlign: "right" }}>CAM<br/>/mo</th>}
-              {!hideRent && !hideNNN && <th style={{ textAlign: "right" }}>INS<br/>/mo</th>}
-              {!hideRent && !hideNNN && <th style={{ textAlign: "right" }}>RET<br/>/mo</th>}
-              {!hideRent && <th style={{ textAlign: "right" }}>Gross<br/>/mo</th>}
+              {!hideRent && <th style={{ textAlign: "right" }}>Base Rent</th>}
+              {!hideRent && !hideNNN && <th style={{ textAlign: "right" }}>CAM</th>}
+              {!hideRent && !hideNNN && <th style={{ textAlign: "right" }}>INS</th>}
+              {!hideRent && !hideNNN && <th style={{ textAlign: "right" }}>RET</th>}
+              {!hideRent && <th style={{ textAlign: "right" }}>Gross</th>}
             </tr>
           </thead>
           <tbody>
@@ -534,12 +540,12 @@ function UnitsTable({ units, propertyCode, hideNNN, tenantMeta, onBaseYearChange
                       />
                     </td>
                   )}
-                  {!hideRent && <td style={{ textAlign: "right", fontSize: 13 }}>{unit.baseRent ? money(unit.baseRent) : "—"}</td>}
                   {!hideRent && (
                     <td style={{ textAlign: "right", fontSize: 13, color: "var(--muted)" }}>
                       {unit.annualRentPerSqft ? `$${unit.annualRentPerSqft.toFixed(2)}` : "—"}
                     </td>
                   )}
+                  {!hideRent && <td style={{ textAlign: "right", fontSize: 13 }}>{unit.baseRent ? money(unit.baseRent) : "—"}</td>}
                   {!hideRent && !hideNNN && <td style={{ textAlign: "right", fontSize: 13 }}>{unit.opexMonth ? money(unit.opexMonth) : "—"}</td>}
                   {!hideRent && !hideNNN && <td style={{ textAlign: "right", fontSize: 13 }}>{unit.otherMonth ? money(unit.otherMonth) : "—"}</td>}
                   {!hideRent && !hideNNN && <td style={{ textAlign: "right", fontSize: 13 }}>{unit.reTaxMonth ? money(unit.reTaxMonth) : "—"}</td>}
@@ -557,12 +563,12 @@ function UnitsTable({ units, propertyCode, hideNNN, tenantMeta, onBaseYearChange
               <td colSpan={2} style={{ color: "var(--muted)", fontSize: 12 }}>Totals</td>
               <td style={{ textAlign: "right" }}>{sqftFmt(totSqft)}</td>
               <td colSpan={showBaseYear ? 3 : 2} />
-              {!hideRent && <td style={{ textAlign: "right" }}>{totBaseRent ? money(totBaseRent) : "—"}</td>}
               {!hideRent && (
                 <td style={{ textAlign: "right", color: "var(--muted)", fontWeight: 400, fontSize: 12 }}>
                   {avgPerSf != null ? `$${avgPerSf.toFixed(2)}` : "—"}
                 </td>
               )}
+              {!hideRent && <td style={{ textAlign: "right" }}>{totBaseRent ? money(totBaseRent) : "—"}</td>}
               {!hideRent && !hideNNN && <td style={{ textAlign: "right" }}>{totCAM ? money(totCAM) : "—"}</td>}
               {!hideRent && !hideNNN && <td style={{ textAlign: "right" }}>{totOther ? money(totOther) : "—"}</td>}
               {!hideRent && !hideNNN && <td style={{ textAlign: "right" }}>{totRET ? money(totRET) : "—"}</td>}
