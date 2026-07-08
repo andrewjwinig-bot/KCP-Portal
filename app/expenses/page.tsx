@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx";
 import JSZip from "jszip";
 import { PDFDocument } from "pdf-lib";
-import { buildInvoicePdf, makeInvoiceId, CategoryGroup } from "../../lib/expenses/invoice";
+import { buildInvoicePdf, buildReimbursementInvoicePdf, makeInvoiceId, CategoryGroup } from "../../lib/expenses/invoice";
 import { buildTopSheetXlsx, TopSheetTx } from "../../lib/expenses/topSheet";
 import { groupBy, normalizeAmount, toMoney } from "../../lib/expenses/utils";
 import {
@@ -517,6 +517,9 @@ export default function ExpensesPage() {
   // and common formats (last-first comma-separated, etc.) all resolve to
   // the same person without us having to enumerate them.
   const isMaint = user.id === "maint";
+  // Harry fronts the company credit-card statement, so his batch also cuts a
+  // reimbursement invoice for the full statement total payable back to him.
+  const isHarry = user.id === "harry";
   function isGregRow(t: { cardMember: string }): boolean {
     return String(t.cardMember || "").toLowerCase().includes("greg");
   }
@@ -840,6 +843,25 @@ export default function ExpensesPage() {
 
       zip.file(`${filenameMonth} - ${g.propId}.pdf`, finalBlob);
     }
+
+    // Harry fronts the whole statement — cut one reimbursement invoice for the
+    // full statement total (the sum of every property's charges), payable to him.
+    if (isHarry && invoiceGroups.length) {
+      const reimbLines = invoiceGroups.map((ig) => ({ label: `${ig.propId} · ${propName(ig.propId)}`, amount: ig.total }));
+      const reimbTotal = Math.round(invoiceGroups.reduce((a, ig) => a + ig.total, 0) * 100) / 100;
+      const reimbBlob = buildReimbursementInvoicePdf({
+        payeeName: "Harry Feldman",
+        statementMonth: statementMonth || "",
+        invoiceDate: invoiceDate || "",
+        periodText: statementPeriodText || "",
+        periodCompact: (statementStart && effectiveEnd) ? `${formatDateCompact(statementStart)}-${formatDateCompact(effectiveEnd)}` : undefined,
+        invoiceId: makeInvoiceId("REIMB"),
+        lines: reimbLines,
+        total: reimbTotal,
+      });
+      zip.file(`${filenameMonth} - REIMBURSEMENT - Harry Feldman.pdf`, reimbBlob);
+    }
+
     const zipBlob = await zip.generateAsync({ type: "blob" });
     download(`${filenameMonth} - Invoices.zip`, zipBlob);
     setShowAfterZipModal(true);

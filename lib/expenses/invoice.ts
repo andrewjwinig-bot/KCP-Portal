@@ -570,3 +570,93 @@ export function buildInvoicePdf(args: BuildInvoicePdfArgs): Blob {
 
   return doc.output("blob") as Blob;
 }
+
+// ─── Reimbursement invoice ────────────────────────────────────────────────────
+// Harry fronts the whole credit-card statement, so alongside the per-property
+// invoices we cut one invoice for the full statement total payable back to him.
+
+export type ReimbursementLine = { label: string; amount: number };
+
+export type BuildReimbursementPdfArgs = {
+  payeeName: string;        // e.g. "Harry Feldman"
+  statementMonth: string;   // YYYY-MM
+  invoiceDate: string;      // YYYY-MM-DD
+  periodText?: string;
+  periodCompact?: string;
+  invoiceId?: string;
+  lines: ReimbursementLine[]; // per-property (or per-group) subtotals making up the total
+  total: number;
+};
+
+export function buildReimbursementInvoicePdf(args: BuildReimbursementPdfArgs): Blob {
+  const doc = new jsPDF({ unit: "pt", format: "letter" });
+  const margin = 40;
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  const contentW = pageW - margin * 2;
+  const invoiceId = args.invoiceId || makeInvoiceId("REIMB");
+
+  // Header
+  doc.setFont("helvetica", "bold"); doc.setFontSize(28); doc.setTextColor(TEAL.r, TEAL.g, TEAL.b);
+  doc.text("INVOICE", pageW - margin, 62, { align: "right" });
+  doc.setTextColor(0, 0, 0); doc.setFont("helvetica", "bold"); doc.setFontSize(16);
+  doc.text("LIK Management Inc", margin, 60);
+  doc.setFont("helvetica", "normal"); doc.setFontSize(10);
+  doc.text("8 Neshaminy Interplex; Suite 400", margin, 78);
+  doc.text("Trevose, PA  19053", margin, 92);
+
+  // Meta box
+  const metaX = pageW - margin - 220, metaY = 95;
+  doc.setFillColor(TEAL.r, TEAL.g, TEAL.b); doc.rect(metaX, metaY, 220, 20, "F");
+  doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(10);
+  doc.text("INVOICE #", metaX + 10, metaY + 14); doc.text("DATE", metaX + 140, metaY + 14);
+  doc.setTextColor(0, 0, 0); doc.text(invoiceId, metaX + 10, metaY + 36); doc.text(formatDateDisplay(args.invoiceDate), metaX + 140, metaY + 36);
+  doc.setFillColor(TEAL.r, TEAL.g, TEAL.b); doc.rect(metaX, metaY + 48, 220, 20, "F");
+  doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(10);
+  doc.text("TYPE", metaX + 10, metaY + 62); doc.text("CC EXPENSES", metaX + 140, metaY + 62);
+  doc.setTextColor(0, 0, 0); doc.text("Reimbursement", metaX + 10, metaY + 84); doc.text(formatStatementMonth(args.statementMonth), metaX + 140, metaY + 84);
+
+  // Bill To (the company reimbursing)
+  doc.setFillColor(TEAL.r, TEAL.g, TEAL.b); doc.rect(margin, 120, 260, 18, "F");
+  doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(10); doc.text("BILL TO", margin + 8, 133);
+  doc.setTextColor(0, 0, 0); doc.text("Korman Commercial Properties", margin + 8, 155);
+  doc.setFont("helvetica", "normal"); doc.text("8 Neshaminy Interplex", margin + 8, 170); doc.text("Suite 400", margin + 8, 185); doc.text("Trevose, PA  19053", margin + 8, 200);
+
+  // Description bar
+  const barY = 225; doc.setFillColor(TEAL.r, TEAL.g, TEAL.b); doc.rect(margin, barY, contentW, 18, "F");
+  doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(10);
+  const periodX = margin + 270;
+  doc.text("DESCRIPTION", margin + 8, barY + 13); doc.text("PERIOD", periodX, barY + 13); doc.text("TERMS", margin + contentW - 8, barY + 13, { align: "right" });
+  const periodLabel = args.periodCompact || args.periodText || formatStatementMonth(args.statementMonth);
+  doc.setTextColor(0, 0, 0); doc.setFont("helvetica", "normal"); doc.setFontSize(11);
+  doc.text(`Reimbursement — ${formatStatementMonth(args.statementMonth)} credit card statement paid by ${args.payeeName}`, margin + 8, barY + 36, { maxWidth: periodX - margin - 16 });
+  doc.text(periodLabel, periodX, barY + 36, { maxWidth: 120 });
+  doc.text("Due upon receipt", margin + contentW - 8, barY + 36, { align: "right" });
+
+  // Summary table: PROPERTY | SUBTOTAL
+  const sumColTotal = 182; const sumXLabel = margin; const sumXTotal = margin + contentW - sumColTotal;
+  const tableTop = 280; const headerH = 18; const rowH = 22;
+  doc.setFillColor(TEAL.r, TEAL.g, TEAL.b); doc.rect(margin, tableTop, contentW, headerH, "F");
+  doc.setFont("helvetica", "bold"); doc.setFontSize(10); doc.setTextColor(255, 255, 255);
+  doc.text("PROPERTY", sumXLabel + 8, tableTop + 13); doc.text("SUBTOTAL", sumXTotal + sumColTotal - 8, tableTop + 13, { align: "right" });
+  let y = tableTop + headerH;
+  for (const l of args.lines) {
+    if (y + rowH > pageH - 120) { doc.addPage(); y = margin; }
+    doc.setFillColor(SUBTOTAL_BG.r, SUBTOTAL_BG.g, SUBTOTAL_BG.b); doc.rect(margin, y, contentW, rowH, "F");
+    doc.setFont("helvetica", "bold"); doc.setFontSize(10); doc.setTextColor(TEAL.r, TEAL.g, TEAL.b);
+    doc.text(truncate(l.label, 64), sumXLabel + 8, y + 15);
+    doc.setTextColor(0, 0, 0); doc.text(toMoney(l.amount), sumXTotal + sumColTotal - 8, y + 15, { align: "right" });
+    y += rowH;
+  }
+
+  // Footer: payable-to + TOTAL box
+  doc.setFont("helvetica", "bold"); doc.setFontSize(10); doc.setTextColor(0, 0, 0);
+  doc.text(`Payable to ${args.payeeName}`, margin, pageH - 88);
+  doc.text("Reimbursement for the credit card statement", margin, pageH - 72);
+  doc.setFillColor(TEAL.r, TEAL.g, TEAL.b); doc.rect(margin + contentW - 220, pageH - 95, 220, 40, "F");
+  doc.setFont("helvetica", "bold"); doc.setFontSize(20); doc.setTextColor(255, 255, 255);
+  doc.text("TOTAL", margin + contentW - 210, pageH - 68); doc.text(toMoney(args.total).replace("$", "$ "), margin + contentW - 10, pageH - 68, { align: "right" });
+  doc.setTextColor(0, 0, 0);
+
+  return doc.output("blob") as Blob;
+}
