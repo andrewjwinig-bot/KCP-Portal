@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server";
-import { PDFDocument, rgb, StandardFonts, PDFPage, PDFFont, degrees } from "pdf-lib";
-import fs from "fs";
-import path from "path";
+import { PDFDocument, rgb, StandardFonts, PDFPage, PDFFont } from "pdf-lib";
 import { PROPERTY_DEFS } from "../../../lib/properties/data";
 import { getJSON } from "@/lib/storage";
 import { EMPTY_LEASING_ACTIVITY, type LeasingActivity } from "@/lib/leasing/types";
@@ -65,14 +63,20 @@ const MONTHS_LONG = ["January","February","March","April","May","June","July","A
 function money(n: number) {
   return n.toLocaleString("en-US", { style: "currency", currency: "USD" });
 }
-function sqftFmt(n: number) { return n.toLocaleString("en-US"); }
-function mdyToTs(s: string | null | undefined): number {
-  // Convert MM/DD/YYYY → epoch ms; missing/invalid sorts to the end.
-  if (!s) return Number.POSITIVE_INFINITY;
-  const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if (!m) return Number.POSITIVE_INFINITY;
-  return new Date(Number(m[3]), Number(m[1]) - 1, Number(m[2])).getTime();
+// Whole-dollar money (no cents) — used for CAM/RET/Other columns.
+function money0(n: number) {
+  return "$" + Math.round(n).toLocaleString("en-US");
 }
+// 2-digit base year for the B/Y column: 4-digit year → last 2 digits; 2-digit
+// stays; non-numeric markers (NNN, GROSS, …) shown as-is.
+function baseYear2(raw: number | string | null | undefined): string {
+  if (raw == null || raw === "") return "—";
+  const s = String(raw).trim();
+  if (/^\d{4}$/.test(s)) return s.slice(2);
+  if (/^\d{2}$/.test(s)) return s;
+  return s.toUpperCase();
+}
+function sqftFmt(n: number) { return n.toLocaleString("en-US"); }
 function parseDate(s: string | null | undefined): Date | null {
   if (!s) return null;
   const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
@@ -109,11 +113,11 @@ function buildCols(hideNNN: boolean, showBaseYear: boolean): ColDef[] {
   if (hideNNN) {
     return [
       { header: "Tenant",       width: 175, align: "left"  },
-      { header: "Unit",         width: 60,  align: "left"  },
+      { header: "Unit",         width: 42,  align: "left"  },
       { header: "Sq Ft",        width: 55,  align: "right" },
       { header: "Lease From",   width: 60,  align: "left"  },
       { header: "Lease To",     width: 60,  align: "left"  },
-      ...(showBaseYear ? [{ header: "Base Year", width: 50, align: "right" as const }] : []),
+      ...(showBaseYear ? [{ header: "B/Y", width: 30, align: "right" as const }] : []),
       { header: "Base Rent/mo", width: 75,  align: "right" },
       { header: "Annual $/sf",  width: 55,  align: "right" },
       { header: "Gross/mo",     width: 75,  align: "right" },
@@ -121,11 +125,11 @@ function buildCols(hideNNN: boolean, showBaseYear: boolean): ColDef[] {
   }
   return [
     { header: "Tenant",       width: showBaseYear ? 122 : 130, align: "left"  },
-    { header: "Unit",         width: 53,  align: "left"  },
+    { header: "Unit",         width: 38,  align: "left"  },
     { header: "Sq Ft",        width: 48,  align: "right" },
     { header: "Lease From",   width: 56,  align: "left"  },
     { header: "Lease To",     width: 56,  align: "left"  },
-    ...(showBaseYear ? [{ header: "Base Year", width: 44, align: "right" as const }] : []),
+    ...(showBaseYear ? [{ header: "B/Y", width: 28, align: "right" as const }] : []),
     { header: "Base Rent/mo", width: 62,  align: "right" },
     { header: "Annual $/sf",  width: 50,  align: "right" },
     { header: "CAM/mo",       width: 50,  align: "right" },
@@ -158,20 +162,22 @@ function fitText(s: string, font: PDFFont, size: number, maxW: number): string {
 function cellVal(col: string, unit: any, tenantMeta?: Record<string, { baseYear?: number | string | null }>): string {
   switch (col) {
     case "Tenant":       return unit.isVacant ? "Vacant" : (unit.occupantName || "");
-    case "Unit":         return unit.unitRef || "";
+    case "Unit":         {
+      // Show just the suite (drop the building-code prefix — rows are already
+      // grouped by building). "3610-101" → "101".
+      const ref = unit.unitRef || "";
+      const i = ref.indexOf("-");
+      return i >= 0 ? ref.slice(i + 1) : ref;
+    }
     case "Sq Ft":        return sqftFmt(unit.sqft);
     case "Lease From":   return fmtDate(unit.leaseFrom);
     case "Lease To":     return fmtDate(unit.leaseTo);
-    case "Base Year":    {
-      if (unit.isVacant) return "—";
-      const v = tenantMeta?.[unit.unitRef]?.baseYear;
-      return v != null ? String(v) : "—";
-    }
+    case "B/Y":          return unit.isVacant ? "—" : baseYear2(tenantMeta?.[unit.unitRef]?.baseYear);
     case "Base Rent/mo": return unit.baseRent  ? money(unit.baseRent)  : "—";
     case "Annual $/sf":  return unit.annualRentPerSqft ? `$${unit.annualRentPerSqft.toFixed(2)}` : "—";
-    case "CAM/mo":       return unit.opexMonth  ? money(unit.opexMonth)  : "—";
-    case "RET/mo":       return unit.reTaxMonth ? money(unit.reTaxMonth) : "—";
-    case "Other/mo":     return unit.otherMonth ? money(unit.otherMonth) : "—";
+    case "CAM/mo":       return unit.opexMonth  ? money0(unit.opexMonth)  : "—";
+    case "RET/mo":       return unit.reTaxMonth ? money0(unit.reTaxMonth) : "—";
+    case "Other/mo":     return unit.otherMonth ? money0(unit.otherMonth) : "—";
     case "Gross/mo":     return unit.grossRentTotal ? money(unit.grossRentTotal) : "—";
     default:             return "";
   }
@@ -927,7 +933,7 @@ export async function POST(req: Request) {
 
         // Footnote
         page.drawText(
-          "* Occupied Space + Pending Leases - Tenants Vacating. See Leasing Activity Summary Report for detail.",
+          "* Occupied Space + Pending Leases - Tenants Vacating.",
           { x: tableX, y: py(curY + 10), size: 8, font, color: C_MUTED },
         );
       }
@@ -962,245 +968,8 @@ export async function POST(req: Request) {
       }
     }
 
-    // ── Leasing Activity Summary page (Office only — skipped for retail / residential) ───
-    if (category !== "Retail" && category !== "Residential") {
-      const includeCodes = new Set([...JV_III_CODES, ...NI_LLC_CODES, ...OW_CODES]);
-      const officePresent = properties.some((p: any) => includeCodes.has(String(p.propertyCode).toUpperCase()));
-
-      let leasing: LeasingActivity = EMPTY_LEASING_ACTIVITY;
-      try {
-        const raw = (await getJSON("leasing-activity", "all")) as LeasingActivity | null;
-        if (raw) leasing = { ...EMPTY_LEASING_ACTIVITY, ...raw };
-      } catch { /* default empty */ }
-
-      const hasData =
-        leasing.prospects.length > 0 ||
-        leasing.pendingLeases.length > 0 ||
-        leasing.tenantsVacating.length > 0 ||
-        leasing.optionsToRenew.length > 0;
-
-      if (officePresent && hasData) {
-        // Build unit lookup so vacating/option rows can resolve tenant info
-        const unitLookup = new Map<string, { tenant: string; building: string; sqft: number }>();
-        for (const prop of properties) {
-          const code = String(prop.propertyCode).toUpperCase();
-          if (!includeCodes.has(code)) continue;
-          const buildingName = propDisplayName(code, prop.reportedPropertyName || code);
-          for (const u of prop.units as any[]) {
-            unitLookup.set(u.unitRef, {
-              tenant: u.isVacant ? "Vacant" : u.occupantName,
-              building: buildingName,
-              sqft: u.sqft,
-            });
-          }
-        }
-
-        let page: PDFPage = pdfDoc.addPage([PW, PH]);
-        page.drawLine({ start: { x: M, y: py(M) }, end: { x: PW - M, y: py(M) }, thickness: 2, color: C_BRAND });
-        // Period top right
-        const prW = fontBold.widthOfTextAtSize(periodStr || "####", 11);
-        page.drawText(periodStr || "####", { x: PW - M - prW, y: py(M + 14), size: 11, font: fontBold, color: C_DARK });
-
-        // Title + subtitle
-        const title = "Leasing Activity Summary Report";
-        const titleSz = 22;
-        const titleW = fontBold.widthOfTextAtSize(title, titleSz);
-        page.drawText(title, { x: (PW - titleW) / 2, y: py(M + 40), size: titleSz, font: fontBold, color: C_DARK });
-        const subtitle = "Neshaminy Interplex Status Report";
-        const subSz = 10;
-        const subW = font.widthOfTextAtSize(subtitle, subSz);
-        page.drawText(subtitle, { x: (PW - subW) / 2, y: py(M + 60), size: subSz, font, color: C_BRAND });
-
-        let curY = M + 80;
-        const tableX = M + 6;
-        const tableW = PW - 2 * M - 12;
-        // Scale a column set down to the portrait content width if it's wider
-        // (these widths were tuned for the old landscape page).
-        const fitW = <T extends { width: number }>(cs: T[]): T[] => {
-          const t = cs.reduce((s, c) => s + c.width, 0);
-          if (t <= tableW) return cs;
-          const k = tableW / t;
-          return cs.map((c) => ({ ...c, width: c.width * k }));
-        };
-
-        function newContinuationPage() {
-          page = pdfDoc.addPage([PW, PH]);
-          page.drawLine({ start: { x: M, y: py(M) }, end: { x: PW - M, y: py(M) }, thickness: 2, color: C_BRAND });
-          curY = M + 14;
-        }
-
-        function pageBreakIfNeeded(spaceNeeded: number) {
-          if (curY + spaceNeeded > PH - M - 10) newContinuationPage();
-        }
-
-        function drawSectionTitle(text: string) {
-          pageBreakIfNeeded(22);
-          page.drawText(text + ":", { x: M, y: py(curY + 12), size: 11, font: fontBold, color: C_DARK });
-          curY += 14;
-          page.drawLine({ start: { x: M, y: py(curY) }, end: { x: PW - M, y: py(curY) }, thickness: 0.6, color: C_LINE });
-          curY += 6;
-        }
-
-        function drawRow(cols: { label: string; align: "left" | "right" | "center"; width: number }[], values: string[], opts?: { bold?: boolean; muted?: boolean; bg?: import("pdf-lib").RGB }) {
-          const f = opts?.bold ? fontBold : font;
-          const color = opts?.muted ? C_MUTED : C_DARK;
-          if (opts?.bg) {
-            const totW = cols.reduce((s, c) => s + c.width, 0);
-            page.drawRectangle({ x: tableX, y: py(curY + 14), width: totW, height: 14, color: opts.bg });
-          }
-          let cx = tableX;
-          for (let i = 0; i < cols.length; i++) {
-            const c = cols[i];
-            const raw = values[i] ?? "";
-            const v = c.align === "right" ? raw : fitText(raw, f, 9, c.width - 8);
-            const tw = f.widthOfTextAtSize(v, 9);
-            const tx = c.align === "right"  ? cx + c.width - 6 - tw
-                     : c.align === "center" ? cx + (c.width - tw) / 2
-                     :                        cx + 6;
-            page.drawText(v, { x: tx, y: py(curY + 11), size: 9, font: f, color });
-            cx += c.width;
-          }
-          curY += 14;
-        }
-
-        function noticeBg(noticeDate: string | null | undefined): import("pdf-lib").RGB | undefined {
-          const ms = mdyToTs(noticeDate);
-          if (!Number.isFinite(ms)) return undefined;
-          const today = new Date(); today.setHours(0, 0, 0, 0);
-          const days = Math.round((ms - today.getTime()) / 86400000);
-          if (days < 0)   return rgb(0.95, 0.78, 0.78); // strong red wash for past-due
-          if (days <= 30) return rgb(0.97, 0.86, 0.86);
-          if (days <= 60) return rgb(0.98, 0.89, 0.80);
-          if (days <= 90) return rgb(0.99, 0.93, 0.83);
-          return undefined;
-        }
-
-        // ── Prospects
-        {
-          drawSectionTitle("Prospects");
-          const cols = fitW([
-            { label: "Tenant",        align: "left"   as const, width: 200 },
-            { label: "Building",      align: "center" as const, width: 65  },
-            { label: "SQ. FT.",       align: "right"  as const, width: 70  },
-            { label: "Type of",       align: "left"   as const, width: 130 },
-            { label: "Rating (1-5)",  align: "center" as const, width: 90  },
-          ]);
-          drawRow(cols, cols.map(c => c.label), { bold: true });
-          page.drawLine({ start: { x: tableX, y: py(curY - 2) }, end: { x: tableX + tableW, y: py(curY - 2) }, thickness: 0.4, color: C_LINE });
-          if (leasing.prospects.length === 0) {
-            drawRow(cols, ["—", "", "", "", ""], { muted: true });
-          } else {
-            for (const p of leasing.prospects) {
-              pageBreakIfNeeded(16);
-              drawRow(cols, [
-                p.tenant ?? "",
-                p.building ?? "",
-                p.sqft ? sqftFmt(p.sqft) : "",
-                p.typeOf ?? "",
-                p.rating != null ? String(p.rating) : "",
-              ]);
-            }
-          }
-          curY += 6;
-        }
-
-        // ── Pending Leases
-        {
-          pageBreakIfNeeded(40);
-          drawSectionTitle("Pending Leases");
-          const cols = fitW([
-            { label: "Tenant",     align: "left"   as const, width: 200 },
-            { label: "Building",   align: "center" as const, width: 65  },
-            { label: "SQ. FT.",    align: "right"  as const, width: 70  },
-            { label: "Start Date", align: "left"   as const, width: 110 },
-          ]);
-          drawRow(cols, cols.map(c => c.label), { bold: true });
-          page.drawLine({ start: { x: tableX, y: py(curY - 2) }, end: { x: tableX + tableW, y: py(curY - 2) }, thickness: 0.4, color: C_LINE });
-          if (leasing.pendingLeases.length === 0) {
-            drawRow(cols, ["—", "", "", ""], { muted: true });
-          } else {
-            for (const p of leasing.pendingLeases) {
-              pageBreakIfNeeded(16);
-              drawRow(cols, [
-                p.tenant ?? "",
-                p.building ?? "",
-                p.sqft ? sqftFmt(p.sqft) : "",
-                fmtDate(p.startDate),
-              ]);
-            }
-          }
-          curY += 6;
-        }
-
-        // ── Tenants Vacating
-        {
-          pageBreakIfNeeded(40);
-          drawSectionTitle("Tenants Vacating");
-          const cols = fitW([
-            { label: "Tenant",          align: "left"   as const, width: 200 },
-            { label: "Building",        align: "center" as const, width: 65  },
-            { label: "SQ. FT.",         align: "right"  as const, width: 70  },
-            { label: "Suite",           align: "center" as const, width: 90  },
-            { label: "Expiration Date", align: "left"   as const, width: 110 },
-          ]);
-          drawRow(cols, cols.map(c => c.label), { bold: true });
-          page.drawLine({ start: { x: tableX, y: py(curY - 2) }, end: { x: tableX + tableW, y: py(curY - 2) }, thickness: 0.4, color: C_LINE });
-          if (leasing.tenantsVacating.length === 0) {
-            drawRow(cols, ["—", "", "", "", ""], { muted: true });
-          } else {
-            const vacatingSorted = leasing.tenantsVacating.slice().sort((a, b) => mdyToTs(a.expirationDate) - mdyToTs(b.expirationDate));
-            for (const v of vacatingSorted) {
-              const auto = v.unitRef ? unitLookup.get(v.unitRef) : null;
-              pageBreakIfNeeded(16);
-              drawRow(cols, [
-                v.tenant   || auto?.tenant   || "",
-                v.building || auto?.building || "",
-                v.sqft ? sqftFmt(v.sqft) : (auto ? sqftFmt(auto.sqft) : ""),
-                v.unitRef || "",
-                fmtDate(v.expirationDate),
-              ]);
-            }
-          }
-          curY += 6;
-        }
-
-        // ── Option to Renew
-        {
-          pageBreakIfNeeded(40);
-          drawSectionTitle("Option to Renew");
-          const cols = fitW([
-            { label: "Tenant",              align: "left"   as const, width: 200 },
-            { label: "Building",            align: "center" as const, width: 65  },
-            { label: "SQ. FT.",             align: "right"  as const, width: 70  },
-            { label: "Term / Prior Notice", align: "left"   as const, width: 130 },
-            { label: "Notice Date",         align: "left"   as const, width: 80  },
-            { label: "Option Term Exp",     align: "left"   as const, width: 90  },
-          ]);
-          drawRow(cols, cols.map(c => c.label), { bold: true });
-          page.drawLine({ start: { x: tableX, y: py(curY - 2) }, end: { x: tableX + tableW, y: py(curY - 2) }, thickness: 0.4, color: C_LINE });
-          if (leasing.optionsToRenew.length === 0) {
-            drawRow(cols, ["—", "", "", "", "", ""], { muted: true });
-          } else {
-            const optionsSorted = leasing.optionsToRenew.slice().sort((a, b) => mdyToTs(a.noticeDate) - mdyToTs(b.noticeDate));
-            for (const o of optionsSorted) {
-              const auto = o.unitRef ? unitLookup.get(o.unitRef) : null;
-              pageBreakIfNeeded(16);
-              drawRow(cols, [
-                o.tenant   || auto?.tenant   || "",
-                o.building || auto?.building || "",
-                o.sqft ? sqftFmt(o.sqft) : (auto ? sqftFmt(auto.sqft) : ""),
-                o.term ?? "",
-                fmtDate(o.noticeDate),
-                fmtDate(o.optionTermExp),
-              ], { bg: noticeBg(o.noticeDate) });
-            }
-          }
-        }
-      }
-    }
-
-    // ── Upcoming Lease Expirations summary ───────────────────────────────────
-    {
+    // ── Upcoming Lease Expirations summary (invoked at the very end) ──────────
+    const renderUpcomingExpirations = () => {
       type ExpRow = { propName: string; tenant: string; unit: string; sqft: number; leaseTo: string; days: number };
       const buckets: { label: string; min: number; max: number; rows: ExpRow[] }[] = [
         { label: "Three Month Expirations",          min: 0,   max: 90,  rows: [] },
@@ -1229,12 +998,12 @@ export async function POST(req: Request) {
       const hasAny = buckets.some(b => b.rows.length > 0);
       if (hasAny) {
         const EXP_COLS: ColDef[] = [
-          { header: "Property",      width: 125, align: "left"  },
-          { header: "Tenant",        width: 165, align: "left"  },
-          { header: "Unit",          width: 65,  align: "left"  },
-          { header: "Sq Ft",         width: 55,  align: "right" },
-          { header: "Lease Expires", width: 80,  align: "left"  },
-          { header: "Tenant Status", width: 125, align: "left"  },
+          { header: "Property",      width: 116, align: "left"  },
+          { header: "Tenant",        width: 150, align: "left"  },
+          { header: "Unit",          width: 58,  align: "left"  },
+          { header: "Sq Ft",         width: 46,  align: "right" },
+          { header: "Lease Expires", width: 66,  align: "left"  },
+          { header: "Tenant Status", width: 98,  align: "left"  },
         ];
         const tableW = EXP_COLS.reduce((s, c) => s + c.width, 0);
         const tableX = (PW - tableW) / 2;
@@ -1279,10 +1048,12 @@ export async function POST(req: Request) {
             };
             let cx = tableX;
             for (const col of EXP_COLS) {
-              const val = vals[col.header] || "";
-              const tw  = font.widthOfTextAtSize(val, 8);
-              const tx  = col.align === "right" ? cx + col.width - 4 - tw : cx + 4;
-              page.drawText(val, { x: tx, y: py(curY + ROW_H - 5), size: 8, font: col.header === "Tenant" ? fontBold : font, color: C_DARK });
+              const f    = col.header === "Tenant" ? fontBold : font;
+              const raw  = vals[col.header] || "";
+              const val  = col.align === "left" ? fitText(raw, f, 8, col.width - 6) : raw;
+              const tw   = f.widthOfTextAtSize(val, 8);
+              const tx   = col.align === "right" ? cx + col.width - 4 - tw : cx + 4;
+              page.drawText(val, { x: tx, y: py(curY + ROW_H - 5), size: 8, font: f, color: C_DARK });
               cx += col.width;
             }
             page.drawLine({ start: { x: tableX, y: py(curY + ROW_H) }, end: { x: tableX + tableW, y: py(curY + ROW_H) }, thickness: 0.2, color: C_LINE });
@@ -1311,93 +1082,7 @@ export async function POST(req: Request) {
         const totW = fontBold.widthOfTextAtSize(totLabel, 9);
         page.drawText(totLabel, { x: PW - M - 6 - totW, y: py(curY + 14), size: 9, font: fontBold, color: C_DARK });
       }
-    }
-
-    // ── Vacancy Summary ───────────────────────────────────────────────────────
-    {
-      type VacRow = { propName: string; unit: string; sqft: number };
-      const rows: VacRow[] = [];
-      for (const prop of properties) {
-        const name = propDisplayName((prop.propertyCode as string).toUpperCase(), prop.reportedPropertyName || prop.propertyCode);
-        for (const u of prop.units as any[]) {
-          if (u.isVacant) rows.push({ propName: name, unit: u.unitRef || "", sqft: u.sqft });
-        }
-      }
-
-      if (rows.length) {
-        // Two balanced side-by-side columns so short lists fill the horizontal
-        // space (and long ones stay on one page) instead of a tall single
-        // column with a blank right half. Each sub-table is portrait-sized.
-        const COL_W = 256, GAP = 22;
-        const VAC_COLS: ColDef[] = [
-          { header: "Property", width: 148, align: "left"  },
-          { header: "Unit",     width: 62,  align: "left"  },
-          { header: "Sq Ft",    width: 46,  align: "right" },
-        ];
-        const colXs = [M, M + COL_W + GAP];
-
-        const drawVacRow = (page: PDFPage, xBase: number, y: number, row: VacRow, alt: boolean) => {
-          if (alt) page.drawRectangle({ x: xBase, y: py(y + ROW_H), width: COL_W, height: ROW_H, color: C_ALT });
-          const vals: Record<string, string> = { "Property": row.propName, "Unit": row.unit, "Sq Ft": sqftFmt(row.sqft) };
-          let cx = xBase;
-          for (const col of VAC_COLS) {
-            const val = col.header === "Property" ? fitText(vals[col.header] || "", font, 8, col.width - 6) : (vals[col.header] || "");
-            const tw  = font.widthOfTextAtSize(val, 8);
-            const tx  = col.align === "right" ? cx + col.width - 4 - tw : cx + 4;
-            page.drawText(val, { x: tx, y: py(y + ROW_H - 5), size: 8, font, color: C_DARK });
-            cx += col.width;
-          }
-          page.drawLine({ start: { x: xBase, y: py(y + ROW_H) }, end: { x: xBase + COL_W, y: py(y + ROW_H) }, thickness: 0.2, color: C_LINE });
-        };
-
-        let { page, curY } = newPage();
-        page.drawText("Vacancy Summary", { x: M, y: py(curY + 18), size: 16, font: fontBold, color: C_DARK });
-        curY += 28;
-
-        let grandUnits = 0;
-        let grandSqft  = 0;
-        for (const r of rows) { grandUnits += 1; grandSqft += r.sqft; }
-
-        // Fill the page with as many rows as two columns hold, balanced, then
-        // continue on a new page if the list is longer than one page.
-        let idx = 0;
-        let firstChunk = true;
-        while (idx < rows.length) {
-          let pageStartY: number;
-          if (firstChunk) { pageStartY = curY; firstChunk = false; }
-          else { ({ page, curY } = newPage()); pageStartY = curY; }
-
-          const capacity = Math.max(1, Math.floor((PH - M - 30 - (pageStartY + HEAD_H)) / ROW_H));
-          const chunk = rows.slice(idx, idx + capacity * 2);
-          const half = Math.ceil(chunk.length / 2);
-          const columns = [chunk.slice(0, half), chunk.slice(half)];
-
-          let maxBottom = pageStartY;
-          for (let c = 0; c < columns.length; c++) {
-            if (columns[c].length === 0) continue;
-            let y = pageStartY;
-            drawHeader(page, y, VAC_COLS, colXs[c], COL_W);
-            y += HEAD_H;
-            for (let r = 0; r < columns[c].length; r++) {
-              drawVacRow(page, colXs[c], y, columns[c][r], r % 2 === 1);
-              y += ROW_H;
-            }
-            maxBottom = Math.max(maxBottom, y);
-          }
-          curY = maxBottom;
-          idx += capacity * 2;
-        }
-
-        // Grand total
-        if (curY + 24 > PH - M - 10) { ({ page, curY } = newPage()); }
-        page.drawLine({ start: { x: M, y: py(curY + 1) }, end: { x: PW - M, y: py(curY + 1) }, thickness: 1.5, color: C_DARK });
-        page.drawRectangle({ x: M, y: py(curY + 22), width: PW - 2 * M, height: 22, color: C_HBKG });
-        page.drawText("Total Vacancy", { x: M + 6, y: py(curY + 14), size: 9, font: fontBold, color: C_DARK });
-        const totLabel = `${grandUnits} unit${grandUnits !== 1 ? "s" : ""}   ·   ${sqftFmt(grandSqft)} sf`;
-        const totW = fontBold.widthOfTextAtSize(totLabel, 9);
-        page.drawText(totLabel, { x: PW - M - 6 - totW, y: py(curY + 14), size: 9, font: fontBold, color: C_DARK });
-      }
-    }
+    };
 
     // ── Per-property sections ─────────────────────────────────────────────────
     // For Korman Homes (residential) properties we share pages across
@@ -1531,9 +1216,9 @@ export async function POST(req: Request) {
         "Sq Ft":        sqftFmt(totSqft),
         "Base Rent/mo": totBase  ? money(totBase)  : "—",
         "Annual $/sf":  avgPerSf ? `$${avgPerSf.toFixed(2)}` : "—",
-        "CAM/mo":       totCAM   ? money(totCAM)   : "—",
-        "RET/mo":       totRET   ? money(totRET)   : "—",
-        "Other/mo":     totOther ? money(totOther) : "—",
+        "CAM/mo":       totCAM   ? money0(totCAM)   : "—",
+        "RET/mo":       totRET   ? money0(totRET)   : "—",
+        "Other/mo":     totOther ? money0(totOther) : "—",
         "Gross/mo":     totGross ? money(totGross) : "—",
       };
       let cx2 = tableX;
@@ -1552,51 +1237,6 @@ export async function POST(req: Request) {
         kHomesY = curY + PROP_ROW_H + 8;
       }
 
-      // ── Floorplan page ──────────────────────────────────────────────────────
-      // Korman Homes properties don't ship with floorplans and we want to
-      // keep them on a single consolidated page anyway, so skip.
-      const fpPath = isKHomes ? "" : path.join(process.cwd(), "public", "floorplans", `${code}.jpg`);
-      if (fpPath && fs.existsSync(fpPath)) {
-        const imgBytes = fs.readFileSync(fpPath);
-        const img      = await pdfDoc.embedJpg(imgBytes);
-        const dims     = img.scale(1);
-
-        // Floor-plan pages stay LANDSCAPE (unchanged from the old report) even
-        // though the rest of the report is portrait — the plan images are wide.
-        const fpPage = pdfDoc.addPage([FP_W, FP_H]);
-        fpPage.drawLine({ start: { x: M, y: fpy(M) }, end: { x: FP_W - M, y: fpy(M) }, thickness: 2, color: C_BRAND });
-        const rtW = font.widthOfTextAtSize(reportTitle, 8);
-        fpPage.drawText(reportTitle, { x: FP_W - M - rtW, y: fpy(M + 14), size: 8, font, color: C_MUTED });
-        fpPage.drawText(`${name} — Floor Plan`, { x: M, y: fpy(M + 18), size: 13, font: fontBold, color: C_DARK });
-
-        const availW = FP_W - 2 * M;
-        const availH = FP_H - 2 * M - 36;
-        const ROTATE_90_CW_CODES = new Set(["3610", "3620", "4050"]);
-        if (ROTATE_90_CW_CODES.has(code)) {
-          // Rotated 90° clockwise: visible width = original height, visible height = original width.
-          const scale = Math.min(availW / dims.height, availH / dims.width);
-          const drawW = dims.width  * scale;
-          const drawH = dims.height * scale;
-          // pdf-lib rotates around the un-rotated bottom-left at (x, y).
-          // After -90°, the image's visible bottom-left is at (x, y - drawW).
-          fpPage.drawImage(img, {
-            x: M + (availW - drawH) / 2,
-            y: M + 36 + (availH - drawW) / 2 + drawW,
-            width: drawW,
-            height: drawH,
-            rotate: degrees(-90),
-          });
-        } else {
-          const scale  = Math.min(availW / dims.width, availH / dims.height);
-          const drawW  = dims.width  * scale;
-          const drawH  = dims.height * scale;
-          fpPage.drawImage(img, {
-            x: M + (availW - drawW) / 2,
-            y: M + 36 + (availH - drawH) / 2,
-            width: drawW, height: drawH,
-          });
-        }
-      }
     }
 
     // ── Security Deposits page ───────────────────────────────────────────────
@@ -1698,6 +1338,9 @@ export async function POST(req: Request) {
         }
       }
     } catch { /* ignore — deposits section is best-effort */ }
+
+    // Upcoming Lease Expirations is the last section of the report.
+    renderUpcomingExpirations();
 
     const pdfBytes  = await pdfDoc.save();
     const safeName  = reportTitle.replace(/[^a-z0-9\-_. ]/gi, "_");
