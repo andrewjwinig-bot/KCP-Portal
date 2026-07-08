@@ -8,6 +8,7 @@ import { buildAllocExportXlsx, AllocExportRow } from "../../lib/allocated-invoic
 import { emailInvoicerReport, XLSX_CONTENT_TYPE } from "../../lib/invoicing/sendReport";
 import { toMoney } from "../../lib/expenses/utils";
 import { ALLOC_PCT } from "../../lib/properties/data";
+import { DownloadMenu } from "@/app/components/DownloadMenu";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -745,20 +746,15 @@ export default function AllocatedInvoicerPage() {
           <b>Generate Invoices</b>
           <div className="small muted" style={{ marginBottom: 14 }}>One PDF invoice per property. Only properties with allocated amounts greater than $0 are included.</div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
-            <button
-              className="btn primary large"
-              onClick={generateAllPdfsZip}
+            <DownloadMenu
+              label="Download"
+              variant="primary"
               disabled={!allocationRows.length}
-            >
-              Download All Invoices
-            </button>
-            <button
-              className="btn large"
-              onClick={downloadExcel}
-              disabled={!allocationRows.length}
-            >
-              Download Excel Summary
-            </button>
+              items={[
+                { label: "All Invoices (ZIP)", description: "One PDF per property with an allocated amount", onClick: generateAllPdfsZip },
+                { label: "Excel Summary", description: "Allocated expenses workbook", onClick: downloadExcel },
+              ]}
+            />
           </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
             {ALLOC_PROPERTIES.filter((p) => (perPropertyTotals.get(p.id) ?? 0) > 0).map((prop) => (
