@@ -16,6 +16,7 @@
 
 import "server-only";
 import { listBudgets } from "@/lib/financials/budgets/storage";
+import type { BudgetWorkbook } from "@/lib/financials/budgets/types";
 import type { BudgetLine, RentDetail } from "@/lib/financials/budgets/types";
 import { accountMatchesMask } from "./mask";
 import type { LineBudget } from "./types";
@@ -93,12 +94,17 @@ export type ResolvedBudget = {
 
 /** Find the property's budget for `year`; if none, fall back to the nearest
  *  available budget year for that property (newest). Returns null if the
- *  property has no budget in any loaded workbook. */
+ *  property has no budget in any loaded workbook.
+ *
+ *  Pass `preloaded` when resolving budgets for many properties in a loop (e.g.
+ *  the Monthly Review) to avoid re-reading the whole budget manifest per
+ *  property — load it once with listBudgets() and hand it in. */
 export async function resolvePropertyBudget(
   propertyCode: string,
-  year: number
+  year: number,
+  preloaded?: BudgetWorkbook[]
 ): Promise<ResolvedBudget | null> {
-  const workbooks = await listBudgets();
+  const workbooks = preloaded ?? await listBudgets();
   // Candidate (year → flat lines + structured tree) for this property.
   const byYear = new Map<number, FlatBudgetLine[]>();
   const byYearTree = new Map<number, BudgetLine[]>();
