@@ -579,6 +579,7 @@ export type ReimbursementLine = { label: string; amount: number };
 
 export type BuildReimbursementPdfArgs = {
   payeeName: string;        // e.g. "Harry Feldman"
+  payeeVendorCode: string;  // e.g. "HARRY" (the AP vendor code paid, not LIKM1)
   statementMonth: string;   // YYYY-MM
   invoiceDate: string;      // YYYY-MM-DD
   periodText?: string;
@@ -651,8 +652,8 @@ export function buildReimbursementInvoicePdf(args: BuildReimbursementPdfArgs): B
 
   // Footer: payable-to + TOTAL box
   doc.setFont("helvetica", "bold"); doc.setFontSize(10); doc.setTextColor(0, 0, 0);
-  doc.text(`Payable to ${args.payeeName}`, margin, pageH - 88);
-  doc.text("Reimbursement for the credit card statement", margin, pageH - 72);
+  doc.text(`Payable to ${args.payeeVendorCode}`, margin, pageH - 88);
+  doc.text(args.payeeName, margin, pageH - 72);
   doc.setFillColor(TEAL.r, TEAL.g, TEAL.b); doc.rect(margin + contentW - 220, pageH - 95, 220, 40, "F");
   doc.setFont("helvetica", "bold"); doc.setFontSize(20); doc.setTextColor(255, 255, 255);
   doc.text("TOTAL", margin + contentW - 210, pageH - 68); doc.text(toMoney(args.total).replace("$", "$ "), margin + contentW - 10, pageH - 68, { align: "right" });

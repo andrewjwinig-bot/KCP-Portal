@@ -851,6 +851,7 @@ export default function ExpensesPage() {
       const reimbTotal = Math.round(invoiceGroups.reduce((a, ig) => a + ig.total, 0) * 100) / 100;
       const reimbBlob = buildReimbursementInvoicePdf({
         payeeName: "Harry Feldman",
+        payeeVendorCode: "HARRY",
         statementMonth: statementMonth || "",
         invoiceDate: invoiceDate || "",
         periodText: statementPeriodText || "",
