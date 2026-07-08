@@ -440,8 +440,8 @@ function UnitsTable({ units, propertyCode, hideNNN, tenantMeta, onBaseYearChange
               <th style={{ textAlign: "right" }}>Sq Ft</th>
               <th>Lease From</th>
               <th>Lease To</th>
-              {showBaseYear && <th style={{ textAlign: "center" }}>Base<br/>Year</th>}
-              {!hideRent && <th style={{ textAlign: "right" }}>Annual<br/>$/sf</th>}
+              {showBaseYear && <th style={{ textAlign: "center" }}>B/Y</th>}
+              {!hideRent && <th style={{ textAlign: "right" }}>Ann.<br/>$/sf</th>}
               {!hideRent && <th style={{ textAlign: "right" }}>Base Rent</th>}
               {!hideRent && !hideNNN && <th style={{ textAlign: "right" }}>CAM</th>}
               {!hideRent && !hideNNN && <th style={{ textAlign: "right" }}>INS</th>}
