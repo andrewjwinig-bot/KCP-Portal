@@ -731,6 +731,7 @@ export default function OperatingStatementsPage() {
                 label="Open"
                 variant="default"
                 items={[
+                  { label: "Full-Year Actuals", description: `Every month's actuals + Full Year total`, href: `/financials/reprojections?key=${encodeURIComponent(key)}${year ? `&year=${year}` : ""}&mode=actuals` },
                   { label: "Reprojection", description: `${cur.propertyCode}'s full-year reprojection`, href: `/financials/reprojections?key=${encodeURIComponent(key)}${year ? `&year=${year}` : ""}` },
                   { label: "Budget", description: `${cur.propertyCode}'s operating budget`, href: `/financials/budgets?property=${encodeURIComponent(cur.propertyCode)}${year ? `&year=${year}` : ""}` },
                 ]}
