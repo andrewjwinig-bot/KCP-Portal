@@ -5,7 +5,7 @@
 // Other. Rendered both as the standalone /reports/monthly page (for a clean
 // Print/PDF) and folded into the Dashboard (embedded) for finance users.
 
-import { useCallback, useEffect, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { StatPill } from "@/app/components/Pill";
 import LoadingState from "@/app/components/LoadingState";
@@ -308,7 +308,6 @@ function leaseToParts(s: string | null): { y: number; m: number } | null {
   return m ? { y: Number(m[3]), m: Number(m[1]) } : null;
 }
 
-const subHead: CSSProperties = { padding: "10px 8px 4px", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "#475569" };
 
 // Small grey status pill for the recently-vacated / expired rows (matches the
 // dashboard's VACATED chip).
@@ -426,9 +425,7 @@ function LeaseMovement({ report, reconYear }: { report: Report; reconYear: numbe
               </tr>
             </thead>
             <tbody>
-              {recent.length > 0 && <tr><td colSpan={8} style={subHead}>Recently vacated / expired — last 60 days · run their close-out</td></tr>}
               {renderRows(recent)}
-              {upcoming.length > 0 && <tr><td colSpan={8} style={subHead}>Expiring soon — next 90 days</td></tr>}
               {renderRows(upcoming)}
             </tbody>
           </table>

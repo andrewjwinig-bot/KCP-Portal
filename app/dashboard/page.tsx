@@ -1135,8 +1135,13 @@ function DashboardInner() {
         </div>
       )}
 
-      {/* ── Leases expiring soon ── */}
-      {showExpiring && (
+      {/* ── Leases expiring soon ──
+           Hidden for users who see the Monthly Review panel above: its
+           Vacating & Expiring table already covers this (recently vacated /
+           expired + expiring), so this standalone card would be redundant.
+           Personas without the panel (Nancy · office, Harry · retail, maint)
+           still get their scoped Leases Expiring list here. ── */}
+      {showExpiring && !isPathAllowed(user.id, "/reports/monthly") && (
       <div className="card">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
           <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
