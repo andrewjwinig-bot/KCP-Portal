@@ -165,7 +165,15 @@ export default function AllocatedInvoicerPage() {
   const [pendingDismissed, setPendingDismissed] = useState(false);
   const [loadingPending, setLoadingPending] = useState(false);
   useEffect(() => {
-    fetch("/api/allocation/pending-gl").then((r) => r.json()).then((j) => setPendingGl(j.pending ?? null)).catch(() => {});
+    fetch("/api/allocation/pending-gl").then((r) => r.json()).then((j) => {
+      const p = j.pending ?? null;
+      setPendingGl(p);
+      // Auto-parse the 2000 G&A GL handed off from Operating Statements so the
+      // page comes up ready to send invoices — no manual "Load" click. Skip if
+      // that statement month has already been processed.
+      if (p && !p.alreadyProcessed) loadPendingGl();
+    }).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function loadPendingGl() {
@@ -502,18 +510,20 @@ export default function AllocatedInvoicerPage() {
             <span style={{ fontSize: 20 }}>✅</span>
             <div style={{ flex: 1, minWidth: 220 }}>
               <div style={{ fontWeight: 800, color: "#15803d" }}>
-                {pendingGl.statementMonth} 2000 G&amp;A GL is ready to process
+                {loadingPending
+                  ? `Parsing ${pendingGl.statementMonth} 2000 G&A GL…`
+                  : `${pendingGl.statementMonth} 2000 G&A GL is ready to process`}
               </div>
               <div className="muted small" style={{ marginTop: 2 }}>
                 Imported on Operating Statements{pendingGl.uploadedBy ? ` by ${pendingGl.uploadedBy}` : ""}
                 {pendingGl.uploadedAt ? ` · ${new Date(pendingGl.uploadedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}` : ""}.
-                Same file — load it here to generate the allocated invoices (review before sending).
+                {loadingPending ? " Loading it now — the invoices will be ready to review and send." : " Same file — no re-upload needed. Review before sending."}
               </div>
             </div>
             <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-              <button className="btn primary" style={{ fontWeight: 700, whiteSpace: "nowrap" }} disabled={loadingPending} onClick={loadPendingGl}>
-                {loadingPending ? "Loading…" : "Load & generate →"}
-              </button>
+              {!loadingPending && (
+                <button className="btn primary" style={{ fontWeight: 700, whiteSpace: "nowrap" }} onClick={loadPendingGl}>Load & generate →</button>
+              )}
               <button className="btn" style={{ fontWeight: 700 }} onClick={() => setPendingDismissed(true)}>Dismiss</button>
             </div>
           </div>
