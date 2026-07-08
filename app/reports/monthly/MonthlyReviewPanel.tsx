@@ -309,8 +309,21 @@ function leaseToParts(s: string | null): { y: number; m: number } | null {
 }
 
 const subHead: CSSProperties = { padding: "10px 8px 4px", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "#475569" };
-function StatusPill({ text, fg, bg, bd }: { text: string; fg: string; bg: string; bd: string }) {
-  return <span style={{ fontSize: 10, fontWeight: 700, padding: "1px 8px", borderRadius: 999, background: bg, color: fg, border: `1px solid ${bd}`, whiteSpace: "nowrap" }}>{text}</span>;
+
+// Small grey status pill for the recently-vacated / expired rows (matches the
+// dashboard's VACATED chip).
+function GonePill({ text }: { text: string }) {
+  return <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 999, background: "rgba(100,116,139,0.14)", color: "#475569", border: "1px solid rgba(100,116,139,0.4)", letterSpacing: "0.04em", whiteSpace: "nowrap" }}>{text}</span>;
+}
+
+/** 2-digit base year for the B/Y column — 4-digit year → last 2 digits;
+ *  non-numeric markers (NNN, GROSS, …) shown as-is; missing → dash. */
+function baseYear2(raw: number | string | null | undefined): string {
+  if (raw == null || raw === "") return "—";
+  const s = String(raw).trim();
+  if (/^\d{4}$/.test(s)) return s.slice(2);
+  if (/^\d{2}$/.test(s)) return s;
+  return s.toUpperCase();
 }
 
 // The consolidated leasing-movement section: recently vacated / expired (last
@@ -319,6 +332,24 @@ function StatusPill({ text, fg, bg, bd }: { text: string; fg: string; bg: string
 // mini-lists.
 function LeaseMovement({ report, reconYear }: { report: Report; reconYear: number }) {
   type Row = { propertyCode: string; unitRef: string; tenant: string; sqft: number; leaseTo: string | null; days: number | null; status: "expiring" | "expired" | "vacated" };
+
+  // Base year and held security deposit come from the same per-unit sources the
+  // dashboard uses, keyed by unitRef.
+  const [tenantMeta, setTenantMeta] = useState<Record<string, { baseYear?: number | string | null }>>({});
+  const [depositOwed, setDepositOwed] = useState<Record<string, number>>({});
+  useEffect(() => {
+    fetch("/api/tenant-meta").then((r) => (r.ok ? r.json() : null)).then((j) => setTenantMeta(j?.tenantMeta ?? {})).catch(() => {});
+    fetch("/api/deposits", { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).then((j) => {
+      const owed: Record<string, number> = {};
+      for (const d of (j?.deposits ?? []) as { unitRef?: string; amount?: number; refunded?: boolean; tenantDefaulted?: boolean; partialRefund?: boolean }[]) {
+        if (!d.unitRef) continue;
+        const held = d.refunded || d.tenantDefaulted || d.partialRefund ? 0 : (d.amount ?? 0);
+        owed[d.unitRef] = (owed[d.unitRef] ?? 0) + held;
+      }
+      setDepositOwed(owed);
+    }).catch(() => {});
+  }, []);
+
   const upcoming: Row[] = report.expirations
     .filter((e) => e.days >= 0)
     .map((e) => ({ propertyCode: e.propertyCode, unitRef: e.unitRef, tenant: e.tenant, sqft: e.sqft, leaseTo: e.leaseTo, days: e.days, status: "expiring" }));
@@ -333,22 +364,44 @@ function LeaseMovement({ report, reconYear }: { report: Report; reconYear: numbe
     const asOf = p?.m ?? null;
     return `/cam-recon/interim?property=${r.propertyCode}&unitRef=${encodeURIComponent(r.unitRef)}&year=${y}${asOf ? `&asOf=${asOf}` : ""}`;
   };
-  const badge = (r: Row) =>
-    r.status === "vacated" ? <StatusPill text="Vacated" fg="#b91c1c" bg="rgba(220,38,38,0.1)" bd="rgba(220,38,38,0.35)" />
-    : r.status === "expired" ? <StatusPill text={`Expired ${Math.abs(r.days ?? 0)}d ago`} fg="#b91c1c" bg="rgba(220,38,38,0.1)" bd="rgba(220,38,38,0.35)" />
-    : <StatusPill text={`Expires in ${r.days}d`} fg="#b45309" bg="rgba(180,83,9,0.1)" bd="rgba(180,83,9,0.35)" />;
 
-  const renderRows = (rows: Row[]) => rows.map((r, i) => (
-    <tr key={`${r.status}-${r.unitRef}-${i}`}>
-      <td style={{ fontWeight: 600 }}>{r.tenant}</td>
-      <td className="muted small">{r.propertyCode}</td>
-      <td><code style={{ fontSize: 11 }}>{r.unitRef}</code></td>
-      <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{r.sqft ? sf(Math.round(r.sqft)) : "—"}</td>
-      <td className="muted small" style={{ whiteSpace: "nowrap" }}>{r.leaseTo ?? "—"}</td>
-      <td style={{ textAlign: "center" }}>{badge(r)}</td>
-      <td style={{ textAlign: "right" }}><Link href={stmtHref(r)} className="noprint" style={{ color: "#0b4a7d", fontWeight: 600, fontSize: 12, textDecoration: "none", whiteSpace: "nowrap" }}>Statement →</Link></td>
-    </tr>
-  ));
+  // Row tint conveys urgency in place of a status column: soonest-expiring red,
+  // then orange, then yellow; recently vacated / expired get the grey fill.
+  const rowBg = (r: Row): string | undefined => {
+    if (r.status === "vacated" || r.status === "expired") return "rgba(100,116,139,0.08)";
+    const d = r.days ?? 999;
+    return d <= 30 ? "rgba(220,38,38,0.08)" : d <= 60 ? "rgba(234,88,12,0.07)" : "rgba(234,179,8,0.11)";
+  };
+
+  const dep = (unitRef: string) =>
+    depositOwed[unitRef] ? "$" + Math.round(depositOwed[unitRef]).toLocaleString("en-US") : <span className="muted">—</span>;
+
+  const renderRows = (rows: Row[]) => rows.map((r, i) => {
+    const gone = r.status === "vacated" || r.status === "expired";
+    return (
+      <tr key={`${r.status}-${r.unitRef}-${i}`} style={{ background: rowBg(r) }}>
+        <td style={{ fontWeight: 600 }}>
+          {r.tenant}
+          {r.status === "vacated" && <GonePill text="VACATED" />}
+          {r.status === "expired" && <GonePill text="EXPIRED" />}
+        </td>
+        <td className="muted small">{r.propertyCode}</td>
+        <td><code style={{ fontSize: 11 }}>{r.unitRef}</code></td>
+        <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{r.sqft ? sf(Math.round(r.sqft)) : "—"}</td>
+        <td className="muted small" style={{ whiteSpace: "nowrap" }}>{r.leaseTo ?? "—"}</td>
+        <td style={{ textAlign: "center", fontSize: 13 }}>{baseYear2(tenantMeta[r.unitRef]?.baseYear)}</td>
+        <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}
+          title={depositOwed[r.unitRef] ? "Security deposit held / owed back to the tenant" : "No security deposit on file"}>
+          {dep(r.unitRef)}
+        </td>
+        <td style={{ textAlign: "right" }}>
+          <Link href={stmtHref(r)} className="noprint" style={{ color: "#0b4a7d", fontWeight: 600, fontSize: 12, textDecoration: "none", whiteSpace: "nowrap" }}>
+            {gone ? "Close out →" : "Statement →"}
+          </Link>
+        </td>
+      </tr>
+    );
+  });
 
   const total = upcoming.length + recent.length;
   return (
@@ -368,14 +421,15 @@ function LeaseMovement({ report, reconYear }: { report: Report; reconYear: numbe
               <tr>
                 <th>Tenant</th><th>Property</th><th>Unit</th>
                 <th style={{ textAlign: "right" }}>Sq Ft</th><th>Lease To</th>
-                <th style={{ textAlign: "center" }}>Status</th><th></th>
+                <th style={{ textAlign: "center" }}>B/Y</th>
+                <th style={{ textAlign: "right" }}>Sec. Deposit</th><th></th>
               </tr>
             </thead>
             <tbody>
-              {upcoming.length > 0 && <tr><td colSpan={7} style={subHead}>Expiring soon — next 90 days</td></tr>}
-              {renderRows(upcoming)}
-              {recent.length > 0 && <tr><td colSpan={7} style={subHead}>Recently vacated / expired — last 60 days · run their close-out</td></tr>}
+              {recent.length > 0 && <tr><td colSpan={8} style={subHead}>Recently vacated / expired — last 60 days · run their close-out</td></tr>}
               {renderRows(recent)}
+              {upcoming.length > 0 && <tr><td colSpan={8} style={subHead}>Expiring soon — next 90 days</td></tr>}
+              {renderRows(upcoming)}
             </tbody>
           </table>
         </div>
