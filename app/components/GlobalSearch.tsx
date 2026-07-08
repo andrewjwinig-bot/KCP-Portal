@@ -1151,7 +1151,7 @@ export function GlobalSearchTrigger({ collapsed }: { collapsed: boolean }) {
   return (
     <button
       onClick={openSearch}
-      title="Ask AI or search (⌘K)"
+      title="Ask AI (⌘K)"
       style={{
         display: "flex", alignItems: "center", gap: 8,
         width: "100%", padding: collapsed ? "8px" : "8px 10px",
@@ -1167,7 +1167,6 @@ export function GlobalSearchTrigger({ collapsed }: { collapsed: boolean }) {
       {!collapsed && (
         <>
           <span style={{ fontWeight: 600 }}>Ask AI</span>
-          <span style={{ opacity: 0.6 }}>or search</span>
           <span style={{ marginLeft: "auto", fontSize: 11, opacity: 0.6, border: "1px solid rgba(255,255,255,0.25)", borderRadius: 5, padding: "1px 5px" }}>⌘K</span>
         </>
       )}
