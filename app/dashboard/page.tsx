@@ -672,12 +672,6 @@ function DashboardInner() {
         </div>
       </header>
 
-      {isPathAllowed(user.id, "/reports/monthly") && (
-        <div className="card" style={{ borderColor: "rgba(11,74,125,0.3)", background: "rgba(11,74,125,0.04)" }}>
-          <MonthlyReviewPanel embedded />
-        </div>
-      )}
-
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 14 }}>
         {/* ── Pending reservation requests (anyone with reservations access) ── */}
         {(user.navKeys.has("all") || user.navKeys.has("reservations")) && (
@@ -1132,6 +1126,14 @@ function DashboardInner() {
           </div>
         )}
       </div>
+
+      {/* ── Monthly Review — folded in, below the tasks/action grid and above
+           the vacating/expiring row (finance users only) ── */}
+      {isPathAllowed(user.id, "/reports/monthly") && (
+        <div className="card" style={{ borderColor: "rgba(11,74,125,0.3)", background: "rgba(11,74,125,0.04)" }}>
+          <MonthlyReviewPanel embedded />
+        </div>
+      )}
 
       {/* ── Leases expiring soon ── */}
       {showExpiring && (
