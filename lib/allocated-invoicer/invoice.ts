@@ -230,14 +230,16 @@ export function buildAllocInvoicePdf(args: BuildAllocInvoicePdfArgs): Blob {
     const blockH = group.length * rowH + subRowH + 4;
     if (y + blockH > pageH - bottomMgn) pageBreak();
 
+    // The per-suffix rows (9301, 9303, …) are reference detail — muted — and
+    // the -8501 row below is the billed total for the account.
     for (const item of group) {
       // Row separator
-      doc.setDrawColor(210, 210, 210);
+      doc.setDrawColor(225, 225, 225);
       doc.line(margin, y, margin + contentW, y);
 
       doc.setFont("helvetica", "normal");
-      doc.setFontSize(10);
-      doc.setTextColor(0, 0, 0);
+      doc.setFontSize(9.5);
+      doc.setTextColor(140, 140, 140);
       doc.text(`${base}-${item.accountSuffix}`,               xAccCode  + 6,               y + 14);
       doc.text(truncate(item.accountName, 32),                 xAccName  + 6,               y + 14);
       doc.text(toMoney(item.grossAmount),                      xGross    + colGross   - 6,  y + 14, { align: "right" });
@@ -247,18 +249,20 @@ export function buildAllocInvoicePdf(args: BuildAllocInvoicePdfArgs): Blob {
       y += rowH;
     }
 
-    // Subtotal row (the -8501 property payable account) summing this account's
-    // allocated amounts.
+    // The -8501 total (the property's payable account) — the sum of the suffix
+    // rows above and the amount actually billed for this account. This is the
+    // headline figure, so it's emphasized.
     const groupTotal = group.reduce((a, r) => a + r.allocAmount, 0);
     doc.setFillColor(SUBTOTAL_BG.r, SUBTOTAL_BG.g, SUBTOTAL_BG.b);
     doc.rect(margin, y, contentW, subRowH, "F");
     doc.setFont("helvetica", "bold");
     doc.setFontSize(10);
     doc.setTextColor(TEAL.r, TEAL.g, TEAL.b);
-    doc.text(`${base}-8501`, xAccCode + 6, y + 14);
-    doc.text(`${truncate(accName, 28)} Subtotal`, xAccName + 6, y + 14);
+    doc.text(`${base}-8501`, xAccCode + 6, y + 15);
+    doc.text(`${truncate(accName, 28)} — Total`, xAccName + 6, y + 15);
+    doc.setFontSize(11.5);
+    doc.text(toMoney(groupTotal), xAmount + colAmount - 6, y + 15, { align: "right" });
     doc.setTextColor(0, 0, 0);
-    doc.text(toMoney(groupTotal), xAmount + colAmount - 6, y + 14, { align: "right" });
     y += subRowH + 4;
   }
 
