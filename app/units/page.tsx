@@ -1,4 +1,5 @@
 "use client";
+import LoadingState from "@/app/components/LoadingState";
 
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -281,7 +282,7 @@ export default function UnitInfoIndexPage() {
       </header>
 
       {loading ? (
-        <div className="card" style={{ fontSize: 13, color: "var(--muted)" }}>Loading units…</div>
+        <LoadingState status="Loading units…" rows={5} />
       ) : !data ? (
         <div className="card" style={{ fontSize: 13, color: "var(--muted)" }}>
           No rent roll imported yet. Import one on the <a href="/rentroll" style={{ fontWeight: 600, color: "#0b4a7d" }}>Rent Roll</a> page.

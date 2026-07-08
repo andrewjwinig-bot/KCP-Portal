@@ -1,4 +1,5 @@
 "use client";
+import LoadingState from "@/app/components/LoadingState";
 
 import { useEffect, useMemo, useState } from "react";
 import type { RentRollData, RentRollUnit } from "../../../lib/rentroll/parseRentRollExcel";
@@ -118,7 +119,7 @@ export default function LeasingActivityPage() {
       </header>
 
       {loading ? (
-        <div className="card"><div className="muted small">Loading rent roll…</div></div>
+        <LoadingState status="Loading leasing activity…" columns={4} rows={4} />
       ) : (
         <>
           <LeasingActivityCard

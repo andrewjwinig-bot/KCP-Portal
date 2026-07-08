@@ -1,5 +1,6 @@
 "use client";
 
+import LoadingState from "@/app/components/LoadingState";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { UNIQUE_BANK_ACCOUNTS, type BankGroup, type UniqueBankAccount } from "../../lib/bank-rec/accounts";
 import { BANK_REC_DUE_DAY, bankRecKey, bankRecPeriod, bankRecPeriodLabel, shiftPeriod } from "../../lib/bank-rec/util";
@@ -272,7 +273,7 @@ export default function BankAccTrackerPage() {
 
       {/* ── Bank groups ──────────────────────────────────────────────── */}
       {loading ? (
-        <div className="card muted small">Loading…</div>
+        <LoadingState status="Loading bank reconciliation…" columns={4} rows={4} />
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           {grouped.map(({ bank, accounts }) => {

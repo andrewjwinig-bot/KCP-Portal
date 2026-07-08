@@ -1,5 +1,6 @@
 "use client";
 
+import LoadingState from "@/app/components/LoadingState";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { StatPill } from "@/app/components/Pill";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
@@ -162,7 +163,7 @@ export default function HistoricalOpExPage() {
       )}
 
       {!entries && !error && (
-        <div className="card"><div className="muted small">Loading…</div></div>
+        <LoadingState status="Loading expense history…" columns={4} rows={4} />
       )}
 
       {entries && entries.length === 0 && (

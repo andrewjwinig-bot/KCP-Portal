@@ -1,5 +1,6 @@
 "use client";
 
+import LoadingState from "@/app/components/LoadingState";
 import { useEffect, useMemo, useState, Fragment } from "react";
 import Link from "next/link";
 import type { RentRollData } from "@/lib/rentroll/parseRentRollExcel";
@@ -244,7 +245,7 @@ export default function SecurityDepositsPage() {
       )}
 
       {loading ? (
-        <div className="muted small">Loading…</div>
+        <LoadingState status="Loading security deposits…" rows={4} />
       ) : (
         (["ni-llc", "all-but-ni"] as DepositAccount[]).map((acct) => (
           <div key={acct} className="card" style={{ padding: 0 }}>

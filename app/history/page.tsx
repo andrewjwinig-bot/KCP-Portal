@@ -1,4 +1,5 @@
 "use client";
+import LoadingState from "@/app/components/LoadingState";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -95,7 +96,7 @@ export default function HistoryPage() {
         </p>
 
         {loading ? (
-          <div className="muted small">Loading…</div>
+          <LoadingState card={false} status="Loading saved periods…" rows={4} />
         ) : periods.length === 0 ? (
           <div className="muted small">No saved periods yet.</div>
         ) : (

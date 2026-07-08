@@ -3,6 +3,7 @@
 // Admin-only audit log viewer — recent security/action events (logins, GL
 // uploads, …). Gated by the admin tier in middleware.
 
+import LoadingState from "@/app/components/LoadingState";
 import { useEffect, useState } from "react";
 
 type AuditEvent = { at: string; event: string; user: string | null; ip: string | null; detail?: string };
@@ -45,7 +46,7 @@ export default function AuditPage() {
       </header>
       <div className="card" style={{ padding: 0, overflow: "hidden" }}>
         {err ? <div className="muted small" style={{ padding: 16 }}>{err}</div>
-          : events == null ? <div className="muted small" style={{ padding: 16 }}>Loading…</div>
+          : events == null ? <LoadingState card={false} status="Loading audit log…" rows={4} />
           : filtered.length === 0 ? <div className="muted small" style={{ padding: 16 }}>No events.</div>
           : (
           <div className="tableWrap" style={{ marginTop: 0 }}>

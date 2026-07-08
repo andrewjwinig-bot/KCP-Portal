@@ -1,5 +1,6 @@
 "use client";
 
+import LoadingState from "@/app/components/LoadingState";
 import React, { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useUser } from "@/app/components/UserProvider";
 import { Pill, StatPill, type PillTone } from "@/app/components/Pill";
@@ -175,7 +176,7 @@ export default function BudgetsPage() {
       )}
 
       {loading && !workbook && (
-        <div className="card"><div className="muted small">Loading…</div></div>
+        <LoadingState status="Loading budget…" columns={4} rows={4} />
       )}
 
       {!loading && summaries && summaries.length === 0 && (
