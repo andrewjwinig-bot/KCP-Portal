@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import { taskOccurrencesBetween } from "@/lib/tracker/taskDefs";
-import { accessGroup, isPathAllowed } from "@/lib/users";
+import { accessGroup } from "@/lib/users";
 import { useUser } from "./UserProvider";
 import UserSwitcher from "./UserSwitcher";
 import ThemeToggle from "./ThemeToggle";
@@ -167,21 +167,8 @@ const NAV = [
       </svg>
     ),
   },
-  {
-    label: "Monthly Review",
-    href: "/reports/monthly",
-    external: false,
-    indent: false,
-    showFor: null as string | null,
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M3 3v18h18" />
-        <rect x="7" y="12" width="3" height="6" />
-        <rect x="12" y="8" width="3" height="10" />
-        <rect x="17" y="5" width="3" height="13" />
-      </svg>
-    ),
-  },
+  // Monthly Review is folded into the Dashboard (finance users see it inline);
+  // the standalone /reports/monthly route stays for a clean Print/PDF view.
   {
     label: "Task Tracker",
     href: "/tracker",
@@ -782,10 +769,6 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
     const roleKey = NAV_ROLE_KEY[item.label];
     const passesRole = !roleKey || user.navKeys.has("all") || user.navKeys.has(roleKey);
     if (!passesRole) return false;
-
-    // Company report is path-gated (financials) — hide the link for users who
-    // can't open it so it doesn't bounce them to the dashboard.
-    if (item.label === "Monthly Review" && !isPathAllowed(user.id, item.href)) return false;
 
     // Existing context-based visibility (e.g. show child item only on parent route)
     if (item.showFor === null) return true;
