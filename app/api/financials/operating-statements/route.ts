@@ -314,7 +314,12 @@ export async function POST(req: Request) {
     const importedBy = typeof uploadedByRaw === "string" ? uploadedByRaw : null;
     try { await recordImport("imp-gl", { at: ts, by: importedBy }); } catch { /* best-effort */ }
 
-    const isGandA = rawCode === "2000" || parsed.propertyCode === "2000" || key === "2000";
+    // The G&A ledger is the only one carrying the 9301/9302/9303 allocation
+    // accounts, so detect it by content too — not just a literal "2000" code
+    // (the header company code can differ). This is what the Allocated Expense
+    // Invoicer runs on, so a match hands the file off to it.
+    const hasAllocAccounts = Object.keys(parsed.monthly).some((a) => /-(9301|9302|9303)$/.test(a));
+    const isGandA = rawCode === "2000" || parsed.propertyCode === "2000" || key === "2000" || hasAllocAccounts;
     if (isGandA) {
       try { await recordImport("imp-alloc-gl", { at: ts, by: importedBy }); } catch { /* best-effort */ }
       try {
