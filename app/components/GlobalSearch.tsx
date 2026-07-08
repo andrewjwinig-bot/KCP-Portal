@@ -1028,35 +1028,38 @@ function Kbd({ children }: { children: React.ReactNode }) {
   );
 }
 
-/** Sidebar trigger button — opens the global search via a custom event
- *  that the always-mounted <GlobalSearch /> listens for. Styled with the AI
- *  sparkle language so "Ask AI" reads as an AI affordance. */
+/** Sidebar trigger button — opens the global search via a custom event that
+ *  the always-mounted <GlobalSearch /> listens for. Reads as an AI affordance
+ *  via the violet gradient rim + soft glow (the same language as the assistant
+ *  input), no icon or shortcut badge — just "Ask AI". ⌘K still opens it. */
 export function GlobalSearchTrigger({ collapsed }: { collapsed: boolean }) {
   function openSearch() {
     document.dispatchEvent(new Event("open-global-search"));
   }
+  const restGlow = "0 0 12px rgba(139,108,255,0.3)";
+  const hoverGlow = "0 0 20px rgba(139,108,255,0.52)";
   return (
     <button
       onClick={openSearch}
       title="Ask AI (⌘K)"
+      onMouseEnter={(e) => { e.currentTarget.style.boxShadow = hoverGlow; }}
+      onMouseLeave={(e) => { e.currentTarget.style.boxShadow = restGlow; }}
       style={{
-        display: "flex", alignItems: "center", gap: 9,
-        width: "100%", padding: collapsed ? "8px" : "8px 10px",
-        background: "linear-gradient(90deg, rgba(108,76,224,0.30), rgba(177,75,230,0.14))",
-        border: "1px solid rgba(155,130,245,0.55)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        width: "100%", padding: collapsed ? "9px 6px" : "10px 12px",
+        // Violet gradient rim over an opaque dark fill + a slight glow — the
+        // reusable "there is AI here" treatment. The fill must be opaque or the
+        // rim gradient bleeds across the whole button.
+        border: "1px solid transparent",
+        background: "linear-gradient(#191c33, #191c33) padding-box, linear-gradient(120deg, #8B6CFF, #C25BF0) border-box",
+        boxShadow: restGlow,
         borderRadius: 10,
-        color: "#fff", cursor: "pointer",
-        fontFamily: "inherit", fontSize: 13,
-        justifyContent: collapsed ? "center" : "flex-start",
+        color: "#EDE9FF", cursor: "pointer",
+        fontFamily: "inherit", fontSize: 13, fontWeight: 600, letterSpacing: "0.02em",
+        transition: "box-shadow 0.18s ease",
       }}
     >
-      <span aria-hidden style={{ fontSize: 14, flexShrink: 0, lineHeight: 1 }}>✦</span>
-      {!collapsed && (
-        <>
-          <span style={{ fontWeight: 600 }}>Ask AI</span>
-          <span style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 11, opacity: 0.7, border: "1px solid rgba(255,255,255,0.25)", borderRadius: 5, padding: "1px 5px" }}>⌘K</span>
-        </>
-      )}
+      {collapsed ? "AI" : "Ask AI"}
     </button>
   );
 }
