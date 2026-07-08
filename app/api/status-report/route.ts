@@ -543,12 +543,34 @@ export async function POST(req: Request) {
       page.drawLine({ start: { x: tableX, y: py(curY + HEAD_H) }, end: { x: tableX + tableW, y: py(curY + HEAD_H) }, thickness: 0.75, color: C_LINE });
       let cx = tableX;
       for (const col of cols) {
-        const tw = fontBold.widthOfTextAtSize(col.header, 7.5);
+        // Drop the "/mo" suffix — the Monthly group label above these columns
+        // conveys the per-month basis.
+        const label = col.header.replace(/\/mo$/, "");
+        const tw = fontBold.widthOfTextAtSize(label, 7.5);
         const tx = col.align === "right" ? cx + col.width - 4 - tw : cx + 4;
-        page.drawText(col.header, { x: tx, y: py(curY + HEAD_H - 7), size: 7.5, font: fontBold, color: C_DARK });
+        page.drawText(label, { x: tx, y: py(curY + HEAD_H - 7), size: 7.5, font: fontBold, color: C_DARK });
         cx += col.width;
       }
       return HEAD_H;
+    }
+
+    // Rent-roll header with a "MONTHLY" group label bracketing the contiguous
+    // per-month columns (Base Rent … Gross) above the column headers.
+    const MGROUP_H = 12;
+    function drawRentRollHeader(page: PDFPage, curY: number, cols: ColDef[], tableX: number, tableW: number) {
+      let x = tableX, startX = -1, endX = -1;
+      for (const col of cols) {
+        if (/\/mo$/.test(col.header)) { if (startX < 0) startX = x; endX = x + col.width; }
+        x += col.width;
+      }
+      if (startX >= 0) {
+        const label = "MONTHLY";
+        const lw = fontBold.widthOfTextAtSize(label, 7);
+        page.drawText(label, { x: startX + (endX - startX - lw) / 2, y: py(curY + MGROUP_H - 3), size: 7, font: fontBold, color: C_MUTED });
+        page.drawLine({ start: { x: startX + 2, y: py(curY + MGROUP_H) }, end: { x: endX - 2, y: py(curY + MGROUP_H) }, thickness: 0.5, color: C_LINE });
+      }
+      const gh = startX >= 0 ? MGROUP_H : 0;
+      return gh + drawHeader(page, curY + gh, cols, tableX, tableW);
     }
 
     // ── Cover page ────────────────────────────────────────────────────────────
@@ -1123,7 +1145,7 @@ export async function POST(req: Request) {
       const isKHomes = KH_CODES.has(code);
       // Approx vertical budget for this property: header + address +
       // stats + rule + table header + N rows + totals row + spacing.
-      const projectedHeight = 22 + (address ? 16 : 0) + 16 + 10 + HEAD_H + units.length * PROP_ROW_H + PROP_ROW_H + 24;
+      const projectedHeight = 22 + (address ? 16 : 0) + 16 + 10 + MGROUP_H + HEAD_H + units.length * PROP_ROW_H + PROP_ROW_H + 24;
 
       let page: PDFPage;
       let curY: number;
@@ -1165,8 +1187,8 @@ export async function POST(req: Request) {
       page.drawLine({ start: { x: M, y: py(curY + 2) }, end: { x: PW - M, y: py(curY + 2) }, thickness: 0.5, color: C_LINE });
       curY += 10;
 
-      // Table header
-      curY += drawHeader(page, curY, cols, tableX, tableW);
+      // Table header (with the MONTHLY group label)
+      curY += drawRentRollHeader(page, curY, cols, tableX, tableW);
 
       // Unit rows
       for (let i = 0; i < units.length; i++) {
@@ -1175,7 +1197,7 @@ export async function POST(req: Request) {
         // Page break check (leave room for totals row)
         if (curY + PROP_ROW_H > PH - M - 30) {
           ({ page, curY } = newPage());
-          curY += drawHeader(page, curY, cols, tableX, tableW);
+          curY += drawRentRollHeader(page, curY, cols, tableX, tableW);
         }
 
         // Alternating bg
