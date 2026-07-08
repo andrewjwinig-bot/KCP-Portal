@@ -16,6 +16,7 @@ import { seedCamConfig } from "@/lib/cam/retailConfigSeed";
 import { emptyCamConfig } from "@/lib/cam/config";
 import { getEscrowOverrides } from "@/lib/cam/retail/escrowStore";
 import { sumRentRollEscrow } from "@/lib/cam/escrowFromRolls";
+import { recentlyVacatedTenants } from "@/lib/leasing/recentlyVacated";
 import { getPoolOverride } from "@/lib/cam/retail/poolStore";
 import { getFinalOverrides, RET_FINAL_KEY } from "@/lib/cam/retail/finalStore";
 import type { RetailTenantInput } from "@/lib/cam/retail/types";
@@ -359,7 +360,56 @@ export async function GET(req: NextRequest) {
       ...Object.values(OFFICE_RECON_FIXTURES).map((f) => ({ code: f.propertyCode, name: propName(f.propertyCode), kind: "office" as const })),
       ...Object.values(RETAIL_RECON_FIXTURES).filter((f) => !f.hidden).map((f) => ({ code: f.propertyCode, name: propName(f.propertyCode), kind: "retail" as const })),
     ].sort((a, b) => a.code.localeCompare(b.code));
-    return NextResponse.json({ properties });
+
+    // ── Move-out candidates ─────────────────────────────────────────────────
+    // Synced with the dashboard's "Vacating Tenants" / "Leases Expiring" lists:
+    // tenants who recently vacated (dropped off the roll) or whose lease ends in
+    // the window (−60…+90 days), limited to properties we can reconcile so a
+    // click lands on a valid statement. Makes selecting a move-out easy without
+    // hunting through the property → tenant dropdowns.
+    const fixtureCodes = new Set(properties.map((p) => p.code));
+    const nowD = new Date();
+    const DAY = 86_400_000;
+    const parseDate = (s: string | null | undefined): Date | null => {
+      const m = s?.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+      return m ? new Date(Number(m[3]), Number(m[1]) - 1, Number(m[2])) : null;
+    };
+    const byRef = new Map<string, { propertyCode: string; propertyName: string; unitRef: string; name: string; leaseTo: string | null; kind: "vacated" | "expiring"; days: number | null; year: number | null; month: number | null }>();
+    const keyOf = (ref: string, name: string) => `${ref}|${name.toLowerCase().replace(/[^a-z0-9]/g, "")}`;
+
+    // Recently vacated (dropped off the roll in ~last 60 days).
+    const vacated = await recentlyVacatedTenants(nowD).catch(() => []);
+    for (const v of vacated) {
+      if (!fixtureCodes.has(v.propertyCode)) continue;
+      const d = parseDate(v.leaseTo); const p = parseUS(v.leaseTo);
+      byRef.set(keyOf(v.unitRef, v.occupantName), {
+        propertyCode: v.propertyCode, propertyName: propName(v.propertyCode), unitRef: v.unitRef, name: v.occupantName,
+        leaseTo: v.leaseTo, kind: "vacated", days: d ? Math.round((d.getTime() - nowD.getTime()) / DAY) : null,
+        year: p?.y ?? null, month: p?.m ?? null,
+      });
+    }
+
+    // Expiring soon / recently expired but still on the roll (−60…+90 days).
+    const rr = (await getJSON("rentroll", "current")) as RentRollData | null;
+    for (const prop of rr?.properties ?? []) {
+      if (!fixtureCodes.has(prop.propertyCode)) continue;
+      for (const u of prop.units) {
+        if (u.isVacant || !u.occupantName || !u.leaseTo) continue;
+        const d = parseDate(u.leaseTo); if (!d) continue;
+        const days = Math.round((d.getTime() - nowD.getTime()) / DAY);
+        if (days < -60 || days > 90) continue;
+        const key = keyOf(u.unitRef, u.occupantName);
+        if (byRef.has(key)) continue; // a vacated match takes precedence
+        const p = parseUS(u.leaseTo);
+        byRef.set(key, {
+          propertyCode: prop.propertyCode, propertyName: propName(prop.propertyCode), unitRef: u.unitRef, name: u.occupantName,
+          leaseTo: u.leaseTo, kind: "expiring", days, year: p?.y ?? null, month: p?.m ?? null,
+        });
+      }
+    }
+
+    const candidates = [...byRef.values()].sort((a, b) => (a.days ?? 99_999) - (b.days ?? 99_999));
+    return NextResponse.json({ properties, candidates });
   }
 
   const rentroll = (await getJSON("rentroll", "current")) as RentRollData | null;
