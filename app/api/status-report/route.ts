@@ -118,7 +118,7 @@ function buildCols(hideNNN: boolean, showBaseYear: boolean): ColDef[] {
       { header: "Lease From",   width: 60,  align: "left"  },
       { header: "Lease To",     width: 60,  align: "left"  },
       ...(showBaseYear ? [{ header: "B/Y", width: 30, align: "right" as const }] : []),
-      { header: "Annual $/sf",  width: 55,  align: "right" },
+      { header: "Ann. $/sf",  width: 55,  align: "right" },
       { header: "Base Rent/mo", width: 75,  align: "right" },
       { header: "Gross/mo",     width: 75,  align: "right" },
     ];
@@ -130,7 +130,7 @@ function buildCols(hideNNN: boolean, showBaseYear: boolean): ColDef[] {
     { header: "Lease From",   width: 56,  align: "left"  },
     { header: "Lease To",     width: 56,  align: "left"  },
     ...(showBaseYear ? [{ header: "B/Y", width: 28, align: "right" as const }] : []),
-    { header: "Annual $/sf",  width: 50,  align: "right" },
+    { header: "Ann. $/sf",  width: 50,  align: "right" },
     { header: "Base Rent/mo", width: 62,  align: "right" },
     { header: "CAM/mo",       width: 50,  align: "right" },
     { header: "RET/mo",       width: 50,  align: "right" },
@@ -174,7 +174,7 @@ function cellVal(col: string, unit: any, tenantMeta?: Record<string, { baseYear?
     case "Lease To":     return fmtDate(unit.leaseTo);
     case "B/Y":          return unit.isVacant ? "—" : baseYear2(tenantMeta?.[unit.unitRef]?.baseYear);
     case "Base Rent/mo": return unit.baseRent  ? money(unit.baseRent)  : "—";
-    case "Annual $/sf":  return unit.annualRentPerSqft ? `$${unit.annualRentPerSqft.toFixed(2)}` : "—";
+    case "Ann. $/sf":  return unit.annualRentPerSqft ? `$${unit.annualRentPerSqft.toFixed(2)}` : "—";
     case "CAM/mo":       return unit.opexMonth  ? money0(unit.opexMonth)  : "—";
     case "RET/mo":       return unit.reTaxMonth ? money0(unit.reTaxMonth) : "—";
     case "Other/mo":     return unit.otherMonth ? money0(unit.otherMonth) : "—";
@@ -823,7 +823,9 @@ export async function POST(req: Request) {
               const w = grpSubW[i];
               const lab = subHdrs[i];
               const lw = font.widthOfTextAtSize(lab, 8);
-              page.drawText(lab, { x: cx + w - 6 - lw, y: py(yTop + 11), size: 8, font, color: C_MUTED });
+              // Center the "# Suites" column; right-align Sq. Ft and %.
+              const x = i === 0 ? cx + (w - lw) / 2 : cx + w - 6 - lw;
+              page.drawText(lab, { x, y: py(yTop + 11), size: 8, font, color: C_MUTED });
               cx += w;
             }
           }
@@ -877,7 +879,9 @@ export async function POST(req: Request) {
             for (let j = 0; j < vals.length; j++) {
               const w = grpSubW[j];
               const tw = f.widthOfTextAtSize(vals[j], 9);
-              page.drawText(vals[j], { x: cx + w - 6 - tw, y: py(yTop + ROW_H_LOC - 5), size: 9, font: f, color: C_DARK });
+              // Center the "# Suites" value; right-align Sq. Ft and %.
+              const x = j === 0 ? cx + (w - tw) / 2 : cx + w - 6 - tw;
+              page.drawText(vals[j], { x, y: py(yTop + ROW_H_LOC - 5), size: 9, font: f, color: C_DARK });
               cx += w;
             }
           }
@@ -1237,7 +1241,7 @@ export async function POST(req: Request) {
         "Tenant":       "Totals",
         "Sq Ft":        sqftFmt(totSqft),
         "Base Rent/mo": totBase  ? money(totBase)  : "—",
-        "Annual $/sf":  avgPerSf ? `$${avgPerSf.toFixed(2)}` : "—",
+        "Ann. $/sf":  avgPerSf ? `$${avgPerSf.toFixed(2)}` : "—",
         "CAM/mo":       totCAM   ? money0(totCAM)   : "—",
         "RET/mo":       totRET   ? money0(totRET)   : "—",
         "Other/mo":     totOther ? money0(totOther) : "—",
