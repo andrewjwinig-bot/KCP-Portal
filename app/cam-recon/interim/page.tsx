@@ -660,43 +660,34 @@ export default function InterimReconPage() {
         <Link href="/cam-recon" style={{ color: "#0b4a7d", fontWeight: 600, fontSize: 13 }}>← Year-end Reconciliation</Link>
       </div>
 
-      {/* Move-out candidates — click a recently-vacated / expiring-soon tenant to
-          pre-fill and run, instead of hunting through the dropdowns. */}
+      {/* Move-out candidates — a single dropdown of recently-vacated /
+          expiring-soon tenants (portfolio-wide). Pick one to pre-fill and run;
+          anything not listed can still be selected or added via Building /
+          Tenant below. */}
       {candidates.length > 0 && (
-        <div className="card">
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, marginBottom: 8, flexWrap: "wrap" }}>
-            <div style={{ fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
-              Move-out candidates <span style={{ fontWeight: 600, textTransform: "none", letterSpacing: 0 }}>· recently vacated &amp; expiring soon</span>
-            </div>
-            <span className="muted small">Click a tenant to load their statement</span>
-          </div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-            {candidates.slice(0, 24).map((c) => {
-              const past = c.days != null && c.days < 0;
-              const badge = c.kind === "vacated"
-                ? { text: "Vacated", fg: "#b91c1c", bg: "rgba(220,38,38,0.1)", bd: "rgba(220,38,38,0.35)" }
-                : past
-                  ? { text: `Expired ${Math.abs(c.days!)}d ago`, fg: "#b91c1c", bg: "rgba(220,38,38,0.1)", bd: "rgba(220,38,38,0.35)" }
-                  : { text: c.days != null ? `Expires in ${c.days}d` : "Expiring", fg: "#b45309", bg: "rgba(180,83,9,0.1)", bd: "rgba(180,83,9,0.35)" };
-              const active = property === c.propertyCode && unitRef === c.unitRef;
-              return (
-                <button key={`${c.propertyCode}-${c.unitRef}-${c.name}`} type="button" onClick={() => pickCandidate(c)}
-                  style={{
-                    display: "flex", flexDirection: "column", gap: 3, alignItems: "flex-start", textAlign: "left",
-                    padding: "8px 11px", borderRadius: 9, cursor: "pointer", fontFamily: "inherit",
-                    border: `1px solid ${active ? "rgba(11,74,125,0.5)" : "var(--border)"}`,
-                    background: active ? "rgba(11,74,125,0.06)" : "var(--card)",
-                  }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ fontWeight: 700, fontSize: 13.5, color: "var(--text)" }}>{c.name}</span>
-                    <span style={{ fontSize: 10, fontWeight: 700, padding: "1px 7px", borderRadius: 999, background: badge.bg, color: badge.fg, border: `1px solid ${badge.bd}` }}>{badge.text}</span>
-                  </div>
-                  <div className="muted" style={{ fontSize: 12 }}>{c.propertyCode} {c.propertyName} · <code style={{ fontSize: 11 }}>{c.unitRef}</code>{c.leaseTo ? ` · exp ${c.leaseTo}` : ""}</div>
-                </button>
-              );
-            })}
-          </div>
-          {candidates.length > 24 && <div className="muted small" style={{ marginTop: 8 }}>+ {candidates.length - 24} more — use the Building / Tenant selectors below.</div>}
+        <div className="card" style={{ display: "flex", alignItems: "flex-end", gap: 12, flexWrap: "wrap" }}>
+          <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12, fontWeight: 600, flex: "1 1 460px" }}>
+            <span>Move-out candidate <span className="muted" style={{ fontWeight: 500 }}>· recently vacated &amp; expiring soon</span></span>
+            <select
+              value={candidates.some((c) => c.propertyCode === property && c.unitRef === unitRef) ? `${property}|${unitRef}` : ""}
+              onChange={(e) => { const c = candidates.find((x) => `${x.propertyCode}|${x.unitRef}` === e.target.value); if (c) pickCandidate(c); }}
+              style={{ ...selectStyle, width: "100%" }}
+            >
+              <option value="">Select a recently vacated / expiring-soon tenant…</option>
+              {candidates.map((c) => {
+                const past = c.days != null && c.days < 0;
+                const status = c.kind === "vacated" ? "Vacated"
+                  : past ? `Expired ${Math.abs(c.days!)}d ago`
+                  : c.days != null ? `Expires in ${c.days}d` : "Expiring";
+                return (
+                  <option key={`${c.propertyCode}|${c.unitRef}|${c.name}`} value={`${c.propertyCode}|${c.unitRef}`}>
+                    {c.name} — {c.propertyCode} {c.unitRef} · {status}
+                  </option>
+                );
+              })}
+            </select>
+          </label>
+          <span className="muted small" style={{ paddingBottom: 8 }}>…or use Building / Tenant below to pick or add one manually.</span>
         </div>
       )}
 
