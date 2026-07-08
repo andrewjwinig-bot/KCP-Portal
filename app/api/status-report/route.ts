@@ -8,13 +8,21 @@ import { EMPTY_LEASING_ACTIVITY, type LeasingActivity } from "@/lib/leasing/type
 
 export const runtime = "nodejs";
 
-// ── Page geometry (landscape letter) ─────────────────────────────────────────
-const PW = 792;
-const PH = 612;
+// ── Page geometry (portrait letter) ──────────────────────────────────────────
+// The report is portrait letter (612 × 792). Floor-plan pages stay LANDSCAPE
+// (see FP_W/FP_H below) so the plan images keep the same orientation/size.
+const PW = 612;
+const PH = 792;
 const M  = 36;
+
+// Floor-plan pages remain landscape letter.
+const FP_W = 792;
+const FP_H = 612;
 
 // pdf-lib origin is bottom-left; convert from top-left y
 function py(topY: number) { return PH - topY; }
+// …same conversion for the landscape floor-plan pages.
+function fpy(topY: number) { return FP_H - topY; }
 
 // ── Colors ────────────────────────────────────────────────────────────────────
 const C_DARK  = rgb(0.059, 0.090, 0.161);
@@ -124,6 +132,26 @@ function buildCols(hideNNN: boolean, showBaseYear: boolean): ColDef[] {
     { header: "Other/mo",     width: 50,  align: "right" },
     { header: "Gross/mo",     width: 60,  align: "right" },
   ];
+}
+
+// Scale a column set down proportionally so it fits within `maxW` (the portrait
+// content width). Widths tuned for the old landscape page would otherwise
+// overflow; small tables (already narrower than maxW) are left untouched.
+function fitCols(cols: ColDef[], maxW: number): ColDef[] {
+  const total = cols.reduce((s, c) => s + c.width, 0);
+  if (total <= maxW) return cols;
+  const k = maxW / total;
+  return cols.map((c) => ({ ...c, width: c.width * k }));
+}
+
+// Trim a string with an ellipsis so it fits within maxW at the given font/size
+// (portrait columns are narrower than the old landscape ones, so long tenant
+// names would otherwise overrun into the next column).
+function fitText(s: string, font: PDFFont, size: number, maxW: number): string {
+  if (!s || font.widthOfTextAtSize(s, size) <= maxW) return s;
+  let hi = s.length;
+  while (hi > 1 && font.widthOfTextAtSize(s.slice(0, hi) + "…", size) > maxW) hi--;
+  return s.slice(0, hi) + "…";
 }
 
 function cellVal(col: string, unit: any, tenantMeta?: Record<string, { baseYear?: number | string | null }>): string {
@@ -985,6 +1013,14 @@ export async function POST(req: Request) {
         let curY = M + 80;
         const tableX = M + 6;
         const tableW = PW - 2 * M - 12;
+        // Scale a column set down to the portrait content width if it's wider
+        // (these widths were tuned for the old landscape page).
+        const fitW = <T extends { width: number }>(cs: T[]): T[] => {
+          const t = cs.reduce((s, c) => s + c.width, 0);
+          if (t <= tableW) return cs;
+          const k = tableW / t;
+          return cs.map((c) => ({ ...c, width: c.width * k }));
+        };
 
         function newContinuationPage() {
           page = pdfDoc.addPage([PW, PH]);
@@ -1014,7 +1050,8 @@ export async function POST(req: Request) {
           let cx = tableX;
           for (let i = 0; i < cols.length; i++) {
             const c = cols[i];
-            const v = values[i] ?? "";
+            const raw = values[i] ?? "";
+            const v = c.align === "right" ? raw : fitText(raw, f, 9, c.width - 8);
             const tw = f.widthOfTextAtSize(v, 9);
             const tx = c.align === "right"  ? cx + c.width - 6 - tw
                      : c.align === "center" ? cx + (c.width - tw) / 2
@@ -1040,13 +1077,13 @@ export async function POST(req: Request) {
         // ── Prospects
         {
           drawSectionTitle("Prospects");
-          const cols = [
+          const cols = fitW([
             { label: "Tenant",        align: "left"   as const, width: 200 },
             { label: "Building",      align: "center" as const, width: 65  },
             { label: "SQ. FT.",       align: "right"  as const, width: 70  },
             { label: "Type of",       align: "left"   as const, width: 130 },
             { label: "Rating (1-5)",  align: "center" as const, width: 90  },
-          ];
+          ]);
           drawRow(cols, cols.map(c => c.label), { bold: true });
           page.drawLine({ start: { x: tableX, y: py(curY - 2) }, end: { x: tableX + tableW, y: py(curY - 2) }, thickness: 0.4, color: C_LINE });
           if (leasing.prospects.length === 0) {
@@ -1070,12 +1107,12 @@ export async function POST(req: Request) {
         {
           pageBreakIfNeeded(40);
           drawSectionTitle("Pending Leases");
-          const cols = [
+          const cols = fitW([
             { label: "Tenant",     align: "left"   as const, width: 200 },
             { label: "Building",   align: "center" as const, width: 65  },
             { label: "SQ. FT.",    align: "right"  as const, width: 70  },
             { label: "Start Date", align: "left"   as const, width: 110 },
-          ];
+          ]);
           drawRow(cols, cols.map(c => c.label), { bold: true });
           page.drawLine({ start: { x: tableX, y: py(curY - 2) }, end: { x: tableX + tableW, y: py(curY - 2) }, thickness: 0.4, color: C_LINE });
           if (leasing.pendingLeases.length === 0) {
@@ -1098,13 +1135,13 @@ export async function POST(req: Request) {
         {
           pageBreakIfNeeded(40);
           drawSectionTitle("Tenants Vacating");
-          const cols = [
+          const cols = fitW([
             { label: "Tenant",          align: "left"   as const, width: 200 },
             { label: "Building",        align: "center" as const, width: 65  },
             { label: "SQ. FT.",         align: "right"  as const, width: 70  },
             { label: "Suite",           align: "center" as const, width: 90  },
             { label: "Expiration Date", align: "left"   as const, width: 110 },
-          ];
+          ]);
           drawRow(cols, cols.map(c => c.label), { bold: true });
           page.drawLine({ start: { x: tableX, y: py(curY - 2) }, end: { x: tableX + tableW, y: py(curY - 2) }, thickness: 0.4, color: C_LINE });
           if (leasing.tenantsVacating.length === 0) {
@@ -1130,14 +1167,14 @@ export async function POST(req: Request) {
         {
           pageBreakIfNeeded(40);
           drawSectionTitle("Option to Renew");
-          const cols = [
+          const cols = fitW([
             { label: "Tenant",              align: "left"   as const, width: 200 },
             { label: "Building",            align: "center" as const, width: 65  },
             { label: "SQ. FT.",             align: "right"  as const, width: 70  },
             { label: "Term / Prior Notice", align: "left"   as const, width: 130 },
             { label: "Notice Date",         align: "left"   as const, width: 80  },
             { label: "Option Term Exp",     align: "left"   as const, width: 90  },
-          ];
+          ]);
           drawRow(cols, cols.map(c => c.label), { bold: true });
           page.drawLine({ start: { x: tableX, y: py(curY - 2) }, end: { x: tableX + tableW, y: py(curY - 2) }, thickness: 0.4, color: C_LINE });
           if (leasing.optionsToRenew.length === 0) {
@@ -1287,75 +1324,47 @@ export async function POST(req: Request) {
       }
 
       if (rows.length) {
+        // Single full-width column (portrait). The old report used two
+        // side-by-side tables to fill the wide landscape page; in portrait one
+        // column reads cleanly and there's no room for two.
         const VAC_COLS: ColDef[] = [
-          { header: "Property", width: 200, align: "left"  },
-          { header: "Unit",     width: 80,  align: "left"  },
-          { header: "Sq Ft",    width: 70,  align: "right" },
+          { header: "Property", width: 340, align: "left"  },
+          { header: "Unit",     width: 110, align: "left"  },
+          { header: "Sq Ft",    width: 90,  align: "right" },
         ];
         const tableW = VAC_COLS.reduce((s, c) => s + c.width, 0);
-        const colGap = 24;
-        const leftX  = (PW - (tableW * 2 + colGap)) / 2;
-        const rightX = leftX + tableW + colGap;
-        const colXs: [number, number] = [leftX, rightX];
+        const tableX = M;
 
         let { page, curY } = newPage();
         page.drawText("Vacancy Summary", { x: M, y: py(curY + 18), size: 16, font: fontBold, color: C_DARK });
         curY += 28;
 
-        // Track per-column running Y; keep them aligned by snapping to the same starting row
-        const startY = curY;
-        const colY: [number, number] = [startY, startY];
-        let activeCol: 0 | 1 = 0;
-
-        // Draw initial header for both columns
-        drawHeader(page, colY[0], VAC_COLS, colXs[0], tableW);
-        drawHeader(page, colY[1], VAC_COLS, colXs[1], tableW);
-        colY[0] += HEAD_H;
-        colY[1] += HEAD_H;
+        curY += drawHeader(page, curY, VAC_COLS, tableX, tableW);
 
         let grandUnits = 0;
         let grandSqft  = 0;
 
         for (let i = 0; i < rows.length; i++) {
-          let y = colY[activeCol];
-
-          // Out of room in current column?
-          if (y + ROW_H > PH - M - 30) {
-            if (activeCol === 0) {
-              activeCol = 1;
-              y = colY[1];
-            } else {
-              ({ page, curY } = newPage());
-              colY[0] = curY;
-              colY[1] = curY;
-              drawHeader(page, colY[0], VAC_COLS, colXs[0], tableW);
-              drawHeader(page, colY[1], VAC_COLS, colXs[1], tableW);
-              colY[0] += HEAD_H;
-              colY[1] += HEAD_H;
-              activeCol = 0;
-              y = colY[0];
-            }
+          if (curY + ROW_H > PH - M - 30) {
+            ({ page, curY } = newPage());
+            curY += drawHeader(page, curY, VAC_COLS, tableX, tableW);
           }
-
-          const xBase = colXs[activeCol];
           const row = rows[i];
           grandUnits += 1;
           grandSqft  += row.sqft;
-          if (i % 2 === 1) page.drawRectangle({ x: xBase, y: py(y + ROW_H), width: tableW, height: ROW_H, color: C_ALT });
+          if (i % 2 === 1) page.drawRectangle({ x: tableX, y: py(curY + ROW_H), width: tableW, height: ROW_H, color: C_ALT });
           const vals: Record<string, string> = { "Property": row.propName, "Unit": row.unit, "Sq Ft": sqftFmt(row.sqft) };
-          let cx = xBase;
+          let cx = tableX;
           for (const col of VAC_COLS) {
-            const val = vals[col.header] || "";
+            const val = col.header === "Property" ? fitText(vals[col.header] || "", font, 8, col.width - 6) : (vals[col.header] || "");
             const tw  = font.widthOfTextAtSize(val, 8);
             const tx  = col.align === "right" ? cx + col.width - 4 - tw : cx + 4;
-            page.drawText(val, { x: tx, y: py(y + ROW_H - 5), size: 8, font, color: C_DARK });
+            page.drawText(val, { x: tx, y: py(curY + ROW_H - 5), size: 8, font, color: C_DARK });
             cx += col.width;
           }
-          page.drawLine({ start: { x: xBase, y: py(y + ROW_H) }, end: { x: xBase + tableW, y: py(y + ROW_H) }, thickness: 0.2, color: C_LINE });
-          colY[activeCol] = y + ROW_H;
+          page.drawLine({ start: { x: tableX, y: py(curY + ROW_H) }, end: { x: tableX + tableW, y: py(curY + ROW_H) }, thickness: 0.2, color: C_LINE });
+          curY += ROW_H;
         }
-        // After the loop, set curY below the deepest column for the grand-total row
-        curY = Math.max(colY[0], colY[1]);
 
         // Grand total
         if (curY + 24 > PH - M - 10) { ({ page, curY } = newPage()); }
@@ -1380,7 +1389,7 @@ export async function POST(req: Request) {
       const units   = prop.units as any[];
       const hideNNN = KH_CODES.has(code) || OW_CODES.has(code);
       const showBaseYear = isOfficeCode(code);
-      const cols    = buildCols(hideNNN, showBaseYear);
+      const cols    = fitCols(buildCols(hideNNN, showBaseYear), PW - 2 * M);
       const tableW  = cols.reduce((s, c) => s + c.width, 0);
       const tableX  = (PW - tableW) / 2;
       const name    = propDisplayName(code, prop.reportedPropertyName || code);
@@ -1458,9 +1467,12 @@ export async function POST(req: Request) {
 
         let cx = tableX;
         for (const col of cols) {
-          const val  = cellVal(col.header, unit, tenantMeta);
           const fs   = 8;
           const useBold = col.header === "Tenant" && !unit.isVacant;
+          const raw  = cellVal(col.header, unit, tenantMeta);
+          // Only trim the (variable-length) Tenant name; unit refs, dates and
+          // money columns must always render in full.
+          const val  = col.header === "Tenant" ? fitText(raw, useBold ? fontBold : font, fs, col.width - 6) : raw;
           const tw   = (useBold ? fontBold : font).widthOfTextAtSize(val, fs);
           const tx   = col.align === "right" ? cx + col.width - 4 - tw : cx + 4;
           page.drawText(val, {
@@ -1516,11 +1528,16 @@ export async function POST(req: Request) {
         const img      = await pdfDoc.embedJpg(imgBytes);
         const dims     = img.scale(1);
 
-        const { page: fpPage } = newPage();
-        fpPage.drawText(`${name} — Floor Plan`, { x: M, y: py(M + 18), size: 13, font: fontBold, color: C_DARK });
+        // Floor-plan pages stay LANDSCAPE (unchanged from the old report) even
+        // though the rest of the report is portrait — the plan images are wide.
+        const fpPage = pdfDoc.addPage([FP_W, FP_H]);
+        fpPage.drawLine({ start: { x: M, y: fpy(M) }, end: { x: FP_W - M, y: fpy(M) }, thickness: 2, color: C_BRAND });
+        const rtW = font.widthOfTextAtSize(reportTitle, 8);
+        fpPage.drawText(reportTitle, { x: FP_W - M - rtW, y: fpy(M + 14), size: 8, font, color: C_MUTED });
+        fpPage.drawText(`${name} — Floor Plan`, { x: M, y: fpy(M + 18), size: 13, font: fontBold, color: C_DARK });
 
-        const availW = PW - 2 * M;
-        const availH = PH - 2 * M - 36;
+        const availW = FP_W - 2 * M;
+        const availH = FP_H - 2 * M - 36;
         const ROTATE_90_CW_CODES = new Set(["3610", "3620", "4050"]);
         if (ROTATE_90_CW_CODES.has(code)) {
           // Rotated 90° clockwise: visible width = original height, visible height = original width.
