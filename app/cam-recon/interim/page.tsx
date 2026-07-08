@@ -534,7 +534,7 @@ export default function InterimReconPage() {
   }, [retail, r, meta]);
 
   const sanityButton = (
-    <button className="btn" onClick={runSanityCheck} disabled={sanityLoading}
+    <button className="btn ai" onClick={runSanityCheck} disabled={sanityLoading}
       title="AI review — flag anything that looks off before sending"
       style={{ fontSize: 13, padding: "7px 14px", fontWeight: 700 }}>
       {sanityLoading ? "Checking…" : "✨ Sanity check"}

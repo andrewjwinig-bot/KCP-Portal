@@ -7,6 +7,11 @@
   --shadow: 0 10px 30px rgba(2, 6, 23, 0.08);
   --brand: #0b4a7d;
   --brand2: #0a3e69;
+  /* AI accent — violet, distinct from the blue brand so AI features read as
+   * clearly AI (and don't collide with amber, which means warning here). */
+  --ai: #6d28d9;
+  --ai-soft: rgba(109, 40, 217, 0.08);
+  --ai-border: rgba(109, 40, 217, 0.35);
   /* Color used for text that sits directly on the page background (outside cards). */
   --page-text: var(--text);
   --page-muted: var(--muted);
@@ -183,6 +188,21 @@ p { margin: 0; }
 }
 
 .btn.primary:hover { background: var(--brand2); }
+
+/* AI action buttons — violet accent so every AI feature is recognizable at a
+ * glance and pops against the blue palette. */
+.btn.ai {
+  border-color: var(--ai-border);
+  background: var(--ai-soft);
+  color: var(--ai);
+}
+.btn.ai:hover { background: rgba(109, 40, 217, 0.14); }
+[data-theme="dark"] .btn.ai {
+  background: rgba(139, 92, 246, 0.16);
+  border-color: rgba(167, 139, 250, 0.5);
+  color: #c4b5fd;
+}
+[data-theme="dark"] .btn.ai:hover { background: rgba(139, 92, 246, 0.24); }
 
 .btn.large {
   padding: 12px 26px;
