@@ -1162,12 +1162,20 @@ export async function POST(req: Request) {
         ({ page, curY } = newPage());
       }
 
-      // Property heading
-      const nameStr = `${name}`;
-      page.drawText(nameStr, { x: M, y: py(curY + 18), size: 16, font: fontBold, color: C_DARK });
-      const codeX = M + fontBold.widthOfTextAtSize(nameStr, 16) + 8;
-      page.drawText(code, { x: codeX, y: py(curY + 16), size: 10, font, color: C_MUTED });
-      curY += 22;
+      // Property heading. On a dedicated page, sit the name/code up in the top
+      // band (next to the report title) to save a row; on the shared KHomes
+      // page keep it inline above each mini-table.
+      if (isKHomes) {
+        page.drawText(name, { x: M, y: py(curY + 18), size: 16, font: fontBold, color: C_DARK });
+        const codeX = M + fontBold.widthOfTextAtSize(name, 16) + 8;
+        page.drawText(code, { x: codeX, y: py(curY + 16), size: 10, font, color: C_MUTED });
+        curY += 22;
+      } else {
+        page.drawText(name, { x: M, y: py(M + 17), size: 13, font: fontBold, color: C_DARK });
+        const codeX = M + fontBold.widthOfTextAtSize(name, 13) + 6;
+        page.drawText(code, { x: codeX, y: py(M + 16), size: 9, font, color: C_MUTED });
+        // curY already sits below the top band — no dedicated name row.
+      }
 
       if (address) {
         page.drawText(address, { x: M, y: py(curY + 12), size: 9, font, color: C_MUTED });
@@ -1194,19 +1202,26 @@ export async function POST(req: Request) {
       // Table header (with the MONTHLY group label)
       curY += drawRentRollHeader(page, curY, cols, tableX, tableW);
 
+      // Fit all rows (+ the totals row) on this page when we can: shrink the row
+      // height toward a floor if they'd overflow, otherwise keep the comfortable
+      // default. KHomes mini-tables keep the default (they never overflow).
+      const rowH = isKHomes
+        ? PROP_ROW_H
+        : Math.max(15, Math.min(PROP_ROW_H, Math.floor(((PH - M - 30) - curY) / (units.length + 1))));
+
       // Unit rows
       for (let i = 0; i < units.length; i++) {
         const unit = units[i];
 
         // Page break check (leave room for totals row)
-        if (curY + PROP_ROW_H > PH - M - 30) {
+        if (curY + rowH > PH - M - 30) {
           ({ page, curY } = newPage());
           curY += drawRentRollHeader(page, curY, cols, tableX, tableW);
         }
 
         // Alternating bg
         if (i % 2 === 1) {
-          page.drawRectangle({ x: tableX, y: py(curY + PROP_ROW_H), width: tableW, height: PROP_ROW_H, color: C_ALT });
+          page.drawRectangle({ x: tableX, y: py(curY + rowH), width: tableW, height: rowH, color: C_ALT });
         }
 
         let cx = tableX;
@@ -1220,23 +1235,23 @@ export async function POST(req: Request) {
           const tw   = (useBold ? fontBold : font).widthOfTextAtSize(val, fs);
           const tx   = col.align === "right" ? cx + col.width - 4 - tw : cx + 4;
           page.drawText(val, {
-            x: tx, y: py(curY + PROP_ROW_H - 7),
+            x: tx, y: py(curY + rowH - 7),
             size: fs,
             font: useBold ? fontBold : font,
             color: unit.isVacant ? C_MUTED : C_DARK,
           });
           cx += col.width;
         }
-        page.drawLine({ start: { x: tableX, y: py(curY + PROP_ROW_H) }, end: { x: tableX + tableW, y: py(curY + PROP_ROW_H) }, thickness: 0.2, color: C_LINE });
-        curY += PROP_ROW_H;
+        page.drawLine({ start: { x: tableX, y: py(curY + rowH) }, end: { x: tableX + tableW, y: py(curY + rowH) }, thickness: 0.2, color: C_LINE });
+        curY += rowH;
       }
 
       // Totals row
-      if (curY + PROP_ROW_H + 4 > PH - M - 10) {
+      if (curY + rowH + 4 > PH - M - 10) {
         ({ page, curY } = newPage());
       }
       page.drawLine({ start: { x: tableX, y: py(curY + 1) }, end: { x: tableX + tableW, y: py(curY + 1) }, thickness: 1.5, color: C_DARK });
-      page.drawRectangle({ x: tableX, y: py(curY + PROP_ROW_H + 1), width: tableW, height: PROP_ROW_H, color: C_HBKG });
+      page.drawRectangle({ x: tableX, y: py(curY + rowH + 1), width: tableW, height: rowH, color: C_HBKG });
       const totalVals: Record<string, string> = {
         "Tenant":       "Totals",
         "Sq Ft":        sqftFmt(totSqft),
@@ -1252,7 +1267,7 @@ export async function POST(req: Request) {
         const val = totalVals[col.header] || "";
         const tw  = fontBold.widthOfTextAtSize(val, 8);
         const tx  = col.align === "right" ? cx2 + col.width - 4 - tw : cx2 + 4;
-        page.drawText(val, { x: tx, y: py(curY + PROP_ROW_H - 6), size: 8, font: fontBold, color: C_DARK });
+        page.drawText(val, { x: tx, y: py(curY + rowH - 6), size: 8, font: fontBold, color: C_DARK });
         cx2 += col.width;
       }
 
@@ -1260,7 +1275,7 @@ export async function POST(req: Request) {
       // residential property so it can stack on the same page.
       if (isKHomes) {
         kHomesPage = page;
-        kHomesY = curY + PROP_ROW_H + 8;
+        kHomesY = curY + rowH + 8;
       }
 
     }
@@ -1367,6 +1382,16 @@ export async function POST(req: Request) {
 
     // Upcoming Lease Expirations is the last section of the report.
     renderUpcomingExpirations();
+
+    // Footer on every page: the generation date (left) + report title (right),
+    // so any single page carries its provenance.
+    const gd = new Date();
+    const footerText = `Generated ${MONTHS_LONG[gd.getMonth()]} ${gd.getDate()}, ${gd.getFullYear()}`;
+    const ftW = font.widthOfTextAtSize(reportTitle, 7);
+    for (const pg of pdfDoc.getPages()) {
+      pg.drawText(footerText, { x: M, y: 20, size: 7, font, color: C_MUTED });
+      pg.drawText(reportTitle, { x: PW - M - ftW, y: 20, size: 7, font, color: C_MUTED });
+    }
 
     const pdfBytes  = await pdfDoc.save();
     const safeName  = reportTitle.replace(/[^a-z0-9\-_. ]/gi, "_");
