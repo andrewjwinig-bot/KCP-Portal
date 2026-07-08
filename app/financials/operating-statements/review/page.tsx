@@ -11,6 +11,7 @@ import Link from "next/link";
 import * as XLSX from "xlsx";
 import { jsPDF } from "jspdf";
 import { StatPill } from "@/app/components/Pill";
+import LoadingState from "@/app/components/LoadingState";
 import { groupByRentRoll, type RentRollGroup } from "@/lib/financials/operating-statements/propertyGroups";
 
 type ReviewMonth = {
@@ -141,27 +142,6 @@ function removeFlag(data: ReviewResult, propKey: string, lineKey: string, period
 
 // Animated "scanning" loader — pulsing bars + a sweeping progress bar, so it's
 // obvious the audit is running across every property/month.
-function ScanningLoader() {
-  return (
-    <div className="card" style={{ padding: 30, display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
-      <style>{`
-        @keyframes fti-bar { 0%,100% { transform: scaleY(0.35); opacity: 0.5; } 50% { transform: scaleY(1); opacity: 1; } }
-        @keyframes fti-sweep { 0% { left: -35%; } 100% { left: 100%; } }
-      `}</style>
-      <div style={{ display: "flex", alignItems: "flex-end", gap: 5, height: 42 }} aria-hidden>
-        {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
-          <div key={i} style={{ width: 7, height: 42, borderRadius: 4, background: "linear-gradient(180deg,#2b7fc4,#0b4a7d)", transformOrigin: "bottom", animation: `fti-bar 1s ${(i * 0.1).toFixed(2)}s ease-in-out infinite` }} />
-        ))}
-      </div>
-      <div style={{ position: "relative", width: "70%", maxWidth: 340, height: 6, borderRadius: 999, background: "rgba(11,74,125,0.12)", overflow: "hidden" }}>
-        <div style={{ position: "absolute", top: 0, width: "35%", height: "100%", borderRadius: 999, background: "#0b4a7d", animation: "fti-sweep 1.1s ease-in-out infinite" }} />
-      </div>
-      <div style={{ fontWeight: 700 }}>Scanning every month of every property…</div>
-      <div className="muted small">Auditing GL lines for anything that looks off</div>
-    </div>
-  );
-}
-
 export default function OperatingStatementsReviewPage() {
   const [year, setYear] = useState(new Date().getFullYear());
   const [data, setData] = useState<ReviewResult | null>(null);
@@ -327,7 +307,7 @@ export default function OperatingStatementsReviewPage() {
       )}
 
       {loading && !data ? (
-        <ScanningLoader />
+        <LoadingState status="Scanning every month of every property…" context="Auditing GL lines for anything that looks off" columns={3} rows={4} />
       ) : reviewed.length === 0 ? (
         <div className="card muted small" style={{ padding: 18 }}>No properties with an uploaded GL for {year}.</div>
       ) : (

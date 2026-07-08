@@ -407,7 +407,7 @@ function LeaseMovement({ report, reconYear }: { report: Report; reconYear: numbe
     <div className="card">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: 8, flexWrap: "wrap" }}>
         <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "#0b4a7d" }}>
-          Vacating &amp; Expiring <span className="muted" style={{ fontWeight: 600, textTransform: "none", letterSpacing: 0 }}>· recently vacated (60d) + expiring (90d)</span>
+          Vacating &amp; Expiring <span className="muted" style={{ fontWeight: 600, textTransform: "none", letterSpacing: 0 }}>· recently vacated (60d) + expiring (60d)</span>
         </div>
         <Link href="/rentroll/leasing" className="noprint muted small" style={{ color: "#0b4a7d", fontWeight: 600, textDecoration: "none" }}>Leasing activity →</Link>
       </div>
