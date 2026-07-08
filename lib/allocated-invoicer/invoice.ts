@@ -175,11 +175,9 @@ export function buildAllocInvoicePdf(args: BuildAllocInvoicePdfArgs): Blob {
   const xAllocPct = xGross    + colGross;
   const xAmount   = xAllocPct + colAllocPct;
 
-  const tableTop   = 280;
+  const tableTop   = 278;
   const headerH    = 18;
-  const rowH       = 20;
-  const subRowH    = 20;
-  const bottomMgn  = 110;
+  const bottomMgn  = 98;
 
   const drawTableHeader = (yTop: number) => {
     doc.setFillColor(TEAL.r, TEAL.g, TEAL.b);
@@ -213,6 +211,30 @@ export function buildAllocInvoicePdf(args: BuildAllocInvoicePdfArgs): Blob {
   }
   const bases = [...byBase.keys()].sort((a, b) => a.localeCompare(b));
 
+  // Adaptive vertical rhythm: start from comfortable spacing and, if the whole
+  // invoice would spill past page 1, compress the reference rows, the -8501
+  // subtotal rows, and the inter-group gaps (each down to a legible floor) to
+  // pull it back onto a single page. Beyond the floor it page-breaks as before.
+  const ROW_MAX = 20, ROW_MIN = 14;
+  const SUB_MAX = 20, SUB_MIN = 15;
+  const GAP_MAX = 13, GAP_MIN = 3;
+  const numGroups = bases.length;
+  const numRows   = args.lineItems.length;
+  const availH    = (pageH - bottomMgn) - (tableTop + headerH);
+
+  let rowH = ROW_MAX, subRowH = SUB_MAX, gap = GAP_MAX;
+  const naturalH = numRows * ROW_MAX + numGroups * (SUB_MAX + GAP_MAX);
+  if (naturalH > availH && numGroups > 0) {
+    const minH = numRows * ROW_MIN + numGroups * (SUB_MIN + GAP_MIN);
+    // Largest uniform scale t∈[0,1] (max→min) whose total height still fits.
+    const span = numRows * (ROW_MAX - ROW_MIN)
+      + numGroups * ((SUB_MAX - SUB_MIN) + (GAP_MAX - GAP_MIN));
+    const t = span > 0 ? Math.max(0, Math.min(1, (availH - minH) / span)) : 0;
+    rowH    = ROW_MIN + t * (ROW_MAX - ROW_MIN);
+    subRowH = SUB_MIN + t * (SUB_MAX - SUB_MIN);
+    gap     = GAP_MIN + t * (GAP_MAX - GAP_MIN);
+  }
+
   const pageBreak = () => {
     drawPageFooter(doc, margin, pageH, contentW, args.grandTotal);
     doc.addPage();
@@ -227,7 +249,7 @@ export function buildAllocInvoicePdf(args: BuildAllocInvoicePdfArgs): Blob {
     const accName = group[0]?.accountName ?? "";
 
     // Keep an account's rows + its subtotal together on one page.
-    const blockH = group.length * rowH + subRowH + 13;
+    const blockH = group.length * rowH + subRowH + gap;
     if (y + blockH > pageH - bottomMgn) pageBreak();
 
     // The per-suffix rows (9301, 9303, …) are reference detail — muted — and
@@ -240,11 +262,12 @@ export function buildAllocInvoicePdf(args: BuildAllocInvoicePdfArgs): Blob {
       doc.setFont("helvetica", "normal");
       doc.setFontSize(9.5);
       doc.setTextColor(140, 140, 140);
-      doc.text(`${base}-${item.accountSuffix}`,               xAccCode  + 6,               y + 14);
-      doc.text(truncate(item.accountName, 32),                 xAccName  + 6,               y + 14);
-      doc.text(toMoney(item.grossAmount),                      xGross    + colGross   - 6,  y + 14, { align: "right" });
-      doc.text((item.allocPct * 100).toFixed(2) + "%",        xAllocPct + colAllocPct - 6, y + 14, { align: "right" });
-      doc.text(toMoney(item.allocAmount),                      xAmount   + colAmount   - 6, y + 14, { align: "right" });
+      const ry = y + rowH - 6;
+      doc.text(`${base}-${item.accountSuffix}`,               xAccCode  + 6,               ry);
+      doc.text(truncate(item.accountName, 32),                 xAccName  + 6,               ry);
+      doc.text(toMoney(item.grossAmount),                      xGross    + colGross   - 6,  ry, { align: "right" });
+      doc.text((item.allocPct * 100).toFixed(2) + "%",        xAllocPct + colAllocPct - 6, ry, { align: "right" });
+      doc.text(toMoney(item.allocAmount),                      xAmount   + colAmount   - 6, ry, { align: "right" });
 
       y += rowH;
     }
@@ -258,18 +281,19 @@ export function buildAllocInvoicePdf(args: BuildAllocInvoicePdfArgs): Blob {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(10);
     doc.setTextColor(TEAL.r, TEAL.g, TEAL.b);
-    doc.text(`${base}-8501`, xAccCode + 6, y + 15);
-    doc.text(`${truncate(accName, 28)} — Total`, xAccName + 6, y + 15);
+    const sy = y + subRowH - 6;
+    doc.text(`${base}-8501`, xAccCode + 6, sy);
+    doc.text(`${truncate(accName, 28)} — Total`, xAccName + 6, sy);
     doc.setFontSize(11.5);
-    doc.text(toMoney(groupTotal), xAmount + colAmount - 6, y + 15, { align: "right" });
+    doc.text(toMoney(groupTotal), xAmount + colAmount - 6, sy, { align: "right" });
     doc.setTextColor(0, 0, 0);
     y += subRowH;
 
     // Divider + whitespace between account groups so each account's block is
     // easy to read and code.
     doc.setDrawColor(190, 190, 190);
-    doc.line(margin, y + 6, margin + contentW, y + 6);
-    y += 13;
+    doc.line(margin, y + gap * 0.5, margin + contentW, y + gap * 0.5);
+    y += gap;
   }
 
   // Footer / TOTAL box on last page
