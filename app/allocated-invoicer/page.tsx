@@ -218,11 +218,13 @@ export default function AllocatedInvoicerPage() {
     for (const [, accData] of glResult.accountTotals.entries()) {
       const suffix = accData.accountSuffix;
       for (const prop of ALLOC_PROPERTIES) {
-        // Unified basis: every 2000 G&A account (9301/9302/9303) is pooled and
-        // allocated across ALL properties by the single 9303 share (≈75% SC /
-        // 25% BP, then pro-rata within each group). The suffix is kept only for
-        // display/grouping on the invoice, not for the allocation %.
-        const pctVal = ALLOCATION_TABLE[prop.id]?.["9303"] ?? 0;
+        // Suffix-matched basis: each G&A account is allocated by the share that
+        // matches its own suffix — 9301 spreads only across business parks, 9302
+        // only across shopping centers, and 9303 across all properties. Because a
+        // property's 9302 share is 0 when it's a business park (and 9301 is 0 when
+        // it's a shopping center), no single property ever receives both a 9301 and
+        // a 9302 contribution — they're mutually-exclusive property types.
+        const pctVal = ALLOCATION_TABLE[prop.id]?.[suffix] ?? 0;
         if (pctVal === 0) continue;
         result.push({
           propertyId: prop.id,
@@ -788,7 +790,7 @@ export default function AllocatedInvoicerPage() {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
               <div>
                 <b style={{ fontSize: 15 }}>Allocation Percentages</b>
-                <div className="small muted" style={{ marginTop: 2 }}>Based on property square feet. Every G&amp;A account is allocated by the unified <b>9303</b> share (≈75% shopping centers / 25% business parks); the 9301/9302 columns are the legacy within-group sub-splits (no longer applied).</div>
+                <div className="small muted" style={{ marginTop: 2 }}>Based on property square feet. Each G&amp;A account is allocated by the share matching its own suffix — <b>9301</b> across business parks, <b>9302</b> across shopping centers, and <b>9303</b> across all properties. A property only carries a share for its own type, so no property receives both a 9301 and a 9302 contribution.</div>
               </div>
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 <button className="btn" style={{ padding: "4px 10px", fontWeight: 700 }} onClick={downloadAllocationPct}>⭳ Download %</button>
@@ -800,9 +802,9 @@ export default function AllocatedInvoicerPage() {
                 <thead>
                   <tr>
                     <th>Property</th>
-                    <th style={{ textAlign: "right" }}>9301 (BP, legacy)</th>
-                    <th style={{ textAlign: "right" }}>9302 (SC, legacy)</th>
-                    <th style={{ textAlign: "right", color: "#0b4a7d" }}>Applied % (9303)</th>
+                    <th style={{ textAlign: "right" }}>9301 (BP)</th>
+                    <th style={{ textAlign: "right" }}>9302 (SC)</th>
+                    <th style={{ textAlign: "right" }}>9303 (All)</th>
                   </tr>
                 </thead>
                 <tbody>
