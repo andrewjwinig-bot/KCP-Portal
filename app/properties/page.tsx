@@ -200,7 +200,12 @@ export default function PropertiesPage() {
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
           {TYPES.map(type => {
-            const group = filtered.filter(p => p.type === type);
+            // Sort within each type by property code, ascending (so e.g. 7200
+            // comes before 9510). Codes are fixed-width, zero-padded, so a plain
+            // string compare orders numerics naturally and keeps alphanumeric
+            // codes (4000 < 40A0) after their pure-numeric siblings. Office fund
+            // subsections below filter from this list, inheriting the order.
+            const group = filtered.filter(p => p.type === type).sort((a, b) => a.id.localeCompare(b.id));
             if (group.length === 0) return null;
             const ts = TYPE_STYLE[type];
 
