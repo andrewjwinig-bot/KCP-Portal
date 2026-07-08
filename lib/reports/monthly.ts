@@ -14,6 +14,7 @@ import { getMapping } from "@/lib/financials/operating-statements/mappingStore";
 import { summaryForPeriod } from "@/lib/financials/operating-statements/glParser";
 import { computeStatement } from "@/lib/financials/operating-statements/compute";
 import { resolvePropertyBudget, makeBudgetLookup } from "@/lib/financials/operating-statements/budgetCrosswalk";
+import { listBudgets } from "@/lib/financials/budgets/storage";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -173,30 +174,42 @@ export async function buildMonthlyReport(year: number, month: number, now: Date)
   const requestsByPriority = Object.entries(priCount).map(([priority, count]) => ({ priority, count })).sort((a, b) => b.count - a.count);
 
   // ── NOI vs budget per group (best-effort; skip properties that error) ──
+  // The per-property work (GL assembly + budget resolve + full statement
+  // compute) used to run one property at a time, and each property re-read the
+  // entire budget manifest from storage — the main reason this report lagged
+  // the rest of the dashboard. Load the mappings, GLs, and budgets ONCE up
+  // front, then compute every property concurrently and reduce the results.
   let pNoiA: number | null = null, pNoiB: number | null = null;
   try {
-    const [mappings, fulls] = await Promise.all([availableStatements(), listFullGls()]);
+    const [mappings, fulls, budgetWorkbooks] = await Promise.all([
+      availableStatements(), listFullGls(), listBudgets(),
+    ]);
     const byKeyYear = new Map<string, StoredGl[]>();
     for (const gl of fulls) if (gl.year === year) { const a = byKeyYear.get(gl.key) ?? []; a.push(gl); byKeyYear.set(gl.key, a); }
-    for (const m of mappings) {
+
+    const perProperty = await Promise.all(mappings.map(async (m) => {
       try {
         const stored = assembleGls(byKeyYear.get(m.key) ?? []);
-        if (!stored) continue;
+        if (!stored) return null;
         const period = Math.min(month, stored.maxPeriodInFile);
-        if (period < 1) continue;
+        if (period < 1) return null;
         const mapping = await getMapping(m.key);
-        if (!mapping) continue;
+        if (!mapping) return null;
         const glSum = summaryForPeriod(stored.monthly, period);
-        const budget = await resolvePropertyBudget(m.propertyCode, year);
+        const budget = await resolvePropertyBudget(m.propertyCode, year, budgetWorkbooks);
         const budgetLookup = budget ? makeBudgetLookup(budget, period) : undefined;
         const st = computeStatement({ mapping, propertyName: mapping.entityName, year, period, gl: glSum, budgetLookup });
         const noi = st.rollups.netOperatingIncome;
-        const gk = groupOf(m.propertyCode);
-        groups[gk].noiActual = (groups[gk].noiActual ?? 0) + noi.ytdActual;
-        if (noi.ytdBudget != null) groups[gk].noiBudget = (groups[gk].noiBudget ?? 0) + noi.ytdBudget;
-        pNoiA = (pNoiA ?? 0) + noi.ytdActual;
-        if (noi.ytdBudget != null) pNoiB = (pNoiB ?? 0) + noi.ytdBudget;
-      } catch { /* skip this property */ }
+        return { gk: groupOf(m.propertyCode), ytdActual: noi.ytdActual, ytdBudget: noi.ytdBudget as number | null };
+      } catch { return null; /* skip this property */ }
+    }));
+
+    for (const r of perProperty) {
+      if (!r) continue;
+      groups[r.gk].noiActual = (groups[r.gk].noiActual ?? 0) + r.ytdActual;
+      if (r.ytdBudget != null) groups[r.gk].noiBudget = (groups[r.gk].noiBudget ?? 0) + r.ytdBudget;
+      pNoiA = (pNoiA ?? 0) + r.ytdActual;
+      if (r.ytdBudget != null) pNoiB = (pNoiB ?? 0) + r.ytdBudget;
     }
   } catch { /* no financials */ }
 
