@@ -12,6 +12,7 @@ import { DownloadMenu } from "@/app/components/DownloadMenu";
 import { StatPill } from "@/app/components/Pill";
 import { LastImported } from "@/app/components/LastImported";
 import { AccountListCard } from "@/app/components/AccountListCard";
+import LoadingState from "@/app/components/LoadingState";
 import { groupStatementOptions } from "@/lib/financials/operating-statements/propertyGroups";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 import type {
@@ -823,7 +824,11 @@ export default function OperatingStatementsPage() {
         </div>
       )}
 
-      {loading && <div className="card"><div className="muted small">Loading…</div></div>}
+      {loading && (() => {
+        const a = available.find((x) => x.key === key);
+        const ctx = a ? `Reading the general ledger for ${a.propertyCode} — ${a.name} · FY${year}` : "Reading the general ledger…";
+        return <LoadingState status="Loading Operating Statement…" context={ctx} rows={4} columns={3} />;
+      })()}
 
       {!loading && !statement && (
         <div className="card">
