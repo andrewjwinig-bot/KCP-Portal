@@ -7,6 +7,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { StatPill } from "@/app/components/Pill";
+import LoadingState from "@/app/components/LoadingState";
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const BRAND = "#0b4a7d";
@@ -142,7 +143,9 @@ export default function MonthlyReviewPage() {
       </header>
 
       {error && <div className="card" style={{ borderColor: "rgba(220,38,38,0.35)", color: RED, fontWeight: 700 }}>{error}</div>}
-      {loading && !report && <div className="card muted small" style={{ padding: 20 }}>Assembling the company snapshot…</div>}
+      {loading && !report && (
+        <LoadingState status="Assembling the company snapshot…" context={`${MONTHS[month - 1]} ${year} · occupancy, NOI, leasing & service`} columns={3} rows={4} />
+      )}
 
       {report && p && (
         <>
