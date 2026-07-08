@@ -309,7 +309,7 @@ function AiChart({ spec }: { spec: AiChartSpec }) {
   const maxV = Math.max(...vals, 0);
   const minV = Math.min(...vals, 0);
   const span = maxV - minV || 1;
-  const accent = "#0b4a7d";
+  const accent = "#6d28d9"; // AI violet (matches --ai) so the assistant's chart reads as AI output
   return (
     <div style={{ marginTop: 10, padding: "10px 12px", borderRadius: 9, background: "var(--card)", border: "1px solid var(--border)" }}>
       <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 8 }}>{spec.title}</div>

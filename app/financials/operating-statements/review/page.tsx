@@ -298,7 +298,7 @@ export default function OperatingStatementsReviewPage() {
               ))}
             </select>
           )}
-          <button className="btn" onClick={autoExplainAll} disabled={!totalMonths || !!explaining} title="Use AI to explain flagged lines across all properties (skips months already explained unless re-explain is checked)"
+          <button className="btn ai" onClick={autoExplainAll} disabled={!totalMonths || !!explaining} title="Use AI to explain flagged lines across all properties (skips months already explained unless re-explain is checked)"
             style={{ fontSize: 13, padding: "6px 14px", fontWeight: 700 }}>
             {explaining ? `Explaining… ${explaining.done}/${explaining.total}` : "✨ Auto-explain all"}
           </button>

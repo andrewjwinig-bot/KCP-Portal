@@ -770,12 +770,12 @@ export default function OperatingStatementsPage() {
               </div>
               <div style={{ marginTop: 8, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                  <button type="button" className="btn" disabled={analyzing} onClick={analyzeFlagged}
+                  <button type="button" className="btn ai" disabled={analyzing} onClick={analyzeFlagged}
                     title="Use AI to explain each flagged line and auto-fill its note (from budget detail + GL transactions)"
                     style={{ fontSize: 12, padding: "5px 12px", fontWeight: 700 }}>
                     {analyzing ? "Analyzing…" : "✨ Auto-explain flagged lines"}
                   </button>
-                  <button type="button" className="btn" disabled={briefing} onClick={generateBrief}
+                  <button type="button" className="btn ai" disabled={briefing} onClick={generateBrief}
                     title="Generate a short AI monthly brief — how this property is tracking vs budget, the drivers, and what to watch"
                     style={{ fontSize: 12, padding: "5px 12px", fontWeight: 700 }}>
                     {briefing ? "Writing…" : brief ? "✨ Regenerate brief" : "✨ Monthly brief"}
