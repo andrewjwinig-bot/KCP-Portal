@@ -198,30 +198,39 @@ export function buildAllocInvoicePdf(args: BuildAllocInvoicePdfArgs): Blob {
   drawTableHeader(tableTop);
   let y = tableTop + headerH;
 
-  // Group line items by suffix for subtotal separators
-  const suffixOrder: Array<"9301" | "9302" | "9303"> = ["9301", "9302", "9303"];
-  const bySuffix = new Map<string, AllocLineItem[]>();
+  // Group line items by base account code (7110, 8220, …). Within each group
+  // list a row per allocation suffix (9301, 9302, …) and then an 8501 subtotal
+  // — the property's payable account — so the total owed per account is easy to
+  // read. (Previously this grouped by suffix, which listed every account twice.)
+  const suffixRank: Record<string, number> = { "9301": 0, "9302": 1, "9303": 2 };
+  const baseOf = (code: string) => code.replace(/-\d{3,4}$/, "");
+  const byBase = new Map<string, AllocLineItem[]>();
   for (const item of args.lineItems) {
-    const g = bySuffix.get(item.accountSuffix) ?? [];
+    const b = baseOf(item.accountCode);
+    const g = byBase.get(b) ?? [];
     g.push(item);
-    bySuffix.set(item.accountSuffix, g);
+    byBase.set(b, g);
   }
+  const bases = [...byBase.keys()].sort((a, b) => a.localeCompare(b));
 
-  for (const suffix of suffixOrder) {
-    const group = bySuffix.get(suffix);
-    if (!group || group.length === 0) continue;
+  const pageBreak = () => {
+    drawPageFooter(doc, margin, pageH, contentW, args.grandTotal);
+    doc.addPage();
+    y = margin;
+    drawTableHeader(y);
+    y += headerH;
+  };
+
+  for (const base of bases) {
+    const group = (byBase.get(base) ?? []).slice()
+      .sort((a, b) => (suffixRank[a.accountSuffix] ?? 9) - (suffixRank[b.accountSuffix] ?? 9));
+    const accName = group[0]?.accountName ?? "";
+
+    // Keep an account's rows + its subtotal together on one page.
+    const blockH = group.length * rowH + subRowH + 4;
+    if (y + blockH > pageH - bottomMgn) pageBreak();
 
     for (const item of group) {
-      // Page overflow check
-      if (y + rowH > pageH - bottomMgn) {
-        // Footer on current page
-        drawPageFooter(doc, margin, pageH, contentW, args.grandTotal);
-        doc.addPage();
-        y = margin;
-        drawTableHeader(y);
-        y += headerH;
-      }
-
       // Row separator
       doc.setDrawColor(210, 210, 210);
       doc.line(margin, y, margin + contentW, y);
@@ -229,7 +238,7 @@ export function buildAllocInvoicePdf(args: BuildAllocInvoicePdfArgs): Blob {
       doc.setFont("helvetica", "normal");
       doc.setFontSize(10);
       doc.setTextColor(0, 0, 0);
-      doc.text(item.accountCode.replace(/-\w+$/, "-8501"),    xAccCode  + 6,               y + 14);
+      doc.text(`${base}-${item.accountSuffix}`,               xAccCode  + 6,               y + 14);
       doc.text(truncate(item.accountName, 32),                 xAccName  + 6,               y + 14);
       doc.text(toMoney(item.grossAmount),                      xGross    + colGross   - 6,  y + 14, { align: "right" });
       doc.text((item.allocPct * 100).toFixed(2) + "%",        xAllocPct + colAllocPct - 6, y + 14, { align: "right" });
@@ -238,22 +247,16 @@ export function buildAllocInvoicePdf(args: BuildAllocInvoicePdfArgs): Blob {
       y += rowH;
     }
 
-    // Subtotal row for this suffix group
-    if (y + subRowH > pageH - bottomMgn) {
-      drawPageFooter(doc, margin, pageH, contentW, args.grandTotal);
-      doc.addPage();
-      y = margin;
-      drawTableHeader(y);
-      y += headerH;
-    }
-
+    // Subtotal row (the -8501 property payable account) summing this account's
+    // allocated amounts.
     const groupTotal = group.reduce((a, r) => a + r.allocAmount, 0);
     doc.setFillColor(SUBTOTAL_BG.r, SUBTOTAL_BG.g, SUBTOTAL_BG.b);
     doc.rect(margin, y, contentW, subRowH, "F");
     doc.setFont("helvetica", "bold");
     doc.setFontSize(10);
     doc.setTextColor(TEAL.r, TEAL.g, TEAL.b);
-    doc.text(`8501 Subtotal`, xAccName + 6, y + 14);
+    doc.text(`${base}-8501`, xAccCode + 6, y + 14);
+    doc.text(`${truncate(accName, 28)} Subtotal`, xAccName + 6, y + 14);
     doc.setTextColor(0, 0, 0);
     doc.text(toMoney(groupTotal), xAmount + colAmount - 6, y + 14, { align: "right" });
     y += subRowH + 4;
