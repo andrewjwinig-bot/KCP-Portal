@@ -29,6 +29,9 @@ type Result = TenantReconResult & { occupiedMonths: number; asOfMonth: number; u
 type RetailResult = RetailTenantResult & { occupiedMonths: number; asOfMonth: number; unpostedMonths: number };
 type Meta = { property: string; propertyName: string; unitRef: string; name: string; year: number; asOfMonth: number; effectiveThrough: number; occupiedMonths: number; unpostedMonths: number; maxPosted: number; startMonth: number; leaseFrom: string | null; leaseTo: string | null; sqft: number; opexMonth: number; reTaxMonth: number; baseYear?: number; proRataPct: number; grossUp?: boolean; glAsOf: string | null; manual?: boolean; escrowSource?: "monthly-rolls" | "estimate"; escrowMonthsFound?: number };
 type Tenant = { unitRef: string; name: string; leaseTo: string | null; expiresInYear: number | null };
+// Move-out candidates — recently vacated / expiring-soon tenants (portfolio-wide),
+// synced with the dashboard's Vacating Tenants / Leases Expiring lists.
+type Candidate = { propertyCode: string; propertyName: string; unitRef: string; name: string; leaseTo: string | null; kind: "vacated" | "expiring"; days: number | null; year: number | null; month: number | null };
 type DepositStatus = "held" | "refunded" | "forfeited" | "partial";
 type RawDeposit = { amount: number; checkNumber: string; refunded: boolean; tenantDefaulted: boolean; partialRefund: boolean; partialRefundAmount?: number };
 type DepositInfo = { amount: number; checkNumber: string; status: DepositStatus; partialRefundAmount: number };
@@ -361,6 +364,7 @@ function EditableOfficeStatement({ r, meta, baseYears, onBaseYear }: {
 export default function InterimReconPage() {
   const now = new Date();
   const [properties, setProperties] = useState<{ code: string; name: string; kind?: "office" | "retail" }[]>([]);
+  const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [property, setProperty] = useState("");
   const [year, setYear] = useState(now.getFullYear());
   const [tenants, setTenants] = useState<Tenant[]>([]);
@@ -378,7 +382,7 @@ export default function InterimReconPage() {
   const selectedKind = properties.find((p) => p.code === property)?.kind ?? "office";
   const isManual = unitRef === "__MANUAL__";
 
-  useEffect(() => { fetch("/api/cam-recon/interim").then((r) => r.json()).then((j) => setProperties(j.properties ?? [])); }, []);
+  useEffect(() => { fetch("/api/cam-recon/interim").then((r) => r.json()).then((j) => { setProperties(j.properties ?? []); setCandidates(j.candidates ?? []); }); }, []);
   // Load the tenant list whenever the building/year change (no clearing — that's
   // done in the dropdown handler so a deep-link can pre-select a tenant).
   useEffect(() => {
@@ -427,6 +431,14 @@ export default function InterimReconPage() {
     }).catch((e) => setError(String(e))).finally(() => setLoading(false));
   }, []);
   const run = useCallback(() => runWith(property, year, unitRef, asOf), [runWith, property, year, unitRef, asOf]);
+
+  // Pick a move-out candidate → pre-fill Building / Year / Tenant / As-of and run.
+  const pickCandidate = useCallback((c: Candidate) => {
+    const y = c.year ?? year;
+    const a: number | "" = c.month ?? "";
+    setProperty(c.propertyCode); setYear(y); setUnitRef(c.unitRef); setAsOf(a); setDraft(emptyDraft); setData(null); setError(null);
+    runWith(c.propertyCode, y, c.unitRef, a);
+  }, [runWith, year]);
 
   // Deep link from the dashboard's vacating-tenants list: pre-fill + auto-run.
   useEffect(() => {
@@ -647,6 +659,46 @@ export default function InterimReconPage() {
         <h1 style={{ margin: 0 }}>Interim CAM/RET — Move-out</h1>
         <Link href="/cam-recon" style={{ color: "#0b4a7d", fontWeight: 600, fontSize: 13 }}>← Year-end Reconciliation</Link>
       </div>
+
+      {/* Move-out candidates — click a recently-vacated / expiring-soon tenant to
+          pre-fill and run, instead of hunting through the dropdowns. */}
+      {candidates.length > 0 && (
+        <div className="card">
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, marginBottom: 8, flexWrap: "wrap" }}>
+            <div style={{ fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
+              Move-out candidates <span style={{ fontWeight: 600, textTransform: "none", letterSpacing: 0 }}>· recently vacated &amp; expiring soon</span>
+            </div>
+            <span className="muted small">Click a tenant to load their statement</span>
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {candidates.slice(0, 24).map((c) => {
+              const past = c.days != null && c.days < 0;
+              const badge = c.kind === "vacated"
+                ? { text: "Vacated", fg: "#b91c1c", bg: "rgba(220,38,38,0.1)", bd: "rgba(220,38,38,0.35)" }
+                : past
+                  ? { text: `Expired ${Math.abs(c.days!)}d ago`, fg: "#b91c1c", bg: "rgba(220,38,38,0.1)", bd: "rgba(220,38,38,0.35)" }
+                  : { text: c.days != null ? `Expires in ${c.days}d` : "Expiring", fg: "#b45309", bg: "rgba(180,83,9,0.1)", bd: "rgba(180,83,9,0.35)" };
+              const active = property === c.propertyCode && unitRef === c.unitRef;
+              return (
+                <button key={`${c.propertyCode}-${c.unitRef}-${c.name}`} type="button" onClick={() => pickCandidate(c)}
+                  style={{
+                    display: "flex", flexDirection: "column", gap: 3, alignItems: "flex-start", textAlign: "left",
+                    padding: "8px 11px", borderRadius: 9, cursor: "pointer", fontFamily: "inherit",
+                    border: `1px solid ${active ? "rgba(11,74,125,0.5)" : "var(--border)"}`,
+                    background: active ? "rgba(11,74,125,0.06)" : "var(--card)",
+                  }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontWeight: 700, fontSize: 13.5, color: "var(--text)" }}>{c.name}</span>
+                    <span style={{ fontSize: 10, fontWeight: 700, padding: "1px 7px", borderRadius: 999, background: badge.bg, color: badge.fg, border: `1px solid ${badge.bd}` }}>{badge.text}</span>
+                  </div>
+                  <div className="muted" style={{ fontSize: 12 }}>{c.propertyCode} {c.propertyName} · <code style={{ fontSize: 11 }}>{c.unitRef}</code>{c.leaseTo ? ` · exp ${c.leaseTo}` : ""}</div>
+                </button>
+              );
+            })}
+          </div>
+          {candidates.length > 24 && <div className="muted small" style={{ marginTop: 8 }}>+ {candidates.length - 24} more — use the Building / Tenant selectors below.</div>}
+        </div>
+      )}
 
       <div className="card">
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
