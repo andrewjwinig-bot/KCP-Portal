@@ -69,6 +69,26 @@
   --amber-preview-bg: #ffffff;
   --amber-preview-border: #eef0f3;
   --amber-on-solid: #1a1204;
+  /* ── Non-AI loading state ("building skyline" loader) ─────────────────────
+   * The branded loader for ordinary data fetches. Deliberately the app's
+   * blue/grey — NO violet, sparkle, or glow (that language is reserved for the
+   * AI assistant), so the two never get confused. */
+  --load-accent: #2f6bed;
+  --load-card: #ffffff;
+  --load-card-border: #e4e8ef;
+  --load-card-shadow: 0 1px 2px rgba(16, 32, 64, 0.05), 0 8px 24px -12px rgba(16, 32, 64, 0.12);
+  --load-building-fill: #f3f7fd;
+  --load-building-border: #cdd8ea;
+  --load-track: #eef1f6;
+  --load-prog: linear-gradient(90deg, rgba(47, 107, 237, 0), #2f6bed, rgba(47, 107, 237, 0));
+  --load-status: #16294d;
+  --load-context: #8a93a5;
+  --load-header-block: #e7ebf1;
+  --load-sk-base: #eef1f6;
+  --load-sk-high: #f7f9fc;
+  --load-sk-sub-base: #e2e7ef;
+  --load-sk-sub-high: #eef2f8;
+  --load-divider: #eef1f6;
   /* Color used for text that sits directly on the page background (outside cards). */
   --page-text: var(--text);
   --page-muted: var(--muted);
@@ -145,6 +165,23 @@
   --amber-preview-bg: #14171d;
   --amber-preview-border: #262b34;
   --amber-on-solid: #1a1204;
+  /* Non-AI loading state — dark */
+  --load-accent: #5d8dff;
+  --load-card: #141a26;
+  --load-card-border: #252c3a;
+  --load-card-shadow: 0 12px 30px -14px rgba(0, 0, 0, 0.6);
+  --load-building-fill: #1a2231;
+  --load-building-border: #2c3648;
+  --load-track: #222a38;
+  --load-prog: linear-gradient(90deg, rgba(93, 141, 255, 0), #5d8dff, rgba(93, 141, 255, 0));
+  --load-status: #eaeef6;
+  --load-context: #8790a3;
+  --load-header-block: #2a3242;
+  --load-sk-base: #222a38;
+  --load-sk-high: #2f3849;
+  --load-sk-sub-base: #2a3344;
+  --load-sk-sub-high: #39445a;
+  --load-divider: #222a38;
 }
 
 /* Bump default text/link contrast inside cards on dark mode. */
@@ -573,4 +610,18 @@ input.kcp-input,
 [data-theme="dark"] input.kcp-input {
   background: transparent !important;
   border-color: transparent !important;
+}
+
+/* ── Non-AI loading state — motion (building-skyline loader) ───────────────
+ * Slow, calm, blue/grey. Windows light up floor-by-floor in a rising wave, an
+ * indeterminate bar sweeps the top edge, and skeleton blocks shimmer. Under
+ * prefers-reduced-motion everything goes static (windows fully lit). */
+@keyframes kcpLit { 0%, 100% { opacity: 0.14; } 45%, 55% { opacity: 1; } }
+@keyframes kcpProg { 0% { transform: translateX(-100%); } 100% { transform: translateX(340%); } }
+@keyframes kcpSk { 0% { background-position: 120% 0; } 100% { background-position: -120% 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .kcp-lit, .kcp-prog, .kcp-sk { animation: none !important; }
+  .kcp-lit { opacity: 1 !important; }
+  .kcp-prog { transform: none !important; width: 100% !important; opacity: 0.5; }
 }
