@@ -100,20 +100,26 @@ export type ResolvedBudget = {
  *  the Monthly Review) to avoid re-reading the whole budget manifest per
  *  property — load it once with listBudgets() and hand it in. */
 export async function resolvePropertyBudget(
-  propertyCode: string,
+  propertyCode: string | string[],
   year: number,
   preloaded?: BudgetWorkbook[]
 ): Promise<ResolvedBudget | null> {
   const workbooks = preloaded ?? await listBudgets();
+  // One or more property codes — a fund passes its member buildings so their
+  // budgets aggregate into the fund's consolidated budget (matching how the
+  // fund's GL consolidates its members).
+  const codeSet = new Set(
+    (Array.isArray(propertyCode) ? propertyCode : [propertyCode]).map((c) => String(c).toUpperCase()),
+  );
   // Candidate (year → flat lines + structured tree) for this property.
   const byYear = new Map<number, FlatBudgetLine[]>();
   const byYearTree = new Map<number, BudgetLine[]>();
   for (const wb of workbooks) {
-    const prop = wb.properties.find((p) => p.propertyCode === propertyCode);
-    if (!prop) continue;
+    const props = wb.properties.filter((p) => codeSet.has(String(p.propertyCode ?? "").toUpperCase()));
+    if (!props.length) continue;
     const flat: FlatBudgetLine[] = [];
     const tree: BudgetLine[] = [];
-    for (const sec of prop.sections) for (const line of sec.lines) { flatten(line, flat); tree.push(line); }
+    for (const prop of props) for (const sec of prop.sections) for (const line of sec.lines) { flatten(line, flat); tree.push(line); }
     if (flat.length) {
       byYear.set(wb.year, (byYear.get(wb.year) ?? []).concat(flat));
       byYearTree.set(wb.year, (byYearTree.get(wb.year) ?? []).concat(tree));
