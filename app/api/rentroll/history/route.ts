@@ -8,6 +8,8 @@ const RENTROLL_ID     = "current";
 const HISTORY_PREFIX  = "rentroll-history";
 
 export const runtime = "nodejs";
+// Always read fresh so a new import shows up in the month dropdown immediately.
+export const dynamic = "force-dynamic";
 
 /**
  * GET /api/rentroll/history

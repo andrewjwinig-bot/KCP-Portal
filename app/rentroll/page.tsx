@@ -1300,6 +1300,11 @@ export default function RentRollPage() {
   // "Current" (then the page renders rawRentroll instead).
   const [monthRentroll, setMonthRentroll] = useState<RentRollData | null>(null);
   const [monthLoading, setMonthLoading] = useState(false);
+  // When we've just imported a month, the fresh roll lives in this ref so the
+  // per-month effect shows it straight from the upload response instead of
+  // re-reading storage (which can briefly lag and flash all-$0 right after an
+  // import, especially for the person who did the import).
+  const justImportedRef = useRef<{ month: string; data: RentRollData } | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadNote, setUploadNote] = useState<string | null>(null);
@@ -1416,9 +1421,17 @@ export default function RentRollPage() {
       setMonthLoading(false);
       return;
     }
+    // Just imported this month? Show the fresh roll from the upload response and
+    // skip the storage read entirely, so it can't be masked by a stale snapshot.
+    if (justImportedRef.current && justImportedRef.current.month === reportMonth) {
+      setMonthRentroll(justImportedRef.current.data);
+      setMonthLoading(false);
+      justImportedRef.current = null;
+      return;
+    }
     let alive = true;
     setMonthLoading(true);
-    fetch(`/api/rentroll/history/${reportMonth}`)
+    fetch(`/api/rentroll/history/${reportMonth}`, { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => { if (alive) setMonthRentroll(j?.rentroll ?? null); })
       .catch(() => { if (alive) setMonthRentroll(null); })
@@ -1428,14 +1441,14 @@ export default function RentRollPage() {
 
   // Load existing rent roll on mount
   useEffect(() => {
-    fetch("/api/rentroll")
+    fetch("/api/rentroll", { cache: "no-store" })
       .then((r) => r.json())
       .then((data) => {
         setRawRentroll(data.rentroll ?? null);
         setLoading(false);
       })
       .catch(() => setLoading(false));
-    fetch("/api/rentroll/history")
+    fetch("/api/rentroll/history", { cache: "no-store" })
       .then((r) => r.json())
       .then((j) => {
         const snaps = (j.snapshots ?? []) as import("../../lib/rentroll/snapshot").RentRollSnapshotSummary[];
@@ -1485,7 +1498,19 @@ export default function RentRollPage() {
         setSnapshotList(snaps);
         if (becameCurrent && snaps.length > 0) {
           // Current roll is the newest month — show it so the import is visible.
-          setReportMonth(snaps[snaps.length - 1].month);
+          // Drive the on-screen roll straight from the fresh upload response
+          // (data.rentroll) rather than a storage re-read, so it never flashes
+          // all-$0 while the just-written snapshot propagates.
+          const m = snaps[snaps.length - 1].month;
+          if (reportMonth === m) {
+            // Same month re-imported: reportMonth won't change, so update the
+            // displayed roll in place (the per-month effect won't re-run).
+            setMonthRentroll(data.rentroll);
+            justImportedRef.current = null;
+          } else {
+            justImportedRef.current = { month: m, data: data.rentroll };
+            setReportMonth(m);
+          }
         } else if (importedMonth && snaps.some((s) => s.month === importedMonth)) {
           // Back-dated import: show the month that was actually imported.
           setReportMonth(importedMonth);

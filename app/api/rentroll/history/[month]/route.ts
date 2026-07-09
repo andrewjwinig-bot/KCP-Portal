@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { getJSON, deleteJSON } from "@/lib/storage";
 
+// Always read fresh — a just-imported month's snapshot must not be masked by a
+// stale cached response.
+export const dynamic = "force-dynamic";
+
 const HISTORY_PREFIX = "rentroll-history";
 
 /** GET /api/rentroll/history/YYYY-MM → full rent roll data for that snapshot. */
