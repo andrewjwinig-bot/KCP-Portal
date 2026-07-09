@@ -18,6 +18,7 @@ import { emailInvoicerReport, XLSX_CONTENT_TYPE } from "../../lib/invoicing/send
 import { ALLOC_PCT } from "../../lib/properties/data";
 import { useUser } from "../components/UserProvider";
 import { LastImported } from "@/app/components/LastImported";
+import { DownloadMenu } from "@/app/components/DownloadMenu";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -476,6 +477,8 @@ export default function ExpensesPage() {
   }, [hydrated, user.id]);
   const [allocPropModal, setAllocPropModal] = useState<{ propId: string; name: string; categoryGroups: { category: string; items: any[] }[] } | null>(null);
   const [drillModal, setDrillModal] = useState<{ propId: string; category: string; items: any[] } | null>(null);
+  type HeldChargeRow = { period: string; date: string; desc: string; category: string; amount: number; carried: boolean };
+  const [heldDetailModal, setHeldDetailModal] = useState<{ propId: string; name: string; accrued: number; rows: HeldChargeRow[] } | null>(null);
   const [chartsOpen, setChartsOpen] = useState(true);
   const [codeTransOpen, setCodeTransOpen] = useState(true);
   const [allocPreviewOpen, setAllocPreviewOpen] = useState(true);
@@ -1462,7 +1465,23 @@ export default function ExpensesPage() {
                     <td>{g.propId} — {propName(g.propId)}</td>
                     <td style={{ textAlign: "right" }}>{toMoney(g.total)}</td>
                     <td style={{ textAlign: "right" }}>{toMoney(g.prior)}</td>
-                    <td style={{ textAlign: "right", fontWeight: 600 }}>{toMoney(g.accrued)}</td>
+                    <td style={{ textAlign: "right" }}>
+                      <button className="linkBtn" style={{ fontWeight: 700 }} title="See the expenses making up this balance" onClick={() => setHeldDetailModal({
+                        propId: g.propId,
+                        name: propName(g.propId),
+                        accrued: g.accrued,
+                        rows: [
+                          ...g.categoryGroups.flatMap((cg) => cg.items.map((t: any) => ({
+                            period: statementMonth || "This month", date: t.date, desc: t.codedDescription || t.description, category: t.category, amount: Number(t.amount), carried: false,
+                          }))),
+                          ...(carryover[g.propId]?.heldTx ?? []).map((h) => ({
+                            period: h.statementMonth || "Prior", date: h.date, desc: h.codedDescription || h.description, category: h.category, amount: Number(h.amount), carried: true,
+                          })),
+                        ],
+                      })}>
+                        {toMoney(g.accrued)}
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -1487,15 +1506,16 @@ export default function ExpensesPage() {
             One PDF invoice per billing property. Properties whose accrued balance is under ${CARRYOVER_THRESHOLD} are held and excluded from the invoices, GL Journal Entry, and TOP SHEET until they cross it{yearEnd ? " (December flushes everything)" : ""}.
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
-            <button className="btn primary large" onClick={generateAllPdfsZip} disabled={!billingGroups.length}>
-              Download All Invoices
-            </button>
-            <button className="btn large" onClick={downloadExcelSummary} disabled={!effectiveExpandedCoded.length}>
-              Download Excel Summary
-            </button>
-            <button className="btn large" onClick={downloadGLExport} disabled={!effectiveInvoiceGroups.length}>
-              Download GL Journal Entry
-            </button>
+            <DownloadMenu
+              label="Download"
+              variant="primary"
+              disabled={!billingGroups.length && !effectiveExpandedCoded.length && !effectiveInvoiceGroups.length}
+              items={[
+                { label: "All Invoices (ZIP)", description: "One PDF per billing property + TOP SHEET", onClick: () => { if (billingGroups.length) generateAllPdfsZip(); } },
+                { label: "Excel Summary", description: "Coded expenses workbook", onClick: () => { if (effectiveExpandedCoded.length) downloadExcelSummary(); } },
+                { label: "GL Journal Entry", description: "Journal entry for the billing properties", onClick: () => { if (effectiveInvoiceGroups.length) downloadGLExport(); } },
+              ]}
+            />
           </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
             {billingGroups.map((g) => (
@@ -1614,6 +1634,51 @@ export default function ExpensesPage() {
                   <tr style={{ background: "#f8fafc" }}>
                     <td colSpan={drillModal.category === "TI" ? 4 : 3} style={{ padding: "8px 10px", fontWeight: 700, fontSize: 13 }}>Total ({drillModal.items.length} items)</td>
                     <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 700, whiteSpace: "nowrap" }}>{toMoney(drillModal.items.reduce((a: number, t: any) => a + Number(t.amount), 0))}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Held expenses breakdown modal */}
+      {heldDetailModal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.55)", zIndex: 998, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} onClick={() => setHeldDetailModal(null)}>
+          <div className="card" style={{ maxWidth: 680, width: "100%", maxHeight: "80vh", display: "flex", flexDirection: "column" }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+              <div>
+                <b style={{ fontSize: 15 }}>{heldDetailModal.propId} — {heldDetailModal.name}</b>
+                <div className="small muted" style={{ marginTop: 2 }}>Expenses making up the ${CARRYOVER_THRESHOLD}-threshold accrued balance of {toMoney(heldDetailModal.accrued)} — carried forward until it crosses the threshold.</div>
+              </div>
+              <button className="btn" style={{ padding: "4px 10px" }} onClick={() => setHeldDetailModal(null)}>✕</button>
+            </div>
+            <div className="tableWrap" style={{ overflowY: "auto" }}>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Period</th>
+                    <th>Date</th>
+                    <th>Description</th>
+                    <th>Category</th>
+                    <th style={{ textAlign: "right" }}>Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {heldDetailModal.rows.slice().sort((a, b) => a.period.localeCompare(b.period) || b.amount - a.amount).map((r, i) => (
+                    <tr key={i}>
+                      <td>{r.period}{r.carried && <span title="Carried forward from a prior month" style={{ marginLeft: 6, fontSize: 10, background: "#fef3c7", color: "#92400e", borderRadius: 999, padding: "1px 6px", fontWeight: 700 }}>prior</span>}</td>
+                      <td className="muted">{r.date}</td>
+                      <td>{r.desc || "—"}</td>
+                      <td className="muted">{r.category}</td>
+                      <td style={{ textAlign: "right" }}>{toMoney(r.amount)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td colSpan={4}>Accrued total ({heldDetailModal.rows.length} item{heldDetailModal.rows.length === 1 ? "" : "s"})</td>
+                    <td style={{ textAlign: "right" }}>{toMoney(heldDetailModal.accrued)}</td>
                   </tr>
                 </tfoot>
               </table>
