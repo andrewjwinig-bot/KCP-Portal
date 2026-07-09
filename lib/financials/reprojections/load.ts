@@ -6,14 +6,17 @@ import { reproject, type Reprojection } from "./compute";
 import type { ReprojMeta } from "./reprojExport";
 import { getMapping } from "@/lib/financials/operating-statements/mappingStore";
 import { resolvePropertyBudget } from "@/lib/financials/operating-statements/budgetCrosswalk";
-import { assembledGl, getNotesBundle } from "@/lib/financials/operating-statements/statementStore";
+import { assembledGlConsolidated, getNotesBundle } from "@/lib/financials/operating-statements/statementStore";
+import { glKeysFor } from "@/lib/financials/cash-analysis/funds";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 
 export async function loadReprojection(key: string, year: number): Promise<{ reprojection: Reprojection; meta: ReprojMeta; notes: Record<string, string> } | null> {
   const mapping = await getMapping(key);
   if (!mapping) return null;
-  const stored = await assembledGl(key, year);
-  const budget = await resolvePropertyBudget(mapping.propertyCode, year);
+  // Fund keys consolidate their member buildings (GL + budget) — a fund has no
+  // GL/budget of its own.
+  const stored = await assembledGlConsolidated(key, year);
+  const budget = await resolvePropertyBudget([...glKeysFor(key), mapping.propertyCode], year);
   const propertyName = PROPERTY_DEFS.find((p) => p.id === key)?.name ?? mapping.entityName;
   const reprojection = reproject({
     mapping,

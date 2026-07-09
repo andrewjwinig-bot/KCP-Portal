@@ -154,6 +154,35 @@ export async function assembledGl(key: string, year: number): Promise<StoredGl |
   return assembleGls(all.filter((g) => g.key === key && g.year === year));
 }
 
+/** GL for a key, consolidating a fund's member buildings (a fund has no GL of
+ *  its own — its monthly nets are the account-level sum of its members, matching
+ *  the operating-statement + cash-analysis rollups). Non-fund keys are unchanged. */
+export async function assembledGlConsolidated(key: string, year: number): Promise<StoredGl | null> {
+  const keys = glKeysFor(key);
+  if (keys.length <= 1) return assembledGl(key, year);
+  const parts = (await Promise.all(keys.map((k) => assembledGl(k, year)))).filter((g): g is StoredGl => !!g);
+  if (!parts.length) return null;
+  const monthly: Record<string, number[]> = {};
+  const beginning: Record<string, number> = {};
+  const ytdTotal: Record<string, number> = {};
+  const names: Record<string, string> = {};
+  let maxPeriodInFile = 0, coverageEnd = 0;
+  let coverageStartMonth: number | undefined;
+  for (const g of parts) {
+    for (const [a, nets] of Object.entries(g.monthly)) {
+      const arr = (monthly[a] ??= new Array(12).fill(0));
+      for (let i = 0; i < 12; i++) arr[i] += nets[i] ?? 0;
+    }
+    if (g.beginning) for (const [a, v] of Object.entries(g.beginning)) beginning[a] = (beginning[a] ?? 0) + v;
+    if (g.ytdTotal) for (const [a, v] of Object.entries(g.ytdTotal)) ytdTotal[a] = (ytdTotal[a] ?? 0) + v;
+    if (g.names) for (const [a, n] of Object.entries(g.names)) if (n && !names[a]) names[a] = n;
+    maxPeriodInFile = Math.max(maxPeriodInFile, g.maxPeriodInFile || 0);
+    coverageEnd = Math.max(coverageEnd, g.coverageEnd ?? g.maxPeriodInFile ?? 0);
+    if (g.coverageStartMonth != null) coverageStartMonth = Math.min(coverageStartMonth ?? 12, g.coverageStartMonth);
+  }
+  return { ...parts[parts.length - 1], monthly, beginning, ytdTotal, names, maxPeriodInFile, coverageEnd, coverageStartMonth };
+}
+
 // ── Line notes (variance explanations) ───────────────────────────────────────
 // Free-text notes keyed by statement line, persisted per property/year so they
 // carry across periods. Line key = "<section>::<label>".
