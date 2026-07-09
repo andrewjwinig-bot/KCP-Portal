@@ -127,7 +127,12 @@ export async function GET(req: Request) {
   // Budget columns: line up to the portal budget via the same masks. Falls back
   // to the nearest available budget year (so a 2025 sample shows the 2026
   // budget); the page labels the year used.
-  const budget = await resolvePropertyBudget(mapping.propertyCode, year);
+  // For a fund key, resolve the budget across its member buildings (the same
+  // set the GL consolidates) so a fund statement gets a consolidated budget
+  // instead of "no budget" — the budget is stored per member building, not
+  // under the fund code.
+  const budgetCodes = fundParts ? [key, ...fundParts, mapping.propertyCode] : mapping.propertyCode;
+  const budget = await resolvePropertyBudget(budgetCodes, year);
   const budgetLookup = budget ? makeBudgetLookup(budget, period) : undefined;
   const { notes, sources: rawSources, meta: noteMeta } = await getNotesBundle(key, year, period);
   // Every existing note gets a source. A note with no recorded source can only
