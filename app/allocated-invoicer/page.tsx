@@ -927,48 +927,52 @@ export default function AllocatedInvoicerPage() {
               </tfoot>
             </table>
           </div>}
+        </div>
+      )}
 
-          {allocPreviewOpen && heldRows.length > 0 && (
-            <div style={{ marginTop: 18 }}>
-              <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.04em", color: "#9a3412", textTransform: "uppercase", marginBottom: 6 }}>
-                Held — under ${CARRYOVER_THRESHOLD} (carried forward)
-              </div>
-              <div className="tableWrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Property</th>
-                      <th style={{ textAlign: "right" }}>This Month</th>
-                      <th style={{ textAlign: "right" }}>Prior Balance</th>
-                      <th style={{ textAlign: "right" }}>Accrued</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {heldRows.map((h) => (
-                      <tr key={h.propId}>
-                        <td>{h.propId} — {h.propName}</td>
-                        <td style={{ textAlign: "right" }}>{toMoney(h.thisMonth)}</td>
-                        <td style={{ textAlign: "right" }}>{toMoney(h.prior)}</td>
-                        <td style={{ textAlign: "right" }}>
-                          <button className="linkBtn" style={{ fontWeight: 700 }} title="See the expenses being held" onClick={() => setHeldModal({ propName: `${h.propId} — ${h.propName}`, accounts: h.accounts })}>
-                            {toMoney(h.accrued)}
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                  <tfoot>
-                    <tr>
-                      <td>Held total</td>
-                      <td style={{ textAlign: "right" }}>{toMoney(heldRows.reduce((s, h) => s + h.thisMonth, 0))}</td>
-                      <td style={{ textAlign: "right" }}>{toMoney(heldRows.reduce((s, h) => s + h.prior, 0))}</td>
-                      <td style={{ textAlign: "right" }}>{toMoney(heldGrandTotal)}</td>
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
-            </div>
-          )}
+      {/* ── Held — under $100 (carried forward) ── */}
+      {glResult && heldRows.length > 0 && (
+        <div className="card">
+          <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: "0.03em", color: "#9a3412", textTransform: "uppercase" }}>
+            Held — under ${CARRYOVER_THRESHOLD} (carried forward)
+          </div>
+          <div className="small muted" style={{ marginTop: 4, marginBottom: 10 }}>
+            Expenses under ${CARRYOVER_THRESHOLD} for a property roll forward until they cross it{yearEnd ? " — but December posts everything" : ""}. Click a balance to see the held expenses.
+          </div>
+          <div className="tableWrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Property</th>
+                  <th style={{ textAlign: "right" }}>This Month</th>
+                  <th style={{ textAlign: "right" }}>Prior Balance</th>
+                  <th style={{ textAlign: "right" }}>Accrued</th>
+                </tr>
+              </thead>
+              <tbody>
+                {heldRows.map((h) => (
+                  <tr key={h.propId}>
+                    <td>{h.propId} — {h.propName}</td>
+                    <td style={{ textAlign: "right" }}>{toMoney(h.thisMonth)}</td>
+                    <td style={{ textAlign: "right" }}>{toMoney(h.prior)}</td>
+                    <td style={{ textAlign: "right" }}>
+                      <button className="linkBtn" style={{ fontWeight: 700 }} title="See the expenses being held" onClick={() => setHeldModal({ propName: `${h.propId} — ${h.propName}`, accounts: h.accounts })}>
+                        {toMoney(h.accrued)}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td>Held total</td>
+                  <td style={{ textAlign: "right" }}>{toMoney(heldRows.reduce((s, h) => s + h.thisMonth, 0))}</td>
+                  <td style={{ textAlign: "right" }}>{toMoney(heldRows.reduce((s, h) => s + h.prior, 0))}</td>
+                  <td style={{ textAlign: "right" }}>{toMoney(heldGrandTotal)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
         </div>
       )}
 
