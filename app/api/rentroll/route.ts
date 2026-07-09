@@ -4,6 +4,10 @@ import { snapshotMonthKey } from "@/lib/rentroll/snapshot";
 import { storeJSON, getJSON, listJSON } from "@/lib/storage";
 import { recordImport } from "@/lib/tracker/importEvents";
 
+// Always read fresh from storage — never serve a statically-cached response.
+// A rent-roll import must be visible immediately, not after the cache expires.
+export const dynamic = "force-dynamic";
+
 const RENTROLL_PREFIX = "rentroll";
 const RENTROLL_ID     = "current";
 const HISTORY_PREFIX  = "rentroll-history";
