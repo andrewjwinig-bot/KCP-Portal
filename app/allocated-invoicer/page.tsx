@@ -711,6 +711,15 @@ export default function AllocatedInvoicerPage() {
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <button className="btn" style={{ borderRadius: 999, fontWeight: 700, whiteSpace: "nowrap" }} onClick={() => setShowAllocModal(true)} title="View / download the allocation percentages">Allocation %</button>
             <button className="btn" style={{ borderRadius: 999, fontWeight: 700, whiteSpace: "nowrap" }} onClick={downloadAllocationPct} title="Download the allocation percentages as CSV">⭳ %</button>
+            <DownloadMenu
+              label="Download"
+              variant="primary"
+              disabled={!glResult || billingTotals.size === 0}
+              items={[
+                { label: "All Invoices (ZIP)", description: "One PDF per billing property", onClick: generateAllPdfsZip },
+                { label: "Excel Summary", description: "Allocated expenses workbook (all allocations)", onClick: downloadExcel },
+              ]}
+            />
             <span style={{ background: "rgba(22, 163, 74, 0.85)", color: "#fff", borderRadius: 999, padding: "12px 18px", fontSize: 15, fontWeight: 700, border: "1px solid transparent", display: "inline-flex", alignItems: "center" }}>Monthly</span>
           </div>
         </div>
@@ -870,10 +879,9 @@ export default function AllocatedInvoicerPage() {
               </button>
               <div>
                 <b>Allocation Preview</b>
-                <div className="small muted" style={{ marginTop: 4 }}>One invoice per billing property. Expenses under ${CARRYOVER_THRESHOLD} for a property are held and carried forward{yearEnd ? " — but December posts everything to clear the year" : ", so an invoice may carry only the expenses that crossed the threshold this month"}.</div>
+                <div className="small muted" style={{ marginTop: 4 }}>One invoice per billing property. Click a property's <b>total</b> for its account breakdown, or the <b>⭳</b> to download its invoice. Expenses under ${CARRYOVER_THRESHOLD} are held and carried forward{yearEnd ? " — but December posts everything to clear the year" : ""}.</div>
               </div>
             </div>
-            <button className="btn" onClick={() => setShowAllocModal(true)}>Allocations</button>
           </div>
           {allocPreviewOpen && <div className="tableWrap">
             <table>
@@ -883,11 +891,12 @@ export default function AllocatedInvoicerPage() {
                   <th>Accounts</th>
                   <th style={{ textAlign: "right" }}># Accounts</th>
                   <th style={{ textAlign: "right" }}>Total</th>
+                  <th style={{ textAlign: "center", whiteSpace: "nowrap" }}>Invoice</th>
                 </tr>
               </thead>
               <tbody>
                 {billingTotals.size === 0 && (
-                  <tr><td colSpan={4} className="muted" style={{ padding: "14px 4px" }}>No properties bill this month — all allocated amounts are under the threshold and held.</td></tr>
+                  <tr><td colSpan={5} className="muted" style={{ padding: "14px 4px" }}>No properties bill this month — all allocated amounts are under the threshold and held.</td></tr>
                 )}
                 {ALLOC_PROPERTIES.map((prop) => {
                   const propTotal = billingTotals.get(prop.id) ?? 0;
@@ -899,9 +908,7 @@ export default function AllocatedInvoicerPage() {
                   return (
                     <tr key={prop.id}>
                       <td>
-                        <button className="linkBtn left" onClick={() => setAllocPropModal({ propId: prop.id, propName: prop.name, rows: propRows })}>
-                          {prop.id} — {prop.name}
-                        </button>
+                        {prop.id} — {prop.name}
                         {hasCarry && <span title="Includes a balance carried forward from prior months" style={{ marginLeft: 6, fontSize: 10, background: "#fef3c7", color: "#92400e", borderRadius: 999, padding: "1px 6px", fontWeight: 700 }}>+ carried</span>}
                       </td>
                       <td>
@@ -914,7 +921,21 @@ export default function AllocatedInvoicerPage() {
                         </div>
                       </td>
                       <td style={{ textAlign: "right" }}>{billed.length}</td>
-                      <td style={{ textAlign: "right" }}>{toMoney(propTotal)}</td>
+                      <td style={{ textAlign: "right" }}>
+                        <button className="linkBtn" style={{ fontWeight: 700 }} title="See the account code breakdown" onClick={() => setAllocPropModal({ propId: prop.id, propName: prop.name, rows: propRows })}>
+                          {toMoney(propTotal)}
+                        </button>
+                      </td>
+                      <td style={{ textAlign: "center" }}>
+                        <button
+                          className="btn"
+                          style={{ padding: "3px 10px", fontSize: 15, lineHeight: 1 }}
+                          title={`Download ${prop.id} — ${prop.name} invoice`}
+                          onClick={() => downloadSinglePdf(prop.id)}
+                        >
+                          ⭳
+                        </button>
+                      </td>
                     </tr>
                   );
                 })}
@@ -923,6 +944,7 @@ export default function AllocatedInvoicerPage() {
                 <tr>
                   <td colSpan={3}>Total</td>
                   <td style={{ textAlign: "right" }}>{toMoney(grandBillingTotal)}</td>
+                  <td />
                 </tr>
               </tfoot>
             </table>
@@ -976,36 +998,10 @@ export default function AllocatedInvoicerPage() {
         </div>
       )}
 
-      {/* ── Generate Invoices ── */}
+      {/* ── Finalize ── */}
       {glResult && (
         <div className="card">
-          <b>Generate Invoices</b>
-          <div className="small muted" style={{ marginBottom: 14 }}>One PDF invoice per billing property. Expenses whose accrued balance is under ${CARRYOVER_THRESHOLD} are held and excluded from the invoices until they cross it{yearEnd ? "" : " (December posts everything)"}.</div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
-            <DownloadMenu
-              label="Download"
-              variant="primary"
-              disabled={billingTotals.size === 0}
-              items={[
-                { label: "All Invoices (ZIP)", description: "One PDF per billing property", onClick: generateAllPdfsZip },
-                { label: "Excel Summary", description: "Allocated expenses workbook (all allocations)", onClick: downloadExcel },
-              ]}
-            />
-          </div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-            {ALLOC_PROPERTIES.filter((p) => (billingTotals.get(p.id) ?? 0) > 0).map((prop) => (
-              <button
-                key={prop.id}
-                className="btn"
-                style={{ fontSize: 12, padding: "5px 10px" }}
-                onClick={() => downloadSinglePdf(prop.id)}
-              >
-                {prop.id} — {prop.name} <span style={{ color: "var(--muted)", marginLeft: 4 }}>({toMoney(billingTotals.get(prop.id) ?? 0)})</span>
-              </button>
-            ))}
-          </div>
-
-          <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 18, paddingTop: 16, borderTop: "1px solid var(--border)", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
             <button
               className="btn"
               style={{ background: alreadyFinalized ? "#94a3b8" : "#16a34a", color: "#fff", fontWeight: 700, borderColor: "transparent", whiteSpace: "nowrap", opacity: (!statementMonth || alreadyFinalized || finalizing) ? 0.7 : 1 }}
