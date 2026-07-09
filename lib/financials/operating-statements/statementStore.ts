@@ -44,6 +44,10 @@ export type StoredGl = {
   coverageStartMonth?: number;
   /** Last month of the report range ("posted through"); set by assembleGls. */
   coverageEnd?: number;
+  /** False when the GL was imported "monthly totals only" (transaction detail
+   *  skipped to save storage — line drill-down won't have rows). Absent = true
+   *  (older uploads always stored transactions). */
+  transactionsStored?: boolean;
 };
 
 export async function saveGl(rec: StoredGl): Promise<void> {

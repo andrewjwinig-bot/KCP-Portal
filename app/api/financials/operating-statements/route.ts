@@ -270,6 +270,11 @@ export async function POST(req: Request) {
     }
 
     const uploadedByRaw = form.get("uploadedBy");
+    // "Monthly totals only" — skip storing the (storage-heavy) transaction
+    // detail. The monthly nets that power every statement/comparison are still
+    // saved; only the per-line drill-down is unavailable for this import.
+    const leanRaw = form.get("lean");
+    const lean = leanRaw === "1" || leanRaw === "true";
     const ts = new Date().toISOString();
     const id = `gl-${key}-${parsed.year}-${Date.now()}`;
     await saveGl({
@@ -285,8 +290,9 @@ export async function POST(req: Request) {
       beginning: parsed.beginning,
       ytdTotal: parsed.ytdTotal,
       names: parsed.names,
+      transactionsStored: !lean,
     });
-    await saveTransactions(id, parsed.transactions);
+    if (!lean) await saveTransactions(id, parsed.transactions);
     await logAudit({ event: "gl.upload", user: typeof uploadedByRaw === "string" ? uploadedByRaw : key, ip: auditIp(req), detail: `${key} ${parsed.year} · ${file.name}` });
 
     // The 2000 G&A GL is the same Detailed GL the Allocated Expense Invoicer
