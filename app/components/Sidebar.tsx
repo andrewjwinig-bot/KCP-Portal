@@ -604,21 +604,6 @@ const NAV = [
     ),
   },
   {
-    label: "Income Statements",
-    href: "/financials/monthly-pnl",
-    external: false,
-    indent: false,
-    showFor: null as string | null,
-    groupId: "financials",
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M4 3h16a1 1 0 0 1 1 1v16l-3-2-3 2-3-2-3 2-3-2V4a1 1 0 0 1 1-1z" />
-        <line x1="8" y1="8" x2="16" y2="8" />
-        <line x1="8" y1="12" x2="14" y2="12" />
-      </svg>
-    ),
-  },
-  {
     label: "Budgets",
     href: "/financials/budgets",
     external: false,
