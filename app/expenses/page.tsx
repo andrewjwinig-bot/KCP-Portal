@@ -1434,44 +1434,49 @@ export default function ExpensesPage() {
             </table>
           </div>
         )}
-        {allocPreviewOpen && onHoldGroups.length > 0 && (
-          <div style={{ marginTop: 14 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "#92400e", marginBottom: 6 }}>
-              Held — under ${CARRYOVER_THRESHOLD} (carried forward)
-            </div>
-            <div className="tableWrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Property</th>
-                    <th style={{ textAlign: "right" }}>This Month</th>
-                    <th style={{ textAlign: "right" }}>Prior Balance</th>
-                    <th style={{ textAlign: "right" }}>Accrued</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {onHoldGroups.map((g) => (
-                    <tr key={g.propId} style={{ opacity: 0.85 }}>
-                      <td>{g.propId} — {propName(g.propId)}</td>
-                      <td style={{ textAlign: "right" }}>{toMoney(g.total)}</td>
-                      <td style={{ textAlign: "right" }}>{toMoney(g.prior)}</td>
-                      <td style={{ textAlign: "right", fontWeight: 600 }}>{toMoney(g.accrued)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  <tr>
-                    <td>Held total</td>
-                    <td style={{ textAlign: "right" }}>{toMoney(onHoldGroups.reduce((s, g) => s + g.total, 0))}</td>
-                    <td style={{ textAlign: "right" }}>{toMoney(onHoldGroups.reduce((s, g) => s + g.prior, 0))}</td>
-                    <td style={{ textAlign: "right" }}>{toMoney(onHoldGroups.reduce((s, g) => s + g.accrued, 0))}</td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-          </div>
-        )}
       </div>
+      )}
+
+      {/* ── Held — under $100 (carried forward) — hidden from maint. ── */}
+      {!isMaint && onHoldGroups.length > 0 && (
+        <div className="card">
+          <div style={{ fontSize: 13, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.03em", color: "#92400e" }}>
+            Held — under ${CARRYOVER_THRESHOLD} (carried forward)
+          </div>
+          <div className="small muted" style={{ marginTop: 4, marginBottom: 10 }}>
+            Properties whose accrued balance is under ${CARRYOVER_THRESHOLD} roll forward until they cross it{yearEnd ? " — but December flushes everything" : ""}.
+          </div>
+          <div className="tableWrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Property</th>
+                  <th style={{ textAlign: "right" }}>This Month</th>
+                  <th style={{ textAlign: "right" }}>Prior Balance</th>
+                  <th style={{ textAlign: "right" }}>Accrued</th>
+                </tr>
+              </thead>
+              <tbody>
+                {onHoldGroups.map((g) => (
+                  <tr key={g.propId} style={{ opacity: 0.85 }}>
+                    <td>{g.propId} — {propName(g.propId)}</td>
+                    <td style={{ textAlign: "right" }}>{toMoney(g.total)}</td>
+                    <td style={{ textAlign: "right" }}>{toMoney(g.prior)}</td>
+                    <td style={{ textAlign: "right", fontWeight: 600 }}>{toMoney(g.accrued)}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td>Held total</td>
+                  <td style={{ textAlign: "right" }}>{toMoney(onHoldGroups.reduce((s, g) => s + g.total, 0))}</td>
+                  <td style={{ textAlign: "right" }}>{toMoney(onHoldGroups.reduce((s, g) => s + g.prior, 0))}</td>
+                  <td style={{ textAlign: "right" }}>{toMoney(onHoldGroups.reduce((s, g) => s + g.accrued, 0))}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
       )}
 
       {/* ── Generate Invoices — hidden from maint. ── */}
