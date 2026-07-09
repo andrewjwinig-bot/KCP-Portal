@@ -477,8 +477,8 @@ export default function ExpensesPage() {
   }, [hydrated, user.id]);
   const [allocPropModal, setAllocPropModal] = useState<{ propId: string; name: string; categoryGroups: { category: string; items: any[] }[] } | null>(null);
   const [drillModal, setDrillModal] = useState<{ propId: string; category: string; items: any[] } | null>(null);
-  type HeldChargeRow = { period: string; date: string; desc: string; category: string; amount: number; carried: boolean };
-  const [heldDetailModal, setHeldDetailModal] = useState<{ propId: string; name: string; accrued: number; rows: HeldChargeRow[] } | null>(null);
+  type HeldCatRow = { category: string; amount: number; count: number };
+  const [heldDetailModal, setHeldDetailModal] = useState<{ propId: string; name: string; accrued: number; rows: HeldCatRow[] } | null>(null);
   const [chartsOpen, setChartsOpen] = useState(true);
   const [codeTransOpen, setCodeTransOpen] = useState(true);
   const [allocPreviewOpen, setAllocPreviewOpen] = useState(true);
@@ -1466,19 +1466,25 @@ export default function ExpensesPage() {
                     <td style={{ textAlign: "right" }}>{toMoney(g.total)}</td>
                     <td style={{ textAlign: "right" }}>{toMoney(g.prior)}</td>
                     <td style={{ textAlign: "right" }}>
-                      <button className="linkBtn" style={{ fontWeight: 700 }} title="See the expenses making up this balance" onClick={() => setHeldDetailModal({
-                        propId: g.propId,
-                        name: propName(g.propId),
-                        accrued: g.accrued,
-                        rows: [
-                          ...g.categoryGroups.flatMap((cg) => cg.items.map((t: any) => ({
-                            period: statementMonth || "This month", date: t.date, desc: t.codedDescription || t.description, category: t.category, amount: Number(t.amount), carried: false,
-                          }))),
-                          ...(carryover[g.propId]?.heldTx ?? []).map((h) => ({
-                            period: h.statementMonth || "Prior", date: h.date, desc: h.codedDescription || h.description, category: h.category, amount: Number(h.amount), carried: true,
-                          })),
-                        ],
-                      })}>
+                      <button className="linkBtn" style={{ fontWeight: 700 }} title="See the category breakdown of this balance" onClick={() => {
+                        // Roll this month's charges + carried-forward detail up by
+                        // category — just the totals, not every charge.
+                        const byCat = new Map<string, HeldCatRow>();
+                        const add = (category: string, amount: number) => {
+                          const c = byCat.get(category) ?? { category: category || "—", amount: 0, count: 0 };
+                          c.amount = Math.round((c.amount + amount) * 100) / 100;
+                          c.count += 1;
+                          byCat.set(category, c);
+                        };
+                        for (const cg of g.categoryGroups) for (const t of cg.items as any[]) add(t.category, Number(t.amount));
+                        for (const h of (carryover[g.propId]?.heldTx ?? [])) add(h.category, Number(h.amount));
+                        setHeldDetailModal({
+                          propId: g.propId,
+                          name: propName(g.propId),
+                          accrued: g.accrued,
+                          rows: [...byCat.values()].sort((a, b) => b.amount - a.amount),
+                        });
+                      }}>
                         {toMoney(g.accrued)}
                       </button>
                     </td>
@@ -1642,14 +1648,14 @@ export default function ExpensesPage() {
         </div>
       )}
 
-      {/* Held expenses breakdown modal */}
+      {/* Held expenses category breakdown modal */}
       {heldDetailModal && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.55)", zIndex: 998, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} onClick={() => setHeldDetailModal(null)}>
-          <div className="card" style={{ maxWidth: 680, width: "100%", maxHeight: "80vh", display: "flex", flexDirection: "column" }} onClick={(e) => e.stopPropagation()}>
+          <div className="card" style={{ maxWidth: 560, width: "100%", maxHeight: "80vh", display: "flex", flexDirection: "column" }} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
               <div>
                 <b style={{ fontSize: 15 }}>{heldDetailModal.propId} — {heldDetailModal.name}</b>
-                <div className="small muted" style={{ marginTop: 2 }}>Expenses making up the ${CARRYOVER_THRESHOLD}-threshold accrued balance of {toMoney(heldDetailModal.accrued)} — carried forward until it crosses the threshold.</div>
+                <div className="small muted" style={{ marginTop: 2 }}>Category breakdown of the accrued balance of {toMoney(heldDetailModal.accrued)} (this month + carried forward) — held until it crosses ${CARRYOVER_THRESHOLD}.</div>
               </div>
               <button className="btn" style={{ padding: "4px 10px" }} onClick={() => setHeldDetailModal(null)}>✕</button>
             </div>
@@ -1657,28 +1663,25 @@ export default function ExpensesPage() {
               <table>
                 <thead>
                   <tr>
-                    <th>Period</th>
-                    <th>Date</th>
-                    <th>Description</th>
-                    <th>Category</th>
-                    <th style={{ textAlign: "right" }}>Amount</th>
+                    <th style={{ whiteSpace: "nowrap" }}>Category</th>
+                    <th style={{ textAlign: "right", whiteSpace: "nowrap" }}># Charges</th>
+                    <th style={{ textAlign: "right", whiteSpace: "nowrap" }}>Total</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {heldDetailModal.rows.slice().sort((a, b) => a.period.localeCompare(b.period) || b.amount - a.amount).map((r, i) => (
+                  {heldDetailModal.rows.map((r, i) => (
                     <tr key={i}>
-                      <td>{r.period}{r.carried && <span title="Carried forward from a prior month" style={{ marginLeft: 6, fontSize: 10, background: "#fef3c7", color: "#92400e", borderRadius: 999, padding: "1px 6px", fontWeight: 700 }}>prior</span>}</td>
-                      <td className="muted">{r.date}</td>
-                      <td>{r.desc || "—"}</td>
-                      <td className="muted">{r.category}</td>
-                      <td style={{ textAlign: "right" }}>{toMoney(r.amount)}</td>
+                      <td style={{ whiteSpace: "nowrap" }}>{r.category}</td>
+                      <td style={{ textAlign: "right" }} className="muted">{r.count}</td>
+                      <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>{toMoney(r.amount)}</td>
                     </tr>
                   ))}
                 </tbody>
                 <tfoot>
                   <tr>
-                    <td colSpan={4}>Accrued total ({heldDetailModal.rows.length} item{heldDetailModal.rows.length === 1 ? "" : "s"})</td>
-                    <td style={{ textAlign: "right" }}>{toMoney(heldDetailModal.accrued)}</td>
+                    <td>Accrued total</td>
+                    <td style={{ textAlign: "right" }} className="muted">{heldDetailModal.rows.reduce((s, r) => s + r.count, 0)}</td>
+                    <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>{toMoney(heldDetailModal.accrued)}</td>
                   </tr>
                 </tfoot>
               </table>
