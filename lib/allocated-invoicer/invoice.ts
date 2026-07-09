@@ -21,6 +21,14 @@ export type BuildAllocInvoicePdfArgs = {
   invoiceDate: string;     // YYYY-MM-DD
   invoiceId: string;
   lineItems: AllocLineItem[];
+  /**
+   * Per base-account balance carried forward from prior months (held under $100
+   * and now billing). Keyed by base account code (e.g. "8220"). The account's
+   * -8501 total is its this-month suffix rows PLUS this carried amount, with a
+   * small "incl. $X carried forward" note beneath. A base present here with no
+   * suffix rows is a pure carryover flush (e.g. a year-end December bill).
+   */
+  carriedForward?: Record<string, { amount: number; accountName: string }>;
   grandTotal: number;
 };
 
@@ -209,6 +217,10 @@ export function buildAllocInvoicePdf(args: BuildAllocInvoicePdfArgs): Blob {
     g.push(item);
     byBase.set(b, g);
   }
+  // Carried-forward-only accounts (held in prior months, now billing with no
+  // current-month activity — e.g. a year-end flush) still need a group.
+  const cf = args.carriedForward ?? {};
+  for (const b of Object.keys(cf)) if (!byBase.has(b)) byBase.set(b, []);
   const bases = [...byBase.keys()].sort((a, b) => a.localeCompare(b));
 
   // Adaptive vertical rhythm: start from comfortable spacing and, if the whole
@@ -218,14 +230,17 @@ export function buildAllocInvoicePdf(args: BuildAllocInvoicePdfArgs): Blob {
   const ROW_MAX = 20, ROW_MIN = 14;
   const SUB_MAX = 20, SUB_MIN = 15;
   const GAP_MAX = 13, GAP_MIN = 3;
+  const NOTE_H  = 11; // "incl. $X carried forward" note (fixed, not scaled)
   const numGroups = bases.length;
   const numRows   = args.lineItems.length;
+  const numNotes  = Object.values(cf).filter((v) => (v?.amount ?? 0) > 0).length;
+  const notesH    = numNotes * NOTE_H;
   const availH    = (pageH - bottomMgn) - (tableTop + headerH);
 
   let rowH = ROW_MAX, subRowH = SUB_MAX, gap = GAP_MAX;
-  const naturalH = numRows * ROW_MAX + numGroups * (SUB_MAX + GAP_MAX);
+  const naturalH = numRows * ROW_MAX + numGroups * (SUB_MAX + GAP_MAX) + notesH;
   if (naturalH > availH && numGroups > 0) {
-    const minH = numRows * ROW_MIN + numGroups * (SUB_MIN + GAP_MIN);
+    const minH = numRows * ROW_MIN + numGroups * (SUB_MIN + GAP_MIN) + notesH;
     // Largest uniform scale t∈[0,1] (max→min) whose total height still fits.
     const span = numRows * (ROW_MAX - ROW_MIN)
       + numGroups * ((SUB_MAX - SUB_MIN) + (GAP_MAX - GAP_MIN));
@@ -246,10 +261,11 @@ export function buildAllocInvoicePdf(args: BuildAllocInvoicePdfArgs): Blob {
   for (const base of bases) {
     const group = (byBase.get(base) ?? []).slice()
       .sort((a, b) => (suffixRank[a.accountSuffix] ?? 9) - (suffixRank[b.accountSuffix] ?? 9));
-    const accName = group[0]?.accountName ?? "";
+    const prior = cf[base]?.amount ?? 0;
+    const accName = group[0]?.accountName ?? cf[base]?.accountName ?? "";
 
-    // Keep an account's rows + its subtotal together on one page.
-    const blockH = group.length * rowH + subRowH + gap;
+    // Keep an account's rows + its subtotal (+ carry note) together on one page.
+    const blockH = group.length * rowH + subRowH + (prior > 0 ? NOTE_H : 0) + gap;
     if (y + blockH > pageH - bottomMgn) pageBreak();
 
     // The per-suffix rows (9301, 9303, …) are reference detail — muted — and
@@ -275,7 +291,7 @@ export function buildAllocInvoicePdf(args: BuildAllocInvoicePdfArgs): Blob {
     // The -8501 total (the property's payable account) — the sum of the suffix
     // rows above and the amount actually billed for this account. This is the
     // headline figure, so it's emphasized.
-    const groupTotal = group.reduce((a, r) => a + r.allocAmount, 0);
+    const groupTotal = group.reduce((a, r) => a + r.allocAmount, 0) + prior;
     doc.setFillColor(SUBTOTAL_BG.r, SUBTOTAL_BG.g, SUBTOTAL_BG.b);
     doc.rect(margin, y, contentW, subRowH, "F");
     doc.setFont("helvetica", "bold");
@@ -288,6 +304,18 @@ export function buildAllocInvoicePdf(args: BuildAllocInvoicePdfArgs): Blob {
     doc.text(toMoney(groupTotal), xAmount + colAmount - 6, sy, { align: "right" });
     doc.setTextColor(0, 0, 0);
     y += subRowH;
+
+    // Carried-forward note: this account was held under $100 in prior months and
+    // is now billing the accrued total. Show what portion rolled forward.
+    if (prior > 0) {
+      doc.setFont("helvetica", "italic");
+      doc.setFontSize(7.5);
+      doc.setTextColor(120, 120, 120);
+      doc.text(`incl. ${toMoney(prior)} carried forward from prior months`, xAccName + 6, y + 8);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(0, 0, 0);
+      y += NOTE_H;
+    }
 
     // Divider + whitespace between account groups so each account's block is
     // easy to read and code.
