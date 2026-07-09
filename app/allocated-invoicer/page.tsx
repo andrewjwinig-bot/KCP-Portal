@@ -966,6 +966,7 @@ export default function AllocatedInvoicerPage() {
               <thead>
                 <tr>
                   <th>Property</th>
+                  <th style={{ textAlign: "right" }}># Accounts</th>
                   <th style={{ textAlign: "right" }}>This Month</th>
                   <th style={{ textAlign: "right" }}>Prior Balance</th>
                   <th style={{ textAlign: "right" }}>Accrued</th>
@@ -975,6 +976,7 @@ export default function AllocatedInvoicerPage() {
                 {heldRows.map((h) => (
                   <tr key={h.propId}>
                     <td>{h.propId} — {h.propName}</td>
+                    <td style={{ textAlign: "right" }}>{h.accounts.length}</td>
                     <td style={{ textAlign: "right" }}>{toMoney(h.thisMonth)}</td>
                     <td style={{ textAlign: "right" }}>{toMoney(h.prior)}</td>
                     <td style={{ textAlign: "right" }}>
@@ -988,6 +990,7 @@ export default function AllocatedInvoicerPage() {
               <tfoot>
                 <tr>
                   <td>Held total</td>
+                  <td style={{ textAlign: "right" }}>{heldRows.reduce((s, h) => s + h.accounts.length, 0)}</td>
                   <td style={{ textAlign: "right" }}>{toMoney(heldRows.reduce((s, h) => s + h.thisMonth, 0))}</td>
                   <td style={{ textAlign: "right" }}>{toMoney(heldRows.reduce((s, h) => s + h.prior, 0))}</td>
                   <td style={{ textAlign: "right" }}>{toMoney(heldGrandTotal)}</td>
