@@ -9,6 +9,7 @@ import "server-only";
 import { storeJSON, listJSON, getJSON, deleteJSON } from "@/lib/storage";
 import type { GlTransaction } from "./glParser";
 import { assembleGls, mergeTransactions } from "./glAssemble";
+import { glKeysFor } from "@/lib/financials/cash-analysis/funds";
 
 const PREFIX = "financials-operating-statements";
 const TX_PREFIX = "financials-operating-statements-tx";
@@ -72,12 +73,25 @@ export async function getTransactions(glId: string): Promise<Record<string, GlTr
  *  reads only the newest single upload, so a property uploaded as multiple
  *  files (monthly, or a revision) shows incomplete — or zero — line detail. */
 export async function assembledTransactions(key: string, year: number): Promise<Record<string, GlTransaction[]>> {
-  const gls = (await listFullGls()).filter((g) => g.key === key && g.year === year);
-  if (!gls.length) return {};
-  const versions = await Promise.all(
-    gls.map(async (g) => ({ ...g, transactions: await getTransactions(g.id) }))
-  );
-  return mergeTransactions(versions);
+  // A fund key aggregates its member buildings (the same set its monthly nets
+  // consolidate) — transactions are stored under each member's GL, not the fund
+  // key, so a fund drill-down would otherwise show nothing. Each member's own
+  // uploads are coverage-merged, then unioned across members.
+  const keys = glKeysFor(key);
+  const all = await listFullGls();
+  const out: Record<string, GlTransaction[]> = {};
+  for (const k of keys) {
+    const gls = all.filter((g) => g.key === k && g.year === year);
+    if (!gls.length) continue;
+    const versions = await Promise.all(
+      gls.map(async (g) => ({ ...g, transactions: await getTransactions(g.id) }))
+    );
+    const merged = mergeTransactions(versions);
+    for (const [acct, txs] of Object.entries(merged)) {
+      out[acct] = out[acct] ? out[acct].concat(txs) : txs;
+    }
+  }
+  return out;
 }
 
 export async function getGl(id: string): Promise<StoredGl | null> {
