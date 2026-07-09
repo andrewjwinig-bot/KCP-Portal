@@ -281,6 +281,7 @@ export default function OperatingStatementsPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [leanImport, setLeanImport] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Bumped after an upload to force a statement reload even when the
   // property/year/period are unchanged (e.g. re-importing the current view).
@@ -377,6 +378,7 @@ export default function OperatingStatementsPage() {
         fd.append("file", file);
         if (files.length === 1 && key) fd.append("key", key);
         fd.append("uploadedBy", user.label);
+        if (leanImport) fd.append("lean", "1");
         const j = await fetch("/api/financials/operating-statements", { method: "POST", body: fd }).then((r) => r.json());
         if (j.error) { results.push({ name: file.name, ok: false, error: j.error }); }
         else {
@@ -708,6 +710,10 @@ export default function OperatingStatementsPage() {
             <button className="btn primary" title="Upload one or more GL files — each file's header identifies its property" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }} disabled={uploading} onClick={() => fileRef.current?.click()}>
               {uploading ? "Uploading…" : "Upload GL"}
             </button>
+            <label className="small muted" title="Skip storing per-transaction detail — keeps the monthly totals that power every statement, budget-vs-actual and YoY comparison. Ideal for bulk-backfilling prior years cheaply; the only thing you lose is the line-level transaction drill-down for that import." style={{ display: "inline-flex", alignItems: "center", gap: 5, whiteSpace: "nowrap", cursor: "pointer" }}>
+              <input type="checkbox" checked={leanImport} onChange={(e) => setLeanImport(e.target.checked)} />
+              Monthly totals only
+            </label>
             <input ref={fileRef} type="file" accept=".xls,.xlsx,.xlsm" multiple style={{ display: "none" }} onChange={onUpload} />
             {statement && (
               <ViewMenu
