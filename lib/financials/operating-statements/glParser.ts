@@ -396,6 +396,112 @@ export function parseGeneralLedgerMonthly(rows: Row[]): GlMonthly {
   return { propertyCode, year, maxPeriodInFile, monthly, beginning, ytdTotal, transactions, names, multiYear, yearsCovered };
 }
 
+/** One year's accumulation while splitting a Multi-Year GL. */
+type YearAccum = {
+  monthly: Record<string, number[]>;
+  beginning: Record<string, number>;
+  ytdTotal: Record<string, number>;
+  transactions: Record<string, GlTransaction[]>;
+  maxMonth: number;
+  seen: Set<string>; // accounts whose first month this year was recorded (for beginning)
+};
+
+/** Split a Multi-Year (Debit/Credit) GL into one accumulation per calendar year.
+ *  Each "<Month> Total" row carries its year, so months bucket into the right
+ *  year with no collision; the running Balance column gives each year's
+ *  opening (first month's balance − net) and ending (last month's balance). */
+function monthlyByYearFromDebitCredit(rows: Row[], defaultYear: number | null): { years: Map<number, YearAccum>; names: Record<string, string> } {
+  const debitCol = headerCol(rows, "debit") ?? 23;
+  const creditCol = headerCol(rows, "credit") ?? 25;
+  const balanceCol = headerCol(rows, "balance") ?? 28;
+  const debitLo = Math.max(0, debitCol - 1), debitHi = creditCol - 1;
+  const creditLo = creditCol, creditHi = balanceCol - 1;
+  const descCol = headerCol(rows, "description") ?? 5;
+  const refCol = headerCol(rows, "ref") ?? 21;
+  const net = (row: Row) => numIn(row, debitLo, debitHi) - numIn(row, creditLo, creditHi);
+  const bal = (row: Row) => numIn(row, balanceCol, balanceCol + 1);
+  const isTxnDate = (s: string) => /^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(s);
+
+  const years = new Map<number, YearAccum>();
+  const names: Record<string, string> = {};
+  const ensure = (y: number): YearAccum => {
+    let a = years.get(y);
+    if (!a) years.set(y, (a = { monthly: {}, beginning: {}, ytdTotal: {}, transactions: {}, maxMonth: 0, seen: new Set() }));
+    return a;
+  };
+
+  let current: string | null = null;
+  let buffer: GlTransaction[] = [];
+  for (const row of rows) {
+    const c1 = asStr(row[1]);
+    if (ACCOUNT_RE.test(c1)) {
+      current = c1;
+      const nm = accountNameFrom(row, 1);
+      if (nm && !names[current]) names[current] = nm;
+      buffer = [];
+      continue;
+    }
+    if (!current) continue;
+    const mt = monthTotalOf(row, 5, 10);
+    if (mt) {
+      const y = mt.year ?? defaultYear;
+      if (mt.mIdx < 0 || y == null) { buffer = []; continue; }
+      const acc = ensure(y);
+      if (!acc.monthly[current]) acc.monthly[current] = new Array(12).fill(0);
+      if (!acc.transactions[current]) acc.transactions[current] = [];
+      const nt = net(row);
+      acc.monthly[current][mt.mIdx] = nt;
+      if (mt.mIdx + 1 > acc.maxMonth) acc.maxMonth = mt.mIdx + 1;
+      // Opening = running balance BEFORE this month (balance − net), captured on
+      // the first month total seen for this account this year; ending = the
+      // running balance after the latest month total (last one wins).
+      if (!acc.seen.has(current)) { acc.beginning[current] = bal(row) - nt; acc.seen.add(current); }
+      acc.ytdTotal[current] = bal(row);
+      for (const t of buffer) { t.month = mt.mIdx + 1; acc.transactions[current].push(t); }
+      buffer = [];
+      continue;
+    }
+    // Grand "Total" row — the whole-range ending; per-year endings come from the
+    // month totals, so skip it here.
+    if (row.some((c) => /^\s*total\s*$/i.test(asStr(c)))) { buffer = []; continue; }
+    if (!isTxnDate(c1)) continue;
+    const desc = asStr(row[descCol]);
+    const ref = asStr(row[refCol]);
+    buffer.push({ month: 0, date: c1, vendor: desc || undefined, description: desc || ref || "(no description)", ref, amount: net(row) });
+  }
+  return { years, names };
+}
+
+/** Parse a GL into one GlMonthly PER YEAR it covers. A single-year file (or the
+ *  Detailed single-month report) returns a one-element array; a Multi-Year GL
+ *  spanning several years returns one entry per year, each ready to store on its
+ *  own so every year's statements/history populate from a single upload. */
+export function parseGeneralLedgerByYear(rows: Row[]): GlMonthly[] {
+  const { propertyCode, endYear, endMonth } = parseHeader(rows);
+  const amountCol = headerCol(rows, "amount");
+  const hasDebit = headerCol(rows, "debit") != null;
+  // The Detailed GL (single Amount column) is a single-month report — never
+  // multi-year — so fall back to the single-result parse.
+  if (amountCol != null && !hasDebit) return [parseGeneralLedgerMonthly(rows)];
+
+  const { years, names } = monthlyByYearFromDebitCredit(rows, endYear);
+  if (years.size <= 1) return [parseGeneralLedgerMonthly(rows)];
+
+  const sorted = [...years.keys()].sort((a, b) => a - b);
+  return sorted.map((y) => {
+    const acc = years.get(y)!;
+    // The end year uses the report's end month (it may be partial); fully
+    // elapsed prior years use their last month with activity (normally 12).
+    const maxPeriodInFile = y === endYear ? (endMonth ?? (acc.maxMonth || 12)) : (acc.maxMonth || 12);
+    return {
+      propertyCode, year: y, maxPeriodInFile,
+      monthly: acc.monthly, beginning: acc.beginning, ytdTotal: acc.ytdTotal,
+      transactions: acc.transactions, names,
+      multiYear: true, yearsCovered: sorted,
+    };
+  });
+}
+
 /** Reconcile parsed monthly nets against the GL's own reported ending balances:
  *  for each account, beginning + Σ(monthly nets) must equal the account's
  *  "Total"/"YTD Total" ending balance. Only accounts that reported an ending

@@ -409,16 +409,18 @@ export default function OperatingStatementsPage() {
         last = { key: j.key, year: j.year };
         const a = available.find((x) => x.key === j.key);
         const rec = j.reconciliation;
-        const warn = !!j.multiYear || !!(rec && rec.mismatchCount > 0);
-        const note = j.multiYear
-          ? `spans ${j.multiYear.yearsCovered.join("–")} — imported ${j.multiYear.importedYear}`
+        const yrs: number[] = Array.isArray(j.years) ? j.years : (j.year ? [j.year] : []);
+        const multi = yrs.length > 1;
+        const warn = !!(rec && rec.mismatchCount > 0);
+        const note = multi
+          ? `imported ${yrs.length} years · ${yrs[0]}–${yrs[yrs.length - 1]}${rec && rec.checked > 0 && rec.mismatchCount === 0 ? " · ties out" : ""}`
           : rec && rec.checked > 0
             ? (rec.mismatchCount === 0 ? `ties out · ${rec.reconciled}/${rec.checked}` : `${rec.mismatchCount} of ${rec.checked} don't reconcile`)
             : undefined;
         return {
           status: "done" as const,
           entity: a ? `${a.propertyCode} — ${a.name}` : String(j.key),
-          detail: j.maxPeriodInFile ? `through ${MONTHS[j.maxPeriodInFile - 1]}` : undefined,
+          detail: multi ? `${yrs[0]}–${yrs[yrs.length - 1]}` : (j.maxPeriodInFile ? `through ${MONTHS[j.maxPeriodInFile - 1]}` : undefined),
           count: j.accounts,
           countLabel: "acct",
           note,
@@ -428,11 +430,11 @@ export default function OperatingStatementsPage() {
       },
       report: (rows) => {
         const ok = rows.filter((r) => r.status === "done");
-        const raws = ok.map((r) => r.raw as { key: string; year: number; maxPeriodInFile: number; allocatedGlReady?: boolean });
+        const raws = ok.map((r) => r.raw as { key: string; year: number; maxPeriodInFile: number; allocatedGlReady?: boolean; years?: number[]; perYear?: { year: number; maxPeriodInFile: number }[] });
         const entities = new Set(ok.map((r) => r.entity)).size;
         const accounts = ok.reduce((a, r) => a + (r.count ?? 0), 0);
-        const years = [...new Set(raws.map((r) => r.year).filter(Boolean))].sort((a, b) => a - b);
-        const targets = raws.filter((r) => r.key && r.year && r.maxPeriodInFile).map((r) => ({ key: r.key, year: r.year, period: r.maxPeriodInFile }));
+        const years = [...new Set(raws.flatMap((r) => r.years ?? [r.year]).filter(Boolean))].sort((a, b) => a - b);
+        const targets = raws.flatMap((r) => (r.perYear ?? [{ year: r.year, maxPeriodInFile: r.maxPeriodInFile }]).map((p) => ({ key: r.key, year: p.year, period: p.maxPeriodInFile }))).filter((t) => t.key && t.year && t.period);
         return {
           stats: [
             { value: String(ok.length), label: ok.length === 1 ? "file" : "files" },

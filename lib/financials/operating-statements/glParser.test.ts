@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseGeneralLedger, parseGeneralLedgerMonthly, reconcileGl } from "./glParser";
+import { parseGeneralLedger, parseGeneralLedgerMonthly, parseGeneralLedgerByYear, reconcileGl } from "./glParser";
 
 type Cell = string | number | null;
 
@@ -146,6 +146,58 @@ describe("Multi-Year GL range handling", () => {
     expect(m.yearsCovered).toEqual([2023, 2024]);
     expect((m.monthly["6030-8502"] ?? [])[0]).toBe(100); // Jan 2024, not 500 (2023)
     expect((m.monthly["6030-8502"] ?? [])[1]).toBe(150); // Feb 2024
+  });
+});
+
+// ── Multi-Year split — one stored GL per year from a single upload ────────────
+describe("parseGeneralLedgerByYear — split a multi-year GL into per-year records", () => {
+  // A 3-year range for one property. Running balance accumulates across years;
+  // per-year nets come from each month total's Debit − Credit.
+  // Cash (balance-sheet): opening 1000, +100/yr (net 100 each Jan).
+  const mk = (y: number, deb: number, cred: number, bal: number) => row({ 6: `January ${y} Total`, 22: deb, 25: cred, 28: bal });
+  const sheet3: Cell[][] = [
+    row({ 10: "Property/Company : 4500" }),
+    row({ 10: "1/1/2022 To 12/31/2024" }), // THREE years
+    row({ 5: "Description", 23: "Debit", 25: "Credit", 28: "Balance" }),
+    // Expense account — 3 different yearly amounts.
+    row({ 1: "6030-8502", 7: "Maintenance Salaries", 28: 0 }),
+    mk(2022, 200, 0, 200),
+    mk(2023, 300, 0, 500),
+    mk(2024, 400, 0, 900),
+    row({ 9: "Total", 22: 900, 25: 0, 28: 900 }),
+    // Cash — running balance, opening 1000.
+    row({ 1: "0110-0000", 7: "Cash-Operating", 28: 1000 }),
+    mk(2022, 100, 0, 1100),
+    mk(2023, 100, 0, 1200),
+    mk(2024, 100, 0, 1300),
+    row({ 9: "Total", 22: 300, 25: 0, 28: 1300 }),
+  ];
+
+  const byYear = parseGeneralLedgerByYear(sheet3);
+
+  it("returns one record per year, sorted ascending, all flagged multiYear", () => {
+    expect(byYear.map((r) => r.year)).toEqual([2022, 2023, 2024]);
+    expect(byYear.every((r) => r.multiYear)).toBe(true);
+    expect(byYear[0].yearsCovered).toEqual([2022, 2023, 2024]);
+  });
+
+  it("assigns each year its own monthly nets (no cross-year bleed)", () => {
+    const jan = (y: number) => (byYear.find((r) => r.year === y)!.monthly["6030-8502"] ?? [])[0];
+    expect(jan(2022)).toBe(200);
+    expect(jan(2023)).toBe(300);
+    expect(jan(2024)).toBe(400);
+  });
+
+  it("derives each year's cash opening (prior ending) and ending from the running balance", () => {
+    const cash = (y: number) => byYear.find((r) => r.year === y)!;
+    expect(cash(2022).beginning["0110-0000"]).toBe(1000); // 1100 − 100
+    expect(cash(2023).beginning["0110-0000"]).toBe(1100); // ending of 2022
+    expect(cash(2024).beginning["0110-0000"]).toBe(1200);
+    expect(cash(2024).ytdTotal["0110-0000"]).toBe(1300); // ending 2024
+  });
+
+  it("each year reconciles independently (beginning + net = ending)", () => {
+    for (const rec of byYear.map(reconcileGl)) expect(rec.mismatches).toHaveLength(0);
   });
 });
 
