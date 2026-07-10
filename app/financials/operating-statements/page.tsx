@@ -847,7 +847,7 @@ export default function OperatingStatementsPage() {
         );
       })()}
       {!loading && statement && isFullYear && fullYear && (
-        <FullYearTable fy={fullYear} year={year} view={{ hideEmpty, showGL, varMode }} budgetYear={budgetYear} budgetFallback={budgetFallback} />
+        <FullYearTable fy={fullYear} year={year} viewKey={key} propertyCode={cur?.propertyCode ?? ""} view={{ hideEmpty, showGL, varMode }} budgetYear={budgetYear} budgetFallback={budgetFallback} />
       )}
       {!loading && statement && !isFullYear && <StatementTable s={statement} viewKey={key} budgetYear={budgetYear} budgetFallback={budgetFallback} notes={notes} noteSources={noteSources} noteMeta={noteMeta} editorLabel={user.label} onSaveNote={saveNote} dismissedFlags={dismissedFlags} onDismissFlag={onDismissFlag} view={{ psf, sqft, hideEmpty, showGL, varMode }} thresh={thresh} flagFilter={flagFilter} onClearFilter={() => setFlagFilter(null)} />}
       {showCoverage && <CoverageModal coverage={coverage} onClose={() => setShowCoverage(false)} onPick={(k, y) => { setKey(k); setYear(y); setPeriod(0); setShowCoverage(false); }} />}
@@ -1030,9 +1030,13 @@ function StatementTable({ s, viewKey, budgetYear, budgetFallback, notes, noteSou
 const fyLabel = (sec: FYSection) =>
   sec.role === "revenue" ? "Total Revenue and Other" : `Total ${sec.name}`;
 
-function FYRow({ label, monthly, cols, total, budget, variance, varMode, showBudget, showGL, mask, variant = "line" }: {
+function FYRow({ label, monthly, cols, total, budget, variance, varMode, showBudget, showGL, mask, drill, variant = "line" }: {
   label: string; monthly: number[]; cols: number; total: number; budget: number | null; variance: number | null;
-  varMode: VarMode; showBudget: boolean; showGL?: boolean; mask?: string; variant?: "line" | "subtotal" | "rollup" | "rollupStrong";
+  varMode: VarMode; showBudget: boolean; showGL?: boolean; mask?: string;
+  /** Open the GL drill-down for this line: a month (scope "month") or the
+   *  running total (scope "ytd"). Only provided for line rows. */
+  drill?: (period: number, scope: "month" | "ytd", monthLabel: string) => void;
+  variant?: "line" | "subtotal" | "rollup" | "rollupStrong";
 }) {
   const bold = variant !== "line";
   const upper = variant === "rollup" || variant === "rollupStrong";
@@ -1041,11 +1045,14 @@ function FYRow({ label, monthly, cols, total, budget, variance, varMode, showBud
     : variant === "rollupStrong" ? { background: "rgba(11,74,125,0.06)" }
     : variant === "rollup" ? { background: "rgba(11,74,125,0.035)" }
     : undefined;
-  const num = (v: number | null, key: string | number, extra?: React.CSSProperties) => (
-    <td key={key} style={{ ...fyNumStyle, ...(bold ? { fontWeight: 800 } : {}), ...extra }}>
-      {v == null || Math.abs(v) < 0.5 ? <span style={{ color: "var(--muted)" }}>–</span> : money0(v)}
-    </td>
-  );
+  const num = (v: number | null, key: string | number, extra?: React.CSSProperties, onClick?: () => void) => {
+    const clickable = !!onClick && v != null && Math.abs(v) >= 0.5;
+    return (
+      <td key={key} {...(clickable ? { onClick, className: "os-cell", title: "Click for GL transactions" } : {})} style={{ ...fyNumStyle, ...(bold ? { fontWeight: 800 } : {}), ...extra }}>
+        {v == null || Math.abs(v) < 0.5 ? <span style={{ color: "var(--muted)" }}>–</span> : money0(v)}
+      </td>
+    );
+  };
   const pct = varPct(variance, budget);
   const varVal = varMode === "dollar" ? variance : pct;
   const varText = varMode === "dollar" ? (variance == null ? "—" : money0(variance)) : fmtPct(pct);
@@ -1055,18 +1062,24 @@ function FYRow({ label, monthly, cols, total, budget, variance, varMode, showBud
         {label}
         {showGL && mask && <div className="muted" style={{ fontSize: 11, fontVariantNumeric: "tabular-nums", marginTop: 1 }}>{mask}</div>}
       </td>
-      {monthly.slice(0, cols).map((m, i) => num(m, i, i === 0 ? { borderLeft: GROUP_DIV } : undefined))}
-      {num(total, "total", { borderLeft: GROUP_DIV, color: COLOR_BRAND, fontWeight: 800 })}
+      {monthly.slice(0, cols).map((m, i) => num(m, i, i === 0 ? { borderLeft: GROUP_DIV } : undefined, drill ? () => drill(i + 1, "month", MONTHS[i]) : undefined))}
+      {num(total, "total", { borderLeft: GROUP_DIV, color: COLOR_BRAND, fontWeight: 800 }, drill ? () => drill(cols, "ytd", MONTHS[cols - 1]) : undefined)}
       {showBudget && num(budget, "budget", { color: "var(--muted)" })}
       {showBudget && <td key="var" style={{ ...fyNumStyle, ...(bold ? { fontWeight: 800 } : {}), color: varColor(varVal) }}>{varText}</td>}
     </tr>
   );
 }
 
-function FullYearTable({ fy, year, view, budgetYear, budgetFallback }: {
-  fy: FullYear; year: number; view: { hideEmpty: boolean; showGL: boolean; varMode: VarMode };
+function FullYearTable({ fy, year, viewKey, propertyCode, view, budgetYear, budgetFallback }: {
+  fy: FullYear; year: number; viewKey: string; propertyCode: string; view: { hideEmpty: boolean; showGL: boolean; varMode: VarMode };
   budgetYear: number | null; budgetFallback: boolean;
 }) {
+  // GL drill-down: click a month cell → that month's transactions; click the
+  // total → the running (YTD/full-year) transactions. Reuses the single-month
+  // LineDetailModal + the same transactions endpoint.
+  const [detail, setDetail] = useState<{ mask: string; label: string; sign: 1 | -1; period: number; scope: "month" | "ytd"; monthLabel: string } | null>(null);
+  const openDetail = (line: FYLine, sign: 1 | -1, period: number, scope: "month" | "ytd", monthLabel: string) =>
+    setDetail({ mask: line.mask, label: line.label, sign, period, scope, monthLabel });
   const byRole = (roles: SectionRole[]) => fy.sections.filter((x) => roles.includes(x.role));
   const revenueSecs = byRole(["revenue", "reimbursement"]);
   const expenseSecs = byRole(["reimbursable-expense", "non-reimbursable-expense", "residential-expense"]);
@@ -1109,9 +1122,10 @@ function FullYearTable({ fy, year, view, budgetYear, budgetFallback }: {
         <tr>
           <td colSpan={colSpan} style={{ padding: "8px 12px", background: "rgba(15,23,42,0.03)", fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase" }}>{sec.name}</td>
         </tr>
-        {lines.map((l) => (
-          <FYRow key={l.label} label={l.label} monthly={l.monthly} cols={cols} total={l.total} budget={l.budget} variance={l.variance} varMode={view.varMode} showBudget={showBudget} showGL={view.showGL} mask={l.mask} />
-        ))}
+        {lines.map((l) => {
+          const sign: 1 | -1 = sec.role === "revenue" || sec.role === "reimbursement" ? -1 : 1;
+          return <FYRow key={l.label} label={l.label} monthly={l.monthly} cols={cols} total={l.total} budget={l.budget} variance={l.variance} varMode={view.varMode} showBudget={showBudget} showGL={view.showGL} mask={l.mask} drill={(period, scope, monthLabel) => openDetail(l, sign, period, scope, monthLabel)} />;
+        })}
         {!hideSubtotal && (
           <FYRow label={fyLabel(sec)} monthly={sec.subtotalMonthly} cols={cols} total={sec.subtotalTotal} budget={sec.subtotalBudget} variance={sec.subtotalVariance} varMode={view.varMode} showBudget={showBudget} variant="subtotal" />
         )}
@@ -1169,9 +1183,12 @@ function FullYearTable({ fy, year, view, budgetYear, budgetFallback }: {
           </div>
         )}
         <p className="small muted" style={{ margin: 0 }}>
-          Each column is that month&rsquo;s actual (GL Debit − Credit, revenue shown positive); <b>{totalLabel}</b> is the sum of {complete ? "all 12 months" : `the ${cols} month${cols === 1 ? "" : "s"} posted so far`}. These figures match the Reprojections <b>Full-Year Actuals</b> for this property — same GL, same account masks.
+          Each column is that month&rsquo;s actual (GL Debit − Credit, revenue shown positive); <b>{totalLabel}</b> is the sum of {complete ? "all 12 months" : `the ${cols} month${cols === 1 ? "" : "s"} posted so far`}. Click any month or the {totalLabel} total for its GL transactions. These figures match the Reprojections <b>Full-Year Actuals</b> for this property — same GL, same account masks.
         </p>
       </div>
+      {detail && (
+        <LineDetailModal viewKey={viewKey} property={propertyCode} year={year} period={detail.period} monthLabel={detail.monthLabel} line={{ mask: detail.mask, label: detail.label, sign: detail.sign }} initialTab="gl" initialScope={detail.scope} onClose={() => setDetail(null)} />
+      )}
     </div>
   );
 }
