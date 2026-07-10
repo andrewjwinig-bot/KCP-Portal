@@ -1005,7 +1005,7 @@ function StatementTable({ s, viewKey, budgetYear, budgetFallback, notes, noteSou
     <div className="card">
       {budgetFallback && budgetYear != null && (
         <div style={{ marginBottom: 10, fontSize: 12, color: "#b45309", fontWeight: 600 }}>
-          Budget columns use the {budgetYear} budget — no {s.year} budget is loaded for this property.
+          Budget &amp; Variance are hidden — no {s.year} budget is loaded for this property (the nearest is {budgetYear}, and comparing to a different year would be misleading). Import the {s.year} budget to compare.
         </div>
       )}
       {s.unmappedAccounts.length > 0 && (
@@ -1018,7 +1018,7 @@ function StatementTable({ s, viewKey, budgetYear, budgetFallback, notes, noteSou
         />
       )}
       <p className="small muted" style={{ marginTop: s.unmappedAccounts.length > 0 ? 12 : 0 }}>
-        Actual = GL Debit − Credit (revenue shown positive). Variance % is favorable when positive (revenue over budget / expense under budget). Budget columns line up to the {budgetYear ?? s.year} portal budget via the same GL account masks.
+        Actual = GL Debit − Credit (revenue shown positive). Variance % is favorable when positive (revenue over budget / expense under budget).{budgetFallback ? "" : ` Budget columns line up to the ${budgetYear ?? s.year} portal budget via the same GL account masks.`}
       </p>
     </div>
   );
@@ -1212,7 +1212,7 @@ function FullYearTable({ fy, year, view, budgetYear, budgetFallback }: {
       <div style={{ padding: "10px 14px", borderTop: "1px solid var(--border)" }}>
         {budgetFallback && budgetYear != null && (
           <div style={{ marginBottom: 6, fontSize: 12, color: "#b45309", fontWeight: 600 }}>
-            Budget column uses the {budgetYear} budget — no {year} budget is loaded for this property.
+            Budget &amp; Variance are hidden — no {year} budget is loaded for this property (nearest is {budgetYear}). Import the {year} budget to compare.
           </div>
         )}
         <p className="small muted" style={{ margin: 0 }}>

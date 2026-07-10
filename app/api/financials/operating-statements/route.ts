@@ -153,7 +153,13 @@ export async function GET(req: Request) {
   // under the fund code.
   const budgetCodes = fundParts ? [key, ...fundParts, mapping.propertyCode] : mapping.propertyCode;
   const budget = await resolvePropertyBudget(budgetCodes, year);
-  const budgetLookup = budget ? makeBudgetLookup(budget, period) : undefined;
+  // Only compare against a SAME-YEAR budget. A different year's budget (the
+  // nearest-year fallback) is misleading on a statement — comparing, say, 2024
+  // actuals to the 2026 plan — so when the only budget is another year we hide
+  // the Budget/Variance columns instead. Import that year's budget to compare.
+  const sameYearBudget = budget && !budget.fallback ? budget : null;
+  const budgetHidden = !!(budget && budget.fallback);
+  const budgetLookup = sameYearBudget ? makeBudgetLookup(sameYearBudget, period) : undefined;
   const { notes, sources: rawSources, meta: noteMeta } = await getNotesBundle(key, year, period);
   // Every existing note gets a source. A note with no recorded source can only
   // be an AI note — manual saves always stamp "user" — so default missing to
@@ -207,7 +213,7 @@ export async function GET(req: Request) {
     const full = computeStatement({
       mapping, propertyName: nameFor, year, period: 12,
       gl: summaryForPeriod(stored.monthly, 12),
-      budgetLookup: budget ? makeBudgetLookup(budget, 12) : undefined,
+      budgetLookup: sameYearBudget ? makeBudgetLookup(sameYearBudget, 12) : undefined,
     });
     const ROLLUP_KEYS = ["totalRevenues", "totalOperatingExpenses", "netOperatingIncome", "cashFlowBeforeDebtService", "totalDebtService", "cashFlowAfterDebtService"] as const;
     fullYear = {
@@ -288,6 +294,7 @@ export async function GET(req: Request) {
     uploadedBy: stored.uploadedBy ?? null,
     budgetYear: budget?.budgetYear ?? null,
     budgetFallback: budget?.fallback ?? false,
+    budgetHidden,
     notes,
     noteSources,
     noteMeta,
