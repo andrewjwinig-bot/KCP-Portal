@@ -18,6 +18,7 @@ import { ACCOUNT_CODE, PREFIX_CODE } from "@/lib/financials/cash-analysis/accoun
 import { exportCashSheetXlsx, exportCashSheetPdf, type CashSheetExportInput, type ExportTotals } from "@/lib/financials/cash-sheet/export";
 import { DownloadMenu } from "@/app/components/DownloadMenu";
 import { AccountListCard } from "@/app/components/AccountListCard";
+import { useImport } from "@/app/components/import/ImportProvider";
 
 type Bucket = { code: number; label: string };
 type Breakdown = { key: string; name: string; startingCash: number | null; netChange: number; endingCash: number | null; byBucket: Record<string, number> };
@@ -165,8 +166,7 @@ export default function CashSheetPage() {
   // Weekly AvidXchange bills — the bridge that keeps the monthly GL position
   // current between postings. Uploaded here, consumed by "Est. Cash Today".
   const apRef = useRef<HTMLInputElement | null>(null);
-  const [apUploading, setApUploading] = useState(false);
-  const [apSummary, setApSummary] = useState<{ wednesday: string; total: number; count: number } | null>(null);
+  const { startImport } = useImport();
 
   const runDrill = useCallback((key: string, propName: string, code: number, label: string) => {
     setDrill({ key, propName, code, label });
@@ -236,27 +236,44 @@ export default function CashSheetPage() {
   // Upload the weekly AP AutoPay Selections Reports → auto-fills the week's bills
   // (reused from the Cash Sheet), refreshing the "Est. Cash Today" bridge.
   async function onApUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = e.target.files;
-    if (!files?.length) return;
-    setApUploading(true); setApSummary(null); setError(null);
-    try {
-      const fd = new FormData();
-      for (const f of Array.from(files)) fd.append("files", f);
-      const res = await fetch("/api/financials/cash-sheet/ap-upload", { method: "POST", body: fd });
-      const j = await res.json();
-      if (!res.ok) throw new Error(j?.error ?? "Upload failed");
-      const pm = parseMonthKey(String(j.wednesday).slice(0, 7));
-      // Jump to the imported report's month if it differs, and refresh the
-      // snapshot for THAT month explicitly so the new bills show immediately.
-      if (pm && (pm.year !== year || pm.month !== period)) { setYear(pm.year); setPeriod(pm.month); }
-      setApSummary({ wednesday: j.wednesday, total: j.total, count: (j.filled ?? []).length });
-      await load(pm ? { year: pm.year, period: pm.month } : undefined);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Upload failed");
-    } finally {
-      setApUploading(false);
-      if (apRef.current) apRef.current.value = "";
-    }
+    const files = Array.from(e.target.files ?? []);
+    if (apRef.current) apRef.current.value = "";
+    if (!files.length) return;
+    setError(null);
+    let pm: { year: number; month: number } | null = null;
+
+    await startImport({
+      kind: "ap",
+      title: (n) => `Importing ${n} AP selection report${n === 1 ? "" : "s"}`,
+      subtitle: "AP AutoPay Selections · .xls / .xlsx / .pdf",
+      files,
+      // One request handles all files; the report is aggregate (week + total).
+      uploadAll: async (fs) => {
+        const fd = new FormData();
+        for (const f of fs) fd.append("files", f);
+        const res = await fetch("/api/financials/cash-sheet/ap-upload", { method: "POST", body: fd });
+        const j = await res.json();
+        if (!res.ok) throw new Error(j?.error ?? "Upload failed");
+        pm = parseMonthKey(String(j.wednesday).slice(0, 7));
+        return { files: fs.map((f) => ({ status: "done" as const, entity: f.name.replace(/\.[^.]+$/, "") })), raw: j };
+      },
+      report: (rows, raw) => {
+        const j = raw as { wednesday: string; total: number; filled?: unknown[] };
+        const wed = j?.wednesday ? new Date(`${j.wednesday}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "—";
+        return {
+          stats: [
+            { value: String(rows.filter((r) => r.status === "done").length), label: rows.length === 1 ? "file" : "files" },
+            { value: wed, label: "week of" },
+            { value: `$${Math.round(j?.total ?? 0).toLocaleString("en-US")}`, label: "AP total" },
+            { value: String((j?.filled ?? []).length), label: "bills filled" },
+          ],
+        };
+      },
+    });
+
+    // Jump to the imported report's month and refresh that month's snapshot.
+    if (pm && (pm.year !== year || pm.month !== period)) { setYear(pm.year); setPeriod(pm.month); }
+    await load(pm ? { year: pm.year, period: pm.month } : undefined);
   }
 
   const buckets = data?.buckets ?? [];
@@ -428,8 +445,8 @@ export default function CashSheetPage() {
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             {data?.canEdit && (
               <>
-                <button className="btn" onClick={() => apRef.current?.click()} disabled={apUploading} style={{ whiteSpace: "nowrap", fontSize: 13, padding: "8px 16px" }} title="Import the weekly AP Selection Report (.xls, .xlsx, or .pdf) to fill bills paid">
-                  {apUploading ? "Importing…" : "Import"}
+                <button className="btn" onClick={() => apRef.current?.click()} style={{ whiteSpace: "nowrap", fontSize: 13, padding: "8px 16px" }} title="Import the weekly AP Selection Report (.xls, .xlsx, or .pdf) to fill bills paid">
+                  Import
                 </button>
                 <input ref={apRef} type="file" accept=".xls,.xlsx,.pdf" multiple style={{ display: "none" }} onChange={onApUpload} />
               </>
@@ -490,11 +507,6 @@ export default function CashSheetPage() {
         </p>
         <LastImported at={data?.lastImport?.at} by={data?.lastImport?.by} label="GL last imported" style={{ marginTop: 4, marginBottom: 0 }} />
         <LastImported at={data?.apImport?.at} by={data?.apImport?.by} label="AP Report last imported" />
-        {apSummary && (
-          <div className="small" style={{ marginTop: 6, color: "#15803d", fontWeight: 700 }}>
-            ✓ Filled {apSummary.count} {apSummary.count === 1 ? "property" : "properties"} · {money0(apSummary.total)} for the {weekOfLabel(apSummary.wednesday).toLowerCase()} from the AP Selection Report.
-          </div>
-        )}
         {error && <div style={{ color: "#b42318", fontSize: 13, marginTop: 6 }}>{error}</div>}
       </div>
 
