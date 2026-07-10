@@ -310,6 +310,9 @@ export default function OperatingStatementsPage() {
   const [uploadResults, setUploadResults] = useState<UploadResult[] | null>(null);
   // Background auto-explain progress after an import (audits the new GLs).
   const [autoExplain, setAutoExplain] = useState<{ done: number; total: number } | null>(null);
+  // After an import we PROMPT (rather than auto-run) AI investigation of flagged
+  // lines — you don't want to spend it auditing years-old backfill data.
+  const [pendingExplain, setPendingExplain] = useState<{ key: string; year: number; period: number }[] | null>(null);
   // View toggles (mirroring the Operating Budgets page).
   const [psf, setPsf] = useState(false);
   const [hideEmpty, setHideEmpty] = useState(true);
@@ -425,27 +428,29 @@ export default function OperatingStatementsPage() {
     setUploading(false);
     if (fileRef.current) fileRef.current.value = "";
 
-    // Auto-audit the newly-imported GL(s): run Auto-explain for each uploaded
-    // property's month in the background, so the Flags to Investigate report is
-    // annotated without opening each property by hand.
+    // Offer (don't auto-run) an AI audit of the newly-imported GL(s). Backfilling
+    // several prior years shouldn't silently spend AI auditing old data — the
+    // user opts in per import via the prompt below.
     const toExplain = results.filter((r) => r.ok && r.key && r.year && r.month).map((r) => ({ key: r.key!, year: r.year!, period: r.month! }));
-    if (toExplain.length) {
-      setAutoExplain({ done: 0, total: toExplain.length });
-      (async () => {
-        for (let i = 0; i < toExplain.length; i++) {
-          try {
-            await fetch("/api/financials/operating-statements/analyze", {
-              method: "POST", headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(toExplain[i]),
-            });
-          } catch { /* skip; keep going */ }
-          setAutoExplain({ done: i + 1, total: toExplain.length });
-        }
-        setAutoExplain((s) => (s ? { ...s, done: s.total } : s));
-        setReloadNonce((n) => n + 1); // reload current statement so new notes show
-        setTimeout(() => setAutoExplain(null), 8000);
-      })();
+    setPendingExplain(toExplain.length ? toExplain : null);
+  }
+
+  // Run the AI investigation for the imported statements (triggered from the
+  // post-import prompt), annotating the Flags to Investigate report.
+  async function runAutoExplain(list: { key: string; year: number; period: number }[]) {
+    setPendingExplain(null);
+    setAutoExplain({ done: 0, total: list.length });
+    for (let i = 0; i < list.length; i++) {
+      try {
+        await fetch("/api/financials/operating-statements/analyze", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(list[i]),
+        });
+      } catch { /* skip; keep going */ }
+      setAutoExplain({ done: i + 1, total: list.length });
     }
+    setReloadNonce((n) => n + 1); // reload current statement so new notes show
+    setTimeout(() => setAutoExplain(null), 8000);
   }
 
   // Auto-dismiss the upload result banner after a few seconds.
@@ -671,6 +676,26 @@ export default function OperatingStatementsPage() {
           </div>
         );
       })()}
+
+      {pendingExplain && pendingExplain.length > 0 && !autoExplain && (
+        <div className="card" style={{ borderColor: "rgba(109,40,217,0.4)", background: "rgba(109,40,217,0.06)", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 18 }}>✨</span>
+          <div style={{ flex: 1, minWidth: 220 }}>
+            <div style={{ fontWeight: 800, color: "#6d28d9" }}>
+              Investigate flagged lines with AI?
+            </div>
+            <div className="muted small" style={{ marginTop: 2 }}>
+              Optional — audits the {pendingExplain.length === 1 ? "imported statement" : `${pendingExplain.length} imported statements`} and annotates the Flags to Investigate report. Skip it for older / backfill years.
+            </div>
+          </div>
+          <button type="button" className="btn ai" onClick={() => runAutoExplain(pendingExplain)} style={{ fontSize: 12, padding: "6px 12px", fontWeight: 700, flexShrink: 0 }}>
+            ✨ Auto-investigate {pendingExplain.length === 1 ? "" : `all ${pendingExplain.length}`}
+          </button>
+          <button type="button" className="btn" onClick={() => setPendingExplain(null)} style={{ fontSize: 12, padding: "6px 12px", fontWeight: 700, flexShrink: 0 }}>
+            Skip
+          </button>
+        </div>
+      )}
 
       {autoExplain && (
         <div className="card" style={{ borderColor: "rgba(109,40,217,0.4)", background: "rgba(109,40,217,0.06)", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
