@@ -93,6 +93,10 @@ const GROUP_DIV = "1px solid var(--border)"; // vertical divider between Period 
 const numStyle: React.CSSProperties = { textAlign: "right", fontVariantNumeric: "tabular-nums", fontSize: 14, padding: "9px 12px", whiteSpace: "nowrap", verticalAlign: "middle" };
 const labelStyle: React.CSSProperties = { textAlign: "left", fontSize: 14, padding: "9px 12px", verticalAlign: "middle" };
 const headStyle: React.CSSProperties = { fontSize: 12, fontWeight: 800, color: "var(--muted)", padding: "8px 12px", whiteSpace: "nowrap", textAlign: "right", verticalAlign: "bottom" };
+// Tighter metrics for the 12-month Full-Year grid (many columns → less padding).
+const fyNumStyle: React.CSSProperties = { textAlign: "right", fontVariantNumeric: "tabular-nums", fontSize: 13, padding: "6px 8px", whiteSpace: "nowrap", verticalAlign: "middle" };
+const fyLabelStyle: React.CSSProperties = { textAlign: "left", fontSize: 13, padding: "6px 10px", verticalAlign: "middle" };
+const fyHeadStyle: React.CSSProperties = { fontSize: 11, fontWeight: 800, color: "var(--muted)", padding: "6px 8px", whiteSpace: "nowrap", textAlign: "right", verticalAlign: "bottom" };
 
 function fmtPct(v: number | null): string {
   if (v == null) return "—";
@@ -663,11 +667,11 @@ export default function OperatingStatementsPage() {
               {yearOptions.map((y) => <option key={y} value={y}>{y}</option>)}
             </HeaderSelect>
             {statement && (
-              <HeaderSelect value={String(period || statement.period)} onChange={(v) => setPeriod(Number(v))} displayLabel={period === FULL_YEAR ? "Full Year" : MONTHS[(period || statement.period) - 1]} ariaLabel="Period" muted>
+              <HeaderSelect value={String(period || statement.period)} onChange={(v) => setPeriod(Number(v))} displayLabel={period === FULL_YEAR ? (maxPeriod >= 12 ? "Full Year" : "Year to Date") : MONTHS[(period || statement.period) - 1]} ariaLabel="Period" muted>
                 {Array.from({ length: maxPeriod }, (_, i) => i + 1).map((p) => (
                   <option key={p} value={p}>{MONTHS[p - 1]} — Period {p}</option>
                 ))}
-                <option value={FULL_YEAR}>Full Year — all 12 months</option>
+                <option value={FULL_YEAR}>{maxPeriod >= 12 ? "Full Year — all 12 months" : "Year to Date — all months so far"}</option>
               </HeaderSelect>
             )}
           </div>
@@ -1026,8 +1030,8 @@ function StatementTable({ s, viewKey, budgetYear, budgetFallback, notes, noteSou
 const fyLabel = (sec: FYSection) =>
   sec.role === "revenue" ? "Total Revenue and Other" : `Total ${sec.name}`;
 
-function FYRow({ label, monthly, total, budget, variance, varMode, showGL, mask, variant = "line" }: {
-  label: string; monthly: number[]; total: number; budget: number | null; variance: number | null;
+function FYRow({ label, monthly, cols, total, budget, variance, varMode, showGL, mask, variant = "line" }: {
+  label: string; monthly: number[]; cols: number; total: number; budget: number | null; variance: number | null;
   varMode: VarMode; showGL?: boolean; mask?: string; variant?: "line" | "subtotal" | "rollup" | "rollupStrong";
 }) {
   const bold = variant !== "line";
@@ -1038,7 +1042,7 @@ function FYRow({ label, monthly, total, budget, variance, varMode, showGL, mask,
     : variant === "rollup" ? { background: "rgba(11,74,125,0.035)" }
     : undefined;
   const num = (v: number | null, key: string | number, extra?: React.CSSProperties) => (
-    <td key={key} style={{ ...numStyle, ...(bold ? { fontWeight: 800 } : {}), ...extra }}>
+    <td key={key} style={{ ...fyNumStyle, ...(bold ? { fontWeight: 800 } : {}), ...extra }}>
       {v == null || Math.abs(v) < 0.5 ? <span style={{ color: "var(--muted)" }}>–</span> : money0(v)}
     </td>
   );
@@ -1047,14 +1051,14 @@ function FYRow({ label, monthly, total, budget, variance, varMode, showGL, mask,
   const varText = varMode === "dollar" ? (variance == null ? "—" : money0(variance)) : fmtPct(pct);
   return (
     <tr style={rowStyle}>
-      <td style={{ ...labelStyle, ...(bold ? { fontWeight: 800, color: COLOR_BRAND } : {}), ...(upper ? { textTransform: "uppercase", letterSpacing: "0.04em", fontSize: 13.5 } : {}) }}>
+      <td style={{ ...fyLabelStyle, ...(bold ? { fontWeight: 800, color: COLOR_BRAND } : {}), ...(upper ? { textTransform: "uppercase", letterSpacing: "0.04em" } : {}) }}>
         {label}
         {showGL && mask && <div className="muted" style={{ fontSize: 11, fontVariantNumeric: "tabular-nums", marginTop: 1 }}>{mask}</div>}
       </td>
-      {monthly.map((m, i) => num(m, i, i === 0 ? { borderLeft: GROUP_DIV } : undefined))}
+      {monthly.slice(0, cols).map((m, i) => num(m, i, i === 0 ? { borderLeft: GROUP_DIV } : undefined))}
       {num(total, "total", { borderLeft: GROUP_DIV, color: COLOR_BRAND, fontWeight: 800 })}
       {num(budget, "budget", { color: "var(--muted)" })}
-      <td style={{ ...numStyle, ...(bold ? { fontWeight: 800 } : {}), color: varColor(varVal) }}>{varText}</td>
+      <td style={{ ...fyNumStyle, ...(bold ? { fontWeight: 800 } : {}), color: varColor(varVal) }}>{varText}</td>
     </tr>
   );
 }
@@ -1074,9 +1078,23 @@ function FullYearTable({ fy, year, view, budgetYear, budgetFallback }: {
   const showCapital = capitalSecs.length > 0 && (!view.hideEmpty || hasActivity(capitalSecs));
   const showDebt = debtSecs.length > 0 && (!view.hideEmpty || hasActivity(debtSecs));
 
+  // Last month (1–12) with any activity anywhere. Only render columns up to it
+  // (hiding trailing empty months cuts the horizontal scroll on a partial year),
+  // and label the total "Full Year" only when the data reaches December.
+  const anyInMonth = (i: number) =>
+    fy.sections.some((s) => s.lines.some((l) => Math.abs(l.monthly[i] ?? 0) > 0.5) || Math.abs(s.subtotalMonthly[i] ?? 0) > 0.5)
+    || Object.values(fy.rollups).some((rr) => Math.abs(rr.monthly[i] ?? 0) > 0.5);
+  let cols = 0;
+  for (let i = 0; i < 12; i++) if (anyInMonth(i)) cols = i + 1;
+  if (cols === 0) cols = 12;
+  const complete = cols >= 12;
+  const yy = String(year).slice(2);
+  const totalLabel = complete ? `Full Year ${yy}` : `YTD ${yy}`;
+  const colSpan = 1 + cols + 3; // Line + months + Total + Budget + Var
+
   const groupRow = (label: string) => (
     <tr key={`g-${label}`}>
-      <td colSpan={16} style={{ padding: "12px 12px 6px", borderBottom: `2px solid ${COLOR_BRAND}`, fontSize: 14, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", color: COLOR_BRAND }}>{label}</td>
+      <td colSpan={colSpan} style={{ padding: "12px 12px 6px", borderBottom: `2px solid ${COLOR_BRAND}`, fontSize: 14, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", color: COLOR_BRAND }}>{label}</td>
     </tr>
   );
   const sectionRows = (sec: FYSection, hideSubtotal?: boolean) => {
@@ -1084,19 +1102,19 @@ function FullYearTable({ fy, year, view, budgetYear, budgetFallback }: {
     return (
       <Fragment key={sec.name}>
         <tr>
-          <td colSpan={16} style={{ padding: "8px 12px", background: "rgba(15,23,42,0.03)", fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase" }}>{sec.name}</td>
+          <td colSpan={colSpan} style={{ padding: "8px 12px", background: "rgba(15,23,42,0.03)", fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase" }}>{sec.name}</td>
         </tr>
         {lines.map((l) => (
-          <FYRow key={l.label} label={l.label} monthly={l.monthly} total={l.total} budget={l.budget} variance={l.variance} varMode={view.varMode} showGL={view.showGL} mask={l.mask} />
+          <FYRow key={l.label} label={l.label} monthly={l.monthly} cols={cols} total={l.total} budget={l.budget} variance={l.variance} varMode={view.varMode} showGL={view.showGL} mask={l.mask} />
         ))}
         {!hideSubtotal && (
-          <FYRow label={fyLabel(sec)} monthly={sec.subtotalMonthly} total={sec.subtotalTotal} budget={sec.subtotalBudget} variance={sec.subtotalVariance} varMode={view.varMode} variant="subtotal" />
+          <FYRow label={fyLabel(sec)} monthly={sec.subtotalMonthly} cols={cols} total={sec.subtotalTotal} budget={sec.subtotalBudget} variance={sec.subtotalVariance} varMode={view.varMode} variant="subtotal" />
         )}
       </Fragment>
     );
   };
   const rollupRow = (label: string, t: FYRollup, strong?: boolean) => (
-    <FYRow key={`r-${label}`} label={label} monthly={t.monthly} total={t.total} budget={t.budget} variance={t.variance} varMode={view.varMode} variant={strong ? "rollupStrong" : "rollup"} />
+    <FYRow key={`r-${label}`} label={label} monthly={t.monthly} cols={cols} total={t.total} budget={t.budget} variance={t.variance} varMode={view.varMode} variant={strong ? "rollupStrong" : "rollup"} />
   );
 
   const body: React.ReactNode[] = [];
@@ -1124,16 +1142,16 @@ function FullYearTable({ fy, year, view, budgetYear, budgetFallback }: {
   return (
     <div className="card" style={{ padding: 0, overflow: "hidden" }}>
       <div className="tableWrap" style={{ marginTop: 0 }}>
-        <table style={{ width: "100%", minWidth: 1500, borderCollapse: "collapse" }}>
+        <table style={{ width: "100%", minWidth: 320 + (cols + 3) * 72, borderCollapse: "collapse" }}>
           <thead>
             <tr>
-              <th style={{ ...headStyle, textAlign: "left" }}>Line</th>
-              {MONTHS.map((m, i) => (
-                <th key={m} style={{ ...headStyle, ...(i === 0 ? { borderLeft: GROUP_DIV } : {}) }}>{m}</th>
+              <th style={{ ...fyHeadStyle, textAlign: "left" }}>Line</th>
+              {MONTHS.slice(0, cols).map((m, i) => (
+                <th key={m} style={{ ...fyHeadStyle, ...(i === 0 ? { borderLeft: GROUP_DIV } : {}) }}>{m}</th>
               ))}
-              <th style={{ ...headStyle, borderLeft: GROUP_DIV, color: COLOR_BRAND }}>Full Year {String(year).slice(2)}</th>
-              <th style={headStyle}>Budget</th>
-              <th style={headStyle}>{view.varMode === "dollar" ? "Var $" : "Var %"}</th>
+              <th style={{ ...fyHeadStyle, borderLeft: GROUP_DIV, color: COLOR_BRAND }}>{totalLabel}</th>
+              <th style={fyHeadStyle}>Budget</th>
+              <th style={fyHeadStyle}>{view.varMode === "dollar" ? "Var $" : "Var %"}</th>
             </tr>
           </thead>
           <tbody>{body}</tbody>
@@ -1146,7 +1164,7 @@ function FullYearTable({ fy, year, view, budgetYear, budgetFallback }: {
           </div>
         )}
         <p className="small muted" style={{ margin: 0 }}>
-          Each column is that month&rsquo;s actual (GL Debit − Credit, revenue shown positive); <b>Full Year {year}</b> is the sum of all 12 months. These figures match the Reprojections <b>Full-Year Actuals</b> for this property — same GL, same account masks.
+          Each column is that month&rsquo;s actual (GL Debit − Credit, revenue shown positive); <b>{totalLabel}</b> is the sum of {complete ? "all 12 months" : `the ${cols} month${cols === 1 ? "" : "s"} posted so far`}. These figures match the Reprojections <b>Full-Year Actuals</b> for this property — same GL, same account masks.
         </p>
       </div>
     </div>

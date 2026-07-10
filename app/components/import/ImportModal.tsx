@@ -6,6 +6,7 @@
 // Plus a collapsed progress pill when minimized. Colors: utility blue = import,
 // green = success, violet (--ai) = the opt-in auto-explain follow-up only.
 
+import { useEffect, useRef } from "react";
 import { MONO, SparkleMark } from "@/app/components/ai/AiKit";
 import type { ImportFile, ImportRun } from "./types";
 
@@ -114,23 +115,22 @@ function Ring({ pct, done, total }: { pct: number; done: number; total: number }
 }
 
 function FileList({ files }: { files: ImportFile[] }) {
-  const MAX = 6;
-  const shown = files.length > MAX + 1 ? files.slice(0, MAX) : files;
-  const overflow = files.length - shown.length;
+  // Show every file in a tall scroll region (so a big multi-file import isn't
+  // hidden behind "+N more"), and keep the file currently parsing in view.
+  const activeIdx = files.findIndex((f) => f.status === "reading");
+  const activeRef = useRef<HTMLDivElement>(null);
+  useEffect(() => { activeRef.current?.scrollIntoView({ block: "nearest" }); }, [activeIdx]);
   return (
-    <div style={{ overflowY: "auto", maxHeight: 210, borderTop: "1px solid var(--border)" }}>
-      {shown.map((f, i) => <Row key={i} f={f} />)}
-      {overflow > 0 && (
-        <div style={{ textAlign: "center", padding: "8px", fontSize: 12, color: "var(--muted)", background: "var(--import-strip)" }}>+ {overflow} more queued</div>
-      )}
+    <div style={{ overflowY: "auto", maxHeight: "min(48vh, 520px)", borderTop: "1px solid var(--border)" }}>
+      {files.map((f, i) => <Row key={i} f={f} innerRef={i === activeIdx ? activeRef : undefined} />)}
     </div>
   );
 }
 
-function Row({ f }: { f: ImportFile }) {
+function Row({ f, innerRef }: { f: ImportFile; innerRef?: React.Ref<HTMLDivElement> }) {
   const reading = f.status === "reading";
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 18px", borderBottom: "1px solid var(--import-strip-div)", opacity: f.status === "queued" ? 0.6 : 1, position: "relative", overflow: "hidden", background: reading ? "var(--import-blue-soft)" : undefined }}>
+    <div ref={innerRef} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 18px", borderBottom: "1px solid var(--import-strip-div)", opacity: f.status === "queued" ? 0.6 : 1, position: "relative", overflow: "hidden", background: reading ? "var(--import-blue-soft)" : undefined }}>
       {reading && <span className="imp-anim" style={{ position: "absolute", inset: 0, animation: "impPulse 1.8s ease-in-out infinite", background: "var(--import-blue-soft)", pointerEvents: "none" }} />}
       <StatusDot status={f.status} />
       <div style={{ minWidth: 0, flex: 1, position: "relative" }}>
