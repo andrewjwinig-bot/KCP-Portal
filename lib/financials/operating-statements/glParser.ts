@@ -47,6 +47,12 @@ export type GlMonthly = {
    *  "0110-0000" → "Cash - Operating"). Used to label accounts that don't map
    *  to a statement/reprojection line. Older uploads omit it. */
   names: Record<string, string>;
+  /** True when the GL's date range spans more than one calendar year (a
+   *  Multi-Year report run across years). Months are bucketed into the range's
+   *  END year; the flag lets the upload warn to run one year per file. */
+  multiYear?: boolean;
+  /** Distinct calendar years the file touched (sorted), for the warning. */
+  yearsCovered?: number[];
 };
 
 export type GlTransaction = {
@@ -81,7 +87,10 @@ const MONTHS = [
   "january", "february", "march", "april", "may", "june",
   "july", "august", "september", "october", "november", "december",
 ];
-const MONTH_TOTAL_RE = new RegExp(`^\\s*(${MONTHS.join("|")})(?:\\s+\\d{4})?\\s+total\\b`, "i");
+// Captures the month name (group 1) and, when the label carries one, the year
+// (group 2) — e.g. "January 2024 Total" → ["January", "2024"]. The year lets a
+// Multi-Year GL bucket each month into the right year instead of colliding.
+const MONTH_TOTAL_RE = new RegExp(`^\\s*(${MONTHS.join("|")})(?:\\s+(\\d{4}))?\\s+total\\b`, "i");
 const YTD_TOTAL_RE = /^\s*ytd\s+total\b/i;
 
 function asStr(v: Cell): string {
@@ -163,15 +172,31 @@ function dateFromCell(v: Cell): string | null {
   return null;
 }
 
-function parseHeader(rows: Row[]): { propertyCode: string | null; year: number | null; endMonth: number | null } {
+function parseHeader(rows: Row[]): { propertyCode: string | null; year: number | null; startYear: number | null; endYear: number | null; endMonth: number | null } {
   const propMatch = findFirst(rows, /Property\/Company\s*:\s*([A-Za-z0-9]+)/);
   const rangeMatch = findFirst(rows, /(\d{1,2})\/(\d{1,2})\/(\d{4})\s+To\s+(\d{1,2})\/(\d{1,2})\/(\d{4})/i);
+  const startYear = rangeMatch ? Number(rangeMatch[3]) : null;
+  const endYear = rangeMatch ? Number(rangeMatch[6]) : null;
   const endMonth = rangeMatch ? Number(rangeMatch[4]) : null;
   return {
     propertyCode: propMatch ? propMatch[1] : null,
-    year: rangeMatch ? Number(rangeMatch[3]) : null,
+    // The reporting year is the range's END year (start == end for a normal
+    // single-year file); a multi-year range is flagged separately.
+    year: endYear ?? startYear,
+    startYear,
+    endYear,
     endMonth: endMonth && endMonth >= 1 && endMonth <= 12 ? endMonth : null,
   };
+}
+
+/** If the row is a "<Month> [Year] Total" row (scanning columns [lo, hi]),
+ *  return its month index (0–11) and the year on the label (null if none). */
+function monthTotalOf(row: Row, lo: number, hi: number): { mIdx: number; year: number | null } | null {
+  for (let c = lo; c <= hi && c < row.length; c++) {
+    const m = asStr(row[c]).match(MONTH_TOTAL_RE);
+    if (m) return { mIdx: MONTHS.indexOf(m[1].toLowerCase()), year: m[2] ? Number(m[2]) : null };
+  }
+  return null;
 }
 
 /** Detailed GL: read each account's per-month "<Month> Total" rows. The month
@@ -180,12 +205,13 @@ function parseHeader(rows: Row[]): { propertyCode: string | null; year: number |
  *  January), so bucketing by Trans Date would mis-assign the period. The amount
  *  sits in the single signed Amount column. */
 type DetailCols = { amount: number; date: number; vendor: number; ref: number; desc: number };
-function monthlyFromDetailed(rows: Row[], cols: DetailCols): { monthly: Record<string, number[]>; beginning: Record<string, number>; ytdTotal: Record<string, number>; maxMonth: number; transactions: Record<string, GlTransaction[]>; names: Record<string, string> } {
+function monthlyFromDetailed(rows: Row[], cols: DetailCols, targetYear: number | null): { monthly: Record<string, number[]>; beginning: Record<string, number>; ytdTotal: Record<string, number>; maxMonth: number; transactions: Record<string, GlTransaction[]>; names: Record<string, string>; otherYears: number[] } {
   const monthly: Record<string, number[]> = {};
   const beginning: Record<string, number> = {};
   const ytdTotal: Record<string, number> = {};
   const transactions: Record<string, GlTransaction[]> = {};
   const names: Record<string, string> = {};
+  const otherYears = new Set<number>();
   let current: string | null = null;
   let maxMonth = 0;
   let buffer: GlTransaction[] = []; // pending transactions until their "<Month> Total" row
@@ -204,17 +230,20 @@ function monthlyFromDetailed(rows: Row[], cols: DetailCols): { monthly: Record<s
       continue;
     }
     if (!current) continue;
-    let mIdx = -1;
-    for (let c = 0; c < row.length; c++) {
-      const m = asStr(row[c]).match(MONTH_TOTAL_RE); // "<Month> Total" (not "YTD Total")
-      if (m) { mIdx = MONTHS.indexOf(m[1].toLowerCase()); break; }
-    }
-    if (mIdx >= 0) {
-      monthly[current][mIdx] = numIn(row, cols.amount, cols.amount + 1);
-      if (mIdx + 1 > maxMonth) maxMonth = mIdx + 1;
-      // The buffered transactions roll into this accounting month.
-      for (const t of buffer) { t.month = mIdx + 1; transactions[current].push(t); }
-      buffer = [];
+    const mt = monthTotalOf(row, 0, row.length - 1); // "<Month> Total" (not "YTD Total")
+    if (mt) {
+      // A month total for a DIFFERENT year (multi-year range) — drop its pending
+      // transactions and skip, so it can't overwrite the target year's month.
+      if (targetYear != null && mt.year != null && mt.year !== targetYear) {
+        otherYears.add(mt.year);
+        buffer = [];
+      } else if (mt.mIdx >= 0) {
+        monthly[current][mt.mIdx] = numIn(row, cols.amount, cols.amount + 1);
+        if (mt.mIdx + 1 > maxMonth) maxMonth = mt.mIdx + 1;
+        // The buffered transactions roll into this accounting month.
+        for (const t of buffer) { t.month = mt.mIdx + 1; transactions[current].push(t); }
+        buffer = [];
+      }
       continue;
     }
     // The account's "YTD Total" row — for a balance-sheet account this IS the
@@ -239,7 +268,7 @@ function monthlyFromDetailed(rows: Row[], cols: DetailCols): { monthly: Record<s
       amount: numIn(row, cols.amount, cols.amount + 1),
     });
   }
-  return { monthly, beginning, ytdTotal, maxMonth, transactions, names };
+  return { monthly, beginning, ytdTotal, maxMonth, transactions, names, otherYears: [...otherYears] };
 }
 
 /** Year-To-Date / Multi-Year GL: separate Debit/Credit columns with a per-
@@ -250,7 +279,7 @@ function monthlyFromDetailed(rows: Row[], cols: DetailCols): { monthly: Record<s
  *  here so these imports get the SAME Operating Cash KPI + line drill-down as
  *  the Detailed GL. Older Year-To-Date files that lack those rows simply return
  *  empty beginning/ytdTotal/transactions; the monthly nets are identical. */
-function monthlyFromDebitCredit(rows: Row[]): { monthly: Record<string, number[]>; beginning: Record<string, number>; ytdTotal: Record<string, number>; maxMonth: number; transactions: Record<string, GlTransaction[]>; names: Record<string, string> } {
+function monthlyFromDebitCredit(rows: Row[], targetYear: number | null): { monthly: Record<string, number[]>; beginning: Record<string, number>; ytdTotal: Record<string, number>; maxMonth: number; transactions: Record<string, GlTransaction[]>; names: Record<string, string>; otherYears: number[] } {
   // Debit value can land one column left of its header (merged cells).
   const debitCol = headerCol(rows, "debit") ?? 23;
   const creditCol = headerCol(rows, "credit") ?? 25;
@@ -269,6 +298,7 @@ function monthlyFromDebitCredit(rows: Row[]): { monthly: Record<string, number[]
   const ytdTotal: Record<string, number> = {};
   const transactions: Record<string, GlTransaction[]> = {};
   const names: Record<string, string> = {};
+  const otherYears = new Set<number>();
   let current: string | null = null;
   let maxMonth = 0;
   let buffer: GlTransaction[] = []; // pending transactions until their "<Month> Total" row
@@ -287,16 +317,18 @@ function monthlyFromDebitCredit(rows: Row[]): { monthly: Record<string, number[]
     }
     if (!current) continue;
     // "<Month> Total" row → the month's net activity; flush its transactions.
-    let mIdx = -1;
-    for (let c = 5; c <= 10 && c < row.length; c++) {
-      const m = asStr(row[c]).match(MONTH_TOTAL_RE);
-      if (m) { mIdx = MONTHS.indexOf(m[1].toLowerCase()); break; }
-    }
-    if (mIdx >= 0) {
-      monthly[current][mIdx] = net(row);
-      if (mIdx + 1 > maxMonth) maxMonth = mIdx + 1;
-      for (const t of buffer) { t.month = mIdx + 1; transactions[current].push(t); }
-      buffer = [];
+    const mt = monthTotalOf(row, 5, 10);
+    if (mt) {
+      // Skip a month total belonging to a different year (multi-year range).
+      if (targetYear != null && mt.year != null && mt.year !== targetYear) {
+        otherYears.add(mt.year);
+        buffer = [];
+      } else if (mt.mIdx >= 0) {
+        monthly[current][mt.mIdx] = net(row);
+        if (mt.mIdx + 1 > maxMonth) maxMonth = mt.mIdx + 1;
+        for (const t of buffer) { t.month = mt.mIdx + 1; transactions[current].push(t); }
+        buffer = [];
+      }
       continue;
     }
     // The account grand-"Total" row — its Balance column is the ending balance
@@ -318,11 +350,15 @@ function monthlyFromDebitCredit(rows: Row[]): { monthly: Record<string, number[]
       amount: net(row),
     });
   }
-  return { monthly, beginning, ytdTotal, maxMonth, transactions, names };
+  return { monthly, beginning, ytdTotal, maxMonth, transactions, names, otherYears: [...otherYears] };
 }
 
 export function parseGeneralLedgerMonthly(rows: Row[]): GlMonthly {
-  const { propertyCode, year, endMonth } = parseHeader(rows);
+  const { propertyCode, year, startYear, endYear, endMonth } = parseHeader(rows);
+  // Multi-Year GL: bucket each month into the range's END year, so a two-year
+  // range can't collide (Jan-2023 overwriting Jan-2024). Single-year files have
+  // start == end and are unaffected.
+  const targetYear = endYear;
 
   // Format detection: a single "Amount" column → Detailed GL; otherwise fall
   // back to the Debit/Credit "Year-To-Date" layout.
@@ -334,6 +370,7 @@ export function parseGeneralLedgerMonthly(rows: Row[]): GlMonthly {
   let maxMonth: number;
   let transactions: Record<string, GlTransaction[]> = {};
   let names: Record<string, string> = {};
+  let otherYears: number[] = [];
   if (amountCol != null && !hasDebit) {
     const cols: DetailCols = {
       amount: amountCol,
@@ -342,16 +379,50 @@ export function parseGeneralLedgerMonthly(rows: Row[]): GlMonthly {
       ref: headerCol(rows, "check", "jnl ref") ?? 9,
       desc: headerCol(rows, "invoice description", "jnl description") ?? 16,
     };
-    ({ monthly, beginning, ytdTotal, maxMonth, transactions, names } = monthlyFromDetailed(rows, cols));
+    ({ monthly, beginning, ytdTotal, maxMonth, transactions, names, otherYears } = monthlyFromDetailed(rows, cols, targetYear));
   } else {
-    ({ monthly, beginning, ytdTotal, maxMonth, transactions, names } = monthlyFromDebitCredit(rows));
+    ({ monthly, beginning, ytdTotal, maxMonth, transactions, names, otherYears } = monthlyFromDebitCredit(rows, targetYear));
   }
 
   // The report range's end month is authoritative for the reporting period;
   // fall back to the last month with activity if the range can't be read.
   const maxPeriodInFile = endMonth ?? (maxMonth || 12);
 
-  return { propertyCode, year, maxPeriodInFile, monthly, beginning, ytdTotal, transactions, names };
+  // Flag a multi-year range: either the header spans >1 year, or month totals
+  // for other years appeared (and were excluded from the target year).
+  const yearsCovered = [...new Set([startYear, endYear, ...otherYears].filter((y): y is number => y != null))].sort((a, b) => a - b);
+  const multiYear = (startYear != null && endYear != null && startYear !== endYear) || otherYears.length > 0;
+
+  return { propertyCode, year, maxPeriodInFile, monthly, beginning, ytdTotal, transactions, names, multiYear, yearsCovered };
+}
+
+/** Reconcile parsed monthly nets against the GL's own reported ending balances:
+ *  for each account, beginning + Σ(monthly nets) must equal the account's
+ *  "Total"/"YTD Total" ending balance. Only accounts that reported an ending
+ *  balance are checked; a clean import reconciles every one. A mis-detected
+ *  column layout shows up immediately as mismatches. */
+export type GlReconciliation = {
+  checked: number;
+  reconciled: number;
+  mismatches: { account: string; name: string | null; computed: number; reported: number; diff: number }[];
+  /** Σ of every account's full-year net — a complete trial balance nets to ~0. */
+  trialBalanceNet: number;
+};
+
+export function reconcileGl(m: GlMonthly): GlReconciliation {
+  const mismatches: GlReconciliation["mismatches"] = [];
+  let checked = 0;
+  for (const [account, nets] of Object.entries(m.monthly)) {
+    const reported = m.ytdTotal[account];
+    if (reported == null) continue;
+    checked++;
+    const computed = (m.beginning[account] ?? 0) + nets.reduce((a, n) => a + n, 0);
+    if (Math.abs(computed - reported) > 0.02) {
+      mismatches.push({ account, name: m.names[account] ?? null, computed, reported, diff: computed - reported });
+    }
+  }
+  const trialBalanceNet = Object.values(m.monthly).reduce((a, nets) => a + nets.reduce((x, n) => x + n, 0), 0);
+  return { checked, reconciled: checked - mismatches.length, mismatches, trialBalanceNet };
 }
 
 /** Collapse monthly nets into the period + YTD summary the compute consumes. */

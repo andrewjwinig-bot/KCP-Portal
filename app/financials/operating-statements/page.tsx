@@ -301,7 +301,8 @@ export default function OperatingStatementsPage() {
   // Bumped after an upload to force a statement reload even when the
   // property/year/period are unchanged (e.g. re-importing the current view).
   const [reloadNonce, setReloadNonce] = useState(0);
-  type UploadResult = { name: string; ok: boolean; key?: string; year?: number; month?: number; accounts?: number; error?: string; allocatedGlReady?: boolean; tasksCompleted?: string[] };
+  type ReconInfo = { checked: number; reconciled: number; mismatchCount: number; mismatches: { account: string; name: string | null; diff: number }[] };
+  type UploadResult = { name: string; ok: boolean; key?: string; year?: number; month?: number; accounts?: number; error?: string; allocatedGlReady?: boolean; tasksCompleted?: string[]; reconciliation?: ReconInfo; multiYear?: { yearsCovered: number[]; importedYear: number } | null };
   const [uploadResults, setUploadResults] = useState<UploadResult[] | null>(null);
   // Background auto-explain progress after an import (audits the new GLs).
   const [autoExplain, setAutoExplain] = useState<{ done: number; total: number } | null>(null);
@@ -400,7 +401,7 @@ export default function OperatingStatementsPage() {
         if (j.error) { results.push({ name: file.name, ok: false, error: j.error }); }
         else {
           last = { key: j.key, year: j.year };
-          results.push({ name: file.name, ok: true, key: j.key, year: j.year, month: j.maxPeriodInFile, accounts: j.accounts, allocatedGlReady: j.allocatedGlReady, tasksCompleted: j.tasksCompleted });
+          results.push({ name: file.name, ok: true, key: j.key, year: j.year, month: j.maxPeriodInFile, accounts: j.accounts, allocatedGlReady: j.allocatedGlReady, tasksCompleted: j.tasksCompleted, reconciliation: j.reconciliation, multiYear: j.multiYear });
         }
       } catch {
         results.push({ name: file.name, ok: false, error: "Upload failed" });
@@ -608,11 +609,32 @@ export default function OperatingStatementsPage() {
                 const up = r.ok ? available.find((a) => a.key === r.key) : null;
                 const label = up ? `${up.propertyCode} — ${up.name}` : r.key ?? "";
                 const through = r.month ? ` through ${MONTHS[r.month - 1]}` : "";
+                const rec = r.reconciliation;
+                // Tie-out badge: green when every checked account reconciles,
+                // amber when some don't (a possible format/column mis-read).
+                const tie = rec && rec.checked > 0
+                  ? (rec.mismatchCount === 0
+                      ? { color: "#15803d", text: `ties out · ${rec.reconciled}/${rec.checked}` }
+                      : { color: "#b45309", text: `⚠ ${rec.mismatchCount} of ${rec.checked} don't reconcile` })
+                  : null;
                 return (
-                  <div key={i} className="small" style={{ display: "flex", gap: 8, alignItems: "baseline" }}>
-                    <span style={{ color: r.ok ? "#15803d" : "#b91c1c", fontWeight: 800 }}>{r.ok ? "✓" : "✗"}</span>
-                    <span style={{ fontVariantNumeric: "tabular-nums", color: "var(--muted)", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 220 }}>{r.name}</span>
-                    <span>{r.ok ? `${label} · ${r.year}${through} · ${r.accounts} accounts` : r.error}</span>
+                  <div key={i} className="small" style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                    <div style={{ display: "flex", gap: 8, alignItems: "baseline", flexWrap: "wrap" }}>
+                      <span style={{ color: r.ok ? "#15803d" : "#b91c1c", fontWeight: 800 }}>{r.ok ? "✓" : "✗"}</span>
+                      <span style={{ fontVariantNumeric: "tabular-nums", color: "var(--muted)", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 220 }}>{r.name}</span>
+                      <span>{r.ok ? `${label} · ${r.year}${through} · ${r.accounts} accounts` : r.error}</span>
+                      {tie && (
+                        <span title={rec && rec.mismatchCount > 0 ? rec.mismatches.map((m) => `${m.account} ${m.name ?? ""}: off by ${Math.round(m.diff)}`).join("\n") : "Every account's beginning + monthly nets equals its reported ending balance"}
+                          style={{ fontWeight: 700, color: tie.color, background: `${tie.color}14`, borderRadius: 6, padding: "1px 7px", whiteSpace: "nowrap" }}>
+                          {tie.text}
+                        </span>
+                      )}
+                    </div>
+                    {r.multiYear && (
+                      <div style={{ color: "#b45309", fontWeight: 600, marginLeft: 20 }}>
+                        ⚠ This file spans {r.multiYear.yearsCovered.join("–")} — imported <b>{r.multiYear.importedYear}</b> only. Run one year per file for the others.
+                      </div>
+                    )}
                   </div>
                 );
               })}

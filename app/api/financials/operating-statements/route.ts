@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import * as XLSX from "xlsx";
-import { parseGeneralLedgerMonthly, summaryForPeriod } from "@/lib/financials/operating-statements/glParser";
+import { parseGeneralLedgerMonthly, summaryForPeriod, reconcileGl } from "@/lib/financials/operating-statements/glParser";
 import { computeStatement } from "@/lib/financials/operating-statements/compute";
 import { availableStatements, getMapping, resolveStatementKey } from "@/lib/financials/operating-statements/mappingStore";
 import { resolvePropertyBudget, makeBudgetLookup } from "@/lib/financials/operating-statements/budgetCrosswalk";
@@ -327,6 +327,10 @@ export async function POST(req: Request) {
     const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true, defval: null }) as (string | number | null)[][];
 
     const parsed = parseGeneralLedgerMonthly(rows);
+    // Tie-out check: every account's beginning + Σ(monthly nets) must equal its
+    // reported ending balance. A mis-detected column layout surfaces here as
+    // mismatches instead of silently importing wrong numbers.
+    const recon = reconcileGl(parsed);
     // The GL header's Property/Company code is authoritative; fall back to the
     // viewing selection only if the header had none.
     const keyRaw = form.get("key");
@@ -424,6 +428,14 @@ export async function POST(req: Request) {
       accounts: Object.keys(parsed.monthly).length,
       allocatedGlReady: isGandA,
       tasksCompleted,
+      // Import health: tie-out result + a multi-year-range warning.
+      reconciliation: {
+        checked: recon.checked,
+        reconciled: recon.reconciled,
+        mismatches: recon.mismatches.slice(0, 8), // cap the payload
+        mismatchCount: recon.mismatches.length,
+      },
+      multiYear: parsed.multiYear ? { yearsCovered: parsed.yearsCovered ?? [], importedYear: parsed.year } : null,
     });
   } catch (e) {
     return NextResponse.json(
