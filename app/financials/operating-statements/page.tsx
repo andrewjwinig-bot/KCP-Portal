@@ -1030,9 +1030,9 @@ function StatementTable({ s, viewKey, budgetYear, budgetFallback, notes, noteSou
 const fyLabel = (sec: FYSection) =>
   sec.role === "revenue" ? "Total Revenue and Other" : `Total ${sec.name}`;
 
-function FYRow({ label, monthly, cols, total, budget, variance, varMode, showGL, mask, variant = "line" }: {
+function FYRow({ label, monthly, cols, total, budget, variance, varMode, showBudget, showGL, mask, variant = "line" }: {
   label: string; monthly: number[]; cols: number; total: number; budget: number | null; variance: number | null;
-  varMode: VarMode; showGL?: boolean; mask?: string; variant?: "line" | "subtotal" | "rollup" | "rollupStrong";
+  varMode: VarMode; showBudget: boolean; showGL?: boolean; mask?: string; variant?: "line" | "subtotal" | "rollup" | "rollupStrong";
 }) {
   const bold = variant !== "line";
   const upper = variant === "rollup" || variant === "rollupStrong";
@@ -1057,8 +1057,8 @@ function FYRow({ label, monthly, cols, total, budget, variance, varMode, showGL,
       </td>
       {monthly.slice(0, cols).map((m, i) => num(m, i, i === 0 ? { borderLeft: GROUP_DIV } : undefined))}
       {num(total, "total", { borderLeft: GROUP_DIV, color: COLOR_BRAND, fontWeight: 800 })}
-      {num(budget, "budget", { color: "var(--muted)" })}
-      <td style={{ ...fyNumStyle, ...(bold ? { fontWeight: 800 } : {}), color: varColor(varVal) }}>{varText}</td>
+      {showBudget && num(budget, "budget", { color: "var(--muted)" })}
+      {showBudget && <td key="var" style={{ ...fyNumStyle, ...(bold ? { fontWeight: 800 } : {}), color: varColor(varVal) }}>{varText}</td>}
     </tr>
   );
 }
@@ -1090,7 +1090,12 @@ function FullYearTable({ fy, year, view, budgetYear, budgetFallback }: {
   const complete = cols >= 12;
   const yy = String(year).slice(2);
   const totalLabel = complete ? `Full Year ${yy}` : `YTD ${yy}`;
-  const colSpan = 1 + cols + 3; // Line + months + Total + Budget + Var
+  // Hide the Budget + Var columns entirely when no budget is loaded (all blank).
+  const showBudget = !budgetFallback && (
+    fy.sections.some((s) => s.lines.some((l) => l.budget != null) || s.subtotalBudget != null)
+    || Object.values(fy.rollups).some((rr) => rr.budget != null)
+  );
+  const colSpan = 1 + cols + 1 + (showBudget ? 2 : 0); // Line + months + Total [+ Budget + Var]
 
   const groupRow = (label: string) => (
     <tr key={`g-${label}`}>
@@ -1105,16 +1110,16 @@ function FullYearTable({ fy, year, view, budgetYear, budgetFallback }: {
           <td colSpan={colSpan} style={{ padding: "8px 12px", background: "rgba(15,23,42,0.03)", fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase" }}>{sec.name}</td>
         </tr>
         {lines.map((l) => (
-          <FYRow key={l.label} label={l.label} monthly={l.monthly} cols={cols} total={l.total} budget={l.budget} variance={l.variance} varMode={view.varMode} showGL={view.showGL} mask={l.mask} />
+          <FYRow key={l.label} label={l.label} monthly={l.monthly} cols={cols} total={l.total} budget={l.budget} variance={l.variance} varMode={view.varMode} showBudget={showBudget} showGL={view.showGL} mask={l.mask} />
         ))}
         {!hideSubtotal && (
-          <FYRow label={fyLabel(sec)} monthly={sec.subtotalMonthly} cols={cols} total={sec.subtotalTotal} budget={sec.subtotalBudget} variance={sec.subtotalVariance} varMode={view.varMode} variant="subtotal" />
+          <FYRow label={fyLabel(sec)} monthly={sec.subtotalMonthly} cols={cols} total={sec.subtotalTotal} budget={sec.subtotalBudget} variance={sec.subtotalVariance} varMode={view.varMode} showBudget={showBudget} variant="subtotal" />
         )}
       </Fragment>
     );
   };
   const rollupRow = (label: string, t: FYRollup, strong?: boolean) => (
-    <FYRow key={`r-${label}`} label={label} monthly={t.monthly} cols={cols} total={t.total} budget={t.budget} variance={t.variance} varMode={view.varMode} variant={strong ? "rollupStrong" : "rollup"} />
+    <FYRow key={`r-${label}`} label={label} monthly={t.monthly} cols={cols} total={t.total} budget={t.budget} variance={t.variance} varMode={view.varMode} showBudget={showBudget} variant={strong ? "rollupStrong" : "rollup"} />
   );
 
   const body: React.ReactNode[] = [];
@@ -1142,7 +1147,7 @@ function FullYearTable({ fy, year, view, budgetYear, budgetFallback }: {
   return (
     <div className="card" style={{ padding: 0, overflow: "hidden" }}>
       <div className="tableWrap" style={{ marginTop: 0 }}>
-        <table style={{ width: "100%", minWidth: 320 + (cols + 3) * 72, borderCollapse: "collapse" }}>
+        <table style={{ width: "100%", minWidth: 320 + (cols + 1 + (showBudget ? 2 : 0)) * 72, borderCollapse: "collapse" }}>
           <thead>
             <tr>
               <th style={{ ...fyHeadStyle, textAlign: "left" }}>Line</th>
@@ -1150,8 +1155,8 @@ function FullYearTable({ fy, year, view, budgetYear, budgetFallback }: {
                 <th key={m} style={{ ...fyHeadStyle, ...(i === 0 ? { borderLeft: GROUP_DIV } : {}) }}>{m}</th>
               ))}
               <th style={{ ...fyHeadStyle, borderLeft: GROUP_DIV, color: COLOR_BRAND }}>{totalLabel}</th>
-              <th style={fyHeadStyle}>Budget</th>
-              <th style={fyHeadStyle}>{view.varMode === "dollar" ? "Var $" : "Var %"}</th>
+              {showBudget && <th style={fyHeadStyle}>Budget</th>}
+              {showBudget && <th style={fyHeadStyle}>{view.varMode === "dollar" ? "Var $" : "Var %"}</th>}
             </tr>
           </thead>
           <tbody>{body}</tbody>
