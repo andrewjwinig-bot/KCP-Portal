@@ -29,6 +29,8 @@ const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "
 const FULL_YEAR = 13;
 
 type Available = { key: string; propertyCode: string; entityName: string; name: string; years: number[]; latest?: { year: number; period: number } | null };
+// Per-property GL import coverage — year → months imported (0 = none).
+type Coverage = { key: string; propertyCode: string; name: string; isFund: boolean; years: Record<number, number> };
 
 // Full-Year payload (mirrors the API's FullYearPayload) — 12 monthly columns +
 // a full-year total/budget/variance for every line, subtotal and rollup.
@@ -285,6 +287,8 @@ export default function OperatingStatementsPage() {
   const [budgetFallback, setBudgetFallback] = useState(false);
   const [statement, setStatement] = useState<PropertyStatement | null>(null);
   const [fullYear, setFullYear] = useState<FullYear | null>(null);
+  const [coverage, setCoverage] = useState<Coverage[]>([]);
+  const [showCoverage, setShowCoverage] = useState(false);
   const [lastImport, setLastImport] = useState<{ at: string; by: string | null } | null>(null);
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [operatingCash, setOperatingCash] = useState<number | null>(null);
@@ -326,6 +330,7 @@ export default function OperatingStatementsPage() {
       .then((j) => {
         const list: Available[] = j.available ?? [];
         setAvailable(list);
+        setCoverage(j.coverage ?? []);
         // Deep link from the Reprojections/Budgets pages: ?key (or ?property) & year.
         const params = new URLSearchParams(window.location.search);
         const wantKey = params.get("key");
@@ -410,6 +415,7 @@ export default function OperatingStatementsPage() {
     try {
       const av = await fetch("/api/financials/operating-statements").then((r) => r.json());
       setAvailable(av.available ?? []);
+      setCoverage(av.coverage ?? []);
     } catch { /* ignore refresh errors */ }
     if (last) { setKey(last.key); setYear(last.year); setPeriod(0); }
     // Force the statement to reload so the new GL shows without a manual
@@ -748,6 +754,11 @@ export default function OperatingStatementsPage() {
             )}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            {coverage.length > 0 && (
+              <button className="btn" title="See which properties/years have GLs imported and what's still missing" style={{ fontSize: 13, padding: "8px 12px", fontWeight: 700 }} onClick={() => setShowCoverage(true)}>
+                📊 Coverage
+              </button>
+            )}
             <button className="btn primary" title="Upload one or more GL files — each file's header identifies its property" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }} disabled={uploading} onClick={() => fileRef.current?.click()}>
               {uploading ? "Uploading…" : "Upload GL"}
             </button>
@@ -917,6 +928,7 @@ export default function OperatingStatementsPage() {
         <FullYearTable fy={fullYear} year={year} view={{ hideEmpty, showGL, varMode }} budgetYear={budgetYear} budgetFallback={budgetFallback} />
       )}
       {!loading && statement && !isFullYear && <StatementTable s={statement} viewKey={key} budgetYear={budgetYear} budgetFallback={budgetFallback} notes={notes} noteSources={noteSources} noteMeta={noteMeta} editorLabel={user.label} onSaveNote={saveNote} dismissedFlags={dismissedFlags} onDismissFlag={onDismissFlag} view={{ psf, sqft, hideEmpty, showGL, varMode }} thresh={thresh} flagFilter={flagFilter} onClearFilter={() => setFlagFilter(null)} />}
+      {showCoverage && <CoverageModal coverage={coverage} onClose={() => setShowCoverage(false)} onPick={(k, y) => { setKey(k); setYear(y); setPeriod(0); setShowCoverage(false); }} />}
     </main>
   );
 }
@@ -1218,6 +1230,67 @@ function FullYearTable({ fy, year, view, budgetYear, budgetFallback }: {
         <p className="small muted" style={{ margin: 0 }}>
           Each column is that month&rsquo;s actual (GL Debit − Credit, revenue shown positive); <b>Full Year {year}</b> is the sum of all 12 months. These figures match the Reprojections <b>Full-Year Actuals</b> for this property — same GL, same account masks.
         </p>
+      </div>
+    </div>
+  );
+}
+
+// ── Coverage matrix — which properties/years have GLs imported ───────────────
+function CoverageModal({ coverage, onClose, onPick }: { coverage: Coverage[]; onClose: () => void; onPick: (key: string, year: number) => void }) {
+  const years = [...new Set(coverage.flatMap((c) => Object.keys(c.years).map(Number)))].sort((a, b) => b - a);
+  const rows = [...coverage].sort((a, b) => (a.isFund !== b.isFund ? (a.isFund ? 1 : -1) : a.propertyCode.localeCompare(b.propertyCode, undefined, { numeric: true })));
+  const fullCount = rows.reduce((n, r) => n + years.filter((y) => (r.years[y] ?? 0) >= 12).length, 0);
+  const cellFor = (months: number) =>
+    !months ? { bg: "transparent", fg: "var(--muted)", text: "—" }
+    : months >= 12 ? { bg: "rgba(21,128,61,0.14)", fg: "#15803d", text: "✓ Full" }
+    : { bg: "rgba(180,83,9,0.14)", fg: "#b45309", text: `${months} mo` };
+  const cs: React.CSSProperties = { padding: "6px 10px", textAlign: "center", fontSize: 13, fontVariantNumeric: "tabular-nums", borderBottom: "1px solid var(--border)", whiteSpace: "nowrap" };
+  const stickyL: React.CSSProperties = { position: "sticky", left: 0, background: "var(--card)" };
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.5)", zIndex: 50, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "5vh 16px", overflow: "auto" }}>
+      <div onClick={(e) => e.stopPropagation()} className="card" style={{ maxWidth: 920, width: "100%", maxHeight: "90vh", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: 16 }}>GL Import Coverage</div>
+            <div className="muted small">{fullCount} property-year{fullCount === 1 ? "" : "s"} fully imported · <span style={{ color: "#15803d", fontWeight: 700 }}>green</span> = 12 months, <span style={{ color: "#b45309", fontWeight: 700 }}>amber</span> = partial, blank = not imported. Click a cell to open it.</div>
+          </div>
+          <button className="btn" onClick={onClose} style={{ fontSize: 13, padding: "6px 12px", fontWeight: 700 }}>Close</button>
+        </div>
+        {years.length === 0 ? (
+          <div className="muted small" style={{ padding: 20 }}>No GLs imported yet.</div>
+        ) : (
+          <div className="tableWrap" style={{ marginTop: 10, overflow: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 320 + years.length * 72 }}>
+              <thead>
+                <tr>
+                  <th style={{ ...cs, ...stickyL, textAlign: "left", fontWeight: 800, zIndex: 1 }}>Property</th>
+                  {years.map((y) => <th key={y} style={{ ...cs, fontWeight: 800 }}>{y}</th>)}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r.key}>
+                    <td style={{ ...cs, ...stickyL, textAlign: "left" }}>
+                      <span style={{ fontWeight: 700 }}>{r.propertyCode}</span> <span className="muted">{r.name}</span>
+                      {r.isFund && <span className="muted" style={{ fontSize: 10, marginLeft: 4 }}>(fund)</span>}
+                    </td>
+                    {years.map((y) => {
+                      const months = r.years[y] ?? 0;
+                      const c = cellFor(months);
+                      return (
+                        <td key={y} onClick={months ? () => onPick(r.key, y) : undefined}
+                          title={months ? `${r.propertyCode} ${y}: ${months} month${months === 1 ? "" : "s"} imported — click to open` : `${r.propertyCode} ${y}: not imported`}
+                          style={{ ...cs, background: c.bg, color: c.fg, fontWeight: 700, cursor: months ? "pointer" : "default" }}>
+                          {c.text}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );

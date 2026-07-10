@@ -108,7 +108,30 @@ export async function GET(req: Request) {
     latest: latestByKey.get(m.key) ?? null,
   }));
 
-  if (!key || !year) return NextResponse.json({ available });
+  // Coverage matrix — per property, per year, how many months are imported
+  // (0 = none). Powers the "what still needs uploading" grid for backfills.
+  const coverageByKey = new Map<string, Record<number, number>>();
+  for (const [k, ym] of byKeyYear) {
+    const rec: Record<number, number> = {};
+    for (const [yr, arr] of ym) { const asm = assembleGls(arr); if (asm) rec[yr] = asm.maxPeriodInFile; }
+    coverageByKey.set(k, rec);
+  }
+  const coverage = mappings.map((m) => {
+    const fundParts = FUND_BUILDINGS[m.key];
+    let years = coverageByKey.get(m.key) ?? {};
+    if (fundParts) {
+      // A fund has no GL of its own — a year is covered only to the MIN period
+      // across its member buildings (all members needed for a full consolidation).
+      const rec: Record<number, number> = {};
+      const allYears = new Set<number>();
+      for (const mem of fundParts) for (const y of Object.keys(coverageByKey.get(mem) ?? {})) allYears.add(Number(y));
+      for (const y of allYears) rec[y] = Math.min(...fundParts.map((mem) => (coverageByKey.get(mem) ?? {})[y] ?? 0));
+      years = rec;
+    }
+    return { key: m.key, propertyCode: m.propertyCode, name: propertyName(m.key, m.entityName), isFund: !!fundParts, years };
+  });
+
+  if (!key || !year) return NextResponse.json({ available, coverage });
 
   const mapping = await getMapping(key);
   if (!mapping) return NextResponse.json({ available, error: "No mapping for that property" }, { status: 404 });
