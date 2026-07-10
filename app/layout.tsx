@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import AppShell from "./components/AppShell";
 import { UserProvider } from "./components/UserProvider";
+import { ImportProvider } from "./components/import/ImportProvider";
 
 export const metadata: Metadata = {
   title: "KCP Portal",
@@ -32,7 +33,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         <UserProvider>
-          <AppShell>{children}</AppShell>
+          <ImportProvider>
+            <AppShell>{children}</AppShell>
+          </ImportProvider>
         </UserProvider>
       </body>
     </html>

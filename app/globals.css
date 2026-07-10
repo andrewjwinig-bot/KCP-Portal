@@ -636,3 +636,45 @@ input.kcp-input,
   .kcp-lit { opacity: 1 !important; }
   .kcp-prog { transform: none !important; width: 100% !important; opacity: 0.5; }
 }
+
+/* ── Import modal (shared upload → report flow) ──────────────────────────────
+ * Utility blue = import/progress, green = success, violet (--ai-*) = the opt-in
+ * auto-explain follow-up only. Neutral surfaces/text use the theme vars so the
+ * modal is theme-aware; the role colors read on both light and dark. */
+:root {
+  --import-blue: #2f6bed;
+  --import-blue-soft: #eaf1fe;
+  --import-blue-border: #d6e4fd;
+  --import-blue-light: #8db4f5;
+  --ok: #17904f;                 /* success mark/fill */
+  --ok-head: #14804a;            /* success heading */
+  --ok-accent: #37b06c;          /* accent bar end */
+  --ok-bg: #f4fbf7;              /* success card bg */
+  --ok-circle: #eaf6ef;          /* success circle bg */
+  --ok-border: #cbe9d7;
+  --import-navy: #123c63;        /* primary button */
+  --import-strip: #fafbfc;       /* stat strip / subtle band */
+  --import-strip-div: #eef0f3;
+  --import-scrim: rgba(14, 20, 34, 0.5);
+}
+[data-theme="dark"] {
+  --import-blue-soft: rgba(47, 107, 237, 0.16);
+  --import-blue-border: rgba(47, 107, 237, 0.4);
+  --ok-bg: rgba(23, 144, 79, 0.12);
+  --ok-circle: rgba(23, 144, 79, 0.18);
+  --ok-border: rgba(23, 144, 79, 0.4);
+  --import-strip: rgba(255, 255, 255, 0.03);
+  --import-strip-div: var(--border);
+  --import-navy: #2f6bed;
+}
+
+@keyframes impBar { 0% { transform: translateX(-100%); } 100% { transform: translateX(400%); } }
+@keyframes impHalo { to { transform: rotate(360deg); } }
+@keyframes impPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
+@keyframes impPop { 0% { transform: scale(0.4); opacity: 0; } 60% { transform: scale(1.08); opacity: 1; } 100% { transform: scale(1); } }
+@keyframes impScanY { 0% { transform: translateY(-120%); } 100% { transform: translateY(320%); } }
+@keyframes impFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2.5px); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .imp-anim, .imp-anim * { animation: none !important; }
+}

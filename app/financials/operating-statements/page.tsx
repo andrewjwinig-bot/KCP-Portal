@@ -8,6 +8,7 @@
 
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { useUser } from "@/app/components/UserProvider";
+import { useImport } from "@/app/components/import/ImportProvider";
 import { DownloadMenu } from "@/app/components/DownloadMenu";
 import { StatPill } from "@/app/components/Pill";
 import { LastImported } from "@/app/components/LastImported";
@@ -278,6 +279,7 @@ function ViewMenu({ psf, setPsf, psfDisabled, varMode, setVarMode, hideEmpty, se
 
 export default function OperatingStatementsPage() {
   const { user } = useUser();
+  const { startImport } = useImport();
   const [available, setAvailable] = useState<Available[]>([]);
   const [key, setKey] = useState("");
   const [year, setYear] = useState(0);
@@ -299,20 +301,11 @@ export default function OperatingStatementsPage() {
   const [allocatedGA, setAllocatedGA] = useState<{ pct: number; periodShare: number; ytdShare: number; poolPeriod: number; poolYtd: number } | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [uploading, setUploading] = useState(false);
   const [leanImport, setLeanImport] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Bumped after an upload to force a statement reload even when the
   // property/year/period are unchanged (e.g. re-importing the current view).
   const [reloadNonce, setReloadNonce] = useState(0);
-  type ReconInfo = { checked: number; reconciled: number; mismatchCount: number; mismatches: { account: string; name: string | null; diff: number }[] };
-  type UploadResult = { name: string; ok: boolean; key?: string; year?: number; month?: number; accounts?: number; error?: string; allocatedGlReady?: boolean; tasksCompleted?: string[]; reconciliation?: ReconInfo; multiYear?: { yearsCovered: number[]; importedYear: number } | null };
-  const [uploadResults, setUploadResults] = useState<UploadResult[] | null>(null);
-  // Background auto-explain progress after an import (audits the new GLs).
-  const [autoExplain, setAutoExplain] = useState<{ done: number; total: number } | null>(null);
-  // After an import we PROMPT (rather than auto-run) AI investigation of flagged
-  // lines — you don't want to spend it auditing years-old backfill data.
-  const [pendingExplain, setPendingExplain] = useState<{ key: string; year: number; period: number }[] | null>(null);
   // View toggles (mirroring the Operating Budgets page).
   const [psf, setPsf] = useState(false);
   const [hideEmpty, setHideEmpty] = useState(true);
@@ -390,75 +383,82 @@ export default function OperatingStatementsPage() {
 
   async function onUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
+    if (fileRef.current) fileRef.current.value = "";
     if (!files.length) return;
-    setUploading(true);
     setError(null);
-    setUploadResults(null);
-    const results: UploadResult[] = [];
-    let last: { key: string; year: number } | null = null;
     // Each GL's header identifies its own property; for a single file we still
     // pass the selected key as a fallback (e.g. a header missing the code).
-    for (const file of files) {
-      try {
+    const single = files.length === 1 ? key : "";
+    let last: { key: string; year: number } | null = null;
+
+    await startImport({
+      kind: "gl",
+      title: (n) => `Importing ${n} general ledger${n === 1 ? "" : "s"}`,
+      subtitle: "Detailed GL · .xls / .xlsx · you can keep working while this runs",
+      files,
+      by: user.label,
+      concurrency: 1, // sequential → the file list resolves top-down
+      upload: async (file) => {
         const fd = new FormData();
         fd.append("file", file);
-        if (files.length === 1 && key) fd.append("key", key);
+        if (single) fd.append("key", single);
         fd.append("uploadedBy", user.label);
         if (leanImport) fd.append("lean", "1");
         const j = await fetch("/api/financials/operating-statements", { method: "POST", body: fd }).then((r) => r.json());
-        if (j.error) { results.push({ name: file.name, ok: false, error: j.error }); }
-        else {
-          last = { key: j.key, year: j.year };
-          results.push({ name: file.name, ok: true, key: j.key, year: j.year, month: j.maxPeriodInFile, accounts: j.accounts, allocatedGlReady: j.allocatedGlReady, tasksCompleted: j.tasksCompleted, reconciliation: j.reconciliation, multiYear: j.multiYear });
-        }
-      } catch {
-        results.push({ name: file.name, ok: false, error: "Upload failed" });
-      }
-    }
+        if (j.error || !j.ok) return { status: "failed", error: j.error ?? "Import failed" };
+        last = { key: j.key, year: j.year };
+        const a = available.find((x) => x.key === j.key);
+        const rec = j.reconciliation;
+        const warn = !!j.multiYear || !!(rec && rec.mismatchCount > 0);
+        const note = j.multiYear
+          ? `spans ${j.multiYear.yearsCovered.join("–")} — imported ${j.multiYear.importedYear}`
+          : rec && rec.checked > 0
+            ? (rec.mismatchCount === 0 ? `ties out · ${rec.reconciled}/${rec.checked}` : `${rec.mismatchCount} of ${rec.checked} don't reconcile`)
+            : undefined;
+        return {
+          status: "done" as const,
+          entity: a ? `${a.propertyCode} — ${a.name}` : String(j.key),
+          detail: j.maxPeriodInFile ? `through ${MONTHS[j.maxPeriodInFile - 1]}` : undefined,
+          count: j.accounts,
+          countLabel: "acct",
+          note,
+          noteTone: warn ? ("warn" as const) : ("ok" as const),
+          raw: j,
+        };
+      },
+      report: (rows) => {
+        const ok = rows.filter((r) => r.status === "done");
+        const raws = ok.map((r) => r.raw as { key: string; year: number; maxPeriodInFile: number; allocatedGlReady?: boolean });
+        const entities = new Set(ok.map((r) => r.entity)).size;
+        const accounts = ok.reduce((a, r) => a + (r.count ?? 0), 0);
+        const years = [...new Set(raws.map((r) => r.year).filter(Boolean))].sort((a, b) => a - b);
+        const targets = raws.filter((r) => r.key && r.year && r.maxPeriodInFile).map((r) => ({ key: r.key, year: r.year, period: r.maxPeriodInFile }));
+        return {
+          stats: [
+            { value: String(ok.length), label: ok.length === 1 ? "file" : "files" },
+            { value: String(entities), label: entities === 1 ? "entity" : "entities" },
+            { value: accounts.toLocaleString("en-US"), label: "accounts" },
+            { value: years.length ? (years.length === 1 ? String(years[0]) : `${years[0]}–${years[years.length - 1]}`) : "—", label: years.length > 1 ? "years" : "year" },
+          ],
+          unlocks: raws.some((r) => r.allocatedGlReady)
+            ? [{ id: "alloc", title: "Allocated Invoicer", subtitle: "Ready to bill properties for this period.", href: "/allocated-invoicer", cta: "Go to Invoicer →" }]
+            : [],
+          autoExplain: targets.length
+            ? { run: async () => { for (const t of targets) { try { await fetch("/api/financials/operating-statements/analyze", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(t) }); } catch { /* skip */ } } setReloadNonce((n) => n + 1); } }
+            : null,
+        };
+      },
+    });
+
+    // Refresh the picker + coverage and jump to the last import.
     try {
       const av = await fetch("/api/financials/operating-statements").then((r) => r.json());
       setAvailable(av.available ?? []);
       setCoverage(av.coverage ?? []);
     } catch { /* ignore refresh errors */ }
     if (last) { setKey(last.key); setYear(last.year); setPeriod(0); }
-    // Force the statement to reload so the new GL shows without a manual
-    // refresh — even when re-importing the property/year already on screen.
     setReloadNonce((n) => n + 1);
-    setUploadResults(results);
-    setUploading(false);
-    if (fileRef.current) fileRef.current.value = "";
-
-    // Offer (don't auto-run) an AI audit of the newly-imported GL(s). Backfilling
-    // several prior years shouldn't silently spend AI auditing old data — the
-    // user opts in per import via the prompt below.
-    const toExplain = results.filter((r) => r.ok && r.key && r.year && r.month).map((r) => ({ key: r.key!, year: r.year!, period: r.month! }));
-    setPendingExplain(toExplain.length ? toExplain : null);
   }
-
-  // Run the AI investigation for the imported statements (triggered from the
-  // post-import prompt), annotating the Flags to Investigate report.
-  async function runAutoExplain(list: { key: string; year: number; period: number }[]) {
-    setPendingExplain(null);
-    setAutoExplain({ done: 0, total: list.length });
-    for (let i = 0; i < list.length; i++) {
-      try {
-        await fetch("/api/financials/operating-statements/analyze", {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(list[i]),
-        });
-      } catch { /* skip; keep going */ }
-      setAutoExplain({ done: i + 1, total: list.length });
-    }
-    setReloadNonce((n) => n + 1); // reload current statement so new notes show
-    setTimeout(() => setAutoExplain(null), 8000);
-  }
-
-  // Auto-dismiss the upload result banner after a few seconds.
-  useEffect(() => {
-    if (!uploadResults) return;
-    const t = setTimeout(() => setUploadResults(null), 12000);
-    return () => clearTimeout(t);
-  }, [uploadResults]);
 
   const saveNote = useCallback(async (lineKey: string, note: string) => {
     setNotes((n) => ({ ...n, [lineKey]: note }));
@@ -601,115 +601,6 @@ export default function OperatingStatementsPage() {
         </div>
       )}
 
-      {uploadResults && (() => {
-        const okCount = uploadResults.filter((r) => r.ok).length;
-        const allOk = okCount === uploadResults.length;
-        const accent = allOk ? "#15803d" : okCount > 0 ? "#b45309" : "#b91c1c";
-        return (
-          <div className="card" style={{ borderColor: `${accent}66`, background: `${accent}0d` }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-              <div style={{ fontWeight: 800, color: accent }}>
-                {uploadResults.length === 1
-                  ? (allOk ? "Upload complete" : "Upload failed")
-                  : `Uploaded ${okCount} of ${uploadResults.length} files`}
-              </div>
-              <button onClick={() => setUploadResults(null)} aria-label="Dismiss" style={{ background: "none", border: "none", cursor: "pointer", color: accent, fontSize: 18, lineHeight: 1, fontWeight: 700, padding: "0 4px" }}>×</button>
-            </div>
-            <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 4 }}>
-              {uploadResults.map((r, i) => {
-                const up = r.ok ? available.find((a) => a.key === r.key) : null;
-                const label = up ? `${up.propertyCode} — ${up.name}` : r.key ?? "";
-                const through = r.month ? ` through ${MONTHS[r.month - 1]}` : "";
-                const rec = r.reconciliation;
-                // Tie-out badge: green when every checked account reconciles,
-                // amber when some don't (a possible format/column mis-read).
-                const tie = rec && rec.checked > 0
-                  ? (rec.mismatchCount === 0
-                      ? { color: "#15803d", text: `ties out · ${rec.reconciled}/${rec.checked}` }
-                      : { color: "#b45309", text: `⚠ ${rec.mismatchCount} of ${rec.checked} don't reconcile` })
-                  : null;
-                return (
-                  <div key={i} className="small" style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                    <div style={{ display: "flex", gap: 8, alignItems: "baseline", flexWrap: "wrap" }}>
-                      <span style={{ color: r.ok ? "#15803d" : "#b91c1c", fontWeight: 800 }}>{r.ok ? "✓" : "✗"}</span>
-                      <span style={{ fontVariantNumeric: "tabular-nums", color: "var(--muted)", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 220 }}>{r.name}</span>
-                      <span>{r.ok ? `${label} · ${r.year}${through} · ${r.accounts} accounts` : r.error}</span>
-                      {tie && (
-                        <span title={rec && rec.mismatchCount > 0 ? rec.mismatches.map((m) => `${m.account} ${m.name ?? ""}: off by ${Math.round(m.diff)}`).join("\n") : "Every account's beginning + monthly nets equals its reported ending balance"}
-                          style={{ fontWeight: 700, color: tie.color, background: `${tie.color}14`, borderRadius: 6, padding: "1px 7px", whiteSpace: "nowrap" }}>
-                          {tie.text}
-                        </span>
-                      )}
-                    </div>
-                    {r.multiYear && (
-                      <div style={{ color: "#b45309", fontWeight: 600, marginLeft: 20 }}>
-                        ⚠ This file spans {r.multiYear.yearsCovered.join("–")} — imported <b>{r.multiYear.importedYear}</b> only. Run one year per file for the others.
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-            {uploadResults.some((r) => r.allocatedGlReady) && (
-              <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${accent}33`, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                <span style={{ fontWeight: 700, color: "#15803d" }}>✅ 2000 G&amp;A GL — the Allocated Expense Invoicer is ready to generate its invoices from this file.</span>
-                <a href="/allocated-invoicer" className="btn primary" style={{ fontSize: 12, padding: "6px 12px", fontWeight: 700, textDecoration: "none" }}>Go to Allocated Invoicer →</a>
-              </div>
-            )}
-            {(() => {
-              const TASK_LABELS: Record<string, string> = { "m-post": "Post PM and AP", "m-close": "Close Prior Month", "m-opstmt": "Operating Statements" };
-              const done = Array.from(new Set(uploadResults.flatMap((r) => r.tasksCompleted ?? [])));
-              return done.length ? (
-                <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px solid ${accent}33`, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                  <span style={{ fontWeight: 700, color: "#15803d" }}>✓ Checked off for this month:</span>
-                  <span className="muted small">{done.map((id) => TASK_LABELS[id] ?? id).join(" · ")}</span>
-                  <a href="/tracker" className="btn" style={{ fontSize: 12, padding: "5px 11px", fontWeight: 700, textDecoration: "none" }}>Tracker →</a>
-                </div>
-              ) : null;
-            })()}
-            {allOk && (
-              <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px solid ${accent}22`, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                <span className="muted small" style={{ fontWeight: 600 }}>↔ This GL also feeds <b>Cash Analysis</b> and <b>Operating Expense History</b> — no re-import needed.</span>
-                <a href="/financials/cash-analysis" className="btn" style={{ fontSize: 12, padding: "5px 11px", fontWeight: 700, textDecoration: "none" }}>Cash Analysis →</a>
-              </div>
-            )}
-          </div>
-        );
-      })()}
-
-      {pendingExplain && pendingExplain.length > 0 && !autoExplain && (
-        <div className="card" style={{ borderColor: "rgba(109,40,217,0.4)", background: "rgba(109,40,217,0.06)", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-          <span style={{ fontSize: 18 }}>✨</span>
-          <div style={{ flex: 1, minWidth: 220 }}>
-            <div style={{ fontWeight: 800, color: "#6d28d9" }}>
-              Investigate flagged lines with AI?
-            </div>
-            <div className="muted small" style={{ marginTop: 2 }}>
-              Optional — audits the {pendingExplain.length === 1 ? "imported statement" : `${pendingExplain.length} imported statements`} and annotates the Flags to Investigate report. Skip it for older / backfill years.
-            </div>
-          </div>
-          <button type="button" className="btn ai" onClick={() => runAutoExplain(pendingExplain)} style={{ fontSize: 12, padding: "6px 12px", fontWeight: 700, flexShrink: 0 }}>
-            ✨ Auto-investigate {pendingExplain.length === 1 ? "" : `all ${pendingExplain.length}`}
-          </button>
-          <button type="button" className="btn" onClick={() => setPendingExplain(null)} style={{ fontSize: 12, padding: "6px 12px", fontWeight: 700, flexShrink: 0 }}>
-            Skip
-          </button>
-        </div>
-      )}
-
-      {autoExplain && (
-        <div className="card" style={{ borderColor: "rgba(109,40,217,0.4)", background: "rgba(109,40,217,0.06)", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-          <span style={{ fontSize: 18 }}>✨</span>
-          <div style={{ flex: 1, minWidth: 220 }}>
-            <div style={{ fontWeight: 800, color: "#6d28d9" }}>
-              {autoExplain.done < autoExplain.total ? `Auto-explaining flagged lines… ${autoExplain.done}/${autoExplain.total}` : "✓ Flagged lines explained"}
-            </div>
-            <div className="muted small" style={{ marginTop: 2 }}>Auditing the imported GL{autoExplain.total === 1 ? "" : "s"} so the Flags to Investigate report is ready.</div>
-          </div>
-          <a href="/financials/operating-statements/review" className="btn primary" style={{ fontSize: 12, padding: "6px 12px", fontWeight: 700, textDecoration: "none", flexShrink: 0 }}>Flags to Investigate →</a>
-        </div>
-      )}
-
       {behindPosting && (
         <div className="card" style={{ borderColor: "rgba(180,83,9,0.45)", background: "rgba(217,119,6,0.08)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
@@ -726,8 +617,8 @@ export default function OperatingStatementsPage() {
                 Run <b>Post PM and AP</b> then <b>Close Prior Month</b> in Skyline, then upload the GL here.
               </div>
             </div>
-            <button className="btn primary" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700, flexShrink: 0 }} disabled={uploading} onClick={() => fileRef.current?.click()}>
-              {uploading ? "Uploading…" : "Upload GL"}
+            <button className="btn primary" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700, flexShrink: 0 }} onClick={() => fileRef.current?.click()}>
+              {"Upload GL"}
             </button>
           </div>
         </div>
@@ -784,8 +675,8 @@ export default function OperatingStatementsPage() {
                 📊 Coverage
               </button>
             )}
-            <button className="btn primary" title="Upload one or more GL files — each file's header identifies its property" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }} disabled={uploading} onClick={() => fileRef.current?.click()}>
-              {uploading ? "Uploading…" : "Upload GL"}
+            <button className="btn primary" title="Upload one or more GL files — each file's header identifies its property" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }} onClick={() => fileRef.current?.click()}>
+              {"Upload GL"}
             </button>
             <label className="small muted" title="Skip storing per-transaction detail — keeps the monthly totals that power every statement, budget-vs-actual and YoY comparison. Ideal for bulk-backfilling prior years cheaply; the only thing you lose is the line-level transaction drill-down for that import." style={{ display: "inline-flex", alignItems: "center", gap: 5, whiteSpace: "nowrap", cursor: "pointer" }}>
               <input type="checkbox" checked={leanImport} onChange={(e) => setLeanImport(e.target.checked)} />
