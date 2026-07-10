@@ -18,7 +18,7 @@ import "server-only";
 import { listBudgets } from "@/lib/financials/budgets/storage";
 import type { BudgetWorkbook } from "@/lib/financials/budgets/types";
 import type { BudgetLine, RentDetail } from "@/lib/financials/budgets/types";
-import { accountMatchesMask } from "./mask";
+import { accountMatchesMask, accountsMatchingMask, claimAccounts } from "./mask";
 import type { LineBudget } from "./types";
 
 /** Flattened budget line keyed by GL account. */
@@ -142,13 +142,19 @@ export async function resolvePropertyBudget(
 }
 
 /** Build the compute's budgetLookup from resolved budget lines. Matches a
- *  statement line's mask against budget GL accounts and aggregates. */
+ *  statement line's mask against budget GL accounts and aggregates — claiming
+ *  each budget account to its most-specific line within the section (mirroring
+ *  the actuals), so a catch-all budget mask doesn't double-count. */
 export function makeBudgetLookup(
   budget: ResolvedBudget,
   period: number
-): (sectionName: string, lineLabel: string, mask: string) => LineBudget | null {
-  return (_section, _label, mask) => {
-    const matched = budget.lines.filter((l) => accountMatchesMask(mask, l.glAccount));
+): (sectionName: string, lineMask: string, sectionMasks: string[]) => LineBudget | null {
+  const accts = budget.lines.map((l) => l.glAccount);
+  return (_section, lineMask, sectionMasks) => {
+    const owned = claimAccounts(sectionMasks, accts);
+    const idx = sectionMasks.indexOf(lineMask);
+    const claimedSet = new Set(idx >= 0 ? owned[idx] : accountsMatchingMask(lineMask, accts));
+    const matched = budget.lines.filter((l) => claimedSet.has(l.glAccount));
     if (!matched.length) return { periodBudget: 0, ytdBudget: 0, annualBudget: 0 };
     let periodBudget = 0, ytdBudget = 0, annualBudget = 0;
     for (const l of matched) {

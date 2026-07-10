@@ -26,11 +26,13 @@ const gl: GlSummaryRow[] = [
   { account: "6810-8501", periodActual: 0, ytdActual: 999 }, // depreciation — unmapped
 ];
 
+// Keyed by (section name | line mask) — the budgetLookup contract now passes
+// the line's mask + its sibling masks (so a crosswalk can claim accounts).
 const budgets: Record<string, LineBudget> = {
-  "Revenues|Rental income": { periodBudget: 90, ytdBudget: 900, annualBudget: 1080 },
-  "Reimbursable Expenses|Maintenance": { periodBudget: 25, ytdBudget: 250, annualBudget: 300 },
+  "Revenues|4230-*": { periodBudget: 90, ytdBudget: 900, annualBudget: 1080 },
+  "Reimbursable Expenses|6030-8502": { periodBudget: 25, ytdBudget: 250, annualBudget: 300 },
 };
-const budgetLookup: ComputeInput["budgetLookup"] = (s, l) => budgets[`${s}|${l}`] ?? null;
+const budgetLookup: ComputeInput["budgetLookup"] = (s, mask) => budgets[`${s}|${mask}`] ?? null;
 
 describe("operating-statement compute", () => {
   const st = computeStatement({ mapping, propertyName: "Test Center", year: 2025, period: 10, gl, budgetLookup });
