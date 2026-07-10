@@ -242,40 +242,83 @@ function monthlyFromDetailed(rows: Row[], cols: DetailCols): { monthly: Record<s
   return { monthly, beginning, ytdTotal, maxMonth, transactions, names };
 }
 
-/** Year-To-Date GL: read the per-account monthly "Total" rows (Debit − Credit). */
-function monthlyFromDebitCredit(rows: Row[]): { monthly: Record<string, number[]>; maxMonth: number; names: Record<string, string> } {
+/** Year-To-Date / Multi-Year GL: separate Debit/Credit columns with a per-
+ *  account "<Month> Total" row (net = Debit − Credit). The Multi-Year layout
+ *  (the report run for 2024 and prior years) also carries, per account, the
+ *  Beginning Balance on the header row's Balance column, an account grand-
+ *  "Total" row (the ending balance), and dated transaction rows — all captured
+ *  here so these imports get the SAME Operating Cash KPI + line drill-down as
+ *  the Detailed GL. Older Year-To-Date files that lack those rows simply return
+ *  empty beginning/ytdTotal/transactions; the monthly nets are identical. */
+function monthlyFromDebitCredit(rows: Row[]): { monthly: Record<string, number[]>; beginning: Record<string, number>; ytdTotal: Record<string, number>; maxMonth: number; transactions: Record<string, GlTransaction[]>; names: Record<string, string> } {
   // Debit value can land one column left of its header (merged cells).
   const debitCol = headerCol(rows, "debit") ?? 23;
   const creditCol = headerCol(rows, "credit") ?? 25;
   const balanceCol = headerCol(rows, "balance") ?? 28;
   const debitLo = Math.max(0, debitCol - 1), debitHi = creditCol - 1;
   const creditLo = creditCol, creditHi = balanceCol - 1;
+  const descCol = headerCol(rows, "description") ?? 5;
+  const refCol = headerCol(rows, "ref") ?? 21;
+  // Signed activity for a row: Debit − Credit (revenue credit-normal/negative).
+  const net = (row: Row) => numIn(row, debitLo, debitHi) - numIn(row, creditLo, creditHi);
+  // A transaction row carries an M/D/YY Trans Date in the account-number column.
+  const isTxnDate = (s: string) => /^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(s);
 
   const monthly: Record<string, number[]> = {};
+  const beginning: Record<string, number> = {};
+  const ytdTotal: Record<string, number> = {};
+  const transactions: Record<string, GlTransaction[]> = {};
   const names: Record<string, string> = {};
   let current: string | null = null;
   let maxMonth = 0;
+  let buffer: GlTransaction[] = []; // pending transactions until their "<Month> Total" row
   for (const row of rows) {
     const c1 = asStr(row[1]);
     if (ACCOUNT_RE.test(c1)) {
       current = c1;
       if (!monthly[current]) monthly[current] = new Array(12).fill(0);
+      if (!transactions[current]) transactions[current] = [];
       const nm = accountNameFrom(row, 1);
       if (nm && !names[current]) names[current] = nm;
+      // Beginning Balance sits in the Balance column on the account header row.
+      beginning[current] = numIn(row, balanceCol, balanceCol + 1);
+      buffer = [];
       continue;
     }
     if (!current) continue;
+    // "<Month> Total" row → the month's net activity; flush its transactions.
     let mIdx = -1;
     for (let c = 5; c <= 10 && c < row.length; c++) {
       const m = asStr(row[c]).match(MONTH_TOTAL_RE);
       if (m) { mIdx = MONTHS.indexOf(m[1].toLowerCase()); break; }
     }
     if (mIdx >= 0) {
-      monthly[current][mIdx] = numIn(row, debitLo, debitHi) - numIn(row, creditLo, creditHi);
+      monthly[current][mIdx] = net(row);
       if (mIdx + 1 > maxMonth) maxMonth = mIdx + 1;
+      for (const t of buffer) { t.month = mIdx + 1; transactions[current].push(t); }
+      buffer = [];
+      continue;
     }
+    // The account grand-"Total" row — its Balance column is the ending balance
+    // (beginning + YTD net); the Operating Cash KPI reads it for cash accounts.
+    if (row.some((c) => /^\s*total\s*$/i.test(asStr(c)))) {
+      ytdTotal[current] = numIn(row, balanceCol, balanceCol + 1);
+      continue;
+    }
+    // A dated transaction row — buffered until its month is known.
+    if (!isTxnDate(c1)) continue;
+    const desc = asStr(row[descCol]);
+    const ref = asStr(row[refCol]);
+    buffer.push({
+      month: 0,
+      date: c1,
+      vendor: desc || undefined,
+      description: desc || ref || "(no description)",
+      ref,
+      amount: net(row),
+    });
   }
-  return { monthly, maxMonth, names };
+  return { monthly, beginning, ytdTotal, maxMonth, transactions, names };
 }
 
 export function parseGeneralLedgerMonthly(rows: Row[]): GlMonthly {
@@ -301,7 +344,7 @@ export function parseGeneralLedgerMonthly(rows: Row[]): GlMonthly {
     };
     ({ monthly, beginning, ytdTotal, maxMonth, transactions, names } = monthlyFromDetailed(rows, cols));
   } else {
-    ({ monthly, maxMonth, names } = monthlyFromDebitCredit(rows));
+    ({ monthly, beginning, ytdTotal, maxMonth, transactions, names } = monthlyFromDebitCredit(rows));
   }
 
   // The report range's end month is authoritative for the reporting period;
