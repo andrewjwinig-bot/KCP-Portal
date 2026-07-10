@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import * as XLSX from "xlsx";
-import { parseGeneralLedgerMonthly, summaryForPeriod, reconcileGl } from "@/lib/financials/operating-statements/glParser";
+import { parseGeneralLedgerMonthly, parseGeneralLedgerByYear, summaryForPeriod, reconcileGl, type GlReconciliation } from "@/lib/financials/operating-statements/glParser";
 import { computeStatement } from "@/lib/financials/operating-statements/compute";
 import { availableStatements, getMapping, resolveStatementKey } from "@/lib/financials/operating-statements/mappingStore";
 import { resolvePropertyBudget, makeBudgetLookup } from "@/lib/financials/operating-statements/budgetCrosswalk";
@@ -356,19 +356,20 @@ export async function POST(req: Request) {
     const sheet = wb.Sheets[wb.SheetNames[0]];
     const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true, defval: null }) as (string | number | null)[][];
 
-    const parsed = parseGeneralLedgerMonthly(rows);
-    // Tie-out check: every account's beginning + Σ(monthly nets) must equal its
-    // reported ending balance. A mis-detected column layout surfaces here as
-    // mismatches instead of silently importing wrong numbers.
-    const recon = reconcileGl(parsed);
+    // Split into one GlMonthly PER YEAR the file covers — a Multi-Year GL
+    // spanning several years imports each year on its own; a single-year file
+    // yields a one-element array (unchanged behaviour). The range's END year is
+    // the primary (used for header/key resolution + the month-close hooks).
+    const parsedYears = parseGeneralLedgerByYear(rows);
+    const primary = parsedYears[parsedYears.length - 1];
     // The GL header's Property/Company code is authoritative; fall back to the
     // viewing selection only if the header had none.
     const keyRaw = form.get("key");
-    const rawCode = parsed.propertyCode || (typeof keyRaw === "string" && keyRaw.trim() ? keyRaw.trim() : null);
+    const rawCode = primary.propertyCode || (typeof keyRaw === "string" && keyRaw.trim() ? keyRaw.trim() : null);
     if (!rawCode) {
       return NextResponse.json({ error: "Could not determine the property — the GL header had no Property/Company code." }, { status: 400 });
     }
-    if (!parsed.year) {
+    if (!primary.year) {
       return NextResponse.json({ error: "Could not read the reporting year from the GL header." }, { status: 400 });
     }
     // Resolve the GL's property code to the canonical mapping key (handles fund
@@ -379,30 +380,34 @@ export async function POST(req: Request) {
     }
 
     const uploadedByRaw = form.get("uploadedBy");
+    const uploadedBy = typeof uploadedByRaw === "string" ? uploadedByRaw : undefined;
     // "Monthly totals only" — skip storing the (storage-heavy) transaction
     // detail. The monthly nets that power every statement/comparison are still
     // saved; only the per-line drill-down is unavailable for this import.
     const leanRaw = form.get("lean");
     const lean = leanRaw === "1" || leanRaw === "true";
     const ts = new Date().toISOString();
-    const id = `gl-${key}-${parsed.year}-${Date.now()}`;
-    await saveGl({
-      id,
-      key,
-      propertyCode: parsed.propertyCode,
-      year: parsed.year,
-      uploadedAt: ts,
-      uploadedBy: typeof uploadedByRaw === "string" ? uploadedByRaw : undefined,
-      fileName: file.name,
-      maxPeriodInFile: parsed.maxPeriodInFile,
-      monthly: parsed.monthly,
-      beginning: parsed.beginning,
-      ytdTotal: parsed.ytdTotal,
-      names: parsed.names,
-      transactionsStored: !lean,
-    });
-    if (!lean) await saveTransactions(id, parsed.transactions);
-    await logAudit({ event: "gl.upload", user: typeof uploadedByRaw === "string" ? uploadedByRaw : key, ip: auditIp(req), detail: `${key} ${parsed.year} · ${file.name}` });
+
+    // Store each year separately + reconcile each; aggregate the tie-out.
+    const savedYears: { year: number; maxPeriodInFile: number; accounts: number; reconciliation: { checked: number; reconciled: number; mismatchCount: number; mismatches: GlReconciliation["mismatches"] } }[] = [];
+    let aggChecked = 0, aggReconciled = 0;
+    const aggMismatches: GlReconciliation["mismatches"] = [];
+    for (const py of parsedYears) {
+      if (!py.year) continue;
+      const rec = reconcileGl(py);
+      aggChecked += rec.checked; aggReconciled += rec.reconciled; aggMismatches.push(...rec.mismatches);
+      const id = `gl-${key}-${py.year}-${Date.now()}`;
+      await saveGl({
+        id, key, propertyCode: py.propertyCode, year: py.year, uploadedAt: ts, uploadedBy,
+        fileName: file.name, maxPeriodInFile: py.maxPeriodInFile,
+        monthly: py.monthly, beginning: py.beginning, ytdTotal: py.ytdTotal, names: py.names,
+        transactionsStored: !lean,
+      });
+      if (!lean) await saveTransactions(id, py.transactions);
+      savedYears.push({ year: py.year, maxPeriodInFile: py.maxPeriodInFile, accounts: Object.keys(py.monthly).length, reconciliation: { checked: rec.checked, reconciled: rec.reconciled, mismatchCount: rec.mismatches.length, mismatches: rec.mismatches.slice(0, 8) } });
+    }
+    const recon = { checked: aggChecked, reconciled: aggReconciled, mismatchCount: aggMismatches.length, mismatches: aggMismatches.slice(0, 8) };
+    await logAudit({ event: "gl.upload", user: uploadedBy ?? key, ip: auditIp(req), detail: `${key} ${savedYears.map((s) => s.year).join(",")} · ${file.name}` });
 
     // The 2000 G&A GL is the same Detailed GL the Allocated Expense Invoicer
     // runs on. Stash it so the invoicer can pick it up (prompt to generate the
@@ -416,7 +421,7 @@ export async function POST(req: Request) {
     try {
       const now = new Date();
       const expected = expectedPostedThrough(now);
-      if (parsed.year === expected.year && parsed.maxPeriodInFile === expected.period) {
+      if (primary.year === expected.year && primary.maxPeriodInFile === expected.period) {
         tasksCompleted = ["m-post", "m-close", "m-opstmt"];
         for (const taskId of tasksCompleted) {
           await markTaskComplete(now.getFullYear(), now.getMonth(), taskId, { at: now.toISOString(), source: "gl-upload" });
@@ -433,17 +438,17 @@ export async function POST(req: Request) {
     // accounts, so detect it by content too — not just a literal "2000" code
     // (the header company code can differ). This is what the Allocated Expense
     // Invoicer runs on, so a match hands the file off to it.
-    const hasAllocAccounts = Object.keys(parsed.monthly).some((a) => /-(9301|9302|9303)$/.test(a));
-    const isGandA = rawCode === "2000" || parsed.propertyCode === "2000" || key === "2000" || hasAllocAccounts;
+    const hasAllocAccounts = Object.keys(primary.monthly).some((a) => /-(9301|9302|9303)$/.test(a));
+    const isGandA = rawCode === "2000" || primary.propertyCode === "2000" || key === "2000" || hasAllocAccounts;
     if (isGandA) {
       try { await recordImport("imp-alloc-gl", { at: ts, by: importedBy }); } catch { /* best-effort */ }
       try {
         await savePendingGl({
           fileBase64: buf.toString("base64"),
           fileName: file.name,
-          propertyCode: parsed.propertyCode || "2000",
-          year: parsed.year,
-          month: parsed.maxPeriodInFile,
+          propertyCode: primary.propertyCode || "2000",
+          year: primary.year,
+          month: primary.maxPeriodInFile,
           uploadedAt: ts,
           uploadedBy: typeof uploadedByRaw === "string" ? uploadedByRaw : null,
         });
@@ -453,19 +458,17 @@ export async function POST(req: Request) {
     return NextResponse.json({
       ok: true,
       key,
-      year: parsed.year,
-      maxPeriodInFile: parsed.maxPeriodInFile,
-      accounts: Object.keys(parsed.monthly).length,
+      year: primary.year,
+      maxPeriodInFile: primary.maxPeriodInFile,
+      accounts: Object.keys(primary.monthly).length,
       allocatedGlReady: isGandA,
       tasksCompleted,
-      // Import health: tie-out result + a multi-year-range warning.
-      reconciliation: {
-        checked: recon.checked,
-        reconciled: recon.reconciled,
-        mismatches: recon.mismatches.slice(0, 8), // cap the payload
-        mismatchCount: recon.mismatches.length,
-      },
-      multiYear: parsed.multiYear ? { yearsCovered: parsed.yearsCovered ?? [], importedYear: parsed.year } : null,
+      // Import health: aggregate tie-out across every year stored.
+      reconciliation: recon,
+      // Every calendar year imported from this file (a Multi-Year GL yields
+      // several); single-year files return one.
+      years: savedYears.map((s) => s.year).sort((a, b) => a - b),
+      perYear: savedYears,
     });
   } catch (e) {
     return NextResponse.json(
