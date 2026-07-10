@@ -6,7 +6,7 @@
 // section ladder as the budget. Budget columns fill in step 2 (cross-walk to
 // the portal budget); for now they read blank.
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { useUser } from "@/app/components/UserProvider";
 import { DownloadMenu } from "@/app/components/DownloadMenu";
 import { StatPill } from "@/app/components/Pill";
@@ -24,7 +24,23 @@ import type {
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] as const;
 
+// Period sentinel for the "Full Year" dropdown option (below December). Selecting
+// it renders all 12 monthly columns + a full-year total, instead of one month.
+const FULL_YEAR = 13;
+
 type Available = { key: string; propertyCode: string; entityName: string; name: string; years: number[]; latest?: { year: number; period: number } | null };
+// Per-property GL import coverage — year → months imported (0 = none).
+type Coverage = { key: string; propertyCode: string; name: string; isFund: boolean; years: Record<number, number> };
+
+// Full-Year payload (mirrors the API's FullYearPayload) — 12 monthly columns +
+// a full-year total/budget/variance for every line, subtotal and rollup.
+type FYLine = { label: string; mask: string; accounts: string[]; monthly: number[]; total: number; budget: number | null; variance: number | null };
+type FYSection = { name: string; role: SectionRole; lines: FYLine[]; subtotalMonthly: number[]; subtotalTotal: number; subtotalBudget: number | null; subtotalVariance: number | null };
+type FYRollup = { monthly: number[]; total: number; budget: number | null; variance: number | null };
+type FullYear = {
+  sections: FYSection[];
+  rollups: Record<"totalRevenues" | "totalOperatingExpenses" | "netOperatingIncome" | "cashFlowBeforeDebtService" | "totalDebtService" | "cashFlowAfterDebtService", FYRollup>;
+};
 
 /** Compact "most recent period imported" suffix for the property dropdown,
  *  e.g. " (01-26)" for January 2026, or " (no GL)" when nothing is uploaded. */
@@ -270,6 +286,9 @@ export default function OperatingStatementsPage() {
   const [budgetYear, setBudgetYear] = useState<number | null>(null);
   const [budgetFallback, setBudgetFallback] = useState(false);
   const [statement, setStatement] = useState<PropertyStatement | null>(null);
+  const [fullYear, setFullYear] = useState<FullYear | null>(null);
+  const [coverage, setCoverage] = useState<Coverage[]>([]);
+  const [showCoverage, setShowCoverage] = useState(false);
   const [lastImport, setLastImport] = useState<{ at: string; by: string | null } | null>(null);
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [operatingCash, setOperatingCash] = useState<number | null>(null);
@@ -286,10 +305,14 @@ export default function OperatingStatementsPage() {
   // Bumped after an upload to force a statement reload even when the
   // property/year/period are unchanged (e.g. re-importing the current view).
   const [reloadNonce, setReloadNonce] = useState(0);
-  type UploadResult = { name: string; ok: boolean; key?: string; year?: number; month?: number; accounts?: number; error?: string; allocatedGlReady?: boolean; tasksCompleted?: string[] };
+  type ReconInfo = { checked: number; reconciled: number; mismatchCount: number; mismatches: { account: string; name: string | null; diff: number }[] };
+  type UploadResult = { name: string; ok: boolean; key?: string; year?: number; month?: number; accounts?: number; error?: string; allocatedGlReady?: boolean; tasksCompleted?: string[]; reconciliation?: ReconInfo; multiYear?: { yearsCovered: number[]; importedYear: number } | null };
   const [uploadResults, setUploadResults] = useState<UploadResult[] | null>(null);
   // Background auto-explain progress after an import (audits the new GLs).
   const [autoExplain, setAutoExplain] = useState<{ done: number; total: number } | null>(null);
+  // After an import we PROMPT (rather than auto-run) AI investigation of flagged
+  // lines — you don't want to spend it auditing years-old backfill data.
+  const [pendingExplain, setPendingExplain] = useState<{ key: string; year: number; period: number }[] | null>(null);
   // View toggles (mirroring the Operating Budgets page).
   const [psf, setPsf] = useState(false);
   const [hideEmpty, setHideEmpty] = useState(true);
@@ -310,6 +333,7 @@ export default function OperatingStatementsPage() {
       .then((j) => {
         const list: Available[] = j.available ?? [];
         setAvailable(list);
+        setCoverage(j.coverage ?? []);
         // Deep link from the Reprojections/Budgets pages: ?key (or ?property) & year.
         const params = new URLSearchParams(window.location.search);
         const wantKey = params.get("key");
@@ -339,9 +363,11 @@ export default function OperatingStatementsPage() {
     setError(null);
     try {
       const qs = new URLSearchParams({ key, year: String(year) });
-      if (period) qs.set("period", String(period));
+      if (period && period !== FULL_YEAR) qs.set("period", String(period));
+      if (period === FULL_YEAR) qs.set("fullYear", "1");
       const j = await fetch(`/api/financials/operating-statements?${qs}`).then((r) => r.json());
       setStatement(j.statement ?? null);
+      setFullYear(j.fullYear ?? null);
       setLastImport(j.uploadedAt ? { at: j.uploadedAt, by: j.uploadedBy ?? null } : null);
       setDebtCheck(j.debtCheck ?? null);
       setAllocatedGA(j.allocatedGA ?? null);
@@ -383,7 +409,7 @@ export default function OperatingStatementsPage() {
         if (j.error) { results.push({ name: file.name, ok: false, error: j.error }); }
         else {
           last = { key: j.key, year: j.year };
-          results.push({ name: file.name, ok: true, key: j.key, year: j.year, month: j.maxPeriodInFile, accounts: j.accounts, allocatedGlReady: j.allocatedGlReady, tasksCompleted: j.tasksCompleted });
+          results.push({ name: file.name, ok: true, key: j.key, year: j.year, month: j.maxPeriodInFile, accounts: j.accounts, allocatedGlReady: j.allocatedGlReady, tasksCompleted: j.tasksCompleted, reconciliation: j.reconciliation, multiYear: j.multiYear });
         }
       } catch {
         results.push({ name: file.name, ok: false, error: "Upload failed" });
@@ -392,6 +418,7 @@ export default function OperatingStatementsPage() {
     try {
       const av = await fetch("/api/financials/operating-statements").then((r) => r.json());
       setAvailable(av.available ?? []);
+      setCoverage(av.coverage ?? []);
     } catch { /* ignore refresh errors */ }
     if (last) { setKey(last.key); setYear(last.year); setPeriod(0); }
     // Force the statement to reload so the new GL shows without a manual
@@ -401,27 +428,29 @@ export default function OperatingStatementsPage() {
     setUploading(false);
     if (fileRef.current) fileRef.current.value = "";
 
-    // Auto-audit the newly-imported GL(s): run Auto-explain for each uploaded
-    // property's month in the background, so the Flags to Investigate report is
-    // annotated without opening each property by hand.
+    // Offer (don't auto-run) an AI audit of the newly-imported GL(s). Backfilling
+    // several prior years shouldn't silently spend AI auditing old data — the
+    // user opts in per import via the prompt below.
     const toExplain = results.filter((r) => r.ok && r.key && r.year && r.month).map((r) => ({ key: r.key!, year: r.year!, period: r.month! }));
-    if (toExplain.length) {
-      setAutoExplain({ done: 0, total: toExplain.length });
-      (async () => {
-        for (let i = 0; i < toExplain.length; i++) {
-          try {
-            await fetch("/api/financials/operating-statements/analyze", {
-              method: "POST", headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(toExplain[i]),
-            });
-          } catch { /* skip; keep going */ }
-          setAutoExplain({ done: i + 1, total: toExplain.length });
-        }
-        setAutoExplain((s) => (s ? { ...s, done: s.total } : s));
-        setReloadNonce((n) => n + 1); // reload current statement so new notes show
-        setTimeout(() => setAutoExplain(null), 8000);
-      })();
+    setPendingExplain(toExplain.length ? toExplain : null);
+  }
+
+  // Run the AI investigation for the imported statements (triggered from the
+  // post-import prompt), annotating the Flags to Investigate report.
+  async function runAutoExplain(list: { key: string; year: number; period: number }[]) {
+    setPendingExplain(null);
+    setAutoExplain({ done: 0, total: list.length });
+    for (let i = 0; i < list.length; i++) {
+      try {
+        await fetch("/api/financials/operating-statements/analyze", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(list[i]),
+        });
+      } catch { /* skip; keep going */ }
+      setAutoExplain({ done: i + 1, total: list.length });
     }
+    setReloadNonce((n) => n + 1); // reload current statement so new notes show
+    setTimeout(() => setAutoExplain(null), 8000);
   }
 
   // Auto-dismiss the upload result banner after a few seconds.
@@ -550,6 +579,7 @@ export default function OperatingStatementsPage() {
 
   const thresh: Thresh = { dollar: varDollar, pct: varPctThresh, min: varFloor };
   const variance = statement ? varianceCounts(statement, thresh) : null;
+  const isFullYear = period === FULL_YEAR;
 
   return (
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
@@ -590,11 +620,32 @@ export default function OperatingStatementsPage() {
                 const up = r.ok ? available.find((a) => a.key === r.key) : null;
                 const label = up ? `${up.propertyCode} — ${up.name}` : r.key ?? "";
                 const through = r.month ? ` through ${MONTHS[r.month - 1]}` : "";
+                const rec = r.reconciliation;
+                // Tie-out badge: green when every checked account reconciles,
+                // amber when some don't (a possible format/column mis-read).
+                const tie = rec && rec.checked > 0
+                  ? (rec.mismatchCount === 0
+                      ? { color: "#15803d", text: `ties out · ${rec.reconciled}/${rec.checked}` }
+                      : { color: "#b45309", text: `⚠ ${rec.mismatchCount} of ${rec.checked} don't reconcile` })
+                  : null;
                 return (
-                  <div key={i} className="small" style={{ display: "flex", gap: 8, alignItems: "baseline" }}>
-                    <span style={{ color: r.ok ? "#15803d" : "#b91c1c", fontWeight: 800 }}>{r.ok ? "✓" : "✗"}</span>
-                    <span style={{ fontVariantNumeric: "tabular-nums", color: "var(--muted)", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 220 }}>{r.name}</span>
-                    <span>{r.ok ? `${label} · ${r.year}${through} · ${r.accounts} accounts` : r.error}</span>
+                  <div key={i} className="small" style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                    <div style={{ display: "flex", gap: 8, alignItems: "baseline", flexWrap: "wrap" }}>
+                      <span style={{ color: r.ok ? "#15803d" : "#b91c1c", fontWeight: 800 }}>{r.ok ? "✓" : "✗"}</span>
+                      <span style={{ fontVariantNumeric: "tabular-nums", color: "var(--muted)", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 220 }}>{r.name}</span>
+                      <span>{r.ok ? `${label} · ${r.year}${through} · ${r.accounts} accounts` : r.error}</span>
+                      {tie && (
+                        <span title={rec && rec.mismatchCount > 0 ? rec.mismatches.map((m) => `${m.account} ${m.name ?? ""}: off by ${Math.round(m.diff)}`).join("\n") : "Every account's beginning + monthly nets equals its reported ending balance"}
+                          style={{ fontWeight: 700, color: tie.color, background: `${tie.color}14`, borderRadius: 6, padding: "1px 7px", whiteSpace: "nowrap" }}>
+                          {tie.text}
+                        </span>
+                      )}
+                    </div>
+                    {r.multiYear && (
+                      <div style={{ color: "#b45309", fontWeight: 600, marginLeft: 20 }}>
+                        ⚠ This file spans {r.multiYear.yearsCovered.join("–")} — imported <b>{r.multiYear.importedYear}</b> only. Run one year per file for the others.
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -625,6 +676,26 @@ export default function OperatingStatementsPage() {
           </div>
         );
       })()}
+
+      {pendingExplain && pendingExplain.length > 0 && !autoExplain && (
+        <div className="card" style={{ borderColor: "rgba(109,40,217,0.4)", background: "rgba(109,40,217,0.06)", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 18 }}>✨</span>
+          <div style={{ flex: 1, minWidth: 220 }}>
+            <div style={{ fontWeight: 800, color: "#6d28d9" }}>
+              Investigate flagged lines with AI?
+            </div>
+            <div className="muted small" style={{ marginTop: 2 }}>
+              Optional — audits the {pendingExplain.length === 1 ? "imported statement" : `${pendingExplain.length} imported statements`} and annotates the Flags to Investigate report. Skip it for older / backfill years.
+            </div>
+          </div>
+          <button type="button" className="btn ai" onClick={() => runAutoExplain(pendingExplain)} style={{ fontSize: 12, padding: "6px 12px", fontWeight: 700, flexShrink: 0 }}>
+            ✨ Auto-investigate {pendingExplain.length === 1 ? "" : `all ${pendingExplain.length}`}
+          </button>
+          <button type="button" className="btn" onClick={() => setPendingExplain(null)} style={{ fontSize: 12, padding: "6px 12px", fontWeight: 700, flexShrink: 0 }}>
+            Skip
+          </button>
+        </div>
+      )}
 
       {autoExplain && (
         <div className="card" style={{ borderColor: "rgba(109,40,217,0.4)", background: "rgba(109,40,217,0.06)", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
@@ -699,14 +770,20 @@ export default function OperatingStatementsPage() {
               {yearOptions.map((y) => <option key={y} value={y}>{y}</option>)}
             </HeaderSelect>
             {statement && (
-              <HeaderSelect value={String(period || statement.period)} onChange={(v) => setPeriod(Number(v))} displayLabel={MONTHS[(period || statement.period) - 1]} ariaLabel="Period" muted>
+              <HeaderSelect value={String(period || statement.period)} onChange={(v) => setPeriod(Number(v))} displayLabel={period === FULL_YEAR ? "Full Year" : MONTHS[(period || statement.period) - 1]} ariaLabel="Period" muted>
                 {Array.from({ length: maxPeriod }, (_, i) => i + 1).map((p) => (
                   <option key={p} value={p}>{MONTHS[p - 1]} — Period {p}</option>
                 ))}
+                <option value={FULL_YEAR}>Full Year — all 12 months</option>
               </HeaderSelect>
             )}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            {coverage.length > 0 && (
+              <button className="btn" title="See which properties/years have GLs imported and what's still missing" style={{ fontSize: 13, padding: "8px 12px", fontWeight: 700 }} onClick={() => setShowCoverage(true)}>
+                📊 Coverage
+              </button>
+            )}
             <button className="btn primary" title="Upload one or more GL files — each file's header identifies its property" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }} disabled={uploading} onClick={() => fileRef.current?.click()}>
               {uploading ? "Uploading…" : "Upload GL"}
             </button>
@@ -727,8 +804,8 @@ export default function OperatingStatementsPage() {
               <DownloadMenu
                 disabled={!statement}
                 items={[
-                  { label: "Excel (.xlsx)", description: "Full Period + YTD statement with budget & variance", href: `/api/financials/operating-statements/download?key=${encodeURIComponent(key)}&year=${year}${period ? `&period=${period}` : ""}` },
-                  { label: "PDF", description: "Presentation-ready single-property statement", href: `/api/financials/operating-statements/download/pdf?key=${encodeURIComponent(key)}&year=${year}${period ? `&period=${period}` : ""}` },
+                  { label: "Excel (.xlsx)", description: "Full Period + YTD statement with budget & variance", href: `/api/financials/operating-statements/download?key=${encodeURIComponent(key)}&year=${year}${period && !isFullYear ? `&period=${period}` : ""}` },
+                  { label: "PDF", description: "Presentation-ready single-property statement", href: `/api/financials/operating-statements/download/pdf?key=${encodeURIComponent(key)}&year=${year}${period && !isFullYear ? `&period=${period}` : ""}` },
                 ]}
               />
             )}
@@ -757,7 +834,7 @@ export default function OperatingStatementsPage() {
           {cur && <LastImported at={lastImport?.at} by={lastImport?.by} label={`${cur.name} GL last imported`} />}
         </div>
 
-        {statement && variance && (() => {
+        {statement && variance && !isFullYear && (() => {
           const noi = statement.rollups.netOperatingIncome;
           const mPct = varPct(noi.periodVariance, noi.periodBudget);
           const yPct = varPct(noi.ytdVariance, noi.ytdBudget);
@@ -819,7 +896,7 @@ export default function OperatingStatementsPage() {
         })()}
       </div>
 
-      {!loading && statement && brief && (
+      {!loading && statement && brief && !isFullYear && (
         <div className="card" style={{ borderColor: "rgba(109,40,217,0.35)", background: "rgba(109,40,217,0.05)" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 6 }}>
             <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "#6d28d9", display: "flex", alignItems: "center", gap: 6 }}>
@@ -844,12 +921,12 @@ export default function OperatingStatementsPage() {
         </div>
       )}
 
-      {!loading && statement && debtCheck?.missing && (
+      {!loading && statement && debtCheck?.missing && !isFullYear && (
         <div style={{ margin: "0 0 12px", padding: "10px 14px", borderRadius: 10, background: "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.35)", color: "#b91c1c", fontSize: 13, fontWeight: 600 }}>
           ⚠ This property has a loan (scheduled P&amp;I ${money0(debtCheck.scheduled)}/mo) but <b>$0 debt service posted</b> this month — the mortgage charge may be missing. Re-post the charge or re-upload the GL.
         </div>
       )}
-      {!loading && statement && allocatedGA && (() => {
+      {!loading && statement && allocatedGA && !isFullYear && (() => {
         const mon = MONTHS[statement.period - 1];
         return (
           <div className="card" style={{ borderColor: "rgba(180,83,9,0.4)", background: "rgba(217,119,6,0.06)" }}>
@@ -872,7 +949,11 @@ export default function OperatingStatementsPage() {
           </div>
         );
       })()}
-      {!loading && statement && <StatementTable s={statement} viewKey={key} budgetYear={budgetYear} budgetFallback={budgetFallback} notes={notes} noteSources={noteSources} noteMeta={noteMeta} editorLabel={user.label} onSaveNote={saveNote} dismissedFlags={dismissedFlags} onDismissFlag={onDismissFlag} view={{ psf, sqft, hideEmpty, showGL, varMode }} thresh={thresh} flagFilter={flagFilter} onClearFilter={() => setFlagFilter(null)} />}
+      {!loading && statement && isFullYear && fullYear && (
+        <FullYearTable fy={fullYear} year={year} view={{ hideEmpty, showGL, varMode }} budgetYear={budgetYear} budgetFallback={budgetFallback} />
+      )}
+      {!loading && statement && !isFullYear && <StatementTable s={statement} viewKey={key} budgetYear={budgetYear} budgetFallback={budgetFallback} notes={notes} noteSources={noteSources} noteMeta={noteMeta} editorLabel={user.label} onSaveNote={saveNote} dismissedFlags={dismissedFlags} onDismissFlag={onDismissFlag} view={{ psf, sqft, hideEmpty, showGL, varMode }} thresh={thresh} flagFilter={flagFilter} onClearFilter={() => setFlagFilter(null)} />}
+      {showCoverage && <CoverageModal coverage={coverage} onClose={() => setShowCoverage(false)} onPick={(k, y) => { setKey(k); setYear(y); setPeriod(0); setShowCoverage(false); }} />}
     </main>
   );
 }
@@ -961,7 +1042,7 @@ function StatementTable({ s, viewKey, budgetYear, budgetFallback, notes, noteSou
     <div className="card">
       {budgetFallback && budgetYear != null && (
         <div style={{ marginBottom: 10, fontSize: 12, color: "#b45309", fontWeight: 600 }}>
-          Budget columns use the {budgetYear} budget — no {s.year} budget is loaded for this property.
+          Budget &amp; Variance are hidden — no {s.year} budget is loaded for this property (the nearest is {budgetYear}, and comparing to a different year would be misleading). Import the {s.year} budget to compare.
         </div>
       )}
       {s.unmappedAccounts.length > 0 && (
@@ -974,7 +1055,7 @@ function StatementTable({ s, viewKey, budgetYear, budgetFallback, notes, noteSou
         />
       )}
       <p className="small muted" style={{ marginTop: s.unmappedAccounts.length > 0 ? 12 : 0 }}>
-        Actual = GL Debit − Credit (revenue shown positive). Variance % is favorable when positive (revenue over budget / expense under budget). Budget columns line up to the {budgetYear ?? s.year} portal budget via the same GL account masks.
+        Actual = GL Debit − Credit (revenue shown positive). Variance % is favorable when positive (revenue over budget / expense under budget).{budgetFallback ? "" : ` Budget columns line up to the ${budgetYear ?? s.year} portal budget via the same GL account masks.`}
       </p>
     </div>
   );
@@ -1039,6 +1120,204 @@ function StatementTable({ s, viewKey, budgetYear, budgetFallback, notes, noteSou
       {footerCard}
       {detailModal}
     </>
+  );
+}
+
+// ── Full-Year view — 12 monthly columns + a full-year total ──────────────────
+// One wide, scrollable table following the SAME section ladder as the single-
+// month statement. Every figure comes from the same compute engine (each month
+// is that month's actual; the Full-Year total/budget/variance are the year's
+// figures through December), so it ties out to the Reprojections "Full-Year
+// Actuals" for a closed year line-for-line.
+
+const fyLabel = (sec: FYSection) =>
+  sec.role === "revenue" ? "Total Revenue and Other" : `Total ${sec.name}`;
+
+function FYRow({ label, monthly, total, budget, variance, varMode, showGL, mask, variant = "line" }: {
+  label: string; monthly: number[]; total: number; budget: number | null; variance: number | null;
+  varMode: VarMode; showGL?: boolean; mask?: string; variant?: "line" | "subtotal" | "rollup" | "rollupStrong";
+}) {
+  const bold = variant !== "line";
+  const upper = variant === "rollup" || variant === "rollupStrong";
+  const rowStyle: React.CSSProperties | undefined =
+    variant === "subtotal" ? { background: "rgba(11,74,125,0.06)", borderTop: "2px solid rgba(11,74,125,0.30)" }
+    : variant === "rollupStrong" ? { background: "rgba(11,74,125,0.06)" }
+    : variant === "rollup" ? { background: "rgba(11,74,125,0.035)" }
+    : undefined;
+  const num = (v: number | null, key: string | number, extra?: React.CSSProperties) => (
+    <td key={key} style={{ ...numStyle, ...(bold ? { fontWeight: 800 } : {}), ...extra }}>
+      {v == null || Math.abs(v) < 0.5 ? <span style={{ color: "var(--muted)" }}>–</span> : money0(v)}
+    </td>
+  );
+  const pct = varPct(variance, budget);
+  const varVal = varMode === "dollar" ? variance : pct;
+  const varText = varMode === "dollar" ? (variance == null ? "—" : money0(variance)) : fmtPct(pct);
+  return (
+    <tr style={rowStyle}>
+      <td style={{ ...labelStyle, ...(bold ? { fontWeight: 800, color: COLOR_BRAND } : {}), ...(upper ? { textTransform: "uppercase", letterSpacing: "0.04em", fontSize: 13.5 } : {}) }}>
+        {label}
+        {showGL && mask && <div className="muted" style={{ fontSize: 11, fontVariantNumeric: "tabular-nums", marginTop: 1 }}>{mask}</div>}
+      </td>
+      {monthly.map((m, i) => num(m, i, i === 0 ? { borderLeft: GROUP_DIV } : undefined))}
+      {num(total, "total", { borderLeft: GROUP_DIV, color: COLOR_BRAND, fontWeight: 800 })}
+      {num(budget, "budget", { color: "var(--muted)" })}
+      <td style={{ ...numStyle, ...(bold ? { fontWeight: 800 } : {}), color: varColor(varVal) }}>{varText}</td>
+    </tr>
+  );
+}
+
+function FullYearTable({ fy, year, view, budgetYear, budgetFallback }: {
+  fy: FullYear; year: number; view: { hideEmpty: boolean; showGL: boolean; varMode: VarMode };
+  budgetYear: number | null; budgetFallback: boolean;
+}) {
+  const byRole = (roles: SectionRole[]) => fy.sections.filter((x) => roles.includes(x.role));
+  const revenueSecs = byRole(["revenue", "reimbursement"]);
+  const expenseSecs = byRole(["reimbursable-expense", "non-reimbursable-expense", "residential-expense"]);
+  const capitalSecs = byRole(["capital"]);
+  const debtSecs = byRole(["debt-service"]);
+  const r = fy.rollups;
+  const empty = (monthly: number[], total: number) => Math.abs(total) < 0.5 && monthly.every((m) => Math.abs(m) < 0.5);
+  const hasActivity = (secs: FYSection[]) => secs.some((sec) => sec.lines.some((l) => !empty(l.monthly, l.total)) || !empty(sec.subtotalMonthly, sec.subtotalTotal));
+  const showCapital = capitalSecs.length > 0 && (!view.hideEmpty || hasActivity(capitalSecs));
+  const showDebt = debtSecs.length > 0 && (!view.hideEmpty || hasActivity(debtSecs));
+
+  const groupRow = (label: string) => (
+    <tr key={`g-${label}`}>
+      <td colSpan={16} style={{ padding: "12px 12px 6px", borderBottom: `2px solid ${COLOR_BRAND}`, fontSize: 14, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", color: COLOR_BRAND }}>{label}</td>
+    </tr>
+  );
+  const sectionRows = (sec: FYSection, hideSubtotal?: boolean) => {
+    const lines = view.hideEmpty ? sec.lines.filter((l) => !empty(l.monthly, l.total)) : sec.lines;
+    return (
+      <Fragment key={sec.name}>
+        <tr>
+          <td colSpan={16} style={{ padding: "8px 12px", background: "rgba(15,23,42,0.03)", fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase" }}>{sec.name}</td>
+        </tr>
+        {lines.map((l) => (
+          <FYRow key={l.label} label={l.label} monthly={l.monthly} total={l.total} budget={l.budget} variance={l.variance} varMode={view.varMode} showGL={view.showGL} mask={l.mask} />
+        ))}
+        {!hideSubtotal && (
+          <FYRow label={fyLabel(sec)} monthly={sec.subtotalMonthly} total={sec.subtotalTotal} budget={sec.subtotalBudget} variance={sec.subtotalVariance} varMode={view.varMode} variant="subtotal" />
+        )}
+      </Fragment>
+    );
+  };
+  const rollupRow = (label: string, t: FYRollup, strong?: boolean) => (
+    <FYRow key={`r-${label}`} label={label} monthly={t.monthly} total={t.total} budget={t.budget} variance={t.variance} varMode={view.varMode} variant={strong ? "rollupStrong" : "rollup"} />
+  );
+
+  const body: React.ReactNode[] = [];
+  body.push(groupRow("Revenues"));
+  revenueSecs.forEach((sec) => body.push(sectionRows(sec)));
+  body.push(rollupRow("Total Revenues", r.totalRevenues));
+  body.push(groupRow("Operating Expenses"));
+  expenseSecs.forEach((sec) => body.push(sectionRows(sec)));
+  body.push(rollupRow("Total Operating Expenses", r.totalOperatingExpenses));
+  body.push(rollupRow("Net Operating Income", r.netOperatingIncome, true));
+  if (showCapital) {
+    body.push(groupRow("Capital"));
+    capitalSecs.forEach((sec) => body.push(sectionRows(sec, true)));
+  }
+  if (showDebt) {
+    body.push(rollupRow("Cash Flow Before Debt Service", r.cashFlowBeforeDebtService, true));
+    body.push(groupRow("Debt Service"));
+    debtSecs.forEach((sec) => body.push(sectionRows(sec)));
+    body.push(rollupRow("Total Debt Service", r.totalDebtService));
+    body.push(rollupRow("Cash Flow After Debt Service", r.cashFlowAfterDebtService, true));
+  } else {
+    body.push(rollupRow("Cash Flow", r.cashFlowBeforeDebtService, true));
+  }
+
+  return (
+    <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+      <div className="tableWrap" style={{ marginTop: 0 }}>
+        <table style={{ width: "100%", minWidth: 1500, borderCollapse: "collapse" }}>
+          <thead>
+            <tr>
+              <th style={{ ...headStyle, textAlign: "left" }}>Line</th>
+              {MONTHS.map((m, i) => (
+                <th key={m} style={{ ...headStyle, ...(i === 0 ? { borderLeft: GROUP_DIV } : {}) }}>{m}</th>
+              ))}
+              <th style={{ ...headStyle, borderLeft: GROUP_DIV, color: COLOR_BRAND }}>Full Year {String(year).slice(2)}</th>
+              <th style={headStyle}>Budget</th>
+              <th style={headStyle}>{view.varMode === "dollar" ? "Var $" : "Var %"}</th>
+            </tr>
+          </thead>
+          <tbody>{body}</tbody>
+        </table>
+      </div>
+      <div style={{ padding: "10px 14px", borderTop: "1px solid var(--border)" }}>
+        {budgetFallback && budgetYear != null && (
+          <div style={{ marginBottom: 6, fontSize: 12, color: "#b45309", fontWeight: 600 }}>
+            Budget &amp; Variance are hidden — no {year} budget is loaded for this property (nearest is {budgetYear}). Import the {year} budget to compare.
+          </div>
+        )}
+        <p className="small muted" style={{ margin: 0 }}>
+          Each column is that month&rsquo;s actual (GL Debit − Credit, revenue shown positive); <b>Full Year {year}</b> is the sum of all 12 months. These figures match the Reprojections <b>Full-Year Actuals</b> for this property — same GL, same account masks.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ── Coverage matrix — which properties/years have GLs imported ───────────────
+function CoverageModal({ coverage, onClose, onPick }: { coverage: Coverage[]; onClose: () => void; onPick: (key: string, year: number) => void }) {
+  const years = [...new Set(coverage.flatMap((c) => Object.keys(c.years).map(Number)))].sort((a, b) => b - a);
+  const rows = [...coverage].sort((a, b) => (a.isFund !== b.isFund ? (a.isFund ? 1 : -1) : a.propertyCode.localeCompare(b.propertyCode, undefined, { numeric: true })));
+  const fullCount = rows.reduce((n, r) => n + years.filter((y) => (r.years[y] ?? 0) >= 12).length, 0);
+  const cellFor = (months: number) =>
+    !months ? { bg: "transparent", fg: "var(--muted)", text: "—" }
+    : months >= 12 ? { bg: "rgba(21,128,61,0.14)", fg: "#15803d", text: "✓ Full" }
+    : { bg: "rgba(180,83,9,0.14)", fg: "#b45309", text: `${months} mo` };
+  const cs: React.CSSProperties = { padding: "6px 10px", textAlign: "center", fontSize: 13, fontVariantNumeric: "tabular-nums", borderBottom: "1px solid var(--border)", whiteSpace: "nowrap" };
+  const stickyL: React.CSSProperties = { position: "sticky", left: 0, background: "var(--card)" };
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.5)", zIndex: 50, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "5vh 16px", overflow: "auto" }}>
+      <div onClick={(e) => e.stopPropagation()} className="card" style={{ maxWidth: 920, width: "100%", maxHeight: "90vh", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: 16 }}>GL Import Coverage</div>
+            <div className="muted small">{fullCount} property-year{fullCount === 1 ? "" : "s"} fully imported · <span style={{ color: "#15803d", fontWeight: 700 }}>green</span> = 12 months, <span style={{ color: "#b45309", fontWeight: 700 }}>amber</span> = partial, blank = not imported. Click a cell to open it.</div>
+          </div>
+          <button className="btn" onClick={onClose} style={{ fontSize: 13, padding: "6px 12px", fontWeight: 700 }}>Close</button>
+        </div>
+        {years.length === 0 ? (
+          <div className="muted small" style={{ padding: 20 }}>No GLs imported yet.</div>
+        ) : (
+          <div className="tableWrap" style={{ marginTop: 10, overflow: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 320 + years.length * 72 }}>
+              <thead>
+                <tr>
+                  <th style={{ ...cs, ...stickyL, textAlign: "left", fontWeight: 800, zIndex: 1 }}>Property</th>
+                  {years.map((y) => <th key={y} style={{ ...cs, fontWeight: 800 }}>{y}</th>)}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r.key}>
+                    <td style={{ ...cs, ...stickyL, textAlign: "left" }}>
+                      <span style={{ fontWeight: 700 }}>{r.propertyCode}</span> <span className="muted">{r.name}</span>
+                      {r.isFund && <span className="muted" style={{ fontSize: 10, marginLeft: 4 }}>(fund)</span>}
+                    </td>
+                    {years.map((y) => {
+                      const months = r.years[y] ?? 0;
+                      const c = cellFor(months);
+                      return (
+                        <td key={y} onClick={months ? () => onPick(r.key, y) : undefined}
+                          title={months ? `${r.propertyCode} ${y}: ${months} month${months === 1 ? "" : "s"} imported — click to open` : `${r.propertyCode} ${y}: not imported`}
+                          style={{ ...cs, background: c.bg, color: c.fg, fontWeight: 700, cursor: months ? "pointer" : "default" }}>
+                          {c.text}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 

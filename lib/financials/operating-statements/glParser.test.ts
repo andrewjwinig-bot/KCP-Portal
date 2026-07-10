@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseGeneralLedger, parseGeneralLedgerMonthly } from "./glParser";
+import { parseGeneralLedger, parseGeneralLedgerMonthly, reconcileGl } from "./glParser";
 
 type Cell = string | number | null;
 
@@ -33,7 +33,10 @@ const sheet: Cell[][] = [
   monthTotal("February", 0, 1000, -2000),
   // Balance-sheet account with an opening balance — still parsed, summed by net
   row({ 1: "0110-0000", 7: "Cash-Operating", 28: 431318.97 }),
+  row({ 1: "01/20/25", 5: "Deposit", 20: "CR", 21: "02", 22: 5000 }),
   monthTotal("January", 5000, 4000, 432318.97),
+  // Account grand-"Total" row (Multi-Year layout) — Balance = ending balance.
+  row({ 9: "Total", 22: 5000, 25: 4000, 28: 432318.97 }),
 ];
 
 describe("Skyline GL parser", () => {
@@ -80,6 +83,69 @@ describe("Skyline GL parser", () => {
     const res = parseGeneralLedger(sheet, 3);
     // 6030 has March net 0 but YTD 250 → kept; an account with no activity is dropped.
     expect(res.rows.some((r) => r.account === "6030-8502")).toBe(true);
+  });
+
+  // Multi-Year GL layout (2024 and prior): the same Debit/Credit report also
+  // carries per-account Beginning Balance, an ending "Total" row, and dated
+  // transactions — captured so these imports get the Cash KPI + line drill-down.
+  it("captures the Beginning Balance from the account header's Balance column", () => {
+    const m = parseGeneralLedgerMonthly(sheet);
+    expect(m.beginning["0110-0000"]).toBe(431318.97); // balance-sheet opening
+    expect(m.beginning["6030-8502"]).toBe(0);          // P&L opens at $0
+  });
+
+  it("captures the account grand-Total ending balance (beginning + net = ending)", () => {
+    const m = parseGeneralLedgerMonthly(sheet);
+    expect(m.ytdTotal["0110-0000"]).toBe(432318.97);
+    const janNet = (m.monthly["0110-0000"] ?? [])[0];
+    expect(m.beginning["0110-0000"] + janNet).toBeCloseTo(m.ytdTotal["0110-0000"], 2);
+  });
+
+  it("captures dated transactions with the signed net (Debit − Credit), bucketed by month", () => {
+    const m = parseGeneralLedgerMonthly(sheet);
+    const maint = m.transactions["6030-8502"] ?? [];
+    expect(maint).toHaveLength(1);
+    expect(maint[0]).toMatchObject({ month: 1, amount: 100, date: "01/15/25" }); // debit → +100
+    const cash = m.transactions["0110-0000"] ?? [];
+    expect(cash[0]).toMatchObject({ month: 1, amount: 5000, date: "01/20/25" });
+  });
+
+  it("reconciles: beginning + Σ(monthly nets) == reported ending balance", () => {
+    const m = parseGeneralLedgerMonthly(sheet);
+    const rec = reconcileGl(m);
+    // Only the cash account reported an ending "Total" row in this fixture.
+    expect(rec.checked).toBe(1);
+    expect(rec.reconciled).toBe(1);
+    expect(rec.mismatches).toHaveLength(0);
+  });
+
+  it("flags a mismatch when an ending balance doesn't tie (e.g. a mis-read column)", () => {
+    const m = parseGeneralLedgerMonthly(sheet);
+    m.ytdTotal["0110-0000"] = 999999; // corrupt the reported ending
+    const rec = reconcileGl(m);
+    expect(rec.mismatches).toHaveLength(1);
+    expect(rec.mismatches[0].account).toBe("0110-0000");
+  });
+});
+
+// ── Multi-Year General Ledger (a range spanning >1 year) ─────────────────────
+describe("Multi-Year GL range handling", () => {
+  const my: Cell[][] = [
+    row({ 10: "Property/Company : 4500" }),
+    row({ 10: "1/1/2023 To 12/31/2024" }), // TWO years
+    row({ 5: "Description", 23: "Debit", 25: "Credit", 28: "Balance" }),
+    row({ 1: "6030-8502", 7: "Maintenance Salaries", 28: 0 }),
+    row({ 6: "January 2023 Total", 22: 500, 25: 0, 28: 500 }),   // prior year — must NOT bucket
+    row({ 6: "January 2024 Total", 22: 100, 25: 0, 28: 600 }),   // target year → Jan
+    row({ 6: "February 2024 Total", 22: 150, 25: 0, 28: 750 }),
+  ];
+  it("buckets into the range's END year and does not let 2023 overwrite 2024", () => {
+    const m = parseGeneralLedgerMonthly(my);
+    expect(m.year).toBe(2024);
+    expect(m.multiYear).toBe(true);
+    expect(m.yearsCovered).toEqual([2023, 2024]);
+    expect((m.monthly["6030-8502"] ?? [])[0]).toBe(100); // Jan 2024, not 500 (2023)
+    expect((m.monthly["6030-8502"] ?? [])[1]).toBe(150); // Feb 2024
   });
 });
 

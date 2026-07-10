@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import * as XLSX from "xlsx";
-import { parseGeneralLedgerMonthly, summaryForPeriod } from "@/lib/financials/operating-statements/glParser";
+import { parseGeneralLedgerMonthly, summaryForPeriod, reconcileGl } from "@/lib/financials/operating-statements/glParser";
 import { computeStatement } from "@/lib/financials/operating-statements/compute";
 import { availableStatements, getMapping, resolveStatementKey } from "@/lib/financials/operating-statements/mappingStore";
 import { resolvePropertyBudget, makeBudgetLookup } from "@/lib/financials/operating-statements/budgetCrosswalk";
@@ -25,6 +25,26 @@ export const revalidate = 0;
 function propertyName(key: string, fallback: string): string {
   return PROPERTY_DEFS.find((p) => p.id === key)?.name ?? fallback;
 }
+
+/** Compact 12-month + full-year-total payload for the Operating Statements
+ *  "Full Year" period option. Each figure is display-oriented (revenue +,
+ *  expense +), matching the single-month statement and the reprojection. */
+type FullYearCell = { monthly: number[]; total: number; budget: number | null; variance: number | null };
+type FullYearPayload = {
+  sections: {
+    name: string;
+    role: import("@/lib/financials/operating-statements/types").SectionRole;
+    lines: { label: string; mask: string; accounts: string[]; monthly: number[]; total: number; budget: number | null; variance: number | null }[];
+    subtotalMonthly: number[];
+    subtotalTotal: number;
+    subtotalBudget: number | null;
+    subtotalVariance: number | null;
+  }[];
+  rollups: Record<
+    "totalRevenues" | "totalOperatingExpenses" | "netOperatingIncome" | "cashFlowBeforeDebtService" | "totalDebtService" | "cashFlowAfterDebtService",
+    FullYearCell
+  >;
+};
 
 
 /** Sum several entities' GLs (shell + buildings) into one consolidated GL —
@@ -88,7 +108,30 @@ export async function GET(req: Request) {
     latest: latestByKey.get(m.key) ?? null,
   }));
 
-  if (!key || !year) return NextResponse.json({ available });
+  // Coverage matrix — per property, per year, how many months are imported
+  // (0 = none). Powers the "what still needs uploading" grid for backfills.
+  const coverageByKey = new Map<string, Record<number, number>>();
+  for (const [k, ym] of byKeyYear) {
+    const rec: Record<number, number> = {};
+    for (const [yr, arr] of ym) { const asm = assembleGls(arr); if (asm) rec[yr] = asm.maxPeriodInFile; }
+    coverageByKey.set(k, rec);
+  }
+  const coverage = mappings.map((m) => {
+    const fundParts = FUND_BUILDINGS[m.key];
+    let years = coverageByKey.get(m.key) ?? {};
+    if (fundParts) {
+      // A fund has no GL of its own — a year is covered only to the MIN period
+      // across its member buildings (all members needed for a full consolidation).
+      const rec: Record<number, number> = {};
+      const allYears = new Set<number>();
+      for (const mem of fundParts) for (const y of Object.keys(coverageByKey.get(mem) ?? {})) allYears.add(Number(y));
+      for (const y of allYears) rec[y] = Math.min(...fundParts.map((mem) => (coverageByKey.get(mem) ?? {})[y] ?? 0));
+      years = rec;
+    }
+    return { key: m.key, propertyCode: m.propertyCode, name: propertyName(m.key, m.entityName), isFund: !!fundParts, years };
+  });
+
+  if (!key || !year) return NextResponse.json({ available, coverage });
 
   const mapping = await getMapping(key);
   if (!mapping) return NextResponse.json({ available, error: "No mapping for that property" }, { status: 404 });
@@ -133,7 +176,13 @@ export async function GET(req: Request) {
   // under the fund code.
   const budgetCodes = fundParts ? [key, ...fundParts, mapping.propertyCode] : mapping.propertyCode;
   const budget = await resolvePropertyBudget(budgetCodes, year);
-  const budgetLookup = budget ? makeBudgetLookup(budget, period) : undefined;
+  // Only compare against a SAME-YEAR budget. A different year's budget (the
+  // nearest-year fallback) is misleading on a statement — comparing, say, 2024
+  // actuals to the 2026 plan — so when the only budget is another year we hide
+  // the Budget/Variance columns instead. Import that year's budget to compare.
+  const sameYearBudget = budget && !budget.fallback ? budget : null;
+  const budgetHidden = !!(budget && budget.fallback);
+  const budgetLookup = sameYearBudget ? makeBudgetLookup(sameYearBudget, period) : undefined;
   const { notes, sources: rawSources, meta: noteMeta } = await getNotesBundle(key, year, period);
   // Every existing note gets a source. A note with no recorded source can only
   // be an AI note — manual saves always stamp "user" — so default missing to
@@ -166,6 +215,55 @@ export async function GET(req: Request) {
       const flags = trendFlags(amounts, [], amounts[period - 1] ?? null, pySame);
       if (flags.length) l.flags = flags;
     }
+  }
+
+  // Full-Year view — 12 monthly columns + a full-year total, all from the SAME
+  // engine as the single-month statement. Each month's column is that month's
+  // `periodActual`; the Full-Year total/budget/variance are the year's figures
+  // through December. This ties out to the Reprojections "Full-Year Actuals"
+  // for a closed year BY CONSTRUCTION: both share the line masks, the roleSign,
+  // and the consolidated GL — reproject.actual[i] === this month's periodActual,
+  // and the Full-Year total === Σ of the 12 months === reproject.reprojTotal.
+  let fullYear: FullYearPayload | null = null;
+  if (url.searchParams.get("fullYear") === "1") {
+    const nameFor = propertyName(key, mapping.entityName);
+    const perMonth = Array.from({ length: 12 }, (_, i) =>
+      computeStatement({ mapping, propertyName: nameFor, year, period: i + 1, gl: summaryForPeriod(stored.monthly, i + 1) })
+    );
+    // Period 12 gives the section/line structure + full-year figures (ytdActual
+    // through December, ytdBudget = Σ of the 12 budget months = reproject's
+    // budgetTotal, ytdVariance = the favorability-signed full-year variance).
+    const full = computeStatement({
+      mapping, propertyName: nameFor, year, period: 12,
+      gl: summaryForPeriod(stored.monthly, 12),
+      budgetLookup: sameYearBudget ? makeBudgetLookup(sameYearBudget, 12) : undefined,
+    });
+    const ROLLUP_KEYS = ["totalRevenues", "totalOperatingExpenses", "netOperatingIncome", "cashFlowBeforeDebtService", "totalDebtService", "cashFlowAfterDebtService"] as const;
+    fullYear = {
+      sections: full.sections.map((s, si) => ({
+        name: s.name,
+        role: s.role,
+        lines: s.lines.map((l, li) => ({
+          label: l.label,
+          mask: l.mask,
+          accounts: l.accounts,
+          monthly: perMonth.map((pm) => pm.sections[si].lines[li].periodActual),
+          total: l.ytdActual,
+          budget: l.ytdBudget,
+          variance: l.ytdVariance,
+        })),
+        subtotalMonthly: perMonth.map((pm) => pm.sections[si].subtotal.periodActual),
+        subtotalTotal: s.subtotal.ytdActual,
+        subtotalBudget: s.subtotal.ytdBudget,
+        subtotalVariance: s.subtotal.ytdVariance,
+      })),
+      rollups: Object.fromEntries(ROLLUP_KEYS.map((rk) => [rk, {
+        monthly: perMonth.map((pm) => pm.rollups[rk].periodActual),
+        total: full.rollups[rk].ytdActual,
+        budget: full.rollups[rk].ytdBudget,
+        variance: full.rollups[rk].ytdVariance,
+      }])) as FullYearPayload["rollups"],
+    };
   }
 
   // Label the unmapped (non-operating) accounts with their GL account name,
@@ -219,11 +317,13 @@ export async function GET(req: Request) {
     uploadedBy: stored.uploadedBy ?? null,
     budgetYear: budget?.budgetYear ?? null,
     budgetFallback: budget?.fallback ?? false,
+    budgetHidden,
     notes,
     noteSources,
     noteMeta,
     operatingCash,
     statement,
+    fullYear,
   });
 }
 
@@ -257,6 +357,10 @@ export async function POST(req: Request) {
     const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true, defval: null }) as (string | number | null)[][];
 
     const parsed = parseGeneralLedgerMonthly(rows);
+    // Tie-out check: every account's beginning + Σ(monthly nets) must equal its
+    // reported ending balance. A mis-detected column layout surfaces here as
+    // mismatches instead of silently importing wrong numbers.
+    const recon = reconcileGl(parsed);
     // The GL header's Property/Company code is authoritative; fall back to the
     // viewing selection only if the header had none.
     const keyRaw = form.get("key");
@@ -354,6 +458,14 @@ export async function POST(req: Request) {
       accounts: Object.keys(parsed.monthly).length,
       allocatedGlReady: isGandA,
       tasksCompleted,
+      // Import health: tie-out result + a multi-year-range warning.
+      reconciliation: {
+        checked: recon.checked,
+        reconciled: recon.reconciled,
+        mismatches: recon.mismatches.slice(0, 8), // cap the payload
+        mismatchCount: recon.mismatches.length,
+      },
+      multiYear: parsed.multiYear ? { yearsCovered: parsed.yearsCovered ?? [], importedYear: parsed.year } : null,
     });
   } catch (e) {
     return NextResponse.json(
