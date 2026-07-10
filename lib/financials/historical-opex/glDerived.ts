@@ -11,7 +11,7 @@ import "server-only";
 import { listFullGls, type StoredGl } from "@/lib/financials/operating-statements/statementStore";
 import { getMapping } from "@/lib/financials/operating-statements/mappingStore";
 import { assembleGls } from "@/lib/financials/operating-statements/glAssemble";
-import { lineMonthly } from "@/lib/financials/operating-statements/lineSeries";
+import { claimAccounts } from "@/lib/financials/operating-statements/mask";
 import { EXPENSE_ROLES } from "@/lib/financials/operating-statements/types";
 import type { HistoricalOpExEntry } from "./types";
 
@@ -42,12 +42,18 @@ export async function glDerivedOpEx(): Promise<HistoricalOpExEntry[]> {
     for (const [year, arr] of ym) {
       const asm = assembleGls(arr);
       if (!asm) continue;
+      const accounts = Object.keys(asm.monthly);
       for (const sec of expenseSections) {
-        for (const line of sec.lines) {
-          // Full-year total for the line: sum of its 12 monthly nets (expense
-          // sign is +1). lineMonthly already applies the mask + rounding.
-          const annual = lineMonthly(asm.monthly, line.mask, 1, 12).reduce((a, n) => a + n, 0);
-          if (Math.abs(annual) < 0.5) continue;
+        // Claim each account to its most-specific line so a catch-all mask
+        // (e.g. G&A "8*-*") doesn't re-count accounts owned by a specific line —
+        // matching the operating statement engine.
+        const claimed = claimAccounts(sec.lines.map((l) => l.mask), accounts);
+        sec.lines.forEach((line, li) => {
+          // Full-year total: sum the line's claimed accounts' 12 monthly nets
+          // (expense sign is +1, so debit-normal nets are already positive).
+          let annual = 0;
+          for (const acct of claimed[li]) annual += (asm.monthly[acct] ?? []).reduce((a, n) => a + n, 0);
+          if (Math.abs(annual) < 0.5) return;
           const k = `${mapping.propertyCode}::${line.label}`;
           const entry = out.get(k) ?? {
             propertyCode: mapping.propertyCode,
@@ -57,9 +63,9 @@ export async function glDerivedOpEx(): Promise<HistoricalOpExEntry[]> {
             source: "GL import",
             updatedAt: stamp,
           };
-          entry.yearly[String(year)] = annual;
+          entry.yearly[String(year)] = Math.round(annual);
           out.set(k, entry);
-        }
+        });
       }
     }
   }

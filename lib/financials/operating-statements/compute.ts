@@ -6,7 +6,7 @@
 // testable (compute.test.ts) and reused by the API + any export. The page,
 // importer, and budget wiring all layer on top.
 
-import { accountsMatchingMask } from "./mask";
+import { claimAccounts } from "./mask";
 import {
   EXPENSE_ROLES,
   type GlSummaryRow,
@@ -103,22 +103,24 @@ export type ComputeInput = {
   year: number;
   period: number;
   gl: GlSummaryRow[];
-  /** Budget figures for a line, by (section name, line label, account mask).
-   *  The mask lets a crosswalk match the line to budget GL accounts. Return
-   *  null for no-budget — the column renders blank. */
-  budgetLookup?: (sectionName: string, lineLabel: string, mask: string) => LineBudget | null;
+  /** Budget figures for a line, by (section name, line mask, sibling masks).
+   *  The mask lets a crosswalk match the line to budget GL accounts; the sibling
+   *  masks let it claim each budget account to its most-specific line (so a
+   *  catch-all doesn't double-count budget the way it must not for actuals).
+   *  Return null for no-budget — the column renders blank. */
+  budgetLookup?: (sectionName: string, lineMask: string, sectionMasks: string[]) => LineBudget | null;
 };
 
 function computeLine(
   line: { label: string; mask: string },
   role: SectionRole,
   gl: GlSummaryRow[],
-  accounts: string[],
+  matched: string[],          // accounts CLAIMED by this line within its section
+  sectionMasks: string[],
   budgetLookup?: ComputeInput["budgetLookup"],
   sectionName?: string
 ): StatementLine {
   const sign = roleSign(role);
-  const matched = accountsMatchingMask(line.mask, accounts);
   const set = new Set(matched);
   let periodActual = 0;
   let ytdActual = 0;
@@ -129,7 +131,7 @@ function computeLine(
   }
   periodActual *= sign;
   ytdActual *= sign;
-  const b = budgetLookup?.(sectionName ?? "", line.label, line.mask) ?? null;
+  const b = budgetLookup?.(sectionName ?? "", line.mask, sectionMasks) ?? null;
   const t = mkTotals(
     periodActual,
     b?.periodBudget ?? null,
@@ -147,8 +149,13 @@ function computeSection(
   accounts: string[],
   budgetLookup?: ComputeInput["budgetLookup"]
 ): StatementSection {
-  const lines = section.lines.map((l) =>
-    computeLine(l, section.role, gl, accounts, budgetLookup, section.name)
+  // Assign each account to its most-specific line so a catch-all mask (e.g.
+  // G&A "8*-*") never re-counts an account already owned by a specific line
+  // (e.g. Business Taxes "8210-8501") — which would double-count the subtotal.
+  const masks = section.lines.map((l) => l.mask);
+  const claimed = claimAccounts(masks, accounts);
+  const lines = section.lines.map((l, i) =>
+    computeLine(l, section.role, gl, claimed[i], masks, budgetLookup, section.name)
   );
   return {
     name: section.name,

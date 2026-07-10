@@ -1,5 +1,31 @@
 import { describe, it, expect } from "vitest";
-import { accountMatchesMask, accountsMatchingMask } from "./mask";
+import { accountMatchesMask, accountsMatchingMask, claimAccounts } from "./mask";
+
+describe("claimAccounts — most-specific mask wins (no double-count)", () => {
+  it("a specific mask beats a catch-all in the same section", () => {
+    const masks = ["8210-8501", "8310-8501", "8*-*"]; // Business Taxes, Legal, G&A
+    const accounts = ["8210-8501", "8310-8501", "8400-8501", "8900-0000"];
+    const owned = claimAccounts(masks, accounts);
+    expect(owned[0]).toEqual(["8210-8501"]);        // Business Taxes
+    expect(owned[1]).toEqual(["8310-8501"]);        // Legal & Accounting
+    expect(owned[2].sort()).toEqual(["8400-8501", "8900-0000"]); // G&A: only the rest
+  });
+
+  it("every matched account is claimed exactly once (tie-out preserved)", () => {
+    const masks = ["8210-8501", "8*-*"];
+    const accounts = ["8210-8501", "8211-8501", "7000-0000"]; // 7000 matches neither
+    const owned = claimAccounts(masks, accounts);
+    const claimed = owned.flat().sort();
+    expect(claimed).toEqual(["8210-8501", "8211-8501"]); // 7000 unclaimed (unmapped)
+    expect(new Set(claimed).size).toBe(claimed.length);  // no account claimed twice
+  });
+
+  it("prefix specificity: 89* beats 8*", () => {
+    const owned = claimAccounts(["8*-*", "89*-*"], ["8950-8501"]);
+    expect(owned[0]).toEqual([]);           // 8*-* loses
+    expect(owned[1]).toEqual(["8950-8501"]); // 89*-* wins
+  });
+});
 
 describe("operating-statement GL mask matcher", () => {
   it("exact account", () => {

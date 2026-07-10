@@ -63,3 +63,42 @@ export function accountMatchesMask(mask: string, account: string): boolean {
 export function accountsMatchingMask(mask: string, accounts: string[]): string[] {
   return accounts.filter((a) => accountMatchesMask(mask, a));
 }
+
+/** Literal (non-wildcard) character count of a single mask token — a
+ *  specificity proxy: more literal characters ⇒ narrower match. */
+function tokenLiterals(token: string): number {
+  return token.replace(/\.\.\d+/g, "0").replace(/[*\-\s]/g, "").length;
+}
+
+/** For an account matched by `mask`, the specificity of its best-matching token
+ *  (−1 when no token matches). */
+function maskSpecificityFor(mask: string, account: string): number {
+  let best = -1;
+  for (const tok of mask.split(",").map((t) => t.trim()).filter(Boolean)) {
+    if (tokenMatches(tok, account)) best = Math.max(best, tokenLiterals(tok));
+  }
+  return best;
+}
+
+/** Assign each account to exactly ONE mask — the one that matches it most
+ *  specifically. A specific mask ("8210-8501") beats a catch-all ("8*-*") in
+ *  the same section, so a catch-all never re-counts an account that already has
+ *  its own line (which would double-count it in the section subtotal). Ties go
+ *  to the earlier mask. Returns, per input-mask index, the accounts it owns.
+ *
+ *  Every account matched by at least one mask is claimed by exactly one, so the
+ *  union of the returned lists equals `accountsMatchingMask` over all masks —
+ *  the trial-balance / unmapped tie-out is unaffected. */
+export function claimAccounts(masks: string[], accounts: string[]): string[][] {
+  const owned: string[][] = masks.map(() => []);
+  for (const acct of accounts) {
+    let bestIdx = -1;
+    let bestSpec = -1;
+    for (let i = 0; i < masks.length; i++) {
+      const s = maskSpecificityFor(masks[i], acct);
+      if (s > bestSpec) { bestSpec = s; bestIdx = i; }
+    }
+    if (bestIdx >= 0) owned[bestIdx].push(acct);
+  }
+  return owned;
+}

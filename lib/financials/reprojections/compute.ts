@@ -11,7 +11,7 @@
 // the Operating Statements role/sign/favorability logic and the same line
 // mapping, so the section ladder + rollups match the budget and statement.
 
-import { accountsMatchingMask, accountMatchesMask } from "@/lib/financials/operating-statements/mask";
+import { claimAccounts } from "@/lib/financials/operating-statements/mask";
 import { roleSign, favorability } from "@/lib/financials/operating-statements/compute";
 import {
   EXPENSE_ROLES,
@@ -113,24 +113,30 @@ export function reproject(input: ReprojectInput): Reprojection {
   const accounts = Object.keys(input.glMonthly);
   const usedAccounts = new Set<string>();
 
+  const budgetAccts = input.budgetLines.map((b) => b.glAccount);
   const sections: ReprojSection[] = input.mapping.sections.map((section: MappingSection) => {
     const sign = roleSign(section.role);
     const fav = favorability(section.role);
-    const lines: ReprojLine[] = section.lines.map((l) => {
-      const matched = accountsMatchingMask(l.mask, accounts);
-      const set = new Set(matched);
+    // Assign each GL and budget account to its most-specific line so a catch-all
+    // mask never re-counts an account with its own line (double-counting the
+    // subtotal) — matching the operating statement engine.
+    const masks = section.lines.map((l) => l.mask);
+    const claimedGl = claimAccounts(masks, accounts);
+    const claimedBudget = claimAccounts(masks, budgetAccts);
+    const lines: ReprojLine[] = section.lines.map((l, li) => {
+      const matched = claimedGl[li];
       matched.forEach((a) => usedAccounts.add(a));
-      // Actuals: sum matching GL accounts' monthly nets, sign to display.
+      // Actuals: sum this line's claimed GL accounts' monthly nets, sign to display.
       const actual = zero();
-      for (const acct of accounts) {
-        if (!set.has(acct)) continue;
+      for (const acct of matched) {
         const m = input.glMonthly[acct] ?? [];
         for (let i = 0; i < MONTHS; i++) actual[i] += (m[i] ?? 0) * sign;
       }
-      // Budget: sum matching budget lines' monthly amounts.
+      // Budget: sum the budget lines this line claims.
+      const bset = new Set(claimedBudget[li]);
       const budget = zero();
       for (const bl of input.budgetLines) {
-        if (!accountMatchesMask(l.mask, bl.glAccount)) continue;
+        if (!bset.has(bl.glAccount)) continue;
         for (let i = 0; i < MONTHS; i++) budget[i] += bl.months[i] ?? 0;
       }
       const blended = blend(actual, budget, through);
