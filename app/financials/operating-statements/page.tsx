@@ -6,7 +6,7 @@
 // section ladder as the budget. Budget columns fill in step 2 (cross-walk to
 // the portal budget); for now they read blank.
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { useUser } from "@/app/components/UserProvider";
 import { DownloadMenu } from "@/app/components/DownloadMenu";
 import { StatPill } from "@/app/components/Pill";
@@ -24,7 +24,21 @@ import type {
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] as const;
 
+// Period sentinel for the "Full Year" dropdown option (below December). Selecting
+// it renders all 12 monthly columns + a full-year total, instead of one month.
+const FULL_YEAR = 13;
+
 type Available = { key: string; propertyCode: string; entityName: string; name: string; years: number[]; latest?: { year: number; period: number } | null };
+
+// Full-Year payload (mirrors the API's FullYearPayload) — 12 monthly columns +
+// a full-year total/budget/variance for every line, subtotal and rollup.
+type FYLine = { label: string; mask: string; accounts: string[]; monthly: number[]; total: number; budget: number | null; variance: number | null };
+type FYSection = { name: string; role: SectionRole; lines: FYLine[]; subtotalMonthly: number[]; subtotalTotal: number; subtotalBudget: number | null; subtotalVariance: number | null };
+type FYRollup = { monthly: number[]; total: number; budget: number | null; variance: number | null };
+type FullYear = {
+  sections: FYSection[];
+  rollups: Record<"totalRevenues" | "totalOperatingExpenses" | "netOperatingIncome" | "cashFlowBeforeDebtService" | "totalDebtService" | "cashFlowAfterDebtService", FYRollup>;
+};
 
 /** Compact "most recent period imported" suffix for the property dropdown,
  *  e.g. " (01-26)" for January 2026, or " (no GL)" when nothing is uploaded. */
@@ -270,6 +284,7 @@ export default function OperatingStatementsPage() {
   const [budgetYear, setBudgetYear] = useState<number | null>(null);
   const [budgetFallback, setBudgetFallback] = useState(false);
   const [statement, setStatement] = useState<PropertyStatement | null>(null);
+  const [fullYear, setFullYear] = useState<FullYear | null>(null);
   const [lastImport, setLastImport] = useState<{ at: string; by: string | null } | null>(null);
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [operatingCash, setOperatingCash] = useState<number | null>(null);
@@ -339,9 +354,11 @@ export default function OperatingStatementsPage() {
     setError(null);
     try {
       const qs = new URLSearchParams({ key, year: String(year) });
-      if (period) qs.set("period", String(period));
+      if (period && period !== FULL_YEAR) qs.set("period", String(period));
+      if (period === FULL_YEAR) qs.set("fullYear", "1");
       const j = await fetch(`/api/financials/operating-statements?${qs}`).then((r) => r.json());
       setStatement(j.statement ?? null);
+      setFullYear(j.fullYear ?? null);
       setLastImport(j.uploadedAt ? { at: j.uploadedAt, by: j.uploadedBy ?? null } : null);
       setDebtCheck(j.debtCheck ?? null);
       setAllocatedGA(j.allocatedGA ?? null);
@@ -550,6 +567,7 @@ export default function OperatingStatementsPage() {
 
   const thresh: Thresh = { dollar: varDollar, pct: varPctThresh, min: varFloor };
   const variance = statement ? varianceCounts(statement, thresh) : null;
+  const isFullYear = period === FULL_YEAR;
 
   return (
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
@@ -699,10 +717,11 @@ export default function OperatingStatementsPage() {
               {yearOptions.map((y) => <option key={y} value={y}>{y}</option>)}
             </HeaderSelect>
             {statement && (
-              <HeaderSelect value={String(period || statement.period)} onChange={(v) => setPeriod(Number(v))} displayLabel={MONTHS[(period || statement.period) - 1]} ariaLabel="Period" muted>
+              <HeaderSelect value={String(period || statement.period)} onChange={(v) => setPeriod(Number(v))} displayLabel={period === FULL_YEAR ? "Full Year" : MONTHS[(period || statement.period) - 1]} ariaLabel="Period" muted>
                 {Array.from({ length: maxPeriod }, (_, i) => i + 1).map((p) => (
                   <option key={p} value={p}>{MONTHS[p - 1]} — Period {p}</option>
                 ))}
+                <option value={FULL_YEAR}>Full Year — all 12 months</option>
               </HeaderSelect>
             )}
           </div>
@@ -727,8 +746,8 @@ export default function OperatingStatementsPage() {
               <DownloadMenu
                 disabled={!statement}
                 items={[
-                  { label: "Excel (.xlsx)", description: "Full Period + YTD statement with budget & variance", href: `/api/financials/operating-statements/download?key=${encodeURIComponent(key)}&year=${year}${period ? `&period=${period}` : ""}` },
-                  { label: "PDF", description: "Presentation-ready single-property statement", href: `/api/financials/operating-statements/download/pdf?key=${encodeURIComponent(key)}&year=${year}${period ? `&period=${period}` : ""}` },
+                  { label: "Excel (.xlsx)", description: "Full Period + YTD statement with budget & variance", href: `/api/financials/operating-statements/download?key=${encodeURIComponent(key)}&year=${year}${period && !isFullYear ? `&period=${period}` : ""}` },
+                  { label: "PDF", description: "Presentation-ready single-property statement", href: `/api/financials/operating-statements/download/pdf?key=${encodeURIComponent(key)}&year=${year}${period && !isFullYear ? `&period=${period}` : ""}` },
                 ]}
               />
             )}
@@ -757,7 +776,7 @@ export default function OperatingStatementsPage() {
           {cur && <LastImported at={lastImport?.at} by={lastImport?.by} label={`${cur.name} GL last imported`} />}
         </div>
 
-        {statement && variance && (() => {
+        {statement && variance && !isFullYear && (() => {
           const noi = statement.rollups.netOperatingIncome;
           const mPct = varPct(noi.periodVariance, noi.periodBudget);
           const yPct = varPct(noi.ytdVariance, noi.ytdBudget);
@@ -819,7 +838,7 @@ export default function OperatingStatementsPage() {
         })()}
       </div>
 
-      {!loading && statement && brief && (
+      {!loading && statement && brief && !isFullYear && (
         <div className="card" style={{ borderColor: "rgba(109,40,217,0.35)", background: "rgba(109,40,217,0.05)" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 6 }}>
             <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "#6d28d9", display: "flex", alignItems: "center", gap: 6 }}>
@@ -844,12 +863,12 @@ export default function OperatingStatementsPage() {
         </div>
       )}
 
-      {!loading && statement && debtCheck?.missing && (
+      {!loading && statement && debtCheck?.missing && !isFullYear && (
         <div style={{ margin: "0 0 12px", padding: "10px 14px", borderRadius: 10, background: "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.35)", color: "#b91c1c", fontSize: 13, fontWeight: 600 }}>
           ⚠ This property has a loan (scheduled P&amp;I ${money0(debtCheck.scheduled)}/mo) but <b>$0 debt service posted</b> this month — the mortgage charge may be missing. Re-post the charge or re-upload the GL.
         </div>
       )}
-      {!loading && statement && allocatedGA && (() => {
+      {!loading && statement && allocatedGA && !isFullYear && (() => {
         const mon = MONTHS[statement.period - 1];
         return (
           <div className="card" style={{ borderColor: "rgba(180,83,9,0.4)", background: "rgba(217,119,6,0.06)" }}>
@@ -872,7 +891,10 @@ export default function OperatingStatementsPage() {
           </div>
         );
       })()}
-      {!loading && statement && <StatementTable s={statement} viewKey={key} budgetYear={budgetYear} budgetFallback={budgetFallback} notes={notes} noteSources={noteSources} noteMeta={noteMeta} editorLabel={user.label} onSaveNote={saveNote} dismissedFlags={dismissedFlags} onDismissFlag={onDismissFlag} view={{ psf, sqft, hideEmpty, showGL, varMode }} thresh={thresh} flagFilter={flagFilter} onClearFilter={() => setFlagFilter(null)} />}
+      {!loading && statement && isFullYear && fullYear && (
+        <FullYearTable fy={fullYear} year={year} view={{ hideEmpty, showGL, varMode }} budgetYear={budgetYear} budgetFallback={budgetFallback} />
+      )}
+      {!loading && statement && !isFullYear && <StatementTable s={statement} viewKey={key} budgetYear={budgetYear} budgetFallback={budgetFallback} notes={notes} noteSources={noteSources} noteMeta={noteMeta} editorLabel={user.label} onSaveNote={saveNote} dismissedFlags={dismissedFlags} onDismissFlag={onDismissFlag} view={{ psf, sqft, hideEmpty, showGL, varMode }} thresh={thresh} flagFilter={flagFilter} onClearFilter={() => setFlagFilter(null)} />}
     </main>
   );
 }
@@ -1039,6 +1061,143 @@ function StatementTable({ s, viewKey, budgetYear, budgetFallback, notes, noteSou
       {footerCard}
       {detailModal}
     </>
+  );
+}
+
+// ── Full-Year view — 12 monthly columns + a full-year total ──────────────────
+// One wide, scrollable table following the SAME section ladder as the single-
+// month statement. Every figure comes from the same compute engine (each month
+// is that month's actual; the Full-Year total/budget/variance are the year's
+// figures through December), so it ties out to the Reprojections "Full-Year
+// Actuals" for a closed year line-for-line.
+
+const fyLabel = (sec: FYSection) =>
+  sec.role === "revenue" ? "Total Revenue and Other" : `Total ${sec.name}`;
+
+function FYRow({ label, monthly, total, budget, variance, varMode, showGL, mask, variant = "line" }: {
+  label: string; monthly: number[]; total: number; budget: number | null; variance: number | null;
+  varMode: VarMode; showGL?: boolean; mask?: string; variant?: "line" | "subtotal" | "rollup" | "rollupStrong";
+}) {
+  const bold = variant !== "line";
+  const upper = variant === "rollup" || variant === "rollupStrong";
+  const rowStyle: React.CSSProperties | undefined =
+    variant === "subtotal" ? { background: "rgba(11,74,125,0.06)", borderTop: "2px solid rgba(11,74,125,0.30)" }
+    : variant === "rollupStrong" ? { background: "rgba(11,74,125,0.06)" }
+    : variant === "rollup" ? { background: "rgba(11,74,125,0.035)" }
+    : undefined;
+  const num = (v: number | null, key: string | number, extra?: React.CSSProperties) => (
+    <td key={key} style={{ ...numStyle, ...(bold ? { fontWeight: 800 } : {}), ...extra }}>
+      {v == null || Math.abs(v) < 0.5 ? <span style={{ color: "var(--muted)" }}>–</span> : money0(v)}
+    </td>
+  );
+  const pct = varPct(variance, budget);
+  const varVal = varMode === "dollar" ? variance : pct;
+  const varText = varMode === "dollar" ? (variance == null ? "—" : money0(variance)) : fmtPct(pct);
+  return (
+    <tr style={rowStyle}>
+      <td style={{ ...labelStyle, ...(bold ? { fontWeight: 800, color: COLOR_BRAND } : {}), ...(upper ? { textTransform: "uppercase", letterSpacing: "0.04em", fontSize: 13.5 } : {}) }}>
+        {label}
+        {showGL && mask && <div className="muted" style={{ fontSize: 11, fontVariantNumeric: "tabular-nums", marginTop: 1 }}>{mask}</div>}
+      </td>
+      {monthly.map((m, i) => num(m, i, i === 0 ? { borderLeft: GROUP_DIV } : undefined))}
+      {num(total, "total", { borderLeft: GROUP_DIV, color: COLOR_BRAND, fontWeight: 800 })}
+      {num(budget, "budget", { color: "var(--muted)" })}
+      <td style={{ ...numStyle, ...(bold ? { fontWeight: 800 } : {}), color: varColor(varVal) }}>{varText}</td>
+    </tr>
+  );
+}
+
+function FullYearTable({ fy, year, view, budgetYear, budgetFallback }: {
+  fy: FullYear; year: number; view: { hideEmpty: boolean; showGL: boolean; varMode: VarMode };
+  budgetYear: number | null; budgetFallback: boolean;
+}) {
+  const byRole = (roles: SectionRole[]) => fy.sections.filter((x) => roles.includes(x.role));
+  const revenueSecs = byRole(["revenue", "reimbursement"]);
+  const expenseSecs = byRole(["reimbursable-expense", "non-reimbursable-expense", "residential-expense"]);
+  const capitalSecs = byRole(["capital"]);
+  const debtSecs = byRole(["debt-service"]);
+  const r = fy.rollups;
+  const empty = (monthly: number[], total: number) => Math.abs(total) < 0.5 && monthly.every((m) => Math.abs(m) < 0.5);
+  const hasActivity = (secs: FYSection[]) => secs.some((sec) => sec.lines.some((l) => !empty(l.monthly, l.total)) || !empty(sec.subtotalMonthly, sec.subtotalTotal));
+  const showCapital = capitalSecs.length > 0 && (!view.hideEmpty || hasActivity(capitalSecs));
+  const showDebt = debtSecs.length > 0 && (!view.hideEmpty || hasActivity(debtSecs));
+
+  const groupRow = (label: string) => (
+    <tr key={`g-${label}`}>
+      <td colSpan={16} style={{ padding: "12px 12px 6px", borderBottom: `2px solid ${COLOR_BRAND}`, fontSize: 14, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", color: COLOR_BRAND }}>{label}</td>
+    </tr>
+  );
+  const sectionRows = (sec: FYSection, hideSubtotal?: boolean) => {
+    const lines = view.hideEmpty ? sec.lines.filter((l) => !empty(l.monthly, l.total)) : sec.lines;
+    return (
+      <Fragment key={sec.name}>
+        <tr>
+          <td colSpan={16} style={{ padding: "8px 12px", background: "rgba(15,23,42,0.03)", fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase" }}>{sec.name}</td>
+        </tr>
+        {lines.map((l) => (
+          <FYRow key={l.label} label={l.label} monthly={l.monthly} total={l.total} budget={l.budget} variance={l.variance} varMode={view.varMode} showGL={view.showGL} mask={l.mask} />
+        ))}
+        {!hideSubtotal && (
+          <FYRow label={fyLabel(sec)} monthly={sec.subtotalMonthly} total={sec.subtotalTotal} budget={sec.subtotalBudget} variance={sec.subtotalVariance} varMode={view.varMode} variant="subtotal" />
+        )}
+      </Fragment>
+    );
+  };
+  const rollupRow = (label: string, t: FYRollup, strong?: boolean) => (
+    <FYRow key={`r-${label}`} label={label} monthly={t.monthly} total={t.total} budget={t.budget} variance={t.variance} varMode={view.varMode} variant={strong ? "rollupStrong" : "rollup"} />
+  );
+
+  const body: React.ReactNode[] = [];
+  body.push(groupRow("Revenues"));
+  revenueSecs.forEach((sec) => body.push(sectionRows(sec)));
+  body.push(rollupRow("Total Revenues", r.totalRevenues));
+  body.push(groupRow("Operating Expenses"));
+  expenseSecs.forEach((sec) => body.push(sectionRows(sec)));
+  body.push(rollupRow("Total Operating Expenses", r.totalOperatingExpenses));
+  body.push(rollupRow("Net Operating Income", r.netOperatingIncome, true));
+  if (showCapital) {
+    body.push(groupRow("Capital"));
+    capitalSecs.forEach((sec) => body.push(sectionRows(sec, true)));
+  }
+  if (showDebt) {
+    body.push(rollupRow("Cash Flow Before Debt Service", r.cashFlowBeforeDebtService, true));
+    body.push(groupRow("Debt Service"));
+    debtSecs.forEach((sec) => body.push(sectionRows(sec)));
+    body.push(rollupRow("Total Debt Service", r.totalDebtService));
+    body.push(rollupRow("Cash Flow After Debt Service", r.cashFlowAfterDebtService, true));
+  } else {
+    body.push(rollupRow("Cash Flow", r.cashFlowBeforeDebtService, true));
+  }
+
+  return (
+    <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+      <div className="tableWrap" style={{ marginTop: 0 }}>
+        <table style={{ width: "100%", minWidth: 1500, borderCollapse: "collapse" }}>
+          <thead>
+            <tr>
+              <th style={{ ...headStyle, textAlign: "left" }}>Line</th>
+              {MONTHS.map((m, i) => (
+                <th key={m} style={{ ...headStyle, ...(i === 0 ? { borderLeft: GROUP_DIV } : {}) }}>{m}</th>
+              ))}
+              <th style={{ ...headStyle, borderLeft: GROUP_DIV, color: COLOR_BRAND }}>Full Year {String(year).slice(2)}</th>
+              <th style={headStyle}>Budget</th>
+              <th style={headStyle}>{view.varMode === "dollar" ? "Var $" : "Var %"}</th>
+            </tr>
+          </thead>
+          <tbody>{body}</tbody>
+        </table>
+      </div>
+      <div style={{ padding: "10px 14px", borderTop: "1px solid var(--border)" }}>
+        {budgetFallback && budgetYear != null && (
+          <div style={{ marginBottom: 6, fontSize: 12, color: "#b45309", fontWeight: 600 }}>
+            Budget column uses the {budgetYear} budget — no {year} budget is loaded for this property.
+          </div>
+        )}
+        <p className="small muted" style={{ margin: 0 }}>
+          Each column is that month&rsquo;s actual (GL Debit − Credit, revenue shown positive); <b>Full Year {year}</b> is the sum of all 12 months. These figures match the Reprojections <b>Full-Year Actuals</b> for this property — same GL, same account masks.
+        </p>
+      </div>
+    </div>
   );
 }
 

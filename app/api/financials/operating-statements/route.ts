@@ -26,6 +26,26 @@ function propertyName(key: string, fallback: string): string {
   return PROPERTY_DEFS.find((p) => p.id === key)?.name ?? fallback;
 }
 
+/** Compact 12-month + full-year-total payload for the Operating Statements
+ *  "Full Year" period option. Each figure is display-oriented (revenue +,
+ *  expense +), matching the single-month statement and the reprojection. */
+type FullYearCell = { monthly: number[]; total: number; budget: number | null; variance: number | null };
+type FullYearPayload = {
+  sections: {
+    name: string;
+    role: import("@/lib/financials/operating-statements/types").SectionRole;
+    lines: { label: string; mask: string; accounts: string[]; monthly: number[]; total: number; budget: number | null; variance: number | null }[];
+    subtotalMonthly: number[];
+    subtotalTotal: number;
+    subtotalBudget: number | null;
+    subtotalVariance: number | null;
+  }[];
+  rollups: Record<
+    "totalRevenues" | "totalOperatingExpenses" | "netOperatingIncome" | "cashFlowBeforeDebtService" | "totalDebtService" | "cashFlowAfterDebtService",
+    FullYearCell
+  >;
+};
+
 
 /** Sum several entities' GLs (shell + buildings) into one consolidated GL —
  *  account-level addition of monthly nets, beginning + YTD balances. P&L masks
@@ -168,6 +188,55 @@ export async function GET(req: Request) {
     }
   }
 
+  // Full-Year view — 12 monthly columns + a full-year total, all from the SAME
+  // engine as the single-month statement. Each month's column is that month's
+  // `periodActual`; the Full-Year total/budget/variance are the year's figures
+  // through December. This ties out to the Reprojections "Full-Year Actuals"
+  // for a closed year BY CONSTRUCTION: both share the line masks, the roleSign,
+  // and the consolidated GL — reproject.actual[i] === this month's periodActual,
+  // and the Full-Year total === Σ of the 12 months === reproject.reprojTotal.
+  let fullYear: FullYearPayload | null = null;
+  if (url.searchParams.get("fullYear") === "1") {
+    const nameFor = propertyName(key, mapping.entityName);
+    const perMonth = Array.from({ length: 12 }, (_, i) =>
+      computeStatement({ mapping, propertyName: nameFor, year, period: i + 1, gl: summaryForPeriod(stored.monthly, i + 1) })
+    );
+    // Period 12 gives the section/line structure + full-year figures (ytdActual
+    // through December, ytdBudget = Σ of the 12 budget months = reproject's
+    // budgetTotal, ytdVariance = the favorability-signed full-year variance).
+    const full = computeStatement({
+      mapping, propertyName: nameFor, year, period: 12,
+      gl: summaryForPeriod(stored.monthly, 12),
+      budgetLookup: budget ? makeBudgetLookup(budget, 12) : undefined,
+    });
+    const ROLLUP_KEYS = ["totalRevenues", "totalOperatingExpenses", "netOperatingIncome", "cashFlowBeforeDebtService", "totalDebtService", "cashFlowAfterDebtService"] as const;
+    fullYear = {
+      sections: full.sections.map((s, si) => ({
+        name: s.name,
+        role: s.role,
+        lines: s.lines.map((l, li) => ({
+          label: l.label,
+          mask: l.mask,
+          accounts: l.accounts,
+          monthly: perMonth.map((pm) => pm.sections[si].lines[li].periodActual),
+          total: l.ytdActual,
+          budget: l.ytdBudget,
+          variance: l.ytdVariance,
+        })),
+        subtotalMonthly: perMonth.map((pm) => pm.sections[si].subtotal.periodActual),
+        subtotalTotal: s.subtotal.ytdActual,
+        subtotalBudget: s.subtotal.ytdBudget,
+        subtotalVariance: s.subtotal.ytdVariance,
+      })),
+      rollups: Object.fromEntries(ROLLUP_KEYS.map((rk) => [rk, {
+        monthly: perMonth.map((pm) => pm.rollups[rk].periodActual),
+        total: full.rollups[rk].ytdActual,
+        budget: full.rollups[rk].ytdBudget,
+        variance: full.rollups[rk].ytdVariance,
+      }])) as FullYearPayload["rollups"],
+    };
+  }
+
   // Label the unmapped (non-operating) accounts with their GL account name,
   // falling back to names captured on any other property's GL (codes are shared).
   const acctNames = mergeAccountNames(fulls);
@@ -224,6 +293,7 @@ export async function GET(req: Request) {
     noteMeta,
     operatingCash,
     statement,
+    fullYear,
   });
 }
 
