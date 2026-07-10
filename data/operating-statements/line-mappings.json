@@ -6599,7 +6599,7 @@
  },
  "2040": {
   "propertyCode": "2040",
-  "entityName": "Property 2040",
+  "entityName": "KF Nockamixon LLC",
   "sections": [
    {
     "name": "Revenues",
@@ -6627,6 +6627,10 @@
     "name": "Reimbursements",
     "role": "reimbursement",
     "lines": [
+     {
+      "label": "Electric",
+      "mask": "4710-*,4910-8503"
+     },
      {
       "label": "Common Area",
       "mask": "4910-8501,4910-8502,4901-8506"
@@ -6671,7 +6675,7 @@
      },
      {
       "label": "Parking Lot Maintenance",
-      "mask": "6360-*"
+      "mask": "6360-8502"
      },
      {
       "label": "Snow Removal",
@@ -6704,6 +6708,10 @@
      {
       "label": "Cleaning & Supplies",
       "mask": "6250-8501,6250-8502"
+     },
+     {
+      "label": "Office Center/Other",
+      "mask": "6*-8503"
      }
     ]
    },
@@ -6789,7 +6797,7 @@
  },
  "2080": {
   "propertyCode": "2080",
-  "entityName": "Property 2080",
+  "entityName": "LKF Nock LP",
   "sections": [
    {
     "name": "Revenues",
@@ -6817,6 +6825,10 @@
     "name": "Reimbursements",
     "role": "reimbursement",
     "lines": [
+     {
+      "label": "Electric",
+      "mask": "4710-*,4910-8503"
+     },
      {
       "label": "Common Area",
       "mask": "4910-8501,4910-8502,4901-8506"
@@ -6861,7 +6873,7 @@
      },
      {
       "label": "Parking Lot Maintenance",
-      "mask": "6360-*"
+      "mask": "6360-8502"
      },
      {
       "label": "Snow Removal",
@@ -6894,6 +6906,10 @@
      {
       "label": "Cleaning & Supplies",
       "mask": "6250-8501,6250-8502"
+     },
+     {
+      "label": "Office Center/Other",
+      "mask": "6*-8503"
      }
     ]
    },
