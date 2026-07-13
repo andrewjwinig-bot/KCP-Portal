@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { CATEGORIES, taskOccurrencesBetween, type TaskOccurrence } from "../../lib/tracker/taskDefs";
 import { importsForWeek, reminderSatisfied, type ImportReminder, type ImportEvent } from "../../lib/tracker/imports";
+import MyTasks from "../components/MyTasks";
 
 // Mirrors the tracker page's per-month localStorage key, so checking a task
 // off here keeps it in sync with the Task Tracker on the same browser.
@@ -193,6 +194,11 @@ export default function DrewTasksThisWeek() {
           </div>
         </div>
       )}
+
+      {/* ── Personal to-dos (private per user) ── */}
+      <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px solid var(--border)" }}>
+        <MyTasks compact title="My To-Dos" />
+      </div>
     </div>
   );
 }

@@ -168,20 +168,6 @@ const NAV = [
       </svg>
     ),
   },
-  // Personal to-do list — available to everyone, private per user.
-  {
-    label: "My To-Do",
-    href: "/todos",
-    external: false,
-    indent: false,
-    showFor: null as string | null,
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M9 11l3 3L22 4" />
-        <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
-      </svg>
-    ),
-  },
   // Monthly Review is folded into the Dashboard (finance users see it inline);
   // the standalone /reports/monthly route stays for a clean Print/PDF view.
   {
@@ -745,8 +731,8 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
     return () => { alive = false; clearInterval(timer); };
   }, [canSeeMaintenance]);
 
-  // Personal to-do badge: the current user's open tasks that are overdue or due
-  // this week. Private per user (the API scopes by the session cookie).
+  // Personal to-do count → folded into the Task Tracker badge (the personal list
+  // now lives on the Tracker page + dashboard card, not its own nav item).
   const [todoBadge, setTodoBadge] = useState(0);
   useEffect(() => {
     let alive = true;
@@ -813,8 +799,7 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
   function badgeFor(item: (typeof NAV)[number]): number {
     if (item.label === "Reservations") return reservationPending;
     if (item.label === "Requests") return maintenancePending;
-    if (item.label === "Task Tracker") return tasksThisWeek;
-    if (item.label === "My To-Do") return todoBadge;
+    if (item.label === "Task Tracker") return tasksThisWeek + todoBadge;
     return 0;
   }
 

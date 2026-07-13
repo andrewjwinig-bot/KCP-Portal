@@ -13,6 +13,7 @@ import {
   type Frequency,
 } from "../../lib/marie-tasks";
 import { useUser } from "../components/UserProvider";
+import MyTasks from "../components/MyTasks";
 import { UNIQUE_BANK_ACCOUNTS } from "../../lib/bank-rec/accounts";
 import { bankRecKey, bankRecPeriod } from "../../lib/bank-rec/util";
 import {
@@ -307,6 +308,11 @@ export default function TrackerPage() {
         {showMarie && marieError && (
           <span style={{ color: "#b91c1c", fontSize: 12, fontWeight: 600 }}>· {marieError}</span>
         )}
+      </div>
+
+      {/* ── My personal to-do list (private per user) ─────────────────────── */}
+      <div className="card" style={{ marginBottom: 18 }}>
+        <MyTasks title="My To-Do" />
       </div>
 
       {ownerFilter !== "marie" && (<>
