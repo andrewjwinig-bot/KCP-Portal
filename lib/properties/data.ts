@@ -134,6 +134,7 @@ export const BANK_ACCOUNTS: Record<string, BankAccount[]> = {
   ],
   "2010": [
     { bank: "Chase",   label: "2010 Operating",          last4: "x9629", link: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/747621599/DDA/CHK" },
+    { bank: "Chase",   label: "Future Properties",       last4: "x0613", link: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/1256081121/DDA/CHK" },
     { bank: "Liberty", label: "Money Market",            last4: "x8276", link: "https://secure.myvirtualbranch.com/LibertyBank/React/Accounts.aspx?p_r=1#AccountSummary" },
     { bank: "Liberty", label: "Security Deposits — All but NI LLC", last4: "x7216", link: "https://secure.myvirtualbranch.com/LibertyBank/React/Accounts.aspx?p_r=1#Accounts/1" },
   ],
@@ -203,10 +204,10 @@ export const BANK_ACCOUNTS: Record<string, BankAccount[]> = {
     { bank: "M&T",     label: "Operating",               last4: "x3777", link: "https://treasurycenter.mtb.com/ui/" },
   ],
   "1500": [
-    { bank: "M&T",     label: "Operating",               last4: "x4031", link: "https://treasurycenter.mtb.com/ui/" },
+    { bank: "Chase",   label: "Operating",               last4: "x5303", link: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/1275265466/DDA/CHK" },
   ],
   "9200": [
-    { bank: "M&T",     label: "Operating",               last4: "x4031", link: "https://treasurycenter.mtb.com/ui/" },
+    { bank: "Chase",   label: "Operating",               last4: "x5303", link: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/1275265466/DDA/CHK" },
   ],
   "2070": [
     { bank: "M&T",     label: "Operating",               last4: "x6119", link: "https://treasurycenter.mtb.com/ui/" },

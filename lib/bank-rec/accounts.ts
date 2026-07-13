@@ -19,7 +19,6 @@ export interface UniqueBankAccount {
 export const UNIQUE_BANK_ACCOUNTS: UniqueBankAccount[] = [
   // ── M&T ───────────────────────────────────────────────────────────
   { bank: "M&T",         key: "M&T 4900",        last4: "x3777", accountName: "Office Works Partnership", propertyCode: "4900" },
-  { bank: "M&T",         key: "M&T 150 920",     last4: "x4031", accountName: "Eastwick Joint Venture", propertyCode: "1500/9200" },
   { bank: "M&T",         key: "M&T 2070",        last4: "x6119", accountName: "Kosano Associates LP", propertyCode: "2070" },
   { bank: "M&T",         key: "M&T 204 208",     last4: "x6127", accountName: "KF Nockamixon LLC" },
   { bank: "M&T",         key: "M&T 2000 Clear",  last4: "x6055", accountName: "LIK Management Inc", propertyCode: "2010" },
@@ -31,7 +30,9 @@ export const UNIQUE_BANK_ACCOUNTS: UniqueBankAccount[] = [
   { bank: "JPM-Chase",   key: "JPM 3610",             last4: "x5631", accountName: "PJV3 JVIII OP", propertyCode: "3610" },
   { bank: "JPM-Chase",   key: "JPM 7010",             last4: "x5656", accountName: "7010 Pkwood SC OP", propertyCode: "7010" },
   { bank: "JPM-Chase",   key: "JPM 2010 Operating",   last4: "x9629", accountName: "2010 LIK Mgmt OP", propertyCode: "2010" },
+  { bank: "JPM-Chase",   key: "JPM 2010 Future Props",last4: "x0613", accountName: "Future Properties", propertyCode: "2010" },
   { bank: "JPM-Chase",   key: "JPM 2000 CLEAR",       last4: "x1622", accountName: "2000 LIK CLEARING", propertyCode: "2010" },
+  { bank: "JPM-Chase",   key: "JPM 150 920",          last4: "x5303", accountName: "Eastwick Joint Venture", propertyCode: "1500/9200" },
   { bank: "JPM-Chase",   key: "JPM 2010 Escrow",      last4: "x2190", accountName: "PNIPLX NI LLC OP", propertyCode: "4000" },
   { bank: "JPM-Chase",   key: "JPM 9500",             last4: "x6088", accountName: "9500 LH LLC", propertyCode: "9510" },
   { bank: "JPM-Chase",   key: "JPM HK Castor PO (5600)", last4: "x0669", accountName: "5600 Castor Ave OP", propertyCode: "5600" },
