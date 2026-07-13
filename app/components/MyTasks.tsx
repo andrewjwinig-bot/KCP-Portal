@@ -60,7 +60,7 @@ function PriorityFlag({ p }: { p: Priority }) {
 }
 
 // ── Add / edit modal ──────────────────────────────────────────────────────────
-function TaskModal({ initial, onClose, onSave }: {
+export function TaskModal({ initial, onClose, onSave }: {
   initial?: Todo;
   onClose: () => void;
   onSave: (fields: { text: string; due: string | null; repeat: Repeat; priority: Priority; note?: string }) => Promise<void>;
@@ -112,7 +112,7 @@ function TaskModal({ initial, onClose, onSave }: {
 
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
             <div style={{ flex: 1, minWidth: 150 }}>
-              <label style={label}>Due date</label>
+              <label style={label}>Due date <span style={{ textTransform: "none", fontWeight: 400 }}>(optional)</span></label>
               <input type="date" value={due} onChange={(e) => setDue(e.target.value)} style={{ ...inputStyle, width: "100%" }} />
               <div style={{ display: "flex", gap: 10, marginTop: 6 }}>
                 <button onClick={() => setDue(endOfWeekISO(now))} title="Due by the end of this week" style={{ background: "none", border: "none", padding: 0, cursor: "pointer", fontFamily: "inherit", fontSize: 12, fontWeight: 700, color: BRAND }}>This week</button>
