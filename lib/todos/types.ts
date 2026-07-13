@@ -4,6 +4,17 @@
 // This module is pure (no server-only imports) so the bucketing helpers can run
 // on both the client (page + sidebar badge) and the server.
 
+/** Importance. Sorts high → normal → low within each bucket. */
+export type Priority = "low" | "normal" | "high";
+export const PRIORITIES: Priority[] = ["high", "normal", "low"];
+
+/** Recurrence. When a repeating task is completed, the next occurrence is spawned. */
+export type Repeat = "none" | "daily" | "weekly" | "monthly" | "quarterly" | "yearly";
+export const REPEATS: Repeat[] = ["none", "daily", "weekly", "monthly", "quarterly", "yearly"];
+export const REPEAT_LABELS: Record<Repeat, string> = {
+  none: "Does not repeat", daily: "Daily", weekly: "Weekly", monthly: "Monthly", quarterly: "Quarterly", yearly: "Yearly",
+};
+
 export type Todo = {
   id: string;
   /** The task text, e.g. "Send Nancy the Q2 CAM figures". */
@@ -13,11 +24,22 @@ export type Todo = {
   /** Due date as a local calendar day "YYYY-MM-DD", or null for no date. */
   due: string | null;
   done: boolean;
+  /** Importance — defaults to "normal" when absent. */
+  priority?: Priority;
+  /** Recurrence — defaults to "none" when absent. */
+  repeat?: Repeat;
   /** ISO timestamp the todo was created. */
   createdAt: string;
   /** ISO timestamp it was checked off, when done. */
   completedAt?: string | null;
 };
+
+export function priorityOf(t: Todo): Priority {
+  return t.priority ?? "normal";
+}
+function priorityRank(p: Priority): number {
+  return p === "high" ? 0 : p === "normal" ? 1 : 2;
+}
 
 export type OpenBucket = "overdue" | "thisWeek" | "later" | "someday";
 
@@ -61,18 +83,41 @@ export function openBucketOf(todo: Todo, now: Date): OpenBucket {
   return due <= sunday ? "thisWeek" : "later";
 }
 
+/** Local calendar day → "YYYY-MM-DD". */
+export function toISODate(d: Date): string {
+  const y = d.getFullYear();
+  const mo = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${mo}-${day}`;
+}
+
 /** ISO day string for the end of this week (Sunday) — used by the "This week"
  *  quick-add so a new task lands in the current week. */
 export function endOfWeekISO(now: Date): string {
-  const { sunday } = weekBounds(now);
-  const y = sunday.getFullYear();
-  const mo = String(sunday.getMonth() + 1).padStart(2, "0");
-  const d = String(sunday.getDate()).padStart(2, "0");
-  return `${y}-${mo}-${d}`;
+  return toISODate(weekBounds(now).sunday);
 }
 
-// Sort open todos: dated ascending, undated last, then newest-created first.
-function byDueThenCreated(a: Todo, b: Todo): number {
+/** The next due date for a repeating task after it's completed. Advances from
+ *  the task's due date (or today when it has none) by one recurrence interval. */
+export function advanceDue(dueISO: string | null, repeat: Repeat, now: Date): string {
+  const base = parseDueDate(dueISO) ?? startOfDay(now);
+  const d = new Date(base.getFullYear(), base.getMonth(), base.getDate());
+  switch (repeat) {
+    case "daily":     d.setDate(d.getDate() + 1); break;
+    case "weekly":    d.setDate(d.getDate() + 7); break;
+    case "monthly":   d.setMonth(d.getMonth() + 1); break;
+    case "quarterly": d.setMonth(d.getMonth() + 3); break;
+    case "yearly":    d.setFullYear(d.getFullYear() + 1); break;
+    default:          return dueISO ?? toISODate(startOfDay(now));
+  }
+  return toISODate(d);
+}
+
+// Sort open todos: importance first (high → low), then dated ascending, undated
+// last, then newest-created first.
+function byPriorityThenDue(a: Todo, b: Todo): number {
+  const pr = priorityRank(priorityOf(a)) - priorityRank(priorityOf(b));
+  if (pr !== 0) return pr;
   if (a.due && b.due) return a.due < b.due ? -1 : a.due > b.due ? 1 : b.createdAt.localeCompare(a.createdAt);
   if (a.due) return -1;
   if (b.due) return 1;
@@ -86,10 +131,10 @@ export function bucketTodos(todos: Todo[], now: Date): BucketedTodos {
     if (t.done) { out.done.push(t); continue; }
     out[openBucketOf(t, now)].push(t);
   }
-  out.overdue.sort(byDueThenCreated);
-  out.thisWeek.sort(byDueThenCreated);
-  out.later.sort(byDueThenCreated);
-  out.someday.sort(byDueThenCreated);
+  out.overdue.sort(byPriorityThenDue);
+  out.thisWeek.sort(byPriorityThenDue);
+  out.later.sort(byPriorityThenDue);
+  out.someday.sort(byPriorityThenDue);
   // Done: most-recently completed first.
   out.done.sort((a, b) => (b.completedAt ?? "").localeCompare(a.completedAt ?? ""));
   return out;
