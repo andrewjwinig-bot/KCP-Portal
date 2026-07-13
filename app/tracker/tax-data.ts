@@ -127,6 +127,7 @@ export const TAX_TASKS: TaxTask[] = [
 
   { id: "ent-9510-pa65",   entity: "9510 Lafayette Hill SC", category: "entity", dueMonth: 4, dueDay: 15, label: "PA NR Withholding (PA-65)",                             instructionSteps: ["Accountant to provide info.", "Enclose a check or money order, payable to PA Department of Revenue. Write FEIN and the tax type on the check.", "Mail along with PA-NR Withholding Payment voucher.", "Vendor PADE5 · Acc: 2330-0000"] },
   { id: "ent-9510-pa40es", entity: "9510 Lafayette Hill SC", category: "entity", dueMonth: 4, dueDay: 15, label: "Pennsylvania Estimated Income Tax (PA-40ES)",              instructionSteps: ["Accountant to provide info.", "Four vouchers to be mailed with a check to PA Department of Revenue.", "Vendor PADE4 · Acc: 2230-0000"] },
+  { id: "ent-9510-annual-report", entity: "9510 Lafayette Hill SC", category: "entity", dueMonth: 9, dueDay: 30, label: "Annual Report", notes: "Lafayette Hill Shopping Center, LLC — file the annual report with the PA Department of State by 9/30 every year." },
 
   { id: "ent-8200-birt-joan",   entity: "8200 Trust #4 (Joan Sohn)",        category: "entity", dueMonth: 4, dueDay: 15, label: "Philadelphia Business Income and Receipts Form (BIRT-EZ)", instructionSteps: ["Accountant to provide info.", "If balance, must be paid electronically via City of Philadelphia website at tax-services.phila.gov.", "Vendor CITY8 · Acc: 8210-8501"] },
   { id: "ent-8200-birt-judith", entity: "8200 Trust #4 (Judith Langsfeld)", category: "entity", dueMonth: 4, dueDay: 15, label: "Philadelphia Business Income and Receipts Form (BIRT-EZ)", instructionSteps: ["Accountant to provide info.", "If balance, must be paid electronically via City of Philadelphia website at tax-services.phila.gov.", "Vendor CITY8 · Acc: 8210-8501"] },
@@ -234,10 +235,26 @@ export const TAX_TASKS: TaxTask[] = [
 
 export function taxStorageKey(year: number) { return `tax-tracker-v1-${year}`; }
 
+// One-time completion seeds: filings already known to be done for a given year
+// before the tracker started tracking them. Applied once per browser (guarded by
+// a version marker) so they start checked but can still be unchecked by hand.
+const SEED_MARKER = "__seeded_v1";
+const SEED_DONE_BY_YEAR: Record<number, string[]> = {
+  2026: ["ent-9510-annual-report"],
+};
+
 export function loadTaxChecked(year: number): Record<string, boolean> {
   if (typeof window === "undefined") return {};
-  try { return JSON.parse(localStorage.getItem(taxStorageKey(year)) ?? "{}"); }
-  catch { return {}; }
+  let map: Record<string, boolean>;
+  try { map = JSON.parse(localStorage.getItem(taxStorageKey(year)) ?? "{}"); }
+  catch { map = {}; }
+  const seeds = SEED_DONE_BY_YEAR[year];
+  if (seeds && !map[SEED_MARKER]) {
+    for (const id of seeds) map[id] = true;
+    map[SEED_MARKER] = true;
+    try { localStorage.setItem(taxStorageKey(year), JSON.stringify(map)); } catch { /* ignore */ }
+  }
+  return map;
 }
 
 export function saveTaxChecked(year: number, data: Record<string, boolean>) {
