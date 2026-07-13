@@ -70,7 +70,7 @@ type InterestAccount = {
   mm?: boolean; // a money-market account — shows a green "MM" pill
 };
 const INTEREST_ACCOUNTS: InterestAccount[] = [
-  { code: "LK-TRUST", name: "Leonard Korman Trust", group: "Business Parks", bankCodes: ["LK-TRUST"], anchor: { year: 2026, month: 6, balance: 1_845_989.33 }, rate: 0.0315, monthlyFee: 2 },
+  { code: "LK-TRUST", name: "Leonard Korman Trust", group: "Business Parks", bankCodes: ["LK-TRUST"], anchor: { year: 2026, month: 7, balance: 1_850_453.25 }, rate: 0.0315, monthlyFee: 2 }, // Liberty x9245 — re-anchored to the 6/6–7/3/26 statement ending balance
   // Property money-market accounts — sit beneath their operating row.
   { code: "2300-MM", name: "Brookwood", group: "Shopping Centers", parent: "2300", bankCodes: ["2300"], bankLast4: "x6888", anchor: { year: 2026, month: 5, balance: 1_245_207.10 }, rate: 0.0315, mm: true },
   { code: "4500-MM", name: "Gray's Ferry", group: "Shopping Centers", parent: "4500", bankCodes: ["4500"], bankLast4: "x8086", anchor: { year: 2026, month: 6, balance: 839_877.68 }, rate: 0.03, mm: true },
