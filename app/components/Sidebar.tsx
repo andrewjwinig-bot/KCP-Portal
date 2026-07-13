@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import { taskOccurrencesBetween } from "@/lib/tracker/taskDefs";
+import { openThisWeekCount, type Todo } from "@/lib/todos/types";
 import { accessGroup } from "@/lib/users";
 import { useUser } from "./UserProvider";
 import UserSwitcher from "./UserSwitcher";
@@ -730,6 +731,25 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
     return () => { alive = false; clearInterval(timer); };
   }, [canSeeMaintenance]);
 
+  // Personal to-do count → folded into the Task Tracker badge (the personal list
+  // now lives on the Tracker page + dashboard card, not its own nav item).
+  const [todoBadge, setTodoBadge] = useState(0);
+  useEffect(() => {
+    let alive = true;
+    const load = () => {
+      fetch("/api/todos")
+        .then((r) => (r.ok ? r.json() : null))
+        .then((j) => {
+          if (!alive || !Array.isArray(j?.todos)) return;
+          setTodoBadge(openThisWeekCount(j.todos as Todo[], new Date()));
+        })
+        .catch(() => { /* ignore */ });
+    };
+    load();
+    const timer = setInterval(load, 60000);
+    return () => { alive = false; clearInterval(timer); };
+  }, [pathname]);
+
   // Tasks still to do this calendar week (Mon–Sun containing today) — a badge on
   // the Task Tracker nav. Completed tasks (checked off, per the tracker's
   // localStorage) drop out of the count.
@@ -779,7 +799,7 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
   function badgeFor(item: (typeof NAV)[number]): number {
     if (item.label === "Reservations") return reservationPending;
     if (item.label === "Requests") return maintenancePending;
-    if (item.label === "Task Tracker") return tasksThisWeek;
+    if (item.label === "Task Tracker") return tasksThisWeek + todoBadge;
     return 0;
   }
 

@@ -676,11 +676,6 @@ export default function OperatingStatementsPage() {
             )}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            {coverage.length > 0 && (
-              <button className="btn" title="See which properties/years have GLs imported and what's still missing" style={{ fontSize: 13, padding: "8px 12px", fontWeight: 700 }} onClick={() => setShowCoverage(true)}>
-                📊 Coverage
-              </button>
-            )}
             <button className="btn primary" title="Upload one or more GL files — each file's header identifies its property" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }} onClick={() => fileRef.current?.click()}>
               {"Upload GL"}
             </button>
@@ -714,6 +709,9 @@ export default function OperatingStatementsPage() {
                   { label: "Full-Year Actuals", description: `Every month's actuals + Full Year total`, href: `/financials/reprojections?key=${encodeURIComponent(key)}${year ? `&year=${year}` : ""}&mode=actuals` },
                   { label: "Reprojection", description: `${cur.propertyCode}'s full-year reprojection`, href: `/financials/reprojections?key=${encodeURIComponent(key)}${year ? `&year=${year}` : ""}` },
                   { label: "Budget", description: `${cur.propertyCode}'s operating budget`, href: `/financials/budgets?property=${encodeURIComponent(cur.propertyCode)}${year ? `&year=${year}` : ""}` },
+                  ...(coverage.length > 0
+                    ? [{ label: "GL Import Coverage", description: "Which properties & years have GLs imported — and what's still missing", onClick: () => setShowCoverage(true) }]
+                    : []),
                 ]}
               />
             )}
