@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { SITE_COOKIE, verifySiteToken } from "@/lib/site-auth";
 import { ALL_USERS, type UserId } from "@/lib/users";
 import { todosFor } from "@/lib/todos/store";
-import type { Todo } from "@/lib/todos/types";
+import { advanceDue, REPEATS, type Priority, type Repeat, type Todo } from "@/lib/todos/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -31,6 +31,12 @@ function cleanNote(v: unknown): string | undefined {
   const s = typeof v === "string" ? v.trim().slice(0, 1000) : "";
   return s || undefined;
 }
+function cleanPriority(v: unknown): Priority {
+  return v === "high" || v === "low" ? v : "normal";
+}
+function cleanRepeat(v: unknown): Repeat {
+  return (REPEATS as string[]).includes(v as string) ? (v as Repeat) : "none";
+}
 
 export async function GET() {
   const user = await currentUser();
@@ -57,6 +63,8 @@ export async function POST(req: NextRequest) {
       text,
       note: cleanNote(body?.note),
       due: cleanDue(body?.due),
+      priority: cleanPriority(body?.priority),
+      repeat: cleanRepeat(body?.repeat),
       done: false,
       createdAt: new Date().toISOString(),
       completedAt: null,
@@ -89,13 +97,34 @@ export async function PATCH(req: NextRequest) {
     }
     if ("note" in body) next.note = cleanNote(body.note);
     if ("due" in body) next.due = cleanDue(body.due);
+    if ("priority" in body) next.priority = cleanPriority(body.priority);
+    if ("repeat" in body) next.repeat = cleanRepeat(body.repeat);
     if ("done" in body) {
       const done = body.done === true;
       next.done = done;
       next.completedAt = done ? (existing.done ? existing.completedAt ?? new Date().toISOString() : new Date().toISOString()) : null;
     }
     await store.set(id, next);
-    return NextResponse.json({ todo: next });
+
+    // Completing a repeating task spawns its next occurrence (only on the
+    // open → done transition, so re-checks don't pile up duplicates).
+    let spawned: Todo | null = null;
+    const repeat = next.repeat ?? "none";
+    if (!existing.done && next.done && repeat !== "none") {
+      spawned = {
+        id: crypto.randomUUID(),
+        text: next.text,
+        note: next.note,
+        due: advanceDue(existing.due, repeat, new Date()),
+        priority: next.priority,
+        repeat,
+        done: false,
+        createdAt: new Date().toISOString(),
+        completedAt: null,
+      };
+      await store.set(spawned.id, spawned);
+    }
+    return NextResponse.json({ todo: next, next: spawned });
   } catch (err: any) {
     console.error("[PATCH /api/todos]", err?.message ?? err);
     return NextResponse.json({ error: err?.message ?? String(err) }, { status: 500 });
