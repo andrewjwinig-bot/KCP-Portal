@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import { taskOccurrencesBetween } from "@/lib/tracker/taskDefs";
+import { openThisWeekCount, type Todo } from "@/lib/todos/types";
 import { accessGroup } from "@/lib/users";
 import { useUser } from "./UserProvider";
 import UserSwitcher from "./UserSwitcher";
@@ -164,6 +165,20 @@ const NAV = [
         <rect x="14" y="3" width="7" height="5" />
         <rect x="14" y="12" width="7" height="9" />
         <rect x="3" y="16" width="7" height="5" />
+      </svg>
+    ),
+  },
+  // Personal to-do list — available to everyone, private per user.
+  {
+    label: "My To-Do",
+    href: "/todos",
+    external: false,
+    indent: false,
+    showFor: null as string | null,
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M9 11l3 3L22 4" />
+        <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
       </svg>
     ),
   },
@@ -730,6 +745,25 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
     return () => { alive = false; clearInterval(timer); };
   }, [canSeeMaintenance]);
 
+  // Personal to-do badge: the current user's open tasks that are overdue or due
+  // this week. Private per user (the API scopes by the session cookie).
+  const [todoBadge, setTodoBadge] = useState(0);
+  useEffect(() => {
+    let alive = true;
+    const load = () => {
+      fetch("/api/todos")
+        .then((r) => (r.ok ? r.json() : null))
+        .then((j) => {
+          if (!alive || !Array.isArray(j?.todos)) return;
+          setTodoBadge(openThisWeekCount(j.todos as Todo[], new Date()));
+        })
+        .catch(() => { /* ignore */ });
+    };
+    load();
+    const timer = setInterval(load, 60000);
+    return () => { alive = false; clearInterval(timer); };
+  }, [pathname]);
+
   // Tasks still to do this calendar week (Mon–Sun containing today) — a badge on
   // the Task Tracker nav. Completed tasks (checked off, per the tracker's
   // localStorage) drop out of the count.
@@ -780,6 +814,7 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
     if (item.label === "Reservations") return reservationPending;
     if (item.label === "Requests") return maintenancePending;
     if (item.label === "Task Tracker") return tasksThisWeek;
+    if (item.label === "My To-Do") return todoBadge;
     return 0;
   }
 

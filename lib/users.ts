@@ -246,6 +246,9 @@ export function isPathAllowed(userId: UserId, pathname: string): boolean {
   if (u.allowedPathPrefixes.includes("*")) return true;
   // Always allow the login page so users can re-auth
   if (pathname === "/history/login") return true;
+  // Personal to-do list is available to every signed-in user (each user only
+  // ever sees their own tasks — scoped server-side by the session cookie).
+  if (pathname === "/todos" || pathname.startsWith("/todos/")) return true;
   return u.allowedPathPrefixes.some((p) => {
     if (p === "/") return pathname === "/";
     return pathname === p || pathname.startsWith(p + "/");
