@@ -31,9 +31,12 @@ export default function BankReconcilePage() {
   const banks = useMemo(() => [...new Set(accounts.map((a) => a.bank))], [accounts]);
 
   const now = new Date();
+  // Bank recs are done for the just-closed (trailing) month — in July you
+  // reconcile June — so default to the prior month (and its year).
+  const prior = new Date(now.getFullYear(), now.getMonth() - 1, 1);
   const [sel, setSel] = useState<RecAccount | null>(null);
-  const [year, setYear] = useState(now.getFullYear());
-  const [month, setMonth] = useState(now.getMonth()); // default prior month (0-based → last month)
+  const [year, setYear] = useState(prior.getFullYear());
+  const [month, setMonth] = useState(prior.getMonth());
   const [cashAccount, setCashAccount] = useState("0110-0000");
   const [cashAccounts, setCashAccounts] = useState<{ code: string; name: string }[]>([]);
   const [hasGl, setHasGl] = useState<boolean | null>(null);
