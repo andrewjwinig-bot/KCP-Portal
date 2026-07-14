@@ -5,6 +5,8 @@ import { ALL_USERS, isPathAllowed, type UserId } from "@/lib/users";
 import { loadBookSide } from "@/lib/financials/bank-rec/bookSide";
 import { reconcile } from "@/lib/financials/bank-rec/reconcile";
 import { parseChaseCsv } from "@/lib/financials/bank-rec/chaseCsv";
+import { getJSON, storeJSON } from "@/lib/storage";
+import { bankRecKey } from "@/lib/bank-rec/util";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -58,12 +60,28 @@ export async function POST(req: NextRequest) {
       : (csvEndingBalance ?? book.ending);
 
     const result = reconcile(book.txns, bankTxns, statementEnd, book.ending);
+
+    // When it ties out, auto-check the Bank Acc Tracker's "reconciled" box for
+    // this account + period (keyed last4|YYYY-MM), so the tracker reflects it.
+    let trackerUpdated = false;
+    const last4 = String(body?.last4 ?? "").trim();
+    if (result.inBalance && last4) {
+      try {
+        const period = `${year}-${String(month).padStart(2, "0")}`;
+        const map = ((await getJSON("bank-rec", "checked")) as Record<string, boolean> | null) ?? {};
+        const k = bankRecKey(last4, period);
+        if (!map[k]) { map[k] = true; await storeJSON("bank-rec", "checked", map); }
+        trackerUpdated = true;
+      } catch { /* best-effort — the rec still stands */ }
+    }
+
     return NextResponse.json({
       result,
       book: { opening: book.opening, ending: book.ending, cashAccounts: book.cashAccounts, coverageStartMonth: book.coverageStartMonth, coverageEnd: book.coverageEnd },
       csvEndingBalance,
       statementEnd,
       bankCount: bankTxns.length,
+      trackerUpdated,
     });
   } catch (err: any) {
     console.error("[POST /api/bank-rec/reconcile]", err?.message ?? err);

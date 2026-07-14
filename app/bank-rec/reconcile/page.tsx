@@ -23,6 +23,7 @@ type RunResponse = {
   csvEndingBalance: number | null;
   statementEnd: number;
   bankCount: number;
+  trackerUpdated?: boolean;
   error?: string;
 };
 
@@ -31,9 +32,12 @@ export default function BankReconcilePage() {
   const banks = useMemo(() => [...new Set(accounts.map((a) => a.bank))], [accounts]);
 
   const now = new Date();
+  // Bank recs are done for the just-closed (trailing) month — in July you
+  // reconcile June — so default to the prior month (and its year).
+  const prior = new Date(now.getFullYear(), now.getMonth() - 1, 1);
   const [sel, setSel] = useState<RecAccount | null>(null);
-  const [year, setYear] = useState(now.getFullYear());
-  const [month, setMonth] = useState(now.getMonth()); // default prior month (0-based → last month)
+  const [year, setYear] = useState(prior.getFullYear());
+  const [month, setMonth] = useState(prior.getMonth());
   const [cashAccount, setCashAccount] = useState("0110-0000");
   const [cashAccounts, setCashAccounts] = useState<{ code: string; name: string }[]>([]);
   const [hasGl, setHasGl] = useState<boolean | null>(null);
@@ -71,7 +75,7 @@ export default function BankReconcilePage() {
     try {
       const res = await fetch("/api/bank-rec/reconcile", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key: sel.propertyKey, year, month: month + 1, cashAccount, statementEnd, bankCsv }),
+        body: JSON.stringify({ key: sel.propertyKey, year, month: month + 1, cashAccount, statementEnd, bankCsv, last4: sel.last4 }),
       });
       const j: RunResponse = await res.json();
       if (j.error) setError(j.error); else setRun(j);
@@ -173,6 +177,7 @@ export default function BankReconcilePage() {
                       <div style={{ fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em", color: BRAND }}>{MONTHS[month]} {year} · Reconciliation</div>
                       <span style={{ fontWeight: 800, fontSize: 14, color: r.inBalance ? GREEN : AMBER }}>{r.inBalance ? "✓ In Balance" : `⚠ Off by ${money(r.difference)}`}</span>
                     </div>
+                    {run!.trackerUpdated && <div className="small" style={{ color: GREEN, fontWeight: 700, marginBottom: 8 }}>✓ Checked off on the Bank Acc Tracker for {MONTHS[month]} {year}.</div>}
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, flexWrap: "wrap" }}>
                       <div>
                         <Line label="Statement ending balance" value={r.statementEnd} strong />
