@@ -626,6 +626,8 @@ export default function OfficeCamReconPage() {
       {isRetail && !rSelected && !isMixed && expenseFinal && (
         <RetailFinalExpenseSummary
           data={expenseFinal}
+          property={property}
+          year={year}
           onEdit={(key, value) => (key === "INS" ? saveInsPool(value) : saveRetailFinal(key, value))}
           historyHref={`/rentroll/base-years?property=${property}`}
         />
@@ -1026,11 +1028,15 @@ type RetailFinalData = { historyYears?: number[]; fromGl?: boolean; glImport?: {
 // Storage key for the RET pool (mirrors RET_FINAL_KEY on the server).
 const RET_FINAL_KEY = "RET";
 
-function RetailFinalExpenseSummary({ data, onEdit, historyHref }: {
+function RetailFinalExpenseSummary({ data, property, year, onEdit, historyHref }: {
   data: RetailFinalData;
+  property: string;
+  year: number;
   onEdit: (key: string, value: number | null) => void;
   historyHref?: string;
 }) {
+  const backup = useCamBackup(property, year);
+  const [openBackup, setOpenBackup] = useState<{ account: string; label: string } | null>(null);
   const sth: React.CSSProperties = { ...th, fontSize: 12, padding: "7px 10px" };
   const std: React.CSSProperties = { ...td, fontSize: 14, padding: "7px 10px" };
   const camSeedTotal = data.lines.reduce((a, l) => a + l.seed, 0);
@@ -1043,10 +1049,17 @@ function RetailFinalExpenseSummary({ data, onEdit, historyHref }: {
   const histTd = (i: number): React.CSSProperties => ({ ...std, color: "var(--muted)", ...(i === 0 ? { borderLeft: HIST_SEP } : {}) });
   const camHistTotals = years.map((_, i) => data.lines.reduce((a, l) => a + (l.history?.[i] ?? 0), 0));
 
-  const Row = ({ r, k, strongTop }: { r: RetailFinalRow; k: string; strongTop?: boolean }) => (
+  const Row = ({ r, k, strongTop }: { r: RetailFinalRow; k: string; strongTop?: boolean }) => {
+    const acctKey = r.account && r.account !== "—" ? r.account : k;
+    return (
     <tr style={{ borderBottom: "1px solid var(--border)", ...(strongTop ? { borderTop: "2px solid var(--border)" } : {}) }}>
       <td style={{ ...std, textAlign: "left", whiteSpace: "nowrap", color: "var(--muted)", fontVariantNumeric: "tabular-nums" }}>{r.account}</td>
-      <td style={{ ...std, textAlign: "left" }}>{r.label}</td>
+      <td style={{ ...std, textAlign: "left" }}>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+          <span>{r.label}</span>
+          <BackupTrigger count={backup.countByAccount[acctKey] ?? 0} onClick={() => setOpenBackup({ account: acctKey, label: r.label })} />
+        </span>
+      </td>
       <td style={{ ...std, color: "var(--muted)" }}>{money0(r.seed)}</td>
       <td style={std} onClick={(e) => e.stopPropagation()}><EditableMoney value={r.amount} onCommit={(v) => onEdit(k, v)} /></td>
       <td style={{ ...std, fontSize: 12, width: 70 }}>
@@ -1058,17 +1071,21 @@ function RetailFinalExpenseSummary({ data, onEdit, historyHref }: {
         <td key={y} style={histTd(i)}>{r.history?.[i] != null ? money0(r.history[i] as number) : "—"}</td>
       ))}
     </tr>
-  );
+    );
+  };
 
   return (
     <div className="card" style={{ overflowX: "auto" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
         <div style={CARD_TITLE}>Final Expense Summary</div>
-        {historyHref && (
-          <Link href={historyHref} style={{ fontSize: 12, fontWeight: 700, color: "#0b4a7d", textDecoration: "none", whiteSpace: "nowrap" }}>
-            Full Expense History →
-          </Link>
-        )}
+        <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+          <PackageButton property={property} year={year} total={backup.total} />
+          {historyHref && (
+            <Link href={historyHref} style={{ fontSize: 12, fontWeight: 700, color: "#0b4a7d", textDecoration: "none", whiteSpace: "nowrap" }}>
+              Full Expense History →
+            </Link>
+          )}
+        </div>
       </div>
       <p className="small muted" style={{ marginTop: 4, marginBottom: 4, maxWidth: 760 }}>
         The operating-expense lines, property insurance, and real-estate-tax pool used in this reconciliation. {data.fromGl ? <>The CAM lines + RET <b>pull live from the property GL</b> by account; edit a FINAL to back out anything that doesn&rsquo;t apply.</> : <>Edit a FINAL to override the workbook amount for this property/year.</>} Every tenant&rsquo;s CAM/INS/RET recomputes.{years.length > 0 ? " The columns past the divider are the prior years’ actuals (trend at a glance)." : ""}
@@ -1101,6 +1118,12 @@ function RetailFinalExpenseSummary({ data, onEdit, historyHref }: {
           <Row r={data.ret} k={RET_FINAL_KEY} />
         </tfoot>
       </table>
+      {openBackup && (
+        <CamBackupModal
+          property={property} year={year} account={openBackup.account} label={openBackup.label}
+          items={backup.items} onClose={() => setOpenBackup(null)} onChange={backup.refresh}
+        />
+      )}
     </div>
   );
 }
