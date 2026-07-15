@@ -552,7 +552,10 @@ export default function OfficeCamReconPage() {
             ) : (
               <>
                 {selected && (
-                  <button onClick={() => downloadTenantPdf(selected, year, `${property} — ${propName}`, contacts[selected.unitRef])} className="btn primary" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}>Download PDF</button>
+                  <>
+                    <button onClick={() => downloadTenantPdf(selected, year, `${property} — ${propName}`, contacts[selected.unitRef])} className="btn primary" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}>Download PDF</button>
+                    <TenantShareLink property={property} unitRef={selected.unitRef} year={year} kind="office" tenantName={selected.name} />
+                  </>
                 )}
                 {!selected && (
                   <button onClick={() => result && downloadAllTenantPdfs(result.tenants, year, `${property} — ${propName}`, contacts)} disabled={!result} className="btn primary" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}>All Tenant PDFs</button>
