@@ -15,15 +15,19 @@ lands in a coherent whole.
   backup. Per-property downloadable package (Tax · Insurance · Operating).
   *(Phase 1 — shipping now.)*
 
-## Phase 2 — the tenant CAM link
+## Phase 2 — the tenant CAM link  *(retail shipped)*
 
-- A **signed, revocable, per-tenant share link** (built on `lib/shareLinks`)
-  that opens a public page showing **that tenant's CAM statement**, with each
-  expense line clickable to view/download only the backup flagged shareable.
-- **Escrow modal** — for escrow lines with no invoices, show the month-by-month
-  CAM/RET escrow contributions from the rent rolls (`lib/cam/escrowFromRolls.ts`
-  already computes this).
-- Access logging (who viewed / downloaded), optional expiry.
+- ✅ A **signed, revocable, per-tenant link** (`lib/cam/tenantLink` — HMAC token
+  + link store) opens a public page (`/statement/[token]`) showing **that
+  tenant's CAM statement**, each expense line's backup clickable to view/
+  download — only files flagged shareable (the CAM-backup "package" flag).
+  Minted / copied / revoked from the tenant's statement on the CAM recon page.
+- ✅ **Escrow detail** — month-by-month CAM/RET escrow from the rent rolls
+  (`monthlyRentRollEscrow`), shown inline on the statement.
+- ✅ Access logging (view count + last-viewed per link) and optional expiry.
+- **TODO:** the **office** side (retail uses `loadRetailRecon`; office needs the
+  same shared loader + `kind:"office"` in the public route), and consolidate the
+  gated retail route onto `loadRetailRecon` to drop the duplicated compute.
 
 ## Phase 3+ — full tenant portal
 
@@ -35,6 +39,9 @@ Grow the tenant link into a durable per-tenant home:
 - **Lease documents** — the tenant's lease, amendments, COIs, notices (reuse the
   attachment pattern, scoped to the unit).
 - **Communication** — a shared thread for landlord↔tenant messages; notices.
+- **Calendar of important dates** — statement-due / payment dates, and
+  community events (e.g. food trucks at the business parks). A shared property
+  calendar the tenant sees on their portal home.
 - **Self-service** — submit **maintenance requests** and **conference-room
   reservations** from the portal (both already exist as public flows — wire them
   to the authenticated tenant identity).
