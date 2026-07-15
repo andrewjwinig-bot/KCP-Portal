@@ -24,17 +24,53 @@ export async function GET(req: NextRequest) {
   if (!property || !year) return NextResponse.json({ error: "property and year are required" }, { status: 400 });
   try {
     const all = await camAttachments(property, year).all();
-    return NextResponse.json({ attachments: all.map(toMeta) });
+    return NextResponse.json({ attachments: all.map(toMeta), blob: !!process.env.BLOB_READ_WRITE_TOKEN });
   } catch (err: any) {
     console.error("[GET /api/cam-recon/attachments]", err?.message ?? err);
-    return NextResponse.json({ attachments: [] });
+    return NextResponse.json({ attachments: [], blob: !!process.env.BLOB_READ_WRITE_TOKEN });
   }
+}
+
+/** A file the browser already uploaded straight to Vercel Blob — we only record
+ *  the metadata. Guard the URL to our blob host so `ref` can't be pointed at an
+ *  arbitrary server (readAttachmentBytes fetches it with our token). */
+async function recordUploadedBlob(user: UserId, body: any): Promise<NextResponse> {
+  const property = String(body?.property ?? "");
+  const year = Number(body?.year);
+  const account = String(body?.account ?? "");
+  const accountLabel = String(body?.accountLabel ?? account);
+  const name = String(body?.name ?? "attachment");
+  const blobUrl = String(body?.blobUrl ?? "");
+  if (!property || !year || !account) return NextResponse.json({ error: "property, year, account are required" }, { status: 400 });
+  if (!/^https:\/\/[a-z0-9.-]+\.vercel-storage\.com\//i.test(blobUrl)) {
+    return NextResponse.json({ error: "Invalid blob URL" }, { status: 400 });
+  }
+  const id = "cam_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  const rec: CamAttachment = {
+    id, property, year, account, accountLabel, name, ref: blobUrl, local: false,
+    contentType: String(body?.contentType || "application/octet-stream"),
+    size: Number(body?.size) || 0,
+    uploadedAt: new Date().toISOString(),
+    uploadedBy: USERS[user]?.label ?? user,
+    includeInPackage: true,
+  };
+  await camAttachments(property, year).set(id, rec);
+  return NextResponse.json({ attachment: toMeta(rec) }, { status: 201 });
 }
 
 /** POST multipart: file, property, year, account, accountLabel → upload one file. */
 export async function POST(req: NextRequest) {
   const user = await currentUser();
   if (!user) return NextResponse.json({ error: "Not authorized" }, { status: 401 });
+  // JSON body = a file the browser uploaded straight to Blob (bypassing the
+  // 4.5 MB serverless request limit); we only persist the record.
+  if ((req.headers.get("content-type") ?? "").includes("application/json")) {
+    try { return await recordUploadedBlob(user, await req.json()); }
+    catch (err: any) {
+      console.error("[POST /api/cam-recon/attachments record]", err?.message ?? err);
+      return NextResponse.json({ error: err?.message ?? String(err) }, { status: 500 });
+    }
+  }
   let form: FormData;
   try { form = await req.formData(); } catch { return NextResponse.json({ error: "Expected multipart/form-data" }, { status: 400 }); }
   const file = form.get("file");

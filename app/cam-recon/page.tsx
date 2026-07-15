@@ -1061,7 +1061,7 @@ function QuarterlyBilling({ billingKey, year }: { billingKey: string; year: numb
       {openBackup && (
         <CamBackupModal
           property={def.parentProperty} year={year} account={openBackup.account} label={openBackup.label}
-          items={backup.items} onClose={() => setOpenBackup(null)} onChange={backup.refresh}
+          items={backup.items} blobEnabled={backup.blob} onClose={() => setOpenBackup(null)} onChange={backup.refresh}
         />
       )}
     </div>
@@ -1174,7 +1174,7 @@ function RetailFinalExpenseSummary({ data, property, year, onEdit, historyHref }
       {openBackup && (
         <CamBackupModal
           property={property} year={year} account={openBackup.account} label={openBackup.label}
-          items={backup.items} onClose={() => setOpenBackup(null)} onChange={backup.refresh}
+          items={backup.items} blobEnabled={backup.blob} onClose={() => setOpenBackup(null)} onChange={backup.refresh}
         />
       )}
     </div>
@@ -1716,7 +1716,7 @@ function FinalExpenseSummary({ rows, editable, year, property, onEdit, historyYe
       {openBackup && (
         <CamBackupModal
           property={property} year={year} account={openBackup.account} label={openBackup.label}
-          items={backup.items} onClose={() => setOpenBackup(null)} onChange={backup.refresh}
+          items={backup.items} blobEnabled={backup.blob} onClose={() => setOpenBackup(null)} onChange={backup.refresh}
         />
       )}
     </div>
