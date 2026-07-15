@@ -38,3 +38,27 @@ export async function sumRentRollEscrow(
   if (found === 0) return null;
   return { camEscrow: Math.round(cam), retEscrow: Math.round(ret), monthsFound: found };
 }
+
+/** Per-month CAM (opexMonth) + RET (reTaxMonth) escrow for a unit, read from
+ *  each month's rent-roll snapshot — the detail behind a tenant's escrow line.
+ *  Months with no snapshot / no unit / no escrow are omitted. */
+export async function monthlyRentRollEscrow(
+  unitRef: string,
+  year: number,
+): Promise<{ month: number; cam: number; ret: number }[]> {
+  const out: { month: number; cam: number; ret: number }[] = [];
+  for (let m = 1; m <= 12; m++) {
+    const snap = (await getJSON(HISTORY_PREFIX, `${year}-${String(m).padStart(2, "0")}`)) as RentRollData | null;
+    if (!snap) continue;
+    let unit: { opexMonth?: number; reTaxMonth?: number } | undefined;
+    for (const p of snap.properties ?? []) {
+      const u = (p.units ?? []).find((x) => x.unitRef === unitRef);
+      if (u) { unit = u; break; }
+    }
+    if (!unit) continue;
+    const cam = Math.round(unit.opexMonth ?? 0);
+    const ret = Math.round(unit.reTaxMonth ?? 0);
+    if (cam || ret) out.push({ month: m, cam, ret });
+  }
+  return out;
+}

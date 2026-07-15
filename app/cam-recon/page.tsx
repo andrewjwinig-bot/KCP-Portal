@@ -6,6 +6,7 @@ import { Pill, StatPill, reconBalanceTone, TONE_NEUTRAL, TONE_AMBER, TONE_BLUE, 
 import { ImportInstructions } from "@/app/components/ImportInstructions";
 import { LastImported } from "@/app/components/LastImported";
 import { useCamBackup, BackupTrigger, PackageButton, CamBackupModal, MixedCamBackup } from "./CamBackup";
+import { TenantShareLink } from "./TenantShareLink";
 import {
   yearEndAdjustmentRows,
   chargeRowsToCSV,
@@ -541,7 +542,10 @@ export default function OfficeCamReconPage() {
                 (with an info popover for the Skyline import steps). */}
             {isQuarterly ? null : isRetail ? (
               rSelected ? (
-                <button onClick={() => downloadRetailTenantPdf(rSelected, year, `${property} — ${propName}`, contacts[rSelected.unitRef])} className="btn primary" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}>Download PDF</button>
+                <>
+                  <button onClick={() => downloadRetailTenantPdf(rSelected, year, `${property} — ${propName}`, contacts[rSelected.unitRef])} className="btn primary" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}>Download PDF</button>
+                  {!isMixed && <TenantShareLink property={property} unitRef={rSelected.unitRef} year={year} kind="retail" tenantName={rSelected.name} />}
+                </>
               ) : (
                 <button onClick={() => activeRetail && downloadAllRetailPdfs(activeRetail.tenants, year, `${property} — ${propName}`, contacts)} disabled={!activeRetail} className="btn primary" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}>All Tenant PDFs</button>
               )

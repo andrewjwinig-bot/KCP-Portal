@@ -19,7 +19,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { user, hydrated } = useUser();
-  const isPublic = PUBLIC_PATHS.has(pathname);
+  const isPublic = PUBLIC_PATHS.has(pathname) || pathname.startsWith("/statement/");
 
   // Auto-collapse the sidebar to a hidden drawer on narrow viewports.
   useEffect(() => {
