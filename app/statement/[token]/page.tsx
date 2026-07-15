@@ -19,14 +19,15 @@ type Backup = { id: string; name: string; size: number; contentType: string };
 type Line = { account: string; label: string; amount: number; backup: Backup[] };
 type Statement = {
   ok: true; property: string; propertyName: string; year: number;
+  basis: "pro-rata" | "base-year"; notes: string[];
   tenant: {
     unitRef: string; suite: string; name: string; camPrs: number; insPrs: number; retPrs: number; adminFeePct: number;
-    grossLease: boolean; occPct: number; camShare: number; camAdmin: number;
+    grossLease: boolean; occPct: number; baseYear: number | null;
     camDue: number; camEscrow: number; camBalance: number;
     insDue: number; insEscrow: number; insBalance: number;
     retDue: number; retEscrow: number; retBalance: number;
   };
-  lines: Line[]; ins: { label: string; amount: number; backup: Backup[] }; ret: { label: string; amount: number; backup: Backup[] };
+  lines: Line[]; ins: { label: string; amount: number; backup: Backup[] } | null; ret: { label: string; amount: number; backup: Backup[] };
   escrowMonthly: { month: number; cam: number; ret: number }[];
 };
 
@@ -97,7 +98,7 @@ export default function TenantStatementPage() {
       {/* Summary */}
       <section style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 20 }}>
         <Card label="CAM" due={t.camDue} escrow={t.camEscrow} balance={t.camBalance} />
-        <Card label="Insurance" due={t.insDue} escrow={t.insEscrow} balance={t.insBalance} />
+        {data.ins && <Card label="Insurance" due={t.insDue} escrow={t.insEscrow} balance={t.insBalance} />}
         <Card label="Real Estate Tax" due={t.retDue} escrow={t.retEscrow} balance={t.retBalance} />
       </section>
       <div style={{ marginTop: 14, padding: "14px 18px", borderRadius: 12, background: BRAND, color: "#fff", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -109,7 +110,11 @@ export default function TenantStatementPage() {
       <section style={{ marginTop: 26 }}>
         <h2 style={{ fontSize: 16, margin: "0 0 4px" }}>Common Area Expenses</h2>
         <p className="muted" style={{ fontSize: 13, margin: "0 0 10px" }}>
-          Your CAM share is <b>{pct(t.camPrs)}</b>{t.adminFeePct ? <> plus a {t.adminFeePct}% administrative fee</> : null}. Click any backup to view or download the supporting invoices.
+          Your CAM share is <b>{pct(t.camPrs)}</b>
+          {data.basis === "pro-rata"
+            ? (t.adminFeePct ? <> plus a {t.adminFeePct}% administrative fee</> : null)
+            : (t.baseYear ? <>, recovered on the increase over your <b>{t.baseYear}</b> base year</> : null)}
+          . Click any backup to view or download the supporting invoices.
         </p>
         <div style={{ border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
@@ -128,7 +133,7 @@ export default function TenantStatementPage() {
                   <td style={{ padding: "9px 14px" }}><BackupChips backup={l.backup} /></td>
                 </tr>
               ))}
-              {[data.ins, data.ret].map((x) => (
+              {[data.ins, data.ret].filter((x): x is NonNullable<typeof x> => !!x).map((x) => (
                 <tr key={x.label} style={{ borderTop: "2px solid var(--border)" }}>
                   <td style={{ padding: "9px 14px", fontWeight: 700 }}>{x.label}</td>
                   <td style={{ padding: "9px 14px", textAlign: "right", fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{money(x.amount)}</td>
@@ -174,6 +179,12 @@ export default function TenantStatementPage() {
               </table>
             </div>
           )}
+        </section>
+      )}
+
+      {data.notes.length > 0 && (
+        <section style={{ marginTop: 22 }}>
+          {data.notes.map((n, i) => <p key={i} className="muted" style={{ fontSize: 12.5, margin: "4px 0" }}>* {n}</p>)}
         </section>
       )}
 
