@@ -410,6 +410,25 @@ export default function OperatingStatementsPage() {
         if (leanImport) fd.append("lean", "1");
         const j = await fetch("/api/financials/operating-statements", { method: "POST", body: fd }).then((r) => r.json());
         if (j.error || !j.ok) return { status: "failed", error: j.error ?? "Import failed" };
+        // A posting report (interim update) fans out to every property it
+        // touches, layering deltas onto months the full GL doesn't yet cover.
+        if (j.postingReport) {
+          const props: number = j.applied?.length ?? 0;
+          const newMonths = new Set<number>((j.applied ?? []).flatMap((a: { newMonths?: number[] }) => a.newMonths ?? []));
+          const held = (j.applied ?? []).some((a: { heldMonths?: number[] }) => (a.heldMonths?.length ?? 0) > 0);
+          const monthList = [...newMonths].sort((a, b) => a - b).map((m) => MONTHS[m - 1]).join(", ");
+          return {
+            status: "done" as const,
+            entity: `Posting report · ${props} propert${props === 1 ? "y" : "ies"}`,
+            detail: monthList ? `${monthList} ${j.year}` : String(j.year),
+            note: newMonths.size
+              ? `interim update applied${held ? " · some months held (full GL covers)" : ""}${j.balanced ? "" : " · ⚠ debits ≠ credits"}`
+              : "no new months — a full GL already covers these",
+            noteTone: newMonths.size && j.balanced ? "ok" : "warn",
+            count: props,
+            countLabel: "properties",
+          };
+        }
         last = { key: j.key, year: j.year };
         const a = available.find((x) => x.key === j.key);
         const rec = j.reconciliation;
@@ -720,7 +739,7 @@ export default function OperatingStatementsPage() {
 
         <div style={{ marginTop: 8 }}>
           <p className="muted small" style={{ margin: 0, display: "flex", alignItems: "center", gap: 6 }}>
-            <span>Import <b>Detailed General Ledger</b> Excel file (.xls or .xlsx). Able to select multiple at once.</span>
+            <span>Import <b>Detailed General Ledger</b> Excel file (.xls or .xlsx) — or <b>Posting Reports</b> for interim updates between months. Able to select multiple at once.</span>
             <ImportInstructionsButton
               year={year || new Date().getFullYear()}
               nextPeriod={statement ? Math.min(maxPeriod + 1, 12) : 1}

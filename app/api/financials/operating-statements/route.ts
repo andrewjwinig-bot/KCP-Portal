@@ -6,6 +6,9 @@ import { availableStatements, getMapping, resolveStatementKey } from "@/lib/fina
 import { resolvePropertyBudget, makeBudgetLookup } from "@/lib/financials/operating-statements/budgetCrosswalk";
 import { saveGl, getGl, versionsFor, listFullGls, mergeAccountNames, getNotesBundle, saveNote, saveTransactions, getDismissedFlags, type StoredGl } from "@/lib/financials/operating-statements/statementStore";
 import { assembleGls } from "@/lib/financials/operating-statements/glAssemble";
+import { detectPostingFormat, parsePostingReport } from "@/lib/financials/operating-statements/postingReport";
+import { savePostingDelta, type PostingDelta } from "@/lib/financials/operating-statements/postingDeltaStore";
+import crypto from "node:crypto";
 import { cashAtStartOfMonth } from "@/lib/financials/operating-statements/cash";
 import { lineMonthly } from "@/lib/financials/operating-statements/lineSeries";
 import { trendFlags } from "@/lib/financials/operating-statements/trends";
@@ -342,6 +345,67 @@ export async function PATCH(req: Request) {
   }
 }
 
+/** Import one Skyline Posting Report (single-property A/P or multi-property GL):
+ *  parse it, resolve each property to its mapping key, and store a per-property
+ *  interim delta. Reports which months are new vs already covered by a full GL
+ *  (the full GL wins). Idempotent by content id. */
+async function importPostingReport(
+  rows: (string | number | null)[][],
+  file: File,
+  form: FormData,
+  req: Request,
+): Promise<NextResponse> {
+  const parsed = parsePostingReport(rows);
+  if (!parsed.year) {
+    return NextResponse.json({ error: "Could not read a reporting year from the posting report." }, { status: 400 });
+  }
+  const uploadedByRaw = form.get("uploadedBy");
+  const uploadedBy = typeof uploadedByRaw === "string" ? uploadedByRaw : undefined;
+  const ts = new Date().toISOString();
+  const year = parsed.year;
+  const fulls = await listFullGls();
+
+  const applied: { property: string; key: string; newMonths: number[]; heldMonths: number[] }[] = [];
+  const skipped: { property: string; reason: string }[] = [];
+
+  for (const prop of parsed.properties) {
+    const key = await resolveStatementKey(prop.property);
+    if (!key) { skipped.push({ property: prop.property, reason: "no statement mapping" }); continue; }
+
+    // Which months a full GL already covers for this property/year (it wins).
+    const base = assembleGls(fulls.filter((g) => g.key === key && g.year === year));
+    const covered = base?.coverageEnd ?? base?.maxPeriodInFile ?? 0;
+    const newMonths = prop.months.filter((m) => m > covered);
+    const heldMonths = prop.months.filter((m) => m <= covered);
+
+    const id = crypto.createHash("sha1")
+      .update(JSON.stringify({ key, year, postThru: parsed.postThru, monthly: prop.monthly }))
+      .digest("hex").slice(0, 16);
+    const rec: PostingDelta = {
+      id: `pd-${key}-${year}-${id}`,
+      key, year, importedAt: ts, importedBy: uploadedBy,
+      postThru: parsed.postThru, sourceName: file.name,
+      monthly: prop.monthly, transactions: prop.transactions, months: prop.months,
+    };
+    await savePostingDelta(rec);
+    applied.push({ property: prop.property, key, newMonths, heldMonths });
+  }
+
+  await logAudit({ event: "gl.posting-report", user: uploadedBy ?? "import", ip: auditIp(req), detail: `${file.name} · ${applied.length} properties · ${year}` });
+
+  return NextResponse.json({
+    ok: true,
+    postingReport: true,
+    format: parsed.format,
+    balanced: parsed.balanced,
+    year,
+    postThru: parsed.postThru,
+    applied,
+    skipped,
+    propertyCount: applied.length,
+  });
+}
+
 // POST — multipart upload of one property's Skyline GL export. Parses, stores a
 // new version, and returns its metadata. One file per property; versions kept.
 export async function POST(req: Request) {
@@ -355,6 +419,12 @@ export async function POST(req: Request) {
     const wb = XLSX.read(buf, { type: "buffer" });
     const sheet = wb.Sheets[wb.SheetNames[0]];
     const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true, defval: null }) as (string | number | null)[][];
+
+    // A Skyline "Posting Report" is an interim journal feed between full GL
+    // uploads — parse it and store per-property deltas rather than a full GL.
+    if (detectPostingFormat(rows)) {
+      return await importPostingReport(rows, file, form, req);
+    }
 
     // Split into one GlMonthly PER YEAR the file covers — a Multi-Year GL
     // spanning several years imports each year on its own; a single-year file

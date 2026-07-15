@@ -9,6 +9,7 @@ import "server-only";
 import { storeJSON, listJSON, getJSON, deleteJSON } from "@/lib/storage";
 import type { GlTransaction } from "./glParser";
 import { assembleGls, mergeTransactions } from "./glAssemble";
+import { applyPostingDeltas, applyPostingTransactions, postingDeltasFor } from "./postingDeltaStore";
 import { glKeysFor } from "@/lib/financials/cash-analysis/funds";
 
 const PREFIX = "financials-operating-statements";
@@ -82,12 +83,20 @@ export async function assembledTransactions(key: string, year: number): Promise<
   const out: Record<string, GlTransaction[]> = {};
   for (const k of keys) {
     const gls = all.filter((g) => g.key === k && g.year === year);
-    if (!gls.length) continue;
-    const versions = await Promise.all(
-      gls.map(async (g) => ({ ...g, transactions: await getTransactions(g.id) }))
-    );
-    const merged = mergeTransactions(versions);
-    for (const [acct, txs] of Object.entries(merged)) {
+    let merged: Record<string, GlTransaction[]> = {};
+    let coveredThrough = 0;
+    if (gls.length) {
+      const versions = await Promise.all(
+        gls.map(async (g) => ({ ...g, transactions: await getTransactions(g.id) }))
+      );
+      merged = mergeTransactions(versions);
+      const base = assembleGls(gls);
+      coveredThrough = base?.coverageEnd ?? base?.maxPeriodInFile ?? 0;
+    }
+    // Interim posting deltas layer on for months the full GL doesn't cover.
+    const deltas = await postingDeltasFor(k, year);
+    const withDeltas = applyPostingTransactions(merged, deltas, coveredThrough);
+    for (const [acct, txs] of Object.entries(withDeltas)) {
       out[acct] = out[acct] ? out[acct].concat(txs) : txs;
     }
   }
@@ -151,7 +160,10 @@ export async function latestGl(key: string, year: number): Promise<StoredGl | nu
  *  every uploaded month is present (cumulative or month-by-month uploads). */
 export async function assembledGl(key: string, year: number): Promise<StoredGl | null> {
   const all = await listFullGls();
-  return assembleGls(all.filter((g) => g.key === key && g.year === year));
+  const base = assembleGls(all.filter((g) => g.key === key && g.year === year));
+  // Layer interim posting-report deltas on months the full GL doesn't cover.
+  const deltas = await postingDeltasFor(key, year);
+  return applyPostingDeltas(base, deltas, key, year);
 }
 
 /** GL for a key, consolidating a fund's member buildings (a fund has no GL of
