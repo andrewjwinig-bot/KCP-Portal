@@ -308,6 +308,18 @@ export default function OfficeCamReconPage() {
     loadResult();
   }, [property, year, loadResult]);
 
+  // Keep the year valid for the selected property. Each property only has the
+  // years it actually has data for (e.g. mixed-use 7010 has 2025 only). When you
+  // switch to a property that lacks the current year, snap to its newest
+  // available year — otherwise the year picker holds an option-less value, the
+  // page 404s (blank), and the dropdown appears frozen (the browser already
+  // shows the sole option as selected, so choosing it fires no change event).
+  useEffect(() => {
+    if (!property || !available.length) return;
+    const entry = available.find((a) => a.propertyCode === property);
+    if (entry && entry.years.length && !entry.years.includes(year)) setYear(entry.years[0]);
+  }, [property, available, year]);
+
   // Persist a single per-unit override (e.g. an escrow adjustment) then
   // reload so balances recompute server-side.
   const saveField = useCallback(async (unitRef: string, field: string, value: number | string | null) => {
@@ -394,6 +406,13 @@ export default function OfficeCamReconPage() {
     );
     if (q) { setProperty(q.key); return; }
     setUnit(unitRef);
+  };
+  // Switch property and, in the same batch, snap the year into that property's
+  // available range so the recon loads with a valid year (no blank 404 flash).
+  const selectProperty = (code: string) => {
+    const entry = available.find((a) => a.propertyCode === code);
+    setProperty(code);
+    if (entry && entry.years.length && !entry.years.includes(year)) setYear(entry.years[0]);
   };
   const goTenant = (dir: 1 | -1) => {
     if (tenantIdx < 0) return;
@@ -495,7 +514,7 @@ export default function OfficeCamReconPage() {
             <HeaderSelect value={String(year)} onChange={(v) => setYear(Number(v))} displayLabel={String(year || "—")} ariaLabel="Year" muted>
               {years.map((y) => <option key={y} value={y}>{y}</option>)}
             </HeaderSelect>
-            <HeaderSelect value={property} onChange={setProperty} displayLabel={property ? (isQuarterly ? propName : `${property} — ${propName}`) : "—"} ariaLabel="Property">
+            <HeaderSelect value={property} onChange={selectProperty} displayLabel={property ? (isQuarterly ? propName : `${property} — ${propName}`) : "—"} ariaLabel="Property">
               {available.map((a) => <option key={a.propertyCode} value={a.propertyCode}>{a.quarterly ? a.name : `${a.propertyCode} — ${a.name}`}</option>)}
             </HeaderSelect>
             {!isQuarterly && (
