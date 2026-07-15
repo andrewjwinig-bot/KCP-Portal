@@ -62,6 +62,52 @@ export function PackageButton({ property, year, total }: { property: string; yea
   );
 }
 
+/** Mixed-center backup: two separate buckets — Office and Retail — so a mixed
+ *  property's invoices never get confused. Office files store under the office
+ *  fixture key, retail under the retail key: physically separate, and
+ *  forward-compatible with per-portion tenant packages. */
+export function MixedCamBackup({ retailProperty, officeProperty, year }: {
+  retailProperty: string; officeProperty: string; year: number;
+}) {
+  const retail = useCamBackup(retailProperty, year);
+  const office = useCamBackup(officeProperty, year);
+  const [open, setOpen] = useState<"office" | "retail" | null>(null);
+  const rows = [
+    { key: "office" as const, title: "Office", b: office, property: officeProperty },
+    { key: "retail" as const, title: "Retail", b: retail, property: retailProperty },
+  ];
+  const openRow = rows.find((r) => r.key === open);
+  return (
+    <div className="card">
+      <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: BRAND }}>CAM Backup · {year}</div>
+      <div className="muted small" style={{ marginTop: 2, marginBottom: 12, maxWidth: 640 }}>
+        This is a mixed center — office and retail invoices are kept in two separate buckets so they don&rsquo;t get mixed up. Attach each portion&rsquo;s invoices below; download either as its own package.
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {rows.map((r) => (
+          <div key={r.key} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", border: "1px solid var(--border)", borderRadius: 10, background: "rgba(15,23,42,0.02)" }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 700 }}>{r.title} portion</div>
+              <div className="muted small">{r.b.total} file{r.b.total === 1 ? "" : "s"} attached</div>
+            </div>
+            <button onClick={() => setOpen(r.key)} className="btn" style={{ fontSize: 12, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 6 }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" /></svg>
+              Add / view
+            </button>
+            <PackageButton property={r.property} year={year} total={r.b.total} />
+          </div>
+        ))}
+      </div>
+      {openRow && (
+        <CamBackupModal
+          property={openRow.property} year={year} account="ALL" label={`${openRow.title} invoices`}
+          items={openRow.b.items} onClose={() => setOpen(null)} onChange={openRow.b.refresh}
+        />
+      )}
+    </div>
+  );
+}
+
 /** Per-line modal: upload / view / download / delete backup for one account. */
 export function CamBackupModal({ property, year, account, label, items, onClose, onChange }: {
   property: string; year: number; account: string; label: string;

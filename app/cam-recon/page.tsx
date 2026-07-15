@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Pill, StatPill, reconBalanceTone, TONE_NEUTRAL, TONE_AMBER, TONE_BLUE, TONE_PURPLE } from "@/app/components/Pill";
 import { ImportInstructions } from "@/app/components/ImportInstructions";
 import { LastImported } from "@/app/components/LastImported";
-import { useCamBackup, BackupTrigger, PackageButton, CamBackupModal } from "./CamBackup";
+import { useCamBackup, BackupTrigger, PackageButton, CamBackupModal, MixedCamBackup } from "./CamBackup";
 import {
   yearEndAdjustmentRows,
   chargeRowsToCSV,
@@ -651,6 +651,13 @@ export default function OfficeCamReconPage() {
           historyHref={`/rentroll/base-years?property=${property}`}
         />
       )}
+      {isMixed && !rSelected && (
+        <MixedCamBackup
+          retailProperty={property}
+          officeProperty={available.find((a) => a.propertyCode === property)?.mixedOfficeCode ?? `${property}O`}
+          year={year}
+        />
+      )}
       {isRetail && !rSelected && allocation && <AllocationBreakdown a={allocation} />}
       {isRetail && !rSelected && activeRetail && <RetailConfigTable result={activeRetail} onPick={pickUnit} />}
       {isRetail && rSelected && <RetailTenantStatement t={rSelected} reconYear={year} contact={contacts[rSelected.unitRef]} />}
@@ -911,6 +918,11 @@ function QuarterlyBilling({ billingKey, year }: { billingKey: string; year: numb
 
   const effective = useMemo(() => mergeQuarterly(auto, manual), [auto, manual]);
   const computed = useMemo(() => (def ? computeQuarterly(def, effective) : null), [def, effective]);
+  // Backup invoices reuse the parent property's CAM store: Wawa's eligible
+  // expenses pull from the same 9510 GL accounts, so an invoice attached to a
+  // line on 9510's Final Expense Summary is the backup for that line here too.
+  const backup = useCamBackup(def?.parentProperty ?? null, year);
+  const [openBackup, setOpenBackup] = useState<{ account: string; label: string } | null>(null);
 
   function save(field: "camCost" | "retCost" | "billed", label: string, q: Quarter, value: number) {
     setManual((prev) => {
@@ -959,13 +971,17 @@ function QuarterlyBilling({ billingKey, year }: { billingKey: string; year: numb
 
   return (
     <div className="card" style={{ overflowX: "auto" }}>
-      <div style={CARD_TITLE}>{def.name} — Quarterly CAM / RET ({year})</div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+        <div style={CARD_TITLE}>{def.name} — Quarterly CAM / RET ({year})</div>
+        <PackageButton property={def.parentProperty} year={year} total={backup.total} />
+      </div>
       <p className="small muted" style={{ marginTop: 4, maxWidth: 820 }}>
         {def.sharePct}% lease share{def.occPct < 1 ? ` · ${pct(def.occPct, 0)} occupancy` : ""}.{" "}
         {gl.hasGl
           ? <>Eligible expenses pull live from the <b>{def.parentProperty} GL</b> (posted through month {gl.maxPosted}); type a cell to override.</>
           : <>No {def.parentProperty} GL uploaded for {year} — enter eligible expenses manually.</>}{" "}
-        The share applies per quarter; the YTD balance backs out what&rsquo;s billed / paid. Billed quarterly (payments aren&rsquo;t escrow).
+        The share applies per quarter; the YTD balance backs out what&rsquo;s billed / paid. Billed quarterly (payments aren&rsquo;t escrow).{" "}
+        Backup invoices are shared with <b>{def.parentProperty}</b>&rsquo;s Final Expense Summary — same expense pool, attach once.
       </p>
 
       <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 10, minWidth: 720 }}>
@@ -981,7 +997,14 @@ function QuarterlyBilling({ billingKey, year }: { billingKey: string; year: numb
           {def.camLines.map((label) => (
             <tr key={label} style={{ borderBottom: "1px solid var(--border)" }}>
               <td style={acctTd}><code style={{ fontSize: 11 }}>{def.camAccounts[label] ?? "—"}</code></td>
-              <td style={{ ...std, textAlign: "left" }}>{label}</td>
+              <td style={{ ...std, textAlign: "left" }}>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                  <span>{label}</span>
+                  {def.camAccounts[label] && (
+                    <BackupTrigger count={backup.countByAccount[def.camAccounts[label]] ?? 0} onClick={() => setOpenBackup({ account: def.camAccounts[label], label })} />
+                  )}
+                </span>
+              </td>
               <td style={{ ...ytdTd, color: "var(--muted)" }}>{money0(QUARTERS.reduce((a, qq) => a + (effective.camCosts[label]?.[qq] ?? 0), 0))}</td>
               {QUARTERS.map((qq) => costCell(effective.camCosts[label]?.[qq] ?? 0, overridden(label, qq, "cam"), (v) => save("camCost", label, qq, v)))}
             </tr>
@@ -1005,7 +1028,12 @@ function QuarterlyBilling({ billingKey, year }: { billingKey: string; year: numb
           </tr>
           <tr style={{ borderTop: "2px solid var(--border)" }}>
             <td style={acctTd}><code style={{ fontSize: 11 }}>{def.retAccount}</code></td>
-            <td style={{ ...std, textAlign: "left" }}>Total Taxes</td>
+            <td style={{ ...std, textAlign: "left" }}>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                <span>Total Taxes</span>
+                <BackupTrigger count={backup.countByAccount[def.retAccount] ?? 0} onClick={() => setOpenBackup({ account: def.retAccount, label: "Real Estate Taxes" })} />
+              </span>
+            </td>
             <td style={{ ...ytdTd, color: "var(--muted)" }}>{money0(computed.retCostYtd)}</td>
             {QUARTERS.map((qq) => costCell(effective.retCosts[qq] ?? 0, overridden(null, qq, "ret"), (v) => save("retCost", "", qq, v)))}
           </tr>
@@ -1030,6 +1058,12 @@ function QuarterlyBilling({ billingKey, year }: { billingKey: string; year: numb
         <FinalBalanceRow label={`Total Charges — ${q} ${year}`} value={totalChargesQ} />
         <p className="small muted" style={{ marginTop: 8 }}>Add CAM charge to the tenant in Skyline for &ldquo;{q} CAM&rdquo;.</p>
       </div>
+      {openBackup && (
+        <CamBackupModal
+          property={def.parentProperty} year={year} account={openBackup.account} label={openBackup.label}
+          items={backup.items} onClose={() => setOpenBackup(null)} onChange={backup.refresh}
+        />
+      )}
     </div>
   );
 }
