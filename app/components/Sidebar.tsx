@@ -921,6 +921,13 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
           const renderLink = (item: (typeof NAV)[number], inGroup: boolean) => {
             const active = isActive(item);
             const badge = badgeFor(item);
+            // Sub-pages (a group's children, or an indented item) drop their
+            // icon when the rail is expanded — icons then read as a "this is a
+            // section" signal, cleanly setting category headers apart from their
+            // pages. The icon column is preserved (blank) so labels stay aligned.
+            // Collapsed, the icon is the only glyph, so it's always kept there.
+            const isSubPage = inGroup || item.indent;
+            const hideIcon = isSubPage && open;
             return (
               <a
                 key={item.label}
@@ -955,7 +962,7 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
                   (e.currentTarget as HTMLElement).style.background = active ? "rgba(255,255,255,0.18)" : "transparent";
                 }}
               >
-                <span style={{ flexShrink: 0 }}>{item.icon}</span>
+                <span style={{ flexShrink: 0, ...(hideIcon ? { width: 22, height: 22 } : {}) }}>{hideIcon ? null : item.icon}</span>
                 {open && (
                   <span>
                     {item.label}
