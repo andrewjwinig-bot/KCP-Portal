@@ -5,6 +5,7 @@
 // Files live behind /api/cam-recon/attachments; this is the UI over it.
 
 import { useCallback, useEffect, useState } from "react";
+import { upload as blobUpload } from "@vercel/blob/client";
 
 const BRAND = "#0b4a7d";
 const RED = "#b91c1c";
@@ -20,17 +21,18 @@ const fileUrl = (a: AttachmentMeta, dl = false) => `/api/cam-recon/attachments/f
 /** Load all attachments for a property/year and expose counts by account. */
 export function useCamBackup(property: string | null, year: number) {
   const [items, setItems] = useState<AttachmentMeta[]>([]);
+  const [blob, setBlob] = useState(false); // Blob configured server-side → direct upload
   const refresh = useCallback(() => {
     if (!property) { setItems([]); return; }
     fetch(`/api/cam-recon/attachments?property=${encodeURIComponent(property)}&year=${year}`)
       .then((r) => (r.ok ? r.json() : { attachments: [] }))
-      .then((j) => setItems(Array.isArray(j.attachments) ? j.attachments : []))
+      .then((j) => { setItems(Array.isArray(j.attachments) ? j.attachments : []); setBlob(!!j.blob); })
       .catch(() => setItems([]));
   }, [property, year]);
   useEffect(() => { refresh(); }, [refresh]);
   const countByAccount: Record<string, number> = {};
   for (const a of items) countByAccount[a.account] = (countByAccount[a.account] ?? 0) + 1;
-  return { items, countByAccount, total: items.length, refresh };
+  return { items, countByAccount, total: items.length, refresh, blob };
 }
 
 /** Small paperclip trigger showing the attachment count for a line. */
@@ -101,7 +103,7 @@ export function MixedCamBackup({ retailProperty, officeProperty, year }: {
       {openRow && (
         <CamBackupModal
           property={openRow.property} year={year} account="ALL" label={`${openRow.title} invoices`}
-          items={openRow.b.items} onClose={() => setOpen(null)} onChange={openRow.b.refresh}
+          items={openRow.b.items} blobEnabled={openRow.b.blob} onClose={() => setOpen(null)} onChange={openRow.b.refresh}
         />
       )}
     </div>
@@ -109,9 +111,9 @@ export function MixedCamBackup({ retailProperty, officeProperty, year }: {
 }
 
 /** Per-line modal: upload / view / download / delete backup for one account. */
-export function CamBackupModal({ property, year, account, label, items, onClose, onChange }: {
+export function CamBackupModal({ property, year, account, label, items, blobEnabled = false, onClose, onChange }: {
   property: string; year: number; account: string; label: string;
-  items: AttachmentMeta[]; onClose: () => void; onChange: () => void;
+  items: AttachmentMeta[]; blobEnabled?: boolean; onClose: () => void; onChange: () => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -125,6 +127,25 @@ export function CamBackupModal({ property, year, account, label, items, onClose,
     return () => document.removeEventListener("keydown", onKey);
   }, [onClose]);
 
+  // Direct browser → Vercel Blob upload (no 4.5 MB serverless limit; multipart
+  // for big files), then record the resulting URL. Used when Blob is configured.
+  async function uploadViaBlob(file: File) {
+    const seg = (v: string) => String(v).replace(/[^\w.\-]+/g, "_").slice(0, 80) || "_";
+    const path = `cam-attachments/${seg(property)}/${year}/${seg(account)}/${seg(file.name || "attachment")}`;
+    const blob = await blobUpload(path, file, {
+      access: "private",
+      handleUploadUrl: "/api/cam-recon/attachments/blob-upload",
+      contentType: file.type || undefined,
+      multipart: file.size > 8 * 1024 * 1024,
+      clientPayload: JSON.stringify({ property, year, account, accountLabel: label, name: file.name }),
+    });
+    const res = await fetch("/api/cam-recon/attachments", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ blobUrl: blob.url, property, year, account, accountLabel: label, name: file.name, size: file.size, contentType: file.type }),
+    });
+    if (!res.ok) throw new Error((await res.json().catch(() => null))?.error ?? `Could not record upload (HTTP ${res.status})`);
+  }
+
   async function upload(files: FileList | File[] | null) {
     const arr = Array.from(files ?? []);
     if (arr.length === 0) return;
@@ -132,16 +153,20 @@ export function CamBackupModal({ property, year, account, label, items, onClose,
     try {
       for (let i = 0; i < arr.length; i++) {
         const file = arr[i];
-        const fd = new FormData();
-        fd.append("file", file); fd.append("property", property); fd.append("year", String(year));
-        fd.append("account", account); fd.append("accountLabel", label);
-        let res: Response;
-        try { res = await fetch("/api/cam-recon/attachments", { method: "POST", body: fd }); }
-        catch { throw new Error("Network error — check your connection and try again."); }
-        if (!res.ok) {
-          const body = await res.json().catch(() => null);
-          const hint = res.status === 413 ? " — file too large (try a smaller PDF)" : res.status === 401 ? " — please sign in again" : "";
-          throw new Error((body?.error ?? `Upload failed (HTTP ${res.status})`) + hint);
+        if (blobEnabled) {
+          await uploadViaBlob(file);
+        } else {
+          const fd = new FormData();
+          fd.append("file", file); fd.append("property", property); fd.append("year", String(year));
+          fd.append("account", account); fd.append("accountLabel", label);
+          let res: Response;
+          try { res = await fetch("/api/cam-recon/attachments", { method: "POST", body: fd }); }
+          catch { throw new Error("Network error — check your connection and try again."); }
+          if (!res.ok) {
+            const body = await res.json().catch(() => null);
+            const hint = res.status === 413 ? " — file too large" : res.status === 401 ? " — please sign in again" : "";
+            throw new Error((body?.error ?? `Upload failed (HTTP ${res.status})`) + hint);
+          }
         }
         setProgress({ done: i + 1, total: arr.length });
       }
