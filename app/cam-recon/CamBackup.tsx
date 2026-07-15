@@ -115,6 +115,8 @@ export function CamBackupModal({ property, year, account, label, items, onClose,
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [dragOver, setDragOver] = useState(false);
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const mine = items.filter((a) => a.account === account);
 
   useEffect(() => {
@@ -123,20 +125,29 @@ export function CamBackupModal({ property, year, account, label, items, onClose,
     return () => document.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  async function upload(files: FileList | null) {
-    if (!files || files.length === 0) return;
-    setBusy(true); setError(null);
+  async function upload(files: FileList | File[] | null) {
+    const arr = Array.from(files ?? []);
+    if (arr.length === 0) return;
+    setBusy(true); setError(null); setProgress({ done: 0, total: arr.length });
     try {
-      for (const file of Array.from(files)) {
+      for (let i = 0; i < arr.length; i++) {
+        const file = arr[i];
         const fd = new FormData();
         fd.append("file", file); fd.append("property", property); fd.append("year", String(year));
         fd.append("account", account); fd.append("accountLabel", label);
-        const res = await fetch("/api/cam-recon/attachments", { method: "POST", body: fd });
-        if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? "Upload failed");
+        let res: Response;
+        try { res = await fetch("/api/cam-recon/attachments", { method: "POST", body: fd }); }
+        catch { throw new Error("Network error — check your connection and try again."); }
+        if (!res.ok) {
+          const body = await res.json().catch(() => null);
+          const hint = res.status === 413 ? " — file too large (try a smaller PDF)" : res.status === 401 ? " — please sign in again" : "";
+          throw new Error((body?.error ?? `Upload failed (HTTP ${res.status})`) + hint);
+        }
+        setProgress({ done: i + 1, total: arr.length });
       }
       onChange();
     } catch (e: any) { setError(e?.message ?? "Upload failed"); }
-    finally { setBusy(false); }
+    finally { setBusy(false); setProgress(null); }
   }
   async function remove(id: string) {
     setBusy(true);
@@ -163,9 +174,32 @@ export function CamBackupModal({ property, year, account, label, items, onClose,
         </div>
         <div className="muted small" style={{ marginBottom: 12 }}>The invoices/statements that make up this expense — kept with the {year} number as backup.</div>
 
-        <label className="btn primary" style={{ fontWeight: 700, cursor: busy ? "default" : "pointer", opacity: busy ? 0.6 : 1, display: "inline-flex", alignItems: "center", gap: 6 }}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
-          {busy ? "Uploading…" : "Add invoice(s)"}
+        <label
+          onDragOver={(e) => { e.preventDefault(); if (!busy) setDragOver(true); }}
+          onDragLeave={(e) => { e.preventDefault(); setDragOver(false); }}
+          onDrop={(e) => { e.preventDefault(); setDragOver(false); if (!busy) upload(e.dataTransfer.files); }}
+          style={{
+            display: "flex", flexDirection: "column", alignItems: "center", gap: 8, textAlign: "center",
+            border: `2px dashed ${dragOver ? BRAND : "var(--border)"}`, borderRadius: 12, padding: "22px 16px",
+            cursor: busy ? "default" : "pointer", background: dragOver ? "rgba(11,74,125,0.07)" : "rgba(15,23,42,0.02)",
+            transition: "border-color .15s, background .15s",
+          }}
+        >
+          {busy ? (
+            <>
+              <span className="imp-anim" style={{ width: 28, height: 28, borderRadius: "50%", border: "3px solid var(--border)", borderTopColor: BRAND, animation: "spin .8s linear infinite" }} />
+              <div style={{ fontWeight: 700, fontSize: 14, color: BRAND }}>
+                Uploading{progress ? ` ${progress.done + 1} of ${progress.total}` : ""}…
+              </div>
+              <div className="muted small">Keeping them with the {year} number as backup.</div>
+            </>
+          ) : (
+            <>
+              <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke={dragOver ? BRAND : "var(--muted)"} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
+              <div style={{ fontWeight: 700, fontSize: 14 }}>Drag &amp; drop invoices here</div>
+              <div className="muted small">or <span style={{ color: BRAND, fontWeight: 700 }}>browse your files</span> · PDF, image, Excel, Word</div>
+            </>
+          )}
           <input type="file" multiple accept=".pdf,.png,.jpg,.jpeg,.xls,.xlsx,.csv,.doc,.docx" onChange={(e) => upload(e.target.files)} style={{ display: "none" }} disabled={busy} />
         </label>
         {error && <div className="small" style={{ color: RED, fontWeight: 700, marginTop: 8 }}>{error}</div>}

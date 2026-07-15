@@ -20,9 +20,16 @@ export async function putAttachmentFile(
 ): Promise<{ ref: string; local: boolean }> {
   const { property, year, account, id, name, file } = opts;
   if (USE_BLOB) {
-    const res = await put(`cam-attachments/${property}/${year}/${account}/${id}-${name}`, file, {
+    // Match the app's proven upload routes (maintenance/deposits/suites):
+    // addRandomSuffix guarantees a unique key, so no allowOverwrite dance — and
+    // in @vercel/blob v2 addRandomSuffix:false without allowOverwrite throws.
+    // Sanitize each path segment (the SDK rejects "//" and caps length); the
+    // human filename is preserved separately in the record's `name`.
+    const seg = (v: string) => String(v).replace(/[^\w.\-]+/g, "_").slice(0, 80) || "_";
+    const key = `cam-attachments/${seg(property)}/${year}/${seg(account)}/${id}-${seg(name)}`;
+    const res = await put(key, file, {
       access: "private",
-      addRandomSuffix: false,
+      addRandomSuffix: true,
       contentType: file.type || undefined,
     });
     return { ref: res.url, local: false };
