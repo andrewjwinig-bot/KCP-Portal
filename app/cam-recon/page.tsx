@@ -1965,6 +1965,11 @@ function TenantStatement({ t, reconYear, estimate, contact }: {
           Base year was reset on {new Date(t.baseYearResetISO + "T00:00:00").toLocaleDateString("en-US", { month: "numeric", day: "numeric", year: "numeric" })} — occupancy is full-year, but recovery is prorated through the day before the reset (after which the new base year applies and no further increase accrues).
         </p>
       )}
+      {t.snowBaseExcluded && (
+        <p className="small muted" style={{ margin: 0 }}>
+          Snow Removal is excluded from the base year effective {new Date(t.snowBaseExcluded.effectiveYear, t.snowBaseExcluded.effectiveMonth - 1, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" })}: the snow line recovers on a full pro-rata share of the year&rsquo;s snow expense with no base-year offset{t.snowBaseExcluded.fraction < 1 ? ` (prorated to ${Math.round(t.snowBaseExcluded.fraction * 100)}% for ${reconYear})` : ""}. All other lines keep their base year.
+        </p>
+      )}
       {t.futureBaseYear && (
         <p className="small muted" style={{ margin: 0 }}>
           Base year {t.baseYear} is after the {reconYear} reconciliation year, so no recovery is due.

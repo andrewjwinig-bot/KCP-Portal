@@ -160,6 +160,13 @@ export function drawTenantStatement(doc: any, t: TenantReconResult, year: number
     at(`* Tenant's base year was reset on ${new Date(t.baseYearResetISO + "T00:00:00").toLocaleDateString("en-US")}; recovery is prorated through the reset date.`, L);
     y += 14; doc.setFont("helvetica", "normal");
   }
+  if (t.snowBaseExcluded) {
+    doc.setFont("helvetica", "italic");
+    const eff = new Date(t.snowBaseExcluded.effectiveYear, t.snowBaseExcluded.effectiveMonth - 1, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" });
+    const pro = t.snowBaseExcluded.fraction < 1 ? ` (prorated to ${Math.round(t.snowBaseExcluded.fraction * 100)}% for ${year})` : "";
+    at(`* Snow Removal is excluded from the base year effective ${eff}: snow recovers on a full pro-rata share of the year's snow expense with no base-year offset${pro}. All other lines keep their base year.`, L);
+    y += 14; doc.setFont("helvetica", "normal");
+  }
   if (t.futureBaseYear) {
     at(`Base year ${t.baseYear} is after the ${year} reconciliation year, so no recovery is due.`, L); y += 14;
   }

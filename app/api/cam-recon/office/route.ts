@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { reconcileBuilding } from "@/lib/cam/office/compute";
 import { nextYearEstimate } from "@/lib/cam/office/exports";
-import { assembleTenantInputs, type OfficeLeaseConfig, type ResetInfo } from "@/lib/cam/office/assemble";
+import { assembleTenantInputs, type OfficeLeaseConfig, type ResetInfo, type SnowExclusionInfo } from "@/lib/cam/office/assemble";
+import { createMapStore } from "@/lib/collectionStore";
 import { OFFICE_RECON_FIXTURES, availableOfficeRecons } from "@/lib/cam/office/registry";
 import { getOverrides, mergeConfig, saveOverride } from "@/lib/cam/office/configStore";
 import { getUnitConfigs } from "@/lib/cam/office/unitConfig";
@@ -41,6 +42,21 @@ async function loadResets(): Promise<Record<string, ResetInfo>> {
     | { resets?: Record<string, { resetDate: string; originalBaseYear: number | null; newBaseYear: number }> }
     | null;
   return s?.resets ?? {};
+}
+
+/** Stored snow base-year exclusions keyed by unit ref (same store the tool writes). */
+const snowExclusionStore = createMapStore<{ effectiveMonth: number; effectiveYear: number }>({ prefix: "snow-base-exclusions" });
+async function loadSnowExclusions(): Promise<Record<string, SnowExclusionInfo>> {
+  try {
+    const all = await snowExclusionStore.all();
+    const out: Record<string, SnowExclusionInfo> = {};
+    for (const [unitRef, ex] of Object.entries(all)) {
+      if (ex && Number.isFinite(ex.effectiveMonth) && Number.isFinite(ex.effectiveYear)) {
+        out[unitRef] = { effectiveMonth: ex.effectiveMonth, effectiveYear: ex.effectiveYear };
+      }
+    }
+    return out;
+  } catch { return {}; }
 }
 
 export const runtime = "nodejs";
@@ -85,7 +101,8 @@ export async function GET(req: NextRequest) {
   const config = mergeConfig(seededWithUnit, overrides);
   // Seeded resets, overridden by any recorded via the base-year-reset tool.
   const resets = { ...reconYear.resets, ...(await loadResets()) };
-  const tenants = assembleTenantInputs(reconYear.roster, year, config, resets);
+  const snowExclusions = await loadSnowExclusions();
+  const tenants = assembleTenantInputs(reconYear.roster, year, config, resets, snowExclusions);
 
   // The Condo expense (6990) only applies to the JV III condo buildings
   // (3610 / 3620 / 3640); hide it everywhere else (NI LLC + shopping centers).

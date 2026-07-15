@@ -95,6 +95,12 @@ type BaseYearReset = {
   notes?: string;
 };
 
+type SnowBaseExclusion = {
+  effectiveMonth: number;
+  effectiveYear: number;
+  notes?: string;
+};
+
 type MaintRequest = {
   id: string;
   subject: string;
@@ -124,6 +130,7 @@ export default function UnitDetailPage() {
   const [loading, setLoading] = useState(true);
   const [tenantMeta, setTenantMeta] = useState<Record<string, { baseYear?: number | string | null }>>({});
   const [resets, setResets] = useState<Record<string, BaseYearReset>>({});
+  const [snowExclusions, setSnowExclusions] = useState<Record<string, SnowBaseExclusion>>({});
   const [allRequests, setAllRequests] = useState<MaintRequest[]>([]);
 
   useEffect(() => {
@@ -134,11 +141,13 @@ export default function UnitDetailPage() {
       fetch("/api/tenant-meta").then((r) => (r.ok ? r.json() : null)).catch(() => null),
       fetch("/api/base-year-resets").then((r) => (r.ok ? r.json() : null)).catch(() => null),
       fetch("/api/maintenance/requests").then((r) => (r.ok ? r.json() : null)).catch(() => null),
-    ]).then(([rrJ, tmJ, byrJ, mrJ]) => {
+      fetch("/api/snow-base-exclusions").then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    ]).then(([rrJ, tmJ, byrJ, mrJ, snJ]) => {
       if (!alive) return;
       setRentroll(rrJ?.rentroll ?? null);
       setTenantMeta(tmJ?.tenantMeta ?? {});
       setResets(byrJ?.resets ?? {});
+      setSnowExclusions(snJ?.exclusions ?? {});
       setAllRequests((mrJ?.requests ?? []) as MaintRequest[]);
       setLoading(false);
     });
@@ -230,6 +239,10 @@ export default function UnitDetailPage() {
   const baseYearShown = showsBaseYear(propertyCode);
   const baseYearVal = tenantMeta[unit.unitRef]?.baseYear ?? null;
   const reset = resets[unit.unitRef];
+  const snowExcl = snowExclusions[unit.unitRef];
+  const snowExclLabel = snowExcl
+    ? `Snow excluded from base year · ${new Date(snowExcl.effectiveYear, snowExcl.effectiveMonth - 1, 1).toLocaleDateString("en-US", { month: "short", year: "numeric" })}`
+    : null;
 
   // True PRS = unit sqft ÷ building sqft × 100. Used to pre-fill the
   // Stipulated PRS column in the CAM card so it starts on the lease-
@@ -393,10 +406,14 @@ export default function UnitDetailPage() {
               <>
                 {baseYearVal != null ? baseYearVal : "—"}
                 {reset && <sup style={{ fontSize: 10, fontWeight: 800, color: "#b91c1c", lineHeight: 1 }}>※</sup>}
+                {snowExcl && <sup title={snowExclLabel ?? undefined} style={{ fontSize: 10, fontWeight: 800, color: "#0b4a7d", lineHeight: 1, marginLeft: 1 }}>❄</sup>}
               </>
             }
             accent={reset ? "#b91c1c" : undefined}
-            sub={reset ? `Reset ${fmtResetDate(reset.resetDate)}${reset.originalBaseYear != null ? ` (was ${reset.originalBaseYear})` : ""}` : undefined}
+            sub={[
+              reset ? `Reset ${fmtResetDate(reset.resetDate)}${reset.originalBaseYear != null ? ` (was ${reset.originalBaseYear})` : ""}` : null,
+              snowExclLabel,
+            ].filter(Boolean).join(" · ") || undefined}
           />
         )}
       </div>

@@ -58,6 +58,12 @@ export type ResetInfo = {
   newBaseYear: number;
 };
 
+/** A snow base-year exclusion (subset of the stored SnowBaseExclusion). */
+export type SnowExclusionInfo = {
+  effectiveMonth: number;
+  effectiveYear: number;
+};
+
 /** ISO "2025-07-01" → US "7/1/2025" (drops leading zeros). */
 function isoToUS(iso: string): string {
   const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})/);
@@ -110,6 +116,7 @@ export function assembleTenantInputs(
   year: number,
   configByUnit: Record<string, OfficeLeaseConfig>,
   resetsByUnit: Record<string, ResetInfo> = {},
+  snowExclusionsByUnit: Record<string, SnowExclusionInfo> = {},
 ): OfficeTenantInput[] {
   const out: OfficeTenantInput[] = [];
   for (const u of roster) {
@@ -144,6 +151,12 @@ export function assembleTenantInputs(
       occPct,
       recoveryPct,
       baseYearResetISO: resetInYear ? reset!.resetDate : null,
+      // Snow exclusion applies to the recon year only if it's effective by then;
+      // the compute prorates the effective year by month.
+      snowExclusion: (() => {
+        const ex = snowExclusionsByUnit[u.unitRef];
+        return ex && year >= ex.effectiveYear ? { effectiveMonth: ex.effectiveMonth, effectiveYear: ex.effectiveYear } : null;
+      })(),
       rcd: u.leaseFrom ?? null,
       opexEscrow: cfg.opexEscrow ?? annualizedEscrow(u.opexMonth ?? 0, monthsOcc),
       retEscrow: cfg.retEscrow ?? annualizedEscrow(u.reTaxMonth ?? 0, monthsOcc),
