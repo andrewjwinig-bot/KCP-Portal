@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Pill, StatPill, reconBalanceTone, TONE_NEUTRAL, TONE_AMBER, TONE_BLUE, TONE_PURPLE } from "@/app/components/Pill";
 import { ImportInstructions } from "@/app/components/ImportInstructions";
 import { LastImported } from "@/app/components/LastImported";
+import { useCamBackup, BackupTrigger, PackageButton, CamBackupModal } from "./CamBackup";
 import {
   yearEndAdjustmentRows,
   chargeRowsToCSV,
@@ -635,7 +636,7 @@ export default function OfficeCamReconPage() {
 
       {!selected && result && <BuildingSummary result={result} onPick={pickUnit} onEditEscrow={saveField} footer={kpiTiles} />}
       {!selected && result && <RecoveryByBaseYear result={result} />}
-      {!selected && expenseSummary.length > 0 && <FinalExpenseSummary rows={expenseSummary} editable={expenseEditable} year={year} onEdit={saveExpense} historyYears={expenseHistoryYears} historyHref={`/rentroll/base-years?property=${property}`} glImport={glImport} />}
+      {!selected && expenseSummary.length > 0 && <FinalExpenseSummary rows={expenseSummary} editable={expenseEditable} year={year} property={property} onEdit={saveExpense} historyYears={expenseHistoryYears} historyHref={`/rentroll/base-years?property=${property}`} glImport={glImport} />}
       {selected && <TenantStatement t={selected} reconYear={year} estimate={estimates.find((e) => e.unitRef === selected.unitRef)} contact={contacts[selected.unitRef]} />}
     </main>
   );
@@ -1516,15 +1517,18 @@ type ExpRow = {
   glActual?: number | null;
 };
 
-function FinalExpenseSummary({ rows, editable, year, onEdit, historyYears = [], historyHref, glImport }: {
+function FinalExpenseSummary({ rows, editable, year, property, onEdit, historyYears = [], historyHref, glImport }: {
   rows: ExpRow[];
   editable: boolean;
   year: number;
+  property: string;
   onEdit: (account: string, field: string, value: number | string | null) => void;
   historyYears?: number[];
   historyHref?: string;
   glImport?: { at: string; by: string | null } | null;
 }) {
+  const backup = useCamBackup(property, year);
+  const [openBackup, setOpenBackup] = useState<{ account: string; label: string } | null>(null);
   const isSep = (a: string) => a.startsWith("6120") || a.startsWith("6410"); // Electric / RET
   const hasGlActual = rows.some((r) => r.glActual != null); // live GL loaded (2026+)
   const opexTotal = rows.filter((r) => !isSep(r.account)).reduce((s, r) => s + r.final, 0);
@@ -1538,11 +1542,14 @@ function FinalExpenseSummary({ rows, editable, year, onEdit, historyYears = [], 
     <div className="card" style={{ overflowX: "auto" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
         <div style={CARD_TITLE}>Final Expense Summary</div>
-        {historyHref && (
-          <Link href={historyHref} style={{ fontSize: 12, fontWeight: 700, color: "#0b4a7d", textDecoration: "none", whiteSpace: "nowrap" }}>
-            Full Expense History →
-          </Link>
-        )}
+        <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+          <PackageButton property={property} year={year} total={backup.total} />
+          {historyHref && (
+            <Link href={historyHref} style={{ fontSize: 12, fontWeight: 700, color: "#0b4a7d", textDecoration: "none", whiteSpace: "nowrap" }}>
+              Full Expense History →
+            </Link>
+          )}
+        </div>
       </div>
       {editable ? (
         <>
@@ -1591,7 +1598,12 @@ function FinalExpenseSummary({ rows, editable, year, onEdit, historyYears = [], 
             return (
               <tr key={r.account} style={{ borderBottom: "1px solid var(--border)", ...(isSep(r.account) ? { borderTop: "2px solid var(--border)" } : {}) }}>
                 <td style={{ ...td, textAlign: "left", color: "var(--muted)", fontSize: 12 }}>{r.account}</td>
-                <td style={{ ...td, textAlign: "left" }}>{r.label}</td>
+                <td style={{ ...td, textAlign: "left" }}>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                    <span>{r.label}</span>
+                    <BackupTrigger count={backup.countByAccount[r.account] ?? 0} onClick={() => setOpenBackup({ account: r.account, label: r.label })} />
+                  </span>
+                </td>
                 {editable ? (
                   <>
                     <td style={{ ...td, ...(matchesTB ? { background: MATCH_BG } : {}) }}>{money0(r.tbDetail)}</td>
@@ -1625,6 +1637,12 @@ function FinalExpenseSummary({ rows, editable, year, onEdit, historyYears = [], 
           </tr>
         </tfoot>
       </table>
+      {openBackup && (
+        <CamBackupModal
+          property={property} year={year} account={openBackup.account} label={openBackup.label}
+          items={backup.items} onClose={() => setOpenBackup(null)} onChange={backup.refresh}
+        />
+      )}
     </div>
   );
 }
