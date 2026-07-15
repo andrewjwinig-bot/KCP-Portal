@@ -4,11 +4,18 @@
 // property expense line (by GL account), and download a per-property package.
 // Files live behind /api/cam-recon/attachments; this is the UI over it.
 
-import { useCallback, useEffect, useState } from "react";
+import { type CSSProperties, useCallback, useEffect, useState } from "react";
 import { upload as blobUpload } from "@vercel/blob/client";
 
 const BRAND = "#0b4a7d";
 const RED = "#b91c1c";
+const RING_C = 2 * Math.PI * 24; // progress-ring circumference (r=24)
+// Shimmer sweep for the "Uploading…" label — matches the import modal's status.
+const SHIMMER: CSSProperties = {
+  background: "linear-gradient(90deg, var(--text) 30%, var(--import-blue) 50%, var(--text) 70%)",
+  backgroundSize: "200% auto", WebkitBackgroundClip: "text", backgroundClip: "text",
+  color: "transparent", animation: "kcpShimmer 2.2s linear infinite",
+};
 
 export type AttachmentMeta = {
   id: string; property: string; year: number; account: string; accountLabel: string;
@@ -119,7 +126,10 @@ export function CamBackupModal({ property, year, account, label, items, blobEnab
   const [error, setError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+  const [filePct, setFilePct] = useState(0); // current file's byte progress (0–1)
   const mine = items.filter((a) => a.account === account);
+  const overallPct = progress ? Math.min(1, (progress.done + filePct) / progress.total) : 0;
+  const fileNo = progress ? Math.min(progress.done + 1, progress.total) : 1;
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
@@ -137,6 +147,7 @@ export function CamBackupModal({ property, year, account, label, items, blobEnab
       handleUploadUrl: "/api/cam-recon/attachments/blob-upload",
       contentType: file.type || undefined,
       multipart: file.size > 8 * 1024 * 1024,
+      onUploadProgress: (e) => setFilePct(e.percentage / 100),
       clientPayload: JSON.stringify({ property, year, account, accountLabel: label, name: file.name }),
     });
     const res = await fetch("/api/cam-recon/attachments", {
@@ -149,10 +160,11 @@ export function CamBackupModal({ property, year, account, label, items, blobEnab
   async function upload(files: FileList | File[] | null) {
     const arr = Array.from(files ?? []);
     if (arr.length === 0) return;
-    setBusy(true); setError(null); setProgress({ done: 0, total: arr.length });
+    setBusy(true); setError(null); setProgress({ done: 0, total: arr.length }); setFilePct(0);
     try {
       for (let i = 0; i < arr.length; i++) {
         const file = arr[i];
+        setFilePct(0);
         if (blobEnabled) {
           await uploadViaBlob(file);
         } else {
@@ -172,7 +184,7 @@ export function CamBackupModal({ property, year, account, label, items, blobEnab
       }
       onChange();
     } catch (e: any) { setError(e?.message ?? "Upload failed"); }
-    finally { setBusy(false); setProgress(null); }
+    finally { setBusy(false); setProgress(null); setFilePct(0); }
   }
   async function remove(id: string) {
     setBusy(true);
@@ -211,13 +223,30 @@ export function CamBackupModal({ property, year, account, label, items, blobEnab
           }}
         >
           {busy ? (
-            <>
-              <span className="imp-anim" style={{ width: 28, height: 28, borderRadius: "50%", border: "3px solid var(--border)", borderTopColor: BRAND, animation: "spin .8s linear infinite" }} />
-              <div style={{ fontWeight: 700, fontSize: 14, color: BRAND }}>
-                Uploading{progress ? ` ${progress.done + 1} of ${progress.total}` : ""}…
+            <div className="imp-anim" style={{ width: "100%", display: "flex", flexDirection: "column", alignItems: "center", gap: 13 }}>
+              {/* indeterminate activity bar */}
+              <div style={{ position: "relative", width: "100%", height: 3, background: "var(--import-strip-div)", borderRadius: 3, overflow: "hidden" }}>
+                <div style={{ position: "absolute", top: 0, bottom: 0, width: "28%", background: "linear-gradient(90deg, transparent, var(--import-blue), transparent)", animation: "impBar 1.5s linear infinite" }} />
               </div>
-              <div className="muted small">Keeping them with the {year} number as backup.</div>
-            </>
+              <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                {/* progress ring with live byte % */}
+                <div style={{ position: "relative", width: 62, height: 62, flexShrink: 0 }}>
+                  <div style={{ position: "absolute", inset: 0, borderRadius: "50%", border: "2px dashed var(--import-blue-border)", animation: "impHalo 9s linear infinite" }} />
+                  <svg width="62" height="62" viewBox="0 0 62 62" style={{ transform: "rotate(-90deg)" }}>
+                    <circle cx="31" cy="31" r="24" fill="none" stroke="var(--import-strip-div)" strokeWidth="5" />
+                    <circle cx="31" cy="31" r="24" fill="none" stroke="var(--import-blue)" strokeWidth="5" strokeLinecap="round" strokeDasharray={`${overallPct * RING_C} ${RING_C}`} style={{ transition: "stroke-dasharray .25s ease" }} />
+                  </svg>
+                  <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 800, color: "var(--import-blue)", fontVariantNumeric: "tabular-nums" }}>{Math.round(overallPct * 100)}%</div>
+                </div>
+                <div style={{ textAlign: "left", minWidth: 0 }}>
+                  <div style={{ fontWeight: 700, fontSize: 14.5, ...SHIMMER }}>Uploading invoice{progress && progress.total > 1 ? "s" : ""}…</div>
+                  <div className="muted small" style={{ marginTop: 2 }}>{progress && progress.total > 1 ? `File ${fileNo} of ${progress.total} · ` : ""}kept with the {year} number as backup</div>
+                  <span style={{ display: "inline-flex", gap: 4, marginTop: 8 }}>
+                    {[0, 1, 2].map((i) => <span key={i} style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--import-blue)", animation: `kcpDot 1.2s ${i * 0.15}s ease-in-out infinite` }} />)}
+                  </span>
+                </div>
+              </div>
+            </div>
           ) : (
             <>
               <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke={dragOver ? BRAND : "var(--muted)"} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
