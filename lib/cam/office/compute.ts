@@ -55,6 +55,27 @@ function actualFor(
   return amountFor(pool, account, year);
 }
 
+/** Snow Removal is GL 6370 (any suffix, incl. a "-95" gross-up variant); the
+ *  label is a fallback for oddly-numbered pools. */
+function isSnowAccount(account: string, label: string): boolean {
+  return /^6370\b/.test(account) || /snow/i.test(label);
+}
+
+/** How much of the base-year snow to zero out for a given recon year (0 → no
+ *  exclusion / full base; 1 → fully excluded). In the effective year it prorates
+ *  by month: excluded from the reset month through December, i.e. (13−month)/12.
+ *  Every year after the effective year is fully excluded. */
+export function snowExclusionFraction(
+  ex: { effectiveMonth: number; effectiveYear: number } | null | undefined,
+  reconYear: number,
+): number {
+  if (!ex) return 0;
+  if (reconYear < ex.effectiveYear) return 0;
+  if (reconYear > ex.effectiveYear) return 1;
+  const m = Math.min(12, Math.max(1, Math.round(ex.effectiveMonth)));
+  return (13 - m) / 12;
+}
+
 function scheduleLine(
   pool: OfficeExpensePool,
   account: string,
@@ -86,12 +107,21 @@ export function reconcileTenant(
   const noBaseStop = !!t.noBaseStop;
   const futureBase = !noBaseStop && t.baseYear > reconYear;
 
+  // Snow base-year exclusion: zero (or prorate toward zero) the Snow Removal
+  // line's base cost, so the tenant recovers its full share of current-year
+  // snow. Moot for a true-NNN tenant (already no base) or a future base year.
+  const snowFraction = !noBaseStop && !futureBase ? snowExclusionFraction(t.snowExclusion, reconYear) : 0;
+
   const opexLines = pool.opexLines.map((line) => {
     const useGrossUp = t.grossUp && !!line.grossUpAccount;
     const account = useGrossUp ? line.grossUpAccount! : line.glAccount;
     const label = useGrossUp ? `${line.label} (95%)` : line.label;
     const sl = scheduleLine(pool, account, label, t.baseYear, reconYear, finals, noBaseStop);
     if (futureBase) sl.netIncrease = 0;
+    else if (snowFraction > 0 && isSnowAccount(account, label)) {
+      sl.baseCost = sl.baseCost * (1 - snowFraction);
+      sl.netIncrease = Math.max(0, sl.actual - sl.baseCost);
+    }
     return sl;
   });
 
@@ -136,6 +166,9 @@ export function reconcileTenant(
     baseYearResetISO: t.baseYearResetISO ?? null,
     futureBaseYear: futureBase,
     noBaseStop: noBaseStop || undefined,
+    snowBaseExcluded: snowFraction > 0 && t.snowExclusion
+      ? { effectiveMonth: t.snowExclusion.effectiveMonth, effectiveYear: t.snowExclusion.effectiveYear, fraction: snowFraction }
+      : undefined,
     rcd: t.rcd ?? null,
     dataWarnings: dataWarnings.length ? dataWarnings : undefined,
     opexLines,

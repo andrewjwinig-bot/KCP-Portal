@@ -24,6 +24,16 @@ type BaseYearReset = {
   notes?: string;
   updatedAt: string;
 };
+type SnowBaseExclusion = {
+  unitRef: string;
+  propertyCode: string | null;
+  occupantName: string;
+  baseYear: number | null;
+  effectiveMonth: number;
+  effectiveYear: number;
+  notes?: string;
+  updatedAt: string;
+};
 
 function isOfficeCode(code: string | null | undefined): boolean {
   if (!code) return false;
@@ -61,6 +71,7 @@ export default function LeasingActivityPage() {
   const [loading, setLoading] = useState(true);
   const [tenantMeta, setTenantMeta] = useState<Record<string, TenantMeta>>({});
   const [resets, setResets] = useState<Record<string, BaseYearReset>>({});
+  const [snowExclusions, setSnowExclusions] = useState<Record<string, SnowBaseExclusion>>({});
   const [generatingReport, setGeneratingReport] = useState(false);
 
   useEffect(() => {
@@ -73,6 +84,9 @@ export default function LeasingActivityPage() {
       .catch(() => {});
     fetch("/api/base-year-resets").then((r) => r.json())
       .then((j) => setResets(j.resets ?? {}))
+      .catch(() => {});
+    fetch("/api/snow-base-exclusions").then((r) => r.json())
+      .then((j) => setSnowExclusions(j.exclusions ?? {}))
       .catch(() => {});
   }, []);
 
@@ -147,6 +161,12 @@ export default function LeasingActivityPage() {
             setTenantMeta={setTenantMeta}
             resets={resets}
             setResets={setResets}
+          />
+          <SnowBaseExclusions
+            rentroll={rentroll}
+            tenantMeta={tenantMeta}
+            exclusions={snowExclusions}
+            setExclusions={setSnowExclusions}
           />
         </>
       )}
@@ -414,6 +434,206 @@ function BaseYearResets({
                         padding: "4px 9px", borderRadius: 6, cursor: "pointer", fontFamily: "inherit",
                       }}
                     >Remove</button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      </>
+      )}
+    </section>
+  );
+}
+
+// ── Snow Base Year Exclusions ────────────────────────────────────────────────
+// Exclude Snow Removal from a tenant's base year: from the effective month/year
+// on, the snow line's base cost is treated as $0, so the tenant recovers its
+// full pro-rata share of current-year snow (the effective year prorates by
+// month). Every other base-year line is unaffected.
+function SnowBaseExclusions({
+  rentroll, tenantMeta, exclusions, setExclusions,
+}: {
+  rentroll: RentRollData | null;
+  tenantMeta: Record<string, TenantMeta>;
+  exclusions: Record<string, SnowBaseExclusion>;
+  setExclusions: (next: Record<string, SnowBaseExclusion>) => void;
+}) {
+  const { user } = useUser();
+  const canEdit = user.id === "nancy" || user.id === "admin";
+  const options = useMemo(() => {
+    type Opt = { unitRef: string; label: string; propertyCode: string; occupantName: string };
+    if (!rentroll) return [] as Opt[];
+    const out: Opt[] = [];
+    for (const p of rentroll.properties) {
+      if (!isOfficeCode(p.propertyCode)) continue;
+      for (const u of p.units) {
+        if (u.isVacant) continue;
+        out.push({ unitRef: u.unitRef, propertyCode: p.propertyCode, occupantName: u.occupantName, label: `${u.unitRef} · ${u.occupantName}` });
+      }
+    }
+    out.sort((a, b) => a.label.localeCompare(b.label));
+    return out;
+  }, [rentroll]);
+
+  const [open, setOpen] = useState(false);
+  const [selectedUnitRef, setSelectedUnitRef] = useState<string>("");
+  const now = new Date();
+  const [effMonth, setEffMonth] = useState<number>(now.getMonth() + 1);
+  const [effYear, setEffYear] = useState<number>(RESET_YEARS[0]);
+  const [notes, setNotes] = useState<string>("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const selectedOption = options.find((o) => o.unitRef === selectedUnitRef) ?? null;
+  const currentBaseYear = selectedOption ? (tenantMeta[selectedOption.unitRef]?.baseYear ?? null) : null;
+  const firstYearPct = Math.round(((13 - effMonth) / 12) * 100);
+
+  const rows = useMemo(
+    () => Object.values(exclusions).sort((a, b) => (b.effectiveYear - a.effectiveYear) || (b.effectiveMonth - a.effectiveMonth)),
+    [exclusions],
+  );
+
+  async function save() {
+    if (!selectedOption) { setError("Pick a tenant."); return; }
+    const ok = window.confirm(
+      `Exclude Snow Removal from the base year for ${selectedOption.occupantName} (${selectedOption.unitRef})?\n\n` +
+      `• Effective ${MONTH_NAMES[effMonth - 1]} ${effYear}\n` +
+      `• The snow line's base year becomes $0 (${effYear}: ~${firstYearPct}% prorated; 100% thereafter)\n` +
+      `• Every other base-year line is unchanged\n\n` +
+      `This increases the tenant's snow recovery from ${effYear} CAM reconciliations onward.`,
+    );
+    if (!ok) return;
+    setSaving(true); setError(null);
+    try {
+      const r = await fetch("/api/snow-base-exclusions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          unitRef: selectedOption.unitRef,
+          propertyCode: selectedOption.propertyCode,
+          occupantName: selectedOption.occupantName,
+          baseYear: currentBaseYear,
+          effectiveMonth: effMonth,
+          effectiveYear: effYear,
+          notes: notes.trim() || undefined,
+        }),
+      });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error ?? "Save failed");
+      setExclusions(j.exclusions ?? {});
+      setSelectedUnitRef(""); setNotes("");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Save failed");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function remove(unitRef: string) {
+    if (!confirm("Remove this snow base-year exclusion? The tenant's snow will go back to a normal base-year stop.")) return;
+    const r = await fetch("/api/snow-base-exclusions", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ unitRef, clear: true }),
+    });
+    const j = await r.json();
+    if (r.ok) setExclusions(j.exclusions ?? {});
+  }
+
+  return (
+    <section className="card">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, width: "100%", background: "transparent", border: "none", padding: 0, cursor: "pointer", textAlign: "left", fontFamily: "inherit" }}
+      >
+        <div>
+          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Snow Base Year Exclusions</h2>
+          <div className="muted small" style={{ marginTop: 2 }}>
+            Pull Snow Removal out of a tenant&rsquo;s base year — the snow base becomes $0, so they pay their full pro-rata share of each year&rsquo;s snow (all other base-year lines stay in effect). Recovers more of the variable, unpredictable snow spend. A footnote is added to their CAM statement.
+          </div>
+        </div>
+        <span style={{ color: "var(--muted)", fontSize: 18, flexShrink: 0 }}>{open ? "▲" : "▼"}</span>
+      </button>
+
+      {open && (
+      <>
+      {!canEdit && (
+        <div className="muted small" style={{ marginTop: 12, padding: "8px 12px", borderRadius: 6, background: "rgba(15,23,42,0.04)", border: "1px solid var(--border)" }}>
+          Read-only view. Only Nancy can record snow base-year exclusions.
+        </div>
+      )}
+      <fieldset disabled={!canEdit} style={{ border: "none", padding: 0, margin: 0, display: "contents" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(240px, 2.2fr) minmax(84px, 0.6fr) minmax(230px, 1.3fr) minmax(190px, 2fr) auto", gap: 10, alignItems: "flex-end", marginTop: 14, opacity: canEdit ? 1 : 0.55 }}>
+        <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <span style={fieldLabel}>Tenant (office only)</span>
+          <select value={selectedUnitRef} onChange={(e) => setSelectedUnitRef(e.target.value)} style={selectStyle}>
+            <option value="">— Pick a tenant —</option>
+            {options.map((o) => <option key={o.unitRef} value={o.unitRef}>{o.label}</option>)}
+          </select>
+        </label>
+        <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <span style={fieldLabel}>Current B/Y</span>
+          <div style={{ padding: "8px 10px", border: "1px solid var(--border)", borderRadius: 6, background: "rgba(15,23,42,0.025)", fontSize: 13, fontWeight: 600, color: currentBaseYear == null ? "var(--muted)" : "var(--text)" }}>
+            {currentBaseYear ?? "—"}
+          </div>
+        </label>
+        <label style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
+          <span style={fieldLabel}>Effective Month</span>
+          <div style={{ display: "flex", gap: 6, minWidth: 0 }}>
+            <select value={String(effMonth)} onChange={(e) => setEffMonth(Number(e.target.value))} style={{ ...selectStyle, flex: 1, minWidth: 0 }}>
+              {MONTH_NAMES.map((mn, i) => <option key={mn} value={String(i + 1)}>{mn}</option>)}
+            </select>
+            <select value={String(effYear)} onChange={(e) => setEffYear(Number(e.target.value))} style={{ ...selectStyle, width: 84, flexShrink: 0 }}>
+              {RESET_YEARS.map((y) => <option key={y} value={String(y)}>{y}</option>)}
+            </select>
+          </div>
+        </label>
+        <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <span style={fieldLabel}>Notes (optional)</span>
+          <input type="text" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="e.g. High-snow recovery strategy" style={selectStyle} />
+        </label>
+        <button type="button" onClick={save} disabled={saving || !selectedUnitRef} className="btn primary" style={{ fontSize: 13, padding: "9px 14px", fontWeight: 700 }}>
+          {saving ? "Saving…" : "Exclude snow"}
+        </button>
+      </div>
+      {selectedOption && (
+        <div className="small" style={{ marginTop: 10, padding: "9px 12px", borderRadius: 8, background: "rgba(11,74,125,0.05)", border: "1px solid rgba(11,74,125,0.18)", color: "var(--text)" }}>
+          From <b>{MONTH_NAMES[effMonth - 1]} {effYear}</b>, {selectedOption.occupantName}&rsquo;s Snow Removal base year is treated as <b>$0</b> — they recover their full pro-rata share of snow.
+          {" "}In {effYear} it&rsquo;s prorated to <b>~{firstYearPct}%</b> of the exclusion (snow from {MONTH_NAMES[effMonth - 1]}&ndash;December); every {effYear + 1}+ reconciliation is 100%.
+        </div>
+      )}
+      {error && <div style={{ marginTop: 8, fontSize: 12, color: "#b91c1c", fontWeight: 600 }}>{error}</div>}
+      </fieldset>
+
+      <div style={{ marginTop: 16, overflowX: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+          <thead>
+            <tr style={{ color: "var(--muted)", fontSize: 11, letterSpacing: "0.04em", textAlign: "left" }}>
+              <th style={{ padding: "8px 10px", fontWeight: 700 }}>PROP</th>
+              <th style={{ padding: "8px 10px", fontWeight: 700 }}>UNIT</th>
+              <th style={{ padding: "8px 10px", fontWeight: 700 }}>TENANT</th>
+              <th style={{ padding: "8px 10px", fontWeight: 700, whiteSpace: "nowrap" }}>B/Y</th>
+              <th style={{ padding: "8px 10px", fontWeight: 700, whiteSpace: "nowrap" }}>EFFECTIVE</th>
+              <th style={{ padding: "8px 10px", fontWeight: 700 }}>NOTES</th>
+              <th style={{ padding: "8px 10px", fontWeight: 700, width: 1 }}></th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length === 0 ? (
+              <tr><td colSpan={7} className="muted small" style={{ padding: 14 }}>No snow base-year exclusions recorded yet.</td></tr>
+            ) : rows.map((r) => (
+              <tr key={r.unitRef} style={{ borderTop: "1px solid var(--border)" }}>
+                <td style={{ padding: "10px 10px" }}>{r.propertyCode ? <code style={{ fontSize: 12, fontWeight: 700, color: "#0b4a7d" }}>{r.propertyCode}</code> : <span className="muted small">—</span>}</td>
+                <td style={{ padding: "10px 10px" }}><code style={{ fontSize: 12 }}>{r.unitRef}</code></td>
+                <td style={{ padding: "10px 10px", fontWeight: 600 }}>{r.occupantName || <span className="muted small">—</span>}</td>
+                <td style={{ padding: "10px 10px", color: "var(--muted)" }}>{r.baseYear ?? "—"}</td>
+                <td style={{ padding: "10px 10px", whiteSpace: "nowrap" }}>{MONTH_NAMES[Math.min(12, Math.max(1, r.effectiveMonth)) - 1]} {r.effectiveYear}</td>
+                <td style={{ padding: "10px 10px" }}>{r.notes || <span className="muted small">—</span>}</td>
+                <td style={{ padding: "10px 10px" }}>
+                  {canEdit && (
+                    <button type="button" onClick={() => remove(r.unitRef)} style={{ background: "transparent", border: "1px solid rgba(220,38,38,0.35)", color: "#b91c1c", fontSize: 12, fontWeight: 600, padding: "4px 9px", borderRadius: 6, cursor: "pointer", fontFamily: "inherit" }}>Remove</button>
                   )}
                 </td>
               </tr>

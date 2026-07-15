@@ -86,6 +86,11 @@ export type OfficeTenantInput = {
   retMonthly?: number;
   /** ISO date the base year was reset, if any — surfaces a footnote. */
   baseYearResetISO?: string | null;
+  /** Snow removal excluded from the base year, effective a given month/year.
+   *  From then on the Snow Removal line's base cost is treated as $0, so the
+   *  tenant recovers its full pro-rata share of current-year snow (prorated by
+   *  month in the effective year). Other base-year lines are unaffected. */
+  snowExclusion?: { effectiveMonth: number; effectiveYear: number } | null;
   /** Rent commencement date (lease start), "M/D/YYYY" — for partial-year
    *  verification. */
   rcd?: string | null;
@@ -123,6 +128,10 @@ export type TenantReconResult = {
   noBaseStop?: boolean;
   /** Rent commencement date (lease start), "M/D/YYYY". */
   rcd?: string | null;
+  /** Set when Snow Removal is excluded from this tenant's base year for the
+   *  recon year — drives the CAM-statement footnote. `fraction` is how much of
+   *  the base-year snow was zeroed (1 = full year; <1 = prorated first year). */
+  snowBaseExcluded?: { effectiveMonth: number; effectiveYear: number; fraction: number };
   /** Non-fatal data-integrity warnings surfaced to staff (e.g. a base year
    *  that predates the expense history, which would over-recover). Empty /
    *  absent when the tenant's inputs are clean. */
