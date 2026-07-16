@@ -62,6 +62,23 @@ export function exportCashSheetXlsx(i: CashSheetExportInput): void {
   aoa.push(["Portfolio Total", "", "", ...numericCells(i, i.total)]);
 
   const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+  // Make the Portfolio Total a live =SUM() of every entity row per numeric column
+  // so the workbook stays accurate if a figure is edited. Cached value = the JS
+  // total already computed; a non-numeric total (—) stays as text.
+  const dataCount = i.groups.reduce((n, g) => n + g.rows.length, 0);
+  if (dataCount > 0) {
+    const firstDataRow = 5; // rows 1–4 = title, subtitle, blank, header
+    const lastDataRow = 4 + dataCount;
+    const totalRow = lastDataRow + 1;
+    const firstNumCol = 3; // 0-based → column D (Group, Code, Entity, then numerics)
+    numericCells(i, i.total).forEach((val, k) => {
+      if (typeof val !== "number") return;
+      const L = XLSX.utils.encode_col(firstNumCol + k);
+      ws[`${L}${totalRow}`] = { t: "n", f: `SUM(${L}${firstDataRow}:${L}${lastDataRow})`, v: val };
+    });
+  }
+
   const widths = [{ wch: 22 }, { wch: 12 }, { wch: 30 }, { wch: 14 }, ...i.buckets.map(() => ({ wch: 13 })), { wch: 14 }];
   if (i.showBills) widths.push({ wch: 12 });
   if (i.showReserves) widths.push({ wch: 11 });

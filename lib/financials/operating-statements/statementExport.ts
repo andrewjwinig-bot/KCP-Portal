@@ -145,8 +145,61 @@ export async function buildStatementXlsx(s: PropertyStatement, meta: StatementMe
     cell.font = { size: 10, bold, color: { argb: v == null ? "FF9AA4B2" : v >= 0 ? "FF15803D" : "FFB91C1C" } }; edge(cell, col);
   };
 
+  // Totals (subtotals + rollups) are written as live Excel formulas that sum the
+  // exact source rows above them, so editing a line flows through and the numbers
+  // always tie. Each formula caches its computed result; if the referenced rows
+  // don't reconcile to the known total (an unusual data shape), we fall back to a
+  // static number so the displayed value is never wrong. Dollar columns only —
+  // the Var% columns stay derived strings.
+  type Grp = { sign: 1 | -1; rows: number[] };
+  const MONEY_COLS: { col: number; field: keyof StatementTotals }[] = [
+    { col: 2, field: "periodActual" }, { col: 3, field: "periodBudget" },
+    { col: 5, field: "ytdActual" }, { col: 6, field: "ytdBudget" }, { col: 8, field: "annualBudget" },
+  ];
+  const rowT = new Map<number, StatementTotals>();
+  const valAt = (rn: number, field: keyof StatementTotals) => {
+    const v = rowT.get(rn)?.[field];
+    return typeof v === "number" ? v : 0;
+  };
+  // Build a column formula from signed groups of rows, plus its JS-evaluated
+  // value so the caller can confirm the formula ties to the known total.
+  const formulaFor = (groups: Grp[], col: number, field: keyof StatementTotals): { formula: string; val: number } => {
+    const L = colLetter(col);
+    let val = 0;
+    const parts: string[] = [];
+    for (const g of groups) {
+      const rs = g.rows.filter((r) => r > 0);
+      if (!rs.length) continue;
+      let sum = 0;
+      for (const r of rs) sum += valAt(r, field);
+      val += g.sign * sum;
+      const contiguous = rs.every((r, i) => i === 0 || r === rs[i - 1] + 1);
+      const expr = rs.length === 1 ? `${L}${rs[0]}`
+        : contiguous ? `SUM(${L}${rs[0]}:${L}${rs[rs.length - 1]})`
+        : `SUM(${rs.map((r) => `${L}${r}`).join(",")})`;
+      parts.push((parts.length === 0 ? (g.sign < 0 ? "-" : "") : g.sign < 0 ? "-" : "+") + expr);
+    }
+    return { formula: parts.join(""), val };
+  };
+  const totalMoney = (cell: ExcelJS.Cell, groups: Grp[], col: number, field: keyof StatementTotals, expected: number | null, brand2: boolean) => {
+    const { formula, val } = formulaFor(groups, col, field);
+    if (formula && expected != null && Math.abs(val - expected) < 0.5) cell.value = { formula, result: expected };
+    else cell.value = expected == null ? null : expected;
+    cell.numFmt = MONEY_FMT;
+    cell.alignment = { horizontal: "right" };
+    cell.font = { size: 10, bold: true, color: { argb: brand2 ? BRAND : "FF1A1A1A" } };
+    edge(cell, col);
+  };
+
+  const secLines: number[] = [];
+  const revSub: number[] = [], opexSub: number[] = [], capLines: number[] = [], debtSub: number[] = [];
+  let group = "";
+  let totalRevRow = 0, totalOpexRow = 0, noiRow = 0, cfbdsRow = 0, totalDebtRow = 0;
+
   for (const row of rows) {
     if (row.kind === "group") {
+      group = row.label;
+      secLines.length = 0;
       const gr = ws.addRow([row.label]);
       ws.mergeCells(gr.number, 1, gr.number, nCols);
       gr.getCell(1).font = { bold: true, size: 11, color: { argb: BRAND } };
@@ -156,16 +209,48 @@ export async function buildStatementXlsx(s: PropertyStatement, meta: StatementMe
     const isTotal = row.kind !== "line";
     const fn = row.noteKey ? byKey.get(row.noteKey) : undefined;
     const gr = ws.addRow([fn ? `${row.label}  [${fn}]` : row.label]);
+    const rn = gr.number;
+    rowT.set(rn, row.t);
     gr.getCell(1).font = { bold: isTotal, size: 10, color: { argb: isTotal ? BRAND : "FF1A1A1A" } };
     gr.getCell(1).alignment = { indent: row.kind === "line" ? 2 : 1 };
     edge(gr.getCell(1), 1);
-    money(gr.getCell(2), row.t.periodActual, isTotal, isTotal, 2);
-    money(gr.getCell(3), row.t.periodBudget, isTotal, false, 3);
-    pct(gr.getCell(4), row.t.periodVariance, row.t.periodBudget, isTotal, 4);
-    money(gr.getCell(5), row.t.ytdActual, isTotal, isTotal, 5);
-    money(gr.getCell(6), row.t.ytdBudget, isTotal, false, 6);
-    pct(gr.getCell(7), row.t.ytdVariance, row.t.ytdBudget, isTotal, 7);
-    money(gr.getCell(8), row.t.annualBudget, isTotal, false, 8);
+
+    if (!isTotal) {
+      secLines.push(rn);
+      if (group === "Capital") capLines.push(rn);
+      money(gr.getCell(2), row.t.periodActual, false, false, 2);
+      money(gr.getCell(3), row.t.periodBudget, false, false, 3);
+      pct(gr.getCell(4), row.t.periodVariance, row.t.periodBudget, false, 4);
+      money(gr.getCell(5), row.t.ytdActual, false, false, 5);
+      money(gr.getCell(6), row.t.ytdBudget, false, false, 6);
+      pct(gr.getCell(7), row.t.ytdVariance, row.t.ytdBudget, false, 7);
+      money(gr.getCell(8), row.t.annualBudget, false, false, 8);
+    } else {
+      // Which source rows this total sums, by structure.
+      let groups: Grp[];
+      if (row.kind === "subtotal") {
+        groups = [{ sign: 1, rows: [...secLines] }];
+        if (group === "Revenues") revSub.push(rn);
+        else if (group === "Operating Expenses") opexSub.push(rn);
+        else if (group === "Debt Service") debtSub.push(rn);
+        secLines.length = 0;
+      } else {
+        switch (row.label) {
+          case "Total Revenues": groups = [{ sign: 1, rows: [...revSub] }]; totalRevRow = rn; break;
+          case "Total Operating Expenses": groups = [{ sign: 1, rows: [...opexSub] }]; totalOpexRow = rn; break;
+          case "Net Operating Income": groups = [{ sign: 1, rows: [totalRevRow] }, { sign: -1, rows: [totalOpexRow] }]; noiRow = rn; break;
+          case "Total Debt Service": groups = [{ sign: 1, rows: [...debtSub] }]; totalDebtRow = rn; break;
+          case "Cash Flow After Debt Service": groups = [{ sign: 1, rows: [cfbdsRow] }, { sign: -1, rows: [totalDebtRow] }]; break;
+          default: // Cash Flow Before Debt Service / Cash Flow = NOI − capital
+            groups = capLines.length ? [{ sign: 1, rows: [noiRow] }, { sign: -1, rows: [...capLines] }] : [{ sign: 1, rows: [noiRow] }];
+            cfbdsRow = rn; break;
+        }
+      }
+      for (const mc of MONEY_COLS) totalMoney(gr.getCell(mc.col), groups, mc.col, mc.field, row.t[mc.field] as number | null, mc.col === 2 || mc.col === 5);
+      pct(gr.getCell(4), row.t.periodVariance, row.t.periodBudget, true, 4);
+      pct(gr.getCell(7), row.t.ytdVariance, row.t.ytdBudget, true, 7);
+    }
+
     if (isTotal) for (let c = 1; c <= nCols; c++) {
       const cell = gr.getCell(c);
       cell.border = { ...(cell.border ?? {}), top: { style: "thin", color: { argb: BORDER } } }; // underline above totals
