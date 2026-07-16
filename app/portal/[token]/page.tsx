@@ -78,20 +78,24 @@ export default function TenantPortalPage() {
     <div style={{ display: "flex", minHeight: "100vh", background: "var(--bg, #f7f9fc)" }}>
       <aside style={{ width: 240, flexShrink: 0, background: BRAND, color: "#fff", padding: 18, display: "flex", flexDirection: "column", gap: 18 }} className="portal-aside">
         <div>
+          <div style={{ fontSize: 16, fontWeight: 700, lineHeight: 1.25 }}>{t.name}</div>
+          <div style={{ fontSize: 12.5, color: "#bfdbfe", marginTop: 2 }}>{data.propertyName} · Suite {t.suite}</div>
+        </div>
+        <Nav />
+        {/* Korman wordmark pinned to the bottom of the sidebar */}
+        <div style={{ marginTop: "auto", borderTop: "1px solid rgba(255,255,255,0.15)", paddingTop: 14 }}>
           <div style={{ fontFamily: "'Arial Black', Arial, sans-serif", fontWeight: 900, fontSize: 20, letterSpacing: "-0.5px" }}>KORMAN</div>
           <div style={{ fontSize: 9, letterSpacing: "0.18em", color: "#bfdbfe" }}>COMMERCIAL PROPERTIES</div>
         </div>
-        <div style={{ borderTop: "1px solid rgba(255,255,255,0.15)", paddingTop: 14 }}>
-          <div style={{ fontSize: 15, fontWeight: 700 }}>{t.name}</div>
-          <div style={{ fontSize: 12.5, color: "#bfdbfe", marginTop: 1 }}>{data.propertyName} · Suite {t.suite}</div>
-        </div>
-        <Nav />
       </aside>
 
       <main style={{ flex: 1, minWidth: 0, padding: "28px clamp(16px, 4vw, 44px) 60px", maxWidth: 940 }}>
         {tab === "cam" ? (
           <>
-            <h1 style={{ margin: "0 0 4px", fontSize: 22 }}>CAM / RET Statement <span className="muted" style={{ fontSize: 15, fontWeight: 500 }}>· {data.year}</span></h1>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 18 }}>
+              <h1 style={{ margin: 0, fontSize: 23 }}>CAM / RET Statement</h1>
+              <span style={{ fontSize: 14, fontWeight: 800, color: "#fff", background: BRAND, borderRadius: 999, padding: "3px 12px", lineHeight: 1.4 }}>{data.year}</span>
+            </div>
             <TenantStatementView token={token} data={data} header={false} />
           </>
         ) : tab === "floorplan" ? (
@@ -138,29 +142,31 @@ function FloorplanTab({ token, floorplan, loading }: { token: string; floorplan:
   const isImage = floorplan?.contentType.startsWith("image/");
   return (
     <>
-      <SectionHead title="Floorplan" sub={floorplan ? floorplan.name : undefined} />
+      {/* Title on the left, download at the top-right */}
+      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
+        <div>
+          <h1 style={{ margin: 0, fontSize: 22 }}>Floorplan</h1>
+          {floorplan && <div className="muted" style={{ fontSize: 14, marginTop: 2 }}>{floorplan.name}</div>}
+        </div>
+        {!loading && floorplan && (
+          <a href={`${src}?download=1`} style={{ display: "inline-flex", alignItems: "center", gap: 7, background: BRAND, color: "#fff", textDecoration: "none", borderRadius: 8, padding: "8px 14px", fontSize: 13, fontWeight: 700, whiteSpace: "nowrap" }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
+            Download floorplan
+          </a>
+        )}
+      </div>
       {loading ? (
         <div className="muted" style={{ fontSize: 14 }}>Loading…</div>
       ) : !floorplan ? (
         <div style={{ border: "1px dashed var(--border)", borderRadius: 12, padding: "40px 16px", textAlign: "center", color: "var(--muted)", fontSize: 14 }}>
           No floorplan is on file for your suite yet.
         </div>
+      ) : isImage ? (
+        <a href={src} target="_blank" rel="noreferrer">
+          <img src={src} alt="Suite floorplan" style={{ width: "100%", maxHeight: "82vh", objectFit: "contain", borderRadius: 12, border: "1px solid var(--border)", background: "rgba(15,23,42,0.02)", display: "block" }} />
+        </a>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {isImage ? (
-            <a href={src} target="_blank" rel="noreferrer">
-              <img src={src} alt="Suite floorplan" style={{ width: "100%", maxHeight: 620, objectFit: "contain", borderRadius: 12, border: "1px solid var(--border)", background: "rgba(15,23,42,0.02)", display: "block" }} />
-            </a>
-          ) : (
-            <iframe title="Suite floorplan" src={`${src}#toolbar=0&navpanes=0&view=FitH`} style={{ width: "100%", height: 620, borderRadius: 12, border: "1px solid var(--border)", background: "rgba(15,23,42,0.02)" }} />
-          )}
-          <div>
-            <a href={`${src}?download=1`} style={{ display: "inline-flex", alignItems: "center", gap: 7, background: BRAND, color: "#fff", textDecoration: "none", borderRadius: 8, padding: "8px 14px", fontSize: 13, fontWeight: 700 }}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
-              Download floorplan
-            </a>
-          </div>
-        </div>
+        <iframe title="Suite floorplan" src={`${src}#toolbar=0&navpanes=0&view=FitH`} style={{ width: "100%", height: "82vh", borderRadius: 12, border: "1px solid var(--border)", background: "rgba(15,23,42,0.02)" }} />
       )}
     </>
   );
