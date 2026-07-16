@@ -8,12 +8,14 @@ import "server-only";
 import ExcelJS from "exceljs";
 import { PDFDocument, rgb, StandardFonts, type PDFPage, type PDFFont } from "pdf-lib";
 import type { PropertyStatement, StatementSection, StatementTotals } from "./types";
+import { fullYearRows, type FullYearPayload } from "./fullYear";
 import { drawKormanLogo, KORMAN_TEXT } from "@/lib/financials/exportBrand";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const MONEY_FMT = '_("$"* #,##0_);[Red]_("$"* (#,##0);_("$"* "—"_);_(@_)';
 
 export type StatementMeta = { propertyCode: string; propertyName: string; year: number; period: number; budgetYear: number | null };
+export type FullYearMeta = { propertyCode: string; propertyName: string; year: number; label: string };
 type Notes = Record<string, string>;
 
 type Row =
@@ -193,6 +195,141 @@ export async function buildStatementXlsx(s: PropertyStatement, meta: StatementMe
   return (await wb.xlsx.writeBuffer()) as Buffer;
 }
 
+// ── Full-Year Excel (12 monthly columns + a formula-driven Full-Year total) ───
+// The whole sheet is live: each line's Full-Year cell is =SUM(Jan:Dec), each
+// section subtotal is =SUM(its line rows) per month, so the totals recompute and
+// tie to what's on screen.
+const colLetter = (c: number) => { let s = ""; while (c > 0) { const m = (c - 1) % 26; s = String.fromCharCode(65 + m) + s; c = Math.floor((c - 1) / 26); } return s; };
+
+export async function buildFullYearXlsx(payload: FullYearPayload, meta: FullYearMeta, notes: Notes = {}): Promise<Buffer> {
+  const wb = new ExcelJS.Workbook();
+  wb.creator = "KCP Portal";
+  const ws = wb.addWorksheet(meta.label, { views: [{ state: "frozen", xSplit: 1, ySplit: 4 }] });
+  const nCols = 14; // Line + 12 months + Full Year
+  const FY_COL = 14, FIRST_M = 2, LAST_M = 13;
+  ws.getColumn(1).width = 32;
+  for (let c = FIRST_M; c <= LAST_M; c++) ws.getColumn(c).width = 11;
+  ws.getColumn(FY_COL).width = 13.5;
+
+  // Rows 1–3: brand band, title, subtitle.
+  ws.mergeCells(1, 1, 1, nCols);
+  const brand = ws.getCell(1, 1);
+  brand.value = KORMAN_TEXT;
+  brand.font = { bold: true, size: 11, color: { argb: "FFFFFFFF" } };
+  brand.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND } };
+  brand.alignment = { vertical: "middle", horizontal: "right", indent: 1 };
+  ws.getRow(1).height = 20;
+  ws.mergeCells(2, 1, 2, nCols);
+  const title = ws.getCell(2, 1);
+  title.value = `${meta.year} Operating Statement — ${meta.label}`;
+  title.font = { bold: true, size: 14, color: { argb: "FFFFFFFF" } };
+  title.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND_DARK } };
+  title.alignment = { vertical: "middle", indent: 1 };
+  ws.getRow(2).height = 24;
+  ws.mergeCells(3, 1, 3, nCols);
+  const sub = ws.getCell(3, 1);
+  sub.value = `${meta.propertyCode} ${meta.propertyName}`;
+  sub.font = { italic: true, size: 10, color: { argb: "FFFFFFFF" } };
+  sub.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND } };
+  sub.alignment = { vertical: "middle", indent: 1 };
+
+  // Row 4: header (Line, Jan…Dec, Full Year 'YY).
+  const yy = String(meta.year).slice(2);
+  const headers = ["Line", ...MONTHS, `Full Year ${yy}`];
+  const hdr = ws.getRow(4);
+  headers.forEach((h, i) => {
+    const cell = hdr.getCell(i + 1);
+    cell.value = h;
+    cell.font = { bold: true, size: 10, color: { argb: "FFFFFFFF" } };
+    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: i === FY_COL - 1 ? BRAND_DARK : BRAND } };
+    cell.alignment = { horizontal: i === 0 ? "left" : "right", vertical: "middle", indent: i === 0 ? 1 : 0 };
+    if (i === 0 || i === LAST_M) cell.border = { right: { style: "thin", color: { argb: BORDER } } };
+  });
+  hdr.height = 18;
+
+  const rows = fullYearRows(payload);
+  const money = (cell: ExcelJS.Cell, v: number | null, bold: boolean, brand2: boolean) => {
+    cell.value = v == null ? null : v; cell.numFmt = MONEY_FMT; cell.alignment = { horizontal: "right" };
+    cell.font = { size: 10, bold, color: { argb: brand2 ? BRAND : "FF1A1A1A" } };
+  };
+  const formula = (cell: ExcelJS.Cell, f: string, bold: boolean, brand2: boolean) => {
+    cell.value = { formula: f }; cell.numFmt = MONEY_FMT; cell.alignment = { horizontal: "right" };
+    cell.font = { size: 10, bold, color: { argb: brand2 ? BRAND : "FF1A1A1A" } };
+  };
+
+  // Track the contiguous line-row range of the current section so a subtotal
+  // can SUM exactly its lines per month.
+  let secStart = 0, secEnd = 0;
+  const resetSection = () => { secStart = 0; secEnd = 0; };
+
+  for (const row of rows) {
+    if (row.kind === "group") {
+      resetSection();
+      const gr = ws.addRow([row.label]);
+      ws.mergeCells(gr.number, 1, gr.number, nCols);
+      gr.getCell(1).font = { bold: true, size: 11, color: { argb: BRAND } };
+      gr.getCell(1).alignment = { indent: 1 };
+      continue;
+    }
+    const isTotal = row.kind !== "line";
+    const gr = ws.addRow([row.label]);
+    const rn = gr.number;
+    gr.getCell(1).font = { bold: isTotal, size: 10, color: { argb: isTotal ? BRAND : "FF1A1A1A" } };
+    gr.getCell(1).alignment = { indent: row.kind === "line" ? 2 : 1 };
+
+    if (row.kind === "line") {
+      if (!secStart) secStart = rn;
+      secEnd = rn;
+      for (let i = 0; i < 12; i++) money(gr.getCell(FIRST_M + i), row.monthly[i] ?? 0, false, false);
+      formula(gr.getCell(FY_COL), `SUM(${colLetter(FIRST_M)}${rn}:${colLetter(LAST_M)}${rn})`, false, true);
+    } else if (row.kind === "subtotal") {
+      const brand2 = true;
+      for (let i = 0; i < 12; i++) {
+        const col = colLetter(FIRST_M + i);
+        if (secStart) formula(gr.getCell(FIRST_M + i), `SUM(${col}${secStart}:${col}${secEnd})`, true, brand2);
+        else money(gr.getCell(FIRST_M + i), row.monthly[i] ?? 0, true, brand2); // no lines shown → static
+      }
+      formula(gr.getCell(FY_COL), `SUM(${colLetter(FIRST_M)}${rn}:${colLetter(LAST_M)}${rn})`, true, brand2);
+      resetSection();
+    } else { // rollup
+      for (let i = 0; i < 12; i++) money(gr.getCell(FIRST_M + i), row.monthly[i] ?? 0, true, true);
+      formula(gr.getCell(FY_COL), `SUM(${colLetter(FIRST_M)}${rn}:${colLetter(LAST_M)}${rn})`, true, true);
+    }
+
+    if (isTotal) for (let c = 1; c <= nCols; c++) {
+      const cell = gr.getCell(c);
+      cell.border = { ...(cell.border ?? {}), top: { style: "thin", color: { argb: BORDER } } };
+      if (row.kind === "rollup") cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: row.strong ? ROLLUP_FILL : BRAND_TINT } };
+    }
+    // Vertical divider right of the Line column + right of December.
+    gr.getCell(1).border = { ...(gr.getCell(1).border ?? {}), right: { style: "thin", color: { argb: BORDER } } };
+    gr.getCell(LAST_M).border = { ...(gr.getCell(LAST_M).border ?? {}), right: { style: "thin", color: { argb: BORDER } } };
+  }
+
+  // Notes (label: text), if any.
+  const noteList = Object.entries(notes).filter(([, v]) => v?.trim());
+  if (noteList.length) {
+    ws.addRow([]);
+    const nh = ws.addRow(["Notes"]);
+    nh.getCell(1).font = { bold: true, size: 11, color: { argb: BRAND } };
+    for (const [key, note] of noteList) {
+      const label = key.includes("::") ? key.split("::").pop()! : key;
+      const nr = ws.addRow([]);
+      ws.mergeCells(nr.number, 1, nr.number, nCols);
+      nr.getCell(1).value = { richText: [
+        { font: { bold: true, size: 9.5, color: { argb: BRAND } }, text: `${label}: ` },
+        { font: { size: 9.5 }, text: note.trim() },
+      ] };
+      nr.getCell(1).alignment = { wrapText: true, vertical: "top" };
+    }
+  }
+  ws.addRow([]);
+  const stamp = ws.addRow([`Report run ${reportStamp()}`]);
+  stamp.getCell(1).font = { italic: true, size: 9, color: { argb: "FF6B7280" } };
+
+  return (await wb.xlsx.writeBuffer()) as Buffer;
+}
+
 // ── PDF ──────────────────────────────────────────────────────────────────────
 const PAGE_W = 792, PAGE_H = 612, MARGIN = 40;
 const NAVY = rgb(0.043, 0.290, 0.490), NAVY_DARK = rgb(0.039, 0.243, 0.412);
@@ -323,5 +460,90 @@ export async function buildStatementPdf(s: PropertyStatement, meta: StatementMet
   // Timestamp footer at the bottom of the last page.
   leftText(`Report run ${reportStamp()}`, MARGIN, PAGE_H - MARGIN + 14, 8, font, MUTED);
 
+  return doc.save();
+}
+
+// ── Full-Year PDF (landscape 12-month grid + Full-Year total) ──────────────────
+export async function buildFullYearPdf(payload: FullYearPayload, meta: FullYearMeta, notes: Notes = {}): Promise<Uint8Array> {
+  const doc = await PDFDocument.create();
+  const font = await doc.embedFont(StandardFonts.Helvetica);
+  const bold = await doc.embedFont(StandardFonts.HelveticaBold);
+  const rows = fullYearRows(payload);
+
+  const lineX = MARGIN, lineW = 122;
+  const monthsX = MARGIN + lineW;
+  const monthW = 42;
+  const fyX = monthsX + 12 * monthW;
+  const fyW = PAGE_W - MARGIN - fyX;
+  const yy = String(meta.year).slice(2);
+
+  let page!: PDFPage, y = 0, tableTop = 0;
+  const rightText = (str: string, xRight: number, yy2: number, size: number, f: PDFFont, color = TEXT) => {
+    const w = f.widthOfTextAtSize(str, size);
+    page.drawText(str, { x: xRight - w, y: PAGE_H - yy2, size, font: f, color });
+  };
+  const leftText = (str: string, x: number, yy2: number, size: number, f: PDFFont, color = TEXT, maxW?: number) => {
+    let t = str;
+    if (maxW) while (t.length > 1 && f.widthOfTextAtSize(t, size) > maxW) t = t.slice(0, -1);
+    page.drawText(t, { x, y: PAGE_H - yy2, size, font: f, color });
+  };
+  const colX = (i: number) => monthsX + i * monthW; // left edge of month i
+  const drawHeader = () => {
+    page.drawRectangle({ x: 0, y: PAGE_H - 44, width: PAGE_W, height: 44, color: NAVY_DARK });
+    leftText(`${meta.year} Operating Statement — ${meta.label}`, MARGIN, 20, 13, bold, WHITE);
+    leftText(`${meta.propertyCode} ${meta.propertyName}`, MARGIN, 35, 9, font, rgb(0.85, 0.9, 0.95));
+    drawKormanLogo(page, bold, font, { xRight: PAGE_W - MARGIN, centerTop: 22, color: WHITE, scale: 0.92 });
+    y = 56;
+    page.drawRectangle({ x: MARGIN, y: PAGE_H - (y + 13), width: PAGE_W - MARGIN * 2, height: 15, color: NAVY });
+    leftText("Line", lineX + 2, y + 10, 7, bold, WHITE);
+    MONTHS.forEach((m, i) => rightText(m, colX(i) + monthW - 2, y + 10, 6.5, bold, WHITE));
+    rightText(`FY ${yy}`, fyX + fyW - 2, y + 10, 7, bold, WHITE);
+    y += 17;
+    tableTop = y - 2;
+  };
+  const newPage = () => { page = doc.addPage([PAGE_W, PAGE_H]); drawHeader(); };
+  newPage();
+
+  const money6 = (v: number | null) => fmtMoney(v);
+  for (const row of rows) {
+    if (y > PAGE_H - MARGIN - 14) newPage();
+    if (row.kind === "group") {
+      y += 3;
+      page.drawRectangle({ x: MARGIN, y: PAGE_H - (y + 11), width: PAGE_W - MARGIN * 2, height: 13, color: GROUP_TINT });
+      leftText(row.label.toUpperCase(), lineX + 2, y + 8.5, 8, bold, NAVY);
+      y += 15;
+      continue;
+    }
+    const isTotal = row.kind !== "line";
+    const rowH = 12.5;
+    if (isTotal) page.drawLine({ start: { x: MARGIN, y: PAGE_H - (y - 1) }, end: { x: PAGE_W - MARGIN, y: PAGE_H - (y - 1) }, thickness: 0.7, color: rgb(0.55, 0.6, 0.66) });
+    if (row.kind === "rollup") page.drawRectangle({ x: MARGIN, y: PAGE_H - (y + 10), width: PAGE_W - MARGIN * 2, height: rowH, color: ROLLUP });
+    const f = isTotal ? bold : font;
+    leftText(row.label, lineX + (isTotal ? 2 : 5), y + 8.5, isTotal ? 7 : 6.8, f, isTotal ? NAVY : TEXT, lineW - 6);
+    for (let i = 0; i < 12; i++) {
+      const m = money6(row.monthly[i] ?? 0);
+      rightText(m.t, colX(i) + monthW - 2, y + 8.5, 6.3, f, isTotal ? NAVY : m.c);
+    }
+    const tot = money6(row.total);
+    rightText(tot.t, fyX + fyW - 2, y + 8.5, 6.6, bold, NAVY);
+    y += rowH;
+  }
+  // Divider right of the Line column, full table height.
+  page.drawLine({ start: { x: monthsX, y: PAGE_H - tableTop }, end: { x: monthsX, y: PAGE_H - y }, thickness: 0.6, color: RULE });
+  page.drawLine({ start: { x: fyX, y: PAGE_H - tableTop }, end: { x: fyX, y: PAGE_H - y }, thickness: 0.6, color: RULE });
+
+  const noteList = Object.entries(notes).filter(([, v]) => v?.trim());
+  if (noteList.length) {
+    y += 12;
+    if (y > PAGE_H - MARGIN - 30) { page = doc.addPage([PAGE_W, PAGE_H]); drawHeader(); }
+    leftText("NOTES", MARGIN, y + 8, 9, bold, NAVY); y += 15;
+    for (const [key, note] of noteList) {
+      if (y > PAGE_H - MARGIN - 14) { page = doc.addPage([PAGE_W, PAGE_H]); drawHeader(); }
+      const label = key.includes("::") ? key.split("::").pop()! : key;
+      leftText(`${label}: ${note.trim()}`, MARGIN, y + 8, 7.5, font, TEXT, PAGE_W - MARGIN * 2);
+      y += 11;
+    }
+  }
+  leftText(`Report run ${reportStamp()}`, MARGIN, PAGE_H - MARGIN + 14, 8, font, MUTED);
   return doc.save();
 }

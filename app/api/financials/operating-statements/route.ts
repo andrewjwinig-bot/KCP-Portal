@@ -15,6 +15,7 @@ import { trendFlags } from "@/lib/financials/operating-statements/trends";
 import { mortgagePaymentsFor } from "@/lib/financials/cash-sheet/mortgage";
 import { PROPERTY_DEFS, ALLOC_PCT } from "@/lib/properties/data";
 import { FUND_BUILDINGS } from "@/lib/financials/cash-analysis/funds";
+import { buildFullYearPayload, combineGls, type FullYearPayload } from "@/lib/financials/operating-statements/fullYear";
 import { logAudit, auditIp } from "@/lib/audit";
 import { savePendingGl } from "@/lib/allocated-invoicer/pendingGlStore";
 import { markTaskComplete } from "@/lib/tracker/completionStore";
@@ -29,51 +30,9 @@ function propertyName(key: string, fallback: string): string {
   return PROPERTY_DEFS.find((p) => p.id === key)?.name ?? fallback;
 }
 
-/** Compact 12-month + full-year-total payload for the Operating Statements
- *  "Full Year" period option. Each figure is display-oriented (revenue +,
- *  expense +), matching the single-month statement and the reprojection. */
-type FullYearCell = { monthly: number[]; total: number; budget: number | null; variance: number | null };
-type FullYearPayload = {
-  sections: {
-    name: string;
-    role: import("@/lib/financials/operating-statements/types").SectionRole;
-    lines: { label: string; mask: string; accounts: string[]; monthly: number[]; total: number; budget: number | null; variance: number | null }[];
-    subtotalMonthly: number[];
-    subtotalTotal: number;
-    subtotalBudget: number | null;
-    subtotalVariance: number | null;
-  }[];
-  rollups: Record<
-    "totalRevenues" | "totalOperatingExpenses" | "netOperatingIncome" | "cashFlowBeforeDebtService" | "totalDebtService" | "cashFlowAfterDebtService",
-    FullYearCell
-  >;
-};
-
-
-/** Sum several entities' GLs (shell + buildings) into one consolidated GL —
- *  account-level addition of monthly nets, beginning + YTD balances. P&L masks
- *  match across the office buildings; inter-entity accounts aren't on the P&L. */
-function combineGls(gls: StoredGl[]): StoredGl {
-  const monthly: Record<string, number[]> = {};
-  const beginning: Record<string, number> = {};
-  const ytdTotal: Record<string, number> = {};
-  const names: Record<string, string> = {};
-  let maxPeriodInFile = 0, coverageEnd = 0;
-  let coverageStartMonth: number | undefined;
-  for (const g of gls) {
-    for (const [a, nets] of Object.entries(g.monthly)) {
-      const arr = (monthly[a] ??= new Array(12).fill(0));
-      for (let i = 0; i < 12; i++) arr[i] += nets[i] ?? 0;
-    }
-    if (g.beginning) for (const [a, v] of Object.entries(g.beginning)) beginning[a] = (beginning[a] ?? 0) + v;
-    if (g.ytdTotal) for (const [a, v] of Object.entries(g.ytdTotal)) ytdTotal[a] = (ytdTotal[a] ?? 0) + v;
-    if (g.names) for (const [a, n] of Object.entries(g.names)) if (n && !names[a]) names[a] = n;
-    maxPeriodInFile = Math.max(maxPeriodInFile, g.maxPeriodInFile || 0);
-    coverageEnd = Math.max(coverageEnd, g.coverageEnd ?? g.maxPeriodInFile ?? 0);
-    if (g.coverageStartMonth != null) coverageStartMonth = Math.min(coverageStartMonth ?? 12, g.coverageStartMonth);
-  }
-  return { ...gls[gls.length - 1], monthly, beginning, ytdTotal, names, maxPeriodInFile, coverageEnd, coverageStartMonth };
-}
+// The 12-month + full-year-total payload (FullYearPayload), its builder
+// (buildFullYearPayload), and the fund-consolidation helper (combineGls) live
+// in ./fullYear so the Excel/PDF download computes the exact same grid.
 
 // GET — without params: the picker payload (every mapped property/fund + which
 // have uploads + the years available). With ?key&year[&period][&version]:
@@ -229,44 +188,13 @@ export async function GET(req: Request) {
   // and the Full-Year total === Σ of the 12 months === reproject.reprojTotal.
   let fullYear: FullYearPayload | null = null;
   if (url.searchParams.get("fullYear") === "1") {
-    const nameFor = propertyName(key, mapping.entityName);
-    const perMonth = Array.from({ length: 12 }, (_, i) =>
-      computeStatement({ mapping, propertyName: nameFor, year, period: i + 1, gl: summaryForPeriod(stored.monthly, i + 1) })
+    fullYear = buildFullYearPayload(
+      mapping,
+      propertyName(key, mapping.entityName),
+      year,
+      stored.monthly,
+      sameYearBudget ? makeBudgetLookup(sameYearBudget, 12) : undefined,
     );
-    // Period 12 gives the section/line structure + full-year figures (ytdActual
-    // through December, ytdBudget = Σ of the 12 budget months = reproject's
-    // budgetTotal, ytdVariance = the favorability-signed full-year variance).
-    const full = computeStatement({
-      mapping, propertyName: nameFor, year, period: 12,
-      gl: summaryForPeriod(stored.monthly, 12),
-      budgetLookup: sameYearBudget ? makeBudgetLookup(sameYearBudget, 12) : undefined,
-    });
-    const ROLLUP_KEYS = ["totalRevenues", "totalOperatingExpenses", "netOperatingIncome", "cashFlowBeforeDebtService", "totalDebtService", "cashFlowAfterDebtService"] as const;
-    fullYear = {
-      sections: full.sections.map((s, si) => ({
-        name: s.name,
-        role: s.role,
-        lines: s.lines.map((l, li) => ({
-          label: l.label,
-          mask: l.mask,
-          accounts: l.accounts,
-          monthly: perMonth.map((pm) => pm.sections[si].lines[li].periodActual),
-          total: l.ytdActual,
-          budget: l.ytdBudget,
-          variance: l.ytdVariance,
-        })),
-        subtotalMonthly: perMonth.map((pm) => pm.sections[si].subtotal.periodActual),
-        subtotalTotal: s.subtotal.ytdActual,
-        subtotalBudget: s.subtotal.ytdBudget,
-        subtotalVariance: s.subtotal.ytdVariance,
-      })),
-      rollups: Object.fromEntries(ROLLUP_KEYS.map((rk) => [rk, {
-        monthly: perMonth.map((pm) => pm.rollups[rk].periodActual),
-        total: full.rollups[rk].ytdActual,
-        budget: full.rollups[rk].ytdBudget,
-        variance: full.rollups[rk].ytdVariance,
-      }])) as FullYearPayload["rollups"],
-    };
   }
 
   // Label the unmapped (non-operating) accounts with their GL account name,
