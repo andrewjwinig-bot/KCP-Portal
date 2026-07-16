@@ -16,8 +16,8 @@ const TABS: { id: TabId; label: string; icon: React.ReactNode; ready?: boolean }
   { id: "floorplan", label: "Floorplan", ready: true, icon: <><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 9h18M9 21V9" /></> },
   { id: "lease", label: "Lease Terms", ready: true, icon: <><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" /></> },
   { id: "statements", label: "Statements", ready: true, icon: <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /></> },
-  { id: "service", label: "Service Requests", icon: <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" /> },
-  { id: "reservations", label: "Reservations", icon: <><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></> },
+  { id: "service", label: "Service Requests", ready: true, icon: <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" /> },
+  { id: "reservations", label: "Reservations", ready: true, icon: <><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></> },
   { id: "balances", label: "Open Balances", icon: <><line x1="12" y1="1" x2="12" y2="23" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></> },
 ];
 
@@ -95,6 +95,22 @@ export default function TenantPortalPage() {
           <LeaseTab terms={portal?.leaseTerms ?? null} loading={!portal} suite={t.suite} />
         ) : tab === "statements" ? (
           <StatementsTab token={token} years={portal?.statementYears ?? null} currentYear={data.year} onViewCurrent={() => setTab("cam")} />
+        ) : tab === "service" ? (
+          <ActionTab
+            title="Service Requests"
+            intro="Report a service issue at your suite or building — leaks, HVAC, lighting, lockouts, anything that needs the service team. We've pre-filled your property and company; just add the details."
+            cta="Start a service request"
+            href={`/submit?property=${encodeURIComponent(data.property)}&company=${encodeURIComponent(t.name)}`}
+            icon={<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />}
+          />
+        ) : tab === "reservations" ? (
+          <ActionTab
+            title="Reservations"
+            intro="Reserve a conference room or training room. Pick the room, date, and time — we'll confirm by email. Your company is pre-filled."
+            cta="Reserve a room"
+            href={`/reserve?company=${encodeURIComponent(t.name)}`}
+            icon={<><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></>}
+          />
         ) : (
           <ComingSoon label={TABS.find((x) => x.id === tab)!.label} />
         )}
@@ -221,6 +237,26 @@ function StatementsTab({ token, years, currentYear, onViewCurrent }: { token: st
         ))}
       </div>
       <p className="muted" style={{ fontSize: 12, marginTop: 12 }}>Prior years appear here as reconciliations are completed.</p>
+    </>
+  );
+}
+
+function ActionTab({ title, intro, cta, href, icon }: { title: string; intro: string; cta: string; href: string; icon: React.ReactNode }) {
+  return (
+    <>
+      <SectionHead title={title} />
+      <div style={{ border: "1px solid var(--border)", borderRadius: 12, padding: "28px 22px", background: "var(--card)", maxWidth: 560, display: "flex", flexDirection: "column", gap: 16 }}>
+        <div style={{ width: 46, height: 46, borderRadius: 12, background: "rgba(11,74,125,0.09)", color: BRAND, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">{icon}</svg>
+        </div>
+        <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.6, color: "var(--text)" }}>{intro}</p>
+        <div>
+          <a href={href} target="_blank" rel="noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 8, background: BRAND, color: "#fff", textDecoration: "none", borderRadius: 8, padding: "10px 18px", fontSize: 14, fontWeight: 700 }}>
+            {cta}
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="7" y1="17" x2="17" y2="7" /><polyline points="7 7 17 7 17 17" /></svg>
+          </a>
+        </div>
+      </div>
     </>
   );
 }

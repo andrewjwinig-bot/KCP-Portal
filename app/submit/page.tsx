@@ -49,6 +49,19 @@ export default function SubmitPage() {
   const [companies, setCompanies] = useState<CompanyMatch[]>([]);
   const [companiesLoading, setCompaniesLoading] = useState(false);
 
+  // Pre-fill property + company from the URL (used by the tenant portal's
+  // "Service Requests" link, which knows who the tenant is). Read from
+  // window.location to avoid a useSearchParams Suspense boundary.
+  useEffect(() => {
+    const sp = new URLSearchParams(window.location.search);
+    const p = sp.get("property");
+    const c = sp.get("company");
+    if (p) setPropertyCode(p);
+    if (c) setCompany(c);
+    if (p || c) setAutofilled(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     if (!propertyCode) { setCompanies([]); return; }
     let alive = true;
