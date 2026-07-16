@@ -20,7 +20,10 @@ function originOf(req: NextRequest): string {
   const host = req.headers.get("host") ?? req.nextUrl.host;
   return `${proto}://${host}`;
 }
-const linkUrl = (origin: string, token: string) => `${origin}/statement/${token}`;
+// Tenants land in the portal shell (tenant-facing sidebar: CAM/RET, Floorplan,
+// Lease Terms, Statements, Service Requests, Reservations). The legacy
+// /statement/[token] page redirects here, so older links resolve too.
+const linkUrl = (origin: string, token: string) => `${origin}/portal/${token}`;
 
 /** GET ?unitRef=&year= → existing links for a tenant (with their share URLs). */
 export async function GET(req: NextRequest) {
