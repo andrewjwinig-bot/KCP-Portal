@@ -90,7 +90,9 @@ export const LEASE_CONFIG_4070_2025: Record<string, OfficeLeaseConfig> = {
   "4070-115": { baseYear: 2026, grossUp: true, proRataPct: 2.88, opexEscrow: 0,     retEscrow: 0 },
   "4070-116": { baseYear: 2024, grossUp: true, proRataPct: 6.61, opexEscrow: 6000,  retEscrow: 0 },
   "4070-117": { baseYear: 2019, grossUp: true, proRataPct: 6.75, opexEscrow: 5400,  retEscrow: 0 },
-  "4070-201": { baseYear: 2020, grossUp: true, proRataPct: 6.3,  opexEscrow: 5000,  retEscrow: 0 },
+  // Robert Half — the one lease whose base-year stop is on the expense TOTAL,
+  // not line-by-line.
+  "4070-201": { baseYear: 2020, grossUp: true, proRataPct: 6.3,  opexEscrow: 5000,  retEscrow: 0, aggregateBaseYear: true },
   "4070-209": { baseYear: 2025, grossUp: true, proRataPct: 2.95, opexEscrow: 0,     retEscrow: 0 },
   "4070-211": { baseYear: 2024, grossUp: true, proRataPct: 2.46, opexEscrow: 1200,  retEscrow: 240 },
   "4070-215": { baseYear: 2021, grossUp: true, proRataPct: 3.43, opexEscrow: 5700,  retEscrow: 414 },
@@ -133,7 +135,10 @@ export const ROSTER_4070_2025: RosterUnit[] = [
 export const RESETS_4070_2025: Record<string, ResetInfo> = {
   "4070-103": { resetDate: "2025-07-01", originalBaseYear: 2022, newBaseYear: 2025 },
   "4070-117": { resetDate: "2025-08-01", originalBaseYear: 2019, newBaseYear: 2025 },
-  "4070-201": { resetDate: "2025-07-01", originalBaseYear: 2020, newBaseYear: 2025 },
+  // Recovery runs through 5/31/2025 (151 days = 41.37%); the new base takes
+  // effect 6/1, so the stored reset date is 6/1 per the "through the day before"
+  // convention.
+  "4070-201": { resetDate: "2025-06-01", originalBaseYear: 2020, newBaseYear: 2025 },
 };
 
 // Tenant inputs for the 2025 reconciliation, assembled from the roster +

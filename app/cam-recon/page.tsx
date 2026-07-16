@@ -584,6 +584,7 @@ export default function OfficeCamReconPage() {
               <Pill tone={TONE_NEUTRAL}>{pct(selected.proRataPct / 100)} Share</Pill>
               {selected.occPct < 0.9999 && <Pill tone={TONE_NEUTRAL}>{pct(selected.occPct, 1)} Occupancy{selected.rcd ? ` (${fmtRCD(selected.rcd)} RCD)` : ""}</Pill>}
               {selected.baseYearResetISO && <Pill tone={TONE_AMBER}>Base Year Reset {new Date(selected.baseYearResetISO + "T00:00:00").toLocaleDateString("en-US", { month: "numeric", day: "numeric", year: "2-digit" })}</Pill>}
+              {selected.aggregateBaseYear && <Pill tone={TONE_AMBER}>Aggregate Base Year</Pill>}
               {selected.futureBaseYear && <Pill tone={TONE_AMBER}>No Recovery — Future Base Year</Pill>}
             </>
           ) : rSelected ? (
@@ -1822,12 +1823,14 @@ function Legend({ color, label }: { color: string; label: string }) {
 
 // ── Per-tenant statement ─────────────────────────────────────────────────────
 
-function ScheduleTable({ title, lines, baseYear, reconYear, totalLabel }: {
-  title: string; lines: TenantReconResult["opexLines"]; baseYear: number | string; reconYear: number; totalLabel?: string;
+function ScheduleTable({ title, lines, baseYear, reconYear, totalLabel, aggregate }: {
+  title: string; lines: TenantReconResult["opexLines"]; baseYear: number | string; reconYear: number; totalLabel?: string; aggregate?: boolean;
 }) {
   const baseTotal = lines.reduce((s, l) => s + l.baseCost, 0);
   const actualTotal = lines.reduce((s, l) => s + l.actual, 0);
-  const incTotal = lines.reduce((s, l) => s + l.netIncrease, 0);
+  // An aggregate base-year stop compares the totals, so a per-line increase
+  // isn't meaningful — blank each line and show only the total over base.
+  const incTotal = aggregate ? Math.max(0, actualTotal - baseTotal) : lines.reduce((s, l) => s + l.netIncrease, 0);
   // Slightly larger fonts + whole dollars for an easy-to-read statement.
   const sth: React.CSSProperties = { ...th, fontSize: 12, padding: "7px 10px" };
   const std: React.CSSProperties = { ...td, fontSize: 14.5, padding: "7px 10px" };
@@ -1860,7 +1863,7 @@ function ScheduleTable({ title, lines, baseYear, reconYear, totalLabel }: {
             <td style={{ ...std, textAlign: "left" }}>{l.label}</td>
             <td style={std}>{money0(l.baseCost)}</td>
             <td style={std}>{money0(l.actual)}</td>
-            <td style={{ ...std, color: l.netIncrease > 0 ? "var(--text)" : "var(--muted)" }}>{money0(l.netIncrease)}</td>
+            <td style={{ ...std, color: aggregate ? "var(--muted)" : l.netIncrease > 0 ? "var(--text)" : "var(--muted)" }}>{aggregate ? "—" : money0(l.netIncrease)}</td>
           </tr>
         ))}
       </tbody>
@@ -1937,7 +1940,7 @@ function TenantStatement({ t, reconYear, estimate, contact }: {
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       {/* Expense schedules — CAM then RET */}
       <div className="card" style={{ overflowX: "auto" }}>
-        <ScheduleTable title="Schedule of Operating Expenses" lines={t.opexLines} baseYear={t.noBaseStop ? "none" : t.baseYear} reconYear={reconYear} totalLabel="Total Operating Expenses" />
+        <ScheduleTable title="Schedule of Operating Expenses" lines={t.opexLines} baseYear={t.noBaseStop ? "none" : t.baseYear} reconYear={reconYear} totalLabel="Total Operating Expenses" aggregate={t.aggregateBaseYear} />
       </div>
       <div className="card" style={{ overflowX: "auto" }}>
         <ScheduleTable title="Real Estate Taxes" lines={[t.retLine]} baseYear={t.noBaseStop ? "none" : t.baseYear} reconYear={reconYear} />
@@ -1975,6 +1978,11 @@ function TenantStatement({ t, reconYear, estimate, contact }: {
       {t.snowBaseExcluded && (
         <p className="small muted" style={{ margin: 0 }}>
           Snow Removal is excluded from the base year effective {new Date(t.snowBaseExcluded.effectiveYear, t.snowBaseExcluded.effectiveMonth - 1, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" })}: the snow line recovers on a full pro-rata share of the year&rsquo;s snow expense with no base-year offset{t.snowBaseExcluded.fraction < 1 ? ` (prorated to ${Math.round(t.snowBaseExcluded.fraction * 100)}% for ${reconYear})` : ""}. All other lines keep their base year.
+        </p>
+      )}
+      {t.aggregateBaseYear && (
+        <p className="small muted" style={{ margin: 0 }}>
+          This lease&rsquo;s base-year stop is applied to the <b>expense total</b>, not line-by-line — the net increase is total actual minus total base year (a line below its base offsets one above), unlike every other tenant, whose lines are each floored at their base.
         </p>
       )}
       {t.futureBaseYear && (

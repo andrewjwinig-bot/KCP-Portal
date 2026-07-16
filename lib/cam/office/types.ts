@@ -64,6 +64,11 @@ export type OfficeTenantInput = {
    *  the full current-year expense (base costs forced to $0). baseYear is then
    *  irrelevant and displayed as "NNN". */
   noBaseStop?: boolean;
+  /** Rare: the base-year stop is applied to the operating-expense TOTAL, not
+   *  line-by-line — net increase = ΣactualΣ − ΣbaseΣ (negatives on one line
+   *  offset increases on another), instead of Σ max(0, actual − base). Only a
+   *  specific lease negotiated this way (e.g. Robert Half 4070-201). */
+  aggregateBaseYear?: boolean;
   /** True when the lease grosses expenses up to 95% occupancy. */
   grossUp: boolean;
   /** Pro-rata share as a percent, e.g. 2.2 means 2.2%. */
@@ -126,6 +131,9 @@ export type TenantReconResult = {
   futureBaseYear?: boolean;
   /** True for a full-NNN tenant (no base-year stop) — base year shows "NNN". */
   noBaseStop?: boolean;
+  /** True when this lease's base-year stop is computed on the expense TOTAL
+   *  rather than line-by-line — surfaces a note on the statement. */
+  aggregateBaseYear?: boolean;
   /** Rent commencement date (lease start), "M/D/YYYY". */
   rcd?: string | null;
   /** Set when Snow Removal is excluded from this tenant's base year for the

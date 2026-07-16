@@ -75,6 +75,7 @@ export async function GET(req: NextRequest, { params }: { params: { token: strin
     ret = { label: t.retLine.label, amount: t.retLine.actual, backup: backupFor(t.retLine.glAccount, "6410", "6410-8502") };
     if (t.snowBaseExcluded) notes.push("Snow Removal is excluded from your base year — you recover a full pro-rata share of the year's snow expense.");
     if (t.baseYearResetISO) notes.push("Your base year was reset during this period; recovery is prorated through the reset date.");
+    if (t.aggregateBaseYear) notes.push("Your base-year stop is applied to the expense total (not line-by-line): the net increase is total actual minus total base year.");
   }
 
   const escrowMonthly = await monthlyRentRollEscrow(payload.u, payload.y);
