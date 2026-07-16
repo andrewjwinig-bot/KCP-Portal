@@ -76,6 +76,7 @@ function collectFootnotes(rows: Row[], notes: Notes) {
 
 // ── Excel ────────────────────────────────────────────────────────────────────
 const BRAND = "FF0B4A7D", BRAND_DARK = "FF0A3E69", BRAND_TINT = "FFE6EEF5", ROLLUP_FILL = "FFD9E4EE", ACTUAL_FILL = "FFE7F2EA", BORDER = "FFB7C2CC";
+const colLetter = (c: number) => { let s = ""; while (c > 0) { const m = (c - 1) % 26; s = String.fromCharCode(65 + m) + s; c = Math.floor((c - 1) / 26); } return s; };
 
 export async function buildReprojXlsx(r: Reprojection, meta: ReprojMeta, notes: Notes = {}): Promise<Buffer> {
   const wb = new ExcelJS.Workbook();
@@ -125,15 +126,64 @@ export async function buildReprojXlsx(r: Reprojection, meta: ReprojMeta, notes: 
   });
   hdr.height = 18;
 
-  const money = (cell: ExcelJS.Cell, v: number | null, opts: { bold?: boolean; actual?: boolean; brand2?: boolean; col: number }) => {
-    cell.value = v == null ? null : v; cell.numFmt = MONEY_FMT; cell.alignment = { horizontal: "right" };
+  const money = (cell: ExcelJS.Cell, v: number | null, opts: { bold?: boolean; actual?: boolean; brand2?: boolean; col: number; formula?: { f: string; result: number } }) => {
+    cell.value = opts.formula ? { formula: opts.formula.f, result: opts.formula.result } : v == null ? null : v;
+    cell.numFmt = MONEY_FMT; cell.alignment = { horizontal: "right" };
     cell.font = { size: 10, bold: !!opts.bold, color: { argb: opts.brand2 ? BRAND : "FF1A1A1A" } };
     if (opts.actual) cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: ACTUAL_FILL } };
     edge(cell, opts.col);
   };
 
+  // Live-formula plumbing (see statementExport for the same approach): the Full
+  // Year column is =SUM(Jan:Dec) on every row; Variance is Full Year − Ann Bud
+  // (sign per each line's favorability); and each total's months + Ann Bud SUM
+  // the exact source rows above it. Formulas cache their result and fall back to
+  // a static number if the referenced rows don't reconcile to the known total.
+  type Grp = { sign: 1 | -1; rows: number[] };
+  const rowT = new Map<number, ReprojTotals>();
+  const valBlended = (rn: number, i: number) => { const v = rowT.get(rn)?.blended[i]; return typeof v === "number" ? v : 0; };
+  const valBudget = (rn: number) => { const v = rowT.get(rn)?.budgetTotal; return typeof v === "number" ? v : 0; };
+  const buildSum = (groups: Grp[], L: string, get: (rn: number) => number): { formula: string; val: number } => {
+    let val = 0; const parts: string[] = [];
+    for (const g of groups) {
+      const rs = g.rows.filter((r) => r > 0);
+      if (!rs.length) continue;
+      let s = 0; for (const r of rs) s += get(r);
+      val += g.sign * s;
+      const contiguous = rs.every((r, i) => i === 0 || r === rs[i - 1] + 1);
+      const expr = rs.length === 1 ? `${L}${rs[0]}`
+        : contiguous ? `SUM(${L}${rs[0]}:${L}${rs[rs.length - 1]})`
+        : `SUM(${rs.map((r) => `${L}${r}`).join(",")})`;
+      parts.push((parts.length === 0 ? (g.sign < 0 ? "-" : "") : g.sign < 0 ? "-" : "+") + expr);
+    }
+    return { formula: parts.join(""), val };
+  };
+  const colSum = (groups: Grp[], col: number, get: (rn: number) => number, expected: number | null) => {
+    if (expected == null) return undefined;
+    const { formula, val } = buildSum(groups, colLetter(col), get);
+    return formula && Math.abs(val - expected) < 0.5 ? { f: formula, result: expected } : undefined;
+  };
+  const fyFormula = (rn: number, t: ReprojTotals) => {
+    let s = 0; for (let i = 0; i < 12; i++) if (typeof t.blended[i] === "number") s += t.blended[i];
+    return Math.abs(s - t.reprojTotal) < 0.5 ? { f: `SUM(${colLetter(2)}${rn}:${colLetter(13)}${rn})`, result: t.reprojTotal } : undefined;
+  };
+  const varFormula = (rn: number, t: ReprojTotals) => {
+    if (t.variance == null) return undefined;
+    const N = `${colLetter(14)}${rn}`, O = `${colLetter(15)}${rn}`, d = t.reprojTotal - t.budgetTotal;
+    if (Math.abs(d - t.variance) < 0.5) return { f: `${N}-${O}`, result: t.variance };
+    if (Math.abs(-d - t.variance) < 0.5) return { f: `${O}-${N}`, result: t.variance };
+    return undefined;
+  };
+
+  const secLines: number[] = [];
+  const revSub: number[] = [], opexSub: number[] = [], capLines: number[] = [], debtSub: number[] = [];
+  let group = "";
+  let totalRevRow = 0, totalOpexRow = 0, noiRow = 0, cfbdsRow = 0, totalDebtRow = 0;
+
   for (const row of rows) {
     if (row.kind === "group") {
+      group = row.label;
+      secLines.length = 0;
       const gr = ws.addRow([row.label]);
       ws.mergeCells(gr.number, 1, gr.number, nCols);
       gr.getCell(1).font = { bold: true, size: 11, color: { argb: BRAND } };
@@ -143,13 +193,44 @@ export async function buildReprojXlsx(r: Reprojection, meta: ReprojMeta, notes: 
     const isTotal = row.kind !== "line";
     const fn = row.noteKey ? byKey.get(row.noteKey) : undefined;
     const gr = ws.addRow([fn ? `${row.label}  [${fn}]` : row.label]);
+    const rn = gr.number;
+    rowT.set(rn, row.t);
     gr.getCell(1).font = { bold: isTotal, size: 10, color: { argb: isTotal ? BRAND : "FF1A1A1A" } };
     gr.getCell(1).alignment = { indent: row.kind === "line" ? 2 : 1 };
     edge(gr.getCell(1), 1);
-    for (let i = 0; i < 12; i++) money(gr.getCell(2 + i), row.t.blended[i], { bold: isTotal, actual: i < through, brand2: isTotal, col: 2 + i });
-    money(gr.getCell(14), row.t.reprojTotal, { bold: true, brand2: true, col: 14 });
-    money(gr.getCell(15), row.t.budgetTotal, { bold: isTotal, col: 15 });
-    money(gr.getCell(16), row.t.variance, { bold: isTotal, col: 16 });
+
+    // The months + Ann Bud for a total row SUM the source rows above it; on a
+    // line row they carry the source values (undefined groups → static).
+    let groups: Grp[] | null = null;
+    if (!isTotal) {
+      secLines.push(rn);
+      if (group === "Capital Improvements") capLines.push(rn);
+    } else if (row.kind === "subtotal") {
+      groups = [{ sign: 1, rows: [...secLines] }];
+      if (group === "Revenues") revSub.push(rn);
+      else if (group === "Operating Expenses") opexSub.push(rn);
+      else if (group === "Debt Service") debtSub.push(rn);
+      secLines.length = 0;
+    } else {
+      switch (row.label) {
+        case "Total Revenues": groups = [{ sign: 1, rows: [...revSub] }]; totalRevRow = rn; break;
+        case "Total Operating Expenses": groups = [{ sign: 1, rows: [...opexSub] }]; totalOpexRow = rn; break;
+        case "Net Operating Income": groups = [{ sign: 1, rows: [totalRevRow] }, { sign: -1, rows: [totalOpexRow] }]; noiRow = rn; break;
+        case "Total Debt Service": groups = [{ sign: 1, rows: [...debtSub] }]; totalDebtRow = rn; break;
+        case "Cash Flow After Debt Service": groups = [{ sign: 1, rows: [cfbdsRow] }, { sign: -1, rows: [totalDebtRow] }]; break;
+        default: // Cash Flow Before Debt Service / Cash Flow = NOI − capital
+          groups = capLines.length ? [{ sign: 1, rows: [noiRow] }, { sign: -1, rows: [...capLines] }] : [{ sign: 1, rows: [noiRow] }];
+          cfbdsRow = rn; break;
+      }
+    }
+
+    for (let i = 0; i < 12; i++) {
+      const f = groups ? colSum(groups, 2 + i, (r) => valBlended(r, i), row.t.blended[i]) : undefined;
+      money(gr.getCell(2 + i), row.t.blended[i], { bold: isTotal, actual: i < through, brand2: isTotal, col: 2 + i, formula: f });
+    }
+    money(gr.getCell(14), row.t.reprojTotal, { bold: true, brand2: true, col: 14, formula: fyFormula(rn, row.t) });
+    money(gr.getCell(15), row.t.budgetTotal, { bold: isTotal, col: 15, formula: groups ? colSum(groups, 15, valBudget, row.t.budgetTotal) : undefined });
+    money(gr.getCell(16), row.t.variance, { bold: isTotal, col: 16, formula: varFormula(rn, row.t) });
     if (isTotal) for (let c = 1; c <= nCols; c++) {
       const cell = gr.getCell(c);
       cell.border = { ...(cell.border ?? {}), top: { style: "thin", color: { argb: BORDER } } };
