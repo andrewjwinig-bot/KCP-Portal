@@ -90,7 +90,7 @@ export function drawTenantStatement(doc: any, t: TenantReconResult, year: number
     }
     y += 22; ink(INK); doc.setFontSize(10);
   };
-  const lineRow = (i: number, label: string, b: number, a: number, n: number, bold = false, acct = "") => {
+  const lineRow = (i: number, label: string, b: number, a: number, n: number | null, bold = false, acct = "") => {
     if (!bold && i % 2 === 1) { fill(ZEBRA); doc.rect(L, y - 10, W, 15, "F"); }
     doc.setFont("helvetica", bold ? "bold" : "normal");
     // Hide the internal "-95" gross-up marker — it's not part of the GL account.
@@ -99,7 +99,7 @@ export function drawTenantStatement(doc: any, t: TenantReconResult, year: number
     at(label, L + 62);
     at(money(b), cols[0], { align: "right" });
     at(money(a), cols[1], { align: "right" });
-    at(money(n), cols[2] - 6, { align: "right" });
+    at(n == null ? "—" : money(n), cols[2] - 6, { align: "right" });
     y += 15; ink(INK);
   };
   const sumRow = (label: string, value: string, bold = false) => {
@@ -110,7 +110,7 @@ export function drawTenantStatement(doc: any, t: TenantReconResult, year: number
 
   // ── Operating expenses ───────────────────────────────────────────────────
   sectionBar("Schedule of Operating Expenses", true);
-  t.opexLines.forEach((l, i) => lineRow(i, l.label, l.baseCost, l.actual, l.netIncrease, false, l.glAccount));
+  t.opexLines.forEach((l, i) => lineRow(i, l.label, l.baseCost, l.actual, t.aggregateBaseYear ? null : l.netIncrease, false, l.glAccount));
   stroke(NAVY); doc.setLineWidth(0.8); doc.line(L, y - 11, R, y - 11);
   lineRow(0, "Total Operating Expenses", t.opexBaseTotal, t.opexActualTotal, t.opexNetIncrease, true);
   y += 6;
@@ -165,6 +165,11 @@ export function drawTenantStatement(doc: any, t: TenantReconResult, year: number
     const eff = new Date(t.snowBaseExcluded.effectiveYear, t.snowBaseExcluded.effectiveMonth - 1, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" });
     const pro = t.snowBaseExcluded.fraction < 1 ? ` (prorated to ${Math.round(t.snowBaseExcluded.fraction * 100)}% for ${year})` : "";
     at(`* Snow Removal is excluded from the base year effective ${eff}: snow recovers on a full pro-rata share of the year's snow expense with no base-year offset${pro}. All other lines keep their base year.`, L);
+    y += 14; doc.setFont("helvetica", "normal");
+  }
+  if (t.aggregateBaseYear) {
+    doc.setFont("helvetica", "italic");
+    at(`* Base-year stop applied to the expense total (not line-by-line): net increase = total actual minus total base year.`, L);
     y += 14; doc.setFont("helvetica", "normal");
   }
   if (t.futureBaseYear) {

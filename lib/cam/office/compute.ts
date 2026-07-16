@@ -127,7 +127,14 @@ export function reconcileTenant(
 
   const opexBaseTotal = opexLines.reduce((a, l) => a + l.baseCost, 0);
   const opexActualTotal = opexLines.reduce((a, l) => a + l.actual, 0);
-  const opexNetIncrease = opexLines.reduce((a, l) => a + l.netIncrease, 0);
+  // A per-line stop floors each line at $0; an aggregate stop (rare — a lease
+  // negotiated that way, e.g. Robert Half) compares the TOTALs, so a line that
+  // fell below its base offsets one that rose. futureBase → nothing yet due.
+  const opexNetIncrease = futureBase
+    ? 0
+    : t.aggregateBaseYear
+      ? Math.max(0, opexActualTotal - opexBaseTotal)
+      : opexLines.reduce((a, l) => a + l.netIncrease, 0);
   const opexAmountDue = opexNetIncrease * share * t.recoveryPct;
   const opexBalance = opexAmountDue - t.opexEscrow;
 
@@ -166,6 +173,7 @@ export function reconcileTenant(
     baseYearResetISO: t.baseYearResetISO ?? null,
     futureBaseYear: futureBase,
     noBaseStop: noBaseStop || undefined,
+    aggregateBaseYear: t.aggregateBaseYear || undefined,
     snowBaseExcluded: snowFraction > 0 && t.snowExclusion
       ? { effectiveMonth: t.snowExclusion.effectiveMonth, effectiveYear: t.snowExclusion.effectiveYear, fraction: snowFraction }
       : undefined,

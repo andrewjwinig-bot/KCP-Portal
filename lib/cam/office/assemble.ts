@@ -29,6 +29,8 @@ export type OfficeLeaseConfig = {
   /** Full-NNN tenant: no base-year stop, recovers its share of the full
    *  current-year expense. baseYear is then irrelevant. */
   noBaseStop?: boolean;
+  /** Base-year stop applied to the expense TOTAL, not line-by-line (rare). */
+  aggregateBaseYear?: boolean;
 };
 
 /** The slice of a rent-roll unit the assembler needs (subset of
@@ -145,6 +147,7 @@ export function assembleTenantInputs(
       name: u.occupantName,
       baseYear: cfg.baseYear,
       noBaseStop: cfg.noBaseStop,
+      aggregateBaseYear: cfg.aggregateBaseYear,
       grossUp: cfg.grossUp,
       proRataPct: cfg.proRataPct,
       sqft: u.sqft,
