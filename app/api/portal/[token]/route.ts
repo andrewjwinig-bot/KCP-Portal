@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyTenantToken, linkSecret } from "@/lib/cam/tenantLink/token";
 import { getTenantLink } from "@/lib/cam/tenantLink/store";
 import { getSuiteInformation } from "@/lib/suites/informationStorage";
+import { getOrEmptySuiteContacts } from "@/lib/suites/contactsStorage";
 import { findRentRollUnit } from "@/lib/rentroll/current";
 import { statementYearsForUnit } from "@/lib/cam/statementYears";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
@@ -21,10 +22,15 @@ export async function GET(_req: NextRequest, { params }: { params: { token: stri
   const link = await getTenantLink(payload.id);
   if (!link || link.revoked) return NextResponse.json({ error: "This link has been revoked." }, { status: 401 });
 
-  const [unit, info] = await Promise.all([
+  const [unit, info, contactsRec] = await Promise.all([
     findRentRollUnit(payload.u),
     getSuiteInformation(payload.u),
+    getOrEmptySuiteContacts(payload.u),
   ]);
+  // Tenant-safe contact projection — no internal notes / billing flags.
+  const contacts = contactsRec.contacts.map((c) => ({
+    id: c.id, name: c.name, title: c.title, email: c.email, phone: c.phone, source: c.source ?? "staff",
+  }));
 
   const leaseTerms = unit && !unit.isVacant
     ? {
@@ -72,5 +78,6 @@ export async function GET(_req: NextRequest, { params }: { params: { token: stri
     leaseTerms,
     floorplan,
     statementYears,
+    contacts,
   });
 }
