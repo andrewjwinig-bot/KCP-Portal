@@ -5,6 +5,7 @@
 // statement body is shared with the (hidden, WIP) tenant portal shell.
 
 import { useParams } from "next/navigation";
+import LoadingState from "@/app/components/LoadingState";
 import { useStatement, TenantStatementView, Centered, BRAND } from "./StatementView";
 
 export default function TenantStatementPage() {
@@ -13,7 +14,13 @@ export default function TenantStatementPage() {
   const { data, error } = useStatement(token);
 
   if (error) return <Centered><div style={{ fontWeight: 700, fontSize: 18, color: BRAND }}>CAM Statement</div><p className="muted" style={{ marginTop: 8 }}>{error}</p></Centered>;
-  if (!data) return <Centered><div className="muted">Loading your statement…</div></Centered>;
+  // Branded "building skyline" loader while the statement is fetched, sized to
+  // the same 860px column so the layout doesn't jump when it resolves.
+  if (!data) return (
+    <main style={{ maxWidth: 860, margin: "0 auto", padding: "28px 18px 60px" }}>
+      <LoadingState status="Loading your statement…" context="Securely retrieving your CAM statement…" rows={4} columns={2} />
+    </main>
+  );
 
   return (
     <main style={{ maxWidth: 860, margin: "0 auto", padding: "28px 18px 60px" }}>
