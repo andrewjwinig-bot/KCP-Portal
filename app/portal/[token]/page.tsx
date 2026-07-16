@@ -15,7 +15,7 @@ const TABS: { id: TabId; label: string; icon: React.ReactNode; ready?: boolean }
   { id: "cam", label: "CAM / RET", ready: true, icon: <path d="M9 17V7m0 10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2m0 10h10a2 2 0 0 0 2-2v-3M9 7h10a2 2 0 0 1 2 2v3" /> },
   { id: "floorplan", label: "Floorplan", ready: true, icon: <><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 9h18M9 21V9" /></> },
   { id: "lease", label: "Lease Terms", ready: true, icon: <><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" /></> },
-  { id: "statements", label: "Statements", icon: <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /></> },
+  { id: "statements", label: "Statements", ready: true, icon: <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /></> },
   { id: "service", label: "Service Requests", icon: <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" /> },
   { id: "reservations", label: "Reservations", icon: <><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></> },
   { id: "balances", label: "Open Balances", icon: <><line x1="12" y1="1" x2="12" y2="23" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></> },
@@ -25,7 +25,7 @@ type LeaseTerms = {
   sqft: number; baseRent: number; grossRent: number; annualRent: number;
   annualRentPerSqft: number; leaseFrom: string | null; leaseTo: string | null; occupantName: string;
 };
-type PortalData = { ok: true; property: string; year: number; kind: string; leaseTerms: LeaseTerms | null; floorplan: { name: string; contentType: string } | null };
+type PortalData = { ok: true; property: string; year: number; kind: string; leaseTerms: LeaseTerms | null; floorplan: { name: string; contentType: string } | null; statementYears: number[] };
 
 function usePortal(token: string): { portal: PortalData | null; error: string | null } {
   const [portal, setPortal] = useState<PortalData | null>(null);
@@ -93,6 +93,8 @@ export default function TenantPortalPage() {
           <FloorplanTab token={token} floorplan={portal?.floorplan ?? null} loading={!portal} />
         ) : tab === "lease" ? (
           <LeaseTab terms={portal?.leaseTerms ?? null} loading={!portal} suite={t.suite} />
+        ) : tab === "statements" ? (
+          <StatementsTab token={token} years={portal?.statementYears ?? null} currentYear={data.year} onViewCurrent={() => setTab("cam")} />
         ) : (
           <ComingSoon label={TABS.find((x) => x.id === tab)!.label} />
         )}
@@ -188,6 +190,37 @@ function LeaseTab({ terms, loading, suite }: { terms: LeaseTerms | null; loading
       <p className="muted" style={{ fontSize: 12, marginTop: 14 }}>
         Figures reflect your current rent-roll record. Gross rent includes base rent plus estimated CAM, real estate tax, and other monthly charges. Questions? Contact Korman Commercial Properties.
       </p>
+    </>
+  );
+}
+
+function StatementsTab({ token, years, currentYear, onViewCurrent }: { token: string; years: number[] | null; currentYear: number; onViewCurrent: () => void }) {
+  if (!years) return <><SectionHead title="Statements" /><div className="muted" style={{ fontSize: 14 }}>Loading…</div></>;
+  if (years.length === 0) return <><SectionHead title="Statements" /><div style={{ border: "1px dashed var(--border)", borderRadius: 12, padding: "40px 16px", textAlign: "center", color: "var(--muted)", fontSize: 14 }}>No statements are available yet.</div></>;
+  return (
+    <>
+      <SectionHead title="Statements" sub="Your year-end CAM / RET reconciliations." />
+      <div style={{ border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden" }}>
+        {years.map((yr, i) => (
+          <div key={yr} style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", borderTop: i ? "1px solid var(--border)" : "none" }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 700, fontSize: 15 }}>
+                {yr} CAM / RET Statement
+                {yr === currentYear && <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 800, letterSpacing: "0.04em", color: BRAND, background: "rgba(11,74,125,0.09)", borderRadius: 6, padding: "2px 7px", verticalAlign: "middle" }}>CURRENT</span>}
+              </div>
+              <div className="muted" style={{ fontSize: 12.5, marginTop: 1 }}>Year-end reconciliation</div>
+            </div>
+            {yr === currentYear && (
+              <button onClick={onViewCurrent} className="btn" style={{ fontSize: 12.5, padding: "7px 12px", fontWeight: 600 }}>View</button>
+            )}
+            <a href={`/api/portal/${token}/statement/pdf?year=${yr}`} style={{ display: "inline-flex", alignItems: "center", gap: 6, background: BRAND, color: "#fff", textDecoration: "none", borderRadius: 8, padding: "7px 13px", fontSize: 12.5, fontWeight: 700 }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
+              PDF
+            </a>
+          </div>
+        ))}
+      </div>
+      <p className="muted" style={{ fontSize: 12, marginTop: 12 }}>Prior years appear here as reconciliations are completed.</p>
     </>
   );
 }
