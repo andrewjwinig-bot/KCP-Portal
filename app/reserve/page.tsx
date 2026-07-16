@@ -43,6 +43,15 @@ export default function ReservePage() {
 
   const room = useMemo(() => BOOKABLE_ROOMS.find((r) => r.unitRef === roomUnitRef) ?? null, [roomUnitRef]);
 
+  // Pre-fill the company from the URL (used by the tenant portal's
+  // "Reservations" link). Read from window.location to avoid a
+  // useSearchParams Suspense boundary.
+  useEffect(() => {
+    const c = new URLSearchParams(window.location.search).get("company");
+    if (c) { setTenantCompany(c); setAutofilled(true); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Any office tenant can book any conference / training room — pull the
   // full deduped list once on page load.
   const [tenants, setTenants] = useState<string[]>([]);
