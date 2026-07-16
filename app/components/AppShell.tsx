@@ -18,14 +18,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const sidebarW = isNarrow ? 0 : open ? 220 : 60;
   const pathname = usePathname();
   const router = useRouter();
-  const { user, hydrated, staffAuthed } = useUser();
-  // Public = no auth gate, and no portal chrome by default.
+  const { user, hydrated } = useUser();
+  // Public pages render without the internal app chrome (no staff sidebar, no
+  // auth gate). The tenant statement/portal links carry their OWN tenant-facing
+  // sidebar, so they must never inherit the internal one.
   const isPublic = PUBLIC_PATHS.has(pathname) || pathname.startsWith("/statement/") || pathname.startsWith("/portal/");
-  // The tenant statement / portal links are public, but when signed-in staff
-  // open one we frame it in the app shell (sidebar) so they can preview it in
-  // context. Tenants (no site session) still get the clean, chrome-free page.
-  const isTenantLink = pathname.startsWith("/statement/") || pathname.startsWith("/portal/");
-  const showChrome = !isPublic || (isTenantLink && hydrated && staffAuthed);
 
   // Auto-collapse the sidebar to a hidden drawer on narrow viewports.
   useEffect(() => {
@@ -47,8 +44,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     }
   }, [hydrated, pathname, user.id, router, isPublic]);
 
-  // Render raw (no sidebar, no width offset) unless we're showing the app chrome.
-  if (!showChrome) return <>{children}</>;
+  // Public pages render raw — no sidebar, no width offset.
+  if (isPublic) return <>{children}</>;
 
   return (
     <div style={{ paddingLeft: sidebarW, transition: "padding-left 0.2s ease", minHeight: "100vh", overflowX: "hidden" }}>

@@ -1,13 +1,14 @@
 "use client";
 
-// Tenant portal shell (WORK IN PROGRESS — not linked anywhere yet; the admin
-// "Share with tenant" flow still hands out /statement/[token] links). Reuses the
-// same signed token as the statement page. A per-tenant sidebar: CAM/RET
-// statement, Floorplan, Lease Terms today; Statements history, Service Requests,
-// Reservations, Open Balances still to come.
+// Tenant portal shell — the destination of every "Share with tenant" link
+// (the admin flow mints /portal/[token] URLs, and the legacy /statement/[token]
+// page redirects here). Reuses the same signed token. A per-tenant, tenant-
+// facing sidebar: CAM/RET statement, Floorplan, Lease Terms, Statements,
+// Service Requests, Reservations; Open Balances still to come.
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import LoadingState from "@/app/components/LoadingState";
 import { useStatement, TenantStatementView, Centered, BRAND, money, money2 } from "@/app/statement/[token]/StatementView";
 
 type TabId = "cam" | "floorplan" | "lease" | "statements" | "service" | "reservations" | "balances";
@@ -49,7 +50,11 @@ export default function TenantPortalPage() {
   const [tab, setTab] = useState<TabId>("cam");
 
   if (error) return <Centered><div style={{ fontWeight: 700, fontSize: 18, color: BRAND }}>Tenant Portal</div><p className="muted" style={{ marginTop: 8 }}>{error}</p></Centered>;
-  if (!data) return <Centered><div className="muted">Loading…</div></Centered>;
+  if (!data) return (
+    <div style={{ maxWidth: 940, margin: "0 auto", padding: "28px clamp(16px, 4vw, 44px) 60px" }}>
+      <LoadingState status="Loading your statement…" context="Securely retrieving your account…" rows={4} columns={2} />
+    </div>
+  );
   const t = data.tenant;
 
   const Nav = () => (
