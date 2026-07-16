@@ -31,7 +31,18 @@ lands in a coherent whole.
 
 ## Phase 3+ — full tenant portal
 
-Grow the tenant link into a durable per-tenant home:
+Grow the tenant link into a durable per-tenant home. The signed link stops being
+a single page and becomes a small **portal shell** — a sidebar/nav scoped to that
+one tenant, with the current CAM statement as its first tab:
+
+- **Shell / nav** — a lightweight sidebar on `/statement/[token]` (no login) with
+  tabs: **CAM** (today's statement) · **Statements** (history + downloads) ·
+  **Lease Terms** · **Service Requests** · **Reservations** · **Balances**. Every
+  tab is scoped to the token's one tenant; the CAM page becomes just the first
+  link. (Today the token already carries the tenant identity — the shell is
+  routing + per-tab data, reusing flows that already exist.)
+
+The tabs, in more detail:
 
 - **Statements** — CAM/RET statements, interim/move-out statements, history.
 - **Open balances / ledger** — current AR, what's due, payment history (ties to
