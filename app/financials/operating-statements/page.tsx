@@ -715,8 +715,8 @@ export default function OperatingStatementsPage() {
               <DownloadMenu
                 disabled={!statement}
                 items={[
-                  { label: "Excel (.xlsx)", description: "Full Period + YTD statement with budget & variance", href: `/api/financials/operating-statements/download?key=${encodeURIComponent(key)}&year=${year}${period && !isFullYear ? `&period=${period}` : ""}` },
-                  { label: "PDF", description: "Presentation-ready single-property statement", href: `/api/financials/operating-statements/download/pdf?key=${encodeURIComponent(key)}&year=${year}${period && !isFullYear ? `&period=${period}` : ""}` },
+                  { label: "Excel (.xlsx)", description: isFullYear ? "12-month breakdown + Full-Year total (formulas)" : "Full Period + YTD statement with budget & variance", href: `/api/financials/operating-statements/download?key=${encodeURIComponent(key)}&year=${year}${isFullYear ? "&fullYear=1" : period ? `&period=${period}` : ""}` },
+                  { label: "PDF", description: isFullYear ? "12-month breakdown + Full-Year total" : "Presentation-ready single-property statement", href: `/api/financials/operating-statements/download/pdf?key=${encodeURIComponent(key)}&year=${year}${isFullYear ? "&fullYear=1" : period ? `&period=${period}` : ""}` },
                 ]}
               />
             )}
