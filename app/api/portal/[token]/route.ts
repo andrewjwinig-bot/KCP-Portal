@@ -3,6 +3,7 @@ import { verifyTenantToken, linkSecret } from "@/lib/cam/tenantLink/token";
 import { getTenantLink } from "@/lib/cam/tenantLink/store";
 import { getSuiteInformation } from "@/lib/suites/informationStorage";
 import { findRentRollUnit } from "@/lib/rentroll/current";
+import { statementYearsForUnit } from "@/lib/cam/statementYears";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -40,6 +41,11 @@ export async function GET(_req: NextRequest, { params }: { params: { token: stri
   const fp = info?.floorplan ?? null;
   const floorplan = fp ? { name: fp.name, contentType: fp.contentType } : null;
 
+  // Years this unit has a statement for (newest first). Always include the
+  // token's own year so the current statement is never missing from the list.
+  const years = statementYearsForUnit(payload.k, payload.p, payload.u);
+  const statementYears = years.includes(payload.y) ? years : [payload.y, ...years].sort((a, b) => b - a);
+
   return NextResponse.json({
     ok: true,
     property: payload.p,
@@ -47,5 +53,6 @@ export async function GET(_req: NextRequest, { params }: { params: { token: stri
     kind: payload.k,
     leaseTerms,
     floorplan,
+    statementYears,
   });
 }
