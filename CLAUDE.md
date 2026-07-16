@@ -19,6 +19,17 @@ The user has flagged repeated drift in pill / chip / badge styling across new pa
 - **Collapsible "accounts that didn't fit" lists** → `AccountListCard` from `app/components/AccountListCard.tsx` (collapsed by default, Account/Name/Amount table + total) — shared by Operating Statements ("Non-operating accounts") and the Cash Sheet ("Accounts not mapped to a bucket").
 - When a section's purpose mirrors something on another page (a download menu, a hidden-accounts list, a KPI row, a tab+filter+table), copy that page's component/markup/spacing rather than approximating it inline.
 
+# Excel exports — totals must be live formulas, never static numbers
+
+The user wants downloaded workbooks to stay accurate and be easy to edit. **Any total, subtotal, or rollup row/column in an .xlsx export MUST be written as a live Excel formula (`=SUM(...)`, cross-references, etc.), NOT a value computed in JS and dropped in as a static number.** Line-item cells carry the source values; every cell that aggregates them is a formula that references the exact source cells above/beside it — so editing a line flows through and the numbers always tie. This applies to both export stacks:
+
+- **ExcelJS** (server-side, styled — `statementExport.ts`, `reprojExport.ts`, `budgetDownload.ts`, `topSheet.ts`): `cell.value = { formula: "SUM(C5:C9)", result: <cachedValue> }`. Always cache the JS-computed `result` so the value shows before Excel recalcs.
+- **SheetJS/xlsx** (mostly client-side AoA — `cash-sheet/export.ts`, `payroll/export.ts`, `allocation/export.ts`, `allocated-invoicer/export.ts`): after `aoa_to_sheet`, set `ws[addr] = { t: "n", f: "SUM(D5:D6)", v: <cachedValue> }` (or add `.f` to an existing numeric cell). Address cells with `XLSX.utils.encode_cell` / `encode_col`.
+
+**Safety pattern (follow it):** when a total's relationship to its sources is anything beyond a trivial column sum (rollups, signed differences like `NOI = Rev − Opex`, favorability-signed variance), evaluate the formula's expected value in JS and compare it to the known total; **write the formula only if it reconciles (within ~$0.50), else fall back to a static number** so a displayed value is never wrong on an unusual data shape. See `formulaFor`/`totalMoney` in `statementExport.ts` and `buildSum`/`colSum`/`varFormula` in `reprojExport.ts` for the reference implementation — copy that approach, don't reinvent it.
+
+Reference points already converted: single-period Operating Statement, Full-Year statement, Reprojection, Budget download (all tabs), Cash Sheet Portfolio Total, Payroll summary + GL offset (`=-SUM(...)` so column H nets to $0), Allocation template, allocated-invoicer. **Exceptions that legitimately have no total row:** the Skyline import (one row per GL, no footer) and the rent-roll trend workbook (its "Total" is a per-period column, and percentages can't be summed). If you build a NEW export, wire its totals as formulas from the start.
+
 # CAM / RET reconciliation — sources of truth (do not duplicate data)
 
 The user has repeatedly flagged data living in the wrong place / pages drifting. These are the canonical sources — read/write here, never re-key the same value somewhere else:
