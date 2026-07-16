@@ -171,10 +171,19 @@ export function buildPayrollGLXlsx(args: BuildPayrollExportArgs): Blob {
   }
 
   // Offset row — rounded sum of already-rounded property lines so column H nets to $0
+  const lineCount = rows.length;
   rows.push(["JRNL", "2000", "0110-0000", "DW", dateStr, "Total Prop Payroll Reimbursement", periodCode, Math.round(offsetTotal * 100) / 100]);
 
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.aoa_to_sheet(rows);
+
+  // Make the offset a live =-SUM(property lines) so column H (Amount) always nets
+  // to exactly $0, self-correcting if a line is edited. Cached value stays.
+  if (lineCount > 0) {
+    const H = XLSX.utils.encode_col(7); // column H = Amount
+    const cell = ws[`${H}${lineCount + 1}`];
+    if (cell) cell.f = `-SUM(${H}1:${H}${lineCount})`;
+  }
 
   // Column widths
   ws["!cols"] = [
