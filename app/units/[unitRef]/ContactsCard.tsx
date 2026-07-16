@@ -245,6 +245,13 @@ export default function ContactsCard({
               padding: "12px", border: "1px solid var(--border)",
               borderRadius: 10, background: "rgba(15,23,42,0.015)",
             }}>
+              {c.source === "tenant" && (
+                <span style={{
+                  alignSelf: "flex-start", fontSize: 10, fontWeight: 800, letterSpacing: "0.04em",
+                  textTransform: "uppercase", padding: "2px 8px", borderRadius: 999,
+                  background: "rgba(11,74,125,0.08)", color: "#0b4a7d", border: "1px solid rgba(11,74,125,0.25)",
+                }}>Added by tenant</span>
+              )}
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                 <ContactField label="Name">
                   <input style={inputStyle} value={c.name} placeholder="Full name"

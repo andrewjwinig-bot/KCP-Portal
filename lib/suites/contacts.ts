@@ -14,6 +14,10 @@ export type SuiteContact = {
    *  who gets billed; this flag picks which of a suite's contacts actually
    *  receive the statement (others may be maintenance-only, etc.). */
   camRecipient?: boolean;
+  /** Who created the contact. "tenant" — added by the tenant from their portal
+   *  (tenants may only edit/remove their own additions). Absent / "staff" —
+   *  entered by property staff on the unit page. */
+  source?: "tenant" | "staff";
 };
 
 export type SuiteContacts = {
@@ -71,6 +75,7 @@ export function sanitizeContacts(body: unknown): SuiteContact[] {
       phone: asText(c.phone, 60),
       notes: asText(c.notes, 1000),
       camRecipient: c.camRecipient === true,
+      ...(c.source === "tenant" || c.source === "staff" ? { source: c.source } : {}),
     };
     // Skip fully empty rows.
     if (contact.name || contact.email || contact.phone || contact.title || contact.notes) {
