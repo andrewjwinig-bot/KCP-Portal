@@ -89,9 +89,15 @@ export default function TenantStatementPage() {
           <h1 style={{ margin: "4px 0 0", fontSize: 24 }}>{t.name}</h1>
           <div className="muted" style={{ fontSize: 14, marginTop: 2 }}>{data.propertyName} · Suite {t.suite}</div>
         </div>
-        <div style={{ textAlign: "right" }}>
-          <div style={{ fontFamily: "'Arial Black', Arial, sans-serif", fontWeight: 900, fontSize: 22, letterSpacing: "-0.5px" }}>KORMAN</div>
-          <div style={{ fontSize: 10, letterSpacing: "0.18em", color: "var(--muted)" }}>COMMERCIAL PROPERTIES</div>
+        <div style={{ textAlign: "right", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 10 }}>
+          <div>
+            <div style={{ fontFamily: "'Arial Black', Arial, sans-serif", fontWeight: 900, fontSize: 22, letterSpacing: "-0.5px" }}>KORMAN</div>
+            <div style={{ fontSize: 10, letterSpacing: "0.18em", color: "var(--muted)" }}>COMMERCIAL PROPERTIES</div>
+          </div>
+          <a href={`/api/statement/${token}/pdf`} style={{ display: "inline-flex", alignItems: "center", gap: 7, background: BRAND, color: "#fff", textDecoration: "none", borderRadius: 8, padding: "8px 14px", fontSize: 13, fontWeight: 700 }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
+            Download statement
+          </a>
         </div>
       </header>
 
