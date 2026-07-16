@@ -8,6 +8,9 @@ type Ctx = {
   setUserId: (id: UserId) => void;
   hydrated: boolean;
   authed: boolean;
+  /** Whether a valid site session (signed-in staff) backs this view. False for
+   *  tenants opening a public link; true in local dev where auth is unconfigured. */
+  staffAuthed: boolean;
   /** Whether the signed-in user may switch profiles (admin / alison only). */
   canSwitch: boolean;
   /** The user the site cookie was actually issued for. */
@@ -29,6 +32,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [activeUser, setActiveUser] = useState<UserId>("admin");
   const [hydrated, setHydrated] = useState(false);
   const [authed, setAuthed] = useState(false);
+  const [staffAuthed, setStaffAuthed] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -40,6 +44,9 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         const li: UserId = isUserId(siteJ?.user) ? siteJ.user : "admin";
         setLoggedInUser(li);
         setAuthed(!!histJ?.authed);
+        // Staff = a real site user when auth is configured; always true in local
+        // dev (unconfigured). Tenants on a public link get user:null → false.
+        setStaffAuthed(siteJ?.configured === false ? true : isUserId(siteJ?.user));
 
         if (canSwitchUsers(li)) {
           // admin / alison resume whichever profile they last pivoted to.
@@ -65,7 +72,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <UserContext.Provider
-      value={{ user: USERS[activeUser], setUserId, hydrated, authed, canSwitch, loggedInUser }}
+      value={{ user: USERS[activeUser], setUserId, hydrated, authed, staffAuthed, canSwitch, loggedInUser }}
     >
       {children}
     </UserContext.Provider>
