@@ -4,6 +4,7 @@ import { getTenantLink } from "@/lib/cam/tenantLink/store";
 import { getSuiteInformation } from "@/lib/suites/informationStorage";
 import { findRentRollUnit } from "@/lib/rentroll/current";
 import { statementYearsForUnit } from "@/lib/cam/statementYears";
+import { PROPERTY_DEFS } from "@/lib/properties/data";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -41,6 +42,22 @@ export async function GET(_req: NextRequest, { params }: { params: { token: stri
   const fp = info?.floorplan ?? null;
   const floorplan = fp ? { name: fp.name, contentType: fp.contentType } : null;
 
+  // Tenant-safe building facts for the portal overview (no internal EIN/fund).
+  const def = PROPERTY_DEFS.find((p) => p.id.toUpperCase() === payload.p.toUpperCase());
+  const building = def
+    ? {
+        code: def.id,
+        name: def.name,
+        address: def.address ?? null,
+        city: def.city ?? null,
+        state: def.state ?? null,
+        zip: def.zip ?? null,
+        type: def.type ?? null,
+        yearBuilt: def.yearBuilt ?? null,
+        sqft: def.sqft ?? null,
+      }
+    : null;
+
   // Years this unit has a statement for (newest first). Always include the
   // token's own year so the current statement is never missing from the list.
   const years = statementYearsForUnit(payload.k, payload.p, payload.u);
@@ -51,6 +68,7 @@ export async function GET(_req: NextRequest, { params }: { params: { token: stri
     property: payload.p,
     year: payload.y,
     kind: payload.k,
+    building,
     leaseTerms,
     floorplan,
     statementYears,
