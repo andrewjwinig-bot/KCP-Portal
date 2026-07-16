@@ -14,7 +14,7 @@ import { ALL_USERS, authorizeRequest, type UserId } from "./lib/users";
 export const config = {
   // Catch everything except static asset routes and the two login endpoints.
   matcher: [
-    "/((?!_next/static|_next/image|_next/data|favicon.ico|images|login|submit|service|reserve|statement|portal|api/statement|api/site/login|api/site/logout|api/maintenance/inbound|api/maintenance/submit|api/tenants|api/reservations/submit|api/reservations/tenants|api/commissions/avidbill-quarter|api/cron/weekly-tasks).*)",
+    "/((?!_next/static|_next/image|_next/data|favicon.ico|images|login|submit|service|reserve|statement|portal|api/statement|api/portal|api/site/login|api/site/logout|api/maintenance/inbound|api/maintenance/submit|api/tenants|api/reservations/submit|api/reservations/tenants|api/commissions/avidbill-quarter|api/cron/weekly-tasks).*)",
   ],
 };
 
