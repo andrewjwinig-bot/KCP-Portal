@@ -51,11 +51,13 @@ export type CarryoverLedger = {
   balances: Record<string, PropertyCarry>;
   /** Statement months (YYYY-MM) already finalized — guards against double-counting. */
   committedPeriods: string[];
+  /** Ids of one-time preload seeds already applied (guards against re-adding). */
+  appliedSeeds?: string[];
   updatedAt: string;
 };
 
 export function emptyLedger(): CarryoverLedger {
-  return { balances: {}, committedPeriods: [], updatedAt: "" };
+  return { balances: {}, committedPeriods: [], appliedSeeds: [], updatedAt: "" };
 }
 
 function round2(n: number): number {
@@ -114,6 +116,7 @@ export function finalizeMonth(
   const next: CarryoverLedger = {
     balances: { ...ledger.balances },
     committedPeriods: [...ledger.committedPeriods],
+    appliedSeeds: ledger.appliedSeeds ? [...ledger.appliedSeeds] : [],
     updatedAt: nowISO,
   };
   const decisions: PropertyDecision[] = [];
