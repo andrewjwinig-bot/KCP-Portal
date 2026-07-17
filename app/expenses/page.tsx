@@ -775,26 +775,33 @@ export default function ExpensesPage() {
   }
   const periodCompactStr = (statementStart && effectiveEnd) ? `${formatDateCompact(statementStart)}-${formatDateCompact(effectiveEnd)}` : undefined;
 
-  async function saveStatement() {
+  // Persist the coded statement to history. `silent` (used when invoices are
+  // generated) skips the confirm/alert and never blocks the download — it just
+  // logs the statement so it can be investigated later. Returns whether it saved.
+  async function persistStatement({ silent = false }: { silent?: boolean } = {}): Promise<boolean> {
     const coded = tx.filter((t) => Number(t.amount) > 0).filter(isRowCoded);
-    if (!coded.length) { alert("No coded transactions to save."); return; }
+    if (!coded.length) { if (!silent) alert("No coded transactions to save."); return false; }
     const label = statementPeriodText || statementMonth || "Unknown period";
-    if (!confirm(`Save "${label}" (${coded.length} transactions) to history?`)) return;
-    setSaving(true); setSaveError(null);
+    if (!silent && !confirm(`Save "${label}" (${coded.length} transactions) to history?`)) return false;
+    if (!silent) { setSaving(true); setSaveError(null); }
     try {
       const res = await fetch("/api/statements", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ periodText: label, statementMonth: statementMonth || "", tx: coded.map((t) => ({ date: t.date, cardMember: t.cardMember, description: t.description, codedDescription: t.codedDescription, category: t.category, propertyId: t.propertyId, suite: t.suite, amount: t.amount })) }),
+        body: JSON.stringify({ periodText: label, statementMonth: statementMonth || "", source: silent ? "generated" : "manual", tx: coded.map((t) => ({ date: t.date, cardMember: t.cardMember, description: t.description, codedDescription: t.codedDescription, category: t.category, propertyId: t.propertyId, suite: t.suite, amount: t.amount })) }),
       });
       if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error(j?.error ?? `Save failed (${res.status})`); }
-      alert("Saved to history.");
+      if (!silent) alert("Saved to history.");
+      return true;
     } catch (e: any) {
-      setSaveError(e?.message ?? "Save failed");
+      if (silent) console.warn("Auto-save to expense history failed:", e?.message ?? e);
+      else setSaveError(e?.message ?? "Save failed");
+      return false;
     } finally {
-      setSaving(false);
+      if (!silent) setSaving(false);
     }
   }
+  async function saveStatement() { await persistStatement({ silent: false }); }
 
   async function generateAllPdfsZip() {
     if (!billingGroups.length) return;
@@ -880,6 +887,10 @@ export default function ExpensesPage() {
     const zipBlob = await zip.generateAsync({ type: "blob" });
     download(`${filenameMonth} - Invoices.zip`, zipBlob);
     setShowAfterZipModal(true);
+
+    // Auto-log this statement to Expense History so generated invoices are always
+    // recoverable for later investigation (no manual "Save to History" needed).
+    void persistStatement({ silent: true });
 
     // Processing the batch → email the GL Skyline import + summary report to the
     // controller (same as payroll). Best-effort, deduped once per statement month.
