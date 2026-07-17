@@ -21,6 +21,7 @@ type StatementMeta = {
   savedAt: string;
   periodText: string;
   statementMonth: string;
+  source?: "manual" | "generated";
   txCount: number;
   total: number;
 };
@@ -132,7 +133,7 @@ export default function ExpenseHistoryPage() {
       <div className="card">
         <b style={{ fontSize: 15 }}>Statement History</b>
         <div className="small muted" style={{ marginTop: 4, marginBottom: 16 }}>
-          Saved statements for reference. Use &ldquo;Save to History&rdquo; on the Expense Coder page to archive each statement.
+          Every statement is logged here automatically when its invoices are generated on the Expense Coder page — re-generating a month updates its entry. You can also archive one manually with &ldquo;Save to History.&rdquo;
         </div>
 
         {loading && <LoadingState card={false} status="Loading saved statements…" rows={4} />}
@@ -150,7 +151,16 @@ export default function ExpenseHistoryPage() {
             <div key={s.id} style={{ border: "1px solid var(--border)", borderRadius: 12, marginBottom: 12, overflow: "hidden" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", background: isExpanded ? "rgba(11,74,125,0.04)" : "#fff" }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 700, fontSize: 15 }}>{s.periodText || s.statementMonth}</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    <span style={{ fontWeight: 700, fontSize: 15 }}>{s.periodText || s.statementMonth}</span>
+                    <span style={{
+                      fontSize: 10, fontWeight: 800, letterSpacing: "0.04em", textTransform: "uppercase",
+                      padding: "2px 8px", borderRadius: 999,
+                      background: s.source === "generated" ? "rgba(13,148,136,0.10)" : "rgba(15,23,42,0.06)",
+                      color: s.source === "generated" ? "#0d9488" : "var(--muted)",
+                      border: `1px solid ${s.source === "generated" ? "rgba(13,148,136,0.30)" : "var(--border)"}`,
+                    }}>{s.source === "generated" ? "Auto-logged" : "Manual"}</span>
+                  </div>
                   <div className="small muted" style={{ marginTop: 2 }}>
                     Saved {new Date(s.savedAt).toLocaleDateString()} &nbsp;·&nbsp; {s.txCount} transactions &nbsp;·&nbsp; {toMoney(s.total)}
                   </div>
