@@ -15,17 +15,38 @@ export function TenantShareLink({ property, unitRef, year, kind, tenantName }: {
 }) {
   const [open, setOpen] = useState(false);
   const [links, setLinks] = useState<Link[]>([]);
+  const [recipients, setRecipients] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Email-to-tenant flow: which link is pending confirmation, and the last
+  // send result. Kept deliberately distinct from copy so a send is never
+  // accidental.
+  const [confirmSend, setConfirmSend] = useState<string | null>(null);
+  const [sentTo, setSentTo] = useState<string[] | null>(null);
 
   const refresh = useCallback(() => {
     fetch(`/api/cam-recon/tenant-link?unitRef=${encodeURIComponent(unitRef)}&year=${year}`)
-      .then((r) => (r.ok ? r.json() : { links: [] }))
-      .then((j) => setLinks(Array.isArray(j.links) ? j.links : []))
-      .catch(() => setLinks([]));
+      .then((r) => (r.ok ? r.json() : { links: [], recipients: [] }))
+      .then((j) => { setLinks(Array.isArray(j.links) ? j.links : []); setRecipients(Array.isArray(j.recipients) ? j.recipients : []); })
+      .catch(() => { setLinks([]); setRecipients([]); });
   }, [unitRef, year]);
   useEffect(() => { if (open) refresh(); }, [open, refresh]);
+
+  async function sendToTenant(id: string) {
+    setBusy(true); setError(null);
+    try {
+      const res = await fetch("/api/cam-recon/tenant-link/send", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, tenantName }),
+      });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error ?? "Could not send");
+      setSentTo(Array.isArray(j.recipients) ? j.recipients : []);
+      setConfirmSend(null);
+    } catch (e: any) { setError(e?.message ?? "Could not send"); }
+    finally { setBusy(false); }
+  }
 
   async function create() {
     setBusy(true); setError(null);
@@ -61,7 +82,7 @@ export function TenantShareLink({ property, unitRef, year, kind, tenantName }: {
         <div style={{ position: "absolute", right: 0, top: "calc(100% + 6px)", zIndex: 50, width: 420, maxWidth: "90vw", background: "var(--card)", border: "1px solid var(--border)", borderRadius: 12, boxShadow: "0 16px 40px rgba(15,23,42,0.22)", padding: 16 }}>
           <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: BRAND }}>Tenant statement link</div>
           <p className="muted small" style={{ marginTop: 4, marginBottom: 10 }}>
-            A private, revocable link to <b>{tenantName}</b>&rsquo;s {year} CAM statement — with the backup you&rsquo;ve flagged for the package and their escrow detail.
+            A private, revocable link to <b>{tenantName}</b>&rsquo;s {year} CAM statement — with the backup you&rsquo;ve flagged for the package and their escrow detail. <b>Copy</b> to open it yourself; <b>Email to tenant</b> sends it to them.
           </p>
           {links.length === 0 ? (
             <div className="muted small" style={{ marginBottom: 10 }}>No active link yet.</div>
@@ -71,10 +92,42 @@ export function TenantShareLink({ property, unitRef, year, kind, tenantName }: {
                 <input readOnly value={l.url} onFocus={(e) => e.currentTarget.select()} style={{ flex: 1, minWidth: 0, fontSize: 12, padding: "6px 8px", border: "1px solid var(--border)", borderRadius: 6, background: "var(--card)", color: "var(--text)", fontFamily: "inherit" }} />
                 <button onClick={() => copy(l.url)} className="btn" style={{ fontSize: 12, fontWeight: 700, padding: "6px 10px", flexShrink: 0 }}>{copied === l.url ? "Copied ✓" : "Copy"}</button>
               </div>
-              <div className="muted" style={{ fontSize: 11, marginTop: 5, display: "flex", justifyContent: "space-between" }}>
+              <div className="muted" style={{ fontSize: 11, marginTop: 5, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
                 <span>{l.viewCount ? `${l.viewCount} view${l.viewCount === 1 ? "" : "s"}${l.lastViewedAt ? ` · last ${new Date(l.lastViewedAt).toLocaleDateString("en-US")}` : ""}` : "Not opened yet"}</span>
-                <button onClick={() => revoke(l.id)} disabled={busy} style={{ background: "none", border: "none", color: "#b91c1c", fontSize: 11, fontWeight: 700, cursor: "pointer", padding: 0 }}>Revoke</button>
+                <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                  <button onClick={() => { setConfirmSend(l.id); setSentTo(null); setError(null); }} disabled={busy} style={{ background: "none", border: "none", color: BRAND, fontSize: 11, fontWeight: 700, cursor: "pointer", padding: 0, display: "inline-flex", alignItems: "center", gap: 4 }}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="20" height="16" rx="2" /><path d="m22 7-10 5L2 7" /></svg>
+                    Email to tenant
+                  </button>
+                  <button onClick={() => revoke(l.id)} disabled={busy} style={{ background: "none", border: "none", color: "#b91c1c", fontSize: 11, fontWeight: 700, cursor: "pointer", padding: 0 }}>Revoke</button>
+                </div>
               </div>
+              {sentTo && confirmSend === null && (
+                <div style={{ marginTop: 8, fontSize: 11.5, fontWeight: 700, color: "#15803d" }}>
+                  ✓ Emailed to {sentTo.join(", ")}
+                </div>
+              )}
+              {confirmSend === l.id && (
+                <div style={{ marginTop: 8, border: "1px solid rgba(180,83,9,0.35)", background: "rgba(180,83,9,0.07)", borderRadius: 8, padding: "10px 11px" }}>
+                  <div style={{ fontSize: 12, fontWeight: 800, color: "#b45309", display: "flex", alignItems: "center", gap: 6 }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+                    This emails the tenant
+                  </div>
+                  {recipients.length > 0 ? (
+                    <p className="small" style={{ margin: "6px 0 10px", color: "var(--text)" }}>
+                      The private link will be sent to: <b>{recipients.join(", ")}</b>. This is the tenant&rsquo;s copy — only send when you&rsquo;re ready for them to have it.
+                    </p>
+                  ) : (
+                    <p className="small" style={{ margin: "6px 0 10px", color: "#b91c1c" }}>
+                      No contact with an email is on file for this suite. Add a recipient in Contacts first.
+                    </p>
+                  )}
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button onClick={() => sendToTenant(l.id)} disabled={busy || recipients.length === 0} className="btn primary" style={{ fontSize: 12, fontWeight: 700, padding: "6px 12px", opacity: busy || recipients.length === 0 ? 0.6 : 1 }}>{busy ? "Sending…" : "Send to tenant"}</button>
+                    <button onClick={() => setConfirmSend(null)} className="btn" style={{ fontSize: 12, fontWeight: 700, padding: "6px 12px" }}>Cancel</button>
+                  </div>
+                </div>
+              )}
             </div>
           ))}
           <button onClick={create} disabled={busy} className="btn primary" style={{ fontSize: 13, fontWeight: 700, width: "100%" }}>
