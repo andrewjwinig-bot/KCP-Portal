@@ -669,18 +669,70 @@ function ServiceTab({ token, company, property, propertyName, unitRef }: { token
           <h2 style={{ margin: "0 0 12px", fontSize: 18, fontWeight: 800 }}>Request history</h2>
           <div style={{ border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden", boxShadow: "var(--shadow)" }}>
             {history.map((r, i) => (
-              <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "13px 16px", borderTop: i ? "1px solid var(--border)" : "none" }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 700, fontSize: 14.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.subject || r.categories[0] || "Service request"}</div>
-                  <div className="muted" style={{ fontSize: 12.5, marginTop: 1 }}>{fmtDate(r.createdAt)}{r.categories.length ? ` · ${r.categories.join(", ")}` : ""}</div>
-                </div>
-                <StatusPill label={r.status} tone={srTone(r.status)} />
-              </div>
+              <SrHistoryRow key={r.id} r={r} token={token} first={i === 0} />
             ))}
           </div>
         </section>
       )}
     </>
+  );
+}
+
+// One row in the tenant's request history, with an inline "Add an update" that
+// posts a follow-up note onto the request (staff see it; the tenant's internal
+// notes are never shown back).
+function SrHistoryRow({ r, token, first }: { r: SR; token: string; first: boolean }) {
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function send() {
+    if (busy || !text.trim()) return;
+    setBusy(true); setErr(null);
+    try {
+      const res = await fetch(`/api/portal/${token}/service-requests`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ requestId: r.id, text: text.trim() }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(j.error ?? "Couldn't send your update.");
+      setSent(true); setText(""); setOpen(false);
+    } catch (e) { setErr(e instanceof Error ? e.message : "Couldn't send your update."); } finally { setBusy(false); }
+  }
+
+  return (
+    <div style={{ borderTop: first ? "none" : "1px solid var(--border)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "13px 16px" }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontWeight: 700, fontSize: 14.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.subject || r.categories[0] || "Service request"}</div>
+          <div className="muted" style={{ fontSize: 12.5, marginTop: 1 }}>{fmtDate(r.createdAt)}{r.categories.length ? ` · ${r.categories.join(", ")}` : ""}</div>
+        </div>
+        <StatusPill label={r.status} tone={srTone(r.status)} />
+      </div>
+      <div style={{ padding: "0 16px 12px" }}>
+        {sent ? (
+          <span style={{ fontSize: 12.5, fontWeight: 600, color: "#15803d" }}>✓ Update sent — the team has been notified.</span>
+        ) : open ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <textarea value={text} onChange={(e) => setText(e.target.value)} placeholder="Add more detail, a correction, or a question…"
+              style={{ ...textareaStyle, marginTop: 0, minHeight: 70, fontSize: 14 }}
+              onFocus={(e) => { e.currentTarget.style.borderColor = BRAND; }} onBlur={(e) => { e.currentTarget.style.borderColor = "var(--border)"; }} />
+            {err && <span style={{ color: RED, fontSize: 12.5, fontWeight: 600 }}>{err}</span>}
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={send} disabled={busy || !text.trim()} style={{ background: BRAND, color: "#fff", border: "none", borderRadius: 8, padding: "8px 16px", fontSize: 13, fontWeight: 700, cursor: busy || !text.trim() ? "default" : "pointer", opacity: busy || !text.trim() ? 0.6 : 1, fontFamily: "inherit" }}>{busy ? "Sending…" : "Send update"}</button>
+              <button onClick={() => { setOpen(false); setErr(null); }} style={{ background: "transparent", color: "var(--muted)", border: "1px solid var(--border)", borderRadius: 8, padding: "8px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Cancel</button>
+            </div>
+          </div>
+        ) : (
+          <button onClick={() => setOpen(true)} style={{ background: "none", border: "none", padding: 0, color: BRAND, fontWeight: 700, fontSize: 12.5, cursor: "pointer", fontFamily: "inherit", display: "inline-flex", alignItems: "center", gap: 5 }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+            Add an update
+          </button>
+        )}
+      </div>
+    </div>
   );
 }
 
