@@ -3,7 +3,8 @@ import { cookies } from "next/headers";
 import { SITE_COOKIE, verifySiteToken } from "@/lib/site-auth";
 import { ALL_USERS, isPathAllowed, USERS, type UserId } from "@/lib/users";
 import { linkSecret, signTenantToken, type TenantLinkKind } from "@/lib/cam/tenantLink/token";
-import { saveTenantLink, linksForUnit, revokeTenantLink, deleteTenantLink, type TenantLink } from "@/lib/cam/tenantLink/store";
+import { saveTenantLink, getTenantLink, linksForUnit, revokeTenantLink, deleteTenantLink, type TenantLink } from "@/lib/cam/tenantLink/store";
+import { generatePin } from "@/lib/cam/tenantLink/access";
 import { getOrEmptySuiteContacts } from "@/lib/suites/contactsStorage";
 import { camRecipientEmails } from "@/lib/suites/contacts";
 
@@ -66,11 +67,13 @@ export async function POST(req: NextRequest) {
 
     const days = Number(body?.expiresInDays);
     const expiresAt = Number.isFinite(days) && days > 0 ? new Date(Date.now() + days * 864e5).toISOString() : null;
+    // Access PIN — on by default; staff can opt out per link (requirePin:false).
+    const pin = body?.requirePin === false ? null : generatePin();
     const id = "tl_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
     const rec: TenantLink = {
       id, property, unitRef, year, kind, tenantName,
       createdAt: new Date().toISOString(), createdBy: USERS[user]?.label ?? user,
-      revoked: false, expiresAt, views: [], lastViewedAt: null, viewCount: 0,
+      revoked: false, expiresAt, pin, views: [], lastViewedAt: null, viewCount: 0,
     };
     await saveTenantLink(rec);
     const token = await signTenantToken(secret, { v: 1, id, p: property, u: unitRef, y: year, k: kind, ...(expiresAt ? { exp: Math.floor(new Date(expiresAt).getTime() / 1000) } : {}) });
@@ -79,6 +82,20 @@ export async function POST(req: NextRequest) {
     console.error("[POST /api/cam-recon/tenant-link]", err?.message ?? err);
     return NextResponse.json({ error: err?.message ?? String(err) }, { status: 500 });
   }
+}
+
+/** PATCH { id, action } → manage a link's access PIN.
+ *  action "reset" (or "add") sets a fresh PIN; "remove" clears it. */
+export async function PATCH(req: NextRequest) {
+  if (!(await currentUser())) return NextResponse.json({ error: "Not authorized" }, { status: 401 });
+  const body = await req.json().catch(() => ({}));
+  const id = String(body?.id ?? "");
+  if (!id) return NextResponse.json({ error: "id is required" }, { status: 400 });
+  const link = await getTenantLink(id);
+  if (!link) return NextResponse.json({ error: "Link not found" }, { status: 404 });
+  link.pin = body?.action === "remove" ? null : generatePin();
+  await saveTenantLink(link);
+  return NextResponse.json({ ok: true, pin: link.pin });
 }
 
 /** DELETE ?id=&purge=1 → revoke (default) or hard-delete a link. */

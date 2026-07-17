@@ -17,6 +17,10 @@ export type TenantLink = {
   createdBy?: string;
   revoked: boolean;
   expiresAt?: string | null;
+  /** Optional access PIN the tenant must enter before the portal loads. Stored
+   *  as-is (admin-only store) so staff can re-share it; a signed short-lived
+   *  cookie proves entry so it isn't sent on every request. Absent/null = no PIN. */
+  pin?: string | null;
   /** Access trail — capped list of recent views. */
   views: { at: string; ip?: string }[];
   lastViewedAt?: string | null;

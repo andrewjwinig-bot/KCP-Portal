@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyTenantToken, linkSecret } from "@/lib/cam/tenantLink/token";
-import { getTenantLink } from "@/lib/cam/tenantLink/store";
+import { checkTenantAccess } from "@/lib/cam/tenantLink/access";
 import { getOrEmptySuiteContacts, saveSuiteContacts } from "@/lib/suites/contactsStorage";
 import { newContactId, type SuiteContact } from "@/lib/suites/contacts";
 
@@ -12,23 +11,23 @@ import { newContactId, type SuiteContact } from "@/lib/suites/contacts";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-async function tenantUnit(token: string): Promise<string | null> {
-  const secret = linkSecret();
-  if (!secret) return null;
-  const payload = await verifyTenantToken(token, secret);
-  if (!payload) return null;
-  const link = await getTenantLink(payload.id);
-  if (!link || link.revoked) return null;
-  return payload.u;
+type Gate = { unitRef: string } | { error: string; status: number; pinRequired?: boolean };
+async function tenantUnit(token: string, req: NextRequest): Promise<Gate> {
+  const access = await checkTenantAccess(token, req);
+  if (!access.ok) return { error: access.error, status: access.status, ...(access.pinRequired ? { pinRequired: true } : {}) };
+  return { unitRef: access.payload.u };
 }
+const gateFail = (g: Extract<Gate, { error: string }>) =>
+  NextResponse.json({ error: g.error, ...(g.pinRequired ? { pinRequired: true } : {}) }, { status: g.status });
 
 const safe = (c: SuiteContact) => ({ id: c.id, name: c.name, title: c.title, email: c.email, phone: c.phone, camRecipient: !!c.camRecipient, source: c.source ?? "staff" });
 const asText = (v: unknown, max: number) => (typeof v === "string" ? v.trim().slice(0, max) : "");
 
 /** POST { name, title?, email?, phone? } → add a tenant contact, return the list. */
 export async function POST(req: NextRequest, { params }: { params: { token: string } }) {
-  const unitRef = await tenantUnit(params.token);
-  if (!unitRef) return NextResponse.json({ error: "This link is invalid or has expired." }, { status: 401 });
+  const gate = await tenantUnit(params.token, req);
+  if ("error" in gate) return gateFail(gate);
+  const unitRef = gate.unitRef;
 
   let body: unknown;
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
@@ -45,8 +44,9 @@ export async function POST(req: NextRequest, { params }: { params: { token: stri
 
 /** PUT { id, name?, title?, email?, phone?, camRecipient? } → edit a contact. */
 export async function PUT(req: NextRequest, { params }: { params: { token: string } }) {
-  const unitRef = await tenantUnit(params.token);
-  if (!unitRef) return NextResponse.json({ error: "This link is invalid or has expired." }, { status: 401 });
+  const gate = await tenantUnit(params.token, req);
+  if ("error" in gate) return gateFail(gate);
+  const unitRef = gate.unitRef;
 
   let body: unknown;
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
@@ -75,8 +75,9 @@ export async function PUT(req: NextRequest, { params }: { params: { token: strin
 
 /** DELETE ?id= → remove a contact, return the list. */
 export async function DELETE(req: NextRequest, { params }: { params: { token: string } }) {
-  const unitRef = await tenantUnit(params.token);
-  if (!unitRef) return NextResponse.json({ error: "This link is invalid or has expired." }, { status: 401 });
+  const gate = await tenantUnit(params.token, req);
+  if ("error" in gate) return gateFail(gate);
+  const unitRef = gate.unitRef;
   const id = req.nextUrl.searchParams.get("id") ?? "";
   if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
 

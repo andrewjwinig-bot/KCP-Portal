@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { get } from "@vercel/blob";
-import { verifyTenantToken, linkSecret } from "@/lib/cam/tenantLink/token";
-import { getTenantLink } from "@/lib/cam/tenantLink/store";
+import { checkTenantAccess } from "@/lib/cam/tenantLink/access";
 import { getSuiteInformation } from "@/lib/suites/informationStorage";
 
 export const runtime = "nodejs";
@@ -12,12 +11,9 @@ export const dynamic = "force-dynamic";
  *  for the token's one unitRef, so a tenant can only ever fetch their own plan
  *  (never an arbitrary blob). Served inline so the portal can preview it. */
 export async function GET(req: NextRequest, { params }: { params: { token: string } }) {
-  const secret = linkSecret();
-  if (!secret) return NextResponse.json({ error: "Sharing is not configured." }, { status: 503 });
-  const payload = await verifyTenantToken(params.token, secret);
-  if (!payload) return NextResponse.json({ error: "Invalid or expired link." }, { status: 401 });
-  const link = await getTenantLink(payload.id);
-  if (!link || link.revoked) return NextResponse.json({ error: "This link has been revoked." }, { status: 401 });
+  const access = await checkTenantAccess(params.token, req);
+  if (!access.ok) return NextResponse.json({ error: access.error, ...(access.pinRequired ? { pinRequired: true } : {}) }, { status: access.status });
+  const { payload } = access;
 
   const info = await getSuiteInformation(payload.u);
   const fp = info?.floorplan ?? null;

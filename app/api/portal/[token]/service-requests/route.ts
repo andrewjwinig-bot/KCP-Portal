@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyTenantToken, linkSecret } from "@/lib/cam/tenantLink/token";
-import { getTenantLink } from "@/lib/cam/tenantLink/store";
+import { checkTenantAccess } from "@/lib/cam/tenantLink/access";
+import type { TenantLinkPayload } from "@/lib/cam/tenantLink/token";
 import { getRequest, listRequests, saveRequest } from "@/lib/maintenance/requestsStorage";
 import { applyPatch, newNoteId, type Note } from "@/lib/maintenance/requests";
 import { findRentRollUnit } from "@/lib/rentroll/current";
@@ -12,20 +12,15 @@ import { serviceRequestMatchesTenant, type PortalScope } from "@/lib/portal/scop
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-async function scopeFor(token: string): Promise<PortalScope | null> {
-  const secret = linkSecret();
-  if (!secret) return null;
-  const payload = await verifyTenantToken(token, secret);
-  if (!payload) return null;
-  const link = await getTenantLink(payload.id);
-  if (!link || link.revoked) return null;
+async function scopeFrom(payload: TenantLinkPayload): Promise<PortalScope> {
   const unit = await findRentRollUnit(payload.u);
   return { company: unit?.occupantName ?? "", propertyCode: payload.p, unitRef: payload.u };
 }
 
-export async function GET(_req: NextRequest, { params }: { params: { token: string } }) {
-  const scope = await scopeFor(params.token);
-  if (!scope) return NextResponse.json({ error: "This link is invalid or has expired." }, { status: 401 });
+export async function GET(req: NextRequest, { params }: { params: { token: string } }) {
+  const access = await checkTenantAccess(params.token, req);
+  if (!access.ok) return NextResponse.json({ error: access.error, ...(access.pinRequired ? { pinRequired: true } : {}) }, { status: access.status });
+  const scope = await scopeFrom(access.payload);
 
   const all = await listRequests();
   const mine = all.filter((r) => serviceRequestMatchesTenant(r, scope));
@@ -45,8 +40,9 @@ export async function GET(_req: NextRequest, { params }: { params: { token: stri
  *  tenant's request (a mismatch returns 404, revealing nothing). Internal staff
  *  notes are never returned to the tenant — this is write-only for them. */
 export async function POST(req: NextRequest, { params }: { params: { token: string } }) {
-  const scope = await scopeFor(params.token);
-  if (!scope) return NextResponse.json({ error: "This link is invalid or has expired." }, { status: 401 });
+  const access = await checkTenantAccess(params.token, req);
+  if (!access.ok) return NextResponse.json({ error: access.error, ...(access.pinRequired ? { pinRequired: true } : {}) }, { status: access.status });
+  const scope = await scopeFrom(access.payload);
 
   let body: { requestId?: unknown; text?: unknown };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
