@@ -13,6 +13,7 @@ import {
 import { saveRequest } from "@/lib/maintenance/requestsStorage";
 import { sendMail, NEW_REQUEST_NOTIFY } from "@/lib/mail";
 import { upsertContact } from "@/lib/maintenance/tenants";
+import { upsertSuiteContact } from "@/lib/suites/contactsStorage";
 import { classify } from "@/lib/maintenance/triage";
 import { summarize } from "@/lib/maintenance/summarize";
 import { companiesForProperty } from "@/lib/tenants/companies";
@@ -239,6 +240,25 @@ export async function POST(req: NextRequest) {
       propertyCode: propertyCode || null,
     });
   } catch { /* ignore */ }
+
+  // Best-effort: capture the submitter as a contact on their suite(s) so they
+  // show up on the unit page + portal Contacts tab (same SuiteContacts store).
+  // Only when we resolved to a real rent-roll unit — vendors (e.g. PBS) and
+  // unmatched companies have no suite to attach to. Idempotent + non-billing
+  // (camRecipient stays off; existing contacts are never overwritten).
+  if (resolvedSuite) {
+    const units = resolvedSuite.split(/[,\s]+/).map((u) => u.trim()).filter(Boolean);
+    for (const unitRef of units) {
+      try {
+        await upsertSuiteContact(unitRef, {
+          name: tenantName,
+          email: tenantEmail,
+          phone: tenantPhone,
+          source: "tenant",
+        });
+      } catch { /* ignore */ }
+    }
+  }
 
   // Best-effort notification to the internal service team so a new
   // request is never missed. Fires every submission; failure is silent.
