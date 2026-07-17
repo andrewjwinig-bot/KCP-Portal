@@ -4,6 +4,8 @@ import { SITE_COOKIE, verifySiteToken } from "@/lib/site-auth";
 import { ALL_USERS, isPathAllowed, USERS, type UserId } from "@/lib/users";
 import { linkSecret, signTenantToken, type TenantLinkKind } from "@/lib/cam/tenantLink/token";
 import { saveTenantLink, linksForUnit, revokeTenantLink, deleteTenantLink, type TenantLink } from "@/lib/cam/tenantLink/store";
+import { getOrEmptySuiteContacts } from "@/lib/suites/contactsStorage";
+import { camRecipientEmails } from "@/lib/suites/contacts";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -39,7 +41,11 @@ export async function GET(req: NextRequest) {
         url: linkUrl(originOf(req), await signTenantToken(secret, { v: 1, id: l.id, p: l.property, u: l.unitRef, y: l.year, k: l.kind, ...(l.expiresAt ? { exp: Math.floor(new Date(l.expiresAt).getTime() / 1000) } : {}) })),
       })))
     : links.map((l) => ({ ...l, url: null }));
-  return NextResponse.json({ links: withUrls });
+  // Who an "Email to tenant" would go to — the suite's statement recipients —
+  // so the admin sees the addresses in the confirmation before sending.
+  const contacts = await getOrEmptySuiteContacts(unitRef);
+  const recipients = camRecipientEmails(contacts.contacts).split(";").map((s) => s.trim()).filter(Boolean);
+  return NextResponse.json({ links: withUrls, recipients });
 }
 
 /** POST { property, unitRef, year, kind, tenantName, expiresInDays? } → mint a
