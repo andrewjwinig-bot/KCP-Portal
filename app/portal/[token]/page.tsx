@@ -554,9 +554,6 @@ const SuccessBox = ({ title, body, onAgain }: { title: string; body: string; onA
     <button onClick={onAgain} style={ghostBtn}>Submit another</button>
   </div>
 );
-const HistoryEmpty = ({ label }: { label: string }) => (
-  <div style={{ border: "1px dashed var(--border)", borderRadius: 12, padding: "28px 16px", textAlign: "center", color: "var(--muted)", fontSize: 14 }}>{label}</div>
-);
 
 // ── Service Requests (inline form + this tenant's history) ────────────────────
 type SR = { id: string; subject: string; status: "New" | "In Progress" | "Complete"; categories: string[]; createdAt: string; completedDate: string | null };
@@ -630,9 +627,9 @@ function ServiceTab({ token, company, property, propertyName, unitRef }: { token
         </form>
       )}
 
-      <section style={{ marginTop: 30 }}>
-        <h2 style={{ margin: "0 0 12px", fontSize: 18, fontWeight: 800 }}>Request history</h2>
-        {history === null ? <div className="muted" style={{ fontSize: 14 }}>Loading…</div> : history.length === 0 ? <HistoryEmpty label="No service requests yet." /> : (
+      {history && history.length > 0 && (
+        <section style={{ marginTop: 30 }}>
+          <h2 style={{ margin: "0 0 12px", fontSize: 18, fontWeight: 800 }}>Request history</h2>
           <div style={{ border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden", boxShadow: "var(--shadow)" }}>
             {history.map((r, i) => (
               <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "13px 16px", borderTop: i ? "1px solid var(--border)" : "none" }}>
@@ -644,8 +641,8 @@ function ServiceTab({ token, company, property, propertyName, unitRef }: { token
               </div>
             ))}
           </div>
-        )}
-      </section>
+        </section>
+      )}
     </>
   );
 }
@@ -738,22 +735,26 @@ function ReservationTab({ token, company }: { token: string; company: string }) 
         </form>
       )}
 
-      <section style={{ marginTop: 30 }}>
-        <h2 style={{ margin: "0 0 12px", fontSize: 18, fontWeight: 800 }}>Upcoming</h2>
-        {history === null ? <div className="muted" style={{ fontSize: 14 }}>Loading…</div> : upcoming.length === 0 ? <HistoryEmpty label="No upcoming reservations." /> : (
-          <div style={{ border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden", boxShadow: "var(--shadow)" }}>
-            {upcoming.map((v, i) => <Row key={v.id} v={v} first={i === 0} />)}
-          </div>
-        )}
-        {past.length > 0 && (
-          <>
-            <h2 style={{ margin: "26px 0 12px", fontSize: 18, fontWeight: 800 }}>Past requests</h2>
-            <div style={{ border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden", boxShadow: "var(--shadow)" }}>
-              {past.map((v, i) => <Row key={v.id} v={v} first={i === 0} />)}
-            </div>
-          </>
-        )}
-      </section>
+      {(upcoming.length > 0 || past.length > 0) && (
+        <section style={{ marginTop: 30 }}>
+          {upcoming.length > 0 && (
+            <>
+              <h2 style={{ margin: "0 0 12px", fontSize: 18, fontWeight: 800 }}>Upcoming</h2>
+              <div style={{ border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden", boxShadow: "var(--shadow)" }}>
+                {upcoming.map((v, i) => <Row key={v.id} v={v} first={i === 0} />)}
+              </div>
+            </>
+          )}
+          {past.length > 0 && (
+            <>
+              <h2 style={{ margin: upcoming.length > 0 ? "26px 0 12px" : "0 0 12px", fontSize: 18, fontWeight: 800 }}>Past requests</h2>
+              <div style={{ border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden", boxShadow: "var(--shadow)" }}>
+                {past.map((v, i) => <Row key={v.id} v={v} first={i === 0} />)}
+              </div>
+            </>
+          )}
+        </section>
+      )}
     </>
   );
 }
