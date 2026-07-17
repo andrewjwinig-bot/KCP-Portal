@@ -67,3 +67,46 @@ export async function saveSuiteContacts(
   await store.set(unitRef, next);
   return next;
 }
+
+/** Idempotently add a person to a suite's contacts — used when a tenant
+ *  submits a service request so the submitter is captured as a contact on
+ *  their suite (synced to the unit page + portal Contacts tab). Matches an
+ *  existing contact by email (case-insensitive), falling back to name; when
+ *  matched, only fills in blanks (never overwrites staff-entered data) and
+ *  never touches the CAM-recipient flag. Returns whether a new row was added. */
+export async function upsertSuiteContact(
+  unitRef: string,
+  input: { name?: string; email?: string; phone?: string; title?: string; source?: "tenant" | "staff" },
+): Promise<{ added: boolean }> {
+  const name = (input.name ?? "").trim();
+  const email = (input.email ?? "").trim();
+  const phone = (input.phone ?? "").trim();
+  const title = (input.title ?? "").trim();
+  if (!name && !email && !phone) return { added: false };
+
+  const current = await getOrEmptySuiteContacts(unitRef);
+  const emailKey = email.toLowerCase();
+  const nameKey = name.toLowerCase();
+  const existing = current.contacts.find((c) =>
+    emailKey
+      ? c.email.trim().toLowerCase() === emailKey
+      : !!nameKey && c.name.trim().toLowerCase() === nameKey,
+  );
+
+  if (existing) {
+    let changed = false;
+    if (name && !existing.name) { existing.name = name; changed = true; }
+    if (email && !existing.email) { existing.email = email; changed = true; }
+    if (phone && !existing.phone) { existing.phone = phone; changed = true; }
+    if (title && !existing.title) { existing.title = title; changed = true; }
+    if (changed) await saveSuiteContacts(unitRef, current.contacts);
+    return { added: false };
+  }
+
+  const contact: SuiteContact = {
+    id: newContactId(), name, title, email, phone, notes: "",
+    camRecipient: false, source: input.source ?? "tenant",
+  };
+  await saveSuiteContacts(unitRef, [...current.contacts, contact]);
+  return { added: true };
+}
