@@ -9,6 +9,8 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import LoadingState from "@/app/components/LoadingState";
+import { Calendar } from "@/app/components/Calendar";
+import { BOOKABLE_ROOMS } from "@/lib/reservations/rooms";
 import { useStatement, TenantStatementView, Centered, BRAND, money, money2, type Statement } from "@/app/statement/[token]/StatementView";
 
 type TabId = "lease" | "statements" | "contacts" | "floorplan" | "service" | "reservations" | "balances";
@@ -106,21 +108,9 @@ export default function TenantPortalPage() {
         ) : tab === "floorplan" ? (
           <FloorplanTab token={token} floorplan={portal?.floorplan ?? null} loading={!portal} />
         ) : tab === "service" ? (
-          <ActionTab
-            title="Service Requests"
-            intro="Report a service issue at your suite or building — leaks, HVAC, lighting, lockouts, anything that needs the service team. We've pre-filled your property and company; just add the details."
-            cta="Start a service request"
-            href={`/submit?property=${encodeURIComponent(data.property)}&company=${encodeURIComponent(t.name)}`}
-            icon={<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />}
-          />
+          <ServiceTab token={token} company={t.name} property={data.property} propertyName={data.propertyName} unitRef={t.unitRef} />
         ) : tab === "reservations" ? (
-          <ActionTab
-            title="Reservations"
-            intro="Reserve a conference room or training room. Pick the room, date, and time — we'll confirm by email. Your company is pre-filled."
-            cta="Reserve a room"
-            href={`/reserve?company=${encodeURIComponent(t.name)}`}
-            icon={<><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></>}
-          />
+          <ReservationTab token={token} company={t.name} />
         ) : (
           <ComingSoon label={TABS.find((x) => x.id === tab)!.label} />
         )}
@@ -458,22 +448,206 @@ function ContactsTab({ token, initial }: { token: string; initial: PortalContact
   );
 }
 
-function ActionTab({ title, intro, cta, href, icon }: { title: string; intro: string; cta: string; href: string; icon: React.ReactNode }) {
+// ── Shared bits for the inline request forms ────────────────────────────────
+type Tone = { bg: string; fg: string; bd: string };
+const TONE = {
+  blue: { bg: "rgba(11,74,125,0.09)", fg: BRAND, bd: "rgba(11,74,125,0.25)" },
+  amber: { bg: "rgba(180,83,9,0.10)", fg: "#b45309", bd: "rgba(180,83,9,0.30)" },
+  green: { bg: "rgba(21,128,61,0.10)", fg: "#15803d", bd: "rgba(21,128,61,0.30)" },
+  red: { bg: "rgba(185,28,28,0.10)", fg: "#b91c1c", bd: "rgba(185,28,28,0.30)" },
+};
+const StatusPill = ({ label, tone }: { label: string; tone: Tone }) => (
+  <span style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: "0.04em", textTransform: "uppercase", padding: "3px 9px", borderRadius: 999, background: tone.bg, color: tone.fg, border: `1px solid ${tone.bd}`, whiteSpace: "nowrap", flexShrink: 0 }}>{label}</span>
+);
+const fmtDate = (iso: string) => { if (!iso) return ""; const d = new Date(iso.length === 10 ? iso + "T00:00:00" : iso); return isNaN(+d) ? iso : d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); };
+const primaryBtn = (busy: boolean): React.CSSProperties => ({ background: BRAND, color: "#fff", border: "none", borderRadius: 8, padding: "10px 18px", fontSize: 14, fontWeight: 700, cursor: busy ? "default" : "pointer", opacity: busy ? 0.7 : 1, fontFamily: "inherit" });
+const cardBox: React.CSSProperties = { border: "1px solid var(--border)", borderRadius: 14, padding: "18px 20px", background: "var(--card)", boxShadow: "var(--shadow)" };
+const SuccessBox = ({ title, body, onAgain }: { title: string; body: string; onAgain: () => void }) => (
+  <div style={{ border: "1px solid rgba(21,128,61,0.3)", background: "rgba(21,128,61,0.07)", borderRadius: 14, padding: 22, boxShadow: "var(--shadow)", display: "flex", flexDirection: "column", gap: 10 }}>
+    <div style={{ fontSize: 16, fontWeight: 800, color: "#15803d" }}>{title}</div>
+    <div className="muted" style={{ fontSize: 14 }}>{body}</div>
+    <div><button onClick={onAgain} style={primaryBtn(false)}>Submit another</button></div>
+  </div>
+);
+const HistoryEmpty = ({ label }: { label: string }) => (
+  <div style={{ border: "1px dashed var(--border)", borderRadius: 12, padding: "28px 16px", textAlign: "center", color: "var(--muted)", fontSize: 14 }}>{label}</div>
+);
+
+// ── Service Requests (inline form + this tenant's history) ────────────────────
+type SR = { id: string; subject: string; status: "New" | "In Progress" | "Complete"; categories: string[]; createdAt: string; completedDate: string | null };
+const srTone = (s: string): Tone => (s === "Complete" ? TONE.green : s === "In Progress" ? TONE.amber : TONE.blue);
+
+function ServiceTab({ token, company, property, propertyName, unitRef }: { token: string; company: string; property: string; propertyName: string; unitRef: string }) {
+  const [form, setForm] = useState({ firstName: "", lastName: "", phone: "", email: "", description: "" });
+  const [photos, setPhotos] = useState<File[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [okId, setOkId] = useState<string | null>(null);
+  const [history, setHistory] = useState<SR[] | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    fetch(`/api/portal/${token}/service-requests`).then((r) => (r.ok ? r.json() : { requests: [] })).then((j) => { if (alive) setHistory(Array.isArray(j.requests) ? j.requests : []); }).catch(() => { if (alive) setHistory([]); });
+    return () => { alive = false; };
+  }, [token, okId]);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (busy) return;
+    if (!form.firstName || !form.lastName || !form.email || !form.phone || !form.description) { setErr("Please add your name, email, phone, and a description."); return; }
+    setBusy(true); setErr(null);
+    try {
+      const fd = new FormData();
+      fd.append("firstName", form.firstName); fd.append("lastName", form.lastName);
+      fd.append("tenantEmail", form.email); fd.append("tenantPhone", form.phone);
+      fd.append("propertyCode", property); fd.append("propertyName", propertyName);
+      fd.append("company", company); fd.append("tenantSuite", unitRef);
+      fd.append("description", form.description); fd.append("website", "");
+      for (const p of photos.slice(0, 5)) fd.append("photos", p);
+      const res = await fetch("/api/maintenance/submit", { method: "POST", body: fd });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error ?? "Submission failed.");
+      setOkId(j.id ?? "submitted"); setForm({ firstName: "", lastName: "", phone: "", email: "", description: "" }); setPhotos([]);
+    } catch (e) { setErr(e instanceof Error ? e.message : "Submission failed."); } finally { setBusy(false); }
+  }
+
   return (
     <>
-      <PageHeader title={title} />
-      <div style={{ border: "1px solid var(--border)", borderRadius: 12, padding: "28px 22px", background: "var(--card)", maxWidth: 560, display: "flex", flexDirection: "column", gap: 16 }}>
-        <div style={{ width: 46, height: 46, borderRadius: 12, background: "rgba(11,74,125,0.09)", color: BRAND, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">{icon}</svg>
-        </div>
-        <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.6, color: "var(--text)" }}>{intro}</p>
-        <div>
-          <a href={href} target="_blank" rel="noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 8, background: BRAND, color: "#fff", textDecoration: "none", borderRadius: 8, padding: "10px 18px", fontSize: 14, fontWeight: 700 }}>
-            {cta}
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="7" y1="17" x2="17" y2="7" /><polyline points="7 7 17 7 17 17" /></svg>
-          </a>
-        </div>
+      <PageHeader title="Service Requests" sub="Report an issue at your suite or building — we've pre-filled your company and property." />
+      {okId ? (
+        <SuccessBox title="Request submitted ✓" body={`Our service team has it${okId !== "submitted" ? ` (ref ${okId})` : ""}. We'll follow up by email.`} onAgain={() => setOkId(null)} />
+      ) : (
+        <form onSubmit={submit} style={cardBox}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
+            <input style={contactInput} placeholder="First name" value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} />
+            <input style={contactInput} placeholder="Last name" value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} />
+            <input style={contactInput} type="email" placeholder="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+            <input style={contactInput} type="tel" placeholder="Phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+          </div>
+          <textarea style={{ ...contactInput, marginTop: 12, minHeight: 110, resize: "vertical" }} placeholder="Please describe your service need…" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+          <label style={{ display: "block", marginTop: 12, fontSize: 13 }}>
+            <span className="muted" style={{ display: "block", marginBottom: 6 }}>Photos (optional, up to 5)</span>
+            <input type="file" accept="image/*" multiple onChange={(e) => setPhotos(Array.from(e.target.files ?? []).slice(0, 5))} style={{ fontSize: 13 }} />
+          </label>
+          {err && <div style={{ color: "#b91c1c", fontSize: 12.5, fontWeight: 600, marginTop: 10 }}>{err}</div>}
+          <div style={{ marginTop: 14 }}><button type="submit" disabled={busy} style={primaryBtn(busy)}>{busy ? "Submitting…" : "Submit request"}</button></div>
+        </form>
+      )}
+
+      <section style={{ marginTop: 30 }}>
+        <h2 style={{ margin: "0 0 12px", fontSize: 18, fontWeight: 800 }}>Request history</h2>
+        {history === null ? <div className="muted" style={{ fontSize: 14 }}>Loading…</div> : history.length === 0 ? <HistoryEmpty label="No service requests yet." /> : (
+          <div style={{ border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden", boxShadow: "var(--shadow)" }}>
+            {history.map((r, i) => (
+              <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "13px 16px", borderTop: i ? "1px solid var(--border)" : "none" }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 700, fontSize: 14.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.subject || r.categories[0] || "Service request"}</div>
+                  <div className="muted" style={{ fontSize: 12.5, marginTop: 1 }}>{fmtDate(r.createdAt)}{r.categories.length ? ` · ${r.categories.join(", ")}` : ""}</div>
+                </div>
+                <StatusPill label={r.status} tone={srTone(r.status)} />
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+    </>
+  );
+}
+
+// ── Reservations (inline form + this tenant's history) ───────────────────────
+type RES = { id: string; roomLabel: string; propertyName: string; date: string; startTime: string; endTime: string; status: "Pending" | "Approved" | "Declined"; purpose: string; createdAt: string };
+const resTone = (s: string): Tone => (s === "Approved" ? TONE.green : s === "Declined" ? TONE.red : TONE.amber);
+const TIME_OPTS = (() => { const out: { v: string; l: string }[] = []; for (let m = 8 * 60; m <= 18 * 60; m += 15) { const h = Math.floor(m / 60), mm = m % 60; const h12 = ((h + 11) % 12) + 1; out.push({ v: `${String(h).padStart(2, "0")}:${String(mm).padStart(2, "0")}`, l: `${h12}:${String(mm).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}` }); } return out; })();
+const isoAdd = (days: number) => { const d = new Date(); d.setDate(d.getDate() + days); return d.toISOString().slice(0, 10); };
+const fmtTime = (v: string) => TIME_OPTS.find((o) => o.v === v)?.l ?? v;
+
+function ReservationTab({ token, company }: { token: string; company: string }) {
+  const [form, setForm] = useState({ roomUnitRef: BOOKABLE_ROOMS[0].unitRef, firstName: "", lastName: "", email: "", phone: "", date: "", startTime: "09:00", endTime: "10:00", purpose: "" });
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [okId, setOkId] = useState<string | null>(null);
+  const [history, setHistory] = useState<RES[] | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    fetch(`/api/portal/${token}/reservations`).then((r) => (r.ok ? r.json() : { reservations: [] })).then((j) => { if (alive) setHistory(Array.isArray(j.reservations) ? j.reservations : []); }).catch(() => { if (alive) setHistory([]); });
+    return () => { alive = false; };
+  }, [token, okId]);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (busy) return;
+    if (!form.firstName || !form.lastName || !form.email || !form.phone || !form.date) { setErr("Please add your name, email, phone, and a date."); return; }
+    if (form.startTime >= form.endTime) { setErr("End time must be after start time."); return; }
+    setBusy(true); setErr(null);
+    try {
+      const res = await fetch("/api/reservations/submit", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...form, tenantCompany: company, website: "" }) });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error ?? (Array.isArray(j.conflicts) ? "That time conflicts with an existing booking." : "Submission failed."));
+      setOkId(j.id ?? "submitted"); setForm((f) => ({ ...f, purpose: "", date: "" }));
+    } catch (e) { setErr(e instanceof Error ? e.message : "Submission failed."); } finally { setBusy(false); }
+  }
+
+  const label: React.CSSProperties = { fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase", color: "var(--muted)", display: "block", marginBottom: 6 };
+  const sel = { ...contactInput };
+  const upcoming = (history ?? []).filter((v) => v.status !== "Declined" && v.date >= isoAdd(0)).sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime));
+  const past = (history ?? []).filter((v) => !(v.status !== "Declined" && v.date >= isoAdd(0))).sort((a, b) => b.date.localeCompare(a.date));
+  const Row = ({ v, first }: { v: RES; first: boolean }) => (
+    <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "13px 16px", borderTop: first ? "none" : "1px solid var(--border)" }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontWeight: 700, fontSize: 14.5 }}>{v.roomLabel} <span className="muted" style={{ fontWeight: 500 }}>· {v.propertyName}</span></div>
+        <div className="muted" style={{ fontSize: 12.5, marginTop: 1 }}>{fmtDate(v.date)} · {fmtTime(v.startTime)}–{fmtTime(v.endTime)}{v.purpose ? ` · ${v.purpose}` : ""}</div>
       </div>
+      <StatusPill label={v.status} tone={resTone(v.status)} />
+    </div>
+  );
+
+  return (
+    <>
+      <PageHeader title="Reservations" sub="Reserve a conference or training room — we'll confirm by email. Your company is pre-filled." />
+      {okId ? (
+        <SuccessBox title="Reservation requested ✓" body="We'll review and confirm by email. It'll appear under “Upcoming” below once approved." onAgain={() => setOkId(null)} />
+      ) : (
+        <form onSubmit={submit} style={cardBox}>
+          <label style={{ display: "block", marginBottom: 12 }}>
+            <span style={label}>Room</span>
+            <select style={sel} value={form.roomUnitRef} onChange={(e) => setForm({ ...form, roomUnitRef: e.target.value })}>
+              {BOOKABLE_ROOMS.map((r) => <option key={r.unitRef} value={r.unitRef}>{r.label} · {r.propertyName}</option>)}
+            </select>
+          </label>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
+            <input style={contactInput} placeholder="First name" value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} />
+            <input style={contactInput} placeholder="Last name" value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} />
+            <input style={contactInput} type="email" placeholder="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+            <input style={contactInput} type="tel" placeholder="Phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12, marginTop: 12 }}>
+            <div><span style={label}>Date (Mon–Fri)</span><Calendar value={form.date} onChange={(iso) => setForm({ ...form, date: iso })} minISO={isoAdd(0)} maxISO={isoAdd(183)} disableWeekends required variant="card" /></div>
+            <label><span style={label}>Start</span><select style={sel} value={form.startTime} onChange={(e) => setForm({ ...form, startTime: e.target.value })}>{TIME_OPTS.map((o) => <option key={o.v} value={o.v}>{o.l}</option>)}</select></label>
+            <label><span style={label}>End</span><select style={sel} value={form.endTime} onChange={(e) => setForm({ ...form, endTime: e.target.value })}>{TIME_OPTS.map((o) => <option key={o.v} value={o.v}>{o.l}</option>)}</select></label>
+          </div>
+          <textarea style={{ ...contactInput, marginTop: 12, minHeight: 80, resize: "vertical" }} placeholder="Purpose (optional)" value={form.purpose} onChange={(e) => setForm({ ...form, purpose: e.target.value })} />
+          {err && <div style={{ color: "#b91c1c", fontSize: 12.5, fontWeight: 600, marginTop: 10 }}>{err}</div>}
+          <div style={{ marginTop: 14 }}><button type="submit" disabled={busy} style={primaryBtn(busy)}>{busy ? "Requesting…" : "Request room"}</button></div>
+        </form>
+      )}
+
+      <section style={{ marginTop: 30 }}>
+        <h2 style={{ margin: "0 0 12px", fontSize: 18, fontWeight: 800 }}>Upcoming</h2>
+        {history === null ? <div className="muted" style={{ fontSize: 14 }}>Loading…</div> : upcoming.length === 0 ? <HistoryEmpty label="No upcoming reservations." /> : (
+          <div style={{ border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden", boxShadow: "var(--shadow)" }}>
+            {upcoming.map((v, i) => <Row key={v.id} v={v} first={i === 0} />)}
+          </div>
+        )}
+        {past.length > 0 && (
+          <>
+            <h2 style={{ margin: "26px 0 12px", fontSize: 18, fontWeight: 800 }}>Past requests</h2>
+            <div style={{ border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden", boxShadow: "var(--shadow)" }}>
+              {past.map((v, i) => <Row key={v.id} v={v} first={i === 0} />)}
+            </div>
+          </>
+        )}
+      </section>
     </>
   );
 }
