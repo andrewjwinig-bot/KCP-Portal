@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 import type { RentRollData, RentRollUnit } from "@/lib/rentroll/parseRentRollExcel";
 import { amenityFor } from "@/lib/rentroll/amenities";
-import { SectionLabel } from "@/app/properties/PropertyDetail";
 import { Pill, TONE_NEUTRAL } from "@/app/components/Pill";
 import { blobSrc } from "@/lib/blobProxy";
 
@@ -93,8 +92,86 @@ const COLUMNS: ColDef[] = [
   { key: "attachments", label: "Files",      width: 60,  align: "right", def: false },
 ];
 
-export default function UnitInfoIndexPage() {
+// Collapsible property card — mirrors the Rent Roll's PropertyCard chrome
+// (code + name header, summary line, chevron, click-to-expand) so Unit Info
+// reads like the rest of the app instead of a flat outlier sheet.
+export function UnitPropertyCard({ group, visibleCols, specs, renderCell, defaultOpen }: {
+  group: { code: string; name: string; units: RentRollUnit[] };
+  visibleCols: ColDef[];
+  specs: Record<string, SuiteSummary>;
+  renderCell: (c: ColDef, u: RentRollUnit, s: SuiteSummary | undefined) => React.ReactNode;
+  defaultOpen: boolean;
+}) {
   const router = useRouter();
+  const [open, setOpen] = useState(defaultOpen);
+  // Re-sync when a search/filter forces every card open (or back closed).
+  useEffect(() => { setOpen(defaultOpen); }, [defaultOpen]);
+  const withPlans = useMemo(() => group.units.filter((u) => specs[u.unitRef]?.floorplan).length, [group.units, specs]);
+  const totalSf = useMemo(() => group.units.reduce((n, u) => n + u.sqft, 0), [group.units]);
+  return (
+    <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+      <button className="linkBtn" onClick={() => setOpen((v) => !v)} style={{ padding: "14px 20px", textAlign: "left", width: "100%" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <code style={{ fontSize: 12, color: "var(--muted)" }}>{group.code}</code>
+              <span style={{ fontWeight: 700, fontSize: 16 }}>{group.name}</span>
+            </div>
+            <span style={{ fontSize: 12, color: "var(--muted)", whiteSpace: "nowrap" }}>
+              {group.units.length} unit{group.units.length === 1 ? "" : "s"} · {totalSf.toLocaleString("en-US")} sf{withPlans ? ` · ${withPlans} floorplan${withPlans === 1 ? "" : "s"}` : ""}
+            </span>
+          </div>
+          <span style={{ color: "var(--muted)", fontSize: 18, flexShrink: 0 }}>{open ? "▲" : "▼"}</span>
+        </div>
+      </button>
+      {open && (
+        <div style={{ borderTop: "1px solid var(--border)", padding: "0 20px 16px" }}>
+          <div style={{ overflowX: "auto", marginTop: 12 }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed", minWidth: 380 + visibleCols.length * 90 }}>
+              <colgroup>
+                <col style={{ width: 116 }} />
+                <col />
+                {visibleCols.map((c) => <col key={c.key} style={{ width: c.width }} />)}
+              </colgroup>
+              <thead>
+                <tr>
+                  <th style={th}>Unit</th>
+                  <th style={th}>Occupant</th>
+                  {visibleCols.map((c) => (
+                    <th key={c.key} style={c.align === "right" ? { ...th, textAlign: "right" } : th}>{c.label}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {group.units.map((u) => {
+                  const s = specs[u.unitRef];
+                  return (
+                    <tr key={u.unitRef} onClick={() => router.push(`/units/${encodeURIComponent(u.unitRef)}${FROM}`)} style={{ cursor: "pointer" }}>
+                      <td style={{ ...td, whiteSpace: "nowrap" }}>
+                        <code style={{ fontSize: 12, fontWeight: 700, color: "#0b4a7d", whiteSpace: "nowrap", textDecoration: "underline", textUnderlineOffset: 2 }}>{u.unitRef}</code>
+                      </td>
+                      <td style={{ ...td, overflow: "hidden" }}>
+                        <span style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                          <span style={{ fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {unitLabel(u)}
+                          </span>
+                          {u.isVacant && <Pill tone={TONE_NEUTRAL}>Vacant</Pill>}
+                        </span>
+                      </td>
+                      {visibleCols.map((c) => <Fragment key={c.key}>{renderCell(c, u, s)}</Fragment>)}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function UnitInfoIndexPage() {
   const [data, setData] = useState<RentRollData | null>(null);
   const [specs, setSpecs] = useState<Record<string, SuiteSummary>>({});
   const [loading, setLoading] = useState(true);
@@ -163,7 +240,9 @@ export default function UnitInfoIndexPage() {
         .sort((a, b) => a.unitRef.localeCompare(b.unitRef));
       if (units.length) out.push({ code: p.propertyCode, name, units });
     }
-    out.sort((a, b) => a.name.localeCompare(b.name));
+    // Order properties by code, numerically (1100 → 1500 → 2300 …), so the
+    // shopping-center / office lists read in the same order as the Rent Roll.
+    out.sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true }));
     return out;
   }, [data, query, vacantOnly]);
 
@@ -300,52 +379,14 @@ export default function UnitInfoIndexPage() {
               </span>
             </div>
             {catGroups.map((g) => (
-              <div className="card" key={g.code} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                <SectionLabel>{g.name} · {g.code}</SectionLabel>
-                <div style={{ overflowX: "auto" }}>
-                  <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed", minWidth: 380 + visibleCols.length * 90 }}>
-                    <colgroup>
-                      <col style={{ width: 92 }} />
-                      <col />
-                      {visibleCols.map((c) => <col key={c.key} style={{ width: c.width }} />)}
-                    </colgroup>
-                    <thead>
-                      <tr>
-                        <th style={th}>Unit</th>
-                        <th style={th}>Occupant</th>
-                        {visibleCols.map((c) => (
-                          <th key={c.key} style={c.align === "right" ? { ...th, textAlign: "right" } : th}>{c.label}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {g.units.map((u) => {
-                        const s = specs[u.unitRef];
-                        return (
-                          <tr
-                            key={u.unitRef}
-                            onClick={() => router.push(`/units/${encodeURIComponent(u.unitRef)}${FROM}`)}
-                            style={{ cursor: "pointer" }}
-                          >
-                            <td style={td}>
-                              <code style={{ fontSize: 12, color: "var(--muted)" }}>{u.unitRef}</code>
-                            </td>
-                            <td style={{ ...td, overflow: "hidden" }}>
-                              <span style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-                                <span style={{ fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                  {unitLabel(u)}
-                                </span>
-                                {u.isVacant && <Pill tone={TONE_NEUTRAL}>Vacant</Pill>}
-                              </span>
-                            </td>
-                            {visibleCols.map((c) => <Fragment key={c.key}>{renderCell(c, u, s)}</Fragment>)}
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+              <UnitPropertyCard
+                key={g.code}
+                group={g}
+                visibleCols={visibleCols}
+                specs={specs}
+                renderCell={renderCell}
+                defaultOpen={!!query.trim() || vacantOnly}
+              />
             ))}
           </Fragment>
         ))

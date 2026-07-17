@@ -460,13 +460,98 @@ const StatusPill = ({ label, tone }: { label: string; tone: Tone }) => (
   <span style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: "0.04em", textTransform: "uppercase", padding: "3px 9px", borderRadius: 999, background: tone.bg, color: tone.fg, border: `1px solid ${tone.bd}`, whiteSpace: "nowrap", flexShrink: 0 }}>{label}</span>
 );
 const fmtDate = (iso: string) => { if (!iso) return ""; const d = new Date(iso.length === 10 ? iso + "T00:00:00" : iso); return isNaN(+d) ? iso : d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); };
-const primaryBtn = (busy: boolean): React.CSSProperties => ({ background: BRAND, color: "#fff", border: "none", borderRadius: 8, padding: "10px 18px", fontSize: 14, fontWeight: 700, cursor: busy ? "default" : "pointer", opacity: busy ? 0.7 : 1, fontFamily: "inherit" });
-const cardBox: React.CSSProperties = { border: "1px solid var(--border)", borderRadius: 14, padding: "18px 20px", background: "var(--card)", boxShadow: "var(--shadow)" };
+
+// ── Form vocabulary — mirrors the public Service Request (/submit) and
+//    Conference Room Request (/reserve) pages: labelled fields with a red
+//    required-asterisk, underline inputs, a "Choose Photos" button and a
+//    centered uppercase submit. Themed with the portal tokens so it stays
+//    consistent light/dark instead of the hard-coded navy of the public page.
+const RED = "#b91c1c";
+const formCard: React.CSSProperties = {
+  background: "var(--card)", border: "1px solid var(--border)", borderRadius: 14,
+  padding: "32px clamp(20px, 5vw, 44px) 38px", boxShadow: "var(--shadow)",
+  display: "flex", flexDirection: "column", gap: 26,
+};
+const underlineStyle: React.CSSProperties = {
+  width: "100%", boxSizing: "border-box", padding: "8px 0 9px",
+  border: "none", borderBottom: "1px solid var(--border)",
+  background: "transparent", color: "var(--text)",
+  fontFamily: "inherit", fontSize: 16, outline: "none", transition: "border-color 0.15s",
+};
+const textareaStyle: React.CSSProperties = {
+  width: "100%", boxSizing: "border-box", padding: 14, marginTop: 6,
+  border: "1px solid var(--border)", background: "transparent", color: "var(--text)",
+  fontFamily: "inherit", fontSize: 15, lineHeight: 1.5, outline: "none", resize: "vertical", minHeight: 120,
+};
+const choosePhotosBtn: React.CSSProperties = {
+  display: "inline-flex", alignItems: "center", gap: 10, padding: "9px 16px",
+  border: "1px solid var(--border)", background: "transparent", color: BRAND,
+  fontSize: 12, fontWeight: 600, letterSpacing: "0.14em", textTransform: "uppercase",
+  cursor: "pointer", marginTop: 8, alignSelf: "flex-start", borderRadius: 2,
+};
+const submitBtn = (busy: boolean): React.CSSProperties => ({
+  background: BRAND, color: "#fff", border: "none", padding: "15px 46px", borderRadius: 2,
+  fontSize: 14, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase",
+  fontFamily: "inherit", cursor: busy ? "not-allowed" : "pointer", opacity: busy ? 0.7 : 1,
+});
+const ghostBtn: React.CSSProperties = {
+  background: "transparent", color: BRAND, border: `1px solid ${BRAND}`, padding: "12px 28px", borderRadius: 2,
+  fontSize: 12, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", fontFamily: "inherit", cursor: "pointer",
+};
+const hintStyle: React.CSSProperties = { display: "block", fontSize: 12, color: "var(--muted)", marginTop: 6, lineHeight: 1.5 };
+const caretSvg = () => {
+  const c = encodeURIComponent(BRAND);
+  return `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 7' fill='none' stroke='${c}' stroke-width='1.4'><polyline points='1 1 6 6 11 1'/></svg>")`;
+};
+function FormRow({ children }: { children: React.ReactNode }) {
+  return <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 22 }}>{children}</div>;
+}
+function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+      <label style={{ fontSize: 13, fontWeight: 500, color: "var(--text)" }}>
+        {label}{required && <span style={{ color: RED, marginLeft: 2 }}>*</span>}
+      </label>
+      {children}
+    </div>
+  );
+}
+function UnderlineInput({ value, onChange, type = "text", required, placeholder, autoComplete }: {
+  value: string; onChange: (v: string) => void; type?: string; required?: boolean; placeholder?: string; autoComplete?: string;
+}) {
+  return (
+    <input
+      type={type} value={value} onChange={(e) => onChange(e.target.value)}
+      required={required} placeholder={placeholder} autoComplete={autoComplete}
+      style={underlineStyle}
+      onFocus={(e) => { e.currentTarget.style.borderBottomColor = BRAND; }}
+      onBlur={(e) => { e.currentTarget.style.borderBottomColor = "var(--border)"; }}
+    />
+  );
+}
+function UnderlineSelect({ value, onChange, options, required, placeholder }: {
+  value: string; onChange: (v: string) => void; options: { value: string; label: string }[]; required?: boolean; placeholder?: string;
+}) {
+  return (
+    <select
+      value={value} onChange={(e) => onChange(e.target.value)} required={required}
+      style={{ ...underlineStyle, appearance: "none", WebkitAppearance: "none", paddingRight: 24, backgroundImage: caretSvg(), backgroundRepeat: "no-repeat", backgroundPosition: "right 4px center", backgroundSize: 14 }}
+      onFocus={(e) => { e.currentTarget.style.borderBottomColor = BRAND; }}
+      onBlur={(e) => { e.currentTarget.style.borderBottomColor = "var(--border)"; }}
+    >
+      {placeholder && <option value="" disabled={required}>{placeholder}</option>}
+      {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+    </select>
+  );
+}
 const SuccessBox = ({ title, body, onAgain }: { title: string; body: string; onAgain: () => void }) => (
-  <div style={{ border: "1px solid rgba(21,128,61,0.3)", background: "rgba(21,128,61,0.07)", borderRadius: 14, padding: 22, boxShadow: "var(--shadow)", display: "flex", flexDirection: "column", gap: 10 }}>
-    <div style={{ fontSize: 16, fontWeight: 800, color: "#15803d" }}>{title}</div>
-    <div className="muted" style={{ fontSize: 14 }}>{body}</div>
-    <div><button onClick={onAgain} style={primaryBtn(false)}>Submit another</button></div>
+  <div style={{ ...formCard, alignItems: "center", textAlign: "center", gap: 18 }}>
+    <div style={{ width: 56, height: 56, borderRadius: "50%", background: "rgba(22,163,74,0.10)", color: "#15803d", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, fontWeight: 700 }}>✓</div>
+    <div>
+      <h2 style={{ margin: 0, fontFamily: "Georgia, serif", fontSize: 26, fontWeight: 300, color: BRAND }}>{title}</h2>
+      <p style={{ marginTop: 10, color: "var(--muted)", lineHeight: 1.6, fontSize: 14 }}>{body}</p>
+    </div>
+    <button onClick={onAgain} style={ghostBtn}>Submit another</button>
   </div>
 );
 const HistoryEmpty = ({ label }: { label: string }) => (
@@ -513,24 +598,35 @@ function ServiceTab({ token, company, property, propertyName, unitRef }: { token
 
   return (
     <>
-      <PageHeader title="Service Requests" sub="Report an issue at your suite or building — we've pre-filled your company and property." />
+      <PageHeader title="Service Requests" sub="Report an issue at your suite or building." />
       {okId ? (
-        <SuccessBox title="Request submitted ✓" body={`Our service team has it${okId !== "submitted" ? ` (ref ${okId})` : ""}. We'll follow up by email.`} onAgain={() => setOkId(null)} />
+        <SuccessBox title="Request Submitted" body={`Thanks — the service team has been notified${okId !== "submitted" ? ` (ref ${okId})` : ""}. They'll reach out if they need more information.`} onAgain={() => setOkId(null)} />
       ) : (
-        <form onSubmit={submit} style={cardBox}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
-            <input style={contactInput} placeholder="First name" value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} />
-            <input style={contactInput} placeholder="Last name" value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} />
-            <input style={contactInput} type="email" placeholder="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-            <input style={contactInput} type="tel" placeholder="Phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+        <form onSubmit={submit} style={formCard}>
+          <FormRow>
+            <Field label="First Name" required><UnderlineInput value={form.firstName} onChange={(v) => setForm({ ...form, firstName: v })} required autoComplete="given-name" /></Field>
+            <Field label="Last Name" required><UnderlineInput value={form.lastName} onChange={(v) => setForm({ ...form, lastName: v })} required autoComplete="family-name" /></Field>
+          </FormRow>
+          <FormRow>
+            <Field label="Phone" required><UnderlineInput value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} required type="tel" autoComplete="tel" /></Field>
+            <Field label="Email" required><UnderlineInput value={form.email} onChange={(v) => setForm({ ...form, email: v })} required type="email" autoComplete="email" /></Field>
+          </FormRow>
+          <Field label="Please describe your service needs" required>
+            <textarea style={textareaStyle} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })}
+              onFocus={(e) => { e.currentTarget.style.borderColor = BRAND; }} onBlur={(e) => { e.currentTarget.style.borderColor = "var(--border)"; }} />
+          </Field>
+          <Field label="Photos (optional, up to 5)">
+            <label style={choosePhotosBtn}>
+              Choose Photos
+              <input type="file" accept="image/*" multiple onChange={(e) => setPhotos(Array.from(e.target.files ?? []).slice(0, 5))} style={{ display: "none" }} />
+            </label>
+            {photos.length > 0 && <span style={{ ...hintStyle, marginTop: 8 }}>{photos.length} photo{photos.length === 1 ? "" : "s"} attached: {photos.map((p) => p.name).join(", ")}</span>}
+          </Field>
+          {err && <div style={{ color: RED, fontSize: 13, fontWeight: 600 }}>{err}</div>}
+          <div style={{ display: "flex", justifyContent: "center", marginTop: 4 }}>
+            <button type="submit" disabled={busy} style={submitBtn(busy)}>{busy ? "Submitting…" : "Submit Request"}</button>
           </div>
-          <textarea style={{ ...contactInput, marginTop: 12, minHeight: 110, resize: "vertical" }} placeholder="Please describe your service need…" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
-          <label style={{ display: "block", marginTop: 12, fontSize: 13 }}>
-            <span className="muted" style={{ display: "block", marginBottom: 6 }}>Photos (optional, up to 5)</span>
-            <input type="file" accept="image/*" multiple onChange={(e) => setPhotos(Array.from(e.target.files ?? []).slice(0, 5))} style={{ fontSize: 13 }} />
-          </label>
-          {err && <div style={{ color: "#b91c1c", fontSize: 12.5, fontWeight: 600, marginTop: 10 }}>{err}</div>}
-          <div style={{ marginTop: 14 }}><button type="submit" disabled={busy} style={primaryBtn(busy)}>{busy ? "Submitting…" : "Submit request"}</button></div>
+          <p style={{ ...hintStyle, textAlign: "center", marginTop: 0 }}>For after-hours emergencies (active leak, fire, security), call your property&apos;s emergency line.</p>
         </form>
       )}
 
@@ -588,8 +684,6 @@ function ReservationTab({ token, company }: { token: string; company: string }) 
     } catch (e) { setErr(e instanceof Error ? e.message : "Submission failed."); } finally { setBusy(false); }
   }
 
-  const label: React.CSSProperties = { fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase", color: "var(--muted)", display: "block", marginBottom: 6 };
-  const sel = { ...contactInput };
   const upcoming = (history ?? []).filter((v) => v.status !== "Declined" && v.date >= isoAdd(0)).sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime));
   const past = (history ?? []).filter((v) => !(v.status !== "Declined" && v.date >= isoAdd(0))).sort((a, b) => b.date.localeCompare(a.date));
   const Row = ({ v, first }: { v: RES; first: boolean }) => (
@@ -604,31 +698,43 @@ function ReservationTab({ token, company }: { token: string; company: string }) 
 
   return (
     <>
-      <PageHeader title="Reservations" sub="Reserve a conference or training room — we'll confirm by email. Your company is pre-filled." />
+      <PageHeader title="Reservations" sub="Reserve a conference or training room — we'll confirm by email." />
       {okId ? (
-        <SuccessBox title="Reservation requested ✓" body="We'll review and confirm by email. It'll appear under “Upcoming” below once approved." onAgain={() => setOkId(null)} />
+        <SuccessBox title="Reservation Request Submitted" body="Thanks — we'll review and confirm by email shortly. It'll appear under “Upcoming” below once approved." onAgain={() => setOkId(null)} />
       ) : (
-        <form onSubmit={submit} style={cardBox}>
-          <label style={{ display: "block", marginBottom: 12 }}>
-            <span style={label}>Room</span>
-            <select style={sel} value={form.roomUnitRef} onChange={(e) => setForm({ ...form, roomUnitRef: e.target.value })}>
-              {BOOKABLE_ROOMS.map((r) => <option key={r.unitRef} value={r.unitRef}>{r.label} · {r.propertyName}</option>)}
-            </select>
-          </label>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
-            <input style={contactInput} placeholder="First name" value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} />
-            <input style={contactInput} placeholder="Last name" value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} />
-            <input style={contactInput} type="email" placeholder="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-            <input style={contactInput} type="tel" placeholder="Phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+        <form onSubmit={submit} style={formCard}>
+          <Field label="Room" required>
+            <UnderlineSelect value={form.roomUnitRef} onChange={(v) => setForm({ ...form, roomUnitRef: v })} required
+              options={BOOKABLE_ROOMS.map((r) => ({ value: r.unitRef, label: `${r.label} · ${r.propertyName}` }))} />
+          </Field>
+          <FormRow>
+            <Field label="First Name" required><UnderlineInput value={form.firstName} onChange={(v) => setForm({ ...form, firstName: v })} required autoComplete="given-name" /></Field>
+            <Field label="Last Name" required><UnderlineInput value={form.lastName} onChange={(v) => setForm({ ...form, lastName: v })} required autoComplete="family-name" /></Field>
+          </FormRow>
+          <FormRow>
+            <Field label="Phone" required><UnderlineInput value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} required type="tel" autoComplete="tel" /></Field>
+            <Field label="Email" required><UnderlineInput value={form.email} onChange={(v) => setForm({ ...form, email: v })} required type="email" autoComplete="email" /></Field>
+          </FormRow>
+          <Field label="Date (Monday–Friday)" required>
+            <Calendar value={form.date} onChange={(iso) => setForm({ ...form, date: iso })} minISO={isoAdd(0)} maxISO={isoAdd(183)} disableWeekends required variant="underline" />
+          </Field>
+          <FormRow>
+            <Field label="Start Time (8:00 AM – 6:00 PM)" required>
+              <UnderlineSelect value={form.startTime} onChange={(v) => setForm({ ...form, startTime: v })} required options={TIME_OPTS.map((o) => ({ value: o.v, label: o.l }))} />
+            </Field>
+            <Field label="End Time (8:00 AM – 6:00 PM)" required>
+              <UnderlineSelect value={form.endTime} onChange={(v) => setForm({ ...form, endTime: v })} required options={TIME_OPTS.map((o) => ({ value: o.v, label: o.l }))} />
+            </Field>
+          </FormRow>
+          <Field label="Purpose (optional)">
+            <textarea style={{ ...textareaStyle, minHeight: 90 }} placeholder="What's the meeting for? Any setup needed (whiteboard, AV, water, etc.)?" value={form.purpose} onChange={(e) => setForm({ ...form, purpose: e.target.value })}
+              onFocus={(e) => { e.currentTarget.style.borderColor = BRAND; }} onBlur={(e) => { e.currentTarget.style.borderColor = "var(--border)"; }} />
+          </Field>
+          {err && <div style={{ color: RED, fontSize: 13, fontWeight: 600 }}>{err}</div>}
+          <div style={{ display: "flex", justifyContent: "center", marginTop: 4 }}>
+            <button type="submit" disabled={busy} style={submitBtn(busy)}>{busy ? "Submitting…" : "Submit Request"}</button>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12, marginTop: 12 }}>
-            <div><span style={label}>Date (Mon–Fri)</span><Calendar value={form.date} onChange={(iso) => setForm({ ...form, date: iso })} minISO={isoAdd(0)} maxISO={isoAdd(183)} disableWeekends required variant="card" /></div>
-            <label><span style={label}>Start</span><select style={sel} value={form.startTime} onChange={(e) => setForm({ ...form, startTime: e.target.value })}>{TIME_OPTS.map((o) => <option key={o.v} value={o.v}>{o.l}</option>)}</select></label>
-            <label><span style={label}>End</span><select style={sel} value={form.endTime} onChange={(e) => setForm({ ...form, endTime: e.target.value })}>{TIME_OPTS.map((o) => <option key={o.v} value={o.v}>{o.l}</option>)}</select></label>
-          </div>
-          <textarea style={{ ...contactInput, marginTop: 12, minHeight: 80, resize: "vertical" }} placeholder="Purpose (optional)" value={form.purpose} onChange={(e) => setForm({ ...form, purpose: e.target.value })} />
-          {err && <div style={{ color: "#b91c1c", fontSize: 12.5, fontWeight: 600, marginTop: 10 }}>{err}</div>}
-          <div style={{ marginTop: 14 }}><button type="submit" disabled={busy} style={primaryBtn(busy)}>{busy ? "Requesting…" : "Request room"}</button></div>
+          <p style={{ ...hintStyle, textAlign: "center", marginTop: 0 }}>You&apos;ll receive a confirmation email after submitting, and another once your reservation is approved.</p>
         </form>
       )}
 

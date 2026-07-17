@@ -1118,7 +1118,9 @@ function RetailFinalExpenseSummary({ data, property, year, onEdit, historyHref }
       <td style={{ ...std, textAlign: "left" }}>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
           <span>{r.label}</span>
-          <BackupTrigger count={backup.countByAccount[acctKey] ?? 0} onClick={() => setOpenBackup({ account: acctKey, label: r.label })} />
+          {(r.amount !== 0 || (backup.countByAccount[acctKey] ?? 0) > 0) && (
+            <BackupTrigger count={backup.countByAccount[acctKey] ?? 0} onClick={() => setOpenBackup({ account: acctKey, label: r.label })} />
+          )}
         </span>
       </td>
       <td style={{ ...std, color: "var(--muted)" }}>{money0(r.seed)}</td>
@@ -1685,7 +1687,9 @@ function FinalExpenseSummary({ rows, editable, year, property, onEdit, historyYe
                 <td style={{ ...td, textAlign: "left" }}>
                   <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
                     <span>{r.label}</span>
-                    <BackupTrigger count={backup.countByAccount[r.account] ?? 0} onClick={() => setOpenBackup({ account: r.account, label: r.label })} />
+                    {(r.final !== 0 || (backup.countByAccount[r.account] ?? 0) > 0) && (
+                      <BackupTrigger count={backup.countByAccount[r.account] ?? 0} onClick={() => setOpenBackup({ account: r.account, label: r.label })} />
+                    )}
                   </span>
                 </td>
                 {editable ? (
