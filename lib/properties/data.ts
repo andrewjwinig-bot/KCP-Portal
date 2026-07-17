@@ -263,6 +263,31 @@ export const ALLOC_PCT: Record<string, { "9301": number; "9302": number; "9303":
   "9510": { "9301": 0.0000, "9302": 0.0000, "9303": 0.0000 },
 };
 
+// ─── FUND-LEVEL SF ALLOCATION ────────────────────────────────────────────────
+// Each building's share of its FUND's total square footage, keyed by the fund's
+// portfolio code (PJV3 = JV III, PNIPLX = NI LLC). Lets the Credit Card Expense
+// Coder explode a fund-coded charge across that fund's own buildings pro-rata by
+// building SF — the "fund expense → its buildings" split — the same way the
+// synthetic "All BP" / "All SC" codes explode by ALLOC_PCT. Holding / condo
+// entities (entityKind set) and rows without a square footage are excluded, so
+// the members match FUND_BUILDINGS. Shares within each fund sum to 1.
+export const FUND_CODE: Record<string, string> = { "JV III": "PJV3", "NI LLC": "PNIPLX" };
+
+export const FUND_SF_ALLOC: Record<string, Record<string, number>> = (() => {
+  const members: Record<string, { id: string; sqft: number }[]> = {};
+  for (const p of PROPERTY_DEFS) {
+    const code = p.fundGroup ? FUND_CODE[p.fundGroup] : undefined;
+    if (!code || p.entityKind || !p.sqft) continue; // exclude holding/condo entities + no-SF rows
+    (members[code] ??= []).push({ id: p.id, sqft: p.sqft });
+  }
+  const out: Record<string, Record<string, number>> = {};
+  for (const [code, blds] of Object.entries(members)) {
+    const total = blds.reduce((a, b) => a + b.sqft, 0);
+    if (total > 0) out[code] = Object.fromEntries(blds.map((b) => [b.id, b.sqft / total]));
+  }
+  return out;
+})();
+
 // ─── FLOORPLANS ───────────────────────────────────────────────────────────────
 // Property IDs that have a floorplan image in /public/floorplans/{id}.jpg
 
