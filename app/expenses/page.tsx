@@ -15,7 +15,7 @@ import {
   type PropertyCarry,
 } from "../../lib/expenses/carryover";
 import { emailInvoicerReport, XLSX_CONTENT_TYPE } from "../../lib/invoicing/sendReport";
-import { ALLOC_PCT } from "../../lib/properties/data";
+import { ALLOC_PCT, FUND_SF_ALLOC } from "../../lib/properties/data";
 import { useUser } from "../components/UserProvider";
 import { LastImported } from "@/app/components/LastImported";
 import { DownloadMenu } from "@/app/components/DownloadMenu";
@@ -68,8 +68,8 @@ const PROPERTIES = [
   { id: "BP & SC", name: "All BP & SC" },
   { id: "BP", name: "All BP" },
   { id: "SC", name: "All SC" },
-  { id: "PJV3", name: "JV III" },
-  { id: "PNIPLX", name: "NI LLC" },
+  { id: "PJV3", name: "JV III — All Buildings (by SF)" },
+  { id: "PNIPLX", name: "NI LLC — All Buildings (by SF)" },
   { id: "PIIICO", name: "JV III Condo" },
   { id: "1100", name: "Parkwood Professional Building" },
   { id: "1500", name: "Eastwick JV I" },
@@ -381,11 +381,13 @@ function allocateCentsByPercents(totalCents: number, entries: Array<{ key: strin
 }
 
 function expandForAllocation(t: Tx): Array<Tx & { originalAmount?: number }> {
+  // Synthetic overhead codes explode by ALLOC_PCT; a fund code (PJV3 / PNIPLX)
+  // explodes across that fund's own buildings pro-rata by building square footage.
   const allocTable =
     t.propertyId === "BP & SC" ? ALLOC_BP_SC :
     t.propertyId === "BP"      ? ALLOC_BP :
     t.propertyId === "SC"      ? ALLOC_SC :
-    null;
+    FUND_SF_ALLOC[t.propertyId] ?? null;
   if (!allocTable) return [t];
   const totalC = cents(t.amount);
   const entries = Object.entries(allocTable).map(([key, pct]) => ({ key, pct }));
