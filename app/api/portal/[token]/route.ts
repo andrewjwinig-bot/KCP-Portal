@@ -29,7 +29,7 @@ export async function GET(_req: NextRequest, { params }: { params: { token: stri
   ]);
   // Tenant-safe contact projection — no internal notes / billing flags.
   const contacts = contactsRec.contacts.map((c) => ({
-    id: c.id, name: c.name, title: c.title, email: c.email, phone: c.phone, source: c.source ?? "staff",
+    id: c.id, name: c.name, title: c.title, email: c.email, phone: c.phone, camRecipient: !!c.camRecipient, source: c.source ?? "staff",
   }));
 
   const leaseTerms = unit && !unit.isVacant
