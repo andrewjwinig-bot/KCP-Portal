@@ -93,7 +93,7 @@ export function TenantStatementView({ token, data, header = true }: { token: str
   const fileUrl = (id: string) => `/api/statement/${token}/file?id=${id}`;
 
   const Card = ({ label, due, escrow, balance }: { label: string; due: number; escrow: number; balance: number }) => (
-    <div style={{ flex: 1, minWidth: 180, border: "1px solid var(--border)", borderRadius: 12, padding: "14px 16px", background: "var(--card)" }}>
+    <div style={{ flex: 1, minWidth: 180, border: "1px solid var(--border)", borderRadius: 14, padding: "15px 17px", background: "var(--card)", boxShadow: "var(--shadow)" }}>
       <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: BRAND }}>{label}</div>
       <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, fontSize: 13 }}><span className="muted">Your share</span><span style={{ fontWeight: 600 }}>{money(due)}</span></div>
       <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}><span className="muted">Paid (escrow)</span><span>{money(-escrow)}</span></div>
@@ -113,7 +113,7 @@ export function TenantStatementView({ token, data, header = true }: { token: str
   const cellPad = "8px 14px";
   const acctPad = "8px 8px 8px 14px"; // less right pad so the GL code clears the label
   const Schedule = ({ title, rows, totalLabel }: { title: string; rows: SchedRow[]; totalLabel?: string }) => (
-    <div style={{ border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden" }}>
+    <div style={{ border: "1px solid var(--border)", borderRadius: 14, overflow: "hidden", boxShadow: "var(--shadow)" }}>
       {/* Section bar: title + column heads, like the PDF's tinted band */}
       <div style={{ display: "grid", gridTemplateColumns: GRID, alignItems: "baseline", gap: 0, background: "rgba(11,74,125,0.09)", borderBottom: "1px solid var(--border)", padding: "9px 14px" }}>
         <div style={{ gridColumn: "1 / 3", fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: BRAND }}>{title}</div>
@@ -199,13 +199,6 @@ export function TenantStatementView({ token, data, header = true }: { token: str
         {data.ins && <Card label="Insurance" due={t.insDue} escrow={t.insEscrow} balance={t.insBalance} />}
         <Card label="Real Estate Tax" due={t.retDue} escrow={t.retEscrow} balance={t.retBalance} />
       </section>
-      <div style={{ marginTop: 14, border: `1.5px solid ${theme}`, background: calloutBg, borderRadius: 12, padding: "15px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-        <div>
-          <div style={{ fontWeight: 800, fontSize: 13.5, letterSpacing: "0.05em", textTransform: "uppercase", color: theme }}>{credit ? "Net credit to you" : due ? "Net balance due" : "Settled — nothing due"}</div>
-          <div className="muted" style={{ fontSize: 12.5, marginTop: 3 }}>CAM {money(t.camBalance)}{data.ins ? ` · INS ${money(t.insBalance)}` : ""} · RET {money(t.retBalance)}</div>
-        </div>
-        <span style={{ fontWeight: 900, fontSize: 26, color: theme }}>{money2(Math.abs(totalBalance))}</span>
-      </div>
 
       <section style={{ marginTop: 26 }}>
         <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 10 }}>Supporting Detail</div>
@@ -224,6 +217,15 @@ export function TenantStatementView({ token, data, header = true }: { token: str
       <section style={{ marginTop: 22 }}>
         <Schedule title="Real Estate Taxes" rows={[{ acct: undefined, label: data.ret.label, amount: data.ret.amount, backup: data.ret.backup, bold: true }]} />
       </section>
+
+      {/* Net true-up — the bottom line, below the schedules. */}
+      <div style={{ marginTop: 22, border: `1.5px solid ${theme}`, background: calloutBg, borderRadius: 14, padding: "17px 22px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", boxShadow: "var(--shadow)" }}>
+        <div>
+          <div style={{ fontWeight: 800, fontSize: 14, letterSpacing: "0.05em", textTransform: "uppercase", color: theme }}>{credit ? "Net credit to you" : due ? "Net balance due" : "Settled — nothing due"}</div>
+          <div className="muted" style={{ fontSize: 12.5, marginTop: 3 }}>CAM {money(t.camBalance)}{data.ins ? ` · INS ${money(t.insBalance)}` : ""} · RET {money(t.retBalance)}</div>
+        </div>
+        <span style={{ fontWeight: 900, fontSize: 28, color: theme }}>{money2(Math.abs(totalBalance))}</span>
+      </div>
 
       {data.escrowMonthly.length > 0 && (
         <section style={{ marginTop: 22 }}>

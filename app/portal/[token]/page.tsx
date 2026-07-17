@@ -80,8 +80,8 @@ export default function TenantPortalPage() {
     <div style={{ display: "flex", minHeight: "100vh", background: "var(--bg, #f7f9fc)" }}>
       <aside style={{ width: 244, flexShrink: 0, background: BRAND, color: "#fff", padding: 18, display: "flex", flexDirection: "column", gap: 18 }} className="portal-aside">
         <div>
-          <div style={{ fontSize: 16, fontWeight: 700, lineHeight: 1.25 }}>{t.name}</div>
-          <div style={{ fontSize: 12.5, color: "#bfdbfe", marginTop: 3 }}>{data.propertyName} · Suite {t.suite}</div>
+          <div style={{ fontSize: 19, fontWeight: 800, lineHeight: 1.2, letterSpacing: "-0.01em" }}>{t.name}</div>
+          <div style={{ fontSize: 12.5, color: "#bfdbfe", marginTop: 4 }}>{data.propertyName} · Suite {t.suite}</div>
           {portal?.building && (portal.building.city || portal.building.address) && (
             <div style={{ fontSize: 11.5, color: "#9dc3e6", marginTop: 2 }}>
               {[portal.building.city, portal.building.state].filter(Boolean).join(", ")}
@@ -132,11 +132,12 @@ export default function TenantPortalPage() {
 // Shared large page header — h1 across every portal page, with an optional
 // right-aligned action (download button, year pill, …).
 function PageHeader({ title, sub, right }: { title: string; sub?: React.ReactNode; right?: React.ReactNode }) {
+  // Plain <h1> so it inherits the app's global h1 sizing (54px / 36px on mobile).
   return (
-    <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 16, flexWrap: "wrap", marginBottom: 22 }}>
+    <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 16, flexWrap: "wrap", marginBottom: 24 }}>
       <div>
-        <h1 style={{ margin: 0, fontSize: 28, fontWeight: 800, letterSpacing: "-0.01em", lineHeight: 1.15 }}>{title}</h1>
-        {sub && <div className="muted" style={{ fontSize: 14.5, marginTop: 5 }}>{sub}</div>}
+        <h1 style={{ margin: 0 }}>{title}</h1>
+        {sub && <div className="muted" style={{ fontSize: 15, marginTop: 8 }}>{sub}</div>}
       </div>
       {right}
     </div>
@@ -160,7 +161,7 @@ function BuildingCard({ building, suite }: { building: Building; suite: string }
   if (building.sqft) facts.push({ label: "Building Size", value: `${building.sqft.toLocaleString("en-US")} sf` });
   const address = formatAddress(building);
   return (
-    <div style={{ border: "1px solid var(--border)", borderRadius: 14, overflow: "hidden", background: "var(--card)" }}>
+    <div style={{ border: "1px solid var(--border)", borderRadius: 14, overflow: "hidden", background: "var(--card)", boxShadow: "var(--shadow)" }}>
       <div style={{ display: "flex", gap: 16, padding: "18px 20px", alignItems: "center" }}>
         <div style={{ width: 46, height: 46, flexShrink: 0, borderRadius: 12, background: "rgba(11,74,125,0.09)", color: BRAND, display: "flex", alignItems: "center", justifyContent: "center" }}>
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 21h18M9 8h1m-1 4h1m4-4h1m-1 4h1M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16" /></svg>
@@ -202,8 +203,14 @@ function daysUntil(mmddyyyy: string | null): number | null {
 
 function LeaseTab({ terms, building, loading, suite, company }: { terms: LeaseTerms | null; building: Building | null; loading: boolean; suite: string; company: string }) {
   const days = terms ? daysUntil(terms.leaseTo) : null;
+  const nearing = days != null && days <= 90;
+  const expMsg = days == null ? "" : days < 0
+    ? `Your lease ended on ${terms?.leaseTo} (${Math.abs(days)} day${Math.abs(days) === 1 ? "" : "s"} ago).`
+    : days === 0
+    ? `Your lease expires today (${terms?.leaseTo}).`
+    : `Your lease expires in ${days} day${days === 1 ? "" : "s"} — ${terms?.leaseTo}.`;
   const Stat = ({ label, value }: { label: string; value: string }) => (
-    <div style={{ border: "1px solid var(--border)", borderRadius: 12, padding: "16px 18px", background: "var(--card)" }}>
+    <div style={{ border: "1px solid var(--border)", borderRadius: 12, padding: "16px 18px", background: "var(--card)", boxShadow: "var(--shadow)" }}>
       <div style={{ fontSize: 22, fontWeight: 800 }}>{value}</div>
       <div className="muted" style={{ fontSize: 12.5, marginTop: 3 }}>{label}</div>
     </div>
@@ -219,22 +226,27 @@ function LeaseTab({ terms, building, loading, suite, company }: { terms: LeaseTe
       ) : (
         <>
           <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)", margin: "0 0 12px" }}>Your Lease</div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12 }}>
-            <Stat label="Sq Ft" value={terms.sqft.toLocaleString("en-US")} />
-            <Stat label="Annual $/sf" value={money2(terms.annualRentPerSqft)} />
-            <Stat label="Base Rent / mo" value={money(terms.baseRent)} />
-            <Stat label="Gross Rent / mo" value={money(terms.grossRent)} />
-            <Stat label="Annual Rent" value={money(terms.annualRent)} />
-            {days != null && <Stat label="Days to Expiration" value={days.toLocaleString("en-US")} />}
-          </div>
           {(terms.leaseFrom || terms.leaseTo) && (
-            <div style={{ marginTop: 16, border: "1px solid var(--border)", borderRadius: 12, padding: "14px 16px", background: "var(--card)", display: "flex", alignItems: "center", gap: 10, fontSize: 15, flexWrap: "wrap" }}>
+            <div style={{ marginBottom: 12, border: "1px solid var(--border)", borderRadius: 12, padding: "14px 16px", background: "var(--card)", boxShadow: "var(--shadow)", display: "flex", alignItems: "center", gap: 10, fontSize: 15, flexWrap: "wrap" }}>
               <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>Lease Term</span>
               <span style={{ fontWeight: 700 }}>{terms.leaseFrom ?? "—"}</span>
               <span className="muted">→</span>
               <span style={{ fontWeight: 700 }}>{terms.leaseTo ?? "—"}</span>
             </div>
           )}
+          {nearing && (
+            <div style={{ marginBottom: 12, borderRadius: 12, padding: "12px 16px", background: "rgba(180,83,9,0.08)", border: "1px solid rgba(180,83,9,0.35)", color: "#b45309", fontSize: 14, fontWeight: 600, display: "flex", alignItems: "center", gap: 10 }}>
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+              <span>{expMsg} Please reach out to Korman Commercial Properties to discuss renewal.</span>
+            </div>
+          )}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12 }}>
+            <Stat label="Sq Ft" value={terms.sqft.toLocaleString("en-US")} />
+            <Stat label="Annual $/sf" value={money2(terms.annualRentPerSqft)} />
+            <Stat label="Base Rent / mo" value={money(terms.baseRent)} />
+            <Stat label="Gross Rent / mo" value={money(terms.grossRent)} />
+            <Stat label="Annual Rent" value={money(terms.annualRent)} />
+          </div>
           <p className="muted" style={{ fontSize: 12, marginTop: 14 }}>
             Figures reflect your current rent-roll record. Gross rent includes base rent plus estimated CAM, real estate tax, and other monthly charges. Questions? Contact Korman Commercial Properties.
           </p>
@@ -279,7 +291,13 @@ function StatementsTab({ token, data, years }: { token: string; data: Statement;
   const prior = (years ?? []).filter((y) => y !== data.year).sort((a, b) => b - a);
   return (
     <>
-      <PageHeader title="Statements" sub="Your year-end CAM / RET reconciliations." right={<YearPill year={data.year} />} />
+      <PageHeader title="Statements" sub="Your reconciliations and account statements." right={<YearPill year={data.year} />} />
+      {/* Statement-type sub-nav. CAM / RET today; monthly rent statements to come
+          (this is where they'll slot in as a sibling subpage). */}
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 20 }}>
+        <span style={{ fontSize: 13, fontWeight: 700, padding: "7px 14px", borderRadius: 999, background: BRAND, color: "#fff" }}>CAM / RET</span>
+        <span style={{ fontSize: 13, fontWeight: 600, padding: "7px 14px", borderRadius: 999, background: "rgba(15,23,42,0.04)", color: "var(--muted)", border: "1px solid var(--border)" }}>Monthly Rent · Coming soon</span>
+      </div>
       <TenantStatementView token={token} data={data} header={false} />
       {prior.length > 0 && (
         <section style={{ marginTop: 32 }}>

@@ -71,10 +71,16 @@ export async function GET(req: NextRequest, { params }: { params: { token: strin
     };
     // Office lines show the current-year expense per line (the tenant recovers a
     // share of the increase over the base year).
-    lines = t.opexLines.map((l) => ({ account: l.glAccount, label: l.label, amount: l.actual, backup: backupFor(l.glAccount) }));
-    ret = { label: t.retLine.label, amount: t.retLine.actual, backup: backupFor(t.retLine.glAccount, "6410", "6410-8502") };
+    // Strip the internal "-95" gross-up marker so the account displays cleanly
+    // AND the backup lookup matches attachments keyed to the base account (e.g.
+    // Cleaning 6250-8502-95 → 6250-8502, which is where its invoices live).
+    lines = t.opexLines.map((l) => { const acct = l.glAccount.replace(/-95$/, ""); return { account: acct, label: l.label, amount: l.actual, backup: backupFor(acct) }; });
+    ret = { label: t.retLine.label, amount: t.retLine.actual, backup: backupFor(t.retLine.glAccount.replace(/-95$/, ""), "6410", "6410-8502") };
     if (t.snowBaseExcluded) notes.push("Snow Removal is excluded from your base year — you recover a full pro-rata share of the year's snow expense.");
-    if (t.baseYearResetISO) notes.push("Your base year was reset during this period; recovery is prorated through the reset date.");
+    if (t.baseYearResetISO) {
+      const rd = new Date(t.baseYearResetISO + "T00:00:00").toLocaleDateString("en-US", { month: "2-digit", day: "2-digit", year: "2-digit" });
+      notes.push(`Your base year was reset during this period on ${rd}; recovery is prorated through the reset date.`);
+    }
     if (t.aggregateBaseYear) notes.push("Your base-year stop is applied to the expense total (not line-by-line): the net increase is total actual minus total base year.");
   }
 
