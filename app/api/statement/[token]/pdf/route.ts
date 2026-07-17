@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { jsPDF } from "jspdf";
-import { verifyTenantToken, linkSecret } from "@/lib/cam/tenantLink/token";
-import { getTenantLink } from "@/lib/cam/tenantLink/store";
+import { checkTenantAccess } from "@/lib/cam/tenantLink/access";
 import { loadRetailRecon } from "@/lib/cam/retail/loadResult";
 import { loadOfficeRecon } from "@/lib/cam/office/loadResult";
 import { drawTenantStatement } from "@/lib/cam/office/statementPdf";
@@ -18,12 +17,9 @@ const safe = (s: string) => s.replace(/[^\w]+/g, "_");
  *  link. Same drawing routine as the internal per-tenant PDF, minus the internal
  *  "Statement to:" recipient line. */
 export async function GET(req: NextRequest, { params }: { params: { token: string } }): Promise<Response> {
-  const secret = linkSecret();
-  if (!secret) return NextResponse.json({ error: "Sharing is not configured." }, { status: 503 });
-  const payload = await verifyTenantToken(params.token, secret);
-  if (!payload) return NextResponse.json({ error: "This link is invalid or has expired." }, { status: 401 });
-  const link = await getTenantLink(payload.id);
-  if (!link || link.revoked) return NextResponse.json({ error: "This link has been revoked." }, { status: 401 });
+  const access = await checkTenantAccess(params.token, req);
+  if (!access.ok) return NextResponse.json({ error: access.error, ...(access.pinRequired ? { pinRequired: true } : {}) }, { status: access.status });
+  const { payload } = access;
 
   const propLabel = `${payload.p} — ${propName(payload.p)}`;
   const doc = new jsPDF({ unit: "pt", format: "letter" });

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyTenantToken, linkSecret } from "@/lib/cam/tenantLink/token";
-import { getTenantLink } from "@/lib/cam/tenantLink/store";
+import { checkTenantAccess } from "@/lib/cam/tenantLink/access";
 import { camAttachments } from "@/lib/cam/attachments/store";
 import { readAttachmentBytes } from "@/lib/cam/attachments/files";
 
@@ -11,12 +10,9 @@ export const dynamic = "force-dynamic";
  *  flagged shareable (includeInPackage), scoped to the link's property/year, are
  *  ever served; anything else 404s. */
 export async function GET(req: NextRequest, { params }: { params: { token: string } }) {
-  const secret = linkSecret();
-  if (!secret) return NextResponse.json({ error: "Sharing is not configured." }, { status: 503 });
-  const payload = await verifyTenantToken(params.token, secret);
-  if (!payload) return NextResponse.json({ error: "Invalid or expired link." }, { status: 401 });
-  const link = await getTenantLink(payload.id);
-  if (!link || link.revoked) return NextResponse.json({ error: "This link has been revoked." }, { status: 401 });
+  const access = await checkTenantAccess(params.token, req);
+  if (!access.ok) return NextResponse.json({ error: access.error, ...(access.pinRequired ? { pinRequired: true } : {}) }, { status: access.status });
+  const { payload } = access;
 
   const id = req.nextUrl.searchParams.get("id") ?? "";
   if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });

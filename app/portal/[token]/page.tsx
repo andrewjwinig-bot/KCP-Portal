@@ -49,6 +49,72 @@ function usePortal(token: string): { portal: PortalData | null; error: string | 
 export default function TenantPortalPage() {
   const params = useParams<{ token: string }>();
   const token = Array.isArray(params?.token) ? params.token[0] : params?.token ?? "";
+  return <PortalGate token={token} />;
+}
+
+function PortalLoading() {
+  return (
+    <div style={{ maxWidth: 940, margin: "0 auto", padding: "28px clamp(16px, 4vw, 44px) 60px" }}>
+      <LoadingState status="Loading your account…" context="Securely retrieving your space, lease, and statements…" rows={4} columns={2} />
+    </div>
+  );
+}
+
+// Access gate: when the link carries a PIN, hold the portal behind a PIN entry
+// screen until it's satisfied (a signed cookie then unlocks the data endpoints).
+// No PIN → passes straight through to the portal.
+type GateState = { pinRequired: boolean; satisfied: boolean };
+function PortalGate({ token }: { token: string }) {
+  const [gate, setGate] = useState<GateState | null>(null);
+  const [gateErr, setGateErr] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    fetch(`/api/portal/${token}/verify-pin`)
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("bad"))))
+      .then((j) => { if (alive) setGate({ pinRequired: !!j.pinRequired, satisfied: !!j.satisfied }); })
+      .catch(() => { if (alive) setGateErr("This link is invalid or has expired."); });
+    return () => { alive = false; };
+  }, [token]);
+  if (gateErr) return <Centered><div style={{ fontWeight: 700, fontSize: 18, color: BRAND }}>Tenant Portal</div><p className="muted" style={{ marginTop: 8 }}>{gateErr}</p></Centered>;
+  if (!gate) return <PortalLoading />;
+  if (gate.pinRequired && !gate.satisfied) return <PinGate token={token} onUnlocked={() => setGate({ pinRequired: true, satisfied: true })} />;
+  return <PortalContent token={token} />;
+}
+
+function PinGate({ token, onUnlocked }: { token: string; onUnlocked: () => void }) {
+  const [pin, setPin] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (busy || !pin.trim()) return;
+    setBusy(true); setErr(null);
+    try {
+      const res = await fetch(`/api/portal/${token}/verify-pin`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pin: pin.trim() }) });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(j.error ?? "That PIN doesn't match.");
+      onUnlocked();
+    } catch (e) { setErr(e instanceof Error ? e.message : "That PIN doesn't match."); setPin(""); } finally { setBusy(false); }
+  }
+  return (
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, background: "var(--bg, #f7f9fc)" }}>
+      <form onSubmit={submit} style={{ width: "100%", maxWidth: 380, background: "var(--card)", border: "1px solid var(--border)", borderRadius: 16, boxShadow: "var(--shadow)", padding: "34px 28px", textAlign: "center" }}>
+        <div style={{ width: 52, height: 52, margin: "0 auto 14px", borderRadius: "50%", background: "rgba(11,74,125,0.09)", color: BRAND, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
+        </div>
+        <div style={{ fontFamily: "'Arial Black', Arial, sans-serif", fontWeight: 900, fontSize: 19, color: BRAND, letterSpacing: "-0.5px" }}>KORMAN</div>
+        <h1 style={{ fontSize: 22, lineHeight: 1.15, margin: "12px 0 6px" }}>Enter your access PIN</h1>
+        <p className="muted" style={{ fontSize: 14, marginBottom: 18 }}>This statement is protected. Enter the PIN Korman shared with you to continue.</p>
+        <input value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 8))} inputMode="numeric" autoFocus placeholder="••••••"
+          style={{ width: "100%", boxSizing: "border-box", textAlign: "center", fontSize: 26, letterSpacing: "0.4em", fontWeight: 800, padding: "12px 10px", border: "1px solid var(--border)", borderRadius: 10, background: "var(--bg, #fff)", color: "var(--text)", outline: "none", fontFamily: "inherit" }} />
+        {err && <div style={{ color: "#b91c1c", fontSize: 13, fontWeight: 600, marginTop: 12 }}>{err}</div>}
+        <button type="submit" disabled={busy || !pin.trim()} style={{ marginTop: 18, width: "100%", background: BRAND, color: "#fff", border: "none", borderRadius: 10, padding: "13px", fontSize: 15, fontWeight: 700, cursor: busy || !pin.trim() ? "default" : "pointer", opacity: busy || !pin.trim() ? 0.6 : 1, fontFamily: "inherit" }}>{busy ? "Checking…" : "View my statement"}</button>
+      </form>
+    </div>
+  );
+}
+
+function PortalContent({ token }: { token: string }) {
   const { data, error } = useStatement(token);
   const { portal } = usePortal(token);
   const [tab, setTab] = useState<TabId>("lease");
@@ -65,11 +131,7 @@ export default function TenantPortalPage() {
   }, []);
 
   if (error) return <Centered><div style={{ fontWeight: 700, fontSize: 18, color: BRAND }}>Tenant Portal</div><p className="muted" style={{ marginTop: 8 }}>{error}</p></Centered>;
-  if (!data) return (
-    <div style={{ maxWidth: 940, margin: "0 auto", padding: "28px clamp(16px, 4vw, 44px) 60px" }}>
-      <LoadingState status="Loading your account…" context="Securely retrieving your space, lease, and statements…" rows={4} columns={2} />
-    </div>
-  );
+  if (!data) return <PortalLoading />;
   const t = data.tenant;
 
   const Nav = () => (

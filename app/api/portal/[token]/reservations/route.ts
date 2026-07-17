@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyTenantToken, linkSecret } from "@/lib/cam/tenantLink/token";
-import { getTenantLink } from "@/lib/cam/tenantLink/store";
+import { checkTenantAccess } from "@/lib/cam/tenantLink/access";
 import { listReservations } from "@/lib/reservations/storage";
 import { findRentRollUnit } from "@/lib/rentroll/current";
 import { reservationMatchesTenant } from "@/lib/portal/scope";
@@ -10,15 +9,11 @@ import { reservationMatchesTenant } from "@/lib/portal/scope";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET(_req: NextRequest, { params }: { params: { token: string } }) {
-  const secret = linkSecret();
-  if (!secret) return NextResponse.json({ error: "Sharing is not configured." }, { status: 503 });
-  const payload = await verifyTenantToken(params.token, secret);
-  if (!payload) return NextResponse.json({ error: "This link is invalid or has expired." }, { status: 401 });
-  const link = await getTenantLink(payload.id);
-  if (!link || link.revoked) return NextResponse.json({ error: "This link has been revoked." }, { status: 401 });
+export async function GET(req: NextRequest, { params }: { params: { token: string } }) {
+  const access = await checkTenantAccess(params.token, req);
+  if (!access.ok) return NextResponse.json({ error: access.error, ...(access.pinRequired ? { pinRequired: true } : {}) }, { status: access.status });
 
-  const unit = await findRentRollUnit(payload.u);
+  const unit = await findRentRollUnit(access.payload.u);
   const company = unit?.occupantName ?? "";
   const all = await listReservations();
   const mine = all.filter((v) => reservationMatchesTenant(v, { company }));
