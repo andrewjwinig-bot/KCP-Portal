@@ -3,13 +3,12 @@ import { verifyTenantToken, linkSecret } from "@/lib/cam/tenantLink/token";
 import { getTenantLink } from "@/lib/cam/tenantLink/store";
 import { listRequests } from "@/lib/maintenance/requestsStorage";
 import { findRentRollUnit } from "@/lib/rentroll/current";
+import { serviceRequestMatchesTenant } from "@/lib/portal/scope";
 
 // Public — this tenant's OWN service requests, behind the signed portal link.
 // (Submission still goes to the public /api/maintenance/submit; this is history.)
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const norm = (s: string) => s.trim().toLowerCase();
 
 export async function GET(_req: NextRequest, { params }: { params: { token: string } }) {
   const secret = linkSecret();
@@ -20,13 +19,9 @@ export async function GET(_req: NextRequest, { params }: { params: { token: stri
   if (!link || link.revoked) return NextResponse.json({ error: "This link has been revoked." }, { status: 401 });
 
   const unit = await findRentRollUnit(payload.u);
-  const company = norm(unit?.occupantName ?? "");
+  const scope = { company: unit?.occupantName ?? "", propertyCode: payload.p, unitRef: payload.u };
   const all = await listRequests();
-  const mine = all.filter((r) => {
-    const byCompany = !!company && norm(r.tenantCompany) === company;
-    const bySuite = r.propertyCode === payload.p && r.tenantSuite.split(/[,\s]+/).filter(Boolean).includes(payload.u);
-    return byCompany || bySuite;
-  });
+  const mine = all.filter((r) => serviceRequestMatchesTenant(r, scope));
   const requests = mine.map((r) => ({
     id: r.id,
     subject: r.subject,
