@@ -52,6 +52,17 @@ export default function TenantPortalPage() {
   const { data, error } = useStatement(token);
   const { portal } = usePortal(token);
   const [tab, setTab] = useState<TabId>("lease");
+  // Mobile: the sidebar folds into a top bar + slide-in drawer under 760px.
+  const [isNarrow, setIsNarrow] = useState(false);
+  const [navOpen, setNavOpen] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia("(max-width: 760px)");
+    const apply = () => { setIsNarrow(mq.matches); if (!mq.matches) setNavOpen(false); };
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, []);
 
   if (error) return <Centered><div style={{ fontWeight: 700, fontSize: 18, color: BRAND }}>Tenant Portal</div><p className="muted" style={{ marginTop: 8 }}>{error}</p></Centered>;
   if (!data) return (
@@ -66,7 +77,7 @@ export default function TenantPortalPage() {
       {TABS.map((x) => {
         const active = tab === x.id;
         return (
-          <button key={x.id} onClick={() => setTab(x.id)}
+          <button key={x.id} onClick={() => { setTab(x.id); setNavOpen(false); }}
             style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 8, border: "none", cursor: "pointer", textAlign: "left", fontFamily: "inherit", fontSize: 14,
               fontWeight: active ? 700 : 500, color: active ? "#fff" : "#e0f0ff", background: active ? "rgba(255,255,255,0.18)" : "transparent" }}>
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>{x.icon}</svg>
@@ -78,9 +89,35 @@ export default function TenantPortalPage() {
     </nav>
   );
 
+  const asideStyle: React.CSSProperties = isNarrow
+    ? { width: 264, maxWidth: "84vw", background: BRAND, color: "#fff", padding: 18, display: "flex", flexDirection: "column", gap: 18,
+        position: "fixed", top: 0, bottom: 0, left: 0, zIndex: 60, overflowY: "auto",
+        transform: navOpen ? "translateX(0)" : "translateX(-100%)", transition: "transform 0.22s ease",
+        boxShadow: navOpen ? "0 0 40px rgba(2,6,23,0.4)" : "none" }
+    : { width: 244, flexShrink: 0, background: BRAND, color: "#fff", padding: 18, display: "flex", flexDirection: "column", gap: 18, minHeight: "100vh" };
+
   return (
-    <div style={{ display: "flex", minHeight: "100vh", background: "var(--bg, #f7f9fc)" }}>
-      <aside style={{ width: 244, flexShrink: 0, background: BRAND, color: "#fff", padding: 18, display: "flex", flexDirection: "column", gap: 18 }} className="portal-aside">
+    <div style={{ display: isNarrow ? "block" : "flex", minHeight: "100vh", background: "var(--bg, #f7f9fc)" }}>
+      {/* Mobile top bar with the tenant name + menu toggle */}
+      {isNarrow && (
+        <header style={{ position: "sticky", top: 0, zIndex: 40, background: BRAND, color: "#fff", display: "flex", alignItems: "center", gap: 12, padding: "10px 14px" }}>
+          <button type="button" aria-label="Open menu" onClick={() => setNavOpen(true)}
+            style={{ flexShrink: 0, width: 38, height: 38, borderRadius: 9, border: "1px solid rgba(255,255,255,0.25)", background: "rgba(255,255,255,0.12)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" /></svg>
+          </button>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 15, fontWeight: 800, lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.name}</div>
+            <div style={{ fontSize: 11.5, color: "#bfdbfe", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{data.propertyName} · Suite {t.suite}</div>
+          </div>
+        </header>
+      )}
+
+      {/* Drawer scrim */}
+      {isNarrow && navOpen && (
+        <div onClick={() => setNavOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 55, background: "rgba(15,23,42,0.45)" }} />
+      )}
+
+      <aside style={asideStyle} className="portal-aside">
         <div>
           <div style={{ fontSize: 19, fontWeight: 800, lineHeight: 1.2, letterSpacing: "-0.01em" }}>{t.name}</div>
           <div style={{ fontSize: 12.5, color: "#bfdbfe", marginTop: 4 }}>{data.propertyName} · Suite {t.suite}</div>
@@ -98,7 +135,7 @@ export default function TenantPortalPage() {
         </div>
       </aside>
 
-      <main style={{ flex: 1, minWidth: 0, padding: "34px clamp(18px, 4vw, 48px) 72px", maxWidth: 960 }}>
+      <main style={{ flex: 1, minWidth: 0, padding: isNarrow ? "22px clamp(14px, 5vw, 24px) 60px" : "34px clamp(18px, 4vw, 48px) 72px", maxWidth: isNarrow ? "none" : 960, width: "100%" }}>
         {tab === "lease" ? (
           <LeaseTab terms={portal?.leaseTerms ?? null} building={portal?.building ?? null} loading={!portal} suite={t.suite} company={t.name} />
         ) : tab === "statements" ? (

@@ -114,6 +114,9 @@ export function TenantStatementView({ token, data, header = true }: { token: str
   const acctPad = "8px 8px 8px 14px"; // less right pad so the GL code clears the label
   const Schedule = ({ title, rows, totalLabel }: { title: string; rows: SchedRow[]; totalLabel?: string }) => (
     <div style={{ border: "1px solid var(--border)", borderRadius: 14, overflow: "hidden", boxShadow: "var(--shadow)" }}>
+     {/* Horizontal scroll on phones so the fixed columns keep their shape */}
+     <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+      <div style={{ minWidth: 440 }}>
       {/* Section bar: title + column heads, like the PDF's tinted band */}
       <div style={{ display: "grid", gridTemplateColumns: GRID, alignItems: "baseline", gap: 0, background: "rgba(11,74,125,0.09)", borderBottom: "1px solid var(--border)", padding: "9px 14px" }}>
         <div style={{ gridColumn: "1 / 3", fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: BRAND }}>{title}</div>
@@ -135,6 +138,8 @@ export function TenantStatementView({ token, data, header = true }: { token: str
           <div />
         </div>
       )}
+      </div>
+     </div>
     </div>
   );
 
