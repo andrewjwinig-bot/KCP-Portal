@@ -95,7 +95,7 @@ const COLUMNS: ColDef[] = [
 // Collapsible property card — mirrors the Rent Roll's PropertyCard chrome
 // (code + name header, summary line, chevron, click-to-expand) so Unit Info
 // reads like the rest of the app instead of a flat outlier sheet.
-export function UnitPropertyCard({ group, visibleCols, specs, renderCell, defaultOpen }: {
+function UnitPropertyCard({ group, visibleCols, specs, renderCell, defaultOpen }: {
   group: { code: string; name: string; units: RentRollUnit[] };
   visibleCols: ColDef[];
   specs: Record<string, SuiteSummary>;
