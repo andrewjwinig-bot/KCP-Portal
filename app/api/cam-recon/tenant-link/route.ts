@@ -35,7 +35,13 @@ export async function GET(req: NextRequest) {
   const year = Number(req.nextUrl.searchParams.get("year"));
   const secret = linkSecret();
   if (!unitRef || !year) return NextResponse.json({ error: "unitRef and year are required" }, { status: 400 });
-  const links = (await linksForUnit(unitRef, year)).filter((l) => !l.revoked);
+  // One tenant → one link. If duplicates exist (legacy), keep the newest active
+  // one and revoke the rest so the popover only ever shows a single link.
+  const active = (await linksForUnit(unitRef, year))
+    .filter((l) => !l.revoked)
+    .sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? ""));
+  for (const extra of active.slice(1)) await revokeTenantLink(extra.id);
+  const links = active.slice(0, 1);
   const withUrls = secret
     ? await Promise.all(links.map(async (l) => ({
         ...l,
@@ -64,6 +70,12 @@ export async function POST(req: NextRequest) {
     const kind: TenantLinkKind = body?.kind === "office" ? "office" : "retail";
     const tenantName = String(body?.tenantName ?? "");
     if (!property || !unitRef || !year) return NextResponse.json({ error: "property, unitRef, year are required" }, { status: 400 });
+
+    // One link per tenant: retire any existing active link for this unit/year
+    // so the new one replaces it rather than piling up.
+    for (const existing of (await linksForUnit(unitRef, year)).filter((l) => !l.revoked)) {
+      await revokeTenantLink(existing.id);
+    }
 
     const days = Number(body?.expiresInDays);
     const expiresAt = Number.isFinite(days) && days > 0 ? new Date(Date.now() + days * 864e5).toISOString() : null;
