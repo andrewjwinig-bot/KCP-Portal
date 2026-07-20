@@ -83,6 +83,45 @@ function propName(code: string): string {
   return def?.name ?? code;
 }
 
+// One column of the post-import "Changes vs last roll" panel: a titled, counted
+// list of every new-or-vacated tenant (unit + property + sqft) with follow-up
+// action links (log commissions / deposits, return deposits, close out).
+type ChangeRowT = { propertyCode: string; unitRef: string; occupantName: string; sqft: number; leaseTo: string | null };
+function ChangeColumn({ title, tone, rows, actions, leftBorder }: {
+  title: string; tone: string; rows: ChangeRowT[]; actions: { label: string; href: string }[]; leftBorder?: boolean;
+}) {
+  return (
+    <div style={{ padding: "12px 16px", ...(leftBorder ? { borderLeft: "1px solid rgba(11,74,125,0.16)" } : {}) }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+        <span style={{ fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em", color: tone }}>{title}</span>
+        <span style={{ fontSize: 11, fontWeight: 800, color: "#fff", background: tone, borderRadius: 999, padding: "1px 8px", minWidth: 20, textAlign: "center" }}>{rows.length}</span>
+      </div>
+      {rows.length === 0 ? (
+        <div className="muted" style={{ fontSize: 12.5 }}>None this period.</div>
+      ) : (
+        <>
+          <div style={{ maxHeight: 172, overflowY: "auto", marginBottom: 10, marginRight: -6, paddingRight: 6 }}>
+            {rows.map((r, i) => (
+              <div key={r.unitRef + i} style={{ display: "flex", justifyContent: "space-between", gap: 10, padding: "5px 0", borderTop: i ? "1px solid rgba(15,23,42,0.06)" : "none" }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.occupantName || "—"}</div>
+                  <div className="muted" style={{ fontSize: 11.5, marginTop: 1 }}><code style={{ fontSize: 11 }}>{r.unitRef}</code> · {propName(r.propertyCode)}</div>
+                </div>
+                {r.sqft ? <div className="muted" style={{ fontSize: 12, whiteSpace: "nowrap", flexShrink: 0 }}>{sqftFmt(r.sqft)} sf</div> : null}
+              </div>
+            ))}
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 16 }}>
+            {actions.map((a) => (
+              <Link key={a.href + a.label} href={a.href} style={{ fontWeight: 700, fontSize: 12.5, color: "#0b4a7d", textDecoration: "none" }}>{a.label} →</Link>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const r = new FileReader();
@@ -1306,6 +1345,7 @@ export default function RentRollPage() {
   // import, especially for the person who did the import).
   const justImportedRef = useRef<{ month: string; data: RentRollData } | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [dragging, setDragging] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadNote, setUploadNote] = useState<string | null>(null);
   type ChangeRow = { propertyCode: string; unitRef: string; occupantName: string; sqft: number; leaseTo: string | null };
@@ -1471,6 +1511,24 @@ export default function RentRollPage() {
     const file = e.target.files?.[0];
     if (!file) return;
     e.target.value = "";
+    await importFile(file);
+  }
+
+  // Drag-and-drop onto the import card — accepts the same .xls/.xlsx rent roll.
+  function onDropFile(e: React.DragEvent) {
+    e.preventDefault();
+    setDragging(false);
+    if (uploading) return;
+    const file = e.dataTransfer.files?.[0];
+    if (!file) return;
+    if (!/\.(xlsx|xls)$/i.test(file.name)) {
+      setUploadError("Please drop the Commercial Rent Roll as a .xls or .xlsx file.");
+      return;
+    }
+    void importFile(file);
+  }
+
+  async function importFile(file: File) {
     setUploading(true);
     setUploadError(null);
     setUploadNote(null);
@@ -1597,7 +1655,26 @@ export default function RentRollPage() {
       </div>
 
       {/* ── Import card ───────────────────────────────────────────────────── */}
-      <div className="card" style={{ marginBottom: 24 }}>
+      <div
+        className="card"
+        onDragOver={(e) => { e.preventDefault(); if (!uploading) setDragging(true); }}
+        onDragEnter={(e) => { e.preventDefault(); if (!uploading) setDragging(true); }}
+        onDragLeave={(e) => { e.preventDefault(); if (e.currentTarget === e.target) setDragging(false); }}
+        onDrop={onDropFile}
+        style={{
+          marginBottom: 24, position: "relative",
+          transition: "border-color 0.15s, background 0.15s",
+          ...(dragging ? { borderColor: "#0b4a7d", background: "rgba(11,74,125,0.05)" } : {}),
+        }}
+      >
+        {dragging && (
+          <div style={{ position: "absolute", inset: 0, zIndex: 5, borderRadius: 16, border: "2px dashed #0b4a7d", background: "rgba(11,74,125,0.06)", display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, fontWeight: 700, color: "#0b4a7d" }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
+              Drop the rent roll to import
+            </div>
+          </div>
+        )}
         <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <input
@@ -1666,7 +1743,7 @@ export default function RentRollPage() {
           </div>
         </div>
         <p className="muted small" style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 6 }}>
-          <span>Import the <b>Commercial Rent Roll</b> Excel file (.xls or .xlsx).</span>
+          <span>Import the <b>Commercial Rent Roll</b> Excel file (.xls or .xlsx) — click Import or drag the file onto this card.</span>
           <ImportInstructionsButton nextMonth={(() => {
             // Next month to import = the month after the latest snapshot (or the
             // current calendar month when nothing has been imported yet).
@@ -1682,29 +1759,22 @@ export default function RentRollPage() {
         <LastImported at={rentroll?.uploadedAt} by={rentroll?.uploadedBy} />
         {uploadError && <div style={{ color: "#b42318", fontSize: 13, marginTop: 6 }}>{uploadError}</div>}
         {uploadNote && <div style={{ color: "#0b4a7d", fontSize: 13, marginTop: 6 }}>{uploadNote}</div>}
-        {uploadChanges && (
-          <div style={{ marginTop: 10, padding: "10px 14px", borderRadius: 10, border: "1px solid rgba(11,74,125,0.28)", background: "rgba(11,74,125,0.05)", display: "flex", flexWrap: "wrap", gap: 14, alignItems: "center" }}>
-            <span style={{ fontWeight: 700, color: "#0b4a7d" }}>Changes vs last roll:</span>
-            {uploadChanges.newTenants.length > 0 && (
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 13 }}>
-                <b>{uploadChanges.newTenants.length}</b> new tenant{uploadChanges.newTenants.length === 1 ? "" : "s"}
-                <span className="muted" style={{ maxWidth: 340, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  ({uploadChanges.newTenants.slice(0, 3).map((t) => t.occupantName).join(", ")}{uploadChanges.newTenants.length > 3 ? "…" : ""})
-                </span>
-                <Link href="/commissions" style={{ fontWeight: 700, color: "#0b4a7d", textDecoration: "none" }}>Log commissions →</Link>
-              </span>
-            )}
-            {uploadChanges.vacated.length > 0 && (
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 13 }}>
-                <b>{uploadChanges.vacated.length}</b> vacated
-                <span className="muted" style={{ maxWidth: 340, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  ({uploadChanges.vacated.slice(0, 3).map((t) => t.occupantName).join(", ")}{uploadChanges.vacated.length > 3 ? "…" : ""})
-                </span>
-                <Link href="/deposits" style={{ fontWeight: 700, color: "#0b4a7d", textDecoration: "none" }}>Return deposits →</Link>
-                <Link href="/cam-recon/interim" style={{ fontWeight: 700, color: "#0b4a7d", textDecoration: "none" }}>Close out →</Link>
-              </span>
-            )}
-            <button onClick={() => setUploadChanges(null)} aria-label="Dismiss" style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "#0b4a7d", fontSize: 16, fontWeight: 700 }}>×</button>
+        {uploadChanges && (uploadChanges.newTenants.length > 0 || uploadChanges.vacated.length > 0) && (
+          <div style={{ marginTop: 12, border: "1px solid rgba(11,74,125,0.28)", borderRadius: 12, background: "var(--card)", overflow: "hidden" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 14px", borderBottom: "1px solid rgba(11,74,125,0.18)", background: "rgba(11,74,125,0.05)" }}>
+              <span style={{ fontWeight: 800, color: "#0b4a7d", fontSize: 13, letterSpacing: "0.02em" }}>Changes vs last roll</span>
+              <button onClick={() => setUploadChanges(null)} aria-label="Dismiss" style={{ background: "none", border: "none", cursor: "pointer", color: "#0b4a7d", fontSize: 18, fontWeight: 700, lineHeight: 1, padding: 0 }}>×</button>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))" }}>
+              <ChangeColumn
+                title="New tenants" tone="#15803d" rows={uploadChanges.newTenants}
+                actions={[{ label: "Log commissions", href: "/commissions" }, { label: "Log security deposits", href: "/deposits" }]}
+              />
+              <ChangeColumn
+                title="Vacated" tone="#b45309" rows={uploadChanges.vacated} leftBorder
+                actions={[{ label: "Return deposits", href: "/deposits" }, { label: "Close out", href: "/cam-recon/interim" }]}
+              />
+            </div>
           </div>
         )}
         {(loading || monthLoading) && <div style={{ color: "var(--muted)", fontSize: 13, marginTop: 10 }}>Loading…</div>}
