@@ -21,7 +21,6 @@ const TABS: { id: TabId; label: string; icon: React.ReactNode; ready?: boolean }
   { id: "floorplan", label: "Floorplan", ready: true, icon: <><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 9h18M9 21V9" /></> },
   { id: "service", label: "Service Requests", ready: true, icon: <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" /> },
   { id: "reservations", label: "Reservations", ready: true, icon: <><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></> },
-  { id: "balances", label: "Open Balances", icon: <><line x1="12" y1="1" x2="12" y2="23" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></> },
 ];
 
 type LeaseTerms = {
@@ -381,12 +380,6 @@ function StatementsTab({ token, data, years }: { token: string; data: Statement;
   return (
     <>
       <PageHeader title="Statements" sub="Your reconciliations and account statements." right={<YearPill year={data.year} />} />
-      {/* Statement-type sub-nav. CAM / RET today; monthly rent statements to come
-          (this is where they'll slot in as a sibling subpage). */}
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 20 }}>
-        <span style={{ fontSize: 13, fontWeight: 700, padding: "7px 14px", borderRadius: 999, background: BRAND, color: "#fff" }}>CAM / RET</span>
-        <span style={{ fontSize: 13, fontWeight: 600, padding: "7px 14px", borderRadius: 999, background: "rgba(15,23,42,0.04)", color: "var(--muted)", border: "1px solid var(--border)" }}>Monthly Rent · Coming soon</span>
-      </div>
       <TenantStatementView token={token} data={data} header={false} />
       {prior.length > 0 && (
         <section style={{ marginTop: 32 }}>
