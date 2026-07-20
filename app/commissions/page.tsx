@@ -17,6 +17,7 @@ import {
   parseQuarterLabel,
   quarterShortCode,
   recentQuarterLabels,
+  renewalEndISO,
   suiteFromUnitRef,
   termYearsBetween,
   toDisplayDate,
@@ -152,22 +153,36 @@ export default function CommissionsPage() {
     const u = opt.unit;
     const suite = suiteFromUnitRef(u.unitRef);
     const building = buildingFromUnitRef(u.unitRef);
-    const leaseFrom = u.leaseFrom ?? "";
-    const leaseTo   = u.leaseTo   ?? "";
-    const term = termYearsBetween(leaseFrom, leaseTo);
-    const incentive = computeIncentive(term, u.sqft ?? 0);
+    // A renewal starts when the current lease expires — seed Lease From with the
+    // tenant's current expiration, then let Nancy pick a renewal term (below) to
+    // auto-set Lease To. Either date can still be overridden if it's not a
+    // straight renewal.
+    const renewalStart = u.leaseTo ?? u.leaseFrom ?? "";
     setForm((prev) => ({
       ...prev,
       tenant: u.occupantName,
       building,
       suite,
       sqft: String(u.sqft ?? ""),
-      leaseFrom,
-      leaseTo,
-      termYears: term ? String(term) : "",
-      incentiveAmount: incentive != null ? incentive.toFixed(2) : "",
+      leaseFrom: renewalStart,
+      leaseTo: "",
+      termYears: "",
+      incentiveAmount: "",
       unitRef: u.unitRef,
     }));
+  }
+
+  /** Quick renewal picker — set Lease To to an N-year term from Lease From
+   *  (then term + incentive recompute from the dates). Falls back to just
+   *  recording the term when Lease From isn't set yet. */
+  function applyRenewalTerm(years: number) {
+    const to = renewalEndISO(toIsoDate(form.leaseFrom), years);
+    if (!to) {
+      const incentive = computeIncentive(years, Number(form.sqft) || 0);
+      setForm((prev) => ({ ...prev, termYears: String(years), incentiveAmount: incentive != null ? incentive.toFixed(2) : "" }));
+      return;
+    }
+    recomputeFromDates({ leaseTo: to });
   }
 
   /** Recompute term + incentive when dates or sqft change manually. */
@@ -483,9 +498,11 @@ export default function CommissionsPage() {
             />
           </div>
 
-          {/* Lease From — shared Calendar popover (card variant) */}
+          {/* Lease From — shared Calendar popover (card variant). For an existing
+              tenant this is pre-filled with their current lease expiration (the
+              renewal start); override if it's not a straight renewal. */}
           <div>
-            <label style={labelStyle}>Lease From</label>
+            <label style={labelStyle}>Lease From{form.unitRef ? " (renewal start)" : ""}</label>
             <Calendar
               value={toIsoDate(form.leaseFrom)}
               onChange={(iso) => recomputeFromDates({ leaseFrom: iso })}
@@ -494,7 +511,29 @@ export default function CommissionsPage() {
             />
           </div>
 
-          {/* Lease To — shared Calendar popover (card variant) */}
+          {/* Renewal term — pick 1–5 yrs to auto-set Lease To from Lease From. */}
+          <div>
+            <label style={labelStyle}>Term (renewal)</label>
+            <select
+              value={[1, 2, 3, 4, 5].includes(Number(form.termYears)) ? String(Number(form.termYears)) : (form.termYears ? "custom" : "")}
+              onChange={(e) => { const v = e.target.value; if (v && v !== "custom") applyRenewalTerm(Number(v)); }}
+              style={inputStyle}
+            >
+              <option value="">Select term…</option>
+              <option value="1">1 year</option>
+              <option value="2">2 years</option>
+              <option value="3">3 years</option>
+              <option value="4">4 years</option>
+              <option value="5">5 years</option>
+              {form.termYears && ![1, 2, 3, 4, 5].includes(Number(form.termYears)) && (
+                <option value="custom">{form.termYears} yrs (from dates)</option>
+              )}
+            </select>
+            <div className="muted" style={{ fontSize: 11, marginTop: 4 }}>Sets Lease To from Lease From — override below if needed.</div>
+          </div>
+
+          {/* Lease To — shared Calendar popover (card variant); auto-set by the
+              renewal term, editable to override. */}
           <div>
             <label style={labelStyle}>Lease To</label>
             <Calendar
@@ -502,24 +541,6 @@ export default function CommissionsPage() {
               onChange={(iso) => recomputeFromDates({ leaseTo: iso })}
               variant="card"
               placeholder="Pick lease end"
-            />
-          </div>
-
-          {/* Term Years */}
-          <div>
-            <label style={labelStyle}>Term (years)</label>
-            <input
-              type="number" step="0.1" value={form.termYears}
-              onChange={(e) => {
-                const term = Number(e.target.value) || 0;
-                const incentive = computeIncentive(term, Number(form.sqft) || 0);
-                setForm((prev) => ({
-                  ...prev,
-                  termYears: e.target.value,
-                  incentiveAmount: incentive != null ? incentive.toFixed(2) : "",
-                }));
-              }}
-              style={inputStyle}
             />
           </div>
 

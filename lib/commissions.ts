@@ -68,6 +68,19 @@ export function termYearsBetween(from: string, to: string): number {
   return Math.round(((days + 1) / 365.25) * 10) / 10;
 }
 
+/** Lease end for an N-year term starting on `from` (ISO or loose date): the day
+ *  before the N-year anniversary — e.g. 6/1/2027 + 5yr → 5/31/2032. Returns ISO
+ *  yyyy-mm-dd, or "" when the start can't be parsed. */
+export function renewalEndISO(from: string, years: number): string {
+  const f = parseDateLoose(from);
+  if (!f || !years) return "";
+  const end = new Date(f.getFullYear() + years, f.getMonth(), f.getDate());
+  end.setDate(end.getDate() - 1);
+  const mo = String(end.getMonth() + 1).padStart(2, "0");
+  const dy = String(end.getDate()).padStart(2, "0");
+  return `${end.getFullYear()}-${mo}-${dy}`;
+}
+
 function parseDateLoose(s: string): Date | null {
   if (!s) return null;
   const t = s.trim();
