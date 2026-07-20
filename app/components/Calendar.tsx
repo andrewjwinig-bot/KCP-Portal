@@ -31,6 +31,8 @@ export type CalendarProps = {
   variant?: "underline" | "card";
 };
 
+const MONTHS_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
 const NAVY = "#0e2238";
 const LINE = "rgba(14,34,56,0.18)";
 const LINE_DARK = "rgba(14,34,56,0.55)";
@@ -48,6 +50,9 @@ export function Calendar({
   variant = "underline",
 }: CalendarProps) {
   const [open, setOpen] = useState(false);
+  // Clicking the "June 2027" header opens a month/year picker so you can jump
+  // whole years at once (leases run 1–5 yrs), instead of stepping one month.
+  const [pickMode, setPickMode] = useState(false);
   const min = useMemo(() => (minISO ? parseISO(minISO) : null), [minISO]);
   const max = useMemo(() => (maxISO ? parseISO(maxISO) : null), [maxISO]);
 
@@ -65,7 +70,7 @@ export function Calendar({
   useEffect(() => {
     if (!open) return;
     function onDoc(e: MouseEvent) {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) { setOpen(false); setPickMode(false); }
     }
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
@@ -86,6 +91,17 @@ export function Calendar({
     if (max && d > max) return;
     setViewMonth(d);
   }
+  function stepYear(delta: number) {
+    let y = viewMonth.getFullYear() + delta;
+    if (min && y < min.getFullYear()) y = min.getFullYear();
+    if (max && y > max.getFullYear()) y = max.getFullYear();
+    setViewMonth(new Date(y, viewMonth.getMonth(), 1));
+  }
+  const monthOutOfRange = (i: number) => {
+    const first = new Date(viewMonth.getFullYear(), i, 1);
+    const last = new Date(viewMonth.getFullYear(), i + 1, 0);
+    return (!!min && last < min) || (!!max && first > max);
+  };
 
   const displayValue = (() => {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return "";
@@ -114,10 +130,38 @@ export function Calendar({
       {open && (
         <div style={popoverStyle}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-            <button type="button" onClick={prevMonth} style={navBtnStyle} aria-label="Previous month">‹</button>
-            <div style={{ fontSize: 14, fontWeight: 600, color: NAVY }}>{monthLabel}</div>
-            <button type="button" onClick={nextMonth} style={navBtnStyle} aria-label="Next month">›</button>
+            <button type="button" onClick={() => (pickMode ? stepYear(-1) : prevMonth())} style={navBtnStyle} aria-label={pickMode ? "Previous year" : "Previous month"}>‹</button>
+            <button type="button" onClick={() => setPickMode((v) => !v)} title="Jump to month / year"
+              style={{ fontSize: 14, fontWeight: 700, color: NAVY, background: "transparent", border: "none", cursor: "pointer", fontFamily: "inherit", padding: "2px 8px", borderRadius: 4 }}>
+              {pickMode ? viewMonth.getFullYear() : monthLabel}
+            </button>
+            <button type="button" onClick={() => (pickMode ? stepYear(1) : nextMonth())} style={navBtnStyle} aria-label={pickMode ? "Next year" : "Next month"}>›</button>
           </div>
+          {pickMode ? (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6 }}>
+              {MONTHS_SHORT.map((m, i) => {
+                const disabled = monthOutOfRange(i);
+                const isCurrent = i === viewMonth.getMonth();
+                return (
+                  <button
+                    key={m}
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => { setViewMonth(new Date(viewMonth.getFullYear(), i, 1)); setPickMode(false); }}
+                    style={{
+                      fontFamily: "inherit", fontSize: 13, padding: "8px 0", borderRadius: 4,
+                      border: `1px solid ${isCurrent ? NAVY : LINE}`,
+                      background: isCurrent ? NAVY : "transparent",
+                      color: isCurrent ? "#fff" : disabled ? "rgba(14,34,56,0.25)" : TEXT,
+                      cursor: disabled ? "default" : "pointer",
+                    }}
+                  >
+                    {m}
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2 }}>
             {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
               <div
@@ -166,7 +210,8 @@ export function Calendar({
               );
             })}
           </div>
-          {(disableWeekends || min || max) && (
+          )}
+          {!pickMode && (disableWeekends || min || max) && (
             <div style={{ fontSize: 11, color: MUTED, marginTop: 10, lineHeight: 1.5 }}>
               {disableWeekends ? "Weekends are unavailable. " : ""}
               {min || max ? `Pick a date${min ? ` from ${fmtShort(min)}` : ""}${max ? ` through ${fmtShort(max)}` : ""}.` : ""}
