@@ -97,7 +97,7 @@ export function TenantShareLink({ property, unitRef, year, kind, tenantName }: {
         <div style={{ position: "absolute", right: 0, top: "calc(100% + 6px)", zIndex: 50, width: 420, maxWidth: "90vw", background: "var(--card)", border: "1px solid var(--border)", borderRadius: 12, boxShadow: "0 16px 40px rgba(15,23,42,0.22)", padding: 16 }}>
           <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: BRAND }}>Tenant statement link</div>
           <p className="muted small" style={{ marginTop: 4, marginBottom: 10 }}>
-            A private, revocable link to <b>{tenantName}</b>&rsquo;s {year} CAM statement. <b>Copy</b> to open it yourself; <b>Email to tenant</b> sends it to them. When a link has an <b>access PIN</b>, share the PIN with the tenant (ideally separately) — they enter it to open the portal.
+            A private, revocable link for <b>{tenantName}</b>. When a link has an <b>access PIN</b>, share the PIN with the tenant (ideally separately) — they enter it to open the portal.
           </p>
           {links.length === 0 ? (
             <div className="muted small" style={{ marginBottom: 10 }}>No active link yet.</div>
@@ -160,13 +160,17 @@ export function TenantShareLink({ property, unitRef, year, kind, tenantName }: {
               )}
             </div>
           ))}
-          <label style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12.5, marginBottom: 8, cursor: "pointer", color: "var(--text)" }}>
-            <input type="checkbox" checked={requirePin} onChange={(e) => setRequirePin(e.target.checked)} />
-            Protect this link with an access PIN
-          </label>
-          <button onClick={create} disabled={busy} className="btn primary" style={{ fontSize: 13, fontWeight: 700, width: "100%" }}>
-            {busy ? "Working…" : links.length ? "Create another link" : "Create link"}
-          </button>
+          {links.length === 0 && (
+            <>
+              <label style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12.5, marginBottom: 8, cursor: "pointer", color: "var(--text)" }}>
+                <input type="checkbox" checked={requirePin} onChange={(e) => setRequirePin(e.target.checked)} />
+                Protect this link with an access PIN
+              </label>
+              <button onClick={create} disabled={busy} className="btn primary" style={{ fontSize: 13, fontWeight: 700, width: "100%" }}>
+                {busy ? "Working…" : "Create link"}
+              </button>
+            </>
+          )}
           {error && <div className="small" style={{ color: "#b91c1c", fontWeight: 700, marginTop: 8 }}>{error}</div>}
         </div>
       )}
