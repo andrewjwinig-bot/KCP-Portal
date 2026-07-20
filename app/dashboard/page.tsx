@@ -15,6 +15,7 @@ import { fireNotification } from "../../lib/notifications";
 import ExpirationChart from "./ExpirationChart";
 import DrewSavedStatus from "./DrewSavedStatus";
 import DrewTasksThisWeek from "./DrewTasksThisWeek";
+import CommissionsReminder from "./CommissionsReminder";
 import DailyDigestModal from "./DailyDigestModal";
 import MaintenanceOverview from "./MaintenanceOverview";
 import PendingReservationsCard from "./PendingReservationsCard";
@@ -858,6 +859,10 @@ function DashboardInner() {
                 );
               })()}
 
+              {(user.id === "nancy" || user.id === "harry" || isAdmin || user.navKeys.has("all") || user.navKeys.has("commissions") || user.navKeys.has("commissions-retail")) && (
+                <CommissionsReminder />
+              )}
+
               {showBankRec && (() => {
                 const id = `bank-stmt-${bankStmt.period}`;
                 if (dismissedNotices.has(id)) return null;
@@ -1050,6 +1055,10 @@ function DashboardInner() {
           )}
         </div>
         )}
+
+        {/* Drew doesn't see the Action Items strip, so surface the commissions
+            cycle (upcoming → paid) here so it isn't forgotten. */}
+        {isDrew && <CommissionsReminder standalone />}
 
         {/* ── Drew's task tracker (Harry can view it too) + Drew's payroll & CC saved-status ── */}
         {(user.id === "drew" || user.id === "harry") && <DrewTasksThisWeek />}
