@@ -202,7 +202,7 @@ export function buildJournalEntryRows(opts: {
   return [
     ["BTCH", "", batchNumber, uniqueId, "", 1],
     ["INVH", description, dateStr, "", total, reference, "LIKM4", dateStr, dateStr],
-    ...dist.map((r) => ["DIST", r.building, "6620-8501", description, "", r.amount]),
+    ...dist.map((r) => ["DIST", r.building, "1940-8501", description, "", r.amount]),
   ];
 }
 
