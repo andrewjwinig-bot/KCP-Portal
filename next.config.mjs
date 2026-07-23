@@ -1,10 +1,23 @@
 /** @type {import('next').NextConfig} */
 
-// Baseline HTTP security headers applied to every response. Conservative set —
-// no Content-Security-Policy yet (the app uses inline styles heavily, so a
-// strict CSP needs dedicated tuning). Safe with the current app: it uses no
-// camera/mic/geolocation, and the only framing it does is same-origin (the
-// floorplan PDF preview loads /api/blob in an <iframe>).
+// Baseline HTTP security headers applied to every response.
+//
+// The Content-Security-Policy here is deliberately CONSERVATIVE: it only sets
+// the directives that are safe with this app as-is (which uses inline styles +
+// Next.js inline hydration scripts heavily). It does NOT set script-src /
+// style-src / img-src / connect-src, so those stay unrestricted and nothing
+// breaks — a fully script-locking, nonce-based CSP is a larger follow-up. What
+// it DOES close: plugin/object injection, <base> hijacking, cross-origin form
+// posts, and cross-origin framing (defense-in-depth beyond X-Frame-Options),
+// plus upgrading any stray http subresource to https.
+const csp = [
+  "object-src 'none'",
+  "base-uri 'self'",
+  "frame-ancestors 'self'",
+  "form-action 'self'",
+  "upgrade-insecure-requests",
+].join("; ");
+
 const securityHeaders = [
   // Force HTTPS for 2 years (incl. subdomains).
   { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" },
@@ -19,6 +32,8 @@ const securityHeaders = [
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   // Disable powerful browser features the app doesn't use.
   { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), interest-cohort=()" },
+  // Conservative CSP (see note above) — safe hardening without a script lockdown.
+  { key: "Content-Security-Policy", value: csp },
 ];
 
 const nextConfig = {
