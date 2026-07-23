@@ -1,8 +1,9 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getJSON } from "@/lib/storage";
 import type { RentRollData } from "@/lib/rentroll/parseRentRollExcel";
 import { amenityFor } from "@/lib/rentroll/amenities";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 // Public — feeds the Tenant dropdown on /reserve. Any office tenant can
 // book any conference / training room regardless of which building they
@@ -12,7 +13,11 @@ import { PROPERTY_DEFS } from "@/lib/properties/data";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  // Public + enumerates every office occupant, so throttle to blunt scraping.
+  if (!checkRateLimit(`reservations-tenants:${getClientIp(req)}`, 40)) {
+    return NextResponse.json({ error: "Too many requests. Please slow down." }, { status: 429 });
+  }
   const OFFICE_CODES = new Set(
     PROPERTY_DEFS
       .filter((p) => p.type === "Office" && !p.entityKind)
