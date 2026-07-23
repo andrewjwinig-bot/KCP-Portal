@@ -15,7 +15,17 @@ const PREFIX = "totp";
 type TotpRecord = { userId: string; secretEnc: string; enabled: boolean; updatedAt: string };
 
 function key(): Buffer {
-  const base = process.env.SITE_AUTH_SECRET || process.env.HISTORY_AUTH_SECRET || "kcp-dev-totp-key";
+  const base = process.env.SITE_AUTH_SECRET || process.env.HISTORY_AUTH_SECRET;
+  if (!base) {
+    // Fail closed in production — never encrypt 2FA secrets with a committed
+    // literal key. Prod already requires SITE_AUTH_SECRET (middleware enforces
+    // it), so this only guards a misconfiguration. Local dev without secrets
+    // still works via the throwaway fallback.
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("SITE_AUTH_SECRET (or HISTORY_AUTH_SECRET) must be set to encrypt 2FA secrets.");
+    }
+    return scryptSync("kcp-dev-totp-key", "kcp-totp-enc", 32);
+  }
   return scryptSync(base, "kcp-totp-enc", 32);
 }
 
