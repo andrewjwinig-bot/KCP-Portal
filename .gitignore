@@ -32,5 +32,7 @@ npm-debug.log*
 data/periods/
 data/statements/
 data/ownership-estimates/
+data/ownership-entities/
+data/audit-log/
 data/ownership-trustees/
 data/ownership-contacts/

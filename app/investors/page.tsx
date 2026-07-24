@@ -7,8 +7,9 @@ import { PROPERTY_OWNERSHIP, type PropertyOwner } from "../../lib/properties/own
 import { PROPERTY_DEFS, TYPE_STYLE, FUND_LABEL, type PropType, type FundGroup } from "../../lib/properties/data";
 import { structureFor, type InvestorStructure } from "../../lib/investors/structures";
 import { ENTITY_VALUES, entityValue, totalEquityValue, STATEMENT_AS_OF } from "../../lib/properties/entityValues";
-import { beneficiaryNames, statementForBeneficiary, beneficiaryTotalValue } from "../../lib/properties/beneficiaries";
+import { beneficiaryNames, statementForBeneficiary } from "../../lib/properties/beneficiaries";
 import type { OwnershipEstimates } from "../../lib/properties/estimateStore";
+import type { EntityOverrides, EntityOverride } from "../../lib/properties/entityOverrideStore";
 import { ownerContact, type OwnerContact } from "../../lib/properties/ownerContacts";
 import { buildStatementOfValuesPdf, type StatementPdfRow } from "../../lib/properties/statementPdf";
 import { mergeTrusteeRows, normInvestorKey, type TrusteeRowOverride } from "../../lib/investors/structures";
@@ -38,12 +39,23 @@ function longDate(iso: string): string {
 function asOfLong(): string {
   return longDate(STATEMENT_AS_OF);
 }
-/** Effective "today" estimated equity for an entity: the saved override, or the
- *  year-end equity when none has been entered. */
-function estimateFor(code: string, est: OwnershipEstimates): number {
+/** The entity row with any saved field overrides applied (seed ⊕ override). */
+function resolveEntity(code: string, entOv: EntityOverrides): ReturnType<typeof entityValue> {
+  const seed = entityValue(code);
+  if (!seed) return seed;
+  const ov = entOv[code];
+  return ov ? { ...seed, ...ov } : seed;
+}
+/** The entity's effective (overridden) year-end equity value. */
+function resolveEquity(code: string, entOv: EntityOverrides): number {
+  return resolveEntity(code, entOv)?.equityValue ?? 0;
+}
+/** Effective "today" estimated equity for an entity: the saved estimate
+ *  override, or the (possibly overridden) year-end equity when none entered. */
+function estimateFor(code: string, est: OwnershipEstimates, entOv: EntityOverrides): number {
   const ov = est.values[code];
   if (ov != null && Number.isFinite(ov)) return ov;
-  return entityValue(code)?.equityValue ?? 0;
+  return resolveEquity(code, entOv);
 }
 
 type PropertyHolding = {
@@ -151,6 +163,27 @@ export default function InvestorInfoPage() {
       if (!res.ok) return false;
       const d = await res.json();
       setContactOverrides(d.overrides ?? {});
+      return true;
+    } catch { return false; }
+  }
+
+  /** Editable entity-financial overrides (overlay the seed row). */
+  const [entityOverrides, setEntityOverrides] = useState<EntityOverrides>({});
+  useEffect(() => {
+    fetch("/api/ownership/entities")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (d?.overrides) setEntityOverrides(d.overrides); })
+      .catch(() => {});
+  }, []);
+  async function saveEntity(code: string, override: EntityOverride | null): Promise<boolean> {
+    try {
+      const res = await fetch("/api/ownership/entities", {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code, override }),
+      });
+      if (!res.ok) return false;
+      const d = await res.json();
+      setEntityOverrides(d.overrides ?? {});
       return true;
     } catch { return false; }
   }
@@ -329,12 +362,12 @@ export default function InvestorInfoPage() {
 
     if (!beneficiary) {
       // Portfolio: one row per entity, TOTAL row sums the money columns.
-      const rows = [...ENTITY_VALUES].sort((a, b) => (b.equityValue ?? 0) - (a.equityValue ?? 0));
+      const rows = ENTITY_VALUES.map((e) => resolveEntity(e.entity, entityOverrides)!).sort((a, b) => (b.equityValue ?? 0) - (a.equityValue ?? 0));
       const header = ["Entity", "Property / Entity", "NOI", "Cap Rate", "Indicated Value", "Debt Balance", "Cash", "Future Capital", `Equity Value (${asOfLong()})`, estLabel];
       const aoa: (string | number | null)[][] = [
         [`Korman — Statement of Values`],
         header,
-        ...rows.map((e) => [e.entity, e.name, e.noi, e.capRate, e.indicatedValue, e.debtBalance, e.cash, e.futureCapital, e.equityValue, estimateFor(e.entity, estimates)]),
+        ...rows.map((e) => [e.entity, e.name, e.noi, e.capRate, e.indicatedValue, e.debtBalance, e.cash, e.futureCapital, e.equityValue, estimateFor(e.entity, estimates, entityOverrides)]),
         ["", "TOTAL", null, null, null, null, null, null, null, null],
       ];
       const ws = XLSX.utils.aoa_to_sheet(aoa);
@@ -349,7 +382,7 @@ export default function InvestorInfoPage() {
         G: rows.reduce((s, e) => s + (e.cash ?? 0), 0),
         H: rows.reduce((s, e) => s + (e.futureCapital ?? 0), 0),
         I: rows.reduce((s, e) => s + (e.equityValue ?? 0), 0),
-        J: rows.reduce((s, e) => s + estimateFor(e.entity, estimates), 0),
+        J: rows.reduce((s, e) => s + estimateFor(e.entity, estimates, entityOverrides), 0),
       };
       for (const [col, val] of Object.entries(sums)) {
         ws[`${col}${totalRow}`] = { t: "n", f: `SUM(${col}${firstData}:${col}${lastData})`, v: val };
@@ -369,15 +402,15 @@ export default function InvestorInfoPage() {
       [`${beneficiary} — Statement of Values`],
       ...(sendTo ? [[`Send to: ${sendTo}`]] : []),
       header,
-      ...lines.map((l) => [l.entity, l.entityName, l.partners.join("; "), l.pct, Math.round(l.value), Math.round(l.pct * estimateFor(l.entity, estimates))]),
+      ...lines.map((l) => [l.entity, resolveEntity(l.entity, entityOverrides)?.name ?? l.entityName, l.partners.join("; "), l.pct, Math.round(l.pct * resolveEquity(l.entity, entityOverrides)), Math.round(l.pct * estimateFor(l.entity, estimates, entityOverrides))]),
       ["", "TOTAL", "", null, null, null],
     ];
     const ws = XLSX.utils.aoa_to_sheet(aoa);
     const firstData = sendTo ? 4 : 3;    // title (+ optional send-to) + header
     const lastData = firstData + lines.length - 1;
     const totalRow = lastData + 1;
-    ws[`E${totalRow}`] = { t: "n", f: `SUM(E${firstData}:E${lastData})`, v: Math.round(beneficiaryTotalValue(beneficiary)) };
-    ws[`F${totalRow}`] = { t: "n", f: `SUM(F${firstData}:F${lastData})`, v: Math.round(lines.reduce((s, l) => s + l.pct * estimateFor(l.entity, estimates), 0)) };
+    ws[`E${totalRow}`] = { t: "n", f: `SUM(E${firstData}:E${lastData})`, v: Math.round(lines.reduce((s, l) => s + l.pct * resolveEquity(l.entity, entityOverrides), 0)) };
+    ws[`F${totalRow}`] = { t: "n", f: `SUM(F${firstData}:F${lastData})`, v: Math.round(lines.reduce((s, l) => s + l.pct * estimateFor(l.entity, estimates, entityOverrides), 0)) };
     // Percent column formatting.
     for (let i = 0; i < lines.length; i++) ws[`D${firstData + i}`] = { t: "n", v: lines[i].pct, z: "0.0000%" };
     ws["!cols"] = [{ wch: 8 }, { wch: 34 }, { wch: 44 }, { wch: 12 }, { wch: 18 }, { wch: 18 }];
@@ -398,11 +431,11 @@ export default function InvestorInfoPage() {
     let filename: string;
 
     if (!beneficiary) {
-      const src = [...ENTITY_VALUES].sort((a, b) => (b.equityValue ?? 0) - (a.equityValue ?? 0));
-      rows = src.map((e) => ({ code: e.propertyCode ?? e.entity, name: e.name, yearEnd: e.equityValue, estimated: estimateFor(e.entity, estimates) }));
+      const src = ENTITY_VALUES.map((e) => resolveEntity(e.entity, entityOverrides)!).sort((a, b) => (b.equityValue ?? 0) - (a.equityValue ?? 0));
+      rows = src.map((e) => ({ code: e.propertyCode ?? e.entity, name: e.name, yearEnd: e.equityValue, estimated: estimateFor(e.entity, estimates, entityOverrides) }));
       totals = {
         yearEnd: src.reduce((s, e) => s + (e.equityValue ?? 0), 0),
-        estimated: src.reduce((s, e) => s + estimateFor(e.entity, estimates), 0),
+        estimated: src.reduce((s, e) => s + estimateFor(e.entity, estimates, entityOverrides), 0),
       };
       filename = `Statement_of_Values_${stamp}.pdf`;
     } else {
@@ -410,10 +443,10 @@ export default function InvestorInfoPage() {
       const c = resolveContact(beneficiary);
       if (c && (c.address || c.email)) contact = { address: c.address, email: c.email };
       const lines = statementForBeneficiary(beneficiary);
-      rows = lines.map((l) => ({ code: l.propertyCode ?? l.entity, name: l.entityName, pct: l.pct, yearEnd: l.value, estimated: l.pct * estimateFor(l.entity, estimates) }));
+      rows = lines.map((l) => ({ code: l.propertyCode ?? l.entity, name: resolveEntity(l.entity, entityOverrides)?.name ?? l.entityName, pct: l.pct, yearEnd: l.pct * resolveEquity(l.entity, entityOverrides), estimated: l.pct * estimateFor(l.entity, estimates, entityOverrides) }));
       totals = {
-        yearEnd: lines.reduce((s, l) => s + l.value, 0),
-        estimated: lines.reduce((s, l) => s + l.pct * estimateFor(l.entity, estimates), 0),
+        yearEnd: lines.reduce((s, l) => s + l.pct * resolveEquity(l.entity, entityOverrides), 0),
+        estimated: lines.reduce((s, l) => s + l.pct * estimateFor(l.entity, estimates, entityOverrides), 0),
       };
       const safe = beneficiary.replace(/[^a-zA-Z0-9]+/g, "_").replace(/^_|_$/g, "");
       filename = `Statement_of_Values_${safe}_${stamp}.pdf`;
@@ -443,9 +476,9 @@ export default function InvestorInfoPage() {
 
       // Portfolio statement first.
       {
-        const src = [...ENTITY_VALUES].sort((a, b) => (b.equityValue ?? 0) - (a.equityValue ?? 0));
-        const rows: StatementPdfRow[] = src.map((e) => ({ code: e.propertyCode ?? e.entity, name: e.name, yearEnd: e.equityValue, estimated: estimateFor(e.entity, estimates) }));
-        const totals = { yearEnd: src.reduce((s, e) => s + (e.equityValue ?? 0), 0), estimated: src.reduce((s, e) => s + estimateFor(e.entity, estimates), 0) };
+        const src = ENTITY_VALUES.map((e) => resolveEntity(e.entity, entityOverrides)!).sort((a, b) => (b.equityValue ?? 0) - (a.equityValue ?? 0));
+        const rows: StatementPdfRow[] = src.map((e) => ({ code: e.propertyCode ?? e.entity, name: e.name, yearEnd: e.equityValue, estimated: estimateFor(e.entity, estimates, entityOverrides) }));
+        const totals = { yearEnd: src.reduce((s, e) => s + (e.equityValue ?? 0), 0), estimated: src.reduce((s, e) => s + estimateFor(e.entity, estimates, entityOverrides), 0) };
         const bytes = await buildStatementOfValuesPdf({ asOfYearEnd: asOfLong(), asOfEstimate, generatedOn, rows, totals });
         zip.file(`_Portfolio Statement of Values ${stamp}.pdf`, bytes);
       }
@@ -455,8 +488,8 @@ export default function InvestorInfoPage() {
         const lines = statementForBeneficiary(name);
         if (lines.length === 0) continue;
         const c = resolveContact(name);
-        const rows: StatementPdfRow[] = lines.map((l) => ({ code: l.propertyCode ?? l.entity, name: l.entityName, pct: l.pct, yearEnd: l.value, estimated: l.pct * estimateFor(l.entity, estimates) }));
-        const totals = { yearEnd: lines.reduce((s, l) => s + l.value, 0), estimated: lines.reduce((s, l) => s + l.pct * estimateFor(l.entity, estimates), 0) };
+        const rows: StatementPdfRow[] = lines.map((l) => ({ code: l.propertyCode ?? l.entity, name: resolveEntity(l.entity, entityOverrides)?.name ?? l.entityName, pct: l.pct, yearEnd: l.pct * resolveEquity(l.entity, entityOverrides), estimated: l.pct * estimateFor(l.entity, estimates, entityOverrides) }));
+        const totals = { yearEnd: lines.reduce((s, l) => s + l.pct * resolveEquity(l.entity, entityOverrides), 0), estimated: lines.reduce((s, l) => s + l.pct * estimateFor(l.entity, estimates, entityOverrides), 0) };
         const bytes = await buildStatementOfValuesPdf({
           ownerName: name,
           ownerContact: c && (c.address || c.email) ? { address: c.address, email: c.email } : undefined,
@@ -902,7 +935,7 @@ export default function InvestorInfoPage() {
       )}
 
       {/* ── Statement of Values view ───────────────────────────────────── */}
-      {view === "statement" && <StatementView beneficiary={beneficiary} estimates={estimates} onSaveEstimates={saveEstimates} resolveContact={resolveContact} canEdit={canEdit} onSaveContact={saveContact} ownerNames={benNames} onPickOwner={setBeneficiary} />}
+      {view === "statement" && <StatementView beneficiary={beneficiary} estimates={estimates} onSaveEstimates={saveEstimates} resolveContact={resolveContact} canEdit={canEdit} onSaveContact={saveContact} ownerNames={benNames} onPickOwner={setBeneficiary} entityOverrides={entityOverrides} onSaveEntity={saveEntity} />}
 
       <p className="muted small" style={{ marginTop: 4 }}>
         {view === "statement" ? (
@@ -1248,6 +1281,89 @@ function TrusteeEditor({ row, onSave, onCancel, onDelete }: {
   );
 }
 
+/** Inline editor for one entity's full financial row (authorized users only).
+ *  Overlays the seed; unchanged fields fall back so pre-seeded rows are intact. */
+function EntityEditor({ entity, hasOverride, onSave, onCancel, onReset }: {
+  entity: NonNullable<ReturnType<typeof entityValue>>;
+  hasOverride: boolean;
+  onSave: (ov: EntityOverride) => Promise<boolean>;
+  onCancel: () => void;
+  onReset: () => Promise<boolean>;
+}) {
+  const numStr = (n: number | null | undefined) => (n == null ? "" : String(n));
+  const [f, setF] = useState({
+    name: entity.name,
+    noi: numStr(entity.noi),
+    capRate: entity.capRate == null ? "" : String(+(entity.capRate * 100).toFixed(4)),
+    indicatedValue: numStr(entity.indicatedValue),
+    debtBalance: numStr(entity.debtBalance),
+    cash: numStr(entity.cash),
+    futureCapital: numStr(entity.futureCapital),
+    equityValue: numStr(entity.equityValue),
+  });
+  const [saving, setSaving] = useState(false);
+  const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement>) => setF((p) => ({ ...p, [k]: e.target.value }));
+  const parse = (v: string): number | null => { const t = v.replace(/[$,\s]/g, ""); if (t === "") return null; const n = Number(t); return Number.isFinite(n) ? n : null; };
+
+  const inp: React.CSSProperties = { padding: "6px 9px", border: "1px solid var(--border)", borderRadius: 6, background: "var(--card)", color: "var(--text)", fontFamily: "inherit", fontSize: 12, width: "100%", textAlign: "right", fontVariantNumeric: "tabular-nums" };
+  const lbl: React.CSSProperties = { fontSize: 10, fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase", color: "var(--muted)", display: "block", marginBottom: 3 };
+  const moneyField = (label: string, k: keyof typeof f) => (
+    <div><label style={lbl}>{label}</label><input inputMode="decimal" value={f[k]} onChange={set(k)} style={inp} /></div>
+  );
+
+  // Suggested equity = indicated − debt + cash − future capital (helper).
+  const suggestedEquity = (parse(f.indicatedValue) ?? 0) - (parse(f.debtBalance) ?? 0) + (parse(f.cash) ?? 0) - (parse(f.futureCapital) ?? 0);
+
+  async function commit() {
+    setSaving(true);
+    const ov: EntityOverride = {
+      name: f.name.trim(),
+      noi: parse(f.noi),
+      capRate: f.capRate.trim() === "" ? null : (parse(f.capRate) ?? 0) / 100,
+      indicatedValue: parse(f.indicatedValue),
+      debtBalance: parse(f.debtBalance),
+      cash: parse(f.cash),
+      futureCapital: parse(f.futureCapital),
+      equityValue: parse(f.equityValue),
+    };
+    const ok = await onSave(ov);
+    setSaving(false);
+    void ok;
+  }
+
+  return (
+    <div className="no-print" style={{ padding: 14, border: "1px dashed var(--border)", borderRadius: 8 }}>
+      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 10 }}>
+        Edit entity · <code style={{ fontSize: 11 }}>{entity.entity}</code>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 10 }}>
+        <div style={{ gridColumn: "1 / 3" }}><label style={lbl}>Name</label><input value={f.name} onChange={set("name")} style={{ ...inp, textAlign: "left" }} /></div>
+        {moneyField("NOI", "noi")}
+        <div><label style={lbl}>Cap rate %</label><input inputMode="decimal" value={f.capRate} onChange={set("capRate")} style={inp} /></div>
+        {moneyField("Indicated value", "indicatedValue")}
+        {moneyField("Debt balance", "debtBalance")}
+        {moneyField("Cash", "cash")}
+        {moneyField("Future capital", "futureCapital")}
+        <div>
+          <label style={lbl}>Equity value</label>
+          <input inputMode="decimal" value={f.equityValue} onChange={set("equityValue")} style={inp} />
+          {Math.round(suggestedEquity) !== Math.round(parse(f.equityValue) ?? 0) && (
+            <button type="button" onClick={() => setF((p) => ({ ...p, equityValue: String(Math.round(suggestedEquity)) }))}
+              className="small" style={{ marginTop: 3, background: "transparent", border: "none", padding: 0, color: "var(--brand)", cursor: "pointer", fontFamily: "inherit", fontSize: 11 }}>
+              = {money0(suggestedEquity)} (indicated − debt + cash − future cap)
+            </button>
+          )}
+        </div>
+      </div>
+      <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 12 }}>
+        <button type="button" className="btn primary" disabled={saving || !f.name.trim()} onClick={commit} style={{ fontSize: 12, padding: "6px 12px", fontWeight: 700 }}>{saving ? "Saving…" : "Save"}</button>
+        <button type="button" className="btn" disabled={saving} onClick={onCancel} style={{ fontSize: 12, padding: "6px 12px" }}>Cancel</button>
+        {hasOverride && <button type="button" className="btn" disabled={saving} onClick={() => { void onReset(); }} style={{ fontSize: 12, padding: "6px 12px", marginLeft: "auto", color: "#b91c1c" }}>Reset to seed</button>}
+      </div>
+    </div>
+  );
+}
+
 /** Δ vs. year-end, shown next to the estimate when it differs. */
 function DeltaTag({ base, now }: { base: number; now: number }) {
   if (!base || Math.round(now) === Math.round(base)) return null;
@@ -1331,7 +1447,7 @@ function ContactBlock({ beneficiary, contact, canEdit, onSave }: {
  *  from the entityValues snapshot; the "today estimate" is the saved override
  *  (or the year-end value when none). A beneficiary's value is always
  *  effective % × the entity's equity. */
-function StatementView({ beneficiary, estimates, onSaveEstimates, resolveContact, canEdit, onSaveContact, ownerNames, onPickOwner }: {
+function StatementView({ beneficiary, estimates, onSaveEstimates, resolveContact, canEdit, onSaveContact, ownerNames, onPickOwner, entityOverrides, onSaveEntity }: {
   beneficiary: string;
   estimates: OwnershipEstimates;
   onSaveEstimates: (next: OwnershipEstimates) => Promise<boolean>;
@@ -1340,11 +1456,14 @@ function StatementView({ beneficiary, estimates, onSaveEstimates, resolveContact
   onSaveContact: (name: string, override: Partial<OwnerContact> | null) => Promise<boolean>;
   ownerNames: string[];
   onPickOwner: (name: string) => void;
+  entityOverrides: EntityOverrides;
+  onSaveEntity: (code: string, override: EntityOverride | null) => Promise<boolean>;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [asOfDraft, setAsOfDraft] = useState(estimates.asOf);
   const [saving, setSaving] = useState(false);
+  const [editEntity, setEditEntity] = useState<string | null>(null);
 
   const codeChip = (code?: string) =>
     code ? (
@@ -1378,7 +1497,7 @@ function StatementView({ beneficiary, estimates, onSaveEstimates, resolveContact
       const raw = (draft[e.entity] ?? "").replace(/[$,\s]/g, "");
       if (raw === "") continue;
       const n = Number(raw);
-      if (Number.isFinite(n) && Math.round(n) !== Math.round(e.equityValue ?? 0)) values[e.entity] = Math.round(n);
+      if (Number.isFinite(n) && Math.round(n) !== Math.round(resolveEquity(e.entity, entityOverrides))) values[e.entity] = Math.round(n);
     }
     const ok = await onSaveEstimates({ asOf: asOfDraft, values });
     setSaving(false);
@@ -1387,14 +1506,14 @@ function StatementView({ beneficiary, estimates, onSaveEstimates, resolveContact
 
   // ── Portfolio (no owner selected) ──────────────────────────────────────
   if (!beneficiary) {
-    const rows = [...ENTITY_VALUES].sort((a, b) => (b.equityValue ?? 0) - (a.equityValue ?? 0));
+    const rows = ENTITY_VALUES.map((e) => resolveEntity(e.entity, entityOverrides)!).sort((a, b) => (b.equityValue ?? 0) - (a.equityValue ?? 0));
     const sum = (f: (e: typeof ENTITY_VALUES[number]) => number | null | undefined) =>
       rows.reduce((s, e) => s + (f(e) ?? 0), 0);
-    const estTotal = rows.reduce((s, e) => s + estimateFor(e.entity, estimates), 0);
+    const estTotal = rows.reduce((s, e) => s + estimateFor(e.entity, estimates, entityOverrides), 0);
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         <div className="pills">
-          <StatPill label="Total equity value" value={money0(totalEquityValue())} sub={`as of ${asOfLong()}`} />
+          <StatPill label="Total equity value" value={money0(ENTITY_VALUES.reduce((s, e) => s + resolveEquity(e.entity, entityOverrides), 0))} sub={`as of ${asOfLong()}`} />
           <StatPill label="Est. value today" value={money0(estTotal)} sub={estimates.asOf ? `as of ${longDate(estimates.asOf)}` : "= year-end (not yet set)"} />
           <StatPill label="Total debt" value={money0(sum((e) => e.debtBalance))} />
           <StatPill label="Entities" value={rows.length} />
@@ -1441,6 +1560,17 @@ function StatementView({ beneficiary, estimates, onSaveEstimates, resolveContact
               <button type="button" className="btn no-print" onClick={beginEdit} style={{ fontSize: 12, padding: "6px 12px" }}>Edit estimates</button>
             ) : null}
           </div>
+          {editEntity && (
+            <div style={{ padding: "0 16px 12px" }}>
+              <EntityEditor
+                entity={resolveEntity(editEntity, entityOverrides)!}
+                hasOverride={!!entityOverrides[editEntity]}
+                onCancel={() => setEditEntity(null)}
+                onSave={async (ov) => { const ok = await onSaveEntity(editEntity, ov); if (ok) setEditEntity(null); return ok; }}
+                onReset={async () => { const ok = await onSaveEntity(editEntity, null); if (ok) setEditEntity(null); return ok; }}
+              />
+            </div>
+          )}
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, borderTop: "1px solid var(--border)" }}>
               <thead>
@@ -1457,11 +1587,18 @@ function StatementView({ beneficiary, estimates, onSaveEstimates, resolveContact
               </thead>
               <tbody>
                 {rows.map((e) => {
-                  const est = estimateFor(e.entity, estimates);
+                  const est = estimateFor(e.entity, estimates, entityOverrides);
                   return (
                     <tr key={e.entity} style={{ borderTop: "1px solid var(--border)" }}>
                       <td style={{ padding: "10px 16px" }}>{codeChip(e.propertyCode ?? e.entity)}</td>
-                      <td style={{ padding: "10px 16px", fontWeight: 600 }}>{e.name}</td>
+                      <td style={{ padding: "10px 16px", fontWeight: 600 }}>
+                        <span>{e.name}</span>
+                        {entityOverrides[e.entity] && <span title="Edited" style={{ marginLeft: 6, color: "#d97706", fontSize: 11 }}>✎</span>}
+                        {canEdit && !editing && (
+                          <button type="button" className="no-print" onClick={() => setEditEntity(e.entity)}
+                            style={{ marginLeft: 8, background: "transparent", border: "none", padding: 0, color: "var(--brand)", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Edit</button>
+                        )}
+                      </td>
                       <td style={{ ...numTd, color: (e.noi ?? 0) < 0 ? "#b91c1c" : undefined }}>{e.noi == null ? "—" : money0(e.noi)}</td>
                       <td style={numTd}>{e.capRate == null ? "—" : (e.capRate * 100).toFixed(2) + "%"}</td>
                       <td style={numTd}>{money0(e.indicatedValue)}</td>
@@ -1491,7 +1628,7 @@ function StatementView({ beneficiary, estimates, onSaveEstimates, resolveContact
                   <td style={numTd}>—</td>
                   <td style={{ ...numTd, fontWeight: 800 }}>{money0(sum((e) => e.indicatedValue))}</td>
                   <td style={{ ...numTd, fontWeight: 800 }}>{money0(sum((e) => e.debtBalance))}</td>
-                  <td style={{ ...numTd, fontWeight: 900 }}>{money0(totalEquityValue())}</td>
+                  <td style={{ ...numTd, fontWeight: 900 }}>{money0(ENTITY_VALUES.reduce((s, e) => s + resolveEquity(e.entity, entityOverrides), 0))}</td>
                   <td style={{ ...numTd, fontWeight: 900 }}>{money0(estTotal)}</td>
                 </tr>
               </tfoot>
@@ -1504,16 +1641,17 @@ function StatementView({ beneficiary, estimates, onSaveEstimates, resolveContact
 
   // ── Single owner ───────────────────────────────────────────────────────
   const lines = statementForBeneficiary(beneficiary);
-  const total = beneficiaryTotalValue(beneficiary);
-  const estTotal = lines.reduce((s, l) => s + l.pct * estimateFor(l.entity, estimates), 0);
-  const largest = lines[0];
+  const yearEndVal = (l: typeof lines[number]) => l.pct * resolveEquity(l.entity, entityOverrides);
+  const total = lines.reduce((s, l) => s + yearEndVal(l), 0);
+  const estTotal = lines.reduce((s, l) => s + l.pct * estimateFor(l.entity, estimates, entityOverrides), 0);
+  const largest = [...lines].sort((a, b) => yearEndVal(b) - yearEndVal(a))[0];
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <div className="pills">
         <StatPill label="Total value" value={money0(total)} sub={`as of ${asOfLong()}`} />
         <StatPill label="Est. value today" value={money0(estTotal)} sub={estimates.asOf ? `as of ${longDate(estimates.asOf)}` : "= year-end"} />
         <StatPill label="Entities held" value={lines.length} />
-        {largest && <StatPill label="Largest holding" value={money0(largest.value)} sub={largest.entityName} />}
+        {largest && <StatPill label="Largest holding" value={money0(yearEndVal(largest))} sub={resolveEntity(largest.entity, entityOverrides)?.name ?? largest.entityName} />}
       </div>
 
       <div className="card" style={{ padding: 0, overflow: "hidden" }}>
@@ -1536,11 +1674,12 @@ function StatementView({ beneficiary, estimates, onSaveEstimates, resolveContact
             </thead>
             <tbody>
               {lines.map((l) => {
-                const est = l.pct * estimateFor(l.entity, estimates);
+                const yeVal = yearEndVal(l);
+                const est = l.pct * estimateFor(l.entity, estimates, entityOverrides);
                 return (
                   <tr key={l.entity} style={{ borderTop: "1px solid var(--border)" }}>
                     <td style={{ padding: "10px 16px" }}>{codeChip(l.propertyCode ?? l.entity)}</td>
-                    <td style={{ padding: "10px 16px", fontWeight: 600 }}>{l.entityName}</td>
+                    <td style={{ padding: "10px 16px", fontWeight: 600 }}>{resolveEntity(l.entity, entityOverrides)?.name ?? l.entityName}</td>
                     <td style={{ padding: "10px 16px", color: "var(--muted)", lineHeight: 1.5 }}>
                       {l.partners.length === 0 ? "—" : l.partners.map((p, i) => (
                         <span key={i}>{p}{i < l.partners.length - 1 ? <span style={{ opacity: 0.5 }}> · </span> : null}</span>
@@ -1548,8 +1687,8 @@ function StatementView({ beneficiary, estimates, onSaveEstimates, resolveContact
                       {l.positions > 1 && <span className="muted small" style={{ marginLeft: 6 }}>({l.positions} stakes)</span>}
                     </td>
                     <td style={numTd}>{(l.pct * 100).toFixed(4)}%</td>
-                    <td style={{ ...numTd, fontWeight: 700 }}>{l.value ? money0(l.value) : "—"}</td>
-                    <td style={numTd}>{est ? <span style={{ fontWeight: 700 }}>{money0(est)}<DeltaTag base={l.value} now={est} /></span> : "—"}</td>
+                    <td style={{ ...numTd, fontWeight: 700 }}>{yeVal ? money0(yeVal) : "—"}</td>
+                    <td style={numTd}>{est ? <span style={{ fontWeight: 700 }}>{money0(est)}<DeltaTag base={yeVal} now={est} /></span> : "—"}</td>
                   </tr>
                 );
               })}
