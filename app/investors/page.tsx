@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import * as XLSX from "xlsx";
+import JSZip from "jszip";
 import { PROPERTY_OWNERSHIP, type PropertyOwner } from "../../lib/properties/ownership";
 import { PROPERTY_DEFS, TYPE_STYLE, FUND_LABEL, type PropType, type FundGroup } from "../../lib/properties/data";
 import { structureFor, type InvestorStructure } from "../../lib/investors/structures";
@@ -120,6 +121,7 @@ export default function InvestorInfoPage() {
   const [query, setQuery] = useState("");
   /** Statement-of-Values owner filter. "" = portfolio (all entities). */
   const [beneficiary, setBeneficiary] = useState("");
+  const [zipping, setZipping] = useState(false);
   const benNames = useMemo(() => beneficiaryNames(), []);
   const { loggedInUser } = useUser();
   const canEdit = canEditOwnership(loggedInUser);
@@ -429,6 +431,55 @@ export default function InvestorInfoPage() {
     URL.revokeObjectURL(url);
   }
 
+  /** Build one presentation PDF per owner (plus the portfolio statement) and
+   *  download them as a single ZIP — the annual mail-merge to ownership. */
+  async function exportAllOwnerStatements() {
+    setZipping(true);
+    try {
+      const stamp = new Date().toISOString().slice(0, 10);
+      const generatedOn = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+      const asOfEstimate = estimates.asOf ? longDate(estimates.asOf) : "";
+      const zip = new JSZip();
+
+      // Portfolio statement first.
+      {
+        const src = [...ENTITY_VALUES].sort((a, b) => (b.equityValue ?? 0) - (a.equityValue ?? 0));
+        const rows: StatementPdfRow[] = src.map((e) => ({ code: e.propertyCode ?? e.entity, name: e.name, yearEnd: e.equityValue, estimated: estimateFor(e.entity, estimates) }));
+        const totals = { yearEnd: src.reduce((s, e) => s + (e.equityValue ?? 0), 0), estimated: src.reduce((s, e) => s + estimateFor(e.entity, estimates), 0) };
+        const bytes = await buildStatementOfValuesPdf({ asOfYearEnd: asOfLong(), asOfEstimate, generatedOn, rows, totals });
+        zip.file(`_Portfolio Statement of Values ${stamp}.pdf`, bytes);
+      }
+
+      // One statement per owner.
+      for (const name of benNames) {
+        const lines = statementForBeneficiary(name);
+        if (lines.length === 0) continue;
+        const c = resolveContact(name);
+        const rows: StatementPdfRow[] = lines.map((l) => ({ code: l.propertyCode ?? l.entity, name: l.entityName, pct: l.pct, yearEnd: l.value, estimated: l.pct * estimateFor(l.entity, estimates) }));
+        const totals = { yearEnd: lines.reduce((s, l) => s + l.value, 0), estimated: lines.reduce((s, l) => s + l.pct * estimateFor(l.entity, estimates), 0) };
+        const bytes = await buildStatementOfValuesPdf({
+          ownerName: name,
+          ownerContact: c && (c.address || c.email) ? { address: c.address, email: c.email } : undefined,
+          asOfYearEnd: asOfLong(), asOfEstimate, generatedOn, rows, totals,
+        });
+        const safe = name.replace(/[^a-zA-Z0-9]+/g, "_").replace(/^_|_$/g, "");
+        zip.file(`Statement of Values - ${safe} - ${stamp}.pdf`, bytes);
+      }
+
+      const zipBlob = await zip.generateAsync({ type: "blob" });
+      const url = URL.createObjectURL(zipBlob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Statements_of_Value_All_Owners_${stamp}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } finally {
+      setZipping(false);
+    }
+  }
+
   function renderHoldingCard(h: PropertyHolding) {
     const open = !!openIds[h.propertyCode];
     const ts = TYPE_STYLE[h.type as PropType];
@@ -661,11 +712,13 @@ export default function InvestorInfoPage() {
           <div style={{ display: "flex", gap: 8 }}>
             {view === "statement" ? (
               <DownloadMenu
-                label="Download"
+                label={zipping ? "Building…" : "Download"}
                 variant="primary"
+                disabled={zipping}
                 items={[
                   { label: "PDF — presentation", description: beneficiary ? `${beneficiary}'s statement, ready to send` : "Portfolio statement, ready to circulate", onClick: () => { void exportStatementPdf(); } },
                   { label: "Excel — workbook", description: "Live SUM totals; year-end + estimated values", onClick: exportStatement },
+                  ...(!beneficiary ? [{ label: "All owner statements (ZIP)", description: `One PDF per owner + the portfolio — the annual mailing (${benNames.length} owners)`, onClick: () => { void exportAllOwnerStatements(); } }] : []),
                 ]}
               />
             ) : (
@@ -849,7 +902,7 @@ export default function InvestorInfoPage() {
       )}
 
       {/* ── Statement of Values view ───────────────────────────────────── */}
-      {view === "statement" && <StatementView beneficiary={beneficiary} estimates={estimates} onSaveEstimates={saveEstimates} resolveContact={resolveContact} canEdit={canEdit} onSaveContact={saveContact} />}
+      {view === "statement" && <StatementView beneficiary={beneficiary} estimates={estimates} onSaveEstimates={saveEstimates} resolveContact={resolveContact} canEdit={canEdit} onSaveContact={saveContact} ownerNames={benNames} onPickOwner={setBeneficiary} />}
 
       <p className="muted small" style={{ marginTop: 4 }}>
         {view === "statement" ? (
@@ -1278,13 +1331,15 @@ function ContactBlock({ beneficiary, contact, canEdit, onSave }: {
  *  from the entityValues snapshot; the "today estimate" is the saved override
  *  (or the year-end value when none). A beneficiary's value is always
  *  effective % × the entity's equity. */
-function StatementView({ beneficiary, estimates, onSaveEstimates, resolveContact, canEdit, onSaveContact }: {
+function StatementView({ beneficiary, estimates, onSaveEstimates, resolveContact, canEdit, onSaveContact, ownerNames, onPickOwner }: {
   beneficiary: string;
   estimates: OwnershipEstimates;
   onSaveEstimates: (next: OwnershipEstimates) => Promise<boolean>;
   resolveContact: (name: string) => OwnerContact | undefined;
   canEdit: boolean;
   onSaveContact: (name: string, override: Partial<OwnerContact> | null) => Promise<boolean>;
+  ownerNames: string[];
+  onPickOwner: (name: string) => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<Record<string, string>>({});
@@ -1344,6 +1399,27 @@ function StatementView({ beneficiary, estimates, onSaveEstimates, resolveContact
           <StatPill label="Total debt" value={money0(sum((e) => e.debtBalance))} />
           <StatPill label="Entities" value={rows.length} />
         </div>
+
+        {(() => {
+          const missing = ownerNames.filter((n) => { const c = resolveContact(n); return !c || (!c.address && !c.email); });
+          if (missing.length === 0) return null;
+          return (
+            <div className="card no-print" style={{ borderLeft: "3px solid #d97706", background: "rgba(217,119,6,0.05)" }}>
+              <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>
+                {missing.length} of {ownerNames.length} owners have no send-to contact
+              </div>
+              <div className="muted small" style={{ marginBottom: 8 }}>Add a mailing address or email before the annual mailing so each statement is ready to send.{canEdit ? " Click a name to add it." : ""}</div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {missing.map((n) => (
+                  <button key={n} type="button" onClick={() => onPickOwner(n)}
+                    style={{ fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 999, border: "1px solid rgba(217,119,6,0.3)", background: "var(--card)", color: "var(--text)", cursor: "pointer", fontFamily: "inherit" }}>
+                    {n}
+                  </button>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
 
         <div className="card" style={{ padding: 0, overflow: "hidden" }}>
           <div style={{ padding: "16px 16px 12px", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
