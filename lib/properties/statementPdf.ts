@@ -23,6 +23,8 @@ export interface StatementPdfRow {
 export interface StatementPdfInput {
   /** Owner name for a per-beneficiary statement; omit for the portfolio. */
   ownerName?: string;
+  /** Send-to contact for an owner statement (address / email), if on file. */
+  ownerContact?: { address?: string; email?: string };
   /** Long-form year-end date, e.g. "December 31, 2025". */
   asOfYearEnd: string;
   /** Long-form estimate date, e.g. "July 24, 2026"; "" when unset. */
@@ -44,7 +46,7 @@ const usd = (n: number | null | undefined): string =>
   n == null ? "—" : (n < 0 ? "-$" : "$") + Math.abs(Math.round(n)).toLocaleString("en-US");
 
 export async function buildStatementOfValuesPdf(input: StatementPdfInput): Promise<Uint8Array> {
-  const { ownerName, asOfYearEnd, asOfEstimate, generatedOn, rows, totals } = input;
+  const { ownerName, ownerContact, asOfYearEnd, asOfEstimate, generatedOn, rows, totals } = input;
   const isOwner = !!ownerName;
 
   const pdf = await PDFDocument.create();
@@ -109,7 +111,13 @@ export async function buildStatementOfValuesPdf(input: StatementPdfInput): Promi
     y = H - 92;
     // as-of line under the band on the first content block of each page
     text(page, `Year-end values as of ${asOfYearEnd}.` + (asOfEstimate ? `  Estimated values as of ${asOfEstimate}.` : "  Estimated values default to year-end until updated."), MX, y, 8.5, font, muted);
-    y -= 18;
+    y -= 14;
+    if (isOwner && ownerContact && (ownerContact.address || ownerContact.email)) {
+      const parts = [ownerContact.address, ownerContact.email].filter(Boolean).join("   ·   ");
+      text(page, `Send to:  ${parts}`, MX, y, 8.5, font, ink);
+      y -= 14;
+    }
+    y -= 4;
     drawColumnHeader(page, y);
     y -= 18;
   }
