@@ -5,19 +5,34 @@ import * as XLSX from "xlsx";
 import { PROPERTY_OWNERSHIP, type PropertyOwner } from "../../lib/properties/ownership";
 import { PROPERTY_DEFS, TYPE_STYLE, FUND_LABEL, type PropType, type FundGroup } from "../../lib/properties/data";
 import { structureFor, type InvestorStructure } from "../../lib/investors/structures";
-import { ENTITY_VALUES, totalEquityValue, STATEMENT_AS_OF } from "../../lib/properties/entityValues";
+import { ENTITY_VALUES, entityValue, totalEquityValue, STATEMENT_AS_OF } from "../../lib/properties/entityValues";
 import { beneficiaryNames, statementForBeneficiary, beneficiaryTotalValue } from "../../lib/properties/beneficiaries";
+import type { OwnershipEstimates } from "../../lib/properties/estimateStore";
+import { buildStatementOfValuesPdf, type StatementPdfRow } from "../../lib/properties/statementPdf";
 import { StatPill } from "../components/Pill";
+import { DownloadMenu } from "../components/DownloadMenu";
 
 type View = "property" | "investor" | "statement";
 
 const money0 = (n: number | null | undefined): string =>
   n == null ? "—" : n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 
-/** As-of date rendered long-form (e.g. "December 31, 2025"). */
-function asOfLong(): string {
-  const [y, m, d] = STATEMENT_AS_OF.split("-").map(Number);
+/** A date string (yyyy-mm-dd) rendered long-form (e.g. "December 31, 2025"). */
+function longDate(iso: string): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  if (!y || !m || !d) return "";
   return new Date(y, m - 1, d).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+}
+/** The frozen year-end statement date, long-form. */
+function asOfLong(): string {
+  return longDate(STATEMENT_AS_OF);
+}
+/** Effective "today" estimated equity for an entity: the saved override, or the
+ *  year-end equity when none has been entered. */
+function estimateFor(code: string, est: OwnershipEstimates): number {
+  const ov = est.values[code];
+  if (ov != null && Number.isFinite(ov)) return ov;
+  return entityValue(code)?.equityValue ?? 0;
 }
 
 type PropertyHolding = {
@@ -96,6 +111,29 @@ export default function InvestorInfoPage() {
   /** Statement-of-Values owner filter. "" = portfolio (all entities). */
   const [beneficiary, setBeneficiary] = useState("");
   const benNames = useMemo(() => beneficiaryNames(), []);
+  /** Current "today" estimated equity per entity + shared as-of date. */
+  const [estimates, setEstimates] = useState<OwnershipEstimates>({ asOf: "", values: {} });
+  useEffect(() => {
+    fetch("/api/ownership/estimates")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (d && typeof d === "object") setEstimates({ asOf: d.asOf ?? "", values: d.values ?? {} }); })
+      .catch(() => {});
+  }, []);
+  async function saveEstimates(next: OwnershipEstimates): Promise<boolean> {
+    try {
+      const res = await fetch("/api/ownership/estimates", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(next),
+      });
+      if (!res.ok) return false;
+      const saved = await res.json();
+      setEstimates({ asOf: saved.asOf ?? "", values: saved.values ?? {} });
+      return true;
+    } catch {
+      return false;
+    }
+  }
   // Prefill the search box if the page was opened with ?q=… (used by the
   // global search to deep-link to an owner or vendor code).
   useEffect(() => {
@@ -243,21 +281,23 @@ export default function InvestorInfoPage() {
     const stamp = new Date().toISOString().slice(0, 10);
     const wb = XLSX.utils.book_new();
 
+    const estLabel = estimates.asOf ? `Est. Value (${longDate(estimates.asOf)})` : "Est. Value (Today)";
+
     if (!beneficiary) {
       // Portfolio: one row per entity, TOTAL row sums the money columns.
       const rows = [...ENTITY_VALUES].sort((a, b) => (b.equityValue ?? 0) - (a.equityValue ?? 0));
-      const header = ["Entity", "Property / Entity", "NOI", "Cap Rate", "Indicated Value", "Debt Balance", "Cash", "Future Capital", "Equity Value"];
+      const header = ["Entity", "Property / Entity", "NOI", "Cap Rate", "Indicated Value", "Debt Balance", "Cash", "Future Capital", `Equity Value (${asOfLong()})`, estLabel];
       const aoa: (string | number | null)[][] = [
-        [`Korman — Statement of Values (${asOfLong()})`],
+        [`Korman — Statement of Values`],
         header,
-        ...rows.map((e) => [e.entity, e.name, e.noi, e.capRate, e.indicatedValue, e.debtBalance, e.cash, e.futureCapital, e.equityValue]),
-        ["", "TOTAL", null, null, null, null, null, null, null],
+        ...rows.map((e) => [e.entity, e.name, e.noi, e.capRate, e.indicatedValue, e.debtBalance, e.cash, e.futureCapital, e.equityValue, estimateFor(e.entity, estimates)]),
+        ["", "TOTAL", null, null, null, null, null, null, null, null],
       ];
       const ws = XLSX.utils.aoa_to_sheet(aoa);
       const firstData = 3;                 // Excel row of first entity (title=1, header=2)
       const lastData = firstData + rows.length - 1;
       const totalRow = lastData + 1;
-      // Money columns to total: C(NOI) E(Value) F(Debt) G(Cash) H(FutureCap) I(Equity)
+      // Money columns to total: C(NOI) E(Value) F(Debt) G(Cash) H(FutureCap) I(Equity) J(Est)
       const sums: Record<string, number> = {
         C: rows.reduce((s, e) => s + (e.noi ?? 0), 0),
         E: rows.reduce((s, e) => s + (e.indicatedValue ?? 0), 0),
@@ -265,11 +305,12 @@ export default function InvestorInfoPage() {
         G: rows.reduce((s, e) => s + (e.cash ?? 0), 0),
         H: rows.reduce((s, e) => s + (e.futureCapital ?? 0), 0),
         I: rows.reduce((s, e) => s + (e.equityValue ?? 0), 0),
+        J: rows.reduce((s, e) => s + estimateFor(e.entity, estimates), 0),
       };
       for (const [col, val] of Object.entries(sums)) {
         ws[`${col}${totalRow}`] = { t: "n", f: `SUM(${col}${firstData}:${col}${lastData})`, v: val };
       }
-      ws["!cols"] = [{ wch: 8 }, { wch: 38 }, { wch: 12 }, { wch: 9 }, { wch: 15 }, { wch: 14 }, { wch: 12 }, { wch: 13 }, { wch: 15 }];
+      ws["!cols"] = [{ wch: 8 }, { wch: 38 }, { wch: 12 }, { wch: 9 }, { wch: 15 }, { wch: 14 }, { wch: 12 }, { wch: 13 }, { wch: 18 }, { wch: 18 }];
       XLSX.utils.book_append_sheet(wb, ws, "Statement of Values");
       XLSX.writeFile(wb, `Statement_of_Values_${stamp}.xlsx`);
       return;
@@ -277,24 +318,67 @@ export default function InvestorInfoPage() {
 
     // One owner: one row per entity they hold, value = % × equity, TOTAL sums value.
     const lines = statementForBeneficiary(beneficiary);
-    const header = ["Entity", "Property / Entity", "Held Through", "Ownership %", "Value"];
+    const header = ["Entity", "Property / Entity", "Held Through", "Ownership %", `Value (${asOfLong()})`, estLabel];
     const aoa: (string | number | null)[][] = [
-      [`${beneficiary} — Statement of Values (${asOfLong()})`],
+      [`${beneficiary} — Statement of Values`],
       header,
-      ...lines.map((l) => [l.entity, l.entityName, l.partners.join("; "), l.pct, Math.round(l.value)]),
-      ["", "TOTAL", "", null, null],
+      ...lines.map((l) => [l.entity, l.entityName, l.partners.join("; "), l.pct, Math.round(l.value), Math.round(l.pct * estimateFor(l.entity, estimates))]),
+      ["", "TOTAL", "", null, null, null],
     ];
     const ws = XLSX.utils.aoa_to_sheet(aoa);
     const firstData = 3;
     const lastData = firstData + lines.length - 1;
     const totalRow = lastData + 1;
     ws[`E${totalRow}`] = { t: "n", f: `SUM(E${firstData}:E${lastData})`, v: Math.round(beneficiaryTotalValue(beneficiary)) };
+    ws[`F${totalRow}`] = { t: "n", f: `SUM(F${firstData}:F${lastData})`, v: Math.round(lines.reduce((s, l) => s + l.pct * estimateFor(l.entity, estimates), 0)) };
     // Percent column formatting.
     for (let i = 0; i < lines.length; i++) ws[`D${firstData + i}`] = { t: "n", v: lines[i].pct, z: "0.0000%" };
-    ws["!cols"] = [{ wch: 8 }, { wch: 34 }, { wch: 44 }, { wch: 12 }, { wch: 15 }];
+    ws["!cols"] = [{ wch: 8 }, { wch: 34 }, { wch: 44 }, { wch: 12 }, { wch: 18 }, { wch: 18 }];
     const safe = beneficiary.replace(/[^a-zA-Z0-9]+/g, "_").replace(/^_|_$/g, "");
     XLSX.utils.book_append_sheet(wb, ws, "Statement of Values");
     XLSX.writeFile(wb, `Statement_of_Values_${safe}_${stamp}.xlsx`);
+  }
+
+  /** Presentation-ready PDF for circulating to ownership. */
+  async function exportStatementPdf() {
+    const stamp = new Date().toISOString().slice(0, 10);
+    const generatedOn = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+    const asOfEstimate = estimates.asOf ? longDate(estimates.asOf) : "";
+    let rows: StatementPdfRow[];
+    let totals: { yearEnd: number; estimated: number };
+    let ownerName: string | undefined;
+    let filename: string;
+
+    if (!beneficiary) {
+      const src = [...ENTITY_VALUES].sort((a, b) => (b.equityValue ?? 0) - (a.equityValue ?? 0));
+      rows = src.map((e) => ({ code: e.propertyCode ?? e.entity, name: e.name, yearEnd: e.equityValue, estimated: estimateFor(e.entity, estimates) }));
+      totals = {
+        yearEnd: src.reduce((s, e) => s + (e.equityValue ?? 0), 0),
+        estimated: src.reduce((s, e) => s + estimateFor(e.entity, estimates), 0),
+      };
+      filename = `Statement_of_Values_${stamp}.pdf`;
+    } else {
+      ownerName = beneficiary;
+      const lines = statementForBeneficiary(beneficiary);
+      rows = lines.map((l) => ({ code: l.propertyCode ?? l.entity, name: l.entityName, pct: l.pct, yearEnd: l.value, estimated: l.pct * estimateFor(l.entity, estimates) }));
+      totals = {
+        yearEnd: lines.reduce((s, l) => s + l.value, 0),
+        estimated: lines.reduce((s, l) => s + l.pct * estimateFor(l.entity, estimates), 0),
+      };
+      const safe = beneficiary.replace(/[^a-zA-Z0-9]+/g, "_").replace(/^_|_$/g, "");
+      filename = `Statement_of_Values_${safe}_${stamp}.pdf`;
+    }
+
+    const bytes = await buildStatementOfValuesPdf({ ownerName, asOfYearEnd: asOfLong(), asOfEstimate, generatedOn, rows, totals });
+    const blob = new Blob([bytes], { type: "application/pdf" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
   }
 
   function renderHoldingCard(h: PropertyHolding) {
@@ -527,24 +611,37 @@ export default function InvestorInfoPage() {
           )}
 
           <div style={{ display: "flex", gap: 8 }}>
-            <button
-              type="button"
-              onClick={view === "statement" ? exportStatement : exportToExcel}
-              className="btn"
-              title={view === "statement" ? "Download the statement of values as an Excel workbook" : "Download ownership data as an Excel workbook"}
-              style={{ fontSize: 12 }}
-            >
-              Export Excel
-            </button>
-            <button
-              type="button"
-              onClick={() => window.print()}
-              className="btn"
-              title="Print or Save as PDF"
-              style={{ fontSize: 12 }}
-            >
-              Print / PDF
-            </button>
+            {view === "statement" ? (
+              <DownloadMenu
+                label="Download"
+                variant="primary"
+                items={[
+                  { label: "PDF — presentation", description: beneficiary ? `${beneficiary}'s statement, ready to send` : "Portfolio statement, ready to circulate", onClick: () => { void exportStatementPdf(); } },
+                  { label: "Excel — workbook", description: "Live SUM totals; year-end + estimated values", onClick: exportStatement },
+                ]}
+              />
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={exportToExcel}
+                  className="btn"
+                  title="Download ownership data as an Excel workbook"
+                  style={{ fontSize: 12 }}
+                >
+                  Export Excel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="btn"
+                  title="Print or Save as PDF"
+                  style={{ fontSize: 12 }}
+                >
+                  Print / PDF
+                </button>
+              </>
+            )}
           </div>
         </div>
 
@@ -704,7 +801,7 @@ export default function InvestorInfoPage() {
       )}
 
       {/* ── Statement of Values view ───────────────────────────────────── */}
-      {view === "statement" && <StatementView beneficiary={beneficiary} />}
+      {view === "statement" && <StatementView beneficiary={beneficiary} estimates={estimates} onSaveEstimates={saveEstimates} />}
 
       <p className="muted small" style={{ marginTop: 4 }}>
         {view === "statement" ? (
@@ -929,10 +1026,34 @@ function InvestorStructureBlock({ investorName, structure }: { investorName: str
   );
 }
 
+/** Δ vs. year-end, shown next to the estimate when it differs. */
+function DeltaTag({ base, now }: { base: number; now: number }) {
+  if (!base || Math.round(now) === Math.round(base)) return null;
+  const d = now - base;
+  const pct = (d / base) * 100;
+  const up = d > 0;
+  return (
+    <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, color: up ? "#15803d" : "#b91c1c" }}>
+      {up ? "▲" : "▼"} {Math.abs(pct).toFixed(1)}%
+    </span>
+  );
+}
+
 /** Statement of Values — portfolio (all entities) when no owner is selected, or
- *  a single owner's holdings + values when one is picked. Values are always
- *  effPct × entity equity, so they track the entityValues snapshot. */
-function StatementView({ beneficiary }: { beneficiary: string }) {
+ *  a single owner's holdings + values when one is picked. Year-end values come
+ *  from the entityValues snapshot; the "today estimate" is the saved override
+ *  (or the year-end value when none). A beneficiary's value is always
+ *  effective % × the entity's equity. */
+function StatementView({ beneficiary, estimates, onSaveEstimates }: {
+  beneficiary: string;
+  estimates: OwnershipEstimates;
+  onSaveEstimates: (next: OwnershipEstimates) => Promise<boolean>;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState<Record<string, string>>({});
+  const [asOfDraft, setAsOfDraft] = useState(estimates.asOf);
+  const [saving, setSaving] = useState(false);
+
   const codeChip = (code?: string) =>
     code ? (
       <code style={{
@@ -945,25 +1066,67 @@ function StatementView({ beneficiary }: { beneficiary: string }) {
   const numTd: React.CSSProperties = { padding: "10px 16px", textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" };
   const th: React.CSSProperties = { padding: "10px 16px", fontWeight: 700, color: "var(--muted)", fontSize: 11, letterSpacing: "0.04em", textAlign: "left" };
   const thR: React.CSSProperties = { ...th, textAlign: "right" };
+  const estLabel = estimates.asOf ? `EST. (${longDate(estimates.asOf).toUpperCase()})` : "EST. (TODAY)";
+
+  function beginEdit() {
+    const d: Record<string, string> = {};
+    for (const e of ENTITY_VALUES) {
+      const ov = estimates.values[e.entity];
+      if (ov != null) d[e.entity] = String(ov);
+    }
+    setDraft(d);
+    setAsOfDraft(estimates.asOf || new Date().toISOString().slice(0, 10));
+    setEditing(true);
+  }
+  async function commit() {
+    setSaving(true);
+    // Persist only values that differ from year-end (others revert to default).
+    const values: Record<string, number> = {};
+    for (const e of ENTITY_VALUES) {
+      const raw = (draft[e.entity] ?? "").replace(/[$,\s]/g, "");
+      if (raw === "") continue;
+      const n = Number(raw);
+      if (Number.isFinite(n) && Math.round(n) !== Math.round(e.equityValue ?? 0)) values[e.entity] = Math.round(n);
+    }
+    const ok = await onSaveEstimates({ asOf: asOfDraft, values });
+    setSaving(false);
+    if (ok) setEditing(false);
+  }
 
   // ── Portfolio (no owner selected) ──────────────────────────────────────
   if (!beneficiary) {
     const rows = [...ENTITY_VALUES].sort((a, b) => (b.equityValue ?? 0) - (a.equityValue ?? 0));
     const sum = (f: (e: typeof ENTITY_VALUES[number]) => number | null | undefined) =>
       rows.reduce((s, e) => s + (f(e) ?? 0), 0);
+    const estTotal = rows.reduce((s, e) => s + estimateFor(e.entity, estimates), 0);
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         <div className="pills">
           <StatPill label="Total equity value" value={money0(totalEquityValue())} sub={`as of ${asOfLong()}`} />
-          <StatPill label="Total indicated value" value={money0(sum((e) => e.indicatedValue))} />
+          <StatPill label="Est. value today" value={money0(estTotal)} sub={estimates.asOf ? `as of ${longDate(estimates.asOf)}` : "= year-end (not yet set)"} />
           <StatPill label="Total debt" value={money0(sum((e) => e.debtBalance))} />
           <StatPill label="Entities" value={rows.length} />
         </div>
 
         <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-          <div style={{ padding: "16px 16px 12px" }}>
-            <div style={{ fontSize: 16, fontWeight: 700 }}>Statement of Values</div>
-            <div className="muted small" style={{ marginTop: 2 }}>Entity-level equity as of {asOfLong()}. Pick an owner above for a per-beneficiary statement.</div>
+          <div style={{ padding: "16px 16px 12px", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+            <div>
+              <div style={{ fontSize: 16, fontWeight: 700 }}>Statement of Values</div>
+              <div className="muted small" style={{ marginTop: 2 }}>Year-end equity as of {asOfLong()}, with a current estimate. Pick an owner above for a per-beneficiary statement.</div>
+            </div>
+            {editing ? (
+              <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }} className="no-print">
+                <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--muted)" }}>
+                  Est. as of
+                  <input type="date" value={asOfDraft} onChange={(e) => setAsOfDraft(e.target.value)}
+                    style={{ padding: "5px 8px", border: "1px solid var(--border)", borderRadius: 6, background: "var(--card)", color: "var(--text)", fontFamily: "inherit", fontSize: 12 }} />
+                </label>
+                <button type="button" className="btn primary" disabled={saving} onClick={commit} style={{ fontSize: 12, padding: "6px 12px", fontWeight: 700 }}>{saving ? "Saving…" : "Save"}</button>
+                <button type="button" className="btn" disabled={saving} onClick={() => setEditing(false)} style={{ fontSize: 12, padding: "6px 12px" }}>Cancel</button>
+              </div>
+            ) : (
+              <button type="button" className="btn no-print" onClick={beginEdit} style={{ fontSize: 12, padding: "6px 12px" }}>Edit estimates</button>
+            )}
           </div>
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, borderTop: "1px solid var(--border)" }}>
@@ -975,23 +1138,38 @@ function StatementView({ beneficiary }: { beneficiary: string }) {
                   <th style={thR}>CAP</th>
                   <th style={thR}>INDICATED VALUE</th>
                   <th style={thR}>DEBT</th>
-                  <th style={thR}>CASH</th>
                   <th style={thR}>EQUITY VALUE</th>
+                  <th style={thR}>{estLabel}</th>
                 </tr>
               </thead>
               <tbody>
-                {rows.map((e) => (
-                  <tr key={e.entity} style={{ borderTop: "1px solid var(--border)" }}>
-                    <td style={{ padding: "10px 16px" }}>{codeChip(e.propertyCode ?? e.entity)}</td>
-                    <td style={{ padding: "10px 16px", fontWeight: 600 }}>{e.name}</td>
-                    <td style={{ ...numTd, color: (e.noi ?? 0) < 0 ? "#b91c1c" : undefined }}>{e.noi == null ? "—" : money0(e.noi)}</td>
-                    <td style={numTd}>{e.capRate == null ? "—" : (e.capRate * 100).toFixed(2) + "%"}</td>
-                    <td style={numTd}>{money0(e.indicatedValue)}</td>
-                    <td style={numTd}>{e.debtBalance ? money0(e.debtBalance) : "—"}</td>
-                    <td style={numTd}>{money0(e.cash)}</td>
-                    <td style={{ ...numTd, fontWeight: 700 }}>{money0(e.equityValue)}</td>
-                  </tr>
-                ))}
+                {rows.map((e) => {
+                  const est = estimateFor(e.entity, estimates);
+                  return (
+                    <tr key={e.entity} style={{ borderTop: "1px solid var(--border)" }}>
+                      <td style={{ padding: "10px 16px" }}>{codeChip(e.propertyCode ?? e.entity)}</td>
+                      <td style={{ padding: "10px 16px", fontWeight: 600 }}>{e.name}</td>
+                      <td style={{ ...numTd, color: (e.noi ?? 0) < 0 ? "#b91c1c" : undefined }}>{e.noi == null ? "—" : money0(e.noi)}</td>
+                      <td style={numTd}>{e.capRate == null ? "—" : (e.capRate * 100).toFixed(2) + "%"}</td>
+                      <td style={numTd}>{money0(e.indicatedValue)}</td>
+                      <td style={numTd}>{e.debtBalance ? money0(e.debtBalance) : "—"}</td>
+                      <td style={{ ...numTd, fontWeight: 700 }}>{money0(e.equityValue)}</td>
+                      <td style={numTd}>
+                        {editing ? (
+                          <input
+                            inputMode="numeric"
+                            value={draft[e.entity] ?? ""}
+                            placeholder={money0(e.equityValue)}
+                            onChange={(ev) => setDraft((p) => ({ ...p, [e.entity]: ev.target.value }))}
+                            style={{ width: 120, textAlign: "right", padding: "4px 8px", border: "1px solid var(--border)", borderRadius: 6, background: "var(--card)", color: "var(--text)", fontFamily: "inherit", fontSize: 12, fontVariantNumeric: "tabular-nums" }}
+                          />
+                        ) : (
+                          <span style={{ fontWeight: 700 }}>{money0(est)}<DeltaTag base={e.equityValue ?? 0} now={est} /></span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
               <tfoot>
                 <tr style={{ borderTop: "2px solid var(--border)", background: "rgba(15,23,42,0.03)" }}>
@@ -1000,8 +1178,8 @@ function StatementView({ beneficiary }: { beneficiary: string }) {
                   <td style={numTd}>—</td>
                   <td style={{ ...numTd, fontWeight: 800 }}>{money0(sum((e) => e.indicatedValue))}</td>
                   <td style={{ ...numTd, fontWeight: 800 }}>{money0(sum((e) => e.debtBalance))}</td>
-                  <td style={{ ...numTd, fontWeight: 800 }}>{money0(sum((e) => e.cash))}</td>
                   <td style={{ ...numTd, fontWeight: 900 }}>{money0(totalEquityValue())}</td>
+                  <td style={{ ...numTd, fontWeight: 900 }}>{money0(estTotal)}</td>
                 </tr>
               </tfoot>
             </table>
@@ -1014,11 +1192,13 @@ function StatementView({ beneficiary }: { beneficiary: string }) {
   // ── Single owner ───────────────────────────────────────────────────────
   const lines = statementForBeneficiary(beneficiary);
   const total = beneficiaryTotalValue(beneficiary);
+  const estTotal = lines.reduce((s, l) => s + l.pct * estimateFor(l.entity, estimates), 0);
   const largest = lines[0];
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <div className="pills">
         <StatPill label="Total value" value={money0(total)} sub={`as of ${asOfLong()}`} />
+        <StatPill label="Est. value today" value={money0(estTotal)} sub={estimates.asOf ? `as of ${longDate(estimates.asOf)}` : "= year-end"} />
         <StatPill label="Entities held" value={lines.length} />
         {largest && <StatPill label="Largest holding" value={money0(largest.value)} sub={largest.entityName} />}
       </div>
@@ -1037,29 +1217,35 @@ function StatementView({ beneficiary }: { beneficiary: string }) {
                 <th style={th}>HELD THROUGH</th>
                 <th style={thR}>OWNERSHIP %</th>
                 <th style={thR}>VALUE</th>
+                <th style={thR}>{estLabel}</th>
               </tr>
             </thead>
             <tbody>
-              {lines.map((l) => (
-                <tr key={l.entity} style={{ borderTop: "1px solid var(--border)" }}>
-                  <td style={{ padding: "10px 16px" }}>{codeChip(l.propertyCode ?? l.entity)}</td>
-                  <td style={{ padding: "10px 16px", fontWeight: 600 }}>{l.entityName}</td>
-                  <td style={{ padding: "10px 16px", color: "var(--muted)", lineHeight: 1.5 }}>
-                    {l.partners.length === 0 ? "—" : l.partners.map((p, i) => (
-                      <span key={i}>{p}{i < l.partners.length - 1 ? <span style={{ opacity: 0.5 }}> · </span> : null}</span>
-                    ))}
-                    {l.positions > 1 && <span className="muted small" style={{ marginLeft: 6 }}>({l.positions} stakes)</span>}
-                  </td>
-                  <td style={numTd}>{(l.pct * 100).toFixed(4)}%</td>
-                  <td style={{ ...numTd, fontWeight: 700 }}>{l.value ? money0(l.value) : "—"}</td>
-                </tr>
-              ))}
+              {lines.map((l) => {
+                const est = l.pct * estimateFor(l.entity, estimates);
+                return (
+                  <tr key={l.entity} style={{ borderTop: "1px solid var(--border)" }}>
+                    <td style={{ padding: "10px 16px" }}>{codeChip(l.propertyCode ?? l.entity)}</td>
+                    <td style={{ padding: "10px 16px", fontWeight: 600 }}>{l.entityName}</td>
+                    <td style={{ padding: "10px 16px", color: "var(--muted)", lineHeight: 1.5 }}>
+                      {l.partners.length === 0 ? "—" : l.partners.map((p, i) => (
+                        <span key={i}>{p}{i < l.partners.length - 1 ? <span style={{ opacity: 0.5 }}> · </span> : null}</span>
+                      ))}
+                      {l.positions > 1 && <span className="muted small" style={{ marginLeft: 6 }}>({l.positions} stakes)</span>}
+                    </td>
+                    <td style={numTd}>{(l.pct * 100).toFixed(4)}%</td>
+                    <td style={{ ...numTd, fontWeight: 700 }}>{l.value ? money0(l.value) : "—"}</td>
+                    <td style={numTd}>{est ? <span style={{ fontWeight: 700 }}>{money0(est)}<DeltaTag base={l.value} now={est} /></span> : "—"}</td>
+                  </tr>
+                );
+              })}
             </tbody>
             <tfoot>
               <tr style={{ borderTop: "2px solid var(--border)", background: "rgba(15,23,42,0.03)" }}>
                 <td style={{ padding: "12px 16px", fontWeight: 800 }} colSpan={3}>TOTAL — {lines.length} {lines.length === 1 ? "entity" : "entities"}</td>
                 <td style={numTd}>—</td>
                 <td style={{ ...numTd, fontWeight: 900 }}>{money0(total)}</td>
+                <td style={{ ...numTd, fontWeight: 900 }}>{money0(estTotal)}</td>
               </tr>
             </tfoot>
           </table>
