@@ -754,7 +754,11 @@ export default function InvestorInfoPage() {
                   ...(!beneficiary ? [{ label: "All owner statements (ZIP)", description: `One PDF per owner + the portfolio — the annual mailing (${benNames.length} owners)`, onClick: () => { void exportAllOwnerStatements(); } }] : []),
                 ]}
               />
-            ) : (
+            ) : null}
+            {view === "statement" && beneficiary && canEdit && (
+              <SendStatementButton beneficiary={beneficiary} email={resolveContact(beneficiary)?.email} />
+            )}
+            {view === "statement" ? null : (
               <>
                 <button
                   type="button"
@@ -1373,6 +1377,46 @@ function DeltaTag({ base, now }: { base: number; now: number }) {
   return (
     <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, color: up ? "#15803d" : "#b91c1c" }}>
       {up ? "▲" : "▼"} {Math.abs(pct).toFixed(1)}%
+    </span>
+  );
+}
+
+/** Manual "email this statement to the owner" action — gated + confirmed, never
+ *  automatic. Disabled until the owner has an email on file. */
+function SendStatementButton({ beneficiary, email }: { beneficiary: string; email?: string }) {
+  const [state, setState] = useState<"idle" | "confirm" | "sending" | "sent" | "error">("idle");
+  const [msg, setMsg] = useState("");
+
+  async function send() {
+    setState("sending");
+    try {
+      const res = await fetch("/api/ownership/send", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ beneficiary }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) { setMsg(d.error || "Send failed."); setState("error"); return; }
+      setMsg(`Sent to ${d.sentTo || email}`); setState("sent");
+    } catch { setMsg("Send failed."); setState("error"); }
+  }
+
+  if (!email) {
+    return <span className="muted small" title="Add an email to this owner's contact to enable sending" style={{ alignSelf: "center" }}>No email on file</span>;
+  }
+  if (state === "sent") return <span className="small" style={{ alignSelf: "center", color: "#15803d", fontWeight: 600 }}>✓ {msg}</span>;
+  if (state === "confirm" || state === "sending") {
+    return (
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+        <span className="small" style={{ color: "var(--muted)" }}>Email to {email}?</span>
+        <button type="button" className="btn primary" disabled={state === "sending"} onClick={send} style={{ fontSize: 12, padding: "6px 12px", fontWeight: 700 }}>{state === "sending" ? "Sending…" : "Send"}</button>
+        <button type="button" className="btn" disabled={state === "sending"} onClick={() => setState("idle")} style={{ fontSize: 12, padding: "6px 12px" }}>Cancel</button>
+      </span>
+    );
+  }
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+      <button type="button" className="btn" onClick={() => setState("confirm")} title={`Email ${beneficiary}'s statement`} style={{ fontSize: 12, padding: "8px 14px", fontWeight: 700 }}>Email to owner</button>
+      {state === "error" && <span className="small" style={{ color: "#b91c1c" }}>{msg}</span>}
     </span>
   );
 }
