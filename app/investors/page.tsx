@@ -8,6 +8,7 @@ import { structureFor, type InvestorStructure } from "../../lib/investors/struct
 import { ENTITY_VALUES, entityValue, totalEquityValue, STATEMENT_AS_OF } from "../../lib/properties/entityValues";
 import { beneficiaryNames, statementForBeneficiary, beneficiaryTotalValue } from "../../lib/properties/beneficiaries";
 import type { OwnershipEstimates } from "../../lib/properties/estimateStore";
+import { ownerContact } from "../../lib/properties/ownerContacts";
 import { buildStatementOfValuesPdf, type StatementPdfRow } from "../../lib/properties/statementPdf";
 import { StatPill } from "../components/Pill";
 import { DownloadMenu } from "../components/DownloadMenu";
@@ -318,15 +319,18 @@ export default function InvestorInfoPage() {
 
     // One owner: one row per entity they hold, value = % × equity, TOTAL sums value.
     const lines = statementForBeneficiary(beneficiary);
+    const contact = ownerContact(beneficiary);
+    const sendTo = contact ? [contact.address, contact.email].filter(Boolean).join("  ·  ") : "";
     const header = ["Entity", "Property / Entity", "Held Through", "Ownership %", `Value (${asOfLong()})`, estLabel];
     const aoa: (string | number | null)[][] = [
       [`${beneficiary} — Statement of Values`],
+      ...(sendTo ? [[`Send to: ${sendTo}`]] : []),
       header,
       ...lines.map((l) => [l.entity, l.entityName, l.partners.join("; "), l.pct, Math.round(l.value), Math.round(l.pct * estimateFor(l.entity, estimates))]),
       ["", "TOTAL", "", null, null, null],
     ];
     const ws = XLSX.utils.aoa_to_sheet(aoa);
-    const firstData = 3;
+    const firstData = sendTo ? 4 : 3;    // title (+ optional send-to) + header
     const lastData = firstData + lines.length - 1;
     const totalRow = lastData + 1;
     ws[`E${totalRow}`] = { t: "n", f: `SUM(E${firstData}:E${lastData})`, v: Math.round(beneficiaryTotalValue(beneficiary)) };
@@ -347,6 +351,7 @@ export default function InvestorInfoPage() {
     let rows: StatementPdfRow[];
     let totals: { yearEnd: number; estimated: number };
     let ownerName: string | undefined;
+    let contact: { address?: string; email?: string } | undefined;
     let filename: string;
 
     if (!beneficiary) {
@@ -359,6 +364,8 @@ export default function InvestorInfoPage() {
       filename = `Statement_of_Values_${stamp}.pdf`;
     } else {
       ownerName = beneficiary;
+      const c = ownerContact(beneficiary);
+      if (c && (c.address || c.email)) contact = { address: c.address, email: c.email };
       const lines = statementForBeneficiary(beneficiary);
       rows = lines.map((l) => ({ code: l.propertyCode ?? l.entity, name: l.entityName, pct: l.pct, yearEnd: l.value, estimated: l.pct * estimateFor(l.entity, estimates) }));
       totals = {
@@ -369,7 +376,7 @@ export default function InvestorInfoPage() {
       filename = `Statement_of_Values_${safe}_${stamp}.pdf`;
     }
 
-    const bytes = await buildStatementOfValuesPdf({ ownerName, asOfYearEnd: asOfLong(), asOfEstimate, generatedOn, rows, totals });
+    const bytes = await buildStatementOfValuesPdf({ ownerName, ownerContact: contact, asOfYearEnd: asOfLong(), asOfEstimate, generatedOn, rows, totals });
     const blob = new Blob([bytes], { type: "application/pdf" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -865,6 +872,7 @@ function InvestorStructureBlock({ investorName, structure }: { investorName: str
     if (!structure!.directory) return;
     const rows = structure!.directory.rows.map((r) => ({
       "Trustee / Partner Name": r.name,
+      "Email": r.email ?? "",
       "Address": r.address,
       "City": r.city,
       "State": r.state,
@@ -996,7 +1004,12 @@ function InvestorStructureBlock({ investorName, structure }: { investorName: str
                   const cityState = [r.city, r.state, r.zip].filter(Boolean).join(", ").replace(/, ([A-Z]{2}|Canada), (\d{5})/, ", $1 $2");
                   return (
                     <tr key={i} style={{ borderTop: "1px solid var(--border)" }}>
-                      <td style={{ padding: "10px 10px", verticalAlign: "top", fontWeight: 600 }}>{r.name}</td>
+                      <td style={{ padding: "10px 10px", verticalAlign: "top", fontWeight: 600 }}>
+                        <div>{r.name}</div>
+                        {r.email && (
+                          <a href={`mailto:${r.email}`} className="small" style={{ marginTop: 2, display: "inline-block", color: "var(--brand)", fontWeight: 500, wordBreak: "break-all" }}>{r.email}</a>
+                        )}
+                      </td>
                       <td style={{ padding: "10px 10px", verticalAlign: "top", lineHeight: 1.4 }}>
                         <div>{r.address}</div>
                         <div className="muted small" style={{ marginTop: 2 }}>{cityState}</div>
@@ -1207,6 +1220,17 @@ function StatementView({ beneficiary, estimates, onSaveEstimates }: {
         <div style={{ padding: "16px 16px 12px" }}>
           <div style={{ fontSize: 16, fontWeight: 700 }}>{beneficiary} — Statement of Values</div>
           <div className="muted small" style={{ marginTop: 2 }}>Ownership by partner / trust vehicle. Value = effective % × the entity&rsquo;s equity value ({asOfLong()}).</div>
+          {(() => {
+            const c = ownerContact(beneficiary);
+            if (!c || (!c.address && !c.email)) return null;
+            return (
+              <div className="small" style={{ marginTop: 8, color: "var(--text)", display: "flex", flexWrap: "wrap", gap: "2px 12px" }}>
+                <span style={{ fontWeight: 700, color: "var(--muted)", letterSpacing: "0.04em" }}>SEND TO</span>
+                {c.address && <span style={{ color: "var(--muted)" }}>{c.address}</span>}
+                {c.email && <a href={`mailto:${c.email}`} style={{ color: "var(--brand)" }}>{c.email}</a>}
+              </div>
+            );
+          })()}
         </div>
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, borderTop: "1px solid var(--border)" }}>
