@@ -5,8 +5,20 @@ import * as XLSX from "xlsx";
 import { PROPERTY_OWNERSHIP, type PropertyOwner } from "../../lib/properties/ownership";
 import { PROPERTY_DEFS, TYPE_STYLE, FUND_LABEL, type PropType, type FundGroup } from "../../lib/properties/data";
 import { structureFor, type InvestorStructure } from "../../lib/investors/structures";
+import { ENTITY_VALUES, totalEquityValue, STATEMENT_AS_OF } from "../../lib/properties/entityValues";
+import { beneficiaryNames, statementForBeneficiary, beneficiaryTotalValue } from "../../lib/properties/beneficiaries";
+import { StatPill } from "../components/Pill";
 
-type View = "property" | "investor";
+type View = "property" | "investor" | "statement";
+
+const money0 = (n: number | null | undefined): string =>
+  n == null ? "—" : n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+
+/** As-of date rendered long-form (e.g. "December 31, 2025"). */
+function asOfLong(): string {
+  const [y, m, d] = STATEMENT_AS_OF.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+}
 
 type PropertyHolding = {
   propertyCode: string;       // "1100", "7200"…
@@ -81,12 +93,26 @@ function buildOwnerGroups(owners: PropertyOwner[]): OwnerGroup[] {
 export default function InvestorInfoPage() {
   const [view, setView] = useState<View>("property");
   const [query, setQuery] = useState("");
+  /** Statement-of-Values owner filter. "" = portfolio (all entities). */
+  const [beneficiary, setBeneficiary] = useState("");
+  const benNames = useMemo(() => beneficiaryNames(), []);
   // Prefill the search box if the page was opened with ?q=… (used by the
   // global search to deep-link to an owner or vendor code).
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const q = new URLSearchParams(window.location.search).get("q");
+    const params = new URLSearchParams(window.location.search);
+    const q = params.get("q");
     if (q) setQuery(q);
+    // Deep-link into the Statement of Values (?view=statement&owner=Name).
+    const v = params.get("view");
+    if (v === "statement" || v === "investor" || v === "property") setView(v);
+    const owner = params.get("owner");
+    if (owner) {
+      setView("statement");
+      // Match case-insensitively to the canonical beneficiary name.
+      const match = beneficiaryNames().find((n) => n.toLowerCase() === owner.toLowerCase());
+      if (match) setBeneficiary(match);
+    }
   }, []);
   /** Open/closed state for each card. Default = closed everywhere so the page
    *  reads like the rent roll page (PropertyCard pattern). */
@@ -208,6 +234,67 @@ export default function InvestorInfoPage() {
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(byInvestor), "By Investor");
     const stamp = new Date().toISOString().slice(0, 10);
     XLSX.writeFile(wb, `Investor_Info_${stamp}.xlsx`);
+  }
+
+  /** Statement of Values export. Totals are written as live SUM formulas over
+   *  the exact source cells (per the Excel-totals house rule) with the
+   *  JS-computed value cached so the number shows before Excel recalcs. */
+  function exportStatement() {
+    const stamp = new Date().toISOString().slice(0, 10);
+    const wb = XLSX.utils.book_new();
+
+    if (!beneficiary) {
+      // Portfolio: one row per entity, TOTAL row sums the money columns.
+      const rows = [...ENTITY_VALUES].sort((a, b) => (b.equityValue ?? 0) - (a.equityValue ?? 0));
+      const header = ["Entity", "Property / Entity", "NOI", "Cap Rate", "Indicated Value", "Debt Balance", "Cash", "Future Capital", "Equity Value"];
+      const aoa: (string | number | null)[][] = [
+        [`Korman — Statement of Values (${asOfLong()})`],
+        header,
+        ...rows.map((e) => [e.entity, e.name, e.noi, e.capRate, e.indicatedValue, e.debtBalance, e.cash, e.futureCapital, e.equityValue]),
+        ["", "TOTAL", null, null, null, null, null, null, null],
+      ];
+      const ws = XLSX.utils.aoa_to_sheet(aoa);
+      const firstData = 3;                 // Excel row of first entity (title=1, header=2)
+      const lastData = firstData + rows.length - 1;
+      const totalRow = lastData + 1;
+      // Money columns to total: C(NOI) E(Value) F(Debt) G(Cash) H(FutureCap) I(Equity)
+      const sums: Record<string, number> = {
+        C: rows.reduce((s, e) => s + (e.noi ?? 0), 0),
+        E: rows.reduce((s, e) => s + (e.indicatedValue ?? 0), 0),
+        F: rows.reduce((s, e) => s + (e.debtBalance ?? 0), 0),
+        G: rows.reduce((s, e) => s + (e.cash ?? 0), 0),
+        H: rows.reduce((s, e) => s + (e.futureCapital ?? 0), 0),
+        I: rows.reduce((s, e) => s + (e.equityValue ?? 0), 0),
+      };
+      for (const [col, val] of Object.entries(sums)) {
+        ws[`${col}${totalRow}`] = { t: "n", f: `SUM(${col}${firstData}:${col}${lastData})`, v: val };
+      }
+      ws["!cols"] = [{ wch: 8 }, { wch: 38 }, { wch: 12 }, { wch: 9 }, { wch: 15 }, { wch: 14 }, { wch: 12 }, { wch: 13 }, { wch: 15 }];
+      XLSX.utils.book_append_sheet(wb, ws, "Statement of Values");
+      XLSX.writeFile(wb, `Statement_of_Values_${stamp}.xlsx`);
+      return;
+    }
+
+    // One owner: one row per entity they hold, value = % × equity, TOTAL sums value.
+    const lines = statementForBeneficiary(beneficiary);
+    const header = ["Entity", "Property / Entity", "Held Through", "Ownership %", "Value"];
+    const aoa: (string | number | null)[][] = [
+      [`${beneficiary} — Statement of Values (${asOfLong()})`],
+      header,
+      ...lines.map((l) => [l.entity, l.entityName, l.partners.join("; "), l.pct, Math.round(l.value)]),
+      ["", "TOTAL", "", null, null],
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    const firstData = 3;
+    const lastData = firstData + lines.length - 1;
+    const totalRow = lastData + 1;
+    ws[`E${totalRow}`] = { t: "n", f: `SUM(E${firstData}:E${lastData})`, v: Math.round(beneficiaryTotalValue(beneficiary)) };
+    // Percent column formatting.
+    for (let i = 0; i < lines.length; i++) ws[`D${firstData + i}`] = { t: "n", v: lines[i].pct, z: "0.0000%" };
+    ws["!cols"] = [{ wch: 8 }, { wch: 34 }, { wch: 44 }, { wch: 12 }, { wch: 15 }];
+    const safe = beneficiary.replace(/[^a-zA-Z0-9]+/g, "_").replace(/^_|_$/g, "");
+    XLSX.utils.book_append_sheet(wb, ws, "Statement of Values");
+    XLSX.writeFile(wb, `Statement_of_Values_${safe}_${stamp}.xlsx`);
   }
 
   function renderHoldingCard(h: PropertyHolding) {
@@ -381,6 +468,7 @@ export default function InvestorInfoPage() {
             {[
               { id: "property" as const, label: "By Property" },
               { id: "investor" as const, label: "By Investor" },
+              { id: "statement" as const, label: "Statement of Values" },
             ].map((v) => {
               const active = view === v.id;
               return (
@@ -402,26 +490,48 @@ export default function InvestorInfoPage() {
             })}
           </div>
 
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search investors, vendor codes, properties…"
-            style={{
-              flex: 1, minWidth: 220,
-              padding: "8px 12px",
-              border: "1px solid var(--border)", borderRadius: 8,
-              background: "var(--card)", color: "var(--text)",
-              fontFamily: "inherit", fontSize: 13, outline: "none",
-            }}
-          />
+          {view === "statement" ? (
+            <label style={{ display: "inline-flex", alignItems: "center", gap: 8, flex: 1, minWidth: 220 }}>
+              <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)", whiteSpace: "nowrap" }}>Owner</span>
+              <select
+                value={beneficiary}
+                onChange={(e) => setBeneficiary(e.target.value)}
+                style={{
+                  flex: 1, minWidth: 200,
+                  padding: "8px 12px",
+                  border: "1px solid var(--border)", borderRadius: 8,
+                  background: "var(--card)", color: "var(--text)",
+                  fontFamily: "inherit", fontSize: 13, outline: "none",
+                }}
+              >
+                <option value="">All entities (portfolio)</option>
+                {benNames.map((n) => (
+                  <option key={n} value={n}>{n}</option>
+                ))}
+              </select>
+            </label>
+          ) : (
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search investors, vendor codes, properties…"
+              style={{
+                flex: 1, minWidth: 220,
+                padding: "8px 12px",
+                border: "1px solid var(--border)", borderRadius: 8,
+                background: "var(--card)", color: "var(--text)",
+                fontFamily: "inherit", fontSize: 13, outline: "none",
+              }}
+            />
+          )}
 
           <div style={{ display: "flex", gap: 8 }}>
             <button
               type="button"
-              onClick={exportToExcel}
+              onClick={view === "statement" ? exportStatement : exportToExcel}
               className="btn"
-              title="Download ownership data as an Excel workbook"
+              title={view === "statement" ? "Download the statement of values as an Excel workbook" : "Download ownership data as an Excel workbook"}
               style={{ fontSize: 12 }}
             >
               Export Excel
@@ -593,8 +703,15 @@ export default function InvestorInfoPage() {
         </div>
       )}
 
+      {/* ── Statement of Values view ───────────────────────────────────── */}
+      {view === "statement" && <StatementView beneficiary={beneficiary} />}
+
       <p className="muted small" style={{ marginTop: 4 }}>
-        Source of truth: <code>lib/properties/ownership.ts</code>. Filing Tracker K-1 investors are derived from this file.
+        {view === "statement" ? (
+          <>Statement of values sourced from <code>lib/properties/entityValues.ts</code> (entity financials, {asOfLong()} snapshot) and <code>lib/properties/beneficiaries.ts</code> (ownership map). Each owner&rsquo;s value = their effective % × the entity&rsquo;s equity value.</>
+        ) : (
+          <>Source of truth: <code>lib/properties/ownership.ts</code>. Filing Tracker K-1 investors are derived from this file.</>
+        )}
       </p>
     </main>
   );
@@ -809,5 +926,145 @@ function InvestorStructureBlock({ investorName, structure }: { investorName: str
         </div>
       )}
     </>
+  );
+}
+
+/** Statement of Values — portfolio (all entities) when no owner is selected, or
+ *  a single owner's holdings + values when one is picked. Values are always
+ *  effPct × entity equity, so they track the entityValues snapshot. */
+function StatementView({ beneficiary }: { beneficiary: string }) {
+  const codeChip = (code?: string) =>
+    code ? (
+      <code style={{
+        background: "#0b1220", color: "#e0f0ff",
+        padding: "1px 6px", borderRadius: 4,
+        fontSize: 11, fontWeight: 600, letterSpacing: "0.04em",
+      }}>{code}</code>
+    ) : null;
+
+  const numTd: React.CSSProperties = { padding: "10px 16px", textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" };
+  const th: React.CSSProperties = { padding: "10px 16px", fontWeight: 700, color: "var(--muted)", fontSize: 11, letterSpacing: "0.04em", textAlign: "left" };
+  const thR: React.CSSProperties = { ...th, textAlign: "right" };
+
+  // ── Portfolio (no owner selected) ──────────────────────────────────────
+  if (!beneficiary) {
+    const rows = [...ENTITY_VALUES].sort((a, b) => (b.equityValue ?? 0) - (a.equityValue ?? 0));
+    const sum = (f: (e: typeof ENTITY_VALUES[number]) => number | null | undefined) =>
+      rows.reduce((s, e) => s + (f(e) ?? 0), 0);
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        <div className="pills">
+          <StatPill label="Total equity value" value={money0(totalEquityValue())} sub={`as of ${asOfLong()}`} />
+          <StatPill label="Total indicated value" value={money0(sum((e) => e.indicatedValue))} />
+          <StatPill label="Total debt" value={money0(sum((e) => e.debtBalance))} />
+          <StatPill label="Entities" value={rows.length} />
+        </div>
+
+        <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+          <div style={{ padding: "16px 16px 12px" }}>
+            <div style={{ fontSize: 16, fontWeight: 700 }}>Statement of Values</div>
+            <div className="muted small" style={{ marginTop: 2 }}>Entity-level equity as of {asOfLong()}. Pick an owner above for a per-beneficiary statement.</div>
+          </div>
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, borderTop: "1px solid var(--border)" }}>
+              <thead>
+                <tr>
+                  <th style={th}>ENTITY</th>
+                  <th style={th}>PROPERTY / ENTITY</th>
+                  <th style={thR}>NOI</th>
+                  <th style={thR}>CAP</th>
+                  <th style={thR}>INDICATED VALUE</th>
+                  <th style={thR}>DEBT</th>
+                  <th style={thR}>CASH</th>
+                  <th style={thR}>EQUITY VALUE</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((e) => (
+                  <tr key={e.entity} style={{ borderTop: "1px solid var(--border)" }}>
+                    <td style={{ padding: "10px 16px" }}>{codeChip(e.propertyCode ?? e.entity)}</td>
+                    <td style={{ padding: "10px 16px", fontWeight: 600 }}>{e.name}</td>
+                    <td style={{ ...numTd, color: (e.noi ?? 0) < 0 ? "#b91c1c" : undefined }}>{e.noi == null ? "—" : money0(e.noi)}</td>
+                    <td style={numTd}>{e.capRate == null ? "—" : (e.capRate * 100).toFixed(2) + "%"}</td>
+                    <td style={numTd}>{money0(e.indicatedValue)}</td>
+                    <td style={numTd}>{e.debtBalance ? money0(e.debtBalance) : "—"}</td>
+                    <td style={numTd}>{money0(e.cash)}</td>
+                    <td style={{ ...numTd, fontWeight: 700 }}>{money0(e.equityValue)}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr style={{ borderTop: "2px solid var(--border)", background: "rgba(15,23,42,0.03)" }}>
+                  <td style={{ padding: "12px 16px", fontWeight: 800 }} colSpan={2}>TOTAL</td>
+                  <td style={{ ...numTd, fontWeight: 800 }}>{money0(sum((e) => e.noi))}</td>
+                  <td style={numTd}>—</td>
+                  <td style={{ ...numTd, fontWeight: 800 }}>{money0(sum((e) => e.indicatedValue))}</td>
+                  <td style={{ ...numTd, fontWeight: 800 }}>{money0(sum((e) => e.debtBalance))}</td>
+                  <td style={{ ...numTd, fontWeight: 800 }}>{money0(sum((e) => e.cash))}</td>
+                  <td style={{ ...numTd, fontWeight: 900 }}>{money0(totalEquityValue())}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Single owner ───────────────────────────────────────────────────────
+  const lines = statementForBeneficiary(beneficiary);
+  const total = beneficiaryTotalValue(beneficiary);
+  const largest = lines[0];
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <div className="pills">
+        <StatPill label="Total value" value={money0(total)} sub={`as of ${asOfLong()}`} />
+        <StatPill label="Entities held" value={lines.length} />
+        {largest && <StatPill label="Largest holding" value={money0(largest.value)} sub={largest.entityName} />}
+      </div>
+
+      <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+        <div style={{ padding: "16px 16px 12px" }}>
+          <div style={{ fontSize: 16, fontWeight: 700 }}>{beneficiary} — Statement of Values</div>
+          <div className="muted small" style={{ marginTop: 2 }}>Ownership by partner / trust vehicle. Value = effective % × the entity&rsquo;s equity value ({asOfLong()}).</div>
+        </div>
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, borderTop: "1px solid var(--border)" }}>
+            <thead>
+              <tr>
+                <th style={th}>ENTITY</th>
+                <th style={th}>PROPERTY / ENTITY</th>
+                <th style={th}>HELD THROUGH</th>
+                <th style={thR}>OWNERSHIP %</th>
+                <th style={thR}>VALUE</th>
+              </tr>
+            </thead>
+            <tbody>
+              {lines.map((l) => (
+                <tr key={l.entity} style={{ borderTop: "1px solid var(--border)" }}>
+                  <td style={{ padding: "10px 16px" }}>{codeChip(l.propertyCode ?? l.entity)}</td>
+                  <td style={{ padding: "10px 16px", fontWeight: 600 }}>{l.entityName}</td>
+                  <td style={{ padding: "10px 16px", color: "var(--muted)", lineHeight: 1.5 }}>
+                    {l.partners.length === 0 ? "—" : l.partners.map((p, i) => (
+                      <span key={i}>{p}{i < l.partners.length - 1 ? <span style={{ opacity: 0.5 }}> · </span> : null}</span>
+                    ))}
+                    {l.positions > 1 && <span className="muted small" style={{ marginLeft: 6 }}>({l.positions} stakes)</span>}
+                  </td>
+                  <td style={numTd}>{(l.pct * 100).toFixed(4)}%</td>
+                  <td style={{ ...numTd, fontWeight: 700 }}>{l.value ? money0(l.value) : "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr style={{ borderTop: "2px solid var(--border)", background: "rgba(15,23,42,0.03)" }}>
+                <td style={{ padding: "12px 16px", fontWeight: 800 }} colSpan={3}>TOTAL — {lines.length} {lines.length === 1 ? "entity" : "entities"}</td>
+                <td style={numTd}>—</td>
+                <td style={{ ...numTd, fontWeight: 900 }}>{money0(total)}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
   );
 }
