@@ -31,3 +31,8 @@ npm-debug.log*
 # Local data storage (runtime-generated, not source)
 data/periods/
 data/statements/
+data/ownership-estimates/
+data/ownership-entities/
+data/audit-log/
+data/ownership-trustees/
+data/ownership-contacts/

@@ -1,7 +1,9 @@
 "use client";
+import LoadingState from "@/app/components/LoadingState";
 
 import { useEffect, useState } from "react";
 import * as XLSX from "xlsx";
+import { useUser } from "../../components/UserProvider";
 
 type SavedTx = {
   date: string;
@@ -19,6 +21,7 @@ type StatementMeta = {
   savedAt: string;
   periodText: string;
   statementMonth: string;
+  source?: "manual" | "generated";
   txCount: number;
   total: number;
 };
@@ -72,6 +75,15 @@ function exportStatement(entry: StatementDetail) {
 }
 
 export default function ExpenseHistoryPage() {
+  const { user } = useUser();
+  // The maint persona only sees Greg's own rows — mirror the lock on the
+  // /expenses Code Transactions table.
+  const isMaint = user.id === "maint";
+  const visibleTx = (txs: SavedTx[]): SavedTx[] =>
+    isMaint
+      ? txs.filter((t) => String(t.cardMember || "").toLowerCase().includes("greg"))
+      : txs;
+
   const [statements, setStatements] = useState<StatementMeta[]>([]);
   const [details, setDetails] = useState<Record<string, StatementDetail>>({});
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -121,10 +133,10 @@ export default function ExpenseHistoryPage() {
       <div className="card">
         <b style={{ fontSize: 15 }}>Statement History</b>
         <div className="small muted" style={{ marginTop: 4, marginBottom: 16 }}>
-          Saved statements for reference. Use &ldquo;Save to History&rdquo; on the Expense Coder page to archive each statement.
+          Every statement is logged here automatically when its invoices are generated on the Expense Coder page — re-generating a month updates its entry. You can also archive one manually with &ldquo;Save to History.&rdquo;
         </div>
 
-        {loading && <div className="small muted">Loading…</div>}
+        {loading && <LoadingState card={false} status="Loading saved statements…" rows={4} />}
 
         {!loading && statements.length === 0 && (
           <div className="small muted" style={{ padding: "20px 0" }}>
@@ -139,7 +151,16 @@ export default function ExpenseHistoryPage() {
             <div key={s.id} style={{ border: "1px solid var(--border)", borderRadius: 12, marginBottom: 12, overflow: "hidden" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", background: isExpanded ? "rgba(11,74,125,0.04)" : "#fff" }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 700, fontSize: 15 }}>{s.periodText || s.statementMonth}</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    <span style={{ fontWeight: 700, fontSize: 15 }}>{s.periodText || s.statementMonth}</span>
+                    <span style={{
+                      fontSize: 10, fontWeight: 800, letterSpacing: "0.04em", textTransform: "uppercase",
+                      padding: "2px 8px", borderRadius: 999,
+                      background: s.source === "generated" ? "rgba(13,148,136,0.10)" : "rgba(15,23,42,0.06)",
+                      color: s.source === "generated" ? "#0d9488" : "var(--muted)",
+                      border: `1px solid ${s.source === "generated" ? "rgba(13,148,136,0.30)" : "var(--border)"}`,
+                    }}>{s.source === "generated" ? "Auto-logged" : "Manual"}</span>
+                  </div>
                   <div className="small muted" style={{ marginTop: 2 }}>
                     Saved {new Date(s.savedAt).toLocaleDateString()} &nbsp;·&nbsp; {s.txCount} transactions &nbsp;·&nbsp; {toMoney(s.total)}
                   </div>
@@ -155,7 +176,7 @@ export default function ExpenseHistoryPage() {
                 <div style={{ borderTop: "1px solid var(--border)", overflowX: "auto" }}>
                   {!detail ? (
                     <div className="small muted" style={{ padding: 14 }}>Loading…</div>
-                  ) : detail.tx.length === 0 ? (
+                  ) : visibleTx(detail.tx).length === 0 ? (
                     <div className="small muted" style={{ padding: 14 }}>No transactions.</div>
                   ) : (
                     <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, minWidth: 900 }}>
@@ -167,7 +188,7 @@ export default function ExpenseHistoryPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {detail.tx.map((t, i) => (
+                        {visibleTx(detail.tx).map((t, i) => (
                           <tr key={i} style={{ borderBottom: "1px solid rgba(15,23,42,0.08)" }}>
                             <td style={{ padding: "10px" }}>{t.date}</td>
                             <td style={{ padding: "10px" }}>{t.cardMember}</td>

@@ -2,12 +2,21 @@ import { NextResponse } from "next/server";
 import archiver from "archiver";
 import { PassThrough } from "stream";
 import { z } from "zod";
-import * as XLSX from "xlsx";
 import { buildInvoices } from "../../../lib/invoicing/buildInvoices";
 import { renderInvoicePdf } from "../../../lib/pdf/renderInvoicePdf";
+import { payrollInvoiceNumber } from "../../../lib/payroll/invoiceNumber";
 import { parseAllocationWorkbook } from "../../../lib/allocation/parseAllocationWorkbook";
+import { buildPayrollExportXlsx, buildPayrollGLXlsx } from "../../../lib/payroll/export";
+import { sendMail, isMailConfigured } from "@/lib/mail";
+import { allocReportAlreadySent, markAllocReportSent } from "@/lib/payroll/allocReportSent";
+import { storeJSON, listJSON } from "@/lib/storage";
 import { readFile } from "fs/promises";
 import path from "path";
+
+// When payroll is processed, the property-level allocation report goes to the
+// controller. NEVER the confidential by-employee allocation.
+const ALLOC_REPORT_TO = "mjaster@kormancommercial.com";
+const ALLOC_REPORT_CC = "dwinig@kormancommercial.com";
 
 export const runtime = "nodejs";
 
@@ -26,7 +35,6 @@ export async function POST(req: Request) {
     const allocation = parseAllocationWorkbook(allocBuf);
 
     const invoices = body.invoices?.length ? body.invoices : buildInvoices(body.payroll, allocation as any);
-    const employees: any[] = body.employees ?? [];
 
     const archive = archiver("zip", { zlib: { level: 9 } });
     const stream = new PassThrough();
@@ -36,18 +44,67 @@ export async function POST(req: Request) {
       const pdfBytes = await renderInvoicePdf({
         invoice: inv,
         payroll: body.payroll,
-        invoiceNumber: makeInvoiceNumber(),
+        invoiceNumber: inv.invoiceNumber || payrollInvoiceNumber(inv, body.payroll?.payDate),
       });
 
       const safeName = (inv.propertyLabel || inv.propertyKey || "invoice").replace(/[^a-z0-9\-_. ]/gi, "_");
       archive.append(Buffer.from(pdfBytes), { name: `${safeName}.pdf` });
     }
 
-    // ── Master Excel workbook ──
-    const xlsBuf = buildMasterExcel(invoices, employees);
+    // ── Payroll Summary + GL Journal Entry ──
     const payDate: string = body.payroll?.payDate ?? "";
-    const excelName = `${formatPayDateForFilename(payDate)} Payroll Allocation.xlsx`;
-    archive.append(xlsBuf, { name: excelName });
+    const datePrefix = formatPayDateForFilename(payDate);
+
+    const summaryBlob = buildPayrollExportXlsx({ payDate, invoices });
+    const summaryBuf = Buffer.from(await summaryBlob.arrayBuffer());
+    archive.append(summaryBuf, { name: `${datePrefix} payroll-summary.xlsx` });
+
+    const glBlob = buildPayrollGLXlsx({ payDate, invoices });
+    const glBuf = Buffer.from(await glBlob.arrayBuffer());
+    archive.append(glBuf, { name: `${datePrefix} GL Journal Entry.xlsx` });
+
+    // Auto-email the PROPERTY allocation report (the per-property Payroll Summary
+    // above — property-level totals only, no per-employee detail) plus the GL
+    // Journal Entry import file (account/property-level journal lines, also no
+    // per-employee detail) to the controller when payroll is processed.
+    // Best-effort and once per pay date so re-downloading the batch doesn't
+    // resend. The confidential by-employee allocation is never attached.
+    try {
+      if (payDate && invoices.length && isMailConfigured() && !(await allocReportAlreadySent(payDate))) {
+        const ok = await sendMail({
+          to: ALLOC_REPORT_TO,
+          cc: ALLOC_REPORT_CC,
+          from: ALLOC_REPORT_CC, // verified sender (also used by the commissions batch)
+          subject: `Payroll Processed — ${payDate}`,
+          textBody:
+            `Marie,\n\n` +
+            `Attached are the GL Skyline import file and the corresponding property allocation report for the ${payDate} payroll.\n\n` +
+            `Sent automatically when the payroll invoices were processed.`,
+          attachments: [
+            {
+              name: `${datePrefix} Payroll Property Allocation.xlsx`,
+              content: summaryBuf,
+              contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            },
+            {
+              name: `${datePrefix} GL Journal Entry.xlsx`,
+              content: glBuf,
+              contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            },
+          ],
+        });
+        if (ok) await markAllocReportSent(payDate, ALLOC_REPORT_TO);
+      }
+    } catch {
+      // Never let the report email block invoice generation.
+    }
+
+    // Processing the invoices is the save — record the period so the dashboard
+    // reflects the latest run without anyone clicking "Save". Best-effort.
+    if (payDate && invoices.length) {
+      try { await recordProcessedPeriod(payDate, body.payroll, invoices, body.employees ?? []); }
+      catch { /* never let the save block the download */ }
+    }
 
     await archive.finalize();
 
@@ -66,8 +123,25 @@ export async function POST(req: Request) {
   }
 }
 
-function makeInvoiceNumber() {
-  return Math.floor(10000000 + Math.random() * 90000000).toString();
+/** Auto-save the processed payroll as a period (the same shape the manual
+ *  "Save" button writes), so processing the invoices IS the save — the user no
+ *  longer has to click Save and the dashboard shows the latest run. Deduped by
+ *  pay date (re-processing the same payroll updates that period, not a dupe). */
+async function recordProcessedPeriod(
+  payDate: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  payroll: any, invoices: any[], employees: any[],
+): Promise<void> {
+  const name = payDate || new Date().toLocaleDateString();
+  // Drop per-invoice drilldown to keep the stored payload small (matches Save).
+  const invoicesSlim = (invoices ?? []).map(({ drilldown: _d, ...rest }) => rest);
+  const all = (await listJSON("periods")) as Array<{ id: string; name?: string; payDate?: string }>;
+  const existing = all.find((p) => p?.payDate === payDate || p?.name === name);
+  const id = existing?.id ?? `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  await storeJSON("periods", id, {
+    id, name, payDate: payDate || null, savedAt: new Date().toISOString(),
+    payroll, invoices: invoicesSlim, employees: employees ?? [],
+  });
 }
 
 /** Format payDate (e.g. "01/15/2026") to "01-15-26" for safe filenames */
@@ -86,126 +160,4 @@ function formatPayDateForFilename(payDate: string): string {
     return `${mm}-${dd}-${yy}`;
   }
   return payDate.replace(/[/\\?%*:|"<>]/g, "-");
-}
-
-const CURRENCY_FMT = '"$"#,##0.00';
-
-/** Apply currency number format to all numeric cells in a worksheet starting at column index `numStartCol` (0-based). */
-function applyCurrencyFormat(ws: XLSX.WorkSheet, totalRows: number, totalCols: number, numStartCol: number) {
-  for (let r = 1; r < totalRows; r++) {       // skip header row (row 0 = row 1 in XLSX)
-    for (let c = numStartCol; c < totalCols; c++) {
-      const addr = XLSX.utils.encode_cell({ r, c });
-      if (ws[addr] && typeof ws[addr].v === "number") {
-        ws[addr].z = CURRENCY_FMT;
-      }
-    }
-  }
-}
-
-/** Set column widths. widths is array of character widths per column. */
-function setColWidths(ws: XLSX.WorkSheet, widths: number[]) {
-  ws["!cols"] = widths.map((w) => ({ wch: w }));
-}
-
-function toTitleCaseXl(s: string): string {
-  if (!s) return s;
-  return s.toLowerCase().replace(/(?:^|[\s-])(\S)/g, (m) => m.toUpperCase());
-}
-
-function buildMasterExcel(invoices: any[], employees: any[]): Buffer {
-  const wb = XLSX.utils.book_new();
-
-  // ── Invoices sheet ──
-  const invHasSalREC   = invoices.some((r) => (r.salaryREC ?? 0) > 0);
-  const invHasSalNR    = invoices.some((r) => (r.salaryNR  ?? 0) > 0);
-  const invHasOvertime = invoices.some((r) => (r.overtime  ?? 0) > 0);
-  const invHasHolREC   = invoices.some((r) => (r.holREC    ?? 0) > 0);
-  const invHasHolNR    = invoices.some((r) => (r.holNR     ?? 0) > 0);
-  const invHas401k     = invoices.some((r) => (r.er401k    ?? 0) > 0);
-  const invHasOther    = invoices.some((r) => (r.other     ?? 0) > 0);
-  const invHasTaxesEr  = invoices.some((r) => (r.taxesEr   ?? 0) > 0);
-
-  const invCols: string[] = ["Property", "Property Name"];
-  if (invHasSalREC)   invCols.push("Salary REC");
-  if (invHasSalNR)    invCols.push("Salary NR");
-  if (invHasOvertime) invCols.push("Overtime");
-  if (invHasHolREC)   invCols.push("HOL REC");
-  if (invHasHolNR)    invCols.push("HOL NR");
-  if (invHas401k)     invCols.push("401K (ER)");
-  if (invHasOther)    invCols.push("Other");
-  if (invHasTaxesEr)  invCols.push("Taxes (ER)");
-  invCols.push("Total");
-
-  const invNumStart = 2;
-
-  const invDataRows = invoices.map((r) => {
-    const row: (string | number)[] = [r.propertyCode || r.propertyKey, toTitleCaseXl(r.propertyLabel || r.propertyKey)];
-    if (invHasSalREC)   row.push(r.salaryREC ?? 0);
-    if (invHasSalNR)    row.push(r.salaryNR  ?? 0);
-    if (invHasOvertime) row.push(r.overtime  ?? 0);
-    if (invHasHolREC)   row.push(r.holREC    ?? 0);
-    if (invHasHolNR)    row.push(r.holNR     ?? 0);
-    if (invHas401k)     row.push(r.er401k    ?? 0);
-    if (invHasOther)    row.push(r.other     ?? 0);
-    if (invHasTaxesEr)  row.push(r.taxesEr   ?? 0);
-    row.push(r.total ?? 0);
-    return row;
-  });
-
-  const invTotalsRow: (string | number)[] = ["Totals", ""];
-  for (let ci = invNumStart; ci < invCols.length; ci++) {
-    invTotalsRow.push(invDataRows.reduce((s, r) => s + (Number(r[ci]) || 0), 0));
-  }
-
-  const invAllRows = [invCols, ...invDataRows, invTotalsRow];
-  const invWs = XLSX.utils.aoa_to_sheet(invAllRows);
-  applyCurrencyFormat(invWs, invAllRows.length, invCols.length, invNumStart);
-  // Column widths: Property code (~10), Property Name (~30), numeric cols (~14 each)
-  setColWidths(invWs, [10, 30, ...Array(invCols.length - 2).fill(14)]);
-  XLSX.utils.book_append_sheet(wb, invWs, "Invoices");
-
-  // ── Employees sheet ──
-  const empHasSalary   = employees.some((e) => (e.salaryAmt   ?? 0) > 0);
-  const empHasOvertime = employees.some((e) => (e.overtimeAmt ?? 0) > 0);
-  const empHasHol      = employees.some((e) => (e.holAmt      ?? 0) > 0);
-  const empHas401k     = employees.some((e) => (e.er401kAmt   ?? 0) > 0);
-  const empHasOther    = employees.some((e) => (e.otherAmt    ?? 0) > 0);
-  const empHasTaxesEr  = employees.some((e) => (e.taxesErAmt  ?? 0) > 0);
-
-  const empCols: string[] = ["Employee", "REC/NR"];
-  if (empHasSalary)   empCols.push("Salary");
-  if (empHasOvertime) empCols.push("Overtime");
-  if (empHasHol)      empCols.push("HOL");
-  if (empHas401k)     empCols.push("401K (ER)");
-  if (empHasOther)    empCols.push("Other");
-  if (empHasTaxesEr)  empCols.push("Taxes (ER)");
-  empCols.push("Total");
-
-  const empNumStart = 2;
-
-  const empDataRows = employees.map((e) => {
-    const row: (string | number)[] = [toTitleCaseXl(e.name), e.recoverable ? "REC" : "NR"];
-    if (empHasSalary)   row.push(e.salaryAmt   ?? 0);
-    if (empHasOvertime) row.push(e.overtimeAmt ?? 0);
-    if (empHasHol)      row.push(e.holAmt      ?? 0);
-    if (empHas401k)     row.push(e.er401kAmt   ?? 0);
-    if (empHasOther)    row.push(e.otherAmt    ?? 0);
-    if (empHasTaxesEr)  row.push(e.taxesErAmt  ?? 0);
-    row.push(e.total ?? 0);
-    return row;
-  });
-
-  const empTotalsRow: (string | number)[] = ["Totals", ""];
-  for (let ci = empNumStart; ci < empCols.length; ci++) {
-    empTotalsRow.push(empDataRows.reduce((s, r) => s + (Number(r[ci]) || 0), 0));
-  }
-
-  const empAllRows = [empCols, ...empDataRows, empTotalsRow];
-  const empWs = XLSX.utils.aoa_to_sheet(empAllRows);
-  applyCurrencyFormat(empWs, empAllRows.length, empCols.length, empNumStart);
-  // Column widths: Employee name (~28), REC/NR (~8), numeric cols (~14 each)
-  setColWidths(empWs, [28, 8, ...Array(empCols.length - 2).fill(14)]);
-  XLSX.utils.book_append_sheet(wb, empWs, "Employees");
-
-  return XLSX.write(wb, { type: "buffer", bookType: "xlsx" }) as Buffer;
 }

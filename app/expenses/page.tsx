@@ -4,9 +4,21 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx";
 import JSZip from "jszip";
 import { PDFDocument } from "pdf-lib";
-import { buildInvoicePdf, makeInvoiceId, CategoryGroup } from "../../lib/expenses/invoice";
+import { buildInvoicePdf, buildReimbursementInvoicePdf, makeInvoiceId, CategoryGroup } from "../../lib/expenses/invoice";
 import { buildTopSheetXlsx, TopSheetTx } from "../../lib/expenses/topSheet";
 import { groupBy, normalizeAmount, toMoney } from "../../lib/expenses/utils";
+import {
+  CARRYOVER_THRESHOLD,
+  isBilled,
+  isYearEndMonth,
+  type HeldTx,
+  type PropertyCarry,
+} from "../../lib/expenses/carryover";
+import { emailInvoicerReport, XLSX_CONTENT_TYPE } from "../../lib/invoicing/sendReport";
+import { ALLOC_PCT, FUND_SF_ALLOC } from "../../lib/properties/data";
+import { useUser } from "../components/UserProvider";
+import { LastImported } from "@/app/components/LastImported";
+import { DownloadMenu } from "@/app/components/DownloadMenu";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -38,7 +50,7 @@ const TOP_SHEET_CATEGORIES = [
 
 const CATEGORY_ACC: Record<(typeof CATEGORIES)[number], string> = {
   "MARKETING NR": "7110",
-  "BUILDING MAINT.": "8220",
+  "BUILDING MAINT.": "6220",
   TI: "1440",
   "OFFICE SUPPLIES": "8930",
   AUTO: "8980",
@@ -56,8 +68,8 @@ const PROPERTIES = [
   { id: "BP & SC", name: "All BP & SC" },
   { id: "BP", name: "All BP" },
   { id: "SC", name: "All SC" },
-  { id: "PJV3", name: "JV III" },
-  { id: "PNIPLX", name: "NI LLC" },
+  { id: "PJV3", name: "JV III — All Buildings (by SF)" },
+  { id: "PNIPLX", name: "NI LLC — All Buildings (by SF)" },
   { id: "PIIICO", name: "JV III Condo" },
   { id: "1100", name: "Parkwood Professional Building" },
   { id: "1500", name: "Eastwick JV I" },
@@ -138,55 +150,18 @@ const PROPERTY_ACC2: Record<(typeof PROPERTIES)[number]["id"], string[]> = {
   "0800": ["8501"],
 };
 
-// 9301 percentages from ALLOCATION_TABLE (BP buildings only)
-const ALLOC_BP: Record<string, number> = {
-  "3610": 0.0779,
-  "3620": 0.0913,
-  "3640": 0.0909,
-  "4050": 0.1006,
-  "4060": 0.2009,
-  "4070": 0.1146,
-  "4080": 0.2380,
-  "40A0": 0.0281,
-  "40B0": 0.0242,
-  "40C0": 0.0335,
-};
-
-// 9302 percentages from ALLOCATION_TABLE (SC properties only)
-const ALLOC_SC: Record<string, number> = {
-  "1100": 0.0299,
-  "1500": 0.0082,
-  "2300": 0.2224,
-  "4500": 0.2993,
-  "5600": 0.0048,
-  "7010": 0.2645,
-  "7200": 0.0535,
-  "7300": 0.0813,
-  "8200": 0.0361,
-};
-
-const ALLOC_BP_SC: Record<string, number> = {
-  "3610": 0.0514,
-  "3620": 0.0602,
-  "3640": 0.06,
-  "4050": 0.0664,
-  "4060": 0.1326,
-  "4070": 0.0756,
-  "4080": 0.1571,
-  "40A0": 0.0185,
-  "40B0": 0.0159,
-  "40C0": 0.0221,
-  "1100": 0.0102,
-  "1500": 0.0028,
-  "2300": 0.0757,
-  "4500": 0.1018,
-  "5600": 0.0016,
-  "7010": 0.09,
-  "7200": 0.0182,
-  "7300": 0.0276,
-  "8200": 0.0123,
-  "9510": 0.0,
-};
+// Overhead-allocation shares — derived from the single source of truth
+// (ALLOC_PCT in lib/properties/data.ts). BP = 9301 (business parks), SC = 9302
+// (shopping centers), BP & SC = 9303 (all-property combined share).
+const ALLOC_BP: Record<string, number> = Object.fromEntries(
+  Object.entries(ALLOC_PCT).filter(([, v]) => v["9301"] > 0).map(([id, v]) => [id, v["9301"]]),
+);
+const ALLOC_SC: Record<string, number> = Object.fromEntries(
+  Object.entries(ALLOC_PCT).filter(([, v]) => v["9302"] > 0).map(([id, v]) => [id, v["9302"]]),
+);
+const ALLOC_BP_SC: Record<string, number> = Object.fromEntries(
+  Object.entries(ALLOC_PCT).map(([id, v]) => [id, v["9303"]]),
+);
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -382,6 +357,8 @@ function yyyymmddFromDate(d: Date | null) {
 function getAccountCodes(category: string, propertyId: string): string[] {
   if (category === "EQUIPMENT (CAP)") return ["1450-0000"];
   if (category === "BUILDINGS (CAP)") return ["1430-0000"];
+  if (category === "BUILDING MAINT.") return ["6220-8502"];
+  if (category === "OFFICE SUPPLIES") return ["8930-8502"];
   const catAcc = (CATEGORY_ACC as Record<string, string>)[category];
   const propAcc2 = (PROPERTY_ACC2 as Record<string, string[]>)[propertyId];
   if (!catAcc || !propAcc2 || !propAcc2.length) return [];
@@ -404,11 +381,13 @@ function allocateCentsByPercents(totalCents: number, entries: Array<{ key: strin
 }
 
 function expandForAllocation(t: Tx): Array<Tx & { originalAmount?: number }> {
+  // Synthetic overhead codes explode by ALLOC_PCT; a fund code (PJV3 / PNIPLX)
+  // explodes across that fund's own buildings pro-rata by building square footage.
   const allocTable =
     t.propertyId === "BP & SC" ? ALLOC_BP_SC :
     t.propertyId === "BP"      ? ALLOC_BP :
     t.propertyId === "SC"      ? ALLOC_SC :
-    null;
+    FUND_SF_ALLOC[t.propertyId] ?? null;
   if (!allocTable) return [t];
   const totalC = cents(t.amount);
   const entries = Object.entries(allocTable).map(([key, pct]) => ({ key, pct }));
@@ -428,11 +407,32 @@ function download(filename: string, blob: Blob) {
   URL.revokeObjectURL(url);
 }
 
+type InvoiceGroup = { propId: string; categoryGroups: CategoryGroup[]; total: number; itemCount: number };
+
+// One invoice per property: group expanded+coded charges by property then
+// category. Shared so the on-screen "this month" groups and the "effective"
+// groups (this month + carried-forward held detail) build identically.
+function buildInvoiceGroups(items: any[]): InvoiceGroup[] {
+  const byProp = groupBy(items, (t: any) => t.propertyId);
+  const groups: InvoiceGroup[] = [];
+  for (const [propId, propItems] of byProp.entries()) {
+    const byCat = groupBy(propItems as any[], (t: any) => t.category);
+    const categoryGroups: CategoryGroup[] = [];
+    for (const [cat, catItems] of byCat.entries()) {
+      categoryGroups.push({ category: cat, items: catItems as any[] });
+    }
+    const total = (propItems as any[]).reduce((a: number, t: any) => a + Number(t.amount), 0);
+    groups.push({ propId, categoryGroups, total, itemCount: (propItems as any[]).length });
+  }
+  return groups.sort((a, b) => a.propId.localeCompare(b.propId));
+}
+
 const LS_KEY = "cc-expenses:v1";
 
 // ── Component ────────────────────────────────────────────────────────────────
 
 export default function ExpensesPage() {
+  const { user, hydrated } = useUser();
   const categories = useMemo(() => [...CATEGORIES], []);
   const properties = useMemo(() => [...PROPERTIES], []);
 
@@ -440,7 +440,7 @@ export default function ExpensesPage() {
     if (typeof window === "undefined") return [];
     try { const r = localStorage.getItem(LS_KEY); return r ? JSON.parse(r).tx ?? [] : []; } catch { return []; }
   });
-  const [showOnlyUncoded, setShowOnlyUncoded] = useState(false);
+  const [showOnlyUncoded, setShowOnlyUncoded] = useState(true);
   const [search, setSearch] = useState("");
   const [statementPeriodText, setStatementPeriodText] = useState(() => {
     if (typeof window === "undefined") return "";
@@ -448,6 +448,16 @@ export default function ExpensesPage() {
   });
   const [statementStart, setStatementStart] = useState<Date | null>(null);
   const [statementEnd, setStatementEnd] = useState<Date | null>(null);
+  // When/who last imported the AmEx statement — persisted so the import bar
+  // shows the same "Last imported … by USER" line as the other import pages.
+  const [importedAt, setImportedAt] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    try { const r = localStorage.getItem(LS_KEY); return r ? JSON.parse(r).importedAt ?? null : null; } catch { return null; }
+  });
+  const [importedBy, setImportedBy] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    try { const r = localStorage.getItem(LS_KEY); return r ? JSON.parse(r).importedBy ?? null : null; } catch { return null; }
+  });
   const [showAfterZipModal, setShowAfterZipModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -455,8 +465,22 @@ export default function ExpensesPage() {
   const [tableSortDir, setTableSortDir] = useState<"asc" | "desc">("asc");
   const [colFilters, setColFilters] = useState<Record<string, string>>({});
   const [showColFilters, setShowColFilters] = useState(false);
+
+  // Maint persona only codes Gregory's own transactions — the upstream
+  // `filteredTx` enforces this regardless of column filters. We still
+  // reveal the filter row so he can see the locked "Gregory" cell.
+  const maintFilterRevealed = useRef(false);
+  useEffect(() => {
+    if (!hydrated || maintFilterRevealed.current) return;
+    if (user.id === "maint") {
+      setShowColFilters(true);
+      maintFilterRevealed.current = true;
+    }
+  }, [hydrated, user.id]);
   const [allocPropModal, setAllocPropModal] = useState<{ propId: string; name: string; categoryGroups: { category: string; items: any[] }[] } | null>(null);
   const [drillModal, setDrillModal] = useState<{ propId: string; category: string; items: any[] } | null>(null);
+  type HeldCatRow = { category: string; amount: number; count: number };
+  const [heldDetailModal, setHeldDetailModal] = useState<{ propId: string; name: string; accrued: number; rows: HeldCatRow[] } | null>(null);
   const [chartsOpen, setChartsOpen] = useState(true);
   const [codeTransOpen, setCodeTransOpen] = useState(true);
   const [allocPreviewOpen, setAllocPreviewOpen] = useState(true);
@@ -468,8 +492,8 @@ export default function ExpensesPage() {
   const attachInputRefs = useRef<Map<string, HTMLInputElement>>(new Map());
 
   useEffect(() => {
-    try { localStorage.setItem(LS_KEY, JSON.stringify({ tx, statementPeriodText })); } catch { /* ignore */ }
-  }, [tx, statementPeriodText]);
+    try { localStorage.setItem(LS_KEY, JSON.stringify({ tx, statementPeriodText, importedAt, importedBy })); } catch { /* ignore */ }
+  }, [tx, statementPeriodText, importedAt, importedBy]);
 
   useEffect(() => {
     if (statementPeriodText) return;
@@ -492,8 +516,22 @@ export default function ExpensesPage() {
   const statementMonth = useMemo(() => yyyymmFromDate(effectiveEnd) || "", [effectiveEnd]);
   const invoiceDate = useMemo(() => yyyymmddFromDate(effectiveEnd) || "", [effectiveEnd]);
 
+  // The maint persona (Gregory / "Greg") can only see / code his own
+  // transactions. We match permissively against the raw cardMember
+  // string so spelling variants (Greg, Gregory, GREG WINIG, GREGORY KORMAN…)
+  // and common formats (last-first comma-separated, etc.) all resolve to
+  // the same person without us having to enumerate them.
+  const isMaint = user.id === "maint";
+  // Harry fronts the company credit-card statement, so his batch also cuts a
+  // reimbursement invoice for the full statement total payable back to him.
+  const isHarry = user.id === "harry";
+  function isGregRow(t: { cardMember: string }): boolean {
+    return String(t.cardMember || "").toLowerCase().includes("greg");
+  }
+
   const filteredTx = useMemo(() => {
     let arr = tx.filter((t) => Number(t.amount) > 0);
+    if (isMaint) arr = arr.filter(isGregRow);
     if (showOnlyUncoded) arr = arr.filter((t) => !isRowCoded(t));
     if (search.trim()) {
       const q = search.toLowerCase();
@@ -503,7 +541,7 @@ export default function ExpensesPage() {
       });
     }
     return arr;
-  }, [tx, showOnlyUncoded, search]);
+  }, [tx, showOnlyUncoded, search, isMaint]);
 
   const totals = useMemo(() => {
     const onlyPos = tx.filter((t) => Number(t.amount) > 0);
@@ -551,20 +589,84 @@ export default function ExpensesPage() {
     return arr;
   }, [filteredTx, colFilters, tableSortCol, tableSortDir, properties]);
 
-  const invoiceGroups = useMemo(() => {
-    const byProp = groupBy(expandedCoded, (t: any) => t.propertyId);
-    const groups: { propId: string; categoryGroups: CategoryGroup[]; total: number; itemCount: number }[] = [];
-    for (const [propId, items] of byProp.entries()) {
-      const byCat = groupBy(items, (t: any) => t.category);
-      const categoryGroups: CategoryGroup[] = [];
-      for (const [cat, catItems] of byCat.entries()) {
-        categoryGroups.push({ category: cat, items: catItems as Tx[] });
-      }
-      const total = (items as any[]).reduce((a: number, t: any) => a + Number(t.amount), 0);
-      groups.push({ propId, categoryGroups, total, itemCount: (items as any[]).length });
-    }
-    return groups.sort((a, b) => a.propId.localeCompare(b.propId));
-  }, [expandedCoded]);
+  const invoiceGroups = useMemo(() => buildInvoiceGroups(expandedCoded), [expandedCoded]);
+
+  // ── Carryover ("hold under $100") ──────────────────────────────────────────
+  // Persistent per-property held balances, loaded from the server so they
+  // survive the monthly localStorage clear.
+  const [carryover, setCarryover] = useState<Record<string, PropertyCarry>>({});
+  const [committedPeriods, setCommittedPeriods] = useState<string[]>([]);
+  const [finalizing, setFinalizing] = useState(false);
+
+  function loadLedger() {
+    fetch("/api/expenses/carryover")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (j?.ledger) {
+          setCarryover(j.ledger.balances ?? {});
+          setCommittedPeriods(Array.isArray(j.ledger.committedPeriods) ? j.ledger.committedPeriods : []);
+        }
+      })
+      .catch(() => {});
+  }
+  useEffect(() => { loadLedger(); }, []);
+
+  const yearEnd = isYearEndMonth(statementMonth);
+  const alreadyFinalized = !!statementMonth && committedPeriods.includes(statementMonth);
+
+  // Decorate this-month groups with their carried-forward balance + bill/hold.
+  const decoratedGroups = useMemo(() => {
+    return invoiceGroups.map((g) => {
+      const prior = carryover[g.propId]?.heldTotal ?? 0;
+      const accrued = Math.round((g.total + prior) * 100) / 100;
+      return { ...g, prior, accrued, billed: isBilled(g.propId, accrued, statementMonth) };
+    });
+  }, [invoiceGroups, carryover, statementMonth]);
+
+  // Properties carrying a balance with NO charges this month. They stay held
+  // (and out of invoicing) until year-end, when they flush as a prior-balance
+  // -only invoice.
+  const heldOnlyGroups = useMemo(() => {
+    const currentIds = new Set(invoiceGroups.map((g) => g.propId));
+    return Object.values(carryover)
+      .filter((c) => !currentIds.has(c.propertyId) && (c.heldTotal ?? 0) > 0)
+      .map((c) => ({
+        propId: c.propertyId,
+        categoryGroups: [] as CategoryGroup[],
+        total: 0,
+        itemCount: 0,
+        prior: c.heldTotal,
+        accrued: c.heldTotal,
+        billed: isBilled(c.propertyId, c.heldTotal, statementMonth),
+      }))
+      .sort((a, b) => a.propId.localeCompare(b.propId));
+  }, [carryover, invoiceGroups, statementMonth]);
+
+  const billingGroups = useMemo(
+    () => [...decoratedGroups.filter((g) => g.billed), ...heldOnlyGroups.filter((g) => g.billed)]
+      .sort((a, b) => a.propId.localeCompare(b.propId)),
+    [decoratedGroups, heldOnlyGroups],
+  );
+  const onHoldGroups = useMemo(
+    () => [...decoratedGroups.filter((g) => !g.billed), ...heldOnlyGroups.filter((g) => !g.billed)]
+      .sort((a, b) => a.propId.localeCompare(b.propId)),
+    [decoratedGroups, heldOnlyGroups],
+  );
+
+  // Charges that actually post this month: billed properties' current charges
+  // plus any held detail rolling forward into their now-billing invoice. Drives
+  // the GL Journal Entry + TOP SHEET ("hold everything together").
+  const effectiveExpandedCoded = useMemo(() => {
+    const billedIds = new Set(billingGroups.map((g) => g.propId));
+    const thisMonth = expandedCoded.filter((t: any) => billedIds.has(t.propertyId));
+    const heldDetail = billingGroups.flatMap((g) => carryover[g.propId]?.heldTx ?? []);
+    return [...thisMonth, ...heldDetail];
+  }, [billingGroups, expandedCoded, carryover]);
+
+  const effectiveInvoiceGroups = useMemo(
+    () => buildInvoiceGroups(effectiveExpandedCoded),
+    [effectiveExpandedCoded],
+  );
 
   const chartDataByProperty = useMemo<PieSlice[]>(() => {
     const pos = tx.filter((t) => Number(t.amount) > 0);
@@ -634,6 +736,14 @@ export default function ExpensesPage() {
     }).filter((t) => Number(t.amount) > 0);
     upsertTx(imported);
     setFileName(file.name);
+    setImportedAt(new Date().toISOString());
+    setImportedBy(user.label);
+    // Record the CC-statement import server-side so the weekly digest / dashboard
+    // can mark that reminder done (this coder is otherwise browser-local).
+    fetch("/api/tracker/import-events", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: "imp-cc", by: user.label }), keepalive: true,
+    }).catch(() => {});
   }
 
   function updateTx(id: string, patch: Partial<Tx>) {
@@ -658,43 +768,64 @@ export default function ExpensesPage() {
     return p ? p.name : propId;
   }
 
-  async function saveStatement() {
+  // Harry's reimbursement (full statement total, per-property lines) — reused by
+  // the reimbursement invoice PDF and the TOP SHEET note.
+  function reimbursementForBatch() {
+    const lines = invoiceGroups.map((ig) => ({ label: `${ig.propId} · ${propName(ig.propId)}`, amount: ig.total }));
+    const total = Math.round(invoiceGroups.reduce((a, ig) => a + ig.total, 0) * 100) / 100;
+    return { lines, total };
+  }
+  const periodCompactStr = (statementStart && effectiveEnd) ? `${formatDateCompact(statementStart)}-${formatDateCompact(effectiveEnd)}` : undefined;
+
+  // Persist the coded statement to history. `silent` (used when invoices are
+  // generated) skips the confirm/alert and never blocks the download — it just
+  // logs the statement so it can be investigated later. Returns whether it saved.
+  async function persistStatement({ silent = false }: { silent?: boolean } = {}): Promise<boolean> {
     const coded = tx.filter((t) => Number(t.amount) > 0).filter(isRowCoded);
-    if (!coded.length) { alert("No coded transactions to save."); return; }
+    if (!coded.length) { if (!silent) alert("No coded transactions to save."); return false; }
     const label = statementPeriodText || statementMonth || "Unknown period";
-    if (!confirm(`Save "${label}" (${coded.length} transactions) to history?`)) return;
-    setSaving(true); setSaveError(null);
+    if (!silent && !confirm(`Save "${label}" (${coded.length} transactions) to history?`)) return false;
+    if (!silent) { setSaving(true); setSaveError(null); }
     try {
       const res = await fetch("/api/statements", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ periodText: label, statementMonth: statementMonth || "", tx: coded.map((t) => ({ date: t.date, cardMember: t.cardMember, description: t.description, codedDescription: t.codedDescription, category: t.category, propertyId: t.propertyId, suite: t.suite, amount: t.amount })) }),
+        body: JSON.stringify({ periodText: label, statementMonth: statementMonth || "", source: silent ? "generated" : "manual", tx: coded.map((t) => ({ date: t.date, cardMember: t.cardMember, description: t.description, codedDescription: t.codedDescription, category: t.category, propertyId: t.propertyId, suite: t.suite, amount: t.amount })) }),
       });
       if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error(j?.error ?? `Save failed (${res.status})`); }
-      alert("Saved to history.");
+      if (!silent) alert("Saved to history.");
+      return true;
     } catch (e: any) {
-      setSaveError(e?.message ?? "Save failed");
+      if (silent) console.warn("Auto-save to expense history failed:", e?.message ?? e);
+      else setSaveError(e?.message ?? "Save failed");
+      return false;
     } finally {
-      setSaving(false);
+      if (!silent) setSaving(false);
     }
   }
+  async function saveStatement() { await persistStatement({ silent: false }); }
 
   async function generateAllPdfsZip() {
-    if (!invoiceGroups.length) return;
-    if (!confirm(`Generate ${invoiceGroups.length} property invoice${invoiceGroups.length !== 1 ? "s" : ""} + TOP SHEET as a ZIP?`)) return;
+    if (!billingGroups.length) return;
+    if (!confirm(`Generate ${billingGroups.length} property invoice${billingGroups.length !== 1 ? "s" : ""} + TOP SHEET as a ZIP?${onHoldGroups.length ? `\n\n${onHoldGroups.length} propert${onHoldGroups.length === 1 ? "y is" : "ies are"} held under $${CARRYOVER_THRESHOLD} and excluded.` : ""}`)) return;
     const zip = new JSZip();
     const filenameMonth = statementMonth || "Statement";
-    if (expandedCoded.length) {
-      const topBlob = buildTopSheetXlsx({
+    const reimb = reimbursementForBatch();
+    let summaryBlob: Blob | null = null;
+    if (effectiveExpandedCoded.length) {
+      summaryBlob = await buildTopSheetXlsx({
         statementPeriodText: statementPeriodText || "",
         statementMonth: statementMonth || "",
-        tx: expandedCoded.map((t: any) => ({ date: t.date, cardMember: t.cardMember, description: t.description, codedDescription: t.codedDescription, amount: t.amount, originalAmount: t.originalAmount, category: t.category, propertyId: t.propertyId, propertyName: propName(t.propertyId), suite: t.suite } as TopSheetTx)),
+        periodCompact: periodCompactStr,
+        processedBy: user.label,
+        tx: effectiveExpandedCoded.map((t: any) => ({ date: t.date, cardMember: t.cardMember, description: t.description, codedDescription: t.codedDescription, amount: t.amount, originalAmount: t.originalAmount, category: t.category, propertyId: t.propertyId, propertyName: propName(t.propertyId), suite: t.suite } as TopSheetTx)),
         propertyOrder: properties.map((p) => ({ id: p.id, name: p.name })),
         categoryOrder: [...TOP_SHEET_CATEGORIES],
+        reimbursement: isHarry ? { vendorCode: "HARRY", payeeName: "Harry Feldman", total: reimb.total } : undefined,
       });
-      zip.file(`${filenameMonth} - TOP SHEET.xlsx`, topBlob);
+      zip.file(`${filenameMonth} - TOP SHEET.xlsx`, summaryBlob);
     }
-    for (const g of invoiceGroups) {
+    for (const g of billingGroups) {
       const invoiceBlob = buildInvoicePdf({
         propertyName: propName(g.propId),
         propertyCode: g.propId,
@@ -704,6 +835,7 @@ export default function ExpensesPage() {
         periodText: statementPeriodText || "",
         periodCompact: (statementStart && effectiveEnd) ? `${formatDateCompact(statementStart)}-${formatDateCompact(effectiveEnd)}` : undefined,
         invoiceId: makeInvoiceId(g.propId),
+        priorBalance: g.prior,
       });
 
       // Collect unique attachments for transactions in this property group
@@ -736,13 +868,46 @@ export default function ExpensesPage() {
 
       zip.file(`${filenameMonth} - ${g.propId}.pdf`, finalBlob);
     }
+
+    // Harry fronts the whole statement — cut one reimbursement invoice for the
+    // full statement total (the sum of every property's charges), payable to him.
+    if (isHarry && invoiceGroups.length) {
+      const reimbBlob = buildReimbursementInvoicePdf({
+        payeeName: "Harry Feldman",
+        payeeVendorCode: "HARRY",
+        statementMonth: statementMonth || "",
+        invoiceDate: invoiceDate || "",
+        periodText: statementPeriodText || "",
+        periodCompact: periodCompactStr,
+        invoiceId: makeInvoiceId("REIMB"),
+        lines: reimb.lines,
+        total: reimb.total,
+      });
+      zip.file(`${filenameMonth} - REIMBURSEMENT - Harry Feldman.pdf`, reimbBlob);
+    }
+
     const zipBlob = await zip.generateAsync({ type: "blob" });
     download(`${filenameMonth} - Invoices.zip`, zipBlob);
     setShowAfterZipModal(true);
+
+    // Auto-log this statement to Expense History so generated invoices are always
+    // recoverable for later investigation (no manual "Save to History" needed).
+    void persistStatement({ silent: true });
+
+    // Processing the batch → email the GL Skyline import + summary report to the
+    // controller (same as payroll). Best-effort, deduped once per statement month.
+    const gl = buildGLJournalEntry();
+    const reportAttachments: { name: string; blob: Blob; contentType: string }[] = [];
+    if (gl) reportAttachments.push({ name: gl.filename, blob: gl.blob, contentType: XLSX_CONTENT_TYPE });
+    if (summaryBlob) reportAttachments.push({ name: `${filenameMonth} - TOP SHEET.xlsx`, blob: summaryBlob, contentType: XLSX_CONTENT_TYPE });
+    if (statementMonth && reportAttachments.length) {
+      void emailInvoicerReport({ source: "credit-card", period: statementMonth, attachments: reportAttachments });
+    }
   }
 
-  function downloadGLExport() {
-    if (!invoiceGroups.length) return;
+  function buildGLJournalEntry(): { blob: Blob; filename: string } | null {
+    if (!effectiveInvoiceGroups.length) return null;
+    const invoiceGroups = effectiveInvoiceGroups; // post-carryover: only billing properties, held detail folded in
     const filenameMonth = statementMonth || "Statement";
 
     // Format date as M/D/YYYY to match GL system format
@@ -822,23 +987,32 @@ export default function ExpensesPage() {
     XLSX.utils.book_append_sheet(wb, ws, "GL Journal Entry");
     const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
     const blob = new Blob([wbout], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-    download(`${filenameMonth} - GL Journal Entry.xlsx`, blob);
+    return { blob, filename: `${filenameMonth} - GL Journal Entry.xlsx` };
   }
 
-  function downloadExcelSummary() {
-    if (!expandedCoded.length) return;
+  function downloadGLExport() {
+    const r = buildGLJournalEntry();
+    if (r) download(r.filename, r.blob);
+  }
+
+  async function downloadExcelSummary() {
+    if (!effectiveExpandedCoded.length) return;
     const filenameMonth = statementMonth || "Statement";
-    const blob = buildTopSheetXlsx({
+    const reimb = reimbursementForBatch();
+    const blob = await buildTopSheetXlsx({
       statementPeriodText: statementPeriodText || "",
       statementMonth: statementMonth || "",
-      tx: expandedCoded.map((t: any) => ({ date: t.date, cardMember: t.cardMember, description: t.description, codedDescription: t.codedDescription, amount: t.amount, originalAmount: t.originalAmount, category: t.category, propertyId: t.propertyId, propertyName: propName(t.propertyId), suite: t.suite } as TopSheetTx)),
+      periodCompact: periodCompactStr,
+      processedBy: user.label,
+      tx: effectiveExpandedCoded.map((t: any) => ({ date: t.date, cardMember: t.cardMember, description: t.description, codedDescription: t.codedDescription, amount: t.amount, originalAmount: t.originalAmount, category: t.category, propertyId: t.propertyId, propertyName: propName(t.propertyId), suite: t.suite } as TopSheetTx)),
       propertyOrder: properties.map((p) => ({ id: p.id, name: p.name })),
       categoryOrder: [...TOP_SHEET_CATEGORIES],
+      reimbursement: isHarry ? { vendorCode: "HARRY", payeeName: "Harry Feldman", total: reimb.total } : undefined,
     });
     download(`${filenameMonth} - TOP SHEET.xlsx`, blob);
   }
 
-  async function downloadSingleInvoicePdf(g: typeof invoiceGroups[number]) {
+  async function downloadSingleInvoicePdf(g: InvoiceGroup & { prior?: number }) {
     const filenameMonth = statementMonth || "Statement";
     const invoiceBlob = buildInvoicePdf({
       propertyName: propName(g.propId),
@@ -849,6 +1023,7 @@ export default function ExpensesPage() {
       periodText: statementPeriodText || "",
       periodCompact: (statementStart && effectiveEnd) ? `${formatDateCompact(statementStart)}-${formatDateCompact(effectiveEnd)}` : undefined,
       invoiceId: makeInvoiceId(g.propId),
+      priorBalance: g.prior,
     });
 
     const seenTxIds = new Set<string>();
@@ -880,8 +1055,59 @@ export default function ExpensesPage() {
     download(`${filenameMonth} - ${g.propId}.pdf`, finalBlob);
   }
 
-  const CODE_TABLE_MAX_HEIGHT = "calc(100vh - 320px)";
-  const stickyThStyle: React.CSSProperties = { position: "sticky", top: 0, zIndex: 15, background: "#fff" };
+  // Finalize the month: the single moment the carryover ledger is mutated.
+  // Billed properties reset to $0; held properties accrue. December flushes all.
+  async function finalizeMonthAction() {
+    if (!statementMonth) { alert("No statement month detected — import a statement first."); return; }
+    if (alreadyFinalized) { alert(`${statementMonth} has already been finalized.`); return; }
+    const billCount = billingGroups.length;
+    const holdCount = onHoldGroups.length;
+    const lines = [
+      `Finalize ${statementMonth} and update the carryover ledger?`,
+      "",
+      `• ${billCount} propert${billCount === 1 ? "y" : "ies"} will bill`,
+      `• ${holdCount} held under $${CARRYOVER_THRESHOLD} (carried forward)`,
+      yearEnd ? "\nYear-end (December): ALL balances are flushed so every expense books this year." : "",
+      "\nDo this AFTER you've downloaded and sent this month's invoices. It can't be repeated for this month.",
+    ].filter(Boolean);
+    if (!confirm(lines.join("\n"))) return;
+
+    setFinalizing(true);
+    try {
+      const byProp = new Map<string, HeldTx[]>();
+      for (const t of expandedCoded as any[]) {
+        const arr = byProp.get(t.propertyId) ?? [];
+        arr.push({
+          date: t.date, cardMember: t.cardMember ?? "", description: t.description ?? "",
+          codedDescription: t.codedDescription ?? "", category: t.category, propertyId: t.propertyId,
+          suite: t.suite ?? "", amount: Number(t.amount) || 0, originalAmount: t.originalAmount,
+          statementMonth,
+        });
+        byProp.set(t.propertyId, arr);
+      }
+      const propertiesPayload = [...byProp.entries()].map(([propertyId, txList]) => ({ propertyId, tx: txList }));
+      const res = await fetch("/api/expenses/carryover", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ statementMonth, properties: propertiesPayload }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(j?.error ?? `Finalize failed (${res.status})`);
+      setCarryover(j.ledger?.balances ?? {});
+      setCommittedPeriods(Array.isArray(j.ledger?.committedPeriods) ? j.ledger.committedPeriods : []);
+      alert(`Finalized ${statementMonth}. Carryover ledger updated.`);
+    } catch (e: any) {
+      alert(e?.message ?? "Finalize failed");
+    } finally {
+      setFinalizing(false);
+    }
+  }
+
+  // The Code Transactions card is the only card on the maint persona's
+  // expense page, so give its inner table much more vertical room
+  // (~280 px less padding gives them most of the viewport).
+  const CODE_TABLE_MAX_HEIGHT = isMaint ? "calc(100vh - 220px)" : "calc(100vh - 320px)";
+  const stickyThStyle: React.CSSProperties = { position: "sticky", top: 0, zIndex: 15, background: "var(--card)" };
 
   return (
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
@@ -894,40 +1120,56 @@ export default function ExpensesPage() {
         </div>
       </header>
 
-      {/* Import bar */}
+      {/* Import bar — same shape as Payroll Invoicer / Rent Roll: a
+          single button row at the top with Save / Cadence on the right,
+          and one muted descriptor line beneath. Hidden from maint (Greg
+          only codes, never imports). */}
+      {!isMaint && (
       <div className="card">
-        <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
-          <b>Import Credit Card Statement</b>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".xlsx,.xls"
+              style={{ display: "none" }}
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) importFile(f); }}
+            />
+            <button
+              className="btn"
+              onClick={() => fileInputRef.current?.click()}
+              style={{ fontSize: 13, padding: "8px 16px", whiteSpace: "nowrap" }}
+            >
+              Choose Statement File…
+            </button>
+            <button
+              className="btn"
+              style={{ borderRadius: 999, fontWeight: 700, fontSize: 13, padding: "8px 16px", whiteSpace: "nowrap" }}
+              onClick={clearAll}
+              disabled={!tx.length}
+            >
+              Clear
+            </button>
+          </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             {tx.length > 0 && (
-              <button className="btn large" onClick={saveStatement} disabled={!totals.coded || saving}>
+              <button
+                className="btn"
+                onClick={saveStatement}
+                disabled={!totals.coded || saving}
+                style={{ fontSize: 13, padding: "8px 16px", whiteSpace: "nowrap" }}
+              >
                 {saving ? "Saving…" : "Save to History"}
               </button>
             )}
-            <span style={{ background: "rgba(22, 163, 74, 0.85)", color: "#fff", borderRadius: 999, padding: "12px 18px", fontSize: 15, fontWeight: 700, border: "1px solid transparent", display: "inline-flex", alignItems: "center" }}>Monthly</span>
+            <span style={{ background: "rgba(22, 163, 74, 0.85)", color: "#fff", borderRadius: 999, padding: "8px 16px", fontSize: 13, fontWeight: 700, border: "1px solid transparent", display: "inline-flex", alignItems: "center" }}>Monthly</span>
           </div>
         </div>
         <p className="muted small" style={{ marginTop: 8 }}>
           Import the <b>American Express</b> Excel file (.xls or .xlsx).
+          {fileName && <span style={{ marginLeft: 8 }}>· {fileName}</span>}
         </p>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 12 }}>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".xlsx,.xls"
-            style={{ display: "none" }}
-            onChange={(e) => { const f = e.target.files?.[0]; if (f) importFile(f); }}
-          />
-          <button className="btn large" onClick={() => fileInputRef.current?.click()} style={{ whiteSpace: "nowrap" }}>
-            Choose Statement File…
-          </button>
-          {fileName && (
-            <span style={{ fontSize: 13, color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
-              {fileName}
-            </span>
-          )}
-          <button className="btn" style={{ borderRadius: 999, fontWeight: 700, whiteSpace: "nowrap" }} onClick={clearAll} disabled={!tx.length}>Clear</button>
-        </div>
+        <LastImported at={importedAt} by={importedBy} label="Statement last imported" />
         {tx.length > 0 && (
           <div className="pills">
             <div className="pill"><b>{totals.count}</b><span className="small muted">Transactions</span></div>
@@ -938,9 +1180,10 @@ export default function ExpensesPage() {
         {statementPeriodText && <div className="small muted" style={{ textAlign: "center", marginTop: 6 }}><b>Period:</b> {statementPeriodText}</div>}
         {saveError && <div style={{ color: "#b42318", fontSize: 13, marginTop: 6 }}>{saveError}</div>}
       </div>
+      )}
 
-      {/* Charts card */}
-      {tx.filter((t) => Number(t.amount) > 0).length > 0 && (
+      {/* Charts card — hidden from maint. */}
+      {!isMaint && tx.filter((t) => Number(t.amount) > 0).length > 0 && (
         <div className="card">
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <button className="btn" style={{ padding: "2px 8px", fontSize: 13 }} onClick={() => setChartsOpen((o) => !o)} title={chartsOpen ? "Collapse" : "Expand"}>
@@ -964,15 +1207,20 @@ export default function ExpensesPage() {
         </div>
       )}
 
-      {/* Code Transactions card */}
+      {/* Code Transactions card — the maint persona has no other cards
+          above this one, so the table sizes naturally to the number of
+          rows. CODE_TABLE_MAX_HEIGHT caps it at the viewport for long
+          statements. */}
       <div className="card">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 10 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <button className="btn" style={{ padding: "2px 8px", fontSize: 13 }} onClick={() => setCodeTransOpen((o) => !o)} title={codeTransOpen ? "Collapse" : "Expand"}>
-              {codeTransOpen ? "▲" : "▼"}
-            </button>
+            {!isMaint && (
+              <button className="btn" style={{ padding: "2px 8px", fontSize: 13 }} onClick={() => setCodeTransOpen((o) => !o)} title={codeTransOpen ? "Collapse" : "Expand"}>
+                {codeTransOpen ? "▲" : "▼"}
+              </button>
+            )}
             <div>
-              <b>Code Transactions</b>
+              <b>{isMaint ? "Code Gregory's Transactions" : "Code Transactions"}</b>
               <div className="small muted">Category + Property required. Suite required only if Category = TI.</div>
             </div>
           </div>
@@ -991,7 +1239,7 @@ export default function ExpensesPage() {
           </div>
         </div>
 
-        {codeTransOpen && <div style={{ overflowX: "auto", overflowY: "auto", maxHeight: CODE_TABLE_MAX_HEIGHT, borderRadius: 12, border: "1px solid var(--border)" }}>
+        {(codeTransOpen || isMaint) && <div style={{ overflowX: "auto", overflowY: "auto", maxHeight: CODE_TABLE_MAX_HEIGHT, borderRadius: 12, border: "1px solid var(--border)" }}>
           <table style={{ minWidth: 1200, width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
               {(() => {
@@ -1003,21 +1251,28 @@ export default function ExpensesPage() {
                   <>
                     <tr>
                       <th style={{ ...thBase, minWidth: 110 }} onClick={() => handleSortCol("date")}>Date{sortIcon("date")}</th>
-                      <th style={{ ...thBase, minWidth: 140 }} onClick={() => handleSortCol("user")}>User{sortIcon("user")}</th>
+                      {!isMaint && <th style={{ ...thBase, minWidth: 140 }} onClick={() => handleSortCol("user")}>User{sortIcon("user")}</th>}
                       <th style={{ ...thBase, minWidth: 110 }} onClick={() => handleSortCol("amount")}>Amount{sortIcon("amount")}</th>
                       <th style={{ ...thBase, minWidth: 260 }} onClick={() => handleSortCol("description")}>Description{sortIcon("description")}</th>
                       <th style={{ ...thBase, minWidth: 170 }} onClick={() => handleSortCol("category")}>Category{sortIcon("category")}</th>
                       <th style={{ ...thBase, minWidth: 160 }} onClick={() => handleSortCol("property")}>Property{sortIcon("property")}</th>
-                      <th style={{ ...thBase, minWidth: 180 }} onClick={() => handleSortCol("acct")}>Account Code(s){sortIcon("acct")}</th>
+                      {!isMaint && <th style={{ ...thBase, minWidth: 180 }} onClick={() => handleSortCol("acct")}>Account Code(s){sortIcon("acct")}</th>}
                       <th style={{ ...thBase, minWidth: 120 }} onClick={() => handleSortCol("suite")}>Suite (TI){sortIcon("suite")}</th>
                       <th style={{ ...thBase, minWidth: 260 }} onClick={() => handleSortCol("invDesc")}>Invoice Description{sortIcon("invDesc")}</th>
                       <th style={{ ...thBase, minWidth: 120, cursor: "default" }}>Invoice PDF</th>
                     </tr>
                     {showColFilters && (
                       <tr>
-                        {(["date","user","amount","description"] as const).map((k) => (
-                          <th key={k} style={filterTh}><input style={filterInput} placeholder="Filter…" value={colFilters[k] ?? ""} onChange={(e) => setColFilter(k, e.target.value)} /></th>
-                        ))}
+                        {(["date","user","amount","description"] as const).map((k) => {
+                          // Maint persona's "User" column is filtered upstream
+                          // and hidden entirely — skip the filter cell too.
+                          if (k === "user" && isMaint) return null;
+                          return (
+                            <th key={k} style={filterTh}>
+                              <input style={filterInput} placeholder="Filter…" value={colFilters[k] ?? ""} onChange={(e) => setColFilter(k, e.target.value)} />
+                            </th>
+                          );
+                        })}
                         <th style={filterTh}>
                           <select style={{ ...filterInput, padding: "3px 4px" }} value={colFilters["category"] ?? ""} onChange={(e) => setColFilter("category", e.target.value)}>
                             <option value="">All</option>
@@ -1030,9 +1285,12 @@ export default function ExpensesPage() {
                             {PROPERTIES.map((p) => <option key={p.id} value={p.id}>{p.id} — {p.name}</option>)}
                           </select>
                         </th>
-                        {(["acct","suite","invDesc"] as const).map((k) => (
-                          <th key={k} style={filterTh}><input style={filterInput} placeholder="Filter…" value={colFilters[k] ?? ""} onChange={(e) => setColFilter(k, e.target.value)} /></th>
-                        ))}
+                        {(["acct","suite","invDesc"] as const).map((k) => {
+                          if (k === "acct" && isMaint) return null;
+                          return (
+                            <th key={k} style={filterTh}><input style={filterInput} placeholder="Filter…" value={colFilters[k] ?? ""} onChange={(e) => setColFilter(k, e.target.value)} /></th>
+                          );
+                        })}
                         <th style={filterTh} />
                       </tr>
                     )}
@@ -1049,7 +1307,7 @@ export default function ExpensesPage() {
                 return (
                   <tr key={t.id} style={{ borderBottom: "1px solid rgba(15,23,42,0.08)" }}>
                     <td style={{ padding: "10px" }}>{t.date}</td>
-                    <td style={{ padding: "10px" }}>{user}</td>
+                    {!isMaint && <td style={{ padding: "10px" }}>{user}</td>}
                     <td style={{ padding: "10px" }}>{toMoney(t.amount)}</td>
                     <td style={{ padding: "10px", whiteSpace: "pre-wrap" }}>{displayDesc}</td>
                     <td style={{ padding: "8px" }}>
@@ -1064,10 +1322,12 @@ export default function ExpensesPage() {
                         {properties.map((p) => <option key={p.id} value={p.id}>{p.id} — {p.name}</option>)}
                       </select>
                     </td>
-                    <td style={{ padding: "10px", fontVariantNumeric: "tabular-nums", fontSize: 12 }}>
-                      {acctText}
-                      {(!t.category || !t.propertyId) && <div className="small muted">Select category + property</div>}
-                    </td>
+                    {!isMaint && (
+                      <td style={{ padding: "10px", fontVariantNumeric: "tabular-nums", fontSize: 12 }}>
+                        {acctText}
+                        {(!t.category || !t.propertyId) && <div className="small muted">Select category + property</div>}
+                      </td>
+                    )}
                     <td style={{ padding: "8px" }}>
                       <input value={t.category === "TI" ? t.suite : ""} disabled={t.category !== "TI"} placeholder={t.category === "TI" ? "Suite (required)" : "—"} onChange={(e) => updateTx(t.id, { suite: e.target.value })} style={{ fontSize: 13, padding: "6px 8px", borderRadius: 8, border: "1px solid var(--border)", width: "100%" }} />
                     </td>
@@ -1112,14 +1372,15 @@ export default function ExpensesPage() {
                 );
               })}
               {!displayTx.length && (
-                <tr><td colSpan={10} className="small muted" style={{ padding: 14 }}>No rows to show.</td></tr>
+                <tr><td colSpan={isMaint ? 8 : 10} className="small muted" style={{ padding: 14 }}>No rows to show.</td></tr>
               )}
             </tbody>
           </table>
         </div>}
       </div>
 
-      {/* ── Allocation Preview card ── */}
+      {/* ── Allocation Preview card — hidden from maint. ── */}
+      {!isMaint && (
       <div className="card">
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -1128,7 +1389,10 @@ export default function ExpensesPage() {
             </button>
             <div>
               <b>Allocation Preview</b>
-              <div className="small muted" style={{ marginTop: 4 }}>One invoice per property — summary page + detailed charges. BP &amp; SC expenses are pre-allocated by schedule.</div>
+              <div className="small muted" style={{ marginTop: 4 }}>
+                One invoice per property — summary page + detailed charges. BP &amp; SC expenses are pre-allocated by schedule.
+                {" "}Properties under ${CARRYOVER_THRESHOLD} are held and carried forward{yearEnd ? " — except in December, when all balances flush" : ""}.
+              </div>
             </div>
           </div>
           <button className="btn" onClick={() => setShowAllocModal(true)}>Allocations</button>
@@ -1145,7 +1409,7 @@ export default function ExpensesPage() {
                 </tr>
               </thead>
               <tbody>
-                {invoiceGroups.map((g) => (
+                {billingGroups.map((g) => (
                   <tr key={g.propId}>
                     <td>
                       <button className="linkBtn left" onClick={() => setAllocPropModal({ propId: g.propId, name: propName(g.propId), categoryGroups: g.categoryGroups })}>
@@ -1153,28 +1417,33 @@ export default function ExpensesPage() {
                       </button>
                     </td>
                     <td>
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 4, alignItems: "center" }}>
                         {g.categoryGroups.map((cg) => (
                           <span key={cg.category} style={{ fontSize: 11, background: "#e8f0fe", color: "#1e4976", borderRadius: 999, padding: "2px 8px", fontWeight: 500, whiteSpace: "nowrap" }}>
                             {cg.category}
                           </span>
                         ))}
+                        {g.prior > 0 && (
+                          <span title={`Includes ${toMoney(g.prior)} carried forward from prior months`} style={{ fontSize: 11, background: "#fef3c7", color: "#92400e", borderRadius: 999, padding: "2px 8px", fontWeight: 600, whiteSpace: "nowrap" }}>
+                            +{toMoney(g.prior)} prior
+                          </span>
+                        )}
                       </div>
                     </td>
                     <td style={{ textAlign: "right" }}>{g.itemCount}</td>
-                    <td style={{ textAlign: "right" }}>{toMoney(g.total)}</td>
+                    <td style={{ textAlign: "right" }}>{toMoney(g.accrued)}</td>
                   </tr>
                 ))}
-                {!invoiceGroups.length && (
-                  <tr><td colSpan={4} className="muted">Code at least one transaction to generate invoices.</td></tr>
+                {!billingGroups.length && (
+                  <tr><td colSpan={4} className="muted">No properties bill this month{onHoldGroups.length ? " — all coded amounts are under the threshold and held." : "."}</td></tr>
                 )}
               </tbody>
-              {invoiceGroups.length > 0 && (
+              {billingGroups.length > 0 && (
                 <tfoot>
                   <tr>
                     <td colSpan={2}>Totals</td>
-                    <td style={{ textAlign: "right" }}>{invoiceGroups.reduce((s, g) => s + g.itemCount, 0)}</td>
-                    <td style={{ textAlign: "right" }}>{toMoney(invoiceGroups.reduce((s, g) => s + g.total, 0))}</td>
+                    <td style={{ textAlign: "right" }}>{billingGroups.reduce((s, g) => s + g.itemCount, 0)}</td>
+                    <td style={{ textAlign: "right" }}>{toMoney(billingGroups.reduce((s, g) => s + g.accrued, 0))}</td>
                   </tr>
                 </tfoot>
               )}
@@ -1182,25 +1451,93 @@ export default function ExpensesPage() {
           </div>
         )}
       </div>
+      )}
 
-      {/* ── Generate Invoices ── */}
-      {invoiceGroups.length > 0 && (
+      {/* ── Held — under $100 (carried forward) — hidden from maint. ── */}
+      {!isMaint && onHoldGroups.length > 0 && (
+        <div className="card">
+          <div style={{ fontSize: 13, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.03em", color: "#92400e" }}>
+            Held — under ${CARRYOVER_THRESHOLD} (carried forward)
+          </div>
+          <div className="small muted" style={{ marginTop: 4, marginBottom: 10 }}>
+            Properties whose accrued balance is under ${CARRYOVER_THRESHOLD} roll forward until they cross it{yearEnd ? " — but December flushes everything" : ""}.
+          </div>
+          <div className="tableWrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Property</th>
+                  <th style={{ textAlign: "right" }}>This Month</th>
+                  <th style={{ textAlign: "right" }}>Prior Balance</th>
+                  <th style={{ textAlign: "right" }}>Accrued</th>
+                </tr>
+              </thead>
+              <tbody>
+                {onHoldGroups.map((g) => (
+                  <tr key={g.propId} style={{ opacity: 0.85 }}>
+                    <td>{g.propId} — {propName(g.propId)}</td>
+                    <td style={{ textAlign: "right" }}>{toMoney(g.total)}</td>
+                    <td style={{ textAlign: "right" }}>{toMoney(g.prior)}</td>
+                    <td style={{ textAlign: "right" }}>
+                      <button className="linkBtn" style={{ fontWeight: 700 }} title="See the category breakdown of this balance" onClick={() => {
+                        // Roll this month's charges + carried-forward detail up by
+                        // category — just the totals, not every charge.
+                        const byCat = new Map<string, HeldCatRow>();
+                        const add = (category: string, amount: number) => {
+                          const c = byCat.get(category) ?? { category: category || "—", amount: 0, count: 0 };
+                          c.amount = Math.round((c.amount + amount) * 100) / 100;
+                          c.count += 1;
+                          byCat.set(category, c);
+                        };
+                        for (const cg of g.categoryGroups) for (const t of cg.items as any[]) add(t.category, Number(t.amount));
+                        for (const h of (carryover[g.propId]?.heldTx ?? [])) add(h.category, Number(h.amount));
+                        setHeldDetailModal({
+                          propId: g.propId,
+                          name: propName(g.propId),
+                          accrued: g.accrued,
+                          rows: [...byCat.values()].sort((a, b) => b.amount - a.amount),
+                        });
+                      }}>
+                        {toMoney(g.accrued)}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td>Held total</td>
+                  <td style={{ textAlign: "right" }}>{toMoney(onHoldGroups.reduce((s, g) => s + g.total, 0))}</td>
+                  <td style={{ textAlign: "right" }}>{toMoney(onHoldGroups.reduce((s, g) => s + g.prior, 0))}</td>
+                  <td style={{ textAlign: "right" }}>{toMoney(onHoldGroups.reduce((s, g) => s + g.accrued, 0))}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ── Generate Invoices — hidden from maint. ── */}
+      {!isMaint && (billingGroups.length > 0 || onHoldGroups.length > 0) && (
         <div className="card">
           <b>Generate Invoices</b>
-          <div className="small muted" style={{ marginTop: 4, marginBottom: 14 }}>One PDF invoice per property. Only properties with coded amounts greater than $0 are included.</div>
+          <div className="small muted" style={{ marginTop: 4, marginBottom: 14 }}>
+            One PDF invoice per billing property. Properties whose accrued balance is under ${CARRYOVER_THRESHOLD} are held and excluded from the invoices, GL Journal Entry, and TOP SHEET until they cross it{yearEnd ? " (December flushes everything)" : ""}.
+          </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
-            <button className="btn primary large" onClick={generateAllPdfsZip}>
-              Download All Invoices
-            </button>
-            <button className="btn large" onClick={downloadExcelSummary} disabled={!expandedCoded.length}>
-              Download Excel Summary
-            </button>
-            <button className="btn large" onClick={downloadGLExport} disabled={!invoiceGroups.length}>
-              Download GL Journal Entry
-            </button>
+            <DownloadMenu
+              label="Download"
+              variant="primary"
+              disabled={!billingGroups.length && !effectiveExpandedCoded.length && !effectiveInvoiceGroups.length}
+              items={[
+                { label: "All Invoices (ZIP)", description: "One PDF per billing property + TOP SHEET", onClick: () => { if (billingGroups.length) generateAllPdfsZip(); } },
+                { label: "Excel Summary", description: "Coded expenses workbook", onClick: () => { if (effectiveExpandedCoded.length) downloadExcelSummary(); } },
+                { label: "GL Journal Entry", description: "Journal entry for the billing properties", onClick: () => { if (effectiveInvoiceGroups.length) downloadGLExport(); } },
+              ]}
+            />
           </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-            {invoiceGroups.map((g) => (
+            {billingGroups.map((g) => (
               <button
                 key={g.propId}
                 className="btn"
@@ -1208,9 +1545,26 @@ export default function ExpensesPage() {
                 onClick={() => downloadSingleInvoicePdf(g)}
               >
                 {g.propId} — {propName(g.propId)}{" "}
-                <span style={{ color: "var(--muted)", marginLeft: 4 }}>({toMoney(g.total)})</span>
+                <span style={{ color: "var(--muted)", marginLeft: 4 }}>({toMoney(g.accrued)})</span>
               </button>
             ))}
+          </div>
+
+          {/* Finalize — the single moment the carryover ledger is updated. */}
+          <div style={{ marginTop: 18, paddingTop: 16, borderTop: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <button
+              className="btn"
+              onClick={finalizeMonthAction}
+              disabled={finalizing || alreadyFinalized || !statementMonth}
+              style={{ fontSize: 13, padding: "8px 16px", fontWeight: 700, background: alreadyFinalized ? undefined : "rgba(22,163,74,0.9)", color: alreadyFinalized ? undefined : "#fff", border: "1px solid transparent" }}
+            >
+              {finalizing ? "Finalizing…" : alreadyFinalized ? `✓ ${statementMonth} finalized` : "Finalize Month & Update Carryover"}
+            </button>
+            <span className="small muted" style={{ maxWidth: 560 }}>
+              {alreadyFinalized
+                ? `Carryover for ${statementMonth} is locked in. Held balances roll into next month.`
+                : `Run this once, after you've downloaded and sent this month's invoices. ${yearEnd ? "December flushes all held balances so every expense books this year." : `Held properties accrue until they cross $${CARRYOVER_THRESHOLD}.`}`}
+            </span>
           </div>
         </div>
       )}
@@ -1307,6 +1661,48 @@ export default function ExpensesPage() {
         </div>
       )}
 
+      {/* Held expenses category breakdown modal */}
+      {heldDetailModal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.55)", zIndex: 998, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} onClick={() => setHeldDetailModal(null)}>
+          <div className="card" style={{ maxWidth: 560, width: "100%", maxHeight: "80vh", display: "flex", flexDirection: "column" }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+              <div>
+                <b style={{ fontSize: 15 }}>{heldDetailModal.propId} — {heldDetailModal.name}</b>
+                <div className="small muted" style={{ marginTop: 2 }}>Category breakdown of the accrued balance of {toMoney(heldDetailModal.accrued)} (this month + carried forward) — held until it crosses ${CARRYOVER_THRESHOLD}.</div>
+              </div>
+              <button className="btn" style={{ padding: "4px 10px" }} onClick={() => setHeldDetailModal(null)}>✕</button>
+            </div>
+            <div className="tableWrap" style={{ overflowY: "auto" }}>
+              <table>
+                <thead>
+                  <tr>
+                    <th style={{ whiteSpace: "nowrap" }}>Category</th>
+                    <th style={{ textAlign: "right", whiteSpace: "nowrap" }}># Charges</th>
+                    <th style={{ textAlign: "right", whiteSpace: "nowrap" }}>Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {heldDetailModal.rows.map((r, i) => (
+                    <tr key={i}>
+                      <td style={{ whiteSpace: "nowrap" }}>{r.category}</td>
+                      <td style={{ textAlign: "right" }} className="muted">{r.count}</td>
+                      <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>{toMoney(r.amount)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td>Accrued total</td>
+                    <td style={{ textAlign: "right" }} className="muted">{heldDetailModal.rows.reduce((s, r) => s + r.count, 0)}</td>
+                    <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>{toMoney(heldDetailModal.accrued)}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Allocations modal */}
       {showAllocModal && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.55)", zIndex: 998, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} onClick={() => setShowAllocModal(false)}>
@@ -1369,6 +1765,9 @@ export default function ExpensesPage() {
             <b style={{ fontSize: 16 }}>Reminder</b>
             <div style={{ fontSize: 15, lineHeight: 1.5, marginTop: 8 }}>
               Save files to Accounting drive and send invoices to <b>kormancommercial@avidbill.com</b>.
+              <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 8 }}>
+                The GL Journal Entry + TOP SHEET summary are emailed automatically to Marie Jaster.
+              </div>
             </div>
             <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 16 }}>
               <button className="btn primary large" onClick={() => setShowAfterZipModal(false)}>Sent</button>

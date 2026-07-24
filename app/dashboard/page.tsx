@@ -1,0 +1,1312 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import type { RentRollData, RentRollUnit } from "../../lib/rentroll/parseRentRollExcel";
+import { TAX_TASKS, TAX_CATEGORIES, filingLabel, isTaskEffectivelyDone, loadTaxChecked, type TaxTask } from "../tracker/tax-data";
+import { useUser } from "../components/UserProvider";
+import { isPathAllowed } from "../../lib/users";
+import { PROPERTY_DEFS } from "../../lib/properties/data";
+import { UNIQUE_BANK_ACCOUNTS } from "../../lib/bank-rec/accounts";
+import { bankRecKey, nextBankRecDeadline, nextStatementsDeadline, bankRecPeriodLabel } from "../../lib/bank-rec/util";
+import { checkedKey, currentPeriod } from "../../lib/marie-tasks";
+import { fireNotification } from "../../lib/notifications";
+import ExpirationChart from "./ExpirationChart";
+import DrewSavedStatus from "./DrewSavedStatus";
+import DrewTasksThisWeek from "./DrewTasksThisWeek";
+import CommissionsReminder from "./CommissionsReminder";
+import AnnualStatementReminder from "./AnnualStatementReminder";
+import DailyDigestModal from "./DailyDigestModal";
+import MaintenanceOverview from "./MaintenanceOverview";
+import PendingReservationsCard from "./PendingReservationsCard";
+import PortfolioOccupancyPanel from "./PortfolioOccupancyPanel";
+import MonthlyReviewPanel from "../reports/monthly/MonthlyReviewPanel";
+import DebtSummaryCard from "./DebtSummaryCard";
+
+function sqftFmt(n: number) { return n.toLocaleString(); }
+
+// Buildings with interim (as-of-month) CAM/RET recon support — the "Statement →"
+// button on a vacating tenant deep-links to it (office + retail).
+const OFFICE_INTERIM = new Set([
+  "3610", "3620", "3640", "4050", "4060", "4070", "4080", "40A0", "40B0", "40C0", // office
+  "1100", "2300", "4500", "7010", "9510", // retail
+]);
+
+/** 2-digit base year for the B/Y column — 4-digit year → last 2 digits;
+ *  non-numeric markers (NNN, GROSS, …) shown as-is; missing → dash. */
+function baseYear2(raw: number | string | null | undefined): string {
+  if (raw == null || raw === "") return "—";
+  const s = String(raw).trim();
+  if (/^\d{4}$/.test(s)) return s.slice(2);
+  if (/^\d{2}$/.test(s)) return s;
+  return s.toUpperCase();
+}
+
+function parseLeaseTo(d: string | null): Date | null {
+  if (!d) return null;
+  const m = d.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (!m) return null;
+  return new Date(parseInt(m[3], 10), parseInt(m[1], 10) - 1, parseInt(m[2], 10));
+}
+
+function formatShortDate(d: Date): string {
+  return `${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")}/${String(d.getFullYear()).slice(2)}`;
+}
+
+function daysBetween(from: Date, to: Date): number {
+  const ms = to.setHours(0, 0, 0, 0) - from.setHours(0, 0, 0, 0);
+  return Math.round(ms / (1000 * 60 * 60 * 24));
+}
+
+/** Next concrete due date (year-aware): use this year's date, but if it's already past, use next year. */
+function nextDueDate(t: TaxTask, today: Date): Date {
+  const yr = today.getFullYear();
+  const candidate = new Date(yr, t.dueMonth - 1, t.dueDay);
+  if (candidate < new Date(yr, today.getMonth(), today.getDate())) {
+    return new Date(yr + 1, t.dueMonth - 1, t.dueDay);
+  }
+  return candidate;
+}
+
+/** Small SVG donut for progress display. Stroke fills clockwise from 12 o'clock. */
+function Donut({ value, total, color, label }: { value: number; total: number; color: string; label: string }) {
+  const r = 38;
+  const C = 2 * Math.PI * r;
+  const pct = total > 0 ? Math.max(0, Math.min(1, value / total)) : 0;
+  const offset = C * (1 - pct);
+  const pctLabel = total > 0 ? Math.round(pct * 100) : 0;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}>
+      <div style={{ position: "relative", width: 110, height: 110 }}>
+        <svg width="110" height="110" viewBox="0 0 100 100" style={{ transform: "rotate(-90deg)" }}>
+          <circle cx="50" cy="50" r={r} fill="none" stroke="var(--border)" strokeWidth="10" />
+          <circle
+            cx="50" cy="50" r={r}
+            fill="none"
+            stroke={color}
+            strokeWidth="10"
+            strokeLinecap="round"
+            strokeDasharray={C}
+            strokeDashoffset={offset}
+            style={{ transition: "stroke-dashoffset 0.4s ease" }}
+          />
+        </svg>
+        <div style={{
+          position: "absolute", inset: 0,
+          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+          fontFamily: "inherit",
+        }}>
+          <span style={{ fontSize: 20, fontWeight: 900, color, lineHeight: 1 }}>{pctLabel}%</span>
+          <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600, marginTop: 2 }}>{value}/{total}</span>
+        </div>
+      </div>
+      <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text)", textAlign: "center" }}>{label}</span>
+    </div>
+  );
+}
+
+export default function DashboardPage() {
+  const { user } = useUser();
+  if (user.id === "maint") return <MaintenanceOverview />;
+  return <DashboardInner />;
+}
+
+function DashboardInner() {
+  const router = useRouter();
+  const { user } = useUser();
+  const [rentroll, setRentroll] = useState<RentRollData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [checkedByYear, setCheckedByYear] = useState<Record<number, Record<string, boolean>>>({});
+  const [vacatingMatchers, setVacatingMatchers] = useState<{ unitRefs: Set<string>; names: Set<string> }>({ unitRefs: new Set(), names: new Set() });
+  // A rent-roll snapshot from ~60 days ago, diffed against the current roll to
+  // surface tenants who already vacated (so Drew can run their close-out).
+  const [priorSnapshot, setPriorSnapshot] = useState<RentRollData | null>(null);
+  const [tenantMeta, setTenantMeta] = useState<Record<string, { baseYear?: number | string | null }>>({});
+  // Security deposits (for the vacating-tenants "owed" column): per-unit held
+  // amount = deposits not yet refunded / defaulted / partially resolved.
+  const [depositOwed, setDepositOwed] = useState<Record<string, number>>({});
+  const [upcomingNotices, setUpcomingNotices] = useState<{ id: string; tenant: string; building: string; noticeDate: string; daysUntil: number }[]>([]);
+  const [dismissedNotices, setDismissedNotices] = useState<Set<string>>(new Set());
+  const [bankRecChecked, setBankRecChecked] = useState<Record<string, boolean>>({});
+  const [bankStmtChecked, setBankStmtChecked] = useState<Record<string, boolean>>({});
+  const [marieChecked, setMarieChecked] = useState<Record<string, boolean>>({});
+
+  // Marie & admin: bank-rec action items. Drew also sees the progress
+  // donuts (status at a glance) but not the action items themselves.
+  const showBankRec = user.id === "marie" || user.navKeys.has("all");
+  const showBankDonuts = showBankRec || user.id === "drew";
+  useEffect(() => {
+    if (!showBankDonuts) return;
+    fetch("/api/bank-rec").then((r) => r.json()).then((j) => setBankRecChecked(j.checked ?? {})).catch(() => {});
+    fetch("/api/bank-rec/statements").then((r) => r.json()).then((j) => setBankStmtChecked(j.statements ?? {})).catch(() => {});
+  }, [showBankDonuts]);
+
+  // Marie: weekly task state — drives the ACH/wires action-item reminder.
+  useEffect(() => {
+    if (user.id !== "marie") return;
+    fetch("/api/marie-tasks").then((r) => r.json()).then((j) => setMarieChecked(j.checked ?? {})).catch(() => {});
+  }, [user.id]);
+
+  const bankRec = useMemo(() => {
+    const { date, period, daysUntil } = nextBankRecDeadline();
+    const total = UNIQUE_BANK_ACCOUNTS.length;
+    const recDone = UNIQUE_BANK_ACCOUNTS.filter((a) => bankRecChecked[bankRecKey(a.last4, period)]).length;
+    const remaining = total - recDone;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const overdue = date < today && remaining > 0;
+    const status: "today" | "soon" | "later" | "overdue" | "done" =
+      remaining === 0 ? "done"
+      : overdue ? "overdue"
+      : daysUntil === 0 ? "today"
+      : daysUntil <= 3 ? "soon"
+      : "later";
+    return { date, period, daysUntil, total, recDone, remaining, status };
+  }, [bankRecChecked]);
+
+  // Separate "download bank statements" item — due the 1st of each month.
+  const bankStmt = useMemo(() => {
+    const { date, period, daysUntil } = nextStatementsDeadline();
+    const total = UNIQUE_BANK_ACCOUNTS.length;
+    const done = UNIQUE_BANK_ACCOUNTS.filter((a) => bankStmtChecked[bankRecKey(a.last4, period)]).length;
+    const remaining = total - done;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const overdue = date < today && remaining > 0;
+    const status: "today" | "soon" | "later" | "overdue" | "done" =
+      remaining === 0 ? "done"
+      : overdue ? "overdue"
+      : daysUntil === 0 ? "today"
+      : daysUntil <= 3 ? "soon"
+      : "later";
+    return { date, period, daysUntil, total, done, remaining, status };
+  }, [bankStmtChecked]);
+
+  // Persist dismissed notices in localStorage so they don't reappear on reload.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = localStorage.getItem("kcp:dismissedNotices");
+      if (raw) setDismissedNotices(new Set(JSON.parse(raw)));
+    } catch { /* ignore */ }
+  }, []);
+  function dismissNotice(id: string) {
+    setDismissedNotices((prev) => {
+      const next = new Set(prev); next.add(id);
+      try { localStorage.setItem("kcp:dismissedNotices", JSON.stringify([...next])); } catch { /* ignore */ }
+      return next;
+    });
+  }
+
+  // Stable per-occurrence ids — when the occurrence rolls (new month/payroll
+  // date/etc.) the id changes, so dismissed-forever isn't a thing.
+  const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+  const isAdmin = user.id === "admin";
+  const isMarie = user.id === "marie";
+  const isAlison = user.id === "alison";
+  const isHarryUser = user.id === "harry";
+
+  // Bank-transfer notifications — surface recent transfers on Harry,
+  // Drew, Marie and admin's dashboards. Dismissible.
+  const showBankTransferNotices = isAdmin || isMarie || isHarryUser || user.id === "drew";
+  const [bankTransferNotices, setBankTransferNotices] = useState<
+    { id: string; date: string; from: string; to: string; amount: number; description: string; createdAt: string }[]
+  >([]);
+  useEffect(() => {
+    if (!showBankTransferNotices) return;
+    let alive = true;
+    fetch("/api/bank-transfers", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (!alive || !Array.isArray(j?.transfers)) return;
+        const cutoff = Date.now() - 14 * 24 * 60 * 60 * 1000;
+        const recent = (j.transfers as Array<{
+          id: string; date: string; fromLabel: string; toLabel: string; amount: number;
+          description: string; createdAt: string;
+        }>)
+          .filter((t) => !t.id.startsWith("bt_seed_") && Date.parse(t.createdAt) >= cutoff)
+          .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+          .slice(0, 8)
+          .map((t) => ({
+            id: `bank-transfer-${t.id}`,
+            date: t.date,
+            from: t.fromLabel,
+            to: t.toLabel,
+            amount: t.amount,
+            description: t.description,
+            createdAt: t.createdAt,
+          }));
+        setBankTransferNotices(recent);
+      })
+      .catch(() => { /* ignore */ });
+    return () => { alive = false; };
+  }, [showBankTransferNotices]);
+
+  useEffect(() => {
+    fetch("/api/rentroll").then((r) => r.json()).then((j) => setRentroll(j.rentroll ?? null)).catch(() => setRentroll(null)).finally(() => setLoading(false));
+    fetch("/api/tenant-meta").then((r) => (r.ok ? r.json() : null)).then((j) => setTenantMeta(j?.tenantMeta ?? {})).catch(() => {});
+    fetch("/api/deposits", { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).then((j) => {
+      const owed: Record<string, number> = {};
+      for (const d of (j?.deposits ?? []) as { unitRef?: string; amount?: number; refunded?: boolean; tenantDefaulted?: boolean; partialRefund?: boolean }[]) {
+        if (!d.unitRef) continue;
+        const held = d.refunded || d.tenantDefaulted || d.partialRefund ? 0 : (d.amount ?? 0);
+        owed[d.unitRef] = (owed[d.unitRef] ?? 0) + held;
+      }
+      setDepositOwed(owed);
+    }).catch(() => {});
+    fetch("/api/leasing-activity").then((r) => r.json()).then((j) => {
+      const la = j?.leasingActivity ?? {};
+      const list = (la?.tenantsVacating ?? []) as { unitRef?: string; tenant?: string }[];
+      setVacatingMatchers({
+        unitRefs: new Set(list.map(v => v.unitRef ?? "").filter(Boolean)),
+        names:    new Set(list.map(v => (v.tenant ?? "").toLowerCase().trim()).filter(Boolean)),
+      });
+      // Upcoming option-to-renew notice dates within 30 days (or past-due)
+      const opts = (la?.optionsToRenew ?? []) as { tenant?: string; building?: string; noticeDate?: string }[];
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      const cutoff = new Date(today); cutoff.setDate(today.getDate() + 30);
+      const rows: { id: string; tenant: string; building: string; noticeDate: string; daysUntil: number }[] = [];
+      for (const o of opts) {
+        const m = (o.noticeDate ?? "").match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+        if (!m) continue;
+        const d = new Date(Number(m[3]), Number(m[1]) - 1, Number(m[2]));
+        if (d > cutoff) continue;
+        const days = Math.round((d.getTime() - today.getTime()) / 86400000);
+        rows.push({
+          id: `${(o.tenant ?? "").toLowerCase()}|${o.noticeDate ?? ""}`,
+          tenant: o.tenant ?? "",
+          building: o.building ?? "",
+          noticeDate: o.noticeDate ?? "",
+          daysUntil: days,
+        });
+      }
+      rows.sort((a, b) => a.daysUntil - b.daysUntil);
+      setUpcomingNotices(rows);
+    }).catch(() => {});
+  }, []);
+
+  function isVacating(unitRef: string, tenantName: string): boolean {
+    return vacatingMatchers.unitRefs.has(unitRef) || vacatingMatchers.names.has(tenantName.toLowerCase().trim());
+  }
+
+  // Pull the snapshot from ~60 days back so we can detect who's since vacated.
+  // Only Drew's dashboard uses it, so gate the extra fetches on that.
+  useEffect(() => {
+    if (user.id !== "drew") return;
+    let alive = true;
+    (async () => {
+      try {
+        const hist = await fetch("/api/rentroll/history").then((r) => (r.ok ? r.json() : null));
+        const snaps = (hist?.snapshots ?? []) as { month: string }[];
+        if (!snaps.length) return;
+        const target = new Date();
+        target.setDate(target.getDate() - 60);
+        const targetKey = `${target.getFullYear()}-${String(target.getMonth() + 1).padStart(2, "0")}`;
+        // Newest snapshot at or before ~60 days ago; fall back to the oldest we have.
+        const atOrBefore = snaps.filter((s) => s.month <= targetKey).sort((a, b) => b.month.localeCompare(a.month));
+        const pick = atOrBefore[0] ?? [...snaps].sort((a, b) => a.month.localeCompare(b.month))[0];
+        if (!pick) return;
+        const full = await fetch(`/api/rentroll/history/${pick.month}`).then((r) => (r.ok ? r.json() : null));
+        if (alive && full?.rentroll) setPriorSnapshot(full.rentroll as RentRollData);
+      } catch { /* best-effort — card still shows upcoming vacates */ }
+    })();
+    return () => { alive = false; };
+  }, [user.id]);
+
+  useEffect(() => {
+    const y = new Date().getFullYear();
+    setCheckedByYear({ [y]: loadTaxChecked(y), [y + 1]: loadTaxChecked(y + 1) });
+  }, []);
+
+  // ── Next bi-weekly payroll Friday (anchor: 2026-05-08) ──
+  const nextPayroll = useMemo(() => {
+    const ANCHOR = new Date(2026, 4, 8); // May 8 2026 — known payroll Friday
+    const t = new Date(); t.setHours(0, 0, 0, 0);
+    const days = Math.floor((t.getTime() - ANCHOR.getTime()) / 86400000);
+    const mod = ((days % 14) + 14) % 14;
+    const daysUntil = mod === 0 ? 0 : 14 - mod;
+    const next = new Date(t);
+    next.setDate(t.getDate() + daysUntil);
+    const status: "today" | "soon" | "later" = daysUntil === 0 ? "today" : daysUntil <= 3 ? "soon" : "later";
+    return { date: next, daysUntil, status };
+  }, []);
+
+  // ── Next CC Expenses submission (7th of every month) ──
+  const ccExpensesDue = useMemo(() => {
+    const t = new Date(); t.setHours(0, 0, 0, 0);
+    const next = new Date(t.getFullYear(), t.getMonth(), 7);
+    if (t > next) next.setMonth(next.getMonth() + 1);
+    const daysUntil = Math.round((next.getTime() - t.getTime()) / 86400000);
+    const status: "today" | "soon" | "later" = daysUntil === 0 ? "today" : daysUntil <= 3 ? "soon" : "later";
+    return { date: next, daysUntil, status };
+  }, []);
+
+  // ── Portfolio occupancy ──
+  const JV_III_CODES = useMemo(() => new Set(["3610", "3620", "3640"]), []);
+  const NI_LLC_CODES = useMemo(() => new Set(["4050", "4060", "4070", "4080", "40A0", "40B0", "40C0"]), []);
+  const SC_CODES     = useMemo(() => new Set(["1100", "2300", "4500", "7010", "9510", "7200", "7300", "1500", "9200", "5600", "8200"]), []);
+  const OW_CODES     = useMemo(() => new Set(["4900"]), []);
+
+  function propLabelFor(code: string, fallback?: string): string {
+    const def = PROPERTY_DEFS.find((p) => p.id.toUpperCase() === code.toUpperCase());
+    return def?.name ?? fallback ?? code;
+  }
+
+  const occupancy = useMemo(() => {
+    if (!rentroll) return null;
+    const scope = user.dashboardScope;
+
+    const tally = (props: typeof rentroll.properties) => {
+      const total    = props.reduce((s, p) => s + p.totalSqft,    0);
+      const occupied = props.reduce((s, p) => s + p.occupiedSqft, 0);
+      const vacant   = total - occupied;
+      return { total, occupied, vacant, pct: total > 0 ? (occupied / total) * 100 : null };
+    };
+    const propsByCodes = (codes: Set<string>) => rentroll.properties.filter((p) => codes.has(p.propertyCode.toUpperCase()));
+
+    if (scope === "groups") {
+      const all = tally(rentroll.properties);
+      if (all.total === 0) return null;
+      return {
+        ...all,
+        pct: all.pct ?? 0,
+        groups: [
+          { label: "JV III LLC",       ...tally(propsByCodes(JV_III_CODES)) },
+          { label: "NI LLC",           ...tally(propsByCodes(NI_LLC_CODES)) },
+          { label: "Shopping Centers", ...tally(propsByCodes(SC_CODES))     },
+          { label: "The Office Works", ...tally(propsByCodes(OW_CODES))     },
+        ].filter((g) => g.total > 0),
+      };
+    }
+
+    // Per-property breakdown for personas with focused scope
+    const scopeProps = propsByCodes(scope.codes);
+    const all = tally(scopeProps);
+    if (all.total === 0) return null;
+    return {
+      ...all,
+      pct: all.pct ?? 0,
+      groups: scopeProps
+        .filter((p) => p.totalSqft > 0)
+        .map((p) => ({
+          label: `${p.propertyCode} ${propLabelFor(p.propertyCode, p.reportedPropertyName)}`,
+          ...tally([p]),
+        })),
+    };
+  }, [rentroll, user.dashboardScope, JV_III_CODES, NI_LLC_CODES, SC_CODES, OW_CODES]);
+
+  // ── Rent roll freshness ──
+  const today = new Date();
+  const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  const rrFreshness = useMemo(() => {
+    const this25th = new Date(today.getFullYear(), today.getMonth(), 25);
+
+    // Determine which month's rent roll is next to import.
+    // Cadence: each month's rent roll is imported on/after the 25th.
+    // If today < 25th of this month → next is this month.
+    // If today >= 25th and last upload is on/after this 25th → next is next month.
+    // Otherwise → still this month (overdue).
+    let nextMonthIdx = today.getMonth();
+    let nextMonthYear = today.getFullYear();
+    if (today >= this25th) {
+      const uploaded = rentroll?.uploadedAt ? new Date(rentroll.uploadedAt) : null;
+      if (uploaded && uploaded >= this25th) {
+        nextMonthIdx = (today.getMonth() + 1) % 12;
+        if (today.getMonth() === 11) nextMonthYear = today.getFullYear() + 1;
+      }
+    }
+    const nextMonthLabel = MONTH_NAMES[nextMonthIdx];
+    const title = `Import ${nextMonthLabel} Rent Roll`;
+
+    if (!rentroll?.uploadedAt) return { status: "missing" as const, title, message: "No rent roll has been uploaded yet." };
+    const uploaded = new Date(rentroll.uploadedAt);
+    const days = Math.floor((today.getTime() - uploaded.getTime()) / (1000 * 60 * 60 * 24));
+    const overdue = today >= this25th && uploaded < this25th;
+    if (overdue) return { status: "overdue" as const, title, message: `Overdue — last uploaded ${days} day${days === 1 ? "" : "s"} ago. Upload after the 25th.` };
+    if (days > 35) return { status: "stale" as const, title, message: `Last uploaded ${days} days ago.` };
+    return { status: "fresh" as const, title, message: `Last uploaded ${days === 0 ? "today" : `${days} day${days === 1 ? "" : "s"} ago`}.` };
+  }, [rentroll, today]);
+
+  // Whether to render the Leases Expiring card for this persona, and how to scope it.
+  //  - Nancy → office only
+  //  - Harry → retail only
+  //  - Marie → hidden entirely
+  //  - everyone else (admin / maint) → all property types
+  const expiringScope: "office" | "retail" | "all" | "none" =
+    user.id === "nancy"  ? "office" :
+    user.id === "harry"  ? "retail" :
+    user.id === "marie" ? "none"   :
+    "all";
+  const showExpiring = expiringScope !== "none";
+
+  // ── Leases expiring in next 60 days (or already past, with > 0 rent) ──
+  const expiring = useMemo(() => {
+    if (!rentroll || !showExpiring) return [];
+    const rows: { propertyCode: string; unit: RentRollUnit; days: number }[] = [];
+    for (const prop of rentroll.properties) {
+      if (expiringScope !== "all") {
+        const def = PROPERTY_DEFS.find((p) => p.id.toUpperCase() === prop.propertyCode.toUpperCase());
+        const t = def?.type;
+        if (expiringScope === "office" && t !== "Office") continue;
+        if (expiringScope === "retail" && t !== "Retail") continue;
+      }
+      for (const unit of prop.units) {
+        if (unit.isVacant || !unit.leaseTo) continue;
+        const d = parseLeaseTo(unit.leaseTo);
+        if (!d) continue;
+        const days = daysBetween(new Date(), d);
+        if (days >= -30 && days <= 60) rows.push({ propertyCode: prop.propertyCode, unit, days });
+      }
+    }
+    return rows.sort((a, b) => a.days - b.days);
+  }, [rentroll, showExpiring, expiringScope]);
+
+  // Drew's lease card shows only tenants flagged as vacating.
+  const isDrew = user.id === "drew";
+  const expiringRows = isDrew
+    ? expiring.filter((r) => isVacating(r.unit.unitRef, r.unit.occupantName))
+    : expiring;
+
+  // ── Tenants who already vacated in the last ~60 days (Drew only) ──
+  // Diff the ~60-day-old snapshot against the current roll: a unit occupied by
+  // a named tenant then, now vacant or taken by someone else, means that tenant
+  // left — a close-out candidate. These are gone from the live roll, so they'd
+  // never surface in `expiring` above.
+  const recentlyVacated = useMemo(() => {
+    if (!isDrew || !rentroll || !priorSnapshot || !showExpiring) return [];
+    const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+    const currentByRef = new Map<string, RentRollUnit>();
+    for (const p of rentroll.properties) for (const u of p.units) currentByRef.set(u.unitRef, u);
+
+    const rows: { propertyCode: string; unit: RentRollUnit; days: number }[] = [];
+    for (const prop of priorSnapshot.properties) {
+      if (expiringScope !== "all") {
+        const def = PROPERTY_DEFS.find((p) => p.id.toUpperCase() === prop.propertyCode.toUpperCase());
+        const t = def?.type;
+        if (expiringScope === "office" && t !== "Office") continue;
+        if (expiringScope === "retail" && t !== "Retail") continue;
+      }
+      for (const unit of prop.units) {
+        if (unit.isVacant || unit.amenity || !unit.occupantName) continue;
+        const cur = currentByRef.get(unit.unitRef);
+        const gone = !cur || cur.isVacant || norm(cur.occupantName) !== norm(unit.occupantName);
+        if (!gone) continue;
+        const d = parseLeaseTo(unit.leaseTo);
+        rows.push({ propertyCode: prop.propertyCode, unit, days: d ? daysBetween(new Date(), d) : -1 });
+      }
+    }
+    return rows.sort((a, b) => a.unit.occupantName.localeCompare(b.unit.occupantName));
+  }, [isDrew, rentroll, priorSnapshot, showExpiring, expiringScope]);
+
+  // Shared row renderer for both the upcoming-vacates table and the
+  // recently-vacated section, so they stay visually identical. `vacated` flips
+  // the badge (VACATED vs VACATING) and the row tint.
+  function renderLeaseRow(propertyCode: string, unit: RentRollUnit, days: number, key: string, vacated: boolean) {
+    const overdue = days < 0;
+    const urgent = days >= 0 && days <= 30;
+    const bg = vacated
+      ? "rgba(100,116,139,0.08)"
+      : overdue ? "rgba(220,38,38,0.10)" : urgent ? "rgba(220,38,38,0.06)" : days <= 60 ? "rgba(234,88,12,0.06)" : undefined;
+    return (
+      <tr
+        key={key}
+        style={{ background: bg, cursor: "pointer" }}
+        onClick={() => router.push(`/rentroll#unit-${unit.unitRef.replace(/[^a-zA-Z0-9]/g, "-")}`)}
+        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.filter = "brightness(0.97)"; }}
+        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.filter = ""; }}
+      >
+        <td style={{ fontWeight: 600 }}>
+          {unit.occupantName}
+          {vacated && (
+            <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 999, background: "rgba(100,116,139,0.14)", color: "#475569", border: "1px solid rgba(100,116,139,0.4)", letterSpacing: "0.04em" }}>VACATED</span>
+          )}
+          {!vacated && !isDrew && isVacating(unit.unitRef, unit.occupantName) && (
+            <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 999, background: "rgba(220,38,38,0.1)", color: "#b91c1c", border: "1px solid rgba(220,38,38,0.35)", letterSpacing: "0.04em" }}>VACATING</span>
+          )}
+        </td>
+        <td style={{ fontSize: 13, color: "var(--muted)" }}>{propLabel(propertyCode)}</td>
+        <td style={{ whiteSpace: "nowrap" }}><code style={{ fontSize: 12, whiteSpace: "nowrap" }}>{unit.unitRef}</code></td>
+        <td style={{ textAlign: "right", fontSize: 13 }}>{sqftFmt(unit.sqft)}</td>
+        <td style={{ fontSize: 13, whiteSpace: "nowrap" }}>{unit.leaseTo}</td>
+        <td style={{ textAlign: "center", fontSize: 13 }}>{baseYear2(tenantMeta[unit.unitRef]?.baseYear)}</td>
+        <td style={{ textAlign: "right", fontSize: 13, fontWeight: 600, color: vacated ? "#64748b" : overdue ? "#b91c1c" : urgent ? "#b91c1c" : "#b45309" }}>
+          {vacated ? "gone" : overdue ? `${Math.abs(days)} ago` : `${days}`}
+        </td>
+        <td style={{ textAlign: "right", fontSize: 13, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}
+          title={depositOwed[unit.unitRef] ? "Security deposit held / owed back to the tenant" : "No security deposit on file"}>
+          {depositOwed[unit.unitRef]
+            ? "$" + Math.round(depositOwed[unit.unitRef]).toLocaleString("en-US")
+            : <span className="muted">—</span>}
+        </td>
+        <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+          {OFFICE_INTERIM.has(propertyCode.toUpperCase()) ? (() => {
+            const d = parseLeaseTo(unit.leaseTo);
+            const y = d ? d.getFullYear() : new Date().getFullYear();
+            const m = d ? d.getMonth() + 1 : 12;
+            return (
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); router.push(`/cam-recon/interim?property=${propertyCode}&unitRef=${encodeURIComponent(unit.unitRef)}&year=${y}&asOf=${m}`); }}
+                title={vacated ? "Close out this vacated tenant — interim (as-of-month) CAM/RET statement" : "Generate this tenant's interim (as-of-month) CAM/RET statement"}
+                style={{ fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 999, border: "1px solid rgba(11,74,125,0.35)", background: "var(--card)", color: "#0b4a7d", cursor: "pointer" }}
+              >
+                {vacated ? "Close out →" : "Statement →"}
+              </button>
+            );
+          })() : <span className="muted" style={{ fontSize: 12 }}>—</span>}
+        </td>
+      </tr>
+    );
+  }
+
+  // ── Upcoming filings in next 30 days, undone ──
+  const upcomingFilings = useMemo(() => {
+    const now = new Date();
+    const cutoff = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 45);
+    return TAX_TASKS
+      .map((t) => {
+        const due = nextDueDate(t, new Date());
+        return { task: t, due, days: daysBetween(new Date(), due) };
+      })
+      .filter(({ task, due, days }) => {
+        const yearChecked = checkedByYear[due.getFullYear()] ?? {};
+        return due <= cutoff && days >= -7 && !isTaskEffectivelyDone(task, yearChecked);
+      })
+      .sort((a, b) => a.days - b.days)
+      .slice(0, 12);
+  }, [checkedByYear]);
+
+  // ── Browser notifications for persona-scoped action items ────────────
+  // Fires once per item per day (dedup is in lib/notifications). Runs after
+  // data loads. No-op if the master toggle is off or permission isn't granted.
+  useEffect(() => {
+    if (loading) return;
+
+    const today = new Date();
+    const dateStamp = `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`;
+    const isHarry = user.id === "harry";
+
+    // CC Expenses (Harry + admin) — due 7th of the month
+    if ((isHarry || user.navKeys.has("all")) && ccExpensesDue.status !== "later") {
+      const label = ccExpensesDue.status === "today"
+        ? "Due today — submit credit card expenses."
+        : `Due ${ccExpensesDue.date.toLocaleDateString("en-US", { month: "short", day: "numeric" })} (in ${ccExpensesDue.daysUntil} day${ccExpensesDue.daysUntil === 1 ? "" : "s"}).`;
+      fireNotification({
+        title: "Submit CC Expenses",
+        body: label,
+        itemKey: `cc-expenses-${dateStamp}`,
+        url: "/expenses",
+      });
+    }
+
+    // Bank statement downloads (Marie + admin) — due 1st of the month
+    if (showBankRec && bankStmt.status !== "later" && bankStmt.status !== "done") {
+      fireNotification({
+        title: `Download Bank Statements — ${bankRecPeriodLabel(bankStmt.period)}`,
+        body: `${bankStmt.done}/${bankStmt.total} done · due ${bankStmt.date.toLocaleDateString("en-US", { month: "short", day: "numeric" })}.`,
+        itemKey: `bank-stmt-${dateStamp}`,
+        url: "/bank-rec",
+      });
+    }
+
+    // Bank reconciliations (Marie + admin) — due 10th of the following month
+    if (showBankRec && bankRec.status !== "later" && bankRec.status !== "done") {
+      fireNotification({
+        title: `Reconcile Bank Statements — ${bankRecPeriodLabel(bankRec.period)}`,
+        body: `${bankRec.recDone}/${bankRec.total} done · due ${bankRec.date.toLocaleDateString("en-US", { month: "short", day: "numeric" })}.`,
+        itemKey: `bank-rec-${dateStamp}`,
+        url: "/bank-rec",
+      });
+    }
+
+    // Bi-weekly payroll Friday (admin only)
+    if (isAdmin && (nextPayroll.status === "today" || nextPayroll.status === "soon")) {
+      fireNotification({
+        title: "Payroll",
+        body: nextPayroll.status === "today"
+          ? "Today is a payroll Friday."
+          : `Next payroll is ${nextPayroll.date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })} (in ${nextPayroll.daysUntil} day${nextPayroll.daysUntil === 1 ? "" : "s"}).`,
+        itemKey: `payroll-${dateStamp}`,
+        url: "/",
+      });
+    }
+
+    // Option-notice dates (Nancy only) — fire one notification per pending notice within 7 days
+    if (user.id === "nancy") {
+      const soon = upcomingNotices
+        .filter((n) => !dismissedNotices.has(n.id))
+        .filter((n) => n.daysUntil <= 7);
+      for (const n of soon) {
+        const tag = n.id.replace(/[^a-z0-9]+/g, "_");
+        const when = n.daysUntil < 0
+          ? `${Math.abs(n.daysUntil)} day${Math.abs(n.daysUntil) === 1 ? "" : "s"} past due`
+          : n.daysUntil === 0
+          ? "due today"
+          : `due in ${n.daysUntil} day${n.daysUntil === 1 ? "" : "s"}`;
+        fireNotification({
+          title: `Option Notice — ${n.tenant || "(no tenant)"}`,
+          body: `${n.noticeDate} (${when}).`,
+          itemKey: `option-${tag}-${dateStamp}`,
+          url: "/rentroll/leasing",
+        });
+      }
+    }
+    // Re-run when persona changes; deps below stay stable across the same load.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, user.id, ccExpensesDue.status, bankStmt.status, bankRec.status, nextPayroll.status, upcomingNotices.length]);
+
+  // Helper: property name lookup (use code → "code" if no match)
+  function propLabel(code: string): string {
+    const p = rentroll?.properties.find((x) => x.propertyCode === code);
+    return p ? code : code;
+  }
+
+  return (
+    <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
+      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
+        <h1>Dashboard</h1>
+        <div style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
+          <span style={{ fontFamily: "'Arial Black', 'Arial Bold', Arial, sans-serif", fontWeight: 900, fontSize: 30, letterSpacing: "-0.5px", lineHeight: 1 }}>KORMAN</span>
+          <div style={{ width: 1, height: 36, background: "#000", flexShrink: 0 }} />
+          <div style={{ fontSize: 11, letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}><div>COMMERCIAL</div><div>PROPERTIES</div></div>
+        </div>
+      </header>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 14 }}>
+        {/* ── Pending reservation requests (anyone with reservations access) ── */}
+        {(user.navKeys.has("all") || user.navKeys.has("reservations")) && (
+          <PendingReservationsCard order={user.id === "nancy" ? -2 : 1} />
+        )}
+
+        {/* ── Portfolio Occupancy ── */}
+        {user.id === "nancy" ? (
+          <PortfolioOccupancyPanel rentroll={rentroll} scopes={["office"]} order={-1} />
+        ) : user.id === "harry" ? (
+          <PortfolioOccupancyPanel rentroll={rentroll} scopes={["retail"]} order={-1} />
+        ) : isAlison ? (
+          <PortfolioOccupancyPanel rentroll={rentroll} scopes={["category", "office", "jv3", "ni", "retail", "residential"]} order={-1} />
+        ) : isDrew ? null : isMarie ? null : (
+        <Link href="/rentroll" className="card" style={{ display: "block", textDecoration: "none", color: "inherit", cursor: "pointer", transition: "box-shadow 0.15s, transform 0.15s", order: 0 }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.boxShadow = "0 4px 16px rgba(15,23,42,0.08)"; }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.boxShadow = ""; }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>Portfolio Occupancy</div>
+            <span style={{ fontSize: 12, color: "var(--muted)" }}>→</span>
+          </div>
+          {loading ? (
+            <div className="muted small">Loading…</div>
+          ) : occupancy ? (
+            <>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
+                <span style={{ fontSize: 38, fontWeight: 900, lineHeight: 1, color: occupancy.pct >= 90 ? "#16a34a" : occupancy.pct >= 70 ? "#0b4a7d" : "#d97706" }}>
+                  {occupancy.pct.toFixed(1)}%
+                </span>
+                <span style={{ fontSize: 13, color: "var(--muted)" }}>
+                  {sqftFmt(occupancy.occupied)} / {sqftFmt(occupancy.total)} sf ({sqftFmt(occupancy.vacant)} vacant)
+                </span>
+              </div>
+              <div style={{ height: 6, borderRadius: 999, background: "rgba(15,23,42,0.08)", overflow: "hidden", marginTop: 10 }}>
+                <div style={{ height: "100%", borderRadius: 999, width: `${occupancy.pct}%`, background: occupancy.pct >= 90 ? "#16a34a" : occupancy.pct >= 70 ? "#0b4a7d" : "#d97706" }} />
+              </div>
+              {occupancy.groups.length > 0 && (
+                <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 10 }}>
+                  {occupancy.groups.map((g) => {
+                    const pct = g.pct ?? 0;
+                    const color = pct >= 90 ? "#16a34a" : pct >= 70 ? "#0b4a7d" : "#d97706";
+                    return (
+                      <div key={g.label}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8, marginBottom: 4 }}>
+                          <span style={{ fontSize: 13, fontWeight: 600 }}>{g.label}</span>
+                          <span style={{ fontSize: 12, color: "var(--muted)" }}>
+                            <span style={{ fontWeight: 700, color }}>{pct.toFixed(1)}%</span>
+                            <span style={{ marginLeft: 6 }}>{sqftFmt(g.occupied)} / {sqftFmt(g.total)} sf ({sqftFmt(g.vacant)} vacant)</span>
+                          </span>
+                        </div>
+                        <div style={{ height: 4, borderRadius: 999, background: "rgba(15,23,42,0.08)", overflow: "hidden" }}>
+                          <div style={{ height: "100%", borderRadius: 999, width: `${pct}%`, background: color }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="muted small">No rent roll uploaded yet. Upload one →</div>
+          )}
+        </Link>
+        )}
+
+        {/* ── Debt Summary (Alison) — full width, sits with the occupancy panel ── */}
+        {isAlison && <DebtSummaryCard order={-1} />}
+
+        {/* ── Lease Expirations (Nancy / Harry / admin / Alison) — below occupancy ── */}
+        {(user.id === "nancy" || user.id === "harry" || isAdmin || isAlison) && (
+          <div style={{ gridColumn: "1 / -1", order: 0 }}>
+            <ExpirationChart
+              rentroll={rentroll}
+              defaultScope={user.id === "nancy" ? "office" : user.id === "harry" ? "sc" : "all"}
+            />
+          </div>
+        )}
+
+        {/* ── Action Items / Data Freshness — full-width strip across the top.
+             Drew uses the Tasks This Week card instead. ── */}
+        {!isAlison && !isDrew && (
+        <div className="card" style={{ gridColumn: "1 / -1", order: -5 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 8 }}>Action Items</div>
+          {loading ? (
+            <div className="muted small">Loading…</div>
+          ) : (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {(() => {
+                // Rent-roll import action — Drew, Harry and admin only.
+                // Auto-hides once the latest rent roll has been uploaded
+                // for the current cycle (status "fresh"); reappears on
+                // the next 25th when the new month's roll is due.
+                const canImportRR = user.id === "drew" || user.id === "harry" || isAdmin;
+                if (!canImportRR) return null;
+                if (rrFreshness.status === "fresh") return null;
+                const id = `rr-${rrFreshness.title}`;
+                if (dismissedNotices.has(id)) return null;
+                return (
+              <div style={{
+                display: "flex", alignItems: "flex-start", gap: 10, flex: "1 1 260px", minWidth: 0,
+                padding: "10px 12px",
+                border: "1px solid",
+                borderColor: rrFreshness.status === "stale" ? "rgba(217,119,6,0.3)" : "rgba(220,38,38,0.35)",
+                background: rrFreshness.status === "stale" ? "rgba(217,119,6,0.06)" : "rgba(220,38,38,0.06)",
+                borderRadius: 8,
+              }}>
+                <span style={{
+                  width: 10, height: 10, borderRadius: 999, marginTop: 5, flexShrink: 0,
+                  background: rrFreshness.status === "stale" ? "#d97706" : "#dc2626",
+                }} />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 600, fontSize: 14 }}>{rrFreshness.title}</div>
+                  <div className="muted small" style={{ marginTop: 2 }}>{rrFreshness.message}</div>
+                </div>
+                <Link href="/rentroll" style={{ fontSize: 12, fontWeight: 600, color: "#0b4a7d", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>
+                  Open →
+                </Link>
+                <DismissBtn onClick={() => dismissNotice(id)} />
+              </div>
+                );
+              })()}
+
+              {(user.navKeys.has("all") || user.navKeys.has("payroll-invoicer")) && (() => {
+                const id = `payroll-${ymd(nextPayroll.date)}`;
+                if (dismissedNotices.has(id)) return null;
+                return (
+              <div style={{
+                display: "flex", alignItems: "flex-start", gap: 10, flex: "1 1 260px", minWidth: 0,
+                padding: "10px 12px",
+                border: "1px solid",
+                borderColor: nextPayroll.status === "today" ? "rgba(11,74,125,0.35)" : nextPayroll.status === "soon" ? "rgba(217,119,6,0.3)" : "rgba(15,23,42,0.12)",
+                background: nextPayroll.status === "today" ? "rgba(11,74,125,0.07)" : nextPayroll.status === "soon" ? "rgba(217,119,6,0.06)" : "rgba(15,23,42,0.025)",
+                borderRadius: 8,
+              }}>
+                <span style={{
+                  width: 10, height: 10, borderRadius: 999, marginTop: 5, flexShrink: 0,
+                  background: nextPayroll.status === "today" ? "#0b4a7d" : nextPayroll.status === "soon" ? "#d97706" : "#64748b",
+                }} />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 600, fontSize: 14 }}>Next payroll</div>
+                  <div className="muted small" style={{ marginTop: 2 }}>
+                    {nextPayroll.status === "today"
+                      ? `Today, ${formatShortDate(nextPayroll.date)} — process payroll.`
+                      : `${formatShortDate(nextPayroll.date)} · in ${nextPayroll.daysUntil} day${nextPayroll.daysUntil === 1 ? "" : "s"}`}
+                  </div>
+                </div>
+                <Link href="/" style={{ fontSize: 12, fontWeight: 600, color: "#0b4a7d", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>
+                  Open →
+                </Link>
+                <DismissBtn onClick={() => dismissNotice(id)} />
+              </div>
+                );
+              })()}
+
+              {(user.id === "harry" || user.navKeys.has("all")) && (() => {
+                const id = `cc-expenses-${ymd(ccExpensesDue.date)}`;
+                if (dismissedNotices.has(id)) return null;
+                return (
+              <div style={{
+                display: "flex", alignItems: "flex-start", gap: 10, flex: "1 1 260px", minWidth: 0,
+                padding: "10px 12px",
+                border: "1px solid",
+                borderColor: ccExpensesDue.status === "today" ? "rgba(220,38,38,0.35)" : ccExpensesDue.status === "soon" ? "rgba(217,119,6,0.3)" : "rgba(15,23,42,0.12)",
+                background: ccExpensesDue.status === "today" ? "rgba(220,38,38,0.06)" : ccExpensesDue.status === "soon" ? "rgba(217,119,6,0.06)" : "rgba(15,23,42,0.025)",
+                borderRadius: 8,
+              }}>
+                <span style={{
+                  width: 10, height: 10, borderRadius: 999, marginTop: 5, flexShrink: 0,
+                  background: ccExpensesDue.status === "today" ? "#dc2626" : ccExpensesDue.status === "soon" ? "#d97706" : "#64748b",
+                }} />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 600, fontSize: 14 }}>Submit CC Expenses</div>
+                  <div className="muted small" style={{ marginTop: 2 }}>
+                    {ccExpensesDue.status === "today"
+                      ? `Due today, ${formatShortDate(ccExpensesDue.date)} — submit credit card expenses.`
+                      : `Due ${formatShortDate(ccExpensesDue.date)} · in ${ccExpensesDue.daysUntil} day${ccExpensesDue.daysUntil === 1 ? "" : "s"}`}
+                  </div>
+                </div>
+                <Link href="/expenses" style={{ fontSize: 12, fontWeight: 600, color: "#0b4a7d", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>
+                  Open →
+                </Link>
+                <DismissBtn onClick={() => dismissNotice(id)} />
+              </div>
+                );
+              })()}
+
+              {(user.id === "nancy" || user.id === "harry" || isAdmin || user.navKeys.has("all") || user.navKeys.has("commissions") || user.navKeys.has("commissions-retail")) && (
+                <CommissionsReminder />
+              )}
+
+              {(isHarryUser || isAlison || isAdmin || user.id === "drew") && (
+                <AnnualStatementReminder />
+              )}
+
+              {showBankRec && (() => {
+                const id = `bank-stmt-${bankStmt.period}`;
+                if (dismissedNotices.has(id)) return null;
+                return (
+              <div style={{
+                display: "flex", alignItems: "flex-start", gap: 10, flex: "1 1 260px", minWidth: 0,
+                padding: "10px 12px",
+                border: "1px solid",
+                borderColor: bankStmt.status === "done" ? "rgba(22,163,74,0.30)"
+                  : bankStmt.status === "overdue" ? "rgba(220,38,38,0.35)"
+                  : bankStmt.status === "today" ? "rgba(220,38,38,0.30)"
+                  : bankStmt.status === "soon" ? "rgba(217,119,6,0.30)"
+                  : "rgba(15,23,42,0.12)",
+                background: bankStmt.status === "done" ? "rgba(22,163,74,0.06)"
+                  : bankStmt.status === "overdue" ? "rgba(220,38,38,0.06)"
+                  : bankStmt.status === "today" ? "rgba(220,38,38,0.04)"
+                  : bankStmt.status === "soon" ? "rgba(217,119,6,0.06)"
+                  : "rgba(15,23,42,0.025)",
+                borderRadius: 8,
+              }}>
+                <span style={{
+                  width: 10, height: 10, borderRadius: 999, marginTop: 5, flexShrink: 0,
+                  background: bankStmt.status === "done" ? "#16a34a"
+                    : bankStmt.status === "overdue" ? "#b91c1c"
+                    : bankStmt.status === "today" ? "#dc2626"
+                    : bankStmt.status === "soon" ? "#d97706"
+                    : "#64748b",
+                }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, fontSize: 14 }}>
+                    Download Bank Statements — {bankRecPeriodLabel(bankStmt.period)}
+                    {bankStmt.status === "overdue" && (
+                      <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 999, background: "rgba(220,38,38,0.15)", color: "#b91c1c", border: "1px solid rgba(220,38,38,0.35)", letterSpacing: "0.04em" }}>
+                        PAST DUE
+                      </span>
+                    )}
+                  </div>
+                  <div className="muted small" style={{ marginTop: 2 }}>
+                    {bankStmt.status === "done"
+                      ? `All ${bankStmt.total} statements downloaded ✓`
+                      : `${bankStmt.done}/${bankStmt.total} downloaded · due ${bankStmt.date.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`}
+                  </div>
+                </div>
+                <Link href="/bank-rec" style={{ fontSize: 12, fontWeight: 600, color: "#0b4a7d", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>
+                  Open →
+                </Link>
+                <DismissBtn onClick={() => dismissNotice(id)} />
+              </div>
+                );
+              })()}
+
+              {showBankRec && (() => {
+                const id = `bank-rec-${bankRec.period}`;
+                if (dismissedNotices.has(id)) return null;
+                return (
+              <div style={{
+                display: "flex", alignItems: "flex-start", gap: 10, flex: "1 1 260px", minWidth: 0,
+                padding: "10px 12px",
+                border: "1px solid",
+                borderColor: bankRec.status === "done" ? "rgba(22,163,74,0.30)"
+                  : bankRec.status === "overdue" ? "rgba(220,38,38,0.35)"
+                  : bankRec.status === "today" ? "rgba(220,38,38,0.30)"
+                  : bankRec.status === "soon" ? "rgba(217,119,6,0.30)"
+                  : "rgba(15,23,42,0.12)",
+                background: bankRec.status === "done" ? "rgba(22,163,74,0.06)"
+                  : bankRec.status === "overdue" ? "rgba(220,38,38,0.06)"
+                  : bankRec.status === "today" ? "rgba(220,38,38,0.04)"
+                  : bankRec.status === "soon" ? "rgba(217,119,6,0.06)"
+                  : "rgba(15,23,42,0.025)",
+                borderRadius: 8,
+              }}>
+                <span style={{
+                  width: 10, height: 10, borderRadius: 999, marginTop: 5, flexShrink: 0,
+                  background: bankRec.status === "done" ? "#16a34a"
+                    : bankRec.status === "overdue" ? "#b91c1c"
+                    : bankRec.status === "today" ? "#dc2626"
+                    : bankRec.status === "soon" ? "#d97706"
+                    : "#64748b",
+                }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, fontSize: 14 }}>
+                    Reconcile Bank Statements — {bankRecPeriodLabel(bankRec.period)}
+                    {bankRec.status === "overdue" && (
+                      <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 999, background: "rgba(220,38,38,0.15)", color: "#b91c1c", border: "1px solid rgba(220,38,38,0.35)", letterSpacing: "0.04em" }}>
+                        PAST DUE
+                      </span>
+                    )}
+                  </div>
+                  <div className="muted small" style={{ marginTop: 2 }}>
+                    {bankRec.recDone === bankRec.total
+                      ? `All ${bankRec.total} accounts reconciled ✓`
+                      : `${bankRec.recDone}/${bankRec.total} reconciled · due ${bankRec.date.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`}
+                  </div>
+                </div>
+                <Link href="/bank-rec" style={{ fontSize: 12, fontWeight: 600, color: "#0b4a7d", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>
+                  Open →
+                </Link>
+                <DismissBtn onClick={() => dismissNotice(id)} />
+              </div>
+                );
+              })()}
+
+              {isMarie && (() => {
+                const achDone = !!marieChecked[checkedKey("wkly-dl-ach-wires", currentPeriod("weekly"))];
+                if (achDone) return null;
+                const id = `ach-wires-${currentPeriod("weekly")}`;
+                if (dismissedNotices.has(id)) return null;
+                return (
+              <div style={{
+                display: "flex", alignItems: "flex-start", gap: 10, flex: "1 1 260px", minWidth: 0,
+                padding: "10px 12px",
+                border: "1px solid rgba(11,74,125,0.35)",
+                background: "rgba(11,74,125,0.07)",
+                borderRadius: 8,
+              }}>
+                <span style={{ width: 10, height: 10, borderRadius: 999, marginTop: 5, flexShrink: 0, background: "#0b4a7d" }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, fontSize: 14 }}>Download ACH &amp; Incoming Wires</div>
+                  <div className="muted small" style={{ marginTop: 2 }}>
+                    Weekly · Mondays — download tenant ACH/wires and send to Tami.
+                  </div>
+                </div>
+                <Link href="/tracker" style={{ fontSize: 12, fontWeight: 600, color: "#0b4a7d", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>
+                  Open →
+                </Link>
+                <DismissBtn onClick={() => dismissNotice(id)} />
+              </div>
+                );
+              })()}
+
+              {user.id === "nancy" && upcomingNotices
+                .filter((n) => !dismissedNotices.has(n.id))
+                .map((n) => {
+                  const overdue = n.daysUntil < 0;
+                  const urgent  = n.daysUntil >= 0 && n.daysUntil <= 7;
+                  const accent = overdue ? "#b91c1c" : urgent ? "#b91c1c" : "#d97706";
+                  const bg     = overdue ? "rgba(220,38,38,0.06)" : urgent ? "rgba(220,38,38,0.04)" : "rgba(217,119,6,0.06)";
+                  const border = overdue ? "rgba(220,38,38,0.35)" : urgent ? "rgba(220,38,38,0.30)" : "rgba(217,119,6,0.30)";
+                  const relative = overdue ? `${Math.abs(n.daysUntil)} day${Math.abs(n.daysUntil) === 1 ? "" : "s"} ago` : n.daysUntil === 0 ? "today" : `in ${n.daysUntil} day${n.daysUntil === 1 ? "" : "s"}`;
+                  return (
+                    <div
+                      key={n.id}
+                      style={{
+                        display: "flex", alignItems: "flex-start", gap: 10, flex: "1 1 260px", minWidth: 0,
+                        padding: "10px 12px",
+                        border: `1px solid ${border}`,
+                        background: bg,
+                        borderRadius: 8,
+                      }}
+                    >
+                      <span style={{ width: 10, height: 10, borderRadius: 999, marginTop: 5, flexShrink: 0, background: accent }} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 600, fontSize: 14 }}>
+                          Exercise Option Notice Date — {n.tenant || "(no tenant)"}
+                          {overdue && (
+                            <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 999, background: "rgba(220,38,38,0.15)", color: "#b91c1c", border: "1px solid rgba(220,38,38,0.35)", letterSpacing: "0.04em" }}>PAST DUE</span>
+                          )}
+                        </div>
+                        <div className="muted small" style={{ marginTop: 2 }}>
+                          {n.building && <span>Bldg {n.building} · </span>}
+                          <span>{n.noticeDate}</span>
+                          <span style={{ marginLeft: 6, color: accent, fontWeight: 600 }}>({relative})</span>
+                        </div>
+                      </div>
+                      <Link href="/rentroll/leasing" style={{ fontSize: 12, fontWeight: 600, color: "#0b4a7d", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>
+                        Open →
+                      </Link>
+                      <button
+                        onClick={() => dismissNotice(n.id)}
+                        title="Dismiss"
+                        aria-label="Dismiss notice item"
+                        style={{
+                          width: 22, height: 22, padding: 0, marginTop: 1, marginLeft: 4,
+                          borderRadius: 4,
+                          border: "1px solid rgba(15,23,42,0.18)",
+                          background: "rgba(255,255,255,0.6)",
+                          color: "var(--muted)",
+                          cursor: "pointer",
+                          fontSize: 13, lineHeight: 1, fontWeight: 700,
+                          display: "inline-flex", alignItems: "center", justifyContent: "center",
+                          flexShrink: 0,
+                        }}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  );
+                })}
+            </div>
+          )}
+        </div>
+        )}
+
+        {/* Drew doesn't see the Action Items strip, so surface the commissions
+            cycle (upcoming → paid) here so it isn't forgotten. */}
+        {isDrew && <CommissionsReminder standalone />}
+
+        {/* ── Drew's task tracker (Harry can view it too) + Drew's payroll & CC saved-status ── */}
+        {(user.id === "drew" || user.id === "harry") && <DrewTasksThisWeek />}
+        {(user.id === "drew" || user.id === "harry") && <DailyDigestModal userId={user.id} />}
+        {user.id === "drew" && <DrewSavedStatus />}
+
+        {/* ── New Bank Transfers — surface recent transfers for admin /
+             drew / harry / marie. Each card is dismissible. ── */}
+        {showBankTransferNotices && bankTransferNotices.some((n) => !dismissedNotices.has(n.id)) && (
+          <div className="card" style={{ gridColumn: "1 / -1", order: -4 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 8 }}>
+              New Bank Transfers
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {bankTransferNotices.filter((n) => !dismissedNotices.has(n.id)).map((n) => (
+                <div
+                  key={n.id}
+                  style={{
+                    display: "flex", alignItems: "flex-start", gap: 10, flex: "1 1 320px", minWidth: 0,
+                    padding: "10px 12px",
+                    border: "1px solid rgba(11,74,125,0.30)",
+                    background: "rgba(11,74,125,0.06)",
+                    borderRadius: 8,
+                  }}
+                >
+                  <span style={{ width: 10, height: 10, borderRadius: 999, marginTop: 5, flexShrink: 0, background: "#0b4a7d" }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 600, fontSize: 14 }}>
+                      {n.amount.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 0 })}
+                      <span style={{ color: "var(--muted)", fontWeight: 500 }}> · {n.from} → {n.to}</span>
+                    </div>
+                    <div className="muted small" style={{ marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {formatShortDate(new Date(n.date + "T00:00:00"))}
+                      {n.description ? ` · ${n.description}` : ""}
+                    </div>
+                  </div>
+                  <Link href="/bank-transfers" style={{ fontSize: 12, fontWeight: 600, color: "#0b4a7d", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>
+                    Open →
+                  </Link>
+                  <DismissBtn onClick={() => dismissNotice(n.id)} />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── Monthly bank progress donuts (Marie + admin; Drew at a glance) ── */}
+        {showBankDonuts && (
+          <div className="card" style={{ order: isMarie ? -1 : 0 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
+                Monthly Progress · {bankRecPeriodLabel(bankRec.period)}
+              </div>
+              {showBankRec && (
+                <Link href="/bank-rec" style={{ fontSize: 12, fontWeight: 600, color: "#0b4a7d", textDecoration: "none" }}>
+                  Open →
+                </Link>
+              )}
+            </div>
+            <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
+              <Donut
+                value={bankStmt.done}
+                total={bankStmt.total}
+                color="#0b4a7d"
+                label="Statements Downloaded"
+              />
+              <Donut
+                value={bankRec.recDone}
+                total={bankRec.total}
+                color="#16a34a"
+                label="Bank Recs Completed"
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── Monthly Review — folded in, below the tasks/action grid and above
+           the vacating/expiring row (finance users only) ── */}
+      {isPathAllowed(user.id, "/reports/monthly") && (
+        <div className="card" style={{ borderColor: "rgba(11,74,125,0.3)", background: "rgba(11,74,125,0.04)" }}>
+          <MonthlyReviewPanel embedded />
+        </div>
+      )}
+
+      {/* ── Leases expiring soon ──
+           Hidden for users who see the Monthly Review panel above: its
+           Vacating & Expiring table already covers this (recently vacated /
+           expired + expiring), so this standalone card would be redundant.
+           Personas without the panel (Nancy · office, Harry · retail, maint)
+           still get their scoped Leases Expiring list here. ── */}
+      {showExpiring && !isPathAllowed(user.id, "/reports/monthly") && (
+      <div className="card">
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
+            {isDrew ? "Vacating Tenants (next 60 days)" : "Leases Expiring (next 60 days)"}
+            {expiringScope === "office" && <span className="muted small" style={{ marginLeft: 8, letterSpacing: 0, textTransform: "none" }}>· Office</span>}
+            {expiringScope === "retail" && <span className="muted small" style={{ marginLeft: 8, letterSpacing: 0, textTransform: "none" }}>· Retail</span>}
+          </div>
+          <Link href="/rentroll" style={{ fontSize: 12, fontWeight: 600, color: "#0b4a7d", textDecoration: "none" }}>Rent roll →</Link>
+        </div>
+        {loading ? (
+          <div className="muted small">Loading…</div>
+        ) : !rentroll ? (
+          <div className="muted small">No rent roll uploaded.</div>
+        ) : expiringRows.length === 0 && recentlyVacated.length === 0 ? (
+          <div className="muted small">
+            {isDrew ? "No tenants vacating or recently vacated." : "Nothing expiring in the next 60 days."}
+          </div>
+        ) : (
+          <div className="tableWrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Tenant</th>
+                  <th>Property</th>
+                  <th>Unit</th>
+                  <th style={{ textAlign: "right" }}>Sq Ft</th>
+                  <th>Lease To</th>
+                  <th style={{ textAlign: "center" }}>B/Y</th>
+                  <th style={{ textAlign: "right" }}>Days</th>
+                  <th style={{ textAlign: "right" }}>Sec. Deposit</th>
+                  <th style={{ textAlign: "right" }}>CAM/RET</th>
+                </tr>
+              </thead>
+              <tbody>
+                {expiringRows.map(({ propertyCode, unit, days }, i) =>
+                  renderLeaseRow(propertyCode, unit, days, `up-${i}`, false),
+                )}
+                {isDrew && recentlyVacated.length > 0 && (
+                  <>
+                    <tr>
+                      <td colSpan={9} style={{ padding: "10px 8px 4px", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "#475569" }}>
+                        Recently vacated (last ~60 days) — run their close-out
+                      </td>
+                    </tr>
+                    {recentlyVacated.map(({ propertyCode, unit, days }, i) =>
+                      renderLeaseRow(propertyCode, unit, days, `vac-${i}`, true),
+                    )}
+                  </>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+      )}
+
+      {/* ── Drew: portfolio occupancy + lease expirations, below vacating ── */}
+      {isDrew && (
+        <PortfolioOccupancyPanel
+          rentroll={rentroll}
+          scopes={["category", "office", "jv3", "ni", "retail", "residential"]}
+        />
+      )}
+      {isDrew && (
+        <div>
+          <ExpirationChart rentroll={rentroll} defaultScope="all" />
+        </div>
+      )}
+
+      {/* ── Upcoming filings (admin only) ── */}
+      {(isAdmin || isMarie) && (
+      <div className="card">
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>Upcoming Filings (next 45 days)</div>
+          <Link href="/tracker/taxes" style={{ fontSize: 12, fontWeight: 600, color: "#0b4a7d", textDecoration: "none" }}>Filing tracker →</Link>
+        </div>
+        {upcomingFilings.length === 0 ? (
+          <div className="muted small">No filings due in the next 45 days. </div>
+        ) : (
+          <div className="tableWrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Entity</th>
+                  <th>Filing</th>
+                  <th>Type</th>
+                  <th>Due</th>
+                  <th style={{ textAlign: "right" }}>Days</th>
+                </tr>
+              </thead>
+              <tbody>
+                {upcomingFilings.map(({ task, due, days }) => {
+                  const cat = TAX_CATEGORIES[task.category];
+                  const overdue = days < 0;
+                  const urgent = days >= 0 && days <= 14;
+                  const bg = overdue ? "rgba(220,38,38,0.10)" : urgent ? "rgba(220,38,38,0.06)" : "rgba(234,88,12,0.04)";
+                  return (
+                    <tr
+                      key={`${task.id}-${due.getTime()}`}
+                      style={{ background: bg, cursor: "pointer" }}
+                      onClick={() => router.push(`/tracker/taxes#task-${task.id}`)}
+                      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.filter = "brightness(0.97)"; }}
+                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.filter = ""; }}
+                    >
+                      <td style={{ fontWeight: 600 }}>{task.entity}</td>
+                      <td style={{ fontSize: 13 }}>{filingLabel(task)}</td>
+                      <td>
+                        <span style={{
+                          display: "inline-block", padding: "2px 8px", borderRadius: 999,
+                          fontSize: 11, fontWeight: 600,
+                          background: cat.bg, color: cat.text, border: `1px solid ${cat.border}`,
+                        }}>
+                          {task.pillOverride ?? cat.pill}
+                        </span>
+                      </td>
+                      <td style={{ fontSize: 13, whiteSpace: "nowrap" }}>{formatShortDate(due)}</td>
+                      <td style={{ textAlign: "right", fontSize: 13, fontWeight: 600, color: overdue ? "#b91c1c" : urgent ? "#b91c1c" : "#b45309" }}>
+                        {overdue ? `${Math.abs(days)} ago` : `${days}`}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+      )}
+    </main>
+  );
+}
+
+function DismissBtn({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      title="Dismiss"
+      aria-label="Dismiss action item"
+      style={{
+        width: 22, height: 22, padding: 0, marginTop: 1, marginLeft: 4,
+        borderRadius: 4,
+        border: "1px solid rgba(15,23,42,0.18)",
+        background: "rgba(255,255,255,0.6)",
+        color: "var(--muted)",
+        cursor: "pointer",
+        fontSize: 13, lineHeight: 1, fontWeight: 700,
+        display: "inline-flex", alignItems: "center", justifyContent: "center",
+        flexShrink: 0,
+      }}
+    >
+      ×
+    </button>
+  );
+}

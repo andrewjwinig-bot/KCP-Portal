@@ -7,7 +7,215 @@
   --shadow: 0 10px 30px rgba(2, 6, 23, 0.08);
   --brand: #0b4a7d;
   --brand2: #0a3e69;
+  /* ── AI accent — the reusable "there is AI here" violet ramp ──────────────
+   * Distinct from the blue brand (search/neutral) and from amber (drafts /
+   * warnings). This is the single source of truth for every AI surface in the
+   * program — the ⌘K assistant, `.btn.ai` action buttons, inline "ask"
+   * affordances. Values follow the AI-assistant design handoff exactly.
+   * NOTE: the general-purpose portal purple used for Residential / Entity /
+   * Quarterly semantics is a separate hard-coded #6d28d9 — it is NOT this
+   * token and must not be folded into it. */
+  --ai: #6C4CE0;                 /* AI primary */
+  --ai-bright: #B14BE6;          /* sparkle-gradient end */
+  --ai-text: #5B34C7;            /* AI text on light */
+  --ai-text-strong: #3d2596;     /* AI headline text on light */
+  --ai-soft: #F3EFFE;            /* AI tint bg (badges, teach-it) */
+  --ai-tint-panel: #FBFAFF;      /* answer-card base fill */
+  --ai-tint-panel-2: #F7F4FE;    /* sample-chip / ask-band bg */
+  --ai-border: #E2D8FA;          /* AI border (badges, chips) */
+  --ai-border-card: #E7DEFB;     /* answer-card border */
+  --ai-border-soft: #efe9fb;     /* faint divider inside AI surfaces */
+  --ai-sparkle: linear-gradient(135deg, #6C4CE0, #B14BE6);
+  --ai-input-grad: linear-gradient(120deg, #6C4CE0, #B14BE6);
+  --ai-input-fill: #ffffff;      /* padding-box fill under the gradient border */
+  --ai-input-glow: rgba(108, 76, 224, 0.16);
+  --ai-header-grad: linear-gradient(180deg, #FBFAFF, #fff);
+  --ai-modal: #ffffff;           /* the modal content surface */
+  --ai-modal-shadow: 0 30px 60px -18px rgba(9, 12, 20, 0.55);
+  --ai-glow-shadow: 0 24px 55px -14px rgba(40, 20, 90, 0.6);
+  --ai-aura: conic-gradient(from 0deg, #6C4CE0, #4C7DF0, #B14BE6, #6C4CE0);
+  --ai-rim: conic-gradient(from 0deg, #6C4CE0, #4C7DF0, #B14BE6, #F3EEFF, #6C4CE0);
+  --ai-aura-inset: -20px;
+  --ai-aura-radius: 34px;
+  --ai-aura-blur: 26px;
+  --ai-aura-opacity: 0.3;
+  --ai-chart-track: #f3f4f6;
+  --ai-chart-track-think: #f0f1f4;
+  --ai-chart-leader: linear-gradient(90deg, #6C4CE0, #9578F0);
+  --ai-chart-rest: rgba(108, 76, 224, 0.4);
+  --ai-chart-scan: rgba(108, 76, 224, 0.28);
+  --ai-line-fill: rgba(108, 76, 224, 0.1);
+  --ai-shimmer: linear-gradient(90deg, #b7bcc6 30%, #5B34C7 50%, #b7bcc6 70%);
+  --ai-hero-metric: #3d2596;
+  --ai-hero-sub: #7a6bb0;
+  --ai-bubble-bg: #eef1f5;       /* user follow-up bubble */
+  --ai-bubble-text: #2b303a;
+  /* Search / neutral (blue-grey) chrome for the palette */
+  --search-blue: #2f6bed;
+  --search-blue-tint: #eef3fe;
+  --search-blue-ring: #d9e4fd;
+  --badge-neutral-bg: #eef1f5;
+  --badge-neutral-text: #5b6472;
+  --badge-match-bg: #dbe6ff;
+  --kbd-color: #6b7280;
+  --kbd-border: #e6e8ee;
+  --danger-meta: #c0392b;
+  /* Draft / warning — amber (drafts only; never general AI chrome) */
+  --amber-primary: #E0910C;
+  --amber-text: #B4720A;
+  --amber-soft: #FDF7EC;
+  --amber-border: #F2DFB6;
+  --amber-letter-bg: #FDF9F0;
+  --amber-preview-bg: #ffffff;
+  --amber-preview-border: #eef0f3;
+  --amber-on-solid: #1a1204;
+  /* ── Non-AI loading state ("building skyline" loader) ─────────────────────
+   * The branded loader for ordinary data fetches. Deliberately the app's
+   * blue/grey — NO violet, sparkle, or glow (that language is reserved for the
+   * AI assistant), so the two never get confused. */
+  --load-accent: #2f6bed;
+  --load-card: #ffffff;
+  --load-card-border: #e4e8ef;
+  --load-card-shadow: 0 1px 2px rgba(16, 32, 64, 0.05), 0 8px 24px -12px rgba(16, 32, 64, 0.12);
+  --load-building-fill: #f3f7fd;
+  --load-building-border: #cdd8ea;
+  --load-track: #eef1f6;
+  --load-prog: linear-gradient(90deg, rgba(47, 107, 237, 0), #2f6bed, rgba(47, 107, 237, 0));
+  --load-status: #16294d;
+  --load-context: #8a93a5;
+  --load-header-block: #e7ebf1;
+  --load-sk-base: #eef1f6;
+  --load-sk-high: #f7f9fc;
+  --load-sk-sub-base: #e2e7ef;
+  --load-sk-sub-high: #eef2f8;
+  --load-divider: #eef1f6;
+  /* Color used for text that sits directly on the page background (outside cards). */
+  --page-text: var(--text);
+  --page-muted: var(--muted);
+  /* Scrollbars — thin translucent pill (matches the sidebar nav scrollbar). */
+  --scrollbar-thumb: rgba(15, 23, 42, 0.28);
+  --scrollbar-thumb-hover: rgba(15, 23, 42, 0.45);
 }
+
+/* ── Dark mode ───────────────────────────────────────────────────────────
+   Repaints the core theme tokens (bg, card, text, muted, border) so cards
+   inherit a darker surface and text flips light. Some inline rgba pill
+   colors throughout the app are still tuned for white cards — they're
+   tinted enough to remain legible but a future audit can polish them.    */
+[data-theme="dark"] {
+  --bg: #0b1220;
+  --text: #e6edf6;
+  --muted: #cbd5e1; /* slate-300 — lifted for readable secondary text on dark cards */
+  --card: #1e293b;
+  --border: rgba(255, 255, 255, 0.12);
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  --page-text: var(--text);
+  --page-muted: #94a3b8;
+  --scrollbar-thumb: rgba(255, 255, 255, 0.18);
+  --scrollbar-thumb-hover: rgba(255, 255, 255, 0.32);
+  /* AI ramp — dark */
+  --ai: #9B82F5;
+  --ai-bright: #C25BF0;
+  --ai-text: #B7A6FF;
+  --ai-text-strong: #C9B8FF;
+  --ai-soft: rgba(155, 130, 245, 0.1);
+  --ai-tint-panel: rgba(155, 130, 245, 0.05);
+  --ai-tint-panel-2: rgba(155, 130, 245, 0.05);
+  --ai-border: rgba(155, 130, 245, 0.35);
+  --ai-border-card: rgba(155, 130, 245, 0.22);
+  --ai-border-soft: #241f33;
+  --ai-sparkle: linear-gradient(135deg, #8B6CFF, #C25BF0);
+  --ai-input-grad: linear-gradient(120deg, #8B6CFF, #C25BF0);
+  --ai-input-fill: #181b22;
+  --ai-input-glow: rgba(139, 108, 255, 0.22);
+  --ai-header-grad: linear-gradient(180deg, #1a1726, #16191f);
+  --ai-modal: #16191f;
+  --ai-glow-shadow: 0 24px 55px -14px rgba(0, 0, 0, 0.7);
+  --ai-aura: conic-gradient(from 0deg, #7C5CF0, #4C7DF0, #C25BF0, #7C5CF0);
+  --ai-rim: conic-gradient(from 0deg, #8B6CFF, #4C7DF0, #C25BF0, #EAD9FF, #8B6CFF);
+  --ai-aura-inset: -22px;
+  --ai-aura-radius: 36px;
+  --ai-aura-blur: 30px;
+  --ai-aura-opacity: 0.42;
+  --ai-chart-track: #22262f;
+  --ai-chart-track-think: #20242d;
+  --ai-chart-leader: linear-gradient(90deg, #8B6CFF, #B79BFF);
+  --ai-chart-rest: rgba(139, 108, 255, 0.42);
+  --ai-chart-scan: rgba(155, 130, 245, 0.4);
+  --ai-line-fill: rgba(139, 108, 255, 0.14);
+  --ai-shimmer: linear-gradient(90deg, #6a7180 30%, #C9B8FF 50%, #6a7180 70%);
+  --ai-hero-metric: #C9B8FF;
+  --ai-hero-sub: #9aa1ad;
+  --ai-bubble-bg: #232833;
+  --ai-bubble-text: #d6dbe4;
+  --search-blue: #6f9bff;
+  --search-blue-tint: rgba(111, 155, 255, 0.12);
+  --search-blue-ring: rgba(111, 155, 255, 0.3);
+  --badge-neutral-bg: rgba(255, 255, 255, 0.06);
+  --badge-neutral-text: #aeb5c2;
+  --badge-match-bg: rgba(111, 155, 255, 0.18);
+  --kbd-color: #9aa1ad;
+  --kbd-border: rgba(255, 255, 255, 0.14);
+  --danger-meta: #f0857a;
+  --amber-primary: #E0910C;
+  --amber-text: #F6C462;
+  --amber-soft: rgba(224, 145, 12, 0.1);
+  --amber-border: rgba(224, 145, 12, 0.35);
+  --amber-letter-bg: #1e1a12;
+  --amber-preview-bg: #14171d;
+  --amber-preview-border: #262b34;
+  --amber-on-solid: #1a1204;
+  /* Non-AI loading state — dark */
+  --load-accent: #5d8dff;
+  --load-card: #141a26;
+  --load-card-border: #252c3a;
+  --load-card-shadow: 0 12px 30px -14px rgba(0, 0, 0, 0.6);
+  --load-building-fill: #1a2231;
+  --load-building-border: #2c3648;
+  --load-track: #222a38;
+  --load-prog: linear-gradient(90deg, rgba(93, 141, 255, 0), #5d8dff, rgba(93, 141, 255, 0));
+  --load-status: #eaeef6;
+  --load-context: #8790a3;
+  --load-header-block: #2a3242;
+  --load-sk-base: #222a38;
+  --load-sk-high: #2f3849;
+  --load-sk-sub-base: #2a3344;
+  --load-sk-sub-high: #39445a;
+  --load-divider: #222a38;
+}
+
+/* Bump default text/link contrast inside cards on dark mode. */
+[data-theme="dark"] .card { color: var(--text); }
+[data-theme="dark"] .muted { color: var(--muted); }
+[data-theme="dark"] code,
+[data-theme="dark"] pre { background: rgba(255,255,255,0.06); color: var(--text); }
+[data-theme="dark"] hr { border-color: var(--border); }
+
+[data-theme="dark"] body {
+  color: var(--text);
+  background: var(--bg);
+}
+
+/* Inputs / selects / textareas — many have inline `background: #fff`
+   which we override here so they don't glow on dark cards. */
+[data-theme="dark"] input[type="text"],
+[data-theme="dark"] input[type="number"],
+[data-theme="dark"] input[type="search"],
+[data-theme="dark"] input[type="email"],
+[data-theme="dark"] input[type="password"],
+[data-theme="dark"] input[type="url"],
+[data-theme="dark"] input:not([type]),
+[data-theme="dark"] select,
+[data-theme="dark"] textarea {
+  background: rgba(255, 255, 255, 0.04) !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+}
+[data-theme="dark"] input::placeholder,
+[data-theme="dark"] textarea::placeholder { color: var(--muted); }
+
+/* Table headers / rows pick up theme tokens automatically through their
+   var(--text) / var(--border) references; nothing extra needed here. */
 
 * { box-sizing: border-box; }
 
@@ -32,6 +240,24 @@ h1 {
   font-size: 54px;
   line-height: 1.02;
   letter-spacing: -0.04em;
+}
+
+@media (max-width: 720px) {
+  main {
+    padding: 14px 12px 36px;
+  }
+  h1 {
+    font-size: 36px;
+  }
+  /* Tables on narrow screens scroll horizontally inside their parent
+   * instead of pushing the page wider. */
+  .card { padding: 14px; }
+  .card > table,
+  table.responsive {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
 }
 
 p { margin: 0; }
@@ -64,11 +290,12 @@ p { margin: 0; }
 .pill {
   border: 1.5px solid var(--border);
   border-radius: 10px;
-  padding: 13px 16px 11px;
+  padding: 12px 16px;
   display: inline-flex;
   flex-direction: column;
   align-items: center;
-  gap: 3px;
+  justify-content: center;
+  gap: 4px;
   white-space: nowrap;
   flex: 1 1 0;
   min-width: 0;
@@ -108,6 +335,32 @@ p { margin: 0; }
 
 .btn.primary:hover { background: var(--brand2); }
 
+/* AI action buttons — violet accent so every AI feature is recognizable at a
+ * glance and pops against the blue palette. */
+.btn.ai {
+  border-color: var(--ai-border);
+  background: var(--ai-soft);
+  color: var(--ai);
+  /* Slight violet glow so every AI action button reads as "AI" at rest. */
+  box-shadow: 0 0 10px rgba(108, 76, 224, 0.16);
+  transition: box-shadow 0.18s ease, background 0.15s ease;
+}
+.btn.ai:hover {
+  background: rgba(108, 76, 224, 0.13);
+  box-shadow: 0 0 16px rgba(108, 76, 224, 0.3);
+}
+[data-theme="dark"] .btn.ai {
+  background: rgba(139, 92, 246, 0.16);
+  border-color: rgba(167, 139, 250, 0.5);
+  color: #c4b5fd;
+  box-shadow: 0 0 10px rgba(139, 108, 255, 0.24);
+}
+[data-theme="dark"] .btn.ai:hover {
+  background: rgba(139, 92, 246, 0.24);
+  box-shadow: 0 0 18px rgba(139, 108, 255, 0.42);
+}
+@media (prefers-reduced-motion: reduce) { .btn.ai { transition: none; } }
+
 .btn.large {
   padding: 12px 26px;
   font-size: 15px;
@@ -118,6 +371,16 @@ p { margin: 0; }
   opacity: 0.55;
   cursor: not-allowed;
 }
+
+/* Secondary buttons in dark mode: a darker grey surface with light text. The
+ * default white background reads as low-contrast (near-white text on white) on
+ * dark pages. Primary buttons keep their brand fill. */
+[data-theme="dark"] .btn:not(.primary) {
+  background: #334155;
+  border-color: rgba(255, 255, 255, 0.16);
+  color: #e6edf6;
+}
+[data-theme="dark"] .btn:not(.primary):hover { background: #3d4d63; }
 
 .tableWrap {
   width: 100%;
@@ -231,4 +494,187 @@ code {
   border: 1px solid rgba(15, 23, 42, 0.10);
   padding: 2px 6px;
   border-radius: 8px;
+}
+
+/* ── Print styles ───────────────────────────────────────────────────────── */
+@media print {
+  /* Hide app chrome */
+  aside, nav.sidebar, .sidebar, .no-print { display: none !important; }
+  main {
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: none !important;
+  }
+  body, html {
+    background: #fff !important;
+    color: #000 !important;
+  }
+  /* Force all collapsible cards open in print: rendering relies on JS
+   * state, but for printable views (Investor Info), the data shows by
+   * default when the user expands cards before printing. We at least
+   * ensure cards aren't cropped or pushed off-page. */
+  .card {
+    box-shadow: none !important;
+    border: 1px solid #d1d5db !important;
+    break-inside: avoid;
+  }
+  a { color: #000 !important; text-decoration: none !important; }
+  /* Hide the page sidebar padding the AppShell applies */
+  body > div[style*="padding-left"] { padding-left: 0 !important; }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* Operating-statement drill-down cells — clickable Actual (→ GL transactions)
+ * and Budget (→ budget detail) figures. Underline on hover signals the click. */
+.os-cell { cursor: pointer; }
+.os-cell:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-color: rgba(11, 74, 125, 0.55);
+  background: rgba(11, 74, 125, 0.05);
+}
+
+/* ── Scrollbars — the app standard ───────────────────────────────────────
+ * A thin, rounded, translucent pill on a transparent track, for BOTH vertical
+ * and horizontal scrollbars everywhere (matching the sidebar nav). Theme-aware
+ * via --scrollbar-thumb. Any new scrollable area inherits this automatically —
+ * don't hand-roll a scrollbar style. */
+* {
+  scrollbar-width: thin; /* Firefox */
+  scrollbar-color: var(--scrollbar-thumb) transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-track,
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+  background-clip: padding-box;
+}
+
+/* Sidebar nav scrollbar — always the dark-blue sidebar (#1e4976) regardless of
+ * theme, so it keeps the white-translucent thumb even in light mode. */
+.sidebar-nav {
+  scrollbar-width: thin; /* Firefox */
+  scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
+}
+.sidebar-nav::-webkit-scrollbar {
+  width: 8px;
+}
+.sidebar-nav::-webkit-scrollbar-track {
+  background: transparent;
+}
+.sidebar-nav::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.sidebar-nav::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.32);
+  background-clip: padding-box;
+}
+
+/* Cash Sheet editable cells — look like plain text, reveal a field on hover/focus. */
+.cs-edit { cursor: text; font: inherit; font-variant-numeric: tabular-nums; }
+.cs-edit::placeholder { color: var(--muted); }
+.cs-edit:hover { border-color: var(--border) !important; }
+.cs-edit:focus { border-color: #0b4a7d !important; background: var(--card) !important; outline: none; }
+
+/* ── AI assistant surface — motion (⌘K glow frame, thinking state) ─────────
+ * The "there is AI here" affordance. Motion stays deliberately subtle: the
+ * aura breathes (no rotation), the rim shimmer is slow (16s). The thinking
+ * state keeps the SAME background subtlety — only foreground cues speed up.
+ * All of it is disabled under prefers-reduced-motion (static glow). */
+@keyframes kcpTwinkle { 0%, 100% { opacity: 0.8; transform: scale(1); } 50% { opacity: 1; transform: scale(1.15); } }
+@keyframes kcpSpin { to { transform: translate(-50%, -50%) rotate(360deg); } }
+@keyframes kcpBreathe { 0%, 100% { transform: scale(0.98); } 50% { transform: scale(1.04); } }
+@keyframes kcpShimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+@keyframes kcpDot { 0%, 70%, 100% { opacity: 0.25; transform: translateY(0); } 35% { opacity: 1; transform: translateY(-4px); } }
+@keyframes kcpScan { 0% { transform: translateX(-140%); } 100% { transform: translateX(340%); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .kcp-aura, .kcp-rim, .kcp-twinkle, .kcp-dot, .kcp-scan, .kcp-shimmer {
+    animation: none !important;
+  }
+  /* Keep the shimmer status line legible when its sweep is disabled. */
+  .kcp-shimmer { color: var(--ai-text) !important; -webkit-text-fill-color: var(--ai-text) !important; }
+}
+
+/* The ⌘K palette input is chrome-free (the header row / gradient border is the
+ * visible field). Override the global dark input background so it reads clean. */
+input.kcp-input,
+[data-theme="dark"] input.kcp-input {
+  background: transparent !important;
+  border-color: transparent !important;
+}
+
+/* ── Non-AI loading state — motion (building-skyline loader) ───────────────
+ * Slow, calm, blue/grey. Windows light up floor-by-floor in a rising wave, an
+ * indeterminate bar sweeps the top edge, and skeleton blocks shimmer. Under
+ * prefers-reduced-motion everything goes static (windows fully lit). */
+@keyframes kcpLit { 0%, 100% { opacity: 0.14; } 45%, 55% { opacity: 1; } }
+@keyframes kcpProg { 0% { transform: translateX(-100%); } 100% { transform: translateX(340%); } }
+@keyframes kcpSk { 0% { background-position: 120% 0; } 100% { background-position: -120% 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .kcp-lit, .kcp-prog, .kcp-sk { animation: none !important; }
+  .kcp-lit { opacity: 1 !important; }
+  .kcp-prog { transform: none !important; width: 100% !important; opacity: 0.5; }
+}
+
+/* ── Import modal (shared upload → report flow) ──────────────────────────────
+ * Utility blue = import/progress, green = success, violet (--ai-*) = the opt-in
+ * auto-explain follow-up only. Neutral surfaces/text use the theme vars so the
+ * modal is theme-aware; the role colors read on both light and dark. */
+:root {
+  --import-blue: #2f6bed;
+  --import-blue-soft: #eaf1fe;
+  --import-blue-border: #d6e4fd;
+  --import-blue-light: #8db4f5;
+  --ok: #17904f;                 /* success mark/fill */
+  --ok-head: #14804a;            /* success heading */
+  --ok-accent: #37b06c;          /* accent bar end */
+  --ok-bg: #f4fbf7;              /* success card bg */
+  --ok-circle: #eaf6ef;          /* success circle bg */
+  --ok-border: #cbe9d7;
+  --import-navy: #123c63;        /* primary button */
+  --import-strip: #fafbfc;       /* stat strip / subtle band */
+  --import-strip-div: #eef0f3;
+  --import-scrim: rgba(14, 20, 34, 0.5);
+}
+[data-theme="dark"] {
+  --import-blue-soft: rgba(47, 107, 237, 0.16);
+  --import-blue-border: rgba(47, 107, 237, 0.4);
+  --ok-bg: rgba(23, 144, 79, 0.12);
+  --ok-circle: rgba(23, 144, 79, 0.18);
+  --ok-border: rgba(23, 144, 79, 0.4);
+  --import-strip: rgba(255, 255, 255, 0.03);
+  --import-strip-div: var(--border);
+  --import-navy: #2f6bed;
+}
+
+@keyframes impBar { 0% { transform: translateX(-100%); } 100% { transform: translateX(400%); } }
+@keyframes impHalo { to { transform: rotate(360deg); } }
+@keyframes impPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
+@keyframes impPop { 0% { transform: scale(0.4); opacity: 0; } 60% { transform: scale(1.08); opacity: 1; } 100% { transform: scale(1); } }
+@keyframes impScanY { 0% { transform: translateY(-120%); } 100% { transform: translateY(320%); } }
+@keyframes impFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2.5px); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .imp-anim, .imp-anim * { animation: none !important; }
 }

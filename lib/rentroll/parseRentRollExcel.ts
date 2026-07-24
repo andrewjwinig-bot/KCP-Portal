@@ -27,6 +27,8 @@ const COL_LEASE_FROM  = 15; // P  (merged P:Q)
 const COL_LEASE_TO    = 17; // R  (merged R:T)
 const COL_BASE_RENT   = 20; // U  (merged U:X)
 const COL_OPEX_MONTH  = 39; // AN (merged AN:AR) — CAM
+import { amenityFor, type AmenityInfo } from "./amenities";
+
 const COL_RETAX_MONTH = 48; // AW (merged AW:AZ) — RE Tax
 const COL_OTHER_MONTH = 53; // BB (merged BB:BC) — Other
 
@@ -40,6 +42,9 @@ export interface RentRollUnit {
   isVacant: boolean;
   unitRef: string;
   propertyCode: string;
+  /** Set for in-house amenity units (training room, conference center, etc.).
+   *  These count as occupied for sqft accounting but aren't real tenants. */
+  amenity?: AmenityInfo;
   sqft: number;
   leaseFrom: string | null;
   leaseTo: string | null;
@@ -71,6 +76,10 @@ export interface RentRollProperty {
 export interface RentRollData {
   id: string;
   uploadedAt: string;
+  /** Display label of the user who uploaded — captured at POST time
+   *  so the rent-roll page can show "Last imported … by NANCY".
+   *  Optional because pre-existing uploads predate this field. */
+  uploadedBy?: string | null;
   reportFrom: string;
   reportTo: string;
   properties: RentRollProperty[];
@@ -80,6 +89,24 @@ const UNIT_REF_RE = /^[A-Z0-9]{4}-/i;
 const DATE_RE     = /^\d{1,2}\/\d{1,2}\/\d{2,4}$/;
 
 const KNOWN_CODES = new Set(PROPERTY_DEFS.map((p) => p.id.toUpperCase()));
+
+// Strip trailing store / location / branch numbers from a tenant name.
+// Matches a "#…" suffix at end of string, optionally preceded by a
+// generic locator word ("Store", "Location", "Branch", "Unit", "Shop",
+// "Site"). Leaves names alone when the # is at the start of the name
+// (e.g. "#1 Chinese Buffet") or when no #-suffix is present.
+//
+//   "Starbucks #1234"        → "Starbucks"
+//   "Walgreens Store #234"   → "Walgreens"
+//   "Wells Fargo Branch #5"  → "Wells Fargo"
+//   "Target #T-2345"         → "Target"
+//   "AT&T"                   → "AT&T"        (unchanged)
+//   "#1 Chinese Buffet"      → "#1 Chinese Buffet" (unchanged)
+export function stripStoreNumber(name: string): string {
+  return name
+    .replace(/\s+(?:store|location|loc\.?|branch|unit|shop|site)?\s*#\s*[\w.-]+\s*$/i, "")
+    .trim();
+}
 
 function norm(v: any): string {
   return String(v ?? "").trim();
@@ -180,10 +207,24 @@ export function parseRentRollExcel(
 
     const prop = propertiesMap.get(code)!;
 
+    const unitRef = unitRefCell.replace(/-CU$/i, "");
+
+    // Amenity override (training room, conference center, etc.) takes
+    // precedence over whatever the Excel says — these are in-house units
+    // that should always render with their canonical label and count as
+    // occupied.
+    const amenity = amenityFor(unitRef);
+
     // Parse unit fields
     const rawOccupant = norm(row[COL_OCCUPANT]);
-    const isVacant    = !rawOccupant || rawOccupant.toUpperCase().includes("VACANT");
-    const occupantName = isVacant ? "Vacant" : rawOccupant;
+    const isVacant    = amenity
+      ? false
+      : !rawOccupant || rawOccupant.toUpperCase().includes("VACANT");
+    const occupantName = amenity
+      ? amenity.label
+      : isVacant
+        ? "Vacant"
+        : stripStoreNumber(rawOccupant);
 
     const sqft      = toNumber(row[COL_SQFT]);
     const leaseFrom = parseDateStr(row[COL_LEASE_FROM]);
@@ -196,7 +237,8 @@ export function parseRentRollExcel(
     prop.units.push({
       occupantName,
       isVacant,
-      unitRef: unitRefCell.replace(/-CU$/i, ""),
+      unitRef,
+      amenity: amenity ?? undefined,
       propertyCode: code,
       sqft,
       leaseFrom,
