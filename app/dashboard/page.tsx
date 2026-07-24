@@ -16,6 +16,7 @@ import ExpirationChart from "./ExpirationChart";
 import DrewSavedStatus from "./DrewSavedStatus";
 import DrewTasksThisWeek from "./DrewTasksThisWeek";
 import CommissionsReminder from "./CommissionsReminder";
+import AnnualStatementReminder from "./AnnualStatementReminder";
 import DailyDigestModal from "./DailyDigestModal";
 import MaintenanceOverview from "./MaintenanceOverview";
 import PendingReservationsCard from "./PendingReservationsCard";
@@ -861,6 +862,10 @@ function DashboardInner() {
 
               {(user.id === "nancy" || user.id === "harry" || isAdmin || user.navKeys.has("all") || user.navKeys.has("commissions") || user.navKeys.has("commissions-retail")) && (
                 <CommissionsReminder />
+              )}
+
+              {(isHarryUser || isAlison || isAdmin || user.id === "drew") && (
+                <AnnualStatementReminder />
               )}
 
               {showBankRec && (() => {
