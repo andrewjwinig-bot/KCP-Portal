@@ -243,6 +243,13 @@ export function canEditCashSheet(userId: UserId): boolean {
   return userId === "admin" || userId === "drew";
 }
 
+/** Who may EDIT ownership contact + trustee info (Investor Info / Statement of
+ *  Values). Harry, Alison, and Drew maintain the directory; everyone else who
+ *  can see Investor Info is view-only. Enforced in the page and the save API. */
+export function canEditOwnership(userId: UserId): boolean {
+  return userId === "admin" || userId === "drew" || userId === "harry" || userId === "alison";
+}
+
 export function isPathAllowed(userId: UserId, pathname: string): boolean {
   const u = USERS[userId];
   if (u.allowedPathPrefixes.includes("*")) return true;
