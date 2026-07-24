@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { authorizeRequest, canEditCashSheet } from "./users";
+import { authorizeRequest, canEditCashSheet, canEditOwnership } from "./users";
 
 describe("cash sheet edit access", () => {
   it("admin and drew can edit; alison (and others) are view-only", () => {
@@ -7,6 +7,13 @@ describe("cash sheet edit access", () => {
     expect(canEditCashSheet("drew")).toBe(true);
     expect(canEditCashSheet("alison")).toBe(false);
     expect(canEditCashSheet("nancy")).toBe(false);
+  });
+});
+
+describe("ownership (contact / trustee) edit access", () => {
+  it("harry, alison, drew, admin can edit; others are view-only", () => {
+    for (const u of ["harry", "alison", "drew", "admin"] as const) expect(canEditOwnership(u)).toBe(true);
+    for (const u of ["nancy", "marie", "greg", "charles", "jay", "maint"] as const) expect(canEditOwnership(u)).toBe(false);
   });
 });
 

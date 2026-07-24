@@ -8,10 +8,19 @@ import { structureFor, type InvestorStructure } from "../../lib/investors/struct
 import { ENTITY_VALUES, entityValue, totalEquityValue, STATEMENT_AS_OF } from "../../lib/properties/entityValues";
 import { beneficiaryNames, statementForBeneficiary, beneficiaryTotalValue } from "../../lib/properties/beneficiaries";
 import type { OwnershipEstimates } from "../../lib/properties/estimateStore";
-import { ownerContact } from "../../lib/properties/ownerContacts";
+import { ownerContact, type OwnerContact } from "../../lib/properties/ownerContacts";
 import { buildStatementOfValuesPdf, type StatementPdfRow } from "../../lib/properties/statementPdf";
+import { mergeTrusteeRows, normInvestorKey, type TrusteeRowOverride } from "../../lib/investors/structures";
+import { canEditOwnership } from "../../lib/users";
+import { useUser } from "../components/UserProvider";
 import { StatPill } from "../components/Pill";
 import { DownloadMenu } from "../components/DownloadMenu";
+
+/** Local mirror of the store's normalization (client-safe). */
+function normOwnerKey(s: string): string {
+  return s.toLowerCase().replace(/\s+/g, " ").trim();
+}
+type ContactOverrides = Record<string, Partial<OwnerContact>>;
 
 type View = "property" | "investor" | "statement";
 
@@ -112,6 +121,38 @@ export default function InvestorInfoPage() {
   /** Statement-of-Values owner filter. "" = portfolio (all entities). */
   const [beneficiary, setBeneficiary] = useState("");
   const benNames = useMemo(() => beneficiaryNames(), []);
+  const { loggedInUser } = useUser();
+  const canEdit = canEditOwnership(loggedInUser);
+  /** Editable owner-contact overrides (overlay the seed). */
+  const [contactOverrides, setContactOverrides] = useState<ContactOverrides>({});
+  useEffect(() => {
+    fetch("/api/ownership/contacts")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (d?.overrides) setContactOverrides(d.overrides); })
+      .catch(() => {});
+  }, []);
+  /** Seed ⊕ override → the contact shown/exported for a beneficiary. */
+  const resolveContact = useMemo(() => {
+    return (name: string): OwnerContact | undefined => {
+      const seed = ownerContact(name);
+      const ov = contactOverrides[normOwnerKey(name)];
+      if (!seed && !ov) return undefined;
+      return { name, ...seed, ...ov } as OwnerContact;
+    };
+  }, [contactOverrides]);
+  async function saveContact(name: string, override: Partial<OwnerContact> | null): Promise<boolean> {
+    try {
+      const res = await fetch("/api/ownership/contacts", {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: name, override }),
+      });
+      if (!res.ok) return false;
+      const d = await res.json();
+      setContactOverrides(d.overrides ?? {});
+      return true;
+    } catch { return false; }
+  }
+
   /** Current "today" estimated equity per entity + shared as-of date. */
   const [estimates, setEstimates] = useState<OwnershipEstimates>({ asOf: "", values: {} });
   useEffect(() => {
@@ -319,7 +360,7 @@ export default function InvestorInfoPage() {
 
     // One owner: one row per entity they hold, value = % × equity, TOTAL sums value.
     const lines = statementForBeneficiary(beneficiary);
-    const contact = ownerContact(beneficiary);
+    const contact = resolveContact(beneficiary);
     const sendTo = contact ? [contact.address, contact.email].filter(Boolean).join("  ·  ") : "";
     const header = ["Entity", "Property / Entity", "Held Through", "Ownership %", `Value (${asOfLong()})`, estLabel];
     const aoa: (string | number | null)[][] = [
@@ -364,7 +405,7 @@ export default function InvestorInfoPage() {
       filename = `Statement_of_Values_${stamp}.pdf`;
     } else {
       ownerName = beneficiary;
-      const c = ownerContact(beneficiary);
+      const c = resolveContact(beneficiary);
       if (c && (c.address || c.email)) contact = { address: c.address, email: c.email };
       const lines = statementForBeneficiary(beneficiary);
       rows = lines.map((l) => ({ code: l.propertyCode ?? l.entity, name: l.entityName, pct: l.pct, yearEnd: l.value, estimated: l.pct * estimateFor(l.entity, estimates) }));
@@ -797,7 +838,7 @@ export default function InvestorInfoPage() {
                           ))}
                         </tbody>
                       </table>
-                      <InvestorStructureBlock investorName={agg.name} structure={structureFor(agg.name)} />
+                      <InvestorStructureBlock investorName={agg.name} structure={structureFor(agg.name)} canEdit={canEdit} />
                     </>
                   )}
                 </div>
@@ -808,7 +849,7 @@ export default function InvestorInfoPage() {
       )}
 
       {/* ── Statement of Values view ───────────────────────────────────── */}
-      {view === "statement" && <StatementView beneficiary={beneficiary} estimates={estimates} onSaveEstimates={saveEstimates} />}
+      {view === "statement" && <StatementView beneficiary={beneficiary} estimates={estimates} onSaveEstimates={saveEstimates} resolveContact={resolveContact} canEdit={canEdit} onSaveContact={saveContact} />}
 
       <p className="muted small" style={{ marginTop: 4 }}>
         {view === "statement" ? (
@@ -836,12 +877,37 @@ function Chevron({ open }: { open: boolean }) {
 /** Supplementary partnership / trustee structure shown inside the
  *  investor card. Only renders when the investor has an entry in
  *  lib/investors/structures.ts (e.g. Hyman Korman Co.). */
-function InvestorStructureBlock({ investorName, structure }: { investorName: string; structure: InvestorStructure | null }) {
+function InvestorStructureBlock({ investorName, structure, canEdit }: { investorName: string; structure: InvestorStructure | null; canEdit: boolean }) {
   const [structureOpen, setStructureOpen] = useState(false);
   const [directoryOpen, setDirectoryOpen] = useState(false);
+  const dirKey = normInvestorKey(investorName);
+  const [trusteeOverrides, setTrusteeOverrides] = useState<Record<string, TrusteeRowOverride>>({});
+  const [editRow, setEditRow] = useState<string | null>(null); // normalized name being edited, or "__new__"
+  const hasDirectory = !!structure?.directory;
+  useEffect(() => {
+    if (!hasDirectory) return;
+    fetch(`/api/ownership/trustees?dir=${encodeURIComponent(dirKey)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (d?.overrides) setTrusteeOverrides(d.overrides); })
+      .catch(() => {});
+  }, [dirKey, hasDirectory]);
+
+  async function saveTrustee(key: string, row: (TrusteeRowOverride) | null): Promise<boolean> {
+    try {
+      const res = await fetch("/api/ownership/trustees", {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dir: dirKey, key, row }),
+      });
+      if (!res.ok) return false;
+      const d = await res.json();
+      setTrusteeOverrides(d.overrides ?? {});
+      return true;
+    } catch { return false; }
+  }
 
   if (!structure) return null;
 
+  const dirRows = structure.directory ? mergeTrusteeRows(structure.directory.rows, trusteeOverrides) : [];
   const safeName = investorName.replace(/[^a-zA-Z0-9]+/g, "_").replace(/^_|_$/g, "");
   const stamp = new Date().toISOString().slice(0, 10);
 
@@ -870,7 +936,7 @@ function InvestorStructureBlock({ investorName, structure }: { investorName: str
 
   function downloadDirectory() {
     if (!structure!.directory) return;
-    const rows = structure!.directory.rows.map((r) => ({
+    const rows = dirRows.map((r) => ({
       "Trustee / Partner Name": r.name,
       "Email": r.email ?? "",
       "Address": r.address,
@@ -977,17 +1043,36 @@ function InvestorStructureBlock({ investorName, structure }: { investorName: str
               <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>
                 {structure.directory.title}
               </span>
-              <span className="muted small">{structure.directory.rows.length}</span>
+              <span className="muted small">{dirRows.length}</span>
             </button>
-            <button
-              type="button"
-              onClick={downloadDirectory}
-              className="btn"
-              style={{ fontSize: 12, padding: "5px 10px", fontWeight: 600 }}
-            >⤓ Excel</button>
+            <div style={{ display: "inline-flex", gap: 8 }}>
+              {canEdit && (
+                <button
+                  type="button"
+                  onClick={() => { setDirectoryOpen(true); setEditRow("__new__"); }}
+                  className="btn"
+                  style={{ fontSize: 12, padding: "5px 10px", fontWeight: 600 }}
+                >+ Add trustee</button>
+              )}
+              <button
+                type="button"
+                onClick={downloadDirectory}
+                className="btn"
+                style={{ fontSize: 12, padding: "5px 10px", fontWeight: 600 }}
+              >⤓ Excel</button>
+            </div>
           </div>
           {directoryOpen && (
           <div style={{ marginTop: 12, overflowX: "auto" }}>
+            {editRow !== null && (
+              <TrusteeEditor
+                key={editRow}
+                row={editRow === "__new__" ? null : dirRows.find((r) => normInvestorKey(r.name) === editRow) ?? null}
+                onCancel={() => setEditRow(null)}
+                onSave={async (row) => { const ok = await saveTrustee(row.name, row); if (ok) setEditRow(null); return ok; }}
+                onDelete={editRow !== "__new__" ? async () => { const name = dirRows.find((r) => normInvestorKey(r.name) === editRow)?.name ?? editRow; const ok = await saveTrustee(name, { name, deleted: true } as TrusteeRowOverride); if (ok) setEditRow(null); return ok; } : undefined}
+              />
+            )}
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
               <thead>
                 <tr style={{ color: "var(--muted)", fontSize: 11, letterSpacing: "0.04em", textAlign: "left" }}>
@@ -1000,7 +1085,7 @@ function InvestorStructureBlock({ investorName, structure }: { investorName: str
                 </tr>
               </thead>
               <tbody>
-                {structure.directory.rows.map((r, i) => {
+                {dirRows.map((r, i) => {
                   const cityState = [r.city, r.state, r.zip].filter(Boolean).join(", ").replace(/, ([A-Z]{2}|Canada), (\d{5})/, ", $1 $2");
                   return (
                     <tr key={i} style={{ borderTop: "1px solid var(--border)" }}>
@@ -1008,6 +1093,10 @@ function InvestorStructureBlock({ investorName, structure }: { investorName: str
                         <div>{r.name}</div>
                         {r.email && (
                           <a href={`mailto:${r.email}`} className="small" style={{ marginTop: 2, display: "inline-block", color: "var(--brand)", fontWeight: 500, wordBreak: "break-all" }}>{r.email}</a>
+                        )}
+                        {canEdit && (
+                          <button type="button" className="no-print" onClick={() => setEditRow(normInvestorKey(r.name))}
+                            style={{ display: "block", marginTop: 4, background: "transparent", border: "none", padding: 0, color: "var(--brand)", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Edit</button>
                         )}
                       </td>
                       <td style={{ padding: "10px 10px", verticalAlign: "top", lineHeight: 1.4 }}>
@@ -1039,6 +1128,73 @@ function InvestorStructureBlock({ investorName, structure }: { investorName: str
   );
 }
 
+/** Inline add/edit form for one trustee-directory row (authorized users only). */
+function TrusteeEditor({ row, onSave, onCancel, onDelete }: {
+  row: { name: string; email?: string; address: string; city: string; state: string; zip?: string; servingIndividually: string; trusts: string; sourceInstrument: string; notes?: string } | null;
+  onSave: (row: TrusteeRowOverride) => Promise<boolean>;
+  onCancel: () => void;
+  onDelete?: () => Promise<boolean>;
+}) {
+  const [f, setF] = useState({
+    name: row?.name ?? "", email: row?.email ?? "", address: row?.address ?? "", city: row?.city ?? "",
+    state: row?.state ?? "", zip: row?.zip ?? "", servingIndividually: row?.servingIndividually ?? "",
+    trusts: row?.trusts ?? "", sourceInstrument: row?.sourceInstrument ?? "", notes: row?.notes ?? "",
+  });
+  const [saving, setSaving] = useState(false);
+  const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setF((p) => ({ ...p, [k]: e.target.value }));
+  const inp: React.CSSProperties = { padding: "6px 9px", border: "1px solid var(--border)", borderRadius: 6, background: "var(--card)", color: "var(--text)", fontFamily: "inherit", fontSize: 12, width: "100%" };
+  const lbl: React.CSSProperties = { fontSize: 10, fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase", color: "var(--muted)", display: "block", marginBottom: 3 };
+  const field = (label: string, k: keyof typeof f, wide = false) => (
+    <div style={{ gridColumn: wide ? "1 / -1" : undefined }}>
+      <label style={lbl}>{label}</label>
+      <input value={f[k]} onChange={set(k)} style={inp} />
+    </div>
+  );
+
+  async function commit() {
+    if (!f.name.trim()) return;
+    setSaving(true);
+    const ok = await onSave({ ...f, name: f.name.trim() });
+    setSaving(false);
+    if (!ok) return;
+  }
+
+  return (
+    <div className="no-print" style={{ marginBottom: 14, padding: 14, border: "1px dashed var(--border)", borderRadius: 8 }}>
+      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 10 }}>
+        {row ? `Edit trustee · ${row.name}` : "Add trustee"}
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 10 }}>
+        {field("Name", "name")}
+        {field("Email", "email")}
+        {field("Serving individually?", "servingIndividually")}
+        <div />
+        {field("Address", "address", true)}
+        {field("City", "city")}
+        {field("State", "state")}
+        {field("Zip", "zip")}
+        <div />
+        <div style={{ gridColumn: "1 / -1" }}>
+          <label style={lbl}>Trust(s) / Entity</label>
+          <textarea value={f.trusts} onChange={set("trusts")} rows={2} style={{ ...inp, resize: "vertical" }} />
+        </div>
+        {field("Source Will / Instrument", "sourceInstrument", true)}
+        <div style={{ gridColumn: "1 / -1" }}>
+          <label style={lbl}>Notes</label>
+          <textarea value={f.notes} onChange={set("notes")} rows={2} style={{ ...inp, resize: "vertical" }} />
+        </div>
+      </div>
+      <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 12 }}>
+        <button type="button" className="btn primary" disabled={saving || !f.name.trim()} onClick={commit} style={{ fontSize: 12, padding: "6px 12px", fontWeight: 700 }}>{saving ? "Saving…" : "Save"}</button>
+        <button type="button" className="btn" disabled={saving} onClick={onCancel} style={{ fontSize: 12, padding: "6px 12px" }}>Cancel</button>
+        {onDelete && (
+          <button type="button" className="btn" disabled={saving} onClick={() => { void onDelete(); }} style={{ fontSize: 12, padding: "6px 12px", marginLeft: "auto", color: "#b91c1c" }}>Remove</button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /** Δ vs. year-end, shown next to the estimate when it differs. */
 function DeltaTag({ base, now }: { base: number; now: number }) {
   if (!base || Math.round(now) === Math.round(base)) return null;
@@ -1052,15 +1208,83 @@ function DeltaTag({ base, now }: { base: number; now: number }) {
   );
 }
 
+/** Owner send-to contact line, with an inline editor for authorized users
+ *  (Harry / Alison / Drew). Empty + editable shows an "Add contact" affordance. */
+function ContactBlock({ beneficiary, contact, canEdit, onSave }: {
+  beneficiary: string;
+  contact: OwnerContact | undefined;
+  canEdit: boolean;
+  onSave: (name: string, override: Partial<OwnerContact> | null) => Promise<boolean>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({ address: "", email: "", notes: "" });
+  const has = !!contact && (!!contact.address || !!contact.email);
+
+  function begin() {
+    setForm({ address: contact?.address ?? "", email: contact?.email ?? "", notes: contact?.notes ?? "" });
+    setOpen(true);
+  }
+  async function commit() {
+    setSaving(true);
+    const ok = await onSave(beneficiary, { address: form.address, email: form.email, notes: form.notes });
+    setSaving(false);
+    if (ok) setOpen(false);
+  }
+  async function clearIt() {
+    setSaving(true);
+    await onSave(beneficiary, null);
+    setSaving(false);
+    setOpen(false);
+  }
+
+  const inputStyle: React.CSSProperties = { padding: "6px 9px", border: "1px solid var(--border)", borderRadius: 6, background: "var(--card)", color: "var(--text)", fontFamily: "inherit", fontSize: 12, width: "100%" };
+
+  if (open) {
+    return (
+      <div className="no-print" style={{ marginTop: 10, padding: 12, border: "1px dashed var(--border)", borderRadius: 8, display: "grid", gap: 8, maxWidth: 560 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>Send-to contact · {beneficiary}</div>
+        <input placeholder="Mailing address" value={form.address} onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))} style={inputStyle} />
+        <input placeholder="Email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} style={inputStyle} />
+        <input placeholder="Notes (optional)" value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} style={inputStyle} />
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <button type="button" className="btn primary" disabled={saving} onClick={commit} style={{ fontSize: 12, padding: "6px 12px", fontWeight: 700 }}>{saving ? "Saving…" : "Save"}</button>
+          <button type="button" className="btn" disabled={saving} onClick={() => setOpen(false)} style={{ fontSize: 12, padding: "6px 12px" }}>Cancel</button>
+          {has && <button type="button" className="btn" disabled={saving} onClick={clearIt} style={{ fontSize: 12, padding: "6px 12px", marginLeft: "auto", color: "#b91c1c" }}>Clear override</button>}
+        </div>
+      </div>
+    );
+  }
+
+  if (!has) {
+    if (!canEdit) return null;
+    return (
+      <button type="button" className="btn no-print" onClick={begin} style={{ marginTop: 8, fontSize: 12, padding: "5px 10px" }}>+ Add contact info</button>
+    );
+  }
+
+  return (
+    <div className="small" style={{ marginTop: 8, color: "var(--text)", display: "flex", flexWrap: "wrap", alignItems: "center", gap: "2px 12px" }}>
+      <span style={{ fontWeight: 700, color: "var(--muted)", letterSpacing: "0.04em" }}>SEND TO</span>
+      {contact!.address && <span style={{ color: "var(--muted)" }}>{contact!.address}</span>}
+      {contact!.email && <a href={`mailto:${contact!.email}`} style={{ color: "var(--brand)" }}>{contact!.email}</a>}
+      {canEdit && <button type="button" className="btn no-print" onClick={begin} style={{ fontSize: 11, padding: "2px 8px" }}>Edit</button>}
+    </div>
+  );
+}
+
 /** Statement of Values — portfolio (all entities) when no owner is selected, or
  *  a single owner's holdings + values when one is picked. Year-end values come
  *  from the entityValues snapshot; the "today estimate" is the saved override
  *  (or the year-end value when none). A beneficiary's value is always
  *  effective % × the entity's equity. */
-function StatementView({ beneficiary, estimates, onSaveEstimates }: {
+function StatementView({ beneficiary, estimates, onSaveEstimates, resolveContact, canEdit, onSaveContact }: {
   beneficiary: string;
   estimates: OwnershipEstimates;
   onSaveEstimates: (next: OwnershipEstimates) => Promise<boolean>;
+  resolveContact: (name: string) => OwnerContact | undefined;
+  canEdit: boolean;
+  onSaveContact: (name: string, override: Partial<OwnerContact> | null) => Promise<boolean>;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<Record<string, string>>({});
@@ -1137,9 +1361,9 @@ function StatementView({ beneficiary, estimates, onSaveEstimates }: {
                 <button type="button" className="btn primary" disabled={saving} onClick={commit} style={{ fontSize: 12, padding: "6px 12px", fontWeight: 700 }}>{saving ? "Saving…" : "Save"}</button>
                 <button type="button" className="btn" disabled={saving} onClick={() => setEditing(false)} style={{ fontSize: 12, padding: "6px 12px" }}>Cancel</button>
               </div>
-            ) : (
+            ) : canEdit ? (
               <button type="button" className="btn no-print" onClick={beginEdit} style={{ fontSize: 12, padding: "6px 12px" }}>Edit estimates</button>
-            )}
+            ) : null}
           </div>
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, borderTop: "1px solid var(--border)" }}>
@@ -1220,17 +1444,7 @@ function StatementView({ beneficiary, estimates, onSaveEstimates }: {
         <div style={{ padding: "16px 16px 12px" }}>
           <div style={{ fontSize: 16, fontWeight: 700 }}>{beneficiary} — Statement of Values</div>
           <div className="muted small" style={{ marginTop: 2 }}>Ownership by partner / trust vehicle. Value = effective % × the entity&rsquo;s equity value ({asOfLong()}).</div>
-          {(() => {
-            const c = ownerContact(beneficiary);
-            if (!c || (!c.address && !c.email)) return null;
-            return (
-              <div className="small" style={{ marginTop: 8, color: "var(--text)", display: "flex", flexWrap: "wrap", gap: "2px 12px" }}>
-                <span style={{ fontWeight: 700, color: "var(--muted)", letterSpacing: "0.04em" }}>SEND TO</span>
-                {c.address && <span style={{ color: "var(--muted)" }}>{c.address}</span>}
-                {c.email && <a href={`mailto:${c.email}`} style={{ color: "var(--brand)" }}>{c.email}</a>}
-              </div>
-            );
-          })()}
+          <ContactBlock beneficiary={beneficiary} contact={resolveContact(beneficiary)} canEdit={canEdit} onSave={onSaveContact} />
         </div>
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, borderTop: "1px solid var(--border)" }}>

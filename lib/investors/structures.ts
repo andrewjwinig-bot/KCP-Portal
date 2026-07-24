@@ -365,3 +365,49 @@ export const INVESTOR_STRUCTURES: Record<string, InvestorStructure> = {
 export function structureFor(name: string): InvestorStructure | null {
   return INVESTOR_STRUCTURES[normInvestorKey(name)] ?? null;
 }
+
+/** A stored trustee override (see lib/investors/trusteeStore.ts). Redeclared
+ *  here (client-safe) so the merge helper doesn't pull in the server-only
+ *  store. */
+export type TrusteeRowOverride = Partial<TrusteeDirectoryRow> & { name: string; deleted?: boolean };
+
+/** Merge seed trustee rows with stored overrides/additions/removals, keyed by
+ *  normalized name. Overrides overlay a seeded row; unmatched overrides are
+ *  appended (added trustees); `deleted` rows drop out. Preserves seed order,
+ *  additions alphabetized at the end. */
+export function mergeTrusteeRows(
+  seed: TrusteeDirectoryRow[],
+  overrides: Record<string, TrusteeRowOverride>,
+): TrusteeDirectoryRow[] {
+  const key = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim();
+  const ov = new Map<string, TrusteeRowOverride>();
+  for (const o of Object.values(overrides)) ov.set(key(o.name), o);
+
+  const out: TrusteeDirectoryRow[] = [];
+  const usedSeed = new Set<string>();
+  for (const row of seed) {
+    const k = key(row.name);
+    usedSeed.add(k);
+    const o = ov.get(k);
+    if (o?.deleted) continue;
+    out.push(o ? { ...row, ...stripUndef(o) } : row);
+  }
+  const additions = [...ov.values()]
+    .filter((o) => !usedSeed.has(key(o.name)) && !o.deleted)
+    .map((o) => ({
+      name: o.name, address: o.address ?? "", city: o.city ?? "", state: o.state ?? "",
+      zip: o.zip, servingIndividually: o.servingIndividually ?? "", trusts: o.trusts ?? "",
+      sourceInstrument: o.sourceInstrument ?? "", notes: o.notes, email: o.email,
+    } as TrusteeDirectoryRow))
+    .sort((a, b) => a.name.localeCompare(b.name));
+  return [...out, ...additions];
+}
+
+function stripUndef<T extends object>(o: T): Partial<T> {
+  const out: Partial<T> = {};
+  for (const [k, v] of Object.entries(o)) {
+    if (k === "name" || k === "deleted") continue;
+    if (v !== undefined && v !== null && v !== "") (out as Record<string, unknown>)[k] = v;
+  }
+  return out;
+}
