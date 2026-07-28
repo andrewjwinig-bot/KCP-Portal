@@ -7,7 +7,8 @@ import {
   newBankTransferId,
   type BankTransfer,
 } from "@/lib/bankTransfers/storage";
-import { sendMail } from "@/lib/mail";
+import { sendMail, type MailAttachment } from "@/lib/mail";
+import { get } from "@vercel/blob";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -35,7 +36,7 @@ function buildTransferEmail(t: BankTransfer): { subject: string; textBody: strin
     `From:        ${t.fromLabel}`,
     `To:          ${t.toLabel}`,
     `Amount:      ${fmtMoney(t.amount)}`,
-    `PDF saved:   ${t.pdfSaved ? "Yes" : "Not yet"}`,
+    `Confirmation:${t.pdfUrl ? " Attached (see PDF)" : t.pdfSaved ? " In shared folder" : " Not yet"}`,
   ];
   if (t.description?.trim()) {
     lines.push("", "Details:", t.description.trim());
@@ -46,10 +47,22 @@ function buildTransferEmail(t: BankTransfer): { subject: string; textBody: strin
   };
 }
 
+/** Fetch a private Blob's bytes for emailing as an attachment. Best-effort. */
+async function fetchBlobBytes(url: string): Promise<Uint8Array | null> {
+  try {
+    if (!process.env.BLOB_READ_WRITE_TOKEN) return null;
+    const result = await get(url, { access: "private" });
+    if (!result) return null;
+    return new Uint8Array(await new Response(result.stream).arrayBuffer());
+  } catch {
+    return null;
+  }
+}
+
 export async function GET() {
   try {
     const data = await listBankTransfers();
-    return NextResponse.json(data);
+    return NextResponse.json({ ...data, blobConfigured: !!process.env.BLOB_READ_WRITE_TOKEN });
   } catch (e) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : "Failed to load" },
@@ -62,6 +75,8 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
     const isNew = !(typeof body.id === "string" && body.id);
+    const pdfUrl = typeof body.pdfUrl === "string" && body.pdfUrl.trim() ? body.pdfUrl.trim() : undefined;
+    const pdfName = typeof body.pdfName === "string" && body.pdfName.trim() ? body.pdfName.trim() : undefined;
     const t: BankTransfer = {
       id: isNew ? newBankTransferId() : body.id,
       date: String(body.date ?? "").trim(),
@@ -69,7 +84,10 @@ export async function POST(req: Request) {
       fromLabel: String(body.fromLabel ?? "").trim(),
       toLabel: String(body.toLabel ?? "").trim(),
       amount: Math.max(0, Number(body.amount ?? 0) || 0),
-      pdfSaved: Boolean(body.pdfSaved),
+      // A confirmation exists if a PDF was uploaded or the legacy "in folder" flag is set.
+      pdfSaved: Boolean(pdfUrl) || Boolean(body.pdfSaved),
+      pdfUrl,
+      pdfName,
       description: String(body.description ?? ""),
       createdAt: typeof body.createdAt === "string" ? body.createdAt : new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -83,10 +101,16 @@ export async function POST(req: Request) {
     await saveBankTransfer(t);
 
     // Best-effort notification — never blocks the save. sendMail returns
-    // false silently if Postmark isn't configured.
+    // false silently if Postmark isn't configured. When a confirmation PDF was
+    // uploaded, attach it so the confirmation lands in the same email.
     if (isNew) {
       const { subject, textBody } = buildTransferEmail(t);
-      sendMail({ to: NEW_TRANSFER_NOTIFY, subject, textBody }).catch(() => { /* swallow */ });
+      const attachments: MailAttachment[] = [];
+      if (t.pdfUrl) {
+        const bytes = await fetchBlobBytes(t.pdfUrl);
+        if (bytes) attachments.push({ name: t.pdfName || `Transfer ${t.date}.pdf`, content: bytes, contentType: "application/pdf" });
+      }
+      sendMail({ to: NEW_TRANSFER_NOTIFY, subject, textBody, attachments: attachments.length ? attachments : undefined }).catch(() => { /* swallow */ });
     }
 
     return NextResponse.json({ transfer: t });

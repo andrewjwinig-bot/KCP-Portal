@@ -1,9 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { upload as blobUpload } from "@vercel/blob/client";
 import { Calendar } from "@/app/components/Calendar";
 import { useUser } from "@/app/components/UserProvider";
-import { Pill, StatPill, TONE_GREEN, TONE_RED } from "@/app/components/Pill";
+import { Pill, StatPill, TONE_RED } from "@/app/components/Pill";
+import { blobSrc } from "@/lib/blobProxy";
 import { UNIQUE_BANK_ACCOUNTS, type BankGroup } from "@/lib/bank-rec/accounts";
 import type { BankTransfer } from "@/lib/bankTransfers/storage";
 
@@ -68,6 +70,7 @@ export default function BankTransfersPage() {
   const [savedPrompt, setSavedPrompt] = useState<boolean>(false);
   const [search, setSearch] = useState("");
   const [showFlows, setShowFlows] = useState(false);
+  const [blobConfigured, setBlobConfigured] = useState(false);
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -77,6 +80,7 @@ export default function BankTransfersPage() {
       if (!res.ok) throw new Error(body.error ?? "Failed to load");
       setTransfers(body.transfers ?? []);
       setShareFolderUrl(body.shareFolderUrl ?? "");
+      setBlobConfigured(!!body.blobConfigured);
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load");
@@ -119,7 +123,7 @@ export default function BankTransfersPage() {
     [filtered]
   );
   const missingPdf = useMemo(
-    () => filtered.filter((t) => !t.pdfSaved).length,
+    () => filtered.filter((t) => !t.pdfUrl && !t.pdfSaved).length,
     [filtered]
   );
 
@@ -153,7 +157,8 @@ export default function BankTransfersPage() {
       if (!res.ok) throw new Error(body.error ?? "Failed to save");
       if (body.transfer) applyLocalUpdate(body.transfer);
       setEditing(null);
-      if (isNew) setSavedPrompt(true);
+      // Only nag to file a PDF in the shared folder when none was uploaded here.
+      if (isNew && !body.transfer?.pdfUrl) setSavedPrompt(true);
       reload();
     } catch (e) {
       alert(e instanceof Error ? e.message : "Failed to save");
@@ -302,16 +307,43 @@ export default function BankTransfersPage() {
                   </td>
                   <td>
                     <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 4 }}>
-                      <Pill tone={t.pdfSaved ? TONE_GREEN : TONE_RED}>
-                        {t.pdfSaved ? "Saved" : "Missing"}
-                      </Pill>
+                      {t.pdfUrl ? (
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <a
+                            href={blobSrc(t.pdfUrl)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            title={t.pdfName || "View confirmation PDF"}
+                            style={{ fontSize: 12, fontWeight: 700, color: "#0b4a7d", textDecoration: "none" }}
+                          >View</a>
+                          <span className="muted" style={{ fontSize: 11 }}>·</span>
+                          <a
+                            href={blobSrc(t.pdfUrl)}
+                            download={t.pdfName || `Transfer ${t.date}.pdf`}
+                            onClick={(e) => e.stopPropagation()}
+                            style={{ fontSize: 12, fontWeight: 700, color: "#0b4a7d", textDecoration: "none" }}
+                          >Download</a>
+                        </div>
+                      ) : t.pdfSaved && shareFolderUrl ? (
+                        <a
+                          href={shareFolderUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="muted small"
+                          style={{ textDecoration: "none" }}
+                        >In shared folder ↗</a>
+                      ) : (
+                        <Pill tone={TONE_RED}>Missing</Pill>
+                      )}
                       {canEdit && (
                         <button
                           onClick={(e) => { e.stopPropagation(); setEditing(t); }}
                           className="btn"
                           style={{ fontSize: 12, padding: "4px 10px" }}
                         >
-                          Edit
+                          {t.pdfUrl ? "Edit" : "Add PDF"}
                         </button>
                       )}
                     </div>
@@ -326,6 +358,7 @@ export default function BankTransfersPage() {
       {editing !== null && (
         <EditModal
           item={editing === "new" ? null : editing}
+          blobConfigured={blobConfigured}
           onClose={() => setEditing(null)}
           onSave={saveTransfer}
           onDelete={deleteTransfer}
@@ -570,11 +603,13 @@ function Toolbar({
 
 function EditModal({
   item,
+  blobConfigured,
   onClose,
   onSave,
   onDelete,
 }: {
   item: BankTransfer | null;
+  blobConfigured: boolean;
   onClose: () => void;
   onSave: (draft: Partial<BankTransfer> & { id?: string; createdAt?: string }, isNew: boolean) => void | Promise<void>;
   onDelete: (id: string) => void | Promise<void>;
@@ -598,9 +633,22 @@ function EditModal({
     [accountsForBank],
   );
   const [amount, setAmount] = useState<string>(item ? String(item.amount) : "");
-  const [pdfSaved, setPdfSaved] = useState<boolean>(item?.pdfSaved ?? false);
   const [description, setDescription] = useState(item?.description ?? "");
   const [saving, setSaving] = useState(false);
+
+  // Confirmation PDF: an already-saved URL/name, plus a pending file to upload.
+  const [pdfUrl, setPdfUrl] = useState<string | undefined>(item?.pdfUrl);
+  const [pdfName, setPdfName] = useState<string | undefined>(item?.pdfName);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [uploadPct, setUploadPct] = useState<number | null>(null);
+  const [uploadErr, setUploadErr] = useState<string | null>(null);
+
+  function pickFile(f: File | null) {
+    setUploadErr(null);
+    if (!f) { setPendingFile(null); return; }
+    if (f.type !== "application/pdf") { setUploadErr("Please choose a PDF."); return; }
+    setPendingFile(f);
+  }
 
   async function handleSave() {
     if (!fromLabel.trim() || !toLabel.trim()) {
@@ -608,6 +656,31 @@ function EditModal({
       return;
     }
     setSaving(true);
+    setUploadErr(null);
+    let finalUrl = pdfUrl;
+    let finalName = pdfName;
+    try {
+      if (pendingFile) {
+        if (!blobConfigured) throw new Error("File storage isn't configured on this environment.");
+        setUploadPct(0);
+        const seg = (v: string) => String(v).replace(/[^\w.\-]+/g, "_").slice(0, 80) || "_";
+        const path = `bank-transfers/${date}/${seg(pendingFile.name || "confirmation.pdf")}`;
+        const blob = await blobUpload(path, pendingFile, {
+          access: "private",
+          handleUploadUrl: "/api/bank-transfers/blob-upload",
+          contentType: "application/pdf",
+          multipart: pendingFile.size > 8 * 1024 * 1024,
+          onUploadProgress: (e) => setUploadPct(e.percentage / 100),
+        });
+        finalUrl = blob.url;
+        finalName = pendingFile.name;
+      }
+    } catch (e) {
+      setUploadErr(e instanceof Error ? e.message : "Upload failed");
+      setSaving(false);
+      setUploadPct(null);
+      return;
+    }
     await onSave({
       id: item?.id,
       date,
@@ -615,11 +688,14 @@ function EditModal({
       fromLabel: fromLabel.trim(),
       toLabel: toLabel.trim(),
       amount: Number(amount) || 0,
-      pdfSaved,
+      pdfSaved: Boolean(finalUrl) || Boolean(item?.pdfSaved),
+      pdfUrl: finalUrl,
+      pdfName: finalName,
       description,
       createdAt: item?.createdAt,
     }, !item);
     setSaving(false);
+    setUploadPct(null);
   }
 
   return (
@@ -698,11 +774,38 @@ function EditModal({
             />
           </Field>
 
-          <Field label="PDF saved to shared folder">
-            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
-              <input type="checkbox" checked={pdfSaved} onChange={(e) => setPdfSaved(e.target.checked)} />
-              <span>{pdfSaved ? "Yes — PDF is in the shared folder" : "No — still needs to be saved"}</span>
-            </label>
+          <Field label="Confirmation PDF">
+            <div style={{ display: "grid", gap: 8 }}>
+              {pdfUrl && !pendingFile ? (
+                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                  <a href={blobSrc(pdfUrl)} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, fontWeight: 700, color: "#0b4a7d", textDecoration: "none" }}>
+                    View current ↗
+                  </a>
+                  <span className="muted small" style={{ maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{pdfName}</span>
+                  <button type="button" className="btn" style={{ fontSize: 12, padding: "4px 10px", color: "#b91c1c" }}
+                    onClick={() => { setPdfUrl(undefined); setPdfName(undefined); }}>Remove</button>
+                </div>
+              ) : pendingFile ? (
+                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                  <span style={{ fontSize: 13, fontWeight: 600 }}>{pendingFile.name}</span>
+                  <span className="muted small">{(pendingFile.size / 1024).toFixed(0)} KB · uploads on Save</span>
+                  <button type="button" className="btn" style={{ fontSize: 12, padding: "4px 10px" }} onClick={() => setPendingFile(null)}>Clear</button>
+                </div>
+              ) : (
+                <label className="btn" style={{ fontSize: 13, padding: "8px 14px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8, width: "fit-content" }}>
+                  <span>Choose PDF…</span>
+                  <input type="file" accept="application/pdf" style={{ display: "none" }}
+                    onChange={(e) => pickFile(e.target.files?.[0] ?? null)} />
+                </label>
+              )}
+              {uploadPct !== null && (
+                <div style={{ height: 4, borderRadius: 999, background: "rgba(15,23,42,0.08)", overflow: "hidden" }}>
+                  <div style={{ height: "100%", width: `${Math.round(uploadPct * 100)}%`, background: "#0b4a7d" }} />
+                </div>
+              )}
+              {uploadErr && <div className="small" style={{ color: "#b91c1c" }}>{uploadErr}</div>}
+              <div className="muted small">Attached to the confirmation email and viewable from the log. Files are stored privately.</div>
+            </div>
           </Field>
 
           <Field label="Description (optional)">
