@@ -13,7 +13,9 @@ export type BankTransfer = {
   fromLabel: string;     // free-text — account / fund / property
   toLabel: string;       // free-text
   amount: number;        // dollars
-  pdfSaved: boolean;
+  pdfSaved: boolean;     // legacy flag — true when a confirmation exists (uploaded or in the shared folder)
+  pdfUrl?: string;       // private Blob URL of the uploaded confirmation PDF
+  pdfName?: string;      // original filename for display / download
   description: string;
   createdAt: string;
   updatedAt: string;
