@@ -11,6 +11,7 @@ import { beneficiaryNames, statementForBeneficiary } from "../../lib/properties/
 import type { OwnershipEstimates } from "../../lib/properties/estimateStore";
 import type { EntityOverrides, EntityOverride } from "../../lib/properties/entityOverrideStore";
 import { ownerContact, type OwnerContact } from "../../lib/properties/ownerContacts";
+import { residencyOf } from "../../lib/properties/residency";
 import { buildStatementOfValuesPdf, type StatementPdfRow } from "../../lib/properties/statementPdf";
 import { mergeTrusteeRows, normInvestorKey, type TrusteeRowOverride } from "../../lib/investors/structures";
 import { canEditOwnership } from "../../lib/users";
@@ -754,7 +755,11 @@ export default function InvestorInfoPage() {
                   ...(!beneficiary ? [{ label: "All owner statements (ZIP)", description: `One PDF per owner + the portfolio — the annual mailing (${benNames.length} owners)`, onClick: () => { void exportAllOwnerStatements(); } }] : []),
                 ]}
               />
-            ) : (
+            ) : null}
+            {view === "statement" && beneficiary && canEdit && (
+              <SendStatementButton beneficiary={beneficiary} email={resolveContact(beneficiary)?.email} />
+            )}
+            {view === "statement" ? null : (
               <>
                 <button
                   type="button"
@@ -1377,6 +1382,65 @@ function DeltaTag({ base, now }: { base: number; now: number }) {
   );
 }
 
+/** Small residency chip derived from the owner's mailing address. Flags likely
+ *  nonresident owners (PA withholding indicator); silent when unknown. */
+function ResidencyChip({ contact }: { contact: OwnerContact | undefined }) {
+  const r = residencyOf(contact?.address);
+  if (r.category === "unknown") return null;
+  const amber = r.nonresident;
+  return (
+    <span
+      title={r.nonresident ? "Likely nonresident — may be subject to PA nonresident withholding (confirm with CPA)" : "PA resident"}
+      style={{
+        fontSize: 10, fontWeight: 700, letterSpacing: "0.04em", padding: "2px 8px", borderRadius: 999,
+        background: amber ? "rgba(217,119,6,0.10)" : "rgba(15,23,42,0.05)",
+        color: amber ? "#b45309" : "var(--muted)",
+        border: `1px solid ${amber ? "rgba(217,119,6,0.30)" : "var(--border)"}`,
+      }}
+    >{r.label}</span>
+  );
+}
+
+/** Manual "email this statement to the owner" action — gated + confirmed, never
+ *  automatic. Disabled until the owner has an email on file. */
+function SendStatementButton({ beneficiary, email }: { beneficiary: string; email?: string }) {
+  const [state, setState] = useState<"idle" | "confirm" | "sending" | "sent" | "error">("idle");
+  const [msg, setMsg] = useState("");
+
+  async function send() {
+    setState("sending");
+    try {
+      const res = await fetch("/api/ownership/send", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ beneficiary }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) { setMsg(d.error || "Send failed."); setState("error"); return; }
+      setMsg(`Sent to ${d.sentTo || email}`); setState("sent");
+    } catch { setMsg("Send failed."); setState("error"); }
+  }
+
+  if (!email) {
+    return <span className="muted small" title="Add an email to this owner's contact to enable sending" style={{ alignSelf: "center" }}>No email on file</span>;
+  }
+  if (state === "sent") return <span className="small" style={{ alignSelf: "center", color: "#15803d", fontWeight: 600 }}>✓ {msg}</span>;
+  if (state === "confirm" || state === "sending") {
+    return (
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+        <span className="small" style={{ color: "var(--muted)" }}>Email to {email}?</span>
+        <button type="button" className="btn primary" disabled={state === "sending"} onClick={send} style={{ fontSize: 12, padding: "6px 12px", fontWeight: 700 }}>{state === "sending" ? "Sending…" : "Send"}</button>
+        <button type="button" className="btn" disabled={state === "sending"} onClick={() => setState("idle")} style={{ fontSize: 12, padding: "6px 12px" }}>Cancel</button>
+      </span>
+    );
+  }
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+      <button type="button" className="btn" onClick={() => setState("confirm")} title={`Email ${beneficiary}'s statement`} style={{ fontSize: 12, padding: "8px 14px", fontWeight: 700 }}>Email to owner</button>
+      {state === "error" && <span className="small" style={{ color: "#b91c1c" }}>{msg}</span>}
+    </span>
+  );
+}
+
 /** Owner send-to contact line, with an inline editor for authorized users
  *  (Harry / Alison / Drew). Empty + editable shows an "Add contact" affordance. */
 function ContactBlock({ beneficiary, contact, canEdit, onSave }: {
@@ -1540,6 +1604,32 @@ function StatementView({ beneficiary, estimates, onSaveEstimates, resolveContact
           );
         })()}
 
+        {(() => {
+          const nonres = ownerNames
+            .map((n) => ({ n, r: residencyOf(resolveContact(n)?.address) }))
+            .filter((x) => x.r.nonresident);
+          if (nonres.length === 0) return null;
+          return (
+            <div className="card no-print" style={{ borderLeft: "3px solid #b45309", background: "rgba(217,119,6,0.04)" }}>
+              <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>
+                {nonres.length} nonresident owner{nonres.length === 1 ? "" : "s"} — potential PA withholding
+              </div>
+              <div className="muted small" style={{ marginBottom: 8 }}>
+                Out-of-state / foreign owners may be subject to PA nonresident tax withholding (3.07% of PA-source income) — and other-state withholding for non-PA properties. This is a K-1-time determination; <strong>confirm with your CPA</strong>. Owners with no address on file aren&rsquo;t assessed here.
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {nonres.map(({ n, r }) => (
+                  <button key={n} type="button" onClick={() => onPickOwner(n)}
+                    title={r.label}
+                    style={{ fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 999, border: "1px solid rgba(180,83,9,0.35)", background: "var(--card)", color: "var(--text)", cursor: "pointer", fontFamily: "inherit" }}>
+                    {n} <span style={{ color: "#b45309" }}>· {r.state ?? r.country}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
+
         <div className="card" style={{ padding: 0, overflow: "hidden" }}>
           <div style={{ padding: "16px 16px 12px", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
             <div>
@@ -1656,7 +1746,10 @@ function StatementView({ beneficiary, estimates, onSaveEstimates, resolveContact
 
       <div className="card" style={{ padding: 0, overflow: "hidden" }}>
         <div style={{ padding: "16px 16px 12px" }}>
-          <div style={{ fontSize: 16, fontWeight: 700 }}>{beneficiary} — Statement of Values</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 16, fontWeight: 700 }}>{beneficiary} — Statement of Values</span>
+            <ResidencyChip contact={resolveContact(beneficiary)} />
+          </div>
           <div className="muted small" style={{ marginTop: 2 }}>Ownership by partner / trust vehicle. Value = effective % × the entity&rsquo;s equity value ({asOfLong()}).</div>
           <ContactBlock beneficiary={beneficiary} contact={resolveContact(beneficiary)} canEdit={canEdit} onSave={onSaveContact} />
         </div>
