@@ -39,6 +39,10 @@ describe("server-side authorizeRequest", () => {
   it("allows in-scope sensitive APIs", () => {
     expect(authorizeRequest("harry", "/api/deposits")).toBe(true);                        // harry has /deposits
     expect(authorizeRequest("harry", "/api/commissions/retail")).toBe(true);
+    // Harry has CAM Reconciliation access (Lafayette Hill 9510 Wawa quarterly billing).
+    expect(authorizeRequest("harry", "/cam-recon")).toBe(true);
+    expect(authorizeRequest("harry", "/api/cam-recon")).toBe(true);
+    expect(authorizeRequest("harry", "/api/cam-recon/quarterly")).toBe(true);
     expect(authorizeRequest("marie", "/api/bank-rec")).toBe(true);
     expect(authorizeRequest("drew", "/api/financials/operating-statements")).toBe(true);  // drew has full /financials
   });
