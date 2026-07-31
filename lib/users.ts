@@ -172,9 +172,11 @@ export const USERS: Record<UserId, UserDef> = {
     id: "harry",
     label: "HARRY",
     // Harry gets Drew's Task Tracker (dashboard card + sidebar item) but not
-    // the Filing Tracker (which is the separate "tracker" key).
-    navKeys: new Set([...universalNav, "expenses", "expenses-history", "payroll-invoicer", "investors", "commissions-retail", "deposits", "bank-transfers", "task-tracker"]),
-    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/units", "/expenses", "/investors", "/commissions/retail", "/deposits", "/bank-transfers", "/tracker", "/"],
+    // the Filing Tracker (which is the separate "tracker" key). "base-years"
+    // surfaces the CAM Reconciliation area (incl. the Lafayette Hill 9510 Wawa
+    // quarterly billing) plus the Expense History/Trends + Estimates views.
+    navKeys: new Set([...universalNav, "expenses", "expenses-history", "payroll-invoicer", "investors", "commissions-retail", "deposits", "bank-transfers", "task-tracker", "base-years"]),
+    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/units", "/expenses", "/investors", "/commissions/retail", "/deposits", "/bank-transfers", "/cam-recon", "/tracker", "/"],
     defaultRentRollCategory: "Retail",
     defaultPropertyType: "Retail",
     dashboardScope: { codes: SC_INDIVIDUAL },
