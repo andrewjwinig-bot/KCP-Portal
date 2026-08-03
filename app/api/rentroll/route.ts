@@ -142,22 +142,37 @@ export async function POST(req: NextRequest) {
     type ChangeRow = { propertyCode: string; unitRef: string; occupantName: string; sqft: number; leaseTo: string | null };
     const changes: { newTenants: ChangeRow[]; vacated: ChangeRow[] } = { newTenants: [], vacated: [] };
     try {
-      let prior: any = null, priorMonth = "";
-      for (const snap of all) {
-        const m = snapshotMonthKey(snap);
-        if (m.localeCompare(importedMonth) < 0 && m.localeCompare(priorMonth) > 0) { prior = snap; priorMonth = m; }
+      const norm = (s: string) => (s ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
+      const occ = (r: any) => {
+        const map = new Map<string, any>();
+        for (const p of r.properties ?? []) for (const u of p.units ?? []) {
+          if (u.isVacant || u.amenity || !u.occupantName) continue;
+          map.set(u.unitRef, { ...u, propertyCode: p.propertyCode });
+        }
+        return map;
+      };
+
+      // Compare against the most recent PRIOR snapshot that actually has
+      // occupied tenants. A missing / partial / stray snapshot (no properties,
+      // all-vacant, or a non-roll object under the history prefix) yields an
+      // empty map — comparing against THAT made every current tenant look
+      // "new" (with 0 vacated). Skip those and fall back to the last real roll;
+      // if there's no comparable prior, emit no changes rather than flagging
+      // the whole portfolio as new.
+      const now = occ(imported);
+      const priorCandidates = all
+        .map((snap) => ({ snap, month: snapshotMonthKey(snap) }))
+        .filter((x) => x.month.localeCompare(importedMonth) < 0)
+        .sort((a, b) => b.month.localeCompare(a.month));
+
+      let priorMonth = "";
+      let was = new Map<string, any>();
+      for (const cand of priorCandidates) {
+        const m = occ(cand.snap);
+        if (m.size > 0) { was = m; priorMonth = cand.month; break; }
       }
-      if (prior) {
-        const norm = (s: string) => (s ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
-        const occ = (r: any) => {
-          const map = new Map<string, any>();
-          for (const p of r.properties ?? []) for (const u of p.units ?? []) {
-            if (u.isVacant || u.amenity || !u.occupantName) continue;
-            map.set(u.unitRef, { ...u, propertyCode: p.propertyCode });
-          }
-          return map;
-        };
-        const now = occ(imported), was = occ(prior);
+
+      if (was.size > 0) {
         for (const [ref, u] of now) {
           const b = was.get(ref);
           if (!b || norm(b.occupantName) !== norm(u.occupantName)) {
@@ -171,7 +186,12 @@ export async function POST(req: NextRequest) {
           }
         }
       }
-    } catch { /* best-effort — diff is a prompt, not core */ }
+      console.info(
+        `[rentroll diff] imported=${importedMonth} prior=${priorMonth || "none"} ` +
+        `now=${now.size} was=${was.size} new=${changes.newTenants.length} vacated=${changes.vacated.length} ` +
+        `snapshots=${all.length}`,
+      );
+    } catch (e) { console.warn("[rentroll diff] failed", e); }
 
     // Always hand back the *current* (latest-month) roll for display, plus
     // what was imported and whether it became current.
