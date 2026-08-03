@@ -161,7 +161,7 @@ export default function PublicWebsiteCard({ code }: { code: string }) {
     }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          <div style={{ fontSize: 16, fontWeight: 800, letterSpacing: "-0.01em" }}>Public website</div>
+          <div style={{ fontSize: 16, fontWeight: 800, letterSpacing: "-0.01em" }}>Public Website</div>
           <div style={{ fontSize: 12.5, color: "var(--muted)" }}>
             Photos, site plan, availabilities &amp; tenant display names for the public leasing page. The tenant roster itself syncs from the rent roll.
           </div>
@@ -255,17 +255,53 @@ function ImageSlot({ label, url, busy, onPick, onClear }: {
   onPick: (f: File | null) => void; onClear: () => void;
 }) {
   const ref = useRef<HTMLInputElement>(null);
+  const [dragOver, setDragOver] = useState(false);
+
+  // Pull the first image file off a drop / paste-style FileList.
+  const takeImage = (files: FileList | null): File | null => {
+    if (!files) return null;
+    for (const f of Array.from(files)) if (f.type.startsWith("image/")) return f;
+    return null;
+  };
+
+  const onDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    if (busy) return;
+    const f = takeImage(e.dataTransfer?.files ?? null);
+    if (f) onPick(f);
+  };
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
       <div style={{ ...LABEL, fontSize: 10 }}>{label}</div>
-      <div style={{
-        position: "relative", aspectRatio: "16 / 9", borderRadius: 8, overflow: "hidden",
-        border: "1px dashed var(--border)", background: "var(--panel, #f4f6f8)",
-        display: "flex", alignItems: "center", justifyContent: "center",
-      }}>
+      <div
+        role="button"
+        tabIndex={0}
+        aria-label={`${url ? "Replace" : "Upload"} ${label} — click or drop an image`}
+        title="Click or drop an image to upload"
+        onClick={() => { if (!busy) ref.current?.click(); }}
+        onKeyDown={(e) => { if ((e.key === "Enter" || e.key === " ") && !busy) { e.preventDefault(); ref.current?.click(); } }}
+        onDragOver={(e) => { e.preventDefault(); if (!busy) setDragOver(true); }}
+        onDragEnter={(e) => { e.preventDefault(); if (!busy) setDragOver(true); }}
+        onDragLeave={(e) => { e.preventDefault(); setDragOver(false); }}
+        onDrop={onDrop}
+        style={{
+          position: "relative", aspectRatio: "16 / 9", borderRadius: 8, overflow: "hidden",
+          border: `1px dashed ${dragOver ? "var(--brand)" : "var(--border)"}`,
+          outline: dragOver ? "2px solid var(--brand)" : "none", outlineOffset: -2,
+          background: dragOver ? "rgba(11,74,125,0.06)" : "var(--panel, #f4f6f8)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          cursor: busy ? "default" : "pointer", transition: "border-color 120ms, background 120ms",
+        }}>
         {url
-          ? <img src={url} alt={label} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-          : <span style={{ fontSize: 11, color: "var(--muted)" }}>No image</span>}
+          ? <img src={url} alt={label} style={{ width: "100%", height: "100%", objectFit: "cover", pointerEvents: "none" }} />
+          : <span style={{ fontSize: 11, color: "var(--muted)", textAlign: "center", padding: "0 8px" }}>
+              {dragOver ? "Drop to upload" : "Drag & drop or click to upload"}
+            </span>}
+        {url && dragOver && (
+          <div style={{ position: "absolute", inset: 0, background: "rgba(11,74,125,0.35)", color: "#fff", display: "grid", placeItems: "center", fontSize: 12, fontWeight: 700 }}>Drop to replace</div>
+        )}
         {busy && <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.4)", color: "#fff", display: "grid", placeItems: "center", fontSize: 12 }}>Uploading…</div>}
       </div>
       <div style={{ display: "flex", gap: 6 }}>
