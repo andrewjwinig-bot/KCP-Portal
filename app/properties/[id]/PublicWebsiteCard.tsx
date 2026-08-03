@@ -62,6 +62,7 @@ export default function PublicWebsiteCard({ code }: { code: string }) {
   const [status, setStatus] = useState<{ ok: boolean; msg: string } | null>(null);
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [pct, setPct] = useState(0);
+  const [uploadError, setUploadError] = useState<{ key: string; msg: string } | null>(null);
 
   // Latest form state, so an upload's auto-save persists current values without
   // waiting on a stale closure.
@@ -120,6 +121,7 @@ export default function PublicWebsiteCard({ code }: { code: string }) {
     setBusyKey(key);
     setPct(0);
     setStatus(null);
+    setUploadError(null);
     try {
       // Normal-sized images go through the simple, reliable server route
       // (put() server-side). Only files over the ~4.5 MB serverless body limit
@@ -147,7 +149,9 @@ export default function PublicWebsiteCard({ code }: { code: string }) {
       });
       return res.url;
     } catch (e) {
-      setStatus({ ok: false, msg: e instanceof Error ? `Upload failed: ${e.message}` : "Upload failed." });
+      const msg = e instanceof Error ? e.message : "Upload failed.";
+      setStatus({ ok: false, msg: `Upload failed: ${msg}` });
+      setUploadError({ key, msg });
       return null;
     } finally {
       setBusyKey(null);
@@ -254,8 +258,8 @@ export default function PublicWebsiteCard({ code }: { code: string }) {
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <div style={LABEL}>Images</div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 12 }}>
-              <ImageSlot label="Hero photo (3000×1500)" url={assets.hero} busy={busyKey === "hero"} pct={pct} onPick={onHero} onClear={() => clearAsset((a) => ({ ...a, hero: undefined }))} />
-              <ImageSlot label="Site plan" url={assets.sitePlan} busy={busyKey === "siteplan"} pct={pct} onPick={onPlan} onClear={() => clearAsset((a) => ({ ...a, sitePlan: undefined }))} />
+              <ImageSlot label="Hero photo (3000×1500)" url={assets.hero} busy={busyKey === "hero"} pct={pct} error={uploadError?.key === "hero" ? uploadError.msg : undefined} onPick={onHero} onClear={() => clearAsset((a) => ({ ...a, hero: undefined }))} />
+              <ImageSlot label="Site plan" url={assets.sitePlan} busy={busyKey === "siteplan"} pct={pct} error={uploadError?.key === "siteplan" ? uploadError.msg : undefined} onPick={onPlan} onClear={() => clearAsset((a) => ({ ...a, sitePlan: undefined }))} />
               {Array.from({ length: hoodCount }).map((_, i) => (
                 <ImageSlot
                   key={i}
@@ -263,6 +267,7 @@ export default function PublicWebsiteCard({ code }: { code: string }) {
                   url={assets.neighborhood?.[i]}
                   busy={busyKey === `hood${i}`}
                   pct={pct}
+                  error={uploadError?.key === `hood${i}` ? uploadError.msg : undefined}
                   onPick={(f) => onHood(f, i)}
                   onClear={() => clearAsset((a) => { const arr = [...(a.neighborhood ?? [])]; arr[i] = ""; return { ...a, neighborhood: arr }; })}
                 />
@@ -355,8 +360,8 @@ export default function PublicWebsiteCard({ code }: { code: string }) {
   );
 }
 
-function ImageSlot({ label, url, busy, pct, onPick, onClear }: {
-  label: string; url?: string; busy: boolean; pct: number;
+function ImageSlot({ label, url, busy, pct, error, onPick, onClear }: {
+  label: string; url?: string; busy: boolean; pct: number; error?: string;
   onPick: (f: File | null) => void; onClear: () => void;
 }) {
   const ref = useRef<HTMLInputElement>(null);
@@ -391,16 +396,18 @@ function ImageSlot({ label, url, busy, pct, onPick, onClear }: {
         onDrop={onDrop}
         style={{
           position: "relative", aspectRatio: "16 / 9", borderRadius: 10, overflow: "hidden",
-          border: `2px dashed ${dragOver ? BRAND : "var(--border)"}`,
-          background: dragOver ? "rgba(11,74,125,0.07)" : "rgba(15,23,42,0.02)",
+          border: `2px dashed ${dragOver ? BRAND : error ? "rgba(185,28,28,0.5)" : "var(--border)"}`,
+          background: dragOver ? "rgba(11,74,125,0.07)" : error ? "rgba(185,28,28,0.05)" : "rgba(15,23,42,0.02)",
           display: "flex", alignItems: "center", justifyContent: "center",
           cursor: busy ? "default" : "pointer", transition: "border-color .15s, background .15s",
         }}>
-        {url && !busy
+        {url && !busy && !error
           ? <img src={url} alt={label} style={{ width: "100%", height: "100%", objectFit: "cover", pointerEvents: "none" }} />
-          : !busy && <span style={{ fontSize: 11, color: "var(--muted)", textAlign: "center", padding: "0 10px" }}>
-              {dragOver ? "Drop to upload" : "Drag & drop or click to upload"}
-            </span>}
+          : !busy && (error
+              ? <span style={{ fontSize: 11, color: RED, fontWeight: 600, textAlign: "center", padding: "0 10px" }}>{error} · click to retry</span>
+              : <span style={{ fontSize: 11, color: "var(--muted)", textAlign: "center", padding: "0 10px" }}>
+                  {dragOver ? "Drop to upload" : "Drag & drop or click to upload"}
+                </span>)}
         {busy && (
           <div className="imp-anim" style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, background: "var(--card)" }}>
             <div style={{ position: "relative", width: 54, height: 54 }}>
