@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { CENTER_PROFILES, centerBySlug } from "@/lib/centers/registry";
+import { centerBySlug } from "@/lib/centers/registry";
 import { getCenterData } from "@/lib/centers/data";
 import LeasingForm from "./LeasingForm";
 import { centerStyles } from "./styles";
@@ -12,15 +12,11 @@ import { centerStyles } from "./styles";
 // on white). This route is exempted from site auth in middleware.ts +
 // AppShell.tsx so it renders publicly with no staff chrome.
 
-// Incrementally regenerate so the public page picks up rent-roll changes
-// (new tenants, vacancies) without a redeploy, while staying fast + cached.
-// Only the five known centers are valid slugs; anything else 404s.
-export const revalidate = 300;
-export const dynamicParams = false;
-
-export function generateStaticParams() {
-  return CENTER_PROFILES.map((c) => ({ slug: c.slug }));
-}
+// Render per-request so the page ALWAYS reflects the current rent roll and the
+// latest admin edits (photos / availabilities / DBA) with no redeploy or cache
+// lag. These are low-traffic marketing pages and the reads are cheap. Unknown
+// slugs 404 via the centerBySlug guard below.
+export const dynamic = "force-dynamic";
 
 export function generateMetadata({ params }: { params: { slug: string } }): Metadata {
   const profile = centerBySlug(params.slug);
@@ -42,7 +38,7 @@ export default async function CenterPage({ params }: { params: { slug: string } 
   if (!profile) notFound();
 
   const data = await getCenterData(profile);
-  const { tenants, vacancies, availTotal, specs, facts, spaceOptions } = data;
+  const { tenants, vacancies, availTotal, specs, facts, spaceOptions, assets, neighborhood } = data;
   const c = profile.contact;
   const mapSrc = `https://www.google.com/maps?q=${encodeURIComponent(
     `${profile.streetAddress}, ${profile.city}, ${profile.state}`,
@@ -103,8 +99,8 @@ export default async function CenterPage({ params }: { params: { slug: string } 
 
       {/* HERO */}
       <section className="gc-hero" aria-label={profile.name}>
-        {profile.assets.hero ? (
-          <img className="gc-hero-img" src={profile.assets.hero} alt={`${profile.name} exterior`} />
+        {assets.hero ? (
+          <img className="gc-hero-img" src={assets.hero} alt={`${profile.name} exterior`} />
         ) : (
           <>
             <div className="gc-hero-ph" aria-hidden="true" />
@@ -176,8 +172,8 @@ export default async function CenterPage({ params }: { params: { slug: string } 
           <h2 className="gc-h2">Site plan</h2>
           <div className="gc-plan-cap">{streetName} frontage · {profile.parking}</div>
         </div>
-        {profile.assets.sitePlan ? (
-          <img className="gc-plan-img" src={profile.assets.sitePlan} alt={`${profile.name} site plan`} />
+        {assets.sitePlan ? (
+          <img className="gc-plan-img" src={assets.sitePlan} alt={`${profile.name} site plan`} />
         ) : (
           <div className="gc-plan-ph">Drop site plan drawing — full width</div>
         )}
@@ -265,7 +261,7 @@ export default async function CenterPage({ params }: { params: { slug: string } 
       </section>
 
       {/* NEIGHBORHOOD */}
-      {profile.neighborhood.length > 0 && (
+      {neighborhood.length > 0 && (
         <section className="gc-hood">
           <div className="gc-hood-in gc-wrap">
             <div className="gc-hood-head">
@@ -273,7 +269,7 @@ export default async function CenterPage({ params }: { params: { slug: string } 
               <div className="gc-plan-cap gc-cap-ondark">{profile.h1[0]} · {profile.city}</div>
             </div>
             <div className="gc-hood-grid">
-              {profile.neighborhood.map((h) => (
+              {neighborhood.map((h) => (
                 <div className="gc-hood-card" key={h.title}>
                   {h.photo ? (
                     <img className="gc-hood-img" src={h.photo} alt={h.title} />

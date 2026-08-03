@@ -4,14 +4,17 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { PROPERTY_DEFS } from "../../../lib/properties/data";
+import { centerByCode } from "../../../lib/centers/registry";
 import { loadTaxChecked } from "../../tracker/tax-data";
 import { PropertyDetailBody, TypePill } from "../PropertyDetail";
+import PublicWebsiteCard from "./PublicWebsiteCard";
 
 export default function PropertyDetailPage() {
   const params = useParams<{ id: string }>();
   const rawId = params?.id ?? "";
   const id = Array.isArray(rawId) ? rawId[0] : rawId;
   const prop = PROPERTY_DEFS.find((p) => p.id.toUpperCase() === id.toUpperCase());
+  const center = prop ? centerByCode(prop.id) : undefined;
 
   const [checked, setChecked] = useState<Record<string, boolean>>({});
   useEffect(() => {
@@ -75,10 +78,26 @@ export default function PropertyDetailPage() {
             fontSize: 11, fontWeight: 600, letterSpacing: "0.06em",
           }}>{prop.id}</code>
           <TypePill type={prop.type} />
+          {center && (
+            <a
+              href={`/centers/${center.slug}`}
+              target="_blank"
+              rel="noreferrer"
+              style={{
+                fontSize: 12, fontWeight: 700, color: "var(--brand)", textDecoration: "none",
+                border: "1px solid var(--border)", borderRadius: 999, padding: "2px 10px",
+                display: "inline-flex", alignItems: "center", gap: 5,
+              }}
+            >
+              Public page ↗
+            </a>
+          )}
         </div>
       </header>
 
       <PropertyDetailBody prop={prop} checked={checked} />
+
+      {center && <PublicWebsiteCard code={prop.id} />}
     </main>
   );
 }

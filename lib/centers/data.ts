@@ -1,7 +1,8 @@
 import "server-only";
 import { resolveCurrentRentroll } from "@/lib/rentroll/current";
 import { RETAIL_RECON_FIXTURES } from "@/lib/cam/retail/registry";
-import { normName, type CenterProfile, type Kv, type MarketedSpace } from "./registry";
+import { normName, type CenterProfile, type Kv, type MarketedSpace, type NeighborhoodCard } from "./registry";
+import { getCenterOverride } from "./store";
 
 // Join the leasing profile (marketing copy, categories, availabilities) to the
 // LIVE tenant roster. Occupied tenants + their SF come from the rent roll; if
@@ -22,6 +23,8 @@ export type CenterData = {
   specs: Kv[];                   // right column of the Overview
   facts: Kv[];                   // the facts strip
   spaceOptions: string[];        // inquiry-form <select> options
+  assets: { hero?: string; sitePlan?: string };  // merged (override → registry)
+  neighborhood: NeighborhoodCard[];              // photos merged from override
 };
 
 const fmt = (n: number) => n.toLocaleString("en-US");
@@ -41,12 +44,13 @@ function categoryFor(profile: CenterProfile, name: string): string {
   return lookupByName(profile.categories, name) ?? "";
 }
 
-/** Public display name (prettified) for a rent-roll tenant name. */
-function displayFor(profile: CenterProfile, name: string): string {
-  return lookupByName(profile.displayNames, name) ?? name;
+/** Public display name (DBA) for a rent-roll tenant name, using the merged
+ *  display-name map (override.dba over registry.displayNames). */
+function displayWith(dnames: Record<string, string>, name: string): string {
+  return lookupByName(dnames, name) ?? name;
 }
 
-async function occupiedFromLive(profile: CenterProfile): Promise<CenterTenant[] | null> {
+async function occupiedFromLive(profile: CenterProfile, dnames: Record<string, string>): Promise<CenterTenant[] | null> {
   try {
     const rr = await resolveCurrentRentroll();
     if (!rr) return null;
@@ -56,14 +60,14 @@ async function occupiedFromLive(profile: CenterProfile): Promise<CenterTenant[] 
     if (!prop || !prop.units.length) return null;
     const tenants = prop.units
       .filter((u) => !u.isVacant && !u.amenity && u.occupantName && u.sqft > 0)
-      .map((u) => ({ name: displayFor(profile, u.occupantName), cat: categoryFor(profile, u.occupantName), sf: Math.round(u.sqft) }));
+      .map((u) => ({ name: displayWith(dnames, u.occupantName), cat: categoryFor(profile, u.occupantName), sf: Math.round(u.sqft) }));
     return tenants.length ? tenants : null;
   } catch {
     return null;
   }
 }
 
-function occupiedFromSeed(profile: CenterProfile): CenterTenant[] {
+function occupiedFromSeed(profile: CenterProfile, dnames: Record<string, string>): CenterTenant[] {
   const fix = RETAIL_RECON_FIXTURES[profile.code];
   if (!fix) return [];
   const years = Object.keys(fix.byYear).map(Number);
@@ -71,15 +75,29 @@ function occupiedFromSeed(profile: CenterProfile): CenterTenant[] {
   const roster = fix.byYear[Math.max(...years)]?.roster ?? [];
   return roster
     .filter((r) => !r.vacant && r.sqft > 0 && normName(r.name) !== "vacant")
-    .map((r) => ({ name: displayFor(profile, r.name), cat: categoryFor(profile, r.name), sf: r.sqft }));
+    .map((r) => ({ name: displayWith(dnames, r.name), cat: categoryFor(profile, r.name), sf: r.sqft }));
 }
 
 export async function getCenterData(profile: CenterProfile): Promise<CenterData> {
-  const live = await occupiedFromLive(profile);
-  const source: "live" | "seed" = live ? "live" : "seed";
-  const tenants = (live ?? occupiedFromSeed(profile)).slice().sort((a, b) => b.sf - a.sf);
+  const override = await getCenterOverride(profile.code);
+  const dnames: Record<string, string> = { ...(profile.displayNames ?? {}), ...(override.dba ?? {}) };
 
-  const vacancies = profile.marketedSpaces;
+  const live = await occupiedFromLive(profile, dnames);
+  const source: "live" | "seed" = live ? "live" : "seed";
+  const tenants = (live ?? occupiedFromSeed(profile, dnames)).slice().sort((a, b) => b.sf - a.sf);
+
+  const vacancies = override.availabilities && override.availabilities.length
+    ? override.availabilities
+    : profile.marketedSpaces;
+
+  const assets = {
+    hero: override.assets?.hero ?? profile.assets.hero,
+    sitePlan: override.assets?.sitePlan ?? profile.assets.sitePlan,
+  };
+  const neighborhood: NeighborhoodCard[] = profile.neighborhood.map((card, i) => ({
+    ...card,
+    photo: override.assets?.neighborhood?.[i] ?? card.photo,
+  }));
   const availTotal = vacancies.reduce((s, v) => s + v.sf, 0);
   const gla = profile.gla || tenants.reduce((s, t) => s + t.sf, 0) + availTotal;
   const occupancyPct = gla > 0 ? Math.round((1 - availTotal / gla) * 100) : 100;
@@ -120,5 +138,7 @@ export async function getCenterData(profile: CenterProfile): Promise<CenterData>
     specs,
     facts,
     spaceOptions,
+    assets,
+    neighborhood,
   };
 }
