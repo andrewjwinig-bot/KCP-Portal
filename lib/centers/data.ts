@@ -54,7 +54,8 @@ function displayWith(dnames: Record<string, string>, name: string): string {
  *  totals are the SAME numbers the internal portal divides for occupancy
  *  (occupiedSqft / totalSqft in PortfolioOccupancyPanel / PropertyDetail), so
  *  the public page's occupancy stays in sync with the portal. */
-type LiveRoster = { tenants: CenterTenant[]; occupiedSqft: number; totalSqft: number };
+type LiveVacant = { suite: string; sf: number };
+type LiveRoster = { tenants: CenterTenant[]; occupiedSqft: number; totalSqft: number; vacants: LiveVacant[] };
 
 async function occupiedFromLive(profile: CenterProfile, dnames: Record<string, string>): Promise<LiveRoster | null> {
   try {
@@ -67,7 +68,14 @@ async function occupiedFromLive(profile: CenterProfile, dnames: Record<string, s
     const tenants = prop.units
       .filter((u) => !u.isVacant && !u.amenity && u.occupantName && u.sqft > 0)
       .map((u) => ({ name: displayWith(dnames, u.occupantName), cat: categoryFor(profile, u.occupantName), sf: Math.round(u.sqft) }));
-    return tenants.length ? { tenants, occupiedSqft: prop.occupiedSqft, totalSqft: prop.totalSqft } : null;
+    // Available spaces come LIVE from the rent roll's vacant units (suite +
+    // SF); marketing copy is layered on separately from the admin override.
+    const vacants: LiveVacant[] = prop.units
+      .filter((u) => u.isVacant && !u.amenity && u.sqft > 0)
+      .map((u) => ({ suite: u.unitRef, sf: Math.round(u.sqft) }));
+    return tenants.length || vacants.length
+      ? { tenants, occupiedSqft: prop.occupiedSqft, totalSqft: prop.totalSqft, vacants }
+      : null;
   } catch {
     return null;
   }
@@ -92,9 +100,19 @@ export async function getCenterData(profile: CenterProfile): Promise<CenterData>
   const source: "live" | "seed" = live ? "live" : "seed";
   const tenants = (live?.tenants ?? occupiedFromSeed(profile, dnames)).slice().sort((a, b) => b.sf - a.sf);
 
-  const vacancies = override.availabilities && override.availabilities.length
-    ? override.availabilities
-    : profile.marketedSpaces;
+  // Available spaces: when the live rent roll is present, the list of vacancies
+  // (suite + SF + count) comes straight from it — staff only supply the
+  // marketing copy (kind / frontage / notes), merged in by suite. Without a
+  // live roll, fall back to the manually-managed availabilities / defaults.
+  const availDesc = override.availDesc ?? {};
+  const vacancies: CenterVacancy[] = live
+    ? live.vacants.map((v) => {
+        const d = availDesc[normName(v.suite)];
+        return { suite: v.suite, sf: v.sf, kind: d?.kind ?? "", frontage: d?.frontage ?? "", notes: d?.notes ?? "" };
+      })
+    : override.availabilities && override.availabilities.length
+      ? override.availabilities
+      : profile.marketedSpaces;
 
   const assets = {
     hero: override.assets?.hero ?? profile.assets.hero,

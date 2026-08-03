@@ -43,6 +43,21 @@ function sanitizeSpaces(input: unknown): MarketedSpace[] {
     .filter((s) => s.suite || s.sf || s.notes);
 }
 
+function sanitizeAvailDesc(input: unknown): Record<string, { kind: string; frontage: string; notes: string }> {
+  if (!input || typeof input !== "object") return {};
+  const out: Record<string, { kind: string; frontage: string; notes: string }> = {};
+  for (const [k, v] of Object.entries(input as Record<string, unknown>)) {
+    const key = String(k).trim().slice(0, 80);
+    if (!key) continue;
+    const d = (v ?? {}) as Record<string, unknown>;
+    const kind = String(d.kind ?? "").trim().slice(0, 60);
+    const frontage = String(d.frontage ?? "").trim().slice(0, 80);
+    const notes = String(d.notes ?? "").trim().slice(0, 200);
+    if (kind || frontage || notes) out[key] = { kind, frontage, notes };
+  }
+  return out;
+}
+
 function sanitizeDba(input: unknown): Record<string, string> {
   if (!input || typeof input !== "object") return {};
   const out: Record<string, string> = {};
@@ -75,6 +90,7 @@ export async function PUT(req: NextRequest, { params }: { params: { code: string
         : undefined,
     },
     availabilities: sanitizeSpaces(body.availabilities),
+    availDesc: sanitizeAvailDesc(body.availDesc),
     dba: sanitizeDba(body.dba),
   };
 

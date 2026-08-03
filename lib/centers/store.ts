@@ -20,10 +20,19 @@ export type CenterAssets = {
   neighborhood?: string[];
 };
 
+/** Marketing copy for one available space, keyed by suite. Suite + SF + the
+ *  count of spaces come LIVE from the rent roll's vacant units; staff only fill
+ *  in these three description fields. Keyed by normName(suite). */
+export type AvailDesc = { kind: string; frontage: string; notes: string };
+
 export type CenterOverride = {
   assets?: CenterAssets;
-  /** When present (non-empty), replaces registry.marketedSpaces. */
+  /** Legacy / fallback: manually-managed availabilities, used only when there
+   *  is no live rent roll to derive vacancies from. */
   availabilities?: MarketedSpace[];
+  /** Marketing descriptions for the rent-roll-derived vacant spaces, keyed by
+   *  normName(suite). The suite/SF themselves always come from the rent roll. */
+  availDesc?: Record<string, AvailDesc>;
   /** DBA display names keyed by a normalized rent-roll tenant name.
    *  Resolution precedence for a tenant's PUBLIC name:
    *    lease abstract (future) → this admin override → registry.displayNames
@@ -48,6 +57,7 @@ export async function saveCenterOverride(code: string, next: CenterOverride): Pr
       neighborhood: Array.isArray(next.assets?.neighborhood) ? next.assets!.neighborhood : undefined,
     },
     availabilities: Array.isArray(next.availabilities) ? next.availabilities : [],
+    availDesc: next.availDesc && typeof next.availDesc === "object" ? next.availDesc : {},
     dba: next.dba && typeof next.dba === "object" ? next.dba : {},
   };
   await storeJSON(PREFIX, code, clean);
