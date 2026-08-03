@@ -126,7 +126,7 @@ const GRAYS_FERRY: CenterProfile = {
   gla: 82809,
   anchorName: "Fresh Grocer",
   heroSub:
-    "82,809 SF of anchored neighborhood retail where Center City meets University City.",
+    "The bridge between Center City and University City — 82,809 SF of grocery-anchored neighborhood retail at the Schuylkill crossing.",
   overview:
     "Grays Ferry Shopping Center is a key neighborhood retail center serving the daily needs of a growing and emerging community. With a mix of essential services and conveniences, it remains a trusted destination for local residents. Its strategic location offers proximity to the Pennovation Center and easy accessibility to the Health District of West Philadelphia, making it well-positioned to support the area's continued growth.",
   keyTenants:
@@ -215,7 +215,7 @@ const GRAYS_FERRY: CenterProfile = {
   assets: {},
   accent: ACCENT,
   accentOnDark: ACCENT_ON_DARK,
-  showSquareFootage: true,
+  showSquareFootage: false,
 };
 
 // ─── The other four centers — valid profiles from the property master ─────────
@@ -271,7 +271,7 @@ function scaffold(
     assets: {},
     accent: ACCENT,
     accentOnDark: ACCENT_ON_DARK,
-    showSquareFootage: true,
+    showSquareFootage: false,
     ...overrides,
   };
 }

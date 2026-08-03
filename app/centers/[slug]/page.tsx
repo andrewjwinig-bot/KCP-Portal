@@ -187,7 +187,6 @@ export default async function CenterPage({ params }: { params: { slug: string } 
       <section id="tenants" className="gc-tenants gc-wrap">
         <div className="gc-tenants-head">
           <h2 className="gc-h2">Tenant roster</h2>
-          <div className="gc-plan-cap">Synced to current rent roll</div>
         </div>
         <div className="gc-trows">
           {tenants.map((t, i) => {
