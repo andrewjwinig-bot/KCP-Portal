@@ -37,3 +37,6 @@ data/audit-log/
 data/bank-transfers-manifest/
 data/ownership-trustees/
 data/ownership-contacts/
+data/centers-config/
+data/maintenance-manifest/
+data/reservations-manifest/
