@@ -121,12 +121,28 @@ export default function PublicWebsiteCard({ code }: { code: string }) {
     setPct(0);
     setStatus(null);
     try {
+      // Normal-sized images go through the simple, reliable server route
+      // (put() server-side). Only files over the ~4.5 MB serverless body limit
+      // need the direct browser→Blob client upload.
+      if (file.size <= 4 * 1024 * 1024) {
+        setPct(0.1);
+        const fd = new FormData();
+        fd.append("file", file);
+        fd.append("key", key);
+        const res = await fetch(`/api/centers/${code}/upload-direct`, { method: "POST", body: fd });
+        setPct(0.9);
+        const json = await res.json().catch(() => null);
+        if (!res.ok) throw new Error(json?.error || `Upload failed (HTTP ${res.status})`);
+        setPct(1);
+        return typeof json?.url === "string" ? json.url : null;
+      }
+
       const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
       const res = await upload(`centers/${code}/${key}-${safe}`, file, {
         access: "public",
         handleUploadUrl: `/api/centers/${code}/upload`,
         contentType: file.type || undefined,
-        multipart: file.size > 8 * 1024 * 1024, // reliable for big hero photos
+        multipart: true,
         onUploadProgress: (e) => setPct(e.percentage / 100),
       });
       return res.url;
