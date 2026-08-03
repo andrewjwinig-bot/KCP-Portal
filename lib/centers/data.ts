@@ -50,7 +50,13 @@ function displayWith(dnames: Record<string, string>, name: string): string {
   return lookupByName(dnames, name) ?? name;
 }
 
-async function occupiedFromLive(profile: CenterProfile, dnames: Record<string, string>): Promise<CenterTenant[] | null> {
+/** Live occupied roster + the property's SF tallies from the rent roll. The SF
+ *  totals are the SAME numbers the internal portal divides for occupancy
+ *  (occupiedSqft / totalSqft in PortfolioOccupancyPanel / PropertyDetail), so
+ *  the public page's occupancy stays in sync with the portal. */
+type LiveRoster = { tenants: CenterTenant[]; occupiedSqft: number; totalSqft: number };
+
+async function occupiedFromLive(profile: CenterProfile, dnames: Record<string, string>): Promise<LiveRoster | null> {
   try {
     const rr = await resolveCurrentRentroll();
     if (!rr) return null;
@@ -61,7 +67,7 @@ async function occupiedFromLive(profile: CenterProfile, dnames: Record<string, s
     const tenants = prop.units
       .filter((u) => !u.isVacant && !u.amenity && u.occupantName && u.sqft > 0)
       .map((u) => ({ name: displayWith(dnames, u.occupantName), cat: categoryFor(profile, u.occupantName), sf: Math.round(u.sqft) }));
-    return tenants.length ? tenants : null;
+    return tenants.length ? { tenants, occupiedSqft: prop.occupiedSqft, totalSqft: prop.totalSqft } : null;
   } catch {
     return null;
   }
@@ -84,7 +90,7 @@ export async function getCenterData(profile: CenterProfile): Promise<CenterData>
 
   const live = await occupiedFromLive(profile, dnames);
   const source: "live" | "seed" = live ? "live" : "seed";
-  const tenants = (live ?? occupiedFromSeed(profile, dnames)).slice().sort((a, b) => b.sf - a.sf);
+  const tenants = (live?.tenants ?? occupiedFromSeed(profile, dnames)).slice().sort((a, b) => b.sf - a.sf);
 
   const vacancies = override.availabilities && override.availabilities.length
     ? override.availabilities
@@ -100,7 +106,17 @@ export async function getCenterData(profile: CenterProfile): Promise<CenterData>
   }));
   const availTotal = vacancies.reduce((s, v) => s + v.sf, 0);
   const gla = profile.gla || tenants.reduce((s, t) => s + t.sf, 0) + availTotal;
-  const occupancyPct = gla > 0 ? Math.round((1 - availTotal / gla) * 100) : 100;
+  // Occupancy mirrors the internal portal: when the live rent roll is
+  // available, use occupiedSqft / totalSqft (identical to PortfolioOccupancyPanel
+  // / PropertyDetail) so the public page never disagrees with the portal. Only
+  // when there's no live feed do we fall back to the marketed-availability
+  // estimate (1 − available SF / GLA).
+  const occupancyPct =
+    live && live.totalSqft > 0
+      ? Math.round((live.occupiedSqft / live.totalSqft) * 100)
+      : gla > 0
+        ? Math.round((1 - availTotal / gla) * 100)
+        : 100;
 
   const keyTenants =
     profile.keyTenants ||
