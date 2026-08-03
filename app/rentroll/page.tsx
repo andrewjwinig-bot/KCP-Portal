@@ -310,7 +310,7 @@ function ImportInstructionsModal({ onClose, nextMonth }: { onClose: () => void; 
               From the Commercial Rent Roll report, select <b>Export</b> in the upper left.
             </li>
             <li>
-              Select <b>Microsoft Excel (97-2003) (.xls)</b> — the selection from the top.
+              Select <b>Microsoft Excel (97-2003) (.xls)</b> — the third selection from the top.
             </li>
             <li>
               Hit <b>Save</b> and save to a location where the file can be accessed outside of Skyline (e.g. Desktop). File name is not important.
