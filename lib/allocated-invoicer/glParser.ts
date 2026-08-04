@@ -122,9 +122,23 @@ function findDateInRow(row: unknown[], maxCols = 6): { col: number; date: string
 }
 
 function extractPeriod(rows: unknown[][]): { periodText: string; periodEndDate: string; statementMonth: string } {
+  const fy = (y: string) => (y.length === 2 ? "20" + y : y);
   for (let i = 0; i < Math.min(16, rows.length); i++) {
     for (const cell of rows[i]) {
       const s = String(cell ?? "").trim();
+
+      // Detailed GL date range, e.g. "1/1/2026 To 6/30/2026" — drives a
+      // multi-month allocation. The statement label spans start→end month.
+      const range = s.match(/(\d{1,2})\/(\d{1,2})\/(\d{2,4})\s+to\s+(\d{1,2})\/(\d{1,2})\/(\d{2,4})/i);
+      if (range) {
+        const [, , , sy, em, ed, ey] = range;
+        const sMonth = `${fy(sy)}-${range[1].padStart(2, "0")}`;
+        const eMonth = `${fy(ey)}-${em.padStart(2, "0")}`;
+        const periodEndDate = `${fy(ey)}-${em.padStart(2, "0")}-${ed.padStart(2, "0")}`;
+        const statementMonth = sMonth === eMonth ? eMonth : `${sMonth}_to_${eMonth}`;
+        return { periodText: s, periodEndDate, statementMonth };
+      }
+
       if (/period\s+ending/i.test(s)) {
         const match = s.match(/(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
         if (match) {
@@ -214,6 +228,117 @@ function extractAmounts(
   return { debit: 0, credit: 0 };
 }
 
+/**
+ * Detect the "Detailed General Ledger" layout: a single signed **Amount**
+ * column (header "Amount") with a "Trans Date" column, rather than separate
+ * Debit/Credit columns. Returns the relevant column indices or null.
+ */
+function findAmountHeader(rows: unknown[][]): {
+  headerRowIdx: number;
+  colDate: number;
+  colAmount: number;
+  colDesc: number;
+  colJrn: number;
+  colRef: number;
+} | null {
+  for (let i = 0; i < rows.length; i++) {
+    const lower = rows[i].map((c) => String(c ?? "").trim().toLowerCase());
+    const colDate = lower.findIndex((c) => c === "trans date" || c === "transaction date");
+    const colAmount = lower.findIndex((c) => c === "amount");
+    if (colDate >= 0 && colAmount >= 0) {
+      const colDesc = lower.findIndex((c) => c.includes("description"));
+      const colJrn = lower.findIndex((c) => c.includes("check #") || c.includes("jnl ref"));
+      const colRef = lower.findIndex((c) => c.includes("invoice number") || c.includes("journal"));
+      return { headerRowIdx: i, colDate, colAmount, colDesc, colJrn, colRef };
+    }
+  }
+  return null;
+}
+
+/**
+ * Parse a "Detailed General Ledger" (single signed Amount column). Sums each
+ * 9301/9302/9303 account's amounts across the WHOLE report — so a multi-month
+ * export allocates every month in one run. Monthly "January Total" / "YTD
+ * Total" subtotal rows (no date) are skipped without closing the account
+ * section, and the per-account "Beginning Balance" line rides on the account
+ * header row and is therefore never counted.
+ */
+function parseAmountFormatGL(
+  rows: unknown[][],
+  header: NonNullable<ReturnType<typeof findAmountHeader>>,
+  period: { periodText: string; periodEndDate: string; statementMonth: string },
+): GLParseResult {
+  const { headerRowIdx, colDate, colAmount, colDesc, colJrn, colRef } = header;
+  const transactions: GLTransaction[] = [];
+  let currentAccountCode = "";
+  let currentAccountName = "";
+  let currentAccountSuffix: "9301" | "9302" | "9303" | "" = "";
+
+  for (let i = headerRowIdx + 1; i < rows.length; i++) {
+    const row = rows[i];
+
+    const acctMatch = findAccountInRow(row, 10);
+    if (acctMatch) {
+      currentAccountCode = acctMatch.code;
+      currentAccountName = acctMatch.name;
+      const suffix = acctMatch.code.split("-")[1] ?? "";
+      currentAccountSuffix = TARGET_SUFFIXES.has(suffix)
+        ? (suffix as "9301" | "9302" | "9303")
+        : "";
+      continue;
+    }
+
+    if (!currentAccountSuffix) continue;
+
+    // Only dated rows are real transactions; subtotal/total/blank rows have no
+    // date and are skipped (keeping the account section open across months).
+    const date = isDateLike(row[colDate]);
+    if (!date) continue;
+
+    const amount = parseAmount(row[colAmount]);
+    if (amount === 0) continue;
+
+    let description = colDesc >= 0 ? String(row[colDesc] ?? "").trim() : "";
+    if (!description) description = String(row[4] ?? "").trim();
+    const jrn = colJrn >= 0 ? String(row[colJrn] ?? "").trim() : "";
+    const ref = colRef >= 0 ? String(row[colRef] ?? "").trim() : "";
+
+    transactions.push({
+      accountCode: currentAccountCode,
+      accountSuffix: currentAccountSuffix,
+      accountName: currentAccountName,
+      date,
+      description,
+      jrn,
+      ref,
+      debit: amount > 0 ? amount : 0,
+      credit: amount < 0 ? -amount : 0,
+      net: amount,
+    });
+  }
+
+  const accountTotals = buildAccountTotals(transactions);
+  return { ...period, transactions, accountTotals };
+}
+
+function buildAccountTotals(transactions: GLTransaction[]): Map<string, GLAccountTotal> {
+  const accountTotals = new Map<string, GLAccountTotal>();
+  for (const tx of transactions) {
+    const existing = accountTotals.get(tx.accountCode);
+    if (existing) {
+      existing.netTotal += tx.net;
+    } else {
+      accountTotals.set(tx.accountCode, {
+        accountCode: tx.accountCode,
+        accountName: tx.accountName,
+        accountSuffix: tx.accountSuffix,
+        netTotal: tx.net,
+      });
+    }
+  }
+  return accountTotals;
+}
+
 // ─── Main parser ─────────────────────────────────────────────────────────────
 
 export function parseGLExcel(buffer: ArrayBuffer): GLParseResult {
@@ -226,7 +351,14 @@ export function parseGLExcel(buffer: ArrayBuffer): GLParseResult {
     raw: true,
   }) as unknown[][]).map((r) => (r as unknown[]).map((c) => (c == null ? "" : c)));
 
-  const { periodText, periodEndDate, statementMonth } = extractPeriod(rows);
+  const period = extractPeriod(rows);
+  const { periodText, periodEndDate, statementMonth } = period;
+
+  // "Detailed General Ledger" (single Amount column) → dedicated path that
+  // aggregates every month in the report.
+  const amountHeader = findAmountHeader(rows);
+  if (amountHeader) return parseAmountFormatGL(rows, amountHeader, period);
+
   const { headerRowIdx, colDebit, colCredit, colJrn, colRef } = findHeaderRow(rows);
 
   const transactions: GLTransaction[] = [];
@@ -330,21 +462,6 @@ export function parseGLExcel(buffer: ArrayBuffer): GLParseResult {
     }
   }
 
-  // ── Build account totals ──────────────────────────────────────────────────
-  const accountTotals = new Map<string, GLAccountTotal>();
-  for (const tx of transactions) {
-    const existing = accountTotals.get(tx.accountCode);
-    if (existing) {
-      existing.netTotal += tx.net;
-    } else {
-      accountTotals.set(tx.accountCode, {
-        accountCode:   tx.accountCode,
-        accountName:   tx.accountName,
-        accountSuffix: tx.accountSuffix,
-        netTotal:      tx.net,
-      });
-    }
-  }
-
+  const accountTotals = buildAccountTotals(transactions);
   return { periodText, periodEndDate, statementMonth, transactions, accountTotals };
 }

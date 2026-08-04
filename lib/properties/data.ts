@@ -4,6 +4,14 @@
 
 export type PropType = "Office" | "Retail" | "Residential" | "Land" | "Misc";
 
+/** Office sub-fund. Each Fund label is the owning entity. */
+export type FundGroup = "JV III" | "NI LLC";
+
+export const FUND_LABEL: Record<FundGroup, string> = {
+  "JV III": "Lincoln Joint Venture III",
+  "NI LLC": "Neshaminy Interplex LLC",
+};
+
 export interface PropertyDef {
   id: string;         // property code (e.g., "3610")
   name: string;       // display name
@@ -20,25 +28,41 @@ export interface PropertyDef {
   einLabel?: string;  // Label for primary EIN (defaults to "EIN")
   ein2?: string;      // Secondary EIN
   ein2Label?: string; // Label for secondary EIN (defaults to "EIN (2)")
+  /** Owning legal entity (e.g. "KH 509 LLC"). Used on the Property Info
+   *  page where Office buildings use fundGroup → FUND_LABEL and the
+   *  residentials need a per-property entity instead. */
+  ownerEntity?: string;
   // "BP" = Business Park (9301), "SC" = Shopping Centers (9302)
   allocGroup?: "BP" | "SC";
   // GL accounts used in CC Expense Coder for this property
   ccAccounts?: string[];
+  /** Office fund the property belongs to (subsection on the Property Info page). */
+  fundGroup?: FundGroup;
+  /**
+   * Marks a non-building entity (condo association, holding LLC). Rendered with
+   * a dashed border and a labelled pill instead of the type pill so it's clear
+   * the card isn't a real property.
+   */
+  entityKind?: "Condo" | "LLC";
 }
 
 export const PROPERTY_DEFS: PropertyDef[] = [
 
   // ── Business Park (BP) — Office · Neshaminy Interplex, Feasterville-Trevose PA ─
-  { id: "3610", name: "Building 1",   type: "Office", ein: "23-2386090", allocGroup: "BP", ccAccounts: ["8501"], address: "1 Neshaminy Interplex",  city: "Feasterville-Trevose", state: "PA", zip: "19053", sqft: 41821,  yearBuilt: 1977 },
-  { id: "3620", name: "Building 2",   type: "Office", ein: "23-2386090", allocGroup: "BP", ccAccounts: ["8501"], address: "2 Neshaminy Interplex",  city: "Feasterville-Trevose", state: "PA", zip: "19053", sqft: 49020,  yearBuilt: 1978 },
-  { id: "3640", name: "Building 4",   type: "Office", ein: "23-2386090", allocGroup: "BP", ccAccounts: ["8501"], address: "4 Neshaminy Interplex",  city: "Feasterville-Trevose", state: "PA", zip: "19053", sqft: 48794,  yearBuilt: 1981 },
-  { id: "4050", name: "Building 5",   type: "Office", ein: "61-1723336", allocGroup: "BP", ccAccounts: ["8501"], address: "5 Interplex Dr",         city: "Feasterville-Trevose", state: "PA", zip: "19053", sqft: 54008,  yearBuilt: 1983 },
-  { id: "4060", name: "Building 6",   type: "Office", ein: "61-1723336", allocGroup: "BP", ccAccounts: ["8501"], address: "6 Interplex Dr",         city: "Feasterville-Trevose", state: "PA", zip: "19053", sqft: 107890, yearBuilt: 1985 },
-  { id: "4070", name: "Building 7",   type: "Office", ein: "61-1723336", allocGroup: "BP", ccAccounts: ["8501"], address: "7 Interplex Dr",         city: "Feasterville-Trevose", state: "PA", zip: "19053", sqft: 61448,  yearBuilt: 1987 },
-  { id: "4080", name: "Building 8",   type: "Office", ein: "61-1723336", allocGroup: "BP", ccAccounts: ["8501"], address: "8 Interplex Dr",         city: "Feasterville-Trevose", state: "PA", zip: "19053", sqft: 127848, yearBuilt: 1991 },
-  { id: "40A0", name: "Kor Center A", type: "Office", ein: "61-1723336", allocGroup: "BP", ccAccounts: ["8501"], address: "2577 Interplex Dr",      city: "Feasterville-Trevose", state: "PA", zip: "19053", sqft: 15083,  yearBuilt: 1976 },
-  { id: "40B0", name: "Kor Center B", type: "Office", ein: "61-1723336", allocGroup: "BP", ccAccounts: ["8501"], address: "2607 Interplex Dr",      city: "Feasterville-Trevose", state: "PA", zip: "19053", sqft: 12978,  yearBuilt: 1976 },
-  { id: "40C0", name: "Kor Center C", type: "Office", ein: "61-1723336", allocGroup: "BP", ccAccounts: ["8501"], address: "2585 Interplex Dr",      city: "Feasterville-Trevose", state: "PA", zip: "19053", sqft: 18000,  yearBuilt: 1976 },
+  // JV III (Lincoln Joint Venture III)
+  { id: "3610",  name: "Building 1",     type: "Office", fundGroup: "JV III", ein: "23-2386090", allocGroup: "BP", ccAccounts: ["8501"], address: "1 Neshaminy Interplex", city: "Feasterville-Trevose", state: "PA", zip: "19053", sqft: 41821, yearBuilt: 1977 },
+  { id: "3620",  name: "Building 2",     type: "Office", fundGroup: "JV III", ein: "23-2386090", allocGroup: "BP", ccAccounts: ["8501"], address: "2 Neshaminy Interplex", city: "Feasterville-Trevose", state: "PA", zip: "19053", sqft: 49020, yearBuilt: 1978 },
+  { id: "3640",  name: "Building 4",     type: "Office", fundGroup: "JV III", ein: "23-2386090", allocGroup: "BP", ccAccounts: ["8501"], address: "4 Neshaminy Interplex", city: "Feasterville-Trevose", state: "PA", zip: "19053", sqft: 48794, yearBuilt: 1981 },
+  { id: "3610A", name: "JV III Condo",   type: "Office", fundGroup: "JV III", entityKind: "Condo", ccAccounts: ["8501"], notes: "Condo association for buildings 3610 / 3620 / 3640." },
+  // NI LLC (Neshaminy Interplex LLC)
+  { id: "4050", name: "Building 5",      type: "Office", fundGroup: "NI LLC", ein: "61-1723336", allocGroup: "BP", ccAccounts: ["8501"], address: "5 Interplex Dr",        city: "Feasterville-Trevose", state: "PA", zip: "19053", sqft: 54008,  yearBuilt: 1983 },
+  { id: "4060", name: "Building 6",      type: "Office", fundGroup: "NI LLC", ein: "61-1723336", allocGroup: "BP", ccAccounts: ["8501"], address: "6 Interplex Dr",        city: "Feasterville-Trevose", state: "PA", zip: "19053", sqft: 107890, yearBuilt: 1985 },
+  { id: "4070", name: "Building 7",      type: "Office", fundGroup: "NI LLC", ein: "61-1723336", allocGroup: "BP", ccAccounts: ["8501"], address: "7 Interplex Dr",        city: "Feasterville-Trevose", state: "PA", zip: "19053", sqft: 61448,  yearBuilt: 1987 },
+  { id: "4080", name: "Building 8",      type: "Office", fundGroup: "NI LLC", ein: "61-1723336", allocGroup: "BP", ccAccounts: ["8501"], address: "8 Interplex Dr",        city: "Feasterville-Trevose", state: "PA", zip: "19053", sqft: 127848, yearBuilt: 1991 },
+  { id: "40A0", name: "Kor Center A",    type: "Office", fundGroup: "NI LLC", ein: "61-1723336", allocGroup: "BP", ccAccounts: ["8501"], address: "2577 Interplex Dr",     city: "Feasterville-Trevose", state: "PA", zip: "19053", sqft: 15083,  yearBuilt: 1976 },
+  { id: "40B0", name: "Kor Center B",    type: "Office", fundGroup: "NI LLC", ein: "61-1723336", allocGroup: "BP", ccAccounts: ["8501"], address: "2607 Interplex Dr",     city: "Feasterville-Trevose", state: "PA", zip: "19053", sqft: 12978,  yearBuilt: 1976 },
+  { id: "40C0", name: "Kor Center C",    type: "Office", fundGroup: "NI LLC", ein: "61-1723336", allocGroup: "BP", ccAccounts: ["8501"], address: "2585 Interplex Dr",     city: "Feasterville-Trevose", state: "PA", zip: "19053", sqft: 18000,  yearBuilt: 1976 },
+  { id: "4000", name: "Neshaminy Interplex LLC", type: "Office", fundGroup: "NI LLC", entityKind: "LLC", ein: "61-1723336", ein2: "80-0956519", ein2Label: "FEIN/TIN", ccAccounts: ["8501"], notes: "Holding entity for NI LLC buildings." },
 
   // ── Retail ────────────────────────────────────────────────────────────────
   { id: "1100", name: "Parkwood Professional Building",   type: "Retail", ein: "23-2333412", allocGroup: "SC", ccAccounts: ["8501"], address: "12300-12310 Academy Rd", city: "Philadelphia",          state: "PA", zip: "19154", sqft: 8287,  yearBuilt: 1970 },
@@ -46,16 +70,16 @@ export const PROPERTY_DEFS: PropertyDef[] = [
   { id: "4500", name: "Gray's Ferry Shopping Center",     type: "Retail", ein: "23-2946498", allocGroup: "SC", ccAccounts: ["8501"], address: "2897 Grays Ferry Ave",   city: "Philadelphia",          state: "PA", zip: "19146", sqft: 82809, yearBuilt: 1989 },
   { id: "7010", name: "Parkwood Shopping/Office Center",  type: "Retail", ein: "23-6277274", allocGroup: "SC", ccAccounts: ["8501"], address: "12301-12377 Academy Rd", city: "Philadelphia",          state: "PA",               sqft: 73209, yearBuilt: 1963 },
   { id: "9510", name: "Shops at Lafayette Hill",          type: "Retail", ein: "84-4965394", allocGroup: "SC", ccAccounts: ["8501"], address: "400-428 Germantown Pike", city: "Lafayette Hill",        state: "PA",               sqft: 19983, yearBuilt: 1976 },
-  { id: "7200", name: "Elbridge Partnership", type: "Retail", ein: "23-6487371", allocGroup: "SC", ccAccounts: ["8501"], address: "7201 Roosevelt Blvd",  city: "Philadelphia", state: "PA", zip: "19149", sqft: 22500, yearBuilt: 1948 },
-  { id: "7300", name: "Revere Partnership",   type: "Retail", ein: "23-6450183", allocGroup: "SC", ccAccounts: ["8501"], address: "6412-22 Castor Ave",  city: "Philadelphia", state: "PA", zip: "19149", sqft: 14821, yearBuilt: 1968 },
+  { id: "7200", name: "Elbridge Partnership", type: "Retail", ein: "23-6487371", allocGroup: "SC", ccAccounts: ["8501"], address: "6412-22 Castor Ave",  city: "Philadelphia", state: "PA", zip: "19149", sqft: 22500, yearBuilt: 1948 },
+  { id: "7300", name: "Revere Partnership",   type: "Retail", ein: "23-6450183", allocGroup: "SC", ccAccounts: ["8501"], address: "7201 Roosevelt Blvd",  city: "Philadelphia", state: "PA", zip: "19149", sqft: 14821, yearBuilt: 1968 },
   { id: "1500", name: "Eastwick JV I",                    type: "Retail", ein: "23-2393292", allocGroup: "SC", ccAccounts: ["8501"], address: "2448 Island Ave", city: "Philadelphia", state: "PA", zip: "19153", sqft: 2280, yearBuilt: 1950 },
   { id: "9200", name: "Eastwick JV XII",                  type: "Retail", ein: "23-2921345", acres: 0.82, ccAccounts: ["8501"], address: "8675 Tinicum Blvd", city: "Philadelphia", state: "PA", zip: "19153" },
 
   // ── Residential ───────────────────────────────────────────────────────────
-  { id: "9800", name: "Bellaire Avenue",  type: "Residential", address: "509 Bellaire Ave", city: "Fort Washington", state: "PA", zip: "19034", yearBuilt: 1910 },
-  { id: "9820", name: "Spring Garden St", type: "Residential", address: "120-122 N Spring Garden St", city: "Ambler", state: "PA", zip: "19002", sqft: 1904, yearBuilt: 1994 },
-  { id: "9840", name: "Joshua Road",      type: "Residential", address: "3044 Joshua Rd", city: "Lafayette Hill", state: "PA", zip: "19444", sqft: 1628, yearBuilt: 1949 },
-  { id: "9860", name: "KH Fort Washington", type: "Residential", address: "233 Fort Washington Ave", city: "Fort Washington", state: "PA", zip: "19034", sqft: 1603, yearBuilt: 1900 },
+  { id: "9800", name: "Bellaire Avenue",  type: "Residential", ownerEntity: "KH 509 LLC",                address: "509 Bellaire Ave",         city: "Fort Washington", state: "PA", zip: "19034", yearBuilt: 1910 },
+  { id: "9820", name: "Spring Garden St", type: "Residential", ownerEntity: "KH - SPRING GARDEN STREET", address: "120-122 N Spring Garden St", city: "Ambler",          state: "PA", zip: "19002", sqft: 1904, yearBuilt: 1994 },
+  { id: "9840", name: "Joshua Road",      type: "Residential", ownerEntity: "KH - JOSHUA 3044 LLC",      address: "3044 Joshua Rd",           city: "Lafayette Hill",  state: "PA", zip: "19444", sqft: 1628, yearBuilt: 1949 },
+  { id: "9860", name: "KH Fort Washington", type: "Residential", ownerEntity: "Korman Homes LLC",         address: "233 Fort Washington Ave",  city: "Fort Washington", state: "PA", zip: "19034", sqft: 1603, yearBuilt: 1900 },
 
   // ── Other Commercial / Holding ────────────────────────────────────────────
   { id: "5600", name: "Castor Ave - USPS", type: "Retail", ein: "23-2333761", allocGroup: "SC", ccAccounts: ["8501"], address: "6382 Castor Ave", city: "Philadelphia", state: "PA", sqft: 1326, yearBuilt: 1951 },
@@ -66,6 +90,7 @@ export const PROPERTY_DEFS: PropertyDef[] = [
   { id: "0800", name: "Interstate Business Park",    type: "Land", ein: "23-2403675", acres: 13,          ccAccounts: ["8501"], notes: "Bellmawr, NJ — quarterly Net Profits Tax" },
 
   // ── Land ──────────────────────────────────────────────────────────────────
+  { id: "0300", name: "Airport Interplex Two",   type: "Land" },
   { id: "2070", name: "Kosano Associates LP (Nockamixon)", type: "Land", acres: 20, notes: "Has K-1 investors", address: "Easton Rd", city: "Ottsville", state: "PA", zip: "18942" },
   { id: "0900", name: "Lincoln BLS",             type: "Land", ein: "N/A", acres: 2.09 },
 ];
@@ -80,9 +105,12 @@ export interface BankAccount {
 }
 
 export const BANK_ACCOUNTS: Record<string, BankAccount[]> = {
+  "0300": [
+    { bank: "M&T",     label: "Operating",               last4: "x6063", link: "https://treasurycenter.mtb.com/ui/BANK_ACC_INFO/depositPreviousDayAccountsTransactions" },
+  ],
   "2300": [
     { bank: "Chase",   label: "Operating",               last4: "x5615", link: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/745774880/DDA/CHK" },
-    { bank: "Liberty", label: "Operating",               last4: "x6888", link: "https://secure.myvirtualbranch.com/LibertyBank/React/Accounts.aspx?p_r=1#Accounts/4" },
+    { bank: "Liberty", label: "Money Market",            last4: "x6888", link: "https://secure.myvirtualbranch.com/LibertyBank/React/Accounts.aspx?p_r=1#Accounts/4" },
   ],
   "3610": [
     { bank: "Chase",   label: "JV III",                  last4: "x5631", link: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/745774882/DDA/CHK" },
@@ -93,14 +121,25 @@ export const BANK_ACCOUNTS: Record<string, BankAccount[]> = {
   "3640": [
     { bank: "Chase",   label: "JV III",                  last4: "x5631", link: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/745774882/DDA/CHK" },
   ],
+  "3610A": [
+    { bank: "Chase",   label: "JV III Condo",            last4: "x1993", link: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/913403676/DDA/CHK" },
+  ],
+  "4000": [
+    { bank: "Chase",   label: "NI LLC Operating",         last4: "x2190", link: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/747627665/DDA/CHK" },
+    { bank: "Liberty", label: "NI LLC Security Deposits",last4: "x7448", link: "https://secure.myvirtualbranch.com/LibertyBank/React/Accounts.aspx?p_r=1#Accounts/2" },
+  ],
   "7010": [
     { bank: "Chase",   label: "Operating",               last4: "x5656", link: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/745774883/DDA/CHK" },
-    { bank: "Liberty", label: "Operating",               last4: "x9436", link: "https://secure.myvirtualbranch.com/LibertyBank/React/Accounts.aspx?p_r=1#Accounts/5" },
+    { bank: "Liberty", label: "Money Market",            last4: "x9436", link: "https://secure.myvirtualbranch.com/LibertyBank/React/Accounts.aspx?p_r=1#Accounts/5" },
   ],
   "2010": [
     { bank: "Chase",   label: "2010 Operating",          last4: "x9629", link: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/747621599/DDA/CHK" },
-    { bank: "Chase",   label: "2000 Clearing",           last4: "x1622", link: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/747627664/DDA/CHK" },
+    { bank: "Chase",   label: "Future Properties",       last4: "x0613", link: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/1256081121/DDA/CHK" },
     { bank: "Liberty", label: "Money Market",            last4: "x8276", link: "https://secure.myvirtualbranch.com/LibertyBank/React/Accounts.aspx?p_r=1#AccountSummary" },
+    { bank: "Liberty", label: "Security Deposits — All but NI LLC", last4: "x7216", link: "https://secure.myvirtualbranch.com/LibertyBank/React/Accounts.aspx?p_r=1#Accounts/1" },
+  ],
+  "2000": [
+    { bank: "Chase",   label: "2000 Clearing",           last4: "x1622", link: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/747627664/DDA/CHK" },
   ],
   "4050": [
     { bank: "Chase",   label: "NI LLC",                  last4: "x2190", link: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/747627665/DDA/CHK" },
@@ -155,6 +194,9 @@ export const BANK_ACCOUNTS: Record<string, BankAccount[]> = {
   "9820": [
     { bank: "Chase",   label: "Operating",               last4: "x2296", link: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/1146382431/DDA/CHK" },
   ],
+  "9840": [
+    { bank: "Chase",   label: "Operating",               last4: "x9579", link: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/1151549188/DDA/CHK" },
+  ],
   "9860": [
     { bank: "Chase",   label: "Operating",               last4: "x8563", link: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/1195424660/DDA/CHK" },
   ],
@@ -162,10 +204,10 @@ export const BANK_ACCOUNTS: Record<string, BankAccount[]> = {
     { bank: "M&T",     label: "Operating",               last4: "x3777", link: "https://treasurycenter.mtb.com/ui/" },
   ],
   "1500": [
-    { bank: "M&T",     label: "Operating",               last4: "x4031", link: "https://treasurycenter.mtb.com/ui/" },
+    { bank: "Chase",   label: "Operating",               last4: "x5303", link: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/1275265466/DDA/CHK" },
   ],
   "9200": [
-    { bank: "M&T",     label: "Operating",               last4: "x4031", link: "https://treasurycenter.mtb.com/ui/" },
+    { bank: "Chase",   label: "Operating",               last4: "x5303", link: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/1275265466/DDA/CHK" },
   ],
   "2070": [
     { bank: "M&T",     label: "Operating",               last4: "x6119", link: "https://treasurycenter.mtb.com/ui/" },
@@ -182,34 +224,69 @@ export const BANK_ACCOUNTS: Record<string, BankAccount[]> = {
     { bank: "Liberty", label: "Operating",               last4: "x0598", link: "https://secure.myvirtualbranch.com/LibertyBank/React/Accounts.aspx?p_r=1#Accounts/6" },
     { bank: "Liberty", label: "Money Market",            last4: "x8086", link: "https://secure.myvirtualbranch.com/LibertyBank/React/Accounts.aspx?p_r=1#Accounts/7" },
   ],
+  "LK-TRUST": [
+    { bank: "Liberty", label: "Leonard Korman Trust",    last4: "x9245", link: "https://secure.myvirtualbranch.com/LibertyBank/React/Accounts.aspx?p_r=1#AccountSummary" },
+  ],
 };
 
-// ─── ALLOCATED INVOICER PERCENTAGES ──────────────────────────────────────────
-// Mirrors ALLOCATION_TABLE in app/allocated-invoicer/page.tsx.
-// Keys: property ID → { "9301": bp%, "9302": sc%, "9303": combined% }
+// ─── OVERHEAD ALLOCATION PERCENTAGES ─────────────────────────────────────────
+// SINGLE SOURCE OF TRUTH for the property overhead-allocation shares. Consumed
+// by the Allocated Expense Invoicer (app/allocated-invoicer), the Credit Card
+// Expense Coder (app/expenses), and the Property Detail page — do NOT re-key
+// these numbers anywhere else; import ALLOC_PCT instead.
+//   "9301" = business-park (BP) within-group share  (BP buildings sum to 1)
+//   "9302" = shopping-center (SC) within-group share (SC properties sum to 1)
+//   "9303" = combined all-property share            (all 20 sum to 1; ~75% SC /
+//            25% BP, then pro-rata within group). This is the applied basis for
+//            pooled overhead; 9301/9302 are the legacy per-group sub-splits.
 
 export const ALLOC_PCT: Record<string, { "9301": number; "9302": number; "9303": number }> = {
-  "3610": { "9301": 0.0779, "9302": 0.0000, "9303": 0.0514 },
-  "3620": { "9301": 0.0913, "9302": 0.0000, "9303": 0.0602 },
-  "3640": { "9301": 0.0909, "9302": 0.0000, "9303": 0.0600 },
-  "4050": { "9301": 0.1006, "9302": 0.0000, "9303": 0.0664 },
-  "4060": { "9301": 0.2009, "9302": 0.0000, "9303": 0.1326 },
-  "4070": { "9301": 0.1146, "9302": 0.0000, "9303": 0.0756 },
-  "4080": { "9301": 0.2380, "9302": 0.0000, "9303": 0.1571 },
-  "40A0": { "9301": 0.0281, "9302": 0.0000, "9303": 0.0185 },
-  "40B0": { "9301": 0.0242, "9302": 0.0000, "9303": 0.0159 },
-  "40C0": { "9301": 0.0335, "9302": 0.0000, "9303": 0.0221 },
-  "1100": { "9301": 0.0000, "9302": 0.0299, "9303": 0.0102 },
-  "1500": { "9301": 0.0000, "9302": 0.0082, "9303": 0.0028 },
-  "2300": { "9301": 0.0000, "9302": 0.2224, "9303": 0.0757 },
-  "4500": { "9301": 0.0000, "9302": 0.2993, "9303": 0.1018 },
-  "5600": { "9301": 0.0000, "9302": 0.0048, "9303": 0.0016 },
-  "7010": { "9301": 0.0000, "9302": 0.2645, "9303": 0.0900 },
-  "7200": { "9301": 0.0000, "9302": 0.0535, "9303": 0.0182 },
-  "7300": { "9301": 0.0000, "9302": 0.0813, "9303": 0.0276 },
-  "8200": { "9301": 0.0000, "9302": 0.0361, "9303": 0.0123 },
+  "3610": { "9301": 0.0779, "9302": 0.0000, "9303": 0.0195 },
+  "3620": { "9301": 0.0913, "9302": 0.0000, "9303": 0.0228 },
+  "3640": { "9301": 0.0909, "9302": 0.0000, "9303": 0.0227 },
+  "4050": { "9301": 0.1006, "9302": 0.0000, "9303": 0.0251 },
+  "4060": { "9301": 0.2009, "9302": 0.0000, "9303": 0.0502 },
+  "4070": { "9301": 0.1146, "9302": 0.0000, "9303": 0.0286 },
+  "4080": { "9301": 0.2380, "9302": 0.0000, "9303": 0.0595 },
+  "40A0": { "9301": 0.0281, "9302": 0.0000, "9303": 0.0070 },
+  "40B0": { "9301": 0.0242, "9302": 0.0000, "9303": 0.0060 },
+  "40C0": { "9301": 0.0335, "9302": 0.0000, "9303": 0.0084 },
+  "1100": { "9301": 0.0000, "9302": 0.0299, "9303": 0.0225 },
+  "1500": { "9301": 0.0000, "9302": 0.0082, "9303": 0.0062 },
+  "2300": { "9301": 0.0000, "9302": 0.2224, "9303": 0.1668 },
+  "4500": { "9301": 0.0000, "9302": 0.2993, "9303": 0.2244 },
+  "5600": { "9301": 0.0000, "9302": 0.0048, "9303": 0.0036 },
+  "7010": { "9301": 0.0000, "9302": 0.2645, "9303": 0.1984 },
+  "7200": { "9301": 0.0000, "9302": 0.0535, "9303": 0.0402 },
+  "7300": { "9301": 0.0000, "9302": 0.0813, "9303": 0.0610 },
+  "8200": { "9301": 0.0000, "9302": 0.0361, "9303": 0.0271 },
   "9510": { "9301": 0.0000, "9302": 0.0000, "9303": 0.0000 },
 };
+
+// ─── FUND-LEVEL SF ALLOCATION ────────────────────────────────────────────────
+// Each building's share of its FUND's total square footage, keyed by the fund's
+// portfolio code (PJV3 = JV III, PNIPLX = NI LLC). Lets the Credit Card Expense
+// Coder explode a fund-coded charge across that fund's own buildings pro-rata by
+// building SF — the "fund expense → its buildings" split — the same way the
+// synthetic "All BP" / "All SC" codes explode by ALLOC_PCT. Holding / condo
+// entities (entityKind set) and rows without a square footage are excluded, so
+// the members match FUND_BUILDINGS. Shares within each fund sum to 1.
+export const FUND_CODE: Record<string, string> = { "JV III": "PJV3", "NI LLC": "PNIPLX" };
+
+export const FUND_SF_ALLOC: Record<string, Record<string, number>> = (() => {
+  const members: Record<string, { id: string; sqft: number }[]> = {};
+  for (const p of PROPERTY_DEFS) {
+    const code = p.fundGroup ? FUND_CODE[p.fundGroup] : undefined;
+    if (!code || p.entityKind || !p.sqft) continue; // exclude holding/condo entities + no-SF rows
+    (members[code] ??= []).push({ id: p.id, sqft: p.sqft });
+  }
+  const out: Record<string, Record<string, number>> = {};
+  for (const [code, blds] of Object.entries(members)) {
+    const total = blds.reduce((a, b) => a + b.sqft, 0);
+    if (total > 0) out[code] = Object.fromEntries(blds.map((b) => [b.id, b.sqft / total]));
+  }
+  return out;
+})();
 
 // ─── FLOORPLANS ───────────────────────────────────────────────────────────────
 // Property IDs that have a floorplan image in /public/floorplans/{id}.jpg

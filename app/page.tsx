@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { money, num, pct as fmtPct } from "../lib/utils";
 import { buildPayrollExportXlsx, buildPayrollGLXlsx } from "../lib/payroll/export";
 import { buildAllocationTemplateXlsx } from "../lib/allocation/export";
+import { useUser } from "./components/UserProvider";
+import { LastImported } from "./components/LastImported";
 
 function toTitleCase(s: string): string {
   if (!s) return s;
@@ -141,12 +143,18 @@ export default function Page() {
   const [propAllocModal, setPropAllocModal] = useState<PropAllocModal | null>(null);
   const [invoicesOpen, setInvoicesOpen] = useState(true);
   const [showEmpAllocModal, setShowEmpAllocModal] = useState(false);
-  const [employeesOpen, setEmployeesOpen] = useState(true);
+  const [employeesOpen, setEmployeesOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [fileName, setFileName] = useState<string>("");
+  const [importedAt, setImportedAt] = useState<string | null>(null);
+  const [importedBy, setImportedBy] = useState<string | null>(null);
   const [empTab, setEmpTab] = useState<"breakdown" | "history">("breakdown");
   const [empHistory, setEmpHistory] = useState<EmpHistoryRow[] | null>(null);
   const [empHistoryLoading, setEmpHistoryLoading] = useState(false);
+  const [allocEmployees, setAllocEmployees] = useState<import("../lib/allocation/export").AllocExportEmployee[]>([]);
+  const { user } = useUser();
+  const canSeeEmployeeDetail = user.id === "admin";
+  const [hydrated, setHydrated] = useState(false);
 
   const totals = useMemo(() => {
     const t = { salaryREC: 0, salaryNR: 0, overtime: 0, holREC: 0, holNR: 0, er401k: 0, other: 0, taxesEr: 0, total: 0 };
@@ -237,14 +245,48 @@ export default function Page() {
 
   // Auto-load a period from ?load=id URL param (set by the History page)
   useEffect(() => {
+    fetch("/api/allocation").then((r) => r.json()).then((d) => {
+      if (d.employees) setAllocEmployees(d.employees);
+    }).catch(() => {});
+  }, []);
+
+  useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
     const id = params.get("load");
     if (id) {
       window.history.replaceState({}, "", "/");
       loadPeriod(id);
+      setHydrated(true);
+      return;
     }
+    try {
+      const raw = localStorage.getItem("kcp:lastPayroll");
+      if (raw) {
+        const d = JSON.parse(raw);
+        if (d?.payroll) {
+          setPayroll(d.payroll);
+          setInvoices(d.invoices ?? []);
+          setEmployees(d.employees ?? []);
+          setFileName(d.fileName ?? "");
+          setImportedAt(d.importedAt ?? null);
+          setImportedBy(d.importedBy ?? null);
+        }
+      }
+    } catch { /* ignore corrupt cache */ }
+    setHydrated(true);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!hydrated || typeof window === "undefined") return;
+    try {
+      if (payroll) {
+        localStorage.setItem("kcp:lastPayroll", JSON.stringify({ payroll, invoices, employees, fileName, importedAt, importedBy }));
+      } else {
+        localStorage.removeItem("kcp:lastPayroll");
+      }
+    } catch { /* quota or disabled storage — no-op */ }
+  }, [hydrated, payroll, invoices, employees, fileName, importedAt, importedBy]);
 
   async function savePeriod() {
     const name = payroll?.payDate ?? new Date().toLocaleDateString();
@@ -329,6 +371,8 @@ export default function Page() {
       setPayroll(j.payroll);
       setInvoices(j.invoices ?? []);
       setFileName(file.name);
+      setImportedAt(new Date().toISOString());
+      setImportedBy(user.label);
       // Sort by position in payroll register so the table matches the report order
       setEmployees((j.employees ?? []).slice().sort(
         (a: EmployeeSummary, b: EmployeeSummary) => (a.payrollIndex ?? 9999) - (b.payrollIndex ?? 9999)
@@ -407,12 +451,10 @@ export default function Page() {
   }
 
   function downloadAllocTemplate() {
-    const blob = buildAllocationTemplateXlsx(employees.map((e) => ({
-      name: e.name,
-      employeeNumber: e.employeeNumber,
-      recoverable: e.recoverable,
-      allocations: e.allocations,
-    })));
+    const source = employees.length
+      ? employees.map((e) => ({ name: e.name, employeeNumber: e.employeeNumber, recoverable: e.recoverable, allocations: e.allocations }))
+      : allocEmployees;
+    const blob = buildAllocationTemplateXlsx(source);
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url; a.download = "allocation-template.xlsx";
@@ -624,49 +666,54 @@ export default function Page() {
 
       <div className="card">
         <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-          <b>Import Payroll Register</b>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+              style={{ display: "none" }}
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) importPayroll(f); }}
+            />
+            <button
+              className="btn"
+              onClick={() => fileInputRef.current?.click()}
+              style={{ fontSize: 13, padding: "8px 16px", whiteSpace: "nowrap" }}
+            >
+              Choose Payroll File…
+            </button>
+            <button
+              className="btn"
+              style={{ borderRadius: 999, fontWeight: 700, fontSize: 13, padding: "8px 16px", whiteSpace: "nowrap" }}
+              onClick={() => {
+                if (fileInputRef.current) fileInputRef.current.value = "";
+                setPayroll(null);
+                setInvoices([]);
+                setEmployees([]);
+                setFileName("");
+              }}
+            >
+              Clear
+            </button>
+          </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             {invoices.length > 0 && (
-              <button className="btn large" disabled={saving} onClick={savePeriod}>
+              <button
+                className="btn"
+                disabled={saving}
+                onClick={savePeriod}
+                style={{ fontSize: 13, padding: "8px 16px", whiteSpace: "nowrap" }}
+              >
                 {saving ? "Saving…" : "Save Pay Period"}
               </button>
             )}
-            <span style={{ background: "rgba(22, 163, 74, 0.85)", color: "#fff", borderRadius: 999, padding: "12px 18px", fontSize: 15, fontWeight: 700, border: "1px solid transparent", display: "inline-flex", alignItems: "center" }}>Bi-Weekly</span>
+            <span style={{ background: "rgba(22, 163, 74, 0.85)", color: "#fff", borderRadius: 999, padding: "8px 16px", fontSize: 13, fontWeight: 700, border: "1px solid transparent", display: "inline-flex", alignItems: "center" }}>Bi-Weekly</span>
           </div>
         </div>
         <p className="muted small" style={{ marginTop: 8 }}>
           Import the <b>Payroll Register</b> Excel file (.xls or .xlsx). Allocation is fixed on the backend.
+          {fileName && <span style={{ marginLeft: 8 }}>· {fileName}</span>}
         </p>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 12 }}>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            style={{ display: "none" }}
-            onChange={(e) => { const f = e.target.files?.[0]; if (f) importPayroll(f); }}
-          />
-          <button className="btn large" onClick={() => fileInputRef.current?.click()} style={{ whiteSpace: "nowrap" }}>
-            Choose Payroll File…
-          </button>
-          {fileName && (
-            <span style={{ fontSize: 13, color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
-              {fileName}
-            </span>
-          )}
-          <button
-            className="btn"
-            style={{ borderRadius: 999, fontWeight: 700, whiteSpace: "nowrap" }}
-            onClick={() => {
-              if (fileInputRef.current) fileInputRef.current.value = "";
-              setPayroll(null);
-              setInvoices([]);
-              setEmployees([]);
-              setFileName("");
-            }}
-          >
-            Clear
-          </button>
-        </div>
+        <LastImported at={importedAt} by={importedBy} label="Register last imported" />
         {employees.length > 0 && (
           <div className="pills">
             {employeeTotals.salary   > 0 && <span className="pill" style={{ cursor: "pointer" }} title="Click to see employee breakdown" onClick={() => openPillDrill("Salary",      employeeTotals.salary,   "salaryAmt"  )}><b>{money(employeeTotals.salary)}</b><span className="muted small">Salary</span></span>}
@@ -681,7 +728,8 @@ export default function Page() {
         {payroll?.payDate && <div className="small muted" style={{ textAlign: "center", marginTop: 6 }}><b>Pay Date:</b> {payroll.payDate}</div>}
       </div>
 
-      {/* ── Employees card ── */}
+      {/* ── Employees card (admin only — sensitive per-employee detail) ── */}
+      {canSeeEmployeeDetail && (
       <div className="card">
         <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -771,6 +819,7 @@ export default function Page() {
           </div>
         )}
       </div>
+      )}
 
       {/* ── Allocation Preview card ── */}
       <div className="card">
@@ -868,7 +917,7 @@ export default function Page() {
                     {showInvTaxesEr   && <td style={{ textAlign: "right" }}>{money(totals.taxesEr + mktTotals.taxesEr)}</td>}
                     <td style={{ textAlign: "right" }}>{money(totals.total + mktTotals.total)}</td>
                   </tr>
-                  {allocationGaps.length > 0 && (
+                  {canSeeEmployeeDetail && allocationGaps.length > 0 && (
                     <tr>
                       <td colSpan={invColCount} className="muted" style={{ fontSize: "0.78em", paddingTop: "6px", fontWeight: 400 }}>
                         ** Employees total ({money(employeeTotals.total)}) exceeds this total by {money(employeeTotals.total - totals.total)} because the following employees are not 100% allocated:{" "}
@@ -896,7 +945,7 @@ export default function Page() {
           </>
         )}
         <div style={{ marginTop: 10 }}>
-          <button className="btn" onClick={downloadAllocTemplate} disabled={!employees.length}>Export Allocations</button>
+          <button className="btn" onClick={downloadAllocTemplate} disabled={!allocEmployees.length}>Export Allocations</button>
         </div>
       </div>
 
@@ -923,9 +972,11 @@ export default function Page() {
                 className="btn"
                 style={{ fontSize: 12, padding: "5px 10px" }}
                 onClick={() => downloadSinglePdf(r)}
+                title={r.invoiceNumber ? `Invoice ${r.invoiceNumber}` : undefined}
               >
                 {r.propertyCode || r.propertyKey} — {r.propertyLabel || r.propertyKey}{" "}
                 <span style={{ color: "var(--muted)", marginLeft: 4 }}>({money(r.total)})</span>
+                {r.invoiceNumber && <span style={{ color: "var(--muted)", marginLeft: 4, fontVariantNumeric: "tabular-nums" }}>· {r.invoiceNumber}</span>}
               </button>
             ))}
           </div>
