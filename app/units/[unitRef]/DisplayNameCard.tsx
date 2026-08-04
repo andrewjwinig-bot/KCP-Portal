@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { SectionLabel } from "@/app/properties/PropertyDetail";
 import { AutosaveStatus, useAutosave } from "@/app/components/useAutosave";
 import { normName } from "@/lib/centers/registry";
 
@@ -76,35 +75,24 @@ export default function DisplayNameCard({ code, occupantName }: { code: string; 
   if (!loaded) return null;
 
   return (
-    <div className="card">
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-        <SectionLabel>Public Display Name (DBA)</SectionLabel>
-        <AutosaveStatus saving={saving} savedFlash={savedFlash} />
-      </div>
-
-      {error && (
-        <div style={{
-          margin: "8px 0", padding: "8px 10px", borderRadius: 8,
-          background: "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.3)",
-          color: "#b91c1c", fontSize: 12, fontWeight: 600,
-        }}>{error}</div>
-      )}
-
-      <div style={{ fontSize: 12.5, color: "var(--muted)", margin: "4px 0 10px" }}>
-        How this tenant appears on the public leasing page. Leave blank to use the rent-roll name
-        {fallback ? <> (currently <b>{fallback}</b>)</> : <> (<b>{occupantName}</b>)</>}.
-      </div>
-
+    <div className="card" style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 18px", flexWrap: "wrap" }}>
+      <span style={{
+        fontSize: 11, fontWeight: 700, letterSpacing: "0.06em",
+        color: "var(--muted)", textTransform: "uppercase", whiteSpace: "nowrap",
+      }}>Public Name (DBA)</span>
       <input
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={fallback || occupantName}
+        title="Public leasing-page name. Blank uses the rent-roll name."
         style={{
-          border: "1px solid var(--border)", borderRadius: 8, padding: "9px 11px",
-          fontSize: 14, background: "var(--card)", color: "var(--text)", width: "100%",
-          maxWidth: 420, fontFamily: "inherit",
+          flex: "1 1 200px", maxWidth: 360,
+          border: "1px solid var(--border)", borderRadius: 8, padding: "7px 10px",
+          fontSize: 14, background: "var(--card)", color: "var(--text)", fontFamily: "inherit",
         }}
       />
+      <AutosaveStatus saving={saving} savedFlash={savedFlash} />
+      {error && <span style={{ color: "#b91c1c", fontSize: 12, fontWeight: 600 }}>{error}</span>}
     </div>
   );
 }
