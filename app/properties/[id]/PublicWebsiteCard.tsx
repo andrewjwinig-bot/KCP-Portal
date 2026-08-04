@@ -226,9 +226,13 @@ export default function PublicWebsiteCard({ code }: { code: string }) {
               setup and aren't edited here. */}
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <div style={LABEL}>Images</div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))", gap: 16 }}>
-              <ImageSlot label="Hero photo (3000×1500)" aspect="16 / 9" url={assets.hero} busy={busyKey === "hero"} pct={pct} error={uploadError?.key === "hero" ? uploadError.msg : undefined} onPick={onHero} onClear={() => clearAsset((a) => ({ ...a, hero: undefined }))} />
-              <ImageSlot label="Site plan" aspect="3 / 2" url={assets.sitePlan} busy={busyKey === "siteplan"} pct={pct} error={uploadError?.key === "siteplan" ? uploadError.msg : undefined} onPick={onPlan} onClear={() => clearAsset((a) => ({ ...a, sitePlan: undefined }))} />
+            {/* Hero is a modest edit slot (it also shows as the page banner);
+                the site plan gets a big, full-width preview shown in full. */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              <div style={{ maxWidth: 460 }}>
+                <ImageSlot label="Hero photo (3000×1500)" aspect="16 / 9" url={assets.hero} busy={busyKey === "hero"} pct={pct} error={uploadError?.key === "hero" ? uploadError.msg : undefined} onPick={onHero} onClear={() => clearAsset((a) => ({ ...a, hero: undefined }))} />
+              </div>
+              <ImageSlot label="Site plan" aspect="3 / 2" objectFit="contain" url={assets.sitePlan} busy={busyKey === "siteplan"} pct={pct} error={uploadError?.key === "siteplan" ? uploadError.msg : undefined} onPick={onPlan} onClear={() => clearAsset((a) => ({ ...a, sitePlan: undefined }))} />
             </div>
           </div>
 
@@ -301,8 +305,9 @@ export default function PublicWebsiteCard({ code }: { code: string }) {
   );
 }
 
-function ImageSlot({ label, url, busy, pct, error, aspect = "16 / 9", onPick, onClear }: {
+function ImageSlot({ label, url, busy, pct, error, aspect = "16 / 9", objectFit = "cover", onPick, onClear }: {
   label: string; url?: string; busy: boolean; pct: number; error?: string; aspect?: string;
+  objectFit?: "cover" | "contain";
   onPick: (f: File | null) => void; onClear: () => void;
 }) {
   const ref = useRef<HTMLInputElement>(null);
@@ -343,7 +348,7 @@ function ImageSlot({ label, url, busy, pct, error, aspect = "16 / 9", onPick, on
           cursor: busy ? "default" : "pointer", transition: "border-color .15s, background .15s",
         }}>
         {url && !busy && !error
-          ? <img src={centerImageSrc(url)} alt={label} style={{ width: "100%", height: "100%", objectFit: "cover", pointerEvents: "none" }} />
+          ? <img src={centerImageSrc(url)} alt={label} style={{ width: "100%", height: "100%", objectFit, pointerEvents: "none" }} />
           : !busy && (error
               ? <span style={{ fontSize: 11, color: RED, fontWeight: 600, textAlign: "center", padding: "0 10px" }}>{error} · click to retry</span>
               : <span style={{ fontSize: 11, color: "var(--muted)", textAlign: "center", padding: "0 10px" }}>

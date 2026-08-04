@@ -8,6 +8,7 @@ import { centerByCode } from "../../../lib/centers/registry";
 import { loadTaxChecked } from "../../tracker/tax-data";
 import { PropertyDetailBody, TypePill } from "../PropertyDetail";
 import PublicWebsiteCard from "./PublicWebsiteCard";
+import CenterHeroBanner from "./CenterHeroBanner";
 
 export default function PropertyDetailPage() {
   const params = useParams<{ id: string }>();
@@ -94,6 +95,8 @@ export default function PropertyDetailPage() {
           )}
         </div>
       </header>
+
+      {center && <CenterHeroBanner code={prop.id} fallbackHero={center.assets.hero} />}
 
       <PropertyDetailBody prop={prop} checked={checked} />
 
