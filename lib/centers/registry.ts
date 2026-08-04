@@ -313,6 +313,45 @@ const BROOKWOOD = scaffold(
     dunkindonuts: "Coffee & bakery",
     wawa: "Convenience & fuel",
   },
+  {
+    zip: "19020",
+    heroSub:
+      "Everyday retail on Bensalem's Street Road — a fitness-anchored center at one of Lower Bucks County's busiest crossroads.",
+    overview:
+      "Brookwood Shopping Center sits on Street Road (Route 132) in Bensalem, one of Lower Bucks County's highest-traffic retail corridors. Anchored by Planet Fitness and a deep mix of daily-need tenants — banking, dining, wireless, and health & beauty — it draws steady traffic from the surrounding residential neighborhoods and the commuter flow between I-95 and the Pennsylvania Turnpike.",
+    parking: "Ample surface parking",
+    parkingShort: "On-site",
+    extraFacts: [
+      { k: "Corridor", v: "Street Road (Rte 132)" },
+      { k: "County", v: "Bucks" },
+    ],
+    location: {
+      heading: "At the Street Road crossroads.",
+      blurb:
+        "On Route 132 in Bensalem, minutes from I-95, the Pennsylvania Turnpike and the Neshaminy retail corridor.",
+      access: [
+        { k: "Street Road (Rte 132)", v: "Frontage" },
+        { k: "I-95", v: "Minutes" },
+        { k: "PA Turnpike", v: "Minutes" },
+      ],
+    },
+    neighborhood: [
+      { img: "Street Road retail corridor", title: "Street Road traffic", body: "Route 132 is Bensalem's main retail spine, carrying steady commuter and shopper traffic past the center all day." },
+      { img: "I-95 / PA Turnpike interchange", title: "Between two highways", body: "The center sits within minutes of both I-95 and the Pennsylvania Turnpike, pulling from a wide Lower Bucks trade area." },
+      { img: "Bensalem neighborhood rooftops", title: "Dense rooftops around it", body: "Established Bensalem neighborhoods and apartment communities feed a reliable daily-needs customer base." },
+    ],
+    availableBlurb: "Inline and pad opportunities. Landlord will discuss TI for the right use.",
+    seo: {
+      title: "Brookwood Shopping Center | Retail Space for Lease, Bensalem PA",
+      description:
+        "Brookwood Shopping Center, 1847 Street Road, Bensalem PA. Fitness-anchored neighborhood retail on Route 132 with banking, dining and daily-need tenants. Retail space for lease from Korman Commercial Properties.",
+      keywords:
+        "retail space for lease Bensalem, Brookwood Shopping Center, Street Road retail, shopping center Bucks County, Korman Commercial Properties",
+      ogTitle: "Brookwood Shopping Center — Retail Space for Lease",
+      ogDescription:
+        "Fitness-anchored neighborhood retail on Bensalem's Street Road, minutes from I-95 and the PA Turnpike.",
+    },
+  },
 );
 
 const LAFAYETTE_HILL = scaffold(
@@ -321,6 +360,45 @@ const LAFAYETTE_HILL = scaffold(
   ["Shops at", "Lafayette Hill"],
   "Wawa",
   { wawa: "Convenience & fuel" },
+  {
+    zip: "19444",
+    heroSub:
+      "A convenience-anchored strip on Germantown Pike, serving one of Montgomery County's most established communities.",
+    overview:
+      "The Shops at Lafayette Hill line Germantown Pike in Whitemarsh Township, an established, affluent Montgomery County community northwest of the city. Anchored by Wawa, the center pairs everyday convenience with easy access to Plymouth Meeting, Chestnut Hill and the Blue Route (I-476).",
+    parking: "Surface parking at the door",
+    parkingShort: "On-site",
+    extraFacts: [
+      { k: "Corridor", v: "Germantown Pike" },
+      { k: "Township", v: "Whitemarsh" },
+    ],
+    location: {
+      heading: "On the Pike in Lafayette Hill.",
+      blurb:
+        "Germantown Pike frontage in Whitemarsh Township, minutes from Plymouth Meeting, Chestnut Hill and I-476.",
+      access: [
+        { k: "Germantown Pike", v: "Frontage" },
+        { k: "I-476 (Blue Route)", v: "Minutes" },
+        { k: "Plymouth Meeting", v: "Minutes" },
+      ],
+    },
+    neighborhood: [
+      { img: "Germantown Pike streetscape", title: "Germantown Pike", body: "The Pike is Lafayette Hill's main street, carrying daily local traffic past the shops." },
+      { img: "Whitemarsh / Lafayette Hill homes", title: "Established, affluent trade area", body: "Whitemarsh Township's stable rooftops and strong household incomes support steady neighborhood spending." },
+      { img: "Blue Route regional access", title: "Minutes to the Blue Route", body: "Quick access to I-476 and Plymouth Meeting keeps the center connected to the wider Montgomery County market." },
+    ],
+    availableBlurb: "Compact inline suites for neighborhood-serving uses. Contact the leasing team for current availability.",
+    seo: {
+      title: "Shops at Lafayette Hill | Retail Space for Lease, Lafayette Hill PA",
+      description:
+        "The Shops at Lafayette Hill, 400-428 Germantown Pike, Lafayette Hill PA. Wawa-anchored convenience retail in Whitemarsh Township, Montgomery County. Retail space for lease from Korman Commercial Properties.",
+      keywords:
+        "retail space for lease Lafayette Hill, Shops at Lafayette Hill, Germantown Pike retail, Montgomery County shopping center, Korman Commercial Properties",
+      ogTitle: "Shops at Lafayette Hill — Retail Space for Lease",
+      ogDescription:
+        "Convenience retail on Germantown Pike in Whitemarsh Township, minutes from Plymouth Meeting and I-476.",
+    },
+  },
 );
 
 const PARKWOOD = scaffold(
@@ -329,6 +407,46 @@ const PARKWOOD = scaffold(
   ["Parkwood", "Shopping Center"],
   "",
   {},
+  {
+    zip: "19154",
+    heroSub:
+      "Neighborhood shopping and office space on Academy Road, at the heart of Far Northeast Philadelphia's Parkwood community.",
+    overview:
+      "Parkwood Shopping/Office Center anchors Academy Road in Far Northeast Philadelphia, combining neighborhood retail with second-floor office space. Surrounded by the dense residential streets of Parkwood and minutes from Woodhaven Road, I-95 and the Philadelphia Mills corridor, it serves as a daily-needs hub for one of the Northeast's most stable communities.",
+    parking: "Ample surface parking",
+    parkingShort: "On-site",
+    extraFacts: [
+      { k: "Corridor", v: "Academy Road" },
+      { k: "Area", v: "Far Northeast Philadelphia" },
+      { k: "Uses", v: "Retail + office" },
+    ],
+    location: {
+      heading: "The center of Parkwood.",
+      blurb:
+        "On Academy Road in Far Northeast Philadelphia, minutes from Woodhaven Road (Rte 63), I-95 and Philadelphia Mills.",
+      access: [
+        { k: "Academy Road", v: "Frontage" },
+        { k: "Woodhaven Road (Rte 63)", v: "Minutes" },
+        { k: "I-95", v: "Minutes" },
+      ],
+    },
+    neighborhood: [
+      { img: "Academy Road corridor", title: "On Academy Road", body: "Academy Road is Parkwood's main artery, carrying steady local traffic to the center." },
+      { img: "Parkwood rowhomes", title: "Dense residential base", body: "The Parkwood neighborhood's established rowhome blocks put a large daily-needs population at the door." },
+      { img: "Woodhaven Road / I-95 access", title: "Northeast highway access", body: "Woodhaven Road and I-95 connect the center to the wider Far Northeast and Lower Bucks trade area." },
+    ],
+    availableBlurb: "Retail inline space and second-floor office suites. Landlord will discuss TI for the right use.",
+    seo: {
+      title: "Parkwood Shopping/Office Center | Retail & Office for Lease, Philadelphia PA",
+      description:
+        "Parkwood Shopping/Office Center, 12301-12377 Academy Road, Philadelphia PA. Neighborhood retail and office space in Far Northeast Philadelphia, minutes from I-95 and Philadelphia Mills. Space for lease from Korman Commercial Properties.",
+      keywords:
+        "retail space for lease Northeast Philadelphia, Parkwood Shopping Center, Academy Road retail, office space Far Northeast, Korman Commercial Properties",
+      ogTitle: "Parkwood Shopping/Office Center — Retail & Office for Lease",
+      ogDescription:
+        "Neighborhood retail and office on Academy Road in Far Northeast Philadelphia, minutes from Woodhaven Road and I-95.",
+    },
+  },
 );
 
 const PARKWOOD_PRO = scaffold(
@@ -337,6 +455,46 @@ const PARKWOOD_PRO = scaffold(
   ["Parkwood", "Professional Building"],
   "",
   {},
+  {
+    zip: "19154",
+    heroSub:
+      "Professional and medical office suites on Academy Road, across from Parkwood Shopping Center in Far Northeast Philadelphia.",
+    overview:
+      "The Parkwood Professional Building offers professional and medical office space on Academy Road in Far Northeast Philadelphia, directly across from Parkwood Shopping Center. Its established location, surrounding rooftops and easy Woodhaven Road / I-95 access make it a practical home for neighborhood-serving practices and service businesses.",
+    parking: "Surface parking at the door",
+    parkingShort: "On-site",
+    extraFacts: [
+      { k: "Corridor", v: "Academy Road" },
+      { k: "Use", v: "Professional / medical office" },
+      { k: "Area", v: "Far Northeast Philadelphia" },
+    ],
+    location: {
+      heading: "Professional space in Parkwood.",
+      blurb:
+        "Academy Road frontage across from Parkwood Shopping Center, minutes from Woodhaven Road (Rte 63) and I-95.",
+      access: [
+        { k: "Academy Road", v: "Frontage" },
+        { k: "Woodhaven Road (Rte 63)", v: "Minutes" },
+        { k: "I-95", v: "Minutes" },
+      ],
+    },
+    neighborhood: [
+      { img: "Academy Road / Parkwood", title: "Across from Parkwood Center", body: "Sits directly opposite Parkwood Shopping Center, sharing the neighborhood's daily traffic." },
+      { img: "Professional / medical office suite", title: "Built for practices", body: "Suited to medical, professional and service tenants serving the Far Northeast." },
+      { img: "Northeast highway access", title: "Easy Northeast access", body: "Minutes from Woodhaven Road and I-95, convenient for staff and patients across the Northeast." },
+    ],
+    availableBlurb: "Professional and medical office suites. Contact the leasing team for current availability.",
+    seo: {
+      title: "Parkwood Professional Building | Office Space for Lease, Philadelphia PA",
+      description:
+        "Parkwood Professional Building, 12300-12310 Academy Road, Philadelphia PA. Professional and medical office suites in Far Northeast Philadelphia, across from Parkwood Shopping Center. Office space for lease from Korman Commercial Properties.",
+      keywords:
+        "office space for lease Northeast Philadelphia, Parkwood Professional Building, medical office Academy Road, professional office Far Northeast, Korman Commercial Properties",
+      ogTitle: "Parkwood Professional Building — Office Space for Lease",
+      ogDescription:
+        "Professional and medical office suites on Academy Road in Far Northeast Philadelphia, across from Parkwood Shopping Center.",
+    },
+  },
 );
 
 export const CENTER_PROFILES: CenterProfile[] = [
