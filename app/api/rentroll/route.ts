@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { parseRentRollExcel, stripStoreNumber } from "@/lib/rentroll/parseRentRollExcel";
 import { snapshotMonthKey } from "@/lib/rentroll/snapshot";
+import { composeCurrentRoll } from "@/lib/rentroll/current";
 import { storeJSON, getJSON, listJSON } from "@/lib/storage";
 import { recordImport } from "@/lib/tracker/importEvents";
 
@@ -30,32 +31,37 @@ function normalizeOccupantNames(data: any): any {
 }
 
 /**
- * Resolve the current rent roll as the snapshot with the LATEST report
- * month across all history, not whatever happened to be uploaded last.
- * If the stored "current" pointer has drifted off the latest month (e.g.
- * an older roll was imported under the pre-fix behavior), repair it here
- * so the direct readers of rentroll/current — budgets, status report,
- * tenant lookups — also see the latest month.
+ * Resolve the current rent roll as a PER-PROPERTY UNION across all history
+ * (each property from the latest snapshot that contains it — see
+ * composeCurrentRoll). This means importing a roll that omits some properties
+ * (e.g. an office-only import) carries the excluded properties (retail)
+ * forward instead of erasing them. For a full import it's identical to "the
+ * latest snapshot". The composed roll is written back to the "current" pointer
+ * so direct readers (budgets, status report, tenant lookups) see the same
+ * union.
  */
+// Cheap identity of a roll for self-heal comparison: report month + the set of
+// property codes + total unit count. Enough to catch a drifted pointer or a
+// property carried back in by the union, without deep-comparing the whole roll.
+function rollSig(r: any): string {
+  if (!r?.properties) return "none";
+  const codes = (r.properties as any[]).map((p) => String(p.propertyCode ?? "").toUpperCase()).sort();
+  const units = (r.properties as any[]).reduce((n, p) => n + (p.units?.length ?? 0), 0);
+  return `${snapshotMonthKey(r)}|${codes.join(",")}|${units}`;
+}
+
 async function resolveCurrentRentroll(): Promise<any | null> {
   const snapshots = (await listJSON(HISTORY_PREFIX)) as any[];
-  if (!snapshots.length) {
+  const composed = composeCurrentRoll(snapshots);
+  if (!composed) {
     return await getJSON(RENTROLL_PREFIX, RENTROLL_ID);
   }
-  let latest = snapshots[0];
-  let latestMonth = snapshotMonthKey(latest);
-  for (const snap of snapshots) {
-    const m = snapshotMonthKey(snap);
-    if (m.localeCompare(latestMonth) > 0) {
-      latest = snap;
-      latestMonth = m;
-    }
-  }
+  const current = { ...composed, id: RENTROLL_ID };
   const stored = await getJSON(RENTROLL_PREFIX, RENTROLL_ID);
-  if (!stored || snapshotMonthKey(stored) !== latestMonth) {
-    await storeJSON(RENTROLL_PREFIX, RENTROLL_ID, { ...latest, id: RENTROLL_ID });
+  if (!stored || rollSig(stored) !== rollSig(current)) {
+    await storeJSON(RENTROLL_PREFIX, RENTROLL_ID, current);
   }
-  return latest;
+  return current;
 }
 
 /**
@@ -107,19 +113,19 @@ export async function POST(req: NextRequest) {
     const importedMonth = snapshotMonthKey(imported);
     await storeJSON(HISTORY_PREFIX, importedMonth, imported);
 
-    // "Current" = the latest month across every snapshot, so backfilling an
-    // older roll never dethrones a newer current.
+    // "Current" = a per-property union across every snapshot (each property
+    // from the latest snapshot that has it). Backfilling an older roll never
+    // dethrones a newer current, AND a partial import (e.g. office-only) never
+    // erases the properties it omitted — they carry forward from the last
+    // snapshot that had them. See composeCurrentRoll.
     const all = (await listJSON(HISTORY_PREFIX)) as any[];
-    let latest = imported;
     let latestMonth = importedMonth;
     for (const snap of all) {
       const m = snapshotMonthKey(snap);
-      if (m.localeCompare(latestMonth) > 0) {
-        latest = snap;
-        latestMonth = m;
-      }
+      if (m.localeCompare(latestMonth) > 0) latestMonth = m;
     }
-    const current = { ...latest, id: RENTROLL_ID };
+    const composed = composeCurrentRoll(all) ?? imported;
+    const current = { ...composed, id: RENTROLL_ID };
     await storeJSON(RENTROLL_PREFIX, RENTROLL_ID, current);
 
     const becameCurrent = latestMonth === importedMonth;
@@ -143,11 +149,20 @@ export async function POST(req: NextRequest) {
     const changes: { newTenants: ChangeRow[]; vacated: ChangeRow[] } = { newTenants: [], vacated: [] };
     try {
       const norm = (s: string) => (s ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
-      const occ = (r: any) => {
+      // Restrict the diff to the properties actually in THIS import. A partial
+      // import (e.g. office-only) must not report the omitted properties'
+      // tenants (retail) as "vacated" just because they aren't in the file.
+      const importedCodes = new Set(
+        (imported.properties ?? []).map((p) => String(p.propertyCode ?? "").toUpperCase()),
+      );
+      const occ = (r: any, scoped = false) => {
         const map = new Map<string, any>();
-        for (const p of r.properties ?? []) for (const u of p.units ?? []) {
-          if (u.isVacant || u.amenity || !u.occupantName) continue;
-          map.set(u.unitRef, { ...u, propertyCode: p.propertyCode });
+        for (const p of r.properties ?? []) {
+          if (scoped && !importedCodes.has(String(p.propertyCode ?? "").toUpperCase())) continue;
+          for (const u of p.units ?? []) {
+            if (u.isVacant || u.amenity || !u.occupantName) continue;
+            map.set(u.unitRef, { ...u, propertyCode: p.propertyCode });
+          }
         }
         return map;
       };
@@ -168,7 +183,7 @@ export async function POST(req: NextRequest) {
       let priorMonth = "";
       let was = new Map<string, any>();
       for (const cand of priorCandidates) {
-        const m = occ(cand.snap);
+        const m = occ(cand.snap, true); // scoped to this import's properties
         if (m.size > 0) { was = m; priorMonth = cand.month; break; }
       }
 
