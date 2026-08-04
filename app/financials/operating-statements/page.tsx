@@ -1866,7 +1866,7 @@ function ImportInstructionsModal({ onClose, year, nextPeriod }: { onClose: () =>
               return <>Select <b>Beginning Date</b> (<b>{fmtMDY(start)}</b>) and <b>End Date</b> (<b>{fmtMDY(end)}</b>) — just <b>{label}</b>, the next month to import.</>;
             })()}</li>
             <li>From the Detailed General Ledger report, select <b>Export</b> in the upper left.</li>
-            <li>Select <b>Microsoft Excel (97-2003) (.xls)</b> — the selection from the top.</li>
+            <li>Select <b>Microsoft Excel (97-2003) (.xls)</b> — the third selection from the top.</li>
             <li>Hit <b>Save</b> and save to <b>Data\Accounting\{year} Year End\Reports to Eisner\Monthly GLs</b>. File name is not important.</li>
           </ol>
         </div>

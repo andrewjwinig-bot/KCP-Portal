@@ -3,6 +3,7 @@
 import type React from "react";
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { centerImageSrc, normName } from "../../../lib/centers/registry";
+import { AutosaveStatus, useAutosave } from "../../components/useAutosave";
 
 // Admin "Public Website" card, shown on the property detail page for the five
 // shopping centers. Manages the things the rent roll does NOT carry: photos +
@@ -55,8 +56,7 @@ export default function PublicWebsiteCard({ code }: { code: string }) {
   // photos/availabilities never wipes the display-name overrides.
   const [dba, setDba] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [status, setStatus] = useState<{ ok: boolean; msg: string } | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [pct, setPct] = useState(0);
   const [uploadError, setUploadError] = useState<{ key: string; msg: string } | null>(null);
@@ -105,7 +105,7 @@ export default function PublicWebsiteCard({ code }: { code: string }) {
           }
         }
       } catch {
-        if (alive) setStatus({ ok: false, msg: "Couldn't load the website config." });
+        if (alive) setLoadError("Couldn't load the website config.");
       } finally {
         if (alive) setLoading(false);
       }
@@ -116,7 +116,6 @@ export default function PublicWebsiteCard({ code }: { code: string }) {
   const doUpload = useCallback(async (file: File, key: string): Promise<string | null> => {
     setBusyKey(key);
     setPct(0);
-    setStatus(null);
     setUploadError(null);
     try {
       // The Blob store is private, so images are uploaded server-side (put with
@@ -135,7 +134,6 @@ export default function PublicWebsiteCard({ code }: { code: string }) {
       return typeof json?.url === "string" ? json.url : null;
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Upload failed.";
-      setStatus({ ok: false, msg: `Upload failed: ${msg}` });
       setUploadError({ key, msg });
       return null;
     } finally {
@@ -164,44 +162,40 @@ export default function PublicWebsiteCard({ code }: { code: string }) {
     if (!res.ok || !json.ok) throw new Error(json.error || "Save failed");
   }, [code, hasRoll]);
 
+  // Everything on this card autosaves on edit — photos persist as soon as the
+  // upload finishes; text edits (availability descriptions, fallback spaces)
+  // are debounced. No manual Save button.
+  const { saving, savedFlash, error: saveError, schedule } = useAutosave<number>({
+    save: async () => { await putOverride({}); },
+  });
+  const tick = useRef(0);
+  const bump = () => schedule(++tick.current);
+
   const uploadInto = async (f: File | null, key: string, apply: (a: Assets, url: string) => Assets) => {
     if (!f) return;
     const url = await doUpload(f, key);
     if (!url) return;
     const next = apply(latest.current.assets, url);
     setAssets(next);
-    try { await putOverride({ assets: next }); setStatus({ ok: true, msg: "Image uploaded & saved." }); }
-    catch (e) { setStatus({ ok: false, msg: e instanceof Error ? `Uploaded, but saving failed: ${e.message}` : "Uploaded, but saving failed." }); }
+    bump();
   };
   const onHero = (f: File | null) => uploadInto(f, "hero", (a, url) => ({ ...a, hero: url }));
   const onPlan = (f: File | null) => uploadInto(f, "siteplan", (a, url) => ({ ...a, sitePlan: url }));
 
-  const clearAsset = async (apply: (a: Assets) => Assets) => {
-    const next = apply(latest.current.assets);
-    setAssets(next);
-    try { await putOverride({ assets: next }); } catch { /* surfaced on next save */ }
+  const clearAsset = (apply: (a: Assets) => Assets) => {
+    setAssets(apply(latest.current.assets));
+    bump();
   };
 
   // Fallback manual-space editor (only when there is no live rent roll).
-  const setSpace = (i: number, patch: Partial<Space>) => setSpaces((s) => s.map((row, idx) => (idx === i ? { ...row, ...patch } : row)));
-  const addSpace = () => setSpaces((s) => [...s, { suite: "", sf: 0, kind: "Inline retail", frontage: "", notes: "" }]);
-  const removeSpace = (i: number) => setSpaces((s) => s.filter((_, idx) => idx !== i));
+  const setSpace = (i: number, patch: Partial<Space>) => { setSpaces((s) => s.map((row, idx) => (idx === i ? { ...row, ...patch } : row))); bump(); };
+  const addSpace = () => { setSpaces((s) => [...s, { suite: "", sf: 0, kind: "Inline retail", frontage: "", notes: "" }]); bump(); };
+  const removeSpace = (i: number) => { setSpaces((s) => s.filter((_, idx) => idx !== i)); bump(); };
 
   const descFor = (suite: string): Desc => availDesc[normName(suite)] ?? EMPTY_DESC;
-  const setDescFor = (suite: string, patch: Partial<Desc>) =>
+  const setDescFor = (suite: string, patch: Partial<Desc>) => {
     setAvailDesc((m) => ({ ...m, [normName(suite)]: { ...descFor(suite), ...patch } }));
-
-  const save = async () => {
-    setSaving(true);
-    setStatus(null);
-    try {
-      await putOverride({});
-      setStatus({ ok: true, msg: "Saved — the public page will refresh momentarily." });
-    } catch (e) {
-      setStatus({ ok: false, msg: e instanceof Error ? e.message : "Save failed." });
-    } finally {
-      setSaving(false);
-    }
+    bump();
   };
 
   const publicHref = slug ? `/centers/${slug}` : "#";
@@ -216,10 +210,16 @@ export default function PublicWebsiteCard({ code }: { code: string }) {
             Photos, site plan &amp; availabilities for the public leasing page. Tenants &amp; vacancies sync from the rent roll.
           </div>
         </div>
-        <a href={publicHref} target="_blank" rel="noreferrer" className="btn primary" style={{ textDecoration: "none" }}>
-          View public page ↗
-        </a>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <AutosaveStatus saving={saving} savedFlash={savedFlash} />
+          <a href={publicHref} target="_blank" rel="noreferrer" className="btn primary" style={{ textDecoration: "none" }}>
+            View public page ↗
+          </a>
+        </div>
       </div>
+      {(saveError || loadError) && (
+        <div style={{ fontSize: 13, fontWeight: 600, color: RED }}>{saveError || loadError}</div>
+      )}
 
       {loading ? (
         <div style={{ color: "var(--muted)", fontSize: 14 }}>Loading…</div>
@@ -293,14 +293,7 @@ export default function PublicWebsiteCard({ code }: { code: string }) {
           </div>
 
           <div style={{ fontSize: 12, color: "var(--muted)" }}>
-            Tenant display names (DBA) are edited per tenant on each unit’s info page.
-          </div>
-
-          <div style={{ display: "flex", alignItems: "center", gap: 14, borderTop: "1px solid var(--border)", paddingTop: 14 }}>
-            <button type="button" className="btn primary" onClick={save} disabled={saving} style={{ opacity: saving ? 0.6 : 1 }}>
-              {saving ? "Saving…" : "Save website"}
-            </button>
-            {status && <div style={{ fontSize: 13, fontWeight: 600, color: status.ok ? BRAND : RED }}>{status.msg}</div>}
+            Tenant display names (DBA) are edited per tenant on each unit’s info page. Changes here save automatically.
           </div>
         </>
       )}
