@@ -150,9 +150,16 @@ export async function getCenterData(profile: CenterProfile): Promise<CenterData>
     specs.push({ k: "Available", v: `${fmt(availTotal)} SF across ${vacancies.length} space${vacancies.length === 1 ? "" : "s"}` });
   }
 
+  // Anchor(s) auto-sync from the rent roll: any occupied tenant ≥ 10,000 SF
+  // (display/DBA name). If none qualify, the Anchor fact is hidden entirely.
+  const ANCHOR_MIN_SF = 10000;
+  const anchorNames = tenants.filter((t) => t.sf >= ANCHOR_MIN_SF).map((t) => t.name);
+
   const facts: Kv[] = [
     { k: "Gross leasable area", v: `${fmt(gla)} SF` },
-    { k: "Anchor", v: profile.anchorName || tenants[0]?.name || "—" },
+    ...(anchorNames.length
+      ? [{ k: anchorNames.length > 1 ? "Anchors" : "Anchor", v: anchorNames.join(", ") }]
+      : []),
     { k: "Occupancy", v: `${occupancyPct}%` },
     { k: "Surface parking", v: profile.parkingShort },
     ...profile.extraFacts,
