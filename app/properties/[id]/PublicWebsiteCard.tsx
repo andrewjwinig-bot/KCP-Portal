@@ -18,11 +18,6 @@ type Space = { suite: string; sf: number; kind: string; frontage: string; notes:
 type Assets = { hero?: string; sitePlan?: string; neighborhood?: string[] };
 type Desc = { kind: string; frontage: string; notes: string };
 type Vacant = { suite: string; sf: number };
-type Defaults = {
-  availabilities: Space[];
-  displayNames: Record<string, string>;
-  neighborhood: { title: string; img: string }[];
-};
 
 const BRAND = "#0b4a7d";
 const RED = "#b91c1c";
@@ -59,7 +54,6 @@ export default function PublicWebsiteCard({ code }: { code: string }) {
   // Name card) — but we still load and preserve it so saving this card's
   // photos/availabilities never wipes the display-name overrides.
   const [dba, setDba] = useState<Record<string, string>>({});
-  const [defaults, setDefaults] = useState<Defaults | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<{ ok: boolean; msg: string } | null>(null);
@@ -84,7 +78,6 @@ export default function PublicWebsiteCard({ code }: { code: string }) {
         const cfg = await cfgRes.json();
         if (!alive) return;
         setSlug(cfg.slug);
-        setDefaults(cfg.defaults);
         setAssets(cfg.override?.assets ?? {});
         initialAvail.current = cfg.override?.availabilities ?? [];
         setSpaces(
@@ -179,9 +172,6 @@ export default function PublicWebsiteCard({ code }: { code: string }) {
   };
   const onHero = (f: File | null) => uploadInto(f, "hero", (a, url) => ({ ...a, hero: url }));
   const onPlan = (f: File | null) => uploadInto(f, "siteplan", (a, url) => ({ ...a, sitePlan: url }));
-  const onHood = (f: File | null, i: number) => uploadInto(f, `hood${i}`, (a, url) => {
-    const arr = [...(a.neighborhood ?? [])]; arr[i] = url; return { ...a, neighborhood: arr };
-  });
 
   const clearAsset = async (apply: (a: Assets) => Assets) => {
     const next = apply(latest.current.assets);
@@ -212,7 +202,6 @@ export default function PublicWebsiteCard({ code }: { code: string }) {
   };
 
   const publicHref = slug ? `/centers/${slug}` : "#";
-  const hoodCount = defaults?.neighborhood.length ?? 0;
   const availSf = vacants.reduce((s, v) => s + v.sf, 0);
 
   return (
@@ -233,24 +222,13 @@ export default function PublicWebsiteCard({ code }: { code: string }) {
         <div style={{ color: "var(--muted)", fontSize: 14 }}>Loading…</div>
       ) : (
         <>
-          {/* IMAGES */}
+          {/* IMAGES — hero + site plan only. Neighborhood photos are a one-time
+              setup and aren't edited here. */}
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <div style={LABEL}>Images</div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 12 }}>
-              <ImageSlot label="Hero photo (3000×1500)" url={assets.hero} busy={busyKey === "hero"} pct={pct} error={uploadError?.key === "hero" ? uploadError.msg : undefined} onPick={onHero} onClear={() => clearAsset((a) => ({ ...a, hero: undefined }))} />
-              <ImageSlot label="Site plan" url={assets.sitePlan} busy={busyKey === "siteplan"} pct={pct} error={uploadError?.key === "siteplan" ? uploadError.msg : undefined} onPick={onPlan} onClear={() => clearAsset((a) => ({ ...a, sitePlan: undefined }))} />
-              {Array.from({ length: hoodCount }).map((_, i) => (
-                <ImageSlot
-                  key={i}
-                  label={`Neighborhood: ${defaults?.neighborhood[i]?.title ?? `photo ${i + 1}`}`}
-                  url={assets.neighborhood?.[i]}
-                  busy={busyKey === `hood${i}`}
-                  pct={pct}
-                  error={uploadError?.key === `hood${i}` ? uploadError.msg : undefined}
-                  onPick={(f) => onHood(f, i)}
-                  onClear={() => clearAsset((a) => { const arr = [...(a.neighborhood ?? [])]; arr[i] = ""; return { ...a, neighborhood: arr }; })}
-                />
-              ))}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))", gap: 16 }}>
+              <ImageSlot label="Hero photo (3000×1500)" aspect="16 / 9" url={assets.hero} busy={busyKey === "hero"} pct={pct} error={uploadError?.key === "hero" ? uploadError.msg : undefined} onPick={onHero} onClear={() => clearAsset((a) => ({ ...a, hero: undefined }))} />
+              <ImageSlot label="Site plan" aspect="3 / 2" url={assets.sitePlan} busy={busyKey === "siteplan"} pct={pct} error={uploadError?.key === "siteplan" ? uploadError.msg : undefined} onPick={onPlan} onClear={() => clearAsset((a) => ({ ...a, sitePlan: undefined }))} />
             </div>
           </div>
 
@@ -323,8 +301,8 @@ export default function PublicWebsiteCard({ code }: { code: string }) {
   );
 }
 
-function ImageSlot({ label, url, busy, pct, error, onPick, onClear }: {
-  label: string; url?: string; busy: boolean; pct: number; error?: string;
+function ImageSlot({ label, url, busy, pct, error, aspect = "16 / 9", onPick, onClear }: {
+  label: string; url?: string; busy: boolean; pct: number; error?: string; aspect?: string;
   onPick: (f: File | null) => void; onClear: () => void;
 }) {
   const ref = useRef<HTMLInputElement>(null);
@@ -358,7 +336,7 @@ function ImageSlot({ label, url, busy, pct, error, onPick, onClear }: {
         onDragLeave={(e) => { e.preventDefault(); setDragOver(false); }}
         onDrop={onDrop}
         style={{
-          position: "relative", aspectRatio: "16 / 9", borderRadius: 10, overflow: "hidden",
+          position: "relative", aspectRatio: aspect, borderRadius: 10, overflow: "hidden",
           border: `2px dashed ${dragOver ? BRAND : error ? "rgba(185,28,28,0.5)" : "var(--border)"}`,
           background: dragOver ? "rgba(11,74,125,0.07)" : error ? "rgba(185,28,28,0.05)" : "rgba(15,23,42,0.02)",
           display: "flex", alignItems: "center", justifyContent: "center",
