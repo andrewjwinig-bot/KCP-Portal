@@ -5,18 +5,15 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties } from "re
 import { centerImageSrc, normName } from "../../../lib/centers/registry";
 import { AutosaveStatus, useAutosave } from "../../components/useAutosave";
 
-// Admin "Public Website" card, shown on the property detail page for the five
-// shopping centers. Manages the things the rent roll does NOT carry: photos +
-// site plan (uploaded to Vercel Blob) and marketing copy for the available
-// spaces. Which spaces are available (suite + SF + count) syncs LIVE from the
-// rent roll's vacant units — staff only fill in the marketing description
-// columns. Per-tenant DBA display names are edited on each unit's info page
-// (DisplayNameCard), not here — but the saved `dba` map is loaded and preserved
-// so saving photos/availabilities never wipes it. Saving writes
-// /api/centers/[code], which the public page reads per-request.
+// Public-website editing for the five shopping centers, shown on the property
+// info page as two standalone cards: a Site Plan card and a Vacancies card.
+// (The hero photo is managed in-place on the page's top banner —
+// CenterHeroBanner — not here.) Vacancies sync LIVE from the rent roll's vacant
+// units; staff only fill in the marketing description columns. Everything
+// autosaves. Saves re-read the override and merge, so they never clobber the
+// hero, neighborhood photos, or the per-tenant DBA names (edited elsewhere).
 
 type Space = { suite: string; sf: number; kind: string; frontage: string; notes: string };
-type Assets = { hero?: string; sitePlan?: string; neighborhood?: string[] };
 type Desc = { kind: string; frontage: string; notes: string };
 type Vacant = { suite: string; sf: number };
 
@@ -45,27 +42,19 @@ const READONLY: CSSProperties = {
 };
 
 export default function PublicWebsiteCard({ code }: { code: string }) {
-  const [slug, setSlug] = useState<string>("");
-  const [assets, setAssets] = useState<Assets>({});
+  const [sitePlan, setSitePlan] = useState<string | undefined>(undefined);
   const [spaces, setSpaces] = useState<Space[]>([]);        // fallback (no live roll)
   const [vacants, setVacants] = useState<Vacant[]>([]);     // live vacant units
   const [hasRoll, setHasRoll] = useState(false);            // property found in the current rent roll
   const [availDesc, setAvailDesc] = useState<Record<string, Desc>>({});
-  // dba is not edited here anymore (moved to the unit page's Public Display
-  // Name card) — but we still load and preserve it so saving this card's
-  // photos/availabilities never wipes the display-name overrides.
-  const [dba, setDba] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [pct, setPct] = useState(0);
   const [uploadError, setUploadError] = useState<{ key: string; msg: string } | null>(null);
 
-  // Latest form state, so an upload's auto-save persists current values without
-  // waiting on a stale closure.
-  const initialAvail = useRef<Space[]>([]);
-  const latest = useRef({ assets, spaces, dba, availDesc });
-  latest.current = { assets, spaces, dba, availDesc };
+  const latest = useRef({ sitePlan, spaces, availDesc });
+  latest.current = { sitePlan, spaces, availDesc };
 
   useEffect(() => {
     let alive = true;
@@ -77,18 +66,14 @@ export default function PublicWebsiteCard({ code }: { code: string }) {
         ]);
         const cfg = await cfgRes.json();
         if (!alive) return;
-        setSlug(cfg.slug);
-        setAssets(cfg.override?.assets ?? {});
-        initialAvail.current = cfg.override?.availabilities ?? [];
+        setSitePlan(cfg.override?.assets?.sitePlan);
         setSpaces(
           cfg.override?.availabilities?.length ? cfg.override.availabilities : cfg.defaults.availabilities,
         );
         setAvailDesc(cfg.override?.availDesc ?? {});
-        setDba(cfg.override?.dba ?? {});
         if (rrRes && rrRes.ok) {
           const rr = await rrRes.json();
-          // GET /api/rentroll returns { rentroll: { properties } } — read the
-          // nested roll (fall back to a top-level shape just in case).
+          // GET /api/rentroll returns { rentroll: { properties } }.
           const roll = rr?.rentroll ?? rr;
           const prop = (roll?.properties ?? []).find(
             (p: { propertyCode: string }) => p.propertyCode?.toUpperCase() === code.toUpperCase(),
@@ -118,10 +103,6 @@ export default function PublicWebsiteCard({ code }: { code: string }) {
     setPct(0);
     setUploadError(null);
     try {
-      // The Blob store is private, so images are uploaded server-side (put with
-      // private access) and served publicly through the /api/center-image
-      // proxy. Server upload keeps us under the ~4.5 MB serverless body limit;
-      // a larger file returns a clear 413 asking to compress.
       setPct(0.1);
       const fd = new FormData();
       fd.append("file", file);
@@ -142,50 +123,41 @@ export default function PublicWebsiteCard({ code }: { code: string }) {
     }
   }, [code]);
 
-  // Persist the override. Photos auto-save (the blob is already stored, so there
-  // is no separate "Save" step for images); text edits use the Save button.
-  const putOverride = useCallback(async (patch: Partial<typeof latest.current>): Promise<void> => {
-    const s = { ...latest.current, ...patch };
+  // Persist by re-reading the override and merging only the fields this card
+  // owns (site plan, availabilities, descriptions) — so it never wipes the hero
+  // (set on the banner), neighborhood photos, or per-tenant DBA names.
+  const putOverride = useCallback(async (): Promise<void> => {
+    const cfg = await fetch(`/api/centers/${code}`).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+    const ov = cfg?.override ?? {};
+    const s = latest.current;
     const res = await fetch(`/api/centers/${code}`, {
       method: "PUT",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        assets: s.assets,
-        // In live mode the availabilities come from the rent roll, so preserve
-        // the stored fallback list untouched rather than injecting defaults.
-        availabilities: hasRoll ? initialAvail.current : s.spaces,
+        assets: { ...(ov.assets ?? {}), sitePlan: s.sitePlan },
+        availabilities: hasRoll ? (ov.availabilities ?? []) : s.spaces,
         availDesc: s.availDesc,
-        dba: s.dba,
+        dba: ov.dba ?? {},
       }),
     });
     const json = await res.json();
     if (!res.ok || !json.ok) throw new Error(json.error || "Save failed");
   }, [code, hasRoll]);
 
-  // Everything on this card autosaves on edit — photos persist as soon as the
-  // upload finishes; text edits (availability descriptions, fallback spaces)
-  // are debounced. No manual Save button.
   const { saving, savedFlash, error: saveError, schedule } = useAutosave<number>({
-    save: async () => { await putOverride({}); },
+    save: async () => { await putOverride(); },
   });
   const tick = useRef(0);
   const bump = () => schedule(++tick.current);
 
-  const uploadInto = async (f: File | null, key: string, apply: (a: Assets, url: string) => Assets) => {
+  const onPlan = async (f: File | null) => {
     if (!f) return;
-    const url = await doUpload(f, key);
+    const url = await doUpload(f, "siteplan");
     if (!url) return;
-    const next = apply(latest.current.assets, url);
-    setAssets(next);
+    setSitePlan(url);
     bump();
   };
-  const onHero = (f: File | null) => uploadInto(f, "hero", (a, url) => ({ ...a, hero: url }));
-  const onPlan = (f: File | null) => uploadInto(f, "siteplan", (a, url) => ({ ...a, sitePlan: url }));
-
-  const clearAsset = (apply: (a: Assets) => Assets) => {
-    setAssets(apply(latest.current.assets));
-    bump();
-  };
+  const clearPlan = () => { setSitePlan(undefined); bump(); };
 
   // Fallback manual-space editor (only when there is no live rent roll).
   const setSpace = (i: number, patch: Partial<Space>) => { setSpaces((s) => s.map((row, idx) => (idx === i ? { ...row, ...patch } : row))); bump(); };
@@ -198,106 +170,90 @@ export default function PublicWebsiteCard({ code }: { code: string }) {
     bump();
   };
 
-  const publicHref = slug ? `/centers/${slug}` : "#";
   const availSf = vacants.reduce((s, v) => s + v.sf, 0);
 
+  if (loading) {
+    return <div className="card" style={{ color: "var(--muted)", fontSize: 14 }}>Loading website…</div>;
+  }
+
   return (
-    <section className="card" style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          <div style={{ fontSize: 16, fontWeight: 800, letterSpacing: "-0.01em" }}>Public Website</div>
-          <div style={{ fontSize: 12.5, color: "var(--muted)" }}>
-            Photos, site plan &amp; availabilities for the public leasing page. Tenants &amp; vacancies sync from the rent roll.
-          </div>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <AutosaveStatus saving={saving} savedFlash={savedFlash} />
-          <a href={publicHref} target="_blank" rel="noreferrer" className="btn primary" style={{ textDecoration: "none" }}>
-            View public page ↗
-          </a>
-        </div>
-      </div>
+    <>
       {(saveError || loadError) && (
         <div style={{ fontSize: 13, fontWeight: 600, color: RED }}>{saveError || loadError}</div>
       )}
 
-      {loading ? (
-        <div style={{ color: "var(--muted)", fontSize: 14 }}>Loading…</div>
-      ) : (
-        <>
-          {/* IMAGES — hero + site plan only. Neighborhood photos are a one-time
-              setup and aren't edited here. */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            <div style={LABEL}>Images</div>
-            {/* Hero is a modest edit slot (it also shows as the page banner);
-                the site plan gets a big, full-width preview shown in full. */}
-            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-              <div style={{ maxWidth: 460 }}>
-                <ImageSlot label="Hero photo (3000×1500)" aspect="16 / 9" url={assets.hero} busy={busyKey === "hero"} pct={pct} error={uploadError?.key === "hero" ? uploadError.msg : undefined} onPick={onHero} onClear={() => clearAsset((a) => ({ ...a, hero: undefined }))} />
+      {/* ── Site Plan ── */}
+      <div className="card" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+          <div style={LABEL}>Site Plan</div>
+          <AutosaveStatus saving={saving} savedFlash={savedFlash} />
+        </div>
+        <ImageSlot
+          label="Site plan drawing"
+          aspect="3 / 2"
+          objectFit="contain"
+          url={sitePlan}
+          busy={busyKey === "siteplan"}
+          pct={pct}
+          error={uploadError?.key === "siteplan" ? uploadError.msg : undefined}
+          onPick={onPlan}
+          onClear={clearPlan}
+        />
+      </div>
+
+      {/* ── Vacancies ── */}
+      <div className="card" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+          <div style={LABEL}>Vacancies</div>
+          {hasRoll
+            ? <span style={{ fontSize: 12, color: "var(--muted)" }}>{vacants.length} available · {fmt(availSf)} SF · synced from the rent roll</span>
+            : <button className="btn" style={{ padding: "6px 12px", fontSize: 13 }} onClick={addSpace} type="button">+ Add space</button>}
+        </div>
+
+        {hasRoll ? (
+          vacants.length === 0 ? (
+            <div style={{ fontSize: 13, color: "var(--muted)" }}>No vacancies on the current rent roll — the public page shows a “fully leased” note.</div>
+          ) : (
+            <>
+              <div style={{ display: "grid", gridTemplateColumns: "110px 90px 1fr 150px 150px", gap: 8, ...LABEL, fontSize: 10 }}>
+                <div>Suite</div><div>SF</div><div>Marketing note</div><div>Kind</div><div>Frontage</div>
               </div>
-              <ImageSlot label="Site plan" aspect="3 / 2" objectFit="contain" url={assets.sitePlan} busy={busyKey === "siteplan"} pct={pct} error={uploadError?.key === "siteplan" ? uploadError.msg : undefined} onPick={onPlan} onClear={() => clearAsset((a) => ({ ...a, sitePlan: undefined }))} />
-            </div>
-          </div>
-
-          {/* AVAILABLE SPACES */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
-              <div style={LABEL}>Available spaces</div>
-              {hasRoll
-                ? <span style={{ fontSize: 12, color: "var(--muted)" }}>{vacants.length} available · {fmt(availSf)} SF · synced from the rent roll</span>
-                : <button className="btn" style={{ padding: "6px 12px", fontSize: 13 }} onClick={addSpace} type="button">+ Add space</button>}
-            </div>
-
-            {hasRoll ? (
-              vacants.length === 0 ? (
-                <div style={{ fontSize: 13, color: "var(--muted)" }}>No vacancies on the current rent roll — the public page shows a “fully leased” note.</div>
-              ) : (
-                <>
-                  <div style={{ display: "grid", gridTemplateColumns: "110px 90px 1fr 150px 150px", gap: 8, ...LABEL, fontSize: 10 }}>
-                    <div>Suite</div><div>SF</div><div>Marketing note</div><div>Kind</div><div>Frontage</div>
-                  </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                    {vacants.map((v) => {
-                      const d = descFor(v.suite);
-                      return (
-                        <div key={v.suite} style={{ display: "grid", gridTemplateColumns: "110px 90px 1fr 150px 150px", gap: 8, alignItems: "center" }}>
-                          <div style={READONLY} title={v.suite}>{v.suite}</div>
-                          <div style={READONLY}>{fmt(v.sf)}</div>
-                          <input style={INPUT} placeholder="e.g. Corner bay, grocery-adjacent" value={d.notes} onChange={(e) => setDescFor(v.suite, { notes: e.target.value })} />
-                          <input style={INPUT} placeholder="Kind (e.g. Inline retail)" value={d.kind} onChange={(e) => setDescFor(v.suite, { kind: e.target.value })} />
-                          <input style={INPUT} placeholder="Frontage" value={d.frontage} onChange={(e) => setDescFor(v.suite, { frontage: e.target.value })} />
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <div style={{ fontSize: 12, color: "var(--muted)" }}>Suite &amp; SF sync from the rent roll — add the descriptions, then Save.</div>
-                </>
-              )
-            ) : (
-              <>
-                {spaces.length === 0 && <div style={{ fontSize: 13, color: "var(--muted)" }}>No marketed availabilities — the public page shows a “fully leased” note.</div>}
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {spaces.map((s, i) => (
-                    <div key={i} style={{ display: "grid", gridTemplateColumns: "120px 90px 1fr 150px 150px 32px", gap: 8, alignItems: "center" }}>
-                      <input style={INPUT} placeholder="Suite" value={s.suite} onChange={(e) => setSpace(i, { suite: e.target.value })} />
-                      <input style={INPUT} placeholder="SF" type="number" value={s.sf || ""} onChange={(e) => setSpace(i, { sf: Number(e.target.value) })} />
-                      <input style={INPUT} placeholder="Marketing note (e.g. Corner bay, grocery-adjacent)" value={s.notes} onChange={(e) => setSpace(i, { notes: e.target.value })} />
-                      <input style={INPUT} placeholder="Kind" value={s.kind} onChange={(e) => setSpace(i, { kind: e.target.value })} />
-                      <input style={INPUT} placeholder="Frontage" value={s.frontage} onChange={(e) => setSpace(i, { frontage: e.target.value })} />
-                      <button type="button" onClick={() => removeSpace(i)} title="Remove" style={{ ...INPUT, cursor: "pointer", color: RED, textAlign: "center", padding: "8px 0" }}>×</button>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {vacants.map((v) => {
+                  const d = descFor(v.suite);
+                  return (
+                    <div key={v.suite} style={{ display: "grid", gridTemplateColumns: "110px 90px 1fr 150px 150px", gap: 8, alignItems: "center" }}>
+                      <div style={READONLY} title={v.suite}>{v.suite}</div>
+                      <div style={READONLY}>{fmt(v.sf)}</div>
+                      <input style={INPUT} placeholder="e.g. Corner bay, grocery-adjacent" value={d.notes} onChange={(e) => setDescFor(v.suite, { notes: e.target.value })} />
+                      <input style={INPUT} placeholder="Kind (e.g. Inline retail)" value={d.kind} onChange={(e) => setDescFor(v.suite, { kind: e.target.value })} />
+                      <input style={INPUT} placeholder="Frontage" value={d.frontage} onChange={(e) => setDescFor(v.suite, { frontage: e.target.value })} />
                     </div>
-                  ))}
+                  );
+                })}
+              </div>
+              <div style={{ fontSize: 12, color: "var(--muted)" }}>Suite &amp; SF sync from the rent roll — just add the descriptions. Changes save automatically.</div>
+            </>
+          )
+        ) : (
+          <>
+            {spaces.length === 0 && <div style={{ fontSize: 13, color: "var(--muted)" }}>No marketed availabilities — the public page shows a “fully leased” note.</div>}
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {spaces.map((s, i) => (
+                <div key={i} style={{ display: "grid", gridTemplateColumns: "120px 90px 1fr 150px 150px 32px", gap: 8, alignItems: "center" }}>
+                  <input style={INPUT} placeholder="Suite" value={s.suite} onChange={(e) => setSpace(i, { suite: e.target.value })} />
+                  <input style={INPUT} placeholder="SF" type="number" value={s.sf || ""} onChange={(e) => setSpace(i, { sf: Number(e.target.value) })} />
+                  <input style={INPUT} placeholder="Marketing note (e.g. Corner bay, grocery-adjacent)" value={s.notes} onChange={(e) => setSpace(i, { notes: e.target.value })} />
+                  <input style={INPUT} placeholder="Kind" value={s.kind} onChange={(e) => setSpace(i, { kind: e.target.value })} />
+                  <input style={INPUT} placeholder="Frontage" value={s.frontage} onChange={(e) => setSpace(i, { frontage: e.target.value })} />
+                  <button type="button" onClick={() => removeSpace(i)} title="Remove" style={{ ...INPUT, cursor: "pointer", color: RED, textAlign: "center", padding: "8px 0" }}>×</button>
                 </div>
-              </>
-            )}
-          </div>
-
-          <div style={{ fontSize: 12, color: "var(--muted)" }}>
-            Tenant display names (DBA) are edited per tenant on each unit’s info page. Changes here save automatically.
-          </div>
-        </>
-      )}
-    </section>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+    </>
   );
 }
 
@@ -324,7 +280,6 @@ function ImageSlot({ label, url, busy, pct, error, aspect = "16 / 9", objectFit 
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-      <div style={{ ...LABEL, fontSize: 10 }}>{label}</div>
       <div
         role="button"
         tabIndex={0}
@@ -348,7 +303,7 @@ function ImageSlot({ label, url, busy, pct, error, aspect = "16 / 9", objectFit 
           : !busy && (error
               ? <span style={{ fontSize: 11, color: RED, fontWeight: 600, textAlign: "center", padding: "0 10px" }}>{error} · click to retry</span>
               : <span style={{ fontSize: 11, color: "var(--muted)", textAlign: "center", padding: "0 10px" }}>
-                  {dragOver ? "Drop to upload" : "Drag & drop or click to upload"}
+                  {dragOver ? "Drop to upload" : "Drag & drop or click to upload the site plan"}
                 </span>)}
         {busy && (
           <div className="imp-anim" style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, background: "var(--card)" }}>
