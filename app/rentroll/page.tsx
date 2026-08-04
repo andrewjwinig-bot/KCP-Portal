@@ -9,6 +9,24 @@ import { amenityFor } from "../../lib/rentroll/amenities";
 import { useUser } from "../components/UserProvider";
 import { LastImported } from "../components/LastImported";
 import { blobSrc } from "../../lib/blobProxy";
+import { normName } from "../../lib/centers/registry";
+
+// Public display-name (DBA) overrides for shopping-center tenants, provided to
+// the unit tables so a tenant with a DBA reads by that name (with an info icon
+// revealing the underlying rent-roll / Skyline name). Keyed by property code →
+// normName(tenant) → DBA. Empty for non-center properties.
+const DbaContext = createContext<Record<string, Record<string, string>>>({});
+
+/** Resolve a tenant's DBA for a property (exact then loose contains match),
+ *  mirroring the public page's lookupByName. Returns "" when none. */
+function resolveDba(dbaByCode: Record<string, Record<string, string>>, code: string | undefined, name: string): string {
+  const map = code ? dbaByCode[code.toUpperCase()] : undefined;
+  if (!map || !name) return "";
+  const key = normName(name);
+  if (map[key]) return map[key];
+  for (const [k, v] of Object.entries(map)) if (k && (key.includes(k) || k.includes(key))) return v;
+  return "";
+}
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -441,6 +459,7 @@ function UnitsTable({ units, propertyCode, hideNNN, tenantMeta, onBaseYearChange
 }) {
   const router = useRouter();
   const { user } = useUser();
+  const dbaByCode = useContext(DbaContext);
   // Maint persona never sees rent dollar amounts.
   const hideRent = user.id === "maint";
   // Base Year is editable for Nancy and admin only — everyone else sees it
@@ -496,6 +515,11 @@ function UnitsTable({ units, propertyCode, hideNNN, tenantMeta, onBaseYearChange
               const isAmenity = !!amenity;
               const effectiveVacant = isAmenity ? false : unit.isVacant;
               const occupantLabel = isAmenity ? amenity!.label : unit.occupantName;
+              // Public display-name (DBA) override, if any and different from the
+              // rent-roll name — shown as the name with an info icon revealing
+              // the underlying rent-roll (Skyline) name.
+              const dba = (!isAmenity && !effectiveVacant) ? resolveDba(dbaByCode, propertyCode, unit.occupantName) : "";
+              const showDba = !!dba && normName(dba) !== normName(unit.occupantName || "");
 
               const status  = leaseStatus(unit.leaseTo);
               const rowBg   = isAmenity
@@ -542,7 +566,22 @@ function UnitsTable({ units, propertyCode, hideNNN, tenantMeta, onBaseYearChange
                               In-House
                             </span>
                           </span>
-                        : occupantLabel}
+                        : showDba
+                          ? <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                              {dba}
+                              <span
+                                title={`Rent roll name: ${unit.occupantName}`}
+                                onClick={(e) => e.stopPropagation()}
+                                style={{
+                                  fontSize: 10, fontWeight: 800, color: "var(--muted)", cursor: "help",
+                                  border: "1px solid var(--border)", borderRadius: 999,
+                                  width: 14, height: 14, display: "inline-flex", alignItems: "center", justifyContent: "center",
+                                  lineHeight: 1, flexShrink: 0,
+                                }}
+                                aria-label={`Rent roll name: ${unit.occupantName}`}
+                              >i</span>
+                            </span>
+                          : occupantLabel}
                     {!effectiveVacant && !isAmenity && vacatingUnitRefs?.has(unit.unitRef) && (
                       <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 999, background: "rgba(220,38,38,0.1)", color: "#b91c1c", border: "1px solid rgba(220,38,38,0.35)", letterSpacing: "0.04em" }}>VACATING</span>
                     )}
@@ -1356,11 +1395,13 @@ export default function RentRollPage() {
   const [generatingReport, setGeneratingReport] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [tenantMeta, setTenantMeta] = useState<Record<string, { baseYear?: number | string | null }>>({});
+  const [dbaByCode, setDbaByCode] = useState<Record<string, Record<string, string>>>({});
   const [baseYearResets, setBaseYearResets] = useState<Record<string, { resetDate: string; originalBaseYear: number | null; newBaseYear: number; notes?: string }>>({});
   const [vacatingMatchers, setVacatingMatchers] = useState<{ unitRefs: Set<string>; names: Set<string> }>({ unitRefs: new Set(), names: new Set() });
 
   useEffect(() => {
     fetch("/api/tenant-meta").then((r) => r.json()).then((j) => setTenantMeta(j.tenantMeta ?? {})).catch(() => {});
+    fetch("/api/centers/dba").then((r) => r.json()).then((j) => setDbaByCode(j.dbaByCode ?? {})).catch(() => {});
     fetch("/api/base-year-resets").then((r) => r.json()).then((j) => setBaseYearResets(j.resets ?? {})).catch(() => {});
     fetch("/api/leasing-activity").then((r) => r.json()).then((j) => {
       const list = (j?.leasingActivity?.tenantsVacating ?? []) as { unitRef?: string; tenant?: string }[];
@@ -1646,6 +1687,7 @@ export default function RentRollPage() {
 
   return (
     <BaseYearResetsContext.Provider value={baseYearResets}>
+    <DbaContext.Provider value={dbaByCode}>
     <main>
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 24, flexWrap: "wrap" }}>
         <h1 style={{ margin: 0 }}>Rent Roll</h1>
@@ -1864,6 +1906,7 @@ export default function RentRollPage() {
         </div>
       )}
     </main>
+    </DbaContext.Provider>
     </BaseYearResetsContext.Provider>
   );
 }
