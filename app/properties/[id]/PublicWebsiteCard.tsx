@@ -6,10 +6,12 @@ import { centerImageSrc, normName } from "../../../lib/centers/registry";
 
 // Admin "Public Website" card, shown on the property detail page for the five
 // shopping centers. Manages the things the rent roll does NOT carry: photos +
-// site plan (uploaded to Vercel Blob), marketing copy for the available spaces,
-// and DBA display names for the current tenants. Which spaces are available
-// (suite + SF + count) syncs LIVE from the rent roll's vacant units — staff
-// only fill in the marketing description columns. Saving writes
+// site plan (uploaded to Vercel Blob) and marketing copy for the available
+// spaces. Which spaces are available (suite + SF + count) syncs LIVE from the
+// rent roll's vacant units — staff only fill in the marketing description
+// columns. Per-tenant DBA display names are edited on each unit's info page
+// (DisplayNameCard), not here — but the saved `dba` map is loaded and preserved
+// so saving photos/availabilities never wipes it. Saving writes
 // /api/centers/[code], which the public page reads per-request.
 
 type Space = { suite: string; sf: number; kind: string; frontage: string; notes: string };
@@ -53,9 +55,11 @@ export default function PublicWebsiteCard({ code }: { code: string }) {
   const [vacants, setVacants] = useState<Vacant[]>([]);     // live vacant units
   const [hasRoll, setHasRoll] = useState(false);            // property found in the current rent roll
   const [availDesc, setAvailDesc] = useState<Record<string, Desc>>({});
+  // dba is not edited here anymore (moved to the unit page's Public Display
+  // Name card) — but we still load and preserve it so saving this card's
+  // photos/availabilities never wipes the display-name overrides.
   const [dba, setDba] = useState<Record<string, string>>({});
   const [defaults, setDefaults] = useState<Defaults | null>(null);
-  const [tenants, setTenants] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<{ ok: boolean; msg: string } | null>(null);
@@ -97,9 +101,6 @@ export default function PublicWebsiteCard({ code }: { code: string }) {
             setHasRoll(true);
             type U = { isVacant: boolean; amenity?: unknown; occupantName: string; unitRef: string; sqft: number };
             const units: U[] = prop.units ?? [];
-            setTenants(Array.from(new Set(
-              units.filter((u) => !u.isVacant && !u.amenity && u.occupantName && u.sqft > 0).map((u) => u.occupantName),
-            )));
             setVacants(
               units.filter((u) => u.isVacant && !u.amenity && u.sqft > 0)
                 .map((u) => ({ suite: u.unitRef, sf: Math.round(u.sqft) }))
@@ -197,16 +198,6 @@ export default function PublicWebsiteCard({ code }: { code: string }) {
   const setDescFor = (suite: string, patch: Partial<Desc>) =>
     setAvailDesc((m) => ({ ...m, [normName(suite)]: { ...descFor(suite), ...patch } }));
 
-  const dbaValue = useCallback((name: string): string => {
-    const key = normName(name);
-    if (dba[key] != null) return dba[key];
-    const d = defaults?.displayNames ?? {};
-    if (d[key]) return d[key];
-    for (const [k, v] of Object.entries(d)) if (k && (key.includes(k) || k.includes(key))) return v;
-    return "";
-  }, [dba, defaults]);
-  const setDbaFor = (name: string, val: string) => setDba((m) => ({ ...m, [normName(name)]: val }));
-
   const save = async () => {
     setSaving(true);
     setStatus(null);
@@ -230,7 +221,7 @@ export default function PublicWebsiteCard({ code }: { code: string }) {
         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
           <div style={{ fontSize: 16, fontWeight: 800, letterSpacing: "-0.01em" }}>Public Website</div>
           <div style={{ fontSize: 12.5, color: "var(--muted)" }}>
-            Photos, site plan, availabilities &amp; tenant display names for the public leasing page. Tenants &amp; vacancies sync from the rent roll.
+            Photos, site plan &amp; availabilities for the public leasing page. Tenants &amp; vacancies sync from the rent roll.
           </div>
         </div>
         <a href={publicHref} target="_blank" rel="noreferrer" className="btn primary" style={{ textDecoration: "none" }}>
@@ -316,24 +307,8 @@ export default function PublicWebsiteCard({ code }: { code: string }) {
             )}
           </div>
 
-          {/* DBA */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            <div style={LABEL}>Tenant display names (DBA)</div>
-            <div style={{ fontSize: 12.5, color: "var(--muted)", marginTop: -4 }}>
-              Public roster name for each current tenant. Blank = use the rent-roll name.
-            </div>
-            {tenants.length === 0 ? (
-              <div style={{ fontSize: 13, color: "var(--muted)" }}>No live rent-roll tenants loaded for {code}.</div>
-            ) : (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 8 }}>
-                {tenants.map((name) => (
-                  <div key={name} style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, alignItems: "center" }}>
-                    <div style={{ fontSize: 13, color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={name}>{name}</div>
-                    <input style={INPUT} placeholder={name} value={dbaValue(name)} onChange={(e) => setDbaFor(name, e.target.value)} />
-                  </div>
-                ))}
-              </div>
-            )}
+          <div style={{ fontSize: 12, color: "var(--muted)" }}>
+            Tenant display names (DBA) are edited per tenant on each unit’s info page.
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: 14, borderTop: "1px solid var(--border)", paddingTop: 14 }}>

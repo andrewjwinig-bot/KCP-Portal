@@ -18,6 +18,8 @@ import ContactsCard from "./ContactsCard";
 import DepositCard from "./DepositCard";
 import CamConfigCard from "./CamConfigCard";
 import OfficeCamConfigCard from "./OfficeCamConfigCard";
+import DisplayNameCard from "./DisplayNameCard";
+import { centerByCode } from "@/lib/centers/registry";
 import FloorplanCard from "./FloorplanCard";
 import ShareFolderCard from "@/app/components/ShareFolderCard";
 import { useUser } from "@/app/components/UserProvider";
@@ -488,6 +490,11 @@ export default function UnitDetailPage() {
             buildingSqft={buildingSqft}
             baseYear={baseYearVal}
           />
+        )}
+
+        {/* ── Public display name (DBA) — public shopping centers only ── */}
+        {!isMaint && !isAmenity && !unit.isVacant && Boolean(centerByCode(propertyCode)) && (
+          <DisplayNameCard code={propertyCode} occupantName={unit.occupantName || ""} />
         )}
 
         {/* ── Contacts (occupied suites only) ── */}
