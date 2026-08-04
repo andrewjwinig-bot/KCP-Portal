@@ -115,7 +115,11 @@ export default async function CenterPage({ params }: { params: { slug: string } 
                 <span className="gc-rule" aria-hidden="true" />
                 {heroEyebrow}
               </div>
-              <h1 className="gc-h1">{profile.h1[0]}<br />{profile.h1[1]}</h1>
+              <h1 className={`gc-h1${profile.heroOneLine ? " gc-h1-1" : ""}`}>
+                {profile.heroOneLine
+                  ? `${profile.h1[0]} ${profile.h1[1]}`
+                  : <>{profile.h1[0]}<br />{profile.h1[1]}</>}
+              </h1>
               <p className="gc-hero-sub">{profile.heroSub}</p>
             </div>
             {vacancies.length > 0 && (

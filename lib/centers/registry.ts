@@ -51,6 +51,9 @@ export type CenterProfile = {
   name: string;          // "Grays Ferry Shopping Center"
   /** Two-line H1: [line1, line2]. */
   h1: [string, string];
+  /** Render the H1 as a single line (the two parts joined) at a smaller,
+   *  responsive size, instead of the stacked two-line treatment. */
+  heroOneLine?: boolean;
   addressLine: string;   // "2897 Grays Ferry Ave, Philadelphia, PA"
   streetAddress: string; // JSON-LD streetAddress, "2897 Grays Ferry Avenue"
   city: string;
@@ -130,6 +133,7 @@ const GRAYS_FERRY: CenterProfile = {
   slug: "grays-ferry",
   name: "Grays Ferry Shopping Center",
   h1: ["Grays Ferry", "Shopping Center"],
+  heroOneLine: true,
   addressLine: "2897 Grays Ferry Ave, Philadelphia, PA",
   streetAddress: "2897 Grays Ferry Avenue",
   city: "Philadelphia",
@@ -138,7 +142,7 @@ const GRAYS_FERRY: CenterProfile = {
   gla: 82809,
   anchorName: "Fresh Grocer",
   heroSub:
-    "The bridge between Center City and University City — 82,809 SF of grocery-anchored neighborhood retail at the Schuylkill crossing.",
+    "The bridge between Center City and University City — grocery-anchored neighborhood retail at the Schuylkill crossing.",
   overview:
     "Grays Ferry Shopping Center is a key neighborhood retail center serving the daily needs of a growing and emerging community. With a mix of essential services and conveniences, it remains a trusted destination for local residents. Its strategic location offers proximity to the Pennovation Center and easy accessibility to the Health District of West Philadelphia, making it well-positioned to support the area's continued growth.",
   keyTenants:
