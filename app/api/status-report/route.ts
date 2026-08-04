@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { PDFDocument, rgb, StandardFonts, PDFPage, PDFFont } from "pdf-lib";
 import { PROPERTY_DEFS } from "../../../lib/properties/data";
 import { getJSON } from "@/lib/storage";
+import { resolveDbaMap, dbaLabel } from "@/lib/centers/dba";
 import { EMPTY_LEASING_ACTIVITY, type LeasingActivity } from "@/lib/leasing/types";
 
 export const runtime = "nodejs";
@@ -995,6 +996,15 @@ export async function POST(req: Request) {
     }
 
     // ── Upcoming Lease Expirations summary (invoked at the very end) ──────────
+    // Prebuild the DBA map per property code once (shopping centers only), so
+    // both the rent-roll tables and the expirations section can relabel
+    // tenants synchronously as "DBA (rent-roll name)".
+    const dbaByCodeMap = new Map<string, Record<string, string> | null>();
+    for (const prop of properties) {
+      const c = (prop.propertyCode as string).toUpperCase();
+      if (!dbaByCodeMap.has(c)) dbaByCodeMap.set(c, await resolveDbaMap(c));
+    }
+
     const renderUpcomingExpirations = () => {
       type ExpRow = { propName: string; tenant: string; unit: string; sqft: number; leaseTo: string; days: number };
       const buckets: { label: string; min: number; max: number; rows: ExpRow[] }[] = [
@@ -1004,7 +1014,9 @@ export async function POST(req: Request) {
       ];
 
       for (const prop of properties) {
-        const name = propDisplayName((prop.propertyCode as string).toUpperCase(), prop.reportedPropertyName || prop.propertyCode);
+        const pcode = (prop.propertyCode as string).toUpperCase();
+        const name = propDisplayName(pcode, prop.reportedPropertyName || prop.propertyCode);
+        const pdba = dbaByCodeMap.get(pcode) ?? null;
         for (const unit of prop.units as any[]) {
           if (unit.isVacant) continue;
           if (!unit.leaseTo) continue;
@@ -1015,7 +1027,7 @@ export async function POST(req: Request) {
           // Skip past-due and beyond 12 months.
           if (days < 0 || days > 365) continue;
           const bucket = buckets.find(b => days >= b.min && days <= b.max);
-          if (bucket) bucket.rows.push({ propName: name, tenant: unit.occupantName || "", unit: unit.unitRef || "", sqft: unit.sqft, leaseTo: fmtDate(unit.leaseTo), days });
+          if (bucket) bucket.rows.push({ propName: name, tenant: dbaLabel(pdba, unit.occupantName || ""), unit: unit.unitRef || "", sqft: unit.sqft, leaseTo: fmtDate(unit.leaseTo), days });
         }
       }
       // Sort each bucket by days ascending
@@ -1126,6 +1138,9 @@ export async function POST(req: Request) {
       const units   = prop.units as any[];
       const hideNNN = KH_CODES.has(code) || OW_CODES.has(code);
       const showBaseYear = isOfficeCode(code);
+      // Public display-name (DBA) map for shopping-center tenants (null for
+      // non-centers). Prebuilt cache — see dbaByCodeMap.
+      const dbaMap = dbaByCodeMap.get(code) ?? null;
 
       // Property totals — also used to decide which columns to hide.
       const totSqft  = units.reduce((s: number, u: any) => s + u.sqft,           0);
@@ -1231,7 +1246,12 @@ export async function POST(req: Request) {
         for (const col of cols) {
           const fs   = 8;
           const useBold = col.header === "Tenant" && !unit.isVacant;
-          const raw  = cellVal(col.header, unit, tenantMeta);
+          // On the Tenant column, relabel shopping-center tenants with a DBA as
+          // "DBA (rent-roll name)" so the printed report is clear (hover isn't
+          // available on paper/PDF).
+          const raw  = (col.header === "Tenant" && !unit.isVacant && dbaMap)
+            ? dbaLabel(dbaMap, unit.occupantName || "")
+            : cellVal(col.header, unit, tenantMeta);
           // Only trim the (variable-length) Tenant name; unit refs, dates and
           // money columns must always render in full.
           const val  = col.header === "Tenant" ? fitText(raw, useBold ? fontBold : font, fs, col.width - 6) : raw;
