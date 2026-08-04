@@ -87,7 +87,10 @@ export default function PublicWebsiteCard({ code }: { code: string }) {
         setDba(cfg.override?.dba ?? {});
         if (rrRes && rrRes.ok) {
           const rr = await rrRes.json();
-          const prop = (rr.properties ?? []).find(
+          // GET /api/rentroll returns { rentroll: { properties } } — read the
+          // nested roll (fall back to a top-level shape just in case).
+          const roll = rr?.rentroll ?? rr;
+          const prop = (roll?.properties ?? []).find(
             (p: { propertyCode: string }) => p.propertyCode?.toUpperCase() === code.toUpperCase(),
           );
           if (prop) {
