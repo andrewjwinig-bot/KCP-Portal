@@ -100,6 +100,18 @@ export function normName(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
+/** Display src for a center image. Uploaded images live in the PRIVATE Blob
+ *  store, whose URLs a browser can't load directly, so route them through the
+ *  public /api/center-image proxy. Static/registry defaults (e.g. /images/…)
+ *  and any non-blob URL are returned unchanged. Safe on client + server. */
+export function centerImageSrc(url?: string): string | undefined {
+  if (!url) return url;
+  if (/^https?:\/\/[^/]*blob\.vercel-storage\.com\//i.test(url)) {
+    return `/api/center-image?u=${encodeURIComponent(url)}`;
+  }
+  return url;
+}
+
 const ACCENT = "#1d4ed8";
 const ACCENT_ON_DARK = "#8fb2ff";
 
