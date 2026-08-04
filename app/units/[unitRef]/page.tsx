@@ -421,6 +421,12 @@ export default function UnitDetailPage() {
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        {/* ── Public display name (DBA) — compact bar at the top, shopping
+            centers only ── */}
+        {!isMaint && !isAmenity && !unit.isVacant && Boolean(centerByCode(propertyCode)) && (
+          <DisplayNameCard code={propertyCode} occupantName={unit.occupantName || ""} />
+        )}
+
         {/* Top row: Lease Term + Shared Drive (stacked) · Floorplan ·
             Other Charges. The monthly CAM / RET / INS estimates that used
             to sit at the bottom of the CAM card now stack in the third
@@ -490,11 +496,6 @@ export default function UnitDetailPage() {
             buildingSqft={buildingSqft}
             baseYear={baseYearVal}
           />
-        )}
-
-        {/* ── Public display name (DBA) — public shopping centers only ── */}
-        {!isMaint && !isAmenity && !unit.isVacant && Boolean(centerByCode(propertyCode)) && (
-          <DisplayNameCard code={propertyCode} occupantName={unit.occupantName || ""} />
         )}
 
         {/* ── Contacts (occupied suites only) ── */}
