@@ -1,7 +1,7 @@
 import "server-only";
 import { resolveCurrentRentroll } from "@/lib/rentroll/current";
 import { RETAIL_RECON_FIXTURES } from "@/lib/cam/retail/registry";
-import { normName, type CenterProfile, type Kv, type MarketedSpace, type NeighborhoodCard } from "./registry";
+import { centerImageSrc, normName, type CenterProfile, type Kv, type MarketedSpace, type NeighborhoodCard } from "./registry";
 import { getCenterOverride } from "./store";
 
 // Join the leasing profile (marketing copy, categories, availabilities) to the
@@ -115,12 +115,12 @@ export async function getCenterData(profile: CenterProfile): Promise<CenterData>
       : profile.marketedSpaces;
 
   const assets = {
-    hero: override.assets?.hero ?? profile.assets.hero,
-    sitePlan: override.assets?.sitePlan ?? profile.assets.sitePlan,
+    hero: centerImageSrc(override.assets?.hero ?? profile.assets.hero),
+    sitePlan: centerImageSrc(override.assets?.sitePlan ?? profile.assets.sitePlan),
   };
   const neighborhood: NeighborhoodCard[] = profile.neighborhood.map((card, i) => ({
     ...card,
-    photo: override.assets?.neighborhood?.[i] ?? card.photo,
+    photo: centerImageSrc(override.assets?.neighborhood?.[i] ?? card.photo) ?? card.photo,
   }));
   const availTotal = vacancies.reduce((s, v) => s + v.sf, 0);
   const gla = profile.gla || tenants.reduce((s, t) => s + t.sf, 0) + availTotal;

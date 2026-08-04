@@ -48,9 +48,12 @@ export async function POST(req: Request, { params }: { params: { code: string } 
   }
 
   try {
+    // The Blob store is PRIVATE, so images are stored with private access and
+    // served to the public marketing page through the /api/center-image proxy
+    // (see centerImageSrc). A public put() is rejected by a private store.
     const safe = (file.name || "image").replace(/[^a-zA-Z0-9._-]/g, "_");
     const blob = await put(`centers/${params.code}/${key}-${safe}`, file, {
-      access: "public",
+      access: "private",
       addRandomSuffix: true,
       contentType: file.type || undefined,
     });

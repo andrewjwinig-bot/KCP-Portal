@@ -2,8 +2,7 @@
 
 import type React from "react";
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
-import { upload } from "@vercel/blob/client";
-import { normName } from "../../../lib/centers/registry";
+import { centerImageSrc, normName } from "../../../lib/centers/registry";
 
 // Admin "Public Website" card, shown on the property detail page for the five
 // shopping centers. Manages the things the rent roll does NOT carry: photos +
@@ -123,31 +122,20 @@ export default function PublicWebsiteCard({ code }: { code: string }) {
     setStatus(null);
     setUploadError(null);
     try {
-      // Normal-sized images go through the simple, reliable server route
-      // (put() server-side). Only files over the ~4.5 MB serverless body limit
-      // need the direct browser→Blob client upload.
-      if (file.size <= 4 * 1024 * 1024) {
-        setPct(0.1);
-        const fd = new FormData();
-        fd.append("file", file);
-        fd.append("key", key);
-        const res = await fetch(`/api/centers/${code}/upload-direct`, { method: "POST", body: fd });
-        setPct(0.9);
-        const json = await res.json().catch(() => null);
-        if (!res.ok) throw new Error(json?.error || `Upload failed (HTTP ${res.status})`);
-        setPct(1);
-        return typeof json?.url === "string" ? json.url : null;
-      }
-
-      const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-      const res = await upload(`centers/${code}/${key}-${safe}`, file, {
-        access: "public",
-        handleUploadUrl: `/api/centers/${code}/upload`,
-        contentType: file.type || undefined,
-        multipart: true,
-        onUploadProgress: (e) => setPct(e.percentage / 100),
-      });
-      return res.url;
+      // The Blob store is private, so images are uploaded server-side (put with
+      // private access) and served publicly through the /api/center-image
+      // proxy. Server upload keeps us under the ~4.5 MB serverless body limit;
+      // a larger file returns a clear 413 asking to compress.
+      setPct(0.1);
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("key", key);
+      const res = await fetch(`/api/centers/${code}/upload-direct`, { method: "POST", body: fd });
+      setPct(0.9);
+      const json = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(json?.error || `Upload failed (HTTP ${res.status})`);
+      setPct(1);
+      return typeof json?.url === "string" ? json.url : null;
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Upload failed.";
       setStatus({ ok: false, msg: `Upload failed: ${msg}` });
@@ -402,7 +390,7 @@ function ImageSlot({ label, url, busy, pct, error, onPick, onClear }: {
           cursor: busy ? "default" : "pointer", transition: "border-color .15s, background .15s",
         }}>
         {url && !busy && !error
-          ? <img src={url} alt={label} style={{ width: "100%", height: "100%", objectFit: "cover", pointerEvents: "none" }} />
+          ? <img src={centerImageSrc(url)} alt={label} style={{ width: "100%", height: "100%", objectFit: "cover", pointerEvents: "none" }} />
           : !busy && (error
               ? <span style={{ fontSize: 11, color: RED, fontWeight: 600, textAlign: "center", padding: "0 10px" }}>{error} · click to retry</span>
               : <span style={{ fontSize: 11, color: "var(--muted)", textAlign: "center", padding: "0 10px" }}>
