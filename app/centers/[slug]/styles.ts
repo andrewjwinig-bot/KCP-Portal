@@ -29,6 +29,7 @@ export const centerStyles = `
 
 .gc-eyebrow{ font-family:var(--mono); font-size:11px; letter-spacing:0.16em; text-transform:uppercase; color:var(--label) }
 .gc-h1{ font-size:92px; line-height:0.9; font-weight:800; letter-spacing:-0.04em; text-wrap:balance }
+.gc-h1-1{ font-size:clamp(30px,5vw,60px); line-height:1.0; text-wrap:normal; white-space:nowrap }
 .gc-h2{ font-size:42px; line-height:1.02; font-weight:800; letter-spacing:-0.03em }
 .gc-h2-hero{ font-size:56px; line-height:1; font-weight:800; letter-spacing:-0.035em; margin:0 }
 .gc-h2-big{ font-size:46px; line-height:1; font-weight:800; letter-spacing:-0.035em; margin:0 }
@@ -177,6 +178,7 @@ export const centerStyles = `
   .gc-wrap{ padding-left:28px; padding-right:28px }
   .gc-hero-ph-cap{ left:28px }
   .gc-h1{ font-size:clamp(40px,9vw,92px) }
+  .gc-h1-1{ font-size:clamp(28px,7vw,60px); white-space:normal }
   .gc-h2-hero{ font-size:clamp(34px,7vw,56px) }
   .gc-h2-big{ font-size:clamp(32px,6vw,46px) }
   .gc-hero{ height:72vh; min-height:460px }
