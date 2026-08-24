@@ -12,6 +12,7 @@ import { useImport } from "@/app/components/import/ImportProvider";
 import { DownloadMenu } from "@/app/components/DownloadMenu";
 import { StatPill } from "@/app/components/Pill";
 import { LastImported } from "@/app/components/LastImported";
+import { useFileDrop, byExt } from "@/app/components/useFileDrop";
 import { AccountListCard } from "@/app/components/AccountListCard";
 import LoadingState from "@/app/components/LoadingState";
 import { groupStatementOptions } from "@/lib/financials/operating-statements/propertyGroups";
@@ -322,6 +323,7 @@ export default function OperatingStatementsPage() {
   // Click a Favorable/Unfavorable pill to filter the statement to those lines.
   const [flagFilter, setFlagFilter] = useState<"fav" | "unf" | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const glDrop = useFileDrop((files) => processFiles(files), { accept: byExt([".xls", ".xlsx", ".xlsm"]) });
 
   // Load the picker payload once.
   useEffect(() => {
@@ -388,6 +390,10 @@ export default function OperatingStatementsPage() {
   async function onUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
     if (fileRef.current) fileRef.current.value = "";
+    await processFiles(files);
+  }
+
+  async function processFiles(files: File[]) {
     if (!files.length) return;
     setError(null);
     // Each GL's header identifies its own property; for a single file we still
@@ -694,9 +700,19 @@ export default function OperatingStatementsPage() {
               </HeaderSelect>
             )}
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <button className="btn primary" title="Upload one or more GL files — each file's header identifies its property" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }} onClick={() => fileRef.current?.click()}>
-              {"Upload GL"}
+          <div
+            {...glDrop.dropHandlers}
+            title="Upload one or more GL files, or drag them here"
+            style={{
+              display: "flex", alignItems: "center", gap: 10,
+              borderRadius: 10, padding: glDrop.dragging ? "4px 6px" : 0,
+              outline: glDrop.dragging ? "2px dashed var(--brand)" : "none", outlineOffset: 2,
+              background: glDrop.dragging ? "rgba(11,74,125,0.06)" : "transparent",
+              transition: "background .15s",
+            }}
+          >
+            <button className="btn primary" title="Upload one or more GL files — each file's header identifies its property. You can also drag files onto this bar." style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }} onClick={() => fileRef.current?.click()}>
+              {glDrop.dragging ? "Drop to import" : "Upload GL"}
             </button>
             <label className="small muted" title="Skip storing per-transaction detail — keeps the monthly totals that power every statement, budget-vs-actual and YoY comparison. Ideal for bulk-backfilling prior years cheaply; the only thing you lose is the line-level transaction drill-down for that import." style={{ display: "inline-flex", alignItems: "center", gap: 5, whiteSpace: "nowrap", cursor: "pointer" }}>
               <input type="checkbox" checked={leanImport} onChange={(e) => setLeanImport(e.target.checked)} />
