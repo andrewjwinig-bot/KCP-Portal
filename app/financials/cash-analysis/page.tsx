@@ -12,6 +12,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import Link from "next/link";
 import { StatPill, Pill, Badge, TONE_RED, TONE_AMBER, TONE_GREEN } from "@/app/components/Pill";
+import { useFileDrop, byExt } from "@/app/components/useFileDrop";
 import { LastImported } from "@/app/components/LastImported";
 import { bankAccountsForCodes, weekOfLabel, parseMonthKey, type BankAccount } from "@/lib/financials/cash-sheet/util";
 import { ACCOUNT_CODE, PREFIX_CODE } from "@/lib/financials/cash-analysis/accountCodes";
@@ -166,6 +167,7 @@ export default function CashSheetPage() {
   // Weekly AvidXchange bills — the bridge that keeps the monthly GL position
   // current between postings. Uploaded here, consumed by "Est. Cash Today".
   const apRef = useRef<HTMLInputElement | null>(null);
+  const apDrop = useFileDrop((files) => processApFiles(files), { accept: byExt([".xls", ".xlsx", ".pdf"]) });
   const { startImport } = useImport();
 
   const runDrill = useCallback((key: string, propName: string, code: number, label: string) => {
@@ -238,6 +240,10 @@ export default function CashSheetPage() {
   async function onApUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
     if (apRef.current) apRef.current.value = "";
+    await processApFiles(files);
+  }
+
+  async function processApFiles(files: File[]) {
     if (!files.length) return;
     setError(null);
     let pm: { year: number; month: number } | null = null;
@@ -440,13 +446,18 @@ export default function CashSheetPage() {
       </div>
 
       {/* ── Controls card ─────────────────────────────────────────────────── */}
-      <div className="card">
+      <div
+        className="card"
+        {...(data?.canEdit ? apDrop.dropHandlers : {})}
+        title={data?.canEdit ? "Import the AP Selection Report, or drag it onto this card" : undefined}
+        style={data?.canEdit && apDrop.dragging ? { outline: "2px dashed var(--brand)", outlineOffset: -2, background: "rgba(11,74,125,0.04)" } : undefined}
+      >
         <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             {data?.canEdit && (
               <>
-                <button className="btn" onClick={() => apRef.current?.click()} style={{ whiteSpace: "nowrap", fontSize: 13, padding: "8px 16px" }} title="Import the weekly AP Selection Report (.xls, .xlsx, or .pdf) to fill bills paid">
-                  Import
+                <button className="btn" onClick={() => apRef.current?.click()} style={{ whiteSpace: "nowrap", fontSize: 13, padding: "8px 16px" }} title="Import the weekly AP Selection Report (.xls, .xlsx, or .pdf) — or drag it onto this card">
+                  {apDrop.dragging ? "Drop to import" : "Import"}
                 </button>
                 <input ref={apRef} type="file" accept=".xls,.xlsx,.pdf" multiple style={{ display: "none" }} onChange={onApUpload} />
               </>

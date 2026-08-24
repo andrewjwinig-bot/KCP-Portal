@@ -9,6 +9,7 @@ import { emailInvoicerReport, XLSX_CONTENT_TYPE } from "../../lib/invoicing/send
 import { toMoney } from "../../lib/expenses/utils";
 import { ALLOC_PCT } from "../../lib/properties/data";
 import { DownloadMenu } from "@/app/components/DownloadMenu";
+import { useFileDrop, byExt } from "@/app/components/useFileDrop";
 import {
   CARRYOVER_THRESHOLD,
   isYearEndMonth,
@@ -159,6 +160,7 @@ type DecoratedAccount = {
 
 export default function AllocatedInvoicerPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const glDrop = useFileDrop((files) => importFile(files[0]), { accept: byExt([".xls", ".xlsx"]) });
   const [glResult, setGlResult] = useState<GLParseResult | null>(null);
   const [fileName, setFileName] = useState<string>("");
   const [acctFilter, setAcctFilter] = useState<"all" | "9301" | "9302" | "9303">("all");
@@ -726,7 +728,17 @@ export default function AllocatedInvoicerPage() {
         <p className="muted small" style={{ marginTop: 8 }}>
           Upload the monthly General Ledger Excel export (.xlsx or .xls). Accounts ending in <b>9301</b>, <b>9302</b>, and <b>9303</b> will be extracted and allocated.
         </p>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 12 }}>
+        <div
+          {...glDrop.dropHandlers}
+          title="Choose a GL file, or drag it here"
+          style={{
+            display: "flex", alignItems: "center", gap: 10, marginTop: 12,
+            borderRadius: 10, padding: glDrop.dragging ? "8px 10px" : 0,
+            outline: glDrop.dragging ? "2px dashed var(--brand)" : "none", outlineOffset: 2,
+            background: glDrop.dragging ? "rgba(11,74,125,0.06)" : "transparent",
+            transition: "background .15s",
+          }}
+        >
           <input
             ref={fileInputRef}
             type="file"
@@ -739,7 +751,7 @@ export default function AllocatedInvoicerPage() {
             onClick={() => fileInputRef.current?.click()}
             style={{ whiteSpace: "nowrap" }}
           >
-            Choose GL File…
+            {glDrop.dragging ? "Drop to import" : "Choose GL File…"}
           </button>
           {fileName && (
             <span style={{ fontSize: 13, color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>

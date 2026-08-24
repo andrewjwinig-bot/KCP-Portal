@@ -7,6 +7,7 @@ import { PDFDocument } from "pdf-lib";
 import { buildInvoicePdf, buildReimbursementInvoicePdf, makeInvoiceId, CategoryGroup } from "../../lib/expenses/invoice";
 import { buildTopSheetXlsx, TopSheetTx } from "../../lib/expenses/topSheet";
 import { groupBy, normalizeAmount, toMoney } from "../../lib/expenses/utils";
+import { useFileDrop, byExt } from "@/app/components/useFileDrop";
 import {
   CARRYOVER_THRESHOLD,
   isBilled,
@@ -489,6 +490,7 @@ export default function ExpensesPage() {
   const [attachments, setAttachments] = useState<Map<string, File>>(new Map());
   const [fileName, setFileName] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const ccDrop = useFileDrop((files) => importFile(files[0]), { accept: byExt([".xls", ".xlsx"]) });
   const attachInputRefs = useRef<Map<string, HTMLInputElement>>(new Map());
 
   useEffect(() => {
@@ -1125,7 +1127,12 @@ export default function ExpensesPage() {
           and one muted descriptor line beneath. Hidden from maint (Greg
           only codes, never imports). */}
       {!isMaint && (
-      <div className="card">
+      <div
+        className="card"
+        {...ccDrop.dropHandlers}
+        title="Choose a statement file, or drag it onto this card"
+        style={ccDrop.dragging ? { outline: "2px dashed var(--brand)", outlineOffset: -2, background: "rgba(11,74,125,0.04)" } : undefined}
+      >
         <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <input
@@ -1140,7 +1147,7 @@ export default function ExpensesPage() {
               onClick={() => fileInputRef.current?.click()}
               style={{ fontSize: 13, padding: "8px 16px", whiteSpace: "nowrap" }}
             >
-              Choose Statement File…
+              {ccDrop.dragging ? "Drop to import" : "Choose Statement File…"}
             </button>
             <button
               className="btn"
