@@ -34,6 +34,11 @@ function money(n: number) {
   return n.toLocaleString("en-US", { style: "currency", currency: "USD" });
 }
 
+// Tolerance (SF) for flagging a rent-roll total that disagrees with the
+// building's fixed GLA. Small enough to catch a missing/mis-sized unit, large
+// enough to ignore rounding. Tune here.
+const SF_MISMATCH_TOLERANCE = 10;
+
 function sqftFmt(n: number) {
   return n.toLocaleString("en-US");
 }
@@ -204,12 +209,13 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-function AlertBadge({ label, color, bg, border }: { label: string; color: string; bg: string; border: string }) {
+function AlertBadge({ label, color, bg, border, title }: { label: string; color: string; bg: string; border: string; title?: string }) {
   return (
-    <span style={{
+    <span title={title} style={{
       display: "inline-flex", alignItems: "center", padding: "2px 9px",
       borderRadius: 999, fontSize: 11, fontWeight: 700,
       color, background: bg, border: `1px solid ${border}`,
+      cursor: title ? "help" : undefined,
     }}>
       {label}
     </span>
@@ -699,6 +705,14 @@ function PropertyCard({ prop, tenantMeta, onBaseYearChange, vacatingUnitRefs }: 
   const occupancyPct    = prop.totalSqft > 0 ? (prop.occupiedSqft / prop.totalSqft) * 100 : 0;
   const totalGross      = prop.units.reduce((s, u) => s + u.grossRentTotal, 0);
 
+  // Data-integrity check: the rent roll's summed SF should match the building's
+  // fixed GLA on file (property master). A gap beyond a small tolerance usually
+  // means a missing / duplicated / mis-sized unit in the imported roll.
+  const gla      = PROPERTY_DEFS.find((p) => p.id.toUpperCase() === prop.propertyCode.toUpperCase())?.sqft ?? 0;
+  const sfDelta  = gla > 0 ? Math.round(prop.totalSqft) - gla : 0;
+  const sfMismatch = gla > 0 && Math.abs(sfDelta) > SF_MISMATCH_TOLERANCE;
+  const sfDeltaLabel = `${sfDelta > 0 ? "+" : "−"}${sqftFmt(Math.abs(sfDelta))}`;
+
   const expiringCount = prop.units.filter((u) => {
     if (u.isVacant) return false;
     if (u.baseRent === 0 && u.grossRentTotal === 0) return false;
@@ -759,6 +773,15 @@ function PropertyCard({ prop, tenantMeta, onBaseYearChange, vacatingUnitRefs }: 
               )}
             </div>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              {sfMismatch && (
+                <AlertBadge
+                  label={`SF ≠ GLA ${sfDeltaLabel}`}
+                  color="#b91c1c"
+                  bg="rgba(220,38,38,0.08)"
+                  border="rgba(220,38,38,0.28)"
+                  title={`Rent roll sums to ${sqftFmt(Math.round(prop.totalSqft))} SF, but this building's GLA on file is ${sqftFmt(gla)} SF (${sfDeltaLabel}). Check the imported roll for a missing, duplicated, or mis-sized unit — or update the building SF in the property master if the roll is correct.`}
+                />
+              )}
               {expiringCount > 0 && (
                 <AlertBadge
                   label={`${expiringCount} exp${expiringCount > 1 ? "s" : ""} ≤90d`}
