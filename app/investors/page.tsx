@@ -201,6 +201,23 @@ export default function InvestorInfoPage() {
 
   /** Current "today" estimated equity per entity + shared as-of date. */
   const [estimates, setEstimates] = useState<OwnershipEstimates>({ asOf: "", values: {} });
+
+  // Property code → entity code, so a By-Property card can show the property's
+  // value (year-end + estimate) and each owner's $ share inline.
+  const entityByProperty = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const e of ENTITY_VALUES) {
+      if (e.propertyCode) m.set(e.propertyCode.toUpperCase(), e.entity);
+      m.set(e.entity.toUpperCase(), e.entity);
+    }
+    return m;
+  }, []);
+  const propValue = (propertyCode: string): { ye: number; est: number } | null => {
+    const ent = entityByProperty.get(propertyCode.toUpperCase());
+    if (!ent) return null;
+    return { ye: resolveEntity(ent, entityOverrides)?.equityValue ?? 0, est: estimateFor(ent, estimates, entityOverrides) };
+  };
+
   useEffect(() => {
     fetch("/api/ownership/estimates")
       .then((r) => (r.ok ? r.json() : null))
@@ -527,6 +544,9 @@ export default function InvestorInfoPage() {
   function renderHoldingCard(h: PropertyHolding) {
     const open = !!openIds[h.propertyCode];
     const ts = TYPE_STYLE[h.type as PropType];
+    const pv = propValue(h.propertyCode); // property year-end + estimated value (null if no entity)
+    const hasVal = !!pv;
+    const share = (frac: number | undefined, base: number) => money0((frac ?? 0) * base);
     return (
       <div
         key={h.propertyCode}
@@ -556,6 +576,12 @@ export default function InvestorInfoPage() {
             }}>{h.propertyCode}</code>
             <span style={{ fontWeight: 700, fontSize: 16 }}>{h.propertyName}</span>
             <span className="muted small">· {h.owners.length} {h.owners.length === 1 ? "owner" : "owners"}</span>
+            {hasVal && (
+              <span style={{ fontSize: 12, fontWeight: 700, color: "#0b4a7d", whiteSpace: "nowrap" }}
+                title={`Statement of Values · year-end ${money0(pv!.ye)} → estimated ${money0(pv!.est)}`}>
+                · Est. {money0(pv!.est)}
+              </span>
+            )}
             {h.hasK1Distribution && (
               <span style={{
                 fontSize: 10, fontWeight: 700, letterSpacing: "0.06em",
@@ -585,6 +611,8 @@ export default function InvestorInfoPage() {
                 <th style={{ padding: "10px 16px", fontWeight: 700 }}>OWNER</th>
                 <th style={{ padding: "10px 16px", fontWeight: 700 }}>ADDRESS</th>
                 <th style={{ padding: "10px 16px", fontWeight: 700, textAlign: "right" }}>OWNERSHIP %</th>
+                {hasVal && <th style={{ padding: "10px 16px", fontWeight: 700, textAlign: "right", whiteSpace: "nowrap" }}>YEAR-END $</th>}
+                {hasVal && <th style={{ padding: "10px 16px", fontWeight: 700, textAlign: "right", whiteSpace: "nowrap" }}>ESTIMATED $</th>}
               </tr>
             </thead>
             <tbody>
@@ -617,6 +645,8 @@ export default function InvestorInfoPage() {
                         {[inv.address, inv.city, inv.state, inv.zip].filter(Boolean).join(", ") || "—"}
                       </td>
                       <td style={{ padding: "12px 16px", textAlign: "right" }}>{pct(ownershipFor(inv))}</td>
+                      {hasVal && <td style={{ padding: "12px 16px", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{share(ownershipFor(inv), pv!.ye)}</td>}
+                      {hasVal && <td style={{ padding: "12px 16px", textAlign: "right", fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{share(ownershipFor(inv), pv!.est)}</td>}
                     </tr>
                   )];
                 }
@@ -630,6 +660,8 @@ export default function InvestorInfoPage() {
                       {g.owners.length} stakes
                     </td>
                     <td style={{ padding: "12px 16px", textAlign: "right", fontWeight: 700 }}>{pct(g.total)}</td>
+                    {hasVal && <td style={{ padding: "12px 16px", textAlign: "right", fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{share(g.total, pv!.ye)}</td>}
+                    {hasVal && <td style={{ padding: "12px 16px", textAlign: "right", fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>{share(g.total, pv!.est)}</td>}
                   </tr>
                 )];
                 g.owners.forEach((inv) => {
@@ -655,12 +687,24 @@ export default function InvestorInfoPage() {
                         {[inv.address, inv.city, inv.state, inv.zip].filter(Boolean).join(", ") || "—"}
                       </td>
                       <td style={{ padding: "8px 16px", textAlign: "right", fontSize: 12 }}>{pct(ownershipFor(inv))}</td>
+                      {hasVal && <td style={{ padding: "8px 16px", textAlign: "right", fontSize: 12, fontVariantNumeric: "tabular-nums" }}>{share(ownershipFor(inv), pv!.ye)}</td>}
+                      {hasVal && <td style={{ padding: "8px 16px", textAlign: "right", fontSize: 12, fontVariantNumeric: "tabular-nums" }}>{share(ownershipFor(inv), pv!.est)}</td>}
                     </tr>,
                   );
                 });
                 return rows;
               })}
             </tbody>
+            {hasVal && (
+              <tfoot>
+                <tr style={{ borderTop: "2px solid var(--border)", background: "rgba(11,74,125,0.04)" }}>
+                  <td style={{ padding: "12px 16px", fontWeight: 800, letterSpacing: "0.04em", fontSize: 11, textTransform: "uppercase", color: "var(--muted)" }} colSpan={3}>Property total</td>
+                  <td style={{ padding: "12px 16px", textAlign: "right", fontWeight: 800 }}>100.0%</td>
+                  <td style={{ padding: "12px 16px", textAlign: "right", fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>{money0(pv!.ye)}</td>
+                  <td style={{ padding: "12px 16px", textAlign: "right", fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>{money0(pv!.est)}</td>
+                </tr>
+              </tfoot>
+            )}
           </table>
         )}
       </div>
