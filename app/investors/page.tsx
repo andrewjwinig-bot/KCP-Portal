@@ -217,6 +217,58 @@ export default function InvestorInfoPage() {
     if (!ent) return null;
     return { ye: resolveEntity(ent, entityOverrides)?.equityValue ?? 0, est: estimateFor(ent, estimates, entityOverrides) };
   };
+  const estAsOfLabel = estimates.asOf ? `as of ${longDate(estimates.asOf)}` : "as of today (not yet finalized)";
+  const asOfLines = () => [
+    [`Year-end values as of ${asOfLong()}`],
+    [`Estimated values ${estAsOfLabel}`],
+  ];
+  const pctNum = (frac: number | undefined) => Number(((frac ?? 0) * 100).toFixed(4));
+
+  /** Excel: one property's value split across its owners (year-end + estimated). */
+  function exportPropertySoV(h: PropertyHolding) {
+    const pv = propValue(h.propertyCode);
+    const aoa: (string | number)[][] = [
+      [`${h.propertyName} — Statement of Values`],
+      [`Property ${h.propertyCode}`],
+      ...asOfLines(),
+      [],
+      ["Vendor Code", "Owner", "Ownership %", "Year-End $", "Estimated $"],
+    ];
+    for (const g of buildOwnerGroups(h.owners)) {
+      for (const inv of g.owners) {
+        const frac = ownershipFor(inv) ?? 0;
+        aoa.push([inv.vendorCode ?? "", inv.name + (inv.detailedName ? ` (${inv.detailedName})` : ""), pctNum(frac), pv ? Math.round(frac * pv.ye) : "", pv ? Math.round(frac * pv.est) : ""]);
+      }
+    }
+    aoa.push(["", "Property total", 100, pv ? Math.round(pv.ye) : "", pv ? Math.round(pv.est) : ""]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), "Statement of Values");
+    const safe = `${h.propertyCode}_${h.propertyName}`.replace(/[^a-zA-Z0-9]+/g, "_").replace(/^_|_$/g, "");
+    XLSX.writeFile(wb, `Statement_of_Values_${safe}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  }
+
+  /** Excel: one investor's share of every property they hold (year-end + estimated). */
+  function exportInvestorSoV(agg: { name: string; rows: { holding: PropertyHolding; investor: PropertyOwner }[] }) {
+    const aoa: (string | number)[][] = [
+      [`${agg.name} — Statement of Values`],
+      ...asOfLines(),
+      [],
+      ["Prop", "Property", "Ownership %", "Year-End $", "Estimated $"],
+    ];
+    let totYE = 0, totEst = 0;
+    for (const r of agg.rows) {
+      const pv = propValue(r.holding.propertyCode);
+      const frac = ownershipFor(r.investor) ?? 0;
+      const ye = pv ? frac * pv.ye : 0, est = pv ? frac * pv.est : 0;
+      totYE += ye; totEst += est;
+      aoa.push([r.holding.propertyCode, r.holding.propertyName, pctNum(frac), pv ? Math.round(ye) : "", pv ? Math.round(est) : ""]);
+    }
+    aoa.push(["", "Total", "", Math.round(totYE), Math.round(totEst)]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), "Statement of Values");
+    const safe = agg.name.replace(/[^a-zA-Z0-9]+/g, "_").replace(/^_|_$/g, "");
+    XLSX.writeFile(wb, `Statement_of_Values_${safe}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  }
 
   useEffect(() => {
     fetch("/api/ownership/estimates")
@@ -604,6 +656,14 @@ export default function InvestorInfoPage() {
         </button>
 
         {open && (
+          <>
+          {hasVal && (
+            <div style={{ padding: "12px 16px", borderTop: "1px solid var(--border)", background: "rgba(11,74,125,0.03)", display: "flex", alignItems: "baseline", gap: 16, flexWrap: "wrap" }}>
+              <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>Property value</span>
+              <span style={{ fontSize: 14 }}>Year-end <b>{money0(pv!.ye)}</b></span>
+              <span style={{ fontSize: 14 }}>Estimated <b style={{ color: "#0b4a7d" }}>{money0(pv!.est)}</b></span>
+            </div>
+          )}
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14, borderTop: "1px solid var(--border)" }}>
             <thead>
               <tr style={{ color: "var(--muted)", fontSize: 11, letterSpacing: "0.04em", textAlign: "left" }}>
@@ -706,6 +766,13 @@ export default function InvestorInfoPage() {
               </tfoot>
             )}
           </table>
+          <div style={{ padding: "10px 16px", borderTop: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+            <span className="muted small">Year-end as of {asOfLong()} · Estimated {estAsOfLabel}.</span>
+            {hasVal && (
+              <button type="button" className="btn no-print" style={{ fontSize: 12, padding: "5px 10px", fontWeight: 600 }} onClick={() => exportPropertySoV(h)}>⤓ Excel</button>
+            )}
+          </div>
+          </>
         )}
       </div>
     );
@@ -968,10 +1035,15 @@ export default function InvestorInfoPage() {
                             <th style={{ padding: "10px 16px", fontWeight: 700 }}>PROPERTY</th>
                             <th style={{ padding: "10px 16px", fontWeight: 700, width: 140, whiteSpace: "nowrap" }}>VENDOR CODE</th>
                             <th style={{ padding: "10px 16px", fontWeight: 700, textAlign: "right" }}>OWNERSHIP %</th>
+                            <th style={{ padding: "10px 16px", fontWeight: 700, textAlign: "right", whiteSpace: "nowrap" }}>YEAR-END $</th>
+                            <th style={{ padding: "10px 16px", fontWeight: 700, textAlign: "right", whiteSpace: "nowrap" }}>ESTIMATED $</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {agg.rows.map((r, i) => (
+                          {agg.rows.map((r, i) => {
+                            const ipv = propValue(r.holding.propertyCode);
+                            const ifrac = ownershipFor(r.investor);
+                            return (
                             <tr key={i} style={{ borderTop: "1px solid var(--border)" }}>
                               <td style={{ padding: "12px 16px" }}>{r.holding.propertyCode}</td>
                               <td style={{ padding: "12px 16px" }}>
@@ -993,11 +1065,25 @@ export default function InvestorInfoPage() {
                                   <span style={{ color: "var(--muted)" }}>—</span>
                                 )}
                               </td>
-                              <td style={{ padding: "12px 16px", textAlign: "right" }}>{pct(ownershipFor(r.investor))}</td>
+                              <td style={{ padding: "12px 16px", textAlign: "right" }}>{pct(ifrac)}</td>
+                              <td style={{ padding: "12px 16px", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{ipv ? money0((ifrac ?? 0) * ipv.ye) : "—"}</td>
+                              <td style={{ padding: "12px 16px", textAlign: "right", fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{ipv ? money0((ifrac ?? 0) * ipv.est) : "—"}</td>
                             </tr>
-                          ))}
+                            );
+                          })}
                         </tbody>
+                        <tfoot>
+                          <tr style={{ borderTop: "2px solid var(--border)", background: "rgba(11,74,125,0.04)" }}>
+                            <td style={{ padding: "12px 16px", fontWeight: 800, letterSpacing: "0.04em", fontSize: 11, textTransform: "uppercase", color: "var(--muted)" }} colSpan={3}>Total across {agg.rows.length} {agg.rows.length === 1 ? "property" : "properties"}</td>
+                            <td style={{ padding: "12px 16px", textAlign: "right", fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>{money0(agg.rows.reduce((s, r) => { const p = propValue(r.holding.propertyCode); return s + (p ? (ownershipFor(r.investor) ?? 0) * p.ye : 0); }, 0))}</td>
+                            <td style={{ padding: "12px 16px", textAlign: "right", fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>{money0(agg.rows.reduce((s, r) => { const p = propValue(r.holding.propertyCode); return s + (p ? (ownershipFor(r.investor) ?? 0) * p.est : 0); }, 0))}</td>
+                          </tr>
+                        </tfoot>
                       </table>
+                      <div style={{ padding: "10px 16px", borderTop: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+                        <span className="muted small">Year-end as of {asOfLong()} · Estimated {estAsOfLabel}.</span>
+                        <button type="button" className="btn no-print" style={{ fontSize: 12, padding: "5px 10px", fontWeight: 600 }} onClick={() => exportInvestorSoV(agg)}>⤓ Excel</button>
+                      </div>
                       <InvestorStructureBlock investorName={agg.name} structure={structureFor(agg.name)} canEdit={canEdit} />
                     </>
                   )}
