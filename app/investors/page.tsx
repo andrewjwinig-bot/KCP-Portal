@@ -136,6 +136,16 @@ export default function InvestorInfoPage() {
   const [beneficiary, setBeneficiary] = useState("");
   const [zipping, setZipping] = useState(false);
   const benNames = useMemo(() => beneficiaryNames(), []);
+  // Cross-link into a specific owner's Statement of Values (only when the
+  // investor maps to a statement beneficiary).
+  const beneficiaryMatch = (name: string) => benNames.find((n) => n.toLowerCase() === name.toLowerCase());
+  const goToOwnerStatement = (name: string) => {
+    const match = beneficiaryMatch(name);
+    if (!match) return;
+    setBeneficiary(match);
+    setView("statement");
+    if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
+  };
   const { loggedInUser } = useUser();
   const canEdit = canEditOwnership(loggedInUser);
   /** Editable owner-contact overrides (overlay the seed). */
@@ -872,23 +882,38 @@ export default function InvestorInfoPage() {
               const open = !!openIds[agg.key];
               return (
                 <div key={agg.key} className="card" style={{ padding: 0, overflow: "hidden" }}>
-                  <button
-                    type="button"
-                    onClick={() => toggleOpen(agg.key)}
-                    aria-expanded={open}
-                    style={{
-                      display: "flex", alignItems: "center", justifyContent: "space-between",
-                      width: "100%", padding: "14px 16px",
-                      background: "transparent", border: "none", cursor: "pointer",
-                      textAlign: "left", fontFamily: "inherit",
-                    }}
-                  >
-                    <span style={{ display: "inline-flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 16px", gap: 10 }}>
+                    <button
+                      type="button"
+                      onClick={() => toggleOpen(agg.key)}
+                      aria-expanded={open}
+                      style={{
+                        display: "inline-flex", alignItems: "baseline", gap: 10, flexWrap: "wrap", flex: 1, minWidth: 0,
+                        background: "transparent", border: "none", cursor: "pointer",
+                        textAlign: "left", fontFamily: "inherit", padding: 0,
+                      }}
+                    >
                       <span style={{ fontWeight: 700, fontSize: 16 }}>{agg.name}</span>
                       <span className="muted small">· {agg.rows.length} {agg.rows.length === 1 ? "property" : "properties"}</span>
-                    </span>
-                    <span style={{ color: "var(--muted)", fontSize: 18, flexShrink: 0 }}>{open ? "▲" : "▼"}</span>
-                  </button>
+                    </button>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
+                      {beneficiaryMatch(agg.name) && (
+                        <button
+                          type="button"
+                          onClick={() => goToOwnerStatement(agg.name)}
+                          className="linkBtn"
+                          title={`View ${agg.name}'s Statement of Values`}
+                          style={{ fontSize: 12, fontWeight: 700, color: "#0b4a7d", whiteSpace: "nowrap" }}
+                        >
+                          Statement of Values →
+                        </button>
+                      )}
+                      <button type="button" onClick={() => toggleOpen(agg.key)} aria-label={open ? "Collapse" : "Expand"}
+                        style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--muted)", fontSize: 18, padding: 0 }}>
+                        {open ? "▲" : "▼"}
+                      </button>
+                    </div>
+                  </div>
 
                   {open && (
                     <>
