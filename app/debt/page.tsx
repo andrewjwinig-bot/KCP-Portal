@@ -20,6 +20,12 @@ import {
   TONE_AMBER,
   TONE_NEUTRAL,
 } from "@/app/components/Pill";
+import {
+  allocateLoanByBuilding,
+  allocationBasisForLoan,
+  isFundLoan,
+  type BuildingAllocation,
+} from "@/lib/debt/fundAllocation";
 
 // ── formatting ───────────────────────────────────────────────────────────────
 
@@ -342,6 +348,24 @@ function ScheduleModal({ loan, today, onClose }: { loan: Loan; today: string; on
   const summary = useMemo(() => summarizeLoan(loan, today), [loan, today]);
   const currentRowRef = useRef<HTMLTableRowElement | null>(null);
 
+  // Fund loans (JV III, NI LLC) are secured by a pool of buildings — split the
+  // monthly debt service across them by building SF, the same basis the
+  // operating-statement / CC expense allocation uses.
+  const buildingAlloc = useMemo<BuildingAllocation[] | null>(
+    () =>
+      isFundLoan(loan)
+        ? allocateLoanByBuilding(loan, {
+            payment: summary.monthlyDebtService,
+            principal: summary.nextPayment?.principal ?? 0,
+            interest: summary.nextPayment?.interest ?? 0,
+            balance: summary.projectedBalance,
+          })
+        : null,
+    [loan, summary],
+  );
+  const allocBasis = allocationBasisForLoan(loan);
+  const [allocOpen, setAllocOpen] = useState(true);
+
   useEffect(() => {
     currentRowRef.current?.scrollIntoView({ block: "center" });
   }, []);
@@ -366,6 +390,87 @@ function ScheduleModal({ loan, today, onClose }: { loan: Loan; today: string; on
           <StatPill label="Monthly Interest" value={money2(summary.nextPayment?.interest ?? 0)} accent="#b45309" />
           <StatPill label="Total Monthly Payment" value={money2(summary.monthlyDebtService)} />
         </div>
+
+        {buildingAlloc && buildingAlloc.length > 0 && (
+          <div style={{ marginTop: 18 }}>
+            <button
+              type="button"
+              onClick={() => setAllocOpen((o) => !o)}
+              className="linkBtn"
+              style={{ ...SECTION_LABEL, display: "flex", gap: 8, alignItems: "center", cursor: "pointer", padding: 0 }}
+            >
+              <span style={{ fontSize: 11, width: 12, display: "inline-block" }}>{allocOpen ? "▾" : "▸"}</span>
+              <span>Monthly Debt Service by Building</span>
+              <Pill tone={TONE_NEUTRAL}>{buildingAlloc.length} buildings</Pill>
+              <Pill tone={allocBasis === "GL" ? TONE_NEUTRAL : TONE_AMBER}>
+                {allocBasis === "GL" ? "Matches GL" : "SF estimate"}
+              </Pill>
+            </button>
+            {allocOpen && (
+              <>
+                <div className="tableWrap" style={{ marginTop: 8 }}>
+                  <table className="modalTable">
+                    <thead>
+                      <tr>
+                        <th>Building</th>
+                        <th style={{ textAlign: "right" }}>SF</th>
+                        <th style={{ textAlign: "right" }}>Share</th>
+                        <th style={{ textAlign: "right" }}>Principal</th>
+                        <th style={{ textAlign: "right" }}>Interest</th>
+                        <th style={{ textAlign: "right" }}>Monthly Pmt</th>
+                        <th style={{ textAlign: "right" }}>Balance</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {buildingAlloc.map((b) => (
+                        <tr key={b.id}>
+                          <td style={{ fontWeight: 600 }}>
+                            <span style={{ fontFamily: "monospace", fontSize: 12, color: "var(--muted)", marginRight: 6 }}>{b.id}</span>
+                            {b.name}
+                          </td>
+                          <td style={{ textAlign: "right" }}>{b.sqft.toLocaleString("en-US")}</td>
+                          <td style={{ textAlign: "right" }}>{(b.share * 100).toFixed(1)}%</td>
+                          <td style={{ textAlign: "right" }}>{money2(b.principal)}</td>
+                          <td style={{ textAlign: "right" }}>{money2(b.interest)}</td>
+                          <td style={{ textAlign: "right", fontWeight: 700 }}>{money2(b.payment)}</td>
+                          <td style={{ textAlign: "right" }}>{money(b.balance)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr>
+                        <td style={{ fontWeight: 800 }}>Total</td>
+                        <td style={{ textAlign: "right", fontWeight: 700 }}>
+                          {buildingAlloc.reduce((s, b) => s + b.sqft, 0).toLocaleString("en-US")}
+                        </td>
+                        <td style={{ textAlign: "right", fontWeight: 700 }}>100.0%</td>
+                        <td style={{ textAlign: "right", fontWeight: 700 }}>{money2(buildingAlloc.reduce((s, b) => s + b.principal, 0))}</td>
+                        <td style={{ textAlign: "right", fontWeight: 700 }}>{money2(buildingAlloc.reduce((s, b) => s + b.interest, 0))}</td>
+                        <td style={{ textAlign: "right", fontWeight: 800 }}>{money2(buildingAlloc.reduce((s, b) => s + b.payment, 0))}</td>
+                        <td style={{ textAlign: "right", fontWeight: 700 }}>{money(buildingAlloc.reduce((s, b) => s + b.balance, 0))}</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+                <p className="small muted" style={{ marginTop: 8 }}>
+                  {allocBasis === "GL" ? (
+                    <>
+                      Split by the fund&rsquo;s booked percentage interests, matching how the debt
+                      service is allocated across its buildings in the GL. Penny-exact, so each
+                      column ties to the loan total.
+                    </>
+                  ) : (
+                    <>
+                      Estimated pro-rata by building square footage (the same FUND_SF_ALLOC basis the
+                      operating-statement / CC expense allocation uses) — to be confirmed against the
+                      GL split. Penny-exact, so each column ties to the loan total.
+                    </>
+                  )}
+                </p>
+              </>
+            )}
+          </div>
+        )}
 
         <div style={{ ...SECTION_LABEL, marginTop: 16, display: "flex", gap: 8, alignItems: "center" }}>
           <span>Amortization Schedule</span>
