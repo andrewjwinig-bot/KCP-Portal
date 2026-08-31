@@ -2,6 +2,10 @@
 
 - After pushing a feature branch, always open a PR against `main` and merge it (squash) automatically without waiting for the user to do it. The user has standing approval for this.
 
+# Known data gaps / accepted exceptions (do NOT re-flag as bugs)
+
+- **Payroll allocation — Harry Feldman sums to ~94.86%, not 100%.** This is intentional and accepted, NOT a keying error. His allocation workbook row (`data/allocation.xlsx`) is: ~85% across the shopping centers, 5% Interstate/Bellmawr (`0800`), 5% Eastwick (the `Eastwick` column → "Eastwick JV"), and **5% Middletown**. Middletown is a land parcel Korman owns but the portal does NOT track (no property code, no allocation column), so that ~5.14% has nowhere to land and his tracked total reads 94.86%. The dashboard allocation-gap warning will keep flagging him — that's expected. Leave it as-is unless the user decides to add Middletown as a tracked land property (they'd supply its GL code, and Nancy would add a `Middletown` column with the 5% to the workbook).
+
 # UI consistency — pills, badges, fonts, sizes
 
 The user has flagged repeated drift in pill / chip / badge styling across new pages. Do NOT re-invent chip styles inline. Always use the shared primitives:
