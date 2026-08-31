@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { SectionLabel } from "@/app/properties/PropertyDetail";
 import { AutosaveStatus, useAutosave } from "@/app/components/useAutosave";
+import CamStatementHistory from "./CamStatementHistory";
 
 // Office CAM config — the CAMPRep lease-level inputs (pro-rata share +
 // gross-up) for an office tenant, mirroring the retail CamConfigCard so the
@@ -44,11 +45,13 @@ function tileInputStyle(width: number): React.CSSProperties {
 
 export default function OfficeCamConfigCard({
   unitRef,
+  propertyCode,
   unitSqft,
   buildingSqft,
   baseYear,
 }: {
   unitRef: string;
+  propertyCode: string;
   unitSqft: number;
   buildingSqft: number;
   /** Current base year from the rent roll / tenant metadata (the master
@@ -236,6 +239,10 @@ export default function OfficeCamConfigCard({
         Office tenants recover expenses over their base year. The pro-rata share and gross-up
         feed the CAM / RET reconciliation; edits here override the workbook seed and persist for
         future years.
+      </div>
+
+      <div style={{ marginTop: 14 }}>
+        <CamStatementHistory unitRef={unitRef} propertyCode={propertyCode} kind="office" />
       </div>
     </div>
   );
