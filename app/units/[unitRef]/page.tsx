@@ -18,6 +18,7 @@ import ContactsCard from "./ContactsCard";
 import DepositCard from "./DepositCard";
 import CamConfigCard from "./CamConfigCard";
 import OfficeCamConfigCard from "./OfficeCamConfigCard";
+import CamStatementHistory from "./CamStatementHistory";
 import DisplayNameCard from "./DisplayNameCard";
 import { centerByCode } from "@/lib/centers/registry";
 import FloorplanCard from "./FloorplanCard";
@@ -476,26 +477,31 @@ export default function UnitDetailPage() {
 
         {/* ── CAM / INS / RET (retail only, occupied suites, hidden from maint) ── */}
         {!isMaint && isRetailUnit(propertyCode) && !isAmenity && !unit.isVacant && (
-          <CamConfigCard
-            unitRef={unit.unitRef}
-            propertyCode={propertyCode}
-            occupantName={unit.occupantName || ""}
-            unitSqft={unit.sqft}
-            buildingSqft={buildingSqft}
-          />
+          <>
+            <CamConfigCard
+              unitRef={unit.unitRef}
+              propertyCode={propertyCode}
+              occupantName={unit.occupantName || ""}
+              unitSqft={unit.sqft}
+              buildingSqft={buildingSqft}
+            />
+            <CamStatementHistory unitRef={unit.unitRef} propertyCode={propertyCode} kind="retail" />
+          </>
         )}
 
         {/* ── Base Year now lives in the hero KPI strip (office only) ── */}
 
         {/* ── CAM / RET config (office only, occupied suites, hidden from maint) ── */}
         {!isMaint && isOfficeUnit(propertyCode) && !isAmenity && !unit.isVacant && (
-          <OfficeCamConfigCard
-            unitRef={unit.unitRef}
-            propertyCode={propertyCode}
-            unitSqft={unit.sqft}
-            buildingSqft={buildingSqft}
-            baseYear={baseYearVal}
-          />
+          <>
+            <OfficeCamConfigCard
+              unitRef={unit.unitRef}
+              unitSqft={unit.sqft}
+              buildingSqft={buildingSqft}
+              baseYear={baseYearVal}
+            />
+            <CamStatementHistory unitRef={unit.unitRef} propertyCode={propertyCode} kind="office" />
+          </>
         )}
 
         {/* ── Contacts (occupied suites only) ── */}

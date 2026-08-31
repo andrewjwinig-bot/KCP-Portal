@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import { SectionLabel } from "@/app/properties/PropertyDetail";
 import { MultiSelect } from "@/app/components/MultiSelect";
 import { AutosaveStatus, useAutosave } from "@/app/components/useAutosave";
-import CamStatementHistory from "./CamStatementHistory";
 import {
   CAM_CATEGORIES,
   CAM_CATEGORY_LABELS,
@@ -382,10 +381,7 @@ export default function CamConfigCard({
     <div className="card">
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
         <SectionLabel>CAM / INS / RET</SectionLabel>
-        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", justifyContent: "flex-end" }}>
-          <CamStatementHistory unitRef={unitRef} propertyCode={propertyCode} kind="retail" />
-          <AutosaveStatus saving={saving} savedFlash={savedFlash} />
-        </div>
+        <AutosaveStatus saving={saving} savedFlash={savedFlash} />
       </div>
 
       {error && (
