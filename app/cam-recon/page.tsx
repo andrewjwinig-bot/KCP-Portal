@@ -504,7 +504,16 @@ export default function OfficeCamReconPage() {
   return (
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
       <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
-        <h1>CAM / RET Reconciliation</h1>
+        <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+          <h1 style={{ margin: 0 }}>CAM / RET Reconciliation</h1>
+          <Link
+            href="/cam-recon/pro-rata-audit"
+            style={{ fontSize: 12, fontWeight: 700, color: "#0b4a7d", textDecoration: "none", padding: "5px 12px", borderRadius: 999, border: "1px solid rgba(11,74,125,0.3)", background: "rgba(11,74,125,0.06)", whiteSpace: "nowrap" }}
+            title="Audit stipulated pro-rata shares vs true SF share (office)"
+          >
+            Pro-rata Audit →
+          </Link>
+        </div>
         <KormanWordmark />
       </header>
 
