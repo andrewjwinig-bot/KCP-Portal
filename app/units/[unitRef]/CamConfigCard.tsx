@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { SectionLabel } from "@/app/properties/PropertyDetail";
 import { MultiSelect } from "@/app/components/MultiSelect";
 import { AutosaveStatus, useAutosave } from "@/app/components/useAutosave";
+import CamStatementHistory from "./CamStatementHistory";
 import {
   CAM_CATEGORIES,
   CAM_CATEGORY_LABELS,
@@ -800,6 +801,10 @@ export default function CamConfigCard({
           )}
         </div>
       )}
+
+      <div style={{ marginTop: 14 }}>
+        <CamStatementHistory unitRef={unitRef} propertyCode={propertyCode} kind="retail" />
+      </div>
     </div>
   );
 }
