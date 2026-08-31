@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { SectionLabel } from "@/app/properties/PropertyDetail";
 import { AutosaveStatus, useAutosave } from "@/app/components/useAutosave";
+import CamStatementHistory from "./CamStatementHistory";
 
 // Office CAM config — the CAMPRep lease-level inputs (pro-rata share +
 // gross-up) for an office tenant, mirroring the retail CamConfigCard so the
@@ -44,11 +45,13 @@ function tileInputStyle(width: number): React.CSSProperties {
 
 export default function OfficeCamConfigCard({
   unitRef,
+  propertyCode,
   unitSqft,
   buildingSqft,
   baseYear,
 }: {
   unitRef: string;
+  propertyCode: string;
   unitSqft: number;
   buildingSqft: number;
   /** Current base year from the rent roll / tenant metadata (the master
@@ -141,7 +144,10 @@ export default function OfficeCamConfigCard({
     <div className="card">
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
         <SectionLabel>CAM / RET (Office)</SectionLabel>
-        <AutosaveStatus saving={saving} savedFlash={savedFlash} />
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <CamStatementHistory unitRef={unitRef} propertyCode={propertyCode} kind="office" />
+          <AutosaveStatus saving={saving} savedFlash={savedFlash} />
+        </div>
       </div>
 
       {error && (
