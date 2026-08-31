@@ -379,6 +379,21 @@ export default function OfficeCamReconPage() {
     await loadResult();
   }, [property, year, loadResult]);
 
+  // Bulk "adopt the GL actuals as FINAL" — set each line's FINAL to its live
+  // full-year GL figure in one pass, then reload once so every tenant's CAM/RET
+  // recomputes. This is the reconcile-and-finalize step: the operating-statement
+  // actuals become the year's final expenses.
+  const pullGlFinals = useCallback(async (updates: { account: string; value: number }[]) => {
+    for (const u of updates) {
+      await fetch("/api/cam-recon/office", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ property, year, account: u.account, field: "final", value: u.value }),
+      });
+    }
+    await loadResult();
+  }, [property, year, loadResult]);
+
   const years = available.find((a) => a.propertyCode === property)?.years ?? [];
   const tenants = result?.tenants ?? [];
   const rTenants = activeRetail?.tenants ?? [];
@@ -681,7 +696,7 @@ export default function OfficeCamReconPage() {
 
       {!selected && result && <BuildingSummary result={result} onPick={pickUnit} onEditEscrow={saveField} footer={kpiTiles} />}
       {!selected && result && <RecoveryByBaseYear result={result} />}
-      {!selected && expenseSummary.length > 0 && <FinalExpenseSummary rows={expenseSummary} editable={expenseEditable} year={year} property={property} onEdit={saveExpense} historyYears={expenseHistoryYears} historyHref={`/rentroll/base-years?property=${property}`} glImport={glImport} />}
+      {!selected && expenseSummary.length > 0 && <FinalExpenseSummary rows={expenseSummary} editable={expenseEditable} year={year} property={property} onEdit={saveExpense} onPullGlFinals={pullGlFinals} historyYears={expenseHistoryYears} historyHref={`/rentroll/base-years?property=${property}`} glImport={glImport} />}
       {selected && <TenantStatement t={selected} reconYear={year} estimate={estimates.find((e) => e.unitRef === selected.unitRef)} contact={contacts[selected.unitRef]} />}
     </main>
   );
@@ -1612,20 +1627,38 @@ type ExpRow = {
   glActual?: number | null;
 };
 
-function FinalExpenseSummary({ rows, editable, year, property, onEdit, historyYears = [], historyHref, glImport }: {
+function FinalExpenseSummary({ rows, editable, year, property, onEdit, onPullGlFinals, historyYears = [], historyHref, glImport }: {
   rows: ExpRow[];
   editable: boolean;
   year: number;
   property: string;
   onEdit: (account: string, field: string, value: number | string | null) => void;
+  onPullGlFinals?: (updates: { account: string; value: number }[]) => void | Promise<void>;
   historyYears?: number[];
   historyHref?: string;
   glImport?: { at: string; by: string | null } | null;
 }) {
   const backup = useCamBackup(property, year);
   const [openBackup, setOpenBackup] = useState<{ account: string; label: string } | null>(null);
+  const [pulling, setPulling] = useState(false);
   const isSep = (a: string) => a.startsWith("6120") || a.startsWith("6410"); // Electric / RET
   const hasGlActual = rows.some((r) => r.glActual != null); // live GL loaded (2026+)
+  // Lines whose GL actual differs from the current FINAL — the ones a "pull from
+  // GL" would change.
+  const glDiffs = rows.filter((r) => r.glActual != null && Math.round(r.glActual) !== Math.round(r.final));
+  async function pullFromGl() {
+    if (!onPullGlFinals || !glDiffs.length) return;
+    if (!window.confirm(
+      `Set FINAL to the GL actual for ${glDiffs.length} expense line${glDiffs.length !== 1 ? "s" : ""}?\n\n` +
+      `This adopts the full-year figures posted on the property GL (Operating Statements) as this year's final expenses. Every tenant's CAM/RET recomputes, and the FINAL is recorded as ${year}'s expense history. Individual lines can still be edited after.`,
+    )) return;
+    setPulling(true);
+    try {
+      await onPullGlFinals(glDiffs.map((r) => ({ account: r.account, value: Math.round(r.glActual as number) })));
+    } finally {
+      setPulling(false);
+    }
+  }
   const opexTotal = rows.filter((r) => !isSep(r.account)).reduce((s, r) => s + r.final, 0);
   // Moving expense-history window, separated from FINAL by a vertical divider.
   const years = historyYears;
@@ -1638,6 +1671,23 @@ function FinalExpenseSummary({ rows, editable, year, property, onEdit, historyYe
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
         <div style={CARD_TITLE}>Final Expense Summary</div>
         <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+          {editable && hasGlActual && onPullGlFinals && (
+            <button
+              type="button"
+              onClick={pullFromGl}
+              disabled={pulling || glDiffs.length === 0}
+              title={glDiffs.length === 0 ? "FINAL already matches the GL actuals" : `Set FINAL to the GL actual on ${glDiffs.length} line${glDiffs.length !== 1 ? "s" : ""}`}
+              style={{
+                fontSize: 12, fontWeight: 700, padding: "6px 12px", borderRadius: 999,
+                border: "1px solid rgba(11,74,125,0.35)",
+                background: glDiffs.length === 0 ? "rgba(15,23,42,0.04)" : "rgba(11,74,125,0.08)",
+                color: glDiffs.length === 0 ? "var(--muted)" : "#0b4a7d",
+                cursor: pulling || glDiffs.length === 0 ? "default" : "pointer", whiteSpace: "nowrap",
+              }}
+            >
+              {pulling ? "Pulling…" : glDiffs.length === 0 ? "✓ FINAL = GL actuals" : `Pull FINAL from GL actuals (${glDiffs.length})`}
+            </button>
+          )}
           <PackageButton property={property} year={year} total={backup.total} />
           {historyHref && (
             <Link href={historyHref} style={{ fontSize: 12, fontWeight: 700, color: "#0b4a7d", textDecoration: "none", whiteSpace: "nowrap" }}>
