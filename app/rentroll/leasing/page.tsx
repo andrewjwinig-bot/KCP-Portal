@@ -168,11 +168,6 @@ export default function LeasingActivityPage() {
             exclusions={snowExclusions}
             setExclusions={setSnowExclusions}
           />
-          <SnowCostEstimator
-            rentroll={rentroll}
-            tenantMeta={tenantMeta}
-            exclusions={snowExclusions}
-          />
         </>
       )}
     </main>
@@ -468,19 +463,29 @@ function SnowBaseExclusions({
   const { user } = useUser();
   const canEdit = user.id === "nancy" || user.id === "admin";
   const options = useMemo(() => {
-    type Opt = { unitRef: string; label: string; propertyCode: string; occupantName: string };
+    type Opt = { unitRef: string; label: string; propertyCode: string; occupantName: string; sqft: number };
     if (!rentroll) return [] as Opt[];
     const out: Opt[] = [];
     for (const p of rentroll.properties) {
       if (!isOfficeCode(p.propertyCode)) continue;
       for (const u of p.units) {
         if (u.isVacant) continue;
-        out.push({ unitRef: u.unitRef, propertyCode: p.propertyCode, occupantName: u.occupantName, label: `${u.unitRef} · ${u.occupantName}` });
+        out.push({ unitRef: u.unitRef, propertyCode: p.propertyCode, occupantName: u.occupantName, sqft: u.sqft, label: `${u.unitRef} · ${u.occupantName}` });
       }
     }
     out.sort((a, b) => a.label.localeCompare(b.label));
     return out;
   }, [rentroll]);
+
+  // Live snow costs per building (current-year YTD from the operating statements
+  // + workbook history) — powers the inline "impact of excluding snow" preview.
+  const [snowData, setSnowData] = useState<{ currentYear: number; buildings: SnowBuilding[] } | null>(null);
+  useEffect(() => {
+    fetch("/api/snow-costs")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => setSnowData(j))
+      .catch(() => setSnowData(null));
+  }, []);
 
   const [open, setOpen] = useState(false);
   const [selectedUnitRef, setSelectedUnitRef] = useState<string>("");
@@ -604,10 +609,20 @@ function SnowBaseExclusions({
         </button>
       </div>
       {selectedOption && (
-        <div className="small" style={{ marginTop: 10, padding: "9px 12px", borderRadius: 8, background: "rgba(11,74,125,0.05)", border: "1px solid rgba(11,74,125,0.18)", color: "var(--text)" }}>
-          From <b>{MONTH_NAMES[effMonth - 1]} {effYear}</b>, {selectedOption.occupantName}&rsquo;s Snow Removal base year is treated as <b>$0</b> — they recover their full pro-rata share of snow.
-          {" "}In {effYear} it&rsquo;s prorated to <b>~{firstYearPct}%</b> of the exclusion (snow from {MONTH_NAMES[effMonth - 1]}&ndash;December); every {effYear + 1}+ reconciliation is 100%.
-        </div>
+        <>
+          <SnowImpactPanel
+            option={selectedOption}
+            baseYearRaw={currentBaseYear}
+            effMonth={effMonth}
+            effYear={effYear}
+            firstYearPct={firstYearPct}
+            snowData={snowData}
+          />
+          <div className="small" style={{ marginTop: 10, padding: "9px 12px", borderRadius: 8, background: "rgba(11,74,125,0.05)", border: "1px solid rgba(11,74,125,0.18)", color: "var(--text)" }}>
+            From <b>{MONTH_NAMES[effMonth - 1]} {effYear}</b>, {selectedOption.occupantName}&rsquo;s Snow Removal base year is treated as <b>$0</b> — they recover their full pro-rata share of snow.
+            {" "}In {effYear} it&rsquo;s prorated to <b>~{firstYearPct}%</b> of the exclusion (snow from {MONTH_NAMES[effMonth - 1]}&ndash;December); every {effYear + 1}+ reconciliation is 100%.
+          </div>
+        </>
       )}
       {error && <div style={{ marginTop: 8, fontSize: 12, color: "#b91c1c", fontWeight: 600 }}>{error}</div>}
       </fieldset>
@@ -739,279 +754,82 @@ function money0(n: number): string {
   return "$" + Math.round(n).toLocaleString("en-US");
 }
 
-function SnowCostEstimator({
-  rentroll,
-  tenantMeta,
-  exclusions,
+function SnowImpactPanel({
+  option,
+  baseYearRaw,
+  effMonth,
+  effYear,
+  firstYearPct,
+  snowData,
 }: {
-  rentroll: RentRollData | null;
-  tenantMeta: Record<string, TenantMeta>;
-  exclusions: Record<string, SnowBaseExclusion>;
+  option: { unitRef: string; propertyCode: string; occupantName: string; sqft: number };
+  baseYearRaw: number | string | null;
+  effMonth: number;
+  effYear: number;
+  firstYearPct: number;
+  snowData: { currentYear: number; buildings: SnowBuilding[] } | null;
 }) {
-  const [open, setOpen] = useState(false);
-  const [data, setData] = useState<{ currentYear: number; buildings: SnowBuilding[] } | null>(null);
-  const [loaded, setLoaded] = useState(false);
+  if (snowData == null) {
+    return <div className="muted small" style={{ marginTop: 16 }}>Loading snow costs…</div>;
+  }
+  const building = snowData.buildings.find((b) => b.code === option.propertyCode) ?? null;
+  if (!building) {
+    return (
+      <div className="muted small" style={{ marginTop: 16 }}>
+        No snow history for {option.propertyCode} — snow impact unavailable.
+      </div>
+    );
+  }
 
-  // Two modes: an EXISTING tenant (auto-fills their building, SF and base year,
-  // and shows the actual base-year snow recovery) or a PROSPECTIVE tenant (enter
-  // SF for the gross pro-rata share of the building's snow).
-  const [mode, setMode] = useState<"existing" | "prospective">("existing");
-  const [tenantUnitRef, setTenantUnitRef] = useState<string>("");
-  const [calcCode, setCalcCode] = useState<string>("");
-  const [tenantSqft, setTenantSqft] = useState<string>("");
-  const [basisYear, setBasisYear] = useState<string>(""); // "" = current-year YTD
+  const currentYear = snowData.currentYear;
+  const baseYear =
+    typeof baseYearRaw === "number"
+      ? baseYearRaw
+      : typeof baseYearRaw === "string" && /^\d{4}$/.test(baseYearRaw.trim())
+        ? Number(baseYearRaw.trim())
+        : null;
 
-  useEffect(() => {
-    fetch("/api/snow-costs")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j) => setData(j))
-      .catch(() => setData(null))
-      .finally(() => setLoaded(true));
-  }, []);
+  // Snow basis: the current-year YTD from the operating statements, or — when no
+  // current-year GL is imported yet — the latest full year from the workbook.
+  const historyYears = Object.keys(building.history).map(Number).sort((a, b) => b - a);
+  const usingLive = !!building.current;
+  const basisYear = usingLive ? currentYear : historyYears[0] ?? currentYear;
+  const basisSnow = usingLive ? building.current!.ytd : building.history[String(basisYear)] ?? 0;
+  const throughLabel = building.current?.throughLabel;
 
-  const currentYear = data?.currentYear ?? new Date().getFullYear();
-  const buildings = data?.buildings ?? [];
+  const proRata = building.rentableSqft > 0 ? option.sqft / building.rentableSqft : 0;
+  // Base-year snow the tenant's current stop already shelters (same year as the
+  // basis ⇒ they're at base, no recovery). Excluding snow drops this to $0.
+  const baseSnow = baseYear == null ? 0 : baseYear === basisYear ? basisSnow : building.history[String(baseYear)] ?? 0;
 
-  // Office tenants (occupied) for the existing-tenant picker.
-  const tenantOptions = useMemo(() => {
-    type Opt = { unitRef: string; propertyCode: string; occupantName: string; sqft: number; label: string };
-    if (!rentroll) return [] as Opt[];
-    const out: Opt[] = [];
-    for (const p of rentroll.properties) {
-      if (!isOfficeCode(p.propertyCode)) continue;
-      for (const u of p.units) {
-        if (u.isVacant) continue;
-        out.push({ unitRef: u.unitRef, propertyCode: p.propertyCode, occupantName: u.occupantName, sqft: u.sqft, label: `${u.unitRef} · ${u.occupantName}` });
-      }
-    }
-    out.sort((a, b) => a.label.localeCompare(b.label));
-    return out;
-  }, [rentroll]);
+  const withoutExcl = proRata * Math.max(0, basisSnow - baseSnow); // today's snow recovery
+  const withExcl = proRata * basisSnow;                            // recovery once base = $0
+  const gain = Math.max(0, withExcl - withoutExcl);                // added recovery / full year
+  const effYearGain = (gain * firstYearPct) / 100;
 
-  // The two most recent closed years present in the workbook, for context columns.
-  const historyYears = useMemo(() => {
-    const set = new Set<number>();
-    for (const b of buildings) for (const y of Object.keys(b.history)) set.add(Number(y));
-    return [...set].filter((y) => y < currentYear).sort((a, b) => b - a);
-  }, [buildings, currentYear]);
-  const contextYears = historyYears.slice(0, 2);
-  const anyCurrent = buildings.some((b) => b.current && b.current.ytd !== 0);
-
-  const snowFor = (b: SnowBuilding, year: number): number =>
-    year === currentYear ? b.current?.ytd ?? 0 : b.history[String(year)] ?? 0;
-
-  // ── Existing-tenant selection ──
-  const tenant = tenantOptions.find((t) => t.unitRef === tenantUnitRef) ?? null;
-  const tenantBuilding = tenant ? buildings.find((b) => b.code === tenant.propertyCode) ?? null : null;
-  const tenantBaseYearRaw = tenant ? tenantMeta[tenant.unitRef]?.baseYear ?? null : null;
-  const tenantBaseYear = tenantBaseYearRaw != null && !Number.isNaN(Number(tenantBaseYearRaw)) ? Number(tenantBaseYearRaw) : null;
-  const snowExcluded = tenant ? !!exclusions[tenant.unitRef] && (exclusions[tenant.unitRef].effectiveYear ?? currentYear) <= currentYear : false;
-  const tProRataPct = tenant && tenantBuilding && tenantBuilding.rentableSqft > 0 ? (tenant.sqft / tenantBuilding.rentableSqft) * 100 : 0;
-  const tCurrentSnow = tenantBuilding ? snowFor(tenantBuilding, currentYear) : 0;
-  // Base-year snow: $0 when snow is excluded from the base year, else the
-  // building's snow in the tenant's base year (floored at the recovery step).
-  const tBaseSnow = snowExcluded ? 0 : tenantBuilding && tenantBaseYear != null ? tenantBuilding.history[String(tenantBaseYear)] ?? 0 : 0;
-  const tRecoverable = Math.max(0, tCurrentSnow - tBaseSnow);
-  const tGrossShare = tCurrentSnow * (tProRataPct / 100);
-  const tRecovery = tRecoverable * (tProRataPct / 100);
-  const currentThroughLabel = tenantBuilding?.current?.throughLabel;
-
-  // ── Prospective-tenant selection ──
-  const selected = buildings.find((b) => b.code === calcCode) ?? null;
-  const basisYearNum = basisYear ? Number(basisYear) : currentYear;
-  const sqftNum = Number(tenantSqft) || 0;
-  const proRataPct = selected && selected.rentableSqft > 0 ? (sqftNum / selected.rentableSqft) * 100 : 0;
-  const buildingSnow = selected ? snowFor(selected, basisYearNum) : 0;
-  const tenantShare = buildingSnow * (proRataPct / 100);
-  const basisIsCurrent = basisYearNum === currentYear;
-  const currentThrough = selected?.current?.throughLabel;
+  const fmt = (n: number) => money0(n);
+  const pct = (proRata * 100).toFixed(2) + "%";
 
   return (
-    <section className="card">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, width: "100%", background: "transparent", border: "none", padding: 0, cursor: "pointer", textAlign: "left", fontFamily: "inherit" }}
-      >
-        <div>
-          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Snow Removal Cost Estimator</h2>
-          <div className="muted small" style={{ marginTop: 2 }}>
-            This year&rsquo;s snow cost per building — pulled live from the operating statements (YTD through the last posted month) — plus a prospective-tenant proportionate-share calculator. Prior years come from the operating-expense workbook.
-          </div>
-        </div>
-        <span style={{ color: "var(--muted)", fontSize: 18, flexShrink: 0 }}>{open ? "▲" : "▼"}</span>
-      </button>
-
-      {open && (
-        <>
-          {!loaded ? (
-            <div className="muted small" style={{ marginTop: 14 }}>Loading snow costs…</div>
-          ) : (
-            <>
-              {!anyCurrent && (
-                <div className="small" style={{ marginTop: 12, padding: "9px 12px", borderRadius: 8, background: "rgba(180,83,9,0.07)", border: "1px solid rgba(180,83,9,0.25)", color: "#9a3412" }}>
-                  No {currentYear} operating-statement GL is imported yet, so this year&rsquo;s snow-to-date isn&rsquo;t available. Import the {currentYear} monthly GLs on Operating Statements and it will populate here. The prior-year columns below still let you estimate a share.
-                </div>
-              )}
-
-              {/* Per-building snow cost table */}
-              <div style={{ marginTop: 14, overflowX: "auto" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                  <thead>
-                    <tr style={{ color: "var(--muted)", fontSize: 11, letterSpacing: "0.04em", textAlign: "left" }}>
-                      <th style={{ padding: "8px 10px", fontWeight: 700 }}>BUILDING</th>
-                      <th style={{ padding: "8px 10px", fontWeight: 700, textAlign: "right", whiteSpace: "nowrap" }}>RENTABLE SF</th>
-                      <th style={{ padding: "8px 10px", fontWeight: 700, textAlign: "right", whiteSpace: "nowrap", color: "#0b4a7d" }}>
-                        {currentYear} YTD{anyCurrent ? "" : " *"}
-                      </th>
-                      {contextYears.map((y) => (
-                        <th key={y} style={{ padding: "8px 10px", fontWeight: 700, textAlign: "right" }}>{y}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {buildings.map((b) => (
-                      <tr key={b.code} style={{ borderTop: "1px solid var(--border)" }}>
-                        <td style={{ padding: "9px 10px" }}>
-                          <code style={{ fontSize: 12, fontWeight: 700, color: "#0b4a7d" }}>{b.code}</code>{" "}
-                          <span style={{ fontWeight: 600 }}>{b.name}</span>{" "}
-                          <span className="muted" style={{ fontSize: 11 }}>· {b.fund}</span>
-                        </td>
-                        <td style={{ padding: "9px 10px", textAlign: "right" }}>{b.rentableSqft.toLocaleString("en-US")}</td>
-                        <td style={{ padding: "9px 10px", textAlign: "right", fontWeight: 700, color: "#0b4a7d", whiteSpace: "nowrap" }}>
-                          {b.current ? money0(b.current.ytd) : <span className="muted">—</span>}
-                          {b.current && <span className="muted" style={{ fontSize: 10, fontWeight: 600 }}> · thru {b.current.throughLabel}</span>}
-                        </td>
-                        {contextYears.map((y) => (
-                          <td key={y} style={{ padding: "9px 10px", textAlign: "right" }}>
-                            {b.history[String(y)] != null ? money0(b.history[String(y)]) : <span className="muted">—</span>}
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              {!anyCurrent && (
-                <div className="muted small" style={{ marginTop: 6 }}>* No {currentYear} GL imported yet.</div>
-              )}
-
-              {/* Proportionate-share calculator */}
-              <div style={{ marginTop: 18, paddingTop: 14, borderTop: "1px solid var(--border)" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
-                  <span style={fieldLabel}>Snow share for:</span>
-                  {(["existing", "prospective"] as const).map((m) => (
-                    <button
-                      key={m}
-                      type="button"
-                      onClick={() => setMode(m)}
-                      style={{
-                        fontSize: 12, fontWeight: 700, padding: "5px 12px", borderRadius: 999,
-                        border: `1px solid ${mode === m ? "#0b4a7d" : "var(--border)"}`,
-                        background: mode === m ? "#0b4a7d" : "var(--card)",
-                        color: mode === m ? "#fff" : "var(--text)", cursor: "pointer",
-                      }}
-                    >
-                      {m === "existing" ? "Existing tenant" : "Prospective tenant"}
-                    </button>
-                  ))}
-                </div>
-
-                {mode === "existing" ? (
-                  <>
-                    <label style={{ display: "flex", flexDirection: "column", gap: 4, maxWidth: 420 }}>
-                      <span style={fieldLabel}>Tenant (office)</span>
-                      <select value={tenantUnitRef} onChange={(e) => setTenantUnitRef(e.target.value)} style={selectStyle}>
-                        <option value="">— Pick a tenant —</option>
-                        {tenantOptions.map((t) => <option key={t.unitRef} value={t.unitRef}>{t.label}</option>)}
-                      </select>
-                    </label>
-
-                    {tenant && tenantBuilding && (
-                      <div style={{ marginTop: 14 }}>
-                        <div className="pills">
-                          <StatPill label="Pro-rata share" value={`${tProRataPct.toFixed(2)}%`} />
-                          <StatPill label={`${currentYear} building snow${currentThroughLabel ? ` · thru ${currentThroughLabel}` : ""}`} value={money0(tCurrentSnow)} />
-                          <StatPill label={snowExcluded ? "Base year (snow excluded)" : `Base year snow (${tenantBaseYear ?? "—"})`} value={money0(tBaseSnow)} />
-                          <StatPill label={`${currentYear} snow recovery`} value={money0(tRecovery)} accent="#0b4a7d" />
-                        </div>
-                        <div className="small" style={{ marginTop: 10, padding: "9px 12px", borderRadius: 8, background: "rgba(11,74,125,0.05)", border: "1px solid rgba(11,74,125,0.18)", color: "var(--text)" }}>
-                          <b>{tenant.occupantName}</b> ({tenant.sqft.toLocaleString("en-US")} SF) carries <b>{tProRataPct.toFixed(2)}%</b> of {tenantBuilding.code} {tenantBuilding.name}.
-                          {" "}Their gross share of {currentYear} snow{currentThroughLabel ? ` (through ${currentThroughLabel})` : ""} is <b>{money0(tGrossShare)}</b>.
-                          {" "}
-                          {snowExcluded ? (
-                            <>Snow is <b>excluded from their base year</b> (base $0), so they recover the full share: <b>{money0(tRecovery)}</b>.</>
-                          ) : tenantBaseYear != null ? (
-                            <>Netting their {tenantBaseYear} base-year snow of <b>{money0(tBaseSnow)}</b> (recovery only on the increase over base), the {currentYear} snow recovery is <b>{money0(tRecovery)}</b>.</>
-                          ) : (
-                            <>No base year is recorded for this tenant, so the recovery shown assumes a $0 base. Record their base year to net it out.</>
-                          )}
-                          {!tenantBuilding.current && <> No {currentYear} GL is imported for this building yet — figures use $0 for {currentYear} snow until it&rsquo;s imported.</>}
-                        </div>
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <>
-                    <div style={{ display: "grid", gridTemplateColumns: "minmax(220px, 2fr) minmax(130px, 1fr) minmax(150px, 1fr)", gap: 10, alignItems: "flex-end" }}>
-                      <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                        <span style={fieldLabel}>Building</span>
-                        <select value={calcCode} onChange={(e) => setCalcCode(e.target.value)} style={selectStyle}>
-                          <option value="">— Pick a building —</option>
-                          {buildings.map((b) => (
-                            <option key={b.code} value={b.code}>{b.code} · {b.name}</option>
-                          ))}
-                        </select>
-                      </label>
-                      <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                        <span style={fieldLabel}>Prospective SF</span>
-                        <input
-                          type="number"
-                          value={tenantSqft}
-                          onChange={(e) => setTenantSqft(e.target.value)}
-                          placeholder="e.g. 5,000"
-                          style={selectStyle}
-                        />
-                      </label>
-                      <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                        <span style={fieldLabel}>Cost basis year</span>
-                        <select value={basisYear} onChange={(e) => setBasisYear(e.target.value)} style={selectStyle}>
-                          <option value="">{currentYear} YTD (live)</option>
-                          {historyYears.map((y) => (
-                            <option key={y} value={String(y)}>{y} (full year)</option>
-                          ))}
-                        </select>
-                      </label>
-                    </div>
-
-                    {selected && sqftNum > 0 && (
-                      <div style={{ marginTop: 14 }}>
-                        <div className="pills">
-                          <StatPill label="Pro-rata share" value={`${proRataPct.toFixed(2)}%`} />
-                          <StatPill
-                            label={basisIsCurrent ? `${currentYear} building snow${currentThrough ? ` · thru ${currentThrough}` : ""}` : `${basisYearNum} building snow`}
-                            value={money0(buildingSnow)}
-                          />
-                          <StatPill label="Tenant's snow share" value={money0(tenantShare)} accent="#0b4a7d" />
-                        </div>
-                        <div className="small" style={{ marginTop: 10, padding: "9px 12px", borderRadius: 8, background: "rgba(11,74,125,0.05)", border: "1px solid rgba(11,74,125,0.18)", color: "var(--text)" }}>
-                          A <b>{sqftNum.toLocaleString("en-US")} SF</b> tenant in <b>{selected.code} {selected.name}</b> ({selected.rentableSqft.toLocaleString("en-US")} SF) carries <b>{proRataPct.toFixed(2)}%</b> of the building.
-                          {" "}At {basisIsCurrent ? `${currentYear} snow-to-date${currentThrough ? ` (through ${currentThrough})` : ""}` : `${basisYearNum} snow`} of <b>{money0(buildingSnow)}</b>, their proportionate share is <b>{money0(tenantShare)}</b>.
-                          {" "}A new tenant typically has no base-year offset in year one, so this gross share is the exposure to quote.
-                          {basisIsCurrent && !selected.current && (
-                            <> No {currentYear} GL is imported for this building yet — pick a prior full year, or import the {currentYear} GL.</>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-            </>
-          )}
-        </>
-      )}
-    </section>
+    <div style={{ marginTop: 16 }}>
+      <span style={fieldLabel}>Impact of excluding snow — added annual recovery</span>
+      <div className="pills" style={{ marginTop: 6 }}>
+        <StatPill label="Pro-rata share" value={pct} />
+        <StatPill
+          label={`${basisYear} building snow${usingLive && throughLabel ? ` · thru ${throughLabel}` : usingLive ? "" : " (full yr)"}`}
+          value={fmt(basisSnow)}
+        />
+        <StatPill label="Recovers now" value={fmt(withoutExcl)} />
+        <StatPill label="Added recovery / yr" value={fmt(gain)} accent={gain > 0 ? "#15803d" : undefined} />
+      </div>
+      <div className="muted small" style={{ marginTop: 6 }}>
+        Excluding snow lifts {option.occupantName}&rsquo;s snow recovery from <b>{fmt(withoutExcl)}</b> to <b>{fmt(withExcl)}</b> —
+        an added <b>{fmt(gain)}</b>/yr on {building.code} {building.name}&rsquo;s {basisYear} snow of {fmt(basisSnow)}
+        {baseYear != null ? <> (current base year {baseYear}{baseYear === basisYear ? ", so they recover nothing today" : ""})</> : <> (no base year on file — assumes a $0 base today)</>}.
+        {" "}For the {effYear} reconciliation it prorates to ~{firstYearPct}% → <b>{fmt(effYearGain)}</b>; {effYear + 1}+ is the full {fmt(gain)}.
+        {!usingLive && <> No {currentYear} GL imported yet — this uses {basisYear} actuals as the estimate.</>}
+      </div>
+    </div>
   );
 }
 
