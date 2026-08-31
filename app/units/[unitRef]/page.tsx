@@ -491,6 +491,7 @@ export default function UnitDetailPage() {
         {!isMaint && isOfficeUnit(propertyCode) && !isAmenity && !unit.isVacant && (
           <OfficeCamConfigCard
             unitRef={unit.unitRef}
+            propertyCode={propertyCode}
             unitSqft={unit.sqft}
             buildingSqft={buildingSqft}
             baseYear={baseYearVal}
