@@ -193,8 +193,9 @@ export default function AllocatedInvoicerPage() {
   // Run log — the last allocation that was generated (period invoiced + when),
   // so staff know where to pick up. Loaded on mount; updated when invoices are
   // generated.
-  type AllocRun = { periodText: string; periodEndDate: string; statementMonth: string; ranAt: string; ranBy?: string };
+  type AllocRun = { periodText: string; periodEndDate: string; statementMonth: string; ranAt: string; ranBy?: string; byProperty?: { code: string; name: string; amount: number }[]; total?: number };
   const [runs, setRuns] = useState<AllocRun[] | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
   useEffect(() => {
     fetch("/api/allocation/last-run").then((r) => r.json()).then((j) => setRuns(j.runs ?? [])).catch(() => setRuns([]));
   }, []);
@@ -241,11 +242,17 @@ export default function AllocatedInvoicerPage() {
   }
   async function recordRun() {
     if (!glResult) return;
+    // Snapshot the per-property allocated amounts invoiced this run, so the
+    // allocation history can be referenced later (it isn't computed in Skyline).
+    const byProperty = ALLOC_PROPERTIES
+      .map((p) => ({ code: p.id, name: p.name, amount: billingTotals.get(p.id) ?? 0 }))
+      .filter((x) => x.amount > 0);
+    const total = byProperty.reduce((s, x) => s + x.amount, 0);
     try {
       const res = await fetch("/api/allocation/last-run", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ periodText: glResult.periodText, periodEndDate: glResult.periodEndDate, statementMonth: glResult.statementMonth }),
+        body: JSON.stringify({ periodText: glResult.periodText, periodEndDate: glResult.periodEndDate, statementMonth: glResult.statementMonth, byProperty, total }),
       });
       const j = await res.json();
       if (res.ok && j.runs) setRuns(j.runs);
@@ -672,11 +679,56 @@ export default function AllocatedInvoicerPage() {
           <div className="small" style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(11,74,125,0.06)", border: "1px solid rgba(11,74,125,0.25)", color: "#0b4a7d", fontWeight: 600, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
             <span>📌 Last allocated: <b>{runs[0].statementMonth || runs[0].periodText || "—"}</b>{runs[0].periodText && runs[0].statementMonth && runs[0].periodText !== runs[0].statementMonth ? ` (${runs[0].periodText})` : ""}</span>
             <span>· Run <b>{new Date(runs[0].ranAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</b>{runs[0].ranBy ? ` by ${runs[0].ranBy}` : ""}</span>
-            {runs.length > 1 && (
-              <span className="muted" style={{ fontWeight: 500 }}>· Prior: {runs.slice(1, 4).map((r) => r.statementMonth || r.periodText).filter(Boolean).join(", ")}</span>
-            )}
+            {runs[0].total ? <span>· <b>{toMoney(runs[0].total)}</b> allocated</span> : null}
+            <button type="button" onClick={() => setHistoryOpen((o) => !o)} style={{ marginLeft: "auto", fontSize: 12, fontWeight: 700, color: "#0b4a7d", background: "none", border: "none", cursor: "pointer", textDecoration: "underline", padding: 0 }}>
+              {historyOpen ? "Hide history" : "View history"}
+            </button>
           </div>
         )
+      )}
+
+      {/* ── Allocation history detail (per-building, for later justification) ── */}
+      {historyOpen && runs && runs.length > 0 && (
+        <div className="card">
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+            <b>Allocation history</b>
+            <span className="muted small">Per-building amounts invoiced each run — reference to justify what was allocated (this isn&rsquo;t computed in Skyline).</span>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 12 }}>
+            {runs.map((r, i) => (
+              <div key={`${r.periodEndDate || r.statementMonth}-${i}`} style={{ border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", padding: "8px 12px", background: "rgba(11,74,125,0.04)" }}>
+                  <b style={{ color: "#0b4a7d" }}>{r.statementMonth || r.periodText || "—"}</b>
+                  {r.periodText && r.periodText !== r.statementMonth && <span className="muted small">{r.periodText}</span>}
+                  <span className="muted small">Run {new Date(r.ranAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}{r.ranBy ? ` by ${r.ranBy}` : ""}</span>
+                  <span style={{ marginLeft: "auto", fontWeight: 800 }}>{r.total != null ? toMoney(r.total) : "—"}</span>
+                </div>
+                {r.byProperty && r.byProperty.length > 0 ? (
+                  <div className="tableWrap">
+                    <table>
+                      <thead>
+                        <tr><th>Property</th><th style={{ textAlign: "right" }}>Allocated</th></tr>
+                      </thead>
+                      <tbody>
+                        {r.byProperty.map((b) => (
+                          <tr key={b.code}>
+                            <td><code style={{ fontSize: 12 }}>{b.code}</code> {b.name}</td>
+                            <td style={{ textAlign: "right" }}>{toMoney(b.amount)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot>
+                        <tr><td style={{ fontWeight: 700 }}>Total</td><td style={{ textAlign: "right", fontWeight: 800 }}>{toMoney(r.byProperty.reduce((s, b) => s + b.amount, 0))}</td></tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="small muted" style={{ padding: "8px 12px" }}>No per-building detail recorded for this run (run before detail was tracked).</div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
       )}
 
       {/* ── Ready-to-process hand-off from Operating Statements ── */}

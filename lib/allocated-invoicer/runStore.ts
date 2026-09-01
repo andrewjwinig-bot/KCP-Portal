@@ -18,6 +18,12 @@ export type AllocationRun = {
   ranAt: string;
   /** Who generated it. */
   ranBy?: string;
+  /** Per-property allocated amount invoiced this run — the breakdown, kept so the
+   *  allocation can be justified / referenced later (it isn't computed in
+   *  Skyline). Newest run's figures reflect what was billed. */
+  byProperty?: { code: string; name: string; amount: number }[];
+  /** Total allocated across properties this run. */
+  total?: number;
 };
 
 export async function listAllocationRuns(): Promise<AllocationRun[]> {
