@@ -752,8 +752,12 @@ function RequestModal({
   onChange: (r: MaintenanceRequest) => void;
   onDelete: (id: string) => void;
 }) {
+  const { user } = useUser();
   const [draftNote, setDraftNote] = useState("");
-  const [noteAuthor, setNoteAuthor] = useState<StaffId>("greg");
+  // Internal notes are authored by the logged-in user — Charles as Charles, Jay
+  // as Jay, Greg as Greg. No dropdown (nobody logs a note as someone else). A
+  // non-service account falls back to a sensible default.
+  const noteAuthor: StaffId = isStaffId(user.id) ? (user.id as StaffId) : "greg";
   const [busy, setBusy] = useState(false);
 
   // Known rent-roll companies for the request's property — drives the
@@ -1024,7 +1028,9 @@ function RequestModal({
                     : ` · ${tenantSuggestion.units.length} suites`}”
                 </button>
               )}
-              {!readOnly && companies.length > 0 && (
+              {/* One-time tenant assignment: only while the tenant is still
+                  unresolved. Once resolved it disappears. */}
+              {!readOnly && companies.length > 0 && request.tenantResolved === false && (
                 <select
                   disabled={busy}
                   value=""
@@ -1253,13 +1259,7 @@ function RequestModal({
                   <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
                     Author
                   </span>
-                  <select
-                    value={noteAuthor}
-                    onChange={(e) => setNoteAuthor(e.target.value as StaffId)}
-                    style={{ ...selectStyle, width: "auto", minWidth: 120 }}
-                  >
-                    {STAFF.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                  </select>
+                  <span style={{ fontSize: 14, fontWeight: 700 }}>{staffName(noteAuthor)}</span>
                 </div>
                 <textarea
                   placeholder="Add an internal note…"
