@@ -1311,7 +1311,7 @@ function SectionCard({ sec, nf, monthLabel, view, thresh, onOpenDetail, filterCl
               <tr key={l.label}>
                 <td style={labelStyle}>
                   {l.label}
-                  {l.flags?.length && !l.fullyFundedYtd && !nf.dismissedFlags.has(lineKeyOf(sec.name, l.label)) ? (
+                  {l.flags?.length && !l.fullyFundedYtd && !l.expectedMissing && !nf.dismissedFlags.has(lineKeyOf(sec.name, l.label)) ? (
                     <button
                       type="button"
                       onClick={() => nf.onDismissFlag(lineKeyOf(sec.name, l.label))}
@@ -1319,14 +1319,7 @@ function SectionCard({ sec, nf, monthLabel, view, thresh, onOpenDetail, filterCl
                       style={{ marginLeft: 6, display: "inline-flex", alignItems: "center", justifyContent: "center", width: 16, height: 16, borderRadius: "50%", background: "rgba(180,83,9,0.12)", border: "1px solid rgba(180,83,9,0.45)", color: "#b45309", fontSize: 10, fontWeight: 800, cursor: "pointer", verticalAlign: "middle", padding: 0, fontFamily: "inherit" }}
                     >?</button>
                   ) : null}
-                  {l.expectedMissing ? (
-                    <span
-                      title={l.expectedMissing.basis === "debt"
-                        ? `Debt service isn't posted — the Debt Tracker schedules ~${money0(l.expectedMissing.expected)}/mo P&I on this property. Unposted, not final.`
-                        : `Budgeted ~${money0(l.expectedMissing.expected)} but nothing posted year-to-date — looks unposted, not a complete $0.`}
-                      style={{ marginLeft: 6, display: "inline-flex", alignItems: "center", gap: 3, padding: "1px 7px", borderRadius: 999, background: "rgba(180,83,9,0.14)", border: "1px solid rgba(180,83,9,0.45)", color: "#9a3412", fontSize: 10, fontWeight: 800, verticalAlign: "middle", whiteSpace: "nowrap" }}
-                    >⚠ Not posted</span>
-                  ) : l.fullyFundedYtd ? (
+                  {l.fullyFundedYtd ? (
                     <span
                       title={`Already paid — the full-year budget (${money0(l.fullyFundedYtd.annualBudget)}) is booked year-to-date (${money0(l.fullyFundedYtd.ytdActual)}). A $0 this month is expected (e.g. taxes / insurance paid up front), not a shortfall.`}
                       style={{ marginLeft: 6, display: "inline-flex", alignItems: "center", gap: 3, padding: "1px 7px", borderRadius: 999, background: "rgba(21,128,61,0.12)", border: "1px solid rgba(21,128,61,0.40)", color: "#15803d", fontSize: 10, fontWeight: 800, verticalAlign: "middle", whiteSpace: "nowrap" }}
@@ -1385,9 +1378,10 @@ function figureCells(t: StatementTotals, opts: { bold?: boolean; color?: string;
       ? `Debt service isn't posted — the Debt Tracker schedules ~${money0(expectedMissing.expected)}/mo P&I on this property. This $0 is unposted, not final.`
       : `Nothing posted year-to-date, but this line is budgeted ~${money0(expectedMissing.expected)}. Looks unposted — not a complete $0.`
     : undefined;
-  const missStyle: React.CSSProperties = { background: "rgba(180,83,9,0.14)", outline: "1px solid rgba(180,83,9,0.45)", outlineOffset: -1, fontWeight: 800, color: "#9a3412" };
+  const missStyle: React.CSSProperties = { background: "rgba(180,83,9,0.10)", color: "#b45309", textAlign: "center", fontSize: 18, lineHeight: 1 };
   const missPeriod = !!expectedMissing && Math.abs(t.periodActual) < 0.5; // period-actual is ~0
   const missYtd = !!expectedMissing && expectedMissing.scope === "ytd" && Math.abs(t.ytdActual) < 0.5;
+  const missIcon = <span aria-label="Not posted to the GL">⚠️</span>;
   // Green reassurance on a $0 month whose full-year budget is already booked YTD
   // (front-loaded taxes/insurance) — an expected $0, not a shortfall.
   const paidPeriod = !!fullyFunded && Math.abs(t.periodActual) < 0.5;
@@ -1416,10 +1410,10 @@ function figureCells(t: StatementTotals, opts: { bold?: boolean; color?: string;
       : {};
   return (
     <>
-      <td {...click("gl", "month", t.periodActual)} title={missPeriod ? missTitle : paidPeriod ? paidTitle : undefined} style={{ ...base, borderLeft: GROUP_DIV, ...(missPeriod ? missStyle : paidPeriod ? paidStyle : {}) }}>{missPeriod ? "⚠ —" : paidPeriod ? "✓ —" : amt(t.periodActual)}</td>
+      <td {...click("gl", "month", t.periodActual)} title={missPeriod ? missTitle : paidPeriod ? paidTitle : undefined} style={{ ...base, borderLeft: GROUP_DIV, ...(missPeriod ? missStyle : paidPeriod ? paidStyle : {}) }}>{missPeriod ? missIcon : paidPeriod ? "✓ —" : amt(t.periodActual)}</td>
       <td {...click("budget", "month", t.periodBudget)} style={{ ...base, color: color ?? "var(--muted)" }}>{amt(t.periodBudget)}</td>
       <td style={paidPeriod ? { ...base, color: "#15803d" } : varCell(varMode === "dollar" ? t.periodVariance : pV, mFlag)} title={paidPeriod ? paidTitle : undefined}>{varText(t.periodVariance, pV)}</td>
-      <td {...click("gl", "ytd", t.ytdActual)} title={missYtd ? missTitle : undefined} style={{ ...base, borderLeft: GROUP_DIV, ...(missYtd ? missStyle : {}) }}>{missYtd ? "⚠ —" : amt(t.ytdActual)}</td>
+      <td {...click("gl", "ytd", t.ytdActual)} title={missYtd ? missTitle : undefined} style={{ ...base, borderLeft: GROUP_DIV, ...(missYtd ? missStyle : {}) }}>{missYtd ? missIcon : amt(t.ytdActual)}</td>
       <td {...click("budget", "ytd", t.ytdBudget)} style={{ ...base, color: color ?? "var(--muted)" }}>{amt(t.ytdBudget)}</td>
       <td style={varCell(varMode === "dollar" ? t.ytdVariance : yV, yFlag)}>{varText(t.ytdVariance, yV)}</td>
       <td {...click("budget", "annual", t.annualBudget)} style={{ ...base, borderLeft: GROUP_DIV, color: color ?? "var(--muted)" }}>{amt(t.annualBudget)}</td>

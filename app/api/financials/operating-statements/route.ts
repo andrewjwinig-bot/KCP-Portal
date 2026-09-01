@@ -167,14 +167,40 @@ export async function GET(req: Request) {
   // richer transaction-count checks run inside auto-explain.) Lines the user has
   // investigated + dismissed are suppressed.
   const dismissed = new Set(await getDismissedFlags(key, year, period));
+  // Snow removal (GL 6370) is seasonal — Nov–Mar. A $0 in the off-season is
+  // expected, so don't flag it (the generic trend logic would otherwise call a
+  // summer $0 a "sharp drop from recent months"). But a snow charge posted in
+  // the off-season is unusual and probably miscoded — flag THAT instead.
+  const SNOW_SEASON = new Set([11, 12, 1, 2, 3]);
+  const isSnowLine = (l: { label: string; mask: string; accounts?: string[] }) =>
+    /snow/i.test(l.label) || /6370/.test(l.mask) || (l.accounts?.some((a) => a.startsWith("6370")) ?? false);
+  // Real-estate taxes (GL 6410) are paid in a lump (once, or quarterly/escrowed),
+  // so a $0 month is expected — not a "sharp drop" to investigate. (A year with
+  // NO RET posted at all is caught separately by the unposted-line check.)
+  const isRetLine = (l: { label: string; mask: string; accounts?: string[] }) =>
+    /real\s*estate\s*tax/i.test(l.label) || /6410/.test(l.mask) || (l.accounts?.some((a) => a.startsWith("6410")) ?? false);
   for (const sec of statement.sections) {
     const sign = sec.role === "revenue" || sec.role === "reimbursement" ? -1 : 1;
+    // Capital items are lumpy and hard to plan — a swing isn't an anomaly worth
+    // investigating, so never put the "?" trend marker on a capital line.
+    if (sec.role === "capital") continue;
     for (const l of sec.lines) {
       if (dismissed.has(`${sec.name}::${l.label}`)) continue;
       const amounts = lineMonthly(stored.monthly, l.mask, sign, period);
       const pyAmounts = storedPY ? lineMonthly(storedPY.monthly, l.mask, sign, 12) : [];
       const pySame = pyAmounts.length >= period ? pyAmounts[period - 1] : null;
-      const flags = trendFlags(amounts, [], amounts[period - 1] ?? null, pySame);
+      let flags = trendFlags(amounts, [], amounts[period - 1] ?? null, pySame);
+      const val = Math.abs(l.periodActual);
+      if (isSnowLine(l) && !SNOW_SEASON.has(period)) {
+        // Snow off-season: a ~$0 reading is normal (clear the trend flags); a
+        // real charge is the thing worth a look.
+        flags = val >= 100
+          ? ["snow charge posted outside the Nov–Mar season — verify the GL coding"]
+          : [];
+      } else if (isRetLine(l) && val < 100) {
+        // A $0 RET month is expected (paid in a lump elsewhere in the year).
+        flags = [];
+      }
       if (flags.length) l.flags = flags;
     }
   }
