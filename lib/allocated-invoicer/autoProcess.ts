@@ -49,6 +49,7 @@ import {
   getPendingSend,
   markPendingSent,
 } from "./pendingSendStore";
+import { getPendingGl } from "./pendingGlStore";
 
 // Invoices go to AP (Avid) for processing, cc the controller + Drew.
 const AVID_TO = "kormancommercial@avidbill.com";
@@ -368,12 +369,26 @@ export type SendResult = {
 export async function sendAllocation(period: string, by?: string | null): Promise<SendResult> {
   try {
     const pending = await getPendingSend("allocated", period);
-    if (!pending) return { ok: false, reason: "not-prepared" };
-    if (pending.sentAt) {
+    if (pending?.sentAt) {
       return { ok: false, reason: "already-sent", statementMonth: period, sentAt: pending.sentAt, ...pendingBack(pending) };
     }
 
-    const buf = Buffer.from(pending.fileBase64, "base64");
+    // Source of truth = the 2000 G&A GL currently imported on Operating
+    // Statements (the exact file the invoicer is showing), so the send can never
+    // diverge from the on-screen review. Fall back to the staged snapshot only
+    // if the stash is missing or is a different month.
+    let buf: Buffer | null = null;
+    try {
+      const stash = await getPendingGl();
+      if (stash?.fileBase64) {
+        const sbuf = Buffer.from(stash.fileBase64, "base64");
+        const sgl = parseGLExcel(sbuf.buffer.slice(sbuf.byteOffset, sbuf.byteOffset + sbuf.byteLength));
+        if (sgl.statementMonth === period) buf = sbuf;
+      }
+    } catch { /* fall back to the staged snapshot */ }
+    if (!buf && pending?.fileBase64) buf = Buffer.from(pending.fileBase64, "base64");
+    if (!buf) return { ok: false, reason: "not-prepared" };
+
     let ledger = await getAllocLedger();
     const gl = parseGLExcel(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength));
     const res = computeMonths(gl, ledger);

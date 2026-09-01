@@ -210,24 +210,10 @@ export default function AllocatedInvoicerPage() {
   // When the 2000 G&A GL imports, the allocation is PREPARED (computed + staged)
   // but not sent. The reviewer sees the per-building summary here and clicks
   // "Send to AvidXchange" to release the invoices. Nothing goes out on its own.
-  type PendingSummary = { byProperty: { code: string; name: string; amount: number }[]; total: number; invoiceCount: number };
-  type PendingSend = { source: string; period: string; label: string; summary: PendingSummary; preparedAt: string; preparedBy?: string | null; sentAt?: string | null; sentBy?: string | null };
-  const [pendingSends, setPendingSends] = useState<PendingSend[] | null>(null);
-  const [reviewSend, setReviewSend] = useState<PendingSend | null>(null);
+  type LiveReview = { period: string; label: string; byProperty: { code: string; name: string; amount: number }[]; total: number; invoiceCount: number };
+  const [reviewSend, setReviewSend] = useState<LiveReview | null>(null);
   const [sending, setSending] = useState(false);
   const [sentResult, setSentResult] = useState<{ period: string; total: number; invoiceCount: number; byProperty: { code: string; name: string; amount: number }[]; sentAt: string; mailSent: boolean } | null>(null);
-  async function refreshPendingSends() {
-    try {
-      const j = await fetch("/api/allocation/pending-send").then((r) => r.json());
-      setPendingSends((j.pending ?? []).filter((p: PendingSend | null): p is PendingSend => !!p));
-    } catch { setPendingSends([]); }
-  }
-  useEffect(() => { refreshPendingSends(); }, []);
-  // The one prepared-but-unsent allocation awaiting review (most recent period).
-  const awaitingReview = useMemo(
-    () => (pendingSends ?? []).filter((p) => !p.sentAt).sort((a, b) => (a.period < b.period ? 1 : -1))[0] ?? null,
-    [pendingSends],
-  );
   // A range GL prepares several months at once ("2026-01_to_2026-06").
   const isRangePeriod = (period: string) => period.includes("_to_");
   const rangeMonthCount = (period: string) => {
@@ -235,10 +221,10 @@ export default function AllocatedInvoicerPage() {
     if (!m) return 1;
     return (Number(m[3]) * 12 + Number(m[4])) - (Number(m[1]) * 12 + Number(m[2])) + 1;
   };
-  const sendLabel = (rec: PendingSend) =>
+  const sendLabel = (rec: { period: string; label?: string }) =>
     isRangePeriod(rec.period) ? `${rec.label || rec.period} (${rangeMonthCount(rec.period)} months)` : rec.label || rec.period;
 
-  async function confirmSend(rec: PendingSend) {
+  async function confirmSend(rec: LiveReview) {
     setSending(true);
     try {
       const res = await fetch("/api/allocation/pending-send", {
@@ -257,8 +243,8 @@ export default function AllocatedInvoicerPage() {
         sentAt: j.sentAt ?? new Date().toISOString(),
         mailSent: j.emailed !== false,
       });
-      await refreshPendingSends();
-      // Reflect the newly-finalized carryover / run log on the page.
+      // Reflect the newly-finalized carryover / run log on the page (this also
+      // clears the live Review & Send banner, since the month is now committed).
       fetch("/api/allocation/carryover").then((r) => r.json()).then((c) => {
         setCarryover(c.ledger?.balances ?? {});
         setCommittedPeriods(c.ledger?.committedPeriods ?? []);
@@ -276,11 +262,10 @@ export default function AllocatedInvoicerPage() {
       setPendingGl(p);
       if (p && !p.alreadyProcessed) {
         // The 2000 G&A GL handed off from Operating Statements is the ONLY
-        // source here. Make sure it's staged for review (idempotent), then load
-        // it for the on-screen preview and refresh the Review & Send banner —
-        // no manual upload, no "Load" click.
+        // source here. Stage it for the send (idempotent) and load it for the
+        // on-screen preview — the Review & Send summary is then derived live
+        // from that preview. No manual upload, no "Load" click.
         try { await fetch("/api/allocation/prepare", { method: "POST" }); } catch { /* best-effort */ }
-        await refreshPendingSends();
         loadPendingGl();
       }
     }).catch(() => {});
@@ -454,6 +439,23 @@ export default function AllocatedInvoicerPage() {
 
   const heldGrandTotal = useMemo(() => heldRows.reduce((s, r) => s + r.accrued, 0), [heldRows]);
   const grandBillingTotal = useMemo(() => [...billingTotals.values()].reduce((s, v) => s + v, 0), [billingTotals]);
+
+  // The Review & Send summary is derived LIVE from the loaded GL's billing (the
+  // exact figures in the Allocation Preview below), so what you review always
+  // matches what's on screen — never a separately-staged snapshot that can drift.
+  const liveReview = useMemo<LiveReview | null>(() => {
+    if (!glResult || !statementMonth || alreadyFinalized) return null;
+    const byProperty = ALLOC_PROPERTIES
+      .map((p) => ({ code: p.id, name: p.name, amount: billingTotals.get(p.id) ?? 0 }))
+      .filter((x) => x.amount > 0)
+      .sort((a, b) => b.amount - a.amount);
+    if (!byProperty.length) return null;
+    const total = roundCents(byProperty.reduce((s, x) => s + x.amount, 0));
+    return { period: statementMonth, label: glResult.periodText || statementMonth, byProperty, total, invoiceCount: byProperty.length };
+  }, [glResult, statementMonth, alreadyFinalized, billingTotals]);
+  // Everything this month is under the $100-per-account threshold and is held /
+  // carried forward — so nothing bills to Avid yet (unless it's December).
+  const allHeldThisMonth = !!glResult && !alreadyFinalized && grandBillingTotal === 0 && allocationRows.length > 0;
 
   // ── Derived: filtered GL transactions ──────────────────────────────────────
 
@@ -719,10 +721,8 @@ export default function AllocatedInvoicerPage() {
             No allocation runs recorded yet — generate the invoices and the period will be logged here.
           </div>
         ) : (
-          <div className="small" style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(11,74,125,0.06)", border: "1px solid rgba(11,74,125,0.25)", color: "#0b4a7d", fontWeight: 600, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
-            <span>📌 Last allocated: <b>{runs[0].statementMonth || runs[0].periodText || "—"}</b>{runs[0].periodText && runs[0].statementMonth && runs[0].periodText !== runs[0].statementMonth ? ` (${runs[0].periodText})` : ""}</span>
-            <span>· Run <b>{new Date(runs[0].ranAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</b>{runs[0].ranBy ? ` by ${runs[0].ranBy}` : ""}</span>
-            {runs[0].total ? <span>· <b>{toMoney(runs[0].total)}</b> allocated</span> : null}
+          <div className="small" style={{ padding: "7px 12px", borderRadius: 8, background: "rgba(11,74,125,0.05)", border: "1px solid rgba(11,74,125,0.2)", color: "#0b4a7d", fontWeight: 600, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <span>Last sent <b>{runs[0].statementMonth || runs[0].periodText || "—"}</b>{runs[0].total ? <> · <b>{toMoney(runs[0].total)}</b></> : null}</span>
             <button type="button" onClick={() => setHistoryOpen((o) => !o)} style={{ marginLeft: "auto", fontSize: 12, fontWeight: 700, color: "#0b4a7d", background: "none", border: "none", cursor: "pointer", textDecoration: "underline", padding: 0 }}>
               {historyOpen ? "Hide history" : "View history"}
             </button>
@@ -775,30 +775,42 @@ export default function AllocatedInvoicerPage() {
       )}
 
       {/* ── Prepared & awaiting review — Review & Send to AvidXchange ── */}
-      {awaitingReview && (
-        <div className="card" style={{ borderColor: "rgba(217,119,6,0.55)", background: "rgba(217,119,6,0.08)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-            <span style={{ fontSize: 20 }}>📤</span>
-            <div style={{ flex: 1, minWidth: 220 }}>
-              <div style={{ fontWeight: 800, color: "#9a3412" }}>
-                {sendLabel(awaitingReview)} allocated invoices are prepared — review &amp; send
+      {liveReview && (
+        <div className="card" style={{ borderColor: "rgba(22,163,74,0.5)", background: "rgba(22,163,74,0.07)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+            <div style={{ flex: 1, minWidth: 240 }}>
+              <div style={{ fontWeight: 800, fontSize: 15 }}>
+                {sendLabel(liveReview)} — ready to send
               </div>
-              <div className="muted small" style={{ marginTop: 2 }}>
-                {awaitingReview.summary.invoiceCount} invoice{awaitingReview.summary.invoiceCount === 1 ? "" : "s"} · {toMoney(awaitingReview.summary.total)} across {awaitingReview.summary.byProperty.length} propert{awaitingReview.summary.byProperty.length === 1 ? "y" : "ies"}
-                {isRangePeriod(awaitingReview.period) ? ` (${rangeMonthCount(awaitingReview.period)} months, carryover chained)` : ""}.
-                Nothing has been sent to AvidXchange yet — confirm the summary and release it.
+              <div className="muted small" style={{ marginTop: 3 }}>
+                <b style={{ color: "var(--fg)" }}>{toMoney(liveReview.total)}</b> across <b style={{ color: "var(--fg)" }}>{liveReview.byProperty.length}</b> propert{liveReview.byProperty.length === 1 ? "y" : "ies"}
+                {isRangePeriod(liveReview.period) ? ` · ${rangeMonthCount(liveReview.period)} months` : ""}. Nothing goes to AvidXchange until you confirm.
               </div>
             </div>
-            <button className="btn" style={{ background: "#16a34a", color: "#fff", borderColor: "transparent", fontWeight: 700, whiteSpace: "nowrap", flexShrink: 0 }} onClick={() => setReviewSend(awaitingReview)}>
+            <button className="btn" style={{ background: "#16a34a", color: "#fff", borderColor: "transparent", fontWeight: 700, whiteSpace: "nowrap", flexShrink: 0, padding: "10px 18px" }} onClick={() => setReviewSend(liveReview)}>
               Review &amp; Send to AvidXchange →
             </button>
           </div>
         </div>
       )}
 
+      {/* ── Everything held under $100 this month — nothing bills yet ── */}
+      {allHeldThisMonth && (
+        <div className="card small" style={{ borderColor: "rgba(180,83,9,0.4)", background: "rgba(180,83,9,0.06)", color: "#92400e", fontWeight: 600 }}>
+          ⏳ {glResult?.periodText || statementMonth}: every allocation is under the ${CARRYOVER_THRESHOLD}-per-account threshold, so nothing bills to AvidXchange yet — the balances are held and carry forward until they cross ${CARRYOVER_THRESHOLD} (December posts everything). See the Allocation Preview below for the held detail.
+        </div>
+      )}
+
+      {/* ── Already sent this month ── */}
+      {!liveReview && !allHeldThisMonth && glResult && alreadyFinalized && (
+        <div className="card small" style={{ borderColor: "rgba(11,74,125,0.4)", background: "rgba(11,74,125,0.05)", color: "#0b4a7d", fontWeight: 600 }}>
+          ✓ {glResult?.periodText || statementMonth} has already been reviewed and sent to AvidXchange. Its carryover is finalized — re-download the invoices from the Download menu if you need them.
+        </div>
+      )}
+
       {/* ── Ready-to-process hand-off from Operating Statements ── */}
       {/* Superseded by the "Review & Send" banner above once the run is staged. */}
-      {pendingGl && !pendingDismissed && !glResult && !pendingGl.alreadyProcessed && !awaitingReview && (
+      {pendingGl && !pendingDismissed && !glResult && !pendingGl.alreadyProcessed && !liveReview && (
         <div className="card" style={{ borderColor: "rgba(22,163,74,0.5)", background: "rgba(22,163,74,0.07)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
             <span style={{ fontSize: 20 }}>✅</span>
@@ -865,9 +877,8 @@ export default function AllocatedInvoicerPage() {
             />
           </div>
         </div>
-        <p className="muted small" style={{ marginTop: 8 }}>
-          This pulls the <b>2000 G&amp;A GL</b> straight from the Operating Statements import — there&rsquo;s no separate upload here, so the invoicer can never get out of sync. Accounts ending in <b>9301</b>, <b>9302</b>, and <b>9303</b> are extracted and allocated. Import a new month on{" "}
-          <a href="/financials/operating-statements" style={{ color: "#0b4a7d", fontWeight: 700 }}>Operating Statements</a> and it appears here to review &amp; send.
+        <p className="muted small" style={{ marginTop: 6 }}>
+          Pulled from the latest <a href="/financials/operating-statements" style={{ color: "#0b4a7d", fontWeight: 700 }}>Operating Statements</a> import — no separate upload here.
         </p>
         {loadingPending ? (
           <div className="small muted" style={{ marginTop: 12 }}>Loading the imported 2000 G&amp;A GL…</div>
@@ -1363,9 +1374,9 @@ export default function AllocatedInvoicerPage() {
         open={!!reviewSend}
         title="Allocated Expenses"
         period={reviewSend ? sendLabel(reviewSend) : ""}
-        byProperty={reviewSend?.summary.byProperty ?? []}
-        total={reviewSend?.summary.total ?? 0}
-        invoiceCount={reviewSend?.summary.invoiceCount}
+        byProperty={reviewSend?.byProperty ?? []}
+        total={reviewSend?.total ?? 0}
+        invoiceCount={reviewSend?.invoiceCount}
         note={reviewSend && isRangePeriod(reviewSend.period)
           ? `This range covers ${rangeMonthCount(reviewSend.period)} months — each month is invoiced separately and carryover is chained month to month.`
           : undefined}
