@@ -15,6 +15,7 @@ import { trendFlags } from "@/lib/financials/operating-statements/trends";
 import { seasonalTrendFlags } from "@/lib/financials/operating-statements/flagRules";
 import { markPaidMonths } from "@/lib/financials/operating-statements/paidMonth";
 import { collectNotPosted } from "@/lib/financials/operating-statements/notPosted";
+import { emailNotPostedSummary } from "@/lib/financials/operating-statements/notPostedEmail";
 import { markMissingDebt } from "@/lib/financials/operating-statements/debtFlag";
 import { PROPERTY_DEFS, ALLOC_PCT } from "@/lib/properties/data";
 import { FUND_BUILDINGS } from "@/lib/financials/cash-analysis/funds";
@@ -471,6 +472,9 @@ export async function POST(req: Request) {
     try {
       const np = await collectNotPosted(primary.year, key);
       notPosted = { count: np.items.length, items: np.items.slice(0, 8).map((i) => ({ line: i.line, section: i.section, type: i.type, expected: i.expected })) };
+      // Email the not-posted summary to the controller (cc Drew) on import so
+      // they immediately know what's still missing. Deduped by content, best-effort.
+      try { await emailNotPostedSummary(np, { key, propertyName: propertyName(key, key), year: primary.year, importedBy }); } catch { /* best-effort */ }
     } catch { /* best-effort — the import still succeeds */ }
 
     return NextResponse.json({
