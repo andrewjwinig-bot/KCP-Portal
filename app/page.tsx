@@ -710,6 +710,32 @@ export default function Page() {
         </div>
       </header>
 
+      {/* ── Review & Send to AvidXchange — prominent, up top (mirrors Allocated & CC) ── */}
+      {invoices.length > 0 && (() => {
+        const billing = invoices.filter((i: any) => (Number(i.total) || 0) > 0);
+        const billTotal = billing.reduce((s: number, i: any) => s + (Number(i.total) || 0), 0);
+        return (
+          <div className="card" style={{ borderColor: "rgba(22,163,74,0.5)", background: "rgba(22,163,74,0.07)", display: "flex", flexDirection: "column", alignItems: "center", gap: 12, textAlign: "center", padding: "18px 16px" }}>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: 17 }}>
+                {payroll?.payDate ? `Payroll ${payroll.payDate}` : "Payroll"} — ready to send
+              </div>
+              <div className="muted small" style={{ marginTop: 4 }}>
+                <b style={{ color: "var(--fg)" }}>{money(billTotal)}</b> across <b style={{ color: "var(--fg)" }}>{billing.length}</b> propert{billing.length === 1 ? "y" : "ies"} · property-level figures only
+              </div>
+            </div>
+            <button
+              className="btn"
+              style={{ background: "#16a34a", color: "#fff", borderColor: "transparent", fontWeight: 800, fontSize: 16, whiteSpace: "nowrap", padding: "13px 32px", borderRadius: 10 }}
+              disabled={!payroll || !!busy}
+              onClick={reviewPayrollAndSend}
+            >
+              Review &amp; Send to AvidXchange →
+            </button>
+          </div>
+        );
+      })()}
+
       <div className="card">
         <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -1001,15 +1027,6 @@ export default function Page() {
           <b>Generate Invoices</b>
           <div className="small muted" style={{ marginTop: 4, marginBottom: 14 }}>One PDF invoice per property. Only properties with allocated amounts greater than $0 are included.</div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
-            <button
-              className="btn large"
-              style={{ background: "#16a34a", color: "#fff", borderColor: "transparent", fontWeight: 700 }}
-              onClick={reviewPayrollAndSend}
-              disabled={!payroll || !invoices.length || !!busy}
-              title="Review the per-building summary, then send the property-level invoices to AvidXchange"
-            >
-              Review &amp; Send to AvidXchange →
-            </button>
             <button className="btn primary large" onClick={generateAll} disabled={!payroll || !!busy}>
               Download All Invoices
             </button>
