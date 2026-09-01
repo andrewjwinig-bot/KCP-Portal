@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getPendingGl, getPendingGlMeta } from "@/lib/allocated-invoicer/pendingGlStore";
-import { listAllocationRuns } from "@/lib/allocated-invoicer/runStore";
+import { getAllocLedger } from "@/lib/allocated-invoicer/carryoverStore";
+import { getPendingSend } from "@/lib/allocated-invoicer/pendingSendStore";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -28,9 +29,12 @@ export async function GET(req: Request) {
   if (!meta) return NextResponse.json({ pending: null });
 
   const statementMonth = `${MONTHS[meta.month - 1] ?? ""} ${meta.year}`.trim();
-  // "Already processed" if a run has been recorded for this same statement month.
-  const runs = await listAllocationRuns();
-  const alreadyProcessed = runs.some((r) => r.statementMonth === statementMonth);
+  // "Already processed" = this period has been reviewed & sent to Avid: the
+  // carryover ledger was finalized for it, or its pending send is marked sent.
+  // Keyed by the canonical YYYY-MM (the same key the send path uses).
+  const ymKey = `${meta.year}-${String(meta.month).padStart(2, "0")}`;
+  const [ledger, sent] = await Promise.all([getAllocLedger(), getPendingSend("allocated", ymKey)]);
+  const alreadyProcessed = ledger.committedPeriods.includes(ymKey) || !!sent?.sentAt;
 
   return NextResponse.json({ pending: { ...meta, statementMonth, alreadyProcessed } });
 }

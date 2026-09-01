@@ -20,6 +20,7 @@ import { ALLOC_PCT, FUND_SF_ALLOC } from "../../lib/properties/data";
 import { useUser } from "../components/UserProvider";
 import { LastImported } from "@/app/components/LastImported";
 import { DownloadMenu } from "@/app/components/DownloadMenu";
+import { AvidReviewModal, AvidSuccessModal, sendToAvid, type AvidProperty } from "@/app/components/AvidSend";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -460,6 +461,13 @@ export default function ExpensesPage() {
     try { const r = localStorage.getItem(LS_KEY); return r ? JSON.parse(r).importedBy ?? null : null; } catch { return null; }
   });
   const [showAfterZipModal, setShowAfterZipModal] = useState(false);
+  // Review-before-send to AvidXchange. `ccReview` holds the built artifacts (zip
+  // + TOP SHEET + GL journal) + per-building summary staged for the confirm
+  // popup; `ccSent` drives the success confirmation.
+  const [ccReview, setCcReview] = useState<{ period: string; byProperty: AvidProperty[]; total: number; attachments: { name: string; blob: Blob; contentType: string }[] } | null>(null);
+  const [ccBuilding, setCcBuilding] = useState(false);
+  const [ccSending, setCcSending] = useState(false);
+  const [ccSent, setCcSent] = useState<{ period: string; byProperty: AvidProperty[]; total: number; invoiceCount: number; sentAt: string; mailSent: boolean } | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [tableSortCol, setTableSortCol] = useState<string | null>(null);
@@ -807,9 +815,19 @@ export default function ExpensesPage() {
   }
   async function saveStatement() { await persistStatement({ silent: false }); }
 
-  async function generateAllPdfsZip() {
-    if (!billingGroups.length) return;
-    if (!confirm(`Generate ${billingGroups.length} property invoice${billingGroups.length !== 1 ? "s" : ""} + TOP SHEET as a ZIP?${onHoldGroups.length ? `\n\n${onHoldGroups.length} propert${onHoldGroups.length === 1 ? "y is" : "ies are"} held under $${CARRYOVER_THRESHOLD} and excluded.` : ""}`)) return;
+  // Build the invoice batch artifacts (per-property PDFs + TOP SHEET zipped, the
+  // GL Journal Entry, and the per-building summary) WITHOUT any side effects —
+  // shared by the manual "Download ZIP" and the "Review & Send to AvidXchange"
+  // gate so the two can never drift.
+  async function buildCcArtifacts(): Promise<{
+    zipBlob: Blob;
+    summaryBlob: Blob | null;
+    gl: { blob: Blob; filename: string } | null;
+    byProperty: AvidProperty[];
+    total: number;
+    filenameMonth: string;
+  } | null> {
+    if (!billingGroups.length) return null;
     const zip = new JSZip();
     const filenameMonth = statementMonth || "Statement";
     const reimb = reimbursementForBatch();
@@ -889,7 +907,22 @@ export default function ExpensesPage() {
     }
 
     const zipBlob = await zip.generateAsync({ type: "blob" });
-    download(`${filenameMonth} - Invoices.zip`, zipBlob);
+    const gl = buildGLJournalEntry();
+    // The billed amount for a property is its accrued balance (this month + any
+    // carried-forward prior), matching each invoice's grand total.
+    const byProperty: AvidProperty[] = billingGroups
+      .map((g) => ({ code: g.propId, name: propName(g.propId), amount: Math.round(g.accrued * 100) / 100 }))
+      .filter((b) => b.amount > 0);
+    const total = Math.round(byProperty.reduce((s, b) => s + b.amount, 0) * 100) / 100;
+    return { zipBlob, summaryBlob, gl, byProperty, total, filenameMonth };
+  }
+
+  async function generateAllPdfsZip() {
+    if (!billingGroups.length) return;
+    if (!confirm(`Generate ${billingGroups.length} property invoice${billingGroups.length !== 1 ? "s" : ""} + TOP SHEET as a ZIP?${onHoldGroups.length ? `\n\n${onHoldGroups.length} propert${onHoldGroups.length === 1 ? "y is" : "ies are"} held under $${CARRYOVER_THRESHOLD} and excluded.` : ""}`)) return;
+    const a = await buildCcArtifacts();
+    if (!a) return;
+    download(`${a.filenameMonth} - Invoices.zip`, a.zipBlob);
     setShowAfterZipModal(true);
 
     // Auto-log this statement to Expense History so generated invoices are always
@@ -898,12 +931,55 @@ export default function ExpensesPage() {
 
     // Processing the batch → email the GL Skyline import + summary report to the
     // controller (same as payroll). Best-effort, deduped once per statement month.
-    const gl = buildGLJournalEntry();
     const reportAttachments: { name: string; blob: Blob; contentType: string }[] = [];
-    if (gl) reportAttachments.push({ name: gl.filename, blob: gl.blob, contentType: XLSX_CONTENT_TYPE });
-    if (summaryBlob) reportAttachments.push({ name: `${filenameMonth} - TOP SHEET.xlsx`, blob: summaryBlob, contentType: XLSX_CONTENT_TYPE });
+    if (a.gl) reportAttachments.push({ name: a.gl.filename, blob: a.gl.blob, contentType: XLSX_CONTENT_TYPE });
+    if (a.summaryBlob) reportAttachments.push({ name: `${a.filenameMonth} - TOP SHEET.xlsx`, blob: a.summaryBlob, contentType: XLSX_CONTENT_TYPE });
     if (statementMonth && reportAttachments.length) {
       void emailInvoicerReport({ source: "credit-card", period: statementMonth, attachments: reportAttachments });
+    }
+  }
+
+  // Review-before-send gate: build the batch, then open the confirm popup so the
+  // reviewer okays the per-building summary before anything reaches Avid.
+  async function reviewCcAndSend() {
+    if (!billingGroups.length) return;
+    if (!statementMonth) { alert("This statement has no readable month — re-import the credit-card statement so the period can be determined."); return; }
+    setCcBuilding(true);
+    try {
+      const a = await buildCcArtifacts();
+      if (!a) return;
+      const attachments: { name: string; blob: Blob; contentType: string }[] = [
+        { name: `${a.filenameMonth} - Invoices.zip`, blob: a.zipBlob, contentType: "application/zip" },
+      ];
+      if (a.gl) attachments.push({ name: a.gl.filename, blob: a.gl.blob, contentType: XLSX_CONTENT_TYPE });
+      if (a.summaryBlob) attachments.push({ name: `${a.filenameMonth} - TOP SHEET.xlsx`, blob: a.summaryBlob, contentType: XLSX_CONTENT_TYPE });
+      setCcReview({ period: statementMonth, byProperty: a.byProperty, total: a.total, attachments });
+    } catch (e: any) {
+      alert("Failed to prepare the invoices: " + (e?.message ?? String(e)));
+    } finally {
+      setCcBuilding(false);
+    }
+  }
+
+  async function confirmCcSend() {
+    if (!ccReview) return;
+    setCcSending(true);
+    try {
+      const r = await sendToAvid({
+        source: "credit-card",
+        period: ccReview.period,
+        byProperty: ccReview.byProperty,
+        total: ccReview.total,
+        invoiceCount: ccReview.byProperty.length,
+        attachments: ccReview.attachments,
+      });
+      setCcReview(null);
+      setCcSent({ period: ccReview.period, byProperty: r.byProperty, total: r.total, invoiceCount: r.invoiceCount, sentAt: r.sentAt, mailSent: r.sent });
+      void persistStatement({ silent: true });
+    } catch (e: any) {
+      alert("Failed to send to AvidXchange: " + (e?.message ?? String(e)));
+    } finally {
+      setCcSending(false);
     }
   }
 
@@ -1531,7 +1607,16 @@ export default function ExpensesPage() {
           <div className="small muted" style={{ marginTop: 4, marginBottom: 14 }}>
             One PDF invoice per billing property. Properties whose accrued balance is under ${CARRYOVER_THRESHOLD} are held and excluded from the invoices, GL Journal Entry, and TOP SHEET until they cross it{yearEnd ? " (December flushes everything)" : ""}.
           </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16, alignItems: "center" }}>
+            <button
+              className="btn"
+              style={{ background: "#16a34a", color: "#fff", borderColor: "transparent", fontWeight: 700, whiteSpace: "nowrap", opacity: ccBuilding ? 0.75 : 1 }}
+              disabled={!billingGroups.length || ccBuilding}
+              onClick={reviewCcAndSend}
+              title="Review the per-building summary, then send the invoices to AvidXchange"
+            >
+              {ccBuilding ? "Preparing…" : "Review & Send to AvidXchange →"}
+            </button>
             <DownloadMenu
               label="Download"
               variant="primary"
@@ -1782,6 +1867,31 @@ export default function ExpensesPage() {
           </div>
         </div>
       )}
+
+      {/* Review-before-send + success confirmation (shared with Allocated & Payroll) */}
+      <AvidReviewModal
+        open={!!ccReview}
+        title="Credit Card Expenses"
+        period={ccReview?.period ?? ""}
+        byProperty={ccReview?.byProperty ?? []}
+        total={ccReview?.total ?? 0}
+        invoiceCount={ccReview?.byProperty.length}
+        attachments={ccReview?.attachments.map((a) => a.name) ?? []}
+        sending={ccSending}
+        onCancel={() => { if (!ccSending) setCcReview(null); }}
+        onConfirm={confirmCcSend}
+      />
+      <AvidSuccessModal
+        open={!!ccSent}
+        title="Credit Card Expenses"
+        period={ccSent?.period ?? ""}
+        byProperty={ccSent?.byProperty ?? []}
+        total={ccSent?.total ?? 0}
+        invoiceCount={ccSent?.invoiceCount}
+        sentAt={ccSent?.sentAt ?? ""}
+        mailSent={ccSent?.mailSent}
+        onClose={() => setCcSent(null)}
+      />
     </main>
   );
 }

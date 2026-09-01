@@ -1,18 +1,25 @@
-// Server-side auto-processing of the Allocated Expense Invoicer, run the moment
-// a 2000 G&A GL is imported (from either the invoicer or the operating
-// statements page). Mirrors the on-screen flow so no manual step is needed:
-//   1. allocate each 9301/9302/9303 account across its properties (ALLOC_PCT),
-//   2. decorate with carryover — this month's amount PLUS any held balance that
-//      now crosses the $100 threshold bills; the rest holds (December flushes),
-//   3. record the run (with per-building billed totals) for the history,
-//   4. finalize the month (advance the carryover ledger — the one mutation),
-//   5. email the summary workbook to the controller (deduped per period).
+// Server-side processing of the Allocated Expense Invoicer, split into a
+// review-before-send gate so nothing reaches AvidXchange without a person's
+// okay:
 //
-// Idempotent by month: a month already finalized is skipped, so re-importing
-// the same GL never double-processes.
+//   prepareAllocation(buf)  — run the moment a 2000 G&A GL is imported. It
+//     allocates + decorates carryover + computes the per-building summary, then
+//     STAGES a pending send (with the source GL stashed as base64). It does NOT
+//     finalize carryover and does NOT email — it just readies the invoices and
+//     waits for Harry/Drew to review.
+//
+//   sendAllocation(period)  — run when the reviewer clicks "Send to
+//     AvidXchange". It reloads the pending send, recomputes the exact invoices
+//     from the stashed GL (so nothing drifts), builds the per-property invoice
+//     PDFs, records the run, finalizes the month (the single carryover
+//     mutation), and emails the invoices + summary to AP (Avid) cc the
+//     controller + Drew. Marks the pending send sent (idempotent).
+//
+// Idempotent by month: a month already finalized/sent is skipped, so
+// re-importing the same GL never double-processes.
 
 import "server-only";
-import { parseGLExcel } from "./glParser";
+import { parseGLExcel, type GLParseResult } from "./glParser";
 import { ALLOC_PCT, PROPERTY_DEFS } from "@/lib/properties/data";
 import {
   CARRYOVER_THRESHOLD,
@@ -22,6 +29,7 @@ import {
   type MonthExpense,
 } from "./carryover";
 import { getAllocLedger, saveAllocLedger } from "./carryoverStore";
+import { type CarryoverLedger } from "./carryover";
 import { recordAllocationRun } from "./runStore";
 import { buildAllocExportXlsx, type AllocExportRow } from "./export";
 import { buildAllocInvoicePdf, makeAllocInvoiceId, type AllocLineItem } from "./invoice";
@@ -29,6 +37,11 @@ import JSZip from "jszip";
 import { sendMail, isMailConfigured } from "@/lib/mail";
 import { reportAlreadySent, markReportSent } from "@/lib/invoicing/reportSent";
 import { markTaskComplete } from "@/lib/tracker/completionStore";
+import {
+  savePendingSend,
+  getPendingSend,
+  markPendingSent,
+} from "./pendingSendStore";
 
 // Invoices go to AP (Avid) for processing, cc the controller + Drew.
 const AVID_TO = "kormancommercial@avidbill.com";
@@ -46,144 +59,252 @@ function propName(id: string): string {
   return PROPERTY_DEFS.find((p) => p.id === id)?.name ?? id;
 }
 
-export type AutoProcessResult = {
+// One base GL account's allocation to one property, decorated with its carried
+// balance and hold decision for the statement month.
+type DecAcct = { base: string; name: string; thisMonth: number; prior: number; accrued: number; billed: boolean; rows: AllocExportRow[] };
+
+export type ComputedAllocation = {
+  gl: GLParseResult;
+  statementMonth: string;
+  rows: AllocExportRow[];
+  decByProp: Map<string, DecAcct[]>;
+  byProperty: { code: string; name: string; amount: number }[];
+  total: number;
+  expenses: MonthExpense[];
+};
+
+/**
+ * Pure allocation compute — allocate each 9301/9302/9303 account across its
+ * properties, decorate with carryover against the given ledger, and roll up the
+ * per-building billing totals. No side effects (no finalize, no email, no
+ * stash). Shared by prepare (summary/stage) and send (recompute).
+ */
+function computeAllocation(buf: ArrayBuffer | Buffer, ledger: CarryoverLedger): ComputedAllocation | { error: string } {
+  const gl = parseGLExcel(
+    buf instanceof ArrayBuffer ? buf : buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength),
+  );
+  const statementMonth = gl.statementMonth;
+  if (!/^\d{4}-\d{2}$/.test(statementMonth)) {
+    return { error: "no-statement-month" };
+  }
+
+  const propIds = Object.keys(ALLOC_PCT);
+
+  // 1) Allocation rows — each account × property share by suffix.
+  const rows: AllocExportRow[] = [];
+  for (const acc of gl.accountTotals.values()) {
+    for (const id of propIds) {
+      const pct = ALLOC_PCT[id]?.[acc.accountSuffix] ?? 0;
+      if (pct === 0) continue;
+      rows.push({
+        propertyId: id, propertyName: propName(id),
+        accountCode: acc.accountCode, accountName: acc.accountName, accountSuffix: acc.accountSuffix,
+        grossAmount: acc.netTotal, allocPct: pct, allocAmount: round2(acc.netTotal * pct),
+      });
+    }
+  }
+
+  // 2) Carryover decoration — this month + prior held per base account, keeping
+  //    each account's suffix rows so the per-property invoice PDFs can be built.
+  const yearEnd = isYearEndMonth(statementMonth);
+  const byProp = new Map<string, Map<string, { name: string; thisMonth: number; rows: AllocExportRow[] }>>();
+  for (const r of rows) {
+    const base = baseAccountCode(r.accountCode);
+    if (!byProp.has(r.propertyId)) byProp.set(r.propertyId, new Map());
+    const am = byProp.get(r.propertyId)!;
+    const cur = am.get(base) ?? { name: r.accountName, thisMonth: 0, rows: [] as AllocExportRow[] };
+    cur.thisMonth = round2(cur.thisMonth + r.allocAmount);
+    cur.rows.push(r);
+    am.set(base, cur);
+  }
+
+  const billingTotals = new Map<string, number>(); // billed accrued per property
+  const expenses: MonthExpense[] = [];             // this-month figures for finalize
+  const decByProp = new Map<string, DecAcct[]>();
+  for (const id of propIds) {
+    const am = byProp.get(id);
+    const seen = new Set<string>();
+    const decs: DecAcct[] = [];
+    if (am) {
+      for (const [base, g] of am) {
+        seen.add(base);
+        const prior = round2(ledger.balances[id]?.accounts?.[base]?.heldTotal ?? 0);
+        const accrued = round2(g.thisMonth + prior);
+        const billed = yearEnd || accrued >= CARRYOVER_THRESHOLD;
+        decs.push({ base, name: g.name, thisMonth: g.thisMonth, prior, accrued, billed, rows: g.rows });
+        if (billed) billingTotals.set(id, round2((billingTotals.get(id) ?? 0) + accrued));
+        if (g.thisMonth !== 0) expenses.push({ propertyId: id, accountCode: base, accountName: g.name, amount: g.thisMonth });
+      }
+    }
+    // Prior-held accounts with no activity this month — bill only at year-end.
+    const pc = ledger.balances[id];
+    if (pc) {
+      for (const [base, carry] of Object.entries(pc.accounts)) {
+        if (seen.has(base)) continue;
+        const prior = round2(carry.heldTotal);
+        const billed = yearEnd;
+        decs.push({ base, name: carry.accountName, thisMonth: 0, prior, accrued: prior, billed, rows: [] });
+        if (billed) billingTotals.set(id, round2((billingTotals.get(id) ?? 0) + prior));
+      }
+    }
+    if (decs.length) decByProp.set(id, decs);
+  }
+
+  const byProperty = propIds
+    .map((id) => ({ code: id, name: propName(id), amount: round2(billingTotals.get(id) ?? 0) }))
+    .filter((x) => x.amount > 0)
+    .sort((a, b) => b.amount - a.amount);
+  const total = round2(byProperty.reduce((s, x) => s + x.amount, 0));
+
+  return { gl, statementMonth, rows, decByProp, byProperty, total, expenses };
+}
+
+// Build the per-property invoice PDFs from the finalized allocation data (so
+// they can never drift from what was allocated) and zip them.
+async function buildInvoicesZip(c: ComputedAllocation): Promise<{ zip: Buffer | null; count: number }> {
+  const { gl, statementMonth, decByProp } = c;
+  const invDate = gl.periodEndDate || new Date().toISOString().slice(0, 10);
+  const zip = new JSZip();
+  let pdfCount = 0;
+  for (const [id, decs] of decByProp) {
+    const billed = decs.filter((a) => a.billed);
+    const grandTotal = round2(billed.reduce((s, a) => s + a.accrued, 0));
+    if (!billed.length || grandTotal <= 0) continue;
+    const lineItems: AllocLineItem[] = [];
+    const carriedForward: Record<string, { amount: number; accountName: string }> = {};
+    for (const a of billed) {
+      for (const r of a.rows) {
+        lineItems.push({ accountCode: r.accountCode, accountName: r.accountName, accountSuffix: r.accountSuffix, grossAmount: r.grossAmount, allocPct: r.allocPct, allocAmount: r.allocAmount });
+      }
+      if (a.prior > 0) carriedForward[a.base] = { amount: a.prior, accountName: a.name };
+    }
+    try {
+      const pdf = buildAllocInvoicePdf({
+        propertyId: id, propertyName: propName(id),
+        periodText: gl.periodText, periodEndDate: gl.periodEndDate, statementMonth,
+        invoiceDate: invDate, invoiceId: makeAllocInvoiceId(id),
+        lineItems, carriedForward, grandTotal,
+      });
+      zip.file(`${statementMonth} - ${id} - ${propName(id)}.pdf`, Buffer.from(await pdf.arrayBuffer()));
+      pdfCount++;
+    } catch { /* skip a bad PDF, keep the rest */ }
+  }
+  const invoicesZip = pdfCount > 0 ? await zip.generateAsync({ type: "nodebuffer" }) : null;
+  return { zip: invoicesZip, count: pdfCount };
+}
+
+export type PrepareResult = {
   ok: boolean;
   reason?: string;
   statementMonth?: string;
   periodText?: string;
-  total?: number; // total billed this run
+  total?: number; // total that will bill this run
+  byProperty?: { code: string; name: string; amount: number }[];
+  invoiceCount?: number;
+  /** Staged for review — awaiting a "Send to AvidXchange" click. */
+  staged?: boolean;
+  /** This period was already sent to Avid (idempotent). */
+  alreadySent?: boolean;
+};
+
+/**
+ * Prepare a 2000 G&A GL: compute the allocation + per-building summary and stage
+ * a pending send (stashing the GL so the send recomputes the identical
+ * invoices). Does NOT finalize carryover and does NOT email — it only readies
+ * the invoices and waits for a reviewer. `by` is the importing user.
+ * Never throws (best-effort — the import must still succeed).
+ */
+export async function prepareAllocation(buf: ArrayBuffer | Buffer, by?: string | null): Promise<PrepareResult> {
+  try {
+    const ledger = await getAllocLedger();
+    const c = computeAllocation(buf, ledger);
+    if ("error" in c) return { ok: false, reason: c.error };
+    const { statementMonth, byProperty, total, gl } = c;
+
+    // Already finalized this month → it was already sent; don't re-stage.
+    if (ledger.committedPeriods.includes(statementMonth)) {
+      return { ok: false, reason: "already-finalized", statementMonth, alreadySent: true };
+    }
+
+    // If a pending send for this period was already sent, keep it sent.
+    const existing = await getPendingSend("allocated", statementMonth);
+    if (existing?.sentAt) {
+      return { ok: false, reason: "already-sent", statementMonth, alreadySent: true };
+    }
+
+    const buffer = buf instanceof ArrayBuffer ? Buffer.from(buf) : buf;
+    await savePendingSend({
+      source: "allocated",
+      period: statementMonth,
+      label: gl.periodText || statementMonth,
+      summary: { byProperty, total, invoiceCount: byProperty.length },
+      fileBase64: buffer.toString("base64"),
+      preparedAt: new Date().toISOString(),
+      preparedBy: by ?? null,
+    });
+
+    return {
+      ok: true, staged: true,
+      statementMonth, periodText: gl.periodText,
+      total, byProperty, invoiceCount: byProperty.length,
+    };
+  } catch (e) {
+    return { ok: false, reason: e instanceof Error ? e.message : "prepare failed" };
+  }
+}
+
+export type SendResult = {
+  ok: boolean;
+  reason?: string;
+  statementMonth?: string;
+  periodText?: string;
+  total?: number;
   byProperty?: { code: string; name: string; amount: number }[];
   finalized?: boolean;
   emailed?: boolean;
   invoiceCount?: number;
+  sentAt?: string;
 };
 
 /**
- * Process a 2000 G&A GL end-to-end. `by` is the importing user (for the run log).
- * Returns a summary; never throws (best-effort — the import must still succeed).
+ * Send a prepared allocation to AvidXchange. Reloads the staged pending send,
+ * recomputes the invoices from the stashed GL, builds the PDFs, records the run,
+ * finalizes carryover, and emails AP (Avid) cc the controller + Drew with a
+ * per-building summary + TOTAL in the body. Marks the pending send sent so a
+ * second click never re-sends. `by` is the reviewer who approved the send.
  */
-export async function autoProcessAllocation(buf: ArrayBuffer | Buffer, by?: string | null): Promise<AutoProcessResult> {
+export async function sendAllocation(period: string, by?: string | null): Promise<SendResult> {
   try {
-    const gl = parseGLExcel(buf instanceof ArrayBuffer ? buf : buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength));
-    const statementMonth = gl.statementMonth;
-    if (!/^\d{4}-\d{2}$/.test(statementMonth)) {
-      return { ok: false, reason: "no-statement-month" };
+    const pending = await getPendingSend("allocated", period);
+    if (!pending) return { ok: false, reason: "not-prepared" };
+    if (pending.sentAt) {
+      return { ok: false, reason: "already-sent", statementMonth: period, sentAt: pending.sentAt, ...pendingBack(pending) };
     }
 
-    // Already finalized this month → don't re-process (idempotent).
+    const buf = Buffer.from(pending.fileBase64, "base64");
     const ledger = await getAllocLedger();
-    if (ledger.committedPeriods.includes(statementMonth)) {
-      return { ok: false, reason: "already-finalized", statementMonth };
+    if (ledger.committedPeriods.includes(period)) {
+      // Finalized out-of-band — treat as already sent.
+      await markPendingSent("allocated", period, by);
+      return { ok: false, reason: "already-finalized", statementMonth: period, ...pendingBack(pending) };
     }
 
-    const propIds = Object.keys(ALLOC_PCT);
+    const c = computeAllocation(buf, ledger);
+    if ("error" in c) return { ok: false, reason: c.error };
+    const { statementMonth, byProperty, total, rows, expenses, gl } = c;
 
-    // 1) Allocation rows — each account × property share by suffix.
-    const rows: AllocExportRow[] = [];
-    for (const acc of gl.accountTotals.values()) {
-      for (const id of propIds) {
-        const pct = ALLOC_PCT[id]?.[acc.accountSuffix] ?? 0;
-        if (pct === 0) continue;
-        rows.push({
-          propertyId: id, propertyName: propName(id),
-          accountCode: acc.accountCode, accountName: acc.accountName, accountSuffix: acc.accountSuffix,
-          grossAmount: acc.netTotal, allocPct: pct, allocAmount: round2(acc.netTotal * pct),
-        });
-      }
-    }
+    // Build the invoice PDFs from this same finalized data.
+    const { zip: invoicesZip, count: pdfCount } = await buildInvoicesZip(c);
 
-    // 2) Carryover decoration — this month + prior held per base account, keeping
-    //    each account's suffix rows so the per-property invoice PDFs can be built.
-    const yearEnd = isYearEndMonth(statementMonth);
-    type DecAcct = { base: string; name: string; thisMonth: number; prior: number; accrued: number; billed: boolean; rows: AllocExportRow[] };
-    const byProp = new Map<string, Map<string, { name: string; thisMonth: number; rows: AllocExportRow[] }>>();
-    for (const r of rows) {
-      const base = baseAccountCode(r.accountCode);
-      if (!byProp.has(r.propertyId)) byProp.set(r.propertyId, new Map());
-      const am = byProp.get(r.propertyId)!;
-      const cur = am.get(base) ?? { name: r.accountName, thisMonth: 0, rows: [] as AllocExportRow[] };
-      cur.thisMonth = round2(cur.thisMonth + r.allocAmount);
-      cur.rows.push(r);
-      am.set(base, cur);
-    }
-
-    const billingTotals = new Map<string, number>(); // billed accrued per property
-    const expenses: MonthExpense[] = [];             // this-month figures for finalize
-    const decByProp = new Map<string, DecAcct[]>();
-    for (const id of propIds) {
-      const am = byProp.get(id);
-      const seen = new Set<string>();
-      const decs: DecAcct[] = [];
-      if (am) {
-        for (const [base, g] of am) {
-          seen.add(base);
-          const prior = round2(ledger.balances[id]?.accounts?.[base]?.heldTotal ?? 0);
-          const accrued = round2(g.thisMonth + prior);
-          const billed = yearEnd || accrued >= CARRYOVER_THRESHOLD;
-          decs.push({ base, name: g.name, thisMonth: g.thisMonth, prior, accrued, billed, rows: g.rows });
-          if (billed) billingTotals.set(id, round2((billingTotals.get(id) ?? 0) + accrued));
-          if (g.thisMonth !== 0) expenses.push({ propertyId: id, accountCode: base, accountName: g.name, amount: g.thisMonth });
-        }
-      }
-      // Prior-held accounts with no activity this month — bill only at year-end.
-      const pc = ledger.balances[id];
-      if (pc) {
-        for (const [base, carry] of Object.entries(pc.accounts)) {
-          if (seen.has(base)) continue;
-          const prior = round2(carry.heldTotal);
-          const billed = yearEnd;
-          decs.push({ base, name: carry.accountName, thisMonth: 0, prior, accrued: prior, billed, rows: [] });
-          if (billed) billingTotals.set(id, round2((billingTotals.get(id) ?? 0) + prior));
-        }
-      }
-      if (decs.length) decByProp.set(id, decs);
-    }
-
-    const byProperty = propIds
-      .map((id) => ({ code: id, name: propName(id), amount: round2(billingTotals.get(id) ?? 0) }))
-      .filter((x) => x.amount > 0)
-      .sort((a, b) => b.amount - a.amount);
-    const total = round2(byProperty.reduce((s, x) => s + x.amount, 0));
-
-    // 2b) Build the per-property invoice PDFs from this same finalized data (so
-    //     they can never drift from what was allocated) and zip them.
-    const invDate = gl.periodEndDate || new Date().toISOString().slice(0, 10);
-    const zip = new JSZip();
-    let pdfCount = 0;
-    for (const id of propIds) {
-      const billed = (decByProp.get(id) ?? []).filter((a) => a.billed);
-      const grandTotal = round2(billed.reduce((s, a) => s + a.accrued, 0));
-      if (!billed.length || grandTotal <= 0) continue;
-      const lineItems: AllocLineItem[] = [];
-      const carriedForward: Record<string, { amount: number; accountName: string }> = {};
-      for (const a of billed) {
-        for (const r of a.rows) {
-          lineItems.push({ accountCode: r.accountCode, accountName: r.accountName, accountSuffix: r.accountSuffix, grossAmount: r.grossAmount, allocPct: r.allocPct, allocAmount: r.allocAmount });
-        }
-        if (a.prior > 0) carriedForward[a.base] = { amount: a.prior, accountName: a.name };
-      }
-      try {
-        const pdf = buildAllocInvoicePdf({
-          propertyId: id, propertyName: propName(id),
-          periodText: gl.periodText, periodEndDate: gl.periodEndDate, statementMonth,
-          invoiceDate: invDate, invoiceId: makeAllocInvoiceId(id),
-          lineItems, carriedForward, grandTotal,
-        });
-        zip.file(`${statementMonth} - ${id} - ${propName(id)}.pdf`, Buffer.from(await pdf.arrayBuffer()));
-        pdfCount++;
-      } catch { /* skip a bad PDF, keep the rest */ }
-    }
-    const invoicesZip = pdfCount > 0 ? await zip.generateAsync({ type: "nodebuffer" }) : null;
-
-    // 3) Record the run (history + per-building breakdown).
+    // Record the run (history + per-building breakdown).
     try {
       await recordAllocationRun({
         periodText: gl.periodText, periodEndDate: gl.periodEndDate, statementMonth,
-        ranAt: new Date().toISOString(), ranBy: by ?? "GL import", byProperty, total,
+        ranAt: new Date().toISOString(), ranBy: by ?? "Sent to Avid", byProperty, total,
       });
     } catch { /* best-effort */ }
 
-    // 4) Finalize the month — the single carryover mutation.
+    // Finalize the month — the single carryover mutation.
     let finalized = false;
     try {
       const { ledger: next } = finalizeMonth(ledger, statementMonth, expenses, new Date().toISOString());
@@ -191,14 +312,12 @@ export async function autoProcessAllocation(buf: ArrayBuffer | Buffer, by?: stri
       finalized = true;
     } catch { /* best-effort */ }
 
-    // 5) Email the invoice PDFs to AP (Avid), cc the controller, with a
-    //    per-building summary + TOTAL in the body for quick reference. Deduped
-    //    per period so re-importing never re-sends.
+    // Email the invoice PDFs to AP (Avid), cc the controller + Drew, with a
+    // per-building summary + TOTAL in the body. Deduped per period.
     let emailed = false;
     try {
       const now = new Date();
       await markTaskComplete(now.getFullYear(), now.getMonth(), "m-alloc-exp", { at: now.toISOString(), source: "allocated" });
-      const period = statementMonth || gl.periodEndDate || "Statement";
       if (isMailConfigured() && !(await reportAlreadySent("allocated", period))) {
         const accountCodes = [...new Set(rows.map((r) => r.accountCode))].sort();
         const summaryBlob = buildAllocExportXlsx({
@@ -207,7 +326,6 @@ export async function autoProcessAllocation(buf: ArrayBuffer | Buffer, by?: stri
           accountCodes,
         });
         const summaryXlsx = Buffer.from(await summaryBlob.arrayBuffer());
-        // Per-building summary lines + TOTAL, right-aligned dollars.
         const nameW = Math.max(0, ...byProperty.map((b) => `${b.code} — ${b.name}`.length));
         const amtW = Math.max(...byProperty.map((b) => money(b.amount).length), money(total).length);
         const rowLine = (label: string, amt: string) => `  ${label.padEnd(nameW)}   ${amt.padStart(amtW)}`;
@@ -221,7 +339,7 @@ export async function autoProcessAllocation(buf: ArrayBuffer | Buffer, by?: stri
           subject: `Allocated Expenses — ${period}`,
           textBody:
             `Attached are the ${period} allocated-expense invoices (${pdfCount} propert${pdfCount === 1 ? "y" : "ies"})` +
-            ` and the summary workbook, generated automatically from the 2000 G&A GL${by ? ` imported by ${by}` : ""}.\n\n` +
+            ` and the summary workbook, reviewed and released${by ? ` by ${by}` : ""} from the 2000 G&A GL.\n\n` +
             `Allocation by building:\n${summaryBody}\n` +
             `  ${"TOTAL".padEnd(nameW)}   ${money(total).padStart(amtW)}\n\n` +
             `${finalized ? "Carryover has been finalized for this period.\n\n" : ""}` +
@@ -232,8 +350,16 @@ export async function autoProcessAllocation(buf: ArrayBuffer | Buffer, by?: stri
       }
     } catch { /* best-effort */ }
 
-    return { ok: true, statementMonth, periodText: gl.periodText, total, byProperty, finalized, emailed, invoiceCount: pdfCount };
+    // Mark the pending send sent (keeps it for the audit trail).
+    const sentAt = new Date().toISOString();
+    try { await markPendingSent("allocated", period, by); } catch { /* best-effort */ }
+
+    return { ok: true, statementMonth, periodText: gl.periodText, total, byProperty, finalized, emailed, invoiceCount: pdfCount, sentAt };
   } catch (e) {
-    return { ok: false, reason: e instanceof Error ? e.message : "auto-process failed" };
+    return { ok: false, reason: e instanceof Error ? e.message : "send failed" };
   }
+}
+
+function pendingBack(p: { summary: { byProperty: { code: string; name: string; amount: number }[]; total: number; invoiceCount: number } }) {
+  return { total: p.summary.total, byProperty: p.summary.byProperty, invoiceCount: p.summary.invoiceCount };
 }
