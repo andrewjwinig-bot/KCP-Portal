@@ -18,9 +18,30 @@ import { emptyCamConfig } from "../config";
 import { getSuiteContactsMap } from "@/lib/suites/contactsStorage";
 import { camRecipientEmails } from "@/lib/suites/contacts";
 import { DEFAULT_CC } from "../office/contacts";
-import { assembledGl } from "@/lib/financials/operating-statements/statementStore";
+import { assembledGl, type StoredGl } from "@/lib/financials/operating-statements/statementStore";
+import { accountMatchesMask } from "@/lib/financials/operating-statements/mask";
 
 const GL_FROM_YEAR = 2026;
+
+/**
+ * A property's annual GL total for an expense-line account spec, pulled from the
+ * imported operating-statement GL. The spec is what a retail pool line carries
+ * in `glAccount`: a single account ("6380-8502"), a comma-list
+ * ("6380-8502,6380-8501"), or a wildcard mask ("6360-*"). Returns null when the
+ * line has no GL account ("—" — e.g. an amortized cap-ex or a stipulated
+ * liability figure), so the caller keeps the hand-seeded amount instead of
+ * zeroing it. A real account that simply hasn't posted returns 0.
+ */
+export function glAnnualForSpec(gl: StoredGl | null, spec: string): number | null {
+  if (!gl || !spec || spec === "—") return null;
+  const masks = spec.split(",").map((s) => s.trim()).filter(Boolean);
+  if (!masks.length) return null;
+  let sum = 0;
+  for (const [acct, nets] of Object.entries(gl.monthly)) {
+    if (masks.some((m) => accountMatchesMask(m, acct))) sum += nets.reduce((a, n) => a + (n || 0), 0);
+  }
+  return Math.round(sum);
+}
 
 export type RetailExpenseLine = { account: string; label: string; amount: number; seed: number; overridden: boolean; history?: (number | null)[] };
 export type RetailExpenseFinal = {
@@ -67,15 +88,22 @@ export async function loadRetailRecon(property: string, year: number): Promise<L
   const finals = await getFinalOverrides(property, year);
 
   const gl = year >= GL_FROM_YEAR ? await assembledGl(property, year) : null;
-  const glFull: Record<string, number> = {};
-  if (gl) for (const [acct, nets] of Object.entries(gl.monthly)) glFull[acct] = Math.round(nets.reduce((a, n) => a + (n || 0), 0));
-  const glBase = (account: string, seed: number) => (gl ? (glFull[account] ?? 0) : seed);
+  // GL actual for a pool line, mask-aware, falling back to the hand-seeded value
+  // when there's no GL (pre-2026) or the line has no GL account ("—").
+  const glBase = (spec: string, seed: number) => {
+    if (!gl) return seed;
+    const v = glAnnualForSpec(gl, spec);
+    return v == null ? seed : v;
+  };
 
   const pool = {
     ...fixture.pool,
     camLines: fixture.pool.camLines.map((l) =>
       finals[l.label] != null ? { ...l, amount: finals[l.label] } : { ...l, amount: glBase(l.glAccount, l.amount) },
     ),
+    // Insurance stays seed → override (reconcile-and-finalize on the recon page):
+    // its GL account (6510) overlaps the stipulated Liability Insurance CAM line
+    // in some centers, so it isn't auto-sourced.
     insAmount: poolOverride.insAmount ?? fixture.pool.insAmount,
     retAmount: finals[RET_FINAL_KEY] ?? glBase("6410-8502", fixture.pool.retAmount),
   };
