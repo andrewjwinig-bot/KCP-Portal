@@ -7,6 +7,7 @@ import { importsForWeek } from "@/lib/tracker/imports";
 import { getImportEvents, reminderSatisfied, type ImportEvent } from "@/lib/tracker/importEvents";
 import { outstandingGlUploads, type OutstandingGl } from "@/lib/financials/operating-statements/outstanding";
 import { recentlyVacatedTenants, type VacatedTenant } from "@/lib/leasing/recentlyVacated";
+import { collectNotPosted, type NotPostedItem } from "@/lib/financials/operating-statements/notPosted";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -71,8 +72,10 @@ function buildDigest(
   outstanding: { expected: { year: number; period: number }; behind: OutstandingGl[] } | null,
   vacated: VacatedTenant[],
   importEvents: Record<string, ImportEvent>,
+  notPosted: NotPostedItem[],
 ) {
   const { start, end } = weekBounds(now);
+  const money0 = (n: number) => "$" + Math.round(n).toLocaleString("en-US");
 
   const open = tasks.filter(
     (o) => !completions[completionKey(o.date.getFullYear(), o.date.getMonth(), o.id)],
@@ -132,6 +135,19 @@ function buildDigest(
     lines.push("");
   }
 
+  // ── Not posted to the GL (budgeted/scheduled lines still reading $0) ──────
+  if (notPosted.length) {
+    const propCount = new Set(notPosted.map((i) => i.key)).size;
+    lines.push(`NOT POSTED TO THE GL — a budgeted or scheduled line still reads $0 (${notPosted.length} line${notPosted.length === 1 ? "" : "s"}, ${propCount} propert${propCount === 1 ? "y" : "ies"})`);
+    for (const i of notPosted.slice(0, 25)) {
+      const tag = i.type === "missing-debt" ? " [debt]" : "";
+      lines.push(`  • ${i.propertyCode} ${i.propertyName} — ${i.line} (${i.monthLabel}): ~${money0(i.expected)} expected${tag}`);
+    }
+    if (notPosted.length > 25) lines.push(`  … and ${notPosted.length - 25} more`);
+    lines.push(`  → Post them (or confirm they don't apply): https://portal.kormancommercial.com/financials/operating-statements/review`);
+    lines.push("");
+  }
+
   // ── Tenants to close out (recently vacated) ──────────────────────────────
   if (vacated.length) {
     lines.push(`TENANTS TO CLOSE OUT — vacated in the last ~60 days (${vacated.length})`);
@@ -149,10 +165,11 @@ function buildDigest(
   const parts: string[] = [];
   if (open.length) parts.push(`${open.length} task${open.length === 1 ? "" : "s"}`);
   if (behind.length) parts.push(`${behind.length} GL upload${behind.length === 1 ? "" : "s"} behind`);
+  if (notPosted.length) parts.push(`${notPosted.length} not posted`);
   if (vacated.length) parts.push(`${vacated.length} to close out`);
   const subject = parts.length ? `Your week — ${parts.join(", ")} (${range})` : `Your week — all clear (${range})`;
 
-  return { subject, textBody: lines.join("\n"), open, doneCount, imports, behind, vacated };
+  return { subject, textBody: lines.join("\n"), open, doneCount, imports, behind, vacated, notPosted };
 }
 
 async function runDigest(req: Request) {
@@ -172,7 +189,10 @@ async function runDigest(req: Request) {
   let importEvents: Record<string, ImportEvent> = {};
   try { importEvents = await getImportEvents(); } catch { /* best-effort */ }
 
-  const { subject, textBody, open, doneCount, imports, behind } = buildDigest(now, tasks, completions, outstanding, vacated, importEvents);
+  let notPosted: NotPostedItem[] = [];
+  try { notPosted = (await collectNotPosted(now.getFullYear())).items; } catch { /* best-effort */ }
+
+  const { subject, textBody, open, doneCount, imports, behind } = buildDigest(now, tasks, completions, outstanding, vacated, importEvents, notPosted);
 
   const url = new URL(req.url);
   const toOverride = url.searchParams.get("to");
