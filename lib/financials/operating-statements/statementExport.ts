@@ -7,7 +7,7 @@
 import "server-only";
 import ExcelJS from "exceljs";
 import { PDFDocument, rgb, StandardFonts, type PDFPage, type PDFFont } from "pdf-lib";
-import type { PropertyStatement, StatementSection, StatementTotals } from "./types";
+import type { PropertyStatement, StatementSection, StatementTotals, ExpectedMissing, FullyFundedYtd } from "./types";
 import { fullYearRows, type FullYearPayload } from "./fullYear";
 import { drawKormanLogo, KORMAN_TEXT } from "@/lib/financials/exportBrand";
 
@@ -20,7 +20,7 @@ type Notes = Record<string, string>;
 
 type Row =
   | { kind: "group"; label: string }
-  | { kind: "line" | "subtotal" | "rollup"; label: string; t: StatementTotals; strong?: boolean; noteKey?: string };
+  | { kind: "line" | "subtotal" | "rollup"; label: string; t: StatementTotals; strong?: boolean; noteKey?: string; em?: ExpectedMissing | null; ff?: FullyFundedYtd | null };
 
 const isZero = (v: number | null) => v == null || Math.abs(v) < 0.5;
 const lineEmpty = (t: StatementTotals) => isZero(t.ytdActual) && isZero(t.ytdBudget) && isZero(t.periodActual);
@@ -38,10 +38,12 @@ export function statementRows(s: PropertyStatement): Row[] {
   const rows: Row[] = [];
   const byRole = (roles: string[]) => s.sections.filter((x) => roles.includes(x.role));
   const pushSection = (sec: StatementSection, withSubtotal = true) => {
-    for (const l of sec.lines) if (!lineEmpty(l)) rows.push({ kind: "line", label: l.label, t: l, noteKey: `${sec.name}::${l.label}` });
+    // Keep a line that's flagged unposted (⚠) even if it reads $0 — hiding it is
+    // exactly what would mislead an owner into thinking the statement is complete.
+    for (const l of sec.lines) if (!lineEmpty(l) || l.expectedMissing) rows.push({ kind: "line", label: l.label, t: l, noteKey: `${sec.name}::${l.label}`, em: l.expectedMissing ?? null, ff: l.fullyFundedYtd ?? null });
     if (withSubtotal) rows.push({ kind: "subtotal", label: sec.role === "revenue" ? "Total Revenue and Other" : `Total ${sec.name}`, t: sec.subtotal });
   };
-  const hasActivity = (secs: StatementSection[]) => secs.some((sec) => sec.lines.some((l) => !lineEmpty(l)) || !lineEmpty(sec.subtotal));
+  const hasActivity = (secs: StatementSection[]) => secs.some((sec) => sec.lines.some((l) => !lineEmpty(l) || l.expectedMissing) || !lineEmpty(sec.subtotal));
 
   rows.push({ kind: "group", label: "Revenues" });
   byRole(["revenue", "reimbursement"]).forEach((sec) => pushSection(sec));
@@ -144,6 +146,24 @@ export async function buildStatementXlsx(s: PropertyStatement, meta: StatementMe
     cell.value = varPct(v, b); cell.alignment = { horizontal: "right" };
     cell.font = { size: 10, bold, color: { argb: v == null ? "FF9AA4B2" : v >= 0 ? "FF15803D" : "FFB91C1C" } }; edge(cell, col);
   };
+  // A $0 that should carry a figure — render a bold ⚠ on an amber fill with an
+  // explaining Excel note, so an unposted line can't read as a finalized $0.
+  const warnCell = (cell: ExcelJS.Cell, col: number, note?: string) => {
+    cell.value = "⚠"; cell.alignment = { horizontal: "center" };
+    cell.font = { size: 12, bold: true, color: { argb: "FFB45309" } };
+    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFDE9C8" } };
+    if (note) cell.note = note;
+    edge(cell, col);
+  };
+  // The reassurance counterpart — a $0 month whose full-year budget is booked YTD.
+  const paidCell = (cell: ExcelJS.Cell, col: number, note?: string) => {
+    cell.value = "✓ paid"; cell.alignment = { horizontal: "center" };
+    cell.font = { size: 9, bold: true, color: { argb: "FF15803D" } };
+    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFDCFCE7" } };
+    if (note) cell.note = note;
+    edge(cell, col);
+  };
+  const money0s = (n: number) => "$" + Math.round(n).toLocaleString("en-US");
 
   // Totals (subtotals + rollups) are written as live Excel formulas that sum the
   // exact source rows above them, so editing a line flows through and the numbers
@@ -218,10 +238,24 @@ export async function buildStatementXlsx(s: PropertyStatement, meta: StatementMe
     if (!isTotal) {
       secLines.push(rn);
       if (group === "Capital") capLines.push(rn);
-      money(gr.getCell(2), row.t.periodActual, false, false, 2);
+      const em = row.em, ff = row.ff;
+      const emNote = em
+        ? em.basis === "debt"
+          ? `Debt service not posted — the Debt Tracker schedules ~${money0s(em.expected)}/mo P&I on this property. This $0 is unposted, not final.`
+          : `Budgeted ~${money0s(em.expected)} but nothing posted year-to-date — looks unposted, not a complete $0.`
+        : undefined;
+      const ffNote = ff
+        ? `Already paid — the full-year budget (${money0s(ff.annualBudget)}) is booked year-to-date (${money0s(ff.ytdActual)}). A $0 this month is expected (e.g. taxes / insurance paid up front), not a shortfall.`
+        : undefined;
+      // Period actual — ⚠ if unposted, ✓ if a paid-up-front $0, else the figure.
+      if (em && Math.abs(row.t.periodActual) < 0.5) warnCell(gr.getCell(2), 2, emNote);
+      else if (ff && Math.abs(row.t.periodActual) < 0.5) paidCell(gr.getCell(2), 2, ffNote);
+      else money(gr.getCell(2), row.t.periodActual, false, false, 2);
       money(gr.getCell(3), row.t.periodBudget, false, false, 3);
       pct(gr.getCell(4), row.t.periodVariance, row.t.periodBudget, false, 4);
-      money(gr.getCell(5), row.t.ytdActual, false, false, 5);
+      // YTD actual — ⚠ only when nothing is posted all year (budget-basis scope).
+      if (em && em.scope === "ytd" && Math.abs(row.t.ytdActual) < 0.5) warnCell(gr.getCell(5), 5, emNote);
+      else money(gr.getCell(5), row.t.ytdActual, false, false, 5);
       money(gr.getCell(6), row.t.ytdBudget, false, false, 6);
       pct(gr.getCell(7), row.t.ytdVariance, row.t.ytdBudget, false, 7);
       money(gr.getCell(8), row.t.annualBudget, false, false, 8);
@@ -421,6 +455,7 @@ const NAVY = rgb(0.043, 0.290, 0.490), NAVY_DARK = rgb(0.039, 0.243, 0.412);
 const ROLLUP = rgb(0.851, 0.894, 0.933), GROUP_TINT = rgb(0.902, 0.933, 0.961);
 const TEXT = rgb(0.1, 0.1, 0.1), MUTED = rgb(0.4, 0.4, 0.4), RED = rgb(0.7, 0.13, 0.1), GREEN = rgb(0.08, 0.5, 0.24), WHITE = rgb(1, 1, 1);
 const RULE = rgb(0.78, 0.82, 0.86);
+const AMBER = rgb(0.70, 0.33, 0.02), AMBER_FILL = rgb(0.99, 0.91, 0.78), GREEN_FILL = rgb(0.86, 0.99, 0.91);
 
 const C = {
   line: { x: MARGIN, w: 176 },
@@ -500,8 +535,28 @@ export async function buildStatementPdf(s: PropertyStatement, meta: StatementMet
     leftText(row.label + (fn ? ` [${fn}]` : ""), C.line.x + (isTotal ? 2 : 6), y + 9.5, isTotal ? 8 : 7.5, f, isTotal ? NAVY : TEXT, C.line.w - 6);
     const vals: (number | null)[] = [row.t.periodActual, row.t.periodBudget, row.t.periodVariance, row.t.ytdActual, row.t.ytdBudget, row.t.ytdVariance, row.t.annualBudget];
     const budgets: (number | null)[] = [null, null, row.t.periodBudget, null, null, row.t.ytdBudget, null];
+    // Actual columns that carry a callout: 0 = period, 3 = YTD (budget-basis
+    // unposted only). A centered token on a colored fill — pdf-lib's Helvetica
+    // can't encode the ⚠ glyph, so use plain words owners can read.
+    const em = row.kind === "line" ? row.em : null;
+    const ff = row.kind === "line" ? row.ff : null;
+    const warnCols = new Set<number>();
+    const paidCols = new Set<number>();
+    if (em && Math.abs(row.t.periodActual) < 0.5) warnCols.add(0);
+    else if (ff && Math.abs(row.t.periodActual) < 0.5) paidCols.add(0);
+    if (em && em.scope === "ytd" && Math.abs(row.t.ytdActual) < 0.5) warnCols.add(3);
+    const centerText = (str: string, col: { x: number; w: number }, size: number, ff2: PDFFont, color: typeof AMBER) => {
+      const w = ff2.widthOfTextAtSize(str, size);
+      page.drawText(str, { x: col.x + (col.w - w) / 2, y: PAGE_H - (y + 9.5), size, font: ff2, color });
+    };
     C.cols.forEach((col, i) => {
-      if (col.kind === "pct") {
+      if (warnCols.has(i)) {
+        page.drawRectangle({ x: col.x + 2, y: PAGE_H - (y + 11), width: col.w - 4, height: rowH, color: AMBER_FILL });
+        centerText("NOT POSTED", col, 6.5, bold, AMBER);
+      } else if (paidCols.has(i)) {
+        page.drawRectangle({ x: col.x + 2, y: PAGE_H - (y + 11), width: col.w - 4, height: rowH, color: GREEN_FILL });
+        centerText("PAID", col, 7, bold, GREEN);
+      } else if (col.kind === "pct") {
         const txt = varPct(vals[i], budgets[i]);
         rightText(txt || "—", col.x + col.w - 3, y + 9.5, 7.5, f, vals[i] == null ? MUTED : (vals[i] as number) >= 0 ? GREEN : RED);
       } else {
