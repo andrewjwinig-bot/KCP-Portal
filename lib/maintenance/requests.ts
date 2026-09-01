@@ -82,6 +82,9 @@ export type MaintenanceRequest = {
   assignedToIds: StaffId[];
   /** Optional dollar billback to the tenant for this request. */
   tenantBillback: TenantBillback | null;
+  /** ISO timestamp when the billback notification was emailed (trovkin@, cc
+   *  mjaster@). Set once so a billback is never announced twice. */
+  billbackNotifiedAt: string | null;
   submittedDate: string;              // ISO
   completedDate: string | null;       // ISO when Complete
   seenAt: string | null;              // ISO when first opened in the modal
@@ -129,6 +132,7 @@ export function emptyRequest(partial: Partial<MaintenanceRequest> = {}): Mainten
     assignedTo: null,
     assignedToIds: [],
     tenantBillback: null,
+    billbackNotifiedAt: null,
     submittedDate: now,
     completedDate: null,
     seenAt: null,
@@ -156,6 +160,7 @@ export function normalizeRequest(r: MaintenanceRequest): MaintenanceRequest {
     assignedToIds,
     assignedTo: assignedToIds[0] ?? null,
     tenantBillback: r.tenantBillback ?? null,
+    billbackNotifiedAt: r.billbackNotifiedAt ?? null,
   };
 }
 

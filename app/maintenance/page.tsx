@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   REQUEST_CATEGORIES,
@@ -787,11 +787,27 @@ function RequestModal({
     return companies.find((c) => c.name === match.name) ?? null;
   }, [request, companies]);
 
+  // When the request is closed, announce any newly-added billback so it doesn't
+  // get forgotten (emails trovkin@, cc mjaster@). Idempotent server-side — a
+  // billback is announced at most once — so closing repeatedly never re-sends.
+  async function maybeNotifyBillback() {
+    const bb = request.tenantBillback;
+    if (!bb || !(Number(bb.amount) > 0) || request.billbackNotifiedAt) return;
+    try {
+      const res = await fetch(`/api/maintenance/requests/${request.id}/billback-notify`, { method: "POST" });
+      const j = await res.json().catch(() => null);
+      if (j?.request) onChange(j.request);
+    } catch { /* best-effort — never block closing the request */ }
+  }
+  function handleClose() { void maybeNotifyBillback(); onClose(); }
+  const closeRef = useRef(handleClose);
+  closeRef.current = handleClose;
+
   useEffect(() => {
-    function onKey(e: KeyboardEvent) { if (e.key === "Escape") onClose(); }
+    function onKey(e: KeyboardEvent) { if (e.key === "Escape") closeRef.current(); }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  }, []);
 
   async function patch(body: Record<string, unknown>) {
     if (readOnly) return;
@@ -866,7 +882,7 @@ function RequestModal({
 
   return (
     <div
-      onClick={onClose}
+      onClick={handleClose}
       style={{
         position: "fixed", inset: 0, background: "rgba(15,23,42,0.55)",
         display: "flex", alignItems: "flex-start", justifyContent: "center",
@@ -939,7 +955,7 @@ function RequestModal({
                 </button>
               ))}
               <button
-                onClick={onClose}
+                onClick={handleClose}
                 aria-label="Close"
                 style={{
                   background: "transparent", border: "1px solid var(--border)",
@@ -1149,6 +1165,7 @@ function RequestModal({
           <Section title="Tenant Billback">
             <TenantBillbackEditor
               value={request.tenantBillback}
+              notifiedAt={request.billbackNotifiedAt}
               disabled={busy || readOnly}
               onChange={(next) => patch({ tenantBillback: next })}
             />
@@ -1326,10 +1343,12 @@ function RequestModal({
 // side-by-side with a remove button.
 function TenantBillbackEditor({
   value,
+  notifiedAt,
   disabled,
   onChange,
 }: {
   value: import("@/lib/maintenance/requests").TenantBillback | null;
+  notifiedAt?: string | null;
   disabled?: boolean;
   onChange: (next: import("@/lib/maintenance/requests").TenantBillback | null) => void;
 }) {
@@ -1351,6 +1370,7 @@ function TenantBillbackEditor({
     );
   }
   return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
     <div style={{
       display: "grid",
       gridTemplateColumns: "minmax(120px, 0.6fr) minmax(0, 2fr) minmax(140px, 0.7fr) auto",
@@ -1405,6 +1425,16 @@ function TenantBillbackEditor({
       >
         Remove
       </button>
+    </div>
+    {notifiedAt ? (
+      <span className="small" style={{ color: "#15803d", fontWeight: 600 }}>
+        ✓ Sent to AP (trovkin, cc Marie) · {new Date(notifiedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+      </span>
+    ) : (Number(value.amount) > 0 ? (
+      <span className="small" style={{ color: "var(--muted)" }}>
+        AP (trovkin, cc Marie) is emailed automatically when you close this request, so it isn&rsquo;t forgotten.
+      </span>
+    ) : null)}
     </div>
   );
 }
