@@ -768,7 +768,7 @@ export default function AllocatedInvoicerPage() {
                 {loadingPending ? `Loading ${pendingGl.statementMonth}…` : `${pendingGl.statementMonth} was processed automatically on import`}
               </div>
               <div className="muted small" style={{ marginTop: 2 }}>
-                Allocation ran, carryover was finalized, and the summary was emailed to the controller. Load it here to download the per-property invoice PDFs to file or send.
+                Allocation ran, carryover was finalized, and the invoices were emailed to Avid (cc Marie &amp; Drew) with a per-building summary. Load it here only if you need to re-download the PDFs.
               </div>
             </div>
             <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
