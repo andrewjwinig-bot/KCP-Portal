@@ -2,6 +2,13 @@
 
 - After pushing a feature branch, always open a PR against `main` and merge it (squash) automatically without waiting for the user to do it. The user has standing approval for this.
 
+# AvidXchange submissions — invoices/statements MUST be PDFs in the shared invoice format
+
+Anything sent to AP for processing (`kormancommercial@avidbill.com`) as the billable **invoice/statement** MUST be a **PDF** and MUST follow the same look and formatting as the portal's other invoice PDFs — one consistent invoice template across every flow (Allocated Expense, Credit Card, Payroll, commissions). Never send a spreadsheet (or any non-PDF) to Avid *as the invoice*. When you add or change anything that emails Avid, the invoice attachment is a PDF built from the shared invoice look — do NOT hand-roll a new invoice layout; reuse/extend the existing invoice PDF builders so all Avid-bound invoices stay visually identical.
+
+- Supporting **xlsx workbooks** (allocation summary, GL Journal Entry, TOP SHEET) are internal references for the cc'd controller/Drew only — they are NOT the Avid invoice. Keep them out of the way of this rule (they may ride along on the same email as references, but the thing Avid processes is always the PDF invoice).
+- Current invoice PDF builders: `lib/allocated-invoicer/invoice.ts` (`buildAllocInvoicePdf`), `lib/expenses/invoice.ts` (`buildInvoicePdf`), `lib/pdf/renderInvoicePdf.ts` (payroll), `lib/pdf/renderCommissionInvoicePdf.ts`. These should share one consistent look; if they drift, reconcile them rather than adding a fourth style.
+
 # Known data gaps / accepted exceptions (do NOT re-flag as bugs)
 
 - **Payroll allocation — Harry Feldman sums to ~94.86%, not 100%.** This is intentional and accepted, NOT a keying error. His allocation workbook row (`data/allocation.xlsx`) is: ~85% across the shopping centers, 5% Interstate/Bellmawr (`0800`), 5% Eastwick (the `Eastwick` column → "Eastwick JV"), and **5% Middletown**. Middletown is a land parcel Korman owns but the portal does NOT track (no property code, no allocation column), so that ~5.14% has nowhere to land and his tracked total reads 94.86%. The dashboard allocation-gap warning will keep flagging him — that's expected. Leave it as-is unless the user decides to add Middletown as a tracked land property (they'd supply its GL code, and Nancy would add a `Middletown` column with the 5% to the workbook).
