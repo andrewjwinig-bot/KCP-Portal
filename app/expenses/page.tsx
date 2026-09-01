@@ -670,6 +670,16 @@ export default function ExpensesPage() {
       .sort((a, b) => a.propId.localeCompare(b.propId)),
     [decoratedGroups, heldOnlyGroups],
   );
+  // Held balance per property, so the Allocation Preview shows a Billed + Accrued
+  // column (the two tables merged, mirroring the Allocated Expense Invoicer).
+  const onHoldByProp = useMemo(() => new Map(onHoldGroups.map((g) => [g.propId, g])), [onHoldGroups]);
+  const billByProp = useMemo(() => new Map(billingGroups.map((g) => [g.propId, g])), [billingGroups]);
+  const ccPreviewRows = useMemo(
+    () => [...new Set([...billingGroups.map((g) => g.propId), ...onHoldGroups.map((g) => g.propId)])].sort((a, b) => a.localeCompare(b)),
+    [billingGroups, onHoldGroups],
+  );
+  const ccBillTotal = useMemo(() => billingGroups.reduce((s, g) => s + g.accrued, 0), [billingGroups]);
+  const ccHeldTotal = useMemo(() => onHoldGroups.reduce((s, g) => s + g.accrued, 0), [onHoldGroups]);
 
   // Charges that actually post this month: billed properties' current charges
   // plus any held detail rolling forward into their now-billing invoice. Drives
@@ -1212,6 +1222,29 @@ export default function ExpensesPage() {
         </div>
       </header>
 
+      {/* ── Review & Send to AvidXchange — prominent, up top (mirrors Allocated) ── */}
+      {!isMaint && billingGroups.length > 0 && !alreadyFinalized && (
+        <div className="card" style={{ borderColor: "rgba(22,163,74,0.5)", background: "rgba(22,163,74,0.07)", display: "flex", flexDirection: "column", alignItems: "center", gap: 12, textAlign: "center", padding: "18px 16px" }}>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: 17 }}>
+              {statementMonth || statementPeriodText || "Credit card expenses"} — ready to send
+            </div>
+            <div className="muted small" style={{ marginTop: 4 }}>
+              <b style={{ color: "var(--fg)" }}>{toMoney(ccBillTotal)}</b> across <b style={{ color: "var(--fg)" }}>{billingGroups.length}</b> propert{billingGroups.length === 1 ? "y" : "ies"}
+              {onHoldGroups.length ? ` · ${onHoldGroups.length} held under $${CARRYOVER_THRESHOLD}` : ""}
+            </div>
+          </div>
+          <button
+            className="btn"
+            style={{ background: "#16a34a", color: "#fff", borderColor: "transparent", fontWeight: 800, fontSize: 16, whiteSpace: "nowrap", padding: "13px 32px", borderRadius: 10, opacity: ccBuilding ? 0.75 : 1 }}
+            disabled={ccBuilding}
+            onClick={reviewCcAndSend}
+          >
+            {ccBuilding ? "Preparing…" : "Review & Send to AvidXchange →"}
+          </button>
+        </div>
+      )}
+
       {/* Import bar — same shape as Payroll Invoicer / Rent Roll: a
           single button row at the top with Save / Cadence on the right,
           and one muted descriptor line beneath. Hidden from maint (Greg
@@ -1476,7 +1509,7 @@ export default function ExpensesPage() {
         </div>}
       </div>
 
-      {/* ── Allocation Preview card — hidden from maint. ── */}
+      {/* ── Allocation Preview (billed + accrued/held, merged) — hidden from maint. ── */}
       {!isMaint && (
       <div className="card">
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -1487,8 +1520,9 @@ export default function ExpensesPage() {
             <div>
               <b>Allocation Preview</b>
               <div className="small muted" style={{ marginTop: 4 }}>
-                One invoice per property — summary page + detailed charges. BP &amp; SC expenses are pre-allocated by schedule.
-                {" "}Properties under ${CARRYOVER_THRESHOLD} are held and carried forward{yearEnd ? " — except in December, when all balances flush" : ""}.
+                One invoice per property. Click <b>Billed</b> for its category breakdown or <b>Accrued</b> for the held detail. Categories:{" "}
+                <span style={{ color: "#15803d", fontWeight: 700 }}>green = billing this period</span>,{" "}
+                <span style={{ color: "#b91c1c", fontWeight: 700 }}>red = held under ${CARRYOVER_THRESHOLD} (accrued, carried forward{yearEnd ? " — December posts everything" : ""})</span>.
               </div>
             </div>
           </div>
@@ -1501,46 +1535,70 @@ export default function ExpensesPage() {
                 <tr>
                   <th>Property</th>
                   <th>Categories</th>
-                  <th style={{ textAlign: "right" }}># Items</th>
-                  <th style={{ textAlign: "right" }}>Total</th>
+                  <th style={{ textAlign: "right" }}>Billed</th>
+                  <th style={{ textAlign: "right" }}>Accrued</th>
                 </tr>
               </thead>
               <tbody>
-                {billingGroups.map((g) => (
-                  <tr key={g.propId}>
-                    <td>
-                      <button className="linkBtn left" onClick={() => setAllocPropModal({ propId: g.propId, name: propName(g.propId), categoryGroups: g.categoryGroups })}>
-                        {g.propId} — {propName(g.propId)}
-                      </button>
-                    </td>
-                    <td>
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: 4, alignItems: "center" }}>
-                        {g.categoryGroups.map((cg) => (
-                          <span key={cg.category} style={{ fontSize: 11, background: "#e8f0fe", color: "#1e4976", borderRadius: 999, padding: "2px 8px", fontWeight: 500, whiteSpace: "nowrap" }}>
-                            {cg.category}
-                          </span>
-                        ))}
-                        {g.prior > 0 && (
-                          <span title={`Includes ${toMoney(g.prior)} carried forward from prior months`} style={{ fontSize: 11, background: "#fef3c7", color: "#92400e", borderRadius: 999, padding: "2px 8px", fontWeight: 600, whiteSpace: "nowrap" }}>
-                            +{toMoney(g.prior)} prior
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td style={{ textAlign: "right" }}>{g.itemCount}</td>
-                    <td style={{ textAlign: "right" }}>{toMoney(g.accrued)}</td>
-                  </tr>
-                ))}
-                {!billingGroups.length && (
-                  <tr><td colSpan={4} className="muted">No properties bill this month{onHoldGroups.length ? " — all coded amounts are under the threshold and held." : "."}</td></tr>
+                {ccPreviewRows.length === 0 && (
+                  <tr><td colSpan={4} className="muted" style={{ padding: "14px 4px" }}>No coded expenses this month.</td></tr>
                 )}
+                {ccPreviewRows.map((propId) => {
+                  const bill = billByProp.get(propId);
+                  const held = onHoldByProp.get(propId);
+                  const billCats = bill ? [...new Set(bill.categoryGroups.map((cg) => cg.category))] : [];
+                  const heldCats = held ? [...new Set(held.categoryGroups.map((cg) => cg.category))].filter((c) => !billCats.includes(c)) : [];
+                  return (
+                    <tr key={propId}>
+                      <td>
+                        {propId} — {propName(propId)}
+                        {bill && bill.prior > 0 && <span title={`Includes ${toMoney(bill.prior)} carried forward`} style={{ marginLeft: 6, fontSize: 10, background: "#fef3c7", color: "#92400e", borderRadius: 999, padding: "1px 6px", fontWeight: 700 }}>+ carried</span>}
+                      </td>
+                      <td>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 4, alignItems: "center" }}>
+                          {billCats.map((c) => (
+                            <span key={`b-${c}`} title="Billing this period" style={{ fontSize: 11, background: "rgba(22,163,74,0.12)", color: "#15803d", borderRadius: 999, padding: "2px 8px", fontWeight: 600, whiteSpace: "nowrap" }}>{c}</span>
+                          ))}
+                          {heldCats.map((c) => (
+                            <span key={`h-${c}`} title="Held under $100 — carried forward" style={{ fontSize: 11, background: "rgba(220,38,38,0.10)", color: "#b91c1c", borderRadius: 999, padding: "2px 8px", fontWeight: 600, whiteSpace: "nowrap" }}>{c}</span>
+                          ))}
+                        </div>
+                      </td>
+                      <td style={{ textAlign: "right" }}>
+                        {bill ? (
+                          <button className="linkBtn" style={{ fontWeight: 700 }} title="See the category breakdown" onClick={() => setAllocPropModal({ propId, name: propName(propId), categoryGroups: bill.categoryGroups })}>
+                            {toMoney(bill.accrued)}
+                          </button>
+                        ) : <span className="muted">—</span>}
+                      </td>
+                      <td style={{ textAlign: "right" }}>
+                        {held ? (
+                          <button className="linkBtn" style={{ fontWeight: 700, color: "#b91c1c" }} title="See the category breakdown of this held balance" onClick={() => {
+                            const byCat = new Map<string, HeldCatRow>();
+                            const add = (category: string, amount: number) => {
+                              const c = byCat.get(category) ?? { category: category || "—", amount: 0, count: 0 };
+                              c.amount = Math.round((c.amount + amount) * 100) / 100;
+                              c.count += 1;
+                              byCat.set(category, c);
+                            };
+                            for (const cg of held.categoryGroups) for (const t of cg.items as any[]) add(t.category, Number(t.amount));
+                            for (const h of (carryover[propId]?.heldTx ?? [])) add(h.category, Number(h.amount));
+                            setHeldDetailModal({ propId, name: propName(propId), accrued: held.accrued, rows: [...byCat.values()].sort((a, b) => b.amount - a.amount) });
+                          }}>
+                            {toMoney(held.accrued)}
+                          </button>
+                        ) : <span className="muted">—</span>}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
-              {billingGroups.length > 0 && (
+              {ccPreviewRows.length > 0 && (
                 <tfoot>
                   <tr>
-                    <td colSpan={2}>Totals</td>
-                    <td style={{ textAlign: "right" }}>{billingGroups.reduce((s, g) => s + g.itemCount, 0)}</td>
-                    <td style={{ textAlign: "right" }}>{toMoney(billingGroups.reduce((s, g) => s + g.accrued, 0))}</td>
+                    <td colSpan={2}>Total</td>
+                    <td style={{ textAlign: "right" }}>{toMoney(ccBillTotal)}</td>
+                    <td style={{ textAlign: "right", color: ccHeldTotal > 0 ? "#b91c1c" : undefined }}>{ccHeldTotal > 0 ? toMoney(ccHeldTotal) : "—"}</td>
                   </tr>
                 </tfoot>
               )}
@@ -1548,70 +1606,6 @@ export default function ExpensesPage() {
           </div>
         )}
       </div>
-      )}
-
-      {/* ── Held — under $100 (carried forward) — hidden from maint. ── */}
-      {!isMaint && onHoldGroups.length > 0 && (
-        <div className="card">
-          <div style={{ fontSize: 13, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.03em", color: "#92400e" }}>
-            Held — under ${CARRYOVER_THRESHOLD} (carried forward)
-          </div>
-          <div className="small muted" style={{ marginTop: 4, marginBottom: 10 }}>
-            Properties whose accrued balance is under ${CARRYOVER_THRESHOLD} roll forward until they cross it{yearEnd ? " — but December flushes everything" : ""}.
-          </div>
-          <div className="tableWrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Property</th>
-                  <th style={{ textAlign: "right" }}>This Month</th>
-                  <th style={{ textAlign: "right" }}>Prior Balance</th>
-                  <th style={{ textAlign: "right" }}>Accrued</th>
-                </tr>
-              </thead>
-              <tbody>
-                {onHoldGroups.map((g) => (
-                  <tr key={g.propId} style={{ opacity: 0.85 }}>
-                    <td>{g.propId} — {propName(g.propId)}</td>
-                    <td style={{ textAlign: "right" }}>{toMoney(g.total)}</td>
-                    <td style={{ textAlign: "right" }}>{toMoney(g.prior)}</td>
-                    <td style={{ textAlign: "right" }}>
-                      <button className="linkBtn" style={{ fontWeight: 700 }} title="See the category breakdown of this balance" onClick={() => {
-                        // Roll this month's charges + carried-forward detail up by
-                        // category — just the totals, not every charge.
-                        const byCat = new Map<string, HeldCatRow>();
-                        const add = (category: string, amount: number) => {
-                          const c = byCat.get(category) ?? { category: category || "—", amount: 0, count: 0 };
-                          c.amount = Math.round((c.amount + amount) * 100) / 100;
-                          c.count += 1;
-                          byCat.set(category, c);
-                        };
-                        for (const cg of g.categoryGroups) for (const t of cg.items as any[]) add(t.category, Number(t.amount));
-                        for (const h of (carryover[g.propId]?.heldTx ?? [])) add(h.category, Number(h.amount));
-                        setHeldDetailModal({
-                          propId: g.propId,
-                          name: propName(g.propId),
-                          accrued: g.accrued,
-                          rows: [...byCat.values()].sort((a, b) => b.amount - a.amount),
-                        });
-                      }}>
-                        {toMoney(g.accrued)}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr>
-                  <td>Held total</td>
-                  <td style={{ textAlign: "right" }}>{toMoney(onHoldGroups.reduce((s, g) => s + g.total, 0))}</td>
-                  <td style={{ textAlign: "right" }}>{toMoney(onHoldGroups.reduce((s, g) => s + g.prior, 0))}</td>
-                  <td style={{ textAlign: "right" }}>{toMoney(onHoldGroups.reduce((s, g) => s + g.accrued, 0))}</td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-        </div>
       )}
 
       {/* ── Generate Invoices — hidden from maint. ── */}
@@ -1622,15 +1616,6 @@ export default function ExpensesPage() {
             One PDF invoice per billing property. Properties whose accrued balance is under ${CARRYOVER_THRESHOLD} are held and excluded from the invoices, GL Journal Entry, and TOP SHEET until they cross it{yearEnd ? " (December flushes everything)" : ""}.
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16, alignItems: "center" }}>
-            <button
-              className="btn"
-              style={{ background: "#16a34a", color: "#fff", borderColor: "transparent", fontWeight: 700, whiteSpace: "nowrap", opacity: ccBuilding ? 0.75 : 1 }}
-              disabled={!billingGroups.length || ccBuilding}
-              onClick={reviewCcAndSend}
-              title="Review the per-building summary, then send the invoices to AvidXchange"
-            >
-              {ccBuilding ? "Preparing…" : "Review & Send to AvidXchange →"}
-            </button>
             <DownloadMenu
               label="Download"
               variant="primary"
