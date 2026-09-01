@@ -400,31 +400,25 @@ export async function sendAllocation(period: string, by?: string | null): Promis
 
     const multi = res.months.length > 1;
     const nowISO = () => new Date().toISOString();
+    // Build the invoice PDFs (no side effects yet — carryover is finalized only
+    // AFTER a successful delivery, so a partial email failure can be retried).
     const invoices: (AvidInvoicePdf & { zipPath: string })[] = [];
     for (const m of res.months) {
       invoices.push(...await buildMonthInvoices(m, multi ? `${m.statementMonth}/` : ""));
-      try {
-        await recordAllocationRun({
-          periodText: m.gl.periodText, periodEndDate: m.gl.periodEndDate, statementMonth: m.statementMonth,
-          ranAt: nowISO(), ranBy: by ?? "Sent to Avid", byProperty: m.byProperty, total: m.total,
-        });
-      } catch { /* best-effort */ }
-      // Finalize this month against the running ledger (persisted, chaining).
-      try {
-        const next = finalizeMonth(ledger, m.statementMonth, m.expenses, nowISO()).ledger;
-        await saveAllocLedger(next);
-        ledger = next;
-      } catch { /* best-effort */ }
     }
     const pdfCount = invoices.length;
 
     // Send each invoice PDF to Avid on its OWN email (no zip), and one summary to
-    // the team (cc Drew). Deduped per period.
+    // the team. Retry-safe (per-invoice dedup): a retry re-sends only stragglers.
     let emailed = false;
+    let delivered = false;
+    let mailConfigured = true;
     try {
       const now = new Date();
       await markTaskComplete(now.getFullYear(), now.getMonth(), "m-alloc-exp", { at: now.toISOString(), source: "allocated" });
-      if (!(await reportAlreadySent("allocated", period))) {
+      if (await reportAlreadySent("allocated", period)) {
+        delivered = true; // already fully sent on a prior run
+      } else {
         // Zip of all invoice PDFs — for the team's records only (never to Avid).
         let archiveZip: Buffer | null = null;
         try {
@@ -432,7 +426,6 @@ export async function sendAllocation(period: string, by?: string | null): Promis
           for (const inv of invoices) zip.file(inv.zipPath, inv.pdf);
           archiveZip = pdfCount > 0 ? await zip.generateAsync({ type: "nodebuffer" }) : null;
         } catch { /* archive is best-effort */ }
-        // Summary workbook reference for the team.
         const allRows = res.months.flatMap((m) => m.rows);
         const accountCodes = [...new Set(allRows.map((r) => r.accountCode))].sort();
         const summaryBlob = buildAllocExportXlsx({
@@ -442,6 +435,7 @@ export async function sendAllocation(period: string, by?: string | null): Promis
         });
         const summaryXlsx = Buffer.from(await summaryBlob.arrayBuffer());
         const result = await deliverInvoicesToAvid({
+          source: "allocated",
           label: "Allocated Expenses",
           period,
           invoices,
@@ -452,16 +446,47 @@ export async function sendAllocation(period: string, by?: string | null): Promis
           archiveZip,
           by,
         });
-        if (result.emailed) { await markReportSent("allocated", period, AVID_TO); emailed = true; }
+        emailed = result.emailed;
+        mailConfigured = result.mailConfigured;
+        delivered = result.allDelivered;
+        if (result.allDelivered) { await markReportSent("allocated", period, AVID_TO); }
       }
     } catch { /* best-effort */ }
 
-    const sentAt = new Date().toISOString();
-    try { await markPendingSent("allocated", period, by); } catch { /* best-effort */ }
+    // Commit — record the run(s) + finalize carryover + mark sent — ONLY once
+    // everything's delivered (or mail isn't configured, so there's nothing to
+    // retry). A partial send leaves the month open so the user can retry.
+    const commit = delivered || !mailConfigured;
+    let finalized = false;
+    if (commit) {
+      for (const m of res.months) {
+        try {
+          await recordAllocationRun({
+            periodText: m.gl.periodText, periodEndDate: m.gl.periodEndDate, statementMonth: m.statementMonth,
+            ranAt: nowISO(), ranBy: by ?? "Sent to Avid", byProperty: m.byProperty, total: m.total,
+          });
+        } catch { /* best-effort */ }
+        try {
+          const next = finalizeMonth(ledger, m.statementMonth, m.expenses, nowISO()).ledger;
+          await saveAllocLedger(next);
+          ledger = next;
+          finalized = true;
+        } catch { /* best-effort */ }
+      }
+      try { await markPendingSent("allocated", period, by); } catch { /* best-effort */ }
+    }
 
+    const sentAt = new Date().toISOString();
+    if (!commit) {
+      return {
+        ok: false, reason: "partial-send", statementMonth: period, periodText: gl.periodText,
+        total: res.total, byProperty: res.byProperty, emailed,
+        invoiceCount: pdfCount, monthCount: res.months.length,
+      };
+    }
     return {
       ok: true, statementMonth: period, periodText: gl.periodText,
-      total: res.total, byProperty: res.byProperty, finalized: true, emailed,
+      total: res.total, byProperty: res.byProperty, finalized, emailed,
       invoiceCount: pdfCount, monthCount: res.months.length, sentAt,
     };
   } catch (e) {

@@ -63,6 +63,7 @@ function sendError(reason?: string): string {
     case "already-sent": return "This period has already been sent to AvidXchange.";
     case "already-finalized": return "This period was already finalized — it's been sent.";
     case "no-statement-month": return "The staged GL has no readable statement month.";
+    case "partial-send": return "Some invoices didn't reach AvidXchange — click Send again to retry just the ones that didn't go.";
     default: return "Failed to send the allocated invoices.";
   }
 }

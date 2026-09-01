@@ -9,6 +9,7 @@
 
 import "server-only";
 import { sendMail, isMailConfigured } from "@/lib/mail";
+import { getAvidSent, saveAvidSent } from "./avidSentStore";
 
 const AVID_TO = "kormancommercial@avidbill.com";
 const REPORT_FROM = "dwinig@kormancommercial.com"; // verified Postmark sender
@@ -29,9 +30,23 @@ function money(n: number): string {
   return "$" + (Number(n) || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-export type DeliverResult = { avidSent: number; invoiceCount: number; teamNotified: boolean; emailed: boolean; mailConfigured: boolean };
+export type DeliverResult = {
+  /** Invoices actually emailed on THIS call. */
+  avidSent: number;
+  /** Invoices skipped because a prior run already delivered them. */
+  alreadySent: number;
+  invoiceCount: number;
+  teamNotified: boolean;
+  emailed: boolean;
+  mailConfigured: boolean;
+  /** True once every invoice AND the team summary have been delivered — the
+   *  caller marks the period done only then, so a partial failure can be retried. */
+  allDelivered: boolean;
+};
 
 export async function deliverInvoicesToAvid(opts: {
+  /** Dedup namespace, e.g. "allocated" | "credit-card" | "payroll". */
+  source: string;
   /** "Allocated Expenses" | "Credit Card Expenses" | "Payroll". */
   label: string;
   period: string;
@@ -50,12 +65,16 @@ export async function deliverInvoicesToAvid(opts: {
 }): Promise<DeliverResult> {
   const invoiceCount = opts.invoices.length;
   if (!isMailConfigured()) {
-    return { avidSent: 0, invoiceCount, teamNotified: false, emailed: false, mailConfigured: false };
+    return { avidSent: 0, alreadySent: 0, invoiceCount, teamNotified: false, emailed: false, mailConfigured: false, allDelivered: false };
   }
 
-  // 1) One email per invoice PDF → Avid (no zip, no cc).
-  let avidSent = 0;
+  // 1) One email per invoice PDF → Avid (no zip, no cc). Retry-safe: skip any
+  // invoice a prior run already delivered, and record each success so a retry
+  // only re-sends what didn't go out.
+  const sent = await getAvidSent(opts.source, opts.period);
+  let avidSent = 0, alreadySent = 0;
   for (const inv of opts.invoices) {
+    if (sent.invoices[inv.fileName]) { alreadySent++; continue; }
     const ok = await sendMail({
       to: AVID_TO,
       from: REPORT_FROM,
@@ -63,10 +82,17 @@ export async function deliverInvoicesToAvid(opts: {
       textBody: `Attached is the ${opts.period} ${opts.label.toLowerCase()} invoice for ${inv.propertyLabel}.\n\n— KCP Portal`,
       attachments: [{ name: inv.fileName, content: inv.pdf, contentType: PDF }],
     });
-    if (ok) avidSent++;
+    if (ok) {
+      avidSent++;
+      sent.invoices[inv.fileName] = new Date().toISOString();
+      try { await saveAvidSent(sent); } catch { /* best-effort — resend is idempotent */ }
+    }
   }
+  const allInvoicesSent = opts.invoices.every((inv) => !!sent.invoices[inv.fileName]);
 
-  // 2) One summary email → the team (their record; NOT sent to Avid).
+  // 2) One summary email → the team (their record; NOT sent to Avid). Send it
+  // once all invoices are out and it hasn't gone yet, or when new invoices went
+  // out this call (so the summary reflects the latest send).
   const bp = opts.byProperty;
   const nameW = Math.max(0, ...bp.map((b) => `${b.code} — ${b.name}`.length));
   const amtW = Math.max(money(opts.total).length, ...bp.map((b) => money(b.amount).length));
@@ -78,19 +104,31 @@ export async function deliverInvoicesToAvid(opts: {
   if (opts.archiveZip) teamAttachments.push({ name: `${opts.period} - ${opts.label} Invoices.zip`, content: opts.archiveZip, contentType: "application/zip" });
   const cc = opts.teamCc.filter((x) => x && x !== CONTROLLER).join(", ");
 
-  const teamOk = await sendMail({
-    to: CONTROLLER,
-    ...(cc ? { cc } : {}),
-    from: REPORT_FROM,
-    subject: `${opts.label} sent to AvidXchange — ${opts.period}`,
-    textBody:
-      `${avidSent}${avidSent === invoiceCount ? "" : ` of ${invoiceCount}`} ${opts.label.toLowerCase()} invoice${invoiceCount === 1 ? "" : "s"} ` +
-      `${opts.by ? `released by ${opts.by} ` : ""}to AvidXchange for ${opts.period} — sent as one email per invoice (Avid can't take a zip).\n\n` +
-      `Allocation by building:\n${summaryBody}\n\n` +
-      `${opts.privacyNote ? "These figures are property-level only — no employee payroll detail is included.\n\n" : ""}` +
-      `— KCP Portal`,
-    attachments: teamAttachments.map((a) => ({ name: a.name, content: a.content, contentType: a.contentType })),
-  });
+  // Send the summary once all invoices are out and it hasn't gone yet, OR when
+  // new invoices went out this call (so a first send always notifies; a retry
+  // that only finished stragglers re-sends an updated summary).
+  const needSummary = (allInvoicesSent && !sent.teamSummaryAt) || avidSent > 0;
+  let teamOk = !!sent.teamSummaryAt;
+  if (needSummary) {
+    teamOk = await sendMail({
+      to: CONTROLLER,
+      ...(cc ? { cc } : {}),
+      from: REPORT_FROM,
+      subject: `${opts.label} sent to AvidXchange — ${opts.period}`,
+      textBody:
+        `${Object.keys(sent.invoices).length}${Object.keys(sent.invoices).length === invoiceCount ? "" : ` of ${invoiceCount}`} ${opts.label.toLowerCase()} invoice${invoiceCount === 1 ? "" : "s"} ` +
+        `${opts.by ? `released by ${opts.by} ` : ""}to AvidXchange for ${opts.period} — sent as one email per invoice (Avid can't take a zip).\n\n` +
+        `Allocation by building:\n${summaryBody}\n\n` +
+        `${opts.privacyNote ? "These figures are property-level only — no employee payroll detail is included.\n\n" : ""}` +
+        `— KCP Portal`,
+      attachments: teamAttachments.map((a) => ({ name: a.name, content: a.content, contentType: a.contentType })),
+    });
+    if (teamOk && !sent.teamSummaryAt) {
+      sent.teamSummaryAt = new Date().toISOString();
+      try { await saveAvidSent(sent); } catch { /* best-effort */ }
+    }
+  }
 
-  return { avidSent, invoiceCount, teamNotified: teamOk, emailed: avidSent > 0 || teamOk, mailConfigured: true };
+  const allDelivered = allInvoicesSent && !!sent.teamSummaryAt;
+  return { avidSent, alreadySent, invoiceCount, teamNotified: teamOk, emailed: avidSent > 0 || teamOk, mailConfigured: true, allDelivered };
 }

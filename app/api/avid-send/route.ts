@@ -80,6 +80,7 @@ export async function POST(req: Request) {
     }
 
     const result = await deliverInvoicesToAvid({
+      source: body.source,
       label,
       period: body.period,
       invoices: body.invoices.map((inv) => ({ propertyLabel: inv.propertyLabel, fileName: inv.fileName, pdf: Buffer.from(inv.contentBase64, "base64") })),
@@ -92,8 +93,10 @@ export async function POST(req: Request) {
       privacyNote: body.source === "payroll",
     });
 
-    if (result.emailed) await markReportSent(dedupKey(body.source), body.period, "kormancommercial@avidbill.com");
-    return NextResponse.json({ sent: result.emailed, byProperty: body.byProperty, total: body.total, invoiceCount: result.avidSent || invoiceCount, sentAt });
+    // Only mark the period done once everything's out, so a retry after a
+    // partial failure re-sends just the invoices that didn't go.
+    if (result.allDelivered) await markReportSent(dedupKey(body.source), body.period, "kormancommercial@avidbill.com");
+    return NextResponse.json({ sent: result.emailed, byProperty: body.byProperty, total: body.total, invoiceCount: (result.avidSent + result.alreadySent) || invoiceCount, sentAt });
   } catch (e: any) {
     return NextResponse.json({ error: e?.message ?? "Failed to send to AvidXchange" }, { status: 500 });
   }
