@@ -140,13 +140,45 @@ function computeLine(
     b?.annualBudget ?? null,
     favorability(role)
   );
+  const expectedMissing = budgetExpectedMissing(role, ytdActual, b?.ytdBudget ?? null);
   return {
     label: line.label,
     mask: line.mask,
     accounts: matched,
     ...t,
-    expectedMissing: budgetExpectedMissing(role, ytdActual, b?.ytdBudget ?? null),
+    expectedMissing,
+    fullyFundedYtd: expectedMissing
+      ? null
+      : fullyFundedYtd(role, periodActual, b?.periodBudget ?? null, ytdActual, b?.annualBudget ?? null),
   };
+}
+
+// The reassurance signal. A line reads ~$0 this month and looks short against an
+// evenly-spread monthly budget, BUT year-to-date it has already booked its whole
+// annual budget — a front-loaded / prepaid obligation (real-estate taxes paid in
+// one shot, an annual insurance premium, etc.). Not an error: the $0 month is
+// expected. Requires an even-spread monthly budget (so there's an apparent
+// shortfall to reassure about) and the YTD actual to have essentially met the
+// annual budget. Expense-like lines only.
+const FULLY_FUNDED_FRACTION = 0.98;
+function fullyFundedYtd(
+  role: SectionRole,
+  periodActual: number,
+  periodBudget: number | null,
+  ytdActual: number,
+  annualBudget: number | null,
+): StatementLine["fullyFundedYtd"] {
+  const expenseLike =
+    role === "reimbursable-expense" ||
+    role === "non-reimbursable-expense" ||
+    role === "residential-expense" ||
+    role === "capital";
+  if (!expenseLike) return null;
+  if (annualBudget == null || annualBudget <= EXPECTED_MISSING_MIN) return null;
+  if (periodBudget == null || periodBudget <= 0) return null; // no monthly run-rate → no apparent shortfall
+  if (Math.abs(periodActual) >= 0.5) return null; // something posted this month → not a $0 month
+  if (ytdActual < annualBudget * FULLY_FUNDED_FRACTION) return null; // annual not yet booked
+  return { ytdActual, annualBudget };
 }
 
 // A same-year budget expects money on this line, but nothing is posted

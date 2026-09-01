@@ -101,6 +101,18 @@ export type StatementLine = {
    *  debt this month but none posted). Highlights the actual cell(s) so an
    *  unposted line isn't mistaken for a complete $0. Not a trend "?" flag. */
   expectedMissing?: ExpectedMissing | null;
+  /** The reassurance counterpart: this month reads ~$0 (so it looks short vs an
+   *  evenly-spread monthly budget), but the FULL-YEAR budget is already booked
+   *  year-to-date — e.g. real-estate taxes or insurance paid up front. Marks the
+   *  month green ("already paid") so the budget shortfall reads as expected, not
+   *  an error. */
+  fullyFundedYtd?: FullyFundedYtd | null;
+};
+
+/** Evidence that a $0 month is a prepaid/front-loaded line, not a shortfall. */
+export type FullyFundedYtd = {
+  ytdActual: number;
+  annualBudget: number;
 };
 
 /** Evidence that a $0 line is unposted rather than genuinely zero. */
