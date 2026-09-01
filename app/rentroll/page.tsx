@@ -11,6 +11,11 @@ import { LastImported } from "../components/LastImported";
 import { blobSrc } from "../../lib/blobProxy";
 import { normName } from "../../lib/centers/registry";
 
+// Hand-off key: a successful rent-roll import stashes its success message here,
+// then hard-reloads the page; the mount effect reads it back to flash a
+// prominent "✓ imported" banner so the import is unmistakably visible.
+const RENTROLL_IMPORTED_KEY = "rentroll:justImported";
+
 // Public display-name (DBA) overrides for shopping-center tenants, provided to
 // the unit tables so a tenant with a DBA reads by that name (with an info icon
 // revealing the underlying rent-roll / Skyline name). Keyed by property code →
@@ -1410,6 +1415,24 @@ export default function RentRollPage() {
   const [dragging, setDragging] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadNote, setUploadNote] = useState<string | null>(null);
+  // Success banner shown after the post-import auto-reload (handed off via
+  // sessionStorage so it survives the reload). Auto-dismisses after a few sec.
+  const [importedFlash, setImportedFlash] = useState<string | null>(null);
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(RENTROLL_IMPORTED_KEY);
+      if (!raw) return;
+      sessionStorage.removeItem(RENTROLL_IMPORTED_KEY);
+      const { msg, at, changes } = JSON.parse(raw) as { msg?: string; at?: number; changes?: { newTenants: ChangeRow[]; vacated: ChangeRow[] } | null };
+      // Ignore a stale hand-off (e.g. an old tab restored much later).
+      if (msg && at && Date.now() - at < 60_000) {
+        setImportedFlash(msg);
+        if (changes && (changes.newTenants?.length || changes.vacated?.length)) setUploadChanges(changes);
+        const t = setTimeout(() => setImportedFlash(null), 8000);
+        return () => clearTimeout(t);
+      }
+    } catch { /* no flash */ }
+  }, []);
   type ChangeRow = { propertyCode: string; unitRef: string; occupantName: string; sqft: number; leaseTo: string | null };
   const [uploadChanges, setUploadChanges] = useState<{ newTenants: ChangeRow[]; vacated: ChangeRow[] } | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>(user.defaultRentRollCategory as CategoryFilter);
@@ -1605,50 +1628,26 @@ export default function RentRollPage() {
       });
       const data = await res.json();
       if (!res.ok || data.error) throw new Error(data.error ?? "Upload failed");
-      setRawRentroll(data.rentroll);
-      setUploadChanges(data.changes && (data.changes.newTenants?.length || data.changes.vacated?.length) ? data.changes : null);
 
-      // Refresh the snapshot list + jump the on-screen period to the roll
-      // just imported. Without this the new month wasn't in the dropdown and
-      // reportMonth still pointed at the old snapshot, so the page looked
-      // unchanged until a manual browser refresh re-ran the mount effect.
+      // When the imported roll isn't the newest month it's filed to history and
+      // the more-recent roll stays current — say so, so the unchanged on-screen
+      // roll isn't surprising.
       const importedMonth: string | undefined = data.imported?.month;
-      const becameCurrent = !data.imported || data.imported.becameCurrent !== false;
-      try {
-        const hist = await fetch("/api/rentroll/history", { cache: "no-store" }).then((r) => r.json());
-        const snaps = (hist.snapshots ?? []) as import("../../lib/rentroll/snapshot").RentRollSnapshotSummary[];
-        setSnapshotList(snaps);
-        if (becameCurrent && snaps.length > 0) {
-          // Current roll is the newest month — show it so the import is visible.
-          // Drive the on-screen roll straight from the fresh upload response
-          // (data.rentroll) rather than a storage re-read, so it never flashes
-          // all-$0 while the just-written snapshot propagates.
-          const m = snaps[snaps.length - 1].month;
-          if (reportMonth === m) {
-            // Same month re-imported: reportMonth won't change, so update the
-            // displayed roll in place (the per-month effect won't re-run).
-            setMonthRentroll(data.rentroll);
-            justImportedRef.current = null;
-          } else {
-            justImportedRef.current = { month: m, data: data.rentroll };
-            setReportMonth(m);
-          }
-        } else if (importedMonth && snaps.some((s) => s.month === importedMonth)) {
-          // Back-dated import: show the month that was actually imported.
-          setReportMonth(importedMonth);
-        }
-      } catch { /* list refresh is best-effort; the roll already updated */ }
+      const successMsg = (data.imported && data.imported.becameCurrent === false)
+        ? `Imported ${data.imported.month} into history. ${data.currentMonth} remains the current rent roll.`
+        : importedMonth
+          ? `Imported ${importedMonth} — now showing as the current rent roll.`
+          : "Rent roll imported.";
 
-      // When the imported roll isn't the newest month it's filed to history
-      // and the more-recent roll stays current — say so, so the unchanged
-      // on-screen roll isn't surprising.
-      if (data.imported && data.imported.becameCurrent === false) {
-        setUploadNote(
-          `Imported ${data.imported.month} into history. ${data.currentMonth} remains the current rent roll.`,
-        );
-      } else if (importedMonth) {
-        setUploadNote(`Imported ${importedMonth} — now showing as the current rent roll.`);
-      }
+      // Auto-refresh so the import is unmistakably visible: hand the success
+      // banner off through sessionStorage, then hard-reload the page. On reload
+      // the mount effects re-fetch the freshly-written current roll from scratch
+      // (no all-$0 flash — the snapshot is already persisted) and the green
+      // "✓ imported" banner shows at the top.
+      const changes = data.changes && (data.changes.newTenants?.length || data.changes.vacated?.length) ? data.changes : null;
+      try { sessionStorage.setItem(RENTROLL_IMPORTED_KEY, JSON.stringify({ msg: successMsg, at: Date.now(), changes })); } catch { /* non-fatal */ }
+      window.location.reload();
+      return;
     } catch (err: any) {
       setUploadError(err?.message ?? "Upload failed");
     } finally {
@@ -1712,6 +1711,22 @@ export default function RentRollPage() {
     <BaseYearResetsContext.Provider value={baseYearResets}>
     <DbaContext.Provider value={dbaByCode}>
     <main>
+      {importedFlash && (
+        <div
+          role="status"
+          onClick={() => setImportedFlash(null)}
+          style={{
+            display: "flex", alignItems: "center", gap: 10, cursor: "pointer",
+            marginBottom: 16, padding: "12px 16px", borderRadius: 10,
+            background: "rgba(22,163,74,0.10)", border: "1px solid rgba(22,163,74,0.5)",
+            color: "#15803d", fontWeight: 700,
+          }}
+        >
+          <span style={{ fontSize: 20 }}>✅</span>
+          <span style={{ flex: 1 }}>{importedFlash}</span>
+          <span className="small" style={{ fontWeight: 600, opacity: 0.75 }}>Dismiss ✕</span>
+        </div>
+      )}
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 24, flexWrap: "wrap" }}>
         <h1 style={{ margin: 0 }}>Rent Roll</h1>
         {periodLabel && (

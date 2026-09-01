@@ -231,20 +231,29 @@ export default function AllocatedInvoicerPage() {
     () => (pendingSends ?? []).filter((p) => !p.sentAt).sort((a, b) => (a.period < b.period ? 1 : -1))[0] ?? null,
     [pendingSends],
   );
+  // A range GL prepares several months at once ("2026-01_to_2026-06").
+  const isRangePeriod = (period: string) => period.includes("_to_");
+  const rangeMonthCount = (period: string) => {
+    const m = period.match(/^(\d{4})-(\d{2})_to_(\d{4})-(\d{2})$/);
+    if (!m) return 1;
+    return (Number(m[3]) * 12 + Number(m[4])) - (Number(m[1]) * 12 + Number(m[2])) + 1;
+  };
+  const sendLabel = (rec: PendingSend) =>
+    isRangePeriod(rec.period) ? `${rec.label || rec.period} (${rangeMonthCount(rec.period)} months)` : rec.label || rec.period;
 
-  async function confirmSend(period: string) {
+  async function confirmSend(rec: PendingSend) {
     setSending(true);
     try {
       const res = await fetch("/api/allocation/pending-send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ period }),
+        body: JSON.stringify({ period: rec.period }),
       });
       const j = await res.json();
       if (!res.ok) { alert(j?.error ?? "Failed to send to AvidXchange."); return; }
       setReviewSend(null);
       setSentResult({
-        period,
+        period: sendLabel(rec),
         total: j.total ?? 0,
         invoiceCount: j.invoiceCount ?? 0,
         byProperty: j.byProperty ?? [],
@@ -795,10 +804,11 @@ export default function AllocatedInvoicerPage() {
             <span style={{ fontSize: 20 }}>📤</span>
             <div style={{ flex: 1, minWidth: 220 }}>
               <div style={{ fontWeight: 800, color: "#9a3412" }}>
-                {awaitingReview.period} allocated invoices are prepared — review &amp; send
+                {sendLabel(awaitingReview)} allocated invoices are prepared — review &amp; send
               </div>
               <div className="muted small" style={{ marginTop: 2 }}>
-                {awaitingReview.summary.invoiceCount} invoice{awaitingReview.summary.invoiceCount === 1 ? "" : "s"} · {toMoney(awaitingReview.summary.total)} across {awaitingReview.summary.byProperty.length} propert{awaitingReview.summary.byProperty.length === 1 ? "y" : "ies"}.
+                {awaitingReview.summary.invoiceCount} invoice{awaitingReview.summary.invoiceCount === 1 ? "" : "s"} · {toMoney(awaitingReview.summary.total)} across {awaitingReview.summary.byProperty.length} propert{awaitingReview.summary.byProperty.length === 1 ? "y" : "ies"}
+                {isRangePeriod(awaitingReview.period) ? ` (${rangeMonthCount(awaitingReview.period)} months, carryover chained)` : ""}.
                 Nothing has been sent to AvidXchange yet — confirm the summary and release it.
               </div>
             </div>
@@ -1390,17 +1400,20 @@ export default function AllocatedInvoicerPage() {
       <AvidReviewModal
         open={!!reviewSend}
         title="Allocated Expenses"
-        period={reviewSend?.period ?? ""}
+        period={reviewSend ? sendLabel(reviewSend) : ""}
         byProperty={reviewSend?.summary.byProperty ?? []}
         total={reviewSend?.summary.total ?? 0}
         invoiceCount={reviewSend?.summary.invoiceCount}
+        note={reviewSend && isRangePeriod(reviewSend.period)
+          ? `This range covers ${rangeMonthCount(reviewSend.period)} months — each month is invoiced separately and carryover is chained month to month.`
+          : undefined}
         attachments={reviewSend ? [
           `${reviewSend.period} - Allocated Invoices.zip`,
           `${reviewSend.period} - Allocated Expenses.xlsx`,
         ] : []}
         sending={sending}
         onCancel={() => { if (!sending) setReviewSend(null); }}
-        onConfirm={() => reviewSend && confirmSend(reviewSend.period)}
+        onConfirm={() => reviewSend && confirmSend(reviewSend)}
       />
       <AvidSuccessModal
         open={!!sentResult}
