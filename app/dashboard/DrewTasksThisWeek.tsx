@@ -198,30 +198,35 @@ export default function DrewTasksThisWeek() {
         </div>
       )}
 
-      {imports.length > 0 && (
-        <div style={{ marginTop: 14 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "#b45309", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ width: 9, height: 9, borderRadius: 999, background: "#b45309", flexShrink: 0 }} />
-            Files to Import This Week
+      {imports.length > 0 && (() => {
+        // Once a file is imported it drops off — the list shows only what's still
+        // outstanding. When everything's in, a single "all imported" line.
+        const outstanding = imports.filter((r) => !reminderSatisfied(r, importEvents[r.id]?.at, new Date()));
+        return (
+          <div style={{ marginTop: 14 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: outstanding.length ? "#b45309" : GREEN, marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ width: 9, height: 9, borderRadius: 999, background: outstanding.length ? "#b45309" : GREEN, flexShrink: 0 }} />
+              Files to Import This Week{outstanding.length ? ` · ${outstanding.length} outstanding` : ""}
+            </div>
+            {outstanding.length === 0 ? (
+              <div className="small" style={{ color: GREEN, fontWeight: 600 }}>✓ All files imported this week.</div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {outstanding.map((r) => (
+                  <Link key={r.id} href={r.link} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 8, border: "1px solid rgba(180,83,9,0.28)", background: "rgba(180,83,9,0.06)", textDecoration: "none", color: "inherit" }}>
+                    <span style={{ width: 9, height: 9, borderRadius: 999, background: "#b45309", flexShrink: 0 }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: "#7c3d06" }}>{r.label}</div>
+                      <div className="muted small" style={{ marginTop: 1 }}>feeds {r.feeds}</div>
+                    </div>
+                    <div style={{ flexShrink: 0, fontSize: 12, fontWeight: 700, color: "#b45309" }}>{r.when}</div>
+                  </Link>
+                ))}
+              </div>
+            )}
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {imports.map((r) => {
-              const ev = importEvents[r.id];
-              const done = reminderSatisfied(r, ev?.at, new Date());
-              return (
-                <Link key={r.id} href={r.link} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 8, border: done ? "1px solid rgba(21,128,61,0.3)" : "1px solid rgba(180,83,9,0.28)", background: done ? "rgba(22,163,74,0.06)" : "rgba(180,83,9,0.06)", textDecoration: "none", color: "inherit" }}>
-                  <span style={{ width: 9, height: 9, borderRadius: 999, background: done ? GREEN : "#b45309", flexShrink: 0 }} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: done ? "var(--muted)" : "#7c3d06", textDecoration: done ? "line-through" : undefined }}>{r.label}</div>
-                    <div className="muted small" style={{ marginTop: 1 }}>{done && ev ? `✓ imported ${new Date(ev.at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}${ev.by ? ` by ${ev.by}` : ""}` : `feeds ${r.feeds}`}</div>
-                  </div>
-                  <div style={{ flexShrink: 0, fontSize: 12, fontWeight: 700, color: done ? GREEN : "#b45309" }}>{done ? "Done" : r.when}</div>
-                </Link>
-              );
-            })}
-          </div>
-        </div>
-      )}
+        );
+      })()}
 
       {openTaskItems.length > 0 && (
         <div style={{ marginTop: 14 }}>
