@@ -41,7 +41,6 @@ import { recordAllocationRun } from "./runStore";
 import { buildAllocExportXlsx, type AllocExportRow } from "./export";
 import { buildAllocInvoicePdf, makeAllocInvoiceId, type AllocLineItem } from "./invoice";
 import JSZip from "jszip";
-import { sendMail, isMailConfigured } from "@/lib/mail";
 import { reportAlreadySent, markReportSent } from "@/lib/invoicing/reportSent";
 import { markTaskComplete } from "@/lib/tracker/completionStore";
 import {
@@ -50,18 +49,14 @@ import {
   markPendingSent,
 } from "./pendingSendStore";
 import { getPendingGl } from "./pendingGlStore";
+import { deliverInvoicesToAvid, type AvidInvoicePdf } from "@/lib/invoicing/avidDelivery";
 
-// Invoices go to AP (Avid) for processing, cc the controller + Drew.
+// Invoices go to AP (Avid) for processing; the team summary ccs Drew.
 const AVID_TO = "kormancommercial@avidbill.com";
-const REPORT_CC_MARIE = "mjaster@kormancommercial.com";
 const REPORT_CC_DREW = "dwinig@kormancommercial.com";
-const REPORT_FROM = "dwinig@kormancommercial.com"; // verified sender
 
 function round2(n: number): number {
   return Math.round((n + Number.EPSILON) * 100) / 100;
-}
-function money(n: number): string {
-  return "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 function propName(id: string): string {
   return PROPERTY_DEFS.find((p) => p.id === id)?.name ?? id;
@@ -252,12 +247,13 @@ export function computeMonths(gl: GLParseResult, ledger: CarryoverLedger): Month
   return { months, skipped, byProperty, total, invoiceCount };
 }
 
-// Add one month's per-property invoice PDFs to a zip (optionally under a
-// per-month folder for a range batch). Returns how many PDFs were added.
-async function addMonthInvoices(zip: JSZip, c: ComputedAllocation, prefix: string): Promise<number> {
+// Build one month's per-property invoice PDFs as individual buffers (one per
+// billing property). `prefix` names a per-month folder for a range batch (used
+// only for the team's zip archive; each PDF is sent to Avid on its own email).
+async function buildMonthInvoices(c: ComputedAllocation, prefix: string): Promise<(AvidInvoicePdf & { zipPath: string })[]> {
   const { gl, statementMonth, decByProp } = c;
   const invDate = gl.periodEndDate || new Date().toISOString().slice(0, 10);
-  let count = 0;
+  const out: (AvidInvoicePdf & { zipPath: string })[] = [];
   for (const [id, decs] of decByProp) {
     const billed = decs.filter((a) => a.billed);
     const grandTotal = round2(billed.reduce((s, a) => s + a.accrued, 0));
@@ -277,11 +273,11 @@ async function addMonthInvoices(zip: JSZip, c: ComputedAllocation, prefix: strin
         invoiceDate: invDate, invoiceId: makeAllocInvoiceId(id),
         lineItems, carriedForward, grandTotal,
       });
-      zip.file(`${prefix}${statementMonth} - ${id} - ${propName(id)}.pdf`, Buffer.from(await pdf.arrayBuffer()));
-      count++;
+      const fileName = `${statementMonth} - ${id} - ${propName(id)}.pdf`;
+      out.push({ propertyLabel: `${id} — ${propName(id)}`, fileName, pdf: Buffer.from(await pdf.arrayBuffer()), zipPath: `${prefix}${fileName}` });
     } catch { /* skip a bad PDF, keep the rest */ }
   }
-  return count;
+  return out;
 }
 
 export type PrepareResult = {
@@ -401,11 +397,10 @@ export async function sendAllocation(period: string, by?: string | null): Promis
     }
 
     const multi = res.months.length > 1;
-    const zip = new JSZip();
-    let pdfCount = 0;
     const nowISO = () => new Date().toISOString();
+    const invoices: (AvidInvoicePdf & { zipPath: string })[] = [];
     for (const m of res.months) {
-      pdfCount += await addMonthInvoices(zip, m, multi ? `${m.statementMonth}/` : "");
+      invoices.push(...await buildMonthInvoices(m, multi ? `${m.statementMonth}/` : ""));
       try {
         await recordAllocationRun({
           periodText: m.gl.periodText, periodEndDate: m.gl.periodEndDate, statementMonth: m.statementMonth,
@@ -419,15 +414,23 @@ export async function sendAllocation(period: string, by?: string | null): Promis
         ledger = next;
       } catch { /* best-effort */ }
     }
-    const invoicesZip = pdfCount > 0 ? await zip.generateAsync({ type: "nodebuffer" }) : null;
+    const pdfCount = invoices.length;
 
-    // Email the invoice PDFs to AP (Avid), cc the controller + Drew, with a
-    // combined per-building summary + TOTAL in the body. Deduped per period.
+    // Send each invoice PDF to Avid on its OWN email (no zip), and one summary to
+    // the team (cc Drew). Deduped per period.
     let emailed = false;
     try {
       const now = new Date();
       await markTaskComplete(now.getFullYear(), now.getMonth(), "m-alloc-exp", { at: now.toISOString(), source: "allocated" });
-      if (isMailConfigured() && !(await reportAlreadySent("allocated", period))) {
+      if (!(await reportAlreadySent("allocated", period))) {
+        // Zip of all invoice PDFs — for the team's records only (never to Avid).
+        let archiveZip: Buffer | null = null;
+        try {
+          const zip = new JSZip();
+          for (const inv of invoices) zip.file(inv.zipPath, inv.pdf);
+          archiveZip = pdfCount > 0 ? await zip.generateAsync({ type: "nodebuffer" }) : null;
+        } catch { /* archive is best-effort */ }
+        // Summary workbook reference for the team.
         const allRows = res.months.flatMap((m) => m.rows);
         const accountCodes = [...new Set(allRows.map((r) => r.accountCode))].sort();
         const summaryBlob = buildAllocExportXlsx({
@@ -436,30 +439,18 @@ export async function sendAllocation(period: string, by?: string | null): Promis
           accountCodes,
         });
         const summaryXlsx = Buffer.from(await summaryBlob.arrayBuffer());
-        const bp = res.byProperty;
-        const nameW = Math.max(0, ...bp.map((b) => `${b.code} — ${b.name}`.length));
-        const amtW = Math.max(...bp.map((b) => money(b.amount).length), money(res.total).length);
-        const rowLine = (label: string, amt: string) => `  ${label.padEnd(nameW)}   ${amt.padStart(amtW)}`;
-        const summaryBody = bp.map((b) => rowLine(`${b.code} — ${b.name}`, money(b.amount))).join("\n");
-        const monthsCovered = res.months.map((m) => m.statementMonth).join(", ");
-        const attachments: { name: string; content: Buffer; contentType: string }[] = [
-          { name: `${period} - Allocated Expenses.xlsx`, content: summaryXlsx, contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" },
-        ];
-        if (invoicesZip) attachments.unshift({ name: `${period} - Allocated Invoices.zip`, content: invoicesZip, contentType: "application/zip" });
-        const ok = await sendMail({
-          to: AVID_TO, cc: [REPORT_CC_MARIE, REPORT_CC_DREW].join(", "), from: REPORT_FROM,
-          subject: `Allocated Expenses — ${period}`,
-          textBody:
-            `Attached are the allocated-expense invoices (${pdfCount} invoice${pdfCount === 1 ? "" : "s"})` +
-            ` and the summary workbook, reviewed and released${by ? ` by ${by}` : ""} from the 2000 G&A GL.\n\n` +
-            (multi ? `Covers ${res.months.length} months: ${monthsCovered}.\n\n` : "") +
-            `Allocation by building${multi ? " (all months)" : ""}:\n${summaryBody}\n` +
-            `  ${"TOTAL".padEnd(nameW)}   ${money(res.total).padStart(amtW)}\n\n` +
-            `Carryover has been finalized for ${multi ? "these periods" : "this period"}.\n\n` +
-            `— KCP Portal`,
-          attachments,
+        const result = await deliverInvoicesToAvid({
+          label: "Allocated Expenses",
+          period,
+          invoices,
+          byProperty: res.byProperty,
+          total: res.total,
+          teamCc: [REPORT_CC_DREW],
+          references: [{ name: `${period} - Allocated Expenses.xlsx`, content: summaryXlsx, contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }],
+          archiveZip,
+          by,
         });
-        if (ok) { await markReportSent("allocated", period, AVID_TO); emailed = true; }
+        if (result.emailed) { await markReportSent("allocated", period, AVID_TO); emailed = true; }
       }
     } catch { /* best-effort */ }
 

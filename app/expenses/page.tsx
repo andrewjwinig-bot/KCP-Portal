@@ -464,7 +464,15 @@ export default function ExpensesPage() {
   // Review-before-send to AvidXchange. `ccReview` holds the built artifacts (zip
   // + TOP SHEET + GL journal) + per-building summary staged for the confirm
   // popup; `ccSent` drives the success confirmation.
-  const [ccReview, setCcReview] = useState<{ period: string; byProperty: AvidProperty[]; total: number; attachments: { name: string; blob: Blob; contentType: string }[] } | null>(null);
+  const [ccReview, setCcReview] = useState<{
+    period: string;
+    byProperty: AvidProperty[];
+    total: number;
+    invoices: { propertyLabel: string; fileName: string; blob: Blob }[];
+    references: { name: string; blob: Blob; contentType: string }[];
+    archiveZip: Blob | null;
+    attachmentNames: string[];
+  } | null>(null);
   const [ccBuilding, setCcBuilding] = useState(false);
   const [ccSending, setCcSending] = useState(false);
   const [ccSent, setCcSent] = useState<{ period: string; byProperty: AvidProperty[]; total: number; invoiceCount: number; sentAt: string; mailSent: boolean } | null>(null);
@@ -821,6 +829,7 @@ export default function ExpensesPage() {
   // gate so the two can never drift.
   async function buildCcArtifacts(): Promise<{
     zipBlob: Blob;
+    invoicePdfs: { propertyLabel: string; fileName: string; blob: Blob }[];
     summaryBlob: Blob | null;
     gl: { blob: Blob; filename: string } | null;
     byProperty: AvidProperty[];
@@ -829,6 +838,7 @@ export default function ExpensesPage() {
   } | null> {
     if (!billingGroups.length) return null;
     const zip = new JSZip();
+    const invoicePdfs: { propertyLabel: string; fileName: string; blob: Blob }[] = [];
     const filenameMonth = statementMonth || "Statement";
     const reimb = reimbursementForBatch();
     let summaryBlob: Blob | null = null;
@@ -886,7 +896,9 @@ export default function ExpensesPage() {
         }
       }
 
-      zip.file(`${filenameMonth} - ${g.propId}.pdf`, finalBlob);
+      const invFileName = `${filenameMonth} - ${g.propId}.pdf`;
+      zip.file(invFileName, finalBlob);
+      invoicePdfs.push({ propertyLabel: `${g.propId} — ${propName(g.propId)}`, fileName: invFileName, blob: finalBlob });
     }
 
     // Harry fronts the whole statement — cut one reimbursement invoice for the
@@ -903,7 +915,9 @@ export default function ExpensesPage() {
         lines: reimb.lines,
         total: reimb.total,
       });
-      zip.file(`${filenameMonth} - REIMBURSEMENT - Harry Feldman.pdf`, reimbBlob);
+      const reimbFileName = `${filenameMonth} - REIMBURSEMENT - Harry Feldman.pdf`;
+      zip.file(reimbFileName, reimbBlob);
+      invoicePdfs.push({ propertyLabel: "Harry Feldman — reimbursement", fileName: reimbFileName, blob: reimbBlob });
     }
 
     const zipBlob = await zip.generateAsync({ type: "blob" });
@@ -914,7 +928,7 @@ export default function ExpensesPage() {
       .map((g) => ({ code: g.propId, name: propName(g.propId), amount: Math.round(g.accrued * 100) / 100 }))
       .filter((b) => b.amount > 0);
     const total = Math.round(byProperty.reduce((s, b) => s + b.amount, 0) * 100) / 100;
-    return { zipBlob, summaryBlob, gl, byProperty, total, filenameMonth };
+    return { zipBlob, invoicePdfs, summaryBlob, gl, byProperty, total, filenameMonth };
   }
 
   async function generateAllPdfsZip() {
@@ -948,12 +962,11 @@ export default function ExpensesPage() {
     try {
       const a = await buildCcArtifacts();
       if (!a) return;
-      const attachments: { name: string; blob: Blob; contentType: string }[] = [
-        { name: `${a.filenameMonth} - Invoices.zip`, blob: a.zipBlob, contentType: "application/zip" },
-      ];
-      if (a.gl) attachments.push({ name: a.gl.filename, blob: a.gl.blob, contentType: XLSX_CONTENT_TYPE });
-      if (a.summaryBlob) attachments.push({ name: `${a.filenameMonth} - TOP SHEET.xlsx`, blob: a.summaryBlob, contentType: XLSX_CONTENT_TYPE });
-      setCcReview({ period: statementMonth, byProperty: a.byProperty, total: a.total, attachments });
+      const references: { name: string; blob: Blob; contentType: string }[] = [];
+      if (a.gl) references.push({ name: a.gl.filename, blob: a.gl.blob, contentType: XLSX_CONTENT_TYPE });
+      if (a.summaryBlob) references.push({ name: `${a.filenameMonth} - TOP SHEET.xlsx`, blob: a.summaryBlob, contentType: XLSX_CONTENT_TYPE });
+      const attachmentNames = [...a.invoicePdfs.map((i) => i.fileName), ...references.map((r) => r.name)];
+      setCcReview({ period: statementMonth, byProperty: a.byProperty, total: a.total, invoices: a.invoicePdfs, references, archiveZip: a.zipBlob, attachmentNames });
     } catch (e: any) {
       alert("Failed to prepare the invoices: " + (e?.message ?? String(e)));
     } finally {
@@ -970,8 +983,9 @@ export default function ExpensesPage() {
         period: ccReview.period,
         byProperty: ccReview.byProperty,
         total: ccReview.total,
-        invoiceCount: ccReview.byProperty.length,
-        attachments: ccReview.attachments,
+        invoices: ccReview.invoices,
+        references: ccReview.references,
+        archiveZip: ccReview.archiveZip,
       });
       setCcReview(null);
       setCcSent({ period: ccReview.period, byProperty: r.byProperty, total: r.total, invoiceCount: r.invoiceCount, sentAt: r.sentAt, mailSent: r.sent });
@@ -1876,7 +1890,7 @@ export default function ExpensesPage() {
         byProperty={ccReview?.byProperty ?? []}
         total={ccReview?.total ?? 0}
         invoiceCount={ccReview?.byProperty.length}
-        attachments={ccReview?.attachments.map((a) => a.name) ?? []}
+        attachments={ccReview?.attachmentNames ?? []}
         sending={ccSending}
         onCancel={() => { if (!ccSending) setCcReview(null); }}
         onConfirm={confirmCcSend}
