@@ -67,8 +67,30 @@ export function AvidReviewModal(props: {
   const { open, title, period, byProperty, total, invoiceCount, attachments, note, sending, onCancel, onConfirm } = props;
   const count = invoiceCount ?? byProperty.length;
   if (!open) return null;
+  // While sending, take over the modal with an active "sending to Avid"
+  // animation so it's clear the invoices are actively going out.
+  if (sending) {
+    return (
+      <div style={overlay}>
+        <div className="card" style={{ maxWidth: 460, width: "100%", display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", padding: "34px 24px", gap: 4 }} onClick={(e) => e.stopPropagation()}>
+          <div style={{ position: "relative", width: 92, height: 92, marginBottom: 10, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div style={{ position: "absolute", inset: 0, borderRadius: "50%", border: "2px dashed rgba(22,163,74,0.45)", animation: "impHalo 9s linear infinite" }} />
+            <div style={{ position: "absolute", inset: 8, borderRadius: "50%", border: "3px solid rgba(22,163,74,0.15)", borderTopColor: "#16a34a", animation: "spin .9s linear infinite" }} />
+            <span style={{ fontSize: 34, animation: "impFloat 3.2s ease-in-out infinite" }}>📤</span>
+          </div>
+          <b style={{ fontSize: 17 }}>Sending to AvidXchange…</b>
+          <div className="small muted" style={{ maxWidth: 320 }}>
+            {count ? <>{count} invoice{count === 1 ? "" : "s"} — one email each — plus the team summary.</> : "Delivering the invoices."} This can take a moment; please keep this open.
+          </div>
+          <div style={{ marginTop: 16, width: "80%", height: 6, borderRadius: 999, background: "rgba(22,163,74,0.12)", overflow: "hidden", position: "relative" }}>
+            <div className="imp-anim" style={{ position: "absolute", top: 0, bottom: 0, width: "35%", borderRadius: 999, background: "#16a34a", animation: "impBar 1.3s ease-in-out infinite" }} />
+          </div>
+        </div>
+      </div>
+    );
+  }
   return (
-    <div style={overlay} onClick={sending ? undefined : onCancel}>
+    <div style={overlay} onClick={onCancel}>
       <div className="card" style={{ maxWidth: 560, width: "100%", maxHeight: "88vh", display: "flex", flexDirection: "column" }} onClick={(e) => e.stopPropagation()}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 4 }}>
           <div>
