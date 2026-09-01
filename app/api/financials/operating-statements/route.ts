@@ -14,6 +14,7 @@ import { lineMonthly } from "@/lib/financials/operating-statements/lineSeries";
 import { trendFlags } from "@/lib/financials/operating-statements/trends";
 import { seasonalTrendFlags } from "@/lib/financials/operating-statements/flagRules";
 import { markPaidMonths } from "@/lib/financials/operating-statements/paidMonth";
+import { collectNotPosted } from "@/lib/financials/operating-statements/notPosted";
 import { markMissingDebt } from "@/lib/financials/operating-statements/debtFlag";
 import { PROPERTY_DEFS, ALLOC_PCT } from "@/lib/properties/data";
 import { FUND_BUILDINGS } from "@/lib/financials/cash-analysis/funds";
@@ -457,6 +458,15 @@ export async function POST(req: Request) {
       } catch { /* best-effort — the statement upload still succeeds */ }
     }
 
+    // On-import "things to check": scan THIS property's just-imported latest
+    // month for budgeted/scheduled lines still reading $0, so the importer sees
+    // right away whether the statement is complete. Best-effort.
+    let notPosted: { count: number; items: { line: string; section: string; type: string; expected: number }[] } | null = null;
+    try {
+      const np = await collectNotPosted(primary.year, key);
+      notPosted = { count: np.items.length, items: np.items.slice(0, 8).map((i) => ({ line: i.line, section: i.section, type: i.type, expected: i.expected })) };
+    } catch { /* best-effort — the import still succeeds */ }
+
     return NextResponse.json({
       ok: true,
       key,
@@ -467,6 +477,8 @@ export async function POST(req: Request) {
       tasksCompleted,
       // Import health: aggregate tie-out across every year stored.
       reconciliation: recon,
+      // What still isn't posted on this property's latest statement.
+      notPosted,
       // Every calendar year imported from this file (a Multi-Year GL yields
       // several); single-year files return one.
       years: savedYears.map((s) => s.year).sort((a, b) => a - b),

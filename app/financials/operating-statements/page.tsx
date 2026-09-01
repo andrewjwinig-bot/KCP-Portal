@@ -440,12 +440,17 @@ export default function OperatingStatementsPage() {
         const rec = j.reconciliation;
         const yrs: number[] = Array.isArray(j.years) ? j.years : (j.year ? [j.year] : []);
         const multi = yrs.length > 1;
-        const warn = !!(rec && rec.mismatchCount > 0);
-        const note = multi
+        const npCount = j.notPosted?.count ?? 0;
+        const warn = !!(rec && rec.mismatchCount > 0) || npCount > 0;
+        const baseNote = multi
           ? `imported ${yrs.length} years · ${yrs[0]}–${yrs[yrs.length - 1]}${rec && rec.checked > 0 && rec.mismatchCount === 0 ? " · ties out" : ""}`
           : rec && rec.checked > 0
             ? (rec.mismatchCount === 0 ? `ties out · ${rec.reconciled}/${rec.checked}` : `${rec.mismatchCount} of ${rec.checked} don't reconcile`)
             : undefined;
+        // Fold the on-import "things to check" into the note.
+        const note = npCount > 0
+          ? `${baseNote ? baseNote + " · " : ""}⚠ ${npCount} line${npCount === 1 ? "" : "s"} not posted`
+          : baseNote;
         return {
           status: "done" as const,
           entity: a ? `${a.propertyCode} — ${a.name}` : String(j.key),
@@ -459,7 +464,8 @@ export default function OperatingStatementsPage() {
       },
       report: (rows) => {
         const ok = rows.filter((r) => r.status === "done");
-        const raws = ok.map((r) => r.raw as { key: string; year: number; maxPeriodInFile: number; allocatedGlReady?: boolean; years?: number[]; perYear?: { year: number; maxPeriodInFile: number }[] });
+        const raws = ok.map((r) => r.raw as { key: string; year: number; maxPeriodInFile: number; allocatedGlReady?: boolean; years?: number[]; perYear?: { year: number; maxPeriodInFile: number }[]; notPosted?: { count: number } | null });
+        const notPostedTotal = raws.reduce((a, r) => a + (r.notPosted?.count ?? 0), 0);
         const entities = new Set(ok.map((r) => r.entity)).size;
         const accounts = ok.reduce((a, r) => a + (r.count ?? 0), 0);
         const years = [...new Set(raws.flatMap((r) => r.years ?? [r.year]).filter(Boolean))].sort((a, b) => a - b);
@@ -471,9 +477,14 @@ export default function OperatingStatementsPage() {
             { value: accounts.toLocaleString("en-US"), label: "accounts" },
             { value: years.length ? (years.length === 1 ? String(years[0]) : `${years[0]}–${years[years.length - 1]}`) : "—", label: years.length > 1 ? "years" : "year" },
           ],
-          unlocks: raws.some((r) => r.allocatedGlReady)
-            ? [{ id: "alloc", title: "Allocated Invoicer", subtitle: "Ready to bill properties for this period.", href: "/allocated-invoicer", cta: "Go to Invoicer →" }]
-            : [],
+          unlocks: [
+            ...(notPostedTotal > 0
+              ? [{ id: "notposted", title: `${notPostedTotal} line${notPostedTotal === 1 ? "" : "s"} not posted`, subtitle: "A budgeted or scheduled figure still reads $0 — post it or confirm it doesn't apply.", href: "/financials/operating-statements/review", cta: "Review →" }]
+              : []),
+            ...(raws.some((r) => r.allocatedGlReady)
+              ? [{ id: "alloc", title: "Allocated Invoicer", subtitle: "Ready to bill properties for this period.", href: "/allocated-invoicer", cta: "Go to Invoicer →" }]
+              : []),
+          ],
           autoExplain: targets.length
             ? { run: async () => { for (const t of targets) { try { await fetch("/api/financials/operating-statements/analyze", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(t) }); } catch { /* skip */ } } setReloadNonce((n) => n + 1); } }
             : null,

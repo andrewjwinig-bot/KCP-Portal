@@ -15,6 +15,7 @@ import { fireNotification } from "../../lib/notifications";
 import ExpirationChart from "./ExpirationChart";
 import DrewSavedStatus from "./DrewSavedStatus";
 import ImportsToDoCard from "./ImportsToDoCard";
+import NotPostedCard from "./NotPostedCard";
 import DrewTasksThisWeek from "./DrewTasksThisWeek";
 import CommissionsReminder from "./CommissionsReminder";
 import AnnualStatementReminder from "./AnnualStatementReminder";
@@ -1071,6 +1072,7 @@ function DashboardInner() {
         {(user.id === "drew" || user.id === "harry") && <DailyDigestModal userId={user.id} />}
         {user.id === "drew" && <DrewSavedStatus />}
         {(user.id === "drew" || user.id === "harry" || isAdmin) && <ImportsToDoCard />}
+        {(user.id === "drew" || user.id === "harry" || isAdmin) && <NotPostedCard order={-1} />}
 
         {/* ── New Bank Transfers — surface recent transfers for admin /
              drew / harry / marie. Each card is dismissible. ── */}
