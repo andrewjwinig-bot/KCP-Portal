@@ -15,8 +15,10 @@ import { computeStatement } from "./compute";
 import { resolvePropertyBudget, makeBudgetLookup } from "./budgetCrosswalk";
 import { lineMonthly } from "./lineSeries";
 import { trendFlags } from "./trends";
+import { reconcileGl } from "./glParser";
 import { seasonalTrendFlags } from "./flagRules";
 import { markMissingDebt } from "./debtFlag";
+import { expectedPostedThrough } from "./outstanding";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -70,6 +72,12 @@ export type ReviewProperty = {
   flaggedMonthCount: number;
   /** Latest-month not-posted / missing-debt issues (data completeness). */
   issues: ReviewIssue[];
+  /** GL self-reconciliation: does the file's own reported ending balances tie to
+   *  its transactions? `mismatches > 0` means the import may be corrupt/partial. */
+  tieOut: { checked: number; mismatches: number } | null;
+  /** Coverage vs the expected posted-through month (current year only). Behind
+   *  = the statement is stale (imported through an earlier month than expected). */
+  coverage: { through: number; expected: number; behind: boolean } | null;
 };
 
 export type ReviewResult = {
@@ -77,7 +85,7 @@ export type ReviewResult = {
   generatedAt: string;
   properties: ReviewProperty[];
   /** Portfolio rollups for the header / dashboard badge. */
-  totals: { flaggedMonthCount: number; issueCount: number; propertiesWithIssues: number };
+  totals: { flaggedMonthCount: number; issueCount: number; propertiesWithIssues: number; tieOutIssues: number; coverageGaps: number };
 };
 
 function propertyName(key: string, fallback: string): string {
@@ -93,7 +101,7 @@ export async function reviewFlaggedLines(year: number): Promise<ReviewResult> {
     const name = propertyName(m.key, m.entityName);
     const stored = assembleGls(fulls.filter((g) => g.key === m.key && g.year === year));
     if (!stored) {
-      properties.push({ key: m.key, propertyCode: m.propertyCode, propertyName: name, hasData: false, latestPeriod: 0, latestMonthLabel: "—", monthsCovered: 0, lines: [], flaggedMonthCount: 0, issues: [] });
+      properties.push({ key: m.key, propertyCode: m.propertyCode, propertyName: name, hasData: false, latestPeriod: 0, latestMonthLabel: "—", monthsCovered: 0, lines: [], flaggedMonthCount: 0, issues: [], tieOut: null, coverage: null });
       continue;
     }
     const storedPY = assembleGls(fulls.filter((g) => g.key === m.key && g.year === year - 1));
@@ -127,6 +135,15 @@ export async function reviewFlaggedLines(year: number): Promise<ReviewResult> {
       }
     }
     issues.sort((a, b) => b.expected - a.expected);
+
+    // GL tie-out: does the file reconcile with itself? (recomputed from the
+    // stored monthly nets vs the reported ending balances).
+    const recon = reconcileGl(stored);
+    const tieOut = recon.checked > 0 ? { checked: recon.checked, mismatches: recon.mismatches.length } : null;
+    // Coverage vs expected posted-through — only meaningful for the current year.
+    const exp = expectedPostedThrough();
+    const through = stored.coverageEnd ?? max;
+    const coverage = year === exp.year ? { through, expected: exp.period, behind: through < exp.period } : null;
 
     // Pass 1 (in-memory): which (line, month) trip a flag. The monthly series is
     // computed once per line; a flag at month M evaluates the series 1..M.
@@ -206,7 +223,7 @@ export async function reviewFlaggedLines(year: number): Promise<ReviewResult> {
     properties.push({
       key: m.key, propertyCode: m.propertyCode, propertyName: name, hasData: true,
       latestPeriod: max, latestMonthLabel: MONTHS[max - 1], monthsCovered: max,
-      lines, flaggedMonthCount, issues,
+      lines, flaggedMonthCount, issues, tieOut, coverage,
     });
   }
 
@@ -214,6 +231,8 @@ export async function reviewFlaggedLines(year: number): Promise<ReviewResult> {
     flaggedMonthCount: properties.reduce((s, p) => s + p.flaggedMonthCount, 0),
     issueCount: properties.reduce((s, p) => s + p.issues.length, 0),
     propertiesWithIssues: properties.filter((p) => p.issues.length > 0).length,
+    tieOutIssues: properties.filter((p) => (p.tieOut?.mismatches ?? 0) > 0).length,
+    coverageGaps: properties.filter((p) => p.coverage?.behind).length,
   };
   return { year, generatedAt: new Date().toISOString(), properties, totals };
 }
