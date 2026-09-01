@@ -445,10 +445,11 @@ export default function AllocatedInvoicerPage() {
   // matches what's on screen — never a separately-staged snapshot that can drift.
   const liveReview = useMemo<LiveReview | null>(() => {
     if (!glResult || !statementMonth || alreadyFinalized) return null;
+    // Keep ALLOC_PROPERTIES order so the review modal lines up 1:1 with the
+    // Allocation Preview table (which iterates the same list).
     const byProperty = ALLOC_PROPERTIES
       .map((p) => ({ code: p.id, name: p.name, amount: billingTotals.get(p.id) ?? 0 }))
-      .filter((x) => x.amount > 0)
-      .sort((a, b) => b.amount - a.amount);
+      .filter((x) => x.amount > 0);
     if (!byProperty.length) return null;
     const total = roundCents(byProperty.reduce((s, x) => s + x.amount, 0));
     return { period: statementMonth, label: glResult.periodText || statementMonth, byProperty, total, invoiceCount: byProperty.length };
