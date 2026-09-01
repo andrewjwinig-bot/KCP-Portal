@@ -41,8 +41,9 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
     const period = String(body?.period ?? "").trim();
-    if (!/^\d{4}-\d{2}$/.test(period)) {
-      return NextResponse.json({ error: "A valid period (YYYY-MM) is required." }, { status: 400 });
+    // A single month "YYYY-MM" or a range "YYYY-MM_to_YYYY-MM".
+    if (!/^\d{4}-\d{2}(_to_\d{4}-\d{2})?$/.test(period)) {
+      return NextResponse.json({ error: "A valid period (YYYY-MM, or a YYYY-MM_to_YYYY-MM range) is required." }, { status: 400 });
     }
     const by = await currentUserLabel();
     const result = await sendAllocation(period, by ?? null);

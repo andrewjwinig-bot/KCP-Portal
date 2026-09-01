@@ -11,7 +11,7 @@ import {
   type RequestPriority,
   type RequestStatus,
 } from "@/lib/maintenance/requests";
-import { STAFF, staffName, type StaffId } from "@/lib/maintenance/staff";
+import { STAFF, staffName, isStaffId, type StaffId } from "@/lib/maintenance/staff";
 import { summarize } from "@/lib/maintenance/summarize";
 import { useUser } from "@/app/components/UserProvider";
 import { blobSrc } from "@/lib/blobProxy";
@@ -1468,7 +1468,11 @@ function EmailTenantComposer({
   onUpdated: (r: MaintenanceRequest) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [author, setAuthor] = useState<StaffId>(defaultAuthor);
+  const { user } = useUser();
+  // The sender is always the logged-in user — Charles emails as Charles, Jay as
+  // Jay, Greg as Greg. No dropdown (nobody sends on someone else's behalf). For
+  // a non-service account viewing this, fall back to the request's default.
+  const author: StaffId = isStaffId(user.id) ? (user.id as StaffId) : defaultAuthor;
   const [error, setError] = useState<string | null>(null);
 
   // Reasonable default body so Greg/Jay/Charles only need to type the update.
@@ -1562,9 +1566,7 @@ function EmailTenantComposer({
         <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
           From
         </span>
-        <select value={author} onChange={(e) => setAuthor(e.target.value as StaffId)} style={{ ...selectStyle, width: "auto", minWidth: 120 }}>
-          {STAFF.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-        </select>
+        <span style={{ fontSize: 14, fontWeight: 700 }}>{staffName(author)}</span>
       </div>
       <input
         type="text"
