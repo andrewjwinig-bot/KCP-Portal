@@ -31,12 +31,23 @@ export async function POST(req: Request) {
     if (!periodText && !statementMonth) {
       return NextResponse.json({ error: "periodText or statementMonth required" }, { status: 400 });
     }
+    const byProperty = Array.isArray(body?.byProperty)
+      ? body.byProperty
+          .map((r: { code?: unknown; name?: unknown; amount?: unknown }) => ({
+            code: String(r?.code ?? ""), name: String(r?.name ?? ""), amount: Number(r?.amount) || 0,
+          }))
+          .filter((r: { code: string; amount: number }) => r.code && r.amount > 0)
+      : undefined;
+    const total = typeof body?.total === "number" ? body.total
+      : byProperty?.reduce((s: number, r: { amount: number }) => s + r.amount, 0);
     const runs = await recordAllocationRun({
       periodText,
       periodEndDate,
       statementMonth,
       ranAt: new Date().toISOString(),
       ranBy: await currentUserLabel(),
+      byProperty,
+      total,
     });
     return NextResponse.json({ ok: true, runs });
   } catch (e) {
