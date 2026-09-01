@@ -95,6 +95,34 @@ export type StatementLine = {
   /** "Looks off this month" reasons (month-over-month / YoY trend signals).
    *  Drives a "?" investigate marker on the line. */
   flags?: string[];
+  /** Set when a line we have positive evidence SHOULD carry a figure reads ~$0
+   *  — i.e. it looks like nothing has been posted to the GL yet (a same-year
+   *  budget expects it but nothing is posted YTD, or the Debt Tracker schedules
+   *  debt this month but none posted). Highlights the actual cell(s) so an
+   *  unposted line isn't mistaken for a complete $0. Not a trend "?" flag. */
+  expectedMissing?: ExpectedMissing | null;
+  /** The reassurance counterpart: this month reads ~$0 (so it looks short vs an
+   *  evenly-spread monthly budget), but the FULL-YEAR budget is already booked
+   *  year-to-date — e.g. real-estate taxes or insurance paid up front. Marks the
+   *  month green ("already paid") so the budget shortfall reads as expected, not
+   *  an error. */
+  fullyFundedYtd?: FullyFundedYtd | null;
+};
+
+/** Evidence that a $0 month is a prepaid/front-loaded line, not a shortfall. */
+export type FullyFundedYtd = {
+  ytdActual: number;
+  annualBudget: number;
+};
+
+/** Evidence that a $0 line is unposted rather than genuinely zero. */
+export type ExpectedMissing = {
+  /** Roughly how much is expected (budgeted YTD, or scheduled debt). */
+  expected: number;
+  /** Where the expectation comes from. */
+  basis: "budget" | "debt";
+  /** Which column(s) the zero appears in / should be highlighted. */
+  scope: "ytd" | "period";
 };
 
 /** A section with its lines + a subtotal row (e.g. "Total Reimbursements"). */
