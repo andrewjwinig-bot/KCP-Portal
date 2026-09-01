@@ -516,10 +516,16 @@ export default function AllocatedInvoicerPage() {
 
   const chartDataByAccount = useMemo((): PieSlice[] => {
     if (!glResult) return [];
-    return [...glResult.accountTotals.values()]
-      .filter((a) => a.netTotal > 0)
-      .sort((a, b) => b.netTotal - a.netTotal)
-      .map((a, i) => ({ label: `${a.accountCode} — ${a.accountName}`, value: a.netTotal, color: PIE_COLORS[i % PIE_COLORS.length] }));
+    // Group by account NAME, combining the 9301/9302/9303 suffixes (e.g. all
+    // "Telephone" into one slice) — the suffix split is noise at this level.
+    const byName = new Map<string, number>();
+    for (const a of glResult.accountTotals.values()) {
+      if (a.netTotal <= 0) continue;
+      byName.set(a.accountName, (byName.get(a.accountName) ?? 0) + a.netTotal);
+    }
+    return [...byName.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([name, value], i) => ({ label: name, value, color: PIE_COLORS[i % PIE_COLORS.length] }));
   }, [glResult]);
 
   // ── Totals for TX table footer ─────────────────────────────────────────────
@@ -529,6 +535,9 @@ export default function AllocatedInvoicerPage() {
     credit: filteredTx.reduce((a, t) => a + t.credit, 0),
     net:    filteredTx.reduce((a, t) => a + t.net,    0),
   }), [filteredTx]);
+  // G&A allocation accounts are debit-only in practice — only show the Credit
+  // column if the imported GL actually has a credit somewhere (a reversal/refund).
+  const anyCredit = useMemo(() => (glResult?.transactions ?? []).some((t) => Math.abs(t.credit) > 0.005), [glResult]);
 
   // ── Actions ────────────────────────────────────────────────────────────────
 
@@ -935,7 +944,7 @@ export default function AllocatedInvoicerPage() {
               </div>
               <div style={{ width: 1, background: "var(--border)", flexShrink: 0, alignSelf: "stretch" }} />
               <div style={{ flex: 1, minWidth: 340 }}>
-                <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 14, color: "var(--muted)", letterSpacing: "0.04em", textTransform: "uppercase" }}>By Account Code</div>
+                <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 14, color: "var(--muted)", letterSpacing: "0.04em", textTransform: "uppercase" }}>By Account</div>
                 <DonutChart data={chartDataByAccount} />
               </div>
             </div>
@@ -983,13 +992,13 @@ export default function AllocatedInvoicerPage() {
                   <th>Account Code</th>
                   <th>Account Name</th>
                   <th style={{ textAlign: "right" }}>Debit</th>
-                  <th style={{ textAlign: "right" }}>Credit</th>
+                  {anyCredit && <th style={{ textAlign: "right" }}>Credit</th>}
                   <th style={{ textAlign: "right" }}>Net</th>
                 </tr>
               </thead>
               <tbody>
                 {groupedTx.length === 0 && (
-                  <tr><td colSpan={5} className="muted">No transactions found.</td></tr>
+                  <tr><td colSpan={anyCredit ? 5 : 4} className="muted">No transactions found.</td></tr>
                 )}
                 {groupedTx.map((group) => (
                   <tr key={group.accountCode}>
@@ -1005,7 +1014,7 @@ export default function AllocatedInvoicerPage() {
                       </span>
                     </td>
                     <td style={{ textAlign: "right" }}>{group.totalDebit ? toMoney(group.totalDebit) : "—"}</td>
-                    <td style={{ textAlign: "right" }}>{group.totalCredit ? toMoney(group.totalCredit) : "—"}</td>
+                    {anyCredit && <td style={{ textAlign: "right" }}>{group.totalCredit ? toMoney(group.totalCredit) : "—"}</td>}
                     <td style={{ textAlign: "right" }}><b>{toMoney(group.totalNet)}</b></td>
                   </tr>
                 ))}
@@ -1014,7 +1023,7 @@ export default function AllocatedInvoicerPage() {
                 <tr>
                   <td colSpan={2} className="muted" style={{ fontWeight: 400, fontSize: 12 }}>{groupedTx.length} accounts · {filteredTx.length} transactions</td>
                   <td style={{ textAlign: "right" }}>{toMoney(txTotals.debit)}</td>
-                  <td style={{ textAlign: "right" }}>{toMoney(txTotals.credit)}</td>
+                  {anyCredit && <td style={{ textAlign: "right" }}>{toMoney(txTotals.credit)}</td>}
                   <td style={{ textAlign: "right" }}>{toMoney(txTotals.net)}</td>
                 </tr>
               </tfoot>
@@ -1033,7 +1042,11 @@ export default function AllocatedInvoicerPage() {
               </button>
               <div>
                 <b>Allocation Preview</b>
-                <div className="small muted" style={{ marginTop: 4 }}>One invoice per billing property. Click <b>Billed</b> for its account breakdown or <b>Accrued</b> for the held detail; <b>⭳</b> downloads the invoice. Amounts under ${CARRYOVER_THRESHOLD} per account hold and carry forward until they cross it{yearEnd ? " — December posts everything" : ""}.</div>
+                <div className="small muted" style={{ marginTop: 4 }}>
+                  One invoice per billing property. Click <b>Billed</b> for its account breakdown or <b>Accrued</b> for the held detail; <b>⭳</b> downloads the invoice. Accounts:{" "}
+                  <span style={{ color: "#15803d", fontWeight: 700 }}>green = billing this period</span>,{" "}
+                  <span style={{ color: "#b91c1c", fontWeight: 700 }}>red = held under ${CARRYOVER_THRESHOLD} (accrued, carried forward{yearEnd ? " — December posts everything" : ""})</span>.
+                </div>
               </div>
             </div>
           </div>
@@ -1059,7 +1072,8 @@ export default function AllocatedInvoicerPage() {
                   if (propTotal === 0 && accrued === 0) return null;
                   const billed = decoratedAccounts.filter((a) => a.propertyId === prop.id && a.billed);
                   const propRows = billed.flatMap((a) => a.rows);
-                  const accountNames = [...new Set([...billed.map((a) => a.accountName), ...(heldRow?.accounts.map((a) => a.accountName) ?? [])])];
+                  const billedNames = [...new Set(billed.map((a) => a.accountName))];
+                  const heldNames = [...new Set((heldRow?.accounts.map((a) => a.accountName) ?? []).filter((n) => !billedNames.includes(n)))];
                   const hasCarry = billed.some((a) => a.prior > 0);
                   return (
                     <tr key={prop.id}>
@@ -1069,8 +1083,13 @@ export default function AllocatedInvoicerPage() {
                       </td>
                       <td>
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                          {accountNames.map((name) => (
-                            <span key={name} style={{ fontSize: 11, background: "#e8f0fe", color: "#1e4976", borderRadius: 999, padding: "2px 8px", fontWeight: 500, whiteSpace: "nowrap" }}>
+                          {billedNames.map((name) => (
+                            <span key={`b-${name}`} title="Billing this period" style={{ fontSize: 11, background: "rgba(22,163,74,0.12)", color: "#15803d", borderRadius: 999, padding: "2px 8px", fontWeight: 600, whiteSpace: "nowrap" }}>
+                              {name}
+                            </span>
+                          ))}
+                          {heldNames.map((name) => (
+                            <span key={`h-${name}`} title="Held under $100 — carried forward" style={{ fontSize: 11, background: "rgba(220,38,38,0.10)", color: "#b91c1c", borderRadius: 999, padding: "2px 8px", fontWeight: 600, whiteSpace: "nowrap" }}>
                               {name}
                             </span>
                           ))}
