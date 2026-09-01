@@ -156,16 +156,21 @@ export function AvidSuccessModal(props: {
 }
 
 // Client helper: release a CC/payroll run to AvidXchange (POST /api/avid-send).
-// Attachments are already-built, property-level Blobs. Returns the send result
-// for the success modal. Throws on a hard failure so the caller can surface it.
+// Each invoice PDF is sent to Avid as its OWN email (no zip); the xlsx
+// `references` + optional `archiveZip` go only to the cc'd team's summary email.
+// Returns the send result for the success modal. Throws on a hard failure.
 export async function sendToAvid(args: {
   source: "credit-card" | "payroll";
   period: string;
   label?: string;
   byProperty: AvidProperty[];
   total: number;
-  invoiceCount?: number;
-  attachments: { name: string; blob: Blob; contentType: string }[];
+  /** One PDF per invoice — each becomes its own email to Avid. */
+  invoices: { propertyLabel: string; fileName: string; blob: Blob }[];
+  /** Internal xlsx references for the team summary (GL journal, TOP SHEET). */
+  references?: { name: string; blob: Blob; contentType: string }[];
+  /** Zip of all PDFs for the team's records only (never sent to Avid). */
+  archiveZip?: Blob | null;
 }): Promise<{ sent: boolean; reason?: string; byProperty: AvidProperty[]; total: number; invoiceCount: number; sentAt: string }> {
   const chunk = 0x8000;
   const toB64 = async (blob: Blob) => {
@@ -174,16 +179,20 @@ export async function sendToAvid(args: {
     for (let i = 0; i < bytes.length; i += chunk) bin += String.fromCharCode(...bytes.subarray(i, i + chunk));
     return btoa(bin);
   };
-  const attachments = await Promise.all(
-    args.attachments.map(async (a) => ({ name: a.name, contentType: a.contentType, contentBase64: await toB64(a.blob) })),
+  const invoices = await Promise.all(
+    args.invoices.map(async (inv) => ({ propertyLabel: inv.propertyLabel, fileName: inv.fileName, contentBase64: await toB64(inv.blob) })),
   );
+  const references = await Promise.all(
+    (args.references ?? []).map(async (a) => ({ name: a.name, contentType: a.contentType, contentBase64: await toB64(a.blob) })),
+  );
+  const archiveZipBase64 = args.archiveZip ? await toB64(args.archiveZip) : undefined;
   const res = await fetch("/api/avid-send", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       source: args.source, period: args.period, label: args.label,
-      byProperty: args.byProperty, total: args.total, invoiceCount: args.invoiceCount,
-      attachments,
+      byProperty: args.byProperty, total: args.total,
+      invoices, references, archiveZipBase64,
     }),
   });
   const j = await res.json();

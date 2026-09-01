@@ -7,8 +7,9 @@ import { renderInvoicePdf } from "../../../../lib/pdf/renderInvoicePdf";
 import { payrollInvoiceNumber } from "../../../../lib/payroll/invoiceNumber";
 import { parseAllocationWorkbook } from "../../../../lib/allocation/parseAllocationWorkbook";
 import { buildPayrollExportXlsx, buildPayrollGLXlsx } from "../../../../lib/payroll/export";
-import { sendMail, isMailConfigured } from "@/lib/mail";
+import { isMailConfigured } from "@/lib/mail";
 import { reportAlreadySent, markReportSent } from "@/lib/invoicing/reportSent";
+import { deliverInvoicesToAvid } from "@/lib/invoicing/avidDelivery";
 import { readFile } from "fs/promises";
 import path from "path";
 
@@ -23,8 +24,8 @@ import path from "path";
 // individual.
 
 const AVID_TO = "kormancommercial@avidbill.com";
-const CC_LIST = ["mjaster@kormancommercial.com", "dwinig@kormancommercial.com", "hfeldman@kormancommercial.com"].join(", ");
-const REPORT_FROM = "dwinig@kormancommercial.com"; // verified Postmark sender
+const CC_DREW = "dwinig@kormancommercial.com";
+const CC_HARRY = "hfeldman@kormancommercial.com";
 const XLSX_CT = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 // Distinct dedup namespace (shared with /api/avid-send's payroll key).
 const DEDUP = "payroll-avid";
@@ -38,9 +39,6 @@ const BodySchema = z.object({
   force: z.boolean().optional(),
 });
 
-function money(n: number): string {
-  return "$" + (n ?? 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
 function fnamePrefix(payDate: string): string {
   const mdy = payDate?.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
   if (mdy) { const [, m, d, y] = mdy; return `${m.padStart(2, "0")}-${d.padStart(2, "0")}-${y.slice(2)}`; }
@@ -76,54 +74,50 @@ export async function POST(req: Request) {
       return NextResponse.json({ sent: false, reason: "already-sent", byProperty, total, invoiceCount: invoices.length, sentAt });
     }
 
-    // Property-level invoice PDFs → zip.
+    // Property-level invoice PDFs — one per property (each becomes its own email
+    // to Avid) plus a zip archive for the team's records only.
     const archive = archiver("zip", { zlib: { level: 9 } });
     const stream = new PassThrough();
     archive.pipe(stream);
+    const invoicePdfs: { propertyLabel: string; fileName: string; pdf: Buffer }[] = [];
     for (const inv of invoices) {
       const pdfBytes = await renderInvoicePdf({
         invoice: inv, payroll: body.payroll,
         invoiceNumber: inv.invoiceNumber || payrollInvoiceNumber(inv, payDate),
       });
+      const pdf = Buffer.from(pdfBytes);
       const safeName = (inv.propertyLabel || inv.propertyKey || "invoice").replace(/[^a-z0-9\-_. ]/gi, "_");
-      archive.append(Buffer.from(pdfBytes), { name: `${safeName}.pdf` });
+      archive.append(pdf, { name: `${safeName}.pdf` });
+      const label = [inv.propertyCode || inv.propertyKey, inv.propertyLabel || inv.propertyKey].filter(Boolean).join(" — ");
+      invoicePdfs.push({ propertyLabel: label || "Payroll", fileName: `${datePrefix} ${safeName}.pdf`, pdf });
     }
     await archive.finalize();
     const chunks: Buffer[] = [];
     for await (const chunk of stream) chunks.push(Buffer.from(chunk));
     const zipBuf = Buffer.concat(chunks);
 
-    // Property allocation summary + GL Journal Entry (both property-level).
+    // Property allocation summary + GL Journal Entry (both property-level) — team
+    // references only.
     const summaryBuf = Buffer.from(await buildPayrollExportXlsx({ payDate, invoices }).arrayBuffer());
     const glBuf = Buffer.from(await buildPayrollGLXlsx({ payDate, invoices }).arrayBuffer());
 
-    // Per-building summary + TOTAL in the body.
-    const nameW = Math.max(0, ...byProperty.map((b: { code: string; name: string }) => `${b.code} — ${b.name}`.length));
-    const amtW = Math.max(money(total).length, ...byProperty.map((b: { amount: number }) => money(b.amount).length));
-    const rowLine = (l: string, a: string) => `  ${l.padEnd(nameW)}   ${a.padStart(amtW)}`;
-    const summaryBody = byProperty.map((b: { code: string; name: string; amount: number }) => rowLine(`${b.code} — ${b.name}`, money(b.amount))).join("\n") +
-      `\n  ${"TOTAL".padEnd(nameW)}   ${money(total).padStart(amtW)}`;
-
-    const ok = await sendMail({
-      to: AVID_TO,
-      cc: CC_LIST,
-      from: REPORT_FROM,
-      subject: `Payroll — ${payDate}`,
-      textBody:
-        `Attached are the ${payDate} payroll invoices (${invoices.length} propert${invoices.length === 1 ? "y" : "ies"}) for processing, ` +
-        `reviewed and released for AvidXchange.\n\n` +
-        `Allocation by building:\n${summaryBody}\n\n` +
-        `These figures are property-level only — no employee payroll detail is included.\n\n` +
-        `— KCP Portal`,
-      attachments: [
-        { name: `${datePrefix} Payroll Invoices.zip`, content: zipBuf, contentType: "application/zip" },
+    const result = await deliverInvoicesToAvid({
+      label: "Payroll",
+      period: payDate,
+      invoices: invoicePdfs,
+      byProperty,
+      total,
+      teamCc: [CC_DREW, CC_HARRY],
+      references: [
         { name: `${datePrefix} Payroll Property Allocation.xlsx`, content: summaryBuf, contentType: XLSX_CT },
         { name: `${datePrefix} GL Journal Entry.xlsx`, content: glBuf, contentType: XLSX_CT },
       ],
+      archiveZip: zipBuf,
+      privacyNote: true,
     });
-    if (ok) await markReportSent(DEDUP, payDate, AVID_TO);
+    if (result.emailed) await markReportSent(DEDUP, payDate, AVID_TO);
 
-    return NextResponse.json({ sent: ok, byProperty, total, invoiceCount: invoices.length, sentAt });
+    return NextResponse.json({ sent: result.emailed, byProperty, total, invoiceCount: result.avidSent || invoices.length, sentAt });
   } catch (e: any) {
     return NextResponse.json({ error: e?.message ?? "Failed to send payroll to AvidXchange" }, { status: 400 });
   }
