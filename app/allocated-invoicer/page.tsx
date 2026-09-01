@@ -9,6 +9,7 @@ import { emailInvoicerReport, XLSX_CONTENT_TYPE } from "../../lib/invoicing/send
 import { toMoney } from "../../lib/expenses/utils";
 import { ALLOC_PCT } from "../../lib/properties/data";
 import { DownloadMenu } from "@/app/components/DownloadMenu";
+import { AvidReviewModal, AvidSuccessModal } from "@/app/components/AvidSend";
 import { useFileDrop, byExt } from "@/app/components/useFileDrop";
 import {
   CARRYOVER_THRESHOLD,
@@ -207,6 +208,62 @@ export default function AllocatedInvoicerPage() {
   const [pendingGl, setPendingGl] = useState<PendingGl | null>(null);
   const [pendingDismissed, setPendingDismissed] = useState(false);
   const [loadingPending, setLoadingPending] = useState(false);
+
+  // ── Review-before-send gate ────────────────────────────────────────────────
+  // When the 2000 G&A GL imports, the allocation is PREPARED (computed + staged)
+  // but not sent. The reviewer sees the per-building summary here and clicks
+  // "Send to AvidXchange" to release the invoices. Nothing goes out on its own.
+  type PendingSummary = { byProperty: { code: string; name: string; amount: number }[]; total: number; invoiceCount: number };
+  type PendingSend = { source: string; period: string; label: string; summary: PendingSummary; preparedAt: string; preparedBy?: string | null; sentAt?: string | null; sentBy?: string | null };
+  const [pendingSends, setPendingSends] = useState<PendingSend[] | null>(null);
+  const [reviewSend, setReviewSend] = useState<PendingSend | null>(null);
+  const [sending, setSending] = useState(false);
+  const [sentResult, setSentResult] = useState<{ period: string; total: number; invoiceCount: number; byProperty: { code: string; name: string; amount: number }[]; sentAt: string; mailSent: boolean } | null>(null);
+  async function refreshPendingSends() {
+    try {
+      const j = await fetch("/api/allocation/pending-send").then((r) => r.json());
+      setPendingSends((j.pending ?? []).filter((p: PendingSend | null): p is PendingSend => !!p));
+    } catch { setPendingSends([]); }
+  }
+  useEffect(() => { refreshPendingSends(); }, []);
+  // The one prepared-but-unsent allocation awaiting review (most recent period).
+  const awaitingReview = useMemo(
+    () => (pendingSends ?? []).filter((p) => !p.sentAt).sort((a, b) => (a.period < b.period ? 1 : -1))[0] ?? null,
+    [pendingSends],
+  );
+
+  async function confirmSend(period: string) {
+    setSending(true);
+    try {
+      const res = await fetch("/api/allocation/pending-send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ period }),
+      });
+      const j = await res.json();
+      if (!res.ok) { alert(j?.error ?? "Failed to send to AvidXchange."); return; }
+      setReviewSend(null);
+      setSentResult({
+        period,
+        total: j.total ?? 0,
+        invoiceCount: j.invoiceCount ?? 0,
+        byProperty: j.byProperty ?? [],
+        sentAt: j.sentAt ?? new Date().toISOString(),
+        mailSent: j.emailed !== false,
+      });
+      await refreshPendingSends();
+      // Reflect the newly-finalized carryover / run log on the page.
+      fetch("/api/allocation/carryover").then((r) => r.json()).then((c) => {
+        setCarryover(c.ledger?.balances ?? {});
+        setCommittedPeriods(c.ledger?.committedPeriods ?? []);
+      }).catch(() => {});
+      fetch("/api/allocation/last-run").then((r) => r.json()).then((c) => setRuns(c.runs ?? [])).catch(() => {});
+    } catch (e: any) {
+      alert("Failed to send to AvidXchange: " + (e?.message ?? String(e)));
+    } finally {
+      setSending(false);
+    }
+  }
   useEffect(() => {
     fetch("/api/allocation/pending-gl").then((r) => r.json()).then((j) => {
       const p = j.pending ?? null;
@@ -731,8 +788,30 @@ export default function AllocatedInvoicerPage() {
         </div>
       )}
 
+      {/* ── Prepared & awaiting review — Review & Send to AvidXchange ── */}
+      {awaitingReview && (
+        <div className="card" style={{ borderColor: "rgba(217,119,6,0.55)", background: "rgba(217,119,6,0.08)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 20 }}>📤</span>
+            <div style={{ flex: 1, minWidth: 220 }}>
+              <div style={{ fontWeight: 800, color: "#9a3412" }}>
+                {awaitingReview.period} allocated invoices are prepared — review &amp; send
+              </div>
+              <div className="muted small" style={{ marginTop: 2 }}>
+                {awaitingReview.summary.invoiceCount} invoice{awaitingReview.summary.invoiceCount === 1 ? "" : "s"} · {toMoney(awaitingReview.summary.total)} across {awaitingReview.summary.byProperty.length} propert{awaitingReview.summary.byProperty.length === 1 ? "y" : "ies"}.
+                Nothing has been sent to AvidXchange yet — confirm the summary and release it.
+              </div>
+            </div>
+            <button className="btn" style={{ background: "#16a34a", color: "#fff", borderColor: "transparent", fontWeight: 700, whiteSpace: "nowrap", flexShrink: 0 }} onClick={() => setReviewSend(awaitingReview)}>
+              Review &amp; Send to AvidXchange →
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ── Ready-to-process hand-off from Operating Statements ── */}
-      {pendingGl && !pendingDismissed && !glResult && !pendingGl.alreadyProcessed && (
+      {/* Superseded by the "Review & Send" banner above once the run is staged. */}
+      {pendingGl && !pendingDismissed && !glResult && !pendingGl.alreadyProcessed && !awaitingReview && (
         <div className="card" style={{ borderColor: "rgba(22,163,74,0.5)", background: "rgba(22,163,74,0.07)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
             <span style={{ fontSize: 20 }}>✅</span>
@@ -765,10 +844,10 @@ export default function AllocatedInvoicerPage() {
             <span style={{ fontSize: 20 }}>✅</span>
             <div style={{ flex: 1, minWidth: 220 }}>
               <div style={{ fontWeight: 800, color: "#0b4a7d" }}>
-                {loadingPending ? `Loading ${pendingGl.statementMonth}…` : `${pendingGl.statementMonth} was processed automatically on import`}
+                {loadingPending ? `Loading ${pendingGl.statementMonth}…` : `${pendingGl.statementMonth} has been sent to AvidXchange`}
               </div>
               <div className="muted small" style={{ marginTop: 2 }}>
-                Allocation ran, carryover was finalized, and the invoices were emailed to Avid (cc Marie &amp; Drew) with a per-building summary. Load it here only if you need to re-download the PDFs.
+                It was reviewed and released — allocation ran, carryover was finalized, and the invoices were emailed to Avid (cc Marie &amp; Drew) with a per-building summary. Load it here only if you need to re-download the PDFs.
               </div>
             </div>
             <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
@@ -1306,6 +1385,34 @@ export default function AllocatedInvoicerPage() {
           </div>
         </div>
       )}
+
+      {/* Review-before-send + success confirmation (shared with CC & Payroll) */}
+      <AvidReviewModal
+        open={!!reviewSend}
+        title="Allocated Expenses"
+        period={reviewSend?.period ?? ""}
+        byProperty={reviewSend?.summary.byProperty ?? []}
+        total={reviewSend?.summary.total ?? 0}
+        invoiceCount={reviewSend?.summary.invoiceCount}
+        attachments={reviewSend ? [
+          `${reviewSend.period} - Allocated Invoices.zip`,
+          `${reviewSend.period} - Allocated Expenses.xlsx`,
+        ] : []}
+        sending={sending}
+        onCancel={() => { if (!sending) setReviewSend(null); }}
+        onConfirm={() => reviewSend && confirmSend(reviewSend.period)}
+      />
+      <AvidSuccessModal
+        open={!!sentResult}
+        title="Allocated Expenses"
+        period={sentResult?.period ?? ""}
+        byProperty={sentResult?.byProperty ?? []}
+        total={sentResult?.total ?? 0}
+        invoiceCount={sentResult?.invoiceCount}
+        sentAt={sentResult?.sentAt ?? ""}
+        mailSent={sentResult?.mailSent}
+        onClose={() => setSentResult(null)}
+      />
 
     </main>
   );

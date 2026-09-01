@@ -6,6 +6,7 @@ import { buildPayrollExportXlsx, buildPayrollGLXlsx } from "../lib/payroll/expor
 import { buildAllocationTemplateXlsx } from "../lib/allocation/export";
 import { useUser } from "./components/UserProvider";
 import { LastImported } from "./components/LastImported";
+import { AvidReviewModal, AvidSuccessModal, type AvidProperty } from "./components/AvidSend";
 
 function toTitleCase(s: string): string {
   if (!s) return s;
@@ -138,6 +139,10 @@ export default function Page() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Review-before-send to AvidXchange (property-level only — no employee detail).
+  const [prReview, setPrReview] = useState<{ period: string; byProperty: AvidProperty[]; total: number } | null>(null);
+  const [prSending, setPrSending] = useState(false);
+  const [prSent, setPrSent] = useState<{ period: string; byProperty: AvidProperty[]; total: number; invoiceCount: number; sentAt: string; mailSent: boolean } | null>(null);
   const [drill, setDrill] = useState<DrillState | null>(null);
   const [empModal, setEmpModal] = useState<EmpModal | null>(null);
   const [propAllocModal, setPropAllocModal] = useState<PropAllocModal | null>(null);
@@ -415,6 +420,47 @@ export default function Page() {
       setError(e?.message ?? "Failed to generate PDFs");
     } finally {
       setBusy(null);
+    }
+  }
+
+  // Review-before-send gate. Compute the property-level summary and open the
+  // confirm popup; nothing goes to Avid until the reviewer clicks send.
+  function reviewPayrollAndSend() {
+    if (!payroll || !invoices.length) return;
+    const payDate = payroll?.payDate ?? "";
+    if (!payDate) { setError("Payroll has no pay date — re-import the register."); return; }
+    const byProperty: AvidProperty[] = invoices
+      .map((inv: any) => ({ code: String(inv.propertyCode || inv.propertyKey || ""), name: String(inv.propertyLabel || inv.propertyKey || ""), amount: Math.round((Number(inv.total) || 0) * 100) / 100 }))
+      .filter((b: AvidProperty) => b.code && b.amount > 0)
+      .sort((a: AvidProperty, b: AvidProperty) => b.amount - a.amount);
+    const total = Math.round(byProperty.reduce((s, b) => s + b.amount, 0) * 100) / 100;
+    setPrReview({ period: payDate, byProperty, total });
+  }
+
+  async function confirmPayrollSend() {
+    if (!prReview || !payroll) return;
+    setPrSending(true);
+    try {
+      const res = await fetch("/api/payroll/avid-send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ payroll, invoices, employees }),
+      });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j?.error ?? "Failed to send to AvidXchange");
+      setPrReview(null);
+      setPrSent({
+        period: prReview.period,
+        byProperty: j.byProperty ?? prReview.byProperty,
+        total: j.total ?? prReview.total,
+        invoiceCount: j.invoiceCount ?? prReview.byProperty.length,
+        sentAt: j.sentAt ?? new Date().toISOString(),
+        mailSent: j.sent !== false,
+      });
+    } catch (e: any) {
+      setError(e?.message ?? "Failed to send to AvidXchange");
+    } finally {
+      setPrSending(false);
     }
   }
 
@@ -955,6 +1001,15 @@ export default function Page() {
           <b>Generate Invoices</b>
           <div className="small muted" style={{ marginTop: 4, marginBottom: 14 }}>One PDF invoice per property. Only properties with allocated amounts greater than $0 are included.</div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
+            <button
+              className="btn large"
+              style={{ background: "#16a34a", color: "#fff", borderColor: "transparent", fontWeight: 700 }}
+              onClick={reviewPayrollAndSend}
+              disabled={!payroll || !invoices.length || !!busy}
+              title="Review the per-building summary, then send the property-level invoices to AvidXchange"
+            >
+              Review &amp; Send to AvidXchange →
+            </button>
             <button className="btn primary large" onClick={generateAll} disabled={!payroll || !!busy}>
               Download All Invoices
             </button>
@@ -1365,6 +1420,37 @@ export default function Page() {
           </div>
         </div>
       )}
+
+      {/* Review-before-send + success confirmation (shared with Allocated & CC).
+          Payroll figures are property-level only — no employee detail. */}
+      <AvidReviewModal
+        open={!!prReview}
+        title="Payroll"
+        period={prReview?.period ?? ""}
+        byProperty={prReview?.byProperty ?? []}
+        total={prReview?.total ?? 0}
+        invoiceCount={prReview?.byProperty.length}
+        note="Property-level figures only — no employee payroll detail is sent."
+        attachments={prReview ? [
+          "Payroll Invoices.zip",
+          "Payroll Property Allocation.xlsx",
+          "GL Journal Entry.xlsx",
+        ] : []}
+        sending={prSending}
+        onCancel={() => { if (!prSending) setPrReview(null); }}
+        onConfirm={confirmPayrollSend}
+      />
+      <AvidSuccessModal
+        open={!!prSent}
+        title="Payroll"
+        period={prSent?.period ?? ""}
+        byProperty={prSent?.byProperty ?? []}
+        total={prSent?.total ?? 0}
+        invoiceCount={prSent?.invoiceCount}
+        sentAt={prSent?.sentAt ?? ""}
+        mailSent={prSent?.mailSent}
+        onClose={() => setPrSent(null)}
+      />
     </main>
   );
 }
