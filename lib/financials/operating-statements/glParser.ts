@@ -515,16 +515,21 @@ export type GlReconciliation = {
   trialBalanceNet: number;
 };
 
-export function reconcileGl(m: GlMonthly): GlReconciliation {
+export function reconcileGl(m: {
+  monthly: Record<string, number[]>;
+  ytdTotal?: Record<string, number>;
+  beginning?: Record<string, number>;
+  names?: Record<string, string>;
+}): GlReconciliation {
   const mismatches: GlReconciliation["mismatches"] = [];
   let checked = 0;
   for (const [account, nets] of Object.entries(m.monthly)) {
-    const reported = m.ytdTotal[account];
+    const reported = m.ytdTotal?.[account];
     if (reported == null) continue;
     checked++;
-    const computed = (m.beginning[account] ?? 0) + nets.reduce((a, n) => a + n, 0);
+    const computed = (m.beginning?.[account] ?? 0) + nets.reduce((a, n) => a + n, 0);
     if (Math.abs(computed - reported) > 0.02) {
-      mismatches.push({ account, name: m.names[account] ?? null, computed, reported, diff: computed - reported });
+      mismatches.push({ account, name: m.names?.[account] ?? null, computed, reported, diff: computed - reported });
     }
   }
   const trialBalanceNet = Object.values(m.monthly).reduce((a, nets) => a + nets.reduce((x, n) => x + n, 0), 0);
