@@ -102,6 +102,7 @@ export async function POST(req: Request) {
     const glBuf = Buffer.from(await buildPayrollGLXlsx({ payDate, invoices }).arrayBuffer());
 
     const result = await deliverInvoicesToAvid({
+      source: "payroll",
       label: "Payroll",
       period: payDate,
       invoices: invoicePdfs,
@@ -115,9 +116,10 @@ export async function POST(req: Request) {
       archiveZip: zipBuf,
       privacyNote: true,
     });
-    if (result.emailed) await markReportSent(DEDUP, payDate, AVID_TO);
+    // Only mark done once all invoices + summary went out (retry-safe).
+    if (result.allDelivered) await markReportSent(DEDUP, payDate, AVID_TO);
 
-    return NextResponse.json({ sent: result.emailed, byProperty, total, invoiceCount: result.avidSent || invoices.length, sentAt });
+    return NextResponse.json({ sent: result.emailed, byProperty, total, invoiceCount: (result.avidSent + result.alreadySent) || invoices.length, sentAt });
   } catch (e: any) {
     return NextResponse.json({ error: e?.message ?? "Failed to send payroll to AvidXchange" }, { status: 400 });
   }
