@@ -28,7 +28,9 @@ export async function GET(req: NextRequest) {
     const rec = await camAttachments(property, year).get(id);
     if (!rec) return NextResponse.json({ error: "Not found" }, { status: 404 });
     const bytes = await readAttachmentBytes(rec);
-    return new NextResponse(bytes, {
+    // Wrap in a plain Uint8Array so it's a valid BodyInit under the stricter
+    // Buffer typing in newer @types/node (unblocks the dev-deps bump).
+    return new NextResponse(new Uint8Array(bytes), {
       headers: {
         "Content-Type": rec.contentType || "application/octet-stream",
         "Content-Disposition": `${download ? "attachment" : "inline"}; filename="${rec.name.replace(/"/g, "")}"`,
