@@ -168,11 +168,12 @@ function fullyFundedYtd(
   ytdActual: number,
   annualBudget: number | null,
 ): StatementLine["fullyFundedYtd"] {
+  // Capital excluded here too — lumpy, unplannable spend shouldn't carry a
+  // budget-vs-actual reassurance/warning either.
   const expenseLike =
     role === "reimbursable-expense" ||
     role === "non-reimbursable-expense" ||
-    role === "residential-expense" ||
-    role === "capital";
+    role === "residential-expense";
   if (!expenseLike) return null;
   if (annualBudget == null || annualBudget <= EXPECTED_MISSING_MIN) return null;
   if (periodBudget == null || periodBudget <= 0) return null; // no monthly run-rate → no apparent shortfall
@@ -193,11 +194,12 @@ function budgetExpectedMissing(
   ytdActual: number,
   ytdBudget: number | null,
 ): StatementLine["expectedMissing"] {
+  // Capital is intentionally excluded — capital spend is lumpy and hard to plan,
+  // so a $0 against a budget isn't a "missing" figure worth flagging.
   const expenseLike =
     role === "reimbursable-expense" ||
     role === "non-reimbursable-expense" ||
     role === "residential-expense" ||
-    role === "capital" ||
     role === "debt-service";
   if (!expenseLike) return null;
   if (ytdBudget == null || ytdBudget <= EXPECTED_MISSING_MIN) return null;
