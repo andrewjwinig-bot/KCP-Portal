@@ -439,6 +439,9 @@ export default function AllocatedInvoicerPage() {
 
   const heldGrandTotal = useMemo(() => heldRows.reduce((s, r) => s + r.accrued, 0), [heldRows]);
   const grandBillingTotal = useMemo(() => [...billingTotals.values()].reduce((s, v) => s + v, 0), [billingTotals]);
+  // Per-property held balance, so the Allocation Preview can show an "Accrued"
+  // column beside "Billed" (the two tables merged into one).
+  const heldByProp = useMemo(() => new Map(heldRows.map((h) => [h.propId, h])), [heldRows]);
 
   // The Review & Send summary is derived LIVE from the loaded GL's billing (the
   // exact figures in the Allocation Preview below), so what you review always
@@ -1020,7 +1023,7 @@ export default function AllocatedInvoicerPage() {
         </div>
       )}
 
-      {/* ── Allocation Preview ── */}
+      {/* ── Allocation Preview (billed + accrued/held, merged) ── */}
       {glResult && allocationRows.length > 0 && (
         <div className="card">
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -1030,7 +1033,7 @@ export default function AllocatedInvoicerPage() {
               </button>
               <div>
                 <b>Allocation Preview</b>
-                <div className="small muted" style={{ marginTop: 4 }}>One invoice per billing property. Click a property's <b>total</b> for its account breakdown, or the <b>⭳</b> to download its invoice. Expenses under ${CARRYOVER_THRESHOLD} are held and carried forward{yearEnd ? " — but December posts everything to clear the year" : ""}.</div>
+                <div className="small muted" style={{ marginTop: 4 }}>One invoice per billing property. Click <b>Billed</b> for its account breakdown or <b>Accrued</b> for the held detail; <b>⭳</b> downloads the invoice. Amounts under ${CARRYOVER_THRESHOLD} per account hold and carry forward until they cross it{yearEnd ? " — December posts everything" : ""}.</div>
               </div>
             </div>
           </div>
@@ -1040,21 +1043,23 @@ export default function AllocatedInvoicerPage() {
                 <tr>
                   <th>Property</th>
                   <th>Accounts</th>
-                  <th style={{ textAlign: "right" }}># Accounts</th>
-                  <th style={{ textAlign: "right" }}>Total</th>
+                  <th style={{ textAlign: "right" }}>Billed</th>
+                  <th style={{ textAlign: "right" }}>Accrued</th>
                   <th style={{ textAlign: "center", whiteSpace: "nowrap" }}>Invoice</th>
                 </tr>
               </thead>
               <tbody>
-                {billingTotals.size === 0 && (
-                  <tr><td colSpan={5} className="muted" style={{ padding: "14px 4px" }}>No properties bill this month — all allocated amounts are under the threshold and held.</td></tr>
+                {grandBillingTotal === 0 && heldGrandTotal === 0 && (
+                  <tr><td colSpan={5} className="muted" style={{ padding: "14px 4px" }}>No allocations this month.</td></tr>
                 )}
                 {ALLOC_PROPERTIES.map((prop) => {
                   const propTotal = billingTotals.get(prop.id) ?? 0;
-                  if (propTotal === 0) return null;
+                  const heldRow = heldByProp.get(prop.id);
+                  const accrued = heldRow?.accrued ?? 0;
+                  if (propTotal === 0 && accrued === 0) return null;
                   const billed = decoratedAccounts.filter((a) => a.propertyId === prop.id && a.billed);
                   const propRows = billed.flatMap((a) => a.rows);
-                  const accountNames = [...new Set(billed.map((a) => a.accountName))];
+                  const accountNames = [...new Set([...billed.map((a) => a.accountName), ...(heldRow?.accounts.map((a) => a.accountName) ?? [])])];
                   const hasCarry = billed.some((a) => a.prior > 0);
                   return (
                     <tr key={prop.id}>
@@ -1071,21 +1076,31 @@ export default function AllocatedInvoicerPage() {
                           ))}
                         </div>
                       </td>
-                      <td style={{ textAlign: "right" }}>{billed.length}</td>
                       <td style={{ textAlign: "right" }}>
-                        <button className="linkBtn" style={{ fontWeight: 700 }} title="See the account code breakdown" onClick={() => setAllocPropModal({ propId: prop.id, propName: prop.name, rows: propRows })}>
-                          {toMoney(propTotal)}
-                        </button>
+                        {propTotal > 0 ? (
+                          <button className="linkBtn" style={{ fontWeight: 700 }} title="See the account code breakdown" onClick={() => setAllocPropModal({ propId: prop.id, propName: prop.name, rows: propRows })}>
+                            {toMoney(propTotal)}
+                          </button>
+                        ) : <span className="muted">—</span>}
+                      </td>
+                      <td style={{ textAlign: "right" }}>
+                        {accrued > 0 ? (
+                          <button className="linkBtn" style={{ fontWeight: 700, color: "#9a3412" }} title="See the expenses being held" onClick={() => setHeldModal({ propName: `${prop.id} — ${prop.name}`, accounts: heldRow!.accounts })}>
+                            {toMoney(accrued)}
+                          </button>
+                        ) : <span className="muted">—</span>}
                       </td>
                       <td style={{ textAlign: "center" }}>
-                        <button
-                          className="btn"
-                          style={{ padding: "3px 10px", fontSize: 15, lineHeight: 1 }}
-                          title={`Download ${prop.id} — ${prop.name} invoice`}
-                          onClick={() => downloadSinglePdf(prop.id)}
-                        >
-                          ⭳
-                        </button>
+                        {propTotal > 0 && (
+                          <button
+                            className="btn"
+                            style={{ padding: "3px 10px", fontSize: 15, lineHeight: 1 }}
+                            title={`Download ${prop.id} — ${prop.name} invoice`}
+                            onClick={() => downloadSinglePdf(prop.id)}
+                          >
+                            ⭳
+                          </button>
+                        )}
                       </td>
                     </tr>
                   );
@@ -1093,62 +1108,14 @@ export default function AllocatedInvoicerPage() {
               </tbody>
               <tfoot>
                 <tr>
-                  <td colSpan={3}>Total</td>
+                  <td colSpan={2}>Total</td>
                   <td style={{ textAlign: "right" }}>{toMoney(grandBillingTotal)}</td>
+                  <td style={{ textAlign: "right", color: heldGrandTotal > 0 ? "#9a3412" : undefined }}>{heldGrandTotal > 0 ? toMoney(heldGrandTotal) : "—"}</td>
                   <td />
                 </tr>
               </tfoot>
             </table>
           </div>}
-        </div>
-      )}
-
-      {/* ── Held — under $100 (carried forward) ── */}
-      {glResult && heldRows.length > 0 && (
-        <div className="card">
-          <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: "0.03em", color: "#9a3412", textTransform: "uppercase" }}>
-            Held — under ${CARRYOVER_THRESHOLD} (carried forward)
-          </div>
-          <div className="small muted" style={{ marginTop: 4, marginBottom: 10 }}>
-            Expenses under ${CARRYOVER_THRESHOLD} for a property roll forward until they cross it{yearEnd ? " — but December posts everything" : ""}. Click a balance to see the held expenses.
-          </div>
-          <div className="tableWrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Property</th>
-                  <th style={{ textAlign: "right" }}># Accounts</th>
-                  <th style={{ textAlign: "right" }}>This Month</th>
-                  <th style={{ textAlign: "right" }}>Prior Balance</th>
-                  <th style={{ textAlign: "right" }}>Accrued</th>
-                </tr>
-              </thead>
-              <tbody>
-                {heldRows.map((h) => (
-                  <tr key={h.propId}>
-                    <td>{h.propId} — {h.propName}</td>
-                    <td style={{ textAlign: "right" }}>{h.accounts.length}</td>
-                    <td style={{ textAlign: "right" }}>{toMoney(h.thisMonth)}</td>
-                    <td style={{ textAlign: "right" }}>{toMoney(h.prior)}</td>
-                    <td style={{ textAlign: "right" }}>
-                      <button className="linkBtn" style={{ fontWeight: 700 }} title="See the expenses being held" onClick={() => setHeldModal({ propName: `${h.propId} — ${h.propName}`, accounts: h.accounts })}>
-                        {toMoney(h.accrued)}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr>
-                  <td>Held total</td>
-                  <td style={{ textAlign: "right" }}>{heldRows.reduce((s, h) => s + h.accounts.length, 0)}</td>
-                  <td style={{ textAlign: "right" }}>{toMoney(heldRows.reduce((s, h) => s + h.thisMonth, 0))}</td>
-                  <td style={{ textAlign: "right" }}>{toMoney(heldRows.reduce((s, h) => s + h.prior, 0))}</td>
-                  <td style={{ textAlign: "right" }}>{toMoney(heldGrandTotal)}</td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
         </div>
       )}
 
