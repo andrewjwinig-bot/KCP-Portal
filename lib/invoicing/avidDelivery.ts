@@ -10,6 +10,7 @@
 import "server-only";
 import { sendMail, isMailConfigured } from "@/lib/mail";
 import { getAvidSent, saveAvidSent } from "./avidSentStore";
+import { recordAvidSend, type AvidSource } from "./avidSendLog";
 
 const AVID_TO = "kormancommercial@avidbill.com";
 const REPORT_FROM = "dwinig@kormancommercial.com"; // verified Postmark sender
@@ -130,5 +131,24 @@ export async function deliverInvoicesToAvid(opts: {
   }
 
   const allDelivered = allInvoicesSent && !!sent.teamSummaryAt;
+
+  // Audit log — the AP outbox. Record whenever something actually went out.
+  const deliveredCount = Object.keys(sent.invoices).length;
+  if (avidSent > 0 || teamOk) {
+    try {
+      await recordAvidSend({
+        source: opts.source as AvidSource,
+        label: opts.label,
+        period: opts.period,
+        sentAt: new Date().toISOString(),
+        sentBy: opts.by ?? null,
+        invoiceCount: deliveredCount,
+        propertyCount: opts.byProperty.length,
+        total: opts.total,
+        partial: !allDelivered,
+      });
+    } catch { /* best-effort — the send still succeeded */ }
+  }
+
   return { avidSent, alreadySent, invoiceCount, teamNotified: teamOk, emailed: avidSent > 0 || teamOk, mailConfigured: true, allDelivered };
 }
