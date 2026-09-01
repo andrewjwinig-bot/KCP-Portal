@@ -864,36 +864,26 @@ export default function OperatingStatementsPage() {
 
       {!loading && statement && debtCheck?.missing && !isFullYear && (
         <div style={{ margin: "0 0 12px", padding: "10px 14px", borderRadius: 10, background: "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.35)", color: "#b91c1c", fontSize: 13, fontWeight: 600 }}>
-          ⚠ This property has a loan (scheduled P&amp;I ${money0(debtCheck.scheduled)}/mo) but <b>$0 debt service posted</b> this month — the mortgage charge may be missing. Re-post the charge or re-upload the GL.
+          ⚠ Debt service not posted — scheduled P&amp;I is <b>${money0(debtCheck.scheduled)}/mo</b>. Post the mortgage charge.
         </div>
       )}
-      {!loading && statement && allocatedGA && !isFullYear && (() => {
-        const mon = MONTHS[statement.period - 1];
-        return (
-          <div className="card" style={{ borderColor: "rgba(180,83,9,0.4)", background: "rgba(217,119,6,0.06)" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
-              <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "#b45309" }}>
-                G&amp;A / Admin Allocation · Non-Reimbursable
-              </div>
-              <span className="muted small" style={{ fontWeight: 700 }}>Memo — not in totals</span>
-            </div>
-            <div className="pills" style={{ marginTop: 10 }}>
-              <StatPill label={`Allocated Share · ${mon}`} value={`$${money0(allocatedGA.periodShare)}`} accent="#b45309" />
-              <StatPill label="Allocated Share · YTD" value={`$${money0(allocatedGA.ytdShare)}`} accent="#b45309" />
-              <StatPill label="Your Basis (9303)" value={`${(allocatedGA.pct * 100).toFixed(2)}%`} />
-              <StatPill label={`2000 G&A Pool · ${mon}`} value={`$${money0(allocatedGA.poolPeriod)}`} />
-            </div>
-            <p className="small muted" style={{ marginTop: 10, marginBottom: 0 }}>
-              This property&rsquo;s share of the <b>2000 G&amp;A pool</b> ({(allocatedGA.pct * 100).toFixed(2)}% of ${money0(allocatedGA.poolPeriod)} for {mon}).
-              It&rsquo;s a <b>pending memo</b> — it posts to this property&rsquo;s own GL, and folds into the totals above, only once the <a href="/allocated-invoicer" style={{ color: "#0b4a7d", fontWeight: 600 }}>allocated invoice</a> is processed. Shown here so the coming overhead is visible.
-            </p>
-          </div>
-        );
-      })()}
       {!loading && statement && isFullYear && fullYear && (
         <FullYearTable fy={fullYear} year={year} viewKey={key} propertyCode={cur?.propertyCode ?? ""} view={{ hideEmpty, showGL, varMode }} budgetYear={budgetYear} budgetFallback={budgetFallback} />
       )}
       {!loading && statement && !isFullYear && <StatementTable s={statement} viewKey={key} budgetYear={budgetYear} budgetFallback={budgetFallback} notes={notes} noteSources={noteSources} noteMeta={noteMeta} editorLabel={user.label} onSaveNote={saveNote} dismissedFlags={dismissedFlags} onDismissFlag={onDismissFlag} view={{ psf, sqft, hideEmpty, showGL, varMode }} thresh={thresh} flagFilter={flagFilter} onClearFilter={() => setFlagFilter(null)} />}
+
+      {/* G&A allocation — a small pending-memo footnote (not in totals), below the
+          statement so it doesn't overweight a relatively small allocated share. */}
+      {!loading && statement && allocatedGA && !isFullYear && (() => {
+        const mon = MONTHS[statement.period - 1];
+        return (
+          <p className="small muted" style={{ margin: "2px 2px 0", lineHeight: 1.5 }}>
+            <b style={{ color: "#b45309" }}>G&amp;A memo (not in totals):</b> this property&rsquo;s share of the 2000 G&amp;A pool is
+            {" "}<b>${money0(allocatedGA.periodShare)}</b> for {mon} (<b>${money0(allocatedGA.ytdShare)}</b> YTD) — {(allocatedGA.pct * 100).toFixed(2)}% of the pool.
+            {" "}Pending until the <a href="/allocated-invoicer" style={{ color: "#0b4a7d", fontWeight: 600 }}>allocated invoice</a> posts to this property&rsquo;s GL.
+          </p>
+        );
+      })()}
       {showCoverage && <CoverageModal coverage={coverage} onClose={() => setShowCoverage(false)} onPick={(k, y) => { setKey(k); setYear(y); setPeriod(0); setShowCoverage(false); }} />}
     </main>
   );
