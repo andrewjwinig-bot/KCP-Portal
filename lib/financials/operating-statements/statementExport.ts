@@ -156,8 +156,8 @@ export async function buildStatementXlsx(s: PropertyStatement, meta: StatementMe
     edge(cell, col);
   };
   // The reassurance counterpart — a $0 month whose full-year budget is booked YTD.
-  const paidCell = (cell: ExcelJS.Cell, col: number, note?: string) => {
-    cell.value = "✓ paid"; cell.alignment = { horizontal: "center" };
+  const paidCell = (cell: ExcelJS.Cell, col: number, text: string, note?: string) => {
+    cell.value = text; cell.alignment = { horizontal: "center" };
     cell.font = { size: 9, bold: true, color: { argb: "FF15803D" } };
     cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFDCFCE7" } };
     if (note) cell.note = note;
@@ -244,12 +244,13 @@ export async function buildStatementXlsx(s: PropertyStatement, meta: StatementMe
           ? `Debt service not posted — the Debt Tracker schedules ~${money0s(em.expected)}/mo P&I on this property. This $0 is unposted, not final.`
           : `Budgeted ~${money0s(em.expected)} but nothing posted year-to-date — looks unposted, not a complete $0.`
         : undefined;
+      const ffMonth = ff?.paidPeriod ? MONTHS[ff.paidPeriod - 1] : null;
       const ffNote = ff
-        ? `Already paid — the full-year budget (${money0s(ff.annualBudget)}) is booked year-to-date (${money0s(ff.ytdActual)}). A $0 this month is expected (e.g. taxes / insurance paid up front), not a shortfall.`
+        ? `Already paid${ffMonth ? ` in ${ffMonth}` : ""} — the full-year budget (${money0s(ff.annualBudget)}) is booked year-to-date (${money0s(ff.ytdActual)}). A $0 this month is expected (e.g. taxes / insurance paid up front), not a shortfall.`
         : undefined;
       // Period actual — ⚠ if unposted, ✓ if a paid-up-front $0, else the figure.
       if (em && Math.abs(row.t.periodActual) < 0.5) warnCell(gr.getCell(2), 2, emNote);
-      else if (ff && Math.abs(row.t.periodActual) < 0.5) paidCell(gr.getCell(2), 2, ffNote);
+      else if (ff && Math.abs(row.t.periodActual) < 0.5) paidCell(gr.getCell(2), 2, ffMonth ? `✓ paid ${ffMonth}` : "✓ paid", ffNote);
       else money(gr.getCell(2), row.t.periodActual, false, false, 2);
       money(gr.getCell(3), row.t.periodBudget, false, false, 3);
       pct(gr.getCell(4), row.t.periodVariance, row.t.periodBudget, false, 4);
@@ -555,7 +556,8 @@ export async function buildStatementPdf(s: PropertyStatement, meta: StatementMet
         centerText("NOT POSTED", col, 6.5, bold, AMBER);
       } else if (paidCols.has(i)) {
         page.drawRectangle({ x: col.x + 2, y: PAGE_H - (y + 11), width: col.w - 4, height: rowH, color: GREEN_FILL });
-        centerText("PAID", col, 7, bold, GREEN);
+        const ffMonth = ff?.paidPeriod ? MONTHS[ff.paidPeriod - 1] : null;
+        centerText(ffMonth ? `PAID ${ffMonth.toUpperCase()}` : "PAID", col, 7, bold, GREEN);
       } else if (col.kind === "pct") {
         const txt = varPct(vals[i], budgets[i]);
         rightText(txt || "—", col.x + col.w - 3, y + 9.5, 7.5, f, vals[i] == null ? MUTED : (vals[i] as number) >= 0 ? GREEN : RED);

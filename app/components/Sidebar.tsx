@@ -44,7 +44,7 @@ const NAV_ROLE_KEY: Record<string, string> = {
   // pages require the broader "financials-statements" key.
   "Cash Analysis":      "financials-statements",
   "Operating Statements": "financials-statements",
-  "Flags to Investigate": "financials-statements",
+  "Statement Review": "financials-statements",
   "Reprojections":      "financials-statements",
   "Budgets":            "financials-budgets",
   "Audit Log":          "audit",
@@ -591,7 +591,7 @@ const NAV = [
     ),
   },
   {
-    label: "Flags to Investigate",
+    label: "Statement Review",
     href: "/financials/operating-statements/review",
     external: false,
     indent: true,

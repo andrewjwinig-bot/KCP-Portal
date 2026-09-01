@@ -1319,12 +1319,6 @@ function SectionCard({ sec, nf, monthLabel, view, thresh, onOpenDetail, filterCl
                       style={{ marginLeft: 6, display: "inline-flex", alignItems: "center", justifyContent: "center", width: 16, height: 16, borderRadius: "50%", background: "rgba(180,83,9,0.12)", border: "1px solid rgba(180,83,9,0.45)", color: "#b45309", fontSize: 10, fontWeight: 800, cursor: "pointer", verticalAlign: "middle", padding: 0, fontFamily: "inherit" }}
                     >?</button>
                   ) : null}
-                  {l.fullyFundedYtd ? (
-                    <span
-                      title={`Already paid — the full-year budget (${money0(l.fullyFundedYtd.annualBudget)}) is booked year-to-date (${money0(l.fullyFundedYtd.ytdActual)}). A $0 this month is expected (e.g. taxes / insurance paid up front), not a shortfall.`}
-                      style={{ marginLeft: 6, display: "inline-flex", alignItems: "center", gap: 3, padding: "1px 7px", borderRadius: 999, background: "rgba(21,128,61,0.12)", border: "1px solid rgba(21,128,61,0.40)", color: "#15803d", fontSize: 10, fontWeight: 800, verticalAlign: "middle", whiteSpace: "nowrap" }}
-                    >✓ Paid YTD</span>
-                  ) : null}
                   {view.showGL && <div className="muted" style={{ fontSize: 11, fontVariantNumeric: "tabular-nums", marginTop: 1 }}>{l.mask}</div>}
                 </td>
                 {figureCells(l, { psf: view.psf, sqft: view.sqft, varMode: view.varMode, flag: thresh, drill: (tab, scope) => onOpenDetail(sec, l, tab, scope), expectedMissing: l.expectedMissing, fullyFunded: l.fullyFundedYtd })}
@@ -1367,7 +1361,7 @@ function RollupCard({ label, t, view, strong }: { label: string; t: StatementTot
 /** The seven figure cells (Period A/B/Var% · YTD A/B/Var% · Annual). When
  *  `flag` (the thresholds) is supplied, the month/YTD Var % cells that are
  *  high-variance get a green (favorable) / red (unfavorable) highlight. */
-function figureCells(t: StatementTotals, opts: { bold?: boolean; color?: string; noBorder?: boolean; psf?: boolean; sqft?: number; varMode?: VarMode; flag?: Thresh; drill?: (tab: "gl" | "budget", scope: "month" | "ytd" | "annual") => void; expectedMissing?: { expected: number; basis: "budget" | "debt"; scope: "ytd" | "period" } | null; fullyFunded?: { ytdActual: number; annualBudget: number } | null } = {}) {
+function figureCells(t: StatementTotals, opts: { bold?: boolean; color?: string; noBorder?: boolean; psf?: boolean; sqft?: number; varMode?: VarMode; flag?: Thresh; drill?: (tab: "gl" | "budget", scope: "month" | "ytd" | "annual") => void; expectedMissing?: { expected: number; basis: "budget" | "debt"; scope: "ytd" | "period" } | null; fullyFunded?: { ytdActual: number; annualBudget: number; paidPeriod?: number | null } | null } = {}) {
   const { bold, color, noBorder, psf = false, sqft = 0, varMode = "pct", flag, drill, expectedMissing, fullyFunded } = opts;
   // Amber highlight on an actual cell that reads ~$0 but has evidence it should
   // carry a figure — i.e. nothing posted to the GL yet. A budget-based signal
@@ -1385,10 +1379,17 @@ function figureCells(t: StatementTotals, opts: { bold?: boolean; color?: string;
   // Green reassurance on a $0 month whose full-year budget is already booked YTD
   // (front-loaded taxes/insurance) — an expected $0, not a shortfall.
   const paidPeriod = !!fullyFunded && Math.abs(t.periodActual) < 0.5;
-  const paidStyle: React.CSSProperties = { background: "rgba(21,128,61,0.12)", outline: "1px solid rgba(21,128,61,0.40)", outlineOffset: -1, fontWeight: 700, color: "#15803d" };
+  const paidStyle: React.CSSProperties = { background: "rgba(21,128,61,0.10)", color: "#15803d", textAlign: "center", fontSize: 18, lineHeight: 1 };
+  const paidMonthLabel = fullyFunded?.paidPeriod ? MONTHS[fullyFunded.paidPeriod - 1] : null;
   const paidTitle = fullyFunded
-    ? `Already paid — the full-year budget (${money0(fullyFunded.annualBudget)}) is booked year-to-date (${money0(fullyFunded.ytdActual)}). A $0 this month is expected (e.g. taxes / insurance paid up front), not a shortfall.`
+    ? `Already paid${paidMonthLabel ? ` in ${paidMonthLabel}` : ""} — the full-year budget (${money0(fullyFunded.annualBudget)}) is booked year-to-date (${money0(fullyFunded.ytdActual)}). A $0 this month is expected (e.g. taxes / insurance paid up front), not a shortfall.`
     : undefined;
+  const paidIcon = (
+    <span aria-label={paidMonthLabel ? `Paid in ${paidMonthLabel}` : "Paid year to date"} style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.05 }}>
+      <span style={{ fontSize: 16 }}>✅</span>
+      {paidMonthLabel && <span style={{ fontSize: 9, fontWeight: 700 }}>paid {paidMonthLabel}</span>}
+    </span>
+  );
   const base: React.CSSProperties = { ...numStyle, ...(bold ? { fontWeight: 800 } : {}), ...(color ? { color } : {}), ...(noBorder ? { borderBottom: "none" } : {}) };
   const pV = varPct(t.periodVariance, t.periodBudget);
   const yV = varPct(t.ytdVariance, t.ytdBudget);
@@ -1410,7 +1411,7 @@ function figureCells(t: StatementTotals, opts: { bold?: boolean; color?: string;
       : {};
   return (
     <>
-      <td {...click("gl", "month", t.periodActual)} title={missPeriod ? missTitle : paidPeriod ? paidTitle : undefined} style={{ ...base, borderLeft: GROUP_DIV, ...(missPeriod ? missStyle : paidPeriod ? paidStyle : {}) }}>{missPeriod ? missIcon : paidPeriod ? "✓ —" : amt(t.periodActual)}</td>
+      <td {...click("gl", "month", t.periodActual)} title={missPeriod ? missTitle : paidPeriod ? paidTitle : undefined} style={{ ...base, borderLeft: GROUP_DIV, ...(missPeriod ? missStyle : paidPeriod ? paidStyle : {}) }}>{missPeriod ? missIcon : paidPeriod ? paidIcon : amt(t.periodActual)}</td>
       <td {...click("budget", "month", t.periodBudget)} style={{ ...base, color: color ?? "var(--muted)" }}>{amt(t.periodBudget)}</td>
       <td style={paidPeriod ? { ...base, color: "#15803d" } : varCell(varMode === "dollar" ? t.periodVariance : pV, mFlag)} title={paidPeriod ? paidTitle : undefined}>{varText(t.periodVariance, pV)}</td>
       <td {...click("gl", "ytd", t.ytdActual)} title={missYtd ? missTitle : undefined} style={{ ...base, borderLeft: GROUP_DIV, ...(missYtd ? missStyle : {}) }}>{missYtd ? missIcon : amt(t.ytdActual)}</td>

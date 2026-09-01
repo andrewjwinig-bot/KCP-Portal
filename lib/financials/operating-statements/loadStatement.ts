@@ -8,6 +8,7 @@ import { getMapping } from "./mappingStore";
 import { assembledGl, getNotesBundle } from "./statementStore";
 import { resolvePropertyBudget, makeBudgetLookup } from "./budgetCrosswalk";
 import { markMissingDebt } from "./debtFlag";
+import { markPaidMonths } from "./paidMonth";
 import type { PropertyStatement } from "./types";
 import type { StatementMeta } from "./statementExport";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
@@ -29,6 +30,8 @@ export async function loadStatement(key: string, year: number, requestedPeriod?:
   const statement = computeStatement({ mapping, propertyName, year, period, gl, budgetLookup });
   // Flag debt scheduled by the Debt Tracker but not posted — same as the screen.
   await markMissingDebt(statement, key, mapping.propertyCode, year, period);
+  // Record the month a paid-up-front line posted (for the export's "paid in Mar").
+  markPaidMonths(statement, stored.monthly, period);
   const { notes } = await getNotesBundle(key, year, period);
   return { statement, meta: { propertyCode: mapping.propertyCode, propertyName, year, period, budgetYear: sameYearBudget?.budgetYear ?? null }, notes };
 }
