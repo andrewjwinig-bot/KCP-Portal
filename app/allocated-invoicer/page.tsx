@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import JSZip from "jszip";
 import { parseGLExcel, GLParseResult, GLTransaction } from "../../lib/allocated-invoicer/glParser";
 import { buildAllocInvoicePdf, makeAllocInvoiceId, AllocLineItem } from "../../lib/allocated-invoicer/invoice";
@@ -10,7 +10,6 @@ import { toMoney } from "../../lib/expenses/utils";
 import { ALLOC_PCT } from "../../lib/properties/data";
 import { DownloadMenu } from "@/app/components/DownloadMenu";
 import { AvidReviewModal, AvidSuccessModal } from "@/app/components/AvidSend";
-import { useFileDrop, byExt } from "@/app/components/useFileDrop";
 import {
   CARRYOVER_THRESHOLD,
   isYearEndMonth,
@@ -160,8 +159,6 @@ type DecoratedAccount = {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function AllocatedInvoicerPage() {
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const glDrop = useFileDrop((files) => importFile(files[0]), { accept: byExt([".xls", ".xlsx"]) });
   const [glResult, setGlResult] = useState<GLParseResult | null>(null);
   const [fileName, setFileName] = useState<string>("");
   const [acctFilter, setAcctFilter] = useState<"all" | "9301" | "9302" | "9303">("all");
@@ -274,13 +271,18 @@ export default function AllocatedInvoicerPage() {
     }
   }
   useEffect(() => {
-    fetch("/api/allocation/pending-gl").then((r) => r.json()).then((j) => {
+    fetch("/api/allocation/pending-gl").then((r) => r.json()).then(async (j) => {
       const p = j.pending ?? null;
       setPendingGl(p);
-      // Auto-parse the 2000 G&A GL handed off from Operating Statements so the
-      // page comes up ready to send invoices — no manual "Load" click. Skip if
-      // that statement month has already been processed.
-      if (p && !p.alreadyProcessed) loadPendingGl();
+      if (p && !p.alreadyProcessed) {
+        // The 2000 G&A GL handed off from Operating Statements is the ONLY
+        // source here. Make sure it's staged for review (idempotent), then load
+        // it for the on-screen preview and refresh the Review & Send banner —
+        // no manual upload, no "Load" click.
+        try { await fetch("/api/allocation/prepare", { method: "POST" }); } catch { /* best-effort */ }
+        await refreshPendingSends();
+        loadPendingGl();
+      }
     }).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -524,31 +526,6 @@ export default function AllocatedInvoicerPage() {
 
   // ── Actions ────────────────────────────────────────────────────────────────
 
-  async function importFile(file: File) {
-    try {
-      const buf = await file.arrayBuffer();
-      const result = parseGLExcel(buf);
-      setGlResult(result);
-      setFileName(file.name);
-      setAcctFilter("all");
-      setSearch("");
-      setTxDetailModal(null);
-      setAllocPropModal(null);
-    } catch (e: any) {
-      alert("Failed to parse GL file: " + (e?.message ?? String(e)));
-    }
-  }
-
-  function clearAll() {
-    if (!confirm("Clear imported General Ledger?")) return;
-    setGlResult(null);
-    setFileName("");
-    setAcctFilter("all");
-    setSearch("");
-    setTxDetailModal(null);
-    setAllocPropModal(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  }
 
   // Build the invoice inputs for a property: only its BILLED accounts (those
   // that crossed $100 this month, or everything at year-end). Each billed
@@ -870,10 +847,10 @@ export default function AllocatedInvoicerPage() {
         </div>
       )}
 
-      {/* ── Import GL ── */}
+      {/* ── 2000 G&A General Ledger (pulled from Operating Statements) ── */}
       <div className="card">
         <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
-          <b>Import General Ledger</b>
+          <b>2000 G&amp;A General Ledger</b>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <button className="btn" style={{ borderRadius: 999, fontWeight: 700, whiteSpace: "nowrap" }} onClick={() => setShowAllocModal(true)} title="View / download the allocation percentages">Allocation %</button>
             <button className="btn" style={{ borderRadius: 999, fontWeight: 700, whiteSpace: "nowrap" }} onClick={downloadAllocationPct} title="Download the allocation percentages as CSV">⭳ %</button>
@@ -886,56 +863,41 @@ export default function AllocatedInvoicerPage() {
                 { label: "Excel Summary", description: "Allocated expenses workbook (all allocations)", onClick: downloadExcel },
               ]}
             />
-            <span style={{ background: "rgba(22, 163, 74, 0.85)", color: "#fff", borderRadius: 999, padding: "12px 18px", fontSize: 15, fontWeight: 700, border: "1px solid transparent", display: "inline-flex", alignItems: "center" }}>Monthly</span>
           </div>
         </div>
         <p className="muted small" style={{ marginTop: 8 }}>
-          Upload the monthly General Ledger Excel export (.xlsx or .xls). Accounts ending in <b>9301</b>, <b>9302</b>, and <b>9303</b> will be extracted and allocated.
+          This pulls the <b>2000 G&amp;A GL</b> straight from the Operating Statements import — there&rsquo;s no separate upload here, so the invoicer can never get out of sync. Accounts ending in <b>9301</b>, <b>9302</b>, and <b>9303</b> are extracted and allocated. Import a new month on{" "}
+          <a href="/financials/operating-statements" style={{ color: "#0b4a7d", fontWeight: 700 }}>Operating Statements</a> and it appears here to review &amp; send.
         </p>
-        <div
-          {...glDrop.dropHandlers}
-          title="Choose a GL file, or drag it here"
-          style={{
-            display: "flex", alignItems: "center", gap: 10, marginTop: 12,
-            borderRadius: 10, padding: glDrop.dragging ? "8px 10px" : 0,
-            outline: glDrop.dragging ? "2px dashed var(--brand)" : "none", outlineOffset: 2,
-            background: glDrop.dragging ? "rgba(11,74,125,0.06)" : "transparent",
-            transition: "background .15s",
-          }}
-        >
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".xlsx,.xls"
-            style={{ display: "none" }}
-            onChange={(e) => { const f = e.target.files?.[0]; if (f) importFile(f); }}
-          />
-          <button
-            className="btn large"
-            onClick={() => fileInputRef.current?.click()}
-            style={{ whiteSpace: "nowrap" }}
-          >
-            {glDrop.dragging ? "Drop to import" : "Choose GL File…"}
-          </button>
-          {fileName && (
-            <span style={{ fontSize: 13, color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
-              {fileName}
-            </span>
-          )}
-          <button className="btn" style={{ borderRadius: 999, fontWeight: 700, whiteSpace: "nowrap" }} onClick={clearAll} disabled={!glResult}>
-            Clear
-          </button>
-        </div>
-        {glResult && (
-          <div className="pills">
-            <div className="pill"><b>{glResult.accountTotals.size}</b><span className="small muted">Accounts</span></div>
-            <div className="pill"><b>{glResult.transactions.length}</b><span className="small muted">Transactions</span></div>
-            <div className="pill pill-total"><b>{toMoney(grandAllocTotal)}</b><span className="small muted">Total Allocated</span></div>
-          </div>
-        )}
-        {glResult?.periodText && (
-          <div className="small muted" style={{ textAlign: "center", marginTop: 6 }}>
-            <b>Period:</b> {glResult.periodText}
+        {loadingPending ? (
+          <div className="small muted" style={{ marginTop: 12 }}>Loading the imported 2000 G&amp;A GL…</div>
+        ) : glResult ? (
+          <>
+            <div className="small" style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", color: "var(--muted)" }}>
+              <span>📄 <b style={{ color: "var(--fg)" }}>{fileName || "2000 G&A GL"}</b></span>
+              {pendingGl && (
+                <span>· imported on Operating Statements{pendingGl.uploadedBy ? ` by ${pendingGl.uploadedBy}` : ""}{pendingGl.uploadedAt ? ` · ${new Date(pendingGl.uploadedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}` : ""}</span>
+              )}
+            </div>
+            <div className="pills">
+              <div className="pill"><b>{glResult.accountTotals.size}</b><span className="small muted">Accounts</span></div>
+              <div className="pill"><b>{glResult.transactions.length}</b><span className="small muted">Transactions</span></div>
+              <div className="pill pill-total"><b>{toMoney(grandAllocTotal)}</b><span className="small muted">Total Allocated</span></div>
+            </div>
+            {glResult.periodText && (
+              <div className="small muted" style={{ textAlign: "center", marginTop: 6 }}>
+                <b>Period:</b> {glResult.periodText}
+              </div>
+            )}
+          </>
+        ) : (
+          <div style={{ marginTop: 12, padding: "14px 16px", borderRadius: 10, background: "rgba(15,23,42,0.03)", border: "1px dashed var(--border)", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 20 }}>📥</span>
+            <div style={{ flex: 1, minWidth: 220 }}>
+              <div style={{ fontWeight: 700 }}>No 2000 G&amp;A GL imported yet</div>
+              <div className="muted small" style={{ marginTop: 2 }}>Import the month&rsquo;s 2000 G&amp;A General Ledger on the Operating Statements page — it&rsquo;ll load here automatically, ready to review &amp; send.</div>
+            </div>
+            <a href="/financials/operating-statements" className="btn primary" style={{ fontWeight: 700, whiteSpace: "nowrap", textDecoration: "none" }}>Go to Operating Statements →</a>
           </div>
         )}
       </div>
