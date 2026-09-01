@@ -777,21 +777,23 @@ export default function AllocatedInvoicerPage() {
 
       {/* ── Prepared & awaiting review — Review & Send to AvidXchange ── */}
       {liveReview && (
-        <div className="card" style={{ borderColor: "rgba(22,163,74,0.5)", background: "rgba(22,163,74,0.07)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
-            <div style={{ flex: 1, minWidth: 240 }}>
-              <div style={{ fontWeight: 800, fontSize: 15 }}>
-                {sendLabel(liveReview)} — ready to send
-              </div>
-              <div className="muted small" style={{ marginTop: 3 }}>
-                <b style={{ color: "var(--fg)" }}>{toMoney(liveReview.total)}</b> across <b style={{ color: "var(--fg)" }}>{liveReview.byProperty.length}</b> propert{liveReview.byProperty.length === 1 ? "y" : "ies"}
-                {isRangePeriod(liveReview.period) ? ` · ${rangeMonthCount(liveReview.period)} months` : ""}. Nothing goes to AvidXchange until you confirm.
-              </div>
+        <div className="card" style={{ borderColor: "rgba(22,163,74,0.5)", background: "rgba(22,163,74,0.07)", display: "flex", flexDirection: "column", alignItems: "center", gap: 12, textAlign: "center", padding: "18px 16px" }}>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: 17 }}>
+              {sendLabel(liveReview)} — ready to send
             </div>
-            <button className="btn" style={{ background: "#16a34a", color: "#fff", borderColor: "transparent", fontWeight: 700, whiteSpace: "nowrap", flexShrink: 0, padding: "10px 18px" }} onClick={() => setReviewSend(liveReview)}>
-              Review &amp; Send to AvidXchange →
-            </button>
+            <div className="muted small" style={{ marginTop: 4 }}>
+              <b style={{ color: "var(--fg)" }}>{toMoney(liveReview.total)}</b> across <b style={{ color: "var(--fg)" }}>{liveReview.byProperty.length}</b> propert{liveReview.byProperty.length === 1 ? "y" : "ies"}
+              {isRangePeriod(liveReview.period) ? ` · ${rangeMonthCount(liveReview.period)} months` : ""}
+            </div>
           </div>
+          <button
+            className="btn"
+            style={{ background: "#16a34a", color: "#fff", borderColor: "transparent", fontWeight: 800, fontSize: 16, whiteSpace: "nowrap", padding: "13px 32px", borderRadius: 10 }}
+            onClick={() => setReviewSend(liveReview)}
+          >
+            Review &amp; Send to AvidXchange →
+          </button>
         </div>
       )}
 
@@ -879,18 +881,17 @@ export default function AllocatedInvoicerPage() {
           </div>
         </div>
         <p className="muted small" style={{ marginTop: 6 }}>
-          Pulled from the latest <a href="/financials/operating-statements" style={{ color: "#0b4a7d", fontWeight: 700 }}>Operating Statements</a> import — no separate upload here.
+          Pulled from the latest <a href="/financials/operating-statements" style={{ color: "#0b4a7d", fontWeight: 700 }}>Operating Statements</a> import.
         </p>
         {loadingPending ? (
           <div className="small muted" style={{ marginTop: 12 }}>Loading the imported 2000 G&amp;A GL…</div>
         ) : glResult ? (
           <>
-            <div className="small" style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", color: "var(--muted)" }}>
-              <span>📄 <b style={{ color: "var(--fg)" }}>{fileName || "2000 G&A GL"}</b></span>
-              {pendingGl && (
-                <span>· imported on Operating Statements{pendingGl.uploadedBy ? ` by ${pendingGl.uploadedBy}` : ""}{pendingGl.uploadedAt ? ` · ${new Date(pendingGl.uploadedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}` : ""}</span>
-              )}
-            </div>
+            {pendingGl && (
+              <div className="small" style={{ marginTop: 12, color: "var(--muted)" }}>
+                Imported{pendingGl.uploadedBy ? ` by ${pendingGl.uploadedBy}` : ""}{pendingGl.uploadedAt ? ` on ${new Date(pendingGl.uploadedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}` : ""}
+              </div>
+            )}
             <div className="pills">
               <div className="pill"><b>{glResult.accountTotals.size}</b><span className="small muted">Accounts</span></div>
               <div className="pill"><b>{glResult.transactions.length}</b><span className="small muted">Transactions</span></div>
