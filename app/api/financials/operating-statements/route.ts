@@ -21,6 +21,7 @@ import { FUND_BUILDINGS } from "@/lib/financials/cash-analysis/funds";
 import { buildFullYearPayload, combineGls, type FullYearPayload } from "@/lib/financials/operating-statements/fullYear";
 import { logAudit, auditIp } from "@/lib/audit";
 import { savePendingGl } from "@/lib/allocated-invoicer/pendingGlStore";
+import { autoProcessAllocation } from "@/lib/allocated-invoicer/autoProcess";
 import { markTaskComplete } from "@/lib/tracker/completionStore";
 import { expectedPostedThrough } from "@/lib/financials/operating-statements/outstanding";
 import { recordImport } from "@/lib/tracker/importEvents";
@@ -443,6 +444,7 @@ export async function POST(req: Request) {
     // Invoicer runs on, so a match hands the file off to it.
     const hasAllocAccounts = Object.keys(primary.monthly).some((a) => /-(9301|9302|9303)$/.test(a));
     const isGandA = rawCode === "2000" || primary.propertyCode === "2000" || key === "2000" || hasAllocAccounts;
+    let allocated: Awaited<ReturnType<typeof autoProcessAllocation>> | null = null;
     if (isGandA) {
       try { await recordImport("imp-alloc-gl", { at: ts, by: importedBy }); } catch { /* best-effort */ }
       try {
@@ -456,6 +458,9 @@ export async function POST(req: Request) {
           uploadedBy: typeof uploadedByRaw === "string" ? uploadedByRaw : null,
         });
       } catch { /* best-effort — the statement upload still succeeds */ }
+      // Auto-process the allocated invoices: allocate + carryover + record run +
+      // finalize the month + email the summary. No manual invoicer step needed.
+      try { allocated = await autoProcessAllocation(buf, importedBy); } catch { /* best-effort */ }
     }
 
     // On-import "things to check": scan THIS property's just-imported latest
@@ -474,6 +479,8 @@ export async function POST(req: Request) {
       maxPeriodInFile: primary.maxPeriodInFile,
       accounts: Object.keys(primary.monthly).length,
       allocatedGlReady: isGandA,
+      // Auto-processed allocated-invoicer result (2000 G&A GL only).
+      allocated,
       tasksCompleted,
       // Import health: aggregate tie-out across every year stored.
       reconciliation: recon,

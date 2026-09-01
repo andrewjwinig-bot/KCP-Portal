@@ -464,8 +464,9 @@ export default function OperatingStatementsPage() {
       },
       report: (rows) => {
         const ok = rows.filter((r) => r.status === "done");
-        const raws = ok.map((r) => r.raw as { key: string; year: number; maxPeriodInFile: number; allocatedGlReady?: boolean; years?: number[]; perYear?: { year: number; maxPeriodInFile: number }[]; notPosted?: { count: number } | null });
+        const raws = ok.map((r) => r.raw as { key: string; year: number; maxPeriodInFile: number; allocatedGlReady?: boolean; years?: number[]; perYear?: { year: number; maxPeriodInFile: number }[]; notPosted?: { count: number } | null; allocated?: { ok: boolean; total?: number; byProperty?: unknown[]; finalized?: boolean; emailed?: boolean } | null });
         const notPostedTotal = raws.reduce((a, r) => a + (r.notPosted?.count ?? 0), 0);
+        const alloc = raws.map((r) => r.allocated).find((a) => a?.ok && (a.total ?? 0) > 0) ?? null;
         const entities = new Set(ok.map((r) => r.entity)).size;
         const accounts = ok.reduce((a, r) => a + (r.count ?? 0), 0);
         const years = [...new Set(raws.flatMap((r) => r.years ?? [r.year]).filter(Boolean))].sort((a, b) => a - b);
@@ -481,9 +482,11 @@ export default function OperatingStatementsPage() {
             ...(notPostedTotal > 0
               ? [{ id: "notposted", title: `${notPostedTotal} line${notPostedTotal === 1 ? "" : "s"} not posted`, subtitle: "A budgeted or scheduled figure still reads $0 — post it or confirm it doesn't apply.", href: "/financials/operating-statements/review", cta: "Review →" }]
               : []),
-            ...(raws.some((r) => r.allocatedGlReady)
-              ? [{ id: "alloc", title: "Allocated Invoicer", subtitle: "Ready to bill properties for this period.", href: "/allocated-invoicer", cta: "Go to Invoicer →" }]
-              : []),
+            ...(alloc
+              ? [{ id: "alloc", title: `Allocated invoices processed — $${Math.round(alloc.total ?? 0).toLocaleString("en-US")}`, subtitle: `Allocation ran automatically across ${(alloc.byProperty?.length ?? 0)} properties${alloc.finalized ? ", carryover finalized" : ""}${alloc.emailed ? ", summary emailed" : ""}. Review or re-download on the invoicer.`, href: "/allocated-invoicer", cta: "View Invoicer →" }]
+              : raws.some((r) => r.allocatedGlReady)
+                ? [{ id: "alloc", title: "Allocated Invoicer", subtitle: "Ready to bill properties for this period.", href: "/allocated-invoicer", cta: "Go to Invoicer →" }]
+                : []),
           ],
           autoExplain: targets.length
             ? { run: async () => { for (const t of targets) { try { await fetch("/api/financials/operating-statements/analyze", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(t) }); } catch { /* skip */ } } setReloadNonce((n) => n + 1); } }
