@@ -758,6 +758,29 @@ export default function AllocatedInvoicerPage() {
         </div>
       )}
 
+      {/* ── Already auto-processed hand-off — offer the invoice PDFs ── */}
+      {pendingGl && !pendingDismissed && !glResult && pendingGl.alreadyProcessed && (
+        <div className="card" style={{ borderColor: "rgba(11,74,125,0.4)", background: "rgba(11,74,125,0.05)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 20 }}>✅</span>
+            <div style={{ flex: 1, minWidth: 220 }}>
+              <div style={{ fontWeight: 800, color: "#0b4a7d" }}>
+                {loadingPending ? `Loading ${pendingGl.statementMonth}…` : `${pendingGl.statementMonth} was processed automatically on import`}
+              </div>
+              <div className="muted small" style={{ marginTop: 2 }}>
+                Allocation ran, carryover was finalized, and the summary was emailed to the controller. Load it here to download the per-property invoice PDFs to file or send.
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+              {!loadingPending && (
+                <button className="btn primary" style={{ fontWeight: 700, whiteSpace: "nowrap" }} onClick={loadPendingGl}>Load to download invoices →</button>
+              )}
+              <button className="btn" style={{ fontWeight: 700 }} onClick={() => setPendingDismissed(true)}>Dismiss</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Import GL ── */}
       <div className="card">
         <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
