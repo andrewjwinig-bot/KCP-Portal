@@ -15,6 +15,8 @@ import { computeStatement } from "./compute";
 import { resolvePropertyBudget, makeBudgetLookup } from "./budgetCrosswalk";
 import { lineMonthly } from "./lineSeries";
 import { trendFlags } from "./trends";
+import { seasonalTrendFlags } from "./flagRules";
+import { markMissingDebt } from "./debtFlag";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -38,6 +40,21 @@ export type ReviewLine = {
   months: ReviewMonth[];
 };
 
+/** A data-completeness issue on the latest month: a line we have evidence
+ *  should carry a figure but that reads ~$0 (unposted), so a statement isn't
+ *  actually complete. Higher priority than a trend "?" — it's likely an error /
+ *  missing posting, not just a swing. */
+export type ReviewIssue = {
+  type: "not-posted" | "missing-debt";
+  lineKey: string;
+  section: string;
+  line: string;
+  period: number;
+  monthLabel: string;
+  /** Roughly how much is expected (budgeted YTD, or scheduled debt). */
+  expected: number;
+};
+
 /** A property with its flagged lines (each carrying its flagged months). */
 export type ReviewProperty = {
   key: string;
@@ -51,12 +68,16 @@ export type ReviewProperty = {
   lines: ReviewLine[];
   /** Total flagged (line, month) instances after dismissals. */
   flaggedMonthCount: number;
+  /** Latest-month not-posted / missing-debt issues (data completeness). */
+  issues: ReviewIssue[];
 };
 
 export type ReviewResult = {
   year: number;
   generatedAt: string;
   properties: ReviewProperty[];
+  /** Portfolio rollups for the header / dashboard badge. */
+  totals: { flaggedMonthCount: number; issueCount: number; propertiesWithIssues: number };
 };
 
 function propertyName(key: string, fallback: string): string {
@@ -72,7 +93,7 @@ export async function reviewFlaggedLines(year: number): Promise<ReviewResult> {
     const name = propertyName(m.key, m.entityName);
     const stored = assembleGls(fulls.filter((g) => g.key === m.key && g.year === year));
     if (!stored) {
-      properties.push({ key: m.key, propertyCode: m.propertyCode, propertyName: name, hasData: false, latestPeriod: 0, latestMonthLabel: "—", monthsCovered: 0, lines: [], flaggedMonthCount: 0 });
+      properties.push({ key: m.key, propertyCode: m.propertyCode, propertyName: name, hasData: false, latestPeriod: 0, latestMonthLabel: "—", monthsCovered: 0, lines: [], flaggedMonthCount: 0, issues: [] });
       continue;
     }
     const storedPY = assembleGls(fulls.filter((g) => g.key === m.key && g.year === year - 1));
@@ -83,11 +104,29 @@ export async function reviewFlaggedLines(year: number): Promise<ReviewResult> {
 
     // Enumerate the statement's lines (section ladder + masks) from the latest
     // month; masks don't change month to month.
+    // Only line up a same-year budget (matching the statement page), so the
+    // not-posted / paid-YTD signals key off the right plan.
+    const sameYearBudget = budget && !budget.fallback ? budget : null;
     const statementMax = computeStatement({
       mapping, propertyName: name, year, period: max,
       gl: summaryForPeriod(stored.monthly, max),
-      budgetLookup: budget ? makeBudgetLookup(budget, max) : undefined,
+      budgetLookup: sameYearBudget ? makeBudgetLookup(sameYearBudget, max) : undefined,
     });
+    // Latest-month data-completeness issues: budget-expected-but-unposted lines
+    // (set by computeStatement) + debt scheduled but not posted (Debt Tracker).
+    await markMissingDebt(statementMax, m.key, m.propertyCode, year, max);
+    const issues: ReviewIssue[] = [];
+    for (const sec of statementMax.sections) {
+      for (const l of sec.lines) {
+        if (!l.expectedMissing) continue;
+        issues.push({
+          type: l.expectedMissing.basis === "debt" ? "missing-debt" : "not-posted",
+          lineKey: `${sec.name}::${l.label}`, section: sec.name, line: l.label,
+          period: max, monthLabel: MONTHS[max - 1], expected: l.expectedMissing.expected,
+        });
+      }
+    }
+    issues.sort((a, b) => b.expected - a.expected);
 
     // Pass 1 (in-memory): which (line, month) trip a flag. The monthly series is
     // computed once per line; a flag at month M evaluates the series 1..M.
@@ -104,7 +143,9 @@ export async function reviewFlaggedLines(year: number): Promise<ReviewResult> {
         for (let M = 1; M <= max; M++) {
           const series = amounts.slice(0, M);
           const pySame = pyAmounts.length >= M ? pyAmounts[M - 1] : null;
-          const f = trendFlags(series, [], series[M - 1] ?? null, pySame);
+          const base = trendFlags(series, [], series[M - 1] ?? null, pySame);
+          // Same seasonal / lumpy adjustment as the per-property page + export.
+          const f = seasonalTrendFlags(sec.role, l, M, series[M - 1] ?? 0, base);
           if (f.length) { hits.push({ period: M, flags: f }); flaggedPeriods.add(M); }
         }
         if (hits.length) hitsByLine.set(lineKey, { section: sec.name, line: l.label, hits });
@@ -165,9 +206,14 @@ export async function reviewFlaggedLines(year: number): Promise<ReviewResult> {
     properties.push({
       key: m.key, propertyCode: m.propertyCode, propertyName: name, hasData: true,
       latestPeriod: max, latestMonthLabel: MONTHS[max - 1], monthsCovered: max,
-      lines, flaggedMonthCount,
+      lines, flaggedMonthCount, issues,
     });
   }
 
-  return { year, generatedAt: new Date().toISOString(), properties };
+  const totals = {
+    flaggedMonthCount: properties.reduce((s, p) => s + p.flaggedMonthCount, 0),
+    issueCount: properties.reduce((s, p) => s + p.issues.length, 0),
+    propertiesWithIssues: properties.filter((p) => p.issues.length > 0).length,
+  };
+  return { year, generatedAt: new Date().toISOString(), properties, totals };
 }

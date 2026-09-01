@@ -19,12 +19,19 @@ type ReviewMonth = {
   actual: number; budget: number | null; variance: number | null; note: string | null;
 };
 type ReviewLine = { lineKey: string; section: string; line: string; months: ReviewMonth[] };
+type ReviewIssue = {
+  type: "not-posted" | "missing-debt";
+  lineKey: string; section: string; line: string; period: number; monthLabel: string; expected: number;
+};
 type ReviewProperty = {
   key: string; propertyCode: string; propertyName: string; hasData: boolean;
   latestPeriod: number; latestMonthLabel: string; monthsCovered: number;
-  lines: ReviewLine[]; flaggedMonthCount: number;
+  lines: ReviewLine[]; flaggedMonthCount: number; issues: ReviewIssue[];
 };
-type ReviewResult = { year: number; generatedAt: string; properties: ReviewProperty[] };
+type ReviewResult = {
+  year: number; generatedAt: string; properties: ReviewProperty[];
+  totals?: { flaggedMonthCount: number; issueCount: number; propertiesWithIssues: number };
+};
 
 function money(v: number | null): string {
   if (v == null) return "—";
@@ -239,6 +246,15 @@ export default function OperatingStatementsReviewPage() {
   const totalMonths = reviewed.reduce((s, p) => s + p.flaggedMonthCount, 0);
   const propsWithFlags = reviewed.filter((p) => p.flaggedMonthCount > 0).length;
 
+  // Data-completeness issues (unposted / missing debt) across the portfolio,
+  // largest expected first — the accuracy priority, shown above the trend flags.
+  const allIssues = useMemo(() => {
+    const out: { p: ReviewProperty; issue: ReviewIssue }[] = [];
+    for (const p of (data?.properties ?? [])) for (const iss of (p.issues ?? [])) out.push({ p, issue: iss });
+    out.sort((a, b) => b.issue.expected - a.issue.expected);
+    return out;
+  }, [data]);
+
   function toggleProp(key: string) {
     setOpenProps((s) => { const n = new Set(s); if (n.has(key)) n.delete(key); else n.add(key); return n; });
   }
@@ -255,9 +271,9 @@ export default function OperatingStatementsReviewPage() {
     <main style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 14, flexWrap: "wrap" }}>
         <div>
-          <h1 style={{ marginBottom: 4 }}>Flags to Investigate</h1>
+          <h1 style={{ marginBottom: 4 }}>Statement Review</h1>
           <p className="muted small" style={{ margin: 0 }}>
-            Every property&apos;s &ldquo;?&rdquo; lines across all uploaded months — grouped like the rent roll. Expand a property to see its flagged lines; expand a line to see each month it looked off, with the reasons and any note.{" "}
+            One place to scan every property for accuracy: <b>not-posted</b> items (a budgeted or scheduled figure reading $0) at the top, then the <b>&ldquo;?&rdquo;</b> lines that look off across every uploaded month. Click any row to jump to that line on the statement.{" "}
             <Link href="/financials/operating-statements" style={{ color: "var(--brand)", fontWeight: 600 }}>← Operating Statements</Link>
           </p>
         </div>
@@ -294,11 +310,54 @@ export default function OperatingStatementsReviewPage() {
       {error && <div className="small" style={{ color: "#b91c1c", fontWeight: 700 }}>· {error}</div>}
 
       <div className="pills" style={{ justifyContent: "flex-start" }}>
+        <StatPill label="Not Posted / Missing Debt" value={allIssues.length} accent={allIssues.length > 0 ? "#b91c1c" : "#15803d"} />
         <StatPill label="Flagged Line-Months" value={totalMonths} accent={totalMonths > 0 ? "#b45309" : "#15803d"} />
         <StatPill label="Properties Flagged" value={propsWithFlags} accent={propsWithFlags > 0 ? "#b45309" : undefined} />
         <StatPill label="Properties Reviewed" value={reviewed.length} accent="#0b4a7d" />
         {data && <StatPill label="Generated" value={new Date(data.generatedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })} />}
       </div>
+
+      {allIssues.length > 0 && (
+        <div className="card" style={{ padding: 0, overflow: "hidden", borderColor: "rgba(185,28,28,0.4)" }}>
+          <div style={{ padding: "10px 16px", background: "rgba(185,28,28,0.06)", borderBottom: "1px solid rgba(185,28,28,0.25)", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 15 }}>⚠️</span>
+            <b style={{ color: "#991b1b" }}>Not posted — statements not yet complete</b>
+            <span className="muted small">{allIssues.length} line{allIssues.length === 1 ? "" : "s"} across {new Set(allIssues.map((x) => x.p.key)).size} propert{new Set(allIssues.map((x) => x.p.key)).size === 1 ? "y" : "ies"} · a budgeted or scheduled item reads $0. Post it, or confirm it doesn&rsquo;t apply.</span>
+          </div>
+          <div className="tableWrap" style={{ overflowX: "auto" }}>
+            <table style={{ minWidth: 640 }}>
+              <thead>
+                <tr>
+                  <th style={{ textAlign: "left" }}>Property</th>
+                  <th style={{ textAlign: "left" }}>Line</th>
+                  <th style={{ textAlign: "left" }}>Type</th>
+                  <th style={num}>Expected</th>
+                  <th style={{ textAlign: "left" }}>As of</th>
+                </tr>
+              </thead>
+              <tbody>
+                {allIssues.map(({ p, issue }) => (
+                  <tr key={`${p.key}::${issue.lineKey}`}>
+                    <td>
+                      <Link href={`/financials/operating-statements?key=${encodeURIComponent(p.key)}&year=${year}&period=${issue.period}`} style={{ color: "#0b4a7d", textDecoration: "none", fontWeight: 700 }}>
+                        <code style={{ fontSize: 11, color: "var(--muted)" }}>{p.propertyCode}</code> {p.propertyName}
+                      </Link>
+                    </td>
+                    <td>{issue.line} <span className="muted small">{issue.section}</span></td>
+                    <td>
+                      <span style={{ fontSize: 11, fontWeight: 800, padding: "2px 9px", borderRadius: 999, background: "rgba(185,28,28,0.10)", color: "#b91c1c", border: "1px solid rgba(185,28,28,0.30)", whiteSpace: "nowrap" }}>
+                        {issue.type === "missing-debt" ? "Debt not posted" : "Not posted"}
+                      </span>
+                    </td>
+                    <td style={{ ...num, fontWeight: 700 }}>~{money(issue.expected)}</td>
+                    <td className="muted small">{issue.monthLabel}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {reviewed.length > 0 && (
         <div style={{ display: "flex", justifyContent: "flex-end" }}>

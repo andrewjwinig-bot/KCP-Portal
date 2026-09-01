@@ -113,6 +113,9 @@ export type StatementLine = {
 export type FullyFundedYtd = {
   ytdActual: number;
   annualBudget: number;
+  /** The month (1–12) the bulk of the year's cost posted — so the reader can
+   *  reference "paid in March". Filled in post-compute from the monthly series. */
+  paidPeriod?: number | null;
 };
 
 /** Evidence that a $0 line is unposted rather than genuinely zero. */
