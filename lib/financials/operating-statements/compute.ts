@@ -140,7 +140,37 @@ function computeLine(
     b?.annualBudget ?? null,
     favorability(role)
   );
-  return { label: line.label, mask: line.mask, accounts: matched, ...t };
+  return {
+    label: line.label,
+    mask: line.mask,
+    accounts: matched,
+    ...t,
+    expectedMissing: budgetExpectedMissing(role, ytdActual, b?.ytdBudget ?? null),
+  };
+}
+
+// A same-year budget expects money on this line, but nothing is posted
+// year-to-date → it hasn't hit the GL yet. Flag ONLY expense-like lines (owners
+// expect these to appear) and ONLY when NOTHING is posted YTD — a line posted in
+// other months but $0 this month is just timing, not a missing figure, so it
+// stays clean. Revenue/reimbursement are excluded (a genuine $0 is normal). The
+// threshold avoids flagging trivially small budget lines.
+const EXPECTED_MISSING_MIN = 250;
+function budgetExpectedMissing(
+  role: SectionRole,
+  ytdActual: number,
+  ytdBudget: number | null,
+): StatementLine["expectedMissing"] {
+  const expenseLike =
+    role === "reimbursable-expense" ||
+    role === "non-reimbursable-expense" ||
+    role === "residential-expense" ||
+    role === "capital" ||
+    role === "debt-service";
+  if (!expenseLike) return null;
+  if (ytdBudget == null || ytdBudget <= EXPECTED_MISSING_MIN) return null;
+  if (Math.abs(ytdActual) >= 0.5) return null; // something posted YTD — not missing
+  return { expected: ytdBudget, basis: "budget", scope: "ytd" };
 }
 
 function computeSection(

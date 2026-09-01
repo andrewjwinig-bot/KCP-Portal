@@ -213,7 +213,23 @@ export async function GET(req: Request) {
   for (const sec of statement.sections) {
     if (sec.role === "debt-service") for (const l of sec.lines) postedDebt += l.periodActual;
   }
-  const debtCheck = { scheduled: scheduledDebt, posted: postedDebt, missing: scheduledDebt > 0 && Math.round(postedDebt) === 0 };
+  const debtMissing = scheduledDebt > 0 && Math.round(postedDebt) === 0;
+  const debtCheck = { scheduled: scheduledDebt, posted: postedDebt, missing: debtMissing };
+
+  // The Debt Tracker schedules P&I on this property this month, but nothing is
+  // posted to the debt-service line — flag each debt line's $0 so the statement
+  // shows the debt as unposted rather than a complete $0. Independent of any
+  // budget (debt often sits below NOI, outside the operating budget).
+  if (debtMissing) {
+    for (const sec of statement.sections) {
+      if (sec.role !== "debt-service") continue;
+      for (const l of sec.lines) {
+        if (Math.round(l.periodActual) === 0) {
+          l.expectedMissing = { expected: scheduledDebt, basis: "debt", scope: "period" };
+        }
+      }
+    }
+  }
 
   // Allocated G&A — this property's slice of the 2000 G&A pool (accounts ending
   // -9301/-9302/-9303) for the period, by the 9303 basis (ALLOC_PCT). It's a
