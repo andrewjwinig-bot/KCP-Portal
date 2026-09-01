@@ -51,9 +51,11 @@ import {
 import { getPendingGl } from "./pendingGlStore";
 import { deliverInvoicesToAvid, type AvidInvoicePdf } from "@/lib/invoicing/avidDelivery";
 
-// Invoices go to AP (Avid) for processing; the team summary ccs Drew.
+// Invoices go to AP (Avid) for processing; the team summary ccs Drew + Harry
+// (matching CC & Payroll for one consistent recipient set across all flows).
 const AVID_TO = "kormancommercial@avidbill.com";
 const REPORT_CC_DREW = "dwinig@kormancommercial.com";
+const REPORT_CC_HARRY = "hfeldman@kormancommercial.com";
 
 function round2(n: number): number {
   return Math.round((n + Number.EPSILON) * 100) / 100;
@@ -445,7 +447,7 @@ export async function sendAllocation(period: string, by?: string | null): Promis
           invoices,
           byProperty: res.byProperty,
           total: res.total,
-          teamCc: [REPORT_CC_DREW],
+          teamCc: [REPORT_CC_DREW, REPORT_CC_HARRY],
           references: [{ name: `${period} - Allocated Expenses.xlsx`, content: summaryXlsx, contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }],
           archiveZip,
           by,
