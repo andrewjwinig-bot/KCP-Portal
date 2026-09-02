@@ -63,11 +63,99 @@ export type CarryoverLedger = {
   balances: Record<string, PropertyCarry>;
   /** Statement months (YYYY-MM) already finalized — guards against double-counting. */
   committedPeriods: string[];
+  /** Amount already recognized (billed or held) per `${pid}|${acct}|${month}`, so
+   *  re-processing a month bills only what's NEW. This is what closes the
+   *  late-charge gap: a charge that posts to an already-finalized month shows up
+   *  as a positive delta (current allocation − recognized) and gets caught up
+   *  instead of skipped. Optional for back-compat with pre-existing ledgers. */
+  recognized?: Record<string, number>;
+  /** Months whose recognized baseline is trustworthy. A month finalized AFTER
+   *  this feature shipped is baselined here; a month committed BEFORE it (no
+   *  per-account history) is NOT — on its first re-import we backfill the
+   *  baseline from the current GL (assume what's there was already billed) rather
+   *  than re-billing the whole month. Optional for back-compat. */
+  recognizedMonths?: string[];
   updatedAt: string;
 };
 
 export function emptyLedger(): CarryoverLedger {
-  return { balances: {}, committedPeriods: [], updatedAt: "" };
+  return { balances: {}, committedPeriods: [], recognized: {}, recognizedMonths: [], updatedAt: "" };
+}
+
+export function recognizedKey(propertyId: string, accountCode: string, statementMonth: string): string {
+  return `${propertyId}|${accountCode}|${statementMonth}`;
+}
+
+/** Amount already recognized for one (property, account, month) — 0 if none. */
+export function recognizedFor(ledger: CarryoverLedger, propertyId: string, accountCode: string, statementMonth: string): number {
+  return round2(ledger.recognized?.[recognizedKey(propertyId, accountCode, statementMonth)] ?? 0);
+}
+
+/** Whether a month's recognized baseline is trustworthy (finalized post-feature,
+ *  or already backfilled). A committed-but-not-baselined month is legacy. */
+export function isMonthBaselined(ledger: CarryoverLedger, statementMonth: string): boolean {
+  return (ledger.recognizedMonths ?? []).includes(statementMonth);
+}
+
+export type RecognizedUpdate = { propertyId: string; accountCode: string; statementMonth: string; amount: number };
+
+/** Set recognized amounts and mark their months baselined. Pure. Used to
+ *  backfill a legacy committed month's baseline and to record catch-up deltas. */
+export function applyRecognized(ledger: CarryoverLedger, updates: RecognizedUpdate[], nowISO: string): CarryoverLedger {
+  const recognized = { ...(ledger.recognized ?? {}) };
+  const months = new Set(ledger.recognizedMonths ?? []);
+  for (const u of updates) {
+    recognized[recognizedKey(u.propertyId, u.accountCode, u.statementMonth)] = round2(u.amount);
+    months.add(u.statementMonth);
+  }
+  return { ...ledger, recognized, recognizedMonths: [...months], updatedAt: nowISO };
+}
+
+/** Apply catch-up deltas (late charges to already-finalized months) to the held
+ *  balances WITHOUT committing a period — the delta is added to each account's
+ *  current accrual and billed now if it (with any held prior) crosses $100, else
+ *  held forward. `asOfMonth` drives the year-end flush rule. Pure. */
+export function applyCatchupToLedger(
+  ledger: CarryoverLedger,
+  expenses: MonthExpense[],
+  asOfMonth: string,
+  nowISO: string,
+): { ledger: CarryoverLedger; decisions: ExpenseDecision[] } {
+  const next: CarryoverLedger = {
+    ...ledger,
+    balances: cloneBalances(ledger.balances),
+    committedPeriods: [...ledger.committedPeriods],
+    recognized: { ...(ledger.recognized ?? {}) },
+    recognizedMonths: [...(ledger.recognizedMonths ?? [])],
+    updatedAt: nowISO,
+  };
+  const decisions: ExpenseDecision[] = [];
+  for (const e of expenses) {
+    const pid = e.propertyId, acct = e.accountCode;
+    const thisMonth = round2(e.amount);
+    const prior = priorForAccount(ledger, pid, acct);
+    const accrued = round2(thisMonth + prior);
+    const billed = isAccountBilled(accrued, asOfMonth);
+    decisions.push({ propertyId: pid, accountCode: acct, accountName: e.accountName, thisMonth, prior, accrued, billed });
+    if (!next.balances[pid]) next.balances[pid] = { propertyId: pid, accounts: {}, updatedAt: nowISO };
+    if (billed) {
+      delete next.balances[pid].accounts[acct];
+    } else {
+      const existing = ledger.balances[pid]?.accounts[acct];
+      next.balances[pid].accounts[acct] = {
+        accountCode: acct,
+        accountName: e.accountName || existing?.accountName || acct,
+        heldTotal: accrued,
+        months: [...(existing?.months ?? []), { statementMonth: `catchup:${asOfMonth}`, amount: thisMonth }],
+        sinceMonth: existing?.sinceMonth || asOfMonth,
+        updatedAt: nowISO,
+      };
+    }
+  }
+  for (const pid of Object.keys(next.balances)) {
+    if (Object.keys(next.balances[pid].accounts).length === 0) delete next.balances[pid];
+  }
+  return { ledger: next, decisions };
 }
 
 /** Carried-forward balance for one account of a property (0 if none). */
@@ -141,6 +229,11 @@ export function finalizeMonth(
   const next: CarryoverLedger = {
     balances: cloneBalances(ledger.balances),
     committedPeriods: [...ledger.committedPeriods],
+    // A fresh month's expenses ARE its allocation (this month = current alloc),
+    // so record them as the recognized baseline + mark the month baselined. That
+    // makes a later re-import of this month bill only the delta.
+    recognized: { ...(ledger.recognized ?? {}) },
+    recognizedMonths: [...new Set([...(ledger.recognizedMonths ?? []), statementMonth])],
     updatedAt: nowISO,
   };
   const decisions: ExpenseDecision[] = [];
@@ -151,6 +244,7 @@ export function finalizeMonth(
     const acct = e.accountCode;
     seen.add(`${pid}|${acct}`);
     const thisMonth = round2(e.amount);
+    next.recognized![recognizedKey(pid, acct, statementMonth)] = thisMonth;
     const prior = priorForAccount(ledger, pid, acct);
     const accrued = round2(thisMonth + prior);
     const billed = isAccountBilled(accrued, statementMonth);
