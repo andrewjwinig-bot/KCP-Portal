@@ -49,6 +49,7 @@ const NAV_ROLE_KEY: Record<string, string> = {
   "Statement Review": "financials-statements",
   "Reprojections":      "financials-statements",
   "Budgets":            "financials-budgets",
+  "Budget Draft":       "financials-budgets",
   "Audit Log":          "audit",
   // Security group is admin-only in the sidebar (the "audit" key, which only
   // the admin profile's "all" grants). Required non-admins are still routed to
@@ -664,6 +665,20 @@ const NAV = [
         <line x1="3" y1="10" x2="21" y2="10" />
         <line x1="8" y1="14" x2="16" y2="14" />
         <line x1="8" y1="17" x2="13" y2="17" />
+      </svg>
+    ),
+  },
+  {
+    label: "Budget Draft",
+    href: "/financials/budgets/draft",
+    external: false,
+    indent: true,
+    showFor: null as string | null,
+    groupId: "financials",
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 20h9" />
+        <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
       </svg>
     ),
   },
