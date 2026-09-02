@@ -32,6 +32,18 @@ const secLabel: React.CSSProperties = { fontSize: 11, fontWeight: 700, textTrans
 
 // ─── Multi-series inline-SVG line chart (matches the rent-roll trends idiom) ───
 type Series = { label: string; color: string; values: (number | null)[]; dashed?: boolean; role?: "actual" | "budget" };
+// A rounded axis range [min,max] with an even tick step covering [lo,hi], so
+// labels land on clean numbers (…40k, 50k, 60k…) rather than raw data values.
+function niceScale(lo: number, hi: number, ticks = 4): { min: number; max: number; step: number } {
+  if (!(hi > lo)) hi = lo + 1;
+  const rawStep = (hi - lo) / ticks;
+  const mag = Math.pow(10, Math.floor(Math.log10(rawStep)));
+  const norm = rawStep / mag;
+  const niceNorm = norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 2.5 ? 2.5 : norm <= 5 ? 5 : 10;
+  const step = niceNorm * mag;
+  return { min: Math.floor(lo / step) * step, max: Math.ceil(hi / step) * step, step };
+}
+
 function LineChart({ series, fmt }: { series: Series[]; fmt: (v: number) => string }) {
   const W = 760, H = 280;
   const padL = 62, padR = 16, padT = 16, padB = 30;
@@ -39,9 +51,21 @@ function LineChart({ series, fmt }: { series: Series[]; fmt: (v: number) => stri
   const innerH = H - padT - padB;
   const n = 12;
   const allVals = series.flatMap((s) => s.values.filter((v): v is number => v != null));
-  const max = Math.max(1, ...allVals);
-  const xs = (i: number) => padL + (i / (n - 1)) * innerW;
-  const ys = (v: number) => padT + innerH - (v / max) * innerH;
+  // Dynamic Y — tighten to the data (not anchored at $0) so the lines fill the
+  // plot, with a rounded floor/ceiling and even tick steps.
+  const rawLo = allVals.length ? Math.min(...allVals) : 0;
+  const rawHi = allVals.length ? Math.max(...allVals) : 1;
+  const pad = (rawHi - rawLo) * 0.12 || Math.abs(rawHi) * 0.05 || 1;
+  const { min: yMin, max: yMax, step: yStep } = niceScale(rawLo - pad, rawHi + pad);
+  const yTicks: number[] = [];
+  for (let v = yMin; v <= yMax + yStep * 1e-6; v += yStep) yTicks.push(v);
+  // Dynamic X — span only the months that actually carry data.
+  const withData = series.flatMap((s) => s.values.map((v, i) => (v != null ? i : -1))).filter((i) => i >= 0);
+  const firstI = withData.length ? Math.min(...withData) : 0;
+  const lastI = withData.length ? Math.max(...withData) : n - 1;
+  const xSpan = Math.max(1, lastI - firstI);
+  const xs = (i: number) => padL + ((i - firstI) / xSpan) * innerW;
+  const ys = (v: number) => padT + innerH - ((v - yMin) / (yMax - yMin || 1)) * innerH;
 
   const [hover, setHover] = useState<number | null>(null);
 
@@ -61,18 +85,15 @@ function LineChart({ series, fmt }: { series: Series[]; fmt: (v: number) => stri
 
   return (
     <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ overflow: "visible" }} onMouseLeave={() => setHover(null)}>
-      {[0, 0.25, 0.5, 0.75, 1].map((f) => {
-        const v = max * f;
-        return (
-          <g key={f}>
-            <line x1={padL} x2={W - padR} y1={ys(v)} y2={ys(v)} stroke="rgba(15,23,42,0.08)" />
-            <text x={padL - 8} y={ys(v) + 4} fontSize={10} fill="var(--muted)" textAnchor="end">{fmt(v)}</text>
-          </g>
-        );
-      })}
-      {MONTHS.map((mo, i) => (
-        <text key={mo} x={xs(i)} y={H - padB + 17} fontSize={10} fontWeight={hover === i ? 800 : 400} fill={hover === i ? "var(--text)" : "var(--muted)"} textAnchor="middle">{mo}</text>
+      {yTicks.map((v) => (
+        <g key={v}>
+          <line x1={padL} x2={W - padR} y1={ys(v)} y2={ys(v)} stroke="rgba(15,23,42,0.08)" />
+          <text x={padL - 8} y={ys(v) + 4} fontSize={10} fill="var(--muted)" textAnchor="end">{fmt(v)}</text>
+        </g>
       ))}
+      {MONTHS.map((mo, i) => (i < firstI || i > lastI ? null : (
+        <text key={mo} x={xs(i)} y={H - padB + 17} fontSize={10} fontWeight={hover === i ? 800 : 400} fill={hover === i ? "var(--text)" : "var(--muted)"} textAnchor="middle">{mo}</text>
+      )))}
 
       {/* Series lines + points (non-interactive; the hit band below drives hover) */}
       <g pointerEvents="none">
