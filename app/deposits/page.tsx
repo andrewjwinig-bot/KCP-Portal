@@ -76,6 +76,9 @@ export default function SecurityDepositsPage() {
 
   const [deposits, setDeposits] = useState<SecurityDeposit[] | null>(null);
   const [rentroll, setRentroll] = useState<RentRollData | null>(null);
+  // Former tenants (unitRef + name) so a departed tenant's deposit can still be
+  // recorded — the current-roll picker alone can't reach a now-vacant suite.
+  const [pastTenants, setPastTenants] = useState<{ unitRef: string; name: string; propertyCode: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<SecurityDeposit | null>(null);
   const [adding, setAdding] = useState(false);
@@ -133,10 +136,12 @@ export default function SecurityDepositsPage() {
     Promise.all([
       fetch("/api/deposits").then((r) => (r.ok ? r.json() : null)).catch(() => null),
       fetch("/api/rentroll").then((r) => (r.ok ? r.json() : null)).catch(() => null),
-    ]).then(([dJ, rJ]) => {
+      fetch("/api/tenants/past").then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    ]).then(([dJ, rJ, pJ]) => {
       if (!alive) return;
       setDeposits(Array.isArray(dJ?.deposits) ? dJ.deposits : []);
       setRentroll(rJ?.rentroll ?? null);
+      setPastTenants(Array.isArray(pJ?.tenancies) ? pJ.tenancies.map((t: { unitRef: string; name: string; propertyCode: string }) => ({ unitRef: t.unitRef, name: t.name, propertyCode: t.propertyCode })) : []);
       setLoading(false);
     });
     return () => { alive = false; };
@@ -154,22 +159,25 @@ export default function SecurityDepositsPage() {
   const dupIds = useMemo(() => duplicateDepositIds(visibleDeposits ?? []), [visibleDeposits]);
 
   const unitOptions = useMemo<UnitOption[]>(() => {
-    if (!rentroll) return [];
     const out: UnitOption[] = [];
-    for (const p of rentroll.properties) {
+    const seen = new Set<string>(); // unitRef|company — avoid dup entries
+    for (const p of rentroll?.properties ?? []) {
       if (scopeCodes && !scopeCodes.has(p.propertyCode)) continue;
       for (const u of p.units) {
         if (u.isVacant || !u.occupantName) continue;
-        out.push({
-          unitRef: u.unitRef,
-          label: `${u.occupantName} — ${u.unitRef}`,
-          propertyCode: p.propertyCode,
-          tenantCompany: u.occupantName,
-        });
+        out.push({ unitRef: u.unitRef, label: `${u.occupantName} — ${u.unitRef}`, propertyCode: p.propertyCode, tenantCompany: u.occupantName });
+        seen.add(`${u.unitRef}|${u.occupantName.toLowerCase()}`);
       }
     }
+    // Former tenants — so a departed tenant's deposit can still be recorded even
+    // though their suite is now vacant or re-leased. Grouped under "Past tenants".
+    for (const t of pastTenants) {
+      if (scopeCodes && !scopeCodes.has(t.propertyCode)) continue;
+      if (seen.has(`${t.unitRef}|${t.name.toLowerCase()}`)) continue;
+      out.push({ unitRef: t.unitRef, label: `${t.name} — ${t.unitRef} (former)`, propertyCode: t.propertyCode, tenantCompany: t.name });
+    }
     return out.sort((a, b) => a.label.localeCompare(b.label));
-  }, [rentroll, scopeCodes]);
+  }, [rentroll, scopeCodes, pastTenants]);
 
   const byAccount = useMemo(() => {
     const map: Record<DepositAccount, SecurityDeposit[]> = { "ni-llc": [], "all-but-ni": [] };
@@ -218,10 +226,13 @@ export default function SecurityDepositsPage() {
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
       <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
         <h1 style={{ margin: 0 }}>Security Deposits</h1>
-        <button className="btn primary" onClick={startGlobalAdd}
-          style={{ fontSize: 13, padding: "8px 16px", fontWeight: 700 }}>
-          + Add Deposit
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          <Link href="/tenants/past" style={{ color: "#0b4a7d", fontWeight: 600, fontSize: 13 }}>Past Tenants →</Link>
+          <button className="btn primary" onClick={startGlobalAdd}
+            style={{ fontSize: 13, padding: "8px 16px", fontWeight: 700 }}>
+            + Add Deposit
+          </button>
+        </div>
       </header>
 
       <div className="pills" style={{ marginTop: 0 }}>
