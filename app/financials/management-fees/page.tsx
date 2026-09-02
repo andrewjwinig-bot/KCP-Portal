@@ -8,6 +8,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { StatPill } from "@/app/components/Pill";
+import { ChartTooltip, HoverBands, type TipRow } from "@/app/components/ChartTooltip";
 import { DownloadMenu } from "@/app/components/DownloadMenu";
 import { exportManagementFeesXlsx } from "@/lib/financials/management-fees/export";
 import type { MgmtFeeData, MgmtFeeDetail } from "@/lib/financials/management-fees/compute";
@@ -37,7 +38,6 @@ function LineChart({ series, fmt }: { series: Series[]; fmt: (v: number) => stri
   const innerW = W - padL - padR;
   const innerH = H - padT - padB;
   const n = 12;
-  const step = innerW / (n - 1);
   const allVals = series.flatMap((s) => s.values.filter((v): v is number => v != null));
   const max = Math.max(1, ...allVals);
   const xs = (i: number) => padL + (i / (n - 1)) * innerW;
@@ -46,20 +46,18 @@ function LineChart({ series, fmt }: { series: Series[]; fmt: (v: number) => stri
   const [hover, setHover] = useState<number | null>(null);
 
   // Tooltip content for the hovered month.
-  const rows = hover == null ? [] : (series
-    .map((s) => ({ label: s.label, color: s.color, v: s.values[hover] }))
-    .filter((r) => r.v != null) as { label: string; color: string; v: number }[]);
+  const tipRows: TipRow[] = hover == null ? [] : series
+    .filter((s) => s.values[hover] != null)
+    .map((s) => ({ label: s.label, color: s.color, value: money(s.values[hover]!) }));
   const va = hover != null ? series.find((s) => s.role === "actual")?.values[hover] ?? null : null;
   const bu = hover != null ? series.find((s) => s.role === "budget")?.values[hover] ?? null : null;
   const variance = va != null && bu != null ? va - bu : null;
   const variancePctVal = variance != null && bu ? (variance / bu) * 100 : null;
-
-  const boxW = 184;
-  const rowH = 19;
-  const boxH = 30 + rows.length * rowH + (variance != null ? rowH + 6 : 0);
-  const hx = hover != null ? xs(hover) : 0;
-  const boxX = hover != null ? (hx + 16 + boxW > W - padR ? hx - 16 - boxW : hx + 16) : 0;
-  const boxY = padT + 2;
+  const footer: TipRow | undefined = variance == null ? undefined : {
+    label: "Variance",
+    value: `${variance >= 0 ? "+" : ""}${money(variance)}${variancePctVal != null ? ` (${variance >= 0 ? "+" : ""}${variancePctVal.toFixed(1)}%)` : ""}`,
+    color: variance >= 0 ? "#15803d" : "#b45309",
+  };
 
   return (
     <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ overflow: "visible" }} onMouseLeave={() => setHover(null)}>
@@ -75,9 +73,6 @@ function LineChart({ series, fmt }: { series: Series[]; fmt: (v: number) => stri
       {MONTHS.map((mo, i) => (
         <text key={mo} x={xs(i)} y={H - padB + 17} fontSize={10} fontWeight={hover === i ? 800 : 400} fill={hover === i ? "var(--text)" : "var(--muted)"} textAnchor="middle">{mo}</text>
       ))}
-
-      {/* Hover guide line */}
-      {hover != null && <line x1={hx} x2={hx} y1={padT} y2={padT + innerH} stroke="rgba(11,74,125,0.30)" strokeWidth={1.25} strokeDasharray="3 3" />}
 
       {/* Series lines + points (non-interactive; the hit band below drives hover) */}
       <g pointerEvents="none">
@@ -97,36 +92,9 @@ function LineChart({ series, fmt }: { series: Series[]; fmt: (v: number) => stri
         })}
       </g>
 
-      {/* Per-month hit bands drive the hover state. */}
-      {MONTHS.map((_, i) => (
-        <rect key={i} x={xs(i) - step / 2} y={padT} width={step} height={innerH} fill="transparent" style={{ cursor: "crosshair" }} onMouseEnter={() => setHover(i)} />
-      ))}
-
-      {/* Rich tooltip */}
-      {hover != null && rows.length > 0 && (
-        <g pointerEvents="none" style={{ filter: "drop-shadow(0 4px 14px rgba(15,23,42,0.20))" }}>
-          <rect x={boxX} y={boxY} width={boxW} height={boxH} rx={9} fill="var(--card)" stroke="var(--border)" strokeWidth={1} />
-          <text x={boxX + 13} y={boxY + 20} fontSize={12.5} fontWeight={800} fill="var(--text)">{MONTHS_LONG[hover]}</text>
-          {rows.map((r, k) => {
-            const cy = boxY + 30 + k * rowH + rowH / 2;
-            return (
-              <g key={r.label}>
-                <circle cx={boxX + 17} cy={cy} r={4.5} fill={r.color} />
-                <text x={boxX + 28} y={cy + 4} fontSize={12} fill="var(--muted)">{r.label}</text>
-                <text x={boxX + boxW - 13} y={cy + 4} fontSize={12.5} fontWeight={700} fill="var(--text)" textAnchor="end">{money(r.v)}</text>
-              </g>
-            );
-          })}
-          {variance != null && (
-            <g>
-              <line x1={boxX + 13} x2={boxX + boxW - 13} y1={boxY + 30 + rows.length * rowH + 2} y2={boxY + 30 + rows.length * rowH + 2} stroke="var(--border)" />
-              <text x={boxX + 13} y={boxY + 30 + rows.length * rowH + rowH} fontSize={12} fill="var(--muted)">Variance</text>
-              <text x={boxX + boxW - 13} y={boxY + 30 + rows.length * rowH + rowH} fontSize={12.5} fontWeight={800} textAnchor="end" fill={variance >= 0 ? "#15803d" : "#b45309"}>
-                {(variance >= 0 ? "+" : "") + money(variance)}{variancePctVal != null ? ` (${variance >= 0 ? "+" : ""}${variancePctVal.toFixed(1)}%)` : ""}
-              </text>
-            </g>
-          )}
-        </g>
+      <HoverBands n={n} xAt={xs} x0={padL} x1={padL + innerW} top={padT} height={innerH} active={hover} onHover={setHover} />
+      {hover != null && tipRows.length > 0 && (
+        <ChartTooltip x={xs(hover)} y={padT + 2} chartW={W} title={MONTHS_LONG[hover]} rows={tipRows} footer={footer} />
       )}
     </svg>
   );
