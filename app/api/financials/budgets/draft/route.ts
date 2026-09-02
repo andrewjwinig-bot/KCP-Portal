@@ -19,7 +19,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ properties: list });
   }
 
-  const year = Number(url.searchParams.get("year")) || now.getFullYear() + 1;
+  const year = Number(url.searchParams.get("year")) || now.getFullYear();
   const growth = Number(url.searchParams.get("growth"));
   const growthPct = Number.isFinite(growth) ? growth : 3;
 

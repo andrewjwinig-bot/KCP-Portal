@@ -6,6 +6,9 @@ vi.mock("@/lib/financials/reprojections/load", () => ({ loadReprojection: (...a:
 const projectLeaseRevenue = vi.fn();
 vi.mock("./leaseRevenue", () => ({ projectLeaseRevenue: (...a: any[]) => projectLeaseRevenue(...a) }));
 
+vi.mock("./reimbursementEstimate", () => ({ estimateReimbursements: async () => null }));
+vi.mock("./leasingAssumptions", () => ({ getLeasingAssumptions: async () => ({}) }));
+
 const noLeases = { rentalMonthly: new Array(12).fill(0), rentalTotal: 0, inPlaceUnits: 0, expiring: [], vacant: [], hasData: false };
 
 import { buildBudgetDraft } from "./draft";
