@@ -43,6 +43,7 @@ import {
   type RecognizedUpdate,
 } from "./carryover";
 import { getAllocLedger, saveAllocLedger } from "./carryoverStore";
+import { reconcileAllocation } from "./tieOut";
 import { recordAllocationRun } from "./runStore";
 import { buildAllocExportXlsx, type AllocExportRow } from "./export";
 import { buildAllocInvoicePdf, makeAllocInvoiceId, type AllocLineItem } from "./invoice";
@@ -499,7 +500,7 @@ async function prepareStaged(gl: GLParseResult, stash: { fileBase64?: string; gl
     source: "allocated",
     period,
     label,
-    summary: { byProperty: res.byProperty, total: res.total, invoiceCount: res.invoiceCount },
+    summary: { byProperty: res.byProperty, total: res.total, invoiceCount: res.invoiceCount, tieOut: reconcileAllocation(gl) },
     ...stash,
     preparedAt: new Date().toISOString(),
     preparedBy: by ?? null,
