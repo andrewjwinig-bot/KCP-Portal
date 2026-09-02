@@ -171,7 +171,7 @@ export default function ManagementFeesPage() {
         </div>
       </div>
       <p className="muted" style={{ marginTop: -6 }}>
-        Pulled from the posted GL — account <b>6610</b> — per building each month, compared to budget. New buildings appear on their own once a fee posts.
+        Pulled from the posted GL — account <b>6610</b> — per building each month, compared to budget.
         {data?.completeThrough ? ` Posted through ${MONTHS_LONG[data.completeThrough - 1]} ${year}.` : ""}
       </p>
 
