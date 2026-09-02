@@ -121,6 +121,20 @@ export default function ManagementFeesPage() {
     return series;
   }, [data, mode]);
 
+  // The reporting window = the furthest month any building has posted. Within it,
+  // a building with no management fee is suspicious (the GL posted with no 6610,
+  // or the building is a month behind the rest) — flag it so it can be reposted.
+  const portfolioMaxPosted = useMemo(() => (data ? Math.max(0, ...data.buildings.map((b) => b.maxPosted)) : 0), [data]);
+  const isMissing = useCallback((b: MgmtFeeData["buildings"][number], m: number) => (
+    b.feeMonthly[m] === 0 && m + 1 <= portfolioMaxPosted && (b.budgetMonthly[m] > 0 || b.ytdActual > 0)
+  ), [portfolioMaxPosted]);
+  const flaggedCount = useMemo(() => {
+    if (!data) return 0;
+    let n = 0;
+    for (const b of data.buildings) for (let m = 0; m < 12; m++) if (isMissing(b, m)) n++;
+    return n;
+  }, [data, isMissing]);
+
   const detailFor = openCode;
 
   return (
@@ -178,7 +192,7 @@ export default function ManagementFeesPage() {
 
           {/* Grid: months down, buildings across */}
           <div className="card" style={{ padding: 0, overflowX: "auto" }}>
-            <table style={{ borderCollapse: "collapse", fontSize: 12, minWidth: "100%" }}>
+            <table style={{ borderCollapse: "collapse", fontSize: 14, minWidth: "100%" }}>
               <thead>
                 <tr>
                   <th style={{ ...gridTh, textAlign: "left", position: "sticky", left: 0, background: "var(--card)", zIndex: 2 }}>Month</th>
@@ -208,9 +222,16 @@ export default function ManagementFeesPage() {
                     {data.buildings.map((b, i) => {
                       const groupStart = i === 0 || data.buildings[i - 1].group !== b.group;
                       const posted = m + 1 <= b.maxPosted;
+                      const inWindow = m + 1 <= portfolioMaxPosted;
+                      const missing = isMissing(b, m);
+                      const content = posted ? (b.feeMonthly[m] ? money(b.feeMonthly[m]) : "—") : (inWindow ? "—" : "");
                       return (
-                        <td key={b.code} style={{ ...gridTd, ...numTd, borderLeft: groupStart ? "2px solid var(--border)" : undefined, color: b.feeMonthly[m] ? "var(--text)" : "var(--muted)" }}>
-                          {posted ? (b.feeMonthly[m] ? money(b.feeMonthly[m]) : "—") : ""}
+                        <td key={b.code} title={missing ? (posted ? "GL posted, but no management fee for this month — it may need to be reposted." : "Not posted yet — other buildings have posted this month.") : undefined}
+                          style={{ ...gridTd, ...numTd, borderLeft: groupStart ? "2px solid var(--border)" : undefined,
+                            ...(missing
+                              ? { background: "rgba(217,119,6,0.15)", color: "#b45309", fontWeight: 700, cursor: "help" }
+                              : { color: b.feeMonthly[m] ? "var(--text)" : "var(--muted)" }) }}>
+                          {content}
                         </td>
                       );
                     })}
@@ -230,7 +251,15 @@ export default function ManagementFeesPage() {
               </tbody>
             </table>
           </div>
-          <p className="muted small" style={{ marginTop: -4 }}>Click any building code for its fee-as-a-%-of-revenue detail. Blank cells = that building’s month isn’t posted yet.</p>
+          <p className="muted small" style={{ marginTop: -4, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            {flaggedCount > 0 && (
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "#b45309", fontWeight: 700 }}>
+                <span style={{ width: 13, height: 13, borderRadius: 3, background: "rgba(217,119,6,0.25)", border: "1px solid #d97706" }} />
+                {flaggedCount} month{flaggedCount === 1 ? "" : "s"} flagged — a fee is expected but missing; likely needs (re)posting.
+              </span>
+            )}
+            <span>Click any building code for its fee-as-a-%-of-revenue detail. Blank cells are future / un-opened months.</span>
+          </p>
         </>
       )}
 
@@ -239,8 +268,8 @@ export default function ManagementFeesPage() {
   );
 }
 
-const gridTh: React.CSSProperties = { padding: "7px 12px", fontSize: 11, fontWeight: 700, color: "var(--muted)", borderBottom: "1px solid var(--border)", whiteSpace: "nowrap" };
-const gridTd: React.CSSProperties = { padding: "6px 12px", borderBottom: "1px solid var(--border)", whiteSpace: "nowrap" };
+const gridTh: React.CSSProperties = { padding: "8px 13px", fontSize: 12.5, fontWeight: 700, color: "var(--muted)", borderBottom: "1px solid var(--border)", whiteSpace: "nowrap" };
+const gridTd: React.CSSProperties = { padding: "8px 13px", fontSize: 14, borderBottom: "1px solid var(--border)", whiteSpace: "nowrap" };
 
 function BuildingModal({ code, year, onClose }: { code: string; year: number; onClose: () => void }) {
   const [detail, setDetail] = useState<MgmtFeeDetail | null>(null);
