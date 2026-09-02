@@ -6,7 +6,7 @@
 // and a per-building drill-down (click a building) showing the fee as a % of
 // that building's revenue — the quick sanity check that a fee posted right.
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { StatPill } from "@/app/components/Pill";
 import { ChartTooltip, HoverBands, type TipRow } from "@/app/components/ChartTooltip";
 import { DownloadMenu } from "@/app/components/DownloadMenu";
@@ -367,19 +367,35 @@ function BuildingModal({ code, year, onClose }: { code: string; year: number; on
               </thead>
               <tbody>
                 {rows.map((m) => (
-                  <tr key={m.month}>
-                    <td style={gridTd}>{MONTHS[m.month - 1]}</td>
-                    <td style={{ ...gridTd, ...numTd }}>{money(m.fee)}</td>
-                    <td style={{ ...gridTd, ...numTd }}>{money(m.revenue)}</td>
-                    <td style={{ ...gridTd, ...numTd, fontWeight: 700 }}>{pct1(m.feePctOfRevenue)}</td>
-                    <td style={{ ...gridTd, ...numTd, color: "var(--muted)" }}>{money(m.budget)}</td>
-                  </tr>
+                  <Fragment key={m.month}>
+                    <tr>
+                      <td style={gridTd}>{MONTHS[m.month - 1]}</td>
+                      <td style={{ ...gridTd, ...numTd, ...(m.fee < 0 ? { color: "#b91c1c", fontWeight: 700 } : null) }}>{money(m.fee)}</td>
+                      <td style={{ ...gridTd, ...numTd }}>{money(m.revenue)}</td>
+                      <td style={{ ...gridTd, ...numTd, fontWeight: 700 }}>{pct1(m.feePctOfRevenue)}</td>
+                      <td style={{ ...gridTd, ...numTd, color: "var(--muted)" }}>{money(m.budget)}</td>
+                    </tr>
+                    {m.leaseChanges.length > 0 && (
+                      <tr>
+                        <td />
+                        <td colSpan={4} style={{ padding: "0 13px 8px", borderBottom: "1px solid var(--border)" }}>
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: "2px 14px" }}>
+                            {m.leaseChanges.map((c, k) => (
+                              <span key={k} style={{ fontSize: 11.5, fontWeight: 600, color: c.kind === "vacated" ? "#b91c1c" : "#15803d" }}>
+                                {c.kind === "vacated" ? "↘" : "↗"} {c.tenant} {c.kind} {c.kind === "vacated" ? "−" : "+"}{money(Math.abs(c.amount))}/mo
+                              </span>
+                            ))}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
                 ))}
                 {rows.length === 0 && <tr><td colSpan={5} style={{ ...gridTd, textAlign: "center", color: "var(--muted)" }}>No posted GL for {code} {year} yet.</td></tr>}
               </tbody>
             </table>
             <p className="muted small" style={{ marginTop: 10, marginBottom: 0 }}>
-              Gross revenue = rental income + tenant reimbursements (total revenues). Fee % of gross revenue is the sanity check — management fees are usually a fixed % of collections, so an off-ratio month is worth a look.
+              Gross revenue = rental income + tenant reimbursements (total revenues). Fee % of gross revenue is the sanity check — a fixed-% fee should hold roughly flat, so a month whose % jumps <em>without</em> a lease change below points to a non-fee revenue item, a timing/accrual quirk, or a reversal. Lease changes (↗ commenced / ↘ vacated) show the base + CAM/INS/RET a tenant added or removed that month.
             </p>
           </>
         )}

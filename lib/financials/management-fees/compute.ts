@@ -15,6 +15,7 @@ import { lineMonthly } from "@/lib/financials/operating-statements/lineSeries";
 import { accountMatchesMask } from "@/lib/financials/operating-statements/mask";
 import { resolvePropertyBudget } from "@/lib/financials/operating-statements/budgetCrosswalk";
 import { loadFullYearStatement } from "@/lib/financials/operating-statements/fullYear";
+import { leaseChangesByMonth, type LeaseChange } from "./leaseChanges";
 import { listBudgets } from "@/lib/financials/budgets/storage";
 import { assembledGl } from "@/lib/financials/operating-statements/statementStore";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
@@ -177,7 +178,7 @@ export type MgmtFeeDetail = {
   name: string;
   year: number;
   maxPosted: number;
-  months: { month: number; fee: number; revenue: number; feePctOfRevenue: number | null; budget: number }[];
+  months: { month: number; fee: number; revenue: number; feePctOfRevenue: number | null; budget: number; leaseChanges: LeaseChange[] }[];
   ytd: { fee: number; revenue: number; feePctOfRevenue: number | null; budget: number };
 };
 
@@ -197,6 +198,10 @@ export async function managementFeeDetail(code: string, year: number): Promise<M
 
   if (!gl && !loaded && !budget) return null;
 
+  // Who commenced / vacated each month — so a revenue swing (and the fee that
+  // rides on it) ties to the lease event that caused it.
+  const leaseChanges = await leaseChangesByMonth(code, year).catch(() => Array.from({ length: 12 }, () => [] as LeaseChange[]));
+
   const months = [];
   for (let m = 0; m < 12; m++) {
     const fee = Math.round(feeMonthly[m]);
@@ -205,6 +210,7 @@ export async function managementFeeDetail(code: string, year: number): Promise<M
       month: m + 1, fee, revenue,
       feePctOfRevenue: revenue > 0 ? (fee / revenue) * 100 : null,
       budget: Math.round(budgetMonthly[m]),
+      leaseChanges: leaseChanges[m] ?? [],
     });
   }
   const upto = Math.max(1, maxPosted);
