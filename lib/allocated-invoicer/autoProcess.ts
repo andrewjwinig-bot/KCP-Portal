@@ -652,9 +652,12 @@ export async function sendAllocation(period: string, by?: string | null): Promis
     } catch { /* best-effort */ }
 
     // Commit — record the run(s) + finalize carryover + mark sent — ONLY once
-    // everything's delivered (or mail isn't configured, so there's nothing to
-    // retry). A partial send leaves the month open so the user can retry.
-    const commit = delivered || !mailConfigured;
+    // everything's delivered. A partial send, OR mail not being configured,
+    // leaves the month OPEN so the invoice can actually reach Avid on a retry.
+    // (Committing when nothing was emailed would advance the carryover baseline
+    // and silently suppress re-billing on the next import — a lost invoice. This
+    // matches every other Avid send path, which no-ops on mail-not-configured.)
+    const commit = delivered;
     let finalized = false;
     if (commit) {
       let led = ledger;
@@ -689,7 +692,8 @@ export async function sendAllocation(period: string, by?: string | null): Promis
     const sentAt = new Date().toISOString();
     if (!commit) {
       return {
-        ok: false, reason: "partial-send", statementMonth: period, periodText: gl.periodText,
+        ok: false, reason: mailConfigured ? "partial-send" : "mail-not-configured",
+        statementMonth: period, periodText: gl.periodText,
         total: res.total, byProperty: res.byProperty, emailed,
         invoiceCount: pdfCount, monthCount: batches.length,
       };
