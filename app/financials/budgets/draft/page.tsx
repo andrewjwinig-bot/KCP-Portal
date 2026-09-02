@@ -23,10 +23,13 @@ function sourceBadge(source: DraftSource, growthPct: number): { tone: PillTone; 
 type PropRow = { key: string; propertyCode: string; entityName: string };
 
 export default function BudgetDraftPage() {
-  const nextYear = new Date().getFullYear() + 1;
+  // Operating data runs a year behind the wall clock (the "2026" workbooks
+  // represent 2025), so budget season now targets the current calendar year,
+  // seeded from the prior year — not currentYear+1.
+  const thisYear = new Date().getFullYear();
   const [props, setProps] = useState<PropRow[]>([]);
   const [key, setKey] = useState<string>("");
-  const [year, setYear] = useState(nextYear);
+  const [year, setYear] = useState(thisYear);
   const [growth, setGrowth] = useState(3);
   const [draft, setDraft] = useState<BudgetDraft | null>(null);
   const [missingBasis, setMissingBasis] = useState(false);
@@ -85,7 +88,7 @@ export default function BudgetDraftPage() {
         <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           <span style={secLabel}>Budget Year</span>
           <select value={year} onChange={(e) => setYear(Number(e.target.value))} style={selStyle}>
-            {[nextYear, nextYear + 1].map((y) => <option key={y} value={y}>{y}</option>)}
+            {[thisYear, thisYear + 1].map((y) => <option key={y} value={y}>{y}</option>)}
           </select>
         </label>
         <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
@@ -177,8 +180,54 @@ export default function BudgetDraftPage() {
             </div>
           ))}
 
+          {draft.reimbursementEstimate && draft.reimbursementEstimate.tenants.length > 0 && (() => {
+            const est = draft.reimbursementEstimate!;
+            return (
+              <div className="card" style={{ padding: 0, overflow: "hidden", borderColor: "rgba(13,148,136,0.4)" }}>
+                <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, flexWrap: "wrap", padding: "10px 14px", borderBottom: "1px solid var(--border)" }}>
+                  <div style={{ ...secLabel, color: "#0d9488" }}>CAM / INS / RET reimbursement estimate — {est.budgetYear} preview</div>
+                  <span className="muted small"><b>display-only, not in the budget yet</b></span>
+                </div>
+                <div style={{ padding: "8px 14px" }} className="muted small">
+                  <b>Estimates are on {est.budgetYear} expense levels with each tenant’s CAM recovery methodology applied</b> — PRS share, admin fee, expense-line exclusions, gross-lease and property-INS-pool rules all respected ({est.kind} reconciliation engine). The pool is the {est.reconYear} recon grown to {est.budgetYear} by this draft’s {est.growthPct}% expense assumption (×{est.factor}) — a close proxy for the line-by-line budgeted pool (recoveries are linear in the pool); tying each category to its exact budgeted line is the next refinement. <b>Display-only — verify against the building’s actual recon before these drive the reimbursement lines or tenant escrows.</b>
+                </div>
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, minWidth: 560 }}>
+                    <thead>
+                      <tr>
+                        <th style={{ ...tdL, ...thS }}>Tenant</th>
+                        <th style={{ ...tdR, ...thS }}>CAM/yr</th>
+                        {est.kind === "retail" && <th style={{ ...tdR, ...thS }}>INS/yr</th>}
+                        <th style={{ ...tdR, ...thS }}>RET/yr</th>
+                        <th style={{ ...tdR, ...thS }}>Escrow/mo</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {est.tenants.map((t) => (
+                        <tr key={t.unitRef}>
+                          <td style={tdL}><code style={{ fontSize: 12 }}>{t.unitRef}</code> {t.name}</td>
+                          <td style={tdR}>{money0(t.camAnnual)}</td>
+                          {est.kind === "retail" && <td style={tdR}>{money0(t.insAnnual)}</td>}
+                          <td style={tdR}>{money0(t.retAnnual)}</td>
+                          <td style={{ ...tdR, fontWeight: 700 }}>{money0(t.camMonthly + t.insMonthly + t.retMonthly)}</td>
+                        </tr>
+                      ))}
+                      <tr style={{ borderTop: "2px solid var(--border)" }}>
+                        <td style={{ ...tdL, fontWeight: 800 }}>Total reimbursements</td>
+                        <td style={{ ...tdR, fontWeight: 800 }}>{money0(est.totals.camAnnual)}</td>
+                        {est.kind === "retail" && <td style={{ ...tdR, fontWeight: 800 }}>{money0(est.totals.insAnnual)}</td>}
+                        <td style={{ ...tdR, fontWeight: 800 }}>{money0(est.totals.retAnnual)}</td>
+                        <td style={{ ...tdR, fontWeight: 800 }}>{money0((est.totals.camAnnual + est.totals.insAnnual + est.totals.retAnnual) / 12)}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            );
+          })()}
+
           <p className="muted small">
-            <b>Reproj +N%</b> = this year’s reprojected full-year expense grown by the assumption, month by month (seasonality preserved). <b>Leases</b> = rental income projected from the rent roll’s in-place leases (current rents held flat; expiring leases flagged above). <b>Reproj (flat)</b> = carried unchanged (reimbursements, other income, debt service). The middle column is the {draft.basisYear} reprojection it grew from. CAM/RET reimbursement estimates replace their placeholder in the next step.
+            <b>Reproj +N%</b> = this year’s reprojected full-year expense grown by the assumption, month by month (seasonality preserved). <b>Leases</b> = rental income projected from the rent roll’s in-place leases (current rents held flat; expiring leases flagged above). <b>Reproj (flat)</b> = carried unchanged (reimbursements, other income, debt service). The middle column is the {draft.basisYear} reprojection it grew from. The CAM/INS/RET reimbursement estimate above is a <b>display-only preview</b> from the recon engine — verify it, then it can drive the reimbursement lines and tenant escrows.
           </p>
         </>
       )}
@@ -245,5 +294,6 @@ function LeasingRow({ mode, unitRef, title, sub, holdover, currentRent, leaseTo,
 
 const rowSel: React.CSSProperties = { borderRadius: 6, padding: "5px 8px", fontSize: 12.5, fontWeight: 600, border: "1px solid rgba(11,74,125,0.3)", background: "var(--card)", color: "#0b4a7d", cursor: "pointer" };
 const selStyle: React.CSSProperties = { borderRadius: 8, padding: "8px 12px", fontSize: 13, fontWeight: 600, border: "1px solid rgba(11,74,125,0.3)", background: "var(--card)", color: "#0b4a7d", cursor: "pointer" };
+const thS: React.CSSProperties = { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)" };
 const tdL: React.CSSProperties = { padding: "8px 14px", borderBottom: "1px solid var(--border)", textAlign: "left", whiteSpace: "nowrap" };
 const tdR: React.CSSProperties = { padding: "8px 14px", borderBottom: "1px solid var(--border)", textAlign: "right", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" };
