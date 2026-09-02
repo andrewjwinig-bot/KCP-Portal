@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { money, num, pct as fmtPct } from "../lib/utils";
 import { buildPayrollExportXlsx, buildPayrollGLXlsx } from "../lib/payroll/export";
+import type { PayrollTieOut } from "../lib/payroll/tieOut";
 import { buildAllocationTemplateXlsx } from "../lib/allocation/export";
 import { useUser } from "./components/UserProvider";
 import { LastImported } from "./components/LastImported";
@@ -135,6 +136,7 @@ const GROUP_ORDER = ["JV III", "NI LLC", "SC"];
 export default function Page() {
   const [payroll, setPayroll] = useState<any>(null);
   const [invoices, setInvoices] = useState<any[]>([]);
+  const [tieOut, setTieOut] = useState<PayrollTieOut | null>(null);
   const [employees, setEmployees] = useState<EmployeeSummary[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -272,6 +274,7 @@ export default function Page() {
         if (d?.payroll) {
           setPayroll(d.payroll);
           setInvoices(d.invoices ?? []);
+          setTieOut(d.tieOut ?? null);
           setEmployees(d.employees ?? []);
           setFileName(d.fileName ?? "");
           setImportedAt(d.importedAt ?? null);
@@ -286,12 +289,12 @@ export default function Page() {
     if (!hydrated || typeof window === "undefined") return;
     try {
       if (payroll) {
-        localStorage.setItem("kcp:lastPayroll", JSON.stringify({ payroll, invoices, employees, fileName, importedAt, importedBy }));
+        localStorage.setItem("kcp:lastPayroll", JSON.stringify({ payroll, invoices, tieOut, employees, fileName, importedAt, importedBy }));
       } else {
         localStorage.removeItem("kcp:lastPayroll");
       }
     } catch { /* quota or disabled storage — no-op */ }
-  }, [hydrated, payroll, invoices, employees, fileName, importedAt, importedBy]);
+  }, [hydrated, payroll, invoices, tieOut, employees, fileName, importedAt, importedBy]);
 
   async function savePeriod() {
     const name = payroll?.payDate ?? new Date().toLocaleDateString();
@@ -323,6 +326,7 @@ export default function Page() {
       const j = await res.json();
       setPayroll(j.payroll);
       setInvoices(j.invoices ?? []);
+      setTieOut(j.tieOut ?? null);
       setEmployees((j.employees ?? []).slice().sort(
         (a: EmployeeSummary, b: EmployeeSummary) => (a.payrollIndex ?? 9999) - (b.payrollIndex ?? 9999)
       ));
@@ -375,6 +379,7 @@ export default function Page() {
       if (!res.ok) throw new Error(j?.error ?? "Failed to parse payroll");
       setPayroll(j.payroll);
       setInvoices(j.invoices ?? []);
+      setTieOut(j.tieOut ?? null);
       setFileName(file.name);
       setImportedAt(new Date().toISOString());
       setImportedBy(user.label);
@@ -385,6 +390,7 @@ export default function Page() {
     } catch (e: any) {
       setPayroll(null);
       setInvoices([]);
+      setTieOut(null);
       setEmployees([]);
       setFileName("");
       setError(e?.message ?? "Failed to parse payroll");
@@ -710,6 +716,49 @@ export default function Page() {
         </div>
       </header>
 
+      {/* ── Payroll tie-out — does the allocation add back up to the register? ── */}
+      {tieOut && invoices.length > 0 && (
+        <div className="card" style={{ padding: "14px 16px", borderColor: tieOut.ties ? "rgba(22,163,74,0.45)" : "rgba(220,38,38,0.6)", background: tieOut.ties ? "rgba(22,163,74,0.06)" : "rgba(220,38,38,0.07)" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+            <div style={{ fontWeight: 800, fontSize: 15, color: tieOut.ties ? "#15803d" : "#b91c1c" }}>
+              {tieOut.ties ? "✓ Allocation ties to the register" : "⚠ Allocation does not tie to the register"}
+            </div>
+            <div className="muted small">
+              Register <b style={{ color: "var(--fg)" }}>{money(tieOut.sourceTotal)}</b> · Allocated <b style={{ color: "var(--fg)" }}>{money(tieOut.allocatedTotal)}</b>
+              {tieOut.excludedTotal ? <> · Excluded <b style={{ color: "var(--fg)" }}>{money(tieOut.excludedTotal)}</b></> : null}
+            </div>
+          </div>
+          {!tieOut.ties && (
+            <div className="small" style={{ marginTop: 8, color: "#b91c1c", fontWeight: 700 }}>
+              {money(Math.abs(tieOut.unexplained))} of payroll isn’t allocated to any building and isn’t explained — fix the allocation before sending to Avid.
+            </div>
+          )}
+          {tieOut.unmatched.length > 0 && (
+            <div className="small" style={{ marginTop: 8 }}>
+              <b style={{ color: "#b91c1c" }}>Not matched to an allocation row ({tieOut.unmatched.length}) — their pay lands nowhere:</b>
+              <ul style={{ margin: "4px 0 0", paddingLeft: 18 }}>
+                {tieOut.unmatched.map((u) => <li key={u.name + (u.employeeId ?? "")}>{u.name}{u.employeeId ? ` (#${u.employeeId})` : ""} — <b>{money(u.amount)}</b> unallocated</li>)}
+              </ul>
+            </div>
+          )}
+          {tieOut.offAllocation.filter((o) => !o.accepted).length > 0 && (
+            <div className="small" style={{ marginTop: 8 }}>
+              <b style={{ color: "#b45309" }}>Allocation doesn’t sum to 100%:</b>
+              <ul style={{ margin: "4px 0 0", paddingLeft: 18 }}>
+                {tieOut.offAllocation.filter((o) => !o.accepted).map((o) => (
+                  <li key={o.name}>{o.name} allocates {(o.pctSum * 100).toFixed(1)}% — {o.shortfall >= 0 ? "under" : "over"} by <b>{money(Math.abs(o.shortfall))}</b></li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {tieOut.offAllocation.some((o) => o.accepted) && (
+            <div className="muted small" style={{ marginTop: 6 }}>
+              Accepted variance: {tieOut.offAllocation.filter((o) => o.accepted).map((o) => `${o.name} (${(o.pctSum * 100).toFixed(1)}%)`).join(", ")} — known Middletown gap, not tracked.
+            </div>
+          )}
+        </div>
+      )}
+
       {/* ── Review & Send to AvidXchange — prominent, up top (mirrors Allocated & CC) ── */}
       {invoices.length > 0 && (() => {
         const billing = invoices.filter((i: any) => (Number(i.total) || 0) > 0);
@@ -760,6 +809,7 @@ export default function Page() {
                 if (fileInputRef.current) fileInputRef.current.value = "";
                 setPayroll(null);
                 setInvoices([]);
+                setTieOut(null);
                 setEmployees([]);
                 setFileName("");
               }}
