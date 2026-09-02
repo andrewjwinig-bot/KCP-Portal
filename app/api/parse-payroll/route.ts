@@ -5,6 +5,7 @@ import path from "path";
 import { parseAllocationWorkbook } from "../../../lib/allocation/parseAllocationWorkbook";
 import { parsePayrollRegisterExcel } from "../../../lib/payroll/parsePayrollRegisterExcel";
 import { buildInvoices } from "../../../lib/invoicing/buildInvoices";
+import { reconcilePayroll } from "../../../lib/payroll/tieOut";
 import type { AllocationEmployee } from "../../../lib/types";
 
 /** Strip "Default - #N" suffix, normalize whitespace, convert to Title Case. */
@@ -53,6 +54,9 @@ export async function POST(req: Request) {
 
     // Build invoices: matching is done internally by buildInvoices
     const invoices = buildInvoices(payroll, allocation);
+
+    // Tie-out: does the allocation add back up to the register?
+    const tieOut = reconcilePayroll(payroll, allocation, invoices);
 
     // Also build a merged employee list for the UI (shows match status + amounts per employee)
     const payrollEmployees = payroll.employees;
@@ -117,6 +121,7 @@ export async function POST(req: Request) {
       employees: mergedEmployees,
       invoices,
       properties,
+      tieOut,
     });
   } catch (err: any) {
     return NextResponse.json({ error: err?.message ?? String(err) }, { status: 500 });

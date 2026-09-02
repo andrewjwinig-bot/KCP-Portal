@@ -20,15 +20,36 @@ function normSplits(splits: Record<string, number>): Record<string, number> {
 
 const GROUPS = ["JV III", "NI LLC", "SC"] as const;
 
-export function buildInvoices(payroll: PayrollParseResult, alloc: AllocationTable): PropertyInvoice[] {
-  // Map employee id/name to allocation row
-  const empAllocById = new Map<string, AllocationEmployee>();
-  const empAllocByName = new Map<string, AllocationEmployee>();
+/** Build a payroll-employee → allocation-row matcher (by id, then exact name,
+ *  then a "LAST, FIRST"-normalized partial match). Shared by buildInvoices and
+ *  the payroll tie-out so both use the EXACT same matching — an employee the
+ *  invoices skip is the same one the tie-out reports as unmatched. */
+export function makeAllocationMatcher(
+  alloc: AllocationTable,
+): (emp: { employeeId?: string | number; name?: string }) => AllocationEmployee | undefined {
+  const byId = new Map<string, AllocationEmployee>();
+  const byName = new Map<string, AllocationEmployee>();
   for (const e of alloc.employees) {
     const allocId = String(e.employeeId ?? e.id ?? "").trim();
-    if (allocId) empAllocById.set(allocId, e);
-    empAllocByName.set(String(e.name).toLowerCase().trim(), e);
+    if (allocId) byId.set(allocId, e);
+    byName.set(String(e.name).toLowerCase().trim(), e);
   }
+  return (emp) => {
+    const empId = String(emp.employeeId ?? "").trim();
+    return (
+      (empId ? byId.get(empId) : undefined) ??
+      byName.get(String(emp.name ?? "").toLowerCase().trim()) ??
+      alloc.employees.find((ae) => {
+        const pn = normalizePayrollName(String(emp.name ?? ""));
+        const an = String(ae.name ?? "").toLowerCase();
+        return pn && an && (pn.includes(an) || an.includes(pn));
+      })
+    );
+  };
+}
+
+export function buildInvoices(payroll: PayrollParseResult, alloc: AllocationTable): PropertyInvoice[] {
+  const matchAlloc = makeAllocationMatcher(alloc);
 
   // Accumulate per property
   type Acc = {
@@ -59,16 +80,7 @@ export function buildInvoices(payroll: PayrollParseResult, alloc: AllocationTabl
   }
 
   for (const emp of payroll.employees) {
-    const empId = String(emp.employeeId ?? "").trim();
-    const a =
-      (empId ? empAllocById.get(empId) : undefined) ??
-      empAllocByName.get(String(emp.name).toLowerCase().trim()) ??
-      // Partial name match fallback — normalizes "LAST, FIRST" → "first last" before comparing
-      alloc.employees.find((ae) => {
-        const pn = normalizePayrollName(String(emp.name ?? ""));
-        const an = String(ae.name ?? "").toLowerCase();
-        return pn && an && (pn.includes(an) || an.includes(pn));
-      });
+    const a = matchAlloc(emp);
     if (!a) continue;
 
     const top = a.top || {};
