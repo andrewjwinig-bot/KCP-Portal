@@ -30,7 +30,7 @@ const numTd: React.CSSProperties = { textAlign: "right", fontVariantNumeric: "ta
 const secLabel: React.CSSProperties = { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
 
 // ─── Multi-series inline-SVG line chart (matches the rent-roll trends idiom) ───
-type Series = { label: string; color: string; values: (number | null)[]; dashed?: boolean };
+type Series = { label: string; color: string; values: (number | null)[]; dashed?: boolean; role?: "actual" | "budget" };
 function LineChart({ series, fmt }: { series: Series[]; fmt: (v: number) => string }) {
   const W = 760, H = 280;
   const padL = 62, padR = 16, padT = 16, padB = 30;
@@ -49,8 +49,8 @@ function LineChart({ series, fmt }: { series: Series[]; fmt: (v: number) => stri
   const rows = hover == null ? [] : (series
     .map((s) => ({ label: s.label, color: s.color, v: s.values[hover] }))
     .filter((r) => r.v != null) as { label: string; color: string; v: number }[]);
-  const va = hover != null ? series.find((s) => s.label === "Actual")?.values[hover] ?? null : null;
-  const bu = hover != null ? series.find((s) => s.label === "Budget")?.values[hover] ?? null : null;
+  const va = hover != null ? series.find((s) => s.role === "actual")?.values[hover] ?? null : null;
+  const bu = hover != null ? series.find((s) => s.role === "budget")?.values[hover] ?? null : null;
   const variance = va != null && bu != null ? va - bu : null;
   const variancePctVal = variance != null && bu ? (variance / bu) * 100 : null;
 
@@ -161,9 +161,13 @@ export default function ManagementFeesPage() {
   const chartSeries = useMemo<Series[]>(() => {
     if (!data) return [];
     const { portfolio, completeThrough } = data;
+    // Compare against the LIK 2010 plan (the budget staff reference); fall back
+    // to the bottom-up building budgets only if the 2010 budget isn't loaded.
+    const usingLik = !!portfolio.likPlanMonthly;
+    const budgetMonthly = portfolio.likPlanMonthly ?? portfolio.budgetBottomUpMonthly;
     return [
-      { label: "Actual", color: "#0b4a7d", values: portfolio.actualMonthly.map((v, i) => (i < completeThrough ? v : null)) },
-      { label: "Budget", color: "#16a34a", values: portfolio.budgetBottomUpMonthly.map((v) => v), dashed: true },
+      { label: "Actual", role: "actual", color: "#0b4a7d", values: portfolio.actualMonthly.map((v, i) => (i < completeThrough ? v : null)) },
+      { label: usingLik ? "LIK Budget" : "Budget (bottom-up)", role: "budget", color: "#16a34a", values: budgetMonthly.map((v) => v), dashed: true },
     ];
   }, [data]);
 
