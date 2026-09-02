@@ -20,6 +20,10 @@ export type VacatedTenant = {
   occupantName: string;
   sqft: number;
   leaseTo: string | null;
+  /** `YYYY-MM` of the newest history snapshot the tenant still occupied this
+   *  unit — the actual last-occupied month, used to derive a vacate month when
+   *  `leaseTo` is missing/unparseable. */
+  lastSeen: string | null;
 };
 
 const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -55,6 +59,22 @@ export async function recentlyVacatedTenants(now = new Date()): Promise<VacatedT
     currentByRef.set(u.unitRef, { occupantName: u.occupantName, isVacant: u.isVacant });
   }
 
+  // Newest history snapshot (YYYY-MM) that still shows this tenant in the unit —
+  // the actual last-occupied month, used to derive a vacate month downstream
+  // when leaseTo is missing/unparseable.
+  const lastSeenFor = (unitRef: string, name: string): string | null => {
+    for (let i = withKey.length - 1; i >= 0; i--) {
+      for (const p of withKey[i].h.properties ?? []) {
+        for (const u of p.units ?? []) {
+          if (u.unitRef === unitRef && !u.isVacant && u.occupantName && norm(u.occupantName) === norm(name)) {
+            return withKey[i].key;
+          }
+        }
+      }
+    }
+    return null;
+  };
+
   const out: VacatedTenant[] = [];
   const seen = new Set<string>();
   for (const prop of prior.properties) {
@@ -72,6 +92,7 @@ export async function recentlyVacatedTenants(now = new Date()): Promise<VacatedT
         occupantName: unit.occupantName,
         sqft: unit.sqft,
         leaseTo: unit.leaseTo,
+        lastSeen: lastSeenFor(unit.unitRef, unit.occupantName),
       });
     }
   }
