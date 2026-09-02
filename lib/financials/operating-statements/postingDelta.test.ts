@@ -64,6 +64,32 @@ describe("applyPostingDeltas — full GL wins", () => {
     expect(r.monthly["6220-8501"][6]).toBe(800);
     expect(r.coverageEnd).toBe(7);
   });
+
+  it("applies a delta for a month the report RANGE covers but has no actuals (early YTD export)", () => {
+    // A Jan–Dec range GL exported early: coverageEnd=12, but actuals only thru Feb.
+    const base: StoredGl = { ...baseGl(2, m({ "6330-8501": { 1: 100, 2: 200 } })), coverageEnd: 12 };
+    const tx5: GlTransaction = { month: 5, date: "05/10/2026", description: "inv", ref: "V5", amount: 900 };
+    const d = delta(m({ "6330-8501": { 5: 900 } }), [5], { "6330-8501": [tx5] });
+    const r = applyPostingDeltas(base, [d], "1100", 2026)!;
+    expect(r.monthly["6330-8501"][4]).toBe(900); // May applied — not suppressed by coverageEnd=12
+    expect(r.maxPeriodInFile).toBe(5);
+  });
+
+  it("de-duplicates the same posted line appearing in two overlapping reports (no double-count)", () => {
+    const t = (amount: number, ref: string): GlTransaction => ({ month: 6, date: "06/10/2026", description: "inv", ref, amount });
+    const d1: PostingDelta = { ...delta(m({ "6330-8501": { 6: 500 } }), [6], { "6330-8501": [t(500, "V100")] }), id: "pd-a", importedAt: "2026-06-20T00:00:00Z" };
+    const d2: PostingDelta = { ...delta(m({ "6330-8501": { 6: 800 } }), [6], { "6330-8501": [t(500, "V100"), t(300, "V101")] }), id: "pd-b", importedAt: "2026-07-05T00:00:00Z" };
+    const r = applyPostingDeltas(null, [d1, d2], "1100", 2026)!;
+    // V100 (500) counted once + V101 (300) = 800 — NOT 500 + 800 = 1300.
+    expect(r.monthly["6330-8501"][5]).toBe(800);
+  });
+
+  it("sums distinct ref-less lines rather than dropping them", () => {
+    const t = (amount: number): GlTransaction => ({ month: 6, date: "06/10/2026", description: "misc", ref: "", amount });
+    const d: PostingDelta = delta(m({ "6330-8501": { 6: 300 } }), [6], { "6330-8501": [t(100), t(200)] });
+    const r = applyPostingDeltas(null, [d], "1100", 2026)!;
+    expect(r.monthly["6330-8501"][5]).toBe(300); // both kept (no ref → no dedup)
+  });
 });
 
 describe("applyPostingTransactions", () => {
