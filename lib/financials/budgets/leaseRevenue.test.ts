@@ -38,4 +38,26 @@ describe("projectLeaseRevenue", () => {
     resolveCurrentRentroll.mockResolvedValue(null);
     expect((await projectLeaseRevenue(["1100"], 2027)).hasData).toBe(false);
   });
+
+  it("applies a vacate assumption — pays through the vacate month, then $0", async () => {
+    resolveCurrentRentroll.mockResolvedValue(roll([u("1100-1", { baseRent: 1000, leaseTo: "6/30/2027" })]));
+    const p = await projectLeaseRevenue(["1100"], 2027, { "1100-1": { unitRef: "1100-1", kind: "vacate", startMonth: 6 } });
+    // Jan–Jun paid, Jul–Dec zero.
+    expect(p.rentalMonthly).toEqual([1000, 1000, 1000, 1000, 1000, 1000, 0, 0, 0, 0, 0, 0]);
+    expect(p.rentalTotal).toBe(6000);
+    expect(p.assumptionsApplied).toBe(1);
+  });
+
+  it("applies a renewal step-up from a start month", async () => {
+    resolveCurrentRentroll.mockResolvedValue(roll([u("1100-1", { baseRent: 1000, leaseTo: "6/30/2027" })]));
+    const p = await projectLeaseRevenue(["1100"], 2027, { "1100-1": { unitRef: "1100-1", kind: "renew", monthlyRent: 1200, startMonth: 7 } });
+    expect(p.rentalMonthly).toEqual([1000, 1000, 1000, 1000, 1000, 1000, 1200, 1200, 1200, 1200, 1200, 1200]);
+  });
+
+  it("applies a lease-up on a vacant space from a start month", async () => {
+    resolveCurrentRentroll.mockResolvedValue(roll([u("1100-9", { isVacant: true, occupantName: "", baseRent: 0, sqft: 900 })]));
+    const p = await projectLeaseRevenue(["1100"], 2027, { "1100-9": { unitRef: "1100-9", kind: "leaseup", monthlyRent: 3000, startMonth: 4 } });
+    expect(p.rentalMonthly).toEqual([0, 0, 0, 3000, 3000, 3000, 3000, 3000, 3000, 3000, 3000, 3000]);
+    expect(p.rentalTotal).toBe(27000);
+  });
 });

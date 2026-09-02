@@ -1,8 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { StatPill, Pill, TONE_BLUE, TONE_NEUTRAL, TONE_GREEN, TONE_TEAL, type PillTone } from "../../../components/Pill";
+import { StatPill, Pill, TONE_BLUE, TONE_NEUTRAL, TONE_GREEN, TONE_TEAL, TONE_AMBER, TONE_RED, type PillTone } from "../../../components/Pill";
 import type { BudgetDraft, DraftSource } from "../../../../lib/financials/budgets/draft";
+import type { LeaseAssumption } from "../../../../lib/financials/budgets/leasingAssumptions";
+
+const MONTHS_ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+type SavePayload = { unitRef: string; kind: string | null; monthlyRent?: number; startMonth?: number };
 
 const money0 = (n: number) => (n < 0 ? "-$" : "$") + Math.abs(Math.round(n)).toLocaleString("en-US");
 const secLabel: React.CSSProperties = { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
@@ -33,6 +37,8 @@ export default function BudgetDraftPage() {
       .then((r) => r.json()).then((j) => { setProps(j.properties ?? []); if (j.properties?.[0]) setKey(j.properties[0].key); }).catch(() => {});
   }, []);
 
+  const [refreshTick, setRefreshTick] = useState(0);
+
   useEffect(() => {
     if (!key) return;
     setLoading(true);
@@ -44,7 +50,17 @@ export default function BudgetDraftPage() {
         .finally(() => setLoading(false));
     }, 250);
     return () => clearTimeout(t);
-  }, [key, year, growth]);
+  }, [key, year, growth, refreshTick]);
+
+  // Save one unit's leasing assumption, then re-project the draft.
+  async function saveAssumption(payload: { unitRef: string; kind: string | null; monthlyRent?: number; startMonth?: number }) {
+    if (!draft?.leasing) return;
+    await fetch("/api/financials/budgets/leasing-assumptions", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ year: draft.budgetYear, propertyCode: draft.leasing.propertyCode, ...payload }),
+    }).catch(() => {});
+    setRefreshTick((n) => n + 1);
+  }
 
   const label = useMemo(() => props.find((p) => p.key === key), [props, key]);
 
@@ -98,36 +114,40 @@ export default function BudgetDraftPage() {
 
           {draft.leasing && (draft.leasing.expiring.length > 0 || draft.leasing.vacant.length > 0) && (
             <div className="card" style={{ borderColor: "rgba(217,119,6,0.45)", background: "rgba(217,119,6,0.05)" }}>
-              <div style={{ ...secLabel, color: "#b45309", marginBottom: 8 }}>Leasing assumptions needed — {draft.budgetYear}</div>
+              <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 8 }}>
+                <div style={{ ...secLabel, color: "#b45309" }}>Leasing assumptions — {draft.budgetYear}</div>
+                <span className="muted small">{draft.leasing.assumptionsApplied} applied · rental income updates as you set them</span>
+              </div>
               <p className="muted small" style={{ marginTop: 0 }}>
-                Rental income is projected holding current rents flat. These leases expire in {draft.budgetYear} (or are on holdover) and these spaces are vacant — set renew / vacate / lease-up assumptions here (the dedicated workspace lands in Phase 2).
+                Rental income holds current rents flat until you decide. For each expiring / holdover lease choose <b>renew</b> (hold or step to a new rent) or <b>vacate</b>; for vacant space set a <b>lease-up</b>. Revenue and NOI above re-project on save.
               </p>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 4 }}>Expiring / holdover ({draft.leasing.expiring.length})</div>
-                  {draft.leasing.expiring.length === 0 ? <div className="muted small">None.</div> : (
-                    <ul style={{ margin: 0, paddingLeft: 18 }}>
-                      {draft.leasing.expiring.slice(0, 20).map((e) => (
-                        <li key={e.unitRef} className="small" style={{ marginBottom: 2 }}>
-                          <code style={{ fontSize: 12 }}>{e.unitRef}</code> {e.tenant} — {money0(e.annualRent)}/yr, ends {e.leaseTo ?? "—"}
-                          {e.holdover && <Pill tone={TONE_NEUTRAL}>holdover</Pill>}
-                        </li>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 12 }}>
+                {draft.leasing.expiring.length > 0 && (
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 6 }}>Expiring / holdover ({draft.leasing.expiring.length})</div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                      {draft.leasing.expiring.map((e) => (
+                        <LeasingRow key={e.unitRef} mode="inplace"
+                          unitRef={e.unitRef} title={`${e.tenant}`} sub={`${money0(e.monthlyRent)}/mo · ends ${e.leaseTo ?? "—"}`}
+                          holdover={e.holdover} currentRent={e.monthlyRent} leaseTo={e.leaseTo}
+                          assumption={e.assumption} onSave={saveAssumption} />
                       ))}
-                    </ul>
-                  )}
-                </div>
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 4 }}>Vacant spaces ({draft.leasing.vacant.length})</div>
-                  {draft.leasing.vacant.length === 0 ? <div className="muted small">None.</div> : (
-                    <ul style={{ margin: 0, paddingLeft: 18 }}>
-                      {draft.leasing.vacant.slice(0, 20).map((v) => (
-                        <li key={v.unitRef} className="small" style={{ marginBottom: 2 }}>
-                          <code style={{ fontSize: 12 }}>{v.unitRef}</code> — {v.sqft.toLocaleString()} sf
-                        </li>
+                    </div>
+                  </div>
+                )}
+                {draft.leasing.vacant.length > 0 && (
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 6 }}>Vacant spaces ({draft.leasing.vacant.length})</div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                      {draft.leasing.vacant.map((v) => (
+                        <LeasingRow key={v.unitRef} mode="vacant"
+                          unitRef={v.unitRef} title={v.unitRef} sub={`${v.sqft.toLocaleString()} sf vacant`}
+                          currentRent={0} leaseTo={null}
+                          assumption={v.assumption} onSave={saveAssumption} />
                       ))}
-                    </ul>
-                  )}
-                </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -166,6 +186,64 @@ export default function BudgetDraftPage() {
   );
 }
 
+function LeasingRow({ mode, unitRef, title, sub, holdover, currentRent, leaseTo, assumption, onSave }: {
+  mode: "inplace" | "vacant";
+  unitRef: string; title: string; sub: string; holdover?: boolean;
+  currentRent: number; leaseTo: string | null;
+  assumption?: LeaseAssumption;
+  onSave: (p: SavePayload) => void;
+}) {
+  const expMonth = (() => { const m = (leaseTo ?? "").match(/^(\d{1,2})\//); return m ? Number(m[1]) : 1; })();
+  const [kind, setKind] = useState<string>(assumption?.kind ?? (mode === "vacant" ? "none" : "hold"));
+  const [rent, setRent] = useState<string>(assumption?.monthlyRent != null ? String(assumption.monthlyRent) : "");
+  const [month, setMonth] = useState<number>(assumption?.startMonth ?? (assumption?.kind === "vacate" ? expMonth : 1));
+
+  function push(k = kind, r = rent, mo = month) {
+    const apiKind = k === "hold" || k === "none" ? null : k;
+    onSave({ unitRef, kind: apiKind, monthlyRent: r !== "" ? Number(r) : undefined, startMonth: mo });
+  }
+
+  const showRent = kind === "renew" || kind === "leaseup";
+  const showMonth = kind === "renew" || kind === "vacate" || kind === "leaseup";
+  const tone = kind === "vacate" ? TONE_RED : kind === "leaseup" ? TONE_GREEN : kind === "renew" ? TONE_BLUE : TONE_NEUTRAL;
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", padding: "6px 10px", borderRadius: 8, background: "var(--card)", border: "1px solid var(--border)" }}>
+      <div style={{ minWidth: 190, flex: "1 1 190px" }}>
+        <div style={{ fontWeight: 600, fontSize: 13 }}><code style={{ fontSize: 12 }}>{unitRef}</code> {title} {holdover && <Pill tone={TONE_AMBER}>holdover</Pill>}</div>
+        <div className="muted small">{sub}</div>
+      </div>
+      <select value={kind} onChange={(e) => { setKind(e.target.value); push(e.target.value); }} style={rowSel}>
+        {mode === "inplace" ? (
+          <>
+            <option value="hold">Hold current</option>
+            <option value="renew">Renew</option>
+            <option value="vacate">Vacate</option>
+          </>
+        ) : (
+          <>
+            <option value="none">Leave vacant</option>
+            <option value="leaseup">Lease up</option>
+          </>
+        )}
+      </select>
+      {showRent && (
+        <input type="number" value={rent} placeholder={currentRent ? String(currentRent) : "rent/mo"} step={50}
+          onChange={(e) => { setRent(e.target.value); }} onBlur={() => push()}
+          style={{ ...rowSel, width: 110 }} title="New monthly rent" />
+      )}
+      {showMonth && (
+        <select value={month} onChange={(e) => { setMonth(Number(e.target.value)); push(kind, rent, Number(e.target.value)); }} style={rowSel}
+          title={kind === "vacate" ? "Paid through this month, then $0" : "Effective month"}>
+          {MONTHS_ABBR.map((mo, i) => <option key={mo} value={i + 1}>{kind === "vacate" ? `thru ${mo}` : `from ${mo}`}</option>)}
+        </select>
+      )}
+      <Pill tone={tone}>{kind === "hold" ? "flat" : kind === "none" ? "vacant" : kind}</Pill>
+    </div>
+  );
+}
+
+const rowSel: React.CSSProperties = { borderRadius: 6, padding: "5px 8px", fontSize: 12.5, fontWeight: 600, border: "1px solid rgba(11,74,125,0.3)", background: "var(--card)", color: "#0b4a7d", cursor: "pointer" };
 const selStyle: React.CSSProperties = { borderRadius: 8, padding: "8px 12px", fontSize: 13, fontWeight: 600, border: "1px solid rgba(11,74,125,0.3)", background: "var(--card)", color: "#0b4a7d", cursor: "pointer" };
 const tdL: React.CSSProperties = { padding: "8px 14px", borderBottom: "1px solid var(--border)", textAlign: "left", whiteSpace: "nowrap" };
 const tdR: React.CSSProperties = { padding: "8px 14px", borderBottom: "1px solid var(--border)", textAlign: "right", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" };

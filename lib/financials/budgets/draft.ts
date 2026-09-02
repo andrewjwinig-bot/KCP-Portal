@@ -13,6 +13,7 @@ import "server-only";
 import { loadReprojection } from "@/lib/financials/reprojections/load";
 import { EXPENSE_ROLES, type SectionRole } from "@/lib/financials/operating-statements/types";
 import { projectLeaseRevenue, type ExpiringLease, type VacantUnit } from "./leaseRevenue";
+import { getLeasingAssumptions } from "./leasingAssumptions";
 
 /** The revenue line the lease projection replaces — base/rental income. */
 const RENTAL_LINE_RE = /rental|rent income|base rent|minimum rent/i;
@@ -67,6 +68,9 @@ export type BudgetDraft = {
     projectedRentalTotal: number;
     expiring: ExpiringLease[];
     vacant: VacantUnit[];
+    assumptionsApplied: number;
+    /** The property code assumptions are saved under (for the save endpoint). */
+    propertyCode: string;
   };
   /** True when the current-year reprojection couldn't be loaded (no draft). */
   missingBasis?: boolean;
@@ -92,8 +96,10 @@ export async function buildBudgetDraft(key: string, budgetYear: number, growthPc
   const revMonths = new Array(12).fill(0);
   const expMonths = new Array(12).fill(0);
 
-  // Lease-based rental projection for this property (funds fall back to flat).
-  const lease = await projectLeaseRevenue([meta.propertyCode], budgetYear);
+  // Lease-based rental projection for this property (funds fall back to flat),
+  // shaped by any saved leasing assumptions (renew / vacate / lease-up).
+  const assumptions = await getLeasingAssumptions(budgetYear, [meta.propertyCode]);
+  const lease = await projectLeaseRevenue([meta.propertyCode], budgetYear, assumptions);
   let rentalReplaced = false;
 
   const sections: BudgetDraftSection[] = r.sections.map((sec) => {
@@ -151,6 +157,8 @@ export async function buildBudgetDraft(key: string, budgetYear: number, growthPc
       projectedRentalTotal: lease.rentalTotal,
       expiring: lease.expiring,
       vacant: lease.vacant,
+      assumptionsApplied: lease.assumptionsApplied,
+      propertyCode: meta.propertyCode,
     } : undefined,
   };
 }
