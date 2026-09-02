@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import JSZip from "jszip";
 import { parseGLExcel, GLParseResult, GLTransaction } from "../../lib/allocated-invoicer/glParser";
+import { reconcileAllocation } from "../../lib/allocated-invoicer/tieOut";
 import { buildAllocInvoicePdf, makeAllocInvoiceId, AllocLineItem } from "../../lib/allocated-invoicer/invoice";
 import { buildAllocExportXlsx, AllocExportRow } from "../../lib/allocated-invoicer/export";
 import { emailInvoicerReport, XLSX_CONTENT_TYPE } from "../../lib/invoicing/sendReport";
@@ -461,6 +462,10 @@ export default function AllocatedInvoicerPage() {
   // carried forward — so nothing bills to Avid yet (unless it's December).
   const allHeldThisMonth = !!glResult && !alreadyFinalized && grandBillingTotal === 0 && allocationRows.length > 0;
 
+  // Allocation tie-out: does the split add back up to the source GL? Flags a
+  // suffix whose property shares don't sum to 100% (expense that would leak).
+  const allocTie = useMemo(() => (glResult ? reconcileAllocation(glResult) : null), [glResult]);
+
   // ── Derived: filtered GL transactions ──────────────────────────────────────
 
   const filteredTx = useMemo((): GLTransaction[] => {
@@ -785,6 +790,29 @@ export default function AllocatedInvoicerPage() {
             ))}
           </div>
         </div>
+      )}
+
+      {/* ── Allocation tie-out — the split must add back up to the source GL ── */}
+      {allocTie && (
+        allocTie.ties ? (
+          <div className="card small" style={{ borderColor: "rgba(22,163,74,0.4)", background: "rgba(22,163,74,0.06)", color: "#15803d", fontWeight: 600 }}>
+            ✓ Allocation ties out — {toMoney(allocTie.sourceTotal)} of G&amp;A fully allocated across properties (every suffix’s shares sum to 100%).
+          </div>
+        ) : (
+          <div className="card" style={{ borderColor: "rgba(220,38,38,0.6)", background: "rgba(220,38,38,0.07)", padding: "14px 16px" }}>
+            <div style={{ fontWeight: 800, color: "#b91c1c" }}>⚠ Allocation does not tie to the source GL</div>
+            <div className="small" style={{ marginTop: 6, color: "#7f1d1d" }}>
+              {toMoney(Math.abs(allocTie.unallocated))} of G&amp;A {allocTie.unallocated >= 0 ? "never lands on any building" : "is over-allocated"} — a suffix’s property shares don’t sum to 100%. Fix the allocation percentages and re-import before sending.
+            </div>
+            <ul style={{ margin: "8px 0 0", paddingLeft: 18 }}>
+              {allocTie.bySuffix.filter((s) => !s.ok).map((s) => (
+                <li key={s.suffix} className="small">
+                  Suffix <code>{s.suffix}</code>: shares sum to {(s.pctSum * 100).toFixed(2)}% — {s.leak >= 0 ? "under" : "over"} by <b>{toMoney(Math.abs(s.leak))}</b> on {toMoney(s.sourceAmount)} of source
+                </li>
+              ))}
+            </ul>
+          </div>
+        )
       )}
 
       {/* ── Prepared & awaiting review — Review & Send to AvidXchange ── */}

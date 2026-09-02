@@ -16,6 +16,9 @@ export type PendingSummary = {
   byProperty: { code: string; name: string; amount: number }[];
   total: number;
   invoiceCount: number;
+  /** Allocation tie-out (allocated flow only): does the split add back up to the
+   *  source GL? Optional — other sources and older staged sends won't have it. */
+  tieOut?: import("./tieOut").AllocationTieOut;
 };
 
 export type PendingSend = {
