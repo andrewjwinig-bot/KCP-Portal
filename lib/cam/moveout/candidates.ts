@@ -51,10 +51,19 @@ export async function moveoutCandidates(now = new Date()): Promise<MoveoutCandid
     if (!reconKind) continue;
     const d = parseDate(v.leaseTo);
     const p = parseUS(v.leaseTo);
+    // A vacated tenant with a missing/unparseable lease-end would otherwise get
+    // year/month = null and be skipped by the watcher forever. But we know when
+    // they left: the last history snapshot they still occupied. Fall back to
+    // that so they still get reconciled.
+    let year = p?.y ?? null, month = p?.m ?? null;
+    if ((year == null || month == null) && v.lastSeen) {
+      const mm = v.lastSeen.match(/^(\d{4})-(\d{2})$/);
+      if (mm) { year = Number(mm[1]); month = Number(mm[2]); }
+    }
     byRef.set(keyOf(v.unitRef, v.occupantName), {
       propertyCode: v.propertyCode, propertyName: propName(v.propertyCode), unitRef: v.unitRef, name: v.occupantName,
       leaseTo: v.leaseTo, kind: "vacated", days: d ? Math.round((d.getTime() - now.getTime()) / DAY) : null,
-      year: p?.y ?? null, month: p?.m ?? null, reconKind,
+      year, month, reconKind,
     });
   }
 

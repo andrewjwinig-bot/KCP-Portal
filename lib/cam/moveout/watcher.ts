@@ -83,6 +83,9 @@ export type WatchResult = {
   newlyReady: number;
   notified: number;
   mailConfigured: boolean;
+  /** False when the deposit store failed to load this run — READY approvals are
+   *  deferred rather than sent with a fabricated "no deposit" settlement. */
+  depositsLoaded: boolean;
   details: { key: string; name: string; property: string; status: "waiting" | "ready"; balance: number; unpostedMonths: number; notified?: boolean }[];
 };
 
@@ -93,9 +96,19 @@ export async function runMoveoutWatch(opts?: { notify?: boolean; now?: Date }): 
   const notify = opts?.notify ?? true;
   const now = opts?.now ?? new Date();
   const cands = await moveoutCandidates(now);
-  const deposits = await listDeposits().catch(() => [] as SecurityDeposit[]);
+  // A transient failure loading deposits must NOT be treated as "no deposits
+  // exist" — that would email the approver a wrong "No security deposit on
+  // record" settlement and mark it notified for good. Track the failure and
+  // defer the READY approval to the next run instead.
+  let deposits: SecurityDeposit[] = [];
+  let depositsLoaded = true;
+  try {
+    deposits = await listDeposits();
+  } catch {
+    depositsLoaded = false;
+  }
 
-  const res: WatchResult = { checked: 0, waiting: 0, ready: 0, newlyReady: 0, notified: 0, mailConfigured: isMailConfigured(), details: [] };
+  const res: WatchResult = { checked: 0, waiting: 0, ready: 0, newlyReady: 0, notified: 0, mailConfigured: isMailConfigured(), depositsLoaded, details: [] };
 
   for (const cand of cands) {
     // Need a resolvable vacate month in an auto-sourceable year; otherwise this
@@ -145,16 +158,21 @@ export async function runMoveoutWatch(opts?: { notify?: boolean; now?: Date }): 
     // READY — the occupied window is fully posted; the true-up is final.
     res.ready++;
     const balance = moveoutBalance(c);
-    const dep = depositSettlement(pickDeposit(deposits, cand.unitRef, c.meta.name), balance);
-    const entry = await upsertCloseOut(key, {
+    const base = {
       property: cand.propertyCode, propertyName: c.meta.propertyName, unitRef: cand.unitRef, suite: c.result.suite,
       name: c.meta.name, kind: cand.reconKind, year, vacateMonth: cand.month, leaseTo: cand.leaseTo,
-      status: "ready", balance, occupiedMonths: c.result.occupiedMonths, unpostedMonths: 0, maxPosted: c.meta.maxPosted,
-      deposit: dep, readyAt: prior?.readyAt ?? now.toISOString(),
-    });
+      status: "ready" as const, balance, occupiedMonths: c.result.occupiedMonths, unpostedMonths: 0, maxPosted: c.meta.maxPosted,
+      readyAt: prior?.readyAt ?? now.toISOString(),
+    };
+    // Only settle + notify when deposits actually loaded. If the store failed
+    // this run, stage ready WITHOUT touching the deposit field (the upsert
+    // preserves any prior settlement) and leave notifiedAt unset so the next
+    // successful run sends the approval with the correct settlement.
+    const dep = depositsLoaded ? depositSettlement(pickDeposit(deposits, cand.unitRef, c.meta.name), balance) : null;
+    const entry = await upsertCloseOut(key, depositsLoaded ? { ...base, deposit: dep } : base);
 
     let didNotify = false;
-    if (!entry.notifiedAt) {
+    if (!entry.notifiedAt && depositsLoaded) {
       res.newlyReady++;
       if (notify) {
         const sent = await sendApproval(c, dep).catch(() => false);
