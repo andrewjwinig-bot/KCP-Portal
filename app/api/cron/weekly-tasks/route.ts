@@ -7,7 +7,7 @@ import { importsForWeek } from "@/lib/tracker/imports";
 import { getImportEvents, reminderSatisfied, type ImportEvent } from "@/lib/tracker/importEvents";
 import { outstandingGlUploads, type OutstandingGl } from "@/lib/financials/operating-statements/outstanding";
 import { recentlyVacatedTenants, type VacatedTenant } from "@/lib/leasing/recentlyVacated";
-import { collectNotPosted, type NotPostedItem } from "@/lib/financials/operating-statements/notPosted";
+import { collectNotPosted, significantNotPosted, type NotPostedItem } from "@/lib/financials/operating-statements/notPosted";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -190,7 +190,9 @@ async function runDigest(req: Request) {
   try { importEvents = await getImportEvents(); } catch { /* best-effort */ }
 
   let notPosted: NotPostedItem[] = [];
-  try { notPosted = (await collectNotPosted(now.getFullYear())).items; } catch { /* best-effort */ }
+  // Only the big, easy-to-miss postings (management fees, insurance, taxes,
+  // debt) — not routine monthly CAM lines briefly reading $0.
+  try { notPosted = significantNotPosted((await collectNotPosted(now.getFullYear())).items); } catch { /* best-effort */ }
 
   const { subject, textBody, open, doneCount, imports, behind } = buildDigest(now, tasks, completions, outstanding, vacated, importEvents, notPosted);
 

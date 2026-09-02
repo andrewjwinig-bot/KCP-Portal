@@ -33,6 +33,26 @@ function propertyName(key: string, fallback: string): string {
   return PROPERTY_DEFS.find((p) => p.id === key)?.name ?? fallback;
 }
 
+// Which "not posted" lines warrant an alert email. Routine monthly CAM lines
+// (utilities, landscaping, repairs, snow, etc.) post every month, so a line
+// briefly reading $0 is normal and emailing on it is just noise. We only alert
+// on the big, easy-to-miss, often non-monthly postings: management fees,
+// insurance, real estate taxes, and debt service. Extend the pattern to add
+// more categories. (The dashboard / Review page still surfaces every line — this
+// gate is only for the alert emails.)
+export const SIGNIFICANT_NOT_POSTED = /manage(?:ment)?\s*fee|insurance|real\s*estate\s*tax|\br\.?e\.?\s*tax|property\s*tax|\btaxes?\b|debt|mortgage/i;
+
+/** Is this a not-posted line worth an alert email (vs routine monthly CAM)? */
+export function isSignificantNotPosted(item: Pick<NotPostedItem, "type" | "line" | "section">): boolean {
+  if (item.type === "missing-debt") return true; // debt service is always significant
+  return SIGNIFICANT_NOT_POSTED.test(item.line) || SIGNIFICANT_NOT_POSTED.test(item.section);
+}
+
+/** Narrow a not-posted list to the alert-worthy (significant) lines. */
+export function significantNotPosted(items: NotPostedItem[]): NotPostedItem[] {
+  return items.filter(isSignificantNotPosted);
+}
+
 /**
  * The lightweight "what isn't posted yet" scan across every property's LATEST
  * imported month — a budgeted line reading $0 all year, or debt the Debt Tracker
