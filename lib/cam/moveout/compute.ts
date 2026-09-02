@@ -153,7 +153,7 @@ export async function computeMoveoutStatement(
     const base = tenants[0];
     if (!base) return { ok: false, status: 404, error: `${unitRef} has no CAM config — it isn't reconciled.`, meta: meta0 };
 
-    const summedEsc = await sumRentRollEscrow(unitRef, year, startMonth, effectiveThrough);
+    const summedEsc = await sumRentRollEscrow(unitRef, year, startMonth, effectiveThrough, { cam: opexMonth, ret: reTaxMonth });
     const result = reconcileInterimRetailTenant({
       pool,
       tenant: { ...base, camEscrow: summedEsc?.camEscrow ?? opexMonth * occupiedMonths, retEscrow: summedEsc?.retEscrow ?? reTaxMonth * occupiedMonths, insEscrow: 0, rcd: leaseFrom },
@@ -226,7 +226,7 @@ export async function computeMoveoutStatement(
     : { ...fixture.pool, opexLines: fixture.pool.opexLines.filter((l) => !l.glAccount.startsWith("6990")) };
 
   const cfg = config[unitRef];
-  const summedEsc = await sumRentRollEscrow(unitRef, year, startMonth, effectiveThrough);
+  const summedEsc = await sumRentRollEscrow(unitRef, year, startMonth, effectiveThrough, { cam: opexMonth, ret: reTaxMonth });
   const result = reconcileInterimTenant({
     pool,
     tenant: {

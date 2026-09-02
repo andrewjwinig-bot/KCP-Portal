@@ -146,7 +146,7 @@ async function retailManualResult(
   // Billed escrow: an explicit override wins; else SUM the actual monthly escrow
   // from each occupied month's rent roll; else fall back to monthly × months.
   const summed = (m.camEscrowOverride == null || m.retEscrowOverride == null)
-    ? await sumRentRollEscrow(unitRef, year, startMonth, effectiveThrough)
+    ? await sumRentRollEscrow(unitRef, year, startMonth, effectiveThrough, { cam: m.opexMonth, ret: m.reTaxMonth })
     : null;
   const camEscrow = m.camEscrowOverride ?? summed?.camEscrow ?? m.opexMonth * occupiedMonths;
   const retEscrow = m.retEscrowOverride ?? summed?.retEscrow ?? m.reTaxMonth * occupiedMonths;
@@ -236,7 +236,7 @@ async function officeManualResult(
   // Billed escrow: override wins; else sum the actual monthly rent-roll escrow;
   // else fall back to monthly × months.
   const summedEsc = (m.camEscrowOverride == null || m.retEscrowOverride == null)
-    ? await sumRentRollEscrow(unitRef, year, startMonth, effectiveThrough)
+    ? await sumRentRollEscrow(unitRef, year, startMonth, effectiveThrough, { cam: m.opexMonth, ret: m.reTaxMonth })
     : null;
   const opexEscrow = m.camEscrowOverride ?? summedEsc?.camEscrow ?? m.opexMonth * occupiedMonths;
   const retEscrow = m.retEscrowOverride ?? summedEsc?.retEscrow ?? m.reTaxMonth * occupiedMonths;
