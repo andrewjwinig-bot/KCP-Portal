@@ -73,6 +73,18 @@ export interface RentRollProperty {
   units: RentRollUnit[];
 }
 
+/** A rent-roll row with a valid unit-ref shape but a property code the portal
+ *  doesn't know (not in PROPERTY_DEFS). Captured instead of silently dropped so
+ *  the import can call out "these units were skipped." */
+export interface RentRollUnknownUnit {
+  code: string;
+  unitRef: string;
+  occupantName: string;
+  sqft: number;
+  /** The report section the row sat under, for context. */
+  section: string;
+}
+
 export interface RentRollData {
   id: string;
   uploadedAt: string;
@@ -83,6 +95,9 @@ export interface RentRollData {
   reportFrom: string;
   reportTo: string;
   properties: RentRollProperty[];
+  /** Rows skipped because their property code isn't recognized. Optional —
+   *  pre-existing uploads predate this field. */
+  unknownUnits?: RentRollUnknownUnit[];
 }
 
 const UNIT_REF_RE = /^[A-Z0-9]{4}-/i;
@@ -167,6 +182,7 @@ export function parseRentRollExcel(
 
   // ── Parse property sections and unit rows ──────────────────────────────────
   const propertiesMap = new Map<string, RentRollProperty>();
+  const unknownUnits: RentRollUnknownUnit[] = [];
   let currentSectionName = "";
 
   for (let r = 0; r < rows.length; r++) {
@@ -189,8 +205,20 @@ export function parseRentRollExcel(
     // Property code = leading digits before first dash
     const code = unitRefCell.split("-")[0].toUpperCase();
 
-    // Skip properties not in our known list
-    if (!KNOWN_CODES.has(code)) continue;
+    // Capture — don't silently drop — rows whose property code we don't know.
+    // A valid-looking unit ref under an unrecognized code means a whole
+    // building's tenants would otherwise vanish from the roll without a trace.
+    if (!KNOWN_CODES.has(code)) {
+      const rawOcc = norm(row[COL_OCCUPANT]);
+      unknownUnits.push({
+        code,
+        unitRef: unitRefCell.replace(/-CU$/i, ""),
+        occupantName: rawOcc ? stripStoreNumber(rawOcc) : "",
+        sqft: toNumber(row[COL_SQFT]),
+        section: currentSectionName || "",
+      });
+      continue;
+    }
 
     // Create property entry if needed
     if (!propertiesMap.has(code)) {
@@ -272,5 +300,5 @@ export function parseRentRollExcel(
     a.propertyCode.localeCompare(b.propertyCode)
   );
 
-  return { reportFrom, reportTo, properties };
+  return { reportFrom, reportTo, properties, unknownUnits };
 }
