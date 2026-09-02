@@ -93,7 +93,6 @@ export default function ManagementFeesPage() {
   const [year, setYear] = useState(now.getFullYear());
   const [data, setData] = useState<MgmtFeeData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [mode, setMode] = useState<"cumulative" | "monthly">("cumulative");
   const [openCode, setOpenCode] = useState<string | null>(null);
 
   useEffect(() => {
@@ -102,24 +101,14 @@ export default function ManagementFeesPage() {
       .then((r) => r.json()).then((j) => setData(j)).catch(() => setData(null)).finally(() => setLoading(false));
   }, [year]);
 
-  const cumulative = (arr: number[]): number[] => { let s = 0; return arr.map((v) => (s += v)); };
   const chartSeries = useMemo<Series[]>(() => {
     if (!data) return [];
     const { portfolio, completeThrough } = data;
-    const clip = (arr: number[], through: number): (number | null)[] => arr.map((v, i) => (i < through ? v : null));
-    const actualRaw = portfolio.actualMonthly;
-    const budRaw = portfolio.budgetBottomUpMonthly;
-    const likRaw = portfolio.likPlanMonthly;
-    const A = mode === "cumulative" ? cumulative(actualRaw) : actualRaw;
-    const B = mode === "cumulative" ? cumulative(budRaw) : budRaw;
-    const L = likRaw ? (mode === "cumulative" ? cumulative(likRaw) : likRaw) : null;
-    const series: Series[] = [
-      { label: "Actual", color: "#0b4a7d", values: clip(A, completeThrough) },
-      { label: "Budget (bottom-up)", color: "#16a34a", values: B.map((v) => v), dashed: true },
+    return [
+      { label: "Actual", color: "#0b4a7d", values: portfolio.actualMonthly.map((v, i) => (i < completeThrough ? v : null)) },
+      { label: "Budget", color: "#16a34a", values: portfolio.budgetBottomUpMonthly.map((v) => v), dashed: true },
     ];
-    if (L) series.push({ label: "LIK 2010 Plan", color: "#b45309", values: L.map((v) => v), dashed: true });
-    return series;
-  }, [data, mode]);
+  }, [data]);
 
   // The reporting window = the furthest month any building has posted. Within it,
   // a building with no management fee is suspicious (the GL posted with no 6610,
@@ -174,18 +163,7 @@ export default function ManagementFeesPage() {
 
           {/* Chart */}
           <div className="card">
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 6 }}>
-              <div style={secLabel}>Actual vs Budget</div>
-              <div style={{ display: "inline-flex", border: "1px solid var(--border)", borderRadius: 8, overflow: "hidden" }}>
-                {(["cumulative", "monthly"] as const).map((m) => (
-                  <button key={m} onClick={() => setMode(m)}
-                    style={{ fontSize: 12, fontWeight: 700, padding: "5px 12px", border: "none", cursor: "pointer",
-                      background: mode === m ? "#0b4a7d" : "transparent", color: mode === m ? "#fff" : "var(--muted)" }}>
-                    {m === "cumulative" ? "Cumulative" : "Monthly"}
-                  </button>
-                ))}
-              </div>
-            </div>
+            <div style={{ ...secLabel, marginBottom: 6 }}>Actual vs Budget — by month</div>
             <LineChart series={chartSeries} fmt={(v) => "$" + Math.round(v / 1000) + "k"} />
             <ChartLegend series={chartSeries} />
           </div>
