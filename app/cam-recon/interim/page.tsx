@@ -616,6 +616,32 @@ export default function InterimReconPage() {
   const depositApplies = deposit != null && (deposit.status === "held" || deposit.status === "partial");
   const netToTenant = depositApplies ? deposit!.amount - totalBalance : null; // >0 refund, <0 still due
   const depositStatusLabel: Record<DepositStatus, string> = { held: "On file", refunded: "Already refunded", forfeited: "Applied / forfeited", partial: "Partially refunded" };
+
+  // ── Approve & finalize (the one-click auto-flow) ──────────────────────────
+  // Available for a real roster tenant (not a manual worksheet) whose occupied
+  // window is fully posted to the GL. One click posts the true-up: it generates
+  // the Skyline GL adjustment + final statement and emails the post-approval
+  // package to the office. Matches the daily watcher's approval email link.
+  const unpostedMonths = retail?.unpostedMonths ?? r?.unpostedMonths ?? 0;
+  const canFinalize = !!meta && !meta.manual && !!(r || retail) && unpostedMonths === 0;
+  const [finalizing, setFinalizing] = useState(false);
+  const [finalizeMsg, setFinalizeMsg] = useState<string | null>(null);
+  useEffect(() => { setFinalizing(false); setFinalizeMsg(null); }, [meta?.unitRef, meta?.year, meta?.asOfMonth]);
+  const approveFinalize = useCallback(async () => {
+    if (!meta) return;
+    setFinalizing(true); setFinalizeMsg(null);
+    try {
+      const res = await fetch("/api/cam-recon/moveout/finalize", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ property: meta.property, unitRef: meta.unitRef, year: meta.year, asOf: meta.asOfMonth }),
+      });
+      const j = await res.json();
+      if (!res.ok || j.error) setFinalizeMsg(j.error ?? "Could not finalize.");
+      else setFinalizeMsg(j.emailed ? "✓ Finalized — Skyline GL adjustment + final statement emailed to the office." : "✓ Finalized (email not configured).");
+    } catch (e) { setFinalizeMsg(String(e)); } finally { setFinalizing(false); }
+  }, [meta]);
+  const finalizeDone = (finalizeMsg ?? "").startsWith("✓");
+
   const closeOutCard = (r || retail) && meta && (
     <div className="card">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, flexWrap: "wrap", marginBottom: 10 }}>
@@ -623,8 +649,18 @@ export default function InterimReconPage() {
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <Link href={`/deposits?unitRef=${encodeURIComponent(meta.unitRef)}`} style={{ color: "#0b4a7d", fontWeight: 600, fontSize: 13 }}>Deposits →</Link>
           {letterButton}
+          {canFinalize && (
+            <button className="btn primary" onClick={approveFinalize} disabled={finalizing || finalizeDone}
+              title="Post the true-up: generates the Skyline GL adjustment + final statement and emails the office"
+              style={{ fontSize: 13, padding: "7px 14px", fontWeight: 700 }}>
+              {finalizing ? "Finalizing…" : finalizeDone ? "✓ Finalized" : "Approve & finalize"}
+            </button>
+          )}
         </div>
       </div>
+      {finalizeMsg && (
+        <div style={{ fontSize: 13, marginBottom: 10, fontWeight: 600, color: finalizeDone ? "#15803d" : "#b91c1c" }}>{finalizeMsg}</div>
+      )}
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         <div style={{ display: "flex", justifyContent: "space-between", gap: 12, fontSize: 14 }}>
           <span>1 · Final {retail ? "CAM/INS/RET" : "CAM/RET"} reconciliation {owedByTenant ? "due from tenant" : "credit to tenant"}</span>

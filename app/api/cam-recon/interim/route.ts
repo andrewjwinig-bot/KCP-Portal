@@ -9,18 +9,14 @@ import { getJSON } from "@/lib/storage";
 import type { RentRollData } from "@/lib/rentroll/parseRentRollExcel";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 import { RETAIL_RECON_FIXTURES } from "@/lib/cam/retail/registry";
-import { assembleRetail } from "@/lib/cam/retail/assemble";
 import { reconcileInterimRetailTenant } from "@/lib/cam/retail/interim";
-import { getCamConfig } from "@/lib/cam/configStorage";
-import { seedCamConfig } from "@/lib/cam/retailConfigSeed";
-import { emptyCamConfig } from "@/lib/cam/config";
-import { getEscrowOverrides } from "@/lib/cam/retail/escrowStore";
 import { sumRentRollEscrow } from "@/lib/cam/escrowFromRolls";
 import { recentlyVacatedTenants } from "@/lib/leasing/recentlyVacated";
 import { getPoolOverride } from "@/lib/cam/retail/poolStore";
 import { getFinalOverrides, RET_FINAL_KEY } from "@/lib/cam/retail/finalStore";
 import type { RetailTenantInput } from "@/lib/cam/retail/types";
 import type { OfficeTenantInput, OfficeExpensePool } from "@/lib/cam/office/types";
+import { computeMoveoutStatement, moveoutOk } from "@/lib/cam/moveout/compute";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -431,79 +427,11 @@ export async function GET(req: NextRequest) {
       }).sort((a, b) => a.unitRef.localeCompare(b.unitRef));
       return NextResponse.json({ tenants, kind: "retail" });
     }
-    const rosterU = roster.find((u) => u.unitRef === unitRef);
-    if (!rosterU) return NextResponse.json({ error: `${unitRef} isn't on the ${property} roster.` }, { status: 404 });
-    const live = liveByRef.get(unitRef);
-    const leaseFrom = live?.leaseFrom ?? rosterU.rcd ?? null;
-    const leaseTo = live?.leaseTo ?? null;
-    const name = live?.occupantName ?? rosterU.name;
-    const opexMonth = live?.opexMonth ?? 0;
-    const reTaxMonth = live?.reTaxMonth ?? 0;
-
-    const start = parseUS(leaseFrom);
-    const startMonth = start && start.y === year ? start.m : 1;
-    const exp = parseUS(leaseTo);
-    const expMonth = exp && exp.y === year ? exp.m : 12;
-    const asOfMonth = Math.min(12, Math.max(1, Number(searchParams.get("asOf")) || expMonth));
-
-    const gl = await assembledGl(property, year);
-    const maxPosted = gl?.maxPeriodInFile ?? 0;
-    const effectiveThrough = Math.min(asOfMonth, maxPosted);
-    const occupiedMonths = Math.max(0, effectiveThrough - startMonth + 1);
-    const unpostedMonths = Math.max(0, asOfMonth - maxPosted);
-    if (!gl || occupiedMonths <= 0) {
-      return NextResponse.json({
-        error: gl ? `No posted GL for ${name} through its occupied period (posted through month ${maxPosted}).` : `No GL uploaded for ${property} ${year}.`,
-        meta: { property, propertyName: propName(property), unitRef, name, year, asOfMonth, maxPosted, startMonth },
-      }, { status: 422 });
-    }
-    const ytdCamByAccount: Record<string, number> = {};
-    for (const [account, nets] of Object.entries(gl.monthly)) {
-      let s = 0;
-      for (let mo = startMonth; mo <= effectiveThrough; mo++) s += nets[mo - 1] || 0;
-      ytdCamByAccount[account] = s;
-    }
-
-    // Pool with the Final Expense Summary + insurance overrides (same as the
-    // year-end retail recon), then assemble the tenant input from the config.
-    const finals = await getFinalOverrides(property, year);
-    const poolOverride = await getPoolOverride(property, year);
-    const pool = {
-      ...retailFix.pool,
-      camLines: retailFix.pool.camLines.map((l) => (finals[l.label] != null ? { ...l, amount: finals[l.label] } : l)),
-      insAmount: poolOverride.insAmount ?? retailFix.pool.insAmount,
-      retAmount: finals[RET_FINAL_KEY] ?? retailFix.pool.retAmount,
-    };
-    const escrowOverrides = await getEscrowOverrides(property, year);
-    const rosterWithEscrow = roster.map((u) => ({ ...u, ...(escrowOverrides[u.unitRef] ?? {}) }));
-    const configFor2 = async (ref: string) => (await getCamConfig(ref)) ?? seedCamConfig(ref) ?? emptyCamConfig(ref);
-    const cfg = await configFor2(unitRef);
-    const tenants = assembleRetail(pool, rosterWithEscrow, retailFix.gla, () => cfg).filter((t) => t.unitRef === unitRef);
-    const base = tenants[0];
-    if (!base) return NextResponse.json({ error: `${unitRef} has no CAM config — it isn't reconciled.` }, { status: 404 });
-
-    // Escrow for the window: SUM the actual monthly rent-roll CAM/RET escrow
-    // across the occupied months (falls back to monthly × months). INS escrow
-    // isn't on the rent roll, so 0 (adjust if billed separately).
-    const summedEsc = await sumRentRollEscrow(unitRef, year, startMonth, effectiveThrough);
-    const result = reconcileInterimRetailTenant({
-      pool,
-      tenant: { ...base, camEscrow: summedEsc?.camEscrow ?? opexMonth * occupiedMonths, retEscrow: summedEsc?.retEscrow ?? reTaxMonth * occupiedMonths, insEscrow: 0, rcd: leaseFrom },
-      ytdCamByAccount,
-      occupiedMonths,
-      asOfMonth,
-      unpostedMonths,
-    });
-    return NextResponse.json({
-      result, kind: "retail",
-      meta: {
-        property, propertyName: propName(property), unitRef, name, year,
-        asOfMonth, effectiveThrough, occupiedMonths, unpostedMonths, maxPosted,
-        startMonth, leaseFrom, leaseTo, sqft: base.sqft, opexMonth, reTaxMonth,
-        escrowSource: summedEsc ? "monthly-rolls" : "estimate", escrowMonthsFound: summedEsc?.monthsFound ?? 0,
-        proRataPct: base.camPrs, glAsOf: gl.uploadedAt ?? null,
-      },
-    });
+    // Statement compute is shared with the move-out watcher + finalize endpoint
+    // (lib/cam/moveout/compute) so all three produce the identical numbers.
+    const c = await computeMoveoutStatement(property, year, unitRef, asOfParam || undefined);
+    if (!moveoutOk(c)) return NextResponse.json({ error: c.error, meta: c.meta }, { status: c.status });
+    return NextResponse.json({ result: c.result, kind: c.kind, meta: c.meta });
   }
 
   // ── Office interim ────────────────────────────────────────────────────────
@@ -544,84 +472,9 @@ export async function GET(req: NextRequest) {
 
   if (!config[unitRef]) return NextResponse.json({ error: `${unitRef} has no lease config — it isn't reconciled.` }, { status: 404 });
 
-  // Tenant facts: prefer the live rent roll; fall back to the seed roster.
-  const cfgYear = Object.keys(fixture.byYear).map(Number).sort((a, b) => b - a)[0];
-  const rosterU = (fixture.byYear[cfgYear]?.roster ?? []).find((u) => u.unitRef === unitRef);
-  const live = liveByRef.get(unitRef);
-  const leaseFrom = live?.leaseFrom ?? rosterU?.leaseFrom ?? null;
-  const leaseTo = live?.leaseTo ?? rosterU?.leaseTo ?? null;
-  const sqft = live?.sqft ?? rosterU?.sqft ?? 0;
-  const name = live?.occupantName ?? rosterU?.occupantName ?? unitRef;
-  const opexMonth = live?.opexMonth ?? rosterU?.opexMonth ?? 0;
-  const reTaxMonth = live?.reTaxMonth ?? rosterU?.reTaxMonth ?? 0;
-
-  // Occupied window in the recon year: lease start (if mid-year) → the as-of
-  // month, default = the stated expiration month when it falls in this year.
-  const start = parseUS(leaseFrom);
-  const startMonth = start && start.y === year ? start.m : 1;
-  const exp = parseUS(leaseTo);
-  const expMonth = exp && exp.y === year ? exp.m : 12;
-  const asOfMonth = Math.min(12, Math.max(1, asOfParam || expMonth));
-
-  // GL actuals: sum the occupied window through the latest POSTED month; flag
-  // any occupied months not yet posted (GL posts ~a month in arrears).
-  const gl = await assembledGl(property, year);
-  const maxPosted = gl?.maxPeriodInFile ?? 0;
-  const effectiveThrough = Math.min(asOfMonth, maxPosted);
-  const occupiedMonths = Math.max(0, effectiveThrough - startMonth + 1);
-  const unpostedMonths = Math.max(0, asOfMonth - maxPosted);
-
-  if (!gl || occupiedMonths <= 0) {
-    return NextResponse.json({
-      error: gl
-        ? `No posted GL for ${name} through its occupied period (GL posted through month ${maxPosted}).`
-        : `No GL uploaded for ${property} ${year}.`,
-      meta: { property, propertyName: propName(property), unitRef, name, year, asOfMonth, maxPosted, startMonth },
-    }, { status: 422 });
-  }
-
-  // Windowed YTD over the occupied, posted months (startMonth..effectiveThrough).
-  const ytdRawByAccount: Record<string, number> = {};
-  for (const [account, nets] of Object.entries(gl.monthly)) {
-    let s = 0;
-    for (let mo = startMonth; mo <= effectiveThrough; mo++) s += nets[mo - 1] || 0;
-    ytdRawByAccount[account] = s;
-  }
-
-  // JV III keeps the Condo (6990) line; other buildings drop it.
-  const pool = JV_III.has(property)
-    ? fixture.pool
-    : { ...fixture.pool, opexLines: fixture.pool.opexLines.filter((l) => !l.glAccount.startsWith("6990")) };
-
-  const cfg = config[unitRef];
-  // Billed escrow: SUM the actual monthly rent-roll escrow across the occupied
-  // months (falls back to monthly × months).
-  const summedEsc = await sumRentRollEscrow(unitRef, year, startMonth, effectiveThrough);
-  const result = reconcileInterimTenant({
-    pool,
-    tenant: {
-      unitRef, skylineUnit: `${unitRef}-CU`, suite: unitRef.split("-").slice(1).join("-"), name,
-      baseYear: cfg.baseYear, noBaseStop: cfg.noBaseStop, grossUp: cfg.grossUp, proRataPct: cfg.proRataPct,
-      sqft, occPct: 1, recoveryPct: 1,
-      opexEscrow: summedEsc?.camEscrow ?? opexMonth * occupiedMonths, retEscrow: summedEsc?.retEscrow ?? reTaxMonth * occupiedMonths,
-      camMonthly: opexMonth, retMonthly: reTaxMonth, rcd: leaseFrom,
-    },
-    reconYear: year,
-    ytdRawByAccount,
-    occupiedMonths,
-    asOfMonth,
-    unpostedMonths,
-  });
-
-  return NextResponse.json({
-    result, kind: "office",
-    meta: {
-      property, propertyName: propName(property), unitRef, name, year,
-      asOfMonth, effectiveThrough, occupiedMonths, unpostedMonths, maxPosted,
-      startMonth, leaseFrom, leaseTo, sqft, opexMonth, reTaxMonth,
-      escrowSource: summedEsc ? "monthly-rolls" : "estimate", escrowMonthsFound: summedEsc?.monthsFound ?? 0,
-      baseYear: cfg.baseYear, proRataPct: cfg.proRataPct, grossUp: cfg.grossUp,
-      glAsOf: gl.uploadedAt ?? null,
-    },
-  });
+  // Statement compute is shared with the move-out watcher + finalize endpoint
+  // (lib/cam/moveout/compute) so all three produce the identical numbers.
+  const c = await computeMoveoutStatement(property, year, unitRef, asOfParam || undefined);
+  if (!moveoutOk(c)) return NextResponse.json({ error: c.error, meta: c.meta }, { status: c.status });
+  return NextResponse.json({ result: c.result, kind: c.kind, meta: c.meta });
 }
