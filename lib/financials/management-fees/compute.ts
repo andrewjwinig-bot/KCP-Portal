@@ -81,21 +81,40 @@ function budgetMonthsForMask(lines: { glAccount: string; months: number[] }[], m
   return out.map((n) => Math.round(n));
 }
 
-/** The LIK Management (2010) plan for the year: its budget's Total Revenues
- *  rollup = the fee income the management company budgets to earn. Falls back to
- *  the nearest budget year. */
+// The LIK Management (2010) entity records the fees it EARNS as revenue on
+// account 4510 — the intercompany mirror of every property's 6610 fee expense.
+const LIK_MGMT_FEE_REVENUE_MASK = "4510";
+
+/** The LIK Management (2010) plan for the year: its budgeted management-fee
+ *  REVENUE (account 4510) — the fee income the management company budgets to
+ *  earn, which should tie to the sum of every property's 6610 fee expense. (Not
+ *  Total Revenues, which also folds in interest income + rent reimbursement and
+ *  is NOT a like-for-like comparison to the fee bottom-up.) Falls back to the
+ *  nearest budget year. */
 async function likManagementPlan(year: number, workbooks: Awaited<ReturnType<typeof listBudgets>>): Promise<{ months: number[]; total: number; budgetYear: number; fallback: boolean } | null> {
-  const byYear = new Map<number, { name: string; total: number; months: number[] }[]>();
+  const byYear = new Map<number, Awaited<ReturnType<typeof listBudgets>>[number]["properties"][number]>();
   for (const wb of workbooks) {
     const prop = wb.properties.find((p) => String(p.propertyCode) === "2010");
-    if (prop) byYear.set(wb.year, prop.rollups);
+    if (prop) byYear.set(wb.year, prop);
   }
   if (!byYear.size) return null;
   const yr = byYear.has(year) ? year : [...byYear.keys()].sort((a, b) => b - a)[0];
-  const rollups = byYear.get(yr)!;
-  const rev = rollups.find((r) => /total revenue/i.test(r.name));
-  if (!rev || !Array.isArray(rev.months)) return null;
-  return { months: rev.months.map((n) => Math.round(n)), total: Math.round(rev.total), budgetYear: yr, fallback: yr !== year };
+  const prop = byYear.get(yr)!;
+  // Sum the 2010 entity's 4510 fee-revenue line(s), month by month. Iterate only
+  // top-level lines (never their subLines) so a parent + children can't double-
+  // count; the 2010 fee line is a single "Total Management Fees" row.
+  const months = new Array(12).fill(0);
+  let found = false;
+  for (const sec of prop.sections) {
+    for (const l of sec.lines) {
+      if (!l.glAccount || !accountMatchesMask(LIK_MGMT_FEE_REVENUE_MASK, l.glAccount)) continue;
+      for (let m = 0; m < 12; m++) months[m] += l.months[m] ?? 0;
+      found = true;
+    }
+  }
+  if (!found) return null;
+  const total = months.reduce((s, n) => s + (n || 0), 0);
+  return { months: months.map((n) => Math.round(n)), total: Math.round(total), budgetYear: yr, fallback: yr !== year };
 }
 
 /** Full management-fee dataset for a year: per-building actuals + budgets and the

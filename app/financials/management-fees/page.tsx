@@ -156,7 +156,7 @@ export default function ManagementFeesPage() {
     const budgetMonthly = portfolio.likPlanMonthly ?? portfolio.budgetBottomUpMonthly;
     return [
       { label: "Actual", role: "actual", color: "#0b4a7d", values: portfolio.actualMonthly.map((v, i) => (i < completeThrough ? v : null)) },
-      { label: usingLik ? "LIK Budget" : "Budget (bottom-up)", role: "budget", color: "#16a34a", values: budgetMonthly.map((v) => v), dashed: true },
+      { label: usingLik ? "LIK Fee Plan" : "Budget (bottom-up)", role: "budget", color: "#16a34a", values: budgetMonthly.map((v) => v), dashed: true },
     ];
   }, [data]);
 
@@ -185,6 +185,18 @@ export default function ManagementFeesPage() {
     for (const b of data.buildings) for (let m = 0; m < 12; m++) if (isNegative(b, m)) n++;
     return n;
   }, [data, isNegative]);
+
+  // 2010 tie-out: every property's 6610 fee expense is the intercompany mirror
+  // of the LIK 2010 entity's 4510 fee revenue, so the bottom-up sum SHOULD equal
+  // the LIK fee plan. A non-zero gap means the 2010 budget wasn't built as a live
+  // roll-up of the property budgets.
+  const tieOut = useMemo(() => {
+    if (!data || data.portfolio.likPlanAnnual == null) return null;
+    const bottomUp = data.portfolio.annualBudgetBottomUp;
+    const lik = data.portfolio.likPlanAnnual;
+    const delta = bottomUp - lik;
+    return { bottomUp, lik, delta, ok: Math.abs(delta) <= Math.max(500, lik * 0.005) };
+  }, [data]);
 
   const detailFor = openCode;
 
@@ -218,10 +230,21 @@ export default function ManagementFeesPage() {
             <StatPill label="YTD Budget (bottom-up)" value={money(data.portfolio.ytdBudgetBottomUp)}
               sub={(() => { const v = variancePct(data.portfolio.ytdActual, data.portfolio.ytdBudgetBottomUp); return v == null ? undefined : `${v >= 0 ? "+" : ""}${v.toFixed(1)}% vs budget`; })()} />
             {data.portfolio.likPlanAnnual != null && (
-              <StatPill label={`LIK 2010 Plan${data.likPlan?.fallback ? ` (${data.likPlan.budgetYear})` : ""}`} value={money(data.portfolio.likPlanAnnual)} sub="full-year plan" />
+              <StatPill label={`LIK 2010 Fee Plan${data.likPlan?.fallback ? ` (${data.likPlan.budgetYear})` : ""}`} value={money(data.portfolio.likPlanAnnual)} sub="fee revenue (4510)" />
             )}
             <StatPill label="Annual Budget (bottom-up)" value={money(data.portfolio.annualBudgetBottomUp)} />
           </div>
+
+          {/* 2010 tie-out — Σ property 6610 budgets should equal the LIK 2010 fee plan */}
+          {tieOut && (
+            <div className="card" style={{ margin: 0, padding: "10px 14px", borderLeft: `4px solid ${tieOut.ok ? "#15803d" : "#d97706"}`, fontSize: 13 }}>
+              <b style={{ color: tieOut.ok ? "#15803d" : "#b45309" }}>2010 tie-out{tieOut.ok ? " ✓" : " — gap"}:</b>{" "}
+              property management-fee budgets (6610) sum to <b>{money(tieOut.bottomUp)}</b>; the LIK 2010 fee plan (4510) is <b>{money(tieOut.lik)}</b>.{" "}
+              {tieOut.ok
+                ? "They tie."
+                : <>They should be equal (same fees, both sides of the intercompany), but the 2010 plan is <b>{money(Math.abs(tieOut.delta))}</b> {tieOut.delta > 0 ? "under" : "over"} the property budgets — the 2010 budget isn't a live roll-up of the property 6610 lines.</>}
+            </div>
+          )}
 
           {/* Chart */}
           <div className="card">
