@@ -25,8 +25,12 @@ export type PendingSend = {
   /** Human label, e.g. "June 2026" or the period text. */
   label: string;
   summary: PendingSummary;
-  /** The source file (base64) to recompute the invoices at send time. */
-  fileBase64: string;
+  /** The source Excel file (base64) to recompute the invoices at send time.
+   *  Present for a GL/register upload. */
+  fileBase64?: string;
+  /** A serialized GLParseResult, for a send whose source isn't an Excel file
+   *  (e.g. allocation staged from a posting report). Used in place of fileBase64. */
+  glJson?: string;
   fileName?: string;
   preparedAt: string;
   preparedBy?: string | null;

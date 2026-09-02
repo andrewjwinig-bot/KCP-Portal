@@ -426,6 +426,16 @@ async function buildMonthInvoices(c: ComputedAllocation, prefix: string): Promis
   return out;
 }
 
+/** Serialize a GLParseResult (its accountTotals Map → entries) for stashing a
+ *  non-Excel source (a posting-report-derived GL) in the pending send. */
+export function serializeGl(gl: GLParseResult): string {
+  return JSON.stringify({ ...gl, accountTotals: [...gl.accountTotals.entries()] });
+}
+export function deserializeGl(json: string): GLParseResult {
+  const o = JSON.parse(json);
+  return { ...o, accountTotals: new Map(o.accountTotals) };
+}
+
 /** A content-stable key for a catch-up-only send (its month(s) are all already
  *  finalized, so it can't ride a normal period key). Derived from the deltas, so
  *  re-preparing the same file overwrites the same pending send; once sent, the
@@ -460,47 +470,63 @@ export type PrepareResult = {
  * allocation + per-building summary and stash the GL for the send. Does NOT
  * finalize carryover and does NOT email. Never throws.
  */
+/** Stage a computed allocation for review. `stash` carries the source to
+ *  recompute at send time — an Excel `fileBase64` (a GL upload) or a serialized
+ *  `glJson` (a posting-report-derived GL). Shared by both prepare entry points. */
+async function prepareStaged(gl: GLParseResult, stash: { fileBase64?: string; glJson?: string }, by?: string | null): Promise<PrepareResult> {
+  const ledger = await getAllocLedger();
+  const res = computeMonths(gl, ledger);
+  if ("error" in res) return { ok: false, reason: res.error };
+
+  const glPeriod = gl.statementMonth; // "YYYY-MM" or "YYYY-MM_to_YYYY-MM"
+  if (!glPeriod) return { ok: false, reason: "no-statement-month" };
+
+  // Nothing new at all (no fresh months, no late-charge deltas) → done.
+  if (res.months.length === 0 && !res.catchup) {
+    return { ok: false, reason: "already-finalized", statementMonth: glPeriod, alreadySent: true };
+  }
+
+  // Fresh months → the normal period key (catch-up rides along). Catch-up ONLY
+  // (every month already finalized) → a content-stable key so it doesn't collide
+  // with the already-sent month.
+  const period = res.months.length > 0 ? glPeriod : catchupKeyFor(res.catchup!);
+  const label = res.months.length > 0 ? (gl.periodText || glPeriod) : (res.catchup!.gl.periodText || period);
+
+  const existing = await getPendingSend("allocated", period);
+  if (existing?.sentAt) return { ok: false, reason: "already-sent", statementMonth: period, alreadySent: true };
+
+  await savePendingSend({
+    source: "allocated",
+    period,
+    label,
+    summary: { byProperty: res.byProperty, total: res.total, invoiceCount: res.invoiceCount },
+    ...stash,
+    preparedAt: new Date().toISOString(),
+    preparedBy: by ?? null,
+  });
+
+  return {
+    ok: true, staged: true,
+    statementMonth: period, periodText: label,
+    total: res.total, byProperty: res.byProperty, invoiceCount: res.invoiceCount,
+    monthCount: res.months.length + (res.catchup ? 1 : 0),
+  };
+}
+
 export async function prepareAllocation(buf: ArrayBuffer | Buffer, by?: string | null): Promise<PrepareResult> {
   try {
-    const ledger = await getAllocLedger();
     const gl = parseGLExcel(buf instanceof ArrayBuffer ? buf : buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength));
-    const res = computeMonths(gl, ledger);
-    if ("error" in res) return { ok: false, reason: res.error };
-
-    const glPeriod = gl.statementMonth; // "YYYY-MM" or "YYYY-MM_to_YYYY-MM"
-    if (!glPeriod) return { ok: false, reason: "no-statement-month" };
-
-    // Nothing new at all (no fresh months, no late-charge deltas) → done.
-    if (res.months.length === 0 && !res.catchup) {
-      return { ok: false, reason: "already-finalized", statementMonth: glPeriod, alreadySent: true };
-    }
-
-    // Fresh months → the normal period key (catch-up rides along in the same
-    // send). Catch-up ONLY (every month already finalized) → a content-stable
-    // key so it doesn't collide with the already-sent month.
-    const period = res.months.length > 0 ? glPeriod : catchupKeyFor(res.catchup!);
-    const label = res.months.length > 0 ? (gl.periodText || glPeriod) : (res.catchup!.gl.periodText || period);
-
-    const existing = await getPendingSend("allocated", period);
-    if (existing?.sentAt) return { ok: false, reason: "already-sent", statementMonth: period, alreadySent: true };
-
     const buffer = buf instanceof ArrayBuffer ? Buffer.from(buf) : buf;
-    await savePendingSend({
-      source: "allocated",
-      period,
-      label,
-      summary: { byProperty: res.byProperty, total: res.total, invoiceCount: res.invoiceCount },
-      fileBase64: buffer.toString("base64"),
-      preparedAt: new Date().toISOString(),
-      preparedBy: by ?? null,
-    });
+    return await prepareStaged(gl, { fileBase64: buffer.toString("base64") }, by);
+  } catch (e) {
+    return { ok: false, reason: e instanceof Error ? e.message : "prepare failed" };
+  }
+}
 
-    return {
-      ok: true, staged: true,
-      statementMonth: period, periodText: label,
-      total: res.total, byProperty: res.byProperty, invoiceCount: res.invoiceCount,
-      monthCount: res.months.length + (res.catchup ? 1 : 0),
-    };
+/** Stage allocation from a posting-report-derived GL (no Excel file). */
+export async function prepareAllocationFromGl(gl: GLParseResult, by?: string | null): Promise<PrepareResult> {
+  try {
+    return await prepareStaged(gl, { glJson: serializeGl(gl) }, by);
   } catch (e) {
     return { ok: false, reason: e instanceof Error ? e.message : "prepare failed" };
   }
@@ -534,24 +560,30 @@ export async function sendAllocation(period: string, by?: string | null): Promis
       return { ok: false, reason: "already-sent", statementMonth: period, sentAt: pending.sentAt, ...pendingBack(pending) };
     }
 
-    // Source of truth = the 2000 G&A GL currently imported on Operating
-    // Statements (the exact file the invoicer is showing), so the send can never
-    // diverge from the on-screen review. Fall back to the staged snapshot only
-    // if the stash is missing or is a different month.
-    let buf: Buffer | null = null;
-    try {
-      const stash = await getPendingGl();
-      if (stash?.fileBase64) {
-        const sbuf = Buffer.from(stash.fileBase64, "base64");
-        const sgl = parseGLExcel(sbuf.buffer.slice(sbuf.byteOffset, sbuf.byteOffset + sbuf.byteLength));
-        if (sgl.statementMonth === period) buf = sbuf;
-      }
-    } catch { /* fall back to the staged snapshot */ }
-    if (!buf && pending?.fileBase64) buf = Buffer.from(pending.fileBase64, "base64");
-    if (!buf) return { ok: false, reason: "not-prepared" };
+    // Reconstruct the GL to recompute the exact invoices. A posting-report send
+    // carries a serialized GL (glJson). Otherwise the source of truth is the 2000
+    // G&A GL currently imported on Operating Statements (so the send can't drift
+    // from the on-screen review), falling back to the staged Excel snapshot.
+    let gl: GLParseResult | null = null;
+    if (pending?.glJson) {
+      try { gl = deserializeGl(pending.glJson); } catch { /* fall through */ }
+    }
+    if (!gl) {
+      let buf: Buffer | null = null;
+      try {
+        const stash = await getPendingGl();
+        if (stash?.fileBase64) {
+          const sbuf = Buffer.from(stash.fileBase64, "base64");
+          const sgl = parseGLExcel(sbuf.buffer.slice(sbuf.byteOffset, sbuf.byteOffset + sbuf.byteLength));
+          if (sgl.statementMonth === period) buf = sbuf;
+        }
+      } catch { /* fall back to the staged snapshot */ }
+      if (!buf && pending?.fileBase64) buf = Buffer.from(pending.fileBase64, "base64");
+      if (!buf) return { ok: false, reason: "not-prepared" };
+      gl = parseGLExcel(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength));
+    }
 
     let ledger = await getAllocLedger();
-    const gl = parseGLExcel(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength));
     const res = computeMonths(gl, ledger);
     if ("error" in res) return { ok: false, reason: res.error };
 

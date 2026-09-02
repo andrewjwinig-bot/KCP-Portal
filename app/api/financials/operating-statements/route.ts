@@ -22,7 +22,8 @@ import { FUND_BUILDINGS } from "@/lib/financials/cash-analysis/funds";
 import { buildFullYearPayload, combineGls, type FullYearPayload } from "@/lib/financials/operating-statements/fullYear";
 import { logAudit, auditIp } from "@/lib/audit";
 import { savePendingGl } from "@/lib/allocated-invoicer/pendingGlStore";
-import { prepareAllocation } from "@/lib/allocated-invoicer/autoProcess";
+import { prepareAllocation, prepareAllocationFromGl } from "@/lib/allocated-invoicer/autoProcess";
+import { glFromPosting } from "@/lib/allocated-invoicer/postingIntake";
 import { markTaskComplete } from "@/lib/tracker/completionStore";
 import { expectedPostedThrough } from "@/lib/financials/operating-statements/outstanding";
 import { recordImport } from "@/lib/tracker/importEvents";
@@ -307,9 +308,10 @@ async function importPostingReport(
     const key = await resolveStatementKey(prop.property);
     if (!key) { skipped.push({ property: prop.property, reason: "no statement mapping" }); continue; }
 
-    // Which months a full GL already covers for this property/year (it wins).
+    // Which months a full GL already has ACTUALS for (it wins) — the last posted
+    // month, not the report range end, so an early YTD export doesn't hide these.
     const base = assembleGls(fulls.filter((g) => g.key === key && g.year === year));
-    const covered = base?.coverageEnd ?? base?.maxPeriodInFile ?? 0;
+    const covered = base?.maxPeriodInFile ?? 0;
     const newMonths = prop.months.filter((m) => m > covered);
     const heldMonths = prop.months.filter((m) => m <= covered);
 
@@ -326,6 +328,20 @@ async function importPostingReport(
     applied.push({ property: prop.property, key, newMonths, heldMonths });
   }
 
+  // If the report touched property 2000's allocated accounts, stage them
+  // straight into the Allocated Expense Invoicer — so a supplemental A/P report
+  // flows into pending allocated invoices without re-exporting the full GL. The
+  // recognized-amount ledger reconciles it against the eventual full 2000 GL, so
+  // nothing double-bills or is skipped.
+  let allocated: Awaited<ReturnType<typeof prepareAllocationFromGl>> | null = null;
+  try {
+    const p2000 = parsed.properties.find((p) => p.property.toUpperCase() === "2000");
+    if (p2000) {
+      const gl = glFromPosting(p2000, mergeAccountNames(fulls));
+      if (gl) allocated = await prepareAllocationFromGl(gl, uploadedBy);
+    }
+  } catch { /* best-effort — the posting deltas are already saved */ }
+
   await logAudit({ event: "gl.posting-report", user: uploadedBy ?? "import", ip: auditIp(req), detail: `${file.name} · ${applied.length} properties · ${year}` });
 
   return NextResponse.json({
@@ -337,6 +353,7 @@ async function importPostingReport(
     postThru: parsed.postThru,
     applied,
     skipped,
+    allocated,
     propertyCount: applied.length,
   });
 }
