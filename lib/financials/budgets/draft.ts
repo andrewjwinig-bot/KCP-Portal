@@ -12,6 +12,10 @@
 import "server-only";
 import { loadReprojection } from "@/lib/financials/reprojections/load";
 import { EXPENSE_ROLES, type SectionRole } from "@/lib/financials/operating-statements/types";
+import { projectLeaseRevenue, type ExpiringLease, type VacantUnit } from "./leaseRevenue";
+
+/** The revenue line the lease projection replaces — base/rental income. */
+const RENTAL_LINE_RE = /rental|rent income|base rent|minimum rent/i;
 
 const EXPENSE_ROLE_SET = new Set<SectionRole>([...EXPENSE_ROLES, "capital"]);
 const r0 = (n: number) => Math.round(n);
@@ -56,6 +60,14 @@ export type BudgetDraft = {
     totalOperatingExpenses: BudgetDraftRollup;
     netOperatingIncome: BudgetDraftRollup;
   };
+  /** Lease inputs behind the projected rental line — surfaced so leasing
+   *  assumptions (renew / vacate / lease-up) are obvious and actionable. */
+  leasing?: {
+    inPlaceUnits: number;
+    projectedRentalTotal: number;
+    expiring: ExpiringLease[];
+    vacant: VacantUnit[];
+  };
   /** True when the current-year reprojection couldn't be loaded (no draft). */
   missingBasis?: boolean;
 };
@@ -80,12 +92,29 @@ export async function buildBudgetDraft(key: string, budgetYear: number, growthPc
   const revMonths = new Array(12).fill(0);
   const expMonths = new Array(12).fill(0);
 
+  // Lease-based rental projection for this property (funds fall back to flat).
+  const lease = await projectLeaseRevenue([meta.propertyCode], budgetYear);
+  let rentalReplaced = false;
+
   const sections: BudgetDraftSection[] = r.sections.map((sec) => {
     const isExpense = EXPENSE_ROLE_SET.has(sec.role);
     const isDebt = sec.role === "debt-service";
     const lines: BudgetDraftLine[] = sec.lines.map((l) => {
-      // Expenses/capital grow by the assumption; debt + revenue/reimbursement
-      // carry flat (revenue is a placeholder pending the lease projection).
+      // The primary rental line on a revenue section is projected from the
+      // rent roll's in-place leases; the first such line wins (avoids catching
+      // "rent reimbursement" etc.).
+      if (!rentalReplaced && sec.role === "revenue" && lease.hasData && RENTAL_LINE_RE.test(l.label)) {
+        rentalReplaced = true;
+        return {
+          label: l.label, mask: l.mask,
+          months: lease.rentalMonthly.map(r0),
+          total: r0(sum(lease.rentalMonthly)),
+          basisTotal: r0(l.reprojTotal),
+          source: "leases",
+        };
+      }
+      // Expenses/capital grow by the assumption; debt + other revenue/
+      // reimbursement carry flat (CAM/RET reimbursements refined in Phase 3).
       const grown = isExpense;
       const months = grown ? grow(l.blended, factor) : l.blended.map(r0);
       return {
@@ -117,5 +146,11 @@ export async function buildBudgetDraft(key: string, budgetYear: number, growthPc
       totalOperatingExpenses: { months: expMonths.map(r0), total: r0(sum(expMonths)) },
       netOperatingIncome: { months: noiMonths, total: r0(sum(noiMonths)) },
     },
+    leasing: lease.hasData ? {
+      inPlaceUnits: lease.inPlaceUnits,
+      projectedRentalTotal: lease.rentalTotal,
+      expiring: lease.expiring,
+      vacant: lease.vacant,
+    } : undefined,
   };
 }

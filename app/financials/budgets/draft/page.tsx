@@ -55,7 +55,7 @@ export default function BudgetDraftPage() {
         <span className="muted small">FY{year} · auto-seeded from the {year - 1} reprojection</span>
       </div>
       <p className="muted" style={{ marginTop: -6 }}>
-        A starting draft built from data we already have — expenses grown from this year’s reprojection, so Nancy/Harry adjust instead of keying from scratch. Revenue is a placeholder until the lease-based projection lands.
+        A starting draft built from data we already have — expenses grown from this year’s reprojection and rental income projected from the rent roll’s in-place leases, so Nancy/Harry adjust instead of keying from scratch. Reimbursements (CAM/RET) are refined in the next step.
       </p>
 
       {/* Controls */}
@@ -91,10 +91,46 @@ export default function BudgetDraftPage() {
       {draft && !loading && (
         <>
           <div className="pills">
-            <StatPill label="Total Revenue" value={money0(draft.rollups.totalRevenues.total)} sub="placeholder" />
+            <StatPill label="Total Revenue" value={money0(draft.rollups.totalRevenues.total)} sub={draft.leasing ? `${draft.leasing.inPlaceUnits} in-place leases` : "reproj placeholder"} />
             <StatPill label="Total Operating Expenses" value={money0(draft.rollups.totalOperatingExpenses.total)} sub={`grown ${growth >= 0 ? "+" : ""}${growth}%`} />
             <StatPill label="NOI" value={money0(draft.rollups.netOperatingIncome.total)} accent={draft.rollups.netOperatingIncome.total >= 0 ? "#15803d" : "#b91c1c"} />
           </div>
+
+          {draft.leasing && (draft.leasing.expiring.length > 0 || draft.leasing.vacant.length > 0) && (
+            <div className="card" style={{ borderColor: "rgba(217,119,6,0.45)", background: "rgba(217,119,6,0.05)" }}>
+              <div style={{ ...secLabel, color: "#b45309", marginBottom: 8 }}>Leasing assumptions needed — {draft.budgetYear}</div>
+              <p className="muted small" style={{ marginTop: 0 }}>
+                Rental income is projected holding current rents flat. These leases expire in {draft.budgetYear} (or are on holdover) and these spaces are vacant — set renew / vacate / lease-up assumptions here (the dedicated workspace lands in Phase 2).
+              </p>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 4 }}>Expiring / holdover ({draft.leasing.expiring.length})</div>
+                  {draft.leasing.expiring.length === 0 ? <div className="muted small">None.</div> : (
+                    <ul style={{ margin: 0, paddingLeft: 18 }}>
+                      {draft.leasing.expiring.slice(0, 20).map((e) => (
+                        <li key={e.unitRef} className="small" style={{ marginBottom: 2 }}>
+                          <code style={{ fontSize: 12 }}>{e.unitRef}</code> {e.tenant} — {money0(e.annualRent)}/yr, ends {e.leaseTo ?? "—"}
+                          {e.holdover && <Pill tone={TONE_NEUTRAL}>holdover</Pill>}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 4 }}>Vacant spaces ({draft.leasing.vacant.length})</div>
+                  {draft.leasing.vacant.length === 0 ? <div className="muted small">None.</div> : (
+                    <ul style={{ margin: 0, paddingLeft: 18 }}>
+                      {draft.leasing.vacant.slice(0, 20).map((v) => (
+                        <li key={v.unitRef} className="small" style={{ marginBottom: 2 }}>
+                          <code style={{ fontSize: 12 }}>{v.unitRef}</code> — {v.sqft.toLocaleString()} sf
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
           {draft.sections.map((sec) => (
             <div key={sec.name} className="card" style={{ padding: 0, overflow: "hidden" }}>
@@ -122,7 +158,7 @@ export default function BudgetDraftPage() {
           ))}
 
           <p className="muted small">
-            <b>Reproj +N%</b> = this year’s reprojected full-year expense grown by the assumption, month by month (seasonality preserved). <b>Reproj (flat)</b> = carried unchanged (revenue placeholders, debt service). The middle column is the {draft.basisYear} reprojection it grew from. Lease-based revenue and CAM/RET estimates replace the placeholders in the next steps.
+            <b>Reproj +N%</b> = this year’s reprojected full-year expense grown by the assumption, month by month (seasonality preserved). <b>Leases</b> = rental income projected from the rent roll’s in-place leases (current rents held flat; expiring leases flagged above). <b>Reproj (flat)</b> = carried unchanged (reimbursements, other income, debt service). The middle column is the {draft.basisYear} reprojection it grew from. CAM/RET reimbursement estimates replace their placeholder in the next step.
           </p>
         </>
       )}
