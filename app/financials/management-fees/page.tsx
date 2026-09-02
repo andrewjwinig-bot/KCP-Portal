@@ -167,12 +167,24 @@ export default function ManagementFeesPage() {
   const isMissing = useCallback((b: MgmtFeeData["buildings"][number], m: number) => (
     b.feeMonthly[m] === 0 && m + 1 <= portfolioMaxPosted && (b.budgetMonthly[m] > 0 || b.ytdActual > 0)
   ), [portfolioMaxPosted]);
+  // A posted month whose 6610 nets to a CREDIT (negative fee) — a reversal /
+  // prior-period correction sitting where a charge should be. Almost always a GL
+  // error to verify, so flag it distinctly from a missing (zero) month.
+  const isNegative = useCallback((b: MgmtFeeData["buildings"][number], m: number) => (
+    b.feeMonthly[m] < 0 && m + 1 <= b.maxPosted
+  ), []);
   const flaggedCount = useMemo(() => {
     if (!data) return 0;
     let n = 0;
     for (const b of data.buildings) for (let m = 0; m < 12; m++) if (isMissing(b, m)) n++;
     return n;
   }, [data, isMissing]);
+  const negativeCount = useMemo(() => {
+    if (!data) return 0;
+    let n = 0;
+    for (const b of data.buildings) for (let m = 0; m < 12; m++) if (isNegative(b, m)) n++;
+    return n;
+  }, [data, isNegative]);
 
   const detailFor = openCode;
 
@@ -252,13 +264,21 @@ export default function ManagementFeesPage() {
                       const posted = m + 1 <= b.maxPosted;
                       const inWindow = m + 1 <= portfolioMaxPosted;
                       const missing = isMissing(b, m);
+                      const negative = isNegative(b, m);
                       const content = posted ? (b.feeMonthly[m] ? money(b.feeMonthly[m]) : "—") : (inWindow ? "—" : "");
+                      const title = negative
+                        ? `Negative management fee — the GL netted to a ${money(Math.abs(b.feeMonthly[m]))} credit this month, likely a reversal or prior-period correction. Verify the 6610 entries.`
+                        : missing
+                          ? (posted ? "GL posted, but no management fee for this month — it may need to be reposted." : "Not posted yet — other buildings have posted this month.")
+                          : undefined;
                       return (
-                        <td key={b.code} title={missing ? (posted ? "GL posted, but no management fee for this month — it may need to be reposted." : "Not posted yet — other buildings have posted this month.") : undefined}
+                        <td key={b.code} title={title}
                           style={{ ...gridTd, ...numTd, borderLeft: groupStart ? "2px solid var(--border)" : undefined,
-                            ...(missing
-                              ? { background: "rgba(217,119,6,0.15)", color: "#b45309", fontWeight: 700, cursor: "help" }
-                              : { color: b.feeMonthly[m] ? "var(--text)" : "var(--muted)" }) }}>
+                            ...(negative
+                              ? { background: "rgba(220,38,38,0.15)", color: "#b91c1c", fontWeight: 700, cursor: "help" }
+                              : missing
+                                ? { background: "rgba(217,119,6,0.15)", color: "#b45309", fontWeight: 700, cursor: "help" }
+                                : { color: b.feeMonthly[m] ? "var(--text)" : "var(--muted)" }) }}>
                           {content}
                         </td>
                       );
@@ -284,6 +304,12 @@ export default function ManagementFeesPage() {
               <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "#b45309", fontWeight: 700 }}>
                 <span style={{ width: 13, height: 13, borderRadius: 3, background: "rgba(217,119,6,0.25)", border: "1px solid #d97706" }} />
                 {flaggedCount} month{flaggedCount === 1 ? "" : "s"} flagged — a fee is expected but missing; likely needs (re)posting.
+              </span>
+            )}
+            {negativeCount > 0 && (
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "#b91c1c", fontWeight: 700 }}>
+                <span style={{ width: 13, height: 13, borderRadius: 3, background: "rgba(220,38,38,0.25)", border: "1px solid #dc2626" }} />
+                {negativeCount} negative fee{negativeCount === 1 ? "" : "s"} — the 6610 netted to a credit (reversal / correction); verify the GL.
               </span>
             )}
             <span>Click any building code for its fee-as-a-%-of-revenue detail. Blank cells are future / un-opened months.</span>
@@ -317,15 +343,15 @@ function BuildingModal({ code, year, onClose }: { code: string; year: number; on
           <div style={{ fontSize: 18, fontWeight: 800 }}>{detail?.name ?? code} <code style={{ fontSize: 13 }}>{code}</code></div>
           <button onClick={onClose} aria-label="Close" style={{ border: "none", background: "none", cursor: "pointer", fontSize: 22, color: "var(--muted)" }}>×</button>
         </div>
-        <div className="muted" style={{ fontSize: 13, marginBottom: 12 }}>Management fee vs revenue &amp; budget · {year}</div>
+        <div className="muted" style={{ fontSize: 13, marginBottom: 12 }}>Management fee vs gross revenue &amp; budget · {year}</div>
 
         {loading && <div className="muted">Loading…</div>}
         {detail && !loading && (
           <>
             <div className="pills" style={{ marginBottom: 12 }}>
               <StatPill label="YTD Fee" value={money(detail.ytd.fee)} />
-              <StatPill label="YTD Revenue" value={money(detail.ytd.revenue)} />
-              <StatPill label="Fee % of Revenue" value={pct1(detail.ytd.feePctOfRevenue)} />
+              <StatPill label="YTD Gross Revenue" value={money(detail.ytd.revenue)} />
+              <StatPill label="Fee % of Gross Rev" value={pct1(detail.ytd.feePctOfRevenue)} />
               <StatPill label="YTD Budget" value={money(detail.ytd.budget)}
                 sub={(() => { const v = variancePct(detail.ytd.fee, detail.ytd.budget); return v == null ? undefined : `${v >= 0 ? "+" : ""}${v.toFixed(1)}%`; })()} />
             </div>
@@ -334,8 +360,8 @@ function BuildingModal({ code, year, onClose }: { code: string; year: number; on
                 <tr>
                   <th style={{ ...gridTh, textAlign: "left" }}>Month</th>
                   <th style={{ ...gridTh, textAlign: "right" }}>Fee</th>
-                  <th style={{ ...gridTh, textAlign: "right" }}>Revenue</th>
-                  <th style={{ ...gridTh, textAlign: "right" }}>Fee % of Rev</th>
+                  <th style={{ ...gridTh, textAlign: "right" }}>Gross Revenue</th>
+                  <th style={{ ...gridTh, textAlign: "right" }}>Fee % of Gross Rev</th>
                   <th style={{ ...gridTh, textAlign: "right" }}>Budget</th>
                 </tr>
               </thead>
@@ -353,7 +379,7 @@ function BuildingModal({ code, year, onClose }: { code: string; year: number; on
               </tbody>
             </table>
             <p className="muted small" style={{ marginTop: 10, marginBottom: 0 }}>
-              Fee % of revenue is the sanity check — management fees are usually a fixed % of collections, so an off-ratio month is worth a look.
+              Gross revenue = rental income + tenant reimbursements (total revenues). Fee % of gross revenue is the sanity check — management fees are usually a fixed % of collections, so an off-ratio month is worth a look.
             </p>
           </>
         )}
