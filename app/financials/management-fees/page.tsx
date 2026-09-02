@@ -33,44 +33,101 @@ const secLabel: React.CSSProperties = { fontSize: 11, fontWeight: 700, textTrans
 type Series = { label: string; color: string; values: (number | null)[]; dashed?: boolean };
 function LineChart({ series, fmt }: { series: Series[]; fmt: (v: number) => string }) {
   const W = 760, H = 280;
-  const padL = 62, padR = 16, padT = 14, padB = 30;
+  const padL = 62, padR = 16, padT = 16, padB = 30;
   const innerW = W - padL - padR;
   const innerH = H - padT - padB;
   const n = 12;
+  const step = innerW / (n - 1);
   const allVals = series.flatMap((s) => s.values.filter((v): v is number => v != null));
   const max = Math.max(1, ...allVals);
   const xs = (i: number) => padL + (i / (n - 1)) * innerW;
   const ys = (v: number) => padT + innerH - (v / max) * innerH;
 
+  const [hover, setHover] = useState<number | null>(null);
+
+  // Tooltip content for the hovered month.
+  const rows = hover == null ? [] : (series
+    .map((s) => ({ label: s.label, color: s.color, v: s.values[hover] }))
+    .filter((r) => r.v != null) as { label: string; color: string; v: number }[]);
+  const va = hover != null ? series.find((s) => s.label === "Actual")?.values[hover] ?? null : null;
+  const bu = hover != null ? series.find((s) => s.label === "Budget")?.values[hover] ?? null : null;
+  const variance = va != null && bu != null ? va - bu : null;
+  const variancePctVal = variance != null && bu ? (variance / bu) * 100 : null;
+
+  const boxW = 184;
+  const rowH = 19;
+  const boxH = 30 + rows.length * rowH + (variance != null ? rowH + 6 : 0);
+  const hx = hover != null ? xs(hover) : 0;
+  const boxX = hover != null ? (hx + 16 + boxW > W - padR ? hx - 16 - boxW : hx + 16) : 0;
+  const boxY = padT + 2;
+
   return (
-    <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ overflow: "visible" }}>
+    <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ overflow: "visible" }} onMouseLeave={() => setHover(null)}>
       {[0, 0.25, 0.5, 0.75, 1].map((f) => {
         const v = max * f;
         return (
           <g key={f}>
             <line x1={padL} x2={W - padR} y1={ys(v)} y2={ys(v)} stroke="rgba(15,23,42,0.08)" />
-            <text x={padL - 6} y={ys(v) + 4} fontSize={9} fill="var(--muted)" textAnchor="end">{fmt(v)}</text>
+            <text x={padL - 8} y={ys(v) + 4} fontSize={10} fill="var(--muted)" textAnchor="end">{fmt(v)}</text>
           </g>
         );
       })}
       {MONTHS.map((mo, i) => (
-        <text key={mo} x={xs(i)} y={H - padB + 16} fontSize={9} fill="var(--muted)" textAnchor="middle">{mo}</text>
+        <text key={mo} x={xs(i)} y={H - padB + 17} fontSize={10} fontWeight={hover === i ? 800 : 400} fill={hover === i ? "var(--text)" : "var(--muted)"} textAnchor="middle">{mo}</text>
       ))}
-      {series.map((s) => {
-        const pts = s.values.map((v, i) => ({ v, i })).filter((p) => p.v != null) as { v: number; i: number }[];
-        if (!pts.length) return null;
-        const path = pts.map((p, k) => `${k === 0 ? "M" : "L"} ${xs(p.i).toFixed(1)} ${ys(p.v).toFixed(1)}`).join(" ");
-        return (
-          <g key={s.label}>
-            <path d={path} fill="none" stroke={s.color} strokeWidth={2.25} strokeDasharray={s.dashed ? "5 4" : undefined} />
-            {pts.map((p) => (
-              <circle key={p.i} cx={xs(p.i)} cy={ys(p.v)} r={3} fill={s.color} stroke="#fff" strokeWidth={1.5}>
-                <title>{`${s.label} — ${MONTHS[p.i]} — ${fmt(p.v)}`}</title>
-              </circle>
-            ))}
-          </g>
-        );
-      })}
+
+      {/* Hover guide line */}
+      {hover != null && <line x1={hx} x2={hx} y1={padT} y2={padT + innerH} stroke="rgba(11,74,125,0.30)" strokeWidth={1.25} strokeDasharray="3 3" />}
+
+      {/* Series lines + points (non-interactive; the hit band below drives hover) */}
+      <g pointerEvents="none">
+        {series.map((s) => {
+          const pts = s.values.map((v, i) => ({ v, i })).filter((p) => p.v != null) as { v: number; i: number }[];
+          if (!pts.length) return null;
+          const path = pts.map((p, k) => `${k === 0 ? "M" : "L"} ${xs(p.i).toFixed(1)} ${ys(p.v).toFixed(1)}`).join(" ");
+          return (
+            <g key={s.label}>
+              <path d={path} fill="none" stroke={s.color} strokeWidth={2.5} strokeDasharray={s.dashed ? "6 4" : undefined} strokeLinejoin="round" strokeLinecap="round" />
+              {pts.map((p) => {
+                const on = hover === p.i;
+                return <circle key={p.i} cx={xs(p.i)} cy={ys(p.v)} r={on ? 6 : 3.5} fill={s.color} stroke="#fff" strokeWidth={on ? 2.5 : 1.5} />;
+              })}
+            </g>
+          );
+        })}
+      </g>
+
+      {/* Per-month hit bands drive the hover state. */}
+      {MONTHS.map((_, i) => (
+        <rect key={i} x={xs(i) - step / 2} y={padT} width={step} height={innerH} fill="transparent" style={{ cursor: "crosshair" }} onMouseEnter={() => setHover(i)} />
+      ))}
+
+      {/* Rich tooltip */}
+      {hover != null && rows.length > 0 && (
+        <g pointerEvents="none" style={{ filter: "drop-shadow(0 4px 14px rgba(15,23,42,0.20))" }}>
+          <rect x={boxX} y={boxY} width={boxW} height={boxH} rx={9} fill="var(--card)" stroke="var(--border)" strokeWidth={1} />
+          <text x={boxX + 13} y={boxY + 20} fontSize={12.5} fontWeight={800} fill="var(--text)">{MONTHS_LONG[hover]}</text>
+          {rows.map((r, k) => {
+            const cy = boxY + 30 + k * rowH + rowH / 2;
+            return (
+              <g key={r.label}>
+                <circle cx={boxX + 17} cy={cy} r={4.5} fill={r.color} />
+                <text x={boxX + 28} y={cy + 4} fontSize={12} fill="var(--muted)">{r.label}</text>
+                <text x={boxX + boxW - 13} y={cy + 4} fontSize={12.5} fontWeight={700} fill="var(--text)" textAnchor="end">{money(r.v)}</text>
+              </g>
+            );
+          })}
+          {variance != null && (
+            <g>
+              <line x1={boxX + 13} x2={boxX + boxW - 13} y1={boxY + 30 + rows.length * rowH + 2} y2={boxY + 30 + rows.length * rowH + 2} stroke="var(--border)" />
+              <text x={boxX + 13} y={boxY + 30 + rows.length * rowH + rowH} fontSize={12} fill="var(--muted)">Variance</text>
+              <text x={boxX + boxW - 13} y={boxY + 30 + rows.length * rowH + rowH} fontSize={12.5} fontWeight={800} textAnchor="end" fill={variance >= 0 ? "#15803d" : "#b45309"}>
+                {(variance >= 0 ? "+" : "") + money(variance)}{variancePctVal != null ? ` (${variance >= 0 ? "+" : ""}${variancePctVal.toFixed(1)}%)` : ""}
+              </text>
+            </g>
+          )}
+        </g>
+      )}
     </svg>
   );
 }
