@@ -26,6 +26,7 @@
 // send that's already been sent stays sent.
 
 import "server-only";
+import { createHash } from "crypto";
 import { parseGLExcel, type GLParseResult, type GLTransaction, type GLAccountTotal } from "./glParser";
 import { ALLOC_PCT, PROPERTY_DEFS } from "@/lib/properties/data";
 import {
@@ -33,8 +34,13 @@ import {
   isYearEndMonth,
   baseAccountCode,
   finalizeMonth,
+  recognizedFor,
+  isMonthBaselined,
+  applyRecognized,
+  applyCatchupToLedger,
   type MonthExpense,
   type CarryoverLedger,
+  type RecognizedUpdate,
 } from "./carryover";
 import { getAllocLedger, saveAllocLedger } from "./carryoverStore";
 import { recordAllocationRun } from "./runStore";
@@ -76,6 +82,11 @@ export type ComputedAllocation = {
   byProperty: { code: string; name: string; amount: number }[];
   total: number;
   expenses: MonthExpense[];
+  /** True for the supplemental catch-up batch (late charges to already-finalized
+   *  months), so its invoices are labeled + filed distinctly from a normal month. */
+  supplemental?: boolean;
+  /** For a catch-up: the source months whose late charges it sweeps up. */
+  sourceMonths?: string[];
 };
 
 // ── Month splitting (single-month GL → [gl]; range GL → per-month buckets) ─────
@@ -120,6 +131,41 @@ export function splitIntoMonths(gl: GLParseResult): GLParseResult[] {
     transactions: byMonth.get(k)!,
     accountTotals: accountTotalsFor(byMonth.get(k)!),
   }));
+}
+
+/** One month's allocation grouped by (property → base account): the current
+ *  allocated amount + its line-item rows. The raw allocation before any carryover
+ *  decoration — shared by the fresh-month compute and the delta detection. */
+type AllocEntry = { name: string; thisMonth: number; rows: AllocExportRow[] };
+function allocateMonth(monthGl: GLParseResult): Map<string, Map<string, AllocEntry>> {
+  const propIds = Object.keys(ALLOC_PCT);
+  const byProp = new Map<string, Map<string, AllocEntry>>();
+  for (const acc of monthGl.accountTotals.values()) {
+    for (const id of propIds) {
+      const pct = ALLOC_PCT[id]?.[acc.accountSuffix] ?? 0;
+      if (pct === 0) continue;
+      const row: AllocExportRow = {
+        propertyId: id, propertyName: propName(id),
+        accountCode: acc.accountCode, accountName: acc.accountName, accountSuffix: acc.accountSuffix,
+        grossAmount: acc.netTotal, allocPct: pct, allocAmount: round2(acc.netTotal * pct),
+      };
+      const base = baseAccountCode(row.accountCode);
+      if (!byProp.has(id)) byProp.set(id, new Map());
+      const am = byProp.get(id)!;
+      const cur = am.get(base) ?? { name: row.accountName, thisMonth: 0, rows: [] as AllocExportRow[] };
+      cur.thisMonth = round2(cur.thisMonth + row.allocAmount);
+      cur.rows.push(row);
+      am.set(base, cur);
+    }
+  }
+  return byProp;
+}
+
+/** RecognizedUpdate rows for one month (the current allocation per pid/base). */
+function recognizedUpdatesFor(byProp: Map<string, Map<string, AllocEntry>>, statementMonth: string): RecognizedUpdate[] {
+  const out: RecognizedUpdate[] = [];
+  for (const [pid, am] of byProp) for (const [base, g] of am) out.push({ propertyId: pid, accountCode: base, statementMonth, amount: g.thisMonth });
+  return out;
 }
 
 /**
@@ -202,19 +248,81 @@ function computeOneMonth(monthGl: GLParseResult, ledger: CarryoverLedger): Compu
 export type MonthsResult = {
   /** Uncommitted months still to process, in chronological order. */
   months: ComputedAllocation[];
-  /** Months already finalized (skipped for idempotency). */
+  /** Supplemental catch-up batch for late charges to already-finalized months
+   *  (null when there are none) — the "loss of recovery" guard. */
+  catchup: ComputedAllocation | null;
+  /** Months skipped (already finalized with no new charges, or a legacy month
+   *  whose baseline was just backfilled). */
   skipped: string[];
-  /** Combined per-building totals across `months`. */
+  /** Recognized-amount updates to apply on finalize (every month's current
+   *  allocation), so a later re-import bills only the delta. */
+  recognizedUpdates: RecognizedUpdate[];
+  /** Combined per-building totals across `months` + `catchup`. */
   byProperty: { code: string; name: string; amount: number }[];
   total: number;
-  /** Total invoices across all months (one per billing property per month). */
+  /** Total invoices across all months + catch-up. */
   invoiceCount: number;
 };
+
+function monthLabel(ym: string): string {
+  const [y, m] = ym.split("-").map(Number);
+  return new Date(y, m - 1, 1).toLocaleString("en-US", { month: "long", year: "numeric" });
+}
+
+/** Build the supplemental catch-up allocation from accumulated per-account deltas,
+ *  billed against the held balance after the fresh months. Null when empty. */
+type CatchupEntry = { name: string; delta: number; suffix: "9301" | "9302" | "9303" };
+function buildCatchup(
+  catchup: Map<string, Map<string, CatchupEntry>>,
+  sourceMonths: string[],
+  ledger: CarryoverLedger,
+): ComputedAllocation | null {
+  if (!catchup.size) return null;
+  const months = [...sourceMonths].sort();
+  const asOfMonth = months[months.length - 1];
+  const yearEnd = isYearEndMonth(asOfMonth);
+
+  const rows: AllocExportRow[] = [];
+  const decByProp = new Map<string, DecAcct[]>();
+  const billingTotals = new Map<string, number>();
+  const expenses: MonthExpense[] = [];
+  for (const [pid, cm] of catchup) {
+    const decs: DecAcct[] = [];
+    for (const [base, c] of cm) {
+      const prior = round2(ledger.balances[pid]?.accounts?.[base]?.heldTotal ?? 0);
+      const accrued = round2(c.delta + prior);
+      const billed = yearEnd || accrued >= CARRYOVER_THRESHOLD;
+      const row: AllocExportRow = { propertyId: pid, propertyName: propName(pid), accountCode: base, accountName: c.name, accountSuffix: c.suffix, grossAmount: c.delta, allocPct: 0, allocAmount: c.delta };
+      rows.push(row);
+      decs.push({ base, name: c.name, thisMonth: c.delta, prior, accrued, billed, rows: [row] });
+      if (billed) billingTotals.set(pid, round2((billingTotals.get(pid) ?? 0) + accrued));
+      expenses.push({ propertyId: pid, accountCode: base, accountName: c.name, amount: c.delta });
+    }
+    if (decs.length) decByProp.set(pid, decs);
+  }
+
+  const byProperty = [...billingTotals.entries()].map(([code, amount]) => ({ code, name: propName(code), amount: round2(amount) })).filter((x) => x.amount > 0).sort((a, b) => b.amount - a.amount);
+  const total = round2(byProperty.reduce((s, x) => s + x.amount, 0));
+  const label = months.map(monthLabel).join(", ");
+  const gl: GLParseResult = {
+    statementMonth: asOfMonth,
+    periodText: `Supplemental — late postings (${label})`,
+    periodEndDate: lastDayOfMonth(asOfMonth),
+    transactions: [],
+    accountTotals: new Map(),
+  };
+  return { gl, statementMonth: asOfMonth, rows, decByProp, byProperty, total, expenses, supplemental: true, sourceMonths: months };
+}
 
 /**
  * Compute every month a GL covers, chaining carryover through a working copy of
  * the ledger so a range's later months see the earlier months' held balances.
- * Months already in committedPeriods are skipped. Pure — mutates nothing.
+ *   • A month never processed → a normal per-month invoice batch.
+ *   • A month already finalized but with NEW charges since (posted late) → the
+ *     delta is swept into the supplemental catch-up.
+ *   • A legacy month committed before this feature (no baseline) → its baseline
+ *     is backfilled from the current GL and it's skipped (no retro re-bill).
+ * Pure — mutates nothing.
  */
 export function computeMonths(gl: GLParseResult, ledger: CarryoverLedger): MonthsResult | { error: string } {
   const parts = splitIntoMonths(gl);
@@ -223,20 +331,55 @@ export function computeMonths(gl: GLParseResult, ledger: CarryoverLedger): Month
   let working = ledger;
   const months: ComputedAllocation[] = [];
   const skipped: string[] = [];
+  const recognizedUpdates: RecognizedUpdate[] = [];
+  const catchup = new Map<string, Map<string, CatchupEntry>>();
+  const catchupMonths = new Set<string>();
   const nowISO = new Date().toISOString();
+
   for (const part of parts) {
-    if (!/^\d{4}-\d{2}$/.test(part.statementMonth)) return { error: "no-statement-month" };
-    if (working.committedPeriods.includes(part.statementMonth)) { skipped.push(part.statementMonth); continue; }
-    const c = computeOneMonth(part, working);
-    if ("error" in c) return { error: c.error };
-    months.push(c);
-    // Advance the working ledger in memory so the next month sees these holds.
-    working = finalizeMonth(working, part.statementMonth, c.expenses, nowISO).ledger;
+    const month = part.statementMonth;
+    if (!/^\d{4}-\d{2}$/.test(month)) return { error: "no-statement-month" };
+    const byProp = allocateMonth(part);
+    recognizedUpdates.push(...recognizedUpdatesFor(byProp, month));
+
+    if (!working.committedPeriods.includes(month)) {
+      // Fresh month → normal per-month invoice batch.
+      const c = computeOneMonth(part, working);
+      if ("error" in c) return { error: c.error };
+      months.push(c);
+      working = finalizeMonth(working, month, c.expenses, nowISO).ledger;
+    } else if (!isMonthBaselined(working, month)) {
+      // Legacy committed month (no per-account baseline) → establish the baseline
+      // from the current GL, don't re-bill it. Future late charges will be caught.
+      working = applyRecognized(working, recognizedUpdatesFor(byProp, month), nowISO);
+      skipped.push(month);
+    } else {
+      // Committed + baselined → catch up any NEW charges since it was finalized.
+      let hasDelta = false;
+      for (const [pid, am] of byProp) {
+        for (const [base, g] of am) {
+          const delta = round2(g.thisMonth - recognizedFor(working, pid, base, month));
+          if (Math.abs(delta) < 0.005) continue;
+          hasDelta = true;
+          if (!catchup.has(pid)) catchup.set(pid, new Map());
+          const cm = catchup.get(pid)!;
+          const cur: CatchupEntry = cm.get(base) ?? { name: g.name, delta: 0, suffix: (g.rows[0]?.accountSuffix ?? "9301") };
+          cur.delta = round2(cur.delta + delta);
+          cur.name = g.name;
+          cm.set(base, cur);
+          catchupMonths.add(month);
+        }
+      }
+      if (!hasDelta) skipped.push(month);
+    }
   }
+
+  const catchupResult = buildCatchup(catchup, [...catchupMonths], working);
 
   const map = new Map<string, { code: string; name: string; amount: number }>();
   let invoiceCount = 0;
-  for (const m of months) {
+  const allBatches = [...months, ...(catchupResult ? [catchupResult] : [])];
+  for (const m of allBatches) {
     invoiceCount += m.byProperty.length;
     for (const b of m.byProperty) {
       const cur = map.get(b.code) ?? { code: b.code, name: b.name, amount: 0 };
@@ -246,7 +389,7 @@ export function computeMonths(gl: GLParseResult, ledger: CarryoverLedger): Month
   }
   const byProperty = [...map.values()].filter((x) => x.amount > 0).sort((a, b) => b.amount - a.amount);
   const total = round2(byProperty.reduce((s, x) => s + x.amount, 0));
-  return { months, skipped, byProperty, total, invoiceCount };
+  return { months, catchup: catchupResult, skipped, recognizedUpdates, byProperty, total, invoiceCount };
 }
 
 // Build one month's per-property invoice PDFs as individual buffers (one per
@@ -275,11 +418,25 @@ async function buildMonthInvoices(c: ComputedAllocation, prefix: string): Promis
         invoiceDate: invDate, invoiceId: makeAllocInvoiceId(id),
         lineItems, carriedForward, grandTotal,
       });
-      const fileName = `${statementMonth} - ${id} - ${propName(id)}.pdf`;
-      out.push({ propertyLabel: `${id} — ${propName(id)}`, fileName, pdf: Buffer.from(await pdf.arrayBuffer()), zipPath: `${prefix}${fileName}` });
+      const suppTag = c.supplemental ? " - SUPPLEMENTAL" : "";
+      const fileName = `${statementMonth}${suppTag} - ${id} - ${propName(id)}.pdf`;
+      out.push({ propertyLabel: `${id} — ${propName(id)}${c.supplemental ? " (supplemental)" : ""}`, fileName, pdf: Buffer.from(await pdf.arrayBuffer()), zipPath: `${prefix}${fileName}` });
     } catch { /* skip a bad PDF, keep the rest */ }
   }
   return out;
+}
+
+/** A content-stable key for a catch-up-only send (its month(s) are all already
+ *  finalized, so it can't ride a normal period key). Derived from the deltas, so
+ *  re-preparing the same file overwrites the same pending send; once sent, the
+ *  recognized ledger updates and a re-import yields no catch-up. */
+function catchupKeyFor(c: ComputedAllocation): string {
+  const sig = [...c.decByProp.entries()]
+    .flatMap(([pid, decs]) => decs.map((d) => `${pid}|${d.base}|${d.thisMonth}`))
+    .sort()
+    .join(";");
+  const h = createHash("sha1").update(`${sig}|${(c.sourceMonths ?? []).join(",")}`).digest("hex").slice(0, 10);
+  return `catchup-${h}`;
 }
 
 export type PrepareResult = {
@@ -310,22 +467,28 @@ export async function prepareAllocation(buf: ArrayBuffer | Buffer, by?: string |
     const res = computeMonths(gl, ledger);
     if ("error" in res) return { ok: false, reason: res.error };
 
-    const period = gl.statementMonth; // "YYYY-MM" or "YYYY-MM_to_YYYY-MM"
-    if (!period) return { ok: false, reason: "no-statement-month" };
+    const glPeriod = gl.statementMonth; // "YYYY-MM" or "YYYY-MM_to_YYYY-MM"
+    if (!glPeriod) return { ok: false, reason: "no-statement-month" };
+
+    // Nothing new at all (no fresh months, no late-charge deltas) → done.
+    if (res.months.length === 0 && !res.catchup) {
+      return { ok: false, reason: "already-finalized", statementMonth: glPeriod, alreadySent: true };
+    }
+
+    // Fresh months → the normal period key (catch-up rides along in the same
+    // send). Catch-up ONLY (every month already finalized) → a content-stable
+    // key so it doesn't collide with the already-sent month.
+    const period = res.months.length > 0 ? glPeriod : catchupKeyFor(res.catchup!);
+    const label = res.months.length > 0 ? (gl.periodText || glPeriod) : (res.catchup!.gl.periodText || period);
 
     const existing = await getPendingSend("allocated", period);
     if (existing?.sentAt) return { ok: false, reason: "already-sent", statementMonth: period, alreadySent: true };
-
-    // Every month this GL covers is already finalized → nothing to send.
-    if (res.months.length === 0) {
-      return { ok: false, reason: "already-finalized", statementMonth: period, alreadySent: true };
-    }
 
     const buffer = buf instanceof ArrayBuffer ? Buffer.from(buf) : buf;
     await savePendingSend({
       source: "allocated",
       period,
-      label: gl.periodText || period,
+      label,
       summary: { byProperty: res.byProperty, total: res.total, invoiceCount: res.invoiceCount },
       fileBase64: buffer.toString("base64"),
       preparedAt: new Date().toISOString(),
@@ -334,9 +497,9 @@ export async function prepareAllocation(buf: ArrayBuffer | Buffer, by?: string |
 
     return {
       ok: true, staged: true,
-      statementMonth: period, periodText: gl.periodText,
+      statementMonth: period, periodText: label,
       total: res.total, byProperty: res.byProperty, invoiceCount: res.invoiceCount,
-      monthCount: res.months.length,
+      monthCount: res.months.length + (res.catchup ? 1 : 0),
     };
   } catch (e) {
     return { ok: false, reason: e instanceof Error ? e.message : "prepare failed" };
@@ -392,19 +555,22 @@ export async function sendAllocation(period: string, by?: string | null): Promis
     const res = computeMonths(gl, ledger);
     if ("error" in res) return { ok: false, reason: res.error };
 
-    if (res.months.length === 0) {
-      // Every month finalized out-of-band since prepare — treat as already sent.
+    if (res.months.length === 0 && !res.catchup) {
+      // Every month finalized out-of-band since prepare, nothing new → already sent.
       await markPendingSent("allocated", period, by);
       return { ok: false, reason: "already-finalized", statementMonth: period, ...pendingBack(pending) };
     }
 
-    const multi = res.months.length > 1;
+    // Fresh months + the supplemental catch-up (late charges to already-finalized
+    // months) send together.
+    const batches = [...res.months, ...(res.catchup ? [res.catchup] : [])];
+    const multi = batches.length > 1;
     const nowISO = () => new Date().toISOString();
     // Build the invoice PDFs (no side effects yet — carryover is finalized only
     // AFTER a successful delivery, so a partial email failure can be retried).
     const invoices: (AvidInvoicePdf & { zipPath: string })[] = [];
-    for (const m of res.months) {
-      invoices.push(...await buildMonthInvoices(m, multi ? `${m.statementMonth}/` : ""));
+    for (const m of batches) {
+      invoices.push(...await buildMonthInvoices(m, multi ? `${m.supplemental ? "supplemental" : m.statementMonth}/` : ""));
     }
     const pdfCount = invoices.length;
 
@@ -426,7 +592,7 @@ export async function sendAllocation(period: string, by?: string | null): Promis
           for (const inv of invoices) zip.file(inv.zipPath, inv.pdf);
           archiveZip = pdfCount > 0 ? await zip.generateAsync({ type: "nodebuffer" }) : null;
         } catch { /* archive is best-effort */ }
-        const allRows = res.months.flatMap((m) => m.rows);
+        const allRows = batches.flatMap((m) => m.rows);
         const accountCodes = [...new Set(allRows.map((r) => r.accountCode))].sort();
         const summaryBlob = buildAllocExportXlsx({
           periodText: gl.periodText || period, rows: allRows,
@@ -459,6 +625,8 @@ export async function sendAllocation(period: string, by?: string | null): Promis
     const commit = delivered || !mailConfigured;
     let finalized = false;
     if (commit) {
+      let led = ledger;
+      // Fresh months: record the run + finalize carryover (chaining holds).
       for (const m of res.months) {
         try {
           await recordAllocationRun({
@@ -466,13 +634,23 @@ export async function sendAllocation(period: string, by?: string | null): Promis
             ranAt: nowISO(), ranBy: by ?? "Sent to Avid", byProperty: m.byProperty, total: m.total,
           });
         } catch { /* best-effort */ }
-        try {
-          const next = finalizeMonth(ledger, m.statementMonth, m.expenses, nowISO()).ledger;
-          await saveAllocLedger(next);
-          ledger = next;
-          finalized = true;
-        } catch { /* best-effort */ }
+        try { led = finalizeMonth(led, m.statementMonth, m.expenses, nowISO()).ledger; finalized = true; } catch { /* best-effort */ }
       }
+      // Supplemental catch-up: record it + apply its held effect (no re-commit of
+      // the source month).
+      if (res.catchup) {
+        try {
+          await recordAllocationRun({
+            periodText: res.catchup.gl.periodText, periodEndDate: res.catchup.gl.periodEndDate, statementMonth: res.catchup.statementMonth,
+            ranAt: nowISO(), ranBy: by ? `${by} (catch-up)` : "Sent to Avid (catch-up)", byProperty: res.catchup.byProperty, total: res.catchup.total,
+          });
+        } catch { /* best-effort */ }
+        try { led = applyCatchupToLedger(led, res.catchup.expenses, res.catchup.statementMonth, nowISO()).ledger; finalized = true; } catch { /* best-effort */ }
+      }
+      // Persist the recognized baselines for EVERY month this GL touched (fresh,
+      // legacy-backfilled, and catch-up), so a later re-import bills only new deltas.
+      try { led = applyRecognized(led, res.recognizedUpdates, nowISO()); } catch { /* best-effort */ }
+      try { await saveAllocLedger(led); } catch { /* best-effort */ }
       try { await markPendingSent("allocated", period, by); } catch { /* best-effort */ }
     }
 
@@ -481,13 +659,13 @@ export async function sendAllocation(period: string, by?: string | null): Promis
       return {
         ok: false, reason: "partial-send", statementMonth: period, periodText: gl.periodText,
         total: res.total, byProperty: res.byProperty, emailed,
-        invoiceCount: pdfCount, monthCount: res.months.length,
+        invoiceCount: pdfCount, monthCount: batches.length,
       };
     }
     return {
       ok: true, statementMonth: period, periodText: gl.periodText,
       total: res.total, byProperty: res.byProperty, finalized, emailed,
-      invoiceCount: pdfCount, monthCount: res.months.length, sentAt,
+      invoiceCount: pdfCount, monthCount: batches.length, sentAt,
     };
   } catch (e) {
     return { ok: false, reason: e instanceof Error ? e.message : "send failed" };
