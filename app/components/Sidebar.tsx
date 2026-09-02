@@ -45,6 +45,7 @@ const NAV_ROLE_KEY: Record<string, string> = {
   // pages require the broader "financials-statements" key.
   "Cash Analysis":      "financials-statements",
   "Operating Statements": "financials-statements",
+  "Management Fees":    "financials-statements",
   "Statement Review": "financials-statements",
   "Reprojections":      "financials-statements",
   "Budgets":            "financials-budgets",
@@ -603,6 +604,20 @@ const NAV = [
         <line x1="8" y1="13" x2="16" y2="13" />
         <line x1="8" y1="17" x2="16" y2="17" />
         <line x1="8" y1="9" x2="11" y2="9" />
+      </svg>
+    ),
+  },
+  {
+    label: "Management Fees",
+    href: "/financials/management-fees",
+    external: false,
+    indent: false,
+    showFor: null as string | null,
+    groupId: "financials",
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <line x1="12" y1="1" x2="12" y2="23" />
+        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
       </svg>
     ),
   },
