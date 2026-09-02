@@ -91,7 +91,10 @@ export async function assembledTransactions(key: string, year: number): Promise<
       );
       merged = mergeTransactions(versions);
       const base = assembleGls(gls);
-      coveredThrough = base?.coverageEnd ?? base?.maxPeriodInFile ?? 0;
+      // Actuals-through (last posted month), NOT the report range end — so a
+      // year-to-date GL exported early doesn't suppress interim posting-report
+      // transactions for the months it hasn't actually posted yet.
+      coveredThrough = base?.maxPeriodInFile ?? 0;
     }
     // Interim posting deltas layer on for months the full GL doesn't cover.
     const deltas = await postingDeltasFor(k, year);
