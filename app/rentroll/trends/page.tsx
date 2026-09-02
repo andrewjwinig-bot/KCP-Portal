@@ -7,6 +7,7 @@ import type { RentRollData, RentRollUnit } from "../../../lib/rentroll/parseRent
 import type { RentRollSnapshotSummary, GroupKey, GroupTotals } from "../../../lib/rentroll/snapshot";
 import { TREND_GROUPS } from "../../../lib/rentroll/snapshot";
 import { PROPERTY_DEFS } from "../../../lib/properties/data";
+import { ChartTooltip, HoverBands } from "@/app/components/ChartTooltip";
 
 const COLORS: Record<GroupKey, string> = {
   total: "#0b4a7d",
@@ -62,6 +63,7 @@ export default function TrendsPage() {
   const [horizon, setHorizon] = useState<Horizon>("12mo");
   const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
   const [selectedGroup, setSelectedGroup] = useState<GroupKey>("total");
+  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
   const [drilldown, setDrilldown] = useState<{ month: string; group: GroupKey; data: RentRollData | null; loading: boolean } | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -280,7 +282,7 @@ export default function TrendsPage() {
           <div className="muted small">No rent roll history in this window. Adjust the horizon or upload a rent roll.</div>
         ) : (
           <>
-            <svg width="100%" viewBox={`0 0 ${chart.W} ${chart.H}`} style={{ overflow: "visible" }}>
+            <svg width="100%" viewBox={`0 0 ${chart.W} ${chart.H}`} style={{ overflow: "visible" }} onMouseLeave={() => setHoverIdx(null)}>
               {/* Y axis grid */}
               {[0, 25, 50, 75, 100].map((v) => (
                 <g key={v}>
@@ -291,10 +293,13 @@ export default function TrendsPage() {
 
               {/* X axis labels */}
               {visibleSnapshots.map((s, i) => (
-                <text key={s.month} x={chart.xs(i, visibleSnapshots.length)} y={chart.H - chart.padB + 16} fontSize={10} fill="var(--muted)" textAnchor="middle">
+                <text key={s.month} x={chart.xs(i, visibleSnapshots.length)} y={chart.H - chart.padB + 16} fontSize={10} fontWeight={hoverIdx === i ? 800 : 400} fill={hoverIdx === i ? "var(--text)" : "var(--muted)"} textAnchor="middle">
                   {fmtMonth(s.month)}
                 </text>
               ))}
+
+              {/* Hover bands sit UNDER the clickable points so drilling still works. */}
+              <HoverBands n={visibleSnapshots.length} xAt={(i) => chart.xs(i, visibleSnapshots.length)} x0={chart.padL} x1={chart.padL + chart.innerW} top={chart.padT} height={chart.innerH} active={hoverIdx} onHover={setHoverIdx} />
 
               {/* Lines */}
               {TREND_GROUPS.filter((g) => activeGroups.has(g.key as GroupKey)).map((g) => {
@@ -314,19 +319,29 @@ export default function TrendsPage() {
                       return (
                         <circle
                           key={i}
-                          cx={x} cy={y} r={isSelected ? 6 : 4}
+                          cx={x} cy={y} r={isSelected || hoverIdx === i ? 6 : 4}
                           fill={COLORS[k]}
                           stroke="#fff" strokeWidth={2}
                           style={{ cursor: "pointer" }}
+                          onMouseEnter={() => setHoverIdx(i)}
                           onClick={() => openDrill(s.month, k)}
-                        >
-                          <title>{`${g.label} — ${fmtMonth(s.month)} — ${(s.totals[k]?.pct ?? 0).toFixed(2)}%`}</title>
-                        </circle>
+                        />
                       );
                     })}
                   </g>
                 );
               })}
+
+              {hoverIdx != null && visibleSnapshots[hoverIdx] && (
+                <ChartTooltip
+                  x={chart.xs(hoverIdx, visibleSnapshots.length)} y={chart.padT} chartW={chart.W}
+                  title={fmtMonth(visibleSnapshots[hoverIdx].month)}
+                  rows={TREND_GROUPS.filter((g) => activeGroups.has(g.key as GroupKey)).map((g) => {
+                    const k = g.key as GroupKey;
+                    return { label: g.label, color: COLORS[k], value: `${(visibleSnapshots[hoverIdx].totals[k]?.pct ?? 0).toFixed(1)}%` };
+                  })}
+                />
+              )}
             </svg>
           </>
         )}
@@ -590,10 +605,12 @@ function MetricChart({
   const xs = (i: number) => snapshots.length <= 1 ? padL + innerW / 2 : padL + (i / (snapshots.length - 1)) * innerW;
   const ys = (v: number) => padT + innerH - (v / max) * innerH;
 
+  const [hover, setHover] = useState<number | null>(null);
+
   return (
     <div className="card">
       <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 8 }}>{title}</div>
-      <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ overflow: "visible" }}>
+      <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ overflow: "visible" }} onMouseLeave={() => setHover(null)}>
         {/* y-axis labels */}
         {[0, 0.25, 0.5, 0.75, 1].map((f) => {
           const v = max * f;
@@ -615,19 +632,25 @@ function MetricChart({
           );
         })}
         {/* Lines */}
-        {series.map((s) => {
-          const path = s.values.map((v, i) => `${i === 0 ? "M" : "L"} ${xs(i).toFixed(1)} ${ys(v).toFixed(1)}`).join(" ");
-          return (
-            <g key={s.key}>
-              <path d={path} fill="none" stroke={COLORS[s.key]} strokeWidth={2} />
-              {s.values.map((v, i) => (
-                <circle key={i} cx={xs(i)} cy={ys(v)} r={3} fill={COLORS[s.key]} stroke="#fff" strokeWidth={1.5}>
-                  <title>{`${s.label} — ${fmtMonth(snapshots[i].month)} — ${fmt(v)}${unit ? " " + unit : ""}`}</title>
-                </circle>
-              ))}
-            </g>
-          );
-        })}
+        <g pointerEvents="none">
+          {series.map((s) => {
+            const path = s.values.map((v, i) => `${i === 0 ? "M" : "L"} ${xs(i).toFixed(1)} ${ys(v).toFixed(1)}`).join(" ");
+            return (
+              <g key={s.key}>
+                <path d={path} fill="none" stroke={COLORS[s.key]} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+                {s.values.map((v, i) => (
+                  <circle key={i} cx={xs(i)} cy={ys(v)} r={hover === i ? 5.5 : 3} fill={COLORS[s.key]} stroke="#fff" strokeWidth={hover === i ? 2.25 : 1.5} />
+                ))}
+              </g>
+            );
+          })}
+        </g>
+
+        <HoverBands n={snapshots.length} xAt={xs} x0={padL} x1={padL + innerW} top={padT} height={innerH} active={hover} onHover={setHover} />
+        {hover != null && snapshots[hover] && (
+          <ChartTooltip x={xs(hover)} y={padT} chartW={W} title={fmtMonth(snapshots[hover].month)}
+            rows={series.map((s) => ({ label: s.label, color: COLORS[s.key], value: `${fmt(s.values[hover])}${unit ? " " + unit : ""}` }))} />
+        )}
       </svg>
     </div>
   );
@@ -646,6 +669,8 @@ function ExpirationsChart({ snapshots, activeGroups }: { snapshots: RentRollSnap
   const innerH = H - padT - padB;
   const max = Math.max(1, ...snapshots.map((s) => s.totals[k]?.expiring365 ?? 0));
   const barWidth = Math.max(8, (innerW / Math.max(1, snapshots.length)) * 0.6);
+  const cxAt = (i: number) => snapshots.length <= 1 ? padL + innerW / 2 : padL + (i / (snapshots.length - 1)) * innerW;
+  const [hover, setHover] = useState<number | null>(null);
 
   return (
     <div className="card">
@@ -653,7 +678,7 @@ function ExpirationsChart({ snapshots, activeGroups }: { snapshots: RentRollSnap
         <div style={{ fontSize: 14, fontWeight: 700 }}>Lease Expirations as of Snapshot</div>
         <div className="muted small">Group: {TREND_GROUPS.find((g) => g.key === k)?.label}</div>
       </div>
-      <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ overflow: "visible" }}>
+      <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ overflow: "visible" }} onMouseLeave={() => setHover(null)}>
         {[0, 0.5, 1].map((f) => {
           const v = max * f;
           const y = padT + innerH - f * innerH;
@@ -664,30 +689,41 @@ function ExpirationsChart({ snapshots, activeGroups }: { snapshots: RentRollSnap
             </g>
           );
         })}
-        {snapshots.map((s, i) => {
-          const t = s.totals[k];
-          if (!t) return null;
-          const cx = snapshots.length <= 1 ? padL + innerW / 2 : padL + (i / (snapshots.length - 1)) * innerW;
-          const x = cx - barWidth / 2;
-          const h365 = ((t.expiring365 - t.expiring180) / max) * innerH;
-          const h180 = ((t.expiring180 - t.expiring90)  / max) * innerH;
-          const h90  = (t.expiring90 / max) * innerH;
-          const baseY = padT + innerH;
+        <g pointerEvents="none">
+          {snapshots.map((s, i) => {
+            const t = s.totals[k];
+            if (!t) return null;
+            const cx = cxAt(i);
+            const x = cx - barWidth / 2;
+            const h365 = ((t.expiring365 - t.expiring180) / max) * innerH;
+            const h180 = ((t.expiring180 - t.expiring90)  / max) * innerH;
+            const h90  = (t.expiring90 / max) * innerH;
+            const baseY = padT + innerH;
+            const dim = hover != null && hover !== i;
+            return (
+              <g key={s.month} opacity={dim ? 0.4 : 1}>
+                <rect x={x} y={baseY - h90} width={barWidth} height={h90} fill="#dc2626" />
+                <rect x={x} y={baseY - h90 - h180} width={barWidth} height={h180} fill="#d97706" />
+                <rect x={x} y={baseY - h90 - h180 - h365} width={barWidth} height={h365} fill="#0b4a7d" />
+                <text x={cx} y={H - padB + 14} fontSize={9} fontWeight={hover === i ? 800 : 400} fill={hover === i ? "var(--text)" : "var(--muted)"} textAnchor="middle">{fmtMonth(s.month)}</text>
+              </g>
+            );
+          })}
+        </g>
+
+        <HoverBands n={snapshots.length} xAt={cxAt} x0={padL} x1={padL + innerW} top={padT} height={innerH} active={hover} onHover={setHover} />
+        {hover != null && snapshots[hover]?.totals[k] && (() => {
+          const t = snapshots[hover].totals[k]!;
           return (
-            <g key={s.month}>
-              <rect x={x} y={baseY - h90} width={barWidth} height={h90} fill="#dc2626">
-                <title>{`${fmtMonth(s.month)} · ≤90d: ${t.expiring90}`}</title>
-              </rect>
-              <rect x={x} y={baseY - h90 - h180} width={barWidth} height={h180} fill="#d97706">
-                <title>{`${fmtMonth(s.month)} · 90-180d: ${t.expiring180 - t.expiring90}`}</title>
-              </rect>
-              <rect x={x} y={baseY - h90 - h180 - h365} width={barWidth} height={h365} fill="#0b4a7d">
-                <title>{`${fmtMonth(s.month)} · 180-365d: ${t.expiring365 - t.expiring180}`}</title>
-              </rect>
-              <text x={cx} y={H - padB + 14} fontSize={9} fill="var(--muted)" textAnchor="middle">{fmtMonth(s.month)}</text>
-            </g>
+            <ChartTooltip x={cxAt(hover)} y={padT} chartW={W} title={fmtMonth(snapshots[hover].month)}
+              rows={[
+                { label: "≤ 90 days", color: "#dc2626", value: String(t.expiring90) },
+                { label: "90 – 180 days", color: "#d97706", value: String(t.expiring180 - t.expiring90) },
+                { label: "180 – 365 days", color: "#0b4a7d", value: String(t.expiring365 - t.expiring180) },
+              ]}
+              footer={{ label: "Total ≤ 365 days", value: String(t.expiring365) }} />
           );
-        })}
+        })()}
       </svg>
       <div style={{ display: "flex", gap: 14, fontSize: 11, marginTop: 8, color: "var(--muted)" }}>
         <span><span style={{ display: "inline-block", width: 10, height: 10, background: "#dc2626", borderRadius: 2, marginRight: 4 }} />≤ 90 d</span>

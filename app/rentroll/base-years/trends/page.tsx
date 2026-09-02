@@ -8,6 +8,7 @@ import {
   grossedUpLines,
   type PropertyExpenses,
 } from "@/lib/rentroll/baseYearExpenses";
+import { ChartTooltip, HoverBands } from "@/app/components/ChartTooltip";
 
 const SECTION_LABEL: React.CSSProperties = {
   fontSize: 11,
@@ -161,6 +162,7 @@ function LineChart({
   yMax?: number;
 }) {
   const [hidden, setHidden] = useState<Set<string>>(new Set());
+  const [hover, setHover] = useState<number | null>(null);
 
   const W = 820, H = 300;
   const padL = 62, padR = 16, padT = 16, padB = 30;
@@ -195,7 +197,7 @@ function LineChart({
         {sub && <div className="small muted">{sub}</div>}
       </div>
 
-      <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ overflow: "visible", marginTop: 8 }}>
+      <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ overflow: "visible", marginTop: 8 }} onMouseLeave={() => setHover(null)}>
         {[0, 0.25, 0.5, 0.75, 1].map((f) => {
           const v = max * f;
           return (
@@ -209,23 +211,29 @@ function LineChart({
         })}
         {years.map((y, i) =>
           i % xEvery === 0 || i === years.length - 1 ? (
-            <text key={y} x={xs(i)} y={H - padB + 16} fontSize={10} fill="var(--muted)" textAnchor="middle">
+            <text key={y} x={xs(i)} y={H - padB + 16} fontSize={10} fontWeight={hover === i ? 800 : 400} fill={hover === i ? "var(--text)" : "var(--muted)"} textAnchor="middle">
               {y}
             </text>
           ) : null,
         )}
-        {visible.map((s) => (
-          <g key={s.label}>
-            <path d={pathFor(s.values)} fill="none" stroke={s.color} strokeWidth={2.5} />
-            {s.values.map((v, i) =>
-              v != null ? (
-                <circle key={i} cx={xs(i)} cy={ys(v)} r={3} fill={s.color} stroke="#fff" strokeWidth={1.2}>
-                  <title>{`${s.label} · ${years[i]} · ${fmtY(v)}`}</title>
-                </circle>
-              ) : null,
-            )}
-          </g>
-        ))}
+        <g pointerEvents="none">
+          {visible.map((s) => (
+            <g key={s.label}>
+              <path d={pathFor(s.values)} fill="none" stroke={s.color} strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" />
+              {s.values.map((v, i) =>
+                v != null ? (
+                  <circle key={i} cx={xs(i)} cy={ys(v)} r={hover === i ? 5.5 : 3} fill={s.color} stroke="#fff" strokeWidth={hover === i ? 2.25 : 1.2} />
+                ) : null,
+              )}
+            </g>
+          ))}
+        </g>
+
+        <HoverBands n={years.length} xAt={xs} x0={padL} x1={padL + innerW} top={padT} height={innerH} active={hover} onHover={setHover} />
+        {hover != null && (
+          <ChartTooltip x={xs(hover)} y={padT} chartW={W} title={String(years[hover])}
+            rows={visible.filter((s) => s.values[hover] != null).map((s) => ({ label: s.label, color: s.color, value: fmtY(s.values[hover]!) }))} />
+        )}
       </svg>
 
       <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 14px", marginTop: 10 }}>

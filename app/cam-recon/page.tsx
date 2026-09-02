@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { Pill, StatPill, reconBalanceTone, TONE_NEUTRAL, TONE_AMBER, TONE_BLUE, TONE_PURPLE } from "@/app/components/Pill";
 import { ImportInstructions } from "@/app/components/ImportInstructions";
+import { HoverCard, type TipRow } from "@/app/components/HoverCard";
 import { LastImported } from "@/app/components/LastImported";
 import { useCamBackup, BackupTrigger, PackageButton, CamBackupModal, MixedCamBackup } from "./CamBackup";
 import { TenantShareLink } from "./TenantShareLink";
@@ -746,14 +747,14 @@ function OccCallout({ occPct, year, rcd, vacatedISO }: {
   occPct: number; year: number; rcd?: string | null; vacatedISO?: string | null;
 }) {
   if (occPct >= 0.9999) return null;
-  const bits: string[] = [];
-  if (rcd) bits.push(`Lease commenced ${fmtRCD(rcd)}`);
-  if (vacatedISO) bits.push(`Vacated ${new Date(vacatedISO + "T00:00:00").toLocaleDateString("en-US")}`);
-  bits.push(`${pct(occPct, 1)} of ${year} occupied`);
+  const rows: TipRow[] = [];
+  if (rcd) rows.push({ label: "Lease commenced", value: fmtRCD(rcd) });
+  if (vacatedISO) rows.push({ label: "Vacated", value: new Date(vacatedISO + "T00:00:00").toLocaleDateString("en-US") });
+  rows.push({ label: `Occupied in ${year}`, value: pct(occPct, 1) });
   return (
-    <span title={bits.join(" · ")} style={{ fontSize: 11, color: "#b45309", cursor: "help", whiteSpace: "nowrap" }}>
+    <HoverCard title="Partial-year occupancy" rows={rows} width={240} style={{ fontSize: 11, color: "#b45309", whiteSpace: "nowrap" }}>
       {" "}({pct(occPct, 0)} occ)
-    </span>
+    </HoverCard>
   );
 }
 
