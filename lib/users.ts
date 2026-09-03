@@ -100,6 +100,7 @@ export const USERS: Record<UserId, UserDef> = {
       "financials-budgets",
       "financials-statements",
       "cash-analysis-draft",
+      "tenant-statements",
     ]),
     allowedPathPrefixes: [
       "/dashboard",
@@ -110,6 +111,7 @@ export const USERS: Record<UserId, UserDef> = {
       "/rentroll",
       "/units",
       "/allocated-invoicer",
+      "/tenant-statements",
       "/deposits",
       "/bank-transfers",
       "/bank-rec",
@@ -135,6 +137,7 @@ export const USERS: Record<UserId, UserDef> = {
       "tracker",
       "bank-rec-tracker",
       "bank-transfers",
+      "tenant-statements",
     ]),
     allowedPathPrefixes: [
       "/dashboard",
@@ -144,6 +147,7 @@ export const USERS: Record<UserId, UserDef> = {
       "/tracker",
       "/bank-rec",
       "/bank-transfers",
+      "/tenant-statements",
       "/reports",
     ],
     defaultRentRollCategory: "All",

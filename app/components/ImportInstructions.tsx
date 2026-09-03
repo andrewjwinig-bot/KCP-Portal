@@ -1,12 +1,29 @@
-// Skyline upload steps shown under the CAM/RET exports (year-end + estimates).
-// `stop` adds the prominent "stop the current charges first" warning — required
-// when replacing recurring charges (estimates) so tenants aren't double-charged.
+// Skyline steps shown alongside a Skyline hand-off. Two directions:
+//   variant "charges" (default) — pushing CAM/RET charges INTO Skyline (the
+//     year-end + estimate exports). `stop` adds the prominent "stop the current
+//     charges first" warning so tenants aren't double-charged.
+//   variant "statements" — pulling the tenant Statement report OUT of Skyline
+//     for the monthly statement import.
 
 const LABEL: React.CSSProperties = {
   fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)",
 };
 
-export function ImportInstructions({ stop }: { stop?: boolean }) {
+export function ImportInstructions({ stop, variant = "charges" }: { stop?: boolean; variant?: "charges" | "statements" }) {
+  if (variant === "statements") {
+    return (
+      <div style={{ marginTop: 14 }}>
+        <div style={LABEL}>Skyline Export Steps</div>
+        <ol style={{ margin: "8px 0 0", paddingLeft: 18, fontSize: 12.5, color: "var(--muted)", lineHeight: 1.7 }}>
+          <li>Run Skyline&rsquo;s tenant <strong>Statement</strong> report for the month, across the buildings you&rsquo;re billing.</li>
+          <li>Report Destination: <strong>Excel</strong> — save the .xls it produces.</li>
+          <li>Upload it here <strong>unmodified</strong>. Don&rsquo;t delete rows, re-sort, or paste into a new sheet: the parser reads Skyline&rsquo;s own layout and reconciles every tenant to the balance Skyline printed.</li>
+          <li>Shopping centers and business parks export separately — upload both and they merge into the one month.</li>
+          <li>Review the tie-outs, then <strong>Publish</strong> to release the month to the tenant portal.</li>
+        </ol>
+      </div>
+    );
+  }
   return (
     <div style={{ marginTop: 14 }}>
       <div style={LABEL}>Skyline Import Steps</div>

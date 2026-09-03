@@ -47,6 +47,48 @@ The user wants downloaded workbooks to stay accurate and be easy to edit. **Any 
 
 Reference points already converted: single-period Operating Statement, Full-Year statement, Reprojection, Budget download (all tabs), Cash Sheet Portfolio Total, Payroll summary + GL offset (`=-SUM(...)` so column H nets to $0), Allocation template, allocated-invoicer. **Exceptions that legitimately have no total row:** the Skyline import (one row per GL, no footer) and the rent-roll trend workbook (its "Total" is a per-period column, and percentages can't be summed). If you build a NEW export, wire its totals as formulas from the start.
 
+# Tenant monthly statements (open A/R) — sources of truth
+
+The tenant portal's Statements tab carries TWO statements: the annual CAM/RET
+reconciliation (unchanged) and the **monthly statement of account** — every open
+charge Skyline is carrying for that tenant, aged, categorized, and paired with
+how-to-pay instructions. Sources of truth:
+
+- **The Skyline "Statement" report is the only input.** Parser:
+  `lib/statements/parseSkylineStatements.ts`. Never hand-key a tenant's open
+  balance anywhere. The parser reads Skyline's own layout (unit ref at col W,
+  date/description/amount at A/G/S, balance at Y) and **reconciles every tenant
+  to the "PREVIOUS MONTH ENDING BALANCE" Skyline printed** — `tiesOut: false` is
+  the guardrail, and an untied tenant is flagged "under review" on the portal
+  instead of being billed off a bad parse. Two Crystal Reports quirks it already
+  handles (don't "fix" them out): a tenant continued across a page break, and a
+  detail group re-rendered 2–4× (deduped only when the dedupe reconciles).
+- **Unit refs are stored in the app's canonical form** — Skyline's `-CU` charge
+  suffix stripped (`2300-1817-CU` → `2300-1817`), matching the rent roll, the
+  recon rosters and the portal token. `skylineUnitRef` keeps the raw value. If a
+  portal lookup ever misses, check this first.
+- **Storage**: one record per statement period (`lib/statements/store.ts`,
+  prefix `tenant-statements`, keyed `YYYY-MM`). Uploading a second export into
+  the same month (SC and BP run separately) MERGES by unit ref — it never
+  replaces the month. A period is hidden from tenants until **published**;
+  re-importing a published month keeps it published.
+- **Every derived number comes from `lib/statements/summary.ts`** (`summarize`,
+  `agingOf`, `sortedCharges`) — the portal, the PDF and the admin roster all
+  call it, so they cannot disagree. Aging is by CALENDAR MONTH against the
+  statement period (this month = Current, last month = 1–30, …), which is how a
+  rent ledger actually ages.
+- **Payment instructions** (`lib/statements/payment.ts`) are editable data, not
+  copy in a component: built-in defaults < the global override < a per-property
+  override, edited on the Monthly Statements page. Do NOT hard-code remit-to or
+  AR contact details into the portal or the PDF. Bank/routing numbers stay OUT
+  of the portal — the ACH note points tenants at AR instead.
+- **The PDF** (`lib/statements/monthlyStatementPdf.ts`) deliberately mirrors
+  `lib/cam/retail/statementPdf.ts` — same letterhead, tinted section bars, zebra
+  rows, boxed balance. If one drifts, reconcile them rather than adding a style.
+- Admin page `/tenant-statements`; portal view `app/portal/[token]/MonthlyStatements.tsx`;
+  tenant APIs `/api/portal/[token]/monthly[/pdf]` (published periods only, scoped
+  to the token's one unit).
+
 # CAM / RET reconciliation — sources of truth (do not duplicate data)
 
 The user has repeatedly flagged data living in the wrong place / pages drifting. These are the canonical sources — read/write here, never re-key the same value somewhere else:
