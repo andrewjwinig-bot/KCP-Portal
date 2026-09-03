@@ -12,7 +12,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Pill, TONE_GREEN, TONE_AMBER, TONE_NEUTRAL } from "@/app/components/Pill";
+import { Pill, TONE_GREEN, TONE_NEUTRAL } from "@/app/components/Pill";
 
 type Kind = "office" | "retail";
 type CloseOut = {
@@ -42,6 +42,19 @@ function movedOut(c: CloseOut): string {
 }
 function interimHref(c: CloseOut): string {
   return `/cam-recon/interim?property=${encodeURIComponent(c.property)}&unitRef=${encodeURIComponent(c.unitRef)}&year=${c.year}&asOf=${c.vacateMonth}`;
+}
+// The actual move-out date — the lease end when we have it, else the last day
+// of the vacate month. Used to keep the dashboard to tenants who've ALREADY
+// left (expired), not upcoming move-outs.
+function moveOutDate(c: CloseOut): Date {
+  if (c.leaseTo) {
+    const d = new Date(c.leaseTo);
+    if (!isNaN(d.getTime())) return d;
+  }
+  return new Date(c.year, c.vacateMonth, 0); // day 0 of next month = last day of vacate month
+}
+function hasExpired(c: CloseOut): boolean {
+  return moveOutDate(c).getTime() <= Date.now();
 }
 
 export default function MoveOutsCard({ order = -1 }: { order?: number }) {
@@ -77,7 +90,8 @@ export default function MoveOutsCard({ order = -1 }: { order?: number }) {
   }, [load]);
 
   if (!loaded) return null;
-  const rows = closeOuts ?? [];
+  // Only tenants who've actually moved out (expired) — not upcoming move-outs.
+  const rows = (closeOuts ?? []).filter(hasExpired);
   const ready = rows.filter((c) => c.status === "ready");
   const waiting = rows.filter((c) => c.status === "waiting");
   // Nothing to show and nothing ever finalized → hide the card entirely.
@@ -86,7 +100,7 @@ export default function MoveOutsCard({ order = -1 }: { order?: number }) {
   return (
     <div className="card" style={{ order }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12 }}>
-        <div style={SECTION}>Move-Out Close-Outs</div>
+        <div style={SECTION}>Pending Close-Outs</div>
         <Link href="/cam-recon/interim" style={{ color: "#0b4a7d", fontWeight: 600, fontSize: 12 }}>Open →</Link>
       </div>
 
@@ -134,17 +148,17 @@ export default function MoveOutsCard({ order = -1 }: { order?: number }) {
         </div>
       )}
 
-      {/* WAITING — flips to ready on its own once the GL posts. */}
+      {/* WAITING — flips to ready on its own once the GL posts. Briefly: who,
+          which property, and the month we're waiting on to post. */}
       {waiting.length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
           {ready.length > 0 && <div style={{ ...SECTION, fontSize: 11, marginBottom: 4 }}>Waiting on the GL</div>}
           {waiting.map((c) => (
             <div key={c.key} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 4px", fontSize: 13, flexWrap: "wrap" }}>
-              <Pill tone={TONE_AMBER}>Waiting</Pill>
               <span style={{ fontWeight: 600 }}>{c.name}</span>
-              <span className="muted" style={{ fontSize: 12 }}>{c.property} · <code style={{ fontSize: 11 }}>{c.unitRef}</code></span>
+              <span className="muted" style={{ fontSize: 12 }}>{c.property}</span>
               <span className="muted" style={{ fontSize: 12, marginLeft: "auto" }}>
-                waiting on {MONTHS[c.vacateMonth - 1]} GL{c.maxPosted ? ` · posted through ${MONTHS[c.maxPosted - 1]}` : " · none posted"}
+                waiting on {MONTHS[c.vacateMonth - 1]} {c.year} to post
               </span>
             </div>
           ))}
