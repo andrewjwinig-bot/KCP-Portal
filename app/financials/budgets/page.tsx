@@ -3,7 +3,7 @@
 import LoadingState from "@/app/components/LoadingState";
 import React, { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useUser } from "@/app/components/UserProvider";
-import { Pill, StatPill, type PillTone } from "@/app/components/Pill";
+import { Pill, StatPill, TONE_AMBER, TONE_GREEN, type PillTone } from "@/app/components/Pill";
 import { LastImported } from "@/app/components/LastImported";
 import type { BudgetWorkbook, OccupancyDetailRow } from "@/lib/financials/budgets/types";
 
@@ -77,6 +77,48 @@ export default function BudgetsPage() {
     }
   }, [selectedId, budgetScope]);
   useEffect(() => { reload(); }, [reload]);
+
+  const [deleting, setDeleting] = useState(false);
+  // Delete an in-app ("live") budget — lets staff walk the create → review →
+  // delete cycle without leaving a test budget behind. Seeded/uploaded base
+  // workbooks aren't deletable here (the button only shows for kind === "live").
+  const handleDelete = useCallback(async () => {
+    if (!selectedId || !workbook) return;
+    if (!window.confirm(`Delete the budget "${workbook.label ?? selectedId}"? This can't be undone.`)) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/financials/budgets/${encodeURIComponent(selectedId)}`, { method: "DELETE" });
+      if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(b.error ?? "Delete failed"); }
+      setSelectedId(null);
+      setWorkbook(null);
+      await reload();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Delete failed");
+    } finally { setDeleting(false); }
+  }, [selectedId, workbook, reload]);
+
+  const [statusSaving, setStatusSaving] = useState(false);
+  // Live-budget lifecycle — flip a draft to final (locked in) or reopen it.
+  const setBudgetStatus = useCallback(async (next: "draft" | "final") => {
+    if (!selectedId || !workbook) return;
+    setStatusSaving(true);
+    try {
+      const res = await fetch(`/api/financials/budgets/${encodeURIComponent(selectedId)}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: next, user: user.label }),
+      });
+      const b = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(b.error ?? "Failed to update status");
+      if (b.workbook) setWorkbook(b.workbook);
+      await reload();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to update status");
+    } finally { setStatusSaving(false); }
+  }, [selectedId, workbook, reload, user.label]);
+
+  // Live budgets carry a lifecycle; everything else is effectively final.
+  const liveStatus: "draft" | "final" | null =
+    workbook?.kind === "live" ? (workbook.status ?? "draft") : null;
 
   // Deep link: /financials/budgets?property=<code>&year=<year> selects the
   // workbook containing that property (preferring the requested year) and
@@ -152,8 +194,30 @@ export default function BudgetsPage() {
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
       <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
         <div>
-          <h1 style={{ margin: 0 }}>Operating Budgets</h1>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <h1 style={{ margin: 0 }}>Operating Budgets</h1>
+            {liveStatus && <Pill tone={liveStatus === "final" ? TONE_GREEN : TONE_AMBER}>{liveStatus === "final" ? "Final" : "Draft"}</Pill>}
+          </div>
           {workbook && workbook.kind !== "live" && <LastImported at={workbook.uploadedAt} by={workbook.uploadedBy} label="Budget last imported" />}
+          {liveStatus && canUpload && (
+            <div style={{ display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap" }}>
+              {liveStatus === "draft" ? (
+                <button onClick={() => setBudgetStatus("final")} disabled={statusSaving} className="btn"
+                  style={{ fontSize: 12, padding: "5px 12px", fontWeight: 700, color: "#15803d", borderColor: "rgba(22,163,74,0.4)", background: "rgba(22,163,74,0.05)" }}>
+                  {statusSaving ? "Saving…" : "Finalize budget"}
+                </button>
+              ) : (
+                <button onClick={() => setBudgetStatus("draft")} disabled={statusSaving} className="btn"
+                  style={{ fontSize: 12, padding: "5px 12px", fontWeight: 700 }}>
+                  {statusSaving ? "Saving…" : "Reopen as draft"}
+                </button>
+              )}
+              <button onClick={handleDelete} disabled={deleting} className="btn"
+                style={{ fontSize: 12, padding: "5px 12px", fontWeight: 700, color: "#b91c1c", borderColor: "rgba(220,38,38,0.4)", background: "rgba(220,38,38,0.05)" }}>
+                {deleting ? "Deleting…" : "Delete"}
+              </button>
+            </div>
+          )}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
           <span style={{ fontFamily: "'Arial Black', 'Arial Bold', Arial, sans-serif", fontWeight: 900, fontSize: 30, letterSpacing: "-0.5px", lineHeight: 1 }}>KORMAN</span>

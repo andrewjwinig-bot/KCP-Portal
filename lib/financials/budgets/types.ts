@@ -253,6 +253,13 @@ export type BudgetWorkbook = {
   /** Workbook-level rollup ("All Shopping Centers" sheet), if present. */
   rollup?: PropertyBudget;
   properties: PropertyBudget[];
+  /** Lifecycle for in-app ("live") budgets: "draft" while being built,
+   *  "final" once locked in. Absent on seeded/uploaded workbooks (treated as
+   *  final). Toggled via PATCH /api/financials/budgets/[id] { status }. */
+  status?: "draft" | "final";
+  /** Who finalized / reopened it and when. */
+  statusBy?: string;
+  statusAt?: string;
   /** Reforecast mode — when true, every monthly cell + notes field on
    *  the page becomes inline-editable, with autosave + last-edited-by
    *  tracking. Persisted on the workbook so multiple staff can
