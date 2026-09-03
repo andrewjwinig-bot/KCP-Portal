@@ -9,6 +9,7 @@ import type { BudgetCategory } from "@/lib/financials/budgets/types";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
+export const maxDuration = 60; // loads a reprojection per building — give it room
 
 // POST /api/financials/budgets/create
 // Body: { year, category, priorBudgetId?, opExGrowthPct? }
@@ -59,17 +60,21 @@ export async function POST(req: Request) {
     const reprojByCode: Record<string, { reimbExp: ReprojExpenseLine[]; nonReimb: ReprojExpenseLine[] }> = {};
     if (rentroll) {
       const codes = rentRollCodesForCategory(rentroll as any, category);
-      for (const code of codes) {
-        const loaded = await loadReprojection(code, year - 1).catch(() => null);
-        if (!loaded) continue;
+      // Load every building's reprojection in parallel — sequential awaits were
+      // slow enough to time the request out on a full portfolio.
+      const loaded = await Promise.all(
+        codes.map((code) => loadReprojection(code, year - 1).catch(() => null).then((l) => ({ code, l }))),
+      );
+      for (const { code, l } of loaded) {
+        if (!l) continue;
         const reimbExp: ReprojExpenseLine[] = [];
         const nonReimb: ReprojExpenseLine[] = [];
-        for (const sec of loaded.reprojection.sections) {
+        for (const sec of l.reprojection.sections) {
           const bucket = sec.role === "reimbursable-expense" ? reimbExp
             : (sec.role === "non-reimbursable-expense" || sec.role === "residential-expense") ? nonReimb
             : null;
           if (!bucket) continue;
-          for (const l of sec.lines) bucket.push({ label: l.label, blended: l.blended });
+          for (const line of sec.lines) bucket.push({ label: line.label, blended: line.blended });
         }
         if (reimbExp.length || nonReimb.length) reprojByCode[code] = { reimbExp, nonReimb };
       }
