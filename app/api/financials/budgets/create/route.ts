@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { getJSON } from "@/lib/storage";
 import { listLoans } from "@/lib/debt/storage";
-import { buildLiveBudget } from "@/lib/financials/budgets/build";
+import { buildLiveBudget, rentRollCodesForCategory, type ReprojExpenseLine } from "@/lib/financials/budgets/build";
 import { getBudget, saveBudget } from "@/lib/financials/budgets/storage";
+import { loadReprojection } from "@/lib/financials/reprojections/load";
 import type { BudgetCategory } from "@/lib/financials/budgets/types";
 
 export const runtime = "nodejs";
@@ -44,6 +45,28 @@ export async function POST(req: Request) {
     const loans = await listLoans();
     const prior = body.priorBudgetId ? await getBudget(body.priorBudgetId) : null;
 
+    // Operating expenses autofill from each building's reprojection (this year's
+    // YTD actuals + forecast for the rest), basis = the year before the budget.
+    // No dropdown — one reproj per building in the category.
+    const reprojByCode: Record<string, { reimbExp: ReprojExpenseLine[]; nonReimb: ReprojExpenseLine[] }> = {};
+    if (rentroll) {
+      const codes = rentRollCodesForCategory(rentroll as any, category);
+      for (const code of codes) {
+        const loaded = await loadReprojection(code, year - 1).catch(() => null);
+        if (!loaded) continue;
+        const reimbExp: ReprojExpenseLine[] = [];
+        const nonReimb: ReprojExpenseLine[] = [];
+        for (const sec of loaded.reprojection.sections) {
+          const bucket = sec.role === "reimbursable-expense" ? reimbExp
+            : (sec.role === "non-reimbursable-expense" || sec.role === "residential-expense") ? nonReimb
+            : null;
+          if (!bucket) continue;
+          for (const l of sec.lines) bucket.push({ label: l.label, blended: l.blended });
+        }
+        if (reimbExp.length || nonReimb.length) reprojByCode[code] = { reimbExp, nonReimb };
+      }
+    }
+
     const wb = buildLiveBudget({
       year,
       category,
@@ -53,6 +76,7 @@ export async function POST(req: Request) {
       opExGrowthPct,
       retGrowthPct,
       insGrowthPct,
+      reprojByCode,
     });
 
     if (wb.properties.length === 0) {
