@@ -892,8 +892,41 @@ function BudgetTable({
           </div>
         </div>
 
+        {/* Building switcher — flip between every building's budget for this year
+            in one click (esp. while editing a draft). */}
+        {propertyOptionsByWorkbook.length > 0 && (
+          <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 7 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+              Buildings · {workbook.year}
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
+              {propertyOptionsByWorkbook.map((grp, gi) => (
+                <Fragment key={grp.budgetId}>
+                  {gi > 0 && <span style={{ width: 1, height: 20, background: "var(--border)", margin: "0 3px" }} />}
+                  {grp.properties.map((p) => {
+                    const active = grp.budgetId === workbook.id && p.propertyCode === property.propertyCode;
+                    return (
+                      <button key={`${grp.budgetId}|${p.propertyCode}`}
+                        onClick={() => handlePropertyChange(`${grp.budgetId}|${p.propertyCode}`)}
+                        title={`${p.propertyName}${grp.label ? ` — ${grp.label}` : ""}`}
+                        style={{
+                          padding: "5px 11px", borderRadius: 999, fontSize: 12.5, fontWeight: 700, cursor: "pointer",
+                          border: active ? "1px solid #0b4a7d" : "1px solid var(--border)",
+                          background: active ? "#0b4a7d" : "var(--card)",
+                          color: active ? "#fff" : "var(--text)", whiteSpace: "nowrap",
+                        }}>
+                        {p.propertyCode === "CONSOLIDATED" ? "All" : p.propertyCode}
+                      </button>
+                    );
+                  })}
+                </Fragment>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div style={{
-          marginTop: 6, display: "flex", alignItems: "center", justifyContent: "space-between",
+          marginTop: 12, display: "flex", alignItems: "center", justifyContent: "space-between",
           gap: 12, flexWrap: "wrap",
         }}>
           <div className="muted small">
