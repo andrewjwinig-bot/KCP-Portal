@@ -94,6 +94,10 @@ export default function TenantStatementsPage() {
   const [busy, setBusy] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
   const fileRef = useRef<HTMLInputElement | null>(null);
+  // Set when an import is refused for having lost its CURRENT CHARGES section,
+  // so the override is offered in context rather than hidden in the API.
+  const [lossyRefusal, setLossyRefusal] = useState<{ filename: string; sections: number } | null>(null);
+  const allowIncompleteRef = useRef(false);
 
   const loadPeriods = useCallback(async () => {
     try {
@@ -124,6 +128,9 @@ export default function TenantStatementsPage() {
   async function processFiles(files: File[]) {
     if (!files.length) return;
     setError(null);
+    setLossyRefusal(null);
+    const allowIncomplete = allowIncompleteRef.current;
+    allowIncompleteRef.current = false; // one import only — never a sticky setting
     await startImport({
       kind: "tenant-statements",
       title: (n) => `Importing ${n} Skyline statement export${n === 1 ? "" : "s"}`,
@@ -136,8 +143,12 @@ export default function TenantStatementsPage() {
         fd.append("file", file);
         fd.append("uploadedBy", user.label);
         fd.append("autoPublish", autoPublish ? "1" : "0");
+        if (allowIncomplete) fd.append("allowIncomplete", "1");
         const j = await fetch("/api/tenant-statements", { method: "POST", body: fd }).then((r) => r.json());
-        if (!j.ok) return { status: "failed", error: j.error ?? "Import failed" };
+        if (!j.ok) {
+          if (j.code === "lossy-current-section") setLossyRefusal({ filename: file.name, sections: j.currentSections ?? 0 });
+          return { status: "failed", error: j.error ?? "Import failed" };
+        }
         const untied: number = j.untied?.length ?? j.mismatched.length;
         const mg = j.merge as { replaced: number; added: number; carriedOver: number } | undefined;
         const merged = mg && mg.carriedOver > 0
@@ -329,6 +340,30 @@ export default function TenantStatementsPage() {
           </button>
         </div>
       </header>
+
+      {lossyRefusal && (
+        <div className="card" style={{ borderColor: "rgba(220,38,38,0.45)", background: "rgba(220,38,38,0.05)" }}>
+          <div style={{ fontWeight: 800, color: "#b91c1c", fontSize: 15 }}>
+            <code style={{ fontSize: 13 }}>{lossyRefusal.filename}</code> is missing its current charges
+          </div>
+          <div className="muted small" style={{ marginTop: 6, maxWidth: 760, lineHeight: 1.6 }}>
+            Skyline printed a CURRENT CHARGES section for {lossyRefusal.sections || "every"} tenant
+            {lossyRefusal.sections ? "s" : ""} but the file carries nothing under any of them, so it holds only what was
+            already outstanding — everything billed this month is absent from the file itself. Re-export from Skyline
+            (try the other Excel format, or CSV) and import that instead.
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 12, flexWrap: "wrap" }}>
+            <button className="btn" onClick={() => { allowIncompleteRef.current = true; fileRef.current?.click(); }}
+              style={{ fontSize: 13, padding: "6px 12px", fontWeight: 700 }}>
+              Import it anyway
+            </button>
+            <span className="muted" style={{ fontSize: 12 }}>
+              Loads the prior balances for internal review. The month stays hidden from tenants and can&rsquo;t auto-publish.
+            </span>
+            <button className="btn" onClick={() => setLossyRefusal(null)} style={{ fontSize: 12.5, padding: "5px 11px", marginLeft: "auto" }}>Dismiss</button>
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="card" style={{ borderColor: "rgba(220,38,38,0.35)", background: "rgba(220,38,38,0.04)" }}>
