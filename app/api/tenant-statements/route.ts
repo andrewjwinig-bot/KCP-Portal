@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { parseSkylineStatements } from "@/lib/statements/parseSkylineStatements";
-import { allRuns, mergeIntoPeriod, PERIOD_RE } from "@/lib/statements/store";
+import { allRuns, mergeIntoPeriod, PERIOD_RE, setPublished, shouldAutoPublish } from "@/lib/statements/store";
 import { summarize } from "@/lib/statements/summary";
 import { logAudit, auditIp } from "@/lib/audit";
 
@@ -42,7 +42,13 @@ export async function GET() {
 
 /** POST (multipart) — import one Skyline "Statement" export.
  *  Fields: file, period? ("YYYY-MM", defaults to the newest charge date in the
- *  file), uploadedBy?. Lands unpublished so staff review the tie-outs first. */
+ *  file), uploadedBy?, autoPublish? ("0" to hold back).
+ *
+ *  The tie-out is the gate: when every tenant in the month reconciles to the
+ *  balance Skyline printed, the month publishes itself — a clean import needs no
+ *  ceremony. A single tenant that doesn't reconcile holds the whole month back
+ *  for review, because a statement we can't reconcile is one we shouldn't be
+ *  asking anyone to pay. */
 export async function POST(req: NextRequest) {
   let form: FormData;
   try {
@@ -75,25 +81,39 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "No charge dates in the file — pick the statement month and try again." }, { status: 400 });
   }
 
-  const run = await mergeIntoPeriod(period, parsed.statements, {
+  let run = await mergeIntoPeriod(period, parsed.statements, {
     filename: file.name,
     importedAt: new Date().toISOString(),
     importedBy: uploadedBy,
     tenantCount: parsed.statements.length,
   });
 
+  // Judged on the WHOLE merged month, not just this file — a second export
+  // can't auto-publish over an earlier one's unreconciled tenant.
+  const untied = run.statements.filter((s) => !s.tiesOut);
+  const wantsAutoPublish = String(form.get("autoPublish") ?? "1") !== "0";
+  const autoPublish = shouldAutoPublish({ wants: wantsAutoPublish, untied: untied.length, alreadyPublished: run.published });
+  if (autoPublish) run = (await setPublished(period, true)) ?? run;
+
   const openBalance = parsed.statements.reduce((a, s) => a + s.chargeTotal, 0);
   await logAudit({
     event: "tenant-statements.import",
     user: uploadedBy,
     ip: auditIp(req),
-    detail: `${file.name} → ${period} · ${parsed.statements.length} tenants · ${parsed.mismatched.length} untied`,
+    detail: `${file.name} → ${period} · ${parsed.statements.length} tenants · ${untied.length} untied${autoPublish ? " · auto-published" : ""}`,
   });
 
   return NextResponse.json({
     ok: true,
     period,
     published: run.published,
+    /** This import is what put the month live. */
+    autoPublished: autoPublish,
+    /** Clean, but auto-publish was switched off — staff publish by hand. */
+    heldByChoice: !wantsAutoPublish && untied.length === 0 && !run.published,
+    /** Not live because something doesn't reconcile. */
+    heldForReview: untied.length > 0 && !run.published,
+    untied: untied.map((s) => s.unitRef),
     tenants: parsed.statements.length,
     totalTenants: run.statements.length,
     properties: [...new Set(parsed.statements.map((s) => s.propertyCode))].sort(),

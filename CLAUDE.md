@@ -72,6 +72,15 @@ how-to-pay instructions. Sources of truth:
   the same month (SC and BP run separately) MERGES by unit ref — it never
   replaces the month. A period is hidden from tenants until **published**;
   re-importing a published month keeps it published.
+- **The tie-out is the publish gate** (`shouldAutoPublish` in `store.ts`): a
+  month where EVERY tenant reconciles publishes itself on import; a single
+  untied tenant holds the WHOLE month back, judged on the merged month so a
+  later clean export can't publish over an earlier one's bad tenant. It never
+  un-publishes — a tenant that stops reconciling is flagged "under review" on
+  their own statement rather than retracting everyone else's. Staff can switch
+  auto-publish off per browser (`kcp.stmt.autoPublish`). Because tying out is the
+  norm, the roster has NO "ties out" column — only the exception is flagged, as a
+  REVIEW pill on the tenant's own row plus a banner that filters to them.
 - **Every derived number comes from `lib/statements/summary.ts`** (`summarize`,
   `agingOf`, `statementCharges`) — the portal, the PDF and the admin roster all
   call it, so they cannot disagree. Aging is by CALENDAR MONTH against the

@@ -107,3 +107,27 @@ export async function publishedPeriodsForUnit(unitRef: string): Promise<{ period
   }
   return out;
 }
+
+/**
+ * The publish gate.
+ *
+ * A month where every tenant reconciles to the balance Skyline printed needs no
+ * ceremony — it publishes itself on import. A single tenant that doesn't
+ * reconcile holds the WHOLE month back, because a statement we can't tie out is
+ * one we shouldn't be asking anyone to pay. Judged on the whole merged month, so
+ * a later clean export can't publish over an earlier one's bad tenant.
+ *
+ * Note what this deliberately does NOT do: it never un-publishes. Re-importing
+ * into a live month leaves it live, and any tenant that stops reconciling is
+ * flagged "under review" on their own statement instead of retracting everyone
+ * else's.
+ */
+export function shouldAutoPublish(opts: {
+  /** Staff preference — the import can opt out of auto-publishing. */
+  wants: boolean;
+  /** Tenants in the merged month that don't tie out to Skyline. */
+  untied: number;
+  alreadyPublished: boolean;
+}): boolean {
+  return opts.wants && opts.untied === 0 && !opts.alreadyPublished;
+}

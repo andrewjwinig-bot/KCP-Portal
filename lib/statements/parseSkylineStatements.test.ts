@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import * as XLSX from "xlsx";
 import { classifyCharge, parseSkylineStatements, toISODate } from "./parseSkylineStatements";
 import { agingOf, statementCharges, summarize } from "./summary";
+import { shouldAutoPublish } from "./store";
 
 // Build a workbook shaped like the Skyline "Statement" export: charges at
 // A/G/S, the unit ref + bill-to block at W, the balance at Y.
@@ -259,5 +260,29 @@ describe("aging", () => {
     expect(s.oldestISO).toBe("2026-04-22");
     expect(s.byCategory.map((c) => c.category)).toEqual(["rent", "cam", "uando", "credit"]);
     expect(s.byAging).toEqual([{ bucket: "current", amount: 1396.77 }, { bucket: "d90plus", amount: 9829.02 }]);
+  });
+});
+
+describe("shouldAutoPublish", () => {
+  const gate = (o: Partial<Parameters<typeof shouldAutoPublish>[0]>) =>
+    shouldAutoPublish({ wants: true, untied: 0, alreadyPublished: false, ...o });
+
+  it("publishes a clean month on import", () => {
+    expect(gate({})).toBe(true);
+  });
+
+  it("holds the whole month back when even one tenant doesn't tie out", () => {
+    expect(gate({ untied: 1 })).toBe(false);
+    expect(gate({ untied: 12 })).toBe(false);
+  });
+
+  it("respects staff switching auto-publish off", () => {
+    expect(gate({ wants: false })).toBe(false);
+  });
+
+  it("is a no-op on a month that's already live", () => {
+    expect(gate({ alreadyPublished: true })).toBe(false);
+    // …including one that's live with a tenant under review: it never retracts.
+    expect(gate({ alreadyPublished: true, untied: 3 })).toBe(false);
   });
 });

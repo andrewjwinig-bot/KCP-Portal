@@ -76,6 +76,17 @@ export default function TenantStatementsPage() {
   const [search, setSearch] = useState("");
   const [onlyOwing, setOnlyOwing] = useState(false);
   const [sort, setSort] = useState<"statement" | "balance">("statement");
+  const [onlyReview, setOnlyReview] = useState(false);
+  // Auto-publish is on by default: a month where every tenant reconciles needs
+  // no ceremony. Remembered per browser so staff who prefer to stage keep it off.
+  const [autoPublish, setAutoPublish] = useState(true);
+  useEffect(() => {
+    try { setAutoPublish(localStorage.getItem("kcp.stmt.autoPublish") !== "0"); } catch { /* private mode */ }
+  }, []);
+  const changeAutoPublish = (v: boolean) => {
+    setAutoPublish(v);
+    try { localStorage.setItem("kcp.stmt.autoPublish", v ? "1" : "0"); } catch { /* private mode */ }
+  };
   const [expanded, setExpanded] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -122,36 +133,56 @@ export default function TenantStatementsPage() {
         const fd = new FormData();
         fd.append("file", file);
         fd.append("uploadedBy", user.label);
+        fd.append("autoPublish", autoPublish ? "1" : "0");
         const j = await fetch("/api/tenant-statements", { method: "POST", body: fd }).then((r) => r.json());
         if (!j.ok) return { status: "failed", error: j.error ?? "Import failed" };
-        const untied = j.mismatched.length;
+        const untied: number = j.untied?.length ?? j.mismatched.length;
+        const note = untied
+          ? `⚠ ${untied} tenant${untied === 1 ? "" : "s"} don't reconcile — held back from the portal`
+          : j.autoPublished ? "every tenant ties out · published to the portal"
+          : j.published ? "every tenant ties out · the month was already live"
+          : "every tenant ties out · publish when you're ready";
         return {
           status: "done" as const,
           entity: `${periodLabel(j.period)} · ${j.properties.length} propert${j.properties.length === 1 ? "y" : "ies"}`,
           detail: `${money0(j.openBalance)} open`,
           count: j.tenants,
           countLabel: "tenants",
-          note: untied ? `⚠ ${untied} tenant${untied === 1 ? "" : "s"} don't reconcile to Skyline's balance` : "every tenant ties to Skyline's balance",
+          note,
           noteTone: untied ? ("warn" as const) : ("ok" as const),
           raw: j,
         };
       },
       report: (rows) => {
-        const ok = rows.filter((r) => r.status === "done").map((r) => r.raw as { period: string; tenants: number; totalTenants: number; openBalance: number; mismatched: string[] });
-        const p = ok[0]?.period;
+        const ok = rows.filter((r) => r.status === "done")
+          .map((r) => r.raw as { period: string; tenants: number; totalTenants: number; openBalance: number; mismatched: string[]; untied?: string[]; published: boolean; autoPublished: boolean });
+        const last = ok[ok.length - 1];
+        const p = last?.period;
         const open = ok.reduce((a, r) => a + r.openBalance, 0);
-        const untied = ok.reduce((a, r) => a + r.mismatched.length, 0);
+        // The final import's view of the month is the authoritative one.
+        const untied = last?.untied?.length ?? ok.reduce((a, r) => a + r.mismatched.length, 0);
+        const live = !!last?.published;
         return {
           stats: [
-            { value: String(ok[ok.length - 1]?.totalTenants ?? 0), label: "tenants on the month" },
+            { value: String(last?.totalTenants ?? 0), label: "tenants on the month" },
             { value: money0(open), label: "open balance imported" },
-            { value: String(untied), label: untied === 1 ? "tenant to review" : "tenants to review" },
+            { value: untied ? String(untied) : "All", label: untied ? (untied === 1 ? "tenant to review" : "tenants to review") : "tie out to Skyline" },
           ],
-          unlocks: p ? [{
-            id: "publish", title: `Review and publish ${periodLabel(p)}`,
-            subtitle: "Statements stay hidden from tenants until you publish the month.",
-            href: "/tenant-statements", cta: "Review",
-          }] : [],
+          unlocks: p ? [live
+            ? {
+                id: "live", title: `${periodLabel(p)} is live for tenants`,
+                subtitle: untied
+                  ? `Every statement is on the portal, but ${untied} are flagged "under review" — fix those and re-import.`
+                  : "Every tenant reconciled, so the month published itself. Tenants can see and pay from it now.",
+                href: "/tenant-statements", cta: "Open",
+              }
+            : {
+                id: "publish", title: untied ? `${periodLabel(p)} is held back for review` : `Publish ${periodLabel(p)}`,
+                subtitle: untied
+                  ? `${untied} tenant${untied === 1 ? " doesn't" : "s don't"} reconcile to Skyline's balance. Fix the export and re-import — the month publishes itself once they all tie.`
+                  : "Auto-publish is off, so the month stays hidden until you publish it.",
+                href: "/tenant-statements", cta: "Review",
+              }] : [],
         };
       },
     });
@@ -180,12 +211,13 @@ export default function TenantStatementsPage() {
     let list = detail?.tenants ?? [];
     if (property !== "All") list = list.filter((t) => t.propertyCode === property);
     if (onlyOwing) list = list.filter((t) => t.summary.totalDue > 0.005);
+    if (onlyReview) list = list.filter((t) => !t.tiesOut);
     const q = search.trim().toLowerCase();
     if (q) list = list.filter((t) => t.tenantName.toLowerCase().includes(q) || t.unitRef.toLowerCase().includes(q));
     // "Statement order" is the sequence Skyline printed, so the roster can be
     // read down alongside the paper laser statements; balance is the chase list.
     return sort === "balance" ? [...list].sort((a, b) => b.summary.totalDue - a.summary.totalDue) : list;
-  }, [detail, property, onlyOwing, search, sort]);
+  }, [detail, property, onlyOwing, onlyReview, search, sort]);
 
   const filteredTotals = useMemo(() => {
     const aging = new Map<AgingBucket, number>();
@@ -256,6 +288,11 @@ export default function TenantStatementsPage() {
               ]}
             />
           )}
+          <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12.5, cursor: "pointer", color: "var(--muted)" }}
+            title="A month where every tenant reconciles to Skyline's balance goes live on import. Anything that doesn't reconcile holds the whole month back.">
+            <input type="checkbox" checked={autoPublish} onChange={(e) => changeAutoPublish(e.target.checked)} />
+            Publish automatically when all tie out
+          </label>
           <button className="btn primary" onClick={() => fileRef.current?.click()} style={{ fontSize: 13, padding: "6px 12px", fontWeight: 700 }}>
             Import Skyline Statements
           </button>
@@ -314,9 +351,15 @@ export default function TenantStatementsPage() {
               </div>
 
               {row.untied > 0 && (
-                <div style={{ borderRadius: 10, padding: "10px 13px", background: "rgba(220,38,38,0.06)", border: "1px solid rgba(220,38,38,0.3)", fontSize: 13, color: "#b91c1c", fontWeight: 600 }}>
-                  {row.untied} tenant{row.untied === 1 ? "'s charges don't" : "s' charges don't"} sum to the balance Skyline printed.
-                  Those statements are flagged &ldquo;under review&rdquo; on the portal — fix the export and re-import before publishing.
+                <div style={{ borderRadius: 10, padding: "10px 13px", background: "rgba(220,38,38,0.06)", border: "1px solid rgba(220,38,38,0.3)", fontSize: 13, color: "#b91c1c", fontWeight: 600, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                  <span style={{ flex: 1, minWidth: 260 }}>
+                    {row.untied} tenant{row.untied === 1 ? "'s charges don't" : "s' charges don't"} sum to the balance Skyline printed.
+                    Those statements are flagged &ldquo;under review&rdquo; on the portal — fix the export and re-import before publishing.
+                  </span>
+                  <button className="btn" onClick={() => { setOnlyReview((v) => !v); setProperty("All"); }}
+                    style={{ fontSize: 12.5, padding: "5px 11px", fontWeight: 700, flexShrink: 0 }}>
+                    {onlyReview ? "Show all tenants" : `Show the ${row.untied}`}
+                  </button>
                 </div>
               )}
 
@@ -379,6 +422,13 @@ export default function TenantStatementsPage() {
                   <option value="statement">Statement order</option>
                   <option value="balance">Largest balance first</option>
                 </select>
+                {onlyReview && (
+                  <button type="button" onClick={() => setOnlyReview(false)}
+                    style={{ display: "inline-flex", alignItems: "center", gap: 6, cursor: "pointer", fontFamily: "inherit", fontSize: 12.5, fontWeight: 700,
+                      padding: "5px 10px", borderRadius: 999, border: "1px solid rgba(220,38,38,0.3)", background: "rgba(220,38,38,0.08)", color: "#b91c1c" }}>
+                    Only tenants to review <span aria-hidden style={{ opacity: 0.7 }}>✕</span>
+                  </button>
+                )}
                 <div className="muted small" style={{ marginLeft: "auto" }}>
                   {tenants.length} shown · {money0(filteredTotals.open)} open
                 </div>
@@ -394,7 +444,6 @@ export default function TenantStatementsPage() {
                       <th style={th}>Prior</th>
                       <th style={th}>Past due</th>
                       <th style={th}>Total due</th>
-                      <th style={{ ...th, textAlign: "center" }}>Ties out</th>
                       <th style={th}>Statement</th>
                     </tr>
                   </thead>
@@ -420,7 +469,7 @@ export default function TenantStatementsPage() {
                               <td style={{ ...td, fontWeight: 700 }}>{money0(g.prior)}</td>
                               <td style={{ ...td, fontWeight: 700, color: g.pastDue > 0.005 ? "#b45309" : "var(--muted)" }}>{g.pastDue > 0.005 ? money0(g.pastDue) : "—"}</td>
                               <td style={{ ...td, fontWeight: 800 }}>{money0(g.total)}</td>
-                              <td colSpan={2} />
+                              <td />
                             </tr>
                           )}
                           <TenantRows t={t} period={detail.period}
@@ -429,7 +478,7 @@ export default function TenantStatementsPage() {
                       );
                     })}
                     {tenants.length === 0 && (
-                      <tr><td colSpan={8} style={{ ...tdL, padding: "22px 12px", color: "var(--muted)" }}>No tenants match those filters.</td></tr>
+                      <tr><td colSpan={7} style={{ ...tdL, padding: "22px 12px", color: "var(--muted)" }}>No tenants match those filters.</td></tr>
                     )}
                   </tbody>
                   {tenants.length > 0 && (
@@ -440,7 +489,7 @@ export default function TenantStatementsPage() {
                           {grouped && propertySubtotal.size > 1 ? ` · ${propertySubtotal.size} properties` : ""}
                         </td>
                         <td style={td}>{money2(filteredTotals.open)}</td>
-                        <td colSpan={2} />
+                        <td />
                       </tr>
                     </tfoot>
                   )}
@@ -550,7 +599,18 @@ function TenantRows({ t, period, open, onToggle }: { t: TenantRow; period: strin
       <tr onClick={onToggle} style={{ borderTop: "1px solid var(--border)", cursor: "pointer", background: open ? "rgba(11,74,125,0.04)" : undefined }}>
         <td style={tdL}><code style={{ fontSize: 12 }}>{t.unitRef}</code></td>
         <td style={{ ...tdL, whiteSpace: "normal" }}>
-          <div style={{ fontWeight: 600 }}>{t.tenantName}</div>
+          <div style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
+            {t.tenantName}
+            {/* Tying out is the norm, so it isn't worth a column — only the
+                exception is called out, on the row it applies to. */}
+            {!t.tiesOut && (
+              <HoverCard title="Doesn't reconcile to Skyline" width={250}
+                rows={[{ label: "Charges parsed", value: money2(t.chargeTotal) }, { label: "Skyline balance", value: money2(t.reportedBalance) }]}
+                footer={{ label: "Difference", value: money2(t.chargeTotal - t.reportedBalance) }}>
+                <Pill tone={TONE_RED}>REVIEW</Pill>
+              </HoverCard>
+            )}
+          </div>
           <div className="muted" style={{ fontSize: 11.5 }}>{t.charges.length} open {t.charges.length === 1 ? "charge" : "charges"}</div>
         </td>
         <td style={td}>{money2(s.currentCharges)}</td>
@@ -571,15 +631,6 @@ function TenantRows({ t, period, open, onToggle }: { t: TenantRow; period: strin
             {money2(s.totalDue)}
           </HoverCard>
         </td>
-        <td style={{ ...td, textAlign: "center" }}>
-          {t.tiesOut
-            ? <Pill tone={TONE_GREEN}>TIES</Pill>
-            : <HoverCard title="Doesn't reconcile" width={250}
-                rows={[{ label: "Charges parsed", value: money2(t.chargeTotal) }, { label: "Skyline balance", value: money2(t.reportedBalance) }]}
-                footer={{ label: "Difference", value: money2(t.chargeTotal - t.reportedBalance) }}>
-                <Pill tone={TONE_RED}>REVIEW</Pill>
-              </HoverCard>}
-        </td>
         <td style={td}>
           <a href={`/api/tenant-statements/${period}/pdf?unitRef=${encodeURIComponent(t.unitRef)}`} onClick={(e) => e.stopPropagation()}
             className="btn" style={{ fontSize: 12, padding: "4px 10px", textDecoration: "none" }}>PDF</a>
@@ -587,7 +638,7 @@ function TenantRows({ t, period, open, onToggle }: { t: TenantRow; period: strin
       </tr>
       {open && (
         <tr>
-          <td colSpan={8} style={{ padding: "0 10px 14px", background: "rgba(11,74,125,0.03)" }}>
+          <td colSpan={7} style={{ padding: "0 10px 14px", background: "rgba(11,74,125,0.03)" }}>
             <div className="muted" style={{ fontSize: 11.5, padding: "8px 10px 0" }}>
               {sort
                 ? <>Sorted by {sort.key === "charge" ? "description" : sort.key} — <button type="button" onClick={(e) => { e.stopPropagation(); setSort(null); }}
