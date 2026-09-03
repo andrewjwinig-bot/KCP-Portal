@@ -16,6 +16,7 @@ export async function GET() {
       id: w.id,
       label: w.label,
       kind: w.kind,
+      status: w.status ?? null,
       category: w.category,
       year: w.year,
       uploadedAt: w.uploadedAt,
