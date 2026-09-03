@@ -15,6 +15,7 @@ type WorkbookSummary = {
   id: string;
   label: string;
   kind: "imported" | "live";
+  status?: "draft" | "final" | null;
   category: "Shopping Centers" | "Office" | "Residential" | "Other";
   year: number;
   uploadedAt: string;
@@ -763,7 +764,9 @@ function BudgetTable({
       })
       .map((s) => ({
         budgetId: s.id,
-        label: s.label,
+        // Mark in-app drafts so a freshly-created budget is easy to spot in the
+        // dropdown vs. the imported base workbooks.
+        label: s.kind === "live" ? `${s.label} · ${s.status === "final" ? "Final" : "Draft"}` : s.label,
         properties: s.properties,
       }));
   }, [summaries, workbook.year]);
