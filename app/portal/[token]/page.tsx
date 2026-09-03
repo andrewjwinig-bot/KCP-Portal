@@ -12,6 +12,7 @@ import LoadingState from "@/app/components/LoadingState";
 import { Calendar } from "@/app/components/Calendar";
 import { BOOKABLE_ROOMS } from "@/lib/reservations/rooms";
 import { useStatement, TenantStatementView, Centered, BRAND, money, money2, type Statement } from "@/app/statement/[token]/StatementView";
+import { MonthlyStatementView, useMonthlyStatements } from "./MonthlyStatements";
 
 type TabId = "lease" | "statements" | "contacts" | "floorplan" | "service" | "reservations" | "balances";
 const TABS: { id: TabId; label: string; icon: React.ReactNode; ready?: boolean }[] = [
@@ -373,13 +374,63 @@ function FloorplanTab({ token, floorplan, loading }: { token: string; floorplan:
   );
 }
 
-// Statements now carries the CAM/RET statement itself (current year rendered
-// inline) plus a list of prior years to download.
+// Statements carries two views behind a segmented control: the monthly
+// statement of account ("what do I owe right now, and how do I pay it") and the
+// year-end CAM/RET reconciliation. Monthly leads when there is one — it's the
+// actionable number — and the annual view is unchanged underneath it.
+type StatementsView = "account" | "annual";
+
 function StatementsTab({ token, data, years }: { token: string; data: Statement; years: number[] | null }) {
   const prior = (years ?? []).filter((y) => y !== data.year).sort((a, b) => b - a);
+  const { data: monthly, loading: monthlyLoading } = useMonthlyStatements(token);
+  const hasMonthly = !!monthly && monthly.statements.length > 0;
+  const [view, setView] = useState<StatementsView>("account");
+  // Land on the annual statement when no monthly one has been published yet.
+  useEffect(() => { if (!monthlyLoading && !hasMonthly) setView("annual"); }, [monthlyLoading, hasMonthly]);
+
+  const reconYears = [data.year, ...prior];
+  const current = hasMonthly ? monthly.statements[0] : null;
+  const showAccount = view === "account" && hasMonthly;
+
   return (
     <>
-      <PageHeader title="Statements" sub="Your reconciliations and account statements." right={<YearPill year={data.year} />} />
+      <PageHeader
+        title="Statements"
+        sub={showAccount
+          ? `Your account as of ${current!.periodLabel} — what's open and how to pay it.`
+          : "Your reconciliations and account statements."}
+        right={showAccount ? undefined : <YearPill year={data.year} />}
+      />
+      {hasMonthly && (
+        <div style={{ display: "inline-flex", gap: 4, padding: 4, borderRadius: 11, background: "rgba(11,74,125,0.07)", marginBottom: 22, flexWrap: "wrap" }}>
+          {([
+            { id: "account" as const, label: "Account Balance", note: money2(current!.summary.totalDue) },
+            { id: "annual" as const, label: `${data.year} Reconciliation`, note: null },
+          ]).map((x) => {
+            const active = view === x.id;
+            return (
+              <button key={x.id} type="button" onClick={() => setView(x.id)}
+                style={{ border: "none", cursor: "pointer", fontFamily: "inherit", fontSize: 13.5, fontWeight: 700, padding: "8px 14px", borderRadius: 8,
+                  background: active ? "var(--card)" : "transparent", color: active ? BRAND : "var(--muted)",
+                  boxShadow: active ? "0 1px 3px rgba(15,23,42,0.14)" : "none", display: "inline-flex", alignItems: "center", gap: 8 }}>
+                {x.label}
+                {x.note && <span style={{ fontSize: 11.5, fontWeight: 800, padding: "1px 7px", borderRadius: 999, background: active ? "rgba(180,83,9,0.12)" : "rgba(15,23,42,0.06)", color: active ? "#b45309" : "var(--muted)" }}>{x.note}</span>}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {showAccount ? (
+        <MonthlyStatementView
+          token={token}
+          statements={monthly.statements}
+          payment={monthly.payment}
+          reconYears={reconYears}
+          onOpenRecon={() => setView("annual")}
+        />
+      ) : (
+      <>
       <TenantStatementView token={token} data={data} header={false} />
       {prior.length > 0 && (
         <section style={{ marginTop: 32 }}>
@@ -399,6 +450,8 @@ function StatementsTab({ token, data, years }: { token: string; data: Statement;
             ))}
           </div>
         </section>
+      )}
+      </>
       )}
     </>
   );
