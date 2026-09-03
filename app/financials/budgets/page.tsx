@@ -2943,12 +2943,20 @@ function CreateBudgetDialog({
   const [category, setCategory] = useState<"Shopping Centers" | "Office" | "Residential">("Shopping Centers");
   const [priorBudgetId, setPriorBudgetId] = useState<string>("");
   const [growth, setGrowth] = useState<number>(3);
+  const [splitGrowth, setSplitGrowth] = useState(false);
+  const [retGrowth, setRetGrowth] = useState<number>(3);
+  const [insGrowth, setInsGrowth] = useState<number>(3);
+  const [name, setName] = useState<string>("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Suggest a prior budget that matches the chosen category, sorted newest first.
+  // Every budget is available as an OpEx baseline (funds contain both office and
+  // retail, so limiting to the chosen category hid valid priors). Same-category
+  // ones sort to the top; buildLiveBudget matches OpEx lines by account, so a
+  // mismatched pick simply leaves lines blank.
   const priorOptions = useMemo(
-    () => summaries.filter((s) => s.category === category).sort((a, b) => b.year - a.year),
+    () => [...summaries].sort((a, b) =>
+      (a.category === category ? 0 : 1) - (b.category === category ? 0 : 1) || b.year - a.year || a.label.localeCompare(b.label)),
     [summaries, category],
   );
   // Default the new budget's year to one past the chosen prior (or
@@ -2957,9 +2965,11 @@ function CreateBudgetDialog({
   useEffect(() => {
     setPriorBudgetId((prev) => {
       if (prev && priorOptions.some((o) => o.id === prev)) return prev;
-      return priorOptions[0]?.id ?? "";
+      // Prefer the newest same-category budget, else the first available.
+      const sameCat = priorOptions.find((o) => o.category === category);
+      return (sameCat ?? priorOptions[0])?.id ?? "";
     });
-  }, [priorOptions]);
+  }, [priorOptions, category]);
   useEffect(() => {
     const prior = priorOptions.find((o) => o.id === priorBudgetId);
     if (prior) setYear(prior.year + 1);
@@ -2977,6 +2987,9 @@ function CreateBudgetDialog({
           category,
           priorBudgetId: priorBudgetId || undefined,
           opExGrowthPct: growth,
+          retGrowthPct: splitGrowth ? retGrowth : undefined,
+          insGrowthPct: splitGrowth ? insGrowth : undefined,
+          name: name.trim() || undefined,
         }),
       });
       const body = await res.json();
@@ -3056,9 +3069,27 @@ function CreateBudgetDialog({
               max={100}
               step="0.5"
               value={growth}
-              onChange={(e) => setGrowth(Number(e.target.value))}
+              onChange={(e) => { const v = Number(e.target.value); setGrowth(v); if (!splitGrowth) { setRetGrowth(v); setInsGrowth(v); } }}
               style={selectStyleLocal}
             />
+          </Field>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>
+            <input type="checkbox" checked={splitGrowth} onChange={(e) => setSplitGrowth(e.target.checked)} />
+            Grow taxes &amp; insurance at a different rate
+            <span className="muted small" style={{ fontWeight: 400 }}>(RET and insurance usually move differently from controllable OpEx)</span>
+          </label>
+          {splitGrowth && (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <Field label="Real Estate Taxes growth %">
+                <input type="number" min={0} max={100} step="0.5" value={retGrowth} onChange={(e) => setRetGrowth(Number(e.target.value))} style={selectStyleLocal} />
+              </Field>
+              <Field label="Insurance growth %">
+                <input type="number" min={0} max={100} step="0.5" value={insGrowth} onChange={(e) => setInsGrowth(Number(e.target.value))} style={selectStyleLocal} />
+              </Field>
+            </div>
+          )}
+          <Field label="Budget name (optional)">
+            <input type="text" value={name} placeholder="e.g. Shopping Centers 2026 — Draft" onChange={(e) => setName(e.target.value)} style={selectStyleLocal} />
           </Field>
         </div>
 
