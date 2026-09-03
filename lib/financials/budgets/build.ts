@@ -484,7 +484,41 @@ export type BuildLiveBudgetInput = {
    *  opExGrowthPct when omitted. */
   retGrowthPct?: number;
   insGrowthPct?: number;
+  /** Per-property reprojection expense lines (YTD actuals + forecast), keyed by
+   *  UPPERCASE property code. When present for a building, its OpEx is built from
+   *  these — the preferred source. Falls back to the prior budget when absent. */
+  reprojByCode?: Record<string, { reimbExp: ReprojExpenseLine[]; nonReimb: ReprojExpenseLine[] }>;
 };
+
+export type ReprojExpenseLine = { label: string; blended: number[] };
+
+/** Build an expense BudgetSection straight from the reprojection's blended
+ *  full-year lines (YTD actuals + budget for the remaining months), grown per
+ *  line. This is the PREFERRED OpEx source — actuals-based, not last year's
+ *  budget, which is stale for months we already have actuals for. */
+function expenseSectionFromReproj(lines: ReprojExpenseLine[], factorFor: (label: string) => number, name: string): { section: BudgetSection; monthsTotal: number[] } {
+  const budgetLines: BudgetLine[] = lines.map((l) => {
+    const gf = factorFor(l.label);
+    const months = lift(l.blended, gf);
+    return {
+      glAccount: null, subCategory: null, label: l.label, months, total: sumMonths(months),
+      totalPsf: null, input: null, isSubtotal: false,
+      notes: `From reprojection (YTD actuals + forecast)${gf !== 1 ? ` × ${Math.round((gf - 1) * 100)}%` : ""}`,
+    };
+  });
+  const monthsTotal = totalAcross(budgetLines);
+  budgetLines.push({
+    glAccount: null, subCategory: null, label: `Total ${name}`, months: monthsTotal,
+    total: sumMonths(monthsTotal), totalPsf: null, input: null, notes: null, isSubtotal: true,
+  });
+  return { section: { name, lines: budgetLines }, monthsTotal };
+}
+
+/** Rent-roll property codes for a category — exported so the create route can
+ *  load each property's reprojection before building. */
+export function rentRollCodesForCategory(rentroll: { properties: RentRollPropertyLite[] }, category: BudgetCategory): string[] {
+  return rentRollPropertiesForCategory(rentroll, category).map((p) => p.propertyCode.toUpperCase());
+}
 
 // Which prior expense lines are taxes / insurance, so they can grow separately.
 const RET_LINE_RE = /real\s*estate\s*tax|\bre\s*tax|r\.e\.\s*tax|property\s*tax|\btaxes?\b/i;
@@ -510,10 +544,17 @@ export function buildLiveBudget(input: BuildLiveBudgetInput): BudgetWorkbook {
     const priorNonReimb  = findSectionByNameHint(input.prior, code, /^non-reimbursable/i);
     const priorCapital   = findSectionByNameHint(input.prior, code, /capital/i);
 
+    // OpEx: prefer this building's reprojection (YTD actuals + forecast); fall
+    // back to the prior budget only when a building has no reprojection.
+    const rj = input.reprojByCode?.[code];
     const rev      = buildRevenuesSection(rrProp.units, input.year, null);
     const reimb    = buildReimbursementsSection(rrProp.units, input.year, priorReimb);
-    const reimbExp = liftExpenseSection(priorReimbExp, factorFor, "Reimbursable Expenses");
-    const nonReimb = liftExpenseSection(priorNonReimb, factorFor, "Non-Reimbursable Expenses");
+    const reimbExp = rj
+      ? expenseSectionFromReproj(rj.reimbExp, factorFor, "Reimbursable Expenses")
+      : liftExpenseSection(priorReimbExp, factorFor, "Reimbursable Expenses");
+    const nonReimb = rj
+      ? expenseSectionFromReproj(rj.nonReimb, factorFor, "Non-Reimbursable Expenses")
+      : liftExpenseSection(priorNonReimb, factorFor, "Non-Reimbursable Expenses");
     const capital  = buildCapitalSection(priorCapital);
     const debt     = buildDebtServiceSection(input.loans, code, input.year);
 

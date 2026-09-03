@@ -2941,7 +2941,6 @@ function CreateBudgetDialog({
 }) {
   const today = new Date();
   const [category, setCategory] = useState<"Shopping Centers" | "Office" | "Residential">("Shopping Centers");
-  const [priorBudgetId, setPriorBudgetId] = useState<string>("");
   const [growth, setGrowth] = useState<number>(3);
   const [splitGrowth, setSplitGrowth] = useState(false);
   const [retGrowth, setRetGrowth] = useState<number>(3);
@@ -2949,31 +2948,8 @@ function CreateBudgetDialog({
   const [name, setName] = useState<string>("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // Every budget is available as an OpEx baseline (funds contain both office and
-  // retail, so limiting to the chosen category hid valid priors). Same-category
-  // ones sort to the top; buildLiveBudget matches OpEx lines by account, so a
-  // mismatched pick simply leaves lines blank.
-  const priorOptions = useMemo(
-    () => [...summaries].sort((a, b) =>
-      (a.category === category ? 0 : 1) - (b.category === category ? 0 : 1) || b.year - a.year || a.label.localeCompare(b.label)),
-    [summaries, category],
-  );
-  // Default the new budget's year to one past the chosen prior (or
-  // today's year + 1 when there's no prior in this category).
-  const [year, setYear] = useState<number>(today.getFullYear() + 1);
-  useEffect(() => {
-    setPriorBudgetId((prev) => {
-      if (prev && priorOptions.some((o) => o.id === prev)) return prev;
-      // Prefer the newest same-category budget, else the first available.
-      const sameCat = priorOptions.find((o) => o.category === category);
-      return (sameCat ?? priorOptions[0])?.id ?? "";
-    });
-  }, [priorOptions, category]);
-  useEffect(() => {
-    const prior = priorOptions.find((o) => o.id === priorBudgetId);
-    if (prior) setYear(prior.year + 1);
-  }, [priorBudgetId, priorOptions]);
+  const [year, setYear] = useState<number>(today.getFullYear());
+  void summaries;
 
   async function submit() {
     setError(null);
@@ -2985,7 +2961,6 @@ function CreateBudgetDialog({
         body: JSON.stringify({
           year,
           category,
-          priorBudgetId: priorBudgetId || undefined,
           opExGrowthPct: growth,
           retGrowthPct: splitGrowth ? retGrowth : undefined,
           insGrowthPct: splitGrowth ? insGrowth : undefined,
@@ -3022,95 +2997,59 @@ function CreateBudgetDialog({
           boxShadow: "0 18px 50px rgba(15,23,42,0.28)",
         }}
       >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
           <div>
-            <h2 style={{ margin: 0, fontSize: 19, fontWeight: 800 }}>New Budget</h2>
-            <p className="muted small" style={{ margin: "3px 0 0" }}>Start a draft from data the portal already has — then review and adjust.</p>
+            <h2 style={{ margin: 0, fontSize: 22, fontWeight: 900, letterSpacing: "-0.02em" }}>New Budget</h2>
+            <p className="muted" style={{ margin: "4px 0 0", fontSize: 13 }}>Revenue, recoveries, debt &amp; expenses autofill from your latest data.</p>
           </div>
-          <button onClick={onClose} className="btn" style={{ fontSize: 13, padding: "4px 10px" }}>✕</button>
+          <button onClick={onClose} className="btn" style={{ fontSize: 15, padding: "4px 11px" }}>✕</button>
         </div>
 
-        {/* What the portal fills in for you vs. what you decide here. */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, margin: "14px 0 16px" }}>
-          <div style={{ borderRadius: 10, border: "1px solid var(--border)", background: "rgba(22,163,74,0.05)", padding: "10px 12px" }}>
-            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.05em", textTransform: "uppercase", color: "#15803d", marginBottom: 5 }}>Filled in automatically</div>
-            <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12.5, lineHeight: 1.6 }}>
-              <li>Rent &amp; recoveries — current rent roll</li>
-              <li>CAM / tax / insurance billed to tenants</li>
-              <li>Debt service — Debt Tracker</li>
-            </ul>
-          </div>
-          <div style={{ borderRadius: 10, border: "1px solid var(--border)", background: "rgba(11,74,125,0.05)", padding: "10px 12px" }}>
-            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.05em", textTransform: "uppercase", color: "#0b4a7d", marginBottom: 5 }}>You decide below</div>
-            <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12.5, lineHeight: 1.6 }}>
-              <li>Which year &amp; property type</li>
-              <li>Where operating expenses start from</li>
-              <li>How much to grow them</li>
-            </ul>
-          </div>
-        </div>
-
-        <div style={{ display: "grid", gap: 14 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <Field label="Budget Year" hint="The year this budget is for.">
-              <input
-                type="number"
-                min={2000}
-                max={2100}
-                value={year}
-                onChange={(e) => setYear(Number(e.target.value) || today.getFullYear() + 1)}
-                style={selectStyleLocal}
-              />
+        <div style={{ display: "grid", gap: 16 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1.4fr", gap: 12 }}>
+            <Field label="Year">
+              <input type="number" min={2000} max={2100} value={year}
+                onChange={(e) => setYear(Number(e.target.value) || today.getFullYear())}
+                style={{ ...selectStyleLocal, fontSize: 15, fontWeight: 700 }} />
             </Field>
-            <Field label="Property Type" hint="Which portfolio this budget covers.">
-              <select value={category} onChange={(e) => setCategory(e.target.value as typeof category)} style={selectStyleLocal}>
+            <Field label="Portfolio">
+              <select value={category} onChange={(e) => setCategory(e.target.value as typeof category)} style={{ ...selectStyleLocal, fontSize: 15, fontWeight: 700 }}>
                 <option value="Shopping Centers">Shopping Centers</option>
                 <option value="Office">Office</option>
                 <option value="Residential">Residential</option>
               </select>
             </Field>
           </div>
-          <Field
-            label="Start operating expenses from"
-            hint="Operating expenses (utilities, repairs, landscaping, taxes, insurance…) are copied from this existing budget, then grown by the % below. Pick last year's budget as the starting point — or None to leave the expense lines blank and enter them yourself.">
-            <select value={priorBudgetId} onChange={(e) => setPriorBudgetId(e.target.value)} style={selectStyleLocal}>
-              <option value="">None — start expenses blank</option>
-              {priorOptions.map((s) => (
-                <option key={s.id} value={s.id}>{s.label} · {s.year}</option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Grow those expenses by" hint="Applied to every expense line lifted from the budget above.">
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <input
-                type="number"
-                min={0}
-                max={100}
-                step="0.5"
-                value={growth}
-                onChange={(e) => { const v = Number(e.target.value); setGrowth(v); if (!splitGrowth) { setRetGrowth(v); setInsGrowth(v); } }}
-                style={{ ...selectStyleLocal, width: 90 }}
-              />
-              <span className="muted small" style={{ fontWeight: 600 }}>% over the starting budget</span>
+
+          <div style={{ borderRadius: 12, border: "1px solid var(--border)", background: "rgba(11,74,125,0.04)", padding: "14px 16px" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+              <div style={{ fontSize: 14, fontWeight: 700 }}>Grow expenses by</div>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
+                <input type="number" min={0} max={100} step="0.5" value={growth}
+                  onChange={(e) => { const v = Number(e.target.value); setGrowth(v); if (!splitGrowth) { setRetGrowth(v); setInsGrowth(v); } }}
+                  style={{ ...selectStyleLocal, width: 84, fontSize: 22, fontWeight: 800, textAlign: "right", padding: "6px 10px" }} />
+                <span style={{ fontSize: 22, fontWeight: 800 }}>%</span>
+              </div>
             </div>
-          </Field>
-          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>
-            <input type="checkbox" checked={splitGrowth} onChange={(e) => setSplitGrowth(e.target.checked)} />
-            Grow taxes &amp; insurance at a different rate
-            <span className="muted small" style={{ fontWeight: 400 }}>(they usually move differently from controllable OpEx)</span>
-          </label>
-          {splitGrowth && (
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-              <Field label="Real Estate Taxes growth %">
-                <input type="number" min={0} max={100} step="0.5" value={retGrowth} onChange={(e) => setRetGrowth(Number(e.target.value))} style={selectStyleLocal} />
-              </Field>
-              <Field label="Insurance growth %">
-                <input type="number" min={0} max={100} step="0.5" value={insGrowth} onChange={(e) => setInsGrowth(Number(e.target.value))} style={selectStyleLocal} />
-              </Field>
-            </div>
-          )}
-          <Field label="Budget name (optional)" hint="Just a label to find it by — defaults to the property type and year.">
-            <input type="text" value={name} placeholder="e.g. Shopping Centers 2026 — Draft" onChange={(e) => setName(e.target.value)} style={selectStyleLocal} />
+            <div className="muted small" style={{ marginTop: 6 }}>Expenses start from each building’s reprojection — this year’s actuals plus forecast — grown by this.</div>
+            {splitGrowth && (
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 12 }}>
+                <Field label="Taxes growth %">
+                  <input type="number" min={0} max={100} step="0.5" value={retGrowth} onChange={(e) => setRetGrowth(Number(e.target.value))} style={selectStyleLocal} />
+                </Field>
+                <Field label="Insurance growth %">
+                  <input type="number" min={0} max={100} step="0.5" value={insGrowth} onChange={(e) => setInsGrowth(Number(e.target.value))} style={selectStyleLocal} />
+                </Field>
+              </div>
+            )}
+            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, fontWeight: 600, cursor: "pointer", marginTop: 10 }}>
+              <input type="checkbox" checked={splitGrowth} onChange={(e) => setSplitGrowth(e.target.checked)} />
+              Taxes &amp; insurance grow at a different rate
+            </label>
+          </div>
+
+          <Field label="Name (optional)">
+            <input type="text" value={name} placeholder={`${category} ${year} — Draft`} onChange={(e) => setName(e.target.value)} style={selectStyleLocal} />
           </Field>
         </div>
 
