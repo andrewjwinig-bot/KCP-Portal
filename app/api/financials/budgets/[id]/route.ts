@@ -13,8 +13,9 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     // Layer in lease windows from the portal's stored rent roll for
     // any rent-roster tenant whose dates the workbook didn't already
     // carry (typically in-place leases — the workbook only ships
-    // dates for leases on the Renew & Vac tab).
-    await enrichWithRentRollDates(wb);
+    // dates for leases on the Renew & Vac tab). Best-effort: a failure
+    // here must never blank the whole budget.
+    try { await enrichWithRentRollDates(wb); } catch { /* non-fatal */ }
     return NextResponse.json({ workbook: wb });
   } catch (e) {
     return NextResponse.json(

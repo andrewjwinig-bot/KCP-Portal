@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getJSON } from "@/lib/storage";
 import { listLoans } from "@/lib/debt/storage";
 import { buildLiveBudget, rentRollCodesForCategory, type ReprojExpenseLine } from "@/lib/financials/budgets/build";
-import { getBudget, saveBudget } from "@/lib/financials/budgets/storage";
+import { getBudget, saveBudget, listBudgets } from "@/lib/financials/budgets/storage";
 import { loadReprojection } from "@/lib/financials/reprojections/load";
 import type { BudgetCategory } from "@/lib/financials/budgets/types";
 
@@ -43,7 +43,15 @@ export async function POST(req: Request) {
       | { properties: any[]; uploadedAt?: string }
       | null;
     const loans = await listLoans();
-    const prior = body.priorBudgetId ? await getBudget(body.priorBudgetId) : null;
+    // Prior budget = an explicit pick, else auto-select the newest same-category
+    // budget. It provides structure (reimbursement/capital lines, GL mapping) and
+    // an OpEx fallback; reprojByCode below overrides the OpEx numbers.
+    let prior = body.priorBudgetId ? await getBudget(body.priorBudgetId) : null;
+    if (!prior) {
+      const all = await listBudgets().catch(() => []);
+      prior = all.filter((w) => w.category === category).sort((a, b) => b.year - a.year)[0]
+        ?? all.sort((a, b) => b.year - a.year)[0] ?? null;
+    }
 
     // Operating expenses autofill from each building's reprojection (this year's
     // YTD actuals + forecast for the rest), basis = the year before the budget.

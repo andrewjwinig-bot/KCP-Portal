@@ -143,9 +143,14 @@ export default function BudgetsPage() {
     if (!selectedId) { setWorkbook(null); return; }
     let alive = true;
     fetch(`/api/financials/budgets/${encodeURIComponent(selectedId)}`, { cache: "no-store" })
-      .then((r) => r.json())
+      .then(async (r) => {
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(j?.error ?? `Failed to load budget (${r.status})`);
+        return j;
+      })
       .then((j) => {
         if (!alive) return;
+        setError(null);
         const wb: BudgetWorkbook | null = j.workbook ?? null;
         setWorkbook(wb);
         if (wb && wb.properties.length > 0) {
@@ -2930,6 +2935,35 @@ function HeaderSelect({
   );
 }
 
+const BUILD_STEPS = [
+  "Reading the current rent roll…",
+  "Pulling each building’s reprojection…",
+  "Applying your growth assumption…",
+  "Assembling the buildings…",
+  "Finalizing the draft…",
+];
+
+/** A little skyline that rises while the budget builds. */
+function BuildAnimation({ caption }: { caption: string }) {
+  const bars = [30, 54, 40, 66, 46, 60, 36];
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 18, padding: "36px 0" }}>
+      <style>{`@keyframes kcpRise{0%,100%{transform:scaleY(.25);opacity:.45}50%{transform:scaleY(1);opacity:1}}`}</style>
+      <div style={{ display: "flex", alignItems: "flex-end", gap: 6, height: 72 }}>
+        {bars.map((h, i) => (
+          <div key={i} style={{
+            width: 15, height: h, borderRadius: "3px 3px 0 0",
+            background: "linear-gradient(180deg,#2f6fb0,#0b4a7d)",
+            transformOrigin: "bottom", animation: `kcpRise 1.4s ${i * 0.11}s ease-in-out infinite`,
+          }} />
+        ))}
+      </div>
+      <div style={{ fontWeight: 800, fontSize: 15 }}>Building your budget…</div>
+      <div className="muted small" style={{ minHeight: 18, transition: "opacity .2s" }}>{caption}</div>
+    </div>
+  );
+}
+
 function CreateBudgetDialog({
   summaries,
   onClose,
@@ -2950,6 +2984,15 @@ function CreateBudgetDialog({
   const [error, setError] = useState<string | null>(null);
   const [year, setYear] = useState<number>(today.getFullYear() + 1);
   void summaries;
+
+  // Cycle status captions while the budget builds (it loads a reprojection per
+  // building, so it takes a moment).
+  const [buildStep, setBuildStep] = useState(0);
+  useEffect(() => {
+    if (!busy) { setBuildStep(0); return; }
+    const t = setInterval(() => setBuildStep((s) => Math.min(s + 1, BUILD_STEPS.length - 1)), 1300);
+    return () => clearInterval(t);
+  }, [busy]);
 
   async function submit() {
     setError(null);
@@ -2992,11 +3035,17 @@ function CreateBudgetDialog({
         style={{
           background: "var(--card)", color: "var(--text)",
           borderRadius: 14, border: "1px solid var(--border)",
-          maxWidth: 580, width: "100%",
+          maxWidth: 580, width: "100%", position: "relative",
           padding: 24, maxHeight: "90vh", overflowY: "auto",
           boxShadow: "0 18px 50px rgba(15,23,42,0.28)",
         }}
       >
+        {busy && (
+          <div style={{ position: "absolute", inset: 0, borderRadius: 14, background: "var(--card)", zIndex: 3, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+            <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: "-0.02em" }}>{name.trim() || `${category} ${year}`}</div>
+            <BuildAnimation caption={BUILD_STEPS[buildStep]} />
+          </div>
+        )}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
           <div>
             <h2 style={{ margin: 0, fontSize: 22, fontWeight: 900, letterSpacing: "-0.02em" }}>New Budget</h2>
