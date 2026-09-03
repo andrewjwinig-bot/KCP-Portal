@@ -5,6 +5,7 @@
 // Given a token it fetches the statement itself; pass `data` to skip the fetch.
 
 import { useEffect, useState } from "react";
+import { DownloadMenu, type DownloadItem } from "@/app/components/DownloadMenu";
 
 export const BRAND = "#0b4a7d";
 export const money = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
@@ -178,30 +179,23 @@ export function TenantStatementView({ token, data, header = true }: { token: str
   const occDisplay = t.occPct > 0 ? (t.occPct <= 1 ? t.occPct * 100 : t.occPct) : 0;
   if (occDisplay > 0) metaParts.push(`${occDisplay.toFixed(1)}% Occupancy`);
 
-  const DownloadBtn = () => (
-    <a href={`/api/statement/${token}/pdf`} style={{ display: "inline-flex", alignItems: "center", gap: 7, background: BRAND, color: "#fff", textDecoration: "none", borderRadius: 8, padding: "8px 14px", fontSize: 13, fontWeight: 700, whiteSpace: "nowrap" }}>
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
-      Download PDF
-    </a>
-  );
-
-  // One-click grab of every invoice on the statement as a single .zip. Hidden
-  // when there's 0–1 invoice (nothing to bundle).
-  const DownloadAllInvoices = () => {
-    if (allBackupIds.length < 2) return null;
-    return (
-      <a href={zipUrl(allBackupIds, `${data.propertyName} ${data.year} Invoices`)} title={`Download all ${allBackupIds.length} invoices as a .zip`}
-        style={{ display: "inline-flex", alignItems: "center", gap: 7, background: "var(--card)", color: BRAND, border: `1px solid ${BRAND}`, textDecoration: "none", borderRadius: 8, padding: "8px 14px", fontSize: 13, fontWeight: 700, whiteSpace: "nowrap" }}>
-        <Clip /> All invoices ({allBackupIds.length})
-      </a>
-    );
+  // Single "Download ▾" dropdown — the shared pattern used on Operating
+  // Statements / Reprojections / Budgets — so it's obvious the statement PDF and
+  // the invoices are separate downloads. Invoices item only shows when there are
+  // any to bundle.
+  const Actions = () => {
+    const items: DownloadItem[] = [
+      { label: "Statement PDF", description: "The full year-end reconciliation statement", href: `/api/statement/${token}/pdf` },
+    ];
+    if (allBackupIds.length > 0) {
+      items.push({
+        label: `All invoices (${allBackupIds.length})`,
+        description: "Every supporting invoice, bundled as a .zip",
+        href: zipUrl(allBackupIds, `${data.propertyName} ${data.year} Invoices`),
+      });
+    }
+    return <DownloadMenu label="Download" items={items} variant="primary" />;
   };
-  const Actions = () => (
-    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
-      <DownloadAllInvoices />
-      <DownloadBtn />
-    </div>
-  );
 
   // Net true-up callout, green (credit) / amber (due), mirroring the PDF box.
   const credit = totalBalance < -0.5, due = totalBalance > 0.5;
