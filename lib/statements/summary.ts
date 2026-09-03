@@ -110,12 +110,18 @@ export function summarize(st: TenantStatement, period: string): StatementSummary
   };
 }
 
-/** Charges newest-first, credits last — the order a statement reads best in. */
-export function sortedCharges(st: TenantStatement): StatementCharge[] {
-  return [...st.charges].sort((a, b) => {
-    if (!a.dateISO && !b.dateISO) return 0;
-    if (!a.dateISO) return 1;
-    if (!b.dateISO) return -1;
-    return b.dateISO.localeCompare(a.dateISO);
-  });
+/**
+ * Charges in the order Skyline's laser statement prints them, so the portal
+ * statement, the PDF and the admin ledger can be read side by side with the
+ * paper statement line for line.
+ *
+ * That order is the parse order — the report runs oldest charge first with the
+ * aggregate "Open Credits" row last (true for every tenant in the exports we've
+ * seen). Undated rows are still pinned to the end as a safety net, so a future
+ * export that interleaves them can't scatter credits through the ledger.
+ */
+export function statementCharges(st: TenantStatement): StatementCharge[] {
+  const dated = st.charges.filter((c) => c.dateISO);
+  const undated = st.charges.filter((c) => !c.dateISO);
+  return [...dated, ...undated];
 }

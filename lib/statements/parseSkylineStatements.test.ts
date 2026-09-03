@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import * as XLSX from "xlsx";
 import { classifyCharge, parseSkylineStatements, toISODate } from "./parseSkylineStatements";
-import { agingOf, summarize } from "./summary";
+import { agingOf, statementCharges, summarize } from "./summary";
 
 // Build a workbook shaped like the Skyline "Statement" export: charges at
 // A/G/S, the unit ref + bill-to block at W, the balance at Y.
@@ -141,6 +141,48 @@ describe("parseSkylineStatements", () => {
     ]);
     const { statements } = parseSkylineStatements(buf);
     expect(statements[0].charges[0].amount).toBe(312.9);
+  });
+});
+
+describe("report order", () => {
+  it("keeps tenants in the sequence Skyline printed, not alphabetical", () => {
+    // Skyline's real order: 1100-34 precedes 1100-12330. Sorting would invert it.
+    const buf = build([
+      ...header("1100-34-CU", "Shear Sensation\n1 Main St"),
+      row({ date: "09/01/2026", desc: "Monthly Rent", amount: 100 }), ...CLOSE(100),
+      ...header("1100-36-CU", "Honest Real Estate\n2 Main St"),
+      row({ date: "09/01/2026", desc: "Monthly Rent", amount: 100 }), ...CLOSE(100),
+      ...header("1100-12330-CU", "Ferry Good Treats\n3 Main St"),
+      row({ date: "09/01/2026", desc: "Monthly Rent", amount: 100 }), ...CLOSE(100),
+    ]);
+    const { statements } = parseSkylineStatements(buf);
+    expect(statements.map((s) => s.unitRef)).toEqual(["1100-34", "1100-36", "1100-12330"]);
+  });
+
+  it("keeps charges in the printed order — oldest first, credits last", () => {
+    const buf = build([
+      ...header("1100-34-CU", "Shear Sensation\n1 Main St"),
+      row({ date: "04/25/2025", desc: "2024 CAM Reconciliation", amount: 1130 }),
+      row({ date: "04/22/2026", desc: "2025 Year End CAM Adjustment", amount: 9829.02 }),
+      row({ date: "09/01/2026", desc: "Monthly Rent", amount: 1732.55 }),
+      row({ desc: "Open Credits", amount: -586.78 }),
+      ...CLOSE(12104.79),
+    ]);
+    const [st] = parseSkylineStatements(buf).statements;
+    expect(statementCharges(st).map((c) => c.description)).toEqual([
+      "2024 CAM Reconciliation", "2025 Year End CAM Adjustment", "Monthly Rent", "Open Credits",
+    ]);
+  });
+
+  it("pins an out-of-place undated row to the end", () => {
+    const buf = build([
+      ...header("1100-34-CU", "Shear Sensation\n1 Main St"),
+      row({ desc: "Open Credits", amount: -100 }),
+      row({ date: "09/01/2026", desc: "Monthly Rent", amount: 500 }),
+      ...CLOSE(400),
+    ]);
+    const [st] = parseSkylineStatements(buf).statements;
+    expect(statementCharges(st).map((c) => c.description)).toEqual(["Monthly Rent", "Open Credits"]);
   });
 });
 

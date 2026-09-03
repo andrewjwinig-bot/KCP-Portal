@@ -35,7 +35,12 @@ export async function publishedRuns(): Promise<StatementRun[]> {
 
 /** Merge one parsed export into its period. Tenants present in the new file
  *  replace their prior copy; tenants only in an earlier file for the same
- *  period are kept (a second building's export doesn't wipe the first). */
+ *  period are kept (a second building's export doesn't wipe the first).
+ *
+ *  Order mirrors the laser statement: tenants stay in the sequence Skyline
+ *  printed them (which is NOT alphabetical — 1100-34 precedes 1100-12330), a
+ *  re-import updates a tenant in place rather than moving them, and a second
+ *  export's new tenants append after the first's in their own printed order. */
 export async function mergeIntoPeriod(
   period: string,
   statements: TenantStatement[],
@@ -45,6 +50,8 @@ export async function mergeIntoPeriod(
   const now = new Date().toISOString();
   const existing = await store.get(period);
 
+  // Map preserves insertion order: seed with the period's existing sequence,
+  // then overwrite matches in place and append only genuinely-new tenants.
   const byUnit = new Map<string, TenantStatement>();
   for (const s of existing?.statements ?? []) byUnit.set(s.unitRef, s);
   for (const s of statements) byUnit.set(s.unitRef, s);
@@ -58,7 +65,7 @@ export async function mergeIntoPeriod(
     createdAt: existing?.createdAt ?? now,
     updatedAt: now,
     sources: [...(existing?.sources ?? []), source],
-    statements: [...byUnit.values()].sort((a, b) => a.unitRef.localeCompare(b.unitRef)),
+    statements: [...byUnit.values()],
   };
   await store.set(period, run);
   return run;

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { deleteRun, getRun, setPublished } from "@/lib/statements/store";
-import { sortedCharges, summarize } from "@/lib/statements/summary";
+import { statementCharges, summarize } from "@/lib/statements/summary";
 import { instructionsFor } from "@/lib/statements/payment";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 import { logAudit, auditIp } from "@/lib/audit";
@@ -29,9 +29,9 @@ export async function GET(_req: NextRequest, { params }: { params: { period: str
     sources: run.sources,
     properties: codes.sort().map((code) => ({ code, name: propName(code) })),
     payment,
-    // Same newest-first order the tenant sees, so a staff read of the ledger
-    // and the tenant's statement never disagree on ordering.
-    tenants: run.statements.map((st) => ({ ...st, charges: sortedCharges(st), summary: summarize(st, run.period) })),
+    // Skyline's own printed order — the admin ledger, the tenant's statement
+    // and the paper laser statement all read line for line.
+    tenants: run.statements.map((st) => ({ ...st, charges: statementCharges(st), summary: summarize(st, run.period) })),
   });
 }
 
