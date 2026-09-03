@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 import { getJSON } from "@/lib/storage";
 import { listLoans } from "@/lib/debt/storage";
-import { buildLiveBudget, rentRollCodesForCategory, type ReprojExpenseLine } from "@/lib/financials/budgets/build";
+import { buildLiveBudget } from "@/lib/financials/budgets/build";
 import { getBudget, saveBudget, listBudgets } from "@/lib/financials/budgets/storage";
-import { loadReprojection } from "@/lib/financials/reprojections/load";
 import type { BudgetCategory } from "@/lib/financials/budgets/types";
 
 export const runtime = "nodejs";
@@ -54,31 +53,10 @@ export async function POST(req: Request) {
         ?? all.sort((a, b) => b.year - a.year)[0] ?? null;
     }
 
-    // Operating expenses autofill from each building's reprojection (this year's
-    // YTD actuals + forecast for the rest), basis = the year before the budget.
-    // No dropdown — one reproj per building in the category.
-    const reprojByCode: Record<string, { reimbExp: ReprojExpenseLine[]; nonReimb: ReprojExpenseLine[] }> = {};
-    if (rentroll) {
-      const codes = rentRollCodesForCategory(rentroll as any, category);
-      // Load every building's reprojection in parallel — sequential awaits were
-      // slow enough to time the request out on a full portfolio.
-      const loaded = await Promise.all(
-        codes.map((code) => loadReprojection(code, year - 1).catch(() => null).then((l) => ({ code, l }))),
-      );
-      for (const { code, l } of loaded) {
-        if (!l) continue;
-        const reimbExp: ReprojExpenseLine[] = [];
-        const nonReimb: ReprojExpenseLine[] = [];
-        for (const sec of l.reprojection.sections) {
-          const bucket = sec.role === "reimbursable-expense" ? reimbExp
-            : (sec.role === "non-reimbursable-expense" || sec.role === "residential-expense") ? nonReimb
-            : null;
-          if (!bucket) continue;
-          for (const line of sec.lines) bucket.push({ label: line.label, blended: line.blended });
-        }
-        if (reimbExp.length || nonReimb.length) reprojByCode[code] = { reimbExp, nonReimb };
-      }
-    }
+    // NOTE: reprojection-based OpEx is applied AFTER the budget exists (see the
+    // per-building "refresh from reprojection" path) — loading a reprojection for
+    // every building here made the create request slow enough to fail, so the
+    // build itself stays fast and reliable (OpEx from the prior budget).
 
     const wb = buildLiveBudget({
       year,
@@ -89,7 +67,6 @@ export async function POST(req: Request) {
       opExGrowthPct,
       retGrowthPct,
       insGrowthPct,
-      reprojByCode,
     });
 
     if (wb.properties.length === 0) {

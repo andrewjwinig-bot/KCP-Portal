@@ -172,7 +172,11 @@ export default function BudgetsPage() {
 
   const handleUploaded = useCallback(async (newId: string) => {
     await reload();
+    // Land straight on the new budget's first building — don't carry a stale
+    // property code from whatever was open before.
+    setPropertyCode(null);
     setSelectedId(newId);
+    if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
   }, [reload]);
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -285,6 +289,31 @@ export default function BudgetsPage() {
           onWorkbookUpdate={setWorkbook}
           editor={user.label}
         />
+      )}
+
+      {/* A workbook loaded but no property resolved (e.g. an empty build).
+          Never leave the page blank — say so and offer a way out. */}
+      {workbook && !property && (
+        <div className="card">
+          <p style={{ fontWeight: 700, marginBottom: 6 }}>
+            {workbook.label ?? "This budget"} has no properties to show.
+          </p>
+          <p className="muted small" style={{ marginBottom: 10 }}>
+            The budget was created but came back with no buildings — usually the current
+            rent roll has no properties in this category. Try creating it again, or pick
+            another budget below.
+          </p>
+          {summaries && summaries.length > 0 && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+              {summaries.map((s) => (
+                <button key={s.id} onClick={() => setSelectedId(s.id)} className="btn"
+                  style={{ fontSize: 12, padding: "5px 11px", fontWeight: 700, borderColor: s.id === selectedId ? "#0b4a7d" : undefined }}>
+                  {s.label} · {s.year}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       )}
 
       {/* Hidden file input — wired to the empty-state Upload Budget
