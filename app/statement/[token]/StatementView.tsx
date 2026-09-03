@@ -54,7 +54,7 @@ const Clip = () => (
 // Compact, uniform backup control. A single file links directly; multiple files
 // collapse to one "N invoices ▾" chip that expands the list on demand — so a
 // line with 7 invoices no longer balloons its row and breaks the table's rhythm.
-function BackupCell({ backup, fileUrl }: { backup: Backup[]; fileUrl: (id: string) => string }) {
+function BackupCell({ backup, fileUrl, zipUrl, label }: { backup: Backup[]; fileUrl: (id: string) => string; zipUrl?: (ids: string[], name: string) => string; label?: string }) {
   const [open, setOpen] = useState(false);
   if (backup.length === 0) return <span className="muted" style={{ fontSize: 12 }}>—</span>;
   const chip: React.CSSProperties = { display: "inline-flex", alignItems: "center", gap: 5, border: "1px solid var(--border)", borderRadius: 6, padding: "3px 9px", fontSize: 12, fontWeight: 600, color: BRAND, textDecoration: "none", background: "rgba(11,74,125,0.05)", cursor: "pointer", fontFamily: "inherit" };
@@ -62,11 +62,21 @@ function BackupCell({ backup, fileUrl }: { backup: Backup[]; fileUrl: (id: strin
     const b = backup[0];
     return <a href={fileUrl(b.id)} target="_blank" rel="noopener noreferrer" title={`${b.name} · ${fmtSize(b.size)}`} style={chip}><Clip /> Invoice</a>;
   }
+  const zipHref = zipUrl ? zipUrl(backup.map((b) => b.id), label ? `${label} Invoices` : "Invoices") : null;
   return (
     <div>
-      <button onClick={() => setOpen((o) => !o)} style={chip} aria-expanded={open}>
-        <Clip /> {backup.length} invoices <span style={{ fontSize: 9 }}>{open ? "▲" : "▼"}</span>
-      </button>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <button onClick={() => setOpen((o) => !o)} style={chip} aria-expanded={open}>
+          <Clip /> {backup.length} invoices <span style={{ fontSize: 9 }}>{open ? "▲" : "▼"}</span>
+        </button>
+        {/* Grab the whole line's invoices in one .zip — no need to expand + click each. */}
+        {zipHref && (
+          <a href={zipHref} title={`Download all ${backup.length} invoices as a .zip`}
+            style={{ fontSize: 11.5, fontWeight: 700, color: BRAND, textDecoration: "none", whiteSpace: "nowrap" }}>
+            ↓ Download all
+          </a>
+        )}
+      </div>
       {open && (
         <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 5 }}>
           {backup.map((b) => (
@@ -91,6 +101,13 @@ export function TenantStatementView({ token, data, header = true }: { token: str
   const camEscrowTotal = data.escrowMonthly.reduce((a, m) => a + m.cam, 0);
   const retEscrowTotal = data.escrowMonthly.reduce((a, m) => a + m.ret, 0);
   const fileUrl = (id: string) => `/api/statement/${token}/file?id=${id}`;
+  const zipUrl = (ids: string[], name: string) => `/api/statement/${token}/zip?ids=${encodeURIComponent(ids.join(","))}&name=${encodeURIComponent(name)}`;
+  // Every invoice across the whole statement — powers the top "All invoices" zip.
+  const allBackupIds = Array.from(new Set([
+    ...data.lines.flatMap((l) => l.backup.map((b) => b.id)),
+    ...(data.ins?.backup ?? []).map((b) => b.id),
+    ...data.ret.backup.map((b) => b.id),
+  ]));
 
   const Card = ({ label, due, escrow, balance }: { label: string; due: number; escrow: number; balance: number }) => (
     <div style={{ flex: 1, minWidth: 180, border: "1px solid var(--border)", borderRadius: 14, padding: "15px 17px", background: "var(--card)", boxShadow: "var(--shadow)" }}>
@@ -128,7 +145,7 @@ export function TenantStatementView({ token, data, header = true }: { token: str
           <div style={{ padding: acctPad, color: "var(--muted)", fontSize: 12, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{r.acct ?? ""}</div>
           <div style={{ padding: cellPad, fontWeight: r.bold ? 700 : 400 }}>{r.label}</div>
           <div style={{ padding: cellPad, textAlign: "right", fontVariantNumeric: "tabular-nums", fontWeight: r.bold ? 700 : 400 }}>{money(r.amount)}</div>
-          <div style={{ padding: cellPad, paddingLeft: 4 }}><BackupCell backup={r.backup} fileUrl={fileUrl} /></div>
+          <div style={{ padding: cellPad, paddingLeft: 4 }}><BackupCell backup={r.backup} fileUrl={fileUrl} zipUrl={zipUrl} label={r.label} /></div>
         </div>
       ))}
       {totalLabel && (
@@ -157,6 +174,24 @@ export function TenantStatementView({ token, data, header = true }: { token: str
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
       Download PDF
     </a>
+  );
+
+  // One-click grab of every invoice on the statement as a single .zip. Hidden
+  // when there's 0–1 invoice (nothing to bundle).
+  const DownloadAllInvoices = () => {
+    if (allBackupIds.length < 2) return null;
+    return (
+      <a href={zipUrl(allBackupIds, `${data.propertyName} ${data.year} Invoices`)} title={`Download all ${allBackupIds.length} invoices as a .zip`}
+        style={{ display: "inline-flex", alignItems: "center", gap: 7, background: "var(--card)", color: BRAND, border: `1px solid ${BRAND}`, textDecoration: "none", borderRadius: 8, padding: "8px 14px", fontSize: 13, fontWeight: 700, whiteSpace: "nowrap" }}>
+        <Clip /> All invoices ({allBackupIds.length})
+      </a>
+    );
+  };
+  const Actions = () => (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+      <DownloadAllInvoices />
+      <DownloadBtn />
+    </div>
   );
 
   // Net true-up callout, green (credit) / amber (due), mirroring the PDF box.
@@ -188,14 +223,14 @@ export function TenantStatementView({ token, data, header = true }: { token: str
               <div className="muted" style={{ fontSize: 13.5, marginTop: 3 }}>{data.propertyName} · Suite {t.suite}</div>
               <div className="muted" style={{ fontSize: 12.5, marginTop: 4 }}>{metaParts.join("   ·   ")}</div>
             </div>
-            <DownloadBtn />
+            <Actions />
           </div>
         </>
       )}
 
       {!header && (
         <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
-          <DownloadBtn />
+          <Actions />
         </div>
       )}
 
