@@ -41,20 +41,78 @@ export async function publishedRuns(): Promise<StatementRun[]> {
  *  printed them (which is NOT alphabetical — 1100-34 precedes 1100-12330), a
  *  re-import updates a tenant in place rather than moving them, and a second
  *  export's new tenants append after the first's in their own printed order. */
+/** What a merge did — surfaced on the import report so a mid-month correction
+ *  is never a silent overwrite. */
+export type MergeStats = {
+  /** Tenants in the upload that already had a statement — replaced in place. */
+  replaced: number;
+  /** Tenants in the upload that are new to the month — appended. */
+  added: number;
+  /** Tenants the upload didn't mention — kept exactly as they were. */
+  carriedOver: number;
+  /** Replaced tenants whose balance actually moved. */
+  changed: number;
+  /** Net movement in open balance across those changes. */
+  netChange: number;
+};
+
+/**
+ * Merge an upload into a month's existing statements.
+ *
+ * The rule for a mid-month re-import: an uploaded tenant REPLACES their prior
+ * statement, and a tenant the upload doesn't mention is KEPT, not dropped. A
+ * corrected export covering one building must never wipe the rest of the month,
+ * and a partial or truncated export must never look like a mass move-out.
+ *
+ * Pure, so the rule is testable without touching storage. Order is preserved:
+ * a replaced tenant stays in their slot rather than jumping to the end, and
+ * genuinely-new tenants append in the order the upload printed them.
+ */
+export function mergeStatements(
+  existing: TenantStatement[],
+  incoming: TenantStatement[],
+): { statements: TenantStatement[]; stats: MergeStats } {
+  const prior = new Map(existing.map((s) => [s.unitRef, s]));
+  const byUnit = new Map<string, TenantStatement>(prior);
+
+  let replaced = 0, added = 0, changed = 0, netChange = 0;
+  const touched = new Set<string>();
+  for (const s of incoming) {
+    const was = prior.get(s.unitRef);
+    if (was) {
+      replaced += 1;
+      const delta = s.chargeTotal - was.chargeTotal;
+      if (Math.abs(delta) >= 0.005) { changed += 1; netChange += delta; }
+    } else {
+      added += 1;
+    }
+    touched.add(s.unitRef);
+    byUnit.set(s.unitRef, s);
+  }
+
+  return {
+    statements: [...byUnit.values()],
+    stats: {
+      replaced, added, changed,
+      netChange: Math.round(netChange * 100) / 100,
+      carriedOver: existing.filter((s) => !touched.has(s.unitRef)).length,
+    },
+  };
+}
+
 export async function mergeIntoPeriod(
   period: string,
   statements: TenantStatement[],
   source: StatementSource,
-): Promise<StatementRun> {
+  opts: { incompleteExport?: boolean } = {},
+): Promise<{ run: StatementRun; stats: MergeStats }> {
   if (!PERIOD_RE.test(period)) throw new Error(`Invalid statement period "${period}".`);
   const now = new Date().toISOString();
   const existing = await store.get(period);
 
-  // Map preserves insertion order: seed with the period's existing sequence,
-  // then overwrite matches in place and append only genuinely-new tenants.
-  const byUnit = new Map<string, TenantStatement>();
-  for (const s of existing?.statements ?? []) byUnit.set(s.unitRef, s);
-  for (const s of statements) byUnit.set(s.unitRef, s);
+  // Stamp provenance so a carried-over tenant stays identifiable later.
+  const stamped = statements.map((s) => ({ ...s, importedAt: source.importedAt, sourceFile: source.filename }));
+  const { statements: merged, stats } = mergeStatements(existing?.statements ?? [], stamped);
 
   const run: StatementRun = {
     period,
@@ -62,13 +120,16 @@ export async function mergeIntoPeriod(
     // correcting live data, not un-publishing it from under the tenants.
     published: existing?.published ?? false,
     publishedAt: existing?.publishedAt ?? null,
+    // Sticky: once a month has taken an incomplete file, it stays suspect until
+    // a clean export replaces it (a clean import clears the flag).
+    incompleteExport: opts.incompleteExport ? true : existing?.incompleteExport && !opts.incompleteExport ? undefined : existing?.incompleteExport,
     createdAt: existing?.createdAt ?? now,
     updatedAt: now,
     sources: [...(existing?.sources ?? []), source],
-    statements: [...byUnit.values()],
+    statements: merged,
   };
   await store.set(period, run);
-  return run;
+  return { run, stats };
 }
 
 export async function setPublished(period: string, published: boolean): Promise<StatementRun | null> {
@@ -128,6 +189,11 @@ export function shouldAutoPublish(opts: {
   /** Tenants in the merged month that don't tie out to Skyline. */
   untied: number;
   alreadyPublished: boolean;
+  /** The export dropped its CURRENT CHARGES section — every tenant billed this
+   *  month is understated, and every one of them still "ties out" against the
+   *  prior-balance subtotal. Nothing about this month is publishable. */
+  incompleteExport?: boolean;
 }): boolean {
+  if (opts.incompleteExport) return false;
   return opts.wants && opts.untied === 0 && !opts.alreadyPublished;
 }

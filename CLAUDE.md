@@ -56,13 +56,28 @@ how-to-pay instructions. Sources of truth:
 
 - **The Skyline "Statement" report is the only input.** Parser:
   `lib/statements/parseSkylineStatements.ts`. Never hand-key a tenant's open
-  balance anywhere. The parser reads Skyline's own layout (unit ref at col W,
-  date/description/amount at A/G/S, balance at Y) and **reconciles every tenant
-  to the "PREVIOUS MONTH ENDING BALANCE" Skyline printed** — `tiesOut: false` is
-  the guardrail, and an untied tenant is flagged "under review" on the portal
-  instead of being billed off a bad parse. Two Crystal Reports quirks it already
-  handles (don't "fix" them out): a tenant continued across a page break, and a
-  detail group re-rendered 2–4× (deduped only when the dedupe reconciles).
+  balance anywhere.
+- **A statement has THREE parts and the amount due is the sum of two of them:**
+  the lines above `PREVIOUS MONTH ENDING BALANCE` (already outstanding), then
+  `CURRENT CHARGES` … `TOTAL CURRENT` (newly billed this month). **Total Amount
+  Due = PREVIOUS MONTH ENDING BALANCE + TOTAL CURRENT.** Reading the first
+  subtotal as the amount due understates every tenant with current charges —
+  that shipped once and put $1,164.90 in front of a tenant who owed $14,510.98.
+  `reportedBalance` is the grand total; `priorBalance`/`currentTotal` are the
+  halves; each charge carries its `section`. Each half reconciles to its OWN
+  printed subtotal, and `tiesOut` requires both halves and the grand total.
+  Two Crystal Reports quirks it also handles (don't "fix" them out): a tenant
+  continued across a page break, and a detail group re-rendered 2–4× (deduped
+  per section, only when the dedupe reconciles).
+- **Crystal's Excel export can silently drop the whole CURRENT CHARGES
+  section** — the headings print, the detail rows and every `TOTAL CURRENT` come
+  through empty. This is the one failure the tie-out CANNOT catch: the prior half
+  still reconciles perfectly, so all 67 tenants read as clean while missing
+  everything billed that month. `lossyCurrentSection` detects it (sections
+  printed, zero detail rows, zero non-zero totals across the file) and the import
+  is **refused with HTTP 422**; `allowIncomplete=1` imports anyway but marks the
+  run `incompleteExport`, which can never auto-publish and needs an explicit
+  `force` to go live. Never relax this into a warning.
 - **Unit refs are stored in the app's canonical form** — Skyline's `-CU` charge
   suffix stripped (`2300-1817-CU` → `2300-1817`), matching the rent roll, the
   recon rosters and the portal token. `skylineUnitRef` keeps the raw value. If a

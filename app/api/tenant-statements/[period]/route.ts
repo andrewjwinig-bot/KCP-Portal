@@ -18,6 +18,8 @@ export async function GET(_req: NextRequest, { params }: { params: { period: str
   if (!run) return NextResponse.json({ error: "No statements for that period." }, { status: 404 });
 
   const codes = [...new Set(run.statements.map((s) => s.propertyCode))];
+  // Provenance is only meaningful once a month has had more than one upload.
+  const latestImport = run.sources.length > 1 ? run.sources[run.sources.length - 1].importedAt : null;
   const payment = Object.fromEntries(await Promise.all(codes.map(async (c) => [c, await instructionsFor(c)] as const)));
 
   return NextResponse.json({
@@ -26,12 +28,21 @@ export async function GET(_req: NextRequest, { params }: { params: { period: str
     published: run.published,
     publishedAt: run.publishedAt,
     updatedAt: run.updatedAt,
+    incompleteExport: !!run.incompleteExport,
     sources: run.sources,
     properties: codes.sort().map((code) => ({ code, name: propName(code) })),
     payment,
     // Skyline's own printed order — the admin ledger, the tenant's statement
     // and the paper laser statement all read line for line.
-    tenants: run.statements.map((st) => ({ ...st, charges: statementCharges(st), summary: summarize(st, run.period) })),
+    tenants: run.statements.map((st) => ({
+      ...st,
+      charges: statementCharges(st),
+      summary: summarize(st, run.period),
+      // A tenant the latest upload didn't mention. Their statement is still
+      // valid — it just predates the newest export, which is worth seeing when
+      // you re-import mid-month and a tenant quietly falls out of the report.
+      carriedOver: !!latestImport && !!st.importedAt && st.importedAt !== latestImport,
+    })),
   });
 }
 
@@ -41,6 +52,19 @@ export async function PATCH(req: NextRequest, { params }: { params: { period: st
   if (typeof body.published !== "boolean") {
     return NextResponse.json({ error: "Expected { published: boolean }." }, { status: 400 });
   }
+  // Publishing a month built from a lossy export puts understated balances in
+  // front of tenants. Unpublishing is always allowed.
+  const existing = await getRun(params.period);
+  if (!existing) return NextResponse.json({ error: "No statements for that period." }, { status: 404 });
+  if (body.published && existing.incompleteExport && body.force !== true) {
+    return NextResponse.json({
+      error: "This month was built from an export missing its current charges, so tenants billed this month are "
+        + "understated. Re-export from Skyline and re-import, or confirm to publish it anyway.",
+      code: "incomplete-export",
+      canOverride: true,
+    }, { status: 422 });
+  }
+
   const run = await setPublished(params.period, body.published);
   if (!run) return NextResponse.json({ error: "No statements for that period." }, { status: 404 });
   await logAudit({
