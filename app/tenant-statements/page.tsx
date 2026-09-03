@@ -42,7 +42,6 @@ const tdL: React.CSSProperties = { ...td, textAlign: "left" };
 type PeriodRow = {
   period: string; published: boolean; publishedAt: string | null; updatedAt: string;
   tenants: number; properties: number; openBalance: number; pastDue: number; tenantsOwing: number; untied: number;
-  incompleteExport?: boolean;
   sources: { filename: string; importedAt: string; importedBy: string | null; tenantCount: number }[];
 };
 type Summary = {
@@ -215,22 +214,7 @@ export default function TenantStatementsPage() {
         body: JSON.stringify({ published: !row.published, by: user.label }),
       });
       const j = await res.json();
-      if (!res.ok) {
-        // The month came from an export missing its current charges — make the
-        // person say so out loud before understated balances reach tenants.
-        if (j.code === "incomplete-export" && window.confirm(`${j.error}\n\nPublish anyway?`)) {
-          const forced = await fetch(`/api/tenant-statements/${row.period}`, {
-            method: "PATCH", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ published: true, force: true, by: user.label }),
-          });
-          const fj = await forced.json();
-          if (!forced.ok) throw new Error(fj.error ?? "Could not update.");
-          await loadPeriods();
-          setDetail((d) => (d ? { ...d, published: fj.published, publishedAt: fj.publishedAt } : d));
-          return;
-        }
-        throw new Error(j.error ?? "Could not update.");
-      }
+      if (!res.ok) throw new Error(j.error ?? "Could not update.");
       await loadPeriods();
       setDetail((d) => (d ? { ...d, published: j.published, publishedAt: j.publishedAt } : d));
     } catch (e) {
@@ -381,19 +365,6 @@ export default function TenantStatementsPage() {
                   sub={row.untied ? "don't tie to Skyline" : "all tie out"} />
               </div>
 
-              {row.incompleteExport && (
-                <div style={{ borderRadius: 10, padding: "12px 14px", background: "rgba(220,38,38,0.08)", border: "1.5px solid rgba(220,38,38,0.45)" }}>
-                  <div style={{ color: "#b91c1c", fontWeight: 800, fontSize: 13.5 }}>
-                    ⚠ This month is missing its current charges — balances are understated
-                  </div>
-                  <div style={{ color: "#7f1d1d", fontSize: 12.5, marginTop: 4, lineHeight: 1.55 }}>
-                    The Skyline export printed a CURRENT CHARGES section for every tenant but carried nothing under it,
-                    so this month holds only what was already outstanding. Every tenant still reconciles — against the
-                    prior-balance subtotal — which is exactly why the tie-out couldn&rsquo;t catch it. Compare one tenant
-                    against their laser statement, then re-export from Skyline and re-import.
-                  </div>
-                </div>
-              )}
               {row.untied > 0 && (
                 <div style={{ borderRadius: 10, padding: "10px 13px", background: "rgba(220,38,38,0.06)", border: "1px solid rgba(220,38,38,0.3)", fontSize: 13, color: "#b91c1c", fontWeight: 600, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
                   <span style={{ flex: 1, minWidth: 260 }}>
@@ -576,8 +547,8 @@ function PeriodBar({ periods, active, onPick }: { periods: PeriodRow[]; active: 
             <div style={{ fontSize: 13.5, fontWeight: 800, color: on ? "#0b4a7d" : "var(--text)" }}>{periodLabel(p.period)}</div>
             <div className="muted" style={{ fontSize: 11.5, marginTop: 2, display: "flex", alignItems: "center", gap: 6 }}>
               {money0(p.openBalance)}
-              <span style={{ width: 6, height: 6, borderRadius: 999, background: p.incompleteExport ? "#b91c1c" : p.published ? "#15803d" : "rgba(15,23,42,0.25)" }} />
-              {p.incompleteExport ? "incomplete" : p.published ? "live" : "draft"}
+              <span style={{ width: 6, height: 6, borderRadius: 999, background: p.published ? "#15803d" : "rgba(15,23,42,0.25)" }} />
+              {p.published ? "live" : "draft"}
             </div>
           </button>
         );

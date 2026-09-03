@@ -104,7 +104,6 @@ export async function mergeIntoPeriod(
   period: string,
   statements: TenantStatement[],
   source: StatementSource,
-  opts: { incompleteExport?: boolean } = {},
 ): Promise<{ run: StatementRun; stats: MergeStats }> {
   if (!PERIOD_RE.test(period)) throw new Error(`Invalid statement period "${period}".`);
   const now = new Date().toISOString();
@@ -120,9 +119,6 @@ export async function mergeIntoPeriod(
     // correcting live data, not un-publishing it from under the tenants.
     published: existing?.published ?? false,
     publishedAt: existing?.publishedAt ?? null,
-    // Sticky: once a month has taken an incomplete file, it stays suspect until
-    // a clean export replaces it (a clean import clears the flag).
-    incompleteExport: opts.incompleteExport ? true : existing?.incompleteExport && !opts.incompleteExport ? undefined : existing?.incompleteExport,
     createdAt: existing?.createdAt ?? now,
     updatedAt: now,
     sources: [...(existing?.sources ?? []), source],
@@ -189,11 +185,6 @@ export function shouldAutoPublish(opts: {
   /** Tenants in the merged month that don't tie out to Skyline. */
   untied: number;
   alreadyPublished: boolean;
-  /** The export dropped its CURRENT CHARGES section — every tenant billed this
-   *  month is understated, and every one of them still "ties out" against the
-   *  prior-balance subtotal. Nothing about this month is publishable. */
-  incompleteExport?: boolean;
 }): boolean {
-  if (opts.incompleteExport) return false;
   return opts.wants && opts.untied === 0 && !opts.alreadyPublished;
 }

@@ -28,7 +28,6 @@ export async function GET(_req: NextRequest, { params }: { params: { period: str
     published: run.published,
     publishedAt: run.publishedAt,
     updatedAt: run.updatedAt,
-    incompleteExport: !!run.incompleteExport,
     sources: run.sources,
     properties: codes.sort().map((code) => ({ code, name: propName(code) })),
     payment,
@@ -52,19 +51,6 @@ export async function PATCH(req: NextRequest, { params }: { params: { period: st
   if (typeof body.published !== "boolean") {
     return NextResponse.json({ error: "Expected { published: boolean }." }, { status: 400 });
   }
-  // Publishing a month built from a lossy export puts understated balances in
-  // front of tenants. Unpublishing is always allowed.
-  const existing = await getRun(params.period);
-  if (!existing) return NextResponse.json({ error: "No statements for that period." }, { status: 404 });
-  if (body.published && existing.incompleteExport && body.force !== true) {
-    return NextResponse.json({
-      error: "This month was built from an export missing its current charges, so tenants billed this month are "
-        + "understated. Re-export from Skyline and re-import, or confirm to publish it anyway.",
-      code: "incomplete-export",
-      canOverride: true,
-    }, { status: 422 });
-  }
-
   const run = await setPublished(params.period, body.published);
   if (!run) return NextResponse.json({ error: "No statements for that period." }, { status: 404 });
   await logAudit({

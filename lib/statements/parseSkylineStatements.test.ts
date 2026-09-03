@@ -396,31 +396,39 @@ describe("current charges section", () => {
     expect(statements[0].tiesOut).toBe(false);
   });
 
-  it("detects an export that dropped every current-charges section", () => {
-    // The failure the tie-out cannot see: the prior half reconciles perfectly,
-    // so every tenant reads as clean while missing everything billed this month.
+  it("accepts a month whose charges are all already outstanding", () => {
+    // Which section a charge lands in depends on WHEN the report was run: run
+    // after the 1st and that month's charges are already outstanding, so they
+    // print above the balance and TOTAL CURRENT is zero for every tenant. That
+    // is the normal shape of an open-items export, not a broken one.
     const buf = build([
       ...header("2300-1817-CU", "M & T Bank\n1817 Street Road"),
       row({ date: "04/22/2026", desc: "2025 Year End CAM Adjustment", amount: 300.86 }),
-      ...CLOSE(300.86),
+      row({ date: "09/01/2026", desc: "Monthly Rent", amount: 11458.08 }),
+      ...CLOSE(11758.94),
       ...header("1100-34-CU", "Shear Sensation\n1 Main St"),
-      row({ date: "04/25/2025", desc: "2024 CAM Reconciliation", amount: 1130 }),
+      row({ date: "09/01/2026", desc: "Monthly Rent", amount: 1130 }),
       ...CLOSE(1130),
     ]);
     const out = parseSkylineStatements(buf);
-    expect(out.mismatched).toEqual([]);          // every tenant "ties out"…
-    expect(out.lossyCurrentSection).toBe(true);  // …and the file is still wrong
-    expect(out.currentSections).toBe(2);
-    expect(out.currentDetailRows).toBe(0);
+    expect(out.mismatched).toEqual([]);
+    expect(out.statements[0].reportedBalance).toBe(11758.94);
+    expect(out.statements[0].currentTotal).toBe(0);
   });
 
-  it("does not cry lossy when the sections carry real charges", () => {
-    expect(parseSkylineStatements(mAndT()).lossyCurrentSection).toBe(false);
+  it("bills a paid-off tenant only what is still open", () => {
+    // A tenant who paid this month's charges before the export simply has
+    // fewer open lines — the smaller balance is correct, not a parse failure.
+    const buf = build([
+      ...header("2300-1817-CU", "M & T Bank\n1817 Street Road"),
+      row({ date: "04/22/2026", desc: "2025 Year End CAM Adjustment", amount: 300.86 }),
+      row({ date: "04/22/2026", desc: "2025 Year End RET Adjustment", amount: 864.04 }),
+      ...CLOSE(1164.90),
+    ]);
+    const [st] = parseSkylineStatements(buf).statements;
+    expect(st).toMatchObject({ reportedBalance: 1164.90, chargeTotal: 1164.90, tiesOut: true });
   });
+
 });
 
-describe("shouldAutoPublish — incomplete export", () => {
-  it("never publishes a month built from a lossy export, however clean it looks", () => {
-    expect(shouldAutoPublish({ wants: true, untied: 0, alreadyPublished: false, incompleteExport: true })).toBe(false);
-  });
-});
+

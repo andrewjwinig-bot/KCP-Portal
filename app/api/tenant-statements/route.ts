@@ -27,7 +27,6 @@ export async function GET() {
         period: r.period,
         published: r.published,
         publishedAt: r.publishedAt,
-        incompleteExport: !!r.incompleteExport,
         updatedAt: r.updatedAt,
         tenants: r.statements.length,
         properties: new Set(r.statements.map((s) => s.propertyCode)).size,
@@ -82,40 +81,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "No charge dates in the file — pick the statement month and try again." }, { status: 400 });
   }
 
-  // ── The export lost its CURRENT CHARGES section ───────────────────────────
-  // Refuse by default. This is the one failure the tie-out CANNOT catch: the
-  // prior-balance half still reconciles perfectly, so every tenant reads as
-  // "ties out" while silently missing everything billed this month. Importing
-  // it would put understated balances in front of tenants.
-  const allowIncomplete = String(form.get("allowIncomplete") ?? "") === "1";
-  if (parsed.lossyCurrentSection && !allowIncomplete) {
-    return NextResponse.json({
-      error: "This export is missing its current charges. Skyline printed a CURRENT CHARGES section for "
-        + `${parsed.currentSections} tenants but the file carries no charges under any of them, so every tenant is `
-        + "missing what was billed this month — compare one tenant against their laser statement and you'll see the gap. "
-        + "Re-export from Skyline (the other Excel export mode, or CSV) and upload that.",
-      code: "lossy-current-section",
-      currentSections: parsed.currentSections,
-      canOverride: true,
-    }, { status: 422 });
-  }
-
   const merge = await mergeIntoPeriod(period, parsed.statements, {
     filename: file.name,
     importedAt: new Date().toISOString(),
     importedBy: uploadedBy,
     tenantCount: parsed.statements.length,
-  }, { incompleteExport: parsed.lossyCurrentSection });
+  });
   let run = merge.run;
 
   // Judged on the WHOLE merged month, not just this file — a second export
   // can't auto-publish over an earlier one's unreconciled tenant.
   const untied = run.statements.filter((s) => !s.tiesOut);
   const wantsAutoPublish = String(form.get("autoPublish") ?? "1") !== "0";
-  const autoPublish = shouldAutoPublish({
-    wants: wantsAutoPublish, untied: untied.length,
-    alreadyPublished: run.published, incompleteExport: run.incompleteExport,
-  });
+  const autoPublish = shouldAutoPublish({ wants: wantsAutoPublish, untied: untied.length, alreadyPublished: run.published });
   if (autoPublish) run = (await setPublished(period, true)) ?? run;
 
   const openBalance = parsed.statements.reduce((a, s) => a + s.chargeTotal, 0);
@@ -136,8 +114,6 @@ export async function POST(req: NextRequest) {
     heldByChoice: !wantsAutoPublish && untied.length === 0 && !run.published,
     /** Not live because something doesn't reconcile. */
     heldForReview: untied.length > 0 && !run.published,
-    /** Imported despite a lossy export — understated and not publishable. */
-    incompleteExport: !!run.incompleteExport,
     untied: untied.map((s) => s.unitRef),
     tenants: parsed.statements.length,
     totalTenants: run.statements.length,
