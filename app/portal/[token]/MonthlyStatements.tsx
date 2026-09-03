@@ -290,6 +290,13 @@ type Remittance = {
   paying: { dateISO: string | null; description: string; amount: number }[];
   holding: { dateISO: string | null; description: string; amount: number }[];
   note: string;
+  requestId?: string;
+  receivedAmount?: number;
+};
+
+type AllocationRequest = {
+  id: string; period: string; amount: number; paymentRef: string;
+  receivedOn: string | null; note: string; askedAt: string | null;
 };
 
 const METHOD_LABEL: Record<Remittance["method"], string> = {
@@ -304,14 +311,20 @@ const METHOD_LABEL: Record<Remittance["method"], string> = {
  * the cheque does, which is what stops a payment being applied by guesswork.
  * It is NOT a payment: nothing is charged and nothing is marked paid.
  */
-function DeclarePayment({ token, st, selected, total, onDone }: {
+function DeclarePayment({ token, st, selected, total, onDone, request }: {
   token: string; st: MonthlyStatement; selected: Set<number>; total: number; onDone: (r: Remittance) => void;
+  /** When set, we already hold this payment and are asking where it goes. */
+  request: AllocationRequest | null;
 }) {
   const [method, setMethod] = useState<Remittance["method"]>("check");
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const full = Math.abs(total - st.summary.totalDue) < 0.011;
+  // Allocating a known payment: the target is the amount we hold, not the
+  // whole balance, so the tenant is matching to a number they recognise.
+  const gap = request ? Math.round((request.amount - total) * 100) / 100 : 0;
+  const matched = request ? Math.abs(gap) < 0.011 : false;
 
   async function submit() {
     if (busy || selected.size === 0) return;
@@ -319,7 +332,7 @@ function DeclarePayment({ token, st, selected, total, onDone }: {
     try {
       const res = await fetch(`/api/portal/${token}/remittance`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ period: st.period, charges: [...selected], method, note }),
+        body: JSON.stringify({ period: st.period, charges: [...selected], method, note, requestId: request?.id }),
       });
       const j = await res.json();
       if (!res.ok) throw new Error(j.error ?? "Could not save that.");
@@ -331,25 +344,35 @@ function DeclarePayment({ token, st, selected, total, onDone }: {
 
   return (
     <section style={{ marginTop: 26 }}>
-      <SectionLabel>Tell us what you&rsquo;re paying</SectionLabel>
+      <SectionLabel>{request ? "Which charges did your payment cover?" : "Tell us what you\u2019re paying"}</SectionLabel>
       <div style={{ border: `1.5px solid ${BRAND}`, borderRadius: 14, background: "var(--card)", boxShadow: "var(--shadow)", overflow: "hidden" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap", padding: "16px 18px", background: "rgba(11,74,125,0.05)" }}>
           <div style={{ minWidth: 0 }}>
             <div style={{ fontSize: 13.5, fontWeight: 700 }}>
-              {full ? "Paying your balance in full" : `Paying ${selected.size} of ${st.charges.length} charges`}
+              {request
+                ? (matched ? "That accounts for your whole payment" : `Selected ${selected.size} of ${st.charges.length} charges`)
+                : full ? "Paying your balance in full" : `Paying ${selected.size} of ${st.charges.length} charges`}
             </div>
             <div className="muted" style={{ fontSize: 12.5, marginTop: 3 }}>
-              {full
-                ? "Tick off charges above if you need to pay only part of it."
-                : `Leaving ${money2(st.summary.totalDue - total)} open. Let us know and we'll apply your payment to exactly these charges.`}
+              {request
+                ? matched
+                  ? "Confirm and we'll apply it to exactly these charges."
+                  : gap > 0
+                    ? `That's ${money2(gap)} less than the ${money2(request.amount)} we received — select more, or confirm and we'll hold the rest on account.`
+                    : `That's ${money2(-gap)} more than the ${money2(request.amount)} we received — unselect some, or the difference stays open.`
+                : full
+                  ? "Tick off charges above if you need to pay only part of it."
+                  : `Leaving ${money2(st.summary.totalDue - total)} open. Let us know and we'll apply your payment to exactly these charges.`}
             </div>
           </div>
           <div style={{ textAlign: "right" }}>
-            <div style={{ fontSize: 28, fontWeight: 900, color: BRAND, lineHeight: 1.05, fontVariantNumeric: "tabular-nums" }}>{money2(total)}</div>
-            <div className="muted" style={{ fontSize: 11.5 }}>you&rsquo;re paying</div>
+            <div style={{ fontSize: 28, fontWeight: 900, lineHeight: 1.05, fontVariantNumeric: "tabular-nums",
+              color: request ? (matched ? GREEN : AMBER) : BRAND }}>{money2(total)}</div>
+            <div className="muted" style={{ fontSize: 11.5 }}>{request ? `of ${money2(request.amount)} received` : "you\u2019re paying"}</div>
           </div>
         </div>
         <div style={{ padding: "16px 18px", display: "grid", gap: 12 }}>
+          {!request && (
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
             <span className="muted" style={{ fontSize: 12.5 }}>Sending by</span>
             {(["check", "ach", "other"] as const).map((m) => (
@@ -362,6 +385,7 @@ function DeclarePayment({ token, st, selected, total, onDone }: {
               </button>
             ))}
           </div>
+          )}
           <textarea value={note} onChange={(e) => setNote(e.target.value.slice(0, 2000))} rows={2}
             placeholder="Anything we should know? (optional)"
             style={{ width: "100%", boxSizing: "border-box", fontSize: 13.5, padding: "9px 11px", fontFamily: "inherit", resize: "vertical", border: "1px solid var(--border)", borderRadius: 9, background: "var(--bg, #fff)", color: "var(--text)" }} />
@@ -370,10 +394,12 @@ function DeclarePayment({ token, st, selected, total, onDone }: {
             <button type="button" onClick={submit} disabled={busy || selected.size === 0}
               style={{ background: BRAND, color: "#fff", border: "none", borderRadius: 9, padding: "11px 18px", fontSize: 14, fontWeight: 700,
                 cursor: busy || selected.size === 0 ? "default" : "pointer", opacity: busy || selected.size === 0 ? 0.6 : 1, fontFamily: "inherit" }}>
-              {busy ? "Sending…" : "Confirm what I'm paying"}
+              {busy ? "Sending…" : request ? "Confirm how to apply it" : "Confirm what I'm paying"}
             </button>
             <span className="muted" style={{ fontSize: 12, maxWidth: 420 }}>
-              This tells us how to apply your payment — it doesn&rsquo;t charge you anything.
+              {request
+                ? "This only tells us where to apply the payment we already have — you won't be charged again."
+                : "This tells us how to apply your payment — it doesn't charge you anything."}
             </span>
           </div>
         </div>
@@ -430,6 +456,7 @@ export function MonthlyStatementDetail({ token, st, payment, reconYears, onOpenR
   const allIdx = () => new Set(st.charges.map((_, i) => i));
   const [selected, setSelected] = useState<Set<number>>(allIdx);
   const [declared, setDeclared] = useState<Remittance | null>(null);
+  const [request, setRequest] = useState<AllocationRequest | null>(null);
   const [loadedFor, setLoadedFor] = useState<string | null>(null);
 
   // Reset when the tenant switches months, and pull back anything they've
@@ -437,12 +464,18 @@ export function MonthlyStatementDetail({ token, st, payment, reconYears, onOpenR
   useEffect(() => {
     setSelected(allIdx());
     setDeclared(null);
+    setRequest(null);
     let alive = true;
     fetch(`/api/portal/${token}/remittance`)
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => {
         if (!alive) return;
         setDeclared((j?.remittances ?? []).find((r: Remittance) => r.period === st.period) ?? null);
+        // A payment we already hold outranks anything they might declare —
+        // start them from nothing selected so they build up to its amount.
+        const open = (j?.requests ?? []).find((r: AllocationRequest) => r.period === st.period) ?? null;
+        setRequest(open);
+        if (open) setSelected(new Set());
         setLoadedFor(st.period);
       })
       .catch(() => { if (alive) setLoadedFor(st.period); });
@@ -461,6 +494,18 @@ export function MonthlyStatementDetail({ token, st, payment, reconYears, onOpenR
 
   return (
     <>
+      {request && !declared && (
+        <div style={{ marginBottom: 18, borderRadius: 12, padding: "14px 17px", background: "rgba(11,74,125,0.06)", border: `1.5px solid ${BRAND}` }}>
+          <div style={{ fontSize: 14.5, fontWeight: 800, color: BRAND }}>
+            We received your payment of {money2(request.amount)}{request.paymentRef ? ` (${request.paymentRef})` : ""} — thank you.
+          </div>
+          <div className="muted" style={{ fontSize: 13, marginTop: 5, lineHeight: 1.55 }}>
+            It didn&rsquo;t say which charges it covers, and we&rsquo;d rather apply it where you intended than guess.
+            Tick the charges below that this payment should pay.
+          </div>
+          {request.note && <div className="muted" style={{ fontSize: 12.5, marginTop: 6, fontStyle: "italic" }}>{request.note}</div>}
+        </div>
+      )}
       {st.underReview && (
         <div style={{ marginBottom: 16, borderRadius: 12, padding: "12px 16px", background: "rgba(180,83,9,0.08)", border: "1px solid rgba(180,83,9,0.35)", color: AMBER, fontSize: 13.5, fontWeight: 600, display: "flex", alignItems: "center", gap: 10 }}>
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
@@ -478,7 +523,8 @@ export function MonthlyStatementDetail({ token, st, payment, reconYears, onOpenR
       {payable && loadedFor === st.period && (
         declared
           ? <DeclaredPayment r={declared} onRevise={() => setDeclared(null)} />
-          : <DeclarePayment token={token} st={st} selected={selected} total={total} onDone={setDeclared} />
+          : <DeclarePayment token={token} st={st} selected={selected} total={total} request={request}
+              onDone={(r) => { setDeclared(r); setRequest(null); }} />
       )}
       <HowToPay payment={payment} unitRef={st.unitRef} reference={declared?.reference ?? null} />
     </>

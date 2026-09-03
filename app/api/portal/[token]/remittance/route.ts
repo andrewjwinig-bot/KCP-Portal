@@ -5,6 +5,7 @@ import { statementCharges } from "@/lib/statements/summary";
 import { instructionsFor } from "@/lib/statements/payment";
 import { makeReference, resolveSelection, isPayingInFull, METHOD_LABEL, type Remittance, type RemittanceMethod } from "@/lib/statements/remittance";
 import { remittancesForUnit, saveRemittance } from "@/lib/statements/remittanceStore";
+import { openRequestsForUnit, getAllocationRequest, saveAllocationRequest } from "@/lib/statements/allocationRequestStore";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 import { sendMail, isMailConfigured } from "@/lib/mail";
 
@@ -20,7 +21,11 @@ const FROM = "dwinig@kormancommercial.com"; // verified Postmark sender
 export async function GET(req: NextRequest, { params }: { params: { token: string } }) {
   const access = await checkTenantAccess(params.token, req);
   if (!access.ok) return NextResponse.json({ error: access.error, ...(access.pinRequired ? { pinRequired: true } : {}) }, { status: access.status });
-  return NextResponse.json({ ok: true, remittances: await remittancesForUnit(access.payload!.u) });
+  const unit = access.payload!.u;
+  const [remittances, requests] = await Promise.all([remittancesForUnit(unit), openRequestsForUnit(unit)]);
+  // Open requests are payments we already hold and can't apply — the portal
+  // asks about these first, ahead of anything the tenant might declare.
+  return NextResponse.json({ ok: true, remittances, requests });
 }
 
 /**
@@ -50,7 +55,14 @@ export async function POST(req: NextRequest, { params }: { params: { token: stri
   const paying = sel.paying ?? [];
   const holding = sel.holding ?? [];
 
-  const method: RemittanceMethod = body?.method === "ach" ? "ach" : body?.method === "other" ? "other" : "check";
+  // When answering a staff request, the payment is already in hand: carry its
+  // amount through so staff can see allocated-vs-received at a glance.
+  const request = body?.requestId ? await getAllocationRequest(String(body.requestId)) : null;
+  if (body?.requestId && (!request || request.unitRef.toUpperCase() !== payload.u.toUpperCase() || request.closedAt)) {
+    return NextResponse.json({ error: "That payment request is no longer open." }, { status: 404 });
+  }
+  const method: RemittanceMethod = request ? "check"
+    : body?.method === "ach" ? "ach" : body?.method === "other" ? "other" : "check";
   const rec: Remittance = {
     id: "rm_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
     reference: makeReference(),
@@ -65,8 +77,14 @@ export async function POST(req: NextRequest, { params }: { params: { token: stri
     paying,
     holding,
     note: String(body?.note ?? "").slice(0, 2000).trim(),
+    ...(request ? { requestId: request.id, receivedAmount: request.amount } : {}),
   };
   await saveRemittance(rec);
+  if (request) {
+    request.answeredAt = rec.submittedAt;
+    request.remittanceId = rec.id;
+    await saveAllocationRequest(request);
+  }
 
   // Tell AR straight away — the whole point is that the decision reaches us
   // before the cheque does. Never fail the tenant's submission on a mail error:
@@ -79,15 +97,22 @@ export async function POST(req: NextRequest, { params }: { params: { token: stri
       await sendMail({
         from: FROM,
         to: instructions.contactEmail,
-        subject: `Payment declared — ${statement.tenantName} (${statement.unitRef}) — ${money(rec.amount)} — ref ${rec.reference}`,
+        subject: request
+          ? `Payment allocated — ${statement.tenantName} (${statement.unitRef}) — ${money(rec.amount)} of ${money(request.amount)} received`
+          : `Payment declared — ${statement.tenantName} (${statement.unitRef}) — ${money(rec.amount)} — ref ${rec.reference}`,
         isAutoReply: true,
         textBody: [
-          `${statement.tenantName} has told us what their payment covers.`,
+          request
+            ? `${statement.tenantName} has told us how to apply the ${money(request.amount)} we received${request.paymentRef ? ` (${request.paymentRef})` : ""}.`
+            : `${statement.tenantName} has told us what their payment covers.`,
           ``,
           `Reference:   ${rec.reference}   (they've been asked to write this on the cheque)`,
           `Unit:        ${statement.unitRef} — ${propName(statement.propertyCode)}`,
           `Statement:   ${period}`,
           `Paying:      ${money(rec.amount)} by ${METHOD_LABEL[method]}`,
+          ...(request && Math.abs(request.amount - rec.amount) >= 0.011
+            ? [`UNAPPLIED:   ${money(request.amount - rec.amount)} of what we received is still unaccounted for.`]
+            : []),
           `Open total:  ${money(statement.chargeTotal)}${inFull ? "  (paying in full)" : ""}`,
           ``,
           `APPLY TO`,

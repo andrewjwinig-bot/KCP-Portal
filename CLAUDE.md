@@ -161,6 +161,16 @@ how-to-pay instructions. Sources of truth:
   stored statement** (`resolveSelection`) — a client-supplied total is ignored,
   because that figure is what a payment gets applied against. The reference
   alphabet excludes I/L/O/U so a handwritten memo line can't be misread.
+- **The reverse flow — a payment we hold and can't apply.** Staff record the
+  amount on the roster ("Record a payment") and the tenant is emailed a link to
+  allocate it against their own open charges. Same selection UI, but the target
+  is the amount RECEIVED rather than the whole balance, and it starts with
+  nothing ticked so they build up to it. An exact match isn't required — a
+  cheque often part-pays a charge — so the gap is recorded and shown to staff as
+  "$X of the $Y received is still unapplied" rather than being reconciled away.
+  Answering closes the request (`AllocationRequest` → `Remittance.requestId` +
+  `receivedAmount`). The request is saved even when the email can't go, so a
+  cheque is never lost because sending failed.
 - Admin page `/tenant-statements`; portal view `app/portal/[token]/MonthlyStatements.tsx`;
   tenant APIs `/api/portal/[token]/monthly[/pdf]` (published periods only, scoped
   to the token's one unit).

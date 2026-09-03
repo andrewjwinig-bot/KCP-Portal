@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isPayingInFull, makeReference, resolveSelection } from "./remittance";
+import { allocationStatus, isPayingInFull, makeReference, resolveSelection, unallocated, type AllocationRequest } from "./remittance";
 import type { StatementCharge, TenantStatement } from "./types";
 
 const charge = (description: string, amount: number, dateISO: string | null = "2026-09-01"): StatementCharge =>
@@ -78,5 +78,36 @@ describe("isPayingInFull", () => {
     expect(isPayingInFull({ amount: 16559.58, statementTotal: 16559.58 })).toBe(true);
     expect(isPayingInFull({ amount: 16559.575, statementTotal: 16559.58 })).toBe(true);
     expect(isPayingInFull({ amount: 6200, statementTotal: 16559.58 })).toBe(false);
+  });
+});
+
+describe("allocation requests", () => {
+  const req = (over: Partial<AllocationRequest> = {}): AllocationRequest => ({
+    id: "al_1", period: "2026-09", unitRef: "1100-34", propertyCode: "1100", tenantName: "Shear Sensation",
+    amount: 6200, paymentRef: "Check 10482", receivedOn: "2026-09-12", note: "",
+    createdAt: "2026-09-12T10:00:00Z", createdBy: "MARIE",
+    askedAt: null, askedTo: [], answeredAt: null, remittanceId: null, closedAt: null, ...over,
+  });
+
+  it("is waiting until the tenant answers", () => {
+    expect(allocationStatus(req())).toBe("waiting");
+    expect(allocationStatus(req({ askedAt: "2026-09-12T10:01:00Z" }))).toBe("waiting");
+    expect(allocationStatus(req({ answeredAt: "2026-09-13T09:00:00Z" }))).toBe("answered");
+  });
+
+  it("stays closed once staff resolve it another way", () => {
+    expect(allocationStatus(req({ closedAt: "2026-09-14T00:00:00Z" }))).toBe("closed");
+    // Closing wins even if the tenant later answers — staff already moved on.
+    expect(allocationStatus(req({ answeredAt: "x", closedAt: "y" }))).toBe("closed");
+  });
+
+  it("reports the money still unaccounted for", () => {
+    // The real case: a $6,200 cheque against charges totalling $5,903.11.
+    expect(unallocated(req(), { amount: 5903.11 })).toBe(296.89);
+    expect(unallocated(req(), { amount: 6200 })).toBe(0);
+    // Nothing answered yet — the whole cheque is unapplied.
+    expect(unallocated(req(), null)).toBe(6200);
+    // They allocated more than we hold, which is its own conversation.
+    expect(unallocated(req(), { amount: 6500 })).toBe(-300);
   });
 });
