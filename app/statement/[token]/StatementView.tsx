@@ -63,7 +63,13 @@ function BackupCell({ backup, fileUrl, zipUrl, label }: { backup: Backup[]; file
   const chip: React.CSSProperties = { display: "inline-flex", alignItems: "center", gap: 5, border: "1px solid var(--border)", borderRadius: 6, padding: "3px 9px", fontSize: 12, fontWeight: 600, color: BRAND, textDecoration: "none", background: "rgba(11,74,125,0.05)", cursor: "pointer", fontFamily: "inherit" };
   if (backup.length === 1) {
     const b = backup[0];
-    return <a href={fileUrl(b.id)} target="_blank" rel="noopener noreferrer" title={`${b.name} · ${fmtSize(b.size)}`} style={chip}><Clip /> Invoice</a>;
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <a href={fileUrl(b.id)} target="_blank" rel="noopener noreferrer" title={`${b.name} · ${fmtSize(b.size)}`} style={chip}><Clip /> Invoice</a>
+        {/* Direct download (the chip opens it inline; this saves the file). */}
+        <a href={`${fileUrl(b.id)}&download=1`} title="Download invoice" aria-label="Download invoice" style={{ display: "inline-flex", color: BRAND, textDecoration: "none" }}><DownloadIcon /></a>
+      </div>
+    );
   }
   const zipHref = zipUrl ? zipUrl(backup.map((b) => b.id), label ? `${label} Invoices` : "Invoices") : null;
   return (
