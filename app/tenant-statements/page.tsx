@@ -7,14 +7,14 @@
 // but that lives in a report nobody outside the office ever sees. Parsing it
 // turns it into a statement the tenant can read, age, and pay from.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useUser } from "@/app/components/UserProvider";
 import { useImport } from "@/app/components/import/ImportProvider";
 import { ImportInstructions } from "@/app/components/ImportInstructions";
 import { DownloadMenu } from "@/app/components/DownloadMenu";
 import { HoverCard } from "@/app/components/HoverCard";
 import { StatPill, Pill, TONE_AMBER, TONE_GREEN, TONE_NEUTRAL, TONE_RED } from "@/app/components/Pill";
-import { AGING_LABEL, AGING_ORDER, CATEGORY_LABEL, type AgingBucket, type ChargeCategory, type StatementCharge } from "@/lib/statements/types";
+import { AGING_LABEL, AGING_ORDER, CATEGORY_LABEL, CATEGORY_ORDER, type AgingBucket, type ChargeCategory, type StatementCharge } from "@/lib/statements/types";
 
 const money0 = (n: number) => (n < 0 ? "-$" : "$") + Math.abs(Math.round(n)).toLocaleString("en-US");
 const money2 = (n: number) => (n < 0 ? "-$" : "$") + Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -75,6 +75,7 @@ export default function TenantStatementsPage() {
   const [property, setProperty] = useState("All");
   const [search, setSearch] = useState("");
   const [onlyOwing, setOnlyOwing] = useState(false);
+  const [sort, setSort] = useState<"statement" | "balance">("statement");
   const [expanded, setExpanded] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -181,8 +182,10 @@ export default function TenantStatementsPage() {
     if (onlyOwing) list = list.filter((t) => t.summary.totalDue > 0.005);
     const q = search.trim().toLowerCase();
     if (q) list = list.filter((t) => t.tenantName.toLowerCase().includes(q) || t.unitRef.toLowerCase().includes(q));
-    return [...list].sort((a, b) => b.summary.totalDue - a.summary.totalDue);
-  }, [detail, property, onlyOwing, search]);
+    // "Statement order" is the sequence Skyline printed, so the roster can be
+    // read down alongside the paper laser statements; balance is the chase list.
+    return sort === "balance" ? [...list].sort((a, b) => b.summary.totalDue - a.summary.totalDue) : list;
+  }, [detail, property, onlyOwing, search, sort]);
 
   const filteredTotals = useMemo(() => {
     const aging = new Map<AgingBucket, number>();
@@ -193,6 +196,41 @@ export default function TenantStatementsPage() {
     }
     return { open, aging };
   }, [tenants]);
+
+  // Open A/R per property, over the WHOLE month (not the current filter) — this
+  // is the portfolio view, and it's what the strip filters down from. Property
+  // order follows the statement, so it reads like the report's sections.
+  const byProperty = useMemo(() => {
+    const map = new Map<string, { code: string; tenants: number; owing: number; open: number; pastDue: number }>();
+    for (const t of detail?.tenants ?? []) {
+      const g = map.get(t.propertyCode) ?? { code: t.propertyCode, tenants: 0, owing: 0, open: 0, pastDue: 0 };
+      g.tenants += 1;
+      if (t.summary.totalDue > 0.005) g.owing += 1;
+      g.open += t.summary.totalDue;
+      g.pastDue += t.summary.pastDueAmount;
+      map.set(t.propertyCode, g);
+    }
+    return [...map.values()];
+  }, [detail]);
+
+  // Subtotals for the property bands inside the table, over the filtered rows.
+  const propertySubtotal = useMemo(() => {
+    const map = new Map<string, { tenants: number; current: number; prior: number; pastDue: number; total: number }>();
+    for (const t of tenants) {
+      const g = map.get(t.propertyCode) ?? { tenants: 0, current: 0, prior: 0, pastDue: 0, total: 0 };
+      g.tenants += 1;
+      g.current += t.summary.currentCharges;
+      g.prior += t.summary.priorBalance;
+      g.pastDue += t.summary.pastDueAmount;
+      g.total += t.summary.totalDue;
+      map.set(t.propertyCode, g);
+    }
+    return map;
+  }, [tenants]);
+
+  // Bands only make sense while rows are in statement (property) order — a
+  // largest-balance chase list is deliberately flat.
+  const grouped = sort === "statement";
 
   return (
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
@@ -299,6 +337,32 @@ export default function TenantStatementsPage() {
 
           {detail && (
             <>
+              {byProperty.length > 1 && (
+                <div className="card">
+                  <div style={SECTION_LABEL}>Open A/R by property</div>
+                  <div style={{ display: "grid", gap: 8, gridTemplateColumns: "repeat(auto-fit, minmax(146px, 1fr))", marginTop: 10 }}>
+                    {byProperty.map((g) => {
+                      const on = property === g.code;
+                      const name = detail.properties.find((x) => x.code === g.code)?.name ?? g.code;
+                      return (
+                        <button key={g.code} type="button" onClick={() => setProperty(on ? "All" : g.code)}
+                          title={on ? "Show all properties" : `Filter to ${g.code} — ${name}`}
+                          style={{ cursor: "pointer", fontFamily: "inherit", textAlign: "left", padding: "11px 13px", borderRadius: 10,
+                            border: `1.5px solid ${on ? "rgba(11,74,125,0.5)" : "var(--border)"}`,
+                            background: on ? "rgba(11,74,125,0.06)" : "var(--card)" }}>
+                          <div style={{ fontSize: 19, fontWeight: 800, fontVariantNumeric: "tabular-nums", color: on ? "#0b4a7d" : "var(--text)" }}>{money0(g.open)}</div>
+                          <div style={{ fontSize: 12, fontWeight: 700, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.code}</div>
+                          <div className="muted" style={{ fontSize: 11, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</div>
+                          <div style={{ fontSize: 11, marginTop: 3, color: g.pastDue > 0.005 ? "#b45309" : "var(--muted)", fontWeight: g.pastDue > 0.005 ? 700 : 500 }}>
+                            {g.pastDue > 0.005 ? `${money0(g.pastDue)} past due` : "nothing past due"}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               <div className="card" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                 <select value={property} onChange={(e) => setProperty(e.target.value)} style={{ fontSize: 13, padding: "6px 10px" }}>
                   <option value="All">All properties</option>
@@ -310,6 +374,11 @@ export default function TenantStatementsPage() {
                   <input type="checkbox" checked={onlyOwing} onChange={(e) => setOnlyOwing(e.target.checked)} />
                   Only tenants with a balance
                 </label>
+                <select value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} aria-label="Sort tenants"
+                  style={{ fontSize: 13, padding: "6px 10px" }}>
+                  <option value="statement">Statement order</option>
+                  <option value="balance">Largest balance first</option>
+                </select>
                 <div className="muted small" style={{ marginLeft: "auto" }}>
                   {tenants.length} shown · {money0(filteredTotals.open)} open
                 </div>
@@ -330,10 +399,35 @@ export default function TenantStatementsPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {tenants.map((t) => (
-                      <TenantRows key={t.unitRef} t={t} period={detail.period}
-                        open={expanded === t.unitRef} onToggle={() => setExpanded((x) => (x === t.unitRef ? null : t.unitRef))} />
-                    ))}
+                    {tenants.map((t, i) => {
+                      // Statement order already groups by property, so a band
+                      // opens each block and carries that property's subtotals.
+                      const band = grouped && (i === 0 || tenants[i - 1].propertyCode !== t.propertyCode);
+                      const g = propertySubtotal.get(t.propertyCode);
+                      return (
+                        <Fragment key={t.unitRef}>
+                          {band && g && (
+                            <tr style={{ background: "rgba(11,74,125,0.07)", borderTop: i ? "2px solid var(--border)" : "none" }}>
+                              {/* wraps rather than nowrap — a long centre name
+                                  must not widen the table into a scroll */}
+                              <td style={{ ...tdL, paddingTop: 10, paddingBottom: 10, whiteSpace: "normal" }} colSpan={2}>
+                                <div style={{ fontWeight: 800 }}>
+                                  {t.propertyCode} — {detail.properties.find((x) => x.code === t.propertyCode)?.name ?? t.propertyCode}
+                                </div>
+                                <div className="muted" style={{ fontSize: 11.5 }}>{g.tenants} {g.tenants === 1 ? "tenant" : "tenants"}</div>
+                              </td>
+                              <td style={{ ...td, fontWeight: 700 }}>{money0(g.current)}</td>
+                              <td style={{ ...td, fontWeight: 700 }}>{money0(g.prior)}</td>
+                              <td style={{ ...td, fontWeight: 700, color: g.pastDue > 0.005 ? "#b45309" : "var(--muted)" }}>{g.pastDue > 0.005 ? money0(g.pastDue) : "—"}</td>
+                              <td style={{ ...td, fontWeight: 800 }}>{money0(g.total)}</td>
+                              <td colSpan={2} />
+                            </tr>
+                          )}
+                          <TenantRows t={t} period={detail.period}
+                            open={expanded === t.unitRef} onToggle={() => setExpanded((x) => (x === t.unitRef ? null : t.unitRef))} />
+                        </Fragment>
+                      );
+                    })}
                     {tenants.length === 0 && (
                       <tr><td colSpan={8} style={{ ...tdL, padding: "22px 12px", color: "var(--muted)" }}>No tenants match those filters.</td></tr>
                     )}
@@ -341,7 +435,10 @@ export default function TenantStatementsPage() {
                   {tenants.length > 0 && (
                     <tfoot>
                       <tr style={{ borderTop: "2px solid var(--border)", fontWeight: 800 }}>
-                        <td style={tdL} colSpan={5}>Total — {tenants.length} tenants</td>
+                        <td style={tdL} colSpan={5}>
+                          Total — {tenants.length} tenants
+                          {grouped && propertySubtotal.size > 1 ? ` · ${propertySubtotal.size} properties` : ""}
+                        </td>
                         <td style={td}>{money2(filteredTotals.open)}</td>
                         <td colSpan={2} />
                       </tr>
@@ -396,9 +493,58 @@ function PeriodBar({ periods, active, onPick }: { periods: PeriodRow[]; active: 
   );
 }
 
+/** Sort state for a tenant's expanded charge list. `null` = the order Skyline
+ *  printed, which is what the tenant's own statement shows. */
+type ChargeSortKey = "date" | "charge" | "type" | "amount";
+type ChargeSort = { key: ChargeSortKey; dir: "asc" | "desc" } | null;
+
+/** Undated rows (the aggregate "Open Credits" line) have nothing to sort on, so
+ *  they stay pinned to the end whatever the sort — same as the statement. */
+function sortCharges(charges: StatementCharge[], sort: ChargeSort): StatementCharge[] {
+  if (!sort) return charges;
+  const sign = sort.dir === "asc" ? 1 : -1;
+  const dated = charges.filter((c) => c.dateISO);
+  const undated = charges.filter((c) => !c.dateISO);
+  const cmp = (a: StatementCharge, b: StatementCharge): number => {
+    switch (sort.key) {
+      case "date": return sign * (a.dateISO ?? "").localeCompare(b.dateISO ?? "");
+      case "charge": return sign * a.description.localeCompare(b.description);
+      case "amount": return sign * (a.amount - b.amount);
+      case "type": {
+        // Group by the statement's own category order, then oldest first inside
+        // each type so a type block still reads like a ledger.
+        const d = CATEGORY_ORDER.indexOf(a.category) - CATEGORY_ORDER.indexOf(b.category);
+        return d !== 0 ? sign * d : (a.dateISO ?? "").localeCompare(b.dateISO ?? "");
+      }
+    }
+  };
+  return [...dated].sort(cmp).concat(undated);
+}
+
 /** One tenant row, expanding to their line-by-line charges. */
 function TenantRows({ t, period, open, onToggle }: { t: TenantRow; period: string; open: boolean; onToggle: () => void }) {
   const s = t.summary;
+  // Defaults to the printed statement order; a third click on the active column
+  // returns to it, so staff can always get back to the paper statement's order.
+  const [sort, setSort] = useState<ChargeSort>(null);
+  const charges = useMemo(() => sortCharges(t.charges, sort), [t.charges, sort]);
+  const cycle = (key: ChargeSortKey) =>
+    setSort((cur) => (cur?.key !== key ? { key, dir: key === "amount" ? "desc" : "asc" }
+      : cur.dir === (key === "amount" ? "desc" : "asc") ? { key, dir: key === "amount" ? "asc" : "desc" }
+      : null));
+  const SortHead = ({ label, k, style }: { label: string; k: ChargeSortKey; style: React.CSSProperties }) => {
+    const active = sort?.key === k;
+    return (
+      <th style={{ ...style, cursor: "pointer", userSelect: "none" }} onClick={(e) => { e.stopPropagation(); cycle(k); }}
+        title={active ? "Sort the other way, then back to statement order" : `Sort by ${label.toLowerCase()}`}
+        aria-sort={active ? (sort!.dir === "asc" ? "ascending" : "descending") : "none"}>
+        {label}
+        <span aria-hidden style={{ marginLeft: 4, opacity: active ? 0.85 : 0.25, fontSize: 9 }}>
+          {active ? (sort!.dir === "asc" ? "\u25b2" : "\u25bc") : "\u25b4\u25be"}
+        </span>
+      </th>
+    );
+  };
   return (
     <>
       <tr onClick={onToggle} style={{ borderTop: "1px solid var(--border)", cursor: "pointer", background: open ? "rgba(11,74,125,0.04)" : undefined }}>
@@ -442,17 +588,23 @@ function TenantRows({ t, period, open, onToggle }: { t: TenantRow; period: strin
       {open && (
         <tr>
           <td colSpan={8} style={{ padding: "0 10px 14px", background: "rgba(11,74,125,0.03)" }}>
+            <div className="muted" style={{ fontSize: 11.5, padding: "8px 10px 0" }}>
+              {sort
+                ? <>Sorted by {sort.key === "charge" ? "description" : sort.key} — <button type="button" onClick={(e) => { e.stopPropagation(); setSort(null); }}
+                    style={{ padding: 0, border: "none", background: "none", font: "inherit", color: "#0b4a7d", fontWeight: 700, cursor: "pointer" }}>back to statement order</button></>
+                : "In the order Skyline's statement prints them. Click a column to sort."}
+            </div>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr>
-                  <th style={{ ...thL, width: 120 }}>Date</th>
-                  <th style={thL}>Charge</th>
-                  <th style={{ ...thL, width: 140 }}>Type</th>
-                  <th style={{ ...th, width: 130 }}>Amount</th>
+                  <SortHead label="Date" k="date" style={{ ...thL, width: 120 }} />
+                  <SortHead label="Charge" k="charge" style={thL} />
+                  <SortHead label="Type" k="type" style={{ ...thL, width: 140 }} />
+                  <SortHead label="Amount" k="amount" style={{ ...th, width: 130 }} />
                 </tr>
               </thead>
               <tbody>
-                {t.charges.map((c, i) => (
+                {charges.map((c, i) => (
                   <tr key={`${c.dateISO}-${c.description}-${i}`} style={{ borderTop: "1px solid var(--border)" }}>
                     <td style={{ ...tdL, color: "var(--muted)", fontSize: 12.5 }}>{dateLabel(c.dateISO)}</td>
                     <td style={{ ...tdL, whiteSpace: "normal" }}>{c.description}</td>

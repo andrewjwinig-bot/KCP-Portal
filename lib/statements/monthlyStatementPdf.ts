@@ -5,7 +5,7 @@
 // so a tenant gets one consistent Korman document whichever statement they open.
 
 import { AGING_LABEL, CATEGORY_LABEL, type TenantStatement } from "./types";
-import { dateLabel, periodLabel, sortedCharges, summarize } from "./summary";
+import { dateLabel, periodLabel, statementCharges, summarize } from "./summary";
 import type { PaymentInstructions } from "./payment";
 
 const money = (n: number) =>
@@ -110,7 +110,7 @@ export function drawMonthlyStatement(doc: any, st: TenantStatement, opts: Monthl
   // ── Open charges ───────────────────────────────────────────────────────────
   bar("Open Charges", ["Type", "Amount"]);
   doc.setFontSize(9);
-  sortedCharges(st).forEach((c, i) => {
+  statementCharges(st).forEach((c, i) => {
     room(20);
     if (i % 2 === 1) { fill([247, 249, 251]); doc.rect(L, y - 9, W, 13, "F"); }
     doc.setFont("helvetica", "normal");

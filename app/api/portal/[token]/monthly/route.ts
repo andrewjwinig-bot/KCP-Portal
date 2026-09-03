@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { checkTenantAccess } from "@/lib/cam/tenantLink/access";
 import { publishedPeriodsForUnit } from "@/lib/statements/store";
 import { instructionsFor } from "@/lib/statements/payment";
-import { periodLabel, sortedCharges, summarize } from "@/lib/statements/summary";
+import { periodLabel, statementCharges, summarize } from "@/lib/statements/summary";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -32,7 +32,7 @@ export async function GET(req: NextRequest, { params }: { params: { token: strin
       // A statement whose charges don't reconcile to Skyline is held back from
       // the tenant's balance headline — staff see the flag on the admin page.
       underReview: !statement.tiesOut,
-      charges: sortedCharges(statement),
+      charges: statementCharges(statement),
       summary: summarize(statement, period),
     })),
   });

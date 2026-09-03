@@ -73,10 +73,22 @@ how-to-pay instructions. Sources of truth:
   replaces the month. A period is hidden from tenants until **published**;
   re-importing a published month keeps it published.
 - **Every derived number comes from `lib/statements/summary.ts`** (`summarize`,
-  `agingOf`, `sortedCharges`) — the portal, the PDF and the admin roster all
+  `agingOf`, `statementCharges`) — the portal, the PDF and the admin roster all
   call it, so they cannot disagree. Aging is by CALENDAR MONTH against the
   statement period (this month = Current, last month = 1–30, …), which is how a
   rent ledger actually ages.
+- **Order mirrors the laser statement — do NOT re-sort it.** Tenants stay in the
+  sequence Skyline printed (which is NOT alphabetical: `1100-34` precedes
+  `1100-12330`), and charges stay in printed order (oldest first, the aggregate
+  "Open Credits" row last). The store merge preserves that sequence, updating a
+  re-imported tenant in place and appending a second export's new tenants after
+  the first's. The admin roster defaults to "Statement order" so it reads down
+  alongside the paper statements; "Largest balance first" is an opt-in sort.
+  Statement order is already property-grouped, so the roster draws a subtotal
+  band per property (open A/R, past due, tenant count) plus a clickable
+  "Open A/R by property" strip that filters. A tenant's expanded charge list has
+  sortable columns (date / description / type / amount) that always default —
+  and return on a third click — to the printed order.
 - **Payment instructions** (`lib/statements/payment.ts`) are editable data, not
   copy in a component: built-in defaults < the global override < a per-property
   override, edited on the Monthly Statements page. Do NOT hard-code remit-to or
