@@ -21,10 +21,15 @@ export async function POST(req: Request) {
       category?: BudgetCategory;
       priorBudgetId?: string;
       opExGrowthPct?: number;
+      retGrowthPct?: number;
+      insGrowthPct?: number;
+      name?: string;
     };
     const year = Number(body.year);
     const category = body.category as BudgetCategory;
     const opExGrowthPct = Number.isFinite(body.opExGrowthPct) ? Number(body.opExGrowthPct) : 3;
+    const retGrowthPct = Number.isFinite(body.retGrowthPct) ? Number(body.retGrowthPct) : undefined;
+    const insGrowthPct = Number.isFinite(body.insGrowthPct) ? Number(body.insGrowthPct) : undefined;
     const validCategory: BudgetCategory[] = ["Shopping Centers", "Office", "Residential", "Other"];
     if (!Number.isFinite(year) || year < 2000 || year > 2100) {
       return NextResponse.json({ error: "Invalid year" }, { status: 400 });
@@ -46,6 +51,8 @@ export async function POST(req: Request) {
       loans,
       prior,
       opExGrowthPct,
+      retGrowthPct,
+      insGrowthPct,
     });
 
     if (wb.properties.length === 0) {
@@ -55,6 +62,8 @@ export async function POST(req: Request) {
       );
     }
 
+    const name = typeof body.name === "string" ? body.name.trim() : "";
+    if (name) wb.label = name;
     wb.status = "draft"; // new in-app budgets start as a draft until finalized
     await saveBudget(wb);
     return NextResponse.json({

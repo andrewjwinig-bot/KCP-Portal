@@ -302,7 +302,7 @@ function buildReimbursementsSection(
   return { section: { name: "Reimbursements", lines }, monthsTotal };
 }
 
-function liftExpenseSection(prior: BudgetSection | null, growthFactor: number, name: string): {
+function liftExpenseSection(prior: BudgetSection | null, factorFor: (label: string) => number, name: string): {
   section: BudgetSection;
   monthsTotal: number[];
 } {
@@ -314,42 +314,45 @@ function liftExpenseSection(prior: BudgetSection | null, growthFactor: number, n
   // (the share % is a ratio, so it stays the same). The full per-
   // property rows array is lifted alongside so the click-to-open
   // detail modal stays in sync.
-  const liftAllocations = (allocs: BudgetLine["allocations"]) =>
+  const liftAllocations = (allocs: BudgetLine["allocations"], gf: number) =>
     allocs?.map((a) => ({
       ...a,
-      propertyAmount: Math.round(a.propertyAmount * growthFactor),
-      portfolioTotal: Math.round(a.portfolioTotal * growthFactor),
+      propertyAmount: Math.round(a.propertyAmount * gf),
+      portfolioTotal: Math.round(a.portfolioTotal * gf),
       rows: a.rows?.map((row) => ({
         ...row,
-        months: lift(row.months, growthFactor),
-        total: Math.round(row.total * growthFactor),
+        months: lift(row.months, gf),
+        total: Math.round(row.total * gf),
       })),
     }));
 
-  // Recursively lift a sub-line tree so every level scales at the same
-  // growth rate as the parent and the breakdown still ties.
-  const liftSub = (sub: BudgetLine): BudgetLine => {
-    const subMonths = sub.isSubtotal ? zeroMonths() : lift(sub.months, growthFactor);
+  // Recursively lift a sub-line tree at the parent line's growth rate so every
+  // level scales together and the breakdown still ties.
+  const liftSub = (sub: BudgetLine, gf: number): BudgetLine => {
+    const subMonths = sub.isSubtotal ? zeroMonths() : lift(sub.months, gf);
     return {
       ...sub,
       months: subMonths,
       total: sumMonths(subMonths),
-      subLines: sub.subLines ? sub.subLines.map(liftSub) : undefined,
-      allocations: liftAllocations(sub.allocations),
+      subLines: sub.subLines ? sub.subLines.map((s) => liftSub(s, gf)) : undefined,
+      allocations: liftAllocations(sub.allocations, gf),
     };
   };
 
   const lines: BudgetLine[] = prior.lines.map((l) => {
-    const months = l.isSubtotal ? zeroMonths() : lift(l.months, growthFactor);
+    // Per-line growth: taxes and insurance can be forecast differently from
+    // general operating expenses (factorFor decides by the line label).
+    const gf = factorFor(l.label);
+    const months = l.isSubtotal ? zeroMonths() : lift(l.months, gf);
     return {
       ...l,
       months,
       total: sumMonths(months),
-      subLines: l.subLines ? l.subLines.map(liftSub) : undefined,
-      allocations: liftAllocations(l.allocations),
+      subLines: l.subLines ? l.subLines.map((s) => liftSub(s, gf)) : undefined,
+      allocations: liftAllocations(l.allocations, gf),
       notes: l.isSubtotal
         ? null
-        : `Defaulted to ${Math.round((growthFactor - 1) * 100)}% over prior year`,
+        : `Defaulted to ${Math.round((gf - 1) * 100)}% over prior year`,
     };
   });
   const nonSubtotal = lines.filter((l) => !l.isSubtotal);
@@ -476,10 +479,23 @@ export type BuildLiveBudgetInput = {
   loans: Loan[];
   prior: BudgetWorkbook | null;
   opExGrowthPct: number; // e.g. 3 → ×1.03
+  /** Optional separate growth for Real Estate Taxes / Insurance expense lines
+   *  (they're commonly forecast differently from controllable OpEx). Default to
+   *  opExGrowthPct when omitted. */
+  retGrowthPct?: number;
+  insGrowthPct?: number;
 };
 
+// Which prior expense lines are taxes / insurance, so they can grow separately.
+const RET_LINE_RE = /real\s*estate\s*tax|\bre\s*tax|r\.e\.\s*tax|property\s*tax|\btaxes?\b/i;
+const INS_LINE_RE = /insurance/i;
+
 export function buildLiveBudget(input: BuildLiveBudgetInput): BudgetWorkbook {
-  const growthFactor = 1 + input.opExGrowthPct / 100;
+  const opExFactor = 1 + input.opExGrowthPct / 100;
+  const retFactor = 1 + (input.retGrowthPct ?? input.opExGrowthPct) / 100;
+  const insFactor = 1 + (input.insGrowthPct ?? input.opExGrowthPct) / 100;
+  const factorFor = (label: string): number =>
+    RET_LINE_RE.test(label) ? retFactor : INS_LINE_RE.test(label) ? insFactor : opExFactor;
   const rrProps = input.rentroll
     ? rentRollPropertiesForCategory(input.rentroll, input.category)
     : [];
@@ -496,8 +512,8 @@ export function buildLiveBudget(input: BuildLiveBudgetInput): BudgetWorkbook {
 
     const rev      = buildRevenuesSection(rrProp.units, input.year, null);
     const reimb    = buildReimbursementsSection(rrProp.units, input.year, priorReimb);
-    const reimbExp = liftExpenseSection(priorReimbExp, growthFactor, "Reimbursable Expenses");
-    const nonReimb = liftExpenseSection(priorNonReimb, growthFactor, "Non-Reimbursable Expenses");
+    const reimbExp = liftExpenseSection(priorReimbExp, factorFor, "Reimbursable Expenses");
+    const nonReimb = liftExpenseSection(priorNonReimb, factorFor, "Non-Reimbursable Expenses");
     const capital  = buildCapitalSection(priorCapital);
     const debt     = buildDebtServiceSection(input.loans, code, input.year);
 
