@@ -106,10 +106,6 @@ export type StatementRun = {
   /** Visible on the tenant portal. Imports land unpublished so staff can
    *  review the tie-outs first. */
   published: boolean;
-  /** Set when a file was imported despite the export having dropped its
-   *  CURRENT CHARGES section. Such a month understates anyone billed this
-   *  month, so it can't auto-publish and needs an explicit override to go live. */
-  incompleteExport?: boolean;
   publishedAt: string | null;
   createdAt: string;
   updatedAt: string;

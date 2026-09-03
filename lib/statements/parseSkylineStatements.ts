@@ -22,6 +22,12 @@ import type { ChargeCategory, ChargeSection, StatementCharge, TenantStatement } 
  * Reading the first subtotal as the amount due understates every tenant who has
  * current charges, so both sections are parsed and reconciled separately.
  *
+ * Which section a charge lands in is relative to WHEN the report was run, not
+ * to the statement date: run after the 1st, that month's charges are already
+ * outstanding and print above PREVIOUS MONTH ENDING BALANCE, leaving CURRENT
+ * CHARGES empty and TOTAL CURRENT at zero for every tenant. That is normal and
+ * says nothing about the export's completeness.
+ *
  * Two paging quirks the parser has to survive, both observed in the real
  * export:
  *   1. A long tenant runs onto extra pages — the unit-ref header repeats and
@@ -138,11 +144,6 @@ export type ParsedStatements = {
   period: string | null;
   /** Tenants whose charges don't sum to Skyline's reported balance. */
   mismatched: string[];
-  /** The export printed CURRENT CHARGES sections but carried no content in any
-   *  of them — the file is missing everything billed this month. */
-  lossyCurrentSection: boolean;
-  currentSections: number;
-  currentDetailRows: number;
 };
 
 /** Parse one Skyline Statement export (.xls or .xlsx) into per-tenant records. */
@@ -161,8 +162,6 @@ export function parseSkylineStatements(buf: ArrayBuffer | Buffer): ParsedStateme
   let current: string | null = null;
   // Which half of the statement we're reading. Resets to "prior" per tenant.
   let section: ChargeSection = "prior";
-  // Export-integrity counters — see `lossyCurrentSection` below.
-  let currentSections = 0, currentDetailRows = 0, nonZeroCurrentTotals = 0;
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i] as unknown[];
@@ -212,16 +211,13 @@ export function parseSkylineStatements(buf: ArrayBuffer | Buffer): ParsedStateme
     }
     // ── CURRENT CHARGES: the newly-billed section opens here ──
     if (upper === CURRENT_LABEL) {
-      currentSections += 1;
       if (!closed.has(current)) section = "current";
       continue;
     }
     // ── TOTAL CURRENT closes the tenant; anything after is a Crystal re-render ──
     if (upper.startsWith(TOTAL_CURRENT_LABEL)) {
       if (!closed.has(current)) {
-        const t = toAmount((row as unknown[])[COL_BALANCE]) ?? 0;
-        currentTotal.set(current, t);
-        if (t !== 0) nonZeroCurrentTotals += 1;
+        currentTotal.set(current, toAmount((row as unknown[])[COL_BALANCE]) ?? 0);
         closed.add(current);
       }
       continue;
@@ -242,7 +238,6 @@ export function parseSkylineStatements(buf: ArrayBuffer | Buffer): ParsedStateme
       category: classifyCharge(desc, cents),
       section,
     };
-    if (section === "current") currentDetailRows += 1;
     const ry = reconYearOf(desc);
     if (ry) charge.reconYear = ry;
     rec.charges.push(charge);
@@ -283,22 +278,7 @@ export function parseSkylineStatements(buf: ArrayBuffer | Buffer): ParsedStateme
     statements.push(rec);
   }
 
-  return {
-    statements,
-    period: periodOf(statements),
-    mismatched,
-    // Crystal's Excel export can emit the CURRENT CHARGES headings while
-    // dropping every detail row and every TOTAL CURRENT under them. The prior
-    // section still reconciles, so nothing looks wrong — the tenants simply
-    // come through missing everything billed this month. Observed on a real
-    // export where all 68 sections were present and empty while the laser
-    // statements showed current charges. If the report prints the section for
-    // every tenant and not one of them has a single current charge or a
-    // non-zero total, treat the file as lossy rather than trusting it.
-    lossyCurrentSection: currentSections > 0 && currentDetailRows === 0 && nonZeroCurrentTotals === 0,
-    currentSections,
-    currentDetailRows,
-  };
+  return { statements, period: periodOf(statements), mismatched };
 }
 
 /** The statement month — the newest charge date across the export. */

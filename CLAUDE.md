@@ -69,15 +69,16 @@ how-to-pay instructions. Sources of truth:
   Two Crystal Reports quirks it also handles (don't "fix" them out): a tenant
   continued across a page break, and a detail group re-rendered 2–4× (deduped
   per section, only when the dedupe reconciles).
-- **Crystal's Excel export can silently drop the whole CURRENT CHARGES
-  section** — the headings print, the detail rows and every `TOTAL CURRENT` come
-  through empty. This is the one failure the tie-out CANNOT catch: the prior half
-  still reconciles perfectly, so all 67 tenants read as clean while missing
-  everything billed that month. `lossyCurrentSection` detects it (sections
-  printed, zero detail rows, zero non-zero totals across the file) and the import
-  is **refused with HTTP 422**; `allowIncomplete=1` imports anyway but marks the
-  run `incompleteExport`, which can never auto-publish and needs an explicit
-  `force` to go live. Never relax this into a warning.
+- **The Statement report is an OPEN-ITEMS report, and its sections are relative
+  to WHEN it was run — not to the statement date.** Run after the 1st, that
+  month's charges are already outstanding: they print above `PREVIOUS MONTH
+  ENDING BALANCE` and `TOTAL CURRENT` is legitimately 0 for every tenant. A
+  tenant who has paid simply has fewer open lines and a smaller balance. None of
+  that indicates a bad export — do NOT add a check that refuses a file for
+  having empty current-charge sections. That was tried and it blocked every
+  real import: the evidence against it is that 53 of 67 tenants in the sample
+  export carry September charges (194 rows) in the prior section. It also means
+  the portal reflects the last import, so re-import to pick up payments.
 - **Unit refs are stored in the app's canonical form** — Skyline's `-CU` charge
   suffix stripped (`2300-1817-CU` → `2300-1817`), matching the rent roll, the
   recon rosters and the portal token. `skylineUnitRef` keeps the raw value. If a
