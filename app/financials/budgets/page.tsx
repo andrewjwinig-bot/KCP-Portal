@@ -2948,7 +2948,7 @@ function CreateBudgetDialog({
   const [name, setName] = useState<string>("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [year, setYear] = useState<number>(today.getFullYear());
+  const [year, setYear] = useState<number>(today.getFullYear() + 1);
   void summaries;
 
   async function submit() {
@@ -3009,7 +3009,7 @@ function CreateBudgetDialog({
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1.4fr", gap: 12 }}>
             <Field label="Year">
               <input type="number" min={2000} max={2100} value={year}
-                onChange={(e) => setYear(Number(e.target.value) || today.getFullYear())}
+                onChange={(e) => setYear(Number(e.target.value) || today.getFullYear() + 1)}
                 style={{ ...selectStyleLocal, fontSize: 15, fontWeight: 700 }} />
             </Field>
             <Field label="Portfolio">
