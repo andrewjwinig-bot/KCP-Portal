@@ -6,6 +6,7 @@ import { parseMonthKey } from "@/lib/financials/cash-sheet/util";
 import { SITE_COOKIE, verifySiteToken } from "@/lib/site-auth";
 import { ALL_USERS, USERS, canEditCashSheet, type UserId } from "@/lib/users";
 import { recordImport } from "@/lib/tracker/importEvents";
+import { markTaskComplete } from "@/lib/tracker/completionStore";
 import { cookies } from "next/headers";
 import { logAudit, auditIp } from "@/lib/audit";
 
@@ -75,9 +76,23 @@ export async function POST(req: Request) {
     const filled = Object.entries(rounded).map(([code, amount]) => ({ code, amount })).sort((a, b) => b.amount - a.amount);
     const total = filled.reduce((s, f) => s + f.amount, 0);
     await logAudit({ event: "cash-sheet.ap-upload", user: user ?? "?", ip: auditIp(req), detail: `${wednesday} · ${files.length} file(s) · ${filled.length} props · $${Math.round(total).toLocaleString()}` });
-    // Tracks the AP import reminder only — "Pay Avid Bills" is its own separate
-    // tracker task and is NOT auto-completed by importing the report.
     try { await recordImport("imp-ap", { at: new Date().toISOString(), by: user ? USERS[user as UserId]?.label ?? user : null }); } catch { /* best-effort */ }
+
+    // The AP Selection Report IS the verification that the week's Avid bills were
+    // paid, so auto-cross-off that pay week's "Pay Avid Bills" tracker task — no
+    // manual check needed. The weekly task expands to one occurrence per
+    // Wednesday, keyed `m-avid-<year>-<month1-12>-<day>` (see tasksForMonth), and
+    // its completion is stored under `<year>-<month0>-<occurrenceId>`. Target the
+    // exact pay-week Wednesday so only that week crosses off, not the whole month.
+    try {
+      const [wy, wmonth, wday] = wednesday.split("-").map(Number); // wmonth is 1–12
+      const occId = `m-avid-${wy}-${wmonth}-${wday}`;
+      await markTaskComplete(wy, wmonth - 1, occId, {
+        at: new Date().toISOString(),
+        by: user ? USERS[user as UserId]?.label ?? user : undefined,
+        source: "ap-selection",
+      });
+    } catch { /* best-effort — the bills still imported */ }
 
     return NextResponse.json({ ok: true, wednesday, reportDate, filled, total });
   } catch (e) {
