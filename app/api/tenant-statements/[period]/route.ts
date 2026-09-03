@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { deleteRun, getRun, setPublished } from "@/lib/statements/store";
 import { statementCharges, summarize } from "@/lib/statements/summary";
 import { instructionsFor } from "@/lib/statements/payment";
+import { remittancesForPeriod } from "@/lib/statements/remittanceStore";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 import { logAudit, auditIp } from "@/lib/audit";
 
@@ -17,6 +18,11 @@ export async function GET(_req: NextRequest, { params }: { params: { period: str
   const run = await getRun(params.period);
   if (!run) return NextResponse.json({ error: "No statements for that period." }, { status: 404 });
 
+  // What tenants have told us their payments cover, newest first per unit.
+  const remittances = await remittancesForPeriod(run.period);
+  const declaredByUnit = new Map<string, (typeof remittances)[number]>();
+  for (const r of remittances) if (!declaredByUnit.has(r.unitRef)) declaredByUnit.set(r.unitRef, r);
+
   const codes = [...new Set(run.statements.map((s) => s.propertyCode))];
   // Provenance is only meaningful once a month has had more than one upload.
   const latestImport = run.sources.length > 1 ? run.sources[run.sources.length - 1].importedAt : null;
@@ -29,6 +35,8 @@ export async function GET(_req: NextRequest, { params }: { params: { period: str
     publishedAt: run.publishedAt,
     updatedAt: run.updatedAt,
     sources: run.sources,
+    declaredCount: declaredByUnit.size,
+    declaredAmount: Math.round([...declaredByUnit.values()].reduce((a, r) => a + r.amount, 0) * 100) / 100,
     properties: codes.sort().map((code) => ({ code, name: propName(code) })),
     payment,
     // Skyline's own printed order — the admin ledger, the tenant's statement
@@ -41,6 +49,7 @@ export async function GET(_req: NextRequest, { params }: { params: { period: str
       // valid — it just predates the newest export, which is worth seeing when
       // you re-import mid-month and a tenant quietly falls out of the report.
       carriedOver: !!latestImport && !!st.importedAt && st.importedAt !== latestImport,
+      declared: declaredByUnit.get(st.unitRef) ?? null,
     })),
   });
 }

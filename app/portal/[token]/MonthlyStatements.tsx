@@ -168,8 +168,16 @@ function CategoryTiles({ st }: { st: MonthlyStatement }) {
 }
 
 /** The line-by-line ledger, mirroring the annual statement's schedule table. */
-function ChargeTable({ st, hasRecon, onOpenRecon }: { st: MonthlyStatement; hasRecon: (year: number) => boolean; onOpenRecon: (year: number) => void }) {
-  const GRID = "112px 1fr 150px 118px"; // Date | Charge | Type | Amount
+function ChargeTable({ st, hasRecon, onOpenRecon, selected, onToggle, onToggleAll }: {
+  st: MonthlyStatement; hasRecon: (year: number) => boolean; onOpenRecon: (year: number) => void;
+  /** Null when selection is off (a settled statement has nothing to pay). */
+  selected: Set<number> | null;
+  onToggle: (i: number) => void;
+  onToggleAll: (on: boolean) => void;
+}) {
+  const pickable = selected !== null;
+  const allOn = pickable && st.charges.every((_, i) => selected!.has(i));
+  const GRID = pickable ? "38px 112px 1fr 150px 118px" : "112px 1fr 150px 118px";
   const pad = "9px 14px";
   return (
     <section style={{ marginTop: 26 }}>
@@ -177,15 +185,32 @@ function ChargeTable({ st, hasRecon, onOpenRecon }: { st: MonthlyStatement; hasR
       <div style={{ border: "1px solid var(--border)", borderRadius: 14, overflow: "hidden", boxShadow: "var(--shadow)", background: "var(--card)" }}>
         <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
           <div style={{ minWidth: 520 }}>
-            <div style={{ display: "grid", gridTemplateColumns: GRID, background: "rgba(11,74,125,0.09)", borderBottom: "1px solid var(--border)", padding: "9px 0" }}>
+            <div style={{ display: "grid", gridTemplateColumns: GRID, background: "rgba(11,74,125,0.09)", borderBottom: "1px solid var(--border)", padding: "9px 0", alignItems: "center" }}>
+              {pickable && (
+                <div style={{ padding: "0 0 0 14px" }}>
+                  <input type="checkbox" checked={allOn} aria-label="Select every charge"
+                    onChange={(e) => onToggleAll(e.target.checked)} style={{ cursor: "pointer" }} />
+                </div>
+              )}
               {["Date", "Charge", "Type", "Amount"].map((h, i) => (
                 <div key={h} style={{ padding: "0 14px", fontSize: 10.5, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: i === 1 ? BRAND : "var(--muted)", textAlign: i === 3 ? "right" : "left" }}>{h}</div>
               ))}
             </div>
             {st.charges.map((c, i) => {
               const linkYear = c.reconYear && hasRecon(c.reconYear) ? c.reconYear : null;
+              const on = !pickable || selected!.has(i);
               return (
-                <div key={`${c.dateISO}-${c.description}-${i}`} style={{ display: "grid", gridTemplateColumns: GRID, alignItems: "baseline", borderTop: i === 0 ? "none" : "1px solid var(--border)", background: i % 2 === 1 ? "rgba(15,23,42,0.02)" : undefined, fontSize: 14 }}>
+                <div key={`${c.dateISO}-${c.description}-${i}`}
+                  onClick={pickable ? () => onToggle(i) : undefined}
+                  style={{ display: "grid", gridTemplateColumns: GRID, alignItems: "baseline", borderTop: i === 0 ? "none" : "1px solid var(--border)",
+                    background: i % 2 === 1 ? "rgba(15,23,42,0.02)" : undefined, fontSize: 14,
+                    cursor: pickable ? "pointer" : undefined, opacity: on ? 1 : 0.45 }}>
+                  {pickable && (
+                    <div style={{ padding: "9px 0 9px 14px" }}>
+                      <input type="checkbox" checked={on} onChange={() => onToggle(i)} onClick={(e) => e.stopPropagation()}
+                        aria-label={`Pay ${c.description}`} style={{ cursor: "pointer" }} />
+                    </div>
+                  )}
                   <div style={{ padding: pad, color: "var(--muted)", fontSize: 12.5, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{dateLabel(c.dateISO)}</div>
                   <div style={{ padding: pad }}>
                     {c.description}
@@ -202,7 +227,7 @@ function ChargeTable({ st, hasRecon, onOpenRecon }: { st: MonthlyStatement; hasR
               );
             })}
             <div style={{ display: "grid", gridTemplateColumns: GRID, borderTop: `2px solid ${BRAND}`, background: "rgba(11,74,125,0.06)", fontWeight: 800 }}>
-              <div style={{ gridColumn: "1 / 4", padding: pad }}>Total amount due</div>
+              <div style={{ gridColumn: pickable ? "1 / 5" : "1 / 4", padding: pad }}>Total amount due</div>
               <div style={{ padding: pad, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{money2(st.summary.totalDue)}</div>
             </div>
           </div>
@@ -217,7 +242,7 @@ function ChargeTable({ st, hasRecon, onOpenRecon }: { st: MonthlyStatement; hasR
 }
 
 /** How to pay — the remittance details staff maintain on the admin page. */
-export function HowToPay({ payment, unitRef }: { payment: PaymentInstructions; unitRef: string }) {
+export function HowToPay({ payment, unitRef, reference }: { payment: PaymentInstructions; unitRef: string; reference?: string | null }) {
   const Row = ({ icon, title, children }: { icon: React.ReactNode; title: string; children: React.ReactNode }) => (
     <div style={{ display: "flex", gap: 14, padding: "16px 18px", borderTop: "1px solid var(--border)" }}>
       <div style={{ width: 34, height: 34, flexShrink: 0, borderRadius: 9, background: "rgba(11,74,125,0.09)", color: BRAND, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -234,7 +259,7 @@ export function HowToPay({ payment, unitRef }: { payment: PaymentInstructions; u
       <SectionLabel>How to pay</SectionLabel>
       <div style={{ border: "1px solid var(--border)", borderRadius: 14, overflow: "hidden", background: "var(--card)", boxShadow: "var(--shadow)" }}>
         <div style={{ background: "rgba(11,74,125,0.09)", padding: "9px 18px", fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: BRAND }}>
-          Reference {unitRef} on every payment
+          Reference {reference ? `${unitRef} · ${reference}` : unitRef} on every payment
         </div>
         <Row icon={<><rect x="2" y="5" width="20" height="14" rx="2" /><line x1="2" y1="10" x2="22" y2="10" /></>} title="By check">
           Make checks payable to <strong style={{ color: "var(--text)" }}>{payment.payableTo}</strong> and mail to:
@@ -258,9 +283,141 @@ export function HowToPay({ payment, unitRef }: { payment: PaymentInstructions; u
   );
 }
 
+
+type Remittance = {
+  id: string; reference: string; period: string; submittedAt: string;
+  method: "check" | "ach" | "other"; amount: number; statementTotal: number;
+  paying: { dateISO: string | null; description: string; amount: number }[];
+  holding: { dateISO: string | null; description: string; amount: number }[];
+  note: string;
+};
+
+const METHOD_LABEL: Record<Remittance["method"], string> = {
+  check: "Check", ach: "ACH or wire", other: "Something else",
+};
+
+/**
+ * "Tell us what you're paying" — the whole point of the selection.
+ *
+ * A tenant who can only cover part of the balance today picks the charges,
+ * sees the total, and tells us. That reaches AR as a remittance advice before
+ * the cheque does, which is what stops a payment being applied by guesswork.
+ * It is NOT a payment: nothing is charged and nothing is marked paid.
+ */
+function DeclarePayment({ token, st, selected, total, onDone }: {
+  token: string; st: MonthlyStatement; selected: Set<number>; total: number; onDone: (r: Remittance) => void;
+}) {
+  const [method, setMethod] = useState<Remittance["method"]>("check");
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const full = Math.abs(total - st.summary.totalDue) < 0.011;
+
+  async function submit() {
+    if (busy || selected.size === 0) return;
+    setBusy(true); setErr(null);
+    try {
+      const res = await fetch(`/api/portal/${token}/remittance`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ period: st.period, charges: [...selected], method, note }),
+      });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error ?? "Could not save that.");
+      onDone(j.remittance);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Could not save that.");
+    } finally { setBusy(false); }
+  }
+
+  return (
+    <section style={{ marginTop: 26 }}>
+      <SectionLabel>Tell us what you&rsquo;re paying</SectionLabel>
+      <div style={{ border: `1.5px solid ${BRAND}`, borderRadius: 14, background: "var(--card)", boxShadow: "var(--shadow)", overflow: "hidden" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap", padding: "16px 18px", background: "rgba(11,74,125,0.05)" }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 13.5, fontWeight: 700 }}>
+              {full ? "Paying your balance in full" : `Paying ${selected.size} of ${st.charges.length} charges`}
+            </div>
+            <div className="muted" style={{ fontSize: 12.5, marginTop: 3 }}>
+              {full
+                ? "Tick off charges above if you need to pay only part of it."
+                : `Leaving ${money2(st.summary.totalDue - total)} open. Let us know and we'll apply your payment to exactly these charges.`}
+            </div>
+          </div>
+          <div style={{ textAlign: "right" }}>
+            <div style={{ fontSize: 28, fontWeight: 900, color: BRAND, lineHeight: 1.05, fontVariantNumeric: "tabular-nums" }}>{money2(total)}</div>
+            <div className="muted" style={{ fontSize: 11.5 }}>you&rsquo;re paying</div>
+          </div>
+        </div>
+        <div style={{ padding: "16px 18px", display: "grid", gap: 12 }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+            <span className="muted" style={{ fontSize: 12.5 }}>Sending by</span>
+            {(["check", "ach", "other"] as const).map((m) => (
+              <button key={m} type="button" onClick={() => setMethod(m)}
+                style={{ cursor: "pointer", fontFamily: "inherit", fontSize: 12.5, fontWeight: 700, padding: "6px 12px", borderRadius: 999,
+                  border: `1px solid ${method === m ? BRAND : "var(--border)"}`,
+                  background: method === m ? "rgba(11,74,125,0.08)" : "transparent",
+                  color: method === m ? BRAND : "var(--muted)" }}>
+                {METHOD_LABEL[m]}
+              </button>
+            ))}
+          </div>
+          <textarea value={note} onChange={(e) => setNote(e.target.value.slice(0, 2000))} rows={2}
+            placeholder="Anything we should know? (optional)"
+            style={{ width: "100%", boxSizing: "border-box", fontSize: 13.5, padding: "9px 11px", fontFamily: "inherit", resize: "vertical", border: "1px solid var(--border)", borderRadius: 9, background: "var(--bg, #fff)", color: "var(--text)" }} />
+          {err && <div style={{ color: "#b91c1c", fontSize: 13, fontWeight: 600 }}>{err}</div>}
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <button type="button" onClick={submit} disabled={busy || selected.size === 0}
+              style={{ background: BRAND, color: "#fff", border: "none", borderRadius: 9, padding: "11px 18px", fontSize: 14, fontWeight: 700,
+                cursor: busy || selected.size === 0 ? "default" : "pointer", opacity: busy || selected.size === 0 ? 0.6 : 1, fontFamily: "inherit" }}>
+              {busy ? "Sending…" : "Confirm what I'm paying"}
+            </button>
+            <span className="muted" style={{ fontSize: 12, maxWidth: 420 }}>
+              This tells us how to apply your payment — it doesn&rsquo;t charge you anything.
+            </span>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/** What the tenant sees after telling us — and the reference to put on the cheque. */
+function DeclaredPayment({ r, onRevise }: { r: Remittance; onRevise: () => void }) {
+  const full = Math.abs(r.amount - r.statementTotal) < 0.011;
+  return (
+    <section style={{ marginTop: 26 }}>
+      <SectionLabel>What you told us</SectionLabel>
+      <div style={{ border: `1.5px solid ${GREEN}`, borderRadius: 14, background: "rgba(21,128,61,0.05)", overflow: "hidden" }}>
+        <div style={{ padding: "16px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 13.5, fontWeight: 800, color: GREEN }}>
+              Thanks — we know how to apply this{full ? "" : ` (${r.paying.length} of ${r.paying.length + r.holding.length} charges)`}
+            </div>
+            <div className="muted" style={{ fontSize: 12.5, marginTop: 4 }}>
+              {money2(r.amount)} by {METHOD_LABEL[r.method]}, sent {new Date(r.submittedAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}.
+            </div>
+          </div>
+          <div style={{ textAlign: "right" }}>
+            <div className="muted" style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}>Write this on your check</div>
+            <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: "0.08em", color: GREEN, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}>{r.reference}</div>
+          </div>
+        </div>
+        <div style={{ borderTop: "1px solid rgba(21,128,61,0.25)", padding: "12px 18px", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <span className="muted" style={{ fontSize: 12.5, flex: 1, minWidth: 240 }}>
+            Paying something different? Update your selection and tell us again.
+          </span>
+          <button type="button" onClick={onRevise} className="btn" style={{ fontSize: 12.5, padding: "6px 12px", fontWeight: 700 }}>Change this</button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 /** One monthly statement, rendered in full. The chronological index above it
  *  owns which one is showing, so this is a pure presentation of one document. */
-export function MonthlyStatementDetail({ st, payment, reconYears, onOpenRecon }: {
+export function MonthlyStatementDetail({ token, st, payment, reconYears, onOpenRecon }: {
+  token: string;
   st: MonthlyStatement;
   payment: PaymentInstructions;
   /** Recon years this unit has an annual statement for — a year-end adjustment
@@ -268,6 +425,40 @@ export function MonthlyStatementDetail({ st, payment, reconYears, onOpenRecon }:
   reconYears: number[];
   onOpenRecon: (year: number) => void;
 }) {
+  // Everything starts selected: paying in full is what we want, and the
+  // checkboxes exist for the tenant who genuinely can't.
+  const allIdx = () => new Set(st.charges.map((_, i) => i));
+  const [selected, setSelected] = useState<Set<number>>(allIdx);
+  const [declared, setDeclared] = useState<Remittance | null>(null);
+  const [loadedFor, setLoadedFor] = useState<string | null>(null);
+
+  // Reset when the tenant switches months, and pull back anything they've
+  // already told us about THIS month.
+  useEffect(() => {
+    setSelected(allIdx());
+    setDeclared(null);
+    let alive = true;
+    fetch(`/api/portal/${token}/remittance`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (!alive) return;
+        setDeclared((j?.remittances ?? []).find((r: Remittance) => r.period === st.period) ?? null);
+        setLoadedFor(st.period);
+      })
+      .catch(() => { if (alive) setLoadedFor(st.period); });
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, st.period]);
+
+  const total = Math.round(st.charges.reduce((a, c, i) => (selected.has(i) ? a + c.amount : a), 0) * 100) / 100;
+  // Nothing to select on a settled or credit statement.
+  const payable = st.summary.totalDue > 0.005 && st.charges.length > 0;
+  const toggle = (i: number) => setSelected((cur) => {
+    const next = new Set(cur);
+    if (next.has(i)) next.delete(i); else next.add(i);
+    return next;
+  });
+
   return (
     <>
       {st.underReview && (
@@ -279,9 +470,17 @@ export function MonthlyStatementDetail({ st, payment, reconYears, onOpenRecon }:
       <AgingStrip st={st} />
       <CategoryTiles st={st} />
       {st.charges.length > 0 && (
-        <ChargeTable st={st} hasRecon={(y) => reconYears.includes(y)} onOpenRecon={onOpenRecon} />
+        <ChargeTable st={st} hasRecon={(y) => reconYears.includes(y)} onOpenRecon={onOpenRecon}
+          selected={payable && !declared ? selected : null}
+          onToggle={toggle}
+          onToggleAll={(on) => setSelected(on ? allIdx() : new Set())} />
       )}
-      <HowToPay payment={payment} unitRef={st.unitRef} />
+      {payable && loadedFor === st.period && (
+        declared
+          ? <DeclaredPayment r={declared} onRevise={() => setDeclared(null)} />
+          : <DeclarePayment token={token} st={st} selected={selected} total={total} onDone={setDeclared} />
+      )}
+      <HowToPay payment={payment} unitRef={st.unitRef} reference={declared?.reference ?? null} />
     </>
   );
 }

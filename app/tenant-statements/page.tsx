@@ -51,10 +51,19 @@ type Summary = {
   byAging: { bucket: AgingBucket; amount: number }[];
   pastDue: boolean; pastDueAmount: number; oldestISO: string | null;
 };
+type Declared = {
+  id: string; reference: string; submittedAt: string; method: "check" | "ach" | "other";
+  amount: number; statementTotal: number; note: string;
+  paying: { dateISO: string | null; description: string; amount: number }[];
+  holding: { dateISO: string | null; description: string; amount: number }[];
+};
+const METHOD_LABEL: Record<Declared["method"], string> = { check: "Check", ach: "ACH or wire", other: "Other" };
+
 type TenantRow = {
   unitRef: string; propertyCode: string; suite: string; tenantName: string; address: string[];
   charges: StatementCharge[]; reportedBalance: number; chargeTotal: number; tiesOut: boolean; summary: Summary;
   importedAt?: string; sourceFile?: string; carriedOver?: boolean;
+  declared?: Declared | null;
 };
 type PaymentInstructions = {
   payableTo: string; remitTo: string[]; achNote: string;
@@ -70,6 +79,8 @@ type LinksPayload = { ok: true; configured: boolean; shared: number; viewed: num
 type Detail = {
   ok: true; period: string; published: boolean; publishedAt: string | null; updatedAt: string;
   sources: PeriodRow["sources"];
+  declaredCount: number;
+  declaredAmount: number;
   properties: { code: string; name: string }[];
   payment: Record<string, PaymentInstructions>;
   tenants: TenantRow[];
@@ -396,6 +407,10 @@ export default function TenantStatementsPage() {
                   <StatPill label="Portal links shared" value={links.shared} sub={`${links.viewed} opened · of ${row.tenants}`}
                     accent={links.shared === 0 ? "#b45309" : undefined} />
                 )}
+                {!!detail?.declaredCount && (
+                  <StatPill label="Payments declared" value={money0(detail.declaredAmount)}
+                    sub={`${detail.declaredCount} ${detail.declaredCount === 1 ? "tenant" : "tenants"} told us`} accent="#15803d" />
+                )}
               </div>
 
               {row.untied > 0 && (
@@ -699,6 +714,18 @@ function TenantRows({ t, period, open, onToggle, linkInfo, onLinkChange }: {
             )}
             {/* Kept from an earlier upload because the newest export didn't
                 mention them — never dropped, but worth being able to see. */}
+            {t.declared && (
+              <HoverCard title={`Paying ${money2(t.declared.amount)}`} width={286}
+                rows={[
+                  { label: "Reference", value: t.declared.reference },
+                  { label: "Method", value: METHOD_LABEL[t.declared.method] },
+                  { label: "Told us", value: new Date(t.declared.submittedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }) },
+                  { label: "Applying to", value: `${t.declared.paying.length} of ${t.declared.paying.length + t.declared.holding.length} charges` },
+                ]}
+                footer={{ label: "Leaving open", value: money2(t.declared.statementTotal - t.declared.amount) }}>
+                <Pill tone={TONE_GREEN}>{`PAYING ${money0(t.declared.amount)}`}</Pill>
+              </HoverCard>
+            )}
             {t.carriedOver && (
               <HoverCard title="Carried over" width={272}
                 rows={[
@@ -767,6 +794,45 @@ function TenantRows({ t, period, open, onToggle, linkInfo, onLinkChange }: {
                     style={{ padding: 0, border: "none", background: "none", font: "inherit", color: "#0b4a7d", fontWeight: 700, cursor: "pointer" }}>back to statement order</button></>
                 : "In the order Skyline's statement prints them. Click a column to sort."}
             </div>
+            {t.declared && (
+              <div style={{ margin: "10px 10px 14px", border: "1.5px solid rgba(22,163,74,0.4)", borderRadius: 10, background: "rgba(22,163,74,0.05)", padding: "12px 14px" }}>
+                <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
+                  <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "#15803d" }}>Tenant says they&rsquo;re paying</span>
+                  <span style={{ fontSize: 17, fontWeight: 800 }}>{money2(t.declared.amount)}</span>
+                  <span className="muted" style={{ fontSize: 12.5 }}>
+                    by {METHOD_LABEL[t.declared.method]} · ref <code style={{ fontSize: 12, fontWeight: 700 }}>{t.declared.reference}</code> ·
+                    {" "}{new Date(t.declared.submittedAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+                  </span>
+                </div>
+                <div style={{ display: "grid", gap: 14, gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", marginTop: 10 }}>
+                  <div>
+                    <div style={SECTION_LABEL}>Apply to</div>
+                    {t.declared.paying.map((l, i) => (
+                      <div key={i} style={{ display: "flex", gap: 10, fontSize: 13, padding: "3px 0" }}>
+                        <span className="muted" style={{ width: 92, flexShrink: 0 }}>{dateLabel(l.dateISO)}</span>
+                        <span style={{ flex: 1, minWidth: 0 }}>{l.description}</span>
+                        <span style={{ fontVariantNumeric: "tabular-nums", fontWeight: 600 }}>{money2(l.amount)}</span>
+                      </div>
+                    ))}
+                  </div>
+                  {t.declared.holding.length > 0 && (
+                    <div>
+                      <div style={SECTION_LABEL}>Not paying — {money2(t.declared.statementTotal - t.declared.amount)} left open</div>
+                      {t.declared.holding.map((l, i) => (
+                        <div key={i} style={{ display: "flex", gap: 10, fontSize: 13, padding: "3px 0", color: "var(--muted)" }}>
+                          <span style={{ width: 92, flexShrink: 0 }}>{dateLabel(l.dateISO)}</span>
+                          <span style={{ flex: 1, minWidth: 0 }}>{l.description}</span>
+                          <span style={{ fontVariantNumeric: "tabular-nums" }}>{money2(l.amount)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {t.declared.note && (
+                  <div style={{ marginTop: 10, fontSize: 13, fontStyle: "italic", color: "var(--muted)" }}>&ldquo;{t.declared.note}&rdquo;</div>
+                )}
+              </div>
+            )}
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr>
