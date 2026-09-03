@@ -24,6 +24,14 @@ export function periodLabel(period: string): string {
   return `${new Date(Date.UTC(y, m - 1, 1)).toLocaleString("en-US", { month: "long", timeZone: "UTC" })} ${y}`;
 }
 
+/** An ISO timestamp → "September 3, 2026" — the as-of date on a statement. */
+export function asOfLabel(iso: string | null): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" });
+}
+
 /** "2026-09-01" → "Sep 1, 2026". */
 export function dateLabel(iso: string | null): string {
   if (!iso) return "—";

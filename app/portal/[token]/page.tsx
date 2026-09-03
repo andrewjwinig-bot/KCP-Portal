@@ -12,7 +12,7 @@ import LoadingState from "@/app/components/LoadingState";
 import { Calendar } from "@/app/components/Calendar";
 import { BOOKABLE_ROOMS } from "@/lib/reservations/rooms";
 import { useStatement, TenantStatementView, Centered, BRAND, money, money2, type Statement } from "@/app/statement/[token]/StatementView";
-import { MonthlyStatementView, useMonthlyStatements } from "./MonthlyStatements";
+import { BalanceCallout, MonthlyStatementDetail, useMonthlyStatements, type MonthlyStatement } from "./MonthlyStatements";
 
 type TabId = "lease" | "statements" | "contacts" | "floorplan" | "service" | "reservations" | "balances";
 const TABS: { id: TabId; label: string; icon: React.ReactNode; ready?: boolean }[] = [
@@ -374,86 +374,134 @@ function FloorplanTab({ token, floorplan, loading }: { token: string; floorplan:
   );
 }
 
-// Statements carries two views behind a segmented control: the monthly
-// statement of account ("what do I owe right now, and how do I pay it") and the
-// year-end CAM/RET reconciliation. Monthly leads when there is one — it's the
-// actionable number — and the annual view is unchanged underneath it.
-type StatementsView = "account" | "annual";
+// Statements is ONE chronological index of everything on the account, newest
+// first: each month's statement of account, and each year's CAM/RET
+// reconciliation sitting with the year it closes. A toggle between "account
+// balance" and "reconciliation" split one timeline into two views of the same
+// account, which is not how a tenant thinks about their own history.
+type DocRow =
+  | { kind: "monthly"; year: number; order: number; st: MonthlyStatement }
+  | { kind: "annual"; year: number; order: number; canView: boolean };
+
+const docKey = (d: DocRow) => (d.kind === "monthly" ? `m-${d.st.period}` : `a-${d.year}`);
 
 function StatementsTab({ token, data, years }: { token: string; data: Statement; years: number[] | null }) {
   const prior = (years ?? []).filter((y) => y !== data.year).sort((a, b) => b - a);
   const { data: monthly, loading: monthlyLoading } = useMonthlyStatements(token);
   const hasMonthly = !!monthly && monthly.statements.length > 0;
-  const [view, setView] = useState<StatementsView>("account");
-  // Land on the annual statement when no monthly one has been published yet.
-  useEffect(() => { if (!monthlyLoading && !hasMonthly) setView("annual"); }, [monthlyLoading, hasMonthly]);
-
   const reconYears = [data.year, ...prior];
+
+  // One timeline. Months sort by period; a year's reconciliation closes that
+  // year, so it sorts just above its December — the year-end document you reach
+  // as you scan down out of the following year.
+  const rows: DocRow[] = [
+    ...(monthly?.statements ?? []).map((st) => ({
+      kind: "monthly" as const, year: Number(st.period.slice(0, 4)), order: Number(st.period.slice(5, 7)), st,
+    })),
+    ...reconYears.map((year) => ({ kind: "annual" as const, year, order: 12.5, canView: year === data.year })),
+  ].sort((a, b) => b.year - a.year || b.order - a.order);
+
+  const [selected, setSelected] = useState<string | null>(null);
+  const active = rows.find((r) => docKey(r) === selected)
+    // Default to the newest thing the tenant can actually open.
+    ?? rows.find((r) => r.kind === "monthly")
+    ?? rows.find((r) => r.kind === "annual" && r.canView)
+    ?? null;
   const current = hasMonthly ? monthly.statements[0] : null;
-  const showAccount = view === "account" && hasMonthly;
+
+  if (!monthlyLoading && rows.length === 0) {
+    return (
+      <>
+        <PageHeader title="Statements" sub="Your account statements and reconciliations." />
+        <div style={{ border: "1px dashed var(--border)", borderRadius: 12, padding: "40px 16px", textAlign: "center", color: "var(--muted)", fontSize: 14 }}>
+          No statements are available for your suite yet.
+        </div>
+      </>
+    );
+  }
 
   return (
     <>
       <PageHeader
         title="Statements"
-        sub={showAccount
-          ? `Your account as of ${current!.periodLabel} — what's open and how to pay it.`
-          : "Your reconciliations and account statements."}
-        right={showAccount ? undefined : <YearPill year={data.year} />}
+        sub={current
+          ? "Everything on your account, newest first."
+          : "Your account statements and reconciliations."}
       />
-      {hasMonthly && (
-        <div style={{ display: "inline-flex", gap: 4, padding: 4, borderRadius: 11, background: "rgba(11,74,125,0.07)", marginBottom: 22, flexWrap: "wrap" }}>
-          {([
-            { id: "account" as const, label: "Account Balance", note: money2(current!.summary.totalDue) },
-            { id: "annual" as const, label: `${data.year} Reconciliation`, note: null },
-          ]).map((x) => {
-            const active = view === x.id;
-            return (
-              <button key={x.id} type="button" onClick={() => setView(x.id)}
-                style={{ border: "none", cursor: "pointer", fontFamily: "inherit", fontSize: 13.5, fontWeight: 700, padding: "8px 14px", borderRadius: 8,
-                  background: active ? "var(--card)" : "transparent", color: active ? BRAND : "var(--muted)",
-                  boxShadow: active ? "0 1px 3px rgba(15,23,42,0.14)" : "none", display: "inline-flex", alignItems: "center", gap: 8 }}>
-                {x.label}
-                {x.note && <span style={{ fontSize: 11.5, fontWeight: 800, padding: "1px 7px", borderRadius: 999, background: active ? "rgba(180,83,9,0.12)" : "rgba(15,23,42,0.06)", color: active ? "#b45309" : "var(--muted)" }}>{x.note}</span>}
-              </button>
-            );
-          })}
+      {current && <BalanceCallout st={current} token={token} />}
+
+      <StatementIndex rows={rows} token={token} activeKey={active ? docKey(active) : null} onPick={setSelected} />
+
+      {active && (
+        <div style={{ marginTop: 30, paddingTop: 26, borderTop: "1px solid var(--border)" }}>
+          <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 14 }}>
+            {active.kind === "monthly" ? active.st.periodLabel : `${active.year} CAM / RET Reconciliation`}
+          </div>
+          {active.kind === "monthly" ? (
+            <MonthlyStatementDetail st={active.st} payment={monthly!.payment} reconYears={reconYears}
+              onOpenRecon={(y) => setSelected(`a-${y}`)} />
+          ) : (
+            <TenantStatementView token={token} data={data} header={false} />
+          )}
         </div>
       )}
-
-      {showAccount ? (
-        <MonthlyStatementView
-          token={token}
-          statements={monthly.statements}
-          payment={monthly.payment}
-          reconYears={reconYears}
-          onOpenRecon={() => setView("annual")}
-        />
-      ) : (
-      <>
-      <TenantStatementView token={token} data={data} header={false} />
-      {prior.length > 0 && (
-        <section style={{ marginTop: 32 }}>
-          <h2 style={{ margin: "0 0 12px", fontSize: 18, fontWeight: 800 }}>Previous years</h2>
-          <div style={{ border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden" }}>
-            {prior.map((yr, i) => (
-              <div key={yr} style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", borderTop: i ? "1px solid var(--border)" : "none" }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 700, fontSize: 15 }}>{yr} CAM / RET Statement</div>
-                  <div className="muted" style={{ fontSize: 12.5, marginTop: 1 }}>Year-end reconciliation</div>
-                </div>
-                <a href={`/api/portal/${token}/statement/pdf?year=${yr}`} style={{ display: "inline-flex", alignItems: "center", gap: 6, background: BRAND, color: "#fff", textDecoration: "none", borderRadius: 8, padding: "7px 13px", fontSize: 12.5, fontWeight: 700 }}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
-                  PDF
-                </a>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-      </>
-      )}
     </>
+  );
+}
+
+/** The index itself — grouped by year, newest first, with each year's
+ *  reconciliation sitting alongside that year's December. */
+function StatementIndex({ rows, token, activeKey, onPick }: {
+  rows: DocRow[]; token: string; activeKey: string | null; onPick: (k: string) => void;
+}) {
+  const yearsInOrder = rows.reduce<number[]>((acc, r) => (acc.includes(r.year) ? acc : [...acc, r.year]), []);
+  return (
+    <section style={{ marginTop: 26 }}>
+      <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 12 }}>All statements</div>
+      <div style={{ border: "1px solid var(--border)", borderRadius: 14, overflow: "hidden", background: "var(--card)", boxShadow: "var(--shadow)" }}>
+        {yearsInOrder.map((year, yi) => (
+          <div key={year}>
+            <div style={{ padding: "8px 16px", background: "rgba(11,74,125,0.07)", borderTop: yi ? "1px solid var(--border)" : "none", borderBottom: "1px solid var(--border)",
+              fontSize: 12, fontWeight: 800, letterSpacing: "0.05em", color: BRAND }}>{year}</div>
+            {rows.filter((r) => r.year === year).map((r, i) => {
+              const key = docKey(r);
+              const on = key === activeKey;
+              const annual = r.kind === "annual";
+              const openable = !annual || r.canView;
+              return (
+                <div key={key} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderTop: i ? "1px solid var(--border)" : "none", background: on ? "rgba(11,74,125,0.05)" : undefined }}>
+                  <div style={{ width: 3, alignSelf: "stretch", borderRadius: 2, background: on ? BRAND : "transparent", flexShrink: 0 }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: on ? 800 : 700, fontSize: 14.5 }}>
+                      {annual ? `${r.year} CAM / RET Reconciliation` : r.st.periodLabel}
+                    </div>
+                    <div className="muted" style={{ fontSize: 12, marginTop: 1 }}>
+                      {annual
+                        ? "Year-end reconciliation"
+                        : `${r.st.charges.length} open ${r.st.charges.length === 1 ? "charge" : "charges"}${r.st.summary.pastDue ? ` · ${money(r.st.summary.pastDueAmount)} past due` : ""}`}
+                    </div>
+                  </div>
+                  {!annual && (
+                    <div style={{ fontSize: 14.5, fontWeight: 800, fontVariantNumeric: "tabular-nums", color: r.st.summary.totalDue > 0.005 ? "#b45309" : "#15803d" }}>
+                      {money2(r.st.summary.totalDue)}
+                    </div>
+                  )}
+                  {openable && !on && (
+                    <button type="button" onClick={() => onPick(key)} className="btn" style={{ fontSize: 12.5, padding: "6px 12px", fontWeight: 700 }}>View</button>
+                  )}
+                  <a href={annual ? `/api/portal/${token}/statement/pdf?year=${r.year}` : `/api/portal/${token}/monthly/pdf?period=${r.st.period}`}
+                    aria-label={`Download the ${annual ? `${r.year} reconciliation` : r.st.periodLabel} statement`}
+                    style={{ display: "inline-flex", alignItems: "center", gap: 6, background: BRAND, color: "#fff", textDecoration: "none", borderRadius: 8, padding: "6px 12px", fontSize: 12.5, fontWeight: 700 }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
+                    PDF
+                  </a>
+                </div>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { checkTenantAccess } from "@/lib/cam/tenantLink/access";
 import { publishedPeriodsForUnit } from "@/lib/statements/store";
 import { instructionsFor } from "@/lib/statements/payment";
-import { periodLabel, statementCharges, summarize } from "@/lib/statements/summary";
+import { asOfLabel, periodLabel, statementCharges, summarize } from "@/lib/statements/summary";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,9 +23,13 @@ export async function GET(req: NextRequest, { params }: { params: { token: strin
   return NextResponse.json({
     ok: true,
     payment,
-    statements: found.map(({ period, statement }) => ({
+    statements: found.map(({ period, statement, asOf }) => ({
       period,
       periodLabel: periodLabel(period),
+      // The statement lists OPEN charges only — anything settled before this
+      // date has already dropped off, so the date has to travel with it.
+      asOf,
+      asOfLabel: asOfLabel(asOf),
       unitRef: statement.unitRef,
       tenantName: statement.tenantName,
       suite: statement.suite,
