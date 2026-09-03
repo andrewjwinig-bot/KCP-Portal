@@ -155,12 +155,14 @@ export async function statementFor(period: string, unitRef: string): Promise<Ten
 }
 
 /** Every published period this unit appears in, newest first. */
-export async function publishedPeriodsForUnit(unitRef: string): Promise<{ period: string; statement: TenantStatement }[]> {
+export async function publishedPeriodsForUnit(unitRef: string): Promise<{ period: string; statement: TenantStatement; asOf: string | null }[]> {
   const ref = unitRef.trim().toUpperCase();
-  const out: { period: string; statement: TenantStatement }[] = [];
+  const out: { period: string; statement: TenantStatement; asOf: string | null }[] = [];
   for (const run of await publishedRuns()) {
     const st = run.statements.find((s) => s.unitRef.toUpperCase() === ref);
-    if (st) out.push({ period: run.period, statement: st });
+    // The statement speaks as of the import THIS tenant came from — a later
+    // upload covering other buildings doesn't make their figures newer.
+    if (st) out.push({ period: run.period, statement: st, asOf: st.importedAt ?? run.sources[run.sources.length - 1]?.importedAt ?? null });
   }
   return out;
 }

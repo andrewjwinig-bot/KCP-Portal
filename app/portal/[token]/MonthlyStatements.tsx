@@ -23,7 +23,8 @@ type Summary = {
   pastDue: boolean; pastDueAmount: number; oldestISO: string | null;
 };
 export type MonthlyStatement = {
-  period: string; periodLabel: string; unitRef: string; tenantName: string; suite: string;
+  period: string; periodLabel: string; asOf: string | null; asOfLabel: string | null;
+  unitRef: string; tenantName: string; suite: string;
   underReview: boolean; charges: StatementCharge[]; summary: Summary;
 };
 export type PaymentInstructions = {
@@ -66,7 +67,7 @@ const SectionLabel = ({ children }: { children: React.ReactNode }) => (
 );
 
 /** The headline: what's owed, split into this month vs. what's carried over. */
-function BalanceCallout({ st, token }: { st: MonthlyStatement; token: string }) {
+export function BalanceCallout({ st, token }: { st: MonthlyStatement; token: string }) {
   const due = st.summary.totalDue;
   const credit = due < -0.005;
   const settled = Math.abs(due) <= 0.005;
@@ -82,13 +83,19 @@ function BalanceCallout({ st, token }: { st: MonthlyStatement; token: string }) 
           {settled ? "Your account is current" : credit ? "Credit on account" : "Total amount due"}
         </div>
         <div className="muted" style={{ fontSize: 13, marginTop: 6 }}>
-          {settled ? `Nothing open as of ${st.periodLabel}.` : (
+          {settled ? "Nothing is currently open on your account." : (
             <>
               This month <strong style={{ color: "var(--text)" }}>{money2(st.summary.currentCharges)}</strong>
               {"  ·  "}
               Prior balance <strong style={{ color: st.summary.priorBalance > 0.005 ? AMBER : "var(--text)" }}>{money2(st.summary.priorBalance)}</strong>
             </>
           )}
+        </div>
+        {/* The single most important caveat: this lists what's STILL OPEN. A
+            tenant who has paid must understand why their rent isn't here,
+            rather than assuming we forgot to bill them. */}
+        <div className="muted" style={{ fontSize: 12.5, marginTop: 6 }}>
+          Unpaid charges only{st.asOfLabel ? `, as of ${st.asOfLabel}` : ""}. Anything already paid has come off.
         </div>
         {st.summary.credits > 0.005 && (
           <div style={{ fontSize: 12.5, marginTop: 4, color: GREEN, fontWeight: 600 }}>Includes {money2(st.summary.credits)} of credits already applied.</div>
@@ -166,7 +173,7 @@ function ChargeTable({ st, hasRecon, onOpenRecon }: { st: MonthlyStatement; hasR
   const pad = "9px 14px";
   return (
     <section style={{ marginTop: 26 }}>
-      <SectionLabel>Open charges</SectionLabel>
+      <SectionLabel>Open charges{st.asOfLabel ? ` — as of ${st.asOfLabel}` : ""}</SectionLabel>
       <div style={{ border: "1px solid var(--border)", borderRadius: 14, overflow: "hidden", boxShadow: "var(--shadow)", background: "var(--card)" }}>
         <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
           <div style={{ minWidth: 520 }}>
@@ -200,6 +207,10 @@ function ChargeTable({ st, hasRecon, onOpenRecon }: { st: MonthlyStatement; hasR
             </div>
           </div>
         </div>
+      </div>
+      <div className="muted" style={{ fontSize: 12.5, marginTop: 8, lineHeight: 1.55 }}>
+        This lists charges that are still open{st.asOfLabel ? ` as of ${st.asOfLabel}` : ""} — a charge you&rsquo;ve already
+        paid won&rsquo;t appear here. Payments made after that date aren&rsquo;t reflected yet.
       </div>
     </section>
   );
@@ -247,54 +258,16 @@ export function HowToPay({ payment, unitRef }: { payment: PaymentInstructions; u
   );
 }
 
-/** Prior months, newest first — the history the tenant can pull a PDF from. */
-function History({ items, token, activePeriod, onPick }: { items: MonthlyStatement[]; token: string; activePeriod: string; onPick: (p: string) => void }) {
-  if (items.length < 2) return null;
-  return (
-    <section style={{ marginTop: 32 }}>
-      <h2 style={{ margin: "0 0 12px", fontSize: 18, fontWeight: 800 }}>Statement history</h2>
-      <div style={{ border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden", background: "var(--card)" }}>
-        {items.map((s, i) => {
-          const active = s.period === activePeriod;
-          return (
-            <div key={s.period} style={{ display: "flex", alignItems: "center", gap: 12, padding: "13px 16px", borderTop: i ? "1px solid var(--border)" : "none", background: active ? "rgba(11,74,125,0.05)" : undefined }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 700, fontSize: 15 }}>{s.periodLabel}</div>
-                <div className="muted" style={{ fontSize: 12.5, marginTop: 1 }}>
-                  {s.charges.length} open {s.charges.length === 1 ? "charge" : "charges"}
-                  {s.summary.pastDue ? ` · ${money(s.summary.pastDueAmount)} past due` : ""}
-                </div>
-              </div>
-              <div style={{ fontSize: 15, fontWeight: 800, fontVariantNumeric: "tabular-nums", color: s.summary.totalDue > 0.005 ? AMBER : GREEN }}>{money2(s.summary.totalDue)}</div>
-              {!active && (
-                <button type="button" onClick={() => onPick(s.period)} className="btn" style={{ fontSize: 12.5, padding: "7px 12px", fontWeight: 700 }}>View</button>
-              )}
-              <a href={`/api/portal/${token}/monthly/pdf?period=${s.period}`} aria-label={`Download the ${s.periodLabel} statement`}
-                style={{ display: "inline-flex", alignItems: "center", gap: 6, background: BRAND, color: "#fff", textDecoration: "none", borderRadius: 8, padding: "7px 13px", fontSize: 12.5, fontWeight: 700 }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
-                PDF
-              </a>
-            </div>
-          );
-        })}
-      </div>
-    </section>
-  );
-}
-
-/** The whole "Account Balance" view for one selected period. */
-export function MonthlyStatementView({ token, statements, payment, reconYears, onOpenRecon }: {
-  token: string;
-  statements: MonthlyStatement[];
+/** One monthly statement, rendered in full. The chronological index above it
+ *  owns which one is showing, so this is a pure presentation of one document. */
+export function MonthlyStatementDetail({ st, payment, reconYears, onOpenRecon }: {
+  st: MonthlyStatement;
   payment: PaymentInstructions;
   /** Recon years this unit has an annual statement for — a year-end adjustment
    *  line links straight to it rather than leaving the tenant guessing. */
   reconYears: number[];
   onOpenRecon: (year: number) => void;
 }) {
-  const [period, setPeriod] = useState(statements[0]?.period ?? "");
-  const st = statements.find((s) => s.period === period) ?? statements[0];
-  if (!st) return null;
   return (
     <>
       {st.underReview && (
@@ -303,14 +276,12 @@ export function MonthlyStatementView({ token, statements, payment, reconYears, o
           <span>We&rsquo;re reviewing this statement — please contact us before remitting.</span>
         </div>
       )}
-      <BalanceCallout st={st} token={token} />
       <AgingStrip st={st} />
       <CategoryTiles st={st} />
       {st.charges.length > 0 && (
         <ChargeTable st={st} hasRecon={(y) => reconYears.includes(y)} onOpenRecon={onOpenRecon} />
       )}
       <HowToPay payment={payment} unitRef={st.unitRef} />
-      <History items={statements} token={token} activePeriod={st.period} onPick={setPeriod} />
     </>
   );
 }

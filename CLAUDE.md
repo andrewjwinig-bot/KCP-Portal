@@ -122,6 +122,19 @@ how-to-pay instructions. Sources of truth:
 - **The PDF** (`lib/statements/monthlyStatementPdf.ts`) deliberately mirrors
   `lib/cam/retail/statementPdf.ts` — same letterhead, tinted section bars, zebra
   rows, boxed balance. If one drifts, reconcile them rather than adding a style.
+- **The portal's Statements tab is ONE chronological index, not a toggle.**
+  Everything on the account in one timeline, newest first, grouped by year: each
+  month's statement of account, with that year's CAM/RET reconciliation sitting
+  alongside its December as the document that closes the year. Selecting a row
+  opens it below the index. A segmented control between "account balance" and
+  "reconciliation" split one timeline into two views of the same account — don't
+  reintroduce it.
+- **Say "open charges only, as of <date>" wherever a balance appears.** The
+  report lists unpaid items, so a tenant who has paid sees their rent drop off;
+  without the caveat they read that as "you forgot to bill me". The as-of date
+  is the import THIS tenant's figures came from (`statement.importedAt`), not the
+  period — a later upload covering other buildings doesn't make their numbers
+  newer.
 - Admin page `/tenant-statements`; portal view `app/portal/[token]/MonthlyStatements.tsx`;
   tenant APIs `/api/portal/[token]/monthly[/pdf]` (published periods only, scoped
   to the token's one unit).
