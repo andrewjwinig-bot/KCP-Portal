@@ -1,5 +1,5 @@
 import * as XLSX from "xlsx";
-import type { ChargeCategory, StatementCharge, TenantStatement } from "./types";
+import type { ChargeCategory, ChargeSection, StatementCharge, TenantStatement } from "./types";
 
 /**
  * Skyline "Statement" report parser.
@@ -15,6 +15,13 @@ import type { ChargeCategory, StatementCharge, TenantStatement } from "./types";
  *   Column S  (index 18): AMOUNT DUE
  *   Column Y  (index 24): BALANCE (only populated on the balance rows)
  *
+ * The statement has THREE parts, and the amount due is the sum of two of them:
+ *   lines … PREVIOUS MONTH ENDING BALANCE   ← what was already outstanding
+ *   CURRENT CHARGES … lines … TOTAL CURRENT ← what's newly billed this month
+ *   Total Amount Due = PREVIOUS MONTH ENDING BALANCE + TOTAL CURRENT
+ * Reading the first subtotal as the amount due understates every tenant who has
+ * current charges, so both sections are parsed and reconciled separately.
+ *
  * Two paging quirks the parser has to survive, both observed in the real
  * export:
  *   1. A long tenant runs onto extra pages — the unit-ref header repeats and
@@ -22,9 +29,9 @@ import type { ChargeCategory, StatementCharge, TenantStatement } from "./types";
  *   2. Crystal then RE-RENDERS the whole detail group again after the balance
  *      row (the same charges a second and third time).
  * The rule that handles both: a tenant's statement is everything from its first
- * header up to its "PREVIOUS MONTH ENDING BALANCE" row; once that row is seen
- * the tenant is closed and any later repeat of it is ignored. The reported
- * balance then ties to the summed charges to the cent, which `tiesOut` asserts.
+ * header up to its "TOTAL CURRENT" row; once that row is seen the tenant is
+ * closed and any later repeat of it is ignored. Each section then ties to its
+ * own printed subtotal, which `tiesOut` asserts.
  */
 
 const COL_DATE = 0;
@@ -35,7 +42,9 @@ const COL_UNITREF = 22;
 
 /** Control labels in the description column that aren't charges. */
 const BALANCE_LABEL = "PREVIOUS MONTH ENDING BALANCE";
-const CONTROL = new Set(["DESCRIPTION", "CURRENT CHARGES", "TOTAL CURRENT", "DATE", "AMOUNT DUE", "BALANCE"]);
+const CURRENT_LABEL = "CURRENT CHARGES";
+const TOTAL_CURRENT_LABEL = "TOTAL CURRENT";
+const CONTROL = new Set(["DESCRIPTION", "DATE", "AMOUNT DUE", "BALANCE"]);
 
 /** A unit ref cell: "1100-34-CU", "7010-12311-CU". Skyline suffixes the charge
  *  type; the rest of the app keys on the ref WITHOUT it (see the rent-roll
@@ -129,6 +138,11 @@ export type ParsedStatements = {
   period: string | null;
   /** Tenants whose charges don't sum to Skyline's reported balance. */
   mismatched: string[];
+  /** The export printed CURRENT CHARGES sections but carried no content in any
+   *  of them — the file is missing everything billed this month. */
+  lossyCurrentSection: boolean;
+  currentSections: number;
+  currentDetailRows: number;
 };
 
 /** Parse one Skyline Statement export (.xls or .xlsx) into per-tenant records. */
@@ -141,7 +155,14 @@ export function parseSkylineStatements(buf: ArrayBuffer | Buffer): ParsedStateme
   const byUnit = new Map<string, TenantStatement>();
   const closed = new Set<string>();
   const order: string[] = [];
+  const priorBalance = new Map<string, number>();
+  const currentTotal = new Map<string, number>();
+  const sawBalanceRow = new Set<string>();
   let current: string | null = null;
+  // Which half of the statement we're reading. Resets to "prior" per tenant.
+  let section: ChargeSection = "prior";
+  // Export-integrity counters — see `lossyCurrentSection` below.
+  let currentSections = 0, currentDetailRows = 0, nonZeroCurrentTotals = 0;
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i] as unknown[];
@@ -152,6 +173,8 @@ export function parseSkylineStatements(buf: ArrayBuffer | Buffer): ParsedStateme
     if (m) {
       // "2300-1817-CU" → portal ref "2300-1817", suite "1817".
       const portalRef = ref.replace(/-CU$/, "");
+      // A continuation page for the SAME tenant must not rewind the section.
+      if (portalRef !== current) section = "prior";
       current = portalRef;
       if (!byUnit.has(current)) {
         const billTo = rawCell(rows[i + 1] as unknown[], COL_UNITREF)
@@ -176,17 +199,34 @@ export function parseSkylineStatements(buf: ArrayBuffer | Buffer): ParsedStateme
     if (!current) continue;
     const desc = cell(row, COL_DESC);
     if (!desc) continue;
+    const upper = desc.toUpperCase();
 
-    // ── Balance row closes the tenant: everything after is a Crystal re-render ──
-    if (desc.toUpperCase() === BALANCE_LABEL) {
-      const rec = byUnit.get(current);
-      if (rec && !closed.has(current)) {
-        rec.reportedBalance = toAmount((row as unknown[])[COL_BALANCE]) ?? 0;
+    // ── PREVIOUS MONTH ENDING BALANCE: closes the prior section, not the tenant ──
+    if (upper === BALANCE_LABEL) {
+      if (!closed.has(current)) {
+        priorBalance.set(current, toAmount((row as unknown[])[COL_BALANCE]) ?? 0);
+        sawBalanceRow.add(current);
+        section = "current";
+      }
+      continue;
+    }
+    // ── CURRENT CHARGES: the newly-billed section opens here ──
+    if (upper === CURRENT_LABEL) {
+      currentSections += 1;
+      if (!closed.has(current)) section = "current";
+      continue;
+    }
+    // ── TOTAL CURRENT closes the tenant; anything after is a Crystal re-render ──
+    if (upper.startsWith(TOTAL_CURRENT_LABEL)) {
+      if (!closed.has(current)) {
+        const t = toAmount((row as unknown[])[COL_BALANCE]) ?? 0;
+        currentTotal.set(current, t);
+        if (t !== 0) nonZeroCurrentTotals += 1;
         closed.add(current);
       }
       continue;
     }
-    if (CONTROL.has(desc.toUpperCase()) || desc.toUpperCase().startsWith("TOTAL CURRENT")) continue;
+    if (CONTROL.has(upper)) continue;
     if (closed.has(current)) continue;
 
     const amount = toAmount((row as unknown[])[COL_AMOUNT]);
@@ -200,7 +240,9 @@ export function parseSkylineStatements(buf: ArrayBuffer | Buffer): ParsedStateme
       description: desc,
       amount: cents,
       category: classifyCharge(desc, cents),
+      section,
     };
+    if (section === "current") currentDetailRows += 1;
     const ry = reconYearOf(desc);
     if (ry) charge.reconYear = ry;
     rec.charges.push(charge);
@@ -210,17 +252,53 @@ export function parseSkylineStatements(buf: ArrayBuffer | Buffer): ParsedStateme
   const mismatched: string[] = [];
   for (const key of order) {
     const rec = byUnit.get(key)!;
-    // A tenant with nothing open gets no balance row at all — that's a $0
-    // account, not a mismatch.
-    if (closed.has(key)) rec.charges = dropRepeatedGroups(rec.charges, rec.reportedBalance);
-    rec.chargeTotal = sumCents(rec.charges);
-    if (!closed.has(key)) rec.reportedBalance = rec.chargeTotal;
-    rec.tiesOut = Math.abs(rec.chargeTotal - rec.reportedBalance) < 0.011;
+    const prior = rec.charges.filter((c) => c.section !== "current");
+    const cur = rec.charges.filter((c) => c.section === "current");
+
+    // Each section reconciles to its OWN printed subtotal, so the repeated-group
+    // fix is applied per section rather than against a grand total.
+    const priorPrinted = priorBalance.get(key);
+    const currentPrinted = currentTotal.get(key);
+    const fixedPrior = priorPrinted === undefined ? prior : dropRepeatedGroups(prior, priorPrinted);
+    const fixedCurrent = currentPrinted === undefined ? cur : dropRepeatedGroups(cur, currentPrinted);
+    rec.charges = [...fixedPrior, ...fixedCurrent];
+
+    const priorSum = sumCents(fixedPrior);
+    const currentSum = sumCents(fixedCurrent);
+    rec.chargeTotal = Math.round((priorSum + currentSum) * 100) / 100;
+
+    // A tenant with nothing open gets no subtotal rows at all — that's a $0
+    // account, not a mismatch, so fall back to what we parsed.
+    rec.priorBalance = sawBalanceRow.has(key) ? priorPrinted ?? 0 : priorSum;
+    rec.currentTotal = currentPrinted ?? currentSum;
+    // TOTAL AMOUNT DUE — both halves. Reading either subtotal alone understates
+    // the tenant, which is the whole reason the sections are parsed separately.
+    rec.reportedBalance = Math.round((rec.priorBalance + rec.currentTotal) * 100) / 100;
+
+    rec.tiesOut =
+      Math.abs(priorSum - rec.priorBalance) < 0.011 &&
+      Math.abs(currentSum - rec.currentTotal) < 0.011 &&
+      Math.abs(rec.chargeTotal - rec.reportedBalance) < 0.011;
     if (!rec.tiesOut) mismatched.push(rec.unitRef);
     statements.push(rec);
   }
 
-  return { statements, period: periodOf(statements), mismatched };
+  return {
+    statements,
+    period: periodOf(statements),
+    mismatched,
+    // Crystal's Excel export can emit the CURRENT CHARGES headings while
+    // dropping every detail row and every TOTAL CURRENT under them. The prior
+    // section still reconciles, so nothing looks wrong — the tenants simply
+    // come through missing everything billed this month. Observed on a real
+    // export where all 68 sections were present and empty while the laser
+    // statements showed current charges. If the report prints the section for
+    // every tenant and not one of them has a single current charge or a
+    // non-zero total, treat the file as lossy rather than trusting it.
+    lossyCurrentSection: currentSections > 0 && currentDetailRows === 0 && nonZeroCurrentTotals === 0,
+    currentSections,
+    currentDetailRows,
+  };
 }
 
 /** The statement month — the newest charge date across the export. */
