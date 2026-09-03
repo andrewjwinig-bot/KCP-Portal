@@ -15,7 +15,11 @@ async function currentUser(): Promise<UserId | null> {
   const secret = process.env.SITE_AUTH_SECRET;
   if (!secret) return null;
   const id = await verifySiteToken((await cookies()).get(SITE_COOKIE)?.value, secret);
-  return id && (ALL_USERS as readonly string[]).includes(id) && isPathAllowed(id as UserId, "/cam-recon") ? (id as UserId) : null;
+  if (!id || !(ALL_USERS as readonly string[]).includes(id)) return null;
+  // Links are minted from two pages now — the CAM recon and Monthly Statements.
+  // Either grant is enough; the controller has the latter but not the former.
+  const u = id as UserId;
+  return isPathAllowed(u, "/cam-recon") || isPathAllowed(u, "/tenant-statements") ? u : null;
 }
 
 function originOf(req: NextRequest): string {

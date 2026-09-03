@@ -19,7 +19,7 @@ async function currentUser(): Promise<UserId | null> {
   const secret = process.env.SITE_AUTH_SECRET;
   if (!secret) return null;
   const id = await verifySiteToken((await cookies()).get(SITE_COOKIE)?.value, secret);
-  return id && (ALL_USERS as readonly string[]).includes(id) && isPathAllowed(id as UserId, "/cam-recon") ? (id as UserId) : null;
+  return id && (ALL_USERS as readonly string[]).includes(id) && (isPathAllowed(id as UserId, "/cam-recon") || isPathAllowed(id as UserId, "/tenant-statements")) ? (id as UserId) : null;
 }
 
 function originOf(req: NextRequest): string {
