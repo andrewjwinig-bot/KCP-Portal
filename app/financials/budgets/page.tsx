@@ -767,9 +767,18 @@ function BudgetTable({
         // Mark in-app drafts so a freshly-created budget is easy to spot in the
         // dropdown vs. the imported base workbooks.
         label: s.kind === "live" ? `${s.label} · ${s.status === "final" ? "Final" : "Draft"}` : s.label,
+        category: s.category,
         properties: s.properties,
       }));
   }, [summaries, workbook.year]);
+
+  // Building switcher is scoped to the CURRENT portfolio (same category) so a
+  // shopping-center budget doesn't list office buildings, etc. The property
+  // dropdown above stays broad for jumping to another portfolio.
+  const switcherGroups = useMemo(
+    () => propertyOptionsByWorkbook.filter((g) => g.category === workbook.category),
+    [propertyOptionsByWorkbook, workbook.category],
+  );
 
   const handleYearChange = useCallback((y: number) => {
     // Prefer same-category continuity (so a user on Office 2026 stays
@@ -893,14 +902,14 @@ function BudgetTable({
         </div>
 
         {/* Building switcher — flip between every building's budget for this year
-            in one click (esp. while editing a draft). */}
-        {propertyOptionsByWorkbook.length > 0 && (
+            in one click (esp. while editing a draft). Scoped to this portfolio. */}
+        {switcherGroups.length > 0 && (
           <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 7 }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", letterSpacing: "0.06em", textTransform: "uppercase" }}>
-              Buildings · {workbook.year}
+              {workbook.category} · {workbook.year}
             </div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
-              {propertyOptionsByWorkbook.map((grp, gi) => (
+              {switcherGroups.map((grp, gi) => (
                 <Fragment key={grp.budgetId}>
                   {gi > 0 && <span style={{ width: 1, height: 20, background: "var(--border)", margin: "0 3px" }} />}
                   {grp.properties.map((p) => {
