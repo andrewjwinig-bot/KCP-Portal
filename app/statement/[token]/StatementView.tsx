@@ -50,6 +50,9 @@ export function useStatement(token: string): { data: Statement | null; error: st
 const Clip = () => (
   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" /></svg>
 );
+const DownloadIcon = ({ size = 15 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
+);
 
 // Compact, uniform backup control. A single file links directly; multiple files
 // collapse to one "N invoices ▾" chip that expands the list on demand — so a
@@ -71,9 +74,9 @@ function BackupCell({ backup, fileUrl, zipUrl, label }: { backup: Backup[]; file
         </button>
         {/* Grab the whole line's invoices in one .zip — no need to expand + click each. */}
         {zipHref && (
-          <a href={zipHref} title={`Download all ${backup.length} invoices as a .zip`}
-            style={{ fontSize: 11.5, fontWeight: 700, color: BRAND, textDecoration: "none", whiteSpace: "nowrap" }}>
-            ↓ Download all
+          <a href={zipHref} title={`Download all ${backup.length} invoices as a .zip`} aria-label={`Download all ${backup.length} invoices`}
+            style={{ display: "inline-flex", color: BRAND, textDecoration: "none" }}>
+            <DownloadIcon />
           </a>
         )}
       </div>
