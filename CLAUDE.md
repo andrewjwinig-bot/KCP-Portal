@@ -135,6 +135,22 @@ how-to-pay instructions. Sources of truth:
   is the import THIS tenant's figures came from (`statement.importedAt`), not the
   period — a later upload covering other buildings doesn't make their numbers
   newer.
+- **The portal does NOT require a year-end reconciliation.** A tenant can have a
+  monthly statement and never appear in a recon (5 of the 10 properties in the
+  sample export have no recon fixture), so the shell's identity comes from
+  `/api/portal/[token]` — unit ref, suite, and a name from the rent roll falling
+  back to their latest statement — and the reconciliation is just one more
+  document when it exists. Don't reintroduce a hard dependency on it. NOTE: the
+  project's tsconfig is non-strict, so a null `data` (the recon) will NOT be
+  caught for you — guard it.
+- **Portal links are managed from Monthly Statements as well as the recon page.**
+  Shared control `app/cam-recon/TenantShareLink.tsx` (mint / copy / email / PIN /
+  revoke) — reuse it, don't build a second share flow. Its API authorizes on
+  EITHER `/cam-recon` or `/tenant-statements` (the controller has the latter
+  only). Roster status comes from the bulk endpoint
+  `/api/tenant-statements/links?period=` so 67 rows don't fire 67 requests; the
+  link's (year, kind) resolve as existing link → newest recon year → the
+  statement's year, so a never-reconciled tenant still gets a working portal.
 - Admin page `/tenant-statements`; portal view `app/portal/[token]/MonthlyStatements.tsx`;
   tenant APIs `/api/portal/[token]/monthly[/pdf]` (published periods only, scoped
   to the token's one unit).

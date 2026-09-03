@@ -30,7 +30,7 @@ type LeaseTerms = {
 };
 type Building = { code: string; name: string; address: string | null; city: string | null; state: string | null; zip: string | null; type: string | null; yearBuilt: number | null; sqft: number | null };
 type PortalContact = { id: string; name: string; title: string; email: string; phone: string; camRecipient: boolean; source: "tenant" | "staff" };
-type PortalData = { ok: true; property: string; year: number; kind: string; building: Building | null; leaseTerms: LeaseTerms | null; floorplan: { name: string; contentType: string } | null; statementYears: number[]; contacts: PortalContact[] };
+type PortalData = { ok: true; property: string; year: number; kind: string; unitRef: string; suite: string; tenantName: string; building: Building | null; leaseTerms: LeaseTerms | null; floorplan: { name: string; contentType: string } | null; statementYears: number[]; contacts: PortalContact[] };
 
 function usePortal(token: string): { portal: PortalData | null; error: string | null } {
   const [portal, setPortal] = useState<PortalData | null>(null);
@@ -115,8 +115,12 @@ function PinGate({ token, onUnlocked }: { token: string; onUnlocked: () => void 
 }
 
 function PortalContent({ token }: { token: string }) {
-  const { data, error } = useStatement(token);
-  const { portal } = usePortal(token);
+  // The year-end reconciliation is OPTIONAL: plenty of tenants have a monthly
+  // statement without ever appearing in a recon, and the portal has to open for
+  // them too. The shell's identity comes from the portal endpoint, and the
+  // reconciliation is just one more document when it exists.
+  const { data } = useStatement(token);
+  const { portal, error } = usePortal(token);
   const [tab, setTab] = useState<TabId>("lease");
   // Mobile: the sidebar folds into a top bar + slide-in drawer under 760px.
   const [isNarrow, setIsNarrow] = useState(false);
@@ -131,8 +135,15 @@ function PortalContent({ token }: { token: string }) {
   }, []);
 
   if (error) return <Centered><div style={{ fontWeight: 700, fontSize: 18, color: BRAND }}>Tenant Portal</div><p className="muted" style={{ marginTop: 8 }}>{error}</p></Centered>;
-  if (!data) return <PortalLoading />;
-  const t = data.tenant;
+  if (!portal) return <PortalLoading />;
+  // Prefer the reconciliation's own tenant record when there is one (it carries
+  // the recon's name/suite), else fall back to the rent roll.
+  const t = data?.tenant ?? {
+    unitRef: portal.unitRef,
+    suite: portal.suite,
+    name: portal.tenantName || portal.leaseTerms?.occupantName || portal.unitRef,
+  };
+  const propertyName = data?.propertyName ?? portal.building?.name ?? portal.property;
 
   const Nav = () => (
     <nav style={{ display: "flex", flexDirection: "column", gap: 2 }}>
@@ -169,7 +180,7 @@ function PortalContent({ token }: { token: string }) {
           </button>
           <div style={{ minWidth: 0 }}>
             <div style={{ fontSize: 15, fontWeight: 800, lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.name}</div>
-            <div style={{ fontSize: 11.5, color: "#bfdbfe", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{data.propertyName} · Suite {t.suite}</div>
+            <div style={{ fontSize: 11.5, color: "#bfdbfe", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{propertyName} · Suite {t.suite}</div>
           </div>
         </header>
       )}
@@ -182,7 +193,7 @@ function PortalContent({ token }: { token: string }) {
       <aside style={asideStyle} className="portal-aside">
         <div>
           <div style={{ fontSize: 19, fontWeight: 800, lineHeight: 1.2, letterSpacing: "-0.01em" }}>{t.name}</div>
-          <div style={{ fontSize: 12.5, color: "#bfdbfe", marginTop: 4 }}>{data.propertyName} · Suite {t.suite}</div>
+          <div style={{ fontSize: 12.5, color: "#bfdbfe", marginTop: 4 }}>{propertyName} · Suite {t.suite}</div>
           {portal?.building && (portal.building.city || portal.building.address) && (
             <div style={{ fontSize: 11.5, color: "#9dc3e6", marginTop: 2 }}>
               {[portal.building.city, portal.building.state].filter(Boolean).join(", ")}
@@ -199,15 +210,15 @@ function PortalContent({ token }: { token: string }) {
 
       <main style={{ flex: 1, minWidth: 0, padding: isNarrow ? "22px clamp(14px, 5vw, 24px) 60px" : "34px clamp(18px, 4vw, 48px) 72px", maxWidth: isNarrow ? "none" : 960, width: "100%" }}>
         {tab === "lease" ? (
-          <LeaseTab terms={portal?.leaseTerms ?? null} building={portal?.building ?? null} loading={!portal} suite={t.suite} company={t.name} />
+          <LeaseTab terms={portal.leaseTerms} building={portal.building} loading={false} suite={t.suite} company={t.name} />
         ) : tab === "statements" ? (
-          <StatementsTab token={token} data={data} years={portal?.statementYears ?? null} />
+          <StatementsTab token={token} data={data} years={data ? portal.statementYears : []} />
         ) : tab === "contacts" ? (
-          <ContactsTab token={token} initial={portal?.contacts ?? null} />
+          <ContactsTab token={token} initial={portal.contacts} />
         ) : tab === "floorplan" ? (
-          <FloorplanTab token={token} floorplan={portal?.floorplan ?? null} loading={!portal} />
+          <FloorplanTab token={token} floorplan={portal.floorplan} loading={false} />
         ) : tab === "service" ? (
-          <ServiceTab token={token} company={t.name} property={data.property} propertyName={data.propertyName} unitRef={t.unitRef} />
+          <ServiceTab token={token} company={t.name} property={portal.property} propertyName={propertyName} unitRef={t.unitRef} />
         ) : tab === "reservations" ? (
           <ReservationTab token={token} company={t.name} />
         ) : (
@@ -385,11 +396,15 @@ type DocRow =
 
 const docKey = (d: DocRow) => (d.kind === "monthly" ? `m-${d.st.period}` : `a-${d.year}`);
 
-function StatementsTab({ token, data, years }: { token: string; data: Statement; years: number[] | null }) {
-  const prior = (years ?? []).filter((y) => y !== data.year).sort((a, b) => b - a);
+function StatementsTab({ token, data, years }: { token: string; data: Statement | null; years: number[] | null }) {
+  // `data` is the year-end reconciliation and is genuinely optional — a tenant
+  // can have monthly statements and never appear in a recon. Note the project's
+  // tsconfig is non-strict, so null here won't be caught for you: guard it.
+  const reconYear = data?.year ?? null;
+  const prior = (years ?? []).filter((y) => y !== reconYear).sort((a, b) => b - a);
   const { data: monthly, loading: monthlyLoading } = useMonthlyStatements(token);
   const hasMonthly = !!monthly && monthly.statements.length > 0;
-  const reconYears = [data.year, ...prior];
+  const reconYears = reconYear ? [reconYear, ...prior] : prior;
 
   // One timeline. Months sort by period; a year's reconciliation closes that
   // year, so it sorts just above its December — the year-end document you reach
@@ -398,7 +413,7 @@ function StatementsTab({ token, data, years }: { token: string; data: Statement;
     ...(monthly?.statements ?? []).map((st) => ({
       kind: "monthly" as const, year: Number(st.period.slice(0, 4)), order: Number(st.period.slice(5, 7)), st,
     })),
-    ...reconYears.map((year) => ({ kind: "annual" as const, year, order: 12.5, canView: year === data.year })),
+    ...reconYears.map((year) => ({ kind: "annual" as const, year, order: 12.5, canView: year === reconYear })),
   ].sort((a, b) => b.year - a.year || b.order - a.order);
 
   const [selected, setSelected] = useState<string | null>(null);
@@ -440,9 +455,9 @@ function StatementsTab({ token, data, years }: { token: string; data: Statement;
           {active.kind === "monthly" ? (
             <MonthlyStatementDetail st={active.st} payment={monthly!.payment} reconYears={reconYears}
               onOpenRecon={(y) => setSelected(`a-${y}`)} />
-          ) : (
+          ) : data ? (
             <TenantStatementView token={token} data={data} header={false} />
-          )}
+          ) : null}
         </div>
       )}
     </>

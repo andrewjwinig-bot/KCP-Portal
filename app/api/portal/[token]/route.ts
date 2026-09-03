@@ -5,6 +5,7 @@ import { getOrEmptySuiteContacts } from "@/lib/suites/contactsStorage";
 import { findRentRollUnit } from "@/lib/rentroll/current";
 import { statementYearsForUnit } from "@/lib/cam/statementYears";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
+import { publishedPeriodsForUnit } from "@/lib/statements/store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -41,6 +42,13 @@ export async function GET(req: NextRequest, { params }: { params: { token: strin
       }
     : null;
 
+  // Last-resort identity: the name on their most recent published statement.
+  // A tenant can be off the current rent roll (mid-turnover, a name change) and
+  // still have an open balance — the portal shouldn't fall back to a unit ref.
+  const statementName = unit && !unit.isVacant && unit.occupantName
+    ? ""
+    : (await publishedPeriodsForUnit(payload.u))[0]?.statement.tenantName ?? "";
+
   const fp = info?.floorplan ?? null;
   const floorplan = fp ? { name: fp.name, contentType: fp.contentType } : null;
 
@@ -70,6 +78,12 @@ export async function GET(req: NextRequest, { params }: { params: { token: strin
     property: payload.p,
     year: payload.y,
     kind: payload.k,
+    // Identity the portal shell can render from on its own. A tenant with a
+    // monthly statement but no year-end reconciliation still gets a portal —
+    // the shell must not depend on the recon existing.
+    unitRef: payload.u,
+    suite: payload.u.includes("-") ? payload.u.slice(payload.u.indexOf("-") + 1) : payload.u,
+    tenantName: (unit && !unit.isVacant ? unit.occupantName : "") || statementName,
     building,
     leaseTerms,
     floorplan,

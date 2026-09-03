@@ -13,7 +13,8 @@ import { useImport } from "@/app/components/import/ImportProvider";
 import { ImportInstructions } from "@/app/components/ImportInstructions";
 import { DownloadMenu } from "@/app/components/DownloadMenu";
 import { HoverCard } from "@/app/components/HoverCard";
-import { StatPill, Pill, TONE_AMBER, TONE_GREEN, TONE_NEUTRAL, TONE_RED } from "@/app/components/Pill";
+import { StatPill, Pill, TONE_BLUE, TONE_GREEN, TONE_NEUTRAL, TONE_RED } from "@/app/components/Pill";
+import { TenantShareLink } from "@/app/cam-recon/TenantShareLink";
 import { AGING_LABEL, AGING_ORDER, CATEGORY_LABEL, CATEGORY_ORDER, type AgingBucket, type ChargeCategory, type StatementCharge } from "@/lib/statements/types";
 
 const money0 = (n: number) => (n < 0 ? "-$" : "$") + Math.abs(Math.round(n)).toLocaleString("en-US");
@@ -59,6 +60,13 @@ type PaymentInstructions = {
   payableTo: string; remitTo: string[]; achNote: string;
   contactName: string; contactEmail: string; contactPhone: string; note: string;
 };
+type LinkInfo = {
+  unitRef: string; year: number; kind: "retail" | "office";
+  link: { id: string; url: string | null; createdAt: string; createdBy: string | null;
+    viewCount: number; lastViewedAt: string | null; hasPin: boolean; expiresAt: string | null } | null;
+};
+type LinksPayload = { ok: true; configured: boolean; shared: number; viewed: number; tenants: LinkInfo[] };
+
 type Detail = {
   ok: true; period: string; published: boolean; publishedAt: string | null; updatedAt: string;
   sources: PeriodRow["sources"];
@@ -78,6 +86,7 @@ export default function TenantStatementsPage() {
   const [onlyOwing, setOnlyOwing] = useState(false);
   const [sort, setSort] = useState<"statement" | "balance">("statement");
   const [onlyReview, setOnlyReview] = useState(false);
+  const [onlyUnshared, setOnlyUnshared] = useState(false);
   // Auto-publish is on by default: a month where every tenant reconciles needs
   // no ceremony. Remembered per browser so staff who prefer to stage keep it off.
   const [autoPublish, setAutoPublish] = useState(true);
@@ -89,6 +98,7 @@ export default function TenantStatementsPage() {
     try { localStorage.setItem("kcp.stmt.autoPublish", v ? "1" : "0"); } catch { /* private mode */ }
   };
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [links, setLinks] = useState<LinksPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
@@ -106,6 +116,18 @@ export default function TenantStatementsPage() {
     }
   }, []);
   useEffect(() => { void loadPeriods(); }, [loadPeriods]);
+
+  // Bumping this re-pulls link status after a share popover mints or revokes.
+  const [linksNonce, setLinksNonce] = useState(0);
+  useEffect(() => {
+    if (!period) { setLinks(null); return; }
+    let alive = true;
+    fetch(`/api/tenant-statements/links?period=${period}`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => { if (alive) setLinks(j?.ok ? j : null); })
+      .catch(() => { if (alive) setLinks(null); });
+    return () => { alive = false; };
+  }, [period, linksNonce]);
 
   useEffect(() => {
     if (!period) { setDetail(null); return; }
@@ -222,17 +244,23 @@ export default function TenantStatementsPage() {
     } finally { setBusy(false); }
   }
 
+  const linkByUnit = useMemo(
+    () => new Map((links?.tenants ?? []).map((l) => [l.unitRef, l])),
+    [links],
+  );
+
   const tenants = useMemo(() => {
     let list = detail?.tenants ?? [];
     if (property !== "All") list = list.filter((t) => t.propertyCode === property);
     if (onlyOwing) list = list.filter((t) => t.summary.totalDue > 0.005);
     if (onlyReview) list = list.filter((t) => !t.tiesOut);
+    if (onlyUnshared) list = list.filter((t) => !linkByUnit.get(t.unitRef)?.link);
     const q = search.trim().toLowerCase();
     if (q) list = list.filter((t) => t.tenantName.toLowerCase().includes(q) || t.unitRef.toLowerCase().includes(q));
     // "Statement order" is the sequence Skyline printed, so the roster can be
     // read down alongside the paper laser statements; balance is the chase list.
     return sort === "balance" ? [...list].sort((a, b) => b.summary.totalDue - a.summary.totalDue) : list;
-  }, [detail, property, onlyOwing, onlyReview, search, sort]);
+  }, [detail, property, onlyOwing, onlyReview, onlyUnshared, linkByUnit, search, sort]);
 
   const filteredTotals = useMemo(() => {
     const aging = new Map<AgingBucket, number>();
@@ -278,6 +306,7 @@ export default function TenantStatementsPage() {
   // Bands only make sense while rows are in statement (property) order — a
   // largest-balance chase list is deliberately flat.
   const grouped = sort === "statement";
+
 
   return (
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
@@ -363,6 +392,10 @@ export default function TenantStatementsPage() {
                 <StatPill label="Tenants owing" value={row.tenantsOwing} sub={`of ${row.tenants}`} />
                 <StatPill label="To review" value={row.untied} accent={row.untied > 0 ? "#b91c1c" : undefined}
                   sub={row.untied ? "don't tie to Skyline" : "all tie out"} />
+                {links && (
+                  <StatPill label="Portal links shared" value={links.shared} sub={`${links.viewed} opened · of ${row.tenants}`}
+                    accent={links.shared === 0 ? "#b45309" : undefined} />
+                )}
               </div>
 
               {row.untied > 0 && (
@@ -432,6 +465,10 @@ export default function TenantStatementsPage() {
                   <input type="checkbox" checked={onlyOwing} onChange={(e) => setOnlyOwing(e.target.checked)} />
                   Only tenants with a balance
                 </label>
+                <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, cursor: "pointer" }}>
+                  <input type="checkbox" checked={onlyUnshared} onChange={(e) => setOnlyUnshared(e.target.checked)} />
+                  Not shared yet
+                </label>
                 <select value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} aria-label="Sort tenants"
                   style={{ fontSize: 13, padding: "6px 10px" }}>
                   <option value="statement">Statement order</option>
@@ -460,6 +497,7 @@ export default function TenantStatementsPage() {
                       <th style={th}>Past due</th>
                       <th style={th}>Total due</th>
                       <th style={th}>Statement</th>
+                      <th style={{ ...th, textAlign: "left" }}>Portal link</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -484,16 +522,17 @@ export default function TenantStatementsPage() {
                               <td style={{ ...td, fontWeight: 700 }}>{money0(g.prior)}</td>
                               <td style={{ ...td, fontWeight: 700, color: g.pastDue > 0.005 ? "#b45309" : "var(--muted)" }}>{g.pastDue > 0.005 ? money0(g.pastDue) : "—"}</td>
                               <td style={{ ...td, fontWeight: 800 }}>{money0(g.total)}</td>
-                              <td />
+                              <td colSpan={2} />
                             </tr>
                           )}
                           <TenantRows t={t} period={detail.period}
+                            linkInfo={linkByUnit.get(t.unitRef) ?? null} onLinkChange={() => setLinksNonce((n) => n + 1)}
                             open={expanded === t.unitRef} onToggle={() => setExpanded((x) => (x === t.unitRef ? null : t.unitRef))} />
                         </Fragment>
                       );
                     })}
                     {tenants.length === 0 && (
-                      <tr><td colSpan={7} style={{ ...tdL, padding: "22px 12px", color: "var(--muted)" }}>No tenants match those filters.</td></tr>
+                      <tr><td colSpan={8} style={{ ...tdL, padding: "22px 12px", color: "var(--muted)" }}>No tenants match those filters.</td></tr>
                     )}
                   </tbody>
                   {tenants.length > 0 && (
@@ -504,7 +543,7 @@ export default function TenantStatementsPage() {
                           {grouped && propertySubtotal.size > 1 ? ` · ${propertySubtotal.size} properties` : ""}
                         </td>
                         <td style={td}>{money2(filteredTotals.open)}</td>
-                        <td />
+                        <td colSpan={2} />
                       </tr>
                     </tfoot>
                   )}
@@ -585,8 +624,41 @@ function sortCharges(charges: StatementCharge[], sort: ChargeSort): StatementCha
   return [...dated].sort(cmp).concat(undated);
 }
 
+
+/** Portal-link status for one tenant, plus the share control itself.
+ *
+ * Status is read from the bulk endpoint so 67 rows don't fire 67 requests; the
+ * popover does its own per-tenant fetch when opened, which is where mint /
+ * copy / email / PIN / revoke live. `onChange` re-pulls the bulk status after
+ * an action so the row reflects it without a page refresh. */
+function PortalLinkCell({ info }: { info: LinkInfo | null }) {
+  const link = info?.link ?? null;
+  const viewed = link?.viewCount ?? 0;
+  return (
+    <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+      {link ? (
+        <HoverCard title="Portal link" width={262}
+          rows={[
+            { label: "Shared", value: new Date(link.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) },
+            ...(link.createdBy ? [{ label: "By", value: link.createdBy }] : []),
+            { label: "Access PIN", value: link.hasPin ? "Required" : "None" },
+            { label: "Opened", value: viewed ? `${viewed} time${viewed === 1 ? "" : "s"}` : "Not yet" },
+          ]}
+          footer={{ label: "Last opened", value: link.lastViewedAt ? new Date(link.lastViewedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "—" }}>
+          <Pill tone={viewed ? TONE_GREEN : TONE_BLUE}>{viewed ? `OPENED ${viewed}×` : "SHARED"}</Pill>
+        </HoverCard>
+      ) : (
+        <Pill tone={TONE_NEUTRAL}>NOT SHARED</Pill>
+      )}
+    </div>
+  );
+}
+
 /** One tenant row, expanding to their line-by-line charges. */
-function TenantRows({ t, period, open, onToggle }: { t: TenantRow; period: string; open: boolean; onToggle: () => void }) {
+function TenantRows({ t, period, open, onToggle, linkInfo, onLinkChange }: {
+  t: TenantRow; period: string; open: boolean; onToggle: () => void;
+  linkInfo: LinkInfo | null; onLinkChange: () => void;
+}) {
   const s = t.summary;
   // Defaults to the printed statement order; a third click on the active column
   // returns to it, so staff can always get back to the paper statement's order.
@@ -662,10 +734,33 @@ function TenantRows({ t, period, open, onToggle }: { t: TenantRow; period: strin
           <a href={`/api/tenant-statements/${period}/pdf?unitRef=${encodeURIComponent(t.unitRef)}`} onClick={(e) => e.stopPropagation()}
             className="btn" style={{ fontSize: 12, padding: "4px 10px", textDecoration: "none" }}>PDF</a>
         </td>
+        {/* Minting, copying, emailing and revoking a tenant's portal link — the
+            same control as the recon page, so there is one share flow, not two. */}
+        <td style={{ ...tdL, whiteSpace: "nowrap" }} onClick={(e) => e.stopPropagation()}>
+          <PortalLinkCell info={linkInfo} />
+        </td>
       </tr>
       {open && (
         <tr>
-          <td colSpan={7} style={{ padding: "0 10px 14px", background: "rgba(11,74,125,0.03)" }}>
+          <td colSpan={8} style={{ padding: "0 10px 14px", background: "rgba(11,74,125,0.03)" }}>
+            {linkInfo && (
+              <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 10px 6px", flexWrap: "wrap" }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={SECTION_LABEL}>Tenant portal</div>
+                  <div className="muted" style={{ fontSize: 12.5, marginTop: 3 }}>
+                    {linkInfo.link
+                      ? <>Shared {new Date(linkInfo.link.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                          {linkInfo.link.createdBy ? ` by ${linkInfo.link.createdBy}` : ""} ·{" "}
+                          {linkInfo.link.viewCount ? `opened ${linkInfo.link.viewCount}×` : "not opened yet"}
+                          {linkInfo.link.hasPin ? " · PIN required" : ""}</>
+                      : <>No link yet — {t.tenantName} can&rsquo;t see their statement until you share one.</>}
+                  </div>
+                </div>
+                <div style={{ marginLeft: "auto" }} onClick={onLinkChange}>
+                  <TenantShareLink property={t.propertyCode} unitRef={t.unitRef} year={linkInfo.year} kind={linkInfo.kind} tenantName={t.tenantName} />
+                </div>
+              </div>
+            )}
             <div className="muted" style={{ fontSize: 11.5, padding: "8px 10px 0" }}>
               {sort
                 ? <>Sorted by {sort.key === "charge" ? "description" : sort.key} — <button type="button" onClick={(e) => { e.stopPropagation(); setSort(null); }}
