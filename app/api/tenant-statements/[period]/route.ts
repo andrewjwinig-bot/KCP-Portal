@@ -3,6 +3,7 @@ import { deleteRun, getRun, setPublished } from "@/lib/statements/store";
 import { statementCharges, summarize } from "@/lib/statements/summary";
 import { instructionsFor } from "@/lib/statements/payment";
 import { remittancesForPeriod } from "@/lib/statements/remittanceStore";
+import { allocationRequestsForPeriod } from "@/lib/statements/allocationRequestStore";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 import { logAudit, auditIp } from "@/lib/audit";
 
@@ -23,6 +24,11 @@ export async function GET(_req: NextRequest, { params }: { params: { period: str
   const declaredByUnit = new Map<string, (typeof remittances)[number]>();
   for (const r of remittances) if (!declaredByUnit.has(r.unitRef)) declaredByUnit.set(r.unitRef, r);
 
+  // Payments we hold and can't apply — open ones per unit, newest first.
+  const requests = await allocationRequestsForPeriod(run.period);
+  const openByUnit = new Map<string, (typeof requests)[number]>();
+  for (const r of requests) if (!r.answeredAt && !r.closedAt && !openByUnit.has(r.unitRef)) openByUnit.set(r.unitRef, r);
+
   const codes = [...new Set(run.statements.map((s) => s.propertyCode))];
   // Provenance is only meaningful once a month has had more than one upload.
   const latestImport = run.sources.length > 1 ? run.sources[run.sources.length - 1].importedAt : null;
@@ -36,6 +42,8 @@ export async function GET(_req: NextRequest, { params }: { params: { period: str
     updatedAt: run.updatedAt,
     sources: run.sources,
     declaredCount: declaredByUnit.size,
+    pendingPaymentCount: openByUnit.size,
+    pendingPaymentAmount: Math.round([...openByUnit.values()].reduce((a, r) => a + r.amount, 0) * 100) / 100,
     declaredAmount: Math.round([...declaredByUnit.values()].reduce((a, r) => a + r.amount, 0) * 100) / 100,
     properties: codes.sort().map((code) => ({ code, name: propName(code) })),
     payment,
@@ -50,6 +58,7 @@ export async function GET(_req: NextRequest, { params }: { params: { period: str
       // you re-import mid-month and a tenant quietly falls out of the report.
       carriedOver: !!latestImport && !!st.importedAt && st.importedAt !== latestImport,
       declared: declaredByUnit.get(st.unitRef) ?? null,
+      pendingPayment: openByUnit.get(st.unitRef) ?? null,
     })),
   });
 }

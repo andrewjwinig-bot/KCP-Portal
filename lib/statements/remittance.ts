@@ -50,7 +50,59 @@ export type Remittance = {
    *  disputed or deferred half and it's where the phone call comes from. */
   holding: RemittanceLine[];
   note: string;
+  /** Set when this answers a staff request to allocate a payment we already
+   *  hold — the reverse flow, where a cheque arrived with no instructions. */
+  requestId?: string;
+  /** The amount actually received, when this allocates a known payment.
+   *  `amount` is what the tenant allocated; a gap between the two is real and
+   *  is shown to staff rather than silently reconciled away. */
+  receivedAmount?: number;
 };
+
+/** A cheque we hold and can't apply — staff record it, the tenant allocates it.
+ *
+ *  This is the mirror of a declaration. A declaration is the tenant telling us
+ *  before they pay; a request is us asking after they already did, which is the
+ *  case that actually generates the phone calls. */
+export type AllocationRequest = {
+  id: string;
+  period: string;
+  unitRef: string;
+  propertyCode: string;
+  tenantName: string;
+  /** The payment we're holding. */
+  amount: number;
+  /** Free text — cheque number, "wire ref 8841", whatever identifies it. */
+  paymentRef: string;
+  /** When it arrived (YYYY-MM-DD), as staff recorded it. */
+  receivedOn: string | null;
+  note: string;
+  createdAt: string;
+  createdBy: string | null;
+  /** Who we asked, and when. Empty until the email actually goes. */
+  askedAt: string | null;
+  askedTo: string[];
+  /** Set once the tenant answers. */
+  answeredAt: string | null;
+  remittanceId: string | null;
+  /** Staff can close a request they resolved another way. */
+  closedAt: string | null;
+};
+
+export type AllocationStatus = "waiting" | "answered" | "closed";
+
+export function allocationStatus(r: AllocationRequest): AllocationStatus {
+  if (r.closedAt) return "closed";
+  if (r.answeredAt) return "answered";
+  return "waiting";
+}
+
+/** The part of a recorded payment the tenant hasn't accounted for. Positive
+ *  means money we still can't apply; negative means they allocated more than we
+ *  hold, which is its own conversation. */
+export function unallocated(r: AllocationRequest, answered: Pick<Remittance, "amount"> | null): number {
+  return Math.round((r.amount - (answered?.amount ?? 0)) * 100) / 100;
+}
 
 /** Crockford-style alphabet: no I, L, O or U, so a handwritten reference on a
  *  cheque memo can't be misread as 1, 0 or V. */

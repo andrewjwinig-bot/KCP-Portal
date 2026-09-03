@@ -13,7 +13,7 @@ import { useImport } from "@/app/components/import/ImportProvider";
 import { ImportInstructions } from "@/app/components/ImportInstructions";
 import { DownloadMenu } from "@/app/components/DownloadMenu";
 import { HoverCard } from "@/app/components/HoverCard";
-import { StatPill, Pill, TONE_BLUE, TONE_GREEN, TONE_NEUTRAL, TONE_RED } from "@/app/components/Pill";
+import { StatPill, Pill, TONE_AMBER, TONE_BLUE, TONE_GREEN, TONE_NEUTRAL, TONE_RED } from "@/app/components/Pill";
 import { TenantShareLink } from "@/app/cam-recon/TenantShareLink";
 import { AGING_LABEL, AGING_ORDER, CATEGORY_LABEL, CATEGORY_ORDER, type AgingBucket, type ChargeCategory, type StatementCharge } from "@/lib/statements/types";
 
@@ -54,16 +54,24 @@ type Summary = {
 type Declared = {
   id: string; reference: string; submittedAt: string; method: "check" | "ach" | "other";
   amount: number; statementTotal: number; note: string;
+  /** Set when this answered a payment we already held — the amount received. */
+  receivedAmount?: number;
   paying: { dateISO: string | null; description: string; amount: number }[];
   holding: { dateISO: string | null; description: string; amount: number }[];
 };
 const METHOD_LABEL: Record<Declared["method"], string> = { check: "Check", ach: "ACH or wire", other: "Other" };
+
+type PendingPayment = {
+  id: string; amount: number; paymentRef: string; receivedOn: string | null;
+  note: string; createdAt: string; createdBy: string | null; askedAt: string | null; askedTo: string[];
+};
 
 type TenantRow = {
   unitRef: string; propertyCode: string; suite: string; tenantName: string; address: string[];
   charges: StatementCharge[]; reportedBalance: number; chargeTotal: number; tiesOut: boolean; summary: Summary;
   importedAt?: string; sourceFile?: string; carriedOver?: boolean;
   declared?: Declared | null;
+  pendingPayment?: PendingPayment | null;
 };
 type PaymentInstructions = {
   payableTo: string; remitTo: string[]; achNote: string;
@@ -81,6 +89,8 @@ type Detail = {
   sources: PeriodRow["sources"];
   declaredCount: number;
   declaredAmount: number;
+  pendingPaymentCount: number;
+  pendingPaymentAmount: number;
   properties: { code: string; name: string }[];
   payment: Record<string, PaymentInstructions>;
   tenants: TenantRow[];
@@ -237,6 +247,20 @@ export default function TenantStatementsPage() {
     await loadPeriods();
     setPeriod(""); // fall back to newest
   }
+
+  const reloadDetail = useCallback(() => {
+    if (!period) return;
+    fetch(`/api/tenant-statements/${period}`, { cache: "no-store" })
+      .then((r) => r.json()).then((j) => { if (j.ok) setDetail(j); }).catch(() => {});
+  }, [period]);
+
+  const closeRequest = useCallback(async (id: string) => {
+    await fetch("/api/tenant-statements/allocation-request", {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, action: "close" }),
+    }).catch(() => {});
+    reloadDetail();
+  }, [reloadDetail]);
 
   async function togglePublish() {
     if (!row) return;
@@ -407,6 +431,10 @@ export default function TenantStatementsPage() {
                   <StatPill label="Portal links shared" value={links.shared} sub={`${links.viewed} opened · of ${row.tenants}`}
                     accent={links.shared === 0 ? "#b45309" : undefined} />
                 )}
+                {!!detail?.pendingPaymentCount && (
+                  <StatPill label="Unapplied payments" value={money0(detail.pendingPaymentAmount)}
+                    sub={`${detail.pendingPaymentCount} waiting on the tenant`} accent="#b45309" />
+                )}
                 {!!detail?.declaredCount && (
                   <StatPill label="Payments declared" value={money0(detail.declaredAmount)}
                     sub={`${detail.declaredCount} ${detail.declaredCount === 1 ? "tenant" : "tenants"} told us`} accent="#15803d" />
@@ -541,7 +569,9 @@ export default function TenantStatementsPage() {
                             </tr>
                           )}
                           <TenantRows t={t} period={detail.period}
-                            linkInfo={linkByUnit.get(t.unitRef) ?? null} onLinkChange={() => setLinksNonce((n) => n + 1)}
+                            linkInfo={linkByUnit.get(t.unitRef) ?? null}
+                            onLinkChange={() => { setLinksNonce((n) => n + 1); reloadDetail(); }}
+                            onCloseRequest={closeRequest}
                             open={expanded === t.unitRef} onToggle={() => setExpanded((x) => (x === t.unitRef ? null : t.unitRef))} />
                         </Fragment>
                       );
@@ -669,10 +699,88 @@ function PortalLinkCell({ info }: { info: LinkInfo | null }) {
   );
 }
 
+
+/** Record a payment we've received but can't apply, and ask the tenant where it
+ *  goes. The email carries their portal link; they answer on the same statement
+ *  they'd otherwise pay from, which is the only place the charges are legible. */
+function RecordPayment({ t, period, onDone }: { t: TenantRow; period: string; onDone: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [amount, setAmount] = useState("");
+  const [paymentRef, setPaymentRef] = useState("");
+  const [receivedOn, setReceivedOn] = useState("");
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  async function submit(send: boolean) {
+    const amt = Number(amount.replace(/[$,\s]/g, ""));
+    if (!Number.isFinite(amt) || amt <= 0) { setMsg("Enter the amount you received."); return; }
+    setBusy(true); setMsg(null);
+    try {
+      const res = await fetch("/api/tenant-statements/allocation-request", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ period, unitRef: t.unitRef, amount: amt, paymentRef, receivedOn, note, send }),
+      });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error ?? "Could not record that.");
+      if (j.mailError) { setMsg(j.mailError); onDone(); return; }
+      setOpen(false); onDone();
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "Could not record that.");
+    } finally { setBusy(false); }
+  }
+
+  const field = (label: string, value: string, set: (v: string) => void, placeholder: string, width: number) => (
+    <label style={{ display: "block", width }}>
+      <div style={SECTION_LABEL}>{label}</div>
+      <input value={value} onChange={(e) => set(e.target.value)} placeholder={placeholder}
+        style={{ width: "100%", marginTop: 4, fontSize: 13.5, padding: "6px 9px", fontFamily: "inherit" }} />
+    </label>
+  );
+
+  return (
+    <div style={{ position: "relative", display: "inline-block" }}>
+      <button className="btn" onClick={() => setOpen((o) => !o)} style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}>
+        Record a payment
+      </button>
+      {open && (
+        <div style={{ position: "absolute", right: 0, top: "calc(100% + 6px)", zIndex: 50, width: 430, maxWidth: "90vw",
+          background: "var(--card)", border: "1px solid var(--border)", borderRadius: 12, boxShadow: "0 16px 40px rgba(15,23,42,0.22)", padding: 16 }}>
+          <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "#0b4a7d" }}>Payment we can&rsquo;t apply</div>
+          <p className="muted small" style={{ marginTop: 4, marginBottom: 12 }}>
+            Record what came in from <b>{t.tenantName}</b> and ask them which of their {t.charges.length} open charges it covers.
+            They answer on their statement; you&rsquo;ll see the application here.
+          </p>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            {field("Amount", amount, setAmount, "6,200.00", 130)}
+            {field("Check / ref", paymentRef, setPaymentRef, "Check 10482", 150)}
+            {field("Received", receivedOn, setReceivedOn, "2026-09-12", 120)}
+          </div>
+          <label style={{ display: "block", marginTop: 10 }}>
+            <div style={SECTION_LABEL}>Note to the tenant (optional)</div>
+            <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2}
+              style={{ width: "100%", marginTop: 4, fontSize: 13.5, padding: "7px 9px", fontFamily: "inherit", resize: "vertical" }} />
+          </label>
+          {msg && <div style={{ color: "#b45309", fontSize: 12.5, fontWeight: 600, marginTop: 10 }}>{msg}</div>}
+          <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
+            <button className="btn primary" disabled={busy} onClick={() => submit(true)} style={{ fontSize: 13, padding: "7px 14px", fontWeight: 700 }}>
+              {busy ? "Sending…" : "Record and ask the tenant"}
+            </button>
+            <button className="btn" disabled={busy} onClick={() => submit(false)} style={{ fontSize: 13, padding: "7px 14px" }}>
+              Record only
+            </button>
+            <button className="btn" onClick={() => setOpen(false)} style={{ fontSize: 13, padding: "7px 14px", marginLeft: "auto" }}>Cancel</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** One tenant row, expanding to their line-by-line charges. */
-function TenantRows({ t, period, open, onToggle, linkInfo, onLinkChange }: {
+function TenantRows({ t, period, open, onToggle, linkInfo, onLinkChange, onCloseRequest }: {
   t: TenantRow; period: string; open: boolean; onToggle: () => void;
-  linkInfo: LinkInfo | null; onLinkChange: () => void;
+  linkInfo: LinkInfo | null; onLinkChange: () => void; onCloseRequest: (id: string) => void;
 }) {
   const s = t.summary;
   // Defaults to the printed statement order; a third click on the active column
@@ -714,16 +822,34 @@ function TenantRows({ t, period, open, onToggle, linkInfo, onLinkChange }: {
             )}
             {/* Kept from an earlier upload because the newest export didn't
                 mention them — never dropped, but worth being able to see. */}
-            {t.declared && (
-              <HoverCard title={`Paying ${money2(t.declared.amount)}`} width={286}
+            {t.pendingPayment && (
+              <HoverCard title={`Unapplied ${money2(t.pendingPayment.amount)}`} width={280}
                 rows={[
-                  { label: "Reference", value: t.declared.reference },
+                  ...(t.pendingPayment.paymentRef ? [{ label: "Reference", value: t.pendingPayment.paymentRef }] : []),
+                  ...(t.pendingPayment.receivedOn ? [{ label: "Received", value: t.pendingPayment.receivedOn }] : []),
+                  { label: "Recorded by", value: t.pendingPayment.createdBy ?? "—" },
+                  { label: "Tenant asked", value: t.pendingPayment.askedAt
+                    ? new Date(t.pendingPayment.askedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+                    : "Not yet — no email sent" },
+                ]}
+                footer={{ label: "Status", value: t.pendingPayment.askedAt ? "Waiting on the tenant" : "Recorded, not asked" }}>
+                <Pill tone={TONE_AMBER}>{`UNAPPLIED ${money0(t.pendingPayment.amount)}`}</Pill>
+              </HoverCard>
+            )}
+            {t.declared && (
+              <HoverCard title={t.declared.receivedAmount != null ? `Allocated ${money2(t.declared.amount)}` : `Paying ${money2(t.declared.amount)}`} width={290}
+                rows={[
+                  ...(t.declared.receivedAmount != null
+                    ? [{ label: "Received", value: money2(t.declared.receivedAmount), color: "#b45309" }]
+                    : [{ label: "Reference", value: t.declared.reference }]),
                   { label: "Method", value: METHOD_LABEL[t.declared.method] },
                   { label: "Told us", value: new Date(t.declared.submittedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }) },
                   { label: "Applying to", value: `${t.declared.paying.length} of ${t.declared.paying.length + t.declared.holding.length} charges` },
                 ]}
-                footer={{ label: "Leaving open", value: money2(t.declared.statementTotal - t.declared.amount) }}>
-                <Pill tone={TONE_GREEN}>{`PAYING ${money0(t.declared.amount)}`}</Pill>
+                footer={t.declared.receivedAmount != null
+                  ? { label: "Still unapplied", value: money2(t.declared.receivedAmount - t.declared.amount) }
+                  : { label: "Leaving open", value: money2(t.declared.statementTotal - t.declared.amount) }}>
+                <Pill tone={TONE_GREEN}>{`${t.declared.receivedAmount != null ? "APPLIED" : "PAYING"} ${money0(t.declared.amount)}`}</Pill>
               </HoverCard>
             )}
             {t.carriedOver && (
@@ -783,8 +909,13 @@ function TenantRows({ t, period, open, onToggle, linkInfo, onLinkChange }: {
                       : <>No link yet — {t.tenantName} can&rsquo;t see their statement until you share one.</>}
                   </div>
                 </div>
-                <div style={{ marginLeft: "auto" }} onClick={onLinkChange}>
-                  <TenantShareLink property={t.propertyCode} unitRef={t.unitRef} year={linkInfo.year} kind={linkInfo.kind} tenantName={t.tenantName} />
+                <div style={{ marginLeft: "auto", display: "inline-flex", gap: 8, alignItems: "center" }}>
+                  {!t.pendingPayment && !t.declared && (
+                    <RecordPayment t={t} period={period} onDone={onLinkChange} />
+                  )}
+                  <span onClick={onLinkChange}>
+                    <TenantShareLink property={t.propertyCode} unitRef={t.unitRef} year={linkInfo.year} kind={linkInfo.kind} tenantName={t.tenantName} />
+                  </span>
                 </div>
               </div>
             )}
@@ -794,15 +925,54 @@ function TenantRows({ t, period, open, onToggle, linkInfo, onLinkChange }: {
                     style={{ padding: 0, border: "none", background: "none", font: "inherit", color: "#0b4a7d", fontWeight: 700, cursor: "pointer" }}>back to statement order</button></>
                 : "In the order Skyline's statement prints them. Click a column to sort."}
             </div>
+            {t.pendingPayment && (
+              <HoverCard title={`Unapplied ${money2(t.pendingPayment.amount)}`} width={280}
+                rows={[
+                  ...(t.pendingPayment.paymentRef ? [{ label: "Reference", value: t.pendingPayment.paymentRef }] : []),
+                  ...(t.pendingPayment.receivedOn ? [{ label: "Received", value: t.pendingPayment.receivedOn }] : []),
+                  { label: "Recorded by", value: t.pendingPayment.createdBy ?? "—" },
+                  { label: "Tenant asked", value: t.pendingPayment.askedAt
+                    ? new Date(t.pendingPayment.askedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+                    : "Not yet — no email sent" },
+                ]}
+                footer={{ label: "Status", value: t.pendingPayment.askedAt ? "Waiting on the tenant" : "Recorded, not asked" }}>
+                <Pill tone={TONE_AMBER}>{`UNAPPLIED ${money0(t.pendingPayment.amount)}`}</Pill>
+              </HoverCard>
+            )}
+            {t.pendingPayment ? (
+              <div style={{ margin: "10px 10px 14px", border: "1.5px solid rgba(217,119,6,0.45)", borderRadius: 10, background: "rgba(217,119,6,0.06)", padding: "12px 14px" }}>
+                <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
+                  <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "#b45309" }}>Payment we can&rsquo;t apply</span>
+                  <span style={{ fontSize: 17, fontWeight: 800 }}>{money2(t.pendingPayment.amount)}</span>
+                  <span className="muted" style={{ fontSize: 12.5 }}>
+                    {t.pendingPayment.paymentRef ? `${t.pendingPayment.paymentRef} · ` : ""}
+                    {t.pendingPayment.receivedOn ? `received ${t.pendingPayment.receivedOn} · ` : ""}
+                    {t.pendingPayment.askedAt
+                      ? `asked ${t.pendingPayment.askedTo.join(", ")}`
+                      : "not sent to the tenant yet"}
+                  </span>
+                  <button className="btn" style={{ fontSize: 12, padding: "4px 10px", marginLeft: "auto" }}
+                    onClick={() => onCloseRequest(t.pendingPayment!.id)}>Close it</button>
+                </div>
+              </div>
+            ) : null}
             {t.declared && (
               <div style={{ margin: "10px 10px 14px", border: "1.5px solid rgba(22,163,74,0.4)", borderRadius: 10, background: "rgba(22,163,74,0.05)", padding: "12px 14px" }}>
                 <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
-                  <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "#15803d" }}>Tenant says they&rsquo;re paying</span>
+                  <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "#15803d" }}>
+                    {t.declared.receivedAmount != null ? "Tenant allocated their payment" : "Tenant says they\u2019re paying"}
+                  </span>
                   <span style={{ fontSize: 17, fontWeight: 800 }}>{money2(t.declared.amount)}</span>
                   <span className="muted" style={{ fontSize: 12.5 }}>
                     by {METHOD_LABEL[t.declared.method]} · ref <code style={{ fontSize: 12, fontWeight: 700 }}>{t.declared.reference}</code> ·
                     {" "}{new Date(t.declared.submittedAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
                   </span>
+                  {t.declared.receivedAmount != null && Math.abs(t.declared.receivedAmount - t.declared.amount) >= 0.011 && (
+                    <span style={{ fontSize: 12.5, fontWeight: 800, color: "#b45309", padding: "2px 8px", borderRadius: 999,
+                      background: "rgba(217,119,6,0.12)", border: "1px solid rgba(217,119,6,0.35)" }}>
+                      {money2(t.declared.receivedAmount - t.declared.amount)} of the {money2(t.declared.receivedAmount)} received is still unapplied
+                    </span>
+                  )}
                 </div>
                 <div style={{ display: "grid", gap: 14, gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", marginTop: 10 }}>
                   <div>
