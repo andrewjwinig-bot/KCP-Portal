@@ -151,6 +151,16 @@ how-to-pay instructions. Sources of truth:
   `/api/tenant-statements/links?period=` so 67 rows don't fire 67 requests; the
   link's (year, kind) resolve as existing link → newest recon year → the
   statement's year, so a never-reconciled tenant still gets a working portal.
+- **Payment declarations are a remittance advice, NOT a payment.** Nothing in
+  `lib/statements/remittance.ts` moves money or marks a charge paid; it records
+  which open charges a tenant says their cheque covers, so a partial payment
+  isn't applied by guesswork. The tenant selects charges (everything ticked by
+  default — paying in full is what we want), and on confirming gets a 6-character
+  reference for the cheque memo; AR is emailed the application immediately and it
+  shows on the roster. **The amount is always recomputed server-side from the
+  stored statement** (`resolveSelection`) — a client-supplied total is ignored,
+  because that figure is what a payment gets applied against. The reference
+  alphabet excludes I/L/O/U so a handwritten memo line can't be misread.
 - Admin page `/tenant-statements`; portal view `app/portal/[token]/MonthlyStatements.tsx`;
   tenant APIs `/api/portal/[token]/monthly[/pdf]` (published periods only, scoped
   to the token's one unit).

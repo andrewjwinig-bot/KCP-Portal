@@ -453,7 +453,7 @@ function StatementsTab({ token, data, years }: { token: string; data: Statement 
             {active.kind === "monthly" ? active.st.periodLabel : `${active.year} CAM / RET Reconciliation`}
           </div>
           {active.kind === "monthly" ? (
-            <MonthlyStatementDetail st={active.st} payment={monthly!.payment} reconYears={reconYears}
+            <MonthlyStatementDetail token={token} st={active.st} payment={monthly!.payment} reconYears={reconYears}
               onOpenRecon={(y) => setSelected(`a-${y}`)} />
           ) : data ? (
             <TenantStatementView token={token} data={data} header={false} />
