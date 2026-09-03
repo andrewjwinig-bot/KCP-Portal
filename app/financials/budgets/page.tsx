@@ -3016,27 +3016,43 @@ function CreateBudgetDialog({
         onClick={(e) => e.stopPropagation()}
         style={{
           background: "var(--card)", color: "var(--text)",
-          borderRadius: 12, border: "1px solid var(--border)",
-          maxWidth: 520, width: "100%",
-          padding: 22,
-          boxShadow: "0 12px 40px rgba(15,23,42,0.25)",
+          borderRadius: 14, border: "1px solid var(--border)",
+          maxWidth: 580, width: "100%",
+          padding: 24, maxHeight: "90vh", overflowY: "auto",
+          boxShadow: "0 18px 50px rgba(15,23,42,0.28)",
         }}
       >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800 }}>Create Live Budget</h2>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
+          <div>
+            <h2 style={{ margin: 0, fontSize: 19, fontWeight: 800 }}>New Budget</h2>
+            <p className="muted small" style={{ margin: "3px 0 0" }}>Start a draft from data the portal already has — then review and adjust.</p>
+          </div>
           <button onClick={onClose} className="btn" style={{ fontSize: 13, padding: "4px 10px" }}>✕</button>
         </div>
 
-        <p className="muted small" style={{ marginBottom: 14 }}>
-          Generates a new budget for the selected year by pulling in-place revenue
-          and reimbursements from the current rent roll, debt service from the
-          Debt Tracker, and OpEx lifted at the growth % below from a prior
-          uploaded budget (optional). Editing of cells comes in Phase 2b.
-        </p>
+        {/* What the portal fills in for you vs. what you decide here. */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, margin: "14px 0 16px" }}>
+          <div style={{ borderRadius: 10, border: "1px solid var(--border)", background: "rgba(22,163,74,0.05)", padding: "10px 12px" }}>
+            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.05em", textTransform: "uppercase", color: "#15803d", marginBottom: 5 }}>Filled in automatically</div>
+            <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12.5, lineHeight: 1.6 }}>
+              <li>Rent &amp; recoveries — current rent roll</li>
+              <li>CAM / tax / insurance billed to tenants</li>
+              <li>Debt service — Debt Tracker</li>
+            </ul>
+          </div>
+          <div style={{ borderRadius: 10, border: "1px solid var(--border)", background: "rgba(11,74,125,0.05)", padding: "10px 12px" }}>
+            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.05em", textTransform: "uppercase", color: "#0b4a7d", marginBottom: 5 }}>You decide below</div>
+            <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12.5, lineHeight: 1.6 }}>
+              <li>Which year &amp; property type</li>
+              <li>Where operating expenses start from</li>
+              <li>How much to grow them</li>
+            </ul>
+          </div>
+        </div>
 
-        <div style={{ display: "grid", gap: 12 }}>
+        <div style={{ display: "grid", gap: 14 }}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <Field label="Year">
+            <Field label="Budget Year" hint="The year this budget is for.">
               <input
                 type="number"
                 min={2000}
@@ -3046,7 +3062,7 @@ function CreateBudgetDialog({
                 style={selectStyleLocal}
               />
             </Field>
-            <Field label="Category">
+            <Field label="Property Type" hint="Which portfolio this budget covers.">
               <select value={category} onChange={(e) => setCategory(e.target.value as typeof category)} style={selectStyleLocal}>
                 <option value="Shopping Centers">Shopping Centers</option>
                 <option value="Office">Office</option>
@@ -3054,29 +3070,34 @@ function CreateBudgetDialog({
               </select>
             </Field>
           </div>
-          <Field label="OpEx baseline (prior budget — optional)">
+          <Field
+            label="Start operating expenses from"
+            hint="Operating expenses (utilities, repairs, landscaping, taxes, insurance…) are copied from this existing budget, then grown by the % below. Pick last year's budget as the starting point — or None to leave the expense lines blank and enter them yourself.">
             <select value={priorBudgetId} onChange={(e) => setPriorBudgetId(e.target.value)} style={selectStyleLocal}>
-              <option value="">None (OpEx lines blank, fill in manually)</option>
+              <option value="">None — start expenses blank</option>
               {priorOptions.map((s) => (
                 <option key={s.id} value={s.id}>{s.label} · {s.year}</option>
               ))}
             </select>
           </Field>
-          <Field label="OpEx growth %">
-            <input
-              type="number"
-              min={0}
-              max={100}
-              step="0.5"
-              value={growth}
-              onChange={(e) => { const v = Number(e.target.value); setGrowth(v); if (!splitGrowth) { setRetGrowth(v); setInsGrowth(v); } }}
-              style={selectStyleLocal}
-            />
+          <Field label="Grow those expenses by" hint="Applied to every expense line lifted from the budget above.">
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <input
+                type="number"
+                min={0}
+                max={100}
+                step="0.5"
+                value={growth}
+                onChange={(e) => { const v = Number(e.target.value); setGrowth(v); if (!splitGrowth) { setRetGrowth(v); setInsGrowth(v); } }}
+                style={{ ...selectStyleLocal, width: 90 }}
+              />
+              <span className="muted small" style={{ fontWeight: 600 }}>% over the starting budget</span>
+            </div>
           </Field>
           <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>
             <input type="checkbox" checked={splitGrowth} onChange={(e) => setSplitGrowth(e.target.checked)} />
             Grow taxes &amp; insurance at a different rate
-            <span className="muted small" style={{ fontWeight: 400 }}>(RET and insurance usually move differently from controllable OpEx)</span>
+            <span className="muted small" style={{ fontWeight: 400 }}>(they usually move differently from controllable OpEx)</span>
           </label>
           {splitGrowth && (
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
@@ -3088,7 +3109,7 @@ function CreateBudgetDialog({
               </Field>
             </div>
           )}
-          <Field label="Budget name (optional)">
+          <Field label="Budget name (optional)" hint="Just a label to find it by — defaults to the property type and year.">
             <input type="text" value={name} placeholder="e.g. Shopping Centers 2026 — Draft" onChange={(e) => setName(e.target.value)} style={selectStyleLocal} />
           </Field>
         </div>
@@ -3100,7 +3121,7 @@ function CreateBudgetDialog({
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 18 }}>
           <button onClick={onClose} disabled={busy} className="btn" style={{ fontSize: 13, padding: "8px 14px" }}>Cancel</button>
           <button onClick={submit} disabled={busy} className="btn primary" style={{ fontSize: 13, padding: "8px 18px", fontWeight: 700 }}>
-            {busy ? "Building…" : "Create"}
+            {busy ? "Building…" : "Create draft budget"}
           </button>
         </div>
       </div>
@@ -3119,13 +3140,14 @@ const selectStyleLocal: React.CSSProperties = {
   outline: "none",
 };
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, children, hint }: { label: string; children: React.ReactNode; hint?: string }) {
   return (
     <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
       <span style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", letterSpacing: "0.06em", textTransform: "uppercase" }}>
         {label}
       </span>
       {children}
+      {hint && <span className="muted small" style={{ fontWeight: 400, lineHeight: 1.4 }}>{hint}</span>}
     </label>
   );
 }
