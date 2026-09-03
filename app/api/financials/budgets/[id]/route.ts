@@ -81,6 +81,12 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       wb.reforecastAt = new Date().toISOString();
       await saveBudget(wb);
     }
+    if (body?.status === "draft" || body?.status === "final") {
+      wb.status = body.status;
+      if (body?.user) wb.statusBy = String(body.user);
+      wb.statusAt = new Date().toISOString();
+      await saveBudget(wb);
+    }
     return NextResponse.json({ workbook: wb });
   } catch (e) {
     return NextResponse.json(

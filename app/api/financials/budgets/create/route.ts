@@ -55,6 +55,7 @@ export async function POST(req: Request) {
       );
     }
 
+    wb.status = "draft"; // new in-app budgets start as a draft until finalized
     await saveBudget(wb);
     return NextResponse.json({
       ok: true,
