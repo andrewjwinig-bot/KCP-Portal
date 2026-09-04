@@ -175,6 +175,48 @@ how-to-pay instructions. Sources of truth:
   tenant APIs `/api/portal/[token]/monthly[/pdf]` (published periods only, scoped
   to the token's one unit).
 
+# Investor K-1 delivery — sources of truth
+
+Schedule K-1s carry taxpayer IDs, income allocations and capital accounts. This
+is the most sensitive data in the app; the rules below are safety rules, not
+preferences.
+
+- **The owner roster is `lib/properties/ownership.ts`** (`PROPERTY_OWNERSHIP`).
+  Nothing about who holds an interest is re-keyed for K-1s. `hasK1Distribution`
+  marks the partnerships that actually distribute; 7010 Parkwood was added to
+  that set (21 owners).
+- **Matching a file to an owner only ever SUGGESTS** (`matchK1ToOwner` in
+  `lib/investors/k1.ts`). Evidence in order: vendor code → trust/detailed name →
+  plain name, and a plain name only counts when ONE owner bears it. Anything
+  weaker returns no suggestion with the tied `candidates` listed. **6 of
+  Parkwood's 21 owners share a name with another owner** (Alison Korman Feldman
+  holds both a GST trust interest and a personal one), so a filename with only a
+  name genuinely cannot resolve them — do NOT "improve" the matcher into
+  guessing there.
+- **The family surname is NOT noise.** Putting "Korman" in the matcher's
+  stop-word list collapsed "Lawrence M. Korman" to "lawrence" and collided him
+  with Lawrence Isard. Only property and form boilerplate belongs in `NOISE`.
+- **A person confirms every file, and that is the publish gate**
+  (`publishBlockers`): every document confirmed against a DISTINCT owner, or the
+  year won't publish. Un-confirming a document also un-publishes it.
+- **Access is its own gate — deliberately NOT the `/investors` prefix.** Alison
+  can reach the ownership page and is herself a Parkwood owner, so inheriting
+  that prefix would show her every co-owner's K-1. The page lives at
+  `/investor-k1`, keyed `investor-k1`, granted to Drew and Harry only.
+- **Investor links are domain-separated from tenant links** (`lib/investors/k1Link.ts`,
+  HMAC prefixed `kcp.investor.k1.v1:`). Both fall back to `SITE_AUTH_SECRET`, so
+  without that prefix a tenant token could open a K-1. Pinned by
+  `k1Link.test.ts` — don't collapse the two signers into one.
+- **The PIN is mandatory** (unlike the tenant portal, where it's optional), PDFs
+  live in private blob storage and are streamed through an authorized route that
+  re-checks `published && ownerId === link.ownerId`, and the share email carries
+  a LINK, never the K-1 as an attachment. The portal deliberately shows only the
+  documents — no percentages, no co-owners, no capital accounts.
+- `/investor/[token]` is public (token+PIN gated), so it's excluded in
+  `middleware.ts` and `AppShell`. NOTE the middleware exclusion is written
+  `investor/` with the slash: bare `investor` also prefix-matches `/investors`
+  and would make the whole ownership page public.
+
 # CAM / RET reconciliation — sources of truth (do not duplicate data)
 
 The user has repeatedly flagged data living in the wrong place / pages drifting. These are the canonical sources — read/write here, never re-key the same value somewhere else:

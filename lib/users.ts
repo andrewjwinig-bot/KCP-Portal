@@ -101,6 +101,7 @@ export const USERS: Record<UserId, UserDef> = {
       "financials-statements",
       "cash-analysis-draft",
       "tenant-statements",
+      "investor-k1",
     ]),
     allowedPathPrefixes: [
       "/dashboard",
@@ -112,6 +113,7 @@ export const USERS: Record<UserId, UserDef> = {
       "/units",
       "/allocated-invoicer",
       "/tenant-statements",
+      "/investor-k1",
       "/deposits",
       "/bank-transfers",
       "/bank-rec",
@@ -179,8 +181,8 @@ export const USERS: Record<UserId, UserDef> = {
     // the Filing Tracker (which is the separate "tracker" key). "base-years"
     // surfaces the CAM Reconciliation area (incl. the Lafayette Hill 9510 Wawa
     // quarterly billing) plus the Expense History/Trends + Estimates views.
-    navKeys: new Set([...universalNav, "expenses", "expenses-history", "payroll-invoicer", "investors", "commissions-retail", "deposits", "bank-transfers", "task-tracker", "base-years"]),
-    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/units", "/expenses", "/investors", "/commissions/retail", "/deposits", "/bank-transfers", "/cam-recon", "/tracker", "/"],
+    navKeys: new Set([...universalNav, "expenses", "expenses-history", "payroll-invoicer", "investors", "investor-k1", "commissions-retail", "deposits", "bank-transfers", "task-tracker", "base-years"]),
+    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/units", "/expenses", "/investors", "/investor-k1", "/commissions/retail", "/deposits", "/bank-transfers", "/cam-recon", "/tracker", "/"],
     defaultRentRollCategory: "Retail",
     defaultPropertyType: "Retail",
     dashboardScope: { codes: SC_INDIVIDUAL },

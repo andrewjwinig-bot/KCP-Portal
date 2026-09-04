@@ -22,7 +22,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   // Public pages render without the internal app chrome (no staff sidebar, no
   // auth gate). The tenant statement/portal links carry their OWN tenant-facing
   // sidebar, so they must never inherit the internal one.
-  const isPublic = PUBLIC_PATHS.has(pathname) || pathname.startsWith("/statement/") || pathname.startsWith("/portal/") || pathname.startsWith("/centers/");
+  const isPublic = PUBLIC_PATHS.has(pathname) || pathname.startsWith("/statement/") || pathname.startsWith("/portal/") || pathname.startsWith("/investor/") || pathname.startsWith("/centers/");
 
   // Auto-collapse the sidebar to a hidden drawer on narrow viewports.
   useEffect(() => {
