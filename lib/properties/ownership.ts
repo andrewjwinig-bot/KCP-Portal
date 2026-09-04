@@ -105,6 +105,7 @@ export const PROPERTY_OWNERSHIP: PropertyOwnership[] = [
 
   {
     propertyCode: "7010",
+    hasK1Distribution: true,
     owners: [
       { id: "own-7010-akgst", name: "Alison Korman Feldman",          detailedName: "LIK GST TR FBO Alison Feldman",                    vendorCode: "AKGST", address: "6015 Sheaff Lane",   city: "Ft. Washington", state: "PA", zip: "19034",                              ownerPct: 0.049464 },
       { id: "own-7010-alis1", name: "Alison Korman Feldman",                                                                      vendorCode: "ALIS1", address: "6015 Sheaff Lane",   city: "Fort Washington", state: "PA", zip: "19034",                              ownerPct: 0.016230 },
