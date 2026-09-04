@@ -93,7 +93,11 @@ export default function DailyDigestModal({ userId }: { userId: string }) {
   if (!open) return null;
 
   const openTasks = occ.filter((o) => !checked[monthKey(o.date)]?.[o.id]);
-  const nothing = openTasks.length === 0 && imports.length === 0;
+  // Once a file is imported it drops off, exactly as it does on the
+  // Tasks-This-Week card. The digest is a list of what still needs doing —
+  // a completed row is only there to be scrolled past.
+  const openImports = imports.filter((r) => !reminderSatisfied(r, importEvents[r.id]?.at, new Date()));
+  const nothing = openTasks.length === 0 && openImports.length === 0;
   const todayKey = new Date().toDateString();
 
   return (
@@ -164,35 +168,29 @@ export default function DailyDigestModal({ userId }: { userId: string }) {
             )}
 
             {/* ── Files to import ── */}
-            {imports.length > 0 && (
+            {openImports.length > 0 && (
               <>
                 <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "#b45309", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
                   <span style={{ width: 9, height: 9, borderRadius: 999, background: "#b45309", flexShrink: 0 }} />
-                  Files to Import This Week
+                  Files to Import This Week{openImports.length > 1 ? ` · ${openImports.length} outstanding` : ""}
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 8 }}>
-                  {imports.map((r) => {
-                    const ev = importEvents[r.id];
-                    const done = reminderSatisfied(r, ev?.at, new Date());
-                    return (
-                      <Link key={r.id} href={r.link} onClick={dismiss} style={{
-                        display: "flex", alignItems: "center", gap: 10,
-                        padding: "8px 10px", borderRadius: 8,
-                        border: done ? "1px solid rgba(21,128,61,0.3)" : "1px solid rgba(180,83,9,0.28)",
-                        background: done ? "rgba(22,163,74,0.06)" : "rgba(180,83,9,0.06)",
-                        textDecoration: "none", color: "inherit",
-                      }}>
-                        <span style={{ width: 9, height: 9, borderRadius: 999, background: done ? "#15803d" : "#b45309", flexShrink: 0 }} />
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 13, fontWeight: 600, color: done ? "var(--muted)" : "#7c3d06", textDecoration: done ? "line-through" : undefined }}>{r.label}</div>
-                          <div className="muted small" style={{ marginTop: 1 }}>
-                            {done && ev ? `✓ imported ${new Date(ev.at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}${ev.by ? ` by ${ev.by}` : ""}` : `feeds ${r.feeds}`}
-                          </div>
-                        </div>
-                        <div style={{ flexShrink: 0, fontSize: 12, fontWeight: 700, color: done ? "#15803d" : "#b45309" }}>{done ? "Done" : r.when}</div>
-                      </Link>
-                    );
-                  })}
+                  {openImports.map((r) => (
+                    <Link key={r.id} href={r.link} onClick={dismiss} style={{
+                      display: "flex", alignItems: "center", gap: 10,
+                      padding: "8px 10px", borderRadius: 8,
+                      border: "1px solid rgba(180,83,9,0.28)",
+                      background: "rgba(180,83,9,0.06)",
+                      textDecoration: "none", color: "inherit",
+                    }}>
+                      <span style={{ width: 9, height: 9, borderRadius: 999, background: "#b45309", flexShrink: 0 }} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: "#7c3d06" }}>{r.label}</div>
+                        <div className="muted small" style={{ marginTop: 1 }}>feeds {r.feeds}</div>
+                      </div>
+                      <div style={{ flexShrink: 0, fontSize: 12, fontWeight: 700, color: "#b45309" }}>{r.when}</div>
+                    </Link>
+                  ))}
                 </div>
               </>
             )}
