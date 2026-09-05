@@ -92,6 +92,27 @@ export function buildAllocationTemplateXlsx(employees: AllocExportEmployee[]): B
   const aoa = [row0, row1, ...dataRows, totalsRow];
   const ws = XLSX.utils.aoa_to_sheet(aoa);
 
+  // Make the total row + the per-employee "Total %" column live =SUM() formulas
+  // so the sheet stays accurate if a percentage is edited. Cached values (the JS
+  // reduce results) stay in place; empty cells keep their "" and get no formula.
+  const N = orderedKeys.length;
+  const firstPropCol = FIXED, lastPropCol = FIXED + N - 1, totalPctCol = FIXED + N;
+  const firstDataRow = 2, lastDataRow = 1 + dataRows.length, totalsRowIdx = 2 + dataRows.length;
+  const at = (c: number, r: number) => XLSX.utils.encode_cell({ r, c });
+  if (N > 0) {
+    // Per-employee Total % = SUM across that row's property columns.
+    for (let i = 0; i < dataRows.length; i++) {
+      const r = firstDataRow + i;
+      const cell = ws[at(totalPctCol, r)];
+      if (cell && cell.t === "n") cell.f = `SUM(${at(firstPropCol, r)}:${at(lastPropCol, r)})`;
+    }
+    // Bottom TOTAL row = SUM down each property column.
+    if (dataRows.length > 0) for (let c = firstPropCol; c <= lastPropCol; c++) {
+      const cell = ws[at(c, totalsRowIdx)];
+      if (cell && cell.t === "n") cell.f = `SUM(${at(c, firstDataRow)}:${at(c, lastDataRow)})`;
+    }
+  }
+
   // Merge group header cells across their property columns
   const merges: XLSX.Range[] = [];
   let mc = FIXED;
