@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { matchK1ToOwner, publishBlockers, signalTokens, type K1Document } from "./k1";
 import { PROPERTY_OWNERSHIP } from "@/lib/properties/ownership";
+import { canEditOwnership, canManageK1 } from "@/lib/users";
 
 const parkwood = PROPERTY_OWNERSHIP.find((p) => p.propertyCode === "7010")!.owners;
 const owner = (id: string) => parkwood.find((o) => o.id === id)!;
@@ -82,5 +83,23 @@ describe("publishBlockers", () => {
   it("blocks when one owner would receive two K-1s", () => {
     const b = publishBlockers([doc({}), doc({ id: "d2" })]);
     expect(b.some((x) => /has 2 K-1s assigned/.test(x))).toBe(true);
+  });
+});
+
+describe("canManageK1", () => {
+  it("is narrower than ownership editing — Alison is a Parkwood owner", () => {
+    // She can edit the ownership table, but must never see co-owners' K-1s.
+    expect(canEditOwnership("alison")).toBe(true);
+    expect(canManageK1("alison")).toBe(false);
+  });
+
+  it("grants the people who run the distribution", () => {
+    expect(canManageK1("drew")).toBe(true);
+    expect(canManageK1("harry")).toBe(true);
+    expect(canManageK1("admin")).toBe(true);
+  });
+
+  it("denies everyone else", () => {
+    for (const u of ["marie", "nancy", "maint"] as const) expect(canManageK1(u)).toBe(false);
   });
 });

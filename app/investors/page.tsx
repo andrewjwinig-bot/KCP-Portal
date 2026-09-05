@@ -14,7 +14,9 @@ import { ownerContact, type OwnerContact } from "../../lib/properties/ownerConta
 import { residencyOf } from "../../lib/properties/residency";
 import { buildStatementOfValuesPdf, type StatementPdfRow } from "../../lib/properties/statementPdf";
 import { mergeTrusteeRows, normInvestorKey, type TrusteeRowOverride } from "../../lib/investors/structures";
-import { canEditOwnership } from "../../lib/users";
+import { canEditOwnership, canManageK1 } from "../../lib/users";
+import { K1Panel } from "./K1Panel";
+import { K1InvestorDocs } from "./K1InvestorDocs";
 import { useUser } from "../components/UserProvider";
 import { StatPill } from "../components/Pill";
 import { DownloadMenu } from "../components/DownloadMenu";
@@ -148,6 +150,10 @@ export default function InvestorInfoPage() {
   };
   const { loggedInUser } = useUser();
   const canEdit = canEditOwnership(loggedInUser);
+  // NARROWER than canEdit on purpose: a family member can edit ownership and is
+  // herself an owner, so the K-1 sections are gated separately. The API applies
+  // the same rule server-side.
+  const canK1 = canManageK1(loggedInUser);
   /** Editable owner-contact overrides (overlay the seed). */
   const [contactOverrides, setContactOverrides] = useState<ContactOverrides>({});
   useEffect(() => {
@@ -772,6 +778,9 @@ export default function InvestorInfoPage() {
               <button type="button" className="btn no-print" style={{ fontSize: 12, padding: "5px 10px", fontWeight: 600 }} onClick={() => exportPropertySoV(h)}>⤓ Excel</button>
             )}
           </div>
+          {/* K-1s live with the roster they belong to — the batch arrives per
+              partnership, so this is where it lands. */}
+          {h.hasK1Distribution && canK1 && <div className="no-print"><K1Panel propertyCode={h.propertyCode} /></div>}
           </>
         )}
       </div>
@@ -1084,6 +1093,7 @@ export default function InvestorInfoPage() {
                         <span className="muted small">Year-end as of {asOfLong()} · Estimated {estAsOfLabel}.</span>
                         <button type="button" className="btn no-print" style={{ fontSize: 12, padding: "5px 10px", fontWeight: 600 }} onClick={() => exportInvestorSoV(agg)}>⤓ Excel</button>
                       </div>
+                      {canK1 && <div className="no-print"><K1InvestorDocs investor={agg.name} /></div>}
                       <InvestorStructureBlock investorName={agg.name} structure={structureFor(agg.name)} canEdit={canEdit} />
                     </>
                   )}

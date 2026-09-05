@@ -32,11 +32,45 @@ export async function GET(req: NextRequest) {
   if (!(await currentUser())) return NextResponse.json({ error: "Not authorized" }, { status: 401 });
   const property = req.nextUrl.searchParams.get("property") ?? "";
   const year = Number(req.nextUrl.searchParams.get("year"));
+  const investor = (req.nextUrl.searchParams.get("investor") ?? "").trim();
 
   // Every partnership that actually distributes K-1s.
   const properties = PROPERTY_OWNERSHIP
     .filter((p) => p.hasK1Distribution)
     .map((p) => ({ code: p.propertyCode, name: propName(p.propertyCode), owners: p.owners.length }));
+
+  // ── By-investor mode ──────────────────────────────────────────────────────
+  // The Investor Info page groups by NAME, but an interest is a per-property
+  // owner record — and one person can hold several (a trust and a personal
+  // interest in the same partnership). Return every record they hold, so the
+  // page can show each interest's own documents rather than merging them.
+  if (investor) {
+    const links = await listInvestorLinks();
+    const docs = await allK1s();
+    const interests = PROPERTY_OWNERSHIP.flatMap((p) =>
+      p.owners.filter((o) => o.name === investor).map((o) => ({ propertyCode: p.propertyCode, hasK1: !!p.hasK1Distribution, owner: o })),
+    );
+    return NextResponse.json({
+      ok: true,
+      properties,
+      interests: interests.map(({ propertyCode, hasK1, owner }) => {
+        const live = links.find((l) => !l.revoked && l.ownerId === owner.id) ?? null;
+        return {
+          ownerId: owner.id,
+          propertyCode,
+          propertyName: propName(propertyCode),
+          filesK1: hasK1,
+          heldAs: owner.detailedName ?? null,
+          vendorCode: owner.vendorCode ?? null,
+          documents: docs
+            .filter((d) => d.ownerId === owner.id)
+            .sort((a, b) => b.taxYear - a.taxYear)
+            .map((d) => ({ id: d.id, taxYear: d.taxYear, filename: d.filename, published: d.published, status: d.status, viewCount: d.viewCount ?? 0 })),
+          link: live ? { id: live.id, createdAt: live.createdAt, viewCount: live.viewCount ?? 0, lastViewedAt: live.lastViewedAt ?? null } : null,
+        };
+      }),
+    });
+  }
 
   if (!property || !Number.isFinite(year)) {
     return NextResponse.json({ ok: true, properties, years: [], owners: [], documents: [], blockers: [] });
