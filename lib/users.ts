@@ -113,6 +113,7 @@ export const USERS: Record<UserId, UserDef> = {
       "/units",
       "/allocated-invoicer",
       "/tenant-statements",
+      // Capability key, not a page: the K-1 tooling renders inside /investors.
       "/investor-k1",
       "/deposits",
       "/bank-transfers",
@@ -256,6 +257,20 @@ export function canEditCashSheet(userId: UserId): boolean {
  *  can see Investor Info is view-only. Enforced in the page and the save API. */
 export function canEditOwnership(userId: UserId): boolean {
   return userId === "admin" || userId === "drew" || userId === "harry" || userId === "alison";
+}
+
+/** May this user import, confirm and share Schedule K-1s?
+ *
+ *  Deliberately NARROWER than canEditOwnership, which includes Alison — she can
+ *  edit the ownership table and is herself a Parkwood owner, so granting her the
+ *  K-1 tooling would show her every co-owner's tax document. The K-1 sections on
+ *  the Investor Info page are gated on THIS, not on canEditOwnership.
+ *
+ *  "/investor-k1" is a capability key rather than a page: the UI lives inside
+ *  /investors, but the key keeps the client gate and the API's own
+ *  isPathAllowed check reading from one place. */
+export function canManageK1(userId: UserId): boolean {
+  return isPathAllowed(userId, "/investor-k1");
 }
 
 export function isPathAllowed(userId: UserId, pathname: string): boolean {
