@@ -185,24 +185,35 @@ preferences.
   Nothing about who holds an interest is re-keyed for K-1s. `hasK1Distribution`
   marks the partnerships that actually distribute; 7010 Parkwood was added to
   that set (21 owners).
-- **Matching a file to an owner only ever SUGGESTS** (`matchK1ToOwner` in
-  `lib/investors/k1.ts`). Evidence in order: vendor code → trust/detailed name →
-  plain name, and a plain name only counts when ONE owner bears it. Anything
-  weaker returns no suggestion with the tied `candidates` listed. **6 of
-  Parkwood's 21 owners share a name with another owner** (Alison Korman Feldman
-  holds both a GST trust interest and a personal one), so a filename with only a
-  name genuinely cannot resolve them — do NOT "improve" the matcher into
-  guessing there.
-- **The family surname is NOT noise.** Putting "Korman" in the matcher's
-  stop-word list collapsed "Lawrence M. Korman" to "lawrence" and collided him
-  with Lawrence Isard. Only property and form boilerplate belongs in `NOISE`.
-- **A person confirms every file, and that is the publish gate**
-  (`publishBlockers`): every document confirmed against a DISTINCT owner, or the
-  year won't publish. Un-confirming a document also un-publishes it.
+- **A K-1 is uploaded ONTO an owner — nothing reads the filename.** The roster
+  IS the workflow: one row per owner on the property card, drop that owner's PDF
+  on their row (`POST /api/investor-k1` takes an `ownerId`). Choosing the row is
+  the assignment, so there is no matching step and no confirm step. **Do NOT
+  reintroduce filename matching.** An earlier version scored vendor code → trust
+  name → plain name and it could not resolve the case that actually matters: **6
+  of Parkwood's 21 owners share a name with another owner** (Alison Korman
+  Feldman holds both a GST trust interest and a personal one), so the file most
+  in need of routing was exactly the one it refused. Picking the row is faster
+  than confirming a guess and cannot be wrong in a way nobody notices.
+- **Where two rows share a name, "Held as" is the disambiguator** — it renders
+  "Held personally" rather than a dash on those rows, plus a SHARED NAME pill
+  whose hover shows the trust name and vendor code. Keep that; a dash there
+  makes two rows look identical.
+- **One K-1 per owner per year, enforced on upload.** A second upload onto the
+  same owner is refused (409) rather than silently replacing — delete the
+  existing one first, so a document is never swapped out from under a link
+  that's already shared. `publishBlockers` re-checks it (plus orphaned files) as
+  the last gate before documents become visible. Publishing is per year and
+  releases every K-1 uploaded so far; owners still missing one simply have
+  nothing to open.
 - **Access is its own gate — deliberately NOT the `/investors` prefix.** Alison
   can reach the ownership page and is herself a Parkwood owner, so inheriting
-  that prefix would show her every co-owner's K-1. The page lives at
-  `/investor-k1`, keyed `investor-k1`, granted to Drew and Harry only.
+  that prefix would show her every co-owner's K-1. The K-1 UI lives INSIDE
+  `/investors` (`K1Panel` on the property card, `K1InvestorDocs` on the By
+  Investor card) but is gated on `canManageK1` — the `investor-k1` capability
+  key, granted to Drew and Harry only — never on `canEditOwnership`, which
+  includes Alison. The API enforces the same rule server-side. `/investor-k1` is
+  no longer a page; the key outlived it.
 - **Investor links are domain-separated from tenant links** (`lib/investors/k1Link.ts`,
   HMAC prefixed `kcp.investor.k1.v1:`). Both fall back to `SITE_AUTH_SECRET`, so
   without that prefix a tenant token could open a K-1. Pinned by

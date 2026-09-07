@@ -4,16 +4,23 @@
 // Investor Info. The batch arrives per property for all its investors, so this
 // sits where the roster already is rather than on a page of its own.
 //
+// The roster IS the workflow: one row per owner, drop that owner's PDF on their
+// row. Choosing the row is the assignment — nothing reads the filename — which
+// is what makes it safe on a roster where six of Parkwood's 21 owners share a
+// name with another owner.
+//
 // Gated by canManageK1 at the call site — NOT canEditOwnership, which includes
 // a family member who is herself an owner. The API enforces the same rule
 // server-side, so the gate here is about not showing a control, not about
 // keeping data safe.
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Pill, StatPill, TONE_AMBER, TONE_BLUE, TONE_GREEN, TONE_NEUTRAL, TONE_RED } from "@/app/components/Pill";
+import { useCallback, useEffect, useState } from "react";
+import { Pill, StatPill, TONE_AMBER, TONE_GREEN, TONE_NEUTRAL } from "@/app/components/Pill";
 import { HoverCard } from "@/app/components/HoverCard";
-import type { K1Document, K1MatchConfidence } from "@/lib/investors/k1";
+import type { K1Document } from "@/lib/investors/k1";
 
+const BRAND = "#0b4a7d";
+const TEAL = "#0f766e";
 const SECTION_LABEL: React.CSSProperties = {
   fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)",
 };
@@ -30,22 +37,74 @@ type OwnerRow = {
 };
 type Payload = { ok: true; years: number[]; owners: OwnerRow[]; documents: K1Document[]; blockers: string[] };
 
-const CONFIDENCE: Record<K1MatchConfidence, { label: string; tone: typeof TONE_GREEN }> = {
-  "vendor-code": { label: "VENDOR CODE", tone: TONE_GREEN },
-  "trust-name": { label: "TRUST NAME", tone: TONE_GREEN },
-  "name": { label: "NAME", tone: TONE_AMBER },
-  "ambiguous": { label: "AMBIGUOUS", tone: TONE_RED },
-  "none": { label: "NO MATCH", tone: TONE_NEUTRAL },
-};
 const kb = (n: number) => (n < 1024 * 1024 ? `${Math.max(1, Math.round(n / 1024))} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`);
+const shortDate = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+
+/** One owner's K-1 cell: the file they have, or the target you drop it on. */
+function K1Cell({ owner, doc, busy, onUpload, onDelete }: {
+  owner: OwnerRow; doc: K1Document | undefined; busy: boolean;
+  onUpload: (owner: OwnerRow, file: File) => void; onDelete: (doc: K1Document) => void;
+}) {
+  const [dragOver, setDragOver] = useState(false);
+
+  if (doc) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+        <Pill tone={doc.published ? TONE_GREEN : TONE_AMBER}>{doc.published ? "PUBLISHED" : "READY"}</Pill>
+        <HoverCard title={doc.filename} width={300}
+          rows={[
+            { label: "For", value: owner.detailedName ?? `${owner.name} · held personally` },
+            { label: "Size", value: kb(doc.size) },
+            { label: "Uploaded", value: `${shortDate(doc.uploadedAt)}${doc.uploadedBy ? ` · ${doc.uploadedBy}` : ""}` },
+          ]}
+          footer={{ label: doc.published ? "Opened" : "Status", value: doc.published ? (doc.viewCount ? `${doc.viewCount}×` : "Not yet") : "Not published" }}>
+          <a href={`/api/investor-k1/file?id=${doc.id}`} target="_blank" rel="noopener noreferrer"
+            style={{ display: "block", minWidth: 0, color: BRAND, textDecoration: "none", fontWeight: 600, fontSize: 12.5 }}>
+            <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 190 }}>{doc.filename}</div>
+            <div className="muted" style={{ fontSize: 11 }}>{kb(doc.size)} · {shortDate(doc.uploadedAt)}</div>
+          </a>
+        </HoverCard>
+        <button onClick={() => onDelete(doc)} disabled={busy} title="Remove this K-1"
+          style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer", padding: 2, flexShrink: 0 }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <label
+      onDragOver={(e) => { e.preventDefault(); if (!busy) setDragOver(true); }}
+      onDragLeave={(e) => { e.preventDefault(); setDragOver(false); }}
+      onDrop={(e) => {
+        e.preventDefault(); setDragOver(false);
+        const f = e.dataTransfer.files?.[0];
+        if (f && !busy) onUpload(owner, f);
+      }}
+      title={`Drop ${owner.name}'s ${owner.detailedName ? `“${owner.detailedName}” ` : ""}K-1 here`}
+      style={{
+        display: "inline-flex", alignItems: "center", gap: 6, cursor: busy ? "default" : "pointer",
+        border: `1.5px dashed ${dragOver ? TEAL : "var(--border)"}`, borderRadius: 8, padding: "5px 10px",
+        background: dragOver ? "rgba(15,118,110,0.09)" : "transparent",
+        color: dragOver ? TEAL : "var(--muted)", fontSize: 12, fontWeight: 700,
+        transition: "border-color .15s, background .15s, color .15s",
+      }}
+    >
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
+      Drop PDF
+      <input type="file" accept="application/pdf,.pdf" disabled={busy} style={{ display: "none" }}
+        onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) onUpload(owner, f); }} />
+    </label>
+  );
+}
 
 export function K1Panel({ propertyCode }: { propertyCode: string }) {
   const [year, setYear] = useState(new Date().getFullYear() - 1);
   const [data, setData] = useState<Payload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [uploading, setUploading] = useState<string | null>(null); // ownerId in flight
   const [shared, setShared] = useState<{ ownerId: string; ownerName: string; url: string; pin: string; sentTo: string[]; mailError: string | null } | null>(null);
-  const fileRef = useRef<HTMLInputElement | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -56,24 +115,39 @@ export function K1Panel({ propertyCode }: { propertyCode: string }) {
   }, [propertyCode, year]);
   useEffect(() => { void load(); }, [load]);
 
-  async function upload(files: File[]) {
-    if (!files.length) return;
-    setBusy(true); setError(null);
+  async function upload(owner: OwnerRow, file: File) {
+    setBusy(true); setUploading(owner.id); setError(null);
     try {
       const fd = new FormData();
       fd.append("property", propertyCode);
       fd.append("year", String(year));
-      for (const f of files) fd.append("file", f);
-      const j = await fetch("/api/investor-k1", { method: "POST", body: fd }).then((r) => r.json());
-      if (!j.ok) throw new Error(j.error ?? "Upload failed.");
+      fd.append("ownerId", owner.id);
+      fd.append("file", file);
+      const res = await fetch("/api/investor-k1", { method: "POST", body: fd });
+      const j = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(j?.error ?? `Upload failed (HTTP ${res.status})`);
       await load();
-    } catch (e) { setError(e instanceof Error ? e.message : "Upload failed."); } finally { setBusy(false); }
+    } catch (e) { setError(e instanceof Error ? e.message : "Upload failed."); }
+    finally { setBusy(false); setUploading(null); }
   }
 
-  async function patch(body: Record<string, unknown>) {
+  async function remove(doc: K1Document) {
+    if (!confirm(`Remove ${doc.ownerName}'s ${doc.taxYear} K-1 (${doc.filename})? The file is deleted permanently.`)) return;
     setBusy(true); setError(null);
     try {
-      const res = await fetch("/api/investor-k1", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      const res = await fetch(`/api/investor-k1?id=${doc.id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error((await res.json().catch(() => null))?.error ?? "Could not delete.");
+      await load();
+    } catch (e) { setError(e instanceof Error ? e.message : "Could not delete."); } finally { setBusy(false); }
+  }
+
+  async function setPublished(publish: boolean) {
+    setBusy(true); setError(null);
+    try {
+      const res = await fetch("/api/investor-k1", {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: publish ? "publish" : "unpublish", property: propertyCode, year }),
+      });
       const j = await res.json();
       if (!res.ok) throw new Error(j.error ?? "Could not update.");
       await load();
@@ -96,18 +170,16 @@ export function K1Panel({ propertyCode }: { propertyCode: string }) {
 
   const docs = data?.documents ?? [];
   const owners = data?.owners ?? [];
-  const confirmed = docs.filter((d) => d.status === "confirmed").length;
   const published = docs.length > 0 && docs.every((d) => d.published);
-  const sharedNames = owners.filter((o) => o.sharesName).length;
   const missing = owners.filter((o) => !docs.some((d) => d.ownerId === o.id)).length;
 
   return (
     <div style={{ borderTop: "1px solid var(--border)", background: "rgba(15,118,110,0.03)", padding: "16px 16px 18px" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
         <div>
-          <div style={{ ...SECTION_LABEL, color: "#0f766e" }}>Schedule K-1s</div>
+          <div style={{ ...SECTION_LABEL, color: TEAL }}>Schedule K-1s</div>
           <div className="muted small" style={{ marginTop: 3 }}>
-            Import the year&rsquo;s batch, confirm who each belongs to, then share a private link with every investor.
+            Drop each investor&rsquo;s PDF on their row, then publish the year and share a private link.
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
@@ -115,14 +187,9 @@ export function K1Panel({ propertyCode }: { propertyCode: string }) {
             {Array.from(new Set([...(data?.years ?? []), new Date().getFullYear() - 1, new Date().getFullYear() - 2]))
               .sort((a, b) => b - a).map((y) => <option key={y} value={y}>{y} tax year</option>)}
           </select>
-          <input ref={fileRef} type="file" accept="application/pdf,.pdf" multiple style={{ display: "none" }}
-            onChange={(e) => { const f = Array.from(e.target.files ?? []); e.target.value = ""; void upload(f); }} />
-          <button className="btn" disabled={busy} onClick={() => fileRef.current?.click()} style={{ fontSize: 12.5, padding: "5px 11px", fontWeight: 700 }}>
-            Import {year} K-1s
-          </button>
           <Pill tone={published ? TONE_GREEN : TONE_NEUTRAL}>{published ? "SHAREABLE" : "NOT PUBLISHED"}</Pill>
           <button className={published ? "btn" : "btn primary"} disabled={busy || docs.length === 0}
-            onClick={() => patch({ action: published ? "unpublish" : "publish", property: propertyCode, year })}
+            onClick={() => setPublished(!published)}
             style={{ fontSize: 12.5, padding: "5px 11px", fontWeight: 700 }}>
             {published ? "Unpublish" : "Publish"}
           </button>
@@ -132,81 +199,24 @@ export function K1Panel({ propertyCode }: { propertyCode: string }) {
       {error && <div style={{ marginTop: 10, color: "#b91c1c", fontSize: 12.5, fontWeight: 600 }}>{error}</div>}
 
       <div className="pills" style={{ flexWrap: "wrap", justifyContent: "flex-start", marginTop: 12 }}>
-        <StatPill label="Confirmed" value={`${confirmed}/${docs.length}`} sub="matched by a person" accent={docs.length && confirmed === docs.length ? "#15803d" : "#b45309"} />
-        <StatPill label="Owners without a K-1" value={missing} sub={`of ${owners.length}`} accent={missing ? "#b45309" : undefined} />
+        <StatPill label="K-1s uploaded" value={`${docs.length}/${owners.length}`} sub={year + " tax year"} accent={owners.length && docs.length === owners.length ? "#15803d" : "#b45309"} />
+        <StatPill label="Still to collect" value={missing} sub={missing === 1 ? "investor" : "investors"} accent={missing ? "#b45309" : undefined} />
         <StatPill label="Links shared" value={owners.filter((o) => o.link).length} sub={`${owners.filter((o) => (o.link?.viewCount ?? 0) > 0).length} opened`} />
       </div>
 
-      {sharedNames > 0 && (
-        <div style={{ marginTop: 12, borderRadius: 10, padding: "10px 13px", background: "rgba(217,119,6,0.07)", border: "1px solid rgba(217,119,6,0.35)", fontSize: 12.5, color: "#7c3d06", lineHeight: 1.6 }}>
-          <strong>{sharedNames} owners here share a name with another owner.</strong>{" "}
-          A filename with only a name can&rsquo;t tell those interests apart, so nothing is auto-matched for them.
-          Ask your accountant to include the vendor code (e.g. <code style={{ fontSize: 11.5 }}>{owners.find((o) => o.sharesName)?.vendorCode ?? "AKGST"}</code>)
-          or the full trust name and they&rsquo;ll match unambiguously.
-        </div>
-      )}
-
-      {data && data.blockers.length > 0 && docs.length > 0 && (
+      {data && data.blockers.length > 0 && (
         <div style={{ marginTop: 10, borderRadius: 10, padding: "10px 13px", background: "rgba(220,38,38,0.06)", border: "1px solid rgba(220,38,38,0.3)", fontSize: 12.5, color: "#b91c1c", fontWeight: 600 }}>
           {data.blockers.map((b, i) => <div key={i} style={{ marginTop: i ? 4 : 0 }}>{b}</div>)}
         </div>
       )}
 
-      {docs.length > 0 && (
-        <div style={{ marginTop: 14, border: "1px solid var(--border)", borderRadius: 10, overflowX: "auto", background: "var(--card)" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 780 }}>
-            <thead>
-              <tr><th style={th}>File</th><th style={th}>Match</th><th style={th}>Assigned to</th><th style={{ ...th, textAlign: "right" }}>Actions</th></tr>
-            </thead>
-            <tbody>
-              {docs.map((d) => {
-                const conf = CONFIDENCE[d.match.confidence];
-                return (
-                  <tr key={d.id} style={{ borderTop: "1px solid var(--border)", background: d.status === "confirmed" ? "rgba(22,163,74,0.04)" : undefined }}>
-                    <td style={{ ...td, maxWidth: 230 }}>
-                      <a href={`/api/investor-k1/file?id=${d.id}`} target="_blank" rel="noopener noreferrer" style={{ fontWeight: 600, color: "#0b4a7d", textDecoration: "none" }}>{d.filename}</a>
-                      <div className="muted" style={{ fontSize: 11.5 }}>{kb(d.size)} · {d.uploadedBy}</div>
-                    </td>
-                    <td style={td}>
-                      <HoverCard title="How this was matched" width={286}
-                        rows={[{ label: "Signal", value: conf.label }, ...(d.match.candidates.length ? [{ label: "Candidates", value: String(d.match.candidates.length) }] : [])]}
-                        footer={{ label: "Confirmed by", value: d.confirmedBy ?? "Nobody yet" }}>
-                        <Pill tone={d.status === "confirmed" ? TONE_GREEN : conf.tone}>{d.status === "confirmed" ? "CONFIRMED" : conf.label}</Pill>
-                      </HoverCard>
-                      <div className="muted" style={{ fontSize: 11.5, marginTop: 3, maxWidth: 260 }}>{d.match.reason}</div>
-                    </td>
-                    <td style={td}>
-                      <select value={d.ownerId ?? ""} disabled={busy}
-                        onChange={(e) => e.target.value && patch({ action: "assign", id: d.id, ownerId: e.target.value })}
-                        style={{ fontSize: 12.5, padding: "5px 8px", minWidth: 220 }}>
-                        <option value="">— pick the owner —</option>
-                        {owners.map((o) => (
-                          <option key={o.id} value={o.id}>{o.name}{o.detailedName ? ` · ${o.detailedName}` : ""}{o.vendorCode ? ` (${o.vendorCode})` : ""}</option>
-                        ))}
-                      </select>
-                    </td>
-                    <td style={{ ...td, textAlign: "right", whiteSpace: "nowrap" }}>
-                      {d.status === "confirmed"
-                        ? <button className="btn" disabled={busy} onClick={() => patch({ action: "unconfirm", id: d.id })} style={{ fontSize: 12, padding: "4px 9px" }}>Undo</button>
-                        : <button className="btn primary" disabled={busy || !d.ownerId} onClick={() => patch({ action: "confirm", id: d.id })} style={{ fontSize: 12, padding: "4px 9px", fontWeight: 700 }}>Confirm</button>}
-                      <button className="btn" disabled={busy}
-                        onClick={() => { if (confirm(`Delete ${d.filename}? The file is removed permanently.`)) void fetch(`/api/investor-k1?id=${d.id}`, { method: "DELETE" }).then(load); }}
-                        style={{ fontSize: 12, padding: "4px 9px", marginLeft: 5 }}>Delete</button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
-
       <div style={{ marginTop: 14, border: "1px solid var(--border)", borderRadius: 10, overflowX: "auto", background: "var(--card)" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 720 }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 780 }}>
           <thead>
             <tr>
               <th style={th}>Investor</th><th style={th}>Held as</th>
-              <th style={{ ...th, textAlign: "right" }}>Share</th><th style={th}>K-1</th>
+              <th style={{ ...th, textAlign: "right" }}>Share</th>
+              <th style={th}>{year} K-1</th>
               <th style={{ ...th, textAlign: "right" }}>Portal</th>
             </tr>
           </thead>
@@ -214,32 +224,36 @@ export function K1Panel({ propertyCode }: { propertyCode: string }) {
             {owners.map((o) => {
               const doc = docs.find((d) => d.ownerId === o.id);
               return (
-                <tr key={o.id} style={{ borderTop: "1px solid var(--border)" }}>
+                <tr key={o.id} style={{ borderTop: "1px solid var(--border)", background: uploading === o.id ? "rgba(15,118,110,0.06)" : undefined }}>
                   <td style={td}>
                     <div style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
                       {o.name}
                       {o.sharesName && (
-                        <HoverCard title="Shared name" width={266}
-                          rows={[{ label: "Held as", value: o.detailedName ?? "—" }, { label: "Vendor code", value: o.vendorCode ?? "—" }]}
-                          footer={{ label: "Matching", value: "Confirm this one by hand" }}>
+                        <HoverCard title="Shared name" width={274}
+                          rows={[{ label: "Held as", value: o.detailedName ?? "Held personally" }, { label: "Vendor code", value: o.vendorCode ?? "—" }]}
+                          footer={{ label: "Before you drop", value: "Check Held as — this name appears twice" }}>
                           <Pill tone={TONE_AMBER}>SHARED NAME</Pill>
                         </HoverCard>
                       )}
                     </div>
                     {o.vendorCode && <div className="muted" style={{ fontSize: 11.5 }}><code style={{ fontSize: 11.5 }}>{o.vendorCode}</code></div>}
                   </td>
-                  <td style={{ ...td, fontSize: 12.5, color: "var(--muted)", maxWidth: 230 }}>{o.detailedName ?? "—"}</td>
+                  <td style={{ ...td, fontSize: 12.5, color: "var(--muted)", maxWidth: 230 }}>
+                    {/* On a shared name this column IS the disambiguator, so it
+                        never renders as a dash — say "held personally" outright. */}
+                    {o.detailedName ?? (o.sharesName ? <em>Held personally</em> : "—")}
+                  </td>
                   <td style={{ ...td, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{o.ownerPct != null ? `${(o.ownerPct * 100).toFixed(4)}%` : "—"}</td>
                   <td style={td}>
-                    {doc
-                      ? <Pill tone={doc.published ? TONE_GREEN : doc.status === "confirmed" ? TONE_BLUE : TONE_NEUTRAL}>{doc.published ? "PUBLISHED" : doc.status === "confirmed" ? "CONFIRMED" : "PENDING"}</Pill>
-                      : <Pill tone={TONE_RED}>MISSING</Pill>}
+                    {uploading === o.id
+                      ? <span style={{ fontSize: 12, fontWeight: 700, color: TEAL }}>Uploading…</span>
+                      : <K1Cell owner={o} doc={doc} busy={busy} onUpload={upload} onDelete={remove} />}
                   </td>
                   <td style={{ ...td, textAlign: "right", whiteSpace: "nowrap" }}>
                     {o.link && (
                       <HoverCard title="Investor link" width={250}
                         rows={[
-                          { label: "Shared", value: new Date(o.link.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) },
+                          { label: "Shared", value: shortDate(o.link.createdAt) },
                           { label: "Opened", value: o.link.viewCount ? `${o.link.viewCount}×` : "Not yet" },
                         ]}
                         footer={{ label: "Last opened", value: o.link.lastViewedAt ? new Date(o.link.lastViewedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "—" }}>
@@ -247,16 +261,25 @@ export function K1Panel({ propertyCode }: { propertyCode: string }) {
                       </HoverCard>
                     )}
                     <button className="btn" disabled={busy || !doc?.published} onClick={() => share(o, false)}
-                      title={doc?.published ? "Create a private link + PIN" : "Publish the year first"}
+                      title={doc?.published ? "Create a private link + PIN" : doc ? "Publish the year first" : "Upload their K-1 first"}
                       style={{ fontSize: 12, padding: "4px 9px", marginLeft: 5 }}>{o.link ? "New link" : "Create link"}</button>
                     <button className="btn" disabled={busy || !doc?.published} onClick={() => share(o, true)} style={{ fontSize: 12, padding: "4px 9px", marginLeft: 5 }}>Email it</button>
                   </td>
                 </tr>
               );
             })}
+            {owners.length === 0 && (
+              <tr><td style={{ ...td, color: "var(--muted)" }} colSpan={5}>No owners on file for this partnership.</td></tr>
+            )}
           </tbody>
         </table>
       </div>
+
+      {missing > 0 && docs.length > 0 && (
+        <div className="muted" style={{ fontSize: 11.5, marginTop: 9 }}>
+          Publishing releases every K-1 uploaded here at once — the {missing} investor{missing === 1 ? "" : "s"} still missing one simply {missing === 1 ? "has" : "have"} nothing to open.
+        </div>
+      )}
 
       {shared && (
         <div style={{ marginTop: 12, border: "1.5px solid rgba(11,74,125,0.4)", borderRadius: 10, background: "rgba(11,74,125,0.04)", padding: "13px 15px" }}>

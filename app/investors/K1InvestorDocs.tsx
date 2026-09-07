@@ -15,7 +15,7 @@ import { HoverCard } from "@/app/components/HoverCard";
 type Interest = {
   ownerId: string; propertyCode: string; propertyName: string; filesK1: boolean;
   heldAs: string | null; vendorCode: string | null;
-  documents: { id: string; taxYear: number; filename: string; published: boolean; status: string; viewCount: number }[];
+  documents: { id: string; taxYear: number; filename: string; published: boolean; viewCount: number }[];
   link: { id: string; createdAt: string; viewCount: number; lastViewedAt: string | null } | null;
 };
 
@@ -59,12 +59,12 @@ export function K1InvestorDocs({ investor }: { investor: string }) {
                     <HoverCard key={d.id} title={`${d.taxYear} Schedule K-1`} width={280}
                       rows={[
                         { label: "File", value: d.filename },
-                        { label: "Status", value: d.published ? "Published" : d.status === "confirmed" ? "Confirmed, not published" : "Awaiting confirmation" },
+                        { label: "Status", value: d.published ? "Published" : "Uploaded, not published" },
                         { label: "Downloaded", value: d.viewCount ? `${d.viewCount}×` : "Not yet" },
                       ]}
                       footer={{ label: "Open", value: "Click to preview" }}>
                       <a href={`/api/investor-k1/file?id=${d.id}`} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
-                        <Pill tone={d.published ? TONE_GREEN : d.status === "confirmed" ? TONE_AMBER : TONE_NEUTRAL}>{d.taxYear}</Pill>
+                        <Pill tone={d.published ? TONE_GREEN : TONE_AMBER}>{d.taxYear}</Pill>
                       </a>
                     </HoverCard>
                   ))}
@@ -87,7 +87,7 @@ export function K1InvestorDocs({ investor }: { investor: string }) {
         ))}
       </div>
       <div className="muted" style={{ fontSize: 11.5, marginTop: 9 }}>
-        Importing and sharing happen on the property — K-1s arrive as one batch per partnership.
+        Uploading and sharing happen on the property — K-1s arrive as one batch per partnership.
       </div>
     </div>
   );
