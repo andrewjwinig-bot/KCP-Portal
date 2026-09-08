@@ -16,11 +16,12 @@
 // server-side, so the gate here is about not showing a control.
 
 import { useState } from "react";
-import { Pill, StatPill, TONE_AMBER, TONE_GREEN, TONE_NEUTRAL } from "@/app/components/Pill";
+import { Pill, StatPill, TONE_GREEN, TONE_NEUTRAL, TONE_RED } from "@/app/components/Pill";
 import { HoverCard } from "@/app/components/HoverCard";
 import { DocChip } from "@/app/components/DocChip";
+import { YearSelect } from "@/app/components/YearSelect";
 import type { K1Document } from "@/lib/investors/k1";
-import type { K1Owner, K1Slice, ShareBatch } from "./useK1";
+import type { K1Interest, K1Owner, K1Slice, ShareBatch } from "./useK1";
 
 const BRAND = "#0b4a7d";
 const TEAL = "#0f766e";
@@ -43,20 +44,11 @@ export function K1Header({ k1 }: { k1: K1Slice }) {
         <div>
           <div style={{ ...SECTION_LABEL, color: TEAL }}>Schedule K-1s</div>
           <div className="muted small" style={{ marginTop: 3 }}>
-            Drop each investor&rsquo;s PDF on their row below, publish the year, then send links.
+            Drop each investor&rsquo;s PDF on their row below, then send. Sending is what makes a
+            K-1 visible — nothing is readable until you send it.
           </div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          <select value={k1.year} onChange={(e) => k1.setYear(Number(e.target.value))} style={{ fontSize: 12.5, padding: "5px 9px" }}>
-            {k1.years.map((y) => <option key={y} value={y}>{y} tax year</option>)}
-          </select>
-          <Pill tone={k1.published ? TONE_GREEN : TONE_NEUTRAL}>{k1.published ? "SHAREABLE" : "NOT PUBLISHED"}</Pill>
-          <button className={k1.published ? "btn" : "btn primary"} disabled={k1.busy || k1.uploadedCount === 0}
-            onClick={() => k1.setPublished(!k1.published)}
-            style={{ fontSize: 12.5, padding: "5px 11px", fontWeight: 700 }}>
-            {k1.published ? "Unpublish" : "Publish"}
-          </button>
-        </div>
+        <YearSelect value={k1.year} years={k1.years} onChange={k1.setYear} small aria-label="Tax year" />
       </div>
 
       {k1.error && <div style={{ marginTop: 10, color: "#b91c1c", fontSize: 12.5, fontWeight: 600 }}>{k1.error}</div>}
@@ -85,14 +77,14 @@ export function K1Header({ k1 }: { k1: K1Slice }) {
         </button>
         <span className="muted small">
           {selectable.length === 0
-            ? "Publish the year to enable sending."
+            ? "Upload a K-1 to enable sending."
             : chosen.length === 0
               ? `${selectable.length} investor${selectable.length === 1 ? "" : "s"} ready to send`
               : `${chosen.length} selected`}
         </span>
         <button className="btn primary" disabled={k1.busy || chosen.length === 0}
           onClick={() => {
-            if (confirm(`Email a private K-1 link to ${chosen.length} investor${chosen.length === 1 ? "" : "s"}? Each gets their own link and their own PIN, and the PINs are shown here for you to send separately.`)) {
+            if (confirm(`Email a private K-1 link to ${chosen.length} investor${chosen.length === 1 ? "" : "s"}? This also makes their K-1 readable. Each gets their own link and their own PIN, and the PINs are shown here for you to send separately.`)) {
               k1.share(chosen, true);
             }
           }}
@@ -132,7 +124,7 @@ export function K1Cell({ owner, k1 }: { owner: K1Owner; k1: K1Slice }) {
   const doc = k1.docFor(owner.id);
 
   if (k1.uploading === owner.id) {
-    return <span style={{ display: "inline-block", minWidth: 104, fontSize: 12, fontWeight: 700, color: TEAL }}>Uploading…</span>;
+    return <span style={{ display: "inline-block", minWidth: 62, fontSize: 12, fontWeight: 700, color: TEAL }}>Uploading…</span>;
   }
 
   if (doc) {
@@ -142,15 +134,17 @@ export function K1Cell({ owner, k1 }: { owner: K1Owner; k1: K1Slice }) {
       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
         <DocChip
           href={`/api/investor-k1/file?id=${doc.id}`}
-          tone={doc.published ? TONE_GREEN : TONE_AMBER}
-          label={doc.published ? "PUBLISHED" : "READY"}
+          tone={TONE_GREEN}
+          label="VIEW"
+          icon={false}
+          minWidth={62}
           title={doc.filename}
           rows={[
             { label: "For", value: owner.detailedName ?? `${owner.name} · held personally` },
             { label: "Size", value: kb(doc.size) },
             { label: "Uploaded", value: `${shortDate(doc.uploadedAt)}${doc.uploadedBy ? ` · ${doc.uploadedBy}` : ""}` },
           ]}
-          footer={{ label: doc.published ? "Opened" : "Status", value: doc.published ? (doc.viewCount ? `${doc.viewCount}×` : "Not yet") : "Not published" }}
+          footer={{ label: "Status", value: doc.published ? (doc.viewCount ? `Sent · opened ${doc.viewCount}×` : "Sent · not opened yet") : "Not sent — not readable by the investor yet" }}
         />
         <button onClick={() => k1.remove(doc)} disabled={k1.busy} title="Remove this K-1"
           style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer", padding: 2, flexShrink: 0 }}>
@@ -172,15 +166,15 @@ export function K1Cell({ owner, k1 }: { owner: K1Owner; k1: K1Slice }) {
       title={`Drop ${owner.name}'s ${owner.detailedName ? `“${owner.detailedName}” ` : ""}K-1 here`}
       style={{
         display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 5,
-        cursor: k1.busy ? "default" : "pointer", minWidth: 104,
-        border: `1.5px dashed ${dragOver ? TEAL : "var(--border)"}`, borderRadius: 8, padding: "4px 9px",
-        background: dragOver ? "rgba(15,118,110,0.09)" : "transparent",
-        color: dragOver ? TEAL : "var(--muted)", fontSize: 11.5, fontWeight: 700,
+        cursor: k1.busy ? "default" : "pointer", minWidth: 62,
+        border: `1.5px dashed ${dragOver ? TEAL : "rgba(220,38,38,0.45)"}`, borderRadius: 999,
+        padding: "2px 9px",
+        background: dragOver ? "rgba(15,118,110,0.09)" : "rgba(220,38,38,0.08)",
+        color: dragOver ? TEAL : "#b91c1c", fontSize: 11, fontWeight: 700, letterSpacing: "0.02em",
         transition: "border-color .15s, background .15s, color .15s",
       }}
     >
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
-      Drop PDF
+      {dragOver ? "DROP IT" : "MISSING"}
       <input type="file" accept="application/pdf,.pdf" disabled={k1.busy} style={{ display: "none" }}
         onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) k1.upload(owner.id, f); }} />
     </label>
@@ -205,11 +199,85 @@ export function K1PortalCell({ owner, k1 }: { owner: K1Owner; k1: K1Slice }) {
         <Pill tone={TONE_NEUTRAL}>NO LINK</Pill>
       )}
       <button className="btn" disabled={k1.busy || !shareable} onClick={() => k1.share([owner.id], true)}
-        title={shareable ? `Email ${owner.name} their link` : "Publish their K-1 first"}
+        title={shareable ? `Email ${owner.name} their link` : "Upload their K-1 first"}
         style={{ fontSize: 11.5, padding: "3px 8px" }}>
         {owner.link ? "Re-send" : "Send"}
       </button>
     </span>
+  );
+}
+
+
+/**
+ * The K-1 and Portal cells on the BY INVESTOR table — the same two columns the
+ * property table carries, read from the person's side.
+ *
+ * Read-only for uploads (a K-1 arrives as a batch on its partnership, so that
+ * is where you drop it), but a re-send belongs here: "Carol called, she can't
+ * find hers" starts from her name, not from Parkwood.
+ */
+export function K1InvestorCells({ interest, inv }: {
+  interest: K1Interest | undefined;
+  inv: { busy: boolean; send: (i: K1Interest, taxYear: number) => void };
+}) {
+  // A partnership that issues nobody a K-1 has no cell to fill — listing it as
+  // "missing" would be noise on every wholly-owned building.
+  if (!interest?.filesK1) {
+    return (
+      <>
+        <td style={{ padding: "12px 16px", color: "var(--muted)" }} className="no-print">—</td>
+        <td className="no-print" />
+      </>
+    );
+  }
+  const newest = interest.documents[0];
+  return (
+    <>
+      <td style={{ padding: "12px 16px" }} className="no-print">
+        {newest ? (
+          <DocChip
+            href={`/api/investor-k1/file?id=${newest.id}`}
+            tone={TONE_GREEN}
+            label={`VIEW ${newest.taxYear}`}
+            icon={false}
+            minWidth={0}
+            title={newest.filename}
+            rows={[
+              { label: "Tax year", value: String(newest.taxYear) },
+              { label: "For", value: interest.heldAs ?? "Held personally" },
+              ...(interest.documents.length > 1
+                ? [{ label: "Other years", value: interest.documents.slice(1).map((d) => d.taxYear).join(", ") }]
+                : []),
+            ]}
+            footer={{ label: "Status", value: newest.published ? (newest.viewCount ? `Sent · opened ${newest.viewCount}×` : "Sent · not opened yet") : "Not sent yet" }}
+          />
+        ) : (
+          <Pill tone={TONE_RED}>MISSING</Pill>
+        )}
+      </td>
+      <td style={{ padding: "12px 16px", textAlign: "right", whiteSpace: "nowrap" }} className="no-print">
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          {interest.link ? (
+            <HoverCard title="Investor link" width={250}
+              rows={[
+                { label: "Shared", value: shortDate(interest.link.createdAt) },
+                { label: "Opened", value: interest.link.viewCount ? `${interest.link.viewCount}×` : "Not yet" },
+              ]}
+              footer={{ label: "Last opened", value: interest.link.lastViewedAt ? new Date(interest.link.lastViewedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "—" }}>
+              <Pill tone={interest.link.viewCount ? TONE_GREEN : TONE_NEUTRAL}>{interest.link.viewCount ? `OPENED ${interest.link.viewCount}×` : "SHARED"}</Pill>
+            </HoverCard>
+          ) : (
+            <Pill tone={TONE_NEUTRAL}>NO LINK</Pill>
+          )}
+          <button className="btn" disabled={inv.busy || !newest}
+            onClick={() => newest && inv.send(interest, newest.taxYear)}
+            title={newest ? `Email their ${newest.taxYear} link` : "No K-1 uploaded yet"}
+            style={{ fontSize: 11.5, padding: "3px 8px" }}>
+            {interest.link ? "Re-send" : "Send"}
+          </button>
+        </span>
+      </td>
+    </>
   );
 }
 

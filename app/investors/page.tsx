@@ -15,9 +15,8 @@ import { residencyOf } from "../../lib/properties/residency";
 import { buildStatementOfValuesPdf, type StatementPdfRow } from "../../lib/properties/statementPdf";
 import { mergeTrusteeRows, normInvestorKey, type TrusteeRowOverride } from "../../lib/investors/structures";
 import { canEditOwnership, canManageK1 } from "../../lib/users";
-import { K1Header, K1Cell, K1PortalCell, K1SelectCell, K1ShareResults } from "./K1Panel";
+import { K1Header, K1Cell, K1PortalCell, K1SelectCell, K1ShareResults, K1InvestorCells } from "./K1Panel";
 import { useK1Registry } from "./useK1";
-import { K1InvestorDocs } from "./K1InvestorDocs";
 import { useUser } from "../components/UserProvider";
 import { StatPill } from "../components/Pill";
 import { DownloadMenu } from "../components/DownloadMenu";
@@ -679,7 +678,7 @@ export default function InvestorInfoPage() {
         {open && (
           <>
           {showK1 && k1 && <K1Header k1={k1} />}
-          {showK1 && k1reg.batch?.propertyCode === h.propertyCode && (
+          {showK1 && k1reg.batch?.key === h.propertyCode && (
             <K1ShareResults batch={k1reg.batch} onClose={k1reg.clearBatch} />
           )}
           {hasVal && (
@@ -1056,6 +1055,10 @@ export default function InvestorInfoPage() {
           ) : (
             filteredInvestors.map((agg) => {
               const open = !!openIds[agg.key];
+              // The K-1 columns join this table too — the standalone block under
+              // it repeated prop, name and vendor code from the rows above.
+              if (canK1 && open) k1reg.ensureInvestor(agg.name);
+              const inv = canK1 && open ? k1reg.investorSlice(agg.name) : null;
               return (
                 <div key={agg.key} className="card" style={{ padding: 0, overflow: "hidden" }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 16px", gap: 10 }}>
@@ -1102,6 +1105,8 @@ export default function InvestorInfoPage() {
                             <th style={{ padding: "10px 16px", fontWeight: 700, textAlign: "right" }}>OWNERSHIP %</th>
                             <th style={{ padding: "10px 16px", fontWeight: 700, textAlign: "right", whiteSpace: "nowrap" }}>YEAR-END $</th>
                             <th style={{ padding: "10px 16px", fontWeight: 700, textAlign: "right", whiteSpace: "nowrap" }}>ESTIMATED $</th>
+                            {inv && <th style={{ padding: "10px 16px", fontWeight: 700, whiteSpace: "nowrap" }} className="no-print">K-1</th>}
+                            {inv && <th style={{ padding: "10px 16px", fontWeight: 700, textAlign: "right" }} className="no-print">PORTAL</th>}
                           </tr>
                         </thead>
                         <tbody>
@@ -1133,6 +1138,7 @@ export default function InvestorInfoPage() {
                               <td style={{ padding: "12px 16px", textAlign: "right" }}>{pct(ifrac)}</td>
                               <td style={{ padding: "12px 16px", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{ipv ? money0((ifrac ?? 0) * ipv.ye) : "—"}</td>
                               <td style={{ padding: "12px 16px", textAlign: "right", fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{ipv ? money0((ifrac ?? 0) * ipv.est) : "—"}</td>
+                              {inv && <K1InvestorCells interest={inv.forOwner(r.investor.id)} inv={inv} />}
                             </tr>
                             );
                           })}
@@ -1142,6 +1148,7 @@ export default function InvestorInfoPage() {
                             <td style={{ padding: "12px 16px", fontWeight: 800, letterSpacing: "0.04em", fontSize: 11, textTransform: "uppercase", color: "var(--muted)" }} colSpan={3}>Total across {agg.rows.length} {agg.rows.length === 1 ? "property" : "properties"}</td>
                             <td style={{ padding: "12px 16px", textAlign: "right", fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>{money0(agg.rows.reduce((s, r) => { const p = propValue(r.holding.propertyCode); return s + (p ? (ownershipFor(r.investor) ?? 0) * p.ye : 0); }, 0))}</td>
                             <td style={{ padding: "12px 16px", textAlign: "right", fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>{money0(agg.rows.reduce((s, r) => { const p = propValue(r.holding.propertyCode); return s + (p ? (ownershipFor(r.investor) ?? 0) * p.est : 0); }, 0))}</td>
+                            {inv && <td className="no-print" colSpan={2} />}
                           </tr>
                         </tfoot>
                       </table>
@@ -1149,7 +1156,18 @@ export default function InvestorInfoPage() {
                         <span className="muted small">Year-end as of {asOfLong()} · Estimated {estAsOfLabel}.</span>
                         <button type="button" className="btn no-print" style={{ fontSize: 12, padding: "5px 10px", fontWeight: 600 }} onClick={() => exportInvestorSoV(agg)}>⤓ Excel</button>
                       </div>
-                      {canK1 && <div className="no-print"><K1InvestorDocs investor={agg.name} /></div>}
+                      {inv && k1reg.batch?.key === `inv:${agg.name}` && (
+                        <K1ShareResults batch={k1reg.batch} onClose={k1reg.clearBatch} />
+                      )}
+                      {inv?.error && (
+                        <div style={{ padding: "8px 16px", color: "#b91c1c", fontSize: 12.5, fontWeight: 600 }} className="no-print">{inv.error}</div>
+                      )}
+                      {inv && (
+                        <div className="muted no-print" style={{ padding: "0 16px 10px", fontSize: 11.5 }}>
+                          K-1s are uploaded on the property — they arrive as one batch per partnership. Sending here
+                          re-sends that investor&rsquo;s own link.
+                        </div>
+                      )}
                       <InvestorStructureBlock investorName={agg.name} structure={structureFor(agg.name)} canEdit={canEdit} />
                     </>
                   )}

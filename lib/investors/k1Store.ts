@@ -34,6 +34,14 @@ export async function k1sFor(propertyCode: string, taxYear: number): Promise<K1D
 }
 
 /** The published K-1s belonging to one owner — what an investor may see. */
+/** Every K-1 held by one owner, newest year first — published or not. The
+ *  share path uses this because sending is what publishes. */
+export async function k1sForOwner(ownerId: string): Promise<K1Document[]> {
+  return (await allK1s())
+    .filter((d) => d.ownerId === ownerId)
+    .sort((a, b) => b.taxYear - a.taxYear);
+}
+
 export async function publishedK1sForOwner(ownerId: string): Promise<K1Document[]> {
   return (await allK1s())
     .filter((d) => d.published && d.ownerId === ownerId)

@@ -37,7 +37,15 @@ export type ShareResult = {
   error?: string;
 };
 
-export type ShareBatch = { propertyCode: string; sent: boolean; results: ShareResult[] };
+export type ShareBatch = { key: string; sent: boolean; results: ShareResult[] };
+
+/** One interest a person holds, with its documents — the By Investor shape. */
+export type K1Interest = {
+  ownerId: string; propertyCode: string; propertyName: string; filesK1: boolean;
+  heldAs: string | null; vendorCode: string | null;
+  documents: { id: string; taxYear: number; filename: string; published: boolean; viewCount: number }[];
+  link: { id: string; createdAt: string; viewCount: number; lastViewedAt: string | null } | null;
+};
 
 /** Everything one property card needs. Plain object — no hooks inside. */
 export type K1Slice = {
@@ -58,7 +66,8 @@ export type K1Slice = {
   missingCount: number;
   linkCount: number;
   openedCount: number;
-  /** Owners with a published K-1 — the ones a link can actually be minted for. */
+  /** Owners with a K-1 uploaded for the year. Sending publishes it, so having
+   *  the document is the only precondition for a link. */
   shareableIds: string[];
   selected: Set<string>;
   toggleSelected: (ownerId: string) => void;
@@ -82,6 +91,7 @@ export function useK1Registry(enabled: boolean, openK1Codes: string[]) {
   const [busyCode, setBusyCode] = useState<string | null>(null);
   const [uploading, setUploading] = useState<{ code: string; ownerId: string } | null>(null);
   const [batch, setBatch] = useState<ShareBatch | null>(null);
+  const [interests, setInterests] = useState<Record<string, K1Interest[]>>({});
   // Keyed `<code>@<year>` so changing the year refetches, but re-renders don't.
   const loaded = useRef<Set<string>>(new Set());
 
@@ -113,6 +123,17 @@ export function useK1Registry(enabled: boolean, openK1Codes: string[]) {
     // on every render of the page.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, openKey, yearKey]);
+
+  // By Investor: the same records, grouped by the person rather than the
+  // partnership. One person can hold several interests in one partnership and
+  // they receive SEPARATE K-1s, so these are never merged.
+  const loadInvestor = useCallback(async (name: string) => {
+    try {
+      const j = await fetch(`/api/investor-k1?investor=${encodeURIComponent(name)}`, { cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null));
+      setInterests((s) => ({ ...s, [name]: j?.ok ? (j.interests ?? []) : [] }));
+    } catch { setInterests((s) => ({ ...s, [name]: [] })); }
+  }, []);
 
   const refresh = useCallback(async (code: string) => {
     await load(code, yearOf(code));
@@ -152,8 +173,8 @@ export function useK1Registry(enabled: boolean, openK1Codes: string[]) {
       missingCount: owners.filter((o) => !docs.some((d) => d.ownerId === o.id)).length,
       linkCount: owners.filter((o) => o.link).length,
       openedCount: owners.filter((o) => (o.link?.viewCount ?? 0) > 0).length,
-      // Only a published K-1 can be shared, so this is what "Select all" means.
-      shareableIds: owners.filter((o) => docFor(o.id)?.published).map((o) => o.id),
+      // Anyone with a document can be sent to — the send publishes it.
+      shareableIds: owners.filter((o) => docFor(o.id)).map((o) => o.id),
       selected: selection[code] ?? emptySet,
 
       toggleSelected: (ownerId: string) => setSelection((s) => {
@@ -203,11 +224,11 @@ export function useK1Registry(enabled: boolean, openK1Codes: string[]) {
         void act(code, async () => {
           const res = await fetch("/api/investor-k1/share", {
             method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ propertyCode: code, ownerIds, send }),
+            body: JSON.stringify({ propertyCode: code, ownerIds, year, send }),
           });
           const j = await res.json();
           if (!res.ok) throw new Error(j.error ?? "Could not create the links.");
-          setBatch({ propertyCode: code, sent: send, results: j.results ?? [] });
+          setBatch({ key: code, sent: send, results: j.results ?? [] });
           // Sending clears the selection so a second click can't re-send to the
           // same people by accident.
           setSelection((s) => ({ ...s, [code]: new Set() }));
@@ -216,5 +237,45 @@ export function useK1Registry(enabled: boolean, openK1Codes: string[]) {
     };
   }, [data, errors, busyCode, uploading, selection, yearOf, act]);
 
-  return { slice, batch, clearBatch: () => setBatch(null) };
+  /** Load an investor's interests when their card opens. */
+  const ensureInvestor = useCallback((name: string) => {
+    if (!enabled || loaded.current.has(`inv:${name}`)) return;
+    loaded.current.add(`inv:${name}`);
+    void loadInvestor(name);
+  }, [enabled, loadInvestor]);
+
+  /** Interests for one investor, plus a per-interest send. */
+  const investorSlice = useCallback((name: string) => {
+    const rows = interests[name] ?? null;
+    const byOwner = new Map((rows ?? []).map((i) => [i.ownerId, i]));
+    return {
+      ready: !!rows,
+      interests: rows ?? [],
+      forOwner: (ownerId: string) => byOwner.get(ownerId),
+      busy: busyCode === `inv:${name}`,
+      error: errors[`inv:${name}`] ?? null,
+      send: (interest: K1Interest, taxYear: number) => {
+        setBatch(null);
+        const key = `inv:${name}`;
+        setBusyCode(key);
+        setErrors((e) => ({ ...e, [key]: null }));
+        void (async () => {
+          try {
+            const res = await fetch("/api/investor-k1/share", {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ propertyCode: interest.propertyCode, ownerIds: [interest.ownerId], year: taxYear, send: true }),
+            });
+            const j = await res.json();
+            if (!res.ok) throw new Error(j.error ?? "Could not send.");
+            setBatch({ key, sent: true, results: j.results ?? [] });
+            await loadInvestor(name);
+          } catch (e) {
+            setErrors((x) => ({ ...x, [key]: e instanceof Error ? e.message : "Could not send." }));
+          } finally { setBusyCode(null); }
+        })();
+      },
+    };
+  }, [interests, busyCode, errors, loadInvestor]);
+
+  return { slice, batch, clearBatch: () => setBatch(null), ensureInvestor, investorSlice };
 }

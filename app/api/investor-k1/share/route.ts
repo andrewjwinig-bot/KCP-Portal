@@ -9,7 +9,7 @@ import {
   investorLinkSecret, signInvestorToken, saveInvestorLink, listInvestorLinks,
   revokeInvestorLink, generatePin, type InvestorLink,
 } from "@/lib/investors/k1Link";
-import { publishedK1sForOwner } from "@/lib/investors/k1Store";
+import { k1sForOwner, saveK1 } from "@/lib/investors/k1Store";
 import { sendMail, isMailConfigured } from "@/lib/mail";
 import { logAudit, auditIp } from "@/lib/audit";
 
@@ -52,15 +52,30 @@ type ShareResult = {
  * LINK and never the K-1 itself) cannot drift apart between them.
  */
 async function shareOne(
-  req: NextRequest, user: UserId, secret: string, propertyCode: string, ownerId: string, send: boolean,
+  req: NextRequest, user: UserId, secret: string, propertyCode: string, ownerId: string, year: number | null, send: boolean,
 ): Promise<ShareResult> {
   const owner = PROPERTY_OWNERSHIP.find((p) => p.propertyCode === propertyCode)?.owners.find((o) => o.id === ownerId);
   if (!owner) return { ownerId, ownerName: ownerId, sentTo: [], mailError: null, error: "That owner isn't on this partnership." };
 
-  const published = await publishedK1sForOwner(owner.id);
-  if (published.length === 0) {
-    return { ownerId, ownerName: owner.name, heldAs: owner.detailedName ?? null, sentTo: [], mailError: null, error: `${owner.name} has no published K-1 yet.` };
+  // Sending IS the release. There is no separate publish step: an upload sits
+  // invisible until someone deliberately sends it, and the send is that
+  // deliberate act. This matters because an investor holding a live link from a
+  // previous year would otherwise see a new upload the instant it landed —
+  // including one dropped on the wrong row by mistake.
+  const mine = (await k1sForOwner(owner.id)).filter((d) => year == null || d.taxYear === year);
+  if (mine.length === 0) {
+    return {
+      ownerId, ownerName: owner.name, heldAs: owner.detailedName ?? null, sentTo: [], mailError: null,
+      error: `${owner.name} has no ${year ?? ""} K-1 uploaded yet.`.replace("  ", " "),
+    };
   }
+  const at = new Date().toISOString();
+  for (const d of mine.filter((d) => !d.published)) {
+    d.published = true;
+    d.publishedAt = d.publishedAt ?? at;
+    await saveK1(d);
+  }
+  const published = mine;
 
   // One live link per owner: retire any earlier one so a revoked address can't
   // still open the portal.
@@ -124,7 +139,7 @@ const MAX_BATCH = 50;
  *
  * `ownerId` returns the flat single-owner shape the page has always used.
  * `ownerIds` returns `results[]`, one entry per owner, and a failure on one
- * owner (no published K-1, no email on file) is reported on that entry rather
+ * owner (nothing uploaded, no email on file) is reported on that entry rather
  * than aborting the rest — sending 19 of 21 and being told which two to chase
  * beats sending none.
  */
@@ -137,6 +152,8 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
   const propertyCode = String(body?.propertyCode ?? "");
   const send = body?.send === true;
+  const rawYear = Number(body?.year);
+  const year = Number.isFinite(rawYear) && rawYear > 0 ? rawYear : null;
 
   if (Array.isArray(body?.ownerIds)) {
     // De-duplicated: two entries for one owner would revoke the link the first
@@ -148,11 +165,11 @@ export async function POST(req: NextRequest) {
     // Sequential on purpose: each share revokes that owner's prior link and
     // writes a link record, and the link store is read-modify-write.
     const results: ShareResult[] = [];
-    for (const id of ids) results.push(await shareOne(req, user, secret, propertyCode, id, send));
+    for (const id of ids) results.push(await shareOne(req, user, secret, propertyCode, id, year, send));
     return NextResponse.json({ ok: true, results }, { status: 201 });
   }
 
-  const one = await shareOne(req, user, secret, propertyCode, String(body?.ownerId ?? ""), send);
+  const one = await shareOne(req, user, secret, propertyCode, String(body?.ownerId ?? ""), year, send);
   if (one.error) return NextResponse.json({ error: one.error }, { status: 400 });
   return NextResponse.json({
     ok: true, url: one.url, pin: one.pin, sentTo: one.sentTo, mailError: one.mailError,
