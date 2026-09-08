@@ -20,6 +20,7 @@ import { Pill, StatPill, TONE_GREEN, TONE_NEUTRAL, TONE_RED } from "@/app/compon
 import { HoverCard } from "@/app/components/HoverCard";
 import { DocChip } from "@/app/components/DocChip";
 import { YearSelect } from "@/app/components/YearSelect";
+import { ShareLinkCard } from "@/app/components/ShareLinkCard";
 import type { K1Document } from "@/lib/investors/k1";
 import type { K1Interest, K1Owner, K1Slice, ShareBatch } from "./useK1";
 
@@ -261,44 +262,58 @@ export function K1Cell({ owner, k1 }: { owner: K1Owner; k1: K1Slice }) {
   );
 }
 
-/** One owner's portal cell: their live link's state, and a single re-send. */
+/**
+ * One owner's link — the same share card the CAM statement uses.
+ *
+ * Two ways out on purpose: copy the link and send it yourself, or have the app
+ * email it. Copying changes nothing; only creating and sending do, and Revoke
+ * undoes both. Creating a link is what publishes the K-1 (see the header), so
+ * the card says so before you press it.
+ */
 export function K1PortalCell({ owner, k1 }: { owner: K1Owner; k1: K1Slice }) {
-  const shareable = k1.shareableIds.includes(owner.id);
+  const doc = k1.docFor(owner.id);
+  const links = owner.link?.url
+    ? [{
+        id: owner.link.id, url: owner.link.url, pin: owner.link.pin ?? null,
+        createdAt: owner.link.createdAt, viewCount: owner.link.viewCount,
+        lastViewedAt: owner.link.lastViewedAt,
+      }]
+    : [];
+
   return (
     <span style={{ display: "inline-flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}>
-      {owner.link ? (
-        <HoverCard title="Investor link" width={250}
-          rows={[
-            { label: "Shared", value: shortDate(owner.link.createdAt) },
-            { label: "Opened", value: owner.link.viewCount ? `${owner.link.viewCount}×` : "Not yet" },
-          ]}
-          footer={{ label: "Last opened", value: owner.link.lastViewedAt ? new Date(owner.link.lastViewedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "—" }}>
-          <Pill tone={owner.link.viewCount ? TONE_GREEN : TONE_NEUTRAL}>{owner.link.viewCount ? `OPENED ${owner.link.viewCount}×` : "SHARED"}</Pill>
-        </HoverCard>
-      ) : (
-        <Pill tone={TONE_NEUTRAL}>NO LINK</Pill>
-      )}
-      <button className="btn" disabled={k1.busy || !shareable} onClick={() => k1.share([owner.id], true)}
-        title={shareable ? `Email ${owner.name} their link` : "Upload their K-1 first"}
-        style={{ fontSize: 11.5, padding: "3px 8px" }}>
-        {owner.link ? "Re-send" : "Send"}
-      </button>
-      {owner.link && (
-        <button className="btn" disabled={k1.busy}
-          onClick={() => {
-            if (confirm(`Revoke ${owner.name}'s link? It stops working immediately and their K-1 is no longer readable. Use this to undo a test send or a link that went to the wrong address.`)) {
-              k1.revoke(owner.link!.id);
-            }
-          }}
-          title="Revoke this link — it stops working immediately"
-          style={{ fontSize: 11.5, padding: "3px 8px", color: "#b91c1c" }}>
-          Revoke
-        </button>
-      )}
+      {owner.link
+        ? <Pill tone={owner.link.viewCount ? TONE_GREEN : TONE_NEUTRAL}>{owner.link.viewCount ? `OPENED ${owner.link.viewCount}×` : "SHARED"}</Pill>
+        : <Pill tone={TONE_NEUTRAL}>NO LINK</Pill>}
+      <ShareLinkCard
+        small
+        buttonLabel={owner.link ? "Link" : "Share"}
+        title="Investor K-1 link"
+        description={
+          <>
+            A private, revocable link for <b>{owner.name}</b>
+            {owner.detailedName ? <> · <i>{owner.detailedName}</i></> : null}. It always carries an{" "}
+            <b>access PIN</b> — send the PIN separately, never in the same email.
+            {links.length === 0 && <> Creating the link is what makes their K-1 readable.</>}
+          </>
+        }
+        links={links}
+        busy={k1.busy}
+        error={k1.error}
+        recipients={owner.email ? [owner.email] : []}
+        sendLabel="Email the investor"
+        pinOptional={false}
+        onCreate={doc ? () => k1.share([owner.id], false) : undefined}
+        onSend={() => k1.share([owner.id], true)}
+        onRevoke={(id) => {
+          if (confirm(`Revoke ${owner.name}'s link? It stops working immediately and their K-1 is no longer readable.`)) {
+            k1.revoke(id);
+          }
+        }}
+      />
     </span>
   );
 }
-
 
 /**
  * The K-1 and Portal cells on the BY INVESTOR table — the same two columns the

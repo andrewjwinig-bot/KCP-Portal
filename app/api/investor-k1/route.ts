@@ -7,7 +7,7 @@ import { PROPERTY_DEFS } from "@/lib/properties/data";
 import { publishBlockers, type K1Document } from "@/lib/investors/k1";
 import { k1sFor, k1YearsFor, saveK1, getK1, removeK1, allK1s } from "@/lib/investors/k1Store";
 import { putK1File, removeK1File } from "@/lib/investors/k1Files";
-import { listInvestorLinks, linkOwnerIds } from "@/lib/investors/k1Link";
+import { listInvestorLinks, linkOwnerIds, investorLinkSecret, signInvestorToken } from "@/lib/investors/k1Link";
 import { resolveOwnerEmail } from "@/lib/investors/ownerEmail";
 import { allOwnerEmails, clearOwnerEmail, setOwnerEmail } from "@/lib/investors/ownerEmailStore";
 import { logAudit, auditIp } from "@/lib/audit";
@@ -95,6 +95,17 @@ export async function GET(req: NextRequest) {
     for (const id of linkOwnerIds(l)) linkByOwner.set(id, l);
   }
 
+  // The link's URL and PIN, so the roster can show and copy exactly what the
+  // investor holds rather than only reporting that something was sent. The
+  // token is re-signed from the stored link, so this is the SAME url — it does
+  // not mint anything. Same audience as the documents themselves (canManageK1).
+  const secret = investorLinkSecret();
+  const origin = `${req.headers.get("x-forwarded-proto") ?? "https"}://${req.headers.get("host") ?? req.nextUrl.host}`;
+  const urlFor = async (l: (typeof links)[number]) =>
+    secret ? `${origin}/investor/${await signInvestorToken(secret, { v: 1, id: l.id, o: l.ownerId, p: l.propertyCode })}` : null;
+  const linkUrl = new Map<string, string | null>();
+  for (const l of links.filter((x) => !x.revoked)) linkUrl.set(l.id, await urlFor(l));
+
   return NextResponse.json({
     ok: true,
     properties,
@@ -113,7 +124,14 @@ export async function GET(req: NextRequest) {
         return { email: r.email, emailSource: r.source, emailNote: r.note };
       })(),
       link: linkByOwner.get(o.id)
-        ? { id: linkByOwner.get(o.id)!.id, createdAt: linkByOwner.get(o.id)!.createdAt, viewCount: linkByOwner.get(o.id)!.viewCount ?? 0, lastViewedAt: linkByOwner.get(o.id)!.lastViewedAt ?? null }
+        ? {
+            id: linkByOwner.get(o.id)!.id,
+            createdAt: linkByOwner.get(o.id)!.createdAt,
+            viewCount: linkByOwner.get(o.id)!.viewCount ?? 0,
+            lastViewedAt: linkByOwner.get(o.id)!.lastViewedAt ?? null,
+            url: linkUrl.get(linkByOwner.get(o.id)!.id) ?? null,
+            pin: linkByOwner.get(o.id)!.pin ?? null,
+          }
         : null,
     })),
     documents,

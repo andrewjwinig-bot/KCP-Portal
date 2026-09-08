@@ -20,7 +20,13 @@ export type K1Owner = {
   ownerPct: number | null; sharesName: boolean;
   /** Where their link would be emailed, and where that address came from. */
   email: string | null; emailSource: string; emailNote: string;
-  link: { id: string; createdAt: string; viewCount: number; lastViewedAt: string | null } | null;
+  /** The live link, including the URL and PIN so the roster can show and copy
+   *  exactly what the investor holds. Re-signed from the stored link — reading
+   *  it mints nothing. */
+  link: {
+    id: string; createdAt: string; viewCount: number; lastViewedAt: string | null;
+    url?: string | null; pin?: string | null;
+  } | null;
 };
 
 export type K1Payload = { ok: true; years: number[]; owners: K1Owner[]; documents: K1Document[]; blockers: string[] };
