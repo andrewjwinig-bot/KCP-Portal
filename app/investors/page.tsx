@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import * as XLSX from "xlsx";
 import JSZip from "jszip";
 import { PROPERTY_OWNERSHIP, type PropertyOwner } from "../../lib/properties/ownership";
@@ -72,6 +72,21 @@ type PropertyHolding = {
 };
 
 const TYPES: PropType[] = ["Office", "Retail", "Residential", "Land", "Misc"];
+
+/** Roster table cells — the same footprint as the Monthly Statements roster,
+ *  so the two pages read as the same kind of table. */
+const th: React.CSSProperties = {
+  textAlign: "right", padding: "6px 12px", fontSize: 11, fontWeight: 700, textTransform: "uppercase",
+  letterSpacing: "0.04em", color: "var(--muted)", borderBottom: "1px solid var(--border)", whiteSpace: "nowrap",
+};
+const td: React.CSSProperties = { textAlign: "right", padding: "9px 12px", fontSize: 14, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" };
+const thL: React.CSSProperties = { ...th, textAlign: "left" };
+const tdL: React.CSSProperties = { ...td, textAlign: "left", fontVariantNumeric: "normal" };
+
+/** A row of the By Property roster: a group band, or one property. */
+type PropBlock =
+  | { kind: "band"; key: string; type: PropType; label: string; count: number; ye: number; est: number; sub?: boolean }
+  | { kind: "prop"; h: PropertyHolding };
 
 type InvestorAggregate = {
   /** Display name (Title Case as recorded). */
@@ -398,6 +413,40 @@ export default function InvestorInfoPage() {
     );
   }, [holdings, query]);
 
+  // The roster in render order: a band per property type (Office banding again
+  // by fund, as it always has), then that group's properties. Bands carry the
+  // group's totals the way the Monthly Statements property bands do — the
+  // count and value were previously only readable by adding up the cards.
+  const groupTotals = (items: PropertyHolding[]) =>
+    items.reduce((a, h) => {
+      const pv = propValue(h.propertyCode);
+      return { ye: a.ye + (pv?.ye ?? 0), est: a.est + (pv?.est ?? 0) };
+    }, { ye: 0, est: 0 });
+  const portfolioValue = groupTotals(filteredHoldings);
+
+  const propertyBlocks: PropBlock[] = [];
+  for (const type of TYPES) {
+    const group = filteredHoldings.filter((h) => h.type === type);
+    if (group.length === 0) continue;
+    propertyBlocks.push({ kind: "band", key: `type-${type}`, type, label: type, count: group.length, ...groupTotals(group) });
+    const funded = type === "Office" ? (["JV III", "NI LLC"] as FundGroup[]) : [];
+    for (const fund of funded) {
+      const items = group.filter((h) => h.fundGroup === fund);
+      if (items.length === 0) continue;
+      propertyBlocks.push({
+        kind: "band", key: `fund-${fund}`, type, sub: true,
+        label: `${FUND_LABEL[fund]} · ${fund}`, count: items.length, ...groupTotals(items),
+      });
+      for (const h of items) propertyBlocks.push({ kind: "prop", h });
+    }
+    const rest = funded.length ? group.filter((h) => !h.fundGroup) : group;
+    if (rest.length === 0) continue;
+    if (rest.length !== group.length) {
+      propertyBlocks.push({ kind: "band", key: `fund-other-${type}`, type, sub: true, label: "Other", count: rest.length, ...groupTotals(rest) });
+    }
+    for (const h of rest) propertyBlocks.push({ kind: "prop", h });
+  }
+
   const filteredInvestors = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return investorIndex;
@@ -627,9 +676,17 @@ export default function InvestorInfoPage() {
     }
   }
 
-  function renderHoldingCard(h: PropertyHolding) {
+  /**
+   * One property, as a row in the roster table plus the detail row it opens.
+   *
+   * This used to be a free-standing card per property with a coloured top
+   * rail; fifteen of them read as a stack of banners rather than a roster,
+   * and matched nothing else in the portal. It is now the same shape as the
+   * Monthly Statements roster — one table, tinted band rows opening each
+   * group, a row that expands in place.
+   */
+  function renderHoldingRows(h: PropertyHolding) {
     const open = !!openIds[h.propertyCode];
-    const ts = TYPE_STYLE[h.type as PropType];
     const pv = propValue(h.propertyCode); // property year-end + estimated value (null if no entity)
     const hasVal = !!pv;
     const share = (frac: number | undefined, base: number) => money0((frac ?? 0) * base);
@@ -639,73 +696,44 @@ export default function InvestorInfoPage() {
     const k1 = showK1 ? k1reg.slice(h.propertyCode) : null;
     const k1Th = { padding: "10px 16px", fontWeight: 700 } as React.CSSProperties;
     return (
-      <div
-        key={h.propertyCode}
-        className="card"
-        style={{
-          padding: 0,
-          overflow: "hidden",
-          boxShadow: `var(--shadow), inset 0 5px 0 ${ts.text}`,
-        }}
-      >
-        <button
-          type="button"
+      <Fragment key={h.propertyCode}>
+        <tr
           onClick={() => toggleOpen(h.propertyCode)}
           aria-expanded={open}
           style={{
-            display: "flex", alignItems: "center", justifyContent: "space-between",
-            width: "100%", padding: "19px 16px 14px",
-            background: "transparent", border: "none", cursor: "pointer",
-            textAlign: "left", fontFamily: "inherit",
+            borderTop: "1px solid var(--border)", cursor: "pointer",
+            background: open ? "rgba(11,74,125,0.05)" : undefined,
           }}
         >
-          <span style={{ display: "inline-flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+          <td style={tdL}>
             <code style={{
               background: "#0b1220", color: "#e0f0ff",
               padding: "2px 8px", borderRadius: 5,
               fontSize: 12, fontWeight: 600, letterSpacing: "0.06em",
             }}>{h.propertyCode}</code>
-            <span style={{ fontWeight: 700, fontSize: 16 }}>{h.propertyName}</span>
-            <span className="muted small">· {h.owners.length} {h.owners.length === 1 ? "owner" : "owners"}</span>
-            {hasVal && (
-              <span style={{ fontSize: 12, fontWeight: 700, color: "#0b4a7d", whiteSpace: "nowrap" }}
-                title={`Statement of Values · year-end ${money0(pv!.ye)} → estimated ${money0(pv!.est)}`}>
-                · Est. {money0(pv!.est)}
-              </span>
-            )}
+          </td>
+          <td style={{ ...tdL, whiteSpace: "normal" }}>
+            <span style={{ fontWeight: 700, fontSize: 14.5 }}>{h.propertyName}</span>
             {h.hasK1Distribution && (
               <span style={{
-                fontSize: 10, fontWeight: 700, letterSpacing: "0.06em",
-                padding: "2px 7px", borderRadius: 4,
+                marginLeft: 8, fontSize: 10, fontWeight: 700, letterSpacing: "0.06em",
+                padding: "2px 7px", borderRadius: 4, whiteSpace: "nowrap",
                 background: "rgba(15,118,110,0.08)", color: "#0f766e",
                 border: "1px solid rgba(15,118,110,0.25)",
               }}>K-1</span>
             )}
-          </span>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
-            <span style={{
-              display: "inline-flex", alignItems: "center", justifyContent: "center",
-              padding: "2px 9px", borderRadius: 999,
-              fontSize: 11, fontWeight: 500, letterSpacing: "0.02em",
-              background: ts.bg, color: ts.text,
-              border: `1px solid ${ts.border}`,
-            }}>{h.type}</span>
-            <span style={{ color: "var(--muted)", fontSize: 18 }}>{open ? "▲" : "▼"}</span>
-          </span>
-        </button>
-
+          </td>
+          <td style={{ ...td, color: "var(--muted)" }}>{h.owners.length}</td>
+          <td style={td}>{hasVal ? money0(pv!.ye) : <span style={{ color: "var(--muted)" }}>&mdash;</span>}</td>
+          <td style={{ ...td, fontWeight: 700 }}>{hasVal ? money0(pv!.est) : <span style={{ color: "var(--muted)", fontWeight: 400 }}>&mdash;</span>}</td>
+          <td style={{ ...td, color: "var(--muted)", width: 30, paddingLeft: 0 }} aria-hidden>{open ? "▲" : "▼"}</td>
+        </tr>
         {open && (
-          <>
+          <tr>
+            <td colSpan={6} style={{ padding: 0, background: "rgba(11,74,125,0.03)", borderTop: "1px solid var(--border)" }}>
           {showK1 && k1 && <K1Header k1={k1} />}
           {showK1 && k1reg.batch?.key === h.propertyCode && (
             <K1ShareResults batch={k1reg.batch} onClose={k1reg.clearBatch} />
-          )}
-          {hasVal && (
-            <div style={{ padding: "12px 16px", borderTop: "1px solid var(--border)", background: "rgba(11,74,125,0.03)", display: "flex", alignItems: "baseline", gap: 16, flexWrap: "wrap" }}>
-              <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>Property value</span>
-              <span style={{ fontSize: 14 }}>Year-end <b>{money0(pv!.ye)}</b></span>
-              <span style={{ fontSize: 14 }}>Estimated <b style={{ color: "#0b4a7d" }}>{money0(pv!.est)}</b></span>
-            </div>
           )}
           <div style={showK1 ? { overflowX: "auto" } : undefined}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14, borderTop: "1px solid var(--border)", ...(showK1 ? { minWidth: 1180 } : null) }}>
@@ -865,9 +893,10 @@ export default function InvestorInfoPage() {
           {/* The rest of the return, which arrives with the K-1 batch. Staff
               only — never circulated to investors. */}
           {canK1 && <PartnershipTaxDocs propertyCode={h.propertyCode} defaultOpen={false} />}
-          </>
+            </td>
+          </tr>
         )}
-      </div>
+      </Fragment>
     );
   }
 
@@ -1005,77 +1034,67 @@ export default function InvestorInfoPage() {
 
       {/* ── By Property view ───────────────────────────────────────────── */}
       {view === "property" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
-          {filteredHoldings.length === 0 ? (
-            <div className="card muted small">No matches.</div>
-          ) : (
-            TYPES.map((type) => {
-              const group = filteredHoldings.filter((h) => h.type === type);
-              if (group.length === 0) return null;
-              const ts = TYPE_STYLE[type];
-
-              // Office sub-groups by fund (JV III, NI LLC) with the rest in "Other".
-              const officeFundSubsections: { fund: FundGroup; items: PropertyHolding[] }[] = [];
-              let officeUnaffiliated: PropertyHolding[] = [];
-              if (type === "Office") {
-                const fundOrder: FundGroup[] = ["JV III", "NI LLC"];
-                for (const f of fundOrder) {
-                  const items = group.filter((h) => h.fundGroup === f);
-                  if (items.length) officeFundSubsections.push({ fund: f, items });
-                }
-                officeUnaffiliated = group.filter((h) => !h.fundGroup);
-              }
-
-              return (
-                <div key={type}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-                    <span style={{
-                      fontSize: 14, fontWeight: 800, letterSpacing: "0.06em",
-                      textTransform: "uppercase", color: ts.text,
-                      background: ts.bg, border: `1px solid ${ts.border}`,
-                      padding: "5px 14px", borderRadius: 999,
-                    }}>{type}</span>
-                    <span style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600 }}>{group.length}</span>
-                    <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
-                  </div>
-
-                  {type === "Office" ? (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
-                      {officeFundSubsections.map(({ fund, items }) => (
-                        <div key={fund}>
-                          <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 10 }}>
-                            <span style={{ fontSize: 11, fontWeight: 800, color: "var(--muted)", letterSpacing: "0.06em", textTransform: "uppercase" }}>Fund</span>
-                            <span style={{ fontSize: 14, fontWeight: 700, color: "var(--text)" }}>{FUND_LABEL[fund]}</span>
-                            <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600 }}>· {fund} · {items.length}</span>
-                          </div>
-                          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                            {items.map((h) => renderHoldingCard(h))}
-                          </div>
-                        </div>
-                      ))}
-                      {officeUnaffiliated.length > 0 && (
-                        <div>
-                          {officeFundSubsections.length > 0 && (
-                            <div style={{ fontSize: 11, fontWeight: 800, color: "var(--muted)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 10 }}>Other</div>
-                          )}
-                          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                            {officeUnaffiliated.map((h) => renderHoldingCard(h))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                      {group.map((h) => renderHoldingCard(h))}
-                    </div>
-                  )}
-                </div>
-              );
-            })
-          )}
-        </div>
+        filteredHoldings.length === 0 ? (
+          <div className="card muted small">No matches.</div>
+        ) : (
+          <div className="card" style={{ padding: 0, overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 720 }}>
+              <thead>
+                <tr>
+                  <th style={{ ...thL, width: 90 }}>Code</th>
+                  <th style={thL}>Property</th>
+                  <th style={th}>Owners</th>
+                  <th style={th}>Year-end $</th>
+                  <th style={th}>Estimated $</th>
+                  <th style={{ ...th, width: 30 }} aria-label="Expand" />
+                </tr>
+              </thead>
+              <tbody>
+                {propertyBlocks.map((b) =>
+                  b.kind === "prop" ? renderHoldingRows(b.h) : (
+                    <tr key={b.key} style={{
+                      background: b.sub ? "rgba(11,74,125,0.035)" : TYPE_STYLE[b.type].bg,
+                      borderTop: "2px solid var(--border)",
+                    }}>
+                      <td style={{ ...tdL, paddingTop: 9, paddingBottom: 9, whiteSpace: "normal" }} colSpan={2}>
+                        <span style={{
+                          fontSize: b.sub ? 12 : 12.5, fontWeight: 800,
+                          letterSpacing: "0.06em", textTransform: "uppercase",
+                          color: b.sub ? "var(--muted)" : TYPE_STYLE[b.type].text,
+                          paddingLeft: b.sub ? 14 : 0,
+                        }}>{b.label}</span>
+                        <span className="muted" style={{ fontSize: 11.5, marginLeft: 8 }}>
+                          {b.count} {b.count === 1 ? "property" : "properties"}
+                        </span>
+                      </td>
+                      {/* Owners is a per-property count; summing it across a
+                          group would count a person once per stake. */}
+                      <td />
+                      <td style={{ ...td, fontWeight: 700 }}>{money0(b.ye)}</td>
+                      <td style={{ ...td, fontWeight: 800 }}>{money0(b.est)}</td>
+                      <td />
+                    </tr>
+                  ),
+                )}
+              </tbody>
+              <tfoot>
+                <tr style={{ borderTop: "2px solid var(--border)", background: "rgba(11,74,125,0.04)" }}>
+                  <td style={{ ...tdL, fontWeight: 800 }} colSpan={2}>
+                    Portfolio total — {filteredHoldings.length} {filteredHoldings.length === 1 ? "property" : "properties"}
+                  </td>
+                  <td />
+                  <td style={{ ...td, fontWeight: 800 }}>{money0(portfolioValue.ye)}</td>
+                  <td style={{ ...td, fontWeight: 800 }}>{money0(portfolioValue.est)}</td>
+                  <td />
+                </tr>
+              </tfoot>
+            </table>
+            <div className="muted small" style={{ padding: "9px 12px", borderTop: "1px solid var(--border)" }}>
+              Year-end as of {asOfLong()} · Estimated {estAsOfLabel}. Select a property for its owners.
+            </div>
+          </div>
+        )
       )}
-
       {/* ── By Investor view ───────────────────────────────────────────── */}
       {view === "investor" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>

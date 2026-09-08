@@ -32,6 +32,17 @@ The user has flagged repeated drift in pill / chip / badge styling across new pa
 - **Sharing a private link** → `ShareLinkCard` from `app/components/ShareLinkCard.tsx` — the "Share with tenant" popover: a link box with Copy, the access PIN with its own Copy, view count, an email action behind a deliberate confirm step, and Revoke. Used by the CAM statement (`TenantShareLink`) and the K-1 roster; a third share flow should use it too rather than growing its own. The component owns the look and interaction; each caller passes its own actions, because a tenant link and a K-1 link are different objects (`pinOptional={false}` for a K-1, whose PIN is mandatory). **Always offer both ways out**: copy the link and send it yourself, or have the app email it — copying mutates nothing, which is how you demo or test a link without touching an investor's stored data.
 - **Dropdowns** → `Select` / `YearSelect` from `app/components/YearSelect.tsx` (the brand-outlined pill used by Operating Statements, Management Fees, the 1099 Register and the interim recon). The style had been re-typed inline on four pages, so anything new either copied a block or shipped a bare browser `<select>` that matched nothing. `SELECT_STYLE` / `SELECT_STYLE_SM` are exported for the odd case that needs its own markup.
 - **A stored document in a table row** → `DocChip` from `app/components/DocChip.tsx` — a status/year pill plus a document icon, the whole thing a link opening the file in a new tab, wrapped in the shared `HoverCard`. **Never render the filename in the cell**: names range from `k1.pdf` to `2025 Parkwood SC K1P V1 FINAL SIGNED.pdf`, so a cell either truncates to nothing useful or makes every row a different shape. The name is the hover's title, where it can be read whole. The chip has a `minWidth` and pins its icon to the right edge so the icon (and any button after it) lines up down the column whatever the label says. Used by the K-1 cell on Investor Info and the per-investor document list.
+- **A roster of things, grouped, each expanding to its detail** → ONE card
+  holding ONE table, with a tinted **band row** opening each group (the group's
+  label plus its subtotals) and a row that expands in place into a detail row
+  (`<td colSpan>`). Reference: the Monthly Statements roster
+  (`app/tenant-statements/page.tsx` — `th`/`td`/`thL`/`tdL`, the property band,
+  `TenantRows`); Investor Info's By Property list follows it. **Do NOT render a
+  card per item.** Investor Info did, with a coloured top rail on each; fifteen
+  of them read as a stack of banners, cost a screen of scrolling, and matched
+  nothing else in the portal. A band carries only figures that are true of the
+  group — a per-item count like "owners" must be left blank there rather than
+  summed, since a person holding two stakes would be counted twice.
 - When a section's purpose mirrors something on another page (a download menu, a hidden-accounts list, a KPI row, a tab+filter+table), copy that page's component/markup/spacing rather than approximating it inline.
 
 **Hovers / tooltips — ALWAYS use the shared rich style, never a plain native `title=` or a tiny SVG `<title>`, whenever the hover conveys real data.** The user wants every data-bearing hover to feel considered: a styled card with a title, colored value rows, and an optional footer/delta line — not a small plain browser tooltip. This is the default for ALL future hovers where applicable; do not ship a plain `title=` tooltip for a value/breakdown and wait to be asked to upgrade it.
