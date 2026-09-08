@@ -48,7 +48,14 @@ export function K1Header({ k1 }: { k1: K1Slice }) {
             K-1 visible — nothing is readable until you send it.
           </div>
         </div>
-        <YearSelect value={k1.year} years={k1.years} onChange={k1.setYear} small aria-label="Tax year" />
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+          <a href="/investor/preview" target="_blank" rel="noopener noreferrer" className="btn"
+            title="See exactly what an investor sees — sample data, nothing sent"
+            style={{ fontSize: 12, padding: "5px 10px", fontWeight: 700, textDecoration: "none" }}>
+            Preview investor view
+          </a>
+          <YearSelect value={k1.year} years={k1.years} onChange={k1.setYear} small aria-label="Tax year" />
+        </div>
       </div>
 
       {k1.error && <div style={{ marginTop: 10, color: "#b91c1c", fontSize: 12.5, fontWeight: 600 }}>{k1.error}</div>}
@@ -276,6 +283,18 @@ export function K1PortalCell({ owner, k1 }: { owner: K1Owner; k1: K1Slice }) {
         style={{ fontSize: 11.5, padding: "3px 8px" }}>
         {owner.link ? "Re-send" : "Send"}
       </button>
+      {owner.link && (
+        <button className="btn" disabled={k1.busy}
+          onClick={() => {
+            if (confirm(`Revoke ${owner.name}'s link? It stops working immediately and their K-1 is no longer readable. Use this to undo a test send or a link that went to the wrong address.`)) {
+              k1.revoke(owner.link!.id);
+            }
+          }}
+          title="Revoke this link — it stops working immediately"
+          style={{ fontSize: 11.5, padding: "3px 8px", color: "#b91c1c" }}>
+          Revoke
+        </button>
+      )}
     </span>
   );
 }

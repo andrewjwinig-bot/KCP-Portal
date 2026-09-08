@@ -83,6 +83,9 @@ export type K1Slice = {
   share: (ownerIds: string[], send: boolean) => void;
   /** Set (or clear, with "") where one owner's link is emailed. */
   setEmail: (ownerId: string, email: string) => void;
+  /** Kill a link. The way to undo a test send, or a link sent to the wrong
+   *  address — it also reverts that investor's tax-tracker tick. */
+  revoke: (linkId: string) => void;
   /** Selected owners with no address — a send would create their link but
    *  couldn't deliver it, so the page warns before rather than after. */
   selectedWithoutEmail: string[];
@@ -202,6 +205,13 @@ export function useK1Registry(enabled: boolean, openK1Codes: string[]) {
         .map((id) => owners.find((o) => o.id === id))
         .filter((o): o is K1Owner => !!o && !o.email)
         .map((o) => o.name),
+
+      revoke: (linkId: string) => {
+        void act(code, async () => {
+          const res = await fetch(`/api/investor-k1/share?id=${encodeURIComponent(linkId)}`, { method: "DELETE" });
+          if (!res.ok) throw new Error((await res.json().catch(() => null))?.error ?? "Could not revoke that link.");
+        });
+      },
 
       setEmail: (ownerId: string, email: string) => {
         void act(code, async () => {
