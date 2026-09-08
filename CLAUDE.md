@@ -344,6 +344,19 @@ preferences.
   read-modify-write, and one owner failing (no published K-1, no email on file)
   is reported on that owner's row rather than aborting the rest. Only owners
   with a PUBLISHED K-1 are selectable in the UI.
+- **`/investor/preview` is the demo, not a test send.** `lib/investors/k1Preview.ts`
+  fabricates a two-document payload (a trust interest and a personal one, which
+  is the case worth showing) and a minimal real PDF, rendered by the ACTUAL
+  portal page so it cannot drift from what investors see. Gated on
+  `canManageK1`, checked BEFORE any token logic in all three
+  `/api/investor/[token]*` routes — it must never become a path to real
+  documents — and carries a banner saying nothing on it is real. Testing by
+  emailing yourself works too, but it publishes a K-1, mints a live link and
+  ticks the tax tracker; the preview does none of that.
+- **Every linked row has a Revoke.** It is how you undo a test send or a link
+  that went to the wrong address: the link dies immediately, the K-1 stops being
+  readable, and because "sent" means a published K-1 AND a live link, the tax
+  tracker reverts too. The endpoint existed from the start but had no control.
 - **PINs are shown to staff, never emailed.** The results panel lists one row
   per investor with their own PIN and the interest label (`heldAs`) beneath the
   name — without it two rows reading "Alison Korman Feldman" carry different

@@ -22,6 +22,8 @@ type Payload = {
   owner: { name: string; heldAs: string | null };
   property: { code: string; name: string };
   documents: Doc[];
+  /** Set only by the staff preview — nothing here is real. */
+  preview?: boolean;
 };
 
 const kb = (n: number) => (n < 1024 * 1024 ? `${Math.max(1, Math.round(n / 1024))} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`);
@@ -121,6 +123,17 @@ function Documents({ token }: { token: string }) {
       </header>
 
       <main style={{ maxWidth: 720, margin: "0 auto", padding: "34px clamp(18px, 5vw, 48px) 72px" }}>
+        {data.preview && (
+          <div style={{
+            marginBottom: 18, borderRadius: 10, padding: "11px 14px",
+            background: "rgba(180,83,9,0.09)", border: "1px solid rgba(180,83,9,0.4)",
+            color: "#7c3d06", fontSize: 13, lineHeight: 1.55,
+          }}>
+            <b>Preview — this is what an investor sees.</b> Every name, figure and document below is
+            invented. Nothing has been published, no link exists, and no investor has been emailed.
+            A real link also asks for a 6-digit PIN before this page appears.
+          </div>
+        )}
         <h1 style={{ margin: 0 }}>Your Schedule K-1</h1>
         <div className="muted" style={{ fontSize: 15, marginTop: 8 }}>
           {data.owner.name}

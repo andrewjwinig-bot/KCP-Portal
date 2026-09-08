@@ -1,4 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { cookies } from "next/headers";
+import { SITE_COOKIE, verifySiteToken } from "@/lib/site-auth";
+import { ALL_USERS, canManageK1, type UserId } from "@/lib/users";
+import { PREVIEW_TOKEN, previewPdf } from "@/lib/investors/k1Preview";
 import { checkInvestorAccess } from "@/lib/investors/k1Access";
 import { getK1, saveK1 } from "@/lib/investors/k1Store";
 import { linkOwnerIds } from "@/lib/investors/k1Link";
@@ -12,7 +16,29 @@ export const dynamic = "force-dynamic";
  *  Every guard here matters: the document must exist, be published, and belong
  *  to the owner this token was minted for. An investor who guesses another
  *  document's id gets a 404, not somebody else's tax return. */
+
+/** Preview is STAFF only, checked before any token logic — it must never become
+ *  a way to reach a real investor's documents. */
+async function previewViewer(): Promise<boolean> {
+  const secret = process.env.SITE_AUTH_SECRET;
+  if (!secret) return false;
+  const id = await verifySiteToken((await cookies()).get(SITE_COOKIE)?.value, secret);
+  return !!id && (ALL_USERS as readonly string[]).includes(id) && canManageK1(id as UserId);
+}
+
 export async function GET(req: NextRequest, { params }: { params: { token: string } }): Promise<Response> {
+  const tok = (await params).token;
+  if (tok === PREVIEW_TOKEN) {
+    if (!(await previewViewer())) return NextResponse.json({ error: "Preview is for staff only." }, { status: 401 });
+    const bytes = previewPdf();
+    return new NextResponse(new Uint8Array(bytes), {
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": 'inline; filename="sample-schedule-k1.pdf"',
+        "Cache-Control": "private, no-store",
+      },
+    });
+  }
   const access = await checkInvestorAccess(params.token, req);
   if (!access.ok) {
     return NextResponse.json({ error: access.error, ...(access.pinRequired ? { pinRequired: true } : {}) }, { status: access.status });
