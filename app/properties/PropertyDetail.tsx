@@ -551,6 +551,19 @@ export function PropertyDetailBody({
   // profile must not thereby gain — or lose — access to tax documents.
   const { user, loggedInUser } = useUser();
   const canTaxDocs = canManageK1(loggedInUser);
+  // Delivered K-1s, so the roster reflects the portal instead of asking for a
+  // second manual tick. Additive only — see isTaskEffectivelyDone.
+  const [k1Sent, setK1Sent] = useState<Record<string, boolean>>({});
+  useEffect(() => {
+    let alive = true;
+    // The K-1 task due this March is last year's K-1.
+    fetch(`/api/investor-k1/sent?year=${new Date().getFullYear() - 1}`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => { if (alive) setK1Sent(j?.ok ? (j.sent ?? {}) : {}); })
+      .catch(() => { if (alive) setK1Sent({}); });
+    return () => { alive = false; };
+  }, []);
+  const effectiveChecked = useMemo(() => ({ ...checked, ...k1Sent }), [checked, k1Sent]);
   const isMaint = user.id === "maint";
   const canEditFacts = isMaint || user.navKeys.has("all");
   const tasks        = useMemo(() => tasksForProp(prop.id), [prop.id]);
@@ -646,7 +659,7 @@ export function PropertyDetailBody({
   const today = new Date();
 
   function filingStatus(t: TaxTask) {
-    const done = isTaskEffectivelyDone(t, checked);
+    const done = isTaskEffectivelyDone(t, effectiveChecked);
     if (done) return { label: "Filed", color: "#16a34a", bg: "rgba(22,163,74,0.08)", border: "rgba(22,163,74,0.2)" };
     const due = new Date(today.getFullYear(), t.dueMonth - 1, t.dueDay);
     due.setHours(23, 59, 59);
@@ -877,7 +890,7 @@ export function PropertyDetailBody({
             }
           >
             {k1Tasks.map((t) => {
-              const allDone = t.investors?.every((inv) => checked[inv.id]) ?? false;
+              const allDone = t.investors?.every((inv) => effectiveChecked[inv.id]) ?? false;
               return (
                 <div key={t.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
                   <span style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600 }}>
@@ -894,7 +907,7 @@ export function PropertyDetailBody({
               const grouped = g.owners.length > 1;
               if (!grouped) {
                 const inv = g.owners[0];
-                const done = !!checked[inv.id];
+                const done = !!effectiveChecked[inv.id];
                 const hasDetail = !!(inv.detailedName || inv.address || inv.phone || inv.vendorCode || ownerPctFor(inv) != null);
                 return (
                   <K1InvestorRow key={inv.id} inv={inv} done={done} hasDetail={hasDetail} showK1Check={!!ownershipEntry.hasK1Distribution} />
@@ -919,7 +932,7 @@ export function PropertyDetailBody({
                   </div>
                   <div style={{ paddingLeft: 18 }}>
                     {g.owners.map((inv) => {
-                      const done = !!checked[inv.id];
+                      const done = !!effectiveChecked[inv.id];
                       const hasDetail = !!(inv.detailedName || inv.address || inv.phone || inv.vendorCode || ownerPctFor(inv) != null);
                       const pctFmt = (n: number) => `${(n * 100).toFixed(6).replace(/\.?0+$/, "")}%`;
                       const ownership = ownerPctFor(inv);

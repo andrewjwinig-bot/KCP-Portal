@@ -2,7 +2,8 @@
 // Imported by both /tracker/taxes/page.tsx and /tracker/page.tsx so that
 // task definitions and localStorage keys stay in sync between the two pages.
 
-import { getOwnersForProperty } from "../../lib/properties/ownership";
+import { getOwnersForProperty, PROPERTY_OWNERSHIP } from "../../lib/properties/ownership";
+import { PROPERTY_DEFS } from "../../lib/properties/data";
 
 export type TaxCategory = "ret" | "quarterly" | "entity" | "k1";
 
@@ -42,7 +43,7 @@ export interface TaxTask {
   investors?: K1Investor[]; // K-1 tasks only — one sub-row per investor
 }
 
-export const TAX_TASKS: TaxTask[] = [
+const SEEDED_TASKS: TaxTask[] = [
 
   // ─── COUNTY REAL ESTATE TAX ─────────────────────────────────────────────
 
@@ -230,6 +231,31 @@ export const TAX_TASKS: TaxTask[] = [
   },
 ];
 
+/**
+ * Every partnership that distributes K-1s gets a distribution task, whether or
+ * not somebody remembered to write one.
+ *
+ * The list above is hand-maintained and its `entity` strings are load-bearing
+ * (baseEntityName keys PARCEL_INFO off them), so the seeded rows stay as they
+ * are — but a partnership flagged `hasK1Distribution` with no task is simply an
+ * omission. 7010 Parkwood was exactly that: 21 owners, actively being
+ * distributed, and invisible to the tracker. Flag a partnership in
+ * ownership.ts and its task now appears on its own.
+ */
+const DERIVED_K1_TASKS: TaxTask[] = PROPERTY_OWNERSHIP
+  .filter((p) => p.hasK1Distribution)
+  .filter((p) => !SEEDED_TASKS.some((t) => t.category === "k1" && t.entity.startsWith(`${p.propertyCode} `)))
+  .map((p) => ({
+    id: `k1-${p.propertyCode}`,
+    entity: `${p.propertyCode} ${PROPERTY_DEFS.find((d) => d.id === p.propertyCode)?.name ?? p.propertyCode}`,
+    category: "k1" as const,
+    dueMonth: 3,
+    dueDay: 15,
+    investors: getOwnersForProperty(p.propertyCode),
+  }));
+
+export const TAX_TASKS: TaxTask[] = [...SEEDED_TASKS, ...DERIVED_K1_TASKS];
+
 // ─── SHARED STORAGE ─────────────────────────────────────────────────────────
 // Both pages read/write the same key so checkboxes stay in sync.
 
@@ -334,9 +360,19 @@ export function filingLabel(t: TaxTask): string {
 }
 
 // Returns true if the task is fully done (for K-1, all investors must be checked)
-export function isTaskEffectivelyDone(task: TaxTask, checked: Record<string, boolean>): boolean {
+/**
+ * @param sent  Owner ids the portal has actually delivered a K-1 to. Merged
+ *   with the manual ticks rather than replacing them: a K-1 handed over on
+ *   paper or emailed outside the portal is still done, so this only ever ADDS
+ *   completions — it never un-ticks something a person set by hand.
+ */
+export function isTaskEffectivelyDone(
+  task: TaxTask,
+  checked: Record<string, boolean>,
+  sent: Record<string, boolean> = {},
+): boolean {
   if (task.investors && task.investors.length > 0) {
-    return task.investors.every(inv => checked[inv.id]);
+    return task.investors.every(inv => checked[inv.id] || sent[inv.id]);
   }
   return !!checked[task.id];
 }

@@ -313,6 +313,22 @@ preferences.
   key, granted to Drew and Harry only — never on `canEditOwnership`, which
   includes Alison. The API enforces the same rule server-side. `/investor-k1` is
   no longer a page; the key outlived it.
+- **The tax tracker's K-1 ticks sync from actual sends.**
+  `/api/investor-k1/sent?year=` returns booleans keyed by owner id — no names,
+  no filenames — and `isTaskEffectivelyDone(task, checked, sent)` merges them
+  over the manual localStorage ticks. **Additive only**: a K-1 handed over on
+  paper or emailed outside the portal still counts, so this never un-ticks what
+  a person set. A portal-sent investor's box is disabled with a SENT badge —
+  revoking their link is the way to undo it, and doing so reverts the task,
+  because "sent" means a published K-1 AND a live link. NOTE the year offset:
+  the tracker's year is the DEADLINE year, so a task due March 2026 asks for
+  tax year **2025** — fetch `viewYear - 1`.
+- **K-1 tasks derive from `hasK1Distribution`.** The hand-written list in
+  `tax-data.ts` stays (its `entity` strings key `PARCEL_INFO` through
+  `baseEntityName`), but any flagged partnership without one gets a task
+  appended automatically. 7010 was missing entirely — 21 owners, actively being
+  distributed, invisible to the tracker. Flag a partnership in `ownership.ts`
+  and its task appears.
 - **Investor links are domain-separated from tenant links** (`lib/investors/k1Link.ts`,
   HMAC prefixed `kcp.investor.k1.v1:`). Both fall back to `SITE_AUTH_SECRET`, so
   without that prefix a tenant token could open a K-1. Pinned by
