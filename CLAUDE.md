@@ -262,6 +262,26 @@ preferences.
   Feldman holds both a GST trust interest and a personal one), so the file most
   in need of routing was exactly the one it refused. Picking the row is faster
   than confirming a guess and cannot be wrong in a way nobody notices.
+- **ONE LINK PER PERSON, not per interest.** A link carries `ownerIds[]` —
+  every interest that person holds in the partnership — so Alison gets one tick,
+  one email, one PIN, and a portal listing both her K-1s (each labelled by its
+  `heldAs`, or the two rows read identically). The group is ALWAYS derived
+  server-side in `personGroup()` from the roster; never accept a client-supplied
+  set, or a caller could mint a link onto a co-owner's K-1. A batch collapses to
+  one entry per person (two ticked interests would otherwise mint a link then
+  immediately revoke it), a re-send revokes any prior link touching ANY of their
+  interests, and `linkOwnerIds()` covers links minted before `ownerIds` existed.
+  Index links under every covered id — keying on `ownerId` alone made the person
+  row read "NO LINK" for a link it owned.
+- **Emails come from `resolveOwnerEmail`**, which reads the beneficiary contacts
+  AND the trustee directory and takes a per-OWNER-ID override on top
+  (`ownerEmailStore`). Keyed by owner id, the override needs no name matching at
+  all. The relaxed name match counts ONLY where it resolves to exactly one
+  address across both sources, and a relaxed hit is surfaced as "Matched on
+  name — check it": a wrong address here mails one investor's K-1 link to
+  another investor. Never make this fuzzier. On the roster, **By Property shows
+  EMAIL** (nothing is physically mailed from there) and **By Investor shows
+  ADDRESS**.
 - **Where two rows share a name, "Held as" is the disambiguator** — it renders
   "Held personally" rather than a dash on those rows, plus a SHARED NAME pill
   whose hover shows the trust name and vendor code. Keep that; a dash there

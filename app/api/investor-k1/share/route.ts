@@ -8,7 +8,7 @@ import { allOwnerEmails } from "@/lib/investors/ownerEmailStore";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 import {
   investorLinkSecret, signInvestorToken, saveInvestorLink, listInvestorLinks,
-  revokeInvestorLink, generatePin, type InvestorLink,
+  revokeInvestorLink, generatePin, linkOwnerIds, type InvestorLink,
 } from "@/lib/investors/k1Link";
 import { k1sForOwner, saveK1 } from "@/lib/investors/k1Store";
 import { sendMail, isMailConfigured } from "@/lib/mail";
@@ -52,18 +52,37 @@ type ShareResult = {
  * any earlier link is revoked first, a fresh PIN per owner, the email carries a
  * LINK and never the K-1 itself) cannot drift apart between them.
  */
+const normName = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim();
+
+/**
+ * Every interest ONE PERSON holds in this partnership.
+ *
+ * Computed here from the roster, never from anything the caller sent: a link
+ * covers whatever this returns, so if a client could name the set it could mint
+ * a link onto a co-owner's K-1.
+ */
+function personGroup(propertyCode: string, ownerId: string) {
+  const owners = PROPERTY_OWNERSHIP.find((p) => p.propertyCode === propertyCode)?.owners ?? [];
+  const owner = owners.find((o) => o.id === ownerId);
+  if (!owner) return null;
+  return { owner, group: owners.filter((o) => normName(o.name) === normName(owner.name)) };
+}
+
 async function shareOne(
   req: NextRequest, user: UserId, secret: string, propertyCode: string, ownerId: string, year: number | null, send: boolean,
 ): Promise<ShareResult> {
-  const owner = PROPERTY_OWNERSHIP.find((p) => p.propertyCode === propertyCode)?.owners.find((o) => o.id === ownerId);
-  if (!owner) return { ownerId, ownerName: ownerId, sentTo: [], mailError: null, error: "That owner isn't on this partnership." };
+  const found = personGroup(propertyCode, ownerId);
+  if (!found) return { ownerId, ownerName: ownerId, sentTo: [], mailError: null, error: "That owner isn't on this partnership." };
+  const { owner, group } = found;
 
   // Sending IS the release. There is no separate publish step: an upload sits
   // invisible until someone deliberately sends it, and the send is that
   // deliberate act. This matters because an investor holding a live link from a
   // previous year would otherwise see a new upload the instant it landed —
   // including one dropped on the wrong row by mistake.
-  const mine = (await k1sForOwner(owner.id)).filter((d) => year == null || d.taxYear === year);
+  const mine = (await Promise.all(group.map((o) => k1sForOwner(o.id))))
+    .flat()
+    .filter((d) => year == null || d.taxYear === year);
   if (mine.length === 0) {
     return {
       ownerId, ownerName: owner.name, heldAs: owner.detailedName ?? null, sentTo: [], mailError: null,
@@ -78,15 +97,16 @@ async function shareOne(
   }
   const published = mine;
 
-  // One live link per owner: retire any earlier one so a revoked address can't
-  // still open the portal.
-  for (const l of (await listInvestorLinks()).filter((l) => !l.revoked && l.ownerId === owner.id)) {
+  // One live link per person: retire any earlier link touching ANY of their
+  // interests, so a superseded link can't still open the portal.
+  const ids = new Set(group.map((o) => o.id));
+  for (const l of (await listInvestorLinks()).filter((l) => !l.revoked && linkOwnerIds(l).some((id) => ids.has(id)))) {
     await revokeInvestorLink(l.id);
   }
 
   const link: InvestorLink = {
     id: "il_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
-    ownerId: owner.id, ownerName: owner.name, propertyCode,
+    ownerId: owner.id, ownerIds: group.map((o) => o.id), ownerName: owner.name, propertyCode,
     createdAt: new Date().toISOString(), createdBy: USERS[user]?.label ?? user,
     revoked: false, expiresAt: null,
     pin: generatePin(),   // never optional for a K-1, and never reused between owners
@@ -105,11 +125,15 @@ async function shareOne(
     else {
       const ok = await sendMail({
         to: email,
-        subject: `Your ${published[0].taxYear} Schedule K-1 — ${propName(propertyCode)}`,
+        subject: published.length > 1
+          ? `Your ${published[0].taxYear} Schedule K-1s — ${propName(propertyCode)}`
+          : `Your ${published[0].taxYear} Schedule K-1 — ${propName(propertyCode)}`,
         textBody: [
           `Hello ${owner.name},`,
           "",
-          `Your Schedule K-1 for ${propName(propertyCode)} is ready in your secure investor portal.`,
+          published.length > 1
+            ? `Your ${published.length} Schedule K-1s for ${propName(propertyCode)} are ready in your secure investor portal.`
+            : `Your Schedule K-1 for ${propName(propertyCode)} is ready in your secure investor portal.`,
           "",
           url,
           "",
@@ -160,7 +184,18 @@ export async function POST(req: NextRequest) {
   if (Array.isArray(body?.ownerIds)) {
     // De-duplicated: two entries for one owner would revoke the link the first
     // pass just minted and email them twice.
-    const ids = [...new Set(body.ownerIds.map((x: unknown) => String(x)).filter(Boolean))] as string[];
+    const raw = [...new Set(body.ownerIds.map((x: unknown) => String(x)).filter(Boolean))] as string[];
+    // Collapse to one entry per PERSON. Two interests of one owner ticked
+    // separately would otherwise mint a link and then immediately revoke it.
+    const seen = new Set<string>();
+    const ids: string[] = [];
+    for (const id of raw) {
+      const g = personGroup(propertyCode, id);
+      const key = g ? `${normName(g.owner.name)}` : id;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      ids.push(id);
+    }
     if (ids.length === 0) return NextResponse.json({ error: "Pick at least one investor." }, { status: 400 });
     if (ids.length > MAX_BATCH) return NextResponse.json({ error: `Too many at once (max ${MAX_BATCH}).` }, { status: 400 });
 

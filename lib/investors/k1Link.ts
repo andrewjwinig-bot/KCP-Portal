@@ -24,7 +24,15 @@ export type InvestorLinkPayload = {
 
 export type InvestorLink = {
   id: string;
+  /** Primary interest — kept for older links and for the signed token's `o`. */
   ownerId: string;
+  /** EVERY interest this link covers. One person holding a trust interest and a
+   *  personal one in the same partnership gets ONE link showing both K-1s, so
+   *  they aren't asked to juggle two links and two PINs for their own documents.
+   *  Always derived server-side from the roster (same name, same property) —
+   *  never from a client-supplied list, or a caller could widen a link onto
+   *  someone else's K-1. Absent on links minted before this existed. */
+  ownerIds?: string[];
   ownerName: string;
   propertyCode: string;
   createdAt: string;
@@ -38,6 +46,11 @@ export type InvestorLink = {
   lastViewedAt?: string | null;
   viewCount: number;
 };
+
+/** The interests a link covers, tolerating links minted before `ownerIds`. */
+export function linkOwnerIds(l: Pick<InvestorLink, "ownerId" | "ownerIds">): string[] {
+  return l.ownerIds?.length ? l.ownerIds : [l.ownerId];
+}
 
 const store = createCollectionStore<InvestorLink>({ prefix: "investor-links", keyOf: (l) => l.id });
 

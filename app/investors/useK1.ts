@@ -181,8 +181,22 @@ export function useK1Registry(enabled: boolean, openK1Codes: string[]) {
       missingCount: owners.filter((o) => !docs.some((d) => d.ownerId === o.id)).length,
       linkCount: owners.filter((o) => o.link).length,
       openedCount: owners.filter((o) => (o.link?.viewCount ?? 0) > 0).length,
-      // Anyone with a document can be sent to — the send publishes it.
-      shareableIds: owners.filter((o) => docFor(o.id)).map((o) => o.id),
+      // One entry per PERSON — a link covers all of someone's interests, so
+      // "select all" means every person who has at least one K-1 on file, keyed
+      // by the first of their interests.
+      shareableIds: (() => {
+        const seen = new Set<string>();
+        const out: string[] = [];
+        for (const o of owners) {
+          const key = o.name.toLowerCase().replace(/\s+/g, " ").trim();
+          if (seen.has(key)) continue;
+          const mine = owners.filter((x) => x.name.toLowerCase().replace(/\s+/g, " ").trim() === key);
+          if (!mine.some((x) => docFor(x.id))) continue;
+          seen.add(key);
+          out.push(mine[0].id);
+        }
+        return out;
+      })(),
       selected: selection[code] ?? emptySet,
       selectedWithoutEmail: [...(selection[code] ?? emptySet)]
         .map((id) => owners.find((o) => o.id === id))
