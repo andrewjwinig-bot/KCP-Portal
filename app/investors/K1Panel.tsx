@@ -282,9 +282,14 @@ export function K1PortalCell({ owner, k1 }: { owner: K1Owner; k1: K1Slice }) {
 
   return (
     <span style={{ display: "inline-flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}>
-      {owner.link
-        ? <Pill tone={owner.link.viewCount ? TONE_GREEN : TONE_NEUTRAL}>{owner.link.viewCount ? `OPENED ${owner.link.viewCount}×` : "SHARED"}</Pill>
-        : <Pill tone={TONE_NEUTRAL}>NO LINK</Pill>}
+      {/* No "NO LINK" pill — the Share button sitting right there already says
+          there isn't one. The pill only earns its place once there IS a link and
+          it can report something the button can't: whether they've opened it. */}
+      {owner.link && (
+        <Pill tone={owner.link.viewCount ? TONE_GREEN : TONE_NEUTRAL}>
+          {owner.link.viewCount ? `OPENED ${owner.link.viewCount}×` : "SHARED"}
+        </Pill>
+      )}
       <ShareLinkCard
         small
         buttonLabel={owner.link ? "Link" : "Share"}
@@ -303,6 +308,8 @@ export function K1PortalCell({ owner, k1 }: { owner: K1Owner; k1: K1Slice }) {
         recipients={owner.email ? [owner.email] : []}
         sendLabel="Email the investor"
         pinOptional={false}
+        viewAsHref={`/investor/preview?owner=${encodeURIComponent(owner.id)}`}
+        recipientSlot={<K1EmailCell owner={owner} k1={k1} />}
         onCreate={doc ? () => k1.share([owner.id], false) : undefined}
         onSend={() => k1.share([owner.id], true)}
         onRevoke={(id) => {
@@ -312,6 +319,99 @@ export function K1PortalCell({ owner, k1 }: { owner: K1Owner; k1: K1Slice }) {
         }}
       />
     </span>
+  );
+}
+
+
+/**
+ * The investor's ONE link, on their own card.
+ *
+ * This is where it belongs now that a link covers every partnership a person
+ * holds: By Investor IS the person. The property cards keep their own copy of
+ * the same control for when you're working a batch, but they act on the same
+ * single link.
+ */
+export function K1InvestorShare({ name, inv }: {
+  name: string;
+  inv: {
+    busy: boolean; error: string | null;
+    link: K1Interest["link"];
+    email: string | null;
+    sendableFrom: K1Interest | null;
+    interests: K1Interest[];
+    send: (i: K1Interest, taxYear: number) => void;
+    revoke: (linkId: string) => void;
+    setEmail: (ownerId: string, email: string) => void;
+  };
+}) {
+  const filing = inv.interests.filter((i) => i.filesK1);
+  const withDocs = filing.filter((i) => i.documents.length > 0);
+  if (filing.length === 0) return null;
+
+  const links = inv.link?.url
+    ? [{ id: inv.link.id, url: inv.link.url, pin: inv.link.pin ?? null, createdAt: inv.link.createdAt, viewCount: inv.link.viewCount, lastViewedAt: inv.link.lastViewedAt }]
+    : [];
+  const target = inv.sendableFrom;
+  const newest = target?.documents[0];
+
+  return (
+    <ShareLinkCard
+      small
+      buttonLabel={inv.link ? "Link" : "Share"}
+      title="Investor K-1 link"
+      description={
+        <>
+          One private, revocable link for <b>{name}</b> covering{" "}
+          <b>{withDocs.length || filing.length} partnership{(withDocs.length || filing.length) === 1 ? "" : "s"}</b>.
+          It always carries an <b>access PIN</b> — send the PIN separately.
+        </>
+      }
+      links={links}
+      busy={inv.busy}
+      error={inv.error}
+      recipients={inv.email ? [inv.email] : []}
+      sendLabel="Email the investor"
+      pinOptional={false}
+      viewAsHref={target ? `/investor/preview?owner=${encodeURIComponent(target.ownerId)}` : undefined}
+      recipientSlot={target
+        ? <InlineEmail value={inv.email} busy={inv.busy} onSave={(v) => inv.setEmail(target.ownerId, v)} />
+        : undefined}
+      onCreate={target && newest ? () => inv.send(target, newest.taxYear) : undefined}
+      onSend={target && newest ? () => inv.send(target, newest.taxYear) : undefined}
+      onRevoke={(id) => {
+        if (confirm(`Revoke ${name}'s link? It stops working immediately and none of their K-1s are readable until you share a new one.`)) {
+          inv.revoke(id);
+        }
+      }}
+    />
+  );
+}
+
+/** The same click-to-edit address as the roster, without a K1Slice behind it. */
+function InlineEmail({ value, busy, onSave }: { value: string | null; busy: boolean; onSave: (v: string) => void }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value ?? "");
+  if (editing) {
+    const commit = () => { setEditing(false); if (draft.trim() !== (value ?? "")) onSave(draft.trim()); };
+    return (
+      <input autoFocus value={draft} onChange={(e) => setDraft(e.target.value)} onBlur={commit}
+        onKeyDown={(e) => { if (e.key === "Enter") commit(); if (e.key === "Escape") { setDraft(value ?? ""); setEditing(false); } }}
+        placeholder="name@example.com" style={{ flex: 1, minWidth: 160, fontSize: 12.5, padding: "3px 6px" }} />
+    );
+  }
+  if (!value) {
+    return (
+      <button type="button" onClick={() => { setDraft(""); setEditing(true); }} disabled={busy}
+        style={{ background: "rgba(220,38,38,0.08)", border: "1.5px dashed rgba(220,38,38,0.45)", borderRadius: 999, padding: "2px 9px", cursor: "pointer", fontFamily: "inherit", fontSize: 11, fontWeight: 700, color: "#b91c1c" }}>
+        ADD EMAIL
+      </button>
+    );
+  }
+  return (
+    <button type="button" onClick={() => { setDraft(value); setEditing(true); }} disabled={busy}
+      style={{ background: "none", border: "none", padding: 0, cursor: "pointer", fontFamily: "inherit", fontSize: 12.5, color: "var(--text)", textAlign: "left" }}>
+      {value}
+    </button>
   );
 }
 
@@ -363,6 +463,8 @@ export function K1InvestorCells({ interest, inv }: {
         )}
       </td>
       <td style={{ padding: "12px 16px", textAlign: "right", whiteSpace: "nowrap" }} className="no-print">
+        {/* Status only. The link is the PERSON's and is managed in their card
+            header — repeating a control per property would imply four links. */}
         <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
           {interest.link ? (
             <HoverCard title="Investor link" width={250}
@@ -373,15 +475,7 @@ export function K1InvestorCells({ interest, inv }: {
               footer={{ label: "Last opened", value: interest.link.lastViewedAt ? new Date(interest.link.lastViewedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "—" }}>
               <Pill tone={interest.link.viewCount ? TONE_GREEN : TONE_NEUTRAL}>{interest.link.viewCount ? `OPENED ${interest.link.viewCount}×` : "SHARED"}</Pill>
             </HoverCard>
-          ) : (
-            <Pill tone={TONE_NEUTRAL}>NO LINK</Pill>
-          )}
-          <button className="btn" disabled={inv.busy || !newest}
-            onClick={() => newest && inv.send(interest, newest.taxYear)}
-            title={newest ? `Email their ${newest.taxYear} link` : "No K-1 uploaded yet"}
-            style={{ fontSize: 11.5, padding: "3px 8px" }}>
-            {interest.link ? "Re-send" : "Send"}
-          </button>
+          ) : null}
         </span>
       </td>
     </>

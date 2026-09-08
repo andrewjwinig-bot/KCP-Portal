@@ -16,14 +16,22 @@ type Doc = {
   /** The interest this K-1 is for. Two documents for the same year would read
    *  identically without it — one is the trust's, one is held personally. */
   heldAs: string | null;
+  /** Which partnership issued it. One link covers every partnership an investor
+   *  holds, so without this they cannot tell four K-1s apart. */
+  propertyCode: string;
+  propertyName: string;
 };
 type Payload = {
   ok: true;
   owner: { name: string; heldAs: string | null };
   property: { code: string; name: string };
+  propertyCount?: number;
   documents: Doc[];
   /** Set only by the staff preview — nothing here is real. */
   preview?: boolean;
+  /** Set when previewing a REAL owner's page: their documents, no link minted. */
+  previewOwner?: string;
+  previewUnsent?: boolean;
 };
 
 const kb = (n: number) => (n < 1024 * 1024 ? `${Math.max(1, Math.round(n / 1024))} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`);
@@ -129,18 +137,35 @@ function Documents({ token }: { token: string }) {
             background: "rgba(180,83,9,0.09)", border: "1px solid rgba(180,83,9,0.4)",
             color: "#7c3d06", fontSize: 13, lineHeight: 1.55,
           }}>
-            <b>Preview — this is what an investor sees.</b> Every name, figure and document below is
-            invented. Nothing has been published, no link exists, and no investor has been emailed.
-            A real link also asks for a 6-digit PIN before this page appears.
+            {data.previewOwner ? (
+              <>
+                <b>Preview — {data.previewOwner}&rsquo;s page, as they would see it.</b>{" "}
+                {data.previewUnsent
+                  ? "Some of these have not been sent yet, so they are not readable by anyone but you."
+                  : "These are their real documents."}{" "}
+                Nothing has been minted, sent or recorded by opening this. A real link also asks for a
+                6-digit PIN first.
+              </>
+            ) : (
+              <>
+                <b>Preview — this is what an investor sees.</b> Every name, figure and document below is
+                invented. Nothing has been published, no link exists, and no investor has been emailed.
+                A real link also asks for a 6-digit PIN before this page appears.
+              </>
+            )}
           </div>
         )}
-        <h1 style={{ margin: 0 }}>Your Schedule K-1</h1>
+        <h1 style={{ margin: 0 }}>Your Schedule K-1{data.documents.length > 1 ? "s" : ""}</h1>
         <div className="muted" style={{ fontSize: 15, marginTop: 8 }}>
           {data.owner.name}
           {data.documents.length < 2 && data.owner.heldAs && data.owner.heldAs !== data.owner.name
             ? <> · <span style={{ fontStyle: "italic" }}>{data.owner.heldAs}</span></> : null}
         </div>
-        <div className="muted" style={{ fontSize: 14, marginTop: 3 }}>{data.property.code} — {data.property.name}</div>
+        <div className="muted" style={{ fontSize: 14, marginTop: 3 }}>
+          {(data.propertyCount ?? 1) > 1
+            ? `${data.propertyCount} partnerships · every K-1 you hold with us is below`
+            : `${data.property.code} — ${data.property.name}`}
+        </div>
 
         {data.documents.length === 0 ? (
           <div style={{ marginTop: 28, border: "1px dashed var(--border)", borderRadius: 12, padding: "40px 16px", textAlign: "center", color: "var(--muted)", fontSize: 14 }}>
@@ -154,7 +179,10 @@ function Documents({ token }: { token: string }) {
                   <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /></svg>
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 700, fontSize: 16 }}>{d.taxYear} Schedule K-1</div>
+                  <div style={{ fontWeight: 700, fontSize: 16 }}>
+                    {d.propertyName}
+                    <span className="muted" style={{ fontWeight: 500, fontSize: 13 }}> · {d.taxYear} Schedule K-1</span>
+                  </div>
                   {d.heldAs && (
                     <div style={{ fontSize: 12.5, marginTop: 2, fontStyle: "italic", color: BRAND }}>{d.heldAs}</div>
                   )}

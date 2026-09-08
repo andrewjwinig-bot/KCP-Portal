@@ -263,17 +263,40 @@ preferences.
   Feldman holds both a GST trust interest and a personal one), so the file most
   in need of routing was exactly the one it refused. Picking the row is faster
   than confirming a guess and cannot be wrong in a way nobody notices.
-- **ONE LINK PER PERSON, not per interest.** A link carries `ownerIds[]` —
-  every interest that person holds in the partnership — so Alison gets one tick,
-  one email, one PIN, and a portal listing both her K-1s (each labelled by its
-  `heldAs`, or the two rows read identically). The group is ALWAYS derived
-  server-side in `personGroup()` from the roster; never accept a client-supplied
-  set, or a caller could mint a link onto a co-owner's K-1. A batch collapses to
+- **ONE LINK PER INVESTOR — across every partnership, not per property.** An
+  investor in four partnerships holds ONE link and ONE PIN; the portal lists
+  every K-1 they have, each row led by its PROPERTY (without it, four K-1s read
+  identically). `personGroup` therefore matches by name across ALL of
+  `PROPERTY_OWNERSHIP`, the same identity the By Investor view has always used.
+  **The link is DURABLE**: a send reuses the person's existing live link and
+  widens its `ownerIds`, so releasing a second partnership never invalidates the
+  link (or PIN) they already have. Only Revoke kills a link. **But a SEND
+  releases only the partnership it was sent from**, for that year — otherwise
+  releasing a finished 7010 K-1 would also expose an unfinalised 9510 draft.
+  Later releases simply appear on the same link, with no re-send.
+- **The group is always derived server-side** in `personGroup()`, never from a
+  client-supplied set, or a caller could mint a link onto a co-owner's K-1. Each
+  document is labelled with its `heldAs` too, since a trust interest and a
+  personal one in the same partnership are separate K-1s. A batch collapses to
   one entry per person (two ticked interests would otherwise mint a link then
-  immediately revoke it), a re-send revokes any prior link touching ANY of their
-  interests, and `linkOwnerIds()` covers links minted before `ownerIds` existed.
-  Index links under every covered id — keying on `ownerId` alone made the person
-  row read "NO LINK" for a link it owned.
+  immediately revoke it), and `linkOwnerIds()` covers links minted before
+  `ownerIds` existed. Index links under every covered id — keying on `ownerId`
+  alone made the person row read "NO LINK" for a link it owned.
+- **The share control is the SAME card everywhere** — `ShareLinkCard`
+  (`app/components/ShareLinkCard.tsx`), extracted from the tenant statement
+  share flow so a link is minted, copied, emailed and revoked identically on
+  both. It sits on the property card's Portal column AND on the By Investor
+  card header (`K1InvestorShare`), because one link per investor means the
+  person's own row is the natural place to reach for it. The email address
+  lives INSIDE the card under "Sends to" (`recipientSlot`) rather than as a
+  table column — it is only relevant where you send from. There is no "NO LINK"
+  pill: the button already reads `Share` when there is no link and `Link` when
+  there is.
+- **`/investor/preview` renders a page with no side effects** — `?owner=<id>`
+  shows what a REAL investor would see (staff-only, `canManageK1`), minting
+  nothing, publishing nothing and recording no view, so you can check a link
+  before anyone gets one. Bare `/investor/preview` shows a fictional investor
+  with a generated PDF (`lib/investors/k1Preview.ts`).
 - **Emails come from `resolveOwnerEmail`**, which reads the beneficiary contacts
   AND the trustee directory and takes a per-OWNER-ID override on top
   (`ownerEmailStore`). Keyed by owner id, the override needs no name matching at

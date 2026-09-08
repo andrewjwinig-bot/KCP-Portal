@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import * as XLSX from "xlsx";
 import JSZip from "jszip";
 import { PROPERTY_OWNERSHIP, type PropertyOwner } from "../../lib/properties/ownership";
-import { resolveOwnerEmail } from "@/lib/investors/ownerEmail";
 import { PROPERTY_DEFS, TYPE_STYLE, FUND_LABEL, type PropType, type FundGroup } from "../../lib/properties/data";
 import { structureFor, type InvestorStructure } from "../../lib/investors/structures";
 import { ENTITY_VALUES, entityValue, totalEquityValue, STATEMENT_AS_OF } from "../../lib/properties/entityValues";
@@ -16,7 +15,7 @@ import { residencyOf } from "../../lib/properties/residency";
 import { buildStatementOfValuesPdf, type StatementPdfRow } from "../../lib/properties/statementPdf";
 import { mergeTrusteeRows, normInvestorKey, type TrusteeRowOverride } from "../../lib/investors/structures";
 import { canEditOwnership, canManageK1 } from "../../lib/users";
-import { K1Header, K1Cell, K1PortalCell, K1SelectCell, K1ShareResults, K1InvestorCells, K1EmailCell } from "./K1Panel";
+import { K1Header, K1Cell, K1PortalCell, K1SelectCell, K1ShareResults, K1InvestorCells, K1EmailCell, K1InvestorShare } from "./K1Panel";
 import { useK1Registry } from "./useK1";
 import { PartnershipTaxDocs } from "@/app/components/PartnershipTaxDocs";
 import { useUser } from "../components/UserProvider";
@@ -124,10 +123,6 @@ const INVESTOR_NAME: React.CSSProperties = { fontWeight: 700, fontSize: 15 };
 const GROUP_ROW_BG = "rgba(11,74,125,0.07)";
 const GROUP_SUB_BG = "rgba(11,74,125,0.028)";
 const GROUP_RAIL: React.CSSProperties = { boxShadow: "inset 3px 0 0 rgba(11,74,125,0.5)" };
-
-function ownerEmailFor(o: PropertyOwner): string | null {
-  return resolveOwnerEmail(o.name, o.detailedName ?? null, null).email;
-}
 
 function buildOwnerGroups(owners: PropertyOwner[]): OwnerGroup[] {
   const byKey = new Map<string, PropertyOwner[]>();
@@ -719,7 +714,7 @@ export default function InvestorInfoPage() {
                 {showK1 && <th style={{ ...k1Th, width: 34, paddingRight: 0 }} className="no-print" aria-label="Select" />}
                 <th style={{ padding: "10px 16px", fontWeight: 700, width: 140, whiteSpace: "nowrap" }}>VENDOR CODE</th>
                 <th style={{ padding: "10px 16px", fontWeight: 700, ...(showK1 ? { minWidth: 190 } : null) }}>OWNER</th>
-                <th style={{ padding: "10px 16px", fontWeight: 700, width: 230 }}>EMAIL</th>
+
                 <th style={{ padding: "10px 16px", fontWeight: 700, textAlign: "right" }}>OWNERSHIP %</th>
                 {hasVal && <th style={{ padding: "10px 16px", fontWeight: 700, textAlign: "right", whiteSpace: "nowrap" }}>YEAR-END $</th>}
                 {hasVal && <th style={{ padding: "10px 16px", fontWeight: 700, textAlign: "right", whiteSpace: "nowrap" }}>ESTIMATED $</th>}
@@ -756,11 +751,7 @@ export default function InvestorInfoPage() {
                           <div className="muted small" style={{ marginTop: 2 }}>{inv.detailedName}</div>
                         )}
                       </td>
-                      <td style={{ padding: "12px 16px", color: "var(--muted)" }}>
-                        {showK1 && k1?.ownerFor(inv.id)
-                          ? <K1EmailCell owner={k1.ownerFor(inv.id)!} k1={k1} />
-                          : <span style={{ fontSize: 12.5 }}>{ownerEmailFor(inv) ?? "—"}</span>}
-                      </td>
+
                       <td style={{ padding: "12px 16px", textAlign: "right" }}>{pct(ownershipFor(inv))}</td>
                       {hasVal && <td style={{ padding: "12px 16px", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{share(ownershipFor(inv), pv!.ye)}</td>}
                       {hasVal && <td style={{ padding: "12px 16px", textAlign: "right", fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{share(ownershipFor(inv), pv!.est)}</td>}
@@ -788,15 +779,16 @@ export default function InvestorInfoPage() {
                     {showK1 && !k1 && <td className="no-print" style={GROUP_RAIL} />}
                     <td style={{ padding: "12px 16px", color: "var(--muted)", fontSize: 11, ...(showK1 ? null : GROUP_RAIL) }}>—</td>
                     <td style={{ padding: "12px 16px" }}>
-                      <div style={INVESTOR_NAME}>{g.name}</div>
+                      <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
+                        <span style={INVESTOR_NAME}>{g.name}</span>
+                        <span style={{
+                          fontSize: 10.5, fontWeight: 800, letterSpacing: "0.04em",
+                          color: "#0b4a7d", background: "rgba(11,74,125,0.10)",
+                          border: "1px solid rgba(11,74,125,0.28)", borderRadius: 999, padding: "1px 8px",
+                        }}>{g.owners.length} STAKES</span>
+                      </div>
                     </td>
-                    <td style={{ padding: "12px 16px" }}>
-                      <span style={{
-                        fontSize: 10.5, fontWeight: 800, letterSpacing: "0.04em",
-                        color: "#0b4a7d", background: "rgba(11,74,125,0.10)",
-                        border: "1px solid rgba(11,74,125,0.28)", borderRadius: 999, padding: "1px 8px",
-                      }}>{g.owners.length} STAKES</span>
-                    </td>
+
                     <td style={{ padding: "12px 16px", textAlign: "right", fontWeight: 700 }}>{pct(g.total)}</td>
                     {hasVal && <td style={{ padding: "12px 16px", textAlign: "right", fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{share(g.total, pv!.ye)}</td>}
                     {hasVal && <td style={{ padding: "12px 16px", textAlign: "right", fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>{share(g.total, pv!.est)}</td>}
@@ -834,11 +826,7 @@ export default function InvestorInfoPage() {
                       <td style={{ padding: "8px 16px", fontSize: 12, color: "var(--muted)" }}>
                         {inv.detailedName || <span style={{ fontStyle: "italic" }}>(direct)</span>}
                       </td>
-                      <td style={{ padding: "8px 16px", color: "var(--muted)", fontSize: 12 }}>
-                        {showK1 && k1?.ownerFor(inv.id)
-                          ? <K1EmailCell owner={k1.ownerFor(inv.id)!} k1={k1} />
-                          : <span style={{ fontSize: 12 }}>{ownerEmailFor(inv) ?? "—"}</span>}
-                      </td>
+
                       <td style={{ padding: "8px 16px", textAlign: "right", fontSize: 12 }}>{pct(ownershipFor(inv))}</td>
                       {hasVal && <td style={{ padding: "8px 16px", textAlign: "right", fontSize: 12, fontVariantNumeric: "tabular-nums" }}>{share(ownershipFor(inv), pv!.ye)}</td>}
                       {hasVal && <td style={{ padding: "8px 16px", textAlign: "right", fontSize: 12, fontVariantNumeric: "tabular-nums" }}>{share(ownershipFor(inv), pv!.est)}</td>}
@@ -1117,6 +1105,7 @@ export default function InvestorInfoPage() {
                       <span className="muted small">· {agg.rows.length} {agg.rows.length === 1 ? "property" : "properties"}</span>
                     </button>
                     <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
+                      {inv && <K1InvestorShare name={agg.name} inv={inv} />}
                       {beneficiaryMatch(agg.name) && (
                         <button
                           type="button"
