@@ -55,17 +55,26 @@ type ShareResult = {
 const normName = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim();
 
 /**
- * Every interest ONE PERSON holds in this partnership.
+ * Every interest ONE PERSON holds — across EVERY partnership, not just the one
+ * you happen to be standing on.
+ *
+ * An investor in four partnerships should hold ONE link, not four links and
+ * four PINs, and it should keep working as later years and other properties are
+ * added. So the link covers the whole person and the portal labels each K-1
+ * with its property.
  *
  * Computed here from the roster, never from anything the caller sent: a link
  * covers whatever this returns, so if a client could name the set it could mint
- * a link onto a co-owner's K-1.
+ * a link onto a co-owner's K-1. Matching is by name, which is the same identity
+ * the Investor Info "By Investor" view has always used to group a person across
+ * properties — one curated ownership file is the authority for who is who.
  */
-function personGroup(propertyCode: string, ownerId: string) {
-  const owners = PROPERTY_OWNERSHIP.find((p) => p.propertyCode === propertyCode)?.owners ?? [];
-  const owner = owners.find((o) => o.id === ownerId);
-  if (!owner) return null;
-  return { owner, group: owners.filter((o) => normName(o.name) === normName(owner.name)) };
+function personGroup(_propertyCode: string, ownerId: string) {
+  const all = PROPERTY_OWNERSHIP.flatMap((p) => p.owners.map((o) => ({ o, code: p.propertyCode })));
+  const found = all.find((x) => x.o.id === ownerId);
+  if (!found) return null;
+  const group = all.filter((x) => normName(x.o.name) === normName(found.o.name)).map((x) => x.o);
+  return { owner: found.o, group };
 }
 
 async function shareOne(
@@ -80,7 +89,16 @@ async function shareOne(
   // deliberate act. This matters because an investor holding a live link from a
   // previous year would otherwise see a new upload the instant it landed —
   // including one dropped on the wrong row by mistake.
-  const mine = (await Promise.all(group.map((o) => k1sForOwner(o.id))))
+  // The link spans every partnership, but a SEND releases only the partnership
+  // you sent from, for that year. Otherwise releasing a finished 7010 K-1 would
+  // also expose a 9510 draft that isn't finalised. The link is durable: later
+  // releases appear on it automatically, without re-sending.
+  const inScope = new Set(
+    (PROPERTY_OWNERSHIP.find((p) => p.propertyCode === propertyCode)?.owners ?? [])
+      .filter((o) => group.some((g) => g.id === o.id))
+      .map((o) => o.id),
+  );
+  const mine = (await Promise.all([...inScope].map((id) => k1sForOwner(id))))
     .flat()
     .filter((d) => year == null || d.taxYear === year);
   if (mine.length === 0) {
@@ -97,23 +115,35 @@ async function shareOne(
   }
   const published = mine;
 
-  // One live link per person: retire any earlier link touching ANY of their
-  // interests, so a superseded link can't still open the portal.
-  const ids = new Set(group.map((o) => o.id));
-  for (const l of (await listInvestorLinks()).filter((l) => !l.revoked && linkOwnerIds(l).some((id) => ids.has(id)))) {
-    await revokeInvestorLink(l.id);
-  }
+  // An investor has ONE durable link. Releasing another partnership must not
+  // invalidate the link (and PIN) they already have — that would mean re-sending
+  // everyone every time a partnership finishes. So reuse the live link if there
+  // is one, widening it to cover any interests added since; only mint when they
+  // have none. Revoke is the deliberate way to kill a link.
+  const ids = group.map((o) => o.id);
+  const existing = (await listInvestorLinks())
+    .find((l) => !l.revoked && linkOwnerIds(l).some((id) => ids.includes(id)));
 
-  const link: InvestorLink = {
-    id: "il_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
-    ownerId: owner.id, ownerIds: group.map((o) => o.id), ownerName: owner.name, propertyCode,
-    createdAt: new Date().toISOString(), createdBy: USERS[user]?.label ?? user,
-    revoked: false, expiresAt: null,
-    pin: generatePin(),   // never optional for a K-1, and never reused between owners
-    views: [], lastViewedAt: null, viewCount: 0,
-  };
-  await saveInvestorLink(link);
-  const url = `${originOf(req)}/investor/${await signInvestorToken(secret, { v: 1, id: link.id, o: owner.id, p: propertyCode })}`;
+  let link: InvestorLink;
+  if (existing) {
+    const covered = new Set(linkOwnerIds(existing));
+    const widened = ids.filter((id) => !covered.has(id));
+    link = widened.length
+      ? { ...existing, ownerIds: [...covered, ...widened] }
+      : existing;
+    if (widened.length) await saveInvestorLink(link);
+  } else {
+    link = {
+      id: "il_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
+      ownerId: owner.id, ownerIds: ids, ownerName: owner.name, propertyCode,
+      createdAt: new Date().toISOString(), createdBy: USERS[user]?.label ?? user,
+      revoked: false, expiresAt: null,
+      pin: generatePin(),   // never optional for a K-1, and never reused between owners
+      views: [], lastViewedAt: null, viewCount: 0,
+    };
+    await saveInvestorLink(link);
+  }
+  const url = `${originOf(req)}/investor/${await signInvestorToken(secret, { v: 1, id: link.id, o: link.ownerId, p: link.propertyCode })}`;
 
   let mailError: string | null = null;
   let sentTo: string[] = [];
@@ -126,13 +156,13 @@ async function shareOne(
       const ok = await sendMail({
         to: email,
         subject: published.length > 1
-          ? `Your ${published[0].taxYear} Schedule K-1s — ${propName(propertyCode)}`
+          ? `Your ${published[0].taxYear} Schedule K-1s — Korman Commercial Properties`
           : `Your ${published[0].taxYear} Schedule K-1 — ${propName(propertyCode)}`,
         textBody: [
           `Hello ${owner.name},`,
           "",
           published.length > 1
-            ? `Your ${published.length} Schedule K-1s for ${propName(propertyCode)} are ready in your secure investor portal.`
+            ? `Your ${published.length} Schedule K-1s are ready in your secure investor portal — one link covers every partnership you hold an interest in.`
             : `Your Schedule K-1 for ${propName(propertyCode)} is ready in your secure investor portal.`,
           "",
           url,
@@ -191,7 +221,7 @@ export async function POST(req: NextRequest) {
     const ids: string[] = [];
     for (const id of raw) {
       const g = personGroup(propertyCode, id);
-      const key = g ? `${normName(g.owner.name)}` : id;
+      const key = g ? normName(g.owner.name) : id;
       if (seen.has(key)) continue;
       seen.add(key);
       ids.push(id);

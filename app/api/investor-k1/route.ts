@@ -51,14 +51,19 @@ export async function GET(req: NextRequest) {
     const links = await listInvestorLinks();
     const docs = await allK1s();
     const emailOverrides = await allOwnerEmails();
+    const secretI = investorLinkSecret();
+    const originI = `${req.headers.get("x-forwarded-proto") ?? "https"}://${req.headers.get("host") ?? req.nextUrl.host}`;
     const interests = PROPERTY_OWNERSHIP.flatMap((p) =>
       p.owners.filter((o) => o.name === investor).map((o) => ({ propertyCode: p.propertyCode, hasK1: !!p.hasK1Distribution, owner: o })),
     );
     return NextResponse.json({
       ok: true,
       properties,
-      interests: interests.map(({ propertyCode, hasK1, owner }) => {
+      interests: await Promise.all(interests.map(async ({ propertyCode, hasK1, owner }) => {
         const live = links.find((l) => !l.revoked && linkOwnerIds(l).includes(owner.id)) ?? null;
+        const liveUrl = live && secretI
+          ? `${originI}/investor/${await signInvestorToken(secretI, { v: 1, id: live.id, o: live.ownerId, p: live.propertyCode })}`
+          : null;
         return {
           ownerId: owner.id,
           propertyCode,
@@ -74,9 +79,11 @@ export async function GET(req: NextRequest) {
             .filter((d) => d.ownerId === owner.id)
             .sort((a, b) => b.taxYear - a.taxYear)
             .map((d) => ({ id: d.id, taxYear: d.taxYear, filename: d.filename, published: d.published, viewCount: d.viewCount ?? 0 })),
-          link: live ? { id: live.id, createdAt: live.createdAt, viewCount: live.viewCount ?? 0, lastViewedAt: live.lastViewedAt ?? null } : null,
+          link: live
+            ? { id: live.id, createdAt: live.createdAt, viewCount: live.viewCount ?? 0, lastViewedAt: live.lastViewedAt ?? null, url: liveUrl, pin: live.pin ?? null }
+            : null,
         };
-      }),
+      })),
     });
   }
 

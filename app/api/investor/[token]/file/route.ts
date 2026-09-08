@@ -30,6 +30,22 @@ export async function GET(req: NextRequest, { params }: { params: { token: strin
   const tok = (await params).token;
   if (tok === PREVIEW_TOKEN) {
     if (!(await previewViewer())) return NextResponse.json({ error: "Preview is for staff only." }, { status: 401 });
+    // A real document id belongs to the ?owner= view; anything else is the
+    // sample. Either way the caller is staff, who can already download these.
+    const wanted = req.nextUrl.searchParams.get("id") ?? "";
+    if (!wanted.startsWith("preview-")) {
+      const real = await getK1(wanted);
+      if (real) {
+        const buf = await readK1Bytes(real);
+        return new NextResponse(new Uint8Array(buf), {
+          headers: {
+            "Content-Type": "application/pdf",
+            "Content-Disposition": `inline; filename="${real.filename.replace(/"/g, "")}"`,
+            "Cache-Control": "private, no-store",
+          },
+        });
+      }
+    }
     const bytes = previewPdf();
     return new NextResponse(new Uint8Array(bytes), {
       headers: {

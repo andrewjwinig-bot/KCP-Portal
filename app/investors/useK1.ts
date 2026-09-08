@@ -53,7 +53,10 @@ export type K1Interest = {
   heldAs: string | null; vendorCode: string | null;
   email: string | null; emailSource: string; emailNote: string;
   documents: { id: string; taxYear: number; filename: string; published: boolean; viewCount: number }[];
-  link: { id: string; createdAt: string; viewCount: number; lastViewedAt: string | null } | null;
+  link: {
+    id: string; createdAt: string; viewCount: number; lastViewedAt: string | null;
+    url?: string | null; pin?: string | null;
+  } | null;
 };
 
 /** Everything one property card needs. Plain object — no hooks inside. */
@@ -305,8 +308,46 @@ export function useK1Registry(enabled: boolean, openK1Codes: string[]) {
       ready: !!rows,
       interests: rows ?? [],
       forOwner: (ownerId: string) => byOwner.get(ownerId),
+      // One link per investor now, so the person — not each interest — is what
+      // carries it. Take whichever interest happens to hold it.
+      link: (rows ?? []).map((i) => i.link).find(Boolean) ?? null,
+      email: (rows ?? []).map((i) => i.email).find(Boolean) ?? null,
+      /** An interest whose K-1 is uploaded, to create the link from. */
+      sendableFrom: (rows ?? []).find((i) => i.documents.length > 0) ?? null,
       busy: busyCode === `inv:${name}`,
       error: errors[`inv:${name}`] ?? null,
+      setEmail: (ownerId: string, email: string) => {
+        const key = `inv:${name}`;
+        setBusyCode(key);
+        void (async () => {
+          try {
+            const res = await fetch("/api/investor-k1", {
+              method: "PATCH", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ action: "email", ownerId, email }),
+            });
+            const j = await res.json();
+            if (!res.ok) throw new Error(j.error ?? "Could not save that address.");
+            await loadInvestor(name);
+          } catch (e) {
+            setErrors((x) => ({ ...x, [key]: e instanceof Error ? e.message : "Could not save." }));
+          } finally { setBusyCode(null); }
+        })();
+      },
+
+      revoke: (linkId: string) => {
+        const key = `inv:${name}`;
+        setBusyCode(key);
+        void (async () => {
+          try {
+            const res = await fetch(`/api/investor-k1/share?id=${encodeURIComponent(linkId)}`, { method: "DELETE" });
+            if (!res.ok) throw new Error((await res.json().catch(() => null))?.error ?? "Could not revoke.");
+            await loadInvestor(name);
+          } catch (e) {
+            setErrors((x) => ({ ...x, [key]: e instanceof Error ? e.message : "Could not revoke." }));
+          } finally { setBusyCode(null); }
+        })();
+      },
+
       send: (interest: K1Interest, taxYear: number) => {
         setBatch(null);
         const key = `inv:${name}`;

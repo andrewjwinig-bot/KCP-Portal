@@ -30,6 +30,38 @@ export function previewPdf(): Buffer {
   return Buffer.from(pdf, "latin1");
 }
 
+/** A real owner's page as THEY would see it, for staff to check before sending.
+ *  Shows their actual documents whether or not they've been sent — the point is
+ *  to look before anything is released. Mints nothing, publishes nothing,
+ *  records nothing. Safe because the caller is already `canManageK1` and can
+ *  download these same PDFs from the roster. */
+export function previewOwnerPayload(opts: {
+  ownerName: string;
+  propertyCode: string;
+  propertyName: string;
+  documents: {
+    id: string; taxYear: number; filename: string; size: number;
+    publishedAt: string | null; heldAs: string | null;
+    propertyCode: string; propertyName: string;
+  }[];
+  /** How many partnerships this person's one link spans. */
+  propertyCount: number;
+  anyUnsent: boolean;
+}) {
+  return {
+    ok: true as const,
+    preview: true as const,
+    previewOwner: opts.ownerName,
+    previewUnsent: opts.anyUnsent,
+    owner: { name: opts.ownerName, heldAs: null as string | null },
+    property: { code: opts.propertyCode, name: opts.propertyName },
+    propertyCount: opts.propertyCount,
+    documents: opts.documents.sort((a, b) => b.taxYear - a.taxYear
+      || a.propertyCode.localeCompare(b.propertyCode)
+      || (a.heldAs ?? "").localeCompare(b.heldAs ?? "")),
+  };
+}
+
 /** The payload the portal renders in preview. Two documents on purpose: that's
  *  the case worth seeing, where one person's trust interest and personal
  *  interest arrive on the same link and only the label tells them apart. */
@@ -39,16 +71,26 @@ export function previewPayload(year = new Date().getFullYear() - 1) {
     preview: true as const,
     owner: { name: "Sample Investor", heldAs: null as string | null },
     property: { code: "7010", name: "Parkwood Shopping/Office Center" },
+    propertyCount: 2,
     documents: [
       {
         id: "preview-trust", taxYear: year, filename: `${year} Schedule K-1 (sample).pdf`,
         size: 148_000, publishedAt: new Date().toISOString(),
         heldAs: "SAMPLE GST TR FBO Sample Investor",
+        propertyCode: "7010", propertyName: "Parkwood Shopping/Office Center",
       },
       {
         id: "preview-personal", taxYear: year, filename: `${year} Schedule K-1 (sample).pdf`,
         size: 146_500, publishedAt: new Date().toISOString(),
         heldAs: null as string | null,
+        propertyCode: "7010", propertyName: "Parkwood Shopping/Office Center",
+      },
+      {
+        // A second partnership, because one link now covers every one they hold.
+        id: "preview-other", taxYear: year, filename: `${year} Schedule K-1 (sample).pdf`,
+        size: 151_200, publishedAt: new Date().toISOString(),
+        heldAs: null as string | null,
+        propertyCode: "7200", propertyName: "Elbridge Partnership",
       },
     ],
   };

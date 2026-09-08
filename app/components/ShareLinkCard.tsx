@@ -53,13 +53,18 @@ export type ShareLinkCardProps = {
   small?: boolean;
   /** Right-align the popover under the trigger. */
   align?: "left" | "right";
+  /** Opens the recipient's page as they would see it — a look, not a share. */
+  viewAsHref?: string;
+  /** Editable "sends to" control. The address belongs where the decision to
+   *  send is made, not as a column on a roster you mostly read. */
+  recipientSlot?: React.ReactNode;
 };
 
 export function ShareLinkCard({
   buttonLabel, title, description, links, busy = false, error = null,
   recipients = [], sendLabel = "Email it", sentTo = null,
   onOpen, onCreate, onSend, onRevoke, onManagePin,
-  pinOptional = true, small = false, align = "right",
+  pinOptional = true, small = false, align = "right", viewAsHref, recipientSlot,
 }: ShareLinkCardProps) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
@@ -100,7 +105,21 @@ export function ShareLinkCard({
           borderRadius: 12, boxShadow: "0 16px 40px rgba(15,23,42,0.22)", padding: 16, textAlign: "left",
         } as React.CSSProperties}>
           <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: BRAND }}>{title}</div>
-          <p className="muted small" style={{ marginTop: 4, marginBottom: 10 }}>{description}</p>
+          <p className="muted small" style={{ marginTop: 4, marginBottom: viewAsHref ? 6 : 10 }}>{description}</p>
+          {viewAsHref && (
+            <a href={viewAsHref} target="_blank" rel="noopener noreferrer"
+              style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 700, color: BRAND, textDecoration: "none", marginBottom: 10 }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
+              View their page — nothing is sent
+            </a>
+          )}
+
+          {recipientSlot && (
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 10, paddingBottom: 10, borderBottom: "1px solid var(--border)" }}>
+              <span style={{ fontSize: 10.5, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Sends to</span>
+              {recipientSlot}
+            </div>
+          )}
 
           {links.length === 0 ? (
             <div className="muted small" style={{ marginBottom: 10 }}>No active link yet.</div>
