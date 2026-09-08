@@ -12,6 +12,7 @@ import { drawTenantStatement } from "@/lib/cam/office/statementPdf";
 import { drawRetailStatement } from "@/lib/cam/retail/statementPdf";
 import type { TenantReconResult } from "@/lib/cam/office/types";
 import type { RetailTenantResult } from "@/lib/cam/retail/types";
+import { SELECT_BRAND } from "@/app/components/YearSelect";
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 /** Percent to at most 2 decimals, trailing zeros dropped (2.2626… → "2.26", 5 → "5"). */
@@ -51,7 +52,6 @@ const emptyDraft: Draft = {
   camEscrowOverride: "", insEscrowOverride: "", retEscrowOverride: "",
 };
 
-const selectStyle: React.CSSProperties = { borderRadius: 8, padding: "8px 12px", fontSize: 13, fontWeight: 600, border: "1px solid rgba(11,74,125,0.3)", background: "var(--card)", color: "#0b4a7d", cursor: "pointer" };
 const inputStyle: React.CSSProperties = { borderRadius: 6, padding: "8px 10px", fontSize: 13, border: "1px solid var(--border)", background: "var(--card)", color: "var(--text)", width: "100%", boxSizing: "border-box" };
 
 /** "YYYY-MM-DD" → "M/D/YYYY" (the format the recon engine + rent roll use). */
@@ -707,7 +707,7 @@ export default function InterimReconPage() {
             <select
               value={candidates.some((c) => c.propertyCode === property && c.unitRef === unitRef) ? `${property}|${unitRef}` : ""}
               onChange={(e) => { const c = candidates.find((x) => `${x.propertyCode}|${x.unitRef}` === e.target.value); if (c) pickCandidate(c); }}
-              style={{ ...selectStyle, width: "100%" }}
+              className={SELECT_BRAND} style={{ width: "100%" }}
             >
               <option value="">Select a recently vacated / expiring-soon tenant…</option>
               {candidates.map((c) => {
@@ -730,25 +730,25 @@ export default function InterimReconPage() {
       <div className="card">
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
           <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12, fontWeight: 600 }}>Building
-            <select value={property} onChange={(e) => { setProperty(e.target.value); setUnitRef(""); setData(null); setAsOf(""); }} style={selectStyle}>
+            <select value={property} onChange={(e) => { setProperty(e.target.value); setUnitRef(""); setData(null); setAsOf(""); }} className={SELECT_BRAND}>
               <option value="">Select…</option>
               {properties.map((p) => <option key={p.code} value={p.code}>{p.code} · {p.name}</option>)}
             </select>
           </label>
           <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12, fontWeight: 600 }}>Year
-            <select value={year} onChange={(e) => setYear(Number(e.target.value))} style={selectStyle}>
+            <select value={year} onChange={(e) => setYear(Number(e.target.value))} className={SELECT_BRAND}>
               {[now.getFullYear(), now.getFullYear() - 1].map((y) => <option key={y} value={y}>{y}</option>)}
             </select>
           </label>
           <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12, fontWeight: 600 }}>Tenant
-            <select value={unitRef} onChange={(e) => { setUnitRef(e.target.value); const t = tenants.find((x) => x.unitRef === e.target.value); setAsOf(t?.expiresInYear ?? ""); setData(null); setError(null); }} style={{ ...selectStyle, minWidth: 240 }} disabled={!property}>
+            <select value={unitRef} onChange={(e) => { setUnitRef(e.target.value); const t = tenants.find((x) => x.unitRef === e.target.value); setAsOf(t?.expiresInYear ?? ""); setData(null); setError(null); }} className={SELECT_BRAND} style={{ minWidth: 240 }} disabled={!property}>
               <option value="">Select…</option>
               <option value="__MANUAL__">＋ Enter a tenant manually…</option>
               {tenants.map((t) => <option key={t.unitRef} value={t.unitRef}>{t.unitRef} · {t.name}{t.expiresInYear ? ` (expires ${MONTHS[t.expiresInYear - 1].slice(0, 3)})` : ""}</option>)}
             </select>
           </label>
           <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12, fontWeight: 600 }}>As of
-            <select value={asOf} onChange={(e) => setAsOf(e.target.value ? Number(e.target.value) : "")} style={selectStyle} disabled={!unitRef}>
+            <select value={asOf} onChange={(e) => setAsOf(e.target.value ? Number(e.target.value) : "")} className={SELECT_BRAND} disabled={!unitRef}>
               <option value="">{isManual ? "Vacate / year end" : tenant?.expiresInYear ? `Expiration (${MONTHS[tenant.expiresInYear - 1].slice(0, 3)})` : "Year end (Dec)"}</option>
               {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
             </select>

@@ -15,6 +15,7 @@ import { DownloadMenu } from "@/app/components/DownloadMenu";
 import { exportTen99Xlsx } from "@/lib/financials/ten99/export";
 import { EXCLUSION_REASONS, type ExclusionReason, type VendorExclusion } from "@/lib/financials/ten99/exclusions";
 import type { Ten99Entity, Ten99Vendor } from "@/lib/financials/ten99/register";
+import { SELECT_BRAND } from "@/app/components/YearSelect";
 
 const BRAND = "#0b4a7d";
 const SECTION_LABEL: React.CSSProperties = {
@@ -99,7 +100,7 @@ export default function Ten99Page() {
         <h1 style={{ margin: 0 }}>1099 Register</h1>
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
           <select value={year ?? ""} onChange={(e) => setYear(Number(e.target.value))}
-            style={{ borderRadius: 8, padding: "8px 12px", fontSize: 13, fontWeight: 600, border: `1px solid ${BRAND}4d`, background: "var(--card)", color: BRAND, cursor: "pointer" }}>
+            className={SELECT_BRAND}>
             {(data?.years ?? []).map((y) => <option key={y} value={y}>{y} tax year</option>)}
             {(data?.years ?? []).length === 0 && <option value="">No GLs uploaded</option>}
           </select>

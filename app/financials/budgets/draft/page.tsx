@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { StatPill, Pill, TONE_BLUE, TONE_NEUTRAL, TONE_GREEN, TONE_TEAL, TONE_AMBER, TONE_RED, type PillTone } from "../../../components/Pill";
 import type { BudgetDraft, DraftSource } from "../../../../lib/financials/budgets/draft";
 import type { LeaseAssumption } from "../../../../lib/financials/budgets/leasingAssumptions";
+import { SELECT_BRAND } from "@/app/components/YearSelect";
 
 const MONTHS_ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 type SavePayload = { unitRef: string; kind: string | null; monthlyRent?: number; startMonth?: number };
@@ -81,20 +82,20 @@ export default function BudgetDraftPage() {
       <div className="card" style={{ display: "flex", gap: 16, alignItems: "flex-end", flexWrap: "wrap" }}>
         <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           <span style={secLabel}>Building / Fund</span>
-          <select value={key} onChange={(e) => setKey(e.target.value)} style={selStyle}>
+          <select value={key} onChange={(e) => setKey(e.target.value)} className={SELECT_BRAND}>
             {props.map((p) => <option key={p.key} value={p.key}>{p.propertyCode} — {p.entityName}</option>)}
           </select>
         </label>
         <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           <span style={secLabel}>Budget Year</span>
-          <select value={year} onChange={(e) => setYear(Number(e.target.value))} style={selStyle}>
+          <select value={year} onChange={(e) => setYear(Number(e.target.value))} className={SELECT_BRAND}>
             {[thisYear, thisYear + 1].map((y) => <option key={y} value={y}>{y}</option>)}
           </select>
         </label>
         <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           <span style={secLabel}>Expense Growth %</span>
           <input type="number" value={growth} step={0.5} onChange={(e) => setGrowth(Number(e.target.value))}
-            style={{ ...selStyle, width: 100 }} />
+            style={{ width: 100, borderRadius: 999, padding: "7px 13px", fontSize: 13, fontWeight: 600, border: "1px solid rgba(11,74,125,0.3)", background: "var(--card)", color: "var(--brand)" }} />
         </label>
         <span className="muted small" style={{ paddingBottom: 8 }}>Applied to every expense line; you’ll fine-tune per line next.</span>
       </div>
@@ -293,7 +294,7 @@ function LeasingRow({ mode, unitRef, title, sub, holdover, currentRent, leaseTo,
 }
 
 const rowSel: React.CSSProperties = { borderRadius: 6, padding: "5px 8px", fontSize: 12.5, fontWeight: 600, border: "1px solid rgba(11,74,125,0.3)", background: "var(--card)", color: "#0b4a7d", cursor: "pointer" };
-const selStyle: React.CSSProperties = { borderRadius: 8, padding: "8px 12px", fontSize: 13, fontWeight: 600, border: "1px solid rgba(11,74,125,0.3)", background: "var(--card)", color: "#0b4a7d", cursor: "pointer" };
+
 const thS: React.CSSProperties = { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)" };
 const tdL: React.CSSProperties = { padding: "8px 14px", borderBottom: "1px solid var(--border)", textAlign: "left", whiteSpace: "nowrap" };
 const tdR: React.CSSProperties = { padding: "8px 14px", borderBottom: "1px solid var(--border)", textAlign: "right", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" };
