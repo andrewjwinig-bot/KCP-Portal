@@ -236,6 +236,17 @@ preferences.
   Nothing about who holds an interest is re-keyed for K-1s. `hasK1Distribution`
   marks the partnerships that actually distribute; 7010 Parkwood was added to
   that set (21 owners).
+- **ONE table, not two.** The K-1 columns live in the property card's existing
+  ownership table (`app/investors/page.tsx`), which already carries owner,
+  vendor code, held-as and share — a separate "Schedule K-1s" roster underneath
+  repeated all of it and made the card enormous. `K1Panel.tsx` now exports the
+  pieces that render inside that table (`K1Header` band, `K1SelectCell`,
+  `K1Cell`, `K1PortalCell`, `K1ShareResults`); don't reintroduce a second table.
+  K-1 state is held by `useK1Registry` (`useK1.ts`) ONE level up, because the
+  table is built inside a `.map` where a hook can't be called; it loads lazily
+  per open card. On a person holding several stakes the roll-up row shows
+  "N separate K-1s" and carries no cell — the interest rows below do, because
+  those are separate documents.
 - **A K-1 is uploaded ONTO an owner — nothing reads the filename.** The roster
   IS the workflow: one row per owner on the property card, drop that owner's PDF
   on their row (`POST /api/investor-k1` takes an `ownerId`). Choosing the row is
@@ -269,6 +280,22 @@ preferences.
   HMAC prefixed `kcp.investor.k1.v1:`). Both fall back to `SITE_AUTH_SECRET`, so
   without that prefix a tenant token could open a K-1. Pinned by
   `k1Link.test.ts` — don't collapse the two signers into one.
+- **Bulk send goes through the SAME per-owner function.** `POST
+  /api/investor-k1/share` takes `ownerId` (single, unchanged shape) or
+  `ownerIds[]`; both call `shareOne`, so the checks that matter — a published
+  K-1 exists, any earlier link for that owner is revoked first, a fresh PIN per
+  owner, the email carries a LINK not the K-1 — cannot drift between the two
+  paths. Never add a second implementation for the batch. Ids are de-duplicated
+  (a repeat would revoke the link just minted and email twice), the batch is
+  capped at 50, it runs sequentially because the link store is
+  read-modify-write, and one owner failing (no published K-1, no email on file)
+  is reported on that owner's row rather than aborting the rest. Only owners
+  with a PUBLISHED K-1 are selectable in the UI.
+- **PINs are shown to staff, never emailed.** The results panel lists one row
+  per investor with their own PIN and the interest label (`heldAs`) beneath the
+  name — without it two rows reading "Alison Korman Feldman" carry different
+  PINs and staff can't tell which is which. The heading reflects what actually
+  happened (`Links created` when mail isn't configured), not what was requested.
 - **The PIN is mandatory** (unlike the tenant portal, where it's optional), PDFs
   live in private blob storage and are streamed through an authorized route that
   re-checks `published && ownerId === link.ownerId`, and the share email carries

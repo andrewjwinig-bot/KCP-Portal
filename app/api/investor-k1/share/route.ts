@@ -28,29 +28,38 @@ const originOf = (req: NextRequest) =>
   `${req.headers.get("x-forwarded-proto") ?? "https"}://${req.headers.get("host") ?? req.nextUrl.host}`;
 const propName = (code: string) => PROPERTY_DEFS.find((p) => p.id.toUpperCase() === code.toUpperCase())?.name ?? code;
 
-/**
- * POST { propertyCode, ownerId, send? } — mint (or re-mint) an investor link.
- *
- * The email carries a LINK and never the K-1 itself: a PDF attachment lives in
- * the recipient's mailbox and every forward of it forever, which is not where a
- * taxpayer ID belongs. The PIN goes in the same reply only if staff choose to;
- * by default it's returned here for them to pass on separately.
- */
-export async function POST(req: NextRequest) {
-  const user = await currentUser();
-  if (!user) return NextResponse.json({ error: "Not authorized" }, { status: 401 });
-  const secret = investorLinkSecret();
-  if (!secret) return NextResponse.json({ error: "Investor sharing is not configured (no link secret set)." }, { status: 500 });
+type ShareResult = {
+  ownerId: string;
+  ownerName: string;
+  /** Trust / detailed name. Two interests held by one person produce two rows
+   *  with the same name and DIFFERENT PINs, so the label is what tells staff
+   *  which PIN goes with which link. */
+  heldAs?: string | null;
+  url?: string;
+  pin?: string;
+  sentTo: string[];
+  mailError: string | null;
+  /** Set when this owner couldn't be shared at all — the batch continues. */
+  error?: string;
+};
 
-  const body = await req.json().catch(() => ({}));
-  const propertyCode = String(body?.propertyCode ?? "");
-  const ownerId = String(body?.ownerId ?? "");
+/**
+ * Mint (or re-mint) ONE investor link and optionally email it.
+ *
+ * The single-owner and bulk paths both go through here — there is deliberately
+ * no second implementation, so the checks that matter (a published K-1 exists,
+ * any earlier link is revoked first, a fresh PIN per owner, the email carries a
+ * LINK and never the K-1 itself) cannot drift apart between them.
+ */
+async function shareOne(
+  req: NextRequest, user: UserId, secret: string, propertyCode: string, ownerId: string, send: boolean,
+): Promise<ShareResult> {
   const owner = PROPERTY_OWNERSHIP.find((p) => p.propertyCode === propertyCode)?.owners.find((o) => o.id === ownerId);
-  if (!owner) return NextResponse.json({ error: "That owner isn't on this partnership." }, { status: 400 });
+  if (!owner) return { ownerId, ownerName: ownerId, sentTo: [], mailError: null, error: "That owner isn't on this partnership." };
 
   const published = await publishedK1sForOwner(owner.id);
   if (published.length === 0) {
-    return NextResponse.json({ error: "This owner has no published K-1 yet — publish the year first." }, { status: 400 });
+    return { ownerId, ownerName: owner.name, heldAs: owner.detailedName ?? null, sentTo: [], mailError: null, error: `${owner.name} has no published K-1 yet.` };
   }
 
   // One live link per owner: retire any earlier one so a revoked address can't
@@ -64,7 +73,7 @@ export async function POST(req: NextRequest) {
     ownerId: owner.id, ownerName: owner.name, propertyCode,
     createdAt: new Date().toISOString(), createdBy: USERS[user]?.label ?? user,
     revoked: false, expiresAt: null,
-    pin: generatePin(),   // never optional for a K-1
+    pin: generatePin(),   // never optional for a K-1, and never reused between owners
     views: [], lastViewedAt: null, viewCount: 0,
   };
   await saveInvestorLink(link);
@@ -72,7 +81,7 @@ export async function POST(req: NextRequest) {
 
   let mailError: string | null = null;
   let sentTo: string[] = [];
-  if (body?.send === true) {
+  if (send) {
     const email = ownerContact(owner.name)?.email ?? "";
     if (!email) mailError = `No email on file for ${owner.name}. Copy the link and send it yourself.`;
     else if (!isMailConfigured()) mailError = "Email isn't configured, so the link was created but not sent.";
@@ -103,7 +112,51 @@ export async function POST(req: NextRequest) {
     event: "investor-k1.share", user: USERS[user]?.label ?? user, ip: auditIp(req),
     detail: `${propertyCode} · ${owner.name}${sentTo.length ? ` · emailed ${sentTo.join(", ")}` : " · link only"}`,
   });
-  return NextResponse.json({ ok: true, link, url, pin: link.pin, sentTo, mailError }, { status: 201 });
+  return { ownerId: owner.id, ownerName: owner.name, heldAs: owner.detailedName ?? null, url, pin: link.pin, sentTo, mailError };
+}
+
+/** How many owners one request may share at once. Parkwood has 21; the cap is
+ *  about bounding the work per request, not about the roster size. */
+const MAX_BATCH = 50;
+
+/**
+ * POST { propertyCode, ownerId | ownerIds[], send? } — mint investor links.
+ *
+ * `ownerId` returns the flat single-owner shape the page has always used.
+ * `ownerIds` returns `results[]`, one entry per owner, and a failure on one
+ * owner (no published K-1, no email on file) is reported on that entry rather
+ * than aborting the rest — sending 19 of 21 and being told which two to chase
+ * beats sending none.
+ */
+export async function POST(req: NextRequest) {
+  const user = await currentUser();
+  if (!user) return NextResponse.json({ error: "Not authorized" }, { status: 401 });
+  const secret = investorLinkSecret();
+  if (!secret) return NextResponse.json({ error: "Investor sharing is not configured (no link secret set)." }, { status: 500 });
+
+  const body = await req.json().catch(() => ({}));
+  const propertyCode = String(body?.propertyCode ?? "");
+  const send = body?.send === true;
+
+  if (Array.isArray(body?.ownerIds)) {
+    // De-duplicated: two entries for one owner would revoke the link the first
+    // pass just minted and email them twice.
+    const ids = [...new Set(body.ownerIds.map((x: unknown) => String(x)).filter(Boolean))] as string[];
+    if (ids.length === 0) return NextResponse.json({ error: "Pick at least one investor." }, { status: 400 });
+    if (ids.length > MAX_BATCH) return NextResponse.json({ error: `Too many at once (max ${MAX_BATCH}).` }, { status: 400 });
+
+    // Sequential on purpose: each share revokes that owner's prior link and
+    // writes a link record, and the link store is read-modify-write.
+    const results: ShareResult[] = [];
+    for (const id of ids) results.push(await shareOne(req, user, secret, propertyCode, id, send));
+    return NextResponse.json({ ok: true, results }, { status: 201 });
+  }
+
+  const one = await shareOne(req, user, secret, propertyCode, String(body?.ownerId ?? ""), send);
+  if (one.error) return NextResponse.json({ error: one.error }, { status: 400 });
+  return NextResponse.json({
+    ok: true, url: one.url, pin: one.pin, sentTo: one.sentTo, mailError: one.mailError,
+  }, { status: 201 });
 }
 
 /** DELETE ?id= — revoke a link. */
