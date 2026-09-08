@@ -111,6 +111,20 @@ type OwnerGroup = {
  *  sort within each group by row ownership desc. */
 /** Read-only email for the ownership table when the K-1 tooling isn't in play
  *  (no override lookup — that lives server-side with the K-1 payload). */
+/** An investor's name in the ownership table. One constant because a
+ *  single-interest owner and a multi-stake one were rendering at different
+ *  weights and sizes, and the name is what you scan for against the trust
+ *  names beneath it. */
+const INVESTOR_NAME: React.CSSProperties = { fontWeight: 700, fontSize: 15 };
+
+/** A person holding several stakes renders as ONE block: a tinted band for the
+ *  person, a lighter tint on each interest, and a brand rail down the left so
+ *  where the block starts and ends is obvious at a glance. Previously the only
+ *  cue was a 2.5%-opacity header and a faint divider, which read as noise. */
+const GROUP_ROW_BG = "rgba(11,74,125,0.07)";
+const GROUP_SUB_BG = "rgba(11,74,125,0.028)";
+const GROUP_RAIL: React.CSSProperties = { boxShadow: "inset 3px 0 0 rgba(11,74,125,0.5)" };
+
 function ownerEmailFor(o: PropertyOwner): string | null {
   return resolveOwnerEmail(o.name, o.detailedName ?? null, null).email;
 }
@@ -737,7 +751,7 @@ export default function InvestorInfoPage() {
                         )}
                       </td>
                       <td style={{ padding: "12px 16px" }}>
-                        <div style={{ fontWeight: 600 }}>{inv.name}</div>
+                        <div style={INVESTOR_NAME}>{inv.name}</div>
                         {inv.detailedName && (
                           <div className="muted small" style={{ marginTop: 2 }}>{inv.detailedName}</div>
                         )}
@@ -763,21 +777,25 @@ export default function InvestorInfoPage() {
                   )];
                 }
                 const rows = [(
-                  <tr key={`${g.key}-primary`} style={{ borderTop: "1px solid var(--border)", background: "rgba(15,23,42,0.025)" }}>
+                  <tr key={`${g.key}-primary`} style={{ borderTop: "1px solid var(--border)", background: GROUP_ROW_BG }}>
                     {/* One tick per PERSON: their interests share a single link
                         and a single PIN, so ticking an interest would be a lie. */}
                     {showK1 && k1 && (
-                      <td style={{ padding: "12px 0 12px 16px" }} className="no-print">
+                      <td style={{ padding: "12px 0 12px 16px", ...GROUP_RAIL }} className="no-print">
                         <K1SelectCell ownerId={g.owners[0].id} k1={k1} />
                       </td>
                     )}
-                    {showK1 && !k1 && <td className="no-print" />}
-                    <td style={{ padding: "12px 16px", color: "var(--muted)", fontSize: 11 }}>—</td>
+                    {showK1 && !k1 && <td className="no-print" style={GROUP_RAIL} />}
+                    <td style={{ padding: "12px 16px", color: "var(--muted)", fontSize: 11, ...(showK1 ? null : GROUP_RAIL) }}>—</td>
                     <td style={{ padding: "12px 16px" }}>
-                      <div style={{ fontWeight: 700, fontSize: 15 }}>{g.name}</div>
+                      <div style={INVESTOR_NAME}>{g.name}</div>
                     </td>
-                    <td style={{ padding: "12px 16px", color: "var(--muted)", fontSize: 11 }}>
-                      {g.owners.length} stakes
+                    <td style={{ padding: "12px 16px" }}>
+                      <span style={{
+                        fontSize: 10.5, fontWeight: 800, letterSpacing: "0.04em",
+                        color: "#0b4a7d", background: "rgba(11,74,125,0.10)",
+                        border: "1px solid rgba(11,74,125,0.28)", borderRadius: 999, padding: "1px 8px",
+                      }}>{g.owners.length} STAKES</span>
                     </td>
                     <td style={{ padding: "12px 16px", textAlign: "right", fontWeight: 700 }}>{pct(g.total)}</td>
                     {hasVal && <td style={{ padding: "12px 16px", textAlign: "right", fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{share(g.total, pv!.ye)}</td>}
@@ -798,9 +816,9 @@ export default function InvestorInfoPage() {
                 )];
                 g.owners.forEach((inv) => {
                   rows.push(
-                    <tr key={inv.id} style={{ borderTop: "1px solid rgba(11,74,125,0.08)", background: k1?.uploading === inv.id ? "rgba(15,118,110,0.06)" : undefined }}>
-                      {showK1 && <td className="no-print" />}
-                      <td style={{ padding: "8px 16px", paddingLeft: 36 }}>
+                    <tr key={inv.id} style={{ borderTop: "1px solid rgba(11,74,125,0.08)", background: k1?.uploading === inv.id ? "rgba(15,118,110,0.06)" : GROUP_SUB_BG }}>
+                      {showK1 && <td className="no-print" style={GROUP_RAIL} />}
+                      <td style={{ padding: "8px 16px", paddingLeft: 36, ...(showK1 ? null : GROUP_RAIL) }}>
                         {inv.vendorCode ? (
                           <span style={{
                             fontSize: 10, fontWeight: 600, letterSpacing: "0.04em",
