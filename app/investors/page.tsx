@@ -21,6 +21,8 @@ import { PartnershipTaxDocs } from "@/app/components/PartnershipTaxDocs";
 import { useUser } from "../components/UserProvider";
 import { StatPill } from "../components/Pill";
 import { DownloadMenu } from "../components/DownloadMenu";
+import { th, td, thL, tdL } from "../components/tableStyles";
+import { Select } from "../components/YearSelect";
 
 /** Local mirror of the store's normalization (client-safe). */
 function normOwnerKey(s: string): string {
@@ -73,15 +75,6 @@ type PropertyHolding = {
 
 const TYPES: PropType[] = ["Office", "Retail", "Residential", "Land", "Misc"];
 
-/** Roster table cells — the same footprint as the Monthly Statements roster,
- *  so the two pages read as the same kind of table. */
-const th: React.CSSProperties = {
-  textAlign: "right", padding: "6px 12px", fontSize: 11, fontWeight: 700, textTransform: "uppercase",
-  letterSpacing: "0.04em", color: "var(--muted)", borderBottom: "1px solid var(--border)", whiteSpace: "nowrap",
-};
-const td: React.CSSProperties = { textAlign: "right", padding: "9px 12px", fontSize: 14, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" };
-const thL: React.CSSProperties = { ...th, textAlign: "left" };
-const tdL: React.CSSProperties = { ...td, textAlign: "left", fontVariantNumeric: "normal" };
 
 /** A row of the By Property roster: a group band, or one property. */
 type PropBlock =
@@ -953,36 +946,25 @@ export default function InvestorInfoPage() {
           {view === "statement" ? (
             <label style={{ display: "inline-flex", alignItems: "center", gap: 8, flex: 1, minWidth: 220 }}>
               <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)", whiteSpace: "nowrap" }}>Owner</span>
-              <select
-                value={beneficiary}
-                onChange={(e) => setBeneficiary(e.target.value)}
-                style={{
-                  flex: 1, minWidth: 200,
-                  padding: "8px 12px",
-                  border: "1px solid var(--border)", borderRadius: 8,
-                  background: "var(--card)", color: "var(--text)",
-                  fontFamily: "inherit", fontSize: 13, outline: "none",
-                }}
-              >
+              {/* The control this tab is driven by, so it takes the brand tier.
+                  It sizes to its content — stretched across the toolbar it read
+                  as a text field rather than a picker. */}
+              <Select value={beneficiary} onChange={setBeneficiary} aria-label="Owner">
                 <option value="">All entities (portfolio)</option>
                 {benNames.map((n) => (
                   <option key={n} value={n}>{n}</option>
                 ))}
-              </select>
+              </Select>
             </label>
           ) : (
+            /* Border, radius and focus ring come from the input baseline in
+               globals.css — only the width is this page's business. */
             <input
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search investors, vendor codes, properties…"
-              style={{
-                flex: 1, minWidth: 220,
-                padding: "8px 12px",
-                border: "1px solid var(--border)", borderRadius: 8,
-                background: "var(--card)", color: "var(--text)",
-                fontFamily: "inherit", fontSize: 13, outline: "none",
-              }}
+              style={{ flex: 1, minWidth: 220 }}
             />
           )}
 
@@ -1097,54 +1079,72 @@ export default function InvestorInfoPage() {
       )}
       {/* ── By Investor view ───────────────────────────────────────────── */}
       {view === "investor" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          {filteredInvestors.length === 0 ? (
-            <div className="card muted small">No matches.</div>
-          ) : (
-            filteredInvestors.map((agg) => {
-              const open = !!openIds[agg.key];
-              // The K-1 columns join this table too — the standalone block under
-              // it repeated prop, name and vendor code from the rows above.
-              if (canK1 && open) k1reg.ensureInvestor(agg.name);
-              const inv = canK1 && open ? k1reg.investorSlice(agg.name) : null;
-              return (
-                <div key={agg.key} className="card" style={{ padding: 0, overflow: "hidden" }}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 16px", gap: 10 }}>
-                    <button
-                      type="button"
-                      onClick={() => toggleOpen(agg.key)}
-                      aria-expanded={open}
-                      style={{
-                        display: "inline-flex", alignItems: "baseline", gap: 10, flexWrap: "wrap", flex: 1, minWidth: 0,
-                        background: "transparent", border: "none", cursor: "pointer",
-                        textAlign: "left", fontFamily: "inherit", padding: 0,
-                      }}
-                    >
-                      <span style={{ fontWeight: 700, fontSize: 16 }}>{agg.name}</span>
-                      <span className="muted small">· {agg.rows.length} {agg.rows.length === 1 ? "property" : "properties"}</span>
-                    </button>
-                    <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
-                      {inv && <K1InvestorShare name={agg.name} inv={inv} />}
-                      {beneficiaryMatch(agg.name) && (
-                        <button
-                          type="button"
-                          onClick={() => goToOwnerStatement(agg.name)}
-                          className="linkBtn"
-                          title={`View ${agg.name}'s Statement of Values`}
-                          style={{ fontSize: 12, fontWeight: 700, color: "#0b4a7d", whiteSpace: "nowrap" }}
-                        >
-                          Statement of Values →
-                        </button>
-                      )}
-                      <button type="button" onClick={() => toggleOpen(agg.key)} aria-label={open ? "Collapse" : "Expand"}
-                        style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--muted)", fontSize: 18, padding: 0 }}>
-                        {open ? "▲" : "▼"}
-                      </button>
-                    </div>
-                  </div>
-
-                  {open && (
-                    <>
+        filteredInvestors.length === 0 ? (
+          <div className="card muted small">No matches.</div>
+        ) : (
+          <div className="card" style={{ padding: 0, overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 720 }}>
+              <thead>
+                <tr>
+                  <th style={thL}>Investor</th>
+                  <th style={th}>Properties</th>
+                  <th style={th}>Year-end $</th>
+                  <th style={th}>Estimated $</th>
+                  <th style={{ ...thL, width: 1 }} aria-label="Actions" />
+                  <th style={{ ...th, width: 30 }} aria-label="Expand" />
+                </tr>
+              </thead>
+              <tbody>
+                {filteredInvestors.map((agg) => {
+                  const open = !!openIds[agg.key];
+                  // The K-1 columns join this table too — the standalone block under
+                  // it repeated prop, name and vendor code from the rows above.
+                  if (canK1 && open) k1reg.ensureInvestor(agg.name);
+                  const inv = canK1 && open ? k1reg.investorSlice(agg.name) : null;
+                  const totals = agg.rows.reduce((a, r) => {
+                    const p = propValue(r.holding.propertyCode);
+                    const frac = ownershipFor(r.investor) ?? 0;
+                    return { ye: a.ye + (p ? frac * p.ye : 0), est: a.est + (p ? frac * p.est : 0) };
+                  }, { ye: 0, est: 0 });
+                  return (
+                    <Fragment key={agg.key}>
+                      <tr
+                        onClick={() => toggleOpen(agg.key)}
+                        aria-expanded={open}
+                        style={{
+                          borderTop: "1px solid var(--border)", cursor: "pointer",
+                          background: open ? "rgba(11,74,125,0.05)" : undefined,
+                        }}
+                      >
+                        <td style={{ ...tdL, whiteSpace: "normal" }}>
+                          <span style={{ fontWeight: 700, fontSize: 14.5 }}>{agg.name}</span>
+                        </td>
+                        <td style={{ ...td, color: "var(--muted)" }}>{agg.rows.length}</td>
+                        <td style={td}>{money0(totals.ye)}</td>
+                        <td style={{ ...td, fontWeight: 700 }}>{money0(totals.est)}</td>
+                        {/* Actions live in the row, not a card header — but a click
+                            in here must not toggle the row open underneath them. */}
+                        <td style={{ ...tdL, whiteSpace: "nowrap" }} onClick={(e) => e.stopPropagation()}>
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
+                            {inv && <K1InvestorShare name={agg.name} inv={inv} />}
+                            {beneficiaryMatch(agg.name) && (
+                              <button
+                                type="button"
+                                onClick={() => goToOwnerStatement(agg.name)}
+                                className="linkBtn"
+                                title={`View ${agg.name}'s Statement of Values`}
+                                style={{ fontSize: 12, fontWeight: 700, color: "#0b4a7d", whiteSpace: "nowrap" }}
+                              >
+                                Statement of Values →
+                              </button>
+                            )}
+                          </span>
+                        </td>
+                        <td style={{ ...td, color: "var(--muted)", width: 30, paddingLeft: 0 }} aria-hidden>{open ? "▲" : "▼"}</td>
+                      </tr>
+                      {open && (
+                        <tr>
+                          <td colSpan={6} style={{ padding: 0, background: "rgba(11,74,125,0.03)", borderTop: "1px solid var(--border)" }}>
                       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14, borderTop: "1px solid var(--border)" }}>
                         <thead>
                           <tr style={{ color: "var(--muted)", fontSize: 11, letterSpacing: "0.04em", textAlign: "left" }}>
@@ -1222,13 +1222,30 @@ export default function InvestorInfoPage() {
                         </div>
                       )}
                       <InvestorStructureBlock investorName={agg.name} structure={structureFor(agg.name)} canEdit={canEdit} />
-                    </>
-                  )}
-                </div>
-              );
-            })
-          )}
-        </div>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  );
+                })}
+              </tbody>
+              <tfoot>
+                <tr style={{ borderTop: "2px solid var(--border)", background: "rgba(11,74,125,0.04)" }}>
+                  <td style={{ ...tdL, fontWeight: 800 }}>
+                    {filteredInvestors.length} {filteredInvestors.length === 1 ? "investor" : "investors"}
+                  </td>
+                  {/* Deliberately no totals: an investor holds a share of a
+                      property, and two investors in the same property would
+                      have their slices added to something that is not a figure. */}
+                  <td colSpan={5} />
+                </tr>
+              </tfoot>
+            </table>
+            <div className="muted small" style={{ padding: "9px 12px", borderTop: "1px solid var(--border)" }}>
+              Year-end as of {asOfLong()} · Estimated {estAsOfLabel}. Select an investor for their holdings.
+            </div>
+          </div>
+        )
       )}
 
       {/* ── Statement of Values view ───────────────────────────────────── */}
@@ -1830,9 +1847,11 @@ function StatementView({ beneficiary, estimates, onSaveEstimates, resolveContact
       }}>{code}</code>
     ) : null;
 
-  const numTd: React.CSSProperties = { padding: "10px 16px", textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" };
-  const th: React.CSSProperties = { padding: "10px 16px", fontWeight: 700, color: "var(--muted)", fontSize: 11, letterSpacing: "0.04em", textAlign: "left" };
-  const thR: React.CSSProperties = { ...th, textAlign: "right" };
+  // The shared roster footprint, so this tab reads as the same kind of table
+  // as By Property and By Investor rather than a third variant.
+  const numTd = td;
+  const colHead = thL;
+  const colHeadR = th;
   const estLabel = estimates.asOf ? `EST. (${longDate(estimates.asOf).toUpperCase()})` : "EST. (TODAY)";
 
   function beginEdit() {
@@ -1957,14 +1976,14 @@ function StatementView({ beneficiary, estimates, onSaveEstimates, resolveContact
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, borderTop: "1px solid var(--border)" }}>
               <thead>
                 <tr>
-                  <th style={th}>ENTITY</th>
-                  <th style={th}>PROPERTY / ENTITY</th>
-                  <th style={thR}>NOI</th>
-                  <th style={thR}>CAP</th>
-                  <th style={thR}>INDICATED VALUE</th>
-                  <th style={thR}>DEBT</th>
-                  <th style={thR}>EQUITY VALUE</th>
-                  <th style={thR}>{estLabel}</th>
+                  <th style={colHead}>ENTITY</th>
+                  <th style={colHead}>PROPERTY / ENTITY</th>
+                  <th style={colHeadR}>NOI</th>
+                  <th style={colHeadR}>CAP</th>
+                  <th style={colHeadR}>INDICATED VALUE</th>
+                  <th style={colHeadR}>DEBT</th>
+                  <th style={colHeadR}>EQUITY VALUE</th>
+                  <th style={colHeadR}>{estLabel}</th>
                 </tr>
               </thead>
               <tbody>
@@ -2049,12 +2068,12 @@ function StatementView({ beneficiary, estimates, onSaveEstimates, resolveContact
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, borderTop: "1px solid var(--border)" }}>
             <thead>
               <tr>
-                <th style={th}>ENTITY</th>
-                <th style={th}>PROPERTY / ENTITY</th>
-                <th style={th}>HELD THROUGH</th>
-                <th style={thR}>OWNERSHIP %</th>
-                <th style={thR}>VALUE</th>
-                <th style={thR}>{estLabel}</th>
+                <th style={colHead}>ENTITY</th>
+                <th style={colHead}>PROPERTY / ENTITY</th>
+                <th style={colHead}>HELD THROUGH</th>
+                <th style={colHeadR}>OWNERSHIP %</th>
+                <th style={colHeadR}>VALUE</th>
+                <th style={colHeadR}>{estLabel}</th>
               </tr>
             </thead>
             <tbody>

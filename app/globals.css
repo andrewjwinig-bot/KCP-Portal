@@ -7,6 +7,10 @@
   --shadow: 0 10px 30px rgba(2, 6, 23, 0.08);
   --brand: #0b4a7d;
   --brand2: #0a3e69;
+  /* Dropdown chevron — a token so the dark theme swaps the stroke colour
+   * without repeating the whole `select` rule. */
+  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%235d6b82' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  --select-chevron-brand: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%230b4a7d' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   /* ── AI accent — the reusable "there is AI here" violet ramp ──────────────
    * Distinct from the blue brand (search/neutral) and from amber (drafts /
    * warnings). This is the single source of truth for every AI surface in the
@@ -111,6 +115,8 @@
   --shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
   --page-text: var(--text);
   --page-muted: #94a3b8;
+  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23cbd5e1' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  --select-chevron-brand: var(--select-chevron);
   --scrollbar-thumb: rgba(255, 255, 255, 0.18);
   --scrollbar-thumb-hover: rgba(255, 255, 255, 0.32);
   /* AI ramp — dark */
@@ -207,7 +213,7 @@
 [data-theme="dark"] input:not([type]),
 [data-theme="dark"] select,
 [data-theme="dark"] textarea {
-  background: rgba(255, 255, 255, 0.04) !important;
+  background-color: rgba(255, 255, 255, 0.04) !important;
   color: var(--text) !important;
   border-color: var(--border) !important;
 }
@@ -315,6 +321,145 @@ p { margin: 0; }
 .pill-total {
   border-color: var(--brand);
   background: rgba(11, 74, 125, 0.05);
+}
+
+/* ── Text inputs ──────────────────────────────────────────────────────────
+ * The same story as the dropdowns below: styled per page or not at all, so a
+ * search box next to a brand pill read as an unfinished form field. One
+ * baseline, matching the dropdown's shape and focus ring, so a filter strip
+ * of inputs and selects reads as one control group.
+ *
+ * A page that sizes its own input inline still wins, and controls inside a
+ * table cell are pulled back to dense padding below, so this cannot blow a
+ * row's height open. */
+input[type="text"],
+input[type="search"],
+input[type="email"],
+input[type="number"],
+input[type="tel"],
+input[type="url"],
+input[type="password"],
+input:not([type]) {
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--text);
+  background-color: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 7px 13px;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+
+textarea {
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--text);
+  background-color: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 9px 12px;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+
+input[type="text"]:focus-visible,
+input[type="search"]:focus-visible,
+input[type="email"]:focus-visible,
+input[type="number"]:focus-visible,
+input[type="tel"]:focus-visible,
+input[type="url"]:focus-visible,
+input[type="password"]:focus-visible,
+input:not([type]):focus-visible,
+textarea:focus-visible {
+  outline: none;
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px rgba(11, 74, 125, 0.15);
+}
+
+input::placeholder,
+textarea::placeholder { color: var(--muted); opacity: 0.75; }
+
+/* Inside a table a control is a cell, not a form field — keep rows dense. */
+td input, td select, th input, th select { padding-top: 4px; padding-bottom: 4px; }
+
+/* ── Dropdowns ────────────────────────────────────────────────────────────
+ * Every `<select>` in the program, styled once. Sixty-eight of them across
+ * thirty-four files were shipping as raw OS controls next to brand-styled
+ * buttons, because styling a native element page-by-page never holds — the
+ * next bare `<select>` is always one edit away. So the baseline lives here
+ * and applies to the element itself; nothing has to opt in.
+ *
+ * Two tiers, deliberately:
+ *   - this quiet neutral pill is the DEFAULT, so a row of eight filters reads
+ *     as one calm strip rather than eight blue claims on your attention;
+ *   - `.select-brand` (below) is the brand-outlined pill, for the ONE control
+ *     that drives a page — the year, the property.
+ * Both are pills, matching `.btn` and the tab controls, so the whole toolbar
+ * shares a shape. */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.35;
+  color: var(--text);
+  background-color: var(--card);
+  background-image: var(--select-chevron);
+  background-repeat: no-repeat;
+  background-position: right 11px center;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 7px 30px 7px 13px;
+  cursor: pointer;
+  max-width: 100%;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease, background-color 0.12s ease;
+}
+
+select:hover:not(:disabled) {
+  border-color: rgba(11, 74, 125, 0.4);
+  background-color: rgba(11, 74, 125, 0.03);
+}
+
+select:focus-visible {
+  outline: none;
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px rgba(11, 74, 125, 0.15);
+}
+
+select:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* The options list is drawn by the OS, which does not inherit the control's
+   colours — say them explicitly so a dark theme doesn't render white-on-white. */
+select option {
+  color: var(--text);
+  background: var(--card);
+}
+
+/* The emphasis tier: the one dropdown a page is actually driven by. */
+select.select-brand {
+  font-weight: 600;
+  color: var(--brand);
+  border-color: rgba(11, 74, 125, 0.3);
+  background-image: var(--select-chevron-brand);
+}
+
+select.select-brand:hover:not(:disabled) {
+  border-color: rgba(11, 74, 125, 0.55);
+  background-color: rgba(11, 74, 125, 0.05);
+}
+
+/* A compact variant for a card header or a table row. */
+select.select-sm {
+  font-size: 12px;
+  padding: 4px 26px 4px 11px;
+  background-position: right 9px center;
+}
+
+[data-theme="dark"] select:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.3) !important;
 }
 
 .btn {

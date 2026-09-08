@@ -30,7 +30,35 @@ The user has flagged repeated drift in pill / chip / badge styling across new pa
 - **Downloads/exports** → `DownloadMenu` from `app/components/DownloadMenu.tsx` (the "Download ▾" dropdown used by Operating Statements, Reprojections, Budgets). Items take `href` (link) or `onClick` (client-side Excel/PDF). Never hand-roll separate per-format download buttons.
 - **Collapsible "accounts that didn't fit" lists** → `AccountListCard` from `app/components/AccountListCard.tsx` (collapsed by default, Account/Name/Amount table + total) — shared by Operating Statements ("Non-operating accounts") and the Cash Sheet ("Accounts not mapped to a bucket").
 - **Sharing a private link** → `ShareLinkCard` from `app/components/ShareLinkCard.tsx` — the "Share with tenant" popover: a link box with Copy, the access PIN with its own Copy, view count, an email action behind a deliberate confirm step, and Revoke. Used by the CAM statement (`TenantShareLink`) and the K-1 roster; a third share flow should use it too rather than growing its own. The component owns the look and interaction; each caller passes its own actions, because a tenant link and a K-1 link are different objects (`pinOptional={false}` for a K-1, whose PIN is mandatory). **Always offer both ways out**: copy the link and send it yourself, or have the app email it — copying mutates nothing, which is how you demo or test a link without touching an investor's stored data.
-- **Dropdowns** → `Select` / `YearSelect` from `app/components/YearSelect.tsx` (the brand-outlined pill used by Operating Statements, Management Fees, the 1099 Register and the interim recon). The style had been re-typed inline on four pages, so anything new either copied a block or shipped a bare browser `<select>` that matched nothing. `SELECT_STYLE` / `SELECT_STYLE_SM` are exported for the odd case that needs its own markup.
+- **Dropdowns and text inputs are styled ON THE ELEMENT, in `globals.css`.**
+  Not per page, and not by a wrapper component — styling a native control page
+  by page never held: an audit found **68 of the app's 78 `<select>`s, across 34
+  files, rendering as raw OS dropdowns** next to brand-styled buttons, because
+  the next bare `<select>` is always one edit away. So `select`, the text-ish
+  `input` types and `textarea` carry the look themselves and nothing has to opt
+  in. **Never restyle a control inline**; if one looks wrong, the baseline is
+  wrong. Two deliberate tiers:
+  - the **quiet neutral pill** is the DEFAULT, so a row of eight filters reads
+    as one calm strip rather than eight blue claims on the eye;
+  - **`.select-brand`** (or `Select` from `app/components/YearSelect.tsx`, which
+    applies it) is the brand-outlined pill for the ONE control a page is driven
+    by — the year, the property, the owner. `YearSelect` is the year helper;
+    `.select-sm` / `small` is the compact variant for a card header or a row.
+  Everything is a pill (`999`), matching `.btn` and the tab controls, so a
+  toolbar of buttons, dropdowns and search boxes shares one shape. Gotchas:
+  never set `background` (the shorthand) on a select — it paints over the
+  chevron the baseline draws; use `background-color`. The chevron is the
+  `--select-chevron` / `--select-chevron-brand` token so the dark theme swaps
+  its stroke. Controls inside a `td`/`th` are pulled back to dense padding, so
+  the baseline can't blow a table row's height open.
+- **Roster table cells** → `th` / `td` / `thL` / `tdL` from
+  `app/components/tableStyles.ts` (`thDetail` / `tdDetail` for a table nested
+  inside an expanded row). Ten pages had each re-typed their own, at four
+  different paddings, on top of the `globals.css` table base — so two rosters
+  side by side never matched. Right-aligned is the DEFAULT because most columns
+  here are money; the `L` variants are for the identifying columns that lead a
+  row. Investor Info's three tabs all use them, which is what makes By
+  Property, By Investor and Statement of Values read as one page.
 - **A stored document in a table row** → `DocChip` from `app/components/DocChip.tsx` — a status/year pill plus a document icon, the whole thing a link opening the file in a new tab, wrapped in the shared `HoverCard`. **Never render the filename in the cell**: names range from `k1.pdf` to `2025 Parkwood SC K1P V1 FINAL SIGNED.pdf`, so a cell either truncates to nothing useful or makes every row a different shape. The name is the hover's title, where it can be read whole. The chip has a `minWidth` and pins its icon to the right edge so the icon (and any button after it) lines up down the column whatever the label says. Used by the K-1 cell on Investor Info and the per-investor document list.
 - **A roster of things, grouped, each expanding to its detail** → ONE card
   holding ONE table, with a tinted **band row** opening each group (the group's

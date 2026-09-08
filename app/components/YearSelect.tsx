@@ -2,39 +2,59 @@
 
 // The program's dropdown look, in one place.
 //
-// The brand-outlined pill (Operating Statements, Management Fees, the 1099
-// Register, the interim recon) had been re-typed inline on every page that
-// wanted it, so anything new either copied a style block or — as the K-1 year
-// picker did — shipped a bare browser `<select>` that didn't match anything.
+// The look itself is NOT here — it is on the `select` element in
+// `globals.css`, because styling a native control page-by-page never holds:
+// sixty-eight `<select>`s across thirty-four files had shipped as raw OS
+// dropdowns next to brand-styled buttons, and the next bare one was always a
+// single edit away. The baseline applies to the element, so nothing has to
+// opt in and nothing can drift.
+//
+// What is left here is the choice between the two tiers and the year helper:
+//
+//   - the quiet neutral pill is the DEFAULT for a plain `<select>` — a row of
+//     eight filters should read as one calm strip, not eight blue claims;
+//   - `Select` renders the BRAND pill, for the one control a page is actually
+//     driven by (the year, the property). Reaching for the component is how
+//     you say "this one matters"; pass `tone="neutral"` if it doesn't.
 
 import type { CSSProperties, ReactNode } from "react";
 
-/** The shared look. Exported for the odd `<select>` that needs its own options. */
-export const SELECT_STYLE: CSSProperties = {
-  borderRadius: 8, padding: "8px 12px", fontSize: 13, fontWeight: 600,
-  border: "1px solid rgba(11,74,125,0.3)", background: "var(--card)",
-  color: "#0b4a7d", cursor: "pointer",
-};
+/**
+ * Escape hatches for markup that must build its own `<select>`.
+ * They carry only what differs from the CSS baseline — never `background`,
+ * which would paint over the chevron the baseline draws.
+ */
+export const SELECT_STYLE: CSSProperties = { fontWeight: 600, color: "var(--brand)" };
+export const SELECT_STYLE_SM: CSSProperties = { ...SELECT_STYLE, fontSize: 12 };
 
-/** A compact variant for a dropdown sitting inside a card header or a row. */
-export const SELECT_STYLE_SM: CSSProperties = {
-  ...SELECT_STYLE, padding: "5px 10px", fontSize: 12.5,
-};
+/** Class names for the same two things, which is usually the better hook. */
+export const SELECT_BRAND = "select-brand";
+export const SELECT_SM = "select-sm";
 
-export function Select({ value, onChange, children, small, style, ...rest }: {
+export function Select({ value, onChange, children, tone = "brand", small, className, style, ...rest }: {
   value: string | number;
   onChange: (value: string) => void;
   children: ReactNode;
+  /** "brand" is the emphasised pill; "neutral" is the plain baseline. */
+  tone?: "brand" | "neutral";
   small?: boolean;
+  className?: string;
   style?: CSSProperties;
   "aria-label"?: string;
   disabled?: boolean;
+  title?: string;
 }) {
+  const classes = [
+    tone === "brand" ? SELECT_BRAND : null,
+    small ? SELECT_SM : null,
+    className,
+  ].filter(Boolean).join(" ");
   return (
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      style={{ ...(small ? SELECT_STYLE_SM : SELECT_STYLE), ...style }}
+      className={classes || undefined}
+      style={style}
       {...rest}
     >
       {children}
@@ -43,18 +63,20 @@ export function Select({ value, onChange, children, small, style, ...rest }: {
 }
 
 /** A year picker — the most common case by far. */
-export function YearSelect({ value, years, onChange, suffix = "tax year", small, ...rest }: {
+export function YearSelect({ value, years, onChange, suffix = "tax year", tone, small, ...rest }: {
   value: number;
   years: number[];
   onChange: (year: number) => void;
   /** Trailing word(s) on each option, e.g. "tax year". Pass "" for a bare year. */
   suffix?: string;
+  tone?: "brand" | "neutral";
   small?: boolean;
   "aria-label"?: string;
   disabled?: boolean;
+  title?: string;
 }) {
   return (
-    <Select value={value} onChange={(v) => onChange(Number(v))} small={small} {...rest}>
+    <Select value={value} onChange={(v) => onChange(Number(v))} tone={tone} small={small} {...rest}>
       {years.map((y) => <option key={y} value={y}>{suffix ? `${y} ${suffix}` : y}</option>)}
     </Select>
   );

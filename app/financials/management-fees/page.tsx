@@ -12,6 +12,7 @@ import { ChartTooltip, HoverBands, type TipRow } from "@/app/components/ChartToo
 import { DownloadMenu } from "@/app/components/DownloadMenu";
 import { exportManagementFeesXlsx } from "@/lib/financials/management-fees/export";
 import type { MgmtFeeData, MgmtFeeDetail } from "@/lib/financials/management-fees/compute";
+import { SELECT_BRAND } from "@/app/components/YearSelect";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const MONTHS_LONG = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -206,7 +207,7 @@ export default function ManagementFeesPage() {
         <h1 style={{ margin: 0 }}>Management Fees</h1>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <select value={year} onChange={(e) => setYear(Number(e.target.value))}
-            style={{ borderRadius: 8, padding: "8px 12px", fontSize: 13, fontWeight: 600, border: "1px solid rgba(11,74,125,0.3)", background: "var(--card)", color: "#0b4a7d", cursor: "pointer" }}>
+            className={SELECT_BRAND}>
             {[now.getFullYear(), now.getFullYear() - 1, now.getFullYear() - 2].map((y) => <option key={y} value={y}>{y}</option>)}
           </select>
           <DownloadMenu
