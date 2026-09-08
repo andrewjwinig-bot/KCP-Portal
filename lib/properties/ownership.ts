@@ -133,6 +133,54 @@ export const PROPERTY_OWNERSHIP: PropertyOwnership[] = [
 
   // ─── K-1 distributions ───────────────────────────────────────────────────
   {
+    // Interstate Business Park (Bellmawr, NJ). Its 32 partners were only ever
+    // in `beneficiaries.ts` — the Statement of Values map — so the property was
+    // invisible to Investor Info and its K-1s had nowhere to be uploaded.
+    // Derived from those 38 stake rows: summed per PARTNER (a K-1 is issued to
+    // the partner, and several partners appear on two tiers), with `name` set
+    // to the person behind the trust so one investor still holds one link
+    // across every partnership. The 32 shares total exactly 100%.
+    // Ids embed a digest of the partner string, NOT the row's position, so a
+    // re-ordering of the source can never re-point an uploaded K-1.
+    propertyCode: "0800",
+    hasK1Distribution: true,
+    owners: [
+      { id: "own-0800-joan-r-sohn-a7230e", name: "Joan R. Sohn", ownerPct: 0.2123968 },
+      { id: "own-0800-judith-k-langsfeld-77e3dd", name: "Judith K. Langsfeld", detailedName: "JUDITH K. LANGSFELD-TRUST U/W OF MAX W. KORMAN", ownerPct: 0.072924 },
+      { id: "own-0800-lawrence-m-korman-dba4ef", name: "Lawrence M. Korman", detailedName: "GST EXEMPT TRUST U/I 3 U/W SJK FBO STEVEN H. KORMAN/LMK", ownerPct: 0.0577544 },
+      { id: "own-0800-bradley-j-korman-ae45ab", name: "Bradley J. Korman", detailedName: "GST EXEMPT TRUST U/I 3 U/W SJK FBO STEVEN H. KORMAN/BJK", ownerPct: 0.0577544 },
+      { id: "own-0800-mark-g-korman-10fda2", name: "Mark G. Korman", detailedName: "GST EXEMPT TRUST U/I 3 U/W SJK FBO STEVEN H. KORMAN/MGK", ownerPct: 0.0577544 },
+      { id: "own-0800-jeffrey-honickman-d0e7c8", name: "Jeffrey Honickman", detailedName: "GST EXEMPT TRUST U/I 3 U/W SJK FBO LYNNE HONICKMAN/JAH", ownerPct: 0.0577544 },
+      { id: "own-0800-shirley-honickman-hahn-c39344", name: "Shirley Honickman Hahn", detailedName: "GST EXEMPT TRUST U/I 3 U/W SJK FBO LYNNE HONICKMAN/SAH", ownerPct: 0.0577536 },
+      { id: "own-0800-alison-korman-feldman-99b3a2", name: "Alison Korman Feldman", detailedName: "LEONARD I KORMAN GST SUBJECT TR FBO ALISON FELDMAN", ownerPct: 0.0312427 },
+      { id: "own-0800-joan-r-sohn-8d346e", name: "Joan R. Sohn", detailedName: "RESIDUAL TRUST U/W I. B. S. R. MOSS FBO JOAN SOHN", ownerPct: 0.0310632 },
+      { id: "own-0800-joan-r-sohn-3d9de1", name: "Joan R. Sohn", detailedName: "RESIDUAL TRUST U/W I. B. & S. R. MOSS FBO JOAN SOHN", ownerPct: 0.03 },
+      { id: "own-0800-joan-r-sohn-c62504", name: "Joan R. Sohn", detailedName: "JOAN SOHN (PRIOR ESTATE OF SARAH MOSS)", ownerPct: 0.03 },
+      { id: "own-0800-john-p-korman-597afb", name: "John P. Korman", detailedName: "JOHN KORMAN - TRUST U/W OF MAX KORMAN", ownerPct: 0.024308 },
+      { id: "own-0800-carolyn-korman-jacobs-669c8b", name: "Carolyn Korman Jacobs", detailedName: "CAROLYN K JACOBS - TRUST U/W OF MAX KORMAN", ownerPct: 0.024308 },
+      { id: "own-0800-james-s-korman-2fa4ab", name: "James S. Korman", detailedName: "JAMES KORMAN - TRUST U/W OF MAX KORMAN", ownerPct: 0.024308 },
+      { id: "own-0800-susan-korman-schurr-182730", name: "Susan Korman Schurr", detailedName: "LIK SUBJECT FBO SUSAN K SCHURR", ownerPct: 0.024308 },
+      { id: "own-0800-catherine-korman-altman-7523e9", name: "Catherine Korman Altman", detailedName: "LIK SUBJECT FBO CATHERINE K ALTMAN", ownerPct: 0.024308 },
+      { id: "own-0800-judith-k-langsfeld-08c10c", name: "Judith K. Langsfeld", detailedName: "J. K. LANGSFELD - TRUST U/W OF MAX W KORMAN", ownerPct: 0.0234 },
+      { id: "own-0800-berton-e-korman-dbf124", name: "Berton E. Korman", ownerPct: 0.020804 },
+      { id: "own-0800-steven-h-korman-a1a668", name: "Steven H. Korman", detailedName: "STEVEN H. KORMAN", ownerPct: 0.020804 },
+      { id: "own-0800-joan-r-sohn-b99c78", name: "Joan R. Sohn", detailedName: "JOAN SOHN (42 TRUST)", ownerPct: 0.0149768 },
+      { id: "own-0800-lynne-honickman-547796", name: "Lynne Honickman", ownerPct: 0.0133152 },
+      { id: "own-0800-judith-k-langsfeld-dc0e90", name: "Judith K. Langsfeld", detailedName: "JUDITH K. LANGSFELD eff. 04/19/10", ownerPct: 0.0133152 },
+      { id: "own-0800-alison-korman-feldman-501c09", name: "Alison Korman Feldman", detailedName: "TRUST U/I 7TH WILL OF MK FBO ALISON K FELDMAN", ownerPct: 0.0077667 },
+      { id: "own-0800-susan-korman-schurr-472d9b", name: "Susan Korman Schurr", detailedName: "TRUST U/I 7TH WILL OF MK FBO SUSAN SCHURR", ownerPct: 0.0077667 },
+      { id: "own-0800-catherine-korman-altman-0a197c", name: "Catherine Korman Altman", detailedName: "TRUST U/I 7TH WILL OF MK FBO CATHERINE ALTMAN", ownerPct: 0.0077667 },
+      { id: "own-0800-john-p-korman-855f48", name: "John P. Korman", detailedName: "TRUST U/I 7TH WILL OF MK FBO JOHN P KORMAN", ownerPct: 0.0077667 },
+      { id: "own-0800-james-s-korman-0b2200", name: "James S. Korman", detailedName: "TRUST U/I 7TH WILL OF MK FBO JAMES S KORMAN", ownerPct: 0.0077667 },
+      { id: "own-0800-carolyn-korman-jacobs-febc7a", name: "Carolyn Korman Jacobs", detailedName: "TRUST U/I 7TH WILL OF MK FBO CAROLYN K JACOBS", ownerPct: 0.0077667 },
+      { id: "own-0800-judith-k-langsfeld-f60163", name: "Judith K. Langsfeld", detailedName: "JUDITH K. LANGSFELD (42 TRUST)", ownerPct: 0.0074888 },
+      { id: "own-0800-lynne-honickman-dde0f5", name: "Lynne Honickman", detailedName: "LYNNE HONICKMAN (42 TRUST)", ownerPct: 0.0074888 },
+      { id: "own-0800-catherine-korman-altman-113d18", name: "Catherine Korman Altman", detailedName: "LEONARD I KORMAN GST SUBJECT TR FBO CATHERINE ALTMAN", ownerPct: 0.0069347 },
+      { id: "own-0800-susan-korman-schurr-36d3e9", name: "Susan Korman Schurr", detailedName: "LEONARD I KORMAN GST SUBJECT TR FBO SUSAN SCHURR", ownerPct: 0.0069347 },
+    ],
+  },
+
+  {
     propertyCode: "2070",
     hasK1Distribution: true,
     owners: [
