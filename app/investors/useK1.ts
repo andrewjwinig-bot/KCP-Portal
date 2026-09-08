@@ -18,6 +18,8 @@ import type { K1Document } from "@/lib/investors/k1";
 export type K1Owner = {
   id: string; name: string; detailedName: string | null; vendorCode: string | null;
   ownerPct: number | null; sharesName: boolean;
+  /** Where their link would be emailed, and where that address came from. */
+  email: string | null; emailSource: string; emailNote: string;
   link: { id: string; createdAt: string; viewCount: number; lastViewedAt: string | null } | null;
 };
 
@@ -43,6 +45,7 @@ export type ShareBatch = { key: string; sent: boolean; results: ShareResult[] };
 export type K1Interest = {
   ownerId: string; propertyCode: string; propertyName: string; filesK1: boolean;
   heldAs: string | null; vendorCode: string | null;
+  email: string | null; emailSource: string; emailNote: string;
   documents: { id: string; taxYear: number; filename: string; published: boolean; viewCount: number }[];
   link: { id: string; createdAt: string; viewCount: number; lastViewedAt: string | null } | null;
 };
@@ -78,6 +81,11 @@ export type K1Slice = {
   setPublished: (publish: boolean) => void;
   /** Mint links for these owners; `send` also emails each of them. */
   share: (ownerIds: string[], send: boolean) => void;
+  /** Set (or clear, with "") where one owner's link is emailed. */
+  setEmail: (ownerId: string, email: string) => void;
+  /** Selected owners with no address — a send would create their link but
+   *  couldn't deliver it, so the page warns before rather than after. */
+  selectedWithoutEmail: string[];
 };
 
 const thisYear = new Date().getFullYear();
@@ -176,6 +184,21 @@ export function useK1Registry(enabled: boolean, openK1Codes: string[]) {
       // Anyone with a document can be sent to — the send publishes it.
       shareableIds: owners.filter((o) => docFor(o.id)).map((o) => o.id),
       selected: selection[code] ?? emptySet,
+      selectedWithoutEmail: [...(selection[code] ?? emptySet)]
+        .map((id) => owners.find((o) => o.id === id))
+        .filter((o): o is K1Owner => !!o && !o.email)
+        .map((o) => o.name),
+
+      setEmail: (ownerId: string, email: string) => {
+        void act(code, async () => {
+          const res = await fetch("/api/investor-k1", {
+            method: "PATCH", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "email", ownerId, email }),
+          });
+          const j = await res.json();
+          if (!res.ok) throw new Error(j.error ?? "Could not save that address.");
+        });
+      },
 
       toggleSelected: (ownerId: string) => setSelection((s) => {
         const next = new Set(s[code] ?? []);

@@ -3,7 +3,8 @@ import { cookies } from "next/headers";
 import { SITE_COOKIE, verifySiteToken } from "@/lib/site-auth";
 import { ALL_USERS, isPathAllowed, USERS, type UserId } from "@/lib/users";
 import { PROPERTY_OWNERSHIP } from "@/lib/properties/ownership";
-import { ownerContact } from "@/lib/properties/ownerContacts";
+import { resolveOwnerEmail } from "@/lib/investors/ownerEmail";
+import { allOwnerEmails } from "@/lib/investors/ownerEmailStore";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 import {
   investorLinkSecret, signInvestorToken, saveInvestorLink, listInvestorLinks,
@@ -97,7 +98,8 @@ async function shareOne(
   let mailError: string | null = null;
   let sentTo: string[] = [];
   if (send) {
-    const email = ownerContact(owner.name)?.email ?? "";
+    const overrides = await allOwnerEmails();
+    const email = resolveOwnerEmail(owner.name, owner.detailedName ?? null, overrides[owner.id]?.email).email ?? "";
     if (!email) mailError = `No email on file for ${owner.name}. Copy the link and send it yourself.`;
     else if (!isMailConfigured()) mailError = "Email isn't configured, so the link was created but not sent.";
     else {
