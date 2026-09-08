@@ -18,6 +18,7 @@
 import { useState } from "react";
 import { Pill, StatPill, TONE_AMBER, TONE_GREEN, TONE_NEUTRAL } from "@/app/components/Pill";
 import { HoverCard } from "@/app/components/HoverCard";
+import { DocChip } from "@/app/components/DocChip";
 import type { K1Document } from "@/lib/investors/k1";
 import type { K1Owner, K1Slice, ShareBatch } from "./useK1";
 
@@ -131,25 +132,26 @@ export function K1Cell({ owner, k1 }: { owner: K1Owner; k1: K1Slice }) {
   const doc = k1.docFor(owner.id);
 
   if (k1.uploading === owner.id) {
-    return <span style={{ fontSize: 12, fontWeight: 700, color: TEAL }}>Uploading…</span>;
+    return <span style={{ display: "inline-block", minWidth: 104, fontSize: 12, fontWeight: 700, color: TEAL }}>Uploading…</span>;
   }
 
   if (doc) {
+    // Filename lives in the hover, not the cell — see DocChip. Every owner's row
+    // is then the same shape whatever their accountant named the file.
     return (
-      <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-        <Pill tone={doc.published ? TONE_GREEN : TONE_AMBER}>{doc.published ? "PUBLISHED" : "READY"}</Pill>
-        <HoverCard title={doc.filename} width={300}
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <DocChip
+          href={`/api/investor-k1/file?id=${doc.id}`}
+          tone={doc.published ? TONE_GREEN : TONE_AMBER}
+          label={doc.published ? "PUBLISHED" : "READY"}
+          title={doc.filename}
           rows={[
             { label: "For", value: owner.detailedName ?? `${owner.name} · held personally` },
             { label: "Size", value: kb(doc.size) },
             { label: "Uploaded", value: `${shortDate(doc.uploadedAt)}${doc.uploadedBy ? ` · ${doc.uploadedBy}` : ""}` },
           ]}
-          footer={{ label: doc.published ? "Opened" : "Status", value: doc.published ? (doc.viewCount ? `${doc.viewCount}×` : "Not yet") : "Not published" }}>
-          <a href={`/api/investor-k1/file?id=${doc.id}`} target="_blank" rel="noopener noreferrer"
-            style={{ display: "block", minWidth: 0, color: BRAND, textDecoration: "none", fontWeight: 600, fontSize: 12 }}>
-            <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 150 }}>{doc.filename}</div>
-          </a>
-        </HoverCard>
+          footer={{ label: doc.published ? "Opened" : "Status", value: doc.published ? (doc.viewCount ? `${doc.viewCount}×` : "Not yet") : "Not published" }}
+        />
         <button onClick={() => k1.remove(doc)} disabled={k1.busy} title="Remove this K-1"
           style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer", padding: 2, flexShrink: 0 }}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
@@ -169,7 +171,8 @@ export function K1Cell({ owner, k1 }: { owner: K1Owner; k1: K1Slice }) {
       }}
       title={`Drop ${owner.name}'s ${owner.detailedName ? `“${owner.detailedName}” ` : ""}K-1 here`}
       style={{
-        display: "inline-flex", alignItems: "center", gap: 6, cursor: k1.busy ? "default" : "pointer",
+        display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 5,
+        cursor: k1.busy ? "default" : "pointer", minWidth: 104,
         border: `1.5px dashed ${dragOver ? TEAL : "var(--border)"}`, borderRadius: 8, padding: "4px 9px",
         background: dragOver ? "rgba(15,118,110,0.09)" : "transparent",
         color: dragOver ? TEAL : "var(--muted)", fontSize: 11.5, fontWeight: 700,

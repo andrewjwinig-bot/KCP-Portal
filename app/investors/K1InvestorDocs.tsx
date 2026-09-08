@@ -11,6 +11,7 @@
 import { useEffect, useState } from "react";
 import { Pill, TONE_AMBER, TONE_GREEN, TONE_NEUTRAL, TONE_RED } from "@/app/components/Pill";
 import { HoverCard } from "@/app/components/HoverCard";
+import { DocChip } from "@/app/components/DocChip";
 
 type Interest = {
   ownerId: string; propertyCode: string; propertyName: string; filesK1: boolean;
@@ -56,17 +57,19 @@ export function K1InvestorDocs({ investor }: { investor: string }) {
               {i.documents.length === 0
                 ? <Pill tone={TONE_RED}>NO K-1 YET</Pill>
                 : i.documents.map((d) => (
-                    <HoverCard key={d.id} title={`${d.taxYear} Schedule K-1`} width={280}
+                    <DocChip key={d.id}
+                      href={`/api/investor-k1/file?id=${d.id}`}
+                      tone={d.published ? TONE_GREEN : TONE_AMBER}
+                      label={String(d.taxYear)}
+                      title={d.filename}
+                      minWidth={0}
                       rows={[
-                        { label: "File", value: d.filename },
+                        { label: "Tax year", value: String(d.taxYear) },
                         { label: "Status", value: d.published ? "Published" : "Uploaded, not published" },
                         { label: "Downloaded", value: d.viewCount ? `${d.viewCount}×` : "Not yet" },
                       ]}
-                      footer={{ label: "Open", value: "Click to preview" }}>
-                      <a href={`/api/investor-k1/file?id=${d.id}`} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
-                        <Pill tone={d.published ? TONE_GREEN : TONE_AMBER}>{d.taxYear}</Pill>
-                      </a>
-                    </HoverCard>
+                      footer={{ label: "Open", value: "Click to preview" }}
+                    />
                   ))}
             </div>
             <div style={{ marginLeft: "auto", flexShrink: 0 }}>
