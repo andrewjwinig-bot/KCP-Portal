@@ -8,6 +8,8 @@ import { publishBlockers, type K1Document } from "@/lib/investors/k1";
 import { k1sFor, k1YearsFor, saveK1, getK1, removeK1, allK1s } from "@/lib/investors/k1Store";
 import { putK1File, removeK1File } from "@/lib/investors/k1Files";
 import { listInvestorLinks } from "@/lib/investors/k1Link";
+import { resolveOwnerEmail } from "@/lib/investors/ownerEmail";
+import { allOwnerEmails, clearOwnerEmail, setOwnerEmail } from "@/lib/investors/ownerEmailStore";
 import { logAudit, auditIp } from "@/lib/audit";
 
 export const runtime = "nodejs";
@@ -48,6 +50,7 @@ export async function GET(req: NextRequest) {
   if (investor) {
     const links = await listInvestorLinks();
     const docs = await allK1s();
+    const emailOverrides = await allOwnerEmails();
     const interests = PROPERTY_OWNERSHIP.flatMap((p) =>
       p.owners.filter((o) => o.name === investor).map((o) => ({ propertyCode: p.propertyCode, hasK1: !!p.hasK1Distribution, owner: o })),
     );
@@ -63,6 +66,10 @@ export async function GET(req: NextRequest) {
           filesK1: hasK1,
           heldAs: owner.detailedName ?? null,
           vendorCode: owner.vendorCode ?? null,
+          ...(() => {
+            const r = resolveOwnerEmail(owner.name, owner.detailedName ?? null, emailOverrides[owner.id]?.email);
+            return { email: r.email, emailSource: r.source, emailNote: r.note };
+          })(),
           documents: docs
             .filter((d) => d.ownerId === owner.id)
             .sort((a, b) => b.taxYear - a.taxYear)
@@ -80,6 +87,7 @@ export async function GET(req: NextRequest) {
   const owners = ownersOf(property);
   const documents = await k1sFor(property, year);
   const links = await listInvestorLinks();
+  const overrides = await allOwnerEmails();
   const linkByOwner = new Map(links.filter((l) => !l.revoked).map((l) => [l.ownerId, l]));
 
   return NextResponse.json({
@@ -93,6 +101,12 @@ export async function GET(req: NextRequest) {
       // "Alison Korman Feldman" are different interests, so the page flags them
       // and you read "Held as" before dropping a PDF on one.
       sharesName: owners.filter((x) => x.name === o.name).length > 1,
+      // Where their link would be emailed, and why — shown on the roster so a
+      // wrong address is caught before a send, never after.
+      ...(() => {
+        const r = resolveOwnerEmail(o.name, o.detailedName ?? null, overrides[o.id]?.email);
+        return { email: r.email, emailSource: r.source, emailNote: r.note };
+      })(),
       link: linkByOwner.get(o.id)
         ? { id: linkByOwner.get(o.id)!.id, createdAt: linkByOwner.get(o.id)!.createdAt, viewCount: linkByOwner.get(o.id)!.viewCount ?? 0, lastViewedAt: linkByOwner.get(o.id)!.lastViewedAt ?? null }
         : null,
@@ -155,6 +169,26 @@ export async function PATCH(req: NextRequest) {
   if (!user) return NextResponse.json({ error: "Not authorized" }, { status: 401 });
   const body = await req.json().catch(() => ({}));
   const action = String(body?.action ?? "");
+
+  // Set (or clear) where one owner's K-1 link gets emailed. Keyed by owner id,
+  // so it is exact and never depends on matching a name.
+  if (action === "email") {
+    const ownerId = String(body?.ownerId ?? "").trim();
+    const email = String(body?.email ?? "").trim();
+    if (!ownerId) return NextResponse.json({ error: "ownerId is required." }, { status: 400 });
+    if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+      return NextResponse.json({ error: `"${email}" doesn't look like an email address.` }, { status: 400 });
+    }
+    const by = USERS[user]?.label ?? user;
+    if (email) await setOwnerEmail(ownerId, { email, setBy: by, at: new Date().toISOString() });
+    else await clearOwnerEmail(ownerId);
+    await logAudit({
+      event: "investor-k1.email", user: by, ip: auditIp(req),
+      detail: `${ownerId} · ${email || "cleared"}`,
+    });
+    return NextResponse.json({ ok: true });
+  }
+
   if (action !== "publish" && action !== "unpublish") {
     return NextResponse.json({ error: "Unknown action." }, { status: 400 });
   }

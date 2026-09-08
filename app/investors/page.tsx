@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import * as XLSX from "xlsx";
 import JSZip from "jszip";
 import { PROPERTY_OWNERSHIP, type PropertyOwner } from "../../lib/properties/ownership";
+import { resolveOwnerEmail } from "@/lib/investors/ownerEmail";
 import { PROPERTY_DEFS, TYPE_STYLE, FUND_LABEL, type PropType, type FundGroup } from "../../lib/properties/data";
 import { structureFor, type InvestorStructure } from "../../lib/investors/structures";
 import { ENTITY_VALUES, entityValue, totalEquityValue, STATEMENT_AS_OF } from "../../lib/properties/entityValues";
@@ -15,7 +16,7 @@ import { residencyOf } from "../../lib/properties/residency";
 import { buildStatementOfValuesPdf, type StatementPdfRow } from "../../lib/properties/statementPdf";
 import { mergeTrusteeRows, normInvestorKey, type TrusteeRowOverride } from "../../lib/investors/structures";
 import { canEditOwnership, canManageK1 } from "../../lib/users";
-import { K1Header, K1Cell, K1PortalCell, K1SelectCell, K1ShareResults, K1InvestorCells } from "./K1Panel";
+import { K1Header, K1Cell, K1PortalCell, K1SelectCell, K1ShareResults, K1InvestorCells, K1EmailCell } from "./K1Panel";
 import { useK1Registry } from "./useK1";
 import { PartnershipTaxDocs } from "@/app/components/PartnershipTaxDocs";
 import { useUser } from "../components/UserProvider";
@@ -108,6 +109,12 @@ type OwnerGroup = {
 
 /** Group owners by normalized name; sort groups by total ownership desc;
  *  sort within each group by row ownership desc. */
+/** Read-only email for the ownership table when the K-1 tooling isn't in play
+ *  (no override lookup — that lives server-side with the K-1 payload). */
+function ownerEmailFor(o: PropertyOwner): string | null {
+  return resolveOwnerEmail(o.name, o.detailedName ?? null, null).email;
+}
+
 function buildOwnerGroups(owners: PropertyOwner[]): OwnerGroup[] {
   const byKey = new Map<string, PropertyOwner[]>();
   for (const o of owners) {
@@ -698,7 +705,7 @@ export default function InvestorInfoPage() {
                 {showK1 && <th style={{ ...k1Th, width: 34, paddingRight: 0 }} className="no-print" aria-label="Select" />}
                 <th style={{ padding: "10px 16px", fontWeight: 700, width: 140, whiteSpace: "nowrap" }}>VENDOR CODE</th>
                 <th style={{ padding: "10px 16px", fontWeight: 700, ...(showK1 ? { minWidth: 190 } : null) }}>OWNER</th>
-                <th style={{ padding: "10px 16px", fontWeight: 700, ...(showK1 ? { width: 210 } : null) }}>ADDRESS</th>
+                <th style={{ padding: "10px 16px", fontWeight: 700, width: 230 }}>EMAIL</th>
                 <th style={{ padding: "10px 16px", fontWeight: 700, textAlign: "right" }}>OWNERSHIP %</th>
                 {hasVal && <th style={{ padding: "10px 16px", fontWeight: 700, textAlign: "right", whiteSpace: "nowrap" }}>YEAR-END $</th>}
                 {hasVal && <th style={{ padding: "10px 16px", fontWeight: 700, textAlign: "right", whiteSpace: "nowrap" }}>ESTIMATED $</th>}
@@ -736,7 +743,9 @@ export default function InvestorInfoPage() {
                         )}
                       </td>
                       <td style={{ padding: "12px 16px", color: "var(--muted)" }}>
-                        {[inv.address, inv.city, inv.state, inv.zip].filter(Boolean).join(", ") || "—"}
+                        {showK1 && k1?.ownerFor(inv.id)
+                          ? <K1EmailCell owner={k1.ownerFor(inv.id)!} k1={k1} />
+                          : <span style={{ fontSize: 12.5 }}>{ownerEmailFor(inv) ?? "—"}</span>}
                       </td>
                       <td style={{ padding: "12px 16px", textAlign: "right" }}>{pct(ownershipFor(inv))}</td>
                       {hasVal && <td style={{ padding: "12px 16px", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{share(ownershipFor(inv), pv!.ye)}</td>}
@@ -798,7 +807,9 @@ export default function InvestorInfoPage() {
                         {inv.detailedName || <span style={{ fontStyle: "italic" }}>(direct)</span>}
                       </td>
                       <td style={{ padding: "8px 16px", color: "var(--muted)", fontSize: 12 }}>
-                        {[inv.address, inv.city, inv.state, inv.zip].filter(Boolean).join(", ") || "—"}
+                        {showK1 && k1?.ownerFor(inv.id)
+                          ? <K1EmailCell owner={k1.ownerFor(inv.id)!} k1={k1} />
+                          : <span style={{ fontSize: 12 }}>{ownerEmailFor(inv) ?? "—"}</span>}
                       </td>
                       <td style={{ padding: "8px 16px", textAlign: "right", fontSize: 12 }}>{pct(ownershipFor(inv))}</td>
                       {hasVal && <td style={{ padding: "8px 16px", textAlign: "right", fontSize: 12, fontVariantNumeric: "tabular-nums" }}>{share(ownershipFor(inv), pv!.ye)}</td>}
@@ -1108,6 +1119,7 @@ export default function InvestorInfoPage() {
                             <th style={{ padding: "10px 16px", fontWeight: 700, width: 70 }}>PROP</th>
                             <th style={{ padding: "10px 16px", fontWeight: 700 }}>PROPERTY</th>
                             <th style={{ padding: "10px 16px", fontWeight: 700, width: 140, whiteSpace: "nowrap" }}>VENDOR CODE</th>
+                            <th style={{ padding: "10px 16px", fontWeight: 700 }}>ADDRESS</th>
                             <th style={{ padding: "10px 16px", fontWeight: 700, textAlign: "right" }}>OWNERSHIP %</th>
                             <th style={{ padding: "10px 16px", fontWeight: 700, textAlign: "right", whiteSpace: "nowrap" }}>YEAR-END $</th>
                             <th style={{ padding: "10px 16px", fontWeight: 700, textAlign: "right", whiteSpace: "nowrap" }}>ESTIMATED $</th>
@@ -1141,6 +1153,9 @@ export default function InvestorInfoPage() {
                                   <span style={{ color: "var(--muted)" }}>—</span>
                                 )}
                               </td>
+                              <td style={{ padding: "12px 16px", color: "var(--muted)", fontSize: 12.5 }}>
+                                {[r.investor.address, r.investor.city, r.investor.state, r.investor.zip].filter(Boolean).join(", ") || "—"}
+                              </td>
                               <td style={{ padding: "12px 16px", textAlign: "right" }}>{pct(ifrac)}</td>
                               <td style={{ padding: "12px 16px", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{ipv ? money0((ifrac ?? 0) * ipv.ye) : "—"}</td>
                               <td style={{ padding: "12px 16px", textAlign: "right", fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{ipv ? money0((ifrac ?? 0) * ipv.est) : "—"}</td>
@@ -1151,7 +1166,7 @@ export default function InvestorInfoPage() {
                         </tbody>
                         <tfoot>
                           <tr style={{ borderTop: "2px solid var(--border)", background: "rgba(11,74,125,0.04)" }}>
-                            <td style={{ padding: "12px 16px", fontWeight: 800, letterSpacing: "0.04em", fontSize: 11, textTransform: "uppercase", color: "var(--muted)" }} colSpan={3}>Total across {agg.rows.length} {agg.rows.length === 1 ? "property" : "properties"}</td>
+                            <td style={{ padding: "12px 16px", fontWeight: 800, letterSpacing: "0.04em", fontSize: 11, textTransform: "uppercase", color: "var(--muted)" }} colSpan={4}>Total across {agg.rows.length} {agg.rows.length === 1 ? "property" : "properties"}</td>
                             <td style={{ padding: "12px 16px", textAlign: "right", fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>{money0(agg.rows.reduce((s, r) => { const p = propValue(r.holding.propertyCode); return s + (p ? (ownershipFor(r.investor) ?? 0) * p.ye : 0); }, 0))}</td>
                             <td style={{ padding: "12px 16px", textAlign: "right", fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>{money0(agg.rows.reduce((s, r) => { const p = propValue(r.holding.propertyCode); return s + (p ? (ownershipFor(r.investor) ?? 0) * p.est : 0); }, 0))}</td>
                             {inv && <td className="no-print" colSpan={2} />}

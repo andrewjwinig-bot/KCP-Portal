@@ -81,10 +81,17 @@ export function K1Header({ k1 }: { k1: K1Slice }) {
             : chosen.length === 0
               ? `${selectable.length} investor${selectable.length === 1 ? "" : "s"} ready to send`
               : `${chosen.length} selected`}
+          {k1.selectedWithoutEmail.length > 0 && (
+            <span style={{ color: "#b91c1c", fontWeight: 700 }}> · {k1.selectedWithoutEmail.length} with no email</span>
+          )}
         </span>
         <button className="btn primary" disabled={k1.busy || chosen.length === 0}
           onClick={() => {
-            if (confirm(`Email a private K-1 link to ${chosen.length} investor${chosen.length === 1 ? "" : "s"}? This also makes their K-1 readable. Each gets their own link and their own PIN, and the PINs are shown here for you to send separately.`)) {
+            const missing = k1.selectedWithoutEmail;
+            const warn = missing.length
+              ? `\n\n${missing.length} of them have no email on file (${missing.slice(0, 3).join(", ")}${missing.length > 3 ? ", …" : ""}). Their links will be created but not sent.`
+              : "";
+            if (confirm(`Email a private K-1 link to ${chosen.length} investor${chosen.length === 1 ? "" : "s"}? This also makes their K-1 readable. Each gets their own link and their own PIN, and the PINs are shown here for you to send separately.${warn}`)) {
               k1.share(chosen, true);
             }
           }}
@@ -115,6 +122,72 @@ export function K1SelectCell({ ownerId, k1 }: { ownerId: string; k1: K1Slice }) 
       title={shareable ? "Include in the send" : doc ? "Publish the year first" : "Upload their K-1 first"}
       style={{ cursor: shareable ? "pointer" : "not-allowed" }}
     />
+  );
+}
+
+
+/**
+ * Where this owner's link gets emailed — click to edit.
+ *
+ * Editable in place because the gap is real: only 4 of Parkwood's 21 owners
+ * resolve to an address from the name-keyed sources, and the moment you notice
+ * is while you're looking at the roster about to send. What you type is stored
+ * against the OWNER ID, so it never depends on matching a name again.
+ */
+export function K1EmailCell({ owner, k1 }: { owner: K1Owner; k1: K1Slice }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(owner.email ?? "");
+
+  if (editing) {
+    const commit = () => { setEditing(false); if (draft.trim() !== (owner.email ?? "")) k1.setEmail(owner.id, draft.trim()); };
+    return (
+      <input
+        autoFocus
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") commit();
+          if (e.key === "Escape") { setDraft(owner.email ?? ""); setEditing(false); }
+        }}
+        placeholder="name@example.com"
+        style={{ width: "100%", maxWidth: 230, fontSize: 12.5, padding: "3px 6px" }}
+      />
+    );
+  }
+
+  if (!owner.email) {
+    return (
+      <button type="button" onClick={() => { setDraft(""); setEditing(true); }} disabled={k1.busy}
+        title={`Add an email for ${owner.name}`}
+        style={{
+          background: "rgba(220,38,38,0.08)", border: "1.5px dashed rgba(220,38,38,0.45)",
+          borderRadius: 999, padding: "2px 9px", cursor: "pointer", fontFamily: "inherit",
+          fontSize: 11, fontWeight: 700, color: "#b91c1c",
+        }}>
+        ADD EMAIL
+      </button>
+    );
+  }
+
+  return (
+    <HoverCard title={owner.email} width={280}
+      rows={[
+        { label: "Source", value: owner.emailNote },
+        { label: "For", value: owner.detailedName ?? `${owner.name} · held personally` },
+      ]}
+      footer={{ label: "Click", value: "to change it" }}>
+      <button type="button" onClick={() => { setDraft(owner.email ?? ""); setEditing(true); }} disabled={k1.busy}
+        style={{
+          background: "none", border: "none", padding: 0, cursor: "pointer", fontFamily: "inherit",
+          fontSize: 12.5, color: "var(--text)", textAlign: "left", maxWidth: 230,
+          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "block",
+          // A guessed address is the one worth a second look before sending.
+          borderBottom: owner.emailSource === "trustee-directory" ? "1px dotted #b45309" : "none",
+        }}>
+        {owner.email}
+      </button>
+    </HoverCard>
   );
 }
 
