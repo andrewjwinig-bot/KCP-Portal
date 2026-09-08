@@ -274,24 +274,30 @@ Schedule K-1s carry taxpayer IDs, income allocations and capital accounts. This
 is the most sensitive data in the app; the rules below are safety rules, not
 preferences.
 
-- **`PROPERTY_OWNERSHIP` does NOT cover the whole portfolio, and that is why a
-  property can be missing from Investor Info.** It is the hand-keyed partner
-  roster; `lib/properties/beneficiaries.ts` (`BENEFICIARY_STAKES`) is a second,
-  wider map that drives Statement of Values. A property in the latter but not
-  the former renders on Statement of Values and is invisible to By Property /
-  By Investor — so it can take no K-1 uploads. **0800 Interstate Business Park
-  (Bellmawr) was exactly that** and has now been derived across: its 38 stake
-  rows summed per PARTNER (a K-1 is issued to the partner, and several partners
-  appear on two tiers) into 32 owners totalling exactly 100%, with `name` set to
-  the person behind each trust so one investor still holds one link across every
-  partnership. **Still only in the beneficiary map**: 0900, 1500, 2040, 2080,
-  3600, 4000, 4900, 5610, 9200, CWD, LAND, WHIT — derive one the same way when
-  its K-1s arrive. Owner ids there embed a DIGEST of the partner string, never
-  the row's position, so re-ordering the source can't re-point an uploaded K-1.
-  Note two of Joan Sohn's 0800 trusts differ only by an `&`
-  ("RESIDUAL TRUST U/W I. B. S. R. MOSS" vs "I. B. & S. R. MOSS"); per the
-  never-fuzzy rule they stay two rows — confirm with the accountants whether
-  they are one trust rather than merging them here.
+- **The two ownership maps are at DIFFERENT LEVELS OF THE CHAIN. Never derive
+  one from the other.** `PROPERTY_OWNERSHIP` (`ownership.ts`) is the **legal
+  partner** list — who receives a K-1. `BENEFICIARY_STAKES`
+  (`beneficiaries.ts`) is a **look-through** map: it resolves each partnership
+  down to the ultimate human/trust beneficiaries, which is what a Statement of
+  Values needs and what a K-1 is NOT. Corporate partners are dissolved on the
+  way through and appear nowhere in it — 2300's legal partners are Hyman Korman
+  Co. (47.5%) and The Korman Co (52.5%), and neither name occurs in its 30
+  beneficiary rows; same for GRAYS FERRY SC ASSOC. INC at 4500. Both maps sum to
+  100% of the same property, which is exactly why one looks like a substitute
+  for the other. **It is not.** This was tried: 0800's 38 beneficiary rows were
+  rolled into a 32-owner "partner" roster that totalled a convincing 100.0000%
+  and was wrong — Hyman Korman Co. holds a real 0800 interest and gets a real
+  K-1, and it was absent, because the map had already fragmented it out to the
+  end investors. It shipped and was reverted. A missing property's K-1 roster
+  can only come from the partnership's own K-1 set or partnership agreement,
+  hand-keyed like every other entry.
+- **`PROPERTY_OWNERSHIP` does not cover the whole portfolio, which is why a
+  property can be missing from Investor Info.** A property in the beneficiary
+  map but not the partner roster renders on Statement of Values and is invisible
+  to By Property / By Investor, so it can take no K-1 uploads. Currently
+  partner-roster-less: **0800** (Interstate Business Park / Bellmawr — K-1s
+  exist, partner list still needed), 0900, 1500, 2040, 2080, 3600, 4000, 4900,
+  5610, 9200, CWD, LAND, WHIT.
 - **The owner roster is `lib/properties/ownership.ts`** (`PROPERTY_OWNERSHIP`).
   Nothing about who holds an interest is re-keyed for K-1s. `hasK1Distribution`
   marks the partnerships that actually distribute; 7010 Parkwood was added to
