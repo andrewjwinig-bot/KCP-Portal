@@ -59,6 +59,9 @@ export default function TrackerPage() {
   const [viewMonth, setViewMonth] = useState(today.getMonth());
   const [checked,   setChecked]   = useState<Record<string, boolean>>({});
   const [taxChecked, setTaxChecked] = useState<Record<string, boolean>>({});
+  /** K-1s the investor portal has actually delivered — merged over the manual
+   *  ticks so a distribution done through the portal needs no second tick. */
+  const [taxSent, setTaxSent] = useState<Record<string, boolean>>({});
   const [selDay,    setSelDay]    = useState<number | null>(null);
   const [filterCat, setFilterCat] = useState<Category | "all">("all");
   const [detailTask, setDetailTask] = useState<{ label: string; instructions?: TaskInstructions } | null>(null);
@@ -110,6 +113,11 @@ export default function TrackerPage() {
   useEffect(() => {
     setChecked(loadChecked(viewYear, viewMonth));
     setTaxChecked(loadTaxChecked(viewYear));
+    // Deadline year → tax year: a K-1 due March 2026 is the 2025 K-1.
+    fetch(`/api/investor-k1/sent?year=${viewYear - 1}`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => setTaxSent(j?.ok ? (j.sent ?? {}) : {}))
+      .catch(() => setTaxSent({}));
     setSelDay(null);
   }, [viewYear, viewMonth]);
 
@@ -704,7 +712,7 @@ export default function TrackerPage() {
               {/* One row per tax task */}
               {taxTasksThisMonth.map((task, idx) => {
                 const cat     = TAX_CATEGORIES[task.category];
-                const isDone  = isTaskEffectivelyDone(task, taxChecked);
+                const isDone  = isTaskEffectivelyDone(task, { ...taxChecked, ...taxSent });
                 const dueDate = new Date(viewYear, task.dueMonth - 1, task.dueDay);
                 dueDate.setHours(23, 59, 59);
                 const isOver  = !isDone && isCurrentMonth && dueDate < today;

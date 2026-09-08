@@ -105,6 +105,23 @@ export default function TaxTrackerPage() {
 
   useEffect(() => { setChecked(loadTaxChecked(viewYear)); }, [viewYear]);
 
+  // What the K-1 portal has actually delivered. Merged over the manual ticks
+  // rather than replacing them — a K-1 handed over on paper is still done — so
+  // this only ever ADDS completions.
+  const [sent, setSent] = useState<Record<string, boolean>>({});
+  useEffect(() => {
+    let alive = true;
+    // The tracker's year is the DEADLINE year, but a K-1 distributed by
+    // March 15 2026 is the 2025 tax year — fetch the year behind it, or the
+    // roster would never match what the portal sent.
+    fetch(`/api/investor-k1/sent?year=${viewYear - 1}`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => { if (alive) setSent(j?.ok ? (j.sent ?? {}) : {}); })
+      .catch(() => { if (alive) setSent({}); });
+    return () => { alive = false; };
+  }, [viewYear]);
+  const effective = useMemo(() => ({ ...checked, ...sent }), [checked, sent]);
+
   const toggle = useCallback((id: string) => {
     setChecked(prev => {
       const next = { ...prev, [id]: !prev[id] };
@@ -118,14 +135,14 @@ export default function TaxTrackerPage() {
       if (filterCat   !== "all" && t.category !== filterCat)   return false;
       if (filterMonth !== "all" && t.dueMonth !== filterMonth) return false;
       if (filterStatus !== "all") {
-        const isDone = isTaskEffectivelyDone(t, checked);
+        const isDone = isTaskEffectivelyDone(t, effective);
         if (filterStatus === "done"      && !isDone) return false;
         if (filterStatus === "remaining" && isDone)  return false;
         if (filterStatus === "overdue"   && !(isPastDate(viewYear, t.dueMonth, t.dueDay, today) && !isDone)) return false;
       }
       return true;
     }),
-    [filterCat, filterMonth, filterStatus, checked, viewYear]
+    [filterCat, filterMonth, filterStatus, effective, viewYear]
   );
 
   // Build flat property → tasks map (preserving data-defined entity order)
@@ -148,7 +165,7 @@ export default function TaxTrackerPage() {
   // Toggle all investors for a K-1 task (or single task otherwise)
   const toggleK1All = useCallback((task: typeof TAX_TASKS[number]) => {
     if (!task.investors) { toggle(task.id); return; }
-    const allDone = task.investors.every(inv => checked[inv.id]);
+    const allDone = task.investors.every(inv => effective[inv.id]);
     setChecked(prev => {
       const next = { ...prev };
       task.investors!.forEach(inv => { next[inv.id] = !allDone; });
@@ -159,8 +176,8 @@ export default function TaxTrackerPage() {
 
   // Stats
   const total   = TAX_TASKS.length;
-  const done    = TAX_TASKS.filter(t => isTaskEffectivelyDone(t, checked)).length;
-  const overdue = TAX_TASKS.filter(t => !isTaskEffectivelyDone(t, checked) && isPastDate(viewYear, t.dueMonth, t.dueDay, today)).length;
+  const done    = TAX_TASKS.filter(t => isTaskEffectivelyDone(t, effective)).length;
+  const overdue = TAX_TASKS.filter(t => !isTaskEffectivelyDone(t, effective) && isPastDate(viewYear, t.dueMonth, t.dueDay, today)).length;
 
   // Months that have tasks (for quick filter pills)
   const activeMonths = useMemo(() => {
@@ -172,7 +189,7 @@ export default function TaxTrackerPage() {
   }, [filterCat]);
 
   function statusFor(t: typeof TAX_TASKS[number], done?: boolean) {
-    if (done === undefined) done = isTaskEffectivelyDone(t, checked);
+    if (done === undefined) done = isTaskEffectivelyDone(t, effective);
     const dateStr = `${MONTH_NAMES[t.dueMonth - 1]} ${t.dueDay}`;
     if (done)
       return { label: "✓ Filed",                color: "#16a34a", bg: "rgba(22,163,74,0.08)",  border: "rgba(22,163,74,0.2)"  };
@@ -338,7 +355,7 @@ export default function TaxTrackerPage() {
         {(Object.entries(TAX_CATEGORIES) as [TaxCategory, typeof TAX_CATEGORIES[TaxCategory]][]).map(([key, cat]) => {
           const active  = filterCat === key;
           const count   = TAX_TASKS.filter(t => t.category === key).length;
-          const catDone = TAX_TASKS.filter(t => t.category === key && isTaskEffectivelyDone(t, checked)).length;
+          const catDone = TAX_TASKS.filter(t => t.category === key && isTaskEffectivelyDone(t, effective)).length;
           return (
             <button key={key} onClick={() => setFilterCat(active ? "all" : key)} style={{
               display: "flex", alignItems: "center", gap: 6,
@@ -380,7 +397,7 @@ export default function TaxTrackerPage() {
         <div className="card" style={{ padding: 0, overflow: "hidden" }}>
           {byProperty.order.map((propName, pi) => {
             const propTasks = byProperty.map[propName];
-            const propDone  = propTasks.filter(t => isTaskEffectivelyDone(t, checked)).length;
+            const propDone  = propTasks.filter(t => isTaskEffectivelyDone(t, effective)).length;
             const allFiled  = propDone === propTasks.length;
             const isLast    = pi === byProperty.order.length - 1;
 
@@ -409,7 +426,7 @@ export default function TaxTrackerPage() {
                 {/* Filing rows */}
                 {propTasks.map((task, ti) => {
                   const cat    = TAX_CATEGORIES[task.category];
-                  const isDone = isTaskEffectivelyDone(task, checked);
+                  const isDone = isTaskEffectivelyDone(task, effective);
                   const status = statusFor(task, isDone);
                   const isOver = !isDone && isPastDate(viewYear, task.dueMonth, task.dueDay, today);
                   const isLast = ti === propTasks.length - 1;
@@ -417,7 +434,7 @@ export default function TaxTrackerPage() {
                   // ── K-1 row (collapsible) ────────────────────────────────
                   if (task.category === "k1" && task.investors) {
                     const investors    = task.investors;
-                    const invDone      = investors.filter(inv => checked[inv.id]).length;
+                    const invDone      = investors.filter(inv => effective[inv.id]).length;
                     const isExpanded   = expandedK1.has(task.id);
                     const toggleExpand = () => setExpandedK1(prev => {
                       const next = new Set(prev);
@@ -497,7 +514,8 @@ export default function TaxTrackerPage() {
 
                         {/* Investor sub-rows */}
                         {isExpanded && investors.map((inv, ii) => {
-                          const invChecked = !!checked[inv.id];
+                          const invChecked = !!effective[inv.id];
+                          const autoSent  = !!sent[inv.id];
                           return (
                             <div
                               key={inv.id}
@@ -511,6 +529,11 @@ export default function TaxTrackerPage() {
                               <input
                                 type="checkbox"
                                 checked={invChecked}
+                                // Ticked by the portal: unticking would claim we
+                                // hadn't sent something we demonstrably did. To
+                                // undo it, revoke their link on Investor Info.
+                                disabled={autoSent}
+                                title={autoSent ? "Sent from the investor portal — revoke their link to undo" : undefined}
                                 onChange={() => {
                                   setChecked(prev => {
                                     const next = { ...prev, [inv.id]: !prev[inv.id] };
@@ -518,7 +541,7 @@ export default function TaxTrackerPage() {
                                     return next;
                                   });
                                 }}
-                                style={{ width: 14, height: 14, accentColor: cat.dot, flexShrink: 0, cursor: "pointer" }}
+                                style={{ width: 14, height: 14, accentColor: cat.dot, flexShrink: 0, cursor: autoSent ? "not-allowed" : "pointer" }}
                               />
                               <span style={{
                                 fontSize: 12, fontWeight: 500,
@@ -527,9 +550,15 @@ export default function TaxTrackerPage() {
                               }}>
                                 {inv.name}
                               </span>
-                              {invChecked && (
+                              {autoSent ? (
+                                <span title="Delivered through the investor portal" style={{
+                                  fontSize: 9.5, fontWeight: 800, letterSpacing: "0.04em", marginLeft: "auto",
+                                  color: "#0f766e", background: "rgba(15,118,110,0.09)",
+                                  border: "1px solid rgba(15,118,110,0.25)", borderRadius: 999, padding: "1px 7px",
+                                }}>SENT</span>
+                              ) : invChecked ? (
                                 <span style={{ fontSize: 10, color: "#16a34a", fontWeight: 700, marginLeft: "auto" }}>✓</span>
-                              )}
+                              ) : null}
                             </div>
                           );
                         })}
