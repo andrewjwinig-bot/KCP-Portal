@@ -11,7 +11,12 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { Centered, BRAND } from "@/app/statement/[token]/StatementView";
 
-type Doc = { id: string; taxYear: number; filename: string; size: number; publishedAt: string | null };
+type Doc = {
+  id: string; taxYear: number; filename: string; size: number; publishedAt: string | null;
+  /** The interest this K-1 is for. Two documents for the same year would read
+   *  identically without it — one is the trust's, one is held personally. */
+  heldAs: string | null;
+};
 type Payload = {
   ok: true;
   owner: { name: string; heldAs: string | null };
@@ -119,7 +124,8 @@ function Documents({ token }: { token: string }) {
         <h1 style={{ margin: 0 }}>Your Schedule K-1</h1>
         <div className="muted" style={{ fontSize: 15, marginTop: 8 }}>
           {data.owner.name}
-          {data.owner.heldAs && data.owner.heldAs !== data.owner.name ? <> · <span style={{ fontStyle: "italic" }}>{data.owner.heldAs}</span></> : null}
+          {data.documents.length < 2 && data.owner.heldAs && data.owner.heldAs !== data.owner.name
+            ? <> · <span style={{ fontStyle: "italic" }}>{data.owner.heldAs}</span></> : null}
         </div>
         <div className="muted" style={{ fontSize: 14, marginTop: 3 }}>{data.property.code} — {data.property.name}</div>
 
@@ -136,6 +142,9 @@ function Documents({ token }: { token: string }) {
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 700, fontSize: 16 }}>{d.taxYear} Schedule K-1</div>
+                  {d.heldAs && (
+                    <div style={{ fontSize: 12.5, marginTop: 2, fontStyle: "italic", color: BRAND }}>{d.heldAs}</div>
+                  )}
                   <div className="muted" style={{ fontSize: 12.5, marginTop: 2 }}>
                     PDF · {kb(d.size)}
                     {d.publishedAt ? ` · available since ${new Date(d.publishedAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}` : ""}

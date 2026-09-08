@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { checkInvestorAccess } from "@/lib/investors/k1Access";
 import { getK1, saveK1 } from "@/lib/investors/k1Store";
+import { linkOwnerIds } from "@/lib/investors/k1Link";
 import { readK1Bytes } from "@/lib/investors/k1Files";
 
 export const runtime = "nodejs";
@@ -18,7 +19,7 @@ export async function GET(req: NextRequest, { params }: { params: { token: strin
   }
   const link = access.link!;
   const doc = await getK1(req.nextUrl.searchParams.get("id") ?? "");
-  if (!doc || !doc.published || doc.ownerId !== link.ownerId) {
+  if (!doc || !doc.published || !linkOwnerIds(link).includes(doc.ownerId)) {
     return NextResponse.json({ error: "Not found." }, { status: 404 });
   }
 

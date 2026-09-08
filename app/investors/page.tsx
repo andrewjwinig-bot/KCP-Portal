@@ -764,7 +764,14 @@ export default function InvestorInfoPage() {
                 }
                 const rows = [(
                   <tr key={`${g.key}-primary`} style={{ borderTop: "1px solid var(--border)", background: "rgba(15,23,42,0.025)" }}>
-                    {showK1 && <td className="no-print" />}
+                    {/* One tick per PERSON: their interests share a single link
+                        and a single PIN, so ticking an interest would be a lie. */}
+                    {showK1 && k1 && (
+                      <td style={{ padding: "12px 0 12px 16px" }} className="no-print">
+                        <K1SelectCell ownerId={g.owners[0].id} k1={k1} />
+                      </td>
+                    )}
+                    {showK1 && !k1 && <td className="no-print" />}
                     <td style={{ padding: "12px 16px", color: "var(--muted)", fontSize: 11 }}>—</td>
                     <td style={{ padding: "12px 16px" }}>
                       <div style={{ fontWeight: 700, fontSize: 15 }}>{g.name}</div>
@@ -778,18 +785,21 @@ export default function InvestorInfoPage() {
                     {/* A person's stakes get SEPARATE K-1s, so the roll-up row
                         carries no K-1 cell — the interests below do. */}
                     {showK1 && k1 && (
-                      <td style={{ padding: "12px 16px", color: "var(--muted)", fontSize: 11 }} className="no-print" colSpan={2}>
-                        {g.owners.length} separate K-1s
-                      </td>
+                      <>
+                        <td style={{ padding: "12px 16px", color: "var(--muted)", fontSize: 11 }} className="no-print">
+                          {g.owners.length} separate K-1s · one link
+                        </td>
+                        <td style={{ padding: "12px 16px", textAlign: "right" }} className="no-print">
+                          {k1.ownerFor(g.owners[0].id) && <K1PortalCell owner={k1.ownerFor(g.owners[0].id)!} k1={k1} />}
+                        </td>
+                      </>
                     )}
                   </tr>
                 )];
                 g.owners.forEach((inv) => {
                   rows.push(
                     <tr key={inv.id} style={{ borderTop: "1px solid rgba(11,74,125,0.08)", background: k1?.uploading === inv.id ? "rgba(15,118,110,0.06)" : undefined }}>
-                      {showK1 && k1 && (
-                        <td style={{ padding: "8px 0 8px 16px" }} className="no-print"><K1SelectCell ownerId={inv.id} k1={k1} /></td>
-                      )}
+                      {showK1 && <td className="no-print" />}
                       <td style={{ padding: "8px 16px", paddingLeft: 36 }}>
                         {inv.vendorCode ? (
                           <span style={{
@@ -819,11 +829,7 @@ export default function InvestorInfoPage() {
                           {k1.ownerFor(inv.id) && <K1Cell owner={k1.ownerFor(inv.id)!} k1={k1} />}
                         </td>
                       )}
-                      {showK1 && k1 && (
-                        <td style={{ padding: "8px 16px", textAlign: "right" }} className="no-print">
-                          {k1.ownerFor(inv.id) && <K1PortalCell owner={k1.ownerFor(inv.id)!} k1={k1} />}
-                        </td>
-                      )}
+                      {showK1 && <td className="no-print" />}
                     </tr>,
                   );
                 });

@@ -7,7 +7,7 @@
 
 import "server-only";
 import type { NextRequest } from "next/server";
-import { verifyInvestorToken, investorLinkSecret, getInvestorLink, type InvestorLink, type InvestorLinkPayload } from "./k1Link";
+import { verifyInvestorToken, investorLinkSecret, getInvestorLink, linkOwnerIds, type InvestorLink, type InvestorLinkPayload } from "./k1Link";
 import { verifyPinCookie, signPinCookie, pinsMatch } from "@/lib/cam/tenantLink/pin";
 
 export { signPinCookie as makeInvestorPinCookie, pinsMatch as investorPinMatches };
@@ -35,7 +35,9 @@ export async function checkInvestorAccess(token: string, req: NextRequest): Prom
   if (!link || link.revoked) return { ok: false, status: 401, error: "This link has been revoked." };
   // The token carries the owner; the stored link is the authority. A mismatch
   // means a tampered or stale token — refuse rather than trust either side.
-  if (link.ownerId !== payload.o) return { ok: false, status: 401, error: "This link is no longer valid." };
+  if (!linkOwnerIds(link).includes(payload.o)) {
+    return { ok: false, status: 401, error: "This link is no longer valid." };
+  }
   if (!verifyPinCookie(req.cookies.get(investorPinCookieName(link.id))?.value, secret, link.id)) {
     return { ok: false, status: 401, error: "Enter your access PIN to continue.", pinRequired: true };
   }

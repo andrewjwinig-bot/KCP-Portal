@@ -7,7 +7,7 @@ import { PROPERTY_DEFS } from "@/lib/properties/data";
 import { publishBlockers, type K1Document } from "@/lib/investors/k1";
 import { k1sFor, k1YearsFor, saveK1, getK1, removeK1, allK1s } from "@/lib/investors/k1Store";
 import { putK1File, removeK1File } from "@/lib/investors/k1Files";
-import { listInvestorLinks } from "@/lib/investors/k1Link";
+import { listInvestorLinks, linkOwnerIds } from "@/lib/investors/k1Link";
 import { resolveOwnerEmail } from "@/lib/investors/ownerEmail";
 import { allOwnerEmails, clearOwnerEmail, setOwnerEmail } from "@/lib/investors/ownerEmailStore";
 import { logAudit, auditIp } from "@/lib/audit";
@@ -58,7 +58,7 @@ export async function GET(req: NextRequest) {
       ok: true,
       properties,
       interests: interests.map(({ propertyCode, hasK1, owner }) => {
-        const live = links.find((l) => !l.revoked && l.ownerId === owner.id) ?? null;
+        const live = links.find((l) => !l.revoked && linkOwnerIds(l).includes(owner.id)) ?? null;
         return {
           ownerId: owner.id,
           propertyCode,
@@ -88,7 +88,12 @@ export async function GET(req: NextRequest) {
   const documents = await k1sFor(property, year);
   const links = await listInvestorLinks();
   const overrides = await allOwnerEmails();
-  const linkByOwner = new Map(links.filter((l) => !l.revoked).map((l) => [l.ownerId, l]));
+  // A link now covers every interest one person holds, so index it under ALL of
+  // them — otherwise the person row shows "NO LINK" for a link it owns.
+  const linkByOwner = new Map<string, (typeof links)[number]>();
+  for (const l of links.filter((x) => !x.revoked)) {
+    for (const id of linkOwnerIds(l)) linkByOwner.set(id, l);
+  }
 
   return NextResponse.json({
     ok: true,

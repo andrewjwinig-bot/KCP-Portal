@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { checkInvestorAccess, logInvestorView } from "@/lib/investors/k1Access";
 import { publishedK1sForOwner } from "@/lib/investors/k1Store";
+import { linkOwnerIds } from "@/lib/investors/k1Link";
 import { PROPERTY_OWNERSHIP } from "@/lib/properties/ownership";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 
@@ -20,8 +21,17 @@ export async function GET(req: NextRequest, { params }: { params: { token: strin
   const link = access.link!;
   await logInvestorView(link, req.headers.get("x-forwarded-for")?.split(",")[0]?.trim());
 
-  const owner = PROPERTY_OWNERSHIP.find((p) => p.propertyCode === link.propertyCode)?.owners.find((o) => o.id === link.ownerId);
-  const docs = await publishedK1sForOwner(link.ownerId);
+  const owners = PROPERTY_OWNERSHIP.find((p) => p.propertyCode === link.propertyCode)?.owners ?? [];
+  const ids = linkOwnerIds(link);
+  const owner = owners.find((o) => o.id === ids[0]);
+  // One person, so one link — but a trust interest and a personal one are
+  // separate K-1s, so each document carries the interest it belongs to or the
+  // two rows would look identical.
+  const perOwner = await Promise.all(ids.map(async (id) => ({
+    heldAs: owners.find((o) => o.id === id)?.detailedName ?? null,
+    docs: await publishedK1sForOwner(id),
+  })));
+  const docs = perOwner.flatMap(({ heldAs, docs }) => docs.map((d) => ({ ...d, heldAs })));
 
   return NextResponse.json({
     ok: true,
@@ -34,6 +44,8 @@ export async function GET(req: NextRequest, { params }: { params: { token: strin
     property: { code: link.propertyCode, name: propName(link.propertyCode) },
     // Deliberately NOT sent: ownership percentages, co-owners, capital
     // accounts. This link exists to deliver a document, nothing more.
-    documents: docs.map((d) => ({ id: d.id, taxYear: d.taxYear, filename: d.filename, size: d.size, publishedAt: d.publishedAt })),
+    documents: docs
+      .sort((a, b) => b.taxYear - a.taxYear || (a.heldAs ?? "").localeCompare(b.heldAs ?? ""))
+      .map((d) => ({ id: d.id, taxYear: d.taxYear, filename: d.filename, size: d.size, publishedAt: d.publishedAt, heldAs: d.heldAs })),
   });
 }
