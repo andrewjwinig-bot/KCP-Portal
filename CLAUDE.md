@@ -29,6 +29,7 @@ The user has flagged repeated drift in pill / chip / badge styling across new pa
 **Before building ANY new UI, look at how existing pages already do it and match them — the user has repeatedly flagged that new pages drift from the established look. Reuse the shared component, don't reinvent. Known shared primitives:**
 - **Downloads/exports** → `DownloadMenu` from `app/components/DownloadMenu.tsx` (the "Download ▾" dropdown used by Operating Statements, Reprojections, Budgets). Items take `href` (link) or `onClick` (client-side Excel/PDF). Never hand-roll separate per-format download buttons.
 - **Collapsible "accounts that didn't fit" lists** → `AccountListCard` from `app/components/AccountListCard.tsx` (collapsed by default, Account/Name/Amount table + total) — shared by Operating Statements ("Non-operating accounts") and the Cash Sheet ("Accounts not mapped to a bucket").
+- **Dropdowns** → `Select` / `YearSelect` from `app/components/YearSelect.tsx` (the brand-outlined pill used by Operating Statements, Management Fees, the 1099 Register and the interim recon). The style had been re-typed inline on four pages, so anything new either copied a block or shipped a bare browser `<select>` that matched nothing. `SELECT_STYLE` / `SELECT_STYLE_SM` are exported for the odd case that needs its own markup.
 - **A stored document in a table row** → `DocChip` from `app/components/DocChip.tsx` — a status/year pill plus a document icon, the whole thing a link opening the file in a new tab, wrapped in the shared `HoverCard`. **Never render the filename in the cell**: names range from `k1.pdf` to `2025 Parkwood SC K1P V1 FINAL SIGNED.pdf`, so a cell either truncates to nothing useful or makes every row a different shape. The name is the hover's title, where it can be read whole. The chip has a `minWidth` and pins its icon to the right edge so the icon (and any button after it) lines up down the column whatever the label says. Used by the K-1 cell on Investor Info and the per-investor document list.
 - When a section's purpose mirrors something on another page (a download menu, a hidden-accounts list, a KPI row, a tab+filter+table), copy that page's component/markup/spacing rather than approximating it inline.
 
@@ -245,7 +246,10 @@ preferences.
   `K1Cell`, `K1PortalCell`, `K1ShareResults`); don't reintroduce a second table.
   K-1 state is held by `useK1Registry` (`useK1.ts`) ONE level up, because the
   table is built inside a `.map` where a hook can't be called; it loads lazily
-  per open card. On a person holding several stakes the roll-up row shows
+  per open card. **By Investor works the same way** — `investorSlice` /
+  `K1InvestorCells` add the same two columns to that table (uploads happen on
+  the property since a batch arrives per partnership, but a re-send belongs
+  there, because "Carol called, she can't find hers" starts from her name). On a person holding several stakes the roll-up row shows
   "N separate K-1s" and carries no cell — the interest rows below do, because
   those are separate documents.
 - **A K-1 is uploaded ONTO an owner — nothing reads the filename.** The roster
@@ -265,10 +269,22 @@ preferences.
 - **One K-1 per owner per year, enforced on upload.** A second upload onto the
   same owner is refused (409) rather than silently replacing — delete the
   existing one first, so a document is never swapped out from under a link
-  that's already shared. `publishBlockers` re-checks it (plus orphaned files) as
-  the last gate before documents become visible. Publishing is per year and
-  releases every K-1 uploaded so far; owners still missing one simply have
-  nothing to open.
+  that's already shared.
+- **SENDING is what publishes. There is no separate publish step** — do not
+  reintroduce one. It was the second half of a two-step check whose first half
+  (confirming a filename match) no longer exists, and the link is the real gate:
+  nothing is reachable without a signed token AND a PIN. `shareOne` publishes
+  that owner's K-1 for the year as part of minting the link, which also makes
+  publishing PER OWNER rather than the old all-or-nothing per year. The thing
+  this protects is real though: an investor holding a live link from a prior
+  year would otherwise see a new upload the instant it landed, including one
+  dropped on the wrong row — so an upload stays invisible until someone
+  deliberately sends it. The PATCH publish/unpublish endpoint remains as the
+  retraction path; it is just not a step in the normal flow.
+- **The K-1 cell says whether the FILE is there, not whether it was sent** —
+  green `VIEW` (opens it) or red `MISSING` (which is also the drop target).
+  Sent-ness is the Portal column's job (`NO LINK` / `SHARED` / `OPENED n×`);
+  carrying it in both columns was redundant.
 - **Access is its own gate — deliberately NOT the `/investors` prefix.** Alison
   can reach the ownership page and is herself a Parkwood owner, so inheriting
   that prefix would show her every co-owner's K-1. The K-1 UI lives INSIDE

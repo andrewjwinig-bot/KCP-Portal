@@ -27,7 +27,7 @@ export function DocIcon({ size = 12 }: { size?: number }) {
 }
 
 export function DocChip({
-  href, tone, label, title, rows, footer, width = 290, minWidth = 104,
+  href, tone, label, title, rows, footer, width = 290, minWidth = 104, icon = true,
 }: {
   href: string;
   tone: PillTone;
@@ -40,6 +40,8 @@ export function DocChip({
   width?: number;
   /** Keeps the chip the same footprint whatever the label says. */
   minWidth?: number;
+  /** Drop it when the label already says the action ("VIEW"). */
+  icon?: boolean;
 }) {
   return (
     <HoverCard title={title} rows={rows} footer={footer} width={width}>
@@ -56,7 +58,7 @@ export function DocChip({
         }}
       >
         <Pill tone={tone}>{label}</Pill>
-        <span style={{ display: "inline-flex", color: "#0b4a7d" }}><DocIcon /></span>
+        {icon && <span style={{ display: "inline-flex", color: "#0b4a7d" }}><DocIcon /></span>}
       </a>
     </HoverCard>
   );
