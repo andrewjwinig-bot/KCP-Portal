@@ -15,7 +15,8 @@ import { residencyOf } from "../../lib/properties/residency";
 import { buildStatementOfValuesPdf, type StatementPdfRow } from "../../lib/properties/statementPdf";
 import { mergeTrusteeRows, normInvestorKey, type TrusteeRowOverride } from "../../lib/investors/structures";
 import { canEditOwnership, canManageK1 } from "../../lib/users";
-import { K1Panel } from "./K1Panel";
+import { K1Header, K1Cell, K1PortalCell, K1SelectCell, K1ShareResults } from "./K1Panel";
+import { useK1Registry } from "./useK1";
 import { K1InvestorDocs } from "./K1InvestorDocs";
 import { useUser } from "../components/UserProvider";
 import { StatPill } from "../components/Pill";
@@ -340,6 +341,15 @@ export default function InvestorInfoPage() {
       .sort((a, b) => a.propertyCode.localeCompare(b.propertyCode));
   }, []);
 
+  // K-1 state lives here, not in each card: the K-1 columns are part of the
+  // ownership table (one table, not two that repeat owner / code / share), and
+  // that table is built inside a .map — where a hook can't be called.
+  const openK1Codes = useMemo(
+    () => (canK1 ? holdings.filter((h) => h.hasK1Distribution && openIds[h.propertyCode]).map((h) => h.propertyCode) : []),
+    [canK1, holdings, openIds],
+  );
+  const k1reg = useK1Registry(canK1, openK1Codes);
+
   // ── Investor view: group by normalized name across all properties ─────
   const investorIndex: InvestorAggregate[] = useMemo(() => {
     const map = new Map<string, InvestorAggregate>();
@@ -605,6 +615,11 @@ export default function InvestorInfoPage() {
     const pv = propValue(h.propertyCode); // property year-end + estimated value (null if no entity)
     const hasVal = !!pv;
     const share = (frac: number | undefined, base: number) => money0((frac ?? 0) * base);
+    // The K-1 columns join the ownership table rather than repeating the roster
+    // in a second one below it.
+    const showK1 = !!(h.hasK1Distribution && canK1);
+    const k1 = showK1 ? k1reg.slice(h.propertyCode) : null;
+    const k1Th = { padding: "10px 16px", fontWeight: 700 } as React.CSSProperties;
     return (
       <div
         key={h.propertyCode}
@@ -663,6 +678,10 @@ export default function InvestorInfoPage() {
 
         {open && (
           <>
+          {showK1 && k1 && <K1Header k1={k1} />}
+          {showK1 && k1reg.batch?.propertyCode === h.propertyCode && (
+            <K1ShareResults batch={k1reg.batch} onClose={k1reg.clearBatch} />
+          )}
           {hasVal && (
             <div style={{ padding: "12px 16px", borderTop: "1px solid var(--border)", background: "rgba(11,74,125,0.03)", display: "flex", alignItems: "baseline", gap: 16, flexWrap: "wrap" }}>
               <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>Property value</span>
@@ -670,15 +689,19 @@ export default function InvestorInfoPage() {
               <span style={{ fontSize: 14 }}>Estimated <b style={{ color: "#0b4a7d" }}>{money0(pv!.est)}</b></span>
             </div>
           )}
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14, borderTop: "1px solid var(--border)" }}>
+          <div style={showK1 ? { overflowX: "auto" } : undefined}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14, borderTop: "1px solid var(--border)", ...(showK1 ? { minWidth: 1180 } : null) }}>
             <thead>
               <tr style={{ color: "var(--muted)", fontSize: 11, letterSpacing: "0.04em", textAlign: "left" }}>
+                {showK1 && <th style={{ ...k1Th, width: 34, paddingRight: 0 }} className="no-print" aria-label="Select" />}
                 <th style={{ padding: "10px 16px", fontWeight: 700, width: 140, whiteSpace: "nowrap" }}>VENDOR CODE</th>
-                <th style={{ padding: "10px 16px", fontWeight: 700 }}>OWNER</th>
-                <th style={{ padding: "10px 16px", fontWeight: 700 }}>ADDRESS</th>
+                <th style={{ padding: "10px 16px", fontWeight: 700, ...(showK1 ? { minWidth: 190 } : null) }}>OWNER</th>
+                <th style={{ padding: "10px 16px", fontWeight: 700, ...(showK1 ? { width: 210 } : null) }}>ADDRESS</th>
                 <th style={{ padding: "10px 16px", fontWeight: 700, textAlign: "right" }}>OWNERSHIP %</th>
                 {hasVal && <th style={{ padding: "10px 16px", fontWeight: 700, textAlign: "right", whiteSpace: "nowrap" }}>YEAR-END $</th>}
                 {hasVal && <th style={{ padding: "10px 16px", fontWeight: 700, textAlign: "right", whiteSpace: "nowrap" }}>ESTIMATED $</th>}
+                {showK1 && k1 && <th style={{ ...k1Th, whiteSpace: "nowrap" }} className="no-print">{k1.year} K-1</th>}
+                {showK1 && <th style={{ ...k1Th, textAlign: "right" }} className="no-print">PORTAL</th>}
               </tr>
             </thead>
             <tbody>
@@ -687,7 +710,10 @@ export default function InvestorInfoPage() {
                 if (!multi) {
                   const inv = g.owners[0];
                   return [(
-                    <tr key={inv.id} style={{ borderTop: "1px solid var(--border)" }}>
+                    <tr key={inv.id} style={{ borderTop: "1px solid var(--border)", background: k1?.uploading === inv.id ? "rgba(15,118,110,0.06)" : undefined }}>
+                      {showK1 && k1 && (
+                        <td style={{ padding: "12px 0 12px 16px" }} className="no-print"><K1SelectCell ownerId={inv.id} k1={k1} /></td>
+                      )}
                       <td style={{ padding: "12px 16px" }}>
                         {inv.vendorCode ? (
                           <span style={{
@@ -713,11 +739,21 @@ export default function InvestorInfoPage() {
                       <td style={{ padding: "12px 16px", textAlign: "right" }}>{pct(ownershipFor(inv))}</td>
                       {hasVal && <td style={{ padding: "12px 16px", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{share(ownershipFor(inv), pv!.ye)}</td>}
                       {hasVal && <td style={{ padding: "12px 16px", textAlign: "right", fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{share(ownershipFor(inv), pv!.est)}</td>}
+                      {showK1 && k1 && k1.ownerFor(inv.id) && (
+                        <td style={{ padding: "12px 16px" }} className="no-print"><K1Cell owner={k1.ownerFor(inv.id)!} k1={k1} /></td>
+                      )}
+                      {showK1 && k1 && !k1.ownerFor(inv.id) && <td className="no-print" />}
+                      {showK1 && k1 && (
+                        <td style={{ padding: "12px 16px", textAlign: "right" }} className="no-print">
+                          {k1.ownerFor(inv.id) && <K1PortalCell owner={k1.ownerFor(inv.id)!} k1={k1} />}
+                        </td>
+                      )}
                     </tr>
                   )];
                 }
                 const rows = [(
                   <tr key={`${g.key}-primary`} style={{ borderTop: "1px solid var(--border)", background: "rgba(15,23,42,0.025)" }}>
+                    {showK1 && <td className="no-print" />}
                     <td style={{ padding: "12px 16px", color: "var(--muted)", fontSize: 11 }}>—</td>
                     <td style={{ padding: "12px 16px" }}>
                       <div style={{ fontWeight: 700, fontSize: 15 }}>{g.name}</div>
@@ -728,11 +764,21 @@ export default function InvestorInfoPage() {
                     <td style={{ padding: "12px 16px", textAlign: "right", fontWeight: 700 }}>{pct(g.total)}</td>
                     {hasVal && <td style={{ padding: "12px 16px", textAlign: "right", fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{share(g.total, pv!.ye)}</td>}
                     {hasVal && <td style={{ padding: "12px 16px", textAlign: "right", fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>{share(g.total, pv!.est)}</td>}
+                    {/* A person's stakes get SEPARATE K-1s, so the roll-up row
+                        carries no K-1 cell — the interests below do. */}
+                    {showK1 && k1 && (
+                      <td style={{ padding: "12px 16px", color: "var(--muted)", fontSize: 11 }} className="no-print" colSpan={2}>
+                        {g.owners.length} separate K-1s
+                      </td>
+                    )}
                   </tr>
                 )];
                 g.owners.forEach((inv) => {
                   rows.push(
-                    <tr key={inv.id} style={{ borderTop: "1px solid rgba(11,74,125,0.08)" }}>
+                    <tr key={inv.id} style={{ borderTop: "1px solid rgba(11,74,125,0.08)", background: k1?.uploading === inv.id ? "rgba(15,118,110,0.06)" : undefined }}>
+                      {showK1 && k1 && (
+                        <td style={{ padding: "8px 0 8px 16px" }} className="no-print"><K1SelectCell ownerId={inv.id} k1={k1} /></td>
+                      )}
                       <td style={{ padding: "8px 16px", paddingLeft: 36 }}>
                         {inv.vendorCode ? (
                           <span style={{
@@ -755,6 +801,16 @@ export default function InvestorInfoPage() {
                       <td style={{ padding: "8px 16px", textAlign: "right", fontSize: 12 }}>{pct(ownershipFor(inv))}</td>
                       {hasVal && <td style={{ padding: "8px 16px", textAlign: "right", fontSize: 12, fontVariantNumeric: "tabular-nums" }}>{share(ownershipFor(inv), pv!.ye)}</td>}
                       {hasVal && <td style={{ padding: "8px 16px", textAlign: "right", fontSize: 12, fontVariantNumeric: "tabular-nums" }}>{share(ownershipFor(inv), pv!.est)}</td>}
+                      {showK1 && k1 && (
+                        <td style={{ padding: "8px 16px" }} className="no-print">
+                          {k1.ownerFor(inv.id) && <K1Cell owner={k1.ownerFor(inv.id)!} k1={k1} />}
+                        </td>
+                      )}
+                      {showK1 && k1 && (
+                        <td style={{ padding: "8px 16px", textAlign: "right" }} className="no-print">
+                          {k1.ownerFor(inv.id) && <K1PortalCell owner={k1.ownerFor(inv.id)!} k1={k1} />}
+                        </td>
+                      )}
                     </tr>,
                   );
                 });
@@ -764,23 +820,23 @@ export default function InvestorInfoPage() {
             {hasVal && (
               <tfoot>
                 <tr style={{ borderTop: "2px solid var(--border)", background: "rgba(11,74,125,0.04)" }}>
+                  {showK1 && <td className="no-print" />}
                   <td style={{ padding: "12px 16px", fontWeight: 800, letterSpacing: "0.04em", fontSize: 11, textTransform: "uppercase", color: "var(--muted)" }} colSpan={3}>Property total</td>
                   <td style={{ padding: "12px 16px", textAlign: "right", fontWeight: 800 }}>100.0%</td>
                   <td style={{ padding: "12px 16px", textAlign: "right", fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>{money0(pv!.ye)}</td>
                   <td style={{ padding: "12px 16px", textAlign: "right", fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>{money0(pv!.est)}</td>
+                  {showK1 && <td className="no-print" colSpan={2} />}
                 </tr>
               </tfoot>
             )}
           </table>
+          </div>
           <div style={{ padding: "10px 16px", borderTop: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
             <span className="muted small">Year-end as of {asOfLong()} · Estimated {estAsOfLabel}.</span>
             {hasVal && (
               <button type="button" className="btn no-print" style={{ fontSize: 12, padding: "5px 10px", fontWeight: 600 }} onClick={() => exportPropertySoV(h)}>⤓ Excel</button>
             )}
           </div>
-          {/* K-1s live with the roster they belong to — the batch arrives per
-              partnership, so this is where it lands. */}
-          {h.hasK1Distribution && canK1 && <div className="no-print"><K1Panel propertyCode={h.propertyCode} /></div>}
           </>
         )}
       </div>
