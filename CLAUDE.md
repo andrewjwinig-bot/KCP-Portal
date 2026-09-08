@@ -175,6 +175,57 @@ how-to-pay instructions. Sources of truth:
   tenant APIs `/api/portal/[token]/monthly[/pdf]` (published periods only, scoped
   to the token's one unit).
 
+# 1099 Register — sources of truth
+
+A worksheet for the accountants, NOT a filing. `/financials/ten99`, gated with
+the other statement pages (`financials-statements` → Drew, Alison, admin).
+
+- **It reads CASH accounts, never expense accounts** (`lib/financials/ten99/register.ts`).
+  A 1099 reports what was PAID in the calendar year, so an accrued-but-unpaid
+  invoice must not appear and a prior-year invoice paid this year must. Money out
+  of the cash account is that figure by construction, and reading the one side
+  also means a check split across five expense lines counts once. Payments are
+  cash rows with a NEGATIVE amount; deposits are ignored. `isCashAccount` lives in
+  `lib/financials/cashAccounts.ts` — ONE definition shared with the bank-rec book
+  side, so a payment can't reconcile on one page and be invisible on the other.
+- **Vendors total per FILING ENTITY (EIN), not per property.** `filingEntityFor`
+  maps a GL key → entity via `PROPERTY_DEFS.ein`; fund shells (PJV3 / PNIPLX)
+  resolve through their member buildings, which is where the EIN lives. This is
+  the whole point of the page: the eight Neshaminy Interplex buildings are one
+  filer, so a vendor paid $250 by each of four of them is $1,000 to the filer and
+  reportable — invisible if you look building by building. Equally, one vendor
+  paid by two different EINs is two sub-threshold vendors, NOT one reportable
+  one. Don't "helpfully" sum across entities.
+- **Vendor grouping is an EXACT match after case/punctuation folding
+  (`foldVendor`) — never fuzzy.** "ABC Landscaping" and "ABC Landscaping LLC"
+  stay two rows. They may well be one vendor, but merging is a guess, and a guess
+  here silently moves money onto the wrong person's form. Two rows the accountant
+  can combine beats one row nobody can take apart. (Same reasoning as the K-1
+  matcher that was removed.)
+- **Payments with no vendor name are counted and surfaced, never dropped** — they
+  land in the entity's `unnamed` bucket and a banner says so, because a silently
+  discarded payment is how a vendor goes missing from the register.
+- **Exclusions are global and permanent, not per-year** (`exclusionStore.ts`,
+  keyed by the folded name): a utility is a corporation in every year and for
+  every building that pays it, so the expensive first pass is meant to carry
+  forward. Marking records a REASON, it does not make a determination — the
+  corporation exemption is the accountant's call and the page says so. An
+  excluded vendor still counts in `scannedTotal`; the exclusion is about
+  reportability, not about pretending the payment didn't happen.
+- **`scannedTotal` is the sanity check.** If it reads $0 the GL is missing or was
+  imported as monthly totals only (no transaction detail) — the page says which
+  rather than showing a confident empty list.
+- **The export is two sheets** (`export.ts`): the register by entity, and every
+  payment behind it so a figure traces to a check. Per the Excel rule, subtotals
+  are `=SUM()` over their own vendor rows and the grand total sums the SUBTOTALS
+  (not the rows again, which would double-count). Payment Detail's total must
+  equal the register's grand total — if it ever doesn't, a payment is being
+  counted in one place and not the other.
+- **Deliberately out of scope: TINs, W-9s, addresses, box classification, and
+  e-filing.** No taxpayer IDs are stored anywhere in this feature. If that
+  changes it is a security decision on the order of the K-1s (encrypted at rest,
+  its own access key), not an incremental feature.
+
 # Investor K-1 delivery — sources of truth
 
 Schedule K-1s carry taxpayer IDs, income allocations and capital accounts. This

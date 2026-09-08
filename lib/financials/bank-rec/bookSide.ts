@@ -13,6 +13,7 @@ import { assembledTransactions, listFullGls } from "@/lib/financials/operating-s
 import { assembleGls } from "@/lib/financials/operating-statements/glAssemble";
 import { FUND_BUILDINGS, glKeysFor } from "@/lib/financials/cash-analysis/funds";
 import type { StoredGl } from "@/lib/financials/operating-statements/statementStore";
+import { isCashAccount } from "@/lib/financials/cashAccounts";
 import type { BookTxn } from "./reconcile";
 
 export type CashAccount = { code: string; name: string };
@@ -34,11 +35,6 @@ function fundShellFor(key: string): string {
     if (members.includes(key)) return fund;
   }
   return key;
-}
-
-function isCashAccount(code: string, name: string): boolean {
-  if (/^0[12]\d\d-/.test(code)) return true;
-  return /\b(cash|money market|security dep)/i.test(name);
 }
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
