@@ -17,6 +17,7 @@ import { mergeTrusteeRows, normInvestorKey, type TrusteeRowOverride } from "../.
 import { canEditOwnership, canManageK1 } from "../../lib/users";
 import { K1Header, K1Cell, K1PortalCell, K1SelectCell, K1ShareResults, K1InvestorCells } from "./K1Panel";
 import { useK1Registry } from "./useK1";
+import { PartnershipTaxDocs } from "@/app/components/PartnershipTaxDocs";
 import { useUser } from "../components/UserProvider";
 import { StatPill } from "../components/Pill";
 import { DownloadMenu } from "../components/DownloadMenu";
@@ -127,7 +128,9 @@ function buildOwnerGroups(owners: PropertyOwner[]): OwnerGroup[] {
       owners: arr,
     });
   }
-  out.sort((a, b) => b.total - a.total);
+  // Alphabetical by owner. Ownership % order reads like a ranking, which is not
+  // what this table is for — you come here to find a named person's row.
+  out.sort((a, b) => a.name.localeCompare(b.name, "en", { sensitivity: "base" }));
   return out;
 }
 
@@ -836,6 +839,9 @@ export default function InvestorInfoPage() {
               <button type="button" className="btn no-print" style={{ fontSize: 12, padding: "5px 10px", fontWeight: 600 }} onClick={() => exportPropertySoV(h)}>⤓ Excel</button>
             )}
           </div>
+          {/* The rest of the return, which arrives with the K-1 batch. Staff
+              only — never circulated to investors. */}
+          {canK1 && <PartnershipTaxDocs propertyCode={h.propertyCode} defaultOpen={false} />}
           </>
         )}
       </div>

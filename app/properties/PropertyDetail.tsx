@@ -11,6 +11,8 @@ import { PROPERTY_OWNERSHIP, type PropertyOwner } from "../../lib/properties/own
 import type { RentRollData, RentRollProperty } from "../../lib/rentroll/parseRentRollExcel";
 import { amenityFor } from "../../lib/rentroll/amenities";
 import { useUser } from "../components/UserProvider";
+import { canManageK1 } from "../../lib/users";
+import { PartnershipTaxDocs } from "../components/PartnershipTaxDocs";
 import {
   TAX_TASKS, PARCEL_INFO,
   baseEntityName, filingLabel, isTaskEffectivelyDone,
@@ -545,7 +547,10 @@ export function PropertyDetailBody({
   checked: Record<string, boolean>;
 }) {
   const router = useRouter();
-  const { user } = useUser();
+  // loggedInUser, NOT the viewed profile: a switcher previewing someone else's
+  // profile must not thereby gain — or lose — access to tax documents.
+  const { user, loggedInUser } = useUser();
+  const canTaxDocs = canManageK1(loggedInUser);
   const isMaint = user.id === "maint";
   const canEditFacts = isMaint || user.navKeys.has("all");
   const tasks        = useMemo(() => tasksForProp(prop.id), [prop.id]);
@@ -941,6 +946,11 @@ export function PropertyDetailBody({
               </div>
             )}
           </CollapsibleSection>
+          {canTaxDocs && (
+            <div style={{ margin: "12px -16px -16px" }}>
+              <PartnershipTaxDocs propertyCode={prop.id} />
+            </div>
+          )}
           </div>
         )}
 
