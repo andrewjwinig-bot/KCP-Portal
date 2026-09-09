@@ -11,6 +11,7 @@ import { listInvestorLinks, linkOwnerIds, investorLinkSecret, signInvestorToken 
 import { resolveOwnerEmail } from "@/lib/investors/ownerEmail";
 import { allOwnerEmails, clearOwnerEmail, setOwnerEmail } from "@/lib/investors/ownerEmailStore";
 import { logAudit, auditIp } from "@/lib/audit";
+import { linkOrigin } from "@/lib/linkOrigin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -52,7 +53,7 @@ export async function GET(req: NextRequest) {
     const docs = await allK1s();
     const emailOverrides = await allOwnerEmails();
     const secretI = investorLinkSecret();
-    const originI = `${req.headers.get("x-forwarded-proto") ?? "https"}://${req.headers.get("host") ?? req.nextUrl.host}`;
+    const originI = linkOrigin(req);
     const interests = PROPERTY_OWNERSHIP.flatMap((p) =>
       p.owners.filter((o) => o.name === investor).map((o) => ({ propertyCode: p.propertyCode, hasK1: !!p.hasK1Distribution, owner: o })),
     );
@@ -107,7 +108,7 @@ export async function GET(req: NextRequest) {
   // token is re-signed from the stored link, so this is the SAME url — it does
   // not mint anything. Same audience as the documents themselves (canManageK1).
   const secret = investorLinkSecret();
-  const origin = `${req.headers.get("x-forwarded-proto") ?? "https"}://${req.headers.get("host") ?? req.nextUrl.host}`;
+  const origin = linkOrigin(req);
   const urlFor = async (l: (typeof links)[number]) =>
     secret ? `${origin}/investor/${await signInvestorToken(secret, { v: 1, id: l.id, o: l.ownerId, p: l.propertyCode })}` : null;
   const linkUrl = new Map<string, string | null>();
