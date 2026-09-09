@@ -80,7 +80,7 @@ export async function GET(req: NextRequest) {
           vendorCode: owner.vendorCode ?? null,
           ...(() => {
             const r = resolveOwnerEmail(owner.name, owner.detailedName ?? null, emailOverrides[owner.id]?.email, contactHub);
-            return { email: r.email, emailSource: r.source, emailNote: r.note };
+            return { email: r.email, alsoEmail: r.alsoEmail, emailSource: r.source, emailNote: r.note };
           })(),
           documents: docs
             .filter((d) => d.ownerId === owner.id)
@@ -136,7 +136,11 @@ export async function GET(req: NextRequest) {
       // wrong address is caught before a send, never after.
       ...(() => {
         const r = resolveOwnerEmail(o.name, o.detailedName ?? null, overrides[o.id]?.email, contactHub);
-        return { email: r.email, emailSource: r.source, emailNote: r.note };
+        // The additional recipients ride along: the share route mails them the
+        // same link, so the roster has to be able to NAME them in the confirm.
+        // Sending to an address the card never showed is exactly the silent
+        // widening the confirm exists to prevent.
+        return { email: r.email, alsoEmail: r.alsoEmail, emailSource: r.source, emailNote: r.note };
       })(),
       link: linkByOwner.get(o.id)
         ? {

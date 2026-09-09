@@ -31,6 +31,9 @@ const SECTION: React.CSSProperties = {
   textTransform: "uppercase", color: "var(--muted)", marginBottom: 6,
 };
 
+/** The email a send would deliver — previewed, optionally edited, then sent. */
+export type EmailDraft = { subject: string; body: string };
+
 export type ShareLink = {
   id: string;
   url: string;
@@ -61,7 +64,18 @@ export type ShareLinkCardProps = {
   sentTo?: string[] | null;
   onOpen?: () => void;
   onCreate?: (requirePin: boolean) => void;
-  onSend?: (id: string) => void;
+  onSend?: (id: string, draft?: EmailDraft) => void;
+  /**
+   * Load the message the send would actually deliver, so the confirm shows the
+   * email rather than only naming its recipients.
+   *
+   * Provide it and the confirm becomes a read-and-edit step: subject and body
+   * are fetched from the server that will send them, shown in full, and any
+   * edit is handed back through `onSend`. Omit it and the confirm stays as it
+   * was — a tenant statement link is not the same irreversible act as an
+   * investor's tax document.
+   */
+  loadDraft?: (id: string) => Promise<EmailDraft>;
   onRevoke?: (id: string) => void;
   /** Omit to hide the PIN controls entirely (a K-1's PIN is not optional). */
   onManagePin?: (id: string, action: "reset" | "remove") => void;
@@ -87,14 +101,45 @@ export type ShareLinkCardProps = {
 export function ShareLinkCard({
   buttonLabel, title, subject, description, links, busy = false, error = null,
   recipients = [], sendLabel = "Email it", sentTo = null,
-  onOpen, onCreate, onSend, onRevoke, onManagePin,
+  onOpen, onCreate, onSend, onRevoke, onManagePin, loadDraft,
   pinOptional = true, small = false, align = "right", viewAsHref, recipientSlot, emptyNote,
 }: ShareLinkCardProps) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
   const [confirmSend, setConfirmSend] = useState<string | null>(null);
+  /** The draft on the open confirm: null while loading, an error string if it
+   *  couldn't be built. Cleared whenever the confirm closes, so a stale draft
+   *  can never be the thing that gets sent. */
+  const [draft, setDraft] = useState<EmailDraft | null>(null);
+  const [draftError, setDraftError] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
   const [requirePin, setRequirePin] = useState(true);
   const [mounted, setMounted] = useState(false);
+
+  /** Leave the confirm, dropping the draft with it. */
+  function closeConfirm() {
+    setConfirmSend(null);
+    setDraft(null);
+    setDraftError(null);
+    setEditing(false);
+  }
+
+  /**
+   * Open the confirm and, where the caller can supply one, fetch the message
+   * that would go out. The draft is loaded fresh every time rather than cached:
+   * the address, the document count and the link can all have changed since the
+   * dialog was opened, and a preview of a stale email is worse than none.
+   */
+  function openConfirm(id: string) {
+    setConfirmSend(id);
+    setDraft(null);
+    setDraftError(null);
+    setEditing(false);
+    if (!loadDraft) return;
+    void loadDraft(id)
+      .then((d) => setDraft(d))
+      .catch((e) => setDraftError(e instanceof Error ? e.message : "Couldn't load the message."));
+  }
 
   useEffect(() => setMounted(true), []);
   useEffect(() => { if (open) onOpen?.(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [open]);
@@ -102,14 +147,14 @@ export function ShareLinkCard({
     if (!open) return;
     // Closing always drops any half-made send decision, so reopening never
     // lands on a primed confirm button.
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") { setConfirmSend(null); setOpen(false); } };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") { closeConfirm(); setOpen(false); } };
     document.addEventListener("keydown", onKey);
     const { overflow } = document.body.style;
     document.body.style.overflow = "hidden";
     return () => { document.removeEventListener("keydown", onKey); document.body.style.overflow = overflow; };
   }, [open]);
 
-  function close() { setConfirmSend(null); setOpen(false); }
+  function close() { closeConfirm(); setOpen(false); }
 
   function copy(text: string) {
     navigator.clipboard?.writeText(text)
@@ -220,7 +265,7 @@ export function ShareLinkCard({
                 <span>{l.viewCount ? `${l.viewCount} view${l.viewCount === 1 ? "" : "s"}${l.lastViewedAt ? ` · last ${new Date(l.lastViewedAt).toLocaleDateString("en-US")}` : ""}` : "Not opened yet"}</span>
                 <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
                   {onSend && (
-                    <button onClick={() => setConfirmSend(l.id)} disabled={busy} className="btn primary"
+                    <button onClick={() => openConfirm(l.id)} disabled={busy} className="btn primary"
                       style={{ fontSize: 13, fontWeight: 700, padding: "8px 14px", display: "inline-flex", alignItems: "center", gap: 6 }}>
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="20" height="16" rx="2" /><path d="m22 7-10 5L2 7" /></svg>
                       {sendLabel}
@@ -262,6 +307,61 @@ export function ShareLinkCard({
                       <div className="muted" style={{ fontSize: 12, marginTop: 7 }}>
                         The PIN is not emailed — give it to them separately.
                       </div>
+
+                      {/* The message itself. A send is irreversible — you
+                          cannot unsend someone their tax document — so the
+                          words are read here, before, rather than found in a
+                          reply afterwards. Editable in place, and what the
+                          server sends is what this box holds. */}
+                      {loadDraft && (
+                        <div style={{ marginTop: 12 }}>
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 6 }}>
+                            <div style={{ ...SECTION, marginBottom: 0 }}>The message</div>
+                            {draft && (
+                              <button type="button" onClick={() => setEditing((v) => !v)}
+                                style={{ background: "none", border: "none", padding: 0, cursor: "pointer", fontSize: 12, fontWeight: 700, color: BRAND }}>
+                                {editing ? "Done editing" : "Edit"}
+                              </button>
+                            )}
+                          </div>
+                          {draftError ? (
+                            <div className="small" style={{ color: "#b91c1c" }}>
+                              {draftError} You can still send — the standard message will be used.
+                            </div>
+                          ) : !draft ? (
+                            <div className="muted small">Loading the message…</div>
+                          ) : editing ? (
+                            <div style={{ display: "grid", gap: 8 }}>
+                              <input
+                                value={draft.subject}
+                                onChange={(e) => setDraft({ ...draft, subject: e.target.value })}
+                                aria-label="Subject"
+                                style={{ width: "100%", fontSize: 13, fontWeight: 700 }}
+                              />
+                              <textarea
+                                value={draft.body}
+                                onChange={(e) => setDraft({ ...draft, body: e.target.value })}
+                                aria-label="Message"
+                                rows={12}
+                                style={{ width: "100%", fontSize: 12.5, lineHeight: 1.55, fontFamily: "inherit", resize: "vertical" }}
+                              />
+                              <div className="muted" style={{ fontSize: 11.5 }}>
+                                Keep the link in the message — if you delete it we add it back, because
+                                the investor has no other way to reach the document.
+                              </div>
+                            </div>
+                          ) : (
+                            <div style={{ border: "1px solid var(--border)", borderRadius: 10, background: "var(--card)", overflow: "hidden" }}>
+                              <div style={{ padding: "8px 12px", borderBottom: "1px solid var(--border)", fontSize: 13, fontWeight: 700 }}>
+                                {draft.subject}
+                              </div>
+                              <div style={{ padding: "10px 12px", fontSize: 12.5, lineHeight: 1.55, whiteSpace: "pre-wrap", wordBreak: "break-word", maxHeight: 260, overflowY: "auto" }}>
+                                {draft.body}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <p className="small" style={{ margin: "6px 0 10px", color: "#b91c1c" }}>
@@ -269,11 +369,14 @@ export function ShareLinkCard({
                     </p>
                   )}
                   <div style={{ display: "flex", gap: 8 }}>
-                    <button onClick={() => { onSend?.(l.id); setConfirmSend(null); }} disabled={busy || recipients.length === 0}
-                      className="btn primary" style={{ fontSize: 13, fontWeight: 700, padding: "9px 16px", opacity: busy || recipients.length === 0 ? 0.6 : 1 }}>
+                    {/* Nothing sends while the message is still loading: the
+                        whole point is that it was read first. */}
+                    <button onClick={() => { onSend?.(l.id, draft ?? undefined); closeConfirm(); }}
+                      disabled={busy || recipients.length === 0 || (!!loadDraft && !draft && !draftError)}
+                      className="btn primary" style={{ fontSize: 13, fontWeight: 700, padding: "9px 16px", opacity: busy || recipients.length === 0 || (!!loadDraft && !draft && !draftError) ? 0.6 : 1 }}>
                       {busy ? "Sending…" : `Yes, ${sendLabel.toLowerCase()}`}
                     </button>
-                    <button onClick={() => setConfirmSend(null)} className="btn" style={{ fontSize: 13, fontWeight: 700, padding: "9px 16px" }}>Cancel</button>
+                    <button onClick={closeConfirm} className="btn" style={{ fontSize: 13, fontWeight: 700, padding: "9px 16px" }}>Cancel</button>
                   </div>
                 </div>
               )}
