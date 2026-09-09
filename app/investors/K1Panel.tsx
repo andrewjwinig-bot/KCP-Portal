@@ -16,13 +16,14 @@
 // server-side, so the gate here is about not showing a control.
 
 import { useState } from "react";
-import { Pill, StatPill, TONE_GREEN, TONE_NEUTRAL, TONE_RED } from "@/app/components/Pill";
+import { Pill, StatPill, TONE_AMBER, TONE_GREEN, TONE_NEUTRAL, TONE_RED } from "@/app/components/Pill";
 import { HoverCard } from "@/app/components/HoverCard";
 import { DocChip } from "@/app/components/DocChip";
 import { YearSelect } from "@/app/components/YearSelect";
 import { ShareLinkCard, type EmailDraft, type SendOutcome } from "@/app/components/ShareLinkCard";
 import type { K1Document } from "@/lib/investors/k1";
 import type { K1Interest, K1Owner, K1Slice, ShareBatch } from "./useK1";
+import { sendState, sendStateTone } from "./sendState";
 
 const BRAND = "#0b4a7d";
 const TEAL = "#0f766e";
@@ -312,6 +313,102 @@ export function K1Cell({ owner, k1 }: { owner: K1Owner; k1: K1Slice }) {
  * undoes both. Creating a link is what publishes the K-1 (see the header), so
  * the card says so before you press it.
  */
+/** "Sep 9" — short enough to sit in a pill inside a table cell. */
+const sentStamp = (iso: string) => {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+};
+
+/**
+ * "Sep 9, 2026 at 3:47 PM EDT" — the full stamp, for the hover.
+ *
+ * A send is an event you may have to quote back to an investor on the phone
+ * ("it went out at 3:47 this afternoon, check your junk folder"), so the hover
+ * carries the time and the zone, not just the day. Rendered in the reader's
+ * own timezone, which is the one they'd be speaking in.
+ */
+const sentStampFull = (iso: string) => {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  const date = d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  const time = d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZoneName: "short" });
+  return `${date} at ${time}`;
+};
+
+type PortalLink = NonNullable<K1Owner["link"]>;
+
+/**
+ * Did this investor's K-1 actually go out, and when.
+ *
+ * The pill used to read "SHARED" for any live link, which conflated two
+ * different facts: a link CREATED (copy it and send it yourself) and a link
+ * EMAILED. Staff had no way to tell them apart on the roster, and the only
+ * places that knew were the results panel that disappears, the admin audit
+ * log behind a second password, and Postmark.
+ *
+ * Now the pill says which, carries the DATE, and is green only when something
+ * actually went. The hover has the detail — recipients, PIN status, opens —
+ * per the shared rich-hover rule; this is data, not a label.
+ */
+function SendPill({ link, name }: { link: PortalLink; name: string }) {
+  const sentAt = link.sentAt ?? null;
+  // Links minted from the send-tracking release on carry `sendCount` (0 when
+  // created but not emailed). Null means the link is older than the tracking.
+  const tracked = link.sendCount !== null && link.sendCount !== undefined;
+  const rows: { label: string; value: string }[] = [];
+
+  if (sentAt) {
+    rows.push({ label: "Emailed", value: sentStampFull(sentAt) });
+    if (link.sentTo?.length) rows.push({ label: "To", value: link.sentTo.join(", ") });
+    rows.push({ label: "PIN email", value: link.pinSentAt ? "Sent separately, same time" : "DID NOT SEND — give them the PIN" });
+    if ((link.sendCount ?? 0) > 1) rows.push({ label: "Times sent", value: String(link.sendCount) });
+  } else {
+    rows.push({ label: "Link created", value: sentStampFull(link.createdAt) });
+    // A link minted before send tracking existed genuinely cannot say. Claiming
+    // "never emailed" for one that WAS emailed is the worse error of the two,
+    // so an untracked link says so plainly instead.
+    rows.push({
+      label: "Emailed",
+      value: tracked
+        ? "Never — copy the link and send it yourself"
+        : "Not recorded — this link predates send tracking",
+    });
+  }
+  rows.push({
+    label: "Opened",
+    value: link.viewCount
+      ? `${link.viewCount}×${link.lastViewedAt ? ` · last ${sentStampFull(link.lastViewedAt)}` : ""}`
+      : "Not yet",
+  });
+
+  // The three states are decided in `sendState.ts`, which is tested — getting
+  // "did it send" wrong is the one thing this pill cannot do.
+  const state = sendState(link);
+  const label = state === "opened"
+    ? `OPENED ${link.viewCount}×`
+    : state === "sent"
+      ? `SENT ${sentStamp(sentAt!)}`
+      : state === "link-only"
+        ? "LINK ONLY"
+        : "SHARED";
+  const toneName = sendStateTone(state);
+  const tone = toneName === "green" ? TONE_GREEN : toneName === "amber" ? TONE_AMBER : TONE_NEUTRAL;
+
+  return (
+    <HoverCard
+      title={name}
+      width={320}
+      rows={rows}
+      footer={sentAt && !link.pinSentAt
+        ? { label: "Action", value: "They cannot open this until they have the PIN" }
+        : undefined}
+    >
+      <span><Pill tone={tone}>{label}</Pill></span>
+    </HoverCard>
+  );
+}
+
 export function K1PortalCell({ owner, k1 }: { owner: K1Owner; k1: K1Slice }) {
   const doc = k1.docFor(owner.id);
   const links = owner.link?.url
@@ -325,13 +422,9 @@ export function K1PortalCell({ owner, k1 }: { owner: K1Owner; k1: K1Slice }) {
   return (
     <span style={{ display: "inline-flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}>
       {/* No "NO LINK" pill — the Share button sitting right there already says
-          there isn't one. The pill only earns its place once there IS a link and
-          it can report something the button can't: whether they've opened it. */}
-      {owner.link && (
-        <Pill tone={owner.link.viewCount ? TONE_GREEN : TONE_NEUTRAL}>
-          {owner.link.viewCount ? `OPENED ${owner.link.viewCount}×` : "SHARED"}
-        </Pill>
-      )}
+          there isn't one. The pill earns its place once there IS a link, and
+          what it reports is whether the K-1 actually WENT OUT. */}
+      {owner.link && <SendPill link={owner.link} name={owner.name} />}
       <ShareLinkCard
         small
         buttonLabel={owner.link ? "Link" : "Share"}
@@ -527,16 +620,9 @@ export function K1InvestorCells({ interest, inv }: {
         {/* Status only. The link is the PERSON's and is managed in their card
             header — repeating a control per property would imply four links. */}
         <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-          {interest.link ? (
-            <HoverCard title="Investor link" width={250}
-              rows={[
-                { label: "Shared", value: shortDate(interest.link.createdAt) },
-                { label: "Opened", value: interest.link.viewCount ? `${interest.link.viewCount}×` : "Not yet" },
-              ]}
-              footer={{ label: "Last opened", value: interest.link.lastViewedAt ? new Date(interest.link.lastViewedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "—" }}>
-              <Pill tone={interest.link.viewCount ? TONE_GREEN : TONE_NEUTRAL}>{interest.link.viewCount ? `OPENED ${interest.link.viewCount}×` : "SHARED"}</Pill>
-            </HoverCard>
-          ) : null}
+          {/* The SAME pill as By Property. Two views of one link that disagreed
+              on whether it had been sent would be worse than either alone. */}
+          {interest.link ? <SendPill link={interest.link} name={interest.propertyName} /> : null}
         </span>
       </td>
     </>

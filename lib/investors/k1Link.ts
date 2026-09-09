@@ -45,6 +45,23 @@ export type InvestorLink = {
   views: { at: string; ip?: string }[];
   lastViewedAt?: string | null;
   viewCount: number;
+  /**
+   * When the link email actually went out, and to whom.
+   *
+   * A link EXISTING and a link having been EMAILED are different facts, and
+   * the roster used to show one pill for both — "SHARED" for a link that was
+   * only ever created. Recorded here so "did this investor's K-1 actually
+   * go out, and when" is answerable on the roster rather than from the admin
+   * audit log or Postmark. Absent on links minted before this existed, and on
+   * links created without sending.
+   */
+  sentAt?: string | null;
+  sentTo?: string[];
+  /** When the PIN's own email went. Null after a send means it did NOT — the
+   *  investor holds a link they cannot open, which the roster must show. */
+  pinSentAt?: string | null;
+  /** How many times this link has been emailed (a re-send is a real event). */
+  sendCount?: number;
 };
 
 /** The interests a link covers, tolerating links minted before `ownerIds`. */
