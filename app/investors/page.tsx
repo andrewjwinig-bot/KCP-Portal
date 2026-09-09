@@ -918,12 +918,16 @@ export default function InvestorInfoPage() {
         </tr>
         {open && (
           <tr>
-            <td colSpan={6} style={{ padding: 0, background: "rgba(11,74,125,0.03)", borderTop: "1px solid var(--border)" }}>
+            {/* `maxWidth: 0` keeps this cell from contributing to the outer
+                table's intrinsic width: without it a wide detail table (0800's
+                is ~1700px) stretches the roster above it off the card instead
+                of scrolling inside its own wrapper. */}
+            <td colSpan={6} style={{ padding: 0, maxWidth: 0, background: "rgba(11,74,125,0.03)", borderTop: "1px solid var(--border)" }}>
           {showK1 && k1 && <K1Header k1={k1} />}
           {showK1 && k1reg.batch?.key === h.propertyCode && (
             <K1ShareResults batch={k1reg.batch} onClose={k1reg.clearBatch} />
           )}
-          <div style={showK1 ? { overflowX: "auto" } : undefined}>
+          <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14, borderTop: "1px solid var(--border)", ...(showK1 ? { minWidth: 1180 } : null) }}>
             <thead>
               <tr style={{ color: "var(--muted)", fontSize: 11, letterSpacing: "0.04em", textAlign: "left" }}>
@@ -938,7 +942,6 @@ export default function InvestorInfoPage() {
                 {showK1 && <th style={{ ...k1Th, textAlign: "right" }} className="no-print">PORTAL</th>}
               </tr>
             </thead>
-            <tbody>
             <tbody>
               {ownerSections(h.owners).flatMap((sec) => [
                 // An entity partner heads its own band, carrying its share of
@@ -962,7 +965,6 @@ export default function InvestorInfoPage() {
                   ? sec.owners.map((sub) => renderSubOwner(sub, sec.entity!, h, pv, showK1))
                   : buildOwnerGroups(sec.owners).flatMap(renderOwnerGroup)),
               ])}
-            </tbody>
             </tbody>
             {hasVal && (
               <tfoot>
