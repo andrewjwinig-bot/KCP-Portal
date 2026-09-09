@@ -294,12 +294,14 @@ export function K1PortalCell({ owner, k1 }: { owner: K1Owner; k1: K1Slice }) {
         small
         buttonLabel={owner.link ? "Link" : "Share"}
         title="Investor K-1 link"
+        // The link belongs to the PERSON and covers every K-1 they hold, so it
+        // is not labelled with the trust this row happens to be — that name
+        // belongs on the document, not on the link.
         description={
           <>
-            A private, revocable link for <b>{owner.name}</b>
-            {owner.detailedName ? <> · <i>{owner.detailedName}</i></> : null}. It always carries an{" "}
-            <b>access PIN</b> — send the PIN separately, never in the same email.
-            {links.length === 0 && <> Creating the link is what makes their K-1 readable.</>}
+            One private, revocable link for <b>{owner.name}</b>, covering every K-1
+            they hold with us. It always carries an <b>access PIN</b> — send the PIN
+            separately, never in the same email.
           </>
         }
         links={links}
@@ -310,6 +312,9 @@ export function K1PortalCell({ owner, k1 }: { owner: K1Owner; k1: K1Slice }) {
         pinOptional={false}
         viewAsHref={`/investor/preview?owner=${encodeURIComponent(owner.id)}`}
         recipientSlot={<K1EmailCell owner={owner} k1={k1} />}
+        emptyNote={doc
+          ? <>Create the link to make {owner.name}&rsquo;s {k1.year} K-1 readable. You can copy it and send it yourself, or email it from here.</>
+          : <>Their {k1.year} K-1 hasn&rsquo;t been uploaded yet — drop it on their row first, then a link can be created.</>}
         onCreate={doc ? () => k1.share([owner.id], false) : undefined}
         onSend={() => k1.share([owner.id], true)}
         onRevoke={(id) => {
@@ -376,6 +381,9 @@ export function K1InvestorShare({ name, inv }: {
       recipientSlot={target
         ? <InlineEmail value={inv.email} busy={inv.busy} onSave={(v) => inv.setEmail(target.ownerId, v)} />
         : undefined}
+      emptyNote={target && newest
+        ? <>Create the link to make {name}&rsquo;s {withDocs.length === 1 ? "K-1" : "K-1s"} readable. You can copy it and send it yourself, or email it from here.</>
+        : <>No K-1 has been uploaded for {name} yet. They arrive as a batch per partnership, so upload one on the property card first.</>}
       // Create mints the link WITHOUT emailing; only onSend emails, and the
       // card puts a confirm in front of that.
       onCreate={target && newest ? () => inv.send(target, newest.taxYear, false) : undefined}
