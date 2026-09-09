@@ -306,7 +306,7 @@ export function useK1Registry(enabled: boolean, openK1Codes: string[]) {
         const res = await fetch(`/api/investor-k1/share?${q}`);
         const j = await res.json();
         if (!res.ok) throw new Error(j.error ?? "Couldn't load the message.");
-        return { subject: j.subject as string, body: j.body as string, followUp: j.followUp ?? null };
+        return { subject: j.subject as string, body: j.body as string, followUp: j.followUp ?? null, copyTo: j.copyTo ?? [] };
       },
     };
   }, [data, errors, busyCode, uploading, selection, yearOf, act]);
@@ -378,7 +378,7 @@ export function useK1Registry(enabled: boolean, openK1Codes: string[]) {
         const res = await fetch(`/api/investor-k1/share?${q}`);
         const j = await res.json();
         if (!res.ok) throw new Error(j.error ?? "Couldn't load the message.");
-        return { subject: j.subject as string, body: j.body as string, followUp: j.followUp ?? null };
+        return { subject: j.subject as string, body: j.body as string, followUp: j.followUp ?? null, copyTo: j.copyTo ?? [] };
       },
 
       send: (interest: K1Interest, taxYear: number, send = true, draft?: EmailDraft) => {

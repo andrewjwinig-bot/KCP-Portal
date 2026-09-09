@@ -580,6 +580,16 @@ preferences.
   — `composeK1PinEmail` is the function that would be replaced if a provider is
   ever added. The PIN email goes to `alsoEmail` too, because an additional
   recipient who cannot open the document is not an additional recipient.
+- **Both emails are BLIND-copied to the team** (`shareCopyTo()` in the share
+  route → `sendMail`'s `bcc`, default `dwinig@kormancommercial.com`, overridden
+  or switched off with `K1_SHARE_COPY_TO` and no deploy). It is the record that
+  both halves actually left Postmark — copying only the link email would
+  confirm the half that was never in doubt. **Blind, not a visible Cc**: a Cc
+  puts an internal address on an investor's tax-document email and invites a
+  reply-all onto it. The confirm names who is copied, because a copy the UI
+  never mentions is what surprises someone later. `lib/mail.test.ts` pins the
+  Bcc reaching the Postmark payload — without it the copies would stop
+  arriving with nothing going red.
 - **The PIN is still shown to staff, and a failed PIN send is shouted about.**
   The results panel lists one row per investor with their own PIN and the
   interest label (`heldAs`) beneath the name — without it two rows reading

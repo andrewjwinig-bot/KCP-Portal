@@ -29,6 +29,10 @@ export type MailMessage = {
   to: string;
   /** Optional carbon-copy recipient(s) — comma-separated. */
   cc?: string;
+  /** Optional blind-copy recipient(s) — comma-separated. Used where the team
+   *  needs a copy for its own records but the recipient shouldn't see an
+   *  internal address on their mail, or reply-all onto it. */
+  bcc?: string;
   subject: string;
   textBody: string;
   /** Extra RFC-style headers; "Auto-Submitted: auto-replied" is added
@@ -80,6 +84,7 @@ export async function sendMail(msg: MailMessage): Promise<boolean> {
         From: from,
         To: msg.to,
         ...(msg.cc ? { Cc: msg.cc } : {}),
+        ...(msg.bcc ? { Bcc: msg.bcc } : {}),
         Subject: msg.subject,
         TextBody: msg.textBody,
         MessageStream: "outbound",
