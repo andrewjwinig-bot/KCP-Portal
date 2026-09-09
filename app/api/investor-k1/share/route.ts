@@ -29,6 +29,19 @@ async function currentUser(): Promise<UserId | null> {
   return isPathAllowed(id as UserId, "/investor-k1") ? (id as UserId) : null;
 }
 
+/**
+ * Who gets a copy of every investor K-1 email — the link and the PIN alike.
+ *
+ * BLIND copy, not a visible Cc. The copy exists so there is a record in our
+ * own inbox that both messages actually left Postmark; a visible Cc would also
+ * put an internal address on an investor's tax-document email and invite a
+ * reply-all onto it, neither of which the record needs.
+ *
+ * Override with `K1_SHARE_COPY_TO` (comma-separated), or set it to empty to
+ * turn the copies off — neither needs a deploy.
+ */
+const shareCopyTo = () => (process.env.K1_SHARE_COPY_TO ?? "dwinig@kormancommercial.com").trim();
+
 const propName = (code: string) => PROPERTY_DEFS.find((p) => p.id.toUpperCase() === code.toUpperCase())?.name ?? code;
 
 type ShareResult = {
@@ -182,7 +195,11 @@ async function shareOne(
       });
       const { email: draftEmail, edited } = applyK1EmailEdit(canonical, draft, url);
       wasEdited = edited;
-      const ok = await sendMail({ to: recipients.join(", "), subject: draftEmail.subject, textBody: draftEmail.body });
+      const copyTo = shareCopyTo();
+      const ok = await sendMail({
+        to: recipients.join(", "), subject: draftEmail.subject, textBody: draftEmail.body,
+        ...(copyTo ? { bcc: copyTo } : {}),
+      });
       if (ok) sentTo = recipients;
       else mailError = "The email failed to send. The link is created — copy it and send it yourself.";
 
@@ -197,8 +214,14 @@ async function shareOne(
       // is not an additional recipient.
       if (ok) {
         const pinMail = composeK1PinEmail({ ownerName: owner.name, pin: link.pin ?? "" });
+        // Copied as well, so the inbox record shows BOTH halves went out. A
+        // copy of only the link email would confirm the half that was never
+        // in doubt and stay silent on the one that was.
         const pinOk = link.pin
-          ? await sendMail({ to: recipients.join(", "), subject: pinMail.subject, textBody: pinMail.body })
+          ? await sendMail({
+              to: recipients.join(", "), subject: pinMail.subject, textBody: pinMail.body,
+              ...(copyTo ? { bcc: copyTo } : {}),
+            })
           : false;
         if (pinOk) pinSentTo = recipients;
         else pinError = "The PIN email didn't go out — give them the PIN below yourself, or they can't open the link.";
@@ -337,7 +360,13 @@ export async function GET(req: NextRequest) {
   // editable: it is three lines and a number, and the number is the one thing
   // an edit could get wrong.
   const pinEmail = link?.pin ? composeK1PinEmail({ ownerName: owner.name, pin: link.pin }) : null;
-  return NextResponse.json({ ok: true, ...email, followUp: pinEmail, recipients, hasLink: !!link });
+  const copyTo = shareCopyTo();
+  return NextResponse.json({
+    ok: true, ...email, followUp: pinEmail, recipients, hasLink: !!link,
+    // Reported so the confirm can say who is blind-copied. A copy nobody can
+    // see in the UI is the kind of thing that surprises someone later.
+    copyTo: copyTo ? copyTo.split(",").map((a) => a.trim()).filter(Boolean) : [],
+  });
 }
 
 /** DELETE ?id= — revoke a link. */

@@ -38,6 +38,9 @@ export type EmailDraft = {
   /** A second message the same send delivers, shown but not editable — the
    *  K-1 flow uses it for the PIN, which follows the link automatically. */
   followUp?: { subject: string; body: string } | null;
+  /** Addresses blind-copied on both messages. Named in the confirm because a
+   *  copy the UI never mentions is what surprises someone later. */
+  copyTo?: string[];
 };
 
 export type ShareLink = {
@@ -319,6 +322,12 @@ export function ShareLinkCard({
                           ? "Their PIN follows as its own separate email — nothing to hand over."
                           : "The PIN is not emailed — give it to them separately."}
                       </div>
+                      {draft?.copyTo && draft.copyTo.length > 0 && (
+                        <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+                          Blind-copied on both, so you can confirm they went out:{" "}
+                          <b>{draft.copyTo.join(", ")}</b>. The investor doesn&rsquo;t see this.
+                        </div>
+                      )}
 
                       {/* The message itself. A send is irreversible — you
                           cannot unsend someone their tax document — so the
