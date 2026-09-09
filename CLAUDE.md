@@ -401,6 +401,20 @@ preferences.
   releases only the partnership it was sent from**, for that year — otherwise
   releasing a finished 7010 K-1 would also expose an unfinalised 9510 draft.
   Later releases simply appear on the same link, with no re-send.
+- **A link's coverage is resolved through the PERSON at read time**
+  (`lib/investors/linkCoverage.ts`, `coveredOwnerIds`), never from the
+  `ownerIds` snapshot alone. `ownerIds` is written once at mint from
+  `personGroup`, so a link minted before an interest existed does not list it:
+  when 0800 was keyed in, every link already issued silently stopped covering
+  its holders' new 0800 rows — the roster read "no link" for people who hold
+  one, and the portal would have omitted a K-1 they should see. It applies the
+  SAME rule as `personGroup` (normalised name across the roster), just later,
+  so it widens only to interests the mint would have included had they existed
+  and never groups people the mint would have kept apart. Used by the roster,
+  the portal, the file route and the share route's existing-link lookup — they
+  must agree, or a link shows in one place and not another. **Widening coverage
+  does not widen what is readable**: a document is visible only once PUBLISHED,
+  and publishing is per owner per year as part of a deliberate send.
 - **`InvestorLink.propertyCode` is PROVENANCE — where the link happened to be
   minted — and nothing user-facing may be derived from it.** The link belongs
   to the investor: the portal lists every published K-1 across every
