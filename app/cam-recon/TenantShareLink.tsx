@@ -82,12 +82,9 @@ export function TenantShareLink({ property, unitRef, year, kind, tenantName }: {
     <ShareLinkCard
       buttonLabel="Share with tenant"
       title="Tenant statement link"
-      description={
-        <>
-          A private, revocable link for <b>{tenantName}</b>. When a link has an <b>access PIN</b>,
-          share the PIN with the tenant (ideally separately) — they enter it to open the portal.
-        </>
-      }
+      subject={tenantName}
+      description="A private, revocable link to their statements and account."
+      emptyNote="Create the link to give them access. You can copy it and send it yourself, or email it from here."
       links={links}
       busy={busy}
       error={error}
