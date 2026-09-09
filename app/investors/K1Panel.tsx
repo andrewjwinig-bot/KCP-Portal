@@ -297,13 +297,8 @@ export function K1PortalCell({ owner, k1 }: { owner: K1Owner; k1: K1Slice }) {
         // The link belongs to the PERSON and covers every K-1 they hold, so it
         // is not labelled with the trust this row happens to be — that name
         // belongs on the document, not on the link.
-        description={
-          <>
-            One private, revocable link for <b>{owner.name}</b>, covering every K-1
-            they hold with us. It always carries an <b>access PIN</b> — send the PIN
-            separately, never in the same email.
-          </>
-        }
+        subject={owner.name}
+        description="One private, revocable link, covering every K-1 they hold with us."
         links={links}
         busy={k1.busy}
         error={k1.error}
@@ -364,13 +359,8 @@ export function K1InvestorShare({ name, inv }: {
       small
       buttonLabel={inv.link ? "Link" : "Share"}
       title="Investor K-1 link"
-      description={
-        <>
-          One private, revocable link for <b>{name}</b> covering{" "}
-          <b>{withDocs.length || filing.length} partnership{(withDocs.length || filing.length) === 1 ? "" : "s"}</b>.
-          It always carries an <b>access PIN</b> — send the PIN separately.
-        </>
-      }
+      subject={name}
+      description={`One private, revocable link, covering ${withDocs.length || filing.length} partnership${(withDocs.length || filing.length) === 1 ? "" : "s"} they hold with us.`}
       links={links}
       busy={inv.busy}
       error={inv.error}

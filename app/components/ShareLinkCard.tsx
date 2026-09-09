@@ -25,6 +25,12 @@ import { createPortal } from "react-dom";
 
 const BRAND = "#0b4a7d";
 
+/** The one section label in the dialog — every block is introduced the same way. */
+const SECTION: React.CSSProperties = {
+  fontSize: 10.5, fontWeight: 700, letterSpacing: "0.06em",
+  textTransform: "uppercase", color: "var(--muted)", marginBottom: 6,
+};
+
 export type ShareLink = {
   id: string;
   url: string;
@@ -37,8 +43,11 @@ export type ShareLink = {
 export type ShareLinkCardProps = {
   /** Trigger label, e.g. "Share with tenant". */
   buttonLabel: string;
-  /** Small caps heading inside the card. */
+  /** Small caps kicker above the name, e.g. "Investor K-1 link". */
   title: string;
+  /** WHO the link is for. The dialog is about a person, so they are the
+   *  heading — not a name buried in a sentence of explanation. */
+  subject?: string;
   /** One or two sentences on what this link is. */
   description: React.ReactNode;
   links: ShareLink[];
@@ -76,7 +85,7 @@ export type ShareLinkCardProps = {
 };
 
 export function ShareLinkCard({
-  buttonLabel, title, description, links, busy = false, error = null,
+  buttonLabel, title, subject, description, links, busy = false, error = null,
   recipients = [], sendLabel = "Email it", sentTo = null,
   onOpen, onCreate, onSend, onRevoke, onManagePin,
   pinOptional = true, small = false, align = "right", viewAsHref, recipientSlot, emptyNote,
@@ -133,8 +142,11 @@ export function ShareLinkCard({
           gap: 14, padding: "18px 20px 14px", borderBottom: "1px solid var(--border)",
         }}>
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: BRAND }}>{title}</div>
-            <p className="muted" style={{ margin: "5px 0 0", fontSize: 13, lineHeight: 1.5 }}>{description}</p>
+            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.07em", textTransform: "uppercase", color: BRAND }}>{title}</div>
+            {subject && (
+              <div style={{ fontSize: 23, fontWeight: 800, lineHeight: 1.15, marginTop: 4, wordBreak: "break-word" }}>{subject}</div>
+            )}
+            <p className="muted" style={{ margin: "6px 0 0", fontSize: 13, lineHeight: 1.5 }}>{description}</p>
           </div>
           <button onClick={close} className="btn" style={{ fontSize: 12, padding: "6px 12px", flexShrink: 0 }}>Close</button>
         </div>
@@ -142,17 +154,17 @@ export function ShareLinkCard({
         <div style={{ padding: "16px 20px 20px" }}>
 
           {viewAsHref && (
-            <a href={viewAsHref} target="_blank" rel="noopener noreferrer"
-              style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 700, color: BRAND, textDecoration: "none", marginBottom: 14 }}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
-              View their page — nothing is sent
+            <a href={viewAsHref} target="_blank" rel="noopener noreferrer" className="btn"
+              style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 13, fontWeight: 700, color: BRAND, textDecoration: "none", padding: "8px 14px", marginBottom: 16 }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
+              View their page
             </a>
           )}
 
           {recipientSlot && (
-            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 10, paddingBottom: 10, borderBottom: "1px solid var(--border)" }}>
-              <span style={{ fontSize: 10.5, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Sends to</span>
-              {recipientSlot}
+            <div style={{ marginBottom: 16 }}>
+              <div style={SECTION}>Sends to</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>{recipientSlot}</div>
             </div>
           )}
 
@@ -165,38 +177,46 @@ export function ShareLinkCard({
               {emptyNote && <div className="muted" style={{ fontSize: 12.5, marginTop: 5, lineHeight: 1.5 }}>{emptyNote}</div>}
             </div>
           ) : links.map((l) => (
-            <div key={l.id} style={{ border: "1px solid var(--border)", borderRadius: 10, padding: "14px 15px", marginBottom: 10, background: "rgba(15,23,42,0.02)" }}>
-              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <input readOnly value={l.url} onFocus={(e) => e.currentTarget.select()}
-                  style={{ flex: 1, minWidth: 0, fontSize: 13 }} />
-                <button onClick={() => copy(l.url)} className="btn" style={{ fontSize: 13, fontWeight: 700, padding: "8px 14px", flexShrink: 0 }}>
-                  {copied === l.url ? "Copied ✓" : "Copy"}
-                </button>
+            <div key={l.id}>
+              {/* Link, then PIN, each under its own label — the two things you
+                  came here for, stacked rather than crowded onto one row. */}
+              <div style={{ marginBottom: 16 }}>
+                <div style={SECTION}>Private link</div>
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <input readOnly value={l.url} onFocus={(e) => e.currentTarget.select()}
+                    style={{ flex: 1, minWidth: 0, fontSize: 13 }} />
+                  <button onClick={() => copy(l.url)} className="btn" style={{ fontSize: 13, fontWeight: 700, padding: "8px 14px", flexShrink: 0 }}>
+                    {copied === l.url ? "Copied ✓" : "Copy"}
+                  </button>
+                </div>
               </div>
 
               {l.pin ? (
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 7, flexWrap: "wrap" }}>
-                  <span style={{ fontSize: 10.5, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Access PIN</span>
-                  <code style={{ fontSize: 22, fontWeight: 800, letterSpacing: "0.2em", color: BRAND, background: "rgba(11,74,125,0.08)", borderRadius: 8, padding: "5px 14px" }}>{l.pin}</code>
-                  <button onClick={() => copy(l.pin!)} className="btn" style={{ fontSize: 12, fontWeight: 700, padding: "6px 11px" }}>
-                    {copied === l.pin ? "Copied ✓" : "Copy"}
-                  </button>
-                  {onManagePin && (
-                    <div style={{ marginLeft: "auto", display: "flex", gap: 12 }}>
-                      <button onClick={() => onManagePin(l.id, "reset")} disabled={busy} style={{ background: "none", border: "none", padding: 0, fontSize: 11, fontWeight: 700, cursor: "pointer", color: "var(--muted)" }}>Reset</button>
-                      {pinOptional && (
-                        <button onClick={() => onManagePin(l.id, "remove")} disabled={busy} style={{ background: "none", border: "none", padding: 0, fontSize: 11, fontWeight: 700, cursor: "pointer", color: "#b91c1c" }}>Remove</button>
-                      )}
-                    </div>
-                  )}
+                <div style={{ marginBottom: 16 }}>
+                  <div style={SECTION}>Access PIN</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                    <code style={{ fontSize: 26, fontWeight: 800, letterSpacing: "0.22em", color: BRAND, background: "rgba(11,74,125,0.08)", borderRadius: 10, padding: "7px 16px" }}>{l.pin}</code>
+                    <button onClick={() => copy(l.pin!)} className="btn" style={{ fontSize: 13, fontWeight: 700, padding: "8px 13px" }}>
+                      {copied === l.pin ? "Copied ✓" : "Copy"}
+                    </button>
+                    {onManagePin && (
+                      <div style={{ marginLeft: "auto", display: "flex", gap: 12 }}>
+                        <button onClick={() => onManagePin(l.id, "reset")} disabled={busy} style={{ background: "none", border: "none", padding: 0, fontSize: 12, fontWeight: 700, cursor: "pointer", color: "var(--muted)" }}>Reset</button>
+                        {pinOptional && (
+                          <button onClick={() => onManagePin(l.id, "remove")} disabled={busy} style={{ background: "none", border: "none", padding: 0, fontSize: 12, fontWeight: 700, cursor: "pointer", color: "#b91c1c" }}>Remove</button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>Send this separately — never in the same email as the link.</div>
                 </div>
               ) : onManagePin && pinOptional ? (
-                <div style={{ marginTop: 7 }}>
-                  <button onClick={() => onManagePin(l.id, "reset")} disabled={busy} style={{ background: "none", border: "none", padding: 0, fontSize: 11, fontWeight: 700, cursor: "pointer", color: BRAND }}>+ Add an access PIN</button>
+                <div style={{ marginBottom: 16 }}>
+                  <button onClick={() => onManagePin(l.id, "reset")} disabled={busy} className="btn" style={{ fontSize: 12.5, fontWeight: 700, padding: "7px 12px", color: BRAND }}>+ Add an access PIN</button>
                 </div>
               ) : null}
 
-              <div className="muted" style={{ fontSize: 11, marginTop: 7, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+              <div className="muted" style={{ fontSize: 12, paddingTop: 14, borderTop: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                 <span>{l.viewCount ? `${l.viewCount} view${l.viewCount === 1 ? "" : "s"}${l.lastViewedAt ? ` · last ${new Date(l.lastViewedAt).toLocaleDateString("en-US")}` : ""}` : "Not opened yet"}</span>
                 <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
                   {onSend && (
