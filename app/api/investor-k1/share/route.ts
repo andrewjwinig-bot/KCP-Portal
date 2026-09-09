@@ -16,7 +16,7 @@ import { sendMail, isMailConfigured } from "@/lib/mail";
 import { logAudit, auditIp } from "@/lib/audit";
 import { linkOrigin } from "@/lib/linkOrigin";
 import { coveredOwnerIds } from "@/lib/investors/linkCoverage";
-import { composeK1ShareEmail, applyK1EmailEdit, type K1ShareEmail } from "@/lib/investors/k1ShareEmail";
+import { composeK1ShareEmail, composeK1PinEmail, applyK1EmailEdit, type K1ShareEmail } from "@/lib/investors/k1ShareEmail";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -42,6 +42,11 @@ type ShareResult = {
   pin?: string;
   sentTo: string[];
   mailError: string | null;
+  /** Who got the PIN's own email. Empty means it did NOT go out and somebody
+   *  has to hand the PIN over — which is why the results panel shouts about
+   *  it rather than letting a link sit unopenable. */
+  pinSentTo: string[];
+  pinError: string | null;
   /** Set when this owner couldn't be shared at all — the batch continues. */
   error?: string;
 };
@@ -87,7 +92,7 @@ async function shareOne(
   draft?: { subject?: unknown; body?: unknown } | null,
 ): Promise<ShareResult> {
   const found = personGroup(propertyCode, ownerId);
-  if (!found) return { ownerId, ownerName: ownerId, sentTo: [], mailError: null, error: "That owner isn't on this partnership." };
+  if (!found) return { ownerId, ownerName: ownerId, sentTo: [], mailError: null, pinSentTo: [], pinError: null, error: "That owner isn't on this partnership." };
   const { owner, group } = found;
 
   // Sending IS the release. There is no separate publish step: an upload sits
@@ -110,6 +115,7 @@ async function shareOne(
   if (mine.length === 0) {
     return {
       ownerId, ownerName: owner.name, heldAs: owner.detailedName ?? null, sentTo: [], mailError: null,
+      pinSentTo: [], pinError: null,
       error: `${owner.name} has no ${year ?? ""} K-1 uploaded yet.`.replace("  ", " "),
     };
   }
@@ -153,6 +159,8 @@ async function shareOne(
 
   let mailError: string | null = null;
   let sentTo: string[] = [];
+  let pinSentTo: string[] = [];
+  let pinError: string | null = null;
   let wasEdited = false;
   if (send) {
     const overrides = await allOwnerEmails();
@@ -177,14 +185,32 @@ async function shareOne(
       const ok = await sendMail({ to: recipients.join(", "), subject: draftEmail.subject, textBody: draftEmail.body });
       if (ok) sentTo = recipients;
       else mailError = "The email failed to send. The link is created — copy it and send it yourself.";
+
+      // The PIN follows as its OWN message, automatically. Staff used to have
+      // to call or text it, and a delivery step that depends on remembering is
+      // a step that gets missed — an investor holding a link they can't open
+      // is a support call either way.
+      //
+      // Only after the link actually went: a PIN on its own tells the
+      // recipient nothing and is one more thing to explain. It goes to the
+      // SAME list, because an additional recipient who can't open the document
+      // is not an additional recipient.
+      if (ok) {
+        const pinMail = composeK1PinEmail({ ownerName: owner.name, pin: link.pin ?? "" });
+        const pinOk = link.pin
+          ? await sendMail({ to: recipients.join(", "), subject: pinMail.subject, textBody: pinMail.body })
+          : false;
+        if (pinOk) pinSentTo = recipients;
+        else pinError = "The PIN email didn't go out — give them the PIN below yourself, or they can't open the link.";
+      }
     }
   }
 
   await logAudit({
     event: "investor-k1.share", user: USERS[user]?.label ?? user, ip: auditIp(req),
-    detail: `${propertyCode} · ${owner.name}${sentTo.length ? ` · emailed ${sentTo.join(", ")}` : " · link only"}${wasEdited ? " · edited wording" : ""}`,
+    detail: `${propertyCode} · ${owner.name}${sentTo.length ? ` · emailed ${sentTo.join(", ")}` : " · link only"}${wasEdited ? " · edited wording" : ""}${sentTo.length ? (pinSentTo.length ? " · PIN emailed" : " · PIN NOT emailed") : ""}`,
   });
-  return { ownerId: owner.id, ownerName: owner.name, heldAs: owner.detailedName ?? null, url, pin: link.pin, sentTo, mailError };
+  return { ownerId: owner.id, ownerName: owner.name, heldAs: owner.detailedName ?? null, url, pin: link.pin, sentTo, mailError, pinSentTo, pinError };
 }
 
 /** How many owners one request may share at once. Parkwood has 21; the cap is
@@ -248,6 +274,7 @@ export async function POST(req: NextRequest) {
   if (one.error) return NextResponse.json({ error: one.error }, { status: 400 });
   return NextResponse.json({
     ok: true, url: one.url, pin: one.pin, sentTo: one.sentTo, mailError: one.mailError,
+    pinSentTo: one.pinSentTo, pinError: one.pinError,
   }, { status: 201 });
 }
 
@@ -306,7 +333,11 @@ export async function GET(req: NextRequest) {
     ownerName: owner.name, propertyName: propName(propertyCode),
     documentCount: mine.length, taxYear: mine[0].taxYear, url,
   });
-  return NextResponse.json({ ok: true, ...email, recipients, hasLink: !!link });
+  // The second message the send delivers. Shown in the confirm but not
+  // editable: it is three lines and a number, and the number is the one thing
+  // an edit could get wrong.
+  const pinEmail = link?.pin ? composeK1PinEmail({ ownerName: owner.name, pin: link.pin }) : null;
+  return NextResponse.json({ ok: true, ...email, followUp: pinEmail, recipients, hasLink: !!link });
 }
 
 /** DELETE ?id= — revoke a link. */

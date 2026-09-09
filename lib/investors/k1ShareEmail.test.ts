@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { composeK1ShareEmail, applyK1EmailEdit } from "./k1ShareEmail";
+import { composeK1ShareEmail, composeK1PinEmail, applyK1EmailEdit } from "./k1ShareEmail";
 
 const URL = "https://portal.kormancommercial.com/investor/tok123";
 const base = { ownerName: "Lawrence Isard", propertyName: "Parkwood SC", taxYear: 2025, url: URL };
@@ -19,9 +19,9 @@ describe("composeK1ShareEmail", () => {
     expect(e.body).toContain("Your 3 Schedule K-1s");
   });
 
-  it("never puts the PIN in the email — only a note that it comes separately", () => {
+  it("never puts the PIN in the email — only a note that a second one is coming", () => {
     const e = composeK1ShareEmail({ ...base, documentCount: 1 });
-    expect(e.body).toContain("separately");
+    expect(e.body).toMatch(/separate email/i);
     expect(e.body).not.toMatch(/\b\d{6}\b/);
   });
 });
@@ -62,5 +62,35 @@ describe("applyK1EmailEdit", () => {
   it("caps a runaway paste", () => {
     const r = applyK1EmailEdit(canonical, { body: "x".repeat(20000) }, URL);
     expect(r.email.body.length).toBeLessThanOrEqual(8000 + URL.length + 2);
+  });
+});
+
+describe("composeK1PinEmail", () => {
+  const pin = "409336";
+  const e = composeK1PinEmail({ ownerName: "Lawrence Isard", pin });
+
+  it("carries the PIN", () => {
+    expect(e.body).toContain(pin);
+    expect(e.subject).not.toContain(pin);   // subject lines show in notifications
+  });
+
+  it("carries NO link", () => {
+    // The whole value of two messages once both go to the same mailbox: a
+    // forwarded link email cannot open the document, and this one on its own
+    // is a number with nothing to unlock.
+    expect(e.body).not.toContain("/investor/");
+    expect(e.body).not.toMatch(/https?:\/\//);
+  });
+});
+
+describe("the two messages are disjoint", () => {
+  it("the link email never carries the PIN, and the PIN email never carries the link", () => {
+    const pin = "409336";
+    const link = composeK1ShareEmail({ ...base, documentCount: 1 });
+    const pinMail = composeK1PinEmail({ ownerName: base.ownerName, pin });
+    expect(link.body).not.toContain(pin);
+    expect(link.body).toContain(URL);
+    expect(pinMail.body).toContain(pin);
+    expect(pinMail.body).not.toContain(URL);
   });
 });

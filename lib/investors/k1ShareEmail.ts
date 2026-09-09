@@ -36,7 +36,7 @@ export function composeK1ShareEmail(i: K1ShareEmailInput): K1ShareEmail {
       "",
       i.url,
       "",
-      "You'll be asked for a 6-digit access PIN, which we'll send to you separately.",
+      "You'll be asked for a 6-digit access PIN. It arrives in a separate email, just after this one.",
       "",
       "This link is private to you. Please don't forward it — if you need a copy sent elsewhere, reply and we'll arrange it.",
       "",
@@ -72,4 +72,39 @@ export function applyK1EmailEdit(
     : canonical.body;
   const email = { subject: subject || canonical.subject, body };
   return { email, edited: email.subject !== canonical.subject || email.body !== canonical.body };
+}
+
+
+/**
+ * The PIN, as its OWN email.
+ *
+ * Sent automatically, immediately after the link email — because a delivery
+ * step that depends on someone remembering to make a phone call is a step that
+ * gets missed, and an investor holding a link they cannot open is a support
+ * call either way.
+ *
+ * The two messages are deliberately DISJOINT, and `k1ShareEmail.test.ts` pins
+ * that: the link email carries no PIN, and this one carries no link. That is
+ * what the split still buys once both go to the same mailbox — a forwarded
+ * link email does not hand the recipient access, and neither message on its
+ * own is enough. It is weaker than a genuinely separate channel (a text), and
+ * if a real second channel is ever added this is the function it replaces.
+ */
+export function composeK1PinEmail(i: { ownerName: string; pin: string }): K1ShareEmail {
+  return {
+    subject: "Your access PIN — Korman Commercial Properties",
+    body: [
+      `Hello ${i.ownerName},`,
+      "",
+      "This is the 6-digit PIN for the secure investor portal link we've just sent you:",
+      "",
+      `    ${i.pin}`,
+      "",
+      "It stays the same each time you visit, so keep it somewhere you can find it.",
+      "",
+      "If you weren't expecting this, please let us know — and don't share the PIN with anyone.",
+      "",
+      "— Korman Commercial Properties",
+    ].join("\n"),
+  };
 }
