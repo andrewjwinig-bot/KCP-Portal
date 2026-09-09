@@ -67,13 +67,19 @@ export type ShareLinkCardProps = {
   /** Editable "sends to" control. The address belongs where the decision to
    *  send is made, not as a column on a roster you mostly read. */
   recipientSlot?: React.ReactNode;
+  /**
+   * Why there is no link yet, when the caller cannot offer to create one.
+   * Without it the dialog dead-ends on "No active link yet." with no button
+   * and no reason — which reads as broken rather than as a missing step.
+   */
+  emptyNote?: React.ReactNode;
 };
 
 export function ShareLinkCard({
   buttonLabel, title, description, links, busy = false, error = null,
   recipients = [], sendLabel = "Email it", sentTo = null,
   onOpen, onCreate, onSend, onRevoke, onManagePin,
-  pinOptional = true, small = false, align = "right", viewAsHref, recipientSlot,
+  pinOptional = true, small = false, align = "right", viewAsHref, recipientSlot, emptyNote,
 }: ShareLinkCardProps) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
@@ -151,7 +157,13 @@ export function ShareLinkCard({
           )}
 
           {links.length === 0 ? (
-            <div className="muted small" style={{ marginBottom: 10 }}>No active link yet.</div>
+            <div style={{
+              marginBottom: 14, padding: "12px 14px", borderRadius: 10,
+              border: "1px dashed var(--border)", background: "rgba(15,23,42,0.02)",
+            }}>
+              <div style={{ fontSize: 13, fontWeight: 700 }}>No link yet — nothing has been sent.</div>
+              {emptyNote && <div className="muted" style={{ fontSize: 12.5, marginTop: 5, lineHeight: 1.5 }}>{emptyNote}</div>}
+            </div>
           ) : links.map((l) => (
             <div key={l.id} style={{ border: "1px solid var(--border)", borderRadius: 10, padding: "14px 15px", marginBottom: 10, background: "rgba(15,23,42,0.02)" }}>
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
