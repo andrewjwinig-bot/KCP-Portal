@@ -401,6 +401,15 @@ preferences.
   releases only the partnership it was sent from**, for that year — otherwise
   releasing a finished 7010 K-1 would also expose an unfinalised 9510 draft.
   Later releases simply appear on the same link, with no re-send.
+- **`InvestorLink.propertyCode` is PROVENANCE — where the link happened to be
+  minted — and nothing user-facing may be derived from it.** The link belongs
+  to the investor: the portal lists every published K-1 across every
+  partnership they hold, the roster indexes a link under every covered owner
+  id, and `shareOne` widens an existing link to cover interests added since. So
+  the portal's header describes its DOCUMENTS, never `link.propertyCode` —
+  which it used to, and which labelled a lone K-1 with the wrong partnership
+  whenever an investor's only document came from somewhere other than where
+  their link was first created.
 - **The group is always derived server-side** in `personGroup()`, never from a
   client-supplied set, or a caller could mint a link onto a co-owner's K-1. Each
   document is labelled with its `heldAs` too, since a trust interest and a
