@@ -7,6 +7,7 @@ import { saveTenantLink, getTenantLink, linksForUnit, revokeTenantLink, deleteTe
 import { generatePin } from "@/lib/cam/tenantLink/access";
 import { getOrEmptySuiteContacts } from "@/lib/suites/contactsStorage";
 import { camRecipientEmails } from "@/lib/suites/contacts";
+import { linkOrigin } from "@/lib/linkOrigin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,11 +23,6 @@ async function currentUser(): Promise<UserId | null> {
   return isPathAllowed(u, "/cam-recon") || isPathAllowed(u, "/tenant-statements") ? u : null;
 }
 
-function originOf(req: NextRequest): string {
-  const proto = req.headers.get("x-forwarded-proto") ?? "https";
-  const host = req.headers.get("host") ?? req.nextUrl.host;
-  return `${proto}://${host}`;
-}
 // Tenants land in the portal shell (tenant-facing sidebar: CAM/RET, Floorplan,
 // Lease Terms, Statements, Service Requests, Reservations). The legacy
 // /statement/[token] page redirects here, so older links resolve too.
@@ -49,7 +45,7 @@ export async function GET(req: NextRequest) {
   const withUrls = secret
     ? await Promise.all(links.map(async (l) => ({
         ...l,
-        url: linkUrl(originOf(req), await signTenantToken(secret, { v: 1, id: l.id, p: l.property, u: l.unitRef, y: l.year, k: l.kind, ...(l.expiresAt ? { exp: Math.floor(new Date(l.expiresAt).getTime() / 1000) } : {}) })),
+        url: linkUrl(linkOrigin(req), await signTenantToken(secret, { v: 1, id: l.id, p: l.property, u: l.unitRef, y: l.year, k: l.kind, ...(l.expiresAt ? { exp: Math.floor(new Date(l.expiresAt).getTime() / 1000) } : {}) })),
       })))
     : links.map((l) => ({ ...l, url: null }));
   // Who an "Email to tenant" would go to — the suite's statement recipients —
@@ -93,7 +89,7 @@ export async function POST(req: NextRequest) {
     };
     await saveTenantLink(rec);
     const token = await signTenantToken(secret, { v: 1, id, p: property, u: unitRef, y: year, k: kind, ...(expiresAt ? { exp: Math.floor(new Date(expiresAt).getTime() / 1000) } : {}) });
-    return NextResponse.json({ link: rec, url: linkUrl(originOf(req), token) }, { status: 201 });
+    return NextResponse.json({ link: rec, url: linkUrl(linkOrigin(req), token) }, { status: 201 });
   } catch (err: any) {
     console.error("[POST /api/cam-recon/tenant-link]", err?.message ?? err);
     return NextResponse.json({ error: err?.message ?? String(err) }, { status: 500 });

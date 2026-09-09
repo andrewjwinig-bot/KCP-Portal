@@ -89,6 +89,30 @@ The user wants downloaded workbooks to stay accurate and be easy to edit. **Any 
 
 Reference points already converted: single-period Operating Statement, Full-Year statement, Reprojection, Budget download (all tabs), Cash Sheet Portfolio Total, Payroll summary + GL offset (`=-SUM(...)` so column H nets to $0), Allocation template, allocated-invoicer. **Exceptions that legitimately have no total row:** the Skyline import (one row per GL, no footer) and the rent-roll trend workbook (its "Total" is a per-period column, and percentages can't be summed). If you build a NEW export, wire its totals as formulas from the start.
 
+# Shared links — the host they are built on
+
+**Every emailed link is built by `linkOrigin(req)` (`lib/linkOrigin.ts`), never
+from the request's `Host` header directly.** Five routes each derived it
+themselves — CAM tenant links (mint + send), monthly statement links, payment
+allocation requests, investor K-1 shares — so a link minted from a preview
+deployment carried that preview's hostname forever, and one minted before a
+custom domain was attached carried `kcp-portal.vercel.app` forever. A link is
+emailed and then lives for months; the host baked into it matters more than the
+one that happened to serve the request.
+
+- Set **`PORTAL_ORIGIN`** in the Vercel project (e.g.
+  `https://portal.kormancommercial.com`). Unset, it falls back to the request
+  host, so nothing breaks before the domain exists.
+- **This is a deliverability control, not tidiness.** Mail already goes out from
+  `@kormancommercial.com` through Postmark, so a link pointing at a `vercel.app`
+  host puts the sending domain and the link domain in different organisational
+  domains — a heuristic spam filters score against directly, and a recipient
+  reads the same way.
+- **Changing the host later is safe, with one condition**: the signed token
+  carries no hostname, so an old link keeps working as long as the old hostname
+  stays attached to the project. Never detach a hostname that has been emailed
+  — point it at the app and let it redirect.
+
 # Tenant monthly statements (open A/R) — sources of truth
 
 The tenant portal's Statements tab carries TWO statements: the annual CAM/RET
