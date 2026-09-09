@@ -9,6 +9,7 @@ import { PREVIEW_TOKEN, previewPayload, previewOwnerPayload } from "@/lib/invest
 import { k1sForOwner } from "@/lib/investors/k1Store";
 import { PROPERTY_OWNERSHIP } from "@/lib/properties/ownership";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
+import { coveredOwnerIds } from "@/lib/investors/linkCoverage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -75,7 +76,7 @@ export async function GET(req: NextRequest, { params }: { params: { token: strin
   // A link covers the whole PERSON, across every partnership they hold, so
   // resolve owners globally rather than within one property.
   const everyOwner = PROPERTY_OWNERSHIP.flatMap((p) => p.owners.map((o) => ({ o, code: p.propertyCode })));
-  const ids = linkOwnerIds(link);
+  const ids = coveredOwnerIds(link);
   const owner = everyOwner.find((x) => x.o.id === ids[0])?.o;
   // Each document carries BOTH its property and the interest it's held through:
   // an investor in four partnerships needs to see which K-1 is which, and a

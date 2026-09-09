@@ -14,6 +14,7 @@ import { k1sForOwner, saveK1 } from "@/lib/investors/k1Store";
 import { sendMail, isMailConfigured } from "@/lib/mail";
 import { logAudit, auditIp } from "@/lib/audit";
 import { linkOrigin } from "@/lib/linkOrigin";
+import { coveredOwnerIds } from "@/lib/investors/linkCoverage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -121,11 +122,11 @@ async function shareOne(
   // have none. Revoke is the deliberate way to kill a link.
   const ids = group.map((o) => o.id);
   const existing = (await listInvestorLinks())
-    .find((l) => !l.revoked && linkOwnerIds(l).some((id) => ids.includes(id)));
+    .find((l) => !l.revoked && coveredOwnerIds(l).some((id) => ids.includes(id)));
 
   let link: InvestorLink;
   if (existing) {
-    const covered = new Set(linkOwnerIds(existing));
+    const covered = new Set(coveredOwnerIds(existing));
     const widened = ids.filter((id) => !covered.has(id));
     link = widened.length
       ? { ...existing, ownerIds: [...covered, ...widened] }

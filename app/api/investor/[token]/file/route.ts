@@ -7,6 +7,7 @@ import { checkInvestorAccess } from "@/lib/investors/k1Access";
 import { getK1, saveK1 } from "@/lib/investors/k1Store";
 import { linkOwnerIds } from "@/lib/investors/k1Link";
 import { readK1Bytes } from "@/lib/investors/k1Files";
+import { coveredOwnerIds } from "@/lib/investors/linkCoverage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -61,7 +62,7 @@ export async function GET(req: NextRequest, { params }: { params: { token: strin
   }
   const link = access.link!;
   const doc = await getK1(req.nextUrl.searchParams.get("id") ?? "");
-  if (!doc || !doc.published || !linkOwnerIds(link).includes(doc.ownerId)) {
+  if (!doc || !doc.published || !coveredOwnerIds(link).includes(doc.ownerId)) {
     return NextResponse.json({ error: "Not found." }, { status: 404 });
   }
 

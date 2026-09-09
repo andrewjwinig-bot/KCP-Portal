@@ -12,6 +12,7 @@ import { resolveOwnerEmail } from "@/lib/investors/ownerEmail";
 import { allOwnerEmails, clearOwnerEmail, setOwnerEmail } from "@/lib/investors/ownerEmailStore";
 import { logAudit, auditIp } from "@/lib/audit";
 import { linkOrigin } from "@/lib/linkOrigin";
+import { coveredOwnerIds } from "@/lib/investors/linkCoverage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -100,7 +101,7 @@ export async function GET(req: NextRequest) {
   // them — otherwise the person row shows "NO LINK" for a link it owns.
   const linkByOwner = new Map<string, (typeof links)[number]>();
   for (const l of links.filter((x) => !x.revoked)) {
-    for (const id of linkOwnerIds(l)) linkByOwner.set(id, l);
+    for (const id of coveredOwnerIds(l)) linkByOwner.set(id, l);
   }
 
   // The link's URL and PIN, so the roster can show and copy exactly what the
