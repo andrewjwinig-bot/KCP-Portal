@@ -32,7 +32,13 @@ const SECTION: React.CSSProperties = {
 };
 
 /** The email a send would deliver — previewed, optionally edited, then sent. */
-export type EmailDraft = { subject: string; body: string };
+export type EmailDraft = {
+  subject: string;
+  body: string;
+  /** A second message the same send delivers, shown but not editable — the
+   *  K-1 flow uses it for the PIN, which follows the link automatically. */
+  followUp?: { subject: string; body: string } | null;
+};
 
 export type ShareLink = {
   id: string;
@@ -253,7 +259,11 @@ export function ShareLinkCard({
                       </div>
                     )}
                   </div>
-                  <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>Send this separately — never in the same email as the link.</div>
+                  <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
+                    {loadDraft
+                      ? "Emailed to them automatically, as its own message just after the link."
+                      : "Send this separately — never in the same email as the link."}
+                  </div>
                 </div>
               ) : onManagePin && pinOptional ? (
                 <div style={{ marginBottom: 16 }}>
@@ -305,7 +315,9 @@ export function ShareLinkCard({
                         ))}
                       </ul>
                       <div className="muted" style={{ fontSize: 12, marginTop: 7 }}>
-                        The PIN is not emailed — give it to them separately.
+                        {loadDraft
+                          ? "Their PIN follows as its own separate email — nothing to hand over."
+                          : "The PIN is not emailed — give it to them separately."}
                       </div>
 
                       {/* The message itself. A send is irreversible — you
@@ -357,6 +369,28 @@ export function ShareLinkCard({
                               </div>
                               <div style={{ padding: "10px 12px", fontSize: 12.5, lineHeight: 1.55, whiteSpace: "pre-wrap", wordBreak: "break-word", maxHeight: 260, overflowY: "auto" }}>
                                 {draft.body}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* The second message, sent straight after. Read-only
+                              on purpose: it is three lines and a number, and
+                              the number is the one thing an edit could get
+                              wrong. */}
+                          {draft?.followUp && (
+                            <div style={{ marginTop: 10 }}>
+                              <div style={{ ...SECTION, marginBottom: 6 }}>Then, separately</div>
+                              <div style={{ border: "1px solid var(--border)", borderRadius: 10, background: "var(--card)", overflow: "hidden" }}>
+                                <div style={{ padding: "8px 12px", borderBottom: "1px solid var(--border)", fontSize: 13, fontWeight: 700 }}>
+                                  {draft.followUp.subject}
+                                </div>
+                                <div style={{ padding: "10px 12px", fontSize: 12.5, lineHeight: 1.55, whiteSpace: "pre-wrap", wordBreak: "break-word", maxHeight: 200, overflowY: "auto" }}>
+                                  {draft.followUp.body}
+                                </div>
+                              </div>
+                              <div className="muted" style={{ fontSize: 11.5, marginTop: 5 }}>
+                                Sent automatically as its own email. It carries no link, and the
+                                message above carries no PIN — so neither one on its own opens the document.
                               </div>
                             </div>
                           )}

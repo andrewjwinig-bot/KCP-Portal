@@ -31,9 +31,17 @@ The user has flagged repeated drift in pill / chip / badge styling across new pa
 - **Collapsible "accounts that didn't fit" lists** → `AccountListCard` from `app/components/AccountListCard.tsx` (collapsed by default, Account/Name/Amount table + total) — shared by Operating Statements ("Non-operating accounts") and the Cash Sheet ("Accounts not mapped to a bucket").
 - **Sharing a private link** → `ShareLinkCard` from `app/components/ShareLinkCard.tsx` — a centred MODAL (portal-rendered, since the trigger usually sits in a scrolling table cell that would crop a popover): a link box with Copy, the access PIN with its own Copy, view count, an email action behind a deliberate confirm step, and Revoke. Used by the CAM statement (`TenantShareLink`) and the K-1 roster; a third share flow should use it too rather than growing its own. The component owns the look and interaction; each caller passes its own actions, because a tenant link and a K-1 link are different objects (`pinOptional={false}` for a K-1, whose PIN is mandatory). **Always offer both ways out**: copy the link and send it yourself, or have the app email it — copying mutates nothing, which is how you demo or test a link without touching an investor's stored data.
 - **Sending a link to a tenant or investor is ALWAYS behind a confirm that
-  names every recipient**, one address per line, plus a reminder that the PIN
-  is not emailed. Copying a link and mailing it are one click apart in the same
-  dialog, so the send cannot be a click you make by accident. **Minting a link
+  names every recipient**, one address per line, and says how the PIN travels
+  (for a K-1, as its own separate email). Copying a link and mailing it are one
+  click apart in the same dialog, so the send cannot be a click you make by
+  accident. **The confirm shows the MESSAGE, not just the recipients**
+  (`loadDraft` on `ShareLinkCard`): subject and body as they will send, editable
+  in place, plus a read-only preview of the follow-up. A send is irreversible —
+  you cannot unsend an investor their tax document — so the wording is read
+  before, not found in a reply afterwards. `lib/investors/k1ShareEmail.ts`
+  composes it and **the send and the preview call the same function**, so a
+  preview cannot drift from what goes out; an edit that drops the signed link
+  gets it appended back, and the audit line records `· edited wording`. **Minting a link
   and emailing it must never be the same call**: `useK1`'s investor `send`
   takes an explicit flag, because for a while the By Investor card's "Create
   link" posted `send: true` and emailed the investor with no confirmation at
@@ -557,11 +565,30 @@ preferences.
   that went to the wrong address: the link dies immediately, the K-1 stops being
   readable, and because "sent" means a published K-1 AND a live link, the tax
   tracker reverts too. The endpoint existed from the start but had no control.
-- **PINs are shown to staff, never emailed.** The results panel lists one row
-  per investor with their own PIN and the interest label (`heldAs`) beneath the
-  name — without it two rows reading "Alison Korman Feldman" carry different
-  PINs and staff can't tell which is which. The heading reflects what actually
-  happened (`Links created` when mail isn't configured), not what was requested.
+- **The PIN is emailed automatically, as its OWN message** — a second email
+  sent right after the link email, to the same recipient list. It used to be a
+  manual hand-off ("send the PIN separately — a text or a call"), and a
+  delivery step that depends on someone remembering is a step that gets missed:
+  the investor is left holding a link they cannot open. **The two messages are
+  DISJOINT and `k1ShareEmail.test.ts` pins that** — the link email carries no
+  PIN, the PIN email carries no link. That is the whole value of the split now
+  that both go to one mailbox: a forwarded link email does not hand over
+  access, and neither message alone opens the document. **Do not "simplify"
+  this into one email.** It was considered and rejected: a K-1 carries taxpayer
+  IDs and capital accounts, and one message holding both makes the PIN
+  decoration. The genuinely separate channel is SMS to the contact card's phone
+  — `composeK1PinEmail` is the function that would be replaced if a provider is
+  ever added. The PIN email goes to `alsoEmail` too, because an additional
+  recipient who cannot open the document is not an additional recipient.
+- **The PIN is still shown to staff, and a failed PIN send is shouted about.**
+  The results panel lists one row per investor with their own PIN and the
+  interest label (`heldAs`) beneath the name — without it two rows reading
+  "Alison Korman Feldman" carry different PINs and staff can't tell which is
+  which. Each row says `EMAILED` / `NOT EMAILED`, and a link that went out
+  without its PIN gets its own red banner naming those investors: that is the
+  one outcome that leaves someone holding an unopenable link. The heading
+  reflects what actually happened (`Links created` when mail isn't configured),
+  not what was requested.
 - **The PIN is mandatory** (unlike the tenant portal, where it's optional), PDFs
   live in private blob storage and are streamed through an authorized route that
   re-checks `published && ownerId === link.ownerId`, and the share email carries

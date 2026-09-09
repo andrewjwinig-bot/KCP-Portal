@@ -46,6 +46,9 @@ export type ShareResult = {
   pin?: string;
   sentTo: string[];
   mailError: string | null;
+  /** Who received the PIN's own email; empty means nobody did. */
+  pinSentTo?: string[];
+  pinError?: string | null;
   error?: string;
 };
 
@@ -303,7 +306,7 @@ export function useK1Registry(enabled: boolean, openK1Codes: string[]) {
         const res = await fetch(`/api/investor-k1/share?${q}`);
         const j = await res.json();
         if (!res.ok) throw new Error(j.error ?? "Couldn't load the message.");
-        return { subject: j.subject as string, body: j.body as string };
+        return { subject: j.subject as string, body: j.body as string, followUp: j.followUp ?? null };
       },
     };
   }, [data, errors, busyCode, uploading, selection, yearOf, act]);
@@ -375,7 +378,7 @@ export function useK1Registry(enabled: boolean, openK1Codes: string[]) {
         const res = await fetch(`/api/investor-k1/share?${q}`);
         const j = await res.json();
         if (!res.ok) throw new Error(j.error ?? "Couldn't load the message.");
-        return { subject: j.subject as string, body: j.body as string };
+        return { subject: j.subject as string, body: j.body as string, followUp: j.followUp ?? null };
       },
 
       send: (interest: K1Interest, taxYear: number, send = true, draft?: EmailDraft) => {

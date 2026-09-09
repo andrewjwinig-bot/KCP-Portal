@@ -99,7 +99,7 @@ export function K1Header({ k1 }: { k1: K1Slice }) {
             const warn = missing.length
               ? `\n\n${missing.length} of them have no email on file (${missing.slice(0, 3).join(", ")}${missing.length > 3 ? ", …" : ""}). Their links will be created but not sent.`
               : "";
-            if (confirm(`Email a private K-1 link to ${chosen.length} investor${chosen.length === 1 ? "" : "s"}? This also makes their K-1 readable. Each gets their own link and their own PIN, and the PINs are shown here for you to send separately.${warn}`)) {
+            if (confirm(`Email a private K-1 link to ${chosen.length} investor${chosen.length === 1 ? "" : "s"}? This also makes their K-1 readable. Each gets their own link and their own PIN, in two separate emails — the PIN goes out automatically.${warn}`)) {
               k1.share(chosen, true);
             }
           }}
@@ -554,6 +554,9 @@ export function K1ShareResults({ batch, onClose }: { batch: ShareBatch; onClose:
   const ok = batch.results.filter((r) => !r.error);
   const failed = batch.results.filter((r) => r.error);
   const unsent = ok.filter((r) => r.mailError);
+  // The link went but the PIN did not — the one outcome that leaves an
+  // investor holding something they cannot open, so it gets its own banner.
+  const pinStuck = ok.filter((r) => r.sentTo.length && !(r.pinSentTo?.length));
   // Say what actually happened, not what was asked for: with mail unconfigured
   // "Links emailed · 3" over three "not emailed" rows is just wrong.
   const emailed = ok.filter((r) => r.sentTo.length).length;
@@ -567,8 +570,9 @@ export function K1ShareResults({ batch, onClose }: { batch: ShareBatch; onClose:
             {emailed > 0 && emailed < ok.length ? ` · ${ok.length - emailed} not sent` : ""}
           </div>
           <div className="muted small" style={{ marginTop: 3, maxWidth: 640 }}>
-            Every investor got their own link and their own PIN. <b>Send the PINs separately</b> — a text or a call —
-            never in the same email as the link.
+            {emailed > 0
+              ? <>Every investor got their own link and their own PIN, in two separate emails — the PIN goes out automatically, so there is nothing left to hand over. The PINs are listed below in case someone loses theirs.</>
+              : <>Every investor has their own link and their own PIN. Nothing was emailed, so <b>send both yourself</b> — and keep the PIN out of the email carrying the link.</>}
           </div>
         </div>
         <button className="btn" onClick={onClose} style={{ fontSize: 12, padding: "5px 11px" }}>Done</button>
@@ -583,6 +587,13 @@ export function K1ShareResults({ batch, onClose }: { batch: ShareBatch; onClose:
         <div style={{ marginTop: 10, borderRadius: 9, padding: "9px 12px", background: "rgba(217,119,6,0.07)", border: "1px solid rgba(217,119,6,0.35)", fontSize: 12.5, color: "#7c3d06" }}>
           <b>{unsent.length} link{unsent.length === 1 ? "" : "s"} created but not emailed.</b>{" "}
           {[...new Set(unsent.map((r) => r.mailError))].join(" ")}
+        </div>
+      )}
+
+      {pinStuck.length > 0 && (
+        <div style={{ marginTop: 10, borderRadius: 9, padding: "9px 12px", background: "rgba(220,38,38,0.06)", border: "1px solid rgba(220,38,38,0.3)", fontSize: 12.5, color: "#b91c1c" }}>
+          <b>{pinStuck.length} PIN{pinStuck.length === 1 ? "" : "s"} did not go out</b> — {pinStuck.map((r) => r.ownerName).join(", ")}{" "}
+          {pinStuck.length === 1 ? "has" : "have"} the link but cannot open it. Give them the PIN from the table below.
         </div>
       )}
 
@@ -606,7 +617,14 @@ export function K1ShareResults({ batch, onClose }: { batch: ShareBatch; onClose:
                 <td style={{ padding: "8px 12px", color: "var(--muted)", fontSize: 12.5 }}>
                   {r.sentTo.length ? r.sentTo.join(", ") : <em>not emailed</em>}
                 </td>
-                <td style={{ padding: "8px 12px", fontFamily: "ui-monospace, monospace", fontWeight: 800, letterSpacing: "0.12em" }}>{r.pin}</td>
+                <td style={{ padding: "8px 12px" }}>
+                  <div style={{ fontFamily: "ui-monospace, monospace", fontWeight: 800, letterSpacing: "0.12em" }}>{r.pin}</div>
+                  {r.sentTo.length > 0 && (
+                    <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.04em", marginTop: 2, color: r.pinSentTo?.length ? "#15803d" : "#b91c1c" }}>
+                      {r.pinSentTo?.length ? "EMAILED" : "NOT EMAILED"}
+                    </div>
+                  )}
+                </td>
                 <td style={{ padding: "8px 12px", textAlign: "right" }}>
                   <button className="btn" onClick={() => r.url && navigator.clipboard?.writeText(r.url)}
                     style={{ fontSize: 11.5, padding: "3px 9px" }}>Copy</button>
