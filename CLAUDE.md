@@ -291,13 +291,29 @@ preferences.
   end investors. It shipped and was reverted. A missing property's K-1 roster
   can only come from the partnership's own K-1 set or partnership agreement,
   hand-keyed like every other entry.
+- **Ownership is TIERED, and the roster models both tiers.** A partner can
+  itself be a partnership: `PropertyOwner.subOwners` carries that entity's own
+  partners, and **their `ownerPct` is a share of THAT OWNER, not of the
+  property** — an investor's effective interest is `sub.ownerPct ×
+  owner.ownerPct`. 0800 is the worked example: Hyman Korman Co. holds 80% and
+  has 24 partners of its own; fourteen trusts hold the other 20% directly. On
+  By Property the entity is the row, with a "N investors in <entity>" control
+  that opens the tier beneath it — each sub-row showing its effective % of the
+  property and the resulting $ (the net individual value), plus its share of
+  the entity as context. **Sub-owners are NOT K-1 upload targets**: their K-1
+  is issued by the entity above, not by the property, and the row says so. Only
+  the property's own partners (HKC + the 14) can take an upload — 15 rows, not
+  38.
 - **`PROPERTY_OWNERSHIP` does not cover the whole portfolio, which is why a
   property can be missing from Investor Info.** A property in the beneficiary
   map but not the partner roster renders on Statement of Values and is invisible
-  to By Property / By Investor, so it can take no K-1 uploads. Currently
-  partner-roster-less: **0800** (Interstate Business Park / Bellmawr — K-1s
-  exist, partner list still needed), 0900, 1500, 2040, 2080, 3600, 4000, 4900,
-  5610, 9200, CWD, LAND, WHIT.
+  to By Property / By Investor, so it can take no K-1 uploads. Still
+  partner-roster-less: 0900, 1500, 2040, 2080, 3600, 4000, 4900, 5610, 9200,
+  CWD, LAND, WHIT. **Key each from the property's own K-1 schedule** — the
+  two-column "partner / beneficiary / % / $" sheet Drew has per property. Its
+  entity subtotals (e.g. "TOTAL HYMAN KORMAN COMPANY: 100.000%") are the tier
+  boundary: rows under a heading are that entity's `subOwners`, and rows under
+  "OTHER INVESTORS" are direct partners of the property.
 - **The owner roster is `lib/properties/ownership.ts`** (`PROPERTY_OWNERSHIP`).
   Nothing about who holds an interest is re-keyed for K-1s. `hasK1Distribution`
   marks the partnerships that actually distribute; 7010 Parkwood was added to

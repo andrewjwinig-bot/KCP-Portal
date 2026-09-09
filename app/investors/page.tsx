@@ -345,6 +345,9 @@ export default function InvestorInfoPage() {
   /** Open/closed state for each card. Default = closed everywhere so the page
    *  reads like the rent roll page (PropertyCard pattern). */
   const [openIds, setOpenIds] = useState<Record<string, boolean>>({});
+  // A partner that is itself a partnership (Hyman Korman Co. holding 80% of
+  // 0800) expands to the investors behind it, keyed by that owner's id.
+  const [openEntities, setOpenEntities] = useState<Record<string, boolean>>({});
   function toggleOpen(id: string) {
     setOpenIds((prev) => ({ ...prev, [id]: !prev[id] }));
   }
@@ -748,6 +751,9 @@ export default function InvestorInfoPage() {
                 const multi = g.owners.length > 1;
                 if (!multi) {
                   const inv = g.owners[0];
+                  const subs = inv.subOwners ?? [];
+                  const entityOpen = !!openEntities[inv.id];
+                  const entityFrac = ownershipFor(inv) ?? 0;
                   return [(
                     <tr key={inv.id} style={{ borderTop: "1px solid var(--border)", background: k1?.uploading === inv.id ? "rgba(15,118,110,0.06)" : undefined }}>
                       {showK1 && k1 && (
@@ -771,6 +777,25 @@ export default function InvestorInfoPage() {
                         {inv.detailedName && (
                           <div className="muted small" style={{ marginTop: 2 }}>{inv.detailedName}</div>
                         )}
+                        {/* A partner that is itself a partnership: open it to
+                            see the investors behind it and what the property is
+                            worth to each of them. */}
+                        {subs.length > 0 && (
+                          <button
+                            type="button"
+                            className="no-print"
+                            onClick={() => setOpenEntities((m) => ({ ...m, [inv.id]: !m[inv.id] }))}
+                            aria-expanded={entityOpen}
+                            style={{
+                              marginTop: 5, background: "rgba(11,74,125,0.06)",
+                              border: "1px solid rgba(11,74,125,0.25)", borderRadius: 999,
+                              padding: "2px 9px", cursor: "pointer", fontFamily: "inherit",
+                              fontSize: 11, fontWeight: 700, color: "#0b4a7d",
+                            }}
+                          >
+                            {entityOpen ? "\u25b2" : "\u25bc"} {subs.length} investors in {inv.name}
+                          </button>
+                        )}
                       </td>
 
                       <td style={{ padding: "12px 16px", textAlign: "right" }}>{pct(ownershipFor(inv))}</td>
@@ -786,7 +811,33 @@ export default function InvestorInfoPage() {
                         </td>
                       )}
                     </tr>
-                  )];
+                  ), ...(entityOpen ? subs.map((sub) => {
+                    // Percentages on a sub-owner are shares of the ENTITY, so
+                    // the property column carries their effective interest —
+                    // which is what makes the $ columns their net value.
+                    const eff = (ownershipFor(sub) ?? 0) * entityFrac;
+                    return (
+                      <tr key={sub.id} style={{ borderTop: "1px solid rgba(11,74,125,0.08)", background: GROUP_SUB_BG }}>
+                        {showK1 && <td className="no-print" style={GROUP_RAIL} />}
+                        <td style={{ padding: "8px 16px", ...(showK1 ? null : GROUP_RAIL) }} />
+                        <td style={{ padding: "8px 16px", paddingLeft: 36 }}>
+                          <div style={{ fontSize: 13, fontWeight: 600 }}>{sub.name}</div>
+                          <div className="muted" style={{ fontSize: 11.5, marginTop: 1 }}>
+                            {sub.detailedName ? `${sub.detailedName} · ` : ""}
+                            {pct(ownershipFor(sub))} of {inv.name}
+                          </div>
+                        </td>
+                        <td style={{ padding: "8px 16px", textAlign: "right", fontSize: 12 }}>{pct(eff)}</td>
+                        {hasVal && <td style={{ padding: "8px 16px", textAlign: "right", fontSize: 12, fontVariantNumeric: "tabular-nums" }}>{share(eff, pv!.ye)}</td>}
+                        {hasVal && <td style={{ padding: "8px 16px", textAlign: "right", fontSize: 12, fontVariantNumeric: "tabular-nums" }}>{share(eff, pv!.est)}</td>}
+                        {/* No K-1 cell: this investor's K-1 comes from the
+                            entity above, not from this property. */}
+                        {showK1 && <td className="no-print" colSpan={2} style={{ padding: "8px 16px", color: "var(--muted)", fontSize: 11 }}>
+                          K-1 from {inv.name}
+                        </td>}
+                      </tr>
+                    );
+                  }) : [])];
                 }
                 const rows = [(
                   <tr key={`${g.key}-primary`} style={{ borderTop: "1px solid var(--border)", background: GROUP_ROW_BG }}>
