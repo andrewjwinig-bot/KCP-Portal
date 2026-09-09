@@ -70,7 +70,12 @@ type InterestAccount = {
   mm?: boolean; // a money-market account — shows a green "MM" pill
 };
 const INTEREST_ACCOUNTS: InterestAccount[] = [
-  { code: "LK-TRUST", name: "Leonard Korman Trust", group: "Business Parks", bankCodes: ["LK-TRUST"], anchor: { year: 2026, month: 7, balance: 1_850_453.25 }, rate: 0.0315, monthlyFee: 2 }, // Liberty x9245 — re-anchored to the 6/6–7/3/26 statement ending balance
+  // Liberty x9245 — re-anchored to the 7/3–8/5/26 statement ending balance,
+  // which ties exactly: 1,850,453.25 + 5,277.27 interest − 2.00 charge.
+  // The rate stays 3.15% NOMINAL. The statement quotes 3.20%, which is the APY
+  // that nominal rate earns compounded daily — (1 + .0315/365)^365 − 1 = 3.2000%
+  // — not a different rate. That period's interest implies 3.1544% nominal.
+  { code: "LK-TRUST", name: "Leonard Korman Trust", group: "Business Parks", bankCodes: ["LK-TRUST"], anchor: { year: 2026, month: 8, balance: 1_855_728.52 }, rate: 0.0315, monthlyFee: 2 },
   // Property money-market accounts — sit beneath their operating row.
   { code: "2300-MM", name: "Brookwood", group: "Shopping Centers", parent: "2300", bankCodes: ["2300"], bankLast4: "x6888", anchor: { year: 2026, month: 5, balance: 1_245_207.10 }, rate: 0.0315, mm: true },
   { code: "4500-MM", name: "Gray's Ferry", group: "Shopping Centers", parent: "4500", bankCodes: ["4500"], bankLast4: "x8086", anchor: { year: 2026, month: 6, balance: 839_877.68 }, rate: 0.03, mm: true },
