@@ -22,6 +22,7 @@ import { useUser } from "../components/UserProvider";
 import { StatPill } from "../components/Pill";
 import { DownloadMenu } from "../components/DownloadMenu";
 import { th, td, thL, tdL } from "../components/tableStyles";
+import { InvestorContactCard } from "./InvestorContactCard";
 import { Select } from "../components/YearSelect";
 
 /** Local mirror of the store's normalization (client-safe). */
@@ -1196,6 +1197,17 @@ export default function InvestorInfoPage() {
                       {open && (
                         <tr>
                           <td colSpan={6} style={{ padding: 0, background: "rgba(11,74,125,0.03)", borderTop: "1px solid var(--border)" }}>
+                      {/* The hub. An investor's details belong on the investor,
+                          not spread over the Statement of Values tab and the
+                          inside of a share popover. */}
+                      <div style={{ padding: "14px 16px 4px", maxWidth: 640 }}>
+                        <InvestorContactCard
+                          name={agg.name}
+                          contact={resolveContact(agg.name)}
+                          canEdit={canEdit}
+                          onSave={saveContact}
+                        />
+                      </div>
                       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14, borderTop: "1px solid var(--border)" }}>
                         <thead>
                           <tr style={{ color: "var(--muted)", fontSize: 11, letterSpacing: "0.04em", textAlign: "left" }}>
@@ -1803,74 +1815,6 @@ function SendStatementButton({ beneficiary, email }: { beneficiary: string; emai
 
 /** Owner send-to contact line, with an inline editor for authorized users
  *  (Harry / Alison / Drew). Empty + editable shows an "Add contact" affordance. */
-function ContactBlock({ beneficiary, contact, canEdit, onSave }: {
-  beneficiary: string;
-  contact: OwnerContact | undefined;
-  canEdit: boolean;
-  onSave: (name: string, override: Partial<OwnerContact> | null) => Promise<boolean>;
-}) {
-  const [open, setOpen] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ address: "", email: "", notes: "" });
-  const has = !!contact && (!!contact.address || !!contact.email);
-
-  function begin() {
-    setForm({ address: contact?.address ?? "", email: contact?.email ?? "", notes: contact?.notes ?? "" });
-    setOpen(true);
-  }
-  async function commit() {
-    setSaving(true);
-    const ok = await onSave(beneficiary, { address: form.address, email: form.email, notes: form.notes });
-    setSaving(false);
-    if (ok) setOpen(false);
-  }
-  async function clearIt() {
-    setSaving(true);
-    await onSave(beneficiary, null);
-    setSaving(false);
-    setOpen(false);
-  }
-
-  const inputStyle: React.CSSProperties = { padding: "6px 9px", border: "1px solid var(--border)", borderRadius: 6, background: "var(--card)", color: "var(--text)", fontFamily: "inherit", fontSize: 12, width: "100%" };
-
-  if (open) {
-    return (
-      <div className="no-print" style={{ marginTop: 10, padding: 12, border: "1px dashed var(--border)", borderRadius: 8, display: "grid", gap: 8, maxWidth: 560 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>Send-to contact · {beneficiary}</div>
-        <input placeholder="Mailing address" value={form.address} onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))} style={inputStyle} />
-        <input placeholder="Email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} style={inputStyle} />
-        <input placeholder="Notes (optional)" value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} style={inputStyle} />
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <button type="button" className="btn primary" disabled={saving} onClick={commit} style={{ fontSize: 12, padding: "6px 12px", fontWeight: 700 }}>{saving ? "Saving…" : "Save"}</button>
-          <button type="button" className="btn" disabled={saving} onClick={() => setOpen(false)} style={{ fontSize: 12, padding: "6px 12px" }}>Cancel</button>
-          {has && <button type="button" className="btn" disabled={saving} onClick={clearIt} style={{ fontSize: 12, padding: "6px 12px", marginLeft: "auto", color: "#b91c1c" }}>Clear override</button>}
-        </div>
-      </div>
-    );
-  }
-
-  if (!has) {
-    if (!canEdit) return null;
-    return (
-      <button type="button" className="btn no-print" onClick={begin} style={{ marginTop: 8, fontSize: 12, padding: "5px 10px" }}>+ Add contact info</button>
-    );
-  }
-
-  return (
-    <div className="small" style={{ marginTop: 8, color: "var(--text)", display: "flex", flexWrap: "wrap", alignItems: "center", gap: "2px 12px" }}>
-      <span style={{ fontWeight: 700, color: "var(--muted)", letterSpacing: "0.04em" }}>SEND TO</span>
-      {contact!.address && <span style={{ color: "var(--muted)" }}>{contact!.address}</span>}
-      {contact!.email && <a href={`mailto:${contact!.email}`} style={{ color: "var(--brand)" }}>{contact!.email}</a>}
-      {canEdit && <button type="button" className="btn no-print" onClick={begin} style={{ fontSize: 11, padding: "2px 8px" }}>Edit</button>}
-    </div>
-  );
-}
-
-/** Statement of Values — portfolio (all entities) when no owner is selected, or
- *  a single owner's holdings + values when one is picked. Year-end values come
- *  from the entityValues snapshot; the "today estimate" is the saved override
- *  (or the year-end value when none). A beneficiary's value is always
- *  effective % × the entity's equity. */
 function StatementView({ beneficiary, estimates, onSaveEstimates, resolveContact, canEdit, onSaveContact, ownerNames, onPickOwner, entityOverrides, onSaveEntity }: {
   beneficiary: string;
   estimates: OwnershipEstimates;
@@ -2113,7 +2057,9 @@ function StatementView({ beneficiary, estimates, onSaveEstimates, resolveContact
             <ResidencyChip contact={resolveContact(beneficiary)} />
           </div>
           <div className="muted small" style={{ marginTop: 2 }}>Ownership by partner / trust vehicle. Value = effective % × the entity&rsquo;s equity value ({asOfLong()}).</div>
-          <ContactBlock beneficiary={beneficiary} contact={resolveContact(beneficiary)} canEdit={canEdit} onSave={onSaveContact} />
+          <div style={{ marginTop: 10, maxWidth: 620 }}>
+            <InvestorContactCard name={beneficiary} contact={resolveContact(beneficiary)} canEdit={canEdit} onSave={onSaveContact} />
+          </div>
         </div>
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, borderTop: "1px solid var(--border)" }}>

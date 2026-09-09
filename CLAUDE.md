@@ -376,6 +376,32 @@ preferences.
   nothing, publishing nothing and recording no view, so you can check a link
   before anyone gets one. Bare `/investor/preview` shows a fictional investor
   with a generated PDF (`lib/investors/k1Preview.ts`).
+- **An investor's contact details live in ONE place: the contact card on their
+  own row in By Investor** (`app/investors/InvestorContactCard.tsx`, stored in
+  `ownerContactsStore`). Email, additional recipients, phone, mailing address,
+  notes. Statement of Values renders the SAME component, so there is one editor
+  and one store — do not add a second contact form. They had grown into three
+  (an address on the SoV tab, a K-1 email inside the share popover, a trustee
+  directory nobody thought of as contact info) and there was no phone field at
+  all.
+- **`alsoEmail` is a list of ADDITIONAL RECIPIENTS — an accountant, a manager,
+  a trustee — and every one of them receives the investor's K-1 link.** That is
+  the point (investors ask for it), and it means adding an address here lets
+  that person open this investor's K-1. So it is edited one row at a time
+  rather than as a comma-separated field, `sentTo` records the full list, and
+  the results panel names everyone who was mailed. The per-owner-id override
+  deliberately does NOT carry extra recipients: it exists to redirect one
+  interest's mail, not to widen who can see it.
+- **The contact map and the ownership roster use DIFFERENT NAMING SYSTEMS**, and
+  `ownerContact()` bridges them. `ownerContacts.ts` is keyed by the
+  Statement-of-Values beneficiary name ("CAROLYN JACOBS"); the roster — and so
+  Investor Info — uses the fuller legal name ("Carolyn Korman Jacobs"). Without
+  the bridge the hub offered "+ Add contact info" for people whose details were
+  already on file. The reduction (first + last word, single letters dropped) is
+  indexed once and a short key reached by TWO contacts is dropped rather than
+  resolved to either. `ownerContactExact()` is the un-reduced lookup, used
+  where the answer must be REPORTED: `resolveOwnerEmail` labels an exact hit
+  "Owner contacts" and a reduced one "Matched on name — check it".
 - **Emails come from `resolveOwnerEmail`**, which reads the beneficiary contacts
   AND the trustee directory and takes a per-OWNER-ID override on top
   (`ownerEmailStore`). Keyed by owner id, the override needs no name matching at
