@@ -40,3 +40,48 @@ describe("resolveOwnerEmail", () => {
     expect(personal.email).not.toBe("trustee@example.com");
   });
 });
+
+// ── The contact hub is the same source of truth as the investor's row ──────
+//
+// Lawrence Isard's email and his accountant's were entered on his contact card
+// and stored as overrides — he has no row in the static seed. The share dialog
+// still offered "Add email", because the send path read only the seed. These
+// pin that the hub's record IS the record.
+describe("resolveOwnerEmail — contact-hub records", () => {
+  const hub = {
+    "lawrence isard": { email: "jhoffman@example.com", alsoEmail: ["larry.isard@example.com"] },
+  };
+
+  it("resolves an investor whose details exist only in the hub", () => {
+    const r = resolveOwnerEmail("Lawrence Isard", null, null, hub);
+    expect(r.email).toBe("jhoffman@example.com");
+    expect(r.source).toBe("contacts");
+    expect(r.note).toBe("Owner contacts");
+  });
+
+  it("carries the hub's additional recipients", () => {
+    expect(resolveOwnerEmail("Lawrence Isard", null, null, hub).alsoEmail).toEqual(["larry.isard@example.com"]);
+  });
+
+  it("still finds them when the roster name carries a middle name", () => {
+    const r = resolveOwnerEmail("Lawrence R Isard", null, null, hub);
+    expect(r.email).toBe("jhoffman@example.com");
+    expect(r.note).toBe("Matched on name — check it");
+  });
+
+  it("keeps the extra recipients when a per-interest override redirects the mail", () => {
+    const r = resolveOwnerEmail("Lawrence Isard", null, "trustee@example.com", hub);
+    expect(r.email).toBe("trustee@example.com");
+    expect(r.source).toBe("override");
+    expect(r.alsoEmail).toEqual(["larry.isard@example.com"]);
+  });
+
+  it("lets the hub correct a seeded address rather than being shadowed by it", () => {
+    const r = resolveOwnerEmail("Alison Korman Feldman", null, null, { "alison korman feldman": { email: "new@example.com" } });
+    expect(r.email).toBe("new@example.com");
+  });
+
+  it("without the hub, resolves nobody — which is the bug this replaced", () => {
+    expect(resolveOwnerEmail("Lawrence Isard", null, null).email).toBeNull();
+  });
+});

@@ -10,6 +10,10 @@ import { putK1File, removeK1File } from "@/lib/investors/k1Files";
 import { listInvestorLinks, linkOwnerIds, investorLinkSecret, signInvestorToken } from "@/lib/investors/k1Link";
 import { resolveOwnerEmail } from "@/lib/investors/ownerEmail";
 import { allOwnerEmails, clearOwnerEmail, setOwnerEmail } from "@/lib/investors/ownerEmailStore";
+// The contact hub is where an investor's email is actually entered — the
+// static seed covers a dozen people. Reading only the seed here is what put
+// an address on the investor's row and "ADD EMAIL" in their share dialog.
+import { getContactOverrides } from "@/lib/properties/ownerContactsStore";
 import { logAudit, auditIp } from "@/lib/audit";
 import { linkOrigin } from "@/lib/linkOrigin";
 import { coveredOwnerIds } from "@/lib/investors/linkCoverage";
@@ -53,6 +57,7 @@ export async function GET(req: NextRequest) {
     const links = await listInvestorLinks();
     const docs = await allK1s();
     const emailOverrides = await allOwnerEmails();
+    const contactHub = await getContactOverrides();
     const secretI = investorLinkSecret();
     const originI = linkOrigin(req);
     const interests = PROPERTY_OWNERSHIP.flatMap((p) =>
@@ -74,7 +79,7 @@ export async function GET(req: NextRequest) {
           heldAs: owner.detailedName ?? null,
           vendorCode: owner.vendorCode ?? null,
           ...(() => {
-            const r = resolveOwnerEmail(owner.name, owner.detailedName ?? null, emailOverrides[owner.id]?.email);
+            const r = resolveOwnerEmail(owner.name, owner.detailedName ?? null, emailOverrides[owner.id]?.email, contactHub);
             return { email: r.email, emailSource: r.source, emailNote: r.note };
           })(),
           documents: docs
@@ -97,6 +102,7 @@ export async function GET(req: NextRequest) {
   const documents = await k1sFor(property, year);
   const links = await listInvestorLinks();
   const overrides = await allOwnerEmails();
+  const contactHub = await getContactOverrides();
   // A link now covers every interest one person holds, so index it under ALL of
   // them — otherwise the person row shows "NO LINK" for a link it owns.
   const linkByOwner = new Map<string, (typeof links)[number]>();
@@ -129,7 +135,7 @@ export async function GET(req: NextRequest) {
       // Where their link would be emailed, and why — shown on the roster so a
       // wrong address is caught before a send, never after.
       ...(() => {
-        const r = resolveOwnerEmail(o.name, o.detailedName ?? null, overrides[o.id]?.email);
+        const r = resolveOwnerEmail(o.name, o.detailedName ?? null, overrides[o.id]?.email, contactHub);
         return { email: r.email, emailSource: r.source, emailNote: r.note };
       })(),
       link: linkByOwner.get(o.id)

@@ -4,6 +4,7 @@ import { SITE_COOKIE, verifySiteToken } from "@/lib/site-auth";
 import { ALL_USERS, isPathAllowed, USERS, type UserId } from "@/lib/users";
 import { PROPERTY_OWNERSHIP } from "@/lib/properties/ownership";
 import { resolveOwnerEmail } from "@/lib/investors/ownerEmail";
+import { getContactOverrides } from "@/lib/properties/ownerContactsStore";
 import { allOwnerEmails } from "@/lib/investors/ownerEmailStore";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 import {
@@ -149,7 +150,7 @@ async function shareOne(
   let sentTo: string[] = [];
   if (send) {
     const overrides = await allOwnerEmails();
-    const resolved = resolveOwnerEmail(owner.name, owner.detailedName ?? null, overrides[owner.id]?.email);
+    const resolved = resolveOwnerEmail(owner.name, owner.detailedName ?? null, overrides[owner.id]?.email, await getContactOverrides());
     const email = resolved.email ?? "";
     // An investor can nominate an accountant or manager to receive what they
     // receive. Everyone on the list gets the SAME link, so `sentTo` records all

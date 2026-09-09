@@ -19,17 +19,13 @@ import { K1Header, K1Cell, K1PortalCell, K1SelectCell, K1ShareResults, K1Investo
 import { useK1Registry } from "./useK1";
 import { PartnershipTaxDocs } from "@/app/components/PartnershipTaxDocs";
 import { useUser } from "../components/UserProvider";
-import { StatPill } from "../components/Pill";
+import { Pill, StatPill, TONE_GREEN, TONE_RED } from "../components/Pill";
 import { DownloadMenu } from "../components/DownloadMenu";
 import { th, td, thL, tdL } from "../components/tableStyles";
 import { InvestorContactCard } from "./InvestorContactCard";
 import { ownerSections, type OwnerSection } from "./ownerSections";
 import { Select } from "../components/YearSelect";
 
-/** Local mirror of the store's normalization (client-safe). */
-function normOwnerKey(s: string): string {
-  return s.toLowerCase().replace(/\s+/g, " ").trim();
-}
 type ContactOverrides = Record<string, Partial<OwnerContact>>;
 
 type View = "property" | "investor" | "statement";
@@ -193,14 +189,16 @@ export default function InvestorInfoPage() {
       .then((d) => { if (d?.overrides) setContactOverrides(d.overrides); })
       .catch(() => {});
   }, []);
-  /** Seed ⊕ override → the contact shown/exported for a beneficiary. */
+  /**
+   * Seed ⊕ override → the contact shown/exported for a beneficiary.
+   *
+   * The merge lives in `ownerContact` so this page and the K-1 send path read
+   * the SAME record. Merging it here instead is what showed an investor's
+   * email on their row while their share dialog offered "Add email": the send
+   * path only ever saw the static seed.
+   */
   const resolveContact = useMemo(() => {
-    return (name: string): OwnerContact | undefined => {
-      const seed = ownerContact(name);
-      const ov = contactOverrides[normOwnerKey(name)];
-      if (!seed && !ov) return undefined;
-      return { name, ...seed, ...ov } as OwnerContact;
-    };
+    return (name: string): OwnerContact | undefined => ownerContact(name, contactOverrides);
   }, [contactOverrides]);
   async function saveContact(name: string, override: Partial<OwnerContact> | null): Promise<boolean> {
     try {
@@ -352,6 +350,22 @@ export default function InvestorInfoPage() {
   function toggleOpen(id: string) {
     setOpenIds((prev) => ({ ...prev, [id]: !prev[id] }));
   }
+  /**
+   * Which multi-stake investors have their individual interests showing,
+   * keyed `<property>::<person>`. COLLAPSED is the default: a property's
+   * ownership table answers "who owns this and how much" first, and one
+   * person holding it through three trusts turned that into three rows to
+   * read past. The roll-up carries the person's total; the trusts are the
+   * follow-up question, one click away.
+   *
+   * They are still RENDERED when collapsed, hidden by `.screen-collapsed`
+   * (screen only), so a printed ownership schedule lists every interest —
+   * a printout of roll-ups alone would not tie to the K-1 schedule.
+   */
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+  function toggleGroup(key: string) {
+    setOpenGroups((prev) => ({ ...prev, [key]: !prev[key] }));
+  }
 
   // ── Holdings list sourced from PROPERTY_OWNERSHIP ──────────────────────
   const holdings: PropertyHolding[] = useMemo(() => {
@@ -396,6 +410,16 @@ export default function InvestorInfoPage() {
     }
     return [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
   }, [holdings]);
+
+  /** Does a person's set of interests answer the current search? */
+  const groupMatchesQuery = (owners: PropertyOwner[]) => {
+    const q = query.trim().toLowerCase();
+    if (!q) return false;
+    return owners.some((o) =>
+      o.name.toLowerCase().includes(q)
+      || (o.detailedName ?? "").toLowerCase().includes(q)
+      || (o.vendorCode ?? "").toLowerCase().includes(q));
+  };
 
   const filteredHoldings = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -766,6 +790,13 @@ export default function InvestorInfoPage() {
       /** One person's row (or their roll-up plus a row per interest). */
       const renderOwnerGroup = (g: { key: string; name: string; total: number; owners: PropertyOwner[] }) => {
                 const multi = g.owners.length > 1;
+                // Scoped to the property: the same person shows on several
+                // property cards and each one opens on its own.
+                const gKey = `${h.propertyCode}::${g.key}`;
+                // A search that hits an interest opens its block — a trust name
+                // or vendor code only exists on the rows underneath, so a
+                // collapsed block would answer a matching query with nothing.
+                const gOpen = !!openGroups[gKey] || groupMatchesQuery(g.owners);
                 if (!multi) {
                   const inv = g.owners[0];
                   return [(
@@ -808,12 +839,24 @@ export default function InvestorInfoPage() {
                     </tr>
                   )];
                 }
+                // How many of this person's interests already have a K-1 on
+                // file. Collapsing hides the per-interest cells, so the gap has
+                // to survive on the roll-up — otherwise a missing K-1 is only
+                // findable by opening every multi-stake investor in turn.
+                const onFile = k1 ? g.owners.filter((o) => k1.docFor(o.id)).length : 0;
                 const rows = [(
-                  <tr key={`${g.key}-primary`} style={{ borderTop: "1px solid var(--border)", background: GROUP_ROW_BG }}>
+                  <tr
+                    key={`${g.key}-primary`}
+                    onClick={() => toggleGroup(gKey)}
+                    aria-expanded={gOpen}
+                    title={gOpen ? `Hide ${g.name}'s ${g.owners.length} interests` : `Show ${g.name}'s ${g.owners.length} interests`}
+                    style={{ borderTop: "1px solid var(--border)", background: GROUP_ROW_BG, cursor: "pointer" }}
+                  >
                     {/* One tick per PERSON: their interests share a single link
-                        and a single PIN, so ticking an interest would be a lie. */}
+                        and a single PIN, so ticking an interest would be a lie.
+                        Ticking must not also open the block underneath it. */}
                     {showK1 && k1 && (
-                      <td style={{ padding: "12px 0 12px 16px", ...GROUP_RAIL }} className="no-print">
+                      <td style={{ padding: "12px 0 12px 16px", ...GROUP_RAIL }} className="no-print" onClick={(e) => e.stopPropagation()}>
                         <K1SelectCell ownerId={g.owners[0].id} k1={k1} />
                       </td>
                     )}
@@ -821,6 +864,7 @@ export default function InvestorInfoPage() {
                     <td style={{ padding: "12px 16px", color: "var(--muted)", fontSize: 11, ...(showK1 ? null : GROUP_RAIL) }}>—</td>
                     <td style={{ padding: "12px 16px" }}>
                       <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
+                        <span aria-hidden style={{ color: "#0b4a7d", fontSize: 10, width: 10, display: "inline-block" }}>{gOpen ? "\u25BC" : "\u25B6"}</span>
                         <span style={INVESTOR_NAME}>{g.name}</span>
                         <span style={{
                           fontSize: 10.5, fontWeight: 800, letterSpacing: "0.04em",
@@ -833,14 +877,21 @@ export default function InvestorInfoPage() {
                     <td style={{ padding: "12px 16px", textAlign: "right", fontWeight: 700 }}>{pct(g.total)}</td>
                     {hasVal && <td style={{ padding: "12px 16px", textAlign: "right", fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{share(g.total, pv!.ye)}</td>}
                     {hasVal && <td style={{ padding: "12px 16px", textAlign: "right", fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>{share(g.total, pv!.est)}</td>}
-                    {/* A person's stakes get SEPARATE K-1s, so the roll-up row
-                        carries no K-1 cell — the interests below do. */}
+                    {/* A person's stakes get SEPARATE K-1s, so the roll-up
+                        row takes no upload target — the interests below do.
+                        It reports the COUNT instead, because with the block
+                        collapsed that is the only place a missing K-1 shows. */}
                     {showK1 && k1 && (
                       <>
-                        <td style={{ padding: "12px 16px", color: "var(--muted)", fontSize: 11 }} className="no-print">
-                          {g.owners.length} separate K-1s · one link
+                        <td style={{ padding: "12px 16px" }} className="no-print">
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                            <Pill tone={onFile === g.owners.length ? TONE_GREEN : TONE_RED}>
+                              {onFile} OF {g.owners.length}
+                            </Pill>
+                            <span className="muted" style={{ fontSize: 11 }}>K-1s on file · one link</span>
+                          </span>
                         </td>
-                        <td style={{ padding: "12px 16px", textAlign: "right" }} className="no-print">
+                        <td style={{ padding: "12px 16px", textAlign: "right" }} className="no-print" onClick={(e) => e.stopPropagation()}>
                           {k1.ownerFor(g.owners[0].id) && <K1PortalCell owner={k1.ownerFor(g.owners[0].id)!} k1={k1} />}
                         </td>
                       </>
@@ -849,7 +900,10 @@ export default function InvestorInfoPage() {
                 )];
                 g.owners.forEach((inv) => {
                   rows.push(
-                    <tr key={inv.id} style={{ borderTop: "1px solid rgba(11,74,125,0.08)", background: k1?.uploading === inv.id ? "rgba(15,118,110,0.06)" : GROUP_SUB_BG }}>
+                    // Rendered whether or not the block is open — `.screen-collapsed`
+                    // hides it on screen only, so Print / PDF still produces the
+                    // full schedule, one row per interest.
+                    <tr key={inv.id} className={gOpen ? undefined : "screen-collapsed"} style={{ borderTop: "1px solid rgba(11,74,125,0.08)", background: k1?.uploading === inv.id ? "rgba(15,118,110,0.06)" : GROUP_SUB_BG }}>
                       {showK1 && <td className="no-print" style={GROUP_RAIL} />}
                       <td style={{ padding: "8px 16px", paddingLeft: 36, ...(showK1 ? null : GROUP_RAIL) }}>
                         {inv.vendorCode ? (

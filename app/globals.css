@@ -641,6 +641,14 @@ code {
   border-radius: 8px;
 }
 
+/* A roster row that is collapsed on screen but must still PRINT. A printed
+ * ownership schedule has to list every interest — a page of roll-up rows
+ * alone would not tie back to the partnership's K-1 schedule — so the rows
+ * are always rendered and only hidden on screen. */
+@media screen {
+  tr.screen-collapsed { display: none; }
+}
+
 /* ── Print styles ───────────────────────────────────────────────────────── */
 @media print {
   /* Hide app chrome */
