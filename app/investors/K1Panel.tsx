@@ -20,7 +20,7 @@ import { Pill, StatPill, TONE_GREEN, TONE_NEUTRAL, TONE_RED } from "@/app/compon
 import { HoverCard } from "@/app/components/HoverCard";
 import { DocChip } from "@/app/components/DocChip";
 import { YearSelect } from "@/app/components/YearSelect";
-import { ShareLinkCard, type EmailDraft } from "@/app/components/ShareLinkCard";
+import { ShareLinkCard, type EmailDraft, type SendOutcome } from "@/app/components/ShareLinkCard";
 import type { K1Document } from "@/lib/investors/k1";
 import type { K1Interest, K1Owner, K1Slice, ShareBatch } from "./useK1";
 
@@ -393,7 +393,7 @@ export function K1InvestorShare({ name, inv }: {
     alsoEmail: string[];
     sendableFrom: K1Interest | null;
     interests: K1Interest[];
-    send: (i: K1Interest, taxYear: number, send?: boolean, draft?: EmailDraft) => void;
+    send: (i: K1Interest, taxYear: number, send?: boolean, draft?: EmailDraft) => Promise<SendOutcome | void>;
     loadDraft: (i: K1Interest, taxYear: number) => Promise<EmailDraft>;
     revoke: (linkId: string) => void;
     setEmail: (ownerId: string, email: string) => void;
