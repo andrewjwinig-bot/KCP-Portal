@@ -339,7 +339,7 @@ export function K1InvestorShare({ name, inv }: {
     email: string | null;
     sendableFrom: K1Interest | null;
     interests: K1Interest[];
-    send: (i: K1Interest, taxYear: number) => void;
+    send: (i: K1Interest, taxYear: number, send?: boolean) => void;
     revoke: (linkId: string) => void;
     setEmail: (ownerId: string, email: string) => void;
   };
@@ -376,8 +376,10 @@ export function K1InvestorShare({ name, inv }: {
       recipientSlot={target
         ? <InlineEmail value={inv.email} busy={inv.busy} onSave={(v) => inv.setEmail(target.ownerId, v)} />
         : undefined}
-      onCreate={target && newest ? () => inv.send(target, newest.taxYear) : undefined}
-      onSend={target && newest ? () => inv.send(target, newest.taxYear) : undefined}
+      // Create mints the link WITHOUT emailing; only onSend emails, and the
+      // card puts a confirm in front of that.
+      onCreate={target && newest ? () => inv.send(target, newest.taxYear, false) : undefined}
+      onSend={target && newest ? () => inv.send(target, newest.taxYear, true) : undefined}
       onRevoke={(id) => {
         if (confirm(`Revoke ${name}'s link? It stops working immediately and none of their K-1s are readable until you share a new one.`)) {
           inv.revoke(id);
@@ -425,7 +427,7 @@ function InlineEmail({ value, busy, onSave }: { value: string | null; busy: bool
  */
 export function K1InvestorCells({ interest, inv }: {
   interest: K1Interest | undefined;
-  inv: { busy: boolean; send: (i: K1Interest, taxYear: number) => void };
+  inv: { busy: boolean; send: (i: K1Interest, taxYear: number, send?: boolean) => void };
 }) {
   // A partnership that issues nobody a K-1 has no cell to fill — listing it as
   // "missing" would be noise on every wholly-owned building.

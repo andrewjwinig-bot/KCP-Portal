@@ -348,7 +348,10 @@ export function useK1Registry(enabled: boolean, openK1Codes: string[]) {
         })();
       },
 
-      send: (interest: K1Interest, taxYear: number) => {
+      /** `send` false mints the link only. They are deliberately one call with
+       *  an explicit flag: "create a link" and "email an investor" looking
+       *  alike is how a link gets mailed by a misplaced click. */
+      send: (interest: K1Interest, taxYear: number, send = true) => {
         setBatch(null);
         const key = `inv:${name}`;
         setBusyCode(key);
@@ -357,11 +360,11 @@ export function useK1Registry(enabled: boolean, openK1Codes: string[]) {
           try {
             const res = await fetch("/api/investor-k1/share", {
               method: "POST", headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ propertyCode: interest.propertyCode, ownerIds: [interest.ownerId], year: taxYear, send: true }),
+              body: JSON.stringify({ propertyCode: interest.propertyCode, ownerIds: [interest.ownerId], year: taxYear, send }),
             });
             const j = await res.json();
             if (!res.ok) throw new Error(j.error ?? "Could not send.");
-            setBatch({ key, sent: true, results: j.results ?? [] });
+            setBatch({ key, sent: send, results: j.results ?? [] });
             await loadInvestor(name);
           } catch (e) {
             setErrors((x) => ({ ...x, [key]: e instanceof Error ? e.message : "Could not send." }));
