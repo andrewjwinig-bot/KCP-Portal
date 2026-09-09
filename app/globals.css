@@ -681,6 +681,41 @@ code {
   to   { transform: rotate(360deg); }
 }
 
+/* ── Send confirmation (ShareLinkCard) ──────────────────────────────────────
+ * Emailing an investor their K-1 cannot be undone, so the confirmation has to
+ * land as an event rather than appear as another block of text: the ring
+ * sweeps, the tick draws, the panel rises. Short and once — this is a receipt,
+ * not decoration. */
+.spin-dot {
+  width: 12px; height: 12px; flex-shrink: 0;
+  border: 2px solid currentColor; border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+.send-outcome { animation: sendRise 0.24s ease-out both; }
+@keyframes sendRise {
+  from { opacity: 0; transform: translateY(5px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+/* Both strokes are drawn by animating dashoffset to 0, so the ring closes
+ * before the tick starts and the whole thing reads as one gesture. */
+.sent-ring {
+  stroke-dasharray: 64; stroke-dashoffset: 64;
+  animation: sentDraw 0.34s ease-out forwards;
+}
+.sent-check {
+  stroke-dasharray: 22; stroke-dashoffset: 22;
+  animation: sentDraw 0.24s 0.24s ease-out forwards;
+}
+@keyframes sentDraw { to { stroke-dashoffset: 0; } }
+
+/* Anyone who asked not to be moved gets the same information, statically. */
+@media (prefers-reduced-motion: reduce) {
+  .send-outcome { animation: none; }
+  .sent-ring, .sent-check { animation: none; stroke-dashoffset: 0; }
+  .spin-dot { animation-duration: 1.4s; }
+}
+
 /* Operating-statement drill-down cells — clickable Actual (→ GL transactions)
  * and Budget (→ budget detail) figures. Underline on hover signals the click. */
 .os-cell { cursor: pointer; }

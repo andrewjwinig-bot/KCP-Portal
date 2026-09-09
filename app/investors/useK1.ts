@@ -14,7 +14,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { K1Document } from "@/lib/investors/k1";
-import type { EmailDraft } from "@/app/components/ShareLinkCard";
+import type { EmailDraft, SendOutcome } from "@/app/components/ShareLinkCard";
 
 export type K1Owner = {
   id: string; name: string; detailedName: string | null; vendorCode: string | null;
@@ -96,7 +96,10 @@ export type K1Slice = {
   remove: (doc: K1Document) => void;
   setPublished: (publish: boolean) => void;
   /** Mint links for these owners; `send` also emails each of them. */
-  share: (ownerIds: string[], send: boolean, draft?: EmailDraft) => void;
+  /** Resolves with what the send did, for a SINGLE owner — the share dialog
+   *  confirms it in place. A batch resolves with nothing; its per-owner table
+   *  says more than one summary line could. */
+  share: (ownerIds: string[], send: boolean, draft?: EmailDraft) => Promise<SendOutcome | void>;
   /** The message a send to this owner would deliver. Read-only — the endpoint
    *  publishes nothing and mints nothing, so previewing is free. */
   loadDraft: (ownerId: string) => Promise<EmailDraft>;
@@ -284,10 +287,14 @@ export function useK1Registry(enabled: boolean, openK1Codes: string[]) {
         });
       },
 
-      share: (ownerIds: string[], send: boolean, draft?: EmailDraft) => {
+      share: async (ownerIds: string[], send: boolean, draft?: EmailDraft) => {
         if (ownerIds.length === 0) return;
         setBatch(null);
-        void act(code, async () => {
+        // Awaited and its outcome returned, so a single send can be confirmed
+        // inside the share dialog. The batch panel still renders for the
+        // multi-owner case, where a per-owner table beats one summary line.
+        let outcome: SendOutcome | undefined;
+        await act(code, async () => {
           const res = await fetch("/api/investor-k1/share", {
             method: "POST", headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ propertyCode: code, ownerIds, year, send, draft: draft ?? null }),
@@ -295,10 +302,23 @@ export function useK1Registry(enabled: boolean, openK1Codes: string[]) {
           const j = await res.json();
           if (!res.ok) throw new Error(j.error ?? "Could not create the links.");
           setBatch({ key: code, sent: send, results: j.results ?? [] });
+          if (ownerIds.length === 1) {
+            const r = (j.results ?? [])[0];
+            if (r) {
+              outcome = {
+                sentTo: r.sentTo ?? [],
+                ...(send ? { pinSentTo: r.pinSentTo ?? [] } : {}),
+                error: r.error ?? r.mailError ?? null,
+              };
+            }
+          }
           // Sending clears the selection so a second click can't re-send to the
           // same people by accident.
           setSelection((s) => ({ ...s, [code]: new Set() }));
         });
+        // `act` swallows the throw into `errors[code]`, so a failed send leaves
+        // `outcome` unset — surface it as an outcome rather than a silent close.
+        return outcome ?? { sentTo: [], error: errors[code] ?? "The send did not complete." };
       },
 
       loadDraft: async (ownerId: string) => {
@@ -381,25 +401,32 @@ export function useK1Registry(enabled: boolean, openK1Codes: string[]) {
         return { subject: j.subject as string, body: j.body as string, followUp: j.followUp ?? null, copyTo: j.copyTo ?? [] };
       },
 
-      send: (interest: K1Interest, taxYear: number, send = true, draft?: EmailDraft) => {
+      send: async (interest: K1Interest, taxYear: number, send = true, draft?: EmailDraft): Promise<SendOutcome> => {
         setBatch(null);
         const key = `inv:${name}`;
         setBusyCode(key);
         setErrors((e) => ({ ...e, [key]: null }));
-        void (async () => {
-          try {
-            const res = await fetch("/api/investor-k1/share", {
-              method: "POST", headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ propertyCode: interest.propertyCode, ownerIds: [interest.ownerId], year: taxYear, send, draft: draft ?? null }),
-            });
-            const j = await res.json();
-            if (!res.ok) throw new Error(j.error ?? "Could not send.");
-            setBatch({ key, sent: send, results: j.results ?? [] });
-            await loadInvestor(name);
-          } catch (e) {
-            setErrors((x) => ({ ...x, [key]: e instanceof Error ? e.message : "Could not send." }));
-          } finally { setBusyCode(null); }
-        })();
+        try {
+          const res = await fetch("/api/investor-k1/share", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ propertyCode: interest.propertyCode, ownerIds: [interest.ownerId], year: taxYear, send, draft: draft ?? null }),
+          });
+          const j = await res.json();
+          if (!res.ok) throw new Error(j.error ?? "Could not send.");
+          setBatch({ key, sent: send, results: j.results ?? [] });
+          await loadInvestor(name);
+          // Reported back so the share dialog confirms the send in place.
+          const r = (j.results ?? [])[0];
+          return {
+            sentTo: r?.sentTo ?? [],
+            ...(send ? { pinSentTo: r?.pinSentTo ?? [] } : {}),
+            error: r?.error ?? r?.mailError ?? null,
+          };
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : "Could not send.";
+          setErrors((x) => ({ ...x, [key]: msg }));
+          return { sentTo: [], error: msg };
+        } finally { setBusyCode(null); }
       },
     };
   }, [interests, busyCode, errors, loadInvestor]);

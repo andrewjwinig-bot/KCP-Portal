@@ -31,6 +31,23 @@ const SECTION: React.CSSProperties = {
   textTransform: "uppercase", color: "var(--muted)", marginBottom: 6,
 };
 
+/**
+ * What a send actually did, reported back so the dialog can confirm it in
+ * place rather than closing and leaving you to go looking.
+ *
+ * `onSend` may return this (or a promise of it). Return nothing and the card
+ * falls back to its old behaviour — close on click — so the tenant flow is
+ * unaffected until it wants the same treatment.
+ */
+export type SendOutcome = {
+  /** Addresses the message reached. Empty with no `error` means nothing sent. */
+  sentTo: string[];
+  /** Addresses the follow-up (the K-1 PIN) reached, when there is one. */
+  pinSentTo?: string[];
+  /** Set when the send failed, or half-succeeded — shown instead of the tick. */
+  error?: string | null;
+};
+
 /** The email a send would deliver — previewed, optionally edited, then sent. */
 export type EmailDraft = {
   subject: string;
@@ -73,7 +90,7 @@ export type ShareLinkCardProps = {
   sentTo?: string[] | null;
   onOpen?: () => void;
   onCreate?: (requirePin: boolean) => void;
-  onSend?: (id: string, draft?: EmailDraft) => void;
+  onSend?: (id: string, draft?: EmailDraft) => void | Promise<SendOutcome | void>;
   /**
    * Load the message the send would actually deliver, so the confirm shows the
    * email rather than only naming its recipients.
@@ -122,15 +139,48 @@ export function ShareLinkCard({
   const [draft, setDraft] = useState<EmailDraft | null>(null);
   const [draftError, setDraftError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
+  /**
+   * The send in flight, then what it did.
+   *
+   * The dialog used to close the instant you confirmed, which reads as "did
+   * that work?" on the one action in the app you cannot take back. Now it
+   * stays open: the button becomes a spinner, then the confirm is replaced by
+   * the outcome — who was reached, and whether the PIN went with it.
+   */
+  const [sending, setSending] = useState(false);
+  const [outcome, setOutcome] = useState<SendOutcome | null>(null);
   const [requirePin, setRequirePin] = useState(true);
   const [mounted, setMounted] = useState(false);
 
-  /** Leave the confirm, dropping the draft with it. */
+  /** Leave the confirm, dropping the draft and any outcome with it. */
   function closeConfirm() {
     setConfirmSend(null);
     setDraft(null);
     setDraftError(null);
     setEditing(false);
+    setSending(false);
+    setOutcome(null);
+  }
+
+  /**
+   * Run the send and hold the dialog open on its result.
+   *
+   * A caller that reports nothing back keeps the old behaviour — close on
+   * click — so a flow that hasn't opted in doesn't sit on a blank panel
+   * waiting for a confirmation that will never arrive.
+   */
+  async function runSend(id: string) {
+    if (!onSend) return;
+    setSending(true);
+    try {
+      const result = await onSend(id, draft ?? undefined);
+      if (!result) { closeConfirm(); return; }
+      setOutcome(result);
+    } catch (e) {
+      setOutcome({ sentTo: [], error: e instanceof Error ? e.message : "The send failed." });
+    } finally {
+      setSending(false);
+    }
   }
 
   /**
@@ -297,7 +347,58 @@ export function ShareLinkCard({
 
               {/* Sending is always a deliberate second step — a copy must never
                   turn into a send by a misplaced click. */}
-              {confirmSend === l.id && (
+              {/* What the send did. Replaces the confirm rather than closing
+                  the dialog — on the one action you cannot take back, "it
+                  vanished" is not a confirmation. */}
+              {confirmSend === l.id && outcome && (
+                <div className="send-outcome" style={{
+                  marginTop: 12, borderRadius: 10, padding: "14px 15px",
+                  border: outcome.error ? "1.5px solid rgba(220,38,38,0.45)" : "1.5px solid rgba(22,163,74,0.45)",
+                  background: outcome.error ? "rgba(220,38,38,0.06)" : "rgba(22,163,74,0.07)",
+                }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    {outcome.error ? (
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#b91c1c" strokeWidth="2.5" strokeLinecap="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="13" /><line x1="12" y1="16.5" x2="12.01" y2="16.5" /></svg>
+                    ) : (
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
+                        <circle cx="12" cy="12" r="10" fill="none" stroke="#15803d" strokeWidth="2" className="sent-ring" />
+                        <path d="M7.5 12.4l3 3 6-6.4" fill="none" stroke="#15803d" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" className="sent-check" />
+                      </svg>
+                    )}
+                    <div style={{ fontSize: 14.5, fontWeight: 800, color: outcome.error ? "#b91c1c" : "#15803d" }}>
+                      {outcome.error ? "Not sent" : outcome.sentTo.length ? "Sent" : "Link created — not emailed"}
+                    </div>
+                  </div>
+
+                  {outcome.error && (
+                    <div style={{ fontSize: 12.5, marginTop: 8, color: "var(--text)" }}>{outcome.error}</div>
+                  )}
+
+                  {outcome.sentTo.length > 0 && (
+                    <ul style={{ margin: "9px 0 0", paddingLeft: 18 }}>
+                      {outcome.sentTo.map((r) => (
+                        <li key={r} style={{ fontSize: 13, fontWeight: 700 }}>{r}</li>
+                      ))}
+                    </ul>
+                  )}
+
+                  {/* Both halves reported separately: the one that matters is
+                      the PIN, since a link without it opens nothing. */}
+                  {outcome.sentTo.length > 0 && outcome.pinSentTo && (
+                    <div style={{ fontSize: 12.5, marginTop: 9, fontWeight: 600, color: outcome.pinSentTo.length ? "#15803d" : "#b91c1c" }}>
+                      {outcome.pinSentTo.length
+                        ? "✓ The PIN went out as its own email too."
+                        : "⚠ The PIN email did NOT go out — give them the PIN above yourself, or they can't open the link."}
+                    </div>
+                  )}
+
+                  <div style={{ marginTop: 12 }}>
+                    <button onClick={closeConfirm} className="btn" style={{ fontSize: 13, fontWeight: 700, padding: "8px 15px" }}>Done</button>
+                  </div>
+                </div>
+              )}
+
+              {confirmSend === l.id && !outcome && (
                 <div style={{ marginTop: 12, border: "1.5px solid rgba(180,83,9,0.45)", background: "rgba(180,83,9,0.07)", borderRadius: 10, padding: "13px 15px" }}>
                   <div style={{ fontSize: 14, fontWeight: 800, color: "#b45309", display: "flex", alignItems: "center", gap: 7 }}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
@@ -414,12 +515,13 @@ export function ShareLinkCard({
                   <div style={{ display: "flex", gap: 8 }}>
                     {/* Nothing sends while the message is still loading: the
                         whole point is that it was read first. */}
-                    <button onClick={() => { onSend?.(l.id, draft ?? undefined); closeConfirm(); }}
-                      disabled={busy || recipients.length === 0 || (!!loadDraft && !draft && !draftError)}
-                      className="btn primary" style={{ fontSize: 13, fontWeight: 700, padding: "9px 16px", opacity: busy || recipients.length === 0 || (!!loadDraft && !draft && !draftError) ? 0.6 : 1 }}>
-                      {busy ? "Sending…" : `Yes, ${sendLabel.toLowerCase()}`}
+                    <button onClick={() => void runSend(l.id)}
+                      disabled={busy || sending || recipients.length === 0 || (!!loadDraft && !draft && !draftError)}
+                      className="btn primary" style={{ fontSize: 13, fontWeight: 700, padding: "9px 16px", display: "inline-flex", alignItems: "center", gap: 7, opacity: busy || sending || recipients.length === 0 || (!!loadDraft && !draft && !draftError) ? 0.6 : 1 }}>
+                      {(busy || sending) && <span className="spin-dot" aria-hidden />}
+                      {busy || sending ? "Sending…" : `Yes, ${sendLabel.toLowerCase()}`}
                     </button>
-                    <button onClick={closeConfirm} className="btn" style={{ fontSize: 13, fontWeight: 700, padding: "9px 16px" }}>Cancel</button>
+                    <button onClick={closeConfirm} disabled={sending} className="btn" style={{ fontSize: 13, fontWeight: 700, padding: "9px 16px" }}>Cancel</button>
                   </div>
                 </div>
               )}
