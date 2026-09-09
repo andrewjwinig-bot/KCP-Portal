@@ -11,6 +11,7 @@ import { saveAllocationRequest, getAllocationRequest, allocationRequestsForPerio
 import type { AllocationRequest } from "@/lib/statements/remittance";
 import { sendMail, isMailConfigured } from "@/lib/mail";
 import { logAudit, auditIp } from "@/lib/audit";
+import { linkOrigin } from "@/lib/linkOrigin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,8 +27,6 @@ async function currentUser(): Promise<UserId | null> {
   return isPathAllowed(id as UserId, "/tenant-statements") ? (id as UserId) : null;
 }
 
-const originOf = (req: NextRequest) =>
-  `${req.headers.get("x-forwarded-proto") ?? "https"}://${req.headers.get("host") ?? req.nextUrl.host}`;
 
 /** GET ?period= — every request on that month. */
 export async function GET(req: NextRequest) {
@@ -94,7 +93,7 @@ export async function POST(req: NextRequest) {
         v: 1, id: link.id, p: link.property, u: link.unitRef, y: link.year, k: link.kind,
         ...(link.expiresAt ? { exp: Math.floor(new Date(link.expiresAt).getTime() / 1000) } : {}),
       });
-      const url = `${originOf(req)}/portal/${token}`;
+      const url = `${linkOrigin(req)}/portal/${token}`;
       const sent = await sendMail({
         to: recipients.join(", "),
         subject: `We received your payment of ${money(amount)} — which charges should it cover?`,

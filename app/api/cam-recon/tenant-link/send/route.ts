@@ -7,6 +7,7 @@ import { getTenantLink } from "@/lib/cam/tenantLink/store";
 import { getOrEmptySuiteContacts } from "@/lib/suites/contactsStorage";
 import { camRecipientEmails } from "@/lib/suites/contacts";
 import { isMailConfigured, sendMail } from "@/lib/mail";
+import { linkOrigin } from "@/lib/linkOrigin";
 
 // Admin action: EMAIL a tenant's private portal link to their statement
 // recipients. Deliberately separate from minting/copying — the "Share with
@@ -22,11 +23,6 @@ async function currentUser(): Promise<UserId | null> {
   return id && (ALL_USERS as readonly string[]).includes(id) && (isPathAllowed(id as UserId, "/cam-recon") || isPathAllowed(id as UserId, "/tenant-statements")) ? (id as UserId) : null;
 }
 
-function originOf(req: NextRequest): string {
-  const proto = req.headers.get("x-forwarded-proto") ?? "https";
-  const host = req.headers.get("host") ?? req.nextUrl.host;
-  return `${proto}://${host}`;
-}
 
 function emailBody(tenantName: string, year: number, url: string): string {
   const greet = tenantName ? `Hi ${tenantName},` : "Hello,";
@@ -77,7 +73,7 @@ export async function POST(req: NextRequest) {
     v: 1, id: link.id, p: link.property, u: link.unitRef, y: link.year, k: link.kind,
     ...(link.expiresAt ? { exp: Math.floor(new Date(link.expiresAt).getTime() / 1000) } : {}),
   });
-  const url = `${originOf(req)}/portal/${token}`;
+  const url = `${linkOrigin(req)}/portal/${token}`;
 
   const sent = await sendMail({
     to: recipients.join(", "),

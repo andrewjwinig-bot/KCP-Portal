@@ -13,6 +13,7 @@ import {
 import { k1sForOwner, saveK1 } from "@/lib/investors/k1Store";
 import { sendMail, isMailConfigured } from "@/lib/mail";
 import { logAudit, auditIp } from "@/lib/audit";
+import { linkOrigin } from "@/lib/linkOrigin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,8 +26,6 @@ async function currentUser(): Promise<UserId | null> {
   return isPathAllowed(id as UserId, "/investor-k1") ? (id as UserId) : null;
 }
 
-const originOf = (req: NextRequest) =>
-  `${req.headers.get("x-forwarded-proto") ?? "https"}://${req.headers.get("host") ?? req.nextUrl.host}`;
 const propName = (code: string) => PROPERTY_DEFS.find((p) => p.id.toUpperCase() === code.toUpperCase())?.name ?? code;
 
 type ShareResult = {
@@ -143,7 +142,7 @@ async function shareOne(
     };
     await saveInvestorLink(link);
   }
-  const url = `${originOf(req)}/investor/${await signInvestorToken(secret, { v: 1, id: link.id, o: link.ownerId, p: link.propertyCode })}`;
+  const url = `${linkOrigin(req)}/investor/${await signInvestorToken(secret, { v: 1, id: link.id, o: link.ownerId, p: link.propertyCode })}`;
 
   let mailError: string | null = null;
   let sentTo: string[] = [];

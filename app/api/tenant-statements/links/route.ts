@@ -7,6 +7,7 @@ import { listTenantLinks } from "@/lib/cam/tenantLink/store";
 import { statementYearsForUnit } from "@/lib/cam/statementYears";
 import { getRun } from "@/lib/statements/store";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
+import { linkOrigin } from "@/lib/linkOrigin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,10 +21,6 @@ async function currentUser(): Promise<UserId | null> {
   return isPathAllowed(id as UserId, "/tenant-statements") ? (id as UserId) : null;
 }
 
-function originOf(req: NextRequest): string {
-  const proto = req.headers.get("x-forwarded-proto") ?? "https";
-  return `${proto}://${req.headers.get("host") ?? req.nextUrl.host}`;
-}
 
 /** Office buildings mint office links; everything else is retail. */
 function kindFor(propertyCode: string): TenantLinkKind {
@@ -59,7 +56,7 @@ export async function GET(req: NextRequest) {
   }
 
   const statementYear = Number(period.slice(0, 4));
-  const origin = originOf(req);
+  const origin = linkOrigin(req);
 
   const tenants = await Promise.all(run.statements.map(async (st) => {
     const existing = activeByUnit.get(st.unitRef.toUpperCase()) ?? null;
