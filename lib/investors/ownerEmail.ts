@@ -16,7 +16,7 @@
 // to exactly one contact, and the resolved address plus WHERE it came from is
 // always shown before anything is sent. No silent guessing.
 
-import { ownerContact, ownerContactExact } from "@/lib/properties/ownerContacts";
+import { ownerContact, ownerContactExact, type ContactOverrides } from "@/lib/properties/ownerContacts";
 import { INVESTOR_STRUCTURES } from "@/lib/investors/structures";
 
 export type EmailSource = "override" | "contacts" | "trustee-directory" | "none";
@@ -87,21 +87,27 @@ function uniqueShortIndex(entries: [string, string][]): Map<string, string> {
  * @param detailedName the trust / held-as line, checked against the trustee
  *                     directory because a trust's mail often goes to its trustee
  * @param override   a per-owner-id address someone entered by hand — always wins
+ * @param contacts   the contact-hub edits (`getContactOverrides()`). Most
+ *                   investors' details exist ONLY here — the seed covers a
+ *                   dozen people — so a caller that omits them resolves "no
+ *                   address on file" for someone whose email is on their row.
+ *                   Every caller passes them.
  */
 export function resolveOwnerEmail(
   ownerName: string,
   detailedName: string | null | undefined,
   override: string | null | undefined,
+  contacts?: ContactOverrides,
 ): ResolvedEmail {
   // The contact record is the source of the extra recipients whichever way
   // the primary address resolves — redirecting one interest's mail with an
   // override must not silently drop the investor's accountant.
-  const also = ownerContact(ownerName)?.alsoEmail ?? [];
+  const also = ownerContact(ownerName, contacts)?.alsoEmail ?? [];
 
   const trimmed = (override ?? "").trim();
   if (trimmed) return { email: trimmed, alsoEmail: also, source: "override", note: "Entered here" };
 
-  const exactContact = ownerContactExact(ownerName)?.email;
+  const exactContact = ownerContactExact(ownerName, contacts)?.email;
   if (exactContact) return { email: exactContact, alsoEmail: also, source: "contacts", note: "Owner contacts" };
 
   const dir = directoryEmails();
@@ -114,7 +120,7 @@ export function resolveOwnerEmail(
   // otherwise the key identifies nobody and we say so instead.
   // `ownerContact` carries its own unambiguous short-key index, so the contact
   // map is searched properly rather than probed with one guessed key.
-  const relaxedContact = ownerContact(ownerName)?.email;
+  const relaxedContact = ownerContact(ownerName, contacts)?.email;
   if (relaxedContact) return { email: relaxedContact, alsoEmail: also, source: "contacts", note: "Matched on name — check it" };
 
   const shortIndex = uniqueShortIndex([...dir.entries()].map(([n, e]) => [n, e] as [string, string]));

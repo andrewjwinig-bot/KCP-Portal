@@ -48,9 +48,22 @@ const CONTACTS: Record<string, OwnerContact> = {
   "berton korman": { name: "Berton E. Korman", address: "6114 Butler Pike, Blue Bell, PA 19422" },
 };
 
+/**
+ * Edits made in the contact hub, keyed the same way as the seed. They are
+ * stored server-side (`ownerContactsStore.ts`) and fetched by the client, so
+ * they arrive as a parameter rather than being read here — but EVERY caller
+ * passes them, because a contact that only some code paths can see is what
+ * put an investor's address on their row and "ADD EMAIL" in the share dialog
+ * for the same person. One resolver, one answer.
+ */
+export type ContactOverrides = Record<string, Partial<OwnerContact>>;
+
 /** Contact details for a Statement-of-Values beneficiary, if on file. */
-export function ownerContact(beneficiary: string): OwnerContact | undefined {
-  return ownerContactExact(beneficiary) ?? CONTACTS[SHORT_INDEX.get(shortKey(beneficiary)) ?? ""];
+export function ownerContact(beneficiary: string, overrides?: ContactOverrides): OwnerContact | undefined {
+  const exact = ownerContactExact(beneficiary, overrides);
+  if (exact) return exact;
+  const key = shortIndexFor(overrides).get(shortKey(beneficiary));
+  return key ? ownerContactExact(key, overrides) : undefined;
 }
 
 /**
@@ -58,8 +71,14 @@ export function ownerContact(beneficiary: string): OwnerContact | undefined {
  * address was found use this for the confident answer and fall back to
  * `ownerContact` for the relaxed one — a K-1 send says which it got.
  */
-export function ownerContactExact(beneficiary: string): OwnerContact | undefined {
-  return CONTACTS[normKey(beneficiary)];
+export function ownerContactExact(beneficiary: string, overrides?: ContactOverrides): OwnerContact | undefined {
+  const k = normKey(beneficiary);
+  const seed = CONTACTS[k];
+  const ov = overrides?.[k];
+  if (!seed && !ov) return undefined;
+  // The override wins field by field, so clearing one field on the hub falls
+  // back to the seed rather than wiping the whole record.
+  return { name: beneficiary, ...seed, ...ov };
 }
 
 /**
@@ -81,9 +100,9 @@ export function shortKey(name: string): string {
  * these addresses decide where a K-1 link is mailed, so an ambiguous name must
  * identify nobody. Same standard as `resolveOwnerEmail`.
  */
-const SHORT_INDEX: Map<string, string> = (() => {
+function buildShortIndex(keys: string[]): Map<string, string> {
   const byShort = new Map<string, Set<string>>();
-  for (const key of Object.keys(CONTACTS)) {
+  for (const key of keys) {
     const k = shortKey(key);
     if (!k) continue;
     const set = byShort.get(k) ?? new Set<string>();
@@ -91,6 +110,27 @@ const SHORT_INDEX: Map<string, string> = (() => {
     byShort.set(k, set);
   }
   const out = new Map<string, string>();
-  for (const [k, keys] of byShort) if (keys.size === 1) out.set(k, [...keys][0]);
+  for (const [k, ks] of byShort) if (ks.size === 1) out.set(k, [...ks][0]);
   return out;
-})();
+}
+
+const SHORT_INDEX: Map<string, string> = buildShortIndex(Object.keys(CONTACTS));
+
+/**
+ * The same index over seed ⊕ overrides. A contact that exists ONLY as an
+ * override — most of them, now that the hub is where details are entered —
+ * has to be reachable by the relaxed name match as well, or the resolver
+ * would find the seeded people by short name and nobody else.
+ *
+ * Cached on the overrides object itself: it is a single fetched map held in
+ * page state, so identity is stable across renders.
+ */
+const SHORT_INDEX_CACHE = new WeakMap<object, Map<string, string>>();
+function shortIndexFor(overrides?: ContactOverrides): Map<string, string> {
+  if (!overrides) return SHORT_INDEX;
+  const hit = SHORT_INDEX_CACHE.get(overrides);
+  if (hit) return hit;
+  const built = buildShortIndex([...new Set([...Object.keys(CONTACTS), ...Object.keys(overrides).map(normKey)])]);
+  SHORT_INDEX_CACHE.set(overrides, built);
+  return built;
+}

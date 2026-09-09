@@ -4,7 +4,7 @@ import { SITE_COOKIE, verifySiteToken } from "@/lib/site-auth";
 import { ALL_USERS, canEditOwnership, type UserId } from "@/lib/users";
 import { getEntityOverrides } from "@/lib/properties/entityOverrideStore";
 import { getEstimates } from "@/lib/properties/estimateStore";
-import { getContactOverrides, normContactKey } from "@/lib/properties/ownerContactsStore";
+import { getContactOverrides } from "@/lib/properties/ownerContactsStore";
 import { ownerContact } from "@/lib/properties/ownerContacts";
 import { ownerStatementData } from "@/lib/properties/statementData";
 import { buildStatementOfValuesPdf } from "@/lib/properties/statementPdf";
@@ -47,11 +47,11 @@ export async function POST(req: Request) {
   const beneficiary = (body.beneficiary ?? "").toString().trim();
   if (!beneficiary) return NextResponse.json({ error: "beneficiary required" }, { status: 400 });
 
-  // Resolve the send-to email (seed ⊕ override).
+  // Resolve the send-to email. `ownerContact` does the seed ⊕ override merge
+  // itself — this route used to do its own, which is how the same person could
+  // resolve differently here and on the K-1 share path.
   const overrides = await getContactOverrides();
-  const seed = ownerContact(beneficiary);
-  const ov = overrides[normContactKey(beneficiary)];
-  const contact = { ...seed, ...ov };
+  const contact = ownerContact(beneficiary, overrides) ?? { name: beneficiary };
   const email = (contact.email ?? "").trim();
   if (!email) {
     return NextResponse.json({ error: `No email on file for ${beneficiary}. Add one first.` }, { status: 400 });

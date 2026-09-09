@@ -111,7 +111,14 @@ function Documents({ token }: { token: string }) {
   const [err, setErr] = useState<string | null>(null);
   useEffect(() => {
     let alive = true;
-    fetch(`/api/investor/${token}`)
+    // The staff preview takes `?owner=` to render a REAL owner's page. It has
+    // to be forwarded: without it the API falls through to the fabricated
+    // Sample Investor payload, so "View their page" showed every investor the
+    // same invented documents — including a partnership they have no interest
+    // in. Read from the URL rather than `useSearchParams` so this client-only
+    // effect needs no Suspense boundary around the page.
+    const owner = typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("owner");
+    fetch(`/api/investor/${token}${owner ? `?owner=${encodeURIComponent(owner)}` : ""}`)
       .then(async (r) => ({ ok: r.ok, j: await r.json().catch(() => ({})) }))
       .then(({ ok, j }) => { if (!alive) return; if (ok && j.ok) setData(j); else setErr(j.error ?? "Could not load."); })
       .catch(() => { if (alive) setErr("Could not load."); });
@@ -156,11 +163,16 @@ function Documents({ token }: { token: string }) {
           </div>
         )}
         <h1 style={{ margin: 0 }}>Your Schedule K-1{data.documents.length > 1 ? "s" : ""}</h1>
-        <div className="muted" style={{ fontSize: 15, marginTop: 8 }}>
+        {/* The investor's name reads as part of the heading, not as a caption:
+            this page opens from an emailed link, and whose account it is has to
+            be unmistakable at a glance — a link forwarded or opened by the
+            wrong person should be obvious immediately. */}
+        <div style={{ fontSize: 21, fontWeight: 800, marginTop: 6, letterSpacing: "-0.01em" }}>
           {data.owner.name}
-          {data.documents.length < 2 && data.owner.heldAs && data.owner.heldAs !== data.owner.name
-            ? <> · <span style={{ fontStyle: "italic" }}>{data.owner.heldAs}</span></> : null}
         </div>
+        {data.documents.length < 2 && data.owner.heldAs && data.owner.heldAs !== data.owner.name && (
+          <div className="muted" style={{ fontSize: 14, marginTop: 2, fontStyle: "italic" }}>{data.owner.heldAs}</div>
+        )}
         {/* The link belongs to the INVESTOR, not to a partnership, so this
             describes the documents it actually carries. It used to name
             `link.propertyCode` — where the link happened to be minted — which
