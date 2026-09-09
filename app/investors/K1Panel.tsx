@@ -20,7 +20,7 @@ import { Pill, StatPill, TONE_GREEN, TONE_NEUTRAL, TONE_RED } from "@/app/compon
 import { HoverCard } from "@/app/components/HoverCard";
 import { DocChip } from "@/app/components/DocChip";
 import { YearSelect } from "@/app/components/YearSelect";
-import { ShareLinkCard } from "@/app/components/ShareLinkCard";
+import { ShareLinkCard, type EmailDraft } from "@/app/components/ShareLinkCard";
 import type { K1Document } from "@/lib/investors/k1";
 import type { K1Interest, K1Owner, K1Slice, ShareBatch } from "./useK1";
 
@@ -133,6 +133,48 @@ export function K1SelectCell({ ownerId, k1 }: { ownerId: string; k1: K1Slice }) 
   );
 }
 
+
+/**
+ * Every address a send reaches: the investor, then their additional
+ * recipients. ONE definition, because this list has to be identical to the one
+ * `/api/investor-k1/share` builds — a confirm that under-reports the
+ * recipients is worse than no confirm at all.
+ */
+function recipientsOf(email: string | null, also: string[] | undefined): string[] {
+  return [...new Set([email ?? "", ...(also ?? [])].map((e) => e.trim()).filter(Boolean))];
+}
+
+/**
+ * The investor's additional recipients, shown beside their own address.
+ *
+ * Not decoration: an address on this list can open this investor's K-1, so it
+ * has to be visible where you send from, not only in the contact card two
+ * tabs away. Edited there — `alsoEmail` is deliberately one-row-at-a-time on
+ * the contact card rather than a field you can widen in passing.
+ */
+function AlsoRecipients({ also }: { also: string[] | undefined }) {
+  const list = (also ?? []).map((e) => e.trim()).filter(Boolean);
+  if (list.length === 0) return null;
+  return (
+    <HoverCard
+      title={`Also receives ${list.length === 1 ? "this link" : "this link"}`}
+      width={300}
+      rows={list.map((a) => ({ label: "Also", value: a }))}
+      footer={{ label: "Edit", value: "on their contact card" }}
+    >
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+        {list.map((a) => (
+          <span key={a} style={{
+            fontSize: 11.5, fontWeight: 600, padding: "2px 8px", borderRadius: 999,
+            background: "rgba(11,74,125,0.08)", color: "#0b4a7d",
+            border: "1px solid rgba(11,74,125,0.25)", maxWidth: 230,
+            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+          }}>+ {a}</span>
+        ))}
+      </span>
+    </HoverCard>
+  );
+}
 
 /**
  * Where this owner's link gets emailed — click to edit.
@@ -302,16 +344,27 @@ export function K1PortalCell({ owner, k1 }: { owner: K1Owner; k1: K1Slice }) {
         links={links}
         busy={k1.busy}
         error={k1.error}
-        recipients={owner.email ? [owner.email] : []}
+        // Every address the send actually reaches, so the confirm names them
+        // all — the share route mails the additional recipients too, and an
+        // address that only appears in the route is one nobody agreed to.
+        recipients={recipientsOf(owner.email, owner.alsoEmail)}
         sendLabel="Email the investor"
         pinOptional={false}
         viewAsHref={`/investor/preview?owner=${encodeURIComponent(owner.id)}`}
-        recipientSlot={<K1EmailCell owner={owner} k1={k1} />}
+        recipientSlot={
+          <>
+            <K1EmailCell owner={owner} k1={k1} />
+            <AlsoRecipients also={owner.alsoEmail} />
+          </>
+        }
         emptyNote={doc
           ? <>Create the link to make {owner.name}&rsquo;s {k1.year} K-1 readable. You can copy it and send it yourself, or email it from here.</>
           : <>Their {k1.year} K-1 hasn&rsquo;t been uploaded yet — drop it on their row first, then a link can be created.</>}
         onCreate={doc ? () => k1.share([owner.id], false) : undefined}
-        onSend={() => k1.share([owner.id], true)}
+        // The confirm reads the real message first — see `loadDraft`. Whatever
+        // it holds when you confirm is what gets sent.
+        loadDraft={() => k1.loadDraft(owner.id)}
+        onSend={(_id, draft) => k1.share([owner.id], true, draft)}
         onRevoke={(id) => {
           if (confirm(`Revoke ${owner.name}'s link? It stops working immediately and their K-1 is no longer readable.`)) {
             k1.revoke(id);
@@ -337,9 +390,11 @@ export function K1InvestorShare({ name, inv }: {
     busy: boolean; error: string | null;
     link: K1Interest["link"];
     email: string | null;
+    alsoEmail: string[];
     sendableFrom: K1Interest | null;
     interests: K1Interest[];
-    send: (i: K1Interest, taxYear: number, send?: boolean) => void;
+    send: (i: K1Interest, taxYear: number, send?: boolean, draft?: EmailDraft) => void;
+    loadDraft: (i: K1Interest, taxYear: number) => Promise<EmailDraft>;
     revoke: (linkId: string) => void;
     setEmail: (ownerId: string, email: string) => void;
   };
@@ -364,12 +419,17 @@ export function K1InvestorShare({ name, inv }: {
       links={links}
       busy={inv.busy}
       error={inv.error}
-      recipients={inv.email ? [inv.email] : []}
+      recipients={recipientsOf(inv.email, inv.alsoEmail)}
       sendLabel="Email the investor"
       pinOptional={false}
       viewAsHref={target ? `/investor/preview?owner=${encodeURIComponent(target.ownerId)}` : undefined}
       recipientSlot={target
-        ? <InlineEmail value={inv.email} busy={inv.busy} onSave={(v) => inv.setEmail(target.ownerId, v)} />
+        ? (
+          <>
+            <InlineEmail value={inv.email} busy={inv.busy} onSave={(v) => inv.setEmail(target.ownerId, v)} />
+            <AlsoRecipients also={inv.alsoEmail} />
+          </>
+        )
         : undefined}
       emptyNote={target && newest
         ? <>Create the link to make {name}&rsquo;s {withDocs.length === 1 ? "K-1" : "K-1s"} readable. You can copy it and send it yourself, or email it from here.</>
@@ -377,7 +437,8 @@ export function K1InvestorShare({ name, inv }: {
       // Create mints the link WITHOUT emailing; only onSend emails, and the
       // card puts a confirm in front of that.
       onCreate={target && newest ? () => inv.send(target, newest.taxYear, false) : undefined}
-      onSend={target && newest ? () => inv.send(target, newest.taxYear, true) : undefined}
+      loadDraft={target && newest ? () => inv.loadDraft(target, newest.taxYear) : undefined}
+      onSend={target && newest ? (_id, draft) => inv.send(target, newest.taxYear, true, draft) : undefined}
       onRevoke={(id) => {
         if (confirm(`Revoke ${name}'s link? It stops working immediately and none of their K-1s are readable until you share a new one.`)) {
           inv.revoke(id);

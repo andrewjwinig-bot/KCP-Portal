@@ -14,12 +14,16 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { K1Document } from "@/lib/investors/k1";
+import type { EmailDraft } from "@/app/components/ShareLinkCard";
 
 export type K1Owner = {
   id: string; name: string; detailedName: string | null; vendorCode: string | null;
   ownerPct: number | null; sharesName: boolean;
-  /** Where their link would be emailed, and where that address came from. */
-  email: string | null; emailSource: string; emailNote: string;
+  /** Where their link would be emailed, and where that address came from.
+   *  `alsoEmail` is the investor's additional recipients — an accountant, a
+   *  manager, a trustee. The share route mails every one of them the same
+   *  link, so the UI has to name them all in the confirm. */
+  email: string | null; alsoEmail: string[]; emailSource: string; emailNote: string;
   /** The live link, including the URL and PIN so the roster can show and copy
    *  exactly what the investor holds. Re-signed from the stored link — reading
    *  it mints nothing. */
@@ -51,7 +55,7 @@ export type ShareBatch = { key: string; sent: boolean; results: ShareResult[] };
 export type K1Interest = {
   ownerId: string; propertyCode: string; propertyName: string; filesK1: boolean;
   heldAs: string | null; vendorCode: string | null;
-  email: string | null; emailSource: string; emailNote: string;
+  email: string | null; alsoEmail: string[]; emailSource: string; emailNote: string;
   documents: { id: string; taxYear: number; filename: string; published: boolean; viewCount: number }[];
   link: {
     id: string; createdAt: string; viewCount: number; lastViewedAt: string | null;
@@ -89,7 +93,10 @@ export type K1Slice = {
   remove: (doc: K1Document) => void;
   setPublished: (publish: boolean) => void;
   /** Mint links for these owners; `send` also emails each of them. */
-  share: (ownerIds: string[], send: boolean) => void;
+  share: (ownerIds: string[], send: boolean, draft?: EmailDraft) => void;
+  /** The message a send to this owner would deliver. Read-only — the endpoint
+   *  publishes nothing and mints nothing, so previewing is free. */
+  loadDraft: (ownerId: string) => Promise<EmailDraft>;
   /** Set (or clear, with "") where one owner's link is emailed. */
   setEmail: (ownerId: string, email: string) => void;
   /** Kill a link. The way to undo a test send, or a link sent to the wrong
@@ -274,13 +281,13 @@ export function useK1Registry(enabled: boolean, openK1Codes: string[]) {
         });
       },
 
-      share: (ownerIds: string[], send: boolean) => {
+      share: (ownerIds: string[], send: boolean, draft?: EmailDraft) => {
         if (ownerIds.length === 0) return;
         setBatch(null);
         void act(code, async () => {
           const res = await fetch("/api/investor-k1/share", {
             method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ propertyCode: code, ownerIds, year, send }),
+            body: JSON.stringify({ propertyCode: code, ownerIds, year, send, draft: draft ?? null }),
           });
           const j = await res.json();
           if (!res.ok) throw new Error(j.error ?? "Could not create the links.");
@@ -289,6 +296,14 @@ export function useK1Registry(enabled: boolean, openK1Codes: string[]) {
           // same people by accident.
           setSelection((s) => ({ ...s, [code]: new Set() }));
         });
+      },
+
+      loadDraft: async (ownerId: string) => {
+        const q = new URLSearchParams({ propertyCode: code, ownerId, year: String(year ?? "") });
+        const res = await fetch(`/api/investor-k1/share?${q}`);
+        const j = await res.json();
+        if (!res.ok) throw new Error(j.error ?? "Couldn't load the message.");
+        return { subject: j.subject as string, body: j.body as string };
       },
     };
   }, [data, errors, busyCode, uploading, selection, yearOf, act]);
@@ -312,6 +327,10 @@ export function useK1Registry(enabled: boolean, openK1Codes: string[]) {
       // carries it. Take whichever interest happens to hold it.
       link: (rows ?? []).map((i) => i.link).find(Boolean) ?? null,
       email: (rows ?? []).map((i) => i.email).find(Boolean) ?? null,
+      // Additional recipients are the PERSON's, not an interest's, so any
+      // interest carrying them speaks for the investor. De-duplicated because
+      // the same list resolves on every interest they hold.
+      alsoEmail: [...new Set((rows ?? []).flatMap((i) => i.alsoEmail ?? []))],
       /** An interest whose K-1 is uploaded, to create the link from. */
       sendableFrom: (rows ?? []).find((i) => i.documents.length > 0) ?? null,
       busy: busyCode === `inv:${name}`,
@@ -351,7 +370,15 @@ export function useK1Registry(enabled: boolean, openK1Codes: string[]) {
       /** `send` false mints the link only. They are deliberately one call with
        *  an explicit flag: "create a link" and "email an investor" looking
        *  alike is how a link gets mailed by a misplaced click. */
-      send: (interest: K1Interest, taxYear: number, send = true) => {
+      loadDraft: async (interest: K1Interest, taxYear: number) => {
+        const q = new URLSearchParams({ propertyCode: interest.propertyCode, ownerId: interest.ownerId, year: String(taxYear) });
+        const res = await fetch(`/api/investor-k1/share?${q}`);
+        const j = await res.json();
+        if (!res.ok) throw new Error(j.error ?? "Couldn't load the message.");
+        return { subject: j.subject as string, body: j.body as string };
+      },
+
+      send: (interest: K1Interest, taxYear: number, send = true, draft?: EmailDraft) => {
         setBatch(null);
         const key = `inv:${name}`;
         setBusyCode(key);
@@ -360,7 +387,7 @@ export function useK1Registry(enabled: boolean, openK1Codes: string[]) {
           try {
             const res = await fetch("/api/investor-k1/share", {
               method: "POST", headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ propertyCode: interest.propertyCode, ownerIds: [interest.ownerId], year: taxYear, send }),
+              body: JSON.stringify({ propertyCode: interest.propertyCode, ownerIds: [interest.ownerId], year: taxYear, send, draft: draft ?? null }),
             });
             const j = await res.json();
             if (!res.ok) throw new Error(j.error ?? "Could not send.");

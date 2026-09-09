@@ -131,6 +131,22 @@ const INVESTOR_NAME: React.CSSProperties = { fontWeight: 700, fontSize: 15 };
 const GROUP_ROW_BG = "rgba(11,74,125,0.07)";
 const GROUP_SUB_BG = "rgba(11,74,125,0.028)";
 const GROUP_RAIL: React.CSSProperties = { boxShadow: "inset 3px 0 0 rgba(11,74,125,0.5)" };
+/** The count chip a collapsible band carries ("3 STAKES", "24 INVESTORS").
+ *  One definition, so the entity band and the multi-stake roll-up read as the
+ *  same control rather than two that happen to look similar. */
+const BAND_COUNT_PILL: React.CSSProperties = {
+  fontSize: 10.5, fontWeight: 800, letterSpacing: "0.04em",
+  color: "#0b4a7d", background: "rgba(11,74,125,0.10)",
+  border: "1px solid rgba(11,74,125,0.28)", borderRadius: 999, padding: "1px 8px",
+  whiteSpace: "nowrap",
+};
+
+/** Name, trust name or vendor code — the three things a roster search hits. */
+function matchesOwner(o: PropertyOwner, q: string): boolean {
+  return o.name.toLowerCase().includes(q)
+    || (o.detailedName ?? "").toLowerCase().includes(q)
+    || (o.vendorCode ?? "").toLowerCase().includes(q);
+}
 
 function buildOwnerGroups(owners: PropertyOwner[]): OwnerGroup[] {
   const byKey = new Map<string, PropertyOwner[]>();
@@ -415,10 +431,7 @@ export default function InvestorInfoPage() {
   const groupMatchesQuery = (owners: PropertyOwner[]) => {
     const q = query.trim().toLowerCase();
     if (!q) return false;
-    return owners.some((o) =>
-      o.name.toLowerCase().includes(q)
-      || (o.detailedName ?? "").toLowerCase().includes(q)
-      || (o.vendorCode ?? "").toLowerCase().includes(q));
+    return owners.some((o) => matchesOwner(o, q));
   };
 
   const filteredHoldings = useMemo(() => {
@@ -427,10 +440,10 @@ export default function InvestorInfoPage() {
     return holdings.filter((h) =>
       h.propertyName.toLowerCase().includes(q)
       || h.propertyCode.toLowerCase().includes(q)
-      || h.owners.some((inv) =>
-        inv.name.toLowerCase().includes(q)
-        || (inv.detailedName ?? "").toLowerCase().includes(q)
-        || (inv.vendorCode ?? "").toLowerCase().includes(q)),
+      // Sub-owners count: with an entity's partners collapsed behind its band,
+      // a roster that ignored them would answer "Hyman Korman Co.'s 24th
+      // partner" with nothing at all.
+      || h.owners.some((inv) => matchesOwner(inv, q) || (inv.subOwners ?? []).some((s) => matchesOwner(s, q))),
     );
   }, [holdings, query]);
 
@@ -708,6 +721,9 @@ export default function InvestorInfoPage() {
    */
   function renderHoldingRows(h: PropertyHolding) {
     const open = !!openIds[h.propertyCode];
+    // Entity bands share the multi-stake collapse state — one mechanism, one
+    // map. Scoped to the property, as the person groups are.
+    const entityKey = (ent: PropertyOwner) => `${h.propertyCode}::entity::${ent.id}`;
     const pv = propValue(h.propertyCode); // property year-end + estimated value (null if no entity)
     const hasVal = !!pv;
     const share = (frac: number | undefined, base: number) => money0((frac ?? 0) * base);
@@ -720,13 +736,29 @@ export default function InvestorInfoPage() {
        * A partner that is itself a partnership heads a band carrying its share
        * of the property, and still takes a K-1 — 0800 issues one to Hyman
        * Korman Co. as much as to the fourteen trusts.
+       *
+       * The band COLLAPSES its investors, the same way a multi-stake person's
+       * roll-up collapses their interests and for the same reason: Hyman
+       * Korman Co. is ONE owner of the property, and its twenty-four partners
+       * are the follow-up question, not the answer to "who owns this". The
+       * band carries the entity's whole share, so nothing is hidden that the
+       * table was there to say. Same control as everywhere else in the app —
+       * click the row, caret flips, rows stay rendered so Print still lists
+       * every partner.
        */
-      const renderEntityBand = (sec: OwnerSection, _h: PropertyHolding, _pv: typeof pv, _showK1: boolean, _k1: typeof k1) => {
+      const renderEntityBand = (sec: OwnerSection, secOpen: boolean) => {
         const ent = sec.entity!;
         return (
-          <tr key={`entity-${ent.id}`} style={{ background: GROUP_ROW_BG, borderTop: "2px solid var(--border)" }}>
+          <tr
+            key={`entity-${ent.id}`}
+            onClick={() => toggleGroup(entityKey(ent))}
+            aria-expanded={secOpen}
+            title={secOpen ? `Hide the ${sec.owners.length} investors in ${ent.name}` : `Show the ${sec.owners.length} investors in ${ent.name}`}
+            style={{ background: GROUP_ROW_BG, borderTop: "2px solid var(--border)", cursor: "pointer" }}
+          >
+            {/* Ticking the entity for a send must not also open the block. */}
             {showK1 && k1 && (
-              <td style={{ padding: "12px 0 12px 16px", ...GROUP_RAIL }} className="no-print">
+              <td style={{ padding: "12px 0 12px 16px", ...GROUP_RAIL }} className="no-print" onClick={(e) => e.stopPropagation()}>
                 <K1SelectCell ownerId={ent.id} k1={k1} />
               </td>
             )}
@@ -741,20 +773,28 @@ export default function InvestorInfoPage() {
               ) : <span style={{ color: "var(--muted)" }}>&mdash;</span>}
             </td>
             <td style={{ padding: "12px 16px" }}>
-              <div style={{ ...INVESTOR_NAME, textTransform: "uppercase", letterSpacing: "0.02em" }}>{ent.name}</div>
-              <div className="muted" style={{ fontSize: 11.5, marginTop: 2 }}>
-                {sec.owners.length} investors in {ent.name} · their K-1 comes from {ent.name}
+              <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+                <span aria-hidden style={{ color: "#0b4a7d", fontSize: 10, width: 10, flexShrink: 0, display: "inline-block" }}>{secOpen ? "\u25BC" : "\u25B6"}</span>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
+                    <span style={{ ...INVESTOR_NAME, textTransform: "uppercase", letterSpacing: "0.02em" }}>{ent.name}</span>
+                    <span style={BAND_COUNT_PILL}>{sec.owners.length} INVESTORS</span>
+                  </div>
+                  <div className="muted" style={{ fontSize: 11.5, marginTop: 2 }}>
+                    Their K-1 comes from {ent.name}
+                  </div>
+                </div>
               </div>
             </td>
             <td style={{ padding: "12px 16px", textAlign: "right", fontWeight: 800 }}>{pct(sec.frac)}</td>
             {hasVal && <td style={{ padding: "12px 16px", textAlign: "right", fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>{share(sec.frac, pv!.ye)}</td>}
             {hasVal && <td style={{ padding: "12px 16px", textAlign: "right", fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>{share(sec.frac, pv!.est)}</td>}
             {showK1 && k1 && k1.ownerFor(ent.id) && (
-              <td style={{ padding: "12px 16px" }} className="no-print"><K1Cell owner={k1.ownerFor(ent.id)!} k1={k1} /></td>
+              <td style={{ padding: "12px 16px" }} className="no-print" onClick={(e) => e.stopPropagation()}><K1Cell owner={k1.ownerFor(ent.id)!} k1={k1} /></td>
             )}
             {showK1 && k1 && !k1.ownerFor(ent.id) && <td className="no-print" />}
             {showK1 && k1 && (
-              <td style={{ padding: "12px 16px", textAlign: "right" }} className="no-print">
+              <td style={{ padding: "12px 16px", textAlign: "right" }} className="no-print" onClick={(e) => e.stopPropagation()}>
                 {k1.ownerFor(ent.id) && <K1PortalCell owner={k1.ownerFor(ent.id)!} k1={k1} />}
               </td>
             )}
@@ -767,10 +807,13 @@ export default function InvestorInfoPage() {
        * the ENTITY, so the property columns carry `sub × entity` — which is
        * what makes the $ their net value in this property.
        */
-      const renderSubOwner = (sub: PropertyOwner, ent: PropertyOwner, _h: PropertyHolding, _pv: typeof pv, _showK1: boolean) => {
+      const renderSubOwner = (sub: PropertyOwner, ent: PropertyOwner, secOpen: boolean) => {
         const eff = (ownershipFor(sub) ?? 0) * (ownershipFor(ent) ?? 0);
         return (
-          <tr key={sub.id} style={{ borderTop: "1px solid rgba(11,74,125,0.08)", background: GROUP_SUB_BG }}>
+          // Always rendered; `.screen-collapsed` hides it on screen only, so a
+          // printed ownership schedule still lists every partner behind the
+          // entity — the same rule the multi-stake interests follow.
+          <tr key={sub.id} className={secOpen ? undefined : "screen-collapsed"} style={{ borderTop: "1px solid rgba(11,74,125,0.08)", background: GROUP_SUB_BG }}>
             {showK1 && <td className="no-print" style={GROUP_RAIL} />}
             <td style={{ padding: "8px 16px", ...(showK1 ? null : GROUP_RAIL) }} />
             <td style={{ padding: "8px 16px", paddingLeft: 36 }}>
@@ -866,11 +909,7 @@ export default function InvestorInfoPage() {
                       <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
                         <span aria-hidden style={{ color: "#0b4a7d", fontSize: 10, width: 10, display: "inline-block" }}>{gOpen ? "\u25BC" : "\u25B6"}</span>
                         <span style={INVESTOR_NAME}>{g.name}</span>
-                        <span style={{
-                          fontSize: 10.5, fontWeight: 800, letterSpacing: "0.04em",
-                          color: "#0b4a7d", background: "rgba(11,74,125,0.10)",
-                          border: "1px solid rgba(11,74,125,0.28)", borderRadius: 999, padding: "1px 8px",
-                        }}>{g.owners.length} STAKES</span>
+                        <span style={BAND_COUNT_PILL}>{g.owners.length} STAKES</span>
                       </div>
                     </td>
 
@@ -997,11 +1036,17 @@ export default function InvestorInfoPage() {
               </tr>
             </thead>
             <tbody>
-              {ownerSections(h.owners).flatMap((sec) => [
+              {ownerSections(h.owners).flatMap((sec) => {
                 // An entity partner heads its own band, carrying its share of
                 // the property and its own K-1 row; the investors behind it
-                // read underneath, the way the K-1 schedule prints.
-                ...(sec.entity ? [renderEntityBand(sec, h, pv, showK1, k1)] : []),
+                // read underneath — collapsed until asked for — the way the
+                // K-1 schedule prints. A search that hits one of those
+                // investors opens the band, or the match would be invisible.
+                const secOpen = sec.entity
+                  ? (!!openGroups[entityKey(sec.entity)] || groupMatchesQuery(sec.owners))
+                  : true;
+                return [
+                ...(sec.entity ? [renderEntityBand(sec, secOpen)] : []),
                 ...(sec.label ? [(
                   <tr key={`band-${sec.key}`} style={{ background: GROUP_ROW_BG, borderTop: "2px solid var(--border)" }}>
                     {showK1 && <td className="no-print" style={GROUP_RAIL} />}
@@ -1016,9 +1061,10 @@ export default function InvestorInfoPage() {
                   </tr>
                 )] : []),
                 ...(sec.entity
-                  ? sec.owners.map((sub) => renderSubOwner(sub, sec.entity!, h, pv, showK1))
+                  ? sec.owners.map((sub) => renderSubOwner(sub, sec.entity!, secOpen))
                   : buildOwnerGroups(sec.owners).flatMap(renderOwnerGroup)),
-              ])}
+                ];
+              })}
             </tbody>
             {hasVal && (
               <tfoot>

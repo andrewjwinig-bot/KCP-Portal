@@ -16,6 +16,7 @@ import { sendMail, isMailConfigured } from "@/lib/mail";
 import { logAudit, auditIp } from "@/lib/audit";
 import { linkOrigin } from "@/lib/linkOrigin";
 import { coveredOwnerIds } from "@/lib/investors/linkCoverage";
+import { composeK1ShareEmail, applyK1EmailEdit, type K1ShareEmail } from "@/lib/investors/k1ShareEmail";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -80,6 +81,10 @@ function personGroup(_propertyCode: string, ownerId: string) {
 
 async function shareOne(
   req: NextRequest, user: UserId, secret: string, propertyCode: string, ownerId: string, year: number | null, send: boolean,
+  /** A staff edit of the draft, from the confirm step. Single sends only —
+   *  a batch reaches many different investors, so one hand-written body
+   *  cannot be right for all of them and the canonical draft is used. */
+  draft?: { subject?: unknown; body?: unknown } | null,
 ): Promise<ShareResult> {
   const found = personGroup(propertyCode, ownerId);
   if (!found) return { ownerId, ownerName: ownerId, sentTo: [], mailError: null, error: "That owner isn't on this partnership." };
@@ -148,6 +153,7 @@ async function shareOne(
 
   let mailError: string | null = null;
   let sentTo: string[] = [];
+  let wasEdited = false;
   if (send) {
     const overrides = await allOwnerEmails();
     const resolved = resolveOwnerEmail(owner.name, owner.detailedName ?? null, overrides[owner.id]?.email, await getContactOverrides());
@@ -160,27 +166,15 @@ async function shareOne(
     if (!email) mailError = `No email on file for ${owner.name}. Copy the link and send it yourself.`;
     else if (!isMailConfigured()) mailError = "Email isn't configured, so the link was created but not sent.";
     else {
-      const ok = await sendMail({
-        to: recipients.join(", "),
-        subject: published.length > 1
-          ? `Your ${published[0].taxYear} Schedule K-1s — Korman Commercial Properties`
-          : `Your ${published[0].taxYear} Schedule K-1 — ${propName(propertyCode)}`,
-        textBody: [
-          `Hello ${owner.name},`,
-          "",
-          published.length > 1
-            ? `Your ${published.length} Schedule K-1s are ready in your secure investor portal — one link covers every partnership you hold an interest in.`
-            : `Your Schedule K-1 for ${propName(propertyCode)} is ready in your secure investor portal.`,
-          "",
-          url,
-          "",
-          "You'll be asked for a 6-digit access PIN, which we'll send to you separately.",
-          "",
-          "This link is private to you. Please don't forward it — if you need a copy sent elsewhere, reply and we'll arrange it.",
-          "",
-          "— Korman Commercial Properties",
-        ].join("\n"),
+      // Same composer the preview endpoint uses, then the staff edit folded in
+      // — so what was read in the confirm is what leaves the building.
+      const canonical = composeK1ShareEmail({
+        ownerName: owner.name, propertyName: propName(propertyCode),
+        documentCount: published.length, taxYear: published[0].taxYear, url,
       });
+      const { email: draftEmail, edited } = applyK1EmailEdit(canonical, draft, url);
+      wasEdited = edited;
+      const ok = await sendMail({ to: recipients.join(", "), subject: draftEmail.subject, textBody: draftEmail.body });
       if (ok) sentTo = recipients;
       else mailError = "The email failed to send. The link is created — copy it and send it yourself.";
     }
@@ -188,7 +182,7 @@ async function shareOne(
 
   await logAudit({
     event: "investor-k1.share", user: USERS[user]?.label ?? user, ip: auditIp(req),
-    detail: `${propertyCode} · ${owner.name}${sentTo.length ? ` · emailed ${sentTo.join(", ")}` : " · link only"}`,
+    detail: `${propertyCode} · ${owner.name}${sentTo.length ? ` · emailed ${sentTo.join(", ")}` : " · link only"}${wasEdited ? " · edited wording" : ""}`,
   });
   return { ownerId: owner.id, ownerName: owner.name, heldAs: owner.detailedName ?? null, url, pin: link.pin, sentTo, mailError };
 }
@@ -238,16 +232,81 @@ export async function POST(req: NextRequest) {
 
     // Sequential on purpose: each share revokes that owner's prior link and
     // writes a link record, and the link store is read-modify-write.
+    // A draft edit is only meaningful when the batch is one person — the UI's
+    // single-investor Share card posts through this path. Two or more
+    // recipients get the canonical wording, because one hand-written body
+    // addressed to somebody cannot be right for everybody.
+    const draft = ids.length === 1 ? (body?.draft ?? null) : null;
     const results: ShareResult[] = [];
-    for (const id of ids) results.push(await shareOne(req, user, secret, propertyCode, id, year, send));
+    for (const id of ids) results.push(await shareOne(req, user, secret, propertyCode, id, year, send, draft));
     return NextResponse.json({ ok: true, results }, { status: 201 });
   }
 
-  const one = await shareOne(req, user, secret, propertyCode, String(body?.ownerId ?? ""), year, send);
+  // The draft edit belongs to a single send: a batch addresses many different
+  // investors, so one hand-written body cannot be right for all of them.
+  const one = await shareOne(req, user, secret, propertyCode, String(body?.ownerId ?? ""), year, send, body?.draft ?? null);
   if (one.error) return NextResponse.json({ error: one.error }, { status: 400 });
   return NextResponse.json({
     ok: true, url: one.url, pin: one.pin, sentTo: one.sentTo, mailError: one.mailError,
   }, { status: 201 });
+}
+
+/**
+ * GET ?propertyCode=&ownerId=&year= — the exact email the send would compose.
+ *
+ * Read-only and side-effect-free by construction: it publishes nothing, mints
+ * nothing and revokes nothing. It exists so "Email the investor" can show the
+ * message before it goes out rather than after — the send is irreversible
+ * (you cannot unsend a link to an investor's tax document), so reading it
+ * first is the point.
+ *
+ * It re-signs the EXISTING link's token, which is why it can only preview an
+ * investor who already has a link. That matches the UI: the confirm step only
+ * opens on a link that exists.
+ */
+export async function GET(req: NextRequest) {
+  const user = await currentUser();
+  if (!user) return NextResponse.json({ error: "Not authorized" }, { status: 401 });
+  const secret = investorLinkSecret();
+  if (!secret) return NextResponse.json({ error: "Investor sharing is not configured (no link secret set)." }, { status: 500 });
+
+  const q = req.nextUrl.searchParams;
+  const propertyCode = String(q.get("propertyCode") ?? "");
+  const found = personGroup(propertyCode, String(q.get("ownerId") ?? ""));
+  if (!found) return NextResponse.json({ error: "That owner isn't on this partnership." }, { status: 400 });
+  const { owner, group } = found;
+  const rawYear = Number(q.get("year"));
+  const year = Number.isFinite(rawYear) && rawYear > 0 ? rawYear : null;
+
+  // The same scope the send releases: this partnership, this year.
+  const inScope = new Set(
+    (PROPERTY_OWNERSHIP.find((p) => p.propertyCode === propertyCode)?.owners ?? [])
+      .filter((o) => group.some((g) => g.id === o.id))
+      .map((o) => o.id),
+  );
+  const mine = (await Promise.all([...inScope].map((id) => k1sForOwner(id))))
+    .flat()
+    .filter((d) => year == null || d.taxYear === year);
+  if (mine.length === 0) {
+    return NextResponse.json({ error: `${owner.name} has no ${year ?? ""} K-1 uploaded yet.`.replace("  ", " ") }, { status: 400 });
+  }
+
+  const ids = group.map((o) => o.id);
+  const link = (await listInvestorLinks())
+    .find((l) => !l.revoked && coveredOwnerIds(l).some((id) => ids.includes(id)));
+  const url = link
+    ? `${linkOrigin(req)}/investor/${await signInvestorToken(secret, { v: 1, id: link.id, o: link.ownerId, p: link.propertyCode })}`
+    : `${linkOrigin(req)}/investor/…`;
+
+  const overrides = await allOwnerEmails();
+  const resolved = resolveOwnerEmail(owner.name, owner.detailedName ?? null, overrides[owner.id]?.email, await getContactOverrides());
+  const recipients = [resolved.email ?? "", ...resolved.alsoEmail].filter(Boolean);
+
+  const email: K1ShareEmail = composeK1ShareEmail({
+    ownerName: owner.name, propertyName: propName(propertyCode),
+    documentCount: mine.length, taxYear: mine[0].taxYear, url,
+  });
+  return NextResponse.json({ ok: true, ...email, recipients, hasLink: !!link });
 }
 
 /** DELETE ?id= — revoke a link. */
