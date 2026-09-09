@@ -23,6 +23,7 @@ import { StatPill } from "../components/Pill";
 import { DownloadMenu } from "../components/DownloadMenu";
 import { th, td, thL, tdL } from "../components/tableStyles";
 import { InvestorContactCard } from "./InvestorContactCard";
+import { ownerSections, type OwnerSection } from "./ownerSections";
 import { Select } from "../components/YearSelect";
 
 /** Local mirror of the store's normalization (client-safe). */
@@ -75,6 +76,8 @@ type PropertyHolding = {
 };
 
 const TYPES: PropType[] = ["Office", "Retail", "Residential", "Land", "Misc"];
+
+
 
 
 /** A row of the By Property roster: a group band, or one property. */
@@ -346,9 +349,6 @@ export default function InvestorInfoPage() {
   /** Open/closed state for each card. Default = closed everywhere so the page
    *  reads like the rent roll page (PropertyCard pattern). */
   const [openIds, setOpenIds] = useState<Record<string, boolean>>({});
-  // A partner that is itself a partnership (Hyman Korman Co. holding 80% of
-  // 0800) expands to the investors behind it, keyed by that owner's id.
-  const [openEntities, setOpenEntities] = useState<Record<string, boolean>>({});
   function toggleOpen(id: string) {
     setOpenIds((prev) => ({ ...prev, [id]: !prev[id] }));
   }
@@ -692,69 +692,82 @@ export default function InvestorInfoPage() {
     const showK1 = !!(h.hasK1Distribution && canK1);
     const k1 = showK1 ? k1reg.slice(h.propertyCode) : null;
     const k1Th = { padding: "10px 16px", fontWeight: 700 } as React.CSSProperties;
-    return (
-      <Fragment key={h.propertyCode}>
-        <tr
-          onClick={() => toggleOpen(h.propertyCode)}
-          aria-expanded={open}
-          style={{
-            borderTop: "1px solid var(--border)", cursor: "pointer",
-            background: open ? "rgba(11,74,125,0.05)" : undefined,
-          }}
-        >
-          <td style={tdL}>
-            <code style={{
-              background: "#0b1220", color: "#e0f0ff",
-              padding: "2px 8px", borderRadius: 5,
-              fontSize: 12, fontWeight: 600, letterSpacing: "0.06em",
-            }}>{h.propertyCode}</code>
-          </td>
-          <td style={{ ...tdL, whiteSpace: "normal" }}>
-            <span style={{ fontWeight: 700, fontSize: 14.5 }}>{h.propertyName}</span>
-            {h.hasK1Distribution && (
-              <span style={{
-                marginLeft: 8, fontSize: 10, fontWeight: 700, letterSpacing: "0.06em",
-                padding: "2px 7px", borderRadius: 4, whiteSpace: "nowrap",
-                background: "rgba(15,118,110,0.08)", color: "#0f766e",
-                border: "1px solid rgba(15,118,110,0.25)",
-              }}>K-1</span>
+      /**
+       * A partner that is itself a partnership heads a band carrying its share
+       * of the property, and still takes a K-1 — 0800 issues one to Hyman
+       * Korman Co. as much as to the fourteen trusts.
+       */
+      const renderEntityBand = (sec: OwnerSection, _h: PropertyHolding, _pv: typeof pv, _showK1: boolean, _k1: typeof k1) => {
+        const ent = sec.entity!;
+        return (
+          <tr key={`entity-${ent.id}`} style={{ background: GROUP_ROW_BG, borderTop: "2px solid var(--border)" }}>
+            {showK1 && k1 && (
+              <td style={{ padding: "12px 0 12px 16px", ...GROUP_RAIL }} className="no-print">
+                <K1SelectCell ownerId={ent.id} k1={k1} />
+              </td>
             )}
-          </td>
-          <td style={{ ...td, color: "var(--muted)" }}>{h.owners.length}</td>
-          <td style={td}>{hasVal ? money0(pv!.ye) : <span style={{ color: "var(--muted)" }}>&mdash;</span>}</td>
-          <td style={{ ...td, fontWeight: 700 }}>{hasVal ? money0(pv!.est) : <span style={{ color: "var(--muted)", fontWeight: 400 }}>&mdash;</span>}</td>
-          <td style={{ ...td, color: "var(--muted)", width: 30, paddingLeft: 0 }} aria-hidden>{open ? "▲" : "▼"}</td>
-        </tr>
-        {open && (
-          <tr>
-            <td colSpan={6} style={{ padding: 0, background: "rgba(11,74,125,0.03)", borderTop: "1px solid var(--border)" }}>
-          {showK1 && k1 && <K1Header k1={k1} />}
-          {showK1 && k1reg.batch?.key === h.propertyCode && (
-            <K1ShareResults batch={k1reg.batch} onClose={k1reg.clearBatch} />
-          )}
-          <div style={showK1 ? { overflowX: "auto" } : undefined}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14, borderTop: "1px solid var(--border)", ...(showK1 ? { minWidth: 1180 } : null) }}>
-            <thead>
-              <tr style={{ color: "var(--muted)", fontSize: 11, letterSpacing: "0.04em", textAlign: "left" }}>
-                {showK1 && <th style={{ ...k1Th, width: 34, paddingRight: 0 }} className="no-print" aria-label="Select" />}
-                <th style={{ padding: "10px 16px", fontWeight: 700, width: 140, whiteSpace: "nowrap" }}>VENDOR CODE</th>
-                <th style={{ padding: "10px 16px", fontWeight: 700, ...(showK1 ? { minWidth: 190 } : null) }}>OWNER</th>
+            {showK1 && !k1 && <td className="no-print" style={GROUP_RAIL} />}
+            <td style={{ padding: "12px 16px", ...(showK1 ? null : GROUP_RAIL) }}>
+              {ent.vendorCode ? (
+                <span style={{
+                  fontSize: 11, fontWeight: 600, letterSpacing: "0.04em", padding: "2px 8px",
+                  borderRadius: 999, background: "rgba(15,23,42,0.05)", color: "var(--text)",
+                  border: "1px solid var(--border)", display: "inline-block",
+                }}>{ent.vendorCode}</span>
+              ) : <span style={{ color: "var(--muted)" }}>&mdash;</span>}
+            </td>
+            <td style={{ padding: "12px 16px" }}>
+              <div style={{ ...INVESTOR_NAME, textTransform: "uppercase", letterSpacing: "0.02em" }}>{ent.name}</div>
+              <div className="muted" style={{ fontSize: 11.5, marginTop: 2 }}>
+                {sec.owners.length} investors in {ent.name} · their K-1 comes from {ent.name}
+              </div>
+            </td>
+            <td style={{ padding: "12px 16px", textAlign: "right", fontWeight: 800 }}>{pct(sec.frac)}</td>
+            {hasVal && <td style={{ padding: "12px 16px", textAlign: "right", fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>{share(sec.frac, pv!.ye)}</td>}
+            {hasVal && <td style={{ padding: "12px 16px", textAlign: "right", fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>{share(sec.frac, pv!.est)}</td>}
+            {showK1 && k1 && k1.ownerFor(ent.id) && (
+              <td style={{ padding: "12px 16px" }} className="no-print"><K1Cell owner={k1.ownerFor(ent.id)!} k1={k1} /></td>
+            )}
+            {showK1 && k1 && !k1.ownerFor(ent.id) && <td className="no-print" />}
+            {showK1 && k1 && (
+              <td style={{ padding: "12px 16px", textAlign: "right" }} className="no-print">
+                {k1.ownerFor(ent.id) && <K1PortalCell owner={k1.ownerFor(ent.id)!} k1={k1} />}
+              </td>
+            )}
+          </tr>
+        );
+      };
 
-                <th style={{ padding: "10px 16px", fontWeight: 700, textAlign: "right" }}>OWNERSHIP %</th>
-                {hasVal && <th style={{ padding: "10px 16px", fontWeight: 700, textAlign: "right", whiteSpace: "nowrap" }}>YEAR-END $</th>}
-                {hasVal && <th style={{ padding: "10px 16px", fontWeight: 700, textAlign: "right", whiteSpace: "nowrap" }}>ESTIMATED $</th>}
-                {showK1 && k1 && <th style={{ ...k1Th, whiteSpace: "nowrap" }} className="no-print">{k1.year} K-1</th>}
-                {showK1 && <th style={{ ...k1Th, textAlign: "right" }} className="no-print">PORTAL</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {buildOwnerGroups(h.owners).flatMap((g) => {
+      /**
+       * One investor inside an entity. Their stored percentage is a share of
+       * the ENTITY, so the property columns carry `sub × entity` — which is
+       * what makes the $ their net value in this property.
+       */
+      const renderSubOwner = (sub: PropertyOwner, ent: PropertyOwner, _h: PropertyHolding, _pv: typeof pv, _showK1: boolean) => {
+        const eff = (ownershipFor(sub) ?? 0) * (ownershipFor(ent) ?? 0);
+        return (
+          <tr key={sub.id} style={{ borderTop: "1px solid rgba(11,74,125,0.08)", background: GROUP_SUB_BG }}>
+            {showK1 && <td className="no-print" style={GROUP_RAIL} />}
+            <td style={{ padding: "8px 16px", ...(showK1 ? null : GROUP_RAIL) }} />
+            <td style={{ padding: "8px 16px", paddingLeft: 36 }}>
+              <div style={{ fontSize: 13, fontWeight: 600 }}>{sub.name}</div>
+              <div className="muted" style={{ fontSize: 11.5, marginTop: 1 }}>
+                {sub.detailedName ? `${sub.detailedName} · ` : ""}{pct(ownershipFor(sub))} of {ent.name}
+              </div>
+            </td>
+            <td style={{ padding: "8px 16px", textAlign: "right", fontSize: 12 }}>{pct(eff)}</td>
+            {hasVal && <td style={{ padding: "8px 16px", textAlign: "right", fontSize: 12, fontVariantNumeric: "tabular-nums" }}>{share(eff, pv!.ye)}</td>}
+            {hasVal && <td style={{ padding: "8px 16px", textAlign: "right", fontSize: 12, fontVariantNumeric: "tabular-nums" }}>{share(eff, pv!.est)}</td>}
+            {showK1 && <td className="no-print" colSpan={2} />}
+          </tr>
+        );
+      };
+
+      /** One person's row (or their roll-up plus a row per interest). */
+      const renderOwnerGroup = (g: { key: string; name: string; total: number; owners: PropertyOwner[] }) => {
                 const multi = g.owners.length > 1;
                 if (!multi) {
                   const inv = g.owners[0];
-                  const subs = inv.subOwners ?? [];
-                  const entityOpen = !!openEntities[inv.id];
-                  const entityFrac = ownershipFor(inv) ?? 0;
                   return [(
                     <tr key={inv.id} style={{ borderTop: "1px solid var(--border)", background: k1?.uploading === inv.id ? "rgba(15,118,110,0.06)" : undefined }}>
                       {showK1 && k1 && (
@@ -778,25 +791,6 @@ export default function InvestorInfoPage() {
                         {inv.detailedName && (
                           <div className="muted small" style={{ marginTop: 2 }}>{inv.detailedName}</div>
                         )}
-                        {/* A partner that is itself a partnership: open it to
-                            see the investors behind it and what the property is
-                            worth to each of them. */}
-                        {subs.length > 0 && (
-                          <button
-                            type="button"
-                            className="no-print"
-                            onClick={() => setOpenEntities((m) => ({ ...m, [inv.id]: !m[inv.id] }))}
-                            aria-expanded={entityOpen}
-                            style={{
-                              marginTop: 5, background: "rgba(11,74,125,0.06)",
-                              border: "1px solid rgba(11,74,125,0.25)", borderRadius: 999,
-                              padding: "2px 9px", cursor: "pointer", fontFamily: "inherit",
-                              fontSize: 11, fontWeight: 700, color: "#0b4a7d",
-                            }}
-                          >
-                            {entityOpen ? "\u25b2" : "\u25bc"} {subs.length} investors in {inv.name}
-                          </button>
-                        )}
                       </td>
 
                       <td style={{ padding: "12px 16px", textAlign: "right" }}>{pct(ownershipFor(inv))}</td>
@@ -812,33 +806,7 @@ export default function InvestorInfoPage() {
                         </td>
                       )}
                     </tr>
-                  ), ...(entityOpen ? subs.map((sub) => {
-                    // Percentages on a sub-owner are shares of the ENTITY, so
-                    // the property column carries their effective interest —
-                    // which is what makes the $ columns their net value.
-                    const eff = (ownershipFor(sub) ?? 0) * entityFrac;
-                    return (
-                      <tr key={sub.id} style={{ borderTop: "1px solid rgba(11,74,125,0.08)", background: GROUP_SUB_BG }}>
-                        {showK1 && <td className="no-print" style={GROUP_RAIL} />}
-                        <td style={{ padding: "8px 16px", ...(showK1 ? null : GROUP_RAIL) }} />
-                        <td style={{ padding: "8px 16px", paddingLeft: 36 }}>
-                          <div style={{ fontSize: 13, fontWeight: 600 }}>{sub.name}</div>
-                          <div className="muted" style={{ fontSize: 11.5, marginTop: 1 }}>
-                            {sub.detailedName ? `${sub.detailedName} · ` : ""}
-                            {pct(ownershipFor(sub))} of {inv.name}
-                          </div>
-                        </td>
-                        <td style={{ padding: "8px 16px", textAlign: "right", fontSize: 12 }}>{pct(eff)}</td>
-                        {hasVal && <td style={{ padding: "8px 16px", textAlign: "right", fontSize: 12, fontVariantNumeric: "tabular-nums" }}>{share(eff, pv!.ye)}</td>}
-                        {hasVal && <td style={{ padding: "8px 16px", textAlign: "right", fontSize: 12, fontVariantNumeric: "tabular-nums" }}>{share(eff, pv!.est)}</td>}
-                        {/* No K-1 cell: this investor's K-1 comes from the
-                            entity above, not from this property. */}
-                        {showK1 && <td className="no-print" colSpan={2} style={{ padding: "8px 16px", color: "var(--muted)", fontSize: 11 }}>
-                          K-1 from {inv.name}
-                        </td>}
-                      </tr>
-                    );
-                  }) : [])];
+                  )];
                 }
                 const rows = [(
                   <tr key={`${g.key}-primary`} style={{ borderTop: "1px solid var(--border)", background: GROUP_ROW_BG }}>
@@ -913,7 +881,88 @@ export default function InvestorInfoPage() {
                   );
                 });
                 return rows;
-              })}
+      };
+
+    return (
+      <Fragment key={h.propertyCode}>
+        <tr
+          onClick={() => toggleOpen(h.propertyCode)}
+          aria-expanded={open}
+          style={{
+            borderTop: "1px solid var(--border)", cursor: "pointer",
+            background: open ? "rgba(11,74,125,0.05)" : undefined,
+          }}
+        >
+          <td style={tdL}>
+            <code style={{
+              background: "#0b1220", color: "#e0f0ff",
+              padding: "2px 8px", borderRadius: 5,
+              fontSize: 12, fontWeight: 600, letterSpacing: "0.06em",
+            }}>{h.propertyCode}</code>
+          </td>
+          <td style={{ ...tdL, whiteSpace: "normal" }}>
+            <span style={{ fontWeight: 700, fontSize: 14.5 }}>{h.propertyName}</span>
+            {h.hasK1Distribution && (
+              <span style={{
+                marginLeft: 8, fontSize: 10, fontWeight: 700, letterSpacing: "0.06em",
+                padding: "2px 7px", borderRadius: 4, whiteSpace: "nowrap",
+                background: "rgba(15,118,110,0.08)", color: "#0f766e",
+                border: "1px solid rgba(15,118,110,0.25)",
+              }}>K-1</span>
+            )}
+          </td>
+          <td style={{ ...td, color: "var(--muted)" }}>{h.owners.length}</td>
+          <td style={td}>{hasVal ? money0(pv!.ye) : <span style={{ color: "var(--muted)" }}>&mdash;</span>}</td>
+          <td style={{ ...td, fontWeight: 700 }}>{hasVal ? money0(pv!.est) : <span style={{ color: "var(--muted)", fontWeight: 400 }}>&mdash;</span>}</td>
+          <td style={{ ...td, color: "var(--muted)", width: 30, paddingLeft: 0 }} aria-hidden>{open ? "▲" : "▼"}</td>
+        </tr>
+        {open && (
+          <tr>
+            <td colSpan={6} style={{ padding: 0, background: "rgba(11,74,125,0.03)", borderTop: "1px solid var(--border)" }}>
+          {showK1 && k1 && <K1Header k1={k1} />}
+          {showK1 && k1reg.batch?.key === h.propertyCode && (
+            <K1ShareResults batch={k1reg.batch} onClose={k1reg.clearBatch} />
+          )}
+          <div style={showK1 ? { overflowX: "auto" } : undefined}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14, borderTop: "1px solid var(--border)", ...(showK1 ? { minWidth: 1180 } : null) }}>
+            <thead>
+              <tr style={{ color: "var(--muted)", fontSize: 11, letterSpacing: "0.04em", textAlign: "left" }}>
+                {showK1 && <th style={{ ...k1Th, width: 34, paddingRight: 0 }} className="no-print" aria-label="Select" />}
+                <th style={{ padding: "10px 16px", fontWeight: 700, width: 140, whiteSpace: "nowrap" }}>VENDOR CODE</th>
+                <th style={{ padding: "10px 16px", fontWeight: 700, ...(showK1 ? { minWidth: 190 } : null) }}>OWNER</th>
+
+                <th style={{ padding: "10px 16px", fontWeight: 700, textAlign: "right" }}>OWNERSHIP %</th>
+                {hasVal && <th style={{ padding: "10px 16px", fontWeight: 700, textAlign: "right", whiteSpace: "nowrap" }}>YEAR-END $</th>}
+                {hasVal && <th style={{ padding: "10px 16px", fontWeight: 700, textAlign: "right", whiteSpace: "nowrap" }}>ESTIMATED $</th>}
+                {showK1 && k1 && <th style={{ ...k1Th, whiteSpace: "nowrap" }} className="no-print">{k1.year} K-1</th>}
+                {showK1 && <th style={{ ...k1Th, textAlign: "right" }} className="no-print">PORTAL</th>}
+              </tr>
+            </thead>
+            <tbody>
+            <tbody>
+              {ownerSections(h.owners).flatMap((sec) => [
+                // An entity partner heads its own band, carrying its share of
+                // the property and its own K-1 row; the investors behind it
+                // read underneath, the way the K-1 schedule prints.
+                ...(sec.entity ? [renderEntityBand(sec, h, pv, showK1, k1)] : []),
+                ...(sec.label ? [(
+                  <tr key={`band-${sec.key}`} style={{ background: GROUP_ROW_BG, borderTop: "2px solid var(--border)" }}>
+                    {showK1 && <td className="no-print" style={GROUP_RAIL} />}
+                    <td style={{ padding: "10px 16px", ...(showK1 ? null : GROUP_RAIL) }} colSpan={2}>
+                      <span style={{ fontSize: 11.5, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "#0b4a7d" }}>{sec.label}</span>
+                      <span className="muted" style={{ fontSize: 11.5, marginLeft: 8 }}>{sec.owners.length} investors</span>
+                    </td>
+                    <td style={{ padding: "10px 16px", textAlign: "right", fontWeight: 800 }}>{pct(sec.frac)}</td>
+                    {hasVal && <td style={{ padding: "10px 16px", textAlign: "right", fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>{share(sec.frac, pv!.ye)}</td>}
+                    {hasVal && <td style={{ padding: "10px 16px", textAlign: "right", fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>{share(sec.frac, pv!.est)}</td>}
+                    {showK1 && k1 && <td className="no-print" colSpan={2} />}
+                  </tr>
+                )] : []),
+                ...(sec.entity
+                  ? sec.owners.map((sub) => renderSubOwner(sub, sec.entity!, h, pv, showK1))
+                  : buildOwnerGroups(sec.owners).flatMap(renderOwnerGroup)),
+              ])}
+            </tbody>
             </tbody>
             {hasVal && (
               <tfoot>
