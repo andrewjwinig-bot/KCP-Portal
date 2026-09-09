@@ -30,6 +30,11 @@ export type K1Owner = {
   link: {
     id: string; createdAt: string; viewCount: number; lastViewedAt: string | null;
     url?: string | null; pin?: string | null;
+    /** When the link was EMAILED (null = created but never sent), who it
+     *  reached, and whether the PIN went with it. */
+    /** `sendCount` null means the link PREDATES send tracking — unknown, which
+     *  is not the same as never sent, and the pill must not claim otherwise. */
+    sentAt?: string | null; sentTo?: string[]; pinSentAt?: string | null; sendCount?: number | null;
   } | null;
 };
 
@@ -63,6 +68,11 @@ export type K1Interest = {
   link: {
     id: string; createdAt: string; viewCount: number; lastViewedAt: string | null;
     url?: string | null; pin?: string | null;
+    /** When the link was EMAILED (null = created but never sent), who it
+     *  reached, and whether the PIN went with it. */
+    /** `sendCount` null means the link PREDATES send tracking — unknown, which
+     *  is not the same as never sent, and the pill must not claim otherwise. */
+    sentAt?: string | null; sentTo?: string[]; pinSentAt?: string | null; sendCount?: number | null;
   } | null;
 };
 

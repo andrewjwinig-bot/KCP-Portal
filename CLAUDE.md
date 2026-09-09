@@ -509,6 +509,25 @@ preferences.
   dropped on the wrong row — so an upload stays invisible until someone
   deliberately sends it. The PATCH publish/unpublish endpoint remains as the
   retraction path; it is just not a step in the normal flow.
+- **A send is RECORDED ON THE LINK, and the Portal pill reports it.**
+  `InvestorLink.sentAt` / `sentTo` / `pinSentAt` / `sendCount` are written by
+  `shareOne` after the email actually goes. Before this, a link EXISTING and a
+  link having been EMAILED were the same pill ("SHARED"), and the only places
+  that knew the difference were the results panel that disappears, `/audit`
+  (behind a second admin password), and Postmark — so "did this investor's K-1
+  go out?" was unanswerable from the roster. The pill now reads `SENT <date>`
+  (green) / `OPENED n×` (green) / `LINK ONLY` (amber, created but never
+  emailed), and the hover carries the full stamp — `Sep 9, 2026 at 3:47 PM
+  EDT` — plus recipients and whether the PIN email went, because a send is a
+  thing you quote back to an investor on the phone.
+  **`sendCount` null means UNKNOWN, not never** — links minted before tracking
+  carry no record, and claiming "never emailed" for a K-1 that was emailed is
+  the worse error, so those read a neutral `SHARED`. New links are minted with
+  `sendCount: 0` explicitly so "known never sent" is distinguishable from
+  "predates the record". The three states live in `app/investors/sendState.ts`
+  and are pinned by `sendState.test.ts`; By Property and By Investor render the
+  SAME `SendPill`, since two views disagreeing about whether a K-1 was sent
+  would be worse than either alone.
 - **The K-1 cell says whether the FILE is there, not whether it was sent** —
   green `VIEW` (opens it) or red `MISSING` (which is also the drop target).
   Sent-ness is the Portal column's job (`NO LINK` / `SHARED` / `OPENED n×`);

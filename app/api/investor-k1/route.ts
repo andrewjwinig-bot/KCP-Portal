@@ -87,7 +87,12 @@ export async function GET(req: NextRequest) {
             .sort((a, b) => b.taxYear - a.taxYear)
             .map((d) => ({ id: d.id, taxYear: d.taxYear, filename: d.filename, published: d.published, viewCount: d.viewCount ?? 0 })),
           link: live
-            ? { id: live.id, createdAt: live.createdAt, viewCount: live.viewCount ?? 0, lastViewedAt: live.lastViewedAt ?? null, url: liveUrl, pin: live.pin ?? null }
+            ? {
+                id: live.id, createdAt: live.createdAt, viewCount: live.viewCount ?? 0,
+                lastViewedAt: live.lastViewedAt ?? null, url: liveUrl, pin: live.pin ?? null,
+                sentAt: live.sentAt ?? null, sentTo: live.sentTo ?? [],
+                pinSentAt: live.pinSentAt ?? null, sendCount: live.sendCount ?? null,
+              }
             : null,
         };
       })),
@@ -150,6 +155,12 @@ export async function GET(req: NextRequest) {
             lastViewedAt: linkByOwner.get(o.id)!.lastViewedAt ?? null,
             url: linkUrl.get(linkByOwner.get(o.id)!.id) ?? null,
             pin: linkByOwner.get(o.id)!.pin ?? null,
+            // Whether it was EMAILED, not just created — the roster pill
+            // distinguishes the two, and this is what tells it apart.
+            sentAt: linkByOwner.get(o.id)!.sentAt ?? null,
+            sentTo: linkByOwner.get(o.id)!.sentTo ?? [],
+            pinSentAt: linkByOwner.get(o.id)!.pinSentAt ?? null,
+            sendCount: linkByOwner.get(o.id)!.sendCount ?? null,
           }
         : null,
     })),

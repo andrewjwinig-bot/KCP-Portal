@@ -165,6 +165,11 @@ async function shareOne(
       revoked: false, expiresAt: null,
       pin: generatePin(),   // never optional for a K-1, and never reused between owners
       views: [], lastViewedAt: null, viewCount: 0,
+      // Explicitly 0, not absent. A link minted from here on KNOWS it has
+      // never been emailed; a link with no `sendCount` at all predates send
+      // tracking, and the roster must say "unknown" for those rather than
+      // claiming they were never sent.
+      sendCount: 0, sentAt: null, sentTo: [], pinSentAt: null,
     };
     await saveInvestorLink(link);
   }
@@ -227,6 +232,20 @@ async function shareOne(
         else pinError = "The PIN email didn't go out — give them the PIN below yourself, or they can't open the link.";
       }
     }
+  }
+
+  // Record the send ON THE LINK, so "did this actually go out, and when" is
+  // answerable from the roster forever after — not only in the results panel
+  // that disappears, the admin audit log behind a second password, or
+  // Postmark. A link EXISTING and a link having been EMAILED are different
+  // facts, and the roster has to be able to tell them apart.
+  if (sentTo.length) {
+    const at = new Date().toISOString();
+    link.sentAt = at;
+    link.sentTo = sentTo;
+    link.pinSentAt = pinSentTo.length ? at : null;
+    link.sendCount = (link.sendCount ?? 0) + 1;
+    await saveInvestorLink(link);
   }
 
   await logAudit({
