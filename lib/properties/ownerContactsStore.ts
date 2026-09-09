@@ -14,6 +14,9 @@ export interface OwnerContactOverride {
   name?: string;
   address?: string;
   email?: string;
+  /** Additional recipients — an accountant, a manager, a trustee. */
+  alsoEmail?: string[];
+  phone?: string;
   notes?: string;
 }
 
@@ -36,10 +39,16 @@ export async function saveContactOverride(key: string, override: OwnerContactOve
     delete map[k];
   } else {
     const clean: OwnerContactOverride = {};
-    for (const f of ["name", "address", "email", "notes"] as const) {
+    for (const f of ["name", "address", "email", "phone", "notes"] as const) {
       const v = (override[f] ?? "").toString().trim();
       if (v) clean[f] = v;
     }
+    // De-duplicated against each other AND the primary, so one address can't
+    // be mailed twice, and blanks from an empty form row are dropped.
+    const also = (override.alsoEmail ?? [])
+      .map((e) => (e ?? "").toString().trim())
+      .filter((e, i, a) => e && a.indexOf(e) === i && e.toLowerCase() !== (clean.email ?? "").toLowerCase());
+    if (also.length) clean.alsoEmail = also;
     if (Object.keys(clean).length === 0) delete map[k];
     else map[k] = clean;
   }

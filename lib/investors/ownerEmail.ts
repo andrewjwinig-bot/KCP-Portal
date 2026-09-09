@@ -16,13 +16,23 @@
 // to exactly one contact, and the resolved address plus WHERE it came from is
 // always shown before anything is sent. No silent guessing.
 
-import { ownerContact } from "@/lib/properties/ownerContacts";
+import { ownerContact, ownerContactExact } from "@/lib/properties/ownerContacts";
 import { INVESTOR_STRUCTURES } from "@/lib/investors/structures";
 
 export type EmailSource = "override" | "contacts" | "trustee-directory" | "none";
 
 export type ResolvedEmail = {
   email: string | null;
+  /**
+   * Additional recipients on the investor's contact record — an accountant, a
+   * manager, a trustee. They receive the same email, so each of them can open
+   * this investor's K-1: the send lists them all before it goes.
+   *
+   * Only ever read from the CONTACT record, never inferred, and never carried
+   * by the per-owner-id override, which exists to redirect one interest's mail
+   * rather than to widen who sees it.
+   */
+  alsoEmail: string[];
   source: EmailSource;
   /** Shown on the roster so staff can see why an address was chosen. */
   note: string;
@@ -83,30 +93,33 @@ export function resolveOwnerEmail(
   detailedName: string | null | undefined,
   override: string | null | undefined,
 ): ResolvedEmail {
-  const trimmed = (override ?? "").trim();
-  if (trimmed) return { email: trimmed, source: "override", note: "Entered here" };
+  // The contact record is the source of the extra recipients whichever way
+  // the primary address resolves — redirecting one interest's mail with an
+  // override must not silently drop the investor's accountant.
+  const also = ownerContact(ownerName)?.alsoEmail ?? [];
 
-  const exactContact = ownerContact(ownerName)?.email;
-  if (exactContact) return { email: exactContact, source: "contacts", note: "Owner contacts" };
+  const trimmed = (override ?? "").trim();
+  if (trimmed) return { email: trimmed, alsoEmail: also, source: "override", note: "Entered here" };
+
+  const exactContact = ownerContactExact(ownerName)?.email;
+  if (exactContact) return { email: exactContact, alsoEmail: also, source: "contacts", note: "Owner contacts" };
 
   const dir = directoryEmails();
   for (const candidate of [detailedName, ownerName]) {
     const hit = candidate ? dir.get(norm(candidate)) : undefined;
-    if (hit) return { email: hit, source: "trustee-directory", note: "Trustee directory" };
+    if (hit) return { email: hit, alsoEmail: also, source: "trustee-directory", note: "Trustee directory" };
   }
 
   // Relaxed, and only where the short name is unique across BOTH sources —
   // otherwise the key identifies nobody and we say so instead.
-  const contactEntries: [string, string][] = [];
-  // ownerContacts has no iterator; probe it with the names we actually have.
-  const c = ownerContact(shortKey(ownerName));
-  if (c?.email) contactEntries.push([shortKey(ownerName), c.email]);
-  const shortIndex = uniqueShortIndex([
-    ...contactEntries,
-    ...[...dir.entries()].map(([n, e]) => [n, e] as [string, string]),
-  ]);
-  const relaxed = shortIndex.get(shortKey(ownerName));
-  if (relaxed) return { email: relaxed, source: "trustee-directory", note: "Matched on name — check it" };
+  // `ownerContact` carries its own unambiguous short-key index, so the contact
+  // map is searched properly rather than probed with one guessed key.
+  const relaxedContact = ownerContact(ownerName)?.email;
+  if (relaxedContact) return { email: relaxedContact, alsoEmail: also, source: "contacts", note: "Matched on name — check it" };
 
-  return { email: null, source: "none", note: "No address on file" };
+  const shortIndex = uniqueShortIndex([...dir.entries()].map(([n, e]) => [n, e] as [string, string]));
+  const relaxed = shortIndex.get(shortKey(ownerName));
+  if (relaxed) return { email: relaxed, alsoEmail: also, source: "trustee-directory", note: "Matched on name — check it" };
+
+  return { email: null, alsoEmail: also, source: "none", note: "No address on file" };
 }

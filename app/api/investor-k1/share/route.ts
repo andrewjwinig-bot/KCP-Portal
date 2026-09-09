@@ -149,12 +149,18 @@ async function shareOne(
   let sentTo: string[] = [];
   if (send) {
     const overrides = await allOwnerEmails();
-    const email = resolveOwnerEmail(owner.name, owner.detailedName ?? null, overrides[owner.id]?.email).email ?? "";
+    const resolved = resolveOwnerEmail(owner.name, owner.detailedName ?? null, overrides[owner.id]?.email);
+    const email = resolved.email ?? "";
+    // An investor can nominate an accountant or manager to receive what they
+    // receive. Everyone on the list gets the SAME link, so `sentTo` records all
+    // of them and the results panel shows the list — a K-1 reaching a second
+    // person is a deliberate act, never a silent one.
+    const recipients = [email, ...resolved.alsoEmail].filter(Boolean);
     if (!email) mailError = `No email on file for ${owner.name}. Copy the link and send it yourself.`;
     else if (!isMailConfigured()) mailError = "Email isn't configured, so the link was created but not sent.";
     else {
       const ok = await sendMail({
-        to: email,
+        to: recipients.join(", "),
         subject: published.length > 1
           ? `Your ${published[0].taxYear} Schedule K-1s — Korman Commercial Properties`
           : `Your ${published[0].taxYear} Schedule K-1 — ${propName(propertyCode)}`,
@@ -174,7 +180,7 @@ async function shareOne(
           "— Korman Commercial Properties",
         ].join("\n"),
       });
-      if (ok) sentTo = [email];
+      if (ok) sentTo = recipients;
       else mailError = "The email failed to send. The link is created — copy it and send it yourself.";
     }
   }
