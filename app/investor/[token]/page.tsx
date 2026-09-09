@@ -161,10 +161,17 @@ function Documents({ token }: { token: string }) {
           {data.documents.length < 2 && data.owner.heldAs && data.owner.heldAs !== data.owner.name
             ? <> · <span style={{ fontStyle: "italic" }}>{data.owner.heldAs}</span></> : null}
         </div>
+        {/* The link belongs to the INVESTOR, not to a partnership, so this
+            describes the documents it actually carries. It used to name
+            `link.propertyCode` — where the link happened to be minted — which
+            labelled a lone K-1 with the wrong partnership whenever the two
+            differed. */}
         <div className="muted" style={{ fontSize: 14, marginTop: 3 }}>
-          {(data.propertyCount ?? 1) > 1
+          {(data.propertyCount ?? 0) > 1
             ? `${data.propertyCount} partnerships · every K-1 you hold with us is below`
-            : `${data.property.code} — ${data.property.name}`}
+            : data.documents[0]
+              ? `${data.documents[0].propertyCode} — ${data.documents[0].propertyName}`
+              : "Every K-1 you hold with us appears here."}
         </div>
 
         {data.documents.length === 0 ? (
