@@ -291,6 +291,22 @@ preferences.
   end investors. It shipped and was reverted. A missing property's K-1 roster
   can only come from the partnership's own K-1 set or partnership agreement,
   hand-keyed like every other entry.
+- **A property's ownership table SECTIONS when a partner is itself a
+  partnership** (`app/investors/ownerSections.ts`, pinned by its own test).
+  The entity heads a band carrying its share of the property — and its own K-1
+  cell, because 0800 issues one to Hyman Korman Co. as much as to the fourteen
+  trusts — with its investors alphabetically beneath it; then the partners who
+  hold the property directly follow under an "Other investors" band carrying
+  their combined share. That is how the K-1 schedule prints, and a corporate
+  partner read in alphabetical order between two individuals loses the fact
+  that twenty-four people sit behind it. Where every partner is a person, the
+  table stays one flat list — nothing else changed.
+  **Two layout traps, both hit while building this:** the detail `<td>` needs
+  `maxWidth: 0` or a wide inner table stretches the roster above it off the
+  card instead of scrolling in its own wrapper; and the sections render is the
+  `<tbody>`'s contents, not a `<tbody>` — nesting a second one makes the
+  browser hoist the rows out and the whole column model collapses (the select
+  column went to 779px).
 - **Ownership is TIERED, and the roster models both tiers.** A partner can
   itself be a partnership: `PropertyOwner.subOwners` carries that entity's own
   partners, and **their `ownerPct` is a share of THAT OWNER, not of the
