@@ -35,7 +35,7 @@ type Row = {
   sdBreakdown?: { key: string; name: string; amount: number }[];
   billsMTD?: number; weeklyBills?: { wednesday: string; amount: number }[];
   reserves?: number; reservesAuto?: number; reservesOverridden?: boolean;
-  interest?: { opening: number; rate: number; amount: number; fee: number };
+  interest?: { opening: number; rate: number; amount: number; fee: number; days: number };
 };
 type Payload = { year: number; period: number; ytd: boolean; buckets: Bucket[]; rows: Row[]; canEdit: boolean; canEditOpening: boolean; ym: string; estimateAsOf: string | null; gapMonthLabels: string[]; latestPostedPeriod: number; lastImport: { at: string; by: string | null } | null; apImport: { at: string; by: string | null } | null; unmapped?: { key: string; name: string; account: string; amount: number }[]; generatedAt: string };
 
@@ -155,7 +155,7 @@ export default function CashSheetPage() {
   // Weekly AvidXchange bills drill-down (per-Wednesday detail behind a row's Avid Bills).
   const [billsModal, setBillsModal] = useState<{ name: string; weekly: { wednesday: string; amount: number }[]; total: number } | null>(null);
   // Interest-bearing accounts: clicking Receipts shows the rate calc, not a GL drill.
-  const [interestModal, setInterestModal] = useState<{ name: string; opening: number; rate: number; amount: number; fee: number } | null>(null);
+  const [interestModal, setInterestModal] = useState<{ name: string; opening: number; rate: number; amount: number; fee: number; days: number } | null>(null);
   // Bucket breakdown behind a summary cell (Cash In / Cash Out / Net Change) — the
   // 8 categories, each still drillable to its GL accounts, so summary views stay traceable.
   const [bucketModal, setBucketModal] = useState<{ row: Row; filter: "in" | "out" | "all" } | null>(null);
@@ -186,7 +186,7 @@ export default function CashSheetPage() {
   // modal): interest accounts show the rate calc, pooled SD movement isn't
   // drillable, everything else opens the GL accounts behind it.
   const onBucketClick = useCallback((row: Row, code: number, label: string) => {
-    if (code === 1 && row.interest) { setInterestModal({ name: row.name, opening: row.interest.opening, rate: row.interest.rate, amount: row.interest.amount, fee: row.interest.fee }); return; }
+    if (code === 1 && row.interest) { setInterestModal({ name: row.name, opening: row.interest.opening, rate: row.interest.rate, amount: row.interest.amount, fee: row.interest.fee, days: row.interest.days }); return; }
     if (code === 8 && row.sd) return; // pooled SD movement — no GL on this key
     openDrill(row, code, label);
   }, [openDrill]);
@@ -705,7 +705,7 @@ export default function CashSheetPage() {
                         return (
                           <td key={b.code} style={{ ...numCell, color: v < 0 ? "#b91c1c" : "#15803d" }}>
                             <button type="button"
-                              onClick={() => isInterest ? setInterestModal({ name: r.name, opening: r.interest!.opening, rate: r.interest!.rate, amount: r.interest!.amount, fee: r.interest!.fee }) : openDrill(r, b.code, b.label)}
+                              onClick={() => isInterest ? setInterestModal({ name: r.name, opening: r.interest!.opening, rate: r.interest!.rate, amount: r.interest!.amount, fee: r.interest!.fee, days: r.interest!.days }) : openDrill(r, b.code, b.label)}
                               title={isInterest ? "Show the interest calculation" : "Show the GL accounts behind this"}
                               style={{ background: "none", border: "none", padding: 0, font: "inherit", color: "inherit", cursor: "pointer", textDecoration: "none" }}
                               onMouseEnter={(e) => (e.currentTarget.style.textDecoration = "underline")}
@@ -884,8 +884,12 @@ export default function CashSheetPage() {
               <table>
                 <tbody>
                   <tr><td style={{ textAlign: "left" }}>Opening balance</td><td style={numCell}>{money0(interestModal.opening)}</td></tr>
-                  <tr><td style={{ textAlign: "left" }}>Annual rate</td><td style={numCell}>{(interestModal.rate * 100).toFixed(2)}%</td></tr>
-                  <tr><td style={{ textAlign: "left" }}>Monthly factor</td><td style={numCell}>÷ 12 = {(interestModal.rate / 12 * 100).toFixed(4)}%</td></tr>
+                  <tr><td style={{ textAlign: "left" }}>Annual rate (nominal)</td><td style={numCell}>{(interestModal.rate * 100).toFixed(2)}%</td></tr>
+                  {/* What the statement calls "annual percentage yield earned":
+                      the same nominal rate, compounded daily. 3.15% reads 3.20%
+                      there, which is not a different rate. */}
+                  <tr><td style={{ textAlign: "left" }}>Yield (APY, compounded daily)</td><td style={numCell}>{((Math.pow(1 + interestModal.rate / 365, 365) - 1) * 100).toFixed(2)}%</td></tr>
+                  <tr><td style={{ textAlign: "left" }}>Daily rate × {interestModal.days} days</td><td style={numCell}>{(interestModal.rate / 365 * 100).toFixed(5)}% → {((Math.pow(1 + interestModal.rate / 365, interestModal.days) - 1) * 100).toFixed(4)}%</td></tr>
                   <tr style={interestModal.fee ? undefined : { borderTop: "1px solid var(--border)", fontWeight: 800 }}>
                     <td style={{ textAlign: "left" }}>Interest this month</td>
                     <td style={{ ...numCell, color: "#15803d", fontWeight: interestModal.fee ? 400 : 800 }}>{money0(interestModal.amount)}</td>
@@ -903,7 +907,7 @@ export default function CashSheetPage() {
               </table>
             </div>
             <div className="muted small" style={{ marginTop: 10 }}>
-              {money0(interestModal.opening)} × {(interestModal.rate * 100).toFixed(2)}% ÷ 12 = <b>{money0(interestModal.amount)}</b> interest{interestModal.fee ? <>, less the {money0(interestModal.fee)} statement charge</> : null} — booked as Receipts From Operations{interestModal.fee ? " / Operating Expenses" : ""}.
+              {money0(interestModal.opening)} compounded daily at {(interestModal.rate * 100).toFixed(2)}% ÷ 365 over {interestModal.days} days = <b>{money0(interestModal.amount)}</b> interest{interestModal.fee ? <>, less the {money0(interestModal.fee)} statement charge</> : null} — booked as Receipts From Operations{interestModal.fee ? " / Operating Expenses" : ""}. Accrued on the actual days in the month, which is the basis the statement&rsquo;s yield is quoted on.
             </div>
           </div>
         </div>

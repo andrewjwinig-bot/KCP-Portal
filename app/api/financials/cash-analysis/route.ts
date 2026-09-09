@@ -101,28 +101,70 @@ const SD_ACCOUNTS: SdAccount[] = [
 ];
 const SD_KEYS = new Set(SD_ACCOUNTS.map((s) => s.key.toUpperCase()));
 const NI_FUND_KEYS = new Set(["PNIPLX", ...FUND_BUILDINGS.PNIPLX].map((k) => k.toUpperCase()));
+/** Days in a 1-based calendar month, so February and a leap year are real. */
+function daysInMonth(year: number, month: number): number {
+  return new Date(Date.UTC(year, month, 0)).getUTCDate();
+}
+
+/**
+ * What a month of interest is worth on a balance, the way the bank works it
+ * out: compounded DAILY over the actual days in that month, `rate / 365` a day.
+ *
+ * It used to be `rate ÷ 12`, which treats every month as 30.4 days. That is
+ * wrong in both directions — light in a 31-day month, heavy in February — and
+ * it under-books the year, because monthly compounding on a 3.15% nominal rate
+ * yields 3.1961% against the bank's daily 3.2000%. The drift is small per month
+ * and relentless: the Leonard Korman Trust had to be re-anchored to its
+ * statement twice, the second time $420 out.
+ *
+ * Actual/365 is what the statement's "annual percentage yield earned" is quoted
+ * on, so a full year now accrues exactly (1 + rate/365)^365 − 1 and the balance
+ * tracks the bank on its own between statements.
+ */
+function monthlyGrowth(rate: number, year: number, month: number): number {
+  return Math.pow(1 + rate / 365, daysInMonth(year, month)) - 1;
+}
+
+/** Step (year, month) forward one calendar month. */
+function nextMonth(year: number, month: number): [number, number] {
+  return month === 12 ? [year + 1, 1] : [year, month + 1];
+}
+
 /** SD opening seeded from a known anchor balance, compounded forward at SD_RATE
  *  (interest only — deposit movement is added per month, not carried). */
 function sdOpeningFromAnchor(anchor: { year: number; month: number; balance: number }, year: number, period: number): number {
-  const mr = SD_RATE / 12;
   const target = year * 12 + period;
-  const start = anchor.year * 12 + anchor.month;
   let bal = anchor.balance;
-  for (let m = start; m < target; m++) bal = bal + bal * mr;
+  let [y, m] = [anchor.year, anchor.month];
+  while (y * 12 + m < target) {
+    bal += bal * monthlyGrowth(SD_RATE, y, m);
+    [y, m] = nextMonth(y, m);
+  }
   return Math.round(bal);
 }
-/** Opening, the month's gross interest (opening × rate ÷ 12), any recurring fee,
- *  and ending — whole dollars, compounded from the anchor net of the fee. */
-function interestMonth(acct: InterestAccount, year: number, period: number): { opening: number; interest: number; fee: number; ending: number } {
-  const mr = acct.rate / 12;
+
+/**
+ * Opening, the month's gross interest, any recurring fee, and ending — whole
+ * dollars, compounded from the anchor net of the fee.
+ *
+ * These accounts have no GL feed and, by the owner's account, no deposits or
+ * withdrawals: interest in, a fixed charge out, nothing else. So the balance is
+ * fully determined by the anchor, and the only thing that keeps it honest is
+ * accruing the way the bank does.
+ */
+function interestMonth(acct: InterestAccount, year: number, period: number): { opening: number; interest: number; fee: number; days: number } & { ending: number } {
   const fee = acct.monthlyFee ?? 0;
   const target = year * 12 + period;
-  const start = acct.anchor.year * 12 + acct.anchor.month;
   let openingRaw = acct.anchor.balance;
-  for (let m = start; m < target; m++) openingRaw = openingRaw + openingRaw * mr - fee; // compound net of fee
+  let [y, m] = [acct.anchor.year, acct.anchor.month];
+  while (y * 12 + m < target) {
+    openingRaw += openingRaw * monthlyGrowth(acct.rate, y, m) - fee; // compound net of fee
+    [y, m] = nextMonth(y, m);
+  }
   const opening = Math.round(openingRaw);
-  const interest = Math.round(opening * mr);
-  return { opening, interest, fee, ending: opening + interest - fee };
+  const days = daysInMonth(year, period);
+  const interest = Math.round(opening * monthlyGrowth(acct.rate, year, period));
+  return { opening, interest, fee, days, ending: opening + interest - fee };
 }
 
 type Estimate = { months: number; revenue: number; bills: number; mortgage: number; estimatedCash: number | null; latestEnding: number | null };
@@ -164,7 +206,7 @@ type Row = {
    *  pooled into it this month — for the per-property breakdown modal. */
   sdBreakdown?: { key: string; name: string; amount: number }[];
   /** For interest-bearing accounts: the month's interest calc, for the modal. */
-  interest?: { opening: number; rate: number; amount: number; fee: number };
+  interest?: { opening: number; rate: number; amount: number; fee: number; days: number };
   breakdown?: { key: string; name: string; startingCash: number | null; netChange: number; endingCash: number | null; byBucket: Record<CashFlowCode, number> }[];
 };
 
@@ -383,7 +425,7 @@ export async function GET(req: Request) {
       scheduledDebt: 0, debtExpected: false, debtPosted: false, debtMissing: false,
       latestGLMonth: period, estimate: null,
       readOnly: true, mm: acct.mm, bankCodes: acct.bankCodes, bankLast4: acct.bankLast4,
-      interest: { opening: t.opening, rate: acct.rate, amount: t.interest, fee: t.fee },
+      interest: { opening: t.opening, rate: acct.rate, amount: t.interest, fee: t.fee, days: t.days },
     });
     // Drop this account from the parent operating row's chips so it shows once.
     if (acct.parent && acct.bankLast4) {
@@ -433,7 +475,7 @@ export async function GET(req: Request) {
       latestGLMonth: period, estimate: null,
       sd: true, readOnly: anchored != null, bankCodes: [sd.bankCode], bankLast4: sd.bankLast4,
       sdBreakdown: contrib.length ? contrib : undefined,
-      interest: { opening: opening ?? 0, rate: SD_RATE, amount: interest, fee: 0 },
+      interest: { opening: opening ?? 0, rate: SD_RATE, amount: interest, fee: 0, days: daysInMonth(year, period) },
     });
     // The deposit cash lives in this account, so hide it from the operating row's
     // chips (the NI LLC fund row surfaces x7448 via its buildings; 2010 via 2010).
