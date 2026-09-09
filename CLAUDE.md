@@ -29,7 +29,15 @@ The user has flagged repeated drift in pill / chip / badge styling across new pa
 **Before building ANY new UI, look at how existing pages already do it and match them — the user has repeatedly flagged that new pages drift from the established look. Reuse the shared component, don't reinvent. Known shared primitives:**
 - **Downloads/exports** → `DownloadMenu` from `app/components/DownloadMenu.tsx` (the "Download ▾" dropdown used by Operating Statements, Reprojections, Budgets). Items take `href` (link) or `onClick` (client-side Excel/PDF). Never hand-roll separate per-format download buttons.
 - **Collapsible "accounts that didn't fit" lists** → `AccountListCard` from `app/components/AccountListCard.tsx` (collapsed by default, Account/Name/Amount table + total) — shared by Operating Statements ("Non-operating accounts") and the Cash Sheet ("Accounts not mapped to a bucket").
-- **Sharing a private link** → `ShareLinkCard` from `app/components/ShareLinkCard.tsx` — the "Share with tenant" popover: a link box with Copy, the access PIN with its own Copy, view count, an email action behind a deliberate confirm step, and Revoke. Used by the CAM statement (`TenantShareLink`) and the K-1 roster; a third share flow should use it too rather than growing its own. The component owns the look and interaction; each caller passes its own actions, because a tenant link and a K-1 link are different objects (`pinOptional={false}` for a K-1, whose PIN is mandatory). **Always offer both ways out**: copy the link and send it yourself, or have the app email it — copying mutates nothing, which is how you demo or test a link without touching an investor's stored data.
+- **Sharing a private link** → `ShareLinkCard` from `app/components/ShareLinkCard.tsx` — a centred MODAL (portal-rendered, since the trigger usually sits in a scrolling table cell that would crop a popover): a link box with Copy, the access PIN with its own Copy, view count, an email action behind a deliberate confirm step, and Revoke. Used by the CAM statement (`TenantShareLink`) and the K-1 roster; a third share flow should use it too rather than growing its own. The component owns the look and interaction; each caller passes its own actions, because a tenant link and a K-1 link are different objects (`pinOptional={false}` for a K-1, whose PIN is mandatory). **Always offer both ways out**: copy the link and send it yourself, or have the app email it — copying mutates nothing, which is how you demo or test a link without touching an investor's stored data.
+- **Sending a link to a tenant or investor is ALWAYS behind a confirm that
+  names every recipient**, one address per line, plus a reminder that the PIN
+  is not emailed. Copying a link and mailing it are one click apart in the same
+  dialog, so the send cannot be a click you make by accident. **Minting a link
+  and emailing it must never be the same call**: `useK1`'s investor `send`
+  takes an explicit flag, because for a while the By Investor card's "Create
+  link" posted `send: true` and emailed the investor with no confirmation at
+  all.
 - **Dropdowns and text inputs are styled ON THE ELEMENT, in `globals.css`.**
   Not per page, and not by a wrapper component — styling a native control page
   by page never held: an audit found **68 of the app's 78 `<select>`s, across 34
