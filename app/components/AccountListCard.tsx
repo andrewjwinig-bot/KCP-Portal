@@ -18,6 +18,8 @@ export function AccountListCard({
   format,
   defaultOpen = false,
   amountLabel = "YTD Actual",
+  action,
+  actionLabel = "",
 }: {
   title: string;
   description: string;
@@ -26,6 +28,11 @@ export function AccountListCard({
   format: (n: number) => string;
   defaultOpen?: boolean;
   amountLabel?: string;
+  /** Optional control rendered in a trailing column — the balance sheet uses
+   *  it to reassign an account it could not place. Read-only callers omit it
+   *  and the column does not appear. */
+  action?: (row: AccountListRow) => React.ReactNode;
+  actionLabel?: string;
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const total = rows.reduce((s, r) => s + r.amount, 0);
@@ -61,6 +68,7 @@ export function AccountListCard({
                 <th style={{ textAlign: "left", whiteSpace: "nowrap" }}>Account</th>
                 <th style={{ textAlign: "left", width: "100%" }}>Name</th>
                 <th style={numCell}>{amountLabel}</th>
+                {action && <th style={{ textAlign: "right", whiteSpace: "nowrap" }}>{actionLabel}</th>}
               </tr>
             </thead>
             <tbody>
@@ -69,12 +77,14 @@ export function AccountListCard({
                   <td style={{ fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}><code style={{ fontSize: 12 }}>{r.account}</code></td>
                   <td>{r.name || <span className="muted">—</span>}</td>
                   <td style={numCell}>{format(r.amount)}</td>
+                  {action && <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>{action(r)}</td>}
                 </tr>
               ))}
               <tr style={{ fontWeight: 800 }}>
                 <td>Total</td>
                 <td />
                 <td style={{ ...numCell, fontWeight: 900 }}>{format(total)}</td>
+                {action && <td />}
               </tr>
             </tbody>
           </table>
