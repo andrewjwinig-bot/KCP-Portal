@@ -708,7 +708,26 @@ export function ShareLinkCard({
                       browser's user-activation window and is silently blocked,
                       so only the first draft ever appeared. Two buttons is also
                       the honest shape — you are preparing two emails. */}
-                  {draft && onOpenInMail && (
+                  {/* NOT offered before the link exists.
+                      With no link the preview can only show a placeholder URL,
+                      so the draft would carry a dead link — and nothing would
+                      be published, so even a real link would open an empty
+                      page. Creating the link is what releases the documents,
+                      and it cannot be folded into this click: a `mailto:`
+                      opened after an await has lost its user activation and
+                      the browser blocks it. So: create first, then send. */}
+                  {draft && onOpenInMail && confirmSend === PENDING_LINK && (
+                    <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px dashed rgba(180,83,9,0.35)" }}>
+                      <div style={{ ...SECTION, marginBottom: 7 }}>Or send it yourself</div>
+                      <div className="muted" style={{ fontSize: 12.5 }}>
+                        Close this and choose <b>&ldquo;Just create the link&rdquo;</b> first — that is what
+                        makes the K-1 readable and produces the real link. Then reopen this to get
+                        the drafts.
+                      </div>
+                    </div>
+                  )}
+
+                  {draft && onOpenInMail && confirmSend !== PENDING_LINK && (
                     <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px dashed rgba(180,83,9,0.35)" }}>
                       <div style={{ ...SECTION, marginBottom: 7 }}>Or send it yourself</div>
                       <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
