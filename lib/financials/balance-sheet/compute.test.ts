@@ -281,3 +281,67 @@ describe("classifier", () => {
     expect(classifyAccount("not-an-account")).toBeNull();
   });
 });
+
+describe("what the balance proof does NOT prove", () => {
+  it("still balances when an account is on the WRONG SIDE — by construction", () => {
+    // This is the honest limit of the check, and it is worth a test so nobody
+    // reads the green pill as more than it is. Assets are the GL's signed
+    // balances and liabilities/capital are those balances negated, so the
+    // difference works out to the sum of EVERY signed balance — which a
+    // double-entry ledger makes zero no matter which section each account was
+    // filed under. Move the mortgage into prepaid expenses and the sheet still
+    // reports "in balance"; total assets and total liabilities are simply both
+    // wrong by the same amount.
+    const wrong = bs({}, 12, { "2720-8501": "prepaid" });
+    expect(wrong.proof.difference).toBe(0);
+    expect(wrong.proof.balances).toBe(true);
+
+    const right = bs();
+    expect(wrong.totalAssets).not.toBe(right.totalAssets);
+    expect(groupTotal(wrong.liabilities, "mortgage")).toBe(0);
+
+    // The proof catches OMISSION. Placement is caught by the ledger tie-out and
+    // by reading the account names — not by this.
+  });
+});
+
+describe("tie-out to the ledger's own printed ending balances", () => {
+  const withReported = (over: Record<string, number> = {}): BsGl => {
+    const g = gl();
+    const ytdTotal: Record<string, number> = {};
+    for (const code of Object.keys(g.monthly)) ytdTotal[code] = balanceAt(g, code, 12);
+    return { ...g, ytdTotal: { ...ytdTotal, ...over } };
+  };
+
+  it("agrees when the opening plus the nets lands on the printed total", () => {
+    // The two are derived differently — one is addition here, the other is a
+    // figure Skyline printed — so agreement checks this code's arithmetic
+    // against an outside source rather than against itself.
+    const s = computeBalanceSheet(withReported(), { key: "2300", year: 2025, asOfMonth: 12 });
+    expect(s.tieOut?.mismatches).toEqual([]);
+    expect(s.tieOut!.checked).toBeGreaterThan(5);
+    expect(s.usable).toBe(true);
+  });
+
+  it("names the account, both figures and the gap when one does not tie", () => {
+    const s = computeBalanceSheet(withReported({ "0110-0000": 1_095_000 }), { key: "2300", year: 2025, asOfMonth: 12 });
+    expect(s.tieOut!.mismatches).toEqual([
+      { code: "0110-0000", name: "Cash-Operating", computed: 1_096_000, reported: 1_095_000, diff: 1_000 },
+    ]);
+    expect(s.usable).toBe(false);
+    expect(s.warnings.join(" ")).toMatch(/not match the ending balance/i);
+  });
+
+  it("does not check a mid-year sheet against the year-end column", () => {
+    // A June balance is not meant to equal the ledger's December total, so
+    // comparing them would report a mismatch that is simply correct.
+    const s = computeBalanceSheet(withReported(), { key: "2300", year: 2025, asOfMonth: 6 });
+    expect(s.tieOut).toBeNull();
+    expect(s.usable).toBe(true);
+  });
+
+  it("is null, not a false pass, on an upload with no printed totals", () => {
+    const s = bs();
+    expect(s.tieOut).toBeNull();
+  });
+});

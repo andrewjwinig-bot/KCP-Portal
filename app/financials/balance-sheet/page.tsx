@@ -20,7 +20,7 @@ import { Select, YearSelect } from "@/app/components/YearSelect";
 import { DownloadMenu } from "@/app/components/DownloadMenu";
 import { AccountListCard } from "@/app/components/AccountListCard";
 import { HoverCard } from "@/app/components/HoverCard";
-import { Pill, StatPill, TONE_GREEN, TONE_RED, TONE_AMBER } from "@/app/components/Pill";
+import { Pill, StatPill, TONE_GREEN, TONE_RED, TONE_AMBER, TONE_NEUTRAL } from "@/app/components/Pill";
 import { th, td, thL, tdL } from "@/app/components/tableStyles";
 
 const CARD_TITLE: React.CSSProperties = { fontSize: 15, fontWeight: 800, letterSpacing: "0.01em", color: "var(--text)" };
@@ -51,11 +51,15 @@ type Sheet = {
   unclassified: AccountRow[];
   proof: { assets: number; liabilitiesAndEquity: number; difference: number; balances: boolean };
   coverage: { startMonth: number; through: number; asOfCovered: boolean };
+  tieOut: { checked: number; mismatches: { code: string; name: string; computed: number; reported: number; diff: number }[] } | null;
   warnings: string[]; usable: boolean;
 };
 type DebtCheck = {
-  loans: { id: string; lender: string; collateral: string; projectedBalance: number }[];
-  scheduleTotal: number; ledgerTotal: number;
+  loans: { id: string; lender: string; collateral: string; projectedBalance: number | null; anchorDate: string }[];
+  comparable: boolean;
+  scheduleTotal: number | null;
+  ledgerTotal: number;
+  earliestDate: string;
 } | null;
 type Payload = {
   sheet: Sheet | null; groups: GroupDef[]; overrides?: Record<string, string>;
@@ -140,7 +144,11 @@ export default function BalanceSheetPage() {
           </Select>
           {year != null && <YearSelect value={year} years={years} onChange={setYear} suffix="" tone="neutral" />}
           <Select value={String(month)} onChange={(v) => setMonth(Number(v))} tone="neutral" aria-label="As of month">
-            {MONTHS.map((m, i) => <option key={m} value={i + 1}>as of {m} 30/31</option>)}
+            {MONTHS.map((m, i) => (
+              <option key={m} value={i + 1}>
+                as of {m} {new Date(Date.UTC(year ?? 2025, i + 1, 0)).getUTCDate()}
+              </option>
+            ))}
           </Select>
           <DownloadMenu items={downloads} disabled={!sheet} />
         </div>
@@ -179,6 +187,7 @@ export default function BalanceSheetPage() {
           </div>
 
           <ProofCard sheet={sheet} />
+          <TieOutCard sheet={sheet} />
 
           <div style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))" }}>
             <SectionCard
@@ -308,6 +317,71 @@ function ProofCard({ sheet }: { sheet: Sheet }) {
   );
 }
 
+/**
+ * The second, independent check — and the one that actually validates the
+ * FIGURES. The balance proof only shows nothing was left off the sheet; it
+ * holds even if an account is on the wrong side. This compares every account's
+ * balance to the ending balance the general ledger itself prints.
+ */
+function TieOutCard({ sheet }: { sheet: Sheet }) {
+  const t = sheet.tieOut;
+  if (!t) {
+    return (
+      <div className="card" style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+        <Pill tone={TONE_NEUTRAL}>NOT CHECKED</Pill>
+        <div style={{ fontSize: 13 }} className="muted">
+          This GL upload carries no printed ending balances to check against, or the sheet is dated
+          mid-year — where the ledger's year-end column is not the figure shown, so disagreement
+          would be correct.
+        </div>
+      </div>
+    );
+  }
+  const ok = t.mismatches.length === 0;
+  return (
+    <div
+      className="card"
+      style={{
+        borderColor: ok ? "rgba(22,163,74,0.35)" : "rgba(217,119,6,0.4)",
+        background: ok ? "rgba(22,163,74,0.05)" : "rgba(217,119,6,0.06)",
+        display: "grid", gap: ok ? 0 : 10,
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+        <Pill tone={ok ? TONE_GREEN : TONE_AMBER}>{ok ? "TIES TO THE LEDGER" : `${t.mismatches.length} DO NOT TIE`}</Pill>
+        <div style={{ fontSize: 13 }}>
+          {ok
+            ? `All ${t.checked} account balances equal the ending balance the general ledger prints for them.`
+            : `${t.mismatches.length} of ${t.checked} account balances differ from the ledger's own printed ending balance.`}
+        </div>
+      </div>
+      {!ok && (
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%" }}>
+            <thead>
+              <tr>
+                <th style={thL}>Account</th><th style={thL}>Name</th>
+                <th style={th}>On this sheet</th><th style={th}>Ledger prints</th><th style={th}>Difference</th>
+              </tr>
+            </thead>
+            <tbody>
+              {t.mismatches.map((m) => (
+                <tr key={m.code}>
+                  <td style={tdL}><code style={{ fontSize: 12 }}>{m.code}</code></td>
+                  <td style={tdL}>{m.name || "—"}</td>
+                  <td style={td}>{money0(m.computed)}</td>
+                  <td style={td}>{money0(m.reported)}</td>
+                  <td style={{ ...td, color: "#b45309", fontWeight: 700 }}>{money0(m.diff)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** One half of the sheet: its groups, each expanding to the accounts behind it. */
 function SectionCard({
   title, groups, total, totalLabel, extraRow,
@@ -381,17 +455,32 @@ function GroupRows({ group, open, toggle }: { group: GroupRow; open: boolean; to
  * right, and a gap usually means a principal payment posted to the wrong month.
  */
 function DebtCheckCard({ check, asOf }: { check: NonNullable<DebtCheck>; asOf: string }) {
-  const diff = Math.round((check.ledgerTotal - check.scheduleTotal) * 100) / 100;
-  const agrees = Math.abs(diff) < 1;
+  const diff = check.comparable && check.scheduleTotal != null
+    ? Math.round((check.ledgerTotal - check.scheduleTotal) * 100) / 100
+    : null;
+  const agrees = diff != null && Math.abs(diff) < 1;
   return (
     <div className="card" style={{ display: "grid", gap: 10 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
         <div style={CARD_TITLE}>Mortgage — ledger vs. debt schedule</div>
-        <Pill tone={agrees ? TONE_GREEN : TONE_AMBER}>{agrees ? "AGREES" : `OFF BY ${money0(Math.abs(diff))}`}</Pill>
+        {diff == null
+          ? <Pill tone={TONE_NEUTRAL}>NOT COMPARABLE</Pill>
+          : <Pill tone={agrees ? TONE_GREEN : TONE_AMBER}>{agrees ? "AGREES" : `OFF BY ${money0(Math.abs(diff))}`}</Pill>}
       </div>
       <div className="muted small">
-        Two independent records of the same balance as of {asOf}: the general ledger, and the amortization
-        schedule maintained from the lender's statements.
+        {diff == null ? (
+          <>
+            The debt schedule is anchored to a balance read off a lender statement dated{" "}
+            <b>{check.earliestDate}</b> and only projects forward from there, so it cannot state a
+            balance as of {asOf}. <b>Nothing is being compared</b> — check the ledger figure against
+            the lender's own statement for this date instead.
+          </>
+        ) : (
+          <>
+            Two independent records of the same balance as of {asOf}: the general ledger, and the
+            amortization schedule maintained from the lender's statements.
+          </>
+        )}
       </div>
       <div style={{ overflowX: "auto" }}>
         <table style={{ width: "100%" }}>
@@ -401,14 +490,19 @@ function DebtCheckCard({ check, asOf }: { check: NonNullable<DebtCheck>; asOf: s
           <tbody>
             <tr>
               <td style={tdL}>General ledger</td>
-              <td style={tdL} className="muted">Mortgage payable accounts</td>
+              <td style={tdL} className="muted">Mortgage payable accounts, as of {asOf}</td>
               <td style={td}>{money0(check.ledgerTotal)}</td>
             </tr>
             {check.loans.map((l) => (
               <tr key={l.id}>
                 <td style={tdL}>Debt schedule</td>
-                <td style={tdL} className="muted">{l.lender}{l.collateral ? ` — ${l.collateral}` : ""}</td>
-                <td style={td}>{money0(l.projectedBalance)}</td>
+                <td style={tdL} className="muted">
+                  {l.lender}{l.collateral ? ` — ${l.collateral}` : ""}
+                  {l.projectedBalance == null && <> · starts {l.anchorDate}</>}
+                </td>
+                <td style={{ ...td, color: l.projectedBalance == null ? "var(--muted)" : undefined }}>
+                  {l.projectedBalance == null ? "not available for this date" : money0(l.projectedBalance)}
+                </td>
               </tr>
             ))}
           </tbody>
