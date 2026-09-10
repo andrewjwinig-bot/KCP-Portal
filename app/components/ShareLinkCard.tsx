@@ -138,6 +138,16 @@ export type ShareLinkCardProps = {
    * investor's tax document.
    */
   loadDraft?: (id: string) => Promise<EmailDraft>;
+  /**
+   * Hand the composed draft to the user's own mail client instead of sending
+   * it from the app.
+   *
+   * The same message either way — the caller opens a `mailto:` built from this
+   * draft. Worth offering because a message sent from a real mailbox inherits
+   * that domain's deliverability, lands in Sent Items, and can be replied to;
+   * the app sending is still the right default for a batch.
+   */
+  onOpenInMail?: (draft: EmailDraft) => void;
   onRevoke?: (id: string) => void;
   /** Omit to hide the PIN controls entirely (a K-1's PIN is not optional). */
   onManagePin?: (id: string, action: "reset" | "remove") => void;
@@ -163,7 +173,7 @@ export type ShareLinkCardProps = {
 export function ShareLinkCard({
   buttonLabel, title, subject, description, links, busy = false, error = null,
   recipients = [], sendLabel = "Email it", sentTo = null,
-  onOpen, onCreate, onSend, onRevoke, onManagePin, loadDraft,
+  onOpen, onCreate, onSend, onRevoke, onManagePin, loadDraft, onOpenInMail,
   pinOptional = true, small = false, align = "right", viewAsHref, recipientSlot, emptyNote,
   secondaryRecipients = [],
 }: ShareLinkCardProps) {
@@ -675,6 +685,22 @@ export function ShareLinkCard({
                       {busy || sending ? "Sending…" : `Yes, ${sendLabel.toLowerCase()}`}
                     </button>
                     <button onClick={closeConfirm} disabled={sending} className="btn" style={{ fontSize: 13, fontWeight: 700, padding: "9px 16px" }}>Cancel</button>
+
+                    {/* Send it from your OWN mailbox instead.
+                        The same message, handed to Outlook as a draft: it goes
+                        out under your address rather than the app's, lands in
+                        your Sent Items — a better record than anything the app
+                        keeps — and the investor can simply reply to you. */}
+                    {draft && onOpenInMail && (
+                      <button
+                        onClick={() => { onOpenInMail(draft); closeConfirm(); }}
+                        disabled={sending || recipients.length === 0}
+                        className="btn"
+                        title="Opens a draft in your mail app — nothing is sent until you send it"
+                        style={{ fontSize: 13, fontWeight: 700, padding: "9px 16px", marginLeft: "auto", color: BRAND }}>
+                        Open in Outlook instead
+                      </button>
+                    )}
                   </div>
                 </div>
               )}

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { composeK1ShareEmail, composeK1PinEmail, applyK1EmailEdit } from "./k1ShareEmail";
+import { composeK1ShareEmail, composeK1PinEmail, applyK1EmailEdit, mailtoUrl } from "./k1ShareEmail";
 
 const URL = "https://portal.kormancommercial.com/investor/tok123";
 const base = { ownerName: "Lawrence Isard", propertyName: "Parkwood SC", taxYear: 2025, url: URL };
@@ -92,5 +92,36 @@ describe("the two messages are disjoint", () => {
     expect(link.body).toContain(URL);
     expect(pinMail.body).toContain(pin);
     expect(pinMail.body).not.toContain(URL);
+  });
+});
+
+describe("mailtoUrl", () => {
+  const email = composeK1ShareEmail({ ...base, documentCount: 1 });
+
+  it("opens the SAME message the portal would send", () => {
+    // Not a second wording — the Outlook route and the portal route must not
+    // drift into saying different things to the same investor.
+    const url = mailtoUrl(email, ["larry@example.com"]);
+    expect(decodeURIComponent(url)).toContain(email.subject);
+    expect(decodeURIComponent(url)).toContain(URL);
+  });
+
+  it("addresses the recipient and carries cc separately", () => {
+    const url = mailtoUrl(email, ["larry@example.com"], ["cpa@example.com"]);
+    expect(url.startsWith("mailto:larry%40example.com?")).toBe(true);
+    expect(decodeURIComponent(url)).toContain("cc=cpa@example.com");
+  });
+
+  it("percent-encodes spaces rather than using +", () => {
+    // "+" in a mailto subject renders literally in Outlook, so "Your K-1"
+    // would arrive as "Your+K-1".
+    const url = mailtoUrl(email, ["larry@example.com"]);
+    expect(url).not.toContain("+");
+    expect(url).toContain("%20");
+  });
+
+  it("never carries the PIN — that stays a separate message", () => {
+    const url = decodeURIComponent(mailtoUrl(email, ["larry@example.com"]));
+    expect(url).not.toMatch(/\b\d{6}\b/);
   });
 });

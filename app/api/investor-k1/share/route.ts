@@ -12,7 +12,7 @@ import {
   revokeInvestorLink, generatePin, linkOwnerIds, type InvestorLink,
 } from "@/lib/investors/k1Link";
 import { k1sForOwner, saveK1 } from "@/lib/investors/k1Store";
-import { sendMail, sendMailDetailed, isMailConfigured, isMailTestMode } from "@/lib/mail";
+import { sendMail, sendMailDetailed, isMailConfigured, isMailTestMode, VERIFIED_FROM } from "@/lib/mail";
 import { logAudit, auditIp } from "@/lib/audit";
 import { linkOrigin } from "@/lib/linkOrigin";
 import { coveredOwnerIds } from "@/lib/investors/linkCoverage";
@@ -237,7 +237,7 @@ async function shareOne(
       // bare boolean made an accepted-but-undelivered send (a Postmark test
       // token, an inactive recipient) look exactly like a real one.
       const res = await sendMailDetailed({
-        ...headers(), subject: draftEmail.subject, textBody: draftEmail.body,
+        ...headers(), from: VERIFIED_FROM, subject: draftEmail.subject, textBody: draftEmail.body,
         ...(copyTo ? { bcc: copyTo } : {}),
       });
       const ok = res.ok;
@@ -271,7 +271,7 @@ async function shareOne(
         // different conversation.
         const pinOk = link.pin
           ? await sendMail({
-              ...headers(), subject: pinMail.subject, textBody: pinMail.body,
+              ...headers(), from: VERIFIED_FROM, subject: pinMail.subject, textBody: pinMail.body,
               ...(copyTo ? { bcc: copyTo } : {}),
             })
           : false;
