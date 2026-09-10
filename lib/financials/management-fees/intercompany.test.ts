@@ -81,6 +81,7 @@ describe("management-fee intercompany tie-out", () => {
   it("tolerates rounding but not a real difference", () => {
     expect(intercompanyTieOut(m({ 1: 1000 }), m({ 1: 1001 }), 1).clean).toBe(true);
     expect(intercompanyTieOut(m({ 1: 1000 }), m({ 1: 1002 }), 1).clean).toBe(false);
+    expect(intercompanyTieOut(m({ 1: 1000 }), m({ 1: 1050 }), 1, { tolerance: 100 }).clean).toBe(true);
   });
 });
 
@@ -119,5 +120,22 @@ describe("the entry that should be posted", () => {
   it("drops a group with no buildings rather than posting a zero line", () => {
     const e = suggestedEntry(buildings.filter((b) => b.group === "sc"), m({}), 7, NILLC);
     expect(e.lines.map((l) => l.label)).toEqual(["Mgmt Fees - Other"]);
+  });
+});
+
+describe("an incomplete buildings column is the report's fault, not the ledger's", () => {
+  it("carries the buildings whose GL is not loaded", () => {
+    // No property pays an outside management fee — every 6610 dollar is
+    // payable to 2010 — so the columns must be equal and a variance is an
+    // error. The one way this report can manufacture a false gap is its own
+    // input: a fee-paying building with no GL loaded contributes nothing to
+    // the buildings column while 2010 booked its fee, which reads as 2010
+    // over-booking by exactly that building's fee.
+    const t = intercompanyTieOut(BUILDINGS, LIK, 7, { missingGl: ["7200", "8200"] });
+    expect(t.missingGl).toEqual(["7200", "8200"]);
+  });
+
+  it("is empty when every building has a ledger", () => {
+    expect(intercompanyTieOut(BUILDINGS, LIK, 7).missingGl).toEqual([]);
   });
 });

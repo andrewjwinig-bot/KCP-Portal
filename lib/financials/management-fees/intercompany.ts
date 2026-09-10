@@ -19,6 +19,17 @@
 // So this compares the actuals, and — more usefully — states the entry that
 // SHOULD be posted, which is the figure that makes the manual step mechanical
 // instead of a guess.
+//
+// NO PROPERTY PAYS AN OUTSIDE MANAGEMENT FEE (confirmed by the owner). Every
+// dollar of 6610 anywhere in the portfolio is payable to LIK 2010, so there is
+// no structural reason for a gap: the two columns must be equal, and any
+// variance is an error of timing or amount. That is what makes this a tie-out
+// rather than a comparison of two loosely related figures.
+//
+// The one thing that CAN make this report a false gap is its own input — a
+// fee-paying building whose GL is not loaded contributes nothing to the
+// buildings column while 2010 booked its fee. `missingGl` carries those so the
+// card can say the comparison is incomplete instead of blaming the ledger.
 
 /** A month with an entry this small is treated as no entry at all. */
 const POSTED_FLOOR = 1;
@@ -61,6 +72,12 @@ export type IntercompanyTieOut = {
   clean: boolean;
   /** The largest single-month absolute variance, for the headline. */
   worstMonth: IntercompanyMonth | null;
+  /**
+   * Fee-paying buildings with no GL loaded for the year. Their fees are absent
+   * from the buildings column, so a variance cannot be trusted while this is
+   * non-empty — the gap may be this report's, not the ledger's.
+   */
+  missingGl: string[];
 };
 
 /**
@@ -74,8 +91,9 @@ export function intercompanyTieOut(
   buildingsMonthly: number[],
   likMonthly: number[],
   through: number,
-  tolerance = 1,
+  opts: { tolerance?: number; missingGl?: string[] } = {},
 ): IntercompanyTieOut {
+  const tolerance = opts.tolerance ?? 1;
   const months: IntercompanyMonth[] = [];
   for (let m = 1; m <= 12; m++) {
     const buildingsFee = Math.round(buildingsMonthly[m - 1] ?? 0);
@@ -110,6 +128,7 @@ export function intercompanyTieOut(
     missed,
     disagreeing,
     clean: missed.length === 0 && disagreeing.length === 0 && judged.length > 0,
+    missingGl: opts.missingGl ?? [],
     // A month everything ties in has a zero variance, so "worst" is only worth
     // showing when there IS one.
     worstMonth: worstMonth && Math.abs(worstMonth.variance) > tolerance ? worstMonth : null,
