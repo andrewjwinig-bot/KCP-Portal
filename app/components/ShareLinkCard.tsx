@@ -25,6 +25,15 @@ import { createPortal } from "react-dom";
 
 const BRAND = "#0b4a7d";
 
+/**
+ * `confirmSend` when the send will MINT the link on its way out.
+ *
+ * Not a link id, because there is no link yet — that is the point. Sending
+ * used to require creating a link first, which meant minting one you had not
+ * asked for purely to make the send button appear.
+ */
+const PENDING_LINK = "__pending__";
+
 /** The one section label in the dialog — every block is introduced the same way. */
 const SECTION: React.CSSProperties = {
   fontSize: 10.5, fontWeight: 700, letterSpacing: "0.06em",
@@ -344,13 +353,22 @@ export function ShareLinkCard({
               {sentTo && confirmSend === null && (
                 <div style={{ marginTop: 8, fontSize: 11.5, fontWeight: 700, color: "#15803d" }}>✓ Emailed to {sentTo.join(", ")}</div>
               )}
+            </div>
+          ))}
+          {/* The confirm + outcome, rendered ONCE outside the links loop.
+              It used to live inside it, which meant it could only exist for a
+              link that already existed — forcing "Create link" as a separate
+              step before you could email anyone. `confirmSend` is a link id, or
+              PENDING_LINK when the send will mint one. */}
+          {confirmSend !== null && (
+            <div>
 
               {/* Sending is always a deliberate second step — a copy must never
                   turn into a send by a misplaced click. */}
               {/* What the send did. Replaces the confirm rather than closing
                   the dialog — on the one action you cannot take back, "it
                   vanished" is not a confirmation. */}
-              {confirmSend === l.id && outcome && (
+              {outcome && (
                 <div className="send-outcome" style={{
                   marginTop: 12, borderRadius: 10, padding: "14px 15px",
                   border: outcome.error ? "1.5px solid rgba(220,38,38,0.45)" : "1.5px solid rgba(22,163,74,0.45)",
@@ -398,12 +416,19 @@ export function ShareLinkCard({
                 </div>
               )}
 
-              {confirmSend === l.id && !outcome && (
+              {!outcome && (
                 <div style={{ marginTop: 12, border: "1.5px solid rgba(180,83,9,0.45)", background: "rgba(180,83,9,0.07)", borderRadius: 10, padding: "13px 15px" }}>
                   <div style={{ fontSize: 14, fontWeight: 800, color: "#b45309", display: "flex", alignItems: "center", gap: 7 }}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
                     This sends the email
                   </div>
+                  {/* Say that the link is being created here, since there was
+                      no "Create link" step to make that obvious. */}
+                  {confirmSend === PENDING_LINK && (
+                    <div className="muted" style={{ fontSize: 12.5, marginTop: 7 }}>
+                      This also creates their private link and access PIN — there is nothing to set up first.
+                    </div>
+                  )}
                   {recipients.length > 0 ? (
                     <div style={{ margin: "8px 0 12px" }}>
                       <div style={{ fontSize: 12.5, color: "var(--text)" }}>
@@ -515,7 +540,7 @@ export function ShareLinkCard({
                   <div style={{ display: "flex", gap: 8 }}>
                     {/* Nothing sends while the message is still loading: the
                         whole point is that it was read first. */}
-                    <button onClick={() => void runSend(l.id)}
+                    <button onClick={() => void runSend(confirmSend)}
                       disabled={busy || sending || recipients.length === 0 || (!!loadDraft && !draft && !draftError)}
                       className="btn primary" style={{ fontSize: 13, fontWeight: 700, padding: "9px 16px", display: "inline-flex", alignItems: "center", gap: 7, opacity: busy || sending || recipients.length === 0 || (!!loadDraft && !draft && !draftError) ? 0.6 : 1 }}>
                       {(busy || sending) && <span className="spin-dot" aria-hidden />}
@@ -526,9 +551,9 @@ export function ShareLinkCard({
                 </div>
               )}
             </div>
-          ))}
+          )}
 
-          {links.length === 0 && onCreate && (
+          {links.length === 0 && (onCreate || onSend) && confirmSend === null && (
             <>
               {pinOptional ? (
                 <label style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12.5, marginBottom: 8, cursor: "pointer", color: "var(--text)" }}>
@@ -540,10 +565,37 @@ export function ShareLinkCard({
                   This link always carries an access PIN.
                 </div>
               )}
-              <button onClick={() => onCreate(pinOptional ? requirePin : true)} disabled={busy} className="btn primary"
-                style={{ fontSize: 13, fontWeight: 700, width: "100%" }}>
-                {busy ? "Working…" : "Create link"}
-              </button>
+
+              {/* Emailing is ONE action, not two.
+                  "Create link" used to be a prerequisite: you minted a link
+                  you had not asked for, only so the send button would appear.
+                  The rule it seemed to serve — never mail an investor without a
+                  deliberate confirm — is satisfied by the confirm itself, which
+                  now shows the whole message before anything goes. So the send
+                  is offered straight away and mints the link on its way. */}
+              {onSend ? (
+                <>
+                  <button onClick={() => openConfirm(PENDING_LINK)} disabled={busy || sending} className="btn primary"
+                    style={{ fontSize: 13, fontWeight: 700, width: "100%", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7 }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="20" height="16" rx="2" /><path d="m22 7-10 5L2 7" /></svg>
+                    {sendLabel}
+                  </button>
+                  {/* The other way out is kept, quietly: copying mutates
+                      nothing, which is how you check a link before anyone
+                      gets one. */}
+                  {onCreate && (
+                    <button onClick={() => onCreate(pinOptional ? requirePin : true)} disabled={busy} className="btn"
+                      style={{ fontSize: 12.5, fontWeight: 700, width: "100%", marginTop: 8 }}>
+                      {busy ? "Working…" : "Just create the link — I'll send it myself"}
+                    </button>
+                  )}
+                </>
+              ) : onCreate ? (
+                <button onClick={() => onCreate(pinOptional ? requirePin : true)} disabled={busy} className="btn primary"
+                  style={{ fontSize: 13, fontWeight: 700, width: "100%" }}>
+                  {busy ? "Working…" : "Create link"}
+                </button>
+              ) : null}
             </>
           )}
 
