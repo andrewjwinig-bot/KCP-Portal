@@ -62,6 +62,15 @@ export type InvestorLink = {
   pinSentAt?: string | null;
   /** How many times this link has been emailed (a re-send is a real event). */
   sendCount?: number;
+  /**
+   * Who did the sending: the portal, or a person from their own mail client.
+   *
+   * A hand-recorded send is somebody's word, not an observation — there is no
+   * message id behind it and nothing was verified — so the roster says which
+   * kind it is rather than presenting the two as equally certain. Absent means
+   * the portal sent it (every send predating the Outlook route).
+   */
+  sentVia?: "portal" | "manual";
 };
 
 /** The interests a link covers, tolerating links minted before `ownerIds`. */

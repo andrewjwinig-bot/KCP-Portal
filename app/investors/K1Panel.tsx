@@ -137,20 +137,16 @@ export function K1SelectCell({ ownerId, k1 }: { ownerId: string; k1: K1Slice }) 
 
 
 /**
- * Hand the drafts to the user's own mail client.
+ * Hand ONE draft to the user's own mail client.
  *
- * Two windows, because the two messages stay disjoint whoever sends them: the
- * link email carries no PIN and the PIN email carries no link. Opening them
- * together is the closest the browser gets to "prepare both, I'll send them" —
- * the second is delayed slightly because a mail client asked to open two
- * drafts in the same tick usually shows only the last.
+ * One per call, and each call comes from its own click. Opening both from a
+ * single click does not work: the second `mailto:` fires outside the browser's
+ * user-activation window and is silently blocked, so only the link email ever
+ * appeared. The two messages stay disjoint whoever sends them, so two buttons
+ * is also the honest shape — you are preparing two emails, not one.
  */
-function openDraftsInMail(draft: EmailDraft, to: string[], cc: string[]) {
-  window.location.href = mailtoUrl({ subject: draft.subject, body: draft.body }, to, cc);
-  if (draft.followUp) {
-    const pin = draft.followUp;
-    setTimeout(() => { window.open(mailtoUrl(pin, to, cc), "_self"); }, 1200);
-  }
+function openDraftInMail(msg: { subject: string; body: string }, to: string[], cc: string[]) {
+  window.location.href = mailtoUrl(msg, to, cc);
 }
 
 /**
@@ -376,10 +372,23 @@ function SendPill({ link, name }: { link: PortalLink; name: string }) {
   const tracked = link.sendCount !== null && link.sendCount !== undefined;
   const rows: { label: string; value: string }[] = [];
 
+  const manual = link.sentVia === "manual";
   if (sentAt) {
     rows.push({ label: "Emailed", value: sentStampFull(sentAt) });
     if (link.sentTo?.length) rows.push({ label: "To", value: link.sentTo.join(", ") });
-    rows.push({ label: "PIN email", value: link.pinSentAt ? "Sent separately, same time" : "DID NOT SEND — give them the PIN" });
+    // A hand-recorded send is somebody's word, not something the app watched
+    // happen — there is no message id behind it. Say so, rather than letting
+    // it read with the same certainty as one the app made and confirmed.
+    rows.push({
+      label: "Sent by",
+      value: manual ? "Recorded by hand — sent from Outlook" : "The portal, confirmed by Postmark",
+    });
+    rows.push({
+      label: "PIN email",
+      value: manual
+        ? "Sent by hand alongside the link"
+        : link.pinSentAt ? "Sent separately, same time" : "DID NOT SEND — give them the PIN",
+    });
     if ((link.sendCount ?? 0) > 1) rows.push({ label: "Times sent", value: String(link.sendCount) });
   } else {
     rows.push({ label: "Link created", value: sentStampFull(link.createdAt) });
@@ -477,7 +486,8 @@ export function K1PortalCell({ owner, k1 }: { owner: K1Owner; k1: K1Slice }) {
         // it holds when you confirm is what gets sent.
         loadDraft={() => k1.loadDraft(owner.id)}
         // Send it yourself from Outlook instead — same message, your mailbox.
-        onOpenInMail={(d) => openDraftsInMail(d, owner.email ? [owner.email] : [], owner.alsoEmail ?? [])}
+        onOpenInMail={(m) => openDraftInMail(m, owner.email ? [owner.email] : [], owner.alsoEmail ?? [])}
+        onMarkSent={owner.link ? () => k1.markSent(owner.link!.id, recipientsOf(owner.email, owner.alsoEmail)) : undefined}
         // Gated on the document, like `onCreate`: with the send now offered
         // before a link exists, an ungated one would put "Email the investor"
         // in front of an owner whose K-1 hasn't been uploaded, and the server
@@ -512,6 +522,7 @@ export function K1InvestorShare({ name, inv }: {
     sendableFrom: K1Interest | null;
     interests: K1Interest[];
     send: (i: K1Interest, taxYear: number, send?: boolean, draft?: EmailDraft, opts?: SendOptions) => Promise<SendOutcome | void>;
+    markSent?: (linkId: string, sentTo: string[]) => Promise<void>;
     loadDraft: (i: K1Interest, taxYear: number) => Promise<EmailDraft>;
     revoke: (linkId: string) => void;
     setEmail: (ownerId: string, email: string) => void;
@@ -557,7 +568,8 @@ export function K1InvestorShare({ name, inv }: {
       // card puts a confirm in front of that.
       onCreate={target && newest ? () => inv.send(target, newest.taxYear, false) : undefined}
       loadDraft={target && newest ? () => inv.loadDraft(target, newest.taxYear) : undefined}
-      onOpenInMail={(d) => openDraftsInMail(d, inv.email ? [inv.email] : [], inv.alsoEmail ?? [])}
+      onOpenInMail={(m) => openDraftInMail(m, inv.email ? [inv.email] : [], inv.alsoEmail ?? [])}
+      onMarkSent={inv.link && inv.markSent ? () => inv.markSent!(inv.link!.id, recipientsOf(inv.email, inv.alsoEmail)) : undefined}
       onSend={target && newest ? (_id, draft, opts) => inv.send(target, newest.taxYear, true, draft, opts) : undefined}
       onRevoke={(id) => {
         if (confirm(`Revoke ${name}'s link? It stops working immediately and none of their K-1s are readable until you share a new one.`)) {

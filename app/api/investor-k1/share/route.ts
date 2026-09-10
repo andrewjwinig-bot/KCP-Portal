@@ -236,8 +236,13 @@ async function shareOne(
       // Detailed, because this result is REPORTED to a person as "Sent". A
       // bare boolean made an accepted-but-undelivered send (a Postmark test
       // token, an inactive recipient) look exactly like a real one.
+      // The HTML alternative rides along ONLY on the canonical wording. An
+      // edited draft is plain text by definition — rebuilding HTML from
+      // arbitrary edited prose would either mangle it or quietly drop the
+      // edit, and the edit is the whole point of showing the message first.
       const res = await sendMailDetailed({
         ...headers(), from: VERIFIED_FROM, subject: draftEmail.subject, textBody: draftEmail.body,
+        ...(edited ? {} : canonical.html ? { htmlBody: canonical.html } : {}),
         ...(copyTo ? { bcc: copyTo } : {}),
       });
       const ok = res.ok;
@@ -436,6 +441,48 @@ export async function GET(req: NextRequest) {
     // see in the UI is the kind of thing that surprises someone later.
     copyTo: copyTo ? copyTo.split(",").map((a) => a.trim()).filter(Boolean) : [],
   });
+}
+
+/**
+ * PATCH { linkId } — record that a person sent this link themselves.
+ *
+ * The Outlook route hands you the drafts and then the app is blind: it cannot
+ * observe a send it did not make, so without this the roster reads LINK ONLY
+ * for an investor who has had their K-1 for a week. A wrong record is worse
+ * than none, which is why this exists — and why it is stamped `manual` rather
+ * than passed off as a send the app watched happen.
+ *
+ * It does NOT publish anything. Publishing is what the send does, and by the
+ * time you are marking one sent the link already exists, which means the
+ * documents were already released when it was created.
+ */
+export async function PATCH(req: NextRequest) {
+  const user = await currentUser();
+  if (!user) return NextResponse.json({ error: "Not authorized" }, { status: 401 });
+
+  const body = await req.json().catch(() => ({}));
+  const linkId = String(body?.linkId ?? "");
+  const link = (await listInvestorLinks()).find((l) => l.id === linkId && !l.revoked);
+  if (!link) return NextResponse.json({ error: "That link no longer exists." }, { status: 404 });
+
+  const at = new Date().toISOString();
+  link.sentAt = at;
+  // Recorded from the roster's own resolution, never from the client: this
+  // decides what the hover tells you about who holds the document.
+  link.sentTo = Array.isArray(body?.sentTo) ? body.sentTo.map((x: unknown) => String(x)).filter(Boolean) : (link.sentTo ?? []);
+  // The PIN travels with it when a person sends both drafts, which is what the
+  // dialog asks them to do — but the app did not see it, so it claims nothing
+  // more precise than the link's own timestamp.
+  link.pinSentAt = at;
+  link.sendCount = (link.sendCount ?? 0) + 1;
+  link.sentVia = "manual";
+  await saveInvestorLink(link);
+
+  await logAudit({
+    event: "investor-k1.mark-sent", user: USERS[user]?.label ?? user, ip: auditIp(req),
+    detail: `${link.propertyCode} · ${link.ownerName} · marked sent by hand${link.sentTo?.length ? ` · ${link.sentTo.join(", ")}` : ""}`,
+  });
+  return NextResponse.json({ ok: true, sentAt: at });
 }
 
 /** DELETE ?id= — revoke a link. */

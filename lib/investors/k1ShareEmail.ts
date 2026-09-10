@@ -9,7 +9,27 @@
  * a second way of building one.
  */
 
-export type K1ShareEmail = { subject: string; body: string };
+export type K1ShareEmail = {
+  subject: string;
+  body: string;
+  /**
+   * The same message as HTML, where the word "link" is the hyperlink rather
+   * than a signed URL sitting naked in the paragraph.
+   *
+   * A K-1 token is ~200 characters of base64; printed in full it wraps across
+   * three lines and looks like something you should not click. Anchor text
+   * reads as an ordinary sentence.
+   *
+   * The plain-text body still carries the URL in full and is always sent
+   * alongside — a message with no text part scores worse with spam filters,
+   * and this one must not.
+   */
+  html?: string;
+};
+
+/** Escapes text going into the HTML body. Names and property names are data. */
+const esc = (s: string) =>
+  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 export type K1ShareEmailInput = {
   ownerName: string;
@@ -23,25 +43,43 @@ export type K1ShareEmailInput = {
 
 export function composeK1ShareEmail(i: K1ShareEmailInput): K1ShareEmail {
   const many = i.documentCount > 1;
+  // Wording as Drew rewrote it by hand on the first real send: the ask is
+  // "use this link to access the documents", and the closing invites a reply
+  // about access rather than warning against forwarding — the PIN already
+  // makes a forwarded link harmless, so the warning was spending goodwill on
+  // a risk the design had removed.
+  const opening = many
+    ? `Your ${i.documentCount} Schedule K-1s are ready in your secure investor portal — one link covers every partnership you hold an interest in.`
+    : `Your Schedule K-1 for ${i.propertyName} is ready in your secure investor portal.`;
+  const pinLine = "You'll be asked for a 6-digit access PIN. It arrives in a separate email, just after this one.";
+  const closing = "This link is private to you. If you need a copy sent elsewhere or have any issues accessing the files, reply and we'll arrange it.";
+
   return {
     subject: many
       ? `Your ${i.taxYear} Schedule K-1s — Korman Commercial Properties`
       : `Your ${i.taxYear} Schedule K-1 — ${i.propertyName}`,
     body: [
-      `Hello ${i.ownerName},`,
+      "Hello,",
       "",
-      many
-        ? `Your ${i.documentCount} Schedule K-1s are ready in your secure investor portal — one link covers every partnership you hold an interest in.`
-        : `Your Schedule K-1 for ${i.propertyName} is ready in your secure investor portal.`,
+      `${opening} Please use this link to access the documents:`,
       "",
       i.url,
       "",
-      "You'll be asked for a 6-digit access PIN. It arrives in a separate email, just after this one.",
+      pinLine,
       "",
-      "This link is private to you. Please don't forward it — if you need a copy sent elsewhere, reply and we'll arrange it.",
+      closing,
       "",
       "— Korman Commercial Properties",
     ].join("\n"),
+    html: [
+      `<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.55;color:#111">`,
+      `<p>Hello,</p>`,
+      `<p>${esc(opening)} Please use this <a href="${esc(i.url)}">link</a> to access the documents.</p>`,
+      `<p>${esc(pinLine)}</p>`,
+      `<p>${esc(closing)}</p>`,
+      `<p>— Korman Commercial Properties</p>`,
+      `</div>`,
+    ].join(""),
   };
 }
 

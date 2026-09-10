@@ -147,7 +147,16 @@ export type ShareLinkCardProps = {
    * that domain's deliverability, lands in Sent Items, and can be replied to;
    * the app sending is still the right default for a batch.
    */
-  onOpenInMail?: (draft: EmailDraft) => void;
+  onOpenInMail?: (msg: { subject: string; body: string }) => void;
+  /**
+   * Record that YOU sent it, from your own mail client.
+   *
+   * The app cannot observe a send it did not make, and the roster's whole job
+   * is to answer "did this go out". Without this, mailing an investor from
+   * Outlook leaves their row reading LINK ONLY forever — which is worse than
+   * no record, because it is a wrong one.
+   */
+  onMarkSent?: () => void | Promise<unknown>;
   onRevoke?: (id: string) => void;
   /** Omit to hide the PIN controls entirely (a K-1's PIN is not optional). */
   onManagePin?: (id: string, action: "reset" | "remove") => void;
@@ -173,7 +182,7 @@ export type ShareLinkCardProps = {
 export function ShareLinkCard({
   buttonLabel, title, subject, description, links, busy = false, error = null,
   recipients = [], sendLabel = "Email it", sentTo = null,
-  onOpen, onCreate, onSend, onRevoke, onManagePin, loadDraft, onOpenInMail,
+  onOpen, onCreate, onSend, onRevoke, onManagePin, loadDraft, onOpenInMail, onMarkSent,
   pinOptional = true, small = false, align = "right", viewAsHref, recipientSlot, emptyNote,
   secondaryRecipients = [],
 }: ShareLinkCardProps) {
@@ -686,21 +695,60 @@ export function ShareLinkCard({
                     </button>
                     <button onClick={closeConfirm} disabled={sending} className="btn" style={{ fontSize: 13, fontWeight: 700, padding: "9px 16px" }}>Cancel</button>
 
-                    {/* Send it from your OWN mailbox instead.
-                        The same message, handed to Outlook as a draft: it goes
-                        out under your address rather than the app's, lands in
-                        your Sent Items — a better record than anything the app
-                        keeps — and the investor can simply reply to you. */}
-                    {draft && onOpenInMail && (
-                      <button
-                        onClick={() => { onOpenInMail(draft); closeConfirm(); }}
-                        disabled={sending || recipients.length === 0}
-                        className="btn"
-                        title="Opens a draft in your mail app — nothing is sent until you send it"
-                        style={{ fontSize: 13, fontWeight: 700, padding: "9px 16px", marginLeft: "auto", color: BRAND }}>
-                        Open in Outlook instead
-                      </button>
-                    )}
+                  </div>
+
+                  {/* Send it from your OWN mailbox instead.
+                      The same messages, handed to your mail client as drafts:
+                      they go out under your address rather than the app's, land
+                      in your Sent Items — a better record than anything the app
+                      keeps — and the investor can simply reply to you.
+
+                      TWO buttons, not one click that opens both: a second
+                      `mailto:` fired from the same click lands outside the
+                      browser's user-activation window and is silently blocked,
+                      so only the first draft ever appeared. Two buttons is also
+                      the honest shape — you are preparing two emails. */}
+                  {draft && onOpenInMail && (
+                    <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px dashed rgba(180,83,9,0.35)" }}>
+                      <div style={{ ...SECTION, marginBottom: 7 }}>Or send it yourself</div>
+                      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                        <button
+                          onClick={() => onOpenInMail({ subject: draft.subject, body: draft.body })}
+                          disabled={sending || recipients.length === 0}
+                          className="btn"
+                          title="Opens a draft in your mail app — nothing is sent until you send it"
+                          style={{ fontSize: 12.5, fontWeight: 700, padding: "7px 13px", color: BRAND }}>
+                          ✉ Link email
+                        </button>
+                        {draft.followUp && (
+                          <button
+                            onClick={() => onOpenInMail(draft.followUp!)}
+                            disabled={sending || recipients.length === 0}
+                            className="btn"
+                            title="Opens the PIN as its own draft — send it separately from the link"
+                            style={{ fontSize: 12.5, fontWeight: 700, padding: "7px 13px", color: BRAND }}>
+                            ✉ PIN email
+                          </button>
+                        )}
+                        {onMarkSent && (
+                          <button
+                            onClick={() => { void onMarkSent(); closeConfirm(); }}
+                            disabled={sending}
+                            className="btn"
+                            title="Records the send on this link, so the roster stops reading LINK ONLY"
+                            style={{ fontSize: 12.5, fontWeight: 700, padding: "7px 13px", marginLeft: "auto" }}>
+                            I&rsquo;ve sent them — mark as sent
+                          </button>
+                        )}
+                      </div>
+                      <div className="muted" style={{ fontSize: 11.5, marginTop: 7 }}>
+                        Each opens its own draft. Send them as two separate emails — the link
+                        carries no PIN and the PIN carries no link, which is what makes a
+                        forwarded email harmless.
+                      </div>
+                    </div>
+                  )}
+                  <div style={{ display: "none" }}>
                   </div>
                 </div>
               )}
