@@ -35,6 +35,10 @@ export type MailMessage = {
   bcc?: string;
   subject: string;
   textBody: string;
+  /** Optional HTML alternative. Postmark sends both and the client picks; the
+   *  text body is never optional, because a message with no plain-text part
+   *  scores worse with spam filters and breaks text-only readers. */
+  htmlBody?: string;
   /** Extra RFC-style headers; "Auto-Submitted: auto-replied" is added
    *  automatically when isAutoReply is true. */
   headers?: { Name: string; Value: string }[];
@@ -91,6 +95,7 @@ function buildPayload(msg: MailMessage, from: string) {
     ...(msg.bcc ? { Bcc: msg.bcc } : {}),
     Subject: msg.subject,
     TextBody: msg.textBody,
+    ...(msg.htmlBody ? { HtmlBody: msg.htmlBody } : {}),
     MessageStream: "outbound",
     Headers: headers,
     ...(Attachments.length > 0 ? { Attachments } : {}),

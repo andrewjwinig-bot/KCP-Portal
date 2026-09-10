@@ -91,7 +91,7 @@ export async function GET(req: NextRequest) {
                 id: live.id, createdAt: live.createdAt, viewCount: live.viewCount ?? 0,
                 lastViewedAt: live.lastViewedAt ?? null, url: liveUrl, pin: live.pin ?? null,
                 sentAt: live.sentAt ?? null, sentTo: live.sentTo ?? [],
-                pinSentAt: live.pinSentAt ?? null, sendCount: live.sendCount ?? null,
+                pinSentAt: live.pinSentAt ?? null, sendCount: live.sendCount ?? null, sentVia: live.sentVia ?? null,
               }
             : null,
         };
@@ -161,6 +161,7 @@ export async function GET(req: NextRequest) {
             sentTo: linkByOwner.get(o.id)!.sentTo ?? [],
             pinSentAt: linkByOwner.get(o.id)!.pinSentAt ?? null,
             sendCount: linkByOwner.get(o.id)!.sendCount ?? null,
+            sentVia: linkByOwner.get(o.id)!.sentVia ?? null,
           }
         : null,
     })),

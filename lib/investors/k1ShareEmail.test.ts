@@ -125,3 +125,30 @@ describe("mailtoUrl", () => {
     expect(url).not.toMatch(/\b\d{6}\b/);
   });
 });
+
+describe("the HTML alternative", () => {
+  const e = composeK1ShareEmail({ ...base, documentCount: 1 });
+
+  it("anchors the word 'link' instead of printing the URL", () => {
+    // A K-1 token is ~200 characters; printed naked it wraps across three
+    // lines and looks like something you shouldn't click.
+    expect(e.html).toContain(`<a href="${URL}">link</a>`);
+  });
+
+  it("still carries the URL in the PLAIN TEXT body", () => {
+    // The text part is always sent too: a message with no text alternative
+    // scores worse with spam filters, and this one must not.
+    expect(e.body).toContain(URL);
+  });
+
+  it("escapes property names rather than interpolating them raw", () => {
+    const bad = composeK1ShareEmail({ ...base, propertyName: 'A & B <Center>', documentCount: 1 });
+    expect(bad.html).toContain("A &amp; B &lt;Center&gt;");
+    expect(bad.html).not.toContain("<Center>");
+  });
+
+  it("never carries the PIN in either part", () => {
+    expect(e.html).not.toMatch(/\b\d{6}\b/);
+    expect(e.body).not.toMatch(/\b\d{6}\b/);
+  });
+});

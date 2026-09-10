@@ -35,6 +35,8 @@ export type K1Owner = {
     /** `sendCount` null means the link PREDATES send tracking — unknown, which
      *  is not the same as never sent, and the pill must not claim otherwise. */
     sentAt?: string | null; sentTo?: string[]; pinSentAt?: string | null; sendCount?: number | null;
+    /** "manual" = a person recorded the send; the app did not observe it. */
+    sentVia?: "portal" | "manual" | null;
   } | null;
 };
 
@@ -78,6 +80,8 @@ export type K1Interest = {
     /** `sendCount` null means the link PREDATES send tracking — unknown, which
      *  is not the same as never sent, and the pill must not claim otherwise. */
     sentAt?: string | null; sentTo?: string[]; pinSentAt?: string | null; sendCount?: number | null;
+    /** "manual" = a person recorded the send; the app did not observe it. */
+    sentVia?: "portal" | "manual" | null;
   } | null;
 };
 
@@ -123,6 +127,10 @@ export type K1Slice = {
   /** Kill a link. The way to undo a test send, or a link sent to the wrong
    *  address — it also reverts that investor's tax-tracker tick. */
   revoke: (linkId: string) => void;
+  /** Record a send the app did not make — you mailed the drafts from Outlook.
+   *  Stamped `manual`, because it is somebody's word rather than an
+   *  observation, and the roster says which kind it is. */
+  markSent: (linkId: string, sentTo: string[]) => Promise<void>;
   /** Selected owners with no address — a send would create their link but
    *  couldn't deliver it, so the page warns before rather than after. */
   selectedWithoutEmail: string[];
@@ -339,6 +347,17 @@ export function useK1Registry(enabled: boolean, openK1Codes: string[]) {
         return outcome ?? { sentTo: [], error: errors[code] ?? "The send did not complete." };
       },
 
+      markSent: async (linkId: string, sentTo: string[]) => {
+        await act(code, async () => {
+          const res = await fetch("/api/investor-k1/share", {
+            method: "PATCH", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ linkId, sentTo }),
+          });
+          const j = await res.json();
+          if (!res.ok) throw new Error(j.error ?? "Could not record that.");
+        });
+      },
+
       loadDraft: async (ownerId: string) => {
         const q = new URLSearchParams({ propertyCode: code, ownerId, year: String(year ?? "") });
         const res = await fetch(`/api/investor-k1/share?${q}`);
@@ -411,6 +430,21 @@ export function useK1Registry(enabled: boolean, openK1Codes: string[]) {
       /** `send` false mints the link only. They are deliberately one call with
        *  an explicit flag: "create a link" and "email an investor" looking
        *  alike is how a link gets mailed by a misplaced click. */
+      markSent: async (linkId: string, sentTo: string[]) => {
+        const key = `inv:${name}`;
+        setBusyCode(key);
+        try {
+          const res = await fetch("/api/investor-k1/share", {
+            method: "PATCH", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ linkId, sentTo }),
+          });
+          if (!res.ok) throw new Error((await res.json().catch(() => null))?.error ?? "Could not record that.");
+          await loadInvestor(name);
+        } catch (e) {
+          setErrors((x) => ({ ...x, [key]: e instanceof Error ? e.message : "Could not record that." }));
+        } finally { setBusyCode(null); }
+      },
+
       loadDraft: async (interest: K1Interest, taxYear: number) => {
         const q = new URLSearchParams({ propertyCode: interest.propertyCode, ownerId: interest.ownerId, year: String(taxYear) });
         const res = await fetch(`/api/investor-k1/share?${q}`);
