@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   monthlyOutlay, escrowAt, summarizeLoan,
-  BROOKWOOD_2300_LOAN, PARKWOOD_7010_LOAN, GRAYS_FERRY_4500_LOAN, NI_LLC_4000_LOAN, JV_III_3600_LOAN,
+  BROOKWOOD_2300_LOAN, PARKWOOD_7010_LOAN, GRAYS_FERRY_4500_LOAN, NI_LLC_4000_LOAN, JV_III_3600_LOAN, KH_JOSHUA_9840_LOAN,
 } from "./amortization";
 
 /**
@@ -117,3 +117,42 @@ describe("3600 Lincoln JV III — interest-only, no principal", () => {
 });
 
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
+
+describe("9840 KH-Joshua — M&T interest-only ARM", () => {
+  it("is keyed to 9840, not the 3620 it was handed over as", () => {
+    // 3620 is Building 2 at Neshaminy Interplex. KH Joshua is 3044 Joshua Rd,
+    // which is 9840 — and the Closing Disclosure's security interest names
+    // that address.
+    expect(KH_JOSHUA_9840_LOAN.property).toBe("9840");
+    expect(KH_JOSHUA_9840_LOAN.lender).toBe("M&T Bank");
+  });
+
+  it("has NO escrow — taxes and insurance are paid direct", () => {
+    // Escrow was declined at closing, so unlike the five Liberty loans the
+    // stated payment IS the whole debit.
+    expect(KH_JOSHUA_9840_LOAN.escrowPerMonth).toBeUndefined();
+    expect(monthlyOutlay(KH_JOSHUA_9840_LOAN, 1757.81)).toBe(1757.81);
+  });
+
+  it("pays exactly one month's interest and no principal", () => {
+    // $375,000 × 5.625% ÷ 12 = $1,757.8125. The bank's $1,757.81 is that
+    // figure rounded, which is what confirms the payment is interest-only.
+    const monthly = (375000 * 5.625) / 100 / 12;
+    expect(Math.round(monthly * 100) / 100).toBe(1757.81);
+    expect(KH_JOSHUA_9840_LOAN.scheduledPayment).toBe(1757.81);
+    expect(KH_JOSHUA_9840_LOAN.interestOnly).toBe(true);
+
+    const s = summarizeLoan(KH_JOSHUA_9840_LOAN, "2026-10-01");
+    expect(s.nextPayment?.principal ?? 0).toBe(0);
+  });
+
+  it("first payment falls on the bank's due date", () => {
+    const s = summarizeLoan(KH_JOSHUA_9840_LOAN, "2026-09-15");
+    expect(s.nextPayment?.date).toBe("2026-10-01");
+  });
+
+  it("holds the balance flat — no principal for ten years", () => {
+    const s = summarizeLoan(KH_JOSHUA_9840_LOAN, "2030-01-01");
+    expect(s.projectedBalance).toBe(375000);
+  });
+});

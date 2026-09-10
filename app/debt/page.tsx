@@ -336,9 +336,9 @@ function DebtPageInner() {
 
 // Loan-group section header tones (mirrors the property page's category pills).
 function groupTone(group: LoanGroup): { bg: string; fg: string; border: string } {
-  return group === "Business Parks"
-    ? { bg: "rgba(11,74,125,0.10)",  fg: "#0b4a7d", border: "rgba(11,74,125,0.35)" }
-    : { bg: "rgba(13,148,136,0.10)", fg: "#0d9488", border: "rgba(13,148,136,0.35)" };
+  if (group === "Business Parks") return { bg: "rgba(11,74,125,0.10)",  fg: "#0b4a7d", border: "rgba(11,74,125,0.35)" };
+  if (group === "Shopping Centers") return { bg: "rgba(13,148,136,0.10)", fg: "#0d9488", border: "rgba(13,148,136,0.35)" };
+  return { bg: "rgba(124,58,237,0.10)", fg: "#6d28d9", border: "rgba(124,58,237,0.30)" };
 }
 
 // ── amortization schedule modal ──────────────────────────────────────────────

@@ -5,7 +5,7 @@
 // anchor so the "current" balance and position stay live as time passes —
 // no need to re-key the balance every month.
 
-export const LOAN_GROUPS = ["Business Parks", "Shopping Centers"] as const;
+export const LOAN_GROUPS = ["Business Parks", "Shopping Centers", "Residential"] as const;
 export type LoanGroup = (typeof LOAN_GROUPS)[number];
 
 export type Loan = {
@@ -447,7 +447,74 @@ export const PARKWOOD_7010_LOAN: Loan = {
 };
 
 /** All loans are code-managed and reconciled to these definitions on load. */
+/**
+ * KH-Joshua 3044 LLC (property 9840) — M&T Bank. Interest-only ARM.
+ *
+ * NOTE the property code. The loan was handed over as "3620 KH Joshua", but
+ * 3620 is Building 2 at Neshaminy Interplex; KH Joshua is 3044 Joshua Rd,
+ * property 9840, and the Closing Disclosure's security interest names that
+ * address.
+ *
+ * TWO THINGS THIS MODEL CANNOT EXPRESS, both real and both dated in the notes:
+ *
+ *  1. Interest-only for the first 120 payments, THEN amortizing over the
+ *     remaining 20 years. `interestOnly` is a boolean with no expiry, so the
+ *     projected schedule is interest-only for its whole length and is only
+ *     right through 9/2036. After that the real payment steps up sharply.
+ *  2. It is a 7/6 ARM. `annualRatePct` is a single fixed rate, correct only
+ *     through the first change at payment 85 (10/2033); beyond that the rate
+ *     floats and the projection is indicative at best.
+ *
+ * Both dates matter more than the 2056 maturity — the payment shock arrives
+ * long before the loan does.
+ */
+export const KH_JOSHUA_9840_LOAN: Loan = {
+  id: "loan_khjoshua",
+  property: "9840",
+  partnership: "KH-Joshua 3044 LLC",
+  collateral: "3044 Joshua Rd, Lafayette Hill",
+  lender: "M&T Bank",
+  group: "Residential",
+  originalBalance: 375000,
+  annualRatePct: 5.625,
+  amortYears: 30,
+  scheduledPayment: 1757.81,
+  maturityDate: "2056-09-01",
+  // Balance is true from disbursement and stays there: no principal is paid
+  // for ten years. Anchored a month before the first payment (10/1/2026) so
+  // the projected dates land on the 1st, matching the bank's due dates.
+  anchorBalance: 375000,
+  anchorDate: "2026-09-01",
+  interestOnly: true,
+  // NO ESCROW — the borrower declined it, so taxes and insurance are paid
+  // direct, NOT collected with the payment. The $1,757.81 is the whole debit.
+  // Budget roughly $7,618.56/yr of property costs separately (CD page 4).
+  notes:
+    "Refinance closed 8/21/2026 at $375,000 with M&T Bank; first payment " +
+    "10/1/2026. Product: 30-yr term, 10-YEAR INTEREST ONLY, 7/6 mo. ARM. " +
+    "Initial rate 5.625% — $1,757.81/mo, which is interest only " +
+    "($375,000 × 5.625% ÷ 12). NO ESCROW: escrow was declined, so property " +
+    "taxes and insurance are paid directly (est. $7,618.56 in year 1) and " +
+    "are NOT part of the payment. " +
+    "TWO STEP-UPS AHEAD: (1) first rate change at payment 85 — 10/2033 — " +
+    "then every 6 months, SOFR 30-day avg + 3.00%, floor 3%, ceiling " +
+    "10.625%, capped 5% at the first change and 1% after; P&I then ranges " +
+    "$938–$3,320. (2) principal begins at payment 121 — 10/2036 — " +
+    "amortizing the balance over the remaining 20 years, with a maximum " +
+    "payment of $3,775. The projected schedule here is interest-only " +
+    "throughout and is therefore reliable only through 9/2036. " +
+    "No prepayment penalty, no balloon, no negative amortization; loan is " +
+    "not assumable. Late fee 5% of P&I after 15 days. Appraised value " +
+    "$503,000; cash to borrower at closing $361,259.98. " +
+    "M&T loan ID 0080462021 (the CD's first page carries 0080451420 from an " +
+    "earlier disclosure — 0080462021 is the servicing account). " +
+    "Statement of Values: ENTITY_VALUES is a frozen 12/31/2025 snapshot and " +
+    "correctly shows this entity with no debt, because the loan closed after " +
+    "it. The next snapshot must pick up the $375,000 and the closing cash.",
+};
+
 export const MANAGED_LOANS: Loan[] = [
+  KH_JOSHUA_9840_LOAN,
   JV_III_3600_LOAN,
   NI_LLC_4000_LOAN,
   BROOKWOOD_2300_LOAN,
