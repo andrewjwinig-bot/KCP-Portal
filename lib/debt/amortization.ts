@@ -513,8 +513,55 @@ export const KH_JOSHUA_9840_LOAN: Loan = {
     "it. The next snapshot must pick up the $375,000 and the closing cash.",
 };
 
+export const KH_509_9800_LOAN: Loan = {
+  id: "loan_kh509",
+  property: "9800",
+  partnership: "KH 509 LLC",
+  collateral: "509 Bellaire Ave, Fort Washington",
+  lender: "M&T Bank",
+  group: "Residential",
+  originalBalance: 476250,
+  annualRatePct: 5.625,
+  amortYears: 30,
+  scheduledPayment: 2232.42,
+  maturityDate: "2056-09-01",
+  // Same shape as the Joshua Rd loan: the balance is true from disbursement
+  // and stays there, because no principal is paid for ten years. Anchored a
+  // month before the first payment (10/1/2026) so projected dates land on the
+  // 1st, matching the bank's due dates.
+  anchorBalance: 476250,
+  anchorDate: "2026-09-01",
+  interestOnly: true,
+  // NO ESCROW — the Closing Disclosure's escrow account table reads $0.00 a
+  // month and property taxes are marked not escrowed. The $2,232.42 is the
+  // whole debit; taxes and insurance are paid direct.
+  notes:
+    "Home equity loan closed 8/21/2026 at $476,250 with M&T Bank; first " +
+    "payment 10/1/2026. Product: 30-yr term, 10 YEAR INTEREST ONLY, 7/6 mo. " +
+    "ARM. Initial rate 5.625% — $2,232.42/mo, which is interest only " +
+    "($476,250 × 5.625% ÷ 12). NO ESCROW: the escrow account table is $0.00 " +
+    "a month and property taxes are not escrowed, so they are paid directly " +
+    "and are NOT part of the payment. " +
+    "TWO STEP-UPS AHEAD: (1) first rate change at payment 85 — 10/2033 — " +
+    "then every 6 months, SOFR 30-day avg + 3.00%, floor 3%, ceiling " +
+    "10.625%, capped 5% at the first change and 1% after; P&I then ranges " +
+    "$1,191–$4,217. (2) principal begins at payment 121 — 10/2036 — " +
+    "amortizing the balance over the remaining 20 years, with a maximum " +
+    "payment of $4,795. The projected schedule here is interest-only " +
+    "throughout and is therefore reliable only through 9/2036. " +
+    "No prepayment penalty, no balloon, no negative amortization; loan is " +
+    "not assumable. Late fee 5% of P&I after 15 days. Appraised value " +
+    "$635,000; closing costs $14,187.91; cash to borrower $459,301.59. " +
+    "M&T loan ID 0080462088; MIN 1000503-5000056405-0. Payments to P.O. Box " +
+    "62182, Baltimore, MD 21264. " +
+    "Statement of Values: ENTITY_VALUES is a frozen 12/31/2025 snapshot and " +
+    "correctly shows this entity with no debt, because the loan closed after " +
+    "it. The next snapshot must pick up the $476,250 and the closing cash.",
+};
+
 export const MANAGED_LOANS: Loan[] = [
   KH_JOSHUA_9840_LOAN,
+  KH_509_9800_LOAN,
   JV_III_3600_LOAN,
   NI_LLC_4000_LOAN,
   BROOKWOOD_2300_LOAN,
