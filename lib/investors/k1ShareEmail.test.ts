@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { composeK1ShareEmail, composeK1PinEmail, applyK1EmailEdit, mailtoUrl } from "./k1ShareEmail";
+import { composeK1ShareEmail, composeK1PinEmail, applyK1EmailEdit, mailtoUrl, PREVIEW_URL_PLACEHOLDER } from "./k1ShareEmail";
 
 const URL = "https://portal.kormancommercial.com/investor/tok123";
 const base = { ownerName: "Lawrence Isard", propertyName: "Parkwood SC", taxYear: 2025, url: URL };
@@ -150,5 +150,28 @@ describe("the HTML alternative", () => {
   it("never carries the PIN in either part", () => {
     expect(e.html).not.toMatch(/\b\d{6}\b/);
     expect(e.body).not.toMatch(/\b\d{6}\b/);
+  });
+});
+
+describe("a draft previewed before the link existed", () => {
+  const canonical = composeK1ShareEmail({ ...base, documentCount: 1 });
+
+  it("is NOT treated as an edit", () => {
+    // The confirm posts its draft back. One composed around the placeholder
+    // would otherwise be sent verbatim — putting a 404 under the word "link",
+    // appending the real URL below the signature, marking the send "edited
+    // wording", and dropping the HTML part.
+    const preview = canonical.body.replace(URL, `https://portal.kormancommercial.com${PREVIEW_URL_PLACEHOLDER}`);
+    const r = applyK1EmailEdit(canonical, { body: preview }, URL);
+    expect(r.edited).toBe(false);
+    expect(r.email.body).toBe(canonical.body);
+    expect(r.email.body).toContain(URL);
+    expect(r.email.body).not.toContain(PREVIEW_URL_PLACEHOLDER);
+  });
+
+  it("still honours a REAL edit made against a real link", () => {
+    const r = applyK1EmailEdit(canonical, { body: `Larry — your K-1 is up.\n\n${URL}` }, URL);
+    expect(r.edited).toBe(true);
+    expect(r.email.body.startsWith("Larry")).toBe(true);
   });
 });

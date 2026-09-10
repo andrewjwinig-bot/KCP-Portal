@@ -9,6 +9,17 @@
  * a second way of building one.
  */
 
+/**
+ * Stands in for the signed URL when previewing a send for an investor who has
+ * no link yet — there is nothing to sign until the send mints one.
+ *
+ * Exported because the SEND has to recognise it: the confirm posts its draft
+ * back, and a draft composed around this placeholder must never be treated as
+ * the staff member's wording. Emailing it would put a 404 under the word
+ * "link" and leave the real one appended below the signature.
+ */
+export const PREVIEW_URL_PLACEHOLDER = "/investor/…";
+
 export type K1ShareEmail = {
   subject: string;
   body: string;
@@ -104,6 +115,11 @@ export function applyK1EmailEdit(
   const subject = typeof edit?.subject === "string" ? edit.subject.trim().slice(0, MAX_SUBJECT) : "";
   const bodyRaw = typeof edit?.body === "string" ? edit.body.slice(0, MAX_BODY).trim() : "";
   if (!subject && !bodyRaw) return { email: canonical, edited: false };
+  // A draft composed against the preview placeholder is not an edit — it is a
+  // preview of a link that did not exist yet. Honouring it would send the
+  // placeholder as the message's actual link, with the real one appended
+  // underneath, and would mark the send "edited wording" into the bargain.
+  if (bodyRaw.includes(PREVIEW_URL_PLACEHOLDER)) return { email: canonical, edited: false };
 
   const body = bodyRaw
     ? (bodyRaw.includes(url) ? bodyRaw : `${bodyRaw}\n\n${url}`)

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { SITE_COOKIE, verifySiteToken } from "@/lib/site-auth";
 import { ALL_USERS, isPathAllowed, USERS, type UserId } from "@/lib/users";
-import { isMailConfigured, isMailTestMode, sendMailDetailed, postmarkServerIdentity, postmarkMessage } from "@/lib/mail";
+import { isMailConfigured, isMailTestMode, sendMailDetailed, postmarkServerIdentity, postmarkMessage, VERIFIED_FROM } from "@/lib/mail";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -81,15 +81,20 @@ export async function POST(req: Request) {
   if (!to.includes("@")) return NextResponse.json({ error: "Give an address to send the test to." }, { status: 400 });
 
   const at = new Date().toISOString();
+  // From the VERIFIED sender, the same one the K-1 emails use. Testing from
+  // `MAINTENANCE_REPLY_FROM` would answer a different question than the one
+  // being asked: that address is the documented-unreliable default, so this
+  // could report mail broken while every K-1 send was working.
   const res = await sendMailDetailed({
     to,
+    from: VERIFIED_FROM,
     subject: `Portal mail test — ${at}`,
     textBody: [
       "This is a test from the Korman portal.",
       "",
-      "If you are reading it, outbound mail works: the token is real, the sender is",
-      "verified, and this address accepts our mail. Investor K-1 links travel the",
-      "same path.",
+      "If you are reading it, outbound mail works: the token is real, this sender is",
+      "accepted by Postmark, and this address takes our mail. Investor K-1 links are",
+      `sent from the same address (${VERIFIED_FROM}), so they travel this same path.`,
       "",
       `Sent ${at} by ${USERS[user]?.label ?? user}.`,
     ].join("\n"),

@@ -484,6 +484,7 @@ export function K1PortalCell({ owner, k1 }: { owner: K1Owner; k1: K1Slice }) {
         onCreate={doc ? () => k1.share([owner.id], false) : undefined}
         // The confirm reads the real message first — see `loadDraft`. Whatever
         // it holds when you confirm is what gets sent.
+        canSendWithoutLink
         loadDraft={() => k1.loadDraft(owner.id)}
         // Send it yourself from Outlook instead — same message, your mailbox.
         onOpenInMail={(m) => openDraftInMail(m, owner.email ? [owner.email] : [], owner.alsoEmail ?? [])}
@@ -567,6 +568,7 @@ export function K1InvestorShare({ name, inv }: {
       // Create mints the link WITHOUT emailing; only onSend emails, and the
       // card puts a confirm in front of that.
       onCreate={target && newest ? () => inv.send(target, newest.taxYear, false) : undefined}
+      canSendWithoutLink={!!(target && newest)}
       loadDraft={target && newest ? () => inv.loadDraft(target, newest.taxYear) : undefined}
       onOpenInMail={(m) => openDraftInMail(m, inv.email ? [inv.email] : [], inv.alsoEmail ?? [])}
       onMarkSent={inv.link && inv.markSent ? () => inv.markSent!(inv.link!.id, recipientsOf(inv.email, inv.alsoEmail)) : undefined}
