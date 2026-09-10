@@ -57,6 +57,13 @@ export type SendOutcome = {
   error?: string | null;
 };
 
+/** Choices made in the confirm that shape the send without changing its text. */
+export type SendOptions = {
+  /** Address the additional recipients on Cc rather than all on To. Same
+   *  people receive it either way — it changes how the mail reads. */
+  ccSecondary: boolean;
+};
+
 /** The email a send would deliver — previewed, optionally edited, then sent. */
 export type EmailDraft = {
   subject: string;
@@ -99,7 +106,13 @@ export type ShareLinkCardProps = {
   sentTo?: string[] | null;
   onOpen?: () => void;
   onCreate?: (requirePin: boolean) => void;
-  onSend?: (id: string, draft?: EmailDraft) => void | Promise<SendOutcome | void>;
+  onSend?: (id: string, draft?: EmailDraft, opts?: SendOptions) => void | Promise<SendOutcome | void>;
+  /**
+   * Addresses beyond the primary recipient — an accountant, a manager.
+   * Supplying them turns on the To/Cc choice in the confirm; they are already
+   * part of `recipients`, so this only says WHICH of them are secondary.
+   */
+  secondaryRecipients?: string[];
   /**
    * Load the message the send would actually deliver, so the confirm shows the
    * email rather than only naming its recipients.
@@ -138,6 +151,7 @@ export function ShareLinkCard({
   recipients = [], sendLabel = "Email it", sentTo = null,
   onOpen, onCreate, onSend, onRevoke, onManagePin, loadDraft,
   pinOptional = true, small = false, align = "right", viewAsHref, recipientSlot, emptyNote,
+  secondaryRecipients = [],
 }: ShareLinkCardProps) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
@@ -158,6 +172,14 @@ export function ShareLinkCard({
    */
   const [sending, setSending] = useState(false);
   const [outcome, setOutcome] = useState<SendOutcome | null>(null);
+  /**
+   * Cc the additional recipients rather than addressing everyone on To.
+   *
+   * On by default: an investor is the addressee and their accountant is copied,
+   * which is how that relationship actually works. Both-on-To was never a
+   * decision — it was just how the recipient list happened to be built.
+   */
+  const [ccSecondary, setCcSecondary] = useState(true);
   const [requirePin, setRequirePin] = useState(true);
   const [mounted, setMounted] = useState(false);
 
@@ -182,7 +204,7 @@ export function ShareLinkCard({
     if (!onSend) return;
     setSending(true);
     try {
-      const result = await onSend(id, draft ?? undefined);
+      const result = await onSend(id, draft ?? undefined, { ccSecondary });
       if (!result) { closeConfirm(); return; }
       setOutcome(result);
     } catch (e) {
@@ -437,12 +459,39 @@ export function ShareLinkCard({
                       </div>
                       {/* Every recipient named on its own line. A second address
                           is someone who can then open this person's document, so
-                          it must be read, not skimmed past in a joined string. */}
+                          it must be read, not skimmed past in a joined string.
+                          The To/Cc tag says how each is addressed — it never
+                          changes WHO is on the list, which is the thing this
+                          confirm exists to state. */}
                       <ul style={{ margin: "7px 0 0", paddingLeft: 18 }}>
-                        {recipients.map((r) => (
-                          <li key={r} style={{ fontSize: 13, fontWeight: 700, color: "var(--text)" }}>{r}</li>
-                        ))}
+                        {recipients.map((r) => {
+                          const isCc = ccSecondary && secondaryRecipients.includes(r);
+                          return (
+                            <li key={r} style={{ fontSize: 13, fontWeight: 700, color: "var(--text)" }}>
+                              {r}
+                              {secondaryRecipients.length > 0 && (
+                                <span className="muted" style={{ fontSize: 11, fontWeight: 700, marginLeft: 7, letterSpacing: "0.04em" }}>
+                                  {isCc ? "CC" : "TO"}
+                                </span>
+                              )}
+                            </li>
+                          );
+                        })}
                       </ul>
+
+                      {/* Only worth a control when there IS somebody else to
+                          address differently. */}
+                      {secondaryRecipients.length > 0 && (
+                        <label style={{ display: "flex", alignItems: "flex-start", gap: 7, marginTop: 9, fontSize: 12.5, cursor: "pointer", color: "var(--text)" }}>
+                          <input type="checkbox" checked={ccSecondary} disabled={sending}
+                            onChange={(e) => setCcSecondary(e.target.checked)} style={{ marginTop: 2 }} />
+                          <span>
+                            Cc {secondaryRecipients.length === 1 ? "the extra recipient" : `the ${secondaryRecipients.length} extra recipients`} instead of
+                            addressing everyone together.
+                            <span className="muted"> Same people either way — it only changes how the email reads.</span>
+                          </span>
+                        </label>
+                      )}
                       <div className="muted" style={{ fontSize: 12, marginTop: 7 }}>
                         {loadDraft
                           ? "Their PIN follows as its own separate email — nothing to hand over."

@@ -17,6 +17,7 @@ import { logAudit, auditIp } from "@/lib/audit";
 import { linkOrigin } from "@/lib/linkOrigin";
 import { coveredOwnerIds } from "@/lib/investors/linkCoverage";
 import { composeK1ShareEmail, composeK1PinEmail, applyK1EmailEdit, type K1ShareEmail } from "@/lib/investors/k1ShareEmail";
+import { addressRecipients, reached } from "@/lib/investors/recipients";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -103,6 +104,10 @@ async function shareOne(
    *  a batch reaches many different investors, so one hand-written body
    *  cannot be right for all of them and the canonical draft is used. */
   draft?: { subject?: unknown; body?: unknown } | null,
+  /** Put the additional recipients on Cc rather than addressing them all on
+   *  To. Same people either way — it changes how the mail reads, not who
+   *  receives it. */
+  ccSecondary?: boolean,
 ): Promise<ShareResult> {
   const found = personGroup(propertyCode, ownerId);
   if (!found) return { ownerId, ownerName: ownerId, sentTo: [], mailError: null, pinSentTo: [], pinError: null, error: "That owner isn't on this partnership." };
@@ -188,7 +193,18 @@ async function shareOne(
     // receive. Everyone on the list gets the SAME link, so `sentTo` records all
     // of them and the results panel shows the list — a K-1 reaching a second
     // person is a deliberate act, never a silent one.
-    const recipients = [email, ...resolved.alsoEmail].filter(Boolean);
+    // WHO receives it is identical either way; this only changes how the mail
+    // reads. On Cc the investor is the addressee and their accountant is
+    // visibly copied, which is how that relationship actually works — on To
+    // they are co-addressees. `sentTo` still records everyone, because a K-1
+    // reaching a second person is a deliberate act whichever header carried
+    // them. `addressRecipients` is tested on exactly that invariant.
+    const addressed = addressRecipients(email, resolved.alsoEmail, ccSecondary !== false);
+    const recipients = reached(addressed);
+    const headers = () => ({
+      to: addressed.to.join(", "),
+      ...(addressed.cc.length ? { cc: addressed.cc.join(", ") } : {}),
+    });
     if (!email) mailError = `No email on file for ${owner.name}. Copy the link and send it yourself.`;
     else if (!isMailConfigured()) mailError = "Email isn't configured, so the link was created but not sent.";
     else {
@@ -202,7 +218,7 @@ async function shareOne(
       wasEdited = edited;
       const copyTo = shareCopyTo();
       const ok = await sendMail({
-        to: recipients.join(", "), subject: draftEmail.subject, textBody: draftEmail.body,
+        ...headers(), subject: draftEmail.subject, textBody: draftEmail.body,
         ...(copyTo ? { bcc: copyTo } : {}),
       });
       if (ok) sentTo = recipients;
@@ -222,9 +238,12 @@ async function shareOne(
         // Copied as well, so the inbox record shows BOTH halves went out. A
         // copy of only the link email would confirm the half that was never
         // in doubt and stay silent on the one that was.
+        // Addressed exactly like the link email — the two messages are a pair,
+        // and a PIN that arrives To when the link arrived Cc reads as a
+        // different conversation.
         const pinOk = link.pin
           ? await sendMail({
-              to: recipients.join(", "), subject: pinMail.subject, textBody: pinMail.body,
+              ...headers(), subject: pinMail.subject, textBody: pinMail.body,
               ...(copyTo ? { bcc: copyTo } : {}),
             })
           : false;
@@ -305,14 +324,17 @@ export async function POST(req: NextRequest) {
     // recipients get the canonical wording, because one hand-written body
     // addressed to somebody cannot be right for everybody.
     const draft = ids.length === 1 ? (body?.draft ?? null) : null;
+    // Unlike the draft, this applies to a batch as happily as to one: it is a
+    // convention about addressing, not wording meant for one person.
+    const ccSecondary = body?.ccSecondary !== false;
     const results: ShareResult[] = [];
-    for (const id of ids) results.push(await shareOne(req, user, secret, propertyCode, id, year, send, draft));
+    for (const id of ids) results.push(await shareOne(req, user, secret, propertyCode, id, year, send, draft, ccSecondary));
     return NextResponse.json({ ok: true, results }, { status: 201 });
   }
 
   // The draft edit belongs to a single send: a batch addresses many different
   // investors, so one hand-written body cannot be right for all of them.
-  const one = await shareOne(req, user, secret, propertyCode, String(body?.ownerId ?? ""), year, send, body?.draft ?? null);
+  const one = await shareOne(req, user, secret, propertyCode, String(body?.ownerId ?? ""), year, send, body?.draft ?? null, body?.ccSecondary !== false);
   if (one.error) return NextResponse.json({ error: one.error }, { status: 400 });
   return NextResponse.json({
     ok: true, url: one.url, pin: one.pin, sentTo: one.sentTo, mailError: one.mailError,
