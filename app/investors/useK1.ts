@@ -14,7 +14,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { K1Document } from "@/lib/investors/k1";
-import type { EmailDraft, SendOutcome } from "@/app/components/ShareLinkCard";
+import type { EmailDraft, SendOutcome, SendOptions } from "@/app/components/ShareLinkCard";
 
 export type K1Owner = {
   id: string; name: string; detailedName: string | null; vendorCode: string | null;
@@ -109,7 +109,7 @@ export type K1Slice = {
   /** Resolves with what the send did, for a SINGLE owner — the share dialog
    *  confirms it in place. A batch resolves with nothing; its per-owner table
    *  says more than one summary line could. */
-  share: (ownerIds: string[], send: boolean, draft?: EmailDraft) => Promise<SendOutcome | void>;
+  share: (ownerIds: string[], send: boolean, draft?: EmailDraft, opts?: SendOptions) => Promise<SendOutcome | void>;
   /** The message a send to this owner would deliver. Read-only — the endpoint
    *  publishes nothing and mints nothing, so previewing is free. */
   loadDraft: (ownerId: string) => Promise<EmailDraft>;
@@ -297,7 +297,7 @@ export function useK1Registry(enabled: boolean, openK1Codes: string[]) {
         });
       },
 
-      share: async (ownerIds: string[], send: boolean, draft?: EmailDraft) => {
+      share: async (ownerIds: string[], send: boolean, draft?: EmailDraft, opts?: SendOptions) => {
         if (ownerIds.length === 0) return;
         setBatch(null);
         // Awaited and its outcome returned, so a single send can be confirmed
@@ -307,7 +307,7 @@ export function useK1Registry(enabled: boolean, openK1Codes: string[]) {
         await act(code, async () => {
           const res = await fetch("/api/investor-k1/share", {
             method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ propertyCode: code, ownerIds, year, send, draft: draft ?? null }),
+            body: JSON.stringify({ propertyCode: code, ownerIds, year, send, draft: draft ?? null, ccSecondary: opts?.ccSecondary !== false }),
           });
           const j = await res.json();
           if (!res.ok) throw new Error(j.error ?? "Could not create the links.");
@@ -411,7 +411,7 @@ export function useK1Registry(enabled: boolean, openK1Codes: string[]) {
         return { subject: j.subject as string, body: j.body as string, followUp: j.followUp ?? null, copyTo: j.copyTo ?? [] };
       },
 
-      send: async (interest: K1Interest, taxYear: number, send = true, draft?: EmailDraft): Promise<SendOutcome> => {
+      send: async (interest: K1Interest, taxYear: number, send = true, draft?: EmailDraft, opts?: SendOptions): Promise<SendOutcome> => {
         setBatch(null);
         const key = `inv:${name}`;
         setBusyCode(key);
@@ -419,7 +419,7 @@ export function useK1Registry(enabled: boolean, openK1Codes: string[]) {
         try {
           const res = await fetch("/api/investor-k1/share", {
             method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ propertyCode: interest.propertyCode, ownerIds: [interest.ownerId], year: taxYear, send, draft: draft ?? null }),
+            body: JSON.stringify({ propertyCode: interest.propertyCode, ownerIds: [interest.ownerId], year: taxYear, send, draft: draft ?? null, ccSecondary: opts?.ccSecondary !== false }),
           });
           const j = await res.json();
           if (!res.ok) throw new Error(j.error ?? "Could not send.");

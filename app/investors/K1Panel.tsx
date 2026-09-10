@@ -20,7 +20,7 @@ import { Pill, StatPill, TONE_AMBER, TONE_GREEN, TONE_NEUTRAL, TONE_RED } from "
 import { HoverCard } from "@/app/components/HoverCard";
 import { DocChip } from "@/app/components/DocChip";
 import { YearSelect } from "@/app/components/YearSelect";
-import { ShareLinkCard, type EmailDraft, type SendOutcome } from "@/app/components/ShareLinkCard";
+import { ShareLinkCard, type EmailDraft, type SendOutcome, type SendOptions } from "@/app/components/ShareLinkCard";
 import type { K1Document } from "@/lib/investors/k1";
 import type { K1Interest, K1Owner, K1Slice, ShareBatch } from "./useK1";
 import { sendState, sendStateTone } from "./sendState";
@@ -441,6 +441,7 @@ export function K1PortalCell({ owner, k1 }: { owner: K1Owner; k1: K1Slice }) {
         // all — the share route mails the additional recipients too, and an
         // address that only appears in the route is one nobody agreed to.
         recipients={recipientsOf(owner.email, owner.alsoEmail)}
+        secondaryRecipients={owner.alsoEmail ?? []}
         sendLabel="Email the investor"
         pinOptional={false}
         viewAsHref={`/investor/preview?owner=${encodeURIComponent(owner.id)}`}
@@ -461,7 +462,7 @@ export function K1PortalCell({ owner, k1 }: { owner: K1Owner; k1: K1Slice }) {
         // before a link exists, an ungated one would put "Email the investor"
         // in front of an owner whose K-1 hasn't been uploaded, and the server
         // would refuse it after the click.
-        onSend={doc ? (_id, draft) => k1.share([owner.id], true, draft) : undefined}
+        onSend={doc ? (_id, draft, opts) => k1.share([owner.id], true, draft, opts) : undefined}
         onRevoke={(id) => {
           if (confirm(`Revoke ${owner.name}'s link? It stops working immediately and their K-1 is no longer readable.`)) {
             k1.revoke(id);
@@ -490,7 +491,7 @@ export function K1InvestorShare({ name, inv }: {
     alsoEmail: string[];
     sendableFrom: K1Interest | null;
     interests: K1Interest[];
-    send: (i: K1Interest, taxYear: number, send?: boolean, draft?: EmailDraft) => Promise<SendOutcome | void>;
+    send: (i: K1Interest, taxYear: number, send?: boolean, draft?: EmailDraft, opts?: SendOptions) => Promise<SendOutcome | void>;
     loadDraft: (i: K1Interest, taxYear: number) => Promise<EmailDraft>;
     revoke: (linkId: string) => void;
     setEmail: (ownerId: string, email: string) => void;
@@ -517,6 +518,7 @@ export function K1InvestorShare({ name, inv }: {
       busy={inv.busy}
       error={inv.error}
       recipients={recipientsOf(inv.email, inv.alsoEmail)}
+      secondaryRecipients={inv.alsoEmail ?? []}
       sendLabel="Email the investor"
       pinOptional={false}
       viewAsHref={target ? `/investor/preview?owner=${encodeURIComponent(target.ownerId)}` : undefined}
@@ -535,7 +537,7 @@ export function K1InvestorShare({ name, inv }: {
       // card puts a confirm in front of that.
       onCreate={target && newest ? () => inv.send(target, newest.taxYear, false) : undefined}
       loadDraft={target && newest ? () => inv.loadDraft(target, newest.taxYear) : undefined}
-      onSend={target && newest ? (_id, draft) => inv.send(target, newest.taxYear, true, draft) : undefined}
+      onSend={target && newest ? (_id, draft, opts) => inv.send(target, newest.taxYear, true, draft, opts) : undefined}
       onRevoke={(id) => {
         if (confirm(`Revoke ${name}'s link? It stops working immediately and none of their K-1s are readable until you share a new one.`)) {
           inv.revoke(id);

@@ -599,6 +599,17 @@ preferences.
   — `composeK1PinEmail` is the function that would be replaced if a provider is
   ever added. The PIN email goes to `alsoEmail` too, because an additional
   recipient who cannot open the document is not an additional recipient.
+- **The additional recipients are Cc'd by default, and that is addressing
+  only.** A checkbox in the confirm switches between the investor on To with
+  their accountant visibly Cc'd (the default — it is how that relationship
+  actually works) and everyone addressed together on To. **It never changes WHO
+  receives the mail**, and `lib/investors/recipients.test.ts` pins exactly that:
+  `addressRecipients` must reach the same set under both settings. Both the link
+  email and the PIN email are addressed identically — a PIN arriving To when the
+  link arrived Cc reads as a different conversation. With no primary address on
+  file nobody is Cc'd onto a mail with no addressee; whoever we have is
+  addressed directly. The confirm tags each recipient TO / CC, because the
+  header is a detail but the LIST is the thing the confirm exists to state.
 - **Both emails are BLIND-copied to the team** (`shareCopyTo()` in the share
   route → `sendMail`'s `bcc`, default `dwinig@kormancommercial.com`, overridden
   or switched off with `K1_SHARE_COPY_TO` and no deploy). It is the record that
