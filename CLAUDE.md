@@ -257,6 +257,50 @@ how-to-pay instructions. Sources of truth:
   tenant APIs `/api/portal/[token]/monthly[/pdf]` (published periods only, scoped
   to the token's one unit).
 
+# Management fees — the intercompany must tie exactly
+
+**No property or building pays an outside management fee. Every dollar goes to
+LIK Management (2010).** Confirmed by the owner — do NOT reintroduce "some
+buildings may be managed by a third party" as an explanation for a gap.
+
+- **Account `6610` (fee EXPENSE at each building) and account `4510` (fee
+  REVENUE at 2010) are two sides of ONE transaction and must be equal in every
+  period.** Because nothing is paid outside, there is no structural reason for a
+  variance: any difference is an error of timing or amount, not scope.
+- **The two sides are produced completely differently, which is the root cause.**
+  6610 is posted per building as part of each building's monthly close, computed
+  from that building's actual revenue. 4510 is TWO HAND-KEYED journal entries at
+  2010 — "Management Fees - NILLC" and "Mgmt Fees - Other". A manual accrual
+  against automatic postings drifts by construction.
+- **2026 through July, the evidence:** not one month tied. February carried no
+  entry at all ($59,868 billed, $0 booked) and March ran +$55,092 catching up.
+  The year netted to $4,424 on ~$410,000 — which is exactly why it went
+  unnoticed. **The annual figure looking close is the trap**; check the months.
+- **When they disagree, 6610 is the evidence and 4510 is the estimate.** The
+  building side is thirteen independent postings the buildings' own statements,
+  budgets and CAM recons already rely on. The fix runs one way: make 4510 equal
+  the sum of 6610. `suggestedEntry` in `lib/financials/management-fees/intercompany.ts`
+  states that figure, split the way the two entries are actually keyed, so the
+  manual step is mechanical rather than estimated.
+- **The tie-out is judged only through the month BOTH sides have posted**, so a
+  building running behind cannot read as 2010 over-booking, and a month neither
+  side has posted is `pending` rather than a discrepancy. A missed entry
+  (`not-posted`) is reported separately from a wrong one (`off`) — they are
+  different problems.
+- **The one way this report can manufacture a false gap is its own input.** A
+  fee-paying building with no GL loaded contributes nothing to the buildings
+  column while 2010 booked its fee, which reads as 2010 over-booking by exactly
+  that amount. `missingGl` carries those buildings and the card says the
+  comparison is incomplete rather than blaming the ledger. Check it first.
+- **The BUDGET banner on the same page is a different check** (property 6610
+  budgets vs 2010's 4510 plan) and was the only one that existed. A budget
+  agreeing says nothing about whether the entries were made — keep both, labelled
+  BUDGET and ACTUAL.
+- **`2010`'s statement line "Management Fees" has mask `4510-*,4230-8501`**,
+  bundling base rent into a line named for fees. As of 2026 nothing posts to
+  4230-8501 at 2010, so it is cosmetic — do NOT "fix" it expecting the numbers to
+  move. `2000` (Clearing) carries the identical mask.
+
 # Balance Sheet — sources of truth
 
 `/financials/balance-sheet`, gated with the other statement pages

@@ -200,8 +200,12 @@ export async function loadManagementFees(year: number): Promise<MgmtFeeData> {
   const tieThrough = likActualMonthly
     ? Math.min(completeThrough || 0, likGl?.maxPeriodInFile ?? 0)
     : 0;
+  // A fee-paying building with no GL loaded contributes nothing to the
+  // buildings column, so its fee would read as 2010 over-booking. Carried so
+  // the card can say the comparison is incomplete rather than blame the ledger.
+  const missingGl = buildings.filter((b) => !b.hasGl).map((b) => b.code);
   const intercompany = likActualMonthly && tieThrough > 0
-    ? intercompanyTieOut(actualMonthly, likActualMonthly, tieThrough)
+    ? intercompanyTieOut(actualMonthly, likActualMonthly, tieThrough, { missingGl })
     : null;
   const entry = likActualMonthly && tieThrough > 0
     ? suggestedEntry(buildings, likActualMonthly, tieThrough, NILLC_CODES)

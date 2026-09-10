@@ -461,12 +461,22 @@ function IntercompanyCard({ tie, entry, year }: { tie: NonNullable<MgmtFeeData["
           2010 booked <b>{money(tie.likYtd)}</b> on 4510.{" "}
           {tie.clean
             ? "Every month ties."
-            : <>These are two sides of one transaction and should be equal.</>}
+            : <>No property pays an outside management fee, so these are two sides of one transaction and
+               must be equal. Any variance is an error of timing or amount.</>}
         </div>
         <button type="button" className="btn" onClick={() => setOpen((o) => !o)} style={{ flexShrink: 0 }}>
           {open ? "Hide detail" : "Show by month"}
         </button>
       </div>
+
+      {tie.missingGl.length > 0 && (
+        <div style={{ fontSize: 13, color: "#b91c1c" }}>
+          <b>This comparison is incomplete.</b> {tie.missingGl.length} fee-paying building
+          {tie.missingGl.length === 1 ? " has" : "s have"} no general ledger loaded for {year}
+          ({tie.missingGl.join(", ")}), so their fees are missing from the buildings column and read
+          here as 2010 over-booking. Upload those GLs before treating the variance below as an error.
+        </div>
+      )}
 
       {bad && (
         <div style={{ fontSize: 13, display: "grid", gap: 4 }}>
