@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   monthlyOutlay, escrowAt, summarizeLoan,
-  BROOKWOOD_2300_LOAN, PARKWOOD_7010_LOAN, GRAYS_FERRY_4500_LOAN, NI_LLC_4000_LOAN, JV_III_3600_LOAN, KH_JOSHUA_9840_LOAN,
+  BROOKWOOD_2300_LOAN, PARKWOOD_7010_LOAN, GRAYS_FERRY_4500_LOAN, NI_LLC_4000_LOAN, JV_III_3600_LOAN, KH_JOSHUA_9840_LOAN, KH_509_9800_LOAN,
 } from "./amortization";
 
 /**
@@ -154,5 +154,50 @@ describe("9840 KH-Joshua — M&T interest-only ARM", () => {
   it("holds the balance flat — no principal for ten years", () => {
     const s = summarizeLoan(KH_JOSHUA_9840_LOAN, "2030-01-01");
     expect(s.projectedBalance).toBe(375000);
+  });
+});
+
+describe("9800 KH-509 Bellaire — M&T interest-only ARM", () => {
+  it("is keyed to the Bellaire Avenue property", () => {
+    expect(KH_509_9800_LOAN.property).toBe("9800");
+    expect(KH_509_9800_LOAN.lender).toBe("M&T Bank");
+  });
+
+  it("has NO escrow — the escrow table reads $0.00 a month", () => {
+    // Property taxes are marked not escrowed on the Closing Disclosure, so
+    // like the Joshua Rd loan the stated payment IS the whole debit.
+    expect(KH_509_9800_LOAN.escrowPerMonth).toBeUndefined();
+    expect(monthlyOutlay(KH_509_9800_LOAN, 2232.42)).toBe(2232.42);
+  });
+
+  it("pays exactly one month's interest and no principal", () => {
+    // $476,250 × 5.625% ÷ 12 = $2,232.4219. The note's $2,232.42 is that
+    // figure rounded, which is what confirms the payment is interest-only.
+    const monthly = (476250 * 5.625) / 100 / 12;
+    expect(Math.round(monthly * 100) / 100).toBe(2232.42);
+    expect(KH_509_9800_LOAN.scheduledPayment).toBe(2232.42);
+    expect(KH_509_9800_LOAN.interestOnly).toBe(true);
+
+    const s = summarizeLoan(KH_509_9800_LOAN, "2026-10-01");
+    expect(s.nextPayment?.principal ?? 0).toBe(0);
+  });
+
+  it("first payment falls on the bank's due date", () => {
+    const s = summarizeLoan(KH_509_9800_LOAN, "2026-09-15");
+    expect(s.nextPayment?.date).toBe("2026-10-01");
+  });
+
+  it("holds the balance flat — no principal for ten years", () => {
+    const s = summarizeLoan(KH_509_9800_LOAN, "2030-01-01");
+    expect(s.projectedBalance).toBe(476250);
+  });
+
+  it("is a second, separate M&T loan — not a duplicate of Joshua Rd", () => {
+    // Both closed 8/21/2026 with M&T on the same product at the same rate,
+    // which makes them easy to conflate. They are different properties,
+    // different entities and different amounts.
+    expect(KH_509_9800_LOAN.id).not.toBe(KH_JOSHUA_9840_LOAN.id);
+    expect(KH_509_9800_LOAN.originalBalance).toBe(476250);
+    expect(KH_JOSHUA_9840_LOAN.originalBalance).toBe(375000);
   });
 });
