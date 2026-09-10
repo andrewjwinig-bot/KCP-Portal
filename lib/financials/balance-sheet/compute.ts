@@ -86,6 +86,16 @@ export interface BalanceSheet {
     balances: boolean;
   };
   coverage: { startMonth: number; through: number; asOfCovered: boolean };
+  /**
+   * Every figure on the sheet, checked against the GL's OWN printed ending
+   * balance for that account ("YTD Total"). Null when the upload predates
+   * ytdTotal capture, or when the sheet is dated mid-year (where the GL's
+   * year-end column is not the figure being shown and disagreement is correct).
+   */
+  tieOut: {
+    checked: number;
+    mismatches: { code: string; name: string; computed: number; reported: number; diff: number }[];
+  } | null;
   /** Anything that makes the sheet unsafe to hand over, in plain words. */
   warnings: string[];
   /** True when nothing prevents this being certified — no warnings, it balances. */
@@ -191,6 +201,36 @@ export function computeBalanceSheet(
   const difference = round2(totalAssets - totalLiabilitiesAndEquity);
   const balances = Math.abs(difference) < 0.5;
 
+  // Tie every account back to the ledger's own ending balance. `balanceAt` adds
+  // the opening to the monthly nets; the GL separately PRINTS the result in its
+  // YTD Total column. The two are derived differently and must agree, so this
+  // checks the arithmetic on the sheet against Skyline's own figure rather than
+  // against itself — the one control here that does not depend on my code being
+  // right about anything except addition.
+  let tieOut: BalanceSheet["tieOut"] = null;
+  const reported = gl.ytdTotal;
+  if (reported && Object.keys(reported).length && asOfMonth >= coverageEnd) {
+    const mismatches: NonNullable<BalanceSheet["tieOut"]>["mismatches"] = [];
+    let checked = 0;
+    for (const code of allAccounts(gl)) {
+      const rep = reported[code];
+      if (rep == null) continue;
+      checked++;
+      const computed = balanceAt(gl, code, 12);
+      const d = round2(computed - rep);
+      if (Math.abs(d) >= 0.005) mismatches.push({ code, name: gl.names?.[code] ?? "", computed, reported: rep, diff: d });
+    }
+    tieOut = { checked, mismatches };
+    if (mismatches.length) {
+      warnings.push(
+        (mismatches.length === 1
+          ? "1 account's balance does not match the ending balance the general ledger prints for it."
+          : `${mismatches.length} accounts' balances do not match the ending balances the general ledger prints for them.`) +
+        " The GL may have been uploaded in pieces that do not join up — re-export the full year and upload it again.",
+      );
+    }
+  }
+
   if (unclassified.length) {
     warnings.push(
       `${unclassified.length} account${unclassified.length === 1 ? "" : "s"} with a balance ` +
@@ -212,6 +252,7 @@ export function computeBalanceSheet(
     unclassified,
     proof: { assets: totalAssets, liabilitiesAndEquity: totalLiabilitiesAndEquity, difference, balances },
     coverage: { startMonth, through: coverageEnd, asOfCovered: asOfMonth <= coverageEnd },
+    tieOut,
     warnings,
     usable: warnings.length === 0 && balances,
   };

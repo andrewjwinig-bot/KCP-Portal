@@ -5,7 +5,7 @@ import { computeBalanceSheet } from "@/lib/financials/balance-sheet/compute";
 import { getBsOverrides, setBsOverride } from "@/lib/financials/balance-sheet/overrideStore";
 import { BS_GROUPS } from "@/lib/financials/balance-sheet/classify";
 import { listLoans } from "@/lib/debt/storage";
-import { summarizeLoan } from "@/lib/debt/amortization";
+import { scheduleBalanceAt } from "@/lib/debt/amortization";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 
 export const runtime = "nodejs";
@@ -66,16 +66,26 @@ export async function GET(req: Request) {
   // agreeing is the strongest evidence the figure being certified is right;
   // disagreeing usually means a principal payment posted to the wrong month.
   const loans = (await listLoans()).filter((l) => l.property === key);
-  const debtCheck = loans.length
+  const rows = loans.map((l) => ({
+    id: l.id,
+    lender: l.lender,
+    collateral: l.collateral,
+    /** null when the schedule starts after the as-of date — see scheduleBalanceAt. */
+    projectedBalance: scheduleBalanceAt(l, sheet.asOfDate),
+    anchorDate: l.anchorDate,
+  }));
+  // Only compare when EVERY loan can state a balance for this date. A partial
+  // total read against the ledger's full mortgage balance would look like a
+  // discrepancy and be nothing of the kind.
+  const comparable = rows.length > 0 && rows.every((r) => r.projectedBalance != null);
+  const debtCheck = rows.length
     ? {
-        loans: loans.map((l) => ({
-          id: l.id,
-          lender: l.lender,
-          collateral: l.collateral,
-          projectedBalance: summarizeLoan(l, sheet.asOfDate).projectedBalance,
-        })),
-        scheduleTotal: loans.reduce((s, l) => s + summarizeLoan(l, sheet.asOfDate).projectedBalance, 0),
+        loans: rows,
+        comparable,
+        scheduleTotal: comparable ? rows.reduce((t, r) => t + (r.projectedBalance ?? 0), 0) : null,
         ledgerTotal: sheet.liabilities.find((g) => g.key === "mortgage")?.total ?? 0,
+        /** The earliest date the schedule can speak to, when it cannot speak to this one. */
+        earliestDate: rows.reduce((d, r) => (r.anchorDate > d ? r.anchorDate : d), ""),
       }
     : null;
 

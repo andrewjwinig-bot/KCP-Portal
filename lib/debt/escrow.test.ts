@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
-  monthlyOutlay, escrowAt, summarizeLoan,
+  monthlyOutlay, escrowAt, summarizeLoan, scheduleBalanceAt,
   BROOKWOOD_2300_LOAN, PARKWOOD_7010_LOAN, GRAYS_FERRY_4500_LOAN, NI_LLC_4000_LOAN, JV_III_3600_LOAN, KH_JOSHUA_9840_LOAN, KH_509_9800_LOAN,
 } from "./amortization";
 
@@ -199,5 +199,40 @@ describe("9800 KH-509 Bellaire — M&T interest-only ARM", () => {
     expect(KH_509_9800_LOAN.id).not.toBe(KH_JOSHUA_9840_LOAN.id);
     expect(KH_509_9800_LOAN.originalBalance).toBe(476250);
     expect(KH_JOSHUA_9840_LOAN.originalBalance).toBe(375000);
+  });
+});
+
+describe("scheduleBalanceAt — the schedule only knows forward", () => {
+  it("returns null for a date before the loan's anchor", () => {
+    // Brookwood's anchor is a balance read off the 2026-04-01 lender statement.
+    // The schedule projects forward from there and has nothing before it, so it
+    // cannot state a 12/31/2025 balance and must say so.
+    expect(BROOKWOOD_2300_LOAN.anchorDate).toBe("2026-04-01");
+    expect(scheduleBalanceAt(BROOKWOOD_2300_LOAN, "2025-12-31")).toBeNull();
+  });
+
+  it("is why summarizeLoan alone must not be used as an as-of balance", () => {
+    // Asked for an earlier date, summarizeLoan finds no past rows and hands
+    // back the ANCHOR — a April 2026 balance wearing December 2025's date. The
+    // balance sheet compared that against the ledger and reported the three
+    // months of principal between them as a $34,509 discrepancy, on a statement
+    // headed for a bank. This is the guard against repeating that.
+    expect(summarizeLoan(BROOKWOOD_2300_LOAN, "2025-12-31").projectedBalance).toBe(BROOKWOOD_2300_LOAN.anchorBalance);
+    expect(scheduleBalanceAt(BROOKWOOD_2300_LOAN, "2025-12-31")).toBeNull();
+  });
+
+  it("answers on and after the anchor date", () => {
+    expect(scheduleBalanceAt(BROOKWOOD_2300_LOAN, "2026-04-01")).toBe(BROOKWOOD_2300_LOAN.anchorBalance);
+    const later = scheduleBalanceAt(BROOKWOOD_2300_LOAN, "2026-10-01");
+    expect(later).not.toBeNull();
+    expect(later!).toBeLessThan(BROOKWOOD_2300_LOAN.anchorBalance); // amortizing
+  });
+
+  it("holds for every managed loan — each answers only from its own anchor", () => {
+    for (const loan of [BROOKWOOD_2300_LOAN, PARKWOOD_7010_LOAN, GRAYS_FERRY_4500_LOAN, NI_LLC_4000_LOAN, JV_III_3600_LOAN, KH_JOSHUA_9840_LOAN, KH_509_9800_LOAN]) {
+      const dayBefore = new Date(Date.parse(loan.anchorDate + "T00:00:00Z") - 86400000).toISOString().slice(0, 10);
+      expect(scheduleBalanceAt(loan, dayBefore), loan.id).toBeNull();
+      expect(scheduleBalanceAt(loan, loan.anchorDate), loan.id).toBe(loan.anchorBalance);
+    }
   });
 });

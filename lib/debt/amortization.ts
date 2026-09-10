@@ -201,6 +201,27 @@ export type LoanSummary = {
   status: "Interest-Only" | "Amortizing" | "Maturity Passed";
 };
 
+/**
+ * The schedule's balance as of `on`, or NULL when the schedule cannot state one.
+ *
+ * `buildSchedule` only projects FORWARD from `anchorBalance`/`anchorDate` — the
+ * anchor is a balance read off a lender statement, and there is nothing before
+ * it to roll from. Ask `summarizeLoan` for a date earlier than the anchor and it
+ * finds no past rows and hands back the anchor itself, which is a balance for
+ * the anchor's date wearing the date you asked for.
+ *
+ * That is fine inside the debt page, which only ever looks forward. It is not
+ * fine for a cross-check: the balance sheet compared a 12/31/2025 ledger figure
+ * against Brookwood's 2026-04-01 anchor and reported the three months of
+ * principal between them as a $34,509 discrepancy, on a statement going to a
+ * bank. Callers that need a balance AS OF a date must use this and handle null,
+ * rather than reading a confident wrong number.
+ */
+export function scheduleBalanceAt(loan: Loan, on: string): number | null {
+  if (on < loan.anchorDate) return null;
+  return summarizeLoan(loan, on).projectedBalance;
+}
+
 /** Roll the schedule forward to `today` and derive headline numbers. */
 export function summarizeLoan(loan: Loan, today: string = todayISO()): LoanSummary {
   const schedule = buildSchedule(loan, today);
