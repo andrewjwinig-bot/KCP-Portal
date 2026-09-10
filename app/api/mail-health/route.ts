@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { SITE_COOKIE, verifySiteToken } from "@/lib/site-auth";
 import { ALL_USERS, isPathAllowed, USERS, type UserId } from "@/lib/users";
-import { isMailConfigured, isMailTestMode, sendMailDetailed } from "@/lib/mail";
+import { isMailConfigured, isMailTestMode, sendMailDetailed, postmarkServerIdentity, postmarkMessage } from "@/lib/mail";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -37,8 +37,21 @@ function tokenShape(): { set: boolean; testToken: boolean; length: number } {
   return { set: !!t, testToken: isMailTestMode(), length: t.length };
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   if (!(await currentUser())) return NextResponse.json({ error: "Not authorized" }, { status: 401 });
+
+  // ?message=<id> — what became of one specific send. Answers "the app gave me
+  // a message id but Activity shows nothing", which is the shape of looking at
+  // the wrong server.
+  const messageId = new URL(req.url).searchParams.get("message");
+  if (messageId) {
+    return NextResponse.json({
+      ok: true,
+      server: await postmarkServerIdentity(),
+      message: await postmarkMessage(messageId),
+    });
+  }
+
   const token = tokenShape();
   const from = (process.env.MAINTENANCE_REPLY_FROM ?? "").trim();
   const problems: string[] = [];
@@ -51,6 +64,9 @@ export async function GET() {
     token,
     from: from || null,
     k1CopyTo: (process.env.K1_SHARE_COPY_TO ?? "dwinig@kormancommercial.com").trim() || null,
+    // WHICH Postmark server the token belongs to. Each has its own Activity
+    // feed, so a message accepted by one is invisible in another's.
+    server: await postmarkServerIdentity(),
     portalOrigin: process.env.PORTAL_ORIGIN ?? null,
     problems,
   });

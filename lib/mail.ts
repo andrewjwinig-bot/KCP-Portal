@@ -187,6 +187,64 @@ export async function sendMailDetailed(msg: MailMessage): Promise<MailResult> {
   }
 }
 
+/**
+ * WHICH Postmark server this token belongs to.
+ *
+ * A Postmark account holds several servers, each with its own token and its
+ * own separate Activity feed. A message accepted by one is invisible in
+ * another's Activity — which looks exactly like "nothing was ever sent" while
+ * the API is handing back real message ids. Naming the server turns that into
+ * a five-second check.
+ */
+export async function postmarkServerIdentity(): Promise<{ ok: boolean; id?: number; name?: string; error?: string }> {
+  const token = process.env.POSTMARK_SERVER_TOKEN;
+  if (!token) return { ok: false, error: "POSTMARK_SERVER_TOKEN is not set." };
+  try {
+    const res = await fetch("https://api.postmarkapp.com/server", {
+      headers: { "X-Postmark-Server-Token": token, Accept: "application/json" },
+    });
+    const body = await res.json().catch(() => null) as { ID?: number; Name?: string; Message?: string } | null;
+    if (!res.ok) return { ok: false, error: body?.Message ?? `Postmark returned ${res.status}.` };
+    return { ok: true, id: body?.ID, name: body?.Name };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Could not reach Postmark." };
+  }
+}
+
+/**
+ * What became of ONE message, by id.
+ *
+ * The send reports an id; this reports its fate — delivered, bounced, held,
+ * or unknown to this server (which is itself the answer: wrong server).
+ */
+export async function postmarkMessage(messageId: string): Promise<{
+  ok: boolean; status?: string; recipients?: string[]; events?: { type: string; at?: string; detail?: string }[]; error?: string;
+}> {
+  const token = process.env.POSTMARK_SERVER_TOKEN;
+  if (!token) return { ok: false, error: "POSTMARK_SERVER_TOKEN is not set." };
+  try {
+    const res = await fetch(`https://api.postmarkapp.com/messages/outbound/${encodeURIComponent(messageId)}/details`, {
+      headers: { "X-Postmark-Server-Token": token, Accept: "application/json" },
+    });
+    const body = await res.json().catch(() => null) as {
+      Status?: string; Recipients?: string[]; Message?: string;
+      MessageEvents?: { Type?: string; ReceivedAt?: string; Details?: Record<string, string> }[];
+    } | null;
+    if (!res.ok) return { ok: false, error: body?.Message ?? `Postmark returned ${res.status}.` };
+    return {
+      ok: true,
+      status: body?.Status,
+      recipients: body?.Recipients,
+      events: (body?.MessageEvents ?? []).map((e) => ({
+        type: e.Type ?? "?", at: e.ReceivedAt,
+        detail: e.Details ? Object.entries(e.Details).map(([k, v]) => `${k}: ${v}`).join(", ") : undefined,
+      })),
+    };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Could not reach Postmark." };
+  }
+}
+
 /** Best-effort send for the many callers that only branch on success. New code
  *  that REPORTS a send to a user should call `sendMailDetailed` instead. */
 export async function sendMail(msg: MailMessage): Promise<boolean> {
