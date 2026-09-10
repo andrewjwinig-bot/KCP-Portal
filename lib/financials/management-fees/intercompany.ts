@@ -178,3 +178,128 @@ export function suggestedEntry(
   const posted = Math.round(likMonthly[month - 1] ?? 0);
   return { month, lines, total, posted, adjustment: total - posted };
 }
+
+// ── Narrowing the search ──────────────────────────────────────────────────────
+//
+// "Which buildings tie and which don't" cannot be answered directly: 2010 does
+// not book per building. It posts TWO journal entries a month, so there is no
+// building-level counterpart to compare against and no amount of code invents
+// one. What can be done is narrow the search from both ends.
+//
+//   1. Tie each of the two ENTRIES to the buildings it covers. A variance then
+//      belongs to the NILLC side (7 buildings) or the Other side (13), which
+//      halves the search and often more.
+//   2. Find months where a BUILDING posted no fee at all while it posts one
+//      every other month. That is a per-building finding, and it is the shape a
+//      missing fee actually takes.
+//
+// Together they answer the real question — where do I look — without pretending
+// to a per-building tie-out the ledger cannot support.
+
+export type FeeGroupKey = "nillc" | "other";
+
+export const FEE_GROUP_LABEL: Record<FeeGroupKey, string> = {
+  nillc: "Management Fees - NILLC",
+  other: "Mgmt Fees - Other",
+};
+
+/** Which entry a 2010 journal line belongs to. The entries are identified by
+ *  their own description, which is how they are keyed and how they read in the
+ *  drill-down. Anything not naming NILLC is on the "Other" entry. */
+export function feeGroupOfEntry(text: string): FeeGroupKey {
+  return /\bni\s*llc\b|\bnillc\b/i.test(text ?? "") ? "nillc" : "other";
+}
+
+export type LikTxn = { month: number; description: string; vendor?: string; amount: number };
+
+/**
+ * 2010's 4510 postings split by entry, revenue-positive.
+ *
+ * Revenue is credit-normal, so the raw amounts are negative and are flipped
+ * here to read against the buildings' positive expense column.
+ */
+export function likRevenueByGroup(txns: LikTxn[]): Record<FeeGroupKey, number[]> {
+  const out: Record<FeeGroupKey, number[]> = { nillc: new Array(12).fill(0), other: new Array(12).fill(0) };
+  for (const t of txns) {
+    if (t.month < 1 || t.month > 12) continue;
+    const g = feeGroupOfEntry(`${t.description ?? ""} ${t.vendor ?? ""}`);
+    out[g][t.month - 1] += -(t.amount || 0);
+  }
+  return { nillc: out.nillc.map(Math.round), other: out.other.map(Math.round) };
+}
+
+export type GroupTie = {
+  key: FeeGroupKey;
+  label: string;
+  /** The buildings whose fees this entry covers. */
+  codes: string[];
+  tie: IntercompanyTieOut;
+};
+
+/** Tie each entry to the buildings it covers. */
+export function groupTieOuts(
+  buildings: { code: string; feeMonthly: number[] }[],
+  likByGroup: Record<FeeGroupKey, number[]>,
+  through: number,
+  nillcCodes: readonly string[],
+  opts: { tolerance?: number } = {},
+): GroupTie[] {
+  const inNillc = new Set(nillcCodes.map((c) => c.toUpperCase()));
+  const groupOfBuilding = (code: string): FeeGroupKey => (inNillc.has(code.toUpperCase()) ? "nillc" : "other");
+
+  return (["nillc", "other"] as FeeGroupKey[]).map((key) => {
+    const rows = buildings.filter((b) => groupOfBuilding(b.code) === key);
+    const monthly = new Array(12).fill(0);
+    for (const b of rows) for (let m = 0; m < 12; m++) monthly[m] += b.feeMonthly[m] ?? 0;
+    return {
+      key,
+      label: FEE_GROUP_LABEL[key],
+      codes: rows.map((b) => b.code),
+      tie: intercompanyTieOut(monthly, likByGroup[key], through, opts),
+    };
+  }).filter((g) => g.codes.length > 0);
+}
+
+export type FeeGap = {
+  code: string;
+  name: string;
+  /** Months (1–12) with no fee posted, where the building normally posts one. */
+  months: number[];
+  /** The building's usual monthly fee — the median of its posted months. */
+  typical: number;
+};
+
+/**
+ * Buildings that skipped a month.
+ *
+ * A building posting a fee in most months and nothing in one is the shape a
+ * missing fee takes, and unlike the intercompany variance this points at a
+ * specific building AND month. Requires at least three posted months before
+ * calling a zero a gap, so a building that started mid-year is not accused of
+ * missing the months before it existed.
+ */
+export function feeGaps(
+  buildings: { code: string; name: string; feeMonthly: number[]; maxPosted: number }[],
+  through: number,
+): FeeGap[] {
+  const out: FeeGap[] = [];
+  for (const b of buildings) {
+    const upto = Math.min(through, b.maxPosted || 0);
+    if (upto < 3) continue;
+    const window = b.feeMonthly.slice(0, upto);
+    const posted = window.map((v, i) => ({ v: Math.round(v), m: i + 1 })).filter((x) => Math.abs(x.v) >= POSTED_FLOOR);
+    if (posted.length < 3) continue;
+    // Only months INSIDE the building's own posting run — a zero before its
+    // first fee is not a gap, it is a building that had not started.
+    const first = posted[0].m;
+    const months = window
+      .map((v, i) => ({ v: Math.round(v), m: i + 1 }))
+      .filter((x) => x.m > first && Math.abs(x.v) < POSTED_FLOOR)
+      .map((x) => x.m);
+    if (!months.length) continue;
+    const sorted = posted.map((x) => x.v).sort((a, b2) => a - b2);
+    const typical = sorted[Math.floor(sorted.length / 2)];
+    out.push({ code: b.code, name: b.name, months, typical });
+  }
+  return out;
+}
