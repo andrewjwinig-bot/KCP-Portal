@@ -67,6 +67,40 @@ export function buildPayrollExportXlsx(args: BuildPayrollExportArgs): Blob {
   ];
 
   const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+  // Format columns C:K as currency (2 decimals, thousands separator)
+  const currencyFmt = "#,##0.00";
+  const headerRowIdx = payDate ? 2 : 0;
+  const lastRowIdx = headerRowIdx + rows.length + 1;
+  for (let r = headerRowIdx + 1; r <= lastRowIdx; r++) {
+    for (let c = 2; c <= 10; c++) {
+      const addr = XLSX.utils.encode_cell({ r, c });
+      const cell = ws[addr];
+      if (cell && typeof cell.v === "number") {
+        cell.t = "n";
+        cell.z = currencyFmt;
+      }
+    }
+  }
+
+  // Live totals: each row's Total = SUM(its components) and the bottom Total row
+  // = SUM(down each column), so the workbook recomputes if a figure is edited
+  // rather than showing a stale hand-computed number. Cached values stay in place;
+  // a per-row Total that doesn't reconcile keeps its static value.
+  const dataFirst = headerRowIdx + 1;          // 0-based first data row
+  const dataLast = headerRowIdx + rows.length; // 0-based last data row
+  const a1 = (c: number, r0: number) => `${XLSX.utils.encode_col(c)}${r0 + 1}`;
+  rows.forEach((r, idx) => {
+    const r0 = dataFirst + idx;
+    let sum = 0; for (let c = 2; c <= 9; c++) sum += r[c] as number;
+    const cell = ws[a1(10, r0)];
+    if (cell && Math.abs(sum - (r[10] as number)) < 0.5) cell.f = `SUM(${a1(2, r0)}:${a1(9, r0)})`;
+  });
+  if (rows.length > 0) for (let c = 2; c <= 10; c++) {
+    const cell = ws[a1(c, lastRowIdx)];
+    if (cell && typeof cell.v === "number") cell.f = `SUM(${a1(c, dataFirst)}:${a1(c, dataLast)})`;
+  }
+
   XLSX.utils.book_append_sheet(wb, ws, "Payroll Summary");
   const buf = XLSX.write(wb, { type: "array", bookType: "xlsx" });
   return new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
@@ -137,10 +171,19 @@ export function buildPayrollGLXlsx(args: BuildPayrollExportArgs): Blob {
   }
 
   // Offset row — rounded sum of already-rounded property lines so column H nets to $0
+  const lineCount = rows.length;
   rows.push(["JRNL", "2000", "0110-0000", "DW", dateStr, "Total Prop Payroll Reimbursement", periodCode, Math.round(offsetTotal * 100) / 100]);
 
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.aoa_to_sheet(rows);
+
+  // Make the offset a live =-SUM(property lines) so column H (Amount) always nets
+  // to exactly $0, self-correcting if a line is edited. Cached value stays.
+  if (lineCount > 0) {
+    const H = XLSX.utils.encode_col(7); // column H = Amount
+    const cell = ws[`${H}${lineCount + 1}`];
+    if (cell) cell.f = `-SUM(${H}1:${H}${lineCount})`;
+  }
 
   // Column widths
   ws["!cols"] = [

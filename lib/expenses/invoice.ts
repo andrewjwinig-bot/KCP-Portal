@@ -36,15 +36,19 @@ export type BuildInvoicePdfArgs = {
   periodText?: string;
   periodCompact?: string;  // MM/DD/YY-MM/DD/YY (short form for the header row)
   invoiceId?: string;
+  /** Accrued balance from prior held months, shown as a single summary line and
+   *  added to the grand total (the held months' charges are itemized in the GL /
+   *  TOP SHEET, not re-listed here). */
+  priorBalance?: number;
 };
 
 // ─── Lookup tables (mirrored from App.tsx) ──────────────────────────────────
 
 const CATEGORY_ACC: Record<string, string> = {
   "MARKETING NR": "7110",
-  "BUILDING MAINT.": "8220",
+  "BUILDING MAINT.": "6220",
   TI: "1440",
-  "OFFICE SUPPLIES": "9830",
+  "OFFICE SUPPLIES": "8930",
   AUTO: "8980",
   TELEPHONE: "8940",
   "COMP & IT": "8400",
@@ -159,6 +163,14 @@ function buildLinesForCategory(
       const amt = Number(t.amount || 0);
       return [{ date: t.date, accountCode: "1430-0000", description: useDesc, amount: amt, originalAmount: orig }];
     }
+    if (category === "BUILDING MAINT.") {
+      const amt = Number(t.amount || 0);
+      return [{ date: t.date, accountCode: "6220-8502", description: useDesc, amount: amt, originalAmount: orig }];
+    }
+    if (category === "OFFICE SUPPLIES") {
+      const amt = Number(t.amount || 0);
+      return [{ date: t.date, accountCode: "8930-8502", description: useDesc, amount: amt, originalAmount: orig }];
+    }
 
     const acc = CATEGORY_ACC[category] || "";
     if (!acc || suffixes.length === 0) {
@@ -201,11 +213,29 @@ export function buildInvoicePdf(args: BuildInvoicePdfArgs): Blob {
 
   const invoiceId = args.invoiceId || makeInvoiceId(args.propertyCode);
 
+  // 2010 (LIK Management) credit-card statement is for tracking only — show a
+  // bold "DO NOT PROCESS" banner at the top of every page so AP doesn't pay it.
+  const showDoNotProcess = args.propertyCode === "2010";
+  function drawDoNotProcessBanner() {
+    if (!showDoNotProcess) return;
+    doc.setFillColor(220, 38, 38);
+    doc.rect(0, 0, pageW, 26, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(14);
+    doc.text("DO NOT PROCESS", pageW / 2, 17, { align: "center" });
+    doc.setTextColor(0, 0, 0);
+  }
+
   // ── Compute grand total up front (used on both pages) ──────────────────
-  let grandTotal = 0;
+  const priorBalance = Number(args.priorBalance || 0);
+  let grandTotal = priorBalance;
   for (const cg of args.categoryGroups) {
     for (const t of cg.items) grandTotal += Number(t.amount || 0);
   }
+
+  // Initial page banner
+  drawDoNotProcessBanner();
 
   // ════════════════════════════════════════════════════════════════════════
   // PAGE 1 — HEADER BLOCK
@@ -361,6 +391,20 @@ export function buildInvoicePdf(args: BuildInvoicePdfArgs): Blob {
     }
   }
 
+  // Prior balance carried forward — a single summary line (the held months'
+  // charges are itemized in the GL Journal Entry / TOP SHEET, not re-listed).
+  if (priorBalance > 0) {
+    doc.setFillColor(SUBTOTAL_BG.r, SUBTOTAL_BG.g, SUBTOTAL_BG.b);
+    doc.rect(margin, sumY, contentW, sumRowH, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.setTextColor(TEAL.r, TEAL.g, TEAL.b);
+    doc.text("PRIOR BALANCE CARRIED FORWARD", sumXCat + 8, sumY + 15);
+    doc.setTextColor(0, 0, 0);
+    doc.text(toMoney(priorBalance), sumXTotal + sumColTotal - 8, sumY + 15, { align: "right" });
+    sumY += sumRowH;
+  }
+
   // Footer: payable-to text + TOTAL box
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10);
@@ -385,6 +429,7 @@ export function buildInvoicePdf(args: BuildInvoicePdfArgs): Blob {
   // ════════════════════════════════════════════════════════════════════════
 
   doc.addPage();
+          drawDoNotProcessBanner();
 
   const colDate  = 56;
   const colCat2  = 86;
@@ -426,6 +471,20 @@ export function buildInvoicePdf(args: BuildInvoicePdfArgs): Blob {
   drawDetailHeader(y);
   y += detHeaderH;
 
+  // Prior balance carried forward — leading line so the detail rows reconcile
+  // to the grand total (held months' detail lives in the GL / TOP SHEET).
+  if (priorBalance > 0) {
+    doc.setFillColor(SUBTOTAL_BG.r, SUBTOTAL_BG.g, SUBTOTAL_BG.b);
+    doc.rect(margin, y, contentW, detSubRowH, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.setTextColor(TEAL.r, TEAL.g, TEAL.b);
+    doc.text("Prior balance carried forward", xDesc2 + 6, y + 14);
+    doc.setTextColor(0, 0, 0);
+    doc.text(toMoney(priorBalance), xPrice2 + colPrice - 6, y + 14, { align: "right" });
+    y += detSubRowH + 4;
+  }
+
   for (const cg of args.categoryGroups) {
     const lines = buildLinesForCategory(cg.category, args.propertyCode, cg.items);
 
@@ -441,6 +500,7 @@ export function buildInvoicePdf(args: BuildInvoicePdfArgs): Blob {
       for (const r of accLines) {
         if (y + detRowH > pageH - detBottomMgn) {
           doc.addPage();
+          drawDoNotProcessBanner();
           y = margin;
           drawDetailHeader(y);
           y += detHeaderH;
@@ -468,6 +528,7 @@ export function buildInvoicePdf(args: BuildInvoicePdfArgs): Blob {
       // ── Subtotal row (light blue) ──
       if (y + detSubRowH > pageH - detBottomMgn) {
         doc.addPage();
+          drawDoNotProcessBanner();
         y = margin;
         drawDetailHeader(y);
         y += detHeaderH;
@@ -505,6 +566,97 @@ export function buildInvoicePdf(args: BuildInvoicePdfArgs): Blob {
   doc.setTextColor(255, 255, 255);
   doc.text("TOTAL",                                  margin + contentW - 210, pageH - 68);
   doc.text(toMoney(grandTotal).replace("$", "$ "),   margin + contentW - 10,  pageH - 68, { align: "right" });
+  doc.setTextColor(0, 0, 0);
+
+  return doc.output("blob") as Blob;
+}
+
+// ─── Reimbursement invoice ────────────────────────────────────────────────────
+// Harry fronts the whole credit-card statement, so alongside the per-property
+// invoices we cut one invoice for the full statement total payable back to him.
+
+export type ReimbursementLine = { label: string; amount: number };
+
+export type BuildReimbursementPdfArgs = {
+  payeeName: string;        // e.g. "Harry Feldman"
+  payeeVendorCode: string;  // e.g. "HARRY" (the AP vendor code paid, not LIKM1)
+  statementMonth: string;   // YYYY-MM
+  invoiceDate: string;      // YYYY-MM-DD
+  periodText?: string;
+  periodCompact?: string;
+  invoiceId?: string;
+  lines: ReimbursementLine[]; // per-property (or per-group) subtotals making up the total
+  total: number;
+};
+
+export function buildReimbursementInvoicePdf(args: BuildReimbursementPdfArgs): Blob {
+  const doc = new jsPDF({ unit: "pt", format: "letter" });
+  const margin = 40;
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  const contentW = pageW - margin * 2;
+  const invoiceId = args.invoiceId || makeInvoiceId("REIMB");
+
+  // Header
+  doc.setFont("helvetica", "bold"); doc.setFontSize(28); doc.setTextColor(TEAL.r, TEAL.g, TEAL.b);
+  doc.text("INVOICE", pageW - margin, 62, { align: "right" });
+  doc.setTextColor(0, 0, 0); doc.setFont("helvetica", "bold"); doc.setFontSize(16);
+  doc.text("LIK Management Inc", margin, 60);
+  doc.setFont("helvetica", "normal"); doc.setFontSize(10);
+  doc.text("8 Neshaminy Interplex; Suite 400", margin, 78);
+  doc.text("Trevose, PA  19053", margin, 92);
+
+  // Meta box
+  const metaX = pageW - margin - 220, metaY = 95;
+  doc.setFillColor(TEAL.r, TEAL.g, TEAL.b); doc.rect(metaX, metaY, 220, 20, "F");
+  doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(10);
+  doc.text("INVOICE #", metaX + 10, metaY + 14); doc.text("DATE", metaX + 140, metaY + 14);
+  doc.setTextColor(0, 0, 0); doc.text(invoiceId, metaX + 10, metaY + 36); doc.text(formatDateDisplay(args.invoiceDate), metaX + 140, metaY + 36);
+  doc.setFillColor(TEAL.r, TEAL.g, TEAL.b); doc.rect(metaX, metaY + 48, 220, 20, "F");
+  doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(10);
+  doc.text("TYPE", metaX + 10, metaY + 62); doc.text("CC EXPENSES", metaX + 140, metaY + 62);
+  doc.setTextColor(0, 0, 0); doc.text("Reimbursement", metaX + 10, metaY + 84); doc.text(formatStatementMonth(args.statementMonth), metaX + 140, metaY + 84);
+
+  // Bill To (the company reimbursing)
+  doc.setFillColor(TEAL.r, TEAL.g, TEAL.b); doc.rect(margin, 120, 260, 18, "F");
+  doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(10); doc.text("BILL TO", margin + 8, 133);
+  doc.setTextColor(0, 0, 0); doc.text("Korman Commercial Properties", margin + 8, 155);
+  doc.setFont("helvetica", "normal"); doc.text("8 Neshaminy Interplex", margin + 8, 170); doc.text("Suite 400", margin + 8, 185); doc.text("Trevose, PA  19053", margin + 8, 200);
+
+  // Description bar
+  const barY = 225; doc.setFillColor(TEAL.r, TEAL.g, TEAL.b); doc.rect(margin, barY, contentW, 18, "F");
+  doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(10);
+  const periodX = margin + 270;
+  doc.text("DESCRIPTION", margin + 8, barY + 13); doc.text("PERIOD", periodX, barY + 13); doc.text("TERMS", margin + contentW - 8, barY + 13, { align: "right" });
+  const periodLabel = args.periodCompact || args.periodText || formatStatementMonth(args.statementMonth);
+  doc.setTextColor(0, 0, 0); doc.setFont("helvetica", "normal"); doc.setFontSize(11);
+  doc.text(`Reimbursement — ${formatStatementMonth(args.statementMonth)} credit card statement paid by ${args.payeeName}`, margin + 8, barY + 36, { maxWidth: periodX - margin - 16 });
+  doc.text(periodLabel, periodX, barY + 36, { maxWidth: 120 });
+  doc.text("Due upon receipt", margin + contentW - 8, barY + 36, { align: "right" });
+
+  // Summary table: PROPERTY | SUBTOTAL
+  const sumColTotal = 182; const sumXLabel = margin; const sumXTotal = margin + contentW - sumColTotal;
+  const tableTop = 280; const headerH = 18; const rowH = 22;
+  doc.setFillColor(TEAL.r, TEAL.g, TEAL.b); doc.rect(margin, tableTop, contentW, headerH, "F");
+  doc.setFont("helvetica", "bold"); doc.setFontSize(10); doc.setTextColor(255, 255, 255);
+  doc.text("PROPERTY", sumXLabel + 8, tableTop + 13); doc.text("SUBTOTAL", sumXTotal + sumColTotal - 8, tableTop + 13, { align: "right" });
+  let y = tableTop + headerH;
+  for (const l of args.lines) {
+    if (y + rowH > pageH - 120) { doc.addPage(); y = margin; }
+    doc.setFillColor(SUBTOTAL_BG.r, SUBTOTAL_BG.g, SUBTOTAL_BG.b); doc.rect(margin, y, contentW, rowH, "F");
+    doc.setFont("helvetica", "bold"); doc.setFontSize(10); doc.setTextColor(TEAL.r, TEAL.g, TEAL.b);
+    doc.text(truncate(l.label, 64), sumXLabel + 8, y + 15);
+    doc.setTextColor(0, 0, 0); doc.text(toMoney(l.amount), sumXTotal + sumColTotal - 8, y + 15, { align: "right" });
+    y += rowH;
+  }
+
+  // Footer: payable-to + TOTAL box
+  doc.setFont("helvetica", "bold"); doc.setFontSize(10); doc.setTextColor(0, 0, 0);
+  doc.text(`Payable to ${args.payeeVendorCode}`, margin, pageH - 88);
+  doc.text(args.payeeName, margin, pageH - 72);
+  doc.setFillColor(TEAL.r, TEAL.g, TEAL.b); doc.rect(margin + contentW - 220, pageH - 95, 220, 40, "F");
+  doc.setFont("helvetica", "bold"); doc.setFontSize(20); doc.setTextColor(255, 255, 255);
+  doc.text("TOTAL", margin + contentW - 210, pageH - 68); doc.text(toMoney(args.total).replace("$", "$ "), margin + contentW - 10, pageH - 68, { align: "right" });
   doc.setTextColor(0, 0, 0);
 
   return doc.output("blob") as Blob;
