@@ -5,7 +5,11 @@ import { computeBalanceSheet } from "@/lib/financials/balance-sheet/compute";
 import { getBsOverrides, setBsOverride } from "@/lib/financials/balance-sheet/overrideStore";
 import { BS_GROUPS } from "@/lib/financials/balance-sheet/classify";
 import { listLoans } from "@/lib/debt/storage";
+<<<<<<< HEAD
 import { scheduleBalanceAt } from "@/lib/debt/amortization";
+=======
+import { summarizeLoan } from "@/lib/debt/amortization";
+>>>>>>> origin/main
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 
 export const runtime = "nodejs";
@@ -66,6 +70,7 @@ export async function GET(req: Request) {
   // agreeing is the strongest evidence the figure being certified is right;
   // disagreeing usually means a principal payment posted to the wrong month.
   const loans = (await listLoans()).filter((l) => l.property === key);
+<<<<<<< HEAD
   const rows = loans.map((l) => ({
     id: l.id,
     lender: l.lender,
@@ -86,6 +91,18 @@ export async function GET(req: Request) {
         ledgerTotal: sheet.liabilities.find((g) => g.key === "mortgage")?.total ?? 0,
         /** The earliest date the schedule can speak to, when it cannot speak to this one. */
         earliestDate: rows.reduce((d, r) => (r.anchorDate > d ? r.anchorDate : d), ""),
+=======
+  const debtCheck = loans.length
+    ? {
+        loans: loans.map((l) => ({
+          id: l.id,
+          lender: l.lender,
+          collateral: l.collateral,
+          projectedBalance: summarizeLoan(l, sheet.asOfDate).projectedBalance,
+        })),
+        scheduleTotal: loans.reduce((s, l) => s + summarizeLoan(l, sheet.asOfDate).projectedBalance, 0),
+        ledgerTotal: sheet.liabilities.find((g) => g.key === "mortgage")?.total ?? 0,
+>>>>>>> origin/main
       }
     : null;
 
