@@ -16,6 +16,7 @@ import { accountMatchesMask } from "@/lib/financials/operating-statements/mask";
 import { resolvePropertyBudget } from "@/lib/financials/operating-statements/budgetCrosswalk";
 import { loadFullYearStatement } from "@/lib/financials/operating-statements/fullYear";
 import { leaseChangesByMonth, type LeaseChange } from "./leaseChanges";
+import { intercompanyTieOut, suggestedEntry, type IntercompanyTieOut, type SuggestedEntry } from "./intercompany";
 import { listBudgets } from "@/lib/financials/budgets/storage";
 import { assembledGl } from "@/lib/financials/operating-statements/statementStore";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
@@ -66,6 +67,17 @@ export type MgmtFeeData = {
   completeThrough: number;
   likPlan: { budgetYear: number; fallback: boolean } | null;
   budgetFallback: boolean;
+  /**
+   * The intercompany tie-out on ACTUALS: what the buildings expensed on 6610
+   * against what 2010 booked on 4510. Null when 2010 has no GL for the year.
+   * The budget comparison above (likPlan) was the only check that existed, and
+   * a budget agreeing says nothing about whether the entries were made.
+   */
+  intercompany: IntercompanyTieOut | null;
+  /** The entry that should be posted for the latest complete month. */
+  suggestedEntry: SuggestedEntry | null;
+  /** 2010's posted 4510 by month, revenue-positive. */
+  likActualMonthly: number[] | null;
 };
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -84,6 +96,12 @@ function budgetMonthsForMask(lines: { glAccount: string; months: number[] }[], m
 // The LIK Management (2010) entity records the fees it EARNS as revenue on
 // account 4510 — the intercompany mirror of every property's 6610 fee expense.
 const LIK_MGMT_FEE_REVENUE_MASK = "4510";
+
+/** The buildings whose fees are keyed on the "Management Fees - NILLC" entry;
+ *  everything else goes on "Mgmt Fees - Other". These are the two journal
+ *  entries 2010 actually posts each month, so the suggested entry is split the
+ *  same way and can be posted as it reads. */
+const NILLC_CODES = ["4050", "4060", "4070", "4080", "40A0", "40B0", "40C0"] as const;
 
 /** The LIK Management (2010) plan for the year: its budgeted management-fee
  *  REVENUE (account 4510) — the fee income the management company budgets to
@@ -171,6 +189,24 @@ export async function loadManagementFees(year: number): Promise<MgmtFeeData> {
 
   const lik = await likManagementPlan(year, workbooks);
 
+  // 2010's own GL: account 4510, the revenue side of the same transaction.
+  // `sign: -1` because revenue is credit-normal in the ledger and this column
+  // is read against a positive expense column.
+  const likGl = assembleGls(fulls.filter((g) => g.key === "2010" && g.year === year));
+  const likActualMonthly = likGl ? lineMonthly(likGl.monthly, LIK_MGMT_FEE_REVENUE_MASK, -1, 12) : null;
+
+  // Judge only through the month BOTH sides could have posted — a building or
+  // 2010 running a month behind is not a discrepancy.
+  const tieThrough = likActualMonthly
+    ? Math.min(completeThrough || 0, likGl?.maxPeriodInFile ?? 0)
+    : 0;
+  const intercompany = likActualMonthly && tieThrough > 0
+    ? intercompanyTieOut(actualMonthly, likActualMonthly, tieThrough)
+    : null;
+  const entry = likActualMonthly && tieThrough > 0
+    ? suggestedEntry(buildings, likActualMonthly, tieThrough, NILLC_CODES)
+    : null;
+
   return {
     year,
     months: MONTHS,
@@ -189,6 +225,9 @@ export async function loadManagementFees(year: number): Promise<MgmtFeeData> {
     completeThrough,
     likPlan: lik ? { budgetYear: lik.budgetYear, fallback: lik.fallback } : null,
     budgetFallback: buildings.some((b) => b.budgetFallback),
+    intercompany,
+    suggestedEntry: entry,
+    likActualMonthly,
   };
 }
 
