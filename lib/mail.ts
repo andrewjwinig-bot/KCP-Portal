@@ -51,6 +51,25 @@ export type MailMessage = {
   from?: string;
 };
 
+/**
+ * The address Postmark is known to accept mail from.
+ *
+ * SIX flows independently hard-coded this with the comment "verified Postmark
+ * sender" — the Avid invoices, the operating-statement notice, the move-out
+ * watcher, the weekly digest, the allocation report, the remittance advice —
+ * because the DEFAULT (`MAINTENANCE_REPLY_FROM`, the service inbox) does not
+ * reliably send. Nobody wrote that down in one place, so every new flow either
+ * remembers to override it or silently fails.
+ *
+ * The investor K-1 share was the one that forgot: it set no `from`, fell back
+ * to the service address, and nothing it sent ever arrived — while every flow
+ * that overrides kept working, which is exactly why "invoices send fine, why
+ * not this?" had no obvious answer.
+ *
+ * `POSTMARK_VERIFIED_FROM` overrides it without a deploy.
+ */
+export const VERIFIED_FROM = (process.env.POSTMARK_VERIFIED_FROM ?? "dwinig@kormancommercial.com").trim();
+
 export function isMailConfigured(): boolean {
   return !!(process.env.POSTMARK_SERVER_TOKEN && process.env.MAINTENANCE_REPLY_FROM);
 }

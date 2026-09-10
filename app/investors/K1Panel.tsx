@@ -24,6 +24,7 @@ import { ShareLinkCard, type EmailDraft, type SendOutcome, type SendOptions } fr
 import type { K1Document } from "@/lib/investors/k1";
 import type { K1Interest, K1Owner, K1Slice, ShareBatch } from "./useK1";
 import { sendState, sendStateTone } from "./sendState";
+import { mailtoUrl } from "@/lib/investors/k1ShareEmail";
 
 const BRAND = "#0b4a7d";
 const TEAL = "#0f766e";
@@ -134,6 +135,23 @@ export function K1SelectCell({ ownerId, k1 }: { ownerId: string; k1: K1Slice }) 
   );
 }
 
+
+/**
+ * Hand the drafts to the user's own mail client.
+ *
+ * Two windows, because the two messages stay disjoint whoever sends them: the
+ * link email carries no PIN and the PIN email carries no link. Opening them
+ * together is the closest the browser gets to "prepare both, I'll send them" —
+ * the second is delayed slightly because a mail client asked to open two
+ * drafts in the same tick usually shows only the last.
+ */
+function openDraftsInMail(draft: EmailDraft, to: string[], cc: string[]) {
+  window.location.href = mailtoUrl({ subject: draft.subject, body: draft.body }, to, cc);
+  if (draft.followUp) {
+    const pin = draft.followUp;
+    setTimeout(() => { window.open(mailtoUrl(pin, to, cc), "_self"); }, 1200);
+  }
+}
 
 /**
  * Every address a send reaches: the investor, then their additional
@@ -458,6 +476,8 @@ export function K1PortalCell({ owner, k1 }: { owner: K1Owner; k1: K1Slice }) {
         // The confirm reads the real message first — see `loadDraft`. Whatever
         // it holds when you confirm is what gets sent.
         loadDraft={() => k1.loadDraft(owner.id)}
+        // Send it yourself from Outlook instead — same message, your mailbox.
+        onOpenInMail={(d) => openDraftsInMail(d, owner.email ? [owner.email] : [], owner.alsoEmail ?? [])}
         // Gated on the document, like `onCreate`: with the send now offered
         // before a link exists, an ungated one would put "Email the investor"
         // in front of an owner whose K-1 hasn't been uploaded, and the server
@@ -537,6 +557,7 @@ export function K1InvestorShare({ name, inv }: {
       // card puts a confirm in front of that.
       onCreate={target && newest ? () => inv.send(target, newest.taxYear, false) : undefined}
       loadDraft={target && newest ? () => inv.loadDraft(target, newest.taxYear) : undefined}
+      onOpenInMail={(d) => openDraftsInMail(d, inv.email ? [inv.email] : [], inv.alsoEmail ?? [])}
       onSend={target && newest ? (_id, draft, opts) => inv.send(target, newest.taxYear, true, draft, opts) : undefined}
       onRevoke={(id) => {
         if (confirm(`Revoke ${name}'s link? It stops working immediately and none of their K-1s are readable until you share a new one.`)) {

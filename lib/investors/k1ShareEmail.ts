@@ -108,3 +108,25 @@ export function composeK1PinEmail(i: { ownerName: string; pin: string }): K1Shar
     ].join("\n"),
   };
 }
+
+/**
+ * The same message, as a `mailto:` your own mail client opens.
+ *
+ * The portal sending for you is the right default at 21 owners; sending it
+ * yourself is the right answer when the message matters more than the volume.
+ * It comes from your real mailbox, so it inherits your domain's deliverability
+ * rather than the app's, it lands in your Sent Items — which is a better
+ * record than anything the app can keep — and the investor can just reply.
+ *
+ * Deliberately NOT a second wording: it opens the draft this module already
+ * composed, so the Outlook route and the portal route say the same thing.
+ */
+export function mailtoUrl(email: K1ShareEmail, to: string[], cc: string[] = []): string {
+  const q = new URLSearchParams();
+  q.set("subject", email.subject);
+  q.set("body", email.body);
+  if (cc.length) q.set("cc", cc.join(","));
+  // URLSearchParams encodes spaces as "+", which mail clients render literally
+  // in a subject line; mailto wants percent-encoding throughout.
+  return `mailto:${encodeURIComponent(to.join(","))}?${q.toString().replace(/\+/g, "%20")}`;
+}
