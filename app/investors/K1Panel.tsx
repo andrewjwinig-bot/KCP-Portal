@@ -457,7 +457,11 @@ export function K1PortalCell({ owner, k1 }: { owner: K1Owner; k1: K1Slice }) {
         // The confirm reads the real message first — see `loadDraft`. Whatever
         // it holds when you confirm is what gets sent.
         loadDraft={() => k1.loadDraft(owner.id)}
-        onSend={(_id, draft) => k1.share([owner.id], true, draft)}
+        // Gated on the document, like `onCreate`: with the send now offered
+        // before a link exists, an ungated one would put "Email the investor"
+        // in front of an owner whose K-1 hasn't been uploaded, and the server
+        // would refuse it after the click.
+        onSend={doc ? (_id, draft) => k1.share([owner.id], true, draft) : undefined}
         onRevoke={(id) => {
           if (confirm(`Revoke ${owner.name}'s link? It stops working immediately and their K-1 is no longer readable.`)) {
             k1.revoke(id);

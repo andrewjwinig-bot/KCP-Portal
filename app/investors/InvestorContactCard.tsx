@@ -13,8 +13,11 @@
 // Statement of Values tab renders the same component, so there is one editor
 // and one store behind both.
 
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import type { OwnerContact } from "../../lib/properties/ownerContacts";
+
+/** How long after the last keystroke the card saves itself. */
+const AUTOSAVE_MS = 700;
 
 const LABEL: React.CSSProperties = {
   fontSize: 11, fontWeight: 700, letterSpacing: "0.06em",
@@ -51,20 +54,54 @@ export function InvestorContactCard({ name, contact, canEdit, onSave, compact }:
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<ContactForm>(() => formOf(contact));
+  /**
+   * Autosave status, for the one line under the buttons.
+   *
+   * The card saves itself as you type. It used to need an explicit Save, and
+   * an address typed and then navigated away from was simply lost — which on
+   * this card means the send has no recipient and nobody finds out until a
+   * K-1 doesn't go.
+   */
+  const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  /** Skips the save that would otherwise fire on opening the editor. */
+  const pristine = useRef(true);
 
   const also = contact?.alsoEmail ?? [];
   const has = !!contact && (!!contact.address || !!contact.email || !!contact.phone || also.length > 0);
 
-  function begin() { setForm(formOf(contact)); setEditing(true); }
+  function begin() { setForm(formOf(contact)); pristine.current = true; setStatus("idle"); setEditing(true); }
+
+  /** The stored shape. Blank extra recipients are dropped — a half-typed row
+   *  saved mid-keystroke must not become an address we try to mail. */
+  const payload = (f: ContactForm): Partial<OwnerContact> => ({
+    address: f.address, email: f.email, phone: f.phone, notes: f.notes,
+    alsoEmail: f.alsoEmail.map((e) => e.trim()).filter((e) => e.includes("@")),
+  });
+
   async function commit() {
     setSaving(true);
-    const ok = await onSave(name, {
-      address: form.address, email: form.email, phone: form.phone, notes: form.notes,
-      alsoEmail: form.alsoEmail.map((e) => e.trim()).filter(Boolean),
-    });
+    const ok = await onSave(name, payload(form));
     setSaving(false);
     if (ok) setEditing(false);
   }
+
+  // Debounced autosave. The timer restarts on every keystroke, so a field is
+  // written once when you stop typing rather than on every character.
+  useEffect(() => {
+    if (!editing) return;
+    if (pristine.current) { pristine.current = false; return; }
+    let cancelled = false;
+    setStatus("saving");
+    const t = setTimeout(() => {
+      void onSave(name, payload(form)).then((ok) => {
+        if (!cancelled) setStatus(ok ? "saved" : "error");
+      }).catch(() => { if (!cancelled) setStatus("error"); });
+    }, AUTOSAVE_MS);
+    return () => { cancelled = true; clearTimeout(t); };
+    // `onSave` is a fresh closure each render on some callers; keying the
+    // effect on it would save on every render instead of every edit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form, editing, name]);
   async function clearIt() {
     if (!confirm(`Clear the saved contact details for ${name}? Anything seeded in the code comes back.`)) return;
     setSaving(true);
@@ -133,11 +170,21 @@ export function InvestorContactCard({ name, contact, canEdit, onSave, compact }:
             onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} style={{ width: "100%" }} />
         </label>
 
+        {/* Autosave means there is nothing to Cancel back to — the edits are
+            already stored — so the card says what it did instead of offering
+            a button that would be a lie. Clear is the way back to nothing. */}
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <button type="button" className="btn primary" disabled={saving} onClick={commit}
-            style={{ fontSize: 12, padding: "6px 12px", fontWeight: 700 }}>{saving ? "Saving…" : "Save"}</button>
-          <button type="button" className="btn" disabled={saving} onClick={() => setEditing(false)}
-            style={{ fontSize: 12, padding: "6px 12px" }}>Cancel</button>
+            style={{ fontSize: 12, padding: "6px 12px", fontWeight: 700 }}>{saving ? "Saving…" : "Done"}</button>
+          <span aria-live="polite" style={{
+            fontSize: 11.5, fontWeight: 700,
+            color: status === "error" ? "#b91c1c" : status === "saved" ? "#15803d" : "var(--muted)",
+          }}>
+            {status === "saving" ? "Saving…"
+              : status === "saved" ? "Saved ✓"
+              : status === "error" ? "Couldn't save — check your connection"
+              : "Saves as you type"}
+          </span>
           {has && (
             <button type="button" className="btn" disabled={saving} onClick={clearIt}
               style={{ fontSize: 12, padding: "6px 12px", marginLeft: "auto", color: "#b91c1c" }}>Clear</button>
